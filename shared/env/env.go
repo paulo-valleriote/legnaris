@@ -2,6 +2,7 @@ package env
 
 import (
 	"context"
+	"fmt"
 	"legnaris/shared/logger"
 	"os"
 )
@@ -49,7 +50,7 @@ func (e *Env) lookupEnv(key string, defaultValue string) string {
 	if !found && value == "" {
 		e.logger.Warn(
 			context.Background(),
-			"env variable [%s] not found using default value",
+			fmt.Sprintf("env variable [%s] not found using default value", key),
 		)
 		return defaultValue
 	}
