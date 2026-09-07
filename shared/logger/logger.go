@@ -29,6 +29,10 @@ func NewLogger() Logger {
 	}
 }
 
+func (l Logger) slog() *slog.Logger {
+	return l.log
+}
+
 func (l Logger) Info(ctx context.Context, msg string, args ...Attribute) {
 	l.log.LogAttrs(ctx, slog.LevelInfo, msg, toArgs(args)...)
 }
