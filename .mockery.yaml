@@ -1,0 +1,11 @@
+with-expecter: true
+issue-845-fix: true
+resolve-type-alias: false
+disable-version-string: true
+packages:
+  legnaris/shared/logger:
+    config:
+      dir: shared/logger/mocks
+      outpkg: mocks
+    interfaces:
+      StructuredLogger: {}
