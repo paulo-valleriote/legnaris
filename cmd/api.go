@@ -1,23 +1,23 @@
 package main
 
 import (
-	"log/slog"
-
-	"github.com/labstack/echo/v5"
-	"github.com/labstack/echo/v5/middleware"
+	"context"
+	"legnaris/internal/app"
+	"legnaris/shared/env"
+	"legnaris/shared/logger"
 )
 
 func main() {
-	e := echo.New()
+	log := logger.NewLogger()
+	env := env.NewEnv(log)
 
-	e.Use(middleware.RequestLogger())
-	e.Use(middleware.Recover())
-
-	e.GET("/health", func(c *echo.Context) error {
-		return c.String(200, "OK")
-	})
+	e := app.NewRouter(env)
 
 	if err := e.Start(":8080"); err != nil {
-		slog.Error("failed to start server", "error", err)
+		log.Error(
+			context.Background(),
+			"failed to start server",
+			logger.Attribute{Key: "error", Value: err.Error()},
+		)
 	}
 }
