@@ -22,7 +22,7 @@ make db-down
 ```
 
 The local application connection URL is `postgres://postgres:postgres@localhost:5432/legnaris?sslmode=disable`.
-The migration container connects through the Compose hostname `postgres`. Override its URL when needed with `make migration_database_url=<database-url> migrate-up`.
+The migration container connects through the Compose hostname `postgres`. Database variables and the migration URL are configured in `.env`; start from `.env.example` when setting up a new environment. Override the migration URL when needed with `make MIGRATION_DATABASE_URL=<database-url> migrate-up`.
 
 ## Generate mocks
 
