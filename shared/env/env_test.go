@@ -14,18 +14,18 @@ func TestNewEnvDefaultValues(t *testing.T) {
 
 	newEnv := NewEnv(structuredLogger)
 	assert.NotNil(t, newEnv, "NewEnv should not return nil")
-	assert.NotNil(t, newEnv.logger, "Logger should not be nil")
-	assert.Equal(t, defaultPort, newEnv.Variables.PORT, "Default PORT should be set correctly")
-	assert.Equal(t, defaultAppName, newEnv.Variables.APP_NAME, "Default APP_NAME should be set correctly")
+	assert.NotNil(t, newEnv.Logger, "Logger should not be nil")
+	assert.Equal(t, defaultPort, newEnv.Variables.Port, "Default Port should be set correctly")
+	assert.Equal(t, defaultAppName, newEnv.Variables.AppName, "Default AppName should be set correctly")
 }
 
 func TestNewEnvWithCustomValues(t *testing.T) {
-	t.Setenv("PORT", "9090")
-	t.Setenv("APP_NAME", "customApp")
+	t.Setenv("Port", "9090")
+	t.Setenv("AppName", "customApp")
 
 	newEnv := NewEnv(mocks.NewMockStructuredLogger(t))
 	assert.NotNil(t, newEnv, "NewEnv should not return nil")
-	assert.NotNil(t, newEnv.logger, "Logger should not be nil")
-	assert.Equal(t, "9090", newEnv.Variables.PORT, "Custom PORT should be set correctly")
-	assert.Equal(t, "customApp", newEnv.Variables.APP_NAME, "Custom APP_NAME should be set correctly")
+	assert.NotNil(t, newEnv.Logger, "Logger should not be nil")
+	assert.Equal(t, "9090", newEnv.Variables.Port, "Custom Port should be set correctly")
+	assert.Equal(t, "customApp", newEnv.Variables.AppName, "Custom AppName should be set correctly")
 }
