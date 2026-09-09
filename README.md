@@ -1,5 +1,29 @@
 # Legnaris
 
+## Local database
+
+Start the PostgreSQL container with:
+
+```sh
+make db-up
+```
+
+Apply all pending migrations or roll back the most recent migration with:
+
+```sh
+make migrate-up
+make migrate-down
+```
+
+Stop the container with:
+
+```sh
+make db-down
+```
+
+The local application connection URL is `postgres://postgres:postgres@localhost:5432/legnaris?sslmode=disable`.
+The migration container connects through the Compose hostname `postgres`. Override its URL when needed with `make migration_database_url=<database-url> migrate-up`.
+
 ## Generate mocks
 
 Mockery is pinned as a Go tool dependency. Generate mocks for the repository interfaces with:
