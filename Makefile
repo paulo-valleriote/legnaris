@@ -17,3 +17,7 @@ migrate-down:
 mocks:
 	@echo "Generating mocks..."
 	@go tool mockery
+
+fmt:
+	@echo "Formatting code..."
+	@go fmt ./...
