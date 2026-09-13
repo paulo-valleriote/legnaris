@@ -267,6 +267,55 @@ func (_c *MockStructuredLogger_Warn_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
+// With provides a mock function with given fields: key, value
+func (_m *MockStructuredLogger) With(key string, value string) logger.StructuredLogger {
+	ret := _m.Called(key, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for With")
+	}
+
+	var r0 logger.StructuredLogger
+	if rf, ok := ret.Get(0).(func(string, string) logger.StructuredLogger); ok {
+		r0 = rf(key, value)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(logger.StructuredLogger)
+		}
+	}
+
+	return r0
+}
+
+// MockStructuredLogger_With_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'With'
+type MockStructuredLogger_With_Call struct {
+	*mock.Call
+}
+
+// With is a helper method to define mock.On call
+//   - key string
+//   - value string
+func (_e *MockStructuredLogger_Expecter) With(key interface{}, value interface{}) *MockStructuredLogger_With_Call {
+	return &MockStructuredLogger_With_Call{Call: _e.mock.On("With", key, value)}
+}
+
+func (_c *MockStructuredLogger_With_Call) Run(run func(key string, value string)) *MockStructuredLogger_With_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockStructuredLogger_With_Call) Return(_a0 logger.StructuredLogger) *MockStructuredLogger_With_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockStructuredLogger_With_Call) RunAndReturn(run func(string, string) logger.StructuredLogger) *MockStructuredLogger_With_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockStructuredLogger creates a new instance of MockStructuredLogger. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockStructuredLogger(t interface {

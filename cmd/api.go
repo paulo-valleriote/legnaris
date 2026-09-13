@@ -6,11 +6,12 @@ import (
 	"legnaris/shared/db"
 	"legnaris/shared/env"
 	"legnaris/shared/logger"
+	"log/slog"
 )
 
 func main() {
 	ctx := context.Background()
-	log := logger.NewLogger()
+	log := logger.NewLogger(slog.LevelInfo)
 	env := env.NewEnv(log)
 
 	database, err := db.NewDatabase(env)

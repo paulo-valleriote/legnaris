@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"bytes"
+	"encoding/json"
 	"log/slog"
 	"testing"
 
@@ -8,10 +10,53 @@ import (
 )
 
 func TestNewLogger(t *testing.T) {
-	logger := NewLogger()
+	logger := NewLogger(slog.LevelInfo)
 
 	assert.NotNil(t, logger, "logger constructor cannot return a nil value")
 	assert.NotNil(t, logger.slog(), "logger constructor cannot return a nil slog.Logger")
+}
+
+func TestLoggerWithAddsAttributesToLogEntries(t *testing.T) {
+	var output bytes.Buffer
+	logger := Logger{log: slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{
+		ReplaceAttr: redactSecrets,
+	}))}
+
+	logger.With("request_id", "request-123").Info(
+		t.Context(),
+		"request completed",
+		Attribute{Key: "status", Value: "success"},
+	)
+
+	var entry map[string]interface{}
+	err := json.Unmarshal(output.Bytes(), &entry)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "request-123", entry["request_id"])
+	assert.Equal(t, "success", entry["status"])
+}
+
+func TestLoggerRedactsSensitiveFields(t *testing.T) {
+	var output bytes.Buffer
+	logger := Logger{log: slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{
+		ReplaceAttr: redactSecrets,
+	}))}
+
+	logger.Info(
+		t.Context(),
+		"user data",
+		Attribute{Key: "email", Value: "user@example.com"},
+		Attribute{Key: "api_key", Value: "secret-key"},
+		Attribute{Key: "name", Value: "Ada"},
+	)
+
+	var entry map[string]interface{}
+	err := json.Unmarshal(output.Bytes(), &entry)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "[REDACTED]", entry["email"])
+	assert.Equal(t, "[REDACTED]", entry["api_key"])
+	assert.Equal(t, "Ada", entry["name"])
 }
 
 func TestToArgs(t *testing.T) {
