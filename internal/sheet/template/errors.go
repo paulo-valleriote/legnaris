@@ -1,12 +1,13 @@
 package template
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	ErrCompileFormula = func(formula string, nodeID string, err error) error {
-		return fmt.Errorf("failed to compile formula '%s' on node '%s': %v", formula, nodeID, err)
+		return fmt.Errorf("failed to compile formula '%s' on node '%s': %w", formula, nodeID, err)
 	}
-	ErrFormulaEval = func(err error) error {
-		return fmt.Errorf("failed to evaluate formula: %v", err)
-	}
+	ErrInfiniteCycle = errors.New("An infinite cycle was detected on template formulas")
 )

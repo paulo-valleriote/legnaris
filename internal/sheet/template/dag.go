@@ -1,16 +1,14 @@
 package template
 
 import (
-	"fmt"
 	"legnaris/internal/engine"
 	"maps"
 	"strings"
 
-	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 )
 
-type RawSchema struct {
+type FieldSchema struct {
 	Type       string
 	Label      string
 	Formula    string
@@ -38,7 +36,7 @@ type DAG struct {
 	formulaEngine    *engine.FormulaEngine
 }
 
-func BuildDAG(templateID string, rawNodes map[string]RawSchema, engine *engine.FormulaEngine) (*DAG, error) {
+func BuildDAG(templateID string, rawNodes map[string]FieldSchema, engine *engine.FormulaEngine) (*DAG, error) {
 	dag := &DAG{
 		TemplateID:    templateID,
 		Nodes:         make(map[string]*Node),
@@ -103,7 +101,7 @@ func BuildDAG(templateID string, rawNodes map[string]RawSchema, engine *engine.F
 	}
 
 	if len(topoOrder) != len(rawNodes) {
-		return nil, fmt.Errorf("ciclo detectado nas formulas do template (loop infinito)")
+		return nil, ErrInfiniteCycle
 	}
 	dag.TopologicalOrder = topoOrder
 
@@ -162,12 +160,4 @@ func (d *DAG) Recalculate(originalData map[string]any, updatedData map[string]an
 	}
 
 	return cascadingEffects, nil
-}
-
-func evaluateFormula(compiledProgram *vm.Program, data map[string]any) (any, error) {
-	result, err := expr.Run(compiledProgram, data)
-	if err != nil {
-		return nil, ErrFormulaEval(err)
-	}
-	return result, nil
 }
