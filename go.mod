@@ -9,6 +9,7 @@ require (
 
 require (
 	github.com/chigopher/pathlib v0.19.1 // indirect
+	github.com/expr-lang/expr v1.17.8 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
