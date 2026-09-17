@@ -25,12 +25,17 @@ type Node struct {
 	IsEditable      bool
 }
 
+func (n *Node) IsDerived() bool {
+	return n.CompiledFormula != nil
+}
+
 // DAG - Directed Acyclic Graph
 type DAG struct {
-	TemplateID    string
-	Nodes         map[string]*Node
-	AdjacencyList map[string][]string
-	formulaEngine *engine.FormulaEngine
+	TemplateID       string
+	Nodes            map[string]*Node
+	AdjacencyList    map[string][]string
+	TopologicalOrder []string
+	formulaEngine    *engine.FormulaEngine
 }
 
 func BuildDAG(templateID string, rawNodes map[string]RawSchema, engine *engine.FormulaEngine) (*DAG, error) {
@@ -41,10 +46,13 @@ func BuildDAG(templateID string, rawNodes map[string]RawSchema, engine *engine.F
 		formulaEngine: engine,
 	}
 
-	mockEnv := make(map[string]interface{})
+	mockEnv := make(map[string]any)
+	inDegree := make(map[string]int)
+
 	for id := range rawNodes {
 		safeID := strings.ReplaceAll(id, ".", "_")
 		mockEnv[safeID] = 0.0
+		inDegree[id] = 0
 	}
 
 	for id, schema := range rawNodes {
@@ -69,8 +77,35 @@ func BuildDAG(templateID string, rawNodes map[string]RawSchema, engine *engine.F
 		// Directed Edges Build-Up (A -> B)
 		for _, dep := range schema.DependsOn {
 			dag.AdjacencyList[dep] = append(dag.AdjacencyList[dep], id)
+			inDegree[id]++
+		}
+
+	}
+
+	queue := NewQueue[string]()
+	for id, deg := range inDegree {
+		if deg == 0 {
+			queue.Append(id)
 		}
 	}
+
+	var topoOrder []string
+	for queue.Size() > 0 {
+		curr := queue.Pop()
+		topoOrder = append(topoOrder, curr)
+
+		for _, child := range dag.AdjacencyList[curr] {
+			inDegree[child]--
+			if inDegree[child] == 0 {
+				queue.Append(child)
+			}
+		}
+	}
+
+	if len(topoOrder) != len(rawNodes) {
+		return nil, fmt.Errorf("ciclo detectado nas formulas do template (loop infinito)")
+	}
+	dag.TopologicalOrder = topoOrder
 
 	return dag, nil
 }
@@ -81,40 +116,47 @@ func (d *DAG) Recalculate(originalData map[string]any, updatedData map[string]an
 	maps.Copy(copiedSheetData, originalData)
 	maps.Copy(copiedSheetData, updatedData)
 
+	needsRecalc := make(map[string]bool)
+	for k := range updatedData {
+		needsRecalc[k] = true
+	}
+
 	safeSheetData := make(map[string]interface{})
 	for k, v := range copiedSheetData {
 		safeSheetData[strings.ReplaceAll(k, ".", "_")] = v
 	}
 
-	// Process dependencies
-	queue := NewQueue[string]()
-	for k := range updatedData {
-		queue.Append(k)
-	}
-
 	// Keep changes on Track
 	cascadingEffects := make(map[string]any)
+	for _, nodeID := range d.TopologicalOrder {
+		if !needsRecalc[nodeID] {
+			continue
+		}
 
-	// BFS
-	for queue.Size() > 0 {
-		current := queue.Pop()
+		node := d.Nodes[nodeID]
+		// Base nodes always start the loop as true
+		// Derived nodes start the loop as false and if oldValue != newValue (Value has changed) they become true
+		shouldPropagate := !node.IsDerived()
 
-		dependents := d.AdjacencyList[current]
-		for _, depID := range dependents {
-			node := d.Nodes[depID]
-			if node.CompiledFormula == nil {
-				continue
-			}
-
+		if node.IsDerived() {
 			newValue, err := d.formulaEngine.Evaluate(node.CompiledFormula, safeSheetData)
 			if err != nil {
-				return nil, fmt.Errorf("erro calculando '%s': %w", depID, err)
+				return nil, err
 			}
 
-			if copiedSheetData[depID] != newValue {
-				copiedSheetData[depID] = newValue
-				cascadingEffects[depID] = newValue
-				queue.Append(depID)
+			if copiedSheetData[nodeID] != newValue {
+				copiedSheetData[nodeID] = newValue
+				safeSheetData[strings.ReplaceAll(nodeID, ".", "_")] = newValue
+				cascadingEffects[nodeID] = newValue
+
+				// Value has changed so it need propagtes
+				shouldPropagate = true
+			}
+		}
+
+		if shouldPropagate {
+			for _, childID := range d.AdjacencyList[nodeID] {
+				needsRecalc[childID] = true
 			}
 		}
 	}
