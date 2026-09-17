@@ -14,6 +14,7 @@ type FieldSchema struct {
 	Formula    string
 	DependsOn  []string
 	IsEditable bool
+	Default    float64
 }
 
 type Node struct {
