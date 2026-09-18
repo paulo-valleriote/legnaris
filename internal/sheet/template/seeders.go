@@ -1,6 +1,6 @@
 package template
 
-var FantasyV2Seed = map[string]FieldSchema{
+var FantasyV1Seed = map[string]FieldSchema{
 	// ---------------------------------------------------------
 	// 1. Base Attributes And Proficiency
 	// ---------------------------------------------------------
