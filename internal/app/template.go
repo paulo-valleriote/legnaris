@@ -2,7 +2,8 @@ package app
 
 import (
 	"legnaris/internal/sheet/template"
-	"net/http"
+	"legnaris/shared/json"
+	"legnaris/shared/response"
 
 	"github.com/labstack/echo/v5"
 )
@@ -27,22 +28,19 @@ func (tc *TemplateController) List(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, items)
+	return response.OK(c, items)
 }
 
 func (tc *TemplateController) Create(c *echo.Context) error {
 	var cmd template.CreateTemplateCommand
 
-	if err := c.Bind(&cmd); err != nil {
-		return echo.NewHTTPError(
-			http.StatusBadRequest,
-			"invalid data",
-		)
+	if err := json.Decode(c, &cmd); err != nil {
+		return err
 	}
 
 	err := tc.service.Create(c.Request().Context(), cmd)
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, nil)
+	return response.Created(c, map[string]any{})
 }

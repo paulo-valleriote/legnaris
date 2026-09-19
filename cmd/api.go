@@ -33,7 +33,19 @@ func main() {
 		)
 	}(ctx)
 
-	controllers := app.NewControllers(database)
+	formulaEngine := engine.NewFormulaEngine()
+	mockMongoTemplate := template.FantasyV1Seed
+
+	fantasyDAG, err := template.BuildDAG("fantasy_v1", mockMongoTemplate, formulaEngine)
+	if err != nil {
+		log.Fatal(ctx, "error generating dag", logger.Attribute{Key: "err", Value: err.Error()})
+	}
+
+	dagRegistry := map[string]*template.DAG{
+		"fantasy_v1": fantasyDAG,
+	}
+
+	controllers := app.NewControllers(database, dagRegistry)
 
 	e := app.NewRouter(env, controllers)
 	if err := e.Start(":8080"); err != nil {

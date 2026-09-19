@@ -2,11 +2,14 @@ package template
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type Repository struct {
@@ -38,11 +41,28 @@ func (r *Repository) List(ctx context.Context) ([]Template, error) {
 	return results, nil
 }
 
+func (r *Repository) FetchByID(ctx context.Context, ID string) (*Template, error) {
+	var result Template
+
+	filter := bson.D{{Key: "_id", Value: ID}}
+	opts := options.FindOne()
+	err := r.client.FindOne(ctx, filter, opts).Decode(&result)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, errors.New("template not found")
+		} else {
+			return nil, err
+		}
+	}
+
+	return &result, nil
+}
+
 func (r *Repository) Create(ctx context.Context, template Template) error {
 	result, err := r.client.InsertOne(ctx, template)
 	if err != nil {
 		return fmt.Errorf("error creating template: %w", err)
 	}
-	fmt.Println("template created with ID:", result.InsertedID)
+	slog.Info("template created with ID:", result.InsertedID)
 	return nil
 }
