@@ -6,12 +6,18 @@ import (
 	"legnaris/shared/apperr"
 )
 
-type Service struct {
-	repository *Repository
+type Service interface {
+	List(ctx context.Context) ([]Template, error)
+	FetchTemplate(ctx context.Context, cmd *FetchTemplateByIDCommand) (*Template, error)
+	SeedDefaultTemplates(ctx context.Context, templates []Template) ([]string, error)
 }
 
-func NewService(repository *Repository) *Service {
-	return &Service{
+type ServiceImpl struct {
+	repository Repository
+}
+
+func NewService(repository Repository) Service {
+	return &ServiceImpl{
 		repository: repository,
 	}
 }
@@ -24,11 +30,11 @@ type FetchTemplateByIDCommand struct {
 	ID string `json:"id"`
 }
 
-func (s *Service) List(ctx context.Context) ([]Template, error) {
+func (s *ServiceImpl) List(ctx context.Context) ([]Template, error) {
 	return s.repository.List(ctx)
 }
 
-func (s *Service) FetchTemplate(ctx context.Context, cmd FetchTemplateByIDCommand) (*Template, error) {
+func (s *ServiceImpl) FetchTemplate(ctx context.Context, cmd *FetchTemplateByIDCommand) (*Template, error) {
 	template, err := s.repository.FetchByID(ctx, cmd.ID)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", err)
@@ -43,7 +49,7 @@ func (s *Service) FetchTemplate(ctx context.Context, cmd FetchTemplateByIDComman
 //	return err
 //}
 
-func (s *Service) SeedDefaultTemplates(ctx context.Context, templates []Template) ([]string, error) {
+func (s *ServiceImpl) SeedDefaultTemplates(ctx context.Context, templates []Template) ([]string, error) {
 	ids, err := s.repository.CreateMany(ctx, templates)
 	if err != nil {
 		return []string{}, errors.New("seeders werent executed correctly")

@@ -8,12 +8,12 @@ import (
 
 type Template struct {
 	Controller *TemplateController
-	Service    *template.Service
+	Service    template.Service
 }
 
 type Sheet struct {
 	Controller *SheetController
-	Service    *sheet.Service
+	Service    sheet.Service
 }
 
 type Modules struct {
@@ -27,7 +27,7 @@ func NewModules(database *db.Database, dagRegistry map[string]*template.DAG) *Mo
 	templateController := NewTemplateController(templateService)
 
 	sheetRepository := sheet.NewRepository(database.Client.Database("legnaris"))
-	sheetService := sheet.NewService(sheetRepository, *templateService, dagRegistry)
+	sheetService := sheet.NewService(sheetRepository, templateService, dagRegistry)
 	sheetController := NewSheetController(sheetService)
 
 	return &Modules{

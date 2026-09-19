@@ -9,3 +9,17 @@ packages:
       outpkg: mocks
     interfaces:
       StructuredLogger: {}
+  legnaris/internal/sheet:
+    config:
+      dir: internal/sheet/mocks
+      outpkg: mocks
+    interfaces:
+      Repository: {}
+      Service: {}
+  legnaris/internal/sheet/template:
+    config:
+      dir: internal/sheet/template/mocks
+      outpkg: mocks
+    interfaces:
+      Repository: {}
+      Service: {}

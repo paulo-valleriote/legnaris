@@ -9,10 +9,10 @@ import (
 )
 
 type SheetController struct {
-	service *sheet.Service
+	service sheet.Service
 }
 
-func NewSheetController(service *sheet.Service) *SheetController {
+func NewSheetController(service sheet.Service) *SheetController {
 	return &SheetController{
 		service: service,
 	}

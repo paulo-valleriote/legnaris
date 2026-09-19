@@ -8,10 +8,10 @@ import (
 )
 
 type TemplateController struct {
-	service *template.Service
+	service template.Service
 }
 
-func NewTemplateController(service *template.Service) *TemplateController {
+func NewTemplateController(service template.Service) *TemplateController {
 	return &TemplateController{
 		service: service,
 	}

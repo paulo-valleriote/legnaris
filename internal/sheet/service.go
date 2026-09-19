@@ -8,32 +8,36 @@ import (
 	"time"
 )
 
+type Service interface {
+	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
+}
+
 type CreateSheetCommand struct {
 	TemplateID string `json:"template_id"`
 	SheetName  string `json:"sheet_name"`
 }
 
-type Service struct {
+type ServiceImpl struct {
 	repository      Repository
 	templateService template.Service
 	dagCache        map[string]*template.DAG
 }
 
-func NewService(repository *Repository, templateService template.Service, dags map[string]*template.DAG) *Service {
-	return &Service{
-		repository:      *repository,
+func NewService(repository Repository, templateService template.Service, dags map[string]*template.DAG) Service {
+	return &ServiceImpl{
+		repository:      repository,
 		templateService: templateService,
 		dagCache:        dags,
 	}
 }
 
-func (s *Service) Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error) {
+func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error) {
 	dag, exists := s.dagCache[cmd.TemplateID]
 	if !exists {
 		return nil, errors.New("template not founded")
 	}
 
-	tmpl, err := s.templateService.FetchTemplate(ctx, template.FetchTemplateByIDCommand{ID: cmd.TemplateID})
+	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: cmd.TemplateID})
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +62,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, e
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
-	if err := s.repository.Create(ctx, newSheet); err != nil {
+	if err := s.repository.Create(ctx, &newSheet); err != nil {
 		return nil, err
 	}
 	return &newSheet, nil

@@ -10,18 +10,22 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-type Repository struct {
+type Repository interface {
+	Create(ctx context.Context, sheet *Sheet) error
+}
+
+type RepositoryImpl struct {
 	client *mongo.Collection
 }
 
-func NewRepository(client *mongo.Database) *Repository {
-	return &Repository{
+func NewRepository(client *mongo.Database) Repository {
+	return &RepositoryImpl{
 		client: client.Collection("sheets"),
 	}
 }
 
 // TODO: Filter by ID or Name
-func (r *Repository) List(ctx context.Context) ([]Sheet, error) {
+func (r *RepositoryImpl) List(ctx context.Context) ([]Sheet, error) {
 	var results []Sheet
 
 	cursor, err := r.client.Find(ctx, bson.M{})
@@ -39,7 +43,7 @@ func (r *Repository) List(ctx context.Context) ([]Sheet, error) {
 	return results, nil
 }
 
-func (r *Repository) Create(ctx context.Context, sheet Sheet) error {
+func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
 	result, err := r.client.InsertOne(ctx, sheet)
 	if err != nil {
 		return fmt.Errorf("error creating sheet: %w", err)

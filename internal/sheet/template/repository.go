@@ -11,18 +11,25 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-type Repository struct {
+type Repository interface {
+	List(ctx context.Context) ([]Template, error)
+	FetchByID(ctx context.Context, ID string) (*Template, error)
+	//Create(ctx context.Context, t Template) (string, error)
+	CreateMany(ctx context.Context, templates []Template) ([]string, error)
+}
+
+type RepositoryImpl struct {
 	client *mongo.Collection
 }
 
-func NewRepository(client *mongo.Database) *Repository {
-	return &Repository{
+func NewRepository(client *mongo.Database) Repository {
+	return &RepositoryImpl{
 		client: client.Collection("template"),
 	}
 }
 
 // TODO: Filter by ID or Name
-func (r *Repository) List(ctx context.Context) ([]Template, error) {
+func (r *RepositoryImpl) List(ctx context.Context) ([]Template, error) {
 	var results []Template
 
 	cursor, err := r.client.Find(ctx, bson.M{})
@@ -40,7 +47,7 @@ func (r *Repository) List(ctx context.Context) ([]Template, error) {
 	return results, nil
 }
 
-func (r *Repository) FetchByID(ctx context.Context, ID string) (*Template, error) {
+func (r *RepositoryImpl) FetchByID(ctx context.Context, ID string) (*Template, error) {
 	var result Template
 
 	filter := bson.D{{Key: "_id", Value: ID}}
@@ -57,15 +64,17 @@ func (r *Repository) FetchByID(ctx context.Context, ID string) (*Template, error
 	return &result, nil
 }
 
-func (r *Repository) Create(ctx context.Context, t Template) (string, error) {
+/*
+func (r *RepositoryImpl) Create(ctx context.Context, t Template) (string, error) {
 	result, err := r.client.InsertOne(ctx, t)
 	if err != nil {
 		return "", fmt.Errorf("error creating template: %w", err)
 	}
 	return result.InsertedID.(string), nil
 }
+*/
 
-func (r *Repository) CreateMany(ctx context.Context, templates []Template) ([]string, error) {
+func (r *RepositoryImpl) CreateMany(ctx context.Context, templates []Template) ([]string, error) {
 	if len(templates) == 0 {
 		return []string{}, nil
 	}
