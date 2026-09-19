@@ -6,6 +6,7 @@ type Template struct {
 	ID        string                 `bson:"_id,omitempty"`
 	Name      string                 `bson:"name"`
 	Fields    map[string]FieldSchema `bson:"fields"`
+	Default   bool                   `bson:"default"`
 	CreatedAt time.Time              `bson:"created_at,omitempty"`
 	UpdatedAt time.Time              `bson:"updated_at,omitempty"`
 }

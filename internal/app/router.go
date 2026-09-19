@@ -12,7 +12,7 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 )
 
-func NewRouter(deps env.Env, controllers *Controllers) *echo.Echo {
+func NewRouter(deps env.Env, modules *Modules) *echo.Echo {
 	router := echo.New()
 	router.HTTPErrorHandler = HTTPErrorHandler
 
@@ -21,8 +21,8 @@ func NewRouter(deps env.Env, controllers *Controllers) *echo.Echo {
 
 	// usershttp.RegisterRoutes(router.Group("/users"), deps.Users)
 	platformHTTP.RegisterHealthRoutes(router.Group(""))
-	controllers.Template.RegisterRoutes(router.Group("/templates"))
-	controllers.Sheet.RegisterRoutes(router.Group("/sheets"))
+	modules.Template.Controller.RegisterRoutes(router.Group("/templates"))
+	modules.Sheet.Controller.RegisterRoutes(router.Group("/sheets"))
 
 	return router
 }

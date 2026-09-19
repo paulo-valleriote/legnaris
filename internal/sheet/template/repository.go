@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"log/slog"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -58,11 +57,40 @@ func (r *Repository) FetchByID(ctx context.Context, ID string) (*Template, error
 	return &result, nil
 }
 
-func (r *Repository) Create(ctx context.Context, template Template) error {
-	result, err := r.client.InsertOne(ctx, template)
+func (r *Repository) Create(ctx context.Context, t Template) (string, error) {
+	result, err := r.client.InsertOne(ctx, t)
 	if err != nil {
-		return fmt.Errorf("error creating template: %w", err)
+		return "", fmt.Errorf("error creating template: %w", err)
 	}
-	slog.Info("template created with ID:", result.InsertedID)
-	return nil
+	return result.InsertedID.(string), nil
+}
+
+func (r *Repository) CreateMany(ctx context.Context, templates []Template) ([]string, error) {
+	if len(templates) == 0 {
+		return []string{}, nil
+	}
+
+	models := make([]mongo.WriteModel, 0, len(templates))
+	for i := range templates {
+		template := templates[i]
+
+		models = append(models, mongo.NewUpdateOneModel().
+			SetFilter(bson.M{"_id": template.ID}).
+			SetUpdate(bson.M{
+				"$setOnInsert": template,
+			}).
+			SetUpsert(true),
+		)
+	}
+
+	result, err := r.client.BulkWrite(ctx, models)
+	if err != nil {
+		return []string{}, fmt.Errorf("error creating template: %w", err)
+	}
+
+	ids := make([]string, len(result.UpsertedIDs))
+	for _, id := range result.UpsertedIDs {
+		ids = append(ids, id.(string))
+	}
+	return ids, nil
 }

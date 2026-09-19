@@ -2,7 +2,6 @@ package app
 
 import (
 	"legnaris/internal/sheet/template"
-	"legnaris/shared/json"
 	"legnaris/shared/response"
 
 	"github.com/labstack/echo/v5"
@@ -20,7 +19,7 @@ func NewTemplateController(service *template.Service) *TemplateController {
 
 func (tc *TemplateController) RegisterRoutes(group *echo.Group) {
 	group.GET("", tc.List)
-	group.POST("", tc.Create)
+	//group.POST("", tc.Create)
 }
 
 func (tc *TemplateController) List(c *echo.Context) error {
@@ -31,6 +30,7 @@ func (tc *TemplateController) List(c *echo.Context) error {
 	return response.OK(c, items)
 }
 
+/*
 func (tc *TemplateController) Create(c *echo.Context) error {
 	var cmd template.CreateTemplateCommand
 
@@ -44,3 +44,4 @@ func (tc *TemplateController) Create(c *echo.Context) error {
 	}
 	return response.Created(c, map[string]any{})
 }
+*/

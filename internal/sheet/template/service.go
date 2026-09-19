@@ -2,8 +2,8 @@ package template
 
 import (
 	"context"
+	"errors"
 	"legnaris/shared/apperr"
-	"time"
 )
 
 type Service struct {
@@ -37,12 +37,16 @@ func (s *Service) FetchTemplate(ctx context.Context, cmd FetchTemplateByIDComman
 	return template, nil
 }
 
-func (s *Service) Create(ctx context.Context, cmd CreateTemplateCommand) error {
-	return s.repository.Create(ctx, Template{
-		ID:        "fantasy_v1",
-		Name:      cmd.Name,
-		Fields:    FantasyV1Seed,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	})
+// TODO: Current App verison will only use default templates
+//func (s *Service) Create(ctx context.Context, cmd CreateTemplateCommand) error {
+//	_, err := s.repository.Create(ctx, FantasyV1Seed)
+//	return err
+//}
+
+func (s *Service) SeedDefaultTemplates(ctx context.Context, templates []Template) ([]string, error) {
+	ids, err := s.repository.CreateMany(ctx, templates)
+	if err != nil {
+		return []string{}, errors.New("seeders werent executed correctly")
+	}
+	return ids, nil
 }

@@ -6,12 +6,22 @@ import (
 	"legnaris/shared/db"
 )
 
-type Controllers struct {
-	Template *TemplateController
-	Sheet    *SheetController
+type Template struct {
+	Controller *TemplateController
+	Service    *template.Service
 }
 
-func NewControllers(database *db.Database, dagRegistry map[string]*template.DAG) *Controllers {
+type Sheet struct {
+	Controller *SheetController
+	Service    *sheet.Service
+}
+
+type Modules struct {
+	Template Template
+	Sheet    Sheet
+}
+
+func NewModules(database *db.Database, dagRegistry map[string]*template.DAG) *Modules {
 	templateRepository := template.NewRepository(database.Client.Database("legnaris"))
 	templateService := template.NewService(templateRepository)
 	templateController := NewTemplateController(templateService)
@@ -20,8 +30,14 @@ func NewControllers(database *db.Database, dagRegistry map[string]*template.DAG)
 	sheetService := sheet.NewService(sheetRepository, *templateService, dagRegistry)
 	sheetController := NewSheetController(sheetService)
 
-	return &Controllers{
-		Template: templateController,
-		Sheet:    sheetController,
+	return &Modules{
+		Template: Template{
+			Controller: templateController,
+			Service:    templateService,
+		},
+		Sheet: Sheet{
+			Controller: sheetController,
+			Service:    sheetService,
+		},
 	}
 }

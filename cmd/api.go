@@ -2,16 +2,14 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"legnaris/internal/app"
 	"legnaris/internal/engine"
 	"legnaris/internal/sheet/template"
 	"legnaris/shared/db"
 	"legnaris/shared/env"
 	"legnaris/shared/logger"
-	"log"
 	"log/slog"
+	"strings"
 )
 
 func main() {
@@ -36,7 +34,7 @@ func main() {
 	formulaEngine := engine.NewFormulaEngine()
 	mockMongoTemplate := template.FantasyV1Seed
 
-	fantasyDAG, err := template.BuildDAG("fantasy_v1", mockMongoTemplate, formulaEngine)
+	fantasyDAG, err := template.BuildDAG("fantasy_v1", mockMongoTemplate.Fields, formulaEngine)
 	if err != nil {
 		log.Fatal(ctx, "error generating dag", logger.Attribute{Key: "err", Value: err.Error()})
 	}
@@ -45,9 +43,18 @@ func main() {
 		"fantasy_v1": fantasyDAG,
 	}
 
-	controllers := app.NewControllers(database, dagRegistry)
+	modules := app.NewModules(database, dagRegistry)
 
-	e := app.NewRouter(env, controllers)
+	seedIDs, err := seedTemplates(ctx, *modules, []template.Template{mockMongoTemplate})
+	if err != nil {
+		log.Fatal(ctx, "error while seed templates", logger.Attribute{Key: "err", Value: err.Error()})
+	}
+	log.Info(ctx, "templates succesfully seeded", logger.Attribute{
+		Key:   "ids",
+		Value: strings.Join(seedIDs, ", "),
+	})
+
+	e := app.NewRouter(env, modules)
 	if err := e.Start(":8080"); err != nil {
 		log.Error(
 			ctx,
@@ -57,39 +64,6 @@ func main() {
 	}
 }
 
-// EXAMPLE
-func initFormulaEngine() {
-	// PHASE 1: Server Startup
-	formulaEngine := engine.NewFormulaEngine()
-
-	mockMongoTemplate := template.FantasyV1Seed
-
-	fantasyDAG, err := template.BuildDAG("fantasy_v1", mockMongoTemplate, formulaEngine)
-	if err != nil {
-		log.Fatalf("Fatal error while startuping: %v", err)
-	}
-	fmt.Println("Server initialized. DAG builded up and formulas are cached")
-
-	// PHASE 2: DURING REQUESTS (HTTP PATCH)
-
-	userSheetData := map[string]any{
-		"stats.strength":         10.0,
-		"modifiers.strength_mod": 0.0,
-		"base_attack_bonus":      2.0,
-		"derived.melee_damage":   2.0,
-	}
-
-	userPatchRequest := map[string]any{
-		"stats.strength": 15.0,
-	}
-
-	fmt.Println("\n--- Recalc ---")
-	cascadingEffects, err := fantasyDAG.Recalculate(userSheetData, userPatchRequest)
-	if err != nil {
-		log.Printf("Erro HTTP 500: falha no recalculo: %v", err)
-		return
-	}
-
-	responseJSON, _ := json.MarshalIndent(cascadingEffects, "", "  ")
-	fmt.Printf("Efeitos Cascata (Para UX do Frontend e $set no Mongo):\n%s\n", responseJSON)
+func seedTemplates(ctx context.Context, modules app.Modules, templates []template.Template) ([]string, error) {
+	return modules.Template.Service.SeedDefaultTemplates(ctx, templates)
 }
