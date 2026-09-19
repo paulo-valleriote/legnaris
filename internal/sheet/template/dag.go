@@ -8,15 +8,6 @@ import (
 	"github.com/expr-lang/expr/vm"
 )
 
-type FieldSchema struct {
-	Type       string
-	Label      string
-	Formula    string
-	DependsOn  []string
-	IsEditable bool
-	Default    float64
-}
-
 type Node struct {
 	ID              string
 	FormulaString   string

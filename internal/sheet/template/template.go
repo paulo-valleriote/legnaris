@@ -3,23 +3,18 @@ package template
 import "time"
 
 type Template struct {
-	ID          string
-	Name        string
-	Description string
-	OwnerID     string
-	Status      string
-	Visibility  string
-	VersionID   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID        string                 `bson:"_id,omitempty"`
+	Name      string                 `bson:"name"`
+	Fields    map[string]FieldSchema `bson:"fields"`
+	CreatedAt time.Time              `bson:"created_at,omitempty"`
+	UpdatedAt time.Time              `bson:"updated_at,omitempty"`
 }
 
-type TemplateVersion struct {
-	ID            string
-	TemplateID    string
-	Version       int
-	SchemaVersion int
-	Schema        string
-	Status        string
-	CreatedAt     time.Time
+type FieldSchema struct {
+	Type       string   `bson:"type"`
+	Label      string   `bson:"label"`
+	Formula    string   `bson:"formula"`
+	DependsOn  []string `bson:"depends_on"`
+	IsEditable bool     `bson:"is_editable"`
+	Default    float64  `bson:"default"`
 }

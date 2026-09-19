@@ -14,13 +14,9 @@ type EnvWire interface {
 }
 
 type Variables struct {
-	Port                   string
-	AppName                string
-	DatabaseURL            string
-	DatabaseMaxConnections int
-	DatabaseMinConnections int
-	DatabaseConnLifetime   time.Duration
-	DatabaseCheckPeriod    time.Duration
+	Port        string
+	AppName     string
+	DatabaseURI string
 }
 
 const (
@@ -43,22 +39,14 @@ func NewEnv(logger logger.StructuredLogger) Env {
 }
 
 func (e *Env) initVariables() Variables {
-	port := e.lookupStringEnv("Port", defaultPort)
-	appName := e.lookupStringEnv("AppName", defaultAppName)
-	databaseURL := e.lookupStringEnv("DatabaseURL", "")
-	databaseMaxConnections := e.lookupIntEnv("DatabaseMaxConnections", 10)
-	databaseMinConnections := e.lookupIntEnv("DatabaseMinConnections", 5)
-	databaseConnLifetime := e.lookupTimeEnv("DatabaseConnLifetime", time.Minute*5)
-	databaseCheckPeriod := e.lookupTimeEnv("DatabaseCheckPeriod", time.Minute*1)
+	port := e.lookupStringEnv("PORT", defaultPort)
+	appName := e.lookupStringEnv("APP_NAME", defaultAppName)
+	databaseURI := e.lookupStringEnv("DATABASE_URI", "")
 
 	return Variables{
-		Port:                   port,
-		AppName:                appName,
-		DatabaseURL:            databaseURL,
-		DatabaseMaxConnections: databaseMaxConnections,
-		DatabaseMinConnections: databaseMinConnections,
-		DatabaseConnLifetime:   databaseConnLifetime,
-		DatabaseCheckPeriod:    databaseCheckPeriod,
+		Port:        port,
+		AppName:     appName,
+		DatabaseURI: databaseURI,
 	}
 }
 
