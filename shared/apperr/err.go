@@ -5,7 +5,8 @@ import "fmt"
 type Code string
 
 const (
-	CodeInvalidInput Code = "INVALID_INPUT"
+	CodeInvalidJSON  Code = "INVALID_JSON"
+	CodeUnknownField Code = "UNKNOWN_FIELD"
 	CodeUnauthorized Code = "UNAUTHORIZED"
 	CodeForbidden    Code = "FORBIDDEN"
 	CodeNotFound     Code = "NOT_FOUND"
@@ -23,7 +24,7 @@ type Error struct {
 func NewError(code Code, message string, err error) *Error {
 	var httpStatus int
 	switch code {
-	case CodeInvalidInput:
+	case CodeInvalidJSON, CodeUnknownField:
 		httpStatus = 400
 	case CodeUnauthorized:
 		httpStatus = 401

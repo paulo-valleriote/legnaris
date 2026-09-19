@@ -41,7 +41,7 @@ func NewEnv(logger logger.StructuredLogger) Env {
 func (e *Env) initVariables() Variables {
 	port := e.lookupStringEnv("PORT", defaultPort)
 	appName := e.lookupStringEnv("APP_NAME", defaultAppName)
-	databaseURI := e.lookupStringEnv("DATABASE_URI", "")
+	databaseURI := e.lookupStringEnv("DATABASE_URI", "mongodb://root:password@localhost:27017/")
 
 	return Variables{
 		Port:        port,
