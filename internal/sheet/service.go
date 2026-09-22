@@ -4,17 +4,27 @@ import (
 	"context"
 	"errors"
 	"legnaris/internal/sheet/template"
+	"legnaris/shared/apperr"
 	"maps"
 	"time"
-)
 
-type Service interface {
-	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
-}
+	"github.com/google/uuid"
+)
 
 type CreateSheetCommand struct {
 	TemplateID string `json:"template_id"`
 	SheetName  string `json:"sheet_name"`
+}
+
+type PartialUpdateSheetCommand struct {
+	SheetID string         `json:"-"`
+	Data    map[string]any `json:"data"`
+}
+
+type Service interface {
+	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
+	FetchByID(ctx context.Context, id string) (*Sheet, error)
+	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 }
 
 type ServiceImpl struct {
@@ -56,6 +66,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 
 	maps.Copy(initialData, derivedEffects)
 	newSheet := Sheet{
+		ID:         uuid.NewString(),
 		TemplateID: cmd.TemplateID,
 		Name:       cmd.SheetName,
 		Data:       initialData,
@@ -66,4 +77,58 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		return nil, err
 	}
 	return &newSheet, nil
+}
+
+func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) {
+	if id == "" {
+		return nil, apperr.NewError(apperr.CodeInvalidRequest, "sheet id not informed", errors.New("sheet id is empty"))
+	}
+
+	sheet, err := s.repository.FetchByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return sheet, nil
+}
+
+// TODO: Fix partial update peristing changes as map instead of "x.y.z": "val"
+func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
+	storedSheet, err := s.repository.FetchByID(ctx, cmd.SheetID)
+	if err != nil {
+		return nil, err
+	}
+
+	dag, exists := s.dagCache[storedSheet.TemplateID]
+	if !exists {
+		return nil, errors.New("DAG not found for template")
+	}
+
+	for key := range cmd.Data {
+		node, exists := dag.Nodes[key]
+		if !exists {
+			return nil, errors.New("field not exists")
+		}
+		if !node.IsEditable {
+			return nil, errors.New("field is not editable")
+		}
+	}
+
+	cascadingEffects, err := dag.Recalculate(storedSheet.Data, cmd.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	dbUpdates := make(map[string]any)
+	for k, v := range cmd.Data {
+		dbUpdates["data."+k] = v
+	}
+	for k, v := range cascadingEffects {
+		dbUpdates["data."+k] = v
+	}
+	dbUpdates["updated_at"] = time.Now()
+
+	if err := s.repository.PartialUpdate(ctx, cmd.SheetID, dbUpdates); err != nil {
+		return nil, err
+	}
+	return cascadingEffects, nil
 }

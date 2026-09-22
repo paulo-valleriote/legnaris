@@ -2,16 +2,19 @@ package sheet
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type Repository interface {
 	Create(ctx context.Context, sheet *Sheet) error
+	FetchByID(ctx context.Context, id string) (*Sheet, error)
+	PartialUpdate(ctx context.Context, id string, dbUpdates map[string]any) error
 }
 
 type RepositoryImpl struct {
@@ -24,23 +27,21 @@ func NewRepository(client *mongo.Database) Repository {
 	}
 }
 
-// TODO: Filter by ID or Name
-func (r *RepositoryImpl) List(ctx context.Context) ([]Sheet, error) {
-	var results []Sheet
+func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) {
+	var result Sheet
 
-	cursor, err := r.client.Find(ctx, bson.M{})
+	filter := bson.D{{Key: "_id", Value: id}}
+	opts := options.FindOne()
+	err := r.client.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
-		return []Sheet{}, fmt.Errorf("error while listing: %w", err)
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, errors.New("template not found")
+		} else {
+			return nil, err
+		}
 	}
-	defer cursor.Close(ctx)
 
-	if err = cursor.All(ctx, &results); err != nil {
-		log.Fatal("error decoding results: %w", err)
-	}
-	if len(results) == 0 {
-		return []Sheet{}, nil
-	}
-	return results, nil
+	return &result, nil
 }
 
 func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
@@ -49,5 +50,16 @@ func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
 		return fmt.Errorf("error creating sheet: %w", err)
 	}
 	slog.Info("sheet created with ID:", result.InsertedID)
+	return nil
+}
+
+func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, dbUpdates map[string]any) error {
+	filter := bson.D{{Key: "_id", Value: id}}
+	update := bson.M{"$set": dbUpdates}
+
+	_, err := r.client.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return fmt.Errorf("error creating sheet: %w", err)
+	}
 	return nil
 }

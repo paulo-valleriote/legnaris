@@ -5,13 +5,14 @@ import "fmt"
 type Code string
 
 const (
-	CodeInvalidJSON  Code = "INVALID_JSON"
-	CodeUnknownField Code = "UNKNOWN_FIELD"
-	CodeUnauthorized Code = "UNAUTHORIZED"
-	CodeForbidden    Code = "FORBIDDEN"
-	CodeNotFound     Code = "NOT_FOUND"
-	CodeConflict     Code = "CONFLICT"
-	CodeInternal     Code = "INTERNAL_ERROR"
+	CodeInvalidJSON    Code = "INVALID_JSON"
+	CodeInvalidRequest Code = "INVALID_REQUEST"
+	CodeUnknownField   Code = "UNKNOWN_FIELD"
+	CodeUnauthorized   Code = "UNAUTHORIZED"
+	CodeForbidden      Code = "FORBIDDEN"
+	CodeNotFound       Code = "NOT_FOUND"
+	CodeConflict       Code = "CONFLICT"
+	CodeInternal       Code = "INTERNAL_ERROR"
 )
 
 type Error struct {
@@ -24,7 +25,7 @@ type Error struct {
 func NewError(code Code, message string, err error) *Error {
 	var httpStatus int
 	switch code {
-	case CodeInvalidJSON, CodeUnknownField:
+	case CodeInvalidJSON, CodeUnknownField, CodeInvalidRequest:
 		httpStatus = 400
 	case CodeUnauthorized:
 		httpStatus = 401
