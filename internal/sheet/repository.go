@@ -35,7 +35,7 @@ func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*Sheet, erro
 	err := r.client.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, errors.New("template not found")
+			return nil, errors.New("sheet not found")
 		} else {
 			return nil, err
 		}
