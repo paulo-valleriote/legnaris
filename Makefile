@@ -1,7 +1,5 @@
 -include .env
 
-MIGRATION_DATABASE_URL ?= postgres://postgres:postgres@postgres:5432/legnaris?sslmode=disable
-
 up:
 	@docker compose up -d
 

@@ -10,15 +10,5 @@ services:
     volumes:
       - mongo_data:/data/db
 
-  migrate:
-    image: migrate/migrate:v4.18.3
-    profiles:
-      - tools
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./scripts/database/migrations:/migrations:ro
-
 volumes:
   mongo_data:
