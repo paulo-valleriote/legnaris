@@ -15,18 +15,22 @@ func TestBuildDag(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		rawNodes  map[string]FieldSchema
+		fields    FieldGroup
 		assertErr func(t *testing.T, err error)
 	}{
 		{
 			name: "Valid DAG without cycles",
-			rawNodes: map[string]FieldSchema{
-				"stats.str": {Type: "number", IsEditable: true},
-				"mod.str": {
-					Type: "number", IsEditable: false,
-					Formula:   "floor((stats.str - 10) / 2)",
-					DependsOn: []string{"stats.str"},
-				},
+			fields: FieldGroup{
+				"stats": {Children: FieldGroup{
+					"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+				}},
+				"mod": {Children: FieldGroup{
+					"str": {Schema: &FieldSchema{
+						Type: "number", IsEditable: false,
+						Formula:   "floor((stats_str - 10) / 2)",
+						DependsOn: [][]string{{"stats", "str"}},
+					}},
+				}},
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.NoError(t, err)
@@ -34,15 +38,17 @@ func TestBuildDag(t *testing.T) {
 		},
 		{
 			name: "Infinite Loop (cycle detection between two fields)",
-			rawNodes: map[string]FieldSchema{
-				"health": {
+			fields: FieldGroup{
+				"health": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
 					Formula:   "level * 10",
-					DependsOn: []string{"level"},
-				},
-				"level": {
+					DependsOn: [][]string{{"level"}},
+				}},
+				"level": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
 					Formula:   "health / 10",
-					DependsOn: []string{"health"},
-				},
+					DependsOn: [][]string{{"health"}},
+				}},
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.ErrorIs(t, err, ErrInfiniteCycle)
@@ -50,19 +56,24 @@ func TestBuildDag(t *testing.T) {
 		},
 		{
 			name: "Invalid Formula Syntax",
-			rawNodes: map[string]FieldSchema{
-				"stats.str": {Type: "number"},
-				"mod.str": {
-					Formula:   "floor((stats.str - 10) / ",
-					DependsOn: []string{"stats.str"},
-				},
+			fields: FieldGroup{
+				"stats": {Children: FieldGroup{
+					"str": {Schema: &FieldSchema{Type: "number"}},
+				}},
+				"mod": {Children: FieldGroup{
+					"str": {Schema: &FieldSchema{
+						Type: "number", IsEditable: false,
+						Formula:   "floor((stats_str - 10) / ",
+						DependsOn: [][]string{{"stats", "str"}},
+					}},
+				}},
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
 
 				dummyErr := errors.New("")
-				expectedMsg := ErrCompileFormula("floor((stats.str - 10) / ", "mod.str", dummyErr).Error()
-				expectedMsg = strings.TrimSuffix(expectedMsg, dummyErr.Error()) // Remove a parte vazia do final
+				expectedMsg := ErrCompileFormula("floor((stats_str - 10) / ", "mod.str", dummyErr).Error()
+				expectedMsg = strings.TrimSuffix(expectedMsg, dummyErr.Error())
 				assert.ErrorContains(t, err, expectedMsg)
 			},
 		},
@@ -70,7 +81,7 @@ func TestBuildDag(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dag, err := BuildDAG("test_template", tc.rawNodes, formulaEngine)
+			dag, err := BuildDAG("test_template", tc.fields, formulaEngine)
 			tc.assertErr(t, err)
 
 			if err == nil {
@@ -84,21 +95,29 @@ func TestBuildDag(t *testing.T) {
 func TestRecalculate(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
-	rawNodes := map[string]FieldSchema{
-		"stats.str": {Type: "number", IsEditable: true},
-		"mod.str": {
-			Type: "number", IsEditable: false,
-			Formula:   "floor((stats_str - 10) / 2)",
-			DependsOn: []string{"stats.str"},
-		},
-		"derived.dmg": {
-			Type: "number", IsEditable: false,
-			Formula:   "mod_str + 5",
-			DependsOn: []string{"mod.str"},
-		},
+	fields := FieldGroup{
+		"stats": {Children: FieldGroup{
+			"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+		}},
+		"mod": {Children: FieldGroup{
+			"str": {Schema: &FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "floor((stats_str - 10) / 2)",
+				DependsOn:  [][]string{{"stats", "str"}},
+			}},
+		}},
+		"derived": {Children: FieldGroup{
+			"dmg": {Schema: &FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "mod_str + 5",
+				DependsOn:  [][]string{{"mod", "str"}},
+			}},
+		}},
 	}
 
-	dag, err := BuildDAG("fantasy", rawNodes, formulaEngine)
+	dag, err := BuildDAG("fantasy", fields, formulaEngine)
 	require.NoError(t, err, "Failed to bootstrap test DAG")
 
 	tests := []struct {
@@ -110,33 +129,29 @@ func TestRecalculate(t *testing.T) {
 		{
 			name: "Happy Path: Full Cascade Calculation",
 			originalData: map[string]any{
-				"stats.str":   10.0,
-				"mod.str":     0.0,
-				"derived.dmg": 5.0,
+				"stats": map[string]any{"str": 10.0},
+				"mod":   map[string]any{"str": 0.0},
+				"derived": map[string]any{"dmg": 5.0},
 			},
 			updates: map[string]any{
-				"stats.str": 16.0, // Str changes from 10 to 16
+				"stats.str": 16.0,
 			},
 			expectedCascades: map[string]any{
-				"mod.str":     3.0, // floor((16-10)/2)
-				"derived.dmg": 8.0, // 3 + 5
+				"mod.str":     3.0,
+				"derived.dmg": 8.0,
 			},
 		},
 		{
 			name: "Edge Case: Short-Circuit (Propagation stops if value doesn't change)",
 			originalData: map[string]any{
-				"stats.str":   16.0,
-				"mod.str":     3.0,
-				"derived.dmg": 8.0,
+				"stats": map[string]any{"str": 16.0},
+				"mod":   map[string]any{"str": 3.0},
+				"derived": map[string]any{"dmg": 8.0},
 			},
 			updates: map[string]any{
-				// Str changes from 16 to 17, but mod formula floor((17-10)/2) is STILL 3.
-				// Because mod.str remains 3, derived.dmg should NOT be recalculated or returned.
 				"stats.str": 17.0,
 			},
-			expectedCascades: map[string]any{
-				// Empty because nothing downstream actually mutated!
-			},
+			expectedCascades: map[string]any{},
 		},
 	}
 

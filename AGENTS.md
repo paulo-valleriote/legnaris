@@ -2,8 +2,12 @@
 
 ## Coding
 - SEMPRE escreva código em INGLÊS
+- SEMPRE prefira documentação acima de comentários no código
 
 ## Testing
+- SEMPRE use table-tests
+- Arquivos de testes devem sempre seguir o padrão <arquivo_original>_test.go
+- NUNCA crie varios arquivos de teste para testar um arquivo especifico, apenas <arquivo_original>_test.go
 - NUNCA apague, modifique ou manipule testes pré-existentes. Se necessário alguma alteração por mudança de comportamento do objeto testado PEÇA PERMISSÂO antes de alterar
 - SEMPRE use mocks para interfaces;
 - NAO DUPLIQUE CODIGO, use os mocks já existentes;

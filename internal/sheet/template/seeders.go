@@ -4,77 +4,59 @@ var FantasyV1Seed = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",
 	Default: true,
-	Fields: map[string]FieldSchema{
-		// ---------------------------------------------------------
-		// 1. Base Attributes And Proficiency
-		// ---------------------------------------------------------
-		"stats.dexterity": {
-			Type: "number", IsEditable: true, Default: 10,
-		},
-		"stats.constitution": {
-			Type: "number", IsEditable: true, Default: 10,
-		},
-		"others.proficiency_bonus": {
-			Type: "number", IsEditable: true, Default: 2,
-		},
-
-		// ---------------------------------------------------------
-		// 2. Modifiers
-		// ---------------------------------------------------------
-		"modifiers.dexterity_mod": {
-			Type: "number", IsEditable: false,
-			Formula:   "floor((stats.dexterity - 10) / 2)",
-			DependsOn: []string{"stats.dexterity"},
-		},
-		"modifiers.constitution_mod": {
-			Type: "number", IsEditable: false,
-			Formula:   "floor((stats.constitution - 10) / 2)",
-			DependsOn: []string{"stats.constitution"},
-		},
-
-		// ---------------------------------------------------------
-		// 3. PROXY NODES (Logical Keys)
-		// ---------------------------------------------------------
-
-		"config.ac_uses_dex": {
-			Type: "number", IsEditable: true, Default: 0,
-		},
-		"config.ac_uses_con": {
-			Type: "number", IsEditable: true, Default: 0,
-		},
-		"config.stealth_prof_weight": {
-			Type: "number", IsEditable: true, Default: 0,
-		},
-		"config.spell_uses_int": {Type: "number", IsEditable: true, Default: 0},
-		"config.spell_uses_wis": {Type: "number", IsEditable: true, Default: 0},
-
-		// ---------------------------------------------------------
-		// 4. Deriveds
-		// ---------------------------------------------------------
-		"base_armor_class": {
-			Type: "number", IsEditable: true, Default: 10,
-		},
-		"derived.armor_class": {
-			Type:       "number",
-			IsEditable: false,
-			Formula:    "base_armor_class + (modifiers.dexterity_mod * config.ac_uses_dex) + (modifiers.constitution_mod * config.ac_uses_con)",
-			DependsOn: []string{
-				"base_armor_class",
-				"modifiers.dexterity_mod",
-				"config.ac_uses_dex",
-				"modifiers.constitution_mod",
-				"config.ac_uses_con",
-			},
-		},
-		"skills.stealth_total": {
-			Type:       "number",
-			IsEditable: false,
-			Formula:    "modifiers.dexterity_mod + floor(others.proficiency_bonus * config.stealth_prof_weight)",
-			DependsOn: []string{
-				"modifiers.dexterity_mod",
-				"others.proficiency_bonus",
-				"config.stealth_prof_weight",
-			},
-		},
+	Fields: FieldGroup{
+		"stats": {Children: FieldGroup{
+			"dexterity":     {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+			"constitution":  {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"others": {Children: FieldGroup{
+			"proficiency_bonus": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 2}},
+		}},
+		"modifiers": {Children: FieldGroup{
+			"dexterity_mod": {Schema: &FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "floor((stats_dexterity - 10) / 2)",
+				DependsOn:  [][]string{{"stats", "dexterity"}},
+			}},
+			"constitution_mod": {Schema: &FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "floor((stats_constitution - 10) / 2)",
+				DependsOn:  [][]string{{"stats", "constitution"}},
+			}},
+		}},
+		"config": {Children: FieldGroup{
+			"ac_uses_dex":           {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 1}},
+			"ac_uses_con":           {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
+			"stealth_prof_weight":   {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
+			"spell_uses_int":        {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
+			"spell_uses_wis":        {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
+		}},
+		"base_armor_class": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		"derived": {Children: FieldGroup{
+			"armor_class": {Schema: &FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "base_armor_class + (modifiers_dexterity_mod * config_ac_uses_dex) + (modifiers_constitution_mod * config_ac_uses_con)",
+				DependsOn: [][]string{
+					{"base_armor_class"},
+					{"modifiers", "dexterity_mod"},
+					{"config", "ac_uses_dex"},
+					{"modifiers", "constitution_mod"},
+					{"config", "ac_uses_con"},
+				},
+			}},
+			"stealth_total": {Schema: &FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "modifiers_dexterity_mod + floor(others_proficiency_bonus * config_stealth_prof_weight)",
+				DependsOn: [][]string{
+					{"modifiers", "dexterity_mod"},
+					{"others", "proficiency_bonus"},
+					{"config", "stealth_prof_weight"},
+				},
+			}},
+		}},
 	},
 }

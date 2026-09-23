@@ -36,9 +36,8 @@ func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*Sheet, erro
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, errors.New("sheet not found")
-		} else {
-			return nil, err
 		}
+		return nil, err
 	}
 
 	return &result, nil
@@ -59,7 +58,7 @@ func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, dbUpdates
 
 	_, err := r.client.UpdateOne(ctx, filter, update)
 	if err != nil {
-		return fmt.Errorf("error creating sheet: %w", err)
+		return fmt.Errorf("error updating sheet: %w", err)
 	}
 	return nil
 }

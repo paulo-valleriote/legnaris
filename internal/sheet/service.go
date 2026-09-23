@@ -52,19 +52,17 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		return nil, err
 	}
 
-	initialData := make(map[string]any)
-	for key, field := range tmpl.Fields {
-		if field.Formula == "" {
-			initialData[key] = field.Default
-		}
-	}
+	// Build initial data with ALL leaf fields (base + derived) with their defaults
+	initialData := buildNestedAllFields(tmpl.Fields)
 
-	derivedEffects, err := dag.Recalculate(make(map[string]any), initialData)
+	// Recalculate derived fields from base fields
+	derivedEffects, err := dag.Recalculate(map[string]any{}, initialData)
 	if err != nil {
 		return nil, err
 	}
 
 	maps.Copy(initialData, derivedEffects)
+
 	newSheet := Sheet{
 		ID:         uuid.NewString(),
 		TemplateID: cmd.TemplateID,
@@ -88,10 +86,10 @@ func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) 
 	if err != nil {
 		return nil, err
 	}
+
 	return sheet, nil
 }
 
-// TODO: Fix partial update peristing changes as map instead of "x.y.z": "val"
 func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
 	storedSheet, err := s.repository.FetchByID(ctx, cmd.SheetID)
 	if err != nil {
@@ -106,10 +104,10 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	for key := range cmd.Data {
 		node, exists := dag.Nodes[key]
 		if !exists {
-			return nil, errors.New("field not exists")
+			return nil, errors.New("field not exists: " + key)
 		}
 		if !node.IsEditable {
-			return nil, errors.New("field is not editable")
+			return nil, errors.New("field is not editable: " + key)
 		}
 	}
 
@@ -118,17 +116,96 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		return nil, err
 	}
 
-	dbUpdates := make(map[string]any)
-	for k, v := range cmd.Data {
-		dbUpdates["data."+k] = v
+	// Merge both original updates AND cascading effects
+	mergedData := deepCopyNested(storedSheet.Data)
+	applyNestedUpdates(mergedData, cmd.Data)
+	applyNestedUpdates(mergedData, cascadingEffects)
+
+	dbUpdates := map[string]any{
+		"data":       mergedData,
+		"updated_at": time.Now(),
 	}
-	for k, v := range cascadingEffects {
-		dbUpdates["data."+k] = v
-	}
-	dbUpdates["updated_at"] = time.Now()
 
 	if err := s.repository.PartialUpdate(ctx, cmd.SheetID, dbUpdates); err != nil {
 		return nil, err
 	}
 	return cascadingEffects, nil
+}
+
+// buildNestedAllFields creates nested map with ALL leaf fields (base + derived)
+// using their default values (0 for derived fields without explicit default)
+func buildNestedAllFields(group template.FieldGroup) map[string]any {
+	result := make(map[string]any)
+	for name, node := range group {
+		if node.IsLeaf() {
+			setNestedValue(result, []string{name}, node.Schema.Default)
+		} else if node.IsGroup() {
+			nested := buildNestedAllFields(node.Children)
+			if len(nested) > 0 {
+				result[name] = nested
+			}
+		}
+	}
+	return result
+}
+
+func setNestedValue(nested map[string]any, path []string, value any) {
+	current := nested
+	for i, key := range path {
+		if i == len(path)-1 {
+			current[key] = value
+		} else {
+			if current[key] == nil {
+				current[key] = make(map[string]any)
+			}
+			nextMap, ok := current[key].(map[string]any)
+			if !ok {
+				nextMap = make(map[string]any)
+				current[key] = nextMap
+			}
+			current = nextMap
+		}
+	}
+}
+
+func applyNestedUpdates(nested map[string]any, updates map[string]any) {
+	for key, value := range updates {
+		path := []string{}
+		for _, part := range splitDotKey(key) {
+			path = append(path, part)
+		}
+		setNestedValue(nested, path, value)
+	}
+}
+
+func deepCopyNested(src map[string]any) map[string]any {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		if nestedMap, ok := v.(map[string]any); ok {
+			dst[k] = deepCopyNested(nestedMap)
+		} else {
+			dst[k] = v
+		}
+	}
+	return dst
+}
+
+func splitDotKey(key string) []string {
+	var result []string
+	current := ""
+	for _, c := range key {
+		if c == '.' {
+			result = append(result, current)
+			current = ""
+		} else {
+			current += string(c)
+		}
+	}
+	if current != "" {
+		result = append(result, current)
+	}
+	return result
 }
