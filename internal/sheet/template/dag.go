@@ -3,6 +3,7 @@ package template
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"legnaris/internal/engine"
 	"legnaris/shared/apperr"
@@ -13,13 +14,17 @@ import (
 
 // DAG represents a directed acyclic graph of computed fields for a template.
 // Nodes are evaluated in TopologicalOrder to ensure dependencies are resolved
-// before dependents. The graph is built once per template at startup.
+// before dependents. The graph is built once per template at startup and is
+// immutable afterwards: fields are read-only for the lifetime of the DAG.
+// Concurrent read access via Recalculate is safe; mutation after construction
+// is prevented by unexported fields and a sync.RWMutex guard.
 type DAG struct {
-	TemplateID       string
-	Nodes            map[string]*Node
-	AdjacencyList    map[string][]string
-	TopologicalOrder []string
-	formulaEngine    *engine.FormulaEngine
+	sync.RWMutex
+	TemplateID        string
+	nodes             map[string]*Node
+	adjacencyList     map[string][]string
+	topologicalOrder  []string
+	formulaEngine     *engine.FormulaEngine
 }
 
 // Node represents a single field in the DAG.
@@ -40,8 +45,49 @@ func (n *Node) MapKey() string {
 	return n.Path.String()
 }
 
+// HasNode returns true if a node with the given key exists in the DAG.
+func (d *DAG) HasNode(key string) bool {
+	d.RLock()
+	defer d.RUnlock()
+	_, ok := d.nodes[key]
+	return ok
+}
+
+// GetNode returns the node for the given key and whether it was found.
+func (d *DAG) GetNode(key string) (*Node, bool) {
+	d.RLock()
+	defer d.RUnlock()
+	node, ok := d.nodes[key]
+	return node, ok
+}
+
+// GetChildren returns the list of child keys for the given node key.
+// Returns nil if the key has no children.
+func (d *DAG) GetChildren(key string) []string {
+	d.RLock()
+	defer d.RUnlock()
+	children, ok := d.adjacencyList[key]
+	if !ok {
+		return nil
+	}
+	// Return a copy to prevent external mutation.
+	result := make([]string, len(children))
+	copy(result, children)
+	return result
+}
+
+// TopologicalOrder returns a copy of the evaluation order of node keys.
+func (d *DAG) TopologicalOrder() []string {
+	d.RLock()
+	defer d.RUnlock()
+	order := make([]string, len(d.topologicalOrder))
+	copy(order, d.topologicalOrder)
+	return order
+}
+
 // BuildDAG constructs a computation DAG from a template's field schemas.
 // Returns an error if any formula fails to compile or a dependency cycle is detected.
+// The DAG is write-locked during construction to ensure thread-safe initialization.
 func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (*DAG, error) {
 	if eng == nil {
 		return nil, errors.New("formula engine is required")
@@ -61,11 +107,15 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 
 	dag.buildAdjacencyList(leafSchemas, leafPaths)
 
-	topoOrder, err := topologicalSort(dag.Nodes, dag.AdjacencyList)
+	topoOrder, err := topologicalSort(dag.nodes, dag.adjacencyList)
 	if err != nil {
 		return nil, err
 	}
-	dag.TopologicalOrder = topoOrder
+	dag.topologicalOrder = topoOrder
+
+	// Lock the DAG after construction to prevent any further mutation.
+	dag.Lock()
+	defer dag.Unlock()
 
 	return dag, nil
 }
@@ -73,10 +123,10 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 // newDAG allocates and initializes a DAG with empty collections.
 func newDAG(templateID string, eng *engine.FormulaEngine) *DAG {
 	return &DAG{
-		TemplateID:    templateID,
-		Nodes:         make(map[string]*Node),
-		AdjacencyList: make(map[string][]string),
-		formulaEngine: eng,
+		TemplateID:     templateID,
+		nodes:          make(map[string]*Node),
+		adjacencyList:  make(map[string][]string),
+		formulaEngine:  eng,
 	}
 }
 
@@ -110,8 +160,11 @@ func buildCompilationEnv(paths []Path) map[string]any {
 	return env
 }
 
-// compileNodeFormulas compiles formulas for all leaf nodes and populates dag.Nodes.
+// compileNodeFormulas compiles formulas for all leaf nodes and populates dag.nodes.
 func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilationEnv map[string]any) error {
+	d.Lock()
+	defer d.Unlock()
+
 	for i, schema := range schemas {
 		path := paths[i]
 		key := path.String()
@@ -130,18 +183,21 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 			node.CompiledFormula = program
 		}
 
-		d.Nodes[key] = node
+		d.nodes[key] = node
 	}
 	return nil
 }
 
 // buildAdjacencyList constructs the dependency graph from DependsOn declarations.
 func (d *DAG) buildAdjacencyList(schemas []*FieldSchema, paths []Path) {
+	d.Lock()
+	defer d.Unlock()
+
 	for i, schema := range schemas {
 		key := paths[i].String()
 		for _, depPath := range schema.DependsOn {
 			depKey := Path(depPath).String()
-			d.AdjacencyList[depKey] = append(d.AdjacencyList[depKey], key)
+			d.adjacencyList[depKey] = append(d.adjacencyList[depKey], key)
 		}
 	}
 }
@@ -188,6 +244,7 @@ func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string,
 // Recalculate reapplies updates and recomputes derived fields in topological order.
 // Returns a map of only the derived fields that actually changed (cascading effects).
 // Returns an error if any formula evaluation fails.
+// The DAG is protected by a read lock for the duration of the operation.
 func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]any, error) {
 	if d == nil {
 		return nil, errors.New("DAG is nil")
@@ -195,6 +252,9 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 	if err := validateRecalculateInputs(originalData, updatedData); err != nil {
 		return nil, err
 	}
+
+	d.RLock()
+	defer d.RUnlock()
 
 	sheetData, engineEnv, err := d.prepareData(originalData, updatedData)
 	if err != nil {
@@ -219,22 +279,23 @@ func (d *DAG) prepareData(originalData, updatedData map[string]any) (map[string]
 }
 
 // walkTopological evaluates nodes in topological order and returns changed derived fields.
+// Must be called with the DAG's read lock already held.
 func (d *DAG) walkTopological(sheetData, engineEnv map[string]any, needsRecalc map[string]bool) (map[string]any, error) {
 	changedDerived := make(map[string]any)
 
-	for _, nodeKey := range d.TopologicalOrder {
+	for _, nodeKey := range d.topologicalOrder {
 		if !needsRecalc[nodeKey] {
 			continue
 		}
 
-		node := d.Nodes[nodeKey]
+		node := d.nodes[nodeKey]
 		propagated, err := d.processNode(node, sheetData, engineEnv, changedDerived)
 		if err != nil {
 			return nil, err
 		}
 
 		if propagated {
-			d.propagateChanges(nodeKey, d.AdjacencyList, needsRecalc)
+			d.propagateChanges(nodeKey, d.adjacencyList, needsRecalc)
 		}
 	}
 
@@ -242,6 +303,7 @@ func (d *DAG) walkTopological(sheetData, engineEnv map[string]any, needsRecalc m
 }
 
 // propagateChanges marks descendants for recalculation when a node changes.
+// Must be called with the DAG's read lock already held.
 func (d *DAG) propagateChanges(nodeKey string, adj map[string][]string, needsRecalc map[string]bool) {
 	for _, child := range adj[nodeKey] {
 		needsRecalc[child] = true

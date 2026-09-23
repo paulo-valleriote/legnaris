@@ -88,7 +88,7 @@ func TestBuildDag(t *testing.T) {
 
 			if err == nil {
 				require.NotNil(t, dag)
-				assert.NotEmpty(t, dag.TopologicalOrder)
+				assert.NotEmpty(t, dag.TopologicalOrder())
 			}
 		})
 	}
@@ -447,9 +447,10 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				// inDegree is inflated (2 instead of 1), but Kahn's algorithm still works.
 				// Expected: Should deduplicate DependsOn entries before building graph.
 				// Tracking: https://paulovalleriotedev.atlassian.net/browse/LGN-41
-				node := dag.Nodes["derived"]
+				node, ok := dag.GetNode("derived")
+				require.True(t, ok)
 				require.NotNil(t, node)
-				assert.Len(t, dag.AdjacencyList["base"], 2) // Current behavior: 2 entries
+				assert.Len(t, dag.GetChildren("base"), 2) // Current behavior: 2 entries
 			},
 		},
 		{
@@ -463,8 +464,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				require.NoError(t, err) // Current behavior
 			},
 			assertDag: func(t *testing.T, dag *DAG) {
-				assert.Empty(t, dag.Nodes)
-				assert.Empty(t, dag.TopologicalOrder)
+				assert.Empty(t, dag.TopologicalOrder())
 			},
 		},
 		{
@@ -493,8 +493,8 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 			assertDag: func(t *testing.T, dag *DAG) {
 				// Verify both paths exist and are distinct in MapKey
-				assert.Contains(t, dag.Nodes, "stats.str.dex")
-				assert.Contains(t, dag.Nodes, "stats.str_dex")
+				assert.True(t, dag.HasNode("stats.str.dex"))
+				assert.True(t, dag.HasNode("stats.str_dex"))
 			},
 		},
 	}

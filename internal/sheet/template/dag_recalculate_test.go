@@ -270,7 +270,7 @@ func TestWalkTopological(t *testing.T) {
 		},
 		{
 			name: "Edge: empty topological order returns empty map",
-			dag:  &DAG{Nodes: map[string]*Node{}, AdjacencyList: map[string][]string{}},
+			dag:  &DAG{nodes: map[string]*Node{}, adjacencyList: map[string][]string{}},
 			sheetData: map[string]any{
 				"a": 1.0,
 			},
@@ -447,7 +447,7 @@ func TestPropagateChanges(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			d := &DAG{AdjacencyList: tc.adj}
+			d := &DAG{adjacencyList: tc.adj}
 			d.propagateChanges(tc.nodeKey, tc.adj, tc.needsRecalc)
 			assert.Equal(t, tc.wantNeedsRecalc, tc.needsRecalc)
 		})

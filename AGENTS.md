@@ -1,30 +1,114 @@
-# AGENTS.md
+# AGENTS.md — Legnaris Backend
 
-## Coding
-- SEMPRE escreva código em INGLÊS
-- SEMPRE prefira documentação acima de comentários no código
+## Quick Start
+
+```bash
+# Start MongoDB
+docker compose up -d
+
+# Run API (loads templates from code, seeds fantasy_v1 on boot)
+go run ./cmd/api.go
+
+# Run tests
+go test ./...
+
+# Generate mocks (after interface changes)
+make mocks
+
+# Format code
+make fmt
+```
+
+## Architecture Overview
+
+| Layer | Package | Responsibility |
+|-------|---------|----------------|
+| API | `internal/app` | Echo controllers, routing, error handling |
+| Auth | `internal/auth` (planned) | JWT, bcrypt, refresh rotation |
+| Templates | `internal/sheet/template` | DAG build, formula compile, recalculation |
+| Sheets | `internal/sheet` | CRUD, partial update with cascading recalc |
+| Engine | `internal/engine` | expr-lang wrapper (floor, max functions) |
+| Shared | `shared/*` | env, logger, db, apperr, response, json |
+
+**Entry point:** `cmd/api.go` → builds DAG registry from code-defined templates → starts Echo on `:8080`.
+
+## Key Concepts
+
+- **Template** — code-defined structure (fields, formulas, deps). Immutable by ID (`fantasy_v1`, `fantasy_v2`...).
+- **DAG** — compiled dependency graph with topological order. Built once at boot per template.
+- **Sheet** — `map[string]any` document linked to a template. Base fields editable; derived fields computed.
+- **Recalculation** — `DAG.Recalculate(original, updates)` returns only changed derived fields (cascading).
+
+## Commands
+
+| Task | Command |
+|------|---------|
+| Start dev DB | `docker compose up -d` |
+| Run server | `go run ./cmd/api.go` |
+| Run all tests | `go test ./...` |
+| Run single test | `go test -run TestBuildDag ./internal/sheet/template` |
+| Generate mocks | `make mocks` |
+| Format | `make fmt` |
 
 ## Testing
-- SEMPRE use table-driven tests
-- Arquivos de testes devem sempre seguir o padrão <arquivo_original>_test.go
-- NUNCA apague, modifique ou manipule testes pré-existentes. Se necessário alguma alteração por mudança de comportamento do objeto testado PEÇA PERMISSÂO antes de alterar
-- SEMPRE use mocks para interfaces;
-- NAO DUPLIQUE CODIGO, use os mocks já existentes;
-- Padrão de testes: testify (`assert`/`require`/`mock`).
-- Mocks são gerados por mockery (tool dependency do Go): `make mocks` (= `go tool mockery`, config em `.mockery.yaml`). Regenere sempre que uma interface mudar. Ficam em `<pkg>/mocks` (`shared/logger/mocks`, `internal/sheet/mocks`, `internal/sheet/template/mocks`) e usam a expecter API: `mocks.NewMockX(t)` + `.EXPECT()`/`.On()`.
 
-## Comandos
-- `make up` / `make down` — sobe/desce o MongoDB local via docker compose (porta 27017, root/password). A API não sobe sem o Mongo rodando.
-- `go run ./cmd` — sobe a API. A porta 8080 está hardcoded em `cmd/api.go` (`e.Start(":8080")`); a variável `PORT` é lida do env mas não é usada no start.
-- `go test ./...` — todos os testes; um pacote/teste: `go test ./internal/sheet/template -run TestBuildDag`.
-- `make fmt` — `go fmt ./...`. Não há linter nem CI configurados no repo.
-- O Makefile faz `-include .env`. Os defaults de env ficam em `shared/env/env.go` (`DATABASE_URI` default já aponta para o Mongo do compose).
+- Unit tests use `testify` + Mockery mocks in `internal/*/mocks/`
+- Integration tests need MongoDB running (`docker compose up -d`)
+- Key test files: `dag_test.go`, `dag_recalculate_test.go`, `path_test.go`
 
-## Arquitetura
-- `cmd/api.go` é o único entrypoint. Bootstrap: logger → env → Mongo → formula engine → DAGs em memória → **seed dos templates default no Mongo a cada boot** (`template.FantasyV1Seed`) → router Echo.
-- `internal/app`: wiring/DI (`NewModules`), rotas (`NewRouter`), controllers e o `HTTPErrorHandler`, que converte `shared/apperr.Error` em JSON `{error: {code, message}}`. Convenção: services retornam `apperr.Error`; não trate HTTP dentro de service/repository.
-- `internal/sheet`: fichas são documentos flexíveis (`map[string]any`) no Mongo. O subpacote `internal/sheet/template` é o núcleo do produto: `FieldSchema` (tipo, `Formula`, `DependsOn`, editabilidade, default) e o DAG (ordenação topológica de Kahn, detecção de ciclos, recálculo em cascata).
-- `internal/engine`: engine de fórmulas sobre `expr-lang` com funções custom `floor` e `max`.
-- Padrão por módulo: interfaces `Repository`/`Service` + `ServiceImpl` + controller HTTP. O database Mongo está hardcoded como `legnaris` em `NewModules`.
-- `internal/user` é stub; `OwnerID` em `Sheet` está comentado — auth/ownership são trabalho futuro (escopo em `docs/TDD.md`).
-- `docs/TDD.md` (PT-BR) é a fonte de verdade de produto e roadmap.
+## Current State (per TDD)
+
+**Phase 0 — Hygiene (pending):**
+- Remove PostgreSQL leftovers (README, Makefile, docker-compose)
+- Fix error messages in sheet repository ("template not found" → "sheet not found")
+- Normalize `floor`/`max` int/float coercion in engine
+- Eliminate template seed on boot; serve templates from in-memory registry
+- Persist PATCH with dot-notation `$set` (not nested map)
+
+## Conventions
+
+- **Env vars:** `PORT`, `APP_NAME`, `DATABASE_URI` (defaults in `shared/env/env.go`)
+- **Error handling:** `shared/apperr` typed errors → `HTTPErrorHandler` in `router.go`
+- **JSON decoding:** `shared/json/decode.go` helper
+- **Logging:** `shared/logger` structured logger (zerolog-based)
+- **Mocks:** generated via `mockery` (config in `go.mod` tool directive)
+
+## API Endpoints (Current + Planned)
+
+| Endpoint | Method | Status |
+|----------|--------|--------|
+| `/health` | GET | ✅ `internal/platform/http/health.go` |
+| `/templates` | GET | ✅ lists catalog |
+| `/sheets` | POST | ✅ create from template |
+| `/sheets/:id` | GET | ✅ fetch |
+| `/sheets/:id` | PATCH | ✅ partial update + recalc |
+| `/auth/*` | — | 🔄 Phase 1 |
+
+## Gotchas
+
+- **Templates are code, not DB** — don't look for a `template` collection in Mongo (will be removed in Phase 0)
+- **DAG keys use dot notation** (`stats.dexterity`) but engine env uses underscores (`stats_dexterity`) — collision risk if field names contain dots/underscores (tracked in `dag_test.go` LGN-41)
+- **PartialUpdate validates editability** against DAG before recalc — non-editable fields in payload = 400
+- **Seed runs on every boot** currently — will be removed; templates served from memory registry
+- **No auth yet** — all endpoints open; ownership/authorization in Phase 2
+
+## File Patterns
+
+```
+internal/
+  app/           # HTTP layer (controllers, router)
+  auth/          # (planned) JWT, bcrypt, middleware
+  engine/        # formula engine (expr-lang wrapper)
+  sheet/
+    template/    # DAG, types, seeders, errors
+    mocks/       # generated mocks
+    *.go         # sheet service, repository
+shared/
+  apperr/        # typed app errors
+  db/            # mongo init
+  env/           # env var loading
+  logger/        # structured logging
+  response/      # HTTP response helpers
+  json/          # decode helper
+cmd/api.go       # main entry point
+```

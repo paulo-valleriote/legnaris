@@ -102,10 +102,10 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	}
 
 	for key := range cmd.Data {
-		node, exists := dag.Nodes[key]
-		if !exists {
+		if !dag.HasNode(key) {
 			return nil, errors.New("field not exists: " + key)
 		}
+		node, _ := dag.GetNode(key)
 		if !node.IsEditable {
 			return nil, errors.New("field is not editable: " + key)
 		}
