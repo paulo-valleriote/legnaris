@@ -6,8 +6,8 @@ var FantasyV1Seed = Template{
 	Default: true,
 	Fields: FieldGroup{
 		"stats": {Children: FieldGroup{
-			"dexterity":     {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
-			"constitution":  {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+			"dexterity":    {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+			"constitution": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 		}},
 		"others": {Children: FieldGroup{
 			"proficiency_bonus": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 2}},
@@ -27,11 +27,11 @@ var FantasyV1Seed = Template{
 			}},
 		}},
 		"config": {Children: FieldGroup{
-			"ac_uses_dex":           {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 1}},
-			"ac_uses_con":           {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
-			"stealth_prof_weight":   {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
-			"spell_uses_int":        {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
-			"spell_uses_wis":        {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
+			"ac_uses_dex":         {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 1}},
+			"ac_uses_con":         {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
+			"stealth_prof_weight": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
+			"spell_uses_int":      {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
+			"spell_uses_wis":      {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
 		}},
 		"base_armor_class": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 		"derived": {Children: FieldGroup{

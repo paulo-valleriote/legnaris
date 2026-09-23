@@ -3,8 +3,8 @@ package sheet_test
 import (
 	"context"
 	"errors"
-	"time"
 	"testing"
+	"time"
 
 	"legnaris/internal/engine"
 	"legnaris/internal/sheet"
@@ -24,8 +24,8 @@ func TestService_PartialUpdate(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 	fields := template.FieldGroup{
 		"stats": {Children: template.FieldGroup{
-			"dexterity":     {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
-			"constitution":  {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+			"dexterity":    {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+			"constitution": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 		}},
 		"others": {Children: template.FieldGroup{
 			"proficiency_bonus": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 2}},
@@ -76,7 +76,7 @@ func TestService_PartialUpdate(t *testing.T) {
 			"proficiency_bonus": 2.0,
 		},
 		"modifiers": map[string]any{
-			"dexterity_mod":     2.0,
+			"dexterity_mod":    2.0,
 			"constitution_mod": 1.0,
 		},
 		"config": map[string]any{
@@ -220,9 +220,9 @@ func TestService_PartialUpdate(t *testing.T) {
 					Once()
 			},
 			expectedCascades: map[string]any{
-				"modifiers.dexterity_mod":     3.0,
-				"modifiers.constitution_mod":  2.0,
-				"derived.armor_class":         13.0,
+				"modifiers.dexterity_mod":    3.0,
+				"modifiers.constitution_mod": 2.0,
+				"derived.armor_class":        13.0,
 			},
 		},
 	}

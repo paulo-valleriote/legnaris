@@ -9,6 +9,14 @@ type FieldNode struct {
 	Children FieldGroup   `bson:"children"`
 }
 
+func (n *FieldNode) IsLeaf() bool {
+	return n.Schema != nil
+}
+
+func (n *FieldNode) IsGroup() bool {
+	return n.Schema == nil && n.Children != nil
+}
+
 type Template struct {
 	ID        string     `bson:"_id,omitempty"`
 	Name      string     `bson:"name"`
@@ -27,10 +35,6 @@ type FieldSchema struct {
 	Default    float64    `bson:"default"`
 }
 
-func (n *FieldNode) IsLeaf() bool {
-	return n.Schema != nil
-}
-
-func (n *FieldNode) IsGroup() bool {
-	return n.Schema == nil && n.Children != nil
+func (f *FieldSchema) MustCompile() bool {
+	return f.Formula != ""
 }
