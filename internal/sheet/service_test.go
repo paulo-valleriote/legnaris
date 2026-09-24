@@ -201,7 +201,7 @@ func TestService_PartialUpdate(t *testing.T) {
 					Return(storedSheet, nil).
 					Once()
 			},
-			expectedErr: "field not exists",
+			expectedErr: "field does not exist",
 		},
 		{
 			name: "Error: Field not editable",

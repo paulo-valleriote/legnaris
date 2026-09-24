@@ -14,6 +14,11 @@ type TemplateController struct {
 	service template.Service
 }
 
+// User-facing error message and cause for an empty template ID path param.
+const msgTemplateIDNotProvided = "template id not provided"
+
+var errTemplateIDEmpty = errors.New("template id is empty")
+
 func NewTemplateController(service template.Service) *TemplateController {
 	return &TemplateController{
 		service: service,
@@ -43,7 +48,7 @@ func (tc *TemplateController) List(c *echo.Context) error {
 func (tc *TemplateController) FetchByID(c *echo.Context) error {
 	id := c.Param("id")
 	if id == "" {
-		return apperr.NewError(apperr.CodeInvalidRequest, "template id not informed", errors.New("template id is empty"))
+		return apperr.NewError(apperr.CodeInvalidRequest, msgTemplateIDNotProvided, errTemplateIDEmpty)
 	}
 
 	item, err := tc.service.FetchTemplate(c.Request().Context(), &template.FetchTemplateByIDCommand{ID: id})
