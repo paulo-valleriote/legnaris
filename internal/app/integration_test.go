@@ -113,7 +113,7 @@ func TestIntegration_TemplatesFetchByID(t *testing.T) {
 	require.True(t, ok)
 	require.NotNil(t, modifiers.Children)
 
-	dexMod := modifiers.Children["dexterity_mod"]
+	dexMod := modifiers.Children["dexterityMod"]
 	require.NotNil(t, dexMod.Schema)
 	assert.False(t, dexMod.Schema.IsEditable)
 	assert.Equal(t, "floor((stats_dexterity - 10) / 2)", dexMod.Schema.Formula)
@@ -163,8 +163,8 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	// Derived fields must be computed on create (not left at their 0 default)
 	derived, ok := created.Data.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 10.0, derived["armor_class"])
-	assert.Equal(t, 0.0, derived["stealth_total"])
+	assert.Equal(t, 10.0, derived["armorClass"])
+	assert.Equal(t, 0.0, derived["stealthTotal"])
 
 	// Fetch
 	fetchRec := doRequest(t, h, http.MethodGet, "/sheets/"+sheetID, "")
@@ -178,7 +178,7 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	// Derived fields must still be correct right after fetching
 	fetchedDerived, ok := fetched.Data.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 10.0, fetchedDerived["armor_class"])
+	assert.Equal(t, 10.0, fetchedDerived["armorClass"])
 
 	// Patch (cascading recalc without any template query)
 	patchRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":16}}}`)
@@ -189,12 +189,12 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 
 	modifiers, ok := patched.Data["modifiers"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 3.0, modifiers["dexterity_mod"])
+	assert.Equal(t, 3.0, modifiers["dexterityMod"])
 
 	patchedDerived, ok := patched.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 13.0, patchedDerived["armor_class"])
-	assert.Equal(t, 3.0, patchedDerived["stealth_total"])
+	assert.Equal(t, 13.0, patchedDerived["armorClass"])
+	assert.Equal(t, 3.0, patchedDerived["stealthTotal"])
 }
 
 // TestIntegration_ErrorStatusMapping covers the HTTP status each typed error
@@ -247,7 +247,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 		var created response.Success[sheet.SheetDTO]
 		require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
 
-		rec := doRequest(t, h, http.MethodPatch, "/sheets/"+created.Data.ID, `{"data":{"modifiers":{"dexterity_mod":99}}}`)
+		rec := doRequest(t, h, http.MethodPatch, "/sheets/"+created.Data.ID, `{"data":{"modifiers":{"dexterityMod":99}}}`)
 		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_REQUEST")
 	})
 

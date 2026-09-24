@@ -27,7 +27,7 @@ O estado atual do código já contém o núcleo diferenciador funcionando:
 
 **Stakeholders**: jogadores e mestres de RPG (usuários finais), o próprio mantenedor (projeto solo), e indiretamente a comunidade open-source de TTRPG.
 
-**Estratégia anti-copyright (já presente no design)**: os campos usam nomes genéricos (`stats.dexterity`, `modifiers.dexterity_mod`) e o template seed inclui **nós proxy de configuração** (`config.ac_uses_dex`, `config.spell_uses_int`) — multiplicadores 0/1 que permitem à mesma estrutura genérica expressar regras diferentes sem hardcodar regras de nenhum sistema publicado. No MVP, **todos os templates são defaults travados, definidos no código-fonte** — todo conteúdo distribuído passa por code review, o que é a linha de defesa anti-copyright mais forte possível. O projeto distribui apenas a *mecânica de cálculo*, nunca o *conteúdo de jogo*.
+**Estratégia anti-copyright (já presente no design)**: os campos usam nomes genéricos (`stats.dexterity`, `modifiers.dexterityMod`) e o template seed inclui **nós proxy de configuração** (`config.acUsesDex`, `config.spellUsesInt`) — multiplicadores 0/1 que permitem à mesma estrutura genérica expressar regras diferentes sem hardcodar regras de nenhum sistema publicado. No MVP, **todos os templates são defaults travados, definidos no código-fonte** — todo conteúdo distribuído passa por code review, o que é a linha de defesa anti-copyright mais forte possível. O projeto distribui apenas a *mecânica de cálculo*, nunca o *conteúdo de jogo*.
 
 ---
 
@@ -172,8 +172,8 @@ graph LR
   "name": "Meu Personagem",
   "data": {
     "stats": { "dexterity": 10, "constitution": 10 },
-    "modifiers": { "dexterity_mod": 0, "constitution_mod": 0 },
-    "derived": { "armor_class": 10 }
+    "modifiers": { "dexterityMod": 0, "constitutionMod": 0 },
+    "derived": { "armorClass": 10 }
   },
   "created_at": "2026-09-22T10:00:00Z",
   "updated_at": "2026-09-22T10:00:00Z"
@@ -190,7 +190,7 @@ graph LR
 { "data": { "stats": { "dexterity": 16 } } }
 
 // 200 OK — apenas efeitos em cascata (mapa aninhado)
-{ "modifiers": { "dexterity_mod": 3 }, "derived": { "armor_class": 13 } }
+{ "modifiers": { "dexterityMod": 3 }, "derived": { "armorClass": 13 } }
 ```
 
 **Exemplo de contrato — export auto-contido**:
@@ -471,8 +471,8 @@ Manter o padrão JSON já estabelecido em `shared/logger`, com campos obrigatór
 | **Sheet (Ficha)** | Instância de um template com os dados de um personagem. Pertence a um usuário (limite de 1 por usuário no MVP). |
 | **FieldSchema** | Definição de um campo: `type`, `label`, `formula`, `depends_on`, `is_editable`, `default`. |
 | **Campo base** | Campo editável sem fórmula (ex: `stats.dexterity`). |
-| **Campo derivado** | Campo calculado por fórmula, não editável (ex: `modifiers.dexterity_mod`). |
-| **Nó proxy de configuração** | Campo editável numérico (0/1) usado como multiplicador em fórmulas para ligar/desligar regras (ex: `config.ac_uses_dex`) — peça-chave da estratégia anti-copyright. |
+| **Campo derivado** | Campo calculado por fórmula, não editável (ex: `modifiers.dexterityMod`). |
+| **Nó proxy de configuração** | Campo editável numérico (0/1) usado como multiplicador em fórmulas para ligar/desligar regras (ex: `config.acUsesDex`) — peça-chave da estratégia anti-copyright. |
 | **DAG** | Grafo acíclico dirigido dos campos de um template, com fórmulas compiladas e ordem topológica para recálculo. |
 | **Recálculo em cascata** | Propagação de uma mudança de campo base por todos os derivados dependentes, em ordem topológica, apenas nos nós afetados. |
 | **DAG Registry** | Mapa em memória `template_id → DAG`, construído no boot a partir dos templates default em código. |

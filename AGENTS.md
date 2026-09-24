@@ -111,7 +111,7 @@ criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint +
 ## Gotchas
 
 - **Templates are code, not DB** — don't look for a `template` collection in Mongo (will be removed in Phase 0)
-- **DAG keys are flat path keys** (`stats.dexterity`) while engine env uses underscores (`stats_dexterity`) — collision risk if field names contain dots/underscores (tracked in `dag_test.go` LGN-41)
+- **DAG keys are flat path keys** (`stats.dexterity`) while engine env uses underscores (`stats_dexterity`) — field names are validated at `BuildDAG` (LGN-52): every segment must match `^[A-Za-z][A-Za-z0-9]*$`, so neither `.` nor `_` can appear in a name and the two key encodings can never collide (regression tests: `TestBuildDAG_FieldNameValidation` and the LGN-41 case in `TestBuildDag_EdgeCases`)
 - **PartialUpdate validates editability** against DAG before recalc — non-editable fields in payload = 400
 - **Seed runs on every boot** currently — will be removed; templates served from memory registry
 - **No auth yet** — all endpoints open; ownership/authorization in Phase 2

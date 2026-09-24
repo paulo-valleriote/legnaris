@@ -29,16 +29,16 @@ func TestService_PartialUpdate(t *testing.T) {
 			"constitution": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 		}},
 		"others": {Children: template.FieldGroup{
-			"proficiency_bonus": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 2}},
+			"proficiencyBonus": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 2}},
 		}},
 		"modifiers": {Children: template.FieldGroup{
-			"dexterity_mod": {Schema: &template.FieldSchema{
+			"dexterityMod": {Schema: &template.FieldSchema{
 				Type:       "number",
 				IsEditable: false,
 				Formula:    "floor((stats_dexterity - 10) / 2)",
 				DependsOn:  [][]string{{"stats", "dexterity"}},
 			}},
-			"constitution_mod": {Schema: &template.FieldSchema{
+			"constitutionMod": {Schema: &template.FieldSchema{
 				Type:       "number",
 				IsEditable: false,
 				Formula:    "floor((stats_constitution - 10) / 2)",
@@ -46,15 +46,15 @@ func TestService_PartialUpdate(t *testing.T) {
 			}},
 		}},
 		"config": {Children: template.FieldGroup{
-			"ac_uses_dex": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 1}},
+			"acUsesDex": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 1}},
 		}},
-		"base_armor_class": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		"baseArmorClass": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 		"derived": {Children: template.FieldGroup{
-			"armor_class": {Schema: &template.FieldSchema{
+			"armorClass": {Schema: &template.FieldSchema{
 				Type:       "number",
 				IsEditable: false,
-				Formula:    "base_armor_class + (modifiers_dexterity_mod * config_ac_uses_dex)",
-				DependsOn:  [][]string{{"base_armor_class"}, {"modifiers", "dexterity_mod"}, {"config", "ac_uses_dex"}},
+				Formula:    "baseArmorClass + (modifiers_dexterityMod * config_acUsesDex)",
+				DependsOn:  [][]string{{"baseArmorClass"}, {"modifiers", "dexterityMod"}, {"config", "acUsesDex"}},
 			}},
 		}},
 	}
@@ -74,18 +74,18 @@ func TestService_PartialUpdate(t *testing.T) {
 			"constitution": 12.0,
 		},
 		"others": map[string]any{
-			"proficiency_bonus": 2.0,
+			"proficiencyBonus": 2.0,
 		},
 		"modifiers": map[string]any{
-			"dexterity_mod":    2.0,
-			"constitution_mod": 1.0,
+			"dexterityMod":    2.0,
+			"constitutionMod": 1.0,
 		},
 		"config": map[string]any{
-			"ac_uses_dex": 1.0,
+			"acUsesDex": 1.0,
 		},
-		"base_armor_class": 10.0,
+		"baseArmorClass": 10.0,
 		"derived": map[string]any{
-			"armor_class": 12.0,
+			"armorClass": 12.0,
 		},
 	}
 
@@ -127,11 +127,11 @@ func TestService_PartialUpdate(t *testing.T) {
 							return false
 						}
 						modifiers, ok := data["modifiers"].(map[string]any)
-						if !ok || modifiers["dexterity_mod"] != 4.0 {
+						if !ok || modifiers["dexterityMod"] != 4.0 {
 							return false
 						}
 						derived, ok := data["derived"].(map[string]any)
-						if !ok || derived["armor_class"] != 14.0 {
+						if !ok || derived["armorClass"] != 14.0 {
 							return false
 						}
 						_, hasTime := update["updated_at"].(time.Time)
@@ -141,14 +141,14 @@ func TestService_PartialUpdate(t *testing.T) {
 					Once()
 			},
 			expectedCascades: map[string]any{
-				"modifiers": map[string]any{"dexterity_mod": 4.0},
-				"derived":   map[string]any{"armor_class": 14.0},
+				"modifiers": map[string]any{"dexterityMod": 4.0},
+				"derived":   map[string]any{"armorClass": 14.0},
 			},
 		},
 		{
 			name: "Nested map with multiple groups (user example)",
 			updates: map[string]any{
-				"others": map[string]any{"proficiency_bonus": 4.0},
+				"others": map[string]any{"proficiencyBonus": 4.0},
 				"stats":  map[string]any{"constitution": 14.0, "dexterity": 12.0},
 			},
 			setupMocks: func(m *mocks.MockRepository) {
@@ -168,15 +168,15 @@ func TestService_PartialUpdate(t *testing.T) {
 							return false
 						}
 						others, ok := data["others"].(map[string]any)
-						if !ok || others["proficiency_bonus"] != 4.0 {
+						if !ok || others["proficiencyBonus"] != 4.0 {
 							return false
 						}
 						modifiers, ok := data["modifiers"].(map[string]any)
-						if !ok || modifiers["dexterity_mod"] != 1.0 || modifiers["constitution_mod"] != 2.0 {
+						if !ok || modifiers["dexterityMod"] != 1.0 || modifiers["constitutionMod"] != 2.0 {
 							return false
 						}
 						derived, ok := data["derived"].(map[string]any)
-						if !ok || derived["armor_class"] != 11.0 {
+						if !ok || derived["armorClass"] != 11.0 {
 							return false
 						}
 						_, hasTime := update["updated_at"].(time.Time)
@@ -186,8 +186,8 @@ func TestService_PartialUpdate(t *testing.T) {
 					Once()
 			},
 			expectedCascades: map[string]any{
-				"modifiers": map[string]any{"dexterity_mod": 1.0, "constitution_mod": 2.0},
-				"derived":   map[string]any{"armor_class": 11.0},
+				"modifiers": map[string]any{"dexterityMod": 1.0, "constitutionMod": 2.0},
+				"derived":   map[string]any{"armorClass": 11.0},
 			},
 		},
 		{
@@ -206,7 +206,7 @@ func TestService_PartialUpdate(t *testing.T) {
 		{
 			name: "Error: Field not editable",
 			updates: map[string]any{
-				"modifiers": map[string]any{"dexterity_mod": 5.0},
+				"modifiers": map[string]any{"dexterityMod": 5.0},
 			},
 			setupMocks: func(m *mocks.MockRepository) {
 				m.EXPECT().
@@ -251,11 +251,11 @@ func TestService_PartialUpdate(t *testing.T) {
 							return false
 						}
 						modifiers, ok := data["modifiers"].(map[string]any)
-						if !ok || modifiers["dexterity_mod"] != 3.0 || modifiers["constitution_mod"] != 2.0 {
+						if !ok || modifiers["dexterityMod"] != 3.0 || modifiers["constitutionMod"] != 2.0 {
 							return false
 						}
 						derived, ok := data["derived"].(map[string]any)
-						if !ok || derived["armor_class"] != 13.0 {
+						if !ok || derived["armorClass"] != 13.0 {
 							return false
 						}
 						_, hasTime := update["updated_at"].(time.Time)
@@ -265,8 +265,8 @@ func TestService_PartialUpdate(t *testing.T) {
 					Once()
 			},
 			expectedCascades: map[string]any{
-				"modifiers": map[string]any{"dexterity_mod": 3.0, "constitution_mod": 2.0},
-				"derived":   map[string]any{"armor_class": 13.0},
+				"modifiers": map[string]any{"dexterityMod": 3.0, "constitutionMod": 2.0},
+				"derived":   map[string]any{"armorClass": 13.0},
 			},
 		},
 	}
@@ -314,13 +314,13 @@ func TestService_Create(t *testing.T) {
 				DependsOn:  [][]string{{"stats", "str"}},
 			}},
 		}},
-		"base_armor_class": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		"baseArmorClass": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 		"derived": {Children: template.FieldGroup{
-			"armor_class": {Schema: &template.FieldSchema{
+			"armorClass": {Schema: &template.FieldSchema{
 				Type:       "number",
 				IsEditable: false,
-				Formula:    "base_armor_class + mod_str",
-				DependsOn:  [][]string{{"base_armor_class"}, {"mod", "str"}},
+				Formula:    "baseArmorClass + mod_str",
+				DependsOn:  [][]string{{"baseArmorClass"}, {"mod", "str"}},
 			}},
 		}},
 	}
@@ -347,13 +347,13 @@ func TestService_Create(t *testing.T) {
 					DependsOn:  [][]string{{"stats", "str"}},
 				}},
 			}},
-			"base_armor_class": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+			"baseArmorClass": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 			"derived": {Children: template.FieldGroup{
-				"armor_class": {Schema: &template.FieldSchema{
+				"armorClass": {Schema: &template.FieldSchema{
 					Type:       "number",
 					IsEditable: false,
-					Formula:    "base_armor_class + mod_str",
-					DependsOn:  [][]string{{"base_armor_class"}, {"mod", "str"}},
+					Formula:    "baseArmorClass + mod_str",
+					DependsOn:  [][]string{{"baseArmorClass"}, {"mod", "str"}},
 				}},
 			}},
 		},
@@ -375,7 +375,7 @@ func TestService_Create(t *testing.T) {
 				return false
 			}
 			derived, ok := s.Data["derived"].(map[string]any)
-			if !ok || derived["armor_class"] != 10.0 {
+			if !ok || derived["armorClass"] != 10.0 {
 				return false
 			}
 			return s.TemplateID == "test" && s.Name == "New Character"
@@ -405,7 +405,7 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 		}},
 		"modifiers": {Children: template.FieldGroup{
-			"dexterity_mod": {Schema: &template.FieldSchema{
+			"dexterityMod": {Schema: &template.FieldSchema{
 				Type:       "number",
 				IsEditable: false,
 				Formula:    "floor((stats_dexterity - 10) / 2)",

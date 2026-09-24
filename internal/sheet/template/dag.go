@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -93,6 +94,12 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 		return nil, ErrNilFormulaEngine
 	}
 
+	// Reject invalid field names before anything else so a bad template
+	// fails fast at boot instead of producing colliding keys (LGN-52).
+	if err := validateFieldNames(fields, Path{}); err != nil {
+		return nil, err
+	}
+
 	leafSchemas, leafPaths := collectLeaves(fields)
 	if len(leafSchemas) == 0 {
 		return newDAG(templateID, eng), nil
@@ -151,6 +158,40 @@ func collectLeavesRecursive(group FieldGroup, prefix Path, schemas *[]*FieldSche
 			collectLeavesRecursive(node.Children, currentPath, schemas, paths)
 		}
 	}
+}
+
+// fieldNamePattern is the allowed shape for a single field-name segment.
+// Restricting segments to ASCII letters and digits (starting with a letter)
+// guarantees that both key encodings are injective: Path.String() joins with
+// '.' and Path.EngineKey() joins with '_', and neither separator can appear
+// inside a segment, so two distinct paths can never produce the same key.
+// It also keeps every engine key a valid expr-lang identifier.
+const fieldNamePattern = `^[A-Za-z][A-Za-z0-9]*$`
+
+// fieldNameRe is the compiled form of fieldNamePattern.
+var fieldNameRe = regexp.MustCompile(fieldNamePattern)
+
+// fieldNameRule is the human-readable counterpart of fieldNamePattern used
+// in FieldNameError messages.
+const fieldNameRule = "must start with a letter and contain only ASCII letters " +
+	"and digits ('.' and '_' are not allowed: they make DAG map keys collide with engine keys)"
+
+// validateFieldNames walks every group and leaf name in the tree and returns
+// a FieldNameError for the first name that violates fieldNamePattern.
+// prefix carries the ancestors so the error reports the full path.
+func validateFieldNames(group FieldGroup, prefix Path) error {
+	for name, node := range group {
+		currentPath := append(append(Path{}, prefix...), name)
+		if !fieldNameRe.MatchString(name) {
+			return ErrInvalidFieldName(currentPath.String(), fieldNameRule)
+		}
+		if node.IsGroup() {
+			if err := validateFieldNames(node.Children, currentPath); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // buildCompilationEnv creates a flat environment with zero values for all leaf paths.
