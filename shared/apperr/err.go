@@ -5,14 +5,17 @@ import "fmt"
 type Code string
 
 const (
-	CodeInvalidJSON    Code = "INVALID_JSON"
-	CodeInvalidRequest Code = "INVALID_REQUEST"
-	CodeUnknownField   Code = "UNKNOWN_FIELD"
-	CodeUnauthorized   Code = "UNAUTHORIZED"
-	CodeForbidden      Code = "FORBIDDEN"
-	CodeNotFound       Code = "NOT_FOUND"
-	CodeConflict       Code = "CONFLICT"
-	CodeInternal       Code = "INTERNAL_ERROR"
+	CodeInvalidJSON       Code = "INVALID_JSON"
+	CodeInvalidRequest    Code = "INVALID_REQUEST"
+	CodeUnknownField      Code = "UNKNOWN_FIELD"
+	CodeUnauthorized      Code = "UNAUTHORIZED"
+	CodeForbidden         Code = "FORBIDDEN"
+	CodeNotFound          Code = "NOT_FOUND"
+	CodeConflict          Code = "CONFLICT"
+	CodeInternal          Code = "INTERNAL_ERROR"
+	CodeCycleDetected     Code = "CYCLE_DETECTED"
+	CodeInvalidDependency Code = "INVALID_DEPENDENCY"
+	CodeInvalidPath       Code = "INVALID_PATH"
 )
 
 type Error struct {

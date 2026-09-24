@@ -105,6 +105,7 @@ func TestSet(t *testing.T) {
 		path       []string
 		value      any
 		wantNested map[string]any
+		wantErr    error
 	}{
 		{
 			name:       "Single level - new key",
@@ -112,6 +113,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a"},
 			value:      1.0,
 			wantNested: map[string]any{"a": 1.0},
+			wantErr:    nil,
 		},
 		{
 			name:       "Single level - overwrite",
@@ -119,6 +121,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a"},
 			value:      2.0,
 			wantNested: map[string]any{"a": 2.0},
+			wantErr:    nil,
 		},
 		{
 			name:       "Two levels - creates intermediate",
@@ -126,6 +129,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a", "b"},
 			value:      2.0,
 			wantNested: map[string]any{"a": map[string]any{"b": 2.0}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Three levels - creates all intermediates",
@@ -133,6 +137,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a", "b", "c"},
 			value:      3.0,
 			wantNested: map[string]any{"a": map[string]any{"b": map[string]any{"c": 3.0}}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Existing intermediate map - adds to it",
@@ -140,6 +145,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a", "b"},
 			value:      2.0,
 			wantNested: map[string]any{"a": map[string]any{"x": 1.0, "b": 2.0}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Intermediate exists but not a map - overwrites with map",
@@ -147,20 +153,23 @@ func TestSet(t *testing.T) {
 			path:       []string{"a", "b"},
 			value:      2.0,
 			wantNested: map[string]any{"a": map[string]any{"b": 2.0}},
+			wantErr:    ErrNotMap,
 		},
 		{
-			name:       "Nil map - no-op (cannot create)",
+			name:       "Nil map - returns error",
 			nested:     nil,
 			path:       []string{"a"},
 			value:      1.0,
 			wantNested: nil,
+			wantErr:    ErrNilMap,
 		},
 		{
-			name:       "Empty path - no-op",
+			name:       "Empty path - returns error",
 			nested:     map[string]any{"a": 1.0},
 			path:       []string{},
 			value:      2.0,
 			wantNested: map[string]any{"a": 1.0},
+			wantErr:    ErrEmptyPath,
 		},
 		{
 			name:       "Path with empty segment",
@@ -168,6 +177,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a", "", "b"},
 			value:      42.0,
 			wantNested: map[string]any{"a": map[string]any{"": map[string]any{"b": 42.0}}},
+			wantErr:    nil,
 		},
 		{
 			name:       "String value",
@@ -175,6 +185,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a", "b"},
 			value:      "hello",
 			wantNested: map[string]any{"a": map[string]any{"b": "hello"}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Bool value",
@@ -182,6 +193,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a", "b"},
 			value:      true,
 			wantNested: map[string]any{"a": map[string]any{"b": true}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Nil value",
@@ -189,6 +201,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a", "b"},
 			value:      nil,
 			wantNested: map[string]any{"a": map[string]any{"b": nil}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Slice value",
@@ -196,6 +209,7 @@ func TestSet(t *testing.T) {
 			path:       []string{"a", "b"},
 			value:      []int{1, 2, 3},
 			wantNested: map[string]any{"a": map[string]any{"b": []int{1, 2, 3}}},
+			wantErr:    nil,
 		},
 	}
 
@@ -203,8 +217,14 @@ func TestSet(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Deep copy input for comparison
 			inputCopy := DeepCopy(tc.nested)
-			Set(inputCopy, tc.path, tc.value)
-			assert.Equal(t, tc.wantNested, inputCopy)
+			err := Set(inputCopy, tc.path, tc.value)
+
+			if tc.wantErr != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.wantNested, inputCopy)
+			}
 		})
 	}
 }
@@ -215,62 +235,84 @@ func TestApplyUpdates(t *testing.T) {
 		nested     map[string]any
 		updates    map[string]any
 		wantNested map[string]any
+		wantErr    error
 	}{
 		{
 			name:       "Single update",
 			nested:     map[string]any{"stats": map[string]any{"str": 10.0}},
 			updates:    map[string]any{"stats.str": 16.0},
 			wantNested: map[string]any{"stats": map[string]any{"str": 16.0}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Multiple updates",
 			nested:     map[string]any{"stats": map[string]any{"str": 10.0, "dex": 12.0}},
 			updates:    map[string]any{"stats.str": 16.0, "stats.dex": 14.0},
 			wantNested: map[string]any{"stats": map[string]any{"str": 16.0, "dex": 14.0}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Update creates new nested path",
 			nested:     map[string]any{},
 			updates:    map[string]any{"character.attributes.str": 15.0},
 			wantNested: map[string]any{"character": map[string]any{"attributes": map[string]any{"str": 15.0}}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Empty updates - no change",
 			nested:     map[string]any{"a": 1.0},
 			updates:    map[string]any{},
 			wantNested: map[string]any{"a": 1.0},
+			wantErr:    nil,
 		},
 		{
 			name:       "Nil updates - no change",
 			nested:     map[string]any{"a": 1.0},
 			updates:    nil,
 			wantNested: map[string]any{"a": 1.0},
+			wantErr:    nil,
 		},
 		{
-			name:       "Nil nested - no panic",
+			name:       "Nil nested - no change, no error",
 			nested:     nil,
 			updates:    map[string]any{"a.b": 1.0},
 			wantNested: nil,
+			wantErr:    nil,
 		},
 		{
 			name:       "Updates with string values",
 			nested:     map[string]any{},
 			updates:    map[string]any{"name": "test", "nested.value": "hello"},
 			wantNested: map[string]any{"name": "test", "nested": map[string]any{"value": "hello"}},
+			wantErr:    nil,
 		},
 		{
 			name:       "Keys with multiple dots",
 			nested:     map[string]any{},
 			updates:    map[string]any{"a.b.c.d": 1.0},
 			wantNested: map[string]any{"a": map[string]any{"b": map[string]any{"c": map[string]any{"d": 1.0}}}},
+			wantErr:    nil,
+		},
+		{
+			name:       "Intermediate not a map - returns error",
+			nested:     map[string]any{"a": "not a map"},
+			updates:    map[string]any{"a.b": 1.0},
+			wantNested: map[string]any{"a": "not a map"},
+			wantErr:    ErrNotMap,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			inputCopy := DeepCopy(tc.nested)
-			ApplyUpdates(inputCopy, tc.updates)
-			assert.Equal(t, tc.wantNested, inputCopy)
+			err := ApplyUpdates(inputCopy, tc.updates)
+
+			if tc.wantErr != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.wantNested, inputCopy)
+			}
 		})
 	}
 }

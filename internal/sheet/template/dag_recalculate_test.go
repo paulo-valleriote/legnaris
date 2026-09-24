@@ -467,19 +467,19 @@ func TestValidateRecalculateInputs(t *testing.T) {
 			name:        "nil originalData",
 			original:    nil,
 			updated:     map[string]any{"a": 1.0},
-			wantErrText: "original data is undefined",
+			wantErrText: "original data is nil",
 		},
 		{
 			name:        "nil updatedData",
 			original:    map[string]any{"a": 1.0},
 			updated:     nil,
-			wantErrText: "updated data is undefined",
+			wantErrText: "updated data is nil",
 		},
 		{
 			name:        "both nil",
 			original:    nil,
 			updated:     nil,
-			wantErrText: "original data is undefined",
+			wantErrText: "original data is nil",
 		},
 		{
 			name:     "both valid - no error",

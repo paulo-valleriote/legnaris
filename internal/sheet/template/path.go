@@ -49,8 +49,9 @@ func (p Path) Get(nested map[string]any) (any, bool) {
 
 // Set sets a value in a nested map using this path.
 // Delegates to maputils.Set.
-func (p Path) Set(nested map[string]any, value any) {
-	maputils.Set(nested, p, value)
+// Returns error if path is invalid or type assertion fails.
+func (p Path) Set(nested map[string]any, value any) error {
+	return maputils.Set(nested, p, value)
 }
 
 // Flatten converts a nested map to a flat map with underscore-separated keys

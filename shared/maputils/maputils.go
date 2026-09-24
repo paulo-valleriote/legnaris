@@ -1,6 +1,18 @@
 package maputils
 
-import "reflect"
+import (
+	"errors"
+	"reflect"
+)
+
+var (
+	// ErrNilMap is returned when attempting to set a value on a nil map.
+	ErrNilMap = errors.New("cannot set on nil map")
+	// ErrEmptyPath is returned when the path is empty.
+	ErrEmptyPath = errors.New("empty path")
+	// ErrNotMap is returned when an intermediate value is not a map.
+	ErrNotMap = errors.New("intermediate value is not a map")
+)
 
 // Get retrieves a value from a nested map using a path of keys.
 // Returns the value and true if found, nil and false otherwise.
@@ -26,46 +38,48 @@ func Get(nested map[string]any, path []string) (any, bool) {
 
 // Set sets a value in a nested map using a path of keys.
 // Creates intermediate maps as needed.
-// If nested is nil, it creates a new map at the first level.
-func Set(nested map[string]any, path []string, value any) {
+// Returns error if nested is nil, path is empty, or type assertion fails at intermediate levels.
+func Set(nested map[string]any, path []string, value any) error {
 	if len(path) == 0 {
-		return
+		return ErrEmptyPath
 	}
 
 	if nested == nil {
-		// Cannot modify nil map passed by value; caller must handle initialization
-		// This function assumes nested is a valid map (non-nil) or caller handles it
-		return
+		return ErrNilMap
 	}
 
 	current := nested
 	for i, key := range path {
 		if i == len(path)-1 {
 			current[key] = value
-			return
+			return nil
 		}
 		if current[key] == nil {
 			current[key] = make(map[string]any)
 		}
 		nextMap, ok := current[key].(map[string]any)
 		if !ok {
-			nextMap = make(map[string]any)
-			current[key] = nextMap
+			return ErrNotMap
 		}
 		current = nextMap
 	}
+	return nil
 }
 
 // ApplyUpdates applies a flat map of dot-separated keys to a nested map.
 // Each key in updates is split by "." and set via Set.
-func ApplyUpdates(nested map[string]any, updates map[string]any) {
+// Returns the first error encountered, or nil if all updates succeed.
+func ApplyUpdates(nested map[string]any, updates map[string]any) error {
 	if nested == nil || updates == nil {
-		return
+		return nil
 	}
 	for key, value := range updates {
 		path := splitPath(key)
-		Set(nested, path, value)
+		if err := Set(nested, path, value); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // splitPath splits a dot-separated path into segments.

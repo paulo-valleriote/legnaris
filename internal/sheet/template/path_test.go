@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"legnaris/shared/maputils"
 )
 
 func TestPath_String(t *testing.T) {
@@ -255,6 +256,7 @@ func TestPath_Set(t *testing.T) {
 		path       Path
 		value      any
 		wantNested map[string]any
+		wantErr    error
 	}{
 		{
 			name:       "Single level",
@@ -289,21 +291,24 @@ func TestPath_Set(t *testing.T) {
 			nested:     map[string]any{"stats": "not a map"},
 			path:       Path{"stats", "str"},
 			value:      16.0,
-			wantNested: map[string]any{"stats": map[string]any{"str": 16.0}},
+			wantNested: nil,
+			wantErr:    maputils.ErrNotMap,
 		},
 		{
-			name:       "Nil map - no-op",
+			name:       "Nil map - returns error",
 			nested:     nil,
 			path:       Path{"stats"},
 			value:      10.0,
 			wantNested: nil,
+			wantErr:    maputils.ErrNilMap,
 		},
 		{
-			name:       "Empty path - no-op",
+			name:       "Empty path - returns error",
 			nested:     map[string]any{"a": 1.0},
 			path:       Path{},
 			value:      2.0,
 			wantNested: map[string]any{"a": 1.0},
+			wantErr:    maputils.ErrEmptyPath,
 		},
 		{
 			name:       "String value",
@@ -317,8 +322,13 @@ func TestPath_Set(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			inputCopy := DeepCopyForTest(tc.nested)
-			tc.path.Set(inputCopy, tc.value)
-			assert.Equal(t, tc.wantNested, inputCopy)
+			err := tc.path.Set(inputCopy, tc.value)
+			if tc.wantErr != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.wantNested, inputCopy)
+			}
 		})
 	}
 }

@@ -3,6 +3,7 @@ package template
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"legnaris/internal/engine"
@@ -20,11 +21,11 @@ import (
 // is prevented by unexported fields and a sync.RWMutex guard.
 type DAG struct {
 	sync.RWMutex
-	TemplateID        string
-	nodes             map[string]*Node
-	adjacencyList     map[string][]string
-	topologicalOrder  []string
-	formulaEngine     *engine.FormulaEngine
+	TemplateID       string
+	nodes            map[string]*Node
+	adjacencyList    map[string][]string
+	topologicalOrder []string
+	formulaEngine    *engine.FormulaEngine
 }
 
 // Node represents a single field in the DAG.
@@ -86,7 +87,8 @@ func (d *DAG) TopologicalOrder() []string {
 }
 
 // BuildDAG constructs a computation DAG from a template's field schemas.
-// Returns an error if any formula fails to compile or a dependency cycle is detected.
+// Returns an error if any formula fails to compile, a dependency cycle is detected,
+// or a DependsOn references a non-existent field.
 // The DAG is write-locked during construction to ensure thread-safe initialization.
 func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (*DAG, error) {
 	if eng == nil {
@@ -101,11 +103,14 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 	dag := newDAG(templateID, eng)
 	compilationEnv := buildCompilationEnv(leafPaths)
 
-	if err := dag.compileNodeFormulas(leafSchemas, leafPaths, compilationEnv); err != nil {
+	// Validate DependsOn paths first (before compilation) so we catch missing deps early
+	if err := dag.buildAdjacencyList(leafSchemas, leafPaths); err != nil {
 		return nil, err
 	}
 
-	dag.buildAdjacencyList(leafSchemas, leafPaths)
+	if err := dag.compileNodeFormulas(leafSchemas, leafPaths, compilationEnv); err != nil {
+		return nil, err
+	}
 
 	topoOrder, err := topologicalSort(dag.nodes, dag.adjacencyList)
 	if err != nil {
@@ -123,10 +128,10 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 // newDAG allocates and initializes a DAG with empty collections.
 func newDAG(templateID string, eng *engine.FormulaEngine) *DAG {
 	return &DAG{
-		TemplateID:     templateID,
-		nodes:          make(map[string]*Node),
-		adjacencyList:  make(map[string][]string),
-		formulaEngine:  eng,
+		TemplateID:    templateID,
+		nodes:         make(map[string]*Node),
+		adjacencyList: make(map[string][]string),
+		formulaEngine: eng,
 	}
 }
 
@@ -189,22 +194,78 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 }
 
 // buildAdjacencyList constructs the dependency graph from DependsOn declarations.
-func (d *DAG) buildAdjacencyList(schemas []*FieldSchema, paths []Path) {
+// Returns ErrInvalidDependency if any DependsOn references a non-existent field.
+func (d *DAG) buildAdjacencyList(schemas []*FieldSchema, paths []Path) error {
 	d.Lock()
 	defer d.Unlock()
+
+	// Build set of all valid node keys for validation
+	validKeys := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		validKeys[path.String()] = true
+	}
 
 	for i, schema := range schemas {
 		key := paths[i].String()
 		for _, depPath := range schema.DependsOn {
 			depKey := Path(depPath).String()
+			if !validKeys[depKey] {
+				return ErrInvalidDependency(depPath, key)
+			}
 			d.adjacencyList[depKey] = append(d.adjacencyList[depKey], key)
 		}
 	}
+	return nil
 }
 
-// topologicalSort performs Kahn's algorithm to produce a valid evaluation order.
-// Returns ErrInfiniteCycle if the graph contains a cycle.
+// topologicalSort performs cycle detection using DFS to identify cycle nodes.
+// Returns topological order or ErrCycleDetected with the cycle path.
 func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string, error) {
+	// Three-state DFS: 0=unvisited, 1=visiting, 2=visited
+	state := make(map[string]int, len(nodes))
+	var cyclePath []string
+
+	var dfs func(string) bool
+	dfs = func(node string) bool {
+		state[node] = 1 // visiting
+		cyclePath = append(cyclePath, node)
+
+		for _, child := range adj[node] {
+			if state[child] == 0 {
+				if dfs(child) {
+					return true
+				}
+			} else if state[child] == 1 {
+				// Cycle found - extract cycle from cyclePath
+				cycleStart := -1
+				for i, n := range cyclePath {
+					if n == child {
+						cycleStart = i
+						break
+					}
+				}
+				if cycleStart >= 0 {
+					cyclePath = cyclePath[cycleStart:]
+					return true
+				}
+			}
+		}
+
+		state[node] = 2 // visited
+		cyclePath = cyclePath[:len(cyclePath)-1]
+		return false
+	}
+
+	// Run DFS from all unvisited nodes
+	for node := range nodes {
+		if state[node] == 0 {
+			if dfs(node) {
+				return nil, ErrCycleDetected(cyclePath)
+			}
+		}
+	}
+
+	// No cycle - now run Kahn's for topological order
 	inDegree := make(map[string]int, len(nodes))
 	for key := range nodes {
 		inDegree[key] = 0
@@ -236,6 +297,7 @@ func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string,
 	}
 
 	if len(topoOrder) != len(nodes) {
+		// Should not happen since DFS already checked, but fallback
 		return nil, ErrInfiniteCycle
 	}
 	return topoOrder, nil
@@ -243,13 +305,17 @@ func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string,
 
 // Recalculate reapplies updates and recomputes derived fields in topological order.
 // Returns a map of only the derived fields that actually changed (cascading effects).
-// Returns an error if any formula evaluation fails.
-// The DAG is protected by a read lock for the duration of the operation.
+// Returns an error if any formula evaluation fails, inputs are invalid, or update keys are unknown.
 func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]any, error) {
 	if d == nil {
-		return nil, errors.New("DAG is nil")
+		return nil, apperr.NewError(apperr.CodeInternal, "DAG is nil", nil)
 	}
 	if err := validateRecalculateInputs(originalData, updatedData); err != nil {
+		return nil, err
+	}
+
+	// Validate all updatedData keys exist in DAG
+	if err := d.validateUpdateKeys(updatedData); err != nil {
 		return nil, err
 	}
 
@@ -270,10 +336,42 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 	return changedDerived, nil
 }
 
+// validateUpdateKeys checks that all keys in updatedData exist in the DAG.
+// A key is valid if it is a DAG node or a parent prefix of a DAG node
+// (e.g., "stats" is valid if "stats.str" exists in the DAG).
+func (d *DAG) validateUpdateKeys(updatedData map[string]any) error {
+	d.RLock()
+	defer d.RUnlock()
+
+	for key := range updatedData {
+		if d.HasNode(key) {
+			continue // Direct DAG node
+		}
+		// Check if key is a prefix of any DAG node (e.g., "stats" for "stats.str")
+		if !d.hasNodePrefix(key) {
+			return ErrUnknownField(key)
+		}
+	}
+	return nil
+}
+
+// hasNodePrefix returns true if any DAG node starts with the given key + ".".
+func (d *DAG) hasNodePrefix(key string) bool {
+	prefix := key + "."
+	for nodeKey := range d.nodes {
+		if strings.HasPrefix(nodeKey, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // prepareData deep-copies original data and applies updates, returning the sheet data and engine environment.
 func (d *DAG) prepareData(originalData, updatedData map[string]any) (map[string]any, map[string]any, error) {
 	sheetData := maputils.DeepCopy(originalData)
-	maputils.ApplyUpdates(sheetData, updatedData)
+	if err := maputils.ApplyUpdates(sheetData, updatedData); err != nil {
+		return nil, nil, err
+	}
 	engineEnv := maputils.ToEngineEnv(sheetData)
 	return sheetData, engineEnv, nil
 }
@@ -312,10 +410,18 @@ func (d *DAG) propagateChanges(nodeKey string, adj map[string][]string, needsRec
 
 func validateRecalculateInputs(originalData, updatedData map[string]any) error {
 	if originalData == nil {
-		return errors.New("original data is undefined and template dag cannot be recalculated")
+		return apperr.NewError(
+			apperr.CodeInvalidRequest,
+			"original data is nil",
+			nil,
+		)
 	}
 	if updatedData == nil {
-		return errors.New("updated data is undefined and template dag cannot be recalculated")
+		return apperr.NewError(
+			apperr.CodeInvalidRequest,
+			"updated data is nil",
+			nil,
+		)
 	}
 	return nil
 }
@@ -352,7 +458,9 @@ func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, chang
 
 	oldValue, _ := node.Path.Get(sheetData)
 	if !maputils.Equal(oldValue, newValue) {
-		node.Path.Set(sheetData, newValue)
+		if err := node.Path.Set(sheetData, newValue); err != nil {
+			return false, err
+		}
 		engineEnv[node.Path.EngineKey()] = newValue
 		changedDerived[node.MapKey()] = newValue
 		return true, nil

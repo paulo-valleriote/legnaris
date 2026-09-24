@@ -3,6 +3,7 @@ package template
 import (
 	"errors"
 	"legnaris/internal/engine"
+	"legnaris/shared/apperr"
 	"legnaris/shared/maputils"
 	"math"
 	"strings"
@@ -53,7 +54,43 @@ func TestBuildDag(t *testing.T) {
 				}},
 			},
 			assertErr: func(t *testing.T, err error) {
-				require.ErrorIs(t, err, ErrInfiniteCycle)
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrInfiniteCycle)
+				// Verify it's an apperr with CYCLE_DETECTED code
+				apperrErr, ok := err.(*apperr.Error)
+				require.True(t, ok, "expected apperr.Error")
+				assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
+				// Verify cycle nodes are identified
+				cycleErr, ok := apperrErr.Err.(*CycleError)
+				require.True(t, ok, "expected CycleError")
+				assert.NotEmpty(t, cycleErr.Nodes)
+			},
+		},
+		{
+			name: "Infinite Loop (cycle of 3+ nodes)",
+			fields: FieldGroup{
+				"a": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula: "c + 1", DependsOn: [][]string{{"c"}},
+				}},
+				"b": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula: "a + 1", DependsOn: [][]string{{"a"}},
+				}},
+				"c": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula: "b + 1", DependsOn: [][]string{{"b"}},
+				}},
+			},
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrInfiniteCycle)
+				apperrErr, ok := err.(*apperr.Error)
+				require.True(t, ok)
+				assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
+				cycleErr, ok := apperrErr.Err.(*CycleError)
+				require.True(t, ok)
+				assert.Len(t, cycleErr.Nodes, 3)
 			},
 		},
 		{
@@ -387,7 +424,11 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				}},
 			},
 			assertErr: func(t *testing.T, err error) {
-				require.ErrorIs(t, err, ErrInfiniteCycle)
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrInfiniteCycle)
+				apperrErr, ok := err.(*apperr.Error)
+				require.True(t, ok)
+				assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
 			},
 		},
 		{
@@ -407,7 +448,11 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				}},
 			},
 			assertErr: func(t *testing.T, err error) {
-				require.ErrorIs(t, err, ErrInfiniteCycle)
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrInfiniteCycle)
+				apperrErr, ok := err.(*apperr.Error)
+				require.True(t, ok)
+				assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
 			},
 		},
 		{
@@ -420,13 +465,11 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				}},
 			},
 			assertErr: func(t *testing.T, err error) {
-				// TODO(LGN-41): Current behavior returns ErrCompileFormula because the engine
-				// compiles the formula against mockEnv which doesn't have "nonexistent".
-				// The DependsOn is not validated before compilation.
-				// Expected: Should validate DependsOn paths exist before compiling, return specific error.
-				// Tracking: https://paulovalleriotedev.atlassian.net/browse/LGN-41
 				require.Error(t, err)
-				assert.ErrorContains(t, err, "unknown name nonexistent")
+				// Now returns ErrInvalidDependency instead of compilation error
+				apperrErr, ok := err.(*apperr.Error)
+				require.True(t, ok, "expected apperr.Error")
+				assert.Equal(t, apperr.CodeInvalidDependency, apperrErr.Code)
 			},
 		},
 		{
@@ -443,10 +486,6 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				require.NoError(t, err)
 			},
 			assertDag: func(t *testing.T, dag *DAG) {
-				// TODO(LGN-41): Current behavior adds duplicate entries to AdjacencyList.
-				// inDegree is inflated (2 instead of 1), but Kahn's algorithm still works.
-				// Expected: Should deduplicate DependsOn entries before building graph.
-				// Tracking: https://paulovalleriotedev.atlassian.net/browse/LGN-41
 				node, ok := dag.GetNode("derived")
 				require.True(t, ok)
 				require.NotNil(t, node)
@@ -457,10 +496,6 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			name:   "Template with 0 fields (empty FieldGroup)",
 			fields: FieldGroup{},
 			assertErr: func(t *testing.T, err error) {
-				// TODO(LGN-41): Current behavior returns DAG with empty TopologicalOrder.
-				// No error is returned, but downstream code may not handle empty DAG correctly.
-				// Expected: Should return error for empty template.
-				// Tracking: https://paulovalleriotedev.atlassian.net/browse/LGN-41
 				require.NoError(t, err) // Current behavior
 			},
 			assertDag: func(t *testing.T, dag *DAG) {
@@ -483,16 +518,9 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				}},
 			},
 			assertErr: func(t *testing.T, err error) {
-				// TODO(LGN-41): MapKey uses ".", toFlatForEngine uses "_" - COLLISION RISK.
-				// "stats.str.dex" -> MapKey="stats.str.dex", engine key="stats_str_dex"
-				// "stats.str_dex" -> MapKey="stats.str_dex", engine key="stats_str_dex"
-				// Both map to same engine key "stats_str_dex" - DATA CORRUPTION!
-				// Current behavior: BuildDAG succeeds but Recalculate will have collisions.
-				// Tracking: https://paulovalleriotedev.atlassian.net/browse/LGN-41
 				require.NoError(t, err) // Current behavior
 			},
 			assertDag: func(t *testing.T, dag *DAG) {
-				// Verify both paths exist and are distinct in MapKey
 				assert.True(t, dag.HasNode("stats.str.dex"))
 				assert.True(t, dag.HasNode("stats.str_dex"))
 			},
@@ -574,7 +602,9 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			updates:      map[string]any{"stats.str": 16.0},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				require.ErrorContains(t, err, "original data is undefined")
+				apperrErr, ok := err.(*apperr.Error)
+				require.True(t, ok, "expected apperr.Error")
+				assert.Equal(t, apperr.CodeInvalidRequest, apperrErr.Code)
 			},
 		},
 		{
@@ -584,7 +614,27 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			updates:      nil,
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				require.ErrorContains(t, err, "updated data is undefined")
+				apperrErr, ok := err.(*apperr.Error)
+				require.True(t, ok, "expected apperr.Error")
+				assert.Equal(t, apperr.CodeInvalidRequest, apperrErr.Code)
+			},
+		},
+		{
+			name: "Unknown field in updates",
+			dag:  baseDag,
+			originalData: map[string]any{
+				"stats": map[string]any{"str": 10.0},
+				"mod":   map[string]any{"str": 0.0},
+			},
+			updates: map[string]any{
+				"stats.str":     16.0,
+				"unknown.field": 99.0,
+			},
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				apperrErr, ok := err.(*apperr.Error)
+				require.True(t, ok, "expected apperr.Error")
+				assert.Equal(t, apperr.CodeUnknownField, apperrErr.Code)
 			},
 		},
 		{
@@ -724,13 +774,13 @@ func TestValuesEqual(t *testing.T) {
 			name:     "int vs float64 (different concrete types)",
 			a:        int(10),
 			b:        float64(10.0),
-			expected: false, // int not handled in fast path, DeepEqual returns false
+			expected: false,
 		},
 		{
 			name:     "int64 vs float64 (different concrete types)",
 			a:        int64(10),
 			b:        float64(10.0),
-			expected: false, // int64 not handled in fast path, DeepEqual returns false
+			expected: false,
 		},
 		{
 			name:     "float64 with fractional part",
@@ -870,4 +920,272 @@ func TestRecalculate_RuntimeFormulaError(t *testing.T) {
 	require.Error(t, err, "Type mismatch during formula evaluation should return error to caller")
 	assert.ErrorContains(t, err, "invalid operation") // expr-lang error message
 	assert.Empty(t, cascadingEffects3)
+}
+
+// TestTopologicalSort_CycleDetection verifies that cycle detection returns the correct nodes.
+func TestTopologicalSort_CycleDetection(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+
+	tests := []struct {
+		name             string
+		fields           FieldGroup
+		expectedCycleLen int
+	}{
+		{
+			name: "2-node cycle identifies both nodes",
+			fields: FieldGroup{
+				"a": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula: "b + 1", DependsOn: [][]string{{"b"}},
+				}},
+				"b": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula: "a + 1", DependsOn: [][]string{{"a"}},
+				}},
+			},
+			expectedCycleLen: 2,
+		},
+		{
+			name: "3-node cycle identifies all nodes",
+			fields: FieldGroup{
+				"a": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula: "c + 1", DependsOn: [][]string{{"c"}},
+				}},
+				"b": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula: "a + 1", DependsOn: [][]string{{"a"}},
+				}},
+				"c": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula: "b + 1", DependsOn: [][]string{{"b"}},
+				}},
+			},
+			expectedCycleLen: 3,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := BuildDAG("test", tc.fields, formulaEngine)
+			require.Error(t, err)
+
+			apperrErr, ok := err.(*apperr.Error)
+			require.True(t, ok)
+			assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
+
+			cycleErr, ok := apperrErr.Err.(*CycleError)
+			require.True(t, ok)
+			assert.Len(t, cycleErr.Nodes, tc.expectedCycleLen)
+		})
+	}
+}
+
+// TestBuildDAG_InvalidDependency verifies that DependsOn referencing non-existent paths returns error.
+func TestBuildDAG_InvalidDependency(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+
+	tests := []struct {
+		name       string
+		fields     FieldGroup
+		depPath    []string
+		targetNode string
+	}{
+		{
+			name: "DependsOn referencing non-existent path",
+			fields: FieldGroup{
+				"derived": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula:   "nonexistent + 1",
+					DependsOn: [][]string{{"nonexistent"}},
+				}},
+			},
+			depPath:    []string{"nonexistent"},
+			targetNode: "derived",
+		},
+		{
+			name: "DependsOn referencing deep non-existent path",
+			fields: FieldGroup{
+				"derived": {Schema: &FieldSchema{
+					Type: "number", IsEditable: false,
+					Formula:   "base_str * 2",
+					DependsOn: [][]string{{"base", "str"}},
+				}},
+			},
+			depPath:    []string{"base", "str"},
+			targetNode: "derived",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := BuildDAG("test", tc.fields, formulaEngine)
+			require.Error(t, err)
+
+			apperrErr, ok := err.(*apperr.Error)
+			require.True(t, ok, "expected apperr.Error")
+			assert.Equal(t, apperr.CodeInvalidDependency, apperrErr.Code)
+			assert.ErrorContains(t, err, tc.targetNode)
+		})
+	}
+}
+
+// TestRecalculate_UnknownField verifies that updates with unknown fields return error.
+func TestRecalculate_UnknownField(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+
+	fields := FieldGroup{
+		"stats": {Children: FieldGroup{
+			"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+		}},
+	}
+
+	dag, err := BuildDAG("test", fields, formulaEngine)
+	require.NoError(t, err)
+
+	originalData := map[string]any{
+		"stats": map[string]any{"str": 10.0},
+	}
+	updates := map[string]any{
+		"stats.str": 16.0,
+		"unknown":   99.0,
+	}
+
+	_, err = dag.Recalculate(originalData, updates)
+	require.Error(t, err)
+
+	apperrErr, ok := err.(*apperr.Error)
+	require.True(t, ok, "expected apperr.Error")
+	assert.Equal(t, apperr.CodeUnknownField, apperrErr.Code)
+}
+
+// TestMapUtilsSet_ErrorCases verifies Set error handling.
+func TestMapUtilsSet_ErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		nested  map[string]any
+		path    []string
+		value   any
+		wantErr error
+	}{
+		{
+			name:    "nil map returns ErrNilMap",
+			nested:  nil,
+			path:    []string{"a"},
+			value:   1.0,
+			wantErr: maputils.ErrNilMap,
+		},
+		{
+			name:    "empty path returns ErrEmptyPath",
+			nested:  map[string]any{"a": 1.0},
+			path:    []string{},
+			value:   1.0,
+			wantErr: maputils.ErrEmptyPath,
+		},
+		{
+			name:    "intermediate not a map returns ErrNotMap",
+			nested:  map[string]any{"a": "not a map"},
+			path:    []string{"a", "b"},
+			value:   1.0,
+			wantErr: maputils.ErrNotMap,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := maputils.Set(tc.nested, tc.path, tc.value)
+			assert.ErrorIs(t, err, tc.wantErr)
+		})
+	}
+}
+
+// TestPathSet_ErrorCases verifies Path.Set returns errors.
+func TestPathSet_ErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    Path
+		nested  map[string]any
+		value   any
+		wantErr error
+	}{
+		{
+			name:    "nil map returns ErrNilMap",
+			path:    Path{"a"},
+			nested:  nil,
+			value:   1.0,
+			wantErr: maputils.ErrNilMap,
+		},
+		{
+			name:    "empty path returns ErrEmptyPath",
+			path:    Path{},
+			nested:  map[string]any{"a": 1.0},
+			value:   1.0,
+			wantErr: maputils.ErrEmptyPath,
+		},
+		{
+			name:    "intermediate not a map returns ErrNotMap",
+			path:    Path{"a", "b"},
+			nested:  map[string]any{"a": "not a map"},
+			value:   1.0,
+			wantErr: maputils.ErrNotMap,
+		},
+		{
+			name:    "valid path succeeds",
+			path:    Path{"a"},
+			nested:  map[string]any{},
+			value:   1.0,
+			wantErr: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.path.Set(tc.nested, tc.value)
+			if tc.wantErr != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestApplyUpdates_ErrorCases verifies ApplyUpdates returns errors.
+func TestApplyUpdates_ErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		nested  map[string]any
+		updates map[string]any
+		wantErr error
+	}{
+		{
+			name:    "intermediate not a map returns ErrNotMap",
+			nested:  map[string]any{"a": "not a map"},
+			updates: map[string]any{"a.b": 1.0},
+			wantErr: maputils.ErrNotMap,
+		},
+		{
+			name:    "nil nested with updates - no error (no-op)",
+			nested:  nil,
+			updates: map[string]any{"a": 1.0},
+			wantErr: nil,
+		},
+		{
+			name:    "nil updates - no error (no-op)",
+			nested:  map[string]any{"a": 1.0},
+			updates: nil,
+			wantErr: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := maputils.ApplyUpdates(tc.nested, tc.updates)
+			if tc.wantErr != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
