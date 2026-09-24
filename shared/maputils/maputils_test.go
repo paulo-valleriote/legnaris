@@ -148,11 +148,11 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "Intermediate exists but not a map - overwrites with map",
+			name:       "Intermediate exists but not a map - returns error without mutating",
 			nested:     map[string]any{"a": "not a map"},
 			path:       []string{"a", "b"},
 			value:      2.0,
-			wantNested: map[string]any{"a": map[string]any{"b": 2.0}},
+			wantNested: map[string]any{"a": "not a map"},
 			wantErr:    ErrNotMap,
 		},
 		{
@@ -299,6 +299,32 @@ func TestApplyUpdates(t *testing.T) {
 			updates:    map[string]any{"a.b": 1.0},
 			wantNested: map[string]any{"a": "not a map"},
 			wantErr:    ErrNotMap,
+		},
+		{
+			// Parity with the former sheet/service splitPathKey: an empty key
+			// must error instead of silently dropping the update.
+			name:       "Empty key - returns ErrEmptyPath",
+			nested:     map[string]any{"a": 1.0},
+			updates:    map[string]any{"": 2.0},
+			wantNested: map[string]any{"a": 1.0},
+			wantErr:    ErrEmptyPath,
+		},
+		{
+			// Trailing separators keep their empty segment, matching splitPath.
+			name:       "Trailing dot key keeps empty segment",
+			nested:     map[string]any{},
+			updates:    map[string]any{"a.": 1.0},
+			wantNested: map[string]any{"a": map[string]any{"": 1.0}},
+			wantErr:    nil,
+		},
+		{
+			// Parity with the former sheet/service splitPathKey on multibyte
+			// keys: splitting must not break rune sequences.
+			name:       "Multibyte segments split on dots",
+			nested:     map[string]any{},
+			updates:    map[string]any{"ação.mod": 2.0},
+			wantNested: map[string]any{"ação": map[string]any{"mod": 2.0}},
+			wantErr:    nil,
 		},
 	}
 
@@ -673,9 +699,9 @@ func TestSplitPath(t *testing.T) {
 			expected: []string{"a"},
 		},
 		{
-			name:     "Empty string",
+			name:     "Empty string yields empty path (rejected by Set as ErrEmptyPath)",
 			input:    "",
-			expected: []string{""},
+			expected: nil,
 		},
 		{
 			name:     "Leading dot",
@@ -696,6 +722,11 @@ func TestSplitPath(t *testing.T) {
 			name:     "Only dots",
 			input:    "..",
 			expected: []string{"", "", ""},
+		},
+		{
+			name:     "Multibyte segments split on rune boundaries",
+			input:    "ação.mod",
+			expected: []string{"ação", "mod"},
 		},
 	}
 

@@ -10,6 +10,8 @@ import (
 	"legnaris/internal/sheet/mocks"
 	"legnaris/internal/sheet/template"
 	templatemocks "legnaris/internal/sheet/template/mocks"
+	"legnaris/shared/apperr"
+	"legnaris/shared/maputils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -390,4 +392,62 @@ func TestService_Create(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, s.ID)
 	assert.Equal(t, "test", s.TemplateID)
+}
+
+// TestService_PartialUpdate_InvalidStoredData locks the consolidated
+// maputils behavior at the service boundary: when a stored sheet holds a
+// scalar where a nested map is expected, the typed maputils.ErrNotMap must
+// surface as a 400 apperr instead of the 500 INTERNAL_ERROR fallback.
+func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+	fields := template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"modifiers": {Children: template.FieldGroup{
+			"dexterity_mod": {Schema: &template.FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "floor((stats_dexterity - 10) / 2)",
+				DependsOn:  [][]string{{"stats", "dexterity"}},
+			}},
+		}},
+	}
+
+	dag, err := template.BuildDAG("fantasy_v1", fields, formulaEngine)
+	require.NoError(t, err)
+
+	sheetID := "sheet-corrupted"
+	corrupted := &sheet.Sheet{
+		ID:         sheetID,
+		TemplateID: "fantasy_v1",
+		Name:       "Corrupted Sheet",
+		Data:       map[string]any{"stats": "not a map"},
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	mockRepo := mocks.NewMockRepository(t)
+	mockRepo.EXPECT().
+		FetchByID(context.Background(), sheetID).
+		Return(corrupted, nil).
+		Once()
+
+	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), map[string]*template.DAG{
+		"fantasy_v1": dag,
+	})
+
+	_, err = svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+		SheetID: sheetID,
+		Data:    map[string]any{"stats": map[string]any{"dexterity": 18.0}},
+	})
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, maputils.ErrNotMap)
+	assert.Contains(t, err.Error(), "invalid sheet data")
+
+	var appErr *apperr.Error
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+	assert.Equal(t, 400, appErr.HttpStatus())
 }

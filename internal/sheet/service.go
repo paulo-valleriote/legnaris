@@ -67,7 +67,9 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 
 	// Apply the flat derived effects back as a nested map (same strategy as
 	// PartialUpdate), instead of maps.Copy which would leak flat keys.
-	applyNestedUpdates(initialData, derivedEffects)
+	if err := maputils.ApplyUpdates(initialData, derivedEffects); err != nil {
+		return nil, translateMapErr("create", err)
+	}
 
 	newSheet := Sheet{
 		ID:         uuid.NewString(),
@@ -128,9 +130,13 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	}
 
 	// Merge both original updates AND cascading effects
-	mergedData := deepCopyNested(storedSheet.Data)
-	applyNestedUpdates(mergedData, updates)
-	applyNestedUpdates(mergedData, cascadingEffects)
+	mergedData := maputils.DeepCopy(storedSheet.Data)
+	if err := maputils.ApplyUpdates(mergedData, updates); err != nil {
+		return nil, translateMapErr("update", err)
+	}
+	if err := maputils.ApplyUpdates(mergedData, cascadingEffects); err != nil {
+		return nil, translateMapErr("update", err)
+	}
 
 	dbUpdates := map[string]any{
 		"data":       mergedData,
@@ -140,7 +146,7 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	if err := s.repository.PartialUpdate(ctx, cmd.SheetID, dbUpdates); err != nil {
 		return nil, translateRepoErr("update", err)
 	}
-	return nestedCascadingEffects(cascadingEffects), nil
+	return nestedCascadingEffects(cascadingEffects)
 }
 
 // translateRepoErr maps repository errors to typed apperr at the service
@@ -174,6 +180,8 @@ func translateDAGErr(err error) error {
 		return apperr.NewError(apperr.CodeUnknownField, unknownField.Error(), nil)
 	}
 	switch {
+	case isMaputilsDataErr(err):
+		return apperr.NewError(apperr.CodeInvalidRequest, "invalid sheet data", err)
 	case errors.Is(err, template.ErrFormulaEval):
 		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), nil)
 	case errors.Is(err, template.ErrNilOriginalData), errors.Is(err, template.ErrNilUpdatedData):
@@ -184,13 +192,35 @@ func translateDAGErr(err error) error {
 	return apperr.NewError(apperr.CodeInternal, "dag recalculation failed", err)
 }
 
+// translateMapErr maps shared/maputils errors to typed apperr at the service
+// boundary. The maputils layer must stay free of apperr imports.
+func translateMapErr(op string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if isMaputilsDataErr(err) {
+		return apperr.NewError(apperr.CodeInvalidRequest, "invalid sheet data", err)
+	}
+	return apperr.NewError(apperr.CodeInternal, "failed to "+op+" sheet", err)
+}
+
+// isMaputilsDataErr reports whether err is a typed maputils nested-data error
+// (empty path, nil map or non-map intermediate value).
+func isMaputilsDataErr(err error) bool {
+	return errors.Is(err, maputils.ErrEmptyPath) ||
+		errors.Is(err, maputils.ErrNilMap) ||
+		errors.Is(err, maputils.ErrNotMap)
+}
+
 // nestedCascadingEffects converts the flat path-key cascading effects
 // returned by DAG.Recalculate back into a nested map so the API response
 // mirrors the nested request payload.
-func nestedCascadingEffects(flat map[string]any) map[string]any {
+func nestedCascadingEffects(flat map[string]any) (map[string]any, error) {
 	nested := make(map[string]any)
-	applyNestedUpdates(nested, flat)
-	return nested
+	if err := maputils.ApplyUpdates(nested, flat); err != nil {
+		return nil, translateMapErr("update", err)
+	}
+	return nested, nil
 }
 
 // buildNestedAllFields creates nested map with ALL leaf fields (base + derived)
@@ -199,74 +229,13 @@ func buildNestedAllFields(group template.FieldGroup) map[string]any {
 	result := make(map[string]any)
 	for name, node := range group {
 		if node.IsLeaf() {
-			setNestedValue(result, []string{name}, node.Schema.Default)
+			result[name] = node.Schema.Default
 		} else if node.IsGroup() {
 			nested := buildNestedAllFields(node.Children)
 			if len(nested) > 0 {
 				result[name] = nested
 			}
 		}
-	}
-	return result
-}
-
-func setNestedValue(nested map[string]any, path []string, value any) {
-	current := nested
-	for i, key := range path {
-		if i == len(path)-1 {
-			current[key] = value
-		} else {
-			if current[key] == nil {
-				current[key] = make(map[string]any)
-			}
-			nextMap, ok := current[key].(map[string]any)
-			if !ok {
-				nextMap = make(map[string]any)
-				current[key] = nextMap
-			}
-			current = nextMap
-		}
-	}
-}
-
-func applyNestedUpdates(nested map[string]any, updates map[string]any) {
-	for key, value := range updates {
-		path := []string{}
-		for _, part := range splitPathKey(key) {
-			path = append(path, part)
-		}
-		setNestedValue(nested, path, value)
-	}
-}
-
-func deepCopyNested(src map[string]any) map[string]any {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[string]any, len(src))
-	for k, v := range src {
-		if nestedMap, ok := v.(map[string]any); ok {
-			dst[k] = deepCopyNested(nestedMap)
-		} else {
-			dst[k] = v
-		}
-	}
-	return dst
-}
-
-func splitPathKey(key string) []string {
-	var result []string
-	current := ""
-	for _, c := range key {
-		if c == '.' {
-			result = append(result, current)
-			current = ""
-		} else {
-			current += string(c)
-		}
-	}
-	if current != "" {
-		result = append(result, current)
 	}
 	return result
 }

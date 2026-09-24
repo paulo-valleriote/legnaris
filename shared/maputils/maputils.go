@@ -83,13 +83,12 @@ func ApplyUpdates(nested map[string]any, updates map[string]any) error {
 }
 
 // splitPath splits a flat path key into segments.
+// An empty key yields an empty path, which Set rejects with ErrEmptyPath.
 // Unused leading/trailing separators produce empty segments which are preserved.
 func splitPath(key string) []string {
 	if key == "" {
-		return []string{""}
+		return nil
 	}
-	// Manual split to avoid strings.Split allocation for simple cases
-	// But strings.Split is fine here for clarity
 	return splitString(key, '.')
 }
 
