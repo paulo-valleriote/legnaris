@@ -27,6 +27,14 @@ type Service interface {
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 }
 
+// User-facing error messages shared by the service and its HTTP controllers
+// (internal/app imports them to keep wording consistent). Message constants
+// are strings, not errors — error causes must stay apperr-only per AGENTS.md.
+const (
+	MsgSheetIDNotProvided = "sheet id not provided"
+	MsgFieldDoesNotExist  = "field does not exist: "
+)
+
 type ServiceImpl struct {
 	repository      Repository
 	templateService template.Service
@@ -87,7 +95,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 
 func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) {
 	if id == "" {
-		return nil, apperr.NewError(apperr.CodeInvalidRequest, "sheet id not informed", errors.New("sheet id is empty"))
+		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgSheetIDNotProvided, nil)
 	}
 
 	sheet, err := s.repository.FetchByID(ctx, id)
@@ -116,7 +124,7 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 
 	for key := range updates {
 		if !dag.HasNode(key) {
-			return nil, apperr.NewError(apperr.CodeUnknownField, "field not exists: "+key, nil)
+			return nil, apperr.NewError(apperr.CodeUnknownField, MsgFieldDoesNotExist+key, nil)
 		}
 		node, _ := dag.GetNode(key)
 		if !node.IsEditable {

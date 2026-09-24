@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"legnaris/internal/sheet"
 	"legnaris/shared/apperr"
 	"legnaris/shared/json"
@@ -43,7 +42,7 @@ func (tc *SheetController) Create(c *echo.Context) error {
 func (tc *SheetController) FetchByID(c *echo.Context) error {
 	id := c.Param("sheetID")
 	if id == "" {
-		return apperr.NewError(apperr.CodeInvalidRequest, "sheet id not informed", errors.New("sheet id is empty"))
+		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, nil)
 	}
 
 	storedSheet, err := tc.service.FetchByID(c.Request().Context(), id)
@@ -58,7 +57,7 @@ func (tc *SheetController) PartialUpdate(c *echo.Context) error {
 
 	id := c.Param("sheetID")
 	if id == "" {
-		return apperr.NewError(apperr.CodeInvalidRequest, "sheet id not informed", errors.New("sheet id is empty"))
+		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, nil)
 	}
 
 	if err := json.Decode(c, &cmd); err != nil {

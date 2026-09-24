@@ -22,7 +22,7 @@ type Database struct {
 }
 
 // ErrMissingURI reports a missing DATABASE_URI configuration at startup.
-var ErrMissingURI = errors.New("URI is not configured")
+var ErrMissingURI = errors.New("DATABASE_URI is not configured")
 
 func InitMongo(env env.Env) (*Database, error) {
 	uri := env.Variables.DatabaseURI
