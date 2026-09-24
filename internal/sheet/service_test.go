@@ -18,6 +18,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// dagProvider adapts a plain map to the sheet.DAGProvider interface, so tests
+// can wire a hand-built DAG without constructing a whole template.Registry
+// (LGN-54: the service takes a provider, not a mutable map).
+type dagProvider map[string]*template.DAG
+
+func (p dagProvider) DAG(id string) (*template.DAG, bool) {
+	dag, ok := p[id]
+	return dag, ok
+}
+
 func TestService_PartialUpdate(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t)
 	mockTemplateSvc := templatemocks.NewMockService(t)
@@ -62,7 +72,7 @@ func TestService_PartialUpdate(t *testing.T) {
 	dag, err := template.BuildDAG("fantasy_v1", fields, formulaEngine)
 	require.NoError(t, err)
 
-	dagCache := map[string]*template.DAG{
+	dagCache := dagProvider{
 		"fantasy_v1": dag,
 	}
 
@@ -328,7 +338,7 @@ func TestService_Create(t *testing.T) {
 	dag, err := template.BuildDAG("test", fields, formulaEngine)
 	require.NoError(t, err)
 
-	dagCache := map[string]*template.DAG{"test": dag}
+	dagCache := dagProvider{"test": dag}
 
 	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
 
@@ -433,7 +443,7 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 		Return(corrupted, nil).
 		Once()
 
-	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), map[string]*template.DAG{
+	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagProvider{
 		"fantasy_v1": dag,
 	})
 

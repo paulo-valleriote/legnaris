@@ -35,22 +35,33 @@ const (
 	MsgFieldDoesNotExist  = "field does not exist: "
 )
 
+// DAGProvider resolves the compiled DAG for a template ID. It is satisfied by
+// *template.Registry, which is built once at boot and never mutated afterwards:
+// the sheet service reads DAGs through that read-only view instead of holding a
+// map it could mutate or that could mutate underneath it (LGN-54).
+type DAGProvider interface {
+	DAG(id string) (*template.DAG, bool)
+}
+
 type ServiceImpl struct {
 	repository      Repository
 	templateService template.Service
-	dagCache        map[string]*template.DAG
+	provider        DAGProvider
 }
 
-func NewService(repository Repository, templateService template.Service, dags map[string]*template.DAG) Service {
+// NewService builds the sheet service over a DAG provider. The provider must
+// already be complete when the service starts (boot-time registry): neither the
+// service nor its callers mutate it afterwards.
+func NewService(repository Repository, templateService template.Service, provider DAGProvider) Service {
 	return &ServiceImpl{
 		repository:      repository,
 		templateService: templateService,
-		dagCache:        dags,
+		provider:        provider,
 	}
 }
 
 func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error) {
-	dag, exists := s.dagCache[cmd.TemplateID]
+	dag, exists := s.provider.DAG(cmd.TemplateID)
 	if !exists {
 		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
 	}
@@ -112,7 +123,7 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		return nil, translateRepoErr("fetch", err)
 	}
 
-	dag, exists := s.dagCache[storedSheet.TemplateID]
+	dag, exists := s.provider.DAG(storedSheet.TemplateID)
 	if !exists {
 		return nil, apperr.NewError(apperr.CodeNotFound, "DAG not found for template", nil)
 	}

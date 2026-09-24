@@ -24,45 +24,48 @@ func BuildRegistry(eng *engine.FormulaEngine) (*Registry, error) {
 	}
 
 	for _, tmpl := range DefaultTemplates {
-		dag, err := BuildDAG(tmpl.ID, tmpl.Fields, eng)
+		// Clone on ingest: the registry must own its templates, not alias the
+		// exported DefaultTemplates catalog that anyone can mutate (LGN-54).
+		stored := cloneTemplate(tmpl)
+
+		dag, err := BuildDAG(stored.ID, stored.Fields, eng)
 		if err != nil {
 			return nil, err
 		}
 
-		registry.templates[tmpl.ID] = tmpl
-		registry.dags[tmpl.ID] = dag
-		registry.order = append(registry.order, tmpl.ID)
+		registry.templates[stored.ID] = stored
+		registry.dags[stored.ID] = dag
+		registry.order = append(registry.order, stored.ID)
 	}
 
 	return registry, nil
 }
 
 // List returns all default templates in declaration order.
+// Each template is a deep copy: mutating it cannot reach the registry.
 func (r *Registry) List() []Template {
 	result := make([]Template, 0, len(r.order))
 	for _, id := range r.order {
-		result = append(result, r.templates[id])
+		result = append(result, cloneTemplate(r.templates[id]))
 	}
 	return result
 }
 
-// FetchByID returns the template with the given ID and whether it exists.
-// The returned template is a shallow copy; callers must not mutate it.
+// FetchByID returns a deep copy of the template with the given ID and whether
+// it exists; the copy shares no map, schema or path with the registry.
 func (r *Registry) FetchByID(id string) (*Template, bool) {
 	tmpl, ok := r.templates[id]
 	if !ok {
 		return nil, false
 	}
+	tmpl = cloneTemplate(tmpl)
 	return &tmpl, true
 }
 
 // DAG returns the compiled DAG for the given template ID and whether it exists.
+// Every caller gets the same instance: the graph is immutable after boot, so
+// sharing it is safe (LGN-54).
 func (r *Registry) DAG(id string) (*DAG, bool) {
 	dag, ok := r.dags[id]
 	return dag, ok
-}
-
-// DAGs returns the full templateID → DAG map.
-func (r *Registry) DAGs() map[string]*DAG {
-	return r.dags
 }

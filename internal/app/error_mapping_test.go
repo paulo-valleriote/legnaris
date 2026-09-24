@@ -19,11 +19,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// dagProvider adapts a plain map to the sheet.DAGProvider interface, so the
+// error-mapping tests can wire a hand-built DAG without a whole
+// template.Registry (LGN-54: the service takes a provider, not a mutable map).
+type dagProvider map[string]*template.DAG
+
+func (p dagProvider) DAG(id string) (*template.DAG, bool) {
+	dag, ok := p[id]
+	return dag, ok
+}
+
 // newSheetErrorRouter wires the real SheetController + HTTPErrorHandler over a
 // real sheet.Service backed by a mocked repository, so the full translation
 // chain (repository/DAG typed errors → apperr → HTTP status) is exercised
 // without MongoDB.
-func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache map[string]*template.DAG) http.Handler {
+func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache dagProvider) http.Handler {
 	t.Helper()
 
 	mockTemplateSvc := templatemocks.NewMockService(t)
@@ -35,7 +45,7 @@ func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache 
 	return e
 }
 
-func newErrorTestDAG(t *testing.T) map[string]*template.DAG {
+func newErrorTestDAG(t *testing.T) dagProvider {
 	t.Helper()
 
 	fields := template.FieldGroup{
@@ -54,7 +64,7 @@ func newErrorTestDAG(t *testing.T) map[string]*template.DAG {
 
 	dag, err := template.BuildDAG("fantasy_v1", fields, engine.NewFormulaEngine())
 	require.NoError(t, err)
-	return map[string]*template.DAG{"fantasy_v1": dag}
+	return dagProvider{"fantasy_v1": dag}
 }
 
 // TestErrorMapping_SheetNotExistsReturns404 covers the card's headline case:
