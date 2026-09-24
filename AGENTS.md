@@ -68,6 +68,7 @@ make fmt
 ## Conventions
 
 - **Env vars:** `PORT`, `APP_NAME`, `DATABASE_URI` (defaults in `shared/env/env.go`)
+- **GitHub auth:** for `git push` and the GitHub REST API (PR creation), read the token from `OPENCODE_PR` in the repo-root `.env` (gitignored). Never print the token, never commit `.env`; use it only via the `Authorization` header / push URL.
 - **Error handling — errors MUST always be typed:** no bare/untyped `errors.New` for domain errors anywhere. Each layer has its own typed errors:
   - **Services and controllers** (`internal/sheet/service.go`, `internal/app/*.go`) use **only `apperr`**: `apperr.NewError(code, message, err)` (not found → `CodeNotFound`/404, invalid or non-editable field → `CodeInvalidRequest`/`CodeUnknownField`/400).
   - **All other layers** (repository, template/DAG, engine, `shared/db`, …) **must NOT import `apperr`** — they declare their own typed errors (sentinels like `var ErrSheetNotFound = errors.New("sheet not found")` or custom error types) and wrap with `fmt.Errorf("...: %w", err)`.
