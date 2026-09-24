@@ -1,0 +1,83 @@
+name: AI PR Review
+
+# Triggered manually by commenting "ai-review" on a pull request.
+# The review is advisory: it posts a comment but never blocks the merge.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    # Run only for comments on PRs (not plain issues) with the exact body.
+    if: github.event.issue.pull_request && github.event.comment.body == 'ai-review'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Check out the PR head so AGENTS.md reflects the PR branch.
+          ref: refs/pull/${{ github.event.issue.number }}/head
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install OpenCode CLI
+        run: npm install --global @opencode/cli
+
+      - name: Generate PR diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=${{ github.event.issue.number }}
+          gh api "repos/${{ github.repository }}/pulls/${PR}" \
+            -H "Accept: application/vnd.github.v3.diff" > /tmp/diff.txt
+          echo "diff lines: $(wc -l < /tmp/diff.txt)"
+
+      - name: Run AI review
+        id: review
+        continue-on-error: true
+        env:
+          # OpenCode Console API key for the `opencode` provider.
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          cat > /tmp/prompt.md <<'PROMPT'
+          You are an expert Go code reviewer. Read AGENTS.md and strictly apply
+          its "PR Review Checklist" section.
+
+          Review ONLY the attached diff (diff.txt). Do not modify any files and
+          do not run any commands or tools; analyze the attached files only.
+
+          Reply with a single Markdown comment in English, using these headings
+          (write "None" when a category has no findings):
+          - Cyclomatic complexity
+          - Code duplication
+          - Convention violations
+          - Non-English code/strings (the codebase is English-only)
+          - Race conditions
+          - Memory or goroutine leaks
+
+          For each finding cite `file:line`, a one-line explanation, and a
+          suggested fix. Be concise; list issues only, no praise.
+          PROMPT
+
+          opencode run --standalone --model opencode/space-bunny-free \
+            --file /tmp/diff.txt \
+            --file AGENTS.md \
+            "$(cat /tmp/prompt.md)" > /tmp/review.md 2>/tmp/review.log
+
+      - name: Post review comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=${{ github.event.issue.number }}
+          if [ -s /tmp/review.md ]; then
+            gh pr comment "${PR}" --body-file /tmp/review.md
+          else
+            gh pr comment "${PR}" --body \
+              "AI review failed. See run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi

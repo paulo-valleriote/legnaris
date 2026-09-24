@@ -1,0 +1,46 @@
+# golangci-lint v2 configuration.
+# See: https://golangci-lint.run/docs/configuration/
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck       # unchecked errors
+    - govet          # suspicious constructs (incl. copylocks, lostcancel)
+    - ineffassign    # ineffective assignments
+    - staticcheck    # static analysis (bugs, dead code, leaks)
+    - unused         # unused code
+    - gocyclo        # cyclomatic complexity
+    - dupl           # duplicated code blocks
+    - goconst        # repeated string literals
+  settings:
+    gocyclo:
+      # Threshold for cyclomatic complexity (see AGENTS.md "PR Review Checklist").
+      min-complexity: 15
+    dupl:
+      threshold: 150
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+  exclusions:
+    # Skip generated files (mockery mocks carry "Code generated ... DO NOT EDIT.").
+    generated: lax
+    presets:
+      - comments
+    rules:
+      - path: _test\.go
+        linters:
+          - dupl
+          - gocyclo
+          - goconst
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

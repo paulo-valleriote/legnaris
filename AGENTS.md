@@ -73,6 +73,26 @@ make fmt
 - **Logging:** `shared/logger` structured logger (zerolog-based)
 - **Mocks:** generated via `mockery` (config in `go.mod` tool directive)
 
+## PR Review Checklist
+
+Automated reviewers (AI + linters) evaluate pull requests against these
+criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint +
+`go test -race`) is blocking on new issues.
+
+- **Cyclomatic complexity** — keep functions small; `gocyclo` flags complexity
+  above 15.
+- **Code duplication** — extract shared logic; `dupl` flags near-duplicate
+  blocks.
+- **Conventions** — follow this document: typed errors via `shared/apperr`,
+  JSON decoding via `shared/json`, structured logging via `shared/logger`, and
+  the layering (app → sheet → template → engine → shared).
+- **English-only** — all identifiers, comments, log messages, and user-facing
+  strings must be in English. No Portuguese (pt-BR) code or strings.
+- **Race conditions** — no unsynchronized access to shared state; prefer
+  channels or mutexes; `go test -race` must stay clean.
+- **Memory leaks** — close resources (files, DB cursors, response bodies),
+  avoid unbounded goroutines, use context cancellation.
+
 ## API Endpoints (Current + Planned)
 
 | Endpoint | Method | Status |
