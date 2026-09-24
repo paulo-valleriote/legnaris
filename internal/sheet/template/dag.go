@@ -274,22 +274,22 @@ func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string,
 		}
 	}
 
-	queue := newQueue[string]()
+	var queue []string
 	for id, deg := range inDegree {
 		if deg == 0 {
-			queue.append(id)
+			queue = append(queue, id)
 		}
 	}
 
 	var topoOrder []string
-	for queue.size() > 0 {
-		curr := queue.pop()
+	for head := 0; head < len(queue); head++ {
+		curr := queue[head]
 		topoOrder = append(topoOrder, curr)
 
 		for _, child := range adj[curr] {
 			inDegree[child]--
 			if inDegree[child] == 0 {
-				queue.append(child)
+				queue = append(queue, child)
 			}
 		}
 	}
@@ -456,28 +456,4 @@ func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, chang
 	}
 
 	return false, nil
-}
-
-// --- Queue helper for topological sort ---
-
-type queue[T any] struct {
-	data []T
-}
-
-func newQueue[T any]() *queue[T] {
-	return &queue[T]{data: make([]T, 0)}
-}
-
-func (q *queue[T]) append(v T) {
-	q.data = append(q.data, v)
-}
-
-func (q *queue[T]) pop() T {
-	v := q.data[0]
-	q.data = q.data[1:]
-	return v
-}
-
-func (q *queue[T]) size() int {
-	return len(q.data)
 }
