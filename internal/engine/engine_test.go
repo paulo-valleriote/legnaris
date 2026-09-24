@@ -101,7 +101,7 @@ func TestEvaluate(t *testing.T) {
 			expected: nil,
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				assert.ErrorContains(t, err, ErrInvalidFLoat.Error())
+				assert.ErrorContains(t, err, ErrInvalidFloat.Error())
 			},
 		},
 		{
@@ -111,7 +111,7 @@ func TestEvaluate(t *testing.T) {
 			expected: nil,
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				assert.ErrorContains(t, err, ErrInvalidFLoat.Error())
+				assert.ErrorContains(t, err, ErrInvalidFloat.Error())
 				assert.ErrorContains(t, err, "expects exactly 2 arguments")
 			},
 		},
@@ -136,4 +136,95 @@ func TestEvaluateNilProgram(t *testing.T) {
 
 	_, err := eng.Evaluate(nil, map[string]any{})
 	require.ErrorIs(t, err, ErrNilProgram)
+}
+
+func TestEvaluateNumericCoercion(t *testing.T) {
+	eng := NewFormulaEngine()
+
+	tests := []struct {
+		name      string
+		formula   string
+		env       map[string]any
+		expected  any
+		assertErr func(t *testing.T, err error)
+	}{
+		{
+			name:     "floor accepts int32",
+			formula:  "floor(v)",
+			env:      map[string]any{"v": int32(10)},
+			expected: 10.0,
+			assertErr: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name:     "floor accepts int64",
+			formula:  "floor(v)",
+			env:      map[string]any{"v": int64(10)},
+			expected: 10.0,
+			assertErr: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name:     "floor accepts float32",
+			formula:  "floor(v)",
+			env:      map[string]any{"v": float32(10.5)},
+			expected: 10.0,
+			assertErr: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name:     "max accepts int literals",
+			formula:  "max(v, 15)",
+			env:      map[string]any{"v": 12},
+			expected: 15.0,
+			assertErr: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name:     "max accepts int32 and int64",
+			formula:  "max(a, b)",
+			env:      map[string]any{"a": int32(12), "b": int64(15)},
+			expected: 15.0,
+			assertErr: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name:     "floor rejects bool with typed error",
+			formula:  "floor(v)",
+			env:      map[string]any{"v": true},
+			expected: nil,
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrInvalidFloat)
+			},
+		},
+		{
+			name:     "max rejects string with typed error",
+			formula:  "max(v, 15)",
+			env:      map[string]any{"v": "12"},
+			expected: nil,
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrInvalidFloat)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			prog, err := eng.Compile(tc.formula, tc.env)
+			require.NoError(t, err, "Compile failed in coercion test setup")
+
+			result, err := eng.Evaluate(prog, tc.env)
+			tc.assertErr(t, err)
+			if err == nil {
+				assert.Equal(t, tc.expected, result)
+			}
+		})
+	}
 }
