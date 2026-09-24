@@ -1,0 +1,48 @@
+name: Lint & Race
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so only-new-issues can compute the merge base.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Blocks on new lint issues only, so adopting this on an existing
+      # codebase does not require fixing pre-existing findings upfront.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13
+          only-new-issues: true
+
+  race:
+    name: tests (race detector)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Integration tests self-skip when MongoDB is unavailable, so this is
+      # safe to run without a database service.
+      - name: go test -race
+        run: go test -race ./...
