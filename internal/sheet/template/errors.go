@@ -64,6 +64,19 @@ func (e *PathError) Error() string {
 	return fmt.Sprintf("invalid path '%s': %s", e.Path, e.Reason)
 }
 
+// FieldNameError reports a field name rejected at DAG build time.
+// Field names must match ^[A-Za-z][A-Za-z0-9]*$ so the flat DAG map key
+// (dot-joined) and the expr-lang engine key (underscore-joined) stay
+// collision-free (see LGN-52).
+type FieldNameError struct {
+	Field  string
+	Reason string
+}
+
+func (e *FieldNameError) Error() string {
+	return fmt.Sprintf("invalid field name '%s': %s", e.Field, e.Reason)
+}
+
 // Sentinel errors. This package must not import shared/apperr: services
 // translate these typed errors to apperr codes at the layer boundary.
 var (
@@ -102,6 +115,12 @@ func ErrInvalidDependency(depPath []string, targetNode string) error {
 // ErrInvalidPath returns an error for invalid path operations.
 func ErrInvalidPath(path string, reason string) error {
 	return &PathError{Path: path, Reason: reason}
+}
+
+// ErrInvalidFieldName returns an error when a template field name violates
+// the naming rules validated at DAG build time (no '.', no '_', etc.).
+func ErrInvalidFieldName(field string, reason string) error {
+	return &FieldNameError{Field: field, Reason: reason}
 }
 
 // ErrUnknownField returns an error when an update references a field not in the DAG.

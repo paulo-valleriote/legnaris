@@ -43,7 +43,7 @@ func newErrorTestDAG(t *testing.T) map[string]*template.DAG {
 			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 		}},
 		"modifiers": {Children: template.FieldGroup{
-			"dexterity_mod": {Schema: &template.FieldSchema{
+			"dexterityMod": {Schema: &template.FieldSchema{
 				Type:       "number",
 				IsEditable: false,
 				Formula:    "floor((stats_dexterity - 10) / 2)",
@@ -104,7 +104,7 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 			Name:       "Err Map",
 			Data: map[string]any{
 				"stats":     map[string]any{"dexterity": 10.0},
-				"modifiers": map[string]any{"dexterity_mod": 0.0},
+				"modifiers": map[string]any{"dexterityMod": 0.0},
 			},
 		}
 	}
@@ -121,7 +121,7 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 		},
 		{
 			name:     "non-editable field returns 400 INVALID_REQUEST",
-			payload:  `{"data":{"modifiers":{"dexterity_mod":5}}}`,
+			payload:  `{"data":{"modifiers":{"dexterityMod":5}}}`,
 			wantCode: "INVALID_REQUEST",
 		},
 	}

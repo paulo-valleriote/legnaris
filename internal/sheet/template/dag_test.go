@@ -494,7 +494,11 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "Paths with special characters (dots and underscores)",
+			// LGN-41 / LGN-52: before field-name validation these names built
+			// fine, but "stats.str.dex" and "stats.str_dex" are distinct DAG
+			// nodes that collapse into the same engine key "stats_str_dex" —
+			// one value silently overwriting the other in the expr-lang env.
+			name: "LGN-41/LGN-52: names with dots or underscores are rejected",
 			fields: FieldGroup{
 				"stats": {Children: FieldGroup{
 					"str.dex": {Schema: &FieldSchema{Type: "number", IsEditable: true}}, // dot in name
@@ -509,12 +513,11 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				}},
 			},
 			assertErr: func(t *testing.T, err error) {
-				require.NoError(t, err) // Current behavior
+				require.Error(t, err)
+				var nameErr *FieldNameError
+				require.ErrorAs(t, err, &nameErr)
 			},
-			assertDag: func(t *testing.T, dag *DAG) {
-				assert.True(t, dag.HasNode("stats.str.dex"))
-				assert.True(t, dag.HasNode("stats.str_dex"))
-			},
+			assertDag: nil,
 		},
 	}
 
@@ -525,6 +528,100 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 
 			if err == nil && tc.assertDag != nil {
 				tc.assertDag(t, dag)
+			}
+		})
+	}
+}
+
+// TestBuildDAG_FieldNameValidation covers the key-collision fix of LGN-52
+// (tracked as LGN-41 in dag_test.go): field names may not contain '.' or '_',
+// otherwise Path.String() (DAG map keys) and Path.EngineKey() (expr-lang
+// variables) stop being injective and two distinct fields collapse into a
+// single key.
+func TestBuildDAG_FieldNameValidation(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+	leaf := &FieldSchema{Type: "number", IsEditable: true}
+
+	// Document the raw collisions the validation prevents:
+	// two distinct paths, the same key.
+	assert.Equal(t, Path{"a_b", "c"}.EngineKey(), Path{"a", "b_c"}.EngineKey()) // "a_b_c"
+	assert.Equal(t, Path{"a.b", "c"}.String(), Path{"a", "b", "c"}.String())    // "a.b.c"
+
+	tests := []struct {
+		name string
+		// fields is the template field tree under test.
+		fields FieldGroup
+		// wantField is the full path expected in the FieldNameError.
+		// Empty means "don't assert the field" (e.g. the empty-name case).
+		wantField string
+		// wantNode, when set, flips the case to the success path: the DAG
+		// must build and contain this node.
+		wantNode string
+	}{
+		{
+			name:      "dot in group name is rejected",
+			fields:    FieldGroup{"a.b": {Children: FieldGroup{"c": {Schema: leaf}}}},
+			wantField: "a.b",
+		},
+		{
+			name:      "underscore in leaf name is rejected",
+			fields:    FieldGroup{"stats": {Children: FieldGroup{"dexterity_mod": {Schema: leaf}}}},
+			wantField: "stats.dexterity_mod",
+		},
+		{
+			// Before LGN-52 this built successfully, but both paths engine-key
+			// to "a_b_c": ToEngineEnv collapsed them into one entry whose value
+			// depended on Go's map iteration order.
+			name: "collision a_b.c vs a.b_c is rejected",
+			fields: FieldGroup{
+				"a_b": {Children: FieldGroup{"c": {Schema: leaf}}},
+				"a":   {Children: FieldGroup{"b_c": {Schema: leaf}}},
+			},
+		},
+		{
+			// Both paths string-key to "a.b.c": the second node would shadow
+			// the first in d.nodes, and ApplyUpdates would split the key and
+			// write to the wrong nesting level.
+			name: "collision a.b.c vs a.b.c is rejected",
+			fields: FieldGroup{
+				"a.b": {Children: FieldGroup{"c": {Schema: leaf}}},
+				"a":   {Children: FieldGroup{"b": {Children: FieldGroup{"c": {Schema: leaf}}}}},
+			},
+		},
+		{
+			name:   "empty name is rejected",
+			fields: FieldGroup{"": {Schema: leaf}},
+		},
+		{
+			name:      "leading digit is rejected",
+			fields:    FieldGroup{"stats": {Children: FieldGroup{"2nd": {Schema: leaf}}}},
+			wantField: "stats.2nd",
+		},
+		{
+			name: "valid names build",
+			fields: FieldGroup{
+				"stats":  {Children: FieldGroup{"dexterity": {Schema: leaf}}},
+				"others": {Children: FieldGroup{"proficiencyBonus": {Schema: leaf}}},
+			},
+			wantNode: "others.proficiencyBonus",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dag, err := BuildDAG("test_template", tc.fields, formulaEngine)
+
+			if tc.wantNode != "" {
+				require.NoError(t, err)
+				assert.True(t, dag.HasNode(tc.wantNode))
+				return
+			}
+
+			require.Error(t, err)
+			var nameErr *FieldNameError
+			require.ErrorAs(t, err, &nameErr)
+			if tc.wantField != "" {
+				assert.Equal(t, tc.wantField, nameErr.Field)
 			}
 		})
 	}
