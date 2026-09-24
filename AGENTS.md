@@ -63,7 +63,7 @@ make fmt
 - Fix error messages in sheet repository ("template not found" → "sheet not found")
 - Normalize `floor`/`max` int/float coercion in engine
 - Eliminate template seed on boot; serve templates from in-memory registry
-- Persist PATCH with dot-notation `$set` (not nested map)
+- PATCH body uses a nested map (`{"data":{"stats":{"dexterity":12}}}`), flattened internally to DAG dot-keys
 
 ## Conventions
 
@@ -87,7 +87,7 @@ make fmt
 ## Gotchas
 
 - **Templates are code, not DB** — don't look for a `template` collection in Mongo (will be removed in Phase 0)
-- **DAG keys use dot notation** (`stats.dexterity`) but engine env uses underscores (`stats_dexterity`) — collision risk if field names contain dots/underscores (tracked in `dag_test.go` LGN-41)
+- **DAG keys are flat path keys** (`stats.dexterity`) while engine env uses underscores (`stats_dexterity`) — collision risk if field names contain dots/underscores (tracked in `dag_test.go` LGN-41)
 - **PartialUpdate validates editability** against DAG before recalc — non-editable fields in payload = 400
 - **Seed runs on every boot** currently — will be removed; templates served from memory registry
 - **No auth yet** — all endpoints open; ownership/authorization in Phase 2

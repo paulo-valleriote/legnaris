@@ -5,7 +5,7 @@ import (
 	"errors"
 	"legnaris/internal/sheet/template"
 	"legnaris/shared/apperr"
-	"maps"
+	"legnaris/shared/maputils"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,13 +55,19 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	// Build initial data with ALL leaf fields (base + derived) with their defaults
 	initialData := buildNestedAllFields(tmpl.Fields)
 
+	// Flatten the initial data into dot-notation keys so the DAG can match
+	// leaf keys during recalc (the DAG walks leaf keys, not top-level groups).
+	flatInitial := maputils.FlattenPathKeys(initialData)
+
 	// Recalculate derived fields from base fields
-	derivedEffects, err := dag.Recalculate(map[string]any{}, initialData)
+	derivedEffects, err := dag.Recalculate(map[string]any{}, flatInitial)
 	if err != nil {
 		return nil, err
 	}
 
-	maps.Copy(initialData, derivedEffects)
+	// Apply the flat derived effects back as a nested map (same strategy as
+	// PartialUpdate), instead of maps.Copy which would leak flat keys.
+	applyNestedUpdates(initialData, derivedEffects)
 
 	newSheet := Sheet{
 		ID:         uuid.NewString(),
@@ -101,7 +107,12 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		return nil, errors.New("DAG not found for template")
 	}
 
-	for key := range cmd.Data {
+	// The API contract is a nested map ({"data":{"stats":{"dexterity":12}}}).
+	// Flatten it to flat path keys because the DAG engine operates
+	// exclusively on those.
+	updates := maputils.FlattenPathKeys(cmd.Data)
+
+	for key := range updates {
 		if !dag.HasNode(key) {
 			return nil, errors.New("field not exists: " + key)
 		}
@@ -111,14 +122,14 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		}
 	}
 
-	cascadingEffects, err := dag.Recalculate(storedSheet.Data, cmd.Data)
+	cascadingEffects, err := dag.Recalculate(storedSheet.Data, updates)
 	if err != nil {
 		return nil, err
 	}
 
 	// Merge both original updates AND cascading effects
 	mergedData := deepCopyNested(storedSheet.Data)
-	applyNestedUpdates(mergedData, cmd.Data)
+	applyNestedUpdates(mergedData, updates)
 	applyNestedUpdates(mergedData, cascadingEffects)
 
 	dbUpdates := map[string]any{
@@ -129,7 +140,16 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	if err := s.repository.PartialUpdate(ctx, cmd.SheetID, dbUpdates); err != nil {
 		return nil, err
 	}
-	return cascadingEffects, nil
+	return nestedCascadingEffects(cascadingEffects), nil
+}
+
+// nestedCascadingEffects converts the flat path-key cascading effects
+// returned by DAG.Recalculate back into a nested map so the API response
+// mirrors the nested request payload.
+func nestedCascadingEffects(flat map[string]any) map[string]any {
+	nested := make(map[string]any)
+	applyNestedUpdates(nested, flat)
+	return nested
 }
 
 // buildNestedAllFields creates nested map with ALL leaf fields (base + derived)
@@ -171,7 +191,7 @@ func setNestedValue(nested map[string]any, path []string, value any) {
 func applyNestedUpdates(nested map[string]any, updates map[string]any) {
 	for key, value := range updates {
 		path := []string{}
-		for _, part := range splitDotKey(key) {
+		for _, part := range splitPathKey(key) {
 			path = append(path, part)
 		}
 		setNestedValue(nested, path, value)
@@ -193,7 +213,7 @@ func deepCopyNested(src map[string]any) map[string]any {
 	return dst
 }
 
-func splitDotKey(key string) []string {
+func splitPathKey(key string) []string {
 	var result []string
 	current := ""
 	for _, c := range key {

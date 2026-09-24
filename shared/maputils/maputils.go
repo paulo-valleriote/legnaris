@@ -66,7 +66,7 @@ func Set(nested map[string]any, path []string, value any) error {
 	return nil
 }
 
-// ApplyUpdates applies a flat map of dot-separated keys to a nested map.
+// ApplyUpdates applies a flat map of path keys (e.g., "stats.str") to a nested map.
 // Each key in updates is split by "." and set via Set.
 // Returns the first error encountered, or nil if all updates succeed.
 func ApplyUpdates(nested map[string]any, updates map[string]any) error {
@@ -82,8 +82,8 @@ func ApplyUpdates(nested map[string]any, updates map[string]any) error {
 	return nil
 }
 
-// splitPath splits a dot-separated path into segments.
-// Unused leading/trailing dots produce empty segments which are preserved.
+// splitPath splits a flat path key into segments.
+// Unused leading/trailing separators produce empty segments which are preserved.
 func splitPath(key string) []string {
 	if key == "" {
 		return []string{""}
@@ -106,6 +106,17 @@ func splitString(s string, sep rune) []string {
 	return result
 }
 
+// FlattenPathKeys converts a nested map to a flat map of path keys.
+// Example: {"stats": {"str": 10}} → {"stats.str": 10}
+func FlattenPathKeys(nested map[string]any) map[string]any {
+	flat := make(map[string]any)
+	if nested == nil {
+		return flat
+	}
+	flattenRecursive([]string{}, nested, flat, '.')
+	return flat
+}
+
 // ToEngineEnv converts a nested map to a flat map with underscore-separated keys
 // for use with the expr-lang formula engine.
 // Example: {"stats": {"str": 10}} → {"stats_str": 10}
@@ -122,17 +133,22 @@ func ToEngineEnv(nested map[string]any) map[string]any {
 // It appends results to the provided flat map.
 // Exported for use by template.Path.Flatten.
 func FlattenRecursive(prefix []string, nested map[string]any, flat map[string]any) {
+	flattenRecursive(prefix, nested, flat, '_')
+}
+
+// flattenRecursive flattens a nested map into flat keys joined by the given separator.
+func flattenRecursive(prefix []string, nested map[string]any, flat map[string]any, sep rune) {
 	for key, value := range nested {
 		newPrefix := append(append([]string{}, prefix...), key)
 		if nestedMap, ok := value.(map[string]any); ok && len(nestedMap) > 0 {
-			FlattenRecursive(newPrefix, nestedMap, flat)
+			flattenRecursive(newPrefix, nestedMap, flat, sep)
 		} else {
-			flat[joinWithUnderscore(newPrefix)] = value
+			flat[joinWithSeparator(newPrefix, sep)] = value
 		}
 	}
 }
 
-func joinWithUnderscore(parts []string) string {
+func joinWithSeparator(parts []string, sep rune) string {
 	if len(parts) == 0 {
 		return ""
 	}
@@ -144,12 +160,12 @@ func joinWithUnderscore(parts []string) string {
 	for _, p := range parts {
 		totalLen += len(p)
 	}
-	totalLen += len(parts) - 1 // underscores
+	totalLen += len(parts) - 1 // separators
 
 	b := make([]byte, 0, totalLen)
 	for i, p := range parts {
 		if i > 0 {
-			b = append(b, '_')
+			b = append(b, byte(sep))
 		}
 		b = append(b, p...)
 	}

@@ -388,6 +388,57 @@ func TestToEngineEnv(t *testing.T) {
 	}
 }
 
+func TestFlattenPathKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		nested   map[string]any
+		wantFlat map[string]any
+	}{
+		{
+			name:     "Simple flat",
+			nested:   map[string]any{"a": 1.0, "b": 2.0},
+			wantFlat: map[string]any{"a": 1.0, "b": 2.0},
+		},
+		{
+			name:     "Two levels",
+			nested:   map[string]any{"stats": map[string]any{"str": 10.0, "dex": 12.0}},
+			wantFlat: map[string]any{"stats.str": 10.0, "stats.dex": 12.0},
+		},
+		{
+			name:     "Three levels",
+			nested:   map[string]any{"character": map[string]any{"attributes": map[string]any{"str": 15.0}}},
+			wantFlat: map[string]any{"character.attributes.str": 15.0},
+		},
+		{
+			name:     "Mixed leaf and branch",
+			nested:   map[string]any{"base": 5.0, "nested": map[string]any{"val": 10.0}},
+			wantFlat: map[string]any{"base": 5.0, "nested.val": 10.0},
+		},
+		{
+			name:     "Empty nested map - treated as leaf",
+			nested:   map[string]any{"empty": map[string]any{}, "val": 1.0},
+			wantFlat: map[string]any{"empty": map[string]any{}, "val": 1.0},
+		},
+		{
+			name:     "Nil nested",
+			nested:   nil,
+			wantFlat: map[string]any{},
+		},
+		{
+			name:     "Empty nested",
+			nested:   map[string]any{},
+			wantFlat: map[string]any{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := FlattenPathKeys(tc.nested)
+			assert.Equal(t, tc.wantFlat, result)
+		})
+	}
+}
+
 func TestDeepCopy(t *testing.T) {
 	tests := []struct {
 		name     string

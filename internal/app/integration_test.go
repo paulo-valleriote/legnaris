@@ -160,6 +160,12 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	assert.Equal(t, 10.0, stats["dexterity"])
 	assert.Equal(t, 10.0, stats["constitution"])
 
+	// Derived fields must be computed on create (not left at their 0 default)
+	derived, ok := created.Data.Data["derived"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 10.0, derived["armor_class"])
+	assert.Equal(t, 0.0, derived["stealth_total"])
+
 	// Fetch
 	fetchRec := doRequest(t, h, http.MethodGet, "/sheets/"+sheetID, "")
 	require.Equal(t, http.StatusOK, fetchRec.Code)
@@ -169,13 +175,24 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	assert.Equal(t, sheetID, fetched.Data.ID)
 	assert.Equal(t, "fantasy_v1", fetched.Data.TemplateID)
 
+	// Derived fields must still be correct right after fetching
+	fetchedDerived, ok := fetched.Data.Data["derived"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 10.0, fetchedDerived["armor_class"])
+
 	// Patch (cascading recalc without any template query)
-	patchRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats.dexterity":16}}`)
+	patchRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":16}}}`)
 	require.Equal(t, http.StatusOK, patchRec.Code)
 
 	var patched response.Success[map[string]any]
 	require.NoError(t, json.Unmarshal(patchRec.Body.Bytes(), &patched))
-	assert.Equal(t, 3.0, patched.Data["modifiers.dexterity_mod"])
-	assert.Equal(t, 13.0, patched.Data["derived.armor_class"])
-	assert.Equal(t, 3.0, patched.Data["derived.stealth_total"])
+
+	modifiers, ok := patched.Data["modifiers"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 3.0, modifiers["dexterity_mod"])
+
+	patchedDerived, ok := patched.Data["derived"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 13.0, patchedDerived["armor_class"])
+	assert.Equal(t, 3.0, patchedDerived["stealth_total"])
 }

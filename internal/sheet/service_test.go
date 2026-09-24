@@ -107,7 +107,7 @@ func TestService_PartialUpdate(t *testing.T) {
 		{
 			name: "Happy Path: Update editable field triggers cascade",
 			updates: map[string]any{
-				"stats.dexterity": 18.0,
+				"stats": map[string]any{"dexterity": 18.0},
 			},
 			setupMocks: func(m *mocks.MockRepository) {
 				m.EXPECT().
@@ -140,14 +140,59 @@ func TestService_PartialUpdate(t *testing.T) {
 					Once()
 			},
 			expectedCascades: map[string]any{
-				"modifiers.dexterity_mod": 4.0,
-				"derived.armor_class":     14.0,
+				"modifiers": map[string]any{"dexterity_mod": 4.0},
+				"derived":   map[string]any{"armor_class": 14.0},
+			},
+		},
+		{
+			name: "Nested map with multiple groups (user example)",
+			updates: map[string]any{
+				"others": map[string]any{"proficiency_bonus": 4.0},
+				"stats":  map[string]any{"constitution": 14.0, "dexterity": 12.0},
+			},
+			setupMocks: func(m *mocks.MockRepository) {
+				m.EXPECT().
+					FetchByID(context.Background(), sheetID).
+					Return(storedSheet, nil).
+					Once()
+
+				m.EXPECT().
+					PartialUpdate(context.Background(), sheetID, mock.MatchedBy(func(update map[string]any) bool {
+						data, ok := update["data"].(map[string]any)
+						if !ok {
+							return false
+						}
+						stats, ok := data["stats"].(map[string]any)
+						if !ok || stats["dexterity"] != 12.0 || stats["constitution"] != 14.0 {
+							return false
+						}
+						others, ok := data["others"].(map[string]any)
+						if !ok || others["proficiency_bonus"] != 4.0 {
+							return false
+						}
+						modifiers, ok := data["modifiers"].(map[string]any)
+						if !ok || modifiers["dexterity_mod"] != 1.0 || modifiers["constitution_mod"] != 2.0 {
+							return false
+						}
+						derived, ok := data["derived"].(map[string]any)
+						if !ok || derived["armor_class"] != 11.0 {
+							return false
+						}
+						_, hasTime := update["updated_at"].(time.Time)
+						return hasTime
+					})).
+					Return(nil).
+					Once()
+			},
+			expectedCascades: map[string]any{
+				"modifiers": map[string]any{"dexterity_mod": 1.0, "constitution_mod": 2.0},
+				"derived":   map[string]any{"armor_class": 11.0},
 			},
 		},
 		{
 			name: "Error: Field not in template",
 			updates: map[string]any{
-				"stats.unknown": 10.0,
+				"stats": map[string]any{"unknown": 10.0},
 			},
 			setupMocks: func(m *mocks.MockRepository) {
 				m.EXPECT().
@@ -160,7 +205,7 @@ func TestService_PartialUpdate(t *testing.T) {
 		{
 			name: "Error: Field not editable",
 			updates: map[string]any{
-				"modifiers.dexterity_mod": 5.0,
+				"modifiers": map[string]any{"dexterity_mod": 5.0},
 			},
 			setupMocks: func(m *mocks.MockRepository) {
 				m.EXPECT().
@@ -173,7 +218,7 @@ func TestService_PartialUpdate(t *testing.T) {
 		{
 			name: "Error: Sheet not found",
 			updates: map[string]any{
-				"stats.dexterity": 18.0,
+				"stats": map[string]any{"dexterity": 18.0},
 			},
 			setupMocks: func(m *mocks.MockRepository) {
 				m.EXPECT().
@@ -186,8 +231,7 @@ func TestService_PartialUpdate(t *testing.T) {
 		{
 			name: "Multiple field updates with cascade",
 			updates: map[string]any{
-				"stats.dexterity":    16.0,
-				"stats.constitution": 14.0,
+				"stats": map[string]any{"dexterity": 16.0, "constitution": 14.0},
 			},
 			setupMocks: func(m *mocks.MockRepository) {
 				m.EXPECT().
@@ -220,9 +264,8 @@ func TestService_PartialUpdate(t *testing.T) {
 					Once()
 			},
 			expectedCascades: map[string]any{
-				"modifiers.dexterity_mod":    3.0,
-				"modifiers.constitution_mod": 2.0,
-				"derived.armor_class":        13.0,
+				"modifiers": map[string]any{"dexterity_mod": 3.0, "constitution_mod": 2.0},
+				"derived":   map[string]any{"armor_class": 13.0},
 			},
 		},
 	}
@@ -270,6 +313,15 @@ func TestService_Create(t *testing.T) {
 				DependsOn:  [][]string{{"stats", "str"}},
 			}},
 		}},
+		"base_armor_class": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		"derived": {Children: template.FieldGroup{
+			"armor_class": {Schema: &template.FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "base_armor_class + mod_str",
+				DependsOn:  [][]string{{"base_armor_class"}, {"mod", "str"}},
+			}},
+		}},
 	}
 
 	dag, err := template.BuildDAG("test", fields, formulaEngine)
@@ -294,6 +346,15 @@ func TestService_Create(t *testing.T) {
 					DependsOn:  [][]string{{"stats", "str"}},
 				}},
 			}},
+			"base_armor_class": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+			"derived": {Children: template.FieldGroup{
+				"armor_class": {Schema: &template.FieldSchema{
+					Type:       "number",
+					IsEditable: false,
+					Formula:    "base_armor_class + mod_str",
+					DependsOn:  [][]string{{"base_armor_class"}, {"mod", "str"}},
+				}},
+			}},
 		},
 	}
 
@@ -310,6 +371,10 @@ func TestService_Create(t *testing.T) {
 			}
 			mod, ok := s.Data["mod"].(map[string]any)
 			if !ok || mod["str"] != 0.0 {
+				return false
+			}
+			derived, ok := s.Data["derived"].(map[string]any)
+			if !ok || derived["armor_class"] != 10.0 {
 				return false
 			}
 			return s.TemplateID == "test" && s.Name == "New Character"

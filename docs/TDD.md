@@ -187,10 +187,10 @@ graph LR
 
 ```json
 // PATCH /sheets/:id
-{ "data": { "stats.dexterity": 16 } }
+{ "data": { "stats": { "dexterity": 16 } } }
 
-// 200 OK — apenas efeitos em cascata
-{ "modifiers.dexterity_mod": 3, "derived.armor_class": 13 }
+// 200 OK — apenas efeitos em cascata (mapa aninhado)
+{ "modifiers": { "dexterity_mod": 3 }, "derived": { "armor_class": 13 } }
 ```
 
 **Exemplo de contrato — export auto-contido**:

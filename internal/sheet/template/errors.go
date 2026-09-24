@@ -71,7 +71,7 @@ func ErrUnknownField(key string) error {
 	)
 }
 
-// pathToString converts a []string path to a dot-separated string for error messages.
+// pathToString converts a []string path to a flat key string for error messages.
 func pathToString(path []string) string {
 	return strings.Join(path, ".")
 }

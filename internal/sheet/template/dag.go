@@ -41,7 +41,7 @@ func (n *Node) IsDerived() bool {
 	return n.CompiledFormula != nil
 }
 
-// MapKey returns the dot-separated key used in DAG maps (e.g., "attributes.str").
+// MapKey returns the flat path key used in DAG maps (e.g., "attributes.str").
 func (n *Node) MapKey() string {
 	return n.Path.String()
 }

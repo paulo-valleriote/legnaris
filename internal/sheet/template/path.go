@@ -9,7 +9,7 @@ import (
 // Example: []string{"stats", "str"} → "stats.str" (MapKey) / "stats_str" (EngineKey)
 type Path []string
 
-// String returns the dot-separated path for use as DAG map keys.
+// String returns the path joined into a flat key for use as DAG map keys.
 // Example: []string{"stats", "str"} → "stats.str"
 func (p Path) String() string {
 	return strings.Join(p, ".")
