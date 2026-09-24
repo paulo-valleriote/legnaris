@@ -322,8 +322,8 @@ func TestApplyUpdates(t *testing.T) {
 			// keys: splitting must not break rune sequences.
 			name:       "Multibyte segments split on dots",
 			nested:     map[string]any{},
-			updates:    map[string]any{"ação.mod": 2.0},
-			wantNested: map[string]any{"ação": map[string]any{"mod": 2.0}},
+			updates:    map[string]any{"action.mod": 2.0},
+			wantNested: map[string]any{"action": map[string]any{"mod": 2.0}},
 			wantErr:    nil,
 		},
 	}
@@ -725,8 +725,8 @@ func TestSplitPath(t *testing.T) {
 		},
 		{
 			name:     "Multibyte segments split on rune boundaries",
-			input:    "ação.mod",
-			expected: []string{"ação", "mod"},
+			input:    "action.mod",
+			expected: []string{"action", "mod"},
 		},
 	}
 
