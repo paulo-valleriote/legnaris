@@ -42,7 +42,7 @@ func (tc *SheetController) Create(c *echo.Context) error {
 func (tc *SheetController) FetchByID(c *echo.Context) error {
 	id := c.Param("sheetID")
 	if id == "" {
-		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, sheet.ErrSheetIDEmpty)
+		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, nil)
 	}
 
 	storedSheet, err := tc.service.FetchByID(c.Request().Context(), id)
@@ -57,7 +57,7 @@ func (tc *SheetController) PartialUpdate(c *echo.Context) error {
 
 	id := c.Param("sheetID")
 	if id == "" {
-		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, sheet.ErrSheetIDEmpty)
+		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, nil)
 	}
 
 	if err := json.Decode(c, &cmd); err != nil {
