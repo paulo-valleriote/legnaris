@@ -28,7 +28,8 @@ type Error struct {
 func NewError(code Code, message string, err error) *Error {
 	var httpStatus int
 	switch code {
-	case CodeInvalidJSON, CodeUnknownField, CodeInvalidRequest:
+	case CodeInvalidJSON, CodeUnknownField, CodeInvalidRequest,
+		CodeCycleDetected, CodeInvalidDependency, CodeInvalidPath:
 		httpStatus = 400
 	case CodeUnauthorized:
 		httpStatus = 401

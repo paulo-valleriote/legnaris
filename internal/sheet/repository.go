@@ -21,6 +21,10 @@ type RepositoryImpl struct {
 	client *mongo.Collection
 }
 
+// ErrSheetNotFound reports a sheet lookup that matched no document.
+// Services translate it to apperr.CodeNotFound at the layer boundary.
+var ErrSheetNotFound = errors.New("sheet not found")
+
 func NewRepository(client *mongo.Database) Repository {
 	return &RepositoryImpl{
 		client: client.Collection("sheets"),
@@ -35,7 +39,7 @@ func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*Sheet, erro
 	err := r.client.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, errors.New("sheet not found")
+			return nil, ErrSheetNotFound
 		}
 		return nil, err
 	}

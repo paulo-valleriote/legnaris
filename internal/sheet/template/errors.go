@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"legnaris/shared/apperr"
 )
 
 // CycleError holds details about a detected cycle.
@@ -22,53 +20,93 @@ func (e *CycleError) Unwrap() error {
 	return ErrInfiniteCycle
 }
 
-// ErrCompileFormula wraps formula compilation errors with context.
-var ErrCompileFormula = func(formula string, nodeID string, err error) error {
-	return apperr.NewError(
-		apperr.CodeInvalidRequest,
-		fmt.Sprintf("failed to compile formula '%s' on node '%s'", formula, nodeID),
-		err,
-	)
+// DependencyError reports a DependsOn referencing a non-existent field.
+type DependencyError struct {
+	DepPath    []string
+	TargetNode string
 }
 
-// ErrInfiniteCycle is deprecated; use ErrCycleDetected instead.
-var ErrInfiniteCycle = errors.New("an infinite cycle was detected on template formulas")
+func (e *DependencyError) Error() string {
+	return fmt.Sprintf("field '%s' depends on non-existent path '%v'", e.TargetNode, e.DepPath)
+}
 
-// ErrCycleDetected returns an apperr with cycle details for debugging.
+// FormulaCompileError reports a formula that failed to compile, with context.
+type FormulaCompileError struct {
+	Formula string
+	NodeID  string
+	Err     error
+}
+
+func (e *FormulaCompileError) Error() string {
+	return fmt.Sprintf("failed to compile formula '%s' on node '%s': %v", e.Formula, e.NodeID, e.Err)
+}
+
+func (e *FormulaCompileError) Unwrap() error {
+	return e.Err
+}
+
+// UnknownFieldError reports an update key that is not part of the DAG.
+type UnknownFieldError struct {
+	Key string
+}
+
+func (e *UnknownFieldError) Error() string {
+	return fmt.Sprintf("unknown field '%s' in update", e.Key)
+}
+
+// PathError reports an invalid path operation.
+type PathError struct {
+	Path   string
+	Reason string
+}
+
+func (e *PathError) Error() string {
+	return fmt.Sprintf("invalid path '%s': %s", e.Path, e.Reason)
+}
+
+// Sentinel errors. This package must not import shared/apperr: services
+// translate these typed errors to apperr codes at the layer boundary.
+var (
+	// ErrInfiniteCycle is deprecated; use ErrCycleDetected/CycleError instead.
+	ErrInfiniteCycle = errors.New("an infinite cycle was detected on template formulas")
+
+	// Internal invariant violations (always surface as HTTP 500).
+	ErrNilFormulaEngine = errors.New("formula engine is required")
+	ErrNilDAG           = errors.New("DAG is nil")
+	ErrNilNode          = errors.New("node is nil")
+
+	// Invalid recalculation inputs (surface as HTTP 400).
+	ErrNilOriginalData = errors.New("original data is nil")
+	ErrNilUpdatedData  = errors.New("updated data is nil")
+
+	// ErrFormulaEval marks runtime formula evaluation failures (bad input types).
+	ErrFormulaEval = errors.New("formula evaluation failed")
+)
+
+// ErrCompileFormula wraps formula compilation errors with context.
+func ErrCompileFormula(formula string, nodeID string, err error) error {
+	return &FormulaCompileError{Formula: formula, NodeID: nodeID, Err: err}
+}
+
+// ErrCycleDetected returns a CycleError with cycle details for debugging.
 // Wraps ErrInfiniteCycle for backward compatibility with error.Is checks.
 func ErrCycleDetected(nodes []string) error {
-	return apperr.NewError(
-		apperr.CodeCycleDetected,
-		fmt.Sprintf("cycle detected involving nodes: %v", nodes),
-		&CycleError{Nodes: nodes},
-	)
+	return &CycleError{Nodes: nodes}
 }
 
 // ErrInvalidDependency returns an error when DependsOn references a non-existent field.
 func ErrInvalidDependency(depPath []string, targetNode string) error {
-	return apperr.NewError(
-		apperr.CodeInvalidDependency,
-		fmt.Sprintf("field '%s' depends on non-existent path '%v'", targetNode, depPath),
-		nil,
-	)
+	return &DependencyError{DepPath: depPath, TargetNode: targetNode}
 }
 
 // ErrInvalidPath returns an error for invalid path operations.
 func ErrInvalidPath(path string, reason string) error {
-	return apperr.NewError(
-		apperr.CodeInvalidPath,
-		fmt.Sprintf("invalid path '%s': %s", path, reason),
-		nil,
-	)
+	return &PathError{Path: path, Reason: reason}
 }
 
 // ErrUnknownField returns an error when an update references a field not in the DAG.
 func ErrUnknownField(key string) error {
-	return apperr.NewError(
-		apperr.CodeUnknownField,
-		fmt.Sprintf("unknown field '%s' in update", key),
-		nil,
-	)
+	return &UnknownFieldError{Key: key}
 }
 
 // pathToString converts a []string path to a flat key string for error messages.

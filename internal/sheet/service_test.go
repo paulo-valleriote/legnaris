@@ -2,7 +2,6 @@ package sheet_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -223,7 +222,7 @@ func TestService_PartialUpdate(t *testing.T) {
 			setupMocks: func(m *mocks.MockRepository) {
 				m.EXPECT().
 					FetchByID(context.Background(), sheetID).
-					Return(nil, errors.New("sheet not found")).
+					Return(nil, sheet.ErrSheetNotFound).
 					Once()
 			},
 			expectedErr: "sheet not found",

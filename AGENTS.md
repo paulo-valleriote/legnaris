@@ -68,7 +68,11 @@ make fmt
 ## Conventions
 
 - **Env vars:** `PORT`, `APP_NAME`, `DATABASE_URI` (defaults in `shared/env/env.go`)
-- **Error handling:** `shared/apperr` typed errors → `HTTPErrorHandler` in `router.go`
+- **Error handling — errors MUST always be typed:** no bare/untyped `errors.New` for domain errors anywhere. Each layer has its own typed errors:
+  - **Services and controllers** (`internal/sheet/service.go`, `internal/app/*.go`) use **only `apperr`**: `apperr.NewError(code, message, err)` (not found → `CodeNotFound`/404, invalid or non-editable field → `CodeInvalidRequest`/`CodeUnknownField`/400).
+  - **All other layers** (repository, template/DAG, engine, `shared/db`, …) **must NOT import `apperr`** — they declare their own typed errors (sentinels like `var ErrSheetNotFound = errors.New("sheet not found")` or custom error types) and wrap with `fmt.Errorf("...: %w", err)`.
+  - **Services translate at the boundary:** map lower-layer errors to `apperr` with `errors.Is`/`errors.As` (e.g. `errors.Is(err, ErrSheetNotFound)` → `apperr.NewError(apperr.CodeNotFound, ...)`) so `HTTPErrorHandler` returns the correct status instead of the 500 `INTERNAL_ERROR` fallback.
+- **Error handling — new codes require handler updates:** when adding a new `apperr.Code` you MUST (1) add its HTTP status mapping in `apperr.NewError` (`shared/apperr/err.go`) — unmapped codes fall back to 500 via `HttpStatus()`; (2) confirm `HTTPErrorHandler` (`internal/app/router.go`) serializes it correctly; (3) add a test asserting the status mapping for the new error
 - **JSON decoding:** `shared/json/decode.go` helper
 - **Logging:** `shared/logger` structured logger (zerolog-based)
 - **Mocks:** generated via `mockery` (config in `go.mod` tool directive)

@@ -1,13 +1,11 @@
 package template
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
 
 	"legnaris/internal/engine"
-	"legnaris/shared/apperr"
 	"legnaris/shared/maputils"
 
 	"github.com/expr-lang/expr/vm"
@@ -92,7 +90,7 @@ func (d *DAG) TopologicalOrder() []string {
 // The DAG is write-locked during construction to ensure thread-safe initialization.
 func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (*DAG, error) {
 	if eng == nil {
-		return nil, errors.New("formula engine is required")
+		return nil, ErrNilFormulaEngine
 	}
 
 	leafSchemas, leafPaths := collectLeaves(fields)
@@ -308,7 +306,7 @@ func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string,
 // Returns an error if any formula evaluation fails, inputs are invalid, or update keys are unknown.
 func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]any, error) {
 	if d == nil {
-		return nil, apperr.NewError(apperr.CodeInternal, "DAG is nil", nil)
+		return nil, ErrNilDAG
 	}
 	if err := validateRecalculateInputs(originalData, updatedData); err != nil {
 		return nil, err
@@ -410,18 +408,10 @@ func (d *DAG) propagateChanges(nodeKey string, adj map[string][]string, needsRec
 
 func validateRecalculateInputs(originalData, updatedData map[string]any) error {
 	if originalData == nil {
-		return apperr.NewError(
-			apperr.CodeInvalidRequest,
-			"original data is nil",
-			nil,
-		)
+		return ErrNilOriginalData
 	}
 	if updatedData == nil {
-		return apperr.NewError(
-			apperr.CodeInvalidRequest,
-			"updated data is nil",
-			nil,
-		)
+		return ErrNilUpdatedData
 	}
 	return nil
 }
@@ -439,7 +429,7 @@ func initialRecalcSet(updatedData map[string]any) map[string]bool {
 // Returns an error if formula evaluation fails, wrapped with field context.
 func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, changedDerived map[string]any) (bool, error) {
 	if node == nil {
-		return false, errors.New("node is nil")
+		return false, ErrNilNode
 	}
 
 	// Editable nodes always propagate (they are the source of changes)
@@ -449,10 +439,9 @@ func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, chang
 
 	newValue, err := d.formulaEngine.Evaluate(node.CompiledFormula, engineEnv)
 	if err != nil {
-		return false, apperr.NewError(
-			apperr.CodeInvalidRequest,
-			fmt.Sprintf("formula evaluation failed for field '%s'", node.MapKey()),
-			fmt.Errorf("formula: %s: %w", node.FormulaString, err),
+		return false, fmt.Errorf(
+			"%w for field '%s' (formula: %s): %w",
+			ErrFormulaEval, node.MapKey(), node.FormulaString, err,
 		)
 	}
 

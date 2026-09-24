@@ -44,7 +44,7 @@ func NewService(repository Repository, templateService template.Service, dags ma
 func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error) {
 	dag, exists := s.dagCache[cmd.TemplateID]
 	if !exists {
-		return nil, errors.New("template not founded")
+		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
 	}
 
 	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: cmd.TemplateID})
@@ -62,7 +62,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	// Recalculate derived fields from base fields
 	derivedEffects, err := dag.Recalculate(map[string]any{}, flatInitial)
 	if err != nil {
-		return nil, err
+		return nil, translateDAGErr(err)
 	}
 
 	// Apply the flat derived effects back as a nested map (same strategy as
@@ -78,7 +78,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		UpdatedAt:  time.Now(),
 	}
 	if err := s.repository.Create(ctx, &newSheet); err != nil {
-		return nil, err
+		return nil, translateRepoErr("create", err)
 	}
 	return &newSheet, nil
 }
@@ -90,7 +90,7 @@ func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) 
 
 	sheet, err := s.repository.FetchByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, translateRepoErr("fetch", err)
 	}
 
 	return sheet, nil
@@ -99,12 +99,12 @@ func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) 
 func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
 	storedSheet, err := s.repository.FetchByID(ctx, cmd.SheetID)
 	if err != nil {
-		return nil, err
+		return nil, translateRepoErr("fetch", err)
 	}
 
 	dag, exists := s.dagCache[storedSheet.TemplateID]
 	if !exists {
-		return nil, errors.New("DAG not found for template")
+		return nil, apperr.NewError(apperr.CodeNotFound, "DAG not found for template", nil)
 	}
 
 	// The API contract is a nested map ({"data":{"stats":{"dexterity":12}}}).
@@ -114,17 +114,17 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 
 	for key := range updates {
 		if !dag.HasNode(key) {
-			return nil, errors.New("field not exists: " + key)
+			return nil, apperr.NewError(apperr.CodeUnknownField, "field not exists: "+key, nil)
 		}
 		node, _ := dag.GetNode(key)
 		if !node.IsEditable {
-			return nil, errors.New("field is not editable: " + key)
+			return nil, apperr.NewError(apperr.CodeInvalidRequest, "field is not editable: "+key, nil)
 		}
 	}
 
 	cascadingEffects, err := dag.Recalculate(storedSheet.Data, updates)
 	if err != nil {
-		return nil, err
+		return nil, translateDAGErr(err)
 	}
 
 	// Merge both original updates AND cascading effects
@@ -138,9 +138,50 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	}
 
 	if err := s.repository.PartialUpdate(ctx, cmd.SheetID, dbUpdates); err != nil {
-		return nil, err
+		return nil, translateRepoErr("update", err)
 	}
 	return nestedCascadingEffects(cascadingEffects), nil
+}
+
+// translateRepoErr maps repository errors to typed apperr at the service
+// boundary. The repository layer must stay free of apperr imports.
+func translateRepoErr(op string, err error) error {
+	if err == nil {
+		return nil
+	}
+	var appErr *apperr.Error
+	if errors.As(err, &appErr) {
+		return err
+	}
+	if errors.Is(err, ErrSheetNotFound) {
+		return apperr.NewError(apperr.CodeNotFound, "sheet not found", err)
+	}
+	return apperr.NewError(apperr.CodeInternal, "failed to "+op+" sheet", err)
+}
+
+// translateDAGErr maps template DAG errors to typed apperr at the service
+// boundary. The template/DAG layer must stay free of apperr imports.
+func translateDAGErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	var appErr *apperr.Error
+	if errors.As(err, &appErr) {
+		return err
+	}
+	var unknownField *template.UnknownFieldError
+	if errors.As(err, &unknownField) {
+		return apperr.NewError(apperr.CodeUnknownField, unknownField.Error(), nil)
+	}
+	switch {
+	case errors.Is(err, template.ErrFormulaEval):
+		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), nil)
+	case errors.Is(err, template.ErrNilOriginalData), errors.Is(err, template.ErrNilUpdatedData):
+		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), nil)
+	case errors.Is(err, template.ErrInfiniteCycle):
+		return apperr.NewError(apperr.CodeCycleDetected, err.Error(), nil)
+	}
+	return apperr.NewError(apperr.CodeInternal, "dag recalculation failed", err)
 }
 
 // nestedCascadingEffects converts the flat path-key cascading effects

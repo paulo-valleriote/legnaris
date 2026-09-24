@@ -3,7 +3,6 @@ package template
 import (
 	"errors"
 	"legnaris/internal/engine"
-	"legnaris/shared/apperr"
 	"legnaris/shared/maputils"
 	"math"
 	"strings"
@@ -56,13 +55,9 @@ func TestBuildDag(t *testing.T) {
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
 				assert.ErrorIs(t, err, ErrInfiniteCycle)
-				// Verify it's an apperr with CYCLE_DETECTED code
-				apperrErr, ok := err.(*apperr.Error)
-				require.True(t, ok, "expected apperr.Error")
-				assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
 				// Verify cycle nodes are identified
-				cycleErr, ok := apperrErr.Err.(*CycleError)
-				require.True(t, ok, "expected CycleError")
+				var cycleErr *CycleError
+				require.ErrorAs(t, err, &cycleErr)
 				assert.NotEmpty(t, cycleErr.Nodes)
 			},
 		},
@@ -85,11 +80,8 @@ func TestBuildDag(t *testing.T) {
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
 				assert.ErrorIs(t, err, ErrInfiniteCycle)
-				apperrErr, ok := err.(*apperr.Error)
-				require.True(t, ok)
-				assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
-				cycleErr, ok := apperrErr.Err.(*CycleError)
-				require.True(t, ok)
+				var cycleErr *CycleError
+				require.ErrorAs(t, err, &cycleErr)
 				assert.Len(t, cycleErr.Nodes, 3)
 			},
 		},
@@ -426,9 +418,8 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
 				assert.ErrorIs(t, err, ErrInfiniteCycle)
-				apperrErr, ok := err.(*apperr.Error)
-				require.True(t, ok)
-				assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
+				var cycleErr *CycleError
+				require.ErrorAs(t, err, &cycleErr)
 			},
 		},
 		{
@@ -450,9 +441,8 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
 				assert.ErrorIs(t, err, ErrInfiniteCycle)
-				apperrErr, ok := err.(*apperr.Error)
-				require.True(t, ok)
-				assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
+				var cycleErr *CycleError
+				require.ErrorAs(t, err, &cycleErr)
 			},
 		},
 		{
@@ -466,10 +456,11 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				// Now returns ErrInvalidDependency instead of compilation error
-				apperrErr, ok := err.(*apperr.Error)
-				require.True(t, ok, "expected apperr.Error")
-				assert.Equal(t, apperr.CodeInvalidDependency, apperrErr.Code)
+				// Returns a DependencyError instead of a compilation error
+				var depErr *DependencyError
+				require.ErrorAs(t, err, &depErr)
+				assert.Equal(t, "derived", depErr.TargetNode)
+				assert.Equal(t, []string{"nonexistent"}, depErr.DepPath)
 			},
 		},
 		{
@@ -602,9 +593,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			updates:      map[string]any{"stats.str": 16.0},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				apperrErr, ok := err.(*apperr.Error)
-				require.True(t, ok, "expected apperr.Error")
-				assert.Equal(t, apperr.CodeInvalidRequest, apperrErr.Code)
+				assert.ErrorIs(t, err, ErrNilOriginalData)
 			},
 		},
 		{
@@ -614,9 +603,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			updates:      nil,
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				apperrErr, ok := err.(*apperr.Error)
-				require.True(t, ok, "expected apperr.Error")
-				assert.Equal(t, apperr.CodeInvalidRequest, apperrErr.Code)
+				assert.ErrorIs(t, err, ErrNilUpdatedData)
 			},
 		},
 		{
@@ -632,9 +619,9 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				apperrErr, ok := err.(*apperr.Error)
-				require.True(t, ok, "expected apperr.Error")
-				assert.Equal(t, apperr.CodeUnknownField, apperrErr.Code)
+				var fieldErr *UnknownFieldError
+				require.ErrorAs(t, err, &fieldErr)
+				assert.Equal(t, "unknown.field", fieldErr.Key)
 			},
 		},
 		{
@@ -970,12 +957,8 @@ func TestTopologicalSort_CycleDetection(t *testing.T) {
 			_, err := BuildDAG("test", tc.fields, formulaEngine)
 			require.Error(t, err)
 
-			apperrErr, ok := err.(*apperr.Error)
-			require.True(t, ok)
-			assert.Equal(t, apperr.CodeCycleDetected, apperrErr.Code)
-
-			cycleErr, ok := apperrErr.Err.(*CycleError)
-			require.True(t, ok)
+			var cycleErr *CycleError
+			require.ErrorAs(t, err, &cycleErr)
 			assert.Len(t, cycleErr.Nodes, tc.expectedCycleLen)
 		})
 	}
@@ -1022,9 +1005,9 @@ func TestBuildDAG_InvalidDependency(t *testing.T) {
 			_, err := BuildDAG("test", tc.fields, formulaEngine)
 			require.Error(t, err)
 
-			apperrErr, ok := err.(*apperr.Error)
-			require.True(t, ok, "expected apperr.Error")
-			assert.Equal(t, apperr.CodeInvalidDependency, apperrErr.Code)
+			var depErr *DependencyError
+			require.ErrorAs(t, err, &depErr)
+			assert.Equal(t, tc.targetNode, depErr.TargetNode)
 			assert.ErrorContains(t, err, tc.targetNode)
 		})
 	}
@@ -1054,9 +1037,9 @@ func TestRecalculate_UnknownField(t *testing.T) {
 	_, err = dag.Recalculate(originalData, updates)
 	require.Error(t, err)
 
-	apperrErr, ok := err.(*apperr.Error)
-	require.True(t, ok, "expected apperr.Error")
-	assert.Equal(t, apperr.CodeUnknownField, apperrErr.Code)
+	var fieldErr *UnknownFieldError
+	require.ErrorAs(t, err, &fieldErr)
+	assert.Equal(t, "unknown", fieldErr.Key)
 }
 
 // TestMapUtilsSet_ErrorCases verifies Set error handling.
