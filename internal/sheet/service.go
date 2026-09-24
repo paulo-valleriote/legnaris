@@ -123,10 +123,10 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	updates := maputils.FlattenPathKeys(cmd.Data)
 
 	for key := range updates {
-		if !dag.HasNode(key) {
+		node, ok := dag.GetNode(key)
+		if !ok {
 			return nil, apperr.NewError(apperr.CodeUnknownField, MsgFieldDoesNotExist+key, nil)
 		}
-		node, _ := dag.GetNode(key)
 		if !node.IsEditable {
 			return nil, apperr.NewError(apperr.CodeInvalidRequest, "field is not editable: "+key, nil)
 		}
