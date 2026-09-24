@@ -68,8 +68,11 @@ make fmt
 ## Conventions
 
 - **Env vars:** `PORT`, `APP_NAME`, `DATABASE_URI` (defaults in `shared/env/env.go`)
+- **GitHub auth:** for `git push` and the GitHub REST API (PR creation), read the token from `OPENCODE_PR` in the repo-root `.env` (gitignored). Never print the token, never commit `.env`; use it only via the `Authorization` header / push URL.
 - **Error handling — errors MUST always be typed:** no bare/untyped `errors.New` for domain errors anywhere. Each layer has its own typed errors:
   - **Services and controllers** (`internal/sheet/service.go`, `internal/app/*.go`) use **only `apperr`**: `apperr.NewError(code, message, err)` (not found → `CodeNotFound`/404, invalid or non-editable field → `CodeInvalidRequest`/`CodeUnknownField`/400).
+    - The `err` cause argument must be `nil` or a lower-layer typed error (repository/DAG/json/maputils/…); never a freshly created `errors.New`, and no package-level `errors.New` sentinels in `internal/app`/`internal/sheet`.
+    - Shared user-facing **message constants** (plain strings) are not errors — exporting them from the owning service package so controllers reuse the wording is allowed and encouraged.
   - **All other layers** (repository, template/DAG, engine, `shared/db`, …) **must NOT import `apperr`** — they declare their own typed errors (sentinels like `var ErrSheetNotFound = errors.New("sheet not found")` or custom error types) and wrap with `fmt.Errorf("...: %w", err)`.
   - **Services translate at the boundary:** map lower-layer errors to `apperr` with `errors.Is`/`errors.As` (e.g. `errors.Is(err, ErrSheetNotFound)` → `apperr.NewError(apperr.CodeNotFound, ...)`) so `HTTPErrorHandler` returns the correct status instead of the 500 `INTERNAL_ERROR` fallback.
 - **Error handling — new codes require handler updates:** when adding a new `apperr.Code` you MUST (1) add its HTTP status mapping in `apperr.NewError` (`shared/apperr/err.go`) — unmapped codes fall back to 500 via `HttpStatus()`; (2) confirm `HTTPErrorHandler` (`internal/app/router.go`) serializes it correctly; (3) add a test asserting the status mapping for the new error
