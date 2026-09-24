@@ -8,6 +8,12 @@ import (
 // compiled DAGs. It is built once at boot: every template is validated and its
 // formulas compiled a single time. Templates are immutable and served directly
 // from memory — there is no MongoDB template collection or seed step.
+//
+// The registry is frozen after boot (LGN-54): it is the only writer of its own
+// state and no exported method mutates it. It clones DefaultTemplates on ingest
+// and hands out deep copies from List and FetchByID, so neither the exported
+// catalog nor a caller can change what it serves. DAGs are shared by pointer
+// through DAG(id) — never as a map — and are themselves immutable.
 type Registry struct {
 	templates map[string]Template
 	dags      map[string]*DAG
