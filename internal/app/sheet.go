@@ -30,7 +30,7 @@ func (tc *SheetController) Create(c *echo.Context) error {
 	var cmd sheet.CreateSheetCommand
 
 	if err := json.Decode(c, &cmd); err != nil {
-		return err
+		return decodeError(err)
 	}
 
 	newSheet, err := tc.service.Create(c.Request().Context(), cmd)
@@ -62,7 +62,7 @@ func (tc *SheetController) PartialUpdate(c *echo.Context) error {
 	}
 
 	if err := json.Decode(c, &cmd); err != nil {
-		return err
+		return decodeError(err)
 	}
 
 	cascadingEffects, err := tc.service.PartialUpdate(c.Request().Context(), sheet.PartialUpdateSheetCommand{

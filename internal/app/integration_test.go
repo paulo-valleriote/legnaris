@@ -196,3 +196,73 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	assert.Equal(t, 13.0, patchedDerived["armor_class"])
 	assert.Equal(t, 3.0, patchedDerived["stealth_total"])
 }
+
+// TestIntegration_ErrorStatusMapping covers the HTTP status each typed error
+// produces through HTTPErrorHandler (LGN-48): domain errors must never fall
+// through as 500 INTERNAL_ERROR.
+func TestIntegration_ErrorStatusMapping(t *testing.T) {
+	h, _ := newIntegrationRouter(t)
+
+	assertErrorBody := func(t *testing.T, rec *httptest.ResponseRecorder, status int, code string) {
+		t.Helper()
+		require.Equal(t, status, rec.Code)
+		var body response.Error
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, code, body.Error.Code)
+		assert.NotEmpty(t, body.Error.Message)
+	}
+
+	t.Run("GET /sheets/:id missing returns 404", func(t *testing.T) {
+		rec := doRequest(t, h, http.MethodGet, "/sheets/does-not-exist", "")
+		assertErrorBody(t, rec, http.StatusNotFound, "NOT_FOUND")
+
+		var body response.Error
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "sheet not found", body.Error.Message)
+	})
+
+	t.Run("POST /sheets with unknown template returns 404", func(t *testing.T) {
+		rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","sheet_name":"x"}`)
+		assertErrorBody(t, rec, http.StatusNotFound, "NOT_FOUND")
+	})
+
+	t.Run("PATCH /sheets/:id missing returns 404", func(t *testing.T) {
+		rec := doRequest(t, h, http.MethodPatch, "/sheets/does-not-exist", `{"data":{"stats":{"dexterity":12}}}`)
+		assertErrorBody(t, rec, http.StatusNotFound, "NOT_FOUND")
+	})
+
+	t.Run("PATCH with unknown field returns 400 UNKNOWN_FIELD", func(t *testing.T) {
+		createRec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Err Map"}`)
+		require.Equal(t, http.StatusCreated, createRec.Code)
+		var created response.Success[sheet.SheetDTO]
+		require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+		rec := doRequest(t, h, http.MethodPatch, "/sheets/"+created.Data.ID, `{"data":{"stats":{"not_exists":1}}}`)
+		assertErrorBody(t, rec, http.StatusBadRequest, "UNKNOWN_FIELD")
+	})
+
+	t.Run("PATCH on non-editable field returns 400 INVALID_REQUEST", func(t *testing.T) {
+		createRec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Err Map 2"}`)
+		require.Equal(t, http.StatusCreated, createRec.Code)
+		var created response.Success[sheet.SheetDTO]
+		require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+		rec := doRequest(t, h, http.MethodPatch, "/sheets/"+created.Data.ID, `{"data":{"modifiers":{"dexterity_mod":99}}}`)
+		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_REQUEST")
+	})
+
+	t.Run("POST with invalid JSON body returns 400 INVALID_JSON", func(t *testing.T) {
+		rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":`)
+		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_JSON")
+	})
+
+	t.Run("POST with unknown field in body returns 400 INVALID_JSON", func(t *testing.T) {
+		rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"x","bogus":1}`)
+		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_JSON")
+	})
+
+	t.Run("POST with trailing JSON returns 400 UNKNOWN_FIELD", func(t *testing.T) {
+		rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"x"} {}`)
+		assertErrorBody(t, rec, http.StatusBadRequest, "UNKNOWN_FIELD")
+	})
+}

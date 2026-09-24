@@ -3,14 +3,21 @@ package json
 import (
 	encodingJson "encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"legnaris/shared/apperr"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
 )
 
 const MaxBodySize = 1 << 20 // 1MiB
+
+// Typed decoding errors. This package must not import shared/apperr:
+// controllers translate these errors to apperr codes at the HTTP boundary.
+var (
+	ErrInvalidJSON  = errors.New("request body contains invalid JSON")
+	ErrUnknownField = errors.New("request body contains an unknown field")
+)
 
 func Decode[T any](c *echo.Context, dst *T) error {
 	r := c.Request()
@@ -22,19 +29,11 @@ func Decode[T any](c *echo.Context, dst *T) error {
 	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(dst); err != nil {
-		return apperr.NewError(
-			apperr.CodeInvalidJSON,
-			"request body contains invalid JSON",
-			err,
-		)
+		return fmt.Errorf("%w: %w", ErrInvalidJSON, err)
 	}
 
 	if dec.Decode(&struct{}{}) != io.EOF {
-		return apperr.NewError(
-			apperr.CodeUnknownField,
-			"request body contains an unknown field",
-			errors.New("uknown field inside request body"),
-		)
+		return ErrUnknownField
 	}
 
 	return nil

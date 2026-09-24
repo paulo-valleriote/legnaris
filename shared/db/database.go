@@ -21,10 +21,13 @@ type Database struct {
 	Client *mongo.Client
 }
 
+// ErrMissingURI reports a missing DATABASE_URI configuration at startup.
+var ErrMissingURI = errors.New("URI is not configured")
+
 func InitMongo(env env.Env) (*Database, error) {
 	uri := env.Variables.DatabaseURI
 	if uri == "" {
-		return nil, errors.New("URI is not configured")
+		return nil, ErrMissingURI
 	}
 
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
