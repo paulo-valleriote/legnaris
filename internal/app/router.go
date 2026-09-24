@@ -28,6 +28,13 @@ func NewRouter(deps env.Env, modules *Modules) *echo.Echo {
 }
 
 func HTTPErrorHandler(c *echo.Context, err error) {
+	// The RequestLogger middleware (HandleError=true) already invoked the global
+	// error handler; Echo's ServeHTTP calls it again for the bubbled-up error.
+	// If the response is already committed, do nothing to avoid a double write.
+	if r, _ := echo.UnwrapResponse(c.Response()); r != nil && r.Committed {
+		return
+	}
+
 	var appErr *apperr.Error
 
 	if errors.As(err, &appErr) {

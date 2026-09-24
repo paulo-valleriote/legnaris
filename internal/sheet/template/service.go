@@ -2,23 +2,22 @@ package template
 
 import (
 	"context"
-	"errors"
+
 	"legnaris/shared/apperr"
 )
 
 type Service interface {
 	List(ctx context.Context) ([]Template, error)
 	FetchTemplate(ctx context.Context, cmd *FetchTemplateByIDCommand) (*Template, error)
-	SeedDefaultTemplates(ctx context.Context, templates []Template) ([]string, error)
 }
 
 type ServiceImpl struct {
-	repository Repository
+	registry *Registry
 }
 
-func NewService(repository Repository) Service {
+func NewService(registry *Registry) Service {
 	return &ServiceImpl{
-		repository: repository,
+		registry: registry,
 	}
 }
 
@@ -31,28 +30,14 @@ type FetchTemplateByIDCommand struct {
 }
 
 func (s *ServiceImpl) List(ctx context.Context) ([]Template, error) {
-	return s.repository.List(ctx)
+	return s.registry.List(), nil
 }
 
 func (s *ServiceImpl) FetchTemplate(ctx context.Context, cmd *FetchTemplateByIDCommand) (*Template, error) {
-	template, err := s.repository.FetchByID(ctx, cmd.ID)
-	if err != nil {
-		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", err)
+	tmpl, ok := s.registry.FetchByID(cmd.ID)
+	if !ok {
+		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
 	}
 
-	return template, nil
-}
-
-// TODO: Current App verison will only use default templates
-//func (s *Service) Create(ctx context.Context, cmd CreateTemplateCommand) error {
-//	_, err := s.repository.Create(ctx, FantasyV1Seed)
-//	return err
-//}
-
-func (s *ServiceImpl) SeedDefaultTemplates(ctx context.Context, templates []Template) ([]string, error) {
-	ids, err := s.repository.CreateMany(ctx, templates)
-	if err != nil {
-		return []string{}, errors.New("seeders werent executed correctly")
-	}
-	return ids, nil
+	return tmpl, nil
 }

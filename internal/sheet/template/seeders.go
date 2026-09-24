@@ -1,5 +1,16 @@
 package template
 
+// DefaultTemplates is the in-memory catalog of code-defined default templates.
+// Each entry is validated and compiled into a DAG once at boot (see Registry).
+// Templates are immutable by ID: rule changes ship as new versioned IDs
+// (e.g. fantasy_v2), never by mutating an existing entry.
+var DefaultTemplates = []Template{
+	FantasyV1Seed,
+}
+
+// FantasyV1Seed defines the fantasy_v1 default template. It lives in code only
+// and is served from the in-memory Registry (no MongoDB seed or template
+// collection anymore).
 var FantasyV1Seed = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",

@@ -37,7 +37,7 @@ func (tc *SheetController) Create(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return response.Created(c, newSheet)
+	return response.Created(c, newSheet.ToDTO())
 }
 
 func (tc *SheetController) FetchByID(c *echo.Context) error {
@@ -50,7 +50,7 @@ func (tc *SheetController) FetchByID(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return response.OK(c, storedSheet)
+	return response.OK(c, storedSheet.ToDTO())
 }
 
 func (tc *SheetController) PartialUpdate(c *echo.Context) error {

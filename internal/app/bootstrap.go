@@ -21,13 +21,12 @@ type Modules struct {
 	Sheet    Sheet
 }
 
-func NewModules(database *db.Database, dagRegistry map[string]*template.DAG) *Modules {
-	templateRepository := template.NewRepository(database.Client.Database("legnaris"))
-	templateService := template.NewService(templateRepository)
+func NewModules(database *db.Database, registry *template.Registry) *Modules {
+	templateService := template.NewService(registry)
 	templateController := NewTemplateController(templateService)
 
 	sheetRepository := sheet.NewRepository(database.Client.Database("legnaris"))
-	sheetService := sheet.NewService(sheetRepository, templateService, dagRegistry)
+	sheetService := sheet.NewService(sheetRepository, templateService, registry.DAGs())
 	sheetController := NewSheetController(sheetService)
 
 	return &Modules{

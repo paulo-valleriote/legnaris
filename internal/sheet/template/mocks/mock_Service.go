@@ -139,65 +139,6 @@ func (_c *MockService_List_Call) RunAndReturn(run func(context.Context) ([]templ
 	return _c
 }
 
-// SeedDefaultTemplates provides a mock function with given fields: ctx, templates
-func (_m *MockService) SeedDefaultTemplates(ctx context.Context, templates []template.Template) ([]string, error) {
-	ret := _m.Called(ctx, templates)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SeedDefaultTemplates")
-	}
-
-	var r0 []string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []template.Template) ([]string, error)); ok {
-		return rf(ctx, templates)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, []template.Template) []string); ok {
-		r0 = rf(ctx, templates)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, []template.Template) error); ok {
-		r1 = rf(ctx, templates)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockService_SeedDefaultTemplates_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SeedDefaultTemplates'
-type MockService_SeedDefaultTemplates_Call struct {
-	*mock.Call
-}
-
-// SeedDefaultTemplates is a helper method to define mock.On call
-//   - ctx context.Context
-//   - templates []template.Template
-func (_e *MockService_Expecter) SeedDefaultTemplates(ctx interface{}, templates interface{}) *MockService_SeedDefaultTemplates_Call {
-	return &MockService_SeedDefaultTemplates_Call{Call: _e.mock.On("SeedDefaultTemplates", ctx, templates)}
-}
-
-func (_c *MockService_SeedDefaultTemplates_Call) Run(run func(ctx context.Context, templates []template.Template)) *MockService_SeedDefaultTemplates_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]template.Template))
-	})
-	return _c
-}
-
-func (_c *MockService_SeedDefaultTemplates_Call) Return(_a0 []string, _a1 error) *MockService_SeedDefaultTemplates_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockService_SeedDefaultTemplates_Call) RunAndReturn(run func(context.Context, []template.Template) ([]string, error)) *MockService_SeedDefaultTemplates_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // NewMockService creates a new instance of MockService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockService(t interface {

@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
+	"log/slog"
+
 	"legnaris/internal/app"
 	"legnaris/internal/engine"
 	"legnaris/internal/sheet/template"
 	"legnaris/shared/db"
 	"legnaris/shared/env"
 	"legnaris/shared/logger"
-	"log/slog"
-	"strings"
 )
 
 func main() {
@@ -32,27 +32,13 @@ func main() {
 	}(ctx)
 
 	formulaEngine := engine.NewFormulaEngine()
-	mockMongoTemplate := template.FantasyV1Seed
 
-	fantasyDAG, err := template.BuildDAG("fantasy_v1", mockMongoTemplate.Fields, formulaEngine)
+	registry, err := template.BuildRegistry(formulaEngine)
 	if err != nil {
-		log.Fatal(ctx, "error generating dag", logger.Attribute{Key: "err", Value: err.Error()})
+		log.Fatal(ctx, "error building template registry", logger.Attribute{Key: "err", Value: err.Error()})
 	}
 
-	dagRegistry := map[string]*template.DAG{
-		"fantasy_v1": fantasyDAG,
-	}
-
-	modules := app.NewModules(database, dagRegistry)
-
-	seedIDs, err := seedTemplates(ctx, *modules, []template.Template{mockMongoTemplate})
-	if err != nil {
-		log.Fatal(ctx, "error while seed templates", logger.Attribute{Key: "err", Value: err.Error()})
-	}
-	log.Info(ctx, "templates succesfully seeded", logger.Attribute{
-		Key:   "ids",
-		Value: strings.Join(seedIDs, ", "),
-	})
+	modules := app.NewModules(database, registry)
 
 	e := app.NewRouter(env, modules)
 	if err := e.Start(":8080"); err != nil {
@@ -62,8 +48,4 @@ func main() {
 			logger.Attribute{Key: "error", Value: err.Error()},
 		)
 	}
-}
-
-func seedTemplates(ctx context.Context, modules app.Modules, templates []template.Template) ([]string, error) {
-	return modules.Template.Service.SeedDefaultTemplates(ctx, templates)
 }

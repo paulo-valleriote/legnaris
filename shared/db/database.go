@@ -33,7 +33,13 @@ func InitMongo(env env.Env) (*Database, error) {
 		ApplyURI(uri).
 		SetServerSelectionTimeout(server_selection_timeout).
 		SetServerAPIOptions(serverAPI).
-		SetConnectTimeout(connect_timeout)
+		SetConnectTimeout(connect_timeout).
+		SetBSONOptions(&options.BSONOptions{
+			// Decode nested BSON documents into map[string]any instead of the
+			// default bson.D. Sheet data is modeled as map[string]any and the
+			// DAG/engine helpers assert on that type.
+			DefaultDocumentMap: true,
+		})
 
 	client, err := mongo.Connect(opts)
 	if err != nil {
