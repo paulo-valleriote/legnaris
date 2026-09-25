@@ -3,7 +3,8 @@
 ## Quick Start
 
 ```bash
-# Run API (templates served from the in-memory registry; MongoDB required)
+# Run API (templates served from the in-memory registry; MongoDB required;
+# no Mongo yet? start one with `make dev-db`)
 go run ./cmd/api.go
 
 # Run tests
@@ -49,6 +50,7 @@ make fmt
 | Vet | `make vet` |
 | Generate mocks | `make mocks` |
 | Format | `make fmt` |
+| Run local MongoDB (dev only) | `make dev-db` |
 | Deploy (production) | `make deploy-up` |
 | Deploy (local tunnel) | `make deploy-local` |
 | Stop deploy | `make deploy-down` |
@@ -72,7 +74,7 @@ make fmt
 
 ## Conventions
 
-- **Env vars:** `PORT`, `APP_NAME`, `DATABASE_URI` (defaults in `shared/env/env.go`)
+- **Env vars:** `PORT`, `APP_NAME`, `DATABASE_URI`, `CORS_ALLOWED_ORIGINS` (defaults in `shared/env/env.go`)
 - **GitHub auth:** for `git push` and the GitHub REST API (PR creation), read the token from `OPENCODE_PR` in the repo-root `.env` (gitignored). Never print the token, never commit `.env`; use it only via the `Authorization` header / push URL.
 - **Error handling — errors MUST always be typed:** no bare/untyped `errors.New` for domain errors anywhere. Each layer has its own typed errors:
   - **Services and controllers** (`internal/sheet/service.go`, `internal/app/*.go`) use **only `apperr`**: `apperr.NewError(code, message, err)` (not found → `CodeNotFound`/404, invalid or non-editable field → `CodeInvalidRequest`/`CodeUnknownField`/400).
@@ -111,8 +113,8 @@ criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint +
 
 | Endpoint | Method | Status |
 |----------|--------|--------|
-| `/health` | GET | ✅ `internal/platform/http/health.go` |
-| `/metrics` | GET | ✅ Prometheus metrics (internal-only, excluded from public routing) |
+| `/health` | GET | ✅ `internal/platform/health/health.go` |
+| `/metrics` | GET | ✅ Prometheus metrics (registered on the app listener; excluded from public routing at the Traefik edge, scraped on the internal network) |
 | `/templates` | GET | ✅ lists catalog |
 | `/sheets` | POST | ✅ create from template |
 | `/sheets/:id` | GET | ✅ fetch |
@@ -134,6 +136,7 @@ internal/
   app/           # HTTP layer (controllers, router)
   auth/          # (planned) JWT, bcrypt, middleware
   engine/        # formula engine (expr-lang wrapper)
+  platform/      # cross-cutting HTTP middleware (cors, health, metrics)
   sheet/
     template/    # DAG, registry, clone, types, seeders, errors
     mocks/       # generated mocks

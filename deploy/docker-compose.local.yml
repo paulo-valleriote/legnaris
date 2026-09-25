@@ -34,8 +34,9 @@ services:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
 
   oauth2-proxy:
-    # Inherit every OAUTH2_PROXY_* flag from the base service; only relax the
-    # secure-cookie requirement for the HTTP origin behind the tunnel.
+    # Compose merges `environment` maps (base + override), so this only relaxes
+    # the secure-cookie flag for the HTTP origin behind the tunnel; every other
+    # OAUTH2_PROXY_* comes from the base. networks/depends_on are merged too.
     environment:
       OAUTH2_PROXY_COOKIE_SECURE: "false"
 

@@ -10,7 +10,11 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-func TestMiddlewareRecordsMetrics(t *testing.T) {
+// newTestRouter builds an Echo instance with a Metrics instance registered
+// (exposing /metrics) and its middleware applied, plus a single /test route —
+// mirroring how internal/app/router.go wires the middleware.
+func newTestRouter(t *testing.T) *echo.Echo {
+	t.Helper()
 	e := echo.New()
 	m := New()
 	m.Register(e)
@@ -18,6 +22,23 @@ func TestMiddlewareRecordsMetrics(t *testing.T) {
 	e.GET("/test", func(c *echo.Context) error {
 		return c.String(http.StatusOK, "ok")
 	})
+	return e
+}
+
+// scrapeMetrics GETs /metrics, asserts a 200, and returns the response body.
+func scrapeMetrics(t *testing.T, e *echo.Echo) string {
+	t.Helper()
+	mreq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	mrec := httptest.NewRecorder()
+	e.ServeHTTP(mrec, mreq)
+	if mrec.Code != http.StatusOK {
+		t.Fatalf("expected status 200 from /metrics, got %d", mrec.Code)
+	}
+	return mrec.Body.String()
+}
+
+func TestMiddlewareRecordsMetrics(t *testing.T) {
+	e := newTestRouter(t)
 
 	// Exercise the middleware so the metrics gain at least one observation.
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -28,14 +49,7 @@ func TestMiddlewareRecordsMetrics(t *testing.T) {
 	}
 
 	// Scrape /metrics and assert our series are present.
-	mreq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-	mrec := httptest.NewRecorder()
-	e.ServeHTTP(mrec, mreq)
-	if mrec.Code != http.StatusOK {
-		t.Fatalf("expected status 200 from /metrics, got %d", mrec.Code)
-	}
-
-	body := mrec.Body.String()
+	body := scrapeMetrics(t, e)
 	for _, want := range []string{
 		"legnaris_http_request_duration_seconds_bucket",
 		"legnaris_http_requests_total",
@@ -47,13 +61,7 @@ func TestMiddlewareRecordsMetrics(t *testing.T) {
 }
 
 func TestMiddlewareNormalizesUnmatchedPath(t *testing.T) {
-	e := echo.New()
-	m := New()
-	m.Register(e)
-	e.Use(m.Middleware)
-	e.GET("/test", func(c *echo.Context) error {
-		return c.String(http.StatusOK, "ok")
-	})
+	e := newTestRouter(t)
 
 	// Request an unmatched route so the path label falls back to "unmatched".
 	req := httptest.NewRequest(http.MethodGet, "/does-not-exist", nil)
@@ -63,14 +71,7 @@ func TestMiddlewareNormalizesUnmatchedPath(t *testing.T) {
 		t.Fatalf("expected status 404, got %d", rec.Code)
 	}
 
-	mreq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-	mrec := httptest.NewRecorder()
-	e.ServeHTTP(mrec, mreq)
-	if mrec.Code != http.StatusOK {
-		t.Fatalf("expected status 200 from /metrics, got %d", mrec.Code)
-	}
-
-	if body := mrec.Body.String(); !strings.Contains(body, `path="unmatched"`) {
+	if body := scrapeMetrics(t, e); !strings.Contains(body, `path="unmatched"`) {
 		t.Errorf("expected an unmatched-path series in /metrics output, got:\n%s", body)
 	}
 }
@@ -79,18 +80,9 @@ func TestMiddlewareNormalizesUnmatchedPath(t *testing.T) {
 // the standard Go/process collectors, so the deployment's own resource metrics
 // are present without depending on the process-global default registry.
 func TestNewRegistersRuntimeCollectors(t *testing.T) {
-	e := echo.New()
-	m := New()
-	m.Register(e)
+	e := newTestRouter(t)
 
-	mreq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-	mrec := httptest.NewRecorder()
-	e.ServeHTTP(mrec, mreq)
-	if mrec.Code != http.StatusOK {
-		t.Fatalf("expected status 200 from /metrics, got %d", mrec.Code)
-	}
-
-	body := mrec.Body.String()
+	body := scrapeMetrics(t, e)
 	for _, want := range []string{
 		"go_goroutines",
 		"process_cpu_seconds_total",
@@ -137,15 +129,9 @@ func TestMiddlewareRecordsStatusAfterErrorHandling(t *testing.T) {
 		t.Fatalf("expected status 404 from handler, got %d", rec.Code)
 	}
 
-	mreq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-	mrec := httptest.NewRecorder()
-	e.ServeHTTP(mrec, mreq)
-	if mrec.Code != http.StatusOK {
-		t.Fatalf("expected status 200 from /metrics, got %d", mrec.Code)
-	}
-
+	body := scrapeMetrics(t, e)
 	want := `legnaris_http_requests_total{method="GET",path="/missing",status="404"}`
-	if body := mrec.Body.String(); !strings.Contains(body, want) {
+	if !strings.Contains(body, want) {
 		t.Errorf("expected %q in /metrics output, got:\n%s", want, body)
 	}
 }
