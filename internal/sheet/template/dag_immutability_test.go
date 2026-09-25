@@ -157,6 +157,30 @@ func TestGetNode_ReturnsCopyIndependentOfDAG(t *testing.T) {
 	assert.Equal(t, Node{}, missing)
 }
 
+// TestNode_ExposesNoPointerFields covers the residual LGN-54 hole the second
+// AI review found: GetNode hands out a value copy, but an exported pointer
+// field would still alias DAG state — CompiledFormula used to share the
+// *vm.Program every concurrent Recalculate evaluates. The compiled program is
+// private now, and the remaining exported fields are only a string, a bool and
+// the Path slice that GetNode clones.
+func TestNode_ExposesNoPointerFields(t *testing.T) {
+	nodeType := reflect.TypeOf(Node{})
+
+	for i := 0; i < nodeType.NumField(); i++ {
+		field := nodeType.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		if field.Type.Kind() == reflect.Pointer {
+			t.Errorf("exported field Node.%s is a pointer: GetNode copies would alias DAG state (LGN-54)", field.Name)
+		}
+	}
+
+	_, exported := nodeType.FieldByName("CompiledFormula")
+	assert.False(t, exported,
+		"Node.CompiledFormula must stay unexported so callers cannot mutate the compiled program shared by Recalculate")
+}
+
 // TestRecalculate_ConcurrentReaders drives the single-lock read path from many
 // goroutines so `go test -race` actually observes concurrent DAG access.
 func TestRecalculate_ConcurrentReaders(t *testing.T) {

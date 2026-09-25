@@ -44,17 +44,18 @@ type DAG struct {
 //
 // Node is handed out by value from GetNode, and DAG keeps its own private
 // instances: a caller that mutates a returned copy changes nothing but its
-// own local variable (LGN-54).
+// own local variable (LGN-54). The compiled program stays unexported so no
+// caller outside this package can reach the state every Recalculate reads.
 type Node struct {
 	Path            Path
 	FormulaString   string
-	CompiledFormula *vm.Program
+	compiledFormula *vm.Program
 	IsEditable      bool
 }
 
 // IsDerived returns true if this node has a formula (computed field).
 func (n Node) IsDerived() bool {
-	return n.CompiledFormula != nil
+	return n.compiledFormula != nil
 }
 
 // MapKey returns the flat path key used in DAG maps (e.g., "attributes.str").
@@ -98,7 +99,8 @@ func (d *DAG) GetChildren(key string) []string {
 	if !ok {
 		return nil
 	}
-	// Return a copy to prevent external mutation.
+	// Copy while the read lock is still held: the caller must get a fresh
+	// allocation, never the internal adjacency slice (LGN-54).
 	result := make([]string, len(children))
 	copy(result, children)
 	return result
@@ -251,7 +253,7 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 			if err != nil {
 				return ErrCompileFormula(schema.Formula, key, err)
 			}
-			node.CompiledFormula = program
+			node.compiledFormula = program
 		}
 
 		d.nodes[key] = node
@@ -510,7 +512,7 @@ func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, chang
 		return true, nil
 	}
 
-	newValue, err := d.formulaEngine.Evaluate(node.CompiledFormula, engineEnv)
+	newValue, err := d.formulaEngine.Evaluate(node.compiledFormula, engineEnv)
 	if err != nil {
 		return false, fmt.Errorf(
 			"%w for field '%s' (formula: %s): %w",
