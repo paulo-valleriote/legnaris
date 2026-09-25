@@ -51,10 +51,10 @@ func NewError(code Code, message string, err error) *Error {
 	}
 }
 
-const LowestErrorState int = 400
+const httpStatusFloor int = 400
 
 func (e *Error) HttpStatus() int {
-	if e.httpStatus < LowestErrorState {
+	if e.httpStatus < httpStatusFloor {
 		return 500
 	}
 	return e.httpStatus
