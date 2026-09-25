@@ -5,13 +5,7 @@ import (
 	"fmt"
 	"legnaris/shared/logger"
 	"os"
-	"strconv"
-	"time"
 )
-
-type EnvWire interface {
-	lookupEnv(key string, defaultValue string) (string, error)
-}
 
 type Variables struct {
 	Port        string
@@ -50,42 +44,6 @@ func (e *Env) initVariables() Variables {
 	}
 }
 
-func (e *Env) lookupTimeEnv(key string, defaultValue time.Duration) time.Duration {
-	value, found := os.LookupEnv(key)
-	if !found && value == "" {
-		e.Logger.Warn(
-			context.Background(),
-			fmt.Sprintf("env variable [%s] not found using default value", key),
-		)
-		return defaultValue
-	}
-
-	timeValue, err := parseTime(value)
-	if err != nil {
-		e.Logger.Fatal(context.Background(), fmt.Sprintf("invalid time duration value %q: %v", value, err))
-	}
-
-	return timeValue
-}
-
-func (e *Env) lookupIntEnv(key string, defaultValue int) int {
-	value, found := os.LookupEnv(key)
-	if !found && value == "" {
-		e.Logger.Warn(
-			context.Background(),
-			fmt.Sprintf("env variable [%s] not found using default value", key),
-		)
-		return defaultValue
-	}
-
-	intValue, err := strconv.Atoi(value)
-	if err != nil {
-		e.Logger.Fatal(context.Background(), fmt.Sprintf("invalid integer value %q: %v", value, err))
-	}
-
-	return intValue
-}
-
 func (e *Env) lookupStringEnv(key string, defaultValue string) string {
 	value, found := os.LookupEnv(key)
 	if !found && value == "" {
@@ -97,13 +55,4 @@ func (e *Env) lookupStringEnv(key string, defaultValue string) string {
 	}
 
 	return value
-}
-
-func parseTime(value string) (time.Duration, error) {
-	duration, err := time.ParseDuration(value)
-	if err != nil {
-		return time.Duration(0), fmt.Errorf("invalid time duration %q: %w", value, err)
-	}
-
-	return duration, nil
 }

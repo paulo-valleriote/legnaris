@@ -14,7 +14,7 @@ import (
 )
 
 // DAG represents a directed acyclic graph of computed fields for a template.
-// Nodes are evaluated in TopologicalOrder to ensure dependencies are resolved
+// Nodes are evaluated in topological order to ensure dependencies are resolved
 // before dependents.
 //
 // The graph is built once per template at boot and never mutates afterwards:
@@ -30,8 +30,8 @@ import (
 // acquisitions, which sync.RWMutex explicitly forbids.
 type DAG struct {
 	// mu guards nodes, adjacencyList and topologicalOrder. Read them through
-	// the accessors (HasNode, GetNode, GetChildren, TopologicalOrder) or while
-	// holding mu explicitly in Recalculate — never acquire it twice.
+	// the accessors (HasNode, GetNode, GetChildren) or while holding mu
+	// explicitly in Recalculate — never acquire it twice.
 	mu               sync.RWMutex
 	templateID       string
 	nodes            map[string]*Node
@@ -104,15 +104,6 @@ func (d *DAG) GetChildren(key string) []string {
 	result := make([]string, len(children))
 	copy(result, children)
 	return result
-}
-
-// TopologicalOrder returns a copy of the evaluation order of node keys.
-func (d *DAG) TopologicalOrder() []string {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	order := make([]string, len(d.topologicalOrder))
-	copy(order, d.topologicalOrder)
-	return order
 }
 
 // BuildDAG constructs a computation DAG from a template's field schemas.
