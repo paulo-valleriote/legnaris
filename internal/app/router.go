@@ -18,13 +18,15 @@ func NewRouter(deps env.Env, modules *Modules) *echo.Echo {
 	router := echo.New()
 	router.HTTPErrorHandler = HTTPErrorHandler
 
+	httpMetrics := metrics.New()
+
 	router.Use(middleware.RequestID())
 	router.Use(cors.Middleware(deps.Variables.CORSOrigins))
-	router.Use(metrics.Middleware)
+	router.Use(httpMetrics.Middleware)
 	router.Use(middleware.RequestLogger())
 	router.Use(middleware.Recover())
 
-	metrics.Register(router)
+	httpMetrics.Register(router)
 
 	// usershttp.RegisterRoutes(router.Group("/users"), deps.Users)
 	health.RegisterHealthRoutes(router.Group(""))

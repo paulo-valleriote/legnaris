@@ -76,8 +76,9 @@ http:
       service: mongo-express
       middlewares: ["oauth", "security-headers"]
 
-    # Public API (no auth) on the api domain.
+    # Public API (no auth) on the api domain. /metrics is deliberately excluded:
+    # it is scraped by Prometheus directly on the internal network (app:8080).
     app:
-      rule: 'Host(`{{ env "API_DOMAIN" }}`)'
+      rule: 'Host(`{{ env "API_DOMAIN" }}`) && !PathPrefix(`/metrics`)'
       entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
       service: app

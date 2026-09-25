@@ -47,3 +47,27 @@ func TestLookupStringEnv(t *testing.T) {
 		require.Equal(t, "9090", e.lookupStringEnv("PORT", "8080"))
 	})
 }
+
+func TestLookupStringSliceEnv(t *testing.T) {
+	e := newTestEnv()
+
+	t.Run("unset falls back to a cloned default", func(t *testing.T) {
+		unsetEnv(t, "CORS_ALLOWED_ORIGINS")
+		got := e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", []string{"https://a.example"})
+		require.Equal(t, []string{"https://a.example"}, got)
+	})
+
+	t.Run("trims whitespace, drops empties, and strips trailing slash", func(t *testing.T) {
+		t.Setenv("CORS_ALLOWED_ORIGINS", " https://a.example/ , ,https://b.example, ")
+		got := e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", nil)
+		require.Equal(t, []string{"https://a.example", "https://b.example"}, got)
+	})
+
+	t.Run("returned slice does not alias the default", func(t *testing.T) {
+		unsetEnv(t, "CORS_ALLOWED_ORIGINS")
+		def := []string{"https://a.example"}
+		got := e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", def)
+		got[0] = "https://mutated.example"
+		require.Equal(t, "https://a.example", def[0], "mutating the result must not mutate the default")
+	})
+}

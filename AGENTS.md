@@ -112,6 +112,7 @@ criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint +
 | Endpoint | Method | Status |
 |----------|--------|--------|
 | `/health` | GET | ✅ `internal/platform/http/health.go` |
+| `/metrics` | GET | ✅ Prometheus metrics (internal-only, excluded from public routing) |
 | `/templates` | GET | ✅ lists catalog |
 | `/sheets` | POST | ✅ create from template |
 | `/sheets/:id` | GET | ✅ fetch |

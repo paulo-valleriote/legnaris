@@ -9,7 +9,7 @@
 #   cp config.yml.example config.yml   # then set the tunnel UUID below
 
 tunnel: <TUNNEL_UUID>
-credentials-file: /root/.cloudflared/<TUNNEL_UUID>.json
+credentials-file: /home/nonroot/.cloudflared/<TUNNEL_UUID>.json
 
 ingress:
   - hostname: api.legnaris.com.br
