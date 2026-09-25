@@ -266,3 +266,25 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 		assertErrorBody(t, rec, http.StatusBadRequest, "UNKNOWN_FIELD")
 	})
 }
+
+// TestIntegration_MetricsRecordsErrorStatus pins the metric status label for
+// erroring routes end-to-end. The RequestLogger (HandleError=true) commits the
+// mapped 404 before the metrics middleware resumes, so /metrics must show
+// status="404" (not 200 or a bare 500) for GET /sheets/:sheetID that returns
+// ErrSheetNotFound. This guards the middleware ordering the metrics status
+// label depends on.
+func TestIntegration_MetricsRecordsErrorStatus(t *testing.T) {
+	h, _ := newIntegrationRouter(t)
+
+	rec := doRequest(t, h, http.MethodGet, "/sheets/does-not-exist", "")
+	require.Equal(t, http.StatusNotFound, rec.Code)
+
+	mrec := doRequest(t, h, http.MethodGet, "/metrics", "")
+	require.Equal(t, http.StatusOK, mrec.Code)
+
+	assert.Contains(
+		t,
+		mrec.Body.String(),
+		`legnaris_http_requests_total{method="GET",path="/sheets/:sheetID",status="404"}`,
+	)
+}

@@ -45,6 +45,14 @@ func New() *Metrics {
 
 	registry.MustRegister(requestDuration, requestsTotal)
 
+	// The private registry must be self-sufficient: register the standard Go
+	// and process collectors so the deployment's own resource metrics (goroutines,
+	// heap, CPU, RSS) are exposed alongside the HTTP series.
+	registry.MustRegister(
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+	)
+
 	return &Metrics{
 		registry:        registry,
 		requestDuration: requestDuration,
@@ -53,6 +61,13 @@ func New() *Metrics {
 }
 
 // Middleware records request count and latency per route and status code.
+//
+// The status label is resolved from the committed response after next(c)
+// returns. The app registers the echo RequestLogger (HandleError=true) *inner*
+// to this middleware, so the global HTTPErrorHandler commits the final 4xx/5xx
+// before this middleware resumes and records it — keep this middleware outer
+// to any error-handling middleware, otherwise a status is read before the
+// error handler maps it (a bare `errors.New` would fall back to 500).
 func (m *Metrics) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		start := time.Now()
