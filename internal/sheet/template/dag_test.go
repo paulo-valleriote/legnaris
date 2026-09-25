@@ -12,6 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// topologicalOrderOf reads the DAG evaluation order under the read lock,
+// mirroring the exported accessor removed in LGN-55 without bypassing the
+// locking contract (never read guarded state without holding mu).
+func topologicalOrderOf(d *DAG) []string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	order := make([]string, len(d.topologicalOrder))
+	copy(order, d.topologicalOrder)
+	return order
+}
+
 func TestBuildDag(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
@@ -117,7 +128,7 @@ func TestBuildDag(t *testing.T) {
 
 			if err == nil {
 				require.NotNil(t, dag)
-				assert.NotEmpty(t, dag.topologicalOrder)
+				assert.NotEmpty(t, topologicalOrderOf(dag))
 			}
 		})
 	}
@@ -491,7 +502,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				require.NoError(t, err) // Current behavior
 			},
 			assertDag: func(t *testing.T, dag *DAG) {
-				assert.Empty(t, dag.topologicalOrder)
+				assert.Empty(t, topologicalOrderOf(dag))
 			},
 		},
 		{
