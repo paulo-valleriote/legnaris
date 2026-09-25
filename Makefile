@@ -1,7 +1,7 @@
 -include .env
 export PORT APP_NAME DATABASE_URI DATABASE_NAME CORS_ALLOWED_ORIGINS DATABASE_PING_TIMEOUT DATABASE_SERVER_SELECTION_TIMEOUT DATABASE_CONNECT_TIMEOUT DATABASE_CLOSE_TIMEOUT
 
-.PHONY: run build test test-race vet lint fmt mocks deploy-up deploy-down deploy-local
+.PHONY: run build test test-race vet lint fmt mocks dev-db deploy-up deploy-down deploy-local
 
 ## --- Development ------------------------------------------------------------
 
@@ -28,6 +28,13 @@ fmt:            ## Format code
 
 mocks:          ## Generate mocks (after interface changes)
 	@go tool mockery
+
+dev-db:         ## Run only MongoDB locally (root/password matches the DATABASE_URI default); stop with: docker stop legnaris-mongo
+	@docker run --rm --name legnaris-mongo \
+		-e MONGO_INITDB_ROOT_USERNAME=root \
+		-e MONGO_INITDB_ROOT_PASSWORD=password \
+		-p 27017:27017 \
+		-d mongo:7.0
 
 ## --- Deploy (deploy/ stack) -------------------------------------------------
 

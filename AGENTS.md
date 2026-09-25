@@ -3,7 +3,7 @@
 ## Quick Start
 
 ```bash
-go run ./cmd/api.go      # Run API (MongoDB required)
+go run ./cmd/api.go      # Run API (MongoDB required; no Mongo yet? `make dev-db`)
 go test ./...            # Run tests
 make mocks               # Generate mocks (after interface changes)
 make fmt                 # Format code
@@ -18,13 +18,14 @@ make fmt                 # Format code
 | Test (race) | `make test-race` |
 | Lint | `make lint` |
 | Vet | `make vet` |
+| Run local MongoDB (dev only) | `make dev-db` |
 | Deploy (production) | `make deploy-up` |
 | Deploy (local tunnel) | `make deploy-local` |
 | Stop deploy | `make deploy-down` |
 
 ## Environment
 
-- `PORT`, `APP_NAME`, `DATABASE_URI` — defaults in `shared/env/env.go`
+- `PORT`, `APP_NAME`, `DATABASE_URI`, `CORS_ALLOWED_ORIGINS` — defaults in `shared/env/env.go`
 - **GitHub token:** read `OPENCODE_PR` from repo-root `.env` (gitignored); never print/commit; use via `Authorization` header / push URL only
 
 ## Conventions (Repo-wide)
