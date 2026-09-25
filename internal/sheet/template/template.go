@@ -34,7 +34,3 @@ type FieldSchema struct {
 	IsEditable bool       `bson:"is_editable"`
 	Default    float64    `bson:"default"`
 }
-
-func (f *FieldSchema) MustCompile() bool {
-	return f.Formula != ""
-}

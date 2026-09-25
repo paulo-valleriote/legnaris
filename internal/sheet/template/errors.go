@@ -3,7 +3,6 @@ package template
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
 // CycleError holds details about a detected cycle.
@@ -54,16 +53,6 @@ func (e *UnknownFieldError) Error() string {
 	return fmt.Sprintf("unknown field '%s' in update", e.Key)
 }
 
-// PathError reports an invalid path operation.
-type PathError struct {
-	Path   string
-	Reason string
-}
-
-func (e *PathError) Error() string {
-	return fmt.Sprintf("invalid path '%s': %s", e.Path, e.Reason)
-}
-
 // FieldNameError reports a field name rejected at DAG build time.
 // Field names must match ^[A-Za-z][A-Za-z0-9]*$ so the flat DAG map key
 // (dot-joined) and the expr-lang engine key (underscore-joined) stay
@@ -112,11 +101,6 @@ func ErrInvalidDependency(depPath []string, targetNode string) error {
 	return &DependencyError{DepPath: depPath, TargetNode: targetNode}
 }
 
-// ErrInvalidPath returns an error for invalid path operations.
-func ErrInvalidPath(path string, reason string) error {
-	return &PathError{Path: path, Reason: reason}
-}
-
 // ErrInvalidFieldName returns an error when a template field name violates
 // the naming rules validated at DAG build time (no '.', no '_', etc.).
 func ErrInvalidFieldName(field string, reason string) error {
@@ -126,9 +110,4 @@ func ErrInvalidFieldName(field string, reason string) error {
 // ErrUnknownField returns an error when an update references a field not in the DAG.
 func ErrUnknownField(key string) error {
 	return &UnknownFieldError{Key: key}
-}
-
-// pathToString converts a []string path to a flat key string for error messages.
-func pathToString(path []string) string {
-	return strings.Join(path, ".")
 }

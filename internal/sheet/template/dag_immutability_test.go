@@ -204,7 +204,6 @@ func TestRecalculate_ConcurrentReaders(t *testing.T) {
 				node, ok := dag.GetNode("derived.bonus")
 				assert.True(t, ok)
 				assert.False(t, node.IsEditable)
-				assert.NotEmpty(t, dag.TopologicalOrder())
 			}
 		}()
 	}

@@ -117,7 +117,7 @@ func TestBuildDag(t *testing.T) {
 
 			if err == nil {
 				require.NotNil(t, dag)
-				assert.NotEmpty(t, dag.TopologicalOrder())
+				assert.NotEmpty(t, dag.topologicalOrder)
 			}
 		})
 	}
@@ -491,7 +491,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				require.NoError(t, err) // Current behavior
 			},
 			assertDag: func(t *testing.T, dag *DAG) {
-				assert.Empty(t, dag.TopologicalOrder())
+				assert.Empty(t, dag.topologicalOrder)
 			},
 		},
 		{
