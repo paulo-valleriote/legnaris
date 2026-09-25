@@ -1,9 +1,8 @@
 # =============================================================================
 # Legnaris — production stack (single VPS, docker-compose)
 # =============================================================================
-# NOTE: the project name is deliberately "legnaris-prod" (not "legnaris") so its
-# volumes/networks never collide with the dev stack in the repo-root
-# docker-compose.yml (which defaults to the "legnaris" project).
+# NOTE: the project name is deliberately "legnaris-prod" so its volumes and
+# networks stay scoped to this deployment.
 # Usage:
 #   cp .env.example .env     # then fill every replace_me value
 #   docker compose up -d --build

@@ -240,8 +240,8 @@ Backup: volumes `legnaris-prod_mongo_data`, `..._prometheus_data`, `..._loki_dat
 ## 13. Gotchas (aprendidos em teste)
 
 1. **oauth2-proxy `cookie_secret`** exige base64 **URL-safe** (`tr '+/' '-_'`).
-2. **Project name** do deploy é `legnaris-prod` (evita colisão de volume com o
-   compose de dev da raiz).
+2. **Project name** do deploy é `legnaris-prod` (escopa volumes/rede desta
+   stack, evitando colisão com outros projetos).
 3. **Traefik `/metrics`** precisa de `metrics.prometheus.entryPoint: metrics`.
 4. **Callback do OAuth** fica no `ops.` (não no `api.`), pois é onde o login
    acontece.
