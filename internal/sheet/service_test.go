@@ -8,6 +8,7 @@ import (
 	"legnaris/internal/engine"
 	"legnaris/internal/sheet"
 	"legnaris/internal/sheet/mocks"
+	"legnaris/internal/sheet/sheettest"
 	"legnaris/internal/sheet/template"
 	templatemocks "legnaris/internal/sheet/template/mocks"
 	"legnaris/shared/apperr"
@@ -62,7 +63,7 @@ func TestService_PartialUpdate(t *testing.T) {
 	dag, err := template.BuildDAG("fantasy_v1", fields, formulaEngine)
 	require.NoError(t, err)
 
-	dagCache := map[string]*template.DAG{
+	dagCache := sheettest.DAGMap{
 		"fantasy_v1": dag,
 	}
 
@@ -328,7 +329,7 @@ func TestService_Create(t *testing.T) {
 	dag, err := template.BuildDAG("test", fields, formulaEngine)
 	require.NoError(t, err)
 
-	dagCache := map[string]*template.DAG{"test": dag}
+	dagCache := sheettest.DAGMap{"test": dag}
 
 	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
 
@@ -433,7 +434,7 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 		Return(corrupted, nil).
 		Once()
 
-	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), map[string]*template.DAG{
+	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{
 		"fantasy_v1": dag,
 	})
 

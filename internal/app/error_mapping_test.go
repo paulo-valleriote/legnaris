@@ -9,6 +9,7 @@ import (
 	"legnaris/internal/engine"
 	"legnaris/internal/sheet"
 	"legnaris/internal/sheet/mocks"
+	"legnaris/internal/sheet/sheettest"
 	"legnaris/internal/sheet/template"
 	templatemocks "legnaris/internal/sheet/template/mocks"
 	"legnaris/shared/response"
@@ -23,7 +24,7 @@ import (
 // real sheet.Service backed by a mocked repository, so the full translation
 // chain (repository/DAG typed errors → apperr → HTTP status) is exercised
 // without MongoDB.
-func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache map[string]*template.DAG) http.Handler {
+func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache sheettest.DAGMap) http.Handler {
 	t.Helper()
 
 	mockTemplateSvc := templatemocks.NewMockService(t)
@@ -35,7 +36,7 @@ func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache 
 	return e
 }
 
-func newErrorTestDAG(t *testing.T) map[string]*template.DAG {
+func newErrorTestDAG(t *testing.T) sheettest.DAGMap {
 	t.Helper()
 
 	fields := template.FieldGroup{
@@ -54,7 +55,7 @@ func newErrorTestDAG(t *testing.T) map[string]*template.DAG {
 
 	dag, err := template.BuildDAG("fantasy_v1", fields, engine.NewFormulaEngine())
 	require.NoError(t, err)
-	return map[string]*template.DAG{"fantasy_v1": dag}
+	return sheettest.DAGMap{"fantasy_v1": dag}
 }
 
 // TestErrorMapping_SheetNotExistsReturns404 covers the card's headline case:

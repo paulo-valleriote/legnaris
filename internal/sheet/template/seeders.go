@@ -4,6 +4,8 @@ package template
 // Each entry is validated and compiled into a DAG once at boot (see Registry).
 // Templates are immutable by ID: rule changes ship as new versioned IDs
 // (e.g. fantasy_v2), never by mutating an existing entry.
+// This variable is exported and therefore mutable; BuildRegistry clones every
+// entry, so changing it after boot does not touch a running registry (LGN-54).
 var DefaultTemplates = []Template{
 	FantasyV1Seed,
 }

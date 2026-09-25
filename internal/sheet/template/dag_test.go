@@ -479,7 +479,8 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			assertDag: func(t *testing.T, dag *DAG) {
 				node, ok := dag.GetNode("derived")
 				require.True(t, ok)
-				require.NotNil(t, node)
+				assert.Equal(t, "base * 2", node.FormulaString)
+				assert.True(t, node.IsDerived())
 				assert.Len(t, dag.GetChildren("base"), 2) // Current behavior: 2 entries
 			},
 		},

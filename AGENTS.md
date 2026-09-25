@@ -25,7 +25,7 @@ make fmt
 |-------|---------|----------------|
 | API | `internal/app` | Echo controllers, routing, error handling |
 | Auth | `internal/auth` (planned) | JWT, bcrypt, refresh rotation |
-| Templates | `internal/sheet/template` | DAG build, formula compile, recalculation |
+| Templates | `internal/sheet/template` | DAG build, formula compile, recalculation, immutable registry |
 | Sheets | `internal/sheet` | CRUD, partial update with cascading recalc |
 | Engine | `internal/engine` | expr-lang wrapper (floor, max functions) |
 | Shared | `shared/*` | env, logger, db, apperr, response, json |
@@ -35,7 +35,7 @@ make fmt
 ## Key Concepts
 
 - **Template** — code-defined structure (fields, formulas, deps). Immutable by ID (`fantasy_v1`, `fantasy_v2`...).
-- **DAG** — compiled dependency graph with topological order. Built once at boot per template.
+- **DAG** — compiled dependency graph with topological order. Built once at boot per template and immutable afterwards: private (never embedded) mutex, a single read-lock acquisition per `Recalculate`, and `GetNode` returning value copies.
 - **Sheet** — `map[string]any` document linked to a template. Base fields editable; derived fields computed.
 - **Recalculation** — `DAG.Recalculate(original, updates)` returns only changed derived fields (cascading).
 
@@ -95,6 +95,8 @@ criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint +
   the layering (app → sheet → template → engine → shared).
 - **English-only** — all identifiers, comments, log messages, and user-facing
   strings must be in English. No Portuguese (pt-BR) code or strings.
+  Exception: `docs/TDD.md` is a Portuguese design document and stays in pt-BR —
+  only code and code-adjacent strings must be English.
 - **Race conditions** — no unsynchronized access to shared state; prefer
   channels or mutexes; `go test -race` must stay clean.
 - **Memory leaks** — close resources (files, DB cursors, response bodies),
@@ -116,6 +118,7 @@ criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint +
 - **Templates are code, not DB** — don't look for a `template` collection in Mongo (will be removed in Phase 0)
 - **DAG keys are flat path keys** (`stats.dexterity`) while engine env uses underscores (`stats_dexterity`) — field names are validated at `BuildDAG` (LGN-52): every segment must match `^[A-Za-z][A-Za-z0-9]*$`, so neither `.` nor `_` can appear in a name and the two key encodings can never collide (regression tests: `TestBuildDAG_FieldNameValidation` and the LGN-41 case in `TestBuildDag_EdgeCases`)
 - **PartialUpdate validates editability** against DAG before recalc — non-editable fields in payload = 400
+- **Registry and DAGs are frozen after boot** — `Registry.List()`/`FetchByID()` return deep copies (the registry clones `DefaultTemplates` on ingest), DAGs are resolved per ID via `Registry.DAG(id)` through the `sheet.DAGProvider` interface (there is no `DAGs()` map accessor anymore), and `DAG` guards its state with an unexported mutex: never acquire it twice — read through `HasNode`/`GetNode`/`GetChildren`/`TopologicalOrder`, or stay under the single lock `Recalculate` takes (recursive RLock deadlocks with a queued writer, regression test `TestRecalculate_ValidationRunsUnderSingleReadLock`)
 - **Seed runs on every boot** currently — will be removed; templates served from memory registry
 - **No auth yet** — all endpoints open; ownership/authorization in Phase 2
 
@@ -127,7 +130,7 @@ internal/
   auth/          # (planned) JWT, bcrypt, middleware
   engine/        # formula engine (expr-lang wrapper)
   sheet/
-    template/    # DAG, types, seeders, errors
+    template/    # DAG, registry, clone, types, seeders, errors
     mocks/       # generated mocks
     *.go         # sheet service, repository
 shared/

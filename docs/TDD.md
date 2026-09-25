@@ -473,9 +473,9 @@ Manter o padrão JSON já estabelecido em `shared/logger`, com campos obrigatór
 | **Campo base** | Campo editável sem fórmula (ex: `stats.dexterity`). |
 | **Campo derivado** | Campo calculado por fórmula, não editável (ex: `modifiers.dexterityMod`). |
 | **Nó proxy de configuração** | Campo editável numérico (0/1) usado como multiplicador em fórmulas para ligar/desligar regras (ex: `config.acUsesDex`) — peça-chave da estratégia anti-copyright. |
-| **DAG** | Grafo acíclico dirigido dos campos de um template, com fórmulas compiladas e ordem topológica para recálculo. |
+| **DAG** | Grafo acíclico dirigido dos campos de um template, com fórmulas compiladas e ordem topológica para recálculo. Imutável após o boot: estado protegido por mutex privado e uma única leitura por recálculo. |
 | **Recálculo em cascata** | Propagação de uma mudança de campo base por todos os derivados dependentes, em ordem topológica, apenas nos nós afetados. |
-| **DAG Registry** | Mapa em memória `template_id → DAG`, construído no boot a partir dos templates default em código. |
+| **DAG Registry** | Mapa em memória `template_id → DAG`, construído no boot a partir dos templates default em código. Congelado após o boot: exposto por `DAG(id)`/`DAGProvider` (nunca como mapa), com cópias profundas dos templates na entrada e na saída. |
 | **Template default** | Template distribuído com o sistema (ex: `fantasy_v1`), definido no código-fonte, read-only, com ID versionado. |
 | **Export auto-contido** | JSON de exportação que embute o template de origem junto aos dados da ficha, garantindo portabilidade total. |
 | **Família de refresh tokens** | Conjunto de refresh tokens encadeados por rotation (`family_id`); reuso de um token antigo revoga a família inteira. |

@@ -26,7 +26,7 @@ func NewModules(database *db.Database, registry *template.Registry) *Modules {
 	templateController := NewTemplateController(templateService)
 
 	sheetRepository := sheet.NewRepository(database.Client.Database("legnaris"))
-	sheetService := sheet.NewService(sheetRepository, templateService, registry.DAGs())
+	sheetService := sheet.NewService(sheetRepository, templateService, registry)
 	sheetController := NewSheetController(sheetService)
 
 	return &Modules{

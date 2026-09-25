@@ -3,6 +3,7 @@ package template
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -14,13 +15,25 @@ import (
 
 // DAG represents a directed acyclic graph of computed fields for a template.
 // Nodes are evaluated in TopologicalOrder to ensure dependencies are resolved
-// before dependents. The graph is built once per template at startup and is
-// immutable afterwards: fields are read-only for the lifetime of the DAG.
-// Concurrent read access via Recalculate is safe; mutation after construction
-// is prevented by unexported fields and a sync.RWMutex guard.
+// before dependents.
+//
+// The graph is built once per template at boot and never mutates afterwards:
+// BuildDAG is the only writer (a single goroutine, running before the graph is
+// published to anyone else) and no exported method writes graph state, so
+// concurrent readers never race (LGN-54). mu keeps that discipline explicit for
+// the read path and serialises any write that ever reaches the graph.
+//
+// The guard is an unexported mutex on purpose. An exported embedded RWMutex
+// would let any caller Lock the DAG (starving every reader) or Unlock it
+// (panicking), and taking the read lock twice — as validateUpdateKeys used to
+// do through HasNode — deadlocks whenever a writer is queued between the two
+// acquisitions, which sync.RWMutex explicitly forbids.
 type DAG struct {
-	sync.RWMutex
-	TemplateID       string
+	// mu guards nodes, adjacencyList and topologicalOrder. Read them through
+	// the accessors (HasNode, GetNode, GetChildren, TopologicalOrder) or while
+	// holding mu explicitly in Recalculate — never acquire it twice.
+	mu               sync.RWMutex
+	templateID       string
 	nodes            map[string]*Node
 	adjacencyList    map[string][]string
 	topologicalOrder []string
@@ -28,49 +41,66 @@ type DAG struct {
 }
 
 // Node represents a single field in the DAG.
+//
+// Node is handed out by value from GetNode, and DAG keeps its own private
+// instances: a caller that mutates a returned copy changes nothing but its
+// own local variable (LGN-54). The compiled program stays unexported so no
+// caller outside this package can reach the state every Recalculate reads.
 type Node struct {
 	Path            Path
 	FormulaString   string
-	CompiledFormula *vm.Program
+	compiledFormula *vm.Program
 	IsEditable      bool
 }
 
 // IsDerived returns true if this node has a formula (computed field).
-func (n *Node) IsDerived() bool {
-	return n.CompiledFormula != nil
+func (n Node) IsDerived() bool {
+	return n.compiledFormula != nil
 }
 
 // MapKey returns the flat path key used in DAG maps (e.g., "attributes.str").
-func (n *Node) MapKey() string {
+func (n Node) MapKey() string {
 	return n.Path.String()
 }
 
 // HasNode returns true if a node with the given key exists in the DAG.
+// It takes the read lock itself, so it must not be called while the caller
+// already holds it — see Recalculate for the single-lock read path.
 func (d *DAG) HasNode(key string) bool {
-	d.RLock()
-	defer d.RUnlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	_, ok := d.nodes[key]
 	return ok
 }
 
-// GetNode returns the node for the given key and whether it was found.
-func (d *DAG) GetNode(key string) (*Node, bool) {
-	d.RLock()
-	defer d.RUnlock()
+// GetNode returns a copy of the node for the given key and whether it was
+// found. The Path slice is cloned too, so the returned value shares no
+// memory with the DAG and cannot be used to mutate it.
+// It takes the read lock itself, so it must not be called while the caller
+// already holds it — see Recalculate for the single-lock read path.
+func (d *DAG) GetNode(key string) (Node, bool) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	node, ok := d.nodes[key]
-	return node, ok
+	if !ok {
+		return Node{}, false
+	}
+	copied := *node
+	copied.Path = slices.Clone(node.Path)
+	return copied, true
 }
 
 // GetChildren returns the list of child keys for the given node key.
 // Returns nil if the key has no children.
 func (d *DAG) GetChildren(key string) []string {
-	d.RLock()
-	defer d.RUnlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	children, ok := d.adjacencyList[key]
 	if !ok {
 		return nil
 	}
-	// Return a copy to prevent external mutation.
+	// Copy while the read lock is still held: the caller must get a fresh
+	// allocation, never the internal adjacency slice (LGN-54).
 	result := make([]string, len(children))
 	copy(result, children)
 	return result
@@ -78,8 +108,8 @@ func (d *DAG) GetChildren(key string) []string {
 
 // TopologicalOrder returns a copy of the evaluation order of node keys.
 func (d *DAG) TopologicalOrder() []string {
-	d.RLock()
-	defer d.RUnlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	order := make([]string, len(d.topologicalOrder))
 	copy(order, d.topologicalOrder)
 	return order
@@ -88,7 +118,8 @@ func (d *DAG) TopologicalOrder() []string {
 // BuildDAG constructs a computation DAG from a template's field schemas.
 // Returns an error if any formula fails to compile, a dependency cycle is detected,
 // or a DependsOn references a non-existent field.
-// The DAG is write-locked during construction to ensure thread-safe initialization.
+// Construction runs single-threaded at boot, and the graph is immutable from
+// the moment BuildDAG returns: nothing writes it afterwards (LGN-54).
 func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (*DAG, error) {
 	if eng == nil {
 		return nil, ErrNilFormulaEngine
@@ -123,17 +154,15 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 	}
 	dag.topologicalOrder = topoOrder
 
-	// Lock the DAG after construction to prevent any further mutation.
-	dag.Lock()
-	defer dag.Unlock()
-
+	// No lock is held here: construction is single-threaded and the graph is
+	// immutable from now on, so there is nothing left to protect (LGN-54).
 	return dag, nil
 }
 
 // newDAG allocates and initializes a DAG with empty collections.
 func newDAG(templateID string, eng *engine.FormulaEngine) *DAG {
 	return &DAG{
-		TemplateID:    templateID,
+		templateID:    templateID,
 		nodes:         make(map[string]*Node),
 		adjacencyList: make(map[string][]string),
 		formulaEngine: eng,
@@ -206,8 +235,8 @@ func buildCompilationEnv(paths []Path) map[string]any {
 
 // compileNodeFormulas compiles formulas for all leaf nodes and populates dag.nodes.
 func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilationEnv map[string]any) error {
-	d.Lock()
-	defer d.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
 	for i, schema := range schemas {
 		path := paths[i]
@@ -224,7 +253,7 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 			if err != nil {
 				return ErrCompileFormula(schema.Formula, key, err)
 			}
-			node.CompiledFormula = program
+			node.compiledFormula = program
 		}
 
 		d.nodes[key] = node
@@ -235,8 +264,8 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 // buildAdjacencyList constructs the dependency graph from DependsOn declarations.
 // Returns ErrInvalidDependency if any DependsOn references a non-existent field.
 func (d *DAG) buildAdjacencyList(schemas []*FieldSchema, paths []Path) error {
-	d.Lock()
-	defer d.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
 	// Build set of all valid node keys for validation
 	validKeys := make(map[string]bool, len(paths))
@@ -353,13 +382,17 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 		return nil, err
 	}
 
-	// Validate all updatedData keys exist in DAG
-	if err := d.validateUpdateKeys(updatedData); err != nil {
+	// One read-lock acquisition covers key validation and evaluation.
+	// The read lock must never be taken recursively: if a writer queued a Lock
+	// between two RLocks, the second acquisition would wait for the writer
+	// while the writer waits for the first RLock — a deadlock sync.RWMutex
+	// explicitly warns about (LGN-54).
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if err := d.validateUpdateKeysLocked(updatedData); err != nil {
 		return nil, err
 	}
-
-	d.RLock()
-	defer d.RUnlock()
 
 	sheetData, engineEnv, err := d.prepareData(originalData, updatedData)
 	if err != nil {
@@ -375,15 +408,15 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 	return changedDerived, nil
 }
 
-// validateUpdateKeys checks that all keys in updatedData exist in the DAG.
+// validateUpdateKeysLocked checks that all keys in updatedData exist in the DAG.
 // A key is valid if it is a DAG node or a parent prefix of a DAG node
 // (e.g., "stats" is valid if "stats.str" exists in the DAG).
-func (d *DAG) validateUpdateKeys(updatedData map[string]any) error {
-	d.RLock()
-	defer d.RUnlock()
-
+// It reads the graph directly and must be called with mu already held by the
+// caller: it must not take the lock itself, or it would nest a read lock inside
+// the one Recalculate already holds.
+func (d *DAG) validateUpdateKeysLocked(updatedData map[string]any) error {
 	for key := range updatedData {
-		if d.HasNode(key) {
+		if _, ok := d.nodes[key]; ok {
 			continue // Direct DAG node
 		}
 		// Check if key is a prefix of any DAG node (e.g., "stats" for "stats.str")
@@ -395,6 +428,7 @@ func (d *DAG) validateUpdateKeys(updatedData map[string]any) error {
 }
 
 // hasNodePrefix returns true if any DAG node starts with the given key + ".".
+// Must be called with mu already held.
 func (d *DAG) hasNodePrefix(key string) bool {
 	prefix := key + "."
 	for nodeKey := range d.nodes {
@@ -478,7 +512,7 @@ func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, chang
 		return true, nil
 	}
 
-	newValue, err := d.formulaEngine.Evaluate(node.CompiledFormula, engineEnv)
+	newValue, err := d.formulaEngine.Evaluate(node.compiledFormula, engineEnv)
 	if err != nil {
 		return false, fmt.Errorf(
 			"%w for field '%s' (formula: %s): %w",
