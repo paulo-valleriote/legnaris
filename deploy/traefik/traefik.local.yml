@@ -1,0 +1,34 @@
+# Local static config: no Let's Encrypt, plain HTTP on the "web" entrypoint.
+# Cloudflare Tunnel terminates TLS in front of Traefik.
+global:
+  sendAnonymousUsage: false
+
+api:
+  dashboard: true
+  insecure: false
+
+entryPoints:
+  web:
+    address: ":80"
+  # Internal-only entrypoint (not published) so Prometheus can scrape Traefik
+  # metrics over plain HTTP.
+  metrics:
+    address: ":8082"
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true
+
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json

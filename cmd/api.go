@@ -41,7 +41,7 @@ func main() {
 	modules := app.NewModules(database, registry)
 
 	e := app.NewRouter(env, modules)
-	if err := e.Start(":8080"); err != nil {
+	if err := e.Start(":" + env.Variables.Port); err != nil {
 		log.Error(
 			ctx,
 			"failed to start server",

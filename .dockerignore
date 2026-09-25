@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.env.example
+docs/
+deploy/
+*.md
+Dockerfile
+.dockerignore
+coverage.*
+*.out
+*.test

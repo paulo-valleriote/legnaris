@@ -1,0 +1,63 @@
+# =============================================================================
+# Local development override — expose the stack via Cloudflare Tunnel.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# Differences from production (docker-compose.yml):
+#   - Traefik uses the local static config: plain HTTP entrypoint, no Let's
+#     Encrypt (Cloudflare Tunnel terminates TLS in front of it).
+#   - oauth2-proxy sets non-secure cookies (the origin is HTTP behind the tunnel;
+#     the browser still sees HTTPS via Cloudflare).
+#   - cloudflared exposes api.* and ops.* through the tunnel.
+# =============================================================================
+
+services:
+  traefik:
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      OPS_DOMAIN: ${OPS_DOMAIN}
+      TRAEFIK_ENTRYPOINT: web
+    ports:
+      - "80:80"
+    volumes:
+      - ./traefik/traefik.local.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  oauth2-proxy:
+    command:
+      - --provider=github
+      - --email-domain=*
+      - --github-user=${GITHUB_USER}
+      - --client-id=${GITHUB_CLIENT_ID}
+      - --client-secret=${GITHUB_CLIENT_SECRET}
+      - --cookie-secret=${OAUTH2_PROXY_COOKIE_SECRET}
+      - --cookie-secure=false
+      - --cookie-expire=24h
+      - --upstream=static://202
+      - --http-address=0.0.0.0:4180
+      - --reverse-proxy=true
+      - --set-xauthrequest=true
+      - --skip-provider-button=true
+      - --redirect-url=https://${OPS_DOMAIN}/oauth2/callback
+      - --whitelist-domain=${OPS_DOMAIN}
+      - --scope=user:email read:org
+
+  # Named Cloudflare Tunnel. Requires the tunnel + credentials created first
+  # (see README "Expor local com Cloudflare Tunnel"). Quick alternative:
+  #   docker run --rm --network legnaris-prod_edge cloudflare/cloudflared:latest \
+  #     tunnel --no-autoupdate --url http://traefik:80
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ~/.cloudflared:/home/nonroot/.cloudflared:ro
+    networks:
+      - edge
+    depends_on:
+      - traefik
