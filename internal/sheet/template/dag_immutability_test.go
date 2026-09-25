@@ -42,7 +42,9 @@ func requireWriterQueued(t *testing.T, dag *DAG) {
 	for time.Now().Before(deadline) {
 		// Probe: with our read lock held, a fresh read lock only succeeds once
 		// the writer is gone, and only blocks once the writer is queued.
-		probed := make(chan int)
+		// Buffered: on the timeout path this helper returns before the probe
+		// sends, so an unbuffered channel would block that goroutine forever.
+		probed := make(chan int, 1)
 		go func() {
 			dag.mu.RLock()
 			nodes := len(dag.nodes) // real read: the section guards state

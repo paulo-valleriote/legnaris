@@ -8,6 +8,7 @@ import (
 	"legnaris/internal/engine"
 	"legnaris/internal/sheet"
 	"legnaris/internal/sheet/mocks"
+	"legnaris/internal/sheet/sheettest"
 	"legnaris/internal/sheet/template"
 	templatemocks "legnaris/internal/sheet/template/mocks"
 	"legnaris/shared/apperr"
@@ -17,16 +18,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-// dagProvider adapts a plain map to the sheet.DAGProvider interface, so tests
-// can wire a hand-built DAG without constructing a whole template.Registry
-// (LGN-54: the service takes a provider, not a mutable map).
-type dagProvider map[string]*template.DAG
-
-func (p dagProvider) DAG(id string) (*template.DAG, bool) {
-	dag, ok := p[id]
-	return dag, ok
-}
 
 func TestService_PartialUpdate(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t)
@@ -72,7 +63,7 @@ func TestService_PartialUpdate(t *testing.T) {
 	dag, err := template.BuildDAG("fantasy_v1", fields, formulaEngine)
 	require.NoError(t, err)
 
-	dagCache := dagProvider{
+	dagCache := sheettest.DAGMap{
 		"fantasy_v1": dag,
 	}
 
@@ -338,7 +329,7 @@ func TestService_Create(t *testing.T) {
 	dag, err := template.BuildDAG("test", fields, formulaEngine)
 	require.NoError(t, err)
 
-	dagCache := dagProvider{"test": dag}
+	dagCache := sheettest.DAGMap{"test": dag}
 
 	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
 
@@ -443,7 +434,7 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 		Return(corrupted, nil).
 		Once()
 
-	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagProvider{
+	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{
 		"fantasy_v1": dag,
 	})
 

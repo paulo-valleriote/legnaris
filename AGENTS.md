@@ -95,6 +95,8 @@ criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint +
   the layering (app → sheet → template → engine → shared).
 - **English-only** — all identifiers, comments, log messages, and user-facing
   strings must be in English. No Portuguese (pt-BR) code or strings.
+  Exception: `docs/TDD.md` is a Portuguese design document and stays in pt-BR —
+  only code and code-adjacent strings must be English.
 - **Race conditions** — no unsynchronized access to shared state; prefer
   channels or mutexes; `go test -race` must stay clean.
 - **Memory leaks** — close resources (files, DB cursors, response bodies),
