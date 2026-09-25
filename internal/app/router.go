@@ -2,7 +2,9 @@ package app
 
 import (
 	"errors"
+	"legnaris/internal/platform/cors"
 	"legnaris/internal/platform/health"
+	"legnaris/internal/platform/metrics"
 	"legnaris/shared/apperr"
 	"legnaris/shared/env"
 	"legnaris/shared/response"
@@ -16,8 +18,15 @@ func NewRouter(deps env.Env, modules *Modules) *echo.Echo {
 	router := echo.New()
 	router.HTTPErrorHandler = HTTPErrorHandler
 
+	httpMetrics := metrics.New()
+
+	router.Use(middleware.RequestID())
+	router.Use(cors.Middleware(deps.Variables.CORSOrigins))
+	router.Use(httpMetrics.Middleware)
 	router.Use(middleware.RequestLogger())
 	router.Use(middleware.Recover())
+
+	httpMetrics.Register(router)
 
 	// usershttp.RegisterRoutes(router.Group("/users"), deps.Users)
 	health.RegisterHealthRoutes(router.Group(""))

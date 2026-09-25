@@ -1,0 +1,39 @@
+# Static Traefik config, shared by production and local development.
+#
+# Production adds TLS (the `websecure` entrypoint, the HTTP->HTTPS redirect, and
+# the Let's Encrypt resolver) through CLI flags in docker-compose.yml, so those
+# settings live in one place and the local override (Cloudflare Tunnel) can use
+# this same file with plain HTTP on the `web` entrypoint only.
+
+global:
+  sendAnonymousUsage: false
+
+api:
+  dashboard: true
+  insecure: false
+
+entryPoints:
+  web:
+    address: ":80"
+  # Internal-only entrypoint (not published) so Prometheus can scrape Traefik
+  # metrics over plain HTTP without going through the public entrypoints.
+  metrics:
+    address: ":8082"
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true
+
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json

@@ -1,0 +1,52 @@
+# =============================================================================
+# Local development override — expose the stack via Cloudflare Tunnel.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# Differences from production (docker-compose.yml):
+#   - Traefik uses the shared static config (traefik.yml) with plain HTTP on the
+#     `web` entrypoint and no Let's Encrypt (Cloudflare Tunnel terminates TLS).
+#   - oauth2-proxy sets non-secure cookies (the origin is HTTP behind the tunnel;
+#     the browser still sees HTTPS via Cloudflare).
+#   - cloudflared exposes api.* and ops.* through the tunnel.
+# =============================================================================
+
+services:
+  traefik:
+    # Drop the production-only TLS flags from the base command; keep the same
+    # traefik.yml (which already ships the `web` and `metrics` entrypoints).
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      OPS_DOMAIN: ${OPS_DOMAIN}
+      TRAEFIK_ENTRYPOINT: web
+    ports:
+      - "80:80"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  oauth2-proxy:
+    # Inherit every OAUTH2_PROXY_* flag from the base service; only relax the
+    # secure-cookie requirement for the HTTP origin behind the tunnel.
+    environment:
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+
+  # Named Cloudflare Tunnel. Requires the tunnel + credentials created first
+  # (see deploy/README.md, "Run locally via Cloudflare Tunnel"). Quick check:
+  #   docker run --rm --network legnaris-prod_edge cloudflare/cloudflared:2026.9.1 \
+  #     tunnel --no-autoupdate --url http://traefik:80
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.1
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ~/.cloudflared:/home/nonroot/.cloudflared:ro
+    networks:
+      - edge
+    depends_on:
+      - traefik

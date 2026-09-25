@@ -1,0 +1,7 @@
+# Local secrets — never commit real credentials. Copy the .example files and
+# fill them in on the host instead.
+.env
+
+# Host-specific Cloudflare tunnel config (contains the tunnel UUID). The
+# template (config.yml.example) is committed.
+cloudflared/config.yml

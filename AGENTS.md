@@ -3,10 +3,7 @@
 ## Quick Start
 
 ```bash
-# Start MongoDB
-docker compose up -d
-
-# Run API (loads templates from code, seeds fantasy_v1 on boot)
+# Run API (templates served from the in-memory registry; MongoDB required)
 go run ./cmd/api.go
 
 # Run tests
@@ -30,7 +27,7 @@ make fmt
 | Engine | `internal/engine` | expr-lang wrapper (floor, max functions) |
 | Shared | `shared/*` | env, logger, db, apperr, response, json |
 
-**Entry point:** `cmd/api.go` → builds DAG registry from code-defined templates → starts Echo on `:8080`.
+**Entry point:** `cmd/api.go` → builds DAG registry from code-defined templates → starts Echo on the configured `PORT` (default `:8080`).
 
 ## Key Concepts
 
@@ -43,27 +40,35 @@ make fmt
 
 | Task | Command |
 |------|---------|
-| Start dev DB | `docker compose up -d` |
-| Run server | `go run ./cmd/api.go` |
-| Run all tests | `go test ./...` |
+| Run server | `make run` (or `go run ./cmd/api.go`) |
+| Build | `make build` |
+| Run all tests | `make test` (or `go test ./...`) |
+| Run tests (race) | `make test-race` |
 | Run single test | `go test -run TestBuildDag ./internal/sheet/template` |
+| Lint | `make lint` |
+| Vet | `make vet` |
 | Generate mocks | `make mocks` |
 | Format | `make fmt` |
+| Deploy (production) | `make deploy-up` |
+| Deploy (local tunnel) | `make deploy-local` |
+| Stop deploy | `make deploy-down` |
 
 ## Testing
 
 - Unit tests use `testify` + Mockery mocks in `internal/*/mocks/`
-- Integration tests need MongoDB running (`docker compose up -d`)
+- Integration tests self-skip when MongoDB is unavailable (see the `deploy/` stack)
 - Key test files: `dag_test.go`, `dag_recalculate_test.go`, `path_test.go`
 
 ## Current State (per TDD)
 
-**Phase 0 — Hygiene (pending):**
-- Remove PostgreSQL leftovers (README, Makefile, docker-compose)
-- Fix error messages in sheet repository ("template not found" → "sheet not found")
-- Normalize `floor`/`max` int/float coercion in engine
-- Eliminate template seed on boot; serve templates from in-memory registry
+**Phase 0 — Hygiene: ✅ complete**
+- Removed PostgreSQL leftovers (README, root `docker-compose.yml`, and the `scripts/database/migrations/` SQL)
+- Fixed sheet repository error messages ("sheet not found")
+- Normalized `floor`/`max` int/float coercion in engine
+- Eliminated template seed on boot; templates served from the in-memory registry
 - PATCH body uses a nested map (`{"data":{"stats":{"dexterity":12}}}`), flattened internally to DAG dot-keys
+
+**Next:** Phase 1 — auth (JWT, bcrypt, refresh rotation).
 
 ## Conventions
 
@@ -107,6 +112,7 @@ criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint +
 | Endpoint | Method | Status |
 |----------|--------|--------|
 | `/health` | GET | ✅ `internal/platform/http/health.go` |
+| `/metrics` | GET | ✅ Prometheus metrics (internal-only, excluded from public routing) |
 | `/templates` | GET | ✅ lists catalog |
 | `/sheets` | POST | ✅ create from template |
 | `/sheets/:id` | GET | ✅ fetch |
@@ -115,11 +121,10 @@ criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint +
 
 ## Gotchas
 
-- **Templates are code, not DB** — don't look for a `template` collection in Mongo (will be removed in Phase 0)
+- **Templates are code, not DB** — there is no `template` collection in Mongo; templates live in the in-memory registry
 - **DAG keys are flat path keys** (`stats.dexterity`) while engine env uses underscores (`stats_dexterity`) — field names are validated at `BuildDAG` (LGN-52): every segment must match `^[A-Za-z][A-Za-z0-9]*$`, so neither `.` nor `_` can appear in a name and the two key encodings can never collide (regression tests: `TestBuildDAG_FieldNameValidation` and the LGN-41 case in `TestBuildDag_EdgeCases`)
 - **PartialUpdate validates editability** against DAG before recalc — non-editable fields in payload = 400
 - **Registry and DAGs are frozen after boot** — `Registry.List()`/`FetchByID()` return deep copies (the registry clones `DefaultTemplates` on ingest), DAGs are resolved per ID via `Registry.DAG(id)` through the `sheet.DAGProvider` interface (there is no `DAGs()` map accessor anymore), and `DAG` guards its state with an unexported mutex: never acquire it twice — read through `HasNode`/`GetNode`/`GetChildren`, or stay under the single lock `Recalculate` takes (recursive RLock deadlocks with a queued writer, regression test `TestRecalculate_ValidationRunsUnderSingleReadLock`)
-- **Seed runs on every boot** currently — will be removed; templates served from memory registry
 - **No auth yet** — all endpoints open; ownership/authorization in Phase 2
 
 ## File Patterns
