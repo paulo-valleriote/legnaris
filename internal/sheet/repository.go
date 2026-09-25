@@ -18,16 +18,16 @@ type Repository interface {
 }
 
 type RepositoryImpl struct {
-	client *mongo.Collection
+	collection *mongo.Collection
 }
 
 // ErrSheetNotFound reports a sheet lookup that matched no document.
 // Services translate it to apperr.CodeNotFound at the layer boundary.
 var ErrSheetNotFound = errors.New("sheet not found")
 
-func NewRepository(client *mongo.Database) Repository {
+func NewRepository(db *mongo.Database) Repository {
 	return &RepositoryImpl{
-		client: client.Collection("sheets"),
+		collection: db.Collection("sheets"),
 	}
 }
 
@@ -36,7 +36,7 @@ func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*Sheet, erro
 
 	filter := bson.D{{Key: "_id", Value: id}}
 	opts := options.FindOne()
-	err := r.client.FindOne(ctx, filter, opts).Decode(&result)
+	err := r.collection.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrSheetNotFound
@@ -48,7 +48,7 @@ func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*Sheet, erro
 }
 
 func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
-	result, err := r.client.InsertOne(ctx, sheet)
+	result, err := r.collection.InsertOne(ctx, sheet)
 	if err != nil {
 		return fmt.Errorf("error creating sheet: %w", err)
 	}
@@ -60,7 +60,7 @@ func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, dbUpdates
 	filter := bson.D{{Key: "_id", Value: id}}
 	update := bson.M{"$set": dbUpdates}
 
-	_, err := r.client.UpdateOne(ctx, filter, update)
+	_, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return fmt.Errorf("error updating sheet: %w", err)
 	}

@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	mongo_context_timeout    = 1 * time.Second
-	server_selection_timeout = 2 * time.Second
-	connect_timeout          = 2 * time.Second
+	mongoContextTimeout    = 1 * time.Second
+	serverSelectionTimeout = 2 * time.Second
+	connectTimeout         = 2 * time.Second
 )
 
 type Database struct {
@@ -34,9 +34,9 @@ func InitMongo(env env.Env) (*Database, error) {
 
 	opts := options.Client().
 		ApplyURI(uri).
-		SetServerSelectionTimeout(server_selection_timeout).
+		SetServerSelectionTimeout(serverSelectionTimeout).
 		SetServerAPIOptions(serverAPI).
-		SetConnectTimeout(connect_timeout).
+		SetConnectTimeout(connectTimeout).
 		SetBSONOptions(&options.BSONOptions{
 			// Decode nested BSON documents into map[string]any instead of the
 			// default bson.D. Sheet data is modeled as map[string]any and the
@@ -49,7 +49,7 @@ func InitMongo(env env.Env) (*Database, error) {
 		return nil, fmt.Errorf("connect to mongodb: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), mongo_context_timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), mongoContextTimeout)
 	defer cancel()
 
 	if err := client.Ping(ctx, nil); err != nil {

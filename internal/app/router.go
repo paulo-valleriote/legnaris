@@ -2,7 +2,7 @@ package app
 
 import (
 	"errors"
-	platformHTTP "legnaris/internal/platform/http"
+	"legnaris/internal/platform/health"
 	"legnaris/shared/apperr"
 	"legnaris/shared/env"
 	"legnaris/shared/response"
@@ -20,7 +20,7 @@ func NewRouter(deps env.Env, modules *Modules) *echo.Echo {
 	router.Use(middleware.Recover())
 
 	// usershttp.RegisterRoutes(router.Group("/users"), deps.Users)
-	platformHTTP.RegisterHealthRoutes(router.Group(""))
+	health.RegisterHealthRoutes(router.Group(""))
 	modules.Template.Controller.RegisterRoutes(router.Group("/templates"))
 	modules.Sheet.Controller.RegisterRoutes(router.Group("/sheets"))
 
