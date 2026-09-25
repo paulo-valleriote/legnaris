@@ -22,12 +22,16 @@ services:
       API_DOMAIN: ${API_DOMAIN}
       OPS_DOMAIN: ${OPS_DOMAIN}
       TRAEFIK_ENTRYPOINT: web
-    ports:
+    # Compose merges (appends) lists across files by default, so without this
+    # tag the base `443:443` port and the `letsencrypt` volume would silently
+    # carry over. !override replaces the inherited list instead of appending.
+    # Requires Docker Compose >= 2.24.
+    ports: !override
       - "80:80"
-    volumes:
+    volumes: !override
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   oauth2-proxy:
     # Inherit every OAUTH2_PROXY_* flag from the base service; only relax the

@@ -24,6 +24,15 @@ Why split into two subdomains? The frontend (Vercel) and the API/observability
 live on different hosts, each with its own security rule. The `api.` is public;
 the `ops.` requires a GitHub login.
 
+**Threat model:** the `ops.` subdomain is the only administrative surface. It is
+gated by GitHub OAuth at the Traefik edge; Grafana, Prometheus, and Mongo
+Express run on the `internal` Docker network only (not published, not on
+`edge`), so they are reachable solely through Traefik, which enforces that
+login. Their own credentials (Grafana admin, Mongo Express basic auth) are
+defense-in-depth for a trusted internal network — not a substitute for the
+OAuth gate. Anything that can reach those containers directly on the `internal`
+network is already trusted.
+
 ---
 
 ## 2. Understanding each layer (no jargon)

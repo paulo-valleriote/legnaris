@@ -32,3 +32,10 @@ storage_config:
 
 limits_config:
   retention_period: 744h
+
+# retention_period is a no-op without the compactor: enable it so expired chunks
+# are actually deleted and loki_data does not grow without bound.
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem

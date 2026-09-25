@@ -99,6 +99,8 @@ services:
     environment:
       PORT: "8080"
       APP_NAME: legnaris
+      # MONGO_APP_PASSWORD is embedded verbatim in the URI below, so it must be
+      # URL-safe (see deploy/.env.example); reserved characters would break it.
       DATABASE_URI: mongodb://legnaris_app:${MONGO_APP_PASSWORD}@mongodb:27017/legnaris
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     networks:
@@ -151,14 +153,15 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
+      # Bound the TSDB so prometheus_data does not grow without limit.
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=20GB
       - --web.external-url=https://${OPS_DOMAIN}/prometheus
       - --web.route-prefix=/prometheus
-      - --web.enable-lifecycle
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     networks:
-      - edge
       - internal
 
   loki:
@@ -200,7 +203,6 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
-      - edge
       - internal
     depends_on:
       - prometheus
@@ -218,7 +220,6 @@ services:
       ME_CONFIG_BASICAUTH_USERNAME: ${ME_CONFIG_BASICAUTH_USERNAME}
       ME_CONFIG_BASICAUTH_PASSWORD: ${ME_CONFIG_BASICAUTH_PASSWORD}
     networks:
-      - edge
       - internal
     depends_on:
       mongodb:
