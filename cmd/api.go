@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"os"
 
 	"legnaris/internal/app"
 	"legnaris/internal/engine"
@@ -15,27 +17,35 @@ import (
 func main() {
 	ctx := context.Background()
 	log := logger.NewLogger(slog.LevelInfo)
-	env := env.NewEnv(log)
+	applicationEnv := env.NewEnv(log)
 
-	database, err := db.InitMongo(env)
+	if err := run(ctx, log, applicationEnv); err != nil {
+		log.Error(ctx, "application terminated with error", logger.Attribute{Key: "error", Value: err.Error()})
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, log logger.StructuredLogger, applicationEnv env.Env) error {
+	database, err := db.InitMongo(applicationEnv)
 	if err != nil {
-		log.Fatal(ctx, "db initialization error: %w", logger.Attribute{Key: "err", Value: err.Error()})
+		return fmt.Errorf("db initialization error: %w", err)
 	}
 
-	defer func(ctx context.Context) {
-		err := database.Close(ctx)
-		log.Fatal(
-			ctx,
-			"fatal error while disconnecting from mongodb",
-			logger.Attribute{Key: "error", Value: err.Error()},
-		)
-	}(ctx)
+	defer func() {
+		if err := database.Close(ctx); err != nil {
+			log.Error(
+				ctx,
+				"error while disconnecting from mongodb",
+				logger.Attribute{Key: "error", Value: err.Error()},
+			)
+		}
+	}()
 
 	formulaEngine := engine.NewFormulaEngine()
 
 	registry, err := template.BuildRegistry(formulaEngine)
 	if err != nil {
-		log.Fatal(ctx, "error building template registry", logger.Attribute{Key: "err", Value: err.Error()})
+		return fmt.Errorf("build template registry: %w", err)
 	}
 
 	modules := app.NewModules(database, registry)
@@ -48,4 +58,6 @@ func main() {
 			logger.Attribute{Key: "error", Value: err.Error()},
 		)
 	}
+
+	return nil
 }

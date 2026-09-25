@@ -55,7 +55,7 @@ func (e *Env) initVariables() Variables {
 
 func (e *Env) lookupStringEnv(key string, defaultValue string) string {
 	value, found := os.LookupEnv(key)
-	if !found && value == "" {
+	if !found || value == "" {
 		e.Logger.Warn(
 			context.Background(),
 			fmt.Sprintf("env variable [%s] not found using default value", key),
