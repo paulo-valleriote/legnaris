@@ -50,13 +50,9 @@ func run(ctx context.Context, log logger.StructuredLogger, applicationEnv env.En
 
 	modules := app.NewModules(database, registry)
 
-	e := app.NewRouter(env, modules)
-	if err := e.Start(":" + env.Variables.Port); err != nil {
-		log.Error(
-			ctx,
-			"failed to start server",
-			logger.Attribute{Key: "error", Value: err.Error()},
-		)
+	e := app.NewRouter(applicationEnv, modules)
+	if err := e.Start(":" + applicationEnv.Variables.Port); err != nil {
+		return fmt.Errorf("start server: %w", err)
 	}
 
 	return nil
