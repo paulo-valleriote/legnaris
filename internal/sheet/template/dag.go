@@ -278,9 +278,9 @@ func (d *DAG) buildAdjacencyList(schemas []*FieldSchema, paths []Path) error {
 }
 
 const (
-	unvisited = iota
-	visiting
-	visited
+	nodeUnvisited = iota
+	nodeVisiting
+	nodeVisited
 )
 
 // topologicalSort detects cycles and, when none are found, returns a
@@ -297,7 +297,7 @@ func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string,
 func detectCycle(nodes map[string]*Node, adj map[string][]string) []string {
 	state := make(map[string]int, len(nodes))
 	for node := range nodes {
-		if state[node] != unvisited {
+		if state[node] != nodeUnvisited {
 			continue
 		}
 		if cycle := findCycle(node, adj, state, nil); cycle != nil {
@@ -312,21 +312,21 @@ func detectCycle(nodes map[string]*Node, adj map[string][]string) []string {
 // branches, so cycle extraction is never affected by a different root's
 // walk.
 func findCycle(node string, adj map[string][]string, state map[string]int, path []string) []string {
-	state[node] = visiting
+	state[node] = nodeVisiting
 	path = append(path, node)
 
 	for _, child := range adj[node] {
 		switch state[child] {
-		case unvisited:
+		case nodeUnvisited:
 			if cycle := findCycle(child, adj, state, path); cycle != nil {
 				return cycle
 			}
-		case visiting:
+		case nodeVisiting:
 			return cycleFromPath(path, child)
 		}
 	}
 
-	state[node] = visited
+	state[node] = nodeVisited
 	return nil
 }
 
@@ -341,8 +341,8 @@ func cycleFromPath(path []string, start string) []string {
 }
 
 // kahnTopoSort returns a topological ordering using Kahn's algorithm.
-// The graph must be acyclic; a cycle triggers ErrInfiniteCycle as a
-// defensive fallback.
+// The graph must be acyclic; a cycle triggers ErrCycleDetected as a
+// defensive fallback with the nodes that could not be ordered.
 func kahnTopoSort(nodes map[string]*Node, adj map[string][]string) ([]string, error) {
 	inDegree := initInDegree(nodes, adj)
 
@@ -367,7 +367,18 @@ func kahnTopoSort(nodes map[string]*Node, adj map[string][]string) ([]string, er
 	}
 
 	if len(topoOrder) != len(nodes) {
-		return nil, ErrInfiniteCycle
+		// Find nodes missing from topoOrder (cycle nodes)
+		inTopo := make(map[string]bool, len(topoOrder))
+		for _, n := range topoOrder {
+			inTopo[n] = true
+		}
+		var missing []string
+		for n := range nodes {
+			if !inTopo[n] {
+				missing = append(missing, n)
+			}
+		}
+		return nil, ErrCycleDetected(missing)
 	}
 	return topoOrder, nil
 }
