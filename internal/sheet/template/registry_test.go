@@ -61,14 +61,14 @@ func TestRegistry_FetchByIDReturnsDeepCopy(t *testing.T) {
 	registry, err := BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	first, ok := registry.FetchByID(FantasyV1Seed.ID)
+	first, ok := registry.FetchByID(FantasyV1Template.ID)
 	require.True(t, ok)
 
 	tamperTemplate(first)
 
-	second, ok := registry.FetchByID(FantasyV1Seed.ID)
+	second, ok := registry.FetchByID(FantasyV1Template.ID)
 	require.True(t, ok)
-	assert.Equal(t, FantasyV1Seed, *second,
+	assert.Equal(t, FantasyV1Template, *second,
 		"mutating the template returned by FetchByID changed the registry")
 }
 
@@ -117,9 +117,9 @@ func TestRegistry_DAGReturnsSingleSharedGraph(t *testing.T) {
 	registry, err := BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	first, ok := registry.DAG(FantasyV1Seed.ID)
+	first, ok := registry.DAG(FantasyV1Template.ID)
 	require.True(t, ok)
-	second, ok := registry.DAG(FantasyV1Seed.ID)
+	second, ok := registry.DAG(FantasyV1Template.ID)
 	require.True(t, ok)
 	assert.Same(t, first, second, "each lookup must share one immutable DAG")
 

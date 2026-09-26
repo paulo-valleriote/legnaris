@@ -7,13 +7,13 @@ package template
 // This variable is exported and therefore mutable; BuildRegistry clones every
 // entry, so changing it after boot does not touch a running registry (LGN-54).
 var DefaultTemplates = []Template{
-	FantasyV1Seed,
+	FantasyV1Template,
 }
 
-// FantasyV1Seed defines the fantasy_v1 default template. It lives in code only
+// FantasyV1Template defines the fantasy_v1 default template. It lives in code only
 // and is served from the in-memory Registry (no MongoDB seed or template
 // collection anymore).
-var FantasyV1Seed = Template{
+var FantasyV1Template = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",
 	Default: true,

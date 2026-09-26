@@ -15,8 +15,8 @@ type FormulaEngine struct {
 func NewFormulaEngine() *FormulaEngine {
 	return &FormulaEngine{
 		compileOptions: []expr.Option{
-			expr.Function("floor", floor),
-			expr.Function("max", max),
+			expr.Function("floor", floorFunc),
+			expr.Function("max", maxFunc),
 		},
 	}
 }
@@ -83,7 +83,7 @@ func coerceFloat64(v any) (float64, error) {
 	}
 }
 
-func floor(params ...any) (any, error) {
+func floorFunc(params ...any) (any, error) {
 	if len(params) != 1 {
 		return nil, fmt.Errorf("%w: floor expects exactly 1 argument", ErrInvalidFloat)
 	}
@@ -95,7 +95,7 @@ func floor(params ...any) (any, error) {
 	return math.Floor(v), nil
 }
 
-func max(params ...any) (any, error) {
+func maxFunc(params ...any) (any, error) {
 	if len(params) != 2 {
 		return nil, fmt.Errorf("%w: max expects exactly 2 arguments", ErrInvalidFloat)
 	}

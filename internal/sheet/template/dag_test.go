@@ -114,7 +114,7 @@ func TestBuildDag(t *testing.T) {
 				require.Error(t, err)
 
 				dummyErr := errors.New("")
-				expectedMsg := ErrCompileFormula("floor((stats_str - 10) / ", "mod.str", dummyErr).Error()
+				expectedMsg := NewFormulaCompileError("floor((stats_str - 10) / ", "mod.str", dummyErr).Error()
 				expectedMsg = strings.TrimSuffix(expectedMsg, dummyErr.Error())
 				assert.ErrorContains(t, err, expectedMsg)
 			},

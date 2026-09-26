@@ -242,7 +242,7 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 		if schema.Formula != "" {
 			program, err := d.formulaEngine.Compile(schema.Formula, compilationEnv)
 			if err != nil {
-				return ErrCompileFormula(schema.Formula, key, err)
+				return NewFormulaCompileError(schema.Formula, key, err)
 			}
 			node.compiledFormula = program
 		}

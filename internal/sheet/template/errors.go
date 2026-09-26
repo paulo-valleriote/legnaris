@@ -85,8 +85,8 @@ var (
 	ErrFormulaEval = errors.New("formula evaluation failed")
 )
 
-// ErrCompileFormula wraps formula compilation errors with context.
-func ErrCompileFormula(formula string, nodeID string, err error) error {
+// NewFormulaCompileError wraps formula compilation errors with context.
+func NewFormulaCompileError(formula string, nodeID string, err error) error {
 	return &FormulaCompileError{Formula: formula, NodeID: nodeID, Err: err}
 }
 

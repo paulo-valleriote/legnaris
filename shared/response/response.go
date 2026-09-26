@@ -10,7 +10,7 @@ type Success[T any] struct {
 	Data T `json:"data"`
 }
 
-type Error struct {
+type ErrorResponse struct {
 	Error ErrorBody `json:"error"`
 }
 

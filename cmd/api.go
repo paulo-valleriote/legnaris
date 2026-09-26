@@ -17,16 +17,16 @@ import (
 func main() {
 	ctx := context.Background()
 	log := logger.NewLogger(slog.LevelInfo)
-	applicationEnv := env.NewEnv(log)
+	cfg := env.NewEnv(log)
 
-	if err := run(ctx, log, applicationEnv); err != nil {
+	if err := run(ctx, log, cfg); err != nil {
 		log.Error(ctx, "application terminated with error", logger.Attribute{Key: "error", Value: err.Error()})
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, log logger.StructuredLogger, applicationEnv env.Env) error {
-	database, err := db.InitMongo(applicationEnv)
+func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
+	database, err := db.InitMongo(cfg)
 	if err != nil {
 		return fmt.Errorf("db initialization error: %w", err)
 	}
@@ -50,8 +50,8 @@ func run(ctx context.Context, log logger.StructuredLogger, applicationEnv env.En
 
 	modules := app.NewModules(database, registry)
 
-	e := app.NewRouter(applicationEnv, modules)
-	if err := e.Start(":" + applicationEnv.Variables.Port); err != nil {
+	router := app.NewRouter(cfg, modules)
+	if err := router.Start(":" + cfg.Variables.Port); err != nil {
 		return fmt.Errorf("start server: %w", err)
 	}
 
