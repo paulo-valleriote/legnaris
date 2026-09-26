@@ -5,16 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"legnaris/shared/env"
-	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
-)
-
-const (
-	mongoContextTimeout    = 1 * time.Second
-	serverSelectionTimeout = 2 * time.Second
-	connectTimeout         = 2 * time.Second
 )
 
 type Database struct {
@@ -34,9 +27,9 @@ func InitMongo(env env.Env) (*Database, error) {
 
 	opts := options.Client().
 		ApplyURI(uri).
-		SetServerSelectionTimeout(serverSelectionTimeout).
+		SetServerSelectionTimeout(env.Variables.DatabaseServerSelectionTimeout).
 		SetServerAPIOptions(serverAPI).
-		SetConnectTimeout(connectTimeout).
+		SetConnectTimeout(env.Variables.DatabaseConnectTimeout).
 		SetBSONOptions(&options.BSONOptions{
 			// Decode nested BSON documents into map[string]any instead of the
 			// default bson.D. Sheet data is modeled as map[string]any and the
@@ -49,11 +42,13 @@ func InitMongo(env env.Env) (*Database, error) {
 		return nil, fmt.Errorf("connect to mongodb: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), mongoContextTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), env.Variables.DatabasePingTimeout)
 	defer cancel()
 
 	if err := client.Ping(ctx, nil); err != nil {
-		_ = client.Disconnect(context.Background())
+		disconnectCtx, disconnectCancel := context.WithTimeout(context.Background(), env.Variables.DatabaseCloseTimeout)
+		defer disconnectCancel()
+		_ = client.Disconnect(disconnectCtx)
 		return nil, fmt.Errorf("ping mongodb: %w", err)
 	}
 

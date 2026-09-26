@@ -4,6 +4,7 @@
 
 ```bash
 # Run API (templates served from the in-memory registry; MongoDB required)
+# Requires .env with DATABASE_URI (and optional DATABASE_NAME, timeouts)
 go run ./cmd/api.go
 
 # Run tests
@@ -14,6 +15,9 @@ make mocks
 
 # Format code
 make fmt
+
+# Run server via Make (loads .env automatically)
+make run
 ```
 
 ## Architecture Overview
@@ -72,7 +76,7 @@ make fmt
 
 ## Conventions
 
-- **Env vars:** `PORT`, `APP_NAME`, `DATABASE_URI` (defaults in `shared/env/env.go`)
+- **Env vars:** `PORT`, `APP_NAME`, `DATABASE_URI` (required), `DATABASE_NAME`, `DATABASE_PING_TIMEOUT`, `DATABASE_SERVER_SELECTION_TIMEOUT`, `DATABASE_CONNECT_TIMEOUT`, `DATABASE_CLOSE_TIMEOUT`, `CORS_ALLOWED_ORIGINS` (defaults in `shared/env/env.go`)
 - **GitHub auth:** for `git push` and the GitHub REST API (PR creation), read the token from `OPENCODE_PR` in the repo-root `.env` (gitignored). Never print the token, never commit `.env`; use it only via the `Authorization` header / push URL.
 - **Error handling — errors MUST always be typed:** no bare/untyped `errors.New` for domain errors anywhere. Each layer has its own typed errors:
   - **Services and controllers** (`internal/sheet/service.go`, `internal/app/*.go`) use **only `apperr`**: `apperr.NewError(code, message, err)` (not found → `CodeNotFound`/404, invalid or non-editable field → `CodeInvalidRequest`/`CodeUnknownField`/400).
