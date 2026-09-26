@@ -67,11 +67,13 @@ services:
   oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.8.0
     restart: unless-stopped
-    # Configured via OAUTH2_PROXY_* env vars so the local override can flip a
-    # single flag (OAUTH2_PROXY_COOKIE_SECURE) without duplicating the list.
+    # Note: email-domain doesn't work via env var in v7.8.0 (array flag parsing bug),
+    # so we pass it via command. The rest use env vars so the local override can
+    # flip a single flag (OAUTH2_PROXY_COOKIE_SECURE) without duplicating the list.
+    command:
+      - --email-domain=*
     environment:
       OAUTH2_PROXY_PROVIDER: github
-      OAUTH2_PROXY_EMAIL_DOMAIN: "*"
       OAUTH2_PROXY_GITHUB_USER: ${GITHUB_USER}
       OAUTH2_PROXY_CLIENT_ID: ${GITHUB_CLIENT_ID}
       OAUTH2_PROXY_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
