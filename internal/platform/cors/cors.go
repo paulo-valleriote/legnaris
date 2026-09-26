@@ -3,6 +3,7 @@ package cors
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -12,7 +13,9 @@ import (
 // origins (e.g. the frontend origin). It also handles preflight OPTIONS.
 func Middleware(origins []string) echo.MiddlewareFunc {
 	return middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: origins,
+		// Clone the caller's slice so a later mutation of Variables.CORSOrigins
+		// cannot race with the per-request read of AllowOrigins.
+		AllowOrigins: slices.Clone(origins),
 		AllowMethods: []string{
 			http.MethodGet,
 			http.MethodPost,

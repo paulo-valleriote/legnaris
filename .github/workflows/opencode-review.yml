@@ -33,9 +33,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           PR=${{ github.event.issue.number }}
+          # Written inside the workspace so the review subagents can read it
+          # (prompt attachments are not inherited by child sessions).
+          mkdir -p .ai-review
           gh api "repos/${{ github.repository }}/pulls/${PR}" \
-            -H "Accept: application/vnd.github.v3.diff" > /tmp/diff.txt
-          echo "diff lines: $(wc -l < /tmp/diff.txt)"
+            -H "Accept: application/vnd.github.v3.diff" > .ai-review/diff.txt
+          echo "diff lines: $(wc -l < .ai-review/diff.txt)"
 
       - name: Run AI review
         id: review
@@ -44,30 +47,15 @@ jobs:
           # OpenCode Console API key for the `opencode` provider.
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         run: |
-          cat > /tmp/prompt.md <<'PROMPT'
-          You are an expert Go code reviewer. Read AGENTS.md and strictly apply
-          its "PR Review Checklist" section.
-
-          Review ONLY the attached diff (diff.txt). Do not modify any files and
-          do not run any commands or tools; analyze the attached files only.
-
-          Reply with a single Markdown comment in English, using these headings
-          (write "None" when a category has no findings):
-          - Cyclomatic complexity
-          - Code duplication
-          - Convention violations
-          - Non-English code/strings (the codebase is English-only)
-          - Race conditions
-          - Memory or goroutine leaks
-
-          For each finding cite `file:line`, a one-line explanation, and a
-          suggested fix. Be concise; list issues only, no praise.
-          PROMPT
-
-          opencode run --standalone --model opencode/space-bunny-free \
-            --file /tmp/diff.txt \
+          # The orchestration itself lives in the agent files under
+          # .opencode/agents/review/ (one specialist per review section).
+          opencode run --standalone \
+            --agent review/orchestrator \
+            --model opencode/mimo-v2.6-flash-free \
+            --file .ai-review/diff.txt \
             --file AGENTS.md \
-            "$(cat /tmp/prompt.md)" > /tmp/review.md 2>/tmp/review.log
+            "Orchestrate the AI PR review for the attached diff now. Output only the final Markdown comment." \
+            > /tmp/review.md 2>/tmp/review.log
 
       - name: Post review comment
         if: always()
