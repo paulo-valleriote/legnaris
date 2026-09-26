@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"legnaris/shared/logger"
 
@@ -69,5 +70,104 @@ func TestLookupStringSliceEnv(t *testing.T) {
 		got := e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", def)
 		got[0] = "https://mutated.example"
 		require.Equal(t, "https://a.example", def[0], "mutating the result must not mutate the default")
+	})
+}
+
+func TestLookupDurationEnv(t *testing.T) {
+	e := newTestEnv()
+	const defaultDur = 2 * time.Second
+
+	t.Run("unset falls back to default", func(t *testing.T) {
+		unsetEnv(t, "TEST_DURATION")
+		require.Equal(t, defaultDur, e.lookupDurationEnv("TEST_DURATION", defaultDur))
+	})
+
+	t.Run("empty value falls back to default", func(t *testing.T) {
+		t.Setenv("TEST_DURATION", "")
+		require.Equal(t, defaultDur, e.lookupDurationEnv("TEST_DURATION", defaultDur))
+	})
+
+	t.Run("valid duration is parsed", func(t *testing.T) {
+		t.Setenv("TEST_DURATION", "3s")
+		require.Equal(t, 3*time.Second, e.lookupDurationEnv("TEST_DURATION", defaultDur))
+	})
+
+	t.Run("valid duration with ms is parsed", func(t *testing.T) {
+		t.Setenv("TEST_DURATION", "500ms")
+		require.Equal(t, 500*time.Millisecond, e.lookupDurationEnv("TEST_DURATION", defaultDur))
+	})
+
+	t.Run("invalid duration falls back to default", func(t *testing.T) {
+		t.Setenv("TEST_DURATION", "not-a-duration")
+		require.Equal(t, defaultDur, e.lookupDurationEnv("TEST_DURATION", defaultDur))
+	})
+
+	t.Run("zero duration falls back to default", func(t *testing.T) {
+		t.Setenv("TEST_DURATION", "0s")
+		require.Equal(t, defaultDur, e.lookupDurationEnv("TEST_DURATION", defaultDur))
+	})
+
+	t.Run("negative duration falls back to default", func(t *testing.T) {
+		t.Setenv("TEST_DURATION", "-1s")
+		require.Equal(t, defaultDur, e.lookupDurationEnv("TEST_DURATION", defaultDur))
+	})
+}
+
+func TestLookupRequiredStringEnv(t *testing.T) {
+	e := newTestEnv()
+
+	t.Run("unset returns empty string", func(t *testing.T) {
+		unsetEnv(t, "REQUIRED_VAR")
+		require.Empty(t, e.lookupRequiredStringEnv("REQUIRED_VAR"))
+	})
+
+	t.Run("empty value returns empty string", func(t *testing.T) {
+		t.Setenv("REQUIRED_VAR", "")
+		require.Empty(t, e.lookupRequiredStringEnv("REQUIRED_VAR"))
+	})
+
+	t.Run("set value is returned", func(t *testing.T) {
+		t.Setenv("REQUIRED_VAR", "my-value")
+		require.Equal(t, "my-value", e.lookupRequiredStringEnv("REQUIRED_VAR"))
+	})
+}
+
+func TestInitVariablesDefaults(t *testing.T) {
+	e := newTestEnv()
+
+	t.Run("DatabaseURI is empty when unset (required)", func(t *testing.T) {
+		unsetEnv(t, "DATABASE_URI")
+		vars := e.initVariables()
+		require.Empty(t, vars.DatabaseURI)
+	})
+
+	t.Run("DatabaseName defaults to legnaris", func(t *testing.T) {
+		unsetEnv(t, "DATABASE_NAME")
+		vars := e.initVariables()
+		require.Equal(t, "legnaris", vars.DatabaseName)
+	})
+
+	t.Run("DatabasePingTimeout defaults to 1s", func(t *testing.T) {
+		unsetEnv(t, "DATABASE_PING_TIMEOUT")
+		vars := e.initVariables()
+		require.Equal(t, 1*time.Second, vars.DatabasePingTimeout)
+	})
+
+	t.Run("DatabaseServerSelectionTimeout defaults to 2s", func(t *testing.T) {
+		unsetEnv(t, "DATABASE_SERVER_SELECTION_TIMEOUT")
+		vars := e.initVariables()
+		require.Equal(t, 2*time.Second, vars.DatabaseServerSelectionTimeout)
+	})
+
+	t.Run("DatabaseConnectTimeout defaults to 2s", func(t *testing.T) {
+		unsetEnv(t, "DATABASE_CONNECT_TIMEOUT")
+		vars := e.initVariables()
+		require.Equal(t, 2*time.Second, vars.DatabaseConnectTimeout)
+	})
+
+	t.Run("DatabaseCloseTimeout defaults to 5s", func(t *testing.T) {
+		unsetEnv(t, "DATABASE_CLOSE_TIMEOUT")
+		vars := e.initVariables()
+		require.Equal(t, 5*time.Second, vars.DatabaseCloseTimeout)
 	})
 }

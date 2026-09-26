@@ -38,7 +38,11 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	if err != nil {
 		t.Skipf("mongo unavailable — skipping integration test: %v", err)
 	}
-	t.Cleanup(func() { _ = database.Close(context.Background()) })
+	t.Cleanup(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), env.Variables.DatabaseCloseTimeout)
+		defer cancel()
+		_ = database.Close(closeCtx)
+	})
 
 	ctx := context.Background()
 	mdb := database.Client.Database(testDatabaseName)
@@ -55,7 +59,7 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	modules := app.NewModules(database, registry)
+	modules := app.NewModules(database, registry, testDatabaseName)
 	return app.NewRouter(env, modules), mdb
 }
 
