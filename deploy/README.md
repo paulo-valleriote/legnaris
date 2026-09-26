@@ -90,6 +90,8 @@ tunnel.
 2. **GitHub OAuth App** (see §4).
 3. **DNS for the `api.` and `ops.` subdomains** (see §5).
 4. **oauth2-proxy cookie secret** (see §6).
+5. **Docker Compose >= 2.24** — the local override uses the `!override`
+   tag (see §8); older clients fail to parse `docker-compose.local.yml`.
 
 ## 4. Create the GitHub OAuth App
 

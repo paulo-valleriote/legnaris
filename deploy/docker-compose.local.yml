@@ -24,7 +24,10 @@ services:
       TRAEFIK_ENTRYPOINT: web
     # Compose merges (appends) lists across files by default, so without this
     # tag the base `443:443` port and the `letsencrypt` volume would silently
-    # carry over. !override replaces the inherited list instead of appending.
+    # carry over. !override replaces the inherited list instead of appending,
+    # so the volumes below copy the base `traefik` mounts (minus the
+    # production-only `letsencrypt` volume): if the base service gains a mount,
+    # re-list it here too or it will be silently dropped in this override.
     # Requires Docker Compose >= 2.24.
     ports: !override
       - "80:80"
