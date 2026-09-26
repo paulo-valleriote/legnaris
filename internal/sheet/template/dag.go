@@ -277,63 +277,74 @@ func (d *DAG) buildAdjacencyList(schemas []*FieldSchema, paths []Path) error {
 	return nil
 }
 
-// topologicalSort performs cycle detection using DFS to identify cycle nodes.
-// Returns topological order or ErrCycleDetected with the cycle path.
+const (
+	nodeUnvisited = iota
+	nodeVisiting
+	nodeVisited
+)
+
+// topologicalSort detects cycles and, when none are found, returns a
+// topological ordering of the nodes.
 func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string, error) {
-	// Three-state DFS: 0=unvisited, 1=visiting, 2=visited
+	if cycle := detectCycle(nodes, adj); cycle != nil {
+		return nil, ErrCycleDetected(cycle)
+	}
+	return kahnTopoSort(nodes, adj)
+}
+
+// detectCycle performs a DFS over every unvisited root and returns the
+// first cycle it encounters, or nil when the graph is acyclic.
+func detectCycle(nodes map[string]*Node, adj map[string][]string) []string {
 	state := make(map[string]int, len(nodes))
-	var cyclePath []string
-
-	var dfs func(string) bool
-	dfs = func(node string) bool {
-		state[node] = 1 // visiting
-		cyclePath = append(cyclePath, node)
-
-		for _, child := range adj[node] {
-			if state[child] == 0 {
-				if dfs(child) {
-					return true
-				}
-			} else if state[child] == 1 {
-				// Cycle found - extract cycle from cyclePath
-				cycleStart := -1
-				for i, n := range cyclePath {
-					if n == child {
-						cycleStart = i
-						break
-					}
-				}
-				if cycleStart >= 0 {
-					cyclePath = cyclePath[cycleStart:]
-					return true
-				}
-			}
-		}
-
-		state[node] = 2 // visited
-		cyclePath = cyclePath[:len(cyclePath)-1]
-		return false
-	}
-
-	// Run DFS from all unvisited nodes
 	for node := range nodes {
-		if state[node] == 0 {
-			if dfs(node) {
-				return nil, ErrCycleDetected(cyclePath)
+		if state[node] != nodeUnvisited {
+			continue
+		}
+		if cycle := findCycle(node, adj, state, nil); cycle != nil {
+			return cycle
+		}
+	}
+	return nil
+}
+
+// findCycle is the recursive DFS helper. `path` is local to this
+// traversal: it grows as we descend and carries no state from sibling
+// branches, so cycle extraction is never affected by a different root's
+// walk.
+func findCycle(node string, adj map[string][]string, state map[string]int, path []string) []string {
+	state[node] = nodeVisiting
+	path = append(path, node)
+
+	for _, child := range adj[node] {
+		switch state[child] {
+		case nodeUnvisited:
+			if cycle := findCycle(child, adj, state, path); cycle != nil {
+				return cycle
 			}
+		case nodeVisiting:
+			return cycleFromPath(path, child)
 		}
 	}
 
-	// No cycle - now run Kahn's for topological order
-	inDegree := make(map[string]int, len(nodes))
-	for key := range nodes {
-		inDegree[key] = 0
+	state[node] = nodeVisited
+	return nil
+}
+
+// cycleFromPath returns the slice of `path` starting at the first
+// occurrence of `start`, cloned so that recursive appends can never
+// mutate the reported cycle.
+func cycleFromPath(path []string, start string) []string {
+	if i := slices.Index(path, start); i >= 0 {
+		return slices.Clone(path[i:])
 	}
-	for _, children := range adj {
-		for _, child := range children {
-			inDegree[child]++
-		}
-	}
+	return slices.Clone(path)
+}
+
+// kahnTopoSort returns a topological ordering using Kahn's algorithm.
+// The graph must be acyclic; a cycle triggers ErrCycleDetected as a
+// defensive fallback with the nodes that could not be ordered.
+func kahnTopoSort(nodes map[string]*Node, adj map[string][]string) ([]string, error) {
+	inDegree := initInDegree(nodes, adj)
 
 	var queue []string
 	for id, deg := range inDegree {
@@ -342,7 +353,7 @@ func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string,
 		}
 	}
 
-	var topoOrder []string
+	topoOrder := make([]string, 0, len(nodes))
 	for head := 0; head < len(queue); head++ {
 		curr := queue[head]
 		topoOrder = append(topoOrder, curr)
@@ -356,10 +367,34 @@ func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string,
 	}
 
 	if len(topoOrder) != len(nodes) {
-		// Should not happen since DFS already checked, but fallback
-		return nil, ErrInfiniteCycle
+		// Find nodes missing from topoOrder (cycle nodes)
+		inTopo := make(map[string]bool, len(topoOrder))
+		for _, n := range topoOrder {
+			inTopo[n] = true
+		}
+		var missing []string
+		for n := range nodes {
+			if !inTopo[n] {
+				missing = append(missing, n)
+			}
+		}
+		return nil, ErrCycleDetected(missing)
 	}
 	return topoOrder, nil
+}
+
+// initInDegree computes the in-degree of every node.
+func initInDegree(nodes map[string]*Node, adj map[string][]string) map[string]int {
+	inDegree := make(map[string]int, len(nodes))
+	for key := range nodes {
+		inDegree[key] = 0
+	}
+	for _, children := range adj {
+		for _, child := range children {
+			inDegree[child]++
+		}
+	}
+	return inDegree
 }
 
 // Recalculate reapplies updates and recomputes derived fields in topological order.

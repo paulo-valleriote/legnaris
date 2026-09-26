@@ -32,7 +32,9 @@ func run(ctx context.Context, log logger.StructuredLogger, applicationEnv env.En
 	}
 
 	defer func() {
-		if err := database.Close(ctx); err != nil {
+		closeCtx, cancel := context.WithTimeout(context.Background(), applicationEnv.Variables.DatabaseCloseTimeout)
+		defer cancel()
+		if err := database.Close(closeCtx); err != nil {
 			log.Error(
 				ctx,
 				"error while disconnecting from mongodb",
@@ -48,7 +50,7 @@ func run(ctx context.Context, log logger.StructuredLogger, applicationEnv env.En
 		return fmt.Errorf("build template registry: %w", err)
 	}
 
-	modules := app.NewModules(database, registry)
+	modules := app.NewModules(database, registry, applicationEnv.Variables.DatabaseName)
 
 	e := app.NewRouter(applicationEnv, modules)
 	if err := e.Start(":" + applicationEnv.Variables.Port); err != nil {

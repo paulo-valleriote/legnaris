@@ -21,11 +21,11 @@ type Modules struct {
 	Sheet    Sheet
 }
 
-func NewModules(database *db.Database, registry *template.Registry) *Modules {
+func NewModules(database *db.Database, registry *template.Registry, dbName string) *Modules {
 	templateService := template.NewService(registry)
 	templateController := NewTemplateController(templateService)
 
-	sheetRepository := sheet.NewRepository(database.Client.Database("legnaris"))
+	sheetRepository := sheet.NewRepository(database.Client.Database(dbName))
 	sheetService := sheet.NewService(sheetRepository, templateService, registry)
 	sheetController := NewSheetController(sheetService)
 

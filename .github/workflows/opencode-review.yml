@@ -16,14 +16,15 @@ jobs:
     if: github.event.issue.pull_request && github.event.comment.body == 'ai-review'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Check out the PR head so AGENTS.md reflects the PR branch.
           ref: refs/pull/${{ github.event.issue.number }}/head
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: 24
+          package-manager-cache: false
 
       - name: Install OpenCode CLI
         run: npm install --global @opencode/cli
@@ -50,7 +51,7 @@ jobs:
           # The orchestration itself lives in the agent files under
           # .opencode/agents/review/ (one specialist per review section).
           opencode run --standalone \
-            --agent review/orchestrator \
+            --agent build \
             --model opencode/mimo-v2.6-flash-free \
             --file .ai-review/diff.txt \
             --file AGENTS.md \
