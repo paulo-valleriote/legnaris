@@ -27,7 +27,7 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.13
-          only-new-issues: true
+          only-new-issues: false
 
   race:
     name: tests (race detector)
