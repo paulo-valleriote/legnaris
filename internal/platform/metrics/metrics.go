@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -49,8 +50,8 @@ func New() *Metrics {
 	// and process collectors so the deployment's own resource metrics (goroutines,
 	// heap, CPU, RSS) are exposed alongside the HTTP series.
 	registry.MustRegister(
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 
 	return &Metrics{
