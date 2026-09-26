@@ -1073,6 +1073,110 @@ func TestTopologicalSort_CycleDetection(t *testing.T) {
 	}
 }
 
+// TestDetectCycle verifies the standalone cycle-detection helper directly.
+func TestDetectCycle(t *testing.T) {
+	tests := []struct {
+		name   string
+		nodes  map[string]*Node
+		adj    map[string][]string
+		expect []string // nil means no cycle
+	}{
+		{
+			name:   "acyclic graph returns nil",
+			nodes:  map[string]*Node{"a": {}, "b": {}},
+			adj:    map[string][]string{"a": {"b"}},
+			expect: nil,
+		},
+		{
+			name:   "2-node cycle returns both nodes",
+			nodes:  map[string]*Node{"a": {}, "b": {}},
+			adj:    map[string][]string{"a": {"b"}, "b": {"a"}},
+			expect: []string{"a", "b"},
+		},
+		{
+			name:   "3-node cycle returns all nodes",
+			nodes:  map[string]*Node{"a": {}, "b": {}, "c": {}},
+			adj:    map[string][]string{"a": {"b"}, "b": {"c"}, "c": {"a"}},
+			expect: []string{"a", "b", "c"},
+		},
+		{
+			name:   "self-loop returns the single node",
+			nodes:  map[string]*Node{"a": {}},
+			adj:    map[string][]string{"a": {"a"}},
+			expect: []string{"a"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cycle := detectCycle(tc.nodes, tc.adj)
+			if tc.expect == nil {
+				require.Nil(t, cycle)
+				return
+			}
+			require.NotNil(t, cycle)
+			assert.Len(t, cycle, len(tc.expect))
+			for _, want := range tc.expect {
+				assert.Contains(t, cycle, want)
+			}
+		})
+	}
+}
+
+// TestTopologicalSort_PrefixIntoCycle verifies that a cycle reached through a
+// non-cycle prefix reports only the cycle nodes (no prefix leakage).
+func TestTopologicalSort_PrefixIntoCycle(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+	fields := FieldGroup{
+		"x": {Schema: &FieldSchema{
+			Type: "number", IsEditable: false,
+			Formula:   "a + 1",
+			DependsOn: [][]string{{"a"}},
+		}},
+		"a": {Schema: &FieldSchema{
+			Type: "number", IsEditable: false,
+			Formula:   "b + 1",
+			DependsOn: [][]string{{"b"}},
+		}},
+		"b": {Schema: &FieldSchema{
+			Type: "number", IsEditable: false,
+			Formula:   "a + 1",
+			DependsOn: [][]string{{"a"}},
+		}},
+	}
+	_, err := BuildDAG("test", fields, formulaEngine)
+	require.Error(t, err)
+
+	var cycleErr *CycleError
+	require.ErrorAs(t, err, &cycleErr)
+	assert.Len(t, cycleErr.Nodes, 2)
+	assert.Contains(t, cycleErr.Nodes, "a")
+	assert.Contains(t, cycleErr.Nodes, "b")
+}
+
+// TestKahnTopoSort verifies that a valid DAG produces a deterministic
+// topological order where every dependency precedes its dependent.
+func TestKahnTopoSort(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+	fields := FieldGroup{
+		"a": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+		"b": {Schema: &FieldSchema{
+			Type: "number", IsEditable: false,
+			Formula:   "a + 1",
+			DependsOn: [][]string{{"a"}},
+		}},
+		"c": {Schema: &FieldSchema{
+			Type: "number", IsEditable: false,
+			Formula:   "b + 1",
+			DependsOn: [][]string{{"b"}},
+		}},
+	}
+	dag, err := BuildDAG("test", fields, formulaEngine)
+	require.NoError(t, err)
+	order := topologicalOrderOf(dag)
+	assert.Equal(t, []string{"a", "b", "c"}, order)
+}
+
 // TestBuildDAG_InvalidDependency verifies that DependsOn referencing non-existent paths returns error.
 func TestBuildDAG_InvalidDependency(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
