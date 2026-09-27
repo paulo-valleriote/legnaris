@@ -31,6 +31,8 @@ const (
 	defaultDatabaseCloseTimeout           = 5 * time.Second
 )
 
+const attrKey = "key"
+
 // defaultCORSOrigins are the allowed origins during local development. Set
 // CORS_ALLOWED_ORIGINS (comma-separated) to override, e.g. with the production
 // frontend origin.
@@ -72,7 +74,7 @@ func (e *Env) lookupEnv(key string) (string, bool) {
 		e.Logger.Warn(
 			context.Background(),
 			"environment variable not set; using default",
-			logger.Attribute{Key: "key", Value: key},
+			logger.Attribute{Key: attrKey, Value: key},
 		)
 		return "", false
 	}
@@ -123,7 +125,7 @@ func (e *Env) lookupDurationEnv(key string, defaultValue time.Duration) time.Dur
 		e.Logger.Warn(
 			context.Background(),
 			"invalid duration value for environment variable; using default",
-			logger.Attribute{Key: "key", Value: key},
+			logger.Attribute{Key: attrKey, Value: key},
 			logger.Attribute{Key: "value", Value: value},
 			logger.Attribute{Key: "default", Value: defaultValue.String()},
 		)
@@ -141,7 +143,7 @@ func (e *Env) lookupRequiredStringEnv(key string) string {
 		e.Logger.Warn(
 			context.Background(),
 			"required environment variable not set",
-			logger.Attribute{Key: "key", Value: key},
+			logger.Attribute{Key: attrKey, Value: key},
 		)
 		return ""
 	}

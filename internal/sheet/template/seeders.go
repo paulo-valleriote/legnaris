@@ -1,5 +1,13 @@
 package template
 
+const (
+	fieldTypeNumber      = "number"
+	fieldNameStats       = "stats"
+	fieldNameModifiers   = "modifiers"
+	fieldNameDexterityMod = "dexterityMod"
+	fieldNameConfig      = "config"
+)
+
 // DefaultTemplates is the in-memory catalog of code-defined default templates.
 // Each entry is validated and compiled into a DAG once at boot (see Registry).
 // Templates are immutable by ID: rule changes ship as new versioned IDs
@@ -18,56 +26,56 @@ var FantasyV1Template = Template{
 	Name:    "Fantasy Template",
 	Default: true,
 	Fields: FieldGroup{
-		"stats": {Children: FieldGroup{
-			"dexterity":    {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
-			"constitution": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		fieldNameStats: {Children: FieldGroup{
+			"dexterity":    {Schema: &FieldSchema{Type: fieldTypeNumber, IsEditable: true, Default: 10}},
+			"constitution": {Schema: &FieldSchema{Type: fieldTypeNumber, IsEditable: true, Default: 10}},
 		}},
 		"others": {Children: FieldGroup{
-			"proficiencyBonus": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 2}},
+			"proficiencyBonus": {Schema: &FieldSchema{Type: fieldTypeNumber, IsEditable: true, Default: 2}},
 		}},
-		"modifiers": {Children: FieldGroup{
-			"dexterityMod": {Schema: &FieldSchema{
-				Type:       "number",
+		fieldNameModifiers: {Children: FieldGroup{
+			fieldNameDexterityMod: {Schema: &FieldSchema{
+				Type:       fieldTypeNumber,
 				IsEditable: false,
 				Formula:    "floor((stats_dexterity - 10) / 2)",
-				DependsOn:  [][]string{{"stats", "dexterity"}},
+				DependsOn:  [][]string{{fieldNameStats, "dexterity"}},
 			}},
 			"constitutionMod": {Schema: &FieldSchema{
-				Type:       "number",
+				Type:       fieldTypeNumber,
 				IsEditable: false,
 				Formula:    "floor((stats_constitution - 10) / 2)",
-				DependsOn:  [][]string{{"stats", "constitution"}},
+				DependsOn:  [][]string{{fieldNameStats, "constitution"}},
 			}},
 		}},
-		"config": {Children: FieldGroup{
-			"acUsesDex":         {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 1}},
-			"acUsesCon":         {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
-			"stealthProfWeight": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
-			"spellUsesInt":      {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
-			"spellUsesWis":      {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0}},
+		fieldNameConfig: {Children: FieldGroup{
+			"acUsesDex":         {Schema: &FieldSchema{Type: fieldTypeNumber, IsEditable: true, Default: 1}},
+			"acUsesCon":         {Schema: &FieldSchema{Type: fieldTypeNumber, IsEditable: true, Default: 0}},
+			"stealthProfWeight": {Schema: &FieldSchema{Type: fieldTypeNumber, IsEditable: true, Default: 0}},
+			"spellUsesInt":      {Schema: &FieldSchema{Type: fieldTypeNumber, IsEditable: true, Default: 0}},
+			"spellUsesWis":      {Schema: &FieldSchema{Type: fieldTypeNumber, IsEditable: true, Default: 0}},
 		}},
-		"baseArmorClass": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		"baseArmorClass": {Schema: &FieldSchema{Type: fieldTypeNumber, IsEditable: true, Default: 10}},
 		"derived": {Children: FieldGroup{
 			"armorClass": {Schema: &FieldSchema{
-				Type:       "number",
+				Type:       fieldTypeNumber,
 				IsEditable: false,
 				Formula:    "baseArmorClass + (modifiers_dexterityMod * config_acUsesDex) + (modifiers_constitutionMod * config_acUsesCon)",
 				DependsOn: [][]string{
 					{"baseArmorClass"},
-					{"modifiers", "dexterityMod"},
-					{"config", "acUsesDex"},
-					{"modifiers", "constitutionMod"},
-					{"config", "acUsesCon"},
+					{fieldNameModifiers, fieldNameDexterityMod},
+					{fieldNameConfig, "acUsesDex"},
+					{fieldNameModifiers, "constitutionMod"},
+					{fieldNameConfig, "acUsesCon"},
 				},
 			}},
 			"stealthTotal": {Schema: &FieldSchema{
-				Type:       "number",
+				Type:       fieldTypeNumber,
 				IsEditable: false,
 				Formula:    "modifiers_dexterityMod + floor(others_proficiencyBonus * config_stealthProfWeight)",
 				DependsOn: [][]string{
-					{"modifiers", "dexterityMod"},
+					{fieldNameModifiers, fieldNameDexterityMod},
 					{"others", "proficiencyBonus"},
-					{"config", "stealthProfWeight"},
+					{fieldNameConfig, "stealthProfWeight"},
 				},
 			}},
 		}},

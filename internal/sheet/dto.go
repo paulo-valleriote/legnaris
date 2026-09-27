@@ -14,12 +14,5 @@ type SheetDTO struct {
 
 // ToDTO converts a Sheet to its API representation.
 func (s Sheet) ToDTO() SheetDTO {
-	return SheetDTO{
-		ID:         s.ID,
-		TemplateID: s.TemplateID,
-		Name:       s.Name,
-		Data:       s.Data,
-		CreatedAt:  s.CreatedAt,
-		UpdatedAt:  s.UpdatedAt,
-	}
+	return SheetDTO(s)
 }

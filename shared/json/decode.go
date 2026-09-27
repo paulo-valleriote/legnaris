@@ -23,7 +23,7 @@ func Decode[T any](c *echo.Context, dst *T) error {
 	r := c.Request()
 
 	r.Body = http.MaxBytesReader(c.Response(), r.Body, MaxBodySize)
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	dec := encodingJson.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
