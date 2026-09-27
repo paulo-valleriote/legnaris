@@ -21,8 +21,8 @@ func NewSheetController(service sheet.Service) *SheetController {
 
 func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.POST("", sc.Create)
-	group.GET("/:sheetID", sc.FetchByID)
-	group.PATCH("/:sheetID", sc.PartialUpdate)
+	group.GET("/:id", sc.FetchByID)
+	group.PATCH("/:id", sc.PartialUpdate)
 }
 
 func (sc *SheetController) Create(c *echo.Context) error {
@@ -40,7 +40,7 @@ func (sc *SheetController) Create(c *echo.Context) error {
 }
 
 func (sc *SheetController) FetchByID(c *echo.Context) error {
-	id := c.Param("sheetID")
+	id := c.Param("id")
 	if id == "" {
 		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, nil)
 	}
@@ -55,7 +55,7 @@ func (sc *SheetController) FetchByID(c *echo.Context) error {
 func (sc *SheetController) PartialUpdate(c *echo.Context) error {
 	var cmd sheet.PartialUpdateSheetCommand
 
-	id := c.Param("sheetID")
+	id := c.Param("id")
 	if id == "" {
 		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, nil)
 	}

@@ -6,19 +6,19 @@ import (
 	"legnaris/shared/db"
 )
 
-type Template struct {
+type TemplateModule struct {
 	Controller *TemplateController
 	Service    template.Service
 }
 
-type Sheet struct {
+type SheetModule struct {
 	Controller *SheetController
 	Service    sheet.Service
 }
 
 type Modules struct {
-	Template Template
-	Sheet    Sheet
+	Template TemplateModule
+	Sheet    SheetModule
 }
 
 func NewModules(database *db.Database, registry *template.Registry, dbName string) *Modules {
@@ -30,11 +30,11 @@ func NewModules(database *db.Database, registry *template.Registry, dbName strin
 	sheetController := NewSheetController(sheetService)
 
 	return &Modules{
-		Template: Template{
+		Template: TemplateModule{
 			Controller: templateController,
 			Service:    templateService,
 		},
-		Sheet: Sheet{
+		Sheet: SheetModule{
 			Controller: sheetController,
 			Service:    sheetService,
 		},

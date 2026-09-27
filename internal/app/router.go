@@ -47,7 +47,7 @@ func HTTPErrorHandler(c *echo.Context, err error) {
 	var appErr *apperr.Error
 
 	if errors.As(err, &appErr) {
-		_ = c.JSON(appErr.HttpStatus(), response.Error{
+		_ = c.JSON(appErr.HttpStatus(), response.ErrorResponse{
 			Error: response.ErrorBody{
 				Code:    string(appErr.Code),
 				Message: appErr.Message,
@@ -56,7 +56,7 @@ func HTTPErrorHandler(c *echo.Context, err error) {
 		return
 	}
 
-	_ = c.JSON(http.StatusInternalServerError, response.Error{
+	_ = c.JSON(http.StatusInternalServerError, response.ErrorResponse{
 		Error: response.ErrorBody{
 			Code:    "INTERNAL_ERROR",
 			Message: "internal server error",

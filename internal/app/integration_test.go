@@ -130,7 +130,7 @@ func TestIntegration_TemplatesFetchByID_NotFound(t *testing.T) {
 	rec := doRequest(t, h, http.MethodGet, "/templates/unknown", "")
 	require.Equal(t, http.StatusNotFound, rec.Code)
 
-	var body response.Error
+	var body response.ErrorResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Equal(t, "NOT_FOUND", body.Error.Code)
 	assert.Equal(t, "template not found", body.Error.Message)
@@ -210,7 +210,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	assertErrorBody := func(t *testing.T, rec *httptest.ResponseRecorder, status int, code string) {
 		t.Helper()
 		require.Equal(t, status, rec.Code)
-		var body response.Error
+		var body response.ErrorResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 		assert.Equal(t, code, body.Error.Code)
 		assert.NotEmpty(t, body.Error.Message)
@@ -220,7 +220,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 		rec := doRequest(t, h, http.MethodGet, "/sheets/does-not-exist", "")
 		assertErrorBody(t, rec, http.StatusNotFound, "NOT_FOUND")
 
-		var body response.Error
+		var body response.ErrorResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 		assert.Equal(t, "sheet not found", body.Error.Message)
 	})
@@ -274,7 +274,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 // TestIntegration_MetricsRecordsErrorStatus pins the metric status label for
 // erroring routes end-to-end. The RequestLogger (HandleError=true) commits the
 // mapped 404 before the metrics middleware resumes, so /metrics must show
-// status="404" (not 200 or a bare 500) for GET /sheets/:sheetID that returns
+// status="404" (not 200 or a bare 500) for GET /sheets/:id that returns
 // ErrSheetNotFound. This guards the middleware ordering the metrics status
 // label depends on.
 func TestIntegration_MetricsRecordsErrorStatus(t *testing.T) {
@@ -289,6 +289,6 @@ func TestIntegration_MetricsRecordsErrorStatus(t *testing.T) {
 	assert.Contains(
 		t,
 		mrec.Body.String(),
-		`legnaris_http_requests_total{method="GET",path="/sheets/:sheetID",status="404"}`,
+		`legnaris_http_requests_total{method="GET",path="/sheets/:id",status="404"}`,
 	)
 }

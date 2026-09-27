@@ -73,7 +73,7 @@ func TestErrorMapping_SheetNotExistsReturns404(t *testing.T) {
 	rec := doRequest(t, h, http.MethodGet, "/sheets/missing", "")
 	require.Equal(t, http.StatusNotFound, rec.Code)
 
-	var body response.Error
+	var body response.ErrorResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Equal(t, "NOT_FOUND", body.Error.Code)
 	assert.Equal(t, "sheet not found", body.Error.Message)
@@ -89,7 +89,7 @@ func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 	rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","sheet_name":"x"}`)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 
-	var body response.Error
+	var body response.ErrorResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Equal(t, "NOT_FOUND", body.Error.Code)
 	assert.Equal(t, "template not found", body.Error.Message)
@@ -140,7 +140,7 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 			rec := doRequest(t, h, http.MethodPatch, "/sheets/s1", tc.payload)
 			require.Equal(t, http.StatusBadRequest, rec.Code)
 
-			var body response.Error
+			var body response.ErrorResponse
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, tc.wantCode, body.Error.Code)
 		})
@@ -182,7 +182,7 @@ func TestErrorMapping_InvalidBodyReturns400(t *testing.T) {
 			rec := doRequest(t, h, http.MethodPost, "/sheets", tc.payload)
 			require.Equal(t, http.StatusBadRequest, rec.Code)
 
-			var body response.Error
+			var body response.ErrorResponse
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, tc.wantCode, body.Error.Code)
 		})
