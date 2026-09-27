@@ -32,7 +32,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 	}
 
 	defer func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), applicationEnv.Variables.DatabaseCloseTimeout)
+		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
 		defer cancel()
 		if err := database.Close(closeCtx); err != nil {
 			log.Error(
@@ -50,7 +50,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 		return fmt.Errorf("build template registry: %w", err)
 	}
 
-	modules := app.NewModules(database, registry, applicationEnv.Variables.DatabaseName)
+	modules := app.NewModules(database, registry, cfg.Variables.DatabaseName)
 
 	router := app.NewRouter(cfg, modules)
 	if err := router.Start(":" + cfg.Variables.Port); err != nil {
