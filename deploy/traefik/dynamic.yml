@@ -76,6 +76,13 @@ http:
       service: mongo-express
       middlewares: ["oauth", "security-headers"]
 
+    # Redirect root of ops domain to /grafana
+    ops-home:
+      rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/`)'
+      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      service: grafana
+      middlewares: ["oauth", "security-headers"]
+
     # Public API (no auth) on the api domain. /metrics is deliberately excluded:
     # it is scraped by Prometheus directly on the internal network (app:8080).
     app:
