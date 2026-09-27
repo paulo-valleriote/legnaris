@@ -8,10 +8,6 @@
 global:
   sendAnonymousUsage: false
 
-api:
-  dashboard: true
-  insecure: false
-
 entryPoints:
   web:
     address: ":80"

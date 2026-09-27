@@ -9,6 +9,7 @@
 | Templates | `internal/sheet/template` | DAG build, formula compile, recalculation, immutable registry |
 | Sheets | `internal/sheet` | CRUD, partial update with cascading recalc |
 | Engine | `internal/engine` | expr-lang wrapper (floor, max functions) |
+| Platform | `internal/platform` | cross-cutting middleware (cors, health, metrics) |
 | Shared | `shared/*` | env, logger, db, apperr, response, json |
 
 **Entry point:** `cmd/api.go` → builds DAG registry from code-defined templates → starts Echo on `PORT` (default `:8080`).
