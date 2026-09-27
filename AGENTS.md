@@ -35,6 +35,13 @@ make fmt                 # Format code
 - **Mocks** — generated via `mockery` (config in `go.mod` tool directive)
 - **English only** — all identifiers, comments, log messages, and user-facing strings must be in English. Exception: `docs/TDD.md` stays in pt-BR.
 
+## PR Checklist
+
+Before opening a PR, ensure:
+
+- Run all required linters and formatters: `make fmt && make lint && make vet`
+- If the PR contains code changes, also run tests with race detector: `make test-race`
+
 ## References
 
 - `internal/AGENTS.md` — architecture, layering, service conventions
