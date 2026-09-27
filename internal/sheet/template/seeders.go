@@ -1,11 +1,11 @@
 package template
 
 const (
-	fieldTypeNumber      = "number"
-	fieldNameStats       = "stats"
-	fieldNameModifiers   = "modifiers"
+	fieldTypeNumber       = "number"
+	fieldNameStats        = "stats"
+	fieldNameModifiers    = "modifiers"
 	fieldNameDexterityMod = "dexterityMod"
-	fieldNameConfig      = "config"
+	fieldNameConfig       = "config"
 )
 
 // DefaultTemplates is the in-memory catalog of code-defined default templates.

@@ -22,8 +22,9 @@ var (
 func Decode[T any](c *echo.Context, dst *T) error {
 	r := c.Request()
 
-	r.Body = http.MaxBytesReader(c.Response(), r.Body, MaxBodySize)
-	defer func() { _ = r.Body.Close() }()
+	body := http.MaxBytesReader(c.Response(), r.Body, MaxBodySize)
+	r.Body = body
+	defer func() { _ = body.Close() }()
 
 	dec := encodingJson.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
