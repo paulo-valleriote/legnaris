@@ -8,20 +8,19 @@ const (
 	fieldNameConfig       = "config"
 )
 
-// DefaultTemplates is the in-memory catalog of code-defined default templates.
+// defaultTemplates is the in-memory catalog of code-defined default templates.
 // Each entry is validated and compiled into a DAG once at boot (see Registry).
 // Templates are immutable by ID: rule changes ship as new versioned IDs
 // (e.g. fantasy_v2), never by mutating an existing entry.
-// This variable is exported and therefore mutable; BuildRegistry clones every
-// entry, so changing it after boot does not touch a running registry (LGN-54).
-var DefaultTemplates = []Template{
-	FantasyV1Template,
+// This variable is unexported; callers use DefaultTemplates() to get a copy.
+var defaultTemplates = []Template{
+	fantasyV1Template,
 }
 
-// FantasyV1Template defines the fantasy_v1 default template. It lives in code only
+// fantasyV1Template defines the fantasy_v1 default template. It lives in code only
 // and is served from the in-memory Registry (no MongoDB seed or template
 // collection anymore).
-var FantasyV1Template = Template{
+var fantasyV1Template = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",
 	Default: true,
@@ -80,4 +79,14 @@ var FantasyV1Template = Template{
 			}},
 		}},
 	},
+}
+
+// DefaultTemplates returns a deep copy of the default template catalog.
+// Callers can mutate the returned slice without affecting the package state.
+func DefaultTemplates() []Template {
+	result := make([]Template, len(defaultTemplates))
+	for i, tmpl := range defaultTemplates {
+		result[i] = cloneTemplate(tmpl)
+	}
+	return result
 }

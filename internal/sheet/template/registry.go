@@ -10,7 +10,7 @@ import (
 // from memory — there is no MongoDB template collection or seed step.
 //
 // The registry is frozen after boot (LGN-54): it is the only writer of its own
-// state and no exported method mutates it. It clones DefaultTemplates on ingest
+// state and no exported method mutates it. It clones DefaultTemplates() on ingest
 // and hands out deep copies from List and FetchByID, so neither the exported
 // catalog nor a caller can change what it serves. DAGs are shared by pointer
 // through DAG(id) — never as a map — and are themselves immutable.
@@ -23,15 +23,16 @@ type Registry struct {
 // BuildRegistry validates and compiles every default template into a DAG.
 // It returns an error if any template fails validation or formula compilation.
 func BuildRegistry(eng *engine.FormulaEngine) (*Registry, error) {
+	templates := DefaultTemplates()
 	registry := &Registry{
-		templates: make(map[string]Template, len(DefaultTemplates)),
-		dags:      make(map[string]*DAG, len(DefaultTemplates)),
-		order:     make([]string, 0, len(DefaultTemplates)),
+		templates: make(map[string]Template, len(templates)),
+		dags:      make(map[string]*DAG, len(templates)),
+		order:     make([]string, 0, len(templates)),
 	}
 
-	for _, tmpl := range DefaultTemplates {
+	for _, tmpl := range templates {
 		// Clone on ingest: the registry must own its templates, not alias the
-		// exported DefaultTemplates catalog that anyone can mutate (LGN-54).
+		// DefaultTemplates() catalog that anyone can mutate (LGN-54).
 		stored := cloneTemplate(tmpl)
 
 		dag, err := BuildDAG(stored.ID, stored.Fields, eng)

@@ -25,13 +25,16 @@ type Logger struct {
 	log *slog.Logger
 }
 
+// NewLogger creates a new structured logger writing JSON to stdout.
+// Note: this function does NOT call slog.SetDefault — the caller owns the
+// logger instance and must pass it explicitly. If you need the default
+// slog logger, call slog.SetDefault explicitly at boot.
 func NewLogger(level slog.Level) Logger {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level:       level,
 		ReplaceAttr: redactSecrets,
 	})
 	l := slog.New(handler)
-	slog.SetDefault(l)
 
 	return Logger{
 		log: l,

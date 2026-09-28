@@ -51,7 +51,7 @@ func TestRegistry_ListReturnsDeepCopies(t *testing.T) {
 		tamperTemplate(&list[i])
 	}
 
-	assert.Equal(t, DefaultTemplates, registry.List(),
+	assert.Equal(t, DefaultTemplates(), registry.List(),
 		"mutating templates returned by List changed the registry")
 }
 
@@ -61,25 +61,26 @@ func TestRegistry_FetchByIDReturnsDeepCopy(t *testing.T) {
 	registry, err := BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	first, ok := registry.FetchByID(FantasyV1Template.ID)
+	first, ok := registry.FetchByID(fantasyV1Template.ID)
 	require.True(t, ok)
 
 	tamperTemplate(first)
 
-	second, ok := registry.FetchByID(FantasyV1Template.ID)
+	second, ok := registry.FetchByID(fantasyV1Template.ID)
 	require.True(t, ok)
-	assert.Equal(t, FantasyV1Template, *second,
+	assert.Equal(t, fantasyV1Template, *second,
 		"mutating the template returned by FetchByID changed the registry")
 }
 
 // TestRegistry_IsIsolatedFromDefaultTemplatesCatalog makes the clone on ingest
-// observable: DefaultTemplates is an exported, mutable package variable, so
-// the registry must copy it at boot instead of aliasing it (LGN-54).
+// observable: DefaultTemplates() returns a copy, so the registry must clone it
+// at boot instead of aliasing it (LGN-54).
 func TestRegistry_IsIsolatedFromDefaultTemplatesCatalog(t *testing.T) {
 	registry, err := BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	entry := &DefaultTemplates[0]
+	templates := DefaultTemplates()
+	entry := &templates[0]
 	dex := entry.Fields["stats"].Children["dexterity"].Schema
 	require.NotNil(t, dex)
 
@@ -117,9 +118,9 @@ func TestRegistry_DAGReturnsSingleSharedGraph(t *testing.T) {
 	registry, err := BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	first, ok := registry.DAG(FantasyV1Template.ID)
+	first, ok := registry.DAG(fantasyV1Template.ID)
 	require.True(t, ok)
-	second, ok := registry.DAG(FantasyV1Template.ID)
+	second, ok := registry.DAG(fantasyV1Template.ID)
 	require.True(t, ok)
 	assert.Same(t, first, second, "each lookup must share one immutable DAG")
 

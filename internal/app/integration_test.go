@@ -59,7 +59,7 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	modules := app.NewModules(database, registry, testDatabaseName)
+	modules := app.NewModules(database, registry, testDatabaseName, log)
 	return app.NewRouter(env, modules), mdb
 }
 

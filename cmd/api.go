@@ -50,7 +50,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 		return fmt.Errorf("build template registry: %w", err)
 	}
 
-	modules := app.NewModules(database, registry, cfg.Variables.DatabaseName)
+	modules := app.NewModules(database, registry, cfg.Variables.DatabaseName, log)
 
 	router := app.NewRouter(cfg, modules)
 	if err := router.Start(":" + cfg.Variables.Port); err != nil {

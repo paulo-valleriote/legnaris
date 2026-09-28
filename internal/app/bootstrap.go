@@ -4,6 +4,7 @@ import (
 	"legnaris/internal/sheet"
 	"legnaris/internal/sheet/template"
 	"legnaris/shared/db"
+	"legnaris/shared/logger"
 )
 
 type TemplateModule struct {
@@ -21,11 +22,11 @@ type Modules struct {
 	Sheet    SheetModule
 }
 
-func NewModules(database *db.Database, registry *template.Registry, dbName string) *Modules {
+func NewModules(database *db.Database, registry *template.Registry, dbName string, log logger.StructuredLogger) *Modules {
 	templateService := template.NewService(registry)
 	templateController := NewTemplateController(templateService)
 
-	sheetRepository := sheet.NewRepository(database.Client.Database(dbName))
+	sheetRepository := sheet.NewRepository(database.Client.Database(dbName), log)
 	sheetService := sheet.NewService(sheetRepository, templateService, registry)
 	sheetController := NewSheetController(sheetService)
 

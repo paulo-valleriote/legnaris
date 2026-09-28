@@ -68,14 +68,14 @@ func TestTemplateToDTO_DoesNotAliasFields(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			before := cloneTemplate(FantasyV1Template)
+			before := cloneTemplate(fantasyV1Template)
 			untampered := before.ToDTO()
 
-			dto := FantasyV1Template.ToDTO()
+			dto := fantasyV1Template.ToDTO()
 			tc.tamper(&dto)
 			require.NotEqual(t, untampered, dto, "tampering must actually write through the DTO")
 
-			assert.Equal(t, before, FantasyV1Template,
+			assert.Equal(t, before, fantasyV1Template,
 				"mutating the DTO changed the registered template")
 		})
 	}
@@ -84,10 +84,10 @@ func TestTemplateToDTO_DoesNotAliasFields(t *testing.T) {
 // TestTemplateToDTO_HappyPath_KeepsDependencyContents pins the other half of
 // the contract: cloning the paths must not drop, reorder or alter them.
 func TestTemplateToDTO_HappyPath_KeepsDependencyContents(t *testing.T) {
-	original := FantasyV1Template.Fields["derived"].Children["armorClass"].Schema
+	original := fantasyV1Template.Fields["derived"].Children["armorClass"].Schema
 	require.NotEmpty(t, original.DependsOn)
 
-	dto := FantasyV1Template.ToDTO()
+	dto := fantasyV1Template.ToDTO()
 	leaf := dtoLeaf(dto)
 
 	assert.Equal(t, original.DependsOn, leaf.DependsOn)
@@ -96,9 +96,9 @@ func TestTemplateToDTO_HappyPath_KeepsDependencyContents(t *testing.T) {
 	assert.Equal(t, original.Formula, leaf.Formula)
 	assert.Equal(t, original.IsEditable, leaf.IsEditable)
 	assert.Equal(t, original.Default, leaf.Default)
-	assert.Equal(t, FantasyV1Template.ID, dto.ID)
-	assert.Equal(t, FantasyV1Template.Name, dto.Name)
-	assert.Equal(t, FantasyV1Template.Default, dto.Default)
+	assert.Equal(t, fantasyV1Template.ID, dto.ID)
+	assert.Equal(t, fantasyV1Template.Name, dto.Name)
+	assert.Equal(t, fantasyV1Template.Default, dto.Default)
 }
 
 // TestTemplateToDTO_Edge_NilDependsOn documents that an empty dependency list
