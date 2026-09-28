@@ -549,6 +549,91 @@ func TestInitialRecalcSet(t *testing.T) {
 	}
 }
 
+// --- changedUpdates ---
+
+func TestChangedUpdates(t *testing.T) {
+	original := map[string]any{
+		"stats": map[string]any{"str": 10.0},
+		"mod":   map[string]any{"str": 0.0},
+	}
+
+	tests := []struct {
+		name     string
+		original map[string]any
+		updates  map[string]any
+		want     map[string]any
+	}{
+		{
+			name:     "changed leaf key is kept",
+			original: original,
+			updates:  map[string]any{"stats.str": 16.0},
+			want:     map[string]any{"stats.str": 16.0},
+		},
+		{
+			name:     "unchanged leaf key is dropped",
+			original: original,
+			updates:  map[string]any{"stats.str": 10.0},
+			want:     map[string]any{},
+		},
+		{
+			name:     "leaf key differing within epsilon is dropped",
+			original: original,
+			updates:  map[string]any{"stats.str": 10.0 + 1e-10},
+			want:     map[string]any{},
+		},
+		{
+			name:     "leaf key absent from original counts as a change",
+			original: original,
+			updates:  map[string]any{"stats.dex": 14.0},
+			want:     map[string]any{"stats.dex": 14.0},
+		},
+		{
+			name:     "group key expands to changed leaf keys",
+			original: original,
+			updates:  map[string]any{"stats": map[string]any{"str": 16.0}},
+			want:     map[string]any{"stats.str": 16.0},
+		},
+		{
+			name:     "group key with unchanged leaf is dropped",
+			original: original,
+			updates:  map[string]any{"stats": map[string]any{"str": 10.0}},
+			want:     map[string]any{},
+		},
+		{
+			name:     "nested group key expands to full leaf path",
+			original: original,
+			updates: map[string]any{
+				"outer": map[string]any{"inner": map[string]any{"str": 16.0}},
+			},
+			want: map[string]any{"outer.inner.str": 16.0},
+		},
+		{
+			name:     "mixed leaf and group keys are expanded independently",
+			original: original,
+			updates: map[string]any{
+				"mod.str": 5.0,
+				"stats":   map[string]any{"str": 16.0},
+			},
+			want: map[string]any{
+				"mod.str":   5.0,
+				"stats.str": 16.0,
+			},
+		},
+		{
+			name:     "empty original keeps every update",
+			original: map[string]any{},
+			updates:  map[string]any{"stats.str": 10.0},
+			want:     map[string]any{"stats.str": 10.0},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, changedUpdates(tc.original, tc.updates))
+		})
+	}
+}
+
 // --- Recalculate orchestrator (nil DAG guard) ---
 
 func TestRecalculate_NilDAG(t *testing.T) {

@@ -400,7 +400,9 @@ func initInDegree(nodes map[string]*Node, adj map[string][]string) map[string]in
 // Recalculate reapplies updates and recomputes derived fields in topological order.
 // Returns a map of only the derived fields that actually changed by more than epsilon
 // (cascading effects). "Changed" means the new value differs from the old by more
-// than the epsilon tolerance used in maputils.Equal (1e-9 relative).
+// than the epsilon tolerance used in maputils.Equal (1e-9 relative, scalar values only).
+// Group-level update keys (e.g. "stats") are expanded to their leaf path keys
+// before the change check, so they cascade exactly like leaf keys do.
 // Returns an error if any formula evaluation fails, inputs are invalid, or update keys are unknown.
 func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]any, error) {
 	if d == nil {
@@ -427,17 +429,10 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 		return nil, err
 	}
 
-	// Filter out updates where the value hasn't actually changed
-	// compared to the original data. This prevents spurious
-	// cascading recalculations caused by floating-point rounding
-	// or type coercion (e.g., int vs float64).
-	filteredUpdates := make(map[string]any, len(updatedData))
-	for key, newValue := range updatedData {
-		oldValue, found := maputils.GetFlat(originalData, key)
-		if !found || !maputils.Equal(oldValue, newValue) {
-			filteredUpdates[key] = newValue
-		}
-	}
+	// Filter out updates that do not really change the original data, so
+	// floating-point rounding or type coercion (e.g., int vs float64) cannot
+	// start a spurious cascade. See changedUpdates for the key expansion.
+	filteredUpdates := changedUpdates(originalData, updatedData)
 
 	needsRecalc := initialRecalcSet(filteredUpdates)
 	changedDerived, err := d.walkTopological(originalData, sheetData, engineEnv, needsRecalc)
@@ -446,6 +441,42 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 	}
 
 	return changedDerived, nil
+}
+
+// changedUpdates returns the update entries that actually change originalData,
+// keyed by leaf path key.
+// Group-level entries (a nested map value, e.g. {"stats": {"str": 16}}) are
+// expanded to their leaves before comparing, so the result always carries keys
+// that match DAG node keys — otherwise a group-level update would never reach
+// any node. Entries whose value is unchanged are dropped: they must not start
+// a cascade.
+func changedUpdates(originalData, updatedData map[string]any) map[string]any {
+	changed := make(map[string]any, len(updatedData))
+	for key, newValue := range updatedData {
+		if group, ok := newValue.(map[string]any); ok {
+			for leafKey, leafValue := range maputils.FlattenPathKeys(group) {
+				fullKey := key + "." + leafKey
+				if hasChanged(originalData, fullKey, leafValue) {
+					changed[fullKey] = leafValue
+				}
+			}
+			continue
+		}
+		if hasChanged(originalData, key, newValue) {
+			changed[key] = newValue
+		}
+	}
+	return changed
+}
+
+// hasChanged reports whether the value stored under key differs from newValue
+// by more than the maputils.Equal tolerance.
+// A key that is absent from originalData counts as a change.
+// This is the single implementation of the "did this value really change?"
+// predicate, shared by the update filter in Recalculate and by processNode.
+func hasChanged(originalData map[string]any, key string, newValue any) bool {
+	oldValue, found := maputils.GetFlat(originalData, key)
+	return !found || !maputils.Equal(oldValue, newValue)
 }
 
 // validateUpdateKeysLocked checks that all keys in updatedData exist in the DAG.
@@ -549,11 +580,12 @@ func (d *DAG) processNode(node *Node, originalData, sheetData, engineEnv map[str
 		return false, ErrNilNode
 	}
 
-	// Editable nodes: propagate only if the value actually changed
+	// Editable nodes propagate only if the value really changed. This uses the
+	// same predicate as the update filter in Recalculate (hasChanged), so the
+	// epsilon rule exists in exactly one place.
 	if !node.IsDerived() {
 		currentValue, _ := node.Path.Get(sheetData)
-		originalValue, found := node.Path.Get(originalData)
-		if found && maputils.Equal(originalValue, currentValue) {
+		if !hasChanged(originalData, node.MapKey(), currentValue) {
 			return false, nil
 		}
 		return true, nil

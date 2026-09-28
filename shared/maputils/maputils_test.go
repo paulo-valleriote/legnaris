@@ -708,6 +708,60 @@ func TestEqual(t *testing.T) {
 			b:        math.Inf(-1),
 			expected: false,
 		},
+		{
+			name:     "uint64 max vs int64 -1 - not equal (no wrap-around)",
+			a:        uint64(math.MaxUint64),
+			b:        int64(-1),
+			expected: false,
+		},
+		{
+			name:     "int64 -1 vs uint64 max - not equal (symmetric)",
+			a:        int64(-1),
+			b:        uint64(math.MaxUint64),
+			expected: false,
+		},
+		{
+			name:     "uint64 max vs uint64 max - equal",
+			a:        uint64(math.MaxUint64),
+			b:        uint64(math.MaxUint64),
+			expected: true,
+		},
+		{
+			name:     "uint64 max vs uint64 max minus one - not equal",
+			a:        uint64(math.MaxUint64),
+			b:        uint64(math.MaxUint64 - 1),
+			expected: false,
+		},
+		{
+			name:     "uint64 1<<63 vs int64 min - not equal",
+			a:        uint64(1) << 63,
+			b:        int64(math.MinInt64),
+			expected: false,
+		},
+		{
+			name:     "uint64 5 vs int64 -5 - not equal (sign matters)",
+			a:        uint64(5),
+			b:        int64(-5),
+			expected: false,
+		},
+		{
+			name:     "uint64 5 vs int64 5 - equal",
+			a:        uint64(5),
+			b:        int64(5),
+			expected: true,
+		},
+		{
+			name:     "int64 min vs int64 min - equal",
+			a:        int64(math.MinInt64),
+			b:        int64(math.MinInt64),
+			expected: true,
+		},
+		{
+			name:     "int64 max vs int64 max minus one - not equal (exact)",
+			a:        int64(math.MaxInt64),
+			b:        int64(math.MaxInt64 - 1),
+			expected: false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -768,7 +822,7 @@ func TestSplitPath(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := SplitPath(tc.input)
+			result := splitPath(tc.input)
 			assert.Equal(t, tc.expected, result)
 		})
 	}

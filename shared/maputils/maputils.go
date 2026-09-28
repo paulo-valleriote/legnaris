@@ -16,8 +16,13 @@ var (
 )
 
 const (
-	// epsilon is the tolerance for float64 comparisons in Equal.
-	// Values differing by less than this relative to their magnitude are considered equal.
+	// epsilon is the tolerance for numeric comparisons in Equal, applied as a
+	// *relative* bound: |a-b| <= epsilon * max(1, |a|, |b|).
+	// Because it scales with magnitude, the absolute slack grows with the value:
+	// up to 1e-9 at magnitude 1, but up to 1.0 at magnitude 1e9. That is the
+	// intent for character stats (a rounding difference must not cascade), but
+	// it makes Equal unsuitable for fields needing exact large values, such as
+	// currency or XP counters.
 	epsilon = 1e-9
 )
 
@@ -81,7 +86,7 @@ func ApplyUpdates(nested map[string]any, updates map[string]any) error {
 		return nil
 	}
 	for key, value := range updates {
-		path := SplitPath(key)
+		path := splitPath(key)
 		if err := Set(nested, path, value); err != nil {
 			return err
 		}
@@ -89,10 +94,11 @@ func ApplyUpdates(nested map[string]any, updates map[string]any) error {
 	return nil
 }
 
-// SplitPath splits a flat path key into segments.
-// An empty key yields nil (which Get/Set reject with ErrEmptyPath).
+// splitPath splits a flat path key into segments.
+// An empty key yields nil: Get returns (nil, false) for it, while Set rejects
+// it with ErrEmptyPath.
 // Unused leading/trailing separators produce empty segments which are preserved.
-func SplitPath(key string) []string {
+func splitPath(key string) []string {
 	if key == "" {
 		return nil
 	}
@@ -105,7 +111,7 @@ func GetFlat(nested map[string]any, key string) (any, bool) {
 	if nested == nil || key == "" {
 		return nil, false
 	}
-	path := SplitPath(key)
+	path := splitPath(key)
 	return Get(nested, path)
 }
 
@@ -205,27 +211,26 @@ func DeepCopy(src map[string]any) map[string]any {
 	return dst
 }
 
-// Equal compares two values for equality with tolerance for numeric types.
-// For float64, uses a scaled epsilon tolerance to avoid spurious recalculations
-// caused by floating-point rounding differences (e.g., 0.1+0.2 != 0.3).
-// All integer types (int, int8-64, uint, uint8-64) are compared exactly.
-// float32 is compared exactly when both operands are float32; otherwise promoted to float64.
-// Mixed integer/float comparisons use float64 with scaled tolerance.
-// Returns false for different concrete non-numeric types and for NaN.
+// Equal compares two values with strict equality for non-numeric types and a
+// scaled epsilon tolerance for numeric ones.
+//
+// Strings, booleans and nil are compared strictly against the same type only;
+// slices and maps fall back to reflect.DeepEqual. The epsilon tolerance
+// therefore applies to scalar numeric values only — a map or slice operand is
+// always compared exactly, no matter how its float members differ.
+//
+// Numeric operands (every int/uint size, float32 and float64) are compared
+// numerically: when both sides are integers the comparison is exact, with no
+// precision loss and no wrap-around (uint64 values above math.MaxInt64 stay
+// unsigned). Otherwise both sides are converted to float64 and compared with
+// the relative tolerance `epsilon` (|a-b| <= epsilon * max(1, |a|, |b|)), which
+// absorbs floating-point rounding differences such as 0.1+0.2 != 0.3.
+// A float32 pair keeps an exact comparison. NaN is never equal to anything.
+//
+// Returns false when a numeric and a non-numeric value are compared, and for
+// different concrete non-numeric types.
 func Equal(a, b any) bool {
-	// Fast path: identical types
 	switch av := a.(type) {
-	case float64:
-		if bv, ok := b.(float64); ok {
-			return float64Equal(av, bv)
-		}
-		return numericEqualFloat64(b, av)
-	case float32:
-		if bv, ok := b.(float32); ok {
-			return av == bv // exact comparison for same-type float32
-		}
-		// float32 vs other: promote to float64 with tolerance
-		return numericEqualFloat64(b, float64(av))
 	case string:
 		bv, ok := b.(string)
 		return ok && av == bv
@@ -234,59 +239,81 @@ func Equal(a, b any) bool {
 		return ok && av == bv
 	case nil:
 		return b == nil
-	// Exact integer comparison fast-path (covers all signed/unsigned sizes)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		if avInt, ok := toInt64(a); ok {
-			if bvInt, ok := toInt64(b); ok {
-				return avInt == bvInt
-			}
-		}
-		// a is integer but b is not: fall through to numericEqualFloat64 if b is float
-		if bv, ok := b.(float64); ok {
-			return numericEqualFloat64(a, bv)
-		}
-		if bv, ok := b.(float32); ok {
-			return numericEqualFloat64(a, float64(bv))
-		}
-		return reflect.DeepEqual(a, b)
 	}
-	// a is not in the fast-path types; check if b is float64/float32
-	// (handles int, int32, int64, float32, etc. on the left side)
-	if bv, ok := b.(float64); ok {
-		return numericEqualFloat64(a, bv)
+	// A numeric operand on either side routes to the tolerant comparison;
+	// toFloat64 doubles as the numeric-type check.
+	if _, ok := toFloat64(a); ok {
+		return equalNumeric(a, b)
 	}
-	if bv, ok := b.(float32); ok {
-		return numericEqualFloat64(a, float64(bv))
+	if _, ok := toFloat64(b); ok {
+		return equalNumeric(a, b)
 	}
 	return reflect.DeepEqual(a, b)
 }
 
-// toInt64 converts supported integer types to int64 for exact comparison.
-// Returns false for non-integer types.
-func toInt64(v any) (int64, bool) {
+// equalNumeric compares two numeric operands.
+// Integer pairs are compared exactly through intParts; every other pairing
+// (mixed integer/float, float32 vs float64) goes through float64 with the
+// scaled epsilon tolerance.
+// Returns false if either operand is not numeric.
+func equalNumeric(a, b any) bool {
+	if av, ok := a.(float32); ok {
+		if bv, ok := b.(float32); ok {
+			return av == bv
+		}
+	}
+	amag, aneg, aInt := intParts(a)
+	bmag, bneg, bInt := intParts(b)
+	if aInt && bInt {
+		return aneg == bneg && amag == bmag
+	}
+	af, aok := toFloat64(a)
+	bf, bok := toFloat64(b)
+	if !aok || !bok {
+		return false
+	}
+	return float64Equal(af, bf)
+}
+
+// intParts normalises any integer value into an unsigned magnitude plus a sign
+// flag, so integers of every size compare exactly without wrapping on
+// conversion: uint64(math.MaxUint64) stays (math.MaxUint64, false) instead of
+// collapsing to int64(-1).
+// Returns ok=false for non-integer types.
+func intParts(v any) (mag uint64, neg bool, ok bool) {
 	switch val := v.(type) {
 	case int:
-		return int64(val), true
+		return signedIntParts(int64(val))
 	case int8:
-		return int64(val), true
+		return signedIntParts(int64(val))
 	case int16:
-		return int64(val), true
+		return signedIntParts(int64(val))
 	case int32:
-		return int64(val), true
+		return signedIntParts(int64(val))
 	case int64:
-		return val, true
+		return signedIntParts(val)
 	case uint:
-		return int64(val), true
+		return uint64(val), false, true
 	case uint8:
-		return int64(val), true
+		return uint64(val), false, true
 	case uint16:
-		return int64(val), true
+		return uint64(val), false, true
 	case uint32:
-		return int64(val), true
+		return uint64(val), false, true
 	case uint64:
-		return int64(val), true
+		return val, false, true
 	}
-	return 0, false
+	return 0, false, false
+}
+
+// signedIntParts splits a signed integer into magnitude and sign.
+// Negating math.MinInt64 wraps to itself and converting that bit pattern to
+// uint64 yields the exact magnitude 1<<63, so no special case is needed.
+func signedIntParts(v int64) (uint64, bool, bool) {
+	if v < 0 {
+		return uint64(-v), true, true
+	}
+	return uint64(v), false, true
 }
 
 // float64Equal compares two float64 values with scaled epsilon tolerance.
@@ -304,41 +331,19 @@ func float64Equal(a, b float64) bool {
 	return diff <= epsilon*scale
 }
 
-// numericEqualFloat64 converts a non-float64 numeric value to float64
-// and compares it with bv using epsilon tolerance.
-// Returns false if a is not a numeric type.
-func numericEqualFloat64(a any, bv float64) bool {
-	av, ok := toFloat64(a)
-	if !ok {
-		return false
-	}
-	return float64Equal(av, bv)
-}
-
-// toFloat64 converts supported numeric types to float64.
-// Returns false for non-numeric types and complex numbers.
+// toFloat64 converts any numeric value (every int/uint size, float32 and
+// float64) to float64. Returns false for non-numeric types.
+// Integer conversion goes through intParts so the magnitude is carried over
+// before the lossy float conversion.
 func toFloat64(v any) (float64, bool) {
+	if mag, neg, ok := intParts(v); ok {
+		f := float64(mag)
+		if neg {
+			return -f, true
+		}
+		return f, true
+	}
 	switch val := v.(type) {
-	case int:
-		return float64(val), true
-	case int8:
-		return float64(val), true
-	case int16:
-		return float64(val), true
-	case int32:
-		return float64(val), true
-	case int64:
-		return float64(val), true
-	case uint:
-		return float64(val), true
-	case uint8:
-		return float64(val), true
-	case uint16:
-		return float64(val), true
-	case uint32:
-		return float64(val), true
-	case uint64:
-		return float64(val), true
 	case float32:
 		return float64(val), true
 	case float64:

@@ -242,17 +242,47 @@ func TestRecalculate(t *testing.T) {
 			},
 		},
 		{
-			// LGN-59: Equal update (within epsilon) must suppress formula
-			// evaluation entirely — formula should not run, no errors from it.
-			// This test uses a separate DAG with an "input" field that divides by zero.
-			name: "LGN-59: Equal update suppresses formula evaluation and errors",
+			// LGN-59: A group-level update key ("stats") is expanded to its
+			// leaf path keys, so it cascades exactly like the leaf key does.
+			name: "LGN-59: Group-level update expands to leaf keys and cascades",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
 				"mod":     map[string]any{"str": 0.0},
 				"derived": map[string]any{"dmg": 5.0},
 			},
 			updates: map[string]any{
-				"stats.str": 10.0 + 1e-10, // within epsilon → no real change
+				"stats": map[string]any{"str": 16.0},
+			},
+			expectedCascades: map[string]any{
+				"mod.str":     3.0,
+				"derived.dmg": 8.0,
+			},
+		},
+		{
+			// LGN-59: A group-level update whose leaves are unchanged must
+			// not start a cascade either.
+			name: "LGN-59: Group-level update without real change is a no-op",
+			originalData: map[string]any{
+				"stats":   map[string]any{"str": 10.0},
+				"mod":     map[string]any{"str": 0.0},
+				"derived": map[string]any{"dmg": 5.0},
+			},
+			updates: map[string]any{
+				"stats": map[string]any{"str": 10.0},
+			},
+			expectedCascades: map[string]any{},
+		},
+		{
+			// LGN-59: The epsilon check runs on the expanded leaves, so a
+			// group-level key still suppresses a rounding-only difference.
+			name: "LGN-59: Group-level update within epsilon is a no-op",
+			originalData: map[string]any{
+				"stats":   map[string]any{"str": 10.0},
+				"mod":     map[string]any{"str": 0.0},
+				"derived": map[string]any{"dmg": 5.0},
+			},
+			updates: map[string]any{
+				"stats": map[string]any{"str": 10.0 + 1e-10},
 			},
 			expectedCascades: map[string]any{},
 		},
