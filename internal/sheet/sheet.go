@@ -5,8 +5,7 @@ import (
 )
 
 type Sheet struct {
-	ID string `bson:"_id,omitempty"`
-	//OwnerID             string
+	ID         string         `bson:"_id,omitempty"`
 	TemplateID string         `bson:"template_id"`
 	Name       string         `bson:"name"`
 	Data       map[string]any `bson:"data"`

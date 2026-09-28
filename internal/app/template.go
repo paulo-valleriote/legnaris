@@ -12,7 +12,7 @@ type TemplateController struct {
 	service template.Service
 }
 
-// User-facing error message for an empty template ID path param.
+// msgTemplateIDNotProvided is the user-facing error message for an empty template ID path param.
 const msgTemplateIDNotProvided = "template id not provided"
 
 func NewTemplateController(service template.Service) *TemplateController {
@@ -24,7 +24,6 @@ func NewTemplateController(service template.Service) *TemplateController {
 func (tc *TemplateController) RegisterRoutes(group *echo.Group) {
 	group.GET("", tc.List)
 	group.GET("/:id", tc.FetchByID)
-	//group.POST("", tc.Create)
 }
 
 func (tc *TemplateController) List(c *echo.Context) error {
@@ -54,19 +53,3 @@ func (tc *TemplateController) FetchByID(c *echo.Context) error {
 
 	return response.OK(c, item.ToDTO())
 }
-
-/*
-func (tc *TemplateController) Create(c *echo.Context) error {
-	var cmd template.CreateTemplateCommand
-
-	if err := json.Decode(c, &cmd); err != nil {
-		return err
-	}
-
-	err := tc.service.Create(c.Request().Context(), cmd)
-	if err != nil {
-		return err
-	}
-	return response.Created(c, map[string]any{})
-}
-*/

@@ -177,12 +177,11 @@ func joinWithSeparator(parts []string, sep rune) string {
 	if len(parts) == 1 {
 		return parts[0]
 	}
-	// Estimate capacity to avoid reallocations
 	totalLen := 0
 	for _, p := range parts {
 		totalLen += len(p)
 	}
-	totalLen += len(parts) - 1 // separators
+	totalLen += len(parts) - 1
 
 	b := make([]byte, 0, totalLen)
 	for i, p := range parts {

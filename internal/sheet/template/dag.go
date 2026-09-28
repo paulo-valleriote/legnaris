@@ -258,7 +258,6 @@ func (d *DAG) buildAdjacencyList(schemas []*FieldSchema, paths []Path) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// Build set of all valid node keys for validation
 	validKeys := make(map[string]bool, len(paths))
 	for _, path := range paths {
 		validKeys[path.String()] = true
@@ -367,7 +366,6 @@ func kahnTopoSort(nodes map[string]*Node, adj map[string][]string) ([]string, er
 	}
 
 	if len(topoOrder) != len(nodes) {
-		// Find nodes missing from topoOrder (cycle nodes)
 		inTopo := make(map[string]bool, len(topoOrder))
 		for _, n := range topoOrder {
 			inTopo[n] = true
@@ -491,9 +489,8 @@ func hasChanged(originalData map[string]any, key string, newValue any) bool {
 func (d *DAG) validateUpdateKeysLocked(updatedData map[string]any) error {
 	for key := range updatedData {
 		if _, ok := d.nodes[key]; ok {
-			continue // Direct DAG node
+			continue
 		}
-		// Check if key is a prefix of any DAG node (e.g., "stats" for "stats.str")
 		if !d.hasNodePrefix(key) {
 			return ErrUnknownField(key)
 		}

@@ -66,18 +66,21 @@ func (e *FieldNameError) Error() string {
 	return fmt.Sprintf("invalid field name '%s': %s", e.Field, e.Reason)
 }
 
-// Sentinel errors. This package must not import shared/apperr: services
+// ErrInfiniteCycle and the sentinel errors below are declared in this package
+// instead of shared/apperr: this package must not import apperr — services
 // translate these typed errors to apperr codes at the layer boundary.
 var (
 	// ErrInfiniteCycle is deprecated; use ErrCycleDetected/CycleError instead.
 	ErrInfiniteCycle = errors.New("an infinite cycle was detected on template formulas")
 
-	// Internal invariant violations (always surface as HTTP 500).
+	// ErrNilFormulaEngine, ErrNilDAG and ErrNilNode report internal invariant
+	// violations (always surface as HTTP 500).
 	ErrNilFormulaEngine = errors.New("formula engine is required")
 	ErrNilDAG           = errors.New("DAG is nil")
 	ErrNilNode          = errors.New("node is nil")
 
-	// Invalid recalculation inputs (surface as HTTP 400).
+	// ErrNilOriginalData and ErrNilUpdatedData report invalid recalculation
+	// inputs (surface as HTTP 400).
 	ErrNilOriginalData = errors.New("original data is nil")
 	ErrNilUpdatedData  = errors.New("updated data is nil")
 

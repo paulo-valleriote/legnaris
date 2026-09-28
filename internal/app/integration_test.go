@@ -147,7 +147,6 @@ func TestIntegration_BootDoesNotCreateTemplateCollection(t *testing.T) {
 func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	h, _ := newIntegrationRouter(t)
 
-	// Create
 	createRec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Test Sheet"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
 
@@ -170,7 +169,6 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	assert.Equal(t, 10.0, derived["armorClass"])
 	assert.Equal(t, 0.0, derived["stealthTotal"])
 
-	// Fetch
 	fetchRec := doRequest(t, h, http.MethodGet, "/sheets/"+sheetID, "")
 	require.Equal(t, http.StatusOK, fetchRec.Code)
 
@@ -184,7 +182,6 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 10.0, fetchedDerived["armorClass"])
 
-	// Patch (cascading recalc without any template query)
 	patchRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":16}}}`)
 	require.Equal(t, http.StatusOK, patchRec.Code)
 
