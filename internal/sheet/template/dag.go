@@ -398,8 +398,17 @@ func initInDegree(nodes map[string]*Node, adj map[string][]string) map[string]in
 }
 
 // Recalculate reapplies updates and recomputes derived fields in topological order.
-// Returns a map of only the derived fields that actually changed (cascading effects).
-// Returns an error if any formula evaluation fails, inputs are invalid, or update keys are unknown.
+// Returns a map of only the derived fields that actually changed by more than epsilon
+// (cascading effects). "Changed" means the new value differs from the old by more
+// than the epsilon tolerance used in maputils.Equal (1e-9 relative, scalar values only).
+// updatedData must carry flat path keys (e.g. "stats.str"): a group value is out of
+// contract because prepareData replaces the whole group instead of merging its leaves,
+// dropping the siblings the payload left out — the sheet service flattens payloads
+// before calling.
+// Returns an error if any formula evaluation fails, inputs are invalid, or a flat
+// update key is neither a DAG node nor a prefix of one. Group payloads skip that
+// check (their leaves are never validated), which is another reason they stay out
+// of contract.
 func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]any, error) {
 	if d == nil {
 		return nil, ErrNilDAG
@@ -425,13 +434,52 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 		return nil, err
 	}
 
-	needsRecalc := initialRecalcSet(updatedData)
+	// Updates that do not really change the original data never reach the
+	// recalculation set, so floating-point rounding or type coercion
+	// (e.g., int vs float64) cannot start a spurious cascade.
+	needsRecalc := changedUpdates(originalData, updatedData)
+
 	changedDerived, err := d.walkTopological(sheetData, engineEnv, needsRecalc)
 	if err != nil {
 		return nil, err
 	}
 
 	return changedDerived, nil
+}
+
+// changedUpdates returns the update keys that really change originalData, as the
+// initial set of nodes to recalculate: entries the change check drops must not
+// start a cascade at all.
+// Keys are leaf path keys; group-level entries (a nested map value, e.g.
+// {"stats": {"str": 16}}) are expanded to their leaves before comparing, so a
+// stray group payload still reaches DAG node keys instead of being silently
+// dropped by the change check — the supported input stays flat (see Recalculate).
+func changedUpdates(originalData, updatedData map[string]any) map[string]bool {
+	changed := make(map[string]bool, len(updatedData))
+	for key, newValue := range updatedData {
+		if group, ok := newValue.(map[string]any); ok {
+			for leafKey, leafValue := range maputils.FlattenPathKeys(group) {
+				fullKey := key + "." + leafKey
+				if hasChanged(originalData, fullKey, leafValue) {
+					changed[fullKey] = true
+				}
+			}
+			continue
+		}
+		if hasChanged(originalData, key, newValue) {
+			changed[key] = true
+		}
+	}
+	return changed
+}
+
+// hasChanged reports whether the value stored under key differs from newValue
+// by more than the maputils.Equal tolerance.
+// A key that is absent from originalData counts as a change.
+// It is the single gate deciding whether an update entry may start a cascade.
+func hasChanged(originalData map[string]any, key string, newValue any) bool {
+	oldValue, found := maputils.GetFlat(originalData, key)
+	return !found || !maputils.Equal(oldValue, newValue)
 }
 
 // validateUpdateKeysLocked checks that all keys in updatedData exist in the DAG.
@@ -517,23 +565,16 @@ func validateRecalculateInputs(originalData, updatedData map[string]any) error {
 	return nil
 }
 
-func initialRecalcSet(updatedData map[string]any) map[string]bool {
-	set := make(map[string]bool, len(updatedData))
-	for k := range updatedData {
-		set[k] = true
-	}
-	return set
-}
-
 // processNode evaluates a derived node if needed, updates both nested and flat envs,
 // and returns whether the change should propagate to dependents.
+// Editable nodes always propagate: they are the source of changes, and the change
+// filter in Recalculate has already dropped update entries that changed nothing.
 // Returns an error if formula evaluation fails, wrapped with field context.
 func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, changedDerived map[string]any) (bool, error) {
 	if node == nil {
 		return false, ErrNilNode
 	}
 
-	// Editable nodes always propagate (they are the source of changes)
 	if !node.IsDerived() {
 		return true, nil
 	}

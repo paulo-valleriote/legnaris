@@ -98,6 +98,97 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestGetFlat(t *testing.T) {
+	tests := []struct {
+		name      string
+		nested    map[string]any
+		key       string
+		wantVal   any
+		wantFound bool
+	}{
+		{
+			name:      "Flat key resolves nested value",
+			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
+			key:       "stats.str",
+			wantVal:   10.0,
+			wantFound: true,
+		},
+		{
+			name:      "Deep flat key resolves deeply nested value",
+			nested:    map[string]any{"a": map[string]any{"b": map[string]any{"c": 3.0}}},
+			key:       "a.b.c",
+			wantVal:   3.0,
+			wantFound: true,
+		},
+		{
+			name:      "Key without separator reads the root entry",
+			nested:    map[string]any{"a": 1.0},
+			key:       "a",
+			wantVal:   1.0,
+			wantFound: true,
+		},
+		{
+			name:      "Nil map",
+			nested:    nil,
+			key:       "stats.str",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Empty key",
+			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
+			key:       "",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Missing intermediate",
+			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
+			key:       "mod.str",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Intermediate is not a map",
+			nested:    map[string]any{"stats": 5.0},
+			key:       "stats.str",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Missing leaf",
+			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
+			key:       "stats.dex",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Present but nil value counts as found",
+			nested:    map[string]any{"stats": map[string]any{"str": nil}},
+			key:       "stats.str",
+			wantVal:   nil,
+			wantFound: true,
+		},
+		{
+			name:      "Nested map leaf value",
+			nested:    map[string]any{"stats": map[string]any{"sub": map[string]any{"a": 1.0}}},
+			key:       "stats.sub.a",
+			wantVal:   1.0,
+			wantFound: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			val, found := GetFlat(tc.nested, tc.key)
+			assert.Equal(t, tc.wantFound, found, "found mismatch")
+			if tc.wantFound {
+				assert.Equal(t, tc.wantVal, val, "value mismatch")
+			}
+		})
+	}
+}
+
 func TestSet(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -637,15 +728,51 @@ func TestEqual(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "int vs float64 (different concrete types)",
+			name:     "int vs float64 equal by value",
 			a:        int(10),
 			b:        float64(10.0),
+			expected: true,
+		},
+		{
+			name:     "int64 vs float64 equal by value",
+			a:        int64(10),
+			b:        float64(10.0),
+			expected: true,
+		},
+		{
+			name:     "float32 vs float64 equal by value",
+			a:        float32(10),
+			b:        float64(10.0),
+			expected: true,
+		},
+		{
+			name:     "int vs float64 not equal",
+			a:        int(10),
+			b:        float64(20.0),
 			expected: false,
 		},
 		{
-			name:     "int64 vs float64 (different concrete types)",
-			a:        int64(10),
-			b:        float64(10.0),
+			name:     "float64 equal within epsilon",
+			a:        float64(0.1 + 0.2),
+			b:        float64(0.3),
+			expected: true,
+		},
+		{
+			name:     "float64 not equal beyond epsilon",
+			a:        float64(1.0000001),
+			b:        float64(1.0),
+			expected: false,
+		},
+		{
+			name:     "float64 differ within epsilon - equal",
+			a:        float64(1.0),
+			b:        float64(1.0 + epsilon/2),
+			expected: true,
+		},
+		{
+			name:     "float64 differ by more than epsilon - not equal",
+			a:        float64(1.0),
+			b:        float64(1.0 + 2*epsilon),
 			expected: false,
 		},
 		{
@@ -670,6 +797,60 @@ func TestEqual(t *testing.T) {
 			name:     "+Inf vs -Inf - not equal",
 			a:        math.Inf(1),
 			b:        math.Inf(-1),
+			expected: false,
+		},
+		{
+			name:     "uint64 max vs int64 -1 - not equal (no wrap-around)",
+			a:        uint64(math.MaxUint64),
+			b:        int64(-1),
+			expected: false,
+		},
+		{
+			name:     "int64 -1 vs uint64 max - not equal (symmetric)",
+			a:        int64(-1),
+			b:        uint64(math.MaxUint64),
+			expected: false,
+		},
+		{
+			name:     "uint64 max vs uint64 max - equal",
+			a:        uint64(math.MaxUint64),
+			b:        uint64(math.MaxUint64),
+			expected: true,
+		},
+		{
+			name:     "uint64 max vs uint64 max minus one - not equal",
+			a:        uint64(math.MaxUint64),
+			b:        uint64(math.MaxUint64 - 1),
+			expected: false,
+		},
+		{
+			name:     "uint64 1<<63 vs int64 min - not equal",
+			a:        uint64(1) << 63,
+			b:        int64(math.MinInt64),
+			expected: false,
+		},
+		{
+			name:     "uint64 5 vs int64 -5 - not equal (sign matters)",
+			a:        uint64(5),
+			b:        int64(-5),
+			expected: false,
+		},
+		{
+			name:     "uint64 5 vs int64 5 - equal",
+			a:        uint64(5),
+			b:        int64(5),
+			expected: true,
+		},
+		{
+			name:     "int64 min vs int64 min - equal",
+			a:        int64(math.MinInt64),
+			b:        int64(math.MinInt64),
+			expected: true,
+		},
+		{
+			name:     "int64 max vs int64 max minus one - not equal (exact)",
+			a:        int64(math.MaxInt64),
+			b:        int64(math.MaxInt64 - 1),
 			expected: false,
 		},
 	}

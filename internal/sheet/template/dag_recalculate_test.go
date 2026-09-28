@@ -506,45 +506,105 @@ func TestValidateRecalculateInputs(t *testing.T) {
 	}
 }
 
-// --- initialRecalcSet ---
+// --- changedUpdates ---
 
-func TestInitialRecalcSet(t *testing.T) {
+func TestChangedUpdates(t *testing.T) {
+	original := map[string]any{
+		"stats": map[string]any{"str": 10.0},
+		"mod":   map[string]any{"str": 0.0},
+	}
+
 	tests := []struct {
-		name    string
-		updates map[string]any
-		want    map[string]bool
+		name     string
+		original map[string]any
+		updates  map[string]any
+		want     map[string]bool
 	}{
 		{
-			name:    "single key",
-			updates: map[string]any{"stats.str": 16.0},
-			want:    map[string]bool{"stats.str": true},
+			name:     "changed leaf key is kept",
+			original: original,
+			updates:  map[string]any{"stats.str": 16.0},
+			want:     map[string]bool{"stats.str": true},
 		},
 		{
-			name:    "multiple keys",
-			updates: map[string]any{"stats.str": 16.0, "stats.dex": 14.0},
-			want:    map[string]bool{"stats.str": true, "stats.dex": true},
+			name:     "deep flat key is kept as a single key",
+			original: map[string]any{"a": map[string]any{"b": map[string]any{"c": map[string]any{"d": 1.0}}}},
+			updates:  map[string]any{"a.b.c.d": 2.0},
+			want:     map[string]bool{"a.b.c.d": true},
 		},
 		{
-			name:    "empty updates",
-			updates: map[string]any{},
-			want:    map[string]bool{},
+			name:     "unchanged leaf key is dropped",
+			original: original,
+			updates:  map[string]any{"stats.str": 10.0},
+			want:     map[string]bool{},
 		},
 		{
-			name:    "nested path keys",
-			updates: map[string]any{"character.attributes.physical.strength": 15.0},
-			want:    map[string]bool{"character.attributes.physical.strength": true},
+			name:     "leaf key differing within epsilon is dropped",
+			original: original,
+			updates:  map[string]any{"stats.str": 10.0 + 1e-10},
+			want:     map[string]bool{},
 		},
 		{
-			name:    "nil value in updates still marked",
-			updates: map[string]any{"a": nil},
-			want:    map[string]bool{"a": true},
+			name:     "leaf key absent from original counts as a change",
+			original: original,
+			updates:  map[string]any{"stats.dex": 14.0},
+			want:     map[string]bool{"stats.dex": true},
+		},
+		{
+			name:     "nil value for a key absent from original counts as a change",
+			original: original,
+			updates:  map[string]any{"stats.bonus": nil},
+			want:     map[string]bool{"stats.bonus": true},
+		},
+		{
+			name:     "group key expands to changed leaf keys",
+			original: original,
+			updates:  map[string]any{"stats": map[string]any{"str": 16.0}},
+			want:     map[string]bool{"stats.str": true},
+		},
+		{
+			name:     "group key with unchanged leaf is dropped",
+			original: original,
+			updates:  map[string]any{"stats": map[string]any{"str": 10.0}},
+			want:     map[string]bool{},
+		},
+		{
+			name:     "nested group key expands to full leaf path",
+			original: original,
+			updates: map[string]any{
+				"outer": map[string]any{"inner": map[string]any{"str": 16.0}},
+			},
+			want: map[string]bool{"outer.inner.str": true},
+		},
+		{
+			name:     "mixed leaf and group keys are expanded independently",
+			original: original,
+			updates: map[string]any{
+				"mod.str": 5.0,
+				"stats":   map[string]any{"str": 16.0},
+			},
+			want: map[string]bool{
+				"mod.str":   true,
+				"stats.str": true,
+			},
+		},
+		{
+			name:     "empty original keeps every update",
+			original: map[string]any{},
+			updates:  map[string]any{"stats.str": 10.0},
+			want:     map[string]bool{"stats.str": true},
+		},
+		{
+			name:     "empty updates yield an empty set",
+			original: original,
+			updates:  map[string]any{},
+			want:     map[string]bool{},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := initialRecalcSet(tc.updates)
-			assert.Equal(t, tc.want, result)
+			assert.Equal(t, tc.want, changedUpdates(tc.original, tc.updates))
 		})
 	}
 }
