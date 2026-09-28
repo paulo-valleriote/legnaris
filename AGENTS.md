@@ -36,6 +36,35 @@ make fmt                 # Format code
 - **Mocks** — generated via `mockery` (config in `go.mod` tool directive)
 - **English only** — all identifiers, comments, log messages, and user-facing strings must be in English. Exception: `docs/TDD.md` stays in pt-BR.
 
+## Comments
+
+Comments are documentation, never narration. They must not substitute clear code.
+
+**Allowed**
+
+- Doc comments on exported identifiers: functions, methods, types, interfaces,
+  and package-level constants/variables (Go doc-comment style, starting with the
+  identifier name: `// coerceFloat64 normalizes ...`).
+- Comments explaining **why**: constraints, trade-offs, gotchas, and non-obvious
+  decisions that the code cannot express by itself.
+- Package headers (e.g. `doc.go`).
+
+**Not allowed**
+
+- Comments inside function bodies — no line-by-line narration. Refactor instead:
+  better names, smaller functions, early returns.
+- Commented-out code — delete it; Git history keeps it.
+
+**TODO / FIXME**
+
+- Create a Jira card for the pending work first.
+- Only if a card is not possible (e.g. trivial or blocked), leave a `// TODO(owner):`
+  comment with a one-line rationale.
+
+**Exempt**
+
+- Generated code (mockery) and directives (`//go:generate`, `//nolint`, build tags).
+
 ## PR Checklist
 
 Before opening a PR, ensure:
