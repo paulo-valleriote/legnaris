@@ -425,8 +425,20 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 		return nil, err
 	}
 
-	needsRecalc := initialRecalcSet(updatedData)
-	changedDerived, err := d.walkTopological(sheetData, engineEnv, needsRecalc)
+	// Filter out updates where the value hasn't actually changed
+	// compared to the original data. This prevents spurious
+	// cascading recalculations caused by floating-point rounding
+	// or type coercion (e.g., int vs float64).
+	filteredUpdates := make(map[string]any, len(updatedData))
+	for key, newValue := range updatedData {
+		oldValue, found := maputils.Get(originalData, strings.Split(key, "."))
+		if !found || !maputils.Equal(oldValue, newValue) {
+			filteredUpdates[key] = newValue
+		}
+	}
+
+	needsRecalc := initialRecalcSet(filteredUpdates)
+	changedDerived, err := d.walkTopological(originalData, sheetData, engineEnv, needsRecalc)
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +489,7 @@ func (d *DAG) prepareData(originalData, updatedData map[string]any) (map[string]
 
 // walkTopological evaluates nodes in topological order and returns changed derived fields.
 // Must be called with the DAG's read lock already held.
-func (d *DAG) walkTopological(sheetData, engineEnv map[string]any, needsRecalc map[string]bool) (map[string]any, error) {
+func (d *DAG) walkTopological(originalData, sheetData, engineEnv map[string]any, needsRecalc map[string]bool) (map[string]any, error) {
 	changedDerived := make(map[string]any)
 
 	for _, nodeKey := range d.topologicalOrder {
@@ -486,7 +498,7 @@ func (d *DAG) walkTopological(sheetData, engineEnv map[string]any, needsRecalc m
 		}
 
 		node := d.nodes[nodeKey]
-		propagated, err := d.processNode(node, sheetData, engineEnv, changedDerived)
+		propagated, err := d.processNode(node, originalData, sheetData, engineEnv, changedDerived)
 		if err != nil {
 			return nil, err
 		}
@@ -527,14 +539,21 @@ func initialRecalcSet(updatedData map[string]any) map[string]bool {
 
 // processNode evaluates a derived node if needed, updates both nested and flat envs,
 // and returns whether the change should propagate to dependents.
+// For editable nodes, returns false if the value hasn't actually changed
+// compared to the original data (preventing spurious cascades).
 // Returns an error if formula evaluation fails, wrapped with field context.
-func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, changedDerived map[string]any) (bool, error) {
+func (d *DAG) processNode(node *Node, originalData, sheetData, engineEnv map[string]any, changedDerived map[string]any) (bool, error) {
 	if node == nil {
 		return false, ErrNilNode
 	}
 
-	// Editable nodes always propagate (they are the source of changes)
+	// Editable nodes: propagate only if the value actually changed
 	if !node.IsDerived() {
+		currentValue, _ := node.Path.Get(sheetData)
+		originalValue, found := node.Path.Get(originalData)
+		if found && maputils.Equal(originalValue, currentValue) {
+			return false, nil
+		}
 		return true, nil
 	}
 

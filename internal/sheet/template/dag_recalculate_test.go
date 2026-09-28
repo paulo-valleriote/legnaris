@@ -367,7 +367,7 @@ func TestWalkTopological(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			changed, err := tc.dag.walkTopological(tc.sheetData, tc.engineEnv, tc.needsRecalc)
+			changed, err := tc.dag.walkTopological(nil, tc.sheetData, tc.engineEnv, tc.needsRecalc)
 			tc.assertErr(t, err)
 
 			if err == nil {
@@ -563,7 +563,7 @@ func TestRecalculate_NilDAG(t *testing.T) {
 
 func TestProcessNode_NilNode(t *testing.T) {
 	d := &DAG{formulaEngine: engine.NewFormulaEngine()}
-	propagated, err := d.processNode(nil, map[string]any{}, map[string]any{}, map[string]any{})
+	propagated, err := d.processNode(nil, nil, map[string]any{}, map[string]any{}, map[string]any{})
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "node is nil")
 	assert.False(t, propagated)

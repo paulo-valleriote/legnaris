@@ -2,6 +2,7 @@ package maputils
 
 import (
 	"errors"
+	"math"
 	"reflect"
 )
 
@@ -12,6 +13,10 @@ var (
 	ErrEmptyPath = errors.New("empty path")
 	// ErrNotMap is returned when an intermediate value is not a map.
 	ErrNotMap = errors.New("intermediate value is not a map")
+
+	// epsilon is the tolerance for float64 comparisons in Equal.
+	// Values differing by less than this are considered equal.
+	epsilon = 1e-9
 )
 
 // Get retrieves a value from a nested map using a path of keys.
@@ -188,14 +193,20 @@ func DeepCopy(src map[string]any) map[string]any {
 	return dst
 }
 
-// Equal compares two values for equality with type strictness.
-// Supports: float64, string, bool, nil, slices, maps (via DeepEqual fallback).
-// Returns false for different concrete types (e.g., int vs float64).
+// Equal compares two values for equality with tolerance for numeric types.
+// For float64, uses epsilon tolerance to avoid spurious recalculations
+// caused by floating-point rounding differences (e.g., 0.1+0.2 != 0.3).
+// Mixed numeric types (int, int32, int64, float32, float64) are
+// compared as float64.
+// Returns false for different concrete non-numeric types and for NaN.
 func Equal(a, b any) bool {
+	// Fast path: identical types
 	switch av := a.(type) {
 	case float64:
-		bv, ok := b.(float64)
-		return ok && av == bv
+		if bv, ok := b.(float64); ok {
+			return float64Equal(av, bv)
+		}
+		return numericEqualFloat64(b, av)
 	case string:
 		bv, ok := b.(string)
 		return ok && av == bv
@@ -205,5 +216,65 @@ func Equal(a, b any) bool {
 	case nil:
 		return b == nil
 	}
+	// a is not in the fast-path types; check if b is float64
+	// (handles int, int32, int64, float32, etc. on the left side)
+	if bv, ok := b.(float64); ok {
+		return numericEqualFloat64(a, bv)
+	}
 	return reflect.DeepEqual(a, b)
+}
+
+// float64Equal compares two float64 values with epsilon tolerance.
+// NaN is never equal to anything, including itself.
+func float64Equal(a, b float64) bool {
+	if math.IsNaN(a) || math.IsNaN(b) {
+		return false
+	}
+	if math.IsInf(a, 0) || math.IsInf(b, 0) {
+		return a == b
+	}
+	return math.Abs(a-b) <= epsilon
+}
+
+// numericEqualFloat64 converts a non-float64 numeric value to float64
+// and compares it with bv using epsilon tolerance.
+// Returns false if a is not a numeric type.
+func numericEqualFloat64(a any, bv float64) bool {
+	av, ok := toFloat64(a)
+	if !ok {
+		return false
+	}
+	return float64Equal(av, bv)
+}
+
+// toFloat64 converts supported numeric types to float64.
+// Returns false for non-numeric types and complex numbers.
+func toFloat64(v any) (float64, bool) {
+	switch val := v.(type) {
+	case int:
+		return float64(val), true
+	case int8:
+		return float64(val), true
+	case int16:
+		return float64(val), true
+	case int32:
+		return float64(val), true
+	case int64:
+		return float64(val), true
+	case uint:
+		return float64(val), true
+	case uint8:
+		return float64(val), true
+	case uint16:
+		return float64(val), true
+	case uint32:
+		return float64(val), true
+	case uint64:
+		return float64(val), true
+	case float32:
+		return float64(val), true
+	case float64:
+		return val, true
+	}
+	return 0, false
 }

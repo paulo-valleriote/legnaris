@@ -195,6 +195,35 @@ func TestRecalculate(t *testing.T) {
 			},
 			expectedCascades: map[string]any{},
 		},
+		{
+			// LGN-59: Updating an editable field with the same value
+			// (even via type coercion, e.g., int 10 vs float64 10.0)
+			// must not trigger cascading recalculation.
+			name: "LGN-59: Editable node unchanged (int vs float64) prevents cascade",
+			originalData: map[string]any{
+				"stats":   map[string]any{"str": 10.0},
+				"mod":     map[string]any{"str": 0.0},
+				"derived": map[string]any{"dmg": 5.0},
+			},
+			updates: map[string]any{
+				"stats.str": int(10), // int(10) == float64(10.0) → no real change
+			},
+			expectedCascades: map[string]any{},
+		},
+		{
+			// LGN-59: Float rounding — updating with a value that differs
+			// only by floating-point rounding should not cascade.
+			name: "LGN-59: Editable node unchanged (float epsilon) prevents cascade",
+			originalData: map[string]any{
+				"stats":   map[string]any{"str": 10.0},
+				"mod":     map[string]any{"str": 0.0},
+				"derived": map[string]any{"dmg": 5.0},
+			},
+			updates: map[string]any{
+				"stats.str": 10.0 + 1e-10, // within epsilon → no real change
+			},
+			expectedCascades: map[string]any{},
+		},
 	}
 
 	for _, tc := range tests {
@@ -867,15 +896,39 @@ func TestValuesEqual(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "int vs float64 (different concrete types)",
+			name:     "int vs float64 equal by value",
 			a:        int(10),
 			b:        float64(10.0),
+			expected: true,
+		},
+		{
+			name:     "int64 vs float64 equal by value",
+			a:        int64(10),
+			b:        float64(10.0),
+			expected: true,
+		},
+		{
+			name:     "float32 vs float64 equal by value",
+			a:        float32(10),
+			b:        float64(10.0),
+			expected: true,
+		},
+		{
+			name:     "int vs float64 not equal",
+			a:        int(10),
+			b:        float64(20.0),
 			expected: false,
 		},
 		{
-			name:     "int64 vs float64 (different concrete types)",
-			a:        int64(10),
-			b:        float64(10.0),
+			name:     "float64 equal within epsilon (0.1+0.2 vs 0.3)",
+			a:        float64(0.1 + 0.2),
+			b:        float64(0.3),
+			expected: true,
+		},
+		{
+			name:     "float64 differ by more than epsilon",
+			a:        float64(1.0000001),
+			b:        float64(1.0),
 			expected: false,
 		},
 		{
@@ -975,9 +1028,11 @@ func TestRecalculate_RuntimeFormulaError(t *testing.T) {
 	require.NoError(t, err)
 
 	originalData := map[string]any{
-		"input":  10.0,
+		"input":  5.0,
 		"output": 0.0,
 	}
+	// Update input to 10.0 to trigger division by zero (+Inf)
+	// Note: this update differs from the original, so it passes the LGN-59 filter
 	updates := map[string]any{"input": 10.0}
 
 	cascadingEffects, err := dag.Recalculate(originalData, updates)
