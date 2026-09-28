@@ -28,9 +28,3 @@
 - The `err` cause must be `nil` or a lower-layer typed error; never a bare `errors.New`
 - Export user-facing message constants (plain strings) from the service package for controller reuse
 - Translate lower-layer errors at the boundary using `errors.Is`/`errors.As`
-
-## Testing
-
-- Unit tests: `testify` + Mockery mocks in `internal/*/mocks/`
-- Run single test: `go test -run TestName ./package/path`
-- Integration tests self-skip when MongoDB unavailable (see `deploy/` stack)
