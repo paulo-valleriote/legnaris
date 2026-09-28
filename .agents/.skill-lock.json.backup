@@ -6,7 +6,7 @@
       "source": "local",
       "contentHash": "d05974df076f695f96b4e4c263ad19f2aaffe8ee6248c1b07a634dd9ed0ea51e",
       "installedAt": "2026-09-22T00:58:41.039Z",
-      "updatedAt": "2026-09-22T00:58:41.064Z",
+      "updatedAt": "2026-09-28T21:29:27.592Z",
       "agents": [
         "cursor",
         "claude-code",
@@ -62,10 +62,11 @@
       "source": "local",
       "contentHash": "fa63880889d2206548e33489a0ac1aa849c4e6ab879ea769c2715521a8231c8a",
       "installedAt": "2026-09-26T01:41:50.631Z",
-      "updatedAt": "2026-09-26T01:41:50.653Z",
+      "updatedAt": "2026-09-26T01:41:50.668Z",
       "agents": [
         "cursor",
-        "claude-code"
+        "claude-code",
+        "windsurf"
       ],
       "method": "copy",
       "global": false
