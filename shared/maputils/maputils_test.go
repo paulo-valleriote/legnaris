@@ -98,6 +98,97 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestGetFlat(t *testing.T) {
+	tests := []struct {
+		name      string
+		nested    map[string]any
+		key       string
+		wantVal   any
+		wantFound bool
+	}{
+		{
+			name:      "Flat key resolves nested value",
+			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
+			key:       "stats.str",
+			wantVal:   10.0,
+			wantFound: true,
+		},
+		{
+			name:      "Deep flat key resolves deeply nested value",
+			nested:    map[string]any{"a": map[string]any{"b": map[string]any{"c": 3.0}}},
+			key:       "a.b.c",
+			wantVal:   3.0,
+			wantFound: true,
+		},
+		{
+			name:      "Key without separator reads the root entry",
+			nested:    map[string]any{"a": 1.0},
+			key:       "a",
+			wantVal:   1.0,
+			wantFound: true,
+		},
+		{
+			name:      "Nil map",
+			nested:    nil,
+			key:       "stats.str",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Empty key",
+			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
+			key:       "",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Missing intermediate",
+			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
+			key:       "mod.str",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Intermediate is not a map",
+			nested:    map[string]any{"stats": 5.0},
+			key:       "stats.str",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Missing leaf",
+			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
+			key:       "stats.dex",
+			wantVal:   nil,
+			wantFound: false,
+		},
+		{
+			name:      "Present but nil value counts as found",
+			nested:    map[string]any{"stats": map[string]any{"str": nil}},
+			key:       "stats.str",
+			wantVal:   nil,
+			wantFound: true,
+		},
+		{
+			name:      "Nested map leaf value",
+			nested:    map[string]any{"stats": map[string]any{"sub": map[string]any{"a": 1.0}}},
+			key:       "stats.sub.a",
+			wantVal:   1.0,
+			wantFound: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			val, found := GetFlat(tc.nested, tc.key)
+			assert.Equal(t, tc.wantFound, found, "found mismatch")
+			if tc.wantFound {
+				assert.Equal(t, tc.wantVal, val, "value mismatch")
+			}
+		})
+	}
+}
+
 func TestSet(t *testing.T) {
 	tests := []struct {
 		name       string

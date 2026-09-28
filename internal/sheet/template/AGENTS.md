@@ -17,6 +17,7 @@
 - **PartialUpdate validates editability** against DAG before recalc — non-editable fields in payload = 400
 - **Registry and DAGs are frozen after boot** — `Registry.List()`/`FetchByID()` return deep copies (registry clones `DefaultTemplates` on ingest), DAGs resolved per ID via `Registry.DAG(id)` through `sheet.DAGProvider` interface (no `DAGs()` map accessor), and `DAG` guards state with unexported mutex: never acquire twice — read through `HasNode`/`GetNode`/`GetChildren`, or stay under single lock `Recalculate` takes (recursive RLock deadlocks with queued writer, regression test `TestRecalculate_ValidationRunsUnderSingleReadLock`)
 - **PATCH body** uses nested map (`{"data":{"stats":{"dexterity":12}}}`), flattened internally to DAG dot-keys
+- **Change detection (LGN-59)** — `Recalculate` only cascades the keys `changedUpdates` says really changed, compared with `maputils.Equal`'s *relative* epsilon (1e-9): rounding/type coercion cannot start a cascade, but the absolute slack grows with magnitude (up to 1.0 at 1e9) and integers above 2⁵³ collapse in `float64`, so `Equal` is unsuitable for fields needing exact large values (currency, XP). A PATCH whose values are unchanged returns `{}` and recomputes nothing: stale derived values do not self-heal on a no-op update.
 
 ## Template Errors
 

@@ -405,7 +405,10 @@ func initInDegree(nodes map[string]*Node, adj map[string][]string) map[string]in
 // contract because prepareData replaces the whole group instead of merging its leaves,
 // dropping the siblings the payload left out — the sheet service flattens payloads
 // before calling.
-// Returns an error if any formula evaluation fails, inputs are invalid, or update keys are unknown.
+// Returns an error if any formula evaluation fails, inputs are invalid, or a flat
+// update key is neither a DAG node nor a prefix of one. Group payloads skip that
+// check (their leaves are never validated), which is another reason they stay out
+// of contract.
 func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]any, error) {
 	if d == nil {
 		return nil, ErrNilDAG
@@ -431,12 +434,11 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 		return nil, err
 	}
 
-	// Filter out updates that do not really change the original data, so
-	// floating-point rounding or type coercion (e.g., int vs float64) cannot
-	// start a spurious cascade. See changedUpdates for the key expansion.
-	filteredUpdates := changedUpdates(originalData, updatedData)
+	// Updates that do not really change the original data never reach the
+	// recalculation set, so floating-point rounding or type coercion
+	// (e.g., int vs float64) cannot start a spurious cascade.
+	needsRecalc := changedUpdates(originalData, updatedData)
 
-	needsRecalc := initialRecalcSet(filteredUpdates)
 	changedDerived, err := d.walkTopological(sheetData, engineEnv, needsRecalc)
 	if err != nil {
 		return nil, err
@@ -445,27 +447,27 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 	return changedDerived, nil
 }
 
-// changedUpdates returns the update entries that actually change originalData,
-// keyed by leaf path key.
-// Group-level entries (a nested map value, e.g. {"stats": {"str": 16}}) are
-// expanded to their leaves before comparing, so a stray group payload still
-// reaches DAG node keys instead of being silently dropped by the change check —
-// the supported input stays flat (see Recalculate). Entries whose value is
-// unchanged are dropped: they must not start a cascade.
-func changedUpdates(originalData, updatedData map[string]any) map[string]any {
-	changed := make(map[string]any, len(updatedData))
+// changedUpdates returns the update keys that really change originalData, as the
+// initial set of nodes to recalculate: entries the change check drops must not
+// start a cascade at all.
+// Keys are leaf path keys; group-level entries (a nested map value, e.g.
+// {"stats": {"str": 16}}) are expanded to their leaves before comparing, so a
+// stray group payload still reaches DAG node keys instead of being silently
+// dropped by the change check — the supported input stays flat (see Recalculate).
+func changedUpdates(originalData, updatedData map[string]any) map[string]bool {
+	changed := make(map[string]bool, len(updatedData))
 	for key, newValue := range updatedData {
 		if group, ok := newValue.(map[string]any); ok {
 			for leafKey, leafValue := range maputils.FlattenPathKeys(group) {
 				fullKey := key + "." + leafKey
 				if hasChanged(originalData, fullKey, leafValue) {
-					changed[fullKey] = leafValue
+					changed[fullKey] = true
 				}
 			}
 			continue
 		}
 		if hasChanged(originalData, key, newValue) {
-			changed[key] = newValue
+			changed[key] = true
 		}
 	}
 	return changed
@@ -561,14 +563,6 @@ func validateRecalculateInputs(originalData, updatedData map[string]any) error {
 		return ErrNilUpdatedData
 	}
 	return nil
-}
-
-func initialRecalcSet(updatedData map[string]any) map[string]bool {
-	set := make(map[string]bool, len(updatedData))
-	for k := range updatedData {
-		set[k] = true
-	}
-	return set
 }
 
 // processNode evaluates a derived node if needed, updates both nested and flat envs,
