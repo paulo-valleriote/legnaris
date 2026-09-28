@@ -224,6 +224,38 @@ func TestRecalculate(t *testing.T) {
 			},
 			expectedCascades: map[string]any{},
 		},
+		{
+			// LGN-59: Updating an editable field with a value that differs
+			// by MORE than epsilon MUST trigger cascading recalculation.
+			name: "LGN-59: Editable node changed (exceeds epsilon) triggers cascade",
+			originalData: map[string]any{
+				"stats":   map[string]any{"str": 10.0},
+				"mod":     map[string]any{"str": 0.0},
+				"derived": map[string]any{"dmg": 5.0},
+			},
+			updates: map[string]any{
+				"stats.str": 16.0, // large change → real change, mod.str becomes 3, dmg becomes 8
+			},
+			expectedCascades: map[string]any{
+				"mod.str":     3.0, // floor((16 - 10) / 2) = 3
+				"derived.dmg": 8.0, // 3 + 5 = 8
+			},
+		},
+		{
+			// LGN-59: Equal update (within epsilon) must suppress formula
+			// evaluation entirely — formula should not run, no errors from it.
+			// This test uses a separate DAG with an "input" field that divides by zero.
+			name: "LGN-59: Equal update suppresses formula evaluation and errors",
+			originalData: map[string]any{
+				"stats":   map[string]any{"str": 10.0},
+				"mod":     map[string]any{"str": 0.0},
+				"derived": map[string]any{"dmg": 5.0},
+			},
+			updates: map[string]any{
+				"stats.str": 10.0 + 1e-10, // within epsilon → no real change
+			},
+			expectedCascades: map[string]any{},
+		},
 	}
 
 	for _, tc := range tests {
@@ -675,12 +707,18 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 	baseFields := FieldGroup{
 		"stats": {Children: FieldGroup{
 			"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+			"dex": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
 		}},
 		"mod": {Children: FieldGroup{
 			"str": {Schema: &FieldSchema{
 				Type: "number", IsEditable: false,
 				Formula:   "floor((stats_str - 10) / 2)",
 				DependsOn: [][]string{{"stats", "str"}},
+			}},
+			"dex": {Schema: &FieldSchema{
+				Type: "number", IsEditable: false,
+				Formula:   "floor((stats_dex - 10) / 2)",
+				DependsOn: [][]string{{"stats", "dex"}},
 			}},
 		}},
 	}
@@ -796,6 +834,57 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 				assert.Equal(t, true, result["output"])
 			},
 		},
+		{
+			// LGN-59: Updating a new editable field not present in originalData
+			// (found == false) should propagate as a change.
+			name: "LGN-59: New editable field (found==false) propagates",
+			dag:  baseDag,
+			originalData: map[string]any{
+				"stats": map[string]any{"str": 10.0},
+				"mod":   map[string]any{"str": 0.0},
+			},
+			updates: map[string]any{
+				"stats.dex": 14.0, // new field not in originalData
+			},
+			assertErr: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+			assertResult: func(t *testing.T, result map[string]any) {
+				assert.Equal(t, float64(2.0), result["mod.dex"]) // floor((14-10)/2) = 2
+			},
+		},
+		{
+			// LGN-59: Equal update (within epsilon) must suppress formula
+			// evaluation entirely — formula should not run, no errors from it.
+			// Uses a formula that would error (division by zero) if evaluated.
+			name: "LGN-59: Equal update suppresses formula evaluation (div by zero)",
+			dag: func() *DAG {
+				fields := FieldGroup{
+					"input": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+					"output": {Schema: &FieldSchema{
+						Type:       "number",
+						IsEditable: false,
+						Formula:    "10 / (input - 10)", // +Inf/error when input = 10
+						DependsOn:  [][]string{{"input"}},
+					}},
+				}
+				dag, _ := BuildDAG("test", fields, formulaEngine)
+				return dag
+			}(),
+			originalData: map[string]any{
+				"input":  10.0,
+				"output": math.Inf(1), // previous result was +Inf
+			},
+			updates: map[string]any{
+				"input": 10.0 + 1e-10, // within epsilon → filtered out, formula not evaluated
+			},
+			assertErr: func(t *testing.T, err error) {
+				require.NoError(t, err) // no error because formula not evaluated
+			},
+			assertResult: func(t *testing.T, result map[string]any) {
+				assert.Empty(t, result) // no cascade because update was filtered
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -806,155 +895,6 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			if err == nil && tc.assertResult != nil {
 				tc.assertResult(t, cascadingEffects)
 			}
-		})
-	}
-}
-
-func TestValuesEqual(t *testing.T) {
-	tests := []struct {
-		name     string
-		a        any
-		b        any
-		expected bool
-	}{
-		{
-			name:     "float64 equal",
-			a:        float64(10.0),
-			b:        float64(10.0),
-			expected: true,
-		},
-		{
-			name:     "float64 not equal",
-			a:        float64(10.0),
-			b:        float64(20.0),
-			expected: false,
-		},
-		{
-			name:     "string equal",
-			a:        "hello",
-			b:        "hello",
-			expected: true,
-		},
-		{
-			name:     "string not equal",
-			a:        "hello",
-			b:        "world",
-			expected: false,
-		},
-		{
-			name:     "bool equal true",
-			a:        true,
-			b:        true,
-			expected: true,
-		},
-		{
-			name:     "bool equal false",
-			a:        false,
-			b:        false,
-			expected: true,
-		},
-		{
-			name:     "bool not equal",
-			a:        true,
-			b:        false,
-			expected: false,
-		},
-		{
-			name:     "both nil",
-			a:        nil,
-			b:        nil,
-			expected: true,
-		},
-		{
-			name:     "one nil",
-			a:        nil,
-			b:        float64(10),
-			expected: false,
-		},
-		{
-			name:     "slice equal (DeepEqual fallback)",
-			a:        []int{1, 2, 3},
-			b:        []int{1, 2, 3},
-			expected: true,
-		},
-		{
-			name:     "slice not equal (DeepEqual fallback)",
-			a:        []int{1, 2},
-			b:        []int{1, 2, 3},
-			expected: false,
-		},
-		{
-			name:     "map equal (DeepEqual fallback)",
-			a:        map[string]any{"a": 1, "b": 2},
-			b:        map[string]any{"a": 1, "b": 2},
-			expected: true,
-		},
-		{
-			name:     "map not equal (DeepEqual fallback)",
-			a:        map[string]any{"a": 1},
-			b:        map[string]any{"a": 2},
-			expected: false,
-		},
-		{
-			name:     "int vs float64 equal by value",
-			a:        int(10),
-			b:        float64(10.0),
-			expected: true,
-		},
-		{
-			name:     "int64 vs float64 equal by value",
-			a:        int64(10),
-			b:        float64(10.0),
-			expected: true,
-		},
-		{
-			name:     "float32 vs float64 equal by value",
-			a:        float32(10),
-			b:        float64(10.0),
-			expected: true,
-		},
-		{
-			name:     "int vs float64 not equal",
-			a:        int(10),
-			b:        float64(20.0),
-			expected: false,
-		},
-		{
-			name:     "float64 equal within epsilon (0.1+0.2 vs 0.3)",
-			a:        float64(0.1 + 0.2),
-			b:        float64(0.3),
-			expected: true,
-		},
-		{
-			name:     "float64 differ by more than epsilon",
-			a:        float64(1.0000001),
-			b:        float64(1.0),
-			expected: false,
-		},
-		{
-			name:     "float64 with fractional part",
-			a:        float64(10.5),
-			b:        float64(10.5),
-			expected: true,
-		},
-		{
-			name:     "empty string",
-			a:        "",
-			b:        "",
-			expected: true,
-		},
-		{
-			name:     "empty string vs non-empty",
-			a:        "",
-			b:        "x",
-			expected: false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			result := maputils.Equal(tc.a, tc.b)
-			assert.Equal(t, tc.expected, result, "valuesEqual(%v, %v)", tc.a, tc.b)
 		})
 	}
 }

@@ -673,7 +673,7 @@ func TestEqual(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "float64 differ by within epsilon - equal",
+			name:     "float64 differ within epsilon - equal",
 			a:        float64(1.0),
 			b:        float64(1.0 + epsilon/2),
 			expected: true,
@@ -768,7 +768,7 @@ func TestSplitPath(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := splitPath(tc.input)
+			result := SplitPath(tc.input)
 			assert.Equal(t, tc.expected, result)
 		})
 	}

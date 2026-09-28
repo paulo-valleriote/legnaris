@@ -398,7 +398,9 @@ func initInDegree(nodes map[string]*Node, adj map[string][]string) map[string]in
 }
 
 // Recalculate reapplies updates and recomputes derived fields in topological order.
-// Returns a map of only the derived fields that actually changed (cascading effects).
+// Returns a map of only the derived fields that actually changed by more than epsilon
+// (cascading effects). "Changed" means the new value differs from the old by more
+// than the epsilon tolerance used in maputils.Equal (1e-9 relative).
 // Returns an error if any formula evaluation fails, inputs are invalid, or update keys are unknown.
 func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]any, error) {
 	if d == nil {
@@ -431,7 +433,7 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 	// or type coercion (e.g., int vs float64).
 	filteredUpdates := make(map[string]any, len(updatedData))
 	for key, newValue := range updatedData {
-		oldValue, found := maputils.Get(originalData, strings.Split(key, "."))
+		oldValue, found := maputils.GetFlat(originalData, key)
 		if !found || !maputils.Equal(oldValue, newValue) {
 			filteredUpdates[key] = newValue
 		}
