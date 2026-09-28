@@ -7,7 +7,8 @@
 | Epic/Ticket   | A definir                          |
 | Status        | Draft                              |
 | Criado        | 2026-09-22                         |
-| Última Edição | 2026-09-22                         |
+| Última Edição | 2026-09-28                         |
+| Confluence    | https://paulovalleriotedev.atlassian.net/wiki/spaces/LGN/pages/720898 |
 
 ---
 
@@ -51,7 +52,7 @@ O estado atual do código já contém o núcleo diferenciador funcionando:
 ### Impacto de NÃO Resolver
 
 - **Produto**: o núcleo vira um exercício técnico abandonado em vez de um produto usável.
-- **Técnico**: a arquitetura atual (seed no boot a cada subida, sem auth, sem ownership) degrada em débito técnico se não for endereçada com um plano.
+- **Técnico**: a arquitetura atual (templates em memória desde o boot, sem auth, sem ownership) degrada em débito técnico se não for endereçada com um plano.
 - **Usuários**: continuam presos entre ferramentas licenciadas fechadas e planilhas sem automação.
 
 ---
@@ -61,12 +62,12 @@ O estado atual do código já contém o núcleo diferenciador funcionando:
 ### ✅ Dentro do Escopo (V1 / MVP)
 
 - **Autenticação e usuários**: registro, login, JWT stateless (access token no corpo da resposta + refresh token em **cookie httpOnly**), hash de senha com bcrypt.
-- **Ownership de fichas**: toda ficha pertence a um usuário; endpoints protegidos por autorização (ativar o `OwnerID` já previsto e comentado em `sheet.go`).
+- **Ownership de fichas**: toda ficha pertence a um usuário; endpoints protegidos por autorização (adicionar `owner_id` ao modelo `Sheet` — campo não existe mais; comentário removido em LGN-81).
 - **Limite de 1 ficha por usuário**: regra de negócio do MVP, garantida também por índice único no banco.
 - **Biblioteca de templates genéricos multi-sistema**: catálogo de templates default para múltiplos gêneros (fantasia, sci-fi, horror, etc.), todos com nomes e regras 100% genéricos, **definidos no código e read-only** (sem edição por usuários).
 - **Import/Export de fichas em JSON**: exportação **auto-contida** (ficha + template embutido) e importação com **validação estrita** contra o template (campos extras ou ausentes são rejeitados).
 - **Deploy em produção pública**: VPS único com Docker, HTTPS, monitoramento e plano de rollback.
-- **Hardening do núcleo existente**: correção dos TODOs conhecidos (persistência do partial update, mensagens de erro trocadas no repositório de fichas, limpeza dos resquícios de PostgreSQL no README/Makefile/docker-compose, templates servidos da memória em vez de seed no Mongo a cada boot).
+- **Hardening do núcleo existente**: correção do débito técnico restante (persistência do PATCH com chaves pontilhadas); demais itens já resolvidos — ver tabela de débito técnico.
 
 ### ❌ Fora do Escopo (V1)
 
@@ -128,27 +129,30 @@ graph LR
 2. Middleware JWT autentica; service valida ownership da ficha.
 3. Service valida que cada campo enviado existe no DAG e é editável (já implementado).
 4. DAG recalcula em ordem topológica apenas os nós afetados, propagando efeitos em cascata (já implementado).
-5. Repositório persiste campos alterados + derivados com `$set` por chave pontilhada (`data.x.y`).
+5. Repositório persiste o mapa `data` inteiro (merge local de updates + efeitos em cascata) + `updated_at` via `$set` (`repository.go:59-68`). **Débito conhecido**: substituir por `$set` com chaves pontilhadas para reduzir superfície de escrita e risco de sobrescrever campos concorrentes — ver tabela de débito técnico.
 6. Resposta retorna apenas os efeitos em cascata, permitindo ao cliente atualizar a UI de forma incremental.
 
 ### APIs & Endpoints
 
-| Endpoint                    | Método | Descrição                                   | Auth          |
-| --------------------------- | ------ | ------------------------------------------- | ------------- |
-| `/health`                   | GET    | Health check                                | Não           |
-| `/auth/register`            | POST   | Cria conta (email, username, senha)         | Não           |
-| `/auth/login`               | POST   | Retorna access token; define refresh cookie | Não           |
-| `/auth/refresh`             | POST   | Renova access token (rotation)              | Refresh cookie|
-| `/auth/logout`              | POST   | Revoga refresh token, limpa cookie          | Refresh cookie|
-| `/templates`                | GET    | Lista templates default do catálogo         | Sim           |
-| `/templates/:id`            | GET    | Detalhe do template (campos, fórmulas)      | Sim           |
-| `/sheets`                   | POST   | Cria a ficha do usuário a partir de template| Sim           |
-| `/sheets`                   | GET    | Retorna a ficha do usuário autenticado      | Sim           |
-| `/sheets/:id`               | GET    | Detalhe da ficha                            | Sim (owner)   |
-| `/sheets/:id`               | PATCH  | Atualização parcial com recálculo           | Sim (owner)   |
-| `/sheets/:id`               | DELETE | Remove a ficha                              | Sim (owner)   |
-| `/sheets/:id/export`        | GET    | Exporta ficha em JSON auto-contido          | Sim (owner)   |
-| `/sheets/import`            | POST   | Importa ficha de JSON (validação estrita)   | Sim           |
+| Endpoint                    | Método | Descrição                                   | Auth          | Status                       |
+| --------------------------- | ------ | ------------------------------------------- | ------------- | ---------------------------- |
+| `/health`                   | GET    | Health check                                | Não           | ✅ Existe hoje               |
+| `/metrics`                  | GET    | Métricas Prometheus                          | Não           | ✅ Existe hoje               |
+| `/auth/register`            | POST   | Cria conta (email, username, senha)         | Não           | ⏳ Fase 1                    |
+| `/auth/login`               | POST   | Retorna access token; define refresh cookie | Não           | ⏳ Fase 1                    |
+| `/auth/refresh`             | POST   | Renova access token (rotation)              | Refresh cookie| ⏳ Fase 1                    |
+| `/auth/logout`              | POST   | Revoga refresh token, limpa cookie          | Refresh cookie| ⏳ Fase 1                    |
+| `/templates`                | GET    | Lista templates default do catálogo         | Sim           | ✅ Existe hoje (público)     |
+| `/templates/:id`            | GET    | Detalhe do template (campos, fórmulas)      | Sim           | ✅ Existe hoje (público)     |
+| `/sheets`                   | POST   | Cria a ficha do usuário a partir de template| Sim           | ✅ Existe hoje (público)     |
+| `/sheets`                   | GET    | Retorna a ficha do usuário autenticado      | Sim           | ⏳ Fase 2                    |
+| `/sheets/:id`               | GET    | Detalhe da ficha                            | Sim (owner)   | ✅ Existe hoje (público)     |
+| `/sheets/:id`               | PATCH  | Atualização parcial com recálculo           | Sim (owner)   | ✅ Existe hoje (público)     |
+| `/sheets/:id`               | DELETE | Remove a ficha                              | Sim (owner)   | ⏳ Fase 2                    |
+| `/sheets/:id/export`        | GET    | Exporta ficha em JSON auto-contido          | Sim (owner)   | ⏳ Fase 4                    |
+| `/sheets/import`            | POST   | Importa ficha de JSON (validação estrita)   | Sim           | ⏳ Fase 4                    |
+
+> **Nota**: endpoints marcados como "✅ Existe hoje" são públicos (sem auth). A coluna "Auth" indica o estado-alvo pós-Fase 1/2.
 
 **Regras de negócio relevantes**:
 
@@ -165,18 +169,20 @@ graph LR
   "sheet_name": "Meu Personagem"
 }
 
-// 201 Created
+// 201 Created — envelope "data"
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "template_id": "fantasy_v1",
-  "name": "Meu Personagem",
   "data": {
-    "stats": { "dexterity": 10, "constitution": 10 },
-    "modifiers": { "dexterityMod": 0, "constitutionMod": 0 },
-    "derived": { "armorClass": 10 }
-  },
-  "created_at": "2026-09-22T10:00:00Z",
-  "updated_at": "2026-09-22T10:00:00Z"
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "template_id": "fantasy_v1",
+    "name": "Meu Personagem",
+    "data": {
+      "stats": { "dexterity": 10, "constitution": 10 },
+      "modifiers": { "dexterityMod": 0, "constitutionMod": 0 },
+      "derived": { "armorClass": 10 }
+    },
+    "created_at": "2026-09-22T10:00:00Z",
+    "updated_at": "2026-09-22T10:00:00Z"
+  }
 }
 
 // 409 Conflict (usuário já possui ficha)
@@ -189,26 +195,28 @@ graph LR
 // PATCH /sheets/:id
 { "data": { "stats": { "dexterity": 16 } } }
 
-// 200 OK — apenas efeitos em cascata (mapa aninhado)
-{ "modifiers": { "dexterityMod": 3 }, "derived": { "armorClass": 13 } }
+// 200 OK — apenas efeitos em cascata (mapa aninhado, envelope "data")
+{ "data": { "modifiers": { "dexterityMod": 3 }, "derived": { "armorClass": 13 } } }
 ```
 
 **Exemplo de contrato — export auto-contido**:
 
 ```json
-// GET /sheets/:id/export → 200 OK
+// GET /sheets/:id/export → 200 OK (envelope "data")
 {
-  "format": "legnaris.sheet.v1",
-  "exported_at": "2026-09-22T10:00:00Z",
-  "sheet": {
-    "name": "Meu Personagem",
-    "template_id": "fantasy_v1",
-    "data": { "stats": { "dexterity": 16 } }
-  },
-  "template": {
-    "id": "fantasy_v1",
-    "name": "Fantasy Template",
-    "fields": { "...": "..." }
+  "data": {
+    "format": "legnaris.sheet.v1",
+    "exported_at": "2026-09-22T10:00:00Z",
+    "sheet": {
+      "name": "Meu Personagem",
+      "template_id": "fantasy_v1",
+      "data": { "stats": { "dexterity": 16 } }
+    },
+    "template": {
+      "id": "fantasy_v1",
+      "name": "Fantasy Template",
+      "fields": { "...": "..." }
+    }
   }
 }
 ```
@@ -224,7 +232,7 @@ graph LR
 
 **Coleções alteradas**:
 
-- `sheets`: adicionar `owner_id` (string) — campo já previsto comentado no código.
+- `sheets`: adicionar `owner_id` (string) — campo a ser criado no struct `Sheet` e na collection (não existe mais; comentário removido em LGN-81).
   - **Índice único em `owner_id`**: garante o limite de 1 ficha por usuário no nível do banco (defesa em profundidade contra race conditions de criação concorrente).
 
 **Coleções removidas**:
@@ -243,16 +251,23 @@ Templates default são **imutáveis por ID**: quando uma release precisa mudar r
 4. **Detecção de reuso**: refresh token já rotacionado apresentado novamente → revoga toda a família de tokens do usuário (possível roubo).
 5. `POST /auth/logout` revoga o refresh token atual e limpa o cookie.
 
-### Débito técnico a corrigir (identificado na análise do código)
+### Débito técnico (identificado na análise do código)
+
+**Resolvido (pós-2026-09-22)**
+
+| Item | Local | Evidência |
+| ---- | ----- | --------- |
+| Mensagem de erro "template not found" no repositório de **fichas** | `internal/sheet/repository.go` | `ErrSheetNotFound = "sheet not found"` (linha 26); o "template not found" restante em `service.go:67` está correto (lookup de DAG) |
+| Resquícios de PostgreSQL (README, Makefile, docker-compose `migrate`) | raiz | Sem matches em Makefile/compose; não existe `README.md` na raiz |
+| Seed de templates no Mongo a cada boot | `cmd/api.go` | Commit `e0e4154` (2026-09-23): templates em memória; única collection em código é `sheets` |
+| `log.Fatal` dentro de listagem do repositório de templates | `internal/sheet/template/repository.go` | Arquivo não existe mais; leituras vêm do registry em memória (`registry.go`) |
+| Funções `floor`/`max` com rejeição de `int` inconsistente | `internal/engine/engine.go` | `coerceFloat64` (linha 55) normaliza todos os tipos numéricos |
+
+**Pendente**
 
 | Item | Local | Correção |
 | ---- | ----- | -------- |
-| Persistência do partial update como mapa aninhado vs chaves pontilhadas | `internal/sheet/service.go` (TODO) | Normalizar para `$set` com chaves `data.x.y` |
-| Mensagem de erro "template not found" no repositório de **fichas** | `internal/sheet/repository.go` | Corrigir para "sheet not found" + erro tipado `apperr` |
-| Resquícios de PostgreSQL (README, Makefile, docker-compose `migrate`) | raiz | Remover ou substituir por documentação MongoDB |
-| Seed de templates no Mongo a cada boot | `cmd/api.go` | Eliminar: templates servidos do registry em memória; remover coleção `template` |
-| Funções `floor`/`max` com rejeição de `int` inconsistente | `internal/engine/engine.go` | Normalizar coerção numérica |
-| `log.Fatal` dentro de listagem do repositório de templates | `internal/sheet/template/repository.go` | Repositório de templates em Mongo deixa de existir; leituras vêm do registry |
+| Persistência do partial update como mapa aninhado vs chaves pontilhadas | `internal/sheet/service.go` | Normalizar para `$set` com chaves `data.x.y` |
 
 ---
 
@@ -276,15 +291,15 @@ Templates default são **imutáveis por ID**: quando uma release precisa mudar r
 
 | Fase | Tarefa | Descrição | Estimativa |
 | ---- | ------ | --------- | ---------- |
-| **Fase 0 — Higiene** | Limpeza de débito técnico | Corrigir os itens da tabela de débito técnico: README/Makefile Mongo-only, erros trocados, coerção numérica da engine, persistência do PATCH, templates servidos do registry (eliminar seed no Mongo e coleção `template`) | 4d |
+| **Fase 0 — Higiene** | Limpeza de débito técnico | ✅ 5 de 6 itens resolvidos (ver tabela de débito técnico). Restante: persistência do PATCH com chaves pontilhadas | 0.5d |
 | **Fase 1 — Auth** | Módulo de usuários | `users` + `refresh_tokens` collections, registro com bcrypt, login, JWT (access no body + refresh em cookie httpOnly), middleware de autenticação, refresh rotation com detecção de reuso, logout | 6d |
-| **Fase 2 — Ownership** | Autorização + limite | `owner_id` em fichas com índice único (1 ficha/usuário), guarda de ownership em todos os endpoints, `GET /sheets` do usuário autenticado, 409 na criação duplicada | 3d |
+| **Fase 2 — Ownership** | Autorização + limite | Adicionar campo `owner_id` ao struct `Sheet` e à collection (não existe mais; comentário removido em LGN-81) + índice único (1 ficha/usuário), guarda de ownership em todos os endpoints, `GET /sheets` do usuário autenticado, 409 na criação duplicada | 3d |
 | **Fase 3 — Biblioteca multi-sistema** | Templates default | 3-5 templates de gêneros distintos (fantasia, sci-fi, horror, moderno), revisão anti-copyright de cada nome/termo, IDs versionados | 4d |
 | **Fase 4 — Import/Export** | Portabilidade | Export JSON auto-contido (ficha + template), import com validação estrita contra o template | 3d |
 | **Fase 5 — Hardening** | Produção-ready | Rate limiting, validação de payloads, CORS, proteção CSRF do refresh, testes de carga, cobertura dos caminhos críticos | 5d |
-| **Fase 6 — Deploy** | VPS + Docker | Dockerfile multi-stage, compose de produção, HTTPS (reverse proxy), backups automatizados, monitoramento e alertas | 4d |
+| **Fase 6 — Deploy** | VPS + Docker | Provisionar VPS, publicar stack existente (`deploy/docker-compose.yml` — Traefik + Cloudflare Tunnel + Prometheus/Grafana/Loki/Alloy), configurar DNS/TLS, backups automatizados, alertas | 4d |
 
-**Estimativa total**: ~29 dias úteis (~6 semanas)
+**Estimativa total**: ~25,5 dias úteis (~5 semanas)
 
 **Dependências entre fases**:
 
@@ -397,7 +412,7 @@ Templates default são **imutáveis por ID**: quando uma release precisa mudar r
 | `auth_refresh_reuse_detected_total` | Contador | > 0 (possível roubo de token) |
 | `process_resident_memory_bytes` / uptime | Saúde do processo | restart inesperado |
 
-Exposição via endpoint `/metrics` (formato Prometheus), coletado por uma stack leve no próprio VPS (Prometheus + Grafana em containers, ou serviço gerenciado de uptime para o MVP).
+Exposição via endpoint `/metrics` (formato Prometheus), coletado pela stack já versionada em `deploy/` (Prometheus + Grafana + Loki + Alloy); serviço de uptime externo como complemento.
 
 ### Logging Estruturado
 
@@ -486,10 +501,10 @@ Manter o padrão JSON já estabelecido em `shared/logger`, com campos obrigatór
 
 | Decisão | Opção | Prós | Contras | Veredito |
 | ------- | ----- | ---- | ------- | -------- |
-| **Banco de dados** | MongoDB (escolhido) | Documento flexível casa com `map[string]any` das fichas; schema da ficha varia por natureza | Sem transações multi-doc maduras como SQL | ✅ Escolhido — os resquícios de PostgreSQL no repo serão removidos (Fase 0) |
+| **Banco de dados** | MongoDB (escolhido) | Documento flexível casa com `map[string]any` das fichas; schema da ficha varia por natureza | Sem transações multi-doc maduras como SQL | ✅ Escolhido — resquícios de PostgreSQL já removidos |
 | | PostgreSQL (jsonb) | Robusto, transações | Queries e índices sobre jsonb mais verbosos; migrações mais pesadas | Rejeitado para V1 |
 | **Armazenamento de templates default** | Código-fonte (escolhido) | Todo conteúdo passa por code review (defesa anti-copyright); zero seed no boot; DAGs compilados uma única vez; deploy = release | Mudança de template exige release | ✅ Escolhido para o MVP |
-| | MongoDB (estado atual) | Templates mudam sem deploy | Seed a cada boot; conteúdo fora de revisão; complexidade sem necessidade (sem CRUD de usuário no MVP) | Rejeitado no MVP; volta a ser considerado na V2 (templates customizados) |
+| | MongoDB (estado atual) | Templates mudam sem deploy | Registry em memória desde o boot (desde 2026-09-23); conteúdo em código sob code review; complexidade sem necessidade (sem CRUD de usuário no MVP) | Rejeitado no MVP; volta a ser considerado na V2 (templates customizados) |
 | **Linguagem de fórmulas** | expr-lang (escolhido) | Sandboxed, compilado, sintaxe simples, tipado, sem I/O | Menos poderoso que uma linguagem completa | ✅ Escolhido — já provado no núcleo |
 | | Lua (gopher-lua) / JS (goja) | Expressividade total | Sandbox real é difícil; superfície de ataque; performance de VM | Rejeitado — risco de segurança inaceitável para input de usuário (V2) |
 | | Parser próprio | Controle total | Meses de trabalho; manutenção | Rejeitado |
@@ -510,9 +525,9 @@ Manter o padrão JSON já estabelecido em `shared/logger`, com campos obrigatór
 | Echo v5 | Framework HTTP | Em uso | Baixo |
 | golang-jwt (ou equivalente) | Biblioteca | A adicionar (Fase 1) | Baixo |
 | golang.org/x/crypto (bcrypt) | Biblioteca | Já no `go.mod` (indireta) | Baixo |
-| VPS + Docker + reverse proxy (Caddy/Nginx) | Infraestrutura | A provisionar (Fase 6) | Médio |
+| VPS + Docker + Traefik + Cloudflare Tunnel | Infraestrutura | Stack versionada em `deploy/docker-compose.yml`; provisionamento pendente (Fase 6) | Médio |
 | Storage externo para backups (S3-compatível) | Infraestrutura | A provisionar (Fase 6) | Baixo |
-| Stack de métricas (Prometheus/Grafana ou serviço de uptime) | Infraestrutura | A provisionar (Fase 6) | Baixo |
+| Stack de métricas (Prometheus + Grafana + Loki + Alloy) | Infraestrutura | Stack versionada em `deploy/docker-compose.yml`; provisionamento pendente (Fase 6) | Baixo |
 
 **Bloqueadores conhecidos**: nenhum externo — projeto solo, todas as dependências sob controle do mantenedor.
 
@@ -560,7 +575,7 @@ Não há migração de sistema legado (greenfield). Os pontos de migração de *
 
 | Fase | Entregáveis | Duração | Status |
 | ---- | ----------- | ------- | ------ |
-| **Fase 0 — Higiene** | Débito técnico zerado; repo Mongo-only; templates servidos do registry | 4d | ⏳ Pendente |
+| **Fase 0 — Higiene** | Débito técnico quase zerado (5 de 6 resolvidos); repo Mongo-only; templates servidos do registry | 0.5d | 🟡 Em andamento |
 | **Fase 1 — Auth** | Registro, login, JWT, refresh em cookie httpOnly com rotation, logout | 6d | ⏳ Pendente |
 | **Fase 2 — Ownership** | `owner_id` com índice único (1 ficha/usuário), autorização, `GET /sheets` | 3d | ⏳ Pendente |
 | **Fase 3 — Biblioteca** | 3-5 templates default multi-gênero revisados, IDs versionados | 4d | ⏳ Pendente |
@@ -568,7 +583,7 @@ Não há migração de sistema legado (greenfield). Os pontos de migração de *
 | **Fase 5 — Hardening** | Rate limit, validação, CORS/CSRF, testes de carga, cobertura | 5d | ⏳ Pendente |
 | **Fase 6 — Deploy** | Produção pública com HTTPS, backups, monitoramento | 4d | ⏳ Pendente |
 
-**Duração total**: ~29 dias úteis (~6 semanas)
+**Duração total**: ~25,5 dias úteis (~5 semanas)
 
 **Marcos**:
 
