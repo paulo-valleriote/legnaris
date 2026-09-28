@@ -28,7 +28,9 @@ type FieldSchemaDTO struct {
 	Default    float64    `json:"default"`
 }
 
-// ToDTO converts a Template to its API representation.
+// ToDTO converts a Template to its API representation. The result shares no
+// map or slice with the template: the field tree is rebuilt level by level and
+// DependsOn is cloned (LGN-60).
 func (t Template) ToDTO() TemplateDTO {
 	return TemplateDTO{
 		ID:      t.ID,
@@ -57,6 +59,10 @@ func (n FieldNode) toDTO() FieldNodeDTO {
 	}
 }
 
+// toDTO converts a FieldSchema to its API representation, cloning DependsOn:
+// the DTO escapes the package while the schema behind it belongs to a
+// registered template (LGN-60). Every other field is an immutable scalar or a
+// string, and the struct itself is a fresh value.
 func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 	if s == nil {
 		return nil
@@ -66,7 +72,7 @@ func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 		Type:       s.Type,
 		Label:      s.Label,
 		Formula:    s.Formula,
-		DependsOn:  s.DependsOn,
+		DependsOn:  cloneDependsOn(s.DependsOn),
 		IsEditable: s.IsEditable,
 		Default:    s.Default,
 	}
