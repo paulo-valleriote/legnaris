@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"legnaris/shared/logger"
 )
 
 type Repository interface {
@@ -19,15 +19,17 @@ type Repository interface {
 
 type RepositoryImpl struct {
 	collection *mongo.Collection
+	logger     logger.StructuredLogger
 }
 
 // ErrSheetNotFound reports a sheet lookup that matched no document.
 // Services translate it to apperr.CodeNotFound at the layer boundary.
 var ErrSheetNotFound = errors.New("sheet not found")
 
-func NewRepository(db *mongo.Database) Repository {
+func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 	return &RepositoryImpl{
 		collection: db.Collection("sheets"),
+		logger:     log,
 	}
 }
 
@@ -52,7 +54,7 @@ func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
 	if err != nil {
 		return fmt.Errorf("error creating sheet: %w", err)
 	}
-	slog.Info("sheet created with ID:", result.InsertedID)
+	r.logger.Info(ctx, "sheet created", logger.Attribute{Key: "sheet_id", Value: result.InsertedID.(string)})
 	return nil
 }
 

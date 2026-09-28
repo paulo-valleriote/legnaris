@@ -6,9 +6,9 @@ import "slices"
 // FieldSchema pointer and every DependsOn path are new allocations, so nothing
 // in the result aliases the original.
 //
-// The registry clones on ingest (BuildRegistry, from the exported
-// DefaultTemplates catalog) and on egress (List, FetchByID), which keeps the
-// registered templates frozen after boot no matter who mutates what (LGN-54).
+// The registry clones on ingest (BuildRegistry, from the DefaultTemplates()
+// catalog) and on egress (List, FetchByID), which keeps the registered
+// templates frozen after boot no matter who mutates what (LGN-54).
 func cloneTemplate(tmpl Template) Template {
 	tmpl.Fields = cloneFieldGroup(tmpl.Fields)
 	return tmpl
