@@ -36,6 +36,39 @@ make fmt                 # Format code
 - **Mocks** — generated via `mockery` (config in `go.mod` tool directive)
 - **English only** — all identifiers, comments, log messages, and user-facing strings must be in English. Exception: `docs/TDD.md` stays in pt-BR.
 
+## Testing
+
+**Never commit code without tests.** Any change that adds or modifies behavior must
+ship with tests in the same commit — code without tests is not done.
+
+**Exceptions:** generated code (mockery), changes with no behavior (docs, comments, CI
+config), and pure refactors that keep the public contract.
+
+Every test suite must cover, in this order of priority:
+
+1. **Edge cases (the main focus)** — nil/empty/zero values, boundary values, invalid
+   and unexpected input, missing keys, already-applied changes (idempotency),
+   concurrency. Failure paths must assert the typed error (`apperr` code) and, at the
+   HTTP boundary, the mapped status code.
+2. **Happy path** — a representative valid input proving the code does exactly what it
+   claims (correct output, side effects, cascades).
+
+**Conventions**
+
+- Table-driven tests: `tests := []struct{ name string; ... }` + `t.Run(tc.name, ...)`;
+  prefix case names with `Happy path:`, `Edge:` or `Error:` so intent is scannable.
+- `testify`: `require` for setup/preconditions and assertions that invalidate the rest
+  of the test; `assert` for everything else.
+- Mocks: mockery-generated in `<pkg>/mocks/`, built via `NewMockX(t)` (cleanup asserts
+  expectations). Never hand-write mocks; run `make mocks` after interface changes.
+- Tests live next to the code (`*_test.go`); use `package X_test` when only the public
+  API is exercised. Shared fixtures go in a dedicated package (e.g.
+  `internal/sheet/sheettest`).
+- Unit tests must not require external services; integration tests self-skip when
+  MongoDB is unavailable (see `deploy/` stack).
+- Run: `go test ./...` · single test: `go test -run TestName ./pkg/path` ·
+  `make test-race` (race detector must stay clean).
+
 ## Comments
 
 Comments are documentation, never narration. They must not substitute clear code.
@@ -70,7 +103,8 @@ Comments are documentation, never narration. They must not substitute clear code
 Before opening a PR, ensure:
 
 - Run all required linters and formatters: `make fmt && make lint && make vet`
-- If the PR contains code changes, also run tests with race detector: `make test-race`
+- Every behavior change ships tests covering edge cases + happy path (exceptions:
+  generated/trivial changes); run them with race detector: `make test-race`
 
 ## References
 
