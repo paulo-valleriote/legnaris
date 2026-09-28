@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- prepareData ---
-
 func TestPrepareData(t *testing.T) {
 	baseDAG := func() *DAG {
 		dag, err := BuildDAG("test", FieldGroup{
@@ -156,14 +154,11 @@ func TestPrepareData(t *testing.T) {
 			if err == nil {
 				assert.Equal(t, tc.wantSheetData, sheetData)
 				assert.Equal(t, tc.wantEngineEnv, engineEnv)
-				// Verify original data was not mutated (deep copy guarantee)
 				assert.Equal(t, originalBefore, tc.originalData, "original data must not be mutated")
 			}
 		})
 	}
 }
-
-// --- walkTopological ---
 
 func TestWalkTopological(t *testing.T) {
 	buildDAG := func(fields FieldGroup) *DAG {
@@ -377,8 +372,6 @@ func TestWalkTopological(t *testing.T) {
 	}
 }
 
-// --- propagateChanges ---
-
 func TestPropagateChanges(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -454,8 +447,6 @@ func TestPropagateChanges(t *testing.T) {
 	}
 }
 
-// --- validateRecalculateInputs ---
-
 func TestValidateRecalculateInputs(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -505,8 +496,6 @@ func TestValidateRecalculateInputs(t *testing.T) {
 		})
 	}
 }
-
-// --- changedUpdates ---
 
 func TestChangedUpdates(t *testing.T) {
 	original := map[string]any{
@@ -609,8 +598,6 @@ func TestChangedUpdates(t *testing.T) {
 	}
 }
 
-// --- Recalculate orchestrator (nil DAG guard) ---
-
 func TestRecalculate_NilDAG(t *testing.T) {
 	var dag *DAG
 	result, err := dag.Recalculate(map[string]any{"a": 1.0}, map[string]any{"a": 2.0})
@@ -619,8 +606,6 @@ func TestRecalculate_NilDAG(t *testing.T) {
 	assert.Nil(t, result)
 }
 
-// --- processNode nil guard ---
-
 func TestProcessNode_NilNode(t *testing.T) {
 	d := &DAG{formulaEngine: engine.NewFormulaEngine()}
 	propagated, err := d.processNode(nil, map[string]any{}, map[string]any{}, map[string]any{})
@@ -628,8 +613,6 @@ func TestProcessNode_NilNode(t *testing.T) {
 	assert.ErrorContains(t, err, "node is nil")
 	assert.False(t, propagated)
 }
-
-// --- BuildDAG nil engine guard ---
 
 func TestBuildDAG_NilEngine(t *testing.T) {
 	dag, err := BuildDAG("test", FieldGroup{

@@ -306,7 +306,6 @@ func TestSet(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Deep copy input for comparison
 			inputCopy := DeepCopy(tc.nested)
 			err := Set(inputCopy, tc.path, tc.value)
 
@@ -604,17 +603,13 @@ func TestDeepCopy(t *testing.T) {
 			result := DeepCopy(tc.src)
 			assert.Equal(t, tc.wantCopy, result)
 
-			// Verify deep copy independence for nested maps
 			if tc.src != nil {
 				for k, v := range tc.src {
 					if nestedMap, ok := v.(map[string]any); ok {
 						if resultMap, ok := result[k].(map[string]any); ok {
-							// Verify they are different map instances by modifying one
-							// and checking the other is unaffected
 							originalLen := len(nestedMap)
 							nestedMap["__test_mutation__"] = "mutated"
 							assert.Len(t, resultMap, originalLen, "nested map should be independent copy")
-							// Clean up
 							delete(nestedMap, "__test_mutation__")
 						}
 					}

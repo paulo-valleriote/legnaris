@@ -28,7 +28,6 @@ func NewRouter(deps env.Env, modules *Modules) *echo.Echo {
 
 	httpMetrics.Register(router)
 
-	// usershttp.RegisterRoutes(router.Group("/users"), deps.Users)
 	health.RegisterHealthRoutes(router.Group(""))
 	modules.Template.Controller.RegisterRoutes(router.Group("/templates"))
 	modules.Sheet.Controller.RegisterRoutes(router.Group("/sheets"))

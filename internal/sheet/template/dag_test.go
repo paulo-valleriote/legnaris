@@ -66,7 +66,6 @@ func TestBuildDag(t *testing.T) {
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
 				assert.ErrorIs(t, err, ErrInfiniteCycle)
-				// Verify cycle nodes are identified
 				var cycleErr *CycleError
 				require.ErrorAs(t, err, &cycleErr)
 				assert.NotEmpty(t, cycleErr.Nodes)
@@ -297,7 +296,6 @@ func TestRecalculate(t *testing.T) {
 		})
 	}
 
-	// Additional scenarios: fan-out, fan-in, multi-update, deep nesting
 	additionalTests := []struct {
 		name             string
 		fields           FieldGroup
@@ -604,8 +602,8 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			name: "LGN-41/LGN-52: names with dots or underscores are rejected",
 			fields: FieldGroup{
 				"stats": {Children: FieldGroup{
-					"str.dex": {Schema: &FieldSchema{Type: "number", IsEditable: true}}, // dot in name
-					"str_dex": {Schema: &FieldSchema{Type: "number", IsEditable: true}}, // underscore in name
+					"str.dex": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+					"str_dex": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
 				}},
 				"mod": {Children: FieldGroup{
 					"str_dex": {Schema: &FieldSchema{
@@ -756,7 +754,6 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 	baseDag, err := BuildDAG("test", baseFields, formulaEngine)
 	require.NoError(t, err)
 
-	// Helper to create DAG with string formula
 	stringFormulaDag := func() *DAG {
 		fields := FieldGroup{
 			"input": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -770,7 +767,6 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 		return dag
 	}
 
-	// Helper to create DAG with bool formula
 	boolFormulaDag := func() *DAG {
 		fields := FieldGroup{
 			"input": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -1194,7 +1190,6 @@ func TestKahnTopoSort(t *testing.T) {
 	require.NoError(t, err)
 	order := topologicalOrderOf(dag)
 
-	// Verify every dependency precedes its dependent
 	pos := make(map[string]int, len(order))
 	for i, n := range order {
 		pos[n] = i

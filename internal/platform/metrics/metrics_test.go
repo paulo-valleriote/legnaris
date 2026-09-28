@@ -48,7 +48,6 @@ func TestMiddlewareRecordsMetrics(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", rec.Code)
 	}
 
-	// Scrape /metrics and assert our series are present.
 	body := scrapeMetrics(t, e)
 	for _, want := range []string{
 		"legnaris_http_request_duration_seconds_bucket",

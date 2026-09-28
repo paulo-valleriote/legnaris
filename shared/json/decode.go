@@ -12,8 +12,9 @@ import (
 
 const MaxBodySize = 1 << 20 // 1MiB
 
-// Typed decoding errors. This package must not import shared/apperr:
-// controllers translate these errors to apperr codes at the HTTP boundary.
+// ErrInvalidJSON and ErrUnknownField are typed decoding errors. This package
+// must not import shared/apperr: controllers translate these errors to apperr
+// codes at the HTTP boundary.
 var (
 	ErrInvalidJSON  = errors.New("request body contains invalid JSON")
 	ErrUnknownField = errors.New("request body contains an unknown field")

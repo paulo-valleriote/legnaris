@@ -77,7 +77,6 @@ func TestRecalculate_ValidationRunsUnderSingleReadLock(t *testing.T) {
 	releaseRead := func() { release.Do(dag.mu.RUnlock) }
 	t.Cleanup(releaseRead)
 
-	// Simulate Recalculate holding the read lock.
 	dag.mu.RLock()
 
 	// Queue a writer behind it, exactly the window that used to deadlock.

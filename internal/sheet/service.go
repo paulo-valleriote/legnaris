@@ -27,9 +27,10 @@ type Service interface {
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 }
 
-// User-facing error messages shared by the service and its HTTP controllers
-// (internal/app imports them to keep wording consistent). Message constants
-// are strings, not errors — error causes must stay apperr-only per AGENTS.md.
+// MsgSheetIDNotProvided and MsgFieldDoesNotExist are user-facing messages
+// shared by the service and its HTTP controllers (internal/app imports them to
+// keep wording consistent). Message constants are strings, not errors — error
+// causes must stay apperr-only per AGENTS.md.
 const (
 	MsgSheetIDNotProvided = "sheet id not provided"
 	MsgFieldDoesNotExist  = "field does not exist: "
@@ -71,14 +72,12 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		return nil, err
 	}
 
-	// Build initial data with ALL leaf fields (base + derived) with their defaults
 	initialData := buildNestedAllFields(tmpl.Fields)
 
 	// Flatten the initial data into dot-notation keys so the DAG can match
 	// leaf keys during recalc (the DAG walks leaf keys, not top-level groups).
 	flatInitial := maputils.FlattenPathKeys(initialData)
 
-	// Recalculate derived fields from base fields
 	derivedEffects, err := dag.Recalculate(map[string]any{}, flatInitial)
 	if err != nil {
 		return nil, translateDAGErr(err)
@@ -148,7 +147,6 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		return nil, translateDAGErr(err)
 	}
 
-	// Merge both original updates AND cascading effects
 	mergedData := maputils.DeepCopy(storedSheet.Data)
 	if err := maputils.ApplyUpdates(mergedData, updates); err != nil {
 		return nil, translateMapErr("update", err)
