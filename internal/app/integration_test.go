@@ -214,12 +214,21 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	}
 
 	t.Run("GET /sheets/:id missing returns 404", func(t *testing.T) {
-		rec := doRequest(t, h, http.MethodGet, "/sheets/does-not-exist", "")
+		rec := doRequest(t, h, http.MethodGet, "/sheets/"+missingSheetID, "")
 		assertErrorBody(t, rec, http.StatusNotFound, "NOT_FOUND")
 
 		var body response.ErrorResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 		assert.Equal(t, "sheet not found", body.Error.Message)
+	})
+
+	t.Run("GET with malformed sheet ID returns 400 INVALID_REQUEST", func(t *testing.T) {
+		rec := doRequest(t, h, http.MethodGet, "/sheets/not-a-uuid", "")
+		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_REQUEST")
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, sheet.MsgSheetIDInvalid, body.Error.Message)
 	})
 
 	t.Run("POST /sheets with unknown template returns 404", func(t *testing.T) {
@@ -228,7 +237,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	})
 
 	t.Run("PATCH /sheets/:id missing returns 404", func(t *testing.T) {
-		rec := doRequest(t, h, http.MethodPatch, "/sheets/does-not-exist", `{"data":{"stats":{"dexterity":12}}}`)
+		rec := doRequest(t, h, http.MethodPatch, "/sheets/"+missingSheetID, `{"data":{"stats":{"dexterity":12}}}`)
 		assertErrorBody(t, rec, http.StatusNotFound, "NOT_FOUND")
 	})
 
@@ -277,7 +286,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 func TestIntegration_MetricsRecordsErrorStatus(t *testing.T) {
 	h, _ := newIntegrationRouter(t)
 
-	rec := doRequest(t, h, http.MethodGet, "/sheets/does-not-exist", "")
+	rec := doRequest(t, h, http.MethodGet, "/sheets/"+missingSheetID, "")
 	require.Equal(t, http.StatusNotFound, rec.Code)
 
 	mrec := doRequest(t, h, http.MethodGet, "/metrics", "")
