@@ -1,4 +1,8 @@
 -include .env
+# .env may quote values; make would export them verbatim (quotes included),
+# which breaks both the Mongo connection string and dev-db's credential
+# parsing — strip double quotes once, at include time.
+DATABASE_URI := $(subst ",,$(DATABASE_URI))
 export PORT APP_NAME DATABASE_URI DATABASE_NAME CORS_ALLOWED_ORIGINS DATABASE_PING_TIMEOUT DATABASE_SERVER_SELECTION_TIMEOUT DATABASE_CONNECT_TIMEOUT DATABASE_CLOSE_TIMEOUT
 
 .PHONY: run build test test-race vet lint fmt mocks dev-db deploy-up deploy-down deploy-local
@@ -29,10 +33,19 @@ fmt:            ## Format code
 mocks:          ## Generate mocks (after interface changes)
 	@go tool mockery
 
-dev-db:         ## Run only MongoDB locally (root/password matches the DATABASE_URI default); stop with: docker stop legnaris-mongo
-	@docker run --rm --name legnaris-mongo \
-		-e MONGO_INITDB_ROOT_USERNAME=root \
-		-e MONGO_INITDB_ROOT_PASSWORD=password \
+# dev-db derives MongoDB's root credentials from DATABASE_URI (exported from
+# .env above), so the container can never diverge from what the app and
+# `make test-race` connect with. A URI without credentials (see .env.example)
+# starts an unauthenticated MongoDB; credentials are used verbatim — do not
+# percent-encode them.
+dev-db:         ## Run only MongoDB locally with the credentials from DATABASE_URI; stop with: docker stop legnaris-mongo
+	@creds=$$(printf '%s' '$(DATABASE_URI)' | sed -nE 's#^mongodb://([^/@]+)@.*#\1#p'); \
+	if [ -n "$$creds" ]; then \
+		set -- -e "MONGO_INITDB_ROOT_USERNAME=$${creds%%:*}" -e "MONGO_INITDB_ROOT_PASSWORD=$${creds#*:}"; \
+	else \
+		set --; \
+	fi; \
+	docker run --rm --name legnaris-mongo "$$@" \
 		-p 27017:27017 \
 		-d mongo:7.0
 

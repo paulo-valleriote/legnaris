@@ -13,9 +13,9 @@ import (
 )
 
 // TestTemplateError covers the translation the template controller relies on
-// (LGN-66): the missing-ID sentinel becomes a 400 apperr, while anything else
-// — including an apperr the service already built — passes through untouched
-// so its status survives to the HTTP layer.
+// (LGN-66, LGN-86): the missing-ID and malformed-ID sentinels become 400
+// apperrs, while anything else — including an apperr the service already
+// built — passes through untouched so its status survives to the HTTP layer.
 func TestTemplateError(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -30,6 +30,13 @@ func TestTemplateError(t *testing.T) {
 			wantCode:   apperr.CodeInvalidRequest,
 			wantStatus: 400,
 			wantMsg:    "template id not provided",
+		},
+		{
+			name:       "Happy path: malformed template ID maps to 400",
+			err:        template.ErrTemplateIDInvalid,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "template id is not a valid slug",
 		},
 		{
 			name:       "Edge: wrapped sentinel still maps to 400, keeping the wrapper's context",

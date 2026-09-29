@@ -23,8 +23,9 @@ import (
 // newSheetErrorRouter wires the real SheetController + HTTPErrorHandler over a
 // real sheet.Service backed by a mocked repository, so the full translation
 // chain (repository/DAG typed errors → apperr → HTTP status) is exercised
-// without MongoDB.
-func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache sheettest.DAGMap) http.Handler {
+// without MongoDB. The template-service mock is returned so tests whose flow
+// reaches FetchTemplate (Create asks it first, LGN-86) can set expectations.
+func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache sheettest.DAGMap) (http.Handler, *templatemocks.MockService) {
 	t.Helper()
 
 	mockTemplateSvc := templatemocks.NewMockService(t)
@@ -33,7 +34,7 @@ func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache 
 	e := echo.New()
 	e.HTTPErrorHandler = app.HTTPErrorHandler
 	app.NewSheetController(svc).RegisterRoutes(e.Group("/sheets"))
-	return e
+	return e, mockTemplateSvc
 }
 
 func newErrorTestDAG(t *testing.T) sheettest.DAGMap {
@@ -77,7 +78,7 @@ func TestErrorMapping_SheetNotExistsReturns404(t *testing.T) {
 		Return(nil, sheet.ErrSheetNotFound).
 		Once()
 
-	h := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
+	h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 
 	rec := doRequest(t, h, http.MethodGet, "/sheets/"+missingSheetID, "")
 	require.Equal(t, http.StatusNotFound, rec.Code)
@@ -90,10 +91,16 @@ func TestErrorMapping_SheetNotExistsReturns404(t *testing.T) {
 
 // TestErrorMapping_UnknownTemplateReturns404: POST with a template that has no
 // DAG in the registry must respond 404 (the service must not reach the repo).
+// FetchTemplate runs first (LGN-86) and the well-formed unknown slug passes
+// its checks, so the mock hands a template over and the DAG lookup misses.
 func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
 
-	h := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
+	h, mockTemplateSvc := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
+	mockTemplateSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
+		Return(&template.Template{ID: "unknown_template", Name: "Unknown"}, nil).
+		Once()
 
 	rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","sheet_name":"x"}`)
 	require.Equal(t, http.StatusNotFound, rec.Code)
@@ -144,7 +151,7 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 				Return(storedSheet(), nil).
 				Once()
 
-			h := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
+			h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 
 			rec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetStubID, tc.payload)
 			require.Equal(t, http.StatusBadRequest, rec.Code)
@@ -186,7 +193,7 @@ func TestErrorMapping_InvalidBodyReturns400(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
 
-			h := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
+			h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 
 			rec := doRequest(t, h, http.MethodPost, "/sheets", tc.payload)
 			require.Equal(t, http.StatusBadRequest, rec.Code)
@@ -225,7 +232,7 @@ func TestErrorMapping_MalformedSheetIDReturns400(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
 
-			h := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
+			h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 
 			rec := doRequest(t, h, tc.method, tc.path, tc.payload)
 			require.Equal(t, http.StatusBadRequest, rec.Code)

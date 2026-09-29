@@ -31,7 +31,7 @@ make fmt                 # Format code
 ## Conventions (Repo-wide)
 
 - **Typed errors** — see `shared/apperr/AGENTS.md` (reference)
-- **IDs** — every server-generated entity ID is a canonical lowercase UUID v7 via `shared/idgen` (`New` to generate, `Validate` at the service boundary); never call `uuid.New`/`uuid.NewString` directly. Template IDs are code-defined slugs and exempt — see `shared/idgen/AGENTS.md`
+- **IDs** — every server-generated entity ID is a canonical lowercase UUID v7 via `shared/idgen` (`New` to generate, `Validate` at the service boundary); never call `uuid.New`/`uuid.NewString` directly. Template IDs are code-defined slugs, exempt from `idgen` but validated as `^[a-z][a-z0-9_]*$` in `FetchTemplate` — see `shared/idgen/AGENTS.md`
 - **JSON decoding** — use `shared/json/decode.go`
 - **Logging** — use `shared/logger` (zerolog-based)
 - **Mocks** — generated via `mockery` (config in `go.mod` tool directive)

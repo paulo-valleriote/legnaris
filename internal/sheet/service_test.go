@@ -425,6 +425,61 @@ func TestService_Create(t *testing.T) {
 	assert.Equal(t, "test", s.TemplateID)
 }
 
+// TestService_Create_TemplateIDErrors: Create consults FetchTemplate first so
+// the template-ID checks own both entry points (LGN-86 follow-up) — an empty
+// or malformed template_id must surface as 400 INVALID_REQUEST through the
+// service boundary instead of the 404 "template not found" the DAG lookup used
+// to return, and the repository must never be reached.
+func TestService_Create_TemplateIDErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		id       string
+		sentinel error
+		wantMsg  string
+	}{
+		{
+			name:     "Edge: empty template ID",
+			id:       "",
+			sentinel: template.ErrTemplateIDNotProvided,
+			wantMsg:  "template id not provided",
+		},
+		{
+			name:     "Error: malformed template ID slug",
+			id:       "Fantasy-V1",
+			sentinel: template.ErrTemplateIDInvalid,
+			wantMsg:  "template id is not a valid slug",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+
+			mockTemplateSvc := templatemocks.NewMockService(t)
+			mockTemplateSvc.EXPECT().
+				FetchTemplate(context.Background(), &template.FetchTemplateByIDCommand{ID: tc.id}).
+				Return(nil, tc.sentinel).
+				Once()
+
+			svc := sheet.NewService(mockRepo, mockTemplateSvc, sheettest.DAGMap{})
+
+			s, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
+				TemplateID: tc.id,
+				SheetName:  "New Character",
+			})
+
+			require.Error(t, err)
+			assert.Nil(t, s)
+
+			var appErr *apperr.Error
+			require.ErrorAs(t, err, &appErr)
+			assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+			assert.Equal(t, 400, appErr.HttpStatus())
+			assert.Equal(t, tc.wantMsg, appErr.Message)
+		})
+	}
+}
+
 // TestService_PartialUpdate_InvalidStoredData locks the consolidated
 // maputils behavior at the service boundary: when a stored sheet holds a
 // scalar where a nested map is expected, the typed maputils.ErrNotMap must

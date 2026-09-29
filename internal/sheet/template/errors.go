@@ -102,6 +102,11 @@ var (
 	// is user-facing: the controller boundary turns it into a 400 apperr, the
 	// same translation shared/json errors get (surface as HTTP 400).
 	ErrTemplateIDNotProvided = errors.New("template id not provided")
+
+	// ErrTemplateIDInvalid reports a template ID that does not have the slug
+	// shape code-defined templates use ([a-z][a-z0-9_]*). Its message is
+	// user-facing and gets the same 400 translation as ErrTemplateIDNotProvided.
+	ErrTemplateIDInvalid = errors.New("template id is not a valid slug")
 )
 
 // NewFormulaCompileError wraps formula compilation errors with context.

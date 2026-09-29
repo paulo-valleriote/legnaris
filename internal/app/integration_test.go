@@ -231,6 +231,24 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 		assert.Equal(t, sheet.MsgSheetIDInvalid, body.Error.Message)
 	})
 
+	t.Run("GET /templates/:id with malformed ID returns 400 INVALID_REQUEST", func(t *testing.T) {
+		rec := doRequest(t, h, http.MethodGet, "/templates/Fantasy-V1", "")
+		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_REQUEST")
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "template id is not a valid slug", body.Error.Message)
+	})
+
+	t.Run("POST /sheets with malformed template_id returns 400 INVALID_REQUEST", func(t *testing.T) {
+		rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"Fantasy-V1","sheet_name":"x"}`)
+		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_REQUEST")
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "template id is not a valid slug", body.Error.Message)
+	})
+
 	t.Run("POST /sheets with unknown template returns 404", func(t *testing.T) {
 		rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","sheet_name":"x"}`)
 		assertErrorBody(t, rec, http.StatusNotFound, "NOT_FOUND")

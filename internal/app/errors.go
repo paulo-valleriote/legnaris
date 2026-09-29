@@ -28,12 +28,12 @@ func decodeError(err error) error {
 // the controller boundary, mirroring decodeError: the template package
 // declares typed errors instead of importing shared/apperr, so the HTTP mapping
 // belongs here — this translates the outcome of the service's validation, it
-// does not repeat it (LGN-66).
+// does not repeat it (LGN-66, LGN-86).
 func templateError(err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, template.ErrTemplateIDNotProvided) {
+	if errors.Is(err, template.ErrTemplateIDNotProvided) || errors.Is(err, template.ErrTemplateIDInvalid) {
 		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), nil)
 	}
 	return err

@@ -33,7 +33,9 @@ server generates is a canonical lowercase UUID v7 string** (RFC 9562).
 ## Exemptions
 
 - **Template IDs** are code-defined slugs (`fantasy_v1`), not generated —
-  `idgen` does not apply to them.
+  `idgen` does not apply to them. They carry their own rule instead:
+  `template.FetchTemplate` rejects anything outside `^[a-z][a-z0-9_]*$` with
+  `ErrTemplateIDInvalid` (400 at the boundary).
 - IDs received from clients or path parameters still go through `Validate`
   before touching a repository; validation is defense in depth, not
   authorization (ownership guards are a separate concern).
