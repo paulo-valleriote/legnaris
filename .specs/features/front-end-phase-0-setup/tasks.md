@@ -11,7 +11,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 **Design**: none (escopo Medium — decisões inline na `spec.md`, premissas aprovadas)
 **Status**: In Progress
 
-**Commit atomicidade (FE0-07)**: T2 e T3 empacotam num **commit único** — o primeiro commit que introduz `desktop/` já chega com o CI completo ("nunca um `desktop/` sem CI"). T1 e T4 e T5 têm commits próprios.
+**Commit atomicidade (FE0-07)**: T2 e T3 empacotam num **commit único** — o primeiro commit que introduz `desktop/` já chega com o CI completo ("nunca um `desktop/` sem CI"). T1, T4, T5 e T6 têm commits próprios.
 
 **Validação remota**: FE0-08…12 e FE0-13…16 (comportamento real dos workflows em PRs) só validam na primeira execução do CI no PR. `git push` requer go-ahead explícito do mantenedor.
 
@@ -67,7 +67,13 @@ T4
 T5
 ```
 
-Fechamento (não-task): Verifier sub-agent (fresh) — spec-anchored check + discrimination sensor → `validation.md` + `validate_state.py` exit 0.
+### Phase 5: Fix do Verifier (loop de re-verificação)
+
+```
+T6
+```
+
+Fechamento (não-task): Verifier sub-agent (fresh) — spec-anchored check + discrimination sensor → `validation.md` + `validate_state.py` exit 0. Iteração 1 deu FAIL (mutante sobrevivente) → T6; iteração 2 re-dispatcha o Verifier (máx. 3).
 
 ---
 
@@ -207,20 +213,46 @@ Fechamento (não-task): Verifier sub-agent (fresh) — spec-anchored check + dis
 **Gate**: build — parse YAML + `git diff ci-lint.yml` confirma só o `paths-ignore`
 **Commit**: `ci(LGN-89): keep go workflow out of desktop-only changes`
 
+### Phase 5: Fix do Verifier (loop de re-verificação)
+
+#### T6: Fix do Verifier — widget test do linkage provider→UI
+
+**What**: Iteração 1 do Verifier deu FAIL com 1 mutante sobrevivente de 3: o widget test asseria apenas o literal `'Legnaris'`, indiferente a um placeholder desconectado do provider (`ref.watch` → hardcode passaria). Reforçar `widget_test.dart` com um segundo caso que faz pump usando `appTitleProvider.overrideWithValue(...)` e asserir o valor distinto — falha se a UI não observar o provider.
+**Where**: `desktop/test/widget_test.dart`
+**Depends on**: T4
+**Reuses**: API `overrideWithValue` dos providers codegen (Riverpod 3)
+**Requirement**: FE0-06 (cobertura widget do linkage); gap `Fix 1` de `validation.md` + lição `L-001`
+
+**Tools**:
+
+- MCP: none
+- Skill: `tlc-spec-driven` (Verifier fix loop)
+
+**Done when**:
+
+- [x] widget test com 2 casos: default renderiza `Legnaris` e override renderiza o valor distinto (hardcode falharia)
+- [x] gate: `flutter analyze` limpo + `flutter test` verde com 3 testes
+- [x] kill-confirm: mutante `ref.watch → const 'Legnaris'` re-injetado em scratch worktree → widget test falha (morto); scratch removida e `git status --porcelain` idêntico ao baseline
+
+**Tests**: widget
+**Gate**: build — `cd desktop && flutter analyze && flutter test` + kill-confirm no scratch
+**Commit**: `test(LGN-89): assert widget renders overridden provider value`
+
 ---
 
 ## Phase Execution Map
 
 ```
-Phase 1 → Phase 2 → Phase 3 → Phase 4
+Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5
 
 Phase 1:  T1
 Phase 2:  T2 → T3   (commit atômico duplo — FE0-07)
 Phase 3:  T4
 Phase 4:  T5
+Phase 5:  T6        (fix do Verifier — após FAIL na iteração 1)
 ```
 
-Execução estritamente sequencial — sem paralelismo intra-phase. 5 tasks = 1 batch → execução inline, sem sub-agents (limite ~8).
+Execução estritamente sequencial — sem paralelismo intra-phase. 6 tasks = 1 batch → execução inline, sem sub-agents (limite ~8).
 
 ---
 
@@ -233,6 +265,7 @@ Execução estritamente sequencial — sem paralelismo intra-phase. 5 tasks = 1 
 | T3: Workflow CI Flutter | 1 arquivo de workflow | ✅ Granular |
 | T4: Riverpod + skeleton | 1 componente (skeleton app) + deps | ✅ Granular |
 | T5: Filtro de path no Go workflow | 1 mudança de config (paths-ignore) | ✅ Granular |
+| T6: Fix do Verifier (widget test) | 1 teste reforçado (2 casos widget) | ✅ Granular |
 
 ## Diagram-Definition Cross-Check
 
@@ -243,6 +276,7 @@ Execução estritamente sequencial — sem paralelismo intra-phase. 5 tasks = 1 
 | T3 | T2 | Phase 2: `T2 → T3` | ✅ Match |
 | T4 | T2 | T4 na Phase 3; cross-phase backward — sem seta exigida | ✅ Match |
 | T5 | T3 | T5 na Phase 4; cross-phase backward — sem seta exigida | ✅ Match |
+| T6 | T4 | T6 na Phase 5; cross-phase backward — sem seta exigida | ✅ Match |
 
 Nenhuma dependência aponta para phase futura. ✅
 
@@ -255,9 +289,10 @@ Nenhuma dependência aponta para phase futura. ✅
 | T3 | CI workflow | none | none | ✅ OK |
 | T4 | UI skeleton + provider | widget + unit | unit, widget | ✅ OK |
 | T5 | CI workflow | none | none | ✅ OK |
+| T6 | UI skeleton (test) | widget | widget | ✅ OK |
 
 Nenhum `Tests: none` contraria a matriz; nenhum defer de teste entre tasks. ✅
 
 ---
 
-**Fechamento**: após T5, o Verifier sub-agent (fresh) roda automaticamente — spec-anchored check + discrimination sensor → `validation.md` (PASS/FAIL) + `validate_state.py` exit 0. Falhas viram fix tasks (máx. 3 iterações).
+**Fechamento**: após T5, o Verifier sub-agent (fresh) roda automaticamente — spec-anchored check + discrimination sensor → `validation.md` (PASS/FAIL) + `validate_state.py` exit 0. Iteração 1 = FAIL (1 mutante sobrevivente) → T6 aplica o fix; iteração 2 re-dispatcha o Verifier (máx. 3 iterações).
