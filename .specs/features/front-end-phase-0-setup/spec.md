@@ -120,11 +120,11 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------ |
 | FE0-01 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Verified |
-| FE0-02 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Pending |
+| FE0-02 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Verified |
 | FE0-03 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Verified |
-| FE0-04 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Pending |
+| FE0-04 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Verified |
 | FE0-05 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Verified |
-| FE0-06 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Pending |
+| FE0-06 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Verified |
 | FE0-07 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
 | FE0-08 | P1: CI de build Windows desde o primeiro commit | Execute | Implementing |
 | FE0-09 | P1: CI de build Windows desde o primeiro commit | Execute | Implementing |

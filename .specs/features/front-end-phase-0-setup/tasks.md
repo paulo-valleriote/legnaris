@@ -35,7 +35,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 | Gate Level | When to Use | Command |
 | ---------- | ----------- | ------- |
 | Quick | tasks só com testes unit/widget | `cd desktop && flutter test` |
-| Build | fim de task com build_runner ou config-only | `cd desktop && flutter analyze && flutter test` · T4 prefixa `dart run build_runner build --delete-conflicting-outputs &&` · T3/T5 também rodam o parse YAML da matriz acima |
+| Build | fim de task com build_runner ou config-only | `cd desktop && flutter analyze && flutter test` · T4 prefixa `dart run build_runner build &&` · T3/T5 também rodam o parse YAML da matriz acima |
 
 ---
 
@@ -170,15 +170,15 @@ Fechamento (não-task): Verifier sub-agent (fresh) — spec-anchored check + dis
 
 **Done when**:
 
-- [ ] pubspec com `flutter_riverpod`, `riverpod_annotation` (deps) e `riverpod_generator`, `build_runner` (dev_deps) — premissa aprovada
-- [ ] `main.dart` com `ProviderScope` + placeholder consumindo o provider via `ref.watch` (FE0-02)
-- [ ] provider `@riverpod` com `.g.dart` gerado pelo build_runner e commitado (FE0-06)
-- [ ] widget test: app boota sem crash em `ProviderScope` e renderiza "Legnaris" (FE0-02, FE0-04)
-- [ ] unit test: `ProviderContainer` lê o provider e retorna "Legnaris" (FE0-06)
-- [ ] demo manual `flutter run -d linux` abre a janela placeholder — requer toolchain apt (não bloqueia o gate; registrar quando disponível)
+- [x] pubspec com `flutter_riverpod`, `riverpod_annotation` (deps) e `riverpod_generator`, `build_runner` (dev_deps) — premissa aprovada
+- [x] `main.dart` com `ProviderScope` + placeholder consumindo o provider via `ref.watch` (FE0-02)
+- [x] provider `@riverpod` com `.g.dart` gerado pelo build_runner e commitado (FE0-06)
+- [x] widget test: app boota sem crash em `ProviderScope` e renderiza "Legnaris" (FE0-02, FE0-04)
+- [x] unit test: `ProviderContainer` lê o provider e retorna "Legnaris" (FE0-06)
+- [ ] demo manual `flutter run -d linux` abre a janela placeholder — requer toolchain apt (não bloqueia o gate; evidência local do FE0-02 é o widget test; o run manual fica registrado no Success Criteria)
 
 **Tests**: unit, widget
-**Gate**: build — `cd desktop && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
+**Gate**: build — `cd desktop && dart run build_runner build && flutter analyze && flutter test`
 **Commit**: `feat(LGN-89): add riverpod toolchain and placeholder skeleton`
 
 ### Phase 4: Isolamento de pipelines Go
