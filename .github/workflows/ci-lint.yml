@@ -2,6 +2,10 @@ name: Lint & Race
 
 on:
   pull_request:
+    # Flutter lives only under desktop/ and is covered by ci-flutter.yml;
+    # a desktop-only change must not trigger this Go pipeline.
+    paths-ignore:
+      - 'desktop/**'
 
 permissions:
   contents: read

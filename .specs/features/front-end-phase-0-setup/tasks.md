@@ -9,7 +9,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 ---
 
 **Design**: none (escopo Medium — decisões inline na `spec.md`, premissas aprovadas)
-**Status**: Approved
+**Status**: In Progress
 
 **Commit atomicidade (FE0-07)**: T2 e T3 empacotam num **commit único** — o primeiro commit que introduz `desktop/` já chega com o CI completo ("nunca um `desktop/` sem CI"). T1 e T4 e T5 têm commits próprios.
 
@@ -198,9 +198,9 @@ Fechamento (não-task): Verifier sub-agent (fresh) — spec-anchored check + dis
 
 **Done when**:
 
-- [ ] `paths-ignore` com `desktop/**` no trigger `pull_request` (FE0-13)
-- [ ] jobs lint e race intactos — diff toca só o bloco de trigger (FE0-15: PR misto dispara ambos)
-- [ ] YAML parse exit 0
+- [x] `paths-ignore` com `desktop/**` no trigger `pull_request` (FE0-13)
+- [x] jobs lint e race intactos — diff toca só o bloco de trigger (FE0-15: PR misto dispara ambos)
+- [x] YAML parse exit 0
 - [ ] validação de comportamento (PRs só-Go / só-Flutter / misto) na execução real do PR do branch
 
 **Tests**: none (matriz: CI workflows → none)
