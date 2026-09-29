@@ -68,8 +68,8 @@ func (l Logger) With(key string, value string) StructuredLogger {
 	}
 }
 
-// redactedKeys é uma lista imutável de chaves sensíveis.
-// O prefixo/sufixo "_" indica correspondência exata; sem ele, usa Contains.
+// redactedKeys is an immutable list of sensitive keys.
+// A "_" prefix/suffix marks an exact match; otherwise Contains is used.
 var redactedKeys = []string{"password", "token", "_cookie", "cookie_", "api_key", "_hash", "hash_", "document_number", "cpf", "cnpj", "email", "user_email"}
 
 func redactSecrets(groups []string, a slog.Attr) slog.Attr {
