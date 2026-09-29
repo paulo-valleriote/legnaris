@@ -115,12 +115,12 @@ Fechamento (não-task): Verifier sub-agent (fresh) — spec-anchored check + dis
 
 **Done when**:
 
-- [ ] `desktop/` com projeto completo (pubspec.yaml, lib/, test/) e plataformas `windows` + `linux` habilitadas (FE0-01)
-- [ ] `environment.flutter` pinado como `3.47.5` no pubspec (edge: pin obrigatório — fonte única do CI)
-- [ ] `analysis_options.yaml` incluindo `flutter_lints` (FE0-03)
-- [ ] `.gitignore` cobrindo `build/`, `.dart_tool/` — nada gerado commitado (FE0-05)
-- [ ] `cd desktop && flutter analyze` exit 0 (FE0-03)
-- [ ] `cd desktop && flutter test` verde com o widget test do app gerado
+- [x] `desktop/` com projeto completo (pubspec.yaml, lib/, test/) e plataformas `windows` + `linux` habilitadas (FE0-01)
+- [x] `environment.flutter` pinado como `3.47.5` no pubspec (edge: pin obrigatório — fonte única do CI)
+- [x] `analysis_options.yaml` incluindo `flutter_lints` (FE0-03)
+- [x] `.gitignore` cobrindo `build/`, `.dart_tool/` — nada gerado commitado (FE0-05)
+- [x] `cd desktop && flutter analyze` exit 0 (FE0-03)
+- [x] `cd desktop && flutter test` verde com o widget test do app gerado
 
 **Tests**: widget
 **Gate**: build — `cd desktop && flutter analyze && flutter test`
@@ -141,13 +141,13 @@ Fechamento (não-task): Verifier sub-agent (fresh) — spec-anchored check + dis
 
 **Done when**:
 
-- [ ] job em `windows-latest` com steps em sequência: analyze, test, `flutter build windows` (FE0-08)
-- [ ] artifact = `desktop/build/windows/x64/runner/Release` inteiro, só publicado após build verde (FE0-09, FE0-10)
-- [ ] `flutter-version-file: desktop/pubspec.yaml` — sem versão duplicada no workflow (FE0-11)
-- [ ] triggers: `pull_request` + `push: branches: [main]` (FE0-12)
-- [ ] `paths: [desktop/**, .github/workflows/ci-flutter.yml]` (FE0-16 — autovalidação)
-- [ ] YAML parse exit 0
-- [ ] FE0-07: no mesmo commit do T2 — `desktop/` nunca entra sem CI
+- [x] job em `windows-latest` com steps em sequência: analyze, test, `flutter build windows` (FE0-08)
+- [x] artifact = `desktop/build/windows/x64/runner/Release` inteiro, só publicado após build verde (FE0-09, FE0-10)
+- [x] `flutter-version-file: desktop/pubspec.yaml` — sem versão duplicada no workflow (FE0-11)
+- [x] triggers: `pull_request` + `push: branches: [main]` (FE0-12)
+- [x] `paths: [desktop/**, .github/workflows/ci-flutter.yml]` (FE0-16 — autovalidação)
+- [x] YAML parse exit 0
+- [x] FE0-07: no mesmo commit do T2 — `desktop/` nunca entra sem CI
 
 **Tests**: none (matriz: CI workflows → none; comportamento real valida no PR)
 **Gate**: build — parse YAML da matriz + `cd desktop && flutter analyze && flutter test`
