@@ -73,6 +73,11 @@ Every test suite must cover, in this order of priority:
 
 Comments are documentation, never narration. They must not substitute clear code.
 
+**Language**
+
+- Always English — every comment (and identifier, log message, and user-facing
+  string) must be written in English, never in Portuguese or any other language.
+
 **Allowed**
 
 - Doc comments on exported identifiers: functions, methods, types, interfaces,

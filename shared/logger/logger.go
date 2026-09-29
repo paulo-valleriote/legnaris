@@ -68,11 +68,14 @@ func (l Logger) With(key string, value string) StructuredLogger {
 	}
 }
 
+// redactedKeys is an immutable list of sensitive keys.
+// A "_" prefix/suffix marks an exact match; otherwise Contains is used.
+var redactedKeys = []string{"password", "token", "_cookie", "cookie_", "api_key", "_hash", "hash_", "document_number", "cpf", "cnpj", "email", "user_email"}
+
 func redactSecrets(groups []string, a slog.Attr) slog.Attr {
-	redactedKeysList := []string{"password", "token", "_cookie", "cookie_", "api_key", "_hash", "hash_", "document_number", "cpf", "cnpj", "email"}
-	for idx := range redactedKeysList {
-		loweredKey := strings.ToLower(a.Key)
-		if strings.Contains(loweredKey, redactedKeysList[idx]) {
+	loweredKey := strings.ToLower(a.Key)
+	for _, key := range redactedKeys {
+		if strings.Contains(loweredKey, key) {
 			return slog.String(a.Key, "[REDACTED]")
 		}
 	}
