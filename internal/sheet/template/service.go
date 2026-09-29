@@ -21,10 +21,6 @@ func NewService(registry *Registry) Service {
 	}
 }
 
-type CreateTemplateCommand struct {
-	Name string `json:"name"`
-}
-
 type FetchTemplateByIDCommand struct {
 	ID string `json:"id"`
 }
