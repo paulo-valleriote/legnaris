@@ -27,14 +27,26 @@ type Service interface {
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 }
 
-// MsgSheetIDNotProvided and MsgFieldDoesNotExist are user-facing messages
-// shared by the service and its HTTP controllers (internal/app imports them to
-// keep wording consistent). Message constants are strings, not errors — error
-// causes must stay apperr-only per AGENTS.md.
+// User-facing messages for the errors this service builds itself. They are
+// plain strings, never error causes — causes stay apperr-only per AGENTS.md.
+// They stay exported so any boundary that needs the wording reads it from
+// here, while the checks themselves have a single source in this package:
+// controllers forward input to the service instead of repeating the
+// validation (LGN-66).
 const (
 	MsgSheetIDNotProvided = "sheet id not provided"
 	MsgFieldDoesNotExist  = "field does not exist: "
 )
+
+// requireSheetID is the single source of truth for the missing-sheet-ID check.
+// Every entry point that takes a sheet ID calls it, so the resulting 400 never
+// depends on which handler or caller reached the service.
+func requireSheetID(id string) error {
+	if id == "" {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgSheetIDNotProvided, nil)
+	}
+	return nil
+}
 
 // DAGProvider resolves the compiled DAG for a template ID. It is satisfied by
 // *template.Registry, which is built once at boot and never mutated afterwards:
@@ -104,8 +116,8 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 }
 
 func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) {
-	if id == "" {
-		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgSheetIDNotProvided, nil)
+	if err := requireSheetID(id); err != nil {
+		return nil, err
 	}
 
 	sheet, err := s.repository.FetchByID(ctx, id)
@@ -117,6 +129,10 @@ func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) 
 }
 
 func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
+	if err := requireSheetID(cmd.SheetID); err != nil {
+		return nil, err
+	}
+
 	storedSheet, err := s.repository.FetchByID(ctx, cmd.SheetID)
 	if err != nil {
 		return nil, translateRepoErr("fetch", err)
@@ -132,14 +148,8 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	// exclusively on those.
 	updates := maputils.FlattenPathKeys(cmd.Data)
 
-	for key := range updates {
-		node, ok := dag.GetNode(key)
-		if !ok {
-			return nil, apperr.NewError(apperr.CodeUnknownField, MsgFieldDoesNotExist+key, nil)
-		}
-		if !node.IsEditable {
-			return nil, apperr.NewError(apperr.CodeInvalidRequest, "field is not editable: "+key, nil)
-		}
+	if err := dag.ValidateUpdateKeys(updates); err != nil {
+		return nil, translateDAGErr(err)
 	}
 
 	cascadingEffects, err := dag.Recalculate(storedSheet.Data, updates)
@@ -194,7 +204,11 @@ func translateDAGErr(err error) error {
 	}
 	var unknownField *template.UnknownFieldError
 	if errors.As(err, &unknownField) {
-		return apperr.NewError(apperr.CodeUnknownField, unknownField.Error(), nil)
+		return apperr.NewError(apperr.CodeUnknownField, MsgFieldDoesNotExist+unknownField.Key, nil)
+	}
+	var notEditable *template.NotEditableError
+	if errors.As(err, &notEditable) {
+		return apperr.NewError(apperr.CodeInvalidRequest, notEditable.Error(), nil)
 	}
 	switch {
 	case isMaputilsDataErr(err):

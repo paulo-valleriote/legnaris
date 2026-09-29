@@ -406,7 +406,9 @@ func initInDegree(nodes map[string]*Node, adj map[string][]string) map[string]in
 // Returns an error if any formula evaluation fails, inputs are invalid, or a flat
 // update key is neither a DAG node nor a prefix of one. Group payloads skip that
 // check (their leaves are never validated), which is another reason they stay out
-// of contract.
+// of contract. Editability is deliberately not enforced here (Create seeds derived
+// fields too); callers that accept client payloads validate them with
+// ValidateUpdateKeys first.
 func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]any, error) {
 	if d == nil {
 		return nil, ErrNilDAG
@@ -508,6 +510,43 @@ func (d *DAG) hasNodePrefix(key string) bool {
 		}
 	}
 	return false
+}
+
+// ValidateUpdateKeys checks that every key in updates is a leaf node the caller
+// is allowed to write, returning UnknownFieldError for a key the graph does not
+// know and NotEditableError for a field the DAG computes itself. It is the
+// update contract the sheet service enforces before calling Recalculate, and
+// the single place where editability is decided (LGN-66).
+//
+// Editability cannot be enforced inside Recalculate: Create seeds a new sheet
+// with every field of the template, derived ones included, and that payload
+// must pass validation. Recalculate's own key check therefore stays structural
+// (a key must exist, leaf or group prefix), while this one is strict: keys are
+// matched against leaf nodes only, so a group prefix such as "stats" is
+// rejected as unknown instead of being applied — maputils.Set would replace the
+// whole group with the scalar and drop its siblings.
+//
+// It takes the read lock itself, exactly once, so it must not be called while
+// the caller already holds it (a queued writer turns a second RLock into a
+// deadlock, see Recalculate).
+func (d *DAG) ValidateUpdateKeys(updates map[string]any) error {
+	if d == nil {
+		return ErrNilDAG
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	for key := range updates {
+		node, ok := d.nodes[key]
+		if !ok {
+			return ErrUnknownField(key)
+		}
+		if !node.IsEditable {
+			return ErrNotEditable(key)
+		}
+	}
+	return nil
 }
 
 // prepareData deep-copies original data and applies updates, returning the sheet data and engine environment.

@@ -205,6 +205,22 @@ func TestService_PartialUpdate(t *testing.T) {
 			expectedErr: "field does not exist",
 		},
 		{
+			// The DAG accepts a group prefix, an update payload must not:
+			// applying it would replace the whole group with the scalar and
+			// drop its siblings.
+			name: "Error: group key is not a writable field",
+			updates: map[string]any{
+				"stats": 12.0,
+			},
+			setupMocks: func(m *mocks.MockRepository) {
+				m.EXPECT().
+					FetchByID(context.Background(), sheetID).
+					Return(storedSheet, nil).
+					Once()
+			},
+			expectedErr: "field does not exist",
+		},
+		{
 			name: "Error: Field not editable",
 			updates: map[string]any{
 				"modifiers": map[string]any{"dexterityMod": 5.0},
@@ -451,4 +467,107 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 	require.ErrorAs(t, err, &appErr)
 	assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
 	assert.Equal(t, 400, appErr.HttpStatus())
+}
+
+// TestService_FetchByID pins the missing-ID check to the service (LGN-66):
+// controllers forward the path param, so an empty ID must be rejected here —
+// before the repository — with the same 400 every caller gets.
+func TestService_FetchByID(t *testing.T) {
+	storedSheet := &sheet.Sheet{
+		ID:         "sheet-1",
+		TemplateID: "fantasy_v1",
+		Name:       "Fetched",
+		Data:       map[string]any{"stats": map[string]any{"dexterity": 14.0}},
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	tests := []struct {
+		name       string
+		id         string
+		repoSheet  *sheet.Sheet
+		repoErr    error
+		callRepo   bool
+		wantCode   apperr.Code
+		wantStatus int
+		wantMsg    string
+	}{
+		{
+			name:      "Happy path: returns the stored sheet",
+			id:        "sheet-1",
+			repoSheet: storedSheet,
+			callRepo:  true,
+		},
+		{
+			name:       "Edge: empty ID is rejected before the repository",
+			id:         "",
+			callRepo:   false,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "sheet id not provided",
+		},
+		{
+			name:       "Error: missing sheet maps ErrSheetNotFound to 404",
+			id:         "missing",
+			repoErr:    sheet.ErrSheetNotFound,
+			callRepo:   true,
+			wantCode:   apperr.CodeNotFound,
+			wantStatus: 404,
+			wantMsg:    "sheet not found",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := mocks.NewMockRepository(t)
+			if tc.callRepo {
+				mockRepo.EXPECT().
+					FetchByID(context.Background(), tc.id).
+					Return(tc.repoSheet, tc.repoErr).
+					Once()
+			}
+
+			svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+			got, err := svc.FetchByID(context.Background(), tc.id)
+
+			if tc.wantCode == "" {
+				require.NoError(t, err)
+				assert.Equal(t, storedSheet, got)
+				return
+			}
+
+			require.Error(t, err)
+			assert.Nil(t, got)
+
+			var appErr *apperr.Error
+			require.ErrorAs(t, err, &appErr)
+			assert.Equal(t, tc.wantCode, appErr.Code)
+			assert.Equal(t, tc.wantStatus, appErr.HttpStatus())
+			assert.Equal(t, tc.wantMsg, appErr.Message)
+		})
+	}
+}
+
+// TestService_PartialUpdate_MissingSheetID: PartialUpdate used to skip the ID
+// check its FetchByID does, so an empty ID fell through to the repository and
+// surfaced as 404 "sheet not found" instead of 400 (LGN-66).
+func TestService_PartialUpdate_MissingSheetID(t *testing.T) {
+	mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+
+	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+	cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+		SheetID: "",
+		Data:    map[string]any{"stats": map[string]any{"dexterity": 12.0}},
+	})
+
+	require.Error(t, err)
+	assert.Nil(t, cascades)
+
+	var appErr *apperr.Error
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+	assert.Equal(t, 400, appErr.HttpStatus())
+	assert.Equal(t, "sheet id not provided", appErr.Message)
 }

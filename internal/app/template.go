@@ -2,7 +2,6 @@ package app
 
 import (
 	"legnaris/internal/sheet/template"
-	"legnaris/shared/apperr"
 	"legnaris/shared/response"
 
 	"github.com/labstack/echo/v5"
@@ -11,9 +10,6 @@ import (
 type TemplateController struct {
 	service template.Service
 }
-
-// msgTemplateIDNotProvided is the user-facing error message for an empty template ID path param.
-const msgTemplateIDNotProvided = "template id not provided"
 
 func NewTemplateController(service template.Service) *TemplateController {
 	return &TemplateController{
@@ -41,14 +37,9 @@ func (tc *TemplateController) List(c *echo.Context) error {
 }
 
 func (tc *TemplateController) FetchByID(c *echo.Context) error {
-	id := c.Param("id")
-	if id == "" {
-		return apperr.NewError(apperr.CodeInvalidRequest, msgTemplateIDNotProvided, nil)
-	}
-
-	item, err := tc.service.FetchTemplate(c.Request().Context(), &template.FetchTemplateByIDCommand{ID: id})
+	item, err := tc.service.FetchTemplate(c.Request().Context(), &template.FetchTemplateByIDCommand{ID: c.Param("id")})
 	if err != nil {
-		return err
+		return templateError(err)
 	}
 
 	return response.OK(c, item.ToDTO())

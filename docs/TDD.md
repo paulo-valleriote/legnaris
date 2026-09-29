@@ -127,7 +127,7 @@ graph LR
 
 1. Cliente envia `PATCH /sheets/:id` com os campos editáveis alterados.
 2. Middleware JWT autentica; service valida ownership da ficha.
-3. Service valida que cada campo enviado existe no DAG e é editável (já implementado).
+3. Service delega a validação ao DAG (`DAG.ValidateUpdateKeys`): cada campo enviado precisa existir como nó editável — chave desconhecida → 400 `UNKNOWN_FIELD`, campo derivado → 400 `INVALID_REQUEST` (já implementado; LGN-66).
 4. DAG recalcula em ordem topológica apenas os nós afetados, propagando efeitos em cascata (já implementado).
 5. Repositório persiste o mapa `data` inteiro (merge local de updates + efeitos em cascata) + `updated_at` via `$set` (`repository.go:59-68`). **Débito conhecido**: substituir por `$set` com chaves pontilhadas para reduzir superfície de escrita e risco de sobrescrever campos concorrentes — ver tabela de débito técnico.
 6. Resposta retorna apenas os efeitos em cascata, permitindo ao cliente atualizar a UI de forma incremental.
