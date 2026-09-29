@@ -53,6 +53,17 @@ func (e *UnknownFieldError) Error() string {
 	return fmt.Sprintf("unknown field '%s' in update", e.Key)
 }
 
+// NotEditableError reports an update key that exists in the DAG but is not
+// writable: derived fields are computed from formulas, so accepting them from
+// a client would let the payload disagree with the next recalculation.
+type NotEditableError struct {
+	Key string
+}
+
+func (e *NotEditableError) Error() string {
+	return "field is not editable: " + e.Key
+}
+
 // FieldNameError reports a field name rejected at DAG build time.
 // Field names must match ^[A-Za-z][A-Za-z0-9]*$ so the flat DAG map key
 // (dot-joined) and the expr-lang engine key (underscore-joined) stay
@@ -86,6 +97,11 @@ var (
 
 	// ErrFormulaEval marks runtime formula evaluation failures (bad input types).
 	ErrFormulaEval = errors.New("formula evaluation failed")
+
+	// ErrTemplateIDNotProvided reports a template fetch with no ID. Its message
+	// is user-facing: the controller boundary turns it into a 400 apperr, the
+	// same translation shared/json errors get (surface as HTTP 400).
+	ErrTemplateIDNotProvided = errors.New("template id not provided")
 )
 
 // NewFormulaCompileError wraps formula compilation errors with context.
@@ -113,4 +129,10 @@ func ErrInvalidFieldName(field string, reason string) error {
 // ErrUnknownField returns an error when an update references a field not in the DAG.
 func ErrUnknownField(key string) error {
 	return &UnknownFieldError{Key: key}
+}
+
+// ErrNotEditable returns an error when an update references a field the DAG
+// computes itself instead of accepting from the caller.
+func ErrNotEditable(key string) error {
+	return &NotEditableError{Key: key}
 }

@@ -2,7 +2,6 @@ package app
 
 import (
 	"legnaris/internal/sheet"
-	"legnaris/shared/apperr"
 	"legnaris/shared/json"
 	"legnaris/shared/response"
 
@@ -40,12 +39,7 @@ func (sc *SheetController) Create(c *echo.Context) error {
 }
 
 func (sc *SheetController) FetchByID(c *echo.Context) error {
-	id := c.Param("id")
-	if id == "" {
-		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, nil)
-	}
-
-	storedSheet, err := sc.service.FetchByID(c.Request().Context(), id)
+	storedSheet, err := sc.service.FetchByID(c.Request().Context(), c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -55,17 +49,12 @@ func (sc *SheetController) FetchByID(c *echo.Context) error {
 func (sc *SheetController) PartialUpdate(c *echo.Context) error {
 	var cmd sheet.PartialUpdateSheetCommand
 
-	id := c.Param("id")
-	if id == "" {
-		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetIDNotProvided, nil)
-	}
-
 	if err := json.Decode(c, &cmd); err != nil {
 		return decodeError(err)
 	}
 
 	cascadingEffects, err := sc.service.PartialUpdate(c.Request().Context(), sheet.PartialUpdateSheetCommand{
-		SheetID: id,
+		SheetID: c.Param("id"),
 		Data:    cmd.Data,
 	})
 	if err != nil {
