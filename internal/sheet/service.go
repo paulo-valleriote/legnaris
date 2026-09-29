@@ -5,10 +5,9 @@ import (
 	"errors"
 	"legnaris/internal/sheet/template"
 	"legnaris/shared/apperr"
+	"legnaris/shared/idgen"
 	"legnaris/shared/maputils"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type CreateSheetCommand struct {
@@ -35,15 +34,21 @@ type Service interface {
 // validation (LGN-66).
 const (
 	MsgSheetIDNotProvided = "sheet id not provided"
+	MsgSheetIDInvalid     = "sheet id must be a canonical UUID v7"
 	MsgFieldDoesNotExist  = "field does not exist: "
 )
 
-// requireSheetID is the single source of truth for the missing-sheet-ID check.
-// Every entry point that takes a sheet ID calls it, so the resulting 400 never
-// depends on which handler or caller reached the service.
+// requireSheetID is the single source of truth for the sheet-ID checks
+// (LGN-86): the missing-ID message stays byte-for-byte for existing callers,
+// then the idgen contract rejects anything that is not a canonical UUID v7 —
+// so junk dies with a 400 here instead of becoming a 404 repository lookup,
+// no matter which handler or caller reached the service.
 func requireSheetID(id string) error {
 	if id == "" {
 		return apperr.NewError(apperr.CodeInvalidRequest, MsgSheetIDNotProvided, nil)
+	}
+	if err := idgen.Validate(id); err != nil {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgSheetIDInvalid, err)
 	}
 	return nil
 }
@@ -74,14 +79,17 @@ func NewService(repository Repository, templateService template.Service, provide
 }
 
 func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error) {
+	// FetchTemplate before the DAG lookup: it owns the template-ID checks
+	// (missing, malformed slug), so POST /sheets fails exactly like
+	// GET /templates/:id instead of collapsing every bad ID into a 404 (LGN-86).
+	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: cmd.TemplateID})
+	if err != nil {
+		return nil, translateTemplateErr(err)
+	}
+
 	dag, exists := s.provider.DAG(cmd.TemplateID)
 	if !exists {
 		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
-	}
-
-	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: cmd.TemplateID})
-	if err != nil {
-		return nil, err
 	}
 
 	initialData := buildNestedAllFields(tmpl.Fields)
@@ -101,8 +109,13 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		return nil, translateMapErr("create", err)
 	}
 
+	sheetID, err := idgen.New()
+	if err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, "failed to generate sheet id", err)
+	}
+
 	newSheet := Sheet{
-		ID:         uuid.NewString(),
+		ID:         sheetID,
 		TemplateID: cmd.TemplateID,
 		Name:       cmd.SheetName,
 		Data:       initialData,
@@ -174,6 +187,24 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		return nil, translateRepoErr("update", err)
 	}
 	return nestedCascadingEffects(cascadingEffects)
+}
+
+// translateTemplateErr maps template-layer typed errors to apperr at the
+// service boundary. The template layer must stay free of apperr imports for
+// its own sentinels; the /templates controller runs the same translation
+// through templateError.
+func translateTemplateErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	var appErr *apperr.Error
+	if errors.As(err, &appErr) {
+		return err
+	}
+	if errors.Is(err, template.ErrTemplateIDNotProvided) || errors.Is(err, template.ErrTemplateIDInvalid) {
+		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), nil)
+	}
+	return apperr.NewError(apperr.CodeInternal, "failed to fetch template", err)
 }
 
 // translateRepoErr maps repository errors to typed apperr at the service

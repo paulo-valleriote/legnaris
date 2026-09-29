@@ -1,6 +1,7 @@
 ---
 description: Reviews the PR diff for cyclomatic complexity. Provides the "Cyclomatic complexity" section of the AI PR review.
 mode: subagent
+model: opencode/mimo-v2.6-flash-free
 permissions:
   - action: edit
     resource: "*"

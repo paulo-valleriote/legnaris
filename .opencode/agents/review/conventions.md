@@ -1,6 +1,7 @@
 ---
 description: Reviews the PR diff for AGENTS.md convention violations. Provides the "Convention violations" section of the AI PR review.
 mode: subagent
+model: opencode/mimo-v2.6-flash-free
 permissions:
   - action: edit
     resource: "*"

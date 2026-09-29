@@ -31,6 +31,7 @@ make fmt                 # Format code
 ## Conventions (Repo-wide)
 
 - **Typed errors** — see `shared/apperr/AGENTS.md` (reference)
+- **IDs** — every server-generated entity ID is a canonical lowercase UUID v7 via `shared/idgen` (`New` to generate, `Validate` at the service boundary); never call `uuid.New`/`uuid.NewString` directly. Template IDs are code-defined slugs, exempt from `idgen` but validated as `^[a-z][a-z0-9_]*$` in `FetchTemplate` — see `shared/idgen/AGENTS.md`
 - **JSON decoding** — use `shared/json/decode.go`
 - **Logging** — use `shared/logger` (zerolog-based)
 - **Mocks** — generated via `mockery` (config in `go.mod` tool directive)
@@ -117,4 +118,5 @@ Before opening a PR, ensure:
 - `internal/sheet/template/AGENTS.md` — DAG, Template, Registry, Gotchas
 - `internal/engine/AGENTS.md` — formula engine (expr-lang wrapper)
 - `shared/apperr/AGENTS.md` — error codes, HTTP mapping, boundary translation
+- `shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
 - `shared/db/AGENTS.md` — MongoDB initialization

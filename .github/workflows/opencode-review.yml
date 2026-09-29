@@ -41,6 +41,35 @@ jobs:
             -H "Accept: application/vnd.github.v3.diff" > .ai-review/diff.txt
           echo "diff lines: $(wc -l < .ai-review/diff.txt)"
 
+      - name: Fetch PR card
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JIRA_BASE_URL: https://paulovalleriotedev.atlassian.net
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          PR=${{ github.event.issue.number }}
+          mkdir -p .ai-review
+          TITLE=$(gh api "repos/${{ github.repository }}/pulls/${PR}" --jq .title || true)
+          BODY=$(gh api "repos/${{ github.repository }}/pulls/${PR}" --jq .body || true)
+          KEY=$(printf '%s\n%s\n' "$TITLE" "$BODY" | grep -oE 'LGN-[0-9]+' | head -1 || true)
+          if [ -z "${KEY}" ]; then
+            echo "No card" > .ai-review/card.md
+            exit 0
+          fi
+          AUTH=$(printf '%s' "${JIRA_EMAIL}:${JIRA_API_TOKEN}" | base64 -w0)
+          if curl -fsS -H "Authorization: Basic ${AUTH}" \
+              "${JIRA_BASE_URL}/rest/api/3/issue/${KEY}?fields=summary,description" \
+              -o /tmp/card.json; then
+            {
+              echo "# ${KEY}"
+              jq -r '[.. | .text? // empty] | join("\n")' <(jq '.fields.description' /tmp/card.json)
+            } > .ai-review/card.md
+          else
+            echo "Card unavailable" > .ai-review/card.md
+          fi
+          echo "card: $(head -1 .ai-review/card.md)"
+
       - name: Run AI review
         id: review
         continue-on-error: true
@@ -48,15 +77,23 @@ jobs:
           # OpenCode Console API key for the `opencode` provider.
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         run: |
-          # The orchestration itself lives in the agent files under
-          # .opencode/agents/review/ (one specialist per review section).
-          opencode run --standalone \
-            --agent build \
-            --model opencode/mimo-v2.6-flash-free \
-            --file .ai-review/diff.txt \
-            --file AGENTS.md \
-            "Orchestrate the AI PR review for the attached diff now. Output only the final Markdown comment." \
-            > /tmp/review.md 2>/tmp/review.log
+          # The orchestration contract lives in the agent file; the prompt only
+          # points at it (prompt attachments are not inherited by child sessions,
+          # so every input is a workspace file).
+          PROMPT="First read .opencode/agents/review/orchestrator.md and follow it as the orchestration contract. Orchestrate the AI PR review for the attached diff now, including the Card compliance section. Output only the final Markdown comment."
+          run_review() {
+            opencode run --standalone \
+              --agent build \
+              --model "$1" \
+              --file .ai-review/diff.txt \
+              --file AGENTS.md \
+              --file .ai-review/card.md \
+              "${PROMPT}" > /tmp/review.md 2>>/tmp/review.log
+          }
+          if ! run_review "opencode-go/glm-5.3-flash" || [ ! -s /tmp/review.md ]; then
+            echo "GLM unavailable, falling back to free" >> /tmp/review.log
+            run_review "opencode/mimo-v2.6-flash-free"
+          fi
 
       - name: Post review comment
         if: always()

@@ -12,11 +12,22 @@ import (
 	"legnaris/internal/sheet/template"
 	templatemocks "legnaris/internal/sheet/template/mocks"
 	"legnaris/shared/apperr"
+	"legnaris/shared/idgen"
 	"legnaris/shared/maputils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+)
+
+// Canonical UUID v7 fixtures: sheet IDs now pass idgen.Validate at the
+// service boundary (LGN-86), so any test that must reach the repository needs
+// an ID in the exact shape New produces.
+const (
+	fetchSheetID     = "01900000-0000-7000-8000-000000000001"
+	missingSheetID   = "01900000-0000-7000-8000-000000000404"
+	updateSheetID    = "01900000-0000-7000-8000-000000000123"
+	corruptedSheetID = "01900000-0000-7000-8000-00000000c0de"
 )
 
 func TestService_PartialUpdate(t *testing.T) {
@@ -67,7 +78,7 @@ func TestService_PartialUpdate(t *testing.T) {
 		"fantasy_v1": dag,
 	}
 
-	sheetID := "sheet-123"
+	sheetID := updateSheetID
 
 	nestedStoredData := map[string]any{
 		"stats": map[string]any{
@@ -408,7 +419,65 @@ func TestService_Create(t *testing.T) {
 	s, err := svc.Create(context.Background(), cmd)
 	require.NoError(t, err)
 	assert.NotEmpty(t, s.ID)
+	// Round-trip: what Create mints must satisfy the validation every entry
+	// point applies before the repository (LGN-86).
+	require.NoError(t, idgen.Validate(s.ID))
 	assert.Equal(t, "test", s.TemplateID)
+}
+
+// TestService_Create_TemplateIDErrors: Create consults FetchTemplate first so
+// the template-ID checks own both entry points (LGN-86 follow-up) — an empty
+// or malformed template_id must surface as 400 INVALID_REQUEST through the
+// service boundary instead of the 404 "template not found" the DAG lookup used
+// to return, and the repository must never be reached.
+func TestService_Create_TemplateIDErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		id       string
+		sentinel error
+		wantMsg  string
+	}{
+		{
+			name:     "Edge: empty template ID",
+			id:       "",
+			sentinel: template.ErrTemplateIDNotProvided,
+			wantMsg:  "template id not provided",
+		},
+		{
+			name:     "Error: malformed template ID slug",
+			id:       "Fantasy-V1",
+			sentinel: template.ErrTemplateIDInvalid,
+			wantMsg:  "template id is not a valid slug",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+
+			mockTemplateSvc := templatemocks.NewMockService(t)
+			mockTemplateSvc.EXPECT().
+				FetchTemplate(context.Background(), &template.FetchTemplateByIDCommand{ID: tc.id}).
+				Return(nil, tc.sentinel).
+				Once()
+
+			svc := sheet.NewService(mockRepo, mockTemplateSvc, sheettest.DAGMap{})
+
+			s, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
+				TemplateID: tc.id,
+				SheetName:  "New Character",
+			})
+
+			require.Error(t, err)
+			assert.Nil(t, s)
+
+			var appErr *apperr.Error
+			require.ErrorAs(t, err, &appErr)
+			assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+			assert.Equal(t, 400, appErr.HttpStatus())
+			assert.Equal(t, tc.wantMsg, appErr.Message)
+		})
+	}
 }
 
 // TestService_PartialUpdate_InvalidStoredData locks the consolidated
@@ -434,7 +503,7 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 	dag, err := template.BuildDAG("fantasy_v1", fields, formulaEngine)
 	require.NoError(t, err)
 
-	sheetID := "sheet-corrupted"
+	sheetID := corruptedSheetID
 	corrupted := &sheet.Sheet{
 		ID:         sheetID,
 		TemplateID: "fantasy_v1",
@@ -469,12 +538,13 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 	assert.Equal(t, 400, appErr.HttpStatus())
 }
 
-// TestService_FetchByID pins the missing-ID check to the service (LGN-66):
+// TestService_FetchByID pins the ID checks to the service (LGN-66, LGN-86):
 // controllers forward the path param, so an empty ID must be rejected here —
-// before the repository — with the same 400 every caller gets.
+// and a non-UUID must die with 400 before the repository — with the same
+// error every caller gets. A valid but unknown UUID keeps returning 404.
 func TestService_FetchByID(t *testing.T) {
 	storedSheet := &sheet.Sheet{
-		ID:         "sheet-1",
+		ID:         fetchSheetID,
 		TemplateID: "fantasy_v1",
 		Name:       "Fetched",
 		Data:       map[string]any{"stats": map[string]any{"dexterity": 14.0}},
@@ -494,7 +564,7 @@ func TestService_FetchByID(t *testing.T) {
 	}{
 		{
 			name:      "Happy path: returns the stored sheet",
-			id:        "sheet-1",
+			id:        fetchSheetID,
 			repoSheet: storedSheet,
 			callRepo:  true,
 		},
@@ -507,8 +577,64 @@ func TestService_FetchByID(t *testing.T) {
 			wantMsg:    "sheet id not provided",
 		},
 		{
+			name:       "Error: non-hex ID is rejected before the repository",
+			id:         "01900000-0000-7000-800g-000000000001",
+			callRepo:   false,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "sheet id must be a canonical UUID v7",
+		},
+		{
+			name:       "Error: wrong-length ID is rejected before the repository",
+			id:         "01900000-0000-7000-8000-00000000000",
+			callRepo:   false,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "sheet id must be a canonical UUID v7",
+		},
+		{
+			name:       "Error: UUID v4 (pre-LGN-86 format) is rejected before the repository",
+			id:         "9f2c8a1b-3d4e-4f60-8a1b-2c3d4e5f6071",
+			callRepo:   false,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "sheet id must be a canonical UUID v7",
+		},
+		{
+			name:       "Error: non-RFC 4122 variant is rejected before the repository",
+			id:         "01900000-0000-7000-c000-000000000001",
+			callRepo:   false,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "sheet id must be a canonical UUID v7",
+		},
+		{
+			name:       "Error: uppercase ID is rejected before the repository",
+			id:         "01900000-0000-7000-8ABC-DEF012345678",
+			callRepo:   false,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "sheet id must be a canonical UUID v7",
+		},
+		{
+			name:       "Error: urn:uuid encoding is rejected before the repository",
+			id:         "urn:uuid:01900000-0000-7000-8000-000000000001",
+			callRepo:   false,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "sheet id must be a canonical UUID v7",
+		},
+		{
+			name:       "Error: garbage string is rejected before the repository",
+			id:         "not-a-uuid",
+			callRepo:   false,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "sheet id must be a canonical UUID v7",
+		},
+		{
 			name:       "Error: missing sheet maps ErrSheetNotFound to 404",
-			id:         "missing",
+			id:         missingSheetID,
 			repoErr:    sheet.ErrSheetNotFound,
 			callRepo:   true,
 			wantCode:   apperr.CodeNotFound,
@@ -570,4 +696,41 @@ func TestService_PartialUpdate_MissingSheetID(t *testing.T) {
 	assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
 	assert.Equal(t, 400, appErr.HttpStatus())
 	assert.Equal(t, "sheet id not provided", appErr.Message)
+}
+
+// TestService_PartialUpdate_MalformedSheetID: a non-UUID sheet ID must fail
+// with 400 INVALID_REQUEST before the repository on partial update too
+// (LGN-86) — FetchByID is not the only entry point taking a sheet ID.
+func TestService_PartialUpdate_MalformedSheetID(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "Edge: uppercase non-canonical ID", id: "01900000-0000-7000-8ABC-DEF012345678"},
+		{name: "Error: UUID v4 (pre-LGN-86 format)", id: "9f2c8a1b-3d4e-4f60-8a1b-2c3d4e5f6071"},
+		{name: "Error: braced encoding", id: "{01900000-0000-7000-8000-000000000001}"},
+		{name: "Error: garbage string", id: "not-a-uuid"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+
+			svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+			cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+				SheetID: tc.id,
+				Data:    map[string]any{"stats": map[string]any{"dexterity": 12.0}},
+			})
+
+			require.Error(t, err)
+			assert.Nil(t, cascades)
+
+			var appErr *apperr.Error
+			require.ErrorAs(t, err, &appErr)
+			assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+			assert.Equal(t, 400, appErr.HttpStatus())
+			assert.Equal(t, "sheet id must be a canonical UUID v7", appErr.Message)
+		})
+	}
 }

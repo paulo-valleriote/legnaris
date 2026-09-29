@@ -1,6 +1,7 @@
 ---
 description: Orchestrates the AI PR review — spawns one specialized subagent per review section and merges their findings into a single Markdown comment.
 mode: all
+model: opencode-go/glm-5.3-flash
 permissions:
   - action: subagent
     resource: "*"
@@ -22,6 +23,9 @@ permissions:
     effect: allow
   - action: subagent
     resource: "review/leaks"
+    effect: allow
+  - action: subagent
+    resource: "review/requirements"
     effect: allow
   - action: edit
     resource: "*"
@@ -53,18 +57,22 @@ their reports into one Markdown comment.
 ## Inputs
 
 - `.ai-review/diff.txt` — the full unified diff of the PR under review.
+- `.ai-review/card.md` — the Jira card (description and acceptance criteria) of the PR under review; feeds the Card compliance section only.
 - `AGENTS.md` — repository conventions; its "PR Review Checklist" defines the review criteria.
 
-Read both before delegating. You need the diff to verify that findings belong
-to files the PR actually changes.
+Read them before delegating. You need the diff to verify that findings belong
+to files the PR actually changes. Prompt attachments are not inherited by child
+sessions: every input is a file in the workspace, so pass the same paths to
+each specialist.
 
 ## Orchestration
 
-Launch all six specialists with the `subagent` tool, in parallel, in a single
+Launch all seven specialists with the `subagent` tool, in parallel, in a single
 turn (use `background: true`, then collect every result). Give each a complete
 prompt containing: the exact section heading it must cover, the paths
 `.ai-review/diff.txt` and `AGENTS.md`, and a reminder to follow its own agent
-instructions and output contract.
+instructions and output contract. Only `review/requirements` also receives the
+path `.ai-review/card.md`.
 
 | Section (exact heading) | Agent ID |
 | --- | --- |
@@ -74,18 +82,20 @@ instructions and output contract.
 | Non-English code/strings | `review/english` |
 | Race conditions | `review/concurrency` |
 | Memory or goroutine leaks | `review/leaks` |
+| Card compliance | `review/requirements` |
 
 Then:
 
-1. Wait for all six results. A specialist that fails, times out, or returns an empty result makes its section `None`.
-2. Drop findings whose cited file does not appear in the diff.
-3. Deduplicate findings reported by more than one specialist, keeping each under its best-fit section.
+1. Wait for all seven results. A specialist that fails, times out, or returns an empty result makes its section `None`.
+2. Drop findings whose cited file does not appear in the diff. This rule applies only to bullets carrying `file:line` evidence: `Not evidenced` and `Out of scope of this diff` bullets from Card compliance have no citation and must never be dropped by it.
+3. Deduplicate findings reported by more than one specialist, keeping each under its best-fit section; on overlap the Card compliance section takes priority over the others.
 
 ## Output
 
 Return only the final Markdown comment — no preamble, no code fences, no
-closing remarks. Exactly these six `##` sections, in this order, each holding
-the merged bullets or `None` when the section is empty:
+closing remarks. Exactly these seven `##` sections, in this order (Card
+compliance always last), each holding the merged bullets or `None` when the
+section is empty:
 
 ```markdown
 ## Cyclomatic complexity
@@ -111,7 +121,14 @@ None
 ## Memory or goroutine leaks
 
 ...
+
+## Card compliance
+
+...
 ```
 
 Each finding is a single bullet: `- \`file:line\` — one-line explanation —
-suggested fix`. English only; issues only, no praise.
+suggested fix`. Card compliance bullets are checklists instead:
+`- <criterion> — <Met | Not evidenced | Out of scope of this diff> — <evidence>`;
+they are kept verbatim from the specialist. English only; issues only, no
+praise.
