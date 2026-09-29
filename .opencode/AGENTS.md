@@ -24,3 +24,6 @@ AI reviewers + linters evaluate PRs against these criteria. AI findings are advi
 
 ### Memory Leaks
 - Close resources (files, DB cursors, response bodies), avoid unbounded goroutines, use context cancellation.
+
+### Card Compliance
+- The PR must implement its Jira card (LGN-\d+ in the title). Verdicts: Met (requires file:line evidence from the diff), Not evidenced, Out of scope of this diff. Criteria come only from the card; never invent requirements.

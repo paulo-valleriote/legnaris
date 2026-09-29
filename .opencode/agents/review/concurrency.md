@@ -1,6 +1,7 @@
 ---
 description: Reviews the PR diff for race conditions. Provides the "Race conditions" section of the AI PR review.
 mode: subagent
+model: opencode/mimo-v2.6-flash-free
 permissions:
   - action: edit
     resource: "*"
