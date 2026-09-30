@@ -195,11 +195,11 @@ T3 → T4
 
 **Done when**:
 
-- [ ] `fantasy_v1` → `Base armor class` / `Others: Proficiency bonus` / `Stats: Constitution, Dexterity`; `config`/`derived`/`modifiers` ausentes (TPL-02/03)
-- [ ] Nome = `schema.label` quando preenchido, senão humanização camelCase/snake_case; prefixo desconhecido continua renderizando (TPL-05)
-- [ ] Edges: `fields` vazio → `templateNoFields`; grupo sem folhas → só o nome; grupo aninhado enumera folhas; nome vazio renderiza
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: [N] testes atualizados/novos; nenhum teste existente removido
+- [x] `fantasy_v1` → `Base armor class` / `Others: Proficiency bonus` / `Stats: Constitution, Dexterity`; `config`/`derived`/`modifiers` ausentes (TPL-02/03)
+- [x] Nome = `schema.label` quando preenchido, senão humanização camelCase/snake_case; prefixo desconhecido continua renderizando (TPL-05)
+- [x] Edges: `fields` vazio → `templateNoFields`; grupo sem folhas → só o nome; grupo aninhado enumera folhas; nome vazio renderiza
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 3 novos + 12 atualizados (suíte 202 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: unit + widget
 **Gate**: full

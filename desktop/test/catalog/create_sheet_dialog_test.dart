@@ -24,7 +24,9 @@ void main() {
   const detailBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "baseArmorClass": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}},
-  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}, "acUsesCon": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}}},
+  "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "is_editable": false, "default": 0}}}},
+  "modifiers": {"children": {"dexterityMod": {"schema": {"type": "number", "label": "", "is_editable": false, "default": 0}}}},
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}, "constitution": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}}
 }}}
 ''';
@@ -107,9 +109,12 @@ void main() {
           inDialog(find.text('Fantasy Template')),
           findsOneWidget,
         );
-        expect(inDialog(find.text('baseArmorClass: 1')), findsOneWidget);
-        expect(inDialog(find.text('config: 2')), findsOneWidget);
-        expect(inDialog(find.text('stats: 2')), findsOneWidget);
+        expect(inDialog(find.text('Base armor class')), findsOneWidget);
+        expect(
+          inDialog(find.text('Stats: Dexterity, Constitution')),
+          findsOneWidget,
+        );
+        expect(inDialog(find.textContaining('Config')), findsNothing);
       },
     );
 
@@ -124,6 +129,22 @@ void main() {
             .toList();
         expect(detailRequests, hasLength(1));
         expect(detailRequests.single.method, 'GET');
+      },
+    );
+
+    testWidgets(
+      'Edge: reserved groups (config, derived, modifiers) are omitted from the dialog (TPL-02, TPL-05)',
+      (tester) async {
+        await pumpCatalog(tester);
+        await openDialog(tester);
+
+        expect(inDialog(find.textContaining('Config')), findsNothing);
+        expect(inDialog(find.textContaining('Derived')), findsNothing);
+        expect(inDialog(find.textContaining('Modifiers')), findsNothing);
+        expect(
+          inDialog(find.text('Stats: Dexterity, Constitution')),
+          findsOneWidget,
+        );
       },
     );
 
@@ -150,7 +171,7 @@ void main() {
           inDialog(find.byKey(const Key('create-sheet-template-id'))),
           findsOneWidget,
         );
-        expect(inDialog(find.text('stats: 1')), findsOneWidget);
+        expect(inDialog(find.text('Stats: Dexterity')), findsOneWidget);
       },
     );
 
@@ -171,7 +192,7 @@ void main() {
 
         expect(find.byType(CreateSheetDialog), findsOneWidget);
         expect(inDialog(find.text('Loading template...')), findsOneWidget);
-        expect(inDialog(find.textContaining('config:')), findsNothing);
+        expect(inDialog(find.textContaining('Stats:')), findsNothing);
 
         gate.complete(http.Response(detailBody, 200));
         await tester.pumpAndSettle();
@@ -319,7 +340,7 @@ void main() {
         await openDialog(tester);
 
         expect(inDialog(find.text(parseCopy())), findsOneWidget);
-        expect(inDialog(find.textContaining('config:')), findsNothing);
+        expect(inDialog(find.textContaining('Stats:')), findsNothing);
       },
     );
 
@@ -330,7 +351,7 @@ void main() {
         await openDialog(tester);
 
         expect(inDialog(find.text(parseCopy())), findsOneWidget);
-        expect(inDialog(find.textContaining('config:')), findsNothing);
+        expect(inDialog(find.textContaining('Stats:')), findsNothing);
       },
     );
   });
@@ -364,7 +385,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(detailRequestCount(recorded, 'fantasy_v1'), 2);
-        expect(inDialog(find.text('config: 2')), findsOneWidget);
+        expect(
+          inDialog(find.text('Stats: Dexterity, Constitution')),
+          findsOneWidget,
+        );
         expect(
           inDialog(find.widgetWithText(OutlinedButton, 'Retry')),
           findsNothing,

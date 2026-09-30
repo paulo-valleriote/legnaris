@@ -8,7 +8,7 @@ import 'package:legnaris/theme/tokens.dart';
 /// Screen 3 — the creation surface (TPL-01 … TPL-14).
 ///
 /// Renders the on-demand template detail fetched by
-/// [templateDetailControllerProvider]: template identity, prefix summary,
+/// [templateDetailControllerProvider]: template identity, template summary,
 /// sheet-name input and a disabled primary action. Opening it issues no
 /// mutation (TPL-13); the dialog content belongs to the template-detail spec.
 class CreateSheetDialog extends ConsumerStatefulWidget {
@@ -37,46 +37,45 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
     final state = ref.watch(templateDetailControllerProvider(widget.templateId));
 
     return AlertDialog(
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            localizations.createSheetTemplateLabel,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          if (state.template != null) ...[
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              state.template!.name,
-              style: theme.textTheme.titleMedium,
+              localizations.createSheetTemplateLabel,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
+            if (state.template != null) ...[
+              Text(state.template!.name, style: theme.textTheme.titleMedium),
+              const SizedBox(height: AppSpacing.xs),
+            ],
+            Text(
+              widget.templateId,
+              key: const Key('create-sheet-template-id'),
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            _detail(context, state, localizations),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              localizations.createSheetNameLabel,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                hintText: localizations.createSheetNamePlaceholder,
+              ),
+            ),
           ],
-          Text(
-            widget.templateId,
-            key: const Key('create-sheet-template-id'),
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _detail(context, state, localizations),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            localizations.createSheetNameLabel,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              hintText: localizations.createSheetNamePlaceholder,
-            ),
-          ),
-        ],
+        ),
       ),
       actions: [
         Tooltip(
@@ -95,7 +94,7 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
   }
 
   /// The detail area: a loading state, the mapped inline error with Retry, the
-  /// prefix summary, or the empty-fields line (TPL-02, TPL-04, TPL-07 … TPL-10).
+  /// template summary, or the empty-fields line (TPL-02, TPL-04, TPL-07 … TPL-10).
   Widget _detail(
     BuildContext context,
     TemplateDetailState state,
@@ -152,7 +151,9 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
       children: [
         for (final line in summary)
           Text(
-            '${line.prefix}: ${line.leafCount}',
+            line.members.isEmpty
+                ? line.name
+                : '${line.name}: ${line.members.join(', ')}',
             style: theme.textTheme.bodyMedium,
           ),
       ],
