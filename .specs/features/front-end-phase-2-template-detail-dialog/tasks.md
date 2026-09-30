@@ -106,13 +106,13 @@ T3 → T4
 
 **Done when**:
 
-- [ ] Primeiro watch dispara exatamente 1 `GET /templates/:id` e fica em loading até resolver (TPL-01)
-- [ ] Sem resumo obsoleto: novo provider (outro id) começa com `template == null` em loading (TPL-04)
-- [ ] Sucesso expõe o `TemplateDetail` com `fields` intactos (TPL-06); falha de domínio → copy do kind (TPL-07); `NOT_FOUND` → copy notFound (TPL-09); sem `data`/shape inválido → copy parse (TPL-10)
-- [ ] `load()` re-requesta exatamente 1× por ativação (simula Retry, TPL-08); single-flight absorve duplo-toque
-- [ ] `build_runner` executado e `.g.dart` commitado
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
-- [ ] Test count: [N] novos testes; nenhum teste existente removido
+- [x] Primeiro watch dispara exatamente 1 `GET /templates/:id` e fica em loading até resolver (TPL-01)
+- [x] Sem resumo obsoleto: novo provider (outro id) começa com `template == null` em loading (TPL-04)
+- [x] Sucesso expõe o `TemplateDetail` com `fields` intactos (TPL-06); falha de domínio → copy do kind (TPL-07); `NOT_FOUND` → copy notFound (TPL-09); sem `data`/shape inválido → copy parse (TPL-10)
+- [x] `load()` re-requesta exatamente 1× por ativação (simula Retry, TPL-08); single-flight absorve duplo-toque
+- [x] `build_runner` executado e `.g.dart` commitado
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
+- [x] Test count: 11 novos testes (suíte 182 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: unit
 **Gate**: build

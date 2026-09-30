@@ -143,16 +143,16 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| TPL-01 | P1: Detalhe do template on-demand com resumo | Design | Pending |
+| TPL-01 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
 | TPL-02 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
 | TPL-03 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
-| TPL-04 | P1: Detalhe do template on-demand com resumo | Design | Pending |
+| TPL-04 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
 | TPL-05 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
-| TPL-06 | P1: Detalhe do template on-demand com resumo | Design | Pending |
-| TPL-07 | P1: Estados de erro inline no diálogo | Design | Pending |
-| TPL-08 | P1: Estados de erro inline no diálogo | Design | Pending |
-| TPL-09 | P1: Estados de erro inline no diálogo | Design | Pending |
-| TPL-10 | P1: Estados de erro inline no diálogo | Design | Pending |
+| TPL-06 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
+| TPL-07 | P1: Estados de erro inline no diálogo | Design | Implementing |
+| TPL-08 | P1: Estados de erro inline no diálogo | Design | Implementing |
+| TPL-09 | P1: Estados de erro inline no diálogo | Design | Implementing |
+| TPL-10 | P1: Estados de erro inline no diálogo | Design | Implementing |
 | TPL-11 | P1: Superfície de criação fiel ao wireframe | Design | Pending |
 | TPL-12 | P1: Superfície de criação fiel ao wireframe | Design | Pending |
 | TPL-13 | P1: Superfície de criação fiel ao wireframe | Design | Pending |
