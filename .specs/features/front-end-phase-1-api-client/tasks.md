@@ -328,12 +328,12 @@ T8 → T9
 
 **Done when**:
 
-- [ ] Sem base de API configurada → suite se auto-pula e `flutter test` termina exit 0 (FE1-35)
-- [ ] Com base configurada → 4 cenários rodam: `POST /sheets`→201 com valores derivados; PATCH editável→200 delta só de cascatas; PATCH derivado/desconhecido→400 `INVALID_REQUEST`/`UNKNOWN_FIELD`; GET inexistente→404 `NOT_FOUND` (FE1-36)
-- [ ] Base configurada + status/código inesperado → falha exibindo status e `apperr` observados, nunca skip silencioso (FE1-37)
-- [ ] Self-skip segue o padrão do repo (testes que se auto-pulam sem serviço externo)
-- [ ] Gate check passa: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥ 4 cenários + 1 teste do mecanismo de skip
+- [x] Sem base de API configurada → suite se auto-pula e `flutter test` termina exit 0 (FE1-35)
+- [x] Com base configurada → 4 cenários rodam: `POST /sheets`→201 com valores derivados; PATCH editável→200 delta só de cascatas; PATCH derivado/desconhecido→400 `INVALID_REQUEST`/`UNKNOWN_FIELD`; GET inexistente→404 `NOT_FOUND` (FE1-36)
+- [x] Base configurada + status/código inesperado → falha exibindo status e `apperr` observados, nunca skip silencioso (FE1-37)
+- [x] Self-skip segue o padrão do repo (testes que se auto-pulam sem serviço externo)
+- [x] Gate check passa: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: ≥ 4 cenários + 1 teste do mecanismo de skip — 6 testes (4 cenários self-skip sem base; 2 mecanismos sempre)
 
 **Tests**: integration
 **Gate**: full — `cd desktop && flutter analyze && flutter test` (self-skip sem API; o cenário real roda quando há instância local)

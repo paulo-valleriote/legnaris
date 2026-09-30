@@ -253,9 +253,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | FE1-32 | P1: Fixtures do contrato real no CI | Execute | Verified |
 | FE1-33 | P1: Fixtures do contrato real no CI | Execute | Verified |
 | FE1-34 | P1: Fixtures do contrato real no CI | Execute | Verified |
-| FE1-35 | P2: Contrato ao vivo self-skip | Execute | Pending |
-| FE1-36 | P2: Contrato ao vivo self-skip | Execute | Pending |
-| FE1-37 | P2: Contrato ao vivo self-skip | Execute | Pending |
+| FE1-35 | P2: Contrato ao vivo self-skip | Execute | Verified |
+| FE1-36 | P2: Contrato ao vivo self-skip | Execute | Verified |
+| FE1-37 | P2: Contrato ao vivo self-skip | Execute | Verified |
 
 **Coverage:** 37 requisitos no total, 37 mapeados 1:1 a critérios de aceite; 0 não mapeados. Tasks ainda não criadas (fase Tasks roda após a confirmação desta spec).
 
