@@ -128,13 +128,13 @@ T8 → T9
 
 **Done when**:
 
-- [ ] 2xx com `data` → payload decodificado no tipo pedido pelo chamador (FE1-02)
-- [ ] 4xx/5xx com `{"error":{code,message}}` → erro de domínio com `code` e `message` preservados (FE1-03)
-- [ ] 2xx sem chave `data`, JSON inválido ou corpo vazio → erro de parse defensivo, nunca sucesso vazio (FE1-04)
-- [ ] 4xx/5xx sem `error.code` (ou corpo que não é o envelope de erro) → erro de parse defensivo, **não** um erro de domínio mapeado (FE1-22)
-- [ ] Erro de domínio carrega status HTTP (quando recebido), código `apperr` (quando presente) e message do servidor (FE1-24)
-- [ ] Gate check passa: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥ 7 testes (sucesso, envelope de erro, sem data, JSON quebrado, corpo vazio, sem error.code, campos do erro)
+- [x] 2xx com `data` → payload decodificado no tipo pedido pelo chamador (FE1-02)
+- [x] 4xx/5xx com `{"error":{code,message}}` → erro de domínio com `code` e `message` preservados (FE1-03)
+- [x] 2xx sem chave `data`, JSON inválido ou corpo vazio → erro de parse defensivo, nunca sucesso vazio (FE1-04)
+- [x] 4xx/5xx sem `error.code` (ou corpo que não é o envelope de erro) → erro de parse defensivo, **não** um erro de domínio mapeado (FE1-22)
+- [x] Erro de domínio carrega status HTTP (quando recebido), código `apperr` (quando presente) e message do servidor (FE1-24)
+- [x] Gate check passa: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: ≥ 7 testes (sucesso, envelope de erro, sem data, JSON quebrado, corpo vazio, sem error.code, campos do erro) — 10 testes
 
 **Tests**: unit
 **Gate**: full — `cd desktop && flutter analyze && flutter test`

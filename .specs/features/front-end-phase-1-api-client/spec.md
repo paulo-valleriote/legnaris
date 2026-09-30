@@ -220,9 +220,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------ |
 | FE1-01 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
-| FE1-02 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
-| FE1-03 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
-| FE1-04 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
+| FE1-02 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
+| FE1-03 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
+| FE1-04 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
 | FE1-05 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
 | FE1-06 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
 | FE1-07 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
@@ -240,9 +240,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | FE1-19 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
 | FE1-20 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
 | FE1-21 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
-| FE1-22 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
+| FE1-22 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
 | FE1-23 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
-| FE1-24 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
+| FE1-24 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
 | FE1-25 | P1: URL base hardcoded com override de dev | Execute | Verified |
 | FE1-26 | P1: URL base hardcoded com override de dev | Execute | Verified |
 | FE1-27 | P1: URL base hardcoded com override de dev | Execute | Verified |
