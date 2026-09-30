@@ -80,10 +80,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catalogCreateAction => 'Create sheet';
 
   @override
-  String get createSheetTitle => 'Create sheet';
+  String get createSheetTemplateLabel => 'Template';
 
   @override
-  String get createSheetTemplateLabel => 'Template';
+  String get templateDetailLoading => 'Loading template...';
+
+  @override
+  String get templateNoFields => 'This template has no fields.';
+
+  @override
+  String get createSheetNameLabel => 'Sheet name';
+
+  @override
+  String get createSheetNamePlaceholder => 'e.g. My Character';
+
+  @override
+  String get createSheetPrimaryAction => 'Create sheet';
+
+  @override
+  String get createSheetCreateTooltip =>
+      'Sheet creation arrives in a later phase.';
 
   @override
   String get actionClose => 'Close';

@@ -153,9 +153,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | TPL-08 | P1: Estados de erro inline no diálogo | Design | Implementing |
 | TPL-09 | P1: Estados de erro inline no diálogo | Design | Implementing |
 | TPL-10 | P1: Estados de erro inline no diálogo | Design | Implementing |
-| TPL-11 | P1: Superfície de criação fiel ao wireframe | Design | Pending |
-| TPL-12 | P1: Superfície de criação fiel ao wireframe | Design | Pending |
-| TPL-13 | P1: Superfície de criação fiel ao wireframe | Design | Pending |
+| TPL-11 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
+| TPL-12 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
+| TPL-13 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
 | TPL-14 | P1: Superfície de criação fiel ao wireframe | Design | Pending |
 | TPL-15 | P2: Reabertura sempre fresca | Design | Pending |
 

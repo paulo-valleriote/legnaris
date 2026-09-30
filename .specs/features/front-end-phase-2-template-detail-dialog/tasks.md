@@ -136,13 +136,13 @@ T3 → T4
 
 **Done when**:
 
-- [ ] Abrir a superfície dispara `GET /templates/:id` e mostra loading, sem resumo de template anterior (TPL-01/04)
-- [ ] Sucesso: nome do template + uma linha por chave de topo com a contagem de folhas; `fields` vazio → `templateNoFields`; nome vazio renderiza sem quebrar (TPL-02/03)
-- [ ] Campo de nome vazio com label + placeholder localizados; digitar não emite nenhuma requisição (TPL-11)
-- [ ] Ação primária "Create sheet" desabilitada e com tooltip localizado (TPL-12); zero mutações no transporte (TPL-13)
-- [ ] Harness compartilhado atualizado (rota `/templates/:id`; asserções contam só `/templates`) sem enfraquecer CAT-15/16/17/18
-- [ ] `build_runner`/l10n regenerados; gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
-- [ ] Test count: [N] novos testes + atualizações; nenhum teste existente removido
+- [x] Abrir a superfície dispara `GET /templates/:id` e mostra loading, sem resumo de template anterior (TPL-01/04)
+- [x] Sucesso: nome do template + uma linha por chave de topo com a contagem de folhas; `fields` vazio → `templateNoFields`; nome vazio renderiza sem quebrar (TPL-02/03)
+- [x] Campo de nome vazio com label + placeholder localizados; digitar não emite nenhuma requisição (TPL-11)
+- [x] Ação primária "Create sheet" desabilitada e com tooltip localizado (TPL-12); zero mutações no transporte (TPL-13)
+- [x] Harness compartilhado atualizado (rota `/templates/:id`; asserções contam só `/templates`) sem enfraquecer CAT-15/16/17/18
+- [x] `build_runner`/l10n regenerados; gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
+- [x] Test count: 10 novos testes de widget + 2 harnesses atualizados (suíte 192 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: widget
 **Gate**: build
