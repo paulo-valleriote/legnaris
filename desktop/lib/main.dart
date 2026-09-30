@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legnaris/theme/app_theme.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'main.g.dart';
@@ -25,6 +26,7 @@ class LegnarisApp extends ConsumerWidget {
     final title = ref.watch(appTitleProvider);
     return MaterialApp(
       title: title,
+      theme: buildAppTheme(),
       home: Scaffold(
         body: Center(child: Text(title)),
       ),

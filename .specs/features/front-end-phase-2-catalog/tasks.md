@@ -88,14 +88,14 @@ T5 → T6
 
 **Done when**:
 
-- [ ] `tokens.dart` expõe todos os valores da tabela de tokens do AGENTS; `shellMinWidthWithPanel` é derivado (número mágico proibido)
-- [ ] `buildAppTheme()` mapeia todo `TextStyle` em {12,13,15,17}; divider/card/dialog/button themes leem tokens
-- [ ] `MaterialApp(theme: buildAppTheme())` ligado; placeholder continua renderizando
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥12 novos testes (faixas de tokens + assertions do theme); nenhum teste existente removido
+- [x] `tokens.dart` expõe todos os valores da tabela de tokens do AGENTS; `shellMinWidthWithPanel` é derivado (número mágico proibido)
+- [x] `buildAppTheme()` mapeia todo `TextStyle` em {12,13,15,17}; divider/card/dialog/button themes leem tokens
+- [x] `MaterialApp(theme: buildAppTheme())` ligado; placeholder continua renderizando
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 19 novos testes (faixas de tokens + assertions do theme); nenhum teste existente removido
 
 **Tests**: unit
-**Gate**: full
+**Gate**: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
 **Commit**: `feat(LGN-96): add theme tokens and app theme`
 
 ---
