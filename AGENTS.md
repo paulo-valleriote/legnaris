@@ -120,3 +120,4 @@ Before opening a PR, ensure:
 - `shared/apperr/AGENTS.md` — error codes, HTTP mapping, boundary translation
 - `shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
 - `shared/db/AGENTS.md` — MongoDB initialization
+- `desktop/AGENTS.md` — Flutter desktop app: visual rules, layout tokens, interaction patterns
