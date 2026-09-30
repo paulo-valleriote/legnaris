@@ -213,13 +213,13 @@ T8 → T9
 
 **Done when**:
 
-- [ ] Sheet decodifica `id`, `template_id`, `name`, `data`, `created_at`, `updated_at` com `data` aninhado dinâmico (FE1-10)
-- [ ] `16` permanece `int` e `16.5` permanece `double` — sem truncamento nem cast forçado (FE1-11)
-- [ ] Path válido resolve (`stats.dexterity`) (FE1-12)
-- [ ] Segmento ausente ou intermediate não-mapa → `null`, nunca lança (FE1-13)
-- [ ] Path vazio ou segmento vazio (`stats..dexterity`, `""`) → erro tipado de client-side (FE1-14)
-- [ ] Gate check passa: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥ 8 testes (decode, int, float, path válido, ausente, intermediate não-mapa, segmento vazio, path vazio)
+- [x] Sheet decodifica `id`, `template_id`, `name`, `data`, `created_at`, `updated_at` com `data` aninhado dinâmico (FE1-10)
+- [x] `16` permanece `int` e `16.5` permanece `double` — sem truncamento nem cast forçado (FE1-11)
+- [x] Path válido resolve (`stats.dexterity`) (FE1-12)
+- [x] Segmento ausente ou intermediate não-mapa → `null`, nunca lança (FE1-13)
+- [x] Path vazio ou segmento vazio (`stats..dexterity`, `""`) → erro tipado de client-side (FE1-14)
+- [x] Gate check passa: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: ≥ 8 testes (decode, int, float, path válido, ausente, intermediate não-mapa, segmento vazio, path vazio) — 8 testes
 
 **Tests**: unit
 **Gate**: full — `cd desktop && flutter analyze && flutter test`
