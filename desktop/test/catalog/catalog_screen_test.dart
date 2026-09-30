@@ -69,220 +69,292 @@ void main() {
   }
 
   group('first load (CAT-08 … CAT-11)', () {
-    testWidgets('Edge: while the first request is gated the loading state shows and the empty state does not (CAT-08)', (tester) async {
-      final gate = Completer<http.Response>();
-      final recorded = await pumpScreen(tester, handler: (request) => gate.future);
+    testWidgets(
+      'Edge: while the first request is gated the loading state shows and the empty state does not (CAT-08)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) => gate.future,
+        );
 
-      expect(recorded, hasLength(1));
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      expect(find.text('Loading templates...'), findsOneWidget);
-      expect(find.text('No templates available yet'), findsNothing);
-      expect(find.byType(Card), findsNothing);
+        expect(recorded, hasLength(1));
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        expect(find.text('Loading templates...'), findsOneWidget);
+        final loading = tester.widget<Text>(find.text('Loading templates...'));
+        expect(loading.style?.fontSize, AppSizes.body);
+        expect(
+          loading.style?.color,
+          Theme.of(tester.element(find.text('Loading templates...')))
+              .colorScheme
+              .onSurfaceVariant,
+        );
+        expect(find.text('No templates available yet'), findsNothing);
+        expect(find.byType(Card), findsNothing);
 
-      gate.complete(http.Response(twoTemplatesBody, 200));
-      await tester.pumpAndSettle();
+        gate.complete(http.Response(twoTemplatesBody, 200));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(LinearProgressIndicator), findsNothing);
-      expect(find.text('Loading templates...'), findsNothing);
-      expect(find.byType(Card), findsNWidgets(2));
-    });
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        expect(find.text('Loading templates...'), findsNothing);
+        expect(find.byType(Card), findsNWidgets(2));
+      },
+    );
 
-    testWidgets('Edge: an entry with an empty name keeps the card layout intact', (tester) async {
-      await pumpScreen(
-        tester,
-        handler: (request) async => http.Response(emptyNameBody, 200),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'Edge: an entry with an empty name keeps the card layout intact',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => http.Response(emptyNameBody, 200),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.byType(Card), findsOneWidget);
-      expect(find.text(''), findsOneWidget);
-      expect(find.text('blank'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, 'Create sheet'), findsOneWidget);
-    });
+        expect(find.byType(Card), findsOneWidget);
+        expect(find.text(''), findsOneWidget);
+        expect(find.text('blank'), findsOneWidget);
+        expect(find.widgetWithText(TextButton, 'Create sheet'), findsOneWidget);
+      },
+    );
 
-    testWidgets('Error: a failed first load renders the mapped message with a Retry action (CAT-11)', (tester) async {
-      final recorded = await pumpScreen(
-        tester,
-        handler: (request) async => http.Response(serverErrorBody, 500),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'Error: a failed first load renders the mapped message with a Retry action (CAT-11)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => http.Response(serverErrorBody, 500),
+        );
+        await tester.pumpAndSettle();
 
-      expect(recorded, hasLength(1));
-      expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
-      expect(find.byType(Card), findsNothing);
-      expect(find.text('No templates available yet'), findsNothing);
-      expect(find.text('Loading templates...'), findsNothing);
-    });
+        expect(recorded, hasLength(1));
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
+        expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
+        expect(find.byType(Card), findsNothing);
+        expect(find.text('No templates available yet'), findsNothing);
+        expect(find.text('Loading templates...'), findsNothing);
+      },
+    );
 
-    testWidgets('Happy path: cards render in API order with name and id on the type scale (CAT-09)', (tester) async {
-      await pumpScreen(
-        tester,
-        handler: (request) async => http.Response(twoTemplatesBody, 200),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'Happy path: cards render in API order with name and id on the type scale (CAT-09)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => http.Response(twoTemplatesBody, 200),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.byType(Card), findsNWidgets(2));
-      final first = find.text('Fantasy Template');
-      final second = find.text('Sci Fi Template');
-      expect(first, findsOneWidget);
-      expect(second, findsOneWidget);
-      expect(
-        tester.getTopLeft(first).dx,
-        lessThan(tester.getTopLeft(second).dx),
-      );
+        expect(find.byType(Card), findsNWidgets(2));
+        final first = find.text('Fantasy Template');
+        final second = find.text('Sci Fi Template');
+        expect(first, findsOneWidget);
+        expect(second, findsOneWidget);
+        expect(
+          tester.getTopLeft(first).dx,
+          lessThan(tester.getTopLeft(second).dx),
+        );
 
-      final firstName = tester.widget<Text>(first);
-      expect(firstName.style?.fontSize, AppSizes.emphasis);
-      final firstId = tester.widget<Text>(find.text('fantasy_v1'));
-      expect(firstId.style?.fontSize, AppSizes.caption);
-      final scheme = Theme.of(tester.element(first)).colorScheme;
-      expect(firstId.style?.color, scheme.onSurfaceVariant);
+        final firstName = tester.widget<Text>(first);
+        expect(firstName.style?.fontSize, AppSizes.emphasis);
+        final firstId = tester.widget<Text>(find.text('fantasy_v1'));
+        expect(firstId.style?.fontSize, AppSizes.caption);
+        final scheme = Theme.of(tester.element(first)).colorScheme;
+        expect(firstId.style?.color, scheme.onSurfaceVariant);
 
-      expect(
-        find.widgetWithText(TextButton, 'Create sheet'),
-        findsNWidgets(2),
-      );
-      final action = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, 'Create sheet').first,
-      );
-      expect(action.onPressed, isNotNull);
-    });
+        expect(
+          find.widgetWithText(TextButton, 'Create sheet'),
+          findsNWidgets(2),
+        );
+        final action = tester.widget<TextButton>(
+          find.widgetWithText(TextButton, 'Create sheet').first,
+        );
+        expect(action.onPressed, isNotNull);
+      },
+    );
 
-    testWidgets('Happy path: an empty catalog renders one localized line without art (CAT-10)', (tester) async {
-      await pumpScreen(
-        tester,
-        handler: (request) async => http.Response(emptyListBody, 200),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'Happy path: an empty catalog renders one localized line without art (CAT-10)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => http.Response(emptyListBody, 200),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('No templates available yet'), findsOneWidget);
-      expect(find.byType(Card), findsNothing);
-      expect(find.byType(Icon), findsNothing);
-      expect(find.byType(LinearProgressIndicator), findsNothing);
-    });
+        expect(find.text('No templates available yet'), findsOneWidget);
+        final empty = tester.widget<Text>(
+          find.text('No templates available yet'),
+        );
+        expect(empty.style?.fontSize, AppSizes.body);
+        expect(
+          empty.style?.color,
+          Theme.of(tester.element(find.text('No templates available yet')))
+              .colorScheme
+              .onSurfaceVariant,
+        );
+        expect(find.byType(Card), findsNothing);
+        expect(find.byType(Icon), findsNothing);
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+      },
+    );
   });
 
   group('refresh and retry (CAT-12, CAT-19)', () {
-    testWidgets('Edge: a refresh in flight keeps the list on screen with the progress indicator', (tester) async {
-      var call = 0;
-      final gate = Completer<http.Response>();
-      final recorded = await pumpScreen(tester, handler: (request) {
-        if (call++ == 0) return Future.value(http.Response(twoTemplatesBody, 200));
-        return gate.future;
-      });
-      await tester.pumpAndSettle();
-      expect(find.byType(Card), findsNWidgets(2));
-
-      await triggerRefresh(tester);
-
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      expect(find.byType(Card), findsNWidgets(2));
-      expect(recorded, hasLength(2));
-
-      gate.complete(http.Response(twoTemplatesBody, 200));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(LinearProgressIndicator), findsNothing);
-      expect(find.byType(Card), findsNWidgets(2));
-      expect(recorded, hasLength(2));
-    });
-
-    testWidgets('Edge: a failed refresh keeps the cached list and shows the inline error with Retry (CAT-19)', (tester) async {
-      var call = 0;
-      final recorded = await pumpScreen(tester, handler: (request) async {
-        final first = call++ == 0;
-        return http.Response(
-          first ? twoTemplatesBody : serverErrorBody,
-          first ? 200 : 500,
+    testWidgets(
+      'Edge: a refresh in flight keeps the list on screen with the progress indicator',
+      (tester) async {
+        var call = 0;
+        final gate = Completer<http.Response>();
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) {
+            if (call++ == 0) {
+              return Future.value(http.Response(twoTemplatesBody, 200));
+            }
+            return gate.future;
+          },
         );
-      });
-      await tester.pumpAndSettle();
-      expect(find.byType(Card), findsNWidgets(2));
+        await tester.pumpAndSettle();
+        expect(find.byType(Card), findsNWidgets(2));
 
-      await triggerRefresh(tester);
-      await tester.pumpAndSettle();
+        await triggerRefresh(tester);
 
-      expect(recorded, hasLength(2));
-      expect(find.byType(Card), findsNWidgets(2));
-      expect(find.byType(LinearProgressIndicator), findsNothing);
-      expect(find.text('No templates available yet'), findsNothing);
-      final error = find.text(errorCopy(ApiErrorKind.serverError));
-      expect(error, findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
-      expect(
-        tester.getTopLeft(error).dy,
-        lessThan(tester.getTopLeft(find.text('Fantasy Template')).dy),
-      );
-    });
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        expect(find.byType(Card), findsNWidgets(2));
+        expect(recorded, hasLength(2));
 
-    testWidgets('Edge: two rapid Retry activations start exactly one new request', (tester) async {
-      var call = 0;
-      final gate = Completer<http.Response>();
-      final recorded = await pumpScreen(tester, handler: (request) {
-        if (call++ == 0) return Future.value(http.Response(serverErrorBody, 500));
-        return gate.future;
-      });
-      await tester.pumpAndSettle();
-      expect(recorded, hasLength(1));
+        gate.complete(http.Response(twoTemplatesBody, 200));
+        await tester.pumpAndSettle();
 
-      final retry = find.widgetWithText(OutlinedButton, 'Retry');
-      await tester.tap(retry);
-      await tester.tap(retry);
-      await tester.pump();
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        expect(find.byType(Card), findsNWidgets(2));
+        expect(recorded, hasLength(2));
+      },
+    );
 
-      expect(recorded, hasLength(2));
-
-      gate.complete(http.Response(twoTemplatesBody, 200));
-      await tester.pumpAndSettle();
-
-      expect(recorded, hasLength(2));
-      expect(find.byType(Card), findsNWidgets(2));
-    });
-
-    testWidgets('Edge: retrying from the error state shows loading until the response lands', (tester) async {
-      var call = 0;
-      final gate = Completer<http.Response>();
-      await pumpScreen(tester, handler: (request) {
-        if (call++ == 0) return Future.value(http.Response(serverErrorBody, 500));
-        return gate.future;
-      });
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Retry'));
-      await tester.pump();
-
-      expect(find.text(errorCopy(ApiErrorKind.serverError)), findsNothing);
-      expect(find.text('Loading templates...'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      expect(find.byType(Card), findsNothing);
-
-      gate.complete(http.Response(twoTemplatesBody, 200));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(Card), findsNWidgets(2));
-      expect(find.text('Loading templates...'), findsNothing);
-    });
-
-    testWidgets('Happy path: activating Retry re-requests exactly once and renders the list (CAT-12)', (tester) async {
-      var call = 0;
-      final recorded = await pumpScreen(tester, handler: (request) async {
-        final first = call++ == 0;
-        return http.Response(
-          first ? serverErrorBody : twoTemplatesBody,
-          first ? 500 : 200,
+    testWidgets(
+      'Edge: a failed refresh keeps the cached list and shows the inline error with Retry (CAT-19)',
+      (tester) async {
+        var call = 0;
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async {
+            final first = call++ == 0;
+            return http.Response(
+              first ? twoTemplatesBody : serverErrorBody,
+              first ? 200 : 500,
+            );
+          },
         );
-      });
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
-      expect(recorded, hasLength(1));
+        await tester.pumpAndSettle();
+        expect(find.byType(Card), findsNWidgets(2));
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Retry'));
-      await tester.pumpAndSettle();
+        await triggerRefresh(tester);
+        await tester.pumpAndSettle();
 
-      expect(recorded, hasLength(2));
-      expect(find.byType(Card), findsNWidgets(2));
-      expect(find.text(errorCopy(ApiErrorKind.serverError)), findsNothing);
-    });
+        expect(recorded, hasLength(2));
+        expect(find.byType(Card), findsNWidgets(2));
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        expect(find.text('No templates available yet'), findsNothing);
+        final error = find.text(errorCopy(ApiErrorKind.serverError));
+        expect(error, findsOneWidget);
+        expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
+        expect(
+          tester.getTopLeft(error).dy,
+          lessThan(tester.getTopLeft(find.text('Fantasy Template')).dy),
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: two rapid Retry activations start exactly one new request',
+      (tester) async {
+        var call = 0;
+        final gate = Completer<http.Response>();
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) {
+            if (call++ == 0) {
+              return Future.value(http.Response(serverErrorBody, 500));
+            }
+            return gate.future;
+          },
+        );
+        await tester.pumpAndSettle();
+        expect(recorded, hasLength(1));
+
+        final retry = find.widgetWithText(OutlinedButton, 'Retry');
+        await tester.tap(retry);
+        await tester.tap(retry);
+        await tester.pump();
+
+        expect(recorded, hasLength(2));
+
+        gate.complete(http.Response(twoTemplatesBody, 200));
+        await tester.pumpAndSettle();
+
+        expect(recorded, hasLength(2));
+        expect(find.byType(Card), findsNWidgets(2));
+      },
+    );
+
+    testWidgets(
+      'Edge: retrying from the error state shows loading until the response lands',
+      (tester) async {
+        var call = 0;
+        final gate = Completer<http.Response>();
+        await pumpScreen(
+          tester,
+          handler: (request) {
+            if (call++ == 0) {
+              return Future.value(http.Response(serverErrorBody, 500));
+            }
+            return gate.future;
+          },
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Retry'));
+        await tester.pump();
+
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsNothing);
+        expect(find.text('Loading templates...'), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        expect(find.byType(Card), findsNothing);
+
+        gate.complete(http.Response(twoTemplatesBody, 200));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(Card), findsNWidgets(2));
+        expect(find.text('Loading templates...'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Happy path: activating Retry re-requests exactly once and renders the list (CAT-12)',
+      (tester) async {
+        var call = 0;
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async {
+            final first = call++ == 0;
+            return http.Response(
+              first ? serverErrorBody : twoTemplatesBody,
+              first ? 500 : 200,
+            );
+          },
+        );
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
+        expect(recorded, hasLength(1));
+
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Retry'));
+        await tester.pumpAndSettle();
+
+        expect(recorded, hasLength(2));
+        expect(find.byType(Card), findsNWidgets(2));
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsNothing);
+      },
+    );
   });
 }

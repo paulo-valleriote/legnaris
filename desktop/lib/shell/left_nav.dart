@@ -6,6 +6,11 @@ import 'package:legnaris/theme/tokens.dart';
 
 /// Persistent left navigation (CAT-04): exactly one entry in Phase 2, sized
 /// by the nav-width token so it can never collapse into an overlay.
+///
+/// The entry is top-aligned with loosened height constraints: the shell row
+/// stretches its children, and a tight height would force past the entry's
+/// own [AppSizes.rowHeight] box — inflating the active tint to a full-height
+/// block (UAT T8).
 class LeftNav extends ConsumerWidget {
   const LeftNav({super.key});
 
@@ -17,9 +22,12 @@ class LeftNav extends ConsumerWidget {
       width: AppSizes.leftNavWidth,
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
-        child: NavEntry(
-          label: localizations.navCatalog,
-          active: sectionIsActive(surface),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: NavEntry(
+            label: localizations.navCatalog,
+            active: sectionIsActive(surface),
+          ),
         ),
       ),
     );
@@ -30,7 +38,12 @@ class LeftNav extends ConsumerWidget {
 /// from the theme (no layout shift), and the active entry tinted with the
 /// scheme's `secondaryContainer` pair.
 class NavEntry extends StatelessWidget {
-  const NavEntry({super.key, required this.label, required this.active, this.onTap});
+  const NavEntry({
+    super.key,
+    required this.label,
+    required this.active,
+    this.onTap,
+  });
 
   /// Localized entry label.
   final String label;
@@ -60,7 +73,9 @@ class NavEntry extends StatelessWidget {
               child: Text(
                 label,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: active ? scheme.onSecondaryContainer : scheme.onSurface,
+                  color: active
+                      ? scheme.onSecondaryContainer
+                      : scheme.onSurface,
                 ),
               ),
             ),

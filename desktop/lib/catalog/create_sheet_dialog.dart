@@ -14,6 +14,7 @@ class CreateSheetDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final localizations = AppLocalizations.of(context)!;
     return AlertDialog(
       title: Text(localizations.createSheetTitle),
@@ -21,9 +22,18 @@ class CreateSheetDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(localizations.createSheetTemplateLabel),
+          Text(
+            localizations.createSheetTemplateLabel,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: AppSpacing.xs),
-          Text(templateId, key: const Key('create-sheet-template-id')),
+          Text(
+            templateId,
+            key: const Key('create-sheet-template-id'),
+            style: theme.textTheme.bodyMedium,
+          ),
         ],
       ),
       actions: [

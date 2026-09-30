@@ -19,47 +19,54 @@ void main() {
       expect(theme.textTheme.titleLarge?.fontSize, AppSizes.title);
     });
 
-    test('Happy path: base body and caption styles land on their token sizes', () {
-      expect(theme.textTheme.bodyMedium?.fontSize, AppSizes.body);
-      expect(theme.textTheme.bodySmall?.fontSize, AppSizes.caption);
-    });
+    test(
+      'Happy path: base body and caption styles land on their token sizes',
+      () {
+        expect(theme.textTheme.bodyMedium?.fontSize, AppSizes.body);
+        expect(theme.textTheme.bodySmall?.fontSize, AppSizes.caption);
+      },
+    );
 
-    test('Happy path: every text style lands on the {12, 13, 15, 17} scale', () {
-      final styles = <String, TextStyle?>{
-        'displayLarge': theme.textTheme.displayLarge,
-        'displayMedium': theme.textTheme.displayMedium,
-        'displaySmall': theme.textTheme.displaySmall,
-        'headlineLarge': theme.textTheme.headlineLarge,
-        'headlineMedium': theme.textTheme.headlineMedium,
-        'headlineSmall': theme.textTheme.headlineSmall,
-        'titleLarge': theme.textTheme.titleLarge,
-        'titleMedium': theme.textTheme.titleMedium,
-        'titleSmall': theme.textTheme.titleSmall,
-        'bodyLarge': theme.textTheme.bodyLarge,
-        'bodyMedium': theme.textTheme.bodyMedium,
-        'bodySmall': theme.textTheme.bodySmall,
-        'labelLarge': theme.textTheme.labelLarge,
-        'labelMedium': theme.textTheme.labelMedium,
-        'labelSmall': theme.textTheme.labelSmall,
-      };
+    test(
+      'Happy path: every text style lands on the {12, 13, 15, 17} scale',
+      () {
+        final styles = <String, TextStyle?>{
+          'displayLarge': theme.textTheme.displayLarge,
+          'displayMedium': theme.textTheme.displayMedium,
+          'displaySmall': theme.textTheme.displaySmall,
+          'headlineLarge': theme.textTheme.headlineLarge,
+          'headlineMedium': theme.textTheme.headlineMedium,
+          'headlineSmall': theme.textTheme.headlineSmall,
+          'titleLarge': theme.textTheme.titleLarge,
+          'titleMedium': theme.textTheme.titleMedium,
+          'titleSmall': theme.textTheme.titleSmall,
+          'bodyLarge': theme.textTheme.bodyLarge,
+          'bodyMedium': theme.textTheme.bodyMedium,
+          'bodySmall': theme.textTheme.bodySmall,
+          'labelLarge': theme.textTheme.labelLarge,
+          'labelMedium': theme.textTheme.labelMedium,
+          'labelSmall': theme.textTheme.labelSmall,
+        };
 
-      for (final entry in styles.entries) {
-        expect(
-          entry.value?.fontSize,
-          isIn({12, 13, 15, 17}),
-          reason: '${entry.key} must land on the type scale',
-        );
-      }
-      expect(
-        styles.values.map((style) => style?.fontSize).toSet(),
-        {12, 13, 15, 17},
-        reason: 'the theme must use the full type scale',
-      );
-    });
+        for (final entry in styles.entries) {
+          expect(
+            entry.value?.fontSize,
+            isIn({12, 13, 15, 17}),
+            reason: '${entry.key} must land on the type scale',
+          );
+        }
+        expect(styles.values.map((style) => style?.fontSize).toSet(), {
+          12,
+          13,
+          15,
+          17,
+        }, reason: 'the theme must use the full type scale');
+      },
+    );
   });
 
   group('theme components read the tokens', () {
-    test('Happy path: theme enables Material 3 defaults without a custom palette', () {
+    test('Happy path: theme enables Material 3 on the seeded app scheme', () {
       expect(theme.useMaterial3, isTrue);
     });
 
@@ -81,27 +88,64 @@ void main() {
       expect(_radiusOf(theme.dialogTheme.shape), AppRadius.panel);
     });
 
-    test('Happy path: outlined and text button themes read the control radius', () {
-      final outlined = theme.outlinedButtonTheme.style?.shape
-          ?.resolve(const <WidgetState>{});
-      final text = theme.textButtonTheme.style?.shape
-          ?.resolve(const <WidgetState>{});
-      expect(_radiusOf(outlined), AppRadius.control);
-      expect(_radiusOf(text), AppRadius.control);
+    test(
+      'Happy path: outlined and text button themes read the control radius',
+      () {
+        final outlined = theme.outlinedButtonTheme.style?.shape?.resolve(
+          const <WidgetState>{},
+        );
+        final text = theme.textButtonTheme.style?.shape?.resolve(
+          const <WidgetState>{},
+        );
+        expect(_radiusOf(outlined), AppRadius.control);
+        expect(_radiusOf(text), AppRadius.control);
+      },
+    );
+  });
+
+  group('palette and control sizing (UAT T8)', () {
+    test(
+      'Edge: the palette stays out of Material\'s default purple baseline',
+      () {
+        final hue = HSLColor.fromColor(theme.colorScheme.primary).hue;
+        expect(
+          hue >= 240 && hue <= 300,
+          isFalse,
+          reason:
+              'primary landed in the violet band (T8: purple rejected in UAT)',
+        );
+        expect(theme.colorScheme.primary, isNot(const Color(0xFF6750A4)));
+      },
+    );
+
+    test('Happy path: the scaffold background follows the scheme surface', () {
+      expect(theme.scaffoldBackgroundColor, theme.colorScheme.surface);
+    });
+
+    test('Happy path: button themes pin the control height and shrink the tap target', () {
+      for (final style in <ButtonStyle?>[
+        theme.textButtonTheme.style,
+        theme.outlinedButtonTheme.style,
+      ]) {
+        final minSize = style?.minimumSize?.resolve(const <WidgetState>{});
+        expect(minSize?.height, AppSizes.controlHeight);
+        expect(style?.tapTargetSize, MaterialTapTargetSize.shrinkWrap);
+      }
     });
   });
 
   group('MaterialApp wiring', () {
-    testWidgets('Happy path: MaterialApp wires the app theme and the placeholder still renders', (
-      tester,
-    ) async {
-      await tester.pumpWidget(const ProviderScope(child: LegnarisApp()));
+    testWidgets(
+      'Happy path: MaterialApp wires the app theme and the placeholder still renders',
+      (tester) async {
+        await tester.pumpWidget(const ProviderScope(child: LegnarisApp()));
 
-      expect(find.text('Legnaris'), findsOneWidget);
-      final wired = Theme.of(tester.element(find.text('Legnaris')));
-      expect(wired.useMaterial3, isTrue);
-      expect(wired.textTheme.bodyMedium?.fontSize, AppSizes.body);
-      expect(_radiusOf(wired.cardTheme.shape), AppRadius.panel);
-    });
+        expect(find.text('Legnaris'), findsOneWidget);
+        final wired = Theme.of(tester.element(find.text('Legnaris')));
+        expect(wired.useMaterial3, isTrue);
+        expect(wired.textTheme.bodyMedium?.fontSize, AppSizes.body);
+        expect(_radiusOf(wired.cardTheme.shape), AppRadius.panel);
+      },
+    );
   });
 }

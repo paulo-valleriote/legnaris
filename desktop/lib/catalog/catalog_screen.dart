@@ -37,11 +37,17 @@ class CatalogScreen extends ConsumerWidget {
     CatalogState state,
     AppLocalizations localizations,
   ) {
+    final theme = Theme.of(context);
+    final mutedStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     if (!state.hasLoaded) {
       if (state.errorMessage != null && !state.isLoading) {
         return _fullError(context, ref, state.errorMessage!, localizations);
       }
-      return Center(child: Text(localizations.catalogLoading));
+      return Center(
+        child: Text(localizations.catalogLoading, style: mutedStyle),
+      );
     }
 
     return Column(
@@ -51,7 +57,9 @@ class CatalogScreen extends ConsumerWidget {
           _inlineError(context, ref, state.errorMessage!, localizations),
         Expanded(
           child: state.isEmpty
-              ? Center(child: Text(localizations.catalogEmpty))
+              ? Center(
+                  child: Text(localizations.catalogEmpty, style: mutedStyle),
+                )
               : _cardList(context, ref, state, localizations),
         ),
       ],
@@ -143,10 +151,7 @@ class CatalogScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          template.name,
-                          style: theme.textTheme.titleMedium,
-                        ),
+                        Text(template.name, style: theme.textTheme.titleMedium),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           template.id,

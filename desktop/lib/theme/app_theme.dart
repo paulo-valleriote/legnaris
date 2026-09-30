@@ -1,14 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:legnaris/theme/tokens.dart';
 
-/// Builds the single app theme (CAT-02): Material 3 defaults with every
-/// dimension read from [AppSpacing], [AppRadius] and [AppSizes].
+/// V1 palette seed: blue-gray — neutral and legible with no brand identity
+/// (that stays V2). The seed keeps Material's tonal logic but replaces its
+/// default purple baseline, which the UAT rejected: purple-tinted neutrals
+/// across the whole shell (T8).
+const Color _paletteSeed = Color(0xFF546E7A);
+
+/// Minimum button box: Material's own 64px default width with the height
+/// re-pinned to the control token — M3 ships 40px, outside the 32–36 band.
+const Size _buttonMinSize = Size(64, AppSizes.controlHeight);
+
+/// Builds the single app theme (CAT-02): Material 3 structure with every
+/// dimension read from [AppSpacing], [AppRadius] and [AppSizes], and a
+/// [ColorScheme] seeded from [_paletteSeed].
 ///
-/// No palette of its own — colors come from the `ColorScheme` Material
-/// derives, and hairlines always use `outlineVariant`. The theme is written
-/// once here even for surfaces that arrive in later phases.
+/// The scheme is passed to the constructor so every derived default
+/// (scaffold surface, hairlines via `outlineVariant`, hover/focus tints)
+/// follows it instead of Material's stock palette. Widgets keep reading
+/// colors from `ColorScheme` only, per AGENTS. The theme is written once
+/// here even for surfaces that arrive in later phases.
 ThemeData buildAppTheme() {
-  final base = ThemeData(useMaterial3: true);
+  final base = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(seedColor: _paletteSeed),
+  );
   // Font sizes are not part of ThemeData.textTheme: they live in the
   // geometry theme and are merged by Theme.of at runtime per script
   // category. V1 is en-only, so the englishLike geometry is baked in here —
@@ -43,6 +59,8 @@ ThemeData buildAppTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        minimumSize: _buttonMinSize,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.control),
         ),
@@ -50,6 +68,8 @@ ThemeData buildAppTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
+        minimumSize: _buttonMinSize,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.control),
         ),

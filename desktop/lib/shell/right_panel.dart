@@ -26,7 +26,10 @@ class RightPanel extends ConsumerWidget {
       width: AppSizes.rightPanelWidth,
       decoration: BoxDecoration(
         border: Border(
-          left: BorderSide(color: scheme.outlineVariant, width: AppSizes.hairline),
+          left: BorderSide(
+            color: scheme.outlineVariant,
+            width: AppSizes.hairline,
+          ),
         ),
       ),
       child: Padding(
@@ -42,13 +45,17 @@ class RightPanel extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
             Text(localizations.sectionCatalog, style: sectionStyle),
             const SizedBox(height: AppSpacing.sm),
-            Text(localizations.catalogCount(state.templates?.length ?? 0)),
+            Text(
+              localizations.catalogCount(state.templates?.length ?? 0),
+              style: theme.textTheme.bodyMedium,
+            ),
             if (state.lastUpdated != null) ...[
               const SizedBox(height: AppSpacing.xs),
               Text(
                 localizations.catalogLastUpdated(
                   DateFormat.Hm().format(state.lastUpdated!),
                 ),
+                style: theme.textTheme.bodyMedium,
               ),
             ],
           ],

@@ -9,6 +9,12 @@ import 'package:legnaris/theme/tokens.dart';
 /// a right panel that hides first when the window narrows (CAT-03). The nav
 /// is a fixed row child, so nothing can ever overlap it; hiding the panel is
 /// pure layout, which is what keeps a resize from reloading the catalog.
+///
+/// The [Scaffold] is load-bearing, not decoration: it paints the surface
+/// (a bare column would leave the window at its default black) and provides
+/// the Material context in which an unstyled [Text] resolves to `bodyMedium`
+/// — without it MaterialApp substitutes its 48px red `_errorTextStyle`
+/// fallback (UAT T8).
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.content});
 
@@ -17,45 +23,47 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Header(),
-        const Divider(),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final showPanel =
-                  constraints.maxWidth >= AppSizes.shellMinWidthWithPanel;
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const LeftNav(),
-                  const VerticalDivider(),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: AppSizes.contentMaxWidth,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          child: content,
+    return Scaffold(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Header(),
+          const Divider(),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final showPanel =
+                    constraints.maxWidth >= AppSizes.shellMinWidthWithPanel;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const LeftNav(),
+                    const VerticalDivider(),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: AppSizes.contentMaxWidth,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            child: content,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  if (showPanel) ...[
-                    const VerticalDivider(),
-                    const RightPanel(),
+                    if (showPanel) ...[
+                      const VerticalDivider(),
+                      const RightPanel(),
+                    ],
                   ],
-                ],
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
