@@ -13,7 +13,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 **Commit atomicidade (FE0-07)**: T2 e T3 empacotam num **commit único** — o primeiro commit que introduz `desktop/` já chega com o CI completo ("nunca um `desktop/` sem CI"). T1, T4, T5 e T6 têm commits próprios.
 
-**Validação remota**: FE0-08…12 e FE0-13…16 (comportamento real dos workflows em PRs) só validam na primeira execução do CI no PR. `git push` requer go-ahead explícito do mantenedor.
+**Validação remota** (PR #42, runs de 2026-09-29): ✅ **FE0-08, FE0-09, FE0-11, FE0-15** confirmados ao vivo — Flutter CI run `36648762656` (9m37s, success: analyze → test → build windows → upload) e Lint & Race run `36648762651` (1m22s, success: lint + race intactos); artifact `legnaris-desktop-windows` baixado e inspecionado (11 MB zippado = `legnaris.exe` + `flutter_windows.dll` + `data/`). Pendem evidência de run: **FE0-10** (caminho de falha — experimento de quebra), **FE0-12** (push em `main`), **FE0-13** (PR só-desktop), **FE0-14** (PR só-Go), **FE0-16** (PR só-workflow).
 
 ---
 
@@ -207,7 +207,7 @@ Fechamento (não-task): Verifier sub-agent (fresh) — spec-anchored check + dis
 - [x] `paths-ignore` com `desktop/**` no trigger `pull_request` (FE0-13)
 - [x] jobs lint e race intactos — diff toca só o bloco de trigger (FE0-15: PR misto dispara ambos)
 - [x] YAML parse exit 0
-- [ ] validação de comportamento (PRs só-Go / só-Flutter / misto) na execução real do PR do branch
+- [ ] validação de comportamento nos runs reais — **misto ✅** (PR #42: ambos os workflows success); faltam os cenários só-Go e só-Flutter (próximos PRs naturais)
 
 **Tests**: none (matriz: CI workflows → none)
 **Gate**: build — parse YAML + `git diff ci-lint.yml` confirma só o `paths-ignore`

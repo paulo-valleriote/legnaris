@@ -126,14 +126,14 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | FE0-05 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Verified |
 | FE0-06 | P1: Bootstrap do app Flutter em `desktop/` | Execute | Verified |
 | FE0-07 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
-| FE0-08 | P1: CI de build Windows desde o primeiro commit | Execute | Implementing |
-| FE0-09 | P1: CI de build Windows desde o primeiro commit | Execute | Implementing |
+| FE0-08 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
+| FE0-09 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
 | FE0-10 | P1: CI de build Windows desde o primeiro commit | Execute | Implementing |
-| FE0-11 | P1: CI de build Windows desde o primeiro commit | Execute | Implementing |
+| FE0-11 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
 | FE0-12 | P1: CI de build Windows desde o primeiro commit | Execute | Implementing |
 | FE0-13 | P1: Isolamento de pipelines por path | Execute | Implementing |
 | FE0-14 | P1: Isolamento de pipelines por path | Execute | Implementing |
-| FE0-15 | P1: Isolamento de pipelines por path | Execute | Implementing |
+| FE0-15 | P1: Isolamento de pipelines por path | Execute | Verified |
 | FE0-16 | P1: Isolamento de pipelines por path | Execute | Implementing |
 
 **Coverage:** 16 requisitos no total, 16 mapeados 1:1 a critérios de aceite e a tasks no `tasks.md` (T1–T5); 0 não mapeados.
