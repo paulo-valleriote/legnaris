@@ -128,10 +128,10 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | FE0-07 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
 | FE0-08 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
 | FE0-09 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
-| FE0-10 | P1: CI de build Windows desde o primeiro commit | Execute | Implementing |
+| FE0-10 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
 | FE0-11 | P1: CI de build Windows desde o primeiro commit | Execute | Verified |
 | FE0-12 | P1: CI de build Windows desde o primeiro commit | Execute | Implementing |
-| FE0-13 | P1: Isolamento de pipelines por path | Execute | Implementing |
+| FE0-13 | P1: Isolamento de pipelines por path | Execute | Verified |
 | FE0-14 | P1: Isolamento de pipelines por path | Execute | Implementing |
 | FE0-15 | P1: Isolamento de pipelines por path | Execute | Verified |
 | FE0-16 | P1: Isolamento de pipelines por path | Execute | Implementing |
