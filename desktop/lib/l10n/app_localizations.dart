@@ -177,6 +177,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Last updated {time}'**
   String catalogLastUpdated(String time);
+
+  /// Loading state of the catalog screen while the first request is in flight (CAT-08).
+  ///
+  /// In en, this message translates to:
+  /// **'Loading templates...'**
+  String get catalogLoading;
+
+  /// Single line rendered by the empty catalog state; no decorative art (CAT-10).
+  ///
+  /// In en, this message translates to:
+  /// **'No templates available yet'**
+  String get catalogEmpty;
+
+  /// Action that re-issues the catalog request from an error state (CAT-11, CAT-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get actionRetry;
+
+  /// Card action that opens the creation dialog for that template (wireframe 'criar ficha').
+  ///
+  /// In en, this message translates to:
+  /// **'Create sheet'**
+  String get catalogCreateAction;
 }
 
 class _AppLocalizationsDelegate

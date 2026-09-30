@@ -174,16 +174,16 @@ T5 → T6
 
 **Done when**:
 
-- [ ] Com transporte engatellado, loading visível e empty-state ausente (CAT-08)
-- [ ] N cards na ordem da API, cada um com o nome (CAT-09); nome vazio renderiza com layout íntegro (edge)
-- [ ] Lista vazia → uma linha de texto localizada, sem arte/ícone (CAT-10)
-- [ ] Erro inicial → mensagem mapeada + Retry; Retry = exatamente 1 nova chamada (CAT-11/12)
-- [ ] Refresh falho → lista permanece + erro inline + Retry (CAT-19); refresh em voo → progresso sem sumir a lista
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥9 novos testes; nenhum teste existente removido
+- [x] Com transporte engatellado, loading visível e empty-state ausente (CAT-08)
+- [x] N cards na ordem da API, cada um com o nome (CAT-09); nome vazio renderiza com layout íntegro (edge)
+- [x] Lista vazia → uma linha de texto localizada, sem arte/ícone (CAT-10)
+- [x] Erro inicial → mensagem mapeada + Retry; Retry = exatamente 1 nova chamada (CAT-11/12)
+- [x] Refresh falho → lista permanece + erro inline + Retry (CAT-19); refresh em voo → progresso sem sumir a lista
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 10 novos testes; nenhum teste existente removido
 
 **Tests**: widget
-**Gate**: full
+**Gate**: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
 **Commit**: `feat(LGN-96): add catalog screen with loading empty and error states`
 
 ---

@@ -66,4 +66,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String catalogLastUpdated(String time) {
     return 'Last updated $time';
   }
+
+  @override
+  String get catalogLoading => 'Loading templates...';
+
+  @override
+  String get catalogEmpty => 'No templates available yet';
+
+  @override
+  String get actionRetry => 'Retry';
+
+  @override
+  String get catalogCreateAction => 'Create sheet';
 }

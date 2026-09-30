@@ -153,7 +153,7 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | CAT-05 | P1: Shell desktop e tema único | Design | Verified |
 | CAT-06 | P1: Shell desktop e tema único | Design | Verified |
 | CAT-07 | P1: Lista de templates com estados | Design | Verified |
-| CAT-08 | P1: Lista de templates com estados | Design | Pending |
+| CAT-08 | P1: Lista de templates com estados | Design | Verified |
 | CAT-09 | P1: Lista de templates com estados | Design | Verified |
 | CAT-10 | P1: Lista de templates com estados | Design | Verified |
 | CAT-11 | P1: Lista de templates com estados | Design | Verified |

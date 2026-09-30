@@ -64,5 +64,21 @@
         "type": "String"
       }
     }
+  },
+  "catalogLoading": "Loading templates...",
+  "@catalogLoading": {
+    "description": "Loading state of the catalog screen while the first request is in flight (CAT-08)."
+  },
+  "catalogEmpty": "No templates available yet",
+  "@catalogEmpty": {
+    "description": "Single line rendered by the empty catalog state; no decorative art (CAT-10)."
+  },
+  "actionRetry": "Retry",
+  "@actionRetry": {
+    "description": "Action that re-issues the catalog request from an error state (CAT-11, CAT-12)."
+  },
+  "catalogCreateAction": "Create sheet",
+  "@catalogCreateAction": {
+    "description": "Card action that opens the creation dialog for that template (wireframe 'criar ficha')."
   }
 }
