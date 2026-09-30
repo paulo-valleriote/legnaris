@@ -156,8 +156,8 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | TPL-11 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
 | TPL-12 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
 | TPL-13 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
-| TPL-14 | P1: Superfície de criação fiel ao wireframe | Design | Pending |
-| TPL-15 | P2: Reabertura sempre fresca | Design | Pending |
+| TPL-14 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
+| TPL-15 | P2: Reabertura sempre fresca | Design | Implementing |
 
 **Coverage:** 15 requisitos no total, 15 mapeados 1:1 a critérios de aceite; 0 não mapeados.
 

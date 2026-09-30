@@ -166,12 +166,12 @@ T3 → T4
 
 **Done when**:
 
-- [ ] Falha de transporte/4xx/5xx → mensagem mapeada inline, diálogo aberto (TPL-07); `NOT_FOUND` idem (TPL-09); 2xx sem `data`/shape inválido → copy parse, nunca resumo meio-renderizado (TPL-10)
-- [ ] Retry re-requesta `GET /templates/:id` exatamente 1× por ativação (TPL-08)
-- [ ] Reabrir o mesmo template → 2 requisições de detalhe no transporte fake (TPL-15)
-- [ ] `Esc` e Close fecham e voltam ao catálogo sem requisição nova (TPL-14); nenhum `POST` (TPL-13)
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: [N] novos testes; nenhum teste existente removido
+- [x] Falha de transporte/4xx/5xx → mensagem mapeada inline, diálogo aberto (TPL-07); `NOT_FOUND` idem (TPL-09); 2xx sem `data`/shape inválido → copy parse, nunca resumo meio-renderizado (TPL-10)
+- [x] Retry re-requesta `GET /templates/:id` exatamente 1× por ativação (TPL-08)
+- [x] Reabrir o mesmo template → 2 requisições de detalhe no transporte fake (TPL-15)
+- [x] `Esc` e Close fecham e voltam ao catálogo sem requisição nova (TPL-14); nenhum `POST` (TPL-13)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 7 novos testes (suíte 199 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: widget
 **Gate**: full

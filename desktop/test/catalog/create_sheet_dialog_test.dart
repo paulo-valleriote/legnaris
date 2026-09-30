@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
@@ -30,6 +32,14 @@ void main() {
       '{"data": {"id": "fantasy_v1", "name": "Blank Template", "default": false, "fields": {}}}';
   const emptyNameBody =
       '{"data": {"id": "fantasy_v1", "name": "", "default": false, "fields": {"stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}}}}}';
+  const serverErrorBody =
+      '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}';
+  const notFoundBody =
+      '{"error": {"code": "NOT_FOUND", "message": "template not found"}}';
+  const noDataKeyBody = '{"unexpected": true}';
+  const malformedBody = '{"data": [1, 2, 3]}';
+
+  String parseCopy() => lookupAppLocalizations(const Locale('en')).errorParse;
 
   Future<http.Response> Function(http.Request) routing({
     required String detail,
@@ -81,6 +91,10 @@ void main() {
     await tester.tap(find.text('Fantasy Template'));
     await tester.pumpAndSettle();
   }
+
+  int detailRequestCount(List<http.Request> recorded, String id) => recorded
+      .where((request) => request.url.path == '/templates/$id')
+      .length;
 
   group('rendering the detail (TPL-01, TPL-02)', () {
     testWidgets(
@@ -248,6 +262,143 @@ void main() {
         await openDialog(tester);
 
         expect(recorded.every((request) => request.method == 'GET'), isTrue);
+        expect(recorded.any((request) => request.method == 'POST'), isFalse);
+      },
+    );
+  });
+
+  group('inline error states (TPL-07, TPL-09, TPL-10)', () {
+    Future<http.Response> Function(http.Request) failing(
+      String body,
+      int status,
+    ) => (request) async => http.Response(
+      request.url.path == '/templates' ? listBody : body,
+      request.url.path == '/templates' ? 200 : status,
+    );
+
+    testWidgets(
+      'Error: a server failure shows the mapped copy inline and keeps the dialog open (TPL-07)',
+      (tester) async {
+        await pumpCatalog(tester, handler: failing(serverErrorBody, 500));
+        await openDialog(tester);
+
+        expect(find.byType(CreateSheetDialog), findsOneWidget);
+        expect(
+          inDialog(find.text(errorCopy(ApiErrorKind.serverError))),
+          findsOneWidget,
+        );
+        expect(
+          inDialog(find.widgetWithText(OutlinedButton, 'Retry')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Error: NOT_FOUND shows the not-found copy inline with Retry (TPL-09)',
+      (tester) async {
+        await pumpCatalog(tester, handler: failing(notFoundBody, 404));
+        await openDialog(tester);
+
+        expect(find.byType(CreateSheetDialog), findsOneWidget);
+        expect(
+          inDialog(find.text(errorCopy(ApiErrorKind.notFound))),
+          findsOneWidget,
+        );
+        expect(
+          inDialog(find.widgetWithText(OutlinedButton, 'Retry')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Error: a 2xx without the data key shows the parse copy, never a summary (TPL-10)',
+      (tester) async {
+        await pumpCatalog(tester, handler: failing(noDataKeyBody, 200));
+        await openDialog(tester);
+
+        expect(inDialog(find.text(parseCopy())), findsOneWidget);
+        expect(inDialog(find.textContaining('config:')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Error: a malformed payload shows the parse copy, never a half summary (TPL-10)',
+      (tester) async {
+        await pumpCatalog(tester, handler: failing(malformedBody, 200));
+        await openDialog(tester);
+
+        expect(inDialog(find.text(parseCopy())), findsOneWidget);
+        expect(inDialog(find.textContaining('config:')), findsNothing);
+      },
+    );
+  });
+
+  group('retry and lifecycle (TPL-08, TPL-13, TPL-14, TPL-15)', () {
+    testWidgets(
+      'Happy path: Retry re-requests exactly once and shows the summary (TPL-08)',
+      (tester) async {
+        var fail = true;
+        final recorded = await pumpCatalog(
+          tester,
+          handler: (request) async {
+            if (request.url.path == '/templates') {
+              return http.Response(listBody, 200);
+            }
+            return http.Response(
+              fail ? serverErrorBody : detailBody,
+              fail ? 500 : 200,
+            );
+          },
+        );
+        await openDialog(tester);
+        expect(
+          inDialog(find.text(errorCopy(ApiErrorKind.serverError))),
+          findsOneWidget,
+        );
+        expect(detailRequestCount(recorded, 'fantasy_v1'), 1);
+
+        fail = false;
+        await tester.tap(inDialog(find.widgetWithText(OutlinedButton, 'Retry')));
+        await tester.pumpAndSettle();
+
+        expect(detailRequestCount(recorded, 'fantasy_v1'), 2);
+        expect(inDialog(find.text('config: 2')), findsOneWidget);
+        expect(
+          inDialog(find.widgetWithText(OutlinedButton, 'Retry')),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: reopening the same template fetches the detail again (TPL-15)',
+      (tester) async {
+        final recorded = await pumpCatalog(tester);
+        await openDialog(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(CreateSheetDialog), findsNothing);
+
+        await openDialog(tester);
+
+        expect(detailRequestCount(recorded, 'fantasy_v1'), 2);
+      },
+    );
+
+    testWidgets(
+      'Edge: dismissing with Esc neither refetches nor mutates (TPL-13, TPL-14)',
+      (tester) async {
+        final recorded = await pumpCatalog(tester);
+        await openDialog(tester);
+        final detailBefore = detailRequestCount(recorded, 'fantasy_v1');
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CreateSheetDialog), findsNothing);
+        expect(detailRequestCount(recorded, 'fantasy_v1'), detailBefore);
         expect(recorded.any((request) => request.method == 'POST'), isFalse);
       },
     );

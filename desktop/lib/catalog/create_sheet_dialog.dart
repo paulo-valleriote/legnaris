@@ -94,8 +94,8 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
     );
   }
 
-  /// The detail area: a loading state, the prefix summary, or the empty-fields
-  /// line. The inline error branch arrives with T4.
+  /// The detail area: a loading state, the mapped inline error with Retry, the
+  /// prefix summary, or the empty-fields line (TPL-02, TPL-04, TPL-07 … TPL-10).
   Widget _detail(
     BuildContext context,
     TemplateDetailState state,
@@ -117,7 +117,31 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
     }
 
     final template = state.template;
-    if (template == null) return const SizedBox.shrink();
+    if (template == null) {
+      final message = state.errorMessage;
+      if (message == null) return const SizedBox.shrink();
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          OutlinedButton(
+            onPressed: () => ref
+                .read(
+                  templateDetailControllerProvider(widget.templateId).notifier,
+                )
+                .load(),
+            child: Text(localizations.actionRetry),
+          ),
+        ],
+      );
+    }
 
     final summary = summarizeFields(template.fields);
     if (summary.isEmpty) {
