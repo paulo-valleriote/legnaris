@@ -146,12 +146,12 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------ |
-| CAT-01 | P1: Shell desktop e tema único | Design | Pending |
+| CAT-01 | P1: Shell desktop e tema único | Design | Verified |
 | CAT-02 | P1: Shell desktop e tema único | Design | Verified |
-| CAT-03 | P1: Shell desktop e tema único | Design | Pending |
-| CAT-04 | P1: Shell desktop e tema único | Design | Pending |
-| CAT-05 | P1: Shell desktop e tema único | Design | Pending |
-| CAT-06 | P1: Shell desktop e tema único | Design | Pending |
+| CAT-03 | P1: Shell desktop e tema único | Design | Verified |
+| CAT-04 | P1: Shell desktop e tema único | Design | Verified |
+| CAT-05 | P1: Shell desktop e tema único | Design | Verified |
+| CAT-06 | P1: Shell desktop e tema único | Design | Verified |
 | CAT-07 | P1: Lista de templates com estados | Design | Verified |
 | CAT-08 | P1: Lista de templates com estados | Design | Pending |
 | CAT-09 | P1: Lista de templates com estados | Design | Verified |

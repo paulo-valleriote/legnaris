@@ -145,16 +145,16 @@ T5 → T6
 
 **Done when**:
 
-- [ ] Shell renderiza nav/header/conteúdo/painel (CAT-01); larguras = tokens 220/300, dentro das faixas da spec (CAT-02)
-- [ ] Janela < 1000px → painel some antes de qualquer sobreposição da nav; restaurar → painel volta sem novo request (CAT-03 + edge)
-- [ ] Exatamente 1 entrada de nav com styling de ativo derivado de `ShellSurface` (CAT-04)
-- [ ] Header com título l10n + `Key('connection-indicator-slot')` reservado (CAT-05)
-- [ ] Painel: bloco Connection + slot, hairline, bloco Catalog com contagem e última atualização só quando existir (CAT-06)
-- [ ] `build_runner` executado; gate check passes (comando do gate Build)
-- [ ] Test count: ≥10 novos testes; nenhum teste existente removido
+- [x] Shell renderiza nav/header/conteúdo/painel (CAT-01); larguras = tokens 220/300, dentro das faixas da spec (CAT-02)
+- [x] Janela < 1000px → painel some antes de qualquer sobreposição da nav; restaurar → painel volta sem novo request (CAT-03 + edge)
+- [x] Exatamente 1 entrada de nav com styling de ativo derivado de `ShellSurface` (CAT-04)
+- [x] Header com título l10n + `Key('connection-indicator-slot')` reservado (CAT-05)
+- [x] Painel: bloco Connection + slot, hairline, bloco Catalog com contagem e última atualização só quando existir (CAT-06)
+- [x] `build_runner` executado; gate check passes (comando do gate Build)
+- [x] Test count: 11 novos testes; nenhum teste existente removido
 
 **Tests**: widget
-**Gate**: build
+**Gate**: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
 **Commit**: `feat(LGN-96): add app shell with nav header content and right panel`
 
 ---

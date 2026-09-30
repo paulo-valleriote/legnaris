@@ -141,6 +141,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The server sent an unexpected response. Please try again.'**
   String get errorParse;
+
+  /// App title shown in the shell header.
+  ///
+  /// In en, this message translates to:
+  /// **'Legnaris'**
+  String get appTitle;
+
+  /// Left navigation entry for the template catalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog'**
+  String get navCatalog;
+
+  /// Right panel section reserved for the connection indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get sectionConnection;
+
+  /// Right panel section showing catalog statistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog'**
+  String get sectionCatalog;
+
+  /// Number of loaded templates shown in the right panel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 template} other{{count} templates}}'**
+  String catalogCount(int count);
+
+  /// Time of the last successful catalog load shown in the right panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Last updated {time}'**
+  String catalogLastUpdated(String time);
 }
 
 class _AppLocalizationsDelegate
