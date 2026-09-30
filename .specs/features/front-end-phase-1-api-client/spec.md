@@ -219,13 +219,13 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------ |
-| FE1-01 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
+| FE1-01 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
 | FE1-02 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
 | FE1-03 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
 | FE1-04 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
-| FE1-05 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
-| FE1-06 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
-| FE1-07 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
+| FE1-05 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
+| FE1-06 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
+| FE1-07 | P1: Client tipado por endpoint + decode de envelope | Execute | Verified |
 | FE1-08 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Verified |
 | FE1-09 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Verified |
 | FE1-10 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Verified |

@@ -242,13 +242,13 @@ T8 → T9
 
 **Done when**:
 
-- [ ] 6 métodos tipados, um por endpoint consumido, cada um no seu tipo de retorno (FE1-01)
-- [ ] `POST /sheets` envia `{"template_id": ..., "sheet_name": ...}` (FE1-05)
-- [ ] `PATCH /sheets/:id` envia `{"data": {...}}` só com o delta informado (FE1-06)
-- [ ] Transporte injetado na construção; nenhum método cria o próprio `http.Client` (FE1-07)
-- [ ] Respostas passam por envelope (FE1-02/03) e erros pelo mapper (FE1-15…21) — wiring testado por endpoint
-- [ ] Gate check passa: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥ 12 testes (rota/método/corpo por endpoint + decode + propagação de erro)
+- [x] 6 métodos tipados, um por endpoint consumido, cada um no seu tipo de retorno (FE1-01)
+- [x] `POST /sheets` envia `{"template_id": ..., "sheet_name": ...}` (FE1-05)
+- [x] `PATCH /sheets/:id` envia `{"data": {...}}` só com o delta informado (FE1-06)
+- [x] Transporte injetado na construção; nenhum método cria o próprio `http.Client` (FE1-07)
+- [x] Respostas passam por envelope (FE1-02/03) e erros pelo mapper (FE1-15…21) — wiring testado por endpoint
+- [x] Gate check passa: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: ≥ 12 testes (rota/método/corpo por endpoint + decode + propagação de erro) — 16 testes
 
 **Tests**: unit
 **Gate**: build — `cd desktop && flutter analyze && flutter test` (T6 pode tocar pubspec de `package:http`)
