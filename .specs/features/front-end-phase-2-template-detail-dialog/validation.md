@@ -7,7 +7,7 @@
 
 ## Validation
 
-**Result**: PASS
+**Result**: PASS (T1–T5, including the UAT amend)
 
 ---
 
@@ -153,3 +153,98 @@ None blocking. Recommended (non-blocking) follow-up:
 **Issues found**: none blocking. One spec-precision gap (empty-fields wording).
 
 **Next steps**: Optionally reconcile spec.md:132 with the approved design's empty-map reading (Fix 1, Minor). No code or test changes required for acceptance.
+
+---
+
+# Amend (T5) — normalized summary names + hidden reserved groups
+
+**Date**: 2026-09-30
+**Spec**: `.specs/features/front-end-phase-2-template-detail-dialog/spec.md` (Amend UAT 2026-09-30 note, spec.md:8; Assumptions rows spec.md:48–50; amended TPL-02/03/05 spec.md:74–77; new Edge Cases spec.md:134–140)
+**Amend commits**: `6218d7d` (docs) + `717eb81` (feat) — diff surface `6218d7d^..HEAD` (7 files, +292/−152); full feature range still `4710a38..HEAD`
+**Verifier**: independent sub-agent (author ≠ verifier)
+
+**Amend verdict**: PASS ✅
+
+## Task Completion (amend)
+
+| Task | Status | Notes |
+| ---- | ------ | ----- |
+| T5: Amend the summary to normalized names and visible groups | ✅ Done | `template_summary.dart` rewritten (`name` + `members`, `_hiddenGroups`, `_displayName`/`_humanize`, recursive `_leaves`); `create_sheet_dialog.dart` renders `Name` / `Name: a, b` in a `SingleChildScrollView`; 11 unit + 18 widget tests |
+
+---
+
+## Spec-Anchored Acceptance Criteria (amended wording)
+
+| Criterion (WHEN X THEN Y) | Spec-defined outcome | `file:line` + assertion | Result |
+| ------------------------- | -------------------- | ----------------------- | ------ |
+| TPL-02 success → name + one summary line per **visible** top-level key, listing leaves under the normalized display name (label when present, else humanized key) | `Fantasy Template`; lines `Base armor class`, `Others: Proficiency bonus`, `Stats: Constitution, Dexterity`; `config`/`derived`/`modifiers` absent | `desktop/test/catalog/template_summary_test.dart:38` - `expect(summary.map((line) => line.name), ['Base armor class','Others','Stats'])`; `:44` - `expect(summary[1].members, ['Proficiency bonus'])`; `:45` - `expect(summary[2].members, ['Constitution','Dexterity'])`; `desktop/test/catalog/create_sheet_dialog_test.dart:109` - `expect(inDialog(find.text('Fantasy Template')), findsOneWidget)`; `:112` - `find.text('Base armor class')`; `:114` - `find.text('Stats: Dexterity, Constitution')`; `:117` - `expect(inDialog(find.textContaining('Config')), findsNothing)` | ✅ PASS |
+| TPL-03 a group lists every leaf beneath it **recursively**; a top-level leaf is its own line with **no members** | nested `outer` → `A value, B value, C value`; top-level leaf → members empty | `desktop/test/catalog/template_summary_test.dart:78` - `expect(summary.single.members, ['A value','B value','C value'])`; `:43` - `expect(summary[0].members, isEmpty)` (top-level leaf `baseArmorClass`); `:61` - `expect(summary[0].members, isEmpty)`; `:106` - `expect(summary[1].members, isEmpty)` (top-level leaf `zzz`) | ✅ PASS |
+| TPL-05 summary derived only from `FieldSchema`; reserved prefixes `config`/`derived`/`modifiers` omitted through a **single documented constant**; unknown prefixes still render | only `Stats` survives the reserved set; `attributeSet`/`zzz` render; zero template-prefix literals | `desktop/test/catalog/template_summary_test.dart:93` - `expect(summarizeFields(fields).map((line) => line.name), ['Stats'])`; `:104` - `expect(summary.map((line) => line.name), ['Attribute set','Zzz'])`; constant at `desktop/lib/catalog/template_summary.dart:13` - `const _hiddenGroups = {'config', 'derived', 'modifiers'};` (documented `:10–12`); grep over `desktop/lib/catalog/` finds those literals **only** in `_hiddenGroups` (plus the doc comment) | ✅ PASS |
+
+**Status (amend)**: ✅ All 3 amended ACs match the spec-defined outcome; no AC gap.
+
+### New Edge Cases (spec.md:134–140)
+
+- [x] **Empty `fields`** → localized "This template has no fields." line: `create_sheet_dialog_test.dart:157-160` - `expect(inDialog(find.text('This template has no fields.')), findsOneWidget)`; unit `template_summary_test.dart:82` - `expect(summarizeFields(<String, FieldNode>{}), isEmpty)`. *(The prior precision gap is resolved: the amend reworded spec.md:134 from "zero leaves" to "is empty", matching the implementation's `summary.isEmpty` check at `create_sheet_dialog.dart:146`.)*
+- [x] **Reserved prefix omitted**: unit `template_summary_test.dart:85-94`; widget `create_sheet_dialog_test.dart:135-149` (`Config`/`Derived`/`Modifiers` all `findsNothing`).
+- [x] **Group with no leaves** → name with no members: `template_summary_test.dart:136-143` - `expect(summary.single.name, 'Ghost')` + `expect(summary.single.members, isEmpty)`; render branch `create_sheet_dialog.dart:154-156` emits bare `line.name`.
+- [x] **Schema label preferred over humanized key**: `template_summary_test.dart:109-115` - `expect(summarizeFields(fields).single.members, ['Destreza'])` (key `dexterity`); blank-label fallback `:117-123` - `['Dexterity']`.
+- [x] **Top-level key holds a single leaf** → own line listing it: top-level leaf own line `template_summary_test.dart:43`/`:106`; group with one leaf `:44` - `['Proficiency bonus']`.
+- [x] **Two top-level keys share a leaf name** → independent lines: `template_summary_test.dart:145-156` - `expect(summary.map((line) => line.name), ['A','B'])` + each `members == ['Value']`.
+- [x] **Empty template name** → layout renders, no throw: `create_sheet_dialog_test.dart:164-176` - id key present + `find.text('Stats: Dexterity')`.
+
+## Regression check (TPL-01/04/06–15)
+
+Clean. The amend touched only `desktop/lib/catalog/template_summary.dart` and `desktop/lib/catalog/create_sheet_dialog.dart` plus their two test files (amend `--stat`); the provider (`template_detail_provider.dart`), navigation harness and all other surfaces are untouched. The full suite (202 passed / 4 skipped) still exercises the prior evidence, and the T1–T4 evidence citations above remain valid at their cited lines:
+- TPL-01/04/06–10 (provider lifecycle/errors): `desktop/test/catalog/template_detail_provider_test.dart` unchanged.
+- TPL-11/12/13/14/15 (input, disabled action, no-mutation, dismiss, fresh reopen): `create_sheet_dialog_test.dart:205-288`, `:360-428` still assert the same outcomes (assertions were updated only for the new summary text `Stats: Dexterity, Constitution`, not weakened).
+- Harness/navigation (CAT-15/16/17/18): `create_sheet_navigation_test.dart` / `app_boot_test.dart` unchanged by the amend.
+
+## Discrimination Sensor (amend)
+
+Scratch: temporary git worktree `/tmp/opencode/lgn97-sensor2` at `HEAD` (`717eb81`); mutations applied only there; removed with `git worktree remove --force`. Real worktree `git status --porcelain` matched the pre-sensor baseline before and after (untracked `.claude/`, `.cursor/`, `.windsurf/` skill dirs only).
+
+| Mutation | File:line | Description | Killed? |
+| -------- | --------- | ----------- | ------- |
+| 1 | `desktop/lib/catalog/template_summary.dart:13` | Removed `'derived'` from `_hiddenGroups` | ✅ Killed (3 failures: summary + dialog reserved-group tests, fantasy fixture) |
+| 2 | `desktop/lib/catalog/template_summary.dart:55` | Prefer humanized key even when a non-empty `schema.label` exists (`isNotEmpty` → `isEmpty`) | ✅ Killed (12 failures across both suites) |
+| 3 | `desktop/lib/catalog/template_summary.dart:48` | Dropped recursive descent in `_leaves` (`yield* _leaves(child.value)` → `continue`) | ✅ Killed (nested-group test failed) |
+
+**Sensor depth**: lightweight (3 targeted behavior-level mutations on the amended code)
+**Result (amend)**: 3/3 killed - PASS ✅
+
+## Gate Check (amend)
+
+- **Gate command**: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test` (T5 gate = Full)
+- **Result**: 202 passed, 0 failed, 4 skipped; `flutter analyze` → `No issues found!`
+- **Test count before amend**: 199 passed / 4 skipped
+- **Test count after amend**: 202 passed / 4 skipped
+- **Delta**: +3 (T5: 3 new, 12 updated — no test removed)
+- **Skipped tests**: same 4 pre-existing live-backend contract tests (`test/contract/live_contract_test.dart`) — unrelated.
+- **Failures**: none.
+
+## Code Quality (amend)
+
+| Principle | Status |
+| --------- | ------ |
+| Minimum code | ✅ (one presentation function + render branch; no new abstractions) |
+| Surgical changes | ✅ (only the two catalog files + their tests + spec docs) |
+| No scope creep | ✅ (`_hiddenGroups` is the single reserved constant the spec allows) |
+| Matches patterns | ✅ (pure function, doc comments English, no literals in widgets) |
+| Spec-anchored outcome check (asserted values match spec) | ✅ (3/3 amended ACs) |
+| Every test maps to a spec AC / edge case — no unclaimed tests | ✅ (11 unit + 18 widget all trace to TPL-02/03/05 and the 7 edge cases) |
+| Documented guidelines followed: `AGENTS.md`, `desktop/AGENTS.md` (schema-driven UI, no magic numbers, l10n strings, English) | ✅ |
+
+## Summary (amend)
+
+**Overall**: ✅ Ready
+
+**Spec-anchored check**: 3/3 amended ACs matched spec outcome | 0 gaps | 7/7 new edge cases covered
+**Sensor**: 3/3 mutations killed
+**Gate**: 202 passed, 0 failed, 4 skipped (delta +3)
+
+**What changed**: `FieldSummary` is now `({String name, List<String> members})`; `summarizeFields` filters the single documented `_hiddenGroups` constant and emits readable names (`schema.label` preferred, mechanical humanization fallback); `_leaves` recurses; a top-level leaf yields a bare name; the dialog renders `Name` / `Name: a, b` inside a `SingleChildScrollView`. The earlier empty-fields spec-precision gap is closed by the amend's reworded edge case.
+
+**Issues found**: none.
+
+**Next steps**: none — feature is verified (T1–T5).

@@ -149,10 +149,10 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
 | TPL-01 | P1: Detalhe do template on-demand com resumo | Design | Verified |
-| TPL-02 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
-| TPL-03 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
+| TPL-02 | P1: Detalhe do template on-demand com resumo | Design | Verified |
+| TPL-03 | P1: Detalhe do template on-demand com resumo | Design | Verified |
 | TPL-04 | P1: Detalhe do template on-demand com resumo | Design | Verified |
-| TPL-05 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
+| TPL-05 | P1: Detalhe do template on-demand com resumo | Design | Verified |
 | TPL-06 | P1: Detalhe do template on-demand com resumo | Design | Verified |
 | TPL-07 | P1: Estados de erro inline no diálogo | Design | Verified |
 | TPL-08 | P1: Estados de erro inline no diálogo | Design | Verified |
