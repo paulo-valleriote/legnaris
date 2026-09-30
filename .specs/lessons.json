@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 8,
+  "next_id": 9,
   "lessons": [
     {
       "id": "L-001",
@@ -130,6 +130,24 @@
       ],
       "created": "2026-09-30T19:10:10Z",
       "last_seen": "2026-09-30T19:10:10Z"
+    },
+    {
+      "id": "L-008",
+      "key": "spec_precision_gap::pin the exact trigger condition in the spec when an edge case bullet and the assumptions table describe the same condition at different precision",
+      "text": "Pin the exact trigger condition in the spec when an edge-case bullet and the assumptions table describe the same condition at different precision.",
+      "signal": "spec_precision_gap",
+      "scope": "desktop/catalog",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-template-detail-dialog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec.md:132 (desktop/catalog)"
+      ],
+      "created": "2026-09-30T20:29:35Z",
+      "last_seen": "2026-09-30T20:29:35Z"
     }
   ]
 }

@@ -143,21 +143,21 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| TPL-01 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
-| TPL-02 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
-| TPL-03 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
-| TPL-04 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
-| TPL-05 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
-| TPL-06 | P1: Detalhe do template on-demand com resumo | Design | Implementing |
-| TPL-07 | P1: Estados de erro inline no diálogo | Design | Implementing |
-| TPL-08 | P1: Estados de erro inline no diálogo | Design | Implementing |
-| TPL-09 | P1: Estados de erro inline no diálogo | Design | Implementing |
-| TPL-10 | P1: Estados de erro inline no diálogo | Design | Implementing |
-| TPL-11 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
-| TPL-12 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
-| TPL-13 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
-| TPL-14 | P1: Superfície de criação fiel ao wireframe | Design | Implementing |
-| TPL-15 | P2: Reabertura sempre fresca | Design | Implementing |
+| TPL-01 | P1: Detalhe do template on-demand com resumo | Design | Verified |
+| TPL-02 | P1: Detalhe do template on-demand com resumo | Design | Verified |
+| TPL-03 | P1: Detalhe do template on-demand com resumo | Design | Verified |
+| TPL-04 | P1: Detalhe do template on-demand com resumo | Design | Verified |
+| TPL-05 | P1: Detalhe do template on-demand com resumo | Design | Verified |
+| TPL-06 | P1: Detalhe do template on-demand com resumo | Design | Verified |
+| TPL-07 | P1: Estados de erro inline no diálogo | Design | Verified |
+| TPL-08 | P1: Estados de erro inline no diálogo | Design | Verified |
+| TPL-09 | P1: Estados de erro inline no diálogo | Design | Verified |
+| TPL-10 | P1: Estados de erro inline no diálogo | Design | Verified |
+| TPL-11 | P1: Superfície de criação fiel ao wireframe | Design | Verified |
+| TPL-12 | P1: Superfície de criação fiel ao wireframe | Design | Verified |
+| TPL-13 | P1: Superfície de criação fiel ao wireframe | Design | Verified |
+| TPL-14 | P1: Superfície de criação fiel ao wireframe | Design | Verified |
+| TPL-15 | P2: Reabertura sempre fresca | Design | Verified |
 
 **Coverage:** 15 requisitos no total, 15 mapeados 1:1 a critérios de aceite; 0 não mapeados.
 

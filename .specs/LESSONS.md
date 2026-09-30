@@ -56,6 +56,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: UAT T8 (1c886c3) (desktop/shell)
 - last seen: 2026-09-30T19:10:10Z
 
+### L-008 - Pin the exact trigger condition in the spec when an edge-case bullet and the assumptions table describe the same condition at different precision.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `desktop/catalog` · harmful: 0
+- features: front-end-phase-2-template-detail-dialog
+- evidence: spec.md:132 (desktop/catalog)
+- last seen: 2026-09-30T20:29:35Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

@@ -9,7 +9,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 ---
 
 **Design**: `.specs/features/front-end-phase-2-template-detail-dialog/design.md`
-**Status**: Approved
+**Status**: Done
 
 ---
 
