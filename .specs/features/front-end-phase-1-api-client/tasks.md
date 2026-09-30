@@ -300,12 +300,12 @@ T8 → T9
 
 **Done when**:
 
-- [ ] `flutter test` roda verde sem nenhuma API alcançável (FE1-32)
-- [ ] Fixture real capturada para cada um dos 6 endpoints + envelope de erro + par `{"data":{"stats":{"dexterity":16}}}` → resposta só com cascatas (FE1-33)
-- [ ] Alterar chave de uma fixture faz a suite falhar (drift detectado) — kill-confirm no scratch (FE1-34)
-- [ ] Captura feita de resposta real local, não escrita à mão (premissa da spec)
-- [ ] Gate check passa: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥ 8 testes de contrato (6 endpoints + envelope de erro + delta)
+- [x] `flutter test` roda verde sem nenhuma API alcançável (FE1-32)
+- [x] Fixture real capturada para cada um dos 6 endpoints + envelope de erro + par `{"data":{"stats":{"dexterity":16}}}` → resposta só com cascatas (FE1-33)
+- [x] Alterar chave de uma fixture faz a suite falhar (drift detectado) — kill-confirm no scratch (FE1-34)
+- [x] Captura feita de resposta real local, não escrita à mão (premissa da spec)
+- [x] Gate check passa: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: ≥ 8 testes de contrato (6 endpoints + envelope de erro + delta) — 8 testes
 
 **Tests**: unit
 **Gate**: full — `cd desktop && flutter analyze && flutter test`

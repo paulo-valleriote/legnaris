@@ -250,9 +250,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | FE1-29 | P1: Timeout e retry idempotente | Execute | Verified |
 | FE1-30 | P1: Timeout e retry idempotente | Execute | Verified |
 | FE1-31 | P1: Timeout e retry idempotente | Execute | Verified |
-| FE1-32 | P1: Fixtures do contrato real no CI | Execute | Pending |
-| FE1-33 | P1: Fixtures do contrato real no CI | Execute | Pending |
-| FE1-34 | P1: Fixtures do contrato real no CI | Execute | Pending |
+| FE1-32 | P1: Fixtures do contrato real no CI | Execute | Verified |
+| FE1-33 | P1: Fixtures do contrato real no CI | Execute | Verified |
+| FE1-34 | P1: Fixtures do contrato real no CI | Execute | Verified |
 | FE1-35 | P2: Contrato ao vivo self-skip | Execute | Pending |
 | FE1-36 | P2: Contrato ao vivo self-skip | Execute | Pending |
 | FE1-37 | P2: Contrato ao vivo self-skip | Execute | Pending |
