@@ -441,7 +441,7 @@ O backend já tem a stack Prometheus/Grafana/Loki versionada em `deploy/` — a 
 
 ## Apêndice — Wireframes (V1)
 
-Rascunhos de **baixa fidelidade** das telas da V1. A UI é dirigida por `FieldSchema`: grupos, labels e campos abaixo são exemplos com `fantasy_v1` — o conteúdo real vem do template carregado. Identidade visual (paleta, tipografia) é deliberadamente ausente: V2.
+Rascunhos de **baixa fidelidade** das telas da V1. A UI é dirigida por `FieldSchema`: grupos, labels e campos abaixo são exemplos com `fantasy_v1` — o conteúdo real vem do template carregado. Identidade visual (paleta, tipografia) é deliberadamente ausente: V2. As regras de construção (layout, densidade, tokens, interação) que governam estes wireframes estão em `desktop/AGENTS.md`.
 
 ### Tela 1 — Catálogo (home)
 
