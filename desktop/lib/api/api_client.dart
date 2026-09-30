@@ -21,6 +21,13 @@ class ApiClient {
     'content-type': 'application/json; charset=utf-8',
   };
 
+  /// Fail-fast timeout applied to every request attempt (FE1-28).
+  static const Duration requestTimeout = Duration(seconds: 5);
+
+  /// Fixed backoff before the single GET retry, transport failure only
+  /// (FE1-29). The policy is fixed by spec: POST/PATCH never retry.
+  static const Duration retryDelay = Duration(milliseconds: 300);
+
   final http.Client _httpClient;
   final ApiConfig _config;
 
@@ -72,13 +79,56 @@ class ApiClient {
 
   Uri _uri(String path) => _config.baseUrl.resolve(path);
 
-  Future<http.Response> _get(String path) => _httpClient.get(_uri(path));
+  /// GETs [path], retrying exactly once after [retryDelay] when the transport
+  /// itself fails (timeout, refused connection, DNS). A received response —
+  /// 4xx or 5xx included — ends the attempt and is mapped by the envelope
+  /// decoder (FE1-30). Once attempts are exhausted the failure becomes an
+  /// `offline` domain error (FE1-20).
+  Future<http.Response> _get(String path) async {
+    final uri = _uri(path);
+    try {
+      return await _attempt(uri);
+    } catch (_) {
+      await Future<void>.delayed(retryDelay);
+      try {
+        return await _attempt(uri);
+      } catch (error) {
+        throw _offline(error);
+      }
+    }
+  }
 
-  Future<http.Response> _post(String path, Map<String, Object?> body) =>
-      _httpClient.post(_uri(path), headers: _jsonHeaders, body: jsonEncode(body));
+  Future<http.Response> _attempt(Uri uri) =>
+      _httpClient.get(uri).timeout(requestTimeout);
 
-  Future<http.Response> _patch(String path, Map<String, Object?> body) =>
-      _httpClient.patch(_uri(path), headers: _jsonHeaders, body: jsonEncode(body));
+  Future<http.Response> _post(String path, Map<String, Object?> body) async {
+    final uri = _uri(path);
+    final encoded = jsonEncode(body);
+    try {
+      return await _httpClient
+          .post(uri, headers: _jsonHeaders, body: encoded)
+          .timeout(requestTimeout);
+    } catch (error) {
+      throw _offline(error);
+    }
+  }
+
+  Future<http.Response> _patch(String path, Map<String, Object?> body) async {
+    final uri = _uri(path);
+    final encoded = jsonEncode(body);
+    try {
+      return await _httpClient
+          .patch(uri, headers: _jsonHeaders, body: encoded)
+          .timeout(requestTimeout);
+    } catch (error) {
+      throw _offline(error);
+    }
+  }
+
+  ApiDomainException _offline(Object cause) => ApiDomainException(
+    message: 'transport failure: $cause',
+    kind: ApiErrorKind.offline,
+  );
 
   /// Decodes [response] through the single envelope decoder and wires the
   /// apperr mapper, so every domain error leaving the client carries its UI

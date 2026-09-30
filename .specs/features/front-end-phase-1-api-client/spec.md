@@ -246,10 +246,10 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | FE1-25 | P1: URL base hardcoded com override de dev | Execute | Verified |
 | FE1-26 | P1: URL base hardcoded com override de dev | Execute | Verified |
 | FE1-27 | P1: URL base hardcoded com override de dev | Execute | Verified |
-| FE1-28 | P1: Timeout e retry idempotente | Execute | Pending |
-| FE1-29 | P1: Timeout e retry idempotente | Execute | Pending |
-| FE1-30 | P1: Timeout e retry idempotente | Execute | Pending |
-| FE1-31 | P1: Timeout e retry idempotente | Execute | Pending |
+| FE1-28 | P1: Timeout e retry idempotente | Execute | Verified |
+| FE1-29 | P1: Timeout e retry idempotente | Execute | Verified |
+| FE1-30 | P1: Timeout e retry idempotente | Execute | Verified |
+| FE1-31 | P1: Timeout e retry idempotente | Execute | Verified |
 | FE1-32 | P1: Fixtures do contrato real no CI | Execute | Pending |
 | FE1-33 | P1: Fixtures do contrato real no CI | Execute | Pending |
 | FE1-34 | P1: Fixtures do contrato real no CI | Execute | Pending |

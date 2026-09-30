@@ -271,13 +271,13 @@ T8 → T9
 
 **Done when**:
 
-- [ ] Timeout de 5s por tentativa é o default (constante testada) e é aplicado a cada tentativa (FE1-28)
-- [ ] GET falhando no transporte repete **exatamente 1 vez** após 300ms — transport fake conta 2 chamadas (FE1-29)
-- [ ] GET com 4xx/5xx → 1 chamada só, erro mapeado imediato (FE1-30)
-- [ ] POST/PATCH falhando → 1 chamada só, sem retry por qualquer motivo (FE1-31)
-- [ ] Esgotadas as tentativas de transporte → erro com kind `offline` (FE1-20)
-- [ ] Gate check passa: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥ 7 testes (retry ok, retry esgotado, 4xx sem retry, 5xx sem retry, POST sem retry, PATCH sem retry, default 5s)
+- [x] Timeout de 5s por tentativa é o default (constante testada) e é aplicado a cada tentativa (FE1-28)
+- [x] GET falhando no transporte repete **exatamente 1 vez** após 300ms — transport fake conta 2 chamadas (FE1-29)
+- [x] GET com 4xx/5xx → 1 chamada só, erro mapeado imediato (FE1-30)
+- [x] POST/PATCH falhando → 1 chamada só, sem retry por qualquer motivo (FE1-31)
+- [x] Esgotadas as tentativas de transporte → erro com kind `offline` (FE1-20)
+- [x] Gate check passa: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: ≥ 7 testes (retry ok, retry esgotado, 4xx sem retry, 5xx sem retry, POST sem retry, PATCH sem retry, default 5s) — 9 testes
 
 **Tests**: unit
 **Gate**: full — `cd desktop && flutter analyze && flutter test`
