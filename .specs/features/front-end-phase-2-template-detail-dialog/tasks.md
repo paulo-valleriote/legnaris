@@ -78,11 +78,11 @@ T3 → T4
 
 **Done when**:
 
-- [ ] `fields` de `fantasy_v1` (fixture) → `[baseArmorClass:1, config:5, derived:2, modifiers:2, others:1, stats:2]` na ordem do JSON
-- [ ] Grupo conta folhas recursivamente; folha de topo conta 1; nó sem schema nem children conta 0
-- [ ] Nenhum literal `stats`/`modifiers`/`config`/`derived` no código — template sintético com prefixo inesperado renderiza (TPL-05)
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter test`
-- [ ] Test count: [N] novos testes; nenhum teste existente removido
+- [x] `fields` de `fantasy_v1` (fixture) → `[baseArmorClass:1, config:5, derived:2, modifiers:2, others:1, stats:2]` na ordem do JSON
+- [x] Grupo conta folhas recursivamente; folha de topo conta 1; nó sem schema nem children conta 0
+- [x] Nenhum literal `stats`/`modifiers`/`config`/`derived` no código — template sintético com prefixo inesperado renderiza (TPL-05)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter test`
+- [x] Test count: 9 novos testes (suíte 179 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: unit
 **Gate**: quick
