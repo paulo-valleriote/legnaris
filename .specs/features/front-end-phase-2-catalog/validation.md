@@ -5,7 +5,7 @@
 **Diff range**: `main..HEAD` (spec/design/tasks + 6 feat commits `ece20ed`…`eaa575f` + fix `4929b46` + post-UAT fix `1c886c3`)
 **Verifier**: independent sub-agent (re-verification 1/3, author ≠ verifier); post-UAT fix cycle by the orchestrator
 
-**Verdict**: PASS ✅ — the round-1 gap is closed. The previously surviving mutant (`>=` → `>` at the panel-collapse threshold) is now killed by the exact-boundary test added in fix `4929b46`; all 3 sensor mutations die, the Build gate passes 154/154, and all 19 ACs carry evidence that meets the spec-defined outcome (2 spec-precision flags carried over — non-failing). Interactive UAT then ran (human reviewer): functional behavior confirmed correct, **visual rendering rejected (Major)** → fix cycle T8 applied in `1c886c3` and re-verified (analyze 0, 162/162, after-goldens reviewed) — see Interactive UAT Results and Fix 2 below.
+**Verdict**: PASS ✅ — the round-1 gap is closed. The previously surviving mutant (`>=` → `>` at the panel-collapse threshold) is now killed by the exact-boundary test added in fix `4929b46`; all 3 sensor mutations die, the Build gate passes 154/154, and all 19 ACs carry evidence that meets the spec-defined outcome (2 spec-precision flags carried over — non-failing). Interactive UAT then ran (human reviewer): functional behavior confirmed correct, **visual rendering rejected (Major)** → fix cycle T8 applied in `1c886c3` and re-verified (analyze 0, 162/162, after-goldens reviewed), then **accepted on re-review** ("dentro do que eu queria para as primeiras fases") — see Interactive UAT Results and Fix 2 below.
 
 ---
 
@@ -102,6 +102,12 @@ Performed by the human maintainer on the running desktop app (PR #46). Verbatim 
 | 3 | Functional correctness | ✅ Confirmed by reviewer | All 19 ACs green before the fix; the fix changed rendering only (suite 162 green, no assertion weakened) |
 
 Fix applied in `1c886c3` (T8); re-verified per the fix→re-verify protocol (iteration 1 of max 3): gates green, regression sensors added, before/after goldens reviewed against the `desktop/AGENTS.md` Critical Layout Review checklist.
+
+**Re-review (post-fix)**: ✅ **accepted** by the maintainer —
+
+> Agora sim, ainda está um pouco cru mas dentro do que eu queria para as primeiras fases
+
+Visual pass granted for the first phases; residual roughness noted as non-blocking and within V1 scope. No further fix cycle required.
 
 ---
 
@@ -213,6 +219,6 @@ Verifier is read-only on the real worktree (mandate: only `validation.md` may be
 
 **Issues found**: 2 spec-precision flags (CAT-08 copy, CAT-19 placement) carried as ⚠️ — spec hygiene, no code change required; already grounded as L-003/L-004. Post-UAT visual defects (Major) fixed and re-verified; grounded as L-005/L-006/L-007.
 
-**Next steps**: reviewer re-runs the desktop app against the T8 fix (visual confirmation), then merge PR #46 and transition LGN-96 (outside this agent's allowed scope).
+**Next steps**: UAT accepted post-fix (see Interactive UAT Results) — feature done from the agent's side. Merging PR #46 and transitioning LGN-96 remain with the maintainer (outside this agent's allowed scope).
 
 **Closing gate**: `python3 .claude/skills/tlc-spec-driven/scripts/validate_state.py .specs/features/front-end-phase-2-catalog` exits 0 against this report.
