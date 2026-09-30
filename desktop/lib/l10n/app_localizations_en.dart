@@ -34,4 +34,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get errorParse =>
+      'The server sent an unexpected response. Please try again.';
+
+  @override
+  String get appTitle => 'Legnaris';
+
+  @override
+  String get navCatalog => 'Catalog';
+
+  @override
+  String get sectionConnection => 'Connection';
+
+  @override
+  String get sectionCatalog => 'Catalog';
+
+  @override
+  String catalogCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count templates',
+      one: '1 template',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String catalogLastUpdated(String time) {
+    return 'Last updated $time';
+  }
+
+  @override
+  String get catalogLoading => 'Loading templates...';
+
+  @override
+  String get catalogEmpty => 'No templates available yet';
+
+  @override
+  String get actionRetry => 'Retry';
+
+  @override
+  String get catalogCreateAction => 'Create sheet';
+
+  @override
+  String get createSheetTitle => 'Create sheet';
+
+  @override
+  String get createSheetTemplateLabel => 'Template';
+
+  @override
+  String get actionClose => 'Close';
 }

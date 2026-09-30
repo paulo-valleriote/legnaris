@@ -26,5 +26,71 @@
   "errorUnknown": "Something went wrong. Please try again.",
   "@errorUnknown": {
     "description": "Generic fallback copy for ApiErrorKind.unknown (unmapped apperr codes)."
+  },
+  "errorParse": "The server sent an unexpected response. Please try again.",
+  "@errorParse": {
+    "description": "Defensive copy for parse failures: broken JSON, a missing data key, or a payload that does not match the expected model (CAT-14)."
+  },
+  "appTitle": "Legnaris",
+  "@appTitle": {
+    "description": "App title shown in the shell header."
+  },
+  "navCatalog": "Catalog",
+  "@navCatalog": {
+    "description": "Left navigation entry for the template catalog."
+  },
+  "sectionConnection": "Connection",
+  "@sectionConnection": {
+    "description": "Right panel section reserved for the connection indicator."
+  },
+  "sectionCatalog": "Catalog",
+  "@sectionCatalog": {
+    "description": "Right panel section showing catalog statistics."
+  },
+  "catalogCount": "{count, plural, =1{1 template} other{{count} templates}}",
+  "@catalogCount": {
+    "description": "Number of loaded templates shown in the right panel.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "catalogLastUpdated": "Last updated {time}",
+  "@catalogLastUpdated": {
+    "description": "Time of the last successful catalog load shown in the right panel.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "catalogLoading": "Loading templates...",
+  "@catalogLoading": {
+    "description": "Loading state of the catalog screen while the first request is in flight (CAT-08)."
+  },
+  "catalogEmpty": "No templates available yet",
+  "@catalogEmpty": {
+    "description": "Single line rendered by the empty catalog state; no decorative art (CAT-10)."
+  },
+  "actionRetry": "Retry",
+  "@actionRetry": {
+    "description": "Action that re-issues the catalog request from an error state (CAT-11, CAT-12)."
+  },
+  "catalogCreateAction": "Create sheet",
+  "@catalogCreateAction": {
+    "description": "Card action that opens the creation dialog for that template (wireframe 'criar ficha')."
+  },
+  "createSheetTitle": "Create sheet",
+  "@createSheetTitle": {
+    "description": "Title of the creation dialog opened from a catalog entry (CAT-15)."
+  },
+  "createSheetTemplateLabel": "Template",
+  "@createSheetTemplateLabel": {
+    "description": "Label above the template id shown in the creation dialog (CAT-15)."
+  },
+  "actionClose": "Close",
+  "@actionClose": {
+    "description": "Action that dismisses the creation dialog back to the catalog (CAT-16)."
   }
 }

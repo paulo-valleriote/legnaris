@@ -135,6 +135,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get errorUnknown;
+
+  /// Defensive copy for parse failures: broken JSON, a missing data key, or a payload that does not match the expected model (CAT-14).
+  ///
+  /// In en, this message translates to:
+  /// **'The server sent an unexpected response. Please try again.'**
+  String get errorParse;
+
+  /// App title shown in the shell header.
+  ///
+  /// In en, this message translates to:
+  /// **'Legnaris'**
+  String get appTitle;
+
+  /// Left navigation entry for the template catalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog'**
+  String get navCatalog;
+
+  /// Right panel section reserved for the connection indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get sectionConnection;
+
+  /// Right panel section showing catalog statistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog'**
+  String get sectionCatalog;
+
+  /// Number of loaded templates shown in the right panel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 template} other{{count} templates}}'**
+  String catalogCount(int count);
+
+  /// Time of the last successful catalog load shown in the right panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Last updated {time}'**
+  String catalogLastUpdated(String time);
+
+  /// Loading state of the catalog screen while the first request is in flight (CAT-08).
+  ///
+  /// In en, this message translates to:
+  /// **'Loading templates...'**
+  String get catalogLoading;
+
+  /// Single line rendered by the empty catalog state; no decorative art (CAT-10).
+  ///
+  /// In en, this message translates to:
+  /// **'No templates available yet'**
+  String get catalogEmpty;
+
+  /// Action that re-issues the catalog request from an error state (CAT-11, CAT-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get actionRetry;
+
+  /// Card action that opens the creation dialog for that template (wireframe 'criar ficha').
+  ///
+  /// In en, this message translates to:
+  /// **'Create sheet'**
+  String get catalogCreateAction;
+
+  /// Title of the creation dialog opened from a catalog entry (CAT-15).
+  ///
+  /// In en, this message translates to:
+  /// **'Create sheet'**
+  String get createSheetTitle;
+
+  /// Label above the template id shown in the creation dialog (CAT-15).
+  ///
+  /// In en, this message translates to:
+  /// **'Template'**
+  String get createSheetTemplateLabel;
+
+  /// Action that dismisses the creation dialog back to the catalog (CAT-16).
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get actionClose;
 }
 
 class _AppLocalizationsDelegate

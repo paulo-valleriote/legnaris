@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 2,
+  "next_id": 8,
   "lessons": [
     {
       "id": "L-001",
@@ -22,6 +22,114 @@
       ],
       "created": "2026-09-29T23:53:10Z",
       "last_seen": "2026-09-29T23:53:10Z"
+    },
+    {
+      "id": "L-002",
+      "key": "surviving_mutant::pin layout conditional behavior at the exact derived threshold width in addition to above and below it or off by one mutants survive",
+      "text": "Pin layout-conditional behavior at the exact derived threshold width in addition to above and below it, or off-by-one mutants survive",
+      "signal": "surviving_mutant",
+      "scope": "desktop/shell",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "M2 (desktop/shell)"
+      ],
+      "created": "2026-09-30T17:57:30Z",
+      "last_seen": "2026-09-30T17:57:30Z"
+    },
+    {
+      "id": "L-003",
+      "key": "spec_precision_gap::when an ac requires loading and empty states to be distinct pin the copy source arb key in the spec so the rendered text assertion is anchored",
+      "text": "When an AC requires loading and empty states to be distinct, pin the copy source (arb key) in the spec so the rendered-text assertion is anchored",
+      "signal": "spec_precision_gap",
+      "scope": "desktop/catalog",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "CAT-08 (desktop/catalog)"
+      ],
+      "created": "2026-09-30T17:57:30Z",
+      "last_seen": "2026-09-30T17:57:30Z"
+    },
+    {
+      "id": "L-004",
+      "key": "spec_precision_gap::when a spec requires an error message to show inline pin its placement relative to the data it annotates",
+      "text": "When a spec requires an error message to show inline, pin its placement relative to the data it annotates",
+      "signal": "spec_precision_gap",
+      "scope": "desktop/catalog",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "CAT-19 (desktop/catalog)"
+      ],
+      "created": "2026-09-30T17:57:30Z",
+      "last_seen": "2026-09-30T17:57:30Z"
+    },
+    {
+      "id": "L-005",
+      "key": "spec_deviation::seed the app colorscheme explicitly at themedata construction material 3 s default scheme is a purple baseline that tints every neutral and reads as the banned ai saas aesthetic",
+      "text": "Seed the app ColorScheme explicitly at ThemeData construction — Material 3's default scheme is a purple baseline that tints every neutral and reads as the banned AI-SaaS aesthetic",
+      "signal": "spec_deviation",
+      "scope": "desktop/theme",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "UAT T8 (1c886c3) (desktop/theme)"
+      ],
+      "created": "2026-09-30T19:10:10Z",
+      "last_seen": "2026-09-30T19:10:10Z"
+    },
+    {
+      "id": "L-006",
+      "key": "spec_deviation::mount the app shell in a scaffold a bare column leaves the window unpainted and drops unstyled text into materialapp s 48px red errortextstyle fallback",
+      "text": "Mount the app shell in a Scaffold — a bare Column leaves the window unpainted and drops unstyled Text into MaterialApp's 48px red _errorTextStyle fallback",
+      "signal": "spec_deviation",
+      "scope": "desktop/shell",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "UAT T8 (1c886c3) (desktop/shell)"
+      ],
+      "created": "2026-09-30T19:10:10Z",
+      "last_seen": "2026-09-30T19:10:10Z"
+    },
+    {
+      "id": "L-007",
+      "key": "spec_deviation::lay out fixed height children under a stretch row inside an align that loosens the incoming tight height or the child inflates past its row token",
+      "text": "Lay out fixed-height children under a stretch Row inside an Align that loosens the incoming tight height, or the child inflates past its row token",
+      "signal": "spec_deviation",
+      "scope": "desktop/shell",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "UAT T8 (1c886c3) (desktop/shell)"
+      ],
+      "created": "2026-09-30T19:10:10Z",
+      "last_seen": "2026-09-30T19:10:10Z"
     }
   ]
 }
