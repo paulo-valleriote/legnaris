@@ -34,4 +34,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get errorParse =>
+      'The server sent an unexpected response. Please try again.';
 }

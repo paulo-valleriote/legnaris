@@ -115,17 +115,17 @@ T5 → T6
 
 **Done when**:
 
-- [ ] Primeiro read dispara exatamente 1 `GET /templates` e fica em loading até resolver (CAT-07)
-- [ ] Sucesso grava lista na ordem da API + `lastUpdated` (CAT-09); lista vazia → estado vazio (CAT-10)
-- [ ] Falha de domínio → copy mapeada (CAT-11); payload malformado/chave `data` ausente → copy `errorParse` (CAT-14 + edge)
-- [ ] Single-flight: gatilho durante voo = 0 chamadas novas (CAT-13); Retry = exatamente 1 (CAT-12)
-- [ ] Refresh falho mantém lista cacheada + `errorMessage` (CAT-19); F5-sucesso substitui (CAT-18)
-- [ ] `flutter pub get` + `dart run build_runner build --delete-conflicting-outputs` executados e `.g.dart` commitados
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
-- [ ] Test count: ≥14 novos testes; nenhum teste existente removido
+- [x] Primeiro read dispara exatamente 1 `GET /templates` e fica em loading até resolver (CAT-07)
+- [x] Sucesso grava lista na ordem da API + `lastUpdated` (CAT-09); lista vazia → estado vazio (CAT-10)
+- [x] Falha de domínio → copy mapeada (CAT-11); payload malformado/chave `data` ausente → copy `errorParse` (CAT-14 + edge)
+- [x] Single-flight: gatilho durante voo = 0 chamadas novas (CAT-13); Retry = exatamente 1 (CAT-12)
+- [x] Refresh falho mantém lista cacheada + `errorMessage` (CAT-19); F5-sucesso substitui (CAT-18)
+- [x] `flutter pub get` + `dart run build_runner build --delete-conflicting-outputs` executados e `.g.dart` commitados
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
+- [x] Test count: 17 novos testes; nenhum teste existente removido
 
 **Tests**: unit
-**Gate**: build
+**Gate**: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
 **Commit**: `feat(LGN-96): add catalog provider with in-memory cache and single-flight`
 
 ---

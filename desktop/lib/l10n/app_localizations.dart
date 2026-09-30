@@ -135,6 +135,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get errorUnknown;
+
+  /// Defensive copy for parse failures: broken JSON, a missing data key, or a payload that does not match the expected model (CAT-14).
+  ///
+  /// In en, this message translates to:
+  /// **'The server sent an unexpected response. Please try again.'**
+  String get errorParse;
 }
 
 class _AppLocalizationsDelegate

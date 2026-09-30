@@ -152,19 +152,19 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | CAT-04 | P1: Shell desktop e tema único | Design | Pending |
 | CAT-05 | P1: Shell desktop e tema único | Design | Pending |
 | CAT-06 | P1: Shell desktop e tema único | Design | Pending |
-| CAT-07 | P1: Lista de templates com estados | Design | Pending |
+| CAT-07 | P1: Lista de templates com estados | Design | Verified |
 | CAT-08 | P1: Lista de templates com estados | Design | Pending |
-| CAT-09 | P1: Lista de templates com estados | Design | Pending |
-| CAT-10 | P1: Lista de templates com estados | Design | Pending |
-| CAT-11 | P1: Lista de templates com estados | Design | Pending |
-| CAT-12 | P1: Lista de templates com estados | Design | Pending |
-| CAT-13 | P1: Lista de templates com estados | Design | Pending |
-| CAT-14 | P1: Lista de templates com estados | Design | Pending |
+| CAT-09 | P1: Lista de templates com estados | Design | Verified |
+| CAT-10 | P1: Lista de templates com estados | Design | Verified |
+| CAT-11 | P1: Lista de templates com estados | Design | Verified |
+| CAT-12 | P1: Lista de templates com estados | Design | Verified |
+| CAT-13 | P1: Lista de templates com estados | Design | Verified |
+| CAT-14 | P1: Lista de templates com estados | Design | Verified |
 | CAT-15 | P1: Navegação rasa Catálogo → diálogo | Design | Pending |
 | CAT-16 | P1: Navegação rasa Catálogo → diálogo | Design | Pending |
 | CAT-17 | P1: Navegação rasa Catálogo → diálogo | Design | Pending |
-| CAT-18 | P2: Refresh do catálogo (F5) | Design | Pending |
-| CAT-19 | P2: Refresh do catálogo (F5) | Design | Pending |
+| CAT-18 | P2: Refresh do catálogo (F5) | Design | Verified |
+| CAT-19 | P2: Refresh do catálogo (F5) | Design | Verified |
 
 **Coverage:** 19 requisitos no total, 19 mapeados 1:1 a critérios de aceite; 0 não mapeados.
 

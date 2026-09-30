@@ -26,5 +26,9 @@
   "errorUnknown": "Something went wrong. Please try again.",
   "@errorUnknown": {
     "description": "Generic fallback copy for ApiErrorKind.unknown (unmapped apperr codes)."
+  },
+  "errorParse": "The server sent an unexpected response. Please try again.",
+  "@errorParse": {
+    "description": "Defensive copy for parse failures: broken JSON, a missing data key, or a payload that does not match the expected model (CAT-14)."
   }
 }
