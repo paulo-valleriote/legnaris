@@ -233,15 +233,15 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | FE1-12 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Pending |
 | FE1-13 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Pending |
 | FE1-14 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Pending |
-| FE1-15 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
-| FE1-16 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
-| FE1-17 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
-| FE1-18 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
-| FE1-19 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
-| FE1-20 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
-| FE1-21 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
+| FE1-15 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
+| FE1-16 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
+| FE1-17 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
+| FE1-18 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
+| FE1-19 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
+| FE1-20 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
+| FE1-21 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
 | FE1-22 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
-| FE1-23 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
+| FE1-23 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
 | FE1-24 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Verified |
 | FE1-25 | P1: URL base hardcoded com override de dev | Execute | Verified |
 | FE1-26 | P1: URL base hardcoded com override de dev | Execute | Verified |

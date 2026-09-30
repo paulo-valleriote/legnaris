@@ -1,0 +1,30 @@
+{
+  "errorClientFault": "Something went wrong with the request. Please report this issue.",
+  "@errorClientFault": {
+    "description": "User-facing copy for ApiErrorKind.clientFault (apperr INVALID_JSON)."
+  },
+  "errorInvalidEdit": "This edit is not valid. The field was not changed.",
+  "@errorInvalidEdit": {
+    "description": "User-facing copy for ApiErrorKind.invalidEdit (apperr INVALID_REQUEST)."
+  },
+  "errorRenderMismatch": "The form does not match the template schema. Your changes were reverted.",
+  "@errorRenderMismatch": {
+    "description": "User-facing copy for ApiErrorKind.renderMismatch (apperr UNKNOWN_FIELD)."
+  },
+  "errorNotFound": "The requested item was not found.",
+  "@errorNotFound": {
+    "description": "User-facing copy for ApiErrorKind.notFound (apperr NOT_FOUND)."
+  },
+  "errorServerError": "The server had a problem. Please try again later.",
+  "@errorServerError": {
+    "description": "User-facing copy for ApiErrorKind.serverError (apperr INTERNAL_ERROR)."
+  },
+  "errorOffline": "You are offline. Check your connection and try again.",
+  "@errorOffline": {
+    "description": "User-facing copy for ApiErrorKind.offline (transport failure after retries)."
+  },
+  "errorUnknown": "Something went wrong. Please try again.",
+  "@errorUnknown": {
+    "description": "Generic fallback copy for ApiErrorKind.unknown (unmapped apperr codes)."
+  }
+}

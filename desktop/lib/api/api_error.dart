@@ -1,14 +1,21 @@
 /// Failures surfaced by the API client while decoding responses.
 library;
 
+import 'package:legnaris/api/error_mapper.dart';
+
 /// Domain error produced when a 4xx/5xx response carries a valid error
 /// envelope `{"error": {"code", "message"}}` (FE1-03).
 ///
 /// Carries the HTTP status, the raw `apperr` code and the server message so
-/// logging never has to redo the call (FE1-24). The UI-facing [kind] is
-/// attached by the apperr mapper.
+/// logging never has to redo the call (FE1-24), plus the UI-facing [kind]
+/// assigned by the apperr mapper (FE1-15 … FE1-21).
 class ApiDomainException implements Exception {
-  const ApiDomainException({this.statusCode, this.code, required this.message});
+  const ApiDomainException({
+    this.statusCode,
+    this.code,
+    required this.message,
+    this.kind = ApiErrorKind.unknown,
+  });
 
   /// HTTP status of the response, when one was received.
   final int? statusCode;
@@ -19,8 +26,13 @@ class ApiDomainException implements Exception {
   /// Message reported by the server.
   final String message;
 
+  /// UI failure class this error maps to; defaults to
+  /// [ApiErrorKind.unknown] until the apperr mapper assigns one.
+  final ApiErrorKind kind;
+
   @override
-  String toString() => 'ApiDomainException($statusCode, $code): $message';
+  String toString() =>
+      'ApiDomainException($statusCode, $code, ${kind.name}): $message';
 }
 
 /// Defensive parse failure: the body does not match the expected envelope —

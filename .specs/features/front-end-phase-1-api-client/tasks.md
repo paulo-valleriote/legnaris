@@ -157,12 +157,12 @@ T8 → T9
 
 **Done when**:
 
-- [ ] Cada código mapeia ao kind da tabela: `INVALID_JSON`→`clientFault`, `INVALID_REQUEST`→`invalidEdit`, `UNKNOWN_FIELD`→`renderMismatch`, `NOT_FOUND`→`notFound`, `INTERNAL_ERROR`→`serverError` (FE1-15…19)
-- [ ] Falha de transporte esgotada → `offline` (FE1-20 — a classificação em si é ligada no T7; aqui o kind e a copy existem)
-- [ ] Código fora da tabela (`CONFLICT`, `CYCLE_DETECTED`, `UNAUTHORIZED`…) → kind `unknown` com fallback genérico, preservando código cru e message no objeto de erro (FE1-21)
-- [ ] Camada de localização com `en` como única locale resolve toda a copy por kind — nenhum literal de UI hardcoded (FE1-23)
-- [ ] Gate check passa: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥ 10 testes (5 códigos + offline + fallback + 2 formatos de copy + ausência de literal)
+- [x] Cada código mapeia ao kind da tabela: `INVALID_JSON`→`clientFault`, `INVALID_REQUEST`→`invalidEdit`, `UNKNOWN_FIELD`→`renderMismatch`, `NOT_FOUND`→`notFound`, `INTERNAL_ERROR`→`serverError` (FE1-15…19)
+- [x] Falha de transporte esgotada → `offline` (FE1-20 — a classificação em si é ligada no T7; aqui o kind e a copy existem)
+- [x] Código fora da tabela (`CONFLICT`, `CYCLE_DETECTED`, `UNAUTHORIZED`…) → kind `unknown` com fallback genérico, preservando código cru e message no objeto de erro (FE1-21)
+- [x] Camada de localização com `en` como única locale resolve toda a copy por kind — nenhum literal de UI hardcoded (FE1-23)
+- [x] Gate check passa: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: ≥ 10 testes (5 códigos + offline + fallback + 2 formatos de copy + ausência de literal) — 11 testes
 
 **Tests**: unit
 **Gate**: build — `cd desktop && flutter analyze && flutter test` (T3 toca pubspec/codegen de l10n)
