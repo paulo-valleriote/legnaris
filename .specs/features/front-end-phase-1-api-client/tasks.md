@@ -100,12 +100,12 @@ T8 → T9
 
 **Done when**:
 
-- [ ] Sem flag, a base é `https://api.legnaris.com.br` (FE1-25)
-- [ ] Com `API_BASE_URL` definida, ela prevalece em qualquer build mode (FE1-26)
-- [ ] Override vazio cai no default; base não-absolute (`api:8080`, `ftp://x`, sem esquema) lança erro de configuração **antes** de qualquer requisição (FE1-27 + edge da spec)
-- [ ] `http://` só entra por override explícito (default é https — TLS obrigatório)
-- [ ] Gate check passa: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥ 5 testes passando (default, override https, override http, vazio→default, malformado→erro)
+- [x] Sem flag, a base é `https://api.legnaris.com.br` (FE1-25)
+- [x] Com `API_BASE_URL` definida, ela prevalece em qualquer build mode (FE1-26)
+- [x] Override vazio cai no default; base não-absolute (`api:8080`, `ftp://x`, sem esquema) lança erro de configuração **antes** de qualquer requisição (FE1-27 + edge da spec)
+- [x] `http://` só entra por override explícito (default é https — TLS obrigatório)
+- [x] Gate check passa: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: ≥ 5 testes passando (default, override https, override http, vazio→default, malformado→erro) — 9 testes
 
 **Tests**: unit
 **Gate**: full — `cd desktop && flutter analyze && flutter test`

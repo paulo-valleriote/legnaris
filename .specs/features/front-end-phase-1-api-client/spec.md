@@ -243,9 +243,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | FE1-22 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
 | FE1-23 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
 | FE1-24 | P1: Mapeamento `apperr` → erro de domínio da UI | Execute | Pending |
-| FE1-25 | P1: URL base hardcoded com override de dev | Execute | Pending |
-| FE1-26 | P1: URL base hardcoded com override de dev | Execute | Pending |
-| FE1-27 | P1: URL base hardcoded com override de dev | Execute | Pending |
+| FE1-25 | P1: URL base hardcoded com override de dev | Execute | Verified |
+| FE1-26 | P1: URL base hardcoded com override de dev | Execute | Verified |
+| FE1-27 | P1: URL base hardcoded com override de dev | Execute | Verified |
 | FE1-28 | P1: Timeout e retry idempotente | Execute | Pending |
 | FE1-29 | P1: Timeout e retry idempotente | Execute | Pending |
 | FE1-30 | P1: Timeout e retry idempotente | Execute | Pending |
