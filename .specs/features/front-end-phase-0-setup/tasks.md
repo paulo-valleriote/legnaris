@@ -9,7 +9,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 ---
 
 **Design**: none (escopo Medium — decisões inline na `spec.md`, premissas aprovadas)
-**Status**: In Progress
+**Status**: Done
 
 **Commit atomicidade (FE0-07)**: T2 e T3 empacotam num **commit único** — o primeiro commit que introduz `desktop/` já chega com o CI completo ("nunca um `desktop/` sem CI"). T1, T4, T5 e T6 têm commits próprios.
 

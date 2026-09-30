@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 2,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "surviving_mutant::assert provider driven widget values against a provider override with a distinct value never a literal the widget could hardcode",
+      "text": "Assert provider-driven widget values against a provider override with a distinct value, never a literal the widget could hardcode.",
+      "signal": "surviving_mutant",
+      "scope": "desktop",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-0-setup"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "desktop/test/widget_test.dart:11 (desktop)"
+      ],
+      "created": "2026-09-29T23:53:10Z",
+      "last_seen": "2026-09-29T23:53:10Z"
+    }
+  ]
+}
