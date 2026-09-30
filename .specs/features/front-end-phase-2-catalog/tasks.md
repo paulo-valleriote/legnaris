@@ -69,6 +69,14 @@ Diálogo de criação (navegação rasa), registry de atalhos (F5/Esc) e ligaç�
 T5 → T6
 ```
 
+### Phase 4: Fix (discrimination sensor)
+
+Gap apontado pelo Verifier (FAIL): mutant `>=` → `>` sobreviveu porque nenhum teste exercita o valor de fronteira exato do limiar de colapso do painel; a derivação também ignorava os dois hairlines do Row.
+
+```
+T3 → T7
+```
+
 ---
 
 ## Task Breakdown
@@ -146,7 +154,7 @@ T5 → T6
 **Done when**:
 
 - [x] Shell renderiza nav/header/conteúdo/painel (CAT-01); larguras = tokens 220/300, dentro das faixas da spec (CAT-02)
-- [x] Janela < 1000px → painel some antes de qualquer sobreposição da nav; restaurar → painel volta sem novo request (CAT-03 + edge)
+- [x] Janela < `shellMinWidthWithPanel` (1002px, derivado) → painel some antes de qualquer sobreposição da nav; restaurar → painel volta sem novo request (CAT-03 + edge)
 - [x] Exatamente 1 entrada de nav com styling de ativo derivado de `ShellSurface` (CAT-04)
 - [x] Header com título l10n + `Key('connection-indicator-slot')` reservado (CAT-05)
 - [x] Painel: bloco Connection + slot, hairline, bloco Catalog com contagem e última atualização só quando existir (CAT-06)
@@ -243,21 +251,50 @@ T5 → T6
 
 ---
 
+### T7: Pin the panel collapse boundary and honest threshold derivation
+
+**What**: Incluir os dois hairlines de 1px do shell row na derivação de `shellMinWidthWithPanel` (`leftNavWidth + contentMinWidth + rightPanelWidth + 2 * hairline` → 1002), de forma que exatamente no limiar a área de conteúdo senta no mínimo de 480px; trocar os viewports hardcodados (999) por `shellMinWidthWithPanel - 1` e acrescentar o teste de fronteira exato (limiar → painel visível, nav intacta, conteúdo ≥ mínimo) — o valor de fronteira que mata o mutant sobrevivente (`>=` → `>`). Atualizar a fórmula esperada em `tokens_test.dart` e a anotação do limiar em `design.md`.
+**Where**: `desktop/lib/theme/tokens.dart`
+**Depends on**: T3
+**Reuses**: tokens da T1 (`hairline`, `contentMinWidth`), `dividerTheme.space = hairline` da T1 (cada `VerticalDivider` ocupa 1px), harness de viewport de `app_shell_test.dart`
+**Requirement**: CAT-03
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [x] `shellMinWidthWithPanel` = 1002 = 220 + 480 + 300 + 2 × hairline; fórmula derivada atualizada em `tokens_test.dart` (limiar segue derivado — sem número mágico)
+- [x] Teste de fronteira: exatamente no limiar → `RightPanel` visível, largura da nav = token, largura do conteúdo ≥ `contentMinWidth - 2 * AppSpacing.lg`; em `limiar - 1` → painel some (viewports derivados do token, sem 999 hardcodado)
+- [x] O mutant `>=` → `>` em `app_shell.dart:29` agora falha a suíte (sensor mata na re-verificação)
+- [x] `design.md` sem referência stale ao limiar 1000
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test` (analyze: 0 issues)
+- [x] Test count: 1 novo (boundary) + 2 atualizados (viewports tokenizados); suíte 154 passed / 4 skipped (auto-skip de contrato da Fase 1); nenhum teste removido
+
+**Tests**: widget
+**Gate**: full
+**Commit**: `fix(LGN-96): include hairline dividers in panel collapse threshold`
+
+---
+
 ## Phase Execution Map
 
 ```
-Phase 1 → Phase 2 → Phase 3
+Phase 1 → Phase 2 → Phase 3 → Phase 4
 
 Phase 1:  T1   T2   (independentes)
 Phase 2:  T3 → T4
 Phase 3:  T5 → T6
+Phase 4:  T3 → T7   (fix loop pós-Verifier)
 
 T1 → T3
 T2 → T3
 T4 → T5
 ```
 
-As três últimas linhas são as arestas entre phases (Phase 1 → Phase 2 e Phase 2 → Phase 3); cada seta do bloco corresponde a um `Depends on` declarado no corpo da task apontada.
+As arestas entre phases aparecem nas linhas `T1 → T3`, `T2 → T3`, `T4 → T5` e na linha da Phase 4 (`T3 → T7`); cada seta do bloco corresponde a um `Depends on` declarado no corpo da task apontada. T7 foi acrescentada pelo ciclo fix→re-verificar do Verifier (1 iteração de 3).
 
 Execution is strictly sequential - there is no intra-phase parallelism. A single agent (or batch worker) works one task at a time, in order.
 
@@ -285,6 +322,7 @@ At Execute, the agent counts total tasks and packs phases into **task-budgeted b
 | T4: Add catalog screen with loading, empty and error states | 1 componente (tela) | ✅ Granular |
 | T5: Add creation dialog with shallow navigation | 1 componente (diálogo) + fluxo de abertura | ✅ Granular |
 | T6: Add shortcut registry and final app wiring | 1 registry + wiring do `main.dart` | ✅ Granular |
+| T7: Pin the panel collapse boundary and honest threshold derivation | 1 token derivado + teste de fronteira | ✅ Granular |
 
 **Granularity check**: ✅ nenhuma task nomeia múltiplos arquivos no `Where`; cada uma entrega um conceito coeso.
 
@@ -298,6 +336,7 @@ At Execute, the agent counts total tasks and packs phases into **task-budgeted b
 | T4 | T3 | `T3 → T4` (Phase 2) | ✅ Match |
 | T5 | T4 | `T4 → T5` (Phase Execution Map) | ✅ Match |
 | T6 | T5 | `T5 → T6` (Phase 3) | ✅ Match |
+| T7 | T3 | `T3 → T7` (Phase 4) | ✅ Match |
 
 Nota: o validador trata todas as tasks como mesma fase (o `Task Breakdown` vem após os headers de fase), então a paridade global foi conferida: arestas do diagrama = {T1→T3, T2→T3, T3→T4, T4→T5, T5→T6} = dependências declaradas. `T5` depende de `T4` — a aresta `T4 → T5` precisa existir em algum bloco com `->`: incluída abaixo no mapa de execução.
 
@@ -311,5 +350,6 @@ Nota: o validador trata todas as tasks como mesma fase (o `Task Breakdown` vem a
 | T4: catalog screen + l10n | screen (widget) | widget | widget | ✅ OK |
 | T5: create dialog + fluxo | navegação (widget) | widget | widget | ✅ OK |
 | T6: shortcut registry + main wiring | shortcuts/wiring (unit + widget) | unit + widget | unit + widget | ✅ OK |
+| T7: threshold boundary fix | shell boundary (widget) | widget | widget | ✅ OK |
 
 Nenhuma task usa `Tests: none`.

@@ -76,8 +76,10 @@ abstract final class AppSizes {
   static const double catalogCardMinWidth = 280;
 
   /// Window width below which the right panel hides first (CAT-03).
-  /// Derived from its parts so the collapse threshold can never drift from
-  /// the tokens it is built on.
+  /// Derived from its parts — including the two 1px vertical dividers the
+  /// shell row lays out — so the content area sits at its minimum measure
+  /// exactly at the threshold, and the collapse can never drift from the
+  /// tokens it is built on.
   static const double shellMinWidthWithPanel =
-      leftNavWidth + contentMinWidth + rightPanelWidth;
+      leftNavWidth + contentMinWidth + rightPanelWidth + 2 * hairline;
 }

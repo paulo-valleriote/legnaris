@@ -70,7 +70,7 @@ void main() {
 
   group('layout (CAT-01 … CAT-03)', () {
     testWidgets('Edge: below the threshold the panel hides first and the nav keeps its width (CAT-03)', (tester) async {
-      await pumpShell(tester, viewport: const Size(999, 800));
+      await pumpShell(tester, viewport: Size(AppSizes.shellMinWidthWithPanel - 1, 800));
 
       expect(find.byType(RightPanel), findsNothing);
       expect(find.byType(LeftNav), findsOneWidget);
@@ -78,12 +78,23 @@ void main() {
       expect(find.byKey(const Key('shell-content')), findsOneWidget);
     });
 
+    testWidgets('Edge: at exactly the threshold the panel still shows and the content keeps its minimum measure (CAT-03 boundary)', (tester) async {
+      await pumpShell(tester, viewport: Size(AppSizes.shellMinWidthWithPanel, 800));
+
+      expect(find.byType(RightPanel), findsOneWidget);
+      expect(tester.getSize(find.byType(LeftNav)).width, AppSizes.leftNavWidth);
+      expect(
+        tester.getSize(find.byKey(const Key('shell-content'))).width,
+        greaterThanOrEqualTo(AppSizes.contentMinWidth - 2 * AppSpacing.lg),
+      );
+    });
+
     testWidgets('Edge: shrinking and restoring the window issues no new catalog request (CAT-03 edge)', (tester) async {
       final recorded = await pumpShell(tester);
       expect(find.byType(RightPanel), findsOneWidget);
       expect(recorded, hasLength(1));
 
-      tester.view.physicalSize = const Size(999, 800);
+      tester.view.physicalSize = Size(AppSizes.shellMinWidthWithPanel - 1, 800);
       await tester.pump();
       expect(find.byType(RightPanel), findsNothing);
 

@@ -60,9 +60,12 @@ void main() {
     test('Happy path: shellMinWidthWithPanel is derived from its parts', () {
       expect(
         AppSizes.shellMinWidthWithPanel,
-        AppSizes.leftNavWidth + AppSizes.contentMinWidth + AppSizes.rightPanelWidth,
+        AppSizes.leftNavWidth +
+            AppSizes.contentMinWidth +
+            AppSizes.rightPanelWidth +
+            2 * AppSizes.hairline,
       );
-      expect(AppSizes.shellMinWidthWithPanel, 1000);
+      expect(AppSizes.shellMinWidthWithPanel, 1002);
     });
 
     test('Happy path: header height derives from the spacing scale', () {
