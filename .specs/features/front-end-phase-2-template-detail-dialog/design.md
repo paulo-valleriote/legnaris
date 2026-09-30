@@ -57,14 +57,15 @@ graph TD
 
 ### `lib/catalog/template_summary.dart`
 
-- **Purpose**: derivar o resumo por prefixo a partir da árvore `FieldGroup`, sem lista de prefixos hardcoded (TPL-02/03/05).
+- **Purpose**: derivar o resumo do template a partir da árvore `FieldGroup` — nomes legíveis + folhas, sem contagem e sem estrutura de sumário hardcoded (TPL-02/03/05).
 - **Location**: `desktop/lib/catalog/`
 - **Interfaces**:
-  - `typedef FieldSummary = ({String prefix, int leafCount})` — uma linha do resumo.
-  - `List<FieldSummary> summarizeFields(FieldGroup fields)` — uma entrada por chave de topo, na ordem de inserção do mapa (ordem devolvida pela API); `fields` vazio → lista vazia.
-  - `_countLeaves(FieldNode node) → int` (privada) — folha (`schema != null`) → 1; grupo (`children != null`) → soma recursiva das folhas; nó sem schema nem children → 0.
-- **Dependencies**: `FieldGroup`, `FieldNode` de `api/models/template.dart`.
-- **Reuses**: árvore folha/grupo da Fase 1; nenhum literal de prefixo.
+  - `typedef FieldSummary = ({String name, List<String> members})` — uma linha do resumo: nome de exibição + nomes das folhas.
+  - `const _hiddenGroups = {'config', 'derived', 'modifiers'}` — prefixos reservados do contrato Legnaris omitidos do resumo; **única** lista literal (switches internos e valores calculados), justificada no amend de UAT.
+  - `List<FieldSummary> summarizeFields(FieldGroup fields)` — uma entrada por chave de topo **visível**, na ordem de inserção do mapa (ordem devolvida pela API); `fields` vazio → lista vazia.
+  - `_leaves(FieldNode)` (privada) — enumera as folhas recursivamente (`schema != null`); `_displayName(key, schema)` — prefere `schema.label` não vazio, senão humaniza a chave (camelCase/snake_case → frase, primeira letra maiúscula).
+- **Dependencies**: `FieldGroup`, `FieldNode`, `FieldSchema` de `api/models/template.dart`.
+- **Reuses**: árvore folha/grupo da Fase 1; nenhum prefixo de template hardcoded (só os três reservados do contrato). Nomes humanizados são dados em inglês (V1 tem locale única) — sem novas chaves l10n.
 
 ### `lib/catalog/template_detail_provider.dart`
 
@@ -86,7 +87,7 @@ graph TD
   - `class CreateSheetDialog extends ConsumerStatefulWidget` — `templateId` de entrada; `TextEditingController` local do nome (descartado no `dispose`).
   - Conteúdo (sem `AlertDialog.title` — o wireframe Tela 3 não tem título, e isso mantém um único `"Create sheet"` no diálogo, a ação primária):
     - identidade: label `createSheetTemplateLabel` ("Template", caption) + `templateId` com `Key('create-sheet-template-id')` (body) — preserva o contrato CAT-15; nome do template (`emphasis`) quando o detalhe carrega (TPL-02).
-    - área de detalhe: `isLoading` → `LinearProgressIndicator` + `templateDetailLoading`; `errorMessage != null` → mensagem mapeada inline + `OutlinedButton` `actionRetry` chamando `load()` (TPL-07/08/09/10); sucesso → uma linha `"prefixo: contagem"` por chave de topo (TPL-02/03) ou a linha `templateNoFields` quando `fields` é vazio.
+    - área de detalhe: `isLoading` → `LinearProgressIndicator` + `templateDetailLoading`; `errorMessage != null` → mensagem mapeada inline + `OutlinedButton` `actionRetry` chamando `load()` (TPL-07/08/09/10); sucesso → uma linha por chave de topo visível (`Stats: Constitution, Dexterity`; folha de topo só com o nome, TPL-02/03) ou a linha `templateNoFields` quando `fields` é vazio. Conteúdo em `SingleChildScrollView` para qualquer template caber.
     - nome: label `createSheetNameLabel` + `TextField` vazio com `hintText` `createSheetNamePlaceholder` (TPL-11).
     - ações: `Tooltip(message: createSheetCreateTooltip)` envolvendo `TextButton(onPressed: null, child: Text(createSheetPrimaryAction))` (TPL-12) + `TextButton` `actionClose` (CAT-16).
 - **Dependencies**: `templateDetailControllerProvider`, `summarizeFields`, `failureCopy`, `AppLocalizations`, tokens.
@@ -150,7 +151,8 @@ class TemplateDetailState {
 | Acoplamento dos testes existentes de navegação: abrir o diálogo passa a emitir também `GET /templates/:id`, o que muda a contagem total de requisições | `desktop/test/catalog/create_sheet_navigation_test.dart:89`, `desktop/test/app_boot_test.dart:118` | As asserções `recorded hasLength(1)` (que provam "nenhuma chamada nova de lista") quebram, pois agora há lista + detalhe | T3 atualiza o harness para rotear `/templates/:id` e contar apenas requisições de catálogo (path `/templates`), preservando a intenção original (CAT-16/18) — sem enfraquecer asserções |
 | `Tooltip` sobre `TextButton` desabilitado: botões desabilitados não recebem hover de forma confiável | `desktop/lib/catalog/create_sheet_dialog.dart` | Tooltip pode não aparecer no hover (viola TPL-12 na prática) | Teste de hover real (gesture mouse) + asserção do `Tooltip.message`; se o hover não disparar, envolver num wrapper que mantém o `Tooltip` no caminho do hit-test |
 | Descarte do provider em voo (autoDispose) ao fechar o diálogo | `desktop/lib/catalog/template_detail_provider.dart` | `state =` após dispose lançaria erro | Guarda `if (!ref.mounted) return;` após o await; teste de fecho durante carga |
-| Cobertura de resumo limitada ao fixture `fantasy_v1` | `desktop/test/catalog/template_summary_test.dart` | Um bug de recursão passaria despercebido | Fixtures sintéticas: grupo aninhado, folha de topo, chave inesperada, `fields` vazio, chave com 0 folhas |
+| Cobertura de resumo limitada ao fixture `fantasy_v1` | `desktop/test/catalog/template_summary_test.dart` | Um bug de recursão ou de humanização passaria despercebido | Fixtures sintéticas: grupo aninhado, folha de topo, chave inesperada, `fields` vazio, grupo sem folhas, grupos reservados ocultos, `schema.label` preenchido (fallback), chave snake_case |
+| Linhas longas de membros podem estourar a altura do diálogo | `desktop/lib/catalog/create_sheet_dialog.dart` | Overflow de layout em templates com grupos grandes (viola "qualquer template renderiza") | Conteúdo do diálogo em `SingleChildScrollView`; membros inline com wrap |
 
 ---
 
@@ -159,7 +161,8 @@ class TemplateDetailState {
 | Decision | Choice | Rationale |
 | -------- | ------ | --------- |
 | Política de cache do detalhe | Provider family **autoDispose** (sem `keepAlive`) | Cada abertura recria o provider → GET fresco (TPL-15) e estado limpo (TPL-04); sem política de invalidação para acertar |
-| Forma do resumo | `List<({String prefix, int leafCount})>` ordenada | Ordem de inserção do mapa = ordem da API (TPL-02); record imutável e testável; sem rótulo humanizado nem bucket inventado |
+| Forma do resumo | `List<({String name, List<String> members})>` ordenada, sem contagem; `hiddenGroups = {config, derived, modifiers}` | Amend UAT 2026-09-30 (supersede `prefixo: contagem`): o cliente quer transparência sobre *quais* campos existem; nome = `schema.label` ou humanização mecânica da chave; ordem = ordem da API (TPL-02) |
+| Ocultar grupos reservados | Constante FE `_hiddenGroups` agora; flag de grupo no DTO do backend depois | O contrato atual não expõe marcador de grupo (só `children`); destrava o visual na Fase 2 sem mudar a API; um card de backend substitui a constante pela flag |
 | Título do diálogo | Removido | O wireframe Tela 3 não tem título; o título `"Create sheet"` colidiria com o texto da ação primária (o teste CAT-15 exige um único `"Create sheet"` no diálogo) |
 | Identidade do template | Mantém label "Template" + id (key CAT-15) e adiciona o nome | Preserva o contrato de navegação da Fase 2 e satisfaz TPL-02 (nome) sem quebrar testes existentes |
 | Retry | `load()` com guarda de single-flight | "exatamente uma vez por ativação" (TPL-08); duplo-toque absorvido |

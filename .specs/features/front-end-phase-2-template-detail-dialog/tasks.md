@@ -19,9 +19,9 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 | Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
 | ---------- | ------------------ | -------------------- | ---------------- | ----------- |
-| Resumo por prefixo (`desktop/lib/catalog/template_summary.dart`) | unit | 1:1 com TPL-02/03/05; todas as bordas: `fields` vazio, folha de topo, grupo aninhado, chave inesperada, nó sem folhas, ordem preservada | `desktop/test/catalog/template_summary_test.dart` | `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter test` |
+| Resumo do template (`desktop/lib/catalog/template_summary.dart`) | unit | 1:1 com TPL-02/03/05; bordas: `fields` vazio, folha de topo, grupo aninhado, chave inesperada, grupo sem folhas, grupos reservados ocultos, `schema.label` preenchido, chave snake_case, ordem preservada | `desktop/test/catalog/template_summary_test.dart` | `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter test` |
 | Provider de detalhe (`desktop/lib/catalog/template_detail_provider.dart`) | unit (transporte `MockClient`) | 1:1 com TPL-01/04/06/07/08/09/10; edges: single-flight, `NOT_FOUND`, offline, sem `data`, shape malformado, sem resumo obsoleto, descarte em voo | `desktop/test/catalog/template_detail_provider_test.dart` | idem |
-| Superfície de criação (`desktop/lib/catalog/create_sheet_dialog.dart`) | widget | 1:1 com TPL-01/02/04/07/08/09/10/11/12/13/14/15; edges: `fields` vazio, nome vazio, nome digitado sem request, reabertura = 2 GETs, zero POST | `desktop/test/catalog/create_sheet_dialog_test.dart` | idem |
+| Superfície de criação (`desktop/lib/catalog/create_sheet_dialog.dart`) | widget | 1:1 com TPL-01/02/03/04/07/08/09/10/11/12/13/14/15; edges: `fields` vazio, grupos reservados ausentes, nome vazio, nome digitado sem request, reabertura = 2 GETs, zero POST | `desktop/test/catalog/create_sheet_dialog_test.dart` | idem |
 | Navegação compartilhada (`desktop/test/catalog/create_sheet_navigation_test.dart`, `desktop/test/app_boot_test.dart`) | widget (atualização) | Harness passa a rotear `/templates/:id` e a contar apenas requisições de catálogo — CAT-15/16/17/18 preservados | via arquivos acima | idem |
 | Strings l10n (`desktop/lib/l10n/app_en.arb`) | widget (assert via render) | toda chave nova aparece renderizada em pelo menos um teste; nenhum literal de UI nos widgets | via suite da superfície | idem |
 | Specs (`.specs/`) | none | validators exit 0 | `.specs/**` | `validate_spec.py` / `validate_tasks.py` |
@@ -180,6 +180,34 @@ T3 → T4
 
 ---
 
+### T5: Amend the summary to normalized names and visible groups
+
+**What**: Amend UAT — o resumo passa a exibir **nome legível + folhas** (sem contagem) e a omitir `config`/`derived`/`modifiers`. `summarizeFields` vira `List<FieldSummary>` com `name` + `members`; `_displayName` prefere `schema.label` e cai para humanização mecânica da chave; `_hiddenGroups` é a única lista reservada. O diálogo renderiza `Nome: a, b` (folha de topo só o nome) dentro de `SingleChildScrollView`.
+**Where**: `desktop/lib/catalog/template_summary.dart`
+**Depends on**: T1, T3
+**Reuses**: árvore folha/grupo da Fase 1, tokens de tema, harness `MockClient` do T3
+**Requirement**: TPL-02, TPL-03, TPL-05
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] `fantasy_v1` → `Base armor class` / `Others: Proficiency bonus` / `Stats: Constitution, Dexterity`; `config`/`derived`/`modifiers` ausentes (TPL-02/03)
+- [ ] Nome = `schema.label` quando preenchido, senão humanização camelCase/snake_case; prefixo desconhecido continua renderizando (TPL-05)
+- [ ] Edges: `fields` vazio → `templateNoFields`; grupo sem folhas → só o nome; grupo aninhado enumera folhas; nome vazio renderiza
+- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [ ] Test count: [N] testes atualizados/novos; nenhum teste existente removido
+
+**Tests**: unit + widget
+**Gate**: full
+
+**Commit**: `feat(LGN-97): normalize the summary names and hide reserved groups`
+
+---
+
 ## Phase Execution Map
 
 ```
@@ -188,17 +216,20 @@ Phase 1 → Phase 2
 Phase 1:  T1
 Phase 1:  T2
 Phase 2:  T3 → T4
+Phase 2:  T5
 
 T1 → T3
 T2 → T3
 T3 → T4
+T1 → T5
+T3 → T5
 ```
 
-As arestas entre phases aparecem nas linhas `T1 → T3`, `T2 → T3` e `T3 → T4`; cada seta corresponde a um `Depends on` declarado no corpo da task apontada. Execution is strictly sequential - there is no intra-phase parallelism. A single agent works one task at a time, in order.
+As arestas aparecem nas linhas `T1 → T3`, `T2 → T3`, `T3 → T4`, `T1 → T5` e `T3 → T5`; cada seta corresponde a um `Depends on` declarado no corpo da task apontada. Execution is strictly sequential - there is no intra-phase parallelism. A single agent works one task at a time, in order.
 
 **How phase-based execution works:**
 
-With 4 tasks in 2 phases the feature fits a single task-budgeted batch (≤ ~8 tasks): execute inline in the main window, no sub-agent dispatch. After the final task the fresh **Verifier** runs automatically (author ≠ verifier). See [sub-agents.md](references/sub-agents.md) for the full model.
+With 5 tasks in 2 phases the feature fits a single task-budgeted batch (≤ ~8 tasks): execute inline in the main window, no sub-agent dispatch. After the final task the fresh **Verifier** runs automatically (author ≠ verifier). See [sub-agents.md](references/sub-agents.md) for the full model.
 
 ---
 
@@ -210,8 +241,9 @@ With 4 tasks in 2 phases the feature fits a single task-budgeted batch (≤ ~8 t
 | T2: Add the template detail provider with on-demand fetch | 1 componente de estado (provider) | ✅ Granular |
 | T3: Render the creation surface from the template detail | 1 componente (diálogo) + chaves l10n que ele renderiza | ✅ Granular |
 | T4: Show inline detail errors with retry and prove fresh reopen | 1 ramificação de estado do mesmo diálogo + provas de ciclo de vida | ✅ Granular |
+| T5: Amend the summary to normalized names and visible groups | 1 mudança de apresentação do resumo (função + render) | ✅ Granular |
 
-**Granularity check**: ✅ T3 e T4 tocam o mesmo arquivo porque são fatias sequenciais do mesmo componente (render do detalhe → estados de erro/ciclo de vida), não escopos distintos; cada uma entrega um conceito coeso.
+**Granularity check**: ✅ T3, T4 e T5 tocam o mesmo diálogo porque são fatias sequenciais do mesmo componente (render do detalhe → estados de erro/ciclo de vida → amend de apresentação), não escopos distintos; cada uma entrega um conceito coeso.
 
 ## Diagram-Definition Cross-Check
 
@@ -221,6 +253,7 @@ With 4 tasks in 2 phases the feature fits a single task-budgeted batch (≤ ~8 t
 | T2 | None | — | ✅ Match |
 | T3 | T1, T2 | `T1 → T3`, `T2 → T3` (Phase Execution Map) | ✅ Match |
 | T4 | T3 | `T3 → T4` (Phase 2 e map) | ✅ Match |
+| T5 | T1, T3 | `T1 → T5`, `T3 → T5` (Phase Execution Map) | ✅ Match |
 
 ## Test Co-location Validation
 
@@ -230,5 +263,6 @@ With 4 tasks in 2 phases the feature fits a single task-budgeted batch (≤ ~8 t
 | T2: provider de detalhe | provider (unit) | unit | unit | ✅ OK |
 | T3: superfície de criação + l10n + harness | diálogo (widget) | widget | widget | ✅ OK |
 | T4: erros inline + ciclo de vida | diálogo (widget) | widget | widget | ✅ OK |
+| T5: nomes normalizados + grupos visíveis | função pura + diálogo | unit + widget | unit + widget | ✅ OK |
 
 Nenhuma task usa `Tests: none`.
