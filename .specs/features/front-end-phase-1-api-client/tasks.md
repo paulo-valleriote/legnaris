@@ -185,12 +185,12 @@ T8 → T9
 
 **Done when**:
 
-- [ ] Template decodifica `id`, `name`, `default` e `fields` preservando folha (`schema`) vs grupo (`children`) (FE1-08)
-- [ ] Schema folha decodifica `type`, `label`, `formula`, `depends_on`, `is_editable`, `default`, com `formula`/`depends_on` ausentes tratados (FE1-09)
-- [ ] Key JSON `default` (palavra reservada em Dart) mapeada explicitamente, sem depender de case convention (edge da spec)
-- [ ] `type` mantido como string opaca — sem mapear para widgets (Fase 3)
-- [ ] Gate check passa: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥ 5 testes (lista, detalhe, folha completa, schema sem opcionais, árvore aninhada)
+- [x] Template decodifica `id`, `name`, `default` e `fields` preservando folha (`schema`) vs grupo (`children`) (FE1-08)
+- [x] Schema folha decodifica `type`, `label`, `formula`, `depends_on`, `is_editable`, `default`, com `formula`/`depends_on` ausentes tratados (FE1-09)
+- [x] Key JSON `default` (palavra reservada em Dart) mapeada explicitamente, sem depender de case convention (edge da spec)
+- [x] `type` mantido como string opaca — sem mapear para widgets (Fase 3)
+- [x] Gate check passa: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: ≥ 5 testes (lista, detalhe, folha completa, schema sem opcionais, árvore aninhada) — 6 testes
 
 **Tests**: unit
 **Gate**: full — `cd desktop && flutter analyze && flutter test`

@@ -226,8 +226,8 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | FE1-05 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
 | FE1-06 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
 | FE1-07 | P1: Client tipado por endpoint + decode de envelope | Execute | Pending |
-| FE1-08 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Pending |
-| FE1-09 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Pending |
+| FE1-08 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Verified |
+| FE1-09 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Verified |
 | FE1-10 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Pending |
 | FE1-11 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Pending |
 | FE1-12 | P1: Models com `data` dinâmico e acesso por caminho pontilhado | Execute | Pending |
