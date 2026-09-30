@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 2,
+  "next_id": 5,
   "lessons": [
     {
       "id": "L-001",
@@ -22,6 +22,60 @@
       ],
       "created": "2026-09-29T23:53:10Z",
       "last_seen": "2026-09-29T23:53:10Z"
+    },
+    {
+      "id": "L-002",
+      "key": "surviving_mutant::pin layout conditional behavior at the exact derived threshold width in addition to above and below it or off by one mutants survive",
+      "text": "Pin layout-conditional behavior at the exact derived threshold width in addition to above and below it, or off-by-one mutants survive",
+      "signal": "surviving_mutant",
+      "scope": "desktop/shell",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "M2 (desktop/shell)"
+      ],
+      "created": "2026-09-30T17:57:30Z",
+      "last_seen": "2026-09-30T17:57:30Z"
+    },
+    {
+      "id": "L-003",
+      "key": "spec_precision_gap::when an ac requires loading and empty states to be distinct pin the copy source arb key in the spec so the rendered text assertion is anchored",
+      "text": "When an AC requires loading and empty states to be distinct, pin the copy source (arb key) in the spec so the rendered-text assertion is anchored",
+      "signal": "spec_precision_gap",
+      "scope": "desktop/catalog",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "CAT-08 (desktop/catalog)"
+      ],
+      "created": "2026-09-30T17:57:30Z",
+      "last_seen": "2026-09-30T17:57:30Z"
+    },
+    {
+      "id": "L-004",
+      "key": "spec_precision_gap::when a spec requires an error message to show inline pin its placement relative to the data it annotates",
+      "text": "When a spec requires an error message to show inline, pin its placement relative to the data it annotates",
+      "signal": "spec_precision_gap",
+      "scope": "desktop/catalog",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "CAT-19 (desktop/catalog)"
+      ],
+      "created": "2026-09-30T17:57:30Z",
+      "last_seen": "2026-09-30T17:57:30Z"
     }
   ]
 }

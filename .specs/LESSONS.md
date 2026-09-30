@@ -20,6 +20,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: desktop/test/widget_test.dart:11 (desktop)
 - last seen: 2026-09-29T23:53:10Z
 
+### L-002 - Pin layout-conditional behavior at the exact derived threshold width in addition to above and below it, or off-by-one mutants survive
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `desktop/shell` · harmful: 0
+- features: front-end-phase-2-catalog
+- evidence: M2 (desktop/shell)
+- last seen: 2026-09-30T17:57:30Z
+
+### L-003 - When an AC requires loading and empty states to be distinct, pin the copy source (arb key) in the spec so the rendered-text assertion is anchored
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `desktop/catalog` · harmful: 0
+- features: front-end-phase-2-catalog
+- evidence: CAT-08 (desktop/catalog)
+- last seen: 2026-09-30T17:57:30Z
+
+### L-004 - When a spec requires an error message to show inline, pin its placement relative to the data it annotates
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `desktop/catalog` · harmful: 0
+- features: front-end-phase-2-catalog
+- evidence: CAT-19 (desktop/catalog)
+- last seen: 2026-09-30T17:57:30Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
