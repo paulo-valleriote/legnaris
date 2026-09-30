@@ -81,7 +81,7 @@ final class TemplateDetailControllerProvider
 }
 
 String _$templateDetailControllerHash() =>
-    r'ae4b8a34e406434da48f4896706eb22ad1f53ae9';
+    r'2aaf2f038b027f8e59c6e865065e07eaad37227d';
 
 /// Detail of one template, fetched on demand for the creation surface
 /// (TPL-01).
