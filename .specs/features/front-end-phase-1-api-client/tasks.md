@@ -9,7 +9,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 ---
 
 **Design**: none (TDD fixou a arquitetura — API Client isolado, models, estado nas fases seguintes; decisões restantes estão nas premissas aprovadas da `spec.md`)
-**Status**: Approved — 2026-09-29 · 9 tasks em 4 fases, execução em 2 batches de sub-agents (batch 1 = Fases 1–3, batch 2 = Fase 4), tools: context7 só em T3/T6
+**Status**: Done — 2026-09-30 · 9/9 tasks completos, Verifier PASS (37/37 ACs, sensor 6/6), `validate_state.py` exit 0
 
 ---
 
