@@ -146,7 +146,7 @@ void main() {
       final action = tester.widget<TextButton>(
         find.widgetWithText(TextButton, 'Create sheet').first,
       );
-      expect(action.onPressed, isNull);
+      expect(action.onPressed, isNotNull);
     });
 
     testWidgets('Happy path: an empty catalog renders one localized line without art (CAT-10)', (tester) async {

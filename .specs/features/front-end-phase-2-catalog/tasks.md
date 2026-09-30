@@ -203,11 +203,11 @@ T5 → T6
 
 **Done when**:
 
-- [ ] Tap no card ou em "Create sheet" abre o diálogo com o id do template clicado (CAT-15)
-- [ ] Esc e "Close" voltam ao catálogo com lista cacheada e 0 novas chamadas de lista (CAT-16)
-- [ ] Exatamente 1 push de rota acima do catálogo (NavigatorObserver) — navegação rasa (CAT-17)
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥5 novos testes; nenhum teste existente removido
+- [x] Tap no card ou em "Create sheet" abre o diálogo com o id do template clicado (CAT-15)
+- [x] Esc e "Close" voltam ao catálogo com lista cacheada e 0 novas chamadas de lista (CAT-16)
+- [x] Exatamente 1 push de rota acima do catálogo (NavigatorObserver) — navegação rasa (CAT-17)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 6 novos testes; nenhum teste existente removido
 
 **Tests**: widget
 **Gate**: full

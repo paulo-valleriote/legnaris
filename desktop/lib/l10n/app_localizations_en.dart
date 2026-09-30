@@ -78,4 +78,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get catalogCreateAction => 'Create sheet';
+
+  @override
+  String get createSheetTitle => 'Create sheet';
+
+  @override
+  String get createSheetTemplateLabel => 'Template';
+
+  @override
+  String get actionClose => 'Close';
 }

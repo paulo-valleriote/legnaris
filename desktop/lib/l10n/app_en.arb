@@ -80,5 +80,17 @@
   "catalogCreateAction": "Create sheet",
   "@catalogCreateAction": {
     "description": "Card action that opens the creation dialog for that template (wireframe 'criar ficha')."
+  },
+  "createSheetTitle": "Create sheet",
+  "@createSheetTitle": {
+    "description": "Title of the creation dialog opened from a catalog entry (CAT-15)."
+  },
+  "createSheetTemplateLabel": "Template",
+  "@createSheetTemplateLabel": {
+    "description": "Label above the template id shown in the creation dialog (CAT-15)."
+  },
+  "actionClose": "Close",
+  "@actionClose": {
+    "description": "Action that dismisses the creation dialog back to the catalog (CAT-16)."
   }
 }

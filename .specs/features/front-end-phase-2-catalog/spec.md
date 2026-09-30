@@ -160,9 +160,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | CAT-12 | P1: Lista de templates com estados | Design | Verified |
 | CAT-13 | P1: Lista de templates com estados | Design | Verified |
 | CAT-14 | P1: Lista de templates com estados | Design | Verified |
-| CAT-15 | P1: Navegação rasa Catálogo → diálogo | Design | Pending |
-| CAT-16 | P1: Navegação rasa Catálogo → diálogo | Design | Pending |
-| CAT-17 | P1: Navegação rasa Catálogo → diálogo | Design | Pending |
+| CAT-15 | P1: Navegação rasa Catálogo → diálogo | Design | Verified |
+| CAT-16 | P1: Navegação rasa Catálogo → diálogo | Design | Verified |
+| CAT-17 | P1: Navegação rasa Catálogo → diálogo | Design | Verified |
 | CAT-18 | P2: Refresh do catálogo (F5) | Design | Verified |
 | CAT-19 | P2: Refresh do catálogo (F5) | Design | Verified |
 

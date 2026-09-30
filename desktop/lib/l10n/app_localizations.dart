@@ -201,6 +201,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Create sheet'**
   String get catalogCreateAction;
+
+  /// Title of the creation dialog opened from a catalog entry (CAT-15).
+  ///
+  /// In en, this message translates to:
+  /// **'Create sheet'**
+  String get createSheetTitle;
+
+  /// Label above the template id shown in the creation dialog (CAT-15).
+  ///
+  /// In en, this message translates to:
+  /// **'Template'**
+  String get createSheetTemplateLabel;
+
+  /// Action that dismisses the creation dialog back to the catalog (CAT-16).
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get actionClose;
 }
 
 class _AppLocalizationsDelegate

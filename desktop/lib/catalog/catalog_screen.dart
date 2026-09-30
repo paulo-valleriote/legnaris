@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/catalog/catalog_provider.dart';
+import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/shell/shell_state.dart';
 import 'package:legnaris/theme/tokens.dart';
 
 /// Screen 1 — the template catalog (CAT-08 … CAT-12, CAT-19).
@@ -50,7 +52,7 @@ class CatalogScreen extends ConsumerWidget {
         Expanded(
           child: state.isEmpty
               ? Center(child: Text(localizations.catalogEmpty))
-              : _cardList(context, state, localizations),
+              : _cardList(context, ref, state, localizations),
         ),
       ],
     );
@@ -119,6 +121,7 @@ class CatalogScreen extends ConsumerWidget {
   /// The card grid: one bounded card per template in API order (CAT-09).
   Widget _cardList(
     BuildContext context,
+    WidgetRef ref,
     CatalogState state,
     AppLocalizations localizations,
   ) {
@@ -132,10 +135,8 @@ class CatalogScreen extends ConsumerWidget {
             SizedBox(
               width: AppSizes.catalogCardMinWidth,
               child: Card(
-                // Taps and the card action open the creation dialog, which
-                // arrives in T5; both stay inert until it exists.
                 child: InkWell(
-                  onTap: null,
+                  onTap: () => _openCreationDialog(context, ref, template.id),
                   child: Padding(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     child: Column(
@@ -157,7 +158,8 @@ class CatalogScreen extends ConsumerWidget {
                         SizedBox(
                           height: AppSizes.controlHeight,
                           child: TextButton(
-                            onPressed: null,
+                            onPressed: () =>
+                                _openCreationDialog(context, ref, template.id),
                             child: Text(localizations.catalogCreateAction),
                           ),
                         ),
@@ -170,5 +172,29 @@ class CatalogScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Opens the creation dialog for [templateId] (CAT-15) and marks the
+  /// creation surface while it is up, restoring the catalog in `finally` so
+  /// every dismiss path — Esc, Close, barrier — lands back on the catalog
+  /// (CAT-16).
+  Future<void> _openCreationDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String templateId,
+  ) async {
+    final shellState = ref.read(shellStateProvider.notifier);
+    shellState.show(ShellSurface.creationDialog);
+    try {
+      await showDialog<void>(
+        context: context,
+        // Load-bearing: the framework gates its dismiss action (Esc) on
+        // this flag (routes.dart:981) — CAT-16 breaks without it.
+        barrierDismissible: true,
+        builder: (dialogContext) => CreateSheetDialog(templateId: templateId),
+      );
+    } finally {
+      shellState.show(ShellSurface.catalog);
+    }
   }
 }
