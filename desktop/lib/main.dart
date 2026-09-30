@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legnaris/catalog/catalog_screen.dart';
+import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/shell/app_shell.dart';
+import 'package:legnaris/shell/shortcut_registry.dart';
 import 'package:legnaris/theme/app_theme.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'main.g.dart';
 
-/// App title shown on the placeholder screen. A trivial provider that proves
-/// the Riverpod codegen toolchain wired in Phase 0.
+/// App title shown in the OS window title bar (`MaterialApp.title`). A
+/// trivial provider that proves the Riverpod codegen toolchain wired in
+/// Phase 0; the in-app header title comes from l10n instead.
 @riverpod
 String appTitle(Ref ref) => 'Legnaris';
 
@@ -16,8 +21,9 @@ void main() {
   );
 }
 
-/// Placeholder shell of the Legnaris desktop app: renders the app title from
-/// [appTitleProvider]. Real screens arrive with phases 1-5 of the desktop TDD.
+/// The Legnaris desktop app: the shell mounted once with the catalog as its
+/// content, themed from `lib/theme/`, localized from the ARB files, and the
+/// central shortcut/action registry wired into [MaterialApp].
 class LegnarisApp extends ConsumerWidget {
   const LegnarisApp({super.key});
 
@@ -27,9 +33,11 @@ class LegnarisApp extends ConsumerWidget {
     return MaterialApp(
       title: title,
       theme: buildAppTheme(),
-      home: Scaffold(
-        body: Center(child: Text(title)),
-      ),
+      shortcuts: appShortcuts(),
+      actions: appActions(ref),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const AppShell(content: CatalogScreen()),
     );
   }
 }

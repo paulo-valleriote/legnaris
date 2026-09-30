@@ -230,12 +230,12 @@ T5 → T6
 
 **Done when**:
 
-- [ ] Registry contém F5→`refreshCatalog` e Esc→`closeOverlay`; `appShortcuts()` preserva os defaults do framework (test asserts)
-- [ ] F5 no catálogo re-requesta e substitui a lista (CAT-18); F5 com diálogo aberto → 0 chamadas (edge); falha do refresh mantém lista + erro inline (CAT-19 in situ)
-- [ ] Boot: shell + header slot + exatamente 1 `GET /templates` na primeira exibição (CAT-01/05/07)
-- [ ] `widget_test.dart` placeholder reescrito (nenhum teste órfão de tela placeholder)
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: ≥8 novos testes; nenhum teste existente removido
+- [x] Registry contém F5→`refreshCatalog` e Esc→`closeOverlay`; `appShortcuts()` preserva os defaults do framework (test asserts)
+- [x] F5 no catálogo re-requesta e substitui a lista (CAT-18); F5 com diálogo aberto → 0 chamadas (edge); falha do refresh mantém lista + erro inline (CAT-19 in situ)
+- [x] Boot: shell + header slot + exatamente 1 `GET /templates` na primeira exibição (CAT-01/05/07)
+- [x] `widget_test.dart` placeholder reescrito (nenhum teste órfão de tela placeholder)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 10 novos testes; nenhum teste existente removido
 
 **Tests**: unit + widget
 **Gate**: full

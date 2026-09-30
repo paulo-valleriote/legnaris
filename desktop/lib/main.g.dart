@@ -8,19 +8,22 @@ part of 'main.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// App title shown on the placeholder screen. A trivial provider that proves
-/// the Riverpod codegen toolchain wired in Phase 0.
+/// App title shown in the OS window title bar (`MaterialApp.title`). A
+/// trivial provider that proves the Riverpod codegen toolchain wired in
+/// Phase 0; the in-app header title comes from l10n instead.
 
 @ProviderFor(appTitle)
 final appTitleProvider = AppTitleProvider._();
 
-/// App title shown on the placeholder screen. A trivial provider that proves
-/// the Riverpod codegen toolchain wired in Phase 0.
+/// App title shown in the OS window title bar (`MaterialApp.title`). A
+/// trivial provider that proves the Riverpod codegen toolchain wired in
+/// Phase 0; the in-app header title comes from l10n instead.
 
 final class AppTitleProvider extends $FunctionalProvider<String, String, String>
     with $Provider<String> {
-  /// App title shown on the placeholder screen. A trivial provider that proves
-  /// the Riverpod codegen toolchain wired in Phase 0.
+  /// App title shown in the OS window title bar (`MaterialApp.title`). A
+  /// trivial provider that proves the Riverpod codegen toolchain wired in
+  /// Phase 0; the in-app header title comes from l10n instead.
   AppTitleProvider._()
     : super(
         from: null,
