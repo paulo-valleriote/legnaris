@@ -30,6 +30,8 @@ void main() {
   {"id": "sci_fi_v1", "name": "Sci Fi Template", "default": false, "fields": {}}
 ]}
 ''';
+  const detailBody =
+      '{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {"stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}}}}}';
 
   Future<List<http.Request>> pumpCatalog(
     WidgetTester tester,
@@ -47,9 +49,13 @@ void main() {
             ApiClient(
               httpClient: MockClient((request) async {
                 recorded.add(request);
-                return handler == null
-                    ? http.Response(twoTemplatesBody, 200)
-                    : handler(request);
+                if (handler != null) return handler(request);
+                return http.Response(
+                  request.url.path == '/templates'
+                      ? twoTemplatesBody
+                      : detailBody,
+                  200,
+                );
               }),
             ),
           ),
@@ -71,6 +77,10 @@ void main() {
       ProviderScope.containerOf(tester.element(find.byType(MaterialApp)))
           .read(shellStateProvider);
 
+  int listRequestCount(List<http.Request> recorded) => recorded
+      .where((request) => request.url.path == '/templates')
+      .length;
+
   Future<void> openDialog(WidgetTester tester, String cardName) async {
     await tester.tap(find.text(cardName));
     await tester.pumpAndSettle();
@@ -86,7 +96,7 @@ void main() {
 
         expect(find.byType(CreateSheetDialog), findsOneWidget);
         expect(currentSurface(tester), ShellSurface.creationDialog);
-        expect(recorded, hasLength(1));
+        expect(listRequestCount(recorded), 1);
 
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
@@ -94,7 +104,7 @@ void main() {
         expect(find.byType(CreateSheetDialog), findsNothing);
         expect(find.byType(Card), findsNWidgets(2));
         expect(currentSurface(tester), ShellSurface.catalog);
-        expect(recorded, hasLength(1));
+        expect(listRequestCount(recorded), 1);
       },
     );
 
@@ -113,7 +123,7 @@ void main() {
         expect(find.byType(CreateSheetDialog), findsNothing);
         expect(find.byType(Card), findsNWidgets(2));
         expect(currentSurface(tester), ShellSurface.catalog);
-        expect(recorded, hasLength(1));
+        expect(listRequestCount(recorded), 1);
       },
     );
 
@@ -131,7 +141,7 @@ void main() {
         expect(find.byType(CreateSheetDialog), findsNothing);
         expect(find.byType(Card), findsNWidgets(2));
         expect(currentSurface(tester), ShellSurface.catalog);
-        expect(recorded, hasLength(1));
+        expect(listRequestCount(recorded), 1);
       },
     );
   });
@@ -207,7 +217,7 @@ void main() {
             findsOneWidget,
           );
           expect(currentSurface(tester), ShellSurface.creationDialog);
-          expect(recorded, hasLength(1));
+          expect(listRequestCount(recorded), 1);
         },
       );
     }

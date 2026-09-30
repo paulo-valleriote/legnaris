@@ -202,17 +202,47 @@ abstract class AppLocalizations {
   /// **'Create sheet'**
   String get catalogCreateAction;
 
-  /// Title of the creation dialog opened from a catalog entry (CAT-15).
-  ///
-  /// In en, this message translates to:
-  /// **'Create sheet'**
-  String get createSheetTitle;
-
-  /// Label above the template id shown in the creation dialog (CAT-15).
+  /// Label above the template identity shown in the creation dialog (CAT-15, TPL-02).
   ///
   /// In en, this message translates to:
   /// **'Template'**
   String get createSheetTemplateLabel;
+
+  /// Loading state of the creation dialog while GET /templates/:id is in flight (TPL-01).
+  ///
+  /// In en, this message translates to:
+  /// **'Loading template...'**
+  String get templateDetailLoading;
+
+  /// Shown in place of the prefix summary when the template fields tree is empty (TPL-02 edge).
+  ///
+  /// In en, this message translates to:
+  /// **'This template has no fields.'**
+  String get templateNoFields;
+
+  /// Label of the sheet-name input in the creation dialog (TPL-11).
+  ///
+  /// In en, this message translates to:
+  /// **'Sheet name'**
+  String get createSheetNameLabel;
+
+  /// Example placeholder of the empty sheet-name input (TPL-11).
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. My Character'**
+  String get createSheetNamePlaceholder;
+
+  /// Primary action of the creation dialog, disabled until Phase 4 (TPL-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Create sheet'**
+  String get createSheetPrimaryAction;
+
+  /// Tooltip explaining why the primary action is disabled (TPL-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Sheet creation arrives in a later phase.'**
+  String get createSheetCreateTooltip;
 
   /// Action that dismisses the creation dialog back to the catalog (CAT-16).
   ///
