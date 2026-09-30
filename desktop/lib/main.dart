@@ -23,6 +23,7 @@ class LegnarisApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final title = ref.watch(appTitleProvider);
+    final broken = ciExperimentUndefinedIdentifier;
     return MaterialApp(
       title: title,
       home: Scaffold(
