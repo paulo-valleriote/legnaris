@@ -79,6 +79,21 @@ T3 → T7
 
 ---
 
+### Phase 5: Fix (interactive UAT)
+
+Feedback do UAT humano no PR #46 (severidade Major — viola tokens normativos do
+`desktop/AGENTS.md`): visual "maquiavelamente feito", cores sem legibilidade, fontes
+e tamanhos fora da tabela discutida; funcionalmente correto. Causas-raiz provadas:
+`AppShell` sem `Scaffold` (fundo preto + `Text` sem style no `_errorTextStyle` de
+48px), baseline roxo do M3, nav inflada pela constraint tight da Row, botões M3 em
+40px (fora da faixa 32–36).
+
+```
+T1, T3 → T8
+```
+
+---
+
 ## Task Breakdown
 
 ### T1: Add theme tokens and app theme
@@ -279,22 +294,66 @@ T3 → T7
 
 ---
 
+### T8: Correct shell surface, palette and control sizing after UAT
+
+**What**: Corrigir o ciclo de UAT humano no PR #46 (severidade Major — funcional
+correto, visual reprovado: cores sem legibilidade, fontes desproporcionais, tamanhos
+fora da tabela). Envolver o `AppShell` em `Scaffold` (pinta `colorScheme.surface` e
+prove contexto Material — `Text` sem style deixa de cair no `_errorTextStyle` de
+48px vermelho do MaterialApp), trocar o baseline roxo do M3 por
+`ColorScheme.fromSeed(Color(0xFF546E7A))` (azul-acinzentado, seed passada na
+construção do `ThemeData` para os derivados seguirem), soltar a constraint tight da
+row na `LeftNav` com `Align` (entry = linha de 32px), pinar os botões no token de
+controle via temas (`minimumSize` = `controlHeight` + `tapTargetSize: shrinkWrap`) e
+definir a hierarquia do diálogo (label caption 12 / id body 13) e os textos de
+loading/vazio muted.
+**Where**: `desktop/lib/theme/app_theme.dart` + `desktop/lib/shell/` + `desktop/lib/catalog/` (6 arquivos do mesmo feedback)
+**Depends on**: T1, T3
+**Reuses**: tokens da T1 (`rowHeight`, `controlHeight`, `caption`/`body`), `buildAppTheme`, harness `pumpShell`/`pumpCatalog`
+**Requirement**: CAT-01, CAT-02, CAT-04, CAT-06 (conformidade visual dos tokens; nenhum AC alterado)
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [x] `AppShell` dentro de `Scaffold` → fundo = `colorScheme.surface` pintado e contexto Material no shell (assertado como regressão)
+- [x] Paleta V1 = `ColorScheme.fromSeed` azul-acinzentado construída no `ThemeData` (nada mais roxo; derivados seguem a scheme); direção escolhida pelo mantenedor e registrada em `design.md`
+- [x] Entrada de nav = linha de 32px (`Align` solta a altura tight da row); largura = `leftNavWidth - 2 * AppSpacing.md`
+- [x] Botões text/outlined medem `controlHeight` (36) no tema e no widget (`Close`)
+- [x] Diálogo: label 12px `onSurfaceVariant`, id 13px; loading/vazio muted `bodyMedium`; stats do painel com `bodyMedium` explícito (nunca 48px / `0xD0FF0000`)
+- [x] Testes de regressão do UAT: 8 novos + 2 estendidos; nenhum teste removido ou enfraquecido
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test` (analyze: 0 issues)
+- [x] Test count: 162 passed / 4 skipped (auto-skip de contrato da Fase 1)
+- [x] Revisão visual crítica antes/depois via golden de diagnóstico (harness temporário fora do commit)
+
+**Tests**: widget
+**Gate**: full
+**Commit**: `fix(LGN-96): paint the shell surface, replace the purple baseline and pin control sizing after UAT`
+
+---
+
 ## Phase Execution Map
 
 ```
-Phase 1 → Phase 2 → Phase 3 → Phase 4
+Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5
 
 Phase 1:  T1   T2   (independentes)
 Phase 2:  T3 → T4
 Phase 3:  T5 → T6
 Phase 4:  T3 → T7   (fix loop pós-Verifier)
+Phase 5:  T1, T3 → T8 (fix loop pós-UAT)
 
 T1 → T3
 T2 → T3
 T4 → T5
+T1 → T8
+T3 → T8
 ```
 
-As arestas entre phases aparecem nas linhas `T1 → T3`, `T2 → T3`, `T4 → T5` e na linha da Phase 4 (`T3 → T7`); cada seta do bloco corresponde a um `Depends on` declarado no corpo da task apontada. T7 foi acrescentada pelo ciclo fix→re-verificar do Verifier (1 iteração de 3).
+As arestas entre phases aparecem nas linhas `T1 → T3`, `T2 → T3`, `T4 → T5`, `T1 → T8`, `T3 → T8` e na linha da Phase 4 (`T3 → T7`); cada seta do bloco corresponde a um `Depends on` declarado no corpo da task apontada. T7 foi acrescentada pelo ciclo fix→re-verificar do Verifier (1 iteração de 3); T8 pelo ciclo de fix do UAT humano (feedback no PR #46).
 
 Execution is strictly sequential - there is no intra-phase parallelism. A single agent (or batch worker) works one task at a time, in order.
 
@@ -323,8 +382,9 @@ At Execute, the agent counts total tasks and packs phases into **task-budgeted b
 | T5: Add creation dialog with shallow navigation | 1 componente (diálogo) + fluxo de abertura | ✅ Granular |
 | T6: Add shortcut registry and final app wiring | 1 registry + wiring do `main.dart` | ✅ Granular |
 | T7: Pin the panel collapse boundary and honest threshold derivation | 1 token derivado + teste de fronteira | ✅ Granular |
+| T8: Correct shell surface, palette and control sizing after UAT | correção visual coesa pós-UAT (6 arquivos tocados pelo mesmo feedback, cada um com 1 causa-raiz) | ✅ Granular |
 
-**Granularity check**: ✅ nenhuma task nomeia múltiplos arquivos no `Where`; cada uma entrega um conceito coeso.
+**Granularity check**: ✅ nenhuma task nomeia múltiplos conceitos no `Where` (T8 cobre 6 arquivos porque são as 6 causas-raiz do mesmo feedback de UAT, não escopos distintos); cada uma entrega um conceito coeso.
 
 ## Diagram-Definition Cross-Check
 
@@ -337,8 +397,9 @@ At Execute, the agent counts total tasks and packs phases into **task-budgeted b
 | T5 | T4 | `T4 → T5` (Phase Execution Map) | ✅ Match |
 | T6 | T5 | `T5 → T6` (Phase 3) | ✅ Match |
 | T7 | T3 | `T3 → T7` (Phase 4) | ✅ Match |
+| T8 | T1, T3 | `T1 → T8`, `T3 → T8` (Phase 5) | ✅ Match |
 
-Nota: o validador trata todas as tasks como mesma fase (o `Task Breakdown` vem após os headers de fase), então a paridade global foi conferida: arestas do diagrama = {T1→T3, T2→T3, T3→T4, T4→T5, T5→T6} = dependências declaradas. `T5` depende de `T4` — a aresta `T4 → T5` precisa existir em algum bloco com `->`: incluída abaixo no mapa de execução.
+Nota: o validador trata todas as tasks como mesma fase (o `Task Breakdown` vem após os headers de fase), então a paridade global foi conferida: arestas do diagrama = {T1→T3, T2→T3, T3→T4, T4→T5, T5→T6, T3→T7, T1→T8, T3→T8} = dependências declaradas. `T5` depende de `T4` — a aresta `T4 → T5` precisa existir em algum bloco com `->`: incluída abaixo no mapa de execução.
 
 ## Test Co-location Validation
 
@@ -351,5 +412,6 @@ Nota: o validador trata todas as tasks como mesma fase (o `Task Breakdown` vem a
 | T5: create dialog + fluxo | navegação (widget) | widget | widget | ✅ OK |
 | T6: shortcut registry + main wiring | shortcuts/wiring (unit + widget) | unit + widget | unit + widget | ✅ OK |
 | T7: threshold boundary fix | shell boundary (widget) | widget | widget | ✅ OK |
+| T8: post-UAT visual fix (shell surface, palette, row, controls) | shell/theme/screen (widget) | widget | widget | ✅ OK |
 
 Nenhuma task usa `Tests: none`.

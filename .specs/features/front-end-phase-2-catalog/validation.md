@@ -2,10 +2,10 @@
 
 **Date**: 2026-09-30
 **Spec**: `.specs/features/front-end-phase-2-catalog/spec.md`
-**Diff range**: `main..HEAD` (spec/design/tasks + 6 feat commits `ece20ed`…`eaa575f` + fix `4929b46`)
-**Verifier**: independent sub-agent (re-verification 1/3, author ≠ verifier)
+**Diff range**: `main..HEAD` (spec/design/tasks + 6 feat commits `ece20ed`…`eaa575f` + fix `4929b46` + post-UAT fix `1c886c3`)
+**Verifier**: independent sub-agent (re-verification 1/3, author ≠ verifier); post-UAT fix cycle by the orchestrator
 
-**Verdict**: PASS ✅ — the round-1 gap is closed. The previously surviving mutant (`>=` → `>` at the panel-collapse threshold) is now killed by the exact-boundary test added in fix `4929b46`; all 3 sensor mutations die, the Build gate passes 154/154, and all 19 ACs carry evidence that meets the spec-defined outcome (2 spec-precision flags carried over — non-failing).
+**Verdict**: PASS ✅ — the round-1 gap is closed. The previously surviving mutant (`>=` → `>` at the panel-collapse threshold) is now killed by the exact-boundary test added in fix `4929b46`; all 3 sensor mutations die, the Build gate passes 154/154, and all 19 ACs carry evidence that meets the spec-defined outcome (2 spec-precision flags carried over — non-failing). Interactive UAT then ran (human reviewer): functional behavior confirmed correct, **visual rendering rejected (Major)** → fix cycle T8 applied in `1c886c3` and re-verified (analyze 0, 162/162, after-goldens reviewed) — see Interactive UAT Results and Fix 2 below.
 
 ---
 
@@ -20,8 +20,9 @@
 | T5   | ✅ Done    | 6 new tests (5 declarations, CAT-15 table-driven over 2 cases); table-driven CAT-15 cases |
 | T6   | ✅ Done    | 10 new tests (boot 6 + registry 4). Note: Done-when says `widget_test.dart` "reescrito"; actual = file deleted and its two behaviors superseded in `desktop/test/app_boot_test.dart` (see Test Integrity) — intent ("nenhum teste órfão") met |
 | T7   | ✅ Done    | Fix task (`4929b46`): `shellMinWidthWithPanel` = 1002 = 220 + 480 + 300 + 2 × hairline (`desktop/lib/theme/tokens.dart:83-84`); formula + literal 1002 asserted in `desktop/test/theme/tokens_test.dart:60-68`; viewports tokenized (`app_shell_test.dart:73,97`); new exact-threshold boundary test (`app_shell_test.dart:81-90`); `design.md`/`tasks.md` threshold annotations updated (no stale 1000 outside this report); gate run, analyze 0 issues; suite 154 passed / 4 skipped — matches Done-when |
+| T8   | ✅ Done    | Post-UAT fix task (`1c886c3`): `Scaffold` root in `AppShell` (`app_shell.dart:26`) + documented why; `ColorScheme.fromSeed(0xFF546E7A)` passed at `ThemeData` construction (`app_theme.dart:11-17`); `Align(topLeft)` in `LeftNav` (32px row); button themes pin `minimumSize` = `controlHeight` + `shrinkWrap`; dialog label/id hierarchy + muted loading/empty + explicit panel stats styles; 8 new + 2 extended regression tests (Scaffold surface, nav = `rowHeight`, stats ≠ 48px/`0xD0FF0000`, palette hue outside violet band, button sizing, dialog hierarchy); gate: analyze 0 issues, 162 passed / 4 skipped — matches Done-when |
 
-All 44 Done-when checkboxes across T1–T7 are checked (`tasks.md:99-103,126-133,156-162,185-191,214-218,241-246,269-274`). No task is blocked or partial. Gate command present for every task.
+All 53 Done-when checkboxes across T1–T8 are checked (`tasks.md:99-103,126-133,156-162,185-191,214-218,241-246,269-274` + T7/T8 blocks). No task is blocked or partial. Gate command present for every task.
 
 **Consistency sweep**: grep of `.specs/features/front-end-phase-2-catalog/` for the old `1000` threshold returns only this report's history; `design.md:69,97,216` and `tasks.md:157,256,269,272` all state 1002 with hairlines included — design/tasks/threshold derivation are mutually consistent.
 
@@ -81,9 +82,26 @@ Scratch = temporary worktree `/tmp/opencode/lgn96-sensor` at `HEAD` (`4929b46`),
 
 ## Interactive UAT Results (if performed)
 
-| #   | Test        | Result   | Details                                         |
-| --- | ----------- | -------- | ----------------------------------------------- |
-| —   | All         | ⏭️ Skip  | Deferred to the human reviewer — desktop GUI, interactive session (per orchestrator brief) |
+Performed by the human maintainer on the running desktop app (PR #46). Verbatim feedback:
+
+> Está maquiavelamente feito. COm cores que não combinam nem produzem legibilidade. Fontes desproporcionais e tamanhos que não condizem com o que conversamos até aqui. Mas funcionalmente está correto
+
+**Severity**: Major (inference table: "wrong" vs the normative `desktop/AGENTS.md` tokens). The reviewer confirmed the functional behavior correct; the rendering violated three token rules — type scale ≤ 17 (48px error fallback on screen), row height 32 (full-height nav block), colors derived from a legible `ColorScheme` (M3 purple baseline over an unpainted black surface).
+
+**Diagnosis** (empirical: golden render + pixel sampling + Flutter SDK source):
+
+1. `AppShell` had no `Scaffold` → nothing painted the surface (black window) and, with no `Material` ancestor, unstyled `Text` fell into MaterialApp's `_errorTextStyle` (`material/app.dart:45-50`: `Color(0xD0FF0000)`, `fontSize: 48.0`, yellow double underline) — the red blocks in the right panel ("3 templates", "Last updated").
+2. `ThemeData(useMaterial3: true)` with no `colorScheme` → `_colorSchemeLightM3` purple baseline (`theme_data.dart:3380`: `primary: 0xFF6750A4`) — purple-tinted neutrals across the shell (violates the "AI SaaS" prohibition).
+3. The shell `Row(crossAxisAlignment: stretch)` forced a tight height the nav entry's `SizedBox(height: 32)` could not shrink → active tint rendered ~750px tall instead of the 32px row token.
+4. M3 button defaults are 40px (outside the 32–36 control band) and the dialog rendered label/id at the same size (flat hierarchy).
+
+| # | Check | Result | Details |
+| - | ----- | ------ | ------- |
+| 1 | Colors combine and produce legibility | ✅ Pass (post-fix) | Blue-gray `fromSeed` scheme, `Scaffold` surface painted; after-golden review shows no purple, neutral hairlines, readable contrast |
+| 2 | Fonts/sizes match the agreed table | ✅ Pass (post-fix) | All rendered text ∈ {12, 13, 15, 17}; panel stats 13px (was 48px red); nav entry = 32px row; buttons = 36px |
+| 3 | Functional correctness | ✅ Confirmed by reviewer | All 19 ACs green before the fix; the fix changed rendering only (suite 162 green, no assertion weakened) |
+
+Fix applied in `1c886c3` (T8); re-verified per the fix→re-verify protocol (iteration 1 of max 3): gates green, regression sensors added, before/after goldens reviewed against the `desktop/AGENTS.md` Critical Layout Review checklist.
 
 ---
 
@@ -145,7 +163,8 @@ Additional mandated checks:
 
   All four require a live API; unit/widget suites cover the same contracts over `MockClient` (per tasks.md matrix: "contrato self-skip sem API"). None is a feature test.
 - **Failures**: none
-- **Test Integrity Check**: no Phase-1 test file was modified or deleted except `desktop/test/widget_test.dart` (diff stat: only deletions, file removed). T6's Done-when called it a "rewrite"; the actual change is delete-and-supersede: placeholder test 1 ("renders the default app title") → `app_boot_test.dart:71` `expect(find.text('Legnaris'), findsOneWidget)` in full boot context; placeholder test 2 ("provider value, not hardcoded") → `app_boot_test.dart:86` `expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).title, …)` — a stronger property-level assertion of the same contract. No meaningful test lost; no assertion weakened anywhere in the diff (the fix commit's changes are strengthening — see Code Quality).
+- **Post-UAT gate (T8, commit `1c886c3`)**: same command → `flutter analyze` "No issues found"; `flutter test` **162 passed, 0 failed, 4 skipped** (+8 net new tests: 3 shell + 2 dialog + 3 theme; 2 catalog tests extended with style assertions). `git diff main..HEAD -- desktop/pubspec.yaml` still empty; no generated output changed (no string/codegen change); edited files pass `dart format`.
+- **Test Integrity Check**: no Phase-1 test file was modified or deleted except `desktop/test/widget_test.dart` (diff stat: only deletions, file removed). T6's Done-when called it a "rewrite"; the actual change is delete-and-supersede: placeholder test 1 ("renders the default app title") → `app_boot_test.dart:71` `expect(find.text('Legnaris'), findsOneWidget)` in full boot context; placeholder test 2 ("provider value, not hardcoded") → `app_boot_test.dart:86` `expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).title, …)` — a stronger property-level assertion of the same contract. No meaningful test lost; no assertion weakened anywhere in the diff (the fix commits' changes are strengthening — see Code Quality). The T8 diff additionally reflows edited test files through `dart format` and braces three T6-era `if`s — both behavior-identical, mandated by the analyze gate.
 
 ---
 
@@ -158,6 +177,12 @@ Additional mandated checks:
 - **Verify (executed this round)**: Build gate green (154/0/4); mutant M2 re-injected in a scratch worktree → suite FAILS with exactly the boundary test failing; real-tree porcelain unchanged. Done-when of T7 fully satisfied.
 
 No new issues found this round.
+
+### Fix 2 (post-UAT, T8): paint the shell surface, replace the purple baseline, pin control sizing — APPLIED ✅
+
+- **Root cause (UAT round)**: three compounding render defects plus a token overrun: (a) `AppShell` built a bare `Column`, so nothing painted the surface (black window) and unstyled `Text` sat outside any `Material` — MaterialApp's `_errorTextStyle` (48px red, yellow underline) rendered as the panel stats; (b) no `colorScheme` meant M3's purple baseline (`#6750A4`) tinted every neutral; (c) the stretch-fed tight height inflated the nav entry from the 32px row token to a full-height block; (d) M3 buttons default to 40px (band: 32–36) and the dialog had label = id sizing.
+- **Delivered by `1c886c3`** (6 lib files + 4 test files): `Scaffold` root with a load-bearing doc comment (`app_shell.dart:26`); `ColorScheme.fromSeed(0xFF546E7A)` passed at construction (`app_theme.dart:11-17`); `Align(topLeft)` in `LeftNav`; button themes pin `minimumSize = Size(64, controlHeight)` + `shrinkWrap`; dialog label → `bodySmall`/`onSurfaceVariant`, id → `bodyMedium`; loading/empty muted; panel stats explicit `bodyMedium`. Palette direction ("azul-acinzentado") chosen by the maintainer and recorded in `design.md`.
+- **Verify (executed)**: `flutter analyze` → "No issues found"; `flutter test` → **162 passed, 0 failed, 4 skipped** (8 new regression tests + 2 extended; none removed or weakened — the only pre-existing edits are `dart format` reflow and braces for three T6-era `if`s); regression sensors: Scaffold presence + `surface` background, nav = `AppSizes.rowHeight`, panel stats `fontSize == body` and `color != 0xD0FF0000`, primary hue outside the violet band and ≠ `0xFF6750A4`, button `minimumSize` at theme level + measured `Close` height, dialog hierarchy; before/after goldens rendered from the real app and reviewed (Critical Layout Review checklist: no template-like grid, no unjustified modernism, no decoration). Lessons recorded: L-005 (seed the scheme), L-006 (Scaffold/Material root), L-007 (loosen stretch constraints).
 
 ---
 
@@ -177,16 +202,17 @@ Verifier is read-only on the real worktree (mandate: only `validation.md` may be
 
 ## Summary
 
-**Overall**: ✅ Ready
+**Overall**: ✅ Ready (UAT fix cycle closed)
 
 **Spec-anchored check**: 19/19 ACs have `file:line` evidence and meet the spec-defined outcome | 2 spec-precision gaps flagged (CAT-08, CAT-19 — non-failing, re-assessed this round)
 **Sensor**: 3/3 mutations killed (including the round-1 survivor)
-**Gate**: 154 passed, 0 failed, 4 skipped (Build level, exit 0)
+**Gate**: 154 passed, 0 failed, 4 skipped (Build level, exit 0) → **162 passed after the post-UAT T8 fix**
+**UAT**: human reviewer confirmed functional correctness and rejected the visuals (Major) → fixed in `1c886c3`, re-verified (gates green, regression sensors, before/after golden review)
 
-**What works**: shell (CAT-01–06) with token-only dimensions and an exact, hairline-inclusive collapse boundary at 1002px; catalog provider with in-memory cache, single-flight and mapped failures (CAT-07, 09–14, 18, 19); four distinct render states with exact spec copy on empty (CAT-08–11); Retry semantics (CAT-12/13); shallow dialog navigation with zero refetch (CAT-15–17); F5 refresh wired through the rebindable registry with the surface guard; codegen and l10n artifacts committed and current; analyze clean; test integrity reconciled (+72, no weakened assertions).
+**What works**: shell (CAT-01–06) with token-only dimensions and an exact, hairline-inclusive collapse boundary at 1002px, painted surface and Material context (post-UAT), 32px nav row, 36px buttons; catalog provider with in-memory cache, single-flight and mapped failures (CAT-07, 09–14, 18, 19); four distinct render states with exact spec copy on empty (CAT-08–11); Retry semantics (CAT-12/13); shallow dialog navigation with zero refetch (CAT-15–17); F5 refresh wired through the rebindable registry with the surface guard; V1 palette = maintainer-approved blue-gray `fromSeed` scheme; codegen and l10n artifacts committed and current; analyze clean; test integrity reconciled (+80 over baseline, no weakened assertions).
 
-**Issues found**: none blocking. 2 spec-precision flags (CAT-08 copy, CAT-19 placement) carried as ⚠️ — spec hygiene, no code change required; already grounded as L-003/L-004.
+**Issues found**: 2 spec-precision flags (CAT-08 copy, CAT-19 placement) carried as ⚠️ — spec hygiene, no code change required; already grounded as L-003/L-004. Post-UAT visual defects (Major) fixed and re-verified; grounded as L-005/L-006/L-007.
 
-**Next steps**: interactive UAT deferred to the human reviewer; if accepted, mark the feature done (re-verification 1/3 complete with PASS).
+**Next steps**: reviewer re-runs the desktop app against the T8 fix (visual confirmation), then merge PR #46 and transition LGN-96 (outside this agent's allowed scope).
 
 **Closing gate**: `python3 .claude/skills/tlc-spec-driven/scripts/validate_state.py .specs/features/front-end-phase-2-catalog` exits 0 against this report.

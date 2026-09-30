@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 5,
+  "next_id": 8,
   "lessons": [
     {
       "id": "L-001",
@@ -76,6 +76,60 @@
       ],
       "created": "2026-09-30T17:57:30Z",
       "last_seen": "2026-09-30T17:57:30Z"
+    },
+    {
+      "id": "L-005",
+      "key": "spec_deviation::seed the app colorscheme explicitly at themedata construction material 3 s default scheme is a purple baseline that tints every neutral and reads as the banned ai saas aesthetic",
+      "text": "Seed the app ColorScheme explicitly at ThemeData construction — Material 3's default scheme is a purple baseline that tints every neutral and reads as the banned AI-SaaS aesthetic",
+      "signal": "spec_deviation",
+      "scope": "desktop/theme",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "UAT T8 (1c886c3) (desktop/theme)"
+      ],
+      "created": "2026-09-30T19:10:10Z",
+      "last_seen": "2026-09-30T19:10:10Z"
+    },
+    {
+      "id": "L-006",
+      "key": "spec_deviation::mount the app shell in a scaffold a bare column leaves the window unpainted and drops unstyled text into materialapp s 48px red errortextstyle fallback",
+      "text": "Mount the app shell in a Scaffold — a bare Column leaves the window unpainted and drops unstyled Text into MaterialApp's 48px red _errorTextStyle fallback",
+      "signal": "spec_deviation",
+      "scope": "desktop/shell",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "UAT T8 (1c886c3) (desktop/shell)"
+      ],
+      "created": "2026-09-30T19:10:10Z",
+      "last_seen": "2026-09-30T19:10:10Z"
+    },
+    {
+      "id": "L-007",
+      "key": "spec_deviation::lay out fixed height children under a stretch row inside an align that loosens the incoming tight height or the child inflates past its row token",
+      "text": "Lay out fixed-height children under a stretch Row inside an Align that loosens the incoming tight height, or the child inflates past its row token",
+      "signal": "spec_deviation",
+      "scope": "desktop/shell",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-2-catalog"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "UAT T8 (1c886c3) (desktop/shell)"
+      ],
+      "created": "2026-09-30T19:10:10Z",
+      "last_seen": "2026-09-30T19:10:10Z"
     }
   ]
 }
