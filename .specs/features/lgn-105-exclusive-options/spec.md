@@ -155,8 +155,8 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-12 | P1: Desktop renders a group as one control | Execute | Implementing |
 | EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
 | EXC-14 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
-| EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Pending |
-| EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Pending |
+| EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
+| EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
 | EXC-17 | P1: Contract advertises exclusive groups | Execute | Implementing |
 
 **ID format:** `EXC-[NUMBER]`

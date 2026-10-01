@@ -93,8 +93,36 @@ void main() {
       expect(armorClass?.dependsOn?.first, ['combat', 'baseArmorClass']);
     });
 
-    test('Happy path: POST /sheets fixture decodes the created sheet with computed values', () async {
-      final client = fixtureClient(fixtureBody('sheet_create.json'), status: 201);
+    test(
+      'Happy path: the frozen fixtures tag exactly the armor-class pair with the exclusive group (EXC-17)',
+      () async {
+        final detailClient = fixtureClient(fixtureBody('template_detail.json'));
+        final detail = await detailClient.getTemplate('fantasy_v1');
+        final catalogClient = fixtureClient(fixtureBody('templates.json'));
+        final catalog = (await catalogClient.listTemplates()).single;
+
+        for (final template in [detail, catalog]) {
+          final config = template.fields['config']!.children!;
+          final tagged = {
+            for (final entry in config.entries)
+              if ((entry.value.schema?.exclusiveGroup ?? '').isNotEmpty)
+                entry.key,
+          };
+
+          expect(tagged, {'acUsesDex', 'acUsesCon'});
+          expect(
+            config['acUsesDex']!.schema!.exclusiveGroup,
+            'armorClassAbility',
+          );
+          expect(
+            config['acUsesCon']!.schema!.exclusiveGroup,
+            'armorClassAbility',
+          );
+        }
+      },
+    );
+
+    test('Happy path: POST /sheets fixture decodes the created sheet with computed values', () async {      final client = fixtureClient(fixtureBody('sheet_create.json'), status: 201);
 
       final sheet = await client.createSheet(
         templateId: 'fantasy_v1',

@@ -108,17 +108,24 @@ class SheetForm extends StatelessWidget {
       key: Key('sheet-row-${group.id}'),
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+          Expanded(
+            flex: 2,
+            child: Text(label, style: theme.textTheme.bodyMedium),
+          ),
           const SizedBox(width: AppSpacing.md),
-          if (exclusiveControlBuilder != null)
-            exclusiveControlBuilder!(context, group, selected, null)
-          else
-            SheetExclusiveControl(
-              group: group,
-              selectedPath: selected,
-              onSelect: null,
-            ),
+          Expanded(
+            flex: 3,
+            child:
+                exclusiveControlBuilder != null
+                    ? exclusiveControlBuilder!(context, group, selected, null)
+                    : SheetExclusiveControl(
+                      group: group,
+                      selectedPath: selected,
+                      onSelect: null,
+                    ),
+          ),
         ],
       ),
     );

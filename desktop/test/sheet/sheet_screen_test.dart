@@ -21,7 +21,7 @@ void main() {
   const detailBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}},
-  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 1}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility"}}, "stealthProfWeight": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}}},
   "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
 }}}
 ''';
@@ -34,7 +34,7 @@ void main() {
   const freshBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 16}}}},
-  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 1}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility"}}, "stealthProfWeight": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}}},
   "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
 }}}
 ''';
@@ -153,13 +153,26 @@ void main() {
               ?.text,
           '10',
         );
+        final exclusive = tester.widget<SegmentedButton<String>>(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+        );
+        expect(exclusive.selected, {'config.acUsesDex'});
+        expect(exclusive.onSelectionChanged, isNotNull);
+        expect(
+          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('sheet-toggle-config.acUsesCon')),
+          findsNothing,
+        );
         expect(
           tester
               .widget<Switch>(
-                find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+                find.byKey(const Key('sheet-toggle-config.stealthProfWeight')),
               )
               .value,
-          isTrue,
+          isFalse,
         );
         expect(find.text('Calculated'), findsOneWidget);
         expect(recorded.where((request) => request.method != 'GET'), isEmpty);
@@ -334,7 +347,7 @@ void main() {
           before.keys,
           containsAll([
             'stats.dexterity',
-            'config.acUsesDex',
+            'config.stealthProfWeight',
             'derived.armorClass',
           ]),
         );
@@ -403,7 +416,7 @@ void main() {
         final afterFirst = snapshot();
 
         await tester.tap(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-toggle-config.stealthProfWeight')),
         );
         await tester.pump();
         final afterSecond = snapshot();
@@ -418,8 +431,8 @@ void main() {
         );
         expect(
           identical(
-            afterSecond['config.acUsesDex'],
-            afterFirst['config.acUsesDex'],
+            afterSecond['config.stealthProfWeight'],
+            afterFirst['config.stealthProfWeight'],
           ),
           isFalse,
         );
@@ -449,23 +462,23 @@ void main() {
         };
 
         await tester.tap(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-toggle-config.stealthProfWeight')),
         );
         await tester.pump();
 
         expect(
           tester
               .widget<Switch>(
-                find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+                find.byKey(const Key('sheet-toggle-config.stealthProfWeight')),
               )
               .value,
-          isFalse,
+          isTrue,
         );
         final container = ProviderScope.containerOf(
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         final state = container.read(sheetEditControllerProvider('fantasy_v1'));
-        expect(valueAtPath(state.data, 'config.acUsesDex'), 0);
+        expect(valueAtPath(state.data, 'config.stealthProfWeight'), 1);
         expect(state.isPending, isTrue);
 
         final after = {
@@ -475,7 +488,7 @@ void main() {
             control.path: control,
         };
         for (final path in before.keys.where(
-          (path) => path != 'config.acUsesDex',
+          (path) => path != 'config.stealthProfWeight',
         )) {
           expect(
             identical(after[path], before[path]),
@@ -990,6 +1003,110 @@ void main() {
           // spec's amended gating decision.
           lessThan(4000),
           reason: 'GRN-10: 200 field controls must mount within the budget',
+        );
+      },
+    );
+  });
+
+  group('exclusive groups (EXC-13, EXC-15, EXC-16)', () {
+    testWidgets(
+      'Happy path: the edit screen renders one segmented control for the pair, default option selected, and no per-field toggles (EXC-15)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        final segmented = tester.widget<SegmentedButton<String>>(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+        );
+        expect(segmented.selected, {'config.acUsesDex'});
+        expect(segmented.onSelectionChanged, isNotNull);
+        expect(
+          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('sheet-toggle-config.acUsesCon')),
+          findsNothing,
+        );
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Happy path: selecting the constitution option flips the stored pair to (0,1) in one emission and issues no request (EXC-13, EXC-16)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        var emissions = 0;
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, _) => emissions++,
+        );
+        addTearDown(subscription.close);
+
+        await tester.tap(
+          find.byKey(const Key('sheet-exclusive-option-config.acUsesCon')),
+        );
+        await tester.pump();
+
+        final state = container.read(
+          sheetEditControllerProvider('fantasy_v1'),
+        );
+        expect(valueAtPath(state.data, 'config.acUsesCon'), 1);
+        expect(valueAtPath(state.data, 'config.acUsesDex'), 0);
+        expect(
+          state.editedPaths,
+          containsAll(['config.acUsesCon', 'config.acUsesDex']),
+        );
+        expect(emissions, 1, reason: 'the group must change in one emission');
+        expect(
+          tester
+              .widget<SegmentedButton<String>>(
+                find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+              )
+              .selected,
+          {'config.acUsesCon'},
+        );
+        expect(recorded, hasLength(1));
+        expect(recorded.single.method, 'GET');
+      },
+    );
+
+    testWidgets(
+      'Edge: re-selecting the active option leaves the state instance identical (EXC-14)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        final before = container.read(
+          sheetEditControllerProvider('fantasy_v1'),
+        );
+
+        await tester.tap(
+          find.byKey(const Key('sheet-exclusive-option-config.acUsesDex')),
+        );
+        await tester.pump();
+
+        expect(
+          identical(
+            container.read(sheetEditControllerProvider('fantasy_v1')),
+            before,
+          ),
+          isTrue,
         );
       },
     );

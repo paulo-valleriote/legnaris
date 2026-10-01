@@ -364,12 +364,12 @@ T9 → T10
 
 **Done when**:
 
-- [ ] The edit screen renders one segmented control for the pair; selecting the constitution option flips the stored pair to `(0,1)` with a GET-only request log
-- [ ] The default option (`acUsesDex`) is selected on first render
-- [ ] The preview renders the group disabled with the default selected
-- [ ] Fixtures carry the key and the contract tests are green (live contract still skips without a server)
-- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...` and `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: screen + preview + fixture tests, no silent deletions
+- [x] The edit screen renders one segmented control for the pair; selecting the constitution option flips the stored pair to `(0,1)` with a GET-only request log
+- [x] The default option (`acUsesDex`) is selected on first render
+- [x] The preview renders the group disabled with the default selected
+- [x] Fixtures carry the key and the contract tests are green (live contract still skips without a server)
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...` and `cd desktop && flutter analyze && flutter test`
+- [x] Test count: screen + preview + fixture tests, no silent deletions
 
 **Tests**: widget
 **Gate**: build (desktop)

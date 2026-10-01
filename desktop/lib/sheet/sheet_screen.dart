@@ -346,12 +346,10 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
       return SheetExclusiveControl(
         group: group,
         selectedPath: active,
-        onSelect: (path) {
-          final notifier = ref.read(provider.notifier);
-          for (final option in group.options) {
-            notifier.setPath(option.path, option.path == path ? 1 : 0);
-          }
-        },
+        onSelect: (path) => ref.read(provider.notifier).setExclusive(
+          path,
+          group.options.map((option) => option.path).where((p) => p != path),
+        ),
       );
     },
   );

@@ -42,6 +42,11 @@ void main() {
 ''';
   const emptyFieldsBody =
       '{"data": {"id": "fantasy_v1", "name": "Blank Template", "default": false, "fields": {}}}';
+  const exclusivePairBody = '''
+{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility"}}}}
+}}}
+''';
   const groupsOnlyBody =
       '{"data": {"id": "fantasy_v1", "name": "Empty Groups", "default": false, "fields": {"empty": {"children": {}}, "alsoEmpty": {"children": {"nested": {"children": {}}}}}}}';
 
@@ -292,6 +297,34 @@ void main() {
 
         expect(recorded.every((request) => request.method == 'GET'), isTrue);
         expect(recorded.any((request) => request.method == 'POST'), isFalse);
+      },
+    );
+
+    testWidgets(
+      'Happy path: the preview renders the exclusive group disabled with the default option selected (EXC-11, EXC-15)',
+      (tester) async {
+        final recorded = await pumpCatalog(
+          tester,
+          handler: routing(detail: exclusivePairBody),
+        );
+        await openDialog(tester);
+
+        final segmented = tester.widget<SegmentedButton<String>>(
+          inPreview(
+            find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+          ),
+        );
+        expect(segmented.selected, {'config.acUsesDex'});
+        expect(segmented.onSelectionChanged, isNull);
+        expect(
+          inPreview(find.byKey(const Key('sheet-toggle-config.acUsesDex'))),
+          findsNothing,
+        );
+        expect(
+          inPreview(find.byKey(const Key('sheet-toggle-config.acUsesCon'))),
+          findsNothing,
+        );
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
       },
     );
   });
