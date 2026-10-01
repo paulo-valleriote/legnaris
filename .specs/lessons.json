@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 12,
+  "next_id": 13,
   "lessons": [
     {
       "id": "L-001",
@@ -202,6 +202,24 @@
       ],
       "created": "2026-10-01T15:43:50Z",
       "last_seen": "2026-10-01T15:43:50Z"
+    },
+    {
+      "id": "L-012",
+      "key": "surviving_mutant::assert a metadata key is absent from every leaf of a template not only the section that sets it",
+      "text": "Assert a metadata key is absent from every leaf of a template, not only the section that sets it.",
+      "signal": "surviving_mutant",
+      "scope": "internal/sheet/template",
+      "status": "candidate",
+      "features": [
+        "lgn-105-exclusive-options"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "internal/sheet/template/seeders.go:190 (internal/sheet/template)"
+      ],
+      "created": "2026-10-01T23:19:44Z",
+      "last_seen": "2026-10-01T23:19:44Z"
     }
   ]
 }

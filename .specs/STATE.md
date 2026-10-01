@@ -21,11 +21,11 @@
 ## Handoff
 
 - **Feature**: `lgn-105-exclusive-options` (.specs/features/lgn-105-exclusive-options)
-- **Phase / Task**: Execute — T1 pending (spec/context/design/tasks written)
-- **Completed**: Specify + Design + Tasks; AD-002 recorded
+- **Phase / Task**: Execute complete — T1–T11 done; Verifier PASS
+- **Completed**: Specify + Design + Tasks + Execute (T1–T11); AD-002 recorded; Verifier PASS (report in `.specs/features/lgn-105-exclusive-options/validation.md`; gap #1 fixed by T11 `010895a`)
 - **In-progress** (file:line): none
-- **Next step**: run backend batch (T1–T4), then desktop batch (T5–T10), then the Verifier
+- **Next step**: open the PR for `feat/lgn-105-exclusive-options`
 - **Blockers**: none
-- **Uncommitted files**: `.specs/features/lgn-105-exclusive-options/*`, this STATE; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
+- **Uncommitted files**: this STATE; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
 - **Branch**: feat/lgn-105-exclusive-options
 - **Prior feature**: `lgn-102-granular-rebuild` — COMPLETE (Verifier PASS, report in `.specs/features/lgn-102-granular-rebuild/validation.md`)

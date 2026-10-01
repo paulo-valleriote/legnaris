@@ -141,23 +141,23 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| EXC-01 | P1: Contract advertises exclusive groups | Execute | Implementing |
-| EXC-02 | P1: Contract advertises exclusive groups | Execute | Implementing |
-| EXC-03 | P1: Contract advertises exclusive groups | Execute | Implementing |
-| EXC-04 | P1: Backend enforces at most one active member | Execute | Implementing |
-| EXC-05 | P1: Backend enforces at most one active member | Execute | Implementing |
-| EXC-06 | P1: Backend enforces at most one active member | Execute | Implementing |
-| EXC-07 | P1: Backend enforces at most one active member | Execute | Implementing |
-| EXC-08 | P1: Backend enforces at most one active member | Execute | Implementing |
-| EXC-09 | P1: Desktop renders a group as one control | Execute | Implementing |
-| EXC-10 | P1: Desktop renders a group as one control | Execute | Implementing |
-| EXC-11 | P1: Desktop renders a group as one control | Execute | Implementing |
-| EXC-12 | P1: Desktop renders a group as one control | Execute | Implementing |
-| EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
-| EXC-14 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
-| EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
-| EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
-| EXC-17 | P1: Contract advertises exclusive groups | Execute | Implementing |
+| EXC-01 | P1: Contract advertises exclusive groups | Execute | Verified |
+| EXC-02 | P1: Contract advertises exclusive groups | Execute | Verified |
+| EXC-03 | P1: Contract advertises exclusive groups | Execute | Verified |
+| EXC-04 | P1: Backend enforces at most one active member | Execute | Verified |
+| EXC-05 | P1: Backend enforces at most one active member | Execute | Verified |
+| EXC-06 | P1: Backend enforces at most one active member | Execute | Verified |
+| EXC-07 | P1: Backend enforces at most one active member | Execute | Verified |
+| EXC-08 | P1: Backend enforces at most one active member | Execute | Verified |
+| EXC-09 | P1: Desktop renders a group as one control | Execute | Verified |
+| EXC-10 | P1: Desktop renders a group as one control | Execute | Verified |
+| EXC-11 | P1: Desktop renders a group as one control | Execute | Verified |
+| EXC-12 | P1: Desktop renders a group as one control | Execute | Verified |
+| EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Verified |
+| EXC-14 | P1: Desktop selection keeps at most one member on | Execute | Verified |
+| EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Verified |
+| EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Verified |
+| EXC-17 | P1: Contract advertises exclusive groups | Execute | Verified |
 
 **ID format:** `EXC-[NUMBER]`
 
