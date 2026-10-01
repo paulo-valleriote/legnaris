@@ -68,6 +68,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: RND-04; spec.md:77; desktop/lib/engine/field_grouping.dart:31 (desktop)
 - last seen: 2026-10-01T02:11:51Z
 
+### L-010 - Give every layout boundary (min window width, max panel/control size) an explicit numeric value in the spec so its edge case is testable.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `desktop` · harmful: 0
+- features: front-end-phase-3-sheet-preview
+- evidence: spec.md:125 (min-width edge; validation.md spec-precision note) (desktop)
+- last seen: 2026-10-01T14:22:57Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

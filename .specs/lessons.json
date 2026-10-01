@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 10,
+  "next_id": 11,
   "lessons": [
     {
       "id": "L-001",
@@ -166,6 +166,24 @@
       ],
       "created": "2026-10-01T02:11:51Z",
       "last_seen": "2026-10-01T02:11:51Z"
+    },
+    {
+      "id": "L-010",
+      "key": "spec_precision_gap::give every layout boundary min window width max panel control size an explicit numeric value in the spec so its edge case is testable",
+      "text": "Give every layout boundary (min window width, max panel/control size) an explicit numeric value in the spec so its edge case is testable.",
+      "signal": "spec_precision_gap",
+      "scope": "desktop",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-3-sheet-preview"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec.md:125 (min-width edge; validation.md spec-precision note) (desktop)"
+      ],
+      "created": "2026-10-01T14:22:57Z",
+      "last_seen": "2026-10-01T14:22:57Z"
     }
   ]
 }
