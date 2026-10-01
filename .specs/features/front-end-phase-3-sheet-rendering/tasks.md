@@ -139,13 +139,13 @@ T3 → T4 → T5
 
 **Done when**:
 
-- [ ] Seções renderizam na ordem da API, cada uma com seu cabeçalho e suas linhas (RND-01)
-- [ ] Cada linha mostra o label (schema ou humanizado) e o controle com o valor resolvido do mapa por caminho (RND-05)
-- [ ] Editar uma linha chama `onChanged(path, value)` do formulário com o caminho pontilhado correto (RND-12)
-- [ ] Valor ausente no mapa → linha vazia/off, sem exceção (edge)
-- [ ] `sheet_model_test.dart` continua verde após a extração de `valueAtPath` (FE1-12…14)
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: [N] novos testes; nenhum teste existente removido
+- [x] Seções renderizam na ordem da API, cada uma com seu cabeçalho e suas linhas (RND-01)
+- [x] Cada linha mostra o label (schema ou humanizado) e o controle com o valor resolvido do mapa por caminho (RND-05)
+- [x] Editar uma linha chama `onChanged(path, value)` do formulário com o caminho pontilhado correto (RND-12)
+- [x] Valor ausente no mapa → linha vazia/off, sem exceção (edge)
+- [x] `sheet_model_test.dart` continua verde após a extração de `valueAtPath` (FE1-12…14)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 8 novos testes (suíte 232 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: widget
 **Gate**: full
