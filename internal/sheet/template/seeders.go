@@ -32,6 +32,12 @@ const (
 	fieldNameTotal            = "total"
 	fieldNameBonus            = "bonus"
 
+	// exclusiveGroupArmorClassAbility is the shared group id for the armor-class
+	// ability proxies: config.acUsesDex and config.acUsesCon are mutually
+	// exclusive (at most one is non-zero), so the API advertises them as one
+	// choice and the DAG normalizes them together.
+	exclusiveGroupArmorClassAbility = "armorClassAbility"
+
 	// Ability keys shared by stats, modifiers, saves and the skill list.
 	abilityStrength     = "strength"
 	abilityDexterity    = "dexterity"
@@ -337,9 +343,14 @@ func spellsGroup() FieldGroup {
 }
 
 func configGroup() FieldGroup {
+	acUsesDex := numField("Armor class uses dexterity", 1)
+	acUsesDex.Schema.ExclusiveGroup = exclusiveGroupArmorClassAbility
+	acUsesCon := numField("Armor class uses constitution", 0)
+	acUsesCon.Schema.ExclusiveGroup = exclusiveGroupArmorClassAbility
+
 	group := FieldGroup{
-		"acUsesDex": numField("Armor class uses dexterity", 1),
-		"acUsesCon": numField("Armor class uses constitution", 0),
+		"acUsesDex": acUsesDex,
+		"acUsesCon": acUsesCon,
 	}
 	for _, a := range abilities {
 		group[saveProfKey(a.key)] = numField(a.label+" save proficiency", 0)

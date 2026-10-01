@@ -143,7 +143,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | -------------- | ----- | ----- | ------- |
 | EXC-01 | P1: Contract advertises exclusive groups | Execute | Implementing |
 | EXC-02 | P1: Contract advertises exclusive groups | Execute | Implementing |
-| EXC-03 | P1: Contract advertises exclusive groups | Execute | Pending |
+| EXC-03 | P1: Contract advertises exclusive groups | Execute | Implementing |
 | EXC-04 | P1: Backend enforces at most one active member | Execute | Pending |
 | EXC-05 | P1: Backend enforces at most one active member | Execute | Pending |
 | EXC-06 | P1: Backend enforces at most one active member | Execute | Pending |

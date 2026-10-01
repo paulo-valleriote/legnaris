@@ -214,6 +214,20 @@ func TestFantasyV1_Structure(t *testing.T) {
 			assert.Equal(t, def, schema.Default)
 			assert.Empty(t, schema.Formula)
 		}
+
+		// EXC-03: only the armor-class pair declares the shared group; every
+		// other config flag stays independent.
+		for _, name := range []string{"acUsesDex", "acUsesCon"} {
+			assert.Equal(t, exclusiveGroupArmorClassAbility, config[name].Schema.ExclusiveGroup,
+				"config.%s must declare the shared armor-class group", name)
+		}
+		for name := range want {
+			if name == "acUsesDex" || name == "acUsesCon" {
+				continue
+			}
+			assert.Empty(t, config[name].Schema.ExclusiveGroup,
+				"config.%s must not join an exclusive group", name)
+		}
 	})
 
 	t.Run("Happy path: combat numbers are editable with usable defaults", func(t *testing.T) {

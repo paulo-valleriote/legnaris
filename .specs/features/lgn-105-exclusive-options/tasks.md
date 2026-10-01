@@ -142,10 +142,10 @@ T9 → T10
 
 **Done when**:
 
-- [ ] `config.acUsesDex` and `config.acUsesCon` both carry `ExclusiveGroup == "armorClassAbility"`; every other config leaf carries `""`
-- [ ] The formula/depends-on invariant test is unchanged and green
-- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...`
-- [ ] Test count: config pin test extended (pair tagged, others untagged)
+- [x] `config.acUsesDex` and `config.acUsesCon` both carry `ExclusiveGroup == "armorClassAbility"`; every other config leaf carries `""`
+- [x] The formula/depends-on invariant test is unchanged and green
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [x] Test count: config pin test extended (pair tagged, others untagged)
 
 **Tests**: unit
 **Gate**: build (backend)
