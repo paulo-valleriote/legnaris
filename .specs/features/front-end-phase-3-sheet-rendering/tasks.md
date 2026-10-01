@@ -78,13 +78,13 @@ T3 → T4 → T5
 
 **Done when**:
 
-- [ ] Uma seção por chave de topo visível, na ordem de inserção do mapa da API (RND-01)
-- [ ] Grupo aninhado flatted recursivamente nas folhas certas, na ordem da árvore (RND-02)
-- [ ] Folha de topo vira seção de uma folha; grupo sem folhas é omitido; `fields` vazio → lista vazia (RND-03 + edge)
-- [ ] Label = `schema.label` quando não vazio, senão chave humanizada; prefixo exótico renderiza igual (RND-04/05)
-- [ ] `template_summary_test.dart` continua verde após o refactor do display name (TPL-02/03/05)
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: [N] novos testes; nenhum teste existente removido (suíte ≥ 235 passed / 4 skipped)
+- [x] Uma seção por chave de topo visível, na ordem de inserção do mapa da API (RND-01)
+- [x] Grupo aninhado flatted recursivamente nas folhas certas, na ordem da árvore (RND-02)
+- [x] Folha de topo vira seção de uma folha; grupo sem folhas é omitido; `fields` vazio → lista vazia (RND-03 + edge)
+- [x] Label = `schema.label` quando não vazio, senão chave humanizada; prefixo exótico renderiza igual (RND-04/05)
+- [x] `template_summary_test.dart` continua verde após o refactor do display name (TPL-02/03/05)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 10 novos testes (suíte 212 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: unit
 **Gate**: full

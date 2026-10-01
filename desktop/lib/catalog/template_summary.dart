@@ -2,6 +2,7 @@
 library;
 
 import 'package:legnaris/api/models/template.dart';
+import 'package:legnaris/engine/field_grouping.dart';
 
 /// One line of the template summary: a display name and the leaf fields it
 /// contains, under their display names.
@@ -17,8 +18,9 @@ const _hiddenGroups = {'config', 'derived', 'modifiers'};
 ///
 /// A group lists every leaf beneath it recursively; a top-level leaf is its own
 /// line with no members (TPL-03). Display names prefer the schema label and fall
-/// back to a normalized form of the key, so no template prefix is hardcoded
-/// (TPL-05). An empty [fields] tree yields an empty summary.
+/// back to a normalized form of the key through [fieldDisplayName], so no
+/// template prefix is hardcoded (TPL-05). An empty [fields] tree yields an
+/// empty summary.
 List<FieldSummary> summarizeFields(FieldGroup fields) => [
   for (final entry in fields.entries)
     if (!_hiddenGroups.contains(entry.key)) _summaryOf(entry.key, entry.value),
@@ -27,13 +29,13 @@ List<FieldSummary> summarizeFields(FieldGroup fields) => [
 FieldSummary _summaryOf(String key, FieldNode node) {
   final schema = node.schema;
   if (schema != null) {
-    return (name: _displayName(key, schema), members: const <String>[]);
+    return (name: fieldDisplayName(key, schema), members: const <String>[]);
   }
   return (
-    name: _displayName(key, null),
+    name: fieldDisplayName(key, null),
     members: [
       for (final leaf in _leaves(node))
-        _displayName(leaf.key, leaf.value.schema),
+        fieldDisplayName(leaf.key, leaf.value.schema),
     ],
   );
 }
@@ -48,27 +50,4 @@ Iterable<MapEntry<String, FieldNode>> _leaves(FieldNode node) sync* {
       yield* _leaves(child.value);
     }
   }
-}
-
-String _displayName(String key, FieldSchema? schema) {
-  final label = schema?.label.trim();
-  if (label != null && label.isNotEmpty) return label;
-  return _humanize(key);
-}
-
-String _humanize(String key) {
-  final spaced = key
-      .replaceAll(RegExp(r'[_-]+'), ' ')
-      .replaceAllMapped(
-        RegExp(r'([a-z0-9])([A-Z])'),
-        (match) => '${match[1]} ${match[2]}',
-      )
-      .replaceAllMapped(
-        RegExp(r'([A-Z]+)([A-Z][a-z])'),
-        (match) => '${match[1]} ${match[2]}',
-      )
-      .trim();
-  if (spaced.isEmpty) return key;
-  final lower = spaced.toLowerCase();
-  return lower[0].toUpperCase() + lower.substring(1);
 }
