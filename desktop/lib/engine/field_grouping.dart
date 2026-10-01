@@ -10,9 +10,23 @@ import 'package:legnaris/api/models/template.dart';
 /// schema that decides how it is rendered.
 typedef SheetField = ({String path, FieldSchema schema});
 
-/// One top-level section: the source key, its display label and every leaf
-/// beneath it, in tree order.
-typedef SheetSection = ({String key, String label, List<SheetField> leaves});
+/// One mutually exclusive set inside a section: the group id advertised by the
+/// contract and its member leaves, in tree/API order (EXC-09).
+typedef SheetExclusiveGroup = ({String id, List<SheetField> options});
+
+/// One render row of a section. A normal row carries a single untagged leaf
+/// and no group; an exclusive row carries every member of one group plus its
+/// metadata, replacing the members' independent controls (EXC-09).
+typedef SheetRow = ({List<SheetField> fields, SheetExclusiveGroup? exclusive});
+
+/// One top-level section: the source key, its display label, every leaf
+/// beneath it in tree order, and the render rows derived from those leaves.
+typedef SheetSection = ({
+  String key,
+  String label,
+  List<SheetField> leaves,
+  List<SheetRow> rows,
+});
 
 /// Derives the sections of [fields]: one section per top-level key, in the
 /// order the API returned the keys (map insertion order).
@@ -30,9 +44,46 @@ List<SheetSection> buildSections(FieldGroup fields) {
       key: entry.key,
       label: fieldDisplayName(entry.key, entry.value.schema),
       leaves: leaves,
+      rows: _buildRows(leaves),
     ));
   }
   return sections;
+}
+
+/// Collapses the flattened [leaves] of one section into render rows: a run of
+/// two or more consecutive leaves sharing a non-empty `exclusiveGroup` becomes
+/// one exclusive row at the first member's position; every other leaf stays
+/// its own normal row. A single-member group is not collapsed (EXC-12).
+List<SheetRow> _buildRows(List<SheetField> leaves) {
+  final rows = <SheetRow>[];
+  var index = 0;
+  while (index < leaves.length) {
+    final group = _groupAt(leaves, index);
+    if (group != null) {
+      rows.add((fields: group.options, exclusive: group));
+      index += group.options.length;
+      continue;
+    }
+    rows.add((fields: [leaves[index]], exclusive: null));
+    index += 1;
+  }
+  return rows;
+}
+
+/// The exclusive group whose run starts at [start], or null when the leaf at
+/// [start] is untagged (or its group id is empty) or the run has a single
+/// member.
+SheetExclusiveGroup? _groupAt(List<SheetField> leaves, int start) {
+  final id = leaves[start].schema.exclusiveGroup;
+  if (id == null || id.isEmpty) return null;
+  final options = <SheetField>[];
+  var index = start;
+  while (index < leaves.length && leaves[index].schema.exclusiveGroup == id) {
+    options.add(leaves[index]);
+    index += 1;
+  }
+  if (options.length < 2) return null;
+  return (id: id, options: options);
 }
 
 /// The display name of a field: the schema label when it is non-empty,

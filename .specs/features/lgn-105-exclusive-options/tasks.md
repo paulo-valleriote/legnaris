@@ -254,10 +254,10 @@ T9 → T10
 
 **Done when**:
 
-- [ ] A two-member group becomes one exclusive row with both options in API order; the surrounding rows keep their order
-- [ ] A single-member group stays a normal row; untagged leaves are unaffected
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
-- [ ] Test count: grouping tests for collapse, degrade, and order
+- [x] A two-member group becomes one exclusive row with both options in API order; the surrounding rows keep their order
+- [x] A single-member group stays a normal row; untagged leaves are unaffected
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
+- [x] Test count: grouping tests for collapse, degrade, and order
 
 **Tests**: unit
 **Gate**: build (desktop)

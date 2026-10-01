@@ -152,7 +152,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-09 | P1: Desktop renders a group as one control | Execute | Pending |
 | EXC-10 | P1: Desktop renders a group as one control | Execute | Pending |
 | EXC-11 | P1: Desktop renders a group as one control | Execute | Pending |
-| EXC-12 | P1: Desktop renders a group as one control | Execute | Pending |
+| EXC-12 | P1: Desktop renders a group as one control | Execute | Implementing |
 | EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Pending |
 | EXC-14 | P1: Desktop selection keeps at most one member on | Execute | Pending |
 | EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Pending |
