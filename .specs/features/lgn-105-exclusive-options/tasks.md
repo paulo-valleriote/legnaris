@@ -281,11 +281,11 @@ T9 → T10
 
 **Done when**:
 
-- [ ] ≤3 short options → segmented; >3 options or a label longer than 30 → radio; exactly 30 chars stays segmented
-- [ ] Read-only (`onSelect == null`) renders the control disabled with the active option selected; no active option renders none selected
-- [ ] Selecting an option reports its path; keys are stable
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
-- [ ] Test count: widget tests for segmented/radio boundary, disabled, none-selected, callback
+- [x] ≤3 short options → segmented; >3 options or a label longer than 30 → radio; exactly 30 chars stays segmented
+- [x] Read-only (`onSelect == null`) renders the control disabled with the active option selected; no active option renders none selected
+- [x] Selecting an option reports its path; keys are stable
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
+- [x] Test count: widget tests for segmented/radio boundary, disabled, none-selected, callback
 
 **Tests**: widget
 **Gate**: quick (desktop)

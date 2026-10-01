@@ -149,9 +149,9 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-06 | P1: Backend enforces at most one active member | Execute | Implementing |
 | EXC-07 | P1: Backend enforces at most one active member | Execute | Implementing |
 | EXC-08 | P1: Backend enforces at most one active member | Execute | Implementing |
-| EXC-09 | P1: Desktop renders a group as one control | Execute | Pending |
-| EXC-10 | P1: Desktop renders a group as one control | Execute | Pending |
-| EXC-11 | P1: Desktop renders a group as one control | Execute | Pending |
+| EXC-09 | P1: Desktop renders a group as one control | Execute | Implementing |
+| EXC-10 | P1: Desktop renders a group as one control | Execute | Implementing |
+| EXC-11 | P1: Desktop renders a group as one control | Execute | Implementing |
 | EXC-12 | P1: Desktop renders a group as one control | Execute | Implementing |
 | EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Pending |
 | EXC-14 | P1: Desktop selection keeps at most one member on | Execute | Pending |
