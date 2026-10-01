@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:legnaris/api/models/template.dart';
+import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/app_theme.dart';
@@ -27,8 +28,9 @@ void main() {
   Future<void> pumpForm(
     WidgetTester tester, {
     required FieldGroup fields,
-    required Map<String, Object?> data,
+    required Map<String, Object?>? data,
     void Function(String path, Object? value)? onChanged,
+    SheetControlBuilder? controlBuilder,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -37,7 +39,12 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(
-            child: SheetForm(fields: fields, data: data, onChanged: onChanged),
+            child: SheetForm(
+              fields: fields,
+              data: data,
+              onChanged: onChanged,
+              controlBuilder: controlBuilder,
+            ),
           ),
         ),
       ),
@@ -223,6 +230,81 @@ void main() {
               .controller
               ?.text,
           '',
+        );
+      },
+    );
+  });
+
+  group('control builder (LGN-102, GRN-07, GRN-08)', () {
+    testWidgets(
+      'Happy path: controlBuilder renders its own control for every row instead of the default one',
+      (tester) async {
+        final fields = {
+          'stats': groupOf({'dexterity': leaf('number')}),
+          'derived': groupOf({
+            'armorClass': leaf('number', editable: false, formula: 'x + 1'),
+          }),
+        };
+
+        await pumpForm(
+          tester,
+          fields: fields,
+          data: null,
+          controlBuilder: (context, field) => Text('built ${field.path}'),
+        );
+
+        expect(find.text('built stats.dexterity'), findsOneWidget);
+        expect(find.text('built derived.armorClass'), findsOneWidget);
+        expect(find.byType(SheetFieldControl), findsNothing);
+        expect(find.byKey(const Key('sheet-section-stats')), findsOneWidget);
+        expect(find.text('Dexterity'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Happy path: without a builder the row keeps the data-driven control',
+      (tester) async {
+        final fields = {
+          'stats': groupOf({'dexterity': leaf('number')}),
+        };
+
+        await pumpForm(
+          tester,
+          fields: fields,
+          data: const {
+            'stats': {'dexterity': 16},
+          },
+        );
+
+        expect(find.byType(SheetFieldControl), findsOneWidget);
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '16',
+        );
+      },
+    );
+
+    test(
+      'Error: both control sources, or neither, trip the constructor assert',
+      () {
+        const fields = <String, FieldNode>{};
+
+        expect(
+          () => SheetForm(
+            fields: fields,
+            data: const {},
+            controlBuilder: (context, field) => const SizedBox(),
+          ),
+          throwsA(isA<AssertionError>()),
+        );
+        expect(
+          () => SheetForm(fields: fields),
+          throwsA(isA<AssertionError>()),
         );
       },
     );

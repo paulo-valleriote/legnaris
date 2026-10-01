@@ -146,8 +146,8 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | GRN-04 | P1: Isolated in-memory edit state | Execute | Verified |
 | GRN-05 | P1: Isolated in-memory edit state | Design | Pending |
 | GRN-06 | P1: Isolated in-memory edit state | Execute | Verified |
-| GRN-07 | P1: Granular rebuild per field | Design | Pending |
-| GRN-08 | P1: Granular rebuild per field | Design | Pending |
+| GRN-07 | P1: Granular rebuild per field | Execute | Implementing |
+| GRN-08 | P1: Granular rebuild per field | Execute | Implementing |
 | GRN-09 | P1: Granular rebuild per field | Design | Pending |
 | GRN-10 | P1: Render performance on a full-size template | Design | Pending |
 | GRN-11 | P1: Local-edit awareness and discard guards | Design | Pending |

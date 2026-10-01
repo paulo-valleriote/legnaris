@@ -120,10 +120,10 @@ T8
 
 **Done when**:
 
-- [ ] `controlBuilder: (context, field) => Widget` replaces the per-row control when provided; default path (`data` + `onChanged`) is byte-for-byte unchanged when absent
-- [ ] Constructor asserts exactly one control source (builder, or data)
-- [ ] Gate check passes: `cd desktop && flutter test`
-- [ ] Test count: 3 new tests in `desktop/test/engine/sheet_form_test.dart` (builder rows used, default rows unchanged, both-sources assert)
+- [x] `controlBuilder: (context, field) => Widget` replaces the per-row control when provided; default path (`data` + `onChanged`) is byte-for-byte unchanged when absent
+- [x] Constructor asserts exactly one control source (builder, or data)
+- [x] Gate check passes: `cd desktop && flutter test`
+- [x] Test count: 3 new tests in `desktop/test/engine/sheet_form_test.dart` (builder rows used, default rows unchanged, both-sources assert)
 
 **Tests**: widget
 **Gate**: build (last task of Phase 1)
