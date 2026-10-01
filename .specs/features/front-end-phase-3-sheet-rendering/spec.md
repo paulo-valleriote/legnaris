@@ -140,25 +140,25 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| RND-01 | P1: Seções da ficha por prefixo de topo | Design | Pending |
-| RND-02 | P1: Seções da ficha por prefixo de topo | Design | Pending |
-| RND-03 | P1: Seções da ficha por prefixo de topo | Design | Pending |
-| RND-04 | P1: Seções da ficha por prefixo de topo | Design | Pending |
-| RND-05 | P1: Seções da ficha por prefixo de topo | Design | Pending |
-| RND-06 | P1: Controle correto por regra do schema | Design | Pending |
-| RND-07 | P1: Controle correto por regra do schema | Design | Pending |
-| RND-08 | P1: Controle correto por regra do schema | Design | Pending |
-| RND-09 | P1: Controle correto por regra do schema | Design | Pending |
-| RND-10 | P1: Controle correto por regra do schema | Design | Pending |
-| RND-11 | P1: Controle correto por regra do schema | Design | Pending |
-| RND-12 | P1: Controle correto por regra do schema | Design | Pending |
-| RND-13 | P1: Controle correto por regra do schema | Design | Pending |
-| RND-14 | P1: Tela 2 navegável a partir do catálogo | Design | Pending |
-| RND-15 | P1: Tela 2 navegável a partir do catálogo | Design | Pending |
-| RND-16 | P1: Tela 2 navegável a partir do catálogo | Design | Pending |
-| RND-17 | P1: Tela 2 navegável a partir do catálogo | Design | Pending |
-| RND-18 | P1: Tela 2 navegável a partir do catálogo | Design | Pending |
-| RND-19 | P1: Tela 2 navegável a partir do catálogo | Design | Pending |
+| RND-01 | P1: Seções da ficha por prefixo de topo | Design | Verified |
+| RND-02 | P1: Seções da ficha por prefixo de topo | Design | Verified |
+| RND-03 | P1: Seções da ficha por prefixo de topo | Design | Verified |
+| RND-04 | P1: Seções da ficha por prefixo de topo | Design | Verified |
+| RND-05 | P1: Seções da ficha por prefixo de topo | Design | Verified |
+| RND-06 | P1: Controle correto por regra do schema | Design | Verified |
+| RND-07 | P1: Controle correto por regra do schema | Design | Verified |
+| RND-08 | P1: Controle correto por regra do schema | Design | Verified |
+| RND-09 | P1: Controle correto por regra do schema | Design | Verified |
+| RND-10 | P1: Controle correto por regra do schema | Design | Verified |
+| RND-11 | P1: Controle correto por regra do schema | Design | Verified |
+| RND-12 | P1: Controle correto por regra do schema | Design | Verified |
+| RND-13 | P1: Controle correto por regra do schema | Design | Verified |
+| RND-14 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
+| RND-15 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
+| RND-16 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
+| RND-17 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
+| RND-18 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
+| RND-19 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
 
 **Coverage:** 19 requisitos no total, 19 mapeados 1:1 a critérios de aceite; 0 não mapeados.
 

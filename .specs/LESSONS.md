@@ -62,6 +62,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: spec.md:132 (desktop/catalog)
 - last seen: 2026-09-30T20:29:35Z
 
+### L-009 - Assert the 'value when present' branch of a fallback rule, not only its empty/default path.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `desktop` · harmful: 0
+- features: front-end-phase-3-sheet-rendering
+- evidence: RND-04; spec.md:77; desktop/lib/engine/field_grouping.dart:31 (desktop)
+- last seen: 2026-10-01T02:11:51Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
