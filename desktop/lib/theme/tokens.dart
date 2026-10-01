@@ -75,6 +75,10 @@ abstract final class AppSizes {
   /// Fixed width of a catalog card.
   static const double catalogCardMinWidth = 280;
 
+  /// Width of the form control column on the sheet screen (Tela 2), so
+  /// editable inputs and read-only values share one alignment (RND-06 … RND-10).
+  static const double fieldControlWidth = 160;
+
   /// Window width below which the right panel hides first (CAT-03).
   /// Derived from its parts — including the two 1px vertical dividers the
   /// shell row lays out — so the content area sits at its minimum measure

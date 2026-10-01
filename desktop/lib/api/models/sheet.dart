@@ -51,26 +51,30 @@ class Sheet {
   final DateTime updatedAt;
 
   /// Resolves the dotted [path] (e.g. `stats.dexterity`) against [data].
-  ///
-  /// Returns the value the path points at (FE1-12). A missing segment or an
-  /// intermediate node that is not a map resolves to null and never throws
-  /// (FE1-13). An empty path or an empty segment throws [InvalidPathException]
-  /// (FE1-14) — a malformed path is a bug, not missing data.
-  Object? valueAt(String path) {
-    if (path.isEmpty) {
-      throw InvalidPathException('path must not be empty');
-    }
+  /// Delegates to [valueAtPath] so the traversal lives in one place.
+  Object? valueAt(String path) => valueAtPath(data, path);
+}
 
-    Object? current = data;
-    for (final segment in path.split('.')) {
-      if (segment.isEmpty) {
-        throw InvalidPathException('path "$path" has an empty segment');
-      }
-      if (current is! Map<String, Object?>) {
-        return null;
-      }
-      current = current[segment];
-    }
-    return current;
+/// Resolves the dotted [path] (e.g. `stats.dexterity`) against [data].
+///
+/// Returns the value the path points at (FE1-12). A missing segment or an
+/// intermediate node that is not a map resolves to null and never throws
+/// (FE1-13). An empty path or an empty segment throws [InvalidPathException]
+/// (FE1-14) — a malformed path is a bug, not missing data.
+Object? valueAtPath(Map<String, Object?> data, String path) {
+  if (path.isEmpty) {
+    throw InvalidPathException('path must not be empty');
   }
+
+  Object? current = data;
+  for (final segment in path.split('.')) {
+    if (segment.isEmpty) {
+      throw InvalidPathException('path "$path" has an empty segment');
+    }
+    if (current is! Map<String, Object?>) {
+      return null;
+    }
+    current = current[segment];
+  }
+  return current;
 }

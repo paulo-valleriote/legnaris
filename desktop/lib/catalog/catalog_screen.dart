@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/catalog/catalog_provider.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/sheet/sheet_screen.dart';
+import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/shell/shell_state.dart';
 import 'package:legnaris/theme/tokens.dart';
 
@@ -13,6 +15,12 @@ import 'package:legnaris/theme/tokens.dart';
 /// single-flight guard absorbs double activation (CAT-12/13).
 class CatalogScreen extends ConsumerWidget {
   const CatalogScreen({super.key});
+
+  /// Compact horizontal padding so both card actions fit inside the card
+  /// width on one line (RND-14); height and radius stay from the theme.
+  static final ButtonStyle _cardActionStyle = TextButton.styleFrom(
+    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -160,13 +168,24 @@ class CatalogScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        SizedBox(
-                          height: AppSizes.controlHeight,
-                          child: TextButton(
-                            onPressed: () =>
-                                _openCreationDialog(context, ref, template.id),
-                            child: Text(localizations.catalogCreateAction),
-                          ),
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            TextButton(
+                              key: Key('catalog-preview-${template.id}'),
+                              style: _cardActionStyle,
+                              onPressed: () =>
+                                  _openSheetScreen(context, template.id),
+                              child: Text(localizations.catalogPreviewAction),
+                            ),
+                            TextButton(
+                              style: _cardActionStyle,
+                              onPressed: () =>
+                                  _openCreationDialog(context, ref, template.id),
+                              child: Text(localizations.catalogCreateAction),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -201,5 +220,16 @@ class CatalogScreen extends ConsumerWidget {
     } finally {
       shellState.show(ShellSurface.catalog);
     }
+  }
+
+  /// Opens Screen 2 for [templateId] (RND-14, RND-18). The route mounts the
+  /// persistent shell around the sheet surface; Screen 2's back action pops
+  /// it, returning to the cached catalog with no extra request.
+  Future<void> _openSheetScreen(BuildContext context, String templateId) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AppShell(content: SheetScreen(templateId: templateId)),
+      ),
+    );
   }
 }

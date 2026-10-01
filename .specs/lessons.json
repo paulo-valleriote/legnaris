@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 9,
+  "next_id": 10,
   "lessons": [
     {
       "id": "L-001",
@@ -148,6 +148,24 @@
       ],
       "created": "2026-09-30T20:29:35Z",
       "last_seen": "2026-09-30T20:29:35Z"
+    },
+    {
+      "id": "L-009",
+      "key": "spec_precision_gap::assert the value when present branch of a fallback rule not only its empty default path",
+      "text": "Assert the 'value when present' branch of a fallback rule, not only its empty/default path.",
+      "signal": "spec_precision_gap",
+      "scope": "desktop",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-3-sheet-rendering"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "RND-04; spec.md:77; desktop/lib/engine/field_grouping.dart:31 (desktop)"
+      ],
+      "created": "2026-10-01T02:11:51Z",
+      "last_seen": "2026-10-01T02:11:51Z"
     }
   ]
 }
