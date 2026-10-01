@@ -168,13 +168,13 @@ T3 → T4 → T5
 
 **Done when**:
 
-- [ ] Abrir a Tela 2 dispara exatamente 1 `GET /templates/:id` e mostra o loading até resolver (RND-15)
-- [ ] Sucesso → seções/controles renderizados com os `default` do schema (RND-16)
-- [ ] Falha (500/404/parse) → mensagem mapeada inline + Retry, tela continua aberta (RND-17)
-- [ ] Editar um campo atualiza o rascunho local; nenhum `POST`/`PATCH` no transporte (RND-19, RND-12)
-- [ ] `fields` vazio → `templateNoFields`; nome vazio → título vazio sem throw (edges)
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: [N] novos testes; nenhum teste existente removido
+- [x] Abrir a Tela 2 dispara exatamente 1 `GET /templates/:id` e mostra o loading até resolver (RND-15)
+- [x] Sucesso → seções/controles renderizados com os `default` do schema (RND-16)
+- [x] Falha (500/404/parse) → mensagem mapeada inline + Retry, tela continua aberta (RND-17)
+- [x] Editar um campo atualiza o rascunho local; nenhum `POST`/`PATCH` no transporte (RND-19, RND-12)
+- [x] `fields` vazio → `templateNoFields`; nome vazio → título vazio sem throw (edges)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 5 novos testes (suíte 237 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: widget
 **Gate**: full
