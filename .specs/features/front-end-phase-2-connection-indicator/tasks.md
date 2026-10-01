@@ -148,12 +148,12 @@ T3 → T4
 
 **Done when**:
 
-- [ ] Antes do 1º sucesso: estado atual + "Last check never" (CONN-09)
-- [ ] Após sucesso: "Last check HH:mm" com o timestamp do último sucesso; falha seguinte mantém o timestamp e mostra offline (CONN-09)
-- [ ] Linha de estado acompanha o provider (`checking` → `online`/`offline`) com strings do l10n, estilos explícitos (nunca fallback 48px) (CONN-11)
-- [ ] Slot `connection-panel-slot` segue com chave e asserções CAT-06 verdes
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: 4 novos testes; nenhum teste existente removido
+- [x] Antes do 1º sucesso: estado atual + "Last check never" (CONN-09)
+- [x] Após sucesso: "Last check HH:mm" com o timestamp do último sucesso; falha seguinte mantém o timestamp e mostra offline (CONN-09)
+- [x] Linha de estado acompanha o provider (`checking` → `online`/`offline`) com strings do l10n, estilos explícitos (nunca fallback 48px) (CONN-11)
+- [x] Slot `connection-panel-slot` segue com chave e asserções CAT-06 verdes
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 4 novos testes (suíte 229 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: widget
 **Gate**: full

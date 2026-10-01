@@ -134,9 +134,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | CONN-06 | P1: Polling de GET /health com estados | Design | Implementing |
 | CONN-07 | P1: Polling de GET /health com estados | Design | Implementing |
 | CONN-08 | P1: Indicador no header, visível em qualquer tela | Design | Implementing |
-| CONN-09 | P1: Indicador no header, visível em qualquer tela | Design | Pending |
+| CONN-09 | P1: Indicador no header, visível em qualquer tela | Design | Implementing |
 | CONN-10 | P1: Indicador no header, visível em qualquer tela | Design | Pending |
-| CONN-11 | P1: Indicador no header, visível em qualquer tela | Design | Pending |
+| CONN-11 | P1: Indicador no header, visível em qualquer tela | Design | Implementing |
 | CONN-12 | P2: Testabilidade do agendador | Design | Implementing |
 | CONN-13 | P2: Testabilidade do agendador | Design | Implementing |
 
