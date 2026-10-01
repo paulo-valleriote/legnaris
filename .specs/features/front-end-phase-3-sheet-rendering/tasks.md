@@ -107,16 +107,16 @@ T3 → T4 → T5
 
 **Done when**:
 
-- [ ] Número editável → input numérico com o valor atual; editar emite `num` pelo `onChanged(path, value)` (RND-06, RND-12)
-- [ ] Texto editável → input de texto com o valor atual; editar emite `String` (RND-07, RND-12)
-- [ ] `config.*` → `Switch` refletindo 0/1; toggle emite `1`/`0` (RND-08)
-- [ ] `type == bool` → `Switch` refletindo true/false; toggle emite `true`/`false` (RND-09)
-- [ ] Não-editável → valor read-only com destaque "Calculated" e **sem** input (RND-05, RND-10)
-- [ ] Campo com `formula` expõe a fórmula no `Tooltip` do controle (RND-11)
-- [ ] Tipo exótico → read-only, sem input e sem exceção (RND-13)
-- [ ] Input numérico limpo emite `null` (edge)
-- [ ] Saída do `gen-l10n` commitada; gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && flutter gen-l10n && flutter analyze && flutter test`
-- [ ] Test count: [N] novos testes; nenhum teste existente removido
+- [x] Número editável → input numérico com o valor atual; editar emite `num` pelo `onChanged(path, value)` (RND-06, RND-12)
+- [x] Texto editável → input de texto com o valor atual; editar emite `String` (RND-07, RND-12)
+- [x] `config.*` → `Switch` refletindo 0/1; toggle emite `1`/`0` (RND-08)
+- [x] `type == bool` → `Switch` refletindo true/false; toggle emite `true`/`false` (RND-09)
+- [x] Não-editável → valor read-only com destaque "Calculated" e **sem** input (RND-05, RND-10)
+- [x] Campo com `formula` expõe a fórmula no `Tooltip` do controle (RND-11)
+- [x] Tipo exótico → read-only, sem input e sem exceção (RND-13)
+- [x] Input numérico limpo emite `null` (edge)
+- [x] Saída do `gen-l10n` commitada; gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && flutter gen-l10n && flutter analyze && flutter test`
+- [x] Test count: 12 novos testes (suíte 224 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: widget
 **Gate**: build

@@ -112,5 +112,9 @@
   "actionClose": "Close",
   "@actionClose": {
     "description": "Action that dismisses the creation dialog back to the catalog (CAT-16)."
+  },
+  "fieldCalculated": "Calculated",
+  "@fieldCalculated": {
+    "description": "Read-only highlight shown next to a non-editable (derived) field value (RND-10)."
   }
 }

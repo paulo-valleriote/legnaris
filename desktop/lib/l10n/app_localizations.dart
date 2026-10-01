@@ -249,6 +249,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close'**
   String get actionClose;
+
+  /// Read-only highlight shown next to a non-editable (derived) field value (RND-10).
+  ///
+  /// In en, this message translates to:
+  /// **'Calculated'**
+  String get fieldCalculated;
 }
 
 class _AppLocalizationsDelegate
