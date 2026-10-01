@@ -165,13 +165,21 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		return nil, translateDAGErr(err)
 	}
 
-	cascadingEffects, err := dag.Recalculate(storedSheet.Data, updates)
+	// Collapse each touched exclusive group to at most one non-zero member
+	// before the recalculation sees it, so a turned-on member also zeroes its
+	// siblings and no exclusive multiplicand is double-counted.
+	normalized, err := dag.NormalizeExclusiveUpdates(updates)
+	if err != nil {
+		return nil, translateDAGErr(err)
+	}
+
+	cascadingEffects, err := dag.Recalculate(storedSheet.Data, normalized)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
 
 	mergedData := maputils.DeepCopy(storedSheet.Data)
-	if err := maputils.ApplyUpdates(mergedData, updates); err != nil {
+	if err := maputils.ApplyUpdates(mergedData, normalized); err != nil {
 		return nil, translateMapErr("update", err)
 	}
 	if err := maputils.ApplyUpdates(mergedData, cascadingEffects); err != nil {
@@ -240,6 +248,14 @@ func translateDAGErr(err error) error {
 	var notEditable *template.NotEditableError
 	if errors.As(err, &notEditable) {
 		return apperr.NewError(apperr.CodeInvalidRequest, notEditable.Error(), nil)
+	}
+	var conflict *template.ExclusiveGroupConflictError
+	if errors.As(err, &conflict) {
+		return apperr.NewError(
+			apperr.CodeInvalidRequest,
+			"conflicting exclusive options: "+conflict.Group,
+			err,
+		)
 	}
 	switch {
 	case isMaputilsDataErr(err):

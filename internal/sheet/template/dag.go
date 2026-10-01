@@ -618,7 +618,7 @@ func (d *DAG) NormalizeExclusiveUpdates(updates map[string]any) (map[string]any,
 				if _, present := updates[key]; present {
 					continue
 				}
-				normalized[key] = 0
+				normalized[key] = 0.0
 			}
 		default:
 			return nil, ErrExclusiveGroupConflict(group, on)

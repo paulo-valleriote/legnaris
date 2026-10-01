@@ -198,12 +198,12 @@ T9 → T10
 
 **Done when**:
 
-- [ ] PATCH turning `acUsesDex` on while `acUsesCon` is 1 stores `(1,0)` and the response cascades `derived.armorClass` from dexterity only
-- [ ] PATCH setting both to 1 returns `400 INVALID_REQUEST` and stores nothing
-- [ ] PATCH zeroing a member leaves its sibling unchanged
-- [ ] An integration test covers the sibling-zero + cascade path end to end
-- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...`
-- [ ] Test count: service table cases + one integration test, no silent deletions
+- [x] PATCH turning `acUsesDex` on while `acUsesCon` is 1 stores `(1,0)` and the response cascades `derived.armorClass` from dexterity only
+- [x] PATCH setting both to 1 returns `400 INVALID_REQUEST` and stores nothing
+- [x] PATCH zeroing a member leaves its sibling unchanged
+- [x] An integration test covers the sibling-zero + cascade path end to end
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [x] Test count: service table cases + one integration test, no silent deletions
 
 **Tests**: unit + integration
 **Gate**: build (backend)

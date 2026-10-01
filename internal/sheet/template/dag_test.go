@@ -1470,13 +1470,13 @@ func TestNormalizeExclusiveUpdates(t *testing.T) {
 		{
 			name:         "Happy path: turning one member on zeroes the absent sibling",
 			updates:      map[string]any{"config.acUsesDex": 1.0},
-			want:         map[string]any{"config.acUsesDex": 1.0, "config.acUsesCon": 0},
+			want:         map[string]any{"config.acUsesDex": 1.0, "config.acUsesCon": 0.0},
 			addedSibling: "config.acUsesCon",
 		},
 		{
 			name:         "Happy path: an int member on zeroes the absent sibling",
 			updates:      map[string]any{"config.acUsesCon": int(1)},
-			want:         map[string]any{"config.acUsesCon": int(1), "config.acUsesDex": 0},
+			want:         map[string]any{"config.acUsesCon": int(1), "config.acUsesDex": 0.0},
 			addedSibling: "config.acUsesDex",
 		},
 		{

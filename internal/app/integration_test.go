@@ -351,6 +351,55 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	assert.Equal(t, 12.0, fetchedRules["modifierBase"])
 }
 
+// TestIntegration_Sheets_ExclusiveOptions covers the mutually exclusive
+// armor-class pair end to end (EXC-04, EXC-05, EXC-07): a PATCH that turns one
+// member on zeroes its sibling and recomputes the derived value, and a PATCH
+// that turns both on is rejected with 400 INVALID_REQUEST.
+func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
+	h, _ := newIntegrationRouter(t)
+
+	createRec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Exclusive"}`)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+	sheetID := created.Data.ID
+
+	// Distinct modifiers make the armor-class recompute observably tied to the
+	// active exclusive member.
+	statsRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":14,"constitution":12}}}`)
+	require.Equal(t, http.StatusOK, statsRec.Code)
+
+	// The payload turns constitution on; normalization must zero the dexterity
+	// sibling (default on) in the same request.
+	conRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesCon":1}}}`)
+	require.Equal(t, http.StatusOK, conRec.Code)
+
+	var conPatched response.Success[map[string]any]
+	require.NoError(t, json.Unmarshal(conRec.Body.Bytes(), &conPatched))
+	conDerived, ok := conPatched.Data["derived"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 11.0, conDerived["armorClass"], "armor class must follow the active constitution option")
+
+	fetchRec := doRequest(t, h, http.MethodGet, "/sheets/"+sheetID, "")
+	require.Equal(t, http.StatusOK, fetchRec.Code)
+
+	var fetched response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(fetchRec.Body.Bytes(), &fetched))
+	config, ok := fetched.Data.Data["config"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 0.0, config["acUsesDex"], "the dexterity sibling must be stored as zero")
+	assert.Equal(t, 1.0, config["acUsesCon"])
+
+	// Turning both members on in one payload is ambiguous intent: reject it.
+	bothRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesDex":1,"acUsesCon":1}}}`)
+	require.Equal(t, http.StatusBadRequest, bothRec.Code)
+
+	var body response.ErrorResponse
+	require.NoError(t, json.Unmarshal(bothRec.Body.Bytes(), &body))
+	assert.Equal(t, "INVALID_REQUEST", body.Error.Code)
+}
+
 // TestIntegration_ErrorStatusMapping covers the HTTP status each typed error
 // produces through HTTPErrorHandler (LGN-48): domain errors must never fall
 // through as 500 INTERNAL_ERROR.
