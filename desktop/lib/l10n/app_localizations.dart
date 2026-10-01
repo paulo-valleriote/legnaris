@@ -166,6 +166,36 @@ abstract class AppLocalizations {
   /// **'Catalog'**
   String get sectionCatalog;
 
+  /// Connection state label while no health response has arrived yet (CONN-02, CONN-11).
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get connectionChecking;
+
+  /// Connection state label after a successful health check (CONN-03, CONN-11).
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get connectionOnline;
+
+  /// Connection state label after a failed health check (CONN-04, CONN-11).
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get connectionOffline;
+
+  /// Right panel line with the timestamp of the last successful health check (CONN-09, CONN-11).
+  ///
+  /// In en, this message translates to:
+  /// **'Last check {time}'**
+  String connectionLastCheck(String time);
+
+  /// Right panel line shown before the first successful health check (CONN-09, CONN-11).
+  ///
+  /// In en, this message translates to:
+  /// **'Last check never'**
+  String get connectionLastCheckNever;
+
   /// Number of loaded templates shown in the right panel.
   ///
   /// In en, this message translates to:

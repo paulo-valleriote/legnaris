@@ -8,9 +8,12 @@ import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
+import 'package:legnaris/connection/health_scheduler.dart';
 import 'package:legnaris/main.dart';
 import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/shell/shell_state.dart';
+
+import 'connection/manual_health_scheduler.dart';
 
 void main() {
   const oneTemplateBody =
@@ -23,6 +26,7 @@ void main() {
 ''';
   const detailBody =
       '{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {"stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}}}}}';
+  const healthyBody = '{"data": {"status": "healthy"}}';
   const serverErrorBody =
       '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}';
 
@@ -51,6 +55,7 @@ void main() {
               }),
             ),
           ),
+          healthSchedulerProvider.overrideWithValue(ManualHealthScheduler()),
         ],
         child: const LegnarisApp(),
       ),
@@ -68,6 +73,10 @@ void main() {
       .where((request) => request.url.path == '/templates')
       .length;
 
+  int healthRequestCount(List<http.Request> recorded) => recorded
+      .where((request) => request.url.path == '/health')
+      .length;
+
   group('boot (CAT-01, CAT-05, CAT-07)', () {
     testWidgets('Happy path: booting renders the shell with the header slot and issues exactly one GET /templates (CAT-01/05/07)', (tester) async {
       final recorded = await pumpApp(tester);
@@ -75,9 +84,12 @@ void main() {
       expect(find.byType(AppShell), findsOneWidget);
       expect(find.byType(Header), findsOneWidget);
       expect(find.byKey(const Key('connection-indicator-slot')), findsOneWidget);
-      expect(recorded, hasLength(1));
-      expect(recorded.single.method, 'GET');
-      expect(recorded.single.url.path, '/templates');
+      expect(listRequestCount(recorded), 1);
+      final listRequest = recorded.singleWhere(
+        (request) => request.url.path == '/templates',
+      );
+      expect(listRequest.method, 'GET');
+      expect(healthRequestCount(recorded), 1, reason: 'exactly one boot health check');
       expect(find.text('Legnaris'), findsOneWidget);
       expect(find.byType(Card), findsNWidgets(2));
     });
@@ -105,6 +117,9 @@ void main() {
       final recorded = await pumpApp(
         tester,
         handler: (request) async {
+          if (request.url.path == '/health') {
+            return http.Response(healthyBody, 200);
+          }
           final first = call++ == 0;
           return http.Response(
             first ? twoTemplatesBody : serverErrorBody,
@@ -117,7 +132,8 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.f5);
       await tester.pumpAndSettle();
 
-      expect(recorded, hasLength(2));
+      expect(listRequestCount(recorded), 2);
+      expect(healthRequestCount(recorded), 1, reason: 'F5 issues no extra health check');
       expect(find.byType(Card), findsNWidgets(2));
       expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
@@ -125,7 +141,7 @@ void main() {
 
     testWidgets('Edge: F5 with the creation dialog open issues no catalog request', (tester) async {
       final recorded = await pumpApp(tester);
-      expect(recorded, hasLength(1));
+      expect(listRequestCount(recorded), 1);
 
       await tester.tap(find.text('Fantasy Template'));
       await tester.pumpAndSettle();
@@ -158,8 +174,15 @@ void main() {
       var call = 0;
       final recorded = await pumpApp(
         tester,
-        handler: (request) async =>
-            http.Response(call++ == 0 ? oneTemplateBody : twoTemplatesBody, 200),
+        handler: (request) async {
+          if (request.url.path == '/health') {
+            return http.Response(healthyBody, 200);
+          }
+          return http.Response(
+            call++ == 0 ? oneTemplateBody : twoTemplatesBody,
+            200,
+          );
+        },
       );
       expect(find.byType(Card), findsOneWidget);
       expect(find.text('Sci Fi Template'), findsNothing);
@@ -167,7 +190,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.f5);
       await tester.pumpAndSettle();
 
-      expect(recorded, hasLength(2));
+      expect(listRequestCount(recorded), 2);
       expect(find.byType(Card), findsNWidgets(2));
       expect(find.text('Sci Fi Template'), findsOneWidget);
     });

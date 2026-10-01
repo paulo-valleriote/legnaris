@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:legnaris/api/api_client.dart';
+import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/main.dart';
 import 'package:legnaris/theme/app_theme.dart';
 import 'package:legnaris/theme/tokens.dart';
@@ -138,7 +142,26 @@ void main() {
     testWidgets(
       'Happy path: MaterialApp wires the app theme and the placeholder still renders',
       (tester) async {
-        await tester.pumpWidget(const ProviderScope(child: LegnarisApp()));
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              apiClientProvider.overrideWithValue(
+                ApiClient(
+                  httpClient: MockClient((request) async {
+                    if (request.url.path == '/health') {
+                      return http.Response(
+                        '{"data": {"status": "healthy"}}',
+                        200,
+                      );
+                    }
+                    return http.Response('{"data": []}', 200);
+                  }),
+                ),
+              ),
+            ],
+            child: const LegnarisApp(),
+          ),
+        );
 
         expect(find.text('Legnaris'), findsOneWidget);
         final wired = Theme.of(tester.element(find.text('Legnaris')));

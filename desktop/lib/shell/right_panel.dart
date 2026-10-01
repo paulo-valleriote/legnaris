@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:legnaris/catalog/catalog_provider.dart';
+import 'package:legnaris/connection/connection_detail.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/tokens.dart';
 
-/// Right panel (CAT-06): the Connection section with its reserved slot, the
-/// theme hairline, then the Catalog section with the loaded count and the
-/// last update time (only once a load has landed). All data comes from the
-/// catalog provider — the panel issues no request of its own.
+/// Right panel (CAT-06): the Connection section rendering the connection
+/// provider's state, the theme hairline, then the Catalog section with the
+/// loaded count and the last update time (only once a load has landed). The
+/// panel issues no request of its own — both sections render provider state.
 class RightPanel extends ConsumerWidget {
   const RightPanel({super.key});
 
@@ -39,7 +40,10 @@ class RightPanel extends ConsumerWidget {
           children: [
             Text(localizations.sectionConnection, style: sectionStyle),
             const SizedBox(height: AppSpacing.sm),
-            const SizedBox(key: Key('connection-panel-slot')),
+            const SizedBox(
+              key: Key('connection-panel-slot'),
+              child: ConnectionDetail(),
+            ),
             const SizedBox(height: AppSpacing.lg),
             const Divider(),
             const SizedBox(height: AppSpacing.lg),
