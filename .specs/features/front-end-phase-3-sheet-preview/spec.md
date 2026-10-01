@@ -133,19 +133,19 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| PRV-01 | P1: Card de preview ao lado da informação do diálogo | Design | Pending |
-| PRV-02 | P1: Card de preview ao lado da informação do diálogo | Design | Pending |
-| PRV-03 | P1: Card de preview ao lado da informação do diálogo | Design | Pending |
-| PRV-04 | P1: Card de preview ao lado da informação do diálogo | Design | Pending |
-| PRV-05 | P1: Card de preview ao lado da informação do diálogo | Design | Pending |
-| PRV-06 | P1: Card de preview ao lado da informação do diálogo | Design | Pending |
-| PRV-07 | P1: Estados de erro e vazio na área do preview | Design | Pending |
-| PRV-08 | P1: Estados de erro e vazio na área do preview | Design | Pending |
-| PRV-09 | P1: Estados de erro e vazio na área do preview | Design | Pending |
-| PRV-10 | P2: Duas colunas sem quebrar o diálogo | Design | Pending |
-| PRV-11 | P2: Duas colunas sem quebrar o diálogo | Design | Pending |
-| PRV-12 | P2: Duas colunas sem quebrar o diálogo | Design | Pending |
-| PRV-13 | P2: Duas colunas sem quebrar o diálogo | Design | Pending |
+| PRV-01 | P1: Card de preview ao lado da informação do diálogo | Design | Done |
+| PRV-02 | P1: Card de preview ao lado da informação do diálogo | Design | Done |
+| PRV-03 | P1: Card de preview ao lado da informação do diálogo | Design | Done |
+| PRV-04 | P1: Card de preview ao lado da informação do diálogo | Design | Done |
+| PRV-05 | P1: Card de preview ao lado da informação do diálogo | Design | Done |
+| PRV-06 | P1: Card de preview ao lado da informação do diálogo | Design | Done |
+| PRV-07 | P1: Estados de erro e vazio na área do preview | Design | Done |
+| PRV-08 | P1: Estados de erro e vazio na área do preview | Design | Done |
+| PRV-09 | P1: Estados de erro e vazio na área do preview | Design | Done |
+| PRV-10 | P2: Duas colunas sem quebrar o diálogo | Design | Done |
+| PRV-11 | P2: Duas colunas sem quebrar o diálogo | Design | Done |
+| PRV-12 | P2: Duas colunas sem quebrar o diálogo | Design | Done |
+| PRV-13 | P2: Duas colunas sem quebrar o diálogo | Design | Done |
 
 **Coverage:** 13 requisitos no total, 13 mapeados 1:1 a critérios de aceite; 0 não mapeados.
 

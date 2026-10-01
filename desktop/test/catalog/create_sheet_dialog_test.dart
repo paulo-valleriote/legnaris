@@ -100,7 +100,7 @@ void main() {
 
   group('rendering the detail (TPL-01, TPL-02)', () {
     testWidgets(
-      'Happy path: opening shows the template name and one summary line per top-level key (TPL-02, TPL-03)',
+      'Happy path: opening shows the template name and the read-only preview (PRV-01, PRV-05)',
       (tester) async {
         await pumpCatalog(tester);
         await openDialog(tester);
@@ -109,12 +109,19 @@ void main() {
           inDialog(find.text('Fantasy Template')),
           findsOneWidget,
         );
-        expect(inDialog(find.text('Base armor class')), findsOneWidget);
         expect(
-          inDialog(find.text('Stats: Dexterity, Constitution')),
+          inDialog(find.byKey(const Key('create-sheet-preview'))),
           findsOneWidget,
         );
-        expect(inDialog(find.textContaining('Config')), findsNothing);
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-stats'))),
+          findsOneWidget,
+        );
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-config'))),
+          findsOneWidget,
+        );
+        expect(inDialog(find.textContaining('Stats: ')), findsNothing);
       },
     );
 
@@ -133,23 +140,32 @@ void main() {
     );
 
     testWidgets(
-      'Edge: reserved groups (config, derived, modifiers) are omitted from the dialog (TPL-02, TPL-05)',
+      'Edge: reserved groups (config, derived, modifiers) render in the preview, read-only (PRV-01, PRV-06)',
       (tester) async {
         await pumpCatalog(tester);
         await openDialog(tester);
 
-        expect(inDialog(find.textContaining('Config')), findsNothing);
-        expect(inDialog(find.textContaining('Derived')), findsNothing);
-        expect(inDialog(find.textContaining('Modifiers')), findsNothing);
         expect(
-          inDialog(find.text('Stats: Dexterity, Constitution')),
+          inDialog(find.byKey(const Key('sheet-section-config'))),
+          findsOneWidget,
+        );
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-derived'))),
+          findsOneWidget,
+        );
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-modifiers'))),
+          findsOneWidget,
+        );
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-stats'))),
           findsOneWidget,
         );
       },
     );
 
     testWidgets(
-      'Edge: an empty fields tree shows the localized no-fields line in place of the summary (TPL-02)',
+      'Edge: an empty fields tree shows the localized no-fields line in the preview (PRV-09)',
       (tester) async {
         await pumpCatalog(tester, handler: routing(detail: emptyFieldsBody));
         await openDialog(tester);
@@ -171,12 +187,15 @@ void main() {
           inDialog(find.byKey(const Key('create-sheet-template-id'))),
           findsOneWidget,
         );
-        expect(inDialog(find.text('Stats: Dexterity')), findsOneWidget);
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-stats'))),
+          findsOneWidget,
+        );
       },
     );
 
     testWidgets(
-      'Edge: while the detail request is in flight the dialog shows loading and no stale summary (TPL-04)',
+      'Edge: while the detail request is in flight the dialog shows loading and no stale sections (PRV-04)',
       (tester) async {
         final gate = Completer<http.Response>();
         await pumpCatalog(
@@ -192,7 +211,10 @@ void main() {
 
         expect(find.byType(CreateSheetDialog), findsOneWidget);
         expect(inDialog(find.text('Loading template...')), findsOneWidget);
-        expect(inDialog(find.textContaining('Stats:')), findsNothing);
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-stats'))),
+          findsNothing,
+        );
 
         gate.complete(http.Response(detailBody, 200));
         await tester.pumpAndSettle();
@@ -211,7 +233,12 @@ void main() {
         expect(inDialog(find.text('Sheet name')), findsOneWidget);
         expect(inDialog(find.text('e.g. My Character')), findsOneWidget);
         expect(
-          tester.widget<TextField>(find.byType(TextField)).controller?.text,
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('create-sheet-name-input')),
+              )
+              .controller
+              ?.text,
           '',
         );
       },
@@ -224,7 +251,10 @@ void main() {
         await openDialog(tester);
         final before = recorded.length;
 
-        await tester.enterText(find.byType(TextField), 'My Character');
+        await tester.enterText(
+          find.byKey(const Key('create-sheet-name-input')),
+          'My Character',
+        );
         await tester.pump();
 
         expect(recorded.length, before);
@@ -334,31 +364,37 @@ void main() {
     );
 
     testWidgets(
-      'Error: a 2xx without the data key shows the parse copy, never a summary (TPL-10)',
+      'Error: a 2xx without the data key shows the parse copy, never a preview (PRV-07)',
       (tester) async {
         await pumpCatalog(tester, handler: failing(noDataKeyBody, 200));
         await openDialog(tester);
 
         expect(inDialog(find.text(parseCopy())), findsOneWidget);
-        expect(inDialog(find.textContaining('Stats:')), findsNothing);
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-stats'))),
+          findsNothing,
+        );
       },
     );
 
     testWidgets(
-      'Error: a malformed payload shows the parse copy, never a half summary (TPL-10)',
+      'Error: a malformed payload shows the parse copy, never a half preview (PRV-07)',
       (tester) async {
         await pumpCatalog(tester, handler: failing(malformedBody, 200));
         await openDialog(tester);
 
         expect(inDialog(find.text(parseCopy())), findsOneWidget);
-        expect(inDialog(find.textContaining('Stats:')), findsNothing);
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-stats'))),
+          findsNothing,
+        );
       },
     );
   });
 
   group('retry and lifecycle (TPL-08, TPL-13, TPL-14, TPL-15)', () {
     testWidgets(
-      'Happy path: Retry re-requests exactly once and shows the summary (TPL-08)',
+      'Happy path: Retry re-requests exactly once and shows the preview (PRV-08)',
       (tester) async {
         var fail = true;
         final recorded = await pumpCatalog(
@@ -386,7 +422,7 @@ void main() {
 
         expect(detailRequestCount(recorded, 'fantasy_v1'), 2);
         expect(
-          inDialog(find.text('Stats: Dexterity, Constitution')),
+          inDialog(find.byKey(const Key('sheet-section-stats'))),
           findsOneWidget,
         );
         expect(

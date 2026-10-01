@@ -131,6 +131,7 @@ summary assertions with preview assertions and **invert** (do not delete) the re
 PRV-07/08 error+Retry, PRV-11/12 request-count and PRV-13 typing tests.
 **Gate**: build (l10n) + full · **Commits**:
 `feat(LGN-100): render read-only field preview in the create dialog`
+**Status**: ✅ Done — relatório l10n regenerado e commitado; suíte 263 passed / 4 skipped; `flutter analyze` limpo
 
 ### T4: Delete the Phase-2 template summary widget and amend the Phase-2 spec
 
