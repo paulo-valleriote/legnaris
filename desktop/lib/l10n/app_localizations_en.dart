@@ -129,4 +129,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get catalogPreviewAction => 'Preview sheet';
+
+  @override
+  String get sheetLocalEdits => 'Local edits';
+
+  @override
+  String get sheetLeaveDialogTitle => 'Discard local edits?';
+
+  @override
+  String get sheetLeaveDialogMessage =>
+      'Your local edits on this sheet were never saved and will be discarded.';
+
+  @override
+  String get sheetLeaveConfirmAction => 'Discard and leave';
+
+  @override
+  String get sheetLeaveCancelAction => 'Keep editing';
+
+  @override
+  String get sheetRefreshDialogTitle => 'Discard local edits and reload?';
+
+  @override
+  String get sheetRefreshDialogMessage =>
+      'Your local edits will be discarded and the latest template will be loaded.';
+
+  @override
+  String get sheetRefreshConfirmAction => 'Discard and reload';
 }

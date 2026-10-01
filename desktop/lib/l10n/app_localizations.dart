@@ -297,6 +297,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Preview sheet'**
   String get catalogPreviewAction;
+
+  /// Header caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Local edits'**
+  String get sheetLocalEdits;
+
+  /// Title of the destructive confirmation opened by the sheet back action while edits are pending (GRN-13).
+  ///
+  /// In en, this message translates to:
+  /// **'Discard local edits?'**
+  String get sheetLeaveDialogTitle;
+
+  /// Explicit consequence stated by the sheet leave confirmation dialog (GRN-13).
+  ///
+  /// In en, this message translates to:
+  /// **'Your local edits on this sheet were never saved and will be discarded.'**
+  String get sheetLeaveDialogMessage;
+
+  /// Destructive button of the leave confirmation: discards the edit state and navigates back (GRN-14).
+  ///
+  /// In en, this message translates to:
+  /// **'Discard and leave'**
+  String get sheetLeaveConfirmAction;
+
+  /// Safe button of the discard confirmations (leave and refresh): closes the dialog and keeps the screen with its edit state (GRN-15, GRN-19).
+  ///
+  /// In en, this message translates to:
+  /// **'Keep editing'**
+  String get sheetLeaveCancelAction;
+
+  /// Title of the confirmation opened by F5 on a sheet with pending local edits (GRN-18).
+  ///
+  /// In en, this message translates to:
+  /// **'Discard local edits and reload?'**
+  String get sheetRefreshDialogTitle;
+
+  /// Explicit consequence stated by the F5 refresh confirmation dialog (GRN-18).
+  ///
+  /// In en, this message translates to:
+  /// **'Your local edits will be discarded and the latest template will be loaded.'**
+  String get sheetRefreshDialogMessage;
+
+  /// Destructive button of the refresh confirmation: discards the edit state and refetches the template detail (GRN-17, GRN-18).
+  ///
+  /// In en, this message translates to:
+  /// **'Discard and reload'**
+  String get sheetRefreshConfirmAction;
 }
 
 class _AppLocalizationsDelegate

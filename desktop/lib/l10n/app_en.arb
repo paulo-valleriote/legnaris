@@ -149,5 +149,37 @@
   "catalogPreviewAction": "Preview sheet",
   "@catalogPreviewAction": {
     "description": "Card action that opens Screen 2 for that template with schema-default values (RND-14)."
+  },
+  "sheetLocalEdits": "Local edits",
+  "@sheetLocalEdits": {
+    "description": "Header caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12)."
+  },
+  "sheetLeaveDialogTitle": "Discard local edits?",
+  "@sheetLeaveDialogTitle": {
+    "description": "Title of the destructive confirmation opened by the sheet back action while edits are pending (GRN-13)."
+  },
+  "sheetLeaveDialogMessage": "Your local edits on this sheet were never saved and will be discarded.",
+  "@sheetLeaveDialogMessage": {
+    "description": "Explicit consequence stated by the sheet leave confirmation dialog (GRN-13)."
+  },
+  "sheetLeaveConfirmAction": "Discard and leave",
+  "@sheetLeaveConfirmAction": {
+    "description": "Destructive button of the leave confirmation: discards the edit state and navigates back (GRN-14)."
+  },
+  "sheetLeaveCancelAction": "Keep editing",
+  "@sheetLeaveCancelAction": {
+    "description": "Safe button of the discard confirmations (leave and refresh): closes the dialog and keeps the screen with its edit state (GRN-15, GRN-19)."
+  },
+  "sheetRefreshDialogTitle": "Discard local edits and reload?",
+  "@sheetRefreshDialogTitle": {
+    "description": "Title of the confirmation opened by F5 on a sheet with pending local edits (GRN-18)."
+  },
+  "sheetRefreshDialogMessage": "Your local edits will be discarded and the latest template will be loaded.",
+  "@sheetRefreshDialogMessage": {
+    "description": "Explicit consequence stated by the F5 refresh confirmation dialog (GRN-18)."
+  },
+  "sheetRefreshConfirmAction": "Discard and reload",
+  "@sheetRefreshConfirmAction": {
+    "description": "Destructive button of the refresh confirmation: discards the edit state and refetches the template detail (GRN-17, GRN-18)."
   }
 }
