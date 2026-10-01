@@ -68,6 +68,19 @@ void main() {
       },
     );
 
+    test(
+      'Happy path: a top-level leaf section prefers its schema label (RND-04)',
+      () {
+        final fields = {
+          'baseArmorClass': leaf('number', label: 'Armor class base'),
+        };
+
+        final section = buildSections(fields).single;
+
+        expect(section.label, 'Armor class base');
+      },
+    );
+
     test('Edge: empty fields tree yields no sections', () {
       expect(buildSections(const {}), isEmpty);
     });

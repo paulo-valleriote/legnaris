@@ -28,7 +28,7 @@ List<SheetSection> buildSections(FieldGroup fields) {
     if (leaves.isEmpty) continue;
     sections.add((
       key: entry.key,
-      label: fieldDisplayName(entry.key, null),
+      label: fieldDisplayName(entry.key, entry.value.schema),
       leaves: leaves,
     ));
   }

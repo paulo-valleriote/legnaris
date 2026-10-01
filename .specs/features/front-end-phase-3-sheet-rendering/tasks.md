@@ -59,6 +59,14 @@ O host que busca o detalhe e semeia os defaults, mais a ação do catálogo que 
 T3 → T4 → T5
 ```
 
+### Phase 3: Verification fix
+
+Correção do gap de precisão apontado pelo Verifier (RND-04): a seção de uma folha de topo deve preferir o label do schema.
+
+```
+T1 → T6
+```
+
 ---
 
 ## Task Breakdown
@@ -210,27 +218,54 @@ T3 → T4 → T5
 
 ---
 
+### T6: Prefer the schema label for a top-level leaf section
+
+**What**: Ajustar `buildSections` para passar o schema do nó (`entry.value.schema`) a `fieldDisplayName`, de modo que uma folha de topo com `label` preenchido use o label do schema no cabeçalho da seção (RND-04) — gap de precisão apontado pelo Verifier; novo teste unitário com label distinto da chave humanizada.
+**Where**: `desktop/lib/engine/field_grouping.dart`
+**Depends on**: T1
+**Reuses**: `fieldDisplayName` (T1)
+**Requirement**: RND-04
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [x] Seção de folha de topo com `label` do schema usa o label, não a chave humanizada (RND-04)
+- [x] Novo teste distingue os dois caminhos (label ≠ humanização)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 1 novo teste (suíte 240 passed / 4 skipped); nenhum teste existente removido
+
+**Tests**: unit
+**Gate**: full
+**Commit**: `fix(LGN-101): use the schema label for a top-level leaf section`
+
+---
+
 ## Phase Execution Map
 
 ```
-Phase 1 → Phase 2
+Phase 1 → Phase 2 → Phase 3
 
 Phase 1:  T1 → T2 → T3
 Phase 2:  T3 → T4 → T5
+Phase 3:  T1 → T6
 ```
 
 Execution is strictly sequential - there is no intra-phase parallelism. A single agent works one task at a time, in order.
 
 **How phase-based execution works:**
 
-At Execute, the agent counts total tasks and packs phases into **task-budgeted batches** (~7 tasks per worker, whole phases). With 5 tasks in 2 phases this fits a **single batch → execute inline** (no sub-agents), one task at a time. After the final task the orchestrator dispatches the fresh **Verifier** automatically (author ≠ verifier). See [sub-agents.md](references/sub-agents.md) for the full model.
+At Execute, the agent counts total tasks and packs phases into **task-budgeted batches** (~7 tasks per worker, whole phases). With 6 tasks in 3 phases this fits a **single batch → execute inline** (no sub-agents), one task at a time. After the final task the orchestrator dispatches the fresh **Verifier** automatically (author ≠ verifier). See [sub-agents.md](references/sub-agents.md) for the full model.
 
 **The orchestrating agent's role during Execute:**
-1. Count total tasks and pack phases into batches (5 tasks → inline execution)
-2. Execute T1 → T2 → T3 → T4 → T5 in order (tests → implement → gate → adequacy review → atomic commit)
+1. Count total tasks and pack phases into batches (6 tasks → inline execution)
+2. Execute T1 → T2 → T3 → T4 → T5 → T6 in order (tests → implement → gate → adequacy review → atomic commit)
 3. Update tasks.md with results in each task's commit
 4. If a task fails: fix before starting the next
-5. After T5: dispatch the Verifier automatically, then run `validate_state.py`
+5. After T6: dispatch the Verifier automatically, then run `validate_state.py`
 
 ---
 
@@ -243,6 +278,7 @@ At Execute, the agent counts total tasks and packs phases into **task-budgeted b
 | T3: Compose the sheet form with sections and rows | 1 componente (`SheetForm`) + a extração coesa do `valueAtPath` que ele usa | ✅ Granular |
 | T4: Add the navigable sheet screen | 1 superfície (`SheetScreen`, host de dados sintéticos) | ✅ Granular |
 | T5: Open the sheet screen from the catalog | 1 ponto de entrada (ação do card + navegação) + a chave l10n que ela consome | ✅ Granular |
+| T6: Prefer the schema label for a top-level leaf section | 1 correção de regra numa função da derivação | ✅ Granular |
 
 **Granularity check**: ✅ nenhuma task entrega múltiplos componentes independentes; T1/T3 incluem a extração mínima de um helper que reusam (parte do mesmo conceito).
 
@@ -255,8 +291,9 @@ At Execute, the agent counts total tasks and packs phases into **task-budgeted b
 | T3 | T2 | `T2 → T3` (Phase 1) | ✅ Match |
 | T4 | T3 | `T3 → T4` (Phase 2) | ✅ Match |
 | T5 | T4 | `T4 → T5` (Phase 2) | ✅ Match |
+| T6 | T1 | `T1 → T6` (Phase 3) | ✅ Match |
 
-Nota: o validador mapeia todas as `### Tn:` para a última phase header anterior ao `Task Breakdown` (Phase 2), então a paridade de diagrama vale globalmente — arestas do diagrama = {T1→T2, T2→T3, T3→T4, T4→T5} = exatamente o conjunto de `Depends on` declarados.
+Nota: o validador mapeia todas as `### Tn:` para a última phase header anterior ao `Task Breakdown` (Phase 3), então a paridade de diagrama vale globalmente — arestas do diagrama = {T1→T2, T2→T3, T3→T4, T4→T5, T1→T6} = exatamente o conjunto de `Depends on` declarados.
 
 ## Test Co-location Validation
 
@@ -267,5 +304,6 @@ Nota: o validador mapeia todas as `### Tn:` para a última phase header anterior
 | T3: sheet form + valueAtPath | composição widget (widget) | widget | widget | ✅ OK |
 | T4: sheet screen host | Tela 2 widget (widget) | widget | widget | ✅ OK |
 | T5: catálogo → Tela 2 | navegação widget (widget) | widget | widget | ✅ OK |
+| T6: schema label da seção de folha de topo | derivação (unit) | unit | unit | ✅ OK |
 
 Nenhuma task usa `Tests: none`.
