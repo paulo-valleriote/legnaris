@@ -7,6 +7,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/tokens.dart';
@@ -39,12 +40,14 @@ class SheetFieldControl extends StatefulWidget {
 
 class _SheetFieldControlState extends State<SheetFieldControl> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
   Object? _lastEmitted;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: _formatValue(widget.value));
+    _focusNode = FocusNode()..addListener(_restoreStoredValueOnBlur);
   }
 
   @override
@@ -52,16 +55,33 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
     super.didUpdateWidget(oldWidget);
     // Resync only a genuinely external change: the controlled host echoes
     // back what this widget emitted, and resetting on that echo would move
-    // the caret while the user types.
+    // the caret while the user types. The marker must track what the display
+    // now shows, or a later external change equal to a stale marker would be
+    // skipped and the text would silently diverge from the stored value.
     if (widget.value != oldWidget.value && widget.value != _lastEmitted) {
       _controller.text = _formatValue(widget.value);
+      _lastEmitted = widget.value;
     }
   }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_restoreStoredValueOnBlur);
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Restores the display of the stored value when the user leaves the field
+  /// on text the draft does not hold (a half-typed `-` or `.`, or input that
+  /// failed to parse), so the control never at rest shows text that differs
+  /// from what would be saved.
+  void _restoreStoredValueOnBlur() {
+    if (_focusNode.hasFocus || !mounted || !_isNumericInput) return;
+    final text = _controller.text;
+    if (text.isEmpty || _parseNumber(text) != null) return;
+    _controller.text = _formatValue(widget.value);
+    _lastEmitted = widget.value;
   }
 
   /// `config.*` is the backend's 0/1 proxy node (contract rule, not a
@@ -69,6 +89,12 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
   bool get _isConfigProxy => widget.path.split('.').first == 'config';
 
   bool get _isToggle => widget.schema.type == 'bool' || _isConfigProxy;
+
+  /// True when this control draws a numeric input (see [build]'s branches).
+  bool get _isNumericInput =>
+      widget.schema.isEditable &&
+      !_isToggle &&
+      widget.schema.type == 'number';
 
   @override
   Widget build(BuildContext context) {
@@ -89,11 +115,16 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
       child: TextField(
         key: Key('sheet-input-${widget.path}'),
         controller: _controller,
+        focusNode: _focusNode,
         enabled: widget.onChanged != null,
         keyboardType:
             numeric
                 ? const TextInputType.numberWithOptions(decimal: true)
                 : TextInputType.text,
+        // `keyboardType` only shapes the IME — a desktop keyboard types
+        // anything, so the numeric field guards its whole value instead.
+        inputFormatters:
+            numeric ? const [_NumericTextFormatter()] : null,
         style: Theme.of(context).textTheme.bodyMedium,
         decoration: const InputDecoration(
           isDense: true,
@@ -171,7 +202,22 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
   }
 
   void _emitText(String text, {required bool numeric}) {
-    final Object? emitted = numeric ? num.tryParse(text.trim()) : text;
+    if (!numeric) {
+      _lastEmitted = text;
+      widget.onChanged?.call(text);
+      return;
+    }
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      _lastEmitted = null;
+      widget.onChanged?.call(null);
+      return;
+    }
+    // A sign or decimal point the user is still typing (`-`, `.`) is not a
+    // value yet: keep the stored one instead of reporting null for an
+    // in-progress edit — the display is restored when focus leaves.
+    if (_typingIntermediate.hasMatch(trimmed)) return;
+    final emitted = _parseNumber(trimmed);
     _lastEmitted = emitted;
     widget.onChanged?.call(emitted);
   }
@@ -184,9 +230,61 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
 
   String _formatValue(Object? value) {
     if (value == null) return '';
-    if (value is double && value.isFinite && value == value.truncateToDouble()) {
+    // Integer rendering only while the double holds the integer exactly:
+    // `toInt()` clamps above int64, which would display a different number
+    // than the one stored (e.g. 1e300 → 9223372036854775807).
+    if (value is double &&
+        value.isFinite &&
+        value.abs() <= _maxExactInteger &&
+        value == value.truncateToDouble()) {
       return value.toInt().toString();
     }
     return value.toString();
+  }
+}
+
+/// A complete decimal number: optional sign, digits with one optional
+/// fraction, or a bare fraction (`.5`).
+final RegExp _numericShape = RegExp(r'^[+-]?(\d+(\.\d*)?|\.\d+)$');
+
+/// A sign or decimal point still being typed (`-`, `+.`, …) — valid text,
+/// not yet a value.
+final RegExp _typingIntermediate = RegExp(r'^[+-]?\.?$');
+
+/// Largest integer a double holds exactly; beyond it integer rendering
+/// would lose precision (or clamp, see `_formatValue`).
+const double _maxExactInteger = 9007199254740991;
+
+/// Parses [text] as the number a sheet field may hold.
+///
+/// The shape check rejects forms `num.tryParse` would otherwise accept —
+/// `0x10` (hex → 16), `NaN`, `Infinity`, `1e999` (exponent) — and the
+/// finiteness check catches digit runs that overflow to `Infinity`, so no
+/// non-finite value can ever enter the draft.
+num? _parseNumber(String text) {
+  if (!_numericShape.hasMatch(text)) return null;
+  final parsed = num.tryParse(text);
+  if (parsed == null || (parsed is double && !parsed.isFinite)) return null;
+  return parsed;
+}
+
+/// Rejects edits that would leave the numeric field showing text it cannot
+/// represent; the edit reverts to the previous value instead. Whole-value
+/// check, so an invalid keystroke never reaches `_emitText`.
+class _NumericTextFormatter extends TextInputFormatter {
+  const _NumericTextFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    if (text.isEmpty ||
+        _typingIntermediate.hasMatch(text) ||
+        _numericShape.hasMatch(text)) {
+      return newValue;
+    }
+    return oldValue;
   }
 }

@@ -318,4 +318,178 @@ void main() {
       },
     );
   });
+
+  group('numeric input hardening (no garbage in, no stale display out)', () {
+    testWidgets(
+      'Edge: non-numeric text is rejected — the field keeps its stored value (RND-06)',
+      (tester) async {
+        final emitted = <Object?>[];
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 16.0,
+          onChanged: emitted.add,
+        );
+        final input = find.byKey(const Key('sheet-input-stats.dexterity'));
+
+        await tester.enterText(input, 'abc');
+
+        expect(
+          tester.widget<TextField>(input).controller?.text,
+          '16',
+          reason: 'garbage must not replace the displayed value',
+        );
+        expect(emitted, isEmpty, reason: 'garbage must not reach the draft');
+      },
+    );
+
+    testWidgets(
+      'Edge: NaN, Infinity, hex and exponent forms never reach the draft (RND-06)',
+      (tester) async {
+        final emitted = <Object?>[];
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 16.0,
+          onChanged: emitted.add,
+        );
+        final input = find.byKey(const Key('sheet-input-stats.dexterity'));
+
+        for (final garbage in const ['NaN', 'Infinity', '0x10', '1e999']) {
+          await tester.enterText(input, garbage);
+          expect(
+            tester.widget<TextField>(input).controller?.text,
+            isNot(garbage),
+            reason: '"$garbage" must not be displayed as a number',
+          );
+        }
+
+        expect(emitted, isEmpty, reason: 'no garbage value was ever emitted');
+        expect(
+          emitted.whereType<num>().where((v) => v.isNaN || v.isInfinite),
+          isEmpty,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: a huge run of digits never emits a non-finite value (RND-06)',
+      (tester) async {
+        final emitted = <Object?>[];
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 16.0,
+          onChanged: emitted.add,
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '9' * 400,
+        );
+
+        expect(
+          emitted.whereType<num>().where((v) => v.isInfinite || v.isNaN),
+          isEmpty,
+          reason: 'an overflowing digit run must not become Infinity',
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: an external change equal to the last emitted value still resyncs the input',
+      (tester) async {
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 16.0,
+          onChanged: (_) {},
+        );
+        final input = find.byKey(const Key('sheet-input-stats.dexterity'));
+
+        await tester.enterText(input, '42');
+        expect(tester.widget<TextField>(input).controller?.text, '42');
+
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 7.0,
+          onChanged: (_) {},
+        );
+        expect(tester.widget<TextField>(input).controller?.text, '7');
+
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 42.0,
+          onChanged: (_) {},
+        );
+        expect(
+          tester.widget<TextField>(input).controller?.text,
+          '42',
+          reason:
+              'the echo marker must not go stale, or a later external change '
+              'equal to it is silently skipped',
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: an abandoned intermediate restores the stored value when focus leaves',
+      (tester) async {
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 16.0,
+          onChanged: (_) {},
+        );
+        final input = find.byKey(const Key('sheet-input-stats.dexterity'));
+
+        await tester.enterText(input, '-');
+        expect(tester.widget<TextField>(input).controller?.text, '-');
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump();
+
+        expect(
+          tester.widget<TextField>(input).controller?.text,
+          '16',
+          reason:
+              'at rest the display must show the stored value, not a '
+              'half-typed intermediate',
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: a huge integer-valued double is not clamped by toInt in the display',
+      (tester) async {
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 1e300,
+        );
+
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '1e+300',
+          reason: 'toInt clamps beyond int64 and would display a different '
+              'number than the stored one',
+        );
+      },
+    );
+  });
 }

@@ -93,7 +93,7 @@ graph TD
     3. `schema.type == 'number'` → `TextField` numérico (teclado decimal), valor formatado; edição emite `num` (RND-06).
     4. `schema.type == 'text'`/`'string'` → `TextField` de texto; edição emite `String` (RND-07).
     5. qualquer outro `type` → read-only (fallback, RND-13).
-  - Estado interno: só o `TextEditingController` do input, ressincronizado no `didUpdateWidget` quando o valor externo muda de verdade (o host controlado não devolve o que o widget emitiu).
+  - Estado interno: `TextEditingController` + `FocusNode` do input. O controller ressincroniza no `didUpdateWidget` quando o valor externo muda de verdade (o host controlado não devolve o que o widget emitiu) e o marcador de eco é atualizado junto, para nunca ficar obsoleto; ao perder o foco, texto numérico que o draft não representa (intermediário `-`, parse inválido) é restaurado para o valor armazenado.
   - `_formatValue(Object?)` — num inteiro sem parte fracionária vira inteiro (`16`, não `16.0`); o resto usa `toString()`; `null` → vazio.
 - **Dependencies**: `flutter/material.dart`, `theme/tokens.dart`, l10n (`fieldCalculated`), `api/models/template.dart`.
 - **Reuses**: tokens de controle (`controlHeight`, `rowHeight`, `radius`), `Tooltip` nativo.
@@ -157,6 +157,8 @@ Mesma semântica de `Sheet.valueAt` (FE1-12…14): segmento ausente → `null`; 
 | `fields` vazio | `buildSections` devolve `[]`; a Tela 2 mostra `templateNoFields` | Linha única localizada, sem área em branco ambígua |
 | Valor ausente no mapa `data` | `valueAtPath` → `null`; controle renderiza vazio/off | Nenhuma exceção; a linha aparece vazia |
 | Input numérico limpo/inválido | `_parseNumber` → `null`; `onChanged(path, null)` | O valor é limpo, nunca vira lixo silencioso |
+| Input numérico com lixo (`NaN`, `Infinity`, `0x10`, `1e999`, letras) | `_NumericTextFormatter` rejeita a edição (reverte ao valor anterior); `_parseNumber` também barra shape inválido e não-finitos (fallback) | O campo nunca exibe nem emite valor não-finito/hex — `jsonEncode` do Phase 4 nunca recebe `NaN`/`Infinity` |
+| Intermediário de digitação (`-`, `.`) abandonado | Sem emissão (mantém o valor armazenado); ao perder o foco, `_restoreStoredValueOnBlur` restaura o texto do valor armazenado | Sem divulgância tela × draft: em repouso o texto é sempre o que seria salvo |
 | `type` desconhecido | Fallback read-only (RND-13) | O campo aparece como valor, sem quebrar a tela |
 | Grupo de topo sem folhas | Seção omitida | Nenhuma seção vazia |
 
