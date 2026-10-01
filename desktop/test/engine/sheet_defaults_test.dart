@@ -3,15 +3,19 @@ import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/engine/sheet_defaults.dart';
 
 void main() {
-  FieldNode leaf(double defaultValue, {String label = '', bool editable = true}) =>
-      FieldNode(
-        schema: FieldSchema(
-          type: 'number',
-          label: label,
-          isEditable: editable,
-          defaultValue: defaultValue,
-        ),
-      );
+  FieldNode leaf(
+    double defaultValue, {
+    String label = '',
+    bool editable = true,
+    String type = 'number',
+  }) => FieldNode(
+    schema: FieldSchema(
+      type: type,
+      label: label,
+      isEditable: editable,
+      defaultValue: defaultValue,
+    ),
+  );
 
   FieldNode groupOf(Map<String, FieldNode> children) =>
       FieldNode(children: children);
@@ -44,6 +48,22 @@ void main() {
         'derived': {'armorClass': 0.0},
       });
     });
+
+    test(
+      'Happy path: text and bool leaves seed by type, not by float default',
+      () {
+        final fields = {
+          'identity': groupOf({
+            'characterName': leaf(0, type: 'text'),
+            'ready': leaf(1, type: 'bool', editable: false),
+          }),
+        };
+
+        expect(seedDefaults(fields), {
+          'identity': {'characterName': '', 'ready': false},
+        });
+      },
+    );
 
     test('Edge: a group with no leaves contributes nothing', () {
       final fields = {

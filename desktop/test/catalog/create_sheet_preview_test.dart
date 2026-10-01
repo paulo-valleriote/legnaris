@@ -194,7 +194,24 @@ void main() {
           findsOneWidget,
         );
         expect(inPreview(find.text('Custom thing')), findsOneWidget);
+        // Unknown types keep the schema default (seedValue falls back to it).
+        expect(
+          inPreview(
+            find.byKey(const Key('sheet-value-weird_prefix-z.customThing')),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const Key('sheet-value-weird_prefix-z.customThing')),
+              )
+              .data,
+          '7',
+        );
         expect(inPreview(find.text('Another one')), findsWidgets);
+        // String/text leaves seed empty, mirroring the backend's SeedValue —
+        // the numeric default never reaches the sheet value.
         expect(
           tester
               .widget<TextField>(
@@ -202,7 +219,7 @@ void main() {
               )
               .controller
               ?.text,
-          '3',
+          '',
         );
       },
     );
