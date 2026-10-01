@@ -260,13 +260,13 @@ T8
 
 **Done when**:
 
-- [ ] F5 with no pending edits issues exactly one new detail GET and the form reseeds from the fresh schema (GRN-17)
-- [ ] F5 with pending edits shows the dialog before any request; the request count is unchanged until confirm (GRN-18)
-- [ ] Cancelling the refresh dialog issues zero requests (GRN-19)
-- [ ] A confirmed refresh that fails shows the mapped error + Retry; state reseeds after a successful retry (spec edge)
-- [ ] Unmounting the screen clears the active-sheet registration
-- [ ] Gate check passes: `cd desktop && flutter test`
-- [ ] Test count: 7 new tests in `desktop/test/sheet/sheet_screen_test.dart`
+- [x] F5 with no pending edits issues exactly one new detail GET and the form reseeds from the fresh schema (GRN-17)
+- [x] F5 with pending edits shows the dialog before any request; the request count is unchanged until confirm (GRN-18)
+- [x] Cancelling the refresh dialog issues zero requests (GRN-19)
+- [x] A confirmed refresh that fails shows the mapped error + Retry; state reseeds after a successful retry (spec edge)
+- [x] Unmounting the screen clears the active-sheet registration
+- [x] Gate check passes: `cd desktop && flutter test`
+- [x] Test count: 7 new tests in `desktop/test/sheet/sheet_screen_test.dart`
 
 **Tests**: widget
 **Gate**: build (last task of Phase 3)

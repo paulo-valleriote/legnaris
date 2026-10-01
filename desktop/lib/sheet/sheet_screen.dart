@@ -7,8 +7,11 @@
 /// [sheetEditControllerProvider] (discarded when the screen unmounts) and no
 /// mutation is issued — the save cycle is Phase 4. A header caption signals
 /// pending local edits and the back action confirms before discarding them
-/// (GRN-11 … GRN-16).
+/// (GRN-11 … GRN-16); F5 refreshes the template behind the same kind of
+/// confirmation (GRN-17 … GRN-19).
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +23,7 @@ import 'package:legnaris/engine/field_grouping.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
+import 'package:legnaris/sheet/sheet_refresh.dart';
 import 'package:legnaris/theme/tokens.dart';
 
 /// Screen 2 for one template.
@@ -34,8 +38,37 @@ class SheetScreen extends ConsumerStatefulWidget {
 }
 
 class _SheetScreenState extends ConsumerState<SheetScreen> {
+  /// True while a discard confirmation is on screen: a modal barrier blocks
+  /// the back button, but F5 dispatches through the provider, so the guards
+  /// check this flag themselves to keep one confirmation at a time.
+  bool _confirming = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Register for the shell's F5 dispatch. The write cannot happen inside a
+    // widget lifecycle — Riverpod forbids modifying providers while the tree
+    // builds — so it lands right after the first frame, by which time the
+    // build-time keep-alive listen already holds the provider; unmounting
+    // closes that listen and discards the registration (GRN-17).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(activeSheetIdProvider.notifier).set(widget.templateId);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    // F5 dispatch (GRN-17 … GRN-19): the shell bumps the tick, this screen
+    // runs the refresh. Re-listened every build because the element closes
+    // these subscriptions whenever it rebuilds.
+    ref.listen(sheetRefreshTickProvider, (previous, next) {
+      if (previous == null || next > previous) unawaited(_refreshTemplate());
+    });
+    // Holds the active-sheet registration from the first build until unmount,
+    // where the element closes it and the provider discards the id.
+    ref.listen(activeSheetIdProvider, (_, _) {});
     final localizations = AppLocalizations.of(context)!;
     final state = ref.watch(
       templateDetailControllerProvider(widget.templateId),
@@ -120,21 +153,69 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   /// silently discard it (GRN-13 … GRN-15). The dirty check is a read at tap
   /// time — the screen never watches the edit state (AD-001).
   Future<void> _leave() async {
+    if (_confirming) return;
     final pending = ref
         .read(sheetEditControllerProvider(widget.templateId))
         .isPending;
     if (pending) {
+      final localizations = AppLocalizations.of(context)!;
+      final confirmed = await _confirmDiscard(
+        title: localizations.sheetLeaveDialogTitle,
+        message: localizations.sheetLeaveDialogMessage,
+        confirmLabel: localizations.sheetLeaveConfirmAction,
+      );
+      if (!mounted || !confirmed) return;
+    }
+    await Navigator.of(context).maybePop();
+  }
+
+  /// F5 refresh (GRN-17 … GRN-19): a clean sheet refetches directly; a
+  /// pending one confirms first, and only a confirm discards the in-memory
+  /// edits before the reload — cancel issues no request at all. The reload
+  /// reseeds the edit state from the fresh schema; a failure leaves it
+  /// discarded behind the error + Retry branch.
+  Future<void> _refreshTemplate() async {
+    if (_confirming) return;
+    final editProvider = sheetEditControllerProvider(widget.templateId);
+    if (ref.read(editProvider).isPending) {
+      final localizations = AppLocalizations.of(context)!;
+      final confirmed = await _confirmDiscard(
+        title: localizations.sheetRefreshDialogTitle,
+        message: localizations.sheetRefreshDialogMessage,
+        confirmLabel: localizations.sheetRefreshConfirmAction,
+      );
+      if (!mounted || !confirmed) return;
+      ref.invalidate(editProvider);
+    }
+    if (!mounted) return;
+    await ref
+        .read(templateDetailControllerProvider(widget.templateId).notifier)
+        .load();
+  }
+
+  /// The destructive confirmation shared by both discard guards: states the
+  /// exact consequence, and only an explicit confirm proceeds — barrier, Esc,
+  /// or Cancel land on the safe side (desktop/AGENTS.md: never confirm by
+  /// Enter alone). [_confirming] keeps a second guard from stacking while
+  /// this dialog is up.
+  Future<bool> _confirmDiscard({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) async {
+    _confirming = true;
+    try {
       final confirmed = await showDialog<bool>(
         context: context,
         // Load-bearing: the framework gates Esc on this flag, and a barrier
-        // or Esc tap lands on the safe side — dismiss equals cancel (GRN-15).
+        // or Esc tap lands on the safe side — dismiss equals cancel.
         barrierDismissible: true,
         builder: (dialogContext) {
           final localizations = AppLocalizations.of(dialogContext)!;
           final theme = Theme.of(dialogContext);
           return AlertDialog(
-            title: Text(localizations.sheetLeaveDialogTitle),
-            content: Text(localizations.sheetLeaveDialogMessage),
+            title: Text(title),
+            content: Text(message),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -145,15 +226,16 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
                   foregroundColor: theme.colorScheme.error,
                 ),
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(localizations.sheetLeaveConfirmAction),
+                child: Text(confirmLabel),
               ),
             ],
           );
         },
       );
-      if (!mounted || confirmed != true) return;
+      return confirmed == true;
+    } finally {
+      _confirming = false;
     }
-    await Navigator.of(context).maybePop();
   }
 
   Widget _body(

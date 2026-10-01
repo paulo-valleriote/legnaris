@@ -12,6 +12,7 @@ import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
+import 'package:legnaris/sheet/sheet_refresh.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
@@ -29,6 +30,13 @@ void main() {
       '{"data": {"id": "blank", "name": "", "default": false, "fields": {"stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}}}}}';
   const serverErrorBody =
       '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}';
+  const freshBody = '''
+{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
+  "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 16}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 1}}}},
+  "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
+}}}
+''';
 
   Future<List<http.Request>> pumpScreen(
     WidgetTester tester, {
@@ -76,6 +84,17 @@ void main() {
       await tester.pumpAndSettle();
     }
     return recorded;
+  }
+
+  /// The sheet screen's side of the F5 dispatch (T6 bumps the same tick
+  /// through the shortcut registry), followed by a settle of the flow it
+  /// triggers.
+  Future<void> pressF5(WidgetTester tester) async {
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('sheet-title'))),
+    );
+    container.read(sheetRefreshTickProvider.notifier).bump();
+    await tester.pumpAndSettle();
   }
 
   group('loading, seed and render (RND-15, RND-16)', () {
@@ -643,6 +662,278 @@ void main() {
           isTrue,
         );
         expect(recorded, hasLength(1));
+      },
+    );
+  });
+
+  group('active sheet registration (GRN-17)', () {
+    testWidgets(
+      'Happy path: the screen registers itself as the active sheet while mounted',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        expect(container.exists(activeSheetIdProvider), isTrue);
+        expect(container.read(activeSheetIdProvider), 'fantasy_v1');
+      },
+    );
+
+    testWidgets(
+      'Edge: unmounting the screen clears the active-sheet registration',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+          stacked: true,
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        expect(container.read(activeSheetIdProvider), 'fantasy_v1');
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+        // The autoDispose task runs on a scheduled vsync after the unmount.
+        await tester.pump();
+
+        expect(container.exists(activeSheetIdProvider), isFalse);
+      },
+    );
+  });
+
+  group('refresh behind confirmation (GRN-17 … GRN-19)', () {
+    testWidgets(
+      'Happy path: F5 with no pending edits issues one detail GET and reseeds from the fresh schema (GRN-17)',
+      (tester) async {
+        var detailGets = 0;
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async =>
+              http.Response(detailGets++ == 0 ? detailBody : freshBody, 200),
+        );
+        await tester.pumpAndSettle();
+        expect(detailGets, 1);
+
+        await pressF5(tester);
+
+        expect(detailGets, 2);
+        expect(
+          recorded.where(
+            (request) => request.url.path == '/templates/fantasy_v1',
+          ),
+          hasLength(2),
+        );
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '16',
+          reason: 'the form must show the fresh schema default',
+        );
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Happy path: F5 with pending edits opens the confirmation before any request (GRN-18)',
+      (tester) async {
+        var detailGets = 0;
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async {
+            detailGets++;
+            return http.Response(detailBody, 200);
+          },
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        container.read(sheetRefreshTickProvider.notifier).bump();
+        container.read(sheetRefreshTickProvider.notifier).bump();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          find.text(
+            'Your local edits will be discarded and the latest template will be loaded.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          detailGets,
+          1,
+          reason: 'no new detail request until the user confirms',
+        );
+        expect(recorded, hasLength(1));
+        expect(
+          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          isTrue,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: cancelling the refresh dialog issues zero requests (GRN-19)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        await pressF5(tester);
+        expect(find.byType(AlertDialog), findsOneWidget);
+
+        await tester.tap(find.widgetWithText(TextButton, 'Keep editing'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(find.text('Local edits'), findsOneWidget);
+        expect(
+          recorded,
+          hasLength(1),
+          reason: 'cancel must issue no template detail request',
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        expect(
+          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          isTrue,
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: confirming the refresh discards the edits and reseeds from defaults',
+      (tester) async {
+        var detailGets = 0;
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async {
+            detailGets++;
+            return http.Response(detailBody, 200);
+          },
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        await pressF5(tester);
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(detailGets, 1);
+
+        await tester.tap(find.widgetWithText(TextButton, 'Discard and reload'));
+        await tester.pumpAndSettle();
+
+        expect(detailGets, 2);
+        expect(
+          recorded.where(
+            (request) => request.url.path == '/templates/fantasy_v1',
+          ),
+          hasLength(2),
+        );
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '10',
+          reason: 'the reseeded form shows the schema default again',
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        expect(
+          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          isFalse,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: a confirmed refresh that fails shows the mapped error and Retry, and the state reseeds after a successful retry',
+      (tester) async {
+        var call = 0;
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async {
+            final failing = call++ == 1;
+            return http.Response(
+              failing ? serverErrorBody : detailBody,
+              failing ? 500 : 200,
+            );
+          },
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        await pressF5(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'Discard and reload'));
+        await tester.pumpAndSettle();
+
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
+        expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
+        expect(find.byType(SheetFieldControl), findsNothing);
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+        expect(recorded, hasLength(2));
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        expect(
+          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          isFalse,
+          reason: 'a failed confirmed refresh keeps the edits discarded',
+        );
+
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Retry'));
+        await tester.pumpAndSettle();
+
+        expect(recorded, hasLength(3));
+        expect(find.byKey(const Key('sheet-section-stats')), findsOneWidget);
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '10',
+        );
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
       },
     );
   });

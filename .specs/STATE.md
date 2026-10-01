@@ -13,10 +13,10 @@
 ## Handoff
 
 - **Feature**: `lgn-102-granular-rebuild` (.specs/features/lgn-102-granular-rebuild)
-- **Phase / Task**: Execute — T6 complete, start of T7 (sheet F5 refresh flow)
-- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers), T6 (F5 routing)
-- **In-progress** (file:line): none — T6 committed
-- **Next step**: implement T7 — `desktop/lib/sheet/sheet_screen.dart` registers the active sheet, listens to the tick, confirm → invalidate edit provider + `load()`; 7 tests in `sheet_screen_test.dart`; build gate; commit `feat(sheet): refresh the template behind a discard confirmation`
+- **Phase / Task**: Execute — T7 complete, start of T8 (200-field render budget — last task)
+- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers), T6 (F5 routing), T7 (sheet F5 refresh flow)
+- **In-progress** (file:line): none — T7 committed
+- **Next step**: implement T8 — 200-field fixture + `Stopwatch` <100 ms test in `sheet_screen_test.dart`; build gate; commit `test(sheet): assert the 200-field render budget`; if <100 ms fails on this machine, STOP and escalate (do not weaken the AC); then dispatch the Verifier and run `validate_state.py`
 - **Blockers**: none
 - **Uncommitted files**: none (untracked skill dirs `.claude/`, `.cursor/`, `.windsurf/` — never commit)
 - **Branch**: feat/LGN-100-front-end-phase-3-sheet-preview
