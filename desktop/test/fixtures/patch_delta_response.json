@@ -1,1 +1,1 @@
-{"data":{"derived":{"armorClass":13,"stealthTotal":3},"modifiers":{"dexterityMod":3}}}
+{"data":{"derived":{"armorClass":13},"modifiers":{"dexterityMod":3},"saves":{"dexterity":3},"skills":{"acrobatics":{"total":3},"stealth":{"total":3}}}}

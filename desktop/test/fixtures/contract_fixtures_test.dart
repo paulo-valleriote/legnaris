@@ -66,7 +66,7 @@ void main() {
       expect(fantasy.id, 'fantasy_v1');
       expect(fantasy.name, 'Fantasy Template');
       expect(fantasy.isDefault, isTrue, reason: 'the reserved JSON key "default" must map explicitly');
-      expect(fantasy.fields, hasLength(6));
+      expect(fantasy.fields, hasLength(11), reason: 'the sheet serves 11 sections');
       expect(fantasy.fields['stats']?.schema, isNull, reason: 'a group exposes children, not a schema');
       expect(fantasy.fields['stats']?.children?.keys, containsAll(['dexterity', 'constitution']));
     });
@@ -90,7 +90,7 @@ void main() {
       expect(armorClass, isNotNull);
       expect(armorClass?.isEditable, isFalse, reason: 'derived fields are read-only');
       expect(armorClass?.formula, contains('baseArmorClass'));
-      expect(armorClass?.dependsOn?.first, ['baseArmorClass']);
+      expect(armorClass?.dependsOn?.first, ['combat', 'baseArmorClass']);
     });
 
     test('Happy path: POST /sheets fixture decodes the created sheet with computed values', () async {
@@ -105,9 +105,14 @@ void main() {
       expect(sheet.name, 'Fixture Capture');
       expect(sheet.valueAt('stats.dexterity'), 10, reason: 'editable default seeded as int');
       expect(
+        sheet.valueAt('identity.characterName'),
+        '',
+        reason: 'text leaves seed as an empty string, never at the numeric default (SeedValue)',
+      );
+      expect(
         sheet.valueAt('derived.armorClass'),
         10,
-        reason: 'derived value computed at creation: baseArmorClass 10 + dexMod 0',
+        reason: 'derived value computed at creation: combat.baseArmorClass 10 + dexMod 0',
       );
     });
 
@@ -145,7 +150,11 @@ void main() {
       }
       expect((cascades['modifiers'] as Map<String, Object?>)['dexterityMod'], 3);
       expect((cascades['derived'] as Map<String, Object?>)['armorClass'], 13);
-      expect((cascades['derived'] as Map<String, Object?>)['stealthTotal'], 3);
+      expect(
+        ((cascades['skills'] as Map<String, Object?>)['stealth'] as Map<String, Object?>)['total'],
+        3,
+        reason: 'the skill total cascades from the new dexterity modifier',
+      );
     });
 
     test('Error: 404 fixture carries status, code, server message and the notFound kind', () async {

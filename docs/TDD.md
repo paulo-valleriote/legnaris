@@ -28,7 +28,7 @@ O estado atual do código já contém o núcleo diferenciador funcionando:
 
 **Stakeholders**: jogadores e mestres de RPG (usuários finais), o próprio mantenedor (projeto solo), e indiretamente a comunidade open-source de TTRPG.
 
-**Estratégia anti-copyright (já presente no design)**: os campos usam nomes genéricos (`stats.dexterity`, `modifiers.dexterityMod`) e o template seed inclui **nós proxy de configuração** (`config.acUsesDex`, `config.spellUsesInt`) — multiplicadores 0/1 que permitem à mesma estrutura genérica expressar regras diferentes sem hardcodar regras de nenhum sistema publicado. No MVP, **todos os templates são defaults travados, definidos no código-fonte** — todo conteúdo distribuído passa por code review, o que é a linha de defesa anti-copyright mais forte possível. O projeto distribui apenas a *mecânica de cálculo*, nunca o *conteúdo de jogo*.
+**Estratégia anti-copyright (já presente no design)**: os campos usam nomes genéricos (`stats.dexterity`, `modifiers.dexterityMod`) e o template seed inclui **nós proxy de configuração** (`config.acUsesDex`, `config.spellUsesIntelligence`) — multiplicadores 0/1 que permitem à mesma estrutura genérica expressar regras diferentes sem hardcodar regras de nenhum sistema publicado. No MVP, **todos os templates são defaults travados, definidos no código-fonte** — todo conteúdo distribuído passa por code review, o que é a linha de defesa anti-copyright mais forte possível. O projeto distribui apenas a *mecânica de cálculo*, nunca o *conteúdo de jogo*.
 
 ---
 

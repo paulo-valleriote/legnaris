@@ -286,12 +286,14 @@ func nestedCascadingEffects(flat map[string]any) (map[string]any, error) {
 }
 
 // buildNestedAllFields creates nested map with ALL leaf fields (base + derived)
-// using their default values (0 for derived fields without explicit default)
+// seeded through FieldSchema.SeedValue: numbers start at their default, text
+// starts empty; derived leaves are overwritten by the Recalculate call that
+// follows.
 func buildNestedAllFields(group template.FieldGroup) map[string]any {
 	result := make(map[string]any)
 	for name, node := range group {
 		if node.IsLeaf() {
-			result[name] = node.Schema.Default
+			result[name] = node.Schema.SeedValue()
 		} else if node.IsGroup() {
 			nested := buildNestedAllFields(node.Children)
 			if len(nested) > 0 {

@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -120,8 +121,74 @@ func TestIntegration_TemplatesFetchByID(t *testing.T) {
 	dexMod := modifiers.Children["dexterityMod"]
 	require.NotNil(t, dexMod.Schema)
 	assert.False(t, dexMod.Schema.IsEditable)
-	assert.Equal(t, "floor((stats_dexterity - 10) / 2)", dexMod.Schema.Formula)
-	assert.Equal(t, [][]string{{"stats", "dexterity"}}, dexMod.Schema.DependsOn)
+	assert.Equal(t, "floor((stats_dexterity - rules_modifierBase) / rules_modifierStep)", dexMod.Schema.Formula)
+	assert.Equal(t, [][]string{
+		{"stats", "dexterity"},
+		{"rules", "modifierBase"},
+		{"rules", "modifierStep"},
+	}, dexMod.Schema.DependsOn)
+
+	// The sections must arrive in the template's declared display order —
+	// the sheet renders them exactly as they come.
+	assert.Equal(t, []string{
+		"identity", "stats", "modifiers", "saves", "skills",
+		"combat", "attacks", "spells", "derived", "rules", "config",
+	}, templateFieldKeys(t, rec.Body.Bytes()))
+}
+
+// templateFieldKeys walks the response envelope down to the `fields` object of
+// the template payload and returns its keys in arrival order — json.Unmarshal
+// would flatten the object into a map and sort away the display-order contract.
+func templateFieldKeys(t *testing.T, raw []byte) []string {
+	t.Helper()
+
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	_, err := decoder.Token()
+	require.NoError(t, err, "payload must open as an object")
+
+	for decoder.More() {
+		token, err := decoder.Token()
+		require.NoError(t, err)
+		key, ok := token.(string)
+		require.True(t, ok, "object keys must be strings")
+		if key != "data" {
+			var skip json.RawMessage
+			require.NoError(t, decoder.Decode(&skip))
+			continue
+		}
+
+		_, err = decoder.Token()
+		require.NoError(t, err, "data must open as an object")
+		for decoder.More() {
+			token, err := decoder.Token()
+			require.NoError(t, err)
+			key, ok := token.(string)
+			require.True(t, ok, "object keys must be strings")
+			if key != "fields" {
+				var skip json.RawMessage
+				require.NoError(t, decoder.Decode(&skip))
+				continue
+			}
+
+			_, err = decoder.Token()
+			require.NoError(t, err, "fields must open as an object")
+			keys := []string{}
+			for decoder.More() {
+				token, err := decoder.Token()
+				require.NoError(t, err)
+				key, ok := token.(string)
+				require.True(t, ok, "field keys must be strings")
+				keys = append(keys, key)
+				var skip json.RawMessage
+				require.NoError(t, decoder.Decode(&skip))
+			}
+			return keys
+		}
+		t.Fatal("template payload has no fields object")
+	}
+
+	t.Fatal("response has no data envelope")
+	return nil
 }
 
 func TestIntegration_TemplatesFetchByID_NotFound(t *testing.T) {
@@ -167,7 +234,19 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	derived, ok := created.Data.Data["derived"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, 10.0, derived["armorClass"])
-	assert.Equal(t, 0.0, derived["stealthTotal"])
+	assert.Equal(t, 10.0, derived["passiveAwareness"])
+
+	// Text leaves seed as an empty string, never at the numeric default.
+	identity, ok := created.Data.Data["identity"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "", identity["characterName"])
+
+	// Skill totals compute on create: default dex 10 (+0) and no proficiency.
+	skillsData, ok := created.Data.Data["skills"].(map[string]any)
+	require.True(t, ok)
+	stealth, ok := skillsData["stealth"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 0.0, stealth["total"])
 
 	fetchRec := doRequest(t, h, http.MethodGet, "/sheets/"+sheetID, "")
 	require.Equal(t, http.StatusOK, fetchRec.Code)
@@ -195,7 +274,81 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	patchedDerived, ok := patched.Data["derived"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, 13.0, patchedDerived["armorClass"])
-	assert.Equal(t, 3.0, patchedDerived["stealthTotal"])
+
+	patchedSkills, ok := patched.Data["skills"].(map[string]any)
+	require.True(t, ok)
+	patchedStealth, ok := patchedSkills["stealth"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 3.0, patchedStealth["total"])
+}
+
+// TestIntegration_Sheets_CalibrationAndTextUpdates covers the fantasy_v1
+// mechanics end to end: the rules group retunes every dependent value
+// through the DAG, config flags wire proficiency into a save, and a text
+// field stores exactly what the client sends.
+func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
+	h, _ := newIntegrationRouter(t)
+
+	createRec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Calibration"}`)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+	sheetID := created.Data.ID
+
+	// Raising the modifier base to 12 turns every default score of 10 from
+	// +0 into -1, cascading through saves, skills and derived values.
+	rulesRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"rules":{"modifierBase":12}}}`)
+	require.Equal(t, http.StatusOK, rulesRec.Code)
+
+	var rulesPatched response.Success[map[string]any]
+	require.NoError(t, json.Unmarshal(rulesRec.Body.Bytes(), &rulesPatched))
+
+	modifiers, ok := rulesPatched.Data["modifiers"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, -1.0, modifiers["dexterityMod"])
+
+	saves, ok := rulesPatched.Data["saves"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, -1.0, saves["dexterity"])
+
+	skillsData, ok := rulesPatched.Data["skills"].(map[string]any)
+	require.True(t, ok)
+	stealth, ok := skillsData["stealth"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, -1.0, stealth["total"])
+
+	derived, ok := rulesPatched.Data["derived"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 9.0, derived["armorClass"])
+	assert.Equal(t, 9.0, derived["passiveAwareness"])
+
+	// Arming the dexterity save proficiency adds the +2 bonus on top.
+	flagRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"saveDexterityProf":1}}}`)
+	require.Equal(t, http.StatusOK, flagRec.Code)
+
+	var flagPatched response.Success[map[string]any]
+	require.NoError(t, json.Unmarshal(flagRec.Body.Bytes(), &flagPatched))
+	flagSaves, ok := flagPatched.Data["saves"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 1.0, flagSaves["dexterity"])
+
+	// A text edit changes nothing derivable and persists verbatim.
+	textRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"identity":{"characterName":"Aldric"}}}`)
+	require.Equal(t, http.StatusOK, textRec.Code)
+
+	fetchRec := doRequest(t, h, http.MethodGet, "/sheets/"+sheetID, "")
+	require.Equal(t, http.StatusOK, fetchRec.Code)
+
+	var fetched response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(fetchRec.Body.Bytes(), &fetched))
+	fetchedIdentity, ok := fetched.Data.Data["identity"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Aldric", fetchedIdentity["characterName"])
+
+	fetchedRules, ok := fetched.Data.Data["rules"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 12.0, fetchedRules["modifierBase"])
 }
 
 // TestIntegration_ErrorStatusMapping covers the HTTP status each typed error

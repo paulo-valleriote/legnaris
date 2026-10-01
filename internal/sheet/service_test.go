@@ -425,6 +425,71 @@ func TestService_Create(t *testing.T) {
 	assert.Equal(t, "test", s.TemplateID)
 }
 
+// TestService_Create_SeedsTypedValues pins the type-aware seeding contract:
+// a text leaf must reach the repository as an empty string (never the
+// float64 default, which would store a number where the client expects
+// text), number leaves keep their defaults, and derived leaves arrive
+// computed by the Recalculate call Create runs over the seed.
+func TestService_Create_SeedsTypedValues(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+	fields := template.FieldGroup{
+		"identity": {Children: template.FieldGroup{
+			"characterName": {Schema: &template.FieldSchema{Type: "text", Label: "Character name", IsEditable: true}},
+		}},
+		"stats": {Children: template.FieldGroup{
+			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"modifiers": {Children: template.FieldGroup{
+			"dexterityMod": {Schema: &template.FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "floor((stats_dexterity - 10) / 2)",
+				DependsOn:  [][]string{{"stats", "dexterity"}},
+			}},
+		}},
+	}
+
+	dag, err := template.BuildDAG("test", fields, formulaEngine)
+	require.NoError(t, err)
+
+	tmpl := &template.Template{ID: "test", Name: "Test Template", Fields: fields}
+
+	mockTemplateSvc := templatemocks.NewMockService(t)
+	mockTemplateSvc.EXPECT().
+		FetchTemplate(context.Background(), &template.FetchTemplateByIDCommand{ID: "test"}).
+		Return(tmpl, nil).
+		Once()
+
+	mockRepo := mocks.NewMockRepository(t)
+	mockRepo.EXPECT().
+		Create(context.Background(), mock.MatchedBy(func(s *sheet.Sheet) bool {
+			identity, ok := s.Data["identity"].(map[string]any)
+			if !ok || identity["characterName"] != "" {
+				return false
+			}
+			stats, ok := s.Data["stats"].(map[string]any)
+			if !ok || stats["dexterity"] != 10.0 {
+				return false
+			}
+			modifiers, ok := s.Data["modifiers"].(map[string]any)
+			if !ok || modifiers["dexterityMod"] != 0.0 {
+				return false
+			}
+			return true
+		})).
+		Return(nil).
+		Once()
+
+	svc := sheet.NewService(mockRepo, mockTemplateSvc, sheettest.DAGMap{"test": dag})
+
+	s, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
+		TemplateID: "test",
+		SheetName:  "Seed Check",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "test", s.TemplateID)
+}
+
 // TestService_Create_TemplateIDErrors: Create consults FetchTemplate first so
 // the template-ID checks own both entry points (LGN-86 follow-up) — an empty
 // or malformed template_id must surface as 400 INVALID_REQUEST through the

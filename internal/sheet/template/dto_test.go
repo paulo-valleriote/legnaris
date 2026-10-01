@@ -1,14 +1,16 @@
 package template
 
 import (
+	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// dtoLeaf returns the API leaf carrying the widest DependsOn list in the
-// catalog (derived.armorClass, 5 paths).
+// dtoLeaf returns the API leaf used as the tamper target: a stable derived
+// catalog leaf (derived.armorClass) carrying a non-empty DependsOn list.
 func dtoLeaf(dto TemplateDTO) *FieldSchemaDTO {
 	return dto.Fields["derived"].Children["armorClass"].Schema
 }
@@ -121,4 +123,101 @@ func TestTemplateToDTO_Edge_NilSchema(t *testing.T) {
 
 	assert.Nil(t, dto.Schema)
 	assert.Contains(t, dto.Children, "dexterity")
+}
+
+// topLevelFieldKeys reads the `fields` object of a marshaled TemplateDTO and
+// returns its keys in emission order — json.Unmarshal would flatten the object
+// into a map and lose exactly what this contract is about.
+func topLevelFieldKeys(t *testing.T, raw []byte) []string {
+	t.Helper()
+
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	_, err := decoder.Token()
+	require.NoError(t, err, "payload must open as an object")
+
+	for decoder.More() {
+		token, err := decoder.Token()
+		require.NoError(t, err)
+		key, ok := token.(string)
+		require.True(t, ok, "object keys must be strings")
+		if key != "fields" {
+			var skip json.RawMessage
+			require.NoError(t, decoder.Decode(&skip))
+			continue
+		}
+
+		_, err = decoder.Token()
+		require.NoError(t, err, "fields must open as an object")
+		keys := []string{}
+		for decoder.More() {
+			token, err := decoder.Token()
+			require.NoError(t, err)
+			key, ok := token.(string)
+			require.True(t, ok, "field keys must be strings")
+			keys = append(keys, key)
+			var skip json.RawMessage
+			require.NoError(t, decoder.Decode(&skip))
+		}
+		return keys
+	}
+
+	t.Fatal("payload has no fields object")
+	return nil
+}
+
+// TestTemplateDTO_MarshalJSON_SectionOrder pins the display-order contract:
+// the top-level keys of `fields` must arrive in the template's declared
+// SectionOrder, because the sheet renders sections exactly as they arrive and
+// encoding/json would otherwise sort them alphabetically (identity would land
+// in the middle and config in the middle too, instead of sheet-first,
+// machinery-last).
+func TestTemplateDTO_MarshalJSON_SectionOrder(t *testing.T) {
+	raw, err := json.Marshal(fantasyV1Template.ToDTO())
+	require.NoError(t, err)
+
+	assert.Equal(t, fantasyV1Template.SectionOrder, topLevelFieldKeys(t, raw))
+}
+
+// TestTemplateDTO_MarshalJSON_Edge_OrderFallbacks documents the safety nets:
+// a DTO with no order keeps the alphabetical output encoding/json always
+// produced, ghost entries in the order are skipped, duplicates are emitted
+// once, and unlisted keys still show up after the declared ones.
+func TestTemplateDTO_MarshalJSON_Edge_OrderFallbacks(t *testing.T) {
+	tests := []struct {
+		name  string
+		order []string
+		want  []string
+	}{
+		{
+			name:  "Edge: no order at all falls back to alphabetical",
+			order: nil,
+			want:  []string{"config", "identity", "stats"},
+		},
+		{
+			name:  "Edge: ghost and duplicate entries in the order are skipped",
+			order: []string{"stats", "ghost", "stats", "config"},
+			want:  []string{"stats", "config", "identity"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dto := TemplateDTO{
+				ID:           "test",
+				Name:         "Test",
+				Default:      true,
+				SectionOrder: tc.order,
+				Fields: FieldGroupDTO{
+					"stats":    {},
+					"identity": {},
+					"config":   {},
+				},
+			}
+
+			raw, err := json.Marshal(dto)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.want, topLevelFieldKeys(t, raw))
+		})
+	}
 }
