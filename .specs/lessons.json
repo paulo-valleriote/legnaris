@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 11,
+  "next_id": 12,
   "lessons": [
     {
       "id": "L-001",
@@ -184,6 +184,24 @@
       ],
       "created": "2026-10-01T14:22:57Z",
       "last_seen": "2026-10-01T14:22:57Z"
+    },
+    {
+      "id": "L-011",
+      "key": "surviving_mutant::assert the exact rendered layout dimension not a one sided bound any in window layout satisfies pin the literal value in a token test too",
+      "text": "Assert the exact rendered layout dimension, not a one-sided bound any in-window layout satisfies; pin the literal value in a token test too.",
+      "signal": "surviving_mutant",
+      "scope": "desktop",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-3-sheet-preview"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "create_sheet_preview_test.dart narrow-window width assertion (iteration-2 survivor) (desktop)"
+      ],
+      "created": "2026-10-01T15:43:50Z",
+      "last_seen": "2026-10-01T15:43:50Z"
     }
   ]
 }

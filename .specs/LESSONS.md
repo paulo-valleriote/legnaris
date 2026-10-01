@@ -74,6 +74,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: spec.md:125 (min-width edge; validation.md spec-precision note) (desktop)
 - last seen: 2026-10-01T14:22:57Z
 
+### L-011 - Assert the exact rendered layout dimension, not a one-sided bound any in-window layout satisfies; pin the literal value in a token test too.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `desktop` · harmful: 0
+- features: front-end-phase-3-sheet-preview
+- evidence: create_sheet_preview_test.dart narrow-window width assertion (iteration-2 survivor) (desktop)
+- last seen: 2026-10-01T15:43:50Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
