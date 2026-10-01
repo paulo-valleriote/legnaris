@@ -41,6 +41,7 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
 
     return AlertDialog(
       content: SizedBox(
+        key: const Key('create-sheet-content'),
         width: AppSizes.createSheetDialogWidth,
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -339,6 +339,12 @@ void main() {
         await pumpCatalog(tester, handler: routing(detail: manyLeavesBody(30)));
         await openDialog(tester);
 
+        final card = inDialog(find.byKey(const Key('create-sheet-preview')));
+        expect(
+          tester.getSize(card).width,
+          AppSizes.createSheetDialogWidth,
+        );
+
         final scroll = inPreview(find.byType(SingleChildScrollView));
         expect(scroll, findsOneWidget);
         expect(
@@ -376,10 +382,11 @@ void main() {
 
         final card = inDialog(find.byKey(const Key('create-sheet-preview')));
         expect(card, findsOneWidget);
-        expect(
-          tester.getSize(card).width,
-          lessThan(AppSizes.createSheetDialogWidth),
+        final content = tester.getSize(
+          inDialog(find.byKey(const Key('create-sheet-content'))),
         );
+        expect(content.width, lessThan(AppSizes.createSheetDialogWidth));
+        expect(tester.getSize(card).width, content.width);
 
         final cardTop = tester.getTopLeft(card).dy;
         final nameTop = tester

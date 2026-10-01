@@ -42,7 +42,7 @@ Conventions: table-driven tests, `Happy path:` / `Edge:` / `Error:` case prefixe
 | PRV-07 | error: 500 / 404 / undecodable payload / offline transport → mapped copy + Retry inline, dialog open | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 + T5 |
 | PRV-08 | happy: Retry re-requests exactly once and swaps to sections | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-09 | edge: empty `fields` (and groups-only-without-leaves) → localized "no fields" line in the preview area | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 |
-| PRV-10 | happy: many leaves → card scrolls within a bounded height with an always-visible scrollbar; below the 640px minimum the card is clamped and stays below the name | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 + T7 + T8 |
+| PRV-10 | happy: many leaves → card scrolls within a bounded height with an always-visible scrollbar; rendered card width == 560; below the 640px minimum the card is clamped to the content width and stays below the name | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 + T7 + T8 + T9 |
 | PRV-11 | happy: opening issues at most one `GET /templates/:id` | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-12 | edge: reopen → fresh GET (2 total), no cached reuse | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-13 | edge: typing in the name field leaves the preview unchanged and issues no request | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 + T5 |
@@ -207,6 +207,19 @@ component that no longer exists.
 `test(LGN-100): assert the preview clamp below the minimum width`
 **Status**: ✅ Done — suíte 291 passed / 4 skipped; `flutter analyze` limpo
 
+### T9: Assert the rendered preview width (Verifier fix 2)
+
+**What**: o teste do clamp ainda era não-discriminante (um `< 560` qualquer layout dentro da janela satisfaz; apagar o `SizedBox` tight sobrevivia). Adicionar `Key('create-sheet-content')` ao `SizedBox` do conteúdo e assertar a **largura renderizada**: no teste a 1280px, `card.width == createSheetDialogWidth` (560); no teste a 600px, `content.width < 560` **e** `card.width == content.width` (o card preenche a largura clampada).
+**Why**: fechar o gap do Verifier — a largura de design e o clamp precisam de uma asserção que morra com a remoção do `SizedBox` tight.
+**Files**: `desktop/lib/catalog/create_sheet_dialog.dart`,
+`desktop/test/catalog/create_sheet_preview_test.dart`.
+**Depends on**: T8
+**Spec**: PRV-10.
+**Tests**: card `== 560` a 1280px; a 600px content `< 560` e card `== content`.
+**Gate**: full · **Commits**:
+`test(LGN-100): assert the rendered preview width`
+**Status**: ✅ Done — suíte 291 passed / 4 skipped; `flutter analyze` limpo
+
 ## Phase Execution Map
 
 ```mermaid
@@ -218,6 +231,7 @@ flowchart TD
     T3 --> T6["T6: Stack the preview below the sheet name"]
     T6 --> T7["T7: Always-visible preview scrollbar"]
     T7 --> T8["T8: Min-width clamp fix (Verifier)"]
+    T8 --> T9["T9: Assert the rendered preview width (Verifier)"]
 ```
 
 - Phase 1: T1 · exit: `sheet_defaults_test` green, analyze clean, screen refactor behavior-identical.
