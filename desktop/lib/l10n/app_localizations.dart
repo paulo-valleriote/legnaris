@@ -255,6 +255,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Calculated'**
   String get fieldCalculated;
+
+  /// Card action that opens Screen 2 for that template with schema-default values (RND-14).
+  ///
+  /// In en, this message translates to:
+  /// **'Preview sheet'**
+  String get catalogPreviewAction;
 }
 
 class _AppLocalizationsDelegate

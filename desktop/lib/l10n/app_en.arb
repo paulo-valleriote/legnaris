@@ -116,5 +116,9 @@
   "fieldCalculated": "Calculated",
   "@fieldCalculated": {
     "description": "Read-only highlight shown next to a non-editable (derived) field value (RND-10)."
+  },
+  "catalogPreviewAction": "Preview sheet",
+  "@catalogPreviewAction": {
+    "description": "Card action that opens Screen 2 for that template with schema-default values (RND-14)."
   }
 }

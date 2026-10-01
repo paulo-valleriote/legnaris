@@ -106,4 +106,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fieldCalculated => 'Calculated';
+
+  @override
+  String get catalogPreviewAction => 'Preview sheet';
 }

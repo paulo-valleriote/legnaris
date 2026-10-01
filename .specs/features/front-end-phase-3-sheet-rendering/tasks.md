@@ -9,7 +9,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 ---
 
 **Design**: `.specs/features/front-end-phase-3-sheet-rendering/design.md`
-**Status**: Approved
+**Status**: Done
 
 ---
 
@@ -197,12 +197,12 @@ T3 → T4 → T5
 
 **Done when**:
 
-- [ ] O card expõe "Preview sheet" e ativá-lo abre a Tela 2 do template do card (RND-14)
-- [ ] A abertura emite exatamente 1 `GET /templates/:id` e nenhum `POST`/`PATCH` (RND-19)
-- [ ] O back da Tela 2 volta ao catálogo com a lista em cache e sem nova listagem (RND-18)
-- [ ] O fluxo existente do diálogo de criação segue intacto (testes CAT verdes)
-- [ ] Saída do `gen-l10n` commitada; gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && flutter gen-l10n && flutter analyze && flutter test`
-- [ ] Test count: [N] novos testes; nenhum teste existente removido
+- [x] O card expõe "Preview sheet" e ativá-lo abre a Tela 2 do template do card (RND-14)
+- [x] A abertura emite exatamente 1 `GET /templates/:id` e nenhum `POST`/`PATCH` (RND-19)
+- [x] O back da Tela 2 volta ao catálogo com a lista em cache e sem nova listagem (RND-18)
+- [x] O fluxo existente do diálogo de criação segue intacto (testes CAT verdes)
+- [x] Saída do `gen-l10n` commitada; gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && flutter gen-l10n && flutter analyze && flutter test`
+- [x] Test count: 2 novos testes (suíte 239 passed / 4 skipped); nenhum teste existente removido
 
 **Tests**: widget
 **Gate**: build
