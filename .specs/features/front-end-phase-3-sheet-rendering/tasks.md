@@ -267,15 +267,16 @@ T4 → T7
 
 **Done when**:
 
-- [ ] Nenhum controle da Tela 2 aceita edição (`TextField` desabilitados, `Switch` sem callback) (RND-20)
-- [ ] Os valores base continuam renderizados a partir dos `default` do schema (RND-16 intacto)
-- [ ] Nenhum `POST`/`PATCH` no transporte (RND-19 intacto)
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: nenhum teste existente removido (o caso de edição é invertido, não apagado)
+- [x] Nenhum controle da Tela 2 aceita edição (`TextField` desabilitados, `Switch` sem callback) (RND-20)
+- [x] Os valores base continuam renderizados a partir dos `default` do schema (RND-16 intacto)
+- [x] Nenhum `POST`/`PATCH` no transporte (RND-19 intacto)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: nenhum teste existente removido (o caso de edição é invertido, não apagado) — suíte 291 passed / 4 skipped
 
 **Tests**: widget
 **Gate**: full
 **Commit**: `fix(LGN-101): render Screen 2 read-only`
+**Status**: ✅ Done — `SheetForm(onChanged: null)` na Tela 2; teste de edição invertido para read-only
 
 ---
 

@@ -207,7 +207,7 @@ Mesma semântica de `Sheet.valueAt` (FE1-12…14): segmento ausente → `null`; 
 | RND-09 | `SheetFieldControl` branch bool | `field_control_test.dart` (Switch true/false) |
 | RND-10 | `SheetFieldControl` branch read-only | `field_control_test.dart` (sem input + "Calculated") |
 | RND-11 | `SheetFieldControl` Tooltip | `field_control_test.dart` (fórmula exposta) |
-| RND-12 | `SheetFieldControl` → `SheetForm` → `SheetScreen` `onChanged` | `field_control_test.dart`, `sheet_form_test.dart`, `sheet_screen_test.dart` (sem mutação) |
+| RND-12 | `SheetFieldControl` → `SheetForm` `onChanged` (capacidade do engine; o host da Tela 2 é read-only, RND-20) | `field_control_test.dart`, `sheet_form_test.dart` |
 | RND-13 | `SheetFieldControl` fallback | `field_control_test.dart` (tipo exótico read-only) |
 | RND-14 | `CatalogScreen` ação | `test/sheet/sheet_navigation_test.dart` |
 | RND-15 | `SheetScreen` watch do detail | `sheet_screen_test.dart` (loading + 1 request) |

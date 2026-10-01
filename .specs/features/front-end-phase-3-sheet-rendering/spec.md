@@ -163,7 +163,7 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | RND-17 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
 | RND-18 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
 | RND-19 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
-| RND-20 | P1: Tela 2 navegável a partir do catálogo | Design | Pending (amend LGN-100) |
+| RND-20 | P1: Tela 2 navegável a partir do catálogo | Design | Implemented (T7) |
 
 **Coverage:** 20 requisitos no total, 20 mapeados 1:1 a critérios de aceite; 0 não mapeados.
 
