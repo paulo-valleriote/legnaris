@@ -9,10 +9,10 @@ import 'package:legnaris/theme/tokens.dart';
 
 /// Screen 3 — the creation surface (TPL-01 … TPL-14).
 ///
-/// Two columns: the dialog information (template identity + sheet-name input)
-/// on the left, and a read-only preview of the template fields seeded from
-/// their schema defaults on the right (LGN-100, PRV-01 … PRV-13). Opening it
-/// issues no mutation (TPL-13); the preview never writes either.
+/// One column: the dialog information (template identity + sheet-name input)
+/// and, below it, a read-only preview of the template fields seeded from their
+/// schema defaults (LGN-100, PRV-01 … PRV-13). Opening it issues no mutation
+/// (TPL-13); the preview never writes either.
 class CreateSheetDialog extends ConsumerStatefulWidget {
   const CreateSheetDialog({super.key, required this.templateId});
 
@@ -134,9 +134,10 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
     );
   }
 
-  /// The right column: the always-visible, read-only preview card. The loading,
-  /// mapped-error and empty states render inside the same card (PRV-04, PRV-07,
-  /// PRV-09).
+  /// The always-visible, read-only preview card below the sheet-name input.
+  /// The loading, mapped-error and empty states render inside the same card
+  /// (PRV-04, PRV-07, PRV-09); its body scrolls with an always-visible bar
+  /// (PRV-10).
   Widget _preview(
     BuildContext context,
     TemplateDetailState state,

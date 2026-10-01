@@ -42,7 +42,7 @@ Conventions: table-driven tests, `Happy path:` / `Edge:` / `Error:` case prefixe
 | PRV-07 | error: 500 / 404 / undecodable payload / offline transport → mapped copy + Retry inline, dialog open | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 + T5 |
 | PRV-08 | happy: Retry re-requests exactly once and swaps to sections | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-09 | edge: empty `fields` (and groups-only-without-leaves) → localized "no fields" line in the preview area | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 |
-| PRV-10 | happy: many leaves → card scrolls within a bounded height with an always-visible scrollbar; narrow window keeps the card below the name and clamped | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 + T7 |
+| PRV-10 | happy: many leaves → card scrolls within a bounded height with an always-visible scrollbar; below the 640px minimum the card is clamped and stays below the name | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 + T7 + T8 |
 | PRV-11 | happy: opening issues at most one `GET /templates/:id` | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-12 | edge: reopen → fresh GET (2 total), no cached reuse | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-13 | edge: typing in the name field leaves the preview unchanged and issues no request | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 + T5 |
@@ -194,6 +194,19 @@ component that no longer exists.
 `feat(LGN-100): make the preview scroll affordance visible`
 **Status**: ✅ Done — `Scrollbar(thumbVisibility: true)` com controller compartilhado; testes de rolagem/estreito reescritos; suíte 291 passed / 4 skipped; `flutter analyze` limpo
 
+### T8: Harden the min-width clamp assertion (Verifier fix)
+
+**What**: o teste de largura mínima rodava a 700px (acima do mínimo de 640px) e assertava `AlertDialog.width <= 700`, que mede o wrapper de tela cheia (tautológico); passar a rodar a 600px e assertar a **largura do card de preview `< createSheetDialogWidth`** (o clamp real), removendo a assertiva do wrapper. Atualizar os dois doc comments de `create_sheet_dialog.dart` que ainda diziam "duas colunas"/"right column".
+**Why**: fechar os dois gaps apontados pelo Verifier independente (PRV-10 + consistência de comentários).
+**Files**: `desktop/lib/catalog/create_sheet_dialog.dart`,
+`desktop/test/catalog/create_sheet_preview_test.dart`.
+**Depends on**: T7
+**Spec**: PRV-10.
+**Tests**: card `< 560` numa viewport de 600px; card abaixo do nome; altura ≤ `previewCardMaxHeight`; scrollbar visível.
+**Gate**: full · **Commits**:
+`test(LGN-100): assert the preview clamp below the minimum width`
+**Status**: ✅ Done — suíte 291 passed / 4 skipped; `flutter analyze` limpo
+
 ## Phase Execution Map
 
 ```mermaid
@@ -204,12 +217,13 @@ flowchart TD
     T3 --> T5["T5: Strengthen coverage (Verifier fix)"]
     T3 --> T6["T6: Stack the preview below the sheet name"]
     T6 --> T7["T7: Always-visible preview scrollbar"]
+    T7 --> T8["T8: Min-width clamp fix (Verifier)"]
 ```
 
 - Phase 1: T1 · exit: `sheet_defaults_test` green, analyze clean, screen refactor behavior-identical.
 - Phase 2: T2 · exit: token test green, no UI change yet.
 - Phase 3: T3 → T4 → T5 · exit: full suite green (baseline + preview tests), summary deleted, phase-2 spec amended, Verifier gaps closed.
-- Phase 4 (UAT amend 2026-10-01): T6 → T7 · exit: single-column dialog at 560px, read-only header, `nome | id`, always-visible scrollbar; Verifier re-run.
+- Phase 4 (UAT amend 2026-10-01): T6 → T7 → T8 · exit: single-column dialog at 560px, read-only header, `nome | id`, always-visible scrollbar, min-width clamp asserted; Verifier re-run.
 - Final: full gate + Verifier (automatic after the last task).
 
 ## Task Granularity Check

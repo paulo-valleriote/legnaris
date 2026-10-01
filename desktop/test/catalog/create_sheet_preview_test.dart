@@ -365,21 +365,23 @@ void main() {
     );
 
     testWidgets(
-      'Edge: at a narrow window the card stays below the name, clamped and scrollable (PRV-10)',
+      'Edge: below the 640px minimum the card is clamped to the window, stays below the name and scrolls (PRV-10)',
       (tester) async {
         await pumpCatalog(
           tester,
           handler: routing(detail: manyLeavesBody(30)),
-          viewSize: const Size(700, 800),
+          viewSize: const Size(600, 800),
         );
         await openDialog(tester);
 
+        final card = inDialog(find.byKey(const Key('create-sheet-preview')));
+        expect(card, findsOneWidget);
         expect(
-          tester.getSize(find.byType(AlertDialog)).width,
-          lessThanOrEqualTo(700),
+          tester.getSize(card).width,
+          lessThan(AppSizes.createSheetDialogWidth),
         );
-        final cardTop =
-            tester.getTopLeft(find.byKey(const Key('create-sheet-preview'))).dy;
+
+        final cardTop = tester.getTopLeft(card).dy;
         final nameTop = tester
             .getTopLeft(find.byKey(const Key('create-sheet-name-input')))
             .dy;
