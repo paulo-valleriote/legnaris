@@ -150,12 +150,12 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | GRN-08 | P1: Granular rebuild per field | Execute | Verified |
 | GRN-09 | P1: Granular rebuild per field | Execute | Verified |
 | GRN-10 | P1: Render performance on a full-size template | Design | Pending |
-| GRN-11 | P1: Local-edit awareness and discard guards | Design | Pending |
-| GRN-12 | P1: Local-edit awareness and discard guards | Design | Pending |
-| GRN-13 | P1: Local-edit awareness and discard guards | Design | Pending |
-| GRN-14 | P1: Local-edit awareness and discard guards | Design | Pending |
-| GRN-15 | P1: Local-edit awareness and discard guards | Design | Pending |
-| GRN-16 | P1: Local-edit awareness and discard guards | Design | Pending |
+| GRN-11 | P1: Local-edit awareness and discard guards | Execute | Verified |
+| GRN-12 | P1: Local-edit awareness and discard guards | Execute | Verified |
+| GRN-13 | P1: Local-edit awareness and discard guards | Execute | Verified |
+| GRN-14 | P1: Local-edit awareness and discard guards | Execute | Verified |
+| GRN-15 | P1: Local-edit awareness and discard guards | Execute | Verified |
+| GRN-16 | P1: Local-edit awareness and discard guards | Execute | Verified |
 | GRN-17 | P1: Local-edit awareness and discard guards | Design | Pending |
 | GRN-18 | P1: Local-edit awareness and discard guards | Design | Pending |
 | GRN-19 | P1: Local-edit awareness and discard guards | Design | Pending |

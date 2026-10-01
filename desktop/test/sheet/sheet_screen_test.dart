@@ -33,6 +33,7 @@ void main() {
   Future<List<http.Request>> pumpScreen(
     WidgetTester tester, {
     required Future<http.Response> Function(http.Request request) handler,
+    bool stacked = false,
   }) async {
     final recorded = <http.Request>[];
     tester.view.physicalSize = const Size(1280, 800);
@@ -54,11 +55,26 @@ void main() {
           theme: buildAppTheme(),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const Scaffold(body: SheetScreen(templateId: 'fantasy_v1')),
+          home: stacked
+              ? const Scaffold(
+                  body: Text('sheet-landing', key: Key('sheet-landing')),
+                )
+              : const Scaffold(body: SheetScreen(templateId: 'fantasy_v1')),
         ),
       ),
     );
     await tester.pump();
+    if (stacked) {
+      // A real back stack, so the leave guard has a route to pop back to.
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              const Scaffold(body: SheetScreen(templateId: 'fantasy_v1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
     return recorded;
   }
 
@@ -419,6 +435,214 @@ void main() {
             reason: '$path must not rebuild when the toggle flips',
           );
         }
+      },
+    );
+  });
+
+  group('local-edits marker and leave guard (LGN-102)', () {
+    testWidgets(
+      'Happy path: the first differing edit shows the local-edits marker (GRN-11)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        expect(find.text('Local edits'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Edge: reverting the field to its default hides the marker again (GRN-12)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        expect(find.text('Local edits'), findsOneWidget);
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '10',
+        );
+        await tester.pump();
+
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        expect(
+          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          isFalse,
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: back with pending edits opens the discard confirmation (GRN-13)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+          stacked: true,
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          find.text(
+            'Your local edits on this sheet were never saved and will be discarded.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(recorded, hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'Happy path: confirming the leave dialog discards the state and navigates back (GRN-14)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+          stacked: true,
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(TextButton, 'Discard and leave'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byKey(const Key('sheet-landing')), findsOneWidget);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-landing'))),
+        );
+        expect(
+          container.exists(sheetEditControllerProvider('fantasy_v1')),
+          isFalse,
+          reason: 'popping must discard the autoDispose edit state',
+        );
+        expect(recorded, hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'Edge: cancelling the leave dialog keeps the screen and the edit state (GRN-15)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+          stacked: true,
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(TextButton, 'Keep editing'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(find.text('Local edits'), findsOneWidget);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        expect(
+          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          isTrue,
+        );
+        expect(recorded, hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'Happy path: back with no pending edits navigates without a dialog (GRN-16)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+          stacked: true,
+        );
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byKey(const Key('sheet-landing')), findsOneWidget);
+        expect(recorded, hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'Edge: the open dialog blocks the back action behind its modal barrier (GRN-13)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+          stacked: true,
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(find.byKey(const Key('sheet-landing')), findsNothing);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        expect(
+          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          isTrue,
+        );
+        expect(recorded, hasLength(1));
       },
     );
   });

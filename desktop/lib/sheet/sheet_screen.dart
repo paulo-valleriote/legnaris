@@ -5,7 +5,9 @@
 /// Each control subscribes to its own dotted path through a `select`, so an
 /// edit rebuilds exactly that control and nothing else; values live in
 /// [sheetEditControllerProvider] (discarded when the screen unmounts) and no
-/// mutation is issued — the save cycle is Phase 4.
+/// mutation is issued — the save cycle is Phase 4. A header caption signals
+/// pending local edits and the back action confirms before discarding them
+/// (GRN-11 … GRN-16).
 library;
 
 import 'package:flutter/material.dart';
@@ -43,14 +45,18 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _header(context, template),
+        _header(context, template, localizations),
         const Divider(),
         Expanded(child: _body(context, state, localizations)),
       ],
     );
   }
 
-  Widget _header(BuildContext context, TemplateDetail? template) {
+  Widget _header(
+    BuildContext context,
+    TemplateDetail? template,
+    AppLocalizations localizations,
+  ) {
     final theme = Theme.of(context);
     final muted = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
@@ -61,7 +67,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
           key: const Key('sheet-back'),
           icon: const Icon(Icons.arrow_back),
           tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: _leave,
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
@@ -73,9 +79,81 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
+        _localEditsMarker(context, localizations),
         Text(widget.templateId, style: muted),
       ],
     );
+  }
+
+  /// Caption shown while the edit state differs from the seeded defaults
+  /// (GRN-11, GRN-12). Its own `Consumer` so the screen build never
+  /// subscribes to the edit state (AD-001): only this small subtree rebuilds
+  /// when the pending flag flips.
+  Widget _localEditsMarker(
+    BuildContext context,
+    AppLocalizations localizations,
+  ) {
+    final theme = Theme.of(context);
+    return Consumer(
+      builder: (context, ref, _) {
+        final pending = ref.watch(
+          sheetEditControllerProvider(widget.templateId)
+              .select((state) => state.isPending),
+        );
+        if (!pending) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(right: AppSpacing.sm),
+          child: Text(
+            localizations.sheetLocalEdits,
+            key: const Key('sheet-local-edits'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.primary,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Back action: a clean sheet pops directly (GRN-16); a pending one asks
+  /// first, because the edit state lives only in memory and popping would
+  /// silently discard it (GRN-13 … GRN-15). The dirty check is a read at tap
+  /// time — the screen never watches the edit state (AD-001).
+  Future<void> _leave() async {
+    final pending = ref
+        .read(sheetEditControllerProvider(widget.templateId))
+        .isPending;
+    if (pending) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        // Load-bearing: the framework gates Esc on this flag, and a barrier
+        // or Esc tap lands on the safe side — dismiss equals cancel (GRN-15).
+        barrierDismissible: true,
+        builder: (dialogContext) {
+          final localizations = AppLocalizations.of(dialogContext)!;
+          final theme = Theme.of(dialogContext);
+          return AlertDialog(
+            title: Text(localizations.sheetLeaveDialogTitle),
+            content: Text(localizations.sheetLeaveDialogMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(localizations.sheetLeaveCancelAction),
+              ),
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                ),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(localizations.sheetLeaveConfirmAction),
+              ),
+            ],
+          );
+        },
+      );
+      if (!mounted || confirmed != true) return;
+    }
+    await Navigator.of(context).maybePop();
   }
 
   Widget _body(

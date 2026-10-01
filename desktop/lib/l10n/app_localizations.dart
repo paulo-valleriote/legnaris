@@ -297,6 +297,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Preview sheet'**
   String get catalogPreviewAction;
+
+  /// Header caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Local edits'**
+  String get sheetLocalEdits;
+
+  /// Title of the destructive confirmation opened by the sheet back action while edits are pending (GRN-13).
+  ///
+  /// In en, this message translates to:
+  /// **'Discard local edits?'**
+  String get sheetLeaveDialogTitle;
+
+  /// Explicit consequence stated by the sheet leave confirmation dialog (GRN-13).
+  ///
+  /// In en, this message translates to:
+  /// **'Your local edits on this sheet were never saved and will be discarded.'**
+  String get sheetLeaveDialogMessage;
+
+  /// Destructive button of the leave confirmation: discards the edit state and navigates back (GRN-14).
+  ///
+  /// In en, this message translates to:
+  /// **'Discard and leave'**
+  String get sheetLeaveConfirmAction;
+
+  /// Safe button of the leave confirmation: closes the dialog and keeps the screen with its edit state (GRN-15).
+  ///
+  /// In en, this message translates to:
+  /// **'Keep editing'**
+  String get sheetLeaveCancelAction;
 }
 
 class _AppLocalizationsDelegate

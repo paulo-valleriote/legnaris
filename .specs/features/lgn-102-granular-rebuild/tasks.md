@@ -176,12 +176,12 @@ T8
 
 **Done when**:
 
-- [ ] First differing edit shows the marker; reverting every field to its default hides it (GRN-11, GRN-12)
-- [ ] Back with pending edits opens the dialog stating the local edits will be discarded; confirm discards and navigates back; cancel keeps the screen and state (GRN-13, GRN-14, GRN-15)
-- [ ] Back with no pending edits navigates with zero dialogs (GRN-16)
-- [ ] Marker and dialog copy go through `lib/l10n/*.arb`; regenerated localizations committed
-- [ ] Gate check passes: `cd desktop && flutter test`
-- [ ] Test count: 7 new tests in `desktop/test/sheet/sheet_screen_test.dart`
+- [x] First differing edit shows the marker; reverting every field to its default hides it (GRN-11, GRN-12)
+- [x] Back with pending edits opens the dialog stating the local edits will be discarded; confirm discards and navigates back; cancel keeps the screen and state (GRN-13, GRN-14, GRN-15)
+- [x] Back with no pending edits navigates with zero dialogs (GRN-16)
+- [x] Marker and dialog copy go through `lib/l10n/*.arb`; regenerated localizations committed
+- [x] Gate check passes: `cd desktop && flutter test`
+- [x] Test count: 7 new tests in `desktop/test/sheet/sheet_screen_test.dart`
 
 **Tests**: widget
 **Gate**: quick
