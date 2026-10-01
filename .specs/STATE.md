@@ -13,10 +13,10 @@
 ## Handoff
 
 - **Feature**: `lgn-102-granular-rebuild` (.specs/features/lgn-102-granular-rebuild)
-- **Phase / Task**: Execute — T4 complete, start of T5 (refresh dispatch providers)
-- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard)
-- **In-progress** (file:line): none — T4 committed
-- **Next step**: implement T5 — `desktop/lib/sheet/sheet_refresh.dart` (active-sheet id + refresh tick providers) + build_runner + 4 tests, gate `cd desktop && flutter test`, commit `feat(sheet): add active-sheet refresh dispatch providers`
+- **Phase / Task**: Execute — T5 complete, start of T6 (F5 routing in the shell)
+- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers)
+- **In-progress** (file:line): none — T5 committed
+- **Next step**: implement T6 — `desktop/lib/shell/shortcut_registry.dart` F5 dispatch by surface + 2 tests in `shortcut_registry_test.dart`, gate `cd desktop && flutter test`, commit `feat(shell): route F5 to the active sheet`
 - **Blockers**: none
-- **Uncommitted files**: `.specs/STATE.md`, `.specs/features/lgn-102-granular-rebuild/context.md` (feature artifacts), untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
+- **Uncommitted files**: none (untracked skill dirs `.claude/`, `.cursor/`, `.windsurf/` — never commit)
 - **Branch**: feat/LGN-100-front-end-phase-3-sheet-preview

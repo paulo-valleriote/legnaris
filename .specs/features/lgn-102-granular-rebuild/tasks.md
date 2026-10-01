@@ -205,11 +205,11 @@ T8
 
 **Done when**:
 
-- [ ] Registering an id sets the active sheet; clearing it (dispose) returns null; a second registration replaces the first
-- [ ] The tick increments monotonically and starts at 0
-- [ ] `dart run build_runner build --delete-conflicting-outputs` regenerates `.g.dart`
-- [ ] Gate check passes: `cd desktop && flutter test`
-- [ ] Test count: 4 tests in `desktop/test/sheet/sheet_refresh_test.dart`
+- [x] Registering an id sets the active sheet; clearing it (dispose) returns null; a second registration replaces the first
+- [x] The tick increments monotonically and starts at 0
+- [x] `dart run build_runner build --delete-conflicting-outputs` regenerates `.g.dart`
+- [x] Gate check passes: `cd desktop && flutter test`
+- [x] Test count: 4 tests in `desktop/test/sheet/sheet_refresh_test.dart`
 
 **Tests**: unit
 **Gate**: quick

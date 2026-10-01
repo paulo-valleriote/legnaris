@@ -156,9 +156,9 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | GRN-14 | P1: Local-edit awareness and discard guards | Execute | Verified |
 | GRN-15 | P1: Local-edit awareness and discard guards | Execute | Verified |
 | GRN-16 | P1: Local-edit awareness and discard guards | Execute | Verified |
-| GRN-17 | P1: Local-edit awareness and discard guards | Design | Pending |
-| GRN-18 | P1: Local-edit awareness and discard guards | Design | Pending |
-| GRN-19 | P1: Local-edit awareness and discard guards | Design | Pending |
+| GRN-17 | P1: Local-edit awareness and discard guards | Execute | Implementing |
+| GRN-18 | P1: Local-edit awareness and discard guards | Execute | Implementing |
+| GRN-19 | P1: Local-edit awareness and discard guards | Execute | Implementing |
 
 **ID format:** `GRN-[NUMBER]`
 
