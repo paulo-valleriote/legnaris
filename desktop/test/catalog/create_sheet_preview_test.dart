@@ -42,6 +42,8 @@ void main() {
 ''';
   const emptyFieldsBody =
       '{"data": {"id": "fantasy_v1", "name": "Blank Template", "default": false, "fields": {}}}';
+  const groupsOnlyBody =
+      '{"data": {"id": "fantasy_v1", "name": "Empty Groups", "default": false, "fields": {"empty": {"children": {}}, "alsoEmpty": {"children": {"nested": {"children": {}}}}}}}';
 
   String manyLeavesBody(int count) {
     final leaves = [
@@ -54,9 +56,10 @@ void main() {
   Future<List<http.Request>> pumpCatalog(
     WidgetTester tester, {
     Future<http.Response> Function(http.Request request)? handler,
+    Size viewSize = const Size(1280, 800),
   }) async {
     final recorded = <http.Request>[];
-    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.physicalSize = viewSize;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -266,6 +269,20 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      'Edge: a tree of only groups without leaves shows the localized no-fields line (PRV-09)',
+      (tester) async {
+        await pumpCatalog(tester, handler: routing(detail: groupsOnlyBody));
+        await openDialog(tester);
+
+        expect(
+          inPreview(find.text('This template has no fields.')),
+          findsOneWidget,
+        );
+        expect(inPreview(find.byType(TextField)), findsNothing);
+      },
+    );
   });
 
   group('bounded height (PRV-10)', () {
@@ -285,6 +302,35 @@ void main() {
         expect(
           tester.getCenter(find.byKey(const Key('create-sheet-name-input'))).dy,
           lessThan(tester.view.physicalSize.height),
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: at a narrow window the two columns stay side by side and the card scrolls internally (PRV-10)',
+      (tester) async {
+        await pumpCatalog(
+          tester,
+          handler: routing(detail: manyLeavesBody(30)),
+          viewSize: const Size(700, 800),
+        );
+        await openDialog(tester);
+
+        expect(
+          tester.getSize(find.byType(AlertDialog)).width,
+          lessThanOrEqualTo(700),
+        );
+        expect(
+          inDialog(find.byKey(const Key('create-sheet-preview'))),
+          findsOneWidget,
+        );
+        expect(
+          inDialog(find.byKey(const Key('create-sheet-name-input'))),
+          findsOneWidget,
+        );
+        expect(
+          tester.getSize(inPreview(find.byType(SingleChildScrollView))).height,
+          lessThanOrEqualTo(AppSizes.previewCardMaxHeight),
         );
       },
     );

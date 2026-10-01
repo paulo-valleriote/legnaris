@@ -39,13 +39,13 @@ Conventions: table-driven tests, `Happy path:` / `Edge:` / `Error:` case prefixe
 | PRV-04 | edge: in-flight → loading in the preview area, no stale sections from a prior template | widget | `test/catalog/create_sheet_preview_test.dart` | T3 |
 | PRV-05 | edge: the Phase-2 summary text (`Stats: …`) is absent from the dialog | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-06 | edge: no preview control is enabled; transport carries only GET requests | widget | `test/catalog/create_sheet_preview_test.dart` | T3 |
-| PRV-07 | error: 500 / 404 / undecodable payload → mapped copy + Retry inline, dialog open | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
+| PRV-07 | error: 500 / 404 / undecodable payload / offline transport → mapped copy + Retry inline, dialog open | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 + T5 |
 | PRV-08 | happy: Retry re-requests exactly once and swaps to sections | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
-| PRV-09 | edge: empty `fields` (and groups-only-without-leaves) → localized "no fields" line in the preview area | widget | `test/catalog/create_sheet_preview_test.dart` | T3 |
-| PRV-10 | happy: many leaves → card scrolls within a bounded height; name field and actions stay reachable | widget | `test/catalog/create_sheet_preview_test.dart` | T3 |
+| PRV-09 | edge: empty `fields` (and groups-only-without-leaves) → localized "no fields" line in the preview area | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 |
+| PRV-10 | happy: many leaves → card scrolls within a bounded height; narrow window keeps both columns side by side | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 |
 | PRV-11 | happy: opening issues at most one `GET /templates/:id` | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-12 | edge: reopen → fresh GET (2 total), no cached reuse | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
-| PRV-13 | edge: typing in the name field leaves the preview unchanged and issues no request | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
+| PRV-13 | edge: typing in the name field leaves the preview unchanged and issues no request | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 + T5 |
 | (T1) | `seedDefaults`: seeds every leaf’s `defaultValue` incl. `0`; nested dotted paths; `setPathValue` creates intermediate maps and overwrites | unit | `test/engine/sheet_defaults_test.dart` | T1 |
 | (T2) | `AppSizes.createSheetDialogWidth` 720 · `previewCardWidth` 360 · `previewCardMaxHeight` 420 | unit | `test/theme/tokens_test.dart` | T2 |
 
@@ -150,6 +150,19 @@ component that no longer exists.
 `refactor(LGN-100): remove the phase-2 template summary superseded by the preview`
 **Status**: ✅ Done — `template_summary.dart` + teste removidos; spec da Fase 2 amendada (0/0); suíte 252 passed / 4 skipped; `flutter analyze` limpo
 
+### T5: Strengthen preview coverage from the Verifier findings (fix task)
+
+**What**: test-only changes closing the four gaps the independent Verifier ranked (verdict FAIL on coverage, not on behavior): (1) PRV-13 asserts the preview is unchanged while typing the name; (2) PRV-09 also drives a tree of groups without leaves; (3) a narrow-window test pins the min-width edge; (4) PRV-07 re-asserts Retry on the undecodable payloads and adds a dialog-level offline transport failure.
+**Why**: make the suite discriminating for the ACs it claims, so the feature passes independent validation.
+**Files**: `desktop/test/catalog/create_sheet_preview_test.dart`,
+`desktop/test/catalog/create_sheet_dialog_test.dart` (tests only — no production code).
+**Depends on**: T3
+**Spec**: PRV-07, PRV-09, PRV-10, PRV-13.
+**Tests**: the four additions above (no production code changes).
+**Gate**: full · **Commits**:
+`test(LGN-100): strengthen preview coverage from verifier findings`
+**Status**: ✅ Done — 3 novos testes (grupos sem folhas, janela estreita, offline) + asserts de PRV-13; suíte 255 passed / 4 skipped; `flutter analyze` limpo
+
 ## Phase Execution Map
 
 ```mermaid
@@ -157,11 +170,12 @@ flowchart TD
     T1["T1: Extract sheet_defaults helpers"] --> T3["T3: Two-column dialog + preview card"]
     T2["T2: Preview layout tokens"] --> T3
     T3 --> T4["T4: Delete template summary + amend phase-2 spec"]
+    T3 --> T5["T5: Strengthen coverage (Verifier fix)"]
 ```
 
 - Phase 1: T1 · exit: `sheet_defaults_test` green, analyze clean, screen refactor behavior-identical.
 - Phase 2: T2 · exit: token test green, no UI change yet.
-- Phase 3: T3 → T4 · exit: full suite green (baseline + preview tests), summary deleted, phase-2 spec amended.
+- Phase 3: T3 → T4 → T5 · exit: full suite green (baseline + preview tests), summary deleted, phase-2 spec amended, Verifier gaps closed.
 - Final: full gate + Verifier (automatic after the last task).
 
 ## Task Granularity Check

@@ -245,7 +245,7 @@ void main() {
     );
 
     testWidgets(
-      'Edge: typing a sheet name issues no request (TPL-11, TPL-13)',
+      'Edge: typing a sheet name leaves the preview unchanged and issues no request (PRV-13)',
       (tester) async {
         final recorded = await pumpCatalog(tester);
         await openDialog(tester);
@@ -258,6 +258,19 @@ void main() {
         await tester.pump();
 
         expect(recorded.length, before);
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-stats'))),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '10',
+        );
       },
     );
 
@@ -364,12 +377,17 @@ void main() {
     );
 
     testWidgets(
-      'Error: a 2xx without the data key shows the parse copy, never a preview (PRV-07)',
+      'Error: a 2xx without the data key shows the parse copy with Retry, never a preview (PRV-07)',
       (tester) async {
         await pumpCatalog(tester, handler: failing(noDataKeyBody, 200));
         await openDialog(tester);
 
+        expect(find.byType(CreateSheetDialog), findsOneWidget);
         expect(inDialog(find.text(parseCopy())), findsOneWidget);
+        expect(
+          inDialog(find.widgetWithText(OutlinedButton, 'Retry')),
+          findsOneWidget,
+        );
         expect(
           inDialog(find.byKey(const Key('sheet-section-stats'))),
           findsNothing,
@@ -378,12 +396,49 @@ void main() {
     );
 
     testWidgets(
-      'Error: a malformed payload shows the parse copy, never a half preview (PRV-07)',
+      'Error: a malformed payload shows the parse copy with Retry, never a half preview (PRV-07)',
       (tester) async {
         await pumpCatalog(tester, handler: failing(malformedBody, 200));
         await openDialog(tester);
 
+        expect(find.byType(CreateSheetDialog), findsOneWidget);
         expect(inDialog(find.text(parseCopy())), findsOneWidget);
+        expect(
+          inDialog(find.widgetWithText(OutlinedButton, 'Retry')),
+          findsOneWidget,
+        );
+        expect(
+          inDialog(find.byKey(const Key('sheet-section-stats'))),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'Error: an offline transport failure shows the mapped copy with Retry and keeps the dialog open (PRV-07)',
+      (tester) async {
+        await pumpCatalog(
+          tester,
+          handler: (request) async {
+            if (request.url.path == '/templates') {
+              return http.Response(listBody, 200);
+            }
+            throw http.ClientException('connection refused');
+          },
+        );
+        await openDialog(tester);
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CreateSheetDialog), findsOneWidget);
+        expect(
+          inDialog(find.text(errorCopy(ApiErrorKind.offline))),
+          findsOneWidget,
+        );
+        expect(
+          inDialog(find.widgetWithText(OutlinedButton, 'Retry')),
+          findsOneWidget,
+        );
         expect(
           inDialog(find.byKey(const Key('sheet-section-stats'))),
           findsNothing,
