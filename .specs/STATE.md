@@ -13,10 +13,10 @@
 ## Handoff
 
 - **Feature**: `lgn-102-granular-rebuild` (.specs/features/lgn-102-granular-rebuild)
-- **Phase / Task**: Execute — T7 complete, start of T8 (200-field render budget — last task)
-- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers), T6 (F5 routing), T7 (sheet F5 refresh flow)
-- **In-progress** (file:line): none — T7 committed
-- **Next step**: implement T8 — 200-field fixture + `Stopwatch` <100 ms test in `sheet_screen_test.dart`; build gate; commit `test(sheet): assert the 200-field render budget`; if <100 ms fails on this machine, STOP and escalate (do not weaken the AC); then dispatch the Verifier and run `validate_state.py`
-- **Blockers**: none
-- **Uncommitted files**: none (untracked skill dirs `.claude/`, `.cursor/`, `.windsurf/` — never commit)
+- **Phase / Task**: Execute — **BLOCKED at T8** (200-field render budget, GRN-10)
+- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers), T6 (F5 routing), T7 (sheet F5 refresh flow) — all committed and green (325 passed + 4 skips, analyze clean)
+- **In-progress** (file:line): T8 implemented but uncommitted — `desktop/test/sheet/sheet_screen_test.dart` (render-budget group, fixture + 1 test); fails ONLY the `<100 ms` assertion
+- **Next step**: escalate GRN-10 to the spec owner — measured evidence: the frame that mounts 200 `SheetFieldControl`s takes ~913–1037 ms warm (~1443 ms cold) in `flutter test` on this machine; scaling probe shows a linear ~4.4 ms/control (0→35 ms, 10→242 ms, 50→351 ms, 100→595 ms, 200→~950 ms), i.e. structural debug-mode cost, not noise or JIT warm-up. Decision needed: amend the AC/threshold, change the gate environment (profile/DevTools, per spec decision line 46), or optimize rendering. Do NOT weaken the AC without that decision
+- **Blockers**: GRN-10 `<100 ms` widget-test gate unachievable on this machine (10x over budget); execution contract says STOP and escalate rather than weaken the test
+- **Uncommitted files**: `desktop/test/sheet/sheet_screen_test.dart` (T8 test — failing on timing by design of the escalation); untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
 - **Branch**: feat/LGN-100-front-end-phase-3-sheet-preview
