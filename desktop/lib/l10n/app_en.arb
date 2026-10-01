@@ -47,6 +47,31 @@
   "@sectionCatalog": {
     "description": "Right panel section showing catalog statistics."
   },
+  "connectionChecking": "Checking…",
+  "@connectionChecking": {
+    "description": "Connection state label while no health response has arrived yet (CONN-02, CONN-11)."
+  },
+  "connectionOnline": "Online",
+  "@connectionOnline": {
+    "description": "Connection state label after a successful health check (CONN-03, CONN-11)."
+  },
+  "connectionOffline": "Offline",
+  "@connectionOffline": {
+    "description": "Connection state label after a failed health check (CONN-04, CONN-11)."
+  },
+  "connectionLastCheck": "Last check {time}",
+  "@connectionLastCheck": {
+    "description": "Right panel line with the timestamp of the last successful health check (CONN-09, CONN-11).",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionLastCheckNever": "Last check never",
+  "@connectionLastCheckNever": {
+    "description": "Right panel line shown before the first successful health check (CONN-09, CONN-11)."
+  },
   "catalogCount": "{count, plural, =1{1 template} other{{count} templates}}",
   "@catalogCount": {
     "description": "Number of loaded templates shown in the right panel.",

@@ -52,6 +52,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionCatalog => 'Catalog';
 
   @override
+  String get connectionChecking => 'Checking…';
+
+  @override
+  String get connectionOnline => 'Online';
+
+  @override
+  String get connectionOffline => 'Offline';
+
+  @override
+  String connectionLastCheck(String time) {
+    return 'Last check $time';
+  }
+
+  @override
+  String get connectionLastCheckNever => 'Last check never';
+
+  @override
   String catalogCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

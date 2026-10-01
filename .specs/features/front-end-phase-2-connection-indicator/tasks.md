@@ -119,13 +119,13 @@ T3 → T4
 
 **Done when**:
 
-- [ ] O `Header` renderiza `ConnectionIndicator` alinhado à direita dentro do slot `connection-indicator-slot` (chave + largura 160 preservadas — asserções CAT-05 continuam verdes)
-- [ ] checking → "Checking…", online → "Online", offline → "Offline", todos vindos do l10n; cores do scheme (offline = `error`) (CONN-02, CONN-08, CONN-11)
-- [ ] Resultado do health atualiza o widget sem ação do usuário (CONN-06)
-- [ ] Boot emite exatamente 1× `GET /health` (asserção por path) e os harnesses com scheduler manual mantêm as contagens determinísticas (CONN-01/CONN-12 in situ)
-- [ ] `app_theme_test` não faz mais chamada de rede real (override com `MockClient`)
-- [ ] Saída do `gen-l10n` commitada; gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && flutter gen-l10n && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
-- [ ] Test count: 5 novos testes + 8 atualizados (boot/shell/theme); nenhum teste existente removido ou enfraquecido
+- [x] O `Header` renderiza `ConnectionIndicator` alinhado à direita dentro do slot `connection-indicator-slot` (chave + largura 160 preservadas — asserções CAT-05 continuam verdes)
+- [x] checking → "Checking…", online → "Online", offline → "Offline", todos vindos do l10n; cores do scheme (offline = `error`) (CONN-02, CONN-08, CONN-11)
+- [x] Resultado do health atualiza o widget sem ação do usuário (CONN-06)
+- [x] Boot emite exatamente 1× `GET /health` (asserção por path) e os harnesses com scheduler manual mantêm as contagens determinísticas (CONN-01/CONN-12 in situ)
+- [x] `app_theme_test` não faz mais chamada de rede real (override com `MockClient`)
+- [x] Saída do `gen-l10n` commitada; gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && flutter gen-l10n && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`
+- [x] Test count: 5 novos testes + 8 atualizados (boot/shell/theme) — suíte 225 passed / 4 skipped; nenhum teste existente removido ou enfraquecido
 
 **Tests**: widget
 **Gate**: build

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:legnaris/connection/connection_indicator.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/shell/left_nav.dart';
 import 'package:legnaris/shell/right_panel.dart';
@@ -68,8 +69,8 @@ class AppShell extends StatelessWidget {
   }
 }
 
-/// Top bar of the shell (CAT-05): the localized app title plus the reserved
-/// connection-indicator slot the connection spec fills in a later phase.
+/// Top bar of the shell (CAT-05): the localized app title plus the
+/// connection indicator, right-aligned inside its reserved slot.
 class Header extends StatelessWidget {
   const Header({super.key});
 
@@ -88,6 +89,10 @@ class Header extends StatelessWidget {
             const SizedBox(
               width: AppSizes.connectionSlotWidth,
               key: Key('connection-indicator-slot'),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: ConnectionIndicator(),
+              ),
             ),
           ],
         ),

@@ -127,13 +127,13 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
 | CONN-01 | P1: Polling de GET /health com estados | Design | Implementing |
-| CONN-02 | P1: Polling de GET /health com estados | Design | Pending |
+| CONN-02 | P1: Polling de GET /health com estados | Design | Implementing |
 | CONN-03 | P1: Polling de GET /health com estados | Design | Implementing |
 | CONN-04 | P1: Polling de GET /health com estados | Design | Implementing |
 | CONN-05 | P1: Polling de GET /health com estados | Design | Implementing |
 | CONN-06 | P1: Polling de GET /health com estados | Design | Implementing |
 | CONN-07 | P1: Polling de GET /health com estados | Design | Implementing |
-| CONN-08 | P1: Indicador no header, visível em qualquer tela | Design | Pending |
+| CONN-08 | P1: Indicador no header, visível em qualquer tela | Design | Implementing |
 | CONN-09 | P1: Indicador no header, visível em qualquer tela | Design | Pending |
 | CONN-10 | P1: Indicador no header, visível em qualquer tela | Design | Pending |
 | CONN-11 | P1: Indicador no header, visível em qualquer tela | Design | Pending |

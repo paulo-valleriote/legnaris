@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/connection/health_scheduler.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/shell/left_nav.dart';
@@ -15,6 +16,8 @@ import 'package:legnaris/shell/shell_state.dart';
 import 'package:legnaris/theme/app_theme.dart';
 import 'package:legnaris/theme/tokens.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart' show Override;
+
+import '../connection/manual_health_scheduler.dart';
 
 void main() {
   const twoTemplatesBody = '''
@@ -47,6 +50,7 @@ void main() {
               }),
             ),
           ),
+          healthSchedulerProvider.overrideWithValue(ManualHealthScheduler()),
           ...extraOverrides,
         ],
         child: MaterialApp(
@@ -67,6 +71,14 @@ void main() {
     await tester.pumpAndSettle();
     return recorded;
   }
+
+  int listRequestCount(List<http.Request> recorded) => recorded
+      .where((request) => request.url.path == '/templates')
+      .length;
+
+  int healthRequestCount(List<http.Request> recorded) => recorded
+      .where((request) => request.url.path == '/health')
+      .length;
 
   group('layout (CAT-01 … CAT-03)', () {
     testWidgets(
@@ -112,7 +124,7 @@ void main() {
       (tester) async {
         final recorded = await pumpShell(tester);
         expect(find.byType(RightPanel), findsOneWidget);
-        expect(recorded, hasLength(1));
+        expect(listRequestCount(recorded), 1);
 
         tester.view.physicalSize = Size(
           AppSizes.shellMinWidthWithPanel - 1,
@@ -124,7 +136,7 @@ void main() {
         tester.view.physicalSize = const Size(1280, 800);
         await tester.pump();
         expect(find.byType(RightPanel), findsOneWidget);
-        expect(recorded, hasLength(1));
+        expect(listRequestCount(recorded), 1);
       },
     );
 
@@ -171,9 +183,12 @@ void main() {
       (tester) async {
         final recorded = await pumpShell(tester);
 
-        expect(recorded, hasLength(1));
-        expect(recorded.single.method, 'GET');
-        expect(recorded.single.url.path, '/templates');
+        expect(listRequestCount(recorded), 1);
+        final listRequest = recorded.singleWhere(
+          (request) => request.url.path == '/templates',
+        );
+        expect(listRequest.method, 'GET');
+        expect(healthRequestCount(recorded), 1, reason: 'exactly one boot health check');
       },
     );
   });
