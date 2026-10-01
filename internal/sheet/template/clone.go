@@ -11,6 +11,7 @@ import "slices"
 // templates frozen after boot no matter who mutates what (LGN-54).
 func cloneTemplate(tmpl Template) Template {
 	tmpl.Fields = cloneFieldGroup(tmpl.Fields)
+	tmpl.SectionOrder = slices.Clone(tmpl.SectionOrder)
 	return tmpl
 }
 
