@@ -332,9 +332,9 @@ void main() {
     );
   });
 
-  group('bounded height (PRV-10)', () {
+  group('scroll affordance (PRV-10)', () {
     testWidgets(
-      'Happy path: many leaves scroll inside a bounded card and the name field stays reachable (PRV-10)',
+      'Happy path: many leaves scroll inside a bounded card with an always-visible scrollbar (PRV-10)',
       (tester) async {
         await pumpCatalog(tester, handler: routing(detail: manyLeavesBody(30)));
         await openDialog(tester);
@@ -345,16 +345,27 @@ void main() {
           tester.getSize(scroll).height,
           lessThanOrEqualTo(AppSizes.previewCardMaxHeight),
         );
-        expect(inDialog(find.byKey(const Key('create-sheet-name-input'))), findsOneWidget);
+
+        final bar = tester.widget<Scrollbar>(inPreview(find.byType(Scrollbar)));
+        expect(bar.thumbVisibility, isTrue);
+
+        final controller =
+            tester.widget<SingleChildScrollView>(scroll).controller!;
+        expect(controller.position.maxScrollExtent, greaterThan(0));
+
+        await tester.drag(scroll, const Offset(0, -200));
+        await tester.pumpAndSettle();
+        expect(controller.position.pixels, greaterThan(0));
+
         expect(
-          tester.getCenter(find.byKey(const Key('create-sheet-name-input'))).dy,
-          lessThan(tester.view.physicalSize.height),
+          inDialog(find.byKey(const Key('create-sheet-name-input'))),
+          findsOneWidget,
         );
       },
     );
 
     testWidgets(
-      'Edge: at a narrow window the two columns stay side by side and the card scrolls internally (PRV-10)',
+      'Edge: at a narrow window the card stays below the name, clamped and scrollable (PRV-10)',
       (tester) async {
         await pumpCatalog(
           tester,
@@ -367,17 +378,21 @@ void main() {
           tester.getSize(find.byType(AlertDialog)).width,
           lessThanOrEqualTo(700),
         );
-        expect(
-          inDialog(find.byKey(const Key('create-sheet-preview'))),
-          findsOneWidget,
-        );
-        expect(
-          inDialog(find.byKey(const Key('create-sheet-name-input'))),
-          findsOneWidget,
-        );
+        final cardTop =
+            tester.getTopLeft(find.byKey(const Key('create-sheet-preview'))).dy;
+        final nameTop = tester
+            .getTopLeft(find.byKey(const Key('create-sheet-name-input')))
+            .dy;
+        expect(cardTop, greaterThan(nameTop));
         expect(
           tester.getSize(inPreview(find.byType(SingleChildScrollView))).height,
           lessThanOrEqualTo(AppSizes.previewCardMaxHeight),
+        );
+        expect(
+          tester
+              .widget<Scrollbar>(inPreview(find.byType(Scrollbar)))
+              .thumbVisibility,
+          isTrue,
         );
       },
     );

@@ -25,10 +25,12 @@ class CreateSheetDialog extends ConsumerStatefulWidget {
 
 class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
   final _nameController = TextEditingController();
+  final _previewScrollController = ScrollController();
 
   @override
   void dispose() {
     _nameController.dispose();
+    _previewScrollController.dispose();
     super.dispose();
   }
 
@@ -170,8 +172,14 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
               constraints: const BoxConstraints(
                 maxHeight: AppSizes.previewCardMaxHeight,
               ),
-              child: SingleChildScrollView(
-                child: _previewBody(context, state, localizations),
+              child: Scrollbar(
+                controller: _previewScrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _previewScrollController,
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: _previewBody(context, state, localizations),
+                ),
               ),
             ),
           ],

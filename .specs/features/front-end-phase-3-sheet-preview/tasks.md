@@ -192,7 +192,7 @@ component that no longer exists.
 **Tests**: `Scrollbar` dentro do card com `thumbVisibility == true`; altura do corpo ≤ `previewCardMaxHeight`; arrastar rola até a última seção; janela estreita mantém o card abaixo do nome e clampado à viewport.
 **Gate**: full · **Commits**:
 `feat(LGN-100): make the preview scroll affordance visible`
-**Status**: ⏳ Pending
+**Status**: ✅ Done — `Scrollbar(thumbVisibility: true)` com controller compartilhado; testes de rolagem/estreito reescritos; suíte 291 passed / 4 skipped; `flutter analyze` limpo
 
 ## Phase Execution Map
 
