@@ -1,0 +1,55 @@
+# LGN-105 — Context (User Decisions)
+
+Recorded from the specification discussion before implementation. Each entry is a
+locked decision; the spec's Assumptions table references them.
+
+## Area 1 — Contract model: metadata, not a select field
+
+**Decision:** Option (b) — add a scalar `exclusive_group` to the leaf `FieldSchema`; keep the
+0/1 proxy leaves (`config.acUsesDex`, `config.acUsesCon`) and the existing `armorClass` formula.
+
+**Alternatives considered:** Option (a) replaced the pair with one select/enum field.
+
+**Why:** Option (a) rewrites the formula into string comparison, extends the numeric-only
+formula compile env, changes `SeedValue` and the `default float64` contract, and requires a
+migration for every stored sheet — while removing two of the anti-copyright 0/1 proxies that
+the project's strategy is built on (`docs/TDD.md` §anti-copyright). Option (b) is additive and
+keeps every existing sheet valid.
+
+## Area 2 — Key name: `exclusive_group`
+
+**Decision:** The metadata key is `exclusive_group` (snake_case, matching `depends_on` / `is_editable`).
+
+**Why:** `one_of` collides with JSON Schema's `oneOf` keyword (an array of schemas, "exactly one
+matches"). The contract here is a string group id and "at most one active", so `one_of` would
+mislead readers and tooling.
+
+## Area 3 — Enforcement: backend normalizes and advertises
+
+**Decision:** The contract advertises the group AND the backend enforces it. `DAG.NormalizeExclusiveUpdates`
+runs inside `PATCH /sheets/:id` after key validation: a non-zero member zeroes its siblings; two or
+more non-zero members in the same payload is a typed error mapped to `400 INVALID_REQUEST`.
+
+**Why:** Without enforcement any API client (not just the UI) can set both proxies and silently
+double-count `armorClass`. The UI still renders a single control, so the happy path never produces
+a conflicting payload.
+
+## Area 4 — Desktop control: segmented with radio fallback
+
+**Decision:** The UI Engine renders an exclusive group as a `SegmentedButton` when the group has
+≤ 3 options and every option label is ≤ 30 characters; otherwise it renders a `Radio` group. A
+single-member group degrades to the member's normal per-field control; a read-only surface renders
+the group disabled with the active option selected.
+
+**Why:** Segmented is the densest correct control and fits the 2-option `armorClassAbility` case;
+radio survives longer option lists/labels without overflow.
+
+## Area 5 — Tracking: implement under LGN-105
+
+**Decision:** Implement backend + desktop directly on branch `feat/lgn-105-exclusive-options` under
+LGN-105, record the decision as AD-002 in `.specs/STATE.md`, and summarize on the Jira card instead
+of creating separate implementation cards.
+
+**Why:** The card's acceptance criteria ask for the decision and follow-up cards; the user chose to
+ship the change from the same card rather than open new ones, since the scope is small (one metadata
+key plus one control).
