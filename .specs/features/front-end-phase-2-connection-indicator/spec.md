@@ -126,19 +126,19 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| CONN-01 | P1: Polling de GET /health com estados | Design | Implementing |
-| CONN-02 | P1: Polling de GET /health com estados | Design | Implementing |
-| CONN-03 | P1: Polling de GET /health com estados | Design | Implementing |
-| CONN-04 | P1: Polling de GET /health com estados | Design | Implementing |
-| CONN-05 | P1: Polling de GET /health com estados | Design | Implementing |
-| CONN-06 | P1: Polling de GET /health com estados | Design | Implementing |
-| CONN-07 | P1: Polling de GET /health com estados | Design | Implementing |
-| CONN-08 | P1: Indicador no header, visível em qualquer tela | Design | Implementing |
-| CONN-09 | P1: Indicador no header, visível em qualquer tela | Design | Implementing |
-| CONN-10 | P1: Indicador no header, visível em qualquer tela | Design | Implementing |
-| CONN-11 | P1: Indicador no header, visível em qualquer tela | Design | Implementing |
-| CONN-12 | P2: Testabilidade do agendador | Design | Implementing |
-| CONN-13 | P2: Testabilidade do agendador | Design | Implementing |
+| CONN-01 | P1: Polling de GET /health com estados | Design | Verified |
+| CONN-02 | P1: Polling de GET /health com estados | Design | Verified |
+| CONN-03 | P1: Polling de GET /health com estados | Design | Verified |
+| CONN-04 | P1: Polling de GET /health com estados | Design | Verified |
+| CONN-05 | P1: Polling de GET /health com estados | Design | Verified |
+| CONN-06 | P1: Polling de GET /health com estados | Design | Verified |
+| CONN-07 | P1: Polling de GET /health com estados | Design | Verified |
+| CONN-08 | P1: Indicador no header, visível em qualquer tela | Design | Verified |
+| CONN-09 | P1: Indicador no header, visível em qualquer tela | Design | Verified |
+| CONN-10 | P1: Indicador no header, visível em qualquer tela | Design | Verified |
+| CONN-11 | P1: Indicador no header, visível em qualquer tela | Design | Verified |
+| CONN-12 | P2: Testabilidade do agendador | Design | Verified |
+| CONN-13 | P2: Testabilidade do agendador | Design | Verified |
 
 **Coverage:** 13 requisitos no total, 13 mapeados 1:1 a critérios de aceite; 0 não mapeados.
 
