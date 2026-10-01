@@ -227,10 +227,10 @@ T9 → T10
 
 **Done when**:
 
-- [ ] A schema JSON with `exclusive_group` parses the string; without it parses `null`
-- [ ] Existing decode tests stay green; fixtures with no key still parse
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/api`
-- [ ] Test count: new decode cases in `template_model_test.dart`
+- [x] A schema JSON with `exclusive_group` parses the string; without it parses `null`
+- [x] Existing decode tests stay green; fixtures with no key still parse
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test test/api`
+- [x] Test count: new decode cases in `template_model_test.dart`
 
 **Tests**: unit
 **Gate**: quick (desktop)

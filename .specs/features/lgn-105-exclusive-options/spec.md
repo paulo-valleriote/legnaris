@@ -157,7 +157,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-14 | P1: Desktop selection keeps at most one member on | Execute | Pending |
 | EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Pending |
 | EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Pending |
-| EXC-17 | P1: Contract advertises exclusive groups | Execute | Pending |
+| EXC-17 | P1: Contract advertises exclusive groups | Execute | Implementing |
 
 **ID format:** `EXC-[NUMBER]`
 

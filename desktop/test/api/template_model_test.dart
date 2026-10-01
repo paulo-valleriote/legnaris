@@ -153,4 +153,52 @@ void main() {
       expect(intSchema.defaultValue, 16);
     });
   });
+
+  group('exclusive group decode (EXC-17)', () {
+    test('Happy path: a schema with exclusive_group decodes the group id', () {
+      // EXC-17: the contract advertises the membership of a leaf.
+      final schema = FieldSchema.fromJson({
+        'type': 'number',
+        'label': 'Armor class uses dexterity',
+        'is_editable': true,
+        'default': 1,
+        'exclusive_group': 'armorClassAbility',
+      });
+
+      expect(schema.exclusiveGroup, 'armorClassAbility');
+    });
+
+    test('Edge: a schema without exclusive_group decodes it as null', () {
+      // EXC-17 edge: backward compatible with the pre-LGN-105 contract.
+      final schema = FieldSchema.fromJson({
+        'type': 'number',
+        'label': 'Dexterity',
+        'is_editable': true,
+        'default': 10,
+      });
+
+      expect(schema.exclusiveGroup, isNull);
+    });
+
+    test('Edge: an explicit null exclusive_group decodes as null', () {
+      final schema = FieldSchema.fromJson({
+        'type': 'number',
+        'label': 'Dexterity',
+        'is_editable': true,
+        'default': 10,
+        'exclusive_group': null,
+      });
+
+      expect(schema.exclusiveGroup, isNull);
+    });
+
+    test('Edge: an untagged leaf of the rich fixture decodes as null', () {
+      final template = TemplateDetail.fromJson(
+        jsonDecode(detailJson) as Map<String, Object?>,
+      );
+      final schema = template.fields['modifiers']!.children!['dexterityMod']!.schema!;
+
+      expect(schema.exclusiveGroup, isNull);
+    });
+  });
 }
