@@ -106,6 +106,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get templateNoFields => 'This template has no fields.';
 
   @override
+  String get createSheetPreviewLabel => 'Read-only preview';
+
+  @override
   String get createSheetNameLabel => 'Sheet name';
 
   @override

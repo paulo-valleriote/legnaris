@@ -5,6 +5,7 @@
 > Fonte: [LGN-101](https://paulovalleriotedev.atlassian.net/browse/LGN-101) · [LGN-92](https://paulovalleriotedev.atlassian.net/browse/LGN-92) (épico de fase, sob [LGN-88](https://paulovalleriotedev.atlassian.net/browse/LGN-88)) · `docs/TDD-desktop-mvp.md` (aprovado — fonte da verdade) · `desktop/AGENTS.md` (regras de construção) · wireframe Tela 2 · contrato real: `GET /templates/:id` + `FieldSchema`/`FieldGroup` da Fase 1 (`desktop/lib/api/models/template.dart`).
 > Relação entre specs desta fase: entrega o núcleo do UI Engine (Tela 2). [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) (rebuild granular por campo) depende desta; [LGN-100](https://paulovalleriotedev.atlassian.net/browse/LGN-100) (preview read-only no diálogo) reusa o controle read-only aqui definido.
 > Status: **Approved** — aprovada pelo mantenedor em 2026-09-30 (decisões de escopo confirmadas na discussão: Tela 2 navegável com dados sintéticos, UI Engine controlado sem estado).
+> **Amend (LGN-100 follow-up, 2026-10-01):** na revisão do preview read-only do diálogo de criação, o mantenedor apontou que a Tela 2 (aberta por "Preview sheet") **ainda aceitava edição**; como não existe ficha até a Fase 4, a Tela 2 passa a renderizar **somente-leitura** (host passa `onChanged: null`, como o card da criação). Novo requisito **RND-20**; a capacidade de edição do controle/renderer (RND-06/07/12) permanece, apenas não é usada pela Tela 2 até a Fase 4.
 
 ## Problem Statement
 
@@ -15,7 +16,7 @@ A Fase 2 entrega o catálogo e o detalhe do template, mas **nenhuma tela renderi
 - [ ] Agrupar os campos por prefixo de topo do caminho (`stats`, `modifiers`, `derived`, `config`, ...) em seções rotuladas, na ordem da API.
 - [ ] Desenhar o controle por regra do schema: `is_editable: true` → input por `type` (número / texto); `is_editable: false` → read-only com destaque de "calculado"; `config.*` (0/1) → toggle on/off; label e indicador de derivado saídos do schema.
 - [ ] Derivar tudo do `FieldSchema` — sem hardcode por sistema de RPG; template sintético com todos os tipos e prefixo desconhecido não quebra.
-- [ ] Tela 2 **navegável** a partir do catálogo, alimentada por dados sintéticos (defaults do schema), sem criar nem salvar ficha.
+- [ ] Tela 2 **navegável** a partir do catálogo, alimentada por dados sintéticos (defaults do schema), **somente-leitura até a Fase 4**, sem criar nem salvar ficha.
 - [ ] Toda string de UI pela camada de localização (`en`, única locale da V1).
 
 ## Out of Scope
@@ -25,7 +26,7 @@ Explicitamente excluído. Documentado para prevenir scope creep.
 | Feature | Reason |
 | --- | --- |
 | Ciclo de edição/Salvar (`PATCH`, delta, merge incremental de cascata, dirty state, rodapé Salvar) | Fase 4 — o épico isola o commit da ficha |
-| Estado de edição por campo com rebuild granular (Riverpod `select`/`family`) | [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) — spec própria desta fase; aqui o renderer é controlado e o host da Tela 2 só mantém um rascunho local simples |
+| Estado de edição por campo com rebuild granular (Riverpod `select`/`family`) | [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) — spec própria desta fase; aqui o renderer é controlado e a Tela 2 o alimenta somente-leitura (RND-20) |
 | Preview read-only no diálogo de criação | [LGN-100](https://paulovalleriotedev.atlassian.net/browse/LGN-100) — superfície separada; esta spec entrega o controle read-only que aquele card reusa |
 | Criar ficha (`POST /sheets`) e biblioteca local de fichas | Fase 4 — o botão da Tela 3 segue desabilitado; a Tela 2 é alimentada por defaults do schema |
 | Cache/invalidação persistente do detalhe do template | Mesma decisão da Fase 2 (`front-end-phase-2-template-detail-dialog`): busca on-demand a cada abertura, nada persistido |
@@ -43,7 +44,8 @@ Toda ambiguidade está resolvida ou registrada aqui — nada fica silenciosament
 | --- | --- | --- | --- |
 | Escopo da entrega | UI Engine (seções + controles, renderer controlado) **mais** uma Tela 2 navegável a partir de uma ação do catálogo | Decisão do mantenedor na discussão: quer a Tela 2 navegável já neste card | y |
 | Origem dos valores na Tela 2 | Valores semeados dos `default` do `FieldSchema` (dados sintéticos), mantidos num rascunho local; sem ficha real | Não existe ficha no app até a Fase 4; os defaults provam os controles sem tocar na API de fichas | y |
-| Estado de edição | O renderer é controlado (recebe `data` + callback), sem estado próprio; o host da Tela 2 guarda um `Map` de rascunho por `setState` | Primeira metade da decisão do mantenedor; o isolamento por campo é [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) e o commit é Fase 4 | y |
+| Estado de edição | O renderer é controlado (recebe `data` + callback), sem estado próprio; **desde o amend LGN-100 a Tela 2 passa `onChanged: null`** (somente-leitura) — o callback segue existindo e testado no controle/renderer | Primeira metade da decisão do mantenedor; o isolamento por campo é [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) e o commit é Fase 4; sem ficha real, editar um rascunho volátil não tem valor | y |
+| Tela 2 somente-leitura | Enquanto a Fase 4 não existir, a Tela 2 renderiza os valores base **sem aceitar edição** (nenhum input `enabled`, nenhum toggle acionável) | Amend 2026-10-01: o mantenedor informou que a Tela 2 ainda editava; consistência com o preview read-only do diálogo (LGN-100) | y |
 | Regra do `config.*` | Caminho cujo primeiro segmento é `config` → toggle 0/1; interação emite `1`/`0` | Regra do contrato do backend (nó proxy), não um literal de sistema; TDD § Regras de Renderização | y |
 | Tipo do toggle | `type == bool` → Switch com valor `true`/`false`; `config.*` numérico → Switch com `1`/`0` | Cobre número/texto/bool sem inventar tipo novo; o valor emitido preserva a semântica do schema | n |
 | Seções com grupo sem folhas | Omitidas da Tela 2 | Seção sem campo não tem nada a renderizar; o resumo da Fase 2 ainda as mostra | n |
@@ -116,8 +118,9 @@ Toda ambiguidade está resolvida ou registrada aqui — nada fica silenciosament
 4. IF `GET /templates/:id` fails THEN Screen 2 SHALL show the mapped message inline with a Retry action and SHALL remain open. (RND-17)
 5. WHEN Screen 2 is open THEN it SHALL offer a back action that returns to the catalog without creating, saving or mutating anything. (RND-18)
 6. WHILE Screen 2 is open the app SHALL NOT issue any mutation request (`POST`/`PATCH`). (RND-19)
+7. WHILE Screen 2 is open no control SHALL accept an edit — Screen 2 SHALL render the seeded values read-only (no enabled input, no actionable toggle) until Phase 4 introduces the real sheet cycle. (RND-20)
 
-**Independent Test**: abrir "Preview sheet" de um template → 1 `GET /templates/:id`, seções renderizadas com os defaults; back volta ao catálogo; transporte fake não registra nenhum `POST`/`PATCH`; 500 → mensagem mapeada + Retry.
+**Independent Test**: abrir "Preview sheet" de um template → 1 `GET /templates/:id`, seções renderizadas com os defaults, **nenhum controle editável**; back volta ao catálogo; transporte fake não registra nenhum `POST`/`PATCH`; 500 → mensagem mapeada + Retry.
 
 ---
 
@@ -129,8 +132,9 @@ Toda ambiguidade está resolvida ou registrada aqui — nada fica silenciosament
 - WHEN a field's value is missing from the data map THEN the control SHALL render empty/off without throwing.
 - WHEN two top-level keys share the same leaf name THEN each SHALL render under its own section independently.
 - WHEN the template name is an empty string THEN Screen 2 SHALL render its layout with an empty title instead of throwing.
-- IF an editable numeric input is cleared THEN the control SHALL report `null` for that path.
-- Varredura de dimensões implícitas: **input validation & bounds** → parse numérico e limpeza (RND-06/RND-12, edge do input vazio); **failure/partial-failure** → RND-17 (mensagem mapeada + Retry); **idempotência/retry** → RND-17 (Retry reusa o single-flight do `TemplateDetailController`, sem duplicar requisição); **concorrência/ordenação** → N/A (o renderer é síncrono; a fonte assíncrona é o detalhe, herdado da Fase 2); **data lifecycle/expiry** → N/A (nada é persistido, Tela 2 é rascunho volátil); **external-dependency failure** → RND-17; **state-transition integrity** → RND-15/16/18 (loading → conteúdo/erro, back sem efeito colateral); **auth/rate limits** → N/A (V1 sem auth); **observabilidade** → N/A (logs são Fase 5).
+- IF an editable numeric input is cleared THEN the control SHALL report `null` for that path (control-level behavior, RND-12 — unreachable on Screen 2 while it renders read-only, RND-20).
+- WHEN Screen 2 renders a field that the schema marks editable THEN it SHALL still draw the control for that type, disabled (read-only host), not a different widget.
+- Varredura de dimensões implícitas: **input validation & bounds** → parse numérico e limpeza (RND-06/RND-12, edge do input vazio, nível do controle); **failure/partial-failure** → RND-17 (mensagem mapeada + Retry); **idempotência/retry** → RND-17 (Retry reusa o single-flight do `TemplateDetailController`, sem duplicar requisição); **concorrência/ordenação** → N/A (o renderer é síncrono; a fonte assíncrona é o detalhe, herdado da Fase 2); **data lifecycle/expiry** → N/A (nada é persistido; Tela 2 é somente-leitura, RND-20); **external-dependency failure** → RND-17; **state-transition integrity** → RND-15/16/18 (loading → conteúdo/erro, back sem efeito colateral); **auth/rate limits** → N/A (V1 sem auth); **observabilidade** → N/A (logs são Fase 5).
 
 ---
 
@@ -159,8 +163,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | RND-17 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
 | RND-18 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
 | RND-19 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
+| RND-20 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
 
-**Coverage:** 19 requisitos no total, 19 mapeados 1:1 a critérios de aceite; 0 não mapeados.
+**Coverage:** 20 requisitos no total, 20 mapeados 1:1 a critérios de aceite; 0 não mapeados.
 
 ---
 
@@ -172,4 +177,5 @@ Como sabemos que a fase foi bem-sucedida:
 - [ ] `fantasy_v1` renderiza as seções `stats`, `others`, `modifiers`, `derived` e `config`; `config.*` vira toggle e `derived`/`modifiers` aparecem read-only como "Calculated" — **Marco M2**.
 - [ ] Zero hardcode por sistema: prefixo de topo desconhecido e tipo exótico renderizam sem mudança de código.
 - [ ] Abrir a Tela 2 emite exatamente um `GET /templates/:id` e **nenhuma** mutação (`POST`/`PATCH` ausentes do transporte de teste).
+- [ ] A Tela 2 renderiza somente-leitura: nenhum input `enabled` e nenhum toggle acionável enquanto aberta (RND-20).
 - [ ] `flutter test` verde sem API de pé e `flutter analyze` limpo.

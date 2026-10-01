@@ -15,7 +15,7 @@ Três peças, em ordem de dependência:
 2. `SheetFieldControl` desenha **um** campo por regra do schema (input numérico/texto, toggle, read-only "Calculated"), com um `value` de entrada e um `onChanged` de saída — sem estado de domínio.
 3. `SheetForm` compõe as seções e as linhas, resolve cada valor do mapa por caminho pontilhado e repassa as edições pelo `onChanged` do formulário.
 
-A Tela 2 (`SheetScreen`) é o **host de demonstração**: busca o detalhe do template pelo provider da Fase 2, semeia um mapa local a partir dos `default` do schema, mantém esse mapa por `setState` e renderiza o `SheetForm`. É o único ponto com estado (volátil), e existe porque ainda não há ficha real — a Fase 4 troca esse host pelo estado da ficha e [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) troca o `setState` por isolamento por campo.
+A Tela 2 (`SheetScreen`) é o **host de demonstração**: busca o detalhe do template pelo provider da Fase 2, semeia um mapa local a partir dos `default` do schema e renderiza o `SheetForm` **somente-leitura** (`onChanged: null`, RND-20 — amend LGN-100). Existe porque ainda não há ficha real — a Fase 4 troca esse host pelo estado da ficha e [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) troca o rebuild por isolamento por campo.
 
 ```mermaid
 graph TD
@@ -23,18 +23,16 @@ graph TD
     R --> SS[SheetScreen - ConsumerStatefulWidget]
     SS -->|watch| TDP[templateDetailControllerProvider]
     TDP --> AC[apiClientProvider - GET /templates/:id]
-    SS -->|seeds defaults| DM[draft Map - setState]
-    SS --> SF[SheetForm - controlled]
+    SS -->|seeds defaults| DM[draft Map - read-only]
+    SS --> SF[SheetForm - onChanged null]
     SF -->|buildSections| FG[field_grouping - pure]
-    SF -->|per leaf| FC[SheetFieldControl]
-    FC -->|onChanged path,value| SF
-    SF -->|onChanged path,value| SS
+    SF -->|per leaf| FC[SheetFieldControl - disabled]
     SS -.->|Phase 4 replaces host| LGN102[LGN-102 per-field state]
 ```
 
 **Approaches considered** (delivery scope was already decided with the maintainer: navigable Screen 2 + controlled engine):
 
-1. **Renderer controlado + host de rascunho local (chosen)** — o engine fica testável por widget sem provider nem rede; o host local dá uma superfície interativa já neste card. Mantém [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) (isolamento por campo) e a Fase 4 (commit) com fronteiras limpas: eles substituem o host, não o engine.
+1. **Renderer controlado + host somente-leitura (chosen; amend LGN-100)** — o engine fica testável por widget sem provider nem rede (a capacidade de edição continua no controle/renderer, testada com `onChanged` fornecido), e o host da Tela 2 o alimenta com `onChanged: null` até a Fase 4. Mantém [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) (isolamento por campo) e a Fase 4 (commit) com fronteiras limpas: eles substituem o host, não o engine.
 2. **Engine com estado Riverpod embutido** — anteciparia [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) e obrigaria o engine a conhecer salvar/reidratar; rejeitado: viola o escopo do card e mistura render com estado.
 3. **Só o engine, sem superfície** — o mantenedor pediu a Tela 2 navegável; uma camada sem superfície não é demonstrável e adiaria a validação visual do Marco M2.
 
@@ -117,7 +115,7 @@ graph TD
   - `class SheetScreen extends ConsumerStatefulWidget` — `{ required String templateId }`.
   - `build`: `ref.watch(templateDetailControllerProvider(templateId))`; header com back (`IconButton`, tooltip `MaterialLocalizations.backButtonTooltip`) + nome/id do template; corpo = loading / erro mapeado + Retry / `SheetForm` / linha "This template has no fields.".
   - Semeia `_data` uma vez, no primeiro sucesso, com `leaf.defaultValue` para cada folha (chave = caminho pontilhado).
-  - `onChanged`: atualiza `_data` por `setState` (rascunho local, sem persistência).
+  - `onChanged`: `null` — a Tela 2 é somente-leitura (RND-20); os controles renderizam desabilitados, sem `setState` de edição.
 - **Dependencies**: `template_detail_provider.dart`, `sheet_form.dart`, `field_grouping.dart`, l10n, tokens.
 - **Reuses**: `TemplateDetailController` (single-flight/Retry da Fase 2), `failureCopy` + `actionRetry`, `templateNoFields`.
 
@@ -187,7 +185,7 @@ Mesma semântica de `Sheet.valueAt` (FE1-12…14): segmento ausente → `null`; 
 | Read-only | Texto simples + caption `fieldCalculated`; fórmula em `Tooltip` | O wireframe mostra o valor sem caixa; o hover entrega a fórmula sem poluir a linha (desktop-first) |
 | Fallback de tipo | Read-only para tipo desconhecido | Preserva o Marco M2 (qualquer template renderiza) sem inventar editores |
 | Seções | Uma por chave de topo; grupo sem folhas omitido | Casa com o wireframe (STATS/MODIFIERS/DERIVED/CONFIG) sem criar estrutura nova; grupos vazios são ruído |
-| Host da Tela 2 | `ConsumerStatefulWidget` com `Map` de rascunho + `setState` | Suficiente para uma superfície de validação; o rebuild global é justamente o que [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) otimiza |
+| Host da Tela 2 | `ConsumerStatefulWidget` que semeia o mapa de defaults e renderiza `SheetForm` com `onChanged: null` (somente-leitura, RND-20) | Superfície de validação sem ficha real; a edição não tem valor até a Fase 4 e [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) |
 | Navegação | Rota `MaterialPageRoute` montando `AppShell(content: SheetScreen)` | Preserva a nav persistente do `desktop/AGENTS.md` sem refatorar o shell (`LegnarisApp.home` fixo) |
 | Reuso de label/traversal | `fieldDisplayName` e `valueAtPath` extraídos e reusados | Evita um segundo mecanismo para o mesmo job (`desktop/AGENTS.md`) |
 | Nenhum `AD-NNN` | — | Decisões são feature-local; nenhuma convenção nova para features futuras |
@@ -209,7 +207,7 @@ Mesma semântica de `Sheet.valueAt` (FE1-12…14): segmento ausente → `null`; 
 | RND-09 | `SheetFieldControl` branch bool | `field_control_test.dart` (Switch true/false) |
 | RND-10 | `SheetFieldControl` branch read-only | `field_control_test.dart` (sem input + "Calculated") |
 | RND-11 | `SheetFieldControl` Tooltip | `field_control_test.dart` (fórmula exposta) |
-| RND-12 | `SheetFieldControl` → `SheetForm` → `SheetScreen` `onChanged` | `field_control_test.dart`, `sheet_form_test.dart`, `sheet_screen_test.dart` (sem mutação) |
+| RND-12 | `SheetFieldControl` → `SheetForm` `onChanged` (capacidade do engine; o host da Tela 2 é read-only, RND-20) | `field_control_test.dart`, `sheet_form_test.dart` |
 | RND-13 | `SheetFieldControl` fallback | `field_control_test.dart` (tipo exótico read-only) |
 | RND-14 | `CatalogScreen` ação | `test/sheet/sheet_navigation_test.dart` |
 | RND-15 | `SheetScreen` watch do detail | `sheet_screen_test.dart` (loading + 1 request) |
@@ -217,3 +215,4 @@ Mesma semântica de `Sheet.valueAt` (FE1-12…14): segmento ausente → `null`; 
 | RND-17 | `SheetScreen` erro inline + Retry | `sheet_screen_test.dart` (500 → copy + Retry) |
 | RND-18 | `SheetScreen` back | `sheet_navigation_test.dart` (volta ao catálogo) |
 | RND-19 | Ausência de mutação por construção | `sheet_screen_test.dart` / `sheet_navigation_test.dart` (nenhum POST/PATCH no transporte) |
+| RND-20 | `SheetScreen` host somente-leitura (`onChanged: null`) | `sheet_screen_test.dart` (nenhum `TextField` `enabled`, nenhum `Switch` acionável) |

@@ -135,7 +135,7 @@ void main() {
     );
   });
 
-  group('edges (RND-16, RND-19)', () {
+  group('edges (RND-16, RND-19, RND-20)', () {
     testWidgets(
       'Edge: an empty field tree renders the single localized line',
       (tester) async {
@@ -167,7 +167,7 @@ void main() {
     );
 
     testWidgets(
-      'Edge: editing a field updates the local draft and issues no mutation (RND-19)',
+      'Edge: no control accepts an edit and no mutation is issued (RND-20)',
       (tester) async {
         final recorded = await pumpScreen(
           tester,
@@ -175,18 +175,22 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final input = find.byKey(const Key('sheet-input-stats.dexterity'));
-        await tester.enterText(input, '42');
-        await tester.pump();
+        final inputs = tester.widgetList<TextField>(find.byType(TextField));
+        expect(inputs, isNotEmpty);
+        expect(inputs.every((field) => field.enabled == false), isTrue);
 
-        expect(tester.widget<TextField>(input).controller?.text, '42');
+        final toggles = tester.widgetList<Switch>(find.byType(Switch));
+        expect(toggles, isNotEmpty);
+        expect(toggles.every((toggle) => toggle.onChanged == null), isTrue);
+
         expect(
           tester
-              .widget<Switch>(
-                find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
               )
-              .value,
-          isTrue,
+              .controller
+              ?.text,
+          '10',
         );
         expect(recorded, hasLength(1));
         expect(recorded.single.method, 'GET');

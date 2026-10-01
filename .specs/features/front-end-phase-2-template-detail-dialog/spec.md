@@ -6,6 +6,7 @@
 > Relação entre specs desta fase: depende de `front-end-phase-2-catalog` (shell + ação que abre a superfície de criação); entrega em paralelo com `front-end-phase-2-connection-indicator`.
 > Status: **Approved** — aprovada pelo mantenedor em 2026-09-30 (premissas marcadas `n` aceitas como default).
 > **Amend (UAT 2026-09-30):** após revisão visual, o resumo passou a exibir **nome legível + folhas** (sem contagem) e a omitir os grupos reservados `config`/`derived`/`modifiers`. TPL-02/03/05 foram reescritas conforme a seção Assumptions; a execução do amend é a task **T5** em `tasks.md`.
+> **Amend (LGN-100, 2026-10-01):** o resumo textual é **substituído** pelo preview read-only dentro do diálogo de criação (`front-end-phase-3-sheet-preview`, PRV-01…PRV-13). TPL-02/03/04/05 foram reescritas para apontar ao preview, os grupos reservados passam a renderizar e `template_summary.dart` + seus testes foram removidos junto com o amend.
 
 ## Problem Statement
 
@@ -14,7 +15,7 @@ O catálogo lista templates, mas o mantenedor não sabe o que há dentro deles a
 ## Goals
 
 - [ ] `GET /templates/:id` consumido on-demand ao abrir a superfície de criação, com estados carregando / erro (mensagem mapeada + Retry) inline no diálogo.
-- [ ] Resumo derivado do `FieldSchema` — nomes legíveis + folhas, sem contagem e sem estrutura de sumário hardcoded (só os prefixos reservados do contrato são omitidos); qualquer template renderiza.
+- [ ] **Supersedido pelo amend LGN-100:** o diálogo mostra o preview read-only derivado do `FieldSchema` (`front-end-phase-3-sheet-preview` PRV-01…PRV-03) — nomes legíveis + valores base, incluindo os grupos reservados; qualquer template renderiza.
 - [ ] `FieldSchema` carregado e exposto ao estado da aplicação com a árvore intacta (pré-condição para o UI Engine da Fase 3).
 - [ ] Campo de nome da ficha presente e o botão primário desabilitado com tooltip explicando que a criação chega na Fase 4.
 - [ ] Toda string de UI pela camada de localização (`en`, única locale da V1).
@@ -45,9 +46,9 @@ Toda ambiguidade está resolvida ou registrada aqui — nada fica silenciosament
 | --- | --- | --- | --- |
 | Escopo do diálogo na Fase 2 | Resumo do template + campo de nome + botão "Create sheet" **desabilitado** com tooltip | Decisão do mantenedor ("Resumo + nome, botão desabilitado") — affordance visível como no wireframe, criação preservada para a Fase 4 | y |
 | Quando o detalhe é buscado | A cada abertura do diálogo (on-demand); sem cache entre aberturas | Simplicidade: sem invalidação para acertar; custo é um GET local em uso pessoal; cache de detalhe pode vir com o UI Engine (Fase 3) quando houver medição de custo | n |
-| Regra do resumo por prefixo | Cada chave de topo **visível** de `fields` vira uma linha: grupo → lista de folhas descendentes (recursivo); folha de topo → linha própria, sem membros | Amend UAT 2026-09-30 (substitui a contagem): o cliente rejeitou `prefixo: contagem` e pediu transparência sobre *quais* campos existem; árvore folha/grupo da Fase 1 | y |
-| Exibição do resumo | Linhas com **nome legível**, sem contagem (`Stats: Constitution, Dexterity`), na ordem de chaves devolvida pela API | Amend UAT 2026-09-30 (substitui `prefixo: contagem`); nome = `schema.label` quando preenchido, senão humanização mecânica da chave (sem hardcode) | y |
-| Grupos omitidos do resumo | `config`, `derived` e `modifiers` não aparecem no resumo (constante reservada única `hiddenGroups`) | Amend UAT 2026-09-30: switches internos e valores calculados não ajudam a decidir criar a ficha; a Fase 3 renderiza esses campos de verdade. A generalização (flag de grupo no DTO) fica para um card de backend | y |
+| Regra do resumo por prefixo | Cada chave de topo **visível** de `fields` vira uma linha: grupo → lista de folhas descendentes (recursivo); folha de topo → linha própria, sem membros | Amend UAT 2026-09-30 (substitui a contagem): o cliente rejeitou `prefixo: contagem` e pediu transparência sobre *quais* campos existem; árvore folha/grupo da Fase 1. **Supersedido pelo amend LGN-100** (o resumo textual sai; regra equivalente no preview) | y |
+| Exibição do resumo | Linhas com **nome legível**, sem contagem (`Stats: Constitution, Dexterity`), na ordem de chaves devolvida pela API | Amend UAT 2026-09-30 (substitui `prefixo: contagem`); nome = `schema.label` quando preenchido, senão humanização mecânica da chave (sem hardcode). **Supersedido pelo amend LGN-100** (o preview mostra nome + valor base) | y |
+| Grupos omitidos do resumo | `config`, `derived` e `modifiers` não aparecem no resumo (constante reservada única `hiddenGroups`) | Amend UAT 2026-09-30: switches internos e valores calculados não ajudam a decidir criar a ficha; a Fase 3 renderiza esses campos de verdade. A generalização (flag de grupo no DTO) fica para um card de backend. **Supersedido pelo amend LGN-100:** o preview renderiza os três grupos read-only | y |
 | Estado inicial do campo de nome | Vazio, com placeholder de exemplo localizado ("e.g. My Character") | O wireframe mostra um exemplo, não um valor default; pré-preencher geraria fichas com nome inventedado na Fase 4 | y |
 | Texto do tooltip do botão | "Sheet creation arrives in a later phase." (l10n) | `desktop/AGENTS.md`: "disabled primary actions explain themselves via tooltip" | y |
 | Comportamento em falha | Erro mapeado exibido **inline no diálogo**, diálogo continua aberto com Retry (nunca fecha, nunca crash) | TDD Tela 3: "Erros mapeados (`NOT_FOUND`, rede) exibidos inline no diálogo" | y |
@@ -71,13 +72,13 @@ Toda ambiguidade está resolvida ou registrada aqui — nada fica silenciosament
 **Acceptance Criteria**:
 
 1. WHEN the creation surface is opened for a template id THEN the app SHALL request `GET /templates/:id` through the Phase-1 API client and SHALL show a loading state until the response settles. (TPL-01)
-2. WHEN `GET /templates/:id` succeeds THEN the dialog SHALL show the template name and one summary line per **visible** top-level key of `fields`, listing the leaf fields it contains under a normalized display name (the schema label when present, otherwise the humanized key). (TPL-02)
-3. WHEN the summary is computed, a group entry SHALL list every leaf beneath it recursively, and a top-level leaf SHALL be its own line with no members. (TPL-03)
-4. WHILE the detail request is in flight, the dialog SHALL show the loading state and SHALL NOT show a summary left over from a previously opened template. (TPL-04)
-5. The summary SHALL be derived only from the returned `FieldSchema` tree — no hardcoded summary structure — so any template renders without code changes; the reserved contract prefixes `config`, `derived` and `modifiers` are omitted through a single documented constant, and unknown prefixes still render. (TPL-05)
+2. WHEN `GET /templates/:id` succeeds THEN the dialog SHALL show the template name and the read-only field preview — one section per top-level key of `fields`, every leaf under its display name (the schema label when present, otherwise the humanized key) with its base value (`front-end-phase-3-sheet-preview` PRV-01/PRV-02). (TPL-02)
+3. **Supersedido pelo amend LGN-100:** a regra de linha do resumo (grupo → folhas recursivas; folha de topo → linha própria) passa a valer no preview como uma seção por chave de topo com suas folhas (`front-end-phase-3-sheet-preview` PRV-01). (TPL-03)
+4. WHILE the detail request is in flight, the dialog SHALL show the loading state in the preview area and SHALL NOT show fields left over from a previously opened template (`front-end-phase-3-sheet-preview` PRV-04). (TPL-04)
+5. The rendered fields SHALL be derived only from the returned `FieldSchema` tree — no hardcoded structure — so any template renders without code changes, including the reserved prefixes `config`, `derived` and `modifiers` (`front-end-phase-3-sheet-preview` PRV-03). (TPL-05)
 6. The detail fetched SHALL be exposed to the state layer as the decoded template (id, name, `fields` intact) for the later phases. (TPL-06)
 
-**Independent Test**: abrir dois templates diferentes e conferir as linhas de cada; fixture com grupo, folha de topo e árvore aninhada → membros corretos; grupos reservados ausentes; fixture sintética com prefixo inexistente → linha renderiza.
+**Independent Test**: abrir dois templates diferentes e conferir o preview de cada; fixture com grupo, folha de topo e árvore aninhada → seções e valores base corretos; grupos reservados presentes; fixture sintética com prefixo inexistente → renderiza. **Suíte de referência:** `front-end-phase-3-sheet-preview` (PRV-01…PRV-04).
 
 ---
 
@@ -131,12 +132,12 @@ Toda ambiguidade está resolvida ou registrada aqui — nada fica silenciosament
 
 ## Edge Cases
 
-- IF `fields` is empty THEN the dialog SHALL show one localized line ("This template has no fields.") in place of the summary.
-- IF a top-level key is a reserved prefix (`config`, `derived`, `modifiers`) THEN the dialog SHALL omit its line.
-- WHEN a group has no leaves THEN the summary SHALL render the group name with no members.
-- WHEN a schema label is present for a field THEN the summary SHALL prefer it over the humanized key.
-- WHEN a top-level key holds a single leaf THEN the summary SHALL render its own line listing that leaf.
-- IF two top-level keys share the same leaf name THEN the summary SHALL list each under its own line independently.
+- IF `fields` is empty THEN the dialog SHALL show one localized line ("This template has no fields.") in the preview area (`front-end-phase-3-sheet-preview` PRV-09).
+- IF a top-level key is a reserved prefix (`config`, `derived`, `modifiers`) THEN **Superseded by the LGN-100 amend:** the preview SHALL render that section read-only (PRV-01).
+- WHEN a group has no leaves THEN **Superseded by the LGN-100 amend:** the preview SHALL omit that section (PRV-01).
+- WHEN a schema label is present for a field THEN the rendered row SHALL prefer it over the humanized key (`front-end-phase-3-sheet-preview` PRV-02).
+- WHEN a top-level key holds a single leaf THEN the preview SHALL render its own section listing that leaf (PRV-01).
+- IF two top-level keys share the same leaf name THEN the preview SHALL list each under its own section independently (PRV-01).
 - WHEN the template name is an empty string THEN the dialog SHALL render the layout with an empty title instead of throwing.
 - Varredura de dimensões implícitas: **input validation & bounds** → nenhum dado do usuário é validado nesta fase (botão desabilitado — validação de nome é Fase 4); **failure/partial-failure** → TPL-07…10; **idempotência/retry** → TPL-08 (Retry por ativação) + TPL-15 (reabertura sempre fresca, sem cache a invalidar); **concorrência/ordenação** → TPL-04 (sem resumo obsoleto durante o voo); **external-dependency failure** → mensagem mapeada via client da Fase 1; **state-transition integrity** → TPL-14 (fecha e volta ao catálogo). N/A nesta spec: **auth/rate limits** (V1 sem auth), **data lifecycle/expiry** (nenhum dado persistido pelo diálogo), **observabilidade** (logs são Fase 5).
 
@@ -149,10 +150,10 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
 | TPL-01 | P1: Detalhe do template on-demand com resumo | Design | Verified |
-| TPL-02 | P1: Detalhe do template on-demand com resumo | Design | Verified |
-| TPL-03 | P1: Detalhe do template on-demand com resumo | Design | Verified |
-| TPL-04 | P1: Detalhe do template on-demand com resumo | Design | Verified |
-| TPL-05 | P1: Detalhe do template on-demand com resumo | Design | Verified |
+| TPL-02 | P1: Detalhe do template on-demand com resumo | Design | Superseded (LGN-100) |
+| TPL-03 | P1: Detalhe do template on-demand com resumo | Design | Superseded (LGN-100) |
+| TPL-04 | P1: Detalhe do template on-demand com resumo | Design | Superseded (LGN-100) |
+| TPL-05 | P1: Detalhe do template on-demand com resumo | Design | Superseded (LGN-100) |
 | TPL-06 | P1: Detalhe do template on-demand com resumo | Design | Verified |
 | TPL-07 | P1: Estados de erro inline no diálogo | Design | Verified |
 | TPL-08 | P1: Estados de erro inline no diálogo | Design | Verified |

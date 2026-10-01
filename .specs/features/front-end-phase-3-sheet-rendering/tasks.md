@@ -22,7 +22,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 | Derivação de seções (`desktop/lib/engine/`) | unit | 1:1 com RND-01–RND-05; edges: árvore vazia, grupo sem folhas, folha de topo, aninhamento profundo, label vazio → humanizado, prefixo exótico, chaves repetidas | `desktop/test/engine/field_grouping_test.dart` | `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter test` |
 | Controle por campo (`desktop/lib/engine/`) | widget | 1:1 com RND-06–RND-13; cada tipo (número/texto/bool/config/derivado/exótico) renderiza o controle certo; `onChanged` com caminho+valor na edição; read-only sem input + "Calculated"; fórmula exposta | `desktop/test/engine/field_control_test.dart` | idem |
 | Composição do formulário (`desktop/lib/engine/`) | widget | 1:1 com RND-01, RND-05, RND-12, RND-16; seções na ordem, linhas com label, valor resolvido por caminho, `onChanged` repassado | `desktop/test/engine/sheet_form_test.dart` | idem |
-| Tela 2 host (`desktop/lib/sheet/`) | widget | 1:1 com RND-15–RND-17, RND-19; loading → conteúdo, seed dos defaults, erro mapeado + Retry, edição local sem request | `desktop/test/sheet/sheet_screen_test.dart` | idem |
+| Tela 2 host (`desktop/lib/sheet/`) | widget | 1:1 com RND-15–RND-17, RND-19, RND-20; loading → conteúdo, seed dos defaults read-only (nenhum input `enabled`), erro mapeado + Retry, zero request de mutação | `desktop/test/sheet/sheet_screen_test.dart` | idem |
 | Navegação catálogo → Tela 2 (`desktop/lib/catalog/`) | widget | 1:1 com RND-14, RND-18, RND-19; ação abre a Tela 2 com 1 `GET /templates/:id`, back volta ao catálogo, zero `POST`/`PATCH` no transporte | `desktop/test/sheet/sheet_navigation_test.dart` | idem |
 | Strings l10n (`desktop/lib/l10n/app_en.arb`) | widget (assert via render) | `fieldCalculated` e `catalogPreviewAction` renderizam em ≥1 teste; nenhum literal de UI nos widgets | via suites acima | idem |
 | Specs (`.specs/`) | none | validators exit 0 | `.specs/**` | `validate_spec.py` / `validate_tasks.py` |
@@ -65,6 +65,14 @@ Correção do gap de precisão apontado pelo Verifier (RND-04): a seção de uma
 
 ```
 T1 → T6
+```
+
+### Phase 4: Tela 2 somente-leitura (amend LGN-100)
+
+A revisão do preview da criação apontou que a Tela 2 ainda editava; como não há ficha até a Fase 4, a Tela 2 passa a renderizar somente-leitura (RND-20).
+
+```
+T4 → T7
 ```
 
 ---
@@ -179,7 +187,7 @@ T1 → T6
 - [x] Abrir a Tela 2 dispara exatamente 1 `GET /templates/:id` e mostra o loading até resolver (RND-15)
 - [x] Sucesso → seções/controles renderizados com os `default` do schema (RND-16)
 - [x] Falha (500/404/parse) → mensagem mapeada inline + Retry, tela continua aberta (RND-17)
-- [x] Editar um campo atualiza o rascunho local; nenhum `POST`/`PATCH` no transporte (RND-19, RND-12)
+- [x] Editar um campo atualiza o rascunho local; nenhum `POST`/`PATCH` no transporte (RND-19, RND-12) — **superseded por T7 (RND-20): a Tela 2 passa a ser somente-leitura**
 - [x] `fields` vazio → `templateNoFields`; nome vazio → título vazio sem throw (edges)
 - [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
 - [x] Test count: 5 novos testes (suíte 237 passed / 4 skipped); nenhum teste existente removido
@@ -244,28 +252,57 @@ T1 → T6
 
 ---
 
+### T7: Render Screen 2 read-only (amend LGN-100)
+
+**What**: Trocar o `onChanged` do `SheetForm` na Tela 2 para `null` (host somente-leitura, RND-20) e remover o `setState` de edição; o `SheetScreen` continua semeando `_data` com `seedDefaults` e renderiza os controles desabilitados. Ajustar os testes: o teste "editing updates the local draft" vira "no control accepts an edit" (nenhum `TextField.enabled`, nenhum `Switch.onChanged`) mantendo a ausência de mutação.
+**Where**: `desktop/lib/sheet/sheet_screen.dart`
+**Depends on**: T4
+**Reuses**: `SheetForm` (T3, `onChanged: null` — mesmo tratamento do preview da criação), `seedDefaults`, `sheet_screen_test.dart` existente
+**Requirement**: RND-20, RND-19
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [x] Nenhum controle da Tela 2 aceita edição (`TextField` desabilitados, `Switch` sem callback) (RND-20)
+- [x] Os valores base continuam renderizados a partir dos `default` do schema (RND-16 intacto)
+- [x] Nenhum `POST`/`PATCH` no transporte (RND-19 intacto)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: nenhum teste existente removido (o caso de edição é invertido, não apagado) — suíte 291 passed / 4 skipped
+
+**Tests**: widget
+**Gate**: full
+**Commit**: `fix(LGN-101): render Screen 2 read-only`
+**Status**: ✅ Done — `SheetForm(onChanged: null)` na Tela 2; teste de edição invertido para read-only
+
+---
+
 ## Phase Execution Map
 
 ```
-Phase 1 → Phase 2 → Phase 3
+Phase 1 → Phase 2 → Phase 3 → Phase 4
 
 Phase 1:  T1 → T2 → T3
 Phase 2:  T3 → T4 → T5
 Phase 3:  T1 → T6
+Phase 4:  T4 → T7
 ```
 
 Execution is strictly sequential - there is no intra-phase parallelism. A single agent works one task at a time, in order.
 
 **How phase-based execution works:**
 
-At Execute, the agent counts total tasks and packs phases into **task-budgeted batches** (~7 tasks per worker, whole phases). With 6 tasks in 3 phases this fits a **single batch → execute inline** (no sub-agents), one task at a time. After the final task the orchestrator dispatches the fresh **Verifier** automatically (author ≠ verifier). See [sub-agents.md](references/sub-agents.md) for the full model.
+At Execute, the agent counts total tasks and packs phases into **task-budgeted batches** (~7 tasks per worker, whole phases). With 7 tasks in 4 phases this fits a **single batch → execute inline** (no sub-agents), one task at a time. After the final task the orchestrator dispatches the fresh **Verifier** automatically (author ≠ verifier). See [sub-agents.md](references/sub-agents.md) for the full model.
 
 **The orchestrating agent's role during Execute:**
-1. Count total tasks and pack phases into batches (6 tasks → inline execution)
-2. Execute T1 → T2 → T3 → T4 → T5 → T6 in order (tests → implement → gate → adequacy review → atomic commit)
+1. Count total tasks and pack phases into batches (7 tasks → inline execution)
+2. Execute T1 → T2 → T3 → T4 → T5 → T6 → T7 in order (tests → implement → gate → adequacy review → atomic commit)
 3. Update tasks.md with results in each task's commit
 4. If a task fails: fix before starting the next
-5. After T6: dispatch the Verifier automatically, then run `validate_state.py`
+5. After T7: dispatch the Verifier automatically, then run `validate_state.py`
 
 ---
 
@@ -279,6 +316,7 @@ At Execute, the agent counts total tasks and packs phases into **task-budgeted b
 | T4: Add the navigable sheet screen | 1 superfície (`SheetScreen`, host de dados sintéticos) | ✅ Granular |
 | T5: Open the sheet screen from the catalog | 1 ponto de entrada (ação do card + navegação) + a chave l10n que ela consome | ✅ Granular |
 | T6: Prefer the schema label for a top-level leaf section | 1 correção de regra numa função da derivação | ✅ Granular |
+| T7: Render Screen 2 read-only (amend LGN-100) | 1 mudança de wiring no host + inversão do caso de edição | ✅ Granular |
 
 **Granularity check**: ✅ nenhuma task entrega múltiplos componentes independentes; T1/T3 incluem a extração mínima de um helper que reusam (parte do mesmo conceito).
 
@@ -292,8 +330,9 @@ At Execute, the agent counts total tasks and packs phases into **task-budgeted b
 | T4 | T3 | `T3 → T4` (Phase 2) | ✅ Match |
 | T5 | T4 | `T4 → T5` (Phase 2) | ✅ Match |
 | T6 | T1 | `T1 → T6` (Phase 3) | ✅ Match |
+| T7 | T4 | `T4 → T7` (Phase 4) | ✅ Match |
 
-Nota: o validador mapeia todas as `### Tn:` para a última phase header anterior ao `Task Breakdown` (Phase 3), então a paridade de diagrama vale globalmente — arestas do diagrama = {T1→T2, T2→T3, T3→T4, T4→T5, T1→T6} = exatamente o conjunto de `Depends on` declarados.
+Nota: o validador mapeia todas as `### Tn:` para a última phase header anterior ao `Task Breakdown` (Phase 4), então a paridade de diagrama vale globalmente — arestas do diagrama = {T1→T2, T2→T3, T3→T4, T4→T5, T1→T6, T4→T7} = exatamente o conjunto de `Depends on` declarados.
 
 ## Test Co-location Validation
 
@@ -305,5 +344,6 @@ Nota: o validador mapeia todas as `### Tn:` para a última phase header anterior
 | T4: sheet screen host | Tela 2 widget (widget) | widget | widget | ✅ OK |
 | T5: catálogo → Tela 2 | navegação widget (widget) | widget | widget | ✅ OK |
 | T6: schema label da seção de folha de topo | derivação (unit) | unit | unit | ✅ OK |
+| T7: Tela 2 read-only | Tela 2 widget (widget) | widget | widget | ✅ OK |
 
 Nenhuma task usa `Tests: none`.

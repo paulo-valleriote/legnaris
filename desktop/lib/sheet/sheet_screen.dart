@@ -1,11 +1,11 @@
-/// Screen 2 (Tela 2) — the navigable sheet surface (RND-14 … RND-19).
+/// Screen 2 (Tela 2) — the navigable sheet surface (RND-14 … RND-20).
 ///
 /// Demonstration host for the UI Engine: it fetches the template detail on
-/// demand, seeds a local draft from the schema defaults (no sheet exists until
-/// Phase 4) and lets [SheetForm] edit that draft. Nothing is created, saved or
-/// persisted — the draft is volatile and the app issues no mutation.
-/// Per-field state isolation arrives with LGN-102; the real save cycle with
-/// Phase 4.
+/// demand and renders [SheetForm] read-only with the schema defaults as values.
+/// No sheet exists until Phase 4, so there is nothing to edit; nothing is
+/// created, saved or persisted and the app issues no mutation. The editable
+/// capability stays in the control/form; the real save cycle arrives with
+/// Phase 4 and per-field rebuild with LGN-102.
 library;
 
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
 import 'package:legnaris/engine/field_grouping.dart';
+import 'package:legnaris/engine/sheet_defaults.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/tokens.dart';
@@ -39,7 +40,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     );
     final template = state.template;
     if (template != null && _data == null) {
-      _data = _seedDefaults(template);
+      _data = seedDefaults(template.fields);
     }
 
     return Column(
@@ -136,37 +137,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
 
     final data = _data!;
     return SingleChildScrollView(
-      child: SheetForm(
-        fields: template.fields,
-        data: data,
-        onChanged: (path, value) => setState(() => _setValue(data, path, value)),
-      ),
+      child: SheetForm(fields: template.fields, data: data, onChanged: null),
     );
-  }
-
-  Map<String, Object?> _seedDefaults(TemplateDetail template) {
-    final data = <String, Object?>{};
-    for (final section in buildSections(template.fields)) {
-      for (final field in section.leaves) {
-        _setValue(data, field.path, field.schema.defaultValue);
-      }
-    }
-    return data;
-  }
-
-  void _setValue(Map<String, Object?> data, String path, Object? value) {
-    final segments = path.split('.');
-    Map<String, Object?> cursor = data;
-    for (final segment in segments.take(segments.length - 1)) {
-      final next = cursor[segment];
-      if (next is Map<String, Object?>) {
-        cursor = next;
-      } else {
-        final created = <String, Object?>{};
-        cursor[segment] = created;
-        cursor = created;
-      }
-    }
-    cursor[segments.last] = value;
   }
 }

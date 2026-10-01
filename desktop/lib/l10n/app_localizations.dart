@@ -250,6 +250,12 @@ abstract class AppLocalizations {
   /// **'This template has no fields.'**
   String get templateNoFields;
 
+  /// Header of the read-only field preview card in the creation dialog (PRV-01, PRV-06).
+  ///
+  /// In en, this message translates to:
+  /// **'Read-only preview'**
+  String get createSheetPreviewLabel;
+
   /// Label of the sheet-name input in the creation dialog (TPL-11).
   ///
   /// In en, this message translates to:

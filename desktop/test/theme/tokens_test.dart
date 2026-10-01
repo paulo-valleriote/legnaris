@@ -56,6 +56,13 @@ void main() {
     });
   });
 
+  group('creation dialog preview (LGN-100)', () {
+    test('Happy path: preview layout tokens use the design sizes', () {
+      expect(AppSizes.createSheetDialogWidth, 560);
+      expect(AppSizes.previewCardMaxHeight, 420);
+    });
+  });
+
   group('derived values (no magic numbers)', () {
     test('Happy path: shellMinWidthWithPanel is derived from its parts', () {
       expect(
