@@ -208,6 +208,53 @@ void main() {
     );
   });
 
+  group('stacked layout (PRV-01, PRV-06)', () {
+    testWidgets(
+      'Happy path: the card header states the preview is read-only (PRV-06)',
+      (tester) async {
+        await pumpCatalog(tester);
+        await openDialog(tester);
+
+        expect(inPreview(find.text('Read-only preview')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Happy path: the preview card renders below the sheet-name input (PRV-01)',
+      (tester) async {
+        await pumpCatalog(tester);
+        await openDialog(tester);
+
+        final cardTop =
+            tester.getTopLeft(find.byKey(const Key('create-sheet-preview'))).dy;
+        final nameTop = tester
+            .getTopLeft(find.byKey(const Key('create-sheet-name-input')))
+            .dy;
+
+        expect(cardTop, greaterThan(nameTop));
+      },
+    );
+
+    testWidgets(
+      'Happy path: the template name and id share one row, separated by a hairline (PRV-01)',
+      (tester) async {
+        await pumpCatalog(tester);
+        await openDialog(tester);
+
+        final name = inDialog(find.text('Fantasy Template'));
+        final id = inDialog(find.byKey(const Key('create-sheet-template-id')));
+        expect(name, findsOneWidget);
+        expect(id, findsOneWidget);
+        expect(tester.getCenter(id).dy, closeTo(tester.getCenter(name).dy, 1));
+        expect(tester.getCenter(name).dx, lessThan(tester.getCenter(id).dx));
+        expect(
+          inDialog(find.byKey(const Key('create-sheet-template-id-divider'))),
+          findsOneWidget,
+        );
+      },
+    );
+  });
+
   group('read-only and no mutation (PRV-06)', () {
     testWidgets(
       'Edge: no preview control is enabled and the transport carries only GETs (PRV-06)',

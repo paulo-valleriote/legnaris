@@ -58,8 +58,7 @@ void main() {
 
   group('creation dialog preview (LGN-100)', () {
     test('Happy path: preview layout tokens use the design sizes', () {
-      expect(AppSizes.createSheetDialogWidth, 720);
-      expect(AppSizes.previewCardWidth, 360);
+      expect(AppSizes.createSheetDialogWidth, 560);
       expect(AppSizes.previewCardMaxHeight, 420);
     });
   });

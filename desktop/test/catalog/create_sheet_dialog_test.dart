@@ -188,6 +188,10 @@ void main() {
           findsOneWidget,
         );
         expect(
+          inDialog(find.byKey(const Key('create-sheet-template-id-divider'))),
+          findsNothing,
+        );
+        expect(
           inDialog(find.byKey(const Key('sheet-section-stats'))),
           findsOneWidget,
         );

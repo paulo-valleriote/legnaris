@@ -179,7 +179,7 @@ component that no longer exists.
 **Tests**: header "Read-only preview"; topo do card **abaixo** do topo do input de nome; nome e id na mesma linha; nome vazio → id presente e sem divisor; tokens: 560 e `previewCardWidth` ausente.
 **Gate**: build (l10n) + full · **Commits**:
 `feat(LGN-100): move the preview below the sheet name`
-**Status**: ⏳ Pending
+**Status**: ✅ Done — coluna única 560px, header "Read-only preview", `nome | id` com divisor; suíte 291 passed / 4 skipped; `flutter analyze` limpo
 
 ### T7: Always-visible preview scrollbar (UAT amend)
 

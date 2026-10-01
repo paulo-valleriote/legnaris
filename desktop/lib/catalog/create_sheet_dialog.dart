@@ -40,17 +40,13 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
     return AlertDialog(
       content: SizedBox(
         width: AppSizes.createSheetDialogWidth,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: _information(context, state, localizations),
-            ),
-            const SizedBox(width: AppSpacing.lg),
-            SizedBox(
-              width: AppSizes.previewCardWidth,
-              child: _preview(context, state, localizations),
-            ),
+            _information(context, state, localizations),
+            const SizedBox(height: AppSpacing.lg),
+            _preview(context, state, localizations),
           ],
         ),
       ),
@@ -70,7 +66,8 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
     );
   }
 
-  /// The left column: template identity and the sheet-name input.
+  /// The identity block: template label, the `name | id` row and the sheet-name
+  /// input. The preview card renders below it.
   Widget _information(
     BuildContext context,
     TemplateDetailState state,
@@ -86,15 +83,7 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
       children: [
         Text(localizations.createSheetTemplateLabel, style: muted),
         const SizedBox(height: AppSpacing.xs),
-        if (state.template != null) ...[
-          Text(state.template!.name, style: theme.textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.xs),
-        ],
-        Text(
-          widget.templateId,
-          key: const Key('create-sheet-template-id'),
-          style: theme.textTheme.bodyMedium,
-        ),
+        _identity(context, state.template?.name),
         const SizedBox(height: AppSpacing.lg),
         Text(localizations.createSheetNameLabel, style: muted),
         const SizedBox(height: AppSpacing.xs),
@@ -104,6 +93,40 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
           decoration: InputDecoration(
             hintText: localizations.createSheetNamePlaceholder,
           ),
+        ),
+      ],
+    );
+  }
+
+  /// Template name and id on one line, separated by a hairline divider; the
+  /// divider is omitted when the name is empty, so the row never shows a
+  /// dangling separator.
+  Widget _identity(BuildContext context, String? name) {
+    final theme = Theme.of(context);
+    final hasName = name != null && name.isNotEmpty;
+    return Row(
+      children: [
+        if (hasName) ...[
+          Flexible(
+            child: Text(
+              name,
+              style: theme.textTheme.titleMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            key: const Key('create-sheet-template-id-divider'),
+            width: AppSizes.hairline,
+            height: AppSpacing.lg,
+            color: theme.colorScheme.outlineVariant,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+        ],
+        Text(
+          widget.templateId,
+          key: const Key('create-sheet-template-id'),
+          style: theme.textTheme.bodyMedium,
         ),
       ],
     );

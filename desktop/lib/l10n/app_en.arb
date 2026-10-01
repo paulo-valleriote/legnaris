@@ -118,9 +118,9 @@
   "@templateNoFields": {
     "description": "Shown in place of the prefix summary when the template fields tree is empty (TPL-02 edge)."
   },
-  "createSheetPreviewLabel": "Preview",
+  "createSheetPreviewLabel": "Read-only preview",
   "@createSheetPreviewLabel": {
-    "description": "Caption header of the read-only field preview card in the creation dialog (PRV-01)."
+    "description": "Header of the read-only field preview card in the creation dialog (PRV-01, PRV-06)."
   },
   "createSheetNameLabel": "Sheet name",
   "@createSheetNameLabel": {
