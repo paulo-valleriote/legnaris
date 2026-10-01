@@ -3,6 +3,7 @@ package template
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // CycleError holds details about a detected cycle.
@@ -62,6 +63,19 @@ type NotEditableError struct {
 
 func (e *NotEditableError) Error() string {
 	return "field is not editable: " + e.Key
+}
+
+// ExclusiveGroupConflictError reports an update that turns on two or more
+// members of the same exclusive group in a single payload. The intent is
+// ambiguous (the group allows at most one non-zero member), so the caller must
+// resolve it instead of letting the DAG apply both and double-count.
+type ExclusiveGroupConflictError struct {
+	Group string
+	Keys  []string
+}
+
+func (e *ExclusiveGroupConflictError) Error() string {
+	return fmt.Sprintf("conflicting exclusive options in group '%s': %v", e.Group, e.Keys)
 }
 
 // FieldNameError reports a field name rejected at DAG build time.
@@ -140,4 +154,10 @@ func ErrUnknownField(key string) error {
 // computes itself instead of accepting from the caller.
 func ErrNotEditable(key string) error {
 	return &NotEditableError{Key: key}
+}
+
+// ErrExclusiveGroupConflict returns an error when one payload turns on two or
+// more members of the same exclusive group.
+func ErrExclusiveGroupConflict(group string, keys []string) error {
+	return &ExclusiveGroupConflictError{Group: group, Keys: slices.Clone(keys)}
 }

@@ -144,11 +144,11 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-01 | P1: Contract advertises exclusive groups | Execute | Implementing |
 | EXC-02 | P1: Contract advertises exclusive groups | Execute | Implementing |
 | EXC-03 | P1: Contract advertises exclusive groups | Execute | Implementing |
-| EXC-04 | P1: Backend enforces at most one active member | Execute | Pending |
-| EXC-05 | P1: Backend enforces at most one active member | Execute | Pending |
-| EXC-06 | P1: Backend enforces at most one active member | Execute | Pending |
+| EXC-04 | P1: Backend enforces at most one active member | Execute | Implementing |
+| EXC-05 | P1: Backend enforces at most one active member | Execute | Implementing |
+| EXC-06 | P1: Backend enforces at most one active member | Execute | Implementing |
 | EXC-07 | P1: Backend enforces at most one active member | Execute | Pending |
-| EXC-08 | P1: Backend enforces at most one active member | Execute | Pending |
+| EXC-08 | P1: Backend enforces at most one active member | Execute | Implementing |
 | EXC-09 | P1: Desktop renders a group as one control | Execute | Pending |
 | EXC-10 | P1: Desktop renders a group as one control | Execute | Pending |
 | EXC-11 | P1: Desktop renders a group as one control | Execute | Pending |

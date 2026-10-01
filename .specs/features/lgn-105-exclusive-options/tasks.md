@@ -169,12 +169,12 @@ T9 → T10
 
 **Done when**:
 
-- [ ] Turning one member on adds `0` for the absent siblings; a sibling already `0` is not duplicated
-- [ ] Two non-zero members of one group returns `*ExclusiveGroupConflictError` naming the group and keys
-- [ ] Setting a member to zero leaves siblings unchanged; a 1-member group is not enforced; a derived member is never grouped
-- [ ] An update touching no exclusive group returns the input unchanged and allocates no new map
-- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...`
-- [ ] Test count: new table-driven DAG tests for every listed edge plus the happy path
+- [x] Turning one member on adds `0` for the absent siblings; a sibling already `0` is not duplicated
+- [x] Two non-zero members of one group returns `*ExclusiveGroupConflictError` naming the group and keys
+- [x] Setting a member to zero leaves siblings unchanged; a 1-member group is not enforced; a derived member is never grouped
+- [x] An update touching no exclusive group returns the input unchanged and allocates no new map
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [x] Test count: new table-driven DAG tests for every listed edge plus the happy path
 
 **Tests**: unit
 **Gate**: build (backend)

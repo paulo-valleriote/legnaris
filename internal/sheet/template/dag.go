@@ -29,14 +29,15 @@ import (
 // do through HasNode — deadlocks whenever a writer is queued between the two
 // acquisitions, which sync.RWMutex explicitly forbids.
 type DAG struct {
-	// mu guards nodes, adjacencyList and topologicalOrder. Read them through
-	// the accessors (HasNode, GetNode, GetChildren) or while holding mu
-	// explicitly in Recalculate — never acquire it twice.
+	// mu guards nodes, adjacencyList, topologicalOrder and exclusiveGroups.
+	// Read them through the accessors (HasNode, GetNode, GetChildren) or while
+	// holding mu explicitly in Recalculate — never acquire it twice.
 	mu               sync.RWMutex
 	templateID       string
 	nodes            map[string]*Node
 	adjacencyList    map[string][]string
 	topologicalOrder []string
+	exclusiveGroups  map[string][]string
 	formulaEngine    *engine.FormulaEngine
 }
 
@@ -139,6 +140,8 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 		return nil, err
 	}
 
+	dag.exclusiveGroups = buildExclusiveGroups(leafSchemas, leafPaths)
+
 	topoOrder, err := topologicalSort(dag.nodes, dag.adjacencyList)
 	if err != nil {
 		return nil, err
@@ -153,10 +156,11 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 // newDAG allocates and initializes a DAG with empty collections.
 func newDAG(templateID string, eng *engine.FormulaEngine) *DAG {
 	return &DAG{
-		templateID:    templateID,
-		nodes:         make(map[string]*Node),
-		adjacencyList: make(map[string][]string),
-		formulaEngine: eng,
+		templateID:      templateID,
+		nodes:           make(map[string]*Node),
+		adjacencyList:   make(map[string][]string),
+		exclusiveGroups: make(map[string][]string),
+		formulaEngine:   eng,
 	}
 }
 
@@ -222,6 +226,29 @@ func buildCompilationEnv(paths []Path) map[string]any {
 		env[path.EngineKey()] = 0.0
 	}
 	return env
+}
+
+// buildExclusiveGroups indexes editable leaves by their exclusive group id.
+// Only editable leaves join a group, and a group with fewer than two members is
+// dropped: a single editable member has nothing to exclude (EXC-08), and a
+// derived leaf is computed, never chosen. Members are sorted so conflict errors
+// and tests are deterministic.
+func buildExclusiveGroups(schemas []*FieldSchema, paths []Path) map[string][]string {
+	groups := make(map[string][]string)
+	for i, schema := range schemas {
+		if !schema.IsEditable || schema.ExclusiveGroup == "" {
+			continue
+		}
+		groups[schema.ExclusiveGroup] = append(groups[schema.ExclusiveGroup], paths[i].String())
+	}
+	for id, members := range groups {
+		if len(members) < 2 {
+			delete(groups, id)
+			continue
+		}
+		slices.Sort(members)
+	}
+	return groups
 }
 
 // compileNodeFormulas compiles formulas for all leaf nodes and populates dag.nodes.
@@ -547,6 +574,105 @@ func (d *DAG) ValidateUpdateKeys(updates map[string]any) error {
 		}
 	}
 	return nil
+}
+
+// NormalizeExclusiveUpdates returns a copy of updates with each touched
+// exclusive group collapsed to at most one non-zero member. A payload that
+// turns on two or more members of the same group is rejected with an
+// ExclusiveGroupConflictError; a payload that touches no exclusive group — or
+// only turns members off — is returned unchanged (same map, no allocation).
+//
+// It takes the read lock itself, exactly once, like ValidateUpdateKeys, so it
+// must not be called while the caller already holds it (a queued writer turns a
+// second RLock into a deadlock, see Recalculate).
+func (d *DAG) NormalizeExclusiveUpdates(updates map[string]any) (map[string]any, error) {
+	if d == nil {
+		return nil, ErrNilDAG
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	var normalized map[string]any
+	for group, members := range d.exclusiveGroups {
+		var on []string
+		for _, key := range members {
+			if value, present := updates[key]; present && isNonZeroNumber(value) {
+				on = append(on, key)
+			}
+		}
+
+		switch len(on) {
+		case 0:
+			// Turning a member off is allowed: the group may end with no
+			// active member, so the siblings stay untouched (EXC-06).
+			continue
+		case 1:
+			if normalized == nil {
+				normalized = copyFlatUpdates(updates)
+			}
+			for _, key := range members {
+				if key == on[0] {
+					continue
+				}
+				if _, present := updates[key]; present {
+					continue
+				}
+				normalized[key] = 0
+			}
+		default:
+			return nil, ErrExclusiveGroupConflict(group, on)
+		}
+	}
+
+	if normalized == nil {
+		return updates, nil
+	}
+	return normalized, nil
+}
+
+// isNonZeroNumber reports whether v holds a numeric value other than zero.
+// Every int/uint size, float32 and float64 count; any other value — a string, a
+// bool, nil — is off. maputils.Equal(v, 0) alone is unsafe here: it returns
+// false for non-numeric values, which would read a string as "on".
+func isNonZeroNumber(v any) bool {
+	switch value := v.(type) {
+	case int:
+		return value != 0
+	case int8:
+		return value != 0
+	case int16:
+		return value != 0
+	case int32:
+		return value != 0
+	case int64:
+		return value != 0
+	case uint:
+		return value != 0
+	case uint8:
+		return value != 0
+	case uint16:
+		return value != 0
+	case uint32:
+		return value != 0
+	case uint64:
+		return value != 0
+	case float32:
+		return value != 0
+	case float64:
+		return value != 0
+	}
+	return false
+}
+
+// copyFlatUpdates shallow-copies a flat update map so normalization can add
+// sibling keys without mutating the caller's payload.
+func copyFlatUpdates(updates map[string]any) map[string]any {
+	copied := make(map[string]any, len(updates))
+	for key, value := range updates {
+		copied[key] = value
+	}
+	return copied
 }
 
 // prepareData deep-copies original data and applies updates, returning the sheet data and engine environment.
