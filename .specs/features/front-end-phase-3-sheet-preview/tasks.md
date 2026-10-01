@@ -148,6 +148,7 @@ component that no longer exists.
 **Tests**: full suite stays green after the deletions (the dialog tests no longer import the summary).
 **Gate**: full · **Commits**:
 `refactor(LGN-100): remove the phase-2 template summary superseded by the preview`
+**Status**: ✅ Done — `template_summary.dart` + teste removidos; spec da Fase 2 amendada (0/0); suíte 252 passed / 4 skipped; `flutter analyze` limpo
 
 ## Phase Execution Map
 
