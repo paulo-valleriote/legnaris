@@ -17,7 +17,7 @@ void main() {
   const detailBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}},
-  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 1}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 1}}, "acUsesCon": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}}},
   "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
 }}}
 ''';
@@ -244,5 +244,100 @@ void main() {
       expect(fresh.isPending, isFalse);
       expect(recorded.every((request) => request.method == 'GET'), isTrue);
     });
+  });
+
+  group('exclusive selection (EXC-13, EXC-14, EXC-16)', () {
+    test(
+      'Happy path: setExclusive sets the selected member to 1 and every sibling to 0 in one emission (EXC-13)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerOver(
+          (request) async => http.Response(detailBody, 200),
+          recorded,
+        );
+        keepAlive(container, 'fantasy_v1');
+        await pumpEventQueue();
+        final before = stateOf(container, 'fantasy_v1');
+        final emissions = <SheetEditState>[];
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, next) => emissions.add(next),
+        );
+        addTearDown(subscription.close);
+
+        container
+            .read(sheetEditControllerProvider('fantasy_v1').notifier)
+            .setExclusive('config.acUsesCon', const ['config.acUsesDex']);
+
+        final after = stateOf(container, 'fantasy_v1');
+        expect(valueAtPath(after.data, 'config.acUsesCon'), 1);
+        expect(valueAtPath(after.data, 'config.acUsesDex'), 0);
+        expect(
+          after.editedPaths,
+          containsAll(['config.acUsesCon', 'config.acUsesDex']),
+        );
+        expect(
+          emissions,
+          hasLength(1),
+          reason: 'the whole group must change in a single emission',
+        );
+        expect(identical(after, before), isFalse);
+        expect(recorded, hasLength(1));
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+      },
+    );
+
+    test(
+      'Edge: selecting the already-active option leaves the state instance identical and emits nothing (EXC-14)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerOver(
+          (request) async => http.Response(detailBody, 200),
+          recorded,
+        );
+        keepAlive(container, 'fantasy_v1');
+        await pumpEventQueue();
+        final before = stateOf(container, 'fantasy_v1');
+        var emissions = 0;
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, _) => emissions++,
+        );
+        addTearDown(subscription.close);
+
+        container
+            .read(sheetEditControllerProvider('fantasy_v1').notifier)
+            .setExclusive('config.acUsesDex', const ['config.acUsesCon']);
+
+        expect(identical(stateOf(container, 'fantasy_v1'), before), isTrue);
+        expect(emissions, 0);
+        expect(recorded, hasLength(1));
+      },
+    );
+
+    test(
+      'Edge: a selected member already on still zeroes a lingering sibling (EXC-13)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerOver(
+          (request) async => http.Response(detailBody, 200),
+          recorded,
+        );
+        keepAlive(container, 'fantasy_v1');
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider('fantasy_v1').notifier,
+        );
+        notifier.setPath('config.acUsesCon', 1);
+        final before = stateOf(container, 'fantasy_v1');
+
+        notifier.setExclusive('config.acUsesDex', const ['config.acUsesCon']);
+
+        final after = stateOf(container, 'fantasy_v1');
+        expect(valueAtPath(after.data, 'config.acUsesDex'), 1);
+        expect(valueAtPath(after.data, 'config.acUsesCon'), 0);
+        expect(identical(after, before), isFalse);
+      },
+    );
   });
 }

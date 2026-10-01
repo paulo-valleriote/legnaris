@@ -337,10 +337,10 @@ T9 → T10
 
 **Done when**:
 
-- [ ] One call yields the selected member `1` and every sibling `0` in a single new state; both paths are recorded as edited
-- [ ] Selecting the already-active option returns the same state instance (no emission)
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/sheet`
-- [ ] Test count: unit tests for batch set, single emission, and the no-op
+- [x] One call yields the selected member `1` and every sibling `0` in a single new state; both paths are recorded as edited
+- [x] Selecting the already-active option returns the same state instance (no emission)
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test test/sheet`
+- [x] Test count: unit tests for batch set, single emission, and the no-op
 
 **Tests**: unit
 **Gate**: quick (desktop)
