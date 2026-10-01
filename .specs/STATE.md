@@ -13,10 +13,10 @@
 ## Handoff
 
 - **Feature**: `lgn-102-granular-rebuild` (.specs/features/lgn-102-granular-rebuild)
-- **Phase / Task**: Execute — T5 complete, start of T6 (F5 routing in the shell)
-- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers)
-- **In-progress** (file:line): none — T5 committed
-- **Next step**: implement T6 — `desktop/lib/shell/shortcut_registry.dart` F5 dispatch by surface + 2 tests in `shortcut_registry_test.dart`, gate `cd desktop && flutter test`, commit `feat(shell): route F5 to the active sheet`
+- **Phase / Task**: Execute — T6 complete, start of T7 (sheet F5 refresh flow)
+- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers), T6 (F5 routing)
+- **In-progress** (file:line): none — T6 committed
+- **Next step**: implement T7 — `desktop/lib/sheet/sheet_screen.dart` registers the active sheet, listens to the tick, confirm → invalidate edit provider + `load()`; 7 tests in `sheet_screen_test.dart`; build gate; commit `feat(sheet): refresh the template behind a discard confirmation`
 - **Blockers**: none
 - **Uncommitted files**: none (untracked skill dirs `.claude/`, `.cursor/`, `.windsurf/` — never commit)
 - **Branch**: feat/LGN-100-front-end-phase-3-sheet-preview

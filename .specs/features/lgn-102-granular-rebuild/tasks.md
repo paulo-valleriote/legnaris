@@ -233,10 +233,10 @@ T8
 
 **Done when**:
 
-- [ ] F5 with a registered sheet bumps the tick and issues no catalog request
-- [ ] F5 without a sheet keeps today's behavior (catalog refresh; blocked while the creation dialog is open)
-- [ ] Gate check passes: `cd desktop && flutter test`
-- [ ] Test count: 2 new tests in `desktop/test/shell/shortcut_registry_test.dart` (existing guard tests stay green)
+- [x] F5 with a registered sheet bumps the tick and issues no catalog request
+- [x] F5 without a sheet keeps today's behavior (catalog refresh; blocked while the creation dialog is open)
+- [x] Gate check passes: `cd desktop && flutter test`
+- [x] Test count: 2 new tests in `desktop/test/shell/shortcut_registry_test.dart` (existing guard tests stay green)
 
 **Tests**: widget
 **Gate**: quick
