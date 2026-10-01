@@ -79,6 +79,19 @@ abstract final class AppSizes {
   /// editable inputs and read-only values share one alignment (RND-06 … RND-10).
   static const double fieldControlWidth = 160;
 
+  /// Tight width of the creation dialog (LGN-100). It holds the two columns
+  /// (dialog information and preview card); a tight width keeps `AlertDialog`'s
+  /// `IntrinsicWidth` from hugging the content and collapsing the layout.
+  static const double createSheetDialogWidth = 720;
+
+  /// Width of the read-only preview card beside the creation dialog
+  /// information (LGN-100).
+  static const double previewCardWidth = 360;
+
+  /// Bounded height of the preview card body before it scrolls (LGN-100), so
+  /// a large template never pushes the dialog past the window.
+  static const double previewCardMaxHeight = 420;
+
   /// Window width below which the right panel hides first (CAT-03).
   /// Derived from its parts — including the two 1px vertical dividers the
   /// shell row lays out — so the content area sits at its minimum measure

@@ -107,6 +107,7 @@ widgets carry no magic numbers; clustered with the other layout dimensions.
 **Tests**: (write first) `Happy path: preview tokens use the design sizes` —
 `createSheetDialogWidth == 720`, `previewCardWidth == 360`, `previewCardMaxHeight == 420`.
 **Gate**: full · **Commits**: `feat(LGN-100): add preview layout tokens`
+**Status**: ✅ Done — suite 255 passed / 4 skipped; `flutter analyze` clean
 
 ### T3: Two-column dialog with always-visible read-only preview card
 
