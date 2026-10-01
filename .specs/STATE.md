@@ -13,10 +13,10 @@
 ## Handoff
 
 - **Feature**: `lgn-102-granular-rebuild` (.specs/features/lgn-102-granular-rebuild)
-- **Phase / Task**: Execute — **T8 complete; all 8 tasks done** (200-field render budget, GRN-10, under the user-approved amendment)
-- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers), T6 (F5 routing), T7 (sheet F5 refresh flow), T8 (200-field render budget) — T8 gate green: `flutter analyze && flutter test` → 326 passed + 4 skips
-- **In-progress** (file:line): none — T8 uncommitted pending commit `test(sheet): assert the 200-field render budget`
-- **Next step**: commit T8 (test + spec/tasks/context amendments + this STATE), then dispatch the independent Verifier (spec-anchored check + discrimination sensor) → `.specs/features/lgn-102-granular-rebuild/validation.md`, run `validate_state.py`, final Handoff update
-- **Blockers**: none — GRN-10 escalation resolved by user decision (2026-10-01): debug-widget test holds a <4000 ms regression budget (measured 1800–2700 ms under full-suite parallel load, ~1000 ms file-alone); the <100 ms product AC stays in profile mode per spec line 46
-- **Uncommitted files**: `desktop/test/sheet/sheet_screen_test.dart` (T8 test), `.specs/features/lgn-102-granular-rebuild/{spec.md,tasks.md,context.md}` (GRN-10 amendment wording), this STATE; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
+- **Phase / Task**: Execute — **COMPLETE** (T1–T8 done and committed; independent Verifier PASS)
+- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers), T6 (F5 routing), T7 (sheet F5 refresh flow), T8 (200-field render budget, commit `34df4d4`); Verifier: 19/19 ACs matched, 7/7 sensor mutants killed, gate 326 passed + 4 skips, `validate_state.py` exit 0 — report in `.specs/features/lgn-102-granular-rebuild/validation.md`
+- **In-progress** (file:line): none
+- **Next step**: commit the validation report + GRN-10 traceability flip; then interactive UAT (if requested) and lessons distillation (none required — clean PASS, no signal). Profile-mode <100 ms GRN-10 measurement remains a manual TDD release check per spec decision line 46
+- **Blockers**: none
+- **Uncommitted files**: `.specs/features/lgn-102-granular-rebuild/{spec.md,validation.md}`, this STATE; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
 - **Branch**: feat/LGN-100-front-end-phase-3-sheet-preview

@@ -149,7 +149,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | GRN-07 | P1: Granular rebuild per field | Execute | Verified |
 | GRN-08 | P1: Granular rebuild per field | Execute | Verified |
 | GRN-09 | P1: Granular rebuild per field | Execute | Verified |
-| GRN-10 | P1: Render performance on a full-size template | Design | Pending |
+| GRN-10 | P1: Render performance on a full-size template | Execute | Verified |
 | GRN-11 | P1: Local-edit awareness and discard guards | Execute | Verified |
 | GRN-12 | P1: Local-edit awareness and discard guards | Execute | Verified |
 | GRN-13 | P1: Local-edit awareness and discard guards | Execute | Verified |
