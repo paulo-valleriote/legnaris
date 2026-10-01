@@ -309,11 +309,11 @@ T9 → T10
 
 **Done when**:
 
-- [ ] Edit mode renders the injected exclusive builder for the group and never two switches for its members
-- [ ] Data mode renders the group disabled with the active option; a group with no active member renders none selected
-- [ ] Providing one builder without the other asserts at construction
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
-- [ ] Test count: widget tests for injected/data/read-only and the assertion
+- [x] Edit mode renders the injected exclusive builder for the group and never two switches for its members
+- [x] Data mode renders the group disabled with the active option; a group with no active member renders none selected
+- [x] Providing one builder without the other asserts at construction
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
+- [x] Test count: widget tests for injected/data/read-only and the assertion
 
 **Tests**: widget
 **Gate**: build (desktop)

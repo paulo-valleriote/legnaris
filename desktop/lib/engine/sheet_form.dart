@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/api/models/template.dart';
+import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/engine/field_grouping.dart';
 import 'package:legnaris/theme/tokens.dart';
@@ -23,6 +24,17 @@ typedef SheetControlBuilder = Widget Function(
   SheetField field,
 );
 
+/// Builds the control widget of one exclusive row, replacing the default
+/// [SheetExclusiveControl]. Injected together with [SheetForm.controlBuilder]
+/// so the editable screen owns value subscription and edit reporting; a null
+/// `onSelect` renders the control read-only.
+typedef SheetExclusiveControlBuilder = Widget Function(
+  BuildContext context,
+  SheetExclusiveGroup group,
+  String? selectedPath,
+  ValueChanged<String>? onSelect,
+);
+
 /// Renders the whole sheet body from a template field tree and the current
 /// values.
 class SheetForm extends StatelessWidget {
@@ -32,9 +44,11 @@ class SheetForm extends StatelessWidget {
     this.data,
     this.onChanged,
     this.controlBuilder,
+    this.exclusiveControlBuilder,
   }) : assert(
-         (data == null) != (controlBuilder == null),
-         'SheetForm needs exactly one control source: data or controlBuilder',
+         (data == null) != (controlBuilder == null) &&
+             (controlBuilder == null) == (exclusiveControlBuilder == null),
+         'SheetForm needs exactly one control source: data, or both builders',
        );
 
   /// Template field tree; sections are derived from it.
@@ -48,6 +62,9 @@ class SheetForm extends StatelessWidget {
 
   /// Per-row control source; when set, [data] and [onChanged] are unused.
   final SheetControlBuilder? controlBuilder;
+
+  /// Exclusive-row control source; provided together with [controlBuilder].
+  final SheetExclusiveControlBuilder? exclusiveControlBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -72,8 +89,50 @@ class SheetForm extends StatelessWidget {
         ),
       ),
       const Divider(),
-      for (final field in section.leaves) _row(context, field),
+      for (final row in section.rows)
+        if (row.exclusive != null)
+          _exclusiveRow(context, row.exclusive!)
+        else
+          _row(context, row.fields.single),
     ];
+  }
+
+  /// One exclusive group row: the humanized group id as the label and the
+  /// group's single control. Its members never render as independent per-field
+  /// controls (EXC-09), so an exclusive row can never expose two toggles.
+  Widget _exclusiveRow(BuildContext context, SheetExclusiveGroup group) {
+    final theme = Theme.of(context);
+    final label = fieldDisplayName(group.id, null);
+    final selected = data == null ? null : _activeOption(group);
+    return Padding(
+      key: Key('sheet-row-${group.id}'),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+          const SizedBox(width: AppSpacing.md),
+          if (exclusiveControlBuilder != null)
+            exclusiveControlBuilder!(context, group, selected, null)
+          else
+            SheetExclusiveControl(
+              group: group,
+              selectedPath: selected,
+              onSelect: null,
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// The active option of [group] for data mode: the first member whose value
+  /// counts as on, or null when the group has no active member (EXC-11).
+  String? _activeOption(SheetExclusiveGroup group) {
+    for (final option in group.options) {
+      if (exclusiveValueIsOn(valueAtPath(data!, option.path))) {
+        return option.path;
+      }
+    }
+    return null;
   }
 
   Widget _row(BuildContext context, SheetField field) {
