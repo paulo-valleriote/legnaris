@@ -29,12 +29,13 @@ type FieldNodeDTO struct {
 
 // FieldSchemaDTO mirrors FieldSchema for the API.
 type FieldSchemaDTO struct {
-	Type       string     `json:"type"`
-	Label      string     `json:"label"`
-	Formula    string     `json:"formula,omitempty"`
-	DependsOn  [][]string `json:"depends_on,omitempty"`
-	IsEditable bool       `json:"is_editable"`
-	Default    float64    `json:"default"`
+	Type           string     `json:"type"`
+	Label          string     `json:"label"`
+	Formula        string     `json:"formula,omitempty"`
+	DependsOn      [][]string `json:"depends_on,omitempty"`
+	IsEditable     bool       `json:"is_editable"`
+	Default        float64    `json:"default"`
+	ExclusiveGroup string     `json:"exclusive_group,omitempty"`
 }
 
 // ToDTO converts a Template to its API representation. The result shares no
@@ -141,11 +142,12 @@ func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 	}
 
 	return &FieldSchemaDTO{
-		Type:       s.Type,
-		Label:      s.Label,
-		Formula:    s.Formula,
-		DependsOn:  cloneDependsOn(s.DependsOn),
-		IsEditable: s.IsEditable,
-		Default:    s.Default,
+		Type:           s.Type,
+		Label:          s.Label,
+		Formula:        s.Formula,
+		DependsOn:      cloneDependsOn(s.DependsOn),
+		IsEditable:     s.IsEditable,
+		Default:        s.Default,
+		ExclusiveGroup: s.ExclusiveGroup,
 	}
 }

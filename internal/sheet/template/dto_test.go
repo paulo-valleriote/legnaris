@@ -114,6 +114,61 @@ func TestTemplateToDTO_Edge_NilDependsOn(t *testing.T) {
 	assert.Nil(t, dto.DependsOn)
 }
 
+// TestFieldSchemaDTO_MarshalJSON_ExclusiveGroup pins the contract metadata key
+// (EXC-01/EXC-02): a declared group is serialized verbatim, an empty group is
+// omitted so every untagged leaf stays byte-identical to the pre-LGN-105
+// payload.
+func TestFieldSchemaDTO_MarshalJSON_ExclusiveGroup(t *testing.T) {
+	tests := []struct {
+		name           string
+		exclusiveGroup string
+		want           string
+	}{
+		{
+			name:           "Happy path: a declared group is serialized",
+			exclusiveGroup: "armorClassAbility",
+			want:           `{"type":"number","label":"","is_editable":true,"default":0,"exclusive_group":"armorClassAbility"}`,
+		},
+		{
+			name:           "Edge: an empty group omits the key",
+			exclusiveGroup: "",
+			want:           `{"type":"number","label":"","is_editable":true,"default":0}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := json.Marshal(FieldSchemaDTO{
+				Type:           fieldTypeNumber,
+				IsEditable:     true,
+				ExclusiveGroup: tc.exclusiveGroup,
+			})
+			require.NoError(t, err)
+
+			assert.JSONEq(t, tc.want, string(raw))
+		})
+	}
+}
+
+// TestFieldSchemaToDTO_CopiesExclusiveGroup pins the copy half of the contract
+// (EXC-01): toDTO carries the group into a fresh schema, so a caller that
+// mutates the DTO never reaches the registered template.
+func TestFieldSchemaToDTO_CopiesExclusiveGroup(t *testing.T) {
+	source := &FieldSchema{
+		Type:           fieldTypeNumber,
+		IsEditable:     true,
+		ExclusiveGroup: "armorClassAbility",
+	}
+
+	dto := source.toDTO()
+	require.NotNil(t, dto)
+	assert.Equal(t, "armorClassAbility", dto.ExclusiveGroup)
+
+	dto.ExclusiveGroup = "tampered"
+	assert.Equal(t, "armorClassAbility", source.ExclusiveGroup,
+		"mutating the DTO changed the source schema")
+}
+
 // TestTemplateToDTO_Edge_NilSchema covers group nodes, whose API shape is a
 // children map with no schema at all.
 func TestTemplateToDTO_Edge_NilSchema(t *testing.T) {

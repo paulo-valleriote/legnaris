@@ -115,10 +115,10 @@ T9 → T10
 
 **Done when**:
 
-- [ ] A schema with a group serializes `"exclusive_group":"<id>"`; a schema without one omits the key
-- [ ] `ToDTO` copies the value and shares no memory with the source
-- [ ] Gate check passes: `go test ./internal/sheet/template/...`
-- [ ] Test count: new table cases in the DTO test (include/omit/copy), no silent deletions
+- [x] A schema with a group serializes `"exclusive_group":"<id>"`; a schema without one omits the key
+- [x] `ToDTO` copies the value and shares no memory with the source
+- [x] Gate check passes: `go test ./internal/sheet/template/...`
+- [x] Test count: new table cases in the DTO test (include/omit/copy), no silent deletions
 
 **Tests**: unit
 **Gate**: quick (backend)
