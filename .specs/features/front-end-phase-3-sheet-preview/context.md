@@ -2,7 +2,7 @@
 
 **Gathered:** 2026-10-01
 **Spec:** `.specs/features/front-end-phase-3-sheet-preview/spec.md`
-**Status:** Ready for design
+**Status:** Design amended (UAT 2026-10-01)
 
 ---
 
@@ -17,13 +17,21 @@ Read-only preview of the template's fields with their base values, derived entir
 ### Surface (revised after the first round)
 
 - Round 1 chose the right panel with the dialog closing — the maintainer rejected it on seeing the real cost: **the typed sheet name was discarded**.
-- Final decision: the preview lives **inside the same dialog**, in a **card grouping to the right** of the current dialog information (two columns: left = template identity + sheet-name field, right = preview card).
+- Round 2 chose the preview **inside the same dialog**, in a **card grouping to the right** of the dialog information (two columns).
+- Round 3 (UAT 2026-10-01): on the running dialog the maintainer found the two columns odd and asked for the preview **below the sheet-name field** (single column, 560px content), an **always-visible scrollbar**, a **"Read-only preview"** header and the **template id beside the name** (`nome | id`). This supersedes Round 2's two-column decision.
+- Final decision: the preview lives **inside the same dialog, below the sheet-name input**, at the full content width.
 - The dialog never closes for previewing; no second dialog, no push route, no right-panel section, no `ShellSurface` change.
 
 ### Visibility
 
 - The preview card is **always visible** once `GET /templates/:id` settles — no "Preview" action, no toggle.
-- Loading / mapped error + Retry / no-fields render **inside the preview area** (the right column is the only part that reacts to loading).
+- Loading / mapped error + Retry / no-fields render **inside the preview card** (the card is the only part that reacts to loading).
+
+### Scroll & read-only affordances (UAT 2026-10-01)
+
+- The card body keeps a bounded height (`previewCardMaxHeight = 420`) and wraps its scroll view in a `Scrollbar(thumbVisibility: true)` — the overflow is visible, not implicit.
+- The card header reads **"Read-only preview"** (`createSheetPreviewLabel`), so the no-edit contract (PRV-06) is stated, not inferred from greyed controls.
+- Template identity renders **name + id on one row**, separated by a hairline divider; empty name drops the divider (id only).
 
 ### Phase-2 text summary → removed
 
@@ -43,9 +51,9 @@ Read-only preview of the template's fields with their base values, derived entir
 
 ### Agent's Discretion
 
-- Exact column widths and the card's max height / internal scroll bound (must keep the name field and actions reachable — mandatory layout review).
+- Exact dialog content width (locked at 560 in the UAT amend) and the card's max height / internal scroll bound (must keep the name field and actions reachable — mandatory layout review).
 - Position of the caption header and its test key; whether the card wraps `SheetForm` directly or a thin preview widget around it.
-- How the left column's loading/error copy is reduced now that states moved to the right column.
+- How the identity/name block renders now that loading/error states live in the card.
 - Deleting `template_summary.dart` + `template_summary_test.dart` and the summary assertions in `create_sheet_dialog_test.dart`.
 
 ### Declined / Undiscussed Gray Areas → Assumptions

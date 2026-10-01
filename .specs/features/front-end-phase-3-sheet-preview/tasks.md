@@ -33,16 +33,16 @@ Conventions: table-driven tests, `Happy path:` / `Edge:` / `Error:` case prefixe
 
 | Req | Cases | Type | File | Task |
 |-----|-------|------|------|------|
-| PRV-01 | happy: one labeled section per top-level key in API order, incl. `config`/`derived`/`modifiers`; edge: group with no leaves omitted | widget | `test/catalog/create_sheet_preview_test.dart` | T3 |
+| PRV-01 | happy: one labeled section per top-level key in API order, incl. `config`/`derived`/`modifiers`; card below the name input; `nome | id` row; edge: group with no leaves omitted | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T6 |
 | PRV-02 | happy: each leaf shows display name (schema label, else humanized key) + `defaultValue`; edge: blank schema label → humanized key | widget | `test/catalog/create_sheet_preview_test.dart` | T3 |
 | PRV-03 | edge: synthetic template with unknown prefixes/types renders with no code change | widget | `test/catalog/create_sheet_preview_test.dart` | T3 |
 | PRV-04 | edge: in-flight → loading in the preview area, no stale sections from a prior template | widget | `test/catalog/create_sheet_preview_test.dart` | T3 |
 | PRV-05 | edge: the Phase-2 summary text (`Stats: …`) is absent from the dialog | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
-| PRV-06 | edge: no preview control is enabled; transport carries only GET requests | widget | `test/catalog/create_sheet_preview_test.dart` | T3 |
+| PRV-06 | edge: no preview control is enabled; header reads "Read-only preview"; transport carries only GET requests | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T6 |
 | PRV-07 | error: 500 / 404 / undecodable payload / offline transport → mapped copy + Retry inline, dialog open | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 + T5 |
 | PRV-08 | happy: Retry re-requests exactly once and swaps to sections | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-09 | edge: empty `fields` (and groups-only-without-leaves) → localized "no fields" line in the preview area | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 |
-| PRV-10 | happy: many leaves → card scrolls within a bounded height; narrow window keeps both columns side by side | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 |
+| PRV-10 | happy: many leaves → card scrolls within a bounded height with an always-visible scrollbar; narrow window keeps the card below the name and clamped | widget | `test/catalog/create_sheet_preview_test.dart` | T3 + T5 + T7 |
 | PRV-11 | happy: opening issues at most one `GET /templates/:id` | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-12 | edge: reopen → fresh GET (2 total), no cached reuse | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 |
 | PRV-13 | edge: typing in the name field leaves the preview unchanged and issues no request | widget | `test/catalog/create_sheet_dialog_test.dart` | T3 + T5 |
@@ -54,8 +54,8 @@ Conventions: table-driven tests, `Happy path:` / `Edge:` / `Error:` case prefixe
 | Level | Command | When |
 |-------|---------|------|
 | Quick | `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter test` | After every task |
-| Full | `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test` | T1, T2, T4 (Gate: full) |
-| Build | `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && flutter gen-l10n` | Before the first widget-test run that consumes the new l10n key (T3) |
+| Full | `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test` | T1, T2, T4, T7 (Gate: full) |
+| Build | `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter pub get && flutter gen-l10n` | Before the first widget-test run that consumes the new l10n key (T3, T6) |
 | Spec | `python3 .claude/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/front-end-phase-3-sheet-preview --strict` | Once (already 0/0) |
 
 Baseline before Execute: `flutter test` → 246 passed, 4 skipped; `flutter analyze` → no issues.
@@ -71,6 +71,10 @@ Baseline before Execute: `flutter test` → 246 passed, 4 skipped; `flutter anal
 - **Scope boundaries**: no save-path changes (the disabled primary action is untouched), no
   `SheetForm`/`SheetFieldControl` modifications (read-only via `onChanged: null`), no shell or
   right-panel changes, no LGN-99 flag consumption (renders all groups), no `POST /sheets`.
+- **UAT amend 2026-10-01 (Phase 4)**: supersedes the earlier two-column surface — preview moves
+  below the sheet name (560px content), header becomes "Read-only preview", template id joins the
+  name row, and the card gets an always-visible scrollbar. Spec/context/design amended in the same
+  PR before T6.
 - **Auto-Dispatch (parallel)**: `review/conventions` targets Go conventions and no Dart rules
   are configured — **skip**; `review/duplication` after T3 (preview builders vs
   `SheetForm`/`FieldGroup` rendering) — **run**.
@@ -163,6 +167,33 @@ component that no longer exists.
 `test(LGN-100): strengthen preview coverage from verifier findings`
 **Status**: ✅ Done — 3 novos testes (grupos sem folhas, janela estreita, offline) + asserts de PRV-13; suíte 255 passed / 4 skipped; `flutter analyze` limpo
 
+### T6: Stack the preview below the sheet name (UAT amend)
+
+**What**: diálogo em coluna única com `createSheetDialogWidth = 560`: linha de identidade `nome | id` (divisor hairline; id mantém `Key('create-sheet-template-id')`; nome vazio → sem divisor), input de nome e, abaixo, o card de preview na largura do conteúdo; header passa a "Read-only preview"; remover o token `previewCardWidth` (sem uso).
+**Why**: UAT 2026-10-01 — as duas colunas ficaram estranhas; o mantenedor pediu o preview abaixo do nome, o rótulo read-only e o id ao lado do nome (PRV-01, PRV-06).
+**Files**: `desktop/lib/catalog/create_sheet_dialog.dart`, `desktop/lib/theme/tokens.dart`,
+`desktop/lib/l10n/app_en.arb` (+ gerados), `desktop/test/theme/tokens_test.dart`,
+`desktop/test/catalog/create_sheet_preview_test.dart`.
+**Depends on**: T3
+**Spec**: PRV-01, PRV-06.
+**Tests**: header "Read-only preview"; topo do card **abaixo** do topo do input de nome; nome e id na mesma linha; nome vazio → id presente e sem divisor; tokens: 560 e `previewCardWidth` ausente.
+**Gate**: build (l10n) + full · **Commits**:
+`feat(LGN-100): move the preview below the sheet name`
+**Status**: ⏳ Pending
+
+### T7: Always-visible preview scrollbar (UAT amend)
+
+**What**: envolver o corpo do card em `Scrollbar(thumbVisibility: true)` dirigido por um `ScrollController` do `State` (init/dispose), mantendo `previewCardMaxHeight` como limite; reescrever o teste de janela estreita para a coluna única.
+**Why**: UAT 2026-10-01 — o overflow precisa ser visível, não implícito (PRV-10).
+**Files**: `desktop/lib/catalog/create_sheet_dialog.dart`,
+`desktop/test/catalog/create_sheet_preview_test.dart`.
+**Depends on**: T6
+**Spec**: PRV-10.
+**Tests**: `Scrollbar` dentro do card com `thumbVisibility == true`; altura do corpo ≤ `previewCardMaxHeight`; arrastar rola até a última seção; janela estreita mantém o card abaixo do nome e clampado à viewport.
+**Gate**: full · **Commits**:
+`feat(LGN-100): make the preview scroll affordance visible`
+**Status**: ⏳ Pending
+
 ## Phase Execution Map
 
 ```mermaid
@@ -171,11 +202,14 @@ flowchart TD
     T2["T2: Preview layout tokens"] --> T3
     T3 --> T4["T4: Delete template summary + amend phase-2 spec"]
     T3 --> T5["T5: Strengthen coverage (Verifier fix)"]
+    T3 --> T6["T6: Stack the preview below the sheet name"]
+    T6 --> T7["T7: Always-visible preview scrollbar"]
 ```
 
 - Phase 1: T1 · exit: `sheet_defaults_test` green, analyze clean, screen refactor behavior-identical.
 - Phase 2: T2 · exit: token test green, no UI change yet.
 - Phase 3: T3 → T4 → T5 · exit: full suite green (baseline + preview tests), summary deleted, phase-2 spec amended, Verifier gaps closed.
+- Phase 4 (UAT amend 2026-10-01): T6 → T7 · exit: single-column dialog at 560px, read-only header, `nome | id`, always-visible scrollbar; Verifier re-run.
 - Final: full gate + Verifier (automatic after the last task).
 
 ## Task Granularity Check
@@ -186,6 +220,8 @@ flowchart TD
 | T2 | ✅ 2 | ~20 lines | ✅ `flutter test test/theme/tokens_test.dart` | ✅ revert removes the constants |
 | T3 | ✅ 5 | ~250 lines | ✅ `flutter test test/catalog/` | ✅ revert restores the summary rendering |
 | T4 | ✅ 3 (2 delete + 1 amend) | ~-120 lines | ✅ full suite | ✅ `git revert` restores the files |
+| T6 | ✅ 5 | ~120 lines | ✅ `flutter test test/catalog/ test/theme/` | ✅ revert restores the two-column dialog |
+| T7 | ✅ 2 | ~40 lines | ✅ `flutter test test/catalog/create_sheet_preview_test.dart` | ✅ revert removes the `Scrollbar` |
 
 ## Diagram-Definition Cross-Check
 
@@ -200,6 +236,8 @@ flowchart TD
 | T2 | `lib/theme/tokens.dart` | `test/theme/tokens_test.dart` | ✅ |
 | T3 | `lib/catalog/create_sheet_dialog.dart` (+ l10n) | `test/catalog/create_sheet_preview_test.dart`, `test/catalog/create_sheet_dialog_test.dart` | ✅ |
 | T4 | delete `lib/catalog/template_summary.dart` | delete `test/catalog/template_summary_test.dart` + amend the Phase-2 spec | ✅ |
+| T6 | `lib/catalog/create_sheet_dialog.dart` (+ tokens, l10n) | `test/theme/tokens_test.dart`, `test/catalog/create_sheet_preview_test.dart` | ✅ |
+| T7 | `lib/catalog/create_sheet_dialog.dart` | `test/catalog/create_sheet_preview_test.dart` | ✅ |
 
 ## Assumptions
 
