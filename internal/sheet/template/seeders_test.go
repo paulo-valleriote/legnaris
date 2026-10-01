@@ -340,4 +340,19 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 				"text leaf %s must not carry a formula (the compile env is numeric)", key)
 		}
 	}
+
+	// EXC-01/02/03: across the whole tree, exclusive_group is declared on
+	// exactly the armor-class pair — an extra tag anywhere else would render
+	// an unrelated leaf as a choice and is caught here, not just inside config.
+	grouped := map[string]string{}
+	for i, schema := range schemas {
+		if schema.ExclusiveGroup == "" {
+			continue
+		}
+		grouped[paths[i].String()] = schema.ExclusiveGroup
+	}
+	assert.Equal(t, map[string]string{
+		"config.acUsesDex": exclusiveGroupArmorClassAbility,
+		"config.acUsesCon": exclusiveGroupArmorClassAbility,
+	}, grouped, "exclusive_group must cover exactly the armor-class pair")
 }

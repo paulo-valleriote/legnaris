@@ -96,6 +96,15 @@ Batch selection and screen wiring, with refreshed fixtures.
 T9 → T10
 ```
 
+### Phase 7: Verifier fix
+
+Close the whole-tree contract-coverage gap the discrimination sensor found
+(a mutant tagging `stats.*` survived).
+
+```
+T2 → T11
+```
+
 ---
 
 ## Task Breakdown
@@ -378,6 +387,32 @@ T9 → T10
 
 ---
 
+### T11: Assert the exclusive group set covers exactly the armor-class pair
+
+**What**: extend `TestFantasyV1_LeafContracts` to walk the whole leaf tree and assert the set of leaves with a non-empty `ExclusiveGroup` is exactly `config.acUsesDex` and `config.acUsesCon`, both carrying `armorClassAbility`. Closes the Verifier's surviving mutant (tagging `stats.*` was not caught).
+**Where**: `internal/sheet/template/seeders_test.go`
+**Depends on**: T2
+**Reuses**: `collectLeaves` + the existing `TestFantasyV1_LeafContracts` walk
+**Requirement**: EXC-01, EXC-02, EXC-03
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [x] The whole-tree assertion passes on `fantasy_v1` and fails if any other leaf is tagged (kills the P1 mutant)
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [x] Test count: 1 extended test, no silent deletions
+
+**Tests**: unit
+**Gate**: build (backend)
+
+**Commit**: `test(template): assert exclusive groups cover exactly the armor-class pair`
+
+---
+
 ## Phase Execution Map
 
 Phases run in sequence; tasks within a phase run in order:
@@ -391,6 +426,7 @@ Phase 5:  T7 → T8
           T6 → T8
 Phase 6:  T9 → T10
           T8 → T10
+Phase 7:  T2 → T11
 ```
 
 Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted batch; run backend first so the desktop fixtures mirror an already-shipped contract, then dispatch the Verifier after the final commit.
@@ -409,6 +445,7 @@ Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted ba
 | T8: form rendering | 1 file | ✅ Granular |
 | T9: edit-state batch | 1 method | ✅ Granular |
 | T10: screen + fixtures | 1 screen file (+ fixtures) | ✅ Granular |
+| T11: whole-tree group assertion | 1 test file | ✅ Granular |
 
 **Diagram-Definition Cross-Check**
 
@@ -424,6 +461,7 @@ Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted ba
 | T8 | T7, T6 | T7 → T8, T6 → T8 | ✅ Match |
 | T9 | None | — | ✅ Match |
 | T10 | T8, T9 | T8 → T10, T9 → T10 | ✅ Match |
+| T11 | T2 | T2 → T11 | ✅ Match |
 
 **Test Co-location Validation**
 
@@ -439,3 +477,4 @@ Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted ba
 | T8 | Desktop form | widget | widget | ✅ OK |
 | T9 | Desktop edit state | unit | unit | ✅ OK |
 | T10 | Desktop screen | widget | widget | ✅ OK |
+| T11 | Seeder contract | unit | unit | ✅ OK |
