@@ -41,6 +41,12 @@ In-memory, per-field edit state on Screen 2 with granular rebuild (only the edit
 - Dialog copy follows the destructive-confirmation pattern from `desktop/AGENTS.md` (explicit consequence, explicit buttons, never confirm-by-Enter alone).
 - Granularity mechanism: edit state as an autoDispose Riverpod family keyed by template id; each control subscribes through `select` on its own dotted path; the screen itself never watches the edit state.
 
+### Area 4 — GRN-10 gate (execution amendment)
+
+- The <100 ms budget stays the product AC, enforced by the TDD's profile-mode/DevTools release check.
+- The automated widget test cannot hold that number: `flutter test` runs in debug mode where mounting 200 Material controls measures ~900–1000 ms warm (~4.4 ms/control, linear; baseline 0 controls = 35 ms, measured on this machine), and 1800–2700 ms when the full suite runs test files in parallel on a loaded machine (measured 1819/2628 ms across runs). The test asserts all 200 controls mount within a debug regression budget of <4000 ms instead — well under the gate's <7500 ms acceptable level, with headroom for scheduler variance.
+- User decision (execute, 2026-10-01): amend the automated gate, keep 100 ms in profile mode — recorded rather than silently weakening the AC.
+
 ### Declined / Undiscussed Gray Areas → Assumptions
 
 - App/window close is not guarded (out of scope in the spec; neither the card nor the discussion covered leaving the app).

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +38,34 @@ void main() {
   "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
 }}}
 ''';
+
+  /// A full-size template: 20 groups × 10 fields = 200 editable controls,
+  /// the upper bound of the GRN-10 render budget.
+  String bigTemplateBody() {
+    final fields = <String, Object?>{};
+    for (var group = 0; group < 20; group++) {
+      final children = <String, Object?>{};
+      for (var field = 0; field < 10; field++) {
+        children['field$group$field'] = {
+          'schema': {
+            'type': 'number',
+            'label': '',
+            'is_editable': true,
+            'default': 0,
+          },
+        };
+      }
+      fields['group$group'] = {'children': children};
+    }
+    return jsonEncode({
+      'data': {
+        'id': 'fantasy_v1',
+        'name': 'Big Template',
+        'default': false,
+        'fields': fields,
+      },
+    });
+  }
 
   Future<List<http.Request>> pumpScreen(
     WidgetTester tester, {
@@ -934,6 +963,34 @@ void main() {
           '10',
         );
         expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+      },
+    );
+  });
+
+  group('render budget (GRN-10)', () {
+    testWidgets(
+      'Happy path: the response for a 200-field template mounts all 200 controls within the render budget (GRN-10)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        await pumpScreen(tester, handler: (_) => gate.future);
+        expect(find.byType(SheetFieldControl), findsNothing);
+
+        final stopwatch = Stopwatch()..start();
+        gate.complete(http.Response(bigTemplateBody(), 200));
+        await tester.pump();
+        stopwatch.stop();
+
+        expect(find.byType(SheetFieldControl), findsNWidgets(200));
+        expect(
+          stopwatch.elapsedMilliseconds,
+          // Debug-mode regression budget: `flutter test` measures ~4.4 ms
+          // per control (200 ≈ 1000 ms for this file alone; 1800-2700 ms
+          // when the full suite runs files in parallel on a loaded
+          // machine). The <100 ms AC is enforced in profile mode per the
+          // spec's amended gating decision.
+          lessThan(4000),
+          reason: 'GRN-10: 200 field controls must mount within the budget',
+        );
       },
     );
   });

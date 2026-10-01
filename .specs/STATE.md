@@ -13,10 +13,10 @@
 ## Handoff
 
 - **Feature**: `lgn-102-granular-rebuild` (.specs/features/lgn-102-granular-rebuild)
-- **Phase / Task**: Execute — **BLOCKED at T8** (200-field render budget, GRN-10)
-- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers), T6 (F5 routing), T7 (sheet F5 refresh flow) — all committed and green (325 passed + 4 skips, analyze clean)
-- **In-progress** (file:line): T8 implemented but uncommitted — `desktop/test/sheet/sheet_screen_test.dart` (render-budget group, fixture + 1 test); fails ONLY the `<100 ms` assertion
-- **Next step**: escalate GRN-10 to the spec owner — measured evidence: the frame that mounts 200 `SheetFieldControl`s takes ~913–1037 ms warm (~1443 ms cold) in `flutter test` on this machine; scaling probe shows a linear ~4.4 ms/control (0→35 ms, 10→242 ms, 50→351 ms, 100→595 ms, 200→~950 ms), i.e. structural debug-mode cost, not noise or JIT warm-up. Decision needed: amend the AC/threshold, change the gate environment (profile/DevTools, per spec decision line 46), or optimize rendering. Do NOT weaken the AC without that decision
-- **Blockers**: GRN-10 `<100 ms` widget-test gate unachievable on this machine (10x over budget); execution contract says STOP and escalate rather than weaken the test
-- **Uncommitted files**: `desktop/test/sheet/sheet_screen_test.dart` (T8 test — failing on timing by design of the escalation); untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
+- **Phase / Task**: Execute — **T8 complete; all 8 tasks done** (200-field render budget, GRN-10, under the user-approved amendment)
+- **Completed**: T1 (edit-state provider), T2 (control-builder injection), T3 (screen wiring), T4 (marker + leave guard), T5 (refresh dispatch providers), T6 (F5 routing), T7 (sheet F5 refresh flow), T8 (200-field render budget) — T8 gate green: `flutter analyze && flutter test` → 326 passed + 4 skips
+- **In-progress** (file:line): none — T8 uncommitted pending commit `test(sheet): assert the 200-field render budget`
+- **Next step**: commit T8 (test + spec/tasks/context amendments + this STATE), then dispatch the independent Verifier (spec-anchored check + discrimination sensor) → `.specs/features/lgn-102-granular-rebuild/validation.md`, run `validate_state.py`, final Handoff update
+- **Blockers**: none — GRN-10 escalation resolved by user decision (2026-10-01): debug-widget test holds a <4000 ms regression budget (measured 1800–2700 ms under full-suite parallel load, ~1000 ms file-alone); the <100 ms product AC stays in profile mode per spec line 46
+- **Uncommitted files**: `desktop/test/sheet/sheet_screen_test.dart` (T8 test), `.specs/features/lgn-102-granular-rebuild/{spec.md,tasks.md,context.md}` (GRN-10 amendment wording), this STATE; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
 - **Branch**: feat/LGN-100-front-end-phase-3-sheet-preview

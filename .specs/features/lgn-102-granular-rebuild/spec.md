@@ -43,7 +43,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | Seed source for edit state | `seedDefaults` (every leaf gets its schema default), the same derivation the read-only preview uses | One mechanism; the screen already seeds this way today | y |
 | Reload failure after confirm | Edits are already discarded when the refetch starts (the loading state unmounts the form); a failure shows the mapped error + Retry and reseeds on success | The user confirmed the discard before the request ran | y |
 | Marker placement vs footer preference | Header caption in Phase 3; `desktop/AGENTS.md`'s footer-bar preference applies to Phase 4's dirty + Save footer | No footer exists without Save; a lone footer indicator would look orphaned | y |
-| How the <100 ms AC is gated | An automated widget test measures the real build time of the form frame after the API response; the TDD's DevTools/profile measurement remains the release check | Keeps the acceptance criterion enforced by the test runner, not by memory | y |
+| How the <100 ms AC is gated | The widget test asserts every field control mounts within a debug-realistic regression budget (<4000 ms — measured ~1000 ms for 200 controls file-alone, 1800–2700 ms under full-suite parallel load); the <100 ms budget itself is enforced by the TDD's DevTools/profile release check | User decision (execute, 2026-10-01): `flutter test` runs in debug mode where 200 controls cost ~4.4 ms each (linear, measured), so 100 ms is unreachable in the test runner; keeping the product budget in profile mode preserves the AC instead of weakening it | y |
 | Derived/`is_editable: false` controls on edit | Stay non-editable (existing Screen 2 behavior is preserved, not changed) | Card does not change control semantics | y |
 
 **Open questions:** none - all resolved or logged above (required before the spec is confirmed).
@@ -97,7 +97,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 
 1. WHEN the template detail response for a template of at most 200 fields arrives, the system SHALL render all field controls within 100 ms  <!-- event-driven -->
 
-**Independent Test**: Widget test with a generated 200-field template; a `Stopwatch` around the frame that mounts the form asserts <100 ms.
+**Independent Test**: Widget test with a generated 200-field template; a `Stopwatch` around the frame that mounts the form asserts all 200 controls mount within the debug regression budget (<4000 ms, covering 1800–2700 ms measured under full-suite parallel load). The <100 ms product budget is verified in profile mode (DevTools) per the "How the <100 ms AC is gated" decision.
 
 ---
 
@@ -170,7 +170,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 
 ## Success Criteria
 
-- [ ] `flutter test` green, including: sibling-identity granularity test, GET-only request assertion, 200-field <100 ms test.
+- [ ] `flutter test` green, including: sibling-identity granularity test, GET-only request assertion, 200-field render-budget test (all controls mount + debug budget; <100 ms in profile mode).
 - [ ] Editing a field in a 200-field sheet rebuilds exactly one control (identity check).
 - [ ] Marker appears on first pending edit and hides when the state returns to defaults.
 - [ ] Back with pending edits opens the confirmation; cancel keeps state, confirm discards; back clean skips the dialog.
