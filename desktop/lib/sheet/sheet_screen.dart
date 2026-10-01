@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
 import 'package:legnaris/engine/field_grouping.dart';
+import 'package:legnaris/engine/sheet_defaults.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/tokens.dart';
@@ -39,7 +40,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     );
     final template = state.template;
     if (template != null && _data == null) {
-      _data = _seedDefaults(template);
+      _data = seedDefaults(template.fields);
     }
 
     return Column(
@@ -139,34 +140,9 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
       child: SheetForm(
         fields: template.fields,
         data: data,
-        onChanged: (path, value) => setState(() => _setValue(data, path, value)),
+        onChanged:
+            (path, value) => setState(() => setPathValue(data, path, value)),
       ),
     );
-  }
-
-  Map<String, Object?> _seedDefaults(TemplateDetail template) {
-    final data = <String, Object?>{};
-    for (final section in buildSections(template.fields)) {
-      for (final field in section.leaves) {
-        _setValue(data, field.path, field.schema.defaultValue);
-      }
-    }
-    return data;
-  }
-
-  void _setValue(Map<String, Object?> data, String path, Object? value) {
-    final segments = path.split('.');
-    Map<String, Object?> cursor = data;
-    for (final segment in segments.take(segments.length - 1)) {
-      final next = cursor[segment];
-      if (next is Map<String, Object?>) {
-        cursor = next;
-      } else {
-        final created = <String, Object?>{};
-        cursor[segment] = created;
-        cursor = created;
-      }
-    }
-    cursor[segments.last] = value;
   }
 }
