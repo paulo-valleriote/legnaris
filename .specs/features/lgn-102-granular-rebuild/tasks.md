@@ -147,12 +147,12 @@ T8
 
 **Done when**:
 
-- [ ] Editing an editable input stores the value and shows it; toggling a `config.*` proxy flips the switch display; only GET requests are recorded (GRN-02, GRN-03)
-- [ ] Sibling-identity test: snapshot all `SheetFieldControl` instances, edit one field, every other instance is `identical`, the edited one is not (GRN-07, GRN-08)
-- [ ] Derived (`is_editable: false`) controls stay non-interactive; the stale "no control accepts an edit" test is amended to the spec outcome: controls enabled, still zero mutations (GRN-05)
-- [ ] Controls reflect seeded values after the template arrives (GRN-09)
-- [ ] Gate check passes: `cd desktop && flutter test`
-- [ ] Test count: 6 new/amended tests in `desktop/test/sheet/sheet_screen_test.dart`
+- [x] Editing an editable input stores the value and shows it; toggling a `config.*` proxy flips the switch display; only GET requests are recorded (GRN-02, GRN-03)
+- [x] Sibling-identity test: snapshot all `SheetFieldControl` instances, edit one field, every other instance is `identical`, the edited one is not (GRN-07, GRN-08)
+- [x] Derived (`is_editable: false`) controls stay non-interactive; the stale "no control accepts an edit" test is amended to the spec outcome: controls enabled, still zero mutations (GRN-05)
+- [x] Controls reflect seeded values after the template arrives (GRN-09)
+- [x] Gate check passes: `cd desktop && flutter test`
+- [x] Test count: 5 new/amended tests in `desktop/test/sheet/sheet_screen_test.dart` (planned 6; the numeric-draft-restore edge is already asserted at the control layer — `field_control_test.dart:444` — and a screen-level copy would duplicate it)
 
 **Tests**: widget
 **Gate**: build (last task of Phase 2)

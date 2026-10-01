@@ -33,9 +33,9 @@ class SheetForm extends StatelessWidget {
     this.onChanged,
     this.controlBuilder,
   }) : assert(
-          (data == null) != (controlBuilder == null),
-          'SheetForm needs exactly one control source: data or controlBuilder',
-        );
+         (data == null) != (controlBuilder == null),
+         'SheetForm needs exactly one control source: data or controlBuilder',
+       );
 
   /// Template field tree; sections are derived from it.
   final FieldGroup fields;
@@ -54,7 +54,8 @@ class SheetForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final section in buildSections(fields)) ..._section(context, section),
+        for (final section in buildSections(fields))
+          ..._section(context, section),
       ],
     );
   }
@@ -92,10 +93,9 @@ class SheetForm extends StatelessWidget {
               path: field.path,
               schema: field.schema,
               value: valueAtPath(data!, field.path),
-              onChanged:
-                  onChanged == null
-                      ? null
-                      : (value) => onChanged!(field.path, value),
+              onChanged: onChanged == null
+                  ? null
+                  : (value) => onChanged!(field.path, value),
             ),
         ],
       ),

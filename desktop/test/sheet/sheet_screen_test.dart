@@ -8,7 +8,10 @@ import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/error_mapper.dart';
+import 'package:legnaris/api/models/sheet.dart';
+import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
@@ -95,10 +98,7 @@ void main() {
           isTrue,
         );
         expect(find.text('Calculated'), findsOneWidget);
-        expect(
-          recorded.where((request) => request.method != 'GET'),
-          isEmpty,
-        );
+        expect(recorded.where((request) => request.method != 'GET'), isEmpty);
       },
     );
   });
@@ -136,18 +136,17 @@ void main() {
   });
 
   group('edges (RND-16, RND-19, RND-20)', () {
-    testWidgets(
-      'Edge: an empty field tree renders the single localized line',
-      (tester) async {
-        await pumpScreen(
-          tester,
-          handler: (_) async => http.Response(emptyFieldsBody, 200),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('Edge: an empty field tree renders the single localized line', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        handler: (_) async => http.Response(emptyFieldsBody, 200),
+      );
+      await tester.pumpAndSettle();
 
-        expect(find.text('This template has no fields.'), findsOneWidget);
-      },
-    );
+      expect(find.text('This template has no fields.'), findsOneWidget);
+    });
 
     testWidgets(
       'Edge: an empty template name renders an empty title without throwing',
@@ -167,7 +166,7 @@ void main() {
     );
 
     testWidgets(
-      'Edge: no control accepts an edit and no mutation is issued (RND-20)',
+      'Edge: editable controls accept in-memory edits and no mutation is ever issued (GRN-03, GRN-05)',
       (tester) async {
         final recorded = await pumpScreen(
           tester,
@@ -177,11 +176,27 @@ void main() {
 
         final inputs = tester.widgetList<TextField>(find.byType(TextField));
         expect(inputs, isNotEmpty);
-        expect(inputs.every((field) => field.enabled == false), isTrue);
+        expect(inputs.every((field) => field.enabled == true), isTrue);
 
         final toggles = tester.widgetList<Switch>(find.byType(Switch));
         expect(toggles, isNotEmpty);
-        expect(toggles.every((toggle) => toggle.onChanged == null), isTrue);
+        expect(toggles.every((toggle) => toggle.onChanged != null), isTrue);
+
+        expect(
+          find.byKey(const Key('sheet-value-derived.armorClass')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-input-derived.armorClass')),
+          findsNothing,
+        );
+        expect(find.text('Calculated'), findsOneWidget);
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '42',
+        );
+        await tester.pump();
 
         expect(
           tester
@@ -190,10 +205,220 @@ void main() {
               )
               .controller
               ?.text,
-          '10',
+          '42',
         );
         expect(recorded, hasLength(1));
         expect(recorded.single.method, 'GET');
+      },
+    );
+  });
+
+  group('in-memory editing and granular rebuild (LGN-102)', () {
+    testWidgets(
+      'Happy path: an edit stores the value in the edit state and shows it (GRN-02)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        final state = container.read(sheetEditControllerProvider('fantasy_v1'));
+        expect(valueAtPath(state.data, 'stats.dexterity'), 16);
+        expect(state.isPending, isTrue);
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '16',
+        );
+        expect(recorded, hasLength(1));
+        expect(recorded.single.method, 'GET');
+      },
+    );
+
+    testWidgets(
+      'Happy path: editing one field rebuilds only that field control, labels included untouched (GRN-07, GRN-08)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        Map<String, SheetFieldControl> snapshot() => {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+
+        final before = snapshot();
+        expect(
+          before.keys,
+          containsAll([
+            'stats.dexterity',
+            'config.acUsesDex',
+            'derived.armorClass',
+          ]),
+        );
+        final label = tester.widget<Text>(find.text('Dexterity'));
+        final sectionHeader = tester.widget(
+          find.byKey(const Key('sheet-section-stats')),
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        final after = snapshot();
+        expect(
+          identical(after['stats.dexterity'], before['stats.dexterity']),
+          isFalse,
+        );
+        for (final path in before.keys.where(
+          (path) => path != 'stats.dexterity',
+        )) {
+          expect(
+            identical(after[path], before[path]),
+            isTrue,
+            reason: '$path must not rebuild when another field changes',
+          );
+        }
+        expect(
+          identical(tester.widget<Text>(find.text('Dexterity')), label),
+          isTrue,
+          reason: 'row labels must not rebuild when a field changes',
+        );
+        expect(
+          identical(
+            tester.widget(find.byKey(const Key('sheet-section-stats'))),
+            sectionHeader,
+          ),
+          isTrue,
+          reason: 'section headers must not rebuild when a field changes',
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: a second edit rebuilds only the second field (GRN-07, GRN-08)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        Map<String, SheetFieldControl> snapshot() => {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        final afterFirst = snapshot();
+
+        await tester.tap(
+          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+        );
+        await tester.pump();
+        final afterSecond = snapshot();
+
+        expect(
+          identical(
+            afterSecond['stats.dexterity'],
+            afterFirst['stats.dexterity'],
+          ),
+          isTrue,
+          reason: 'the first field must not rebuild on the second edit',
+        );
+        expect(
+          identical(
+            afterSecond['config.acUsesDex'],
+            afterFirst['config.acUsesDex'],
+          ),
+          isFalse,
+        );
+        expect(
+          identical(
+            afterSecond['derived.armorClass'],
+            afterFirst['derived.armorClass'],
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: a toggle flip displays the new state and stores it without any other control rebuilding (GRN-02, GRN-08)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final before = {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+
+        await tester.tap(
+          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+        );
+        await tester.pump();
+
+        expect(
+          tester
+              .widget<Switch>(
+                find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+              )
+              .value,
+          isFalse,
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        final state = container.read(sheetEditControllerProvider('fantasy_v1'));
+        expect(valueAtPath(state.data, 'config.acUsesDex'), 0);
+        expect(state.isPending, isTrue);
+
+        final after = {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+        for (final path in before.keys.where(
+          (path) => path != 'config.acUsesDex',
+        )) {
+          expect(
+            identical(after[path], before[path]),
+            isTrue,
+            reason: '$path must not rebuild when the toggle flips',
+          );
+        }
       },
     );
   });

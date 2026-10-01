@@ -1,21 +1,23 @@
 /// Screen 2 (Tela 2) — the navigable sheet surface (RND-14 … RND-20).
 ///
-/// Demonstration host for the UI Engine: it fetches the template detail on
-/// demand and renders [SheetForm] read-only with the schema defaults as values.
-/// No sheet exists until Phase 4, so there is nothing to edit; nothing is
-/// created, saved or persisted and the app issues no mutation. The editable
-/// capability stays in the control/form; the real save cycle arrives with
-/// Phase 4 and per-field rebuild with LGN-102.
+/// Host for the UI Engine: it fetches the template detail on demand and
+/// renders [SheetForm] with an in-memory edit state per field (LGN-102).
+/// Each control subscribes to its own dotted path through a `select`, so an
+/// edit rebuilds exactly that control and nothing else; values live in
+/// [sheetEditControllerProvider] (discarded when the screen unmounts) and no
+/// mutation is issued — the save cycle is Phase 4.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
+import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/engine/field_grouping.dart';
-import 'package:legnaris/engine/sheet_defaults.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/theme/tokens.dart';
 
 /// Screen 2 for one template.
@@ -30,8 +32,6 @@ class SheetScreen extends ConsumerStatefulWidget {
 }
 
 class _SheetScreenState extends ConsumerState<SheetScreen> {
-  Map<String, Object?>? _data;
-
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
@@ -39,9 +39,6 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
       templateDetailControllerProvider(widget.templateId),
     );
     final template = state.template;
-    if (template != null && _data == null) {
-      _data = seedDefaults(template.fields);
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -135,9 +132,28 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
       );
     }
 
-    final data = _data!;
     return SingleChildScrollView(
-      child: SheetForm(fields: template.fields, data: data, onChanged: null),
+      child: SheetForm(fields: template.fields, controlBuilder: _control),
     );
   }
+
+  /// One field's control, wired to the edit state: the `Consumer` subscribes
+  /// to this field's dotted path only, so an edit to any other field leaves
+  /// this subtree untouched (GRN-07, GRN-08). The screen itself never
+  /// watches the edit state (AD-001).
+  Widget _control(BuildContext context, SheetField field) => Consumer(
+    builder: (context, ref, _) {
+      final provider = sheetEditControllerProvider(widget.templateId);
+      final value = ref.watch(
+        provider.select((state) => valueAtPath(state.data, field.path)),
+      );
+      return SheetFieldControl(
+        path: field.path,
+        schema: field.schema,
+        value: value,
+        onChanged: (value) =>
+            ref.read(provider.notifier).setPath(field.path, value),
+      );
+    },
+  );
 }
