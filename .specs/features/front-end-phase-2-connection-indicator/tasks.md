@@ -176,11 +176,11 @@ T3 → T4
 
 **Done when**:
 
-- [ ] Com offline: tap no card abre o diálogo, Esc fecha, F5 re-requesta — nada bloqueado (CONN-10)
-- [ ] Indicator e detail visíveis em todas as superfícies, inclusive com o diálogo aberto (CONN-08)
-- [ ] Falha de boot → offline; health voltando a responder → online na checagem seguinte sem reiniciar o app (edge de recuperação, CONN-06)
-- [ ] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
-- [ ] Test count: 6 novos testes; nenhum teste existente removido
+- [x] Com offline: tap no card abre o diálogo, Esc fecha, F5 re-requesta — nada bloqueado (CONN-10)
+- [x] Indicator e detail visíveis em todas as superfícies, inclusive com o diálogo aberto (CONN-08)
+- [x] Falha de boot → offline; health voltando a responder → online na checagem seguinte sem reiniciar o app (edge de recuperação, CONN-06)
+- [x] Gate check passes: `export PATH="$HOME/flutter/bin:$PATH" && cd desktop && flutter analyze && flutter test`
+- [x] Test count: 6 novos testes; nenhum teste existente removido
 
 **Tests**: widget
 **Gate**: full
