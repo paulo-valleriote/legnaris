@@ -679,10 +679,10 @@ T20 → T21
 
 **Done when**:
 
-- [ ] Editable flags render a checkbox; numeric proxy emits `1`/`0`, bool emits `true`/`false`
-- [ ] Null value renders unchecked; read-only renders a disabled checkbox; numeric/text fields are unaffected
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
-- [ ] Test count: checkbox happy + edge (numeric/bool/null/read-only) cases
+- [x] Editable flags render a checkbox; numeric proxy emits `1`/`0`, bool emits `true`/`false`
+- [x] Null value renders unchecked; read-only renders a disabled checkbox; numeric/text fields are unaffected
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
+- [x] Test count: checkbox happy + edge (numeric/bool/null/read-only) cases
 
 **Tests**: widget
 **Gate**: quick (desktop)

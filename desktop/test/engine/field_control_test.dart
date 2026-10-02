@@ -59,7 +59,7 @@ void main() {
         final input = find.byKey(const Key('sheet-input-stats.dexterity'));
         expect(input, findsOneWidget);
         expect(tester.widget<TextField>(input).controller?.text, '16');
-        expect(find.byType(Switch), findsNothing);
+        expect(find.byType(Checkbox), findsNothing);
       },
     );
 
@@ -106,7 +106,7 @@ void main() {
     );
 
     testWidgets(
-      'Happy path: a config.* field renders a toggle emitting 1 and 0 (RND-08)',
+      'Happy path: a config.* field renders a checkbox emitting 1 and 0 (RND-08, EXC-28)',
       (tester) async {
         final emitted = <Object?>[];
         await pump(
@@ -117,19 +117,20 @@ void main() {
           onChanged: emitted.add,
         );
 
-        final toggle = find.byType(Switch);
-        expect(toggle, findsOneWidget);
-        expect(tester.widget<Switch>(toggle).value, isTrue);
+        final checkbox = find.byKey(const Key('sheet-checkbox-config.acUsesDex'));
+        expect(checkbox, findsOneWidget);
+        expect(find.byType(Checkbox), findsOneWidget);
+        expect(tester.widget<Checkbox>(checkbox).value, isTrue);
         expect(find.byType(TextField), findsNothing);
 
-        await tester.tap(toggle);
+        await tester.tap(checkbox);
 
         expect(emitted, [0]);
       },
     );
 
     testWidgets(
-      'Edge: a config.* field holding 0 renders off and emits 1 when toggled (RND-08)',
+      'Edge: a config.* field holding 0 renders unchecked and emits 1 when toggled (RND-08, EXC-29)',
       (tester) async {
         final emitted = <Object?>[];
         await pump(
@@ -140,17 +141,19 @@ void main() {
           onChanged: emitted.add,
         );
 
-        final toggle = find.byType(Switch);
-        expect(tester.widget<Switch>(toggle).value, isFalse);
+        final checkbox = find.byKey(
+          const Key('sheet-checkbox-config.stealthProfWeight'),
+        );
+        expect(tester.widget<Checkbox>(checkbox).value, isFalse);
 
-        await tester.tap(toggle);
+        await tester.tap(checkbox);
 
         expect(emitted, [1]);
       },
     );
 
     testWidgets(
-      'Happy path: a bool field renders a toggle emitting true and false (RND-09)',
+      'Happy path: a bool field renders a checkbox emitting true and false (RND-09, EXC-29)',
       (tester) async {
         final emitted = <Object?>[];
         await pump(
@@ -161,12 +164,33 @@ void main() {
           onChanged: emitted.add,
         );
 
-        final toggle = find.byType(Switch);
-        expect(tester.widget<Switch>(toggle).value, isTrue);
+        final checkbox = find.byKey(const Key('sheet-checkbox-flags.visible'));
+        expect(tester.widget<Checkbox>(checkbox).value, isTrue);
 
-        await tester.tap(toggle);
+        await tester.tap(checkbox);
 
         expect(emitted, [false]);
+      },
+    );
+
+    testWidgets(
+      'Edge: tapping an already-on numeric proxy checkbox emits 0, never a bool (EXC-29)',
+      (tester) async {
+        final emitted = <Object?>[];
+        await pump(
+          tester,
+          path: 'config.acUsesCon',
+          schema: schemaFor('number'),
+          value: 1.0,
+          onChanged: emitted.add,
+        );
+
+        await tester.tap(
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
+        );
+
+        expect(emitted, [0]);
+        expect(emitted, isNot(contains(false)));
       },
     );
   });
@@ -183,7 +207,7 @@ void main() {
         );
 
         expect(find.byType(TextField), findsNothing);
-        expect(find.byType(Switch), findsNothing);
+        expect(find.byType(Checkbox), findsNothing);
         expect(
           find.byKey(const Key('sheet-value-derived.armorClass')),
           findsOneWidget,
@@ -222,7 +246,7 @@ void main() {
         );
 
         expect(find.byType(TextField), findsNothing);
-        expect(find.byType(Switch), findsNothing);
+        expect(find.byType(Checkbox), findsNothing);
         expect(find.text('red'), findsOneWidget);
         expect(find.text('Calculated'), findsNothing);
       },
@@ -253,7 +277,23 @@ void main() {
           schema: schemaFor('number'),
           value: null,
         );
-        expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+        expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+      },
+    );
+
+    testWidgets(
+      'Edge: a read-only flag renders its checkbox disabled (EXC-30)',
+      (tester) async {
+        await pump(
+          tester,
+          path: 'config.acUsesDex',
+          schema: schemaFor('number'),
+          value: 1.0,
+        );
+
+        final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+        expect(checkbox.value, isTrue);
+        expect(checkbox.onChanged, isNull);
       },
     );
   });

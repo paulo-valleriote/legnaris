@@ -221,9 +221,9 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-25 | P1: Standardized option labels and flag controls | Execute | Implementing |
 | EXC-26 | P1: Standardized option labels and flag controls | Execute | Implementing |
 | EXC-27 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-28 | P1: Standardized option labels and flag controls | Execute | Pending |
-| EXC-29 | P1: Standardized option labels and flag controls | Execute | Pending |
-| EXC-30 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-28 | P1: Standardized option labels and flag controls | Execute | Implementing |
+| EXC-29 | P1: Standardized option labels and flag controls | Execute | Implementing |
+| EXC-30 | P1: Standardized option labels and flag controls | Execute | Implementing |
 
 **ID format:** `EXC-[NUMBER]`
 

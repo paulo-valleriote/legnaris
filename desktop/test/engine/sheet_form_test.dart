@@ -207,7 +207,7 @@ void main() {
         );
 
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsOneWidget,
         );
         expect(find.text('Calculated'), findsOneWidget);
@@ -382,7 +382,7 @@ void main() {
         expect(find.text('field config.acUsesDex'), findsNothing);
         expect(find.text('field config.acUsesCon'), findsNothing);
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsNothing,
         );
         expect(find.byType(SheetFieldControl), findsNothing);
@@ -406,11 +406,11 @@ void main() {
         expect(dropdown.value, 'config.acUsesDex');
         expect(dropdown.onChanged, isNull);
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsNothing,
         );
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesCon')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
           findsNothing,
         );
       },
@@ -454,7 +454,7 @@ void main() {
 
         expect(find.byType(SheetExclusiveControl), findsNothing);
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsOneWidget,
         );
       },
@@ -481,15 +481,15 @@ void main() {
 
         expect(find.byType(SheetExclusiveControl), findsOneWidget);
         expect(
-          find.byKey(const Key('sheet-toggle-config.stealthProfWeight')),
+          find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
           findsOneWidget,
         );
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsNothing,
         );
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesCon')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
           findsNothing,
         );
       },
