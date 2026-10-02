@@ -94,7 +94,7 @@ void main() {
     });
 
     test(
-      'Happy path: the frozen fixtures tag exactly the armor-class pair with the exclusive group (EXC-17)',
+      'Happy path: the frozen fixtures tag exactly the two exclusive groups and expose no spells.ability (EXC-17, EXC-18, EXC-19)',
       () async {
         final detailClient = fixtureClient(fixtureBody('template_detail.json'));
         final detail = await detailClient.getTemplate('fantasy_v1');
@@ -103,20 +103,28 @@ void main() {
 
         for (final template in [detail, catalog]) {
           final config = template.fields['config']!.children!;
-          final tagged = {
-            for (final entry in config.entries)
-              if ((entry.value.schema?.exclusiveGroup ?? '').isNotEmpty)
-                entry.key,
-          };
+          final groups = <String, Set<String>>{};
+          for (final entry in config.entries) {
+            final id = entry.value.schema?.exclusiveGroup;
+            if (id == null || id.isEmpty) continue;
+            groups.putIfAbsent(id, () => <String>{}).add(entry.key);
+          }
 
-          expect(tagged, {'acUsesDex', 'acUsesCon'});
+          expect(groups, {
+            'armorClassAbility': {'acUsesDex', 'acUsesCon'},
+            'spellcastingAbility': {
+              'spellUsesCharisma',
+              'spellUsesConstitution',
+              'spellUsesDexterity',
+              'spellUsesIntelligence',
+              'spellUsesStrength',
+              'spellUsesWisdom',
+            },
+          });
           expect(
-            config['acUsesDex']!.schema!.exclusiveGroup,
-            'armorClassAbility',
-          );
-          expect(
-            config['acUsesCon']!.schema!.exclusiveGroup,
-            'armorClassAbility',
+            template.fields['spells']?.children?.containsKey('ability'),
+            isNot(true),
+            reason: 'the redundant spells.ability leaf is removed (EXC-19)',
           );
         }
       },

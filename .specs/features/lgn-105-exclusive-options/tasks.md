@@ -499,10 +499,10 @@ T14 → T15
 
 **Done when**:
 
-- [ ] Fixtures tag exactly the ac pair and the six `spellUses*`; no other leaf is tagged
-- [ ] No fixture exposes `spells.ability`
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: contract-fixture test extended to both groups, no silent deletions
+- [x] Fixtures tag exactly the ac pair and the six `spellUses*`; no other leaf is tagged
+- [x] No fixture exposes `spells.ability`
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: contract-fixture test extended to both groups, no silent deletions
 
 **Tests**: unit
 **Gate**: build (desktop)
