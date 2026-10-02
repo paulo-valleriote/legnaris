@@ -36,6 +36,7 @@ const (
 	MsgSheetIDNotProvided = "sheet id not provided"
 	MsgSheetIDInvalid     = "sheet id must be a canonical UUID v7"
 	MsgFieldDoesNotExist  = "field does not exist: "
+	MsgNestedTooDeep      = "sheet data is nested too deeply"
 )
 
 // requireSheetID is the single source of truth for the sheet-ID checks
@@ -265,7 +266,7 @@ func translateDAGErr(err error) error {
 		)
 	}
 	if errors.Is(err, maputils.ErrMaxDepthExceeded) {
-		return apperr.NewError(apperr.CodeInvalidRequest, "sheet data is nested too deeply", err)
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgNestedTooDeep, err)
 	}
 	switch {
 	case isMaputilsDataErr(err):
@@ -287,7 +288,7 @@ func translateMapErr(op string, err error) error {
 		return nil
 	}
 	if errors.Is(err, maputils.ErrMaxDepthExceeded) {
-		return apperr.NewError(apperr.CodeInvalidRequest, "sheet data is nested too deeply", err)
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgNestedTooDeep, err)
 	}
 	if isMaputilsDataErr(err) {
 		return apperr.NewError(apperr.CodeInvalidRequest, "invalid sheet data", err)
