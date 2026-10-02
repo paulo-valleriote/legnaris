@@ -277,7 +277,9 @@ func TestFantasyV1_Structure(t *testing.T) {
 
 	t.Run("Happy path: spells expose the header, nine slot pools and lists", func(t *testing.T) {
 		spells := fantasyV1Template.Fields[fieldNameSpells].Children
-		for _, name := range []string{"ability", "atWill", "list"} {
+		assert.NotContains(t, spells, "ability",
+			"EXC-19: the redundant spellcasting ability text leaf is gone")
+		for _, name := range []string{"atWill", "list"} {
 			require.Equal(t, fieldTypeText, spells[name].Schema.Type, name)
 		}
 		for _, name := range []string{"attackBonus", "saveDC"} {
@@ -315,7 +317,7 @@ func TestFantasyV1_Structure(t *testing.T) {
 // and dependencies, or editable without one).
 func TestFantasyV1_LeafContracts(t *testing.T) {
 	schemas, paths := collectLeaves(fantasyV1Template.Fields)
-	require.Equal(t, 131, len(schemas), "the sheet must stay complete")
+	require.Equal(t, 130, len(schemas), "the sheet must stay complete")
 
 	for i, schema := range schemas {
 		key := paths[i].String()

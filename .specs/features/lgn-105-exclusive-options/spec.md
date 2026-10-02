@@ -186,7 +186,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-17 | P1: Contract advertises exclusive groups | Execute | Verified |
 | EXC-18 | P1: Spellcasting ability is a single choice | Execute | Implementing |
-| EXC-19 | P1: Spellcasting ability is a single choice | Execute | Pending |
+| EXC-19 | P1: Spellcasting ability is a single choice | Execute | Implementing |
 | EXC-20 | P1: Spellcasting ability is a single choice | Execute | Pending |
 | EXC-21 | P1: Spellcasting ability is a single choice | Execute | Pending |
 | EXC-22 | P1: Spellcasting ability is a single choice | Execute | Pending |

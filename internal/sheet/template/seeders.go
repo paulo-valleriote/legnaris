@@ -319,7 +319,6 @@ func spellsGroup() FieldGroup {
 	}
 
 	group := FieldGroup{
-		"ability":     textField("Spellcasting ability"),
 		"attackBonus": calcField("Spell attack bonus", attackBonusFormula, attackBonusDeps...),
 		"saveDC": calcField(
 			"Spell save DC",

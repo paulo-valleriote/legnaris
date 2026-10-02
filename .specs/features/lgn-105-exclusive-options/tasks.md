@@ -472,10 +472,10 @@ T14 → T15
 
 **Done when**:
 
-- [ ] `fantasy_v1` no longer exposes a `spells.ability` leaf; the remaining spells leaves render in order
-- [ ] Leaf count is 130 and the structure test passes without the removed leaf
-- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...`
-- [ ] Test count: structure + leaf-contract tests updated, no silent deletions
+- [x] `fantasy_v1` no longer exposes a `spells.ability` leaf; the remaining spells leaves render in order
+- [x] Leaf count is 130 and the structure test passes without the removed leaf
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [x] Test count: structure + leaf-contract tests updated, no silent deletions
 
 **Tests**: unit
 **Gate**: build (backend)
