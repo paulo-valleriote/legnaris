@@ -53,3 +53,18 @@ of creating separate implementation cards.
 **Why:** The card's acceptance criteria ask for the decision and follow-up cards; the user chose to
 ship the change from the same card rather than open new ones, since the scope is small (one metadata
 key plus one control).
+
+## Area 6 — Spellcasting ability is exclusive too, and `spells.ability` goes away
+
+**Decision:** The six `config.spellUses*` leaves join one exclusive group `spellcastingAbility` (default
+all `0` = no ability selected). The free-text `spells.ability` leaf is removed; its "Spellcasting
+ability" label becomes the exclusive group's row label.
+
+**Why:** The user confirmed the six flags have the same defect as the ac pair — the `spells.attackBonus`
+formula sums all six multipliers, so two abilities on double-counts. Making them exclusive turns the six
+switches into one radio group. The `spells.ability` text field is then a redundant second control for the
+same concept, so it is removed. Overrides the original card note that `spellUses*` were "loose flags".
+
+**Trade-off:** Removing a leaf changes the template shape. The project is pre-launch MVP with no stored
+sheets to preserve (user decision), so `fantasy_v1` is mutated in place rather than versioned to
+`fantasy_v2`. A stored `spells.ability` on an old sheet would simply be ignored.

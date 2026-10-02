@@ -105,6 +105,22 @@ Close the whole-tree contract-coverage gap the discrimination sensor found
 T2 → T11
 ```
 
+### Phase 8: Spellcasting group (backend)
+
+Tag the six spellcasting flags exclusive and drop the redundant ability leaf.
+
+```
+T12 → T13
+```
+
+### Phase 9: Spellcasting group (desktop)
+
+Mirror the contract in fixtures and cover the radio fallback on screen.
+
+```
+T14 → T15
+```
+
 ---
 
 ## Task Breakdown
@@ -413,6 +429,115 @@ T2 → T11
 
 ---
 
+### T12: Make the spellcasting ability flags exclusive
+
+**What**: tag the six `config.spellUses*` leaves with the shared group id `spellcastingAbility` (named constant) in `configGroup`; extend the config pin test and the T11 whole-tree assertion to require exactly two groups (`armorClassAbility` with 2 members, `spellcastingAbility` with 6). The `spells.attackBonus` formula and its `DependsOn` stay unchanged; all six defaults stay `0`.
+**Where**: `internal/sheet/template/seeders.go`
+**Depends on**: T2, T11
+**Reuses**: `spellUsesKey`, the T11 whole-tree assertion, the config pin test
+**Requirement**: EXC-18
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] All six `config.spellUses*` carry `ExclusiveGroup == "spellcastingAbility"`; `save*Prof`/`skill*Prof` stay untagged
+- [ ] The whole-tree assertion names both groups with their exact member sets
+- [ ] Formula/depends-on invariant test unchanged and green
+- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [ ] Test count: config pin + whole-tree tests extended, no silent deletions
+
+**Tests**: unit
+**Gate**: build (backend)
+
+**Commit**: `feat(template): make the spellcasting ability flags exclusive`
+
+---
+
+### T13: Remove the redundant spells.ability leaf
+
+**What**: remove the `spells.ability` text leaf from `spellsGroup`; update the spells structure test (no longer expects an `ability` text leaf) and the whole-tree leaf-count assertion (131 → 130); the formula/dep graph is unaffected.
+**Where**: `internal/sheet/template/seeders.go`
+**Depends on**: T12
+**Reuses**: `TestFantasyV1_Structure` and `TestFantasyV1_LeafContracts`
+**Requirement**: EXC-19
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] `fantasy_v1` no longer exposes a `spells.ability` leaf; the remaining spells leaves render in order
+- [ ] Leaf count is 130 and the structure test passes without the removed leaf
+- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [ ] Test count: structure + leaf-contract tests updated, no silent deletions
+
+**Tests**: unit
+**Gate**: build (backend)
+
+**Commit**: `feat(template): remove the redundant spells.ability leaf`
+
+---
+
+### T14: Mirror the spellcasting group in the desktop fixtures
+
+**What**: update `template_detail.json` and `templates.json` so the six `spellUses*` carry `"exclusive_group":"spellcastingAbility"` and the `spells.ability` schema is gone; drop `spells.ability` from `sheet_get.json`/`sheet_create.json`; update `contract_fixtures_test.dart` to require exactly the two groups (ac pair + six spellcasting) and the absence of `spells.ability`.
+**Where**: `desktop/test/fixtures/contract_fixtures_test.dart`
+**Depends on**: T12, T13
+**Reuses**: existing contract-fixture group assertions
+**Requirement**: EXC-18, EXC-19
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] Fixtures tag exactly the ac pair and the six `spellUses*`; no other leaf is tagged
+- [ ] No fixture exposes `spells.ability`
+- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [ ] Test count: contract-fixture test extended to both groups, no silent deletions
+
+**Tests**: unit
+**Gate**: build (desktop)
+
+**Commit**: `test(desktop): mirror the spellcasting group contract fixtures`
+
+---
+
+### T15: Cover the exclusive spellcasting radio on screen
+
+**What**: extend the sheet screen/preview tests: the six-option `spellcastingAbility` group renders a radio control (`sheet-exclusive-spellcastingAbility`), selecting one member sets it to 1 and the other five to 0 in a single emission with GET-only requests, none-selected renders with nothing checked, and the preview renders it disabled with the active option.
+**Where**: `desktop/test/sheet/sheet_screen_test.dart`
+**Depends on**: T14
+**Reuses**: the existing exclusive-group screen test harness and `pumpScreen`
+**Requirement**: EXC-20, EXC-21, EXC-22
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] The spellcasting group renders a radio (not segmented) and selecting one member zeroes the other five in one emission
+- [ ] The request log stays GET-only; the preview shows the group disabled with the active option
+- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...` and `cd desktop && flutter analyze && flutter test`
+- [ ] Test count: new screen/preview cases, no silent deletions
+
+**Tests**: widget
+**Gate**: build (desktop)
+
+**Commit**: `test(sheet): cover the exclusive spellcasting radio group`
+
+---
+
 ## Phase Execution Map
 
 Phases run in sequence; tasks within a phase run in order:
@@ -427,6 +552,12 @@ Phase 5:  T7 → T8
 Phase 6:  T9 → T10
           T8 → T10
 Phase 7:  T2 → T11
+Phase 8:  T2 → T12
+          T11 → T12
+          T12 → T13
+Phase 9:  T12 → T14
+          T13 → T14
+          T14 → T15
 ```
 
 Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted batch; run backend first so the desktop fixtures mirror an already-shipped contract, then dispatch the Verifier after the final commit.
@@ -446,6 +577,10 @@ Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted ba
 | T9: edit-state batch | 1 method | ✅ Granular |
 | T10: screen + fixtures | 1 screen file (+ fixtures) | ✅ Granular |
 | T11: whole-tree group assertion | 1 test file | ✅ Granular |
+| T12: spellcasting tagging | 1 function | ✅ Granular |
+| T13: remove spells.ability | 1 function | ✅ Granular |
+| T14: contract fixtures | 1 test file (+ fixtures) | ✅ Granular |
+| T15: spellcasting radio screen test | 1 test file | ✅ Granular |
 
 **Diagram-Definition Cross-Check**
 
@@ -462,6 +597,10 @@ Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted ba
 | T9 | None | — | ✅ Match |
 | T10 | T8, T9 | T8 → T10, T9 → T10 | ✅ Match |
 | T11 | T2 | T2 → T11 | ✅ Match |
+| T12 | T2, T11 | T2 → T12, T11 → T12 | ✅ Match |
+| T13 | T12 | T12 → T13 | ✅ Match |
+| T14 | T12, T13 | T12 → T14, T13 → T14 | ✅ Match |
+| T15 | T14 | T14 → T15 | ✅ Match |
 
 **Test Co-location Validation**
 
@@ -478,3 +617,7 @@ Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted ba
 | T9 | Desktop edit state | unit | unit | ✅ OK |
 | T10 | Desktop screen | widget | widget | ✅ OK |
 | T11 | Seeder contract | unit | unit | ✅ OK |
+| T12 | Seeder contract | unit | unit | ✅ OK |
+| T13 | Seeder contract | unit | unit | ✅ OK |
+| T14 | Contract fixtures | unit | unit | ✅ OK |
+| T15 | Desktop screen | widget | widget | ✅ OK |

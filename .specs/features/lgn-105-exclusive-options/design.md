@@ -38,6 +38,10 @@ Serialized for the pair:
 `omitempty` keeps every other leaf byte-identical to today, so the change is backward compatible:
 old clients ignore the key; a client that never sees it renders the two independent toggles as before.
 
+The second exclusive group is the spellcasting ability: the six `config.spellUses*` leaves carry
+`exclusive_group: "spellcastingAbility"` (defaults all `0`). With six options the desktop uses its
+radio fallback. The free-text `spells.ability` leaf is removed — its label becomes the group row label.
+
 **Why metadata, not a select field:** see `context.md` Area 1. The formula
 `combat_baseArmorClass + (modifiers_dexterityMod * config_acUsesDex) + (modifiers_constitutionMod * config_acUsesCon)`
 is unchanged; exclusivity is enforced on the inputs so the multiplicands can never both be 1.
@@ -194,7 +198,7 @@ class SheetExclusiveControl extends StatelessWidget {
 | ----- | ---- | ------ |
 | Contract (Go) | `internal/sheet/template/template.go` | `ExclusiveGroup` field |
 | Contract (Go) | `internal/sheet/template/dto.go` | `exclusive_group` JSON + `toDTO` copy |
-| Seed (Go) | `internal/sheet/template/seeders.go` | tag the ac pair |
+| Seed (Go) | `internal/sheet/template/seeders.go` | tag the ac pair and the six `spellUses*`; remove `spells.ability` |
 | DAG (Go) | `internal/sheet/template/dag.go` | build index + `NormalizeExclusiveUpdates` |
 | Errors (Go) | `internal/sheet/template/errors.go` | `ExclusiveGroupConflictError` |
 | Service (Go) | `internal/sheet/service.go` | call normalization + `translateDAGErr` case |

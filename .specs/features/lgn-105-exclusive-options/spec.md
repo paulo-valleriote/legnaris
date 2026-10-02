@@ -4,7 +4,7 @@ Source: [LGN-105](https://paulovalleriotedev.atlassian.net/browse/LGN-105) — "
 
 ## Problem Statement
 
-`config.acUsesDex` and `config.acUsesCon` are two independent 0/1 proxy leaves, so the UI Engine renders them as two independent toggles even though they express a single choice ("armor class uses dexterity, constitution, or nothing") and the `armorClass` formula consumes both as multipliers. Nothing in the contract says "one or the other", and a prefix heuristic on the client would be wrong (`spellUses*`, `save*Prof`, `skill*Prof` are genuinely independent flags). Without a contract signal, the sheet can double-count modifiers (both flags on) and users see a nonsensical pair of switches. This feature keeps the 0/1 proxy strategy intact and adds the missing exclusivity signal, enforced backend-side and rendered as one control in the desktop UI Engine.
+`config.acUsesDex` and `config.acUsesCon` are two independent 0/1 proxy leaves, so the UI Engine renders them as two independent toggles even though they express a single choice ("armor class uses dexterity, constitution, or nothing") and the `armorClass` formula consumes both as multipliers. The six `config.spellUses*` flags have the same defect: they read as "spellcasting uses <ability>" but render as six independent switches, when spellcasting should use exactly one ability (the `spells.attackBonus` formula sums all six multipliers). Nothing in the contract says "one or the other", and a prefix heuristic on the client would be wrong (`save*Prof`, `skill*Prof` are genuinely independent flags). Without a contract signal, the sheet can double-count modifiers (two flags on) and users see nonsensical switch pairs. This feature keeps the 0/1 proxy strategy intact and adds the missing exclusivity signal, enforced backend-side and rendered as one control in the desktop UI Engine.
 
 ## Goals
 
@@ -13,6 +13,7 @@ Source: [LGN-105](https://paulovalleriotedev.atlassian.net/browse/LGN-105) — "
 - [ ] A `PATCH` that turns one member on zeroes its siblings; a `PATCH` that sets two members on is rejected with a typed 400.
 - [ ] The desktop renders each group as one control (segmented, radio fallback) that can never leave two members on.
 - [ ] Read-only surfaces (sheet preview) render the same group control disabled with the active option shown.
+- [ ] The six spellcasting-ability flags (`config.spellUses*`) form one exclusive group, and the redundant `spells.ability` text leaf is gone.
 
 ## Out of Scope
 
@@ -23,7 +24,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Replacing the proxies with a single string/enum field (card's option a) | User decision: the 0/1 proxy strategy is the anti-copyright keystone; option (b) keeps formulas, storage and existing sheets valid |
 | Humanizing / shortening option labels | Card lists it as a separate follow-up card ("Humanização/labels … card próprio") |
 | Group-level display labels beyond the humanized group id | Same follow-up; the group id is the only label source for now |
-| Marking `spellUses*` / `save*Prof` / `skill*Prof` as exclusive | Card: they are genuinely independent flags, not a choice |
+| Marking `spellUses*` / `save*Prof` / `skill*Prof` as exclusive | Card: those are genuinely independent flags, not a choice — **superseded for `spellUses*` by user decision (see Assumptions); `save*Prof` / `skill*Prof` stay independent** |
 | New field types (`select`/`enum`) or formula-engine changes | Not needed by option (b); the engine stays numeric |
 | Data migration for existing sheets | No stored shape changes; old sheets remain valid |
 | LGN-99 (group-visibility flag in the DTO) | Separate card; orthogonal to exclusivity |
@@ -49,6 +50,9 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | Single-member group on the desktop | Renders with the member's normal per-field control | Consistent with the backend minimum-group-size rule | y |
 | Fixture source | Contract fixtures are updated by hand to the frozen shape (`exclusive_group` on the pair) | The contract shape is frozen in `design.md`; a live capture adds a running-service dependency with no extra signal | y |
 | Read-only rendering | The group renders disabled with the active option selected | Matches the existing rule that a schema-editable field keeps its control type in read-only surfaces | y |
+| Which config flags are exclusive | The armor-class pair AND the six `config.spellUses*` (group `spellcastingAbility`); `save*Prof` / `skill*Prof` stay independent | User decision (increment): spellcasting must be a single choice; overrides the original card note that `spellUses*` were loose flags | y |
+| The redundant `spells.ability` text leaf | Removed; its "Spellcasting ability" label becomes the exclusive group's row label | User decision: no duplicate control; MVP pre-launch, no stored-sheet compatibility concern | y |
+| Default active option for `spellcastingAbility` | All six stay `0` (no ability selected) | User decision: keeps seeded values and derived `spellAttackBonus` unchanged | y |
 
 **Open questions:** none - all resolved or logged above (required before the spec is confirmed).
 
@@ -124,6 +128,24 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 
 ---
 
+### P1: Spellcasting ability is a single choice (backend + frontend) ⭐ MVP
+
+**User Story**: As a user configuring spellcasting, I want to pick exactly one ability so the sheet never sums two ability modifiers into the spell attack bonus.
+
+**Why P1**: The six `spellUses*` flags have the same defect as the ac pair; the user confirmed they must be exclusive.
+
+**Acceptance Criteria**:
+
+1. WHEN the fantasy_v1 template is built, each `config.spellUses<Ability>` leaf SHALL declare the exclusive group `spellcastingAbility`  <!-- event-driven -->
+2. WHEN the fantasy_v1 template is built, it SHALL NOT expose a `spells.ability` text leaf (the exclusive group is the single spellcasting-ability control)  <!-- event-driven -->
+3. WHEN the desktop renders the spellcasting group, the system SHALL render it as a radio control (the group exceeds the segmented option limit)  <!-- event-driven -->
+4. WHEN the user selects a spellcasting ability, the system SHALL set the selected member to 1 and the other five to 0 in a single edit-state emission  <!-- event-driven -->
+5. WHEN the desktop renders the spellcasting group read-only (preview), the system SHALL render the radio control disabled with the active option selected  <!-- event-driven -->
+
+**Independent Test**: `GET /templates/fantasy_v1` has no `spells.ability` and tags all six `spellUses*` with `spellcastingAbility`; the screen shows a radio group and selecting one member zeroes the other five; the preview shows the same group disabled.
+
+---
+
 ## Edge Cases
 
 - IF a template declares an exclusive group id on a non-editable (derived) leaf, THEN the DAG SHALL exclude that leaf from the group.
@@ -134,6 +156,9 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 - WHEN the desktop renders a read-only sheet whose exclusive group has no active member, THEN the control SHALL render with no option selected and stay disabled.
 - IF an exclusive option label is exactly at the segmented limit, THEN the segmented control SHALL be used (limit is inclusive).
 - WHEN the user selects a different option, THEN only the affected controls SHALL rebuild (the group row and any derived consumers), never the whole form.
+- WHEN the spellcasting group has all six members off, THEN the radio SHALL render with none selected and stay selectable.
+- WHEN `spells.ability` is removed, THEN the spells section SHALL render the remaining leaves with no gap.
+- IF a stored sheet still carries `spells.ability`, THEN the API SHALL ignore it (no template leaf) and the desktop SHALL not render it.
 - IF a PATCH sets an exclusive member to a non-numeric value, THEN the system SHALL reject the request with a 400 `INVALID_REQUEST` (the group is numeric 0/1 proxies).
 - IF a PATCH payload nests deeper than `maputils.MaxNestingDepth`, THEN the system SHALL reject it with a 400 `INVALID_REQUEST` before the recursive flatten walks the body (DoS guard).
 
@@ -160,12 +185,17 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-17 | P1: Contract advertises exclusive groups | Execute | Verified |
+| EXC-18 | P1: Spellcasting ability is a single choice | Execute | Pending |
+| EXC-19 | P1: Spellcasting ability is a single choice | Execute | Pending |
+| EXC-20 | P1: Spellcasting ability is a single choice | Execute | Pending |
+| EXC-21 | P1: Spellcasting ability is a single choice | Execute | Pending |
+| EXC-22 | P1: Spellcasting ability is a single choice | Execute | Pending |
 
 **ID format:** `EXC-[NUMBER]`
 
 **Status values:** Pending → In Design → In Tasks → Implementing → Verified
 
-**Coverage:** 17 total, 17 mapped to tasks, 0 unmapped
+**Coverage:** 22 total, 22 mapped to tasks, 0 unmapped
 
 ---
 
@@ -176,3 +206,6 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 - [ ] `GET /templates/fantasy_v1` shows `exclusive_group: "armorClassAbility"` on exactly `config.acUsesDex` and `config.acUsesCon`.
 - [ ] `PATCH {"config":{"acUsesDex":1}}` on a sheet with `acUsesCon:1` yields (1, 0) and a recomputed `armorClass`; PATCHing both to 1 returns 400.
 - [ ] The desktop shows one control for the pair in both edit and read-only surfaces.
+- [ ] `GET /templates/fantasy_v1` tags all six `config.spellUses*` with `spellcastingAbility` and exposes no `spells.ability`.
+- [ ] The desktop renders the spellcasting group as one radio control; selecting a member zeroes the other five in one emission.
+- [ ] `go test -race ./...` and `flutter analyze && flutter test` stay green.
