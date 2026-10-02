@@ -59,15 +59,16 @@ void main() {
   SheetLibraryEntry entry(
     String id, {
     String name = 'Aria',
+    String templateId = 'fantasy_v1',
     String createdAt = '2026-10-02T15:31:28.401Z',
   }) => SheetLibraryEntry(
     id: id,
     name: name,
-    templateId: 'fantasy_v1',
+    templateId: templateId,
     createdAt: DateTime.parse(createdAt),
   );
 
-  ProviderContainer containerWith(_FakeStore store) {
+  ProviderContainer containerWith(SheetLibraryStore store) {
     final container = ProviderContainer(
       overrides: [sheetLibraryStoreProvider.overrideWithValue(store)],
     );
@@ -110,21 +111,57 @@ void main() {
     expect(saved.single.map((stored) => stored.id), ['id-1']);
   });
 
-  test('Happy path: upsert on an existing id replaces it without duplicating (LIB-03)', () {
+  test('Happy path: upsert on an existing id replaces every field without duplicating (LIB-03)', () {
     final store = _FakeStore()
       ..onLoad = () => LibraryLoadResult(
         outcome: LibraryLoadOutcome.loaded,
-        entries: [entry('id-1', name: 'Old')],
+        entries: [
+          entry(
+            'id-1',
+            name: 'Old',
+            templateId: 'old_v1',
+            createdAt: '2026-10-01T10:00:00.000Z',
+          ),
+        ],
       );
     final container = containerWith(store);
 
     container
         .read(sheetLibraryProvider.notifier)
-        .upsert(entry('id-1', name: 'New'));
+        .upsert(
+          entry(
+            'id-1',
+            name: 'New',
+            templateId: 'new_v1',
+            createdAt: '2026-10-05T10:00:00.000Z',
+          ),
+        );
 
     final entries = container.read(sheetLibraryProvider).entries;
     expect(entries, hasLength(1));
+    expect(entries.single.id, 'id-1');
     expect(entries.single.name, 'New');
+    expect(entries.single.templateId, 'new_v1');
+    expect(entries.single.createdAt, DateTime.parse('2026-10-05T10:00:00.000Z'));
+  });
+
+  test('Happy path: sequential mutations each persist a complete, parseable store (LIB-13)', () {
+    final storeDir = Directory('${root.path}/support')
+      ..createSync(recursive: true);
+    final container = containerWith(SheetLibraryStore(directory: storeDir));
+    final notifier = container.read(sheetLibraryProvider.notifier);
+
+    notifier.upsert(entry('id-1'));
+    notifier.upsert(entry('id-2'));
+    notifier.remove('id-1');
+    notifier.upsert(entry('id-3'));
+
+    final reloaded = SheetLibraryStore(directory: storeDir).load();
+    expect(reloaded.outcome, LibraryLoadOutcome.loaded);
+    expect(reloaded.entries.map((stored) => stored.id).toSet(), {
+      'id-2',
+      'id-3',
+    });
   });
 
   test('Edge: entries are ordered by created_at descending, ties by reverse insertion (LIB-04)', () {

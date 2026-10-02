@@ -68,16 +68,24 @@ void main() {
     });
 
     test('Happy path: writes created_at as ISO-8601 UTC (LIB-03)', () {
-      final entry = SheetLibraryEntry(
+      final utcEntry = SheetLibraryEntry(
         id: 'id-1',
         name: 'Aria',
         templateId: 'fantasy_v1',
         createdAt: DateTime.utc(2026, 10, 2, 15, 31, 28, 401),
       );
+      expect(utcEntry.toJson()['created_at'], '2026-10-02T15:31:28.401Z');
 
-      final json = entry.toJson();
+      final localCreatedAt = DateTime(2026, 10, 2, 15, 31, 28, 401);
+      final stored = SheetLibraryEntry(
+        id: 'id-1',
+        name: 'Aria',
+        templateId: 'fantasy_v1',
+        createdAt: localCreatedAt,
+      ).toJson()['created_at'] as String;
 
-      expect(json['created_at'], '2026-10-02T15:31:28.401Z');
+      expect(stored.endsWith('Z'), isTrue);
+      expect(DateTime.parse(stored).isAtSameMomentAs(localCreatedAt), isTrue);
     });
   });
 
