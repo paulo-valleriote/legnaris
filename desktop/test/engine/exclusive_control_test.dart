@@ -100,6 +100,7 @@ void main() {
         final dropdown = dropdownOf(tester);
         expect(dropdown.value, 'config.acUsesDex');
         expect(dropdown.onChanged, isNotNull);
+        expect(dropdown.hint, isNull, reason: 'a selected value shows no hint');
         final values = dropdown.items!.map((item) => item.value).toList();
         expect(values, ['config.acUsesDex', 'config.acUsesCon']);
         expect(
@@ -196,6 +197,16 @@ void main() {
           find.byKey(const Key('sheet-exclusive-option-none')),
           findsNothing,
         );
+        expect(
+          find.byKey(const Key('sheet-exclusive-hint-none')),
+          findsOneWidget,
+          reason: 'a blank default-active group shows the None hint',
+        );
+        expect(
+          find.text('None'),
+          findsOneWidget,
+          reason: 'the hint reads None',
+        );
       },
     );
   });
@@ -272,6 +283,32 @@ void main() {
         expect(dropdownOf(tester).value, exclusiveNoneValue);
         expect(
           find.byKey(const Key('sheet-exclusive-option-none')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: read-only with an active default and no value shows the None hint and stays disabled',
+      (tester) async {
+        await pump(
+          tester,
+          group: groupOf([
+            field('config.a', label: 'Alpha', defaultValue: 1),
+            field('config.b', label: 'Bravo'),
+          ]),
+        );
+
+        final dropdown = dropdownOf(tester);
+        expect(dropdown.onChanged, isNull);
+        expect(dropdown.value, isNull);
+        expect(
+          dropdown.hint,
+          isNotNull,
+          reason: 'a blank read-only row is not empty',
+        );
+        expect(
+          find.byKey(const Key('sheet-exclusive-hint-none')),
           findsOneWidget,
         );
       },

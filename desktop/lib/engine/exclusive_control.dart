@@ -4,7 +4,10 @@
 /// Every group uses the same control: a `DropdownButton` whose entries are the
 /// group's members, each labelled by its short `option_label` when present and
 /// by its schema label otherwise. A group with no active default offers a
-/// `None` entry that clears the group; a group with a default does not. A null
+/// `None` entry that clears the group; a group with a default does not. When a
+/// default-active group has no active member (data seeded before the group
+/// existed, or every member explicitly zeroed), the dropdown shows the `None`
+/// label as its hint so the row never renders blank. A null
 /// [SheetExclusiveControl.onSelect] keeps the dropdown disabled, so read-only
 /// surfaces show the active option (or `None`) and nothing selectable.
 library;
@@ -79,17 +82,23 @@ class SheetExclusiveControl extends StatelessWidget {
       child: DropdownButton<String>(
         key: Key('sheet-exclusive-${group.id}'),
         value: _value,
+        hint: _value == null
+            ? Text(
+                localizations.fieldNone,
+                key: const Key('sheet-exclusive-hint-none'),
+                style: theme.textTheme.bodyMedium,
+              )
+            : null,
         isDense: true,
         isExpanded: true,
         borderRadius: BorderRadius.circular(AppRadius.control),
         style: theme.textTheme.bodyMedium,
         iconSize: AppSizes.emphasis,
-        onChanged:
-            onSelect == null
-                ? null
-                : (value) {
-                  if (value != null) onSelect!(value);
-                },
+        onChanged: onSelect == null
+            ? null
+            : (value) {
+                if (value != null) onSelect!(value);
+              },
         items: [
           if (_allowsNone)
             DropdownMenuItem<String>(
