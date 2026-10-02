@@ -1491,10 +1491,34 @@ func TestNormalizeExclusiveUpdates(t *testing.T) {
 			wantSameMap: true,
 		},
 		{
-			name:        "Edge: a non-numeric value counts as off",
-			updates:     map[string]any{"config.acUsesDex": "1"},
-			want:        map[string]any{"config.acUsesDex": "1"},
-			wantSameMap: true,
+			name:    "Error: a string member is rejected",
+			updates: map[string]any{"config.acUsesDex": "1"},
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				var invalid *ExclusiveValueTypeError
+				require.ErrorAs(t, err, &invalid)
+				assert.Equal(t, "armorClassAbility", invalid.Group)
+				assert.Equal(t, "config.acUsesDex", invalid.Key)
+			},
+		},
+		{
+			name:    "Error: a bool member is rejected",
+			updates: map[string]any{"config.acUsesCon": true},
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				var invalid *ExclusiveValueTypeError
+				require.ErrorAs(t, err, &invalid)
+				assert.Equal(t, "config.acUsesCon", invalid.Key)
+			},
+		},
+		{
+			name:    "Error: a nil member is rejected",
+			updates: map[string]any{"config.acUsesDex": nil},
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				var invalid *ExclusiveValueTypeError
+				require.ErrorAs(t, err, &invalid)
+			},
 		},
 		{
 			name:        "Edge: a single-member group is not enforced",
@@ -1548,4 +1572,73 @@ func TestNormalizeExclusiveUpdates(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNormalizeAndRecalculate pins the PATCH entry point that validates,
+// normalizes and recalculates under a single read-lock acquisition (T3): the
+// normalized map zeroes the exclusive sibling, the cascading effects reflect
+// the active member, and every typed error still bubbles through it.
+func TestNormalizeAndRecalculate(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+	fields := FieldGroup{
+		"stats": {Children: FieldGroup{
+			"dexterity": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"config": {Children: FieldGroup{
+			"acUsesDex": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 1, ExclusiveGroup: "armorClassAbility"}},
+			"acUsesCon": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0, ExclusiveGroup: "armorClassAbility"}},
+		}},
+		"derived": {Children: FieldGroup{
+			"armorClass": {Schema: &FieldSchema{
+				Type: "number", IsEditable: false,
+				Formula:   "10 + stats_dexterity * config_acUsesDex",
+				DependsOn: [][]string{{"stats", "dexterity"}, {"config", "acUsesDex"}},
+			}},
+		}},
+	}
+
+	dag, err := BuildDAG("test", fields, formulaEngine)
+	require.NoError(t, err)
+
+	original := map[string]any{
+		"stats":   map[string]any{"dexterity": 12.0},
+		"config":  map[string]any{"acUsesDex": 1.0, "acUsesCon": 0.0},
+		"derived": map[string]any{"armorClass": 22.0},
+	}
+
+	normalized, cascading, err := dag.NormalizeAndRecalculate(
+		original,
+		map[string]any{"config.acUsesCon": 1.0},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"config.acUsesCon": 1.0, "config.acUsesDex": 0.0}, normalized)
+	assert.Equal(t, map[string]any{"derived.armorClass": 10.0}, cascading)
+
+	t.Run("Error: conflict bubbles through the single-lock entry point", func(t *testing.T) {
+		_, _, err := dag.NormalizeAndRecalculate(original, map[string]any{
+			"config.acUsesDex": 1.0, "config.acUsesCon": 1.0,
+		})
+		require.Error(t, err)
+		var conflict *ExclusiveGroupConflictError
+		require.ErrorAs(t, err, &conflict)
+	})
+
+	t.Run("Error: non-numeric member bubbles through the single-lock entry point", func(t *testing.T) {
+		_, _, err := dag.NormalizeAndRecalculate(original, map[string]any{"config.acUsesDex": "1"})
+		require.Error(t, err)
+		var invalid *ExclusiveValueTypeError
+		require.ErrorAs(t, err, &invalid)
+	})
+
+	t.Run("Error: derived field is not editable", func(t *testing.T) {
+		_, _, err := dag.NormalizeAndRecalculate(original, map[string]any{"derived.armorClass": 5.0})
+		require.Error(t, err)
+		var notEditable *NotEditableError
+		require.ErrorAs(t, err, &notEditable)
+	})
+
+	t.Run("Error: nil original data is rejected before locking", func(t *testing.T) {
+		_, _, err := dag.NormalizeAndRecalculate(nil, map[string]any{"config.acUsesDex": 1.0})
+		require.ErrorIs(t, err, ErrNilOriginalData)
+	})
 }

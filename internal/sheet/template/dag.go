@@ -452,6 +452,12 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
+	return d.recalculateLocked(originalData, updatedData)
+}
+
+// recalculateLocked is the lock-free core of Recalculate. It must be called
+// with mu already held.
+func (d *DAG) recalculateLocked(originalData, updatedData map[string]any) (map[string]any, error) {
 	if err := d.validateUpdateKeysLocked(updatedData); err != nil {
 		return nil, err
 	}
@@ -564,6 +570,12 @@ func (d *DAG) ValidateUpdateKeys(updates map[string]any) error {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
+	return d.validateEditableLocked(updates)
+}
+
+// validateEditableLocked is the lock-free core of ValidateUpdateKeys. It must be
+// called with mu already held.
+func (d *DAG) validateEditableLocked(updates map[string]any) error {
 	for key := range updates {
 		node, ok := d.nodes[key]
 		if !ok {
@@ -576,11 +588,52 @@ func (d *DAG) ValidateUpdateKeys(updates map[string]any) error {
 	return nil
 }
 
+// NormalizeAndRecalculate validates editability, collapses each touched
+// exclusive group to at most one non-zero member, and recomputes derived fields
+// — all under a single read-lock acquisition. It is the PATCH path's entry
+// point: ValidateUpdateKeys + NormalizeExclusiveUpdates + Recalculate would
+// otherwise take the read lock three times per request, and the codebase's
+// discipline is one acquisition per operation (LGN-54).
+//
+// It returns the normalized update map, which the caller applies to the stored
+// data, and the cascading derived effects. Editability is enforced here like
+// ValidateUpdateKeys; the structural key check stays inside recalculateLocked.
+func (d *DAG) NormalizeAndRecalculate(originalData, updatedData map[string]any) (
+	normalized map[string]any, cascading map[string]any, err error,
+) {
+	if d == nil {
+		return nil, nil, ErrNilDAG
+	}
+	if err := validateRecalculateInputs(originalData, updatedData); err != nil {
+		return nil, nil, err
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if err := d.validateEditableLocked(updatedData); err != nil {
+		return nil, nil, err
+	}
+
+	normalized, err = d.normalizeExclusiveUpdatesLocked(updatedData)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cascading, err = d.recalculateLocked(originalData, normalized)
+	if err != nil {
+		return nil, nil, err
+	}
+	return normalized, cascading, nil
+}
+
 // NormalizeExclusiveUpdates returns a copy of updates with each touched
 // exclusive group collapsed to at most one non-zero member. A payload that
 // turns on two or more members of the same group is rejected with an
-// ExclusiveGroupConflictError; a payload that touches no exclusive group — or
-// only turns members off — is returned unchanged (same map, no allocation).
+// ExclusiveGroupConflictError; a member carrying a non-numeric value is
+// rejected with an ExclusiveValueTypeError; a payload that touches no exclusive
+// group — or only turns members off — is returned unchanged (same map, no
+// allocation).
 //
 // It takes the read lock itself, exactly once, like ValidateUpdateKeys, so it
 // must not be called while the caller already holds it (a queued writer turns a
@@ -593,11 +646,29 @@ func (d *DAG) NormalizeExclusiveUpdates(updates map[string]any) (map[string]any,
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
+	normalized, err := d.normalizeExclusiveUpdatesLocked(updates)
+	if err != nil {
+		return nil, err
+	}
+	return normalized, nil
+}
+
+// normalizeExclusiveUpdatesLocked is the lock-free core of
+// NormalizeExclusiveUpdates. It must be called with mu already held.
+func (d *DAG) normalizeExclusiveUpdatesLocked(updates map[string]any) (map[string]any, error) {
 	var normalized map[string]any
 	for group, members := range d.exclusiveGroups {
 		var on []string
 		for _, key := range members {
-			if value, present := updates[key]; present && isNonZeroNumber(value) {
+			value, present := updates[key]
+			if !present {
+				continue
+			}
+			active, valid := exclusiveValueOn(value)
+			if !valid {
+				return nil, ErrExclusiveValueType(group, key)
+			}
+			if active {
 				on = append(on, key)
 			}
 		}
@@ -631,38 +702,17 @@ func (d *DAG) NormalizeExclusiveUpdates(updates map[string]any) (map[string]any,
 	return normalized, nil
 }
 
-// isNonZeroNumber reports whether v holds a numeric value other than zero.
-// Every int/uint size, float32 and float64 count; any other value — a string, a
-// bool, nil — is off. maputils.Equal(v, 0) alone is unsafe here: it returns
-// false for non-numeric values, which would read a string as "on".
-func isNonZeroNumber(v any) bool {
-	switch value := v.(type) {
-	case int:
-		return value != 0
-	case int8:
-		return value != 0
-	case int16:
-		return value != 0
-	case int32:
-		return value != 0
-	case int64:
-		return value != 0
-	case uint:
-		return value != 0
-	case uint8:
-		return value != 0
-	case uint16:
-		return value != 0
-	case uint32:
-		return value != 0
-	case uint64:
-		return value != 0
-	case float32:
-		return value != 0
-	case float64:
-		return value != 0
+// exclusiveValueOn reports whether v is an active exclusive member and whether
+// v is a value the group accepts at all. Exclusive members are numeric 0/1
+// proxies, so every numeric type counts (non-zero is active) and every other
+// value — a string, a bool, nil, a map — is rejected instead of being silently
+// read as "off", which would let a payload bypass the at-most-one rule.
+func exclusiveValueOn(v any) (on bool, valid bool) {
+	f, ok := maputils.ToFloat64(v)
+	if !ok {
+		return false, false
 	}
-	return false
+	return f != 0, true
 }
 
 // copyFlatUpdates shallow-copies a flat update map so normalization can add

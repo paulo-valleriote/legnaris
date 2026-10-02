@@ -398,6 +398,15 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	var body response.ErrorResponse
 	require.NoError(t, json.Unmarshal(bothRec.Body.Bytes(), &body))
 	assert.Equal(t, "INVALID_REQUEST", body.Error.Code)
+
+	// A non-numeric member is not a 0/1 proxy: reject it instead of treating it
+	// as "off" and letting the payload bypass the at-most-one rule.
+	nonNumericRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesDex":"1"}}}`)
+	require.Equal(t, http.StatusBadRequest, nonNumericRec.Code)
+
+	var nonNumericBody response.ErrorResponse
+	require.NoError(t, json.Unmarshal(nonNumericRec.Body.Bytes(), &nonNumericBody))
+	assert.Equal(t, "INVALID_REQUEST", nonNumericBody.Error.Code)
 }
 
 // TestIntegration_ErrorStatusMapping covers the HTTP status each typed error

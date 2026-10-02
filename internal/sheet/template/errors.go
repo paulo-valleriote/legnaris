@@ -78,6 +78,20 @@ func (e *ExclusiveGroupConflictError) Error() string {
 	return fmt.Sprintf("conflicting exclusive options in group '%s': %v", e.Group, e.Keys)
 }
 
+// ExclusiveValueTypeError reports a non-numeric value written to a member of an
+// exclusive group. Members are 0/1 numeric proxies, so a string, bool or null is
+// not a value the group can reason about: treating it as "off" would let a
+// payload bypass the at-most-one rule, and letting it through would corrupt the
+// numeric formula environment.
+type ExclusiveValueTypeError struct {
+	Group string
+	Key   string
+}
+
+func (e *ExclusiveValueTypeError) Error() string {
+	return fmt.Sprintf("exclusive option in group '%s' must be numeric: %s", e.Group, e.Key)
+}
+
 // FieldNameError reports a field name rejected at DAG build time.
 // Field names must match ^[A-Za-z][A-Za-z0-9]*$ so the flat DAG map key
 // (dot-joined) and the expr-lang engine key (underscore-joined) stay
@@ -160,4 +174,10 @@ func ErrNotEditable(key string) error {
 // more members of the same exclusive group.
 func ErrExclusiveGroupConflict(group string, keys []string) error {
 	return &ExclusiveGroupConflictError{Group: group, Keys: slices.Clone(keys)}
+}
+
+// ErrExclusiveValueType returns an error when a payload writes a non-numeric
+// value to a member of an exclusive group.
+func ErrExclusiveValueType(group string, key string) error {
+	return &ExclusiveValueTypeError{Group: group, Key: key}
 }

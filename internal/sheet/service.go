@@ -161,19 +161,10 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	// exclusively on those.
 	updates := maputils.FlattenPathKeys(cmd.Data)
 
-	if err := dag.ValidateUpdateKeys(updates); err != nil {
-		return nil, translateDAGErr(err)
-	}
-
-	// Collapse each touched exclusive group to at most one non-zero member
-	// before the recalculation sees it, so a turned-on member also zeroes its
-	// siblings and no exclusive multiplicand is double-counted.
-	normalized, err := dag.NormalizeExclusiveUpdates(updates)
-	if err != nil {
-		return nil, translateDAGErr(err)
-	}
-
-	cascadingEffects, err := dag.Recalculate(storedSheet.Data, normalized)
+	// Validate editability, collapse each touched exclusive group to at most
+	// one non-zero member, and recompute derived fields under a single DAG
+	// read-lock acquisition, so a PATCH never takes the lock more than once.
+	normalized, cascadingEffects, err := dag.NormalizeAndRecalculate(storedSheet.Data, updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
@@ -254,6 +245,14 @@ func translateDAGErr(err error) error {
 		return apperr.NewError(
 			apperr.CodeInvalidRequest,
 			"conflicting exclusive options: "+conflict.Group,
+			err,
+		)
+	}
+	var invalidExclusive *template.ExclusiveValueTypeError
+	if errors.As(err, &invalidExclusive) {
+		return apperr.NewError(
+			apperr.CodeInvalidRequest,
+			"exclusive option must be numeric: "+invalidExclusive.Key,
 			err,
 		)
 	}

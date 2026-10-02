@@ -208,3 +208,63 @@ func TestRecalculate_ConcurrentReaders(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// TestNormalizeAndRecalculate_ConcurrentWithWriter drives the single-lock PATCH
+// entry point while a writer keeps taking the write lock: the read path must
+// acquire the read lock exactly once per call and never deadlock against a
+// queued writer (the failure mode a recursive RLock would produce, LGN-54).
+func TestNormalizeAndRecalculate_ConcurrentWithWriter(t *testing.T) {
+	dag := buildImmutabilityTestDAG(t, "lgn54")
+
+	original := map[string]any{"stats": map[string]any{"str": 10.0}}
+
+	stop := make(chan struct{})
+	var writer sync.WaitGroup
+	writer.Add(1)
+	go func() {
+		defer writer.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				dag.mu.Lock()
+				dag.mu.Unlock()
+			}
+		}
+	}()
+
+	const goroutines, iterations = 8, 25
+	var readers sync.WaitGroup
+	done := make(chan struct{})
+	for g := 0; g < goroutines; g++ {
+		readers.Add(1)
+		go func() {
+			defer readers.Done()
+			for i := 0; i < iterations; i++ {
+				normalized, cascading, err := dag.NormalizeAndRecalculate(
+					original,
+					map[string]any{"stats.str": 16.0},
+				)
+				assert.NoError(t, err)
+				assert.Equal(t, 16.0, normalized["stats.str"])
+				assert.Equal(t, 32.0, cascading["derived.bonus"])
+			}
+		}()
+	}
+
+	go func() {
+		readers.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		close(stop)
+		writer.Wait()
+		t.Fatal("NormalizeAndRecalculate deadlocked under writer contention: read lock acquired more than once?")
+	}
+	close(stop)
+	writer.Wait()
+}

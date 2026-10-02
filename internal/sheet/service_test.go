@@ -438,6 +438,15 @@ func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
 			expectStore: false,
 			expectedErr: "conflicting exclusive options",
 		},
+		{
+			name:   "Error: a non-numeric member is rejected",
+			stored: storedWith(1, 0, 12),
+			updates: map[string]any{
+				"config": map[string]any{"acUsesDex": "1"},
+			},
+			expectStore: false,
+			expectedErr: "exclusive option must be numeric",
+		},
 	}
 
 	for _, tc := range tests {
