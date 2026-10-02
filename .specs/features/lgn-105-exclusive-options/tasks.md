@@ -526,10 +526,10 @@ T14 → T15
 
 **Done when**:
 
-- [ ] The spellcasting group renders a radio (not segmented) and selecting one member zeroes the other five in one emission
-- [ ] The request log stays GET-only; the preview shows the group disabled with the active option
-- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...` and `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: new screen/preview cases, no silent deletions
+- [x] The spellcasting group renders a radio (not segmented) and selecting one member zeroes the other five in one emission
+- [x] The request log stays GET-only; the preview shows the group disabled with the active option
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...` and `cd desktop && flutter analyze && flutter test`
+- [x] Test count: new screen/preview cases, no silent deletions
 
 **Tests**: widget
 **Gate**: build (desktop)

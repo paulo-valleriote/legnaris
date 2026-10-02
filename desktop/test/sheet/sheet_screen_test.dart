@@ -21,7 +21,7 @@ void main() {
   const detailBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}},
-  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility"}}, "stealthProfWeight": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility"}}, "spellUsesCharisma": {"schema": {"type": "number", "label": "Spellcasting uses charisma", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesConstitution": {"schema": {"type": "number", "label": "Spellcasting uses constitution", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesDexterity": {"schema": {"type": "number", "label": "Spellcasting uses dexterity", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesIntelligence": {"schema": {"type": "number", "label": "Spellcasting uses intelligence", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesStrength": {"schema": {"type": "number", "label": "Spellcasting uses strength", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesWisdom": {"schema": {"type": "number", "label": "Spellcasting uses wisdom", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "stealthProfWeight": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}}},
   "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
 }}}
 ''';
@@ -1156,6 +1156,142 @@ void main() {
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
+  group('exclusive spellcasting group (EXC-20, EXC-21, EXC-22)', () {
+    const abilities = [
+      'Charisma',
+      'Constitution',
+      'Dexterity',
+      'Intelligence',
+      'Strength',
+      'Wisdom',
+    ];
+
+    testWidgets(
+      'Happy path: the six-option spellcasting group renders a radio, not a segmented control, with one key per ability (EXC-20)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+          findsOneWidget,
+        );
+        for (final ability in abilities) {
+          expect(
+            find.byKey(Key('sheet-exclusive-option-config.spellUses$ability')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(Key('sheet-toggle-config.spellUses$ability')),
+            findsNothing,
+          );
+        }
+        expect(find.byType(Radio<String>), findsNWidgets(6));
+        expect(
+          find.byType(SegmentedButton<String>),
+          findsOneWidget,
+          reason: 'only the two-option armor-class pair stays segmented',
+        );
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Edge: with all six abilities off the spellcasting radio renders none selected and every option stays selectable (EXC-20)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        final group = tester.widget<RadioGroup<String>>(
+          find.byType(RadioGroup<String>),
+        );
+        expect(group.groupValue, isNull);
+        expect(
+          tester
+              .widgetList<Radio<String>>(find.byType(Radio<String>))
+              .every((radio) => radio.enabled == true),
+          isTrue,
+          reason: 'a group with no active member must stay selectable',
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: selecting a spellcasting ability sets it to 1, zeroes the other five in one emission and issues no request (EXC-21)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        var emissions = 0;
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, _) => emissions++,
+        );
+        addTearDown(subscription.close);
+        final before = {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+
+        await tester.tap(
+          find.byKey(const Key('sheet-exclusive-option-config.spellUsesConstitution')),
+        );
+        await tester.pump();
+
+        final state = container.read(
+          sheetEditControllerProvider('fantasy_v1'),
+        );
+        expect(valueAtPath(state.data, 'config.spellUsesConstitution'), 1);
+        for (final ability in abilities.where((a) => a != 'Constitution')) {
+          expect(
+            valueAtPath(state.data, 'config.spellUses$ability'),
+            0,
+            reason: 'every sibling ability must be zeroed by the selection',
+          );
+        }
+        expect(emissions, 1, reason: 'the group must change in one emission');
+        expect(state.editedPaths, contains('config.spellUsesConstitution'));
+        expect(state.editedPaths, contains('config.spellUsesCharisma'));
+        expect(recorded, hasLength(1));
+        expect(recorded.single.method, 'GET');
+
+        expect(
+          tester
+              .widget<RadioGroup<String>>(find.byType(RadioGroup<String>))
+              .groupValue,
+          'config.spellUsesConstitution',
+        );
+
+        final after = {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+        for (final path in before.keys) {
+          expect(
+            identical(after[path], before[path]),
+            isTrue,
+            reason: '$path must not rebuild when the exclusive group changes',
+          );
+        }
       },
     );
   });

@@ -44,7 +44,7 @@ void main() {
       '{"data": {"id": "fantasy_v1", "name": "Blank Template", "default": false, "fields": {}}}';
   const exclusivePairBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
-  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility"}}}}
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility"}}, "spellUsesCharisma": {"schema": {"type": "number", "label": "Spellcasting uses charisma", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesConstitution": {"schema": {"type": "number", "label": "Spellcasting uses constitution", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesDexterity": {"schema": {"type": "number", "label": "Spellcasting uses dexterity", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesIntelligence": {"schema": {"type": "number", "label": "Spellcasting uses intelligence", "is_editable": true, "default": 1, "exclusive_group": "spellcastingAbility"}}, "spellUsesStrength": {"schema": {"type": "number", "label": "Spellcasting uses strength", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesWisdom": {"schema": {"type": "number", "label": "Spellcasting uses wisdom", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}}}
 }}}
 ''';
   const groupsOnlyBody =
@@ -322,6 +322,44 @@ void main() {
         );
         expect(
           inPreview(find.byKey(const Key('sheet-toggle-config.acUsesCon'))),
+          findsNothing,
+        );
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Happy path: the preview renders the spellcasting radio disabled with the active option from data (EXC-22)',
+      (tester) async {
+        final recorded = await pumpCatalog(
+          tester,
+          handler: routing(detail: exclusivePairBody),
+        );
+        await openDialog(tester);
+
+        expect(
+          inPreview(
+            find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+          ),
+          findsOneWidget,
+        );
+        final radios = tester.widgetList<Radio<String>>(
+          inPreview(find.byType(Radio<String>)),
+        );
+        expect(radios, hasLength(6));
+        expect(radios.every((radio) => radio.enabled == false), isTrue);
+        expect(
+          tester
+              .widget<RadioGroup<String>>(
+                inPreview(find.byType(RadioGroup<String>)),
+              )
+              .groupValue,
+          'config.spellUsesIntelligence',
+        );
+        expect(
+          inPreview(
+            find.byKey(const Key('sheet-toggle-config.spellUsesIntelligence')),
+          ),
           findsNothing,
         );
         expect(recorded.every((request) => request.method == 'GET'), isTrue);

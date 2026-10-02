@@ -117,7 +117,12 @@ class SheetExclusiveControl extends StatelessWidget {
                   value: option.path,
                   enabled: onSelect != null,
                 ),
-                Text(_optionLabel(option), style: theme.textTheme.bodyMedium),
+                Flexible(
+                  child: Text(
+                    _optionLabel(option),
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
               ],
             ),
         ],

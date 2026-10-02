@@ -25,7 +25,13 @@ void main() {
     required SheetExclusiveGroup group,
     String? selectedPath,
     ValueChanged<String>? onSelect,
+    double? width,
   }) async {
+    final Widget control = SheetExclusiveControl(
+      group: group,
+      selectedPath: selectedPath,
+      onSelect: onSelect,
+    );
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(),
@@ -33,11 +39,9 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Center(
-            child: SheetExclusiveControl(
-              group: group,
-              selectedPath: selectedPath,
-              onSelect: onSelect,
-            ),
+            child: width == null
+                ? control
+                : SizedBox(width: width, child: control),
           ),
         ),
       ),
@@ -126,6 +130,26 @@ void main() {
 
         expect(find.byType(SegmentedButton<String>), findsNothing);
         expect(find.byType(Radio<String>), findsNWidgets(2));
+      },
+    );
+
+    testWidgets(
+      'Edge: a long radio label wraps in a narrow row without overflowing (EXC-10)',
+      (tester) async {
+        await pump(
+          tester,
+          width: 160,
+          group: groupOf([
+            field('config.a', label: 'Alpha'),
+            field('config.b', label: 'Spellcasting uses constitution'),
+            field('config.c', label: 'Charlie'),
+            field('config.d', label: 'Delta'),
+          ]),
+        );
+
+        expect(find.byType(Radio<String>), findsNWidgets(4));
+        expect(find.text('Spellcasting uses constitution'), findsOneWidget);
+        expect(tester.takeException(), isNull);
       },
     );
   });
