@@ -137,4 +137,95 @@ void main() {
         .toList();
     expect(ids, ['id-1', 'id-2', 'id-3']);
   });
+
+  test('Happy path: an absent store loads empty; a saved index round-trips through a fresh store (LIB-01, LIB-14)', () {
+    final absent = newStore().load();
+    expect(absent.outcome, LibraryLoadOutcome.empty);
+    expect(absent.entries, isEmpty);
+
+    newStore().save([entry('id-1', name: 'Aria'), entry('id-2', name: 'Borin')]);
+
+    final loaded = newStore().load();
+    expect(loaded.outcome, LibraryLoadOutcome.loaded);
+    expect(loaded.entries.map((stored) => stored.id), ['id-1', 'id-2']);
+    expect(loaded.entries.first.name, 'Aria');
+  });
+
+  test('Error: a corrupt or malformed store is quarantined with its original bytes (LIB-17)', () {
+    final variants = <String, String>{
+      'zero bytes': '',
+      'invalid JSON': '{ not json',
+      'non-object root': '[1, 2, 3]',
+      'non-integer version': '{"schema_version": "1", "sheets": []}',
+      'sheets not a list': '{"schema_version": 1, "sheets": {}}',
+      'entry not an object': '{"schema_version": 1, "sheets": [42]}',
+      'entry missing a field':
+          '{"schema_version": 1, "sheets": [{"id": "a", "name": "b"}]}',
+      'entry invalid':
+          '{"schema_version": 1, "sheets": [{"id": "", "name": "b", "template_id": "t", "created_at": "2026-10-02T15:31:28.401Z"}]}',
+    };
+
+    for (final MapEntry(key: label, value: body) in variants.entries) {
+      storeDir.createSync(recursive: true);
+      storeFile().writeAsStringSync(body);
+
+      final result = newStore().load();
+
+      expect(result.outcome, LibraryLoadOutcome.quarantined, reason: label);
+      expect(result.entries, isEmpty, reason: label);
+      final quarantined = storeDir
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.contains('.corrupt-'))
+          .toList();
+      expect(quarantined, hasLength(1), reason: label);
+      expect(quarantined.single.readAsStringSync(), body, reason: label);
+      storeDir.deleteSync(recursive: true);
+    }
+  });
+
+  test('Happy path: an older version with a registered migration upgrades; without one it is quarantined (LIB-15, LIB-16)', () {
+    const older =
+        '{"schema_version": 0, "sheets": [{"id": "id-1", "name": "Aria", "template_id": "fantasy_v1", "created_at": "2026-10-02T15:31:28.401Z"}]}';
+    storeDir.createSync(recursive: true);
+
+    storeFile().writeAsStringSync(older);
+    final upgraded = SheetLibraryStore(
+      directory: storeDir,
+      migrations: {
+        0: (envelope) => {
+          'schema_version': 1,
+          'sheets': envelope['sheets'],
+        },
+      },
+    ).load();
+    expect(upgraded.outcome, LibraryLoadOutcome.loaded);
+    expect(upgraded.entries.single.id, 'id-1');
+
+    storeFile().writeAsStringSync(older);
+    final noMigration = newStore().load();
+    expect(noMigration.outcome, LibraryLoadOutcome.quarantined);
+    expect(noMigration.entries, isEmpty);
+  });
+
+  test('Edge: a newer schema_version is quarantined without parsing its entries (LIB-18)', () {
+    storeDir.createSync(recursive: true);
+    storeFile().writeAsStringSync('{"schema_version": 2, "sheets": [42]}');
+
+    final result = newStore().load();
+
+    expect(result.outcome, LibraryLoadOutcome.quarantined);
+    expect(result.entries, isEmpty);
+  });
+
+  test('Edge: a leftover temp file is deleted on load and does not change the outcome (LIB-14)', () {
+    newStore().save([entry('id-1')]);
+    tempFile().writeAsStringSync('partial garbage');
+
+    final result = newStore().load();
+
+    expect(result.outcome, LibraryLoadOutcome.loaded);
+    expect(result.entries.single.id, 'id-1');
+    expect(tempFile().existsSync(), isFalse);
+  });
 }

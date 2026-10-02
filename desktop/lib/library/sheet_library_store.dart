@@ -7,6 +7,25 @@ import 'dart:io';
 import 'package:legnaris/library/sheet_library_entry.dart';
 import 'package:legnaris/library/sheet_library_exception.dart';
 
+/// Migrates a persisted envelope from one schema version to the next; keyed by
+/// the version being migrated from.
+typedef JsonMigrator = Map<String, Object?> Function(
+  Map<String, Object?> envelope,
+);
+
+/// How the store loaded, reported to the caller instead of throwing (LIB-19).
+enum LibraryLoadOutcome { loaded, quarantined, empty }
+
+/// The result of [SheetLibraryStore.load]: the outcome and, when loaded, the
+/// stored entries. Never carries sheet data.
+class LibraryLoadResult {
+  const LibraryLoadResult({required this.outcome, required this.entries});
+
+  final LibraryLoadOutcome outcome;
+
+  final List<SheetLibraryEntry> entries;
+}
+
 /// The persistence boundary for the sheet index: a single versioned JSON file
 /// in an injected [Directory], written through a temp-file + rename replace.
 ///
@@ -16,10 +35,10 @@ class SheetLibraryStore {
   SheetLibraryStore({
     required this.directory,
     this.fileName = 'sheet_library.json',
+    this.migrations = const {},
   });
 
-  /// The schema version this build writes and understands; migrations are
-  /// keyed by the version being migrated from.
+  /// The schema version this build writes and understands.
   static const int currentSchemaVersion = 1;
 
   /// The directory holding the store file; injected so tests never touch the
@@ -29,9 +48,87 @@ class SheetLibraryStore {
   /// The store file name inside [directory].
   final String fileName;
 
+  /// Migration steps keyed by the version being migrated from.
+  ///
+  /// SPEC_DEVIATION: injected per store rather than a static const map
+  /// (design) so a test can register a migration for LIB-15 without mutating
+  /// global state.
+  final Map<int, JsonMigrator> migrations;
+
   File get _file => File('${directory.path}/$fileName');
 
   File get _tempFile => File('${_file.path}.tmp');
+
+  /// Loads the index, applying version recovery (LIB-01, LIB-14 … LIB-19).
+  ///
+  /// Never throws for bad input: a corrupt, malformed, or unsupported store is
+  /// quarantined with its original bytes preserved under a distinct name, and
+  /// reported as [LibraryLoadOutcome.quarantined] with an empty index.
+  LibraryLoadResult load() {
+    _deleteLeftoverTemp();
+
+    if (!_file.existsSync()) {
+      return const LibraryLoadResult(
+        outcome: LibraryLoadOutcome.empty,
+        entries: [],
+      );
+    }
+
+    final Map<String, Object?> envelope;
+    try {
+      final decoded = jsonDecode(_file.readAsStringSync());
+      if (decoded is! Map<String, Object?>) {
+        return _quarantine();
+      }
+      envelope = decoded;
+    } on FormatException {
+      return _quarantine();
+    } on FileSystemException {
+      return _quarantine();
+    }
+
+    final version = envelope['schema_version'];
+    if (version is! int) {
+      return _quarantine();
+    }
+    if (version > currentSchemaVersion) {
+      return _quarantine();
+    }
+
+    var migrated = envelope;
+    for (var from = version; from < currentSchemaVersion; from++) {
+      final migrator = migrations[from];
+      if (migrator == null) {
+        return _quarantine();
+      }
+      migrated = migrator(migrated);
+    }
+
+    final rawSheets = migrated['sheets'];
+    if (rawSheets is! List) {
+      return _quarantine();
+    }
+    final entries = <SheetLibraryEntry>[];
+    for (final raw in rawSheets) {
+      if (raw is! Map<String, Object?>) {
+        return _quarantine();
+      }
+      try {
+        final entry = SheetLibraryEntry.fromJson(raw);
+        if (!entry.isValid) {
+          return _quarantine();
+        }
+        entries.add(entry);
+      } on FormatException {
+        return _quarantine();
+      }
+    }
+
+    return LibraryLoadResult(
+      outcome: LibraryLoadOutcome.loaded,
+      entries: List.unmodifiable(entries),
+    );
+  }
 
   /// Validates [entries], then atomically replaces the store with
   /// `{schema_version, sheets}` (LIB-09 … LIB-13, LIB-20).
@@ -67,5 +164,39 @@ class SheetLibraryStore {
         'failed to persist the sheet library: ${error.message}',
       );
     }
+  }
+
+  /// Deletes a temp file left by a crash between write and rename; cleanup is
+  /// best effort so a stale temp never blocks a valid load.
+  void _deleteLeftoverTemp() {
+    try {
+      if (_tempFile.existsSync()) {
+        _tempFile.deleteSync();
+      }
+    } on FileSystemException {
+      return;
+    }
+  }
+
+  /// Moves a bad store aside under `<file>.corrupt-<UTC compact timestamp>`,
+  /// preserving its bytes; if the rename fails the file stays in place and the
+  /// next successful save overwrites it.
+  LibraryLoadResult _quarantine() {
+    try {
+      final stamp = DateTime.now()
+          .toUtc()
+          .toIso8601String()
+          .replaceAll(RegExp(r'[^0-9]'), '');
+      _file.renameSync('${_file.path}.corrupt-$stamp');
+    } on FileSystemException {
+      return const LibraryLoadResult(
+        outcome: LibraryLoadOutcome.quarantined,
+        entries: [],
+      );
+    }
+    return const LibraryLoadResult(
+      outcome: LibraryLoadOutcome.quarantined,
+      entries: [],
+    );
   }
 }

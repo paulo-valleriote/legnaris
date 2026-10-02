@@ -171,13 +171,13 @@ T7
 
 **Done when**:
 
-- [ ] Absent file → `empty` with no error; a saved index → `loaded` with the same entries across a fresh store instance (round-trip proof)
-- [ ] Zero-byte / invalid JSON / malformed shape / non-int version / bad entry → `quarantined` + `empty`, and the quarantined file still holds the original bytes
-- [ ] A registered migration for an older `schema_version` upgrades and returns `loaded`; a missing migration → `quarantined` + `empty`
-- [ ] `schema_version` newer than `currentSchemaVersion` → `quarantined` + `empty`, without parsing entries
-- [ ] A leftover `<file>.tmp` is deleted on load and the outcome is unaffected
-- [ ] Gate check passes: `flutter test test/library/sheet_library_store_test.dart`
-- [ ] Test count: 13 tests pass (no silent deletions)
+- [x] Absent file → `empty` with no error; a saved index → `loaded` with the same entries across a fresh store instance (round-trip proof)
+- [x] Zero-byte / invalid JSON / malformed shape / non-int version / bad entry → `quarantined` + `empty`, and the quarantined file still holds the original bytes
+- [x] A registered migration for an older `schema_version` upgrades and returns `loaded`; a missing migration → `quarantined` + `empty`
+- [x] `schema_version` newer than `currentSchemaVersion` → `quarantined` + `empty`, without parsing entries
+- [x] A leftover `<file>.tmp` is deleted on load and the outcome is unaffected
+- [x] Gate check passes: `flutter test test/library/sheet_library_store_test.dart`
+- [x] Test count: 13 tests pass (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick

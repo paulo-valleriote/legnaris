@@ -151,10 +151,10 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| LIB-01 | P1: Versioned local sheet index | Design | Pending |
+| LIB-01 | P1: Versioned local sheet index | Execute | Implementing |
 | LIB-02 | P1: Versioned local sheet index | Execute | Implementing |
 | LIB-03 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-04 | P1: Versioned local sheet index | Design | Pending |
+| LIB-04 | P1: Versioned local sheet index | Execute | Implementing |
 | LIB-05 | P1: Versioned local sheet index | Design | Pending |
 | LIB-06 | P1: Versioned local sheet index | Design | Pending |
 | LIB-07 | P1: Versioned local sheet index | Design | Pending |
@@ -164,12 +164,12 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | LIB-11 | P1: Persisted schema version and durable writes | Execute | Implementing |
 | LIB-12 | P1: Persisted schema version and durable writes | Execute | Implementing |
 | LIB-13 | P1: Persisted schema version and durable writes | Execute | Implementing |
-| LIB-14 | P1: Safe recovery across schema versions | Design | Pending |
-| LIB-15 | P1: Safe recovery across schema versions | Design | Pending |
-| LIB-16 | P1: Safe recovery across schema versions | Design | Pending |
-| LIB-17 | P1: Safe recovery across schema versions | Design | Pending |
-| LIB-18 | P1: Safe recovery across schema versions | Design | Pending |
-| LIB-19 | P1: Safe recovery across schema versions | Design | Pending |
+| LIB-14 | P1: Safe recovery across schema versions | Execute | Implementing |
+| LIB-15 | P1: Safe recovery across schema versions | Execute | Implementing |
+| LIB-16 | P1: Safe recovery across schema versions | Execute | Implementing |
+| LIB-17 | P1: Safe recovery across schema versions | Execute | Implementing |
+| LIB-18 | P1: Safe recovery across schema versions | Execute | Implementing |
+| LIB-19 | P1: Safe recovery across schema versions | Execute | Implementing |
 | LIB-20 | P1: Safe recovery across schema versions | Execute | Implementing |
 | LIB-21 | P1: Riverpod read/write surface | Design | Pending |
 | LIB-22 | P1: Riverpod read/write surface | Design | Pending |
