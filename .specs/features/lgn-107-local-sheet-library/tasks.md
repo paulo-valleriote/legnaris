@@ -142,12 +142,12 @@ T7
 
 **Done when**:
 
-- [ ] `save` writes a parseable `{schema_version: 1, sheets: [...]}` document with exactly the four entry fields
-- [ ] An invalid entry throws `SheetLibraryException.invalidEntry` and writes nothing
-- [ ] A filesystem failure throws `SheetLibraryException.writeFailed` and leaves the previous file content intact
-- [ ] After a successful save the temp file is gone and the target holds the new content (rename replaced it)
-- [ ] Gate check passes: `flutter test test/library/sheet_library_store_test.dart`
-- [ ] Test count: 8 tests pass (no silent deletions)
+- [x] `save` writes a parseable `{schema_version: 1, sheets: [...]}` document with exactly the four entry fields
+- [x] An invalid entry throws `SheetLibraryException.invalidEntry` and writes nothing
+- [x] A filesystem failure throws `SheetLibraryException.writeFailed` and leaves the previous file content intact
+- [x] After a successful save the temp file is gone and the target holds the new content (rename replaced it)
+- [x] Gate check passes: `flutter test test/library/sheet_library_store_test.dart`
+- [x] Test count: 8 tests pass (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick

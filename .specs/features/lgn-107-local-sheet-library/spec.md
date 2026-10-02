@@ -159,11 +159,11 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | LIB-06 | P1: Versioned local sheet index | Design | Pending |
 | LIB-07 | P1: Versioned local sheet index | Design | Pending |
 | LIB-08 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-09 | P1: Persisted schema version and durable writes | Design | Pending |
-| LIB-10 | P1: Persisted schema version and durable writes | Design | Pending |
+| LIB-09 | P1: Persisted schema version and durable writes | Execute | Implementing |
+| LIB-10 | P1: Persisted schema version and durable writes | Execute | Implementing |
 | LIB-11 | P1: Persisted schema version and durable writes | Execute | Implementing |
-| LIB-12 | P1: Persisted schema version and durable writes | Design | Pending |
-| LIB-13 | P1: Persisted schema version and durable writes | Design | Pending |
+| LIB-12 | P1: Persisted schema version and durable writes | Execute | Implementing |
+| LIB-13 | P1: Persisted schema version and durable writes | Execute | Implementing |
 | LIB-14 | P1: Safe recovery across schema versions | Design | Pending |
 | LIB-15 | P1: Safe recovery across schema versions | Design | Pending |
 | LIB-16 | P1: Safe recovery across schema versions | Design | Pending |
