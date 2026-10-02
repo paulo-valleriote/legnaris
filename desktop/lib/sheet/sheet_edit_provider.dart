@@ -76,12 +76,15 @@ class SheetEditController extends _$SheetEditController {
 
   /// Stores [selectedPath] as the active option of an exclusive group and every
   /// [siblings] path as zero in one copy-on-write emission, so the group can
-  /// never end with two members on (EXC-13). When no affected path changes (the
-  /// option is already active, every sibling already zero) it returns without
-  /// emitting, keeping the state instance identical (EXC-14). Every written
-  /// path is recorded in [SheetEditState.editedPaths].
-  void setExclusive(String selectedPath, Iterable<String> siblings) {
-    final paths = <String>[selectedPath, ...siblings];
+  /// never end with two members on (EXC-13). A null [selectedPath] clears the
+  /// group: every [siblings] path is set to zero (the `None` selection). When no
+  /// affected path changes (the option is already active, every sibling already
+  /// zero) it returns without emitting, keeping the state instance identical
+  /// (EXC-14). Every written path is recorded in [SheetEditState.editedPaths].
+  void setExclusive(String? selectedPath, Iterable<String> siblings) {
+    final paths = selectedPath == null
+        ? siblings.toList()
+        : <String>[selectedPath, ...siblings];
     final changed = paths.any(
       (path) =>
           valueAtPath(state.data, path) != (path == selectedPath ? 1 : 0),

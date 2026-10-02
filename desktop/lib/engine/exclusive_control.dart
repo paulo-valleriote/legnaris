@@ -1,14 +1,17 @@
-/// Renders one mutually exclusive group as a single control (EXC-09 … EXC-11).
+/// Renders one mutually exclusive group as a single dense dropdown
+/// (EXC-09 … EXC-11, EXC-27).
 ///
-/// A group of at most three options whose labels all fit the segmented limit is
-/// drawn as a [SegmentedButton]; a longer option list or a longer label falls
-/// back to a vertical radio group. A null [SheetExclusiveControl.onSelect]
-/// keeps the same control shape but disables it, so read-only surfaces show the
-/// active option selected and nothing selectable.
+/// Every group uses the same control: a `DropdownButton` whose entries are the
+/// group's members, each labelled by its short `option_label` when present and
+/// by its schema label otherwise. A group with no active default offers a
+/// `None` entry that clears the group; a group with a default does not. A null
+/// [SheetExclusiveControl.onSelect] keeps the dropdown disabled, so read-only
+/// surfaces show the active option (or `None`) and nothing selectable.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:legnaris/engine/field_grouping.dart';
+import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/tokens.dart';
 
 /// Whether an exclusive option value counts as active: any non-zero `num` for
@@ -19,7 +22,12 @@ bool exclusiveValueIsOn(Object? value) {
   return false;
 }
 
-/// One exclusive group rendered as a segmented selector or a radio fallback.
+/// Sentinel the dropdown reports when its `None` entry is selected. The caller
+/// maps it to a null selection (clear the whole group); a real dotted member
+/// path can never collide with it.
+const String exclusiveNoneValue = '__none__';
+
+/// One exclusive group rendered as a single dropdown.
 class SheetExclusiveControl extends StatelessWidget {
   const SheetExclusiveControl({
     super.key,
@@ -34,96 +42,73 @@ class SheetExclusiveControl extends StatelessWidget {
   /// Dotted path of the active option; null when no option is active.
   final String? selectedPath;
 
-  /// Reports a newly selected option path; null renders the control disabled.
+  /// Reports a newly selected option path (or [exclusiveNoneValue]); null
+  /// renders the dropdown disabled.
   final ValueChanged<String>? onSelect;
 
-  /// Above this number of options the segmented control is replaced by radios.
-  static const int _segmentedMaxOptions = 3;
+  /// Whether the group offers a `None` entry: only when no member carries a
+  /// non-zero default, so a group with an active default always has a value.
+  bool get _allowsNone =>
+      group.options.every((option) => option.schema.defaultValue == 0);
 
-  /// Longest option label that still fits one segment (inclusive).
-  static const int _segmentedMaxLabelLength = 30;
-
-  bool get _useSegmented =>
-      group.options.length <= _segmentedMaxOptions &&
-      group.options.every(
-        (option) => _optionLabel(option).length <= _segmentedMaxLabelLength,
-      );
-
-  String _optionLabel(SheetField option) =>
-      fieldDisplayName(option.path.split('.').last, option.schema);
-
-  @override
-  Widget build(BuildContext context) =>
-      _useSegmented ? _segmented(context) : _radios(context);
-
-  Widget _segmented(BuildContext context) {
-    final theme = Theme.of(context);
-    return SegmentedButton<String>(
-      key: Key('sheet-exclusive-${group.id}'),
-      segments: [
-        for (final option in group.options)
-          ButtonSegment<String>(
-            value: option.path,
-            label: Text(
-              _optionLabel(option),
-              key: Key('sheet-exclusive-option-${option.path}'),
-              style: theme.textTheme.bodyMedium,
-            ),
-          ),
-      ],
-      selected: selectedPath == null ? const <String>{} : {selectedPath!},
-      // Empty is only valid while nothing is selected; keeping it false once an
-      // option is active prevents a tap from clearing the choice.
-      emptySelectionAllowed: selectedPath == null,
-      showSelectedIcon: false,
-      style: SegmentedButton.styleFrom(
-        minimumSize: const Size(0, AppSizes.controlHeight),
-        textStyle: theme.textTheme.bodyMedium,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.control),
-        ),
-      ),
-      onSelectionChanged:
-          onSelect == null
-              ? null
-              : (selection) {
-                if (selection.isEmpty) return;
-                onSelect!(selection.first);
-              },
-    );
+  /// The dropdown value: the active member, the `None` sentinel when nothing is
+  /// active and the group allows it, or null when nothing can be shown.
+  String? get _value {
+    final selected = selectedPath;
+    if (selected != null && group.options.any((o) => o.path == selected)) {
+      return selected;
+    }
+    return _allowsNone ? exclusiveNoneValue : null;
   }
 
-  Widget _radios(BuildContext context) {
+  /// The option text: the member's short `option_label` when non-empty, else
+  /// its schema label (or the humanized key when the label is empty).
+  String _optionLabel(SheetField option) {
+    final label = option.schema.optionLabel?.trim();
+    if (label != null && label.isNotEmpty) return label;
+    return fieldDisplayName(option.path.split('.').last, option.schema);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return RadioGroup<String>(
-      groupValue: selectedPath,
-      onChanged:
-          onSelect == null
-              ? (_) {}
-              : (value) {
-                if (value != null) onSelect!(value);
-              },
-      child: Column(
+    final localizations = AppLocalizations.of(context)!;
+    return SizedBox(
+      width: AppSizes.fieldControlWidth,
+      height: AppSizes.controlHeight,
+      child: DropdownButton<String>(
         key: Key('sheet-exclusive-${group.id}'),
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        value: _value,
+        isDense: true,
+        isExpanded: true,
+        borderRadius: BorderRadius.circular(AppRadius.control),
+        style: theme.textTheme.bodyMedium,
+        iconSize: AppSizes.emphasis,
+        onChanged:
+            onSelect == null
+                ? null
+                : (value) {
+                  if (value != null) onSelect!(value);
+                },
+        items: [
+          if (_allowsNone)
+            DropdownMenuItem<String>(
+              value: exclusiveNoneValue,
+              child: Text(
+                localizations.fieldNone,
+                key: const Key('sheet-exclusive-option-none'),
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
           for (final option in group.options)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Radio<String>(
-                  key: Key('sheet-exclusive-option-${option.path}'),
-                  value: option.path,
-                  enabled: onSelect != null,
-                ),
-                Flexible(
-                  child: Text(
-                    _optionLabel(option),
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-              ],
+            DropdownMenuItem<String>(
+              value: option.path,
+              child: Text(
+                _optionLabel(option),
+                key: Key('sheet-exclusive-option-${option.path}'),
+                style: theme.textTheme.bodyMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
         ],
       ),

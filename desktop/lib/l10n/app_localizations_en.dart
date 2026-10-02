@@ -155,4 +155,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sheetRefreshConfirmAction => 'Discard and reload';
+
+  @override
+  String get fieldNone => 'None';
 }

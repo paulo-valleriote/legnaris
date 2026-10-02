@@ -400,11 +400,11 @@ void main() {
           },
         );
 
-        final segmented = tester.widget<SegmentedButton<String>>(
+        final dropdown = tester.widget<DropdownButton<String>>(
           find.byKey(const Key('sheet-exclusive-armorClassAbility')),
         );
-        expect(segmented.selected, {'config.acUsesDex'});
-        expect(segmented.onSelectionChanged, isNull);
+        expect(dropdown.value, 'config.acUsesDex');
+        expect(dropdown.onChanged, isNull);
         expect(
           find.byKey(const Key('sheet-toggle-config.acUsesDex')),
           findsNothing,
@@ -427,11 +427,11 @@ void main() {
           },
         );
 
-        final segmented = tester.widget<SegmentedButton<String>>(
+        final dropdown = tester.widget<DropdownButton<String>>(
           find.byKey(const Key('sheet-exclusive-armorClassAbility')),
         );
-        expect(segmented.selected, isEmpty);
-        expect(segmented.onSelectionChanged, isNull);
+        expect(dropdown.value, exclusiveNoneValue);
+        expect(dropdown.onChanged, isNull);
       },
     );
 

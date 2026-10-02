@@ -651,11 +651,11 @@ T20 → T21
 
 **Done when**:
 
-- [ ] AC (default active) shows the default and no `None`; spellcasting shows `None` + six ability labels
-- [ ] Selecting a member zeroes the siblings in one emission; selecting `None` zeroes all members in one emission
-- [ ] Read-only renders the dropdown disabled with the current value (or `None`); a missing `option_label` falls back to the member label
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
-- [ ] Test count: dropdown happy + edge (None/no-None/missing label/read-only/no-rebuild) cases
+- [x] AC (default active) shows the default and no `None`; spellcasting shows `None` + six ability labels
+- [x] Selecting a member zeroes the siblings in one emission; selecting `None` zeroes all members in one emission
+- [x] Read-only renders the dropdown disabled with the current value (or `None`); a missing `option_label` falls back to the member label
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
+- [x] Test count: dropdown happy + edge (None/no-None/missing label/read-only/no-rebuild) cases
 
 **Tests**: widget
 **Gate**: quick (desktop)

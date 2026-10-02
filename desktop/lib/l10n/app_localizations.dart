@@ -345,6 +345,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Discard and reload'**
   String get sheetRefreshConfirmAction;
+
+  /// Option label of an exclusive-group dropdown entry that clears the group when no member has an active default (EXC-10, EXC-27).
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get fieldNone;
 }
 
 class _AppLocalizationsDelegate

@@ -339,5 +339,75 @@ void main() {
         expect(identical(after, before), isFalse);
       },
     );
+
+    test(
+      'Happy path: setExclusive(null) clears every member in one emission and issues no request (EXC-13, EXC-27)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerOver(
+          (request) async => http.Response(detailBody, 200),
+          recorded,
+        );
+        keepAlive(container, 'fantasy_v1');
+        await pumpEventQueue();
+        final before = stateOf(container, 'fantasy_v1');
+        final emissions = <SheetEditState>[];
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, next) => emissions.add(next),
+        );
+        addTearDown(subscription.close);
+
+        container
+            .read(sheetEditControllerProvider('fantasy_v1').notifier)
+            .setExclusive(null, const ['config.acUsesDex', 'config.acUsesCon']);
+
+        final after = stateOf(container, 'fantasy_v1');
+        expect(valueAtPath(after.data, 'config.acUsesDex'), 0);
+        expect(valueAtPath(after.data, 'config.acUsesCon'), 0);
+        expect(
+          after.editedPaths,
+          containsAll(['config.acUsesDex', 'config.acUsesCon']),
+        );
+        expect(
+          emissions,
+          hasLength(1),
+          reason: 'the whole group must clear in a single emission',
+        );
+        expect(identical(after, before), isFalse);
+        expect(recorded, hasLength(1));
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+      },
+    );
+
+    test(
+      'Edge: clearing an already-empty group leaves the state instance identical (EXC-14)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerOver(
+          (request) async => http.Response(detailBody, 200),
+          recorded,
+        );
+        keepAlive(container, 'fantasy_v1');
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider('fantasy_v1').notifier,
+        );
+        notifier.setExclusive(null, const ['config.acUsesDex', 'config.acUsesCon']);
+        final cleared = stateOf(container, 'fantasy_v1');
+        var emissions = 0;
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, _) => emissions++,
+        );
+        addTearDown(subscription.close);
+
+        notifier.setExclusive(null, const ['config.acUsesDex', 'config.acUsesCon']);
+
+        expect(identical(stateOf(container, 'fantasy_v1'), cleared), isTrue);
+        expect(emissions, 0);
+        expect(recorded, hasLength(1));
+      },
+    );
   });
 }

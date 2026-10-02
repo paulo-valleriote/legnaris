@@ -220,7 +220,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-24 | P1: Standardized option labels and flag controls | Execute | Implementing |
 | EXC-25 | P1: Standardized option labels and flag controls | Execute | Implementing |
 | EXC-26 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-27 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-27 | P1: Standardized option labels and flag controls | Execute | Implementing |
 | EXC-28 | P1: Standardized option labels and flag controls | Execute | Pending |
 | EXC-29 | P1: Standardized option labels and flag controls | Execute | Pending |
 | EXC-30 | P1: Standardized option labels and flag controls | Execute | Pending |

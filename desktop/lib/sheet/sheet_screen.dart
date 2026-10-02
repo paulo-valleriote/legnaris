@@ -325,9 +325,9 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   /// One exclusive group's control, wired to the edit state: the `Consumer`
   /// watches every option path through a `select`, so an edit to a member
   /// rebuilds just this group and the screen never watches the state (AD-001).
-  /// Selecting writes the exclusivity rule into the state — the selected
-  /// member to 1 and every sibling to 0 — with no network request
-  /// (EXC-13, EXC-15, EXC-16).
+  /// Selecting writes the exclusivity rule into the state — the selected member
+  /// to 1 and every sibling to 0, or every member to 0 for the `None` sentinel
+  /// — with no network request (EXC-13, EXC-15, EXC-16, EXC-27).
   Widget _exclusiveControl(
     BuildContext context,
     SheetExclusiveGroup group,
@@ -348,8 +348,10 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
         group: group,
         selectedPath: active,
         onSelect: (path) => ref.read(provider.notifier).setExclusive(
-          path,
-          group.options.map((option) => option.path).where((p) => p != path),
+          path == exclusiveNoneValue ? null : path,
+          group.options
+              .map((option) => option.path)
+              .where((optionPath) => optionPath != path),
         ),
       );
     },
