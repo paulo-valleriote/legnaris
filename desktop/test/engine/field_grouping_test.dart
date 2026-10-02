@@ -209,20 +209,31 @@ void main() {
       );
     });
 
-    test('Edge: equal group ids separated by an untagged leaf do not merge', () {
-      final fields = {
-        'config': groupOf({
-          'a': leaf('number', exclusiveGroup: 'groupA'),
-          'b': leaf('number'),
-          'c': leaf('number', exclusiveGroup: 'groupA'),
-        }),
-      };
+    test(
+      'Edge: equal group ids separated by an untagged leaf merge into one exclusive row at the first member (EXC-09)',
+      () {
+        final fields = {
+          'config': groupOf({
+            'a': leaf('number', exclusiveGroup: 'groupA'),
+            'b': leaf('number'),
+            'c': leaf('number', exclusiveGroup: 'groupA'),
+          }),
+        };
 
-      final section = buildSections(fields).single;
+        final section = buildSections(fields).single;
 
-      expect(section.rows, hasLength(3));
-      expect(section.rows.every((row) => row.exclusive == null), isTrue);
-    });
+        expect(section.rows, hasLength(2));
+        final exclusive = section.rows.first.exclusive;
+        expect(exclusive, isNotNull);
+        expect(exclusive!.id, 'groupA');
+        expect(
+          exclusive.options.map((option) => option.path).toList(),
+          ['config.a', 'config.c'],
+        );
+        expect(section.rows.last.exclusive, isNull);
+        expect(section.rows.last.fields.single.path, 'config.b');
+      },
+    );
 
     test('Edge: an empty group id counts as untagged', () {
       final fields = {

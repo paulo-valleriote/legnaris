@@ -50,40 +50,43 @@ List<SheetSection> buildSections(FieldGroup fields) {
   return sections;
 }
 
-/// Collapses the flattened [leaves] of one section into render rows: a run of
-/// two or more consecutive leaves sharing a non-empty `exclusiveGroup` becomes
-/// one exclusive row at the first member's position; every other leaf stays
-/// its own normal row. A single-member group is not collapsed (EXC-12).
+/// Collapses the flattened [leaves] of one section into render rows: every leaf
+/// sharing a non-empty `exclusiveGroup` joins one exclusive row placed at the
+/// first member's position, regardless of adjacency; every other leaf stays its
+/// own normal row. A single-member group is not collapsed (EXC-12). Grouping by
+/// id (not by adjacency) matches the backend, which groups by id across the
+/// whole parent.
 List<SheetRow> _buildRows(List<SheetField> leaves) {
   final rows = <SheetRow>[];
-  var index = 0;
-  while (index < leaves.length) {
-    final group = _groupAt(leaves, index);
-    if (group != null) {
-      rows.add((fields: group.options, exclusive: group));
-      index += group.options.length;
+  final groupRowIndex = <String, int>{};
+  final groupOptions = <String, List<SheetField>>{};
+
+  for (final leaf in leaves) {
+    final id = leaf.schema.exclusiveGroup;
+    if (id == null || id.isEmpty) {
+      rows.add((fields: [leaf], exclusive: null));
       continue;
     }
-    rows.add((fields: [leaves[index]], exclusive: null));
-    index += 1;
+    final existing = groupRowIndex[id];
+    if (existing == null) {
+      final options = <SheetField>[leaf];
+      groupRowIndex[id] = rows.length;
+      groupOptions[id] = options;
+      rows.add((fields: options, exclusive: null));
+      continue;
+    }
+    groupOptions[id]!.add(leaf);
+  }
+
+  for (final entry in groupOptions.entries) {
+    final options = entry.value;
+    if (options.length < 2) continue;
+    rows[groupRowIndex[entry.key]!] = (
+      fields: options,
+      exclusive: (id: entry.key, options: options),
+    );
   }
   return rows;
-}
-
-/// The exclusive group whose run starts at [start], or null when the leaf at
-/// [start] is untagged (or its group id is empty) or the run has a single
-/// member.
-SheetExclusiveGroup? _groupAt(List<SheetField> leaves, int start) {
-  final id = leaves[start].schema.exclusiveGroup;
-  if (id == null || id.isEmpty) return null;
-  final options = <SheetField>[];
-  var index = start;
-  while (index < leaves.length && leaves[index].schema.exclusiveGroup == id) {
-    options.add(leaves[index]);
-    index += 1;
-  }
-  if (options.length < 2) return null;
-  return (id: id, options: options);
 }
 
 /// The display name of a field: the schema label when it is non-empty,
