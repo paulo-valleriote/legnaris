@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 13,
+  "next_id": 17,
   "lessons": [
     {
       "id": "L-001",
@@ -220,6 +220,78 @@
       ],
       "created": "2026-10-01T23:19:44Z",
       "last_seen": "2026-10-01T23:19:44Z"
+    },
+    {
+      "id": "L-013",
+      "key": "surviving_mutant::assert every field an update replaces not just the entry count and one field",
+      "text": "Assert every field an update replaces, not just the entry count and one field.",
+      "signal": "surviving_mutant",
+      "scope": "desktop/library",
+      "status": "candidate",
+      "features": [
+        "lgn-107-local-sheet-library"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "desktop/lib/library/sheet_library_provider.dart:64-66 (mutant 7) (desktop/library)"
+      ],
+      "created": "2026-10-02T18:40:51Z",
+      "last_seen": "2026-10-02T18:40:51Z"
+    },
+    {
+      "id": "L-014",
+      "key": "surviving_mutant::feed a non utc timestamp to a serializer test so dropping the utc conversion fails the suite",
+      "text": "Feed a non-UTC timestamp to a serializer test so dropping the UTC conversion fails the suite.",
+      "signal": "surviving_mutant",
+      "scope": "desktop/library",
+      "status": "candidate",
+      "features": [
+        "lgn-107-local-sheet-library"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "desktop/lib/library/sheet_library_entry.dart:58 (mutant 8) (desktop/library)"
+      ],
+      "created": "2026-10-02T18:40:51Z",
+      "last_seen": "2026-10-02T18:40:51Z"
+    },
+    {
+      "id": "L-015",
+      "key": "spec_precision_gap::prove durability by reloading a fresh store from a real temp directory not by asserting a fake recorded the call",
+      "text": "Prove durability by reloading a fresh store from a real temp directory, not by asserting a fake recorded the call.",
+      "signal": "spec_precision_gap",
+      "scope": "desktop/library",
+      "status": "candidate",
+      "features": [
+        "lgn-107-local-sheet-library"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "LIB-13 (desktop/library)"
+      ],
+      "created": "2026-10-02T18:40:51Z",
+      "last_seen": "2026-10-02T18:40:51Z"
+    },
+    {
+      "id": "L-016",
+      "key": "spec_deviation::inject versioned migration maps per store instance so a migration path is testable without mutating global state",
+      "text": "Inject versioned-migration maps per store instance so a migration path is testable without mutating global state.",
+      "signal": "spec_deviation",
+      "scope": "desktop/library",
+      "status": "candidate",
+      "features": [
+        "lgn-107-local-sheet-library"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "desktop/lib/library/sheet_library_store.dart:53 (SPEC_DEVIATION) (desktop/library)"
+      ],
+      "created": "2026-10-02T18:40:51Z",
+      "last_seen": "2026-10-02T18:40:51Z"
     }
   ]
 }

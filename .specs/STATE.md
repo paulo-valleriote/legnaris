@@ -29,11 +29,11 @@
 ## Handoff
 
 - **Feature**: `lgn-107-local-sheet-library` (.specs/features/lgn-107-local-sheet-library)
-- **Phase / Task**: Tasks — COMPLETE (spec + context + design + tasks written; `validate_spec.py` and `validate_tasks.py` clean). Awaiting approval to Execute.
-- **Completed**: `spec.md` (4 stories, LIB-01…LIB-23), `context.md` (write-through failure + quarantine decisions), `design.md` (path_provider JSON store, store/notifier components, AD-003), `tasks.md` (7 tasks, one inline batch).
+- **Phase / Task**: Execute — COMPLETE (T1–T7 committed; Verifier PASS on round 2, `validate_state.py` exit 0)
+- **Completed**: T1 entry model, T2 typed error, T3 `store.save`, T4 `store.load` + version recovery, T5 store providers + directory seam, T6 `SheetLibrary` notifier, T7 bootstrap. A round-1 Verifier FAIL on three test-coverage gaps was fixed in `3b5a4f9` (full upsert replacement, real-store durability, non-UTC serialization). Report: `.specs/features/lgn-107-local-sheet-library/validation.md` (23/23 ACs, 8/8 mutants killed, 417 tests green).
 - **In-progress** (file:line): none
-- **Next step**: approve tasks, then Execute T1–T7 inline (single batch), always-on Verifier after T7. Branch from the current `feat/lgn-105-exclusive-options` base or from main once PR #53 merges.
+- **Next step**: open the PR for `feat/lgn-107-local-sheet-library` (base `feat/lgn-105-exclusive-options`, or `main` once PR #53 merges). Push is not yet authorized.
 - **Blockers**: none
-- **Uncommitted files**: `.specs/features/lgn-107-local-sheet-library/` untracked + `.specs/STATE.md` modified; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
-- **Branch**: feat/lgn-105-exclusive-options (PR #53)
+- **Uncommitted files**: none after the final report/lessons commit; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
+- **Branch**: feat/lgn-107-local-sheet-library (based on feat/lgn-105-exclusive-options / PR #53)
 - **Prior feature**: `lgn-105-exclusive-options` — COMPLETE (Verifier PASS, report in `.specs/features/lgn-105-exclusive-options/validation.md`)

@@ -151,35 +151,35 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| LIB-01 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-02 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-03 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-04 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-05 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-06 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-07 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-08 | P1: Versioned local sheet index | Execute | Implementing |
-| LIB-09 | P1: Persisted schema version and durable writes | Execute | Implementing |
-| LIB-10 | P1: Persisted schema version and durable writes | Execute | Implementing |
-| LIB-11 | P1: Persisted schema version and durable writes | Execute | Implementing |
-| LIB-12 | P1: Persisted schema version and durable writes | Execute | Implementing |
-| LIB-13 | P1: Persisted schema version and durable writes | Execute | Implementing |
-| LIB-14 | P1: Safe recovery across schema versions | Execute | Implementing |
-| LIB-15 | P1: Safe recovery across schema versions | Execute | Implementing |
-| LIB-16 | P1: Safe recovery across schema versions | Execute | Implementing |
-| LIB-17 | P1: Safe recovery across schema versions | Execute | Implementing |
-| LIB-18 | P1: Safe recovery across schema versions | Execute | Implementing |
-| LIB-19 | P1: Safe recovery across schema versions | Execute | Implementing |
-| LIB-20 | P1: Safe recovery across schema versions | Execute | Implementing |
-| LIB-21 | P1: Riverpod read/write surface | Execute | Implementing |
-| LIB-22 | P1: Riverpod read/write surface | Execute | Implementing |
-| LIB-23 | P1: Riverpod read/write surface | Execute | Implementing |
+| LIB-01 | P1: Versioned local sheet index | Execute | Verified |
+| LIB-02 | P1: Versioned local sheet index | Execute | Verified |
+| LIB-03 | P1: Versioned local sheet index | Execute | Verified |
+| LIB-04 | P1: Versioned local sheet index | Execute | Verified |
+| LIB-05 | P1: Versioned local sheet index | Execute | Verified |
+| LIB-06 | P1: Versioned local sheet index | Execute | Verified |
+| LIB-07 | P1: Versioned local sheet index | Execute | Verified |
+| LIB-08 | P1: Versioned local sheet index | Execute | Verified |
+| LIB-09 | P1: Persisted schema version and durable writes | Execute | Verified |
+| LIB-10 | P1: Persisted schema version and durable writes | Execute | Verified |
+| LIB-11 | P1: Persisted schema version and durable writes | Execute | Verified |
+| LIB-12 | P1: Persisted schema version and durable writes | Execute | Verified |
+| LIB-13 | P1: Persisted schema version and durable writes | Execute | Verified |
+| LIB-14 | P1: Safe recovery across schema versions | Execute | Verified |
+| LIB-15 | P1: Safe recovery across schema versions | Execute | Verified |
+| LIB-16 | P1: Safe recovery across schema versions | Execute | Verified |
+| LIB-17 | P1: Safe recovery across schema versions | Execute | Verified |
+| LIB-18 | P1: Safe recovery across schema versions | Execute | Verified |
+| LIB-19 | P1: Safe recovery across schema versions | Execute | Verified |
+| LIB-20 | P1: Safe recovery across schema versions | Execute | Verified |
+| LIB-21 | P1: Riverpod read/write surface | Execute | Verified |
+| LIB-22 | P1: Riverpod read/write surface | Execute | Verified |
+| LIB-23 | P1: Riverpod read/write surface | Execute | Verified |
 
 **ID format:** `LIB-[NUMBER]`
 
 **Status values:** Pending → In Design → In Tasks → Implementing → Verified
 
-**Coverage:** 23 total, 0 mapped to tasks yet (Tasks phase pending), 23 pending mapping.
+**Coverage:** 23 total, 23 mapped to tasks, 23 verified (0 unmapped).
 
 ---
 

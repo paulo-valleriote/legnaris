@@ -86,6 +86,30 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: internal/sheet/template/seeders.go:190 (internal/sheet/template)
 - last seen: 2026-10-01T23:19:44Z
 
+### L-013 - Assert every field an update replaces, not just the entry count and one field.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `desktop/library` · harmful: 0
+- features: lgn-107-local-sheet-library
+- evidence: desktop/lib/library/sheet_library_provider.dart:64-66 (mutant 7) (desktop/library)
+- last seen: 2026-10-02T18:40:51Z
+
+### L-014 - Feed a non-UTC timestamp to a serializer test so dropping the UTC conversion fails the suite.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `desktop/library` · harmful: 0
+- features: lgn-107-local-sheet-library
+- evidence: desktop/lib/library/sheet_library_entry.dart:58 (mutant 8) (desktop/library)
+- last seen: 2026-10-02T18:40:51Z
+
+### L-015 - Prove durability by reloading a fresh store from a real temp directory, not by asserting a fake recorded the call.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `desktop/library` · harmful: 0
+- features: lgn-107-local-sheet-library
+- evidence: LIB-13 (desktop/library)
+- last seen: 2026-10-02T18:40:51Z
+
+### L-016 - Inject versioned-migration maps per store instance so a migration path is testable without mutating global state.
+- signal: `spec_deviation` · recurrence: 1 feature(s) · scope: `desktop/library` · harmful: 0
+- features: lgn-107-local-sheet-library
+- evidence: desktop/lib/library/sheet_library_store.dart:53 (SPEC_DEVIATION) (desktop/library)
+- last seen: 2026-10-02T18:40:51Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
