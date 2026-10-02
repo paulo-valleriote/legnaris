@@ -258,4 +258,27 @@ void main() {
       expect(segmented.onSelectionChanged, isNull);
     });
   });
+
+  group('exclusiveValueIsOn (numeric proxy contract)', () {
+    test('Happy path: a non-zero num is on', () {
+      expect(exclusiveValueIsOn(1), isTrue);
+      expect(exclusiveValueIsOn(1.0), isTrue);
+      expect(exclusiveValueIsOn(-0.5), isTrue);
+    });
+
+    test('Edge: zero is off', () {
+      expect(exclusiveValueIsOn(0), isFalse);
+      expect(exclusiveValueIsOn(0.0), isFalse);
+    });
+
+    test('Edge: a bool is off (the backend rejects non-numeric members)', () {
+      expect(exclusiveValueIsOn(true), isFalse);
+    });
+
+    test('Edge: a string, null and a map are off', () {
+      expect(exclusiveValueIsOn('1'), isFalse);
+      expect(exclusiveValueIsOn(null), isFalse);
+      expect(exclusiveValueIsOn(const <String, Object?>{}), isFalse);
+    });
+  });
 }
