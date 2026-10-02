@@ -3,6 +3,7 @@ package template
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // CycleError holds details about a detected cycle.
@@ -62,6 +63,33 @@ type NotEditableError struct {
 
 func (e *NotEditableError) Error() string {
 	return "field is not editable: " + e.Key
+}
+
+// ExclusiveGroupConflictError reports an update that turns on two or more
+// members of the same exclusive group in a single payload. The intent is
+// ambiguous (the group allows at most one non-zero member), so the caller must
+// resolve it instead of letting the DAG apply both and double-count.
+type ExclusiveGroupConflictError struct {
+	Group string
+	Keys  []string
+}
+
+func (e *ExclusiveGroupConflictError) Error() string {
+	return fmt.Sprintf("conflicting exclusive options in group '%s': %v", e.Group, e.Keys)
+}
+
+// ExclusiveValueTypeError reports a non-numeric value written to a member of an
+// exclusive group. Members are 0/1 numeric proxies, so a string, bool or null is
+// not a value the group can reason about: treating it as "off" would let a
+// payload bypass the at-most-one rule, and letting it through would corrupt the
+// numeric formula environment.
+type ExclusiveValueTypeError struct {
+	Group string
+	Key   string
+}
+
+func (e *ExclusiveValueTypeError) Error() string {
+	return fmt.Sprintf("exclusive option in group '%s' must be numeric: %s", e.Group, e.Key)
 }
 
 // FieldNameError reports a field name rejected at DAG build time.
@@ -140,4 +168,16 @@ func ErrUnknownField(key string) error {
 // computes itself instead of accepting from the caller.
 func ErrNotEditable(key string) error {
 	return &NotEditableError{Key: key}
+}
+
+// ErrExclusiveGroupConflict returns an error when one payload turns on two or
+// more members of the same exclusive group.
+func ErrExclusiveGroupConflict(group string, keys []string) error {
+	return &ExclusiveGroupConflictError{Group: group, Keys: slices.Clone(keys)}
+}
+
+// ErrExclusiveValueType returns an error when a payload writes a non-numeric
+// value to a member of an exclusive group.
+func ErrExclusiveValueType(group string, key string) error {
+	return &ExclusiveValueTypeError{Group: group, Key: key}
 }

@@ -38,6 +38,13 @@ type FieldSchema struct {
 	DependsOn  [][]string `bson:"depends_on"`
 	IsEditable bool       `bson:"is_editable"`
 	Default    float64    `bson:"default"`
+	// ExclusiveGroup names the mutually exclusive set this leaf belongs to.
+	// Leaves sharing a non-empty group under the same parent may have at most
+	// one non-zero value. Empty means "independent".
+	ExclusiveGroup string `bson:"exclusive_group,omitempty"`
+	// OptionLabel is the short label used when this leaf is shown as an option
+	// of its exclusive group (e.g. "Dexterity"). Empty falls back to Label.
+	OptionLabel string `bson:"option_label,omitempty"`
 }
 
 // SeedValue returns the value a new sheet starts with for this schema:

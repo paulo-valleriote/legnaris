@@ -325,6 +325,231 @@ func TestService_PartialUpdate(t *testing.T) {
 	}
 }
 
+// TestService_PartialUpdate_ExclusiveGroups covers the PATCH contract for
+// mutually exclusive options (EXC-04, EXC-05, EXC-07): turning one member on
+// zeroes its sibling and recomputes the dependent derived value; turning a
+// member off leaves the sibling alone; two members on is a 400.
+func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+	fields := template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity":    {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+			"constitution": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"modifiers": {Children: template.FieldGroup{
+			"dexterityMod": {Schema: &template.FieldSchema{
+				Type: "number", IsEditable: false,
+				Formula:   "floor((stats_dexterity - 10) / 2)",
+				DependsOn: [][]string{{"stats", "dexterity"}},
+			}},
+			"constitutionMod": {Schema: &template.FieldSchema{
+				Type: "number", IsEditable: false,
+				Formula:   "floor((stats_constitution - 10) / 2)",
+				DependsOn: [][]string{{"stats", "constitution"}},
+			}},
+		}},
+		"baseArmorClass": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		"config": {Children: template.FieldGroup{
+			"acUsesDex": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 1, ExclusiveGroup: "armorClassAbility"}},
+			"acUsesCon": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 0, ExclusiveGroup: "armorClassAbility"}},
+		}},
+		"derived": {Children: template.FieldGroup{
+			"armorClass": {Schema: &template.FieldSchema{
+				Type: "number", IsEditable: false,
+				Formula: "baseArmorClass + (modifiers_dexterityMod * config_acUsesDex) + (modifiers_constitutionMod * config_acUsesCon)",
+				DependsOn: [][]string{
+					{"baseArmorClass"},
+					{"modifiers", "dexterityMod"},
+					{"config", "acUsesDex"},
+					{"modifiers", "constitutionMod"},
+					{"config", "acUsesCon"},
+				},
+			}},
+		}},
+	}
+
+	dag, err := template.BuildDAG("fantasy_v1", fields, formulaEngine)
+	require.NoError(t, err)
+
+	sheetID := updateSheetID
+
+	// storedWith builds a sheet with dexMod 2 / conMod 1 and the given flag
+	// pair; armorClass must match the pair (10 + 2*dex + 1*con).
+	storedWith := func(acUsesDex, acUsesCon, armorClass float64) *sheet.Sheet {
+		return &sheet.Sheet{
+			ID:         sheetID,
+			TemplateID: "fantasy_v1",
+			Name:       "Exclusive Sheet",
+			Data: map[string]any{
+				"stats":          map[string]any{"dexterity": 14.0, "constitution": 12.0},
+				"modifiers":      map[string]any{"dexterityMod": 2.0, "constitutionMod": 1.0},
+				"baseArmorClass": 10.0,
+				"config":         map[string]any{"acUsesDex": acUsesDex, "acUsesCon": acUsesCon},
+				"derived":        map[string]any{"armorClass": armorClass},
+			},
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+	}
+
+	tests := []struct {
+		name             string
+		stored           *sheet.Sheet
+		updates          map[string]any
+		expectStore      bool
+		wantStoredDex    float64
+		wantStoredCon    float64
+		expectedErr      string
+		expectedCascades map[string]any
+	}{
+		{
+			// Spec Independent Test: stored acUsesCon=1, PATCH acUsesDex=1.
+			name:   "Happy path: turning dexterity on zeroes the constitution sibling and recomputes armor class",
+			stored: storedWith(0, 1, 11),
+			updates: map[string]any{
+				"config": map[string]any{"acUsesDex": 1.0},
+			},
+			expectStore:   true,
+			wantStoredDex: 1.0,
+			wantStoredCon: 0.0,
+			expectedCascades: map[string]any{
+				"derived": map[string]any{"armorClass": 12.0},
+			},
+		},
+		{
+			name:   "Edge: zeroing a member leaves its sibling unchanged",
+			stored: storedWith(0, 1, 11),
+			updates: map[string]any{
+				"config": map[string]any{"acUsesCon": 0.0},
+			},
+			expectStore:   true,
+			wantStoredDex: 0.0,
+			wantStoredCon: 0.0,
+			expectedCascades: map[string]any{
+				"derived": map[string]any{"armorClass": 10.0},
+			},
+		},
+		{
+			name:   "Error: turning both members on returns a conflict",
+			stored: storedWith(1, 0, 12),
+			updates: map[string]any{
+				"config": map[string]any{"acUsesDex": 1.0, "acUsesCon": 1.0},
+			},
+			expectStore: false,
+			expectedErr: "conflicting exclusive options",
+		},
+		{
+			name:   "Error: a non-numeric member is rejected",
+			stored: storedWith(1, 0, 12),
+			updates: map[string]any{
+				"config": map[string]any{"acUsesDex": "1"},
+			},
+			expectStore: false,
+			expectedErr: "exclusive option must be numeric",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := mocks.NewMockRepository(t)
+			mockRepo.EXPECT().
+				FetchByID(context.Background(), sheetID).
+				Return(tc.stored, nil).
+				Once()
+
+			if tc.expectStore {
+				mockRepo.EXPECT().
+					PartialUpdate(context.Background(), sheetID, mock.MatchedBy(func(update map[string]any) bool {
+						data, ok := update["data"].(map[string]any)
+						if !ok {
+							return false
+						}
+						config, ok := data["config"].(map[string]any)
+						if !ok {
+							return false
+						}
+						if config["acUsesDex"] != tc.wantStoredDex || config["acUsesCon"] != tc.wantStoredCon {
+							return false
+						}
+						_, hasTime := update["updated_at"].(time.Time)
+						return hasTime
+					})).
+					Return(nil).
+					Once()
+			}
+
+			svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{
+				"fantasy_v1": dag,
+			})
+
+			cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+				SheetID: sheetID,
+				Data:    tc.updates,
+			})
+
+			if tc.expectedErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedErr)
+
+				var appErr *apperr.Error
+				require.ErrorAs(t, err, &appErr)
+				assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+				assert.Equal(t, 400, appErr.HttpStatus())
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedCascades, cascades)
+		})
+	}
+}
+
+// TestService_PartialUpdate_NestingDepthLimit pins the DoS guard at the service
+// boundary: a payload nested deeper than maputils.MaxNestingDepth is rejected
+// with 400 before the repository is touched, so the recursive flatten never
+// walks an unbounded structure.
+func TestService_PartialUpdate_NestingDepthLimit(t *testing.T) {
+	dag, err := template.BuildDAG("fantasy_v1", template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+	}, engine.NewFormulaEngine())
+	require.NoError(t, err)
+
+	deep := map[string]any{"leaf": 1.0}
+	for i := 0; i < maputils.MaxNestingDepth+1; i++ {
+		deep = map[string]any{"level": deep}
+	}
+
+	mockRepo := mocks.NewMockRepository(t)
+	mockRepo.EXPECT().
+		FetchByID(context.Background(), updateSheetID).
+		Return(&sheet.Sheet{
+			ID:         updateSheetID,
+			TemplateID: "fantasy_v1",
+			Data:       map[string]any{"stats": map[string]any{"dexterity": 10.0}},
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
+		}, nil).
+		Once()
+
+	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{
+		"fantasy_v1": dag,
+	})
+
+	_, err = svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+		SheetID: updateSheetID,
+		Data:    deep,
+	})
+	require.Error(t, err)
+
+	var appErr *apperr.Error
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+	assert.Equal(t, 400, appErr.HttpStatus())
+	assert.Contains(t, appErr.Message, "nested too deeply")
+}
+
 func TestService_Create(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t)
 	mockTemplateSvc := templatemocks.NewMockService(t)

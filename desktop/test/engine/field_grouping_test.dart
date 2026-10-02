@@ -9,6 +9,7 @@ void main() {
     bool editable = true,
     String? formula,
     double defaultValue = 0,
+    String? exclusiveGroup,
   }) => FieldNode(
     schema: FieldSchema(
       type: type,
@@ -16,6 +17,7 @@ void main() {
       formula: formula,
       isEditable: editable,
       defaultValue: defaultValue,
+      exclusiveGroup: exclusiveGroup,
     ),
   );
 
@@ -109,6 +111,142 @@ void main() {
         sections.map((section) => section.leaves.single.path),
         ['modifiers.value', 'derived.value'],
       );
+    });
+  });
+
+  group('exclusive grouping (EXC-09, EXC-12)', () {
+    test(
+      "Happy path: a two-member group becomes one exclusive row at its first member's position, options in API order (EXC-09)",
+      () {
+        final fields = {
+          'config': groupOf({
+            'first': leaf('number'),
+            'acUsesDex': leaf('number', exclusiveGroup: 'armorClassAbility'),
+            'acUsesCon': leaf('number', exclusiveGroup: 'armorClassAbility'),
+            'last': leaf('number'),
+          }),
+        };
+
+        final section = buildSections(fields).single;
+
+        expect(
+          section.rows
+              .map((row) => row.fields.map((field) => field.path).toList())
+              .toList(),
+          [
+            ['config.first'],
+            ['config.acUsesDex', 'config.acUsesCon'],
+            ['config.last'],
+          ],
+        );
+        final exclusive = section.rows[1].exclusive;
+        expect(exclusive, isNotNull);
+        expect(exclusive!.id, 'armorClassAbility');
+        expect(
+          exclusive.options.map((option) => option.path).toList(),
+          ['config.acUsesDex', 'config.acUsesCon'],
+        );
+      },
+    );
+
+    test('Edge: a single-member group stays a normal row with no group (EXC-12)', () {
+      final fields = {
+        'config': groupOf({
+          'acUsesDex': leaf('number', exclusiveGroup: 'armorClassAbility'),
+          'other': leaf('number'),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.rows, hasLength(2));
+      expect(section.rows.first.exclusive, isNull);
+      expect(section.rows.first.fields.single.path, 'config.acUsesDex');
+      expect(section.rows.last.exclusive, isNull);
+      expect(section.rows.last.fields.single.path, 'config.other');
+    });
+
+    test('Edge: untagged leaves keep one normal row each', () {
+      final fields = {
+        'stats': groupOf({
+          'dexterity': leaf('number'),
+          'strength': leaf('number'),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.rows, hasLength(2));
+      expect(section.rows.every((row) => row.exclusive == null), isTrue);
+      expect(
+        section.rows.map((row) => row.fields.single.path).toList(),
+        ['stats.dexterity', 'stats.strength'],
+      );
+    });
+
+    test('Edge: adjacent distinct groups stay separate rows', () {
+      final fields = {
+        'config': groupOf({
+          'a': leaf('number', exclusiveGroup: 'groupA'),
+          'b': leaf('number', exclusiveGroup: 'groupA'),
+          'c': leaf('number', exclusiveGroup: 'groupB'),
+          'd': leaf('number', exclusiveGroup: 'groupB'),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.rows, hasLength(2));
+      expect(section.rows[0].exclusive!.id, 'groupA');
+      expect(
+        section.rows[0].exclusive!.options.map((option) => option.path).toList(),
+        ['config.a', 'config.b'],
+      );
+      expect(section.rows[1].exclusive!.id, 'groupB');
+      expect(
+        section.rows[1].exclusive!.options.map((option) => option.path).toList(),
+        ['config.c', 'config.d'],
+      );
+    });
+
+    test(
+      'Edge: equal group ids separated by an untagged leaf merge into one exclusive row at the first member (EXC-09)',
+      () {
+        final fields = {
+          'config': groupOf({
+            'a': leaf('number', exclusiveGroup: 'groupA'),
+            'b': leaf('number'),
+            'c': leaf('number', exclusiveGroup: 'groupA'),
+          }),
+        };
+
+        final section = buildSections(fields).single;
+
+        expect(section.rows, hasLength(2));
+        final exclusive = section.rows.first.exclusive;
+        expect(exclusive, isNotNull);
+        expect(exclusive!.id, 'groupA');
+        expect(
+          exclusive.options.map((option) => option.path).toList(),
+          ['config.a', 'config.c'],
+        );
+        expect(section.rows.last.exclusive, isNull);
+        expect(section.rows.last.fields.single.path, 'config.b');
+      },
+    );
+
+    test('Edge: an empty group id counts as untagged', () {
+      final fields = {
+        'config': groupOf({
+          'a': leaf('number', exclusiveGroup: ''),
+          'b': leaf('number', exclusiveGroup: ''),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.rows, hasLength(2));
+      expect(section.rows.every((row) => row.exclusive == null), isTrue);
     });
   });
 

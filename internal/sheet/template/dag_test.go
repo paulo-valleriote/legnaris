@@ -5,6 +5,7 @@ import (
 	"legnaris/internal/engine"
 	"legnaris/shared/maputils"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -1405,4 +1406,277 @@ func TestApplyUpdates_ErrorCases(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestBuildDAG_ExclusiveGroups pins the index build rules (EXC-08): only
+// editable leaves join a group, a group with fewer than two editable members is
+// dropped, and members are sorted for deterministic errors.
+func TestBuildDAG_ExclusiveGroups(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+
+	fields := FieldGroup{
+		"config": {Children: FieldGroup{
+			"acUsesDex": {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "armorClassAbility"}},
+			"acUsesCon": {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "armorClassAbility"}},
+			"solo":      {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "soloGroup"}},
+			"untagged":  {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+		}},
+		"derived":  {Schema: &FieldSchema{Type: "number", IsEditable: false, ExclusiveGroup: "armorClassAbility"}},
+		"derivedA": {Schema: &FieldSchema{Type: "number", IsEditable: false, ExclusiveGroup: "derivedOnly"}},
+		"derivedB": {Schema: &FieldSchema{Type: "number", IsEditable: false, ExclusiveGroup: "derivedOnly"}},
+	}
+
+	dag, err := BuildDAG("test", fields, formulaEngine)
+	require.NoError(t, err)
+
+	dag.mu.RLock()
+	groups := dag.exclusiveGroups
+	dag.mu.RUnlock()
+
+	assert.Equal(t, map[string][]string{
+		"armorClassAbility": {"config.acUsesCon", "config.acUsesDex"},
+	}, groups, "derived members must be excluded from the group")
+	assert.NotContains(t, groups, "soloGroup", "a single editable member is not an exclusive group")
+	assert.NotContains(t, groups, "derivedOnly", "a group with no editable member is dropped")
+}
+
+// TestNormalizeExclusiveUpdates covers the update-time collapse (EXC-04,
+// EXC-05, EXC-06, EXC-08): one non-zero member zeroes the absent siblings, two
+// non-zero members conflict, and an untouched payload is returned as the same
+// map without allocation.
+func TestNormalizeExclusiveUpdates(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+
+	fields := FieldGroup{
+		"config": {Children: FieldGroup{
+			"acUsesDex": {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "armorClassAbility"}},
+			"acUsesCon": {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "armorClassAbility"}},
+			"solo":      {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "soloGroup"}},
+			"untagged":  {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+		}},
+	}
+
+	dag, err := BuildDAG("test", fields, formulaEngine)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name         string
+		updates      map[string]any
+		want         map[string]any
+		wantSameMap  bool
+		addedSibling string
+		assertErr    func(t *testing.T, err error)
+	}{
+		{
+			name:         "Happy path: turning one member on zeroes the absent sibling",
+			updates:      map[string]any{"config.acUsesDex": 1.0},
+			want:         map[string]any{"config.acUsesDex": 1.0, "config.acUsesCon": 0.0},
+			addedSibling: "config.acUsesCon",
+		},
+		{
+			name:         "Happy path: an int member on zeroes the absent sibling",
+			updates:      map[string]any{"config.acUsesCon": int(1)},
+			want:         map[string]any{"config.acUsesCon": int(1), "config.acUsesDex": 0.0},
+			addedSibling: "config.acUsesDex",
+		},
+		{
+			name:    "Edge: an explicitly present zero sibling is kept, not duplicated",
+			updates: map[string]any{"config.acUsesDex": 1.0, "config.acUsesCon": 0.0},
+			want:    map[string]any{"config.acUsesDex": 1.0, "config.acUsesCon": 0.0},
+		},
+		{
+			name:        "Edge: turning a member off leaves siblings unchanged",
+			updates:     map[string]any{"config.acUsesDex": 0.0},
+			want:        map[string]any{"config.acUsesDex": 0.0},
+			wantSameMap: true,
+		},
+		{
+			name:    "Error: a string member is rejected",
+			updates: map[string]any{"config.acUsesDex": "1"},
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				var invalid *ExclusiveValueTypeError
+				require.ErrorAs(t, err, &invalid)
+				assert.Equal(t, "armorClassAbility", invalid.Group)
+				assert.Equal(t, "config.acUsesDex", invalid.Key)
+			},
+		},
+		{
+			name:    "Error: a bool member is rejected",
+			updates: map[string]any{"config.acUsesCon": true},
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				var invalid *ExclusiveValueTypeError
+				require.ErrorAs(t, err, &invalid)
+				assert.Equal(t, "config.acUsesCon", invalid.Key)
+			},
+		},
+		{
+			name:    "Error: a nil member is rejected",
+			updates: map[string]any{"config.acUsesDex": nil},
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				var invalid *ExclusiveValueTypeError
+				require.ErrorAs(t, err, &invalid)
+			},
+		},
+		{
+			name:        "Edge: a single-member group is not enforced",
+			updates:     map[string]any{"config.solo": 1.0},
+			want:        map[string]any{"config.solo": 1.0},
+			wantSameMap: true,
+		},
+		{
+			name:        "Edge: an update touching no exclusive group is returned unchanged",
+			updates:     map[string]any{"config.untagged": 5.0},
+			want:        map[string]any{"config.untagged": 5.0},
+			wantSameMap: true,
+		},
+		{
+			name:    "Error: two non-zero members of one group conflict",
+			updates: map[string]any{"config.acUsesDex": 1.0, "config.acUsesCon": 1.0},
+			assertErr: func(t *testing.T, err error) {
+				require.Error(t, err)
+				var conflict *ExclusiveGroupConflictError
+				require.ErrorAs(t, err, &conflict)
+				assert.Equal(t, "armorClassAbility", conflict.Group)
+				assert.Equal(t, []string{"config.acUsesCon", "config.acUsesDex"}, conflict.Keys)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := dag.NormalizeExclusiveUpdates(tc.updates)
+
+			if tc.assertErr != nil {
+				tc.assertErr(t, err)
+				assert.Nil(t, got)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+
+			if tc.wantSameMap {
+				assert.Equal(t, reflect.ValueOf(tc.updates).Pointer(), reflect.ValueOf(got).Pointer(),
+					"an untouched payload must be returned as the same map")
+				return
+			}
+
+			assert.NotEqual(t, reflect.ValueOf(tc.updates).Pointer(), reflect.ValueOf(got).Pointer(),
+				"normalization must return a copy")
+			if tc.addedSibling != "" {
+				assert.NotContains(t, tc.updates, tc.addedSibling,
+					"normalization must not mutate the caller's payload")
+			}
+		})
+	}
+}
+
+// TestNormalizeExclusiveUpdates_ConflictGroupIsDeterministic pins the group
+// visit order: a payload that turns on two members of two different groups
+// always reports the alphabetically first group, instead of whichever entry
+// Go's randomized map iteration reached first.
+func TestNormalizeExclusiveUpdates_ConflictGroupIsDeterministic(t *testing.T) {
+	fields := FieldGroup{
+		"config": {Children: FieldGroup{
+			"zetaA":  {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "zetaGroup"}},
+			"zetaB":  {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "zetaGroup"}},
+			"alphaA": {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "alphaGroup"}},
+			"alphaB": {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "alphaGroup"}},
+		}},
+	}
+
+	dag, err := BuildDAG("test", fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+
+	updates := map[string]any{
+		"config.zetaA":  1.0,
+		"config.zetaB":  1.0,
+		"config.alphaA": 1.0,
+		"config.alphaB": 1.0,
+	}
+
+	// Repeated runs give map iteration a fresh seed each time, so a single
+	// assertion would only catch the regression probabilistically.
+	for i := range 20 {
+		got, err := dag.NormalizeExclusiveUpdates(updates)
+		require.Error(t, err, "run %d", i)
+		assert.Nil(t, got, "run %d", i)
+
+		var conflict *ExclusiveGroupConflictError
+		require.ErrorAs(t, err, &conflict, "run %d", i)
+		assert.Equal(t, "alphaGroup", conflict.Group,
+			"run %d: the alphabetically first conflicting group must win", i)
+	}
+}
+
+// TestNormalizeAndRecalculate pins the PATCH entry point that validates,
+// normalizes and recalculates under a single read-lock acquisition (T3): the
+// normalized map zeroes the exclusive sibling, the cascading effects reflect
+// the active member, and every typed error still bubbles through it.
+func TestNormalizeAndRecalculate(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+	fields := FieldGroup{
+		"stats": {Children: FieldGroup{
+			"dexterity": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"config": {Children: FieldGroup{
+			"acUsesDex": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 1, ExclusiveGroup: "armorClassAbility"}},
+			"acUsesCon": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 0, ExclusiveGroup: "armorClassAbility"}},
+		}},
+		"derived": {Children: FieldGroup{
+			"armorClass": {Schema: &FieldSchema{
+				Type: "number", IsEditable: false,
+				Formula:   "10 + stats_dexterity * config_acUsesDex",
+				DependsOn: [][]string{{"stats", "dexterity"}, {"config", "acUsesDex"}},
+			}},
+		}},
+	}
+
+	dag, err := BuildDAG("test", fields, formulaEngine)
+	require.NoError(t, err)
+
+	original := map[string]any{
+		"stats":   map[string]any{"dexterity": 12.0},
+		"config":  map[string]any{"acUsesDex": 1.0, "acUsesCon": 0.0},
+		"derived": map[string]any{"armorClass": 22.0},
+	}
+
+	normalized, cascading, err := dag.NormalizeAndRecalculate(
+		original,
+		map[string]any{"config.acUsesCon": 1.0},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"config.acUsesCon": 1.0, "config.acUsesDex": 0.0}, normalized)
+	assert.Equal(t, map[string]any{"derived.armorClass": 10.0}, cascading)
+
+	t.Run("Error: conflict bubbles through the single-lock entry point", func(t *testing.T) {
+		_, _, err := dag.NormalizeAndRecalculate(original, map[string]any{
+			"config.acUsesDex": 1.0, "config.acUsesCon": 1.0,
+		})
+		require.Error(t, err)
+		var conflict *ExclusiveGroupConflictError
+		require.ErrorAs(t, err, &conflict)
+	})
+
+	t.Run("Error: non-numeric member bubbles through the single-lock entry point", func(t *testing.T) {
+		_, _, err := dag.NormalizeAndRecalculate(original, map[string]any{"config.acUsesDex": "1"})
+		require.Error(t, err)
+		var invalid *ExclusiveValueTypeError
+		require.ErrorAs(t, err, &invalid)
+	})
+
+	t.Run("Error: derived field is not editable", func(t *testing.T) {
+		_, _, err := dag.NormalizeAndRecalculate(original, map[string]any{"derived.armorClass": 5.0})
+		require.Error(t, err)
+		var notEditable *NotEditableError
+		require.ErrorAs(t, err, &notEditable)
+	})
+
+	t.Run("Error: nil original data is rejected before locking", func(t *testing.T) {
+		_, _, err := dag.NormalizeAndRecalculate(nil, map[string]any{"config.acUsesDex": 1.0})
+		require.ErrorIs(t, err, ErrNilOriginalData)
+	})
 }

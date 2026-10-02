@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:legnaris/api/models/template.dart';
+import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
@@ -12,6 +13,7 @@ void main() {
     String label = '',
     bool editable = true,
     String? formula,
+    String? exclusiveGroup,
   }) => FieldNode(
     schema: FieldSchema(
       type: type,
@@ -19,6 +21,7 @@ void main() {
       formula: formula,
       isEditable: editable,
       defaultValue: 0,
+      exclusiveGroup: exclusiveGroup,
     ),
   );
 
@@ -31,6 +34,7 @@ void main() {
     required Map<String, Object?>? data,
     void Function(String path, Object? value)? onChanged,
     SheetControlBuilder? controlBuilder,
+    SheetExclusiveControlBuilder? exclusiveControlBuilder,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -44,6 +48,7 @@ void main() {
               data: data,
               onChanged: onChanged,
               controlBuilder: controlBuilder,
+              exclusiveControlBuilder: exclusiveControlBuilder,
             ),
           ),
         ),
@@ -202,7 +207,7 @@ void main() {
         );
 
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsOneWidget,
         );
         expect(find.text('Calculated'), findsOneWidget);
@@ -251,6 +256,9 @@ void main() {
           fields: fields,
           data: null,
           controlBuilder: (context, field) => Text('built ${field.path}'),
+          exclusiveControlBuilder:
+              (context, group, selectedPath, onSelect) =>
+                  const SizedBox.shrink(),
         );
 
         expect(find.text('built stats.dexterity'), findsOneWidget);
@@ -305,6 +313,184 @@ void main() {
         expect(
           () => SheetForm(fields: fields),
           throwsA(isA<AssertionError>()),
+        );
+        expect(
+          () => SheetForm(
+            fields: fields,
+            controlBuilder: (context, field) => const SizedBox(),
+          ),
+          throwsA(isA<AssertionError>()),
+          reason: 'the field builder without the exclusive builder is rejected',
+        );
+        expect(
+          () => SheetForm(
+            fields: fields,
+            exclusiveControlBuilder:
+                (context, group, selectedPath, onSelect) => const SizedBox(),
+          ),
+          throwsA(isA<AssertionError>()),
+          reason: 'the exclusive builder without the field builder is rejected',
+        );
+        expect(
+          () => SheetForm(
+            fields: fields,
+            data: const {},
+            exclusiveControlBuilder:
+                (context, group, selectedPath, onSelect) => const SizedBox(),
+          ),
+          throwsA(isA<AssertionError>()),
+          reason: 'data mode with an extra exclusive builder is rejected',
+        );
+      },
+    );
+  });
+
+  group('exclusive rows (EXC-09, EXC-11, EXC-12)', () {
+    FieldGroup pairFields() => {
+      'config': groupOf({
+        'acUsesDex': leaf(
+          'number',
+          label: 'Dexterity',
+          exclusiveGroup: 'armorClassAbility',
+        ),
+        'acUsesCon': leaf(
+          'number',
+          label: 'Constitution',
+          exclusiveGroup: 'armorClassAbility',
+        ),
+      }),
+    };
+
+    testWidgets(
+      'Happy path: edit mode renders the injected exclusive builder once and never the members as fields (EXC-09)',
+      (tester) async {
+        final built = <String>[];
+        await pumpForm(
+          tester,
+          fields: pairFields(),
+          data: null,
+          controlBuilder: (context, field) => Text('field ${field.path}'),
+          exclusiveControlBuilder: (context, group, selectedPath, onSelect) {
+            built.add(group.id);
+            return Text('exclusive ${group.id}');
+          },
+        );
+
+        expect(built, ['armorClassAbility']);
+        expect(find.text('exclusive armorClassAbility'), findsOneWidget);
+        expect(find.text('Armor class ability'), findsOneWidget);
+        expect(find.text('field config.acUsesDex'), findsNothing);
+        expect(find.text('field config.acUsesCon'), findsNothing);
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
+          findsNothing,
+        );
+        expect(find.byType(SheetFieldControl), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Happy path: data mode renders the group disabled with the active option selected (EXC-11)',
+      (tester) async {
+        await pumpForm(
+          tester,
+          fields: pairFields(),
+          data: const {
+            'config': {'acUsesDex': 1, 'acUsesCon': 0},
+          },
+        );
+
+        final dropdown = tester.widget<DropdownButton<String>>(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+        );
+        expect(dropdown.value, 'config.acUsesDex');
+        expect(dropdown.onChanged, isNull);
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: data mode with no active member renders the group with none selected (EXC-11)',
+      (tester) async {
+        await pumpForm(
+          tester,
+          fields: pairFields(),
+          data: const {
+            'config': {'acUsesDex': 0, 'acUsesCon': 0},
+          },
+        );
+
+        final dropdown = tester.widget<DropdownButton<String>>(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+        );
+        expect(dropdown.value, exclusiveNoneValue);
+        expect(dropdown.onChanged, isNull);
+      },
+    );
+
+    testWidgets(
+      'Edge: a single-member group renders the member with its normal per-field control (EXC-12)',
+      (tester) async {
+        final fields = {
+          'config': groupOf({
+            'acUsesDex': leaf('number', exclusiveGroup: 'armorClassAbility'),
+          }),
+        };
+
+        await pumpForm(
+          tester,
+          fields: fields,
+          data: const {
+            'config': {'acUsesDex': 1},
+          },
+        );
+
+        expect(find.byType(SheetExclusiveControl), findsNothing);
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: an untagged config leaf keeps its independent toggle next to the group',
+      (tester) async {
+        final fields = {
+          'config': groupOf({
+            'acUsesDex': leaf('number', exclusiveGroup: 'armorClassAbility'),
+            'acUsesCon': leaf('number', exclusiveGroup: 'armorClassAbility'),
+            'stealthProfWeight': leaf('number'),
+          }),
+        };
+
+        await pumpForm(
+          tester,
+          fields: fields,
+          data: const {
+            'config': {'acUsesDex': 1, 'acUsesCon': 0, 'stealthProfWeight': 0},
+          },
+        );
+
+        expect(find.byType(SheetExclusiveControl), findsOneWidget);
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
+          findsNothing,
         );
       },
     );

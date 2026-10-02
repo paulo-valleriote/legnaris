@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_error.dart';
 import 'package:legnaris/api/error_mapper.dart';
+import 'package:legnaris/api/models/template.dart';
 
 /// Suite that runs the typed client against the real responses pinned in
 /// `test/fixtures/` — no reachable API required (FE1-32). Every fixture was
@@ -25,6 +26,29 @@ void main() {
   ApiClient fixtureClient(String body, {int status = 200}) => ApiClient(
     httpClient: MockClient((_) async => http.Response(body, status)),
   );
+
+  /// Every leaf of the tree carrying a non-empty `option_label`, keyed by its
+  /// dotted path, so a new tag anywhere fails the exact-set assertion.
+  Map<String, String> optionLabels(FieldGroup fields) {
+    final labels = <String, String>{};
+    void walk(String path, FieldNode node) {
+      final schema = node.schema;
+      if (schema != null) {
+        final label = schema.optionLabel;
+        if (label != null && label.isNotEmpty) labels[path] = label;
+        return;
+      }
+      final children = node.children;
+      if (children == null) return;
+      for (final entry in children.entries) {
+        walk(path.isEmpty ? entry.key : '$path.${entry.key}', entry.value);
+      }
+    }
+    for (final entry in fields.entries) {
+      walk(entry.key, entry.value);
+    }
+    return labels;
+  }
 
   group('pinned contract fixtures (FE1-32, FE1-33, FE1-34)', () {
     test('Fixture set: the 6 endpoints, the error envelope and the PATCH delta pair are all pinned (FE1-33)', () {
@@ -93,8 +117,71 @@ void main() {
       expect(armorClass?.dependsOn?.first, ['combat', 'baseArmorClass']);
     });
 
-    test('Happy path: POST /sheets fixture decodes the created sheet with computed values', () async {
-      final client = fixtureClient(fixtureBody('sheet_create.json'), status: 201);
+    test(
+      'Happy path: the frozen fixtures tag exactly the two exclusive groups and expose no spells.ability (EXC-17, EXC-18, EXC-19)',
+      () async {
+        final detailClient = fixtureClient(fixtureBody('template_detail.json'));
+        final detail = await detailClient.getTemplate('fantasy_v1');
+        final catalogClient = fixtureClient(fixtureBody('templates.json'));
+        final catalog = (await catalogClient.listTemplates()).single;
+
+        for (final template in [detail, catalog]) {
+          final config = template.fields['config']!.children!;
+          final groups = <String, Set<String>>{};
+          for (final entry in config.entries) {
+            final id = entry.value.schema?.exclusiveGroup;
+            if (id == null || id.isEmpty) continue;
+            groups.putIfAbsent(id, () => <String>{}).add(entry.key);
+          }
+
+          expect(groups, {
+            'armorClassAbility': {'acUsesDex', 'acUsesCon'},
+            'spellcastingAbility': {
+              'spellUsesCharisma',
+              'spellUsesConstitution',
+              'spellUsesDexterity',
+              'spellUsesIntelligence',
+              'spellUsesStrength',
+              'spellUsesWisdom',
+            },
+          });
+          expect(
+            template.fields['spells']?.children?.containsKey('ability'),
+            isNot(true),
+            reason: 'the redundant spells.ability leaf is removed (EXC-19)',
+          );
+        }
+      },
+    );
+
+    test(
+      'Happy path: option_label is present on exactly the ac pair + six spellUses and nowhere else (EXC-25, EXC-26)',
+      () async {
+        final detail = await fixtureClient(
+          fixtureBody('template_detail.json'),
+        ).getTemplate('fantasy_v1');
+        final catalog = (await fixtureClient(
+          fixtureBody('templates.json'),
+        ).listTemplates()).single;
+
+        const expected = {
+          'config.acUsesDex': 'Dexterity',
+          'config.acUsesCon': 'Constitution',
+          'config.spellUsesStrength': 'Strength',
+          'config.spellUsesDexterity': 'Dexterity',
+          'config.spellUsesConstitution': 'Constitution',
+          'config.spellUsesIntelligence': 'Intelligence',
+          'config.spellUsesWisdom': 'Wisdom',
+          'config.spellUsesCharisma': 'Charisma',
+        };
+
+        for (final template in [detail, catalog]) {
+          expect(optionLabels(template.fields), expected);
+        }
+      },
+    );
+
+    test('Happy path: POST /sheets fixture decodes the created sheet with computed values', () async {      final client = fixtureClient(fixtureBody('sheet_create.json'), status: 201);
 
       final sheet = await client.createSheet(
         templateId: 'fantasy_v1',

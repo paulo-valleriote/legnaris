@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
+import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/engine/field_grouping.dart';
 import 'package:legnaris/engine/sheet_form.dart';
@@ -293,7 +294,11 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     }
 
     return SingleChildScrollView(
-      child: SheetForm(fields: template.fields, controlBuilder: _control),
+      child: SheetForm(
+        fields: template.fields,
+        controlBuilder: _control,
+        exclusiveControlBuilder: _exclusiveControl,
+      ),
     );
   }
 
@@ -313,6 +318,41 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
         value: value,
         onChanged: (value) =>
             ref.read(provider.notifier).setPath(field.path, value),
+      );
+    },
+  );
+
+  /// One exclusive group's control, wired to the edit state: the `Consumer`
+  /// watches every option path through a `select`, so an edit to a member
+  /// rebuilds just this group and the screen never watches the state (AD-001).
+  /// Selecting writes the exclusivity rule into the state — the selected member
+  /// to 1 and every sibling to 0, or every member to 0 for the `None` sentinel
+  /// — with no network request (EXC-13, EXC-15, EXC-16, EXC-27).
+  Widget _exclusiveControl(
+    BuildContext context,
+    SheetExclusiveGroup group,
+    String? selectedPath,
+    ValueChanged<String>? onSelect,
+  ) => Consumer(
+    key: ValueKey('sheet-exclusive-consumer-${group.id}'),
+    builder: (context, ref, _) {
+      final provider = sheetEditControllerProvider(widget.templateId);
+      String? active;
+      for (final option in group.options) {
+        final value = ref.watch(
+          provider.select((state) => valueAtPath(state.data, option.path)),
+        );
+        if (exclusiveValueIsOn(value)) active = option.path;
+      }
+      return SheetExclusiveControl(
+        group: group,
+        selectedPath: active,
+        onSelect: (path) => ref.read(provider.notifier).setExclusive(
+          path == exclusiveNoneValue ? null : path,
+          group.options
+              .map((option) => option.path)
+              .where((optionPath) => optionPath != path),
+        ),
       );
     },
   );

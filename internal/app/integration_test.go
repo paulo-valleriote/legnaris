@@ -17,6 +17,7 @@ import (
 	"legnaris/shared/db"
 	"legnaris/shared/env"
 	"legnaris/shared/logger"
+	"legnaris/shared/maputils"
 	"legnaris/shared/response"
 
 	"github.com/stretchr/testify/assert"
@@ -349,6 +350,92 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	fetchedRules, ok := fetched.Data.Data["rules"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, 12.0, fetchedRules["modifierBase"])
+}
+
+// TestIntegration_Sheets_ExclusiveOptions covers the mutually exclusive
+// armor-class pair end to end (EXC-04, EXC-05, EXC-07): a PATCH that turns one
+// member on zeroes its sibling and recomputes the derived value, and a PATCH
+// that turns both on is rejected with 400 INVALID_REQUEST.
+func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
+	h, _ := newIntegrationRouter(t)
+
+	createRec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Exclusive"}`)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+	sheetID := created.Data.ID
+
+	// Distinct modifiers make the armor-class recompute observably tied to the
+	// active exclusive member.
+	statsRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":14,"constitution":12}}}`)
+	require.Equal(t, http.StatusOK, statsRec.Code)
+
+	// The payload turns constitution on; normalization must zero the dexterity
+	// sibling (default on) in the same request.
+	conRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesCon":1}}}`)
+	require.Equal(t, http.StatusOK, conRec.Code)
+
+	var conPatched response.Success[map[string]any]
+	require.NoError(t, json.Unmarshal(conRec.Body.Bytes(), &conPatched))
+	conDerived, ok := conPatched.Data["derived"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 11.0, conDerived["armorClass"], "armor class must follow the active constitution option")
+
+	fetchRec := doRequest(t, h, http.MethodGet, "/sheets/"+sheetID, "")
+	require.Equal(t, http.StatusOK, fetchRec.Code)
+
+	var fetched response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(fetchRec.Body.Bytes(), &fetched))
+	config, ok := fetched.Data.Data["config"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 0.0, config["acUsesDex"], "the dexterity sibling must be stored as zero")
+	assert.Equal(t, 1.0, config["acUsesCon"])
+
+	// Turning both members on in one payload is ambiguous intent: reject it.
+	bothRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesDex":1,"acUsesCon":1}}}`)
+	require.Equal(t, http.StatusBadRequest, bothRec.Code)
+
+	var body response.ErrorResponse
+	require.NoError(t, json.Unmarshal(bothRec.Body.Bytes(), &body))
+	assert.Equal(t, "INVALID_REQUEST", body.Error.Code)
+
+	// A non-numeric member is not a 0/1 proxy: reject it instead of treating it
+	// as "off" and letting the payload bypass the at-most-one rule.
+	nonNumericRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesDex":"1"}}}`)
+	require.Equal(t, http.StatusBadRequest, nonNumericRec.Code)
+
+	var nonNumericBody response.ErrorResponse
+	require.NoError(t, json.Unmarshal(nonNumericRec.Body.Bytes(), &nonNumericBody))
+	assert.Equal(t, "INVALID_REQUEST", nonNumericBody.Error.Code)
+}
+
+// TestIntegration_Sheets_NestingDepthLimit covers the DoS guard end to end: a
+// PATCH whose data nests deeper than maputils.MaxNestingDepth is rejected with
+// 400 INVALID_REQUEST instead of driving the recursive flatten off a cliff.
+func TestIntegration_Sheets_NestingDepthLimit(t *testing.T) {
+	h, _ := newIntegrationRouter(t)
+
+	createRec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Deep"}`)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+	sheetID := created.Data.ID
+
+	deep := any(1.0)
+	for i := 0; i < maputils.MaxNestingDepth+1; i++ {
+		deep = map[string]any{"level": deep}
+	}
+	deepBodyBytes, err := json.Marshal(map[string]any{"data": deep})
+	require.NoError(t, err)
+
+	deepRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, string(deepBodyBytes))
+	require.Equal(t, http.StatusBadRequest, deepRec.Code)
+
+	var deepBody response.ErrorResponse
+	require.NoError(t, json.Unmarshal(deepRec.Body.Bytes(), &deepBody))
+	assert.Equal(t, "INVALID_REQUEST", deepBody.Error.Code)
 }
 
 // TestIntegration_ErrorStatusMapping covers the HTTP status each typed error

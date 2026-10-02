@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGet(t *testing.T) {
@@ -498,7 +499,8 @@ func TestToEngineEnv(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := ToEngineEnv(tc.nested)
+			result, err := ToEngineEnv(tc.nested)
+			require.NoError(t, err)
 			assert.Equal(t, tc.wantFlat, result)
 		})
 	}
@@ -549,10 +551,43 @@ func TestFlattenPathKeys(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := FlattenPathKeys(tc.nested)
+			result, err := FlattenPathKeys(tc.nested)
+			require.NoError(t, err)
 			assert.Equal(t, tc.wantFlat, result)
 		})
 	}
+}
+
+// TestFlattenPathKeys_MaxDepth pins the DoS guard: a map nested deeper than
+// MaxNestingDepth is rejected before the recursive walk can exhaust the stack.
+func TestFlattenPathKeys_MaxDepth(t *testing.T) {
+	// nestedAt builds a chain of depth map levels ending in one scalar leaf.
+	nestedAt := func(depth int) map[string]any {
+		root := map[string]any{}
+		current := root
+		for i := 1; i < depth; i++ {
+			next := map[string]any{}
+			current["level"] = next
+			current = next
+		}
+		current["leaf"] = 1.0
+		return root
+	}
+
+	t.Run("Edge: exactly MaxNestingDepth levels is accepted", func(t *testing.T) {
+		_, err := FlattenPathKeys(nestedAt(MaxNestingDepth))
+		assert.NoError(t, err)
+	})
+
+	t.Run("Error: one level deeper than MaxNestingDepth is rejected", func(t *testing.T) {
+		_, err := FlattenPathKeys(nestedAt(MaxNestingDepth + 1))
+		assert.ErrorIs(t, err, ErrMaxDepthExceeded)
+	})
+
+	t.Run("Error: ToEngineEnv applies the same bound", func(t *testing.T) {
+		_, err := ToEngineEnv(nestedAt(MaxNestingDepth + 1))
+		assert.ErrorIs(t, err, ErrMaxDepthExceeded)
+	})
 }
 
 func TestDeepCopy(t *testing.T) {
@@ -910,6 +945,51 @@ func TestSplitPath(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := splitPath(tc.input)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestToFloat64(t *testing.T) {
+	tests := []struct {
+		name string
+		in   any
+		want float64
+		ok   bool
+	}{
+		{name: "Happy path: int", in: 3, want: 3, ok: true},
+		{name: "Happy path: int8", in: int8(-4), want: -4, ok: true},
+		{name: "Happy path: int16", in: int16(5), want: 5, ok: true},
+		{name: "Happy path: int32", in: int32(6), want: 6, ok: true},
+		{name: "Happy path: int64", in: int64(7), want: 7, ok: true},
+		{name: "Happy path: uint", in: uint(8), want: 8, ok: true},
+		{name: "Happy path: uint8", in: uint8(9), want: 9, ok: true},
+		{name: "Happy path: uint16", in: uint16(10), want: 10, ok: true},
+		{name: "Happy path: uint32", in: uint32(11), want: 11, ok: true},
+		{name: "Happy path: uint64", in: uint64(12), want: 12, ok: true},
+		{name: "Happy path: float32", in: float32(1.5), want: 1.5, ok: true},
+		{name: "Happy path: float64", in: 2.25, want: 2.25, ok: true},
+		{
+			name: "Edge: uint64 max keeps its magnitude",
+			in:   uint64(math.MaxUint64),
+			want: float64(math.MaxUint64),
+			ok:   true,
+		},
+		{
+			name: "Edge: int64 min keeps its sign and magnitude",
+			in:   int64(math.MinInt64),
+			want: float64(math.MinInt64),
+			ok:   true,
+		},
+		{name: "Error: string is not numeric", in: "1", want: 0, ok: false},
+		{name: "Error: bool is not numeric", in: true, want: 0, ok: false},
+		{name: "Error: nil is not numeric", in: nil, want: 0, ok: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := ToFloat64(tc.in)
+			assert.Equal(t, tc.ok, ok)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }

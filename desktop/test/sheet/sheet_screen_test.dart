@@ -10,6 +10,7 @@ import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/api/models/sheet.dart';
+import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
@@ -21,7 +22,7 @@ void main() {
   const detailBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}},
-  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 1}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility"}}, "spellUsesCharisma": {"schema": {"type": "number", "label": "Spellcasting uses charisma", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesConstitution": {"schema": {"type": "number", "label": "Spellcasting uses constitution", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesDexterity": {"schema": {"type": "number", "label": "Spellcasting uses dexterity", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesIntelligence": {"schema": {"type": "number", "label": "Spellcasting uses intelligence", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesStrength": {"schema": {"type": "number", "label": "Spellcasting uses strength", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesWisdom": {"schema": {"type": "number", "label": "Spellcasting uses wisdom", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "stealthProfWeight": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}}},
   "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
 }}}
 ''';
@@ -34,7 +35,16 @@ void main() {
   const freshBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 16}}}},
-  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 1}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility"}}, "stealthProfWeight": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 0}}}},
+  "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
+}}}
+''';
+  // Same template with only one member tagged: the exclusive group degrades to
+  // a single-member group, so a refresh must drop the exclusive row (M1).
+  const singleMemberBody = '''
+{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
+  "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0}}}},
   "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
 }}}
 ''';
@@ -126,6 +136,21 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Opens an exclusive-group dropdown and taps one entry. The entry key also
+  /// exists in the closed button's `IndexedStack`, so `.last` picks the menu.
+  Future<void> selectExclusive(
+    WidgetTester tester,
+    String groupId,
+    String optionPath,
+  ) async {
+    await tester.tap(find.byKey(Key('sheet-exclusive-$groupId')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(Key('sheet-exclusive-option-$optionPath')).last,
+    );
+    await tester.pumpAndSettle();
+  }
+
   group('loading, seed and render (RND-15, RND-16)', () {
     testWidgets(
       'Happy path: one detail request, loading first, then sections seeded from defaults (RND-15, RND-16)',
@@ -153,13 +178,35 @@ void main() {
               ?.text,
           '10',
         );
+        final exclusive = tester.widget<DropdownButton<String>>(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+        );
+        expect(exclusive.value, 'config.acUsesDex');
+        expect(exclusive.onChanged, isNotNull);
         expect(
           tester
-              .widget<Switch>(
-                find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+              .widget<DropdownButton<String>>(
+                find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
               )
               .value,
-          isTrue,
+          exclusiveNoneValue,
+          reason: 'a group with no active default shows None',
+        );
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
+          findsNothing,
+        );
+        expect(
+          tester
+              .widget<Checkbox>(
+                find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
+              )
+              .value,
+          isFalse,
         );
         expect(find.text('Calculated'), findsOneWidget);
         expect(recorded.where((request) => request.method != 'GET'), isEmpty);
@@ -242,7 +289,7 @@ void main() {
         expect(inputs, isNotEmpty);
         expect(inputs.every((field) => field.enabled == true), isTrue);
 
-        final toggles = tester.widgetList<Switch>(find.byType(Switch));
+        final toggles = tester.widgetList<Checkbox>(find.byType(Checkbox));
         expect(toggles, isNotEmpty);
         expect(toggles.every((toggle) => toggle.onChanged != null), isTrue);
 
@@ -334,7 +381,7 @@ void main() {
           before.keys,
           containsAll([
             'stats.dexterity',
-            'config.acUsesDex',
+            'config.stealthProfWeight',
             'derived.armorClass',
           ]),
         );
@@ -403,7 +450,7 @@ void main() {
         final afterFirst = snapshot();
 
         await tester.tap(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
         );
         await tester.pump();
         final afterSecond = snapshot();
@@ -418,8 +465,8 @@ void main() {
         );
         expect(
           identical(
-            afterSecond['config.acUsesDex'],
-            afterFirst['config.acUsesDex'],
+            afterSecond['config.stealthProfWeight'],
+            afterFirst['config.stealthProfWeight'],
           ),
           isFalse,
         );
@@ -449,23 +496,23 @@ void main() {
         };
 
         await tester.tap(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
         );
         await tester.pump();
 
         expect(
           tester
-              .widget<Switch>(
-                find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+              .widget<Checkbox>(
+                find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
               )
               .value,
-          isFalse,
+          isTrue,
         );
         final container = ProviderScope.containerOf(
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         final state = container.read(sheetEditControllerProvider('fantasy_v1'));
-        expect(valueAtPath(state.data, 'config.acUsesDex'), 0);
+        expect(valueAtPath(state.data, 'config.stealthProfWeight'), 1);
         expect(state.isPending, isTrue);
 
         final after = {
@@ -475,7 +522,7 @@ void main() {
             control.path: control,
         };
         for (final path in before.keys.where(
-          (path) => path != 'config.acUsesDex',
+          (path) => path != 'config.stealthProfWeight',
         )) {
           expect(
             identical(after[path], before[path]),
@@ -990,6 +1037,355 @@ void main() {
           // spec's amended gating decision.
           lessThan(4000),
           reason: 'GRN-10: 200 field controls must mount within the budget',
+        );
+      },
+    );
+  });
+
+  group('exclusive groups (EXC-13, EXC-15, EXC-16)', () {
+    testWidgets(
+      'Happy path: the edit screen renders one dropdown control for the pair, default option selected, and no per-field checkboxes (EXC-15)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        final dropdown = tester.widget<DropdownButton<String>>(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+        );
+        expect(dropdown.value, 'config.acUsesDex');
+        expect(dropdown.onChanged, isNotNull);
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
+          findsNothing,
+        );
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Happy path: selecting the constitution option flips the stored pair to (0,1) in one emission and issues no request (EXC-13, EXC-16)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        var emissions = 0;
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, _) => emissions++,
+        );
+        addTearDown(subscription.close);
+
+        await selectExclusive(
+          tester,
+          'armorClassAbility',
+          'config.acUsesCon',
+        );
+
+        final state = container.read(
+          sheetEditControllerProvider('fantasy_v1'),
+        );
+        expect(valueAtPath(state.data, 'config.acUsesCon'), 1);
+        expect(valueAtPath(state.data, 'config.acUsesDex'), 0);
+        expect(
+          state.editedPaths,
+          containsAll(['config.acUsesCon', 'config.acUsesDex']),
+        );
+        expect(emissions, 1, reason: 'the group must change in one emission');
+        expect(
+          tester
+              .widget<DropdownButton<String>>(
+                find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+              )
+              .value,
+          'config.acUsesCon',
+        );
+        expect(recorded, hasLength(1));
+        expect(recorded.single.method, 'GET');
+      },
+    );
+
+    testWidgets(
+      'Edge: re-selecting the active option leaves the state instance identical (EXC-14)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        final before = container.read(
+          sheetEditControllerProvider('fantasy_v1'),
+        );
+
+        await selectExclusive(
+          tester,
+          'armorClassAbility',
+          'config.acUsesDex',
+        );
+
+        expect(
+          identical(
+            container.read(sheetEditControllerProvider('fantasy_v1')),
+            before,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: a refresh that changes the group composition rebuilds without error (M1)',
+      (tester) async {
+        var request = 0;
+        await pumpScreen(
+          tester,
+          handler: (_) async {
+            request += 1;
+            return http.Response(
+              request == 1 ? detailBody : singleMemberBody,
+              200,
+            );
+          },
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+          findsOneWidget,
+        );
+
+        await pressF5(tester);
+
+        expect(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
+  group('exclusive spellcasting group (EXC-20, EXC-21, EXC-22)', () {
+    const abilities = [
+      'Charisma',
+      'Constitution',
+      'Dexterity',
+      'Intelligence',
+      'Strength',
+      'Wisdom',
+    ];
+
+    testWidgets(
+      'Happy path: the six-option spellcasting group is the same single dropdown as the pair, with a None entry and one item per ability (EXC-20, EXC-27)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        final spellcasting = tester.widget<DropdownButton<String>>(
+          find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+        );
+        final armorClass = tester.widget<DropdownButton<String>>(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+        );
+        expect(
+          find.byType(DropdownButton<String>),
+          findsNWidgets(2),
+          reason: 'both groups use the one dropdown control',
+        );
+        expect(
+          find.byType(Radio<String>),
+          findsNothing,
+          reason: 'the spellcasting group is the shared dropdown, not a radio',
+        );
+        expect(spellcasting.value, exclusiveNoneValue);
+        expect(
+          spellcasting.items!.map((item) => item.value),
+          [exclusiveNoneValue, for (final ability in abilities) 'config.spellUses$ability'],
+        );
+        expect(
+          armorClass.items!.map((item) => item.value),
+          isNot(contains(exclusiveNoneValue)),
+          reason: 'the defaulted pair offers no None',
+        );
+        for (final ability in abilities) {
+          expect(
+            find.byKey(Key('sheet-checkbox-config.spellUses$ability')),
+            findsNothing,
+          );
+        }
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Edge: with all six abilities off the spellcasting dropdown shows None and stays selectable (EXC-20)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        final dropdown = tester.widget<DropdownButton<String>>(
+          find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+        );
+        expect(dropdown.value, exclusiveNoneValue);
+        expect(dropdown.onChanged, isNotNull);
+        expect(
+          dropdown.items!.map((item) => item.value),
+          contains(exclusiveNoneValue),
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: selecting a spellcasting ability sets it to 1, zeroes the other five in one emission and issues no request (EXC-21)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        var emissions = 0;
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, _) => emissions++,
+        );
+        addTearDown(subscription.close);
+        final before = {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+
+        await selectExclusive(
+          tester,
+          'spellcastingAbility',
+          'config.spellUsesConstitution',
+        );
+
+        final state = container.read(
+          sheetEditControllerProvider('fantasy_v1'),
+        );
+        expect(valueAtPath(state.data, 'config.spellUsesConstitution'), 1);
+        for (final ability in abilities.where((a) => a != 'Constitution')) {
+          expect(
+            valueAtPath(state.data, 'config.spellUses$ability'),
+            0,
+            reason: 'every sibling ability must be zeroed by the selection',
+          );
+        }
+        expect(emissions, 1, reason: 'the group must change in one emission');
+        expect(state.editedPaths, contains('config.spellUsesConstitution'));
+        expect(state.editedPaths, contains('config.spellUsesCharisma'));
+        expect(recorded, hasLength(1));
+        expect(recorded.single.method, 'GET');
+
+        expect(
+          tester
+              .widget<DropdownButton<String>>(
+                find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+              )
+              .value,
+          'config.spellUsesConstitution',
+        );
+
+        final after = {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+        for (final path in before.keys) {
+          expect(
+            identical(after[path], before[path]),
+            isTrue,
+            reason: '$path must not rebuild when the exclusive group changes',
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'Happy path: selecting None clears the whole spellcasting group in one emission with GET-only requests (EXC-27)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        await selectExclusive(
+          tester,
+          'spellcastingAbility',
+          'config.spellUsesConstitution',
+        );
+        expect(
+          valueAtPath(
+            container.read(sheetEditControllerProvider('fantasy_v1')).data,
+            'config.spellUsesConstitution',
+          ),
+          1,
+        );
+        var emissions = 0;
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, _) => emissions++,
+        );
+        addTearDown(subscription.close);
+
+        await selectExclusive(tester, 'spellcastingAbility', 'none');
+
+        final state = container.read(
+          sheetEditControllerProvider('fantasy_v1'),
+        );
+        for (final ability in abilities) {
+          expect(
+            valueAtPath(state.data, 'config.spellUses$ability'),
+            0,
+            reason: 'None must clear every member of the group',
+          );
+        }
+        expect(emissions, 1, reason: 'the group must clear in one emission');
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+        expect(
+          tester
+              .widget<DropdownButton<String>>(
+                find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+              )
+              .value,
+          exclusiveNoneValue,
         );
       },
     );

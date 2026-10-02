@@ -32,6 +32,18 @@ const (
 	fieldNameTotal            = "total"
 	fieldNameBonus            = "bonus"
 
+	// exclusiveGroupArmorClassAbility is the shared group id for the armor-class
+	// ability proxies: config.acUsesDex and config.acUsesCon are mutually
+	// exclusive (at most one is non-zero), so the API advertises them as one
+	// choice and the DAG normalizes them together.
+	exclusiveGroupArmorClassAbility = "armorClassAbility"
+
+	// exclusiveGroupSpellcastingAbility is the shared group id for the six
+	// config.spellUses<Ability> proxies: spellcasting uses exactly one ability
+	// (at most one flag is non-zero), so the API advertises them as one choice
+	// and the DAG normalizes them together.
+	exclusiveGroupSpellcastingAbility = "spellcastingAbility"
+
 	// Ability keys shared by stats, modifiers, saves and the skill list.
 	abilityStrength     = "strength"
 	abilityDexterity    = "dexterity"
@@ -307,7 +319,6 @@ func spellsGroup() FieldGroup {
 	}
 
 	group := FieldGroup{
-		"ability":     textField("Spellcasting ability"),
 		"attackBonus": calcField("Spell attack bonus", attackBonusFormula, attackBonusDeps...),
 		"saveDC": calcField(
 			"Spell save DC",
@@ -337,13 +348,23 @@ func spellsGroup() FieldGroup {
 }
 
 func configGroup() FieldGroup {
+	acUsesDex := numField("Armor class uses dexterity", 1)
+	acUsesDex.Schema.ExclusiveGroup = exclusiveGroupArmorClassAbility
+	acUsesDex.Schema.OptionLabel = "Dexterity"
+	acUsesCon := numField("Armor class uses constitution", 0)
+	acUsesCon.Schema.ExclusiveGroup = exclusiveGroupArmorClassAbility
+	acUsesCon.Schema.OptionLabel = "Constitution"
+
 	group := FieldGroup{
-		"acUsesDex": numField("Armor class uses dexterity", 1),
-		"acUsesCon": numField("Armor class uses constitution", 0),
+		"acUsesDex": acUsesDex,
+		"acUsesCon": acUsesCon,
 	}
 	for _, a := range abilities {
 		group[saveProfKey(a.key)] = numField(a.label+" save proficiency", 0)
-		group[spellUsesKey(a.key)] = numField("Spellcasting uses "+strings.ToLower(a.label), 0)
+		spellUses := numField("Spellcasting uses "+strings.ToLower(a.label), 0)
+		spellUses.Schema.ExclusiveGroup = exclusiveGroupSpellcastingAbility
+		spellUses.Schema.OptionLabel = a.label
+		group[spellUsesKey(a.key)] = spellUses
 	}
 	for _, s := range skills {
 		group[skillProfKey(s.key)] = numField(s.label+" proficiency", 0)

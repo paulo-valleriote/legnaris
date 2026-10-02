@@ -214,6 +214,36 @@ func TestFantasyV1_Structure(t *testing.T) {
 			assert.Equal(t, def, schema.Default)
 			assert.Empty(t, schema.Formula)
 		}
+
+		// EXC-03/EXC-18: the armor-class pair and the six spellcasting flags
+		// declare their shared groups; the save and skill proficiencies stay
+		// independent flags.
+		wantGroups := map[string]string{
+			"acUsesDex": exclusiveGroupArmorClassAbility,
+			"acUsesCon": exclusiveGroupArmorClassAbility,
+		}
+		for _, a := range abilities {
+			wantGroups[spellUsesKey(a.key)] = exclusiveGroupSpellcastingAbility
+		}
+		for name := range want {
+			assert.Equal(t, wantGroups[name], config[name].Schema.ExclusiveGroup,
+				"config.%s exclusive group", name)
+		}
+
+		// EXC-25: the exclusive members carry a short option label; every
+		// other config flag falls back to its schema label (empty option
+		// label), so the check also pins the emptiness elsewhere.
+		wantLabels := map[string]string{
+			"acUsesDex": "Dexterity",
+			"acUsesCon": "Constitution",
+		}
+		for _, a := range abilities {
+			wantLabels[spellUsesKey(a.key)] = a.label
+		}
+		for name := range want {
+			assert.Equal(t, wantLabels[name], config[name].Schema.OptionLabel,
+				"config.%s option label", name)
+		}
 	})
 
 	t.Run("Happy path: combat numbers are editable with usable defaults", func(t *testing.T) {
@@ -262,7 +292,9 @@ func TestFantasyV1_Structure(t *testing.T) {
 
 	t.Run("Happy path: spells expose the header, nine slot pools and lists", func(t *testing.T) {
 		spells := fantasyV1Template.Fields[fieldNameSpells].Children
-		for _, name := range []string{"ability", "atWill", "list"} {
+		assert.NotContains(t, spells, "ability",
+			"EXC-19: the redundant spellcasting ability text leaf is gone")
+		for _, name := range []string{"atWill", "list"} {
 			require.Equal(t, fieldTypeText, spells[name].Schema.Type, name)
 		}
 		for _, name := range []string{"attackBonus", "saveDC"} {
@@ -300,7 +332,7 @@ func TestFantasyV1_Structure(t *testing.T) {
 // and dependencies, or editable without one).
 func TestFantasyV1_LeafContracts(t *testing.T) {
 	schemas, paths := collectLeaves(fantasyV1Template.Fields)
-	require.Equal(t, 131, len(schemas), "the sheet must stay complete")
+	require.Equal(t, 130, len(schemas), "the sheet must stay complete")
 
 	for i, schema := range schemas {
 		key := paths[i].String()
@@ -326,4 +358,45 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 				"text leaf %s must not carry a formula (the compile env is numeric)", key)
 		}
 	}
+
+	// EXC-01/02/03/18: across the whole tree, exclusive_group is declared on
+	// exactly two groups — the armor-class pair and the six spellcasting
+	// flags. An extra tag anywhere else would render an unrelated leaf as a
+	// choice and is caught here, not just inside config.
+	grouped := map[string]string{}
+	for i, schema := range schemas {
+		if schema.ExclusiveGroup == "" {
+			continue
+		}
+		grouped[paths[i].String()] = schema.ExclusiveGroup
+	}
+	wantGrouped := map[string]string{
+		"config.acUsesDex": exclusiveGroupArmorClassAbility,
+		"config.acUsesCon": exclusiveGroupArmorClassAbility,
+	}
+	for _, a := range abilities {
+		wantGrouped[Path{fieldNameConfig, spellUsesKey(a.key)}.String()] = exclusiveGroupSpellcastingAbility
+	}
+	assert.Equal(t, wantGrouped, grouped,
+		"exclusive_group must cover exactly the armor-class pair and the six spellcasting flags")
+
+	// EXC-25: option_label covers exactly the leaves of the two exclusive
+	// groups — the armor-class pair and the six spellcasting flags — each
+	// naming its ability; every other leaf falls back to Label (empty).
+	labeled := map[string]string{}
+	for i, schema := range schemas {
+		if schema.OptionLabel == "" {
+			continue
+		}
+		labeled[paths[i].String()] = schema.OptionLabel
+	}
+	wantLabeled := map[string]string{
+		"config.acUsesDex": "Dexterity",
+		"config.acUsesCon": "Constitution",
+	}
+	for _, a := range abilities {
+		wantLabeled[Path{fieldNameConfig, spellUsesKey(a.key)}.String()] = a.label
+	}
+	assert.Equal(t, wantLabeled, labeled,
+		"option_label must cover exactly the armor-class pair and the six spellcasting flags")
 }

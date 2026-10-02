@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -29,14 +30,15 @@ import (
 // do through HasNode — deadlocks whenever a writer is queued between the two
 // acquisitions, which sync.RWMutex explicitly forbids.
 type DAG struct {
-	// mu guards nodes, adjacencyList and topologicalOrder. Read them through
-	// the accessors (HasNode, GetNode, GetChildren) or while holding mu
-	// explicitly in Recalculate — never acquire it twice.
+	// mu guards nodes, adjacencyList, topologicalOrder and exclusiveGroups.
+	// Read them through the accessors (HasNode, GetNode, GetChildren) or while
+	// holding mu explicitly in Recalculate — never acquire it twice.
 	mu               sync.RWMutex
 	templateID       string
 	nodes            map[string]*Node
 	adjacencyList    map[string][]string
 	topologicalOrder []string
+	exclusiveGroups  map[string][]string
 	formulaEngine    *engine.FormulaEngine
 }
 
@@ -139,6 +141,8 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 		return nil, err
 	}
 
+	dag.exclusiveGroups = buildExclusiveGroups(leafSchemas, leafPaths)
+
 	topoOrder, err := topologicalSort(dag.nodes, dag.adjacencyList)
 	if err != nil {
 		return nil, err
@@ -153,10 +157,11 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 // newDAG allocates and initializes a DAG with empty collections.
 func newDAG(templateID string, eng *engine.FormulaEngine) *DAG {
 	return &DAG{
-		templateID:    templateID,
-		nodes:         make(map[string]*Node),
-		adjacencyList: make(map[string][]string),
-		formulaEngine: eng,
+		templateID:      templateID,
+		nodes:           make(map[string]*Node),
+		adjacencyList:   make(map[string][]string),
+		exclusiveGroups: make(map[string][]string),
+		formulaEngine:   eng,
 	}
 }
 
@@ -222,6 +227,29 @@ func buildCompilationEnv(paths []Path) map[string]any {
 		env[path.EngineKey()] = 0.0
 	}
 	return env
+}
+
+// buildExclusiveGroups indexes editable leaves by their exclusive group id.
+// Only editable leaves join a group, and a group with fewer than two members is
+// dropped: a single editable member has nothing to exclude (EXC-08), and a
+// derived leaf is computed, never chosen. Members are sorted so conflict errors
+// and tests are deterministic.
+func buildExclusiveGroups(schemas []*FieldSchema, paths []Path) map[string][]string {
+	groups := make(map[string][]string)
+	for i, schema := range schemas {
+		if !schema.IsEditable || schema.ExclusiveGroup == "" {
+			continue
+		}
+		groups[schema.ExclusiveGroup] = append(groups[schema.ExclusiveGroup], paths[i].String())
+	}
+	for id, members := range groups {
+		if len(members) < 2 {
+			delete(groups, id)
+			continue
+		}
+		slices.Sort(members)
+	}
+	return groups
 }
 
 // compileNodeFormulas compiles formulas for all leaf nodes and populates dag.nodes.
@@ -425,6 +453,12 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
+	return d.recalculateLocked(originalData, updatedData)
+}
+
+// recalculateLocked is the lock-free core of Recalculate. It must be called
+// with mu already held.
+func (d *DAG) recalculateLocked(originalData, updatedData map[string]any) (map[string]any, error) {
 	if err := d.validateUpdateKeysLocked(updatedData); err != nil {
 		return nil, err
 	}
@@ -437,7 +471,10 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 	// Updates that do not really change the original data never reach the
 	// recalculation set, so floating-point rounding or type coercion
 	// (e.g., int vs float64) cannot start a spurious cascade.
-	needsRecalc := changedUpdates(originalData, updatedData)
+	needsRecalc, err := changedUpdates(originalData, updatedData)
+	if err != nil {
+		return nil, err
+	}
 
 	changedDerived, err := d.walkTopological(sheetData, engineEnv, needsRecalc)
 	if err != nil {
@@ -454,11 +491,17 @@ func (d *DAG) Recalculate(originalData, updatedData map[string]any) (map[string]
 // {"stats": {"str": 16}}) are expanded to their leaves before comparing, so a
 // stray group payload still reaches DAG node keys instead of being silently
 // dropped by the change check — the supported input stays flat (see Recalculate).
-func changedUpdates(originalData, updatedData map[string]any) map[string]bool {
+// Returns ErrMaxDepthExceeded for a group payload nested deeper than
+// maputils.MaxNestingDepth.
+func changedUpdates(originalData, updatedData map[string]any) (map[string]bool, error) {
 	changed := make(map[string]bool, len(updatedData))
 	for key, newValue := range updatedData {
 		if group, ok := newValue.(map[string]any); ok {
-			for leafKey, leafValue := range maputils.FlattenPathKeys(group) {
+			flat, err := maputils.FlattenPathKeys(group)
+			if err != nil {
+				return nil, err
+			}
+			for leafKey, leafValue := range flat {
 				fullKey := key + "." + leafKey
 				if hasChanged(originalData, fullKey, leafValue) {
 					changed[fullKey] = true
@@ -470,7 +513,7 @@ func changedUpdates(originalData, updatedData map[string]any) map[string]bool {
 			changed[key] = true
 		}
 	}
-	return changed
+	return changed, nil
 }
 
 // hasChanged reports whether the value stored under key differs from newValue
@@ -515,8 +558,10 @@ func (d *DAG) hasNodePrefix(key string) bool {
 // ValidateUpdateKeys checks that every key in updates is a leaf node the caller
 // is allowed to write, returning UnknownFieldError for a key the graph does not
 // know and NotEditableError for a field the DAG computes itself. It is the
-// update contract the sheet service enforces before calling Recalculate, and
-// the single place where editability is decided (LGN-66).
+// lock-taking wrapper over validateEditableLocked (LGN-66): the sheet service
+// runs that same core inside NormalizeAndRecalculate during PATCH, so this
+// wrapper stays for callers that validate without recalculating (unit tests
+// today).
 //
 // Editability cannot be enforced inside Recalculate: Create seeds a new sheet
 // with every field of the template, derived ones included, and that payload
@@ -524,7 +569,8 @@ func (d *DAG) hasNodePrefix(key string) bool {
 // (a key must exist, leaf or group prefix), while this one is strict: keys are
 // matched against leaf nodes only, so a group prefix such as "stats" is
 // rejected as unknown instead of being applied — maputils.Set would replace the
-// whole group with the scalar and drop its siblings.
+// whole group with the scalar and drop its siblings. The exported wrapper stays
+// for callers that validate without recalculating (unit tests today).
 //
 // It takes the read lock itself, exactly once, so it must not be called while
 // the caller already holds it (a queued writer turns a second RLock into a
@@ -537,6 +583,12 @@ func (d *DAG) ValidateUpdateKeys(updates map[string]any) error {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
+	return d.validateEditableLocked(updates)
+}
+
+// validateEditableLocked is the lock-free core of ValidateUpdateKeys. It must be
+// called with mu already held.
+func (d *DAG) validateEditableLocked(updates map[string]any) error {
 	for key := range updates {
 		node, ok := d.nodes[key]
 		if !ok {
@@ -549,13 +601,156 @@ func (d *DAG) ValidateUpdateKeys(updates map[string]any) error {
 	return nil
 }
 
+// NormalizeAndRecalculate validates editability, collapses each touched
+// exclusive group to at most one non-zero member, and recomputes derived fields
+// — all under a single read-lock acquisition. It is the PATCH path's entry
+// point: ValidateUpdateKeys + NormalizeExclusiveUpdates + Recalculate would
+// otherwise take the read lock three times per request, and the codebase's
+// discipline is one acquisition per operation (LGN-54).
+//
+// It returns the normalized update map, which the caller applies to the stored
+// data, and the cascading derived effects. Editability is enforced here like
+// ValidateUpdateKeys; the structural key check stays inside recalculateLocked.
+func (d *DAG) NormalizeAndRecalculate(originalData, updatedData map[string]any) (
+	normalized map[string]any, cascading map[string]any, err error,
+) {
+	if d == nil {
+		return nil, nil, ErrNilDAG
+	}
+	if err := validateRecalculateInputs(originalData, updatedData); err != nil {
+		return nil, nil, err
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if err := d.validateEditableLocked(updatedData); err != nil {
+		return nil, nil, err
+	}
+
+	normalized, err = d.normalizeExclusiveUpdatesLocked(updatedData)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cascading, err = d.recalculateLocked(originalData, normalized)
+	if err != nil {
+		return nil, nil, err
+	}
+	return normalized, cascading, nil
+}
+
+// NormalizeExclusiveUpdates returns a copy of updates with each touched
+// exclusive group collapsed to at most one non-zero member. A payload that
+// turns on two or more members of the same group is rejected with an
+// ExclusiveGroupConflictError; a member carrying a non-numeric value is
+// rejected with an ExclusiveValueTypeError; a payload that touches no exclusive
+// group — or only turns members off — is returned unchanged (same map, no
+// allocation).
+//
+// It takes the read lock itself, exactly once, like ValidateUpdateKeys, so it
+// must not be called while the caller already holds it (a queued writer turns a
+// second RLock into a deadlock, see Recalculate).
+func (d *DAG) NormalizeExclusiveUpdates(updates map[string]any) (map[string]any, error) {
+	if d == nil {
+		return nil, ErrNilDAG
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	normalized, err := d.normalizeExclusiveUpdatesLocked(updates)
+	if err != nil {
+		return nil, err
+	}
+	return normalized, nil
+}
+
+// normalizeExclusiveUpdatesLocked is the lock-free core of
+// NormalizeExclusiveUpdates. It must be called with mu already held. Groups are
+// visited in sorted id order so a payload that conflicts in two groups always
+// reports the same group instead of whichever map iteration reached first.
+func (d *DAG) normalizeExclusiveUpdatesLocked(updates map[string]any) (map[string]any, error) {
+	var normalized map[string]any
+	for _, group := range slices.Sorted(maps.Keys(d.exclusiveGroups)) {
+		members := d.exclusiveGroups[group]
+		var on []string
+		for _, key := range members {
+			value, present := updates[key]
+			if !present {
+				continue
+			}
+			active, valid := exclusiveValueOn(value)
+			if !valid {
+				return nil, ErrExclusiveValueType(group, key)
+			}
+			if active {
+				on = append(on, key)
+			}
+		}
+
+		switch len(on) {
+		case 0:
+			// Turning a member off is allowed: the group may end with no
+			// active member, so the siblings stay untouched (EXC-06).
+			continue
+		case 1:
+			if normalized == nil {
+				normalized = copyFlatUpdates(updates)
+			}
+			for _, key := range members {
+				if key == on[0] {
+					continue
+				}
+				if _, present := updates[key]; present {
+					continue
+				}
+				normalized[key] = 0.0
+			}
+		default:
+			return nil, ErrExclusiveGroupConflict(group, on)
+		}
+	}
+
+	if normalized == nil {
+		return updates, nil
+	}
+	return normalized, nil
+}
+
+// exclusiveValueOn reports whether v is an active exclusive member and whether
+// v is a value the group accepts at all. Exclusive members are numeric 0/1
+// proxies, so every numeric type counts (non-zero is active) and every other
+// value — a string, a bool, nil, a map — is rejected instead of being silently
+// read as "off", which would let a payload bypass the at-most-one rule.
+func exclusiveValueOn(v any) (on bool, valid bool) {
+	f, ok := maputils.ToFloat64(v)
+	if !ok {
+		return false, false
+	}
+	return f != 0, true
+}
+
+// copyFlatUpdates shallow-copies a flat update map so normalization can add
+// sibling keys without mutating the caller's payload.
+func copyFlatUpdates(updates map[string]any) map[string]any {
+	copied := make(map[string]any, len(updates))
+	for key, value := range updates {
+		copied[key] = value
+	}
+	return copied
+}
+
 // prepareData deep-copies original data and applies updates, returning the sheet data and engine environment.
 func (d *DAG) prepareData(originalData, updatedData map[string]any) (map[string]any, map[string]any, error) {
 	sheetData := maputils.DeepCopy(originalData)
 	if err := maputils.ApplyUpdates(sheetData, updatedData); err != nil {
 		return nil, nil, err
 	}
-	engineEnv := maputils.ToEngineEnv(sheetData)
+	engineEnv, err := maputils.ToEngineEnv(sheetData)
+	if err != nil {
+		return nil, nil, err
+	}
 	return sheetData, engineEnv, nil
 }
 

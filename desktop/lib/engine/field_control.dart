@@ -149,14 +149,17 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
       width: AppSizes.fieldControlWidth,
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Switch(
-          key: Key('sheet-toggle-${widget.path}'),
+        child: Checkbox(
+          key: Key('sheet-checkbox-${widget.path}'),
           value: _isOn(widget.value),
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           onChanged:
               widget.onChanged == null
                   ? null
                   : (next) {
-                    final Object emitted = emitsBool ? next : (next ? 1 : 0);
+                    final bool on = next ?? false;
+                    final Object emitted = emitsBool ? on : (on ? 1 : 0);
                     _lastEmitted = emitted;
                     widget.onChanged!(emitted);
                   },

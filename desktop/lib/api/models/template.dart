@@ -42,6 +42,8 @@ class FieldSchema {
     this.dependsOn,
     required this.isEditable,
     required this.defaultValue,
+    this.exclusiveGroup,
+    this.optionLabel,
   });
 
   factory FieldSchema.fromJson(Map<String, Object?> json) => FieldSchema(
@@ -54,6 +56,8 @@ class FieldSchema {
             .toList(),
     isEditable: json['is_editable'] as bool,
     defaultValue: (json['default'] as num).toDouble(),
+    exclusiveGroup: json['exclusive_group'] as String?,
+    optionLabel: json['option_label'] as String?,
   );
 
   /// Opaque field type (e.g. `number`), rendered by the UI Engine in Phase 3.
@@ -74,6 +78,16 @@ class FieldSchema {
   /// Initial value of the field; explicit mapping of the reserved JSON key
   /// `default`.
   final double defaultValue;
+
+  /// Mutually exclusive group this leaf belongs to (JSON key
+  /// `exclusive_group`); null when the key is absent or null. Leaves sharing a
+  /// non-empty group under the same parent may have at most one non-zero value.
+  final String? exclusiveGroup;
+
+  /// Short label used when this leaf is shown as an option of its exclusive
+  /// group (JSON key `option_label`); null when the key is absent or null.
+  /// Empty falls back to [label].
+  final String? optionLabel;
 }
 
 /// A template as returned by `GET /templates/:id`: id, name, default flag and

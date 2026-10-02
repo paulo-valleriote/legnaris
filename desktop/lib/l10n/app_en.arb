@@ -181,5 +181,9 @@
   "sheetRefreshConfirmAction": "Discard and reload",
   "@sheetRefreshConfirmAction": {
     "description": "Destructive button of the refresh confirmation: discards the edit state and refetches the template detail (GRN-17, GRN-18)."
+  },
+  "fieldNone": "None",
+  "@fieldNone": {
+    "description": "Option label of an exclusive-group dropdown entry that clears the group when no member has an active default (EXC-10, EXC-27)."
   }
 }

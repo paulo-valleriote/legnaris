@@ -36,6 +36,7 @@ const (
 	MsgSheetIDNotProvided = "sheet id not provided"
 	MsgSheetIDInvalid     = "sheet id must be a canonical UUID v7"
 	MsgFieldDoesNotExist  = "field does not exist: "
+	MsgNestedTooDeep      = "sheet data is nested too deeply"
 )
 
 // requireSheetID is the single source of truth for the sheet-ID checks
@@ -96,7 +97,10 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 
 	// Flatten the initial data into dot-notation keys so the DAG can match
 	// leaf keys during recalc (the DAG walks leaf keys, not top-level groups).
-	flatInitial := maputils.FlattenPathKeys(initialData)
+	flatInitial, err := maputils.FlattenPathKeys(initialData)
+	if err != nil {
+		return nil, translateMapErr("create", err)
+	}
 
 	derivedEffects, err := dag.Recalculate(map[string]any{}, flatInitial)
 	if err != nil {
@@ -158,20 +162,24 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 
 	// The API contract is a nested map ({"data":{"stats":{"dexterity":12}}}).
 	// Flatten it to flat path keys because the DAG engine operates
-	// exclusively on those.
-	updates := maputils.FlattenPathKeys(cmd.Data)
-
-	if err := dag.ValidateUpdateKeys(updates); err != nil {
-		return nil, translateDAGErr(err)
+	// exclusively on those. A payload nested deeper than
+	// maputils.MaxNestingDepth is rejected here, before the recursive walk can
+	// exhaust the stack.
+	updates, err := maputils.FlattenPathKeys(cmd.Data)
+	if err != nil {
+		return nil, translateMapErr("update", err)
 	}
 
-	cascadingEffects, err := dag.Recalculate(storedSheet.Data, updates)
+	// Validate editability, collapse each touched exclusive group to at most
+	// one non-zero member, and recompute derived fields under a single DAG
+	// read-lock acquisition, so a PATCH never takes the lock more than once.
+	normalized, cascadingEffects, err := dag.NormalizeAndRecalculate(storedSheet.Data, updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
 
 	mergedData := maputils.DeepCopy(storedSheet.Data)
-	if err := maputils.ApplyUpdates(mergedData, updates); err != nil {
+	if err := maputils.ApplyUpdates(mergedData, normalized); err != nil {
 		return nil, translateMapErr("update", err)
 	}
 	if err := maputils.ApplyUpdates(mergedData, cascadingEffects); err != nil {
@@ -241,6 +249,25 @@ func translateDAGErr(err error) error {
 	if errors.As(err, &notEditable) {
 		return apperr.NewError(apperr.CodeInvalidRequest, notEditable.Error(), nil)
 	}
+	var conflict *template.ExclusiveGroupConflictError
+	if errors.As(err, &conflict) {
+		return apperr.NewError(
+			apperr.CodeInvalidRequest,
+			"conflicting exclusive options: "+conflict.Group,
+			err,
+		)
+	}
+	var invalidExclusive *template.ExclusiveValueTypeError
+	if errors.As(err, &invalidExclusive) {
+		return apperr.NewError(
+			apperr.CodeInvalidRequest,
+			"exclusive option must be numeric: "+invalidExclusive.Key,
+			err,
+		)
+	}
+	if errors.Is(err, maputils.ErrMaxDepthExceeded) {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgNestedTooDeep, err)
+	}
 	switch {
 	case isMaputilsDataErr(err):
 		return apperr.NewError(apperr.CodeInvalidRequest, "invalid sheet data", err)
@@ -259,6 +286,9 @@ func translateDAGErr(err error) error {
 func translateMapErr(op string, err error) error {
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, maputils.ErrMaxDepthExceeded) {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgNestedTooDeep, err)
 	}
 	if isMaputilsDataErr(err) {
 		return apperr.NewError(apperr.CodeInvalidRequest, "invalid sheet data", err)

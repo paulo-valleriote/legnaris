@@ -80,6 +80,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: create_sheet_preview_test.dart narrow-window width assertion (iteration-2 survivor) (desktop)
 - last seen: 2026-10-01T15:43:50Z
 
+### L-012 - Assert a metadata key is absent from every leaf of a template, not only the section that sets it.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `internal/sheet/template` · harmful: 0
+- features: lgn-105-exclusive-options
+- evidence: internal/sheet/template/seeders.go:190 (internal/sheet/template)
+- last seen: 2026-10-01T23:19:44Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
