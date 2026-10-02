@@ -18,14 +18,22 @@
 - **Date**: 2026-10-01
 - **Status**: active
 
+### AD-003
+- **Decision**: Local persistence lives in `desktop/lib/library/` as a versioned JSON file (`sheet_library.json`) in the OS application-support directory, written atomically via temp-file + rename, behind an injectable `appSupportDirectoryProvider` (`path_provider`, resolved in `main()`); the store API is synchronous and the `SheetLibrary` Riverpod notifier owns the in-memory index with write-through saves.
+- **Reason**: The local sheet library must survive restarts, migrate by `schema_version`, and quarantine a corrupt/unsupported file without losing its bytes — file-level atomic replace and byte-preserving quarantine require owning the file, which `shared_preferences` hides. Sync I/O is safe on Dart's single isolate for a tiny index and keeps providers synchronous.
+- **Trade-off**: Adds the first-party `path_provider` dependency and a manual migration/versioning path; tests must override the directory (the platform channel is unavailable otherwise). `shared_preferences` would be fewer lines but cannot satisfy the quarantine/atomicity contract.
+- **Scope**: desktop/ local persistence — the sheet library now; the dev base-URL override and UI preferences follow the same convention later.
+- **Date**: 2026-10-02
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: `lgn-105-exclusive-options` (.specs/features/lgn-105-exclusive-options)
-- **Phase / Task**: Execute — COMPLETE (T1–T21; increments 1–3 each independently verified, Verifier PASS)
-- **Completed**: T1–T11 (exclusive contract + DAG + desktop; PASS), T12–T15 (spellcasting group + remove `spells.ability`; PASS), T16–T21 (increment 3: unified dropdown + checkbox + `option_label`; PASS, report in `.specs/features/lgn-105-exclusive-options/validation.md`)
+- **Feature**: `lgn-107-local-sheet-library` (.specs/features/lgn-107-local-sheet-library)
+- **Phase / Task**: Tasks — COMPLETE (spec + context + design + tasks written; `validate_spec.py` and `validate_tasks.py` clean). Awaiting approval to Execute.
+- **Completed**: `spec.md` (4 stories, LIB-01…LIB-23), `context.md` (write-through failure + quarantine decisions), `design.md` (path_provider JSON store, store/notifier components, AD-003), `tasks.md` (7 tasks, one inline batch).
 - **In-progress** (file:line): none
-- **Next step**: review/merge PR #53; deploy the prod app stack so `api.legnaris.com.br` serves the increment
+- **Next step**: approve tasks, then Execute T1–T7 inline (single batch), always-on Verifier after T7. Branch from the current `feat/lgn-105-exclusive-options` base or from main once PR #53 merges.
 - **Blockers**: none
-- **Uncommitted files**: none; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
+- **Uncommitted files**: `.specs/features/lgn-107-local-sheet-library/` untracked + `.specs/STATE.md` modified; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
 - **Branch**: feat/lgn-105-exclusive-options (PR #53)
-- **Prior feature**: `lgn-102-granular-rebuild` — COMPLETE (Verifier PASS, report in `.specs/features/lgn-102-granular-rebuild/validation.md`)
+- **Prior feature**: `lgn-105-exclusive-options` — COMPLETE (Verifier PASS, report in `.specs/features/lgn-105-exclusive-options/validation.md`)
