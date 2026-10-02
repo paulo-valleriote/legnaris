@@ -87,11 +87,11 @@ T7
 
 **Done when**:
 
-- [ ] `fromJson` reads `id`, `name`, `template_id`, `created_at`; a missing field or wrong type throws `FormatException`
-- [ ] `toJson` writes `id`, `name`, `template_id`, and `created_at` as ISO-8601 UTC; it never emits a `data` key
-- [ ] `isValid` is false when `id`, `name`, or `templateId` is empty
-- [ ] Gate check passes: `flutter test test/library/sheet_library_entry_test.dart`
-- [ ] Test count: 8 tests pass (no silent deletions)
+- [x] `fromJson` reads `id`, `name`, `template_id`, `created_at`; a missing field or wrong type throws `FormatException`
+- [x] `toJson` writes `id`, `name`, `template_id`, and `created_at` as ISO-8601 UTC; it never emits a `data` key
+- [x] `isValid` is false when `id`, `name`, or `templateId` is empty
+- [x] Gate check passes: `flutter test test/library/sheet_library_entry_test.dart`
+- [x] Test count: 8 tests pass (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick

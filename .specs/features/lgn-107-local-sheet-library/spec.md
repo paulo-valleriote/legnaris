@@ -152,13 +152,13 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
 | LIB-01 | P1: Versioned local sheet index | Design | Pending |
-| LIB-02 | P1: Versioned local sheet index | Design | Pending |
-| LIB-03 | P1: Versioned local sheet index | Design | Pending |
+| LIB-02 | P1: Versioned local sheet index | Execute | Implementing |
+| LIB-03 | P1: Versioned local sheet index | Execute | Implementing |
 | LIB-04 | P1: Versioned local sheet index | Design | Pending |
 | LIB-05 | P1: Versioned local sheet index | Design | Pending |
 | LIB-06 | P1: Versioned local sheet index | Design | Pending |
 | LIB-07 | P1: Versioned local sheet index | Design | Pending |
-| LIB-08 | P1: Versioned local sheet index | Design | Pending |
+| LIB-08 | P1: Versioned local sheet index | Execute | Implementing |
 | LIB-09 | P1: Persisted schema version and durable writes | Design | Pending |
 | LIB-10 | P1: Persisted schema version and durable writes | Design | Pending |
 | LIB-11 | P1: Persisted schema version and durable writes | Design | Pending |
