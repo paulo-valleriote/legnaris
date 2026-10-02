@@ -240,11 +240,11 @@ func Equal(a, b any) bool {
 		return b == nil
 	}
 	// A numeric operand on either side routes to the tolerant comparison;
-	// toFloat64 doubles as the numeric-type check.
-	if _, ok := toFloat64(a); ok {
+	// ToFloat64 doubles as the numeric-type check.
+	if _, ok := ToFloat64(a); ok {
 		return equalNumeric(a, b)
 	}
-	if _, ok := toFloat64(b); ok {
+	if _, ok := ToFloat64(b); ok {
 		return equalNumeric(a, b)
 	}
 	return reflect.DeepEqual(a, b)
@@ -266,8 +266,8 @@ func equalNumeric(a, b any) bool {
 	if aInt && bInt {
 		return aneg == bneg && amag == bmag
 	}
-	af, aok := toFloat64(a)
-	bf, bok := toFloat64(b)
+	af, aok := ToFloat64(a)
+	bf, bok := ToFloat64(b)
 	if !aok || !bok {
 		return false
 	}
@@ -330,11 +330,11 @@ func float64Equal(a, b float64) bool {
 	return diff <= epsilon*scale
 }
 
-// toFloat64 converts any numeric value (every int/uint size, float32 and
+// ToFloat64 converts any numeric value (every int/uint size, float32 and
 // float64) to float64. Returns false for non-numeric types.
 // Integer conversion goes through intParts so the magnitude is carried over
 // before the lossy float conversion.
-func toFloat64(v any) (float64, bool) {
+func ToFloat64(v any) (float64, bool) {
 	if mag, neg, ok := intParts(v); ok {
 		f := float64(mag)
 		if neg {

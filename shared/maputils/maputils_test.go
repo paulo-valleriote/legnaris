@@ -913,3 +913,48 @@ func TestSplitPath(t *testing.T) {
 		})
 	}
 }
+
+func TestToFloat64(t *testing.T) {
+	tests := []struct {
+		name string
+		in   any
+		want float64
+		ok   bool
+	}{
+		{name: "Happy path: int", in: 3, want: 3, ok: true},
+		{name: "Happy path: int8", in: int8(-4), want: -4, ok: true},
+		{name: "Happy path: int16", in: int16(5), want: 5, ok: true},
+		{name: "Happy path: int32", in: int32(6), want: 6, ok: true},
+		{name: "Happy path: int64", in: int64(7), want: 7, ok: true},
+		{name: "Happy path: uint", in: uint(8), want: 8, ok: true},
+		{name: "Happy path: uint8", in: uint8(9), want: 9, ok: true},
+		{name: "Happy path: uint16", in: uint16(10), want: 10, ok: true},
+		{name: "Happy path: uint32", in: uint32(11), want: 11, ok: true},
+		{name: "Happy path: uint64", in: uint64(12), want: 12, ok: true},
+		{name: "Happy path: float32", in: float32(1.5), want: 1.5, ok: true},
+		{name: "Happy path: float64", in: 2.25, want: 2.25, ok: true},
+		{
+			name: "Edge: uint64 max keeps its magnitude",
+			in:   uint64(math.MaxUint64),
+			want: float64(math.MaxUint64),
+			ok:   true,
+		},
+		{
+			name: "Edge: int64 min keeps its sign and magnitude",
+			in:   int64(math.MinInt64),
+			want: float64(math.MinInt64),
+			ok:   true,
+		},
+		{name: "Error: string is not numeric", in: "1", want: 0, ok: false},
+		{name: "Error: bool is not numeric", in: true, want: 0, ok: false},
+		{name: "Error: nil is not numeric", in: nil, want: 0, ok: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := ToFloat64(tc.in)
+			assert.Equal(t, tc.ok, ok)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
