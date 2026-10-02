@@ -115,10 +115,10 @@ T7
 
 **Done when**:
 
-- [ ] Both kinds exist and carry a message
-- [ ] `toString` includes the kind and message
-- [ ] Gate check passes: `flutter test test/library/sheet_library_exception_test.dart`
-- [ ] Test count: 3 tests pass (no silent deletions)
+- [x] Both kinds exist and carry a message
+- [x] `toString` includes the kind and message
+- [x] Gate check passes: `flutter test test/library/sheet_library_exception_test.dart`
+- [x] Test count: 3 tests pass (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick
