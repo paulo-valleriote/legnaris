@@ -334,6 +334,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     String? selectedPath,
     ValueChanged<String>? onSelect,
   ) => Consumer(
+    key: ValueKey('sheet-exclusive-consumer-${group.id}'),
     builder: (context, ref, _) {
       final provider = sheetEditControllerProvider(widget.templateId);
       String? active;

@@ -13,6 +13,10 @@ import 'package:legnaris/theme/tokens.dart';
 
 /// Whether an exclusive option value counts as active: `true` for bools, any
 /// non-zero `num` for the 0/1 proxy leaves, off otherwise.
+///
+/// The backend contract is numeric 0/1 proxies and rejects a non-numeric member
+/// with a 400, so the `bool` branch only covers stale or foreign data; it stays
+/// defensive rather than being the primary path.
 bool exclusiveValueIsOn(Object? value) {
   if (value is bool) return value;
   if (value is num) return value != 0;

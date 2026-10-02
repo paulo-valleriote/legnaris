@@ -38,6 +38,15 @@ void main() {
   "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
 }}}
 ''';
+  // Same template with only one member tagged: the exclusive group degrades to
+  // a single-member group, so a refresh must drop the exclusive row (M1).
+  const singleMemberBody = '''
+{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
+  "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}},
+  "config": {"children": {"acUsesDex": {"schema": {"type": "number", "label": "Armor class uses dexterity", "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility"}}, "acUsesCon": {"schema": {"type": "number", "label": "Armor class uses constitution", "is_editable": true, "default": 0}}}},
+  "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
+}}}
+''';
 
   /// A full-size template: 20 groups × 10 fields = 200 editable controls,
   /// the upper bound of the GRN-10 render budget.
@@ -1108,6 +1117,45 @@ void main() {
           ),
           isTrue,
         );
+      },
+    );
+
+    testWidgets(
+      'Edge: a refresh that changes the group composition rebuilds without error (M1)',
+      (tester) async {
+        var request = 0;
+        await pumpScreen(
+          tester,
+          handler: (_) async {
+            request += 1;
+            return http.Response(
+              request == 1 ? detailBody : singleMemberBody,
+              200,
+            );
+          },
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+          findsOneWidget,
+        );
+
+        await pressF5(tester);
+
+        expect(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-toggle-config.acUsesCon')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
       },
     );
   });
