@@ -625,9 +625,9 @@ T20 → T21
 
 **Done when**:
 
-- [ ] A schema with `option_label` parses the string; without it parses null
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/api`
-- [ ] Test count: decode cases for present/absent/null
+- [x] A schema with `option_label` parses the string; without it parses null
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test test/api`
+- [x] Test count: decode cases for present/absent/null
 
 **Tests**: unit
 **Gate**: quick (desktop)

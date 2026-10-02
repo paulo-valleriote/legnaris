@@ -201,4 +201,53 @@ void main() {
       expect(schema.exclusiveGroup, isNull);
     });
   });
+
+  group('option label decode (EXC-26)', () {
+    test('Happy path: a schema with option_label decodes the short label', () {
+      // EXC-26: the contract advertises the dropdown option label.
+      final schema = FieldSchema.fromJson({
+        'type': 'number',
+        'label': 'Armor class uses dexterity',
+        'is_editable': true,
+        'default': 1,
+        'exclusive_group': 'armorClassAbility',
+        'option_label': 'Dexterity',
+      });
+
+      expect(schema.optionLabel, 'Dexterity');
+    });
+
+    test('Edge: a schema without option_label decodes it as null', () {
+      // EXC-26 edge: backward compatible with the pre-increment contract.
+      final schema = FieldSchema.fromJson({
+        'type': 'number',
+        'label': 'Dexterity',
+        'is_editable': true,
+        'default': 10,
+      });
+
+      expect(schema.optionLabel, isNull);
+    });
+
+    test('Edge: an explicit null option_label decodes as null', () {
+      final schema = FieldSchema.fromJson({
+        'type': 'number',
+        'label': 'Dexterity',
+        'is_editable': true,
+        'default': 10,
+        'option_label': null,
+      });
+
+      expect(schema.optionLabel, isNull);
+    });
+
+    test('Edge: an untagged leaf of the rich fixture decodes as null', () {
+      final template = TemplateDetail.fromJson(
+        jsonDecode(detailJson) as Map<String, Object?>,
+      );
+      final schema = template.fields['modifiers']!.children!['dexterityMod']!.schema!;
+
+      expect(schema.optionLabel, isNull);
+    });
+  });
 }

@@ -202,11 +202,11 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-06 | P1: Backend enforces at most one active member | Execute | Verified |
 | EXC-07 | P1: Backend enforces at most one active member | Execute | Verified |
 | EXC-08 | P1: Backend enforces at most one active member | Execute | Verified |
-| EXC-09 | P1: Desktop renders a group as one control | Execute | Pending |
-| EXC-10 | P1: Desktop renders a group as one control | Execute | Pending |
-| EXC-11 | P1: Desktop renders a group as one control | Execute | Pending |
+| EXC-09 | P1: Desktop renders a group as one control | Execute | Implementing |
+| EXC-10 | P1: Desktop renders a group as one control | Execute | Implementing |
+| EXC-11 | P1: Desktop renders a group as one control | Execute | Implementing |
 | EXC-12 | P1: Desktop renders a group as one control | Execute | Verified |
-| EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Pending |
+| EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
 | EXC-14 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Verified |
@@ -219,7 +219,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-23 | P1: Standardized option labels and flag controls | Execute | Implementing |
 | EXC-24 | P1: Standardized option labels and flag controls | Execute | Implementing |
 | EXC-25 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-26 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-26 | P1: Standardized option labels and flag controls | Execute | Implementing |
 | EXC-27 | P1: Standardized option labels and flag controls | Execute | Pending |
 | EXC-28 | P1: Standardized option labels and flag controls | Execute | Pending |
 | EXC-29 | P1: Standardized option labels and flag controls | Execute | Pending |
