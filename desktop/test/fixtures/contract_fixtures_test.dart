@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_error.dart';
 import 'package:legnaris/api/error_mapper.dart';
+import 'package:legnaris/api/models/template.dart';
 
 /// Suite that runs the typed client against the real responses pinned in
 /// `test/fixtures/` — no reachable API required (FE1-32). Every fixture was
@@ -25,6 +26,29 @@ void main() {
   ApiClient fixtureClient(String body, {int status = 200}) => ApiClient(
     httpClient: MockClient((_) async => http.Response(body, status)),
   );
+
+  /// Every leaf of the tree carrying a non-empty `option_label`, keyed by its
+  /// dotted path, so a new tag anywhere fails the exact-set assertion.
+  Map<String, String> optionLabels(FieldGroup fields) {
+    final labels = <String, String>{};
+    void walk(String path, FieldNode node) {
+      final schema = node.schema;
+      if (schema != null) {
+        final label = schema.optionLabel;
+        if (label != null && label.isNotEmpty) labels[path] = label;
+        return;
+      }
+      final children = node.children;
+      if (children == null) return;
+      for (final entry in children.entries) {
+        walk(path.isEmpty ? entry.key : '$path.${entry.key}', entry.value);
+      }
+    }
+    for (final entry in fields.entries) {
+      walk(entry.key, entry.value);
+    }
+    return labels;
+  }
 
   group('pinned contract fixtures (FE1-32, FE1-33, FE1-34)', () {
     test('Fixture set: the 6 endpoints, the error envelope and the PATCH delta pair are all pinned (FE1-33)', () {
@@ -126,6 +150,33 @@ void main() {
             isNot(true),
             reason: 'the redundant spells.ability leaf is removed (EXC-19)',
           );
+        }
+      },
+    );
+
+    test(
+      'Happy path: option_label is present on exactly the ac pair + six spellUses and nowhere else (EXC-25, EXC-26)',
+      () async {
+        final detail = await fixtureClient(
+          fixtureBody('template_detail.json'),
+        ).getTemplate('fantasy_v1');
+        final catalog = (await fixtureClient(
+          fixtureBody('templates.json'),
+        ).listTemplates()).single;
+
+        const expected = {
+          'config.acUsesDex': 'Dexterity',
+          'config.acUsesCon': 'Constitution',
+          'config.spellUsesStrength': 'Strength',
+          'config.spellUsesDexterity': 'Dexterity',
+          'config.spellUsesConstitution': 'Constitution',
+          'config.spellUsesIntelligence': 'Intelligence',
+          'config.spellUsesWisdom': 'Wisdom',
+          'config.spellUsesCharisma': 'Charisma',
+        };
+
+        for (final template in [detail, catalog]) {
+          expect(optionLabels(template.fields), expected);
         }
       },
     );

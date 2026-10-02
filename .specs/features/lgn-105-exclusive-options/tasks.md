@@ -706,11 +706,11 @@ T20 → T21
 
 **Done when**:
 
-- [ ] Fixtures carry `option_label` on exactly the ac pair + six spellUses
-- [ ] The edit screen renders the dropdown (default selected, `None` for spellcasting) and checkboxes for flags; selecting `None` clears the group in one emission with GET-only requests
-- [ ] The preview renders the dropdown and checkboxes disabled
-- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...` and `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: screen/preview/contract cases updated + new, no silent deletions
+- [x] Fixtures carry `option_label` on exactly the ac pair + six spellUses
+- [x] The edit screen renders the dropdown (default selected, `None` for spellcasting) and checkboxes for flags; selecting `None` clears the group in one emission with GET-only requests
+- [x] The preview renders the dropdown and checkboxes disabled
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...` and `cd desktop && flutter analyze && flutter test`
+- [x] Test count: screen/preview/contract cases updated + new, no silent deletions
 
 **Tests**: widget
 **Gate**: build (desktop)

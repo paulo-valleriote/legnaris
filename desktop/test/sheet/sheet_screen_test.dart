@@ -10,6 +10,7 @@ import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/api/models/sheet.dart';
+import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
@@ -135,6 +136,21 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Opens an exclusive-group dropdown and taps one entry. The entry key also
+  /// exists in the closed button's `IndexedStack`, so `.last` picks the menu.
+  Future<void> selectExclusive(
+    WidgetTester tester,
+    String groupId,
+    String optionPath,
+  ) async {
+    await tester.tap(find.byKey(Key('sheet-exclusive-$groupId')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(Key('sheet-exclusive-option-$optionPath')).last,
+    );
+    await tester.pumpAndSettle();
+  }
+
   group('loading, seed and render (RND-15, RND-16)', () {
     testWidgets(
       'Happy path: one detail request, loading first, then sections seeded from defaults (RND-15, RND-16)',
@@ -162,23 +178,32 @@ void main() {
               ?.text,
           '10',
         );
-        final exclusive = tester.widget<SegmentedButton<String>>(
+        final exclusive = tester.widget<DropdownButton<String>>(
           find.byKey(const Key('sheet-exclusive-armorClassAbility')),
         );
-        expect(exclusive.selected, {'config.acUsesDex'});
-        expect(exclusive.onSelectionChanged, isNotNull);
+        expect(exclusive.value, 'config.acUsesDex');
+        expect(exclusive.onChanged, isNotNull);
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          tester
+              .widget<DropdownButton<String>>(
+                find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+              )
+              .value,
+          exclusiveNoneValue,
+          reason: 'a group with no active default shows None',
+        );
+        expect(
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsNothing,
         );
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesCon')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
           findsNothing,
         );
         expect(
           tester
-              .widget<Switch>(
-                find.byKey(const Key('sheet-toggle-config.stealthProfWeight')),
+              .widget<Checkbox>(
+                find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
               )
               .value,
           isFalse,
@@ -264,7 +289,7 @@ void main() {
         expect(inputs, isNotEmpty);
         expect(inputs.every((field) => field.enabled == true), isTrue);
 
-        final toggles = tester.widgetList<Switch>(find.byType(Switch));
+        final toggles = tester.widgetList<Checkbox>(find.byType(Checkbox));
         expect(toggles, isNotEmpty);
         expect(toggles.every((toggle) => toggle.onChanged != null), isTrue);
 
@@ -425,7 +450,7 @@ void main() {
         final afterFirst = snapshot();
 
         await tester.tap(
-          find.byKey(const Key('sheet-toggle-config.stealthProfWeight')),
+          find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
         );
         await tester.pump();
         final afterSecond = snapshot();
@@ -471,14 +496,14 @@ void main() {
         };
 
         await tester.tap(
-          find.byKey(const Key('sheet-toggle-config.stealthProfWeight')),
+          find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
         );
         await tester.pump();
 
         expect(
           tester
-              .widget<Switch>(
-                find.byKey(const Key('sheet-toggle-config.stealthProfWeight')),
+              .widget<Checkbox>(
+                find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
               )
               .value,
           isTrue,
@@ -1019,7 +1044,7 @@ void main() {
 
   group('exclusive groups (EXC-13, EXC-15, EXC-16)', () {
     testWidgets(
-      'Happy path: the edit screen renders one segmented control for the pair, default option selected, and no per-field toggles (EXC-15)',
+      'Happy path: the edit screen renders one dropdown control for the pair, default option selected, and no per-field checkboxes (EXC-15)',
       (tester) async {
         final recorded = await pumpScreen(
           tester,
@@ -1027,17 +1052,17 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final segmented = tester.widget<SegmentedButton<String>>(
+        final dropdown = tester.widget<DropdownButton<String>>(
           find.byKey(const Key('sheet-exclusive-armorClassAbility')),
         );
-        expect(segmented.selected, {'config.acUsesDex'});
-        expect(segmented.onSelectionChanged, isNotNull);
+        expect(dropdown.value, 'config.acUsesDex');
+        expect(dropdown.onChanged, isNotNull);
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsNothing,
         );
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesCon')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
           findsNothing,
         );
         expect(recorded.every((request) => request.method == 'GET'), isTrue);
@@ -1062,10 +1087,11 @@ void main() {
         );
         addTearDown(subscription.close);
 
-        await tester.tap(
-          find.byKey(const Key('sheet-exclusive-option-config.acUsesCon')),
+        await selectExclusive(
+          tester,
+          'armorClassAbility',
+          'config.acUsesCon',
         );
-        await tester.pump();
 
         final state = container.read(
           sheetEditControllerProvider('fantasy_v1'),
@@ -1079,11 +1105,11 @@ void main() {
         expect(emissions, 1, reason: 'the group must change in one emission');
         expect(
           tester
-              .widget<SegmentedButton<String>>(
+              .widget<DropdownButton<String>>(
                 find.byKey(const Key('sheet-exclusive-armorClassAbility')),
               )
-              .selected,
-          {'config.acUsesCon'},
+              .value,
+          'config.acUsesCon',
         );
         expect(recorded, hasLength(1));
         expect(recorded.single.method, 'GET');
@@ -1105,10 +1131,11 @@ void main() {
           sheetEditControllerProvider('fantasy_v1'),
         );
 
-        await tester.tap(
-          find.byKey(const Key('sheet-exclusive-option-config.acUsesDex')),
+        await selectExclusive(
+          tester,
+          'armorClassAbility',
+          'config.acUsesDex',
         );
-        await tester.pump();
 
         expect(
           identical(
@@ -1148,11 +1175,11 @@ void main() {
           findsNothing,
         );
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesDex')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsOneWidget,
         );
         expect(
-          find.byKey(const Key('sheet-toggle-config.acUsesCon')),
+          find.byKey(const Key('sheet-checkbox-config.acUsesCon')),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
@@ -1171,7 +1198,7 @@ void main() {
     ];
 
     testWidgets(
-      'Happy path: the six-option spellcasting group renders a radio, not a segmented control, with one key per ability (EXC-20)',
+      'Happy path: the six-option spellcasting group is the same single dropdown as the pair, with a None entry and one item per ability (EXC-20, EXC-27)',
       (tester) async {
         final recorded = await pumpScreen(
           tester,
@@ -1179,32 +1206,44 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(
+        final spellcasting = tester.widget<DropdownButton<String>>(
           find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
-          findsOneWidget,
+        );
+        final armorClass = tester.widget<DropdownButton<String>>(
+          find.byKey(const Key('sheet-exclusive-armorClassAbility')),
+        );
+        expect(
+          find.byType(DropdownButton<String>),
+          findsNWidgets(2),
+          reason: 'both groups use the one dropdown control',
+        );
+        expect(
+          find.byType(Radio<String>),
+          findsNothing,
+          reason: 'the spellcasting group is the shared dropdown, not a radio',
+        );
+        expect(spellcasting.value, exclusiveNoneValue);
+        expect(
+          spellcasting.items!.map((item) => item.value),
+          [exclusiveNoneValue, for (final ability in abilities) 'config.spellUses$ability'],
+        );
+        expect(
+          armorClass.items!.map((item) => item.value),
+          isNot(contains(exclusiveNoneValue)),
+          reason: 'the defaulted pair offers no None',
         );
         for (final ability in abilities) {
           expect(
-            find.byKey(Key('sheet-exclusive-option-config.spellUses$ability')),
-            findsOneWidget,
-          );
-          expect(
-            find.byKey(Key('sheet-toggle-config.spellUses$ability')),
+            find.byKey(Key('sheet-checkbox-config.spellUses$ability')),
             findsNothing,
           );
         }
-        expect(find.byType(Radio<String>), findsNWidgets(6));
-        expect(
-          find.byType(SegmentedButton<String>),
-          findsOneWidget,
-          reason: 'only the two-option armor-class pair stays segmented',
-        );
         expect(recorded.every((request) => request.method == 'GET'), isTrue);
       },
     );
 
     testWidgets(
-      'Edge: with all six abilities off the spellcasting radio renders none selected and every option stays selectable (EXC-20)',
+      'Edge: with all six abilities off the spellcasting dropdown shows None and stays selectable (EXC-20)',
       (tester) async {
         await pumpScreen(
           tester,
@@ -1212,16 +1251,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final group = tester.widget<RadioGroup<String>>(
-          find.byType(RadioGroup<String>),
+        final dropdown = tester.widget<DropdownButton<String>>(
+          find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
         );
-        expect(group.groupValue, isNull);
+        expect(dropdown.value, exclusiveNoneValue);
+        expect(dropdown.onChanged, isNotNull);
         expect(
-          tester
-              .widgetList<Radio<String>>(find.byType(Radio<String>))
-              .every((radio) => radio.enabled == true),
-          isTrue,
-          reason: 'a group with no active member must stay selectable',
+          dropdown.items!.map((item) => item.value),
+          contains(exclusiveNoneValue),
         );
       },
     );
@@ -1250,10 +1287,11 @@ void main() {
             control.path: control,
         };
 
-        await tester.tap(
-          find.byKey(const Key('sheet-exclusive-option-config.spellUsesConstitution')),
+        await selectExclusive(
+          tester,
+          'spellcastingAbility',
+          'config.spellUsesConstitution',
         );
-        await tester.pump();
 
         final state = container.read(
           sheetEditControllerProvider('fantasy_v1'),
@@ -1274,8 +1312,10 @@ void main() {
 
         expect(
           tester
-              .widget<RadioGroup<String>>(find.byType(RadioGroup<String>))
-              .groupValue,
+              .widget<DropdownButton<String>>(
+                find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+              )
+              .value,
           'config.spellUsesConstitution',
         );
 
@@ -1292,6 +1332,61 @@ void main() {
             reason: '$path must not rebuild when the exclusive group changes',
           );
         }
+      },
+    );
+
+    testWidgets(
+      'Happy path: selecting None clears the whole spellcasting group in one emission with GET-only requests (EXC-27)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        await selectExclusive(
+          tester,
+          'spellcastingAbility',
+          'config.spellUsesConstitution',
+        );
+        expect(
+          valueAtPath(
+            container.read(sheetEditControllerProvider('fantasy_v1')).data,
+            'config.spellUsesConstitution',
+          ),
+          1,
+        );
+        var emissions = 0;
+        final subscription = container.listen(
+          sheetEditControllerProvider('fantasy_v1'),
+          (_, _) => emissions++,
+        );
+        addTearDown(subscription.close);
+
+        await selectExclusive(tester, 'spellcastingAbility', 'none');
+
+        final state = container.read(
+          sheetEditControllerProvider('fantasy_v1'),
+        );
+        for (final ability in abilities) {
+          expect(
+            valueAtPath(state.data, 'config.spellUses$ability'),
+            0,
+            reason: 'None must clear every member of the group',
+          );
+        }
+        expect(emissions, 1, reason: 'the group must clear in one emission');
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+        expect(
+          tester
+              .widget<DropdownButton<String>>(
+                find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+              )
+              .value,
+          exclusiveNoneValue,
+        );
       },
     );
   });

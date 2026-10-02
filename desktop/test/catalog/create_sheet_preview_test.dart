@@ -9,6 +9,7 @@ import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
+import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/app_theme.dart';
 import 'package:legnaris/theme/tokens.dart';
@@ -49,6 +50,13 @@ void main() {
 ''';
   const groupsOnlyBody =
       '{"data": {"id": "fantasy_v1", "name": "Empty Groups", "default": false, "fields": {"empty": {"children": {}}, "alsoEmpty": {"children": {"nested": {"children": {}}}}}}}';
+  // An exclusive group whose members all default to 0: the dropdown must offer
+  // a disabled `None` entry in the read-only preview (EXC-10, EXC-27).
+  const exclusiveNoneBody = '''
+{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
+  "config": {"children": {"spellUsesCharisma": {"schema": {"type": "number", "label": "Spellcasting uses charisma", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}, "spellUsesStrength": {"schema": {"type": "number", "label": "Spellcasting uses strength", "is_editable": true, "default": 0, "exclusive_group": "spellcastingAbility"}}}}
+}}}
+''';
 
   String manyLeavesBody(int count) {
     final leaves = [
@@ -290,10 +298,11 @@ void main() {
         expect(textFields, isNotEmpty);
         expect(textFields.every((field) => field.enabled == false), isTrue);
 
-        final switches = tester.widgetList<Switch>(
-          inPreview(find.byType(Switch)),
+        final checkboxes = tester.widgetList<Checkbox>(
+          inPreview(find.byType(Checkbox)),
         );
-        expect(switches.every((toggle) => toggle.onChanged == null), isTrue);
+        expect(checkboxes, isNotEmpty);
+        expect(checkboxes.every((toggle) => toggle.onChanged == null), isTrue);
 
         expect(recorded.every((request) => request.method == 'GET'), isTrue);
         expect(recorded.any((request) => request.method == 'POST'), isFalse);
@@ -309,19 +318,24 @@ void main() {
         );
         await openDialog(tester);
 
-        final segmented = tester.widget<SegmentedButton<String>>(
+        final dropdown = tester.widget<DropdownButton<String>>(
           inPreview(
             find.byKey(const Key('sheet-exclusive-armorClassAbility')),
           ),
         );
-        expect(segmented.selected, {'config.acUsesDex'});
-        expect(segmented.onSelectionChanged, isNull);
+        expect(dropdown.value, 'config.acUsesDex');
+        expect(dropdown.onChanged, isNull);
         expect(
-          inPreview(find.byKey(const Key('sheet-toggle-config.acUsesDex'))),
+          dropdown.items!.map((item) => item.value),
+          isNot(contains(exclusiveNoneValue)),
+          reason: 'the defaulted pair offers no None',
+        );
+        expect(
+          inPreview(find.byKey(const Key('sheet-checkbox-config.acUsesDex'))),
           findsNothing,
         );
         expect(
-          inPreview(find.byKey(const Key('sheet-toggle-config.acUsesCon'))),
+          inPreview(find.byKey(const Key('sheet-checkbox-config.acUsesCon'))),
           findsNothing,
         );
         expect(recorded.every((request) => request.method == 'GET'), isTrue);
@@ -329,7 +343,7 @@ void main() {
     );
 
     testWidgets(
-      'Happy path: the preview renders the spellcasting radio disabled with the active option from data (EXC-22)',
+      'Happy path: the preview renders the spellcasting dropdown disabled with the active option from data (EXC-22)',
       (tester) async {
         final recorded = await pumpCatalog(
           tester,
@@ -337,30 +351,47 @@ void main() {
         );
         await openDialog(tester);
 
-        expect(
+        final dropdown = tester.widget<DropdownButton<String>>(
           inPreview(
             find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
           ),
-          findsOneWidget,
         );
-        final radios = tester.widgetList<Radio<String>>(
-          inPreview(find.byType(Radio<String>)),
-        );
-        expect(radios, hasLength(6));
-        expect(radios.every((radio) => radio.enabled == false), isTrue);
+        expect(dropdown.value, 'config.spellUsesIntelligence');
+        expect(dropdown.onChanged, isNull);
         expect(
-          tester
-              .widget<RadioGroup<String>>(
-                inPreview(find.byType(RadioGroup<String>)),
-              )
-              .groupValue,
-          'config.spellUsesIntelligence',
+          inPreview(find.byType(Radio<String>)),
+          findsNothing,
+          reason: 'the spellcasting group is the shared dropdown, not a radio',
         );
         expect(
           inPreview(
-            find.byKey(const Key('sheet-toggle-config.spellUsesIntelligence')),
+            find.byKey(const Key('sheet-checkbox-config.spellUsesIntelligence')),
           ),
           findsNothing,
+        );
+        expect(recorded.every((request) => request.method == 'GET'), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Edge: an exclusive group with no active default shows None disabled in the preview (EXC-10, EXC-27)',
+      (tester) async {
+        final recorded = await pumpCatalog(
+          tester,
+          handler: routing(detail: exclusiveNoneBody),
+        );
+        await openDialog(tester);
+
+        final dropdown = tester.widget<DropdownButton<String>>(
+          inPreview(
+            find.byKey(const Key('sheet-exclusive-spellcastingAbility')),
+          ),
+        );
+        expect(dropdown.value, exclusiveNoneValue);
+        expect(dropdown.onChanged, isNull);
+        expect(
+          dropdown.items!.map((item) => item.value),
+          contains(exclusiveNoneValue),
         );
         expect(recorded.every((request) => request.method == 'GET'), isTrue);
       },
