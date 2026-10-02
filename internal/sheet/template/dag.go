@@ -558,8 +558,10 @@ func (d *DAG) hasNodePrefix(key string) bool {
 // ValidateUpdateKeys checks that every key in updates is a leaf node the caller
 // is allowed to write, returning UnknownFieldError for a key the graph does not
 // know and NotEditableError for a field the DAG computes itself. It is the
-// update contract the sheet service enforces before calling Recalculate, and
-// the single place where editability is decided (LGN-66).
+// lock-taking wrapper over validateEditableLocked (LGN-66): the sheet service
+// runs that same core inside NormalizeAndRecalculate during PATCH, so this
+// wrapper stays for callers that validate without recalculating (unit tests
+// today).
 //
 // Editability cannot be enforced inside Recalculate: Create seeds a new sheet
 // with every field of the template, derived ones included, and that payload
@@ -567,7 +569,8 @@ func (d *DAG) hasNodePrefix(key string) bool {
 // (a key must exist, leaf or group prefix), while this one is strict: keys are
 // matched against leaf nodes only, so a group prefix such as "stats" is
 // rejected as unknown instead of being applied — maputils.Set would replace the
-// whole group with the scalar and drop its siblings.
+// whole group with the scalar and drop its siblings. The exported wrapper stays
+// for callers that validate without recalculating (unit tests today).
 //
 // It takes the read lock itself, exactly once, so it must not be called while
 // the caller already holds it (a queued writer turns a second RLock into a
