@@ -228,15 +228,15 @@ T7
 
 **Done when**:
 
-- [ ] `build` loads through the injected store and publishes `entries` + `outcome`
-- [ ] `upsert` appends a new id and replaces an existing one (entry count unchanged on duplicate)
-- [ ] `remove` deletes a present id and is a safe no-op for a missing id (no save call)
-- [ ] `entries` is ordered by `created_at` descending, ties broken by reverse insertion order
-- [ ] `entryFor` returns the entry or null
-- [ ] A forced `save` failure leaves the published entries equal to the last persisted state and rethrows
-- [ ] A successful mutation republishes so the read provider rebuilds
-- [ ] Gate check passes: `flutter test`
-- [ ] Test count: 10 tests pass (no silent deletions)
+- [x] `build` loads through the injected store and publishes `entries` + `outcome`
+- [x] `upsert` appends a new id and replaces an existing one (entry count unchanged on duplicate)
+- [x] `remove` deletes a present id and is a safe no-op for a missing id (no save call)
+- [x] `entries` is ordered by `created_at` descending, ties broken by reverse insertion order
+- [x] `entryFor` returns the entry or null
+- [x] A forced `save` failure leaves the published entries equal to the last persisted state and rethrows
+- [x] A successful mutation republishes so the read provider rebuilds
+- [x] Gate check passes: `flutter test`
+- [x] Test count: 10 tests pass (no silent deletions)
 
 **Tests**: unit
 **Gate**: full

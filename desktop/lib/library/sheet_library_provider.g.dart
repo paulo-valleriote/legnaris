@@ -118,3 +118,81 @@ final class SheetLibraryStoreProvider
 }
 
 String _$sheetLibraryStoreHash() => r'35fe824a649e29814ab66c5afcb119b5429e0d93';
+
+/// The in-memory sheet index and the only state the surfaces read (LIB-21 …
+/// LIB-23).
+///
+/// Write-through: [upsert] and [remove] persist the complete index before
+/// publishing, so a failed save leaves the published entries equal to the last
+/// persisted index.
+
+@ProviderFor(SheetLibrary)
+final sheetLibraryProvider = SheetLibraryProvider._();
+
+/// The in-memory sheet index and the only state the surfaces read (LIB-21 …
+/// LIB-23).
+///
+/// Write-through: [upsert] and [remove] persist the complete index before
+/// publishing, so a failed save leaves the published entries equal to the last
+/// persisted index.
+final class SheetLibraryProvider
+    extends $NotifierProvider<SheetLibrary, SheetLibraryState> {
+  /// The in-memory sheet index and the only state the surfaces read (LIB-21 …
+  /// LIB-23).
+  ///
+  /// Write-through: [upsert] and [remove] persist the complete index before
+  /// publishing, so a failed save leaves the published entries equal to the last
+  /// persisted index.
+  SheetLibraryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sheetLibraryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sheetLibraryHash();
+
+  @$internal
+  @override
+  SheetLibrary create() => SheetLibrary();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SheetLibraryState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SheetLibraryState>(value),
+    );
+  }
+}
+
+String _$sheetLibraryHash() => r'32031eca4f669f8c029536d1cbc1130b231e8b50';
+
+/// The in-memory sheet index and the only state the surfaces read (LIB-21 …
+/// LIB-23).
+///
+/// Write-through: [upsert] and [remove] persist the complete index before
+/// publishing, so a failed save leaves the published entries equal to the last
+/// persisted index.
+
+abstract class _$SheetLibrary extends $Notifier<SheetLibraryState> {
+  SheetLibraryState build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<SheetLibraryState, SheetLibraryState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<SheetLibraryState, SheetLibraryState>,
+              SheetLibraryState,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
