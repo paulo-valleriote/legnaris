@@ -229,6 +229,21 @@ func TestFantasyV1_Structure(t *testing.T) {
 			assert.Equal(t, wantGroups[name], config[name].Schema.ExclusiveGroup,
 				"config.%s exclusive group", name)
 		}
+
+		// EXC-25: the exclusive members carry a short option label; every
+		// other config flag falls back to its schema label (empty option
+		// label), so the check also pins the emptiness elsewhere.
+		wantLabels := map[string]string{
+			"acUsesDex": "Dexterity",
+			"acUsesCon": "Constitution",
+		}
+		for _, a := range abilities {
+			wantLabels[spellUsesKey(a.key)] = a.label
+		}
+		for name := range want {
+			assert.Equal(t, wantLabels[name], config[name].Schema.OptionLabel,
+				"config.%s option label", name)
+		}
 	})
 
 	t.Run("Happy path: combat numbers are editable with usable defaults", func(t *testing.T) {
@@ -364,4 +379,24 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 	}
 	assert.Equal(t, wantGrouped, grouped,
 		"exclusive_group must cover exactly the armor-class pair and the six spellcasting flags")
+
+	// EXC-25: option_label covers exactly the leaves of the two exclusive
+	// groups — the armor-class pair and the six spellcasting flags — each
+	// naming its ability; every other leaf falls back to Label (empty).
+	labeled := map[string]string{}
+	for i, schema := range schemas {
+		if schema.OptionLabel == "" {
+			continue
+		}
+		labeled[paths[i].String()] = schema.OptionLabel
+	}
+	wantLabeled := map[string]string{
+		"config.acUsesDex": "Dexterity",
+		"config.acUsesCon": "Constitution",
+	}
+	for _, a := range abilities {
+		wantLabeled[Path{fieldNameConfig, spellUsesKey(a.key)}.String()] = a.label
+	}
+	assert.Equal(t, wantLabeled, labeled,
+		"option_label must cover exactly the armor-class pair and the six spellcasting flags")
 }

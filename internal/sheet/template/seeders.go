@@ -350,8 +350,10 @@ func spellsGroup() FieldGroup {
 func configGroup() FieldGroup {
 	acUsesDex := numField("Armor class uses dexterity", 1)
 	acUsesDex.Schema.ExclusiveGroup = exclusiveGroupArmorClassAbility
+	acUsesDex.Schema.OptionLabel = "Dexterity"
 	acUsesCon := numField("Armor class uses constitution", 0)
 	acUsesCon.Schema.ExclusiveGroup = exclusiveGroupArmorClassAbility
+	acUsesCon.Schema.OptionLabel = "Constitution"
 
 	group := FieldGroup{
 		"acUsesDex": acUsesDex,
@@ -361,6 +363,7 @@ func configGroup() FieldGroup {
 		group[saveProfKey(a.key)] = numField(a.label+" save proficiency", 0)
 		spellUses := numField("Spellcasting uses "+strings.ToLower(a.label), 0)
 		spellUses.Schema.ExclusiveGroup = exclusiveGroupSpellcastingAbility
+		spellUses.Schema.OptionLabel = a.label
 		group[spellUsesKey(a.key)] = spellUses
 	}
 	for _, s := range skills {

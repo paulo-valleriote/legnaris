@@ -598,10 +598,10 @@ T20 → T21
 
 **Done when**:
 
-- [ ] Exactly the ac pair + six spellUses carry the expected `option_label`; every other leaf's is empty
-- [ ] Formula/depends-on invariant unchanged and green
-- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...`
-- [ ] Test count: seed label assertions added
+- [x] Exactly the ac pair + six spellUses carry the expected `option_label`; every other leaf's is empty
+- [x] Formula/depends-on invariant unchanged and green
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [x] Test count: seed label assertions added
 
 **Tests**: unit
 **Gate**: build (backend)
