@@ -175,3 +175,24 @@ Traceability rows in `spec.md` flipped to Verified.
 **Issues found**: none outstanding. The earlier whole-tree coverage gap was fixed by `010895a` and is verified killed.
 
 **Next steps**: none — feature is verified. (Lesson L-012 remains recorded from the first pass; no new lesson.)
+
+---
+
+## Follow-up (post-verification)
+
+An adversarial review after this report found two contract gaps the discrimination sensor did not
+cover (it only mutated numeric paths) plus hardening items. All are fixed and re-verified:
+
+| Item | Fix |
+| ---- | --- |
+| Non-numeric exclusive member was read as "off", bypassing the at-most-one rule | `ExclusiveValueTypeError` → 400 (`dag.go`, `errors.go`, `service.go`) |
+| Desktop grouped exclusive members by adjacency while the backend groups by id | `_buildRows` groups by id (`field_grouping.dart`) |
+| Numeric detection duplicated in the DAG | reuses exported `maputils.ToFloat64` |
+| PATCH took the DAG read lock three times | `NormalizeAndRecalculate` under a single `RLock` |
+| Exclusive `Consumer` unstable across template refresh | `ValueKey` per group |
+| Recursive flatten of user-controlled JSON could exhaust the stack (DoS) | `maputils.MaxNestingDepth` (5) + `ErrMaxDepthExceeded` → 400 |
+| `exclusiveValueIsOn` had a defensive `bool` branch | removed; numeric-only, matching the backend |
+
+**Re-verification**: `make lint` 0 issues; `go test -race ./...` green; integration with MongoDB
+(`TestIntegration_Sheets_ExclusiveOptions`, `TestIntegration_Sheets_NestingDepthLimit`) PASS;
+`flutter analyze` clean; `flutter test` green.

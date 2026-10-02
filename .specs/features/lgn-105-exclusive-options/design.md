@@ -90,12 +90,21 @@ unit tests use them) and delegate to lock-free cores.
 `ServiceImpl.PartialUpdate` (`internal/sheet/service.go`):
 
 ```
-updates := maputils.FlattenPathKeys(cmd.Data)
+updates, err := maputils.FlattenPathKeys(cmd.Data)   // rejects depth > MaxNestingDepth
 normalized, cascading, err := dag.NormalizeAndRecalculate(storedSheet.Data, updates)
 ```
 
 `translateDAGErr` gains cases for `*ExclusiveGroupConflictError` and `*ExclusiveValueTypeError` →
 `apperr.NewError(apperr.CodeInvalidRequest, ..., err)` (HTTP 400).
+
+### Nesting depth cap (DoS guard)
+
+`maputils.FlattenPathKeys`/`ToEngineEnv` (and their shared `flattenRecursive`) reject a map deeper
+than `maputils.MaxNestingDepth` (5) with `maputils.ErrMaxDepthExceeded`; the service maps that to 400
+`INVALID_REQUEST` ("sheet data is nested too deeply"). The walk is recursive over user-controlled
+PATCH data, so without the cap a deeply nested body could exhaust the goroutine stack. Templates nest
+at most three levels, so five leaves headroom. `Create` flattens template-defined data, which is
+already shallow; `DeepCopy` still copies trusted stored data.
 
 Change detection is unaffected: adding `sibling: 0` only cascades when the sibling actually
 changed, and the member that was turned on always cascades (EXC-07).

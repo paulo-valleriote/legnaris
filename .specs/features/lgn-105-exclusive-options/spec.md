@@ -134,6 +134,8 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 - WHEN the desktop renders a read-only sheet whose exclusive group has no active member, THEN the control SHALL render with no option selected and stay disabled.
 - IF an exclusive option label is exactly at the segmented limit, THEN the segmented control SHALL be used (limit is inclusive).
 - WHEN the user selects a different option, THEN only the affected controls SHALL rebuild (the group row and any derived consumers), never the whole form.
+- IF a PATCH sets an exclusive member to a non-numeric value, THEN the system SHALL reject the request with a 400 `INVALID_REQUEST` (the group is numeric 0/1 proxies).
+- IF a PATCH payload nests deeper than `maputils.MaxNestingDepth`, THEN the system SHALL reject it with a 400 `INVALID_REQUEST` before the recursive flatten walks the body (DoS guard).
 
 ---
 
