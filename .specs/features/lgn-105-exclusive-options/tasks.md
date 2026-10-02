@@ -444,11 +444,11 @@ T14 → T15
 
 **Done when**:
 
-- [ ] All six `config.spellUses*` carry `ExclusiveGroup == "spellcastingAbility"`; `save*Prof`/`skill*Prof` stay untagged
-- [ ] The whole-tree assertion names both groups with their exact member sets
-- [ ] Formula/depends-on invariant test unchanged and green
-- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...`
-- [ ] Test count: config pin + whole-tree tests extended, no silent deletions
+- [x] All six `config.spellUses*` carry `ExclusiveGroup == "spellcastingAbility"`; `save*Prof`/`skill*Prof` stay untagged
+- [x] The whole-tree assertion names both groups with their exact member sets
+- [x] Formula/depends-on invariant test unchanged and green
+- [x] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [x] Test count: config pin + whole-tree tests extended, no silent deletions
 
 **Tests**: unit
 **Gate**: build (backend)

@@ -215,18 +215,19 @@ func TestFantasyV1_Structure(t *testing.T) {
 			assert.Empty(t, schema.Formula)
 		}
 
-		// EXC-03: only the armor-class pair declares the shared group; every
-		// other config flag stays independent.
-		for _, name := range []string{"acUsesDex", "acUsesCon"} {
-			assert.Equal(t, exclusiveGroupArmorClassAbility, config[name].Schema.ExclusiveGroup,
-				"config.%s must declare the shared armor-class group", name)
+		// EXC-03/EXC-18: the armor-class pair and the six spellcasting flags
+		// declare their shared groups; the save and skill proficiencies stay
+		// independent flags.
+		wantGroups := map[string]string{
+			"acUsesDex": exclusiveGroupArmorClassAbility,
+			"acUsesCon": exclusiveGroupArmorClassAbility,
+		}
+		for _, a := range abilities {
+			wantGroups[spellUsesKey(a.key)] = exclusiveGroupSpellcastingAbility
 		}
 		for name := range want {
-			if name == "acUsesDex" || name == "acUsesCon" {
-				continue
-			}
-			assert.Empty(t, config[name].Schema.ExclusiveGroup,
-				"config.%s must not join an exclusive group", name)
+			assert.Equal(t, wantGroups[name], config[name].Schema.ExclusiveGroup,
+				"config.%s exclusive group", name)
 		}
 	})
 
@@ -341,9 +342,10 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 		}
 	}
 
-	// EXC-01/02/03: across the whole tree, exclusive_group is declared on
-	// exactly the armor-class pair — an extra tag anywhere else would render
-	// an unrelated leaf as a choice and is caught here, not just inside config.
+	// EXC-01/02/03/18: across the whole tree, exclusive_group is declared on
+	// exactly two groups — the armor-class pair and the six spellcasting
+	// flags. An extra tag anywhere else would render an unrelated leaf as a
+	// choice and is caught here, not just inside config.
 	grouped := map[string]string{}
 	for i, schema := range schemas {
 		if schema.ExclusiveGroup == "" {
@@ -351,8 +353,13 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 		}
 		grouped[paths[i].String()] = schema.ExclusiveGroup
 	}
-	assert.Equal(t, map[string]string{
+	wantGrouped := map[string]string{
 		"config.acUsesDex": exclusiveGroupArmorClassAbility,
 		"config.acUsesCon": exclusiveGroupArmorClassAbility,
-	}, grouped, "exclusive_group must cover exactly the armor-class pair")
+	}
+	for _, a := range abilities {
+		wantGrouped[Path{fieldNameConfig, spellUsesKey(a.key)}.String()] = exclusiveGroupSpellcastingAbility
+	}
+	assert.Equal(t, wantGrouped, grouped,
+		"exclusive_group must cover exactly the armor-class pair and the six spellcasting flags")
 }

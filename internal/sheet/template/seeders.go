@@ -38,6 +38,12 @@ const (
 	// choice and the DAG normalizes them together.
 	exclusiveGroupArmorClassAbility = "armorClassAbility"
 
+	// exclusiveGroupSpellcastingAbility is the shared group id for the six
+	// config.spellUses<Ability> proxies: spellcasting uses exactly one ability
+	// (at most one flag is non-zero), so the API advertises them as one choice
+	// and the DAG normalizes them together.
+	exclusiveGroupSpellcastingAbility = "spellcastingAbility"
+
 	// Ability keys shared by stats, modifiers, saves and the skill list.
 	abilityStrength     = "strength"
 	abilityDexterity    = "dexterity"
@@ -354,7 +360,9 @@ func configGroup() FieldGroup {
 	}
 	for _, a := range abilities {
 		group[saveProfKey(a.key)] = numField(a.label+" save proficiency", 0)
-		group[spellUsesKey(a.key)] = numField("Spellcasting uses "+strings.ToLower(a.label), 0)
+		spellUses := numField("Spellcasting uses "+strings.ToLower(a.label), 0)
+		spellUses.Schema.ExclusiveGroup = exclusiveGroupSpellcastingAbility
+		group[spellUsesKey(a.key)] = spellUses
 	}
 	for _, s := range skills {
 		group[skillProfKey(s.key)] = numField(s.label+" proficiency", 0)
