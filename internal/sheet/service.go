@@ -96,7 +96,10 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 
 	// Flatten the initial data into dot-notation keys so the DAG can match
 	// leaf keys during recalc (the DAG walks leaf keys, not top-level groups).
-	flatInitial := maputils.FlattenPathKeys(initialData)
+	flatInitial, err := maputils.FlattenPathKeys(initialData)
+	if err != nil {
+		return nil, translateMapErr("create", err)
+	}
 
 	derivedEffects, err := dag.Recalculate(map[string]any{}, flatInitial)
 	if err != nil {
@@ -158,8 +161,13 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 
 	// The API contract is a nested map ({"data":{"stats":{"dexterity":12}}}).
 	// Flatten it to flat path keys because the DAG engine operates
-	// exclusively on those.
-	updates := maputils.FlattenPathKeys(cmd.Data)
+	// exclusively on those. A payload nested deeper than
+	// maputils.MaxNestingDepth is rejected here, before the recursive walk can
+	// exhaust the stack.
+	updates, err := maputils.FlattenPathKeys(cmd.Data)
+	if err != nil {
+		return nil, translateMapErr("update", err)
+	}
 
 	// Validate editability, collapse each touched exclusive group to at most
 	// one non-zero member, and recompute derived fields under a single DAG
@@ -256,6 +264,9 @@ func translateDAGErr(err error) error {
 			err,
 		)
 	}
+	if errors.Is(err, maputils.ErrMaxDepthExceeded) {
+		return apperr.NewError(apperr.CodeInvalidRequest, "sheet data is nested too deeply", err)
+	}
 	switch {
 	case isMaputilsDataErr(err):
 		return apperr.NewError(apperr.CodeInvalidRequest, "invalid sheet data", err)
@@ -274,6 +285,9 @@ func translateDAGErr(err error) error {
 func translateMapErr(op string, err error) error {
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, maputils.ErrMaxDepthExceeded) {
+		return apperr.NewError(apperr.CodeInvalidRequest, "sheet data is nested too deeply", err)
 	}
 	if isMaputilsDataErr(err) {
 		return apperr.NewError(apperr.CodeInvalidRequest, "invalid sheet data", err)

@@ -593,7 +593,9 @@ func TestChangedUpdates(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, changedUpdates(tc.original, tc.updates))
+			got, err := changedUpdates(tc.original, tc.updates)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }

@@ -504,6 +504,52 @@ func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
 	}
 }
 
+// TestService_PartialUpdate_NestingDepthLimit pins the DoS guard at the service
+// boundary: a payload nested deeper than maputils.MaxNestingDepth is rejected
+// with 400 before the repository is touched, so the recursive flatten never
+// walks an unbounded structure.
+func TestService_PartialUpdate_NestingDepthLimit(t *testing.T) {
+	dag, err := template.BuildDAG("fantasy_v1", template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+	}, engine.NewFormulaEngine())
+	require.NoError(t, err)
+
+	deep := map[string]any{"leaf": 1.0}
+	for i := 0; i < maputils.MaxNestingDepth+1; i++ {
+		deep = map[string]any{"level": deep}
+	}
+
+	mockRepo := mocks.NewMockRepository(t)
+	mockRepo.EXPECT().
+		FetchByID(context.Background(), updateSheetID).
+		Return(&sheet.Sheet{
+			ID:         updateSheetID,
+			TemplateID: "fantasy_v1",
+			Data:       map[string]any{"stats": map[string]any{"dexterity": 10.0}},
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
+		}, nil).
+		Once()
+
+	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{
+		"fantasy_v1": dag,
+	})
+
+	_, err = svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+		SheetID: updateSheetID,
+		Data:    deep,
+	})
+	require.Error(t, err)
+
+	var appErr *apperr.Error
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+	assert.Equal(t, 400, appErr.HttpStatus())
+	assert.Contains(t, appErr.Message, "nested too deeply")
+}
+
 func TestService_Create(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t)
 	mockTemplateSvc := templatemocks.NewMockService(t)

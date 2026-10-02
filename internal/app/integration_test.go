@@ -17,6 +17,7 @@ import (
 	"legnaris/shared/db"
 	"legnaris/shared/env"
 	"legnaris/shared/logger"
+	"legnaris/shared/maputils"
 	"legnaris/shared/response"
 
 	"github.com/stretchr/testify/assert"
@@ -407,6 +408,34 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	var nonNumericBody response.ErrorResponse
 	require.NoError(t, json.Unmarshal(nonNumericRec.Body.Bytes(), &nonNumericBody))
 	assert.Equal(t, "INVALID_REQUEST", nonNumericBody.Error.Code)
+}
+
+// TestIntegration_Sheets_NestingDepthLimit covers the DoS guard end to end: a
+// PATCH whose data nests deeper than maputils.MaxNestingDepth is rejected with
+// 400 INVALID_REQUEST instead of driving the recursive flatten off a cliff.
+func TestIntegration_Sheets_NestingDepthLimit(t *testing.T) {
+	h, _ := newIntegrationRouter(t)
+
+	createRec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Deep"}`)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+	sheetID := created.Data.ID
+
+	deep := any(1.0)
+	for i := 0; i < maputils.MaxNestingDepth+1; i++ {
+		deep = map[string]any{"level": deep}
+	}
+	deepBodyBytes, err := json.Marshal(map[string]any{"data": deep})
+	require.NoError(t, err)
+
+	deepRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, string(deepBodyBytes))
+	require.Equal(t, http.StatusBadRequest, deepRec.Code)
+
+	var deepBody response.ErrorResponse
+	require.NoError(t, json.Unmarshal(deepRec.Body.Bytes(), &deepBody))
+	assert.Equal(t, "INVALID_REQUEST", deepBody.Error.Code)
 }
 
 // TestIntegration_ErrorStatusMapping covers the HTTP status each typed error

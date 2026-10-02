@@ -470,7 +470,10 @@ func (d *DAG) recalculateLocked(originalData, updatedData map[string]any) (map[s
 	// Updates that do not really change the original data never reach the
 	// recalculation set, so floating-point rounding or type coercion
 	// (e.g., int vs float64) cannot start a spurious cascade.
-	needsRecalc := changedUpdates(originalData, updatedData)
+	needsRecalc, err := changedUpdates(originalData, updatedData)
+	if err != nil {
+		return nil, err
+	}
 
 	changedDerived, err := d.walkTopological(sheetData, engineEnv, needsRecalc)
 	if err != nil {
@@ -487,11 +490,17 @@ func (d *DAG) recalculateLocked(originalData, updatedData map[string]any) (map[s
 // {"stats": {"str": 16}}) are expanded to their leaves before comparing, so a
 // stray group payload still reaches DAG node keys instead of being silently
 // dropped by the change check — the supported input stays flat (see Recalculate).
-func changedUpdates(originalData, updatedData map[string]any) map[string]bool {
+// Returns ErrMaxDepthExceeded for a group payload nested deeper than
+// maputils.MaxNestingDepth.
+func changedUpdates(originalData, updatedData map[string]any) (map[string]bool, error) {
 	changed := make(map[string]bool, len(updatedData))
 	for key, newValue := range updatedData {
 		if group, ok := newValue.(map[string]any); ok {
-			for leafKey, leafValue := range maputils.FlattenPathKeys(group) {
+			flat, err := maputils.FlattenPathKeys(group)
+			if err != nil {
+				return nil, err
+			}
+			for leafKey, leafValue := range flat {
 				fullKey := key + "." + leafKey
 				if hasChanged(originalData, fullKey, leafValue) {
 					changed[fullKey] = true
@@ -503,7 +512,7 @@ func changedUpdates(originalData, updatedData map[string]any) map[string]bool {
 			changed[key] = true
 		}
 	}
-	return changed
+	return changed, nil
 }
 
 // hasChanged reports whether the value stored under key differs from newValue
@@ -731,7 +740,10 @@ func (d *DAG) prepareData(originalData, updatedData map[string]any) (map[string]
 	if err := maputils.ApplyUpdates(sheetData, updatedData); err != nil {
 		return nil, nil, err
 	}
-	engineEnv := maputils.ToEngineEnv(sheetData)
+	engineEnv, err := maputils.ToEngineEnv(sheetData)
+	if err != nil {
+		return nil, nil, err
+	}
 	return sheetData, engineEnv, nil
 }
 

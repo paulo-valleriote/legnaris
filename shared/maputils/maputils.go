@@ -2,6 +2,7 @@ package maputils
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 )
@@ -13,9 +14,20 @@ var (
 	ErrEmptyPath = errors.New("empty path")
 	// ErrNotMap is returned when an intermediate value is not a map.
 	ErrNotMap = errors.New("intermediate value is not a map")
+	// ErrMaxDepthExceeded is returned when a nested map is deeper than
+	// MaxNestingDepth. The flatten walk is recursive over user-controlled input,
+	// so an unbounded depth would let a deeply nested body overflow the
+	// goroutine stack (denial of service).
+	ErrMaxDepthExceeded = errors.New("map nesting exceeds the maximum depth")
 )
 
 const (
+	// MaxNestingDepth bounds how many map levels a nested map may have before
+	// FlattenPathKeys/ToEngineEnv reject it. Templates nest at most three levels
+	// (root → group → leaf), so five leaves headroom while keeping the recursive
+	// walk bounded.
+	MaxNestingDepth = 5
+
 	// epsilon is the tolerance for numeric comparisons in Equal, applied as a
 	// *relative* bound: |a-b| <= epsilon * max(1, |a|, |b|).
 	// Because it scales with magnitude, the absolute slack grows with the value:
@@ -130,44 +142,59 @@ func splitString(s string, sep rune) []string {
 
 // FlattenPathKeys converts a nested map to a flat map of path keys.
 // Example: {"stats": {"str": 10}} → {"stats.str": 10}
-func FlattenPathKeys(nested map[string]any) map[string]any {
+// Returns ErrMaxDepthExceeded when the map nests deeper than MaxNestingDepth.
+func FlattenPathKeys(nested map[string]any) (map[string]any, error) {
 	flat := make(map[string]any)
 	if nested == nil {
-		return flat
+		return flat, nil
 	}
-	flattenRecursive([]string{}, nested, flat, '.')
-	return flat
+	if err := flattenRecursive([]string{}, nested, flat, '.'); err != nil {
+		return nil, err
+	}
+	return flat, nil
 }
 
 // ToEngineEnv converts a nested map to a flat map with underscore-separated keys
 // for use with the expr-lang formula engine.
 // Example: {"stats": {"str": 10}} → {"stats_str": 10}
-func ToEngineEnv(nested map[string]any) map[string]any {
+// Returns ErrMaxDepthExceeded when the map nests deeper than MaxNestingDepth.
+func ToEngineEnv(nested map[string]any) (map[string]any, error) {
 	flat := make(map[string]any)
 	if nested == nil {
-		return flat
+		return flat, nil
 	}
-	FlattenRecursive([]string{}, nested, flat)
-	return flat
+	if err := FlattenRecursive([]string{}, nested, flat); err != nil {
+		return nil, err
+	}
+	return flat, nil
 }
 
 // FlattenRecursive is a helper for flattening a nested map with a given prefix.
 // It appends results to the provided flat map.
-// Exported for use by template.Path.Flatten.
-func FlattenRecursive(prefix []string, nested map[string]any, flat map[string]any) {
-	flattenRecursive(prefix, nested, flat, '_')
+// Returns ErrMaxDepthExceeded when the map nests deeper than MaxNestingDepth.
+func FlattenRecursive(prefix []string, nested map[string]any, flat map[string]any) error {
+	return flattenRecursive(prefix, nested, flat, '_')
 }
 
-// flattenRecursive flattens a nested map into flat keys joined by the given separator.
-func flattenRecursive(prefix []string, nested map[string]any, flat map[string]any, sep rune) {
+// flattenRecursive flattens a nested map into flat keys joined by the given
+// separator. prefix carries the segments already consumed; a map entered with
+// len(prefix) >= MaxNestingDepth would be one level too deep, so the walk stops
+// there instead of recursing without bound.
+func flattenRecursive(prefix []string, nested map[string]any, flat map[string]any, sep rune) error {
+	if len(prefix) >= MaxNestingDepth {
+		return fmt.Errorf("%w: max %d levels", ErrMaxDepthExceeded, MaxNestingDepth)
+	}
 	for key, value := range nested {
 		newPrefix := append(append([]string{}, prefix...), key)
 		if nestedMap, ok := value.(map[string]any); ok && len(nestedMap) > 0 {
-			flattenRecursive(newPrefix, nestedMap, flat, sep)
+			if err := flattenRecursive(newPrefix, nestedMap, flat, sep); err != nil {
+				return err
+			}
 		} else {
 			flat[joinWithSeparator(newPrefix, sep)] = value
 		}
 	}
+	return nil
 }
 
 func joinWithSeparator(parts []string, sep rune) string {

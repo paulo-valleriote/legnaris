@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGet(t *testing.T) {
@@ -498,7 +499,8 @@ func TestToEngineEnv(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := ToEngineEnv(tc.nested)
+			result, err := ToEngineEnv(tc.nested)
+			require.NoError(t, err)
 			assert.Equal(t, tc.wantFlat, result)
 		})
 	}
@@ -549,10 +551,43 @@ func TestFlattenPathKeys(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := FlattenPathKeys(tc.nested)
+			result, err := FlattenPathKeys(tc.nested)
+			require.NoError(t, err)
 			assert.Equal(t, tc.wantFlat, result)
 		})
 	}
+}
+
+// TestFlattenPathKeys_MaxDepth pins the DoS guard: a map nested deeper than
+// MaxNestingDepth is rejected before the recursive walk can exhaust the stack.
+func TestFlattenPathKeys_MaxDepth(t *testing.T) {
+	// nestedAt builds a chain of depth map levels ending in one scalar leaf.
+	nestedAt := func(depth int) map[string]any {
+		root := map[string]any{}
+		current := root
+		for i := 1; i < depth; i++ {
+			next := map[string]any{}
+			current["level"] = next
+			current = next
+		}
+		current["leaf"] = 1.0
+		return root
+	}
+
+	t.Run("Edge: exactly MaxNestingDepth levels is accepted", func(t *testing.T) {
+		_, err := FlattenPathKeys(nestedAt(MaxNestingDepth))
+		assert.NoError(t, err)
+	})
+
+	t.Run("Error: one level deeper than MaxNestingDepth is rejected", func(t *testing.T) {
+		_, err := FlattenPathKeys(nestedAt(MaxNestingDepth + 1))
+		assert.ErrorIs(t, err, ErrMaxDepthExceeded)
+	})
+
+	t.Run("Error: ToEngineEnv applies the same bound", func(t *testing.T) {
+		_, err := ToEngineEnv(nestedAt(MaxNestingDepth + 1))
+		assert.ErrorIs(t, err, ErrMaxDepthExceeded)
+	})
 }
 
 func TestDeepCopy(t *testing.T) {
