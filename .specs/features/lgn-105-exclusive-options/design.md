@@ -17,12 +17,16 @@ type FieldSchema struct {
     // Leaves sharing a non-empty group under the same parent may have at most
     // one non-zero value. Empty means "independent".
     ExclusiveGroup string `bson:"exclusive_group,omitempty"`
+    // OptionLabel is the short label used when this leaf is shown as an option
+    // of its exclusive group (e.g. "Dexterity"). Empty falls back to Label.
+    OptionLabel string `bson:"option_label,omitempty"`
 }
 
 // internal/sheet/template/dto.go
 type FieldSchemaDTO struct {
     // ... existing fields ...
     ExclusiveGroup string `json:"exclusive_group,omitempty"`
+    OptionLabel    string `json:"option_label,omitempty"`
 }
 ```
 
@@ -30,17 +34,20 @@ Serialized for the pair:
 
 ```json
 "acUsesDex": { "schema": { "type": "number", "label": "Armor class uses dexterity",
-                "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility" } },
+                "is_editable": true, "default": 1, "exclusive_group": "armorClassAbility",
+                "option_label": "Dexterity" } },
 "acUsesCon": { "schema": { "type": "number", "label": "Armor class uses constitution",
-                "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility" } }
+                "is_editable": true, "default": 0, "exclusive_group": "armorClassAbility",
+                "option_label": "Constitution" } }
 ```
 
 `omitempty` keeps every other leaf byte-identical to today, so the change is backward compatible:
 old clients ignore the key; a client that never sees it renders the two independent toggles as before.
 
 The second exclusive group is the spellcasting ability: the six `config.spellUses*` leaves carry
-`exclusive_group: "spellcastingAbility"` (defaults all `0`). With six options the desktop uses its
-radio fallback. The free-text `spells.ability` leaf is removed — its label becomes the group row label.
+`exclusive_group: "spellcastingAbility"` (defaults all `0`). Every exclusive group renders through the
+same dropdown control (increment 3). The free-text `spells.ability` leaf is removed — its label becomes
+the group row label.
 
 **Why metadata, not a select field:** see `context.md` Area 1. The formula
 `combat_baseArmorClass + (modifiers_dexterityMod * config_acUsesDex) + (modifiers_constitutionMod * config_acUsesCon)`
@@ -136,45 +143,50 @@ typedef SheetRow = ({List<SheetField> fields, SheetExclusiveGroup? exclusive});
 - A single-member group is not collapsed (EXC-12): the member stays its own normal row.
 - Order within `options` follows tree/API order.
 
-### Control
+### Control (increment 3 — unified dropdown)
 
-New `desktop/lib/engine/exclusive_control.dart`:
+`desktop/lib/engine/exclusive_control.dart`:
 
 ```dart
 class SheetExclusiveControl extends StatelessWidget {
   final SheetExclusiveGroup group;
   final String? selectedPath;      // null = none active
   final ValueChanged<String>? onSelect; // null = read-only
-  // constants:
-  //   _segmentedMaxOptions = 3
-  //   _segmentedMaxLabelLength = 30   (inclusive)
+  // None is offered only when the group has no active default:
+  //   _allowsNone = group.options.every((o) => o.schema.defaultValue == 0)
 }
 ```
 
-- `_useSegmented` = `group.options.length <= 3 && every label.length <= 30`.
-- Segmented branch: Material `SegmentedButton<String>` keyed `sheet-exclusive-<id>`, one segment per
-  option keyed `sheet-exclusive-option-<path>`, `selected` = the active path (empty when none),
-  `onSelectionChanged` null when `onSelect == null` (read-only).
-- Radio fallback: a vertical group of `Radio` rows with the same keys, disabled when `onSelect == null`.
-- Height/type scale come from `lib/theme/tokens.dart`; labels come from the member `label`.
+- Always a single dense `DropdownButton<String>` keyed `sheet-exclusive-<id>`; one
+  `DropdownMenuItem` per option keyed `sheet-exclusive-option-<path>`.
+- Items = `[None?] + options`; an option label is `optionLabel` when non-empty, else the member label.
+- `None` (a sentinel value) is included iff `_allowsNone`; it clears the group. The dropdown `value`
+  is the active path, or the `None` sentinel when nothing is active, or null when nothing can be.
+- Read-only (`onSelect == null`) renders the same dropdown disabled.
+- Height/radius/type scale come from `lib/theme/tokens.dart`; the `None` text is an l10n string.
+
+`desktop/lib/engine/field_control.dart` (flags):
+
+- The flag branch renders a compact `Checkbox` (key `sheet-checkbox-<path>`) instead of a `Switch`.
+- Emission keeps the field type: `bool` → `true`/`false`, numeric `config.*` proxy → `1`/`0`.
+- A null/absent value renders unchecked; read-only renders the checkbox disabled.
 
 ### Form
 
 `desktop/lib/engine/sheet_form.dart`:
 
-- New optional `exclusiveControlBuilder`: `(BuildContext, SheetExclusiveGroup, String?, ValueChanged<String>?) -> Widget`.
-- Edit mode (injected builders) uses it for exclusive rows; read-only/data mode builds
-  `SheetExclusiveControl` directly, selecting the active option from `data` and disabling selection.
-- Constructor assertion extends to "both builders, or neither" so the control source stays singular
-  (the existing `controlBuilder`/`data` invariant).
+- The optional `exclusiveControlBuilder` signature is unchanged; edit mode uses it for exclusive rows,
+  read-only/data mode builds `SheetExclusiveControl` directly, resolving the active option (or `None`)
+  from `data` and disabling selection.
+- Constructor assertion stays "both builders, or neither".
 
 ### Edit state
 
-`desktop/lib/sheet/sheet_edit_provider.dart` — new `setExclusive(String selectedPath, Iterable<String> siblings)`:
+`desktop/lib/sheet/sheet_edit_provider.dart` — `setExclusive(String? selectedPath, Iterable<String> siblings)`:
 
-- Builds the next state once; sets `selectedPath = 1` and each sibling `= 0`.
-- If no affected path actually changes (the option was already active), returns without emitting, so
-  the state instance stays identical (EXC-14).
+- `selectedPath == null` (None) sets every member to `0`; otherwise sets `selectedPath = 1` and each
+  sibling `= 0`, all in one copy-on-write state.
+- If no affected path actually changes, returns without emitting (state instance stays identical, EXC-14).
 - Records every changed path in `editedPaths`; one emission, so each control's `select` listener
   rebuilds at most once.
 
@@ -182,31 +194,33 @@ class SheetExclusiveControl extends StatelessWidget {
 
 `desktop/lib/sheet/sheet_screen.dart` — passes `exclusiveControlBuilder` that:
 
-- watches each option path through `provider.select(valueAtPath(...))` inside one `Consumer`
-  (rebuilds only when a member value changes),
-- renders `SheetExclusiveControl(group, selectedPath, onSelect: (path) => notifier.setExclusive(path, siblings))`.
+- watches each option path through `provider.select(valueAtPath(...))` inside one `Consumer`,
+- renders `SheetExclusiveControl(group, selectedPath, onSelect: (path) => notifier.setExclusive(
+  path == noneSentinel ? null : path, siblings))`.
 
 ### Fixtures and preview
 
-- `desktop/test/fixtures/{template_detail,templates}.json` gain
-  `"exclusive_group":"armorClassAbility"` on the two ac schemas (frozen shape).
-- `create_sheet_preview` / `SheetForm` data mode renders the group disabled with the active option.
+- `desktop/test/fixtures/{template_detail,templates}.json` gain `option_label` on the ac pair and the
+  six `spellUses*` (and keep the existing `exclusive_group` tags).
+- `create_sheet_preview` / `SheetForm` data mode renders the dropdown disabled with the current value
+  (or `None`).
 
 ## Component map
 
 | Layer | File | Change |
 | ----- | ---- | ------ |
-| Contract (Go) | `internal/sheet/template/template.go` | `ExclusiveGroup` field |
-| Contract (Go) | `internal/sheet/template/dto.go` | `exclusive_group` JSON + `toDTO` copy |
-| Seed (Go) | `internal/sheet/template/seeders.go` | tag the ac pair and the six `spellUses*`; remove `spells.ability` |
+| Contract (Go) | `internal/sheet/template/template.go` | `ExclusiveGroup` + `OptionLabel` fields |
+| Contract (Go) | `internal/sheet/template/dto.go` | `exclusive_group` / `option_label` JSON + `toDTO` copy |
+| Seed (Go) | `internal/sheet/template/seeders.go` | tag ac pair + six `spellUses*`, set their `option_label`; remove `spells.ability` |
 | DAG (Go) | `internal/sheet/template/dag.go` | build index + `NormalizeExclusiveUpdates` |
 | Errors (Go) | `internal/sheet/template/errors.go` | `ExclusiveGroupConflictError` |
 | Service (Go) | `internal/sheet/service.go` | call normalization + `translateDAGErr` case |
-| Model (Dart) | `desktop/lib/api/models/template.dart` | parse `exclusive_group` |
+| Model (Dart) | `desktop/lib/api/models/template.dart` | parse `exclusive_group` + `option_label` |
 | Grouping (Dart) | `desktop/lib/engine/field_grouping.dart` | collapse exclusive members |
-| Control (Dart) | `desktop/lib/engine/exclusive_control.dart` | segmented/radio control |
+| Control (Dart) | `desktop/lib/engine/exclusive_control.dart` | single dropdown control (+ None) |
+| Control (Dart) | `desktop/lib/engine/field_control.dart` | flags render a checkbox |
 | Form (Dart) | `desktop/lib/engine/sheet_form.dart` | exclusive rows + builder injection |
-| State (Dart) | `desktop/lib/sheet/sheet_edit_provider.dart` | `setExclusive` |
+| State (Dart) | `desktop/lib/sheet/sheet_edit_provider.dart` | `setExclusive` (member or None) |
 | Screen (Dart) | `desktop/lib/sheet/sheet_screen.dart` | wire the builder |
 
 ## Risks and mitigations

@@ -21,10 +21,10 @@
 ## Handoff
 
 - **Feature**: `lgn-105-exclusive-options` (.specs/features/lgn-105-exclusive-options)
-- **Phase / Task**: Execute — increment (T12–T15) pending; T1–T11 complete and verified
-- **Completed**: T1–T11 (contract + DAG enforcement + desktop control; Verifier PASS 2026-10-01; gap #1 fixed by T11 `010895a`); increment specced 2026-10-02 (spellcasting exclusive group + remove `spells.ability`)
+- **Phase / Task**: Execute — increment 3 (T16–T21) pending; T1–T15 complete and verified
+- **Completed**: T1–T11 (exclusive contract + DAG + desktop; PASS), T12–T15 (spellcasting group + remove `spells.ability`; PASS); increment 3 specced 2026-10-02 (unified dropdown + checkbox + `option_label`)
 - **In-progress** (file:line): none
-- **Next step**: run backend increment (T12–T13), then desktop increment (T14–T15), then re-Verify
+- **Next step**: run backend increment 3 (T16–T17), then desktop (T18–T21), then re-Verify; deploy the prod app stack so `api.legnaris.com.br` serves the increment
 - **Blockers**: none
 - **Uncommitted files**: `.specs/features/lgn-105-exclusive-options/*`, this STATE; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
 - **Branch**: feat/lgn-105-exclusive-options (PR #53)

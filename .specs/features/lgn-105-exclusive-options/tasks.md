@@ -115,10 +115,28 @@ T12 → T13
 
 ### Phase 9: Spellcasting group (desktop)
 
-Mirror the contract in fixtures and cover the radio fallback on screen.
+Mirror the contract in fixtures and cover the group on screen.
 
 ```
 T14 → T15
+```
+
+### Phase 10: Option labels (backend)
+
+Expose and seed the short option labels.
+
+```
+T16 → T17
+```
+
+### Phase 11: Standardized controls (desktop)
+
+Unified dropdown for choices, checkbox for flags.
+
+```
+T18 → T19
+T19 → T21
+T20 → T21
 ```
 
 ---
@@ -538,6 +556,169 @@ T14 → T15
 
 ---
 
+### T16: Add the option_label metadata to the schema contract
+
+**What**: add `OptionLabel string` to `FieldSchema` (`bson:"option_label,omitempty"`) and mirror it in `FieldSchemaDTO` (`json:"option_label,omitempty"`); copy it in `FieldSchema.toDTO`.
+**Where**: `internal/sheet/template/template.go`
+**Depends on**: T1
+**Reuses**: the `ExclusiveGroup` DTO pattern and `dto_test.go` harness
+**Requirement**: EXC-23, EXC-24
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] A schema with an option label serializes `"option_label":"<label>"`; a schema without one omits the key
+- [ ] `ToDTO` copies the value and shares no memory with the source
+- [ ] Gate check passes: `go test ./internal/sheet/template/...`
+- [ ] Test count: DTO include/omit/copy cases, no silent deletions
+
+**Tests**: unit
+**Gate**: quick (backend)
+
+**Commit**: `feat(template): add option_label to the field schema contract`
+
+---
+
+### T17: Seed short option labels for the exclusive groups
+
+**What**: set `OptionLabel` on the exclusive members in `configGroup`: the ac pair (`Dexterity`, `Constitution`) and each `spellUses*` (`Strength`, `Dexterity`, `Constitution`, `Intelligence`, `Wisdom`, `Charisma`); leave every other leaf empty. Extend the config pin / whole-tree tests to assert the labels and their emptiness elsewhere.
+**Where**: `internal/sheet/template/seeders.go`
+**Depends on**: T16
+**Reuses**: the whole-tree group assertion (T11/T12) and the ability catalog
+**Requirement**: EXC-25
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] Exactly the ac pair + six spellUses carry the expected `option_label`; every other leaf's is empty
+- [ ] Formula/depends-on invariant unchanged and green
+- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...`
+- [ ] Test count: seed label assertions added
+
+**Tests**: unit
+**Gate**: build (backend)
+
+**Commit**: `feat(template): seed short option labels for the exclusive groups`
+
+---
+
+### T18: Parse option_label in the desktop schema model
+
+**What**: add `String? optionLabel` to `FieldSchema`, decoded from `option_label`; absent/null → null.
+**Where**: `desktop/lib/api/models/template.dart`
+**Depends on**: T16
+**Reuses**: the optional-field decode pattern (`exclusiveGroup`)
+**Requirement**: EXC-26
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] A schema with `option_label` parses the string; without it parses null
+- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/api`
+- [ ] Test count: decode cases for present/absent/null
+
+**Tests**: unit
+**Gate**: quick (desktop)
+
+**Commit**: `feat(engine): parse option_label in the field schema model`
+
+---
+
+### T19: Render every exclusive group as one dropdown
+
+**What**: replace the segmented/radio branches in `SheetExclusiveControl` with a single dense `DropdownButton<String>` (key `sheet-exclusive-<id>`, items keyed `sheet-exclusive-option-<path>`). Value = active path or `None`; include a `None` item iff the group has no active default (every member default `0`); option text = `optionLabel` when non-empty else the member label; `None` text via l10n; `onSelect == null` renders the dropdown disabled. `setExclusive` accepts null (None) and clears the whole group in one emission.
+**Where**: `desktop/lib/engine/exclusive_control.dart`
+**Depends on**: T18
+**Reuses**: the existing group/model types, `lib/theme/tokens.dart`, the l10n pattern
+**Requirement**: EXC-09, EXC-10, EXC-11, EXC-13, EXC-27
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] AC (default active) shows the default and no `None`; spellcasting shows `None` + six ability labels
+- [ ] Selecting a member zeroes the siblings in one emission; selecting `None` zeroes all members in one emission
+- [ ] Read-only renders the dropdown disabled with the current value (or `None`); a missing `option_label` falls back to the member label
+- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
+- [ ] Test count: dropdown happy + edge (None/no-None/missing label/read-only/no-rebuild) cases
+
+**Tests**: widget
+**Gate**: quick (desktop)
+
+**Commit**: `feat(engine): render exclusive groups as a unified dropdown`
+
+---
+
+### T20: Render 0/1 flags as checkboxes
+
+**What**: in `SheetFieldControl`, replace the `Switch` in the flag branch with a compact `Checkbox` (key `sheet-checkbox-<path>`); `bool` emits `true`/`false`, a numeric `config.*` proxy emits `1`/`0`; a null/absent value renders unchecked; read-only renders the checkbox disabled. Keep numeric/text inputs unchanged.
+**Where**: `desktop/lib/engine/field_control.dart`
+**Depends on**: None
+**Reuses**: `_isToggle` predicate, tokens, existing numeric/text branches
+**Requirement**: EXC-28, EXC-29, EXC-30
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] Editable flags render a checkbox; numeric proxy emits `1`/`0`, bool emits `true`/`false`
+- [ ] Null value renders unchecked; read-only renders a disabled checkbox; numeric/text fields are unaffected
+- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test test/engine`
+- [ ] Test count: checkbox happy + edge (numeric/bool/null/read-only) cases
+
+**Tests**: widget
+**Gate**: quick (desktop)
+
+**Commit**: `feat(engine): render 0/1 flags as checkboxes`
+
+---
+
+### T21: Update fixtures and screen coverage for the standardized controls
+
+**What**: add `option_label` to the ac pair and the six `spellUses*` in `template_detail.json`/`templates.json`; update `contract_fixtures_test.dart` to assert the labels present/absent; update the sheet screen and preview tests to the dropdown + checkbox selectors (member + `None` selection, single emission, GET-only, read-only disabled); add the `None` l10n string.
+**Where**: `desktop/test/sheet/sheet_screen_test.dart`
+**Depends on**: T17, T19, T20
+**Reuses**: the existing exclusive-group screen harness, `contract_fixtures_test.dart`, `create_sheet_preview_test.dart`
+**Requirement**: EXC-09, EXC-25, EXC-27, EXC-28
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] Fixtures carry `option_label` on exactly the ac pair + six spellUses
+- [ ] The edit screen renders the dropdown (default selected, `None` for spellcasting) and checkboxes for flags; selecting `None` clears the group in one emission with GET-only requests
+- [ ] The preview renders the dropdown and checkboxes disabled
+- [ ] Gate check passes: `make fmt && make lint && make vet && go test ./...` and `cd desktop && flutter analyze && flutter test`
+- [ ] Test count: screen/preview/contract cases updated + new, no silent deletions
+
+**Tests**: widget
+**Gate**: build (desktop)
+
+**Commit**: `test(sheet): cover the standardized dropdown and checkbox controls`
+
+---
+
 ## Phase Execution Map
 
 Phases run in sequence; tasks within a phase run in order:
@@ -558,6 +739,13 @@ Phase 8:  T2 → T12
 Phase 9:  T12 → T14
           T13 → T14
           T14 → T15
+Phase 10: T1 → T16
+          T16 → T17
+          T16 → T18
+Phase 11: T18 → T19
+          T19 → T21
+          T20 → T21
+          T17 → T21
 ```
 
 Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted batch; run backend first so the desktop fixtures mirror an already-shipped contract, then dispatch the Verifier after the final commit.
@@ -581,6 +769,12 @@ Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted ba
 | T13: remove spells.ability | 1 function | ✅ Granular |
 | T14: contract fixtures | 1 test file (+ fixtures) | ✅ Granular |
 | T15: spellcasting radio screen test | 1 test file | ✅ Granular |
+| T16: option_label contract | 1 struct + DTO | ✅ Granular |
+| T17: seed option labels | 1 function | ✅ Granular |
+| T18: parse option_label | 1 class | ✅ Granular |
+| T19: unified dropdown | 1 widget file | ✅ Granular |
+| T20: checkbox flags | 1 file | ✅ Granular |
+| T21: fixtures + screen coverage | 1 test file (+ fixtures) | ✅ Granular |
 
 **Diagram-Definition Cross-Check**
 
@@ -601,6 +795,12 @@ Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted ba
 | T13 | T12 | T12 → T13 | ✅ Match |
 | T14 | T12, T13 | T12 → T14, T13 → T14 | ✅ Match |
 | T15 | T14 | T14 → T15 | ✅ Match |
+| T16 | T1 | T1 → T16 | ✅ Match |
+| T17 | T16 | T16 → T17 | ✅ Match |
+| T18 | T16 | T16 → T18 | ✅ Match |
+| T19 | T18 | T18 → T19 | ✅ Match |
+| T20 | None | — | ✅ Match |
+| T21 | T17, T19, T20 | T17 → T21, T19 → T21, T20 → T21 | ✅ Match |
 
 **Test Co-location Validation**
 
@@ -621,3 +821,9 @@ Backend phases (T1-T4) and desktop phases (T5-T10) are each one task-budgeted ba
 | T13 | Seeder contract | unit | unit | ✅ OK |
 | T14 | Contract fixtures | unit | unit | ✅ OK |
 | T15 | Desktop screen | widget | widget | ✅ OK |
+| T16 | Template contract | unit | unit | ✅ OK |
+| T17 | Seeder contract | unit | unit | ✅ OK |
+| T18 | Desktop model | unit | unit | ✅ OK |
+| T19 | Desktop control | widget | widget | ✅ OK |
+| T20 | Desktop control | widget | widget | ✅ OK |
+| T21 | Desktop screen | widget | widget | ✅ OK |

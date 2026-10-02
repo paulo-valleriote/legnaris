@@ -11,7 +11,7 @@ Source: [LGN-105](https://paulovalleriotedev.atlassian.net/browse/LGN-105) — "
 - [ ] The template contract exposes, per leaf, whether it belongs to a mutually exclusive group.
 - [ ] `config.acUsesDex` and `config.acUsesCon` declare the same group and never both carry a non-zero value.
 - [ ] A `PATCH` that turns one member on zeroes its siblings; a `PATCH` that sets two members on is rejected with a typed 400.
-- [ ] The desktop renders each group as one control (segmented, radio fallback) that can never leave two members on.
+- [ ] The desktop renders each group as one control (a single dropdown) that can never leave two members on, and each 0/1 flag as a checkbox.
 - [ ] Read-only surfaces (sheet preview) render the same group control disabled with the active option shown.
 - [ ] The six spellcasting-ability flags (`config.spellUses*`) form one exclusive group, and the redundant `spells.ability` text leaf is gone.
 
@@ -46,7 +46,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | Turning a member off | Allowed; siblings are left unchanged (the group may end with no active member) | "At most one", not "exactly one"; a sheet may legitimately use neither (AC falls back to base) | y |
 | Minimum group size | Fewer than two editable members is not an exclusive group | A one-member group has nothing to exclude; it degrades to the normal control in the UI | y |
 | Derived / non-editable members | Never join a group | Derived values are computed, not chosen; including them would make normalization write a computed field | y |
-| Desktop widget choice | Segmented control when ≤3 options and every label is ≤30 characters; otherwise a radio group | User decision (discuss): "segmented, radio fallback" — segmented is denser, radio survives long labels | y |
+| Desktop widget choice | A single dropdown for every exclusive group, with a `None` entry when the group has no active default; independent 0/1 flags render as checkboxes | User decision (increment 3): one control per concept — the earlier segmented/radio split confused users | y |
 | Single-member group on the desktop | Renders with the member's normal per-field control | Consistent with the backend minimum-group-size rule | y |
 | Fixture source | Contract fixtures are updated by hand to the frozen shape (`exclusive_group` on the pair) | The contract shape is frozen in `design.md`; a live capture adds a running-service dependency with no extra signal | y |
 | Read-only rendering | The group renders disabled with the active option selected | Matches the existing rule that a schema-editable field keeps its control type in read-only surfaces | y |
@@ -96,18 +96,18 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 
 ### P1: Desktop renders a group as one control (frontend)
 
-**User Story**: As a user configuring a sheet, I want mutually exclusive options shown as one choice so I cannot turn on two conflicting flags by accident.
+**User Story**: As a user configuring a sheet, I want mutually exclusive options shown as one consistent control so I cannot turn on two conflicting flags by accident and I do not have to learn a different widget per group.
 
-**Why P1**: The card's frontend objective; the current two switches are the defect.
+**Why P1**: The card's frontend objective; the original segmented/radio split made the same concept look different per group (increment 3 standardizes on one control).
 
 **Acceptance Criteria**:
 
-1. WHEN the UI Engine renders a section whose leaves share an exclusive group of at most three options with labels no longer than the segmented limit, the system SHALL render one segmented control for the group  <!-- event-driven -->
-2. WHEN an exclusive group has more than three options or an option label longer than the segmented limit, the system SHALL render the group as a radio control instead  <!-- event-driven -->
-3. WHEN the desktop renders a read-only sheet, the system SHALL render each exclusive group as its control disabled with the active option selected  <!-- event-driven -->
+1. WHEN the UI Engine renders any exclusive group, the system SHALL render it as a single dropdown control (the same control for a 2-option and a 6-option group)  <!-- event-driven -->
+2. WHEN an exclusive group has no active default option, the system SHALL include a `None` option in the dropdown that clears the group; WHEN the group has a default active option, the system SHALL NOT include `None`  <!-- event-driven -->
+3. WHEN the desktop renders a read-only sheet, the system SHALL render each exclusive group as its dropdown disabled with the current value (or `None`) shown  <!-- event-driven -->
 4. WHERE an exclusive group has a single member, the UI Engine SHALL render that member with its normal per-field control  <!-- optional-feature -->
 
-**Independent Test**: A template with the `armorClassAbility` pair renders one `SegmentedButton` (key `sheet-exclusive-armorClassAbility`) instead of two switches; a 4-option fixture renders a radio group; the preview renders the segmented control disabled.
+**Independent Test**: A template with the `armorClassAbility` pair renders one dropdown (key `sheet-exclusive-armorClassAbility`) showing `Dexterity` and no `None`; the 6-option `spellcastingAbility` group renders the same dropdown control with a `None` entry (no default); the preview renders the dropdown disabled with the active value.
 
 ---
 
@@ -119,7 +119,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 
 **Acceptance Criteria**:
 
-1. WHEN the user selects an option in an exclusive group, the system SHALL set the selected member to 1 and every sibling member of that group to 0 in a single edit-state emission  <!-- event-driven -->
+1. WHEN the user selects a dropdown value (a member or `None`), the system SHALL set the selected member to 1 and every sibling member of that group to 0 (all members to 0 for `None`) in a single edit-state emission  <!-- event-driven -->
 2. WHEN the user selects the option that is already active, the system SHALL leave the edit state unchanged  <!-- event-driven -->
 3. WHEN the edit state initializes from schema defaults, the system SHALL reflect the group's default active option  <!-- event-driven -->
 4. WHEN the user edits an exclusive group, the system SHALL issue no network request  <!-- event-driven -->
@@ -138,11 +138,32 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 
 1. WHEN the fantasy_v1 template is built, each `config.spellUses<Ability>` leaf SHALL declare the exclusive group `spellcastingAbility`  <!-- event-driven -->
 2. WHEN the fantasy_v1 template is built, it SHALL NOT expose a `spells.ability` text leaf (the exclusive group is the single spellcasting-ability control)  <!-- event-driven -->
-3. WHEN the desktop renders the spellcasting group, the system SHALL render it as a radio control (the group exceeds the segmented option limit)  <!-- event-driven -->
+3. WHEN the desktop renders the spellcasting group, the system SHALL render it as the same single dropdown control used for every exclusive group, including a `None` entry  <!-- event-driven -->
 4. WHEN the user selects a spellcasting ability, the system SHALL set the selected member to 1 and the other five to 0 in a single edit-state emission  <!-- event-driven -->
-5. WHEN the desktop renders the spellcasting group read-only (preview), the system SHALL render the radio control disabled with the active option selected  <!-- event-driven -->
+5. WHEN the desktop renders the spellcasting group read-only (preview), the system SHALL render the dropdown disabled with the current value (or `None`) shown  <!-- event-driven -->
 
-**Independent Test**: `GET /templates/fantasy_v1` has no `spells.ability` and tags all six `spellUses*` with `spellcastingAbility`; the screen shows a radio group and selecting one member zeroes the other five; the preview shows the same group disabled.
+**Independent Test**: `GET /templates/fantasy_v1` has no `spells.ability` and tags all six `spellUses*` with `spellcastingAbility`; the screen shows the shared dropdown with a `None` entry and selecting one member zeroes the other five; the preview shows the same dropdown disabled.
+
+---
+
+### P1: Standardized option labels and flag controls (backend + frontend) ⭐ MVP
+
+**User Story**: As a user, I want each kind of field to look the same everywhere — a dropdown for a choice, a checkbox for an on/off flag — and short option labels, so the Config section is predictable instead of a mix of switches, segmented buttons and radios.
+
+**Why P1**: User decision (increment 3): the visual variation across equivalent fields was confusing.
+
+**Acceptance Criteria**:
+
+1. WHEN a field schema declares an option label, the API response SHALL include that field's `option_label` value  <!-- event-driven -->
+2. WHERE a field schema declares no option label, the API response SHALL omit the `option_label` key  <!-- optional-feature -->
+3. WHEN the fantasy_v1 template is built, the `armorClassAbility` and `spellcastingAbility` members SHALL each declare an `option_label` naming the ability (e.g. `Dexterity`, `Charisma`)  <!-- event-driven -->
+4. WHEN the desktop parses a template field schema that declares an `option_label`, the parsed schema SHALL expose it  <!-- event-driven -->
+5. WHEN the desktop renders a dropdown option, the system SHALL use the member's `option_label` when present and fall back to the member's label otherwise  <!-- event-driven -->
+6. WHEN the UI Engine renders an editable 0/1 flag, the system SHALL render a checkbox (never a switch)  <!-- event-driven -->
+7. WHEN the user toggles an editable flag checkbox, the system SHALL emit the value in the field's existing type (true/false for `bool`, 1/0 for the numeric `config.*` proxies)  <!-- event-driven -->
+8. WHEN a flag is read-only, the system SHALL render its checkbox disabled  <!-- event-driven -->
+
+**Independent Test**: `GET /templates/fantasy_v1` carries `option_label` on the ac pair and the six spellUses and nowhere else; the dropdown shows `Dexterity`/`Constitution`; the proficiency flags render as checkboxes; a numeric proxy checkbox emits `0`/`1` and a read-only flag renders disabled.
 
 ---
 
@@ -153,10 +174,15 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 - WHEN a PATCH touches an exclusive group whose siblings are not present in the payload, THEN the missing siblings SHALL be written as zero only when a sibling is turned on.
 - WHEN a PATCH sets an exclusive member to zero, THEN the group SHALL be allowed to have no active member.
 - WHEN a template detail arrives with `exclusive_group` absent, THEN the desktop SHALL parse a null group and render every field with its normal control (backward compatible).
-- WHEN the desktop renders a read-only sheet whose exclusive group has no active member, THEN the control SHALL render with no option selected and stay disabled.
-- IF an exclusive option label is exactly at the segmented limit, THEN the segmented control SHALL be used (limit is inclusive).
-- WHEN the user selects a different option, THEN only the affected controls SHALL rebuild (the group row and any derived consumers), never the whole form.
-- WHEN the spellcasting group has all six members off, THEN the radio SHALL render with none selected and stay selectable.
+- WHEN the desktop renders a read-only sheet whose exclusive group has no active member, THEN the dropdown SHALL show `None` and stay disabled.
+- WHEN an exclusive group has a default active member, THEN the dropdown SHALL NOT offer a `None` option.
+- WHEN an exclusive dropdown option declares no `option_label`, THEN the option SHALL fall back to the member's schema label.
+- WHEN the user selects a dropdown value, THEN only the affected controls SHALL rebuild (the group row and any derived consumers), never the whole form.
+- WHEN the spellcasting group has all six members off, THEN the dropdown SHALL show `None` and stay selectable.
+- WHEN a numeric `config.*` flag checkbox is toggled, THEN the emitted value SHALL be `1` or `0` (never a bool).
+- WHEN a `bool` flag checkbox is toggled, THEN the emitted value SHALL be `true` or `false`.
+- WHEN a flag's value is null or absent, THEN the checkbox SHALL render unchecked.
+- WHEN the user selects `None`, THEN every member of the group SHALL be set to 0 in a single emission.
 - WHEN `spells.ability` is removed, THEN the spells section SHALL render the remaining leaves with no gap.
 - IF a stored sheet still carries `spells.ability`, THEN the API SHALL ignore it (no template leaf) and the desktop SHALL not render it.
 - IF a PATCH sets an exclusive member to a non-numeric value, THEN the system SHALL reject the request with a 400 `INVALID_REQUEST` (the group is numeric 0/1 proxies).
@@ -176,11 +202,11 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-06 | P1: Backend enforces at most one active member | Execute | Verified |
 | EXC-07 | P1: Backend enforces at most one active member | Execute | Verified |
 | EXC-08 | P1: Backend enforces at most one active member | Execute | Verified |
-| EXC-09 | P1: Desktop renders a group as one control | Execute | Verified |
-| EXC-10 | P1: Desktop renders a group as one control | Execute | Verified |
-| EXC-11 | P1: Desktop renders a group as one control | Execute | Verified |
+| EXC-09 | P1: Desktop renders a group as one control | Execute | Pending |
+| EXC-10 | P1: Desktop renders a group as one control | Execute | Pending |
+| EXC-11 | P1: Desktop renders a group as one control | Execute | Pending |
 | EXC-12 | P1: Desktop renders a group as one control | Execute | Verified |
-| EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Verified |
+| EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Pending |
 | EXC-14 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Verified |
@@ -190,22 +216,31 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-20 | P1: Spellcasting ability is a single choice | Execute | Verified |
 | EXC-21 | P1: Spellcasting ability is a single choice | Execute | Verified |
 | EXC-22 | P1: Spellcasting ability is a single choice | Execute | Verified |
+| EXC-23 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-24 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-25 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-26 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-27 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-28 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-29 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-30 | P1: Standardized option labels and flag controls | Execute | Pending |
 
 **ID format:** `EXC-[NUMBER]`
 
 **Status values:** Pending → In Design → In Tasks → Implementing → Verified
 
-**Coverage:** 22 total, 22 mapped to tasks, 0 unmapped
+**Coverage:** 30 total, 30 mapped to tasks, 0 unmapped
 
 ---
 
 ## Success Criteria
 
 - [ ] `go test -race ./...` green, including DTO omission, seeder tag, normalization edge cases, and the service 400 path.
-- [ ] `flutter analyze && flutter test` green, including segmented vs radio selection, single-member degradation, read-only rendering, and batch edit emission.
+- [ ] `flutter analyze && flutter test` green, including dropdown selection (member and `None`), single-member degradation, read-only rendering, checkbox emission, and batch edit emission.
 - [ ] `GET /templates/fantasy_v1` shows `exclusive_group: "armorClassAbility"` on exactly `config.acUsesDex` and `config.acUsesCon`.
 - [ ] `PATCH {"config":{"acUsesDex":1}}` on a sheet with `acUsesCon:1` yields (1, 0) and a recomputed `armorClass`; PATCHing both to 1 returns 400.
-- [ ] The desktop shows one control for the pair in both edit and read-only surfaces.
+- [ ] The desktop shows one dropdown per exclusive group and a checkbox per flag, in both edit and read-only surfaces.
 - [ ] `GET /templates/fantasy_v1` tags all six `config.spellUses*` with `spellcastingAbility` and exposes no `spells.ability`.
-- [ ] The desktop renders the spellcasting group as one radio control; selecting a member zeroes the other five in one emission.
+- [ ] The desktop renders the spellcasting group as the shared dropdown with a `None` entry; selecting a member zeroes the other five in one emission.
+- [ ] `option_label` is present on the ac pair and the six spellUses and absent everywhere else.
 - [ ] `go test -race ./...` and `flutter analyze && flutter test` stay green.

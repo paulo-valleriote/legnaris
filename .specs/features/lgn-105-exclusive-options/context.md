@@ -68,3 +68,21 @@ same concept, so it is removed. Overrides the original card note that `spellUses
 **Trade-off:** Removing a leaf changes the template shape. The project is pre-launch MVP with no stored
 sheets to preserve (user decision), so `fantasy_v1` is mutated in place rather than versioned to
 `fantasy_v2`. A stored `spells.ability` on an old sheet would simply be ignored.
+
+## Area 7 — Standardize the Config controls (increment 3)
+
+**Decision:** One control per concept.
+- Every exclusive group renders as a **single dropdown** (segmented and radio both removed). A group
+  with no active default gets a **`None`** entry that clears it; a group with a default does not.
+- Every independent 0/1 flag renders as a **checkbox** (Switch removed).
+- Option labels come from a new schema field **`option_label`** (short: `Dexterity`, `Charisma`, …);
+  when absent, the option falls back to the member's `label`.
+
+**Why:** In one Config section the user saw a segmented button (AC), switches (proficiencies) and a
+radio list (spellcasting) — three visual languages, two of them for the same concept. Standardizing to
+"dropdown = choose one, checkbox = on/off" makes the section predictable. Short labels remove the
+redundant "Spellcasting uses X" next to the group label "Spellcasting ability".
+
+**Trade-off:** A dropdown needs one click to reveal options (less "at a glance" than a segmented
+control) and `None` becomes an explicit entry for optional groups. Accepted for consistency and
+density. This revises the earlier widget decision (segmented ≤3 / radio), which is superseded.
