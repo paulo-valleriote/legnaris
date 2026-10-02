@@ -72,15 +72,18 @@ func (d *DAG) NormalizeExclusiveUpdates(updates map[string]any) (map[string]any,
 Algorithm, per group:
 
 1. Collect the explicit updates for members of the group.
-2. A member is **on** iff its value is numeric and non-zero. (A dedicated numeric type-switch —
-   `maputils.Equal(v, 0)` alone is unsafe because it returns false for non-numeric values, which
-   would read as "on".)
+2. A member is **on** iff its value is numeric and non-zero. (A non-numeric value — string, bool,
+   null, map — is rejected with `ExclusiveValueTypeError`: treating it as "off" would let a payload
+   bypass the at-most-one rule. Numeric detection goes through the shared `maputils.ToFloat64`.)
 3. If ≥2 members are on → return `ExclusiveGroupConflictError{Group, Keys}`.
 4. If exactly one member is on → for every other member absent from `updates`, set it to `0`.
 5. If none is on → leave the group untouched (turning a member off is allowed; EXC-06).
 
-The method takes the DAG read lock once, like `ValidateUpdateKeys`; the service calls the two
-methods sequentially (no nested locking — a second `RLock` under a queued writer deadlocks).
+The service reaches the DAG through `NormalizeAndRecalculate`, which validates editability,
+normalizes and recalculates under a **single** read-lock acquisition — `ValidateUpdateKeys` +
+`NormalizeExclusiveUpdates` + `Recalculate` would otherwise take the lock three times per PATCH.
+`NormalizeExclusiveUpdates`, `ValidateUpdateKeys` and `Recalculate` stay public (Create and the
+unit tests use them) and delegate to lock-free cores.
 
 ### Service wiring
 
@@ -88,16 +91,11 @@ methods sequentially (no nested locking — a second `RLock` under a queued writ
 
 ```
 updates := maputils.FlattenPathKeys(cmd.Data)
-ValidateUpdateKeys(updates)
-updates, err = dag.NormalizeExclusiveUpdates(updates)   // new
-Recalculate(storedSheet.Data, updates)                  // now sees the zeroed siblings
+normalized, cascading, err := dag.NormalizeAndRecalculate(storedSheet.Data, updates)
 ```
 
-`translateDAGErr` gains a case for `*ExclusiveGroupConflictError` →
-
-```go
-apperr.NewError(apperr.CodeInvalidRequest, "conflicting exclusive options: "+..., err)
-```
+`translateDAGErr` gains cases for `*ExclusiveGroupConflictError` and `*ExclusiveValueTypeError` →
+`apperr.NewError(apperr.CodeInvalidRequest, ..., err)` (HTTP 400).
 
 Change detection is unaffected: adding `sibling: 0` only cascades when the sibling actually
 changed, and the member that was turned on always cascades (EXC-07).
@@ -111,15 +109,17 @@ changed, and the member that was turned on always cascades (EXC-07).
 
 ### Grouping
 
-`desktop/lib/engine/field_grouping.dart` — after flattening a section's leaves, collapse runs of
-leaves that share a non-empty `exclusiveGroup` into one logical row:
+`desktop/lib/engine/field_grouping.dart` — after flattening a section's leaves, group every leaf
+sharing a non-empty `exclusiveGroup` by id into one logical row (not by adjacency), so the desktop
+matches the backend, which groups by id across the whole parent:
 
 ```dart
 typedef SheetExclusiveGroup = ({String id, List<SheetField> options});
 typedef SheetRow = ({List<SheetField> fields, SheetExclusiveGroup? exclusive});
 ```
 
-- A group with ≥2 members becomes one exclusive row, rendered at the position of its first member.
+- A group with ≥2 members becomes one exclusive row, rendered at the position of its first member,
+  even when an untagged leaf sits between two members.
 - A single-member group is not collapsed (EXC-12): the member stays its own normal row.
 - Order within `options` follows tree/API order.
 
