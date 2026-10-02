@@ -201,10 +201,10 @@ T7
 
 **Done when**:
 
-- [ ] Overriding `appSupportDirectoryProvider` with a temp dir yields a store rooted there
-- [ ] Reading `appSupportDirectoryProvider` without an override throws `StateError`
-- [ ] Gate check passes: `flutter test test/library/sheet_library_provider_test.dart`
-- [ ] Test count: 3 tests pass (no silent deletions)
+- [x] Overriding `appSupportDirectoryProvider` with a temp dir yields a store rooted there
+- [x] Reading `appSupportDirectoryProvider` without an override throws `StateError`
+- [x] Gate check passes: `flutter test test/library/sheet_library_provider_test.dart`
+- [x] Test count: 3 tests pass (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick

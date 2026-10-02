@@ -171,7 +171,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | LIB-18 | P1: Safe recovery across schema versions | Execute | Implementing |
 | LIB-19 | P1: Safe recovery across schema versions | Execute | Implementing |
 | LIB-20 | P1: Safe recovery across schema versions | Execute | Implementing |
-| LIB-21 | P1: Riverpod read/write surface | Design | Pending |
+| LIB-21 | P1: Riverpod read/write surface | Execute | Implementing |
 | LIB-22 | P1: Riverpod read/write surface | Design | Pending |
 | LIB-23 | P1: Riverpod read/write surface | Design | Pending |
 
