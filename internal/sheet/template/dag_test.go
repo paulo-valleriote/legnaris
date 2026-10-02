@@ -1574,6 +1574,44 @@ func TestNormalizeExclusiveUpdates(t *testing.T) {
 	}
 }
 
+// TestNormalizeExclusiveUpdates_ConflictGroupIsDeterministic pins the group
+// visit order: a payload that turns on two members of two different groups
+// always reports the alphabetically first group, instead of whichever entry
+// Go's randomized map iteration reached first.
+func TestNormalizeExclusiveUpdates_ConflictGroupIsDeterministic(t *testing.T) {
+	fields := FieldGroup{
+		"config": {Children: FieldGroup{
+			"zetaA":  {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "zetaGroup"}},
+			"zetaB":  {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "zetaGroup"}},
+			"alphaA": {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "alphaGroup"}},
+			"alphaB": {Schema: &FieldSchema{Type: "number", IsEditable: true, ExclusiveGroup: "alphaGroup"}},
+		}},
+	}
+
+	dag, err := BuildDAG("test", fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+
+	updates := map[string]any{
+		"config.zetaA":  1.0,
+		"config.zetaB":  1.0,
+		"config.alphaA": 1.0,
+		"config.alphaB": 1.0,
+	}
+
+	// Repeated runs give map iteration a fresh seed each time, so a single
+	// assertion would only catch the regression probabilistically.
+	for i := range 20 {
+		got, err := dag.NormalizeExclusiveUpdates(updates)
+		require.Error(t, err, "run %d", i)
+		assert.Nil(t, got, "run %d", i)
+
+		var conflict *ExclusiveGroupConflictError
+		require.ErrorAs(t, err, &conflict, "run %d", i)
+		assert.Equal(t, "alphaGroup", conflict.Group,
+			"run %d: the alphabetically first conflicting group must win", i)
+	}
+}
+
 // TestNormalizeAndRecalculate pins the PATCH entry point that validates,
 // normalizes and recalculates under a single read-lock acquisition (T3): the
 // normalized map zeroes the exclusive sibling, the cascading effects reflect

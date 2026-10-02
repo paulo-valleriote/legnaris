@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -663,10 +664,13 @@ func (d *DAG) NormalizeExclusiveUpdates(updates map[string]any) (map[string]any,
 }
 
 // normalizeExclusiveUpdatesLocked is the lock-free core of
-// NormalizeExclusiveUpdates. It must be called with mu already held.
+// NormalizeExclusiveUpdates. It must be called with mu already held. Groups are
+// visited in sorted id order so a payload that conflicts in two groups always
+// reports the same group instead of whichever map iteration reached first.
 func (d *DAG) normalizeExclusiveUpdatesLocked(updates map[string]any) (map[string]any, error) {
 	var normalized map[string]any
-	for group, members := range d.exclusiveGroups {
+	for _, group := range slices.Sorted(maps.Keys(d.exclusiveGroups)) {
+		members := d.exclusiveGroups[group]
 		var on []string
 		for _, key := range members {
 			value, present := updates[key]
