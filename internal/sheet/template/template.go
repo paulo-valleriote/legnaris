@@ -42,6 +42,9 @@ type FieldSchema struct {
 	// Leaves sharing a non-empty group under the same parent may have at most
 	// one non-zero value. Empty means "independent".
 	ExclusiveGroup string `bson:"exclusive_group,omitempty"`
+	// OptionLabel is the short label used when this leaf is shown as an option
+	// of its exclusive group (e.g. "Dexterity"). Empty falls back to Label.
+	OptionLabel string `bson:"option_label,omitempty"`
 }
 
 // SeedValue returns the value a new sheet starts with for this schema:

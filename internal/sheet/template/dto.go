@@ -36,6 +36,7 @@ type FieldSchemaDTO struct {
 	IsEditable     bool       `json:"is_editable"`
 	Default        float64    `json:"default"`
 	ExclusiveGroup string     `json:"exclusive_group,omitempty"`
+	OptionLabel    string     `json:"option_label,omitempty"`
 }
 
 // ToDTO converts a Template to its API representation. The result shares no
@@ -149,5 +150,6 @@ func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 		IsEditable:     s.IsEditable,
 		Default:        s.Default,
 		ExclusiveGroup: s.ExclusiveGroup,
+		OptionLabel:    s.OptionLabel,
 	}
 }

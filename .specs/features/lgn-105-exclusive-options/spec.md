@@ -216,8 +216,8 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-20 | P1: Spellcasting ability is a single choice | Execute | Verified |
 | EXC-21 | P1: Spellcasting ability is a single choice | Execute | Verified |
 | EXC-22 | P1: Spellcasting ability is a single choice | Execute | Verified |
-| EXC-23 | P1: Standardized option labels and flag controls | Execute | Pending |
-| EXC-24 | P1: Standardized option labels and flag controls | Execute | Pending |
+| EXC-23 | P1: Standardized option labels and flag controls | Execute | Implementing |
+| EXC-24 | P1: Standardized option labels and flag controls | Execute | Implementing |
 | EXC-25 | P1: Standardized option labels and flag controls | Execute | Pending |
 | EXC-26 | P1: Standardized option labels and flag controls | Execute | Pending |
 | EXC-27 | P1: Standardized option labels and flag controls | Execute | Pending |

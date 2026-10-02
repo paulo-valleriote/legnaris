@@ -571,10 +571,10 @@ T20 → T21
 
 **Done when**:
 
-- [ ] A schema with an option label serializes `"option_label":"<label>"`; a schema without one omits the key
-- [ ] `ToDTO` copies the value and shares no memory with the source
-- [ ] Gate check passes: `go test ./internal/sheet/template/...`
-- [ ] Test count: DTO include/omit/copy cases, no silent deletions
+- [x] A schema with an option label serializes `"option_label":"<label>"`; a schema without one omits the key
+- [x] `ToDTO` copies the value and shares no memory with the source
+- [x] Gate check passes: `go test ./internal/sheet/template/...`
+- [x] Test count: DTO include/omit/copy cases, no silent deletions
 
 **Tests**: unit
 **Gate**: quick (backend)

@@ -52,6 +52,7 @@ func TestTemplateToDTO_DoesNotAliasFields(t *testing.T) {
 				schema := dtoLeaf(*dto)
 				schema.Formula = "tampered"
 				schema.IsEditable = !schema.IsEditable
+				schema.OptionLabel = "tampered"
 			},
 		},
 		{
@@ -166,6 +167,61 @@ func TestFieldSchemaToDTO_CopiesExclusiveGroup(t *testing.T) {
 
 	dto.ExclusiveGroup = "tampered"
 	assert.Equal(t, "armorClassAbility", source.ExclusiveGroup,
+		"mutating the DTO changed the source schema")
+}
+
+// TestFieldSchemaDTO_MarshalJSON_OptionLabel pins the option-label metadata
+// (EXC-23/EXC-24): a declared label is serialized verbatim, while an absent or
+// empty label omits the key so every untagged leaf stays byte-identical to the
+// pre-LGN-105 payload.
+func TestFieldSchemaDTO_MarshalJSON_OptionLabel(t *testing.T) {
+	tests := []struct {
+		name        string
+		optionLabel string
+		want        string
+	}{
+		{
+			name:        "Happy path: a declared label is serialized",
+			optionLabel: "Dexterity",
+			want:        `{"type":"number","label":"","is_editable":true,"default":0,"option_label":"Dexterity"}`,
+		},
+		{
+			name:        "Edge: an empty label omits the key",
+			optionLabel: "",
+			want:        `{"type":"number","label":"","is_editable":true,"default":0}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := json.Marshal(FieldSchemaDTO{
+				Type:        fieldTypeNumber,
+				IsEditable:  true,
+				OptionLabel: tc.optionLabel,
+			})
+			require.NoError(t, err)
+
+			assert.JSONEq(t, tc.want, string(raw))
+		})
+	}
+}
+
+// TestFieldSchemaToDTO_CopiesOptionLabel pins the copy half of the option-label
+// contract (EXC-23): toDTO carries the label into a fresh schema, so a caller
+// that mutates the DTO never reaches the registered template.
+func TestFieldSchemaToDTO_CopiesOptionLabel(t *testing.T) {
+	source := &FieldSchema{
+		Type:        fieldTypeNumber,
+		IsEditable:  true,
+		OptionLabel: "Charisma",
+	}
+
+	dto := source.toDTO()
+	require.NotNil(t, dto)
+	assert.Equal(t, "Charisma", dto.OptionLabel)
+
+	dto.OptionLabel = "tampered"
+	assert.Equal(t, "Charisma", source.OptionLabel,
 		"mutating the DTO changed the source schema")
 }
 
