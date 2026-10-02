@@ -260,11 +260,11 @@ T7
 
 **Done when**:
 
-- [ ] `path_provider` is in `desktop/pubspec.yaml` and `pubspec.lock` resolved
-- [ ] `main` resolves the support directory and overrides `appSupportDirectoryProvider`
-- [ ] Existing `app_boot_test.dart` and the whole suite stay green
-- [ ] Gate check passes: `flutter analyze && flutter test`
-- [ ] Test count: 0 new (bootstrap glue; existing suite unchanged and green)
+- [x] `path_provider` is in `desktop/pubspec.yaml` and `pubspec.lock` resolved
+- [x] `main` resolves the support directory and overrides `appSupportDirectoryProvider`
+- [x] Existing `app_boot_test.dart` and the whole suite stay green
+- [x] Gate check passes: `flutter analyze && flutter test`
+- [x] Test count: 0 new (bootstrap glue; existing suite unchanged and green)
 
 **Tests**: none
 **Gate**: build
