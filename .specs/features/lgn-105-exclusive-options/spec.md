@@ -202,11 +202,11 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-06 | P1: Backend enforces at most one active member | Execute | Verified |
 | EXC-07 | P1: Backend enforces at most one active member | Execute | Verified |
 | EXC-08 | P1: Backend enforces at most one active member | Execute | Verified |
-| EXC-09 | P1: Desktop renders a group as one control | Execute | Implementing |
-| EXC-10 | P1: Desktop renders a group as one control | Execute | Implementing |
-| EXC-11 | P1: Desktop renders a group as one control | Execute | Implementing |
+| EXC-09 | P1: Desktop renders a group as one control | Execute | Verified |
+| EXC-10 | P1: Desktop renders a group as one control | Execute | Verified |
+| EXC-11 | P1: Desktop renders a group as one control | Execute | Verified |
 | EXC-12 | P1: Desktop renders a group as one control | Execute | Verified |
-| EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Implementing |
+| EXC-13 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-14 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-15 | P1: Desktop selection keeps at most one member on | Execute | Verified |
 | EXC-16 | P1: Desktop selection keeps at most one member on | Execute | Verified |
@@ -216,14 +216,14 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | EXC-20 | P1: Spellcasting ability is a single choice | Execute | Verified |
 | EXC-21 | P1: Spellcasting ability is a single choice | Execute | Verified |
 | EXC-22 | P1: Spellcasting ability is a single choice | Execute | Verified |
-| EXC-23 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-24 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-25 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-26 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-27 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-28 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-29 | P1: Standardized option labels and flag controls | Execute | Implementing |
-| EXC-30 | P1: Standardized option labels and flag controls | Execute | Implementing |
+| EXC-23 | P1: Standardized option labels and flag controls | Execute | Verified |
+| EXC-24 | P1: Standardized option labels and flag controls | Execute | Verified |
+| EXC-25 | P1: Standardized option labels and flag controls | Execute | Verified |
+| EXC-26 | P1: Standardized option labels and flag controls | Execute | Verified |
+| EXC-27 | P1: Standardized option labels and flag controls | Execute | Verified |
+| EXC-28 | P1: Standardized option labels and flag controls | Execute | Verified |
+| EXC-29 | P1: Standardized option labels and flag controls | Execute | Verified |
+| EXC-30 | P1: Standardized option labels and flag controls | Execute | Verified |
 
 **ID format:** `EXC-[NUMBER]`
 
