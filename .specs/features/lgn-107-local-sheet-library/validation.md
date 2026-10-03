@@ -157,3 +157,32 @@ Not applied to `spec.md` (verifier is read-only over the real tree). Recorded he
 **Issues found**: none.
 
 **Next steps**: Feature is done. The orchestrator may record a lessons entry for the round-1 signal (weak upsert-replacement and UTC-conversion assertions, now fixed) per validate.md §10.
+
+---
+
+## Review-Fix Round Addendum (2026-10-03)
+
+The Judge review of PR #54 published five findings (F1-F5); the code fixes
+landed as `8a7e51f` (F2 load refactor), `2779131` (F3 rename-failure outcome),
+`ff2da81` (F1 per-process temp + AC5 scoping) and `6ab7052` (F4 shared fixture).
+The report above stays pinned to the validated snapshot `3b5a4f9` — its
+`file:line` references point at that snapshot. This addendum registers the three
+tests added by the fixes with current line numbers.
+
+**Gate re-run after the fix commits** (same command as Gate Check, author-run):
+`cd desktop && flutter analyze && flutter test` → analyze "No issues found!";
+**420 passed, 0 failed, 4 skipped** (417 baseline + 3 new tests; the 4 skips are
+the pre-existing `live_contract_test.dart` ones).
+
+| New test | AC mapping | Current `file:line` + assertion | Result |
+| -------- | ---------- | ------------------------------- | ------ |
+| migrator `FormatException` is quarantined (F2, locks the single-try contract) | LIB-17 | `desktop/test/library/sheet_library_store_test.dart:221` (test), `:232` - `expect(result.outcome, LibraryLoadOutcome.quarantined)`; `:233` | ✅ PASS |
+| quarantine rename failure reports `empty`, file kept, next save overwrites (F3) | LIB-17, LIB-19 | `desktop/test/library/sheet_library_store_test.dart:176` (test), `:189` - `expect(result.outcome, LibraryLoadOutcome.empty)`; `:191` - `expect(storeFile().readAsStringSync(), 'not json')`; `:194` - `expect(storeFile().readAsStringSync(), contains('"id-1"'))` | ✅ PASS |
+| per-process temps: save never shares a foreign temp, load sweeps stale ones (F1) | LIB-12, LIB-14 | `desktop/test/library/sheet_library_store_test.dart:257` (test), `:267` - `expect(foreignTemp.existsSync(), isTrue)`; `:275` - ids `['id-1','id-2']`; `:276` - `expect(foreignTemp.existsSync(), isFalse)` | ✅ PASS |
+
+**Shifted anchors** (post-fix coordinates for re-running the sensor above):
+`sheet_library_store.dart` envelope line (mutant 1 target) → `:162`; newer-version
+guard (mutant 2 target, `version > currentSchemaVersion`) → `:111`;
+`SPEC_DEVIATION` → `:56`. Store test ranges: save block `:31-128`, load/recovery
+and temp block `:130-277`. Test totals: store 16 (was 13), provider 14, entry 8,
+exception 3 → 41 feature tests; suite 379 → 420.
