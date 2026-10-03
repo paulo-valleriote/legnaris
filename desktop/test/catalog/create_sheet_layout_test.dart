@@ -107,6 +107,21 @@ void main() {
       await pumpDialogAt(tester, const Size(640, 480));
       await expectNoOverlap(tester);
 
+      await tester.enterText(
+        find.byKey(const Key('create-sheet-name-input')),
+        'Reachable',
+      );
+      await tester.pump();
+      final submit = find.byKey(const Key('create-sheet-submit'));
+      expect(
+        tester.widget<TextButton>(submit).onPressed,
+        isNotNull,
+        reason: 'the Create action must be reachable at the minimum size',
+      );
+      final submitRect = tester.getRect(submit);
+      expect(submitRect.top, greaterThanOrEqualTo(0));
+      expect(submitRect.bottom, lessThanOrEqualTo(480));
+
       final scroll = find.descendant(
         of: find.byKey(const Key('create-sheet-preview')),
         matching: find.byType(SingleChildScrollView),

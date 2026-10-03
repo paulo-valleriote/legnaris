@@ -210,6 +210,9 @@ void main() {
       (tester) async {
         final harness = await pumpActions(tester);
         expect(harness.container.read(activeSheetIdProvider), isNull);
+        // Keep the autoDispose tick alive so an unconditional bump would be
+        // observable and kill the mutant that drops the guard.
+        harness.container.listen(sheetSaveTickProvider, (_, _) {});
 
         const ActionDispatcher().invokeAction(
           harness.actions[SaveSheetIntent]!,

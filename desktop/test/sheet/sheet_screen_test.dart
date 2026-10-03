@@ -1689,6 +1689,18 @@ void main() {
         expect(find.byKey(const Key('sheet-save')), findsOneWidget);
         expect(saveButton(tester).onPressed, isNull);
         expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Tooltip &&
+                widget.message ==
+                    lookupAppLocalizations(
+                      const Locale('en'),
+                    ).sheetSaveNoChangesTooltip,
+          ),
+          findsOneWidget,
+          reason: 'a disabled Save must explain itself via tooltip (SAV-02)',
+        );
 
         await tester.enterText(
           find.byKey(const Key('sheet-input-stats.dexterity')),
@@ -1698,6 +1710,18 @@ void main() {
 
         expect(find.byKey(const Key('sheet-local-edits')), findsOneWidget);
         expect(saveButton(tester).onPressed, isNotNull);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Tooltip &&
+                widget.message ==
+                    lookupAppLocalizations(
+                      const Locale('en'),
+                    ).sheetSaveNoChangesTooltip,
+          ),
+          findsNothing,
+          reason: 'an enabled Save must not carry the no-changes tooltip',
+        );
 
         await tester.tap(find.byKey(const Key('sheet-save')));
         await tester.pumpAndSettle();
@@ -1742,6 +1766,13 @@ void main() {
         expect(find.byKey(const Key('sheet-save-error')), findsOneWidget);
         expect(find.text(errorCopy(ApiErrorKind.invalidEdit)), findsOneWidget);
         expect(find.byKey(const Key('sheet-local-edits')), findsOneWidget);
+        expect(
+          tester.getRect(find.byKey(const Key('sheet-save-error'))).bottom,
+          lessThanOrEqualTo(
+            tester.getRect(find.byKey(const Key('sheet-save'))).top,
+          ),
+          reason: 'the mapped error must sit above the action row (SAV-19)',
+        );
         expect(find.byKey(const Key('sheet-input-stats.dexterity')), findsOneWidget);
         expect(patches(recorded), hasLength(1));
 
@@ -1786,6 +1817,52 @@ void main() {
         gate.complete(http.Response('{"data": {}}', 200));
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Happy path: a cascade merge rebuilds only the controls whose value changed (SAV-15)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.method == 'PATCH'
+              ? http.Response('{"data": {"derived": {"armorClass": 13}}}', 200)
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        final before = {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+
+        await tester.tap(find.byKey(const Key('sheet-save')));
+        await tester.pumpAndSettle();
+
+        final after = {
+          for (final control in tester.widgetList<SheetFieldControl>(
+            find.byType(SheetFieldControl),
+          ))
+            control.path: control,
+        };
+        expect(recorded.where((request) => request.method == 'PATCH'), hasLength(1));
+        for (final path in before.keys) {
+          final changed = path == 'derived.armorClass';
+          expect(
+            identical(after[path], before[path]),
+            changed ? isFalse : isTrue,
+            reason: changed
+                ? '$path changed in the cascade and must rebuild'
+                : '$path did not change and must not rebuild',
+          );
+        }
       },
     );
 

@@ -70,6 +70,12 @@ T4 -> T5
 T3 -> T6
 ```
 
+### Phase 4: Verifier gap fixes
+
+```
+T3 -> T7
+```
+
 ---
 
 ## Task Breakdown
@@ -252,19 +258,50 @@ T3 -> T6
 
 ---
 
+### T7: Close the Verifier gaps
+
+**What**: Harden the tests the independent Verifier flagged: assert the disabled Save carries the no-changes tooltip and that an enabled Save does not (SAV-02); assert a cascade merge rebuilds only the changed control (SAV-15); assert the mapped save error sits above the action row (SAV-19); hold `sheetSaveTickProvider` alive in the no-active-sheet dispatch test so the active-sheet guard is discriminated (SAV-07 mutant); and at the minimum dialog size enter a name and assert the Create action is enabled and inside the viewport (DIA-04).
+**Where**: `desktop/test/sheet/sheet_screen_test.dart`, `desktop/test/shell/shortcut_registry_test.dart`, `desktop/test/catalog/create_sheet_layout_test.dart`
+**Depends on**: T3
+**Reuses**: the existing save-footer, registry and layout harnesses
+**Requirement**: SAV-02, SAV-07, SAV-15, SAV-19, DIA-04
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [x] The no-changes tooltip is asserted on the disabled Save and absent when enabled
+- [x] A cascade merge rebuilds only the control whose value changed
+- [x] The mapped save error is asserted above the Save action row
+- [x] The no-active-sheet dispatch test holds the tick alive so an unconditional bump fails
+- [x] The Create action is enabled and inside the viewport at 640×480
+- [x] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart test/shell/shortcut_registry_test.dart test/catalog/create_sheet_layout_test.dart`
+- [x] Test count: screen 47, registry 9, layout 3 (59 total; +4 new assertions/tests, no silent deletions)
+
+**Tests**: widget
+**Gate**: quick
+
+**Commit**: `test(desktop): close the save cycle verifier gaps`
+
+---
+
 ## Phase Execution Map
 
 ```
-Phase 1 → Phase 2 → Phase 3
+Phase 1 → Phase 2 → Phase 3 → Phase 4
 
 T1
 T2 -> T3 -> T4 -> T5
 T3 -> T6
+T3 -> T7
 ```
 
 Execution is strictly sequential - there is no intra-phase parallelism. A single agent works one task at a time, in order.
 
-**Packing:** 6 tasks total. That fits one task-budgeted batch (≤ ~8), so Execute runs inline in the main window - no batch sub-agents. The always-on Verifier still runs after the last task.
+**Packing:** 7 tasks total. That fits one task-budgeted batch (≤ ~8), so Execute runs inline in the main window - no batch sub-agents. The always-on Verifier still runs after the last task.
 
 ---
 
@@ -278,6 +315,7 @@ Execution is strictly sequential - there is no intra-phase parallelism. A single
 | T4: Screen 2 footer with the Save action | 1 footer widget + its strings | ✅ Cohesive |
 | T5: Ctrl+S saves the open sheet | 1 binding + 1 dispatch seam | ✅ Cohesive |
 | T6: Save-in-flight guards | 1 guard behavior in one screen | ✅ Granular |
+| T7: Close the Verifier gaps | test hardening for 4 requirements in one test area | ✅ Cohesive |
 
 **Granularity check**:
 
@@ -297,6 +335,7 @@ Execution is strictly sequential - there is no intra-phase parallelism. A single
 | T4 | T3 | T3 -> T4 | ✅ Match |
 | T5 | T4 | T4 -> T5 | ✅ Match |
 | T6 | T3 | T3 -> T6 | ✅ Match |
+| T7 | T3 | T3 -> T7 | ✅ Match |
 
 Every `Depends on` points backward or within the same phase; no forward-phase dependency exists.
 
@@ -328,12 +367,12 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | Requirement ID | Task(s) | Status |
 | -------------- | ------- | ------ |
 | SAV-01 | T4 | Done |
-| SAV-02 | T4 | Done |
+| SAV-02 | T4, T7 | Done |
 | SAV-03 | T4 | Done |
 | SAV-04 | T4 | Done |
 | SAV-05 | T5 | Done |
 | SAV-06 | T4, T5, T6 | Done |
-| SAV-07 | T5 | Done |
+| SAV-07 | T5, T7 | Done |
 | SAV-08 | T3 | Done |
 | SAV-09 | T3 | Done |
 | SAV-10 | T3 | Done |
@@ -341,11 +380,11 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | SAV-12 | T3 | Done |
 | SAV-13 | T2, T3 | Done |
 | SAV-14 | T3 | Done |
-| SAV-15 | T3 | Done |
+| SAV-15 | T3, T7 | Done |
 | SAV-16 | T3 | Done |
 | SAV-17 | T3 | Done |
 | SAV-18 | T3 | Done |
-| SAV-19 | T3 | Done |
+| SAV-19 | T3, T7 | Done |
 | SAV-20 | T3 | Done |
 | SAV-21 | T3 | Done |
 | SAV-22 | T3 | Done |
@@ -353,6 +392,6 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | DIA-01 | T1 | Done |
 | DIA-02 | T1 | Done |
 | DIA-03 | T1 | Done |
-| DIA-04 | T1 | Done |
+| DIA-04 | T1, T7 | Done |
 
 **Coverage:** 27 total, 27 mapped to tasks, 0 unmapped.
