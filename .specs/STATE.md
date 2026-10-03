@@ -38,10 +38,10 @@
 
 - **Feature**: `lgn-109-create-sheet` (.specs/features/lgn-109-create-sheet)
 - **Phase / Task**: Execute — COMPLETE (T1–T4 committed; Verifier PASS on round 2, `validate_state.py` exit 0)
-- **Completed**: T1 opened-sheet seed seam, T2 dialog submit (name validation, single POST, library upsert, inline error + retry), T3 Screen 2 title, T4 catalog navigation. A test-only fix commit `7be258d` closed two Verifier edge-case notes; round-2 PASS (11/11 ACs, 3/3 mutants killed, 433 tests green). Report: `.specs/features/lgn-109-create-sheet/validation.md`.
+- **Completed**: T1 opened-sheet seed seam, T2 dialog submit (name validation, single POST, library upsert, inline error + retry), T3 Screen 2 title, T4 catalog navigation. A test-only fix commit `7be258d` closed two Verifier edge-case notes; round-2 PASS (11/11 ACs, 3/3 mutants killed, 433 tests green). PR #55 opened; Jira LGN-109 commented. Report: `.specs/features/lgn-109-create-sheet/validation.md`.
 - **In-progress** (file:line): none
-- **Next step**: open the PR for `feat/lgn-109-create-sheet` (base `main`). Push is not yet authorized.
-- **Blockers**: none. LGN-108 ("Abrir ficha": library list + `GET /sheets/:id`) is still To Do; this card intentionally opens the created sheet from the `201` payload (AD-004).
-- **Uncommitted files**: none; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
-- **Branch**: feat/lgn-109-create-sheet (based on main @ 1553730)
+- **Next step**: review and merge PR #55 (https://github.com/paulo-valleriote/legnaris/pull/55), then start LGN-108 ("Abrir ficha").
+- **Blockers**: none. LGN-108 ("Abrir ficha": library list + `GET /sheets/:id`) is the follow-up; this card intentionally opens the created sheet from the `201` payload (AD-004).
+- **Uncommitted files**: none; branch pushed, PR #55 opened, Jira LGN-109 commented.
+- **Branch**: feat/lgn-109-create-sheet (pushed; PR #55 → main)
 - **Prior feature**: `lgn-107-local-sheet-library` — COMPLETE (merged #54)
