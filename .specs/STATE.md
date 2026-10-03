@@ -44,12 +44,12 @@
 
 ## Handoff
 
-- **Feature**: `lgn-109-create-sheet` (.specs/features/lgn-109-create-sheet)
-- **Phase / Task**: Execute — COMPLETE (T1–T4 committed; Verifier PASS on round 2, `validate_state.py` exit 0)
-- **Completed**: T1 opened-sheet seed seam, T2 dialog submit (name validation, single POST, library upsert, inline error + retry), T3 Screen 2 title, T4 catalog navigation. A test-only fix commit `7be258d` closed two Verifier edge-case notes; round-2 PASS (11/11 ACs, 3/3 mutants killed, 433 tests green). PR #55 opened; Jira LGN-109 commented. Report: `.specs/features/lgn-109-create-sheet/validation.md`.
+- **Feature**: `lgn-108-open-sheet` (.specs/features/lgn-108-open-sheet)
+- **Phase / Task**: Execute — COMPLETE (T1–T5 committed; independent Verifier PASS 21/21, 4/4 mutants killed; `validate_state.py` exit 0)
+- **Completed**: T1 `seedFromSheet` per-key seeding, T2 `SheetOpenController` (GET by id, loading/error, NOT_FOUND eviction), T3 Screen 2 retargeted to the sheet id (edit family key, seeding overlay, preview removed), T4 Screen 1 "My sheets" section (list/open/remove + confirmation), T5 catalog embeds the section and opens from it. Commits `1229ce4`, `2b9cf1a`, `cdd0b02`, `0b2e3e4`, `d9a8119` (docs `f8a740c`). Report: `.specs/features/lgn-108-open-sheet/validation.md`.
 - **In-progress** (file:line): none
-- **Next step**: review and merge PR #55 (https://github.com/paulo-valleriote/legnaris/pull/55), then start LGN-108 ("Abrir ficha").
-- **Blockers**: none. LGN-108 ("Abrir ficha": library list + `GET /sheets/:id`) is the follow-up; this card intentionally opens the created sheet from the `201` payload (AD-004).
-- **Uncommitted files**: none; branch pushed, PR #55 opened, Jira LGN-109 commented.
-- **Branch**: feat/lgn-109-create-sheet (pushed; PR #55 → main)
-- **Prior feature**: `lgn-107-local-sheet-library` — COMPLETE (merged #54)
+- **Next step**: review the branch `feat/lgn-108-open-sheet` and open a PR. No remote push has been performed (blast radius: local commits only).
+- **Blockers**: none. Two non-blocking Verifier notes: the back/F5 guard tests exercise the guard via the injected-sheet seed (same code path, keyed by sheet id); the "keep library entry after a template-detail failure" half holds by construction (no `library.remove` on that path) rather than a direct seeded assertion.
+- **Uncommitted files**: validation report + traceability update (this commit). Working tree otherwise clean.
+- **Branch**: `feat/lgn-108-open-sheet` (local only; based on `7508d4d`)
+- **Prior feature**: `lgn-109-create-sheet` — COMPLETE (PR #55, merged); `lgn-107-local-sheet-library` — COMPLETE (merged #54)
