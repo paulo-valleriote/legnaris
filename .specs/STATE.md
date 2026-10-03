@@ -18,14 +18,22 @@
 - **Date**: 2026-10-01
 - **Status**: active
 
+### AD-003
+- **Decision**: Local persistence lives in `desktop/lib/library/` as a versioned JSON file (`sheet_library.json`) in the OS application-support directory, written atomically via temp-file + rename, behind an injectable `appSupportDirectoryProvider` (`path_provider`, resolved in `main()`); the store API is synchronous and the `SheetLibrary` Riverpod notifier owns the in-memory index with write-through saves.
+- **Reason**: The local sheet library must survive restarts, migrate by `schema_version`, and quarantine a corrupt/unsupported file without losing its bytes — file-level atomic replace and byte-preserving quarantine require owning the file, which `shared_preferences` hides. Sync I/O is safe on Dart's single isolate for a tiny index and keeps providers synchronous.
+- **Trade-off**: Adds the first-party `path_provider` dependency and a manual migration/versioning path; tests must override the directory (the platform channel is unavailable otherwise). `shared_preferences` would be fewer lines but cannot satisfy the quarantine/atomicity contract.
+- **Scope**: desktop/ local persistence — the sheet library now; the dev base-URL override and UI preferences follow the same convention later.
+- **Date**: 2026-10-02
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: `lgn-105-exclusive-options` (.specs/features/lgn-105-exclusive-options)
-- **Phase / Task**: Execute — COMPLETE (T1–T21; increments 1–3 each independently verified, Verifier PASS)
-- **Completed**: T1–T11 (exclusive contract + DAG + desktop; PASS), T12–T15 (spellcasting group + remove `spells.ability`; PASS), T16–T21 (increment 3: unified dropdown + checkbox + `option_label`; PASS, report in `.specs/features/lgn-105-exclusive-options/validation.md`)
+- **Feature**: `lgn-107-local-sheet-library` (.specs/features/lgn-107-local-sheet-library)
+- **Phase / Task**: Execute — COMPLETE (T1–T7 committed; Verifier PASS on round 2, `validate_state.py` exit 0)
+- **Completed**: T1 entry model, T2 typed error, T3 `store.save`, T4 `store.load` + version recovery, T5 store providers + directory seam, T6 `SheetLibrary` notifier, T7 bootstrap. A round-1 Verifier FAIL on three test-coverage gaps was fixed in `3b5a4f9` (full upsert replacement, real-store durability, non-UTC serialization). Report: `.specs/features/lgn-107-local-sheet-library/validation.md` (23/23 ACs, 8/8 mutants killed, 417 tests green).
 - **In-progress** (file:line): none
-- **Next step**: review/merge PR #53; deploy the prod app stack so `api.legnaris.com.br` serves the increment
+- **Next step**: open the PR for `feat/lgn-107-local-sheet-library` (base `feat/lgn-105-exclusive-options`, or `main` once PR #53 merges). Push is not yet authorized.
 - **Blockers**: none
-- **Uncommitted files**: none; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
-- **Branch**: feat/lgn-105-exclusive-options (PR #53)
-- **Prior feature**: `lgn-102-granular-rebuild` — COMPLETE (Verifier PASS, report in `.specs/features/lgn-102-granular-rebuild/validation.md`)
+- **Uncommitted files**: none after the final report/lessons commit; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
+- **Branch**: feat/lgn-107-local-sheet-library (based on feat/lgn-105-exclusive-options / PR #53)
+- **Prior feature**: `lgn-105-exclusive-options` — COMPLETE (Verifier PASS, report in `.specs/features/lgn-105-exclusive-options/validation.md`)

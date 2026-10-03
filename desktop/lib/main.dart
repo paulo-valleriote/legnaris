@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/shell/shortcut_registry.dart';
 import 'package:legnaris/theme/app_theme.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'main.g.dart';
@@ -15,9 +17,14 @@ part 'main.g.dart';
 @riverpod
 String appTitle(Ref ref) => 'Legnaris';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final directory = await getApplicationSupportDirectory();
   runApp(
-    const ProviderScope(child: LegnarisApp()),
+    ProviderScope(
+      overrides: [appSupportDirectoryProvider.overrideWithValue(directory)],
+      child: const LegnarisApp(),
+    ),
   );
 }
 
