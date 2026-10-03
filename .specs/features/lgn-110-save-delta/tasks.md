@@ -148,15 +148,15 @@ T3 -> T6
 
 **Done when**:
 
-- [ ] The delta contains exactly the changed editable leaves, omits a reverted field and never a derived leaf
-- [ ] An empty delta issues no PATCH and leaves `isSaving` false
-- [ ] A `200` merges the cascade, recomputes the baseline and clears `isPending`
-- [ ] An edit made during the request stays pending after the response
-- [ ] An empty `{}` cascade clears `isPending` without changing values
-- [ ] A failure keeps data/baseline/edits, sets `saveError` and adds no cascade
-- [ ] Two rapid `save()` calls issue exactly one PATCH; a retry after failure issues one further PATCH
-- [ ] Gate check passes: `flutter test test/sheet/sheet_edit_provider_test.dart`
-- [ ] Test count: recorded after the run (file total; +new, no silent deletions)
+- [x] The delta contains exactly the changed editable leaves, omits a reverted field and never a derived leaf
+- [x] An empty delta issues no PATCH and leaves `isSaving` false
+- [x] A `200` merges the cascade, recomputes the baseline and clears `isPending`
+- [x] An edit made during the request stays pending after the response
+- [x] An empty `{}` cascade clears `isPending` without changing values
+- [x] A failure keeps data/baseline/edits, sets `saveError` and adds no cascade
+- [x] Two rapid `save()` calls issue exactly one PATCH; a retry after failure issues one further PATCH
+- [x] Gate check passes: `flutter test test/sheet/sheet_edit_provider_test.dart`
+- [x] Test count: 23 tests pass (file total; +8 new, no silent deletions)
 
 **Tests**: unit
 **Gate**: quick
@@ -334,22 +334,22 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | SAV-05 | T5 | Pending |
 | SAV-06 | T4, T5, T6 | Pending |
 | SAV-07 | T5 | Pending |
-| SAV-08 | T3 | Pending |
-| SAV-09 | T3 | Pending |
-| SAV-10 | T3 | Pending |
-| SAV-11 | T3 | Pending |
-| SAV-12 | T3 | Pending |
-| SAV-13 | T2, T3 | Pending |
-| SAV-14 | T3 | Pending |
-| SAV-15 | T3 | Pending |
-| SAV-16 | T3 | Pending |
-| SAV-17 | T3 | Pending |
-| SAV-18 | T3 | Pending |
-| SAV-19 | T3 | Pending |
-| SAV-20 | T3 | Pending |
-| SAV-21 | T3 | Pending |
-| SAV-22 | T3 | Pending |
-| SAV-23 | T3 | Pending |
+| SAV-08 | T3 | Done |
+| SAV-09 | T3 | Done |
+| SAV-10 | T3 | Done |
+| SAV-11 | T3 | Done |
+| SAV-12 | T3 | Done |
+| SAV-13 | T2, T3 | Done |
+| SAV-14 | T3 | Done |
+| SAV-15 | T3 | Done |
+| SAV-16 | T3 | Done |
+| SAV-17 | T3 | Done |
+| SAV-18 | T3 | Done |
+| SAV-19 | T3 | Done |
+| SAV-20 | T3 | Done |
+| SAV-21 | T3 | Done |
+| SAV-22 | T3 | Done |
+| SAV-23 | T3 | Done |
 | DIA-01 | T1 | Done |
 | DIA-02 | T1 | Done |
 | DIA-03 | T1 | Done |
