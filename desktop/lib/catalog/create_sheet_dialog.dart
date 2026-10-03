@@ -66,7 +66,7 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
             ],
             _information(context, state, localizations),
             const SizedBox(height: AppSpacing.lg),
-            _preview(context, state, localizations),
+            Flexible(child: _preview(context, state, localizations)),
             if (_errorMessage != null) ...[
               const SizedBox(height: AppSpacing.md),
               Text(
@@ -264,17 +264,19 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
-            ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxHeight: AppSizes.previewCardMaxHeight,
-              ),
-              child: Scrollbar(
-                controller: _previewScrollController,
-                thumbVisibility: true,
-                child: SingleChildScrollView(
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxHeight: AppSizes.previewCardMaxHeight,
+                ),
+                child: Scrollbar(
                   controller: _previewScrollController,
-                  padding: const EdgeInsets.only(right: AppSpacing.sm),
-                  child: _previewBody(context, state, localizations),
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: _previewScrollController,
+                    padding: const EdgeInsets.only(right: AppSpacing.sm),
+                    child: _previewBody(context, state, localizations),
+                  ),
                 ),
               ),
             ),

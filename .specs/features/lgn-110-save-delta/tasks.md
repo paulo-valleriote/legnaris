@@ -89,12 +89,12 @@ T3 -> T6
 
 **Done when**:
 
-- [ ] At 1280×720 the content issues no `RenderFlex` overflow and the submit rect does not intersect the preview rect
-- [ ] At 640×480 the same holds and the Create action stays reachable
-- [ ] The preview card still scrolls internally and its scrollbar stays visible
-- [ ] At 1280×800 the layout is unchanged
-- [ ] Gate check passes: `flutter test test/catalog/create_sheet_layout_test.dart`
-- [ ] Test count: recorded after the run (new file; every listed size present)
+- [x] At 1280×720 the content issues no `RenderFlex` overflow and the submit rect does not intersect the preview rect
+- [x] At 640×480 the same holds and the Create action stays reachable
+- [x] The preview card still scrolls internally and its scrollbar stays visible
+- [x] At 1280×800 the layout is unchanged
+- [x] Gate check passes: `flutter test test/catalog/create_sheet_layout_test.dart`
+- [x] Test count: 3 tests pass (new file; all three sizes present)
 
 **Tests**: widget
 **Gate**: quick
@@ -350,9 +350,9 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | SAV-21 | T3 | Pending |
 | SAV-22 | T3 | Pending |
 | SAV-23 | T3 | Pending |
-| DIA-01 | T1 | Pending |
-| DIA-02 | T1 | Pending |
-| DIA-03 | T1 | Pending |
-| DIA-04 | T1 | Pending |
+| DIA-01 | T1 | Done |
+| DIA-02 | T1 | Done |
+| DIA-03 | T1 | Done |
+| DIA-04 | T1 | Done |
 
 **Coverage:** 27 total, 27 mapped to tasks, 0 unmapped.
