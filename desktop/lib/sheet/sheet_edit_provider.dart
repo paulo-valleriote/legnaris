@@ -35,8 +35,9 @@ class SheetEditState {
     this.editedPaths = const {},
   });
 
-  /// Schema defaults the state was seeded from; the reference point for
-  /// [isPending].
+  /// Reference values the state was seeded from: the template schema defaults,
+  /// or the opened sheet's stored data when one moved into Screen 2. The
+  /// baseline [isPending] compares against.
   final Map<String, Object?> defaults;
 
   /// Current values. State maps are never mutated in place — every write
@@ -47,7 +48,7 @@ class SheetEditState {
   /// value no longer counts as pending.
   final Set<String> editedPaths;
 
-  /// True while any edited path differs from its seeded default: the marker
+  /// True while any edited path differs from its seeded reference: the marker
   /// and both discard guards key off this (GRN-11 … GRN-19).
   bool get isPending => editedPaths.any(
     (path) => valueAtPath(data, path) != valueAtPath(defaults, path),

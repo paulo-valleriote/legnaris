@@ -127,11 +127,12 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
       _isSubmitting = true;
       _errorMessage = null;
     });
+    final library = ref.read(sheetLibraryProvider.notifier);
     try {
       final sheet = await ref
           .read(apiClientProvider)
           .createSheet(templateId: widget.templateId, sheetName: name);
-      _registerInLibrary(sheet);
+      _registerInLibrary(library, sheet);
       if (!mounted) return;
       Navigator.of(context).pop(sheet);
     } catch (error) {
@@ -145,8 +146,10 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
 
   /// Records the created sheet in the local index. A write failure is
   /// non-fatal: the `201` is authoritative and retrying would create a second
-  /// sheet on the server (CRT-11).
-  void _registerInLibrary(Sheet sheet) {
+  /// sheet on the server (CRT-11). [library] is captured before the request so
+  /// the registration still lands when the dialog is dismissed mid-`POST`
+  /// (CRT-03).
+  void _registerInLibrary(SheetLibrary library, Sheet sheet) {
     final entry = SheetLibraryEntry(
       id: sheet.id,
       name: sheet.name,
@@ -154,7 +157,7 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
       createdAt: sheet.createdAt,
     );
     try {
-      ref.read(sheetLibraryProvider.notifier).upsert(entry);
+      library.upsert(entry);
     } on SheetLibraryException {
       return;
     }

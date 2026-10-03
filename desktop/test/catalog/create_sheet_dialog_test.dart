@@ -689,6 +689,36 @@ void main() {
     );
 
     testWidgets(
+      'Edge: dismissing the dialog while the create request is in flight still registers the created sheet (CRT-03)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final harness = await pumpDialog(
+          tester,
+          handler: (request) async => request.url.path == '/sheets'
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+        await typeName(tester, 'Aragorn');
+
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(CreateSheetDialog), findsNothing);
+
+        gate.complete(http.Response(createdBody, 201));
+        await tester.pumpAndSettle();
+
+        final entries = containerOf(tester).read(sheetLibraryProvider).entries;
+        expect(entries, hasLength(1));
+        expect(entries.single.id, 'sheet-1');
+        expect(entries.single.name, 'Aragorn');
+        expect(postsOf(harness.recorded), hasLength(1));
+      },
+    );
+
+    testWidgets(
       'Error: a failed create stays open with the mapped copy above the action row, registers nothing, and a retry posts once more (CRT-06, CRT-07)',
       (tester) async {
         var fail = true;
