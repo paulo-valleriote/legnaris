@@ -32,11 +32,13 @@ Map<String, Object?> seedDefaults(FieldGroup fields) {
 Map<String, Object?> seedFromSheet(
   FieldGroup fields,
   Map<String, Object?> data,
-) => _overlay(seedDefaults(fields), data);
+) => mergeCascade(seedDefaults(fields), data);
 
 /// Deep-merges [overrides] onto [base], recursing where both sides hold a map
-/// and replacing the leaf otherwise.
-Map<String, Object?> _overlay(
+/// and replacing the leaf otherwise; returns a fresh tree and never mutates an
+/// input. Shared by per-key sheet seeding and the incremental merge of the
+/// `PATCH /sheets/:id` cascade response.
+Map<String, Object?> mergeCascade(
   Map<String, Object?> base,
   Map<String, Object?> overrides,
 ) {
@@ -46,7 +48,7 @@ Map<String, Object?> _overlay(
     final value = entry.value;
     result[entry.key] =
         existing is Map<String, Object?> && value is Map<String, Object?>
-        ? _overlay(existing, value)
+        ? mergeCascade(existing, value)
         : value;
   }
   return result;

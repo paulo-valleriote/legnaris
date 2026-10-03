@@ -118,13 +118,13 @@ T3 -> T6
 
 **Done when**:
 
-- [ ] A new nested key is added at its path and an existing leaf is overwritten
-- [ ] A deep tree merges recursively instead of replacing a sibling map
-- [ ] An empty delta returns an equal tree
-- [ ] The inputs are not mutated
-- [ ] `seedFromSheet` still passes its existing tests
-- [ ] Gate check passes: `flutter test test/engine/sheet_defaults_test.dart`
-- [ ] Test count: recorded after the run (file total; +new, no silent deletions)
+- [x] A new nested key is added at its path and an existing leaf is overwritten
+- [x] A deep tree merges recursively instead of replacing a sibling map
+- [x] An empty delta returns an equal tree
+- [x] The inputs are not mutated
+- [x] `seedFromSheet` still passes its existing tests
+- [x] Gate check passes: `flutter test test/engine/sheet_defaults_test.dart`
+- [x] Test count: 18 tests pass (file total; +4 new, no silent deletions)
 
 **Tests**: unit
 **Gate**: quick
