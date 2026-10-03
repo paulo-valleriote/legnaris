@@ -39,13 +39,13 @@
 | OPN-14 IF confirmation dismissed THEN keep entry, zero API requests | row present, no save, no requests | `desktop/test/catalog/library_section_test.dart:177` - `expect(find.byKey(const Key('library-name-id-1')), findsOneWidget)`; `:178` - `expect(store.saveCalls, 0)`; `:179` - `expect(recorded, isEmpty)` | ✅ PASS |
 | OPN-15 IF local write fails on removal THEN keep entry + inline library error | row present, error key, no requests | `desktop/test/catalog/library_section_test.dart:203` - `expect(find.byKey(const Key('library-name-id-1')), findsOneWidget)`; `:204` - `expect(find.byKey(const Key('library-remove-error')), findsOneWidget)`; `:205` - `expect(recorded, isEmpty)` | ✅ PASS |
 | OPN-16 WHILE sheet open THEN exactly one active sheet, edit state discarded on pop | autoDispose state gone after pop; one active registration | `desktop/test/sheet/sheet_screen_test.dart:844`-`:848` - `expect(container.exists(sheetEditControllerProvider(sheetId)), isFalse, reason: 'popping must discard the autoDispose edit state')`; `:954`-`:955` active-sheet registration; `:977` cleared on unmount | ✅ PASS |
-| OPN-17 WHEN back with pending edits on an opened sheet THEN existing discard confirmation | dialog + consequence, no navigation | `desktop/test/sheet/sheet_screen_test.dart:806` - `expect(find.byType(AlertDialog), findsOneWidget)`; `:808`-`:812` exact leave copy; `:813` - `expect(find.byType(SheetScreen), findsOneWidget)`; `:814` unchanged request count | ✅ PASS (exercised via injected-sheet seed; guard is source-agnostic) |
-| OPN-18 WHEN F5 with pending edits on an opened sheet THEN existing discard confirmation | dialog + consequence, no reload before confirm | `desktop/test/sheet/sheet_screen_test.dart:1044` - `expect(find.byType(AlertDialog), findsOneWidget)`; `:1046`-`:1050` exact refresh copy; `:1051`-`:1055` - `expect(detailGets, 1)` + `expect(recorded, hasLength(1))` | ✅ PASS (injected seed path; same guard) |
+| OPN-17 WHEN back with pending edits on an opened sheet THEN existing discard confirmation | dialog + consequence, no navigation | `desktop/test/sheet/sheet_screen_test.dart:806` - `expect(find.byType(AlertDialog), findsOneWidget)`; `:808`-`:812` exact leave copy; `:813` - `expect(find.byType(SheetScreen), findsOneWidget)`; `:814` unchanged request count. **Library-fetch path (`injectSheet: false`, serves `GET /sheets/sheet-1` then `GET /templates/fantasy_v1`):** `:960`-`:981`; `:973` AlertDialog; `:974`-`:977` exact leave copy; `:980` screen stays | ✅ PASS |
+| OPN-18 WHEN F5 with pending edits on an opened sheet THEN existing discard confirmation | dialog + consequence, no reload before confirm | `desktop/test/sheet/sheet_screen_test.dart:1044` - `expect(find.byType(AlertDialog), findsOneWidget)`; `:1046`-`:1050` exact refresh copy; `:1051`-`:1055` - `expect(detailGets, 1)` + `expect(recorded, hasLength(1))`. **Library-fetch path:** `:985`-`:1014`; `:1002` AlertDialog; `:1003`-`:1006` exact refresh copy; `:1009`-`:1013` - `expect(detailGets, 1, reason: 'no template reload until the user confirms')` | ✅ PASS |
 | OPN-19 WHILE Screen 2 shows an opened library sheet THEN no mutation request | every recorded request is GET | `desktop/test/sheet/sheet_screen_test.dart:247` - `expect(recorded.where((request) => request.method != 'GET'), isEmpty)`; `:470`-`:471` - `hasLength(1)` + `single.method == 'GET'`; `:1264`, `:1437`, `:1506`, `:1577` GET-only. Unit: `desktop/test/sheet/sheet_edit_provider_test.dart:243`-`:244` | ✅ PASS |
 | OPN-20 WHEN catalog card renders THEN no "Preview sheet" action | no preview text/key; only Create sheet | `desktop/test/catalog/create_sheet_navigation_test.dart:357` - `expect(find.text('Preview sheet'), findsNothing)`; `:358` - `expect(find.byKey(const Key('catalog-preview-fantasy_v1')), findsNothing)`; `:360`-`:362` two `Create sheet` actions | ✅ PASS |
 | OPN-21 WHILE Screen 2 mounted THEN require stored sheet identity, no schema-only fake data | title from sheet, never template fallback | `desktop/test/sheet/sheet_screen_test.dart:515`-`:518` - `expect(tester.widget<Text>(find.byKey(const Key('sheet-title'))).data, '')` for an empty sheet name (not `'Fantasy Template'`); `create_sheet_navigation_test.dart:357`-`:364` no fake-data path, library stays empty | ✅ PASS |
 
-**Status**: ✅ All 21 ACs covered with spec-anchored `file:line` evidence. Minor notes (not gaps): OPN-17/OPN-18 exercise the guard through the injected-sheet seed (behavior is keyed by sheet id and identical for the library path); see Edge Cases for the two partial-evidence notes.
+**Status**: ✅ All 21 ACs covered with spec-anchored `file:line` evidence. The two prior minor notes are closed in re-verification round 1 (`f610afa`): OPN-17/OPN-18 now also reach the guards through the non-injected library-fetch path (`sheet_screen_test.dart:960`-`:981` and `:985`-`:1014`), and the "keep entry after template-detail failure" half is directly asserted at `library_open_navigation_test.dart:154`-`:160`.
 
 ---
 
@@ -93,7 +93,7 @@ Scratch: `git worktree add --detach /tmp/opencode/lgn108-sensor HEAD` (real tree
 - [x] Same sheet opened → popped → reopened re-issues one GET (no cache): `desktop/test/sheet/sheet_open_provider_test.dart:120` (`hasLength(2)` after disposal + re-listen).
 - [x] Library removal write fails → zero API requests: `desktop/test/catalog/library_section_test.dart:183` (`recorded, isEmpty`).
 - [x] `NOT_FOUND` eviction write fails → mapped message still renders, no crash: `desktop/test/sheet/sheet_open_provider_test.dart:210` (`isNotFound` true, entry kept).
-- [~] Template detail failure after sheet loaded → mapped message + Retry: covered at `desktop/test/sheet/sheet_screen_test.dart:253` and `:1155`. The "keep the entry in the library" half is not directly asserted in a single test (the tests use the injected seed); it holds by construction (`SheetScreen` never calls `library.remove` on a template failure). Spec-precision note, not a behavioral gap.
+- [x] Template detail failure after sheet loaded → mapped message + Retry **and** the library entry stays: `desktop/test/catalog/library_open_navigation_test.dart:152` - `expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget)`; `:153` - Retry present; `:154`-`:160` - `expect(container.read(sheetLibraryProvider).entries.map((e) => e.id), contains('sheet-1'), reason: 'a template failure must not evict the local entry')` (non-injected library-fetch path). Existing mapped+Retry coverage also at `desktop/test/sheet/sheet_screen_test.dart:253` and `:1155`.
 - [x] Opening retried while a request is in flight → exactly one outstanding: `desktop/test/sheet/sheet_open_provider_test.dart:272` (`hasLength(1)` for two rapid `load()`s).
 
 ---
@@ -101,13 +101,13 @@ Scratch: `git worktree add --detach /tmp/opencode/lgn108-sensor HEAD` (real tree
 ## Gate Check
 
 - **Gate command**: `flutter test` (Build gate per tasks.md; also ran `flutter analyze`)
-- **Result**: `flutter test`: **458 passed, 0 failed, 4 skipped** — `All tests passed!`
+- **Result**: `flutter test --concurrency=1` (re-verification round 1): **461 passed, 0 failed, 4 skipped** — `All tests passed!` (earlier parallel `flutter test`: 458 passed / 4 skipped / 0 failed — both green)
 - **`flutter analyze`**: **No issues found** (2.9s)
 - **Test count before feature** (`7508d4d`, static `test(`/`testWidgets(` declarations): 436
-- **Test count after feature** (HEAD, static declarations): 460 (+24; interpreter total 458 passed + 4 skipped = 462)
-- **Delta**: +24 static new tests (net of the 2 removed preview-navigation tests)
+- **Test count after feature**: 460 static at `d9a8119` (+24); `f610afa` adds +3 test-only (2 in `sheet_screen_test.dart`, 1 in `library_open_navigation_test.dart`) → 463 static; interpreter total 461 passed + 4 skipped = 465
+- **Delta**: +27 tests net of the 2 removed preview-navigation tests
 - **Skipped tests**: `desktop/test/contract/live_contract_test.dart` ×4 via `contractSkip(base)` — pre-existing live/contract skips, unrelated to this feature.
-- **Failures**: none. The known wall-clock `desktop/test/api/api_client_retry_test.dart` flake did **not** fail in this run (passed in the parallel run), so no `--concurrency=1` re-run was required.
+- **Failures**: none. The known wall-clock `desktop/test/api/api_client_retry_test.dart` flake passed in both the parallel and the serial (`--concurrency=1`) runs.
 
 ---
 
@@ -123,14 +123,16 @@ Scratch: `git worktree add --detach /tmp/opencode/lgn108-sensor HEAD` (real tree
 
 **Overall**: ✅ Ready
 
-**Spec-anchored check**: 21/21 ACs matched spec outcome (0 spec-precision gaps that change behavior; 2 minor notes: OPN-17/18 exercise the guard via the injected seed, and the "keep entry after template-detail failure" half is by-construction rather than a direct library assertion)
+**Spec-anchored check**: 21/21 ACs matched spec outcome (0 spec-precision gaps; the 2 prior minor notes are closed in re-verification round 1 — see below)
 
 **Sensor**: 4/4 mutations killed
 
-**Gate**: 458 passed, 0 failed, 4 skipped (pre-existing)
+**Gate**: 461 passed, 0 failed, 4 skipped (pre-existing) — serial re-run; also green in parallel
 
 **What works**: Screen 1 "My sheets" list (newest-first, empty state, name+template id+Open/Remove); open flow with exactly one `GET /sheets/:id` and loading state; per-key seeding (stored wins, unknown key carried, missing keeps default); `NOT_FOUND` eviction with no-Retry mapped message; non-404 keeps entry with Retry and single-flight re-request; creation flow still injects the `201` with zero sheet GETs; back/F5 discard guards on the sheet id; no mutations; "Preview sheet" removed; analyze clean.
 
 **Issues found**: none blocking.
+
+**Re-verification round 1 (`f610afa`)**: The two prior minor notes are closed. (1) OPN-17 and OPN-18 are now also asserted through the **non-injected library-fetch path** — `desktop/test/sheet/sheet_screen_test.dart:960`-`:981` (back-with-pending opens the discard confirmation, exact leave copy, screen stays) and `:985`-`:1014` (F5-with-pending opens the confirmation and `detailGets == 1`, i.e. no reload before confirm). (2) The template-detail-failure retention half is now directly asserted at `desktop/test/catalog/library_open_navigation_test.dart:152`-`:160` (mapped `serverError` copy + Retry + `sheetLibraryProvider.entries` still `contains('sheet-1')`). The commit is test-only and purely additive (`git show f610afa --stat`: 121 insertions, 0 deletions across the 2 test files) — **no existing assertion was weakened**. Serial gate `flutter test --concurrency=1`: 461 passed / 0 failed / 4 skipped. Verdict remains **PASS**.
 
 **Next steps**: None required; feature is verified and ready for distillation/orchestration.

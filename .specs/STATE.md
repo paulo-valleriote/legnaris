@@ -49,7 +49,7 @@
 - **Completed**: T1 `seedFromSheet` per-key seeding, T2 `SheetOpenController` (GET by id, loading/error, NOT_FOUND eviction), T3 Screen 2 retargeted to the sheet id (edit family key, seeding overlay, preview removed), T4 Screen 1 "My sheets" section (list/open/remove + confirmation), T5 catalog embeds the section and opens from it. Commits `1229ce4`, `2b9cf1a`, `cdd0b02`, `0b2e3e4`, `d9a8119` (docs `f8a740c`). Report: `.specs/features/lgn-108-open-sheet/validation.md`.
 - **In-progress** (file:line): none
 - **Next step**: review the branch `feat/lgn-108-open-sheet` and open a PR. No remote push has been performed (blast radius: local commits only).
-- **Blockers**: none. Two non-blocking Verifier notes: the back/F5 guard tests exercise the guard via the injected-sheet seed (same code path, keyed by sheet id); the "keep library entry after a template-detail failure" half holds by construction (no `library.remove` on that path) rather than a direct seeded assertion.
+- **Blockers**: none. The two non-blocking Verifier notes (back/F5 guards exercised only via the injected seed; template-failure retention by construction) were closed in `f610afa` with direct library-path assertions (`sheet_screen_test.dart` OPN-17/18 group, `library_open_navigation_test.dart` retention test); re-verification round 1 PASS (461 passed, 4 skipped, 4/4 mutants).
 - **Uncommitted files**: validation report + traceability update (this commit). Working tree otherwise clean.
 - **Branch**: `feat/lgn-108-open-sheet` (local only; based on `7508d4d`)
 - **Prior feature**: `lgn-109-create-sheet` — COMPLETE (PR #55, merged); `lgn-107-local-sheet-library` — COMPLETE (merged #54)
