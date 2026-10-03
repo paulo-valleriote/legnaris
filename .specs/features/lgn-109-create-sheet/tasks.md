@@ -111,14 +111,14 @@ T4
 
 **Done when**:
 
-- [ ] Empty / whitespace-only name keeps the action disabled and shows the name-required tooltip; no POST
-- [ ] A non-empty name enables the action; one activation issues exactly one POST whose body carries the trimmed `sheet_name` and the `template_id`
-- [ ] A second activation while in flight issues no additional POST
-- [ ] On `201` the library index gains the entry's four fields and the dialog pops with the created sheet
-- [ ] On failure the dialog stays open, renders the mapped copy inline, and the index is unchanged; a retry issues exactly one further POST
-- [ ] A forced library write failure after a `201` still pops with the sheet and issues no second POST
-- [ ] Gate check passes: `flutter test`
-- [ ] Test count: [N] tests pass (no silent deletions)
+- [x] Empty / whitespace-only name keeps the action disabled and shows the name-required tooltip; no POST
+- [x] A non-empty name enables the action; one activation issues exactly one POST whose body carries the trimmed `sheet_name` and the `template_id`
+- [x] A second activation while in flight issues no additional POST
+- [x] On `201` the library index gains the entry's four fields and the dialog pops with the created sheet
+- [x] On failure the dialog stays open, renders the mapped copy inline, and the index is unchanged; a retry issues exactly one further POST
+- [x] A forced library write failure after a `201` still pops with the sheet and issues no second POST
+- [x] Gate check passes: `flutter test`
+- [x] Test count: 23 tests pass in the dialog file (file total; +4 new, 2 updated to CRT-05), 427 across the suite (no silent deletions)
 
 **Tests**: widget
 **Gate**: full

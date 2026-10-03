@@ -109,17 +109,17 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| CRT-01 | P1: Create a sheet from the creation dialog | Execute | Pending |
-| CRT-02 | P1: Create a sheet from the creation dialog | Execute | Pending |
-| CRT-03 | P1: Create a sheet from the creation dialog | Execute | Pending |
+| CRT-01 | P1: Create a sheet from the creation dialog | Execute | Implementing |
+| CRT-02 | P1: Create a sheet from the creation dialog | Execute | Implementing |
+| CRT-03 | P1: Create a sheet from the creation dialog | Execute | Implementing |
 | CRT-04 | P1: Create a sheet from the creation dialog | Execute | Pending |
-| CRT-05 | P1: Create a sheet from the creation dialog | Execute | Pending |
-| CRT-06 | P1: Create a sheet from the creation dialog | Execute | Pending |
-| CRT-07 | P1: Create a sheet from the creation dialog | Execute | Pending |
+| CRT-05 | P1: Create a sheet from the creation dialog | Execute | Implementing |
+| CRT-06 | P1: Create a sheet from the creation dialog | Execute | Implementing |
+| CRT-07 | P1: Create a sheet from the creation dialog | Execute | Implementing |
 | CRT-08 | P1: Open the created sheet on Screen 2 with its stored values | Execute | Implementing |
 | CRT-09 | P1: Open the created sheet on Screen 2 with its stored values | Execute | Pending |
 | CRT-10 | P1: Open the created sheet on Screen 2 with its stored values | Execute | Implementing |
-| CRT-11 | P1: Create a sheet from the creation dialog | Execute | Pending |
+| CRT-11 | P1: Create a sheet from the creation dialog | Execute | Implementing |
 
 **ID format:** `CRT-[NUMBER]`
 

@@ -118,8 +118,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createSheetPrimaryAction => 'Create sheet';
 
   @override
-  String get createSheetCreateTooltip =>
-      'Sheet creation arrives in a later phase.';
+  String get createSheetNameRequiredTooltip => 'Enter a sheet name.';
 
   @override
   String get actionClose => 'Close';
