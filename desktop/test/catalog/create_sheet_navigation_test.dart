@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +12,8 @@ import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/sheet/sheet_screen.dart';
 import 'package:legnaris/shell/shell_state.dart';
 import 'package:legnaris/theme/app_theme.dart';
 import 'package:legnaris/theme/tokens.dart';
@@ -39,12 +44,15 @@ void main() {
     Future<http.Response> Function(http.Request request)? handler,
   }) async {
     final recorded = <http.Request>[];
+    final supportDir = Directory.systemTemp.createTempSync('lgn109-nav');
+    addTearDown(() => supportDir.deleteSync(recursive: true));
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appSupportDirectoryProvider.overrideWithValue(supportDir),
           apiClientProvider.overrideWithValue(
             ApiClient(
               httpClient: MockClient((request) async {
@@ -262,6 +270,116 @@ void main() {
           tester.getSize(find.widgetWithText(TextButton, 'Close')).height,
           AppSizes.controlHeight,
         );
+      },
+    );
+  });
+
+  group('creating a sheet from the dialog (CRT-03, CRT-04, CRT-08)', () {
+    const createdBody =
+        '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+
+    ProviderContainer containerOf(WidgetTester tester) =>
+        ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
+
+    int postCount(List<http.Request> recorded) => recorded
+        .where(
+          (request) =>
+              request.method == 'POST' && request.url.path == '/sheets',
+        )
+        .length;
+
+    testWidgets(
+      'Happy path: submitting creates the sheet, registers it, and opens Screen 2 with the created values (CRT-03, CRT-04, CRT-08)',
+      (tester) async {
+        final recorder = _PushRecorder();
+        final recorded = await pumpCatalog(
+          tester,
+          recorder,
+          handler: (request) async {
+            if (request.url.path == '/templates') {
+              return http.Response(twoTemplatesBody, 200);
+            }
+            if (request.url.path == '/templates/fantasy_v1') {
+              return http.Response(detailBody, 200);
+            }
+            if (request.url.path == '/sheets') {
+              return http.Response(createdBody, 201);
+            }
+            return http.Response('{}', 404);
+          },
+        );
+
+        await openDialog(tester, 'Fantasy Template');
+        await tester.enterText(
+          find.byKey(const Key('create-sheet-name-input')),
+          'Aragorn',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pumpAndSettle();
+
+        final posts = recorded
+            .where(
+              (request) =>
+                  request.method == 'POST' && request.url.path == '/sheets',
+            )
+            .toList();
+        expect(posts, hasLength(1));
+        expect(jsonDecode(posts.single.body), {
+          'template_id': 'fantasy_v1',
+          'sheet_name': 'Aragorn',
+        });
+
+        expect(find.byType(CreateSheetDialog), findsNothing);
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(
+          tester.widget<Text>(find.byKey(const Key('sheet-title'))).data,
+          'Aragorn',
+        );
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '16',
+        );
+
+        final entry = containerOf(
+          tester,
+        ).read(sheetLibraryProvider).entries.single;
+        expect(entry.id, 'sheet-1');
+        expect(entry.name, 'Aragorn');
+        expect(entry.templateId, 'fantasy_v1');
+      },
+    );
+
+    testWidgets(
+      'Edge: the preview action still opens Screen 2 with schema defaults and no library entry (CRT-03, CRT-04)',
+      (tester) async {
+        final recorder = _PushRecorder();
+        final recorded = await pumpCatalog(tester, recorder);
+
+        await tester.tap(find.byKey(const Key('catalog-preview-fantasy_v1')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(
+          tester.widget<Text>(find.byKey(const Key('sheet-title'))).data,
+          'Fantasy Template',
+        );
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '10',
+        );
+        expect(postCount(recorded), 0);
+        expect(containerOf(tester).read(sheetLibraryProvider).entries, isEmpty);
       },
     );
   });

@@ -18,13 +18,13 @@ Sheet? openedSheet(Ref ref) => null;
 ```
 
 - **Default (null)** — Screen 2 seeds from the template schema defaults, exactly as today. The catalog "Preview sheet" action keeps this path.
-- **Overridden per route** — the creation flow wraps the pushed Screen 2 in a `ProviderScope` with `openedSheetProvider.overrideWithValue(createdSheet)`. `SheetEditController.build` seeds its baseline and working data from `openedSheet.data`; `SheetScreen` renders `openedSheet.name` as the title.
+- **Overridden per route** — the creation flow wraps the pushed Screen 2 in a `ProviderScope` with `openedSheetProvider.overrideWithValue(createdSheet)`. `SheetEditController.build` seeds its baseline and working data from `openedSheet.data`; `SheetScreen` renders `openedSheet.name` as the title. A Riverpod nested scope shares non-overridden providers with its parent, so a controller created in the parent would not see the child's `openedSheet` override; the same scope therefore also overrides the controller family (`sheetEditControllerProvider.overrideWith2((_) => SheetEditController())`) so the notifier is created in the child scope and resolves `openedSheetProvider` there.
 
 The seeded `defaults` and `data` are equal at open (`isPending == false`, CRT-10); the first edit copies the tree (existing `_copyTree`) and marks pending relative to the created sheet's values, so the dirty/leave guards in GRN-11 … GRN-19 keep working without change.
 
 ### Why a provider, not a constructor field
 
-`SheetEditController` is a family notifier; Riverpod constructs it, so a family argument carrying a mutable `Map` is not safe (map identity/equality). Passing the sheet to `SheetScreen` as a widget field would work for rendering, but the screen's own `ref` (used by the back and F5 guards) would not observe an override scoped below it. Scoping the override at the route (`ProviderScope` above `AppShell`/`SheetScreen`) makes every read — screen, controller, field `Consumer`s — resolve against the same container.
+`SheetEditController` is a family notifier; Riverpod constructs it, so a family argument carrying a mutable `Map` is not safe (map identity/equality). Passing the sheet to `SheetScreen` as a widget field would work for rendering, but the controller (and the back/F5 handlers that read it) must resolve the same seed, and a field is not visible to the provider graph. The route-scoped `ProviderScope` override is the seam that makes the screen, the controller and every field `Consumer` observably consistent.
 
 ### Alternatives rejected
 
@@ -61,7 +61,7 @@ Header title prefers the opened sheet name: `opened?.name ?? template?.name ?? '
 
 ### `desktop/lib/catalog/catalog_screen.dart` (change)
 
-`_openCreationDialog` returns `Future<void>` and now captures the dialog result via `showDialog<Sheet>`; after the `finally` restores the catalog surface, a non-null result pushes Screen 2 with the sheet. `_openSheetScreen` gains an optional `Sheet? sheet` and wraps the route in a `ProviderScope` overriding `openedSheetProvider` when present. The "Preview sheet" action passes no sheet.
+`_openCreationDialog` returns `Future<void>` and now captures the dialog result via `showDialog<Sheet>`; after the `finally` restores the catalog surface, a non-null result pushes Screen 2 with the sheet. `_openSheetScreen` gains an optional `Sheet? sheet` and wraps the route in a `ProviderScope` that overrides both `openedSheetProvider` and the `sheetEditControllerProvider` family when present (the family override forces the notifier into the child scope). The "Preview sheet" action passes no sheet.
 
 ## Create flow
 

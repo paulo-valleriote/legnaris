@@ -169,10 +169,10 @@ T4
 
 **Done when**:
 
-- [ ] Submitting the dialog creates the sheet, persists the library entry, closes the dialog, and mounts Screen 2 showing the created name and the created value
-- [ ] The preview action still opens Screen 2 with schema-default values and no library entry
-- [ ] Gate check passes: `flutter test`
-- [ ] Test count: [N] tests pass (no silent deletions)
+- [x] Submitting the dialog creates the sheet, persists the library entry, closes the dialog, and mounts Screen 2 showing the created name and the created value
+- [x] The preview action still opens Screen 2 with schema-default values and no library entry
+- [x] Gate check passes: `flutter test`
+- [x] Test count: 10 tests pass in the navigation file (file total; +2 new), 431 across the suite (no silent deletions)
 
 **Tests**: widget (integration)
 **Gate**: full
