@@ -123,14 +123,14 @@ T4 -> T5
 
 **Done when**:
 
-- [ ] With an injected `openedSheetProvider` whose id matches, no GET is issued and the state carries the sheet
-- [ ] Without injection, `build` starts loading and one `GET /sheets/:id` is issued
-- [ ] A `200` publishes the decoded sheet
-- [ ] A `404` removes the id from the library (zero further requests) and publishes `isNotFound` with the missing-sheet copy
-- [ ] A `500`/transport failure keeps the library entry and publishes the mapped message
-- [ ] Two rapid `load()` calls issue exactly one in-flight GET; a later Retry issues one further GET
-- [ ] Gate check passes: `flutter test test/sheet/sheet_open_provider_test.dart`
-- [ ] Test count: new file, every listed case present
+- [x] With an injected `openedSheetProvider` whose id matches, no GET is issued and the state carries the sheet
+- [x] Without injection, `build` starts loading and one `GET /sheets/:id` is issued
+- [x] A `200` publishes the decoded sheet
+- [x] A `404` removes the id from the library (zero further requests) and publishes `isNotFound` with the missing-sheet copy
+- [x] A `500`/transport failure keeps the library entry and publishes the mapped message
+- [x] Two rapid `load()` calls issue exactly one in-flight GET; a later Retry issues one further GET
+- [x] Gate check passes: `flutter test test/sheet/sheet_open_provider_test.dart`
+- [x] Test count: 9 tests pass (new file; every listed case present)
 
 **Tests**: unit
 **Gate**: quick

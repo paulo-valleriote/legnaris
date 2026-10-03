@@ -157,4 +157,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fieldNone => 'None';
+
+  @override
+  String get sheetMissingMessage =>
+      'This sheet no longer exists in the API. It was removed from your library.';
 }

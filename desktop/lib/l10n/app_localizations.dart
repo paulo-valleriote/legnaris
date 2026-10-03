@@ -351,6 +351,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'None'**
   String get fieldNone;
+
+  /// Shown on Screen 2 when GET /sheets/:id returns NOT_FOUND and the local entry was evicted (OPN-06).
+  ///
+  /// In en, this message translates to:
+  /// **'This sheet no longer exists in the API. It was removed from your library.'**
+  String get sheetMissingMessage;
 }
 
 class _AppLocalizationsDelegate
