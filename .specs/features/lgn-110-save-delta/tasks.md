@@ -239,11 +239,11 @@ T3 -> T6
 
 **Done when**:
 
-- [ ] Back while saving issues no request and does not discard the edits
-- [ ] F5 while saving issues no template request and does not discard the edits
-- [ ] After the save settles the guards behave as before
-- [ ] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
-- [ ] Test count: recorded after the run (file total; +new, no silent deletions)
+- [x] Back while saving issues no request and does not discard the edits
+- [x] F5 while saving issues no template request and does not discard the edits
+- [x] After the save settles the guards behave as before
+- [x] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
+- [x] Test count: 46 tests pass (file total; +2 new, no silent deletions)
 
 **Tests**: widget
 **Gate**: quick
@@ -332,7 +332,7 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | SAV-03 | T4 | Done |
 | SAV-04 | T4 | Done |
 | SAV-05 | T5 | Done |
-| SAV-06 | T4, T5, T6 | Pending |
+| SAV-06 | T4, T5, T6 | Done |
 | SAV-07 | T5 | Done |
 | SAV-08 | T3 | Done |
 | SAV-09 | T3 | Done |

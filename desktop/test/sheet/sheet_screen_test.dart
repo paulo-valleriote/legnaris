@@ -1837,4 +1837,91 @@ void main() {
       },
     );
   });
+
+  group('save-in-flight guards (SAV-06)', () {
+    testWidgets(
+      'Edge: back while a save is in flight issues no request and keeps the edits (SAV-06)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final recorded = await pumpScreen(
+          tester,
+          stacked: true,
+          handler: (request) async => request.method == 'PATCH'
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final templateGets = recorded
+            .where((request) => request.url.path == '/templates/fantasy_v1')
+            .length;
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-save')));
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(
+          recorded.where((request) => request.method == 'PATCH'),
+          hasLength(1),
+        );
+        expect(
+          recorded
+              .where((request) => request.url.path == '/templates/fantasy_v1')
+              .length,
+          templateGets,
+        );
+
+        gate.complete(http.Response('{"data": {}}', 200));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Edge: F5 while a save is in flight issues no template request and keeps the edits (SAV-06)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.method == 'PATCH'
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final templateGets = recorded
+            .where((request) => request.url.path == '/templates/fantasy_v1')
+            .length;
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-save')));
+        await tester.pump();
+
+        await pressF5(tester);
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(
+          recorded
+              .where((request) => request.url.path == '/templates/fantasy_v1')
+              .length,
+          templateGets,
+        );
+
+        gate.complete(http.Response('{"data": {}}', 200));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+      },
+    );
+  });
 }

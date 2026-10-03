@@ -223,9 +223,11 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   /// time — the screen never watches the edit state (AD-001).
   Future<void> _leave() async {
     if (_confirming) return;
-    final pending = ref
-        .read(sheetEditControllerProvider(widget.sheetId))
-        .isPending;
+    final editProvider = sheetEditControllerProvider(widget.sheetId);
+    // An in-flight save may already have committed on the API; leaving now
+    // would hide the response and desync the screen (SAV-06).
+    if (ref.read(editProvider).isSaving) return;
+    final pending = ref.read(editProvider).isPending;
     if (pending) {
       final localizations = AppLocalizations.of(context)!;
       final confirmed = await _confirmDiscard(
@@ -245,12 +247,15 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   /// discarded behind the error + Retry branch.
   Future<void> _refreshTemplate() async {
     if (_confirming) return;
+    final editProvider = sheetEditControllerProvider(widget.sheetId);
+    // F5 must not discard edits while a save is in flight (SAV-06): the commit
+    // owns the state until its response settles.
+    if (ref.read(editProvider).isSaving) return;
     final templateId = ref
         .read(sheetOpenControllerProvider(widget.sheetId))
         .sheet
         ?.templateId;
     if (templateId == null) return;
-    final editProvider = sheetEditControllerProvider(widget.sheetId);
     if (ref.read(editProvider).isPending) {
       final localizations = AppLocalizations.of(context)!;
       final confirmed = await _confirmDiscard(
