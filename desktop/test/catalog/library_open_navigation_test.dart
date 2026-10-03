@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
@@ -115,6 +116,49 @@ void main() {
       expect(find.text('My sheets'), findsOneWidget);
       expect(find.text('No sheets created yet'), findsOneWidget);
       expect(find.byType(SheetScreen), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Edge: a template-detail failure after the sheet loads keeps the library entry and offers Retry (OPN-07 edge)',
+    (tester) async {
+      await pumpCatalog(
+        tester,
+        handler: (request) async {
+          if (request.url.path == '/templates') {
+            return http.Response(twoTemplatesBody, 200);
+          }
+          if (request.url.path == '/sheets/sheet-1') {
+            return http.Response(sheetBody, 200);
+          }
+          if (request.url.path == '/templates/fantasy_v1') {
+            return http.Response(
+              '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}',
+              500,
+            );
+          }
+          return http.Response('{}', 404);
+        },
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CatalogScreen)),
+      );
+      container.read(sheetLibraryProvider.notifier).upsert(entry('sheet-1'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('library-open-sheet-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
+      expect(
+        container
+            .read(sheetLibraryProvider)
+            .entries
+            .map((stored) => stored.id),
+        contains('sheet-1'),
+        reason: 'a template failure must not evict the local entry',
+      );
     },
   );
 }

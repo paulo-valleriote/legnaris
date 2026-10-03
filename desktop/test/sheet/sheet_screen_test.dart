@@ -938,6 +938,83 @@ void main() {
     );
   });
 
+  group('local-edit guards on an opened library sheet (OPN-17, OPN-18)', () {
+    Future<List<http.Request>> pumpLibrarySheet(
+      WidgetTester tester, {
+      bool stacked = false,
+      void Function(http.Request request)? onDetail,
+    }) => pumpScreen(
+      tester,
+      injectSheet: false,
+      stacked: stacked,
+      handler: (request) async {
+        if (request.url.path == '/sheets/sheet-1') {
+          return http.Response(sheetBody(), 200);
+        }
+        onDetail?.call(request);
+        return http.Response(detailBody, 200);
+      },
+    );
+
+    testWidgets(
+      'Happy path: back with pending edits on an opened library sheet opens the discard confirmation (OPN-17)',
+      (tester) async {
+        await pumpLibrarySheet(tester, stacked: true);
+        expect(find.byKey(const Key('sheet-section-stats')), findsOneWidget);
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          find.text(
+            'Your local edits on this sheet were never saved and will be discarded.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(SheetScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Happy path: F5 with pending edits on an opened library sheet confirms before any reload (OPN-18)',
+      (tester) async {
+        var detailGets = 0;
+        await pumpLibrarySheet(
+          tester,
+          onDetail: (_) => detailGets++,
+        );
+        await tester.pumpAndSettle();
+        expect(detailGets, 1, reason: 'the initial template fetch for the sheet');
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await pressF5(tester);
+
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          find.text(
+            'Your local edits will be discarded and the latest template will be loaded.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          detailGets,
+          1,
+          reason: 'no template reload until the user confirms',
+        );
+      },
+    );
+  });
+
   group('active sheet registration (GRN-17)', () {
     testWidgets(
       'Happy path: the screen registers itself as the active sheet while mounted',
