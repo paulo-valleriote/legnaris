@@ -81,6 +81,77 @@ void main() {
     });
   });
 
+  group('seedFromSheet (OPN-10)', () {
+    test(
+      'Happy path: a stored value overrides its schema default and a missing key keeps the default',
+      () {
+        final fields = {
+          'stats': groupOf({'dexterity': leaf(10), 'constitution': leaf(12)}),
+        };
+
+        expect(seedFromSheet(fields, const {
+          'stats': {'dexterity': 16},
+        }), {
+          'stats': {'dexterity': 16, 'constitution': 12.0},
+        });
+      },
+    );
+
+    test('Edge: a stored key absent from the schema is carried over', () {
+      final fields = {
+        'stats': groupOf({'dexterity': leaf(10)}),
+      };
+
+      expect(seedFromSheet(fields, const {
+        'stats': {'dexterity': 16, 'extra': 'kept'},
+        'notInSchema': {'nested': 1},
+      }), {
+        'stats': {'dexterity': 16, 'extra': 'kept'},
+        'notInSchema': {'nested': 1},
+      });
+    });
+
+    test('Edge: a nested group merges deeply instead of replacing the group', () {
+      final fields = {
+        'outer': groupOf({
+          'inner': groupOf({'a': leaf(1), 'b': leaf(2)}),
+        }),
+      };
+
+      expect(seedFromSheet(fields, const {
+        'outer': {
+          'inner': {'a': 9},
+        },
+      }), {
+        'outer': {
+          'inner': {'a': 9, 'b': 2.0},
+        },
+      });
+    });
+
+    test('Edge: empty stored data yields the schema defaults unchanged', () {
+      final fields = {
+        'stats': groupOf({'dexterity': leaf(10)}),
+      };
+
+      expect(seedFromSheet(fields, const {}), seedDefaults(fields));
+    });
+
+    test('Edge: the returned tree is fresh, so mutating it leaves data intact', () {
+      final data = <String, Object?>{
+        'stats': <String, Object?>{'dexterity': 16},
+      };
+      final fields = {
+        'stats': groupOf({'dexterity': leaf(10)}),
+      };
+
+      final seeded = seedFromSheet(fields, data);
+      (seeded['stats']! as Map<String, Object?>)['dexterity'] = 99;
+
+      expect((data['stats']! as Map<String, Object?>)['dexterity'], 16);
+    });
+  });
+
   group('setPathValue', () {
     test('Happy path: sets a top-level key', () {
       final data = <String, Object?>{};

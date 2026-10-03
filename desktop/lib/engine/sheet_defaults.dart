@@ -22,6 +22,36 @@ Map<String, Object?> seedDefaults(FieldGroup fields) {
   return data;
 }
 
+/// Builds the initial values of an opened sheet: the schema defaults with the
+/// sheet's stored [data] overlaid per leaf (OPN-10).
+///
+/// A stored value wins at its dotted path, a schema leaf the sheet does not
+/// carry keeps its schema default, and a stored key absent from the schema is
+/// carried over unchanged. The result is a fresh tree; the inputs are never
+/// mutated.
+Map<String, Object?> seedFromSheet(
+  FieldGroup fields,
+  Map<String, Object?> data,
+) => _overlay(seedDefaults(fields), data);
+
+/// Deep-merges [overrides] onto [base], recursing where both sides hold a map
+/// and replacing the leaf otherwise.
+Map<String, Object?> _overlay(
+  Map<String, Object?> base,
+  Map<String, Object?> overrides,
+) {
+  final result = <String, Object?>{...base};
+  for (final entry in overrides.entries) {
+    final existing = result[entry.key];
+    final value = entry.value;
+    result[entry.key] =
+        existing is Map<String, Object?> && value is Map<String, Object?>
+        ? _overlay(existing, value)
+        : value;
+  }
+  return result;
+}
+
 /// The initial value of one field: empty for text, false for booleans, and
 /// the numeric default for everything else.
 Object? seedValue(FieldSchema schema) {
