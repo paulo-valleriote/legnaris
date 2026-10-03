@@ -110,6 +110,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: desktop/lib/library/sheet_library_store.dart:53 (SPEC_DEVIATION) (desktop/library)
 - last seen: 2026-10-02T18:40:51Z
 
+### L-017 - Assert boundary inputs that normalize to empty (whitespace-only strings) separately from the empty case, so the no-op guard is proven for both.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `desktop/widgets` · harmful: 0
+- features: lgn-109-create-sheet
+- evidence: desktop/test/catalog/create_sheet_dialog_test.dart:288 (desktop/widgets)
+- last seen: 2026-10-03T15:45:57Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
