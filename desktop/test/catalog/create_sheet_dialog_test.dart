@@ -750,6 +750,51 @@ void main() {
         expect(postsOf(harness.recorded), hasLength(1));
       },
     );
+
+    testWidgets(
+      'Edge: a whitespace-only name keeps the action inert and posts nothing (CRT-05)',
+      (tester) async {
+        final harness = await pumpDialog(
+          tester,
+          handler: (request) async => http.Response(detailBody, 200),
+        );
+        await typeName(tester, '   ');
+
+        expect(
+          tester
+              .widget<TextButton>(find.byKey(const Key('create-sheet-submit')))
+              .onPressed,
+          isNull,
+        );
+        expect(postsOf(harness.recorded), isEmpty);
+        expect(find.byType(CreateSheetDialog), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Edge: the response name wins over the submitted name when they differ (CRT-03)',
+      (tester) async {
+        const renamedBody =
+            '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Strider", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+        final harness = await pumpDialog(
+          tester,
+          handler: (request) async => http.Response(
+            request.url.path == '/sheets' ? renamedBody : detailBody,
+            request.url.path == '/sheets' ? 201 : 200,
+          ),
+        );
+        await typeName(tester, 'Aragorn');
+
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pumpAndSettle();
+
+        expect(harness.popped()!.name, 'Strider');
+        expect(
+          containerOf(tester).read(sheetLibraryProvider).entries.single.name,
+          'Strider',
+        );
+      },
+    );
   });
 }
 

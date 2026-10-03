@@ -118,7 +118,7 @@ T4
 - [x] On failure the dialog stays open, renders the mapped copy inline, and the index is unchanged; a retry issues exactly one further POST
 - [x] A forced library write failure after a `201` still pops with the sheet and issues no second POST
 - [x] Gate check passes: `flutter test`
-- [x] Test count: 23 tests pass in the dialog file (file total; +4 new, 2 updated to CRT-05), 427 across the suite (no silent deletions)
+- [x] Test count: 23 tests pass in the dialog file (file total; +4 new, 2 updated to CRT-05); a verification round added 2 edge cases (whitespace-only, response-authoritative name) → 25, 433 across the suite (no silent deletions)
 
 **Tests**: widget
 **Gate**: full
