@@ -357,6 +357,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This sheet no longer exists in the API. It was removed from your library.'**
   String get sheetMissingMessage;
+
+  /// Header of the local sheet library section on Screen 1 (OPN-01).
+  ///
+  /// In en, this message translates to:
+  /// **'My sheets'**
+  String get librarySectionTitle;
+
+  /// Single line rendered by the empty library section; no decorative art (OPN-02).
+  ///
+  /// In en, this message translates to:
+  /// **'No sheets created yet'**
+  String get libraryEmpty;
+
+  /// Library row action that opens the stored sheet on Screen 2 (OPN-04).
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get libraryOpenAction;
+
+  /// Library row action that removes the entry from the local index (OPN-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get libraryRemoveAction;
+
+  /// Title of the destructive confirmation for removing a library entry (OPN-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from local library?'**
+  String get libraryRemoveDialogTitle;
+
+  /// Explicit consequence stated by the library removal confirmation: local-only, sheet stays in the API (OPN-12).
+  ///
+  /// In en, this message translates to:
+  /// **'This removes the sheet from this app only. The sheet stays in the API and can be opened again if you keep its id.'**
+  String get libraryRemoveDialogMessage;
+
+  /// Destructive button of the removal confirmation (OPN-13).
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get libraryRemoveConfirmAction;
+
+  /// Safe button of the removal confirmation; keeps the entry (OPN-14).
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get libraryRemoveCancelAction;
+
+  /// Inline error shown when a library removal fails to persist; the entry stays (OPN-15).
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update the local library. Please try again.'**
+  String get libraryRemoveFailed;
 }
 
 class _AppLocalizationsDelegate

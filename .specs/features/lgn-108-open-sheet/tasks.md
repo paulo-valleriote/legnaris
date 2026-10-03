@@ -186,12 +186,12 @@ T4 -> T5
 
 **Done when**:
 
-- [ ] Two stored entries render two rows in `created_at` order with name, template id and both actions
-- [ ] An empty library renders the single empty-state line and no rows
-- [ ] Remove shows the confirmation with the local-only consequence; confirm drops the row with zero recorded requests; cancel keeps it with zero requests
-- [ ] A forced store write failure keeps the row and renders the inline error
-- [ ] Gate check passes: `flutter test test/catalog/library_section_test.dart`
-- [ ] Test count: new file, every listed case present
+- [x] Two stored entries render two rows in `created_at` order with name, template id and both actions
+- [x] An empty library renders the single empty-state line and no rows
+- [x] Remove shows the confirmation with the local-only consequence; confirm drops the row with zero recorded requests; cancel keeps it with zero requests
+- [x] A forced store write failure keeps the row and renders the inline error
+- [x] Gate check passes: `flutter test test/catalog/library_section_test.dart`
+- [x] Test count: 6 tests pass (new file; every listed case present)
 
 **Tests**: widget
 **Gate**: quick

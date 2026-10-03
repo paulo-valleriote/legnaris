@@ -161,4 +161,33 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get sheetMissingMessage =>
       'This sheet no longer exists in the API. It was removed from your library.';
+
+  @override
+  String get librarySectionTitle => 'My sheets';
+
+  @override
+  String get libraryEmpty => 'No sheets created yet';
+
+  @override
+  String get libraryOpenAction => 'Open';
+
+  @override
+  String get libraryRemoveAction => 'Remove';
+
+  @override
+  String get libraryRemoveDialogTitle => 'Remove from local library?';
+
+  @override
+  String get libraryRemoveDialogMessage =>
+      'This removes the sheet from this app only. The sheet stays in the API and can be opened again if you keep its id.';
+
+  @override
+  String get libraryRemoveConfirmAction => 'Remove';
+
+  @override
+  String get libraryRemoveCancelAction => 'Cancel';
+
+  @override
+  String get libraryRemoveFailed =>
+      'Could not update the local library. Please try again.';
 }
