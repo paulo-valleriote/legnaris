@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/catalog/catalog_provider.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
 import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/shell/shell_state.dart';
@@ -201,7 +203,8 @@ class CatalogScreen extends ConsumerWidget {
   /// Opens the creation dialog for [templateId] (CAT-15) and marks the
   /// creation surface while it is up, restoring the catalog in `finally` so
   /// every dismiss path — Esc, Close, barrier — lands back on the catalog
-  /// (CAT-16).
+  /// (CAT-16). A successful create pops the dialog with the created sheet,
+  /// which is then opened on Screen 2 (CRT-04).
   Future<void> _openCreationDialog(
     BuildContext context,
     WidgetRef ref,
@@ -209,8 +212,9 @@ class CatalogScreen extends ConsumerWidget {
   ) async {
     final shellState = ref.read(shellStateProvider.notifier);
     shellState.show(ShellSurface.creationDialog);
+    Sheet? created;
     try {
-      await showDialog<void>(
+      created = await showDialog<Sheet>(
         context: context,
         // Load-bearing: the framework gates its dismiss action (Esc) on
         // this flag (routes.dart:981) — CAT-16 breaks without it.
@@ -220,15 +224,37 @@ class CatalogScreen extends ConsumerWidget {
     } finally {
       shellState.show(ShellSurface.catalog);
     }
+    if (created == null || !context.mounted) return;
+    await _openSheetScreen(context, created.templateId, sheet: created);
   }
 
   /// Opens Screen 2 for [templateId] (RND-14, RND-18). The route mounts the
   /// persistent shell around the sheet surface; Screen 2's back action pops
-  /// it, returning to the cached catalog with no extra request.
-  Future<void> _openSheetScreen(BuildContext context, String templateId) {
+  /// it, returning to the cached catalog with no extra request. A [sheet]
+  /// injects the created payload as the opened-sheet seed (CRT-08); the
+  /// preview path passes none and seeds from the schema.
+  Future<void> _openSheetScreen(
+    BuildContext context,
+    String templateId, {
+    Sheet? sheet,
+  }) {
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => AppShell(content: SheetScreen(templateId: templateId)),
+        builder: (_) => ProviderScope(
+          overrides: [
+            if (sheet != null) ...[
+              openedSheetProvider.overrideWithValue(sheet),
+              // A nested scope shares non-overridden providers with its
+              // parent, so the controller must be created in this scope to
+              // observe the opened-sheet seed above (design: opened-sheet
+              // seam).
+              sheetEditControllerProvider.overrideWith2(
+                (templateId) => SheetEditController(),
+              ),
+            ],
+          ],
+          child: AppShell(content: SheetScreen(templateId: templateId)),
+        ),
       ),
     );
   }

@@ -8,6 +8,70 @@ part of 'sheet_edit_provider.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+/// The stored sheet an open Screen 2 was launched for, injected per route.
+///
+/// The creation flow overrides this with the `201` payload so Screen 2 edits
+/// the server-stored values instead of the schema defaults (CRT-08); the
+/// preview path leaves it null and seeds from the template schema (GRN-01).
+/// Overriding at the route scope keeps the screen, this controller and every
+/// field consumer on one container (design: opened-sheet seam).
+
+@ProviderFor(openedSheet)
+final openedSheetProvider = OpenedSheetProvider._();
+
+/// The stored sheet an open Screen 2 was launched for, injected per route.
+///
+/// The creation flow overrides this with the `201` payload so Screen 2 edits
+/// the server-stored values instead of the schema defaults (CRT-08); the
+/// preview path leaves it null and seeds from the template schema (GRN-01).
+/// Overriding at the route scope keeps the screen, this controller and every
+/// field consumer on one container (design: opened-sheet seam).
+
+final class OpenedSheetProvider
+    extends $FunctionalProvider<Sheet?, Sheet?, Sheet?>
+    with $Provider<Sheet?> {
+  /// The stored sheet an open Screen 2 was launched for, injected per route.
+  ///
+  /// The creation flow overrides this with the `201` payload so Screen 2 edits
+  /// the server-stored values instead of the schema defaults (CRT-08); the
+  /// preview path leaves it null and seeds from the template schema (GRN-01).
+  /// Overriding at the route scope keeps the screen, this controller and every
+  /// field consumer on one container (design: opened-sheet seam).
+  OpenedSheetProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'openedSheetProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$openedSheetHash();
+
+  @$internal
+  @override
+  $ProviderElement<Sheet?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  Sheet? create(Ref ref) {
+    return openedSheet(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Sheet? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Sheet?>(value),
+    );
+  }
+}
+
+String _$openedSheetHash() => r'7fe9b047ab9f66a5449b71c7fe6bcebabe7d9c67';
+
 /// Edit state of the sheet for one template id.
 ///
 /// Rebuilds (and reseeds) whenever the template detail state changes: the
@@ -77,7 +141,7 @@ final class SheetEditControllerProvider
 }
 
 String _$sheetEditControllerHash() =>
-    r'afbb5cfd08e9823888f95abe86664bed8088cbff';
+    r'b729cd715e46d9385c213fc9515d41e36786b585';
 
 /// Edit state of the sheet for one template id.
 ///

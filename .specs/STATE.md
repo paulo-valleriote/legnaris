@@ -26,14 +26,22 @@
 - **Date**: 2026-10-02
 - **Status**: active
 
+### AD-004
+- **Decision**: Screen 2 receives an opened sheet only through an overridable `openedSheetProvider` (`Sheet?`, default null); the creation flow wraps the pushed route in a `ProviderScope` that overrides both `openedSheetProvider` and the `sheetEditControllerProvider` family, so the edit state seeds from the `201` payload's `data` and the header shows its `name`.
+- **Reason**: The card's "abrir a ficha criada" arrives before LGN-108 (the `GET /sheets/:id` open), and the `201` already carries the full sheet, so a route-scoped override avoids a second GET and gives LGN-108 one seam to add the `GET`-based open. The controller-family override is required because a nested `ProviderScope` shares non-overridden providers with its parent — a parent-created controller would not observe the seed.
+- **Trade-off**: Screen 2's open now depends on a route-scoped provider seam instead of a widget parameter, and the controller family must be re-declared in that scope; the preview path (no sheet) keeps schema-default seeding. The sheet `data` is still never persisted (LIB-08) — the seam carries the in-memory `201` payload only.
+- **Scope**: desktop/ — Screen 2 (`lib/sheet/`) and catalog navigation (`lib/catalog/catalog_screen.dart`); LGN-108's library-open flow builds on the same seam.
+- **Date**: 2026-10-03
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: `lgn-107-local-sheet-library` (.specs/features/lgn-107-local-sheet-library)
-- **Phase / Task**: Execute — COMPLETE (T1–T7 committed; Verifier PASS on round 2, `validate_state.py` exit 0)
-- **Completed**: T1 entry model, T2 typed error, T3 `store.save`, T4 `store.load` + version recovery, T5 store providers + directory seam, T6 `SheetLibrary` notifier, T7 bootstrap. A round-1 Verifier FAIL on three test-coverage gaps was fixed in `3b5a4f9` (full upsert replacement, real-store durability, non-UTC serialization). Report: `.specs/features/lgn-107-local-sheet-library/validation.md` (23/23 ACs, 8/8 mutants killed, 417 tests green).
+- **Feature**: `lgn-109-create-sheet` (.specs/features/lgn-109-create-sheet)
+- **Phase / Task**: Execute — COMPLETE (T1–T4 committed; Verifier PASS on round 2, `validate_state.py` exit 0)
+- **Completed**: T1 opened-sheet seed seam, T2 dialog submit (name validation, single POST, library upsert, inline error + retry), T3 Screen 2 title, T4 catalog navigation. A test-only fix commit `7be258d` closed two Verifier edge-case notes; round-2 PASS (11/11 ACs, 3/3 mutants killed, 433 tests green). PR #55 opened; Jira LGN-109 commented. Report: `.specs/features/lgn-109-create-sheet/validation.md`.
 - **In-progress** (file:line): none
-- **Next step**: open the PR for `feat/lgn-107-local-sheet-library` (base `feat/lgn-105-exclusive-options`, or `main` once PR #53 merges). Push is not yet authorized.
-- **Blockers**: none
-- **Uncommitted files**: none after the final report/lessons commit; untracked skill dirs (`.claude/`, `.cursor/`, `.windsurf/` — never commit)
-- **Branch**: feat/lgn-107-local-sheet-library (based on feat/lgn-105-exclusive-options / PR #53)
-- **Prior feature**: `lgn-105-exclusive-options` — COMPLETE (Verifier PASS, report in `.specs/features/lgn-105-exclusive-options/validation.md`)
+- **Next step**: review and merge PR #55 (https://github.com/paulo-valleriote/legnaris/pull/55), then start LGN-108 ("Abrir ficha").
+- **Blockers**: none. LGN-108 ("Abrir ficha": library list + `GET /sheets/:id`) is the follow-up; this card intentionally opens the created sheet from the `201` payload (AD-004).
+- **Uncommitted files**: none; branch pushed, PR #55 opened, Jira LGN-109 commented.
+- **Branch**: feat/lgn-109-create-sheet (pushed; PR #55 → main)
+- **Prior feature**: `lgn-107-local-sheet-library` — COMPLETE (merged #54)

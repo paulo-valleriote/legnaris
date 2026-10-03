@@ -17,6 +17,16 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'sheet_edit_provider.g.dart';
 
+/// The stored sheet an open Screen 2 was launched for, injected per route.
+///
+/// The creation flow overrides this with the `201` payload so Screen 2 edits
+/// the server-stored values instead of the schema defaults (CRT-08); the
+/// preview path leaves it null and seeds from the template schema (GRN-01).
+/// Overriding at the route scope keeps the screen, this controller and every
+/// field consumer on one container (design: opened-sheet seam).
+@Riverpod(keepAlive: true)
+Sheet? openedSheet(Ref ref) => null;
+
 /// Immutable values of one sheet's edit state, addressed by dotted path.
 class SheetEditState {
   const SheetEditState({
@@ -25,8 +35,9 @@ class SheetEditState {
     this.editedPaths = const {},
   });
 
-  /// Schema defaults the state was seeded from; the reference point for
-  /// [isPending].
+  /// Reference values the state was seeded from: the template schema defaults,
+  /// or the opened sheet's stored data when one moved into Screen 2. The
+  /// baseline [isPending] compares against.
   final Map<String, Object?> defaults;
 
   /// Current values. State maps are never mutated in place — every write
@@ -37,7 +48,7 @@ class SheetEditState {
   /// value no longer counts as pending.
   final Set<String> editedPaths;
 
-  /// True while any edited path differs from its seeded default: the marker
+  /// True while any edited path differs from its seeded reference: the marker
   /// and both discard guards key off this (GRN-11 … GRN-19).
   bool get isPending => editedPaths.any(
     (path) => valueAtPath(data, path) != valueAtPath(defaults, path),
@@ -58,8 +69,9 @@ class SheetEditController extends _$SheetEditController {
         .watch(templateDetailControllerProvider(templateId))
         .template;
     if (template == null) return const SheetEditState();
-    final defaults = seedDefaults(template.fields);
-    return SheetEditState(defaults: defaults, data: defaults);
+    final opened = ref.watch(openedSheetProvider);
+    final seed = opened?.data ?? seedDefaults(template.fields);
+    return SheetEditState(defaults: seed, data: seed);
   }
 
   /// Stores [value] at the dotted [path], keeping the previous state's maps

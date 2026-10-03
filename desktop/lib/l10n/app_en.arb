@@ -132,11 +132,11 @@
   },
   "createSheetPrimaryAction": "Create sheet",
   "@createSheetPrimaryAction": {
-    "description": "Primary action of the creation dialog, disabled until Phase 4 (TPL-12)."
+    "description": "Primary action of the creation dialog; enabled once a non-empty sheet name is entered (CRT-01, TPL-12)."
   },
-  "createSheetCreateTooltip": "Sheet creation arrives in a later phase.",
-  "@createSheetCreateTooltip": {
-    "description": "Tooltip explaining why the primary action is disabled (TPL-12)."
+  "createSheetNameRequiredTooltip": "Enter a sheet name.",
+  "@createSheetNameRequiredTooltip": {
+    "description": "Tooltip explaining why the primary action is disabled: the sheet name is empty (CRT-05)."
   },
   "actionClose": "Close",
   "@actionClose": {

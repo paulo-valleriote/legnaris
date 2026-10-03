@@ -81,6 +81,7 @@ void main() {
     WidgetTester tester, {
     required Future<http.Response> Function(http.Request request) handler,
     bool stacked = false,
+    Sheet? opened,
   }) async {
     final recorded = <http.Request>[];
     tester.view.physicalSize = const Size(1280, 800);
@@ -89,6 +90,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          if (opened != null) openedSheetProvider.overrideWithValue(opened),
           apiClientProvider.overrideWithValue(
             ApiClient(
               httpClient: MockClient((request) async {
@@ -320,6 +322,52 @@ void main() {
         );
         expect(recorded, hasLength(1));
         expect(recorded.single.method, 'GET');
+      },
+    );
+  });
+
+  group('opened sheet title (CRT-09)', () {
+    Sheet openedSheet() => Sheet(
+      id: 'sheet-1',
+      templateId: 'fantasy_v1',
+      name: 'Aragorn',
+      data: const {
+        'stats': {'dexterity': 16},
+      },
+      createdAt: DateTime.utc(2026, 9, 20, 12),
+      updatedAt: DateTime.utc(2026, 9, 20, 12),
+    );
+
+    testWidgets(
+      'Happy path: an opened sheet titles Screen 2 over the template name (CRT-09)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+          opened: openedSheet(),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.widget<Text>(find.byKey(const Key('sheet-title'))).data,
+          'Aragorn',
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: without an opened sheet the title falls back to the template name (CRT-09)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.widget<Text>(find.byKey(const Key('sheet-title'))).data,
+          'Fantasy Template',
+        );
       },
     );
   });

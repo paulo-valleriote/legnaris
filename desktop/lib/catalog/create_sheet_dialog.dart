@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/api/api_error.dart';
+import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
 import 'package:legnaris/engine/field_grouping.dart';
 import 'package:legnaris/engine/sheet_defaults.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/library/sheet_library_entry.dart';
+import 'package:legnaris/library/sheet_library_exception.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/theme/tokens.dart';
 
 /// Screen 3 — the creation surface (TPL-01 … TPL-14).
@@ -27,6 +33,13 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
   final _nameController = TextEditingController();
   final _previewScrollController = ScrollController();
 
+  /// True while a create request is in flight; disables the primary action so
+  /// a double activation issues no second POST (CRT-02).
+  bool _isSubmitting = false;
+
+  /// Mapped copy of the last create failure, rendered inline (CRT-06).
+  String? _errorMessage;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -47,26 +60,107 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (_isSubmitting) ...[
+              const LinearProgressIndicator(key: Key('create-sheet-progress')),
+              const SizedBox(height: AppSpacing.sm),
+            ],
             _information(context, state, localizations),
             const SizedBox(height: AppSpacing.lg),
             _preview(context, state, localizations),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                _errorMessage!,
+                key: const Key('create-sheet-error'),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ],
           ],
         ),
       ),
       actions: [
-        Tooltip(
-          message: localizations.createSheetCreateTooltip,
-          child: TextButton(
-            onPressed: null,
-            child: Text(localizations.createSheetPrimaryAction),
-          ),
-        ),
+        _primaryAction(localizations),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
           child: Text(localizations.actionClose),
         ),
       ],
     );
+  }
+
+  /// The dialog's primary action: inert until a non-empty sheet name is
+  /// entered and while a create request is in flight, so a double activation
+  /// can never issue a second POST (CRT-01, CRT-02, CRT-05). The
+  /// `ValueListenableBuilder` is what makes the button react to typing
+  /// without rebuilding the whole dialog.
+  Widget _primaryAction(AppLocalizations localizations) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _nameController,
+      builder: (context, value, _) {
+        final hasName = value.text.trim().isNotEmpty;
+        final button = TextButton(
+          key: const Key('create-sheet-submit'),
+          onPressed: hasName && !_isSubmitting ? _submit : null,
+          child: Text(localizations.createSheetPrimaryAction),
+        );
+        if (!hasName) {
+          return Tooltip(
+            message: localizations.createSheetNameRequiredTooltip,
+            child: button,
+          );
+        }
+        return button;
+      },
+    );
+  }
+
+  /// Creates the sheet: exactly one `POST /sheets` with the trimmed name, a
+  /// best-effort local registration, then pops carrying the created sheet
+  /// (CRT-01, CRT-03, CRT-04). A failure keeps the dialog open with the mapped
+  /// copy so the next activation is a clean retry (CRT-06, CRT-07).
+  Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    if (_isSubmitting || name.isEmpty) return;
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+    final library = ref.read(sheetLibraryProvider.notifier);
+    try {
+      final sheet = await ref
+          .read(apiClientProvider)
+          .createSheet(templateId: widget.templateId, sheetName: name);
+      _registerInLibrary(library, sheet);
+      if (!mounted) return;
+      Navigator.of(context).pop(sheet);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = failureCopy(error);
+      });
+    }
+  }
+
+  /// Records the created sheet in the local index. A write failure is
+  /// non-fatal: the `201` is authoritative and retrying would create a second
+  /// sheet on the server (CRT-11). [library] is captured before the request so
+  /// the registration still lands when the dialog is dismissed mid-`POST`
+  /// (CRT-03).
+  void _registerInLibrary(SheetLibrary library, Sheet sheet) {
+    final entry = SheetLibraryEntry(
+      id: sheet.id,
+      name: sheet.name,
+      templateId: sheet.templateId,
+      createdAt: sheet.createdAt,
+    );
+    try {
+      library.upsert(entry);
+    } on SheetLibraryException {
+      return;
+    }
   }
 
   /// The identity block: template label, the `name | id` row and the sheet-name

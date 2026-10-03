@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 17,
+  "next_id": 18,
   "lessons": [
     {
       "id": "L-001",
@@ -292,6 +292,24 @@
       ],
       "created": "2026-10-02T18:40:51Z",
       "last_seen": "2026-10-02T18:40:51Z"
+    },
+    {
+      "id": "L-017",
+      "key": "ac_gap::assert boundary inputs that normalize to empty whitespace only strings separately from the empty case so the no op guard is proven for both",
+      "text": "Assert boundary inputs that normalize to empty (whitespace-only strings) separately from the empty case, so the no-op guard is proven for both.",
+      "signal": "ac_gap",
+      "scope": "desktop/widgets",
+      "status": "candidate",
+      "features": [
+        "lgn-109-create-sheet"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "desktop/test/catalog/create_sheet_dialog_test.dart:288 (desktop/widgets)"
+      ],
+      "created": "2026-10-03T15:45:57Z",
+      "last_seen": "2026-10-03T15:45:57Z"
     }
   ]
 }

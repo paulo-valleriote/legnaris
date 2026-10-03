@@ -63,6 +63,79 @@ void main() {
   SheetEditState stateOf(ProviderContainer container, String templateId) =>
       container.read(sheetEditControllerProvider(templateId));
 
+  group('opened-sheet seeding (CRT-08, CRT-10)', () {
+    Sheet openedSheet() => Sheet(
+      id: 'sheet-1',
+      templateId: 'fantasy_v1',
+      name: 'Aragorn',
+      data: const {
+        'stats': {'dexterity': 16},
+      },
+      createdAt: DateTime.utc(2026, 10, 2, 15, 31, 28),
+      updatedAt: DateTime.utc(2026, 10, 2, 15, 31, 28),
+    );
+
+    ProviderContainer containerWithOpened(Sheet? opened) {
+      final container = ProviderContainer(
+        overrides: [
+          apiClientProvider.overrideWithValue(
+            ApiClient(
+              httpClient: MockClient(
+                (request) async => http.Response(detailBody, 200),
+              ),
+            ),
+          ),
+          if (opened != null) openedSheetProvider.overrideWithValue(opened),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test(
+      'Edge: openedSheetProvider defaults to null, keeping schema-default seeding (GRN-01)',
+      () {
+        final container = containerWithOpened(null);
+
+        expect(container.read(openedSheetProvider), isNull);
+      },
+    );
+
+    test(
+      'Happy path: an opened sheet seeds the baseline and data from its stored values (CRT-08)',
+      () async {
+        final container = containerWithOpened(openedSheet());
+        keepAlive(container, 'fantasy_v1');
+        expect(stateOf(container, 'fantasy_v1').data, isEmpty);
+
+        await pumpEventQueue();
+
+        final seeded = stateOf(container, 'fantasy_v1');
+        expect(valueAtPath(seeded.data, 'stats.dexterity'), 16);
+        expect(valueAtPath(seeded.defaults, 'stats.dexterity'), 16);
+        expect(seeded.isPending, isFalse);
+      },
+    );
+
+    test(
+      'Edge: the baseline is the opened value, so returning to it clears pending (CRT-10)',
+      () async {
+        final container = containerWithOpened(openedSheet());
+        keepAlive(container, 'fantasy_v1');
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider('fantasy_v1').notifier,
+        );
+
+        notifier.setPath('stats.dexterity', 18);
+        expect(stateOf(container, 'fantasy_v1').isPending, isTrue);
+
+        notifier.setPath('stats.dexterity', 16);
+        expect(stateOf(container, 'fantasy_v1').isPending, isFalse);
+      },
+    );
+  });
+
   group('seeding (GRN-01)', () {
     test('Happy path: empty while the detail loads, then every leaf is seeded from its schema default (GRN-01)', () async {
       final recorded = <http.Request>[];

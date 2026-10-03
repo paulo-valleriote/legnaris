@@ -268,17 +268,17 @@ abstract class AppLocalizations {
   /// **'e.g. My Character'**
   String get createSheetNamePlaceholder;
 
-  /// Primary action of the creation dialog, disabled until Phase 4 (TPL-12).
+  /// Primary action of the creation dialog; enabled once a non-empty sheet name is entered (CRT-01, TPL-12).
   ///
   /// In en, this message translates to:
   /// **'Create sheet'**
   String get createSheetPrimaryAction;
 
-  /// Tooltip explaining why the primary action is disabled (TPL-12).
+  /// Tooltip explaining why the primary action is disabled: the sheet name is empty (CRT-05).
   ///
   /// In en, this message translates to:
-  /// **'Sheet creation arrives in a later phase.'**
-  String get createSheetCreateTooltip;
+  /// **'Enter a sheet name.'**
+  String get createSheetNameRequiredTooltip;
 
   /// Action that dismisses the creation dialog back to the catalog (CAT-16).
   ///

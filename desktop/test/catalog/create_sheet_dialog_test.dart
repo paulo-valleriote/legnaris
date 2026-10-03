@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
@@ -10,9 +12,14 @@ import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/error_mapper.dart';
+import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/library/sheet_library_entry.dart';
+import 'package:legnaris/library/sheet_library_exception.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/library/sheet_library_store.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
 /// Widget tests for the creation surface content
@@ -279,7 +286,7 @@ void main() {
     );
 
     testWidgets(
-      'Happy path: the primary action is disabled and exposes the tooltip copy (TPL-12)',
+      'Edge: an empty name keeps the primary action inert with the name-required tooltip; typing enables it (CRT-05)',
       (tester) async {
         await pumpCatalog(tester);
         await openDialog(tester);
@@ -295,12 +302,27 @@ void main() {
             matching: find.byType(Tooltip),
           ),
         );
-        expect(tooltip.message, 'Sheet creation arrives in a later phase.');
+        expect(tooltip.message, 'Enter a sheet name.');
+
+        await tester.enterText(
+          find.byKey(const Key('create-sheet-name-input')),
+          'My Character',
+        );
+        await tester.pump();
+
+        expect(
+          tester
+              .widget<TextButton>(
+                inDialog(find.widgetWithText(TextButton, 'Create sheet')),
+              )
+              .onPressed,
+          isNotNull,
+        );
       },
     );
 
     testWidgets(
-      'Happy path: hovering the disabled action reveals the tooltip (TPL-12)',
+      'Happy path: hovering the disabled action reveals the name-required tooltip (CRT-05)',
       (tester) async {
         await pumpCatalog(tester);
         await openDialog(tester);
@@ -316,10 +338,7 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 100));
 
-        expect(
-          find.text('Sheet creation arrives in a later phase.'),
-          findsOneWidget,
-        );
+        expect(find.text('Enter a sheet name.'), findsOneWidget);
       },
     );
 
@@ -522,4 +541,303 @@ void main() {
       },
     );
   });
+
+  group('creating a sheet (CRT-01 … CRT-07, CRT-11)', () {
+    const createdBody =
+        '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+    const createServerErrorBody =
+        '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}';
+
+    ProviderContainer containerOf(WidgetTester tester) =>
+        ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
+
+    List<http.Request> postsOf(List<http.Request> recorded) => recorded
+        .where(
+          (request) =>
+              request.method == 'POST' && request.url.path == '/sheets',
+        )
+        .toList();
+
+    /// Mounts the dialog over a minimal host that captures the popped sheet,
+    /// with an isolated temp support directory so the real library store is
+    /// exercised without the `path_provider` channel.
+    Future<({List<http.Request> recorded, Sheet? Function() popped})> pumpDialog(
+      WidgetTester tester, {
+      required Future<http.Response> Function(http.Request request) handler,
+      SheetLibraryStore? store,
+    }) async {
+      final recorded = <http.Request>[];
+      final supportDir = Directory.systemTemp.createTempSync('lgn109-dialog');
+      addTearDown(() => supportDir.deleteSync(recursive: true));
+      Sheet? popped;
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appSupportDirectoryProvider.overrideWithValue(supportDir),
+            if (store != null)
+              sheetLibraryStoreProvider.overrideWithValue(store),
+            apiClientProvider.overrideWithValue(
+              ApiClient(
+                httpClient: MockClient((request) async {
+                  recorded.add(request);
+                  return handler(request);
+                }),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: buildAppTheme(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: TextButton(
+                    key: const Key('open-dialog'),
+                    onPressed: () async {
+                      popped = await showDialog<Sheet>(
+                        context: context,
+                        builder: (_) =>
+                            const CreateSheetDialog(templateId: 'fantasy_v1'),
+                      );
+                    },
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('open-dialog')));
+      await tester.pumpAndSettle();
+      return (recorded: recorded, popped: () => popped);
+    }
+
+    Future<void> typeName(WidgetTester tester, String name) async {
+      await tester.enterText(
+        find.byKey(const Key('create-sheet-name-input')),
+        name,
+      );
+      await tester.pump();
+    }
+
+    testWidgets(
+      'Happy path: one activation posts the trimmed name, registers the entry, and pops with the created sheet (CRT-01, CRT-03)',
+      (tester) async {
+        final harness = await pumpDialog(
+          tester,
+          handler: (request) async => http.Response(
+            request.url.path == '/sheets' ? createdBody : detailBody,
+            request.url.path == '/sheets' ? 201 : 200,
+          ),
+        );
+        await typeName(tester, '  Aragorn  ');
+
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pumpAndSettle();
+
+        final posts = postsOf(harness.recorded);
+        expect(posts, hasLength(1));
+        expect(jsonDecode(posts.single.body), {
+          'template_id': 'fantasy_v1',
+          'sheet_name': 'Aragorn',
+        });
+        expect(find.byType(CreateSheetDialog), findsNothing);
+        expect(harness.popped(), isNotNull);
+        expect(harness.popped()!.id, 'sheet-1');
+
+        final entry = containerOf(
+          tester,
+        ).read(sheetLibraryProvider).entries.single;
+        expect(entry.id, 'sheet-1');
+        expect(entry.name, 'Aragorn');
+        expect(entry.templateId, 'fantasy_v1');
+        expect(entry.createdAt, DateTime.utc(2026, 9, 20, 12));
+      },
+    );
+
+    testWidgets(
+      'Edge: a second activation while in flight issues no additional POST (CRT-02)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final harness = await pumpDialog(
+          tester,
+          handler: (request) async => request.url.path == '/sheets'
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+        await typeName(tester, 'Aragorn');
+
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pump();
+
+        final submit = find.byKey(const Key('create-sheet-submit'));
+        expect(tester.widget<TextButton>(submit).onPressed, isNull);
+        await tester.tap(submit, warnIfMissed: false);
+        await tester.pump();
+        expect(postsOf(harness.recorded), hasLength(1));
+
+        gate.complete(http.Response(createdBody, 201));
+        await tester.pumpAndSettle();
+        expect(find.byType(CreateSheetDialog), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Edge: dismissing the dialog while the create request is in flight still registers the created sheet (CRT-03)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final harness = await pumpDialog(
+          tester,
+          handler: (request) async => request.url.path == '/sheets'
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+        await typeName(tester, 'Aragorn');
+
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(CreateSheetDialog), findsNothing);
+
+        gate.complete(http.Response(createdBody, 201));
+        await tester.pumpAndSettle();
+
+        final entries = containerOf(tester).read(sheetLibraryProvider).entries;
+        expect(entries, hasLength(1));
+        expect(entries.single.id, 'sheet-1');
+        expect(entries.single.name, 'Aragorn');
+        expect(postsOf(harness.recorded), hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'Error: a failed create stays open with the mapped copy above the action row, registers nothing, and a retry posts once more (CRT-06, CRT-07)',
+      (tester) async {
+        var fail = true;
+        final harness = await pumpDialog(
+          tester,
+          handler: (request) async {
+            if (request.url.path != '/sheets') {
+              return http.Response(detailBody, 200);
+            }
+            return http.Response(
+              fail ? createServerErrorBody : createdBody,
+              fail ? 500 : 201,
+            );
+          },
+        );
+        await typeName(tester, 'Aragorn');
+
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CreateSheetDialog), findsOneWidget);
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
+        final error = find.byKey(const Key('create-sheet-error'));
+        expect(
+          tester.getTopLeft(error).dy,
+          lessThan(
+            tester.getTopLeft(find.byKey(const Key('create-sheet-submit'))).dy,
+          ),
+        );
+        expect(containerOf(tester).read(sheetLibraryProvider).entries, isEmpty);
+
+        fail = false;
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pumpAndSettle();
+
+        expect(postsOf(harness.recorded), hasLength(2));
+        expect(find.byType(CreateSheetDialog), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Edge: a local library write failure after a 201 still pops with the sheet and posts once (CRT-11)',
+      (tester) async {
+        final harness = await pumpDialog(
+          tester,
+          store: _ThrowingStore(),
+          handler: (request) async => http.Response(
+            request.url.path == '/sheets' ? createdBody : detailBody,
+            request.url.path == '/sheets' ? 201 : 200,
+          ),
+        );
+        await typeName(tester, 'Aragorn');
+
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CreateSheetDialog), findsNothing);
+        expect(harness.popped(), isNotNull);
+        expect(postsOf(harness.recorded), hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'Edge: a whitespace-only name keeps the action inert and posts nothing (CRT-05)',
+      (tester) async {
+        final harness = await pumpDialog(
+          tester,
+          handler: (request) async => http.Response(detailBody, 200),
+        );
+        await typeName(tester, '   ');
+
+        expect(
+          tester
+              .widget<TextButton>(find.byKey(const Key('create-sheet-submit')))
+              .onPressed,
+          isNull,
+        );
+        expect(postsOf(harness.recorded), isEmpty);
+        expect(find.byType(CreateSheetDialog), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Edge: the response name wins over the submitted name when they differ (CRT-03)',
+      (tester) async {
+        const renamedBody =
+            '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Strider", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+        final harness = await pumpDialog(
+          tester,
+          handler: (request) async => http.Response(
+            request.url.path == '/sheets' ? renamedBody : detailBody,
+            request.url.path == '/sheets' ? 201 : 200,
+          ),
+        );
+        await typeName(tester, 'Aragorn');
+
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pumpAndSettle();
+
+        expect(harness.popped()!.name, 'Strider');
+        expect(
+          containerOf(tester).read(sheetLibraryProvider).entries.single.name,
+          'Strider',
+        );
+      },
+    );
+  });
+}
+
+/// A sheet library store whose save always fails, to exercise the local-write
+/// failure path after a successful `POST /sheets` (CRT-11).
+class _ThrowingStore extends SheetLibraryStore {
+  _ThrowingStore() : super(directory: Directory.systemTemp);
+
+  @override
+  void save(List<SheetLibraryEntry> entries) {
+    throw const SheetLibraryException(
+      SheetLibraryErrorKind.writeFailed,
+      'forced write failure',
+    );
+  }
 }
