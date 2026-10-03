@@ -34,7 +34,7 @@ void main() {
 
   File storeFile() => File('${storeDir.path}/sheet_library.json');
 
-  File tempFile() => File('${storeDir.path}/sheet_library.json.tmp');
+  File tempFile() => File('${storeDir.path}/sheet_library.json.$pid.tmp');
 
   Map<String, Object?> readEnvelope() =>
       jsonDecode(storeFile().readAsStringSync()) as Map<String, Object?>;
@@ -263,5 +263,27 @@ void main() {
     expect(result.outcome, LibraryLoadOutcome.loaded);
     expect(result.entries.single.id, 'id-1');
     expect(tempFile().existsSync(), isFalse);
+  });
+
+  test('Edge: per-process temps — save never shares another instance file and load sweeps stale temps (LIB-12, LIB-14)', () {
+    storeDir.createSync(recursive: true);
+    final foreignTemp = File(
+      '${storeDir.path}/sheet_library.json.999999999.tmp',
+    );
+    foreignTemp.writeAsStringSync('in-flight write of another process');
+
+    final writer = newStore();
+    writer.save([entry('id-1')]);
+
+    expect(foreignTemp.existsSync(), isTrue);
+    expect(tempFile().existsSync(), isFalse);
+
+    final reader = newStore();
+    reader.save([entry('id-1'), entry('id-2')]);
+    final loaded = reader.load();
+
+    expect(loaded.outcome, LibraryLoadOutcome.loaded);
+    expect(loaded.entries.map((item) => item.id), ['id-1', 'id-2']);
+    expect(foreignTemp.existsSync(), isFalse);
   });
 }

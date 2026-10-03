@@ -48,7 +48,8 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | Corrupt or unknown store recovery | Quarantine the file under a distinct name (keep the original bytes), then start with an empty index | User decision (discuss, 2026-10-02): preserve the bad file for manual recovery | y |
 | Newer `schema_version` than the build supports | Same as corrupt: quarantine and start empty, without attempting to parse | User decision extends to unsupported versions; guessing a newer format risks silent data loss | y |
 | Logging / surfacing recovery | The store reports a recovery outcome (`loaded` / `quarantined` / `empty`) and the app decides where to log or show it; the store never logs sheet content | No desktop logging mechanism exists yet; reporting the outcome keeps the AC testable without inventing infrastructure | n |
-| Atomicity mechanism | Temporary file `sheet_library.json.tmp` + `rename` over the target | `dart:io` `File.rename` removes an existing destination first, so the replace is atomic on the same filesystem (verified) | y |
+| Atomicity mechanism | Temporary file `sheet_library.json.<pid>.tmp` + `rename` over the target | `dart:io` `File.rename` removes an existing destination first, so the replace is atomic on the same filesystem (verified); the pid suffix keeps two instances from writing (and renaming) the same in-flight file | y |
+| Cross-process concurrency | Out of scope for this increment: mutations are serialized within one app process; every save writes a per-process temp and load sweeps stale ones; a single-instance guard is deferred to the write-flows story (create/open/save) | User decision (discuss, 2026-10-02): `upsert`/`remove` have no production callers yet, so the guard ships with the story that performs the writes; the per-process temp already keeps two instances from corrupting each other's in-flight file | y |
 | Concrete quarantine name pattern | `sheet_library.json.corrupt-<UTC compact timestamp>`, same directory | Design decision; distinct per event, preserves the original bytes | y |
 
 **Open questions:** none - all resolved or logged above (required before the spec is confirmed).
@@ -90,9 +91,9 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 2. WHEN a mutation (add/update/remove) is applied, the system SHALL persist the complete index before reporting success to the caller  <!-- event-driven -->
 3. IF persisting a mutation fails, THEN the system SHALL leave the in-memory index equal to its pre-mutation value and report the failure to the caller  <!-- unwanted-behavior -->
 4. The system SHALL persist the store through an atomic replace (write to a temporary file, then rename) so a partial write never leaves a truncated store  <!-- ubiquitous -->
-5. The system SHALL serialize concurrent mutations so each persisted store reflects a complete index  <!-- ubiquitous -->
+5. The system SHALL serialize mutations within a single app process so each persisted store reflects a complete index  <!-- ubiquitous -->
 
-**Independent Test**: Force the persistence fake to fail a write; assert the in-memory index is unchanged and the error is reported. Assert the write path uses a temp-then-rename sequence and that two interleaved mutations leave a parseable store.
+**Independent Test**: Force the persistence fake to fail a write; assert the in-memory index is unchanged and the error is reported. Assert the write path uses a temp-then-rename sequence and that two interleaved mutations in one process leave a parseable store.
 
 ---
 

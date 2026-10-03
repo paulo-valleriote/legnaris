@@ -85,12 +85,12 @@ graph TD
 - **Interfaces**:
   - `SheetLibraryStore({required Directory directory, String fileName = 'sheet_library.json'})`
   - `LibraryLoadResult load()` — steps below; never throws for bad input, only returns an outcome.
-  - `void save(List<SheetLibraryEntry> entries)` — validates, encodes `{schema_version, sheets}`, writes `<file>.tmp`, then `rename` over `<file>`; throws `SheetLibraryException` on failure.
+  - `void save(List<SheetLibraryEntry> entries)` — validates, encodes `{schema_version, sheets}`, writes `<file>.<pid>.tmp` (per process), then `rename` over `<file>`; throws `SheetLibraryException` on failure.
   - `static const int currentSchemaVersion = 1;`
   - `static const Map<int, JsonMigrator> migrations = {};` with `typedef JsonMigrator = Map<String, Object?> Function(Map<String, Object?> envelope)` keyed by the version migrated from.
 - **load() steps**:
   1. Target file absent → `LibraryLoadResult(empty, const [])`.
-  2. Delete a leftover `<file>.tmp` (crash residue), ignore its absence.
+  2. Delete leftover `<file>[.<pid>].tmp` files (crash residue from this or an earlier process), ignore their absence.
   3. Read + `jsonDecode`. Empty/whitespace body, invalid JSON, non-object root, non-int `schema_version`, malformed `sheets`, or any entry that fails `fromJson`/`isValid` → **quarantine** and return `empty`.
   4. `schema_version > currentSchemaVersion` → **quarantine**, return `empty`.
   5. `schema_version < currentSchemaVersion` → apply `migrations` from the stored version up to current; a missing step → **quarantine**, return `empty`.
@@ -173,7 +173,7 @@ graph TD
 | `path_provider` uses platform channels, unusable in widget tests | new `lib/library/sheet_library_provider.dart` | Tests crash or hang if the channel is hit | `appSupportDirectoryProvider` throws a clear `StateError` and every test overrides it with a temp dir; the store only takes a `Directory` |
 | Synchronous file I/O inside provider `build()` | new `sheet_library_store.dart` | UI stall if the file is large | Index holds IDs/names only, a few KB; the file was resolved at bootstrap anyway. Revisit if the index ever grows |
 | Windows rename replace semantics | new `sheet_library_store.dart` | Temp+rename could leave the target untouched or throw | Verified `dart:io File.rename` removes an existing destination first; temp and target share one directory/filesystem |
-| Crash between temp write and rename | new `sheet_library_store.dart` | A stale `.tmp` remains | `load()` deletes a leftover `.tmp`; the target keeps its previous valid content |
+| Crash between temp write and rename | new `sheet_library_store.dart` | A stale `.tmp` remains | `load()` deletes leftover `<file>[.<pid>].tmp` files; the target keeps its previous valid content |
 | Quarantine rename itself fails | new `sheet_library_store.dart` | Bad file not moved aside | Recovery still returns `empty` and never crashes; the next successful `save` overwrites the file. Documented behavior |
 | No desktop logging mechanism exists | new `lib/library/sheet_library_provider.dart` | Recovery is silent | The store reports `LibraryLoadOutcome` in state; a later logging card can consume it without changing the store |
 | Test coverage gap for the new layer | `desktop/test/library/` | Untested recovery paths | Add store tests (temp dir) + provider tests (override) covering LIB-01 … LIB-23 |
@@ -185,7 +185,7 @@ graph TD
 | Decision | Choice | Rationale |
 | -------- | ------ | --------- |
 | Storage backend | `path_provider: ^2.1.6` (`getApplicationSupportDirectory`) + a `dart:io` JSON file | The spec requires atomic replace and a byte-preserving quarantine of the bad file; `shared_preferences` hides its backing file, so those contracts cannot be guaranteed. `path_provider` is the strictly necessary first-party package for a portable writable app directory (`desktop/AGENTS.md` allows it) |
-| Store API shape | Synchronous `load()` / `save()` | Dart's single isolate serializes calls, so mutations cannot interleave and no async state machine is needed; the file is tiny and the directory is resolved before the first frame |
+| Store API shape | Synchronous `load()` / `save()` | Dart's single isolate serializes calls within one process, so mutations cannot interleave (a second app instance is out of scope for this increment; the single-instance guard is deferred to the write-flows story) and no async state machine is needed; the file is tiny and the directory is resolved before the first frame |
 | Directory injection | Resolve in `main()` via `WidgetsFlutterBinding.ensureInitialized()` + `getApplicationSupportDirectory()`, override `appSupportDirectoryProvider` | Keeps providers synchronous and keeps the platform channel out of tests |
 | Envelope shape | Top-level `{schema_version: int, sheets: [...]}` | Matches the spec AC, gives a single place to key future migrations |
 | Quarantine naming | `<fileName>.corrupt-<UTC compact timestamp>` | Distinct name per event, same directory (atomic rename), original bytes preserved |

@@ -62,7 +62,9 @@ class SheetLibraryStore {
 
   File get _file => File('${directory.path}/$fileName');
 
-  File get _tempFile => File('${_file.path}.tmp');
+  /// The temp file for this process: the pid suffix keeps two app instances
+  /// from writing (and renaming) the same in-flight file.
+  File get _tempFile => File('${_file.path}.$pid.tmp');
 
   /// Loads the index, applying version recovery (LIB-01, LIB-14 … LIB-19).
   ///
@@ -175,12 +177,22 @@ class SheetLibraryStore {
     }
   }
 
-  /// Deletes a temp file left by a crash between write and rename; cleanup is
-  /// best effort so a stale temp never blocks a valid load.
+  /// Deletes leftover temp files of this store — this process's own residue
+  /// and crash residue from earlier runs, which carry another pid and can
+  /// only be recognized by the `<file>[.<pid>].tmp` name pattern; cleanup is
+  /// best effort so a stale temp never blocks a valid load. Sweeping every
+  /// matching file at load is safe inside AC5's single-process scope: a
+  /// second instance saving at that exact moment would see a typed
+  /// `writeFailed`, never a corrupted store.
   void _deleteLeftoverTemp() {
+    final pattern = RegExp(
+      '(?:^|[/\\\\])${RegExp.escape(fileName)}(?:\\.\\d+)?\\.tmp\$',
+    );
     try {
-      if (_tempFile.existsSync()) {
-        _tempFile.deleteSync();
+      for (final entity in directory.listSync()) {
+        if (entity is File && pattern.hasMatch(entity.path)) {
+          entity.deleteSync();
+        }
       }
     } on FileSystemException {
       return;
