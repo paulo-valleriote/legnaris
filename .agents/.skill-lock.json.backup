@@ -6,7 +6,7 @@
       "source": "local",
       "contentHash": "d05974df076f695f96b4e4c263ad19f2aaffe8ee6248c1b07a634dd9ed0ea51e",
       "installedAt": "2026-09-22T00:58:41.039Z",
-      "updatedAt": "2026-09-28T21:29:27.592Z",
+      "updatedAt": "2026-09-28T21:29:27.599Z",
       "agents": [
         "cursor",
         "claude-code",
@@ -67,6 +67,19 @@
         "cursor",
         "claude-code",
         "windsurf"
+      ],
+      "method": "copy",
+      "global": false
+    },
+    "the-judge": {
+      "name": "the-judge",
+      "source": "local",
+      "contentHash": "05526209052f6592ad98476e8f59e9ffa2a24e803e10a90ceac659476b509403",
+      "installedAt": "2026-10-02T12:57:02.284Z",
+      "updatedAt": "2026-10-02T12:57:02.296Z",
+      "agents": [
+        "cursor",
+        "claude-code"
       ],
       "method": "copy",
       "global": false
