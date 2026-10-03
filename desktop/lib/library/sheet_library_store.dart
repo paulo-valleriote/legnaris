@@ -36,7 +36,10 @@ class SheetLibraryStore {
     required this.directory,
     this.fileName = 'sheet_library.json',
     this.migrations = const {},
-  });
+    /// Clock seam: a test that forces a quarantine rename failure must know
+    /// the stamped destination name in advance.
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   /// The schema version this build writes and understands.
   static const int currentSchemaVersion = 1;
@@ -54,6 +57,8 @@ class SheetLibraryStore {
   /// (design) so a test can register a migration for LIB-15 without mutating
   /// global state.
   final Map<int, JsonMigrator> migrations;
+
+  final DateTime Function() _now;
 
   File get _file => File('${directory.path}/$fileName');
 
@@ -183,18 +188,20 @@ class SheetLibraryStore {
   }
 
   /// Moves a bad store aside under `<file>.corrupt-<UTC compact timestamp>`,
-  /// preserving its bytes; if the rename fails the file stays in place and the
-  /// next successful save overwrites it.
+  /// preserving its bytes, and reports [LibraryLoadOutcome.quarantined]. If
+  /// the rename itself fails nothing was quarantined: the file stays in place
+  /// for the next successful save to overwrite and [LibraryLoadOutcome.empty]
+  /// is reported instead (design).
   LibraryLoadResult _quarantine() {
     try {
-      final stamp = DateTime.now()
+      final stamp = _now()
           .toUtc()
           .toIso8601String()
           .replaceAll(RegExp(r'[^0-9]'), '');
       _file.renameSync('${_file.path}.corrupt-$stamp');
     } on FileSystemException {
       return const LibraryLoadResult(
-        outcome: LibraryLoadOutcome.quarantined,
+        outcome: LibraryLoadOutcome.empty,
         entries: [],
       );
     }

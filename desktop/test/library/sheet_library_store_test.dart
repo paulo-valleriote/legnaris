@@ -184,6 +184,27 @@ void main() {
     }
   });
 
+  test('Error: when the quarantine rename fails, load reports empty and the file is left for the next save (LIB-17, LIB-19)', () {
+    storeDir.createSync(recursive: true);
+    storeFile().writeAsStringSync('not json');
+    final frozen = DateTime.utc(2026, 10, 3, 12);
+    final stamp = frozen
+        .toUtc()
+        .toIso8601String()
+        .replaceAll(RegExp(r'[^0-9]'), '');
+    Directory('${storeFile().path}.corrupt-$stamp').createSync();
+
+    final store = SheetLibraryStore(directory: storeDir, now: () => frozen);
+    final result = store.load();
+
+    expect(result.outcome, LibraryLoadOutcome.empty);
+    expect(result.entries, isEmpty);
+    expect(storeFile().readAsStringSync(), 'not json');
+
+    store.save([entry('id-1')]);
+    expect(storeFile().readAsStringSync(), contains('"id-1"'));
+  });
+
   test('Happy path: an older version with a registered migration upgrades; without one it is quarantined (LIB-15, LIB-16)', () {
     const older =
         '{"schema_version": 0, "sheets": [{"id": "id-1", "name": "Aria", "template_id": "fantasy_v1", "created_at": "2026-10-02T15:31:28.401Z"}]}';
