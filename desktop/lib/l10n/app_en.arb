@@ -148,7 +148,15 @@
   },
   "sheetLocalEdits": "Local edits",
   "@sheetLocalEdits": {
-    "description": "Header caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12)."
+    "description": "Footer caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12)."
+  },
+  "sheetSaveAction": "Save",
+  "@sheetSaveAction": {
+    "description": "Footer action that commits the changed editable delta with one PATCH /sheets/:id (SAV-01, SAV-04)."
+  },
+  "sheetSaveNoChangesTooltip": "There are no changes to save.",
+  "@sheetSaveNoChangesTooltip": {
+    "description": "Tooltip explaining why the Save action is disabled: no pending edit (SAV-02)."
   },
   "sheetLoading": "Loading sheet...",
   "@sheetLoading": {

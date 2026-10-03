@@ -180,13 +180,13 @@ T3 -> T6
 
 **Done when**:
 
-- [ ] The footer renders with the loaded form and is absent in loading/error/no-fields states
-- [ ] Save is disabled with no pending edit and enabled once a field is edited
-- [ ] Activating Save issues exactly one PATCH; a second activation while in flight issues none
-- [ ] A failure renders the mapped copy inline above the action row and keeps the dirty indicator
-- [ ] A success removes the dirty indicator and the inline error
-- [ ] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
-- [ ] Test count: recorded after the run (file total; +new, no silent deletions)
+- [x] The footer renders with the loaded form and is absent in loading/error/no-fields states
+- [x] Save is disabled with no pending edit and enabled once a field is edited
+- [x] Activating Save issues exactly one PATCH; a second activation while in flight issues none
+- [x] A failure renders the mapped copy inline above the action row and keeps the dirty indicator
+- [x] A success removes the dirty indicator and the inline error
+- [x] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
+- [x] Test count: 43 tests pass (file total; +4 new, no silent deletions)
 
 **Tests**: widget
 **Gate**: quick
@@ -327,10 +327,10 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 
 | Requirement ID | Task(s) | Status |
 | -------------- | ------- | ------ |
-| SAV-01 | T4 | Pending |
-| SAV-02 | T4 | Pending |
-| SAV-03 | T4 | Pending |
-| SAV-04 | T4 | Pending |
+| SAV-01 | T4 | Done |
+| SAV-02 | T4 | Done |
+| SAV-03 | T4 | Done |
+| SAV-04 | T4 | Done |
 | SAV-05 | T5 | Pending |
 | SAV-06 | T4, T5, T6 | Pending |
 | SAV-07 | T5 | Pending |

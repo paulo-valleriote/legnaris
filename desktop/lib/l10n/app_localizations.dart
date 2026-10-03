@@ -292,11 +292,23 @@ abstract class AppLocalizations {
   /// **'Calculated'**
   String get fieldCalculated;
 
-  /// Header caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12).
+  /// Footer caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12).
   ///
   /// In en, this message translates to:
   /// **'Local edits'**
   String get sheetLocalEdits;
+
+  /// Footer action that commits the changed editable delta with one PATCH /sheets/:id (SAV-01, SAV-04).
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get sheetSaveAction;
+
+  /// Tooltip explaining why the Save action is disabled: no pending edit (SAV-02).
+  ///
+  /// In en, this message translates to:
+  /// **'There are no changes to save.'**
+  String get sheetSaveNoChangesTooltip;
 
   /// Loading state of Screen 2 while GET /sheets/:id is in flight (OPN-05).
   ///

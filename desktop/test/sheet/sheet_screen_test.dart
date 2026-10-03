@@ -1663,4 +1663,146 @@ void main() {
       },
     );
   });
+
+  group('save footer (SAV-01 … SAV-06, SAV-17 … SAV-23)', () {
+    const cascadeBody = '{"data": {"derived": {"armorClass": 13}}}';
+    const invalidBody =
+        '{"error": {"code": "INVALID_REQUEST", "message": "not editable"}}';
+
+    List<http.Request> patches(List<http.Request> recorded) =>
+        recorded.where((request) => request.method == 'PATCH').toList();
+
+    TextButton saveButton(WidgetTester tester) =>
+        tester.widget<TextButton>(find.byKey(const Key('sheet-save')));
+
+    testWidgets(
+      'Happy path: Save is inert until an edit, then issues one PATCH and clears the dirty state (SAV-01, SAV-02, SAV-03, SAV-04, SAV-17)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.method == 'PATCH'
+              ? http.Response(cascadeBody, 200)
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('sheet-save')), findsOneWidget);
+        expect(saveButton(tester).onPressed, isNull);
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        expect(find.byKey(const Key('sheet-local-edits')), findsOneWidget);
+        expect(saveButton(tester).onPressed, isNotNull);
+
+        await tester.tap(find.byKey(const Key('sheet-save')));
+        await tester.pumpAndSettle();
+
+        expect(patches(recorded), hasLength(1));
+        expect(jsonDecode(patches(recorded).single.body), {
+          'data': {
+            'stats': {'dexterity': 16},
+          },
+        });
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+        expect(find.byKey(const Key('sheet-save-error')), findsNothing);
+        expect(saveButton(tester).onPressed, isNull);
+      },
+    );
+
+    testWidgets(
+      'Error: a failed save keeps the edits and shows the mapped copy inline, and a retry saves once more (SAV-18, SAV-19, SAV-20, SAV-21, SAV-23)',
+      (tester) async {
+        var failing = true;
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async {
+            if (request.method != 'PATCH') {
+              return http.Response(detailBody, 200);
+            }
+            return failing
+                ? http.Response(invalidBody, 400)
+                : http.Response(cascadeBody, 200);
+          },
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('sheet-save')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('sheet-save-error')), findsOneWidget);
+        expect(find.text(errorCopy(ApiErrorKind.invalidEdit)), findsOneWidget);
+        expect(find.byKey(const Key('sheet-local-edits')), findsOneWidget);
+        expect(find.byKey(const Key('sheet-input-stats.dexterity')), findsOneWidget);
+        expect(patches(recorded), hasLength(1));
+
+        failing = false;
+        await tester.tap(find.byKey(const Key('sheet-save')));
+        await tester.pumpAndSettle();
+
+        expect(patches(recorded), hasLength(2));
+        expect(find.byKey(const Key('sheet-save-error')), findsNothing);
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Edge: a second activation while a save is in flight issues no second PATCH (SAV-06)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.method == 'PATCH'
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('sheet-save')));
+        await tester.pump();
+
+        expect(saveButton(tester).onPressed, isNull);
+        await tester.tap(
+          find.byKey(const Key('sheet-save')),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+        expect(patches(recorded), hasLength(1));
+
+        gate.complete(http.Response('{"data": {}}', 200));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Edge: the footer is absent while the template is not loaded (SAV-01)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.startsWith('/sheets/')
+              ? http.Response(sheetBody(), 200)
+              : http.Response(serverErrorBody, 500),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('sheet-save')), findsNothing);
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
+      },
+    );
+  });
 }

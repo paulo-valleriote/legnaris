@@ -130,6 +130,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sheetLocalEdits => 'Local edits';
 
   @override
+  String get sheetSaveAction => 'Save';
+
+  @override
+  String get sheetSaveNoChangesTooltip => 'There are no changes to save.';
+
+  @override
   String get sheetLoading => 'Loading sheet...';
 
   @override
