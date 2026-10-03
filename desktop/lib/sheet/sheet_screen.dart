@@ -16,7 +16,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/api/models/sheet.dart';
-import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
 import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_control.dart';
@@ -75,11 +74,12 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
       templateDetailControllerProvider(widget.templateId),
     );
     final template = state.template;
+    final openedName = ref.watch(openedSheetProvider)?.name;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _header(context, template, localizations),
+        _header(context, openedName ?? template?.name ?? '', localizations),
         const Divider(),
         Expanded(child: _body(context, state, localizations)),
       ],
@@ -88,7 +88,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
 
   Widget _header(
     BuildContext context,
-    TemplateDetail? template,
+    String title,
     AppLocalizations localizations,
   ) {
     final theme = Theme.of(context);
@@ -106,7 +106,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
-            template?.name ?? '',
+            title,
             key: const Key('sheet-title'),
             style: theme.textTheme.titleLarge,
             overflow: TextOverflow.ellipsis,

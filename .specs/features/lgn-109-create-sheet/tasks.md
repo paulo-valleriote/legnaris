@@ -142,10 +142,10 @@ T4
 
 **Done when**:
 
-- [ ] With an opened-sheet override the header shows the sheet's `name`
-- [ ] With no override the header still shows the template's `name`
-- [ ] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
-- [ ] Test count: [N] tests pass (no silent deletions)
+- [x] With an opened-sheet override the header shows the sheet's `name`
+- [x] With no override the header still shows the template's `name`
+- [x] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
+- [x] Test count: 34 tests pass (file total; +2 new, no silent deletions)
 
 **Tests**: widget
 **Gate**: quick
