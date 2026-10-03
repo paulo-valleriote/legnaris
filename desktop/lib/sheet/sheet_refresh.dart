@@ -12,7 +12,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'sheet_refresh.g.dart';
 
-/// Template id of the sheet screen currently mounted, or null when none is.
+/// Sheet id of the sheet screen currently mounted, or null when none is.
 /// The mounted screen holds the listener that keeps this alive; once it goes
 /// away the provider disposes and a fresh read is null again.
 @riverpod
@@ -20,10 +20,10 @@ class ActiveSheetId extends _$ActiveSheetId {
   @override
   String? build() => null;
 
-  /// Registers [templateId] as the active sheet, replacing any previous
+  /// Registers [sheetId] as the active sheet, replacing any previous
   /// registration (only one sheet screen can be on screen at a time).
-  void set(String? templateId) {
-    state = templateId;
+  void set(String? sheetId) {
+    state = sheetId;
   }
 }
 

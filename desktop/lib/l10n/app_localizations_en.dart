@@ -127,10 +127,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fieldCalculated => 'Calculated';
 
   @override
-  String get catalogPreviewAction => 'Preview sheet';
+  String get sheetLocalEdits => 'Local edits';
 
   @override
-  String get sheetLocalEdits => 'Local edits';
+  String get sheetLoading => 'Loading sheet...';
 
   @override
   String get sheetLeaveDialogTitle => 'Discard local edits?';
@@ -157,4 +157,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fieldNone => 'None';
+
+  @override
+  String get sheetMissingMessage =>
+      'This sheet no longer exists in the API. It was removed from your library.';
+
+  @override
+  String get librarySectionTitle => 'My sheets';
+
+  @override
+  String get libraryEmpty => 'No sheets created yet';
+
+  @override
+  String get libraryOpenAction => 'Open';
+
+  @override
+  String get libraryRemoveAction => 'Remove';
+
+  @override
+  String get libraryRemoveDialogTitle => 'Remove from local library?';
+
+  @override
+  String get libraryRemoveDialogMessage =>
+      'This removes the sheet from this app only. The sheet stays in the API and can be opened again if you keep its id.';
+
+  @override
+  String get libraryRemoveConfirmAction => 'Remove';
+
+  @override
+  String get libraryRemoveCancelAction => 'Cancel';
+
+  @override
+  String get libraryRemoveFailed =>
+      'Could not update the local library. Please try again.';
 }

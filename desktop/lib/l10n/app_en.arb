@@ -146,13 +146,13 @@
   "@fieldCalculated": {
     "description": "Read-only highlight shown next to a non-editable (derived) field value (RND-10)."
   },
-  "catalogPreviewAction": "Preview sheet",
-  "@catalogPreviewAction": {
-    "description": "Card action that opens Screen 2 for that template with schema-default values (RND-14)."
-  },
   "sheetLocalEdits": "Local edits",
   "@sheetLocalEdits": {
     "description": "Header caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12)."
+  },
+  "sheetLoading": "Loading sheet...",
+  "@sheetLoading": {
+    "description": "Loading state of Screen 2 while GET /sheets/:id is in flight (OPN-05)."
   },
   "sheetLeaveDialogTitle": "Discard local edits?",
   "@sheetLeaveDialogTitle": {
@@ -185,5 +185,45 @@
   "fieldNone": "None",
   "@fieldNone": {
     "description": "Option label of an exclusive-group dropdown entry that clears the group when no member has an active default (EXC-10, EXC-27)."
+  },
+  "sheetMissingMessage": "This sheet no longer exists in the API. It was removed from your library.",
+  "@sheetMissingMessage": {
+    "description": "Shown on Screen 2 when GET /sheets/:id returns NOT_FOUND and the local entry was evicted (OPN-06)."
+  },
+  "librarySectionTitle": "My sheets",
+  "@librarySectionTitle": {
+    "description": "Header of the local sheet library section on Screen 1 (OPN-01)."
+  },
+  "libraryEmpty": "No sheets created yet",
+  "@libraryEmpty": {
+    "description": "Single line rendered by the empty library section; no decorative art (OPN-02)."
+  },
+  "libraryOpenAction": "Open",
+  "@libraryOpenAction": {
+    "description": "Library row action that opens the stored sheet on Screen 2 (OPN-04)."
+  },
+  "libraryRemoveAction": "Remove",
+  "@libraryRemoveAction": {
+    "description": "Library row action that removes the entry from the local index (OPN-12)."
+  },
+  "libraryRemoveDialogTitle": "Remove from local library?",
+  "@libraryRemoveDialogTitle": {
+    "description": "Title of the destructive confirmation for removing a library entry (OPN-12)."
+  },
+  "libraryRemoveDialogMessage": "This removes the sheet from this app only. The sheet stays in the API and can be opened again if you keep its id.",
+  "@libraryRemoveDialogMessage": {
+    "description": "Explicit consequence stated by the library removal confirmation: local-only, sheet stays in the API (OPN-12)."
+  },
+  "libraryRemoveConfirmAction": "Remove",
+  "@libraryRemoveConfirmAction": {
+    "description": "Destructive button of the removal confirmation (OPN-13)."
+  },
+  "libraryRemoveCancelAction": "Cancel",
+  "@libraryRemoveCancelAction": {
+    "description": "Safe button of the removal confirmation; keeps the entry (OPN-14)."
+  },
+  "libraryRemoveFailed": "Could not update the local library. Please try again.",
+  "@libraryRemoveFailed": {
+    "description": "Inline error shown when a library removal fails to persist; the entry stays (OPN-15)."
   }
 }

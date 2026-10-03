@@ -1,14 +1,15 @@
-/// Screen 2 (Tela 2) — the navigable sheet surface (RND-14 … RND-20).
+/// Screen 2 (Tela 2) — the navigable sheet surface (RND-14 … RND-20, OPN-05 …).
 ///
-/// Host for the UI Engine: it fetches the template detail on demand and
-/// renders [SheetForm] with an in-memory edit state per field (LGN-102).
-/// Each control subscribes to its own dotted path through a `select`, so an
-/// edit rebuilds exactly that control and nothing else; values live in
-/// [sheetEditControllerProvider] (discarded when the screen unmounts) and no
-/// mutation is issued — the save cycle is Phase 4. A header caption signals
-/// pending local edits and the back action confirms before discarding them
-/// (GRN-11 … GRN-16); F5 refreshes the template behind the same kind of
-/// confirmation (GRN-17 … GRN-19).
+/// Host for the UI Engine: it loads one stored sheet through
+/// [sheetOpenControllerProvider], waits for the template detail its
+/// `template_id` names, and renders [SheetForm] with an in-memory edit state
+/// per field (LGN-102). Each control subscribes to its own dotted path through
+/// a `select`, so an edit rebuilds exactly that control and nothing else;
+/// values live in [sheetEditControllerProvider] keyed by the sheet id
+/// (discarded when the screen unmounts) and no mutation is issued — the save
+/// cycle is Phase 4. A header caption signals pending local edits and the back
+/// action confirms before discarding them (GRN-11 … GRN-16); F5 refreshes the
+/// template behind the same kind of confirmation (GRN-17 … GRN-19).
 library;
 
 import 'dart:async';
@@ -23,15 +24,16 @@ import 'package:legnaris/engine/field_grouping.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
+import 'package:legnaris/sheet/sheet_open_provider.dart';
 import 'package:legnaris/sheet/sheet_refresh.dart';
 import 'package:legnaris/theme/tokens.dart';
 
-/// Screen 2 for one template.
+/// Screen 2 for one stored sheet.
 class SheetScreen extends ConsumerStatefulWidget {
-  const SheetScreen({super.key, required this.templateId});
+  const SheetScreen({super.key, required this.sheetId});
 
-  /// Template whose fields are rendered (CAT-15).
-  final String templateId;
+  /// Stored sheet the screen renders; its `template_id` selects the fields.
+  final String sheetId;
 
   @override
   ConsumerState<SheetScreen> createState() => _SheetScreenState();
@@ -53,7 +55,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     // closes that listen and discards the registration (GRN-17).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(activeSheetIdProvider.notifier).set(widget.templateId);
+        ref.read(activeSheetIdProvider.notifier).set(widget.sheetId);
       }
     });
   }
@@ -70,18 +72,23 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     // where the element closes it and the provider discards the id.
     ref.listen(activeSheetIdProvider, (_, _) {});
     final localizations = AppLocalizations.of(context)!;
-    final state = ref.watch(
-      templateDetailControllerProvider(widget.templateId),
-    );
-    final template = state.template;
-    final openedName = ref.watch(openedSheetProvider)?.name;
+    final open = ref.watch(sheetOpenControllerProvider(widget.sheetId));
+    final templateId = open.sheet?.templateId;
+    final detail = templateId == null
+        ? null
+        : ref.watch(templateDetailControllerProvider(templateId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _header(context, openedName ?? template?.name ?? '', localizations),
+        _header(
+          context,
+          open.sheet?.name ?? '',
+          templateId ?? '',
+          localizations,
+        ),
         const Divider(),
-        Expanded(child: _body(context, state, localizations)),
+        Expanded(child: _body(context, open, detail, localizations)),
       ],
     );
   }
@@ -89,6 +96,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   Widget _header(
     BuildContext context,
     String title,
+    String templateId,
     AppLocalizations localizations,
   ) {
     final theme = Theme.of(context);
@@ -114,7 +122,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
         ),
         const SizedBox(width: AppSpacing.sm),
         _localEditsMarker(context, localizations),
-        Text(widget.templateId, style: muted),
+        Text(templateId, style: muted),
       ],
     );
   }
@@ -131,7 +139,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     return Consumer(
       builder: (context, ref, _) {
         final pending = ref.watch(
-          sheetEditControllerProvider(widget.templateId)
+          sheetEditControllerProvider(widget.sheetId)
               .select((state) => state.isPending),
         );
         if (!pending) return const SizedBox.shrink();
@@ -156,7 +164,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   Future<void> _leave() async {
     if (_confirming) return;
     final pending = ref
-        .read(sheetEditControllerProvider(widget.templateId))
+        .read(sheetEditControllerProvider(widget.sheetId))
         .isPending;
     if (pending) {
       final localizations = AppLocalizations.of(context)!;
@@ -177,7 +185,12 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   /// discarded behind the error + Retry branch.
   Future<void> _refreshTemplate() async {
     if (_confirming) return;
-    final editProvider = sheetEditControllerProvider(widget.templateId);
+    final templateId = ref
+        .read(sheetOpenControllerProvider(widget.sheetId))
+        .sheet
+        ?.templateId;
+    if (templateId == null) return;
+    final editProvider = sheetEditControllerProvider(widget.sheetId);
     if (ref.read(editProvider).isPending) {
       final localizations = AppLocalizations.of(context)!;
       final confirmed = await _confirmDiscard(
@@ -190,7 +203,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     }
     if (!mounted) return;
     await ref
-        .read(templateDetailControllerProvider(widget.templateId).notifier)
+        .read(templateDetailControllerProvider(templateId).notifier)
         .load();
   }
 
@@ -239,50 +252,53 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     }
   }
 
+  /// Picks the render state: the sheet load, then the template detail, then
+  /// the form. `NOT_FOUND` (already evicted) renders the missing-sheet copy
+  /// with no Retry (OPN-06); every other failure offers Retry (OPN-07, OPN-08).
   Widget _body(
     BuildContext context,
-    TemplateDetailState state,
+    SheetOpenState open,
+    TemplateDetailState? detail,
     AppLocalizations localizations,
   ) {
     final theme = Theme.of(context);
     final muted = theme.textTheme.bodyMedium?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
-    if (state.isLoading) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const LinearProgressIndicator(),
-          const SizedBox(height: AppSpacing.sm),
-          Text(localizations.templateDetailLoading, style: muted),
-        ],
+    if (open.isLoading) {
+      return _loading(context, localizations.sheetLoading, muted);
+    }
+
+    if (open.errorMessage != null) {
+      return _error(
+        context,
+        open.errorMessage!,
+        onRetry: open.isNotFound
+            ? null
+            : () => ref
+                  .read(sheetOpenControllerProvider(widget.sheetId).notifier)
+                  .load(),
+        localizations: localizations,
       );
     }
 
-    final template = state.template;
+    final sheet = open.sheet!;
+    final detailState = detail!;
+    if (detailState.isLoading) {
+      return _loading(context, localizations.templateDetailLoading, muted);
+    }
+
+    final template = detailState.template;
     if (template == null) {
-      final message = state.errorMessage;
+      final message = detailState.errorMessage;
       if (message == null) return const SizedBox.shrink();
-      return Row(
-        children: [
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.error,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          OutlinedButton(
-            onPressed: () => ref
-                .read(
-                  templateDetailControllerProvider(widget.templateId).notifier,
-                )
-                .load(),
-            child: Text(localizations.actionRetry),
-          ),
-        ],
+      return _error(
+        context,
+        message,
+        onRetry: () => ref
+            .read(templateDetailControllerProvider(sheet.templateId).notifier)
+            .load(),
+        localizations: localizations,
       );
     }
 
@@ -302,13 +318,55 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     );
   }
 
+  Widget _loading(
+    BuildContext context,
+    String message,
+    TextStyle? muted,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const LinearProgressIndicator(),
+      const SizedBox(height: AppSpacing.sm),
+      Text(message, style: muted),
+    ],
+  );
+
+  /// A failure row: the mapped copy plus Retry when the failure is retryable.
+  Widget _error(
+    BuildContext context,
+    String message, {
+    required VoidCallback? onRetry,
+    required AppLocalizations localizations,
+  }) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ),
+        if (onRetry != null) ...[
+          const SizedBox(width: AppSpacing.md),
+          OutlinedButton(
+            onPressed: onRetry,
+            child: Text(localizations.actionRetry),
+          ),
+        ],
+      ],
+    );
+  }
+
   /// One field's control, wired to the edit state: the `Consumer` subscribes
   /// to this field's dotted path only, so an edit to any other field leaves
   /// this subtree untouched (GRN-07, GRN-08). The screen itself never
   /// watches the edit state (AD-001).
   Widget _control(BuildContext context, SheetField field) => Consumer(
     builder: (context, ref, _) {
-      final provider = sheetEditControllerProvider(widget.templateId);
+      final provider = sheetEditControllerProvider(widget.sheetId);
       final value = ref.watch(
         provider.select((state) => valueAtPath(state.data, field.path)),
       );
@@ -336,7 +394,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   ) => Consumer(
     key: ValueKey('sheet-exclusive-consumer-${group.id}'),
     builder: (context, ref, _) {
-      final provider = sheetEditControllerProvider(widget.templateId);
+      final provider = sheetEditControllerProvider(widget.sheetId);
       String? active;
       for (final option in group.options) {
         final value = ref.watch(

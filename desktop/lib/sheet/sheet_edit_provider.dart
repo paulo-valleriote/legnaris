@@ -1,9 +1,9 @@
 /// In-memory edit state for one open sheet (LGN-102, GRN-01 … GRN-06).
 ///
-/// The family is keyed by template id and autoDispose: the state lives only
-/// while a sheet surface subscribes, so leaving the screen discards every
-/// edit and a reopen reseeds from the schema defaults. Nothing here is
-/// persisted or sent to the API — the save cycle is Phase 4.
+/// The family is keyed by the opened sheet id and autoDispose: the state lives
+/// only while a sheet surface subscribes, so leaving the screen discards every
+/// edit and a reopen reseeds from the stored sheet. Nothing here is persisted
+/// or sent to the API — the save cycle is Phase 4.
 ///
 /// Rebuild granularity comes from `select`: field controls watch a single
 /// dotted path of this state, so one edit rebuilds exactly one control and
@@ -13,6 +13,7 @@ library;
 import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
 import 'package:legnaris/engine/sheet_defaults.dart';
+import 'package:legnaris/sheet/sheet_open_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'sheet_edit_provider.g.dart';
@@ -20,10 +21,10 @@ part 'sheet_edit_provider.g.dart';
 /// The stored sheet an open Screen 2 was launched for, injected per route.
 ///
 /// The creation flow overrides this with the `201` payload so Screen 2 edits
-/// the server-stored values instead of the schema defaults (CRT-08); the
-/// preview path leaves it null and seeds from the template schema (GRN-01).
-/// Overriding at the route scope keeps the screen, this controller and every
-/// field consumer on one container (design: opened-sheet seam).
+/// the server-stored values without a second request (CRT-08, OPN-09); the
+/// library path leaves it null and `SheetOpenController` fetches the sheet by
+/// id. Overriding at the route scope keeps the screen, this controller and
+/// every field consumer on one container (design: opened-sheet seam).
 @Riverpod(keepAlive: true)
 Sheet? openedSheet(Ref ref) => null;
 
@@ -55,22 +56,23 @@ class SheetEditState {
   );
 }
 
-/// Edit state of the sheet for one template id.
+/// Edit state of the sheet opened for one sheet id.
 ///
-/// Rebuilds (and reseeds) whenever the template detail state changes: the
-/// loading state drops the template, which discards the edits, and a
-/// successful reload seeds the fresh schema — the discard-confirmed refresh
-/// flow rides on that (GRN-17).
+/// Rebuilds (and reseeds) whenever the open sheet or the template detail
+/// changes: the loading state drops the value, which discards the edits, and a
+/// successful load seeds from the sheet's stored data over the schema defaults
+/// — the discard-confirmed refresh flow rides on that (GRN-17).
 @riverpod
 class SheetEditController extends _$SheetEditController {
   @override
-  SheetEditState build(String templateId) {
+  SheetEditState build(String sheetId) {
+    final sheet = ref.watch(sheetOpenControllerProvider(sheetId)).sheet;
+    if (sheet == null) return const SheetEditState();
     final template = ref
-        .watch(templateDetailControllerProvider(templateId))
+        .watch(templateDetailControllerProvider(sheet.templateId))
         .template;
     if (template == null) return const SheetEditState();
-    final opened = ref.watch(openedSheetProvider);
-    final seed = opened?.data ?? seedDefaults(template.fields);
+    final seed = seedFromSheet(template.fields, sheet.data);
     return SheetEditState(defaults: seed, data: seed);
   }
 

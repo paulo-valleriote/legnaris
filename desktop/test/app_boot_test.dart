@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,7 @@ import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/connection/health_scheduler.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/main.dart';
 import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/shell/shell_state.dart';
@@ -35,12 +38,15 @@ void main() {
     Future<http.Response> Function(http.Request request)? handler,
   }) async {
     final recorded = <http.Request>[];
+    final supportDir = Directory.systemTemp.createTempSync('lgn108-boot');
+    addTearDown(() => supportDir.deleteSync(recursive: true));
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appSupportDirectoryProvider.overrideWithValue(supportDir),
           apiClientProvider.overrideWithValue(
             ApiClient(
               httpClient: MockClient((request) async {
@@ -95,9 +101,12 @@ void main() {
     });
 
     testWidgets('Happy path: MaterialApp.title comes from appTitleProvider, never a hardcoded string', (tester) async {
+      final supportDir = Directory.systemTemp.createTempSync('lgn108-boot-title');
+      addTearDown(() => supportDir.deleteSync(recursive: true));
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appSupportDirectoryProvider.overrideWithValue(supportDir),
             appTitleProvider.overrideWithValue('Legnaris (overridden)'),
           ],
           child: const LegnarisApp(),

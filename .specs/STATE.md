@@ -34,14 +34,22 @@
 - **Date**: 2026-10-03
 - **Status**: active
 
+### AD-005
+- **Decision**: Screen 2 always renders a stored sheet: `SheetScreen({required sheetId})`, the edit-state family `sheetEditControllerProvider` is keyed by the **sheet id** (not the template id), and a new autoDispose `SheetOpenController(sheetId)` owns the single `GET /sheets/:id` with loading/error state and evicts the local entry on `NOT_FOUND`. The creation flow keeps injecting the `201` payload through `openedSheetProvider`, so no second GET is issued. The temporary "Preview sheet" action (Phase 3) is removed.
+- **Reason**: The card places the fetch on Screen 2 ("GET /sheets/:id na Tela 2") and retargets the edit state from template id to sheet id; seeding overlays `Sheet.data` on the schema defaults per key. User decisions (2026-10-03): on `NOT_FOUND` stay on Screen 2 with a mapped message and no Retry; remove Preview now that the real open flow exists.
+- **Trade-off**: The edit family key and Screen 2's identity change together, so call sites and their tests must move in one commit. Screen 2 fetches the template detail only after the loaded sheet reveals `template_id` (two sequential GETs). The library write failure on `NOT_FOUND` eviction is swallowed (best-effort) while the message still renders.
+- **Scope**: desktop/ — `lib/sheet/` (open + edit + screen), `lib/catalog/` (library section + catalog embed), `lib/engine/sheet_defaults.dart` (`seedFromSheet`), l10n. Reuses AD-004's route-scoped override seam.
+- **Date**: 2026-10-03
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: `lgn-109-create-sheet` (.specs/features/lgn-109-create-sheet)
-- **Phase / Task**: Execute — COMPLETE (T1–T4 committed; Verifier PASS on round 2, `validate_state.py` exit 0)
-- **Completed**: T1 opened-sheet seed seam, T2 dialog submit (name validation, single POST, library upsert, inline error + retry), T3 Screen 2 title, T4 catalog navigation. A test-only fix commit `7be258d` closed two Verifier edge-case notes; round-2 PASS (11/11 ACs, 3/3 mutants killed, 433 tests green). PR #55 opened; Jira LGN-109 commented. Report: `.specs/features/lgn-109-create-sheet/validation.md`.
+- **Feature**: `lgn-108-open-sheet` (.specs/features/lgn-108-open-sheet)
+- **Phase / Task**: Execute — COMPLETE (T1–T5 committed; independent Verifier PASS 21/21, 4/4 mutants killed; `validate_state.py` exit 0)
+- **Completed**: T1 `seedFromSheet` per-key seeding, T2 `SheetOpenController` (GET by id, loading/error, NOT_FOUND eviction), T3 Screen 2 retargeted to the sheet id (edit family key, seeding overlay, preview removed), T4 Screen 1 "My sheets" section (list/open/remove + confirmation), T5 catalog embeds the section and opens from it. Commits `1229ce4`, `2b9cf1a`, `cdd0b02`, `0b2e3e4`, `d9a8119` (docs `f8a740c`). Report: `.specs/features/lgn-108-open-sheet/validation.md`.
 - **In-progress** (file:line): none
-- **Next step**: review and merge PR #55 (https://github.com/paulo-valleriote/legnaris/pull/55), then start LGN-108 ("Abrir ficha").
-- **Blockers**: none. LGN-108 ("Abrir ficha": library list + `GET /sheets/:id`) is the follow-up; this card intentionally opens the created sheet from the `201` payload (AD-004).
-- **Uncommitted files**: none; branch pushed, PR #55 opened, Jira LGN-109 commented.
-- **Branch**: feat/lgn-109-create-sheet (pushed; PR #55 → main)
-- **Prior feature**: `lgn-107-local-sheet-library` — COMPLETE (merged #54)
+- **Next step**: review the branch `feat/lgn-108-open-sheet` and open a PR. No remote push has been performed (blast radius: local commits only).
+- **Blockers**: none. The two non-blocking Verifier notes (back/F5 guards exercised only via the injected seed; template-failure retention by construction) were closed in `f610afa` with direct library-path assertions (`sheet_screen_test.dart` OPN-17/18 group, `library_open_navigation_test.dart` retention test); re-verification round 1 PASS (461 passed, 4 skipped, 4/4 mutants).
+- **Uncommitted files**: validation report + traceability update (this commit). Working tree otherwise clean.
+- **Branch**: `feat/lgn-108-open-sheet` (local only; based on `7508d4d`)
+- **Prior feature**: `lgn-109-create-sheet` — COMPLETE (PR #55, merged); `lgn-107-local-sheet-library` — COMPLETE (merged #54)

@@ -281,13 +281,6 @@ void main() {
     ProviderContainer containerOf(WidgetTester tester) =>
         ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
 
-    int postCount(List<http.Request> recorded) => recorded
-        .where(
-          (request) =>
-              request.method == 'POST' && request.url.path == '/sheets',
-        )
-        .length;
-
     testWidgets(
       'Happy path: submitting creates the sheet, registers it, and opens Screen 2 with the created values (CRT-03, CRT-04, CRT-08)',
       (tester) async {
@@ -356,30 +349,59 @@ void main() {
     );
 
     testWidgets(
-      'Edge: the preview action still opens Screen 2 with schema defaults and no library entry (CRT-03, CRT-04)',
+      'Edge: the catalog offers no Preview sheet action; every card only creates (OPN-20, OPN-21)',
       (tester) async {
         final recorder = _PushRecorder();
         final recorded = await pumpCatalog(tester, recorder);
 
-        await tester.tap(find.byKey(const Key('catalog-preview-fantasy_v1')));
+        expect(find.text('Preview sheet'), findsNothing);
+        expect(find.byKey(const Key('catalog-preview-fantasy_v1')), findsNothing);
+        expect(
+          find.widgetWithText(TextButton, 'Create sheet'),
+          findsNWidgets(2),
+        );
+        expect(recorded.where((request) => request.method != 'GET'), isEmpty);
+        expect(containerOf(tester).read(sheetLibraryProvider).entries, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Happy path: back from the created sheet returns to the cached catalog with no new list request (RND-18)',
+      (tester) async {
+        final recorder = _PushRecorder();
+        final recorded = await pumpCatalog(
+          tester,
+          recorder,
+          handler: (request) async {
+            if (request.url.path == '/templates') {
+              return http.Response(twoTemplatesBody, 200);
+            }
+            if (request.url.path == '/templates/fantasy_v1') {
+              return http.Response(detailBody, 200);
+            }
+            if (request.url.path == '/sheets') {
+              return http.Response(createdBody, 201);
+            }
+            return http.Response('{}', 404);
+          },
+        );
+
+        await openDialog(tester, 'Fantasy Template');
+        await tester.enterText(
+          find.byKey(const Key('create-sheet-name-input')),
+          'Aragorn',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pumpAndSettle();
+        expect(find.byType(SheetScreen), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
         await tester.pumpAndSettle();
 
-        expect(find.byType(SheetScreen), findsOneWidget);
-        expect(
-          tester.widget<Text>(find.byKey(const Key('sheet-title'))).data,
-          'Fantasy Template',
-        );
-        expect(
-          tester
-              .widget<TextField>(
-                find.byKey(const Key('sheet-input-stats.dexterity')),
-              )
-              .controller
-              ?.text,
-          '10',
-        );
-        expect(postCount(recorded), 0);
-        expect(containerOf(tester).read(sheetLibraryProvider).entries, isEmpty);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(Card), findsNWidgets(2));
+        expect(listRequestCount(recorded), 1);
       },
     );
   });
