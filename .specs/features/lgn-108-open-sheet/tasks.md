@@ -154,15 +154,15 @@ T4 -> T5
 
 **Done when**:
 
-- [ ] The edit family is keyed by the sheet id; opening a sheet seeds data from `Sheet.data` over the schema defaults and reports not pending
-- [ ] Screen 2 shows a loading state, then the sheet's name and stored values
-- [ ] A `404` renders the missing-sheet copy with no Retry; a `500` renders the mapped copy with Retry and keeps the entry
-- [ ] The local-edits marker, back guard and F5 guard read the sheet-id provider and keep their existing behavior
-- [ ] No "Preview sheet" action remains; a catalog card offers only Create sheet
-- [ ] The creation flow mounts Screen 2 for the created sheet with zero `/sheets/:id` GETs
-- [ ] No `POST`/`PATCH` is issued while a sheet is open
-- [ ] Gate check passes: `flutter test` (whole suite; the signature change is cross-file)
-- [ ] Test count: edit, screen and create-navigation files green with the existing assertions preserved (no silent deletions)
+- [x] The edit family is keyed by the sheet id; opening a sheet seeds data from `Sheet.data` over the schema defaults and reports not pending
+- [x] Screen 2 shows a loading state, then the sheet's name and stored values
+- [x] A `404` renders the missing-sheet copy with no Retry; a `500` renders the mapped copy with Retry and keeps the entry
+- [x] The local-edits marker, back guard and F5 guard read the sheet-id provider and keep their existing behavior
+- [x] No "Preview sheet" action remains; a catalog card offers only Create sheet
+- [x] The creation flow mounts Screen 2 for the created sheet with zero `/sheets/:id` GETs
+- [x] No `POST`/`PATCH` is issued while a sheet is open
+- [x] Gate check passes: `flutter test` (whole suite; the signature change is cross-file)
+- [x] Test count: 450 tests pass across the suite, 4 skipped (pre-existing live/contract skips); edit 15, screen 37, create-navigation 11 (no silent deletions; the obsolete preview navigation suite `sheet_navigation_test.dart` was removed with the preview action it covered — RND-18 back navigation re-homed into create-navigation)
 
 **Tests**: unit + widget (integration)
 **Gate**: full

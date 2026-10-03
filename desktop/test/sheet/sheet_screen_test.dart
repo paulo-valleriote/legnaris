@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_refresh.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
@@ -49,6 +51,32 @@ void main() {
 }}}
 ''';
 
+  /// The sheet id Screen 2 is mounted for in this suite; injection matches it.
+  const sheetId = 'sheet-1';
+
+  Sheet baseSheet({
+    String name = 'Aragorn',
+    Map<String, Object?> data = const {},
+  }) => Sheet(
+    id: sheetId,
+    templateId: 'fantasy_v1',
+    name: name,
+    data: data,
+    createdAt: DateTime.utc(2026, 9, 20, 12),
+    updatedAt: DateTime.utc(2026, 9, 20, 12),
+  );
+
+  String sheetBody({Map<String, Object?> data = const {}}) => jsonEncode({
+    'data': {
+      'id': sheetId,
+      'template_id': 'fantasy_v1',
+      'name': 'Aragorn',
+      'data': data,
+      'created_at': '2026-09-20T12:00:00Z',
+      'updated_at': '2026-09-21T08:30:00Z',
+    },
+  });
+
   /// A full-size template: 20 groups × 10 fields = 200 editable controls,
   /// the upper bound of the GRN-10 render budget.
   String bigTemplateBody() {
@@ -82,15 +110,20 @@ void main() {
     required Future<http.Response> Function(http.Request request) handler,
     bool stacked = false,
     Sheet? opened,
+    bool injectSheet = true,
   }) async {
     final recorded = <http.Request>[];
+    final supportDir = Directory.systemTemp.createTempSync('lgn108-screen');
+    addTearDown(() => supportDir.deleteSync(recursive: true));
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          if (opened != null) openedSheetProvider.overrideWithValue(opened),
+          appSupportDirectoryProvider.overrideWithValue(supportDir),
+          if (injectSheet)
+            openedSheetProvider.overrideWithValue(opened ?? baseSheet()),
           apiClientProvider.overrideWithValue(
             ApiClient(
               httpClient: MockClient((request) async {
@@ -108,7 +141,7 @@ void main() {
               ? const Scaffold(
                   body: Text('sheet-landing', key: Key('sheet-landing')),
                 )
-              : const Scaffold(body: SheetScreen(templateId: 'fantasy_v1')),
+              : const Scaffold(body: SheetScreen(sheetId: sheetId)),
         ),
       ),
     );
@@ -119,7 +152,7 @@ void main() {
       navigator.push(
         MaterialPageRoute<void>(
           builder: (_) =>
-              const Scaffold(body: SheetScreen(templateId: 'fantasy_v1')),
+              const Scaffold(body: SheetScreen(sheetId: sheetId)),
         ),
       );
       await tester.pumpAndSettle();
@@ -248,6 +281,119 @@ void main() {
     );
   });
 
+  group('sheet loading and failure (OPN-05 … OPN-08)', () {
+    testWidgets(
+      'Happy path: loads the sheet then the template, showing stored values (OPN-05, OPN-06)',
+      (tester) async {
+        final sheetGate = Completer<http.Response>();
+        final recorded = await pumpScreen(
+          tester,
+          injectSheet: false,
+          handler: (request) async {
+            if (request.url.path == '/sheets/sheet-1') {
+              return sheetGate.future;
+            }
+            return http.Response(detailBody, 200);
+          },
+        );
+
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        expect(find.text('Loading sheet...'), findsOneWidget);
+
+        sheetGate.complete(
+          http.Response(
+            sheetBody(data: const {
+              'stats': {'dexterity': 16},
+            }),
+            200,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          recorded.where((request) => request.url.path == '/sheets/sheet-1'),
+          hasLength(1),
+        );
+        expect(find.byKey(const Key('sheet-section-stats')), findsOneWidget);
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('sheet-input-stats.dexterity')),
+              )
+              .controller
+              ?.text,
+          '16',
+        );
+        expect(
+          tester.widget<Text>(find.byKey(const Key('sheet-title'))).data,
+          'Aragorn',
+        );
+      },
+    );
+
+    testWidgets(
+      'Error: NOT_FOUND shows the missing-sheet copy with no Retry (OPN-06)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          injectSheet: false,
+          handler: (request) async {
+            if (request.url.path == '/sheets/sheet-1') {
+              return http.Response(
+                '{"error": {"code": "NOT_FOUND", "message": "gone"}}',
+                404,
+              );
+            }
+            return http.Response(detailBody, 200);
+          },
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            'This sheet no longer exists in the API. It was removed from your library.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.widgetWithText(OutlinedButton, 'Retry'), findsNothing);
+        expect(find.byType(SheetFieldControl), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Error: a server failure shows the mapped copy with Retry that re-requests once (OPN-07, OPN-08)',
+      (tester) async {
+        var call = 0;
+        final recorded = await pumpScreen(
+          tester,
+          injectSheet: false,
+          handler: (request) async {
+            if (request.url.path == '/sheets/sheet-1') {
+              call++;
+              return call == 1
+                  ? http.Response(serverErrorBody, 500)
+                  : http.Response(sheetBody(), 200);
+            }
+            return http.Response(detailBody, 200);
+          },
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
+        expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
+
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Retry'));
+        await tester.pumpAndSettle();
+
+        expect(
+          recorded.where((request) => request.url.path == '/sheets/sheet-1'),
+          hasLength(2),
+        );
+        expect(find.byKey(const Key('sheet-section-stats')), findsOneWidget);
+      },
+    );
+  });
+
   group('edges (RND-16, RND-19, RND-20)', () {
     testWidgets('Edge: an empty field tree renders the single localized line', (
       tester,
@@ -262,17 +408,18 @@ void main() {
     });
 
     testWidgets(
-      'Edge: an empty template name renders an empty title without throwing',
+      'Edge: an empty template name still renders the sheet name as the title',
       (tester) async {
         await pumpScreen(
           tester,
           handler: (_) async => http.Response(emptyNameBody, 200),
+          opened: baseSheet(),
         );
         await tester.pumpAndSettle();
 
         expect(
           tester.widget<Text>(find.byKey(const Key('sheet-title'))).data,
-          '',
+          'Aragorn',
         );
         expect(find.byKey(const Key('sheet-section-stats')), findsOneWidget);
       },
@@ -356,17 +503,18 @@ void main() {
     );
 
     testWidgets(
-      'Edge: without an opened sheet the title falls back to the template name (CRT-09)',
+      'Edge: a sheet with an empty name renders an empty title, not the template name (CRT-09)',
       (tester) async {
         await pumpScreen(
           tester,
           handler: (_) async => http.Response(detailBody, 200),
+          opened: baseSheet(name: ''),
         );
         await tester.pumpAndSettle();
 
         expect(
           tester.widget<Text>(find.byKey(const Key('sheet-title'))).data,
-          'Fantasy Template',
+          '',
         );
       },
     );
@@ -391,7 +539,7 @@ void main() {
         final container = ProviderScope.containerOf(
           tester.element(find.byKey(const Key('sheet-title'))),
         );
-        final state = container.read(sheetEditControllerProvider('fantasy_v1'));
+        final state = container.read(sheetEditControllerProvider(sheetId));
         expect(valueAtPath(state.data, 'stats.dexterity'), 16);
         expect(state.isPending, isTrue);
         expect(
@@ -559,7 +707,7 @@ void main() {
         final container = ProviderScope.containerOf(
           tester.element(find.byKey(const Key('sheet-title'))),
         );
-        final state = container.read(sheetEditControllerProvider('fantasy_v1'));
+        final state = container.read(sheetEditControllerProvider(sheetId));
         expect(valueAtPath(state.data, 'config.stealthProfWeight'), 1);
         expect(state.isPending, isTrue);
 
@@ -631,7 +779,7 @@ void main() {
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         expect(
-          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          container.read(sheetEditControllerProvider(sheetId)).isPending,
           isFalse,
         );
       },
@@ -694,7 +842,7 @@ void main() {
           tester.element(find.byKey(const Key('sheet-landing'))),
         );
         expect(
-          container.exists(sheetEditControllerProvider('fantasy_v1')),
+          container.exists(sheetEditControllerProvider(sheetId)),
           isFalse,
           reason: 'popping must discard the autoDispose edit state',
         );
@@ -729,7 +877,7 @@ void main() {
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         expect(
-          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          container.read(sheetEditControllerProvider(sheetId)).isPending,
           isTrue,
         );
         expect(recorded, hasLength(1));
@@ -782,7 +930,7 @@ void main() {
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         expect(
-          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          container.read(sheetEditControllerProvider(sheetId)).isPending,
           isTrue,
         );
         expect(recorded, hasLength(1));
@@ -804,7 +952,7 @@ void main() {
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         expect(container.exists(activeSheetIdProvider), isTrue);
-        expect(container.read(activeSheetIdProvider), 'fantasy_v1');
+        expect(container.read(activeSheetIdProvider), sheetId);
       },
     );
 
@@ -819,7 +967,7 @@ void main() {
         final container = ProviderScope.containerOf(
           tester.element(find.byKey(const Key('sheet-title'))),
         );
-        expect(container.read(activeSheetIdProvider), 'fantasy_v1');
+        expect(container.read(activeSheetIdProvider), sheetId);
 
         await tester.tap(find.byKey(const Key('sheet-back')));
         await tester.pumpAndSettle();
@@ -907,7 +1055,7 @@ void main() {
         );
         expect(recorded, hasLength(1));
         expect(
-          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          container.read(sheetEditControllerProvider(sheetId)).isPending,
           isTrue,
         );
       },
@@ -945,7 +1093,7 @@ void main() {
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         expect(
-          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          container.read(sheetEditControllerProvider(sheetId)).isPending,
           isTrue,
         );
       },
@@ -998,7 +1146,7 @@ void main() {
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         expect(
-          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          container.read(sheetEditControllerProvider(sheetId)).isPending,
           isFalse,
         );
       },
@@ -1038,7 +1186,7 @@ void main() {
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         expect(
-          container.read(sheetEditControllerProvider('fantasy_v1')).isPending,
+          container.read(sheetEditControllerProvider(sheetId)).isPending,
           isFalse,
           reason: 'a failed confirmed refresh keeps the edits discarded',
         );
@@ -1130,7 +1278,7 @@ void main() {
         );
         var emissions = 0;
         final subscription = container.listen(
-          sheetEditControllerProvider('fantasy_v1'),
+          sheetEditControllerProvider(sheetId),
           (_, _) => emissions++,
         );
         addTearDown(subscription.close);
@@ -1142,7 +1290,7 @@ void main() {
         );
 
         final state = container.read(
-          sheetEditControllerProvider('fantasy_v1'),
+          sheetEditControllerProvider(sheetId),
         );
         expect(valueAtPath(state.data, 'config.acUsesCon'), 1);
         expect(valueAtPath(state.data, 'config.acUsesDex'), 0);
@@ -1176,7 +1324,7 @@ void main() {
           tester.element(find.byKey(const Key('sheet-title'))),
         );
         final before = container.read(
-          sheetEditControllerProvider('fantasy_v1'),
+          sheetEditControllerProvider(sheetId),
         );
 
         await selectExclusive(
@@ -1187,7 +1335,7 @@ void main() {
 
         expect(
           identical(
-            container.read(sheetEditControllerProvider('fantasy_v1')),
+            container.read(sheetEditControllerProvider(sheetId)),
             before,
           ),
           isTrue,
@@ -1324,7 +1472,7 @@ void main() {
         );
         var emissions = 0;
         final subscription = container.listen(
-          sheetEditControllerProvider('fantasy_v1'),
+          sheetEditControllerProvider(sheetId),
           (_, _) => emissions++,
         );
         addTearDown(subscription.close);
@@ -1342,7 +1490,7 @@ void main() {
         );
 
         final state = container.read(
-          sheetEditControllerProvider('fantasy_v1'),
+          sheetEditControllerProvider(sheetId),
         );
         expect(valueAtPath(state.data, 'config.spellUsesConstitution'), 1);
         for (final ability in abilities.where((a) => a != 'Constitution')) {
@@ -1401,14 +1549,14 @@ void main() {
         );
         expect(
           valueAtPath(
-            container.read(sheetEditControllerProvider('fantasy_v1')).data,
+            container.read(sheetEditControllerProvider(sheetId)).data,
             'config.spellUsesConstitution',
           ),
           1,
         );
         var emissions = 0;
         final subscription = container.listen(
-          sheetEditControllerProvider('fantasy_v1'),
+          sheetEditControllerProvider(sheetId),
           (_, _) => emissions++,
         );
         addTearDown(subscription.close);
@@ -1416,7 +1564,7 @@ void main() {
         await selectExclusive(tester, 'spellcastingAbility', 'none');
 
         final state = container.read(
-          sheetEditControllerProvider('fantasy_v1'),
+          sheetEditControllerProvider(sheetId),
         );
         for (final ability in abilities) {
           expect(

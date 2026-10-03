@@ -292,17 +292,17 @@ abstract class AppLocalizations {
   /// **'Calculated'**
   String get fieldCalculated;
 
-  /// Card action that opens Screen 2 for that template with schema-default values (RND-14).
-  ///
-  /// In en, this message translates to:
-  /// **'Preview sheet'**
-  String get catalogPreviewAction;
-
   /// Header caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12).
   ///
   /// In en, this message translates to:
   /// **'Local edits'**
   String get sheetLocalEdits;
+
+  /// Loading state of Screen 2 while GET /sheets/:id is in flight (OPN-05).
+  ///
+  /// In en, this message translates to:
+  /// **'Loading sheet...'**
+  String get sheetLoading;
 
   /// Title of the destructive confirmation opened by the sheet back action while edits are pending (GRN-13).
   ///

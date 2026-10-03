@@ -11,10 +11,10 @@ part of 'sheet_edit_provider.dart';
 /// The stored sheet an open Screen 2 was launched for, injected per route.
 ///
 /// The creation flow overrides this with the `201` payload so Screen 2 edits
-/// the server-stored values instead of the schema defaults (CRT-08); the
-/// preview path leaves it null and seeds from the template schema (GRN-01).
-/// Overriding at the route scope keeps the screen, this controller and every
-/// field consumer on one container (design: opened-sheet seam).
+/// the server-stored values without a second request (CRT-08, OPN-09); the
+/// library path leaves it null and `SheetOpenController` fetches the sheet by
+/// id. Overriding at the route scope keeps the screen, this controller and
+/// every field consumer on one container (design: opened-sheet seam).
 
 @ProviderFor(openedSheet)
 final openedSheetProvider = OpenedSheetProvider._();
@@ -22,10 +22,10 @@ final openedSheetProvider = OpenedSheetProvider._();
 /// The stored sheet an open Screen 2 was launched for, injected per route.
 ///
 /// The creation flow overrides this with the `201` payload so Screen 2 edits
-/// the server-stored values instead of the schema defaults (CRT-08); the
-/// preview path leaves it null and seeds from the template schema (GRN-01).
-/// Overriding at the route scope keeps the screen, this controller and every
-/// field consumer on one container (design: opened-sheet seam).
+/// the server-stored values without a second request (CRT-08, OPN-09); the
+/// library path leaves it null and `SheetOpenController` fetches the sheet by
+/// id. Overriding at the route scope keeps the screen, this controller and
+/// every field consumer on one container (design: opened-sheet seam).
 
 final class OpenedSheetProvider
     extends $FunctionalProvider<Sheet?, Sheet?, Sheet?>
@@ -33,10 +33,10 @@ final class OpenedSheetProvider
   /// The stored sheet an open Screen 2 was launched for, injected per route.
   ///
   /// The creation flow overrides this with the `201` payload so Screen 2 edits
-  /// the server-stored values instead of the schema defaults (CRT-08); the
-  /// preview path leaves it null and seeds from the template schema (GRN-01).
-  /// Overriding at the route scope keeps the screen, this controller and every
-  /// field consumer on one container (design: opened-sheet seam).
+  /// the server-stored values without a second request (CRT-08, OPN-09); the
+  /// library path leaves it null and `SheetOpenController` fetches the sheet by
+  /// id. Overriding at the route scope keeps the screen, this controller and
+  /// every field consumer on one container (design: opened-sheet seam).
   OpenedSheetProvider._()
     : super(
         from: null,
@@ -72,30 +72,30 @@ final class OpenedSheetProvider
 
 String _$openedSheetHash() => r'7fe9b047ab9f66a5449b71c7fe6bcebabe7d9c67';
 
-/// Edit state of the sheet for one template id.
+/// Edit state of the sheet opened for one sheet id.
 ///
-/// Rebuilds (and reseeds) whenever the template detail state changes: the
-/// loading state drops the template, which discards the edits, and a
-/// successful reload seeds the fresh schema — the discard-confirmed refresh
-/// flow rides on that (GRN-17).
+/// Rebuilds (and reseeds) whenever the open sheet or the template detail
+/// changes: the loading state drops the value, which discards the edits, and a
+/// successful load seeds from the sheet's stored data over the schema defaults
+/// — the discard-confirmed refresh flow rides on that (GRN-17).
 
 @ProviderFor(SheetEditController)
 final sheetEditControllerProvider = SheetEditControllerFamily._();
 
-/// Edit state of the sheet for one template id.
+/// Edit state of the sheet opened for one sheet id.
 ///
-/// Rebuilds (and reseeds) whenever the template detail state changes: the
-/// loading state drops the template, which discards the edits, and a
-/// successful reload seeds the fresh schema — the discard-confirmed refresh
-/// flow rides on that (GRN-17).
+/// Rebuilds (and reseeds) whenever the open sheet or the template detail
+/// changes: the loading state drops the value, which discards the edits, and a
+/// successful load seeds from the sheet's stored data over the schema defaults
+/// — the discard-confirmed refresh flow rides on that (GRN-17).
 final class SheetEditControllerProvider
     extends $NotifierProvider<SheetEditController, SheetEditState> {
-  /// Edit state of the sheet for one template id.
+  /// Edit state of the sheet opened for one sheet id.
   ///
-  /// Rebuilds (and reseeds) whenever the template detail state changes: the
-  /// loading state drops the template, which discards the edits, and a
-  /// successful reload seeds the fresh schema — the discard-confirmed refresh
-  /// flow rides on that (GRN-17).
+  /// Rebuilds (and reseeds) whenever the open sheet or the template detail
+  /// changes: the loading state drops the value, which discards the edits, and a
+  /// successful load seeds from the sheet's stored data over the schema defaults
+  /// — the discard-confirmed refresh flow rides on that (GRN-17).
   SheetEditControllerProvider._({
     required SheetEditControllerFamily super.from,
     required String super.argument,
@@ -141,14 +141,14 @@ final class SheetEditControllerProvider
 }
 
 String _$sheetEditControllerHash() =>
-    r'b729cd715e46d9385c213fc9515d41e36786b585';
+    r'627953142465cf284cc26f7c6f15357a6435b795';
 
-/// Edit state of the sheet for one template id.
+/// Edit state of the sheet opened for one sheet id.
 ///
-/// Rebuilds (and reseeds) whenever the template detail state changes: the
-/// loading state drops the template, which discards the edits, and a
-/// successful reload seeds the fresh schema — the discard-confirmed refresh
-/// flow rides on that (GRN-17).
+/// Rebuilds (and reseeds) whenever the open sheet or the template detail
+/// changes: the loading state drops the value, which discards the edits, and a
+/// successful load seeds from the sheet's stored data over the schema defaults
+/// — the discard-confirmed refresh flow rides on that (GRN-17).
 
 final class SheetEditControllerFamily extends $Family
     with
@@ -168,32 +168,32 @@ final class SheetEditControllerFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// Edit state of the sheet for one template id.
+  /// Edit state of the sheet opened for one sheet id.
   ///
-  /// Rebuilds (and reseeds) whenever the template detail state changes: the
-  /// loading state drops the template, which discards the edits, and a
-  /// successful reload seeds the fresh schema — the discard-confirmed refresh
-  /// flow rides on that (GRN-17).
+  /// Rebuilds (and reseeds) whenever the open sheet or the template detail
+  /// changes: the loading state drops the value, which discards the edits, and a
+  /// successful load seeds from the sheet's stored data over the schema defaults
+  /// — the discard-confirmed refresh flow rides on that (GRN-17).
 
-  SheetEditControllerProvider call(String templateId) =>
-      SheetEditControllerProvider._(argument: templateId, from: this);
+  SheetEditControllerProvider call(String sheetId) =>
+      SheetEditControllerProvider._(argument: sheetId, from: this);
 
   @override
   String toString() => r'sheetEditControllerProvider';
 }
 
-/// Edit state of the sheet for one template id.
+/// Edit state of the sheet opened for one sheet id.
 ///
-/// Rebuilds (and reseeds) whenever the template detail state changes: the
-/// loading state drops the template, which discards the edits, and a
-/// successful reload seeds the fresh schema — the discard-confirmed refresh
-/// flow rides on that (GRN-17).
+/// Rebuilds (and reseeds) whenever the open sheet or the template detail
+/// changes: the loading state drops the value, which discards the edits, and a
+/// successful load seeds from the sheet's stored data over the schema defaults
+/// — the discard-confirmed refresh flow rides on that (GRN-17).
 
 abstract class _$SheetEditController extends $Notifier<SheetEditState> {
   late final _$args = ref.$arg as String;
-  String get templateId => _$args;
+  String get sheetId => _$args;
 
-  SheetEditState build(String templateId);
+  SheetEditState build(String sheetId);
   @$mustCallSuper
   @override
   WhenComplete runBuild() {

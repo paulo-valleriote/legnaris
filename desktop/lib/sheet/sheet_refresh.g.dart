@@ -8,19 +8,19 @@ part of 'sheet_refresh.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// Template id of the sheet screen currently mounted, or null when none is.
+/// Sheet id of the sheet screen currently mounted, or null when none is.
 /// The mounted screen holds the listener that keeps this alive; once it goes
 /// away the provider disposes and a fresh read is null again.
 
 @ProviderFor(ActiveSheetId)
 final activeSheetIdProvider = ActiveSheetIdProvider._();
 
-/// Template id of the sheet screen currently mounted, or null when none is.
+/// Sheet id of the sheet screen currently mounted, or null when none is.
 /// The mounted screen holds the listener that keeps this alive; once it goes
 /// away the provider disposes and a fresh read is null again.
 final class ActiveSheetIdProvider
     extends $NotifierProvider<ActiveSheetId, String?> {
-  /// Template id of the sheet screen currently mounted, or null when none is.
+  /// Sheet id of the sheet screen currently mounted, or null when none is.
   /// The mounted screen holds the listener that keeps this alive; once it goes
   /// away the provider disposes and a fresh read is null again.
   ActiveSheetIdProvider._()
@@ -50,9 +50,9 @@ final class ActiveSheetIdProvider
   }
 }
 
-String _$activeSheetIdHash() => r'c058d637a2091be080fe7e9beddd47c07db881ff';
+String _$activeSheetIdHash() => r'a7f13842c488a49e37a42b50910f94cc6b1ee835';
 
-/// Template id of the sheet screen currently mounted, or null when none is.
+/// Sheet id of the sheet screen currently mounted, or null when none is.
 /// The mounted screen holds the listener that keeps this alive; once it goes
 /// away the provider disposes and a fresh read is null again.
 

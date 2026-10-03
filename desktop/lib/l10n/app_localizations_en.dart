@@ -127,10 +127,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fieldCalculated => 'Calculated';
 
   @override
-  String get catalogPreviewAction => 'Preview sheet';
+  String get sheetLocalEdits => 'Local edits';
 
   @override
-  String get sheetLocalEdits => 'Local edits';
+  String get sheetLoading => 'Loading sheet...';
 
   @override
   String get sheetLeaveDialogTitle => 'Discard local edits?';

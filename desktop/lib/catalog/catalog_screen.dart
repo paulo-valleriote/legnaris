@@ -5,6 +5,7 @@ import 'package:legnaris/catalog/catalog_provider.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
+import 'package:legnaris/sheet/sheet_open_provider.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
 import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/shell/shell_state.dart';
@@ -170,24 +171,12 @@ class CatalogScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        Wrap(
-                          spacing: AppSpacing.sm,
-                          runSpacing: AppSpacing.xs,
-                          children: [
-                            TextButton(
-                              key: Key('catalog-preview-${template.id}'),
-                              style: _cardActionStyle,
-                              onPressed: () =>
-                                  _openSheetScreen(context, template.id),
-                              child: Text(localizations.catalogPreviewAction),
-                            ),
-                            TextButton(
-                              style: _cardActionStyle,
-                              onPressed: () =>
-                                  _openCreationDialog(context, ref, template.id),
-                              child: Text(localizations.catalogCreateAction),
-                            ),
-                          ],
+                        TextButton(
+                          key: Key('catalog-create-${template.id}'),
+                          style: _cardActionStyle,
+                          onPressed: () =>
+                              _openCreationDialog(context, ref, template.id),
+                          child: Text(localizations.catalogCreateAction),
                         ),
                       ],
                     ),
@@ -225,17 +214,17 @@ class CatalogScreen extends ConsumerWidget {
       shellState.show(ShellSurface.catalog);
     }
     if (created == null || !context.mounted) return;
-    await _openSheetScreen(context, created.templateId, sheet: created);
+    await _openSheetScreen(context, sheetId: created.id, sheet: created);
   }
 
-  /// Opens Screen 2 for [templateId] (RND-14, RND-18). The route mounts the
-  /// persistent shell around the sheet surface; Screen 2's back action pops
+  /// Opens Screen 2 for the stored sheet [sheetId] (OPN-04). The route mounts
+  /// the persistent shell around the sheet surface; Screen 2's back action pops
   /// it, returning to the cached catalog with no extra request. A [sheet]
-  /// injects the created payload as the opened-sheet seed (CRT-08); the
-  /// preview path passes none and seeds from the schema.
+  /// injects the created `201` payload so the screen skips the `GET`
+  /// (OPN-09); the library path passes none and Screen 2 fetches by id.
   Future<void> _openSheetScreen(
-    BuildContext context,
-    String templateId, {
+    BuildContext context, {
+    required String sheetId,
     Sheet? sheet,
   }) {
     return Navigator.of(context).push(
@@ -245,15 +234,18 @@ class CatalogScreen extends ConsumerWidget {
             if (sheet != null) ...[
               openedSheetProvider.overrideWithValue(sheet),
               // A nested scope shares non-overridden providers with its
-              // parent, so the controller must be created in this scope to
-              // observe the opened-sheet seed above (design: opened-sheet
-              // seam).
+              // parent, so the open and edit controllers must be created in
+              // this scope to observe the opened-sheet seed above (design:
+              // opened-sheet seam).
+              sheetOpenControllerProvider.overrideWith2(
+                (sheetId) => SheetOpenController(),
+              ),
               sheetEditControllerProvider.overrideWith2(
-                (templateId) => SheetEditController(),
+                (sheetId) => SheetEditController(),
               ),
             ],
           ],
-          child: AppShell(content: SheetScreen(templateId: templateId)),
+          child: AppShell(content: SheetScreen(sheetId: sheetId)),
         ),
       ),
     );
