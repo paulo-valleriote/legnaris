@@ -1804,5 +1804,37 @@ void main() {
         expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'Happy path: the Ctrl+S dispatch saves once with a pending edit and is inert without one (SAV-05, SAV-06, SAV-07)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.method == 'PATCH'
+              ? http.Response(cascadeBody, 200)
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+
+        container.read(sheetSaveTickProvider.notifier).bump();
+        await tester.pumpAndSettle();
+        expect(patches(recorded), isEmpty, reason: 'no pending edit, no PATCH');
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        container.read(sheetSaveTickProvider.notifier).bump();
+        await tester.pumpAndSettle();
+
+        expect(patches(recorded), hasLength(1));
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+      },
+    );
   });
 }

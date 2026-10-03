@@ -68,6 +68,11 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     ref.listen(sheetRefreshTickProvider, (previous, next) {
       if (previous == null || next > previous) unawaited(_refreshTemplate());
     });
+    // Ctrl+S dispatch (SAV-05): the shell bumps the save tick, this screen
+    // runs the commit. The edit controller owns the single-flight guard.
+    ref.listen(sheetSaveTickProvider, (previous, next) {
+      if (previous == null || next > previous) _save();
+    });
     // Holds the active-sheet registration from the first build until unmount,
     // where the element closes it and the provider discards the id.
     ref.listen(activeSheetIdProvider, (_, _) {});

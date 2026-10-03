@@ -139,3 +139,69 @@ abstract class _$SheetRefreshTick extends $Notifier<int> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// Monotonic save counter: the shell bumps it once per `Ctrl+S` dispatch aimed
+/// at the active sheet, and the mounted screen reacts by saving (SAV-05).
+/// Starts at 0; disposal resets it, so a later sheet never sees a stale tick.
+
+@ProviderFor(SheetSaveTick)
+final sheetSaveTickProvider = SheetSaveTickProvider._();
+
+/// Monotonic save counter: the shell bumps it once per `Ctrl+S` dispatch aimed
+/// at the active sheet, and the mounted screen reacts by saving (SAV-05).
+/// Starts at 0; disposal resets it, so a later sheet never sees a stale tick.
+final class SheetSaveTickProvider
+    extends $NotifierProvider<SheetSaveTick, int> {
+  /// Monotonic save counter: the shell bumps it once per `Ctrl+S` dispatch aimed
+  /// at the active sheet, and the mounted screen reacts by saving (SAV-05).
+  /// Starts at 0; disposal resets it, so a later sheet never sees a stale tick.
+  SheetSaveTickProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sheetSaveTickProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sheetSaveTickHash();
+
+  @$internal
+  @override
+  SheetSaveTick create() => SheetSaveTick();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$sheetSaveTickHash() => r'2be0fffd7381b3f8a042262e324d59aa2d6e3513';
+
+/// Monotonic save counter: the shell bumps it once per `Ctrl+S` dispatch aimed
+/// at the active sheet, and the mounted screen reacts by saving (SAV-05).
+/// Starts at 0; disposal resets it, so a later sheet never sees a stale tick.
+
+abstract class _$SheetSaveTick extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}

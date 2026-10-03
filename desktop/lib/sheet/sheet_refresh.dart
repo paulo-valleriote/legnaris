@@ -40,3 +40,17 @@ class SheetRefreshTick extends _$SheetRefreshTick {
     state = state + 1;
   }
 }
+
+/// Monotonic save counter: the shell bumps it once per `Ctrl+S` dispatch aimed
+/// at the active sheet, and the mounted screen reacts by saving (SAV-05).
+/// Starts at 0; disposal resets it, so a later sheet never sees a stale tick.
+@riverpod
+class SheetSaveTick extends _$SheetSaveTick {
+  @override
+  int build() => 0;
+
+  /// Records one save request.
+  void bump() {
+    state = state + 1;
+  }
+}

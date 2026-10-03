@@ -210,12 +210,12 @@ T3 -> T6
 
 **Done when**:
 
-- [ ] `Ctrl+S` with a pending edit issues exactly one PATCH
-- [ ] `Ctrl+S` with no active sheet issues no request
-- [ ] A second `Ctrl+S` while a save is in flight issues no second request
-- [ ] The F5 behavior is unchanged
-- [ ] Gate check passes: `flutter test test/shell/shortcut_registry_test.dart`
-- [ ] Test count: recorded after the run (file total; +new, no silent deletions)
+- [x] `Ctrl+S` with a pending edit issues exactly one PATCH
+- [x] `Ctrl+S` with no active sheet issues no request
+- [x] A second `Ctrl+S` while a save is in flight issues no second request
+- [x] The F5 behavior is unchanged
+- [x] Gate check passes: `flutter test test/shell/shortcut_registry_test.dart`
+- [x] Test count: registry 9 tests pass (+3 new); screen 44 tests pass (+1 new); no silent deletions
 
 **Tests**: widget
 **Gate**: quick
@@ -331,9 +331,9 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | SAV-02 | T4 | Done |
 | SAV-03 | T4 | Done |
 | SAV-04 | T4 | Done |
-| SAV-05 | T5 | Pending |
+| SAV-05 | T5 | Done |
 | SAV-06 | T4, T5, T6 | Pending |
-| SAV-07 | T5 | Pending |
+| SAV-07 | T5 | Done |
 | SAV-08 | T3 | Done |
 | SAV-09 | T3 | Done |
 | SAV-10 | T3 | Done |
