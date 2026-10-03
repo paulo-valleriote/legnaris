@@ -74,60 +74,64 @@ class SheetLibraryStore {
       );
     }
 
-    final Map<String, Object?> envelope;
     try {
-      final decoded = jsonDecode(_file.readAsStringSync());
-      if (decoded is! Map<String, Object?>) {
-        return _quarantine();
-      }
-      envelope = decoded;
+      return LibraryLoadResult(
+        outcome: LibraryLoadOutcome.loaded,
+        entries: List.unmodifiable(_readEntries()),
+      );
     } on FormatException {
       return _quarantine();
     } on FileSystemException {
       return _quarantine();
     }
+  }
+
+  /// Decodes the store file and parses every entry, applying the migration
+  /// chain; throws [FormatException] on any shape this build cannot read and
+  /// [FileSystemException] when the file itself cannot be read, so [load]
+  /// quarantines every bad-input case in a single place.
+  List<SheetLibraryEntry> _readEntries() {
+    final decoded = jsonDecode(_file.readAsStringSync());
+    if (decoded is! Map<String, Object?>) {
+      throw const FormatException('store root is not a JSON object');
+    }
+    final envelope = decoded;
 
     final version = envelope['schema_version'];
     if (version is! int) {
-      return _quarantine();
+      throw const FormatException('schema_version is not an integer');
     }
     if (version > currentSchemaVersion) {
-      return _quarantine();
+      throw FormatException(
+        'schema_version $version is newer than $currentSchemaVersion',
+      );
     }
 
     var migrated = envelope;
     for (var from = version; from < currentSchemaVersion; from++) {
       final migrator = migrations[from];
       if (migrator == null) {
-        return _quarantine();
+        throw FormatException('no migration registered from version $from');
       }
       migrated = migrator(migrated);
     }
 
     final rawSheets = migrated['sheets'];
     if (rawSheets is! List) {
-      return _quarantine();
+      throw const FormatException('sheets is not a list');
     }
     final entries = <SheetLibraryEntry>[];
     for (final raw in rawSheets) {
       if (raw is! Map<String, Object?>) {
-        return _quarantine();
+        throw const FormatException('entry is not a JSON object');
       }
-      try {
-        final entry = SheetLibraryEntry.fromJson(raw);
-        if (!entry.isValid) {
-          return _quarantine();
-        }
-        entries.add(entry);
-      } on FormatException {
-        return _quarantine();
+      final entry = SheetLibraryEntry.fromJson(raw);
+      if (!entry.isValid) {
+        throw FormatException('entry "${entry.id}" is missing fields');
       }
+      entries.add(entry);
     }
-
-    return LibraryLoadResult(
-      outcome: LibraryLoadOutcome.loaded,
-      entries: List.unmodifiable(entries),
-    );
+    return entries;
   }
 
   /// Validates [entries], then atomically replaces the store with

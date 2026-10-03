@@ -208,6 +208,21 @@ void main() {
     expect(noMigration.entries, isEmpty);
   });
 
+  test('Edge: a migrator raising FormatException is quarantined like any other bad input (LIB-17)', () {
+    storeDir.createSync(recursive: true);
+    storeFile().writeAsStringSync('{"schema_version": 0, "sheets": []}');
+
+    final result = SheetLibraryStore(
+      directory: storeDir,
+      migrations: {
+        0: (envelope) => throw const FormatException('unmigratable envelope'),
+      },
+    ).load();
+
+    expect(result.outcome, LibraryLoadOutcome.quarantined);
+    expect(result.entries, isEmpty);
+  });
+
   test('Edge: a newer schema_version is quarantined without parsing its entries (LIB-18)', () {
     storeDir.createSync(recursive: true);
     storeFile().writeAsStringSync('{"schema_version": 2, "sheets": [42]}');
