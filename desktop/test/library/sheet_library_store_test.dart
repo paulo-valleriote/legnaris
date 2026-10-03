@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:legnaris/library/sheet_library_entry.dart';
 import 'package:legnaris/library/sheet_library_exception.dart';
 import 'package:legnaris/library/sheet_library_store.dart';
+
+import 'library_fixtures.dart';
 
 /// Unit tests for the atomic save path of the local sheet library store
 /// (LIB-09 … LIB-13, LIB-20). Real temp-directory I/O, no platform channel.
@@ -17,18 +18,6 @@ void main() {
     storeDir = Directory('${root.path}/app_support');
     addTearDown(() => root.deleteSync(recursive: true));
   });
-
-  SheetLibraryEntry entry(
-    String id, {
-    String name = 'Aria',
-    String templateId = 'fantasy_v1',
-    String createdAt = '2026-10-02T15:31:28.401Z',
-  }) => SheetLibraryEntry(
-    id: id,
-    name: name,
-    templateId: templateId,
-    createdAt: DateTime.parse(createdAt),
-  );
 
   SheetLibraryStore newStore() => SheetLibraryStore(directory: storeDir);
 

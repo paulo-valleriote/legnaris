@@ -8,6 +8,8 @@ import 'package:legnaris/library/sheet_library_exception.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/library/sheet_library_store.dart';
 
+import 'library_fixtures.dart';
+
 /// Unit tests for the store providers and the directory seam (LIB-21).
 void main() {
   late Directory root;
@@ -55,18 +57,6 @@ void main() {
       ),
     );
   });
-
-  SheetLibraryEntry entry(
-    String id, {
-    String name = 'Aria',
-    String templateId = 'fantasy_v1',
-    String createdAt = '2026-10-02T15:31:28.401Z',
-  }) => SheetLibraryEntry(
-    id: id,
-    name: name,
-    templateId: templateId,
-    createdAt: DateTime.parse(createdAt),
-  );
 
   ProviderContainer containerWith(SheetLibraryStore store) {
     final container = ProviderContainer(
