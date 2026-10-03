@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/catalog/catalog_provider.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
+import 'package:legnaris/catalog/library_section.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_open_provider.dart';
@@ -34,15 +35,33 @@ class CatalogScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (state.isLoading) const LinearProgressIndicator(),
-        Expanded(child: _body(context, ref, state, localizations)),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LibrarySection(
+                  onOpen: (entry) =>
+                      _openSheetScreen(context, sheetId: entry.id),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                const Divider(),
+                const SizedBox(height: AppSpacing.md),
+                _catalogBody(context, ref, state, localizations),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
 
+  /// The catalog half of Screen 1: loading, error, empty or the card grid.
+  ///
   /// Picks the render state: never-loaded without a failure reads as loading
   /// (defensive — a failed first load is the error branch, CAT-11), a loaded
   /// catalog keeps its entries even when a refresh failed (CAT-19).
-  Widget _body(
+  Widget _catalogBody(
     BuildContext context,
     WidgetRef ref,
     CatalogState state,
@@ -56,7 +75,8 @@ class CatalogScreen extends ConsumerWidget {
       if (state.errorMessage != null && !state.isLoading) {
         return _fullError(context, ref, state.errorMessage!, localizations);
       }
-      return Center(
+      return Align(
+        alignment: Alignment.topLeft,
         child: Text(localizations.catalogLoading, style: mutedStyle),
       );
     }
@@ -66,13 +86,13 @@ class CatalogScreen extends ConsumerWidget {
       children: [
         if (state.errorMessage != null)
           _inlineError(context, ref, state.errorMessage!, localizations),
-        Expanded(
-          child: state.isEmpty
-              ? Center(
-                  child: Text(localizations.catalogEmpty, style: mutedStyle),
-                )
-              : _cardList(context, ref, state, localizations),
-        ),
+        if (state.isEmpty)
+          Align(
+            alignment: Alignment.topLeft,
+            child: Text(localizations.catalogEmpty, style: mutedStyle),
+          )
+        else
+          _cardList(context, ref, state, localizations),
       ],
     );
   }
@@ -145,47 +165,45 @@ class CatalogScreen extends ConsumerWidget {
     AppLocalizations localizations,
   ) {
     final theme = Theme.of(context);
-    return SingleChildScrollView(
-      child: Wrap(
-        spacing: AppSpacing.lg,
-        runSpacing: AppSpacing.lg,
-        children: [
-          for (final template in state.templates!)
-            SizedBox(
-              width: AppSizes.catalogCardMinWidth,
-              child: Card(
-                child: InkWell(
-                  onTap: () => _openCreationDialog(context, ref, template.id),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(template.name, style: theme.textTheme.titleMedium),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          template.id,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+    return Wrap(
+      spacing: AppSpacing.lg,
+      runSpacing: AppSpacing.lg,
+      children: [
+        for (final template in state.templates!)
+          SizedBox(
+            width: AppSizes.catalogCardMinWidth,
+            child: Card(
+              child: InkWell(
+                onTap: () => _openCreationDialog(context, ref, template.id),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(template.name, style: theme.textTheme.titleMedium),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        template.id,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                        TextButton(
-                          key: Key('catalog-create-${template.id}'),
-                          style: _cardActionStyle,
-                          onPressed: () =>
-                              _openCreationDialog(context, ref, template.id),
-                          child: Text(localizations.catalogCreateAction),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextButton(
+                        key: Key('catalog-create-${template.id}'),
+                        style: _cardActionStyle,
+                        onPressed: () =>
+                            _openCreationDialog(context, ref, template.id),
+                        child: Text(localizations.catalogCreateAction),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 

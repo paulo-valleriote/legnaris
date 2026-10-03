@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/main.dart';
 import 'package:legnaris/theme/app_theme.dart';
 import 'package:legnaris/theme/tokens.dart';
@@ -142,9 +145,12 @@ void main() {
     testWidgets(
       'Happy path: MaterialApp wires the app theme and the placeholder still renders',
       (tester) async {
+        final supportDir = Directory.systemTemp.createTempSync('lgn108-theme');
+        addTearDown(() => supportDir.deleteSync(recursive: true));
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              appSupportDirectoryProvider.overrideWithValue(supportDir),
               apiClientProvider.overrideWithValue(
                 ApiClient(
                   httpClient: MockClient((request) async {

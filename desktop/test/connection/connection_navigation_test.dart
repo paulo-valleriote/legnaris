@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +13,7 @@ import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/connection/connection_provider.dart';
 import 'package:legnaris/connection/health_scheduler.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/main.dart';
 import 'package:legnaris/shell/shell_state.dart';
 
@@ -44,12 +47,15 @@ void main() {
   }) async {
     final recorded = <http.Request>[];
     final manual = scheduler ?? ManualHealthScheduler();
+    final supportDir = Directory.systemTemp.createTempSync('lgn108-conn');
+    addTearDown(() => supportDir.deleteSync(recursive: true));
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appSupportDirectoryProvider.overrideWithValue(supportDir),
           apiClientProvider.overrideWithValue(
             ApiClient(
               httpClient: MockClient((request) async {

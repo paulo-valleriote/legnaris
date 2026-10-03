@@ -215,12 +215,12 @@ T4 -> T5
 
 **Done when**:
 
-- [ ] Screen 1 renders the "My sheets" section above the catalog
-- [ ] Activating Open on a row mounts Screen 2 and issues exactly one `GET /sheets/:id`, rendering the stored values
-- [ ] The catalog still loads and refreshes with the library section present
-- [ ] The create flow still opens the created sheet with zero `/sheets/:id` GETs
-- [ ] Gate check passes: `flutter test` (whole suite; the catalog surface is cross-file)
-- [ ] Test count: catalog and create-navigation files green with the existing assertions preserved (no silent deletions)
+- [x] Screen 1 renders the "My sheets" section above the catalog
+- [x] Activating Open on a row mounts Screen 2 and issues exactly one `GET /sheets/:id`, rendering the stored values
+- [x] The catalog still loads and refreshes with the library section present
+- [x] The create flow still opens the created sheet with zero `/sheets/:id` GETs
+- [x] Gate check passes: `flutter test` (whole suite; the catalog surface is cross-file)
+- [x] Test count: 458 tests pass serially, 4 skipped (pre-existing live/contract skips); catalog suite 99 + library-open navigation 2. The embedded section required the support-directory override in the app-boot, connection-navigation and theme suites (they mount `LegnarisApp` → `CatalogScreen`). A pre-existing wall-clock test (`api_client_retry_test`, 2×5s timeout ≥ 10s) flakes under parallel load and passes alone/serially — unrelated to this change; no assertions were weakened (no silent deletions)
 
 **Tests**: widget (integration)
 **Gate**: full

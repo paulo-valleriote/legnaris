@@ -166,27 +166,27 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| OPN-01 | P1: "My sheets" list on Screen 1 | Execute | Pending |
-| OPN-02 | P1: "My sheets" list on Screen 1 | Execute | Pending |
-| OPN-03 | P1: "My sheets" list on Screen 1 | Execute | Pending |
-| OPN-04 | P1: Open a library sheet on Screen 2 | Execute | Pending |
-| OPN-05 | P1: Open a library sheet on Screen 2 | Execute | Pending |
-| OPN-06 | P1: Open a library sheet on Screen 2 | Execute | Pending |
-| OPN-07 | P1: Open a library sheet on Screen 2 | Execute | Pending |
-| OPN-08 | P1: Open a library sheet on Screen 2 | Execute | Pending |
-| OPN-09 | P1: Open a library sheet on Screen 2 | Execute | Pending |
-| OPN-10 | P1: Open a library sheet on Screen 2 | Execute | Pending |
-| OPN-11 | P1: Open a library sheet on Screen 2 | Execute | Pending |
-| OPN-12 | P1: Remove an entry from the local library | Execute | Pending |
-| OPN-13 | P1: Remove an entry from the local library | Execute | Pending |
-| OPN-14 | P1: Remove an entry from the local library | Execute | Pending |
-| OPN-15 | P1: Remove an entry from the local library | Execute | Pending |
-| OPN-16 | P1: One active sheet and unchanged discard guards | Execute | Pending |
-| OPN-17 | P1: One active sheet and unchanged discard guards | Execute | Pending |
-| OPN-18 | P1: One active sheet and unchanged discard guards | Execute | Pending |
-| OPN-19 | P1: One active sheet and unchanged discard guards | Execute | Pending |
-| OPN-20 | P1: Preview action replaced | Execute | Pending |
-| OPN-21 | P1: Preview action replaced | Execute | Pending |
+| OPN-01 | P1: "My sheets" list on Screen 1 | Execute | Implementing |
+| OPN-02 | P1: "My sheets" list on Screen 1 | Execute | Implementing |
+| OPN-03 | P1: "My sheets" list on Screen 1 | Execute | Implementing |
+| OPN-04 | P1: Open a library sheet on Screen 2 | Execute | Implementing |
+| OPN-05 | P1: Open a library sheet on Screen 2 | Execute | Implementing |
+| OPN-06 | P1: Open a library sheet on Screen 2 | Execute | Implementing |
+| OPN-07 | P1: Open a library sheet on Screen 2 | Execute | Implementing |
+| OPN-08 | P1: Open a library sheet on Screen 2 | Execute | Implementing |
+| OPN-09 | P1: Open a library sheet on Screen 2 | Execute | Implementing |
+| OPN-10 | P1: Open a library sheet on Screen 2 | Execute | Implementing |
+| OPN-11 | P1: Open a library sheet on Screen 2 | Execute | Implementing |
+| OPN-12 | P1: Remove an entry from the local library | Execute | Implementing |
+| OPN-13 | P1: Remove an entry from the local library | Execute | Implementing |
+| OPN-14 | P1: Remove an entry from the local library | Execute | Implementing |
+| OPN-15 | P1: Remove an entry from the local library | Execute | Implementing |
+| OPN-16 | P1: One active sheet and unchanged discard guards | Execute | Implementing |
+| OPN-17 | P1: One active sheet and unchanged discard guards | Execute | Implementing |
+| OPN-18 | P1: One active sheet and unchanged discard guards | Execute | Implementing |
+| OPN-19 | P1: One active sheet and unchanged discard guards | Execute | Implementing |
+| OPN-20 | P1: Preview action replaced | Execute | Implementing |
+| OPN-21 | P1: Preview action replaced | Execute | Implementing |
 
 **ID format:** `OPN-[NUMBER]`
 

@@ -62,12 +62,15 @@ void main() {
     Future<http.Response> Function(http.Request request)? handler,
   }) async {
     final recorded = <http.Request>[];
+    final supportDir = Directory.systemTemp.createTempSync('lgn108-dialog');
+    addTearDown(() => supportDir.deleteSync(recursive: true));
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appSupportDirectoryProvider.overrideWithValue(supportDir),
           apiClientProvider.overrideWithValue(
             ApiClient(
               httpClient: MockClient((request) async {
