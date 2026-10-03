@@ -171,33 +171,33 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| SAV-01 | P1: Commit local edits from a fixed footer | Design | Pending |
-| SAV-02 | P1: Commit local edits from a fixed footer | Design | Pending |
-| SAV-03 | P1: Commit local edits from a fixed footer | Design | Pending |
-| SAV-04 | P1: Commit local edits from a fixed footer | Design | Pending |
-| SAV-05 | P1: Commit local edits from a fixed footer | Design | Pending |
-| SAV-06 | P1: Commit local edits from a fixed footer | Design | Pending |
-| SAV-07 | P1: Commit local edits from a fixed footer | Design | Pending |
-| SAV-08 | P1: The PATCH carries only the changed editable delta | Design | Pending |
-| SAV-09 | P1: The PATCH carries only the changed editable delta | Design | Pending |
-| SAV-10 | P1: The PATCH carries only the changed editable delta | Design | Pending |
-| SAV-11 | P1: The PATCH carries only the changed editable delta | Design | Pending |
-| SAV-12 | P1: The PATCH carries only the changed editable delta | Design | Pending |
-| SAV-13 | P1: Merge the cascade incrementally and clear dirty on success | Design | Pending |
-| SAV-14 | P1: Merge the cascade incrementally and clear dirty on success | Design | Pending |
-| SAV-15 | P1: Merge the cascade incrementally and clear dirty on success | Design | Pending |
-| SAV-16 | P1: Merge the cascade incrementally and clear dirty on success | Design | Pending |
-| SAV-17 | P1: Merge the cascade incrementally and clear dirty on success | Design | Pending |
-| SAV-18 | P1: A failed save keeps the edits and reports the mapped error | Design | Pending |
-| SAV-19 | P1: A failed save keeps the edits and reports the mapped error | Design | Pending |
-| SAV-20 | P1: A failed save keeps the edits and reports the mapped error | Design | Pending |
-| SAV-21 | P1: A failed save keeps the edits and reports the mapped error | Design | Pending |
-| SAV-22 | P1: A failed save keeps the edits and reports the mapped error | Design | Pending |
-| SAV-23 | P1: A failed save keeps the edits and reports the mapped error | Design | Pending |
-| DIA-01 | P1: The creation dialog action never overlaps the preview | Design | Pending |
-| DIA-02 | P1: The creation dialog action never overlaps the preview | Design | Pending |
-| DIA-03 | P1: The creation dialog action never overlaps the preview | Design | Pending |
-| DIA-04 | P1: The creation dialog action never overlaps the preview | Design | Pending |
+| SAV-01 | P1: Commit local edits from a fixed footer | Execute | Verified |
+| SAV-02 | P1: Commit local edits from a fixed footer | Execute | Verified |
+| SAV-03 | P1: Commit local edits from a fixed footer | Execute | Verified |
+| SAV-04 | P1: Commit local edits from a fixed footer | Execute | Verified |
+| SAV-05 | P1: Commit local edits from a fixed footer | Execute | Verified |
+| SAV-06 | P1: Commit local edits from a fixed footer | Execute | Verified |
+| SAV-07 | P1: Commit local edits from a fixed footer | Execute | Verified |
+| SAV-08 | P1: The PATCH carries only the changed editable delta | Execute | Verified |
+| SAV-09 | P1: The PATCH carries only the changed editable delta | Execute | Verified |
+| SAV-10 | P1: The PATCH carries only the changed editable delta | Execute | Verified |
+| SAV-11 | P1: The PATCH carries only the changed editable delta | Execute | Verified |
+| SAV-12 | P1: The PATCH carries only the changed editable delta | Execute | Verified |
+| SAV-13 | P1: Merge the cascade incrementally and clear dirty on success | Execute | Verified |
+| SAV-14 | P1: Merge the cascade incrementally and clear dirty on success | Execute | Verified |
+| SAV-15 | P1: Merge the cascade incrementally and clear dirty on success | Execute | Verified |
+| SAV-16 | P1: Merge the cascade incrementally and clear dirty on success | Execute | Verified |
+| SAV-17 | P1: Merge the cascade incrementally and clear dirty on success | Execute | Verified |
+| SAV-18 | P1: A failed save keeps the edits and reports the mapped error | Execute | Verified |
+| SAV-19 | P1: A failed save keeps the edits and reports the mapped error | Execute | Verified |
+| SAV-20 | P1: A failed save keeps the edits and reports the mapped error | Execute | Verified |
+| SAV-21 | P1: A failed save keeps the edits and reports the mapped error | Execute | Verified |
+| SAV-22 | P1: A failed save keeps the edits and reports the mapped error | Execute | Verified |
+| SAV-23 | P1: A failed save keeps the edits and reports the mapped error | Execute | Verified |
+| DIA-01 | P1: The creation dialog action never overlaps the preview | Execute | Verified |
+| DIA-02 | P1: The creation dialog action never overlaps the preview | Execute | Verified |
+| DIA-03 | P1: The creation dialog action never overlaps the preview | Execute | Verified |
+| DIA-04 | P1: The creation dialog action never overlaps the preview | Execute | Verified |
 
 **ID format:** `SAV-[NUMBER]` for the save cycle, `DIA-[NUMBER]` for the dialog layout.
 
