@@ -56,8 +56,8 @@
 - **Phase / Task**: Execute — COMPLETE (T1–T7 committed; independent Verifier PASS 27/27, 7/7 mutants killed on round 2; `validate_state.py` exit 0)
 - **Completed**: T1 creation-dialog bounded content, T2 public `mergeCascade`, T3 save on `SheetEditController` (delta + baseline recompute), T4 Screen 2 footer + l10n, T5 `Ctrl+S` binding + `sheetSaveTickProvider`, T6 save-in-flight discard guards, T7 Verifier gap fixes. Commits `b35c6d8`, `904d6ad`, `07c8830`, `a8802cf`, `bcdfb7c`, `1a76241`, `cdfb359` (docs `d6fadda`, chore `71d4298`). Report: `.specs/features/lgn-110-save-delta/validation.md`.
 - **In-progress** (file:line): none
-- **Next step**: review branch `feat/lgn-110-save-delta` and open a PR. No remote push has been performed (blast radius: local commits only).
-- **Blockers**: none. Full suite `flutter analyze` clean + 486 passed / 4 skipped (pre-existing live/contract skips); Verifier round 1 gaps (SAV-02 tooltip, SAV-15 merge granularity, surviving Ctrl+S-guard mutant) closed in `cdfb359` and re-verified PASS.
-- **Uncommitted files**: validation report + traceability update (this commit). Working tree otherwise clean.
-- **Branch**: `feat/lgn-110-save-delta` (local only; based on `6eab233` = origin/main, includes LGN-108)
+- **Next step**: review and merge PR #57 (https://github.com/paulo-valleriote/legnaris/pull/57).
+- **Blockers**: none. Full suite `flutter analyze` clean + 486 passed / 4 skipped (pre-existing live/contract skips; `api_client_retry_test` is a known wall-clock flake that passes in isolation); Verifier round 1 gaps (SAV-02 tooltip, SAV-15 merge granularity, surviving Ctrl+S-guard mutant) closed in `cdfb359` and re-verified PASS.
+- **Uncommitted files**: none; branch pushed, PR #57 opened.
+- **Branch**: `feat/lgn-110-save-delta` (pushed; PR #57 → main, based on `6eab233` = origin/main, includes LGN-108)
 - **Prior feature**: `lgn-108-open-sheet` — COMPLETE (PR #56, merged); `lgn-109-create-sheet` — COMPLETE (PR #55, merged)
