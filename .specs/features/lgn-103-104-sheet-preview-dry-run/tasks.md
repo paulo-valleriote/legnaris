@@ -216,10 +216,10 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] `POST /templates/:id/preview` responds `200` with `data` holding the cascade
-- [ ] Missing/malformed id responds `400`; an unknown slug responds `404`
-- [ ] Gate check passes: `go test ./internal/sheet/... ./internal/app/...`
-- [ ] Test count: `internal/app` suite passes with the new template preview route cases added (no silent deletions)
+- [x] `POST /templates/:id/preview` responds `200` with `data` holding the cascade
+- [x] Missing/malformed id responds `400`; an unknown slug responds `404`
+- [x] Gate check passes: `go test ./internal/sheet/... ./internal/app/...`
+- [x] Test count: `internal/app` suite passes with the new template preview route cases added (no silent deletions)
 
 **Tests**: integration
 **Gate**: full (backend)
@@ -649,9 +649,9 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | DRY-10 | T2, T3 | Done |
 | DRY-11 | T2, T3 | Done |
 | DRY-12 | T2, T3 | Done |
-| DRY-13 | T4, T5 | Pending |
-| DRY-14 | T4, T5 | Pending |
-| DRY-15 | T4, T5 | Pending |
+| DRY-13 | T4, T5 | Done |
+| DRY-14 | T4, T5 | Done |
+| DRY-15 | T4, T5 | Done |
 | DRY-16 | T4 | Done |
 | DRY-17 | T4 | Done |
 | PRV-01 | T10, T12 | Pending |

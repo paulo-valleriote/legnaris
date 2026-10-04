@@ -215,9 +215,9 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | DRY-10 | P1: Stateless sheet preview endpoint | Execute | Verified |
 | DRY-11 | P1: Stateless sheet preview endpoint | Execute | Verified |
 | DRY-12 | P1: Stateless sheet preview endpoint | Execute | Verified |
-| DRY-13 | P2: Stateless template preview endpoint | Execute | Pending |
-| DRY-14 | P2: Stateless template preview endpoint | Execute | Pending |
-| DRY-15 | P2: Stateless template preview endpoint | Execute | Pending |
+| DRY-13 | P2: Stateless template preview endpoint | Execute | Verified |
+| DRY-14 | P2: Stateless template preview endpoint | Execute | Verified |
+| DRY-15 | P2: Stateless template preview endpoint | Execute | Verified |
 | DRY-16 | P2: Stateless template preview endpoint | Execute | Verified |
 | DRY-17 | P2: Stateless template preview endpoint | Execute | Verified |
 | PRV-01 | P1: Preview the recalculated cascade without persisting | Design | Pending |

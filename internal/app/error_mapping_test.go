@@ -12,6 +12,7 @@ import (
 	"legnaris/internal/sheet/sheettest"
 	"legnaris/internal/sheet/template"
 	templatemocks "legnaris/internal/sheet/template/mocks"
+	"legnaris/shared/apperr"
 	"legnaris/shared/maputils"
 	"legnaris/shared/response"
 
@@ -414,5 +415,182 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 		assert.Equal(t, "INVALID_REQUEST", body.Error.Code)
 		mockRepo.AssertNotCalled(t, "PartialUpdate")
+	})
+}
+
+// newTemplatePreviewDAG builds the template and DAG the template preview route
+// tests share: a base field and one derived leaf.
+func newTemplatePreviewDAG(t *testing.T) (sheettest.DAGMap, *template.Template) {
+	t.Helper()
+
+	fields := template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"mod": {Children: template.FieldGroup{
+			"dexterityMod": {Schema: &template.FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "floor((stats_dexterity - 10) / 2)",
+				DependsOn:  [][]string{{"stats", "dexterity"}},
+			}},
+		}},
+	}
+
+	dag, err := template.BuildDAG("test", fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+	return sheettest.DAGMap{"test": dag}, &template.Template{ID: "test", Name: "Test Template", Fields: fields}
+}
+
+// newTemplatePreviewRouter wires the sheet controller's /templates preview route
+// over a real sheet service backed by a mocked repository, so the full
+// translation chain is exercised without MongoDB. The template-service mock is
+// returned so the tests own its expectations.
+func newTemplatePreviewRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache sheettest.DAGMap) (http.Handler, *templatemocks.MockService) {
+	t.Helper()
+
+	mockTemplateSvc := templatemocks.NewMockService(t)
+	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
+
+	e := echo.New()
+	e.HTTPErrorHandler = app.HTTPErrorHandler
+	app.NewSheetController(svc).RegisterTemplatePreviewRoute(e.Group("/templates"))
+	return e, mockTemplateSvc
+}
+
+// TestErrorMapping_PreviewTemplate pins POST /templates/:id/preview over the
+// HTTP boundary: the cascade envelope on 200 with no stored sheet, 400 for a
+// missing or malformed template id, 404 for an unknown slug, and the same DAG
+// codes the sheet preview maps. A body template_id is rejected: the id comes
+// from the path only.
+func TestErrorMapping_PreviewTemplate(t *testing.T) {
+	dagCache, tmpl := newTemplatePreviewDAG(t)
+
+	t.Run("Happy path: 200 with the cascade and no stored sheet", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t) // no expectations: the template preview never touches the repository
+
+		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
+		mockTemplateSvc.EXPECT().
+			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+			Return(tmpl, nil).
+			Once()
+
+		rec := doRequest(t, h, http.MethodPost, "/templates/test/preview", `{"data":{"stats":{"dexterity":18}}}`)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var body response.Success[map[string]any]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+
+		mod, ok := body.Data["mod"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, 4.0, mod["dexterityMod"])
+		mockRepo.AssertNotCalled(t, "FetchByID")
+		mockRepo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: malformed template id returns 400 INVALID_REQUEST", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+
+		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
+		mockTemplateSvc.EXPECT().
+			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "Fantasy-V1"}).
+			Return(nil, template.ErrTemplateIDInvalid).
+			Once()
+
+		rec := doRequest(t, h, http.MethodPost, "/templates/Fantasy-V1/preview", `{"data":{"stats":{"dexterity":12}}}`)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "INVALID_REQUEST", body.Error.Code)
+		assert.Equal(t, "template id is not a valid slug", body.Error.Message)
+	})
+
+	t.Run("Error: empty template id in the path returns 400 INVALID_REQUEST", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+
+		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
+		mockTemplateSvc.EXPECT().
+			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: ""}).
+			Return(nil, template.ErrTemplateIDNotProvided).
+			Once()
+
+		rec := doRequest(t, h, http.MethodPost, "/templates//preview", `{"data":{"stats":{"dexterity":12}}}`)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "INVALID_REQUEST", body.Error.Code)
+		assert.Equal(t, "template id not provided", body.Error.Message)
+	})
+
+	t.Run("Error: unknown template slug returns 404 NOT_FOUND", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+
+		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
+		mockTemplateSvc.EXPECT().
+			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown"}).
+			Return(nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)).
+			Once()
+
+		rec := doRequest(t, h, http.MethodPost, "/templates/unknown/preview", `{"data":{"stats":{"dexterity":12}}}`)
+		require.Equal(t, http.StatusNotFound, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "NOT_FOUND", body.Error.Code)
+		assert.Equal(t, "template not found", body.Error.Message)
+	})
+
+	t.Run("Error: a body template_id is rejected", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+
+		h, _ := newTemplatePreviewRouter(t, mockRepo, dagCache)
+
+		rec := doRequest(t, h, http.MethodPost, "/templates/test/preview", `{"template_id":"test","data":{"stats":{"dexterity":12}}}`)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "INVALID_JSON", body.Error.Code)
+	})
+
+	t.Run("Error: DAG rejections return the same codes as the sheet preview", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			payload  string
+			wantCode string
+		}{
+			{
+				name:     "unknown field returns 400 UNKNOWN_FIELD",
+				payload:  `{"data":{"stats":{"not_exists":1}}}`,
+				wantCode: "UNKNOWN_FIELD",
+			},
+			{
+				name:     "derived field returns 400 INVALID_REQUEST",
+				payload:  `{"data":{"mod":{"dexterityMod":5}}}`,
+				wantCode: "INVALID_REQUEST",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				mockRepo := mocks.NewMockRepository(t)
+
+				h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
+				mockTemplateSvc.EXPECT().
+					FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+					Return(tmpl, nil).
+					Once()
+
+				rec := doRequest(t, h, http.MethodPost, "/templates/test/preview", tc.payload)
+				require.Equal(t, http.StatusBadRequest, rec.Code)
+
+				var body response.ErrorResponse
+				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+				assert.Equal(t, tc.wantCode, body.Error.Code)
+				mockRepo.AssertNotCalled(t, "FetchByID")
+			})
+		}
 	})
 }

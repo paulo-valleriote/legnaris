@@ -486,6 +486,40 @@ func TestIntegration_Sheets_Preview(t *testing.T) {
 	assert.Equal(t, patched.Data, previewed.Data)
 }
 
+// TestIntegration_Templates_Preview covers the template dry-run route end to
+// end over the real registry: a valid delta returns the cascade seeded from the
+// template, a malformed id is 400 and an unknown slug is 404.
+func TestIntegration_Templates_Preview(t *testing.T) {
+	h, _ := newIntegrationRouter(t)
+
+	previewRec := doRequest(t, h, http.MethodPost, "/templates/fantasy_v1/preview", `{"data":{"stats":{"dexterity":16}}}`)
+	require.Equal(t, http.StatusOK, previewRec.Code)
+
+	var previewed response.Success[map[string]any]
+	require.NoError(t, json.Unmarshal(previewRec.Body.Bytes(), &previewed))
+
+	modifiers, ok := previewed.Data["modifiers"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 3.0, modifiers["dexterityMod"])
+	derived, ok := previewed.Data["derived"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 13.0, derived["armorClass"])
+
+	malformedRec := doRequest(t, h, http.MethodPost, "/templates/Fantasy-V1/preview", `{"data":{"stats":{"dexterity":12}}}`)
+	require.Equal(t, http.StatusBadRequest, malformedRec.Code)
+
+	var malformedBody response.ErrorResponse
+	require.NoError(t, json.Unmarshal(malformedRec.Body.Bytes(), &malformedBody))
+	assert.Equal(t, "INVALID_REQUEST", malformedBody.Error.Code)
+
+	unknownRec := doRequest(t, h, http.MethodPost, "/templates/unknown_template/preview", `{"data":{"stats":{"dexterity":12}}}`)
+	require.Equal(t, http.StatusNotFound, unknownRec.Code)
+
+	var unknownBody response.ErrorResponse
+	require.NoError(t, json.Unmarshal(unknownRec.Body.Bytes(), &unknownBody))
+	assert.Equal(t, "NOT_FOUND", unknownBody.Error.Code)
+}
+
 // TestIntegration_ErrorStatusMapping covers the HTTP status each typed error
 // produces through HTTPErrorHandler (LGN-48): domain errors must never fall
 // through as 500 INTERNAL_ERROR.
