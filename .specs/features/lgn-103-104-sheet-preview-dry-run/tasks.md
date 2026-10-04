@@ -422,14 +422,14 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] Preview renders in the footer only when the sheet and template are loaded
-- [ ] Activating Preview issues exactly one dry-run and zero PATCH; a repeat with no edit issues none
-- [ ] The disabled states show the right tooltip (no changes / in progress / limit)
-- [ ] A preview failure renders the mapped copy above the action row and keeps the edits
-- [ ] Back and F5 are no-ops while a preview is in flight
-- [ ] The draft auto-backup provider is active while the sheet is open
-- [ ] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
-- [ ] Test count: `sheet_screen_test.dart` passes with the new cases added (no silent deletions)
+- [x] Preview renders in the footer only when the sheet and template are loaded
+- [x] Activating Preview issues exactly one dry-run and zero PATCH; a repeat with no edit issues none
+- [x] The disabled states show the right tooltip (no changes / in progress / limit)
+- [x] A preview failure renders the mapped copy above the action row and keeps the edits
+- [x] Back and F5 are no-ops while a preview is in flight
+- [x] The draft auto-backup provider is active while the sheet is open
+- [x] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
+- [x] Test count: `sheet_screen_test.dart` passes with the new cases added (no silent deletions)
 
 **Tests**: widget
 **Gate**: quick (desktop)
@@ -654,20 +654,20 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | DRY-15 | T4, T5 | Done |
 | DRY-16 | T4 | Done |
 | DRY-17 | T4 | Done |
-| PRV-01 | T10, T12 | Pending |
-| PRV-02 | T10, T12 | Pending |
-| PRV-03 | T6, T10, T12 | Pending |
-| PRV-04 | T10, T12 | Pending |
+| PRV-01 | T10, T12 | Done |
+| PRV-02 | T10, T12 | Done |
+| PRV-03 | T6, T10, T12 | Done |
+| PRV-04 | T10, T12 | Done |
 | PRV-05 | T10 | Done |
 | PRV-06 | T10 | Done |
 | PRV-07 | T10 | Done |
-| PRV-08 | T10, T12 | Pending |
+| PRV-08 | T10, T12 | Done |
 | PRV-09 | T10 | Done |
 | PRV-10 | T10 | Done |
-| PRV-11 | T12 | Pending |
-| SVE-01 | T10, T12 | Pending |
-| SVE-02 | T9, T10, T12 | Pending |
-| SVE-03 | T9, T10, T12 | Pending |
+| PRV-11 | T12 | Done |
+| SVE-01 | T10, T12 | Done |
+| SVE-02 | T9, T10, T12 | Done |
+| SVE-03 | T9, T10, T12 | Done |
 | SVE-04 | T9, T10 | Done |
 | SVE-05 | T9 | Done |
 | SVE-06 | T10 | Done |

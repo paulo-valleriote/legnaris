@@ -220,20 +220,20 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | DRY-15 | P2: Stateless template preview endpoint | Execute | Verified |
 | DRY-16 | P2: Stateless template preview endpoint | Execute | Verified |
 | DRY-17 | P2: Stateless template preview endpoint | Execute | Verified |
-| PRV-01 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
-| PRV-02 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
-| PRV-03 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
-| PRV-04 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
+| PRV-01 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-02 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-03 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-04 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
 | PRV-05 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
 | PRV-06 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
 | PRV-07 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
-| PRV-08 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
+| PRV-08 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
 | PRV-09 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
 | PRV-10 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
-| PRV-11 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| SVE-01 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
-| SVE-02 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
-| SVE-03 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
+| PRV-11 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| SVE-01 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
+| SVE-02 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
+| SVE-03 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | SVE-04 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | SVE-05 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | SVE-06 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |

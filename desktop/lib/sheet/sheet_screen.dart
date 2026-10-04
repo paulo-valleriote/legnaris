@@ -23,6 +23,7 @@ import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/engine/field_grouping.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/sheet/draft_auto_backup.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_open_provider.dart';
 import 'package:legnaris/sheet/sheet_refresh.dart';
@@ -154,21 +155,51 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     );
   }
 
-  /// The fixed footer: the dirty indicator, the mapped save error above the
-  /// action row, and the Save action (SAV-01 … SAV-06). Its own `Consumer`
-  /// selecting only the save flags keeps the form out of the rebuild when the
-  /// pending or in-flight state flips (AD-001).
+  /// Runs one stateless dry-run through the edit controller (PRV-03). The
+  /// controller owns the single-flight and rate-limit guards, so a repeat with
+  /// no new edit issues no request.
+  void _preview() {
+    unawaited(
+      ref.read(sheetEditControllerProvider(widget.sheetId).notifier).preview(),
+    );
+  }
+
+  /// The fixed footer: the dirty indicator, the mapped save and preview errors
+  /// above the action row, and the Preview + Save actions (PRV-01 … PRV-04,
+  /// SVE-01 … SVE-03, SAV-01 … SAV-06). Its own `Consumer` selecting only the
+  /// action flags keeps the form out of the rebuild when a flag flips (AD-001)
+  /// and keeps the periodic draft backup alive while the loaded sheet is on
+  /// screen (DRB-01, DRB-02).
   Widget _footer(BuildContext context, AppLocalizations localizations) {
     final theme = Theme.of(context);
     return Consumer(
       builder: (context, ref, _) {
         final provider = sheetEditControllerProvider(widget.sheetId);
+        ref.watch(draftAutoBackupProvider(widget.sheetId));
         final pending = ref.watch(provider.select((state) => state.isPending));
-        final saving = ref.watch(provider.select((state) => state.isSaving));
-        final error = ref.watch(provider.select((state) => state.saveError));
-        final button = TextButton(
+        final busy = ref.watch(provider.select((state) => state.isBusy));
+        final canPreview = ref.watch(
+          provider.select((state) => state.canPreview),
+        );
+        final canSave = ref.watch(provider.select((state) => state.canSave));
+        final previewBlocked = ref.watch(
+          provider.select((state) => state.isPreviewBlocked),
+        );
+        final saveBlocked = ref.watch(
+          provider.select((state) => state.isSaveBlocked),
+        );
+        final previewError = ref.watch(
+          provider.select((state) => state.previewError),
+        );
+        final saveError = ref.watch(provider.select((state) => state.saveError));
+        final previewButton = TextButton(
+          key: const Key('sheet-preview'),
+          onPressed: canPreview ? _preview : null,
+          child: Text(localizations.sheetPreviewAction),
+        );
+        final saveButton = TextButton(
           key: const Key('sheet-save'),
-          onPressed: pending && !saving ? _save : null,
+          onPressed: canSave ? _save : null,
           child: Text(localizations.sheetSaveAction),
         );
         return Padding(
@@ -180,9 +211,19 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (error != null) ...[
+              if (previewError != null) ...[
                 Text(
-                  error,
+                  previewError,
+                  key: const Key('sheet-preview-error'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+              if (saveError != null) ...[
+                Text(
+                  saveError,
                   key: const Key('sheet-save-error'),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.error,
@@ -201,13 +242,29 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
                       ),
                     ),
                   const Spacer(),
-                  if (!pending)
+                  if (!canPreview)
                     Tooltip(
-                      message: localizations.sheetSaveNoChangesTooltip,
-                      child: button,
+                      message: _previewDisabledTooltip(
+                        localizations,
+                        busy: busy,
+                        blocked: previewBlocked,
+                      ),
+                      child: previewButton,
                     )
                   else
-                    button,
+                    previewButton,
+                  const SizedBox(width: AppSpacing.sm),
+                  if (!canSave)
+                    Tooltip(
+                      message: _saveDisabledTooltip(
+                        localizations,
+                        busy: busy,
+                        blocked: saveBlocked,
+                      ),
+                      child: saveButton,
+                    )
+                  else
+                    saveButton,
                 ],
               ),
             ],
@@ -217,6 +274,32 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     );
   }
 
+  /// The reason Preview is disabled, in priority order: a request is in
+  /// flight, the preview window is exhausted, or nothing changed since the
+  /// last preview (PRV-02, SVE-01, SVE-02).
+  String _previewDisabledTooltip(
+    AppLocalizations localizations, {
+    required bool busy,
+    required bool blocked,
+  }) {
+    if (busy) return localizations.sheetRequestInProgressTooltip;
+    if (blocked) return localizations.sheetPreviewLimitTooltip;
+    return localizations.sheetPreviewNoChangesTooltip;
+  }
+
+  /// The reason Save is disabled, in priority order: a request is in flight,
+  /// the save window is exhausted, or there are no changes to save (SVE-01,
+  /// SVE-03).
+  String _saveDisabledTooltip(
+    AppLocalizations localizations, {
+    required bool busy,
+    required bool blocked,
+  }) {
+    if (busy) return localizations.sheetRequestInProgressTooltip;
+    if (blocked) return localizations.sheetSaveLimitTooltip;
+    return localizations.sheetSaveNoChangesTooltip;
+  }
+
   /// Back action: a clean sheet pops directly (GRN-16); a pending one asks
   /// first, because the edit state lives only in memory and popping would
   /// silently discard it (GRN-13 … GRN-15). The dirty check is a read at tap
@@ -224,9 +307,9 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   Future<void> _leave() async {
     if (_confirming) return;
     final editProvider = sheetEditControllerProvider(widget.sheetId);
-    // An in-flight save may already have committed on the API; leaving now
-    // would hide the response and desync the screen (SAV-06).
-    if (ref.read(editProvider).isSaving) return;
+    // An in-flight preview or save owns the state until its response settles;
+    // leaving now would hide the result and desync the screen (SVE-01, SAV-06).
+    if (ref.read(editProvider).isBusy) return;
     final pending = ref.read(editProvider).isPending;
     if (pending) {
       final localizations = AppLocalizations.of(context)!;
@@ -248,9 +331,9 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   Future<void> _refreshTemplate() async {
     if (_confirming) return;
     final editProvider = sheetEditControllerProvider(widget.sheetId);
-    // F5 must not discard edits while a save is in flight (SAV-06): the commit
-    // owns the state until its response settles.
-    if (ref.read(editProvider).isSaving) return;
+    // F5 must not discard edits while a preview or save is in flight (SVE-01,
+    // SAV-06): the request owns the state until its response settles.
+    if (ref.read(editProvider).isBusy) return;
     final templateId = ref
         .read(sheetOpenControllerProvider(widget.sheetId))
         .sheet

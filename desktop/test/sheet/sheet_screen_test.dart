@@ -15,12 +15,22 @@ import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/sheet/action_rate_limiter.dart';
+import 'package:legnaris/sheet/draft_backup_scheduler.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_refresh.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
 void main() {
+  late _FakeScheduler scheduler;
+  late _FakeCooldownScheduler cooldown;
+
+  setUp(() {
+    scheduler = _FakeScheduler();
+    cooldown = _FakeCooldownScheduler();
+  });
+
   const detailBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}},
@@ -111,17 +121,23 @@ void main() {
     bool stacked = false,
     Sheet? opened,
     bool injectSheet = true,
+    Directory? supportDir,
   }) async {
     final recorded = <http.Request>[];
-    final supportDir = Directory.systemTemp.createTempSync('lgn108-screen');
-    addTearDown(() => supportDir.deleteSync(recursive: true));
+    final directory =
+        supportDir ?? Directory.systemTemp.createTempSync('lgn108-screen');
+    if (supportDir == null) {
+      addTearDown(() => directory.deleteSync(recursive: true));
+    }
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          appSupportDirectoryProvider.overrideWithValue(supportDir),
+          appSupportDirectoryProvider.overrideWithValue(directory),
+          draftBackupSchedulerProvider.overrideWithValue(scheduler),
+          cooldownSchedulerProvider.overrideWithValue(cooldown),
           if (injectSheet)
             openedSheetProvider.overrideWithValue(opened ?? baseSheet()),
           apiClientProvider.overrideWithValue(
@@ -2001,4 +2017,397 @@ void main() {
       },
     );
   });
+
+  group('preview footer (PRV-01 … PRV-11, SVE-01 … SVE-03)', () {
+    const cascadeBody = '{"data": {"derived": {"armorClass": 13}}}';
+    const previewFailBody =
+        '{"error": {"code": "UNKNOWN_FIELD", "message": "unknown field"}}';
+    const invalidBody =
+        '{"error": {"code": "INVALID_REQUEST", "message": "not editable"}}';
+
+    TextButton previewButton(WidgetTester tester) =>
+        tester.widget<TextButton>(find.byKey(const Key('sheet-preview')));
+
+    TextButton saveButton(WidgetTester tester) =>
+        tester.widget<TextButton>(find.byKey(const Key('sheet-save')));
+
+    Tooltip? tooltipFor(WidgetTester tester, String key) {
+      final finder = find.ancestor(
+        of: find.byKey(Key(key)),
+        matching: find.byType(Tooltip),
+      );
+      if (finder.evaluate().isEmpty) return null;
+      return tester.widget<Tooltip>(finder);
+    }
+
+    List<http.Request> previews(List<http.Request> recorded) => recorded
+        .where((request) => request.url.path.endsWith('/preview'))
+        .toList();
+
+    List<http.Request> patches(List<http.Request> recorded) => recorded
+        .where((request) => request.method == 'PATCH')
+        .toList();
+
+    testWidgets(
+      'Happy path: an edit enables Preview, one dry-run merges the cascade with zero PATCH, and a repeat issues none (PRV-01 … PRV-04)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? http.Response(cascadeBody, 200)
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        final l10n = lookupAppLocalizations(const Locale('en'));
+        expect(find.byKey(const Key('sheet-preview')), findsOneWidget);
+        expect(previewButton(tester).onPressed, isNull);
+        expect(
+          tooltipFor(tester, 'sheet-preview')?.message,
+          l10n.sheetPreviewNoChangesTooltip,
+        );
+        expect(
+          tester.getTopLeft(find.byKey(const Key('sheet-preview'))).dx,
+          lessThan(
+            tester.getTopLeft(find.byKey(const Key('sheet-save'))).dx,
+          ),
+          reason: 'Preview is the secondary action left of Save',
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        expect(previewButton(tester).onPressed, isNotNull);
+
+        await tester.tap(find.byKey(const Key('sheet-preview')));
+        await tester.pumpAndSettle();
+
+        expect(previews(recorded), hasLength(1));
+        expect(previews(recorded).single.method, 'POST');
+        expect(jsonDecode(previews(recorded).single.body), {
+          'data': {
+            'stats': {'dexterity': 16},
+          },
+        });
+        expect(patches(recorded), isEmpty);
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byKey(const Key('sheet-title'))),
+        );
+        final state = container.read(sheetEditControllerProvider(sheetId));
+        expect(state.isPending, isTrue);
+        expect(valueAtPath(state.data, 'derived.armorClass'), 13);
+        expect(
+          valueAtPath(state.defaults, 'stats.dexterity'),
+          10,
+          reason: 'a preview must not advance the baseline to the edited value',
+        );
+
+        expect(previewButton(tester).onPressed, isNull);
+        expect(
+          tooltipFor(tester, 'sheet-preview')?.message,
+          l10n.sheetPreviewNoChangesTooltip,
+        );
+
+        await tester.tap(
+          find.byKey(const Key('sheet-preview')),
+          warnIfMissed: false,
+        );
+        await tester.pumpAndSettle();
+        expect(previews(recorded), hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'Error: a failed preview keeps the edits and renders the mapped copy above the action row (PRV-08)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? http.Response(previewFailBody, 400)
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('sheet-preview')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('sheet-preview-error')), findsOneWidget);
+        expect(find.text(errorCopy(ApiErrorKind.renderMismatch)), findsOneWidget);
+        expect(find.byKey(const Key('sheet-local-edits')), findsOneWidget);
+        expect(find.byKey(const Key('sheet-input-stats.dexterity')), findsOneWidget);
+        expect(previewButton(tester).onPressed, isNotNull);
+        expect(patches(recorded), isEmpty);
+        expect(
+          tester.getRect(find.byKey(const Key('sheet-preview-error'))).bottom,
+          lessThanOrEqualTo(
+            tester.getRect(find.byKey(const Key('sheet-preview'))).top,
+          ),
+          reason: 'the mapped preview error must sit above the action row',
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: both Preview and Save are disabled while a preview is in flight (SVE-01)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('sheet-preview')));
+        await tester.pump();
+
+        final l10n = lookupAppLocalizations(const Locale('en'));
+        expect(previewButton(tester).onPressed, isNull);
+        expect(saveButton(tester).onPressed, isNull);
+        expect(
+          tooltipFor(tester, 'sheet-preview')?.message,
+          l10n.sheetRequestInProgressTooltip,
+        );
+        expect(
+          tooltipFor(tester, 'sheet-save')?.message,
+          l10n.sheetRequestInProgressTooltip,
+        );
+        expect(previews(recorded), hasLength(1));
+
+        gate.complete(http.Response(cascadeBody, 200));
+        await tester.pumpAndSettle();
+
+        expect(patches(recorded), isEmpty);
+        expect(saveButton(tester).onPressed, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'Edge: three previews exhaust the window and disable Preview with the limit tooltip (SVE-02)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? http.Response(previewFailBody, 400)
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        for (var i = 0; i < 3; i++) {
+          await tester.tap(find.byKey(const Key('sheet-preview')));
+          await tester.pumpAndSettle();
+        }
+        expect(previews(recorded), hasLength(3));
+        expect(previewButton(tester).onPressed, isNull);
+        expect(
+          tooltipFor(tester, 'sheet-preview')?.message,
+          lookupAppLocalizations(const Locale('en')).sheetPreviewLimitTooltip,
+        );
+
+        await tester.tap(
+          find.byKey(const Key('sheet-preview')),
+          warnIfMissed: false,
+        );
+        await tester.pumpAndSettle();
+        expect(previews(recorded), hasLength(3));
+      },
+    );
+
+    testWidgets(
+      'Edge: three saves exhaust the window and disable Save with the limit tooltip (SVE-03)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (request) async => request.method == 'PATCH'
+              ? http.Response(invalidBody, 400)
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+
+        for (var i = 0; i < 3; i++) {
+          await tester.tap(find.byKey(const Key('sheet-save')));
+          await tester.pumpAndSettle();
+        }
+        expect(patches(recorded), hasLength(3));
+        expect(saveButton(tester).onPressed, isNull);
+        expect(
+          tooltipFor(tester, 'sheet-save')?.message,
+          lookupAppLocalizations(const Locale('en')).sheetSaveLimitTooltip,
+        );
+
+        await tester.tap(
+          find.byKey(const Key('sheet-save')),
+          warnIfMissed: false,
+        );
+        await tester.pumpAndSettle();
+        expect(patches(recorded), hasLength(3));
+      },
+    );
+
+    testWidgets(
+      'Edge: back and F5 are no-ops while a preview is in flight (SVE-01)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final recorded = await pumpScreen(
+          tester,
+          stacked: true,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        final templateGets = recorded
+            .where((request) => request.url.path == '/templates/fantasy_v1')
+            .length;
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-preview')));
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(SheetScreen), findsOneWidget);
+
+        await pressF5(tester);
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(
+          recorded
+              .where((request) => request.url.path == '/templates/fantasy_v1')
+              .length,
+          templateGets,
+        );
+
+        gate.complete(http.Response(cascadeBody, 200));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'Edge: Preview is absent while the sheet is still loading (PRV-11)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        await pumpScreen(
+          tester,
+          injectSheet: false,
+          handler: (request) async => request.url.path == '/sheets/sheet-1'
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+
+        expect(find.byKey(const Key('sheet-preview')), findsNothing);
+
+        gate.complete(http.Response(sheetBody(), 200));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('sheet-preview')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Edge: Preview is absent when the template detail fails to load (PRV-11)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.startsWith('/sheets/')
+              ? http.Response(sheetBody(), 200)
+              : http.Response(serverErrorBody, 500),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('sheet-preview')), findsNothing);
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Edge: Preview is absent when the template has no fields (PRV-11)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(emptyFieldsBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('sheet-preview')), findsNothing);
+        expect(find.text('This template has no fields.'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Happy path: the draft auto-backup starts while the sheet has pending edits (DRB-01, DRB-02)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+        expect(scheduler.running, isFalse);
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        expect(scheduler.running, isTrue);
+      },
+    );
+  });
+}
+
+/// Test double for the periodic backup clock: it records whether the schedule
+/// runs so the screen can prove it activates the coordinator.
+class _FakeScheduler implements DraftBackupScheduler {
+  int startCalls = 0;
+  int cancelCalls = 0;
+  bool running = false;
+
+  @override
+  void start(void Function() onTick) {
+    startCalls++;
+    running = true;
+  }
+
+  @override
+  void cancel() {
+    cancelCalls++;
+    running = false;
+  }
+}
+
+/// Test double for the one-shot cooldown timer: it never fires a real timer, so
+/// a widget test that reaches the preview/save limit leaves none pending.
+class _FakeCooldownScheduler implements CooldownScheduler {
+  @override
+  void schedule(Duration delay, void Function() onFire) {}
+
+  @override
+  void cancel() {}
 }
