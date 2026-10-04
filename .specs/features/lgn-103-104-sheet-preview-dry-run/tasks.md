@@ -301,11 +301,11 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] `start` schedules a 60-second periodic tick
-- [ ] A second `start` does not double ticks; `cancel` stops them
-- [ ] Disposing the provider cancels the timer
-- [ ] Gate check passes: `flutter test test/sheet/draft_backup_scheduler_test.dart`
-- [ ] Test count: new suite passes with the cases above (no silent deletions)
+- [x] `start` schedules a 60-second periodic tick
+- [x] A second `start` does not double ticks; `cancel` stops them
+- [x] Disposing the provider cancels the timer
+- [x] Gate check passes: `flutter test test/sheet/draft_backup_scheduler_test.dart`
+- [x] Test count: new suite passes with the cases above (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick (desktop)
