@@ -152,6 +152,67 @@ void main() {
     });
   });
 
+  group('mergeCascade (SAV-13)', () {
+    test(
+      'Happy path: adds a new nested key and overwrites an existing leaf',
+      () {
+        final base = <String, Object?>{
+          'stats': <String, Object?>{'dexterity': 16},
+          'derived': <String, Object?>{'armorClass': 10.0},
+        };
+
+        expect(mergeCascade(base, const {
+          'derived': {'armorClass': 13.0},
+          'modifiers': {'dexterityMod': 3},
+        }), {
+          'stats': {'dexterity': 16},
+          'derived': {'armorClass': 13.0},
+          'modifiers': {'dexterityMod': 3},
+        });
+      },
+    );
+
+    test('Edge: a deep nested tree merges recursively instead of replacing', () {
+      final base = <String, Object?>{
+        'a': <String, Object?>{
+          'b': <String, Object?>{'keep': 1, 'change': 2},
+        },
+      };
+
+      expect(mergeCascade(base, const {
+        'a': {
+          'b': {'change': 9},
+        },
+      }), {
+        'a': {
+          'b': {'keep': 1, 'change': 9},
+        },
+      });
+    });
+
+    test('Edge: an empty delta yields an equal tree', () {
+      final base = <String, Object?>{
+        'stats': <String, Object?>{'dexterity': 16},
+      };
+
+      expect(mergeCascade(base, const {}), base);
+    });
+
+    test('Edge: the inputs are not mutated', () {
+      final base = <String, Object?>{
+        'derived': <String, Object?>{'armorClass': 10.0},
+      };
+      final delta = <String, Object?>{
+        'derived': <String, Object?>{'armorClass': 13.0},
+      };
+
+      mergeCascade(base, delta);
+
+      expect((base['derived']! as Map<String, Object?>)['armorClass'], 10.0);
+      expect((delta['derived']! as Map<String, Object?>)['armorClass'], 13.0);
+    });
+  });
+
   group('setPathValue', () {
     test('Happy path: sets a top-level key', () {
       final data = <String, Object?>{};

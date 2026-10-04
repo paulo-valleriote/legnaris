@@ -169,4 +169,60 @@ void main() {
       },
     );
   });
+
+  group('Ctrl+S dispatch by surface (LGN-110)', () {
+    test('Happy path: defaultShortcuts binds saveSheet to Ctrl+S and appShortcuts maps it', () {
+      expect(
+        defaultShortcuts[AppShortcut.saveSheet],
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true),
+      );
+      expect(
+        appShortcuts()[
+            const SingleActivator(LogicalKeyboardKey.keyS, control: true)],
+        isA<SaveSheetIntent>(),
+      );
+    });
+
+    testWidgets(
+      'Happy path: Ctrl+S with a registered sheet bumps the save tick and issues no request (SAV-05)',
+      (tester) async {
+        final harness = await pumpActions(tester);
+        // The mounted sheet screen is the seam's only listener.
+        harness.container.listen(activeSheetIdProvider, (_, _) {});
+        harness.container.listen(sheetSaveTickProvider, (_, _) {});
+        harness.container
+            .read(activeSheetIdProvider.notifier)
+            .set('sheet-1');
+
+        const ActionDispatcher().invokeAction(
+          harness.actions[SaveSheetIntent]!,
+          const SaveSheetIntent(),
+        );
+        await tester.pumpAndSettle();
+
+        expect(harness.container.read(sheetSaveTickProvider), 1);
+        expect(harness.recorded, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Edge: Ctrl+S with no registered sheet bumps nothing and issues no request (SAV-07)',
+      (tester) async {
+        final harness = await pumpActions(tester);
+        expect(harness.container.read(activeSheetIdProvider), isNull);
+        // Keep the autoDispose tick alive so an unconditional bump would be
+        // observable and kill the mutant that drops the guard.
+        harness.container.listen(sheetSaveTickProvider, (_, _) {});
+
+        const ActionDispatcher().invokeAction(
+          harness.actions[SaveSheetIntent]!,
+          const SaveSheetIntent(),
+        );
+        await tester.pumpAndSettle();
+
+        expect(harness.container.read(sheetSaveTickProvider), 0);
+        expect(harness.recorded, isEmpty);
+      },
+    );
+  });
 }

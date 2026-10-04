@@ -42,14 +42,22 @@
 - **Date**: 2026-10-03
 - **Status**: active
 
+### AD-006
+- **Decision**: The save cycle lives on `SheetEditController`, not a second provider family: `SheetEditState` gains `isSaving`/`saveError`/`pendingDelta`, and `save()` sends the changed editable delta with one `PATCH /sheets/:id` and, on success, advances the baseline to `mergeCascade(mergeCascade(defaults, delta), cascade)` while `data = mergeCascade(data, cascade)`. `mergeCascade` is the promoted public deep-merge reused by `seedFromSheet`. `Ctrl+S` mirrors the F5 tick seam (`sheetSaveTickProvider`); back/F5 are no-ops while a save is in flight.
+- **Reason**: The edit family is overridden in the creation route scope (AD-004), so a separate save family would resolve in the parent container and read an **unseeded** edit state; keeping `save()` on the scoped controller makes scope consistency structural. Recomputing the baseline (instead of `defaults = data`) keeps edits made during the in-flight request pending rather than silently marking them saved.
+- **Trade-off**: Save status is part of the edit state (field controls `select` scalars, so they never rebuild on a status change); the creation-dialog fix relies on the `AlertDialog` content being height-bounded (`Flexible` content + flexing preview scroll) rather than a magic height.
+- **Scope**: desktop/ — `lib/sheet/` (edit/save, screen footer + guards, refresh/save tick), `lib/shell/shortcut_registry.dart`, `lib/engine/sheet_defaults.dart`, `lib/l10n/`, `lib/catalog/create_sheet_dialog.dart`. Backend unchanged (PATCH already returns only the derived delta).
+- **Date**: 2026-10-03
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: `lgn-108-open-sheet` (.specs/features/lgn-108-open-sheet)
-- **Phase / Task**: Execute — COMPLETE (T1–T5 committed; independent Verifier PASS 21/21, 4/4 mutants killed; `validate_state.py` exit 0)
-- **Completed**: T1 `seedFromSheet` per-key seeding, T2 `SheetOpenController` (GET by id, loading/error, NOT_FOUND eviction), T3 Screen 2 retargeted to the sheet id (edit family key, seeding overlay, preview removed), T4 Screen 1 "My sheets" section (list/open/remove + confirmation), T5 catalog embeds the section and opens from it. Commits `1229ce4`, `2b9cf1a`, `cdd0b02`, `0b2e3e4`, `d9a8119` (docs `f8a740c`). Report: `.specs/features/lgn-108-open-sheet/validation.md`.
+- **Feature**: `lgn-110-save-delta` (.specs/features/lgn-110-save-delta)
+- **Phase / Task**: Execute — COMPLETE (T1–T7 committed; independent Verifier PASS 27/27, 7/7 mutants killed on round 2; `validate_state.py` exit 0)
+- **Completed**: T1 creation-dialog bounded content, T2 public `mergeCascade`, T3 save on `SheetEditController` (delta + baseline recompute), T4 Screen 2 footer + l10n, T5 `Ctrl+S` binding + `sheetSaveTickProvider`, T6 save-in-flight discard guards, T7 Verifier gap fixes. Commits `b35c6d8`, `904d6ad`, `07c8830`, `a8802cf`, `bcdfb7c`, `1a76241`, `cdfb359` (docs `d6fadda`, chore `71d4298`). Report: `.specs/features/lgn-110-save-delta/validation.md`.
 - **In-progress** (file:line): none
-- **Next step**: review the branch `feat/lgn-108-open-sheet` and open a PR. No remote push has been performed (blast radius: local commits only).
-- **Blockers**: none. The two non-blocking Verifier notes (back/F5 guards exercised only via the injected seed; template-failure retention by construction) were closed in `f610afa` with direct library-path assertions (`sheet_screen_test.dart` OPN-17/18 group, `library_open_navigation_test.dart` retention test); re-verification round 1 PASS (461 passed, 4 skipped, 4/4 mutants).
-- **Uncommitted files**: validation report + traceability update (this commit). Working tree otherwise clean.
-- **Branch**: `feat/lgn-108-open-sheet` (local only; based on `7508d4d`)
-- **Prior feature**: `lgn-109-create-sheet` — COMPLETE (PR #55, merged); `lgn-107-local-sheet-library` — COMPLETE (merged #54)
+- **Next step**: review and merge PR #57 (https://github.com/paulo-valleriote/legnaris/pull/57).
+- **Blockers**: none. Full suite `flutter analyze` clean + 486 passed / 4 skipped (pre-existing live/contract skips; `api_client_retry_test` is a known wall-clock flake that passes in isolation); Verifier round 1 gaps (SAV-02 tooltip, SAV-15 merge granularity, surviving Ctrl+S-guard mutant) closed in `cdfb359` and re-verified PASS.
+- **Uncommitted files**: none; branch pushed, PR #57 opened.
+- **Branch**: `feat/lgn-110-save-delta` (pushed; PR #57 → main, based on `6eab233` = origin/main, includes LGN-108)
+- **Prior feature**: `lgn-108-open-sheet` — COMPLETE (PR #56, merged); `lgn-109-create-sheet` — COMPLETE (PR #55, merged)

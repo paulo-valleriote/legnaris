@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/models/sheet.dart';
+import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 
@@ -514,6 +515,280 @@ void main() {
 
         expect(identical(stateOf(container, sheetId), cleared), isTrue);
         expect(emissions, 0);
+      },
+    );
+  });
+
+  group('save (SAV-08 … SAV-23)', () {
+    const cascadeBody =
+        '{"data": {"derived": {"armorClass": 13}, "modifiers": {"dexterityMod": 3}}}';
+    const emptyCascadeBody = '{"data": {}}';
+    const invalidBody =
+        '{"error": {"code": "INVALID_REQUEST", "message": "not editable"}}';
+
+    Future<http.Response> Function(http.Request) responder(
+      List<http.Request> recorded, {
+      Future<http.Response> Function(http.Request)? onPatch,
+    }) => (request) async {
+      if (request.method == 'PATCH') {
+        return onPatch != null
+            ? onPatch(request)
+            : http.Response(cascadeBody, 200);
+      }
+      return http.Response(detailBody, 200);
+    };
+
+    List<http.Request> patches(List<http.Request> recorded) =>
+        recorded.where((request) => request.method == 'PATCH').toList();
+
+    test(
+      'Happy path: one PATCH carries the changed editable delta and the cascade merges (SAV-08, SAV-10, SAV-13, SAV-14, SAV-17)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: responder(recorded),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+
+        await notifier.save();
+        await pumpEventQueue();
+
+        expect(patches(recorded), hasLength(1));
+        expect(jsonDecode(patches(recorded).single.body), {
+          'data': {
+            'stats': {'dexterity': 18},
+          },
+        });
+        final after = stateOf(container, sheetId);
+        expect(valueAtPath(after.data, 'stats.dexterity'), 18);
+        expect(valueAtPath(after.data, 'derived.armorClass'), 13);
+        expect(valueAtPath(after.data, 'modifiers.dexterityMod'), 3);
+        expect(after.isPending, isFalse);
+        expect(after.isSaving, isFalse);
+        expect(after.saveError, isNull);
+      },
+    );
+
+    test(
+      'Edge: a field reverted to the baseline leaves the delta and omits the derived leaf (SAV-09, SAV-10)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: responder(recorded),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+        notifier.setPath('stats.constitution', 20);
+        notifier.setPath('stats.constitution', 12);
+
+        await notifier.save();
+        await pumpEventQueue();
+
+        final body = jsonDecode(patches(recorded).single.body) as Map;
+        final delta = body['data'] as Map;
+        expect(delta, {
+          'stats': {'dexterity': 18},
+        });
+        expect(delta.containsKey('derived'), isFalse);
+      },
+    );
+
+    test(
+      'Edge: an exclusive selection ships the affected members so at most one is non-zero (SAV-11)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: responder(recorded),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+
+        container
+            .read(sheetEditControllerProvider(sheetId).notifier)
+            .setExclusive('config.acUsesCon', const ['config.acUsesDex']);
+        await container.read(sheetEditControllerProvider(sheetId).notifier).save();
+        await pumpEventQueue();
+
+        expect(jsonDecode(patches(recorded).single.body), {
+          'data': {
+            'config': {'acUsesDex': 0, 'acUsesCon': 1},
+          },
+        });
+      },
+    );
+
+    test('Edge: no change issues no PATCH (SAV-12)', () async {
+      final recorded = <http.Request>[];
+      final container = containerWithOpened(
+        openedSheet(),
+        recorded: recorded,
+        handler: responder(recorded),
+      );
+      keepAlive(container, sheetId);
+      await pumpEventQueue();
+
+      await container.read(sheetEditControllerProvider(sheetId).notifier).save();
+      await pumpEventQueue();
+
+      expect(patches(recorded), isEmpty);
+      expect(stateOf(container, sheetId).isSaving, isFalse);
+    });
+
+    test('Edge: an empty cascade updates the baseline and clears pending (SAV-16)', () async {
+      final recorded = <http.Request>[];
+      final container = containerWithOpened(
+        openedSheet(),
+        recorded: recorded,
+        handler: responder(
+          recorded,
+          onPatch: (_) async => http.Response(emptyCascadeBody, 200),
+        ),
+      );
+      keepAlive(container, sheetId);
+      await pumpEventQueue();
+      final notifier = container.read(
+        sheetEditControllerProvider(sheetId).notifier,
+      );
+      notifier.setPath('stats.dexterity', 18);
+      final before = stateOf(container, sheetId).data;
+
+      await notifier.save();
+      await pumpEventQueue();
+
+      final after = stateOf(container, sheetId);
+      expect(after.isPending, isFalse);
+      expect(valueAtPath(after.data, 'stats.dexterity'), 18);
+      expect(valueAtPath(after.data, 'stats.constitution'), 12.0);
+      expect(
+        valueAtPath(before, 'derived.armorClass'),
+        valueAtPath(after.data, 'derived.armorClass'),
+      );
+    });
+
+    test(
+      'Error: a failure keeps the edits and publishes the mapped copy, and a retry saves once more (SAV-18, SAV-19, SAV-20, SAV-21, SAV-22, SAV-23)',
+      () async {
+        var failing = true;
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: responder(
+            recorded,
+            onPatch: (_) async =>
+                failing ? http.Response(invalidBody, 400) : http.Response(cascadeBody, 200),
+          ),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+
+        await notifier.save();
+        await pumpEventQueue();
+
+        final failed = stateOf(container, sheetId);
+        expect(failed.isPending, isTrue);
+        expect(valueAtPath(failed.data, 'stats.dexterity'), 18);
+        expect(valueAtPath(failed.data, 'derived.armorClass'), 0.0);
+        expect(failed.saveError, errorCopy(ApiErrorKind.invalidEdit));
+        expect(patches(recorded), hasLength(1));
+
+        await pumpEventQueue();
+        expect(patches(recorded), hasLength(1), reason: 'PATCH is never auto-retried');
+
+        failing = false;
+        await notifier.save();
+        await pumpEventQueue();
+
+        final saved = stateOf(container, sheetId);
+        expect(patches(recorded), hasLength(2));
+        expect(saved.isPending, isFalse);
+        expect(saved.saveError, isNull);
+        expect(valueAtPath(saved.data, 'derived.armorClass'), 13);
+      },
+    );
+
+    test('Edge: two rapid saves issue exactly one PATCH (single-flight)', () async {
+      final gate = Completer<http.Response>();
+      final recorded = <http.Request>[];
+      final container = containerWithOpened(
+        openedSheet(),
+        recorded: recorded,
+        handler: responder(recorded, onPatch: (_) => gate.future),
+      );
+      keepAlive(container, sheetId);
+      await pumpEventQueue();
+      final notifier = container.read(
+        sheetEditControllerProvider(sheetId).notifier,
+      );
+      notifier.setPath('stats.dexterity', 18);
+
+      final first = notifier.save();
+      final second = notifier.save();
+      await pumpEventQueue();
+
+      expect(patches(recorded), hasLength(1));
+      expect(stateOf(container, sheetId).isSaving, isTrue);
+
+      gate.complete(http.Response(cascadeBody, 200));
+      await first;
+      await second;
+      await pumpEventQueue();
+
+      expect(stateOf(container, sheetId).isSaving, isFalse);
+      expect(patches(recorded), hasLength(1));
+    });
+
+    test(
+      'Edge: an edit made while the save is in flight stays pending after the success (SAV-14)',
+      () async {
+        final gate = Completer<http.Response>();
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: responder(recorded, onPatch: (_) => gate.future),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+
+        final saving = notifier.save();
+        await pumpEventQueue();
+        notifier.setPath('stats.constitution', 20);
+
+        gate.complete(http.Response(cascadeBody, 200));
+        await saving;
+        await pumpEventQueue();
+
+        final after = stateOf(container, sheetId);
+        expect(after.isPending, isTrue);
+        expect(after.editedPaths, contains('stats.constitution'));
+        expect(valueAtPath(after.data, 'stats.constitution'), 20);
+        expect(valueAtPath(after.defaults, 'stats.constitution'), 12.0);
+        expect(valueAtPath(after.data, 'stats.dexterity'), 18);
+        expect(valueAtPath(after.defaults, 'stats.dexterity'), 18);
       },
     );
   });

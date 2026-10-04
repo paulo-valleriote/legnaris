@@ -68,6 +68,11 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     ref.listen(sheetRefreshTickProvider, (previous, next) {
       if (previous == null || next > previous) unawaited(_refreshTemplate());
     });
+    // Ctrl+S dispatch (SAV-05): the shell bumps the save tick, this screen
+    // runs the commit. The edit controller owns the single-flight guard.
+    ref.listen(sheetSaveTickProvider, (previous, next) {
+      if (previous == null || next > previous) _save();
+    });
     // Holds the active-sheet registration from the first build until unmount,
     // where the element closes it and the provider discards the id.
     ref.listen(activeSheetIdProvider, (_, _) {});
@@ -77,6 +82,16 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     final detail = templateId == null
         ? null
         : ref.watch(templateDetailControllerProvider(templateId));
+
+    final template = detail?.template;
+    final loaded =
+        open.sheet != null &&
+        open.errorMessage == null &&
+        !open.isLoading &&
+        detail != null &&
+        !detail.isLoading &&
+        template != null &&
+        buildSections(template.fields).isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,6 +104,10 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
         ),
         const Divider(),
         Expanded(child: _body(context, open, detail, localizations)),
+        if (loaded) ...[
+          const Divider(),
+          _footer(context, localizations),
+        ],
       ],
     );
   }
@@ -121,36 +140,77 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        _localEditsMarker(context, localizations),
         Text(templateId, style: muted),
       ],
     );
   }
 
-  /// Caption shown while the edit state differs from the seeded defaults
-  /// (GRN-11, GRN-12). Its own `Consumer` so the screen build never
-  /// subscribes to the edit state (AD-001): only this small subtree rebuilds
-  /// when the pending flag flips.
-  Widget _localEditsMarker(
-    BuildContext context,
-    AppLocalizations localizations,
-  ) {
+  /// Commits the pending delta through the edit controller (SAV-04). The
+  /// controller owns the single-flight guard, so a double activation or a
+  /// `Ctrl+S` in the same frame cannot issue two PATCHes.
+  void _save() {
+    unawaited(
+      ref.read(sheetEditControllerProvider(widget.sheetId).notifier).save(),
+    );
+  }
+
+  /// The fixed footer: the dirty indicator, the mapped save error above the
+  /// action row, and the Save action (SAV-01 … SAV-06). Its own `Consumer`
+  /// selecting only the save flags keeps the form out of the rebuild when the
+  /// pending or in-flight state flips (AD-001).
+  Widget _footer(BuildContext context, AppLocalizations localizations) {
     final theme = Theme.of(context);
     return Consumer(
       builder: (context, ref, _) {
-        final pending = ref.watch(
-          sheetEditControllerProvider(widget.sheetId)
-              .select((state) => state.isPending),
+        final provider = sheetEditControllerProvider(widget.sheetId);
+        final pending = ref.watch(provider.select((state) => state.isPending));
+        final saving = ref.watch(provider.select((state) => state.isSaving));
+        final error = ref.watch(provider.select((state) => state.saveError));
+        final button = TextButton(
+          key: const Key('sheet-save'),
+          onPressed: pending && !saving ? _save : null,
+          child: Text(localizations.sheetSaveAction),
         );
-        if (!pending) return const SizedBox.shrink();
         return Padding(
-          padding: const EdgeInsets.only(right: AppSpacing.sm),
-          child: Text(
-            localizations.sheetLocalEdits,
-            key: const Key('sheet-local-edits'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.primary,
-            ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (error != null) ...[
+                Text(
+                  error,
+                  key: const Key('sheet-save-error'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+              Row(
+                children: [
+                  if (pending)
+                    Text(
+                      localizations.sheetLocalEdits,
+                      key: const Key('sheet-local-edits'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  const Spacer(),
+                  if (!pending)
+                    Tooltip(
+                      message: localizations.sheetSaveNoChangesTooltip,
+                      child: button,
+                    )
+                  else
+                    button,
+                ],
+              ),
+            ],
           ),
         );
       },
@@ -163,9 +223,11 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   /// time — the screen never watches the edit state (AD-001).
   Future<void> _leave() async {
     if (_confirming) return;
-    final pending = ref
-        .read(sheetEditControllerProvider(widget.sheetId))
-        .isPending;
+    final editProvider = sheetEditControllerProvider(widget.sheetId);
+    // An in-flight save may already have committed on the API; leaving now
+    // would hide the response and desync the screen (SAV-06).
+    if (ref.read(editProvider).isSaving) return;
+    final pending = ref.read(editProvider).isPending;
     if (pending) {
       final localizations = AppLocalizations.of(context)!;
       final confirmed = await _confirmDiscard(
@@ -185,12 +247,15 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   /// discarded behind the error + Retry branch.
   Future<void> _refreshTemplate() async {
     if (_confirming) return;
+    final editProvider = sheetEditControllerProvider(widget.sheetId);
+    // F5 must not discard edits while a save is in flight (SAV-06): the commit
+    // owns the state until its response settles.
+    if (ref.read(editProvider).isSaving) return;
     final templateId = ref
         .read(sheetOpenControllerProvider(widget.sheetId))
         .sheet
         ?.templateId;
     if (templateId == null) return;
-    final editProvider = sheetEditControllerProvider(widget.sheetId);
     if (ref.read(editProvider).isPending) {
       final localizations = AppLocalizations.of(context)!;
       final confirmed = await _confirmDiscard(

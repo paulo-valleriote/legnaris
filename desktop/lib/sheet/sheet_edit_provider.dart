@@ -1,15 +1,18 @@
-/// In-memory edit state for one open sheet (LGN-102, GRN-01 … GRN-06).
+/// In-memory edit state for one open sheet (LGN-102, GRN-01 … GRN-06; LGN-110).
 ///
 /// The family is keyed by the opened sheet id and autoDispose: the state lives
 /// only while a sheet surface subscribes, so leaving the screen discards every
-/// edit and a reopen reseeds from the stored sheet. Nothing here is persisted
-/// or sent to the API — the save cycle is Phase 4.
+/// edit and a reopen reseeds from the stored sheet. [SheetEditController.save]
+/// commits the changed editable delta and merges the derived cascade the API
+/// returns, without reloading the sheet.
 ///
 /// Rebuild granularity comes from `select`: field controls watch a single
 /// dotted path of this state, so one edit rebuilds exactly one control and
 /// the sheet screen itself never watches the state (AD-001).
 library;
 
+import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/api/api_error.dart';
 import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
 import 'package:legnaris/engine/sheet_defaults.dart';
@@ -34,11 +37,14 @@ class SheetEditState {
     this.defaults = const {},
     this.data = const {},
     this.editedPaths = const {},
+    this.isSaving = false,
+    this.saveError,
   });
 
   /// Reference values the state was seeded from: the template schema defaults,
   /// or the opened sheet's stored data when one moved into Screen 2. The
-  /// baseline [isPending] compares against.
+  /// baseline [isPending] compares against, advanced to the server state after
+  /// a successful save.
   final Map<String, Object?> defaults;
 
   /// Current values. State maps are never mutated in place — every write
@@ -49,11 +55,33 @@ class SheetEditState {
   /// value no longer counts as pending.
   final Set<String> editedPaths;
 
-  /// True while any edited path differs from its seeded reference: the marker
-  /// and both discard guards key off this (GRN-11 … GRN-19).
+  /// True while a `PATCH /sheets/:id` is in flight: the footer disables Save
+  /// and the discard guards stand down so the commit is never abandoned.
+  final bool isSaving;
+
+  /// Mapped copy of the last save failure, rendered inline in the footer; null
+  /// before any attempt and after a success.
+  final String? saveError;
+
+  /// True while any edited path differs from its seeded reference: the marker,
+  /// the Save action and both discard guards key off this (GRN-11 … GRN-19).
   bool get isPending => editedPaths.any(
     (path) => valueAtPath(data, path) != valueAtPath(defaults, path),
   );
+
+  /// Nested delta of the changed leaves: every edited path whose value differs
+  /// from the baseline, rebuilt by dotted path. Read-only controls never write,
+  /// so a derived leaf is never in [editedPaths] and never enters the delta.
+  Map<String, Object?> get pendingDelta {
+    final delta = <String, Object?>{};
+    for (final path in editedPaths) {
+      final value = valueAtPath(data, path);
+      if (value != valueAtPath(defaults, path)) {
+        setPathValue(delta, path, value);
+      }
+    }
+    return delta;
+  }
 }
 
 /// Edit state of the sheet opened for one sheet id.
@@ -85,6 +113,8 @@ class SheetEditController extends _$SheetEditController {
       defaults: state.defaults,
       data: data,
       editedPaths: {...state.editedPaths, path},
+      isSaving: state.isSaving,
+      saveError: state.saveError,
     );
   }
 
@@ -112,6 +142,63 @@ class SheetEditController extends _$SheetEditController {
       defaults: state.defaults,
       data: data,
       editedPaths: {...state.editedPaths, ...paths},
+      isSaving: state.isSaving,
+      saveError: state.saveError,
+    );
+  }
+
+  /// Commits the pending delta with one `PATCH /sheets/:id` and merges the
+  /// derived cascade the API returns (SAV-08 … SAV-23).
+  ///
+  /// No-op while a request is in flight or the delta is empty, so Save and
+  /// `Ctrl+S` can never double up and a clean sheet issues no request. On
+  /// success the baseline advances to what the server now stores — the sent
+  /// delta applied over the old baseline plus the cascade — so edits made
+  /// while the request was in flight stay pending and only the sent fields
+  /// clear their dirty flag. On failure every edit stays and the mapped copy
+  /// is published for the footer; the PATCH is never retried automatically.
+  Future<void> save() async {
+    if (state.isSaving) return;
+    final delta = state.pendingDelta;
+    if (delta.isEmpty) return;
+    state = SheetEditState(
+      defaults: state.defaults,
+      data: state.data,
+      editedPaths: state.editedPaths,
+      isSaving: true,
+    );
+    try {
+      final cascade = await ref
+          .read(apiClientProvider)
+          .patchSheet(sheetId, delta);
+      if (!ref.mounted) return;
+      _applySaved(delta, cascade);
+    } catch (error) {
+      if (!ref.mounted) return;
+      state = SheetEditState(
+        defaults: state.defaults,
+        data: state.data,
+        editedPaths: state.editedPaths,
+        saveError: failureCopy(error),
+      );
+    }
+  }
+
+  /// Merges the cascade into the working data and advances the baseline to the
+  /// server state: the sent [delta] over the old baseline, then the [cascade].
+  void _applySaved(
+    Map<String, Object?> delta,
+    Map<String, Object?> cascade,
+  ) {
+    final data = mergeCascade(state.data, cascade);
+    final baseline = mergeCascade(
+      mergeCascade(state.defaults, delta),
+      cascade,
+    );
+    state = SheetEditState(
+      defaults: baseline,
+      data: data,
+      editedPaths: state.editedPaths,
     );
   }
 }
