@@ -883,6 +883,213 @@ func TestService_Preview(t *testing.T) {
 	})
 }
 
+// TestService_PreviewTemplate pins the template dry-run (DRY-13…DRY-17): a
+// valid delta returns the cascade computed over the template's seeded fields,
+// the seed matches what Create stores, missing/malformed ids are 400, an
+// unknown slug is 404, and unknown/derived keys map like the sheet preview.
+func TestService_PreviewTemplate(t *testing.T) {
+	fields := template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"mod": {Children: template.FieldGroup{
+			"dexterityMod": {Schema: &template.FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "floor((stats_dexterity - 10) / 2)",
+				DependsOn:  [][]string{{"stats", "dexterity"}},
+			}},
+		}},
+		"baseArmorClass": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		"derived": {Children: template.FieldGroup{
+			"armorClass": {Schema: &template.FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "baseArmorClass + mod_dexterityMod",
+				DependsOn:  [][]string{{"baseArmorClass"}, {"mod", "dexterityMod"}},
+			}},
+		}},
+	}
+
+	dag, err := template.BuildDAG("test", fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+
+	dagCache := sheettest.DAGMap{"test": dag}
+	tmpl := &template.Template{ID: "test", Name: "Test Template", Fields: fields}
+	ctx := context.Background()
+
+	t.Run("Happy path: valid delta returns the cascade over the seeded fields", func(t *testing.T) {
+		mockTemplateSvc := templatemocks.NewMockService(t)
+		mockTemplateSvc.EXPECT().
+			FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
+			Return(tmpl, nil).
+			Once()
+		mockRepo := mocks.NewMockRepository(t) // no expectations: the template preview never touches the repository
+
+		svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
+
+		cascades, err := svc.PreviewTemplate(ctx, sheet.PreviewTemplateCommand{
+			TemplateID: "test",
+			Data:       map[string]any{"stats": map[string]any{"dexterity": 18.0}},
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{
+			"mod":     map[string]any{"dexterityMod": 4.0},
+			"derived": map[string]any{"armorClass": 14.0},
+		}, cascades)
+		mockRepo.AssertNotCalled(t, "FetchByID")
+		mockRepo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Happy path: the seed equals the data Create builds for the template", func(t *testing.T) {
+		mockTemplateSvc := templatemocks.NewMockService(t)
+		mockTemplateSvc.EXPECT().
+			FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
+			Return(tmpl, nil).
+			Twice()
+
+		var createdData map[string]any
+		mockRepo := mocks.NewMockRepository(t)
+		mockRepo.EXPECT().
+			Create(ctx, mock.MatchedBy(func(s *sheet.Sheet) bool {
+				createdData = s.Data
+				return true
+			})).
+			Return(nil).
+			Once()
+
+		svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
+
+		created, err := svc.Create(ctx, sheet.CreateSheetCommand{TemplateID: "test", SheetName: "Seed"})
+		require.NoError(t, err)
+		require.NotNil(t, createdData)
+
+		delta := map[string]any{"stats": map[string]any{"dexterity": 18.0}}
+
+		previewTemplateCascade, err := svc.PreviewTemplate(ctx, sheet.PreviewTemplateCommand{TemplateID: "test", Data: delta})
+		require.NoError(t, err)
+
+		mockRepo.EXPECT().
+			FetchByID(ctx, created.ID).
+			Return(&sheet.Sheet{ID: created.ID, TemplateID: "test", Data: createdData}, nil).
+			Once()
+		previewCascade, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{SheetID: created.ID, Data: delta})
+		require.NoError(t, err)
+
+		assert.Equal(t, previewCascade, previewTemplateCascade)
+	})
+
+	t.Run("Error: template ID errors map to 400/404", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			id         string
+			fetchErr   error
+			wantCode   apperr.Code
+			wantStatus int
+			wantMsg    string
+		}{
+			{
+				name:       "Edge: missing template ID",
+				id:         "",
+				fetchErr:   template.ErrTemplateIDNotProvided,
+				wantCode:   apperr.CodeInvalidRequest,
+				wantStatus: 400,
+				wantMsg:    "template id not provided",
+			},
+			{
+				name:       "Error: malformed template ID",
+				id:         "Fantasy-V1",
+				fetchErr:   template.ErrTemplateIDInvalid,
+				wantCode:   apperr.CodeInvalidRequest,
+				wantStatus: 400,
+				wantMsg:    "template id is not a valid slug",
+			},
+			{
+				name:       "Error: unknown template slug",
+				id:         "unknown_template",
+				fetchErr:   apperr.NewError(apperr.CodeNotFound, "template not found", nil),
+				wantCode:   apperr.CodeNotFound,
+				wantStatus: 404,
+				wantMsg:    "template not found",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				mockTemplateSvc := templatemocks.NewMockService(t)
+				mockTemplateSvc.EXPECT().
+					FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: tc.id}).
+					Return(nil, tc.fetchErr).
+					Once()
+				mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+
+				svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
+
+				cascades, err := svc.PreviewTemplate(ctx, sheet.PreviewTemplateCommand{
+					TemplateID: tc.id,
+					Data:       map[string]any{"stats": map[string]any{"dexterity": 12.0}},
+				})
+
+				require.Error(t, err)
+				assert.Nil(t, cascades)
+
+				var appErr *apperr.Error
+				require.ErrorAs(t, err, &appErr)
+				assert.Equal(t, tc.wantCode, appErr.Code)
+				assert.Equal(t, tc.wantStatus, appErr.HttpStatus())
+				assert.Equal(t, tc.wantMsg, appErr.Message)
+			})
+		}
+	})
+
+	t.Run("Error: DAG rejections map like the sheet preview", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			data     map[string]any
+			wantCode apperr.Code
+			wantMsg  string
+		}{
+			{
+				name:     "Error: unknown field returns 400 UNKNOWN_FIELD",
+				data:     map[string]any{"stats": map[string]any{"unknown": 1.0}},
+				wantCode: apperr.CodeUnknownField,
+				wantMsg:  "field does not exist: stats.unknown",
+			},
+			{
+				name:     "Error: derived field returns 400 INVALID_REQUEST",
+				data:     map[string]any{"mod": map[string]any{"dexterityMod": 5.0}},
+				wantCode: apperr.CodeInvalidRequest,
+				wantMsg:  "field is not editable: mod.dexterityMod",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				mockTemplateSvc := templatemocks.NewMockService(t)
+				mockTemplateSvc.EXPECT().
+					FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
+					Return(tmpl, nil).
+					Once()
+				mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+
+				svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
+
+				cascades, err := svc.PreviewTemplate(ctx, sheet.PreviewTemplateCommand{TemplateID: "test", Data: tc.data})
+
+				require.Error(t, err)
+				assert.Nil(t, cascades)
+
+				var appErr *apperr.Error
+				require.ErrorAs(t, err, &appErr)
+				assert.Equal(t, tc.wantCode, appErr.Code)
+				assert.Equal(t, 400, appErr.HttpStatus())
+				assert.Equal(t, tc.wantMsg, appErr.Message)
+			})
+		}
+	})
+}
+
 func TestService_Create(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t)
 	mockTemplateSvc := templatemocks.NewMockService(t)

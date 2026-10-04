@@ -187,12 +187,12 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] A valid delta returns the cascade computed over the template's seeded fields
-- [ ] The seed equals the initial data `Create` builds for the template
-- [ ] Missing/malformed id and unknown slug assert their codes
-- [ ] Unknown and derived keys assert the same codes as the sheet preview
-- [ ] Gate check passes: `go test ./internal/sheet/...`
-- [ ] Test count: `internal/sheet` suite passes with the new template preview cases added (no silent deletions)
+- [x] A valid delta returns the cascade computed over the template's seeded fields
+- [x] The seed equals the initial data `Create` builds for the template
+- [x] Missing/malformed id and unknown slug assert their codes
+- [x] Unknown and derived keys assert the same codes as the sheet preview
+- [x] Gate check passes: `go test ./internal/sheet/...`
+- [x] Test count: `internal/sheet` suite passes with the new template preview cases added (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick (backend)
@@ -652,8 +652,8 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | DRY-13 | T4, T5 | Pending |
 | DRY-14 | T4, T5 | Pending |
 | DRY-15 | T4, T5 | Pending |
-| DRY-16 | T4 | Pending |
-| DRY-17 | T4 | Pending |
+| DRY-16 | T4 | Done |
+| DRY-17 | T4 | Done |
 | PRV-01 | T10, T12 | Pending |
 | PRV-02 | T10, T12 | Pending |
 | PRV-03 | T6, T10, T12 | Pending |

@@ -20,11 +20,20 @@ type PartialUpdateSheetCommand struct {
 	Data    map[string]any `json:"data"`
 }
 
+// PreviewTemplateCommand carries the template dry-run input. TemplateID is
+// filled from the path param (json:"-" keeps a body template_id out), so the
+// body is the same {"data": <delta>} shape the sheet endpoints take.
+type PreviewTemplateCommand struct {
+	TemplateID string         `json:"-"`
+	Data       map[string]any `json:"data"`
+}
+
 type Service interface {
 	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
 	FetchByID(ctx context.Context, id string) (*Sheet, error)
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
+	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
 }
 
 // User-facing messages for the errors this service builds itself. They are
@@ -231,6 +240,50 @@ func (s *ServiceImpl) Preview(ctx context.Context, cmd PartialUpdateSheetCommand
 		return nil, err
 	}
 	return nestedCascadingEffects(result.cascade)
+}
+
+// PreviewTemplate dry-runs a delta against a template with no stored sheet. It
+// seeds the template exactly like Create (every leaf at its SeedValue, derived
+// leaves then filled by the DAG), applies the delta through the same
+// NormalizeAndRecalculate the PATCH path uses and returns the nested cascade.
+// Nothing is persisted: there is no sheet to write.
+func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error) {
+	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: cmd.TemplateID})
+	if err != nil {
+		return nil, translateTemplateErr(err)
+	}
+
+	dag, exists := s.provider.DAG(cmd.TemplateID)
+	if !exists {
+		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
+	}
+
+	seeded := buildNestedAllFields(tmpl.Fields)
+
+	flatSeed, err := maputils.FlattenPathKeys(seeded)
+	if err != nil {
+		return nil, translateMapErr("create", err)
+	}
+
+	derivedEffects, err := dag.Recalculate(map[string]any{}, flatSeed)
+	if err != nil {
+		return nil, translateDAGErr(err)
+	}
+	if err := maputils.ApplyUpdates(seeded, derivedEffects); err != nil {
+		return nil, translateMapErr("create", err)
+	}
+
+	updates, err := maputils.FlattenPathKeys(cmd.Data)
+	if err != nil {
+		return nil, translateMapErr("update", err)
+	}
+
+	_, cascading, err := dag.NormalizeAndRecalculate(seeded, updates)
+	if err != nil {
+		return nil, translateDAGErr(err)
+	}
+
+	return nestedCascadingEffects(cascading)
 }
 
 // translateTemplateErr maps template-layer typed errors to apperr at the
