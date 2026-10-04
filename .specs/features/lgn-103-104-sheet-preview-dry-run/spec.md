@@ -232,10 +232,10 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | PRV-10 | P1: Preview the recalculated cascade without persisting | Design | Pending |
 | PRV-11 | P1: Preview the recalculated cascade without persisting | Design | Pending |
 | SVE-01 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
-| SVE-02 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
-| SVE-03 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
-| SVE-04 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
-| SVE-05 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
+| SVE-02 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
+| SVE-03 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
+| SVE-04 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
+| SVE-05 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | SVE-06 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
 | SVE-07 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
 | DRB-01 | P1: Unsaved drafts survive a restart | Implementing | Implementing |

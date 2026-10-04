@@ -329,12 +329,12 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] Three records allow a fourth check only after the window frees one slot
-- [ ] `nextFreeAt` returns the earliest instant a slot frees
-- [ ] Two limiters keep independent windows
-- [ ] The cooldown scheduler fires once after the delay and can be cancelled
-- [ ] Gate check passes: `flutter test test/sheet/action_rate_limiter_test.dart`
-- [ ] Test count: new suite passes with the cases above (no silent deletions)
+- [x] Three records allow a fourth check only after the window frees one slot
+- [x] `nextFreeAt` returns the earliest instant a slot frees
+- [x] Two limiters keep independent windows
+- [x] The cooldown scheduler fires once after the delay and can be cancelled
+- [x] Gate check passes: `flutter test test/sheet/action_rate_limiter_test.dart`
+- [x] Test count: new suite passes with the cases above (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick (desktop)
@@ -669,7 +669,7 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | SVE-02 | T9, T10, T12 | Pending |
 | SVE-03 | T9, T10, T12 | Pending |
 | SVE-04 | T9, T10 | Pending |
-| SVE-05 | T9 | Pending |
+| SVE-05 | T9 | Done |
 | SVE-06 | T10 | Pending |
 | SVE-07 | T10 | Pending |
 | DRB-01 | T8, T11 | Pending |
