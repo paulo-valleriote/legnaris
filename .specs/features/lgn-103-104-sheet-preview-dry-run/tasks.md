@@ -358,17 +358,17 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] Preview is enabled after an edit and disabled again with no new edit
-- [ ] `preview()` issues exactly one dry-run and zero `PATCH` requests
-- [ ] A `200` merges the cascade, rebuilds only changed controls and keeps `isPending` true
-- [ ] A failure keeps the edits, sets `previewError` and leaves Preview available
-- [ ] A save clears `previewedRevision`; a successful save deletes the draft file
-- [ ] While a preview is in flight a save issues no request, and vice versa
-- [ ] The preview and save windows are independent and re-enable after cooldown
-- [ ] Opening a sheet with a draft restores only its editable leaves and marks it pending
-- [ ] A corrupt draft seeds clean from the stored sheet
-- [ ] Gate check passes: `flutter test test/sheet/sheet_edit_provider_test.dart`
-- [ ] Test count: `sheet_edit_provider_test.dart` passes with the new cases added (no silent deletions)
+- [x] Preview is enabled after an edit and disabled again with no new edit
+- [x] `preview()` issues exactly one dry-run and zero `PATCH` requests
+- [x] A `200` merges the cascade, rebuilds only changed controls and keeps `isPending` true
+- [x] A failure keeps the edits, sets `previewError` and leaves Preview available
+- [x] A save clears `previewedRevision`; a successful save deletes the draft file
+- [x] While a preview is in flight a save issues no request, and vice versa
+- [x] The preview and save windows are independent and re-enable after cooldown
+- [x] Opening a sheet with a draft restores only its editable leaves and marks it pending
+- [x] A corrupt draft seeds clean from the stored sheet
+- [x] Gate check passes: `flutter test test/sheet/sheet_edit_provider_test.dart`
+- [x] Test count: `sheet_edit_provider_test.dart` passes with the new cases added (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick (desktop)
@@ -658,32 +658,32 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | PRV-02 | T10, T12 | Pending |
 | PRV-03 | T6, T10, T12 | Pending |
 | PRV-04 | T10, T12 | Pending |
-| PRV-05 | T10 | Pending |
-| PRV-06 | T10 | Pending |
-| PRV-07 | T10 | Pending |
+| PRV-05 | T10 | Done |
+| PRV-06 | T10 | Done |
+| PRV-07 | T10 | Done |
 | PRV-08 | T10, T12 | Pending |
-| PRV-09 | T10 | Pending |
-| PRV-10 | T10 | Pending |
+| PRV-09 | T10 | Done |
+| PRV-10 | T10 | Done |
 | PRV-11 | T12 | Pending |
 | SVE-01 | T10, T12 | Pending |
 | SVE-02 | T9, T10, T12 | Pending |
 | SVE-03 | T9, T10, T12 | Pending |
-| SVE-04 | T9, T10 | Pending |
+| SVE-04 | T9, T10 | Done |
 | SVE-05 | T9 | Done |
-| SVE-06 | T10 | Pending |
-| SVE-07 | T10 | Pending |
+| SVE-06 | T10 | Done |
+| SVE-07 | T10 | Done |
 | DRB-01 | T8, T11 | Pending |
 | DRB-02 | T11 | Pending |
 | DRB-03 | T11 | Pending |
 | DRB-04 | T7 | Done |
-| DRB-05 | T7, T10 | Pending |
-| DRB-06 | T10 | Pending |
-| DRB-07 | T10 | Pending |
-| DRB-08 | T10 | Pending |
+| DRB-05 | T7, T10 | Done |
+| DRB-06 | T10 | Done |
+| DRB-07 | T10 | Done |
+| DRB-08 | T10 | Done |
 | DRB-09 | T15 | Pending |
 | DRB-10 | T13 | Pending |
 | DRB-11 | T14 | Pending |
-| DRB-12 | T7, T10 | Pending |
+| DRB-12 | T7, T10 | Done |
 | DRB-13 | T11 | Pending |
 | DRB-14 | T7 | Done |
 

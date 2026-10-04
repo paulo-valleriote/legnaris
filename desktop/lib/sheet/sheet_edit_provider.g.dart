@@ -77,7 +77,9 @@ String _$openedSheetHash() => r'7fe9b047ab9f66a5449b71c7fe6bcebabe7d9c67';
 /// Rebuilds (and reseeds) whenever the open sheet or the template detail
 /// changes: the loading state drops the value, which discards the edits, and a
 /// successful load seeds from the sheet's stored data over the schema defaults
-/// — the discard-confirmed refresh flow rides on that (GRN-17).
+/// — the discard-confirmed refresh flow rides on that (GRN-17). A draft backup
+/// is overlaid on that seed, filtered to the template's editable leaves
+/// (DRB-06, DRB-07).
 
 @ProviderFor(SheetEditController)
 final sheetEditControllerProvider = SheetEditControllerFamily._();
@@ -87,7 +89,9 @@ final sheetEditControllerProvider = SheetEditControllerFamily._();
 /// Rebuilds (and reseeds) whenever the open sheet or the template detail
 /// changes: the loading state drops the value, which discards the edits, and a
 /// successful load seeds from the sheet's stored data over the schema defaults
-/// — the discard-confirmed refresh flow rides on that (GRN-17).
+/// — the discard-confirmed refresh flow rides on that (GRN-17). A draft backup
+/// is overlaid on that seed, filtered to the template's editable leaves
+/// (DRB-06, DRB-07).
 final class SheetEditControllerProvider
     extends $NotifierProvider<SheetEditController, SheetEditState> {
   /// Edit state of the sheet opened for one sheet id.
@@ -95,7 +99,9 @@ final class SheetEditControllerProvider
   /// Rebuilds (and reseeds) whenever the open sheet or the template detail
   /// changes: the loading state drops the value, which discards the edits, and a
   /// successful load seeds from the sheet's stored data over the schema defaults
-  /// — the discard-confirmed refresh flow rides on that (GRN-17).
+  /// — the discard-confirmed refresh flow rides on that (GRN-17). A draft backup
+  /// is overlaid on that seed, filtered to the template's editable leaves
+  /// (DRB-06, DRB-07).
   SheetEditControllerProvider._({
     required SheetEditControllerFamily super.from,
     required String super.argument,
@@ -141,14 +147,16 @@ final class SheetEditControllerProvider
 }
 
 String _$sheetEditControllerHash() =>
-    r'0d5674704de886527bbbd2fde19cc187a9792784';
+    r'4fc61ec70f2b8f474b2a0a61a8fd9bd7afd98271';
 
 /// Edit state of the sheet opened for one sheet id.
 ///
 /// Rebuilds (and reseeds) whenever the open sheet or the template detail
 /// changes: the loading state drops the value, which discards the edits, and a
 /// successful load seeds from the sheet's stored data over the schema defaults
-/// — the discard-confirmed refresh flow rides on that (GRN-17).
+/// — the discard-confirmed refresh flow rides on that (GRN-17). A draft backup
+/// is overlaid on that seed, filtered to the template's editable leaves
+/// (DRB-06, DRB-07).
 
 final class SheetEditControllerFamily extends $Family
     with
@@ -173,7 +181,9 @@ final class SheetEditControllerFamily extends $Family
   /// Rebuilds (and reseeds) whenever the open sheet or the template detail
   /// changes: the loading state drops the value, which discards the edits, and a
   /// successful load seeds from the sheet's stored data over the schema defaults
-  /// — the discard-confirmed refresh flow rides on that (GRN-17).
+  /// — the discard-confirmed refresh flow rides on that (GRN-17). A draft backup
+  /// is overlaid on that seed, filtered to the template's editable leaves
+  /// (DRB-06, DRB-07).
 
   SheetEditControllerProvider call(String sheetId) =>
       SheetEditControllerProvider._(argument: sheetId, from: this);
@@ -187,7 +197,9 @@ final class SheetEditControllerFamily extends $Family
 /// Rebuilds (and reseeds) whenever the open sheet or the template detail
 /// changes: the loading state drops the value, which discards the edits, and a
 /// successful load seeds from the sheet's stored data over the schema defaults
-/// — the discard-confirmed refresh flow rides on that (GRN-17).
+/// — the discard-confirmed refresh flow rides on that (GRN-17). A draft backup
+/// is overlaid on that seed, filtered to the template's editable leaves
+/// (DRB-06, DRB-07).
 
 abstract class _$SheetEditController extends $Notifier<SheetEditState> {
   late final _$args = ref.$arg as String;

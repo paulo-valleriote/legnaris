@@ -220,36 +220,36 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | DRY-15 | P2: Stateless template preview endpoint | Execute | Verified |
 | DRY-16 | P2: Stateless template preview endpoint | Execute | Verified |
 | DRY-17 | P2: Stateless template preview endpoint | Execute | Verified |
-| PRV-01 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| PRV-02 | P1: Preview the recalculated cascade without persisting | Design | Pending |
+| PRV-01 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
+| PRV-02 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
 | PRV-03 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
-| PRV-04 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| PRV-05 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| PRV-06 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| PRV-07 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| PRV-08 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| PRV-09 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| PRV-10 | P1: Preview the recalculated cascade without persisting | Design | Pending |
+| PRV-04 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
+| PRV-05 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-06 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-07 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-08 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
+| PRV-09 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-10 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
 | PRV-11 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| SVE-01 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
+| SVE-01 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
 | SVE-02 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
 | SVE-03 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
-| SVE-04 | P1: Preview and Save are single-flight and rate-limited | Implementing | Implementing |
+| SVE-04 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | SVE-05 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
-| SVE-06 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
-| SVE-07 | P1: Preview and Save are single-flight and rate-limited | Design | Pending |
+| SVE-06 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
+| SVE-07 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | DRB-01 | P1: Unsaved drafts survive a restart | Implementing | Implementing |
 | DRB-02 | P1: Unsaved drafts survive a restart | Design | Pending |
 | DRB-03 | P1: Unsaved drafts survive a restart | Design | Pending |
 | DRB-04 | P1: Unsaved drafts survive a restart | Execute | Verified |
-| DRB-05 | P1: Unsaved drafts survive a restart | Implementing | Implementing |
-| DRB-06 | P1: Unsaved drafts survive a restart | Design | Pending |
-| DRB-07 | P1: Unsaved drafts survive a restart | Design | Pending |
-| DRB-08 | P1: Unsaved drafts survive a restart | Design | Pending |
+| DRB-05 | P1: Unsaved drafts survive a restart | Execute | Verified |
+| DRB-06 | P1: Unsaved drafts survive a restart | Execute | Verified |
+| DRB-07 | P1: Unsaved drafts survive a restart | Execute | Verified |
+| DRB-08 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-09 | P1: Unsaved drafts survive a restart | Design | Pending |
 | DRB-10 | P1: Unsaved drafts survive a restart | Design | Pending |
 | DRB-11 | P1: Unsaved drafts survive a restart | Design | Pending |
-| DRB-12 | P1: Unsaved drafts survive a restart | Implementing | Implementing |
+| DRB-12 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-13 | P1: Unsaved drafts survive a restart | Design | Pending |
 | DRB-14 | P1: Unsaved drafts survive a restart | Execute | Verified |
 
