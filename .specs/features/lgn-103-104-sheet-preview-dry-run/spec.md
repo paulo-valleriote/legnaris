@@ -204,11 +204,11 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
 | DRY-01 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-02 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-03 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-04 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-05 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-06 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-02 | P1: Stateless sheet preview endpoint | Execute | Verified |
+| DRY-03 | P1: Stateless sheet preview endpoint | Execute | Verified |
+| DRY-04 | P1: Stateless sheet preview endpoint | Execute | Verified |
+| DRY-05 | P1: Stateless sheet preview endpoint | Execute | Verified |
+| DRY-06 | P1: Stateless sheet preview endpoint | Execute | Verified |
 | DRY-07 | P1: Stateless sheet preview endpoint | Execute | Pending |
 | DRY-08 | P1: Stateless sheet preview endpoint | Execute | Pending |
 | DRY-09 | P1: Stateless sheet preview endpoint | Execute | Pending |

@@ -199,6 +199,65 @@ func (_c *MockService_PartialUpdate_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
+// Preview provides a mock function with given fields: ctx, cmd
+func (_m *MockService) Preview(ctx context.Context, cmd sheet.PartialUpdateSheetCommand) (map[string]any, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Preview")
+	}
+
+	var r0 map[string]any
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.PartialUpdateSheetCommand) (map[string]any, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.PartialUpdateSheetCommand) map[string]any); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]any)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, sheet.PartialUpdateSheetCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_Preview_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Preview'
+type MockService_Preview_Call struct {
+	*mock.Call
+}
+
+// Preview is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd sheet.PartialUpdateSheetCommand
+func (_e *MockService_Expecter) Preview(ctx interface{}, cmd interface{}) *MockService_Preview_Call {
+	return &MockService_Preview_Call{Call: _e.mock.On("Preview", ctx, cmd)}
+}
+
+func (_c *MockService_Preview_Call) Run(run func(ctx context.Context, cmd sheet.PartialUpdateSheetCommand)) *MockService_Preview_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(sheet.PartialUpdateSheetCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_Preview_Call) Return(_a0 map[string]any, _a1 error) *MockService_Preview_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_Preview_Call) RunAndReturn(run func(context.Context, sheet.PartialUpdateSheetCommand) (map[string]any, error)) *MockService_Preview_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockService creates a new instance of MockService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockService(t interface {

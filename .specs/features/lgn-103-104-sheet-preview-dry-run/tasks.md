@@ -130,13 +130,13 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] A valid delta returns the cascading effects with zero `PartialUpdate` calls
-- [ ] Preview and an equivalent PATCH return equal cascades for the same sheet state and delta
-- [ ] A repeated preview returns an identical result
-- [ ] An empty delta returns an empty map and issues no write
-- [ ] Each listed error path asserts its `apperr` code
-- [ ] Gate check passes: `go test ./internal/sheet/...`
-- [ ] Test count: `internal/sheet` suite passes with the new preview cases added (no silent deletions)
+- [x] A valid delta returns the cascading effects with zero `PartialUpdate` calls
+- [x] Preview and an equivalent PATCH return equal cascades for the same sheet state and delta
+- [x] A repeated preview returns an identical result
+- [x] An empty delta returns an empty map and issues no write
+- [x] Each listed error path asserts its `apperr` code
+- [x] Gate check passes: `go test ./internal/sheet/...`
+- [x] Test count: `internal/sheet` suite passes with the new preview cases added (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick (backend)
@@ -638,11 +638,11 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | Requirement ID | Task(s) | Status |
 | -------------- | ------- | ------ |
 | DRY-01 | T2, T3 | Pending |
-| DRY-02 | T1, T2 | Pending |
-| DRY-03 | T2 | Pending |
-| DRY-04 | T1, T2 | Pending |
-| DRY-05 | T2 | Pending |
-| DRY-06 | T2 | Pending |
+| DRY-02 | T1, T2 | Done |
+| DRY-03 | T2 | Done |
+| DRY-04 | T1, T2 | Done |
+| DRY-05 | T2 | Done |
+| DRY-06 | T2 | Done |
 | DRY-07 | T2, T3 | Pending |
 | DRY-08 | T2, T3 | Pending |
 | DRY-09 | T2, T3 | Pending |

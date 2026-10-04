@@ -621,6 +621,268 @@ func TestService_PartialUpdate_NestingDepthLimit(t *testing.T) {
 	assert.Contains(t, appErr.Message, "nested too deeply")
 }
 
+// TestService_Preview pins the stateless dry-run (DRY-01…DRY-12): it returns
+// the same cascade as an equivalent PATCH, never writes, is idempotent, returns
+// an empty map for an empty delta, and maps every reject path to the same typed
+// error PATCH produces.
+func TestService_Preview(t *testing.T) {
+	fields := template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity":    {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+			"constitution": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"modifiers": {Children: template.FieldGroup{
+			"dexterityMod": {Schema: &template.FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "floor((stats_dexterity - 10) / 2)",
+				DependsOn:  [][]string{{"stats", "dexterity"}},
+			}},
+		}},
+		"baseArmorClass": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		"config": {Children: template.FieldGroup{
+			"acUsesDex": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 1, ExclusiveGroup: "armorClassAbility"}},
+			"acUsesCon": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 0, ExclusiveGroup: "armorClassAbility"}},
+		}},
+		"derived": {Children: template.FieldGroup{
+			"armorClass": {Schema: &template.FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "baseArmorClass + modifiers_dexterityMod",
+				DependsOn:  [][]string{{"baseArmorClass"}, {"modifiers", "dexterityMod"}},
+			}},
+		}},
+	}
+
+	dag, err := template.BuildDAG("fantasy_v1", fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+
+	dagCache := sheettest.DAGMap{"fantasy_v1": dag}
+
+	storedSheet := func() *sheet.Sheet {
+		return &sheet.Sheet{
+			ID:         updateSheetID,
+			TemplateID: "fantasy_v1",
+			Name:       "Preview Sheet",
+			Data: map[string]any{
+				"stats":          map[string]any{"dexterity": 14.0, "constitution": 12.0},
+				"modifiers":      map[string]any{"dexterityMod": 2.0},
+				"baseArmorClass": 10.0,
+				"config":         map[string]any{"acUsesDex": 1.0, "acUsesCon": 0.0},
+				"derived":        map[string]any{"armorClass": 12.0},
+			},
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+	}
+
+	ctx := context.Background()
+
+	t.Run("Happy path: valid delta returns the cascade and issues no write", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+		mockRepo.EXPECT().FetchByID(ctx, updateSheetID).Return(storedSheet(), nil).Once()
+
+		svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache)
+
+		cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
+			SheetID: updateSheetID,
+			Data:    map[string]any{"stats": map[string]any{"dexterity": 18.0}},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{
+			"modifiers": map[string]any{"dexterityMod": 4.0},
+			"derived":   map[string]any{"armorClass": 14.0},
+		}, cascades)
+		mockRepo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Happy path: preview equals an equivalent PATCH cascade", func(t *testing.T) {
+		previewRepo := mocks.NewMockRepository(t)
+		previewRepo.EXPECT().FetchByID(ctx, updateSheetID).Return(storedSheet(), nil).Once()
+		previewSvc := sheet.NewService(previewRepo, templatemocks.NewMockService(t), dagCache)
+
+		patchRepo := mocks.NewMockRepository(t)
+		patchRepo.EXPECT().FetchByID(ctx, updateSheetID).Return(storedSheet(), nil).Once()
+		patchRepo.EXPECT().PartialUpdate(ctx, updateSheetID, mock.Anything).Return(nil).Once()
+		patchSvc := sheet.NewService(patchRepo, templatemocks.NewMockService(t), dagCache)
+
+		delta := map[string]any{"stats": map[string]any{"dexterity": 16.0}}
+
+		previewCascade, err := previewSvc.Preview(ctx, sheet.PartialUpdateSheetCommand{SheetID: updateSheetID, Data: delta})
+		require.NoError(t, err)
+		patchCascade, err := patchSvc.PartialUpdate(ctx, sheet.PartialUpdateSheetCommand{SheetID: updateSheetID, Data: delta})
+		require.NoError(t, err)
+
+		assert.Equal(t, patchCascade, previewCascade)
+	})
+
+	t.Run("Happy path: repeating the preview returns the same cascade", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+		mockRepo.EXPECT().FetchByID(ctx, updateSheetID).Return(storedSheet(), nil).Twice()
+
+		svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache)
+		cmd := sheet.PartialUpdateSheetCommand{
+			SheetID: updateSheetID,
+			Data:    map[string]any{"stats": map[string]any{"dexterity": 18.0}},
+		}
+
+		first, err := svc.Preview(ctx, cmd)
+		require.NoError(t, err)
+		second, err := svc.Preview(ctx, cmd)
+		require.NoError(t, err)
+
+		assert.Equal(t, first, second)
+	})
+
+	t.Run("Edge: empty delta returns an empty cascade and issues no write", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+		mockRepo.EXPECT().FetchByID(ctx, updateSheetID).Return(storedSheet(), nil).Once()
+
+		svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache)
+
+		cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
+			SheetID: updateSheetID,
+			Data:    map[string]any{},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{}, cascades)
+		mockRepo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: missing or malformed sheet id returns 400 before the repository", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			id      string
+			wantMsg string
+		}{
+			{name: "Edge: missing ID", id: "", wantMsg: sheet.MsgSheetIDNotProvided},
+			{name: "Error: malformed ID", id: "not-a-uuid", wantMsg: sheet.MsgSheetIDInvalid},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+				svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache)
+
+				cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
+					SheetID: tc.id,
+					Data:    map[string]any{"stats": map[string]any{"dexterity": 12.0}},
+				})
+
+				require.Error(t, err)
+				assert.Nil(t, cascades)
+
+				var appErr *apperr.Error
+				require.ErrorAs(t, err, &appErr)
+				assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+				assert.Equal(t, 400, appErr.HttpStatus())
+				assert.Equal(t, tc.wantMsg, appErr.Message)
+			})
+		}
+	})
+
+	t.Run("Error: unknown sheet returns 404 NOT_FOUND", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+		mockRepo.EXPECT().FetchByID(ctx, missingSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
+
+		svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache)
+
+		cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
+			SheetID: missingSheetID,
+			Data:    map[string]any{"stats": map[string]any{"dexterity": 12.0}},
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, cascades)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		assert.Equal(t, 404, appErr.HttpStatus())
+		assert.Equal(t, "sheet not found", appErr.Message)
+		mockRepo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: DAG rejections map to the same codes PATCH returns", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			updates  map[string]any
+			wantCode apperr.Code
+			wantMsg  string
+		}{
+			{
+				name:     "Error: unknown field returns 400 UNKNOWN_FIELD",
+				updates:  map[string]any{"stats": map[string]any{"unknown": 1.0}},
+				wantCode: apperr.CodeUnknownField,
+				wantMsg:  "field does not exist: stats.unknown",
+			},
+			{
+				name:     "Error: derived field returns 400 INVALID_REQUEST",
+				updates:  map[string]any{"modifiers": map[string]any{"dexterityMod": 5.0}},
+				wantCode: apperr.CodeInvalidRequest,
+				wantMsg:  "field is not editable: modifiers.dexterityMod",
+			},
+			{
+				name:     "Error: exclusive group conflict returns 400 INVALID_REQUEST",
+				updates:  map[string]any{"config": map[string]any{"acUsesDex": 1.0, "acUsesCon": 1.0}},
+				wantCode: apperr.CodeInvalidRequest,
+				wantMsg:  "conflicting exclusive options: armorClassAbility",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				mockRepo := mocks.NewMockRepository(t)
+				mockRepo.EXPECT().FetchByID(ctx, updateSheetID).Return(storedSheet(), nil).Once()
+
+				svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache)
+
+				cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
+					SheetID: updateSheetID,
+					Data:    tc.updates,
+				})
+
+				require.Error(t, err)
+				assert.Nil(t, cascades)
+
+				var appErr *apperr.Error
+				require.ErrorAs(t, err, &appErr)
+				assert.Equal(t, tc.wantCode, appErr.Code)
+				assert.Equal(t, 400, appErr.HttpStatus())
+				assert.Equal(t, tc.wantMsg, appErr.Message)
+				mockRepo.AssertNotCalled(t, "PartialUpdate")
+			})
+		}
+	})
+
+	t.Run("Error: over-deep nesting returns 400 INVALID_REQUEST", func(t *testing.T) {
+		deep := map[string]any{"leaf": 1.0}
+		for i := 0; i < maputils.MaxNestingDepth+1; i++ {
+			deep = map[string]any{"level": deep}
+		}
+
+		mockRepo := mocks.NewMockRepository(t)
+		mockRepo.EXPECT().FetchByID(ctx, updateSheetID).Return(storedSheet(), nil).Once()
+
+		svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache)
+
+		cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
+			SheetID: updateSheetID,
+			Data:    deep,
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, cascades)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+		assert.Equal(t, 400, appErr.HttpStatus())
+		assert.Contains(t, appErr.Message, "nested too deeply")
+		mockRepo.AssertNotCalled(t, "PartialUpdate")
+	})
+}
+
 func TestService_Create(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t)
 	mockTemplateSvc := templatemocks.NewMockService(t)

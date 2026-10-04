@@ -24,6 +24,7 @@ type Service interface {
 	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
 	FetchByID(ctx context.Context, id string) (*Sheet, error)
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
+	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 }
 
 // User-facing messages for the errors this service builds itself. They are
@@ -216,6 +217,18 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 
 	if err := s.repository.PartialUpdate(ctx, cmd.SheetID, dbUpdates); err != nil {
 		return nil, translateRepoErr("update", err)
+	}
+	return nestedCascadingEffects(result.cascade)
+}
+
+// Preview runs the same recalculation as PartialUpdate and returns the
+// cascading effects, persisting nothing: it shares recalculate, so the cascade
+// matches an equivalent PATCH while the stored sheet and updated_at stay
+// untouched. Repeated calls against an unchanged sheet return the same map.
+func (s *ServiceImpl) Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
+	result, err := s.recalculate(ctx, cmd.SheetID, cmd.Data)
+	if err != nil {
+		return nil, err
 	}
 	return nestedCascadingEffects(result.cascade)
 }
