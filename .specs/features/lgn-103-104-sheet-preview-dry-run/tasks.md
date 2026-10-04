@@ -272,12 +272,12 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] `write` then `read` returns the same delta nested by path
-- [ ] A missing, corrupt or newer-version file reads as null
-- [ ] A failed write leaves any prior file intact
-- [ ] `delete` removes the file and is a no-op when absent
-- [ ] Gate check passes: `flutter test test/sheet/draft_backup_store_test.dart`
-- [ ] Test count: new suite passes with the cases above (no silent deletions)
+- [x] `write` then `read` returns the same delta nested by path
+- [x] A missing, corrupt or newer-version file reads as null
+- [x] A failed write leaves any prior file intact
+- [x] `delete` removes the file and is a no-op when absent
+- [x] Gate check passes: `flutter test test/sheet/draft_backup_store_test.dart`
+- [x] Test count: new suite passes with the cases above (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick (desktop)
@@ -675,7 +675,7 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | DRB-01 | T8, T11 | Pending |
 | DRB-02 | T11 | Pending |
 | DRB-03 | T11 | Pending |
-| DRB-04 | T7 | Pending |
+| DRB-04 | T7 | Done |
 | DRB-05 | T7, T10 | Pending |
 | DRB-06 | T10 | Pending |
 | DRB-07 | T10 | Pending |
@@ -685,7 +685,7 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | DRB-11 | T14 | Pending |
 | DRB-12 | T7, T10 | Pending |
 | DRB-13 | T11 | Pending |
-| DRB-14 | T7 | Pending |
+| DRB-14 | T7 | Done |
 
 **Coverage:** 49 total, 49 mapped to tasks, 0 unmapped.
 
