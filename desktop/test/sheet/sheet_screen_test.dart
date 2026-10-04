@@ -2122,6 +2122,53 @@ void main() {
     );
 
     testWidgets(
+      'Edge: a preview rebuilds only the control whose value changed (PRV-05)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? http.Response(cascadeBody, 200)
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        // A pending edit on an unrelated config field enables Preview while
+        // leaving the dexterity control untouched, so it must survive the
+        // merge as the very same widget instance.
+        await tester.tap(
+          find.byKey(const Key('sheet-checkbox-config.stealthProfWeight')),
+        );
+        await tester.pump();
+
+        SheetFieldControl untouchedControl() => tester.widget<SheetFieldControl>(
+          find.ancestor(
+            of: find.byKey(const Key('sheet-input-stats.dexterity')),
+            matching: find.byType(SheetFieldControl),
+          ),
+        );
+        final before = untouchedControl();
+
+        await tester.tap(find.byKey(const Key('sheet-preview')));
+        await tester.pumpAndSettle();
+
+        expect(
+          identical(before, untouchedControl()),
+          isTrue,
+          reason: 'only the control whose value changed may rebuild (PRV-05)',
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const Key('sheet-value-derived.armorClass')),
+              )
+              .data,
+          '13',
+          reason: 'the merged cascade still updates the derived control',
+        );
+      },
+    );
+
+    testWidgets(
       'Error: a failed preview keeps the edits and renders the mapped copy above the action row (PRV-08)',
       (tester) async {
         final recorded = await pumpScreen(

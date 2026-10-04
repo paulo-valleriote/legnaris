@@ -12,9 +12,12 @@ import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/library/sheet_library_store.dart';
 import 'package:legnaris/sheet/action_rate_limiter.dart';
 import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
+
+import '../library/library_fixtures.dart';
 
 /// Unit tests for the in-memory sheet edit state (LGN-102: GRN-01 … GRN-06,
 /// LGN-108: OPN-10, OPN-11). Every asserted value comes from the spec rule,
@@ -817,6 +820,8 @@ void main() {
       '{"data": {"derived": {"armorClass": 13}, "modifiers": {"dexterityMod": 3}}}';
   const previewFailBody =
       '{"error": {"code": "UNKNOWN_FIELD", "message": "unknown field"}}';
+  const notFoundBody =
+      '{"error": {"code": "NOT_FOUND", "message": "no such sheet"}}';
   const invalidBody =
       '{"error": {"code": "INVALID_REQUEST", "message": "not editable"}}';
 
@@ -964,6 +969,45 @@ void main() {
         expect(valueAtPath(after.data, 'stats.dexterity'), 18);
         expect(after.previewedRevision, isNull);
         expect(after.canPreview, isTrue);
+      },
+    );
+
+    test(
+      'Edge: a preview NOT_FOUND keeps the edits, publishes the mapped copy and does not evict the local entry',
+      () async {
+        SheetLibraryStore(directory: supportDir).save([entry(sheetId)]);
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(
+            recorded,
+            onPreview: (_) async => http.Response(notFoundBody, 404),
+          ),
+        );
+        expect(container.read(sheetLibraryProvider).entries, hasLength(1));
+
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+
+        await notifier.preview();
+        await pumpEventQueue();
+
+        final after = stateOf(container, sheetId);
+        expect(after.isPending, isTrue);
+        expect(valueAtPath(after.data, 'stats.dexterity'), 18);
+        expect(after.previewError, errorCopy(ApiErrorKind.notFound));
+        final entries = container.read(sheetLibraryProvider).entries;
+        expect(
+          entries,
+          hasLength(1),
+          reason: 'a failed preview must never evict the local entry',
+        );
+        expect(entries.single.id, sheetId);
       },
     );
 
