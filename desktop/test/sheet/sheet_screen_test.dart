@@ -17,6 +17,7 @@ import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/sheet/action_rate_limiter.dart';
 import 'package:legnaris/sheet/draft_backup_scheduler.dart';
+import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_refresh.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
@@ -2377,6 +2378,151 @@ void main() {
         );
         await tester.pump();
         expect(scheduler.running, isTrue);
+      },
+    );
+  });
+
+  group('discard deletes the draft (DRB-09)', () {
+    late Directory supportDir;
+
+    setUp(() {
+      supportDir = Directory.systemTemp.createTempSync('lgn108-discard');
+      addTearDown(() => supportDir.deleteSync(recursive: true));
+    });
+
+    File draftFile() => File('${supportDir.path}/drafts/$sheetId.json');
+
+    void writeDraft(Map<String, Object?> delta) =>
+        DraftBackupStore(directory: supportDir).write(sheetId, delta);
+
+    testWidgets(
+      'Happy path: confirming the leave discard deletes the draft file (DRB-09)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          stacked: true,
+          supportDir: supportDir,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        writeDraft({
+          'stats': {'dexterity': 16},
+        });
+        expect(draftFile().existsSync(), isTrue);
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Discard and leave'));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('sheet-landing')), findsOneWidget);
+        expect(draftFile().existsSync(), isFalse);
+      },
+    );
+
+    testWidgets(
+      'Edge: cancelling the leave discard keeps the draft file (DRB-09)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          stacked: true,
+          supportDir: supportDir,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        writeDraft({
+          'stats': {'dexterity': 16},
+        });
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Keep editing'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(draftFile().existsSync(), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Happy path: confirming the refresh discard deletes the draft file (DRB-09)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          supportDir: supportDir,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        writeDraft({
+          'stats': {'dexterity': 16},
+        });
+
+        await pressF5(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'Discard and reload'));
+        await tester.pumpAndSettle();
+
+        expect(draftFile().existsSync(), isFalse);
+      },
+    );
+
+    testWidgets(
+      'Edge: cancelling the refresh discard keeps the draft file (DRB-09)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          supportDir: supportDir,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        writeDraft({
+          'stats': {'dexterity': 16},
+        });
+
+        await pressF5(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'Keep editing'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(draftFile().existsSync(), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Edge: a clean sheet leaves an ignored-key draft untouched on leave (DRB-09)',
+      (tester) async {
+        // A draft holding only a non-editable key seeds a clean sheet, so the
+        // direct pop must not delete the file.
+        writeDraft({'unknown': 1});
+        await pumpScreen(
+          tester,
+          stacked: true,
+          supportDir: supportDir,
+          handler: (_) async => http.Response(detailBody, 200),
+        );
+        expect(find.byKey(const Key('sheet-local-edits')), findsNothing);
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byKey(const Key('sheet-landing')), findsOneWidget);
+        expect(draftFile().existsSync(), isTrue);
       },
     );
   });

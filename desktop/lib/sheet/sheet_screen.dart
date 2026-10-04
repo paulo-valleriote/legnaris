@@ -24,6 +24,7 @@ import 'package:legnaris/engine/field_grouping.dart';
 import 'package:legnaris/engine/sheet_form.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/sheet/draft_auto_backup.dart';
+import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_open_provider.dart';
 import 'package:legnaris/sheet/sheet_refresh.dart';
@@ -319,6 +320,9 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
         confirmLabel: localizations.sheetLeaveConfirmAction,
       );
       if (!mounted || !confirmed) return;
+      // A confirmed discard drops the backup so it cannot resurrect the edits
+      // on reopen (DRB-09); the store's delete never throws.
+      ref.read(draftBackupStoreProvider).delete(widget.sheetId);
     }
     await Navigator.of(context).maybePop();
   }
@@ -347,6 +351,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
         confirmLabel: localizations.sheetRefreshConfirmAction,
       );
       if (!mounted || !confirmed) return;
+      ref.read(draftBackupStoreProvider).delete(widget.sheetId);
       ref.invalidate(editProvider);
     }
     if (!mounted) return;

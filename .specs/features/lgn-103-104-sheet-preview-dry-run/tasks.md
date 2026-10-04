@@ -509,12 +509,12 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] Confirming the leave discard deletes the draft file
-- [ ] Confirming the refresh discard deletes the draft file
-- [ ] Cancelling either confirmation deletes nothing
-- [ ] A clean sheet with no draft performs no deletion
-- [ ] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
-- [ ] Test count: `sheet_screen_test.dart` passes with the new cases added (no silent deletions)
+- [x] Confirming the leave discard deletes the draft file
+- [x] Confirming the refresh discard deletes the draft file
+- [x] Cancelling either confirmation deletes nothing
+- [x] A clean sheet with no draft performs no deletion
+- [x] Gate check passes: `flutter test test/sheet/sheet_screen_test.dart`
+- [x] Test count: `sheet_screen_test.dart` passes with the new cases added (no silent deletions)
 
 **Tests**: widget
 **Gate**: quick (desktop)
@@ -680,7 +680,7 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | DRB-06 | T10 | Done |
 | DRB-07 | T10 | Done |
 | DRB-08 | T10 | Done |
-| DRB-09 | T15 | Pending |
+| DRB-09 | T15 | Done |
 | DRB-10 | T13 | Done |
 | DRB-11 | T14 | Done |
 | DRB-12 | T7, T10 | Done |
