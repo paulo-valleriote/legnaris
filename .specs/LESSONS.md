@@ -116,6 +116,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: desktop/test/catalog/create_sheet_dialog_test.dart:288 (desktop/widgets)
 - last seen: 2026-10-03T15:45:57Z
 
+### L-018 - When an AC requires updating only the controls whose value changed, assert per-control rebuild granularity, not just the merged values.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `desktop` · harmful: 0
+- features: lgn-103-104-sheet-preview-dry-run
+- evidence: PRV-05 preview-test.dart:883 (desktop)
+- last seen: 2026-10-04T18:09:58Z
+
+### L-019 - Assert that a NOT_FOUND preview keeps the local library entry, not only that a generic preview failure keeps the edits and shows the mapped copy.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `desktop` · harmful: 0
+- features: lgn-103-104-sheet-preview-dry-run
+- evidence: spec edge case 8 (preview NOT_FOUND no eviction) (desktop)
+- last seen: 2026-10-04T18:10:07Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

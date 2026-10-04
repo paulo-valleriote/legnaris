@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 18,
+  "next_id": 20,
   "lessons": [
     {
       "id": "L-001",
@@ -310,6 +310,42 @@
       ],
       "created": "2026-10-03T15:45:57Z",
       "last_seen": "2026-10-03T15:45:57Z"
+    },
+    {
+      "id": "L-018",
+      "key": "spec_precision_gap::when an ac requires updating only the controls whose value changed assert per control rebuild granularity not just the merged values",
+      "text": "When an AC requires updating only the controls whose value changed, assert per-control rebuild granularity, not just the merged values.",
+      "signal": "spec_precision_gap",
+      "scope": "desktop",
+      "status": "candidate",
+      "features": [
+        "lgn-103-104-sheet-preview-dry-run"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "PRV-05 preview-test.dart:883 (desktop)"
+      ],
+      "created": "2026-10-04T18:09:58Z",
+      "last_seen": "2026-10-04T18:09:58Z"
+    },
+    {
+      "id": "L-019",
+      "key": "spec_precision_gap::assert that a not found preview keeps the local library entry not only that a generic preview failure keeps the edits and shows the mapped copy",
+      "text": "Assert that a NOT_FOUND preview keeps the local library entry, not only that a generic preview failure keeps the edits and shows the mapped copy.",
+      "signal": "spec_precision_gap",
+      "scope": "desktop",
+      "status": "candidate",
+      "features": [
+        "lgn-103-104-sheet-preview-dry-run"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec edge case 8 (preview NOT_FOUND no eviction) (desktop)"
+      ],
+      "created": "2026-10-04T18:10:07Z",
+      "last_seen": "2026-10-04T18:10:07Z"
     }
   ]
 }

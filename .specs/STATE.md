@@ -69,11 +69,11 @@
 ## Handoff
 
 - **Feature**: `lgn-103-104-sheet-preview-dry-run` (.specs/features/lgn-103-104-sheet-preview-dry-run)
-- **Phase / Task**: Specify + Design + Tasks COMPLETE (approved); **Execute starting** — 15 tasks in 3 phases, 49 requirements mapped. `validate_spec.py` exit 0, `validate_tasks.py` exit 0.
-- **Completed**: spec.md (bundles LGN-103 backend + LGN-104 frontend in one PR), design.md, tasks.md; AD-007 and AD-008 recorded above.
-- **In-progress** (file:line): none (Execute not started).
-- **Next step**: T1 extract the shared recalculation helper.
+- **Phase / Task**: Execute — COMPLETE. T1–T15 committed plus hardening; independent Verifier (round 2) PASS 49/49 requirements, 2 flagged gaps closed, 11/11 mutants killed; `validate_state.py` exit 0. Report: `.specs/features/lgn-103-104-sheet-preview-dry-run/validation.md`.
+- **Completed**: backend dry-run T1–T5 (`35f25d8`, `9cc082f`, `b320a6c`, `1a22bf7`, `b7367ac`); desktop plumbing T6–T11 (`006aed2`, `da2a87c`, `6867a91`, `247112e`, `be3f1cc`, `82a057a`); surface/cleanup T12–T15 (`f3b812e`, `a0073ee`, `371a4cf`, `02815aa`); spec commit `5db3539`; verification hardening `ed7900c`.
+- **In-progress** (file:line): none.
+- **Next step**: push the branch and open the PR — a remote operation that needs explicit go-ahead.
 - **Blockers**: none.
-- **Uncommitted files**: none after the spec commit.
-- **Branch**: `feat/lgn-103-104-sheet-preview-dry-run` (from `origin/main` @ `8ae4252`, includes the merged LGN-110 save cycle).
-- **Prior feature**: `lgn-110-save-delta` — COMPLETE (independent Verifier PASS); PR #57 merged into `main`. `lgn-108-open-sheet` — COMPLETE (PR #56, merged); `lgn-109-create-sheet` — COMPLETE (PR #55, merged)
+- **Uncommitted files**: none after the closing docs commit (validation report, lessons, this handoff).
+- **Branch**: `feat/lgn-103-104-sheet-preview-dry-run` (from `origin/main` @ `8ae4252`, includes the merged LGN-110 save cycle); not pushed.
+- **Prior feature**: `lgn-110-save-delta` — COMPLETE (PR #57 merged); `lgn-108-open-sheet` — COMPLETE (PR #56, merged); `lgn-109-create-sheet` — COMPLETE (PR #55, merged)
