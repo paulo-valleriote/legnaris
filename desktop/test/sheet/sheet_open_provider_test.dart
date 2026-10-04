@@ -15,6 +15,7 @@ import 'package:legnaris/library/sheet_library_exception.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/library/sheet_library_store.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_open_provider.dart';
 
@@ -23,6 +24,13 @@ import '../library/library_fixtures.dart';
 /// Unit tests for the sheet-open load state (OPN-05 … OPN-09). Every asserted
 /// value comes from the spec rule, never from the implementation.
 void main() {
+  late Directory supportDir;
+
+  setUp(() {
+    supportDir = Directory.systemTemp.createTempSync('sheet_open_');
+    addTearDown(() => supportDir.deleteSync(recursive: true));
+  });
+
   const sheetBody =
       '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
   const notFoundBody =
@@ -35,9 +43,11 @@ void main() {
     List<http.Request>? recorded,
     SheetLibraryStore? store,
     Sheet? injected,
+    DraftBackupStore? draftStore,
   }) {
     final container = ProviderContainer(
       overrides: [
+        appSupportDirectoryProvider.overrideWithValue(supportDir),
         apiClientProvider.overrideWithValue(
           ApiClient(
             httpClient: MockClient((request) async {
@@ -47,12 +57,16 @@ void main() {
           ),
         ),
         if (store != null) sheetLibraryStoreProvider.overrideWithValue(store),
+        if (draftStore != null)
+          draftBackupStoreProvider.overrideWithValue(draftStore),
         if (injected != null) openedSheetProvider.overrideWithValue(injected),
       ],
     );
     addTearDown(container.dispose);
     return container;
   }
+
+  File draftFile(String id) => File('${supportDir.path}/drafts/$id.json');
 
   /// Listens to keep the autoDispose open state alive for one test.
   ProviderSubscription<SheetOpenState> keepAlive(
@@ -227,6 +241,68 @@ void main() {
         expect(container.read(sheetLibraryProvider).entries, hasLength(1));
       },
     );
+
+    test(
+      'Happy path: NOT_FOUND removes the draft file and the library entry (DRB-10)',
+      () async {
+        DraftBackupStore(directory: supportDir).write('sheet-1', {
+          'stats': {'dexterity': 18},
+        });
+        expect(draftFile('sheet-1').existsSync(), isTrue);
+        final store = storeWithEntry('sheet-1');
+        final container = containerWith(
+          handler: (_) async => http.Response(notFoundBody, 404),
+          store: store,
+        );
+
+        keepAlive(container, 'sheet-1');
+        await pumpEventQueue();
+
+        expect(stateOf(container, 'sheet-1').isNotFound, isTrue);
+        expect(container.read(sheetLibraryProvider).entries, isEmpty);
+        expect(draftFile('sheet-1').existsSync(), isFalse);
+      },
+    );
+
+    test(
+      'Edge: a failed draft delete still publishes the missing-sheet copy (DRB-10)',
+      () async {
+        final container = containerWith(
+          handler: (_) async => http.Response(notFoundBody, 404),
+          store: storeWithEntry('sheet-1'),
+          draftStore: _ThrowingDeleteStore(directory: supportDir),
+        );
+
+        keepAlive(container, 'sheet-1');
+        await pumpEventQueue();
+
+        final state = stateOf(container, 'sheet-1');
+        expect(state.isNotFound, isTrue);
+        expect(
+          state.errorMessage,
+          lookupAppLocalizations(const Locale('en')).sheetMissingMessage,
+        );
+      },
+    );
+
+    test(
+      'Edge: a successful load leaves any draft untouched (DRB-10)',
+      () async {
+        DraftBackupStore(directory: supportDir).write('sheet-1', {
+          'stats': {'dexterity': 18},
+        });
+        final container = containerWith(
+          handler: (_) async => http.Response(sheetBody, 200),
+          store: storeWithEntry('sheet-1'),
+        );
+
+        keepAlive(container, 'sheet-1');
+        await pumpEventQueue();
+
+        expect(stateOf(container, 'sheet-1').sheet?.id, 'sheet-1');
+        expect(draftFile('sheet-1').existsSync(), isTrue);
+      },
+    );
   });
 
   group('retryable failure (OPN-07, OPN-08)', () {
@@ -335,4 +411,12 @@ class _FakeStore extends SheetLibraryStore {
     saveCalls++;
     onSave?.call(entries);
   }
+}
+
+/// A draft store whose delete always fails, proving the eviction is best-effort.
+class _ThrowingDeleteStore extends DraftBackupStore {
+  _ThrowingDeleteStore({required super.directory});
+
+  @override
+  void delete(String sheetId) => throw const DraftBackupException('disk full');
 }

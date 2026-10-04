@@ -247,7 +247,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | DRB-07 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-08 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-09 | P1: Unsaved drafts survive a restart | Design | Pending |
-| DRB-10 | P1: Unsaved drafts survive a restart | Design | Pending |
+| DRB-10 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-11 | P1: Unsaved drafts survive a restart | Design | Pending |
 | DRB-12 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-13 | P1: Unsaved drafts survive a restart | Execute | Verified |

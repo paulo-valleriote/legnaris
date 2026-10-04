@@ -453,11 +453,11 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] A `NOT_FOUND` load removes the draft file and the library entry
-- [ ] A delete failure still publishes the missing-sheet copy
-- [ ] A successful load leaves any draft untouched
-- [ ] Gate check passes: `flutter test test/sheet/sheet_open_provider_test.dart`
-- [ ] Test count: `sheet_open_provider_test.dart` passes with the new cases added (no silent deletions)
+- [x] A `NOT_FOUND` load removes the draft file and the library entry
+- [x] A delete failure still publishes the missing-sheet copy
+- [x] A successful load leaves any draft untouched
+- [x] Gate check passes: `flutter test test/sheet/sheet_open_provider_test.dart`
+- [x] Test count: `sheet_open_provider_test.dart` passes with the new cases added (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick (desktop)
@@ -681,7 +681,7 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | DRB-07 | T10 | Done |
 | DRB-08 | T10 | Done |
 | DRB-09 | T15 | Pending |
-| DRB-10 | T13 | Pending |
+| DRB-10 | T13 | Done |
 | DRB-11 | T14 | Pending |
 | DRB-12 | T7, T10 | Done |
 | DRB-13 | T11 | Done |
