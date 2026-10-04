@@ -22,6 +22,7 @@ func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.POST("", sc.Create)
 	group.GET("/:id", sc.FetchByID)
 	group.PATCH("/:id", sc.PartialUpdate)
+	group.POST("/:id/preview", sc.Preview)
 }
 
 func (sc *SheetController) Create(c *echo.Context) error {
@@ -54,6 +55,26 @@ func (sc *SheetController) PartialUpdate(c *echo.Context) error {
 	}
 
 	cascadingEffects, err := sc.service.PartialUpdate(c.Request().Context(), sheet.PartialUpdateSheetCommand{
+		SheetID: c.Param("id"),
+		Data:    cmd.Data,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, cascadingEffects)
+}
+
+// Preview is the stateless dry-run of PartialUpdate: same body, same cascade,
+// same typed errors, no persistence. It exists so a client can show computed
+// values before committing.
+func (sc *SheetController) Preview(c *echo.Context) error {
+	var cmd sheet.PartialUpdateSheetCommand
+
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+
+	cascadingEffects, err := sc.service.Preview(c.Request().Context(), sheet.PartialUpdateSheetCommand{
 		SheetID: c.Param("id"),
 		Data:    cmd.Data,
 	})

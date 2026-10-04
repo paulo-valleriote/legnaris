@@ -203,18 +203,18 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| DRY-01 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-01 | P1: Stateless sheet preview endpoint | Execute | Verified |
 | DRY-02 | P1: Stateless sheet preview endpoint | Execute | Verified |
 | DRY-03 | P1: Stateless sheet preview endpoint | Execute | Verified |
 | DRY-04 | P1: Stateless sheet preview endpoint | Execute | Verified |
 | DRY-05 | P1: Stateless sheet preview endpoint | Execute | Verified |
 | DRY-06 | P1: Stateless sheet preview endpoint | Execute | Verified |
-| DRY-07 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-08 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-09 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-10 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-11 | P1: Stateless sheet preview endpoint | Execute | Pending |
-| DRY-12 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-07 | P1: Stateless sheet preview endpoint | Execute | Verified |
+| DRY-08 | P1: Stateless sheet preview endpoint | Execute | Verified |
+| DRY-09 | P1: Stateless sheet preview endpoint | Execute | Verified |
+| DRY-10 | P1: Stateless sheet preview endpoint | Execute | Verified |
+| DRY-11 | P1: Stateless sheet preview endpoint | Execute | Verified |
+| DRY-12 | P1: Stateless sheet preview endpoint | Execute | Verified |
 | DRY-13 | P2: Stateless template preview endpoint | Execute | Pending |
 | DRY-14 | P2: Stateless template preview endpoint | Execute | Pending |
 | DRY-15 | P2: Stateless template preview endpoint | Execute | Pending |

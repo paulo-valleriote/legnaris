@@ -160,10 +160,10 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] `POST /sheets/:id/preview` responds `200` with `data` holding the cascade
-- [ ] Every listed error asserts the same status/code as the equivalent PATCH
-- [ ] Gate check passes: `go test ./internal/sheet/... ./internal/app/...`
-- [ ] Test count: `internal/app` suite passes with the new preview route cases added (no silent deletions)
+- [x] `POST /sheets/:id/preview` responds `200` with `data` holding the cascade
+- [x] Every listed error asserts the same status/code as the equivalent PATCH
+- [x] Gate check passes: `go test ./internal/sheet/... ./internal/app/...`
+- [x] Test count: `internal/app` suite passes with the new preview route cases added (no silent deletions)
 
 **Tests**: integration
 **Gate**: full (backend)
@@ -637,18 +637,18 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 
 | Requirement ID | Task(s) | Status |
 | -------------- | ------- | ------ |
-| DRY-01 | T2, T3 | Pending |
+| DRY-01 | T2, T3 | Done |
 | DRY-02 | T1, T2 | Done |
 | DRY-03 | T2 | Done |
 | DRY-04 | T1, T2 | Done |
 | DRY-05 | T2 | Done |
 | DRY-06 | T2 | Done |
-| DRY-07 | T2, T3 | Pending |
-| DRY-08 | T2, T3 | Pending |
-| DRY-09 | T2, T3 | Pending |
-| DRY-10 | T2, T3 | Pending |
-| DRY-11 | T2, T3 | Pending |
-| DRY-12 | T2, T3 | Pending |
+| DRY-07 | T2, T3 | Done |
+| DRY-08 | T2, T3 | Done |
+| DRY-09 | T2, T3 | Done |
+| DRY-10 | T2, T3 | Done |
+| DRY-11 | T2, T3 | Done |
+| DRY-12 | T2, T3 | Done |
 | DRY-13 | T4, T5 | Pending |
 | DRY-14 | T4, T5 | Pending |
 | DRY-15 | T4, T5 | Pending |

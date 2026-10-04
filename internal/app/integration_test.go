@@ -438,6 +438,54 @@ func TestIntegration_Sheets_NestingDepthLimit(t *testing.T) {
 	assert.Equal(t, "INVALID_REQUEST", deepBody.Error.Code)
 }
 
+// TestIntegration_Sheets_Preview covers the dry-run route end to end: a valid
+// delta returns the same cascade an equivalent PATCH returns, and the preview
+// leaves the stored sheet untouched (no persistence).
+func TestIntegration_Sheets_Preview(t *testing.T) {
+	h, _ := newIntegrationRouter(t)
+
+	createRec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Preview"}`)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+	sheetID := created.Data.ID
+
+	previewRec := doRequest(t, h, http.MethodPost, "/sheets/"+sheetID+"/preview", `{"data":{"stats":{"dexterity":16}}}`)
+	require.Equal(t, http.StatusOK, previewRec.Code)
+
+	var previewed response.Success[map[string]any]
+	require.NoError(t, json.Unmarshal(previewRec.Body.Bytes(), &previewed))
+
+	previewModifiers, ok := previewed.Data["modifiers"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 3.0, previewModifiers["dexterityMod"])
+	previewDerived, ok := previewed.Data["derived"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 13.0, previewDerived["armorClass"])
+
+	// Preview must not persist: the stored sheet still holds the original value.
+	fetchedRec := doRequest(t, h, http.MethodGet, "/sheets/"+sheetID, "")
+	require.Equal(t, http.StatusOK, fetchedRec.Code)
+
+	var fetched response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(fetchedRec.Body.Bytes(), &fetched))
+	fetchedStats, ok := fetched.Data.Data["stats"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 10.0, fetchedStats["dexterity"])
+	fetchedDerived, ok := fetched.Data.Data["derived"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 10.0, fetchedDerived["armorClass"])
+
+	// The equivalent PATCH returns the same cascade, proving the shared path.
+	patchRec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":16}}}`)
+	require.Equal(t, http.StatusOK, patchRec.Code)
+
+	var patched response.Success[map[string]any]
+	require.NoError(t, json.Unmarshal(patchRec.Body.Bytes(), &patched))
+	assert.Equal(t, patched.Data, previewed.Data)
+}
+
 // TestIntegration_ErrorStatusMapping covers the HTTP status each typed error
 // produces through HTTPErrorHandler (LGN-48): domain errors must never fall
 // through as 500 INTERNAL_ERROR.
