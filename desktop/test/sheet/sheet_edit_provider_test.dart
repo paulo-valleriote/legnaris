@@ -23,7 +23,7 @@ import '../library/library_fixtures.dart';
 /// LGN-108: OPN-10, OPN-11). Every asserted value comes from the spec rule,
 /// never from the implementation.
 void main() {
-  const sheetId = 'sheet-1';
+  const sheetId = '12345678-1234-7000-8000-123456789abc';
   late Directory supportDir;
   late DateTime now;
   late _FakeCooldownScheduler cooldown;
@@ -304,7 +304,7 @@ void main() {
           if (path.startsWith('/sheets/')) {
             final id = path.substring('/sheets/'.length);
             return http.Response(
-              sheetBody(id, templateId: id == 'sheet-other' ? 'other_v1' : 'fantasy_v1'),
+              sheetBody(id, templateId: id == '87654321-4321-7000-8000-987654321cba' ? 'other_v1' : 'fantasy_v1'),
               200,
             );
           }
@@ -315,7 +315,7 @@ void main() {
         }, recorded);
 
         keepAlive(container, sheetId);
-        keepAlive(container, 'sheet-other');
+        keepAlive(container, '87654321-4321-7000-8000-987654321cba');
         await pumpEventQueue();
 
         container
@@ -328,12 +328,12 @@ void main() {
         );
         expect(
           valueAtPath(
-            stateOf(container, 'sheet-other').data,
+            stateOf(container, '87654321-4321-7000-8000-987654321cba').data,
             'stats.strength',
           ),
           8.0,
         );
-        expect(stateOf(container, 'sheet-other').isPending, isFalse);
+        expect(stateOf(container, '87654321-4321-7000-8000-987654321cba').isPending, isFalse);
       },
     );
 

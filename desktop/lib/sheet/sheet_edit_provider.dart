@@ -396,9 +396,11 @@ class SheetEditController extends _$SheetEditController {
   /// window frees, so the action re-enables without waiting for a rebuild
   /// (SVE-04).
   void _armCooldown() {
+    final previewNextFree = _previewLimiter.nextFreeAt();
+    final saveNextFree = _saveLimiter.nextFreeAt();
     final candidates = <DateTime>[
-      if (_previewLimiter.isBlocked) _previewLimiter.nextFreeAt()!,
-      if (_saveLimiter.isBlocked) _saveLimiter.nextFreeAt()!,
+      if (previewNextFree != null) previewNextFree,
+      if (saveNextFree != null) saveNextFree,
     ];
     if (candidates.isEmpty) {
       ref.read(cooldownSchedulerProvider).cancel();

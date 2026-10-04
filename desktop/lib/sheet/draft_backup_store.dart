@@ -48,10 +48,27 @@ class DraftBackupStore {
 
   final DateTime Function() _now;
 
+  /// Validates that [sheetId] is a valid UUID (v4 or v7) to prevent path
+  /// traversal when used in file paths. Returns true if valid.
+  static bool _isValidSheetId(String sheetId) {
+    // UUID regex: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (lowercase only per idgen)
+    return RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+    ).hasMatch(sheetId);
+  }
+
   Directory get _draftsDirectory => Directory('${directory.path}/drafts');
 
-  File _file(String sheetId) =>
-      File('${_draftsDirectory.path}/$sheetId.json');
+  File _file(String sheetId) {
+    if (!_isValidSheetId(sheetId)) {
+      throw ArgumentError.value(
+        sheetId,
+        'sheetId',
+        'must be a valid UUID (lowercase) to be used in a file path',
+      );
+    }
+    return File('${_draftsDirectory.path}/$sheetId.json');
+  }
 
   /// Temp file for this process: the pid suffix keeps two app instances from
   /// writing (and renaming) the same in-flight file.

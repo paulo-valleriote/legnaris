@@ -26,7 +26,7 @@ void main() {
   const detailBody =
       '{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {"stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}}}}}';
   const sheetBody =
-      '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aria", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+      '{"data": {"id": "12345678-1234-7000-8000-123456789abc", "template_id": "fantasy_v1", "name": "Aria", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
 
   Future<List<http.Request>> pumpCatalog(
     WidgetTester tester, {
@@ -53,7 +53,7 @@ void main() {
                 if (request.url.path == '/templates/fantasy_v1') {
                   return http.Response(detailBody, 200);
                 }
-                if (request.url.path == '/sheets/sheet-1') {
+                if (request.url.path == '/sheets/12345678-1234-7000-8000-123456789abc') {
                   return http.Response(sheetBody, 200);
                 }
                 return http.Response('{}', 404);
@@ -80,16 +80,16 @@ void main() {
       final container = ProviderScope.containerOf(
         tester.element(find.byType(CatalogScreen)),
       );
-      container.read(sheetLibraryProvider.notifier).upsert(entry('sheet-1'));
+      container.read(sheetLibraryProvider.notifier).upsert(entry('12345678-1234-7000-8000-123456789abc'));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('library-name-sheet-1')), findsOneWidget);
+      expect(find.byKey(const Key('library-name-12345678-1234-7000-8000-123456789abc')), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('library-open-sheet-1')));
+      await tester.tap(find.byKey(const Key('library-open-12345678-1234-7000-8000-123456789abc')));
       await tester.pumpAndSettle();
 
       expect(find.byType(SheetScreen), findsOneWidget);
       expect(
-        recorded.where((request) => request.url.path == '/sheets/sheet-1'),
+        recorded.where((request) => request.url.path == '/sheets/12345678-1234-7000-8000-123456789abc'),
         hasLength(1),
       );
       expect(
@@ -128,7 +128,7 @@ void main() {
           if (request.url.path == '/templates') {
             return http.Response(twoTemplatesBody, 200);
           }
-          if (request.url.path == '/sheets/sheet-1') {
+          if (request.url.path == '/sheets/12345678-1234-7000-8000-123456789abc') {
             return http.Response(sheetBody, 200);
           }
           if (request.url.path == '/templates/fantasy_v1') {
@@ -143,10 +143,10 @@ void main() {
       final container = ProviderScope.containerOf(
         tester.element(find.byType(CatalogScreen)),
       );
-      container.read(sheetLibraryProvider.notifier).upsert(entry('sheet-1'));
+      container.read(sheetLibraryProvider.notifier).upsert(entry('12345678-1234-7000-8000-123456789abc'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('library-open-sheet-1')));
+      await tester.tap(find.byKey(const Key('library-open-12345678-1234-7000-8000-123456789abc')));
       await tester.pumpAndSettle();
 
       expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
@@ -156,7 +156,7 @@ void main() {
             .read(sheetLibraryProvider)
             .entries
             .map((stored) => stored.id),
-        contains('sheet-1'),
+        contains('12345678-1234-7000-8000-123456789abc'),
         reason: 'a template failure must not evict the local entry',
       );
     },

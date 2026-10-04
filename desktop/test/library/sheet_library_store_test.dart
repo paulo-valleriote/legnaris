@@ -29,7 +29,7 @@ void main() {
       jsonDecode(storeFile().readAsStringSync()) as Map<String, Object?>;
 
   test('Happy path: writes a parseable {schema_version, sheets} with exactly the four entry fields (LIB-09)', () {
-    newStore().save([entry('id-1')]);
+    newStore().save([entry('87654321-4321-7000-8000-987654321cba')]);
 
     final envelope = readEnvelope();
     expect(envelope['schema_version'], 1);
@@ -37,7 +37,7 @@ void main() {
     expect(sheets, hasLength(1));
     final first = sheets.single as Map<String, Object?>;
     expect(first.keys.toSet(), {'id', 'name', 'template_id', 'created_at'});
-    expect(first['id'], 'id-1');
+    expect(first['id'], '87654321-4321-7000-8000-987654321cba');
     expect(first['name'], 'Aria');
     expect(first['template_id'], 'fantasy_v1');
     expect(first['created_at'], '2026-10-02T15:31:28.401Z');
@@ -46,7 +46,7 @@ void main() {
   test('Edge: creates the OS store directory on the first write', () {
     expect(storeDir.existsSync(), isFalse);
 
-    newStore().save([entry('id-1')]);
+    newStore().save([entry('87654321-4321-7000-8000-987654321cba')]);
 
     expect(storeDir.existsSync(), isTrue);
     expect(storeFile().existsSync(), isTrue);
@@ -56,7 +56,7 @@ void main() {
     final store = newStore();
 
     expect(
-      () => store.save([entry('id-1', name: '')]),
+      () => store.save([entry('87654321-4321-7000-8000-987654321cba', name: '')]),
       throwsA(
         isA<SheetLibraryException>().having(
           (error) => error.kind,
@@ -70,12 +70,12 @@ void main() {
 
   test('Error: a filesystem failure throws writeFailed and leaves the previous content intact (LIB-11)', () {
     final store = newStore();
-    store.save([entry('id-1', name: 'Aria')]);
+    store.save([entry('87654321-4321-7000-8000-987654321cba', name: 'Aria')]);
     final before = storeFile().readAsStringSync();
     Directory(tempFile().path).createSync(recursive: true);
 
     expect(
-      () => store.save([entry('id-1', name: 'Changed')]),
+      () => store.save([entry('87654321-4321-7000-8000-987654321cba', name: 'Changed')]),
       throwsA(
         isA<SheetLibraryException>().having(
           (error) => error.kind,
@@ -89,9 +89,9 @@ void main() {
 
   test('Happy path: after a successful save the temp file is gone and the target holds the new content (LIB-12)', () {
     final store = newStore();
-    store.save([entry('id-1', name: 'First')]);
+    store.save([entry('87654321-4321-7000-8000-987654321cba', name: 'First')]);
 
-    store.save([entry('id-1', name: 'Second')]);
+    store.save([entry('87654321-4321-7000-8000-987654321cba', name: 'Second')]);
 
     expect(tempFile().existsSync(), isFalse);
     final sheets = readEnvelope()['sheets'] as List<Object?>;
@@ -101,7 +101,7 @@ void main() {
 
   test('Happy path: a second save replaces the whole index with no leftover entries (LIB-12)', () {
     final store = newStore();
-    store.save([entry('id-1'), entry('id-2')]);
+    store.save([entry('87654321-4321-7000-8000-987654321cba'), entry('id-2')]);
 
     store.save([entry('id-2')]);
 
@@ -119,12 +119,12 @@ void main() {
   });
 
   test('Edge: the persisted sheets keep the supplied order for a deterministic reload (LIB-04)', () {
-    newStore().save([entry('id-1'), entry('id-2'), entry('id-3')]);
+    newStore().save([entry('87654321-4321-7000-8000-987654321cba'), entry('id-2'), entry('id-3')]);
 
     final ids = (readEnvelope()['sheets'] as List<Object?>)
         .map((raw) => (raw as Map<String, Object?>)['id'])
         .toList();
-    expect(ids, ['id-1', 'id-2', 'id-3']);
+    expect(ids, ['87654321-4321-7000-8000-987654321cba', 'id-2', 'id-3']);
   });
 
   test('Happy path: an absent store loads empty; a saved index round-trips through a fresh store (LIB-01, LIB-14)', () {
@@ -132,11 +132,11 @@ void main() {
     expect(absent.outcome, LibraryLoadOutcome.empty);
     expect(absent.entries, isEmpty);
 
-    newStore().save([entry('id-1', name: 'Aria'), entry('id-2', name: 'Borin')]);
+    newStore().save([entry('87654321-4321-7000-8000-987654321cba', name: 'Aria'), entry('id-2', name: 'Borin')]);
 
     final loaded = newStore().load();
     expect(loaded.outcome, LibraryLoadOutcome.loaded);
-    expect(loaded.entries.map((stored) => stored.id), ['id-1', 'id-2']);
+    expect(loaded.entries.map((stored) => stored.id), ['87654321-4321-7000-8000-987654321cba', 'id-2']);
     expect(loaded.entries.first.name, 'Aria');
   });
 
@@ -190,13 +190,13 @@ void main() {
     expect(result.entries, isEmpty);
     expect(storeFile().readAsStringSync(), 'not json');
 
-    store.save([entry('id-1')]);
-    expect(storeFile().readAsStringSync(), contains('"id-1"'));
+    store.save([entry('87654321-4321-7000-8000-987654321cba')]);
+    expect(storeFile().readAsStringSync(), contains('"87654321-4321-7000-8000-987654321cba"'));
   });
 
   test('Happy path: an older version with a registered migration upgrades; without one it is quarantined (LIB-15, LIB-16)', () {
     const older =
-        '{"schema_version": 0, "sheets": [{"id": "id-1", "name": "Aria", "template_id": "fantasy_v1", "created_at": "2026-10-02T15:31:28.401Z"}]}';
+        '{"schema_version": 0, "sheets": [{"id": "87654321-4321-7000-8000-987654321cba", "name": "Aria", "template_id": "fantasy_v1", "created_at": "2026-10-02T15:31:28.401Z"}]}';
     storeDir.createSync(recursive: true);
 
     storeFile().writeAsStringSync(older);
@@ -210,7 +210,7 @@ void main() {
       },
     ).load();
     expect(upgraded.outcome, LibraryLoadOutcome.loaded);
-    expect(upgraded.entries.single.id, 'id-1');
+    expect(upgraded.entries.single.id, '87654321-4321-7000-8000-987654321cba');
 
     storeFile().writeAsStringSync(older);
     final noMigration = newStore().load();
@@ -244,13 +244,13 @@ void main() {
   });
 
   test('Edge: a leftover temp file is deleted on load and does not change the outcome (LIB-14)', () {
-    newStore().save([entry('id-1')]);
+    newStore().save([entry('87654321-4321-7000-8000-987654321cba')]);
     tempFile().writeAsStringSync('partial garbage');
 
     final result = newStore().load();
 
     expect(result.outcome, LibraryLoadOutcome.loaded);
-    expect(result.entries.single.id, 'id-1');
+    expect(result.entries.single.id, '87654321-4321-7000-8000-987654321cba');
     expect(tempFile().existsSync(), isFalse);
   });
 
@@ -262,17 +262,17 @@ void main() {
     foreignTemp.writeAsStringSync('in-flight write of another process');
 
     final writer = newStore();
-    writer.save([entry('id-1')]);
+    writer.save([entry('87654321-4321-7000-8000-987654321cba')]);
 
     expect(foreignTemp.existsSync(), isTrue);
     expect(tempFile().existsSync(), isFalse);
 
     final reader = newStore();
-    reader.save([entry('id-1'), entry('id-2')]);
+    reader.save([entry('87654321-4321-7000-8000-987654321cba'), entry('id-2')]);
     final loaded = reader.load();
 
     expect(loaded.outcome, LibraryLoadOutcome.loaded);
-    expect(loaded.entries.map((item) => item.id), ['id-1', 'id-2']);
+    expect(loaded.entries.map((item) => item.id), ['87654321-4321-7000-8000-987654321cba', 'id-2']);
     expect(foreignTemp.existsSync(), isFalse);
   });
 }

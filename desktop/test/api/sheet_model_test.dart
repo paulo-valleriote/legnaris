@@ -6,7 +6,7 @@ import 'package:legnaris/api/models/sheet.dart';
 void main() {
   const sheetJson = '''
 {
-  "id": "sheet-1",
+  "id": "12345678-1234-7000-8000-123456789abc",
   "template_id": "fantasy_v1",
   "name": "Aragorn",
   "data": {
@@ -27,7 +27,7 @@ void main() {
     test('Happy path: sheet decodes every contract field', () {
       // FE1-10.
       final sheet = decodeSheet();
-      expect(sheet.id, 'sheet-1');
+      expect(sheet.id, '12345678-1234-7000-8000-123456789abc');
       expect(sheet.templateId, 'fantasy_v1');
       expect(sheet.name, 'Aragorn');
       expect(sheet.createdAt, DateTime.parse('2026-09-20T12:00:00Z'));

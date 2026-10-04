@@ -106,15 +106,15 @@ void main() {
         final store = _FakeStore()
           ..onLoad = () => LibraryLoadResult(
             outcome: LibraryLoadOutcome.loaded,
-            entries: [entry('id-1')],
+            entries: [entry('87654321-4321-7000-8000-987654321cba')],
           );
 
         await pumpSection(tester, store: store, onOpen: (e) => opened.add(e.id));
 
-        await tester.tap(find.byKey(const Key('library-open-id-1')));
+        await tester.tap(find.byKey(const Key('library-open-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
 
-        expect(opened, ['id-1']);
+        expect(opened, ['87654321-4321-7000-8000-987654321cba']);
       },
     );
 
@@ -134,7 +134,7 @@ void main() {
     _FakeStore storeWithOne() => _FakeStore()
       ..onLoad = () => LibraryLoadResult(
         outcome: LibraryLoadOutcome.loaded,
-        entries: [entry('id-1', name: 'Aria')],
+        entries: [entry('87654321-4321-7000-8000-987654321cba', name: 'Aria')],
       );
 
     testWidgets(
@@ -143,7 +143,7 @@ void main() {
         final store = storeWithOne();
         final recorded = await pumpSection(tester, store: store);
 
-        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
 
         final dialog = find.byType(AlertDialog);
@@ -162,7 +162,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('library-name-id-1')), findsNothing);
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsNothing);
         expect(find.text('No sheets created yet'), findsOneWidget);
         expect(store.saveCalls, 1);
         expect(recorded, isEmpty, reason: 'removal is local-only (OPN-13)');
@@ -175,7 +175,7 @@ void main() {
         final store = storeWithOne();
         final recorded = await pumpSection(tester, store: store);
 
-        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
@@ -185,7 +185,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('library-name-id-1')), findsOneWidget);
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsOneWidget);
         expect(store.saveCalls, 0);
         expect(recorded, isEmpty);
       },
@@ -201,7 +201,7 @@ void main() {
           );
         final recorded = await pumpSection(tester, store: store);
 
-        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
@@ -211,7 +211,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('library-name-id-1')), findsOneWidget);
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsOneWidget);
         expect(find.byKey(const Key('library-remove-error')), findsOneWidget);
         expect(recorded, isEmpty);
       },
@@ -222,7 +222,7 @@ void main() {
       (tester) async {
         final supportDir = Directory.systemTemp.createTempSync('library_draft_');
         addTearDown(() => supportDir.deleteSync(recursive: true));
-        DraftBackupStore(directory: supportDir).write('id-1', {
+        DraftBackupStore(directory: supportDir).write('87654321-4321-7000-8000-987654321cba', {
           'stats': {'dexterity': 18},
         });
         final store = storeWithOne();
@@ -232,7 +232,7 @@ void main() {
           supportDir: supportDir,
         );
 
-        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
@@ -242,8 +242,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('library-name-id-1')), findsNothing);
-        expect(draftFile(supportDir, 'id-1').existsSync(), isFalse);
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsNothing);
+        expect(draftFile(supportDir, '87654321-4321-7000-8000-987654321cba').existsSync(), isFalse);
         expect(recorded, isEmpty);
       },
     );
@@ -253,7 +253,7 @@ void main() {
       (tester) async {
         final supportDir = Directory.systemTemp.createTempSync('library_draft_');
         addTearDown(() => supportDir.deleteSync(recursive: true));
-        DraftBackupStore(directory: supportDir).write('id-1', {
+        DraftBackupStore(directory: supportDir).write('87654321-4321-7000-8000-987654321cba', {
           'stats': {'dexterity': 18},
         });
         final store = storeWithOne()
@@ -263,7 +263,7 @@ void main() {
           );
         await pumpSection(tester, store: store, supportDir: supportDir);
 
-        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
@@ -273,9 +273,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('library-name-id-1')), findsOneWidget);
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsOneWidget);
         expect(find.byKey(const Key('library-remove-error')), findsOneWidget);
-        expect(draftFile(supportDir, 'id-1').existsSync(), isTrue);
+        expect(draftFile(supportDir, '87654321-4321-7000-8000-987654321cba').existsSync(), isTrue);
       },
     );
 
@@ -284,13 +284,13 @@ void main() {
       (tester) async {
         final supportDir = Directory.systemTemp.createTempSync('library_draft_');
         addTearDown(() => supportDir.deleteSync(recursive: true));
-        DraftBackupStore(directory: supportDir).write('id-1', {
+        DraftBackupStore(directory: supportDir).write('87654321-4321-7000-8000-987654321cba', {
           'stats': {'dexterity': 18},
         });
         final store = storeWithOne();
         await pumpSection(tester, store: store, supportDir: supportDir);
 
-        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
@@ -300,8 +300,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('library-name-id-1')), findsOneWidget);
-        expect(draftFile(supportDir, 'id-1').existsSync(), isTrue);
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsOneWidget);
+        expect(draftFile(supportDir, '87654321-4321-7000-8000-987654321cba').existsSync(), isTrue);
         expect(store.saveCalls, 0);
       },
     );

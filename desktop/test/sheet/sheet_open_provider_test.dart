@@ -32,7 +32,7 @@ void main() {
   });
 
   const sheetBody =
-      '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+      '{"data": {"id": "12345678-1234-7000-8000-123456789abc", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
   const notFoundBody =
       '{"error": {"code": "NOT_FOUND", "message": "no such sheet"}}';
   const serverErrorBody =
@@ -112,20 +112,20 @@ void main() {
           recorded: recorded,
         );
 
-        keepAlive(container, 'sheet-1');
-        expect(stateOf(container, 'sheet-1').isLoading, isTrue);
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').isLoading, isTrue);
 
         await pumpEventQueue();
         expect(recorded, hasLength(1));
         expect(recorded.single.method, 'GET');
-        expect(recorded.single.url.path, '/sheets/sheet-1');
+        expect(recorded.single.url.path, '/sheets/12345678-1234-7000-8000-123456789abc');
 
         gate.complete(http.Response(sheetBody, 200));
         await pumpEventQueue();
 
-        final state = stateOf(container, 'sheet-1');
+        final state = stateOf(container, '12345678-1234-7000-8000-123456789abc');
         expect(state.isLoading, isFalse);
-        expect(state.sheet?.id, 'sheet-1');
+        expect(state.sheet?.id, '12345678-1234-7000-8000-123456789abc');
         expect(state.sheet?.name, 'Aragorn');
         expect(state.errorMessage, isNull);
       },
@@ -140,17 +140,17 @@ void main() {
           recorded: recorded,
         );
 
-        final first = keepAlive(container, 'sheet-1');
+        final first = keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
         expect(recorded, hasLength(1));
 
         first.close();
         await pumpEventQueue();
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
         expect(recorded, hasLength(2));
-        expect(stateOf(container, 'sheet-1').sheet?.id, 'sheet-1');
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').sheet?.id, '12345678-1234-7000-8000-123456789abc');
       },
     );
   });
@@ -160,18 +160,18 @@ void main() {
       'Happy path: an injected sheet with the matching id is used without a request',
       () async {
         final recorded = <http.Request>[];
-        final injected = injectedSheet('sheet-1');
+        final injected = injectedSheet('12345678-1234-7000-8000-123456789abc');
         final container = containerWith(
           handler: (_) async => http.Response('{}', 500),
           recorded: recorded,
           injected: injected,
         );
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
 
-        expect(stateOf(container, 'sheet-1').sheet, same(injected));
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').sheet, same(injected));
         await pumpEventQueue();
-        expect(stateOf(container, 'sheet-1').sheet, same(injected));
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').sheet, same(injected));
         expect(recorded, isEmpty);
       },
     );
@@ -186,11 +186,11 @@ void main() {
           injected: injectedSheet('other-sheet'),
         );
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
 
         expect(recorded, hasLength(1));
-        expect(stateOf(container, 'sheet-1').sheet?.id, 'sheet-1');
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').sheet?.id, '12345678-1234-7000-8000-123456789abc');
       },
     );
   });
@@ -199,17 +199,17 @@ void main() {
     test(
       'Error: NOT_FOUND removes the entry and publishes isNotFound with no Retry copy',
       () async {
-        final store = storeWithEntry('sheet-1');
+        final store = storeWithEntry('12345678-1234-7000-8000-123456789abc');
         final container = containerWith(
           handler: (_) async => http.Response(notFoundBody, 404),
           store: store,
         );
         expect(container.read(sheetLibraryProvider).entries, hasLength(1));
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
 
-        final state = stateOf(container, 'sheet-1');
+        final state = stateOf(container, '12345678-1234-7000-8000-123456789abc');
         expect(state.isNotFound, isTrue);
         expect(state.sheet, isNull);
         expect(
@@ -224,7 +224,7 @@ void main() {
     test(
       'Edge: a failed eviction write still publishes isNotFound and keeps the entry',
       () async {
-        final store = storeWithEntry('sheet-1')
+        final store = storeWithEntry('12345678-1234-7000-8000-123456789abc')
           ..onSave = (_) => throw const SheetLibraryException(
             SheetLibraryErrorKind.writeFailed,
             'disk full',
@@ -234,10 +234,10 @@ void main() {
           store: store,
         );
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
 
-        expect(stateOf(container, 'sheet-1').isNotFound, isTrue);
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').isNotFound, isTrue);
         expect(container.read(sheetLibraryProvider).entries, hasLength(1));
       },
     );
@@ -245,22 +245,22 @@ void main() {
     test(
       'Happy path: NOT_FOUND removes the draft file and the library entry (DRB-10)',
       () async {
-        DraftBackupStore(directory: supportDir).write('sheet-1', {
+        DraftBackupStore(directory: supportDir).write('12345678-1234-7000-8000-123456789abc', {
           'stats': {'dexterity': 18},
         });
-        expect(draftFile('sheet-1').existsSync(), isTrue);
-        final store = storeWithEntry('sheet-1');
+        expect(draftFile('12345678-1234-7000-8000-123456789abc').existsSync(), isTrue);
+        final store = storeWithEntry('12345678-1234-7000-8000-123456789abc');
         final container = containerWith(
           handler: (_) async => http.Response(notFoundBody, 404),
           store: store,
         );
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
 
-        expect(stateOf(container, 'sheet-1').isNotFound, isTrue);
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').isNotFound, isTrue);
         expect(container.read(sheetLibraryProvider).entries, isEmpty);
-        expect(draftFile('sheet-1').existsSync(), isFalse);
+        expect(draftFile('12345678-1234-7000-8000-123456789abc').existsSync(), isFalse);
       },
     );
 
@@ -269,14 +269,14 @@ void main() {
       () async {
         final container = containerWith(
           handler: (_) async => http.Response(notFoundBody, 404),
-          store: storeWithEntry('sheet-1'),
+          store: storeWithEntry('12345678-1234-7000-8000-123456789abc'),
           draftStore: _ThrowingDeleteStore(directory: supportDir),
         );
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
 
-        final state = stateOf(container, 'sheet-1');
+        final state = stateOf(container, '12345678-1234-7000-8000-123456789abc');
         expect(state.isNotFound, isTrue);
         expect(
           state.errorMessage,
@@ -288,19 +288,19 @@ void main() {
     test(
       'Edge: a successful load leaves any draft untouched (DRB-10)',
       () async {
-        DraftBackupStore(directory: supportDir).write('sheet-1', {
+        DraftBackupStore(directory: supportDir).write('12345678-1234-7000-8000-123456789abc', {
           'stats': {'dexterity': 18},
         });
         final container = containerWith(
           handler: (_) async => http.Response(sheetBody, 200),
-          store: storeWithEntry('sheet-1'),
+          store: storeWithEntry('12345678-1234-7000-8000-123456789abc'),
         );
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
 
-        expect(stateOf(container, 'sheet-1').sheet?.id, 'sheet-1');
-        expect(draftFile('sheet-1').existsSync(), isTrue);
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').sheet?.id, '12345678-1234-7000-8000-123456789abc');
+        expect(draftFile('12345678-1234-7000-8000-123456789abc').existsSync(), isTrue);
       },
     );
   });
@@ -309,16 +309,16 @@ void main() {
     test(
       'Error: a server failure keeps the entry and publishes the mapped copy',
       () async {
-        final store = storeWithEntry('sheet-1');
+        final store = storeWithEntry('12345678-1234-7000-8000-123456789abc');
         final container = containerWith(
           handler: (_) async => http.Response(serverErrorBody, 500),
           store: store,
         );
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
 
-        final state = stateOf(container, 'sheet-1');
+        final state = stateOf(container, '12345678-1234-7000-8000-123456789abc');
         expect(state.isNotFound, isFalse);
         expect(state.sheet, isNull);
         expect(state.errorMessage, errorCopy(ApiErrorKind.serverError));
@@ -330,16 +330,16 @@ void main() {
     test(
       'Edge: a parse failure keeps the entry and publishes the defensive copy',
       () async {
-        final store = storeWithEntry('sheet-1');
+        final store = storeWithEntry('12345678-1234-7000-8000-123456789abc');
         final container = containerWith(
           handler: (_) async => http.Response('not json', 200),
           store: store,
         );
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
 
-        expect(stateOf(container, 'sheet-1').errorMessage,
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').errorMessage,
             lookupAppLocalizations(const Locale('en')).errorParse);
         expect(container.read(sheetLibraryProvider).entries, hasLength(1));
       },
@@ -361,10 +361,10 @@ void main() {
           recorded: recorded,
         );
 
-        keepAlive(container, 'sheet-1');
+        keepAlive(container, '12345678-1234-7000-8000-123456789abc');
         await pumpEventQueue();
         final notifier = container.read(
-          sheetOpenControllerProvider('sheet-1').notifier,
+          sheetOpenControllerProvider('12345678-1234-7000-8000-123456789abc').notifier,
         );
 
         final a = notifier.load();
@@ -376,13 +376,13 @@ void main() {
         await a;
         await b;
         await pumpEventQueue();
-        expect(stateOf(container, 'sheet-1').errorMessage,
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').errorMessage,
             errorCopy(ApiErrorKind.serverError));
 
         await notifier.load();
         await pumpEventQueue();
         expect(recorded, hasLength(2));
-        expect(stateOf(container, 'sheet-1').sheet?.id, 'sheet-1');
+        expect(stateOf(container, '12345678-1234-7000-8000-123456789abc').sheet?.id, '12345678-1234-7000-8000-123456789abc');
       },
     );
   });

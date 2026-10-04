@@ -323,6 +323,9 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
       // A confirmed discard drops the backup so it cannot resurrect the edits
       // on reopen (DRB-09); the store's delete never throws.
       ref.read(draftBackupStoreProvider).delete(widget.sheetId);
+      // Invalidate the edit provider so isPending becomes false and the
+      // auto-backup scheduler stops (prevents rewriting a discarded draft).
+      ref.invalidate(editProvider);
     }
     await Navigator.of(context).maybePop();
   }

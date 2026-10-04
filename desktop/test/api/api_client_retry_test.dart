@@ -9,7 +9,7 @@ import 'package:legnaris/api/error_mapper.dart';
 
 void main() {
   const sheetBody =
-      '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+      '{"data": {"id": "12345678-1234-7000-8000-123456789abc", "template_id": "fantasy_v1", "name": "Aragorn", "data": {}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
 
   Future<ApiDomainException> domainErrorFrom(Future<Object?> call) async {
     try {
@@ -39,8 +39,8 @@ void main() {
         }),
       );
 
-      final sheet = await client.getSheet('sheet-1');
-      expect(sheet.id, 'sheet-1');
+      final sheet = await client.getSheet('12345678-1234-7000-8000-123456789abc');
+      expect(sheet.id, '12345678-1234-7000-8000-123456789abc');
       expect(callTimes, hasLength(2));
       expect(
         callTimes[1].difference(callTimes[0]),
@@ -57,7 +57,7 @@ void main() {
         }),
       );
 
-      final error = await domainErrorFrom(client.getSheet('sheet-1'));
+      final error = await domainErrorFrom(client.getSheet('12345678-1234-7000-8000-123456789abc'));
       expect(error.kind, ApiErrorKind.offline);
       expect(calls, 2);
     });
@@ -72,7 +72,7 @@ void main() {
       );
 
       final started = DateTime.now();
-      final error = await domainErrorFrom(client.getSheet('sheet-1'));
+      final error = await domainErrorFrom(client.getSheet('12345678-1234-7000-8000-123456789abc'));
       final elapsed = DateTime.now().difference(started);
 
       expect(error.kind, ApiErrorKind.offline);
@@ -110,7 +110,7 @@ void main() {
         }),
       );
 
-      final error = await domainErrorFrom(client.getSheet('sheet-1'));
+      final error = await domainErrorFrom(client.getSheet('12345678-1234-7000-8000-123456789abc'));
       expect(calls, 1);
       expect(error.kind, ApiErrorKind.serverError);
     });
@@ -141,7 +141,7 @@ void main() {
       );
 
       final error = await domainErrorFrom(
-        client.patchSheet('sheet-1', {'stats': {'dexterity': 16}}),
+        client.patchSheet('12345678-1234-7000-8000-123456789abc', {'stats': {'dexterity': 16}}),
       );
       expect(calls, 1);
       expect(error.kind, ApiErrorKind.offline);
