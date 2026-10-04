@@ -13,6 +13,7 @@ import 'package:legnaris/library/sheet_library_entry.dart';
 import 'package:legnaris/library/sheet_library_exception.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/library/sheet_library_store.dart';
+import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
 import '../library/library_fixtures.dart';
@@ -23,14 +24,21 @@ void main() {
     WidgetTester tester, {
     required SheetLibraryStore store,
     ValueChanged<SheetLibraryEntry>? onOpen,
+    Directory? supportDir,
   }) async {
     final recorded = <http.Request>[];
+    final directory =
+        supportDir ?? Directory.systemTemp.createTempSync('library_section_');
+    if (supportDir == null) {
+      addTearDown(() => directory.deleteSync(recursive: true));
+    }
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appSupportDirectoryProvider.overrideWithValue(directory),
           sheetLibraryStoreProvider.overrideWithValue(store),
           apiClientProvider.overrideWithValue(
             ApiClient(
@@ -54,6 +62,9 @@ void main() {
     await tester.pumpAndSettle();
     return recorded;
   }
+
+  File draftFile(Directory supportDir, String id) =>
+      File('${supportDir.path}/drafts/$id.json');
 
   group('listing (OPN-01 … OPN-03)', () {
     testWidgets(
@@ -203,6 +214,95 @@ void main() {
         expect(find.byKey(const Key('library-name-id-1')), findsOneWidget);
         expect(find.byKey(const Key('library-remove-error')), findsOneWidget);
         expect(recorded, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Happy path: confirming the removal deletes the sheet draft file (DRB-11)',
+      (tester) async {
+        final supportDir = Directory.systemTemp.createTempSync('library_draft_');
+        addTearDown(() => supportDir.deleteSync(recursive: true));
+        DraftBackupStore(directory: supportDir).write('id-1', {
+          'stats': {'dexterity': 18},
+        });
+        final store = storeWithOne();
+        final recorded = await pumpSection(
+          tester,
+          store: store,
+          supportDir: supportDir,
+        );
+
+        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.widgetWithText(TextButton, 'Remove'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('library-name-id-1')), findsNothing);
+        expect(draftFile(supportDir, 'id-1').existsSync(), isFalse);
+        expect(recorded, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Edge: a failed removal leaves the draft in place (DRB-11)',
+      (tester) async {
+        final supportDir = Directory.systemTemp.createTempSync('library_draft_');
+        addTearDown(() => supportDir.deleteSync(recursive: true));
+        DraftBackupStore(directory: supportDir).write('id-1', {
+          'stats': {'dexterity': 18},
+        });
+        final store = storeWithOne()
+          ..onSave = (_) => throw const SheetLibraryException(
+            SheetLibraryErrorKind.writeFailed,
+            'disk full',
+          );
+        await pumpSection(tester, store: store, supportDir: supportDir);
+
+        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.widgetWithText(TextButton, 'Remove'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('library-name-id-1')), findsOneWidget);
+        expect(find.byKey(const Key('library-remove-error')), findsOneWidget);
+        expect(draftFile(supportDir, 'id-1').existsSync(), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Edge: cancelling the removal deletes nothing (DRB-11)',
+      (tester) async {
+        final supportDir = Directory.systemTemp.createTempSync('library_draft_');
+        addTearDown(() => supportDir.deleteSync(recursive: true));
+        DraftBackupStore(directory: supportDir).write('id-1', {
+          'stats': {'dexterity': 18},
+        });
+        final store = storeWithOne();
+        await pumpSection(tester, store: store, supportDir: supportDir);
+
+        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.widgetWithText(TextButton, 'Cancel'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('library-name-id-1')), findsOneWidget);
+        expect(draftFile(supportDir, 'id-1').existsSync(), isTrue);
+        expect(store.saveCalls, 0);
       },
     );
   });

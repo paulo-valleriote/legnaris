@@ -12,6 +12,7 @@ import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/library/sheet_library_entry.dart';
 import 'package:legnaris/library/sheet_library_exception.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/theme/tokens.dart';
 
 /// The Screen 1 section listing every stored library entry.
@@ -143,9 +144,13 @@ class _LibrarySectionState extends ConsumerState<LibrarySection> {
     if (!mounted || confirmed != true) return;
     try {
       ref.read(sheetLibraryProvider.notifier).remove(entry.id);
-      setState(() => _errorMessage = null);
     } on SheetLibraryException {
       setState(() => _errorMessage = localizations.libraryRemoveFailed);
+      return;
     }
+    // The entry is gone; its draft backup has no owner, so drop it best-effort
+    // (DRB-11). The store's delete never throws.
+    ref.read(draftBackupStoreProvider).delete(entry.id);
+    setState(() => _errorMessage = null);
   }
 }

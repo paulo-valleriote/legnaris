@@ -481,11 +481,11 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] Confirming removal deletes the sheet's draft file
-- [ ] A failed library removal leaves the draft in place
-- [ ] Cancelling the dialog deletes nothing
-- [ ] Gate check passes: `flutter test test/catalog/library_section_test.dart`
-- [ ] Test count: `library_section_test.dart` passes with the new cases added (no silent deletions)
+- [x] Confirming removal deletes the sheet's draft file
+- [x] A failed library removal leaves the draft in place
+- [x] Cancelling the dialog deletes nothing
+- [x] Gate check passes: `flutter test test/catalog/library_section_test.dart`
+- [x] Test count: `library_section_test.dart` passes with the new cases added (no silent deletions)
 
 **Tests**: widget
 **Gate**: quick (desktop)
@@ -682,7 +682,7 @@ Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined above. 
 | DRB-08 | T10 | Done |
 | DRB-09 | T15 | Pending |
 | DRB-10 | T13 | Done |
-| DRB-11 | T14 | Pending |
+| DRB-11 | T14 | Done |
 | DRB-12 | T7, T10 | Done |
 | DRB-13 | T11 | Done |
 | DRB-14 | T7 | Done |
