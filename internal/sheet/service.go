@@ -145,12 +145,26 @@ func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) 
 	return sheet, nil
 }
 
-func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
-	if err := requireSheetID(cmd.SheetID); err != nil {
+// recalculation is the result of evaluating a delta against a stored sheet
+// without persisting it: the merged data a write would store and the flat
+// cascading effects the DAG recomputed. Persisting callers use merged; previews
+// use cascade only.
+type recalculation struct {
+	merged  map[string]any
+	cascade map[string]any
+}
+
+// recalculate is the one recalc path PATCH and both previews share: it
+// requires the sheet ID, fetches the sheet, resolves the DAG, flattens the
+// delta, normalizes and recalculates it, then deep-merges the result over the
+// stored data. It performs no repository write, so a preview can call it
+// without side effects.
+func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, data map[string]any) (*recalculation, error) {
+	if err := requireSheetID(sheetID); err != nil {
 		return nil, err
 	}
 
-	storedSheet, err := s.repository.FetchByID(ctx, cmd.SheetID)
+	storedSheet, err := s.repository.FetchByID(ctx, sheetID)
 	if err != nil {
 		return nil, translateRepoErr("fetch", err)
 	}
@@ -165,14 +179,14 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	// exclusively on those. A payload nested deeper than
 	// maputils.MaxNestingDepth is rejected here, before the recursive walk can
 	// exhaust the stack.
-	updates, err := maputils.FlattenPathKeys(cmd.Data)
+	updates, err := maputils.FlattenPathKeys(data)
 	if err != nil {
 		return nil, translateMapErr("update", err)
 	}
 
 	// Validate editability, collapse each touched exclusive group to at most
 	// one non-zero member, and recompute derived fields under a single DAG
-	// read-lock acquisition, so a PATCH never takes the lock more than once.
+	// read-lock acquisition, so a request never takes the lock more than once.
 	normalized, cascadingEffects, err := dag.NormalizeAndRecalculate(storedSheet.Data, updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
@@ -186,15 +200,24 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		return nil, translateMapErr("update", err)
 	}
 
+	return &recalculation{merged: mergedData, cascade: cascadingEffects}, nil
+}
+
+func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
+	result, err := s.recalculate(ctx, cmd.SheetID, cmd.Data)
+	if err != nil {
+		return nil, err
+	}
+
 	dbUpdates := map[string]any{
-		"data":       mergedData,
+		"data":       result.merged,
 		"updated_at": time.Now(),
 	}
 
 	if err := s.repository.PartialUpdate(ctx, cmd.SheetID, dbUpdates); err != nil {
 		return nil, translateRepoErr("update", err)
 	}
-	return nestedCascadingEffects(cascadingEffects)
+	return nestedCascadingEffects(result.cascade)
 }
 
 // translateTemplateErr maps template-layer typed errors to apperr at the

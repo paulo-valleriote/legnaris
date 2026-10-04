@@ -325,6 +325,77 @@ func TestService_PartialUpdate(t *testing.T) {
 	}
 }
 
+// TestService_PartialUpdate_NoOpDeltaPersistsAndReturnsEmptyCascade locks the
+// split the shared recalculation helper introduces: a delta that leaves every
+// value unchanged returns an empty cascade, but PATCH must still persist the
+// merged data and advance updated_at. A wrong refactor that skipped persistence
+// when the cascade is empty would pass the cascade assertion and fail here.
+func TestService_PartialUpdate_NoOpDeltaPersistsAndReturnsEmptyCascade(t *testing.T) {
+	fields := template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"modifiers": {Children: template.FieldGroup{
+			"dexterityMod": {Schema: &template.FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "floor((stats_dexterity - 10) / 2)",
+				DependsOn:  [][]string{{"stats", "dexterity"}},
+			}},
+		}},
+	}
+
+	dag, err := template.BuildDAG("fantasy_v1", fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+
+	stored := &sheet.Sheet{
+		ID:         updateSheetID,
+		TemplateID: "fantasy_v1",
+		Name:       "No-op Sheet",
+		Data: map[string]any{
+			"stats":     map[string]any{"dexterity": 14.0},
+			"modifiers": map[string]any{"dexterityMod": 2.0},
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	mockRepo := mocks.NewMockRepository(t)
+	mockRepo.EXPECT().
+		FetchByID(context.Background(), updateSheetID).
+		Return(stored, nil).
+		Once()
+	mockRepo.EXPECT().
+		PartialUpdate(context.Background(), updateSheetID, mock.MatchedBy(func(update map[string]any) bool {
+			data, ok := update["data"].(map[string]any)
+			if !ok {
+				return false
+			}
+			stats, ok := data["stats"].(map[string]any)
+			if !ok || stats["dexterity"] != 14.0 {
+				return false
+			}
+			modifiers, ok := data["modifiers"].(map[string]any)
+			if !ok || modifiers["dexterityMod"] != 2.0 {
+				return false
+			}
+			_, hasTime := update["updated_at"].(time.Time)
+			return hasTime
+		})).
+		Return(nil).
+		Once()
+
+	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{"fantasy_v1": dag})
+
+	cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+		SheetID: updateSheetID,
+		Data:    map[string]any{"stats": map[string]any{"dexterity": 14.0}},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{}, cascades)
+}
+
 // TestService_PartialUpdate_ExclusiveGroups covers the PATCH contract for
 // mutually exclusive options (EXC-04, EXC-05, EXC-07): turning one member on
 // zeroes its sibling and recomputes the dependent derived value; turning a

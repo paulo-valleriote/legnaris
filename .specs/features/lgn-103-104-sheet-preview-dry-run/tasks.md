@@ -102,11 +102,11 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] `recalculate` performs require-ID, fetch, DAG lookup, flatten, `NormalizeAndRecalculate` and deep-merge with no repository write
-- [ ] `PartialUpdate` persists `merged` + `updated_at` and returns the same nested cascade as before
-- [ ] Every existing `PartialUpdate` test still passes unchanged
-- [ ] Gate check passes: `go test ./internal/sheet/...`
-- [ ] Test count: `internal/sheet` suite passes with the new helper cases added (no silent deletions)
+- [x] `recalculate` performs require-ID, fetch, DAG lookup, flatten, `NormalizeAndRecalculate` and deep-merge with no repository write
+- [x] `PartialUpdate` persists `merged` + `updated_at` and returns the same nested cascade as before
+- [x] Every existing `PartialUpdate` test still passes unchanged
+- [x] Gate check passes: `go test ./internal/sheet/...`
+- [x] Test count: `internal/sheet` suite passes with the new helper cases added (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick (backend)

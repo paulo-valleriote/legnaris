@@ -203,23 +203,23 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| DRY-01 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-02 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-03 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-04 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-05 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-06 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-07 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-08 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-09 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-10 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-11 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-12 | P1: Stateless sheet preview endpoint | Design | Pending |
-| DRY-13 | P2: Stateless template preview endpoint | - | Pending |
-| DRY-14 | P2: Stateless template preview endpoint | - | Pending |
-| DRY-15 | P2: Stateless template preview endpoint | - | Pending |
-| DRY-16 | P2: Stateless template preview endpoint | - | Pending |
-| DRY-17 | P2: Stateless template preview endpoint | - | Pending |
+| DRY-01 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-02 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-03 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-04 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-05 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-06 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-07 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-08 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-09 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-10 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-11 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-12 | P1: Stateless sheet preview endpoint | Execute | Pending |
+| DRY-13 | P2: Stateless template preview endpoint | Execute | Pending |
+| DRY-14 | P2: Stateless template preview endpoint | Execute | Pending |
+| DRY-15 | P2: Stateless template preview endpoint | Execute | Pending |
+| DRY-16 | P2: Stateless template preview endpoint | Execute | Pending |
+| DRY-17 | P2: Stateless template preview endpoint | Execute | Pending |
 | PRV-01 | P1: Preview the recalculated cascade without persisting | Design | Pending |
 | PRV-02 | P1: Preview the recalculated cascade without persisting | Design | Pending |
 | PRV-03 | P1: Preview the recalculated cascade without persisting | Design | Pending |
