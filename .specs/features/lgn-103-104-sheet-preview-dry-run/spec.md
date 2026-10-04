@@ -238,9 +238,9 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | SVE-05 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | SVE-06 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | SVE-07 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
-| DRB-01 | P1: Unsaved drafts survive a restart | Implementing | Implementing |
-| DRB-02 | P1: Unsaved drafts survive a restart | Design | Pending |
-| DRB-03 | P1: Unsaved drafts survive a restart | Design | Pending |
+| DRB-01 | P1: Unsaved drafts survive a restart | Execute | Verified |
+| DRB-02 | P1: Unsaved drafts survive a restart | Execute | Verified |
+| DRB-03 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-04 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-05 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-06 | P1: Unsaved drafts survive a restart | Execute | Verified |
@@ -250,7 +250,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | DRB-10 | P1: Unsaved drafts survive a restart | Design | Pending |
 | DRB-11 | P1: Unsaved drafts survive a restart | Design | Pending |
 | DRB-12 | P1: Unsaved drafts survive a restart | Execute | Verified |
-| DRB-13 | P1: Unsaved drafts survive a restart | Design | Pending |
+| DRB-13 | P1: Unsaved drafts survive a restart | Execute | Verified |
 | DRB-14 | P1: Unsaved drafts survive a restart | Execute | Verified |
 
 **ID format:** `DRY-[NUMBER]` for the backend dry-run endpoints, `PRV-[NUMBER]` for the desktop preview cycle, `SVE-[NUMBER]` for single-flight and rate limit, `DRB-[NUMBER]` for draft backup and restore.
