@@ -243,12 +243,12 @@ T12 -> T15
 
 **Done when**:
 
-- [ ] `previewSheet` sends `POST /sheets/:id/preview` with `{"data": delta}`
-- [ ] A `200` decodes to the cascade map
-- [ ] A mapped error surfaces as `ApiDomainException` with its kind
-- [ ] A transport failure issues exactly one attempt (no retry)
-- [ ] Gate check passes: `flutter test test/api/api_client_test.dart`
-- [ ] Test count: `api_client_test.dart` passes with the new preview cases added (no silent deletions)
+- [x] `previewSheet` sends `POST /sheets/:id/preview` with `{"data": delta}`
+- [x] A `200` decodes to the cascade map
+- [x] A mapped error surfaces as `ApiDomainException` with its kind
+- [x] A transport failure issues exactly one attempt (no retry)
+- [x] Gate check passes: `flutter test test/api/api_client_test.dart`
+- [x] Test count: `api_client_test.dart` passes with the new preview cases added (no silent deletions)
 
 **Tests**: unit
 **Gate**: quick (desktop)

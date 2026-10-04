@@ -157,6 +157,61 @@ void main() {
     });
   });
 
+  group('sheet preview (PRV-03)', () {
+    test('Happy path: previewSheet posts POST /sheets/:id/preview with only the delta (PRV-03)', () async {
+      final recorded = <http.Request>[];
+      final client = ApiClient(
+        httpClient: mockClient(
+          (request) async => http.Response(cascadesBody, 200),
+          recorded,
+        ),
+      );
+
+      final cascades = await client.previewSheet('sheet-1', {
+        'stats': {'dexterity': 16},
+      });
+      expect(cascades, {
+        'derived': {'armorClass': 15},
+        'stats': {'constitution': 16.5},
+      });
+
+      final request = recorded.single;
+      expect(request.method, 'POST');
+      expect(request.url.path, '/sheets/sheet-1/preview');
+      expect(
+        jsonDecode(request.body),
+        {
+          'data': {
+            'stats': {'dexterity': 16},
+          },
+        },
+      );
+      expect(request.headers['content-type'], contains('application/json'));
+    });
+
+    test('Edge: a transport failure issues exactly one preview attempt (no retry)', () async {
+      var attempts = 0;
+      final client = ApiClient(
+        httpClient: MockClient((request) async {
+          attempts++;
+          throw http.ClientException('connection refused');
+        }),
+      );
+
+      await expectLater(
+        client.previewSheet('sheet-1', {'stats': {'dexterity': 16}}),
+        throwsA(
+          isA<ApiDomainException>().having(
+            (error) => error.kind,
+            'kind',
+            ApiErrorKind.offline,
+          ),
+        ),
+      );
+      expect(attempts, 1);
+    });
+  });
+
   group('injected transport (FE1-07)', () {
     test('Happy path: all six endpoints run through the injected transport', () async {
       final recorded = <http.Request>[];
@@ -281,6 +336,25 @@ void main() {
       );
       expect(error.kind, ApiErrorKind.renderMismatch);
       expect(error.code, 'UNKNOWN_FIELD');
+    });
+
+    test('Error: 400 UNKNOWN_FIELD on previewSheet maps to renderMismatch (PRV-03)', () async {
+      final client = ApiClient(
+        httpClient: MockClient(
+          (request) async => http.Response(
+            '{"error": {"code": "UNKNOWN_FIELD", "message": "unknown field"}}',
+            400,
+          ),
+        ),
+      );
+
+      final error = await domainErrorFrom(
+        client,
+        client.previewSheet('sheet-1', {'nope': 1}),
+      );
+      expect(error.kind, ApiErrorKind.renderMismatch);
+      expect(error.code, 'UNKNOWN_FIELD');
+      expect(error.statusCode, 400);
     });
 
     test('Error: 400 INVALID_JSON on createSheet maps to clientFault', () async {

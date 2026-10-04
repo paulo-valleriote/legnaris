@@ -222,7 +222,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | DRY-17 | P2: Stateless template preview endpoint | Execute | Verified |
 | PRV-01 | P1: Preview the recalculated cascade without persisting | Design | Pending |
 | PRV-02 | P1: Preview the recalculated cascade without persisting | Design | Pending |
-| PRV-03 | P1: Preview the recalculated cascade without persisting | Design | Pending |
+| PRV-03 | P1: Preview the recalculated cascade without persisting | Implementing | Implementing |
 | PRV-04 | P1: Preview the recalculated cascade without persisting | Design | Pending |
 | PRV-05 | P1: Preview the recalculated cascade without persisting | Design | Pending |
 | PRV-06 | P1: Preview the recalculated cascade without persisting | Design | Pending |

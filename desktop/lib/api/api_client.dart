@@ -77,6 +77,21 @@ class ApiClient {
     (data) => data as Map<String, Object?>,
   );
 
+  /// `POST /sheets/:id/preview` → the stateless recalculated cascade of
+  /// [delta], sent as `{"data": <delta>}` and persisted nowhere (PRV-03).
+  ///
+  /// Uses the no-retry POST transport: a transport failure issues exactly one
+  /// attempt, so a burst of Preview activations can never double up.
+  Future<Map<String, Object?>> previewSheet(
+    String sheetId,
+    Map<String, Object?> delta,
+  ) async => _decode(
+    await _post('/sheets/${Uri.encodeComponent(sheetId)}/preview', {
+      'data': delta,
+    }),
+    (data) => data as Map<String, Object?>,
+  );
+
   Uri _uri(String path) => _config.baseUrl.resolve(path);
 
   /// GETs [path], retrying exactly once after [retryDelay] when the transport
