@@ -50,14 +50,30 @@
 - **Date**: 2026-10-03
 - **Status**: active
 
+### AD-007
+- **Decision**: The stateless sheet/template preview (`POST /sheets/:id/preview`, `POST /templates/:id/preview`) reuses the exact PATCH recalculation path through one unexported `recalculate` helper in `internal/sheet/service.go`; persistence (`data` + `updated_at`) stays only in `PartialUpdate`, and the preview returns the same derived-cascade body the PATCH returns with the same `apperr` mapping.
+- **Reason**: LGN-103 requires a dry-run whose cascade is identical to an equivalent PATCH without duplicating the DAG logic; one helper guarantees the two cannot drift and lets tests assert zero repository writes.
+- **Trade-off**: `PartialUpdate` now depends on a returned struct holding the merged data the preview does not need, and any future change to the recalc sequence is shared by both paths — deliberate, since divergence is the risk.
+- **Scope**: backend `internal/sheet` (service) and `internal/app` (routes); future preview-like evaluations must go through the same helper rather than re-implementing DAG traversal.
+- **Date**: 2026-10-04
+- **Status**: active
+
+### AD-008
+- **Decision**: Unsaved sheet drafts are backed up as one atomic JSON file per sheet id under the injected app-support directory (`<appSupport>/drafts/<sheet_id>.json`, versioned envelope holding only the pending editable delta), written every 60 seconds while dirty through an injectable `DraftBackupScheduler` and deleted on save success, confirmed discard, `NOT_FOUND` eviction and library removal; restore overlays the stored sheet and is filtered to editable leaves of the loaded template.
+- **Reason**: LGN-104 requires periodic draft backup with recovery; a per-sheet delta survives a crash, reuses AD-003's injected directory, and never persists derived values. The injected scheduler/clock keep the 60-second cadence testable without waiting or a new package.
+- **Trade-off**: A best-effort backup can silently miss a write (no error surfaces), and restore depends on the template still exposing the same editable leaves — stale keys are ignored rather than migrated.
+- **Scope**: desktop/ local persistence — drafts now; the same injected-directory + injected-scheduler convention applies to future periodic writes.
+- **Date**: 2026-10-04
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: `lgn-110-save-delta` (.specs/features/lgn-110-save-delta)
-- **Phase / Task**: Execute — COMPLETE (T1–T7 committed; independent Verifier PASS 27/27, 7/7 mutants killed on round 2; `validate_state.py` exit 0)
-- **Completed**: T1 creation-dialog bounded content, T2 public `mergeCascade`, T3 save on `SheetEditController` (delta + baseline recompute), T4 Screen 2 footer + l10n, T5 `Ctrl+S` binding + `sheetSaveTickProvider`, T6 save-in-flight discard guards, T7 Verifier gap fixes. Commits `b35c6d8`, `904d6ad`, `07c8830`, `a8802cf`, `bcdfb7c`, `1a76241`, `cdfb359` (docs `d6fadda`, chore `71d4298`). Report: `.specs/features/lgn-110-save-delta/validation.md`.
-- **In-progress** (file:line): none
-- **Next step**: review and merge PR #57 (https://github.com/paulo-valleriote/legnaris/pull/57).
-- **Blockers**: none. Full suite `flutter analyze` clean + 486 passed / 4 skipped (pre-existing live/contract skips; `api_client_retry_test` is a known wall-clock flake that passes in isolation); Verifier round 1 gaps (SAV-02 tooltip, SAV-15 merge granularity, surviving Ctrl+S-guard mutant) closed in `cdfb359` and re-verified PASS.
-- **Uncommitted files**: none; branch pushed, PR #57 opened.
-- **Branch**: `feat/lgn-110-save-delta` (pushed; PR #57 → main, based on `6eab233` = origin/main, includes LGN-108)
-- **Prior feature**: `lgn-108-open-sheet` — COMPLETE (PR #56, merged); `lgn-109-create-sheet` — COMPLETE (PR #55, merged)
+- **Feature**: `lgn-103-104-sheet-preview-dry-run` (.specs/features/lgn-103-104-sheet-preview-dry-run)
+- **Phase / Task**: Specify + Design + Tasks COMPLETE (approved); **Execute starting** — 15 tasks in 3 phases, 49 requirements mapped. `validate_spec.py` exit 0, `validate_tasks.py` exit 0.
+- **Completed**: spec.md (bundles LGN-103 backend + LGN-104 frontend in one PR), design.md, tasks.md; AD-007 and AD-008 recorded above.
+- **In-progress** (file:line): none (Execute not started).
+- **Next step**: T1 extract the shared recalculation helper.
+- **Blockers**: none.
+- **Uncommitted files**: none after the spec commit.
+- **Branch**: `feat/lgn-103-104-sheet-preview-dry-run` (from `origin/main` @ `8ae4252`, includes the merged LGN-110 save cycle).
+- **Prior feature**: `lgn-110-save-delta` — COMPLETE (independent Verifier PASS); PR #57 merged into `main`. `lgn-108-open-sheet` — COMPLETE (PR #56, merged); `lgn-109-create-sheet` — COMPLETE (PR #55, merged)
