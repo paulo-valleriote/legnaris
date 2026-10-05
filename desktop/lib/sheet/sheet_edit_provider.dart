@@ -398,10 +398,7 @@ class SheetEditController extends _$SheetEditController {
   void _armCooldown() {
     final previewNextFree = _previewLimiter.nextFreeAt();
     final saveNextFree = _saveLimiter.nextFreeAt();
-    final candidates = <DateTime>[
-      if (previewNextFree != null) previewNextFree,
-      if (saveNextFree != null) saveNextFree,
-    ];
+    final candidates = <DateTime>[?previewNextFree, ?saveNextFree];
     if (candidates.isEmpty) {
       ref.read(cooldownSchedulerProvider).cancel();
       return;
