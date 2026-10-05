@@ -51,6 +51,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | Blocked-action feedback | Action disabled with an l10n tooltip naming the reason (nothing new to preview / request in progress / limit reached) | User decision (2026-10-04); `desktop/AGENTS.md`: disabled primary actions explain themselves via tooltip | y |
 | Preview action placement and copy | Secondary `TextButton` in the existing Screen 2 footer, label `Preview changes`, left of Save | User decision (2026-10-04); keeps a single primary action (Save) and reuses the footer surface | y |
 | Preview merge target | Merge the cascade into the in-memory `data` only; do not advance `defaults` and do not clear `editedPaths` | Card: preview updates "Calculated" fields "sem persistir"; the baseline advances only on a real save | y |
+| Preview marks | After a successful preview, label every delta leaf "Modified" and every derived leaf its cascade recalculated "Recalculated", with a change tint; clear them on the next edit/save/discard and publish none on failure. The base "Calculated" label (RND-10) stays on untouched derived fields | User decision (2026-10-05): the dry-run result did not distinguish the fields the user changed from the fields recomputed from them | y |
 | Draft backup scope | A per-sheet file under the app-support directory, written atomically, holding only the pending editable delta; restored automatically on reopen | User decision (2026-10-04); a delta is sufficient to overlay the stored sheet and avoids writing derived values | y |
 | Draft backup cadence | Every 60 seconds while the sheet has pending edits; timer stops when the sheet is clean | Card: "a cada ~1 min enquanto houver edições não salvas"; an injectable scheduler keeps tests deterministic | y |
 | Draft backup clearing | Delete on save success, on confirmed discard (leave/refresh), on `NOT_FOUND` eviction, and on library removal | Without clearing, an explicitly discarded or saved draft would resurrect on reopen | y |
@@ -128,6 +129,9 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 9. IF a preview fails, THEN the system SHALL NOT record the delta as previewed, so Preview stays available.  <!-- unwanted-behavior -->
 10. WHEN a save succeeds, the system SHALL clear the recorded preview delta so a new edit enables Preview again.  <!-- event-driven -->
 11. WHERE Screen 2 is loading, in an error state, or has no fields, the system SHALL NOT render the Preview action.  <!-- optional-feature -->
+12. WHEN a preview responds `200`, the system SHALL mark every editable leaf of the previewed delta as modified, showing a "Modified" label and a change tint on its row.  <!-- event-driven -->
+13. WHEN a preview responds `200`, the system SHALL show a "Recalculated" label and a change tint on every derived field the returned cascade recalculated, and SHALL keep the base "Calculated" label on derived fields the cascade did not touch.  <!-- event-driven -->
+14. WHEN a new edit, a save, or a discarded sheet follows a successful preview, the system SHALL clear the preview marks; IF a preview fails, THEN the system SHALL publish no marks.  <!-- event-driven -->
 
 **Independent Test**: Open a sheet, edit a field and assert Preview is enabled; activate it once and assert exactly one preview request, zero PATCH requests, and the cascade merged without clearing the dirty flag; activate again with no new edit and assert no request; edit again and assert a new request is allowed; fail a preview and assert the edit stays and Preview is still enabled; save and assert Preview is disabled until a new edit; assert the footer omits Preview while loading.
 
@@ -231,6 +235,9 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | PRV-09 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
 | PRV-10 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
 | PRV-11 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-12 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-13 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
+| PRV-14 | P1: Preview the recalculated cascade without persisting | Execute | Verified |
 | SVE-01 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | SVE-02 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
 | SVE-03 | P1: Preview and Save are single-flight and rate-limited | Execute | Verified |
@@ -257,7 +264,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 **Status values:** Pending → In Design → In Tasks → Implementing → Verified
 
-**Coverage:** 49 total, mapped to tasks at Tasks.
+**Coverage:** 52 total, mapped to tasks at Tasks.
 
 ---
 

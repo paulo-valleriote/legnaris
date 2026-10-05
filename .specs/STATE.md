@@ -66,6 +66,14 @@
 - **Date**: 2026-10-04
 - **Status**: active
 
+### AD-009
+- **Decision**: The dry-run result is identified on Screen 2 by additive preview marks, not a second preview surface: `SheetEditState.previewMarks` publishes the previewed delta's editable leaves (`modified`) and the derived leaves the cascade recalculated (`recalculated`); each row shows a "Modified"/"Recalculated" label (through a `SheetForm.rowMarkBuilder` seam) and its control gets a change tint (`SheetMark` + `sheetMarkTint`). The base "Calculated" (RND-10) stays on derived fields the cascade did not touch, and the marks clear on the next edit/save/discard and never publish on a failed preview.
+- **Reason**: The preview showed the recalculated form without saying which values the user changed and which were computed from them; the backend cascade already carries only the changed derived leaves, so the marks need no extra request or client-side comparison. Keeping the marking additive preserves RND-10 and the read-only surfaces that never preview (creation dialog).
+- **Trade-off**: Each row gains a mark `Consumer` on top of the existing per-path control `select` (two subscriptions per row), and the label lives in the row area while the tint lives in the control, so `SheetFieldControl`/`SheetExclusiveControl` each gained a `mark` input and `SheetForm` a `rowMarkBuilder` seam.
+- **Scope**: desktop/ — `lib/engine/` (sheet_mark, field_control, exclusive_control, sheet_form), `lib/sheet/sheet_edit_provider.dart` (state + preview), `lib/sheet/sheet_screen.dart`, l10n. Backend unchanged.
+- **Date**: 2026-10-05
+- **Status**: active
+
 ## Handoff
 
 - **Feature**: `lgn-103-104-sheet-preview-dry-run` (.specs/features/lgn-103-104-sheet-preview-dry-run)

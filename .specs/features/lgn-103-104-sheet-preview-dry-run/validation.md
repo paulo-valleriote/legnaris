@@ -6,6 +6,29 @@
 **Diff range**: `8ae4252..HEAD` (branch `feat/lgn-103-104-sheet-preview-dry-run`, 17 commits; adds `ed7900c` over round 1)
 **Verifier**: independent sub-agent (author ≠ verifier)
 
+## Amendment (2026-10-05) — preview marks (PRV-12 … PRV-14)
+
+Author-side amendment (not independently re-verified) adding the dry-run
+identification the round-2 report predates: after a successful preview, the
+editable delta rows are labelled **Modified** and the derived rows the cascade
+recalculated **Recalculated** (both with a change tint), while untouched derived
+rows keep the base **Calculated** (RND-10). Marks clear on the next edit, save,
+or discard, and a failed preview publishes none.
+
+| ID | Criterion (WHEN X THEN Y) | Spec-defined outcome | Evidence | Result |
+| -- | ------------------------- | -------------------- | -------- | ------ |
+| PRV-12 | preview `200` | delta leaves labelled "Modified" with a change tint | `desktop/test/engine/field_control_test.dart` (`preview marks`: modified input + toggle tint), `desktop/test/engine/exclusive_control_test.dart` (group dropdown tint), `desktop/test/sheet/sheet_screen_test.dart` (row mark for a leaf and for the `armorClassAbility` group) | ✅ PASS (author) |
+| PRV-13 | preview `200` | cascade leaves labelled "Recalculated" + tint; untouched derived keep "Calculated" | `field_control_test.dart` (recalculated read-only tints the value and drops the base label), `sheet_screen_test.dart` ("a preview marks the changed rows…": untouched `derived.initiative` keeps "Calculated") | ✅ PASS (author) |
+| PRV-14 | new edit/save/discard after a preview; a failed preview | marks cleared; failure publishes none | `sheet_edit_provider_test.dart` (new edit clears; exclusive selection clears; failure/`NOT_FOUND` assert `previewMarks isNull`; save clears), `sheet_screen_test.dart` ("a new edit clears the preview marks", "a failed preview marks nothing") | ✅ PASS (author) |
+
+Source: `desktop/lib/sheet/sheet_edit_provider.dart` (`PreviewMarks` published by
+`preview()`), `desktop/lib/engine/sheet_mark.dart`, `desktop/lib/engine/field_control.dart`,
+`desktop/lib/engine/exclusive_control.dart`, `desktop/lib/engine/sheet_form.dart`,
+`desktop/lib/sheet/sheet_screen.dart`, l10n `fieldModified` / `fieldRecalculated`.
+Requirement count is now **52** (DRY-01…17, PRV-01…14, SVE-01…07, DRB-01…14).
+
+---
+
 ## Validation Result: PASS ✅
 
 ---
