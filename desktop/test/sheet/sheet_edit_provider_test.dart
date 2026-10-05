@@ -853,7 +853,7 @@ void main() {
 
   File draftFile() => File('${supportDir.path}/drafts/$sheetId.json');
 
-  group('preview cycle (PRV-01 … PRV-10)', () {
+  group('preview cycle (PRV-01 … PRV-14)', () {
     test(
       'Happy path: one dry-run merges the cascade, keeps edits pending and blocks a repeat (PRV-01, PRV-03 … PRV-07)',
       () async {
@@ -902,6 +902,68 @@ void main() {
         expect(after.editedPaths, contains('stats.dexterity'));
         expect(after.previewedRevision, after.revision);
         expect(after.canPreview, isFalse, reason: 'no new edit to preview');
+        expect(after.previewMarks, isNotNull);
+        expect(after.previewMarks!.modified, {'stats.dexterity'});
+        expect(after.previewMarks!.recalculated, {
+          'derived.armorClass',
+          'modifiers.dexterityMod',
+        });
+      },
+    );
+
+    test(
+      'Edge: a new edit after a preview clears the marks (PRV-14)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(recorded),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+
+        notifier.setPath('stats.dexterity', 18);
+        await notifier.preview();
+        await pumpEventQueue();
+        expect(stateOf(container, sheetId).previewMarks, isNotNull);
+
+        notifier.setPath('stats.constitution', 20);
+
+        expect(
+          stateOf(container, sheetId).previewMarks,
+          isNull,
+          reason: 'a further edit leaves the last preview stale',
+        );
+      },
+    );
+
+    test(
+      'Edge: an exclusive selection after a preview clears the marks (PRV-14)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(recorded),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+
+        notifier.setPath('stats.dexterity', 18);
+        await notifier.preview();
+        await pumpEventQueue();
+        expect(stateOf(container, sheetId).previewMarks, isNotNull);
+
+        notifier.setExclusive('config.acUsesCon', const ['config.acUsesDex']);
+
+        expect(stateOf(container, sheetId).previewMarks, isNull);
       },
     );
 
@@ -936,6 +998,12 @@ void main() {
         expect(valueAtPath(after.data, 'derived.armorClass'), derivedBefore);
         expect(after.isPending, isTrue);
         expect(after.previewedRevision, after.revision);
+        expect(after.previewMarks!.modified, {'stats.dexterity'});
+        expect(
+          after.previewMarks!.recalculated,
+          isEmpty,
+          reason: 'an empty cascade marks no calculated field',
+        );
       },
     );
 
@@ -969,6 +1037,11 @@ void main() {
         expect(valueAtPath(after.data, 'stats.dexterity'), 18);
         expect(after.previewedRevision, isNull);
         expect(after.canPreview, isTrue);
+        expect(
+          after.previewMarks,
+          isNull,
+          reason: 'a failed preview publishes no marks',
+        );
       },
     );
 
@@ -1046,6 +1119,11 @@ void main() {
           isTrue,
           reason: 'the newer edit is un-previewed',
         );
+        expect(
+          after.previewMarks!.modified,
+          {'stats.dexterity'},
+          reason: 'only the previewed delta is marked, not the in-flight edit',
+        );
       },
     );
 
@@ -1066,6 +1144,11 @@ void main() {
         notifier.setPath('stats.dexterity', 18);
         await notifier.preview();
         await pumpEventQueue();
+        expect(
+          stateOf(container, sheetId).previewMarks,
+          isNotNull,
+          reason: 'the preview published marks',
+        );
         DraftBackupStore(directory: supportDir).write(sheetId, {
           'stats': {'dexterity': 18},
         });
@@ -1076,6 +1159,11 @@ void main() {
 
         final after = stateOf(container, sheetId);
         expect(after.previewedRevision, isNull);
+        expect(
+          after.previewMarks,
+          isNull,
+          reason: 'a save clears the preview marks',
+        );
         expect(draftFile().existsSync(), isFalse);
         expect(valueAtPath(after.data, 'derived.armorClass'), 13);
 
@@ -1310,6 +1398,11 @@ void main() {
         expect(restored.pendingDelta, {
           'stats': {'dexterity': 18},
         });
+        expect(
+          restored.previewMarks,
+          isNull,
+          reason: 'a restored draft carries no preview marks (PRV-14)',
+        );
       },
     );
 

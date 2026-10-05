@@ -38,6 +38,19 @@ part 'sheet_edit_provider.g.dart';
 @Riverpod(keepAlive: true)
 Sheet? openedSheet(Ref ref) => null;
 
+/// Dotted paths the last successful dry-run touched: the editable leaves sent
+/// in the delta (`modified`) and the derived leaves its cascade recalculated
+/// (`recalculated`). The screen renders the preview marks from this.
+class PreviewMarks {
+  const PreviewMarks({required this.modified, required this.recalculated});
+
+  /// Editable leaves the previewed delta changed.
+  final Set<String> modified;
+
+  /// Derived leaves the preview cascade recalculated.
+  final Set<String> recalculated;
+}
+
 /// Immutable values of one sheet's edit state, addressed by dotted path.
 class SheetEditState {
   const SheetEditState({
@@ -48,6 +61,7 @@ class SheetEditState {
     this.saveError,
     this.revision = 0,
     this.previewedRevision,
+    this.previewMarks,
     this.isPreviewing = false,
     this.previewError,
     this.isPreviewBlocked = false,
@@ -83,6 +97,11 @@ class SheetEditState {
   /// Revision at the last successful preview; null before one and after a
   /// save. A failure never advances it, so Preview stays available.
   final int? previewedRevision;
+
+  /// Path sets the last successful preview touched, rendered as the row marks
+  /// on the sheet. Null before any preview, after a save, and after a new edit
+  /// (the preview is then stale and re-previewable).
+  final PreviewMarks? previewMarks;
 
   /// True while a `POST /sheets/:id/preview` is in flight.
   final bool isPreviewing;
@@ -147,6 +166,7 @@ class SheetEditState {
     Object? saveError = _unset,
     int? revision,
     Object? previewedRevision = _unset,
+    Object? previewMarks = _unset,
     bool? isPreviewing,
     Object? previewError = _unset,
     bool? isPreviewBlocked,
@@ -161,6 +181,9 @@ class SheetEditState {
     previewedRevision: previewedRevision == _unset
         ? this.previewedRevision
         : previewedRevision as int?,
+    previewMarks: previewMarks == _unset
+        ? this.previewMarks
+        : previewMarks as PreviewMarks?,
     isPreviewing: isPreviewing ?? this.isPreviewing,
     previewError: previewError == _unset
         ? this.previewError
@@ -227,6 +250,7 @@ class SheetEditController extends _$SheetEditController {
       data: data,
       editedPaths: {...state.editedPaths, path},
       revision: changed ? state.revision + 1 : state.revision,
+      previewMarks: changed ? null : state.previewMarks,
     );
   }
 
@@ -254,6 +278,7 @@ class SheetEditController extends _$SheetEditController {
       data: data,
       editedPaths: {...state.editedPaths, ...paths},
       revision: state.revision + 1,
+      previewMarks: null,
     );
   }
 
@@ -264,9 +289,10 @@ class SheetEditController extends _$SheetEditController {
   /// nothing new to preview, or the delta is empty. On success the cascade is
   /// merged into [SheetEditState.data] only: the baseline never advances and
   /// every edit stays pending (PRV-05, PRV-06); the current revision is
-  /// recorded so a repeat with no new edit is blocked (PRV-07). On failure the
-  /// edits stay, the mapped copy is published, and the revision is not
-  /// recorded, so Preview remains available (PRV-08, PRV-09).
+  /// recorded so a repeat with no new edit is blocked (PRV-07) and the delta
+  /// and cascade paths are published as [SheetEditState.previewMarks]. On
+  /// failure the edits stay, the mapped copy is published, and the revision is
+  /// not recorded, so Preview remains available (PRV-08, PRV-09).
   Future<void> preview() async {
     if (!state.canPreview) return;
     final delta = state.pendingDelta;
@@ -289,6 +315,10 @@ class SheetEditController extends _$SheetEditController {
         isPreviewing: false,
         previewError: null,
         previewedRevision: attemptedRevision,
+        previewMarks: PreviewMarks(
+          modified: _flattenDraft(delta).keys.toSet(),
+          recalculated: _flattenDraft(cascade).keys.toSet(),
+        ),
         isPreviewBlocked: _previewLimiter.isBlocked,
         isSaveBlocked: _saveLimiter.isBlocked,
       );
@@ -360,6 +390,7 @@ class SheetEditController extends _$SheetEditController {
       isSaving: false,
       saveError: null,
       previewedRevision: null,
+      previewMarks: null,
       isPreviewBlocked: _previewLimiter.isBlocked,
       isSaveBlocked: _saveLimiter.isBlocked,
     );
