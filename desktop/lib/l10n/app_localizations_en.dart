@@ -127,6 +127,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fieldCalculated => 'Calculated';
 
   @override
+  String get fieldModified => 'Modified';
+
+  @override
+  String get fieldRecalculated => 'Recalculated';
+
+  @override
   String get sheetLocalEdits => 'Local edits';
 
   @override

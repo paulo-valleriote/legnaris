@@ -146,6 +146,14 @@
   "@fieldCalculated": {
     "description": "Read-only highlight shown next to a non-editable (derived) field value (RND-10)."
   },
+  "fieldModified": "Modified",
+  "@fieldModified": {
+    "description": "Row mark shown left of an editable field the pending delta changed, after a successful preview (PRV-12)."
+  },
+  "fieldRecalculated": "Recalculated",
+  "@fieldRecalculated": {
+    "description": "Row mark shown left of a derived field the last successful preview recalculated (PRV-13)."
+  },
   "sheetLocalEdits": "Local edits",
   "@sheetLocalEdits": {
     "description": "Footer caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12)."

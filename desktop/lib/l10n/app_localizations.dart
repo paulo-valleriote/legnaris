@@ -292,6 +292,18 @@ abstract class AppLocalizations {
   /// **'Calculated'**
   String get fieldCalculated;
 
+  /// Row mark shown left of an editable field the pending delta changed, after a successful preview (PRV-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Modified'**
+  String get fieldModified;
+
+  /// Row mark shown left of a derived field the last successful preview recalculated (PRV-13).
+  ///
+  /// In en, this message translates to:
+  /// **'Recalculated'**
+  String get fieldRecalculated;
+
   /// Footer caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12).
   ///
   /// In en, this message translates to:

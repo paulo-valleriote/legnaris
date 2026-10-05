@@ -2015,12 +2015,20 @@ void main() {
     );
   });
 
-  group('preview footer (PRV-01 … PRV-11, SVE-01 … SVE-03)', () {
+  group('preview footer (PRV-01 … PRV-14, SVE-01 … SVE-03)', () {
     const cascadeBody = '{"data": {"derived": {"armorClass": 13}}}';
     const previewFailBody =
         '{"error": {"code": "UNKNOWN_FIELD", "message": "unknown field"}}';
     const invalidBody =
         '{"error": {"code": "INVALID_REQUEST", "message": "not editable"}}';
+    // One editable leaf and two derived leaves, so a preview that only changes
+    // armorClass proves the untouched derived keeps its base label.
+    const twoDerivedBody = '''
+{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
+  "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "Dexterity", "is_editable": true, "default": 10}}}},
+  "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "Armor Class", "formula": "x + 1", "is_editable": false, "default": 0}}, "initiative": {"schema": {"type": "number", "label": "Initiative", "formula": "x", "is_editable": false, "default": 0}}}}
+}}}
+''';
 
     TextButton previewButton(WidgetTester tester) =>
         tester.widget<TextButton>(find.byKey(const Key('sheet-preview')));
@@ -2160,6 +2168,162 @@ void main() {
               .data,
           '13',
           reason: 'the merged cascade still updates the derived control',
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: a preview marks the changed rows and leaves the untouched derived unmarked (PRV-12, PRV-13)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? http.Response(cascadeBody, 200)
+              : http.Response(twoDerivedBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Modified'), findsNothing);
+        expect(find.text('Recalculated'), findsNothing);
+        expect(find.text('Calculated'), findsNWidgets(2));
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-preview')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('sheet-row-stats.dexterity')),
+            matching: find.text('Modified'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('sheet-row-derived.armorClass')),
+            matching: find.text('Recalculated'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('sheet-row-derived.armorClass')),
+            matching: find.text('Calculated'),
+          ),
+          findsNothing,
+          reason: 'the preview label replaces the base one',
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('sheet-row-derived.initiative')),
+            matching: find.text('Calculated'),
+          ),
+          findsOneWidget,
+          reason: 'an untouched derived field keeps its base label',
+        );
+        expect(
+          find.byKey(const Key('sheet-mark-tint-derived.armorClass')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-mark-tint-derived.initiative')),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: a new edit clears the preview marks (PRV-14)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? http.Response(cascadeBody, 200)
+              : http.Response(twoDerivedBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-preview')));
+        await tester.pumpAndSettle();
+        expect(find.text('Modified'), findsOneWidget);
+        expect(find.text('Recalculated'), findsOneWidget);
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '17',
+        );
+        await tester.pump();
+
+        expect(find.text('Modified'), findsNothing);
+        expect(find.text('Recalculated'), findsNothing);
+        expect(
+          find.text('Calculated'),
+          findsNWidgets(2),
+          reason: 'the stale preview stops marking',
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: a failed preview marks nothing (PRV-14)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? http.Response(previewFailBody, 400)
+              : http.Response(twoDerivedBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+          '16',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-preview')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('sheet-preview-error')), findsOneWidget);
+        expect(find.text('Modified'), findsNothing);
+        expect(find.text('Recalculated'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Happy path: a preview marks a changed exclusive group row as Modified (PRV-12)',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          handler: (request) async => request.url.path.endsWith('/preview')
+              ? http.Response('{"data": {}}', 200)
+              : http.Response(detailBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        await selectExclusive(tester, 'armorClassAbility', 'config.acUsesCon');
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('sheet-preview')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('sheet-row-armorClassAbility')),
+            matching: find.text('Modified'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-mark-tint-armorClassAbility')),
+          findsOneWidget,
         );
       },
     );

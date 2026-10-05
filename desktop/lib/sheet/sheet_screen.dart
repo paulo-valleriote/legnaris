@@ -22,6 +22,7 @@ import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_control.dart';
 import 'package:legnaris/engine/field_grouping.dart';
 import 'package:legnaris/engine/sheet_form.dart';
+import 'package:legnaris/engine/sheet_mark.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/sheet/draft_auto_backup.dart';
 import 'package:legnaris/sheet/draft_backup_store.dart';
@@ -470,6 +471,7 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
         fields: template.fields,
         controlBuilder: _control,
         exclusiveControlBuilder: _exclusiveControl,
+        rowMarkBuilder: _rowMark,
       ),
     );
   }
@@ -517,21 +519,50 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
   }
 
   /// One field's control, wired to the edit state: the `Consumer` subscribes
-  /// to this field's dotted path only, so an edit to any other field leaves
-  /// this subtree untouched (GRN-07, GRN-08). The screen itself never
-  /// watches the edit state (AD-001).
+  /// to this field's dotted path and its preview mark only, so an edit to any
+  /// other field leaves this subtree untouched (GRN-07, GRN-08). The screen
+  /// itself never watches the edit state (AD-001).
   Widget _control(BuildContext context, SheetField field) => Consumer(
     builder: (context, ref, _) {
       final provider = sheetEditControllerProvider(widget.sheetId);
       final value = ref.watch(
         provider.select((state) => valueAtPath(state.data, field.path)),
       );
+      final mark = ref.watch(
+        provider.select(
+          (state) => _markForPaths(state, [field.path]),
+        ),
+      );
       return SheetFieldControl(
         path: field.path,
         schema: field.schema,
         value: value,
+        mark: mark,
         onChanged: (value) =>
             ref.read(provider.notifier).setPath(field.path, value),
+      );
+    },
+  );
+
+  /// The preview-mark label of one row (a leaf or an exclusive group), shown
+  /// left of the value after a successful dry-run. Its own `Consumer` selects
+  /// the mark so only marked rows rebuild (AD-001).
+  Widget _rowMark(BuildContext context, List<String> paths) => Consumer(
+    builder: (context, ref, _) {
+      final provider = sheetEditControllerProvider(widget.sheetId);
+      final mark = ref.watch(
+        provider.select((state) => _markForPaths(state, paths)),
+      );
+      if (mark == null) return const SizedBox.shrink();
+      final localizations = AppLocalizations.of(context)!;
+      final theme = Theme.of(context);
+      return Text(
+        mark == SheetMark.modified
+            ? localizations.fieldModified
+            : localizations.fieldRecalculated,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.primary,
+        ),
       );
     },
   );
@@ -558,9 +589,18 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
         );
         if (exclusiveValueIsOn(value)) active = option.path;
       }
+      final mark = ref.watch(
+        provider.select(
+          (state) => _markForPaths(
+            state,
+            [for (final option in group.options) option.path],
+          ),
+        ),
+      );
       return SheetExclusiveControl(
         group: group,
         selectedPath: active,
+        mark: mark,
         onSelect: (path) => ref.read(provider.notifier).setExclusive(
           path == exclusiveNoneValue ? null : path,
           group.options
@@ -570,4 +610,19 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
       );
     },
   );
+}
+
+/// The preview mark covering [paths], or null. A modified editable leaf wins
+/// over a recalculated derived one; a row is one or the other in practice, and
+/// an exclusive group is editable-only.
+SheetMark? _markForPaths(SheetEditState state, List<String> paths) {
+  final marks = state.previewMarks;
+  if (marks == null) return null;
+  for (final path in paths) {
+    if (marks.modified.contains(path)) return SheetMark.modified;
+  }
+  for (final path in paths) {
+    if (marks.recalculated.contains(path)) return SheetMark.recalculated;
+  }
+  return null;
 }
