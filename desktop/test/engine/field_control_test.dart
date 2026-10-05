@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/engine/field_control.dart';
+import 'package:legnaris/engine/sheet_mark.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
@@ -24,6 +25,7 @@ void main() {
     required String path,
     required FieldSchema schema,
     required Object? value,
+    SheetMark? mark,
     ValueChanged<Object?>? onChanged,
   }) async {
     await tester.pumpWidget(
@@ -37,6 +39,7 @@ void main() {
               path: path,
               schema: schema,
               value: value,
+              mark: mark,
               onChanged: onChanged,
             ),
           ),
@@ -529,6 +532,99 @@ void main() {
           reason: 'toInt clamps beyond int64 and would display a different '
               'number than the stored one',
         );
+      },
+    );
+  });
+
+  group('preview marks (PRV-12, PRV-13)', () {
+    Finder tintOf(String path) => find.byKey(Key('sheet-mark-tint-$path'));
+
+    testWidgets(
+      'Happy path: a modified editable field tints its input (PRV-12)',
+      (tester) async {
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 16.0,
+          mark: SheetMark.modified,
+        );
+
+        final input = tester.widget<TextField>(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+        );
+        expect(input.decoration?.filled, isTrue);
+        expect(input.decoration?.fillColor, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'Edge: without a mark the input carries no tint (PRV-12)',
+      (tester) async {
+        await pump(
+          tester,
+          path: 'stats.dexterity',
+          schema: schemaFor('number'),
+          value: 16.0,
+        );
+
+        final input = tester.widget<TextField>(
+          find.byKey(const Key('sheet-input-stats.dexterity')),
+        );
+        expect(input.decoration?.filled, isFalse);
+      },
+    );
+
+    testWidgets(
+      'Happy path: a recalculated derived field tints its value and drops Calculated (PRV-13)',
+      (tester) async {
+        await pump(
+          tester,
+          path: 'derived.armorClass',
+          schema: schemaFor('number', editable: false),
+          value: 13.0,
+          mark: SheetMark.recalculated,
+        );
+
+        expect(find.text('13'), findsOneWidget);
+        expect(
+          find.text('Calculated'),
+          findsNothing,
+          reason: 'the row label names the preview state instead',
+        );
+        final tinted = tester.widget<Container>(tintOf('derived.armorClass'));
+        expect(tinted.decoration, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'Edge: an unmarked derived field keeps the base Calculated label and no tint (RND-10)',
+      (tester) async {
+        await pump(
+          tester,
+          path: 'derived.armorClass',
+          schema: schemaFor('number', editable: false),
+          value: 13.0,
+        );
+
+        expect(find.text('Calculated'), findsOneWidget);
+        expect(tintOf('derived.armorClass'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Happy path: a modified toggle tints its checkbox container (PRV-12)',
+      (tester) async {
+        await pump(
+          tester,
+          path: 'config.acUsesDex',
+          schema: schemaFor('number'),
+          value: 1.0,
+          mark: SheetMark.modified,
+        );
+
+        final tinted = tester.widget<Container>(tintOf('config.acUsesDex'));
+        expect(tinted.decoration, isNotNull);
       },
     );
   });

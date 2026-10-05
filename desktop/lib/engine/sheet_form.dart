@@ -35,6 +35,14 @@ typedef SheetExclusiveControlBuilder = Widget Function(
   ValueChanged<String>? onSelect,
 );
 
+/// Builds the preview-mark label of one row, given every dotted path the row
+/// covers (a single leaf, or all members of an exclusive group). The returned
+/// widget subscribes to the marks itself, so [SheetForm] stays stateless.
+typedef SheetRowMarkBuilder = Widget Function(
+  BuildContext context,
+  List<String> paths,
+);
+
 /// Renders the whole sheet body from a template field tree and the current
 /// values.
 class SheetForm extends StatelessWidget {
@@ -45,6 +53,7 @@ class SheetForm extends StatelessWidget {
     this.onChanged,
     this.controlBuilder,
     this.exclusiveControlBuilder,
+    this.rowMarkBuilder,
   }) : assert(
          (data == null) != (controlBuilder == null) &&
              (controlBuilder == null) == (exclusiveControlBuilder == null),
@@ -65,6 +74,9 @@ class SheetForm extends StatelessWidget {
 
   /// Exclusive-row control source; provided together with [controlBuilder].
   final SheetExclusiveControlBuilder? exclusiveControlBuilder;
+
+  /// Optional per-row preview mark source; when omitted the rows carry none.
+  final SheetRowMarkBuilder? rowMarkBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +124,12 @@ class SheetForm extends StatelessWidget {
         children: [
           Expanded(
             flex: 2,
-            child: Text(label, style: theme.textTheme.bodyMedium),
+            child: _labelWithMark(
+              context,
+              label,
+              [for (final option in group.options) option.path],
+              theme.textTheme.bodyMedium,
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -142,6 +159,28 @@ class SheetForm extends StatelessWidget {
     return null;
   }
 
+  /// One row's label plus, when a [rowMarkBuilder] is injected, its preview
+  /// mark. The builder's widget owns its own subscription, so this stays a
+  /// stateless composition.
+  Widget _labelWithMark(
+    BuildContext context,
+    String text,
+    List<String> paths,
+    TextStyle? style,
+  ) {
+    final builder = rowMarkBuilder;
+    if (builder == null) return Text(text, style: style);
+    return Row(
+      children: [
+        Flexible(
+          child: Text(text, style: style, overflow: TextOverflow.ellipsis),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        builder(context, paths),
+      ],
+    );
+  }
+
   Widget _row(BuildContext context, SheetField field) {
     final theme = Theme.of(context);
     final label = fieldDisplayName(field.path.split('.').last, field.schema);
@@ -150,7 +189,14 @@ class SheetForm extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+          Expanded(
+            child: _labelWithMark(
+              context,
+              label,
+              [field.path],
+              theme.textTheme.bodyMedium,
+            ),
+          ),
           const SizedBox(width: AppSpacing.md),
           if (controlBuilder != null)
             controlBuilder!(context, field)
