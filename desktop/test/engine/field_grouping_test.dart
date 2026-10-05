@@ -10,6 +10,7 @@ void main() {
     String? formula,
     double defaultValue = 0,
     String? exclusiveGroup,
+    String? columnLabel,
   }) => FieldNode(
     schema: FieldSchema(
       type: type,
@@ -18,11 +19,18 @@ void main() {
       isEditable: editable,
       defaultValue: defaultValue,
       exclusiveGroup: exclusiveGroup,
+      columnLabel: columnLabel,
     ),
   );
 
   FieldNode groupOf(Map<String, FieldNode> children) =>
       FieldNode(children: children);
+
+  FieldNode tableGroup(
+    Map<String, FieldNode> children, {
+    String? label,
+    List<String>? columns,
+  }) => FieldNode(children: children, label: label, columns: columns);
 
   group('buildSections (RND-01, RND-02, RND-03)', () {
     test(
@@ -111,6 +119,303 @@ void main() {
         sections.map((section) => section.leaves.single.path),
         ['modifiers.value', 'derived.value'],
       );
+    });
+  });
+
+  group('table rows (RND-21)', () {
+    test(
+      'Happy path: a group with columns becomes one row in declared order',
+      () {
+        final fields = {
+          'skills': groupOf({
+            'acrobatics': tableGroup(
+              {
+                'bonus': leaf('number', label: 'Acrobatics bonus'),
+                'total': leaf('number', editable: false),
+              },
+              columns: ['bonus', 'total'],
+            ),
+          }),
+        };
+
+        final section = buildSections(fields).single;
+
+        expect(section.rows, hasLength(1));
+        final row = section.rows.single;
+        expect(row.exclusive, isNull);
+        expect(row.group, isNotNull);
+        expect(row.group!.label, 'Acrobatics');
+        expect(
+          row.fields.map((field) => field.path).toList(),
+          ['skills.acrobatics.bonus', 'skills.acrobatics.total'],
+        );
+      },
+    );
+
+    test(
+      'Happy path: declared column order wins over the children order',
+      () {
+        final fields = {
+          'attacks': groupOf({
+            'attack1': tableGroup(
+              {
+                'name': leaf('text'),
+                'damage': leaf('text'),
+                'bonus': leaf('number'),
+              },
+              label: 'Attack 1',
+              columns: ['name', 'damage', 'bonus'],
+            ),
+          }),
+        };
+
+        final row = buildSections(fields).single.rows.single;
+
+        expect(row.group!.label, 'Attack 1');
+        expect(
+          row.fields.map((field) => field.path).toList(),
+          ['attacks.attack1.name', 'attacks.attack1.damage', 'attacks.attack1.bonus'],
+        );
+      },
+    );
+
+    test('Happy path: table rows carry one leaf per declared column', () {
+      final fields = {
+        'spells': groupOf({
+          'slot1': tableGroup(
+            {
+              'total': leaf('number'),
+              'expended': leaf('number'),
+              'remaining': leaf('number', editable: false),
+            },
+            label: 'Level 1',
+            columns: ['total', 'expended', 'remaining'],
+          ),
+        }),
+      };
+
+      final row = buildSections(fields).single.rows.single;
+
+      expect(row.group!.label, 'Level 1');
+      expect(row.fields, hasLength(3));
+    });
+
+    test('Edge: a group without columns stays stacked rows', () {
+      final fields = {
+        'stats': groupOf({
+          'identity': tableGroup(
+            {
+              'dexterity': leaf('number'),
+              'strength': leaf('number'),
+            },
+          ),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.rows, hasLength(2));
+      expect(section.rows.every((row) => row.group == null), isTrue);
+      expect(
+        section.rows.map((row) => row.fields.single.path).toList(),
+        ['stats.identity.dexterity', 'stats.identity.strength'],
+      );
+    });
+
+    test('Edge: an empty column list stays stacked rows', () {
+      final fields = {
+        'stats': groupOf({
+          'identity': tableGroup(
+            {
+              'dexterity': leaf('number'),
+              'strength': leaf('number'),
+            },
+            label: 'Identity',
+            columns: const [],
+          ),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.rows, hasLength(2));
+      expect(section.rows.every((row) => row.group == null), isTrue);
+    });
+
+    test('Edge: a column key missing from the children is ignored', () {
+      final fields = {
+        'skills': groupOf({
+          'acrobatics': tableGroup(
+            {'bonus': leaf('number'), 'total': leaf('number')},
+            columns: ['bonus', 'ghost', 'total'],
+          ),
+        }),
+      };
+
+      final row = buildSections(fields).single.rows.single;
+
+      expect(
+        row.fields.map((field) => field.path).toList(),
+        ['skills.acrobatics.bonus', 'skills.acrobatics.total'],
+      );
+      expect(row.group, isNotNull);
+    });
+
+    test('Edge: a column naming a group child is ignored', () {
+      final fields = {
+        'skills': groupOf({
+          'acrobatics': tableGroup(
+            {
+              'bonus': leaf('number'),
+              'nested': groupOf({'total': leaf('number')}),
+            },
+            columns: ['bonus', 'nested'],
+          ),
+        }),
+      };
+
+      final row = buildSections(fields).single.rows.single;
+
+      expect(row.fields.map((field) => field.path).toList(), [
+        'skills.acrobatics.bonus',
+      ]);
+    });
+
+    test('Edge: a table whose columns all resolve to nothing falls back to stacked rows', () {
+      final fields = {
+        'skills': groupOf({
+          'acrobatics': tableGroup(
+            {'bonus': leaf('number')},
+            columns: ['ghost', 'phantom'],
+          ),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.rows, hasLength(1));
+      expect(section.rows.single.group, isNull);
+      expect(
+        section.rows.single.fields.single.path,
+        'skills.acrobatics.bonus',
+      );
+    });
+
+    test('Edge: a leaf alongside a table keeps its own normal row', () {
+      final fields = {
+        'spells': groupOf({
+          'attackBonus': leaf('number', editable: false),
+          'atWill': leaf('text'),
+          'slot1': tableGroup(
+            {
+              'total': leaf('number'),
+              'remaining': leaf('number', editable: false),
+            },
+            label: 'Level 1',
+            columns: ['total', 'remaining'],
+          ),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.rows, hasLength(3));
+      expect(section.rows[0].group, isNull);
+      expect(section.rows[0].fields.single.path, 'spells.attackBonus');
+      expect(section.rows[1].group, isNull);
+      expect(section.rows[1].fields.single.path, 'spells.atWill');
+      expect(section.rows[2].group, isNotNull);
+    });
+
+    test('Edge: table rows leave the flattened section leaves intact', () {
+      final fields = {
+        'skills': groupOf({
+          'acrobatics': tableGroup(
+            {'bonus': leaf('number'), 'total': leaf('number')},
+            columns: ['bonus', 'total'],
+          ),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.leaves.map((field) => field.path).toList(), [
+        'skills.acrobatics.bonus',
+        'skills.acrobatics.total',
+      ]);
+    });
+
+    test('Edge: an empty declared label humanizes the group key', () {
+      final fields = {
+        'skills': groupOf({
+          'acrobatics': tableGroup(
+            {'bonus': leaf('number')},
+            label: '   ',
+            columns: ['bonus'],
+          ),
+        }),
+      };
+
+      expect(
+        buildSections(fields).single.rows.single.group!.label,
+        'Acrobatics',
+      );
+    });
+
+    test('Edge: a table row coexists with an exclusive group row', () {
+      final fields = {
+        'config': groupOf({
+          'acUsesDex': leaf('number', exclusiveGroup: 'armorClassAbility'),
+          'acUsesCon': leaf('number', exclusiveGroup: 'armorClassAbility'),
+          'slot1': tableGroup(
+            {'total': leaf('number')},
+            label: 'Level 1',
+            columns: ['total'],
+          ),
+        }),
+      };
+
+      final section = buildSections(fields).single;
+
+      expect(section.rows, hasLength(2));
+      expect(section.rows[0].exclusive?.id, 'armorClassAbility');
+      expect(section.rows[1].group!.label, 'Level 1');
+    });
+  });
+
+  group('column labels (RND-21)', () {
+    test('Happy path: column_label wins over the schema label', () {
+      final schema = FieldSchema(
+        type: 'number',
+        label: 'Acrobatics bonus',
+        isEditable: true,
+        defaultValue: 0,
+        columnLabel: 'Bonus',
+      );
+
+      expect(fieldColumnName('bonus', schema), 'Bonus');
+    });
+
+    test('Edge: an empty column_label falls back to the schema label', () {
+      final schema = FieldSchema(
+        type: 'number',
+        label: 'Acrobatics bonus',
+        isEditable: true,
+        defaultValue: 0,
+      );
+
+      expect(fieldColumnName('bonus', schema), 'Acrobatics bonus');
+    });
+
+    test('Edge: a blank label falls back to the humanized key', () {
+      final schema = FieldSchema(
+        type: 'number',
+        label: '  ',
+        isEditable: true,
+        defaultValue: 0,
+      );
+
+      expect(fieldColumnName('baseArmorClass', schema), 'Base armor class');
     });
   });
 

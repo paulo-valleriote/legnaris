@@ -14,6 +14,7 @@ void main() {
     bool editable = true,
     String? formula,
     String? exclusiveGroup,
+    String? columnLabel,
   }) => FieldNode(
     schema: FieldSchema(
       type: type,
@@ -22,11 +23,18 @@ void main() {
       isEditable: editable,
       defaultValue: 0,
       exclusiveGroup: exclusiveGroup,
+      columnLabel: columnLabel,
     ),
   );
 
   FieldNode groupOf(Map<String, FieldNode> children) =>
       FieldNode(children: children);
+
+  FieldNode tableGroup(
+    Map<String, FieldNode> children, {
+    String? label,
+    List<String>? columns,
+  }) => FieldNode(children: children, label: label, columns: columns);
 
   Future<void> pumpForm(
     WidgetTester tester, {
@@ -133,6 +141,219 @@ void main() {
     });
   });
 
+  group('table rows (RND-21)', () {
+    testWidgets(
+      'Happy path: a table group renders one header and one row per group, in column order',
+      (tester) async {
+        final fields = {
+          'skills': groupOf({
+            'acrobatics': tableGroup(
+              {
+                'bonus': leaf('number', columnLabel: 'Bonus'),
+                'total': leaf('number', editable: false, columnLabel: 'Total'),
+              },
+              columns: ['bonus', 'total'],
+            ),
+            'analysis': tableGroup(
+              {
+                'bonus': leaf('number', columnLabel: 'Bonus'),
+                'total': leaf('number', editable: false, columnLabel: 'Total'),
+              },
+              columns: ['bonus', 'total'],
+            ),
+          }),
+        };
+
+        await pumpForm(
+          tester,
+          fields: fields,
+          data: const {
+            'skills': {
+              'acrobatics': {'bonus': 0, 'total': 0},
+              'analysis': {'bonus': 0, 'total': 0},
+            },
+          },
+        );
+
+        expect(
+          find.byKey(const Key('sheet-table-header-skills-0')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-table-header-skills-1')),
+          findsNothing,
+          reason: 'consecutive rows sharing the columns share one header',
+        );
+        final header = find.byKey(const Key('sheet-table-header-skills-0'));
+        expect(
+          find.descendant(of: header, matching: find.text('Bonus')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: header, matching: find.text('Total')),
+          findsOneWidget,
+        );
+        expect(find.text('Acrobatics'), findsOneWidget);
+        expect(find.text('Analysis'), findsOneWidget);
+        expect(
+          find.byKey(const Key('sheet-group-row-skills.acrobatics.bonus')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-group-row-skills.analysis.bonus')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: a numeric table cell is aligned right and a text cell left (RND-21)',
+      (tester) async {
+        final fields = {
+          'attacks': groupOf({
+            'attack1': tableGroup(
+              {
+                'name': leaf('text', columnLabel: 'Name'),
+                'bonus': leaf('number', columnLabel: 'Bonus'),
+              },
+              label: 'Attack 1',
+              columns: ['name', 'bonus'],
+            ),
+          }),
+        };
+
+        await pumpForm(
+          tester,
+          fields: fields,
+          data: const {
+            'attacks': {
+              'attack1': {'name': '', 'bonus': 0},
+            },
+          },
+        );
+
+        Alignment alignmentOf(String path) {
+          final align = tester.widget<Align>(
+            find.byKey(Key('sheet-table-cell-$path')),
+          );
+          return align.alignment as Alignment;
+        }
+
+        expect(
+          alignmentOf('attacks.attack1.bonus'),
+          Alignment.centerRight,
+        );
+        expect(
+          alignmentOf('attacks.attack1.name'),
+          Alignment.centerLeft,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: two tables with different columns each get their own header',
+      (tester) async {
+        final fields = {
+          'mixed': groupOf({
+            'first': tableGroup(
+              {
+                'a': leaf('number', columnLabel: 'A'),
+                'b': leaf('number', columnLabel: 'B'),
+              },
+              columns: ['a', 'b'],
+            ),
+            'second': tableGroup(
+              {
+                'c': leaf('number', columnLabel: 'C'),
+              },
+              columns: ['c'],
+            ),
+          }),
+        };
+
+        await pumpForm(
+          tester,
+          fields: fields,
+          data: const {
+            'mixed': {
+              'first': {'a': 0, 'b': 0},
+              'second': {'c': 0},
+            },
+          },
+        );
+
+        expect(
+          find.byKey(const Key('sheet-table-header-mixed-0')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-table-header-mixed-1')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: table cells use the injected controlBuilder (RND-21)',
+      (tester) async {
+        final fields = {
+          'skills': groupOf({
+            'acrobatics': tableGroup(
+              {
+                'bonus': leaf('number', columnLabel: 'Bonus'),
+              },
+              columns: ['bonus'],
+            ),
+          }),
+        };
+
+        await pumpForm(
+          tester,
+          fields: fields,
+          data: null,
+          controlBuilder: (context, field) => Text('built ${field.path}'),
+          exclusiveControlBuilder:
+              (context, group, selectedPath, onSelect) =>
+                  const SizedBox.shrink(),
+        );
+
+        expect(find.text('built skills.acrobatics.bonus'), findsOneWidget);
+        expect(find.byType(SheetFieldControl), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Edge: an unknown column key renders no phantom cell (RND-21)',
+      (tester) async {
+        final fields = {
+          'skills': groupOf({
+            'acrobatics': tableGroup(
+              {
+                'bonus': leaf('number', columnLabel: 'Bonus'),
+                'total': leaf('number', columnLabel: 'Total'),
+              },
+              columns: ['bonus', 'ghost', 'total'],
+            ),
+          }),
+        };
+
+        await pumpForm(
+          tester,
+          fields: fields,
+          data: const {
+            'skills': {
+              'acrobatics': {'bonus': 0, 'total': 0},
+            },
+          },
+        );
+
+        expect(find.text('Bonus'), findsOneWidget);
+        expect(find.text('Total'), findsOneWidget);
+        expect(find.text('Ghost'), findsNothing);
+      },
+    );
+  });
+
   group('values and edits (RND-12, RND-16)', () {
     testWidgets(
       'Happy path: a value resolves from the map by dotted path (RND-16)',
@@ -188,7 +409,7 @@ void main() {
     );
 
     testWidgets(
-      'Happy path: config renders a toggle and a derived field renders Calculated (RND-08, RND-10)',
+      'Happy path: config renders a toggle and a derived field renders its value with no label (RND-08, RND-10)',
       (tester) async {
         final fields = {
           'config': groupOf({'acUsesDex': leaf('number')}),
@@ -210,11 +431,12 @@ void main() {
           find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsOneWidget,
         );
-        expect(find.text('Calculated'), findsOneWidget);
+        expect(find.text('Calculated'), findsNothing);
         expect(
           find.byKey(const Key('sheet-value-derived.armorClass')),
           findsOneWidget,
         );
+        expect(find.text('13'), findsOneWidget);
       },
     );
 

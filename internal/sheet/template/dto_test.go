@@ -225,6 +225,82 @@ func TestFieldSchemaToDTO_CopiesOptionLabel(t *testing.T) {
 		"mutating the DTO changed the source schema")
 }
 
+// TestFieldSchemaToDTO_CopiesColumnLabel pins the copy half of the table-column
+// contract: toDTO carries the short column label into a fresh schema, so a
+// caller that mutates the DTO never reaches the registered template.
+func TestFieldSchemaToDTO_CopiesColumnLabel(t *testing.T) {
+	source := &FieldSchema{
+		Type:        fieldTypeNumber,
+		IsEditable:  true,
+		ColumnLabel: "Bonus",
+	}
+
+	dto := source.toDTO()
+	require.NotNil(t, dto)
+	assert.Equal(t, "Bonus", dto.ColumnLabel)
+
+	dto.ColumnLabel = "tampered"
+	assert.Equal(t, "Bonus", source.ColumnLabel,
+		"mutating the DTO changed the source schema")
+}
+
+// TestFieldNodeToDTO_CopiesTableMetadata pins the group half of the table
+// contract: a group node's label travels verbatim and its column list is
+// cloned, so mutating the response never rewrites the registered template.
+func TestFieldNodeToDTO_CopiesTableMetadata(t *testing.T) {
+	source := FieldNode{
+		Children: FieldGroup{
+			"bonus": {Schema: &FieldSchema{Type: fieldTypeNumber}},
+		},
+		Label:   "Attack 1",
+		Columns: []string{"name", "damage", "bonus"},
+	}
+
+	dto := source.toDTO()
+	require.NotNil(t, dto)
+	assert.Equal(t, "Attack 1", dto.Label)
+	assert.Equal(t, []string{"name", "damage", "bonus"}, dto.Columns)
+
+	dto.Columns[0] = "tampered"
+	assert.Equal(t, "name", source.Columns[0],
+		"mutating the DTO Columns changed the source node")
+}
+
+// TestFieldNodeDTO_MarshalJSON_TableMetadata pins the wire shape: the optional
+// group keys are emitted only when declared, so groups without table metadata
+// stay byte-identical to the pre-redesign payload.
+func TestFieldNodeDTO_MarshalJSON_TableMetadata(t *testing.T) {
+	tests := []struct {
+		name string
+		node FieldNodeDTO
+		want string
+	}{
+		{
+			name: "Happy path: a table group serializes label and columns",
+			node: FieldNodeDTO{
+				Children: FieldGroupDTO{"bonus": {}},
+				Label:    "Attack 1",
+				Columns:  []string{"name", "damage", "bonus"},
+			},
+			want: `{"children":{"bonus":{}},"label":"Attack 1","columns":["name","damage","bonus"]}`,
+		},
+		{
+			name: "Edge: a group without table metadata omits both keys",
+			node: FieldNodeDTO{Children: FieldGroupDTO{"bonus": {}}},
+			want: `{"children":{"bonus":{}}}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := json.Marshal(tc.node)
+			require.NoError(t, err)
+
+			assert.JSONEq(t, tc.want, string(raw))
+		})
+	}
+}
+
 // TestTemplateToDTO_Edge_NilSchema covers group nodes, whose API shape is a
 // children map with no schema at all.
 func TestTemplateToDTO_Edge_NilSchema(t *testing.T) {

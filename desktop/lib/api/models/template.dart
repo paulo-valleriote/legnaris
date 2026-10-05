@@ -6,13 +6,15 @@ library;
 typedef FieldGroup = Map<String, FieldNode>;
 
 /// One node of the template field tree: a leaf exposes only `schema`, a group
-/// exposes only `children` (FE1-08).
+/// exposes `children` plus its optional table metadata `label`/`columns`
+/// (FE1-08, RND-21).
 class FieldNode {
-  const FieldNode({this.schema, this.children});
+  const FieldNode({this.schema, this.children, this.label, this.columns});
 
   factory FieldNode.fromJson(Map<String, Object?> json) {
     final schemaJson = json['schema'];
     final childrenJson = json['children'];
+    final columnsJson = json['columns'];
     return FieldNode(
       schema:
           schemaJson == null
@@ -22,6 +24,11 @@ class FieldNode {
           childrenJson == null
               ? null
               : _fieldGroupFromJson(childrenJson as Map<String, Object?>),
+      label: json['label'] as String?,
+      columns:
+          columnsJson == null
+              ? null
+              : List<String>.from(columnsJson as List<Object?>),
     );
   }
 
@@ -30,6 +37,14 @@ class FieldNode {
 
   /// Child nodes, present on groups and null on leaves.
   final FieldGroup? children;
+
+  /// Display name of a group node (table row header or section); null when the
+  /// key does not declare one, falling back to the humanized key.
+  final String? label;
+
+  /// Child keys rendered as ONE table row, in column order; null or empty
+  /// renders the children as stacked rows.
+  final List<String>? columns;
 }
 
 /// Definition of a single field (FE1-09). [type] is an opaque string: mapping
@@ -44,6 +59,7 @@ class FieldSchema {
     required this.defaultValue,
     this.exclusiveGroup,
     this.optionLabel,
+    this.columnLabel,
   });
 
   factory FieldSchema.fromJson(Map<String, Object?> json) => FieldSchema(
@@ -58,6 +74,7 @@ class FieldSchema {
     defaultValue: (json['default'] as num).toDouble(),
     exclusiveGroup: json['exclusive_group'] as String?,
     optionLabel: json['option_label'] as String?,
+    columnLabel: json['column_label'] as String?,
   );
 
   /// Opaque field type (e.g. `number`), rendered by the UI Engine in Phase 3.
@@ -88,6 +105,11 @@ class FieldSchema {
   /// group (JSON key `option_label`); null when the key is absent or null.
   /// Empty falls back to [label].
   final String? optionLabel;
+
+  /// Short label used when this leaf is rendered as a table column (JSON key
+  /// `column_label`); null when the key is absent or null. Empty falls back to
+  /// [label], then to the humanized key.
+  final String? columnLabel;
 }
 
 /// A template as returned by `GET /templates/:id`: id, name, default flag and

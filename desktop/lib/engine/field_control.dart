@@ -1,8 +1,7 @@
 /// Control rendering for one sheet field, chosen by the field's schema rule
 /// (RND-06 … RND-13): an input for editable fields, a toggle for `config.*`
-/// and bool fields, a read-only value with a "Calculated" highlight for
-/// derived fields. An optional [SheetFieldControl.mark] tints the control and,
-/// on a derived field, replaces that base label with the last preview's state.
+/// and bool fields, a read-only value exposing its formula as a tooltip for
+/// derived fields. An optional [SheetFieldControl.mark] tints the control.
 /// Controlled by construction — the value comes in through
 /// [SheetFieldControl.value] and edits go out through
 /// [SheetFieldControl.onChanged]; the widget owns no domain state.
@@ -12,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/engine/sheet_mark.dart';
-import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/tokens.dart';
 
 /// One field control of the schema-driven sheet (Tela 2).
@@ -36,8 +34,7 @@ class SheetFieldControl extends StatefulWidget {
   final Object? value;
 
   /// Preview marking of the last dry-run for this field, or null. Drives the
-  /// change tint and, on a derived field, replaces the base "Calculated"
-  /// label with the preview state.
+  /// change tint on the control.
   final SheetMark? mark;
 
   /// Reports an edit for this field; null keeps the control non-interactive.
@@ -107,7 +104,7 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.schema.isEditable) return _readOnly(context, calculated: true);
+    if (!widget.schema.isEditable) return _readOnly(context);
     if (_isToggle) return _toggle();
     if (widget.schema.type == 'number') {
       return _textInput(context, numeric: true);
@@ -115,7 +112,7 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
     if (widget.schema.type == 'text' || widget.schema.type == 'string') {
       return _textInput(context, numeric: false);
     }
-    return _readOnly(context, calculated: false);
+    return _readOnly(context);
   }
 
   Widget _textInput(BuildContext context, {required bool numeric}) {
@@ -194,9 +191,8 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
     );
   }
 
-  Widget _readOnly(BuildContext context, {required bool calculated}) {
+  Widget _readOnly(BuildContext context) {
     final theme = Theme.of(context);
-    final localizations = AppLocalizations.of(context)!;
     final tint = widget.mark == null
         ? null
         : sheetMarkTint(theme.colorScheme);
@@ -211,41 +207,22 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
         : Tooltip(message: formula, child: value);
     return SizedBox(
       width: AppSizes.fieldControlWidth,
-      child: Row(
-        children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: tint == null
-                  ? displayed
-                  : Container(
-                      key: Key('sheet-mark-tint-${widget.path}'),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                        vertical: AppSpacing.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: tint,
-                        borderRadius: BorderRadius.circular(
-                          AppRadius.control,
-                        ),
-                      ),
-                      child: displayed,
-                    ),
-            ),
-          ),
-          // A preview-marked derived field names its state on the row label,
-          // so the base category label would be redundant (RND-10 otherwise).
-          if (calculated && widget.mark == null) ...[
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              localizations.fieldCalculated,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: tint == null
+            ? displayed
+            : Container(
+                key: Key('sheet-mark-tint-${widget.path}'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: AppSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: tint,
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                ),
+                child: displayed,
               ),
-            ),
-          ],
-        ],
       ),
     );
   }

@@ -250,4 +250,65 @@ void main() {
       expect(schema.optionLabel, isNull);
     });
   });
+
+  group('table metadata decode (RND-21)', () {
+    test('Happy path: a schema with column_label decodes the short label', () {
+      final schema = FieldSchema.fromJson({
+        'type': 'number',
+        'label': 'Acrobatics bonus',
+        'is_editable': true,
+        'default': 0,
+        'column_label': 'Bonus',
+      });
+
+      expect(schema.columnLabel, 'Bonus');
+    });
+
+    test('Edge: a schema without column_label decodes it as null', () {
+      final schema = FieldSchema.fromJson({
+        'type': 'number',
+        'label': 'Dexterity',
+        'is_editable': true,
+        'default': 10,
+      });
+
+      expect(schema.columnLabel, isNull);
+    });
+
+    test('Happy path: a group node decodes its label and column order', () {
+      final node = FieldNode.fromJson({
+        'children': {
+          'name': {
+            'schema': {
+              'type': 'text',
+              'label': 'Attack 1 name',
+              'is_editable': true,
+              'default': 0,
+            },
+          },
+        },
+        'label': 'Attack 1',
+        'columns': ['name', 'damage', 'bonus'],
+      });
+
+      expect(node.label, 'Attack 1');
+      expect(node.columns, ['name', 'damage', 'bonus']);
+    });
+
+    test('Edge: a group node without table metadata decodes both as null', () {
+      final node = FieldNode.fromJson(<String, Object?>{'children': <String, Object?>{}});
+
+      expect(node.label, isNull);
+      expect(node.columns, isNull);
+    });
+
+    test('Edge: an explicit null columns decodes as null', () {
+      final node = FieldNode.fromJson(<String, Object?>{
+        'children': <String, Object?>{},
+        'columns': null,
+      });
+
+      expect(node.columns, isNull);
+    });
+  });
 }

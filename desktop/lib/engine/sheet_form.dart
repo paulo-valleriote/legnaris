@@ -91,7 +91,7 @@ class SheetForm extends StatelessWidget {
 
   List<Widget> _section(BuildContext context, SheetSection section) {
     final theme = Theme.of(context);
-    return [
+    final widgets = <Widget>[
       const SizedBox(height: AppSpacing.lg),
       Text(
         section.label,
@@ -101,12 +101,151 @@ class SheetForm extends StatelessWidget {
         ),
       ),
       const Divider(),
-      for (final row in section.rows)
-        if (row.exclusive != null)
-          _exclusiveRow(context, row.exclusive!)
-        else
-          _row(context, row.fields.single),
     ];
+    // A run of consecutive table rows sharing the same columns draws one
+    // header; any other row kind ends the run, so a later table starts a new
+    // one. This keeps each table named once instead of repeating its header
+    // on every row (RND-21).
+    String? activeColumns;
+    var tableIndex = 0;
+    for (final row in section.rows) {
+      if (row.exclusive != null) {
+        widgets.add(_exclusiveRow(context, row.exclusive!));
+        activeColumns = null;
+      } else if (row.group != null) {
+        final columns = _columnsKey(row.fields);
+        if (columns != activeColumns) {
+          widgets.add(
+            _tableHeader(context, section.key, tableIndex, row.fields),
+          );
+        }
+        widgets.add(_groupRow(context, row));
+        activeColumns = columns;
+        tableIndex++;
+      } else {
+        widgets.add(_row(context, row.fields.single));
+        activeColumns = null;
+      }
+    }
+    return widgets;
+  }
+
+  /// The caption row naming one table's columns: a blank first cell (the
+  /// section title already names the group) and one short label per column,
+  /// aligned like the cell below it (RND-21).
+  Widget _tableHeader(
+    BuildContext context,
+    String sectionKey,
+    int tableIndex,
+    List<SheetField> fields,
+  ) {
+    final style = Theme.of(context).textTheme.bodySmall;
+    return SizedBox(
+      height: AppSizes.rowHeight,
+      child: Row(
+        key: Key('sheet-table-header-$sectionKey-$tableIndex'),
+        children: [
+          const Expanded(flex: 2, child: SizedBox.shrink()),
+          for (final field in fields)
+            _tableCell(
+              field: field,
+              header: true,
+              child: Text(
+                fieldColumnName(_lastSegment(field.path), field.schema),
+                style: style,
+                textAlign: _cellAlignment(field.schema) == Alignment.centerRight
+                    ? TextAlign.right
+                    : TextAlign.left,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// One table row: the group's label in the first cell and one control per
+  /// declared column, in order (RND-21).
+  Widget _groupRow(BuildContext context, SheetRow row) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: AppSizes.rowHeight,
+      child: Row(
+        key: Key('sheet-group-row-${row.fields.first.path}'),
+        children: [
+          Expanded(
+            flex: 2,
+            child: _labelWithMark(
+              context,
+              row.group!.label,
+              [for (final field in row.fields) field.path],
+              theme.textTheme.bodyMedium,
+            ),
+          ),
+          for (final field in row.fields)
+            _tableCell(field: field, child: _cellControl(context, field)),
+        ],
+      ),
+    );
+  }
+
+  /// One table cell: an equal flex per column, its content aligned right for a
+  /// numeric leaf and left otherwise, so numbers line up under their headers.
+  /// Data cells carry a key for tests; header cells do not, so the key is
+  /// unique to the row it describes.
+  Widget _tableCell({
+    required SheetField field,
+    required Widget child,
+    bool header = false,
+  }) {
+    final alignment = _cellAlignment(field.schema);
+    return Expanded(
+      flex: 3,
+      child: Padding(
+        padding: const EdgeInsets.only(left: AppSpacing.sm),
+        child: Align(
+          key: header ? null : Key('sheet-table-cell-${field.path}'),
+          alignment: alignment,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  /// The control of one field, shared by plain rows and table cells: the
+  /// injected builder when present, the data-driven control otherwise.
+  Widget _cellControl(BuildContext context, SheetField field) {
+    if (controlBuilder != null) return controlBuilder!(context, field);
+    return SheetFieldControl(
+      path: field.path,
+      schema: field.schema,
+      value: valueAtPath(data!, field.path),
+      onChanged: onChanged == null
+          ? null
+          : (value) => onChanged!(field.path, value),
+    );
+  }
+
+  Widget _row(BuildContext context, SheetField field) {
+    final theme = Theme.of(context);
+    final label = fieldDisplayName(field.path.split('.').last, field.schema);
+    return Padding(
+      key: Key('sheet-row-${field.path}'),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(
+            child: _labelWithMark(
+              context,
+              label,
+              [field.path],
+              theme.textTheme.bodyMedium,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          _cellControl(context, field),
+        ],
+      ),
+    );
   }
 
   /// One exclusive group row: the humanized group id as the label and the
@@ -180,37 +319,20 @@ class SheetForm extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _row(BuildContext context, SheetField field) {
-    final theme = Theme.of(context);
-    final label = fieldDisplayName(field.path.split('.').last, field.schema);
-    return Padding(
-      key: Key('sheet-row-${field.path}'),
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        children: [
-          Expanded(
-            child: _labelWithMark(
-              context,
-              label,
-              [field.path],
-              theme.textTheme.bodyMedium,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          if (controlBuilder != null)
-            controlBuilder!(context, field)
-          else
-            SheetFieldControl(
-              path: field.path,
-              schema: field.schema,
-              value: valueAtPath(data!, field.path),
-              onChanged: onChanged == null
-                  ? null
-                  : (value) => onChanged!(field.path, value),
-            ),
-        ],
-      ),
-    );
-  }
+/// The column identity of a table row: its ordered header labels. Consecutive
+/// rows with the same identity share one header (RND-21).
+String _columnsKey(List<SheetField> fields) => [
+  for (final field in fields)
+    fieldColumnName(_lastSegment(field.path), field.schema),
+].join('\u0000');
+
+/// The alignment of a table cell: numbers right, everything else left.
+Alignment _cellAlignment(FieldSchema schema) =>
+    schema.type == 'number' ? Alignment.centerRight : Alignment.centerLeft;
+
+String _lastSegment(String path) {
+  final index = path.lastIndexOf('.');
+  return index < 0 ? path : path.substring(index + 1);
 }

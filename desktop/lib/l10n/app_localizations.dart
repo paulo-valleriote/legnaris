@@ -286,12 +286,6 @@ abstract class AppLocalizations {
   /// **'Close'**
   String get actionClose;
 
-  /// Read-only highlight shown next to a non-editable (derived) field value (RND-10).
-  ///
-  /// In en, this message translates to:
-  /// **'Calculated'**
-  String get fieldCalculated;
-
   /// Row mark shown left of an editable field the pending delta changed, after a successful preview (PRV-12).
   ///
   /// In en, this message translates to:

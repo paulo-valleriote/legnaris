@@ -58,6 +58,13 @@ void main() {
   "derived": {"children": {"armorClass": {"schema": {"type": "number", "label": "", "formula": "x + 1", "is_editable": false, "default": 0}}}}
 }}}
 ''';
+  // A template whose skills group declares a table row (RND-21): the editable
+  // screen must render the header, the group label and the aligned cells.
+  const tableBody = '''
+{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
+  "skills": {"children": {"acrobatics": {"label": "", "columns": ["bonus", "total"], "children": {"bonus": {"schema": {"type": "number", "label": "Acrobatics bonus", "is_editable": true, "default": 0, "column_label": "Bonus"}}, "total": {"schema": {"type": "number", "label": "Acrobatics total", "formula": "x", "is_editable": false, "default": 0, "column_label": "Total"}}}}}}
+}}}
+''';
 
   /// The sheet id Screen 2 is mounted for in this suite; injection matches it.
   const sheetId = '12345678-1234-7000-8000-123456789abc';
@@ -256,7 +263,51 @@ void main() {
               .value,
           isFalse,
         );
-        expect(find.text('Calculated'), findsOneWidget);
+        expect(find.text('Calculated'), findsNothing);
+        expect(
+          find.byKey(const Key('sheet-value-derived.armorClass')),
+          findsOneWidget,
+        );
+        expect(recorded.where((request) => request.method != 'GET'), isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Happy path: a table group renders one header and aligned cells in edit mode (RND-21)',
+      (tester) async {
+        final recorded = await pumpScreen(
+          tester,
+          handler: (_) async => http.Response(tableBody, 200),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('sheet-table-header-skills-0')),
+          findsOneWidget,
+        );
+        expect(find.text('Bonus'), findsOneWidget);
+        expect(find.text('Total'), findsOneWidget);
+        expect(find.text('Acrobatics'), findsOneWidget);
+        expect(
+          find.byKey(const Key('sheet-input-skills.acrobatics.bonus')),
+          findsOneWidget,
+        );
+
+        Alignment cellAlignment(String path) {
+          final align = tester.widget<Align>(
+            find.byKey(Key('sheet-table-cell-$path')),
+          );
+          return align.alignment as Alignment;
+        }
+
+        expect(
+          cellAlignment('skills.acrobatics.bonus'),
+          Alignment.centerRight,
+        );
+        expect(
+          cellAlignment('skills.acrobatics.total'),
+          Alignment.centerRight,
+        );
         expect(recorded.where((request) => request.method != 'GET'), isEmpty);
       },
     );
@@ -463,7 +514,7 @@ void main() {
           find.byKey(const Key('sheet-input-derived.armorClass')),
           findsNothing,
         );
-        expect(find.text('Calculated'), findsOneWidget);
+        expect(find.text('Calculated'), findsNothing);
 
         await tester.enterText(
           find.byKey(const Key('sheet-input-stats.dexterity')),
@@ -2022,7 +2073,7 @@ void main() {
     const invalidBody =
         '{"error": {"code": "INVALID_REQUEST", "message": "not editable"}}';
     // One editable leaf and two derived leaves, so a preview that only changes
-    // armorClass proves the untouched derived keeps its base label.
+    // armorClass proves the untouched derived row carries no mark.
     const twoDerivedBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "Dexterity", "is_editable": true, "default": 10}}}},
@@ -2185,7 +2236,15 @@ void main() {
 
         expect(find.text('Modified'), findsNothing);
         expect(find.text('Recalculated'), findsNothing);
-        expect(find.text('Calculated'), findsNWidgets(2));
+        expect(find.text('Calculated'), findsNothing);
+        expect(
+          find.byKey(const Key('sheet-value-derived.armorClass')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('sheet-value-derived.initiative')),
+          findsOneWidget,
+        );
 
         await tester.enterText(
           find.byKey(const Key('sheet-input-stats.dexterity')),
@@ -2215,15 +2274,15 @@ void main() {
             matching: find.text('Calculated'),
           ),
           findsNothing,
-          reason: 'the preview label replaces the base one',
+          reason: 'the derived value never carries the removed category label',
         );
         expect(
           find.descendant(
             of: find.byKey(const Key('sheet-row-derived.initiative')),
             matching: find.text('Calculated'),
           ),
-          findsOneWidget,
-          reason: 'an untouched derived field keeps its base label',
+          findsNothing,
+          reason: 'the derived value never carries the removed category label',
         );
         expect(
           find.byKey(const Key('sheet-mark-tint-derived.armorClass')),
@@ -2267,8 +2326,8 @@ void main() {
         expect(find.text('Recalculated'), findsNothing);
         expect(
           find.text('Calculated'),
-          findsNWidgets(2),
-          reason: 'the stale preview stops marking',
+          findsNothing,
+          reason: 'the stale preview stops marking and there is no base label',
         );
       },
     );

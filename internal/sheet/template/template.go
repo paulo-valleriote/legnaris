@@ -7,6 +7,12 @@ type FieldGroup map[string]FieldNode
 type FieldNode struct {
 	Schema   *FieldSchema `bson:"schema"`
 	Children FieldGroup   `bson:"children"`
+	// Label is the display name of a group node (table row header or section).
+	// Empty falls back to the humanized key, e.g. slot1 -> "Level 1".
+	Label string `bson:"label,omitempty"`
+	// Columns lists the child keys rendered as ONE table row, in column
+	// order. Empty renders the children as stacked rows (the default).
+	Columns []string `bson:"columns,omitempty"`
 }
 
 func (n *FieldNode) IsLeaf() bool {
@@ -45,6 +51,9 @@ type FieldSchema struct {
 	// OptionLabel is the short label used when this leaf is shown as an option
 	// of its exclusive group (e.g. "Dexterity"). Empty falls back to Label.
 	OptionLabel string `bson:"option_label,omitempty"`
+	// ColumnLabel is the short label used when this leaf is rendered as a
+	// table column. Empty falls back to Label, then to the humanized key.
+	ColumnLabel string `bson:"column_label,omitempty"`
 }
 
 // SeedValue returns the value a new sheet starts with for this schema:

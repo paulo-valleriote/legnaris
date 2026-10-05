@@ -200,7 +200,7 @@ void main() {
 
   group('read-only controls (RND-10, RND-11, RND-13)', () {
     testWidgets(
-      'Happy path: a non-editable field is read-only with a Calculated highlight (RND-10)',
+      'Happy path: a non-editable field is read-only with no Calculated label (RND-10)',
       (tester) async {
         await pump(
           tester,
@@ -216,7 +216,7 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('13'), findsOneWidget);
-        expect(find.text('Calculated'), findsOneWidget);
+        expect(find.text('Calculated'), findsNothing);
       },
     );
 
@@ -576,7 +576,7 @@ void main() {
     );
 
     testWidgets(
-      'Happy path: a recalculated derived field tints its value and drops Calculated (PRV-13)',
+      'Happy path: a recalculated derived field tints its value and carries no label (PRV-13)',
       (tester) async {
         await pump(
           tester,
@@ -590,7 +590,7 @@ void main() {
         expect(
           find.text('Calculated'),
           findsNothing,
-          reason: 'the row label names the preview state instead',
+          reason: 'the derived value carries no category label anymore',
         );
         final tinted = tester.widget<Container>(tintOf('derived.armorClass'));
         expect(tinted.decoration, isNotNull);
@@ -598,7 +598,7 @@ void main() {
     );
 
     testWidgets(
-      'Edge: an unmarked derived field keeps the base Calculated label and no tint (RND-10)',
+      'Edge: an unmarked derived field carries no label and no tint (RND-10)',
       (tester) async {
         await pump(
           tester,
@@ -607,7 +607,8 @@ void main() {
           value: 13.0,
         );
 
-        expect(find.text('Calculated'), findsOneWidget);
+        expect(find.text('13'), findsOneWidget);
+        expect(find.text('Calculated'), findsNothing);
         expect(tintOf('derived.armorClass'), findsNothing);
       },
     );

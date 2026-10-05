@@ -142,10 +142,6 @@
   "@actionClose": {
     "description": "Action that dismisses the creation dialog back to the catalog (CAT-16)."
   },
-  "fieldCalculated": "Calculated",
-  "@fieldCalculated": {
-    "description": "Read-only highlight shown next to a non-editable (derived) field value (RND-10)."
-  },
   "fieldModified": "Modified",
   "@fieldModified": {
     "description": "Row mark shown left of an editable field the pending delta changed, after a successful preview (PRV-12)."
