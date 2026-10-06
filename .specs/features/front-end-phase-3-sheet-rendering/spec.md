@@ -6,6 +6,8 @@
 > Relação entre specs desta fase: entrega o núcleo do UI Engine (Tela 2). [LGN-102](https://paulovalleriotedev.atlassian.net/browse/LGN-102) (rebuild granular por campo) depende desta; [LGN-100](https://paulovalleriotedev.atlassian.net/browse/LGN-100) (preview read-only no diálogo) reusa o controle read-only aqui definido.
 > Status: **Approved** — aprovada pelo mantenedor em 2026-09-30 (decisões de escopo confirmadas na discussão: Tela 2 navegável com dados sintéticos, UI Engine controlado sem estado).
 > **Amend (LGN-100 follow-up, 2026-10-01):** na revisão do preview read-only do diálogo de criação, o mantenedor apontou que a Tela 2 (aberta por "Preview sheet") **ainda aceitava edição**; como não existe ficha até a Fase 4, a Tela 2 passa a renderizar **somente-leitura** (host passa `onChanged: null`, como o card da criação). Novo requisito **RND-20**; a capacidade de edição do controle/renderer (RND-06/07/12) permanece, apenas não é usada pela Tela 2 até a Fase 4.
+>
+> **Amend (PR #58, 2026-10-06):** o contrato passou a declarar `FieldNode.columns`/`FieldNode.label` e `FieldSchema.column_label`, e o renderer passou a desenhar um grupo que declara colunas como **uma linha de tabela** (cabeçalho do grupo + uma célula por coluna, na ordem declarada) em vez de uma linha empilhada por folha. Novo requisito **RND-21**; grupos sem colunas declaradas continuam empilhados (RND-02) e a agrupação por exclusivos não muda (EXC-09). Entrega sem card próprio, na PR #58 (LGN-103/LGN-104).
 
 ## Problem Statement
 
@@ -124,6 +126,20 @@ Toda ambiguidade está resolvida ou registrada aqui — nada fica silenciosament
 
 ---
 
+### P1: Grupos declarados como linha de tabela ⭐ MVP
+
+**User Story**: Como mantenedor, quero que um grupo de campos que declara colunas renderize como uma linha de tabela — cabeçalho do grupo e uma célula por coluna — para que habilidades, ataques e slots de magia parem de se repetir e desalinhar no layout da ficha.
+
+**Why P1**: a declaração já chega no contrato (`FieldNode.columns`, `FieldNode.label`, `FieldSchema.column_label`); sem o renderer tratá-la, ela é ignorada e a ficha continua duplicando e desalinhando as linhas. Entrega sem card próprio, na PR #58.
+
+**Acceptance Criteria**:
+
+1. WHEN a group node declares a non-empty `columns` list THEN the section SHALL render that group as one table row — a header carrying the group's display name plus one cell per declared column, in declared order — instead of one stacked row per leaf. (RND-21)
+
+**Independent Test**: template cujo grupo declara `columns` → um cabeçalho com o nome do grupo e exatamente uma célula por coluna na ordem declarada; coluna numérica alinhada à direita e textual à esquerda; no modo de edição cada célula usa o mesmo `controlBuilder` das linhas empilhadas; árvore sem coluna declarada cai no layout empilhado.
+
+---
+
 ## Edge Cases
 
 - IF the template `fields` tree is empty THEN Screen 2 SHALL show one localized line ("This template has no fields.") in place of the sections.
@@ -134,6 +150,10 @@ Toda ambiguidade está resolvida ou registrada aqui — nada fica silenciosament
 - WHEN the template name is an empty string THEN Screen 2 SHALL render its layout with an empty title instead of throwing.
 - IF an editable numeric input is cleared THEN the control SHALL report `null` for that path (control-level behavior, RND-12 — unreachable on Screen 2 while it renders read-only, RND-20).
 - WHEN Screen 2 renders a field that the schema marks editable THEN it SHALL still draw the control for that type, disabled (read-only host), not a different widget.
+- IF a group's declared column names no leaf (an unknown key or a nested group) THEN the renderer SHALL skip that column without drawing a phantom cell. (RND-21)
+- IF none of a group's declared columns resolves to a leaf THEN the group SHALL fall back to its stacked rows. (RND-21)
+- WHEN a table column leaf carries a non-empty `column_label` THEN the cell header SHALL show it, otherwise the field label, otherwise the humanized key. (RND-21)
+- WHEN a table cell renders a numeric column THEN it SHALL align right; a text column SHALL align left. (RND-21)
 - Varredura de dimensões implícitas: **input validation & bounds** → parse numérico e limpeza (RND-06/RND-12, edge do input vazio, nível do controle); **failure/partial-failure** → RND-17 (mensagem mapeada + Retry); **idempotência/retry** → RND-17 (Retry reusa o single-flight do `TemplateDetailController`, sem duplicar requisição); **concorrência/ordenação** → N/A (o renderer é síncrono; a fonte assíncrona é o detalhe, herdado da Fase 2); **data lifecycle/expiry** → N/A (nada é persistido; Tela 2 é somente-leitura, RND-20); **external-dependency failure** → RND-17; **state-transition integrity** → RND-15/16/18 (loading → conteúdo/erro, back sem efeito colateral); **auth/rate limits** → N/A (V1 sem auth); **observabilidade** → N/A (logs são Fase 5).
 
 ---
@@ -164,8 +184,9 @@ Cada requisito tem ID único para rastreamento em design, tasks e validação.
 | RND-18 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
 | RND-19 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
 | RND-20 | P1: Tela 2 navegável a partir do catálogo | Design | Verified |
+| RND-21 | P1: Grupos declarados como linha de tabela | Design | Verified |
 
-**Coverage:** 20 requisitos no total, 20 mapeados 1:1 a critérios de aceite; 0 não mapeados.
+**Coverage:** 21 requisitos no total, 21 mapeados 1:1 a critérios de aceite; 0 não mapeados.
 
 ---
 
@@ -178,4 +199,5 @@ Como sabemos que a fase foi bem-sucedida:
 - [ ] Zero hardcode por sistema: prefixo de topo desconhecido e tipo exótico renderizam sem mudança de código.
 - [ ] Abrir a Tela 2 emite exatamente um `GET /templates/:id` e **nenhuma** mutação (`POST`/`PATCH` ausentes do transporte de teste).
 - [ ] A Tela 2 renderiza somente-leitura: nenhum input `enabled` e nenhum toggle acionável enquanto aberta (RND-20).
+- [ ] Um grupo que declara `columns` renderiza como uma linha de tabela (cabeçalho + células alinhadas) em vez de folhas empilhadas (RND-21).
 - [ ] `flutter test` verde sem API de pé e `flutter analyze` limpo.

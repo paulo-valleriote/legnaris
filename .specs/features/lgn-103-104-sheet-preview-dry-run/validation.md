@@ -66,27 +66,27 @@ All 15 `[x]` boxes are checked and the tasks.md Requirement Traceability table m
 | ID | Criterion (WHEN X THEN Y) | Spec-defined outcome | `file:line` + assertion | Result |
 | -- | ------------------------- | -------------------- | ----------------------- | ------ |
 | DRY-01 | valid delta for existing sheet → response | `200`, `data` = recalculated cascade | `internal/app/error_mapping_test.go:304` `require.Equal(http.StatusOK, rec.Code)`; `:318` `assert.Equal(4.0, modifiers["dexterityMod"])`; `internal/sheet/service_test.go:692` cascade map | ✅ PASS |
-| DRY-02 | computed through the same recalculation PATCH uses | one shared helper | `internal/sheet/service.go:238` (`Preview` calls `s.recalculate`) vs `:217` (`PartialUpdate` calls `s.recalculate`); `service_test.go:716` `assert.Equal(patchCascade, previewCascade)` | ✅ PASS |
+| DRY-02 | computed through the same recalculation PATCH uses | one shared helper | `internal/sheet/service.go:238` (`Preview` calls `s.recalculate`) vs `:217` (`PartialUpdate` calls `s.recalculate`); `internal/sheet/service_test.go:716` `assert.Equal(patchCascade, previewCascade)` | ✅ PASS |
 | DRY-03 | same sheet + same delta → same cascade for PATCH and preview | byte-equal cascades | `internal/app/integration_test.go:486` `assert.Equal(patched.Data, previewed.Data)` | ✅ PASS |
 | DRY-04 | persist no change during preview | zero repository writes, stored data unchanged | `internal/sheet/service_test.go:696` `mockRepo.AssertNotCalled(t, "PartialUpdate")`; `integration_test.go:475` `assert.Equal(10.0, fetchedStats["dexterity"])` after preview | ✅ PASS |
-| DRY-05 | repeat same preview against unchanged sheet | identical cascade | `service_test.go:734` `assert.Equal(first, second)` | ✅ PASS |
-| DRY-06 | empty delta | `200` + empty `data` object, persist nothing | `service_test.go:748` `assert.Equal(map[string]any{}, cascades)`; `:749` no write (route wraps with `response.OK`, `internal/app/sheet.go:92`) | ✅ PASS |
-| DRY-07 | missing / non-canonical UUID v7 id | `400 INVALID_REQUEST`, same message as PATCH | `service_test.go:779` `assert.Equal(tc.wantMsg, appErr.Message)` + `:777-778`; `error_mapping_test.go:332-333` `"INVALID_REQUEST"` + `sheet.MsgSheetIDInvalid` | ✅ PASS |
-| DRY-08 | sheet does not exist | `404 NOT_FOUND` | `service_test.go:800-802` `CodeNotFound`/`404`/`"sheet not found"`; `error_mapping_test.go:347-348` | ✅ PASS |
-| DRY-09 | delta names a key the DAG does not know | `400 UNKNOWN_FIELD` | `service_test.go:816` `wantCode: CodeUnknownField` + `:850`; `error_mapping_test.go:371` + `:399` `"UNKNOWN_FIELD"` | ✅ PASS |
-| DRY-10 | delta names a derived (non-editable) leaf | `400 INVALID_REQUEST` | `service_test.go:821-823` `CodeInvalidRequest` + `:850`; `error_mapping_test.go:376` | ✅ PASS |
-| DRY-11 | two members of one exclusive group | `400 INVALID_REQUEST`, same conflict mapping as PATCH | `service_test.go:826-829` `"conflicting exclusive options: armorClassAbility"`; HTTP `error_mapping_test.go:381` | ✅ PASS |
-| DRY-12 | delta nests deeper than supported depth | `400 INVALID_REQUEST` | `service_test.go:879-881` `CodeInvalidRequest` + `"nested too deeply"`; `error_mapping_test.go:416` | ✅ PASS |
+| DRY-05 | repeat same preview against unchanged sheet | identical cascade | `internal/sheet/service_test.go:734` `assert.Equal(first, second)` | ✅ PASS |
+| DRY-06 | empty delta | `200` + empty `data` object, persist nothing | `internal/sheet/service_test.go:748` `assert.Equal(map[string]any{}, cascades)`; `:749` no write (route wraps with `response.OK`, `internal/app/sheet.go:92`) | ✅ PASS |
+| DRY-07 | missing / non-canonical UUID v7 id | `400 INVALID_REQUEST`, same message as PATCH | `internal/sheet/service_test.go:779` `assert.Equal(tc.wantMsg, appErr.Message)` + `:777-778`; `error_mapping_test.go:332-333` `"INVALID_REQUEST"` + `sheet.MsgSheetIDInvalid` | ✅ PASS |
+| DRY-08 | sheet does not exist | `404 NOT_FOUND` | `internal/sheet/service_test.go:800-802` `CodeNotFound`/`404`/`"sheet not found"`; `error_mapping_test.go:347-348` | ✅ PASS |
+| DRY-09 | delta names a key the DAG does not know | `400 UNKNOWN_FIELD` | `internal/sheet/service_test.go:816` `wantCode: CodeUnknownField` + `:850`; `error_mapping_test.go:371` + `:399` `"UNKNOWN_FIELD"` | ✅ PASS |
+| DRY-10 | delta names a derived (non-editable) leaf | `400 INVALID_REQUEST` | `internal/sheet/service_test.go:821-823` `CodeInvalidRequest` + `:850`; `error_mapping_test.go:376` | ✅ PASS |
+| DRY-11 | two members of one exclusive group | `400 INVALID_REQUEST`, same conflict mapping as PATCH | `internal/sheet/service_test.go:826-829` `"conflicting exclusive options: armorClassAbility"`; HTTP `error_mapping_test.go:381` | ✅ PASS |
+| DRY-12 | delta nests deeper than supported depth | `400 INVALID_REQUEST` | `internal/sheet/service_test.go:879-881` `CodeInvalidRequest` + `"nested too deeply"`; `error_mapping_test.go:416` | ✅ PASS |
 
 ### P2: Stateless template preview endpoint (DRY-13…17)
 
 | ID | Criterion (WHEN X THEN Y) | Spec-defined outcome | `file:line` + assertion | Result |
 | -- | ------------------------- | -------------------- | ----------------------- | ------ |
 | DRY-13 | valid delta for existing template | `200` + cascade seeded from template fields | `internal/sheet/service_test.go:937-940`; `error_mapping_test.go:486` `assert.Equal(4.0, mod["dexterityMod"])`; `integration_test.go:503-506` | ✅ PASS |
-| DRY-14 | seed = initial data `POST /sheets` builds | template preview cascade == a preview over the created sheet | `service_test.go:945` test + `:980` `assert.Equal(t, previewCascade, previewTemplateCascade)` (compares against `Create` output) | ✅ PASS |
-| DRY-15 | missing / invalid template slug | `400 INVALID_REQUEST` | `service_test.go:1039-1041`; `error_mapping_test.go:505-506` (`"template id is not a valid slug"`), `:523-524` (`"template id not provided"`) | ✅ PASS |
-| DRY-16 | template does not exist | `404 NOT_FOUND` | `service_test.go:1008-1014` + `:1039-1041`; `error_mapping_test.go:541-542` `"template not found"` | ✅ PASS |
-| DRY-17 | unknown key / derived leaf | same `UNKNOWN_FIELD` / `INVALID_REQUEST` mapping as sheet preview | `service_test.go:1053-1064` + `:1085-1087`; `error_mapping_test.go:558-591` | ✅ PASS |
+| DRY-14 | seed = initial data `POST /sheets` builds | template preview cascade == a preview over the created sheet | `internal/sheet/service_test.go:945` test + `:980` `assert.Equal(t, previewCascade, previewTemplateCascade)` (compares against `Create` output) | ✅ PASS |
+| DRY-15 | missing / invalid template slug | `400 INVALID_REQUEST` | `internal/sheet/service_test.go:1039-1041`; `error_mapping_test.go:505-506` (`"template id is not a valid slug"`), `:523-524` (`"template id not provided"`) | ✅ PASS |
+| DRY-16 | template does not exist | `404 NOT_FOUND` | `internal/sheet/service_test.go:1008-1014` + `:1039-1041`; `error_mapping_test.go:541-542` `"template not found"` | ✅ PASS |
+| DRY-17 | unknown key / derived leaf | same `UNKNOWN_FIELD` / `INVALID_REQUEST` mapping as sheet preview | `internal/sheet/service_test.go:1053-1064` + `:1085-1087`; `error_mapping_test.go:558-591` | ✅ PASS |
 
 ### P1: Preview the recalculated cascade without persisting (PRV-01…11)
 
@@ -191,7 +191,7 @@ Both round-2 mutations revert cleanly; the scratch worktree is discarded and the
 
 | Principle | Status |
 | --------- | ------ |
-| Minimum code | ✅ `recalculate` extracted once (`service.go:172`), both previews reuse it; no duplicated DAG logic |
+| Minimum code | ✅ `recalculate` extracted once (`internal/sheet/service.go:172`), both previews reuse it; no duplicated DAG logic |
 | Surgical changes | ✅ `PartialUpdate` keeps its contract; previews are additive; `ed7900c` adds only tests (0 deletions) |
 | No scope creep | ✅ No new package (`pubspec.yaml`/`go.mod` untouched); template preview is spec-sanctioned API capability with no desktop consumer |
 | Matches patterns | ✅ Go typed `apperr` + translators, mockery mocks; Dart Riverpod annotation + `select` rebuild granularity, l10n keys in `.arb` |
