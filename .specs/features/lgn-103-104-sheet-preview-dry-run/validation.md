@@ -44,7 +44,7 @@ Requirement count is now **52** (DRY-01…17, PRV-01…14, SVE-01…07, DRB-01�
 | T5: Template preview HTTP route | ✅ Done | commit `b7367ac`; `RegisterTemplatePreviewRoute` at `internal/app/sheet.go:32`, wired `internal/app/router.go:34` |
 | T6: API client preview method | ✅ Done | commit `006aed2`; `previewSheet` at `desktop/lib/api/api_client.dart:85` |
 | T7: Draft backup store | ✅ Done | commit `da2a87c`; `desktop/lib/sheet/draft_backup_store.dart` |
-| T8: Draft backup scheduler | ✅ Done | commit `6867a91`; `desktop/lib/sheet/draft_backup_scheduler.dart` |
+| T8: Draft backup scheduler | ✅ Done | commit `6867a91`; scheduler inlined as `_DraftBackupScheduler` in `desktop/lib/sheet/draft_auto_backup.dart` by `af4fb8d` |
 | T9: Rate limiter, clock, cooldown | ✅ Done | commit `247112e`; `desktop/lib/sheet/action_rate_limiter.dart` |
 | T10: Preview/limits/restore/delete on controller | ✅ Done | commit `be3f1cc`; `desktop/lib/sheet/sheet_edit_provider.dart`; the "rebuilds only changed controls" done-when is now asserted (`sheet_screen_test.dart:2124-2169`) |
 | T11: Draft auto-backup coordinator | ✅ Done | commit `82a057a`; `desktop/lib/sheet/draft_auto_backup.dart` |
@@ -120,11 +120,11 @@ All 15 `[x]` boxes are checked and the tasks.md Requirement Traceability table m
 
 | ID | Criterion (WHEN X THEN Y) | Spec-defined outcome | `file:line` + assertion | Result |
 | -- | ------------------------- | -------------------- | ----------------------- | ------ |
-| DRB-01 | sheet has pending edits | write backup every 60 s | `draft_backup_scheduler_test.dart:12` (`defaultInterval == 60s`), `:33-36`; `draft_auto_backup_test.dart:104-106`; `sheet_screen_test.dart:2366` | ✅ PASS |
-| DRB-02 | transitions no-pending → pending | start periodic backup | `draft_auto_backup_test.dart:100-101` (`running`, `startCalls == 1`), `:179` (exactly one start per transition) | ✅ PASS |
-| DRB-03 | no pending edits | stop periodic backup | `draft_auto_backup_test.dart:129-133`, `:156` (`running isFalse`) | ✅ PASS |
-| DRB-04 | write backup | atomic replace; prior backup intact on failure | `draft_backup_store_test.dart:91-96` (`DraftBackupException` + prior content equal); store temp+rename `draft_backup_store.dart:104-105` | ✅ PASS |
-| DRB-05 | persist draft | only the pending editable delta, never derived | `draft_auto_backup_test.dart:104-106` (file == `{stats:{dexterity:18}}`); `draft_backup_store_test.dart:33` round-trip; `pendingDelta` built from `editedPaths` only (`sheet_edit_provider.dart:109-118`) | ✅ PASS |
+| DRB-01 | sheet has pending edits | write backup every 60 s | `draft_auto_backup_test.dart:123` (one 60 s fake-clock pump → file written), `:124-126` (delta `{stats:{dexterity:18}}`); disposal keeps `:288-293` (no write survives) | ✅ PASS |
+| DRB-02 | transitions no-pending → pending | start periodic backup | `draft_auto_backup_test.dart:214-224` (second edit does not restart the clock; tick lands at exactly 60 s); screen-level start `sheet_screen_test.dart:2631-2645` | ✅ PASS |
+| DRB-03 | no pending edits | stop periodic backup | `draft_auto_backup_test.dart:157` (clean sheet over 120 s: no file, no pending timer), `:189` (returning to clean: no write after 60 s, scheduler cancelled) | ✅ PASS |
+| DRB-04 | write backup | atomic replace; prior backup intact on failure | `draft_backup_store_test.dart:91-96` (`DraftBackupException` + prior content equal); store temp+rename `draft_backup_store.dart:123-124` | ✅ PASS |
+| DRB-05 | persist draft | only the pending editable delta, never derived | `draft_auto_backup_test.dart:124-126` (file delta == `{stats:{dexterity:18}}`, derived untouched), `:130-135` (next tick carries the newer delta); `draft_backup_store_test.dart:33` round-trip; `pendingDelta` built from `editedPaths` only (`sheet_edit_provider.dart:109-118`) | ✅ PASS |
 | DRB-06 | open sheet with backup | seed edited state from stored sheet overlaid with delta; restored fields pending | `sheet_edit_provider_test.dart:1246-1265` (`stats.dexterity` 18, `isPending isTrue`, delta `{stats:{dexterity:18}}`) | ✅ PASS |
 | DRB-07 | restoring a draft | overlay only editable leaves of the template | `sheet_edit_provider_test.dart:1247-1251` (derived not overlaid), `:1252-1256` (unknown key ignored) | ✅ PASS |
 | DRB-08 | save succeeds | delete that sheet's backup | `sheet_edit_provider_test.dart:1035` `draftFile().existsSync(), isFalse` | ✅ PASS |
@@ -132,8 +132,8 @@ All 15 `[x]` boxes are checked and the tasks.md Requirement Traceability table m
 | DRB-10 | `NOT_FOUND` + eviction | delete backup | `sheet_open_provider_test.dart:246-264` `draftFile('sheet-1').existsSync(), isFalse`; failed delete still publishes `:267-285`; successful load leaves it `:288-304` | ✅ PASS |
 | DRB-11 | library entry removed | delete backup | `library_section_test.dart:246` (removed), failed removal keeps `:278`, cancel keeps `:304` | ✅ PASS |
 | DRB-12 | backup cannot be read/decoded | ignore; seed from stored sheet | `draft_backup_store_test.dart:59`, `:67`, `:70`, `:82`; `sheet_edit_provider_test.dart:1280-1283` | ✅ PASS |
-| DRB-13 | backup write fails | keep accepting edits, no error | `draft_auto_backup_test.dart:200-207` (`scheduler.tick` returns normally, `isPending isTrue`) | ✅ PASS |
-| DRB-14 | store backups | under the injected app-support directory | `draft_backup_store_test.dart:40` (`<root>/drafts/sheet-1.json` exists); `draft_backup_store.dart:51` | ✅ PASS |
+| DRB-13 | backup write fails | keep accepting edits, no error | `draft_auto_backup_test.dart:253-264` (the 60 s tick throws inside the store, the run survives and edits continue) | ✅ PASS |
+| DRB-14 | store backups | under the injected app-support directory | `draft_backup_store_test.dart:40` (`<root>/drafts/sheet-1.json` exists); `draft_backup_store.dart:62` | ✅ PASS |
 
 **Status**: ✅ 49/49 requirements have a located `file:line` + assertion; **0 open gaps** — both round-1 spec-precision gaps are now closed with dedicated tests (PRV-05 rebuild-granularity, edge case 8 below).
 

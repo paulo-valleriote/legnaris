@@ -409,7 +409,7 @@ void main() {
     );
 
     testWidgets(
-      'Happy path: config renders a toggle and a derived field renders its value with no label (RND-08, RND-10)',
+      'Happy path: config renders a toggle and a derived field renders its value with the Calculated label (RND-08, RND-10)',
       (tester) async {
         final fields = {
           'config': groupOf({'acUsesDex': leaf('number')}),
@@ -431,7 +431,7 @@ void main() {
           find.byKey(const Key('sheet-checkbox-config.acUsesDex')),
           findsOneWidget,
         );
-        expect(find.text('Calculated'), findsNothing);
+        expect(find.text('Calculated'), findsOneWidget);
         expect(
           find.byKey(const Key('sheet-value-derived.armorClass')),
           findsOneWidget,

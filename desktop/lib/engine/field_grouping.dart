@@ -114,7 +114,7 @@ List<SheetRow> _buildRows(String prefix, FieldNode root) {
         rows.add((
           fields: tableFields,
           exclusive: null,
-          group: (label: groupDisplayName(_lastSegment(path), node.label)),
+          group: (label: groupDisplayName(lastSegment(path), node.label)),
         ));
         return;
       }
@@ -165,7 +165,9 @@ String fieldColumnName(String key, FieldSchema schema) {
   return fieldDisplayName(key, schema);
 }
 
-String _lastSegment(String path) {
+/// The segment after the last dot of a dotted field [path] — the key the
+/// display-name fallbacks (and table column names) work on.
+String lastSegment(String path) {
   final index = path.lastIndexOf('.');
   return index < 0 ? path : path.substring(index + 1);
 }

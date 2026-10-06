@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,8 +13,10 @@ import 'package:legnaris/sheet/draft_auto_backup.dart';
 import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 
-/// Unit tests for the draft auto-backup coordinator (DRB-01, DRB-02, DRB-03,
-/// DRB-13). Real temp-directory I/O keeps the tests deterministic.
+/// Tests for the draft auto-backup coordinator (DRB-01, DRB-02, DRB-03,
+/// DRB-05, DRB-13). Real temp-directory I/O keeps the writes verifiable, and
+/// the widget tester's fake clock drives the 60-second scheduler without
+/// waiting a real minute.
 void main() {
   const sheetId = '12345678-1234-7000-8000-123456789abc';
   const detailBody = '''
@@ -65,52 +68,76 @@ void main() {
 
   File draftFile() => File('${supportDir.path}/drafts/$sheetId.json');
 
-  Future<void> pumpEventQueue() async {
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
-  }
+  Map<String, Object?> draftDelta() =>
+      jsonDecode(draftFile().readAsStringSync())['delta']
+          as Map<String, Object?>;
 
   Future<void> activate(
+    WidgetTester tester,
     ProviderContainer container,
     List<ProviderSubscription<bool>> subscriptions,
   ) async {
     subscriptions.add(
       container.listen(draftAutoBackupProvider(sheetId), (_, _) {}),
     );
-    await pumpEventQueue();
+    await tester.pump(Duration.zero);
+    await tester.pump(Duration.zero);
   }
 
-  test(
-    'Happy path: a pending sheet writes the current delta on every tick (DRB-01, DRB-02)',
-    () async {
-      final container = buildContainer();
-      final subscriptions = <ProviderSubscription<bool>>[];
-      addTearDown(() {
-        for (final subscription in subscriptions) {
-          subscription.close();
-        }
-      });
-      await activate(container, subscriptions);
+  /// Tears the container down inside the test body: the framework checks for
+  /// pending timers before `addTearDown` callbacks run, so a still-running
+  /// scheduler would fail the test instead of being silently cancelled.
+  void release(
+    ProviderContainer container,
+    List<ProviderSubscription<bool>> subscriptions,
+  ) {
+    for (final subscription in subscriptions) {
+      subscription.close();
+    }
+    container.dispose();
+  }
 
+  testWidgets(
+    'Happy path: a pending sheet writes the current delta on every tick (DRB-01, DRB-02)',
+    (tester) async {
+      final container = buildContainer(autoDispose: false);
+      final subscriptions = <ProviderSubscription<bool>>[];
+      await activate(tester, container, subscriptions);
       final notifier = container.read(
         sheetEditControllerProvider(sheetId).notifier,
       );
-      notifier.setPath('stats.dexterity', 18);
-      await pumpEventQueue();
 
-      // The auto-backup uses a 60-second timer, so the file won't be written
-      // immediately in a unit test. The unit test for the scheduler behavior
-      // is in the widget tests. Here we verify the edit was made.
+      notifier.setPath('stats.dexterity', 18);
+      await tester.pump(Duration.zero);
       expect(
         container.read(sheetEditControllerProvider(sheetId)).isPending,
         isTrue,
       );
+      expect(
+        draftFile().existsSync(),
+        isFalse,
+        reason: 'nothing is written before the first tick',
+      );
+
+      await tester.pump(const Duration(seconds: 60));
+      expect(draftFile().existsSync(), isTrue, reason: 'the first tick writes');
+      expect(draftDelta(), {
+        'stats': {'dexterity': 18},
+      });
+
+      notifier.setPath('stats.constitution', 20);
+      await tester.pump(const Duration(seconds: 60));
+      expect(draftDelta(), {
+        'stats': {'dexterity': 18, 'constitution': 20},
+      }, reason: 'the next periodic tick carries the newer delta (DRB-05)');
+
+      release(container, subscriptions);
     },
   );
 
-  test(
+  testWidgets(
     'Edge: a clean sheet never starts the scheduler and writes nothing (DRB-03)',
-    () async {
+    (tester) async {
       final container = buildContainer();
       final subscriptions = <ProviderSubscription<bool>>[];
       addTearDown(() {
@@ -118,104 +145,148 @@ void main() {
           subscription.close();
         }
       });
-      await activate(container, subscriptions);
+      await activate(tester, container, subscriptions);
 
-      // No draft file should exist for a clean sheet
+      // Two minutes of fake time pass; a scheduler started by mistake would
+      // leave a pending periodic timer, which fails the run's final check.
+      await tester.pump(const Duration(seconds: 120));
       expect(draftFile().existsSync(), isFalse);
     },
   );
 
-  test('Edge: a sheet returning to clean cancels the scheduler (DRB-03)', () async {
-    final container = buildContainer();
-    final subscriptions = <ProviderSubscription<bool>>[];
-    addTearDown(() {
-      for (final subscription in subscriptions) {
-        subscription.close();
-      }
-    });
-    await activate(container, subscriptions);
-    final notifier = container.read(
-      sheetEditControllerProvider(sheetId).notifier,
-    );
+  testWidgets(
+    'Edge: a sheet returning to clean cancels the scheduler (DRB-03)',
+    (tester) async {
+      final container = buildContainer(autoDispose: false);
+      final subscriptions = <ProviderSubscription<bool>>[];
+      await activate(tester, container, subscriptions);
+      final notifier = container.read(
+        sheetEditControllerProvider(sheetId).notifier,
+      );
 
-    notifier.setPath('stats.dexterity', 18);
-    await pumpEventQueue();
-    expect(container.read(sheetEditControllerProvider(sheetId)).isPending, isTrue);
+      notifier.setPath('stats.dexterity', 18);
+      await tester.pump(Duration.zero);
+      expect(
+        container.read(sheetEditControllerProvider(sheetId)).isPending,
+        isTrue,
+      );
 
-    notifier.setPath('stats.dexterity', 16);
-    await pumpEventQueue();
-    expect(container.read(sheetEditControllerProvider(sheetId)).isPending, isFalse);
-  });
+      await tester.pump(const Duration(seconds: 30));
+      notifier.setPath('stats.dexterity', 16);
+      await tester.pump(Duration.zero);
+      expect(
+        container.read(sheetEditControllerProvider(sheetId)).isPending,
+        isFalse,
+      );
 
-  test('Edge: exactly one scheduler start per dirty transition (DRB-02)', () async {
-    final container = buildContainer();
-    final subscriptions = <ProviderSubscription<bool>>[];
-    addTearDown(() {
-      for (final subscription in subscriptions) {
-        subscription.close();
-      }
-    });
-    await activate(container, subscriptions);
-    final notifier = container.read(
-      sheetEditControllerProvider(sheetId).notifier,
-    );
+      // The container is deliberately not disposed here: the pending-timer
+      // check below proves the clean transition itself cancelled the clock.
+      await tester.pump(const Duration(seconds: 60));
+      expect(draftFile().existsSync(), isFalse);
+    },
+  );
 
-    notifier.setPath('stats.dexterity', 18);
-    await pumpEventQueue();
-    notifier.setPath('stats.constitution', 20);
-    await pumpEventQueue();
-    notifier.setPath('stats.constitution', 21);
-    await pumpEventQueue();
+  testWidgets(
+    'Edge: exactly one scheduler start per dirty transition (DRB-02)',
+    (tester) async {
+      final container = buildContainer(autoDispose: false);
+      final subscriptions = <ProviderSubscription<bool>>[];
+      await activate(tester, container, subscriptions);
+      final notifier = container.read(
+        sheetEditControllerProvider(sheetId).notifier,
+      );
 
-    expect(container.read(sheetEditControllerProvider(sheetId)).isPending, isTrue);
-  });
+      notifier.setPath('stats.dexterity', 18);
+      await tester.pump(Duration.zero);
+      expect(
+        container.read(sheetEditControllerProvider(sheetId)).isPending,
+        isTrue,
+      );
 
-  test('Edge: a write failure is swallowed and editing continues (DRB-13)', () async {
-    final container = buildContainer(
-      store: _ThrowingStore(directory: supportDir),
-    );
-    final subscriptions = <ProviderSubscription<bool>>[];
-    addTearDown(() {
-      for (final subscription in subscriptions) {
-        subscription.close();
-      }
-    });
-    await activate(container, subscriptions);
-    final notifier = container.read(
-      sheetEditControllerProvider(sheetId).notifier,
-    );
-    notifier.setPath('stats.dexterity', 18);
-    await pumpEventQueue();
+      // A second edit inside the same dirty stretch must not restart the
+      // clock: the tick still lands 60 s after the first edit.
+      await tester.pump(const Duration(seconds: 30));
+      notifier.setPath('stats.constitution', 20);
+      await tester.pump(const Duration(seconds: 29));
+      expect(
+        draftFile().existsSync(),
+        isFalse,
+        reason: 'the second edit did not restart the timer',
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(
+        draftFile().existsSync(),
+        isTrue,
+        reason: 'the tick lands exactly 60 s after the first edit',
+      );
 
-    // The write should not throw
-    expect(
-      container.read(sheetEditControllerProvider(sheetId)).isPending,
-      isTrue,
-    );
+      release(container, subscriptions);
+    },
+  );
 
-    notifier.setPath('stats.constitution', 20);
-    await pumpEventQueue();
-    expect(
-      container.read(sheetEditControllerProvider(sheetId)).isPending,
-      isTrue,
-    );
-  });
+  testWidgets(
+    'Edge: a write failure is swallowed and editing continues (DRB-13)',
+    (tester) async {
+      final container = buildContainer(
+        store: _ThrowingStore(directory: supportDir),
+        autoDispose: false,
+      );
+      final subscriptions = <ProviderSubscription<bool>>[];
+      await activate(tester, container, subscriptions);
+      final notifier = container.read(
+        sheetEditControllerProvider(sheetId).notifier,
+      );
 
-  test('Edge: disposing the provider cancels the scheduler (DRB-01)', () async {
+      notifier.setPath('stats.dexterity', 18);
+      await tester.pump(Duration.zero);
+      expect(
+        container.read(sheetEditControllerProvider(sheetId)).isPending,
+        isTrue,
+      );
+
+      // The tick fires and the store throws; an uncaught error would fail
+      // this test, so surviving it is the assertion.
+      await tester.pump(const Duration(seconds: 60));
+      expect(
+        container.read(sheetEditControllerProvider(sheetId)).isPending,
+        isTrue,
+      );
+
+      notifier.setPath('stats.constitution', 20);
+      await tester.pump(Duration.zero);
+      expect(
+        container.read(sheetEditControllerProvider(sheetId)).isPending,
+        isTrue,
+        reason: 'editing keeps working after the failed write',
+      );
+
+      release(container, subscriptions);
+    },
+  );
+
+  testWidgets('Edge: disposing the provider cancels the scheduler (DRB-01)', (
+    tester,
+  ) async {
     final container = buildContainer(autoDispose: false);
     container.listen(draftAutoBackupProvider(sheetId), (_, _) {});
-    await pumpEventQueue();
+    await tester.pump(Duration.zero);
     container
         .read(sheetEditControllerProvider(sheetId).notifier)
         .setPath('stats.dexterity', 18);
-    await pumpEventQueue();
-    expect(container.read(sheetEditControllerProvider(sheetId)).isPending, isTrue);
+    await tester.pump(Duration.zero);
+    expect(
+      container.read(sheetEditControllerProvider(sheetId)).isPending,
+      isTrue,
+    );
 
     container.dispose();
 
-    // After disposal, the scheduler should be cancelled (no more writes).
-    // We can't directly observe this, but the test passes if no exception is thrown.
-    expect(true, isTrue);
+    await tester.pump(const Duration(seconds: 120));
+    expect(
+      draftFile().existsSync(),
+      isFalse,
+      reason: 'no write survives the disposal',
+    );
   });
 }
 

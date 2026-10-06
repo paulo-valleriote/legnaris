@@ -117,4 +117,29 @@ void main() {
     expect(Directory('${root.path}/drafts').existsSync(), isTrue);
     expect(newStore().read(sheetId), {'stats': {'dexterity': 16}});
   });
+
+  test('Edge: read of an invalid sheet id resolves null without touching the filesystem', () {
+    final store = newStore();
+
+    expect(store.read('../escape'), isNull);
+    expect(store.read(''), isNull);
+    expect(store.read('NOT-A-UUID'), isNull);
+    expect(Directory('${root.path}/drafts').existsSync(), isFalse);
+  });
+
+  test('Edge: delete of an invalid sheet id is a no-op', () {
+    expect(() => newStore().delete('../escape'), returnsNormally);
+    expect(() => newStore().delete(''), returnsNormally);
+    expect(Directory('${root.path}/drafts').existsSync(), isFalse);
+  });
+
+  test('Error: write of an invalid sheet id throws DraftBackupException, not an Error', () {
+    final store = newStore();
+
+    expect(
+      () => store.write('../escape', {'stats': {'dexterity': 16}}),
+      throwsA(isA<DraftBackupException>()),
+    );
+    expect(Directory('${root.path}/drafts').existsSync(), isFalse);
+  });
 }

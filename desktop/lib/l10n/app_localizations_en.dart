@@ -124,6 +124,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get actionClose => 'Close';
 
   @override
+  String get fieldCalculated => 'Calculated';
+
+  @override
   String get fieldModified => 'Modified';
 
   @override

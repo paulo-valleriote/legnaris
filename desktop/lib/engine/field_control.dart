@@ -1,8 +1,10 @@
 /// Control rendering for one sheet field, chosen by the field's schema rule
 /// (RND-06 … RND-13): an input for editable fields, a toggle for `config.*`
-/// and bool fields, a read-only value exposing its formula as a tooltip for
-/// derived fields. An optional [SheetFieldControl.mark] tints the control.
-/// Controlled by construction — the value comes in through
+/// and bool fields, a read-only value with a "Calculated" highlight and its
+/// formula as a tooltip for derived fields. An optional
+/// [SheetFieldControl.mark] tints the control; the base "Calculated" label is
+/// dropped while a mark is shown (RND-10, PRV-13). Controlled by construction
+/// — the value comes in through
 /// [SheetFieldControl.value] and edits go out through
 /// [SheetFieldControl.onChanged]; the widget owns no domain state.
 library;
@@ -11,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/engine/sheet_mark.dart';
+import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/tokens.dart';
 
 /// One field control of the schema-driven sheet (Tela 2).
@@ -104,7 +107,11 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.schema.isEditable) return _readOnly(context);
+    if (!widget.schema.isEditable) {
+      // The base label survives only while the field carries no preview mark:
+      // a recalculated row shows its "Recalculated" mark instead (PRV-13).
+      return _readOnly(context, calculated: widget.mark == null);
+    }
     if (_isToggle) return _toggle();
     if (widget.schema.type == 'number') {
       return _textInput(context, numeric: true);
@@ -112,7 +119,7 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
     if (widget.schema.type == 'text' || widget.schema.type == 'string') {
       return _textInput(context, numeric: false);
     }
-    return _readOnly(context);
+    return _readOnly(context, calculated: false);
   }
 
   Widget _textInput(BuildContext context, {required bool numeric}) {
@@ -191,8 +198,9 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
     );
   }
 
-  Widget _readOnly(BuildContext context) {
+  Widget _readOnly(BuildContext context, {required bool calculated}) {
     final theme = Theme.of(context);
+    final localizations = AppLocalizations.of(context)!;
     final tint = widget.mark == null
         ? null
         : sheetMarkTint(theme.colorScheme);
@@ -205,12 +213,33 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
     final displayed = formula == null
         ? value
         : Tooltip(message: formula, child: value);
+    // `calculated` and the tint are mutually exclusive: the base label is
+    // dropped while a preview mark tints the value (PRV-13).
+    final content = !calculated
+        ? displayed
+        : Row(
+          children: [
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: displayed,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              localizations.fieldCalculated,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        );
     return SizedBox(
       width: AppSizes.fieldControlWidth,
       child: Align(
         alignment: Alignment.centerLeft,
         child: tint == null
-            ? displayed
+            ? content
             : Container(
                 key: Key('sheet-mark-tint-${widget.path}'),
                 padding: const EdgeInsets.symmetric(
@@ -221,7 +250,7 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
                   color: tint,
                   borderRadius: BorderRadius.circular(AppRadius.control),
                 ),
-                child: displayed,
+                child: content,
               ),
       ),
     );

@@ -151,7 +151,7 @@ class SheetForm extends StatelessWidget {
               field: field,
               header: true,
               child: Text(
-                fieldColumnName(_lastSegment(field.path), field.schema),
+                fieldColumnName(lastSegment(field.path), field.schema),
                 style: style,
                 textAlign: _cellAlignment(field.schema) == Alignment.centerRight
                     ? TextAlign.right
@@ -325,14 +325,9 @@ class SheetForm extends StatelessWidget {
 /// rows with the same identity share one header (RND-21).
 String _columnsKey(List<SheetField> fields) => [
   for (final field in fields)
-    fieldColumnName(_lastSegment(field.path), field.schema),
+    fieldColumnName(lastSegment(field.path), field.schema),
 ].join('\u0000');
 
 /// The alignment of a table cell: numbers right, everything else left.
 Alignment _cellAlignment(FieldSchema schema) =>
     schema.type == 'number' ? Alignment.centerRight : Alignment.centerLeft;
-
-String _lastSegment(String path) {
-  final index = path.lastIndexOf('.');
-  return index < 0 ? path : path.substring(index + 1);
-}

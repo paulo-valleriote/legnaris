@@ -30,9 +30,10 @@ class DraftBackupException implements Exception {
 /// Read, atomically write and delete one sheet's draft delta under an injected
 /// application-support [directory].
 ///
-/// `read` never throws: a missing, corrupt or newer-version file resolves to
-/// null so the caller seeds cleanly from the stored sheet (DRB-12). `delete`
-/// is best-effort (DRB-14).
+/// `read` never throws: a missing, corrupt, newer-version file or an invalid
+/// sheet id resolves to null so the caller seeds cleanly from the stored sheet
+/// (DRB-12). `delete` is best-effort (DRB-14), and an invalid sheet id is a
+/// no-op there too. Only `write` surfaces a failure, as [DraftBackupException].
 class DraftBackupStore {
   DraftBackupStore({
     required this.directory,
@@ -48,8 +49,9 @@ class DraftBackupStore {
 
   final DateTime Function() _now;
 
-  /// Validates that [sheetId] is a valid UUID (v4 or v7) to prevent path
-  /// traversal when used in file paths. Returns true if valid.
+  /// Validates that [sheetId] is a valid UUID (v4 or v7) before it reaches a
+  /// file path, so a crafted id can never traverse out of the drafts
+  /// directory. Returns true if valid.
   static bool _isValidSheetId(String sheetId) {
     // UUID regex: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (lowercase only per idgen)
     return RegExp(
@@ -59,25 +61,19 @@ class DraftBackupStore {
 
   Directory get _draftsDirectory => Directory('${directory.path}/drafts');
 
-  File _file(String sheetId) {
-    if (!_isValidSheetId(sheetId)) {
-      throw ArgumentError.value(
-        sheetId,
-        'sheetId',
-        'must be a valid UUID (lowercase) to be used in a file path',
-      );
-    }
-    return File('${_draftsDirectory.path}/$sheetId.json');
-  }
+  File _file(String sheetId) =>
+      File('${_draftsDirectory.path}/$sheetId.json');
 
   /// Temp file for this process: the pid suffix keeps two app instances from
   /// writing (and renaming) the same in-flight file.
   File _tempFile(String sheetId) => File('${_file(sheetId).path}.$pid.tmp');
 
   /// Returns the stored delta for [sheetId], or null when the file is missing,
-  /// cannot be read, is not a valid envelope, or carries an unsupported schema
-  /// version (DRB-12).
+  /// cannot be read, is not a valid envelope, carries an unsupported schema
+  /// version (DRB-12), or [sheetId] is not a valid UUID — an id that can never
+  /// name a stored file resolves the same way, keeping `read` throw-free.
   Map<String, Object?>? read(String sheetId) {
+    if (!_isValidSheetId(sheetId)) return null;
     final file = _file(sheetId);
     if (!file.existsSync()) {
       return null;
@@ -104,9 +100,15 @@ class DraftBackupStore {
 
   /// Atomically replaces [sheetId]'s backup with the versioned envelope
   /// `{schema_version, sheet_id, delta, saved_at}`, throwing
-  /// [DraftBackupException] on an unwritable path; the previous file is left
-  /// intact because the write lands on a temp file first (DRB-04, DRB-05).
+  /// [DraftBackupException] on an unwritable path or an invalid [sheetId];
+  /// the previous file is left intact because the write lands on a temp file
+  /// first (DRB-04, DRB-05).
   void write(String sheetId, Map<String, Object?> delta) {
+    if (!_isValidSheetId(sheetId)) {
+      throw DraftBackupException(
+        'refusing to persist a draft for an invalid sheet id',
+      );
+    }
     final envelope = <String, Object?>{
       'schema_version': currentSchemaVersion,
       'sheet_id': sheetId,
@@ -127,9 +129,10 @@ class DraftBackupStore {
     }
   }
 
-  /// Deletes [sheetId]'s backup best-effort; an absent file or a filesystem
-  /// failure is a no-op (DRB-14).
+  /// Deletes [sheetId]'s backup best-effort; an absent file, an invalid
+  /// [sheetId] or a filesystem failure is a no-op (DRB-14).
   void delete(String sheetId) {
+    if (!_isValidSheetId(sheetId)) return;
     try {
       final file = _file(sheetId);
       if (file.existsSync()) {

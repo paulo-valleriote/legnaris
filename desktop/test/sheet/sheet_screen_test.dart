@@ -263,7 +263,7 @@ void main() {
               .value,
           isFalse,
         );
-        expect(find.text('Calculated'), findsNothing);
+        expect(find.text('Calculated'), findsOneWidget);
         expect(
           find.byKey(const Key('sheet-value-derived.armorClass')),
           findsOneWidget,
@@ -514,7 +514,7 @@ void main() {
           find.byKey(const Key('sheet-input-derived.armorClass')),
           findsNothing,
         );
-        expect(find.text('Calculated'), findsNothing);
+        expect(find.text('Calculated'), findsOneWidget);
 
         await tester.enterText(
           find.byKey(const Key('sheet-input-stats.dexterity')),
@@ -2236,7 +2236,7 @@ void main() {
 
         expect(find.text('Modified'), findsNothing);
         expect(find.text('Recalculated'), findsNothing);
-        expect(find.text('Calculated'), findsNothing);
+        expect(find.text('Calculated'), findsNWidgets(2));
         expect(
           find.byKey(const Key('sheet-value-derived.armorClass')),
           findsOneWidget,
@@ -2274,15 +2274,15 @@ void main() {
             matching: find.text('Calculated'),
           ),
           findsNothing,
-          reason: 'the derived value never carries the removed category label',
+          reason: 'the recalculated row shows its mark instead of the base label',
         );
         expect(
           find.descendant(
             of: find.byKey(const Key('sheet-row-derived.initiative')),
             matching: find.text('Calculated'),
           ),
-          findsNothing,
-          reason: 'the derived value never carries the removed category label',
+          findsOneWidget,
+          reason: 'the untouched derived keeps the base label (RND-10, PRV-13)',
         );
         expect(
           find.byKey(const Key('sheet-mark-tint-derived.armorClass')),
@@ -2326,8 +2326,8 @@ void main() {
         expect(find.text('Recalculated'), findsNothing);
         expect(
           find.text('Calculated'),
-          findsNothing,
-          reason: 'the stale preview stops marking and there is no base label',
+          findsNWidgets(2),
+          reason: 'the cleared marks bring the base label back',
         );
       },
     );
