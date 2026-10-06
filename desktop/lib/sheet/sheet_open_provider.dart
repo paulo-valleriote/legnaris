@@ -15,6 +15,7 @@ import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/library/sheet_library_exception.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -91,13 +92,19 @@ class SheetOpenController extends _$SheetOpenController {
     }
   }
 
-  /// Drops the entry from the local library best-effort: a write failure must
-  /// not hide the missing-sheet message (edge case).
+  /// Drops the entry from the local library best-effort and deletes the sheet's
+  /// draft backup: neither a library write failure nor a draft delete failure
+  /// may hide the missing-sheet message (DRB-10, edge case).
   void _evict() {
     try {
       ref.read(sheetLibraryProvider.notifier).remove(sheetId);
     } on SheetLibraryException {
       // The message still renders; the entry stays at the last persisted state.
+    }
+    try {
+      ref.read(draftBackupStoreProvider).delete(sheetId);
+    } catch (_) {
+      // Best-effort: a failed draft delete still publishes the missing copy.
     }
   }
 }

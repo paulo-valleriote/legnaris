@@ -37,6 +37,30 @@ func tamperFirstLeaf(group FieldGroup) {
 	}
 }
 
+// TestCloneFieldNode_DeepCopiesTableMetadata covers the registry clone: a
+// group node's label and column list must be copied, or a template served by
+// the registry would silently lose its table metadata.
+func TestCloneFieldNode_DeepCopiesTableMetadata(t *testing.T) {
+	source := FieldNode{
+		Children: FieldGroup{
+			"bonus": {Schema: &FieldSchema{Type: fieldTypeNumber}},
+		},
+		Label:   "Attack 1",
+		Columns: []string{"name", "damage", "bonus"},
+	}
+
+	cloned := cloneFieldNode(source)
+
+	assert.Equal(t, source.Label, cloned.Label)
+	assert.Equal(t, source.Columns, cloned.Columns)
+
+	cloned.Label = "tampered"
+	cloned.Columns[0] = "tampered"
+	assert.Equal(t, "Attack 1", source.Label)
+	assert.Equal(t, "name", source.Columns[0],
+		"the cloned node aliases the source column list")
+}
+
 // TestRegistry_ListReturnsDeepCopies covers the LGN-54 finding that List handed
 // out the registry's own templates as shallow copies: a caller could rewrite a
 // registered template's schema, dependency list or field map.

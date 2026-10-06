@@ -60,6 +60,14 @@ void main() {
 }}}
 ''';
 
+  // A template whose skills group declares a table row (RND-21): the preview
+  // must inherit the same header + aligned cells as the editable screen.
+  const tableBody = '''
+{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
+  "skills": {"children": {"acrobatics": {"label": "", "columns": ["bonus", "total"], "children": {"bonus": {"schema": {"type": "number", "label": "Acrobatics bonus", "is_editable": true, "default": 0, "column_label": "Bonus"}}, "total": {"schema": {"type": "number", "label": "Acrobatics total", "is_editable": false, "default": 0, "column_label": "Total"}}}}}}
+}}}
+''';
+
   String manyLeavesBody(int count) {
     final leaves = [
       for (var i = 0; i < count; i++)
@@ -238,6 +246,33 @@ void main() {
               .controller
               ?.text,
           '',
+        );
+      },
+    );
+    testWidgets(
+      'Happy path: a table group renders its header and row in the preview (RND-21)',
+      (tester) async {
+        await pumpCatalog(tester, handler: routing(detail: tableBody));
+        await openDialog(tester);
+
+        expect(
+          inPreview(find.byKey(const Key('sheet-table-header-skills-0'))),
+          findsOneWidget,
+        );
+        expect(inPreview(find.text('Bonus')), findsOneWidget);
+        expect(inPreview(find.text('Total')), findsOneWidget);
+        expect(inPreview(find.text('Acrobatics')), findsOneWidget);
+        expect(
+          inPreview(
+            find.byKey(const Key('sheet-input-skills.acrobatics.bonus')),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          inPreview(
+            find.byKey(const Key('sheet-value-skills.acrobatics.total')),
+          ),
+          findsOneWidget,
         );
       },
     );

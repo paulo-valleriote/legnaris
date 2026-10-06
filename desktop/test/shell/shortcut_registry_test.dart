@@ -192,7 +192,7 @@ void main() {
         harness.container.listen(sheetSaveTickProvider, (_, _) {});
         harness.container
             .read(activeSheetIdProvider.notifier)
-            .set('sheet-1');
+            .set('12345678-1234-7000-8000-123456789abc');
 
         const ActionDispatcher().invokeAction(
           harness.actions[SaveSheetIntent]!,

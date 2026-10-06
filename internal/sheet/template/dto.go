@@ -21,10 +21,12 @@ type TemplateDTO struct {
 type FieldGroupDTO map[string]FieldNodeDTO
 
 // FieldNodeDTO mirrors FieldNode. A leaf node exposes only "schema"; a group
-// node exposes only "children".
+// node exposes only "children" (plus the optional table metadata).
 type FieldNodeDTO struct {
 	Schema   *FieldSchemaDTO `json:"schema,omitempty"`
 	Children FieldGroupDTO   `json:"children,omitempty"`
+	Label    string          `json:"label,omitempty"`
+	Columns  []string        `json:"columns,omitempty"`
 }
 
 // FieldSchemaDTO mirrors FieldSchema for the API.
@@ -37,6 +39,7 @@ type FieldSchemaDTO struct {
 	Default        float64    `json:"default"`
 	ExclusiveGroup string     `json:"exclusive_group,omitempty"`
 	OptionLabel    string     `json:"option_label,omitempty"`
+	ColumnLabel    string     `json:"column_label,omitempty"`
 }
 
 // ToDTO converts a Template to its API representation. The result shares no
@@ -130,6 +133,8 @@ func (n FieldNode) toDTO() FieldNodeDTO {
 	return FieldNodeDTO{
 		Schema:   n.Schema.toDTO(),
 		Children: n.Children.toDTO(),
+		Label:    n.Label,
+		Columns:  slices.Clone(n.Columns),
 	}
 }
 
@@ -151,5 +156,6 @@ func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 		Default:        s.Default,
 		ExclusiveGroup: s.ExclusiveGroup,
 		OptionLabel:    s.OptionLabel,
+		ColumnLabel:    s.ColumnLabel,
 	}
 }

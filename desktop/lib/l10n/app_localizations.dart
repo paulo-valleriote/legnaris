@@ -292,6 +292,18 @@ abstract class AppLocalizations {
   /// **'Calculated'**
   String get fieldCalculated;
 
+  /// Row mark shown left of an editable field the pending delta changed, after a successful preview (PRV-12).
+  ///
+  /// In en, this message translates to:
+  /// **'Modified'**
+  String get fieldModified;
+
+  /// Row mark shown left of a derived field the last successful preview recalculated (PRV-13).
+  ///
+  /// In en, this message translates to:
+  /// **'Recalculated'**
+  String get fieldRecalculated;
+
   /// Footer caption shown while the in-memory edit state differs from the seeded defaults (GRN-11, GRN-12).
   ///
   /// In en, this message translates to:
@@ -309,6 +321,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'There are no changes to save.'**
   String get sheetSaveNoChangesTooltip;
+
+  /// Secondary footer action that runs one stateless dry-run and merges the cascade without saving (PRV-03).
+  ///
+  /// In en, this message translates to:
+  /// **'Preview changes'**
+  String get sheetPreviewAction;
+
+  /// Tooltip explaining why Preview is disabled: the pending delta already matches the last successful preview (PRV-02).
+  ///
+  /// In en, this message translates to:
+  /// **'There are no new changes to preview.'**
+  String get sheetPreviewNoChangesTooltip;
+
+  /// Tooltip explaining why both Preview and Save are disabled: a request is in flight (SVE-01).
+  ///
+  /// In en, this message translates to:
+  /// **'Wait for the current request to finish.'**
+  String get sheetRequestInProgressTooltip;
+
+  /// Tooltip explaining why Preview is disabled: three previews were issued inside the rolling window (SVE-02).
+  ///
+  /// In en, this message translates to:
+  /// **'Preview limit reached. Try again in a minute.'**
+  String get sheetPreviewLimitTooltip;
+
+  /// Tooltip explaining why Save is disabled: three saves were issued inside the rolling window (SVE-03).
+  ///
+  /// In en, this message translates to:
+  /// **'Save limit reached. Try again in a minute.'**
+  String get sheetSaveLimitTooltip;
 
   /// Loading state of Screen 2 while GET /sheets/:id is in flight (OPN-05).
   ///

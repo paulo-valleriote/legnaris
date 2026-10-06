@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:legnaris/engine/field_grouping.dart';
+import 'package:legnaris/engine/sheet_mark.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/tokens.dart';
 
@@ -36,6 +37,7 @@ class SheetExclusiveControl extends StatelessWidget {
     super.key,
     required this.group,
     this.selectedPath,
+    this.mark,
     this.onSelect,
   });
 
@@ -44,6 +46,10 @@ class SheetExclusiveControl extends StatelessWidget {
 
   /// Dotted path of the active option; null when no option is active.
   final String? selectedPath;
+
+  /// Preview marking of the last dry-run for any member of this group, or
+  /// null. Drives the change tint on the dropdown.
+  final SheetMark? mark;
 
   /// Reports a newly selected option path (or [exclusiveNoneValue]); null
   /// renders the dropdown disabled.
@@ -76,51 +82,62 @@ class SheetExclusiveControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final localizations = AppLocalizations.of(context)!;
+    final tint = mark == null ? null : sheetMarkTint(theme.colorScheme);
+    final dropdown = DropdownButton<String>(
+      key: Key('sheet-exclusive-${group.id}'),
+      value: _value,
+      hint: _value == null
+          ? Text(
+              localizations.fieldNone,
+              key: const Key('sheet-exclusive-hint-none'),
+              style: theme.textTheme.bodyMedium,
+            )
+          : null,
+      isDense: true,
+      isExpanded: true,
+      borderRadius: BorderRadius.circular(AppRadius.control),
+      style: theme.textTheme.bodyMedium,
+      iconSize: AppSizes.emphasis,
+      onChanged: onSelect == null
+          ? null
+          : (value) {
+              if (value != null) onSelect!(value);
+            },
+      items: [
+        if (_allowsNone)
+          DropdownMenuItem<String>(
+            value: exclusiveNoneValue,
+            child: Text(
+              localizations.fieldNone,
+              key: const Key('sheet-exclusive-option-none'),
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+        for (final option in group.options)
+          DropdownMenuItem<String>(
+            value: option.path,
+            child: Text(
+              _optionLabel(option),
+              key: Key('sheet-exclusive-option-${option.path}'),
+              style: theme.textTheme.bodyMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+    );
     return SizedBox(
       width: AppSizes.fieldControlWidth,
       height: AppSizes.controlHeight,
-      child: DropdownButton<String>(
-        key: Key('sheet-exclusive-${group.id}'),
-        value: _value,
-        hint: _value == null
-            ? Text(
-                localizations.fieldNone,
-                key: const Key('sheet-exclusive-hint-none'),
-                style: theme.textTheme.bodyMedium,
-              )
-            : null,
-        isDense: true,
-        isExpanded: true,
-        borderRadius: BorderRadius.circular(AppRadius.control),
-        style: theme.textTheme.bodyMedium,
-        iconSize: AppSizes.emphasis,
-        onChanged: onSelect == null
-            ? null
-            : (value) {
-                if (value != null) onSelect!(value);
-              },
-        items: [
-          if (_allowsNone)
-            DropdownMenuItem<String>(
-              value: exclusiveNoneValue,
-              child: Text(
-                localizations.fieldNone,
-                key: const Key('sheet-exclusive-option-none'),
-                style: theme.textTheme.bodyMedium,
+      child: tint == null
+          ? dropdown
+          : DecoratedBox(
+              key: Key('sheet-mark-tint-${group.id}'),
+              decoration: BoxDecoration(
+                color: tint,
+                borderRadius: BorderRadius.circular(AppRadius.control),
               ),
+              child: dropdown,
             ),
-          for (final option in group.options)
-            DropdownMenuItem<String>(
-              value: option.path,
-              child: Text(
-                _optionLabel(option),
-                key: Key('sheet-exclusive-option-${option.path}'),
-                style: theme.textTheme.bodyMedium,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

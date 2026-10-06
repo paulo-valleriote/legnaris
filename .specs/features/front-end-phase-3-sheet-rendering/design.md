@@ -216,3 +216,4 @@ Mesma semântica de `Sheet.valueAt` (FE1-12…14): segmento ausente → `null`; 
 | RND-18 | `SheetScreen` back | `sheet_navigation_test.dart` (volta ao catálogo) |
 | RND-19 | Ausência de mutação por construção | `sheet_screen_test.dart` / `sheet_navigation_test.dart` (nenhum POST/PATCH no transporte) |
 | RND-20 | `SheetScreen` host somente-leitura (`onChanged: null`) | `sheet_screen_test.dart` (nenhum `TextField` `enabled`, nenhum `Switch` acionável) |
+| RND-21 | `_buildRows` (ramo de tabela) + `fieldColumnName`/`groupDisplayName` + `SheetForm` (linha de tabela) | `field_grouping_test.dart` (ordem declarada + rótulos de coluna), `sheet_form_test.dart` (alinhamento, `controlBuilder`, coluna órfã), `sheet_screen_test.dart` (cabeçalho + células no modo de edição), `template_model_test.dart` (decode de `columns`/`column_label`) |

@@ -19,7 +19,7 @@ void main() {
   const templateBody =
       '{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {"baseArmorClass": {"schema": {"type": "number", "label": "Base AC", "is_editable": true, "default": 10}}}}}';
   const sheetBody =
-      '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+      '{"data": {"id": "12345678-1234-7000-8000-123456789abc", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
   const cascadesBody =
       '{"data": {"derived": {"armorClass": 15}, "stats": {"constitution": 16.5}}}';
 
@@ -96,7 +96,7 @@ void main() {
         templateId: 'fantasy_v1',
         sheetName: 'Aragorn',
       );
-      expect(sheet.id, 'sheet-1');
+      expect(sheet.id, '12345678-1234-7000-8000-123456789abc');
       expect(sheet.name, 'Aragorn');
       expect(sheet.templateId, 'fantasy_v1');
 
@@ -119,11 +119,11 @@ void main() {
         ),
       );
 
-      final sheet = await client.getSheet('sheet-1');
-      expect(sheet.id, 'sheet-1');
+      final sheet = await client.getSheet('12345678-1234-7000-8000-123456789abc');
+      expect(sheet.id, '12345678-1234-7000-8000-123456789abc');
       expect(sheet.data['stats'], isA<Map<String, Object?>>());
       expect(recorded.single.method, 'GET');
-      expect(recorded.single.url.path, '/sheets/sheet-1');
+      expect(recorded.single.url.path, '/sheets/12345678-1234-7000-8000-123456789abc');
     });
 
     test('Happy path: patchSheet sends PATCH /sheets/:id with only the delta (FE1-06)', () async {
@@ -135,7 +135,7 @@ void main() {
         ),
       );
 
-      final cascades = await client.patchSheet('sheet-1', {
+      final cascades = await client.patchSheet('12345678-1234-7000-8000-123456789abc', {
         'stats': {'dexterity': 16},
       });
       expect(cascades, {
@@ -145,7 +145,7 @@ void main() {
 
       final request = recorded.single;
       expect(request.method, 'PATCH');
-      expect(request.url.path, '/sheets/sheet-1');
+      expect(request.url.path, '/sheets/12345678-1234-7000-8000-123456789abc');
       expect(
         jsonDecode(request.body),
         {
@@ -154,6 +154,61 @@ void main() {
           },
         },
       );
+    });
+  });
+
+  group('sheet preview (PRV-03)', () {
+    test('Happy path: previewSheet posts POST /sheets/:id/preview with only the delta (PRV-03)', () async {
+      final recorded = <http.Request>[];
+      final client = ApiClient(
+        httpClient: mockClient(
+          (request) async => http.Response(cascadesBody, 200),
+          recorded,
+        ),
+      );
+
+      final cascades = await client.previewSheet('12345678-1234-7000-8000-123456789abc', {
+        'stats': {'dexterity': 16},
+      });
+      expect(cascades, {
+        'derived': {'armorClass': 15},
+        'stats': {'constitution': 16.5},
+      });
+
+      final request = recorded.single;
+      expect(request.method, 'POST');
+      expect(request.url.path, '/sheets/12345678-1234-7000-8000-123456789abc/preview');
+      expect(
+        jsonDecode(request.body),
+        {
+          'data': {
+            'stats': {'dexterity': 16},
+          },
+        },
+      );
+      expect(request.headers['content-type'], contains('application/json'));
+    });
+
+    test('Edge: a transport failure issues exactly one preview attempt (no retry)', () async {
+      var attempts = 0;
+      final client = ApiClient(
+        httpClient: MockClient((request) async {
+          attempts++;
+          throw http.ClientException('connection refused');
+        }),
+      );
+
+      await expectLater(
+        client.previewSheet('12345678-1234-7000-8000-123456789abc', {'stats': {'dexterity': 16}}),
+        throwsA(
+          isA<ApiDomainException>().having(
+            (error) => error.kind,
+            'kind',
+            ApiErrorKind.offline,
+          ),
+        ),
+      );
+      expect(attempts, 1);
     });
   });
 
@@ -182,8 +237,8 @@ void main() {
       await client.listTemplates();
       await client.getTemplate('fantasy_v1');
       await client.createSheet(templateId: 'fantasy_v1', sheetName: 'Aragorn');
-      await client.getSheet('sheet-1');
-      await client.patchSheet('sheet-1', {'stats': {'dexterity': 16}});
+      await client.getSheet('12345678-1234-7000-8000-123456789abc');
+      await client.patchSheet('12345678-1234-7000-8000-123456789abc', {'stats': {'dexterity': 16}});
 
       expect(
         recorded.map((r) => '${r.method} ${r.url.path}').toList(),
@@ -192,8 +247,8 @@ void main() {
           'GET /templates',
           'GET /templates/fantasy_v1',
           'POST /sheets',
-          'GET /sheets/sheet-1',
-          'PATCH /sheets/sheet-1',
+          'GET /sheets/12345678-1234-7000-8000-123456789abc',
+          'PATCH /sheets/12345678-1234-7000-8000-123456789abc',
         ],
       );
     });
@@ -257,7 +312,7 @@ void main() {
 
       final error = await domainErrorFrom(
         client,
-        client.patchSheet('sheet-1', {'derived': {'armorClass': 99}}),
+        client.patchSheet('12345678-1234-7000-8000-123456789abc', {'derived': {'armorClass': 99}}),
       );
       expect(error.kind, ApiErrorKind.invalidEdit);
       expect(error.code, 'INVALID_REQUEST');
@@ -277,10 +332,29 @@ void main() {
 
       final error = await domainErrorFrom(
         client,
-        client.patchSheet('sheet-1', {'nope': 1}),
+        client.patchSheet('12345678-1234-7000-8000-123456789abc', {'nope': 1}),
       );
       expect(error.kind, ApiErrorKind.renderMismatch);
       expect(error.code, 'UNKNOWN_FIELD');
+    });
+
+    test('Error: 400 UNKNOWN_FIELD on previewSheet maps to renderMismatch (PRV-03)', () async {
+      final client = ApiClient(
+        httpClient: MockClient(
+          (request) async => http.Response(
+            '{"error": {"code": "UNKNOWN_FIELD", "message": "unknown field"}}',
+            400,
+          ),
+        ),
+      );
+
+      final error = await domainErrorFrom(
+        client,
+        client.previewSheet('12345678-1234-7000-8000-123456789abc', {'nope': 1}),
+      );
+      expect(error.kind, ApiErrorKind.renderMismatch);
+      expect(error.code, 'UNKNOWN_FIELD');
+      expect(error.statusCode, 400);
     });
 
     test('Error: 400 INVALID_JSON on createSheet maps to clientFault', () async {
@@ -362,7 +436,7 @@ void main() {
       );
 
       expect(
-        () => client.getSheet('sheet-1'),
+        () => client.getSheet('12345678-1234-7000-8000-123456789abc'),
         throwsA(isA<ApiParseException>()),
       );
     });

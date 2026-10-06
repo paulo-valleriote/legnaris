@@ -13,6 +13,7 @@ import 'package:legnaris/library/sheet_library_entry.dart';
 import 'package:legnaris/library/sheet_library_exception.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/library/sheet_library_store.dart';
+import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
 import '../library/library_fixtures.dart';
@@ -23,14 +24,21 @@ void main() {
     WidgetTester tester, {
     required SheetLibraryStore store,
     ValueChanged<SheetLibraryEntry>? onOpen,
+    Directory? supportDir,
   }) async {
     final recorded = <http.Request>[];
+    final directory =
+        supportDir ?? Directory.systemTemp.createTempSync('library_section_');
+    if (supportDir == null) {
+      addTearDown(() => directory.deleteSync(recursive: true));
+    }
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appSupportDirectoryProvider.overrideWithValue(directory),
           sheetLibraryStoreProvider.overrideWithValue(store),
           apiClientProvider.overrideWithValue(
             ApiClient(
@@ -54,6 +62,9 @@ void main() {
     await tester.pumpAndSettle();
     return recorded;
   }
+
+  File draftFile(Directory supportDir, String id) =>
+      File('${supportDir.path}/drafts/$id.json');
 
   group('listing (OPN-01 … OPN-03)', () {
     testWidgets(
@@ -95,15 +106,15 @@ void main() {
         final store = _FakeStore()
           ..onLoad = () => LibraryLoadResult(
             outcome: LibraryLoadOutcome.loaded,
-            entries: [entry('id-1')],
+            entries: [entry('87654321-4321-7000-8000-987654321cba')],
           );
 
         await pumpSection(tester, store: store, onOpen: (e) => opened.add(e.id));
 
-        await tester.tap(find.byKey(const Key('library-open-id-1')));
+        await tester.tap(find.byKey(const Key('library-open-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
 
-        expect(opened, ['id-1']);
+        expect(opened, ['87654321-4321-7000-8000-987654321cba']);
       },
     );
 
@@ -123,7 +134,7 @@ void main() {
     _FakeStore storeWithOne() => _FakeStore()
       ..onLoad = () => LibraryLoadResult(
         outcome: LibraryLoadOutcome.loaded,
-        entries: [entry('id-1', name: 'Aria')],
+        entries: [entry('87654321-4321-7000-8000-987654321cba', name: 'Aria')],
       );
 
     testWidgets(
@@ -132,7 +143,7 @@ void main() {
         final store = storeWithOne();
         final recorded = await pumpSection(tester, store: store);
 
-        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
 
         final dialog = find.byType(AlertDialog);
@@ -151,7 +162,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('library-name-id-1')), findsNothing);
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsNothing);
         expect(find.text('No sheets created yet'), findsOneWidget);
         expect(store.saveCalls, 1);
         expect(recorded, isEmpty, reason: 'removal is local-only (OPN-13)');
@@ -164,7 +175,7 @@ void main() {
         final store = storeWithOne();
         final recorded = await pumpSection(tester, store: store);
 
-        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
@@ -174,7 +185,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('library-name-id-1')), findsOneWidget);
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsOneWidget);
         expect(store.saveCalls, 0);
         expect(recorded, isEmpty);
       },
@@ -190,7 +201,7 @@ void main() {
           );
         final recorded = await pumpSection(tester, store: store);
 
-        await tester.tap(find.byKey(const Key('library-remove-id-1')));
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
         await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
@@ -200,9 +211,98 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('library-name-id-1')), findsOneWidget);
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsOneWidget);
         expect(find.byKey(const Key('library-remove-error')), findsOneWidget);
         expect(recorded, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Happy path: confirming the removal deletes the sheet draft file (DRB-11)',
+      (tester) async {
+        final supportDir = Directory.systemTemp.createTempSync('library_draft_');
+        addTearDown(() => supportDir.deleteSync(recursive: true));
+        DraftBackupStore(directory: supportDir).write('87654321-4321-7000-8000-987654321cba', {
+          'stats': {'dexterity': 18},
+        });
+        final store = storeWithOne();
+        final recorded = await pumpSection(
+          tester,
+          store: store,
+          supportDir: supportDir,
+        );
+
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.widgetWithText(TextButton, 'Remove'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsNothing);
+        expect(draftFile(supportDir, '87654321-4321-7000-8000-987654321cba').existsSync(), isFalse);
+        expect(recorded, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Edge: a failed removal leaves the draft in place (DRB-11)',
+      (tester) async {
+        final supportDir = Directory.systemTemp.createTempSync('library_draft_');
+        addTearDown(() => supportDir.deleteSync(recursive: true));
+        DraftBackupStore(directory: supportDir).write('87654321-4321-7000-8000-987654321cba', {
+          'stats': {'dexterity': 18},
+        });
+        final store = storeWithOne()
+          ..onSave = (_) => throw const SheetLibraryException(
+            SheetLibraryErrorKind.writeFailed,
+            'disk full',
+          );
+        await pumpSection(tester, store: store, supportDir: supportDir);
+
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.widgetWithText(TextButton, 'Remove'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsOneWidget);
+        expect(find.byKey(const Key('library-remove-error')), findsOneWidget);
+        expect(draftFile(supportDir, '87654321-4321-7000-8000-987654321cba').existsSync(), isTrue);
+      },
+    );
+
+    testWidgets(
+      'Edge: cancelling the removal deletes nothing (DRB-11)',
+      (tester) async {
+        final supportDir = Directory.systemTemp.createTempSync('library_draft_');
+        addTearDown(() => supportDir.deleteSync(recursive: true));
+        DraftBackupStore(directory: supportDir).write('87654321-4321-7000-8000-987654321cba', {
+          'stats': {'dexterity': 18},
+        });
+        final store = storeWithOne();
+        await pumpSection(tester, store: store, supportDir: supportDir);
+
+        await tester.tap(find.byKey(const Key('library-remove-87654321-4321-7000-8000-987654321cba')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.widgetWithText(TextButton, 'Cancel'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('library-name-87654321-4321-7000-8000-987654321cba')), findsOneWidget);
+        expect(draftFile(supportDir, '87654321-4321-7000-8000-987654321cba').existsSync(), isTrue);
+        expect(store.saveCalls, 0);
       },
     );
   });

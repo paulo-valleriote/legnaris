@@ -22,6 +22,15 @@ func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.POST("", sc.Create)
 	group.GET("/:id", sc.FetchByID)
 	group.PATCH("/:id", sc.PartialUpdate)
+	group.POST("/:id/preview", sc.Preview)
+}
+
+// RegisterTemplatePreviewRoute exposes the template dry-run on the templates
+// group. The operation lives on the sheet service because it shares the
+// recalculation path, but it is grouped with the other /templates routes for
+// the client.
+func (sc *SheetController) RegisterTemplatePreviewRoute(group *echo.Group) {
+	group.POST("/:id/preview", sc.PreviewTemplate)
 }
 
 func (sc *SheetController) Create(c *echo.Context) error {
@@ -56,6 +65,46 @@ func (sc *SheetController) PartialUpdate(c *echo.Context) error {
 	cascadingEffects, err := sc.service.PartialUpdate(c.Request().Context(), sheet.PartialUpdateSheetCommand{
 		SheetID: c.Param("id"),
 		Data:    cmd.Data,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, cascadingEffects)
+}
+
+// Preview is the stateless dry-run of PartialUpdate: same body, same cascade,
+// same typed errors, no persistence. It exists so a client can show computed
+// values before committing.
+func (sc *SheetController) Preview(c *echo.Context) error {
+	var cmd sheet.PartialUpdateSheetCommand
+
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+
+	cascadingEffects, err := sc.service.Preview(c.Request().Context(), sheet.PartialUpdateSheetCommand{
+		SheetID: c.Param("id"),
+		Data:    cmd.Data,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, cascadingEffects)
+}
+
+// PreviewTemplate is the template-seeded dry-run: it decodes the data delta,
+// takes the template id from the path and returns the cascade with no stored
+// sheet and no persistence.
+func (sc *SheetController) PreviewTemplate(c *echo.Context) error {
+	var cmd sheet.PreviewTemplateCommand
+
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+
+	cascadingEffects, err := sc.service.PreviewTemplate(c.Request().Context(), sheet.PreviewTemplateCommand{
+		TemplateID: c.Param("id"),
+		Data:       cmd.Data,
 	})
 	if err != nil {
 		return err

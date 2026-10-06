@@ -1,7 +1,10 @@
 /// Control rendering for one sheet field, chosen by the field's schema rule
 /// (RND-06 … RND-13): an input for editable fields, a toggle for `config.*`
-/// and bool fields, a read-only value with a "Calculated" highlight for
-/// derived fields. Controlled by construction — the value comes in through
+/// and bool fields, a read-only value with a "Calculated" highlight and its
+/// formula as a tooltip for derived fields. An optional
+/// [SheetFieldControl.mark] tints the control; the base "Calculated" label is
+/// dropped while a mark is shown (RND-10, PRV-13). Controlled by construction
+/// — the value comes in through
 /// [SheetFieldControl.value] and edits go out through
 /// [SheetFieldControl.onChanged]; the widget owns no domain state.
 library;
@@ -9,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:legnaris/api/models/template.dart';
+import 'package:legnaris/engine/sheet_mark.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/tokens.dart';
 
@@ -19,6 +23,7 @@ class SheetFieldControl extends StatefulWidget {
     required this.path,
     required this.schema,
     required this.value,
+    this.mark,
     this.onChanged,
   });
 
@@ -30,6 +35,10 @@ class SheetFieldControl extends StatefulWidget {
 
   /// Current value of the field, as held by the caller.
   final Object? value;
+
+  /// Preview marking of the last dry-run for this field, or null. Drives the
+  /// change tint on the control.
+  final SheetMark? mark;
 
   /// Reports an edit for this field; null keeps the control non-interactive.
   final ValueChanged<Object?>? onChanged;
@@ -98,7 +107,11 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.schema.isEditable) return _readOnly(context, calculated: true);
+    if (!widget.schema.isEditable) {
+      // The base label survives only while the field carries no preview mark:
+      // a recalculated row shows its "Recalculated" mark instead (PRV-13).
+      return _readOnly(context, calculated: widget.mark == null);
+    }
     if (_isToggle) return _toggle();
     if (widget.schema.type == 'number') {
       return _textInput(context, numeric: true);
@@ -126,14 +139,18 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
         inputFormatters:
             numeric ? const [_NumericTextFormatter()] : null,
         style: Theme.of(context).textTheme.bodyMedium,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           isDense: true,
-          border: OutlineInputBorder(
+          filled: widget.mark != null,
+          fillColor: widget.mark == null
+              ? null
+              : sheetMarkTint(Theme.of(context).colorScheme),
+          border: const OutlineInputBorder(
             borderRadius: BorderRadius.all(
               Radius.circular(AppRadius.control),
             ),
           ),
-          contentPadding: EdgeInsets.symmetric(
+          contentPadding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.sm,
             vertical: AppSpacing.sm,
           ),
@@ -145,24 +162,37 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
 
   Widget _toggle() {
     final bool emitsBool = widget.schema.type == 'bool';
+    final tint = widget.mark == null
+        ? null
+        : sheetMarkTint(Theme.of(context).colorScheme);
     return SizedBox(
       width: AppSizes.fieldControlWidth,
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Checkbox(
-          key: Key('sheet-checkbox-${widget.path}'),
-          value: _isOn(widget.value),
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          onChanged:
-              widget.onChanged == null
-                  ? null
-                  : (next) {
-                    final bool on = next ?? false;
-                    final Object emitted = emitsBool ? on : (on ? 1 : 0);
-                    _lastEmitted = emitted;
-                    widget.onChanged!(emitted);
-                  },
+        child: Container(
+          key: Key('sheet-mark-tint-${widget.path}'),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+          decoration: tint == null
+              ? null
+              : BoxDecoration(
+                  color: tint,
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                ),
+          child: Checkbox(
+            key: Key('sheet-checkbox-${widget.path}'),
+            value: _isOn(widget.value),
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged:
+                widget.onChanged == null
+                    ? null
+                    : (next) {
+                      final bool on = next ?? false;
+                      final Object emitted = emitsBool ? on : (on ? 1 : 0);
+                      _lastEmitted = emitted;
+                      widget.onChanged!(emitted);
+                    },
+          ),
         ),
       ),
     );
@@ -171,26 +201,30 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
   Widget _readOnly(BuildContext context, {required bool calculated}) {
     final theme = Theme.of(context);
     final localizations = AppLocalizations.of(context)!;
+    final tint = widget.mark == null
+        ? null
+        : sheetMarkTint(theme.colorScheme);
     final value = Text(
       _formatValue(widget.value),
       key: Key('sheet-value-${widget.path}'),
       style: theme.textTheme.bodyMedium,
     );
     final formula = widget.schema.formula;
-    return SizedBox(
-      width: AppSizes.fieldControlWidth,
-      child: Row(
-        children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child:
-                  formula == null
-                      ? value
-                      : Tooltip(message: formula, child: value),
+    final displayed = formula == null
+        ? value
+        : Tooltip(message: formula, child: value);
+    // `calculated` and the tint are mutually exclusive: the base label is
+    // dropped while a preview mark tints the value (PRV-13).
+    final content = !calculated
+        ? displayed
+        : Row(
+          children: [
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: displayed,
+              ),
             ),
-          ),
-          if (calculated) ...[
             const SizedBox(width: AppSpacing.sm),
             Text(
               localizations.fieldCalculated,
@@ -199,7 +233,25 @@ class _SheetFieldControlState extends State<SheetFieldControl> {
               ),
             ),
           ],
-        ],
+        );
+    return SizedBox(
+      width: AppSizes.fieldControlWidth,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: tint == null
+            ? content
+            : Container(
+                key: Key('sheet-mark-tint-${widget.path}'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: AppSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: tint,
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                ),
+                child: content,
+              ),
       ),
     );
   }

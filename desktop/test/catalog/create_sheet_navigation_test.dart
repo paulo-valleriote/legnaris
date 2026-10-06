@@ -276,7 +276,7 @@ void main() {
 
   group('creating a sheet from the dialog (CRT-03, CRT-04, CRT-08)', () {
     const createdBody =
-        '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+        '{"data": {"id": "12345678-1234-7000-8000-123456789abc", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
 
     ProviderContainer containerOf(WidgetTester tester) =>
         ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
@@ -342,7 +342,7 @@ void main() {
         final entry = containerOf(
           tester,
         ).read(sheetLibraryProvider).entries.single;
-        expect(entry.id, 'sheet-1');
+        expect(entry.id, '12345678-1234-7000-8000-123456789abc');
         expect(entry.name, 'Aragorn');
         expect(entry.templateId, 'fantasy_v1');
       },

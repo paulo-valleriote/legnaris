@@ -50,14 +50,38 @@
 - **Date**: 2026-10-03
 - **Status**: active
 
+### AD-007
+- **Decision**: The stateless sheet/template preview (`POST /sheets/:id/preview`, `POST /templates/:id/preview`) reuses the exact PATCH recalculation path through one unexported `recalculate` helper in `internal/sheet/service.go`; persistence (`data` + `updated_at`) stays only in `PartialUpdate`, and the preview returns the same derived-cascade body the PATCH returns with the same `apperr` mapping.
+- **Reason**: LGN-103 requires a dry-run whose cascade is identical to an equivalent PATCH without duplicating the DAG logic; one helper guarantees the two cannot drift and lets tests assert zero repository writes.
+- **Trade-off**: `PartialUpdate` now depends on a returned struct holding the merged data the preview does not need, and any future change to the recalc sequence is shared by both paths — deliberate, since divergence is the risk.
+- **Scope**: backend `internal/sheet` (service) and `internal/app` (routes); future preview-like evaluations must go through the same helper rather than re-implementing DAG traversal.
+- **Date**: 2026-10-04
+- **Status**: active
+
+### AD-008
+- **Decision**: Unsaved sheet drafts are backed up as one atomic JSON file per sheet id under the injected app-support directory (`<appSupport>/drafts/<sheet_id>.json`, versioned envelope holding only the pending editable delta), written every 60 seconds while dirty through an injectable `DraftBackupScheduler` and deleted on save success, confirmed discard, `NOT_FOUND` eviction and library removal; restore overlays the stored sheet and is filtered to editable leaves of the loaded template.
+- **Reason**: LGN-104 requires periodic draft backup with recovery; a per-sheet delta survives a crash, reuses AD-003's injected directory, and never persists derived values. The injected scheduler/clock keep the 60-second cadence testable without waiting or a new package.
+- **Trade-off**: A best-effort backup can silently miss a write (no error surfaces), and restore depends on the template still exposing the same editable leaves — stale keys are ignored rather than migrated.
+- **Scope**: desktop/ local persistence — drafts now; the same injected-directory + injected-scheduler convention applies to future periodic writes.
+- **Date**: 2026-10-04
+- **Status**: active
+
+### AD-009
+- **Decision**: The dry-run result is identified on Screen 2 by additive preview marks, not a second preview surface: `SheetEditState.previewMarks` publishes the previewed delta's editable leaves (`modified`) and the derived leaves the cascade recalculated (`recalculated`); each row shows a "Modified"/"Recalculated" label (through a `SheetForm.rowMarkBuilder` seam) and its control gets a change tint (`SheetMark` + `sheetMarkTint`). The base "Calculated" (RND-10) stays on derived fields the cascade did not touch, and the marks clear on the next edit/save/discard and never publish on a failed preview.
+- **Reason**: The preview showed the recalculated form without saying which values the user changed and which were computed from them; the backend cascade already carries only the changed derived leaves, so the marks need no extra request or client-side comparison. Keeping the marking additive preserves RND-10 and the read-only surfaces that never preview (creation dialog).
+- **Trade-off**: Each row gains a mark `Consumer` on top of the existing per-path control `select` (two subscriptions per row), and the label lives in the row area while the tint lives in the control, so `SheetFieldControl`/`SheetExclusiveControl` each gained a `mark` input and `SheetForm` a `rowMarkBuilder` seam.
+- **Scope**: desktop/ — `lib/engine/` (sheet_mark, field_control, exclusive_control, sheet_form), `lib/sheet/sheet_edit_provider.dart` (state + preview), `lib/sheet/sheet_screen.dart`, l10n. Backend unchanged.
+- **Date**: 2026-10-05
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: `lgn-110-save-delta` (.specs/features/lgn-110-save-delta)
-- **Phase / Task**: Execute — COMPLETE (T1–T7 committed; independent Verifier PASS 27/27, 7/7 mutants killed on round 2; `validate_state.py` exit 0)
-- **Completed**: T1 creation-dialog bounded content, T2 public `mergeCascade`, T3 save on `SheetEditController` (delta + baseline recompute), T4 Screen 2 footer + l10n, T5 `Ctrl+S` binding + `sheetSaveTickProvider`, T6 save-in-flight discard guards, T7 Verifier gap fixes. Commits `b35c6d8`, `904d6ad`, `07c8830`, `a8802cf`, `bcdfb7c`, `1a76241`, `cdfb359` (docs `d6fadda`, chore `71d4298`). Report: `.specs/features/lgn-110-save-delta/validation.md`.
-- **In-progress** (file:line): none
-- **Next step**: review and merge PR #57 (https://github.com/paulo-valleriote/legnaris/pull/57).
-- **Blockers**: none. Full suite `flutter analyze` clean + 486 passed / 4 skipped (pre-existing live/contract skips; `api_client_retry_test` is a known wall-clock flake that passes in isolation); Verifier round 1 gaps (SAV-02 tooltip, SAV-15 merge granularity, surviving Ctrl+S-guard mutant) closed in `cdfb359` and re-verified PASS.
-- **Uncommitted files**: none; branch pushed, PR #57 opened.
-- **Branch**: `feat/lgn-110-save-delta` (pushed; PR #57 → main, based on `6eab233` = origin/main, includes LGN-108)
-- **Prior feature**: `lgn-108-open-sheet` — COMPLETE (PR #56, merged); `lgn-109-create-sheet` — COMPLETE (PR #55, merged)
+- **Feature**: `lgn-103-104-sheet-preview-dry-run` (.specs/features/lgn-103-104-sheet-preview-dry-run)
+- **Phase / Task**: Execute — COMPLETE. T1–T15 committed plus hardening; independent Verifier (round 2) PASS 49/49 requirements, 2 flagged gaps closed, 11/11 mutants killed; `validate_state.py` exit 0. Report: `.specs/features/lgn-103-104-sheet-preview-dry-run/validation.md`.
+- **Completed**: backend dry-run T1–T5 (`35f25d8`, `9cc082f`, `b320a6c`, `1a22bf7`, `b7367ac`); desktop plumbing T6–T11 (`006aed2`, `da2a87c`, `6867a91`, `247112e`, `be3f1cc`, `82a057a`); surface/cleanup T12–T15 (`f3b812e`, `a0073ee`, `371a4cf`, `02815aa`); spec commit `5db3539`; verification hardening `ed7900c`.
+- **In-progress** (file:line): none.
+- **Next step**: push the branch and open the PR — a remote operation that needs explicit go-ahead.
+- **Blockers**: none.
+- **Uncommitted files**: none after the closing docs commit (validation report, lessons, this handoff).
+- **Branch**: `feat/lgn-103-104-sheet-preview-dry-run` (from `origin/main` @ `8ae4252`, includes the merged LGN-110 save cycle); not pushed.
+- **Prior feature**: `lgn-110-save-delta` — COMPLETE (PR #57 merged); `lgn-108-open-sheet` — COMPLETE (PR #56, merged); `lgn-109-create-sheet` — COMPLETE (PR #55, merged)

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:legnaris/api/models/template.dart';
 import 'package:legnaris/engine/exclusive_control.dart';
 import 'package:legnaris/engine/field_grouping.dart';
+import 'package:legnaris/engine/sheet_mark.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
@@ -30,6 +31,7 @@ void main() {
     WidgetTester tester, {
     required SheetExclusiveGroup group,
     String? selectedPath,
+    SheetMark? mark,
     ValueChanged<String>? onSelect,
   }) async {
     await tester.pumpWidget(
@@ -42,6 +44,7 @@ void main() {
             child: SheetExclusiveControl(
               group: group,
               selectedPath: selectedPath,
+              mark: mark,
               onSelect: onSelect,
             ),
           ),
@@ -310,6 +313,57 @@ void main() {
         expect(
           find.byKey(const Key('sheet-exclusive-hint-none')),
           findsOneWidget,
+        );
+      },
+    );
+  });
+
+  group('preview marks (PRV-12)', () {
+    testWidgets(
+      'Happy path: a modified group tints the dropdown (PRV-12)',
+      (tester) async {
+        await pump(
+          tester,
+          group: groupOf([
+            field('config.acUsesDex', defaultValue: 1),
+            field('config.acUsesCon'),
+          ]),
+          selectedPath: 'config.acUsesDex',
+          mark: SheetMark.modified,
+          onSelect: (_) {},
+        );
+
+        expect(
+          find.byKey(const Key('sheet-mark-tint-armorClassAbility')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<DecoratedBox>(
+                find.byKey(const Key('sheet-mark-tint-armorClassAbility')),
+              )
+              .decoration,
+          isA<BoxDecoration>(),
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: an unmarked group renders no tint wrapper (PRV-12)',
+      (tester) async {
+        await pump(
+          tester,
+          group: groupOf([
+            field('config.acUsesDex', defaultValue: 1),
+            field('config.acUsesCon'),
+          ]),
+          selectedPath: 'config.acUsesDex',
+          onSelect: (_) {},
+        );
+
+        expect(
+          find.byKey(const Key('sheet-mark-tint-armorClassAbility')),
+          findsNothing,
         );
       },
     );

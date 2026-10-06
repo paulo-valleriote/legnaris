@@ -547,7 +547,7 @@ void main() {
 
   group('creating a sheet (CRT-01 … CRT-07, CRT-11)', () {
     const createdBody =
-        '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+        '{"data": {"id": "12345678-1234-7000-8000-123456789abc", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
     const createServerErrorBody =
         '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}';
 
@@ -652,12 +652,12 @@ void main() {
         });
         expect(find.byType(CreateSheetDialog), findsNothing);
         expect(harness.popped(), isNotNull);
-        expect(harness.popped()!.id, 'sheet-1');
+        expect(harness.popped()!.id, '12345678-1234-7000-8000-123456789abc');
 
         final entry = containerOf(
           tester,
         ).read(sheetLibraryProvider).entries.single;
-        expect(entry.id, 'sheet-1');
+        expect(entry.id, '12345678-1234-7000-8000-123456789abc');
         expect(entry.name, 'Aragorn');
         expect(entry.templateId, 'fantasy_v1');
         expect(entry.createdAt, DateTime.utc(2026, 9, 20, 12));
@@ -715,7 +715,7 @@ void main() {
 
         final entries = containerOf(tester).read(sheetLibraryProvider).entries;
         expect(entries, hasLength(1));
-        expect(entries.single.id, 'sheet-1');
+        expect(entries.single.id, '12345678-1234-7000-8000-123456789abc');
         expect(entries.single.name, 'Aragorn');
         expect(postsOf(harness.recorded), hasLength(1));
       },
@@ -808,7 +808,7 @@ void main() {
       'Edge: the response name wins over the submitted name when they differ (CRT-03)',
       (tester) async {
         const renamedBody =
-            '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Strider", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+            '{"data": {"id": "12345678-1234-7000-8000-123456789abc", "template_id": "fantasy_v1", "name": "Strider", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
         final harness = await pumpDialog(
           tester,
           handler: (request) async => http.Response(

@@ -28,7 +28,7 @@ func cloneFieldGroup(group FieldGroup) FieldGroup {
 }
 
 // cloneFieldNode deep-copies a single node: leaf schemas get a fresh
-// FieldSchema, groups get a fresh children map.
+// FieldSchema, groups get a fresh children map plus a cloned column list.
 func cloneFieldNode(node FieldNode) FieldNode {
 	var cloned FieldNode
 	if node.Schema != nil {
@@ -37,6 +37,8 @@ func cloneFieldNode(node FieldNode) FieldNode {
 		cloned.Schema = &schema
 	}
 	cloned.Children = cloneFieldGroup(node.Children)
+	cloned.Label = node.Label
+	cloned.Columns = slices.Clone(node.Columns)
 	return cloned
 }
 

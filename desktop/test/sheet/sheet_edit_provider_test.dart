@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,13 +11,29 @@ import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/models/sheet.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/library/sheet_library_store.dart';
+import 'package:legnaris/sheet/action_rate_limiter.dart';
+import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
+
+import '../library/library_fixtures.dart';
 
 /// Unit tests for the in-memory sheet edit state (LGN-102: GRN-01 … GRN-06,
 /// LGN-108: OPN-10, OPN-11). Every asserted value comes from the spec rule,
 /// never from the implementation.
 void main() {
-  const sheetId = 'sheet-1';
+  const sheetId = '12345678-1234-7000-8000-123456789abc';
+  late Directory supportDir;
+  late DateTime now;
+  late _FakeCooldownScheduler cooldown;
+
+  setUp(() {
+    supportDir = Directory.systemTemp.createTempSync('sheet_edit_');
+    now = DateTime.utc(2026, 10, 4, 12);
+    cooldown = _FakeCooldownScheduler();
+    addTearDown(() => supportDir.deleteSync(recursive: true));
+  });
   const detailBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}, "constitution": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 12}}}},
@@ -64,6 +81,9 @@ void main() {
   ) {
     final container = ProviderContainer(
       overrides: [
+        appSupportDirectoryProvider.overrideWithValue(supportDir),
+        clockProvider.overrideWithValue(() => now),
+        cooldownSchedulerProvider.overrideWithValue(cooldown),
         apiClientProvider.overrideWithValue(
           ApiClient(
             httpClient: MockClient((request) async {
@@ -87,6 +107,9 @@ void main() {
   }) {
     final container = ProviderContainer(
       overrides: [
+        appSupportDirectoryProvider.overrideWithValue(supportDir),
+        clockProvider.overrideWithValue(() => now),
+        cooldownSchedulerProvider.overrideWithValue(cooldown),
         apiClientProvider.overrideWithValue(
           ApiClient(
             httpClient: MockClient((request) async {
@@ -281,7 +304,7 @@ void main() {
           if (path.startsWith('/sheets/')) {
             final id = path.substring('/sheets/'.length);
             return http.Response(
-              sheetBody(id, templateId: id == 'sheet-other' ? 'other_v1' : 'fantasy_v1'),
+              sheetBody(id, templateId: id == '87654321-4321-7000-8000-987654321cba' ? 'other_v1' : 'fantasy_v1'),
               200,
             );
           }
@@ -292,7 +315,7 @@ void main() {
         }, recorded);
 
         keepAlive(container, sheetId);
-        keepAlive(container, 'sheet-other');
+        keepAlive(container, '87654321-4321-7000-8000-987654321cba');
         await pumpEventQueue();
 
         container
@@ -305,12 +328,12 @@ void main() {
         );
         expect(
           valueAtPath(
-            stateOf(container, 'sheet-other').data,
+            stateOf(container, '87654321-4321-7000-8000-987654321cba').data,
             'stats.strength',
           ),
           8.0,
         );
-        expect(stateOf(container, 'sheet-other').isPending, isFalse);
+        expect(stateOf(container, '87654321-4321-7000-8000-987654321cba').isPending, isFalse);
       },
     );
 
@@ -792,4 +815,637 @@ void main() {
       },
     );
   });
+
+  const cascadeBody =
+      '{"data": {"derived": {"armorClass": 13}, "modifiers": {"dexterityMod": 3}}}';
+  const previewFailBody =
+      '{"error": {"code": "UNKNOWN_FIELD", "message": "unknown field"}}';
+  const notFoundBody =
+      '{"error": {"code": "NOT_FOUND", "message": "no such sheet"}}';
+  const invalidBody =
+      '{"error": {"code": "INVALID_REQUEST", "message": "not editable"}}';
+
+  Future<http.Response> Function(http.Request) editResponder(
+    List<http.Request> recorded, {
+    Future<http.Response> Function(http.Request)? onPreview,
+    Future<http.Response> Function(http.Request)? onPatch,
+  }) => (request) async {
+    if (request.method == 'PATCH') {
+      return onPatch != null
+          ? onPatch(request)
+          : http.Response(cascadeBody, 200);
+    }
+    if (request.url.path.endsWith('/preview')) {
+      return onPreview != null
+          ? onPreview(request)
+          : http.Response(cascadeBody, 200);
+    }
+    return http.Response(detailBody, 200);
+  };
+
+  List<http.Request> previews(List<http.Request> recorded) => recorded
+      .where((request) => request.url.path.endsWith('/preview'))
+      .toList();
+
+  List<http.Request> patches(List<http.Request> recorded) => recorded
+      .where((request) => request.method == 'PATCH')
+      .toList();
+
+  File draftFile() => File('${supportDir.path}/drafts/$sheetId.json');
+
+  group('preview cycle (PRV-01 … PRV-14)', () {
+    test(
+      'Happy path: one dry-run merges the cascade, keeps edits pending and blocks a repeat (PRV-01, PRV-03 … PRV-07)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(recorded),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+
+        expect(stateOf(container, sheetId).canPreview, isFalse);
+        notifier.setPath('stats.dexterity', 18);
+        expect(stateOf(container, sheetId).canPreview, isTrue);
+
+        await notifier.preview();
+        await pumpEventQueue();
+
+        expect(previews(recorded), hasLength(1));
+        expect(patches(recorded), isEmpty);
+        expect(jsonDecode(previews(recorded).single.body), {
+          'data': {
+            'stats': {'dexterity': 18},
+          },
+        });
+
+        final after = stateOf(container, sheetId);
+        expect(valueAtPath(after.data, 'stats.dexterity'), 18);
+        expect(valueAtPath(after.data, 'derived.armorClass'), 13);
+        expect(
+          valueAtPath(after.data, 'modifiers.dexterityMod'),
+          3,
+          reason: 'a nested cascade key is merged, not flattened',
+        );
+        expect(after.isPending, isTrue);
+        expect(
+          valueAtPath(after.defaults, 'stats.dexterity'),
+          16,
+          reason: 'the baseline is not advanced by a preview',
+        );
+        expect(valueAtPath(after.defaults, 'derived.armorClass'), 0.0);
+        expect(after.editedPaths, contains('stats.dexterity'));
+        expect(after.previewedRevision, after.revision);
+        expect(after.canPreview, isFalse, reason: 'no new edit to preview');
+        expect(after.previewMarks, isNotNull);
+        expect(after.previewMarks!.modified, {'stats.dexterity'});
+        expect(after.previewMarks!.recalculated, {
+          'derived.armorClass',
+          'modifiers.dexterityMod',
+        });
+      },
+    );
+
+    test(
+      'Edge: a new edit after a preview clears the marks (PRV-14)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(recorded),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+
+        notifier.setPath('stats.dexterity', 18);
+        await notifier.preview();
+        await pumpEventQueue();
+        expect(stateOf(container, sheetId).previewMarks, isNotNull);
+
+        notifier.setPath('stats.constitution', 20);
+
+        expect(
+          stateOf(container, sheetId).previewMarks,
+          isNull,
+          reason: 'a further edit leaves the last preview stale',
+        );
+      },
+    );
+
+    test(
+      'Edge: an exclusive selection after a preview clears the marks (PRV-14)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(recorded),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+
+        notifier.setPath('stats.dexterity', 18);
+        await notifier.preview();
+        await pumpEventQueue();
+        expect(stateOf(container, sheetId).previewMarks, isNotNull);
+
+        notifier.setExclusive('config.acUsesCon', const ['config.acUsesDex']);
+
+        expect(stateOf(container, sheetId).previewMarks, isNull);
+      },
+    );
+
+    test(
+      'Edge: an empty cascade keeps the edits and the rendered values (PRV-05)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(
+            recorded,
+            onPreview: (_) async => http.Response('{"data": {}}', 200),
+          ),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+        final derivedBefore = valueAtPath(
+          stateOf(container, sheetId).data,
+          'derived.armorClass',
+        );
+
+        await notifier.preview();
+        await pumpEventQueue();
+
+        final after = stateOf(container, sheetId);
+        expect(valueAtPath(after.data, 'stats.dexterity'), 18);
+        expect(valueAtPath(after.data, 'derived.armorClass'), derivedBefore);
+        expect(after.isPending, isTrue);
+        expect(after.previewedRevision, after.revision);
+        expect(after.previewMarks!.modified, {'stats.dexterity'});
+        expect(
+          after.previewMarks!.recalculated,
+          isEmpty,
+          reason: 'an empty cascade marks no calculated field',
+        );
+      },
+    );
+
+    test(
+      'Error: a preview failure keeps the edits, publishes the copy and leaves Preview available (PRV-08, PRV-09)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(
+            recorded,
+            onPreview: (_) async => http.Response(previewFailBody, 400),
+          ),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+
+        await notifier.preview();
+        await pumpEventQueue();
+
+        final after = stateOf(container, sheetId);
+        expect(previews(recorded), hasLength(1));
+        expect(after.isPreviewing, isFalse);
+        expect(after.previewError, errorCopy(ApiErrorKind.renderMismatch));
+        expect(after.isPending, isTrue);
+        expect(valueAtPath(after.data, 'stats.dexterity'), 18);
+        expect(after.previewedRevision, isNull);
+        expect(after.canPreview, isTrue);
+        expect(
+          after.previewMarks,
+          isNull,
+          reason: 'a failed preview publishes no marks',
+        );
+      },
+    );
+
+    test(
+      'Edge: a preview NOT_FOUND keeps the edits, publishes the mapped copy and does not evict the local entry',
+      () async {
+        SheetLibraryStore(directory: supportDir).save([entry(sheetId)]);
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(
+            recorded,
+            onPreview: (_) async => http.Response(notFoundBody, 404),
+          ),
+        );
+        expect(container.read(sheetLibraryProvider).entries, hasLength(1));
+
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+
+        await notifier.preview();
+        await pumpEventQueue();
+
+        final after = stateOf(container, sheetId);
+        expect(after.isPending, isTrue);
+        expect(valueAtPath(after.data, 'stats.dexterity'), 18);
+        expect(after.previewError, errorCopy(ApiErrorKind.notFound));
+        final entries = container.read(sheetLibraryProvider).entries;
+        expect(
+          entries,
+          hasLength(1),
+          reason: 'a failed preview must never evict the local entry',
+        );
+        expect(entries.single.id, sheetId);
+      },
+    );
+
+    test(
+      'Edge: an edit made while a preview is in flight is merged without being discarded (PRV-05, PRV-06)',
+      () async {
+        final gate = Completer<http.Response>();
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(recorded, onPreview: (_) => gate.future),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+        final started = notifier.preview();
+        await pumpEventQueue();
+        expect(stateOf(container, sheetId).isPreviewing, isTrue);
+
+        notifier.setPath('stats.constitution', 20);
+        gate.complete(http.Response(cascadeBody, 200));
+        await started;
+        await pumpEventQueue();
+
+        final after = stateOf(container, sheetId);
+        expect(valueAtPath(after.data, 'stats.constitution'), 20);
+        expect(valueAtPath(after.data, 'stats.dexterity'), 18);
+        expect(valueAtPath(after.data, 'derived.armorClass'), 13);
+        expect(after.previewedRevision, 1);
+        expect(
+          after.canPreview,
+          isTrue,
+          reason: 'the newer edit is un-previewed',
+        );
+        expect(
+          after.previewMarks!.modified,
+          {'stats.dexterity'},
+          reason: 'only the previewed delta is marked, not the in-flight edit',
+        );
+      },
+    );
+
+    test(
+      'Happy path: a save clears the preview record and deletes the draft backup (PRV-10, DRB-08)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(recorded),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+        await notifier.preview();
+        await pumpEventQueue();
+        expect(
+          stateOf(container, sheetId).previewMarks,
+          isNotNull,
+          reason: 'the preview published marks',
+        );
+        DraftBackupStore(directory: supportDir).write(sheetId, {
+          'stats': {'dexterity': 18},
+        });
+        expect(draftFile().existsSync(), isTrue);
+
+        await notifier.save();
+        await pumpEventQueue();
+
+        final after = stateOf(container, sheetId);
+        expect(after.previewedRevision, isNull);
+        expect(
+          after.previewMarks,
+          isNull,
+          reason: 'a save clears the preview marks',
+        );
+        expect(draftFile().existsSync(), isFalse);
+        expect(valueAtPath(after.data, 'derived.armorClass'), 13);
+
+        notifier.setPath('stats.constitution', 20);
+        expect(stateOf(container, sheetId).canPreview, isTrue);
+      },
+    );
+  });
+
+  group('single-flight (SVE-01)', () {
+    test('Edge: while a preview is in flight a save issues no PATCH', () async {
+      final gate = Completer<http.Response>();
+      final recorded = <http.Request>[];
+      final container = containerWithOpened(
+        openedSheet(),
+        recorded: recorded,
+        handler: editResponder(recorded, onPreview: (_) => gate.future),
+      );
+      keepAlive(container, sheetId);
+      await pumpEventQueue();
+      final notifier = container.read(
+        sheetEditControllerProvider(sheetId).notifier,
+      );
+      notifier.setPath('stats.dexterity', 18);
+      final started = notifier.preview();
+      await pumpEventQueue();
+
+      await notifier.save();
+      await pumpEventQueue();
+
+      expect(patches(recorded), isEmpty);
+      gate.complete(http.Response(cascadeBody, 200));
+      await started;
+      await pumpEventQueue();
+      expect(stateOf(container, sheetId).isBusy, isFalse);
+    });
+
+    test('Edge: while a save is in flight a preview issues no POST', () async {
+      final gate = Completer<http.Response>();
+      final recorded = <http.Request>[];
+      final container = containerWithOpened(
+        openedSheet(),
+        recorded: recorded,
+        handler: editResponder(recorded, onPatch: (_) => gate.future),
+      );
+      keepAlive(container, sheetId);
+      await pumpEventQueue();
+      final notifier = container.read(
+        sheetEditControllerProvider(sheetId).notifier,
+      );
+      notifier.setPath('stats.dexterity', 18);
+      final started = notifier.save();
+      await pumpEventQueue();
+
+      await notifier.preview();
+      await pumpEventQueue();
+
+      expect(previews(recorded), isEmpty);
+      gate.complete(http.Response(cascadeBody, 200));
+      await started;
+      await pumpEventQueue();
+      expect(stateOf(container, sheetId).isBusy, isFalse);
+    });
+  });
+
+  group('rate limit (SVE-02 … SVE-07)', () {
+    test(
+      'Edge: three previews burn the window; the fourth issues nothing until the cooldown frees a slot (SVE-02, SVE-04)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(
+            recorded,
+            onPreview: (_) async => http.Response(previewFailBody, 400),
+          ),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+
+        for (var i = 0; i < 3; i++) {
+          await notifier.preview();
+          await pumpEventQueue();
+        }
+        expect(previews(recorded), hasLength(3));
+        expect(stateOf(container, sheetId).isPreviewBlocked, isTrue);
+        expect(stateOf(container, sheetId).canPreview, isFalse);
+        expect(cooldown.isArmed, isTrue);
+        expect(cooldown.pendingDelay, const Duration(seconds: 60));
+
+        await notifier.preview();
+        await pumpEventQueue();
+        expect(
+          previews(recorded),
+          hasLength(3),
+          reason: 'the fourth activation issues no request',
+        );
+
+        now = now.add(const Duration(seconds: 60));
+        cooldown.fire();
+        await pumpEventQueue();
+
+        expect(stateOf(container, sheetId).isPreviewBlocked, isFalse);
+        expect(stateOf(container, sheetId).canPreview, isTrue);
+
+        await notifier.preview();
+        await pumpEventQueue();
+        expect(previews(recorded), hasLength(4));
+      },
+    );
+
+    test(
+      'Edge: three saves burn the save window; the fourth issues nothing until the cooldown (SVE-03, SVE-06)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(
+            recorded,
+            onPatch: (_) async => http.Response(invalidBody, 400),
+          ),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+
+        for (var i = 0; i < 3; i++) {
+          await notifier.save();
+          await pumpEventQueue();
+        }
+        expect(patches(recorded), hasLength(3));
+        expect(stateOf(container, sheetId).isSaveBlocked, isTrue);
+        expect(stateOf(container, sheetId).canSave, isFalse);
+
+        await notifier.save();
+        await pumpEventQueue();
+        expect(
+          patches(recorded),
+          hasLength(3),
+          reason: 'the fourth activation issues no request',
+        );
+
+        now = now.add(const Duration(seconds: 60));
+        cooldown.fire();
+        await pumpEventQueue();
+
+        expect(stateOf(container, sheetId).isSaveBlocked, isFalse);
+        expect(stateOf(container, sheetId).canSave, isTrue);
+      },
+    );
+
+    test(
+      'Edge: the preview and save windows are independent (SVE-05, SVE-07)',
+      () async {
+        final recorded = <http.Request>[];
+        final container = containerWithOpened(
+          openedSheet(),
+          recorded: recorded,
+          handler: editResponder(
+            recorded,
+            onPreview: (_) async => http.Response(previewFailBody, 400),
+          ),
+        );
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+        final notifier = container.read(
+          sheetEditControllerProvider(sheetId).notifier,
+        );
+        notifier.setPath('stats.dexterity', 18);
+        for (var i = 0; i < 3; i++) {
+          await notifier.preview();
+          await pumpEventQueue();
+        }
+        expect(stateOf(container, sheetId).isPreviewBlocked, isTrue);
+
+        expect(stateOf(container, sheetId).canSave, isTrue);
+        await notifier.save();
+        await pumpEventQueue();
+
+        expect(patches(recorded), hasLength(1));
+        expect(jsonDecode(patches(recorded).single.body), {
+          'data': {
+            'stats': {'dexterity': 18},
+          },
+        });
+      },
+    );
+  });
+
+  group('draft restore (DRB-05 … DRB-08, DRB-12)', () {
+    test(
+      'Happy path: opening a sheet with a draft overlays only editable leaves and marks them pending (DRB-05, DRB-06, DRB-07)',
+      () async {
+        DraftBackupStore(directory: supportDir).write(sheetId, {
+          'stats': {'dexterity': 18, 'unknownStat': 99},
+          'derived': {'armorClass': 99},
+        });
+        final container = containerWithOpened(openedSheet());
+        keepAlive(container, sheetId);
+        await pumpEventQueue();
+
+        final restored = stateOf(container, sheetId);
+        expect(valueAtPath(restored.data, 'stats.dexterity'), 18);
+        expect(
+          valueAtPath(restored.data, 'derived.armorClass'),
+          0.0,
+          reason: 'a derived draft key is never overlaid',
+        );
+        expect(
+          valueAtPath(restored.data, 'stats.unknownStat'),
+          isNull,
+          reason: 'a key absent from the template is ignored',
+        );
+        expect(
+          valueAtPath(restored.defaults, 'stats.dexterity'),
+          16,
+          reason: 'the baseline stays the stored sheet',
+        );
+        expect(restored.editedPaths, contains('stats.dexterity'));
+        expect(restored.editedPaths, isNot(contains('derived.armorClass')));
+        expect(restored.editedPaths, isNot(contains('stats.unknownStat')));
+        expect(restored.isPending, isTrue);
+        expect(restored.pendingDelta, {
+          'stats': {'dexterity': 18},
+        });
+        expect(
+          restored.previewMarks,
+          isNull,
+          reason: 'a restored draft carries no preview marks (PRV-14)',
+        );
+      },
+    );
+
+    test('Edge: a corrupt draft seeds clean from the stored sheet (DRB-12)', () async {
+      final file = draftFile();
+      file.parent.createSync(recursive: true);
+      file.writeAsStringSync('{ not json');
+      final container = containerWithOpened(openedSheet());
+      keepAlive(container, sheetId);
+      await pumpEventQueue();
+
+      final seeded = stateOf(container, sheetId);
+      expect(valueAtPath(seeded.data, 'stats.dexterity'), 16);
+      expect(seeded.editedPaths, isEmpty);
+      expect(seeded.isPending, isFalse);
+    });
+  });
+}
+
+/// Test double for the one-shot cooldown: it records the delay and lets the
+/// test fire the callback when the controllable clock reaches the edge.
+class _FakeCooldownScheduler implements CooldownScheduler {
+  Duration? pendingDelay;
+  void Function()? _onFire;
+
+  bool get isArmed => _onFire != null;
+
+  @override
+  void schedule(Duration delay, void Function() onFire) {
+    pendingDelay = delay;
+    _onFire = onFire;
+  }
+
+  @override
+  void cancel() {
+    pendingDelay = null;
+    _onFire = null;
+  }
+
+  void fire() {
+    final onFire = _onFire;
+    pendingDelay = null;
+    _onFire = null;
+    onFire?.call();
+  }
 }

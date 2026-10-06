@@ -127,6 +127,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fieldCalculated => 'Calculated';
 
   @override
+  String get fieldModified => 'Modified';
+
+  @override
+  String get fieldRecalculated => 'Recalculated';
+
+  @override
   String get sheetLocalEdits => 'Local edits';
 
   @override
@@ -134,6 +140,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sheetSaveNoChangesTooltip => 'There are no changes to save.';
+
+  @override
+  String get sheetPreviewAction => 'Preview changes';
+
+  @override
+  String get sheetPreviewNoChangesTooltip =>
+      'There are no new changes to preview.';
+
+  @override
+  String get sheetRequestInProgressTooltip =>
+      'Wait for the current request to finish.';
+
+  @override
+  String get sheetPreviewLimitTooltip =>
+      'Preview limit reached. Try again in a minute.';
+
+  @override
+  String get sheetSaveLimitTooltip =>
+      'Save limit reached. Try again in a minute.';
 
   @override
   String get sheetLoading => 'Loading sheet...';

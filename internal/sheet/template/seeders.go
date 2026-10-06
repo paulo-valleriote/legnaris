@@ -31,6 +31,8 @@ const (
 	fieldNameSpellAttackBonus = "attackBonus"
 	fieldNameTotal            = "total"
 	fieldNameBonus            = "bonus"
+	fieldNameExpended         = "expended"
+	fieldNameRemaining        = "remaining"
 
 	// exclusiveGroupArmorClassAbility is the shared group id for the armor-class
 	// ability proxies: config.acUsesDex and config.acUsesCon are mutually
@@ -238,21 +240,28 @@ func savesGroup() FieldGroup {
 func skillsGroup() FieldGroup {
 	group := make(FieldGroup, len(skills))
 	for _, s := range skills {
-		group[s.key] = FieldNode{Children: FieldGroup{
-			fieldNameBonus: numField(s.label+" bonus", 0),
-			fieldNameTotal: calcField(
-				s.label+" total",
-				fmt.Sprintf("%s_%sMod + floor(%s_%s * %s_%s) + %s_%s_bonus",
-					fieldNameModifiers, s.ability,
-					fieldNameIdentity, fieldNameProficiencyBonus,
-					fieldNameConfig, skillProfKey(s.key),
-					fieldNameSkills, s.key),
-				[]string{fieldNameModifiers, modKey(s.ability)},
-				[]string{fieldNameIdentity, fieldNameProficiencyBonus},
-				[]string{fieldNameConfig, skillProfKey(s.key)},
-				[]string{fieldNameSkills, s.key, fieldNameBonus},
-			),
-		}}
+		bonus := numField(s.label+" bonus", 0)
+		bonus.Schema.ColumnLabel = "Bonus"
+		total := calcField(
+			s.label+" total",
+			fmt.Sprintf("%s_%sMod + floor(%s_%s * %s_%s) + %s_%s_bonus",
+				fieldNameModifiers, s.ability,
+				fieldNameIdentity, fieldNameProficiencyBonus,
+				fieldNameConfig, skillProfKey(s.key),
+				fieldNameSkills, s.key),
+			[]string{fieldNameModifiers, modKey(s.ability)},
+			[]string{fieldNameIdentity, fieldNameProficiencyBonus},
+			[]string{fieldNameConfig, skillProfKey(s.key)},
+			[]string{fieldNameSkills, s.key, fieldNameBonus},
+		)
+		total.Schema.ColumnLabel = "Total"
+		group[s.key] = FieldNode{
+			Children: FieldGroup{
+				fieldNameBonus: bonus,
+				fieldNameTotal: total,
+			},
+			Columns: []string{fieldNameBonus, fieldNameTotal},
+		}
 	}
 	return group
 }
@@ -296,11 +305,21 @@ func derivedGroup() FieldGroup {
 func attacksGroup() FieldGroup {
 	group := FieldGroup{}
 	for i := 1; i <= 4; i++ {
-		group[fmt.Sprintf("attack%d", i)] = FieldNode{Children: FieldGroup{
-			"name":         textField(fmt.Sprintf("Attack %d name", i)),
-			fieldNameBonus: numField(fmt.Sprintf("Attack %d bonus", i), 0),
-			"damage":       textField(fmt.Sprintf("Attack %d damage", i)),
-		}}
+		name := textField(fmt.Sprintf("Attack %d name", i))
+		name.Schema.ColumnLabel = "Name"
+		bonus := numField(fmt.Sprintf("Attack %d bonus", i), 0)
+		bonus.Schema.ColumnLabel = "Bonus"
+		damage := textField(fmt.Sprintf("Attack %d damage", i))
+		damage.Schema.ColumnLabel = "Damage"
+		group[fmt.Sprintf("attack%d", i)] = FieldNode{
+			Children: FieldGroup{
+				"name":         name,
+				fieldNameBonus: bonus,
+				"damage":       damage,
+			},
+			Label:   fmt.Sprintf("Attack %d", i),
+			Columns: []string{"name", "damage", fieldNameBonus},
+		}
 	}
 	return group
 }
@@ -333,16 +352,26 @@ func spellsGroup() FieldGroup {
 	}
 	for level := 1; level <= 9; level++ {
 		key := fmt.Sprintf("slot%d", level)
-		group[key] = FieldNode{Children: FieldGroup{
-			fieldNameTotal: numField(fmt.Sprintf("Level %d total", level), 0),
-			"expended":     numField(fmt.Sprintf("Level %d expended", level), 0),
-			"remaining": calcField(
-				fmt.Sprintf("Level %d remaining", level),
-				fmt.Sprintf("%s_%s_total - %s_%s_expended", fieldNameSpells, key, fieldNameSpells, key),
-				[]string{fieldNameSpells, key, fieldNameTotal},
-				[]string{fieldNameSpells, key, "expended"},
-			),
-		}}
+		total := numField(fmt.Sprintf("Level %d total", level), 0)
+		total.Schema.ColumnLabel = "Total"
+		expended := numField(fmt.Sprintf("Level %d expended", level), 0)
+		expended.Schema.ColumnLabel = "Expended"
+		remaining := calcField(
+			fmt.Sprintf("Level %d remaining", level),
+			fmt.Sprintf("%s_%s_total - %s_%s_expended", fieldNameSpells, key, fieldNameSpells, key),
+			[]string{fieldNameSpells, key, fieldNameTotal},
+			[]string{fieldNameSpells, key, fieldNameExpended},
+		)
+		remaining.Schema.ColumnLabel = "Remaining"
+		group[key] = FieldNode{
+			Children: FieldGroup{
+				fieldNameTotal:     total,
+				fieldNameExpended:  expended,
+				fieldNameRemaining: remaining,
+			},
+			Label:   fmt.Sprintf("Level %d", level),
+			Columns: []string{fieldNameTotal, fieldNameExpended, fieldNameRemaining},
+		}
 	}
 	return group
 }

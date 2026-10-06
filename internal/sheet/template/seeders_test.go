@@ -326,6 +326,88 @@ func TestFantasyV1_Structure(t *testing.T) {
 	})
 }
 
+// TestFantasyV1_TableMetadata pins the table layout declared by the seeders:
+// skills, attacks and spell slots render as tables, each naming its row header
+// and its columns in reading order, with a short column label per leaf.
+func TestFantasyV1_TableMetadata(t *testing.T) {
+	t.Run("Happy path: every skill is a bonus/total table row", func(t *testing.T) {
+		skillGroup := fantasyV1Template.Fields[fieldNameSkills].Children
+		for _, s := range skills {
+			node := skillGroup[s.key]
+			require.NotNil(t, node.Children, "missing skill %s", s.key)
+			assert.Empty(t, node.Label,
+				"skill %s must fall back to its humanized key", s.key)
+			assert.Equal(t, []string{fieldNameBonus, fieldNameTotal}, node.Columns,
+				"skill %s column order", s.key)
+			assert.Equal(t, "Bonus", node.Children[fieldNameBonus].Schema.ColumnLabel)
+			assert.Equal(t, "Total", node.Children[fieldNameTotal].Schema.ColumnLabel)
+		}
+	})
+
+	t.Run("Happy path: every attack is a name/damage/bonus table row", func(t *testing.T) {
+		attackGroup := fantasyV1Template.Fields["attacks"].Children
+		for i := 1; i <= 4; i++ {
+			key := fmt.Sprintf("attack%d", i)
+			node := attackGroup[key]
+			require.NotNil(t, node.Children, "missing %s", key)
+			assert.Equal(t, fmt.Sprintf("Attack %d", i), node.Label)
+			assert.Equal(t, []string{"name", "damage", fieldNameBonus}, node.Columns,
+				"%s column order", key)
+			assert.Equal(t, "Name", node.Children["name"].Schema.ColumnLabel)
+			assert.Equal(t, "Damage", node.Children["damage"].Schema.ColumnLabel)
+			assert.Equal(t, "Bonus", node.Children[fieldNameBonus].Schema.ColumnLabel)
+		}
+	})
+
+	t.Run("Happy path: every spell slot is a total/expended/remaining table row", func(t *testing.T) {
+		spells := fantasyV1Template.Fields[fieldNameSpells].Children
+		for level := 1; level <= 9; level++ {
+			key := fmt.Sprintf("slot%d", level)
+			node := spells[key]
+			require.NotNil(t, node.Children, "missing %s", key)
+			assert.Equal(t, fmt.Sprintf("Level %d", level), node.Label)
+			assert.Equal(t, []string{fieldNameTotal, "expended", "remaining"}, node.Columns,
+				"%s column order", key)
+			assert.Equal(t, "Total", node.Children[fieldNameTotal].Schema.ColumnLabel)
+			assert.Equal(t, "Expended", node.Children["expended"].Schema.ColumnLabel)
+			assert.Equal(t, "Remaining", node.Children["remaining"].Schema.ColumnLabel)
+		}
+	})
+
+	t.Run("Edge: only the table groups declare a label or columns", func(t *testing.T) {
+		tableGroups := map[string]bool{}
+		for _, s := range skills {
+			tableGroups[fieldNameSkills+"."+s.key] = true
+		}
+		for i := 1; i <= 4; i++ {
+			tableGroups["attacks."+fmt.Sprintf("attack%d", i)] = true
+		}
+		for level := 1; level <= 9; level++ {
+			tableGroups[fieldNameSpells+"."+fmt.Sprintf("slot%d", level)] = true
+		}
+
+		declared := map[string]bool{}
+		for _, entry := range []struct {
+			prefix string
+			group  FieldGroup
+		}{
+			{fieldNameSkills, fantasyV1Template.Fields[fieldNameSkills].Children},
+			{"attacks", fantasyV1Template.Fields["attacks"].Children},
+			{fieldNameSpells, fantasyV1Template.Fields[fieldNameSpells].Children},
+		} {
+			for key, node := range entry.group {
+				if len(node.Columns) == 0 && node.Label == "" {
+					continue
+				}
+				declared[entry.prefix+"."+key] = true
+			}
+		}
+
+		assert.Equal(t, tableGroups, declared,
+			"columns/label must be declared on exactly the table groups")
+	})
+}
+
 // TestFantasyV1_LeafContracts walks every leaf once and enforces the
 // per-leaf invariants the API and the desktop renderer rely on: a humanized
 // English label, a supported type, and a clear role (derived with a formula
@@ -399,4 +481,35 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 	}
 	assert.Equal(t, wantLabeled, labeled,
 		"option_label must cover exactly the armor-class pair and the six spellcasting flags")
+
+	// column_label covers exactly the leaves of the three tables — the two
+	// skills columns, the three attack columns and the three spell-slot
+	// columns — each naming its short header; every other leaf falls back to
+	// Label/humanized key (empty).
+	columned := map[string]string{}
+	for i, schema := range schemas {
+		if schema.ColumnLabel == "" {
+			continue
+		}
+		columned[paths[i].String()] = schema.ColumnLabel
+	}
+	wantColumned := map[string]string{}
+	for _, s := range skills {
+		wantColumned[Path{fieldNameSkills, s.key, fieldNameBonus}.String()] = "Bonus"
+		wantColumned[Path{fieldNameSkills, s.key, fieldNameTotal}.String()] = "Total"
+	}
+	for i := 1; i <= 4; i++ {
+		key := fmt.Sprintf("attack%d", i)
+		wantColumned[Path{"attacks", key, "name"}.String()] = "Name"
+		wantColumned[Path{"attacks", key, "damage"}.String()] = "Damage"
+		wantColumned[Path{"attacks", key, fieldNameBonus}.String()] = "Bonus"
+	}
+	for level := 1; level <= 9; level++ {
+		key := fmt.Sprintf("slot%d", level)
+		wantColumned[Path{fieldNameSpells, key, fieldNameTotal}.String()] = "Total"
+		wantColumned[Path{fieldNameSpells, key, "expended"}.String()] = "Expended"
+		wantColumned[Path{fieldNameSpells, key, "remaining"}.String()] = "Remaining"
+	}
+	assert.Equal(t, wantColumned, columned,
+		"column_label must cover exactly the skills, attacks and spell-slot table columns")
 }
