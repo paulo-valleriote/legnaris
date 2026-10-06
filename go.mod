@@ -4,11 +4,13 @@ go 1.26.4
 
 require (
 	github.com/expr-lang/expr v1.17.8
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v5 v5.3.1
 	github.com/prometheus/client_golang v1.24.1
 	github.com/stretchr/testify v1.12.1
 	go.mongodb.org/mongo-driver/v2 v2.9.1
+	golang.org/x/crypto v0.53.0
 )
 
 require (
@@ -48,7 +50,6 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect

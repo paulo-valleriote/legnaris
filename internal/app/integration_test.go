@@ -11,7 +11,9 @@ import (
 	"testing"
 
 	"legnaris/internal/app"
+	"legnaris/internal/auth"
 	"legnaris/internal/engine"
+	"legnaris/internal/platform/metrics"
 	"legnaris/internal/sheet"
 	"legnaris/internal/sheet/template"
 	"legnaris/shared/db"
@@ -33,6 +35,9 @@ const testDatabaseName = "legnaris"
 func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	t.Helper()
 
+	t.Setenv("JWT_SECRET", "integration-test-secret")
+	t.Setenv("AUTH_BCRYPT_COST", "4")
+
 	log := logger.NewLogger(slog.LevelError)
 	env := env.NewEnv(log)
 
@@ -53,16 +58,24 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	// dropped in case a pre-migration boot created it.
 	_ = mdb.Collection("template").Drop(ctx)
 	_ = mdb.Collection("sheets").Drop(ctx)
+	_ = mdb.Collection("users").Drop(ctx)
+	_ = mdb.Collection("refresh_tokens").Drop(ctx)
 	t.Cleanup(func() {
 		_ = mdb.Collection("sheets").Drop(context.Background())
 		_ = mdb.Collection("template").Drop(context.Background())
+		_ = mdb.Collection("users").Drop(context.Background())
+		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
 	})
+
+	require.NoError(t, db.EnsureIndexes(ctx, mdb))
 
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	modules := app.NewModules(database, registry, testDatabaseName, log)
-	return app.NewRouter(env, modules), mdb
+	modules, err := app.NewModules(database, registry, env, auth.NewNopObserver())
+	require.NoError(t, err)
+
+	return app.NewRouter(env, modules, metrics.New()), mdb
 }
 
 func doRequest(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {

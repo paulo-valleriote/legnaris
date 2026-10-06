@@ -25,7 +25,7 @@ from pathlib import Path
 ID = re.compile(r"\b([A-Z][A-Z0-9]*)-(\d+)\b")
 
 SKIP_PREFIXES = {"LGN"}    # Jira card keys — tracked in Jira, not in spec.md
-SKIP_IDS = {"ISO-8601"}    # date-format standard, not a requirement
+SKIP_IDS = {"ISO-8601", "SHA-256"}    # standards/format identifiers, not requirements
 CODE_SUFFIXES = {".dart", ".go"}
 SKIP_DIRS = {".git", ".dart_tool", "build", "node_modules", ".idea"}
 

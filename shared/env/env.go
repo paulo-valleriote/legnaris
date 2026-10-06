@@ -5,6 +5,7 @@ import (
 	"legnaris/shared/logger"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -19,6 +20,10 @@ type Variables struct {
 	DatabaseConnectTimeout         time.Duration
 	DatabaseCloseTimeout           time.Duration
 	CORSOrigins                    []string
+	JWTSecret                      string
+	JWTAccessTTL                   time.Duration
+	AuthRefreshTTL                 time.Duration
+	AuthBcryptCost                 int
 }
 
 const (
@@ -29,6 +34,9 @@ const (
 	defaultDatabaseServerSelectionTimeout = 2 * time.Second
 	defaultDatabaseConnectTimeout         = 2 * time.Second
 	defaultDatabaseCloseTimeout           = 5 * time.Second
+	defaultJWTAccessTTL                   = 15 * time.Minute
+	defaultAuthRefreshTTL                 = 720 * time.Hour
+	defaultAuthBcryptCost                 = 12
 )
 
 const attrKey = "key"
@@ -63,6 +71,10 @@ func (e *Env) initVariables() Variables {
 		DatabaseConnectTimeout:         e.lookupDurationEnv("DATABASE_CONNECT_TIMEOUT", defaultDatabaseConnectTimeout),
 		DatabaseCloseTimeout:           e.lookupDurationEnv("DATABASE_CLOSE_TIMEOUT", defaultDatabaseCloseTimeout),
 		CORSOrigins:                    e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", defaultCORSOrigins),
+		JWTSecret:                      e.lookupRequiredStringEnv("JWT_SECRET"),
+		JWTAccessTTL:                   e.lookupDurationEnv("JWT_ACCESS_TTL", defaultJWTAccessTTL),
+		AuthRefreshTTL:                 e.lookupDurationEnv("AUTH_REFRESH_TTL", defaultAuthRefreshTTL),
+		AuthBcryptCost:                 e.lookupIntEnv("AUTH_BCRYPT_COST", defaultAuthBcryptCost),
 	}
 }
 
@@ -148,4 +160,27 @@ func (e *Env) lookupRequiredStringEnv(key string) string {
 		return ""
 	}
 	return value
+}
+
+// lookupIntEnv reads a positive integer from the environment. When the variable
+// is unset, empty, non-numeric, or not positive, it logs a structured warning
+// and returns the provided default.
+func (e *Env) lookupIntEnv(key string, defaultValue int) int {
+	value, found := e.lookupEnv(key)
+	if !found {
+		return defaultValue
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		e.Logger.Warn(
+			context.Background(),
+			"invalid integer value for environment variable; using default",
+			logger.Attribute{Key: attrKey, Value: key},
+			logger.Attribute{Key: "value", Value: value},
+			logger.Attribute{Key: "default", Value: strconv.Itoa(defaultValue)},
+		)
+		return defaultValue
+	}
+	return parsed
 }
