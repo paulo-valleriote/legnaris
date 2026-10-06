@@ -61,7 +61,7 @@ O estado atual do código já contém o núcleo diferenciador funcionando:
 
 ### ✅ Dentro do Escopo (V1 / MVP)
 
-- **Autenticação e usuários**: registro, login, JWT stateless (access token no corpo da resposta + refresh token em **cookie httpOnly**), hash de senha com bcrypt.
+- **Autenticação e usuários**: registro, login, JWT stateless (access token no corpo da resposta + refresh token opaco no corpo, reenviado por header dedicado), hash de senha com bcrypt.
 - **Ownership de fichas**: toda ficha pertence a um usuário; endpoints protegidos por autorização (adicionar `owner_id` ao modelo `Sheet` — campo não existe mais; comentário removido em LGN-81).
 - **Limite de 1 ficha por usuário**: regra de negócio do MVP, garantida também por índice único no banco.
 - **Biblioteca de templates genéricos multi-sistema**: catálogo de templates default para múltiplos gêneros (fantasia, sci-fi, horror, etc.), todos com nomes e regras 100% genéricos, **definidos no código e read-only** (sem edição por usuários).
@@ -139,9 +139,9 @@ graph LR
 | `/health`                   | GET    | Health check                                | Não           | ✅ Existe hoje               |
 | `/metrics`                  | GET    | Métricas Prometheus                          | Não           | ✅ Existe hoje               |
 | `/auth/register`            | POST   | Cria conta (email, username, senha)         | Não           | ⏳ Fase 1                    |
-| `/auth/login`               | POST   | Retorna access token; define refresh cookie | Não           | ⏳ Fase 1                    |
-| `/auth/refresh`             | POST   | Renova access token (rotation)              | Refresh cookie| ⏳ Fase 1                    |
-| `/auth/logout`              | POST   | Revoga refresh token, limpa cookie          | Refresh cookie| ⏳ Fase 1                    |
+| `/auth/login`               | POST   | Retorna access + refresh tokens no corpo    | Não           | ⏳ Fase 1                    |
+| `/auth/refresh`             | POST   | Renova access token (rotation)              | Refresh token | ⏳ Fase 1                    |
+| `/auth/logout`              | POST   | Revoga o refresh token atual                | Refresh token | ⏳ Fase 1                    |
 | `/templates`                | GET    | Lista templates default do catálogo         | Sim           | ✅ Existe hoje (público)     |
 | `/templates/:id`            | GET    | Detalhe do template (campos, fórmulas)      | Sim           | ✅ Existe hoje (público)     |
 | `/sheets`                   | POST   | Cria a ficha do usuário a partir de template| Sim           | ✅ Existe hoje (público)     |
@@ -227,8 +227,8 @@ graph LR
 
 - `users`: `_id`, `email` (único), `username`, `password_hash`, `created_at`, `updated_at`
   - Índice único em `email`.
-- `refresh_tokens`: token hash, `user_id`, `expires_at`, `revoked`, `family_id` (para detecção de reuso)
-  - Índice TTL em `expires_at` para limpeza automática.
+- `refresh_tokens`: `_id`, `token_hash` (SHA-256 de token opaco), `user_id`, `family_id` (para detecção de reuso), `expires_at`, `revoked`, `replaced_by`, `created_at`
+  - Índice único em `token_hash`, índice em `family_id` e índice TTL em `expires_at` para limpeza automática.
 
 **Coleções alteradas**:
 
@@ -245,11 +245,16 @@ Templates default são **imutáveis por ID**: quando uma release precisa mudar r
 
 ### Autenticação (fluxo de tokens)
 
-1. `POST /auth/login` valida credenciais → retorna **access token** (JWT, ~15min) no corpo e define **refresh token** (~30 dias) em cookie `httpOnly; Secure; SameSite=Strict; Path=/auth`.
-2. Cliente envia access token em `Authorization: Bearer` nas demais rotas.
-3. `POST /auth/refresh` lê o cookie, valida, **rotaciona** o refresh token (novo cookie, token anterior revogado) e retorna novo access token.
-4. **Detecção de reuso**: refresh token já rotacionado apresentado novamente → revoga toda a família de tokens do usuário (possível roubo).
-5. `POST /auth/logout` revoga o refresh token atual e limpa o cookie.
+Os clientes do produto são **nativos** (desktop Flutter + mobile futuro), sem SPA no browser. Por isso o refresh token **não** usa cookie: é um token opaco de alta entropia devolvido no corpo e reenviado pelo cliente em um header dedicado `X-Refresh-Token`. Sem credencial ambiente, o endpoint de refresh não é alvo de CSRF.
+
+1. `POST /auth/login` valida credenciais → retorna **access token** (JWT, ~15min) e **refresh token** (~30 dias) no corpo JSON.
+2. Cliente guarda o access token em memória e o refresh token em armazenamento seguro do SO (keychain/Credential Manager).
+3. Cliente envia o access token em `Authorization: Bearer` nas demais rotas.
+4. `POST /auth/refresh` lê o `X-Refresh-Token`, valida, **rotaciona** o refresh token (novo token na mesma família, anterior revogado) e retorna novo par access + refresh.
+5. **Detecção de reuso**: refresh token já rotacionado apresentado novamente → revoga toda a família de tokens do usuário (possível roubo).
+6. `POST /auth/logout` revoga o refresh token atual (via `X-Refresh-Token`); o cliente descarta a cópia local.
+
+> **Nota de segurança**: como o refresh trafega no corpo/header, TLS é obrigatório; o cliente é responsável por guardá-lo no armazenamento seguro do SO. Se um cliente browser (SPA) for introduzido no futuro, a decisão de transporte deve ser reavaliada (cookie `httpOnly` volta a ser candidato) — ver Questões em Aberto #5.
 
 ### Débito técnico (identificado na análise do código)
 
@@ -278,8 +283,9 @@ Templates default são **imutáveis por ID**: quando uma release precisa mudar r
 | Mudança de template default entre releases quebra fichas existentes | Alto | Média | IDs versionados imutáveis (`fantasy_v1` → `fantasy_v2`); versões antigas permanecem no catálogo enquanto houver fichas ativas |
 | Alegação de copyright apesar da abordagem genérica | Alto | Baixa | Templates default travados no código → todo conteúdo passa por code review; nomes/termos genéricos; revisão manual pré-release; política de conteúdo no repositório |
 | Concorrência em PATCH da mesma ficha (read-modify-write) | Média | Média | Atualização via `$set` atômico por chave; opcionalmente optimistic locking com campo `version` na ficha |
-| Vazamento do segredo JWT / refresh tokens roubados | Alto | Baixa | Segredo em variável de ambiente; refresh em cookie httpOnly (não acessível a XSS); rotation com detecção de reuso; TTL curto no access token |
-| CSRF no endpoint de refresh (cookie-based) | Média | Média | `SameSite=Strict` no cookie; validação de `Origin`/`Referer` no `/auth/refresh`; CORS restritivo |
+| Vazamento do segredo JWT / refresh tokens roubados | Alto | Baixa | Segredo em variável de ambiente; refresh opaco armazenado apenas como hash; rotation com detecção de reuso; TTL curto no access token; TLS obrigatório |
+| Vazamento do refresh token em clientes nativos | Média | Média | Refresh no corpo/header (sem cookie ambiente, sem CSRF); cliente guarda em armazenamento seguro do SO; TLS obrigatório; rotation com detecção de reuso |
+| CSRF em endpoints de auth | Baixa | Baixa | Mitigado na origem: refresh não usa cookie, então não há credencial ambiente. CORS restritivo mantido; reavaliar validação de `Origin` se um SPA for introduzido |
 | Perda de dados (VPS único, sem replicação) | Alto | Média | Backups diários automatizados do MongoDB para storage externo; restore testado no deploy |
 | Scope creep em projeto solo com escopo grande | Média | Alta | Escopo V1 congelado neste documento; CRUD de templates explicitamente adiado para V2; features novas entram na lista V2 sem exceção |
 | Carga de trabalho solo inviabiliza o prazo | Média | Alta | Fases com entregas independentes; cortar escopo do fim (import/export, biblioteca) antes de cortar auth/ownership |
@@ -292,7 +298,7 @@ Templates default são **imutáveis por ID**: quando uma release precisa mudar r
 | Fase | Tarefa | Descrição | Estimativa |
 | ---- | ------ | --------- | ---------- |
 | **Fase 0 — Higiene** | Limpeza de débito técnico | ✅ 5 de 6 itens resolvidos (ver tabela de débito técnico). Restante: persistência do PATCH com chaves pontilhadas | 0.5d |
-| **Fase 1 — Auth** | Módulo de usuários | `users` + `refresh_tokens` collections, registro com bcrypt, login, JWT (access no body + refresh em cookie httpOnly), middleware de autenticação, refresh rotation com detecção de reuso, logout | 6d |
+| **Fase 1 — Auth** | Módulo de usuários | `users` + `refresh_tokens` collections, registro com bcrypt, login, JWT (access + refresh opaco no corpo, reenviado via `X-Refresh-Token`), middleware de autenticação, refresh rotation com detecção de reuso, logout | 6d |
 | **Fase 2 — Ownership** | Autorização + limite | Adicionar campo `owner_id` ao struct `Sheet` e à collection (não existe mais; comentário removido em LGN-81) + índice único (1 ficha/usuário), guarda de ownership em todos os endpoints, `GET /sheets` do usuário autenticado, 409 na criação duplicada | 3d |
 | **Fase 3 — Biblioteca multi-sistema** | Templates default | 3-5 templates de gêneros distintos (fantasia, sci-fi, horror, moderno), revisão anti-copyright de cada nome/termo, IDs versionados | 4d |
 | **Fase 4 — Import/Export** | Portabilidade | Export JSON auto-contido (ficha + template), import com validação estrita contra o template | 3d |
@@ -313,7 +319,7 @@ Templates default são **imutáveis por ID**: quando uma release precisa mudar r
 
 ### Autenticação & Autorização
 
-- **Autenticação**: JWT stateless — access token de curta duração (~15min) transportado em `Authorization: Bearer`; refresh token de longa duração (~30 dias) em **cookie httpOnly** com `Secure`, `SameSite=Strict` e `Path=/auth` (escopo mínimo).
+- **Autenticação**: JWT stateless — access token de curta duração (~15min) transportado em `Authorization: Bearer`; refresh token opaco de longa duração (~30 dias) devolvido no corpo e reenviado pelo cliente no header `X-Refresh-Token` (clientes nativos: desktop/mobile).
 - **Refresh rotation com detecção de reuso**: cada refresh gera token novo e revoga o anterior; apresentar um token já rotacionado revoga a família inteira (`family_id`) do usuário.
 - **Senhas**: hash com bcrypt (custo ≥ 12); nunca logar senhas ou tokens.
 - **Autorização**: modelo de ownership — toda ficha tem `owner_id`; middleware extrai `user_id` do JWT e services validam posse antes de qualquer operação. Templates default são read-only para todos (não há o que proteger além de leitura autenticada).
@@ -322,7 +328,7 @@ Templates default são **imutáveis por ID**: quando uma release precisa mudar r
 
 **Criptografia**:
 
-- **Em trânsito**: TLS obrigatório (HTTPS via reverse proxy no VPS) — requisito para o cookie `Secure`.
+- **Em trânsito**: TLS obrigatório (HTTPS via reverse proxy no VPS) — protege access e refresh tokens, que trafegam no corpo/header.
 - **Em repouso**: volumes Docker do MongoDB em disco do VPS; backup criptografado no storage externo.
 - **Segredos**: `JWT_SECRET`, credenciais do Mongo e chaves de backup em variáveis de ambiente (`.env` fora do git, já previsto em `.env.example`).
 
@@ -387,7 +393,7 @@ Templates default são **imutáveis por ID**: quando uma release precisa mudar r
 - ✅ Registrar → login → criar ficha → editar → exportar (auto-contido) → deletar conta → dados removidos.
 - ✅ Segundo `POST /sheets` → 409.
 - ✅ Acessar ficha de outro usuário → 403/404.
-- ✅ Token expirado → 401; refresh via cookie → novo access token; cookie tem flags `HttpOnly; Secure; SameSite=Strict`.
+- ✅ Token expirado → 401; refresh via `X-Refresh-Token` → novo par access + refresh (rotation); token reapresentado → família revogada.
 - ✅ Import com campo extra → 400 com lista de campos inválidos; import válido → ficha recalculada e persistida.
 - ✅ Ficha criada em `fantasy_v1` continua recalculando com as regras da v1 após release que introduz `fantasy_v2`.
 
@@ -508,8 +514,8 @@ Manter o padrão JSON já estabelecido em `shared/logger`, com campos obrigatór
 | **Linguagem de fórmulas** | expr-lang (escolhido) | Sandboxed, compilado, sintaxe simples, tipado, sem I/O | Menos poderoso que uma linguagem completa | ✅ Escolhido — já provado no núcleo |
 | | Lua (gopher-lua) / JS (goja) | Expressividade total | Sandbox real é difícil; superfície de ataque; performance de VM | Rejeitado — risco de segurança inaceitável para input de usuário (V2) |
 | | Parser próprio | Controle total | Meses de trabalho; manutenção | Rejeitado |
-| **Auth** | JWT stateless + refresh em cookie httpOnly (escolhido) | API stateless; refresh protegido de XSS (httpOnly); padrão para SPA/frontend desacoplado | Exige mitigação CSRF no refresh; revogação via rotation | ✅ Escolhido |
-| | JWT com refresh no body | Mais simples para clientes não-browser | Refresh token acessível a XSS no frontend | Rejeitado |
+| **Auth** | JWT stateless + refresh opaco no corpo/header (escolhido) | API stateless; clientes nativos (desktop/mobile); sem CSRF (sem credencial ambiente); refresh fica em armazenamento seguro do SO | Não há proteção httpOnly (não se aplica fora do browser); exige TLS e disciplina do cliente | ✅ Escolhido |
+| | JWT com refresh em cookie httpOnly | Refresh não acessível a XSS de browser | Clientes nativos não persistem cookie sem jar; exige mitigação CSRF; sem ganho de segurança fora do browser | Rejeitado na V1 (clientes nativos); reconsiderar se surgir SPA |
 | | Sessão em cookie + store | Revogação trivial | Estado no servidor (Redis); menos adequado a API pública | Rejeitado |
 | **Evolução de templates** | IDs versionados imutáveis (escolhido) | Fichas antigas nunca quebram; zero infraestrutura de versionamento no banco | Catálogo acumula versões (mitigado: remover versão só quando não houver fichas ativas) | ✅ Escolhido |
 | | Mutação in-place + migração de fichas | Um template só | Recalcular fichas com regras novas = bugs e perda de dados | Rejeitado |
@@ -523,7 +529,7 @@ Manter o padrão JSON já estabelecido em `shared/logger`, com campos obrigatór
 | MongoDB | Infraestrutura | Em uso (docker-compose) | Baixo |
 | expr-lang | Biblioteca | Em uso, estável | Baixo |
 | Echo v5 | Framework HTTP | Em uso | Baixo |
-| golang-jwt (ou equivalente) | Biblioteca | A adicionar (Fase 1) | Baixo |
+| golang-jwt/jwt/v5 | Biblioteca | A adicionar (Fase 1) | Baixo |
 | golang.org/x/crypto (bcrypt) | Biblioteca | Já no `go.mod` (indireta) | Baixo |
 | VPS + Docker + Traefik + Cloudflare Tunnel | Infraestrutura | Stack versionada em `deploy/docker-compose.yml`; provisionamento pendente (Fase 6) | Médio |
 | Storage externo para backups (S3-compatível) | Infraestrutura | A provisionar (Fase 6) | Baixo |
@@ -566,7 +572,7 @@ Não há migração de sistema legado (greenfield). Os pontos de migração de *
 | 2 | Limite de fichas por usuário na V1? | **1 ficha por usuário**, garantida por regra de negócio + índice único em `owner_id` | ✅ Resolvida |
 | 3 | Import de ficha: validação estrita ou campos extras tolerados? | **Estrita** — campos extras/ausentes rejeitados com 400 e lista de inválidos | ✅ Resolvida |
 | 4 | Export JSON inclui o template embutido ou só referencia? | **Auto-contido** — template embutido no payload | ✅ Resolvida |
-| 5 | Refresh token em cookie httpOnly ou no body? | **Cookie httpOnly** (`Secure; SameSite=Strict; Path=/auth`) com rotation | ✅ Resolvida |
+| 5 | Refresh token em cookie httpOnly ou no corpo/header? | **Corpo + header `X-Refresh-Token`** — clientes nativos (desktop/mobile), sem SPA; sem CSRF (sem cookie ambiente); rotation com detecção de reuso. Reavaliar cookie httpOnly se um SPA for introduzido | ✅ Resolvida |
 | 6 | Quais funções matemáticas adicionais entram na whitelist da engine? (`ceil`, `min`, `round`...) | **Decidir futuramente** — avaliar durante a Fase 3 (biblioteca de templates), conforme demanda real dos templates | 🟡 Adiada (Fase 3) |
 
 ---
@@ -576,7 +582,7 @@ Não há migração de sistema legado (greenfield). Os pontos de migração de *
 | Fase | Entregáveis | Duração | Status |
 | ---- | ----------- | ------- | ------ |
 | **Fase 0 — Higiene** | Débito técnico quase zerado (5 de 6 resolvidos); repo Mongo-only; templates servidos do registry | 0.5d | 🟡 Em andamento |
-| **Fase 1 — Auth** | Registro, login, JWT, refresh em cookie httpOnly com rotation, logout | 6d | ⏳ Pendente |
+| **Fase 1 — Auth** | Registro, login, JWT, refresh opaco com header dedicado e rotation, logout | 6d | ⏳ Pendente |
 | **Fase 2 — Ownership** | `owner_id` com índice único (1 ficha/usuário), autorização, `GET /sheets` | 3d | ⏳ Pendente |
 | **Fase 3 — Biblioteca** | 3-5 templates default multi-gênero revisados, IDs versionados | 4d | ⏳ Pendente |
 | **Fase 4 — Import/Export** | Export auto-contido, import com validação estrita | 3d | ⏳ Pendente |
@@ -605,7 +611,7 @@ Não há migração de sistema legado (greenfield). Os pontos de migração de *
 
 - [x] Escopo V1 validado (sem CRUD de templates; 1 ficha por usuário)
 - [x] Estratégia de templates default travados + IDs versionados aceita
-- [x] Decisões de auth (JWT + cookie httpOnly) aceitas
+- [x] Decisões de auth (JWT + refresh opaco via header) aceitas
 - [ ] Estimativas de fases realistas para ritmo solo
 
 **Próximos passos após aprovação**:
