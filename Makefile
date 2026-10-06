@@ -5,7 +5,7 @@
 DATABASE_URI := $(subst ",,$(DATABASE_URI))
 export PORT APP_NAME DATABASE_URI DATABASE_NAME CORS_ALLOWED_ORIGINS DATABASE_PING_TIMEOUT DATABASE_SERVER_SELECTION_TIMEOUT DATABASE_CONNECT_TIMEOUT DATABASE_CLOSE_TIMEOUT
 
-.PHONY: run build test test-race vet lint fmt mocks dev-db deploy-up deploy-down deploy-local
+.PHONY: run build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local
 
 ## --- Development ------------------------------------------------------------
 
@@ -26,6 +26,12 @@ vet:            ## Run go vet
 
 lint:           ## Run golangci-lint
 	@golangci-lint run
+
+lint-specs:     ## Run spec/test lint rules (CI parity: assertions, requirement IDs, citations)
+	@python3 scripts/test_lints.py
+	@python3 scripts/check_test_assertions.py
+	@python3 scripts/check_requirement_ids.py
+	@python3 scripts/check_validation_citations.py
 
 fmt:            ## Format code
 	@go fmt ./...
