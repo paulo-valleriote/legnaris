@@ -7,6 +7,7 @@ import (
 type Sheet struct {
 	ID         string         `bson:"_id,omitempty"`
 	TemplateID string         `bson:"template_id"`
+	OwnerID    string         `bson:"owner_id"`
 	Name       string         `bson:"name"`
 	Data       map[string]any `bson:"data"`
 	CreatedAt  time.Time      `bson:"created_at,omitempty"`

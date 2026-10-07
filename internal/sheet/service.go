@@ -13,10 +13,12 @@ import (
 type CreateSheetCommand struct {
 	TemplateID string `json:"template_id"`
 	SheetName  string `json:"sheet_name"`
+	OwnerID    string `json:"-"`
 }
 
 type PartialUpdateSheetCommand struct {
 	SheetID string         `json:"-"`
+	OwnerID string         `json:"-"`
 	Data    map[string]any `json:"data"`
 }
 
@@ -28,12 +30,21 @@ type PreviewTemplateCommand struct {
 	Data       map[string]any `json:"data"`
 }
 
+// DeleteSheetCommand carries the target sheet and the authenticated owner. Both
+// come from the request (path param and JWT context), never from the body.
+type DeleteSheetCommand struct {
+	SheetID string `json:"-"`
+	OwnerID string `json:"-"`
+}
+
 type Service interface {
 	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
-	FetchByID(ctx context.Context, id string) (*Sheet, error)
+	FetchMySheet(ctx context.Context, ownerID string) (*Sheet, error)
+	FetchByID(ctx context.Context, id string, ownerID string) (*Sheet, error)
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
+	Delete(ctx context.Context, cmd DeleteSheetCommand) error
 }
 
 // User-facing messages for the errors this service builds itself. They are
@@ -47,6 +58,8 @@ const (
 	MsgSheetIDInvalid     = "sheet id must be a canonical UUID v7"
 	MsgFieldDoesNotExist  = "field does not exist: "
 	MsgNestedTooDeep      = "sheet data is nested too deeply"
+	MsgOwnerNotProvided   = "authenticated user is required"
+	MsgSheetLimitReached  = "user already owns a sheet"
 )
 
 // requireSheetID is the single source of truth for the sheet-ID checks
@@ -60,6 +73,28 @@ func requireSheetID(id string) error {
 	}
 	if err := idgen.Validate(id); err != nil {
 		return apperr.NewError(apperr.CodeInvalidRequest, MsgSheetIDInvalid, err)
+	}
+	return nil
+}
+
+// requireOwner rejects a request whose context carried no authenticated user
+// id (OWN-19). The JWT middleware guarantees it on protected routes; failing
+// closed here means a route mounted without the middleware can never act
+// ownerless instead of silently operating on someone else's data.
+func requireOwner(ownerID string) error {
+	if ownerID == "" {
+		return apperr.NewError(apperr.CodeUnauthorized, MsgOwnerNotProvided, nil)
+	}
+	return nil
+}
+
+// checkOwnership returns the same 404 a missing sheet produces when the stored
+// sheet belongs to nobody (legacy row) or to a different user, so a foreign
+// sheet is indistinguishable from a nonexistent one and leaks no existence
+// (OWN-11, OWN-12, OWN-24).
+func checkOwnership(stored *Sheet, ownerID string) error {
+	if stored.OwnerID == "" || stored.OwnerID != ownerID {
+		return translateRepoErr("fetch", ErrSheetNotFound)
 	}
 	return nil
 }
@@ -90,6 +125,12 @@ func NewService(repository Repository, templateService template.Service, provide
 }
 
 func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error) {
+	// Fail closed before any repository access: a route mounted without the JWT
+	// middleware must never create an ownerless sheet (OWN-19).
+	if cmd.OwnerID == "" {
+		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgOwnerNotProvided, nil)
+	}
+
 	// FetchTemplate before the DAG lookup: it owns the template-ID checks
 	// (missing, malformed slug), so POST /sheets fails exactly like
 	// GET /templates/:id instead of collapsing every bad ID into a 404 (LGN-86).
@@ -101,6 +142,15 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	dag, exists := s.provider.DAG(cmd.TemplateID)
 	if !exists {
 		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
+	}
+
+	// Best-effort pre-check for a friendly 409 on the common path. The unique
+	// sheets.owner_id index remains the authoritative guard: only the insert
+	// closes the concurrent-create race (OWN-03, OWN-04).
+	if _, err := s.repository.FetchByOwnerID(ctx, cmd.OwnerID); err == nil {
+		return nil, apperr.NewError(apperr.CodeSheetLimitReached, MsgSheetLimitReached, nil)
+	} else if !errors.Is(err, ErrSheetNotFound) {
+		return nil, translateRepoErr("create", err)
 	}
 
 	initialData := buildNestedAllFields(tmpl.Fields)
@@ -131,6 +181,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	newSheet := Sheet{
 		ID:         sheetID,
 		TemplateID: cmd.TemplateID,
+		OwnerID:    cmd.OwnerID,
 		Name:       cmd.SheetName,
 		Data:       initialData,
 		CreatedAt:  time.Now(),
@@ -142,7 +193,25 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	return &newSheet, nil
 }
 
-func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) {
+// FetchMySheet returns the single sheet owned by ownerID, or 404 NOT_FOUND when
+// the owner has none (OWN-07, OWN-08).
+func (s *ServiceImpl) FetchMySheet(ctx context.Context, ownerID string) (*Sheet, error) {
+	if err := requireOwner(ownerID); err != nil {
+		return nil, err
+	}
+
+	sheet, err := s.repository.FetchByOwnerID(ctx, ownerID)
+	if err != nil {
+		return nil, translateRepoErr("fetch", err)
+	}
+
+	return sheet, nil
+}
+
+func (s *ServiceImpl) FetchByID(ctx context.Context, id string, ownerID string) (*Sheet, error) {
+	if err := requireOwner(ownerID); err != nil {
+		return nil, err
+	}
 	if err := requireSheetID(id); err != nil {
 		return nil, err
 	}
@@ -150,6 +219,10 @@ func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) 
 	sheet, err := s.repository.FetchByID(ctx, id)
 	if err != nil {
 		return nil, translateRepoErr("fetch", err)
+	}
+
+	if err := checkOwnership(sheet, ownerID); err != nil {
+		return nil, err
 	}
 
 	return sheet, nil
@@ -169,7 +242,10 @@ type recalculation struct {
 // delta, normalizes and recalculates it, then deep-merges the result over the
 // stored data. It performs no repository write, so a preview can call it
 // without side effects.
-func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, data map[string]any) (*recalculation, error) {
+func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, ownerID string, data map[string]any) (*recalculation, error) {
+	if err := requireOwner(ownerID); err != nil {
+		return nil, err
+	}
 	if err := requireSheetID(sheetID); err != nil {
 		return nil, err
 	}
@@ -177,6 +253,10 @@ func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, data map[
 	storedSheet, err := s.repository.FetchByID(ctx, sheetID)
 	if err != nil {
 		return nil, translateRepoErr("fetch", err)
+	}
+
+	if err := checkOwnership(storedSheet, ownerID); err != nil {
+		return nil, err
 	}
 
 	dag, exists := s.provider.DAG(storedSheet.TemplateID)
@@ -214,7 +294,7 @@ func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, data map[
 }
 
 func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
-	result, err := s.recalculate(ctx, cmd.SheetID, cmd.Data)
+	result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +315,7 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 // matches an equivalent PATCH while the stored sheet and updated_at stay
 // untouched. Repeated calls against an unchanged sheet return the same map.
 func (s *ServiceImpl) Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
-	result, err := s.recalculate(ctx, cmd.SheetID, cmd.Data)
+	result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -286,6 +366,32 @@ func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCo
 	return nestedCascadingEffects(cascading)
 }
 
+// Delete removes the owner's sheet. Ownership is verified first, so a foreign
+// sheet and a missing sheet both return the repository's 404 without deleting
+// anything, and a second delete is 404 because the fetch misses (OWN-13,
+// OWN-23).
+func (s *ServiceImpl) Delete(ctx context.Context, cmd DeleteSheetCommand) error {
+	if err := requireOwner(cmd.OwnerID); err != nil {
+		return err
+	}
+	if err := requireSheetID(cmd.SheetID); err != nil {
+		return err
+	}
+
+	stored, err := s.repository.FetchByID(ctx, cmd.SheetID)
+	if err != nil {
+		return translateRepoErr("delete", err)
+	}
+	if err := checkOwnership(stored, cmd.OwnerID); err != nil {
+		return err
+	}
+
+	if err := s.repository.DeleteByID(ctx, cmd.SheetID); err != nil {
+		return translateRepoErr("delete", err)
+	}
+	return nil
+}
+
 // translateTemplateErr maps template-layer typed errors to apperr at the
 // service boundary. The template layer must stay free of apperr imports for
 // its own sentinels; the /templates controller runs the same translation
@@ -316,6 +422,9 @@ func translateRepoErr(op string, err error) error {
 	}
 	if errors.Is(err, ErrSheetNotFound) {
 		return apperr.NewError(apperr.CodeNotFound, "sheet not found", err)
+	}
+	if errors.Is(err, ErrSheetOwnerExists) {
+		return apperr.NewError(apperr.CodeSheetLimitReached, MsgSheetLimitReached, err)
 	}
 	return apperr.NewError(apperr.CodeInternal, "failed to "+op+" sheet", err)
 }

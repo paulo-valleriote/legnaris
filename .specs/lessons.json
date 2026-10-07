@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 20,
+  "next_id": 21,
   "lessons": [
     {
       "id": "L-001",
@@ -346,6 +346,24 @@
       ],
       "created": "2026-10-04T18:10:07Z",
       "last_seen": "2026-10-04T18:10:07Z"
+    },
+    {
+      "id": "L-020",
+      "key": "surviving_mutant::guard security critical route wiring with a unit level test that runs without external services not only with environment gated integration tests",
+      "text": "Guard security-critical route wiring with a unit-level test that runs without external services, not only with environment-gated integration tests.",
+      "signal": "surviving_mutant",
+      "scope": "routes",
+      "status": "candidate",
+      "features": [
+        "lgn-7-ownership"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "internal/app/router.go:41 (TestIntegration_ProtectedRoutesRequireJWT self-skips without Mongo) (routes)"
+      ],
+      "created": "2026-10-07T13:15:45Z",
+      "last_seen": "2026-10-07T13:15:45Z"
     }
   ]
 }

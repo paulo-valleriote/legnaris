@@ -1,6 +1,9 @@
 package app
 
 import (
+	"net/http"
+
+	"legnaris/internal/auth"
 	"legnaris/internal/sheet"
 	"legnaris/shared/json"
 	"legnaris/shared/response"
@@ -20,8 +23,10 @@ func NewSheetController(service sheet.Service) *SheetController {
 
 func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.POST("", sc.Create)
+	group.GET("", sc.FetchMySheet)
 	group.GET("/:id", sc.FetchByID)
 	group.PATCH("/:id", sc.PartialUpdate)
+	group.DELETE("/:id", sc.Delete)
 	group.POST("/:id/preview", sc.Preview)
 }
 
@@ -40,6 +45,8 @@ func (sc *SheetController) Create(c *echo.Context) error {
 		return decodeError(err)
 	}
 
+	cmd.OwnerID, _ = auth.UserID(c)
+
 	newSheet, err := sc.service.Create(c.Request().Context(), cmd)
 	if err != nil {
 		return err
@@ -47,8 +54,18 @@ func (sc *SheetController) Create(c *echo.Context) error {
 	return response.Created(c, newSheet.ToDTO())
 }
 
+func (sc *SheetController) FetchMySheet(c *echo.Context) error {
+	ownerID, _ := auth.UserID(c)
+	storedSheet, err := sc.service.FetchMySheet(c.Request().Context(), ownerID)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, storedSheet.ToDTO())
+}
+
 func (sc *SheetController) FetchByID(c *echo.Context) error {
-	storedSheet, err := sc.service.FetchByID(c.Request().Context(), c.Param("id"))
+	ownerID, _ := auth.UserID(c)
+	storedSheet, err := sc.service.FetchByID(c.Request().Context(), c.Param("id"), ownerID)
 	if err != nil {
 		return err
 	}
@@ -62,8 +79,10 @@ func (sc *SheetController) PartialUpdate(c *echo.Context) error {
 		return decodeError(err)
 	}
 
+	ownerID, _ := auth.UserID(c)
 	cascadingEffects, err := sc.service.PartialUpdate(c.Request().Context(), sheet.PartialUpdateSheetCommand{
 		SheetID: c.Param("id"),
+		OwnerID: ownerID,
 		Data:    cmd.Data,
 	})
 	if err != nil {
@@ -82,14 +101,31 @@ func (sc *SheetController) Preview(c *echo.Context) error {
 		return decodeError(err)
 	}
 
+	ownerID, _ := auth.UserID(c)
 	cascadingEffects, err := sc.service.Preview(c.Request().Context(), sheet.PartialUpdateSheetCommand{
 		SheetID: c.Param("id"),
+		OwnerID: ownerID,
 		Data:    cmd.Data,
 	})
 	if err != nil {
 		return err
 	}
 	return response.OK(c, cascadingEffects)
+}
+
+// Delete removes the authenticated owner's sheet and returns 204. A foreign or
+// already-deleted sheet surfaces as 404 from the service, so a repeat delete is
+// not a silent success.
+func (sc *SheetController) Delete(c *echo.Context) error {
+	ownerID, _ := auth.UserID(c)
+
+	if err := sc.service.Delete(c.Request().Context(), sheet.DeleteSheetCommand{
+		SheetID: c.Param("id"),
+		OwnerID: ownerID,
+	}); err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 // PreviewTemplate is the template-seeded dry-run: it decodes the data delta,

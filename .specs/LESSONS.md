@@ -128,6 +128,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: spec edge case 8 (preview NOT_FOUND no eviction) (desktop)
 - last seen: 2026-10-04T18:10:07Z
 
+### L-020 - Guard security-critical route wiring with a unit-level test that runs without external services, not only with environment-gated integration tests.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `routes` · harmful: 0
+- features: lgn-7-ownership
+- evidence: internal/app/router.go:41 (TestIntegration_ProtectedRoutesRequireJWT self-skips without Mongo) (routes)
+- last seen: 2026-10-07T13:15:45Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

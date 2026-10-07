@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"legnaris/internal/app"
+	"legnaris/internal/auth"
 	"legnaris/internal/engine"
 	"legnaris/internal/sheet"
 	"legnaris/internal/sheet/mocks"
@@ -22,6 +23,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// errorTestOwnerID stands in for the authenticated user id the JWT middleware
+// would place in the context; these unit tests mount the controller directly,
+// so the harness injects it.
+const errorTestOwnerID = "01900000-0000-7000-8000-0000000000aa"
+
+// withOwner simulates auth.Middleware for tests that mount a controller group
+// directly: it stamps the authenticated owner id the handlers read.
+func withOwner(userID string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			c.Set(auth.UserIDContextKey, userID)
+			return next(c)
+		}
+	}
+}
+
 // newSheetErrorRouter wires the real SheetController + HTTPErrorHandler over a
 // real sheet.Service backed by a mocked repository, so the full translation
 // chain (repository/DAG typed errors → apperr → HTTP status) is exercised
@@ -35,6 +52,7 @@ func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache 
 
 	e := echo.New()
 	e.HTTPErrorHandler = app.HTTPErrorHandler
+	e.Use(withOwner(errorTestOwnerID))
 	app.NewSheetController(svc).RegisterRoutes(e.Group("/sheets"))
 	return e, mockTemplateSvc
 }
@@ -120,6 +138,7 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 		return &sheet.Sheet{
 			ID:         sheetStubID,
 			TemplateID: "fantasy_v1",
+			OwnerID:    errorTestOwnerID,
 			Name:       "Err Map",
 			Data: map[string]any{
 				"stats":     map[string]any{"dexterity": 10.0},
@@ -285,6 +304,7 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 		return &sheet.Sheet{
 			ID:         sheetStubID,
 			TemplateID: "fantasy_v1",
+			OwnerID:    errorTestOwnerID,
 			Name:       "Preview",
 			Data: map[string]any{
 				"stats":     map[string]any{"dexterity": 14.0},

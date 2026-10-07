@@ -28,6 +28,7 @@ const (
 	missingSheetID   = "01900000-0000-7000-8000-000000000404"
 	updateSheetID    = "01900000-0000-7000-8000-000000000123"
 	corruptedSheetID = "01900000-0000-7000-8000-00000000c0de"
+	ownerUserID      = "01900000-0000-7000-8000-0000000000aa"
 )
 
 func TestService_PartialUpdate(t *testing.T) {
@@ -104,6 +105,7 @@ func TestService_PartialUpdate(t *testing.T) {
 	storedSheet := &sheet.Sheet{
 		ID:         sheetID,
 		TemplateID: "fantasy_v1",
+		OwnerID:    ownerUserID,
 		Name:       "Test Sheet",
 		Data:       nestedStoredData,
 		CreatedAt:  time.Now(),
@@ -309,6 +311,7 @@ func TestService_PartialUpdate(t *testing.T) {
 
 			cmd := sheet.PartialUpdateSheetCommand{
 				SheetID: sheetID,
+				OwnerID: ownerUserID,
 				Data:    tc.updates,
 			}
 
@@ -351,6 +354,7 @@ func TestService_PartialUpdate_NoOpDeltaPersistsAndReturnsEmptyCascade(t *testin
 	stored := &sheet.Sheet{
 		ID:         updateSheetID,
 		TemplateID: "fantasy_v1",
+		OwnerID:    ownerUserID,
 		Name:       "No-op Sheet",
 		Data: map[string]any{
 			"stats":     map[string]any{"dexterity": 14.0},
@@ -389,6 +393,7 @@ func TestService_PartialUpdate_NoOpDeltaPersistsAndReturnsEmptyCascade(t *testin
 
 	cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
 		SheetID: updateSheetID,
+		OwnerID: ownerUserID,
 		Data:    map[string]any{"stats": map[string]any{"dexterity": 14.0}},
 	})
 
@@ -450,6 +455,7 @@ func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
 		return &sheet.Sheet{
 			ID:         sheetID,
 			TemplateID: "fantasy_v1",
+			OwnerID:    ownerUserID,
 			Name:       "Exclusive Sheet",
 			Data: map[string]any{
 				"stats":          map[string]any{"dexterity": 14.0, "constitution": 12.0},
@@ -555,6 +561,7 @@ func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
 
 			cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
 				SheetID: sheetID,
+				OwnerID: ownerUserID,
 				Data:    tc.updates,
 			})
 
@@ -598,6 +605,7 @@ func TestService_PartialUpdate_NestingDepthLimit(t *testing.T) {
 		Return(&sheet.Sheet{
 			ID:         updateSheetID,
 			TemplateID: "fantasy_v1",
+			OwnerID:    ownerUserID,
 			Data:       map[string]any{"stats": map[string]any{"dexterity": 10.0}},
 			CreatedAt:  time.Now(),
 			UpdatedAt:  time.Now(),
@@ -610,6 +618,7 @@ func TestService_PartialUpdate_NestingDepthLimit(t *testing.T) {
 
 	_, err = svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
 		SheetID: updateSheetID,
+		OwnerID: ownerUserID,
 		Data:    deep,
 	})
 	require.Error(t, err)
@@ -663,6 +672,7 @@ func TestService_Preview(t *testing.T) {
 		return &sheet.Sheet{
 			ID:         updateSheetID,
 			TemplateID: "fantasy_v1",
+			OwnerID:    ownerUserID,
 			Name:       "Preview Sheet",
 			Data: map[string]any{
 				"stats":          map[string]any{"dexterity": 14.0, "constitution": 12.0},
@@ -686,6 +696,7 @@ func TestService_Preview(t *testing.T) {
 
 		cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
 			SheetID: updateSheetID,
+			OwnerID: ownerUserID,
 			Data:    map[string]any{"stats": map[string]any{"dexterity": 18.0}},
 		})
 		require.NoError(t, err)
@@ -708,9 +719,9 @@ func TestService_Preview(t *testing.T) {
 
 		delta := map[string]any{"stats": map[string]any{"dexterity": 16.0}}
 
-		previewCascade, err := previewSvc.Preview(ctx, sheet.PartialUpdateSheetCommand{SheetID: updateSheetID, Data: delta})
+		previewCascade, err := previewSvc.Preview(ctx, sheet.PartialUpdateSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID, Data: delta})
 		require.NoError(t, err)
-		patchCascade, err := patchSvc.PartialUpdate(ctx, sheet.PartialUpdateSheetCommand{SheetID: updateSheetID, Data: delta})
+		patchCascade, err := patchSvc.PartialUpdate(ctx, sheet.PartialUpdateSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID, Data: delta})
 		require.NoError(t, err)
 
 		assert.Equal(t, patchCascade, previewCascade)
@@ -723,6 +734,7 @@ func TestService_Preview(t *testing.T) {
 		svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache)
 		cmd := sheet.PartialUpdateSheetCommand{
 			SheetID: updateSheetID,
+			OwnerID: ownerUserID,
 			Data:    map[string]any{"stats": map[string]any{"dexterity": 18.0}},
 		}
 
@@ -742,6 +754,7 @@ func TestService_Preview(t *testing.T) {
 
 		cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
 			SheetID: updateSheetID,
+			OwnerID: ownerUserID,
 			Data:    map[string]any{},
 		})
 		require.NoError(t, err)
@@ -766,6 +779,7 @@ func TestService_Preview(t *testing.T) {
 
 				cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
 					SheetID: tc.id,
+					OwnerID: ownerUserID,
 					Data:    map[string]any{"stats": map[string]any{"dexterity": 12.0}},
 				})
 
@@ -789,6 +803,7 @@ func TestService_Preview(t *testing.T) {
 
 		cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
 			SheetID: missingSheetID,
+			OwnerID: ownerUserID,
 			Data:    map[string]any{"stats": map[string]any{"dexterity": 12.0}},
 		})
 
@@ -839,6 +854,7 @@ func TestService_Preview(t *testing.T) {
 
 				cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
 					SheetID: updateSheetID,
+					OwnerID: ownerUserID,
 					Data:    tc.updates,
 				})
 
@@ -868,6 +884,7 @@ func TestService_Preview(t *testing.T) {
 
 		cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
 			SheetID: updateSheetID,
+			OwnerID: ownerUserID,
 			Data:    deep,
 		})
 
@@ -952,6 +969,10 @@ func TestService_PreviewTemplate(t *testing.T) {
 		var createdData map[string]any
 		mockRepo := mocks.NewMockRepository(t)
 		mockRepo.EXPECT().
+			FetchByOwnerID(ctx, ownerUserID).
+			Return(nil, sheet.ErrSheetNotFound).
+			Once()
+		mockRepo.EXPECT().
 			Create(ctx, mock.MatchedBy(func(s *sheet.Sheet) bool {
 				createdData = s.Data
 				return true
@@ -961,7 +982,7 @@ func TestService_PreviewTemplate(t *testing.T) {
 
 		svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
 
-		created, err := svc.Create(ctx, sheet.CreateSheetCommand{TemplateID: "test", SheetName: "Seed"})
+		created, err := svc.Create(ctx, sheet.CreateSheetCommand{TemplateID: "test", SheetName: "Seed", OwnerID: ownerUserID})
 		require.NoError(t, err)
 		require.NotNil(t, createdData)
 
@@ -972,9 +993,9 @@ func TestService_PreviewTemplate(t *testing.T) {
 
 		mockRepo.EXPECT().
 			FetchByID(ctx, created.ID).
-			Return(&sheet.Sheet{ID: created.ID, TemplateID: "test", Data: createdData}, nil).
+			Return(&sheet.Sheet{ID: created.ID, TemplateID: "test", OwnerID: ownerUserID, Data: createdData}, nil).
 			Once()
-		previewCascade, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{SheetID: created.ID, Data: delta})
+		previewCascade, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{SheetID: created.ID, OwnerID: ownerUserID, Data: delta})
 		require.NoError(t, err)
 
 		assert.Equal(t, previewCascade, previewTemplateCascade)
@@ -1158,6 +1179,11 @@ func TestService_Create(t *testing.T) {
 		Once()
 
 	mockRepo.EXPECT().
+		FetchByOwnerID(context.Background(), ownerUserID).
+		Return(nil, sheet.ErrSheetNotFound).
+		Once()
+
+	mockRepo.EXPECT().
 		Create(context.Background(), mock.MatchedBy(func(s *sheet.Sheet) bool {
 			stats, ok := s.Data["stats"].(map[string]any)
 			if !ok || stats["str"] != 10.0 {
@@ -1171,7 +1197,7 @@ func TestService_Create(t *testing.T) {
 			if !ok || derived["armorClass"] != 10.0 {
 				return false
 			}
-			return s.TemplateID == "test" && s.Name == "New Character"
+			return s.TemplateID == "test" && s.Name == "New Character" && s.OwnerID == ownerUserID
 		})).
 		Return(nil).
 		Once()
@@ -1179,6 +1205,7 @@ func TestService_Create(t *testing.T) {
 	cmd := sheet.CreateSheetCommand{
 		TemplateID: "test",
 		SheetName:  "New Character",
+		OwnerID:    ownerUserID,
 	}
 
 	s, err := svc.Create(context.Background(), cmd)
@@ -1227,6 +1254,10 @@ func TestService_Create_SeedsTypedValues(t *testing.T) {
 
 	mockRepo := mocks.NewMockRepository(t)
 	mockRepo.EXPECT().
+		FetchByOwnerID(context.Background(), ownerUserID).
+		Return(nil, sheet.ErrSheetNotFound).
+		Once()
+	mockRepo.EXPECT().
 		Create(context.Background(), mock.MatchedBy(func(s *sheet.Sheet) bool {
 			identity, ok := s.Data["identity"].(map[string]any)
 			if !ok || identity["characterName"] != "" {
@@ -1240,7 +1271,7 @@ func TestService_Create_SeedsTypedValues(t *testing.T) {
 			if !ok || modifiers["dexterityMod"] != 0.0 {
 				return false
 			}
-			return true
+			return s.OwnerID == ownerUserID
 		})).
 		Return(nil).
 		Once()
@@ -1250,6 +1281,7 @@ func TestService_Create_SeedsTypedValues(t *testing.T) {
 	s, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
 		TemplateID: "test",
 		SheetName:  "Seed Check",
+		OwnerID:    ownerUserID,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "test", s.TemplateID)
@@ -1296,6 +1328,7 @@ func TestService_Create_TemplateIDErrors(t *testing.T) {
 			s, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
 				TemplateID: tc.id,
 				SheetName:  "New Character",
+				OwnerID:    ownerUserID,
 			})
 
 			require.Error(t, err)
@@ -1337,6 +1370,7 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 	corrupted := &sheet.Sheet{
 		ID:         sheetID,
 		TemplateID: "fantasy_v1",
+		OwnerID:    ownerUserID,
 		Name:       "Corrupted Sheet",
 		Data:       map[string]any{"stats": "not a map"},
 		CreatedAt:  time.Now(),
@@ -1355,6 +1389,7 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 
 	_, err = svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
 		SheetID: sheetID,
+		OwnerID: ownerUserID,
 		Data:    map[string]any{"stats": map[string]any{"dexterity": 18.0}},
 	})
 
@@ -1368,14 +1403,16 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 	assert.Equal(t, 400, appErr.HttpStatus())
 }
 
-// TestService_FetchByID pins the ID checks to the service (LGN-66, LGN-86):
-// controllers forward the path param, so an empty ID must be rejected here —
-// and a non-UUID must die with 400 before the repository — with the same
-// error every caller gets. A valid but unknown UUID keeps returning 404.
+// TestService_FetchByID pins the ID and ownership checks to the service
+// (LGN-66, LGN-86, OWN-10, OWN-11, OWN-24): controllers forward the path param
+// and the authenticated owner, so an empty ID is 400, a non-UUID is 400 before
+// the repository, a missing sheet is 404, and a sheet owned by another user or
+// by nobody (legacy row) is the same 404.
 func TestService_FetchByID(t *testing.T) {
 	storedSheet := &sheet.Sheet{
 		ID:         fetchSheetID,
 		TemplateID: "fantasy_v1",
+		OwnerID:    ownerUserID,
 		Name:       "Fetched",
 		Data:       map[string]any{"stats": map[string]any{"dexterity": 14.0}},
 		CreatedAt:  time.Now(),
@@ -1385,15 +1422,17 @@ func TestService_FetchByID(t *testing.T) {
 	tests := []struct {
 		name       string
 		id         string
+		ownerID    string // empty means the default ownerUserID
 		repoSheet  *sheet.Sheet
 		repoErr    error
 		callRepo   bool
+		noOwner    bool
 		wantCode   apperr.Code
 		wantStatus int
 		wantMsg    string
 	}{
 		{
-			name:      "Happy path: returns the stored sheet",
+			name:      "Happy path: returns the stored sheet to its owner",
 			id:        fetchSheetID,
 			repoSheet: storedSheet,
 			callRepo:  true,
@@ -1471,6 +1510,33 @@ func TestService_FetchByID(t *testing.T) {
 			wantStatus: 404,
 			wantMsg:    "sheet not found",
 		},
+		{
+			name:       "Error: another user's sheet is the same 404 as a missing sheet",
+			id:         fetchSheetID,
+			repoSheet:  &sheet.Sheet{ID: fetchSheetID, TemplateID: "fantasy_v1", OwnerID: "01900000-0000-7000-8000-0000000000bb"},
+			callRepo:   true,
+			wantCode:   apperr.CodeNotFound,
+			wantStatus: 404,
+			wantMsg:    "sheet not found",
+		},
+		{
+			name:       "Error: a legacy sheet with no owner is the same 404",
+			id:         fetchSheetID,
+			repoSheet:  &sheet.Sheet{ID: fetchSheetID, TemplateID: "fantasy_v1", OwnerID: ""},
+			callRepo:   true,
+			wantCode:   apperr.CodeNotFound,
+			wantStatus: 404,
+			wantMsg:    "sheet not found",
+		},
+		{
+			name:       "Error: missing owner is 401 before the repository",
+			id:         fetchSheetID,
+			callRepo:   false,
+			noOwner:    true,
+			wantCode:   apperr.CodeUnauthorized,
+			wantStatus: 401,
+			wantMsg:    sheet.MsgOwnerNotProvided,
+		},
 	}
 
 	for _, tc := range tests {
@@ -1485,7 +1551,12 @@ func TestService_FetchByID(t *testing.T) {
 
 			svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{})
 
-			got, err := svc.FetchByID(context.Background(), tc.id)
+			owner := tc.ownerID
+			if !tc.noOwner && owner == "" {
+				owner = ownerUserID
+			}
+
+			got, err := svc.FetchByID(context.Background(), tc.id, owner)
 
 			if tc.wantCode == "" {
 				require.NoError(t, err)
@@ -1505,6 +1576,54 @@ func TestService_FetchByID(t *testing.T) {
 	}
 }
 
+// TestService_FetchMySheet pins the owner-scoped read (OWN-07, OWN-08): the
+// owner's sheet is returned, and an owner with no sheet is a 404 NOT_FOUND.
+func TestService_FetchMySheet(t *testing.T) {
+	mine := &sheet.Sheet{ID: fetchSheetID, TemplateID: "fantasy_v1", OwnerID: ownerUserID}
+
+	t.Run("Happy path: returns the owner's sheet", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByOwnerID(context.Background(), ownerUserID).Return(mine, nil).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		got, err := svc.FetchMySheet(context.Background(), ownerUserID)
+		require.NoError(t, err)
+		assert.Equal(t, mine, got)
+	})
+
+	t.Run("Error: an owner with no sheet is a 404 NOT_FOUND", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByOwnerID(context.Background(), ownerUserID).Return(nil, sheet.ErrSheetNotFound).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		got, err := svc.FetchMySheet(context.Background(), ownerUserID)
+		require.Error(t, err)
+		assert.Nil(t, got)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		assert.Equal(t, 404, appErr.HttpStatus())
+		assert.Equal(t, "sheet not found", appErr.Message)
+	})
+
+	t.Run("Error: a missing owner is 401 before the repository", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		got, err := svc.FetchMySheet(context.Background(), "")
+		require.Error(t, err)
+		assert.Nil(t, got)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeUnauthorized, appErr.Code)
+		assert.Equal(t, 401, appErr.HttpStatus())
+	})
+}
+
 // TestService_PartialUpdate_MissingSheetID: PartialUpdate used to skip the ID
 // check its FetchByID does, so an empty ID fell through to the repository and
 // surfaced as 404 "sheet not found" instead of 400 (LGN-66).
@@ -1515,6 +1634,7 @@ func TestService_PartialUpdate_MissingSheetID(t *testing.T) {
 
 	cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
 		SheetID: "",
+		OwnerID: ownerUserID,
 		Data:    map[string]any{"stats": map[string]any{"dexterity": 12.0}},
 	})
 
@@ -1550,6 +1670,7 @@ func TestService_PartialUpdate_MalformedSheetID(t *testing.T) {
 
 			cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
 				SheetID: tc.id,
+				OwnerID: ownerUserID,
 				Data:    map[string]any{"stats": map[string]any{"dexterity": 12.0}},
 			})
 
@@ -1563,4 +1684,316 @@ func TestService_PartialUpdate_MalformedSheetID(t *testing.T) {
 			assert.Equal(t, "sheet id must be a canonical UUID v7", appErr.Message)
 		})
 	}
+}
+
+// TestService_Create_Ownership pins the one-sheet-per-user rule at the service
+// boundary (OWN-03, OWN-04, OWN-05, OWN-06, OWN-19): the owner is bound on the
+// persisted sheet, a pre-existing owner is a 409 SHEET_LIMIT_REACHED, a
+// duplicate-key race is the same 409 (never a 500), and a missing owner is a
+// 401 with no repository access.
+func TestService_Create_Ownership(t *testing.T) {
+	fields := template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+	}
+	dag, err := template.BuildDAG("test", fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+	dagCache := sheettest.DAGMap{"test": dag}
+
+	newTemplateSvc := func(t *testing.T) *templatemocks.MockService {
+		t.Helper()
+		svc := templatemocks.NewMockService(t)
+		svc.EXPECT().
+			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+			Return(&template.Template{ID: "test", Name: "Test Template", Fields: fields}, nil).
+			Once()
+		return svc
+	}
+
+	t.Run("Happy path: the created sheet carries the authenticated owner", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByOwnerID(context.Background(), ownerUserID).Return(nil, sheet.ErrSheetNotFound).Once()
+		repo.EXPECT().Create(context.Background(), mock.MatchedBy(func(s *sheet.Sheet) bool {
+			return s.OwnerID == ownerUserID
+		})).Return(nil).Once()
+
+		svc := sheet.NewService(repo, newTemplateSvc(t), dagCache)
+
+		created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
+			TemplateID: "test", SheetName: "Mine", OwnerID: ownerUserID,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, ownerUserID, created.OwnerID)
+	})
+
+	t.Run("Error: an owner that already has a sheet is a 409 with no write", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByOwnerID(context.Background(), ownerUserID).
+			Return(&sheet.Sheet{ID: updateSheetID, OwnerID: ownerUserID}, nil).Once()
+
+		svc := sheet.NewService(repo, newTemplateSvc(t), dagCache)
+
+		created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
+			TemplateID: "test", SheetName: "Second", OwnerID: ownerUserID,
+		})
+		require.Error(t, err)
+		assert.Nil(t, created)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeSheetLimitReached, appErr.Code)
+		assert.Equal(t, 409, appErr.HttpStatus())
+		assert.Equal(t, sheet.MsgSheetLimitReached, appErr.Message)
+		repo.AssertNotCalled(t, "Create")
+	})
+
+	t.Run("Error: a duplicate-key race is a 409, never a 500", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByOwnerID(context.Background(), ownerUserID).Return(nil, sheet.ErrSheetNotFound).Once()
+		repo.EXPECT().Create(context.Background(), mock.Anything).Return(sheet.ErrSheetOwnerExists).Once()
+
+		svc := sheet.NewService(repo, newTemplateSvc(t), dagCache)
+
+		created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
+			TemplateID: "test", SheetName: "Race", OwnerID: ownerUserID,
+		})
+		require.Error(t, err)
+		assert.Nil(t, created)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeSheetLimitReached, appErr.Code)
+		assert.Equal(t, 409, appErr.HttpStatus())
+	})
+
+	t.Run("Error: a missing owner is a 401 before any repository access", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), dagCache)
+
+		created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
+			TemplateID: "test", SheetName: "Ownerless",
+		})
+		require.Error(t, err)
+		assert.Nil(t, created)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeUnauthorized, appErr.Code)
+		assert.Equal(t, 401, appErr.HttpStatus())
+		assert.Equal(t, sheet.MsgOwnerNotProvided, appErr.Message)
+	})
+}
+
+// TestService_OwnershipGuardOnRecalculation pins the ownership check inside
+// recalculate, which PATCH and both previews share (OWN-10, OWN-11, OWN-12,
+// OWN-14, OWN-21, OWN-24): a foreign or legacy (no owner) sheet is the same 404
+// as a missing sheet and triggers no write or recomputation, a missing owner is
+// a 401 before the repository, and the owner's own delta still recalculates.
+func TestService_OwnershipGuardOnRecalculation(t *testing.T) {
+	fields := template.FieldGroup{
+		"stats": {Children: template.FieldGroup{
+			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
+		}},
+		"modifiers": {Children: template.FieldGroup{
+			"dexterityMod": {Schema: &template.FieldSchema{
+				Type: "number", IsEditable: false,
+				Formula:   "floor((stats_dexterity - 10) / 2)",
+				DependsOn: [][]string{{"stats", "dexterity"}},
+			}},
+		}},
+	}
+	dag, err := template.BuildDAG("fantasy_v1", fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+	dagCache := sheettest.DAGMap{"fantasy_v1": dag}
+
+	data := map[string]any{"stats": map[string]any{"dexterity": 14.0}}
+	foreign := &sheet.Sheet{ID: updateSheetID, TemplateID: "fantasy_v1", OwnerID: "01900000-0000-7000-8000-0000000000bb", Data: data}
+	legacy := &sheet.Sheet{ID: updateSheetID, TemplateID: "fantasy_v1", Data: data}
+	delta := map[string]any{"stats": map[string]any{"dexterity": 16.0}}
+
+	assertNotFound := func(t *testing.T, err error) {
+		t.Helper()
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		assert.Equal(t, 404, appErr.HttpStatus())
+	}
+
+	t.Run("Error: PATCH on a foreign sheet is 404 and writes nothing", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(foreign, nil).Once()
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), dagCache)
+
+		cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+			SheetID: updateSheetID, OwnerID: ownerUserID, Data: delta,
+		})
+		require.Error(t, err)
+		assert.Nil(t, cascades)
+		assertNotFound(t, err)
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: preview on a foreign sheet is 404 and writes nothing", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(foreign, nil).Once()
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), dagCache)
+
+		cascades, err := svc.Preview(context.Background(), sheet.PartialUpdateSheetCommand{
+			SheetID: updateSheetID, OwnerID: ownerUserID, Data: delta,
+		})
+		require.Error(t, err)
+		assert.Nil(t, cascades)
+		assertNotFound(t, err)
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: a legacy sheet with no owner is 404 for any reader", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(legacy, nil).Once()
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), dagCache)
+
+		cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+			SheetID: updateSheetID, OwnerID: ownerUserID, Data: delta,
+		})
+		require.Error(t, err)
+		assert.Nil(t, cascades)
+		assertNotFound(t, err)
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: a missing owner is 401 before the repository on PATCH and preview", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), dagCache)
+
+		for _, err := range []error{
+			func() error {
+				_, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{SheetID: updateSheetID, Data: delta})
+				return err
+			}(),
+			func() error {
+				_, err := svc.Preview(context.Background(), sheet.PartialUpdateSheetCommand{SheetID: updateSheetID, Data: delta})
+				return err
+			}(),
+		} {
+			require.Error(t, err)
+			var appErr *apperr.Error
+			require.ErrorAs(t, err, &appErr)
+			assert.Equal(t, apperr.CodeUnauthorized, appErr.Code)
+			assert.Equal(t, 401, appErr.HttpStatus())
+		}
+	})
+
+	t.Run("Happy path: the owner's own PATCH still recalculates and persists", func(t *testing.T) {
+		owned := &sheet.Sheet{
+			ID:         updateSheetID,
+			TemplateID: "fantasy_v1",
+			OwnerID:    ownerUserID,
+			Data: map[string]any{
+				"stats":     map[string]any{"dexterity": 14.0},
+				"modifiers": map[string]any{"dexterityMod": 2.0},
+			},
+		}
+
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(owned, nil).Once()
+		repo.EXPECT().PartialUpdate(context.Background(), updateSheetID, mock.Anything).Return(nil).Once()
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), dagCache)
+
+		cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+			SheetID: updateSheetID, OwnerID: ownerUserID, Data: delta,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"modifiers": map[string]any{"dexterityMod": 3.0}}, cascades)
+	})
+}
+
+// TestService_Delete pins the owner-guarded delete (OWN-13, OWN-23): the
+// owner's sheet is removed, while a foreign sheet, a legacy sheet with no
+// owner, a missing sheet and a malformed id delete nothing, and a missing owner
+// is a 401 before the repository.
+func TestService_Delete(t *testing.T) {
+	owned := &sheet.Sheet{ID: updateSheetID, TemplateID: "fantasy_v1", OwnerID: ownerUserID}
+
+	t.Run("Happy path: the owner's sheet is deleted", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(owned, nil).Once()
+		repo.EXPECT().DeleteByID(context.Background(), updateSheetID).Return(nil).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID})
+		require.NoError(t, err)
+	})
+
+	t.Run("Error: a second delete is a 404 and deletes nothing", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		assert.Equal(t, 404, appErr.HttpStatus())
+		repo.AssertNotCalled(t, "DeleteByID")
+	})
+
+	t.Run("Error: a foreign sheet is a 404 and deletes nothing", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).
+			Return(&sheet.Sheet{ID: updateSheetID, OwnerID: "01900000-0000-7000-8000-0000000000bb"}, nil).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		assert.Equal(t, 404, appErr.HttpStatus())
+		repo.AssertNotCalled(t, "DeleteByID")
+	})
+
+	t.Run("Error: a legacy sheet with no owner is a 404", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).
+			Return(&sheet.Sheet{ID: updateSheetID}, nil).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		repo.AssertNotCalled(t, "DeleteByID")
+	})
+
+	t.Run("Error: a malformed id is a 400 before the repository", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: "not-a-uuid", OwnerID: ownerUserID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+		assert.Equal(t, 400, appErr.HttpStatus())
+	})
+
+	t.Run("Error: a missing owner is a 401 before the repository", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeUnauthorized, appErr.Code)
+		assert.Equal(t, 401, appErr.HttpStatus())
+		assert.Equal(t, sheet.MsgOwnerNotProvided, appErr.Message)
+	})
 }

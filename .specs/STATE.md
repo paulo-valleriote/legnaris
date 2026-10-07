@@ -76,12 +76,14 @@
 
 ## Handoff
 
-- **Feature**: `lgn-103-104-sheet-preview-dry-run` (.specs/features/lgn-103-104-sheet-preview-dry-run)
-- **Phase / Task**: Execute — COMPLETE. T1–T15 committed plus hardening; independent Verifier (round 2) PASS 49/49 requirements, 2 flagged gaps closed, 11/11 mutants killed; `validate_state.py` exit 0. Report: `.specs/features/lgn-103-104-sheet-preview-dry-run/validation.md`.
-- **Completed**: backend dry-run T1–T5 (`35f25d8`, `9cc082f`, `b320a6c`, `1a22bf7`, `b7367ac`); desktop plumbing T6–T11 (`006aed2`, `da2a87c`, `6867a91`, `247112e`, `be3f1cc`, `82a057a`); surface/cleanup T12–T15 (`f3b812e`, `a0073ee`, `371a4cf`, `02815aa`); spec commit `5db3539`; verification hardening `ed7900c`.
+- **Feature**: `lgn-7-ownership` (Fase 2 backend, LGN-19/20/21/22) — COMPLETE, validation PASS ✅.
+- **Phase / Task**: Specify + Design + Tasks + **Execute COMPLETE** (T1–T9); Verifier (author ≠ verifier) returned PASS.
+- **Completed**: T1–T9 across commits `8697377..8ea2ddb` (one atomic commit per task). `owner_id` model + DTO non-exposure, `SHEET_LIMIT_REACHED` (409), unique `sheets.owner_id` index, owner lookup/delete + duplicate-key mapping, owner-scoped create (one sheet per user) / fetch / PATCH / preview / delete, JWT-gated `/sheets*` + `/templates*`, concurrency race test.
+- **Validation**: `.specs/features/lgn-7-ownership/validation.md` (PASS; 24/24 ACs, 5/5 unit-visible mutants killed). All OWN-01…OWN-24 promoted to `Verified` in `spec.md`.
 - **In-progress** (file:line): none.
-- **Next step**: push the branch and open the PR — a remote operation that needs explicit go-ahead.
-- **Blockers**: none.
-- **Uncommitted files**: none after the closing docs commit (validation report, lessons, this handoff).
-- **Branch**: `feat/lgn-103-104-sheet-preview-dry-run` (from `origin/main` @ `8ae4252`, includes the merged LGN-110 save cycle); not pushed.
-- **Prior feature**: `lgn-110-save-delta` — COMPLETE (PR #57 merged); `lgn-108-open-sheet` — COMPLETE (PR #56, merged); `lgn-109-create-sheet` — COMPLETE (PR #55, merged)
+- **Next step**: review/merge PR [#60](https://github.com/paulo-valleriote/legnaris/pull/60) (`feat/LGN-7-ownership` → `main`); then Execute the companion desktop feature `front-end-phase-6-auth`.
+- **Blockers**: none. Integration tests run clean locally against Docker MongoDB (0 failed, 0 skipped).
+- **Uncommitted files**: `.specs/features/front-end-phase-6-auth/` (untracked plan artifact).
+- **Branch**: `feat/LGN-7-ownership` (pushed; PR #60 open). Previous Fase 1 branch `feat/LGN-4-auth-phase-1` was merged as PR #59.
+- **Lesson recorded**: L-020 (candidate) — guard security-critical route wiring with a unit-level test, not only environment-gated integration tests.
+- **Prior feature**: `lgn-103-104-sheet-preview-dry-run` — COMPLETE; `lgn-110-save-delta` — COMPLETE (PR #57); `lgn-108-open-sheet` — COMPLETE (PR #56); `lgn-109-create-sheet` — COMPLETE (PR #55)
