@@ -161,7 +161,7 @@ database.Collection("sheets").Indexes().CreateOne(ctx, mongo.IndexModel{
 
 | Concern | Location (file:line) | Impact | Mitigation |
 | ------- | -------------------- | ------ | ---------- |
-| Integration tests call every sheet/template route without a token | `internal/app/integration_test.go:228` onward | Every existing sheet test fails `401` once the middleware lands | The wiring task updates the harness with a register/login helper and authorized requests in the same commit |
+| Integration tests call every sheet/template route without a token | `internal/app/integration_test.go:220` onward | Every existing sheet test fails `401` once the middleware lands | The wiring task updates the harness with a register/login helper and authorized requests in the same commit |
 | `translateRepoErr` is generic and would collapse the duplicate-owner case into `500` | `internal/sheet/service.go:309` | A limit violation would surface as a server error | Add an explicit `ErrSheetOwnerExists` branch mapped to `SHEET_LIMIT_REACHED` |
 | Desktop client sends no auth header | `desktop/lib/api/api_client.dart` | The Flutter app breaks against the protected API | Companion feature `front-end-phase-6-auth` (spec written alongside); recorded in Out of Scope |
 | `FetchByID` then compare is a TOCTOU window | `internal/sheet/service.go:177` | A concurrent delete could let a write proceed against no document | Writes match by `_id`; a delete race yields `ErrSheetNotFound` from `DeleteByID` and the write no-ops — acceptable for V1 |

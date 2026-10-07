@@ -82,15 +82,7 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 
 func doRequest(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
-
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	if body != "" {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	return rec
+	return doAuthRequest(t, h, "", method, path, body)
 }
 
 // integrationPassword is the shared password every integration user registers
