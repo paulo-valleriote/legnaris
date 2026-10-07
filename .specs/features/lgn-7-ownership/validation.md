@@ -51,10 +51,10 @@
 | OWN-16 no/invalid/expired token → `401 UNAUTHORIZED`, no service | `401 UNAUTHORIZED` | `internal/app/integration_test.go:166-172` (tokenless), `191-198` (invalid), `175-177` `count == 0` | ✅ PASS |
 | OWN-17 `/health`,`/metrics`,`/auth/register`,`login`,`refresh`,`logout` public | reachable without token | `internal/app/router.go:30-31` (health + `/auth` groups unwrapped); `internal/app/integration_test.go:179-189` health/metrics/register/login; `internal/app/auth_integration_test.go:192-195` tokenless logout `204` | ✅ PASS (see note) |
 | OWN-18 valid token → normal handler, uid resolved from token | `200`; uid drives ownership | `internal/app/integration_test.go:200-204` `200`; A/B ownership `816-830` | ✅ PASS |
-| OWN-19 missing user id → `401 UNAUTHORIZED`, no repo access | `401`; no repo | `internal/sheet/service.go:84-88` `requireOwner`, `130-132` `Create` guard; tests `service_test.go:1770-1785`, `1612-1624`, `1531-1539`, `1865-1885`, `1987-1998` | ✅ PASS |
+| OWN-19 missing user id → `401 UNAUTHORIZED`, no repo access | `401`; no repo | `internal/sheet/service.go:84-88` `requireOwner`, `130-132` `Create` guard; tests `internal/sheet/service_test.go:1770-1785`, `1612-1624`, `1531-1539`, `1865-1885`, `1987-1998` | ✅ PASS |
 | OWN-20 malformed/unknown `template_id` while auth → `400 INVALID_REQUEST` / `404 NOT_FOUND` preserved | `400` / `404` | `internal/sheet/service.go:137-140` (template check before owner pre-check); `internal/sheet/service_test.go:1295-1344` `400`; `internal/app/integration_test.go:704-716` | ✅ PASS |
 | OWN-21 owner previews own sheet → cascade, persists nothing | cascade; no write | `internal/sheet/service_test.go:703-707` cascade + `AssertNotCalled("PartialUpdate")`; `internal/app/integration_test.go:574-621` stored value `10` after preview | ✅ PASS |
-| OWN-22 duplicate-key on sheet limit → `409 SHEET_LIMIT_REACHED`, never `500` | `409` | `internal/sheet/repository.go:83-84`; `internal/sheet/service.go:426-427`; `shared/apperr/err_test.go:28` (`CodeSheetLimitReached, 409`); `service_test.go:1766-1767` `409` | ✅ PASS |
+| OWN-22 duplicate-key on sheet limit → `409 SHEET_LIMIT_REACHED`, never `500` | `409` | `internal/sheet/repository.go:83-84`; `internal/sheet/service.go:426-427`; `shared/apperr/err_test.go:28` (`CodeSheetLimitReached, 409`); `internal/sheet/service_test.go:1766-1767` `409` | ✅ PASS |
 | OWN-23 DELETE twice → first `204`, second `404` | `204` then `404` | `internal/app/integration_test.go:875-885`; `internal/sheet/service_test.go:1929-1942` `CodeNotFound` + `AssertNotCalled("DeleteByID")` | ✅ PASS |
 | OWN-24 absent `owner_id` (legacy) → owned by nobody, `404` | `404` | `internal/sheet/service.go:96` `stored.OwnerID == ""`; `internal/sheet/service_test.go:1522-1530` (fetch), `1851-1863` (patch), `1960-1973` (delete) | ✅ PASS |
 
@@ -62,7 +62,7 @@
 
 Re-derivation notes:
 - OWN-03/OWN-22 pin the exact code `SHEET_LIMIT_REACHED` and status `409`; the assertions target `apperr.CodeSheetLimitReached`, `HttpStatus() == 409`, and the wire string `"SHEET_LIMIT_REACHED"` — not merely "an error".
-- OWN-11/OWN-24 pin "byte-identical to a nonexistent sheet": both the foreign-owner and legacy-missing-owner rows assert the same `CodeNotFound` / `404` / `"sheet not found"` triple as the missing-sheet row (`service_test.go:1505-1512`), which is the spec-defined indistinguishable result.
+- OWN-11/OWN-24 pin "byte-identical to a nonexistent sheet": both the foreign-owner and legacy-missing-owner rows assert the same `CodeNotFound` / `404` / `"sheet not found"` triple as the missing-sheet row (`internal/sheet/service_test.go:1505-1512`), which is the spec-defined indistinguishable result.
 - OWN-13/OWN-23 pin the `204`-then-`404` sequence; the integration test performs the delete, then a GET and a second DELETE and asserts `404` on both.
 - OWN-17 minor coverage note (not a spec gap): the spec is precise, and implementation is structurally correct (`router.go:30-31` never wraps the auth group); direct tokenless assertions exist for health, metrics, register, login, and logout. A tokenless `/auth/refresh` is exercised pre-existing in `auth_test.go:154` (service-level `401`, i.e. the route is reached). Acceptable.
 
@@ -116,12 +116,12 @@ One observation, not a defect: the integration tests (`internal/app/*_test.go`, 
 
 ## Edge Cases
 
-- [x] Missing user id at the boundary → `401 UNAUTHORIZED`, no repository access — `internal/sheet/service.go:84-88`, `130-132`; `service_test.go:1770-1785`, `1612-1624`, `1531-1539`, `1865-1885`, `1987-1998`
-- [x] Malformed/unknown `template_id` → existing `400 INVALID_REQUEST` / `404 NOT_FOUND` preserved — `service.go:137-140`; `service_test.go:1295-1344`; `integration_test.go:704-716`
-- [x] Owner previews own sheet → cascade with no persistence — `service_test.go:703-707`; `integration_test.go:574-621`
-- [x] Mongo duplicate-key mapped to `409 SHEET_LIMIT_REACHED`, never `500` — `repository.go:83-84`, `service.go:426-427`, `err_test.go:28`, `service_test.go:1751-1768`
-- [x] DELETE twice → `204` then `404` — `integration_test.go:875-885`; `service_test.go:1929-1942`
-- [x] Legacy row without `owner_id` → `404` to any owner — `service.go:96`; `service_test.go:1522-1530`, `1851-1863`, `1960-1973`
+- [x] Missing user id at the boundary → `401 UNAUTHORIZED`, no repository access — `internal/sheet/service.go:84-88`, `130-132`; `internal/sheet/service_test.go:1770-1785`, `1612-1624`, `1531-1539`, `1865-1885`, `1987-1998`
+- [x] Malformed/unknown `template_id` → existing `400 INVALID_REQUEST` / `404 NOT_FOUND` preserved — `internal/sheet/service.go:137-140`; `internal/sheet/service_test.go:1295-1344`; `integration_test.go:704-716`
+- [x] Owner previews own sheet → cascade with no persistence — `internal/sheet/service_test.go:703-707`; `integration_test.go:574-621`
+- [x] Mongo duplicate-key mapped to `409 SHEET_LIMIT_REACHED`, never `500` — `internal/sheet/repository.go:83-84`, `internal/sheet/service.go:426-427`, `err_test.go:28`, `internal/sheet/service_test.go:1751-1768`
+- [x] DELETE twice → `204` then `404` — `integration_test.go:875-885`; `internal/sheet/service_test.go:1929-1942`
+- [x] Legacy row without `owner_id` → `404` to any owner — `internal/sheet/service.go:96`; `internal/sheet/service_test.go:1522-1530`, `1851-1863`, `1960-1973`
 
 ---
 
@@ -169,7 +169,7 @@ Recorded here (source of truth for this validation). `spec.md` status cells were
 **Sensor**: 6/6 mutations killed (5 unit-visible + the route-wiring diagnostic, killed in the live-Mongo rerun).
 **Gate**: 717 passed, 0 failed, 0 skipped (live-Mongo rerun).
 
-**What works**: `owner_id` persistence with DTO non-exposure (`sheet.go:10`, `dto_test.go:135`); boot-time unique index (`indexes.go:57-59`); one-sheet-per-owner with typed duplicate mapping and exact `409 SHEET_LIMIT_REACHED` (`repository.go:83-84`, `service.go:426-427`); owner-scoped `GET /sheets` with `404` when none; byte-identical `404` for foreign/legacy/missing sheets across GET/PATCH/DELETE/preview; owner-guarded `204`-then-`404` delete; fail-closed `401` on a missing user id; JWT middleware over `/sheets*` and `/templates*` with public health/metrics/auth routes.
+**What works**: `owner_id` persistence with DTO non-exposure (`internal/sheet/sheet.go:10`, `internal/sheet/dto_test.go:135`); boot-time unique index (`indexes.go:57-59`); one-sheet-per-owner with typed duplicate mapping and exact `409 SHEET_LIMIT_REACHED` (`internal/sheet/repository.go:83-84`, `internal/sheet/service.go:426-427`); owner-scoped `GET /sheets` with `404` when none; byte-identical `404` for foreign/legacy/missing sheets across GET/PATCH/DELETE/preview; owner-guarded `204`-then-`404` delete; fail-closed `401` on a missing user id; JWT middleware over `/sheets*` and `/templates*` with public health/metrics/auth routes.
 
 **Issues found**: none requiring a fix. One environment-limited coverage note (integration-only route-wiring coverage) and one minor test-coverage note (no direct tokenless `/auth/refresh` assertion; route is structurally public and covered at the service level in `auth_test.go:154`).
 
