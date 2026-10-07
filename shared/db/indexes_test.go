@@ -39,9 +39,11 @@ func newIndexesTestDatabase(t *testing.T) *mongo.Database {
 	mdb := database.Client.Database(indexesTestDatabase)
 	_ = mdb.Collection("users").Drop(context.Background())
 	_ = mdb.Collection("refresh_tokens").Drop(context.Background())
+	_ = mdb.Collection("sheets").Drop(context.Background())
 	t.Cleanup(func() {
 		_ = mdb.Collection("users").Drop(context.Background())
 		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
+		_ = mdb.Collection("sheets").Drop(context.Background())
 	})
 
 	return mdb
@@ -104,6 +106,11 @@ func TestEnsureIndexes(t *testing.T) {
 		ttl, ok := refresh["refresh_tokens_expires_at_ttl"]
 		require.True(t, ok, "TTL index must exist")
 		assert.Equal(t, int32(0), indexExpireAfterSeconds(t, ttl), "TTL index must expire at expires_at")
+
+		sheets := listIndexes(t, mdb, "sheets")
+		ownerID, ok := sheets["sheets_owner_id_unique"]
+		require.True(t, ok, "sheets.owner_id unique index must exist, got %v", sheets)
+		assert.True(t, indexIsUnique(ownerID), "sheets.owner_id index must be unique")
 	})
 
 	t.Run("Edge: calling twice is idempotent", func(t *testing.T) {
@@ -137,5 +144,15 @@ func TestEnsureIndexes(t *testing.T) {
 		})
 		require.Error(t, err)
 		assert.True(t, mongo.IsDuplicateKeyError(err), "duplicate token hash must be a duplicate key error")
+	})
+
+	t.Run("Edge: unique sheets.owner_id index rejects a second sheet for the owner", func(t *testing.T) {
+		sheets := mdb.Collection("sheets")
+		_, err := sheets.InsertOne(ctx, bson.M{"_id": "sheet-1", "owner_id": "owner-1"})
+		require.NoError(t, err)
+
+		_, err = sheets.InsertOne(ctx, bson.M{"_id": "sheet-2", "owner_id": "owner-1"})
+		require.Error(t, err)
+		assert.True(t, mongo.IsDuplicateKeyError(err), "a second sheet for the owner must be a duplicate key error")
 	})
 }

@@ -150,9 +150,9 @@ T8 -> T9
 
 **Done when**:
 
-- [ ] `EnsureIndexes` creates `sheets.owner_id` with `SetUnique(true)` and an explicit name
-- [ ] Integration test asserts the index exists (and is unique) after `EnsureIndexes`; self-skips without Mongo
-- [ ] Gate check passes: `go test ./shared/db/...`
+- [x] `EnsureIndexes` creates `sheets.owner_id` with `SetUnique(true)` and an explicit name
+- [x] Integration test asserts the index exists (and is unique) after `EnsureIndexes`; self-skips without Mongo
+- [x] Gate check passes: `go test ./shared/db/...`
 
 **Tests**: integration
 **Gate**: full

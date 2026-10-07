@@ -145,7 +145,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
 | OWN-01 | P1: Owner-scoped sheet persistence | Execute | Implementing |
-| OWN-02 | P1: Owner-scoped sheet persistence | Design | Pending |
+| OWN-02 | P1: Owner-scoped sheet persistence | Execute | Implementing |
 | OWN-03 | P1: Owner-scoped sheet persistence | Design | Pending |
 | OWN-04 | P1: Owner-scoped sheet persistence | Design | Pending |
 | OWN-05 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
