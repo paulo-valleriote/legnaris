@@ -1,6 +1,7 @@
 package sheet_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -113,4 +114,24 @@ func TestSheetToDTO_HappyPath_CarriesOverEveryField(t *testing.T) {
 	assert.Equal(t, createdAt, dto.CreatedAt)
 	assert.Equal(t, updatedAt, dto.UpdatedAt)
 	assert.Equal(t, src.Data, dto.Data)
+}
+
+// TestSheetToDTO_NeverExposesOwnerID locks the API contract that the owner is
+// server-side only (OWN-01): a sheet carrying an owner must serialize with no
+// owner key and no trace of the owner id, so a client can never read or forge
+// possession from the wire.
+func TestSheetToDTO_NeverExposesOwnerID(t *testing.T) {
+	src := sheet.Sheet{
+		ID:         "sheet-1",
+		TemplateID: "fantasy_v1",
+		OwnerID:    "01900000-0000-7000-8000-0000000000aa",
+		Name:       "Owned",
+		Data:       map[string]any{"stats": map[string]any{"dexterity": 12.0}},
+	}
+
+	raw, err := json.Marshal(src.ToDTO())
+	require.NoError(t, err)
+
+	assert.NotContains(t, string(raw), "owner_id")
+	assert.NotContains(t, string(raw), src.OwnerID)
 }
