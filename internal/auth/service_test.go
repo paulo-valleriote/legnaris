@@ -159,6 +159,47 @@ func TestService_Register(t *testing.T) {
 		m.hasher.AssertNotCalled(t, "Hash", mock.Anything)
 	})
 
+	t.Run("Edge: password with non-ASCII at 8 runes but over 72 bytes is rejected", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		// 19 emoji = 19 runes = 76 bytes (each emoji is 4 bytes)
+		// This tests that byte length (not rune count) is used for the 72-byte max check.
+		overLimitBytes := strings.Repeat("😀", 19)
+		_, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: overLimitBytes})
+		assertAppErr(t, err, apperr.CodeInvalidRequest)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgPasswordTooLong, appErr.Message)
+		m.hasher.AssertNotCalled(t, "Hash", mock.Anything)
+	})
+
+	t.Run("Error: username too long is rejected", func(t *testing.T) {
+		service, _ := newAuthService(t)
+
+		tooLong := strings.Repeat("a", 51)
+		_, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: tooLong, Password: testPassword})
+		assertAppErr(t, err, apperr.CodeInvalidRequest)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgUsernameTooLong, appErr.Message)
+	})
+
+	t.Run("Error: username with invalid characters is rejected", func(t *testing.T) {
+		service, _ := newAuthService(t)
+
+		invalidChars := []string{"user@name", "user name", "user.name", "user/name", "usérname"}
+		for _, uc := range invalidChars {
+			_, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: uc, Password: testPassword})
+			assertAppErr(t, err, apperr.CodeInvalidRequest)
+
+			var appErr *apperr.Error
+			require.ErrorAs(t, err, &appErr)
+			assert.Equal(t, auth.MsgUsernameInvalid, appErr.Message)
+		}
+	})
+
 	t.Run("Error: hashing failure maps to internal", func(t *testing.T) {
 		service, m := newAuthService(t)
 
@@ -342,7 +383,7 @@ func TestService_Refresh(t *testing.T) {
 		assertAppErr(t, err, apperr.CodeUnauthorized)
 	})
 
-	t.Run("Error: concurrent rotation (claim lost) is treated as reuse", func(t *testing.T) {
+	t.Run("Error: concurrent rotation (claim lost) returns 401 without revoking family", func(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
@@ -350,11 +391,13 @@ func TestService_Refresh(t *testing.T) {
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(false, nil).Once()
-		m.observer.EXPECT().RefreshReuseDetected().Return().Once()
-		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
+		// New behavior: do NOT call RefreshReuseDetected or RevokeFamily.
+		// The successor token we created remains valid for the other client.
 
 		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh"})
 		assertAppErr(t, err, apperr.CodeUnauthorized)
+		m.observer.AssertNotCalled(t, "RefreshReuseDetected")
+		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
 	})
 
 	t.Run("Error: repository failure while claiming rotation maps to internal", func(t *testing.T) {

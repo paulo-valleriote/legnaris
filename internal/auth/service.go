@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/mail"
+	"regexp"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"legnaris/internal/user"
 	"legnaris/shared/apperr"
@@ -14,15 +14,18 @@ import (
 	"legnaris/shared/logger"
 )
 
-// minPasswordLength is the shortest accepted password. Deeper policy (breach
-// lists, character classes) is a hardening concern, not Phase 1.
+// minPasswordLength is the shortest accepted password in bytes.
+// bcrypt.GenerateFromPassword rejects anything over 72 bytes.
 const minPasswordLength = 8
 
-// maxPasswordLength is the longest accepted password, in bytes:
-// bcrypt.GenerateFromPassword rejects anything over 72 bytes
-// (ErrPasswordTooLong), so longer input must fail validation as a client
-// error instead of surfacing as a 500 from the hasher.
+// maxPasswordLength is the longest accepted password in bytes.
 const maxPasswordLength = 72
+
+// Username validation constants.
+const maxUsernameLength = 50
+
+// usernameRegex allows alphanumeric, underscore, hyphen. No leading/trailing spaces (trimmed before check).
+var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 // attrUserID is the structured-log field carrying the authenticated user id.
 const attrUserID = "user_id"
@@ -113,7 +116,13 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*user.
 	if username == "" {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgUsernameRequired, nil)
 	}
-	if utf8.RuneCountInString(cmd.Password) < minPasswordLength {
+	if len(username) > maxUsernameLength {
+		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgUsernameTooLong, nil)
+	}
+	if !usernameRegex.MatchString(username) {
+		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgUsernameInvalid, nil)
+	}
+	if len(cmd.Password) < minPasswordLength {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgPasswordTooShort, nil)
 	}
 	if len(cmd.Password) > maxPasswordLength {
@@ -210,17 +219,23 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*TokenPa
 		return nil, err
 	}
 
-	// Atomically claim the rotation, only after the successor is persisted:
-	// any failure before this point leaves the old token intact and
-	// retryable, and a false result (another request rotated first —
-	// indistinguishable from theft) revokes a family that already contains
-	// the successor.
+	// Atomically claim the rotation. If another request already rotated this token,
+	// the claim fails (MatchedCount=0). In that case, we do NOT revoke the family
+	// (which would invalidate the valid successor created by the other request).
+	// Instead, we return an error indicating the token was already rotated.
+	// The client that lost the race will need to re-authenticate, but the other
+	// client's valid tokens remain intact.
 	claimed, err := s.refreshTokens.RevokeByID(ctx, stored.ID, newID)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 	if !claimed {
-		return nil, s.reuseDetected(ctx, stored)
+		// Concurrent rotation: another request already rotated this token.
+		// The successor token we created is valid and in the family.
+		// Do NOT revoke the family — that would invalidate the other client's tokens.
+		// Return an error; the client must re-authenticate (their refresh token is now revoked).
+		s.log.Info(ctx, "refresh concurrent rotation detected", logger.Attribute{Key: attrUserID, Value: stored.UserID})
+		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 	}
 
 	s.log.Info(ctx, "refresh rotated", logger.Attribute{Key: attrUserID, Value: stored.UserID})
