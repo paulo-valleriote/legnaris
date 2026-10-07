@@ -20,6 +20,7 @@ func Middleware(origins []string) echo.MiddlewareFunc {
 			http.MethodGet,
 			http.MethodPost,
 			http.MethodPatch,
+			http.MethodDelete,
 			http.MethodOptions,
 		},
 		AllowHeaders: []string{
