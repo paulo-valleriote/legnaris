@@ -203,11 +203,11 @@ T8 -> T9
 
 **Done when**:
 
-- [ ] `CreateSheetCommand` carries `OwnerID`; the created `Sheet` stores it
-- [ ] An existing owner yields `CodeSheetLimitReached`; a duplicate-key race yields the same code (no `500`)
-- [ ] An empty owner id yields `CodeUnauthorized`
-- [ ] Service unit tests cover happy, owner-already-has-sheet, duplicate-race, and missing-owner; mocks regenerated
-- [ ] Gate check passes: `go test ./internal/sheet/...`
+- [x] `CreateSheetCommand` carries `OwnerID`; the created `Sheet` stores it
+- [x] An existing owner yields `CodeSheetLimitReached`; a duplicate-key race yields the same code (no `500`)
+- [x] An empty owner id yields `CodeUnauthorized`
+- [x] Service unit tests cover happy, owner-already-has-sheet, duplicate-race, and missing-owner; mocks regenerated
+- [x] Gate check passes: `go test ./internal/sheet/...`
 
 **Tests**: unit
 **Gate**: quick

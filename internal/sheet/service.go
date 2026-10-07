@@ -13,6 +13,7 @@ import (
 type CreateSheetCommand struct {
 	TemplateID string `json:"template_id"`
 	SheetName  string `json:"sheet_name"`
+	OwnerID    string `json:"-"`
 }
 
 type PartialUpdateSheetCommand struct {
@@ -47,6 +48,8 @@ const (
 	MsgSheetIDInvalid     = "sheet id must be a canonical UUID v7"
 	MsgFieldDoesNotExist  = "field does not exist: "
 	MsgNestedTooDeep      = "sheet data is nested too deeply"
+	MsgOwnerNotProvided   = "authenticated user is required"
+	MsgSheetLimitReached  = "user already owns a sheet"
 )
 
 // requireSheetID is the single source of truth for the sheet-ID checks
@@ -90,6 +93,12 @@ func NewService(repository Repository, templateService template.Service, provide
 }
 
 func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error) {
+	// Fail closed before any repository access: a route mounted without the JWT
+	// middleware must never create an ownerless sheet (OWN-19).
+	if cmd.OwnerID == "" {
+		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgOwnerNotProvided, nil)
+	}
+
 	// FetchTemplate before the DAG lookup: it owns the template-ID checks
 	// (missing, malformed slug), so POST /sheets fails exactly like
 	// GET /templates/:id instead of collapsing every bad ID into a 404 (LGN-86).
@@ -101,6 +110,15 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	dag, exists := s.provider.DAG(cmd.TemplateID)
 	if !exists {
 		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
+	}
+
+	// Best-effort pre-check for a friendly 409 on the common path. The unique
+	// sheets.owner_id index remains the authoritative guard: only the insert
+	// closes the concurrent-create race (OWN-03, OWN-04).
+	if _, err := s.repository.FetchByOwnerID(ctx, cmd.OwnerID); err == nil {
+		return nil, apperr.NewError(apperr.CodeSheetLimitReached, MsgSheetLimitReached, nil)
+	} else if !errors.Is(err, ErrSheetNotFound) {
+		return nil, translateRepoErr("create", err)
 	}
 
 	initialData := buildNestedAllFields(tmpl.Fields)
@@ -131,6 +149,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	newSheet := Sheet{
 		ID:         sheetID,
 		TemplateID: cmd.TemplateID,
+		OwnerID:    cmd.OwnerID,
 		Name:       cmd.SheetName,
 		Data:       initialData,
 		CreatedAt:  time.Now(),
@@ -316,6 +335,9 @@ func translateRepoErr(op string, err error) error {
 	}
 	if errors.Is(err, ErrSheetNotFound) {
 		return apperr.NewError(apperr.CodeNotFound, "sheet not found", err)
+	}
+	if errors.Is(err, ErrSheetOwnerExists) {
+		return apperr.NewError(apperr.CodeSheetLimitReached, MsgSheetLimitReached, err)
 	}
 	return apperr.NewError(apperr.CodeInternal, "failed to "+op+" sheet", err)
 }

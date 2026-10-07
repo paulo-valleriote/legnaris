@@ -148,8 +148,8 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | OWN-02 | P1: Owner-scoped sheet persistence | Execute | Implementing |
 | OWN-03 | P1: Owner-scoped sheet persistence | Execute | Implementing |
 | OWN-04 | P1: Owner-scoped sheet persistence | Execute | Implementing |
-| OWN-05 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
-| OWN-06 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
+| OWN-05 | P1: Create and fetch the authenticated user's sheet | Execute | Implementing |
+| OWN-06 | P1: Create and fetch the authenticated user's sheet | Execute | Implementing |
 | OWN-07 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
 | OWN-08 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
 | OWN-09 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
