@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,7 +58,7 @@ func newAuthService(t *testing.T) (auth.Service, *authMocks) {
 		m.tokens,
 		m.generator,
 		m.observer,
-		auth.Config{AccessTTL: 15 * time.Minute, RefreshTTL: 720 * time.Hour},
+		auth.Config{RefreshTTL: 720 * time.Hour},
 		logger.NewLogger(slog.LevelError),
 	)
 	return service, m
@@ -131,6 +132,31 @@ func TestService_Register(t *testing.T) {
 
 		_, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: "short"})
 		assertAppErr(t, err, apperr.CodeInvalidRequest)
+	})
+
+	t.Run("Edge: password at the 72-byte bcrypt limit is accepted", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		atLimit := strings.Repeat("a", 72)
+		m.hasher.EXPECT().Hash(atLimit).Return(testHash, nil).Once()
+		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		created, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: atLimit})
+		require.NoError(t, err)
+		assert.Equal(t, testHash, created.PasswordHash)
+	})
+
+	t.Run("Edge: password over the 72-byte bcrypt limit is a 400, not a 500", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		overLimit := strings.Repeat("a", 73)
+		_, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: overLimit})
+		assertAppErr(t, err, apperr.CodeInvalidRequest)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgPasswordTooLong, appErr.Message)
+		m.hasher.AssertNotCalled(t, "Hash", mock.Anything)
 	})
 
 	t.Run("Error: hashing failure maps to internal", func(t *testing.T) {
@@ -320,7 +346,9 @@ func TestService_Refresh(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(false, nil).Once()
 		m.observer.EXPECT().RefreshReuseDetected().Return().Once()
 		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
@@ -333,31 +361,80 @@ func TestService_Refresh(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(false, errors.New("mongo down")).Once()
 
 		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh"})
 		assertAppErr(t, err, apperr.CodeInternal)
+	})
+
+	t.Run("Error: access issuing failure leaves the rotation unclaimed", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{}, errors.New("sign failed")).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh"})
+		assertAppErr(t, err, apperr.CodeInternal)
+		m.refreshTokens.AssertNotCalled(t, "RevokeByID", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: successor persistence failure leaves the old token unclaimed", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(errors.New("insert failed")).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh"})
+		assertAppErr(t, err, apperr.CodeInternal)
+		m.refreshTokens.AssertNotCalled(t, "RevokeByID", mock.Anything, mock.Anything, mock.Anything)
 	})
 }
 
 func TestService_Logout(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("Happy path: revokes the presented refresh token", func(t *testing.T) {
+	storedToken := func() *auth.RefreshToken {
+		return &auth.RefreshToken{
+			ID:        validTokenID,
+			TokenHash: auth.HashRefreshToken("raw-refresh"),
+			UserID:    validUserID,
+			FamilyID:  validFamily,
+			ExpiresAt: time.Now().Add(time.Hour),
+		}
+	}
+
+	t.Run("Happy path: logout revokes the presented token's family", func(t *testing.T) {
 		service, m := newAuthService(t)
 
-		m.refreshTokens.EXPECT().RevokeByHash(mock.Anything, auth.HashRefreshToken("raw-refresh")).Return(true, nil).Once()
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, auth.HashRefreshToken("raw-refresh")).Return(storedToken(), nil).Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
 
 		require.NoError(t, service.Logout(ctx, auth.LogoutCommand{RefreshToken: "raw-refresh"}))
 	})
 
-	t.Run("Edge: already revoked token is idempotent", func(t *testing.T) {
+	t.Run("Edge: logout with an already rotated token still revokes the family", func(t *testing.T) {
 		service, m := newAuthService(t)
 
-		m.refreshTokens.EXPECT().RevokeByHash(mock.Anything, mock.Anything).Return(false, nil).Once()
+		rotated := storedToken()
+		rotated.Revoked = true
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, auth.HashRefreshToken("raw-refresh")).Return(rotated, nil).Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
 
 		require.NoError(t, service.Logout(ctx, auth.LogoutCommand{RefreshToken: "raw-refresh"}))
+	})
+
+	t.Run("Edge: unknown token is an idempotent no-op", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(nil, auth.ErrRefreshTokenNotFound).Once()
+
+		require.NoError(t, service.Logout(ctx, auth.LogoutCommand{RefreshToken: "raw-refresh"}))
+		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
 	})
 
 	t.Run("Edge: missing refresh token is a no-op", func(t *testing.T) {
@@ -366,10 +443,21 @@ func TestService_Logout(t *testing.T) {
 		require.NoError(t, service.Logout(ctx, auth.LogoutCommand{}))
 	})
 
-	t.Run("Error: repository failure maps to internal", func(t *testing.T) {
+	t.Run("Error: fetch failure maps to internal", func(t *testing.T) {
 		service, m := newAuthService(t)
 
-		m.refreshTokens.EXPECT().RevokeByHash(mock.Anything, mock.Anything).Return(false, errors.New("mongo down")).Once()
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(nil, errors.New("mongo down")).Once()
+
+		err := service.Logout(ctx, auth.LogoutCommand{RefreshToken: "raw-refresh"})
+		assertAppErr(t, err, apperr.CodeInternal)
+		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: family revocation failure maps to internal", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(storedToken(), nil).Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, mock.Anything).Return(errors.New("mongo down")).Once()
 
 		err := service.Logout(ctx, auth.LogoutCommand{RefreshToken: "raw-refresh"})
 		assertAppErr(t, err, apperr.CodeInternal)

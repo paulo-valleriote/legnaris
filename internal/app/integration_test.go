@@ -36,7 +36,7 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	t.Helper()
 
 	t.Setenv("JWT_SECRET", "integration-test-secret")
-	t.Setenv("AUTH_BCRYPT_COST", "4")
+	t.Setenv("AUTH_BCRYPT_COST", "12")
 
 	log := logger.NewLogger(slog.LevelError)
 	env := env.NewEnv(log)

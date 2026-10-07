@@ -128,63 +128,6 @@ func (_c *MockRefreshTokenRepository_FetchByHash_Call) RunAndReturn(run func(con
 	return _c
 }
 
-// RevokeByHash provides a mock function with given fields: ctx, tokenHash
-func (_m *MockRefreshTokenRepository) RevokeByHash(ctx context.Context, tokenHash string) (bool, error) {
-	ret := _m.Called(ctx, tokenHash)
-
-	if len(ret) == 0 {
-		panic("no return value specified for RevokeByHash")
-	}
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
-		return rf(ctx, tokenHash)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) bool); ok {
-		r0 = rf(ctx, tokenHash)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, tokenHash)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockRefreshTokenRepository_RevokeByHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeByHash'
-type MockRefreshTokenRepository_RevokeByHash_Call struct {
-	*mock.Call
-}
-
-// RevokeByHash is a helper method to define mock.On call
-//   - ctx context.Context
-//   - tokenHash string
-func (_e *MockRefreshTokenRepository_Expecter) RevokeByHash(ctx interface{}, tokenHash interface{}) *MockRefreshTokenRepository_RevokeByHash_Call {
-	return &MockRefreshTokenRepository_RevokeByHash_Call{Call: _e.mock.On("RevokeByHash", ctx, tokenHash)}
-}
-
-func (_c *MockRefreshTokenRepository_RevokeByHash_Call) Run(run func(ctx context.Context, tokenHash string)) *MockRefreshTokenRepository_RevokeByHash_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockRefreshTokenRepository_RevokeByHash_Call) Return(_a0 bool, _a1 error) *MockRefreshTokenRepository_RevokeByHash_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockRefreshTokenRepository_RevokeByHash_Call) RunAndReturn(run func(context.Context, string) (bool, error)) *MockRefreshTokenRepository_RevokeByHash_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // RevokeByID provides a mock function with given fields: ctx, id, replacedBy
 func (_m *MockRefreshTokenRepository) RevokeByID(ctx context.Context, id string, replacedBy string) (bool, error) {
 	ret := _m.Called(ctx, id, replacedBy)

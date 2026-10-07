@@ -17,11 +17,16 @@ type bcryptHasher struct {
 	cost int
 }
 
+// minBcryptCost is the lowest accepted work factor. docs/TDD.md mandates
+// bcrypt cost >= 12, so a weaker value fails at construction (boot) instead
+// of silently hashing with less work than the documented contract.
+const minBcryptCost = 12
+
 // NewPasswordHasher builds a bcrypt-backed hasher. The cost is validated
-// against bcrypt's accepted range; the production default (cost 12) comes from
-// AUTH_BCRYPT_COST.
+// against the accepted range [minBcryptCost, bcrypt.MaxCost]; the production
+// default (cost 12) comes from AUTH_BCRYPT_COST.
 func NewPasswordHasher(cost int) (PasswordHasher, error) {
-	if cost < bcrypt.MinCost || cost > bcrypt.MaxCost {
+	if cost < minBcryptCost || cost > bcrypt.MaxCost {
 		return nil, fmt.Errorf("%w: %d", ErrInvalidBcryptCost, cost)
 	}
 	return &bcryptHasher{cost: cost}, nil

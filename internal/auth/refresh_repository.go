@@ -17,7 +17,6 @@ type RefreshTokenRepository interface {
 	// gone), which is how rotation detects a concurrent reuse without a
 	// separate read-check-write window.
 	RevokeByID(ctx context.Context, id string, replacedBy string) (bool, error)
-	RevokeByHash(ctx context.Context, tokenHash string) (bool, error)
 	RevokeFamily(ctx context.Context, familyID string) error
 }
 
@@ -69,18 +68,6 @@ func (r *RefreshTokenRepositoryImpl) RevokeByID(ctx context.Context, id string, 
 	)
 	if err != nil {
 		return false, fmt.Errorf("revoke refresh token: %w", err)
-	}
-	return result.MatchedCount == 1, nil
-}
-
-func (r *RefreshTokenRepositoryImpl) RevokeByHash(ctx context.Context, tokenHash string) (bool, error) {
-	result, err := r.collection.UpdateOne(
-		ctx,
-		bson.D{{Key: "token_hash", Value: tokenHash}, {Key: fieldRevoked, Value: false}},
-		bson.M{setOperator: bson.M{fieldRevoked: true}},
-	)
-	if err != nil {
-		return false, fmt.Errorf("revoke refresh token by hash: %w", err)
 	}
 	return result.MatchedCount == 1, nil
 }

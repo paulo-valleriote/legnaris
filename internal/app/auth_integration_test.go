@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -96,6 +97,19 @@ func TestIntegration_AuthRegister(t *testing.T) {
 		rec := doRequest(t, h, http.MethodPost, "/auth/register", body)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
+
+	t.Run("Error: password over the 72-byte bcrypt limit returns 400", func(t *testing.T) {
+		body := fmt.Sprintf(
+			`{"email":"overlimit@example.com","username":"overlimit","password":%q}`,
+			strings.Repeat("a", 73),
+		)
+		rec := doRequest(t, h, http.MethodPost, "/auth/register", body)
+		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+
+		var errBody response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &errBody))
+		assert.Equal(t, auth.MsgPasswordTooLong, errBody.Error.Message)
+	})
 }
 
 func TestIntegration_AuthLogin(t *testing.T) {
@@ -178,5 +192,21 @@ func TestIntegration_AuthLogout(t *testing.T) {
 	t.Run("Edge: logout without a token is still 204", func(t *testing.T) {
 		rec := doRequest(t, h, http.MethodPost, "/auth/logout", "")
 		require.Equal(t, http.StatusNoContent, rec.Code)
+	})
+
+	t.Run("Edge: logout with an already rotated token still kills the family", func(t *testing.T) {
+		current := loginAuthUser(t, h)
+
+		rotatedRec := refreshWith(t, h, current.RefreshToken)
+		require.Equal(t, http.StatusOK, rotatedRec.Code, rotatedRec.Body.String())
+		rotated := decodeTokenPair(t, rotatedRec)
+
+		req := newRequest(http.MethodPost, "/auth/logout", "")
+		req.Header.Set(app.RefreshTokenHeader, current.RefreshToken)
+		rec := serve(t, h, req)
+		require.Equal(t, http.StatusNoContent, rec.Code)
+
+		afterLogout := refreshWith(t, h, rotated.RefreshToken)
+		require.Equal(t, http.StatusUnauthorized, afterLogout.Code)
 	})
 }

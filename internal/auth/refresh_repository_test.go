@@ -101,17 +101,17 @@ func TestRefreshTokenRepository(t *testing.T) {
 		assert.False(t, second, "an already revoked token must not be claimable again")
 	})
 
-	t.Run("Happy path: RevokeByHash is idempotent", func(t *testing.T) {
+	t.Run("Edge: FetchByHash returns an already-revoked token", func(t *testing.T) {
 		repo := newRefreshTokenRepository(t)
 		require.NoError(t, repo.Create(ctx, sampleToken("tok-1", "hash-1", "fam-1")))
 
-		first, err := repo.RevokeByHash(ctx, "hash-1")
+		claimed, err := repo.RevokeByID(ctx, "tok-1", "tok-2")
 		require.NoError(t, err)
-		assert.True(t, first)
+		require.True(t, claimed)
 
-		second, err := repo.RevokeByHash(ctx, "hash-1")
+		fetched, err := repo.FetchByHash(ctx, "hash-1")
 		require.NoError(t, err)
-		assert.False(t, second)
+		assert.True(t, fetched.Revoked, "logout must see rotated tokens to revoke their family")
 	})
 
 	t.Run("Happy path: RevokeFamily revokes every live token in the family", func(t *testing.T) {

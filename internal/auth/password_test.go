@@ -11,8 +11,8 @@ import (
 )
 
 func TestPasswordHasher(t *testing.T) {
-	hasher, err := auth.NewPasswordHasher(4)
-	require.NoError(t, err)
+	hasher, err := auth.NewPasswordHasher(12)
+	require.NoError(t, err, "the documented floor (12) must be accepted")
 
 	t.Run("Happy path: hash then compare succeeds", func(t *testing.T) {
 		hash, err := hasher.Hash("correct horse battery staple")
@@ -38,8 +38,8 @@ func TestPasswordHasher(t *testing.T) {
 		require.NoError(t, hasher.Compare(hash, ""))
 	})
 
-	t.Run("Error: cost below the bcrypt minimum is rejected", func(t *testing.T) {
-		_, err := auth.NewPasswordHasher(1)
+	t.Run("Error: cost below the required floor is rejected", func(t *testing.T) {
+		_, err := auth.NewPasswordHasher(11)
 		require.ErrorIs(t, err, auth.ErrInvalidBcryptCost)
 	})
 

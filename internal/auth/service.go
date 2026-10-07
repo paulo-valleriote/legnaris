@@ -18,6 +18,12 @@ import (
 // lists, character classes) is a hardening concern, not Phase 1.
 const minPasswordLength = 8
 
+// maxPasswordLength is the longest accepted password, in bytes:
+// bcrypt.GenerateFromPassword rejects anything over 72 bytes
+// (ErrPasswordTooLong), so longer input must fail validation as a client
+// error instead of surfacing as a 500 from the hasher.
+const maxPasswordLength = 72
+
 // attrUserID is the structured-log field carrying the authenticated user id.
 const attrUserID = "user_id"
 
@@ -51,9 +57,9 @@ type TokenPair struct {
 	ExpiresIn    int    `json:"expires_in"`
 }
 
-// Config carries the token lifetimes resolved from the environment.
+// Config carries the refresh-token lifetime resolved from the environment.
+// The access-token TTL is a TokenManager concern, not a service one.
 type Config struct {
-	AccessTTL  time.Duration
 	RefreshTTL time.Duration
 }
 
@@ -109,6 +115,9 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*user.
 	}
 	if utf8.RuneCountInString(cmd.Password) < minPasswordLength {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgPasswordTooShort, nil)
+	}
+	if len(cmd.Password) > maxPasswordLength {
+		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgPasswordTooLong, nil)
 	}
 
 	hashed, err := s.hasher.Hash(cmd.Password)
@@ -191,43 +200,27 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*TokenPa
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 	}
 
-	newID, err := idgen.New()
+	access, err := s.tokens.Issue(stored.UserID)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	rawNew, err := s.generator.Generate()
+	rawNew, newID, err := s.issueRefreshToken(ctx, stored.UserID, stored.FamilyID)
 	if err != nil {
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+		return nil, err
 	}
 
-	// Atomically claim the rotation. A false result means another request
-	// already rotated this token — indistinguishable from theft, so treat it
-	// as reuse and revoke the family.
+	// Atomically claim the rotation, only after the successor is persisted:
+	// any failure before this point leaves the old token intact and
+	// retryable, and a false result (another request rotated first —
+	// indistinguishable from theft) revokes a family that already contains
+	// the successor.
 	claimed, err := s.refreshTokens.RevokeByID(ctx, stored.ID, newID)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 	if !claimed {
 		return nil, s.reuseDetected(ctx, stored)
-	}
-
-	access, err := s.tokens.Issue(stored.UserID)
-	if err != nil {
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
-	}
-
-	now := time.Now()
-	rotation := &RefreshToken{
-		ID:        newID,
-		TokenHash: HashRefreshToken(rawNew),
-		UserID:    stored.UserID,
-		FamilyID:  stored.FamilyID,
-		ExpiresAt: now.Add(s.cfg.RefreshTTL),
-		CreatedAt: now,
-	}
-	if err := s.refreshTokens.Create(ctx, rotation); err != nil {
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
 	s.log.Info(ctx, "refresh rotated", logger.Attribute{Key: attrUserID, Value: stored.UserID})
@@ -239,15 +232,26 @@ func (s *ServiceImpl) Logout(ctx context.Context, cmd LogoutCommand) error {
 		return nil
 	}
 
-	if _, err := s.refreshTokens.RevokeByHash(ctx, HashRefreshToken(cmd.RefreshToken)); err != nil {
+	stored, err := s.refreshTokens.FetchByHash(ctx, HashRefreshToken(cmd.RefreshToken))
+	if err != nil {
+		// Logout is idempotent: an unknown token has no session left to end.
+		if errors.Is(err, ErrRefreshTokenNotFound) {
+			return nil
+		}
+		return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	if err := s.refreshTokens.RevokeFamily(ctx, stored.FamilyID); err != nil {
 		return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 	s.log.Info(ctx, "logout succeeded")
 	return nil
 }
 
-// issueRefreshToken creates a new refresh family (familyID empty) or extends an
-// existing one. It returns the raw token; only its hash is persisted.
+// issueRefreshToken persists a refresh token for the given family, minting a
+// new family when familyID is empty. It returns the raw token — only its hash
+// is persisted — and the new token's id, which rotation needs to point the
+// predecessor's replaced_by at its heir.
 func (s *ServiceImpl) issueRefreshToken(ctx context.Context, userID string, familyID string) (string, string, error) {
 	if familyID == "" {
 		generated, err := idgen.New()
@@ -280,7 +284,7 @@ func (s *ServiceImpl) issueRefreshToken(ctx context.Context, userID string, fami
 		return "", "", apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	return raw, familyID, nil
+	return raw, id, nil
 }
 
 func (s *ServiceImpl) invalidCredentials(ctx context.Context, reason string) error {

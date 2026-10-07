@@ -67,7 +67,6 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 		auth.NewRefreshTokenGenerator(),
 		observer,
 		auth.Config{
-			AccessTTL:  cfg.Variables.JWTAccessTTL,
 			RefreshTTL: cfg.Variables.AuthRefreshTTL,
 		},
 		log,

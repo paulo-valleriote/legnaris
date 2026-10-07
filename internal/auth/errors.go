@@ -10,6 +10,7 @@ const (
 	MsgInvalidEmail         = "email is invalid"
 	MsgUsernameRequired     = "username is required"
 	MsgPasswordTooShort     = "password must be at least 8 characters"
+	MsgPasswordTooLong      = "password must be at most 72 bytes"
 	MsgRefreshTokenRequired = "refresh token is required"
 	MsgInvalidRefreshToken  = "invalid refresh token"
 	MsgInternal             = "internal error"
