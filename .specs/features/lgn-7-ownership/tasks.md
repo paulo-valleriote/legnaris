@@ -314,10 +314,10 @@ T8 -> T9
 
 **Done when**:
 
-- [ ] Two goroutines POST `/sheets` for the same authenticated user; exactly one `201` and one `409 SHEET_LIMIT_REACHED`
-- [ ] Exactly one document exists for that owner afterwards
-- [ ] The test self-skips without Mongo and is race-clean under `-race`
-- [ ] Gate check passes: `make test-race`
+- [x] Two goroutines POST `/sheets` for the same authenticated user; exactly one `201` and one `409 SHEET_LIMIT_REACHED`
+- [x] Exactly one document exists for that owner afterwards
+- [x] The test self-skips without Mongo and is race-clean under `-race`
+- [x] Gate check passes: `make test-race`
 
 **Tests**: integration
 **Gate**: full
