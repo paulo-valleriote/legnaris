@@ -81,9 +81,9 @@
 - **Completed**: T1–T9 across commits `8697377..8ea2ddb` (one atomic commit per task). `owner_id` model + DTO non-exposure, `SHEET_LIMIT_REACHED` (409), unique `sheets.owner_id` index, owner lookup/delete + duplicate-key mapping, owner-scoped create (one sheet per user) / fetch / PATCH / preview / delete, JWT-gated `/sheets*` + `/templates*`, concurrency race test.
 - **Validation**: `.specs/features/lgn-7-ownership/validation.md` (PASS; 24/24 ACs, 5/5 unit-visible mutants killed). All OWN-01…OWN-24 promoted to `Verified` in `spec.md`.
 - **In-progress** (file:line): none.
-- **Next step**: get explicit go-ahead to `git push` + open the PR for the ownership branch (9 local commits, nothing pushed). Then Execute the companion desktop feature `front-end-phase-6-auth`.
-- **Blockers**: none. Environment note: MongoDB unavailable locally, so integration tests self-skip; the 31 skips (index/repository/app integration + race test) must run in CI where Mongo is present.
+- **Next step**: review/merge PR [#60](https://github.com/paulo-valleriote/legnaris/pull/60) (`feat/LGN-7-ownership` → `main`); then Execute the companion desktop feature `front-end-phase-6-auth`.
+- **Blockers**: none. Integration tests run clean locally against Docker MongoDB (0 failed, 0 skipped).
 - **Uncommitted files**: `.specs/features/front-end-phase-6-auth/` (untracked plan artifact).
-- **Branch**: `feat/LGN-4-auth-phase-1`.
+- **Branch**: `feat/LGN-7-ownership` (pushed; PR #60 open). Previous Fase 1 branch `feat/LGN-4-auth-phase-1` was merged as PR #59.
 - **Lesson recorded**: L-020 (candidate) — guard security-critical route wiring with a unit-level test, not only environment-gated integration tests.
 - **Prior feature**: `lgn-103-104-sheet-preview-dry-run` — COMPLETE; `lgn-110-save-delta` — COMPLETE (PR #57); `lgn-108-open-sheet` — COMPLETE (PR #56); `lgn-109-create-sheet` — COMPLETE (PR #55)
