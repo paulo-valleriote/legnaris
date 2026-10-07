@@ -170,4 +170,58 @@ func TestInitVariablesDefaults(t *testing.T) {
 		vars := e.initVariables()
 		require.Equal(t, 5*time.Second, vars.DatabaseCloseTimeout)
 	})
+
+	t.Run("JWTSecret is empty when unset (required)", func(t *testing.T) {
+		unsetEnv(t, "JWT_SECRET")
+		vars := e.initVariables()
+		require.Empty(t, vars.JWTSecret)
+	})
+
+	t.Run("JWTAccessTTL defaults to 15m", func(t *testing.T) {
+		unsetEnv(t, "JWT_ACCESS_TTL")
+		vars := e.initVariables()
+		require.Equal(t, 15*time.Minute, vars.JWTAccessTTL)
+	})
+
+	t.Run("AuthRefreshTTL defaults to 720h", func(t *testing.T) {
+		unsetEnv(t, "AUTH_REFRESH_TTL")
+		vars := e.initVariables()
+		require.Equal(t, 720*time.Hour, vars.AuthRefreshTTL)
+	})
+
+	t.Run("AuthBcryptCost defaults to 12", func(t *testing.T) {
+		unsetEnv(t, "AUTH_BCRYPT_COST")
+		vars := e.initVariables()
+		require.Equal(t, 12, vars.AuthBcryptCost)
+	})
+}
+
+func TestLookupIntEnv(t *testing.T) {
+	e := newTestEnv()
+	const def = 12
+
+	tests := []struct {
+		name string
+		set  bool
+		val  string
+		want int
+	}{
+		{name: "Edge: unset falls back to default", set: false, want: def},
+		{name: "Edge: empty value falls back to default", set: true, val: "", want: def},
+		{name: "Edge: non-numeric value falls back to default", set: true, val: "twelve", want: def},
+		{name: "Edge: zero falls back to default", set: true, val: "0", want: def},
+		{name: "Edge: negative falls back to default", set: true, val: "-3", want: def},
+		{name: "Happy path: positive integer is parsed", set: true, val: "10", want: 10},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.set {
+				t.Setenv("TEST_INT", tc.val)
+			} else {
+				unsetEnv(t, "TEST_INT")
+			}
+			require.Equal(t, tc.want, e.lookupIntEnv("TEST_INT", def))
+		})
+	}
 }

@@ -8,6 +8,7 @@ import (
 
 	"legnaris/internal/app"
 	"legnaris/internal/engine"
+	"legnaris/internal/platform/metrics"
 	"legnaris/internal/sheet/template"
 	"legnaris/shared/db"
 	"legnaris/shared/env"
@@ -43,6 +44,10 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 		}
 	}()
 
+	if err := db.EnsureIndexes(ctx, database.Client.Database(cfg.Variables.DatabaseName)); err != nil {
+		return fmt.Errorf("ensure indexes: %w", err)
+	}
+
 	formulaEngine := engine.NewFormulaEngine()
 
 	registry, err := template.BuildRegistry(formulaEngine)
@@ -50,9 +55,14 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 		return fmt.Errorf("build template registry: %w", err)
 	}
 
-	modules := app.NewModules(database, registry, cfg.Variables.DatabaseName, log)
+	httpMetrics := metrics.New()
 
-	router := app.NewRouter(cfg, modules)
+	modules, err := app.NewModules(database, registry, cfg, httpMetrics)
+	if err != nil {
+		return fmt.Errorf("build modules: %w", err)
+	}
+
+	router := app.NewRouter(cfg, modules, httpMetrics)
 	if err := router.Start(":" + cfg.Variables.Port); err != nil {
 		return fmt.Errorf("start server: %w", err)
 	}

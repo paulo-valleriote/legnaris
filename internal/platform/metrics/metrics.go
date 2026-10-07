@@ -14,10 +14,14 @@ import (
 // instance owns its own *prometheus.Registry so packages never write into (or
 // collide on) the process-global default registry.
 type Metrics struct {
-	registry        *prometheus.Registry
-	requestDuration *prometheus.HistogramVec
-	requestsTotal   *prometheus.CounterVec
+	registry                 *prometheus.Registry
+	requestDuration          *prometheus.HistogramVec
+	requestsTotal            *prometheus.CounterVec
+	authLoginFailures        prometheus.Counter
+	authRefreshReuseDetected prometheus.Counter
 }
+
+const metricsNamespace = "legnaris"
 
 // New builds a Metrics instance with its own registry and collectors.
 func New() *Metrics {
@@ -25,7 +29,7 @@ func New() *Metrics {
 
 	requestDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "legnaris",
+			Namespace: metricsNamespace,
 			Subsystem: "http",
 			Name:      "request_duration_seconds",
 			Help:      "HTTP request latency in seconds.",
@@ -36,7 +40,7 @@ func New() *Metrics {
 
 	requestsTotal := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "legnaris",
+			Namespace: metricsNamespace,
 			Subsystem: "http",
 			Name:      "requests_total",
 			Help:      "Total number of HTTP requests.",
@@ -44,7 +48,21 @@ func New() *Metrics {
 		[]string{"method", "path", "status"},
 	)
 
-	registry.MustRegister(requestDuration, requestsTotal)
+	authLoginFailures := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "auth",
+		Name:      "login_failures_total",
+		Help:      "Total number of failed login attempts.",
+	})
+
+	authRefreshReuseDetected := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "auth",
+		Name:      "refresh_reuse_detected_total",
+		Help:      "Total number of refresh token reuse detections (possible theft).",
+	})
+
+	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected)
 
 	// The private registry must be self-sufficient: register the standard Go
 	// and process collectors so the deployment's own resource metrics (goroutines,
@@ -55,10 +73,23 @@ func New() *Metrics {
 	)
 
 	return &Metrics{
-		registry:        registry,
-		requestDuration: requestDuration,
-		requestsTotal:   requestsTotal,
+		registry:                 registry,
+		requestDuration:          requestDuration,
+		requestsTotal:            requestsTotal,
+		authLoginFailures:        authLoginFailures,
+		authRefreshReuseDetected: authRefreshReuseDetected,
 	}
+}
+
+// LoginFailure implements auth.Observer: it counts a rejected credential check.
+func (m *Metrics) LoginFailure() {
+	m.authLoginFailures.Inc()
+}
+
+// RefreshReuseDetected implements auth.Observer: it counts a rotated refresh
+// token being presented again, which revokes the whole family.
+func (m *Metrics) RefreshReuseDetected() {
+	m.authRefreshReuseDetected.Inc()
 }
 
 // Middleware records request count and latency per route and status code.

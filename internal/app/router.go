@@ -14,11 +14,9 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 )
 
-func NewRouter(deps env.Env, modules *Modules) *echo.Echo {
+func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *echo.Echo {
 	router := echo.New()
 	router.HTTPErrorHandler = HTTPErrorHandler
-
-	httpMetrics := metrics.New()
 
 	router.Use(middleware.RequestID())
 	router.Use(cors.Middleware(deps.Variables.CORSOrigins))
@@ -29,6 +27,7 @@ func NewRouter(deps env.Env, modules *Modules) *echo.Echo {
 	httpMetrics.Register(router)
 
 	health.RegisterHealthRoutes(router.Group(""))
+	modules.Auth.Controller.RegisterRoutes(router.Group("/auth"))
 	templatesGroup := router.Group("/templates")
 	modules.Template.Controller.RegisterRoutes(templatesGroup)
 	modules.Sheet.Controller.RegisterTemplatePreviewRoute(templatesGroup)

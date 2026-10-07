@@ -22,3 +22,20 @@ packages:
       outpkg: mocks
     interfaces:
       Service: {}
+  legnaris/internal/user:
+    config:
+      dir: internal/user/mocks
+      outpkg: mocks
+    interfaces:
+      Repository: {}
+  legnaris/internal/auth:
+    config:
+      dir: internal/auth/mocks
+      outpkg: mocks
+    interfaces:
+      RefreshTokenRepository: {}
+      Service: {}
+      PasswordHasher: {}
+      TokenManager: {}
+      RefreshTokenGenerator: {}
+      Observer: {}
