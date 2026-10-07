@@ -231,11 +231,11 @@ T8 -> T9
 
 **Done when**:
 
-- [ ] `FetchMySheet` returns the owner's sheet or `404 NOT_FOUND`
-- [ ] A foreign or legacy (no owner) sheet returns `404 NOT_FOUND` from `FetchByID`/`PartialUpdate`/`Preview`, and no recalculation or write runs
-- [ ] Owner's own `PartialUpdate`/`Preview` behave exactly as before
-- [ ] Service unit tests cover owner hit, foreign sheet, missing sheet, and missing owner id; mocks regenerated
-- [ ] Gate check passes: `go test ./internal/sheet/...`
+- [x] `FetchMySheet` returns the owner's sheet or `404 NOT_FOUND`
+- [x] A foreign or legacy (no owner) sheet returns `404 NOT_FOUND` from `FetchByID`/`PartialUpdate`/`Preview`, and no recalculation or write runs
+- [x] Owner's own `PartialUpdate`/`Preview` behave exactly as before
+- [x] Service unit tests cover owner hit, foreign sheet, missing sheet, and missing owner id; mocks regenerated
+- [x] Gate check passes: `go test ./internal/sheet/...`
 
 **Tests**: unit
 **Gate**: quick

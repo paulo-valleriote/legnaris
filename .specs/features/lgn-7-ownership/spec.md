@@ -150,21 +150,21 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | OWN-04 | P1: Owner-scoped sheet persistence | Execute | Implementing |
 | OWN-05 | P1: Create and fetch the authenticated user's sheet | Execute | Implementing |
 | OWN-06 | P1: Create and fetch the authenticated user's sheet | Execute | Implementing |
-| OWN-07 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
-| OWN-08 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
-| OWN-09 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
-| OWN-10 | P1: Ownership guard on sheet operations | Design | Pending |
-| OWN-11 | P1: Ownership guard on sheet operations | Design | Pending |
-| OWN-12 | P1: Ownership guard on sheet operations | Design | Pending |
+| OWN-07 | P1: Create and fetch the authenticated user's sheet | Execute | Implementing |
+| OWN-08 | P1: Create and fetch the authenticated user's sheet | Execute | Implementing |
+| OWN-09 | P1: Create and fetch the authenticated user's sheet | Execute | Implementing |
+| OWN-10 | P1: Ownership guard on sheet operations | Execute | Implementing |
+| OWN-11 | P1: Ownership guard on sheet operations | Execute | Implementing |
+| OWN-12 | P1: Ownership guard on sheet operations | Execute | Implementing |
 | OWN-13 | P1: Ownership guard on sheet operations | Design | Pending |
-| OWN-14 | P1: Ownership guard on sheet operations | Design | Pending |
+| OWN-14 | P1: Ownership guard on sheet operations | Execute | Implementing |
 | OWN-15 | P1: Protected routes with JWT | Design | Pending |
 | OWN-16 | P1: Protected routes with JWT | Design | Pending |
 | OWN-17 | P1: Protected routes with JWT | Design | Pending |
 | OWN-18 | P1: Protected routes with JWT | Design | Pending |
-| OWN-19 | Edge: missing user id at the boundary | Design | Unmapped ⚠️ |
+| OWN-19 | Edge: missing user id at the boundary | Execute | Implementing |
 | OWN-20 | Edge: template validation preserved | Design | Unmapped ⚠️ |
-| OWN-21 | Edge: owner preview persists nothing | Design | Unmapped ⚠️ |
+| OWN-21 | Edge: owner preview persists nothing | Execute | Implementing |
 | OWN-22 | Edge: duplicate-key maps to 409 | Execute | Implementing |
 | OWN-23 | Edge: delete is idempotent-by-404 | Design | Unmapped ⚠️ |
 | OWN-24 | Edge: legacy row without owner | Execute | Implementing |

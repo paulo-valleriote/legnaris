@@ -18,6 +18,7 @@ type CreateSheetCommand struct {
 
 type PartialUpdateSheetCommand struct {
 	SheetID string         `json:"-"`
+	OwnerID string         `json:"-"`
 	Data    map[string]any `json:"data"`
 }
 
@@ -31,7 +32,8 @@ type PreviewTemplateCommand struct {
 
 type Service interface {
 	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
-	FetchByID(ctx context.Context, id string) (*Sheet, error)
+	FetchMySheet(ctx context.Context, ownerID string) (*Sheet, error)
+	FetchByID(ctx context.Context, id string, ownerID string) (*Sheet, error)
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
@@ -63,6 +65,28 @@ func requireSheetID(id string) error {
 	}
 	if err := idgen.Validate(id); err != nil {
 		return apperr.NewError(apperr.CodeInvalidRequest, MsgSheetIDInvalid, err)
+	}
+	return nil
+}
+
+// requireOwner rejects a request whose context carried no authenticated user
+// id (OWN-19). The JWT middleware guarantees it on protected routes; failing
+// closed here means a route mounted without the middleware can never act
+// ownerless instead of silently operating on someone else's data.
+func requireOwner(ownerID string) error {
+	if ownerID == "" {
+		return apperr.NewError(apperr.CodeUnauthorized, MsgOwnerNotProvided, nil)
+	}
+	return nil
+}
+
+// checkOwnership returns the same 404 a missing sheet produces when the stored
+// sheet belongs to nobody (legacy row) or to a different user, so a foreign
+// sheet is indistinguishable from a nonexistent one and leaks no existence
+// (OWN-11, OWN-12, OWN-24).
+func checkOwnership(stored *Sheet, ownerID string) error {
+	if stored.OwnerID == "" || stored.OwnerID != ownerID {
+		return translateRepoErr("fetch", ErrSheetNotFound)
 	}
 	return nil
 }
@@ -161,7 +185,25 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	return &newSheet, nil
 }
 
-func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) {
+// FetchMySheet returns the single sheet owned by ownerID, or 404 NOT_FOUND when
+// the owner has none (OWN-07, OWN-08).
+func (s *ServiceImpl) FetchMySheet(ctx context.Context, ownerID string) (*Sheet, error) {
+	if err := requireOwner(ownerID); err != nil {
+		return nil, err
+	}
+
+	sheet, err := s.repository.FetchByOwnerID(ctx, ownerID)
+	if err != nil {
+		return nil, translateRepoErr("fetch", err)
+	}
+
+	return sheet, nil
+}
+
+func (s *ServiceImpl) FetchByID(ctx context.Context, id string, ownerID string) (*Sheet, error) {
+	if err := requireOwner(ownerID); err != nil {
+		return nil, err
+	}
 	if err := requireSheetID(id); err != nil {
 		return nil, err
 	}
@@ -169,6 +211,10 @@ func (s *ServiceImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) 
 	sheet, err := s.repository.FetchByID(ctx, id)
 	if err != nil {
 		return nil, translateRepoErr("fetch", err)
+	}
+
+	if err := checkOwnership(sheet, ownerID); err != nil {
+		return nil, err
 	}
 
 	return sheet, nil
@@ -188,7 +234,10 @@ type recalculation struct {
 // delta, normalizes and recalculates it, then deep-merges the result over the
 // stored data. It performs no repository write, so a preview can call it
 // without side effects.
-func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, data map[string]any) (*recalculation, error) {
+func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, ownerID string, data map[string]any) (*recalculation, error) {
+	if err := requireOwner(ownerID); err != nil {
+		return nil, err
+	}
 	if err := requireSheetID(sheetID); err != nil {
 		return nil, err
 	}
@@ -196,6 +245,10 @@ func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, data map[
 	storedSheet, err := s.repository.FetchByID(ctx, sheetID)
 	if err != nil {
 		return nil, translateRepoErr("fetch", err)
+	}
+
+	if err := checkOwnership(storedSheet, ownerID); err != nil {
+		return nil, err
 	}
 
 	dag, exists := s.provider.DAG(storedSheet.TemplateID)
@@ -233,7 +286,7 @@ func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, data map[
 }
 
 func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
-	result, err := s.recalculate(ctx, cmd.SheetID, cmd.Data)
+	result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +307,7 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 // matches an equivalent PATCH while the stored sheet and updated_at stay
 // untouched. Repeated calls against an unchanged sheet return the same map.
 func (s *ServiceImpl) Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
-	result, err := s.recalculate(ctx, cmd.SheetID, cmd.Data)
+	result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
 	if err != nil {
 		return nil, err
 	}

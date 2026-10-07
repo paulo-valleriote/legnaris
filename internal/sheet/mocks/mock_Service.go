@@ -81,9 +81,9 @@ func (_c *MockService_Create_Call) RunAndReturn(run func(context.Context, sheet.
 	return _c
 }
 
-// FetchByID provides a mock function with given fields: ctx, id
-func (_m *MockService) FetchByID(ctx context.Context, id string) (*sheet.Sheet, error) {
-	ret := _m.Called(ctx, id)
+// FetchByID provides a mock function with given fields: ctx, id, ownerID
+func (_m *MockService) FetchByID(ctx context.Context, id string, ownerID string) (*sheet.Sheet, error) {
+	ret := _m.Called(ctx, id, ownerID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FetchByID")
@@ -91,19 +91,19 @@ func (_m *MockService) FetchByID(ctx context.Context, id string) (*sheet.Sheet, 
 
 	var r0 *sheet.Sheet
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*sheet.Sheet, error)); ok {
-		return rf(ctx, id)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*sheet.Sheet, error)); ok {
+		return rf(ctx, id, ownerID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *sheet.Sheet); ok {
-		r0 = rf(ctx, id)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *sheet.Sheet); ok {
+		r0 = rf(ctx, id, ownerID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*sheet.Sheet)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, id)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, id, ownerID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -119,13 +119,14 @@ type MockService_FetchByID_Call struct {
 // FetchByID is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-func (_e *MockService_Expecter) FetchByID(ctx interface{}, id interface{}) *MockService_FetchByID_Call {
-	return &MockService_FetchByID_Call{Call: _e.mock.On("FetchByID", ctx, id)}
+//   - ownerID string
+func (_e *MockService_Expecter) FetchByID(ctx interface{}, id interface{}, ownerID interface{}) *MockService_FetchByID_Call {
+	return &MockService_FetchByID_Call{Call: _e.mock.On("FetchByID", ctx, id, ownerID)}
 }
 
-func (_c *MockService_FetchByID_Call) Run(run func(ctx context.Context, id string)) *MockService_FetchByID_Call {
+func (_c *MockService_FetchByID_Call) Run(run func(ctx context.Context, id string, ownerID string)) *MockService_FetchByID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -135,7 +136,66 @@ func (_c *MockService_FetchByID_Call) Return(_a0 *sheet.Sheet, _a1 error) *MockS
 	return _c
 }
 
-func (_c *MockService_FetchByID_Call) RunAndReturn(run func(context.Context, string) (*sheet.Sheet, error)) *MockService_FetchByID_Call {
+func (_c *MockService_FetchByID_Call) RunAndReturn(run func(context.Context, string, string) (*sheet.Sheet, error)) *MockService_FetchByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FetchMySheet provides a mock function with given fields: ctx, ownerID
+func (_m *MockService) FetchMySheet(ctx context.Context, ownerID string) (*sheet.Sheet, error) {
+	ret := _m.Called(ctx, ownerID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FetchMySheet")
+	}
+
+	var r0 *sheet.Sheet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*sheet.Sheet, error)); ok {
+		return rf(ctx, ownerID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *sheet.Sheet); ok {
+		r0 = rf(ctx, ownerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*sheet.Sheet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, ownerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_FetchMySheet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FetchMySheet'
+type MockService_FetchMySheet_Call struct {
+	*mock.Call
+}
+
+// FetchMySheet is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ownerID string
+func (_e *MockService_Expecter) FetchMySheet(ctx interface{}, ownerID interface{}) *MockService_FetchMySheet_Call {
+	return &MockService_FetchMySheet_Call{Call: _e.mock.On("FetchMySheet", ctx, ownerID)}
+}
+
+func (_c *MockService_FetchMySheet_Call) Run(run func(ctx context.Context, ownerID string)) *MockService_FetchMySheet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_FetchMySheet_Call) Return(_a0 *sheet.Sheet, _a1 error) *MockService_FetchMySheet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_FetchMySheet_Call) RunAndReturn(run func(context.Context, string) (*sheet.Sheet, error)) *MockService_FetchMySheet_Call {
 	_c.Call.Return(run)
 	return _c
 }

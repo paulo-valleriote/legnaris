@@ -1,6 +1,7 @@
 package app
 
 import (
+	"legnaris/internal/auth"
 	"legnaris/internal/sheet"
 	"legnaris/shared/json"
 	"legnaris/shared/response"
@@ -40,6 +41,8 @@ func (sc *SheetController) Create(c *echo.Context) error {
 		return decodeError(err)
 	}
 
+	cmd.OwnerID, _ = auth.UserID(c)
+
 	newSheet, err := sc.service.Create(c.Request().Context(), cmd)
 	if err != nil {
 		return err
@@ -48,7 +51,8 @@ func (sc *SheetController) Create(c *echo.Context) error {
 }
 
 func (sc *SheetController) FetchByID(c *echo.Context) error {
-	storedSheet, err := sc.service.FetchByID(c.Request().Context(), c.Param("id"))
+	ownerID, _ := auth.UserID(c)
+	storedSheet, err := sc.service.FetchByID(c.Request().Context(), c.Param("id"), ownerID)
 	if err != nil {
 		return err
 	}
@@ -62,8 +66,10 @@ func (sc *SheetController) PartialUpdate(c *echo.Context) error {
 		return decodeError(err)
 	}
 
+	ownerID, _ := auth.UserID(c)
 	cascadingEffects, err := sc.service.PartialUpdate(c.Request().Context(), sheet.PartialUpdateSheetCommand{
 		SheetID: c.Param("id"),
+		OwnerID: ownerID,
 		Data:    cmd.Data,
 	})
 	if err != nil {
@@ -82,8 +88,10 @@ func (sc *SheetController) Preview(c *echo.Context) error {
 		return decodeError(err)
 	}
 
+	ownerID, _ := auth.UserID(c)
 	cascadingEffects, err := sc.service.Preview(c.Request().Context(), sheet.PartialUpdateSheetCommand{
 		SheetID: c.Param("id"),
+		OwnerID: ownerID,
 		Data:    cmd.Data,
 	})
 	if err != nil {
