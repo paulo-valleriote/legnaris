@@ -12,6 +12,7 @@ const (
 	CodeForbidden         Code = "FORBIDDEN"
 	CodeNotFound          Code = "NOT_FOUND"
 	CodeConflict          Code = "CONFLICT"
+	CodeSheetLimitReached Code = "SHEET_LIMIT_REACHED"
 	CodeInternal          Code = "INTERNAL_ERROR"
 	CodeCycleDetected     Code = "CYCLE_DETECTED"
 	CodeInvalidDependency Code = "INVALID_DEPENDENCY"
@@ -37,7 +38,7 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 403
 	case CodeNotFound:
 		httpStatus = 404
-	case CodeConflict:
+	case CodeConflict, CodeSheetLimitReached:
 		httpStatus = 409
 	case CodeInternal:
 		httpStatus = 500

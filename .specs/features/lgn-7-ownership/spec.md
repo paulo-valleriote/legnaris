@@ -165,7 +165,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | OWN-19 | Edge: missing user id at the boundary | Design | Unmapped ⚠️ |
 | OWN-20 | Edge: template validation preserved | Design | Unmapped ⚠️ |
 | OWN-21 | Edge: owner preview persists nothing | Design | Unmapped ⚠️ |
-| OWN-22 | Edge: duplicate-key maps to 409 | Design | Unmapped ⚠️ |
+| OWN-22 | Edge: duplicate-key maps to 409 | Execute | Implementing |
 | OWN-23 | Edge: delete is idempotent-by-404 | Design | Unmapped ⚠️ |
 | OWN-24 | Edge: legacy row without owner | Design | Unmapped ⚠️ |
 

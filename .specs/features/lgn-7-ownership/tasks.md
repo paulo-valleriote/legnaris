@@ -124,9 +124,9 @@ T8 -> T9
 
 **Done when**:
 
-- [ ] `CodeSheetLimitReached = "SHEET_LIMIT_REACHED"` exists and `NewError(CodeSheetLimitReached, …).HttpStatus() == 409`
-- [ ] The mapping test covers the new code alongside the existing ones
-- [ ] Gate check passes: `go test ./shared/apperr/...`
+- [x] `CodeSheetLimitReached = "SHEET_LIMIT_REACHED"` exists and `NewError(CodeSheetLimitReached, …).HttpStatus() == 409`
+- [x] The mapping test covers the new code alongside the existing ones
+- [x] Gate check passes: `go test ./shared/apperr/...`
 
 **Tests**: unit
 **Gate**: quick
