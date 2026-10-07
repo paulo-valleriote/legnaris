@@ -145,7 +145,9 @@ One observation, not a defect: the integration tests (`internal/app/*_test.go`, 
 
 None. No surviving unit-visible mutant, no uncovered AC, no spec-precision gap.
 
-Mutation 6 (JWT wiring) was initially a no-Mongo survivor because integration tests self-skip without a database. Re-run against live MongoDB (Docker), removing the middleware from the groups made `GET /templates` return `200` and `TestIntegration_ProtectedRoutesRequireJWT` failed — the mutant is **killed**. No fix task; the coverage is real where Mongo runs (local Docker and CI).
+Review round 1 (PR #60: 1 should-fix, 3 nits) was resolved in this PR: F1 closed the CI-guard gap with the Mongo-free wiring test and corrected the CI claim below; F2 extended the legacy-sheets risk row in `.specs/features/lgn-7-ownership/design.md:169`; F3 added `DELETE` to the CORS `AllowMethods` (`internal/platform/cors/cors.go:19-25`); F4 deduplicated the integration request helpers (`internal/app/integration_test.go:83-86`).
+
+Mutation 6 (JWT wiring) was initially a no-Mongo survivor because integration tests self-skip without a database. Re-run against live MongoDB (Docker), removing the middleware from the groups made `GET /templates` return `200` and `TestIntegration_ProtectedRoutesRequireJWT` failed — the mutant is **killed** where MongoDB runs (local Docker). CI itself provisions no MongoDB: `.github/workflows/ci-lint.yml:38` runs `go test -race` with no database and no `DATABASE_URI`, so the integration suite self-skips there. The CI guard is now the Mongo-free wiring test `internal/app/router_wiring_test.go:67-92`, asserting the tokenless `401 UNAUTHORIZED` sweep over all nine `/sheets*` and `/templates*` routes (OWN-15…OWN-18) without a database.
 
 ---
 
@@ -171,6 +173,6 @@ Recorded here (source of truth for this validation). `spec.md` status cells were
 
 **What works**: `owner_id` persistence with DTO non-exposure (`internal/sheet/sheet.go:10`, `internal/sheet/dto_test.go:135`); boot-time unique index (`indexes.go:57-59`); one-sheet-per-owner with typed duplicate mapping and exact `409 SHEET_LIMIT_REACHED` (`internal/sheet/repository.go:83-84`, `internal/sheet/service.go:426-427`); owner-scoped `GET /sheets` with `404` when none; byte-identical `404` for foreign/legacy/missing sheets across GET/PATCH/DELETE/preview; owner-guarded `204`-then-`404` delete; fail-closed `401` on a missing user id; JWT middleware over `/sheets*` and `/templates*` with public health/metrics/auth routes.
 
-**Issues found**: none requiring a fix. One environment-limited coverage note (integration-only route-wiring coverage) and one minor test-coverage note (no direct tokenless `/auth/refresh` assertion; route is structurally public and covered at the service level in `auth_test.go:154`).
+**Issues found**: none requiring a fix. The former environment-limited coverage note (route wiring only reachable through integration tests) is closed by the Mongo-free wiring test; one minor test-coverage note remains (no direct tokenless `/auth/refresh` assertion; route is structurally public and covered at the service level in `auth_test.go:154`).
 
 **Next steps**: Promote all OWN-* to Verified (per the traceability table above); re-run the gate in CI with live MongoDB so the 31 integration skips execute, including the concurrency race test (`ownership_race_test.go`).
