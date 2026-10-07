@@ -156,7 +156,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | OWN-10 | P1: Ownership guard on sheet operations | Execute | Implementing |
 | OWN-11 | P1: Ownership guard on sheet operations | Execute | Implementing |
 | OWN-12 | P1: Ownership guard on sheet operations | Execute | Implementing |
-| OWN-13 | P1: Ownership guard on sheet operations | Design | Pending |
+| OWN-13 | P1: Ownership guard on sheet operations | Execute | Implementing |
 | OWN-14 | P1: Ownership guard on sheet operations | Execute | Implementing |
 | OWN-15 | P1: Protected routes with JWT | Design | Pending |
 | OWN-16 | P1: Protected routes with JWT | Design | Pending |
@@ -166,7 +166,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | OWN-20 | Edge: template validation preserved | Design | Unmapped ⚠️ |
 | OWN-21 | Edge: owner preview persists nothing | Execute | Implementing |
 | OWN-22 | Edge: duplicate-key maps to 409 | Execute | Implementing |
-| OWN-23 | Edge: delete is idempotent-by-404 | Design | Unmapped ⚠️ |
+| OWN-23 | Edge: delete is idempotent-by-404 | Execute | Implementing |
 | OWN-24 | Edge: legacy row without owner | Execute | Implementing |
 
 **ID format:** `OWN-[NUMBER]`

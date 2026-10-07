@@ -1907,3 +1907,93 @@ func TestService_OwnershipGuardOnRecalculation(t *testing.T) {
 		assert.Equal(t, map[string]any{"modifiers": map[string]any{"dexterityMod": 3.0}}, cascades)
 	})
 }
+
+// TestService_Delete pins the owner-guarded delete (OWN-13, OWN-23): the
+// owner's sheet is removed, while a foreign sheet, a legacy sheet with no
+// owner, a missing sheet and a malformed id delete nothing, and a missing owner
+// is a 401 before the repository.
+func TestService_Delete(t *testing.T) {
+	owned := &sheet.Sheet{ID: updateSheetID, TemplateID: "fantasy_v1", OwnerID: ownerUserID}
+
+	t.Run("Happy path: the owner's sheet is deleted", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(owned, nil).Once()
+		repo.EXPECT().DeleteByID(context.Background(), updateSheetID).Return(nil).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID})
+		require.NoError(t, err)
+	})
+
+	t.Run("Error: a second delete is a 404 and deletes nothing", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		assert.Equal(t, 404, appErr.HttpStatus())
+		repo.AssertNotCalled(t, "DeleteByID")
+	})
+
+	t.Run("Error: a foreign sheet is a 404 and deletes nothing", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).
+			Return(&sheet.Sheet{ID: updateSheetID, OwnerID: "01900000-0000-7000-8000-0000000000bb"}, nil).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		assert.Equal(t, 404, appErr.HttpStatus())
+		repo.AssertNotCalled(t, "DeleteByID")
+	})
+
+	t.Run("Error: a legacy sheet with no owner is a 404", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).
+			Return(&sheet.Sheet{ID: updateSheetID}, nil).Once()
+
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		repo.AssertNotCalled(t, "DeleteByID")
+	})
+
+	t.Run("Error: a malformed id is a 400 before the repository", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: "not-a-uuid", OwnerID: ownerUserID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+		assert.Equal(t, 400, appErr.HttpStatus())
+	})
+
+	t.Run("Error: a missing owner is a 401 before the repository", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{})
+
+		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID})
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeUnauthorized, appErr.Code)
+		assert.Equal(t, 401, appErr.HttpStatus())
+		assert.Equal(t, sheet.MsgOwnerNotProvided, appErr.Message)
+	})
+}

@@ -259,10 +259,10 @@ T8 -> T9
 
 **Done when**:
 
-- [ ] `Delete(DeleteSheetCommand{SheetID, OwnerID})` removes the owner's sheet; a second call returns `404`
-- [ ] A foreign or missing sheet returns `404` and deletes nothing
-- [ ] Service unit tests cover happy delete, second delete, foreign sheet, malformed id, missing owner; mocks regenerated
-- [ ] Gate check passes: `go test ./internal/sheet/...`
+- [x] `Delete(DeleteSheetCommand{SheetID, OwnerID})` removes the owner's sheet; a second call returns `404`
+- [x] A foreign or missing sheet returns `404` and deletes nothing
+- [x] Service unit tests cover happy delete, second delete, foreign sheet, malformed id, missing owner; mocks regenerated
+- [x] Gate check passes: `go test ./internal/sheet/...`
 
 **Tests**: unit
 **Gate**: quick

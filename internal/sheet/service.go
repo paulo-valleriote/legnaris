@@ -30,6 +30,13 @@ type PreviewTemplateCommand struct {
 	Data       map[string]any `json:"data"`
 }
 
+// DeleteSheetCommand carries the target sheet and the authenticated owner. Both
+// come from the request (path param and JWT context), never from the body.
+type DeleteSheetCommand struct {
+	SheetID string `json:"-"`
+	OwnerID string `json:"-"`
+}
+
 type Service interface {
 	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
 	FetchMySheet(ctx context.Context, ownerID string) (*Sheet, error)
@@ -37,6 +44,7 @@ type Service interface {
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
+	Delete(ctx context.Context, cmd DeleteSheetCommand) error
 }
 
 // User-facing messages for the errors this service builds itself. They are
@@ -356,6 +364,32 @@ func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCo
 	}
 
 	return nestedCascadingEffects(cascading)
+}
+
+// Delete removes the owner's sheet. Ownership is verified first, so a foreign
+// sheet and a missing sheet both return the repository's 404 without deleting
+// anything, and a second delete is 404 because the fetch misses (OWN-13,
+// OWN-23).
+func (s *ServiceImpl) Delete(ctx context.Context, cmd DeleteSheetCommand) error {
+	if err := requireOwner(cmd.OwnerID); err != nil {
+		return err
+	}
+	if err := requireSheetID(cmd.SheetID); err != nil {
+		return err
+	}
+
+	stored, err := s.repository.FetchByID(ctx, cmd.SheetID)
+	if err != nil {
+		return translateRepoErr("delete", err)
+	}
+	if err := checkOwnership(stored, cmd.OwnerID); err != nil {
+		return err
+	}
+
+	if err := s.repository.DeleteByID(ctx, cmd.SheetID); err != nil {
+		return translateRepoErr("delete", err)
+	}
+	return nil
 }
 
 // translateTemplateErr maps template-layer typed errors to apperr at the
