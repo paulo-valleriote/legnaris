@@ -286,11 +286,11 @@ T8 -> T9
 
 **Done when**:
 
-- [ ] Controller reads `auth.UserID(c)` and passes it into every sheet command; a missing id yields `401`
-- [ ] `GET /sheets` and `DELETE /sheets/:id` are registered; `AuthModule` exposes `TokenManager`; `NewRouter` applies the middleware to the `/sheets` and `/templates` groups only
-- [ ] `internal/app/bootstrap.go`, `internal/app/router.go`, `internal/app/sheet.go`, `internal/app/integration_test.go`, and `internal/app/auth_integration_test.go` are updated in this commit; the whole `go test ./...` suite is green (no unauthenticated sheet/template call remains)
-- [ ] Integration tests cover: unauthenticated `401` on every protected route; public routes still reachable; authenticated create/fetch/patch; second create `409`; `GET /sheets` self vs foreign; foreign `GET/PATCH/DELETE/preview` -> `404`; owner `DELETE` -> `204` then `404`
-- [ ] Gate check passes: `make fmt && make lint && make vet && make test-race`
+- [x] Controller reads `auth.UserID(c)` and passes it into every sheet command; a missing id yields `401`
+- [x] `GET /sheets` and `DELETE /sheets/:id` are registered; `AuthModule` exposes `TokenManager`; `NewRouter` applies the middleware to the `/sheets` and `/templates` groups only
+- [x] `internal/app/bootstrap.go`, `internal/app/router.go`, `internal/app/sheet.go`, and `internal/app/integration_test.go` are updated in this commit (auth_integration_test unchanged: `/auth` stays public); the whole `go test ./...` suite is green (no unauthenticated sheet/template call remains)
+- [x] Integration tests cover: unauthenticated `401` on every protected route; public routes still reachable; authenticated create/fetch/patch; second create `409`; `GET /sheets` self vs foreign; foreign `GET/PATCH/DELETE/preview` -> `404`; owner `DELETE` -> `204` then `404`
+- [x] Gate check passes: `make fmt && make lint && make vet && make test-race`
 
 **Tests**: integration
 **Gate**: full

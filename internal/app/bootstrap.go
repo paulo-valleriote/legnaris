@@ -22,8 +22,9 @@ type SheetModule struct {
 }
 
 type AuthModule struct {
-	Controller *AuthController
-	Service    auth.Service
+	Controller   *AuthController
+	Service      auth.Service
+	TokenManager auth.TokenManager
 }
 
 type Modules struct {
@@ -83,8 +84,9 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 			Service:    sheetService,
 		},
 		Auth: AuthModule{
-			Controller: authController,
-			Service:    authService,
+			Controller:   authController,
+			Service:      authService,
+			TokenManager: tokenManager,
 		},
 	}, nil
 }

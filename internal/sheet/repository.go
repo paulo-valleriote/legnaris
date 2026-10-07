@@ -24,6 +24,10 @@ type RepositoryImpl struct {
 	logger     logger.StructuredLogger
 }
 
+// idField is the Mongo primary-key field name, shared by the by-id filters so
+// the literal stays in one place.
+const idField = "_id"
+
 // ErrSheetNotFound reports a sheet lookup that matched no document.
 // Services translate it to apperr.CodeNotFound at the layer boundary.
 var ErrSheetNotFound = errors.New("sheet not found")
@@ -43,7 +47,7 @@ func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*Sheet, error) {
 	var result Sheet
 
-	filter := bson.D{{Key: "_id", Value: id}}
+	filter := bson.D{{Key: idField, Value: id}}
 	opts := options.FindOne()
 	err := r.collection.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
@@ -86,7 +90,7 @@ func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
 }
 
 func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, dbUpdates map[string]any) error {
-	filter := bson.D{{Key: "_id", Value: id}}
+	filter := bson.D{{Key: idField, Value: id}}
 	update := bson.M{"$set": dbUpdates}
 
 	_, err := r.collection.UpdateOne(ctx, filter, update)
@@ -97,7 +101,7 @@ func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, dbUpdates
 }
 
 func (r *RepositoryImpl) DeleteByID(ctx context.Context, id string) error {
-	filter := bson.D{{Key: "_id", Value: id}}
+	filter := bson.D{{Key: idField, Value: id}}
 
 	result, err := r.collection.DeleteOne(ctx, filter)
 	if err != nil {

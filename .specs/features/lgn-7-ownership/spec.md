@@ -158,12 +158,12 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | OWN-12 | P1: Ownership guard on sheet operations | Execute | Implementing |
 | OWN-13 | P1: Ownership guard on sheet operations | Execute | Implementing |
 | OWN-14 | P1: Ownership guard on sheet operations | Execute | Implementing |
-| OWN-15 | P1: Protected routes with JWT | Design | Pending |
-| OWN-16 | P1: Protected routes with JWT | Design | Pending |
-| OWN-17 | P1: Protected routes with JWT | Design | Pending |
-| OWN-18 | P1: Protected routes with JWT | Design | Pending |
+| OWN-15 | P1: Protected routes with JWT | Execute | Implementing |
+| OWN-16 | P1: Protected routes with JWT | Execute | Implementing |
+| OWN-17 | P1: Protected routes with JWT | Execute | Implementing |
+| OWN-18 | P1: Protected routes with JWT | Execute | Implementing |
 | OWN-19 | Edge: missing user id at the boundary | Execute | Implementing |
-| OWN-20 | Edge: template validation preserved | Design | Unmapped ⚠️ |
+| OWN-20 | Edge: template validation preserved | Execute | Implementing |
 | OWN-21 | Edge: owner preview persists nothing | Execute | Implementing |
 | OWN-22 | Edge: duplicate-key maps to 409 | Execute | Implementing |
 | OWN-23 | Edge: delete is idempotent-by-404 | Execute | Implementing |

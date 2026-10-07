@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"legnaris/internal/auth"
 	"legnaris/internal/platform/cors"
 	"legnaris/internal/platform/health"
 	"legnaris/internal/platform/metrics"
@@ -28,10 +29,17 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 
 	health.RegisterHealthRoutes(router.Group(""))
 	modules.Auth.Controller.RegisterRoutes(router.Group("/auth"))
-	templatesGroup := router.Group("/templates")
+
+	// Every sheets and templates route sits behind the JWT middleware; only
+	// health, metrics, and the auth endpoints stay public (OWN-15…OWN-18).
+	requireAuth := auth.Middleware(modules.Auth.TokenManager)
+
+	templatesGroup := router.Group("/templates", requireAuth)
 	modules.Template.Controller.RegisterRoutes(templatesGroup)
 	modules.Sheet.Controller.RegisterTemplatePreviewRoute(templatesGroup)
-	modules.Sheet.Controller.RegisterRoutes(router.Group("/sheets"))
+
+	sheetsGroup := router.Group("/sheets", requireAuth)
+	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
 	return router
 }
