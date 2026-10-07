@@ -166,7 +166,7 @@ database.Collection("sheets").Indexes().CreateOne(ctx, mongo.IndexModel{
 | Desktop client sends no auth header | `desktop/lib/api/api_client.dart` | The Flutter app breaks against the protected API | Companion feature `front-end-phase-6-auth` (spec written alongside); recorded in Out of Scope |
 | `FetchByID` then compare is a TOCTOU window | `internal/sheet/service.go:177` | A concurrent delete could let a write proceed against no document | Writes match by `_id`; a delete race yields `ErrSheetNotFound` from `DeleteByID` and the write no-ops — acceptable for V1 |
 | Template preview `POST /templates/:id/preview` shares the templates group | `internal/app/router.go:32` | It becomes auth-gated (intended) but has no ownership concept | Documented: templates are read-only for every authenticated user (TDD §Autorização) |
-| Legacy dev sheets have no `owner_id` | `sheets` collection | They become unreachable | Accepted: TDD prefers a dev-DB reset; no production data (Fase 6 pending) |
+| Legacy dev sheets have no `owner_id` | `sheets` collection (unique index at `shared/db/indexes.go:57`) | One legacy row becomes unreachable; 2+ rows block boot instead — the unique `owner_id` index build fails with `E11000` on duplicate `null` keys and `cmd/api.go:47` exits | Accepted: TDD prefers a dev-DB reset; no production data (Fase 6 pending) |
 
 ---
 
