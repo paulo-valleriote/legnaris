@@ -146,8 +146,8 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | -------------- | ----- | ----- | ------- |
 | OWN-01 | P1: Owner-scoped sheet persistence | Execute | Implementing |
 | OWN-02 | P1: Owner-scoped sheet persistence | Execute | Implementing |
-| OWN-03 | P1: Owner-scoped sheet persistence | Design | Pending |
-| OWN-04 | P1: Owner-scoped sheet persistence | Design | Pending |
+| OWN-03 | P1: Owner-scoped sheet persistence | Execute | Implementing |
+| OWN-04 | P1: Owner-scoped sheet persistence | Execute | Implementing |
 | OWN-05 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
 | OWN-06 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
 | OWN-07 | P1: Create and fetch the authenticated user's sheet | Design | Pending |
@@ -167,7 +167,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | OWN-21 | Edge: owner preview persists nothing | Design | Unmapped ⚠️ |
 | OWN-22 | Edge: duplicate-key maps to 409 | Execute | Implementing |
 | OWN-23 | Edge: delete is idempotent-by-404 | Design | Unmapped ⚠️ |
-| OWN-24 | Edge: legacy row without owner | Design | Unmapped ⚠️ |
+| OWN-24 | Edge: legacy row without owner | Execute | Implementing |
 
 **ID format:** `OWN-[NUMBER]`
 

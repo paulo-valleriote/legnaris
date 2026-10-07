@@ -176,10 +176,10 @@ T8 -> T9
 
 **Done when**:
 
-- [ ] `FetchByOwnerID` returns `ErrSheetNotFound` on a miss; `DeleteByID` returns it when zero documents matched
-- [ ] `Create` maps a duplicate key on `owner_id` to `ErrSheetOwnerExists` (never a wrapped raw error)
-- [ ] Mocks regenerated with `make mocks`; integration repository test covers hit/miss/duplicate; self-skips without Mongo
-- [ ] Gate check passes: `go test ./internal/sheet/...`
+- [x] `FetchByOwnerID` returns `ErrSheetNotFound` on a miss; `DeleteByID` returns it when zero documents matched
+- [x] `Create` maps a duplicate key on `owner_id` to `ErrSheetOwnerExists` (never a wrapped raw error)
+- [x] Mocks regenerated with `make mocks`; integration repository test covers hit/miss/duplicate; self-skips without Mongo
+- [x] Gate check passes: `go test ./internal/sheet/...`
 
 **Tests**: integration
 **Gate**: full

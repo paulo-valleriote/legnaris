@@ -69,6 +69,53 @@ func (_c *MockRepository_Create_Call) RunAndReturn(run func(context.Context, *sh
 	return _c
 }
 
+// DeleteByID provides a mock function with given fields: ctx, id
+func (_m *MockRepository) DeleteByID(ctx context.Context, id string) error {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteByID")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockRepository_DeleteByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteByID'
+type MockRepository_DeleteByID_Call struct {
+	*mock.Call
+}
+
+// DeleteByID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+func (_e *MockRepository_Expecter) DeleteByID(ctx interface{}, id interface{}) *MockRepository_DeleteByID_Call {
+	return &MockRepository_DeleteByID_Call{Call: _e.mock.On("DeleteByID", ctx, id)}
+}
+
+func (_c *MockRepository_DeleteByID_Call) Run(run func(ctx context.Context, id string)) *MockRepository_DeleteByID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepository_DeleteByID_Call) Return(_a0 error) *MockRepository_DeleteByID_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRepository_DeleteByID_Call) RunAndReturn(run func(context.Context, string) error) *MockRepository_DeleteByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FetchByID provides a mock function with given fields: ctx, id
 func (_m *MockRepository) FetchByID(ctx context.Context, id string) (*sheet.Sheet, error) {
 	ret := _m.Called(ctx, id)
@@ -124,6 +171,65 @@ func (_c *MockRepository_FetchByID_Call) Return(_a0 *sheet.Sheet, _a1 error) *Mo
 }
 
 func (_c *MockRepository_FetchByID_Call) RunAndReturn(run func(context.Context, string) (*sheet.Sheet, error)) *MockRepository_FetchByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FetchByOwnerID provides a mock function with given fields: ctx, ownerID
+func (_m *MockRepository) FetchByOwnerID(ctx context.Context, ownerID string) (*sheet.Sheet, error) {
+	ret := _m.Called(ctx, ownerID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FetchByOwnerID")
+	}
+
+	var r0 *sheet.Sheet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*sheet.Sheet, error)); ok {
+		return rf(ctx, ownerID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *sheet.Sheet); ok {
+		r0 = rf(ctx, ownerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*sheet.Sheet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, ownerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_FetchByOwnerID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FetchByOwnerID'
+type MockRepository_FetchByOwnerID_Call struct {
+	*mock.Call
+}
+
+// FetchByOwnerID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ownerID string
+func (_e *MockRepository_Expecter) FetchByOwnerID(ctx interface{}, ownerID interface{}) *MockRepository_FetchByOwnerID_Call {
+	return &MockRepository_FetchByOwnerID_Call{Call: _e.mock.On("FetchByOwnerID", ctx, ownerID)}
+}
+
+func (_c *MockRepository_FetchByOwnerID_Call) Run(run func(ctx context.Context, ownerID string)) *MockRepository_FetchByOwnerID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepository_FetchByOwnerID_Call) Return(_a0 *sheet.Sheet, _a1 error) *MockRepository_FetchByOwnerID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_FetchByOwnerID_Call) RunAndReturn(run func(context.Context, string) (*sheet.Sheet, error)) *MockRepository_FetchByOwnerID_Call {
 	_c.Call.Return(run)
 	return _c
 }
