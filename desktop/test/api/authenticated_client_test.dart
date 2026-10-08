@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:legnaris/api/api_error.dart';
 import 'package:legnaris/api/authenticated_client.dart';
+import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/auth/auth_session.dart';
 
 /// In-memory [SessionDelegate] with an optional gate so a refresh can be held
@@ -19,6 +21,10 @@ class FakeSessionDelegate implements SessionDelegate {
 
   Completer<String?>? refreshGate;
 
+  /// Set to make [refresh] throw instead of returning, so a transient failure
+  /// can be told apart from a rejection.
+  Object? refreshError;
+
   @override
   String? currentAccessToken() => accessToken;
 
@@ -28,6 +34,10 @@ class FakeSessionDelegate implements SessionDelegate {
     final gate = refreshGate;
     if (gate != null) {
       return gate.future;
+    }
+    final error = refreshError;
+    if (error != null) {
+      throw error;
     }
     return refreshedToken;
   }
@@ -170,6 +180,41 @@ void main() {
       expect(response.statusCode, 401);
       expect(session.refreshCalls, 1);
       expect(session.unauthorizedCalls, 1);
+      expect(recorded, hasLength(1), reason: 'no replay after a failed refresh');
+    });
+
+    test('Error: a transient refresh failure propagates and does not force a logout', () async {
+      final recorded = <http.Request>[];
+      final session = FakeSessionDelegate(accessToken: 'access-1')
+        ..refreshError = const ApiDomainException(
+          message: 'transport failure',
+          kind: ApiErrorKind.offline,
+        );
+      final client = clientWith(
+        session,
+        (request) async => http.Response(
+          '{"error": {"code": "UNAUTHORIZED", "message": "expired"}}',
+          401,
+        ),
+        recorded,
+      );
+
+      await expectLater(
+        client.get(protectedUri),
+        throwsA(
+          isA<ApiDomainException>().having(
+            (error) => error.kind,
+            'kind',
+            ApiErrorKind.offline,
+          ),
+        ),
+      );
+      expect(session.refreshCalls, 1);
+      expect(
+        session.unauthorizedCalls,
+        0,
+        reason: 'a transient failure is not a rejection',
+      );
       expect(recorded, hasLength(1), reason: 'no replay after a failed refresh');
     });
 

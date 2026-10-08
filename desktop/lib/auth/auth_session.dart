@@ -1,3 +1,4 @@
+import 'package:legnaris/api/api_error.dart';
 import 'package:legnaris/api/auth_api_client.dart';
 import 'package:legnaris/auth/secure_token_store.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -33,7 +34,9 @@ abstract interface class SessionDelegate {
   String? currentAccessToken();
 
   /// Exchanges the stored refresh token for a fresh access token and returns
-  /// it, or null when the refresh was rejected.
+  /// it, or null when the refresh was rejected with a 401. A transient failure
+  /// (offline, 5xx, contract drift) is rethrown so the caller keeps the session
+  /// and can retry instead of forcing a logout.
   Future<String?> refresh();
 
   /// Forces the session back to unauthenticated and clears the stored token.
@@ -58,7 +61,9 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
 
   /// Restores a stored session by exchanging the refresh token without
   /// prompting (FE6-01). With no stored token it stays unauthenticated and
-  /// issues no request.
+  /// issues no request. A transient refresh failure keeps the stored token for
+  /// the next launch and falls back to the auth screen for this run, instead of
+  /// forcing a logout (FE6-06, FE6-09).
   Future<void> restore() async {
     final stored = await _store.read();
     if (stored == null || stored.isEmpty) {
@@ -67,9 +72,14 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
       return;
     }
     state = const AuthAuthenticating();
-    final token = await refresh();
-    if (token == null) {
-      await onUnauthorized();
+    try {
+      final token = await refresh();
+      if (token == null) {
+        await onUnauthorized();
+      }
+    } catch (_) {
+      _accessToken = null;
+      state = const AuthUnauthenticated();
     }
   }
 
@@ -129,9 +139,26 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
       }
       await _apply(pair);
       return pair.accessToken;
-    } catch (_) {
-      return null;
+    } catch (error) {
+      if (_isRejected(error)) {
+        return null;
+      }
+      rethrow;
     }
+  }
+
+  /// True when [error] is a definitive rejection of the refresh token, so the
+  /// session must end. The backend answers a revoked, reused or expired token
+  /// with a 401; an offline failure, a 5xx or contract drift is transient and
+  /// must not destroy the stored token (FE6-06, FE6-09).
+  bool _isRejected(Object error) {
+    if (error is ApiDomainException) {
+      return error.statusCode == 401;
+    }
+    if (error is ApiParseException) {
+      return error.statusCode == 401;
+    }
+    return false;
   }
 
   @override

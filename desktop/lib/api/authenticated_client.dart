@@ -5,8 +5,9 @@ import 'package:legnaris/auth/auth_session.dart' show SessionDelegate;
 ///
 /// It attaches `Authorization: Bearer <access>`, refreshes exactly once on a
 /// protected `401` and replays that request once. Concurrent `401`s share a
-/// single refresh. `/auth/*` and `/health` are never authenticated or retried
-/// (FE6-08 … FE6-12).
+/// single refresh. A rejected refresh (401) forces a logout; a transient
+/// refresh failure propagates so the session is kept. `/auth/*` and `/health`
+/// are never authenticated or retried (FE6-08 … FE6-12).
 class AuthenticatedClient extends http.BaseClient {
   AuthenticatedClient({
     required this._inner,

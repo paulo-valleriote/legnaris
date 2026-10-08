@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_error.dart';
 import 'package:legnaris/api/auth_api_client.dart';
+import 'package:legnaris/api/authenticated_client.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/auth/secure_token_store.dart';
@@ -21,6 +24,8 @@ void main() {
       '{"data": {"access_token": "access-2", "refresh_token": "refresh-2", "token_type": "Bearer", "expires_in": 900}}';
   const unauthorizedBody =
       '{"error": {"code": "UNAUTHORIZED", "message": "invalid refresh token"}}';
+  const serverErrorBody =
+      '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}';
 
   ProviderContainer containerWith({
     required http.Client authTransport,
@@ -305,6 +310,123 @@ void main() {
       final session = container.read(authSessionProvider.notifier);
 
       expect(await session.refresh(), isNull);
+    });
+  });
+
+  group('transient refresh failure keeps the session (FE6-06, FE6-09)', () {
+    test('Error: a 5xx refresh rethrows and keeps the stored token', () async {
+      final store = InMemorySecureTokenStore(token: 'stored-refresh');
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient(
+          (request) async => http.Response(serverErrorBody, 500),
+        ),
+      );
+      final session = container.read(authSessionProvider.notifier);
+
+      await expectLater(
+        session.refresh(),
+        throwsA(
+          isA<ApiDomainException>().having(
+            (error) => error.kind,
+            'kind',
+            ApiErrorKind.serverError,
+          ),
+        ),
+      );
+      expect(
+        store.token,
+        'stored-refresh',
+        reason: 'a transient failure does not clear the stored token',
+      );
+      expect(container.read(authSessionProvider), isA<AuthUnauthenticated>());
+    });
+
+    test('Error: a transport refresh failure rethrows as offline and keeps the stored token', () async {
+      final store = InMemorySecureTokenStore(token: 'stored-refresh');
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient(
+          (request) async => throw const SocketException('unreachable'),
+        ),
+      );
+      final session = container.read(authSessionProvider.notifier);
+
+      await expectLater(
+        session.refresh(),
+        throwsA(
+          isA<ApiDomainException>().having(
+            (error) => error.kind,
+            'kind',
+            ApiErrorKind.offline,
+          ),
+        ),
+      );
+      expect(store.token, 'stored-refresh');
+    });
+
+    test('Edge: restore keeps the stored token when the refresh fails transiently', () async {
+      final store = InMemorySecureTokenStore(token: 'stored-refresh');
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient(
+          (request) async => http.Response(serverErrorBody, 500),
+        ),
+      );
+      final session = container.read(authSessionProvider.notifier);
+
+      await session.restore();
+
+      expect(container.read(authSessionProvider), isA<AuthUnauthenticated>());
+      expect(
+        store.token,
+        'stored-refresh',
+        reason: 'the token survives for the next launch',
+      );
+    });
+
+    test('Error: a 5xx refresh during a protected call keeps the session and surfaces offline', () async {
+      final store = InMemorySecureTokenStore();
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient((request) async {
+          if (request.url.path == '/auth/refresh') {
+            return http.Response(serverErrorBody, 500);
+          }
+          return http.Response(pairBody, 200);
+        }),
+      );
+      final session = container.read(authSessionProvider.notifier);
+      await session.login(
+        email: 'player@example.com',
+        password: 'sup3r-secret',
+      );
+
+      final client = ApiClient(
+        httpClient: AuthenticatedClient(
+          session: session,
+          inner: MockClient(
+            (request) async => http.Response(unauthorizedBody, 401),
+          ),
+        ),
+      );
+
+      await expectLater(
+        client.getMySheet(),
+        throwsA(
+          isA<ApiDomainException>().having(
+            (error) => error.kind,
+            'kind',
+            ApiErrorKind.offline,
+          ),
+        ),
+      );
+      expect(container.read(authSessionProvider), isA<AuthAuthenticated>());
+      expect(
+        store.token,
+        'refresh-1',
+        reason: 'the session and the stored token are kept',
+      );
     });
   });
 }
