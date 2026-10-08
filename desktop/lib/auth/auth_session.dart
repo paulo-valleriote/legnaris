@@ -55,6 +55,10 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
   /// cannot restore the session afterwards (FE6-19).
   int _version = 0;
 
+  /// Shared in-flight logout: concurrent activations return this future
+  /// instead of starting a second teardown (DATA-08).
+  Future<void>? _logoutInFlight;
+
   @override
   AuthState build() => const AuthUnauthenticated();
 
@@ -174,7 +178,27 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
 
   /// Ends the session: best-effort `/auth/logout`, clear storage, reset state
   /// (FE6-07). A failed logout call never blocks the local reset.
-  Future<void> logout() async {
+  ///
+  /// Single-flight (DATA-08): the in-flight guard is set synchronously, before
+  /// the body's first `await` can yield to a second activation in the same
+  /// frame, so at most one `/auth/logout` is issued per logout and every
+  /// caller waits on the same teardown. The guard clears on completion, so a
+  /// later logout runs a fresh teardown.
+  Future<void> logout() {
+    final existing = _logoutInFlight;
+    if (existing != null) {
+      return existing;
+    }
+    final future = _doLogout();
+    _logoutInFlight = future;
+    return future.whenComplete(() {
+      if (identical(_logoutInFlight, future)) {
+        _logoutInFlight = null;
+      }
+    });
+  }
+
+  Future<void> _doLogout() async {
     final stored = await _store.read();
     _version++;
     _accessToken = null;

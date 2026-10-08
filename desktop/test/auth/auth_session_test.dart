@@ -320,6 +320,74 @@ void main() {
     });
   });
 
+  group('single-flight logout (DATA-08)', () {
+    test('Edge: two logout calls in the same frame issue one request and share the teardown (DATA-08)', () async {
+      final recorded = <http.Request>[];
+      final logoutCompleter = Completer<http.Response>();
+      final store = InMemorySecureTokenStore();
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient((request) async {
+          recorded.add(request);
+          if (request.url.path == '/auth/logout') {
+            return logoutCompleter.future;
+          }
+          return http.Response(pairBody, 200);
+        }),
+      );
+      final session = container.read(authSessionProvider.notifier);
+      await session.login(email: 'player@example.com', password: 'sup3r-secret');
+
+      final first = session.logout();
+      final second = session.logout();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        recorded.where((request) => request.url.path == '/auth/logout').length,
+        1,
+        reason: 'the second activation shares the in-flight teardown',
+      );
+      logoutCompleter.complete(http.Response('', 204));
+      await Future.wait([first, second]);
+
+      expect(
+        recorded.where((request) => request.url.path == '/auth/logout').length,
+        1,
+      );
+      expect(container.read(authSessionProvider), isA<AuthUnauthenticated>());
+      expect(session.currentAccessToken(), isNull);
+      expect(store.token, isNull, reason: 'both callers completed after the same teardown');
+    });
+
+    test('Happy path: a logout after the first completes issues a new request (DATA-08)', () async {
+      final recorded = <http.Request>[];
+      final store = InMemorySecureTokenStore();
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient((request) async {
+          recorded.add(request);
+          if (request.url.path == '/auth/logout') {
+            return http.Response('', 204);
+          }
+          return http.Response(pairBody, 200);
+        }),
+      );
+      final session = container.read(authSessionProvider.notifier);
+      await session.login(email: 'player@example.com', password: 'sup3r-secret');
+
+      await session.logout();
+      await session.login(email: 'player@example.com', password: 'sup3r-secret');
+      await session.logout();
+
+      expect(
+        recorded.where((request) => request.url.path == '/auth/logout').length,
+        2,
+        reason: 'the guard clears once the first logout completes',
+      );
+      expect(container.read(authSessionProvider), isA<AuthUnauthenticated>());
+      expect(store.token, isNull);
+    });
+  });
+
   group('transient refresh failure keeps the session (FE6-06, FE6-09)', () {
     test('Error: a 5xx refresh rethrows and keeps the stored token', () async {
       final store = InMemorySecureTokenStore(token: 'stored-refresh');

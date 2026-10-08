@@ -288,11 +288,11 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] Two `logout()` calls in the same frame issue exactly one `POST /auth/logout` (counted on the mock auth client) and both callers complete after the same teardown
-- [ ] A later logout after the first completes issues a new request (the guard clears)
-- [ ] Unit tests: double activation → one request; sequential activations → two requests
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] Two `logout()` calls in the same frame issue exactly one `POST /auth/logout` (counted on the mock auth client) and both callers complete after the same teardown
+- [x] A later logout after the first completes issues a new request (the guard clears)
+- [x] Unit tests: double activation → one request; sequential activations → two requests
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: unit
 **Gate**: full
