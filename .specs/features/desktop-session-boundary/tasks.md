@@ -230,11 +230,11 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] `clearAll()` deletes all stored backups; subsequent `read()` returns null for each id
-- [ ] Missing `drafts/` directory is a no-op; a subdirectory entry is skipped; a `drafts` path that exists as a file never throws (listing failure swallowed)
-- [ ] Unit tests cover happy path + those three edges
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] `clearAll()` deletes all stored backups; subsequent `read()` returns null for each id
+- [x] Missing `drafts/` directory is a no-op; a subdirectory entry is skipped; a `drafts` path that exists as a file never throws (listing failure swallowed)
+- [x] Unit tests cover happy path + those three edges
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: unit
 **Gate**: full

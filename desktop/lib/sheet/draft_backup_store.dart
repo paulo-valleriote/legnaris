@@ -32,8 +32,9 @@ class DraftBackupException implements Exception {
 ///
 /// `read` never throws: a missing, corrupt, newer-version file or an invalid
 /// sheet id resolves to null so the caller seeds cleanly from the stored sheet
-/// (DRB-12). `delete` is best-effort (DRB-14), and an invalid sheet id is a
-/// no-op there too. Only `write` surfaces a failure, as [DraftBackupException].
+/// (DRB-12). `delete` and `clearAll` are best-effort (DRB-14), and an invalid
+/// sheet id is a no-op there too. Only `write` surfaces a failure, as
+/// [DraftBackupException].
 class DraftBackupStore {
   DraftBackupStore({
     required this.directory,
@@ -140,6 +141,28 @@ class DraftBackupStore {
       }
     } on FileSystemException {
       // Best-effort: a failed delete never blocks the caller.
+    }
+  }
+
+  /// Deletes every stored backup under `drafts/` best-effort, so the
+  /// session-end sweep never throws (DATA-01, DATA-03): a missing `drafts`
+  /// directory — or a `drafts` path that exists as a file — is a no-op,
+  /// non-file entries are skipped, and a failing file never blocks the rest
+  /// of the sweep.
+  void clearAll() {
+    final List<FileSystemEntity> entries;
+    try {
+      entries = _draftsDirectory.listSync();
+    } on FileSystemException {
+      return;
+    }
+    for (final entry in entries) {
+      if (entry is! File) continue;
+      try {
+        entry.deleteSync();
+      } on FileSystemException {
+        // Best-effort: one failing file never blocks the sweep.
+      }
     }
   }
 }

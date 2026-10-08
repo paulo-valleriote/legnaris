@@ -142,4 +142,54 @@ void main() {
     );
     expect(Directory('${root.path}/drafts').existsSync(), isFalse);
   });
+
+  test('Happy path: clearAll deletes every stored backup and read returns null for each (DATA-01)', () {
+    const otherId = 'abcdefab-cdef-7000-8000-abcdefabcdef';
+    final store = newStore();
+    store.write(sheetId, {'stats': {'dexterity': 16}});
+    store.write(otherId, {'config': {'acUsesDex': 1}});
+    expect(store.read(sheetId), isNotNull);
+    expect(store.read(otherId), isNotNull);
+
+    store.clearAll();
+
+    expect(store.read(sheetId), isNull);
+    expect(store.read(otherId), isNull);
+    final files = Directory('${root.path}/drafts')
+        .listSync()
+        .whereType<File>()
+        .toList();
+    expect(files, isEmpty);
+  });
+
+  test('Edge: clearAll on a missing drafts directory is a no-op (DATA-03)', () {
+    final store = newStore();
+
+    expect(store.clearAll, returnsNormally);
+    expect(Directory('${root.path}/drafts').existsSync(), isFalse);
+    expect(store.read(sheetId), isNull);
+  });
+
+  test('Edge: clearAll skips a subdirectory entry and still deletes the files (DATA-03)', () {
+    final store = newStore();
+    store.write(sheetId, {'stats': {'dexterity': 16}});
+    final nested = Directory('${root.path}/drafts/keep-me')
+      ..createSync(recursive: true);
+    final nestedFile = File('${nested.path}/nested.json')
+      ..writeAsStringSync('{}');
+
+    store.clearAll();
+
+    expect(store.read(sheetId), isNull);
+    expect(nested.existsSync(), isTrue, reason: 'non-file entries are skipped');
+    expect(nestedFile.existsSync(), isTrue);
+  });
+
+  test('Edge: a drafts path that exists as a file never throws (DATA-03)', () {
+    final draftsPath = '${root.path}/drafts';
+    final blocker = File(draftsPath)..writeAsStringSync('not a directory');
+
+    expect(newStore().clearAll, returnsNormally);
+    expect(blocker.existsSync(), isTrue);
+  });
 }
