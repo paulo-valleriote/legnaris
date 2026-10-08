@@ -123,10 +123,10 @@ T7 -> T9
 
 **Done when**:
 
-- [ ] `register`, `login`, `refresh`, `logout` return the decoded `TokenPair`/user or a mapped domain error
-- [ ] `refresh`/`logout` send the token in the `X-Refresh-Token` header and never a cookie
-- [ ] Unit tests cover each endpoint's success and the mapped failure cases
-- [ ] Gate check passes: `flutter test test/api/`
+- [x] `register`, `login`, `refresh`, `logout` return the decoded `TokenPair`/user or a mapped domain error
+- [x] `refresh`/`logout` send the token in the `X-Refresh-Token` header and never a cookie
+- [x] Unit tests cover each endpoint's success and the mapped failure cases
+- [x] Gate check passes: `flutter test test/api/`
 
 **Tests**: unit
 **Gate**: quick

@@ -132,14 +132,14 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | -------------- | ----- | ----- | ------- |
 | FE6-01 | P1: Session and token lifecycle | Design | Pending |
 | FE6-02 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-03 | P1: Session and token lifecycle | Design | Pending |
+| FE6-03 | P1: Session and token lifecycle | Design | Implementing |
 | FE6-04 | P1: Session and token lifecycle | Design | Pending |
-| FE6-05 | P1: Session and token lifecycle | Design | Pending |
+| FE6-05 | P1: Session and token lifecycle | Design | Implementing |
 | FE6-06 | P1: Session and token lifecycle | Design | Pending |
-| FE6-07 | P1: Session and token lifecycle | Design | Pending |
+| FE6-07 | P1: Session and token lifecycle | Design | Implementing |
 | FE6-08 | P1: Authenticated transport | Design | Pending |
 | FE6-09 | P1: Authenticated transport | Design | Pending |
-| FE6-10 | P1: Authenticated transport | Design | Pending |
+| FE6-10 | P1: Authenticated transport | Design | Implementing |
 | FE6-11 | P1: Authenticated transport | Design | Pending |
 | FE6-12 | P1: Authenticated transport | Design | Pending |
 | FE6-13 | P1: Auth gate and single-sheet resolution | Design | Pending |
@@ -150,7 +150,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | FE6-18 | Edge: mid-session expiry | Design | Unmapped ⚠️ |
 | FE6-19 | Edge: logout vs in-flight request | Design | Unmapped ⚠️ |
 | FE6-20 | Edge: `GET /sheets` non-404 failure | Design | Unmapped ⚠️ |
-| FE6-21 | Edge: registration rejection | Design | Unmapped ⚠️ |
+| FE6-21 | Edge: registration rejection | Design | Implementing |
 
 **ID format:** `FE6-[NUMBER]`
 
