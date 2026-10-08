@@ -11,6 +11,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -63,6 +64,9 @@ bool draftAutoBackup(Ref ref, String sheetId) {
   }
 
   scheduler.start(() {
+    // Writer guard (DATA-01): a tick landing after the session ended must
+    // not resurrect a backup the session-end sweep just deleted.
+    if (ref.read(authSessionProvider) is! AuthAuthenticated) return;
     final delta = ref.read(sheetEditControllerProvider(sheetId)).pendingDelta;
     if (delta.isEmpty) return;
     try {

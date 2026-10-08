@@ -7,11 +7,16 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/api/auth_api_client.dart';
 import 'package:legnaris/api/models/sheet.dart';
+import 'package:legnaris/auth/auth_session.dart';
+import 'package:legnaris/auth/secure_token_store.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/sheet/draft_auto_backup.dart';
 import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
+
+import '../auth/fakes.dart';
 
 /// Tests for the draft auto-backup coordinator (DRB-01, DRB-02, DRB-03,
 /// DRB-05, DRB-13). Real temp-directory I/O keeps the writes verifiable, and
@@ -19,6 +24,8 @@ import 'package:legnaris/sheet/sheet_edit_provider.dart';
 /// waiting a real minute.
 void main() {
   const sheetId = '12345678-1234-7000-8000-123456789abc';
+  const pairBody =
+      '{"data": {"access_token": "access-1", "refresh_token": "refresh-1", "token_type": "Bearer", "expires_in": 900}}';
   const detailBody = '''
 {"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {
   "stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}, "constitution": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 12}}}},
@@ -47,6 +54,7 @@ void main() {
   ProviderContainer buildContainer({
     DraftBackupStore? store,
     bool autoDispose = true,
+    bool authenticated = true,
   }) {
     final container = ProviderContainer(
       overrides: [
@@ -60,6 +68,21 @@ void main() {
           ),
         ),
         openedSheetProvider.overrideWithValue(openedSheet()),
+        // The writer guard skips writes outside a live session (DATA-01), so
+        // the suite runs authenticated; `authenticated: false` hands back the
+        // real session for the session-end test to drive through login.
+        secureTokenStoreProvider.overrideWithValue(InMemorySecureTokenStore()),
+        authApiClientProvider.overrideWithValue(
+          AuthApiClient(
+            httpClient: MockClient(
+              (request) async => http.Response(pairBody, 200),
+            ),
+          ),
+        ),
+        if (authenticated)
+          authSessionProvider.overrideWithValue(
+            const AuthAuthenticated('access-test'),
+          ),
       ],
     );
     if (autoDispose) addTearDown(container.dispose);
@@ -288,6 +311,56 @@ void main() {
       reason: 'no write survives the disposal',
     );
   });
+
+  testWidgets(
+    'Error: a scheduler tick after the session ends writes no draft file (DATA-01)',
+    (tester) async {
+      final container = buildContainer(
+        autoDispose: false,
+        authenticated: false,
+      );
+      final subscriptions = <ProviderSubscription<bool>>[];
+      await container.read(authSessionProvider.notifier).login(
+        email: 'player@example.com',
+        password: 'sup3r-secret',
+      );
+      await activate(tester, container, subscriptions);
+      final notifier = container.read(
+        sheetEditControllerProvider(sheetId).notifier,
+      );
+      notifier.setPath('stats.dexterity', 18);
+      await tester.pump(Duration.zero);
+      expect(
+        container.read(sheetEditControllerProvider(sheetId)).isPending,
+        isTrue,
+      );
+
+      await tester.pump(const Duration(seconds: 60));
+      expect(
+        draftFile().existsSync(),
+        isTrue,
+        reason: 'while authenticated the tick writes the delta',
+      );
+
+      await container.read(authSessionProvider.notifier).onUnauthorized();
+      expect(
+        draftFile().existsSync(),
+        isFalse,
+        reason: 'the session-end sweep deletes the backup',
+      );
+
+      // The scheduler is still armed and pending edits survive, so a tick
+      // landing now would rewrite the swept file without the writer guard.
+      await tester.pump(const Duration(seconds: 60));
+      expect(
+        draftFile().existsSync(),
+        isFalse,
+        reason: 'DATA-01: a dead session never re-writes the swept backup',
+      );
+
+      release(container, subscriptions);
+    },
+  );
 }
 
 /// A store whose writes always fail, proving the coordinator swallows them.

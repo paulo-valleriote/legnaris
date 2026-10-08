@@ -346,11 +346,11 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] A scheduler tick after the session ends writes no draft file (asserted with a fake clock past the 60s interval after `onUnauthorized`)
-- [ ] A creation `201` completing after a forced logout does not `upsert` into the cleared library (asserted: library stays empty across the next session)
-- [ ] Both writers behave exactly as before while authenticated (existing draft-backup and creation tests pass)
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] A scheduler tick after the session ends writes no draft file (asserted with a fake clock past the 60s interval after `onUnauthorized`)
+- [x] A creation `201` completing after a forced logout does not `upsert` into the cleared library (asserted: library stays empty across the next session)
+- [x] Both writers behave exactly as before while authenticated (existing draft-backup and creation tests pass)
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: unit + widget
 **Gate**: full

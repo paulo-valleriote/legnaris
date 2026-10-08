@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
@@ -53,6 +54,12 @@ void main() {
       ProviderScope(
         overrides: [
           appSupportDirectoryProvider.overrideWithValue(supportDir),
+          // The created sheet only registers inside a live session
+          // (DATA-01 writer guard), matching the authenticated surface this
+          // flow runs on.
+          authSessionProvider.overrideWithValue(
+            const AuthAuthenticated('access-test'),
+          ),
           apiClientProvider.overrideWithValue(
             ApiClient(
               httpClient: MockClient((request) async {

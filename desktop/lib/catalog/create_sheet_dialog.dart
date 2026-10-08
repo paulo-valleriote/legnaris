@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/api_error.dart';
 import 'package:legnaris/api/models/sheet.dart';
+import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/catalog/template_detail_provider.dart';
 import 'package:legnaris/engine/field_grouping.dart';
 import 'package:legnaris/engine/sheet_defaults.dart';
@@ -128,11 +129,18 @@ class _CreateSheetDialogState extends ConsumerState<CreateSheetDialog> {
       _errorMessage = null;
     });
     final library = ref.read(sheetLibraryProvider.notifier);
+    // Captured while mounted: the session check below must also run when the
+    // dialog was dismissed mid-`POST` (CRT-03), where `ref` is no longer safe.
+    final container = ProviderScope.containerOf(context, listen: false);
     try {
       final sheet = await ref
           .read(apiClientProvider)
           .createSheet(templateId: widget.templateId, sheetName: name);
-      _registerInLibrary(library, sheet);
+      // Writer guard (DATA-01): a `201` landing after the session ended must
+      // not re-index into the library the session-end sweep just cleared.
+      if (container.read(authSessionProvider) is AuthAuthenticated) {
+        _registerInLibrary(library, sheet);
+      }
       if (!mounted) return;
       Navigator.of(context).pop(sheet);
     } catch (error) {

@@ -11,8 +11,11 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/api/auth_api_client.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/api/models/sheet.dart';
+import 'package:legnaris/auth/auth_session.dart';
+import 'package:legnaris/auth/secure_token_store.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
@@ -21,6 +24,8 @@ import 'package:legnaris/library/sheet_library_exception.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/library/sheet_library_store.dart';
 import 'package:legnaris/theme/app_theme.dart';
+
+import '../auth/fakes.dart';
 
 /// Widget tests for the creation surface content
 /// (TPL-01, TPL-02, TPL-04, TPL-11, TPL-12, TPL-13). Every asserted value comes
@@ -550,6 +555,8 @@ void main() {
         '{"data": {"id": "12345678-1234-7000-8000-123456789abc", "template_id": "fantasy_v1", "name": "Aragorn", "data": {"stats": {"dexterity": 16}}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
     const createServerErrorBody =
         '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}';
+    const pairBody =
+        '{"data": {"access_token": "access-1", "refresh_token": "refresh-1", "token_type": "Bearer", "expires_in": 900}}';
 
     ProviderContainer containerOf(WidgetTester tester) =>
         ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
@@ -563,11 +570,15 @@ void main() {
 
     /// Mounts the dialog over a minimal host that captures the popped sheet,
     /// with an isolated temp support directory so the real library store is
-    /// exercised without the `path_provider` channel.
+    /// exercised without the `path_provider` channel. The session runs
+    /// authenticated (the writer guard skips registration outside a live
+    /// session, DATA-01); `authenticated: false` hands back the real session
+    /// for a test to drive through login and forced logout.
     Future<({List<http.Request> recorded, Sheet? Function() popped})> pumpDialog(
       WidgetTester tester, {
       required Future<http.Response> Function(http.Request request) handler,
       SheetLibraryStore? store,
+      bool authenticated = true,
     }) async {
       final recorded = <http.Request>[];
       final supportDir = Directory.systemTemp.createTempSync('lgn109-dialog');
@@ -590,6 +601,20 @@ void main() {
                 }),
               ),
             ),
+            secureTokenStoreProvider.overrideWithValue(
+              InMemorySecureTokenStore(),
+            ),
+            authApiClientProvider.overrideWithValue(
+              AuthApiClient(
+                httpClient: MockClient(
+                  (request) async => http.Response(pairBody, 200),
+                ),
+              ),
+            ),
+            if (authenticated)
+              authSessionProvider.overrideWithValue(
+                const AuthAuthenticated('access-test'),
+              ),
           ],
           child: MaterialApp(
             theme: buildAppTheme(),
@@ -718,6 +743,68 @@ void main() {
         expect(entries.single.id, '12345678-1234-7000-8000-123456789abc');
         expect(entries.single.name, 'Aragorn');
         expect(postsOf(harness.recorded), hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'Error: a 201 landing after a forced logout does not re-index into the cleared library (DATA-01)',
+      (tester) async {
+        final gate = Completer<http.Response>();
+        final harness = await pumpDialog(
+          tester,
+          authenticated: false,
+          handler: (request) async => request.url.path == '/sheets'
+              ? gate.future
+              : http.Response(detailBody, 200),
+        );
+        final container = containerOf(tester);
+        await container.read(authSessionProvider.notifier).login(
+          email: 'player@example.com',
+          password: 'sup3r-secret',
+        );
+        await tester.pumpAndSettle();
+        expect(
+          container.read(authSessionProvider),
+          isA<AuthAuthenticated>(),
+          reason: 'precondition: the create runs inside a live session',
+        );
+        await typeName(tester, 'Aragorn');
+
+        await tester.tap(find.byKey(const Key('create-sheet-submit')));
+        await tester.pump();
+
+        await container.read(authSessionProvider.notifier).onUnauthorized();
+        await tester.pump();
+        expect(
+          container.read(authSessionProvider),
+          isA<AuthUnauthenticated>(),
+        );
+
+        gate.complete(http.Response(createdBody, 201));
+        await tester.pumpAndSettle();
+
+        expect(
+          harness.popped(),
+          isNotNull,
+          reason: 'the 201 itself succeeded — only the local write is skipped',
+        );
+        expect(
+          container.read(sheetLibraryProvider).entries,
+          isEmpty,
+          reason: 'DATA-01: the late 201 must not resurrect the cleared index',
+        );
+        expect(postsOf(harness.recorded), hasLength(1));
+
+        await container.read(authSessionProvider.notifier).login(
+          email: 'player@example.com',
+          password: 'sup3r-secret',
+        );
+        await tester.pumpAndSettle();
+        expect(
+          container.read(sheetLibraryProvider).entries,
+          isEmpty,
+          reason: 'the index stays empty across the next session',
+        );
       },
     );
 
