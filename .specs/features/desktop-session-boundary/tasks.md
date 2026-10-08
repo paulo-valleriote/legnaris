@@ -258,13 +258,13 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] Explicit logout clears the library file and every draft file by the time `logout()` completes (DATA-01) — asserted on disk in the widget logout suite (support dir seeded before logout)
-- [ ] Forced logout (`onUnauthorized`, transport-driven) sweeps the same way (DATA-02)
-- [ ] A failing library store never blocks logout and never skips the drafts sweep (DATA-03): logout completes, state is unauthenticated, drafts still cleared
-- [ ] Transient restore failure keeps stored token, library file, and drafts untouched (DATA-04)
-- [ ] No sweep on the no-stored-token first-launch path
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] Explicit logout clears the library file and every draft file by the time `logout()` completes (DATA-01) — asserted on disk in the widget logout suite (support dir seeded before logout)
+- [x] Forced logout (`onUnauthorized`, transport-driven) sweeps the same way (DATA-02)
+- [x] A failing library store never blocks logout and never skips the drafts sweep (DATA-03): logout completes, state is unauthenticated, drafts still cleared
+- [x] Transient restore failure keeps stored token, library file, and drafts untouched (DATA-04)
+- [x] No sweep on the no-stored-token first-launch path
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: unit + widget
 **Gate**: full

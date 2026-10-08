@@ -1,6 +1,8 @@
 import 'package:legnaris/api/api_error.dart';
 import 'package:legnaris/api/auth_api_client.dart';
 import 'package:legnaris/auth/secure_token_store.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/sheet/draft_backup_store.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'auth_session.g.dart';
@@ -167,6 +169,7 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
     _accessToken = null;
     await _store.clear();
     state = const AuthUnauthenticated();
+    _clearSessionLocalData();
   }
 
   /// Ends the session: best-effort `/auth/logout`, clear storage, reset state
@@ -177,6 +180,7 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
     _accessToken = null;
     await _store.clear();
     state = const AuthUnauthenticated();
+    _clearSessionLocalData();
     if (stored == null || stored.isEmpty) {
       return;
     }
@@ -184,6 +188,27 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
       await _authClient.logout(stored);
     } catch (_) {
       return;
+    }
+  }
+
+  /// Sweeps the session-local stores at a definitive session end (DATA-01,
+  /// DATA-02): the local library index and every draft backup belong to this
+  /// session only. Each store clears in its own `try/catch`, so a failing
+  /// library never skips the drafts sweep nor the logout itself (DATA-03).
+  /// Never called from the transient restore fallback, which keeps the files
+  /// (DATA-04). Synchronous right after the state flip — no `await` between —
+  /// so no response continuation or timer tick can interleave the pair
+  /// (design: sweep ordering).
+  void _clearSessionLocalData() {
+    try {
+      ref.read(sheetLibraryProvider.notifier).clear();
+    } catch (_) {
+      // Best-effort: a failing library never skips the drafts sweep.
+    }
+    try {
+      ref.read(draftBackupStoreProvider).clearAll();
+    } catch (_) {
+      // Best-effort: a failing drafts store never blocks the session end.
     }
   }
 

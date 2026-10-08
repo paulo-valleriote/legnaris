@@ -12,7 +12,11 @@ import 'package:legnaris/api/authenticated_client.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/auth/secure_token_store.dart';
+import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/library/sheet_library_store.dart';
 
+import '../library/library_fixtures.dart';
+import '../sheet/draft_fixtures.dart';
 import 'fakes.dart';
 
 void main() {
@@ -30,6 +34,7 @@ void main() {
   ProviderContainer containerWith({
     required http.Client authTransport,
     SecureTokenStore? store,
+    Directory? supportDir,
   }) {
     final container = ProviderContainer(
       overrides: [
@@ -39,6 +44,8 @@ void main() {
         authApiClientProvider.overrideWithValue(
           AuthApiClient(httpClient: authTransport),
         ),
+        if (supportDir != null)
+          appSupportDirectoryProvider.overrideWithValue(supportDir),
       ],
     );
     addTearDown(container.dispose);
@@ -427,6 +434,118 @@ void main() {
         'refresh-1',
         reason: 'the session and the stored token are kept',
       );
+    });
+  });
+
+  group('session-end local sweep (DATA-01 … DATA-04)', () {
+    late Directory supportDir;
+
+    setUp(() {
+      supportDir = Directory.systemTemp.createTempSync('auth_session_sweep_');
+      addTearDown(() => supportDir.deleteSync(recursive: true));
+      SheetLibraryStore(directory: supportDir).save([entry('sheet-1')]);
+      seedDraft(supportDir);
+    });
+
+    List<String> storedLibraryIds() => SheetLibraryStore(
+      directory: supportDir,
+    ).load().entries.map((stored) => stored.id).toList();
+
+    test('Happy path: logout sweeps the library index and every draft from disk (DATA-01)', () async {
+      final store = InMemorySecureTokenStore();
+      final container = containerWith(
+        store: store,
+        supportDir: supportDir,
+        authTransport: MockClient((request) async {
+          if (request.url.path == '/auth/logout') {
+            return http.Response('', 204);
+          }
+          return http.Response(pairBody, 200);
+        }),
+      );
+      final session = container.read(authSessionProvider.notifier);
+      await session.login(email: 'player@example.com', password: 'sup3r-secret');
+      expect(container.read(sheetLibraryProvider).entries, hasLength(1));
+
+      await session.logout();
+
+      expect(container.read(authSessionProvider), isA<AuthUnauthenticated>());
+      expect(container.read(sheetLibraryProvider).entries, isEmpty);
+      expect(
+        storedLibraryIds(),
+        isEmpty,
+        reason: 'the empty index lands on disk',
+      );
+      expect(draftFiles(supportDir), isEmpty, reason: 'every draft is gone');
+    });
+
+    test('Happy path: onUnauthorized sweeps the library index and every draft from disk (DATA-02)', () async {
+      final container = containerWith(
+        supportDir: supportDir,
+        authTransport: MockClient(
+          (request) async => http.Response(pairBody, 200),
+        ),
+      );
+      final session = container.read(authSessionProvider.notifier);
+      await session.login(email: 'player@example.com', password: 'sup3r-secret');
+      expect(container.read(sheetLibraryProvider).entries, hasLength(1));
+
+      await session.onUnauthorized();
+
+      expect(container.read(authSessionProvider), isA<AuthUnauthenticated>());
+      expect(container.read(sheetLibraryProvider).entries, isEmpty);
+      expect(storedLibraryIds(), isEmpty);
+      expect(draftFiles(supportDir), isEmpty);
+    });
+
+    test('Edge: logout completes even when the local stores cannot be reached (DATA-03)', () async {
+      // No appSupportDirectoryProvider override: both sweeps hit the throwing
+      // directory provider and must be swallowed.
+      final store = InMemorySecureTokenStore();
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient((request) async {
+          if (request.url.path == '/auth/logout') {
+            return http.Response('', 204);
+          }
+          return http.Response(pairBody, 200);
+        }),
+      );
+      final session = container.read(authSessionProvider.notifier);
+      await session.login(email: 'player@example.com', password: 'sup3r-secret');
+
+      await session.logout();
+
+      expect(container.read(authSessionProvider), isA<AuthUnauthenticated>());
+      expect(session.currentAccessToken(), isNull);
+      expect(store.token, isNull);
+    });
+
+    test('Edge: a transient restore failure keeps the token, the library and the drafts (DATA-04)', () async {
+      final store = InMemorySecureTokenStore(token: 'stored-refresh');
+      final container = containerWith(
+        store: store,
+        supportDir: supportDir,
+        authTransport: MockClient(
+          (request) async => http.Response(serverErrorBody, 500),
+        ),
+      );
+      final session = container.read(authSessionProvider.notifier);
+
+      await session.restore();
+
+      expect(container.read(authSessionProvider), isA<AuthUnauthenticated>());
+      expect(
+        store.token,
+        'stored-refresh',
+        reason: 'the token survives for the next launch',
+      );
+      expect(
+        storedLibraryIds(),
+        ['sheet-1'],
+        reason: 'the transient path never sweeps the library',
+      );
+      expect(draftFiles(supportDir), hasLength(1), reason: 'nor the drafts');
     });
   });
 }

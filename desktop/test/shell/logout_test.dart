@@ -14,12 +14,17 @@ import 'package:legnaris/auth/auth_screen.dart';
 import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/auth/secure_token_store.dart';
 import 'package:legnaris/connection/health_scheduler.dart';
+import 'package:legnaris/library/sheet_library_entry.dart';
+import 'package:legnaris/library/sheet_library_exception.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/library/sheet_library_store.dart';
 import 'package:legnaris/main.dart';
 import 'package:legnaris/shell/app_shell.dart';
 
 import '../auth/fakes.dart';
 import '../connection/manual_health_scheduler.dart';
+import '../library/library_fixtures.dart';
+import '../sheet/draft_fixtures.dart';
 
 void main() {
   const pairBody =
@@ -47,9 +52,14 @@ void main() {
     return http.Response('{"data": []}', 200);
   }
 
-  Future<({List<http.Request> auth, InMemorySecureTokenStore store})> pumpApp(
+  Future<({
+    List<http.Request> auth,
+    InMemorySecureTokenStore store,
+    Directory support,
+  })> pumpApp(
     WidgetTester tester, {
     Future<http.Response> Function(http.Request request)? authHandler,
+    SheetLibraryStore? libraryStore,
   }) async {
     final auth = <http.Request>[];
     final store = InMemorySecureTokenStore(token: 'stored-refresh');
@@ -63,6 +73,8 @@ void main() {
         overrides: [
           appSupportDirectoryProvider.overrideWithValue(supportDir),
           secureTokenStoreProvider.overrideWithValue(store),
+          if (libraryStore != null)
+            sheetLibraryStoreProvider.overrideWithValue(libraryStore),
           authApiClientProvider.overrideWithValue(
             AuthApiClient(
               httpClient: MockClient((request) async {
@@ -80,7 +92,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    return (auth: auth, store: store);
+    return (auth: auth, store: store, support: supportDir);
   }
 
   group('logout action (FE6-06, FE6-19)', () {
@@ -151,4 +163,82 @@ void main() {
       },
     );
   });
+
+  group('session-local data at logout (DATA-01, DATA-03)', () {
+    testWidgets(
+      'Happy path: logout clears the library file and every draft backup on disk (DATA-01)',
+      (tester) async {
+        final result = await pumpApp(tester);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        container.read(sheetLibraryProvider.notifier).upsert(entry('sheet-1'));
+        seedDraft(result.support);
+        expect(
+          SheetLibraryStore(directory: result.support).load().entries,
+          hasLength(1),
+        );
+        expect(draftFiles(result.support), hasLength(1));
+
+        await tester.tap(find.byKey(const Key('shell-logout')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(
+          SheetLibraryStore(directory: result.support).load().entries,
+          isEmpty,
+          reason: 'the empty index is what landed on disk',
+        );
+        expect(draftFiles(result.support), isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Error: a failing library store never blocks logout and never skips the drafts sweep (DATA-03)',
+      (tester) async {
+        final result = await pumpApp(
+          tester,
+          libraryStore: _FailingSaveStore(),
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        expect(container.read(sheetLibraryProvider).entries, hasLength(1));
+        seedDraft(result.support);
+
+        await tester.tap(find.byKey(const Key('shell-logout')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(container.read(authSessionProvider), isA<AuthUnauthenticated>());
+        expect(result.store.token, isNull);
+        expect(
+          container.read(sheetLibraryProvider).entries,
+          isEmpty,
+          reason: 'the in-memory clear lands even though the save failed',
+        );
+        expect(draftFiles(result.support), isEmpty, reason: 'the drafts sweep still ran');
+      },
+    );
+  });
+}
+
+/// A library store that loads one entry but fails every save, so the
+/// session-end sweep hits a real write failure (DATA-03).
+class _FailingSaveStore extends SheetLibraryStore {
+  _FailingSaveStore() : super(directory: Directory('/legnaris-fake'));
+
+  @override
+  LibraryLoadResult load() => LibraryLoadResult(
+    outcome: LibraryLoadOutcome.loaded,
+    entries: [entry('sheet-1')],
+  );
+
+  @override
+  void save(List<SheetLibraryEntry> entries) {
+    throw const SheetLibraryException(
+      SheetLibraryErrorKind.writeFailed,
+      'disk full',
+    );
+  }
 }

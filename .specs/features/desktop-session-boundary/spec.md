@@ -145,10 +145,10 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | NAV-06 | P1: The catalog is always reachable from Screen 2 | Design | Verified |
 | NAV-07 | P1: The catalog is always reachable from Screen 2 | Design | Verified |
 | NAV-08 | P1: The catalog is always reachable from Screen 2 | Design | Verified |
-| DATA-01 | P1: Session-local data does not survive the session | Design | In Tasks |
-| DATA-02 | P1: Session-local data does not survive the session | Design | In Tasks |
-| DATA-03 | P1: Session-local data does not survive the session | Design | In Tasks |
-| DATA-04 | P1: Session-local data does not survive the session | Design | In Tasks |
+| DATA-01 | P1: Session-local data does not survive the session | Design | Verified |
+| DATA-02 | P1: Session-local data does not survive the session | Design | Verified |
+| DATA-03 | P1: Session-local data does not survive the session | Design | Verified |
+| DATA-04 | P1: Session-local data does not survive the session | Design | Verified |
 | DATA-05 | P1: Session-local data does not survive the session | Design | In Tasks |
 | DATA-06 | P1: Session-local data does not survive the session | Design | In Tasks |
 | DATA-07 | P1: Session-local data does not survive the session | Design | In Tasks |

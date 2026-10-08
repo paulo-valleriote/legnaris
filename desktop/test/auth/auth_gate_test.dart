@@ -22,6 +22,7 @@ import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/connection/health_scheduler.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
+import 'package:legnaris/library/sheet_library_store.dart';
 import 'package:legnaris/main.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
@@ -32,6 +33,7 @@ import 'package:legnaris/theme/app_theme.dart';
 
 import '../connection/manual_health_scheduler.dart';
 import '../library/library_fixtures.dart';
+import '../sheet/draft_fixtures.dart';
 import 'fakes.dart';
 
 /// Records every `didPush` it receives, so tests can count the routes a
@@ -76,19 +78,26 @@ void main() {
     Future<http.Response> Function(http.Request request)? authHandler,
     ManualHealthScheduler? scheduler,
     List<NavigatorObserver> navigatorObservers = const [],
+    Directory? supportDir,
     bool settle = true,
   }) async {
     final domain = <http.Request>[];
     final auth = <http.Request>[];
-    final supportDir = Directory.systemTemp.createTempSync('lgn108-gate');
-    addTearDown(() => supportDir.deleteSync(recursive: true));
+    // A caller-passed directory is torn down by its own test; the default is
+    // owned here.
+    final ownsSupportDir = supportDir == null;
+    final support =
+        supportDir ?? Directory.systemTemp.createTempSync('lgn108-gate');
+    if (ownsSupportDir) {
+      addTearDown(() => support.deleteSync(recursive: true));
+    }
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          appSupportDirectoryProvider.overrideWithValue(supportDir),
+          appSupportDirectoryProvider.overrideWithValue(support),
           secureTokenStoreProvider.overrideWithValue(
             InMemorySecureTokenStore(token: storedToken),
           ),
@@ -509,12 +518,14 @@ void main() {
   /// can be rejected on demand through the returned setter, arming the
   /// transport-driven forced logout (NAV-03).
   Future<void Function()> pumpGateWithRejectableSession(
-    WidgetTester tester,
-  ) async {
+    WidgetTester tester, {
+    Directory? supportDir,
+  }) async {
     var reject = false;
     await pumpGate(
       tester,
       storedToken: 'stored-refresh',
+      supportDir: supportDir,
       authHandler: (request) async =>
           reject && request.url.path == '/auth/refresh'
           ? http.Response(unauthorizedBody, 401)
@@ -975,6 +986,97 @@ void main() {
           reason: 'the branch mount clears the surface the session inherited',
         );
         expect(find.byType(CatalogScreen), findsOneWidget);
+      },
+    );
+  });
+
+  group('session-local data at session end (DATA-02, DATA-04)', () {
+    late Directory support;
+
+    setUp(() {
+      support = Directory.systemTemp.createTempSync('lgn108-sweep');
+      addTearDown(() => support.deleteSync(recursive: true));
+    });
+
+    testWidgets(
+      'Error: a transport-driven forced logout sweeps the library and every draft (DATA-02)',
+      (tester) async {
+        final rejectSession = await pumpGateWithRejectableSession(
+          tester,
+          supportDir: support,
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        container.read(sheetLibraryProvider.notifier).upsert(entry('sheet-1'));
+        seedDraft(support);
+        await tester.pumpAndSettle();
+        expect(draftFiles(support), hasLength(1));
+
+        rejectSession();
+        await forceLogoutViaTransport(tester);
+
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(
+          SheetLibraryStore(directory: support).load().entries,
+          isEmpty,
+          reason: 'the forced logout sweeps the local index (DATA-02)',
+        );
+        expect(draftFiles(support), isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Edge: the no-stored-token first-launch path sweeps nothing',
+      (tester) async {
+        SheetLibraryStore(directory: support).save([entry('sheet-1')]);
+        seedDraft(support);
+
+        final requests = await pumpGate(tester, supportDir: support);
+
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(
+          requests.auth,
+          isEmpty,
+          reason: 'no restore runs without a stored token',
+        );
+        expect(
+          SheetLibraryStore(directory: support).load().entries,
+          hasLength(1),
+          reason: 'the first-launch path never sweeps local data',
+        );
+        expect(draftFiles(support), hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'Edge: a transient restore failure falls back to the auth screen keeping the token, the library and the drafts (DATA-04)',
+      (tester) async {
+        SheetLibraryStore(directory: support).save([entry('sheet-1')]);
+        seedDraft(support);
+
+        await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          supportDir: support,
+          authHandler: (request) async => http.Response(serverErrorBody, 500),
+        );
+
+        expect(find.byType(AuthScreen), findsOneWidget);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        expect(
+          await container.read(secureTokenStoreProvider).read(),
+          'stored-refresh',
+          reason: 'the token survives for the next launch (DATA-04)',
+        );
+        expect(
+          SheetLibraryStore(directory: support).load().entries,
+          hasLength(1),
+          reason: 'the transient path never sweeps the library',
+        );
+        expect(draftFiles(support), hasLength(1), reason: 'nor the drafts');
       },
     );
   });
