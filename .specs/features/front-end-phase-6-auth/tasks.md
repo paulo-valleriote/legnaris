@@ -260,11 +260,11 @@ T7 -> T9
 
 **Done when**:
 
-- [ ] Unauthenticated → only the auth screen renders; authenticated → the app shell renders
-- [ ] `main.dart` uses `AuthGate` as `home`; the public health indicator still polls
-- [ ] Existing widget tests are updated to override the session so `flutter test` stays green
-- [ ] Widget tests assert the gated render and the public health path
-- [ ] Gate check passes: `flutter analyze && flutter test`
+- [x] Unauthenticated → only the auth screen renders; authenticated → the app shell renders
+- [x] `main.dart` uses `AuthGate` as `home`; the public health indicator still polls
+- [x] Existing widget tests are updated to override the session so `flutter test` stays green
+- [x] Widget tests assert the gated render and the public health path
+- [x] Gate check passes: `flutter analyze && flutter test`
 
 **Tests**: widget
 **Gate**: build

@@ -8,7 +8,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/api/auth_api_client.dart';
 import 'package:legnaris/api/error_mapper.dart';
+import 'package:legnaris/auth/secure_token_store.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/connection/health_scheduler.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
@@ -16,9 +18,14 @@ import 'package:legnaris/main.dart';
 import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/shell/shell_state.dart';
 
+import 'auth/fakes.dart';
 import 'connection/manual_health_scheduler.dart';
 
 void main() {
+  const pairBody =
+      '{"data": {"access_token": "access-1", "refresh_token": "refresh-1", "token_type": "Bearer", "expires_in": 900}}';
+  const notFoundBody =
+      '{"error": {"code": "NOT_FOUND", "message": "none"}}';
   const oneTemplateBody =
       '{"data": [{"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {}}]}';
   const twoTemplatesBody = '''
@@ -47,10 +54,29 @@ void main() {
       ProviderScope(
         overrides: [
           appSupportDirectoryProvider.overrideWithValue(supportDir),
+          secureTokenStoreProvider.overrideWithValue(
+            InMemorySecureTokenStore(token: 'stored-refresh'),
+          ),
+          authApiClientProvider.overrideWithValue(
+            AuthApiClient(
+              httpClient: MockClient((request) async {
+                if (request.url.path == '/auth/refresh') {
+                  return http.Response(pairBody, 200);
+                }
+                return http.Response(
+                  '{"error": {"code": "UNAUTHORIZED", "message": "no"}}',
+                  401,
+                );
+              }),
+            ),
+          ),
           apiClientProvider.overrideWithValue(
             ApiClient(
               httpClient: MockClient((request) async {
                 recorded.add(request);
+                if (request.url.path == '/sheets') {
+                  return http.Response(notFoundBody, 404);
+                }
                 if (handler != null) return handler(request);
                 return http.Response(
                   request.url.path == '/templates'
@@ -108,6 +134,29 @@ void main() {
           overrides: [
             appSupportDirectoryProvider.overrideWithValue(supportDir),
             appTitleProvider.overrideWithValue('Legnaris (overridden)'),
+            secureTokenStoreProvider.overrideWithValue(
+              InMemorySecureTokenStore(),
+            ),
+            authApiClientProvider.overrideWithValue(
+              AuthApiClient(
+                httpClient: MockClient(
+                  (request) async => http.Response(pairBody, 200),
+                ),
+              ),
+            ),
+            apiClientProvider.overrideWithValue(
+              ApiClient(
+                httpClient: MockClient(
+                  (request) async => http.Response(
+                    request.url.path == '/health'
+                        ? '{"data": {"status": "healthy"}}'
+                        : '{"data": []}',
+                    200,
+                  ),
+                ),
+              ),
+            ),
+            healthSchedulerProvider.overrideWithValue(ManualHealthScheduler()),
           ],
           child: const LegnarisApp(),
         ),

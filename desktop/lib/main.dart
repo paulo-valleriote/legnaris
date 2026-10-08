@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:legnaris/catalog/catalog_screen.dart';
+import 'package:legnaris/auth/auth_gate.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
-import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/shell/shortcut_registry.dart';
 import 'package:legnaris/theme/app_theme.dart';
 import 'package:path_provider/path_provider.dart';
@@ -28,9 +27,9 @@ Future<void> main() async {
   );
 }
 
-/// The Legnaris desktop app: the shell mounted once with the catalog as its
-/// content, themed from `lib/theme/`, localized from the ARB files, and the
-/// central shortcut/action registry wired into [MaterialApp].
+/// The Legnaris desktop app: the auth gate as the root surface, themed from
+/// `lib/theme/`, localized from the ARB files, and the central
+/// shortcut/action registry wired into [MaterialApp].
 class LegnarisApp extends ConsumerWidget {
   const LegnarisApp({super.key});
 
@@ -44,7 +43,7 @@ class LegnarisApp extends ConsumerWidget {
       actions: appActions(ref),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: const AppShell(content: CatalogScreen()),
+      home: const AuthGate(),
     );
   }
 }
