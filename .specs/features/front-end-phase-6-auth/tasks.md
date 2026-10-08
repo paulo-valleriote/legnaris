@@ -315,10 +315,10 @@ T7 -> T9
 
 **Done when**:
 
-- [ ] Logout calls `/auth/logout`, clears storage, and the gate returns to the auth screen
-- [ ] A late in-flight response after logout does not restore the session
-- [ ] Widget tests cover logout and the late-response guard
-- [ ] Gate check passes: `flutter test test/shell/`
+- [x] Logout calls `/auth/logout`, clears storage, and the gate returns to the auth screen
+- [x] A late in-flight response after logout does not restore the session
+- [x] Widget tests cover logout and the late-response guard
+- [x] Gate check passes: `flutter test test/shell/`
 
 **Tests**: widget
 **Gate**: quick

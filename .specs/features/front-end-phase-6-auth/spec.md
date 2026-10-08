@@ -148,7 +148,7 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | FE6-16 | P1: Auth gate and single-sheet resolution | Design | Implementing |
 | FE6-17 | Edge: secure storage unavailable | Design | Implementing |
 | FE6-18 | Edge: mid-session expiry | Design | Implementing |
-| FE6-19 | Edge: logout vs in-flight request | Design | Unmapped ⚠️ |
+| FE6-19 | Edge: logout vs in-flight request | Design | Implementing |
 | FE6-20 | Edge: `GET /sheets` non-404 failure | Design | Implementing |
 | FE6-21 | Edge: registration rejection | Design | Implementing |
 
