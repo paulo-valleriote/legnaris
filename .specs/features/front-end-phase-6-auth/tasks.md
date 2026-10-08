@@ -150,11 +150,11 @@ T7 -> T9
 
 **Done when**:
 
-- [ ] `restore()` refreshes from stored token; login/register persist the refresh token and hold the access token in memory
-- [ ] A revoked-family refresh clears storage and returns the unauthenticated state
-- [ ] Logout calls `/auth/logout`, clears storage, and resets state
-- [ ] Unit tests cover restore, login, register, logout, revoked refresh, and storage failure
-- [ ] Gate check passes: `flutter test test/auth/`
+- [x] `restore()` refreshes from stored token; login/register persist the refresh token and hold the access token in memory
+- [x] A revoked-family refresh clears storage and returns the unauthenticated state
+- [x] Logout calls `/auth/logout`, clears storage, and resets state
+- [x] Unit tests cover restore, login, register, logout, revoked refresh, and storage failure
+- [x] Gate check passes: `flutter test test/auth/`
 
 **Tests**: unit
 **Gate**: quick

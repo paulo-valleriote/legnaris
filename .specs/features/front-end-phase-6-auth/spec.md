@@ -130,12 +130,12 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| FE6-01 | P1: Session and token lifecycle | Design | Pending |
+| FE6-01 | P1: Session and token lifecycle | Design | Implementing |
 | FE6-02 | P1: Session and token lifecycle | Design | Implementing |
 | FE6-03 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-04 | P1: Session and token lifecycle | Design | Pending |
+| FE6-04 | P1: Session and token lifecycle | Design | Implementing |
 | FE6-05 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-06 | P1: Session and token lifecycle | Design | Pending |
+| FE6-06 | P1: Session and token lifecycle | Design | Implementing |
 | FE6-07 | P1: Session and token lifecycle | Design | Implementing |
 | FE6-08 | P1: Authenticated transport | Design | Pending |
 | FE6-09 | P1: Authenticated transport | Design | Pending |
