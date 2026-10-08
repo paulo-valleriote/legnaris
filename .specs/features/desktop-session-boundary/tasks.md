@@ -403,12 +403,12 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] A `401` arriving after the session changed returns the original response without issuing a refresh and without replaying (the foreign request never executes as the new session)
-- [ ] A held refresh completing as `null` after the session changed does not call `onUnauthorized()` — the new session keeps its access and stored refresh token (SES-02, spec independent test)
-- [ ] Same-session rejection still forces the logout (existing FE6 forced-logout tests pass)
-- [ ] Concurrent `401`s still share one refresh within a session (existing FE6-11 test passes)
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`; last task also runs `make lint-specs` clean (every cited requirement ID defined)
-- [ ] Test count: full suite green, no silent deletions
+- [x] A `401` arriving after the session changed returns the original response without issuing a refresh and without replaying (the foreign request never executes as the new session)
+- [x] A held refresh completing as `null` after the session changed does not call `onUnauthorized()` — the new session keeps its access and stored refresh token (SES-02, spec independent test)
+- [x] Same-session rejection still forces the logout (existing FE6 forced-logout tests pass)
+- [x] Concurrent `401`s still share one refresh within a session (existing FE6-11 test passes)
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`; last task also runs `make lint-specs` clean (every cited requirement ID defined)
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: unit
 **Gate**: build

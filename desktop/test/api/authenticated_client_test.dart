@@ -11,10 +11,18 @@ import 'package:legnaris/auth/auth_session.dart';
 /// In-memory [SessionDelegate] with an optional gate so a refresh can be held
 /// in flight while concurrent `401`s arrive.
 class FakeSessionDelegate implements SessionDelegate {
-  FakeSessionDelegate({this.accessToken, this.refreshedToken});
+  FakeSessionDelegate({
+    this.accessToken,
+    this.refreshedToken,
+    this.storedRefreshToken,
+  });
 
   String? accessToken;
   String? refreshedToken;
+
+  /// The refresh token a real session keeps in secure storage; a real
+  /// `onUnauthorized()` clears it along with [accessToken].
+  String? storedRefreshToken;
 
   /// The session generation; tests bump it to end the session while a
   /// request or refresh is still in flight.
@@ -53,6 +61,7 @@ class FakeSessionDelegate implements SessionDelegate {
   Future<void> onUnauthorized() async {
     unauthorizedCalls++;
     accessToken = null;
+    storedRefreshToken = null;
   }
 }
 
@@ -60,6 +69,8 @@ void main() {
   final protectedUri = Uri.parse('https://api.legnaris.com.br/sheets');
   final healthUri = Uri.parse('https://api.legnaris.com.br/health');
   final loginUri = Uri.parse('https://api.legnaris.com.br/auth/login');
+  const unauthorizedBody =
+      '{"error": {"code": "UNAUTHORIZED", "message": "expired"}}';
 
   AuthenticatedClient clientWith(
     FakeSessionDelegate session,
@@ -284,6 +295,56 @@ void main() {
       expect(response.statusCode, 401);
       expect(session.refreshCalls, 0);
       expect(session.unauthorizedCalls, 0);
+    });
+  });
+
+  group('session-boundary guard (SES-02)', () {
+    test('Edge: a 401 arriving after the session changed returns the original response without refresh or replay (SES-02)', () async {
+      final recorded = <http.Request>[];
+      final sendGate = Completer<http.Response>();
+      final session = FakeSessionDelegate(accessToken: 'access-1');
+      final client = clientWith(session, (request) => sendGate.future, recorded);
+
+      final pending = client.get(protectedUri);
+      await Future<void>.delayed(Duration.zero);
+      session.version++;
+      sendGate.complete(http.Response(unauthorizedBody, 401));
+      final response = await pending;
+
+      expect(response.statusCode, 401);
+      expect(session.refreshCalls, 0, reason: 'the 401 belongs to a finished session');
+      expect(session.unauthorizedCalls, 0);
+      expect(recorded, hasLength(1), reason: 'the foreign request never executes as the new session');
+    });
+
+    test('Edge: a held refresh completing as null after the session changed does not force a logout (SES-02)', () async {
+      final recorded = <http.Request>[];
+      final session = FakeSessionDelegate(
+        accessToken: 'access-1',
+        refreshedToken: 'access-2',
+        storedRefreshToken: 'refresh-1',
+      )..refreshGate = Completer<String?>();
+      final client = clientWith(
+        session,
+        (request) async => http.Response(unauthorizedBody, 401),
+        recorded,
+      );
+
+      final pending = client.get(protectedUri);
+      await Future<void>.delayed(Duration.zero);
+      expect(session.refreshCalls, 1);
+
+      session.version++;
+      session.accessToken = 'access-b';
+      session.storedRefreshToken = 'refresh-b';
+      session.refreshGate!.complete(null);
+      final response = await pending;
+
+      expect(response.statusCode, 401);
+      expect(session.unauthorizedCalls, 0, reason: 'a stale rejection never forces a logout');
+      expect(session.accessToken, 'access-b', reason: "the new session's access token survives");
+      expect(session.storedRefreshToken, 'refresh-b', reason: "the new session's stored refresh token survives");
+      expect(recorded, hasLength(1), reason: 'no replay after a null refresh');
     });
   });
 }

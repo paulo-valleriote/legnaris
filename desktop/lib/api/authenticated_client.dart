@@ -8,6 +8,10 @@ import 'package:legnaris/auth/auth_session.dart' show SessionDelegate;
 /// single refresh. A rejected refresh (401) forces a logout; a transient
 /// refresh failure propagates so the session is kept. `/auth/*` and `/health`
 /// are never authenticated or retried (FE6-08 … FE6-12).
+///
+/// Auth responses whose session ended while the request or the refresh was in
+/// flight are dropped: no refresh, no replay, no forced logout, so a finished
+/// session never disturbs the one that replaced it (SES-02).
 class AuthenticatedClient extends http.BaseClient {
   AuthenticatedClient({
     required this._inner,
@@ -33,13 +37,25 @@ class AuthenticatedClient extends http.BaseClient {
       }
     }
 
+    final version = _session.sessionVersion();
     final response = await _inner.send(request);
     if (isPublic || response.statusCode != 401) {
+      return response;
+    }
+    if (_session.sessionVersion() != version) {
+      // The session changed while the request was in flight: this 401
+      // belongs to a finished session, so it gets neither a refresh nor a
+      // replay (SES-02).
       return response;
     }
 
     final token = await _refreshOnce();
     if (token == null) {
+      if (_session.sessionVersion() != version) {
+        // The refresh outlived the session it was started for: forcing a
+        // logout now would tear down the session that replaced it (SES-02).
+        return response;
+      }
       await _session.onUnauthorized();
       return response;
     }
