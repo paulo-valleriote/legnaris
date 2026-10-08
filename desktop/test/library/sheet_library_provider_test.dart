@@ -258,6 +258,69 @@ void main() {
 
     expect(emissions.last, ['id-1']);
   });
+
+  test('Happy path: clear empties memory, republishes, and writes an empty index to disk (DATA-01)', () {
+    final storeDir = Directory('${root.path}/support')
+      ..createSync(recursive: true);
+    final container = containerWith(SheetLibraryStore(directory: storeDir));
+    final emissions = <List<String>>[];
+    final subscription = container.listen(sheetLibraryProvider, (_, next) {
+      emissions.add(next.entries.map((stored) => stored.id).toList());
+    });
+    addTearDown(subscription.close);
+    final notifier = container.read(sheetLibraryProvider.notifier);
+    notifier.upsert(entry('id-1'));
+
+    notifier.clear();
+
+    expect(container.read(sheetLibraryProvider).entries, isEmpty);
+    expect(notifier.entryFor('id-1'), isNull);
+    expect(emissions.last, isEmpty, reason: 'the cleared index is republished');
+    expect(
+      File('${storeDir.path}/sheet_library.json').existsSync(),
+      isTrue,
+      reason: 'the empty index lands in the store file',
+    );
+    final reloaded = SheetLibraryStore(directory: storeDir).load();
+    expect(reloaded.outcome, LibraryLoadOutcome.loaded);
+    expect(reloaded.entries, isEmpty);
+  });
+
+  test('Edge: a typed save failure never escapes clear and memory is still emptied (DATA-03)', () {
+    final store = _FakeStore();
+    store.onLoad = () => LibraryLoadResult(
+      outcome: LibraryLoadOutcome.loaded,
+      entries: [entry('id-1')],
+    );
+    store.onSave = (entries) => throw const SheetLibraryException(
+      SheetLibraryErrorKind.writeFailed,
+      'disk full',
+    );
+    final container = containerWith(store);
+    final notifier = container.read(sheetLibraryProvider.notifier);
+
+    expect(notifier.clear, returnsNormally);
+
+    expect(store.saveCalls, 1);
+    expect(container.read(sheetLibraryProvider).entries, isEmpty);
+    expect(notifier.entryFor('id-1'), isNull);
+  });
+
+  test('Edge: an unexpected save failure is swallowed the same way (DATA-03)', () {
+    final store = _FakeStore();
+    store.onLoad = () => LibraryLoadResult(
+      outcome: LibraryLoadOutcome.loaded,
+      entries: [entry('id-1')],
+    );
+    store.onSave = (entries) => throw StateError('disk gone');
+    final container = containerWith(store);
+    final notifier = container.read(sheetLibraryProvider.notifier);
+
+    expect(notifier.clear, returnsNormally);
+
+    expect(container.read(sheetLibraryProvider).entries, isEmpty);
+    expect(notifier.entryFor('id-1'), isNull);
+  });
 }
 
 /// A store double: overrides [load]/[save] and never touches the filesystem.

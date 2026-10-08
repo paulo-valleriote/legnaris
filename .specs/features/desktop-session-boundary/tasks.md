@@ -202,11 +202,11 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] `clear()` empties memory (`entryFor` returns null, `entries` empty) and writes `[]` to `sheet_library.json`
-- [ ] A `save` failure is swallowed — `clear()` never throws (DATA-03)
-- [ ] Unit tests: happy path (memory + disk), edge: store save throws → no exception, memory still cleared
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] `clear()` empties memory (`entryFor` returns null, `entries` empty) and writes `[]` to `sheet_library.json`
+- [x] A `save` failure is swallowed — `clear()` never throws (DATA-03)
+- [x] Unit tests: happy path (memory + disk), edge: store save throws → no exception, memory still cleared
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: unit
 **Gate**: full

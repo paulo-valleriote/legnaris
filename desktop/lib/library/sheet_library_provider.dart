@@ -93,6 +93,22 @@ class SheetLibrary extends _$SheetLibrary {
     return null;
   }
 
+  /// Empties the in-memory index and republishes it, then best-effort
+  /// persists the empty index at session end (DATA-01). Unlike the mutation
+  /// paths, a failing save is swallowed here: the sweep must never block the
+  /// session teardown (DATA-03), so the cleared memory is the guaranteed
+  /// outcome and the file write is a bonus.
+  void clear() {
+    _insertionOrder = <SheetLibraryEntry>[];
+    state = _publish(state.outcome);
+    try {
+      ref.read(sheetLibraryStoreProvider).save(const <SheetLibraryEntry>[]);
+    } catch (_) {
+      // Best-effort: memory is already cleared; a failed sweep never blocks
+      // the caller (DATA-03).
+    }
+  }
+
   SheetLibraryState _publish(LibraryLoadOutcome outcome) => SheetLibraryState(
     entries: List.unmodifiable(_sorted()),
     outcome: outcome,
