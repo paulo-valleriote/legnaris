@@ -75,6 +75,10 @@ abstract final class AppSizes {
   /// Fixed width of a catalog card.
   static const double catalogCardMinWidth = 280;
 
+  /// Readable measure of the auth form column, so the login fields never
+  /// stretch across a wide desktop window.
+  static const double authFormMaxWidth = 360;
+
   /// Width of the form control column on the sheet screen (Tela 2), so
   /// editable inputs and read-only values share one alignment (RND-06 … RND-10).
   static const double fieldControlWidth = 160;

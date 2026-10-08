@@ -233,10 +233,10 @@ T7 -> T9
 
 **Done when**:
 
-- [ ] Both modes submit through `AuthSession`; errors render the mapped message and keep the entered fields
-- [ ] The primary action disables while pending; strings go through l10n in both locales
-- [ ] Widget tests cover both modes, the mapped error, and the pending state
-- [ ] Gate check passes: `flutter test test/auth/`
+- [x] Both modes submit through `AuthSession`; errors render the mapped message and keep the entered fields
+- [x] The primary action disables while pending; strings go through l10n in both locales
+- [x] Widget tests cover both modes, the mapped error, and the pending state
+- [x] Gate check passes: `flutter test test/auth/`
 
 **Tests**: widget
 **Gate**: quick
