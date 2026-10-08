@@ -74,6 +74,14 @@
 - **Date**: 2026-10-05
 - **Status**: active
 
+### AD-010
+- **Decision**: The session is the desktop app's boundary for navigation, local data, and in-flight auth work: the `AuthGate` authenticated branch mounts its own `Navigator` (every authenticated route and dialog — `showDialog(useRootNavigator: false)` — lives inside it), local session data (sheet-library index + draft backups) is swept synchronously right after the state flip in `logout()` and `onUnauthorized()` only, and `AuthSession` exposes a session-version counter (bumped at login/register/logout/forced logout, never on refresh apply) that `AuthenticatedClient` checks before refreshing a `401` or forcing a logout.
+- **Reason**: routes pushed on the app-root navigator and modal dialogs hosted there survived account switches (bugs 1/2 of LGN-88 manual QA), a state-transition listener cannot tell a definitive session end from the transient restore fallback, and token comparison breaks concurrent-`401` refresh sharing after a rotation while a boundary-only version does not.
+- **Trade-off**: future authenticated-surface code must opt into the branch (`useRootNavigator: false`, push via the nearest navigator) instead of framework defaults; `AuthSession` now knows about the library and draft stores; the transport contract grows one method (`sessionVersion()`).
+- **Scope**: desktop/ — `lib/auth/` (gate, session), `lib/api/authenticated_client.dart`, `lib/shell/`, `lib/catalog/`, `lib/sheet/`, `lib/library/`. Any future desktop screen, dialog, or session-local store must respect the boundary.
+- **Date**: 2026-10-08
+- **Status**: active
+
 ## Handoff
 
 - **Feature**: `lgn-7-ownership` (Fase 2 backend, LGN-19/20/21/22) — COMPLETE, validation PASS ✅.
