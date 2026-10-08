@@ -130,27 +130,27 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| FE6-01 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-02 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-03 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-04 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-05 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-06 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-07 | P1: Session and token lifecycle | Design | Implementing |
-| FE6-08 | P1: Authenticated transport | Design | Implementing |
-| FE6-09 | P1: Authenticated transport | Design | Implementing |
-| FE6-10 | P1: Authenticated transport | Design | Implementing |
-| FE6-11 | P1: Authenticated transport | Design | Implementing |
-| FE6-12 | P1: Authenticated transport | Design | Implementing |
-| FE6-13 | P1: Auth gate and single-sheet resolution | Design | Implementing |
-| FE6-14 | P1: Auth gate and single-sheet resolution | Design | Implementing |
-| FE6-15 | P1: Auth gate and single-sheet resolution | Design | Implementing |
-| FE6-16 | P1: Auth gate and single-sheet resolution | Design | Implementing |
-| FE6-17 | Edge: secure storage unavailable | Design | Implementing |
-| FE6-18 | Edge: mid-session expiry | Design | Implementing |
-| FE6-19 | Edge: logout vs in-flight request | Design | Implementing |
-| FE6-20 | Edge: `GET /sheets` non-404 failure | Design | Implementing |
-| FE6-21 | Edge: registration rejection | Design | Implementing |
+| FE6-01 | P1: Session and token lifecycle | Design | ✅ Verified |
+| FE6-02 | P1: Session and token lifecycle | Design | ✅ Verified |
+| FE6-03 | P1: Session and token lifecycle | Design | ✅ Verified |
+| FE6-04 | P1: Session and token lifecycle | Design | ✅ Verified |
+| FE6-05 | P1: Session and token lifecycle | Design | ✅ Verified |
+| FE6-06 | P1: Session and token lifecycle | Design | ✅ Verified |
+| FE6-07 | P1: Session and token lifecycle | Design | ✅ Verified |
+| FE6-08 | P1: Authenticated transport | Design | ✅ Verified |
+| FE6-09 | P1: Authenticated transport | Design | ✅ Verified |
+| FE6-10 | P1: Authenticated transport | Design | ✅ Verified |
+| FE6-11 | P1: Authenticated transport | Design | ✅ Verified |
+| FE6-12 | P1: Authenticated transport | Design | ✅ Verified |
+| FE6-13 | P1: Auth gate and single-sheet resolution | Design | ✅ Verified |
+| FE6-14 | P1: Auth gate and single-sheet resolution | Design | ✅ Verified |
+| FE6-15 | P1: Auth gate and single-sheet resolution | Design | ✅ Verified |
+| FE6-16 | P1: Auth gate and single-sheet resolution | Design | ✅ Verified |
+| FE6-17 | Edge: secure storage unavailable | Design | ✅ Verified |
+| FE6-18 | Edge: mid-session expiry | Design | ✅ Verified |
+| FE6-19 | Edge: logout vs in-flight request | Design | ✅ Verified |
+| FE6-20 | Edge: `GET /sheets` non-404 failure | Design | ✅ Verified |
+| FE6-21 | Edge: registration rejection | Design | ✅ Verified |
 
 **ID format:** `FE6-[NUMBER]`
 
