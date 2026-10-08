@@ -67,6 +67,20 @@ class ApiClient {
     (data) => Sheet.fromJson(data as Map<String, Object?>),
   );
 
+  /// `GET /sheets` → the single sheet owned by the authenticated user, or
+  /// null when the user has none yet (FE6-15). Any other failure maps as
+  /// before.
+  Future<Sheet?> getMySheet() async {
+    final response = await _get('/sheets');
+    if (response.statusCode == 404) {
+      return null;
+    }
+    return _decode(
+      response,
+      (data) => Sheet.fromJson(data as Map<String, Object?>),
+    );
+  }
+
   /// `PATCH /sheets/:id` → the cascading effects of the update, sent as
   /// `{"data": <delta>}` with only the caller's changes (FE1-06).
   Future<Map<String, Object?>> patchSheet(

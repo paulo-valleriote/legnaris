@@ -206,10 +206,10 @@ T7 -> T9
 
 **Done when**:
 
-- [ ] `getMySheet()` maps `200` to a `Sheet` and `404` to `null`; other errors map as before
-- [ ] `apiClientProvider` wraps the transport in `AuthenticatedClient` with the session delegate
-- [ ] Unit tests cover `200`, `404`, and `5xx`
-- [ ] Gate check passes: `flutter test test/api/`
+- [x] `getMySheet()` maps `200` to a `Sheet` and `404` to `null`; other errors map as before
+- [x] `apiClientProvider` wraps the transport in `AuthenticatedClient` with the session delegate
+- [x] Unit tests cover `200`, `404`, and `5xx`
+- [x] Gate check passes: `flutter test test/api/`
 
 **Tests**: unit
 **Gate**: quick

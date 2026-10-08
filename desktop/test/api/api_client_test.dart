@@ -157,6 +157,62 @@ void main() {
     });
   });
 
+  group('owned sheet resolution (FE6-15)', () {
+    test('Happy path: getMySheet calls GET /sheets and decodes the owned sheet', () async {
+      final recorded = <http.Request>[];
+      final client = ApiClient(
+        httpClient: mockClient(
+          (request) async => http.Response(sheetBody, 200),
+          recorded,
+        ),
+      );
+
+      final sheet = await client.getMySheet();
+
+      expect(sheet, isNotNull);
+      expect(sheet!.id, '12345678-1234-7000-8000-123456789abc');
+      expect(sheet.name, 'Aragorn');
+      expect(sheet.templateId, 'fantasy_v1');
+      expect(recorded.single.method, 'GET');
+      expect(recorded.single.url.path, '/sheets');
+    });
+
+    test('Edge: getMySheet maps a 404 to null instead of throwing', () async {
+      final client = ApiClient(
+        httpClient: MockClient(
+          (request) async => http.Response(
+            '{"error": {"code": "NOT_FOUND", "message": "no sheet"}}',
+            404,
+          ),
+        ),
+      );
+
+      expect(await client.getMySheet(), isNull);
+    });
+
+    test('Error: getMySheet maps a 5xx to the serverError kind', () async {
+      final client = ApiClient(
+        httpClient: MockClient(
+          (request) async => http.Response(
+            '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}',
+            500,
+          ),
+        ),
+      );
+
+      await expectLater(
+        client.getMySheet(),
+        throwsA(
+          isA<ApiDomainException>().having(
+            (error) => error.kind,
+            'kind',
+            ApiErrorKind.serverError,
+          ),
+        ),
+      );
+    });
+  });
+
   group('sheet preview (PRV-03)', () {
     test('Happy path: previewSheet posts POST /sheets/:id/preview with only the delta (PRV-03)', () async {
       final recorded = <http.Request>[];
