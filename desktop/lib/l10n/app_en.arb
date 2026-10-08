@@ -293,5 +293,21 @@
   "authLogoutAction": "Log out",
   "@authLogoutAction": {
     "description": "Shell header action that ends the session and returns to the auth screen (FE6-07, FE6-19)."
+  },
+  "authLogoutDialogTitle": "Log out with unsaved edits?",
+  "@authLogoutDialogTitle": {
+    "description": "Title of the logout confirmation shown while the active sheet has pending local edits (DATA-05)."
+  },
+  "authLogoutDialogMessage": "Your unsaved edits will be discarded when you log out.",
+  "@authLogoutDialogMessage": {
+    "description": "Explicit consequence stated by the logout confirmation dialog (DATA-05)."
+  },
+  "authLogoutConfirmAction": "Discard and log out",
+  "@authLogoutConfirmAction": {
+    "description": "Destructive button of the logout confirmation: ends the session and discards the pending edits (DATA-05)."
+  },
+  "authLogoutCancelAction": "Cancel",
+  "@authLogoutCancelAction": {
+    "description": "Safe button of the logout confirmation: keeps the session, the pending edits and the local files (DATA-05, DATA-06)."
   }
 }

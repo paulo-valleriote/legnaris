@@ -149,9 +149,9 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 | DATA-02 | P1: Session-local data does not survive the session | Design | Verified |
 | DATA-03 | P1: Session-local data does not survive the session | Design | Verified |
 | DATA-04 | P1: Session-local data does not survive the session | Design | Verified |
-| DATA-05 | P1: Session-local data does not survive the session | Design | In Tasks |
-| DATA-06 | P1: Session-local data does not survive the session | Design | In Tasks |
-| DATA-07 | P1: Session-local data does not survive the session | Design | In Tasks |
+| DATA-05 | P1: Session-local data does not survive the session | Design | Verified |
+| DATA-06 | P1: Session-local data does not survive the session | Design | Verified |
+| DATA-07 | P1: Session-local data does not survive the session | Design | Verified |
 | DATA-08 | P1: Session-local data does not survive the session | Design | Verified |
 | SES-01 | P2: A finished session cannot disturb the current one | Design | In Tasks |
 | SES-02 | P2: A finished session cannot disturb the current one | Design | In Tasks |

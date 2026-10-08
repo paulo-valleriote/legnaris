@@ -513,6 +513,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Log out'**
   String get authLogoutAction;
+
+  /// Title of the logout confirmation shown while the active sheet has pending local edits (DATA-05).
+  ///
+  /// In en, this message translates to:
+  /// **'Log out with unsaved edits?'**
+  String get authLogoutDialogTitle;
+
+  /// Explicit consequence stated by the logout confirmation dialog (DATA-05).
+  ///
+  /// In en, this message translates to:
+  /// **'Your unsaved edits will be discarded when you log out.'**
+  String get authLogoutDialogMessage;
+
+  /// Destructive button of the logout confirmation: ends the session and discards the pending edits (DATA-05).
+  ///
+  /// In en, this message translates to:
+  /// **'Discard and log out'**
+  String get authLogoutConfirmAction;
+
+  /// Safe button of the logout confirmation: keeps the session, the pending edits and the local files (DATA-05, DATA-06).
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get authLogoutCancelAction;
 }
 
 class _AppLocalizationsDelegate

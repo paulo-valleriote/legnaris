@@ -316,13 +316,13 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] l10n: `authLogoutDialogTitle`, `authLogoutDialogMessage`, `authLogoutConfirmAction`, `authLogoutCancelAction` added to `app_en.arb` (descriptions cite DATA-05) and regenerated via `flutter pub get`
-- [ ] Pending edits at tap time → dialog stating the unsaved edits will be discarded appears (DATA-05); cancel via button, Esc, or barrier keeps session, edits, persisted library and drafts, and sends no `/auth/logout` (DATA-06)
-- [ ] No pending edits → logout runs with no dialog (DATA-07)
-- [ ] The session notifier is captured before the dialog await; `context.mounted` is re-checked after it (forced logout during the dialog ends the flow safely)
-- [ ] Tests target the topmost `shell-logout` (a pushed route mounts a second `AppShell`)
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] l10n: `authLogoutDialogTitle`, `authLogoutDialogMessage`, `authLogoutConfirmAction`, `authLogoutCancelAction` added to `app_en.arb` (descriptions cite DATA-05) and regenerated via `flutter pub get`
+- [x] Pending edits at tap time → dialog stating the unsaved edits will be discarded appears (DATA-05); cancel via button, Esc, or barrier keeps session, edits, persisted library and drafts, and sends no `/auth/logout` (DATA-06)
+- [x] No pending edits → logout runs with no dialog (DATA-07)
+- [x] The session notifier is captured before the dialog await; `context.mounted` is re-checked after it (forced logout during the dialog ends the flow safely)
+- [x] Tests target the topmost `shell-logout` (a pushed route mounts a second `AppShell`)
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: widget
 **Gate**: full

@@ -245,4 +245,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authLogoutAction => 'Log out';
+
+  @override
+  String get authLogoutDialogTitle => 'Log out with unsaved edits?';
+
+  @override
+  String get authLogoutDialogMessage =>
+      'Your unsaved edits will be discarded when you log out.';
+
+  @override
+  String get authLogoutConfirmAction => 'Discard and log out';
+
+  @override
+  String get authLogoutCancelAction => 'Cancel';
 }

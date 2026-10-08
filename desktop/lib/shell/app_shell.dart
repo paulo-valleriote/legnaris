@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/connection/connection_indicator.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
+import 'package:legnaris/sheet/sheet_edit_provider.dart';
+import 'package:legnaris/sheet/sheet_refresh.dart';
 import 'package:legnaris/shell/left_nav.dart';
 import 'package:legnaris/shell/right_panel.dart';
 import 'package:legnaris/theme/tokens.dart';
@@ -100,13 +102,63 @@ class Header extends ConsumerWidget {
             const SizedBox(width: AppSpacing.md),
             TextButton(
               key: const Key('shell-logout'),
-              onPressed: () =>
-                  ref.read(authSessionProvider.notifier).logout(),
+              onPressed: () => _logout(context, ref),
               child: Text(localizations.authLogoutAction),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// Ends the session, confirming first when the active sheet has pending
+  /// local edits (DATA-05): the dirty read happens at tap time (AD-001), and
+  /// only an explicit confirm proceeds — cancel, Esc or barrier keep the
+  /// session, the edits and the files untouched (DATA-06). No pending edits
+  /// logs out directly (DATA-07). The notifier is captured before the dialog
+  /// await and `context.mounted` is re-checked after it, so a session that
+  /// ends while the dialog is open (forced logout) ends the flow safely.
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    final session = ref.read(authSessionProvider.notifier);
+    final sheetId = ref.read(activeSheetIdProvider);
+    final pending =
+        sheetId != null &&
+        ref.read(sheetEditControllerProvider(sheetId)).isPending;
+    if (!pending) {
+      await session.logout();
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      // Session navigator: a forced logout tears the confirmation down with
+      // the session instead of stranding it (AD-010).
+      useRootNavigator: false,
+      // Load-bearing: the framework gates Esc on this flag, and a barrier or
+      // Esc tap lands on the safe side — dismiss equals cancel.
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        final localizations = AppLocalizations.of(dialogContext)!;
+        final theme = Theme.of(dialogContext);
+        return AlertDialog(
+          title: Text(localizations.authLogoutDialogTitle),
+          content: Text(localizations.authLogoutDialogMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(localizations.authLogoutCancelAction),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(localizations.authLogoutConfirmAction),
+            ),
+          ],
+        );
+      },
+    );
+    if (!context.mounted || confirmed != true) return;
+    await session.logout();
   }
 }
