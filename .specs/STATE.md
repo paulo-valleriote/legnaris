@@ -84,14 +84,14 @@
 
 ## Handoff
 
-- **Feature**: `lgn-7-ownership` (Fase 2 backend, LGN-19/20/21/22) — COMPLETE, validation PASS ✅.
-- **Phase / Task**: Specify + Design + Tasks + **Execute COMPLETE** (T1–T9); Verifier (author ≠ verifier) returned PASS.
-- **Completed**: T1–T9 across commits `8697377..8ea2ddb` (one atomic commit per task). `owner_id` model + DTO non-exposure, `SHEET_LIMIT_REACHED` (409), unique `sheets.owner_id` index, owner lookup/delete + duplicate-key mapping, owner-scoped create (one sheet per user) / fetch / PATCH / preview / delete, JWT-gated `/sheets*` + `/templates*`, concurrency race test.
-- **Validation**: `.specs/features/lgn-7-ownership/validation.md` (PASS; 24/24 ACs, 5/5 unit-visible mutants killed). All OWN-01…OWN-24 promoted to `Verified` in `spec.md`.
+- **Feature**: `desktop-session-boundary` (desktop logout/login hygiene: navigation, session-local data, in-flight auth work) — COMPLETE, validation PASS ✅.
+- **Phase / Task**: Specify + Design + Tasks + **Execute COMPLETE** (T1–T12, 3 batch sub-agents + 1 Verifier); Verifier (author ≠ verifier) returned PASS on the first iteration.
+- **Completed**: T1–T12 across commits `b32cfd5..9faaad8` (one atomic commit per task). Session-mounted navigator in `AuthGate` (+ observers seam), three dialogs hosted on the session navigator, shared `pushSheetScreen()` route, post-login sheet above a mounted catalog, sheet-library/draft-backup sweep at session end, single-flight logout + logout confirmation, dead-session writer guards, session-version two-point check in `AuthenticatedClient.send()`.
+- **Validation**: `.specs/features/desktop-session-boundary/validation.md` (PASS; 18/18 ACs matched spec outcome, 5/5 sensor mutations killed, 706 tests, +45 vs baseline `31a7b32`, 0 deleted/weakened). All NAV-01…08, DATA-01…08, SES-01…02 promoted to `Verified` in `spec.md`.
 - **In-progress** (file:line): none.
-- **Next step**: review/merge PR [#60](https://github.com/paulo-valleriote/legnaris/pull/60) (`feat/LGN-7-ownership` → `main`); then Execute the companion desktop feature `front-end-phase-6-auth`.
-- **Blockers**: none. Integration tests run clean locally against Docker MongoDB (0 failed, 0 skipped).
-- **Uncommitted files**: `.specs/features/front-end-phase-6-auth/` (untracked plan artifact).
-- **Branch**: `feat/LGN-7-ownership` (pushed; PR #60 open). Previous Fase 1 branch `feat/LGN-4-auth-phase-1` was merged as PR #59.
-- **Lesson recorded**: L-020 (candidate) — guard security-critical route wiring with a unit-level test, not only environment-gated integration tests.
-- **Prior feature**: `lgn-103-104-sheet-preview-dry-run` — COMPLETE; `lgn-110-save-delta` — COMPLETE (PR #57); `lgn-108-open-sheet` — COMPLETE (PR #56); `lgn-109-create-sheet` — COMPLETE (PR #55)
+- **Next step**: user reviews the 13 local commits on `main` (`31a7b32..9faaad8`), then pushes / opens a PR — remote operations need explicit go-ahead (blast radius: local commits only).
+- **Blockers**: none. `flutter analyze` clean, `flutter test` 706 passed / 4 pre-existing skips, `make lint-specs` clean.
+- **Uncommitted files**: none.
+- **Branch**: `main` (feature commits local, not pushed).
+- **Lesson recorded**: none (clean PASS — no surviving mutants, spec-precision gaps, or deviations).
+- **Prior feature**: `lgn-7-ownership` — COMPLETE, PASS (PR #60); `front-end-phase-6-auth` merged as `41ff4c7`; earlier: `lgn-103-104-sheet-preview-dry-run`, `lgn-110-save-delta` (PR #57), `lgn-108-open-sheet` (PR #56), `lgn-109-create-sheet` (PR #55)
