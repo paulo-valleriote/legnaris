@@ -9,14 +9,17 @@ import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
 import 'package:legnaris/api/auth_api_client.dart';
+import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/auth/auth_gate.dart';
 import 'package:legnaris/auth/auth_screen.dart';
 import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/auth/secure_token_store.dart';
+import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/connection/health_scheduler.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/main.dart';
+import 'package:legnaris/sheet/sheet_screen.dart';
 import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
@@ -29,6 +32,10 @@ void main() {
   const healthyBody = '{"data": {"status": "healthy"}}';
   const notFoundBody =
       '{"error": {"code": "NOT_FOUND", "message": "none"}}';
+  const serverErrorBody =
+      '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}';
+  const sheetBody =
+      '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
 
   Future<http.Response> defaultDomain(http.Request request) async {
     if (request.url.path == '/health') {
@@ -239,6 +246,141 @@ void main() {
           countPath(requests.domain, '/health'),
           2,
           reason: 'the public poll keeps running while unauthenticated',
+        );
+      },
+    );
+  });
+
+  group('sheet resolution after login (FE6-13 … FE6-15, FE6-20)', () {
+    Future<http.Response> withHealth(
+      http.Request request,
+      Future<http.Response> Function() sheets,
+    ) async {
+      if (request.url.path == '/health') {
+        return http.Response(healthyBody, 200);
+      }
+      if (request.url.path == '/sheets') return sheets();
+      if (request.url.path == '/sheets/sheet-1') {
+        return http.Response(sheetBody, 200);
+      }
+      return http.Response('{"data": []}', 200);
+    }
+
+    testWidgets(
+      'Happy path: 200 opens Screen 2 for the returned sheet id',
+      (tester) async {
+        final requests = await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: (request) =>
+              withHealth(request, () async => http.Response(sheetBody, 200)),
+        );
+
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(
+          tester.widget<SheetScreen>(find.byType(SheetScreen)).sheetId,
+          'sheet-1',
+        );
+        expect(find.byType(CatalogScreen), findsNothing);
+        expect(countPath(requests.domain, '/sheets'), 1);
+      },
+    );
+
+    testWidgets(
+      'Happy path: 404 presents the create flow (the catalog) for the authenticated user',
+      (tester) async {
+        final requests = await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: (request) =>
+              withHealth(request, () async => http.Response(notFoundBody, 404)),
+        );
+
+        expect(find.byType(CatalogScreen), findsOneWidget);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(countPath(requests.domain, '/sheets'), 1);
+      },
+    );
+
+    testWidgets(
+      'Error: a non-404 failure renders the mapped message with Retry and keeps the session',
+      (tester) async {
+        await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: (request) => withHealth(
+            request,
+            () async => http.Response(serverErrorBody, 500),
+          ),
+        );
+
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget);
+        expect(find.byKey(const Key('home-sheet-retry')), findsOneWidget);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(CatalogScreen), findsNothing);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        expect(
+          container.read(authSessionProvider),
+          isA<AuthAuthenticated>(),
+          reason: 'a lookup failure never ends the session',
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: Retry re-issues GET /sheets once and resolves to the create flow',
+      (tester) async {
+        var call = 0;
+        final requests = await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: (request) => withHealth(
+            request,
+            () async => call++ == 0
+                ? http.Response(serverErrorBody, 500)
+                : http.Response(notFoundBody, 404),
+          ),
+        );
+        expect(find.byKey(const Key('home-sheet-retry')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('home-sheet-retry')));
+        await tester.pumpAndSettle();
+
+        expect(countPath(requests.domain, '/sheets'), 2);
+        expect(find.byType(CatalogScreen), findsOneWidget);
+        expect(find.text(errorCopy(ApiErrorKind.serverError)), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Edge: exactly one GET /sheets per authenticated transition',
+      (tester) async {
+        final requests = await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: (request) =>
+              withHealth(request, () async => http.Response(notFoundBody, 404)),
+        );
+        expect(countPath(requests.domain, '/sheets'), 1);
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        await container.read(authSessionProvider.notifier).logout();
+        await tester.pumpAndSettle();
+        expect(find.byType(AuthScreen), findsOneWidget);
+
+        await container
+            .read(authSessionProvider.notifier)
+            .login(email: 'player@example.com', password: 'sup3r-secret');
+        await tester.pumpAndSettle();
+
+        expect(
+          countPath(requests.domain, '/sheets'),
+          2,
+          reason: 'one lookup per authenticated transition, never a duplicate',
         );
       },
     );

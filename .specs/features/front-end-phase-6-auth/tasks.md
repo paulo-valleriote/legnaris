@@ -288,10 +288,10 @@ T7 -> T9
 
 **Done when**:
 
-- [ ] `200` opens Screen 2 for that sheet id; `404` shows the create flow; 5xx/offline shows Retry and keeps the session
-- [ ] Exactly one `GET /sheets` per authentication transition
-- [ ] Widget tests cover the three branches and the single-request rule
-- [ ] Gate check passes: `flutter test test/auth/`
+- [x] `200` opens Screen 2 for that sheet id; `404` shows the create flow; 5xx/offline shows Retry and keeps the session
+- [x] Exactly one `GET /sheets` per authentication transition
+- [x] Widget tests cover the three branches and the single-request rule
+- [x] Gate check passes: `flutter test test/auth/`
 
 **Tests**: widget
 **Gate**: quick
