@@ -43,6 +43,12 @@ abstract interface class SessionDelegate {
 
   /// Forces the session back to unauthenticated and clears the stored token.
   Future<void> onUnauthorized();
+
+  /// The session generation, bumped at every session boundary (login,
+  /// register, logout, forced logout) and never by a refresh applying a
+  /// rotated token. The transport captures it when sending and drops auth
+  /// responses whose generation changed in between (SES-01, SES-02).
+  int sessionVersion();
 }
 
 /// Owns the in-memory access token and drives the refresh-token lifecycle
@@ -51,8 +57,11 @@ abstract interface class SessionDelegate {
 class AuthSession extends _$AuthSession implements SessionDelegate {
   String? _accessToken;
 
-  /// Bumped on every logout/forced logout so a refresh that was in flight
-  /// cannot restore the session afterwards (FE6-19).
+  /// Session generation, bumped at every session boundary: login, register,
+  /// logout (FE6-19) and forced logout. Deliberately not bumped when a
+  /// refresh applies a rotated token, so the version stays stable within one
+  /// session and concurrent `401`s keep sharing a single refresh (FE6-11).
+  /// Exposed to the transport through [sessionVersion] (SES-01, SES-02).
   int _version = 0;
 
   /// Shared in-flight logout: concurrent activations return this future
@@ -64,6 +73,9 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
 
   @override
   String? currentAccessToken() => _accessToken;
+
+  @override
+  int sessionVersion() => _version;
 
   /// Restores a stored session by exchanging the refresh token without
   /// prompting (FE6-01). With no stored token it stays unauthenticated and
@@ -99,6 +111,10 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
     state = const AuthAuthenticating();
     try {
       final pair = await _authClient.login(email: email, password: password);
+      // Bump before applying: a refresh continuation landing during
+      // `_apply`'s awaits must then fail the version check and drop its
+      // stale pair instead of overwriting this one (SES-01).
+      _version++;
       await _apply(pair);
     } catch (_) {
       _accessToken = null;
@@ -123,6 +139,10 @@ class AuthSession extends _$AuthSession implements SessionDelegate {
         password: password,
       );
       final pair = await _authClient.login(email: email, password: password);
+      // Bump before applying: a refresh continuation landing during
+      // `_apply`'s awaits must then fail the version check and drop its
+      // stale pair instead of overwriting this one (SES-01).
+      _version++;
       await _apply(pair);
     } catch (_) {
       _accessToken = null;

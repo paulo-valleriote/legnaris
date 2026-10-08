@@ -616,4 +616,86 @@ void main() {
       expect(draftFiles(supportDir), hasLength(1), reason: 'nor the drafts');
     });
   });
+
+  group('session version (SES-01)', () {
+    test('Edge: a refresh started before a login completes returns null and the new tokens survive (SES-01)', () async {
+      final refreshCompleter = Completer<http.Response>();
+      final store = InMemorySecureTokenStore(token: 'stored-refresh');
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient((request) async {
+          if (request.url.path == '/auth/refresh') {
+            return refreshCompleter.future;
+          }
+          return http.Response(pairBody, 200);
+        }),
+      );
+      final session = container.read(authSessionProvider.notifier);
+
+      final refreshing = session.refresh();
+      await Future<void>.delayed(Duration.zero);
+      await session.login(email: 'player@example.com', password: 'sup3r-secret');
+      refreshCompleter.complete(http.Response(rotatedBody, 200));
+
+      expect(await refreshing, isNull, reason: 'the refresh belongs to the pre-login session');
+      expect(container.read(authSessionProvider), isA<AuthAuthenticated>());
+      expect(session.currentAccessToken(), 'access-1', reason: 'the new access token survives');
+      expect(store.token, 'refresh-1', reason: 'the new stored refresh token survives');
+    });
+
+    test('Edge: a refresh applying a rotated token does not bump the version (FE6-11)', () async {
+      final store = InMemorySecureTokenStore();
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient(
+          (request) async => http.Response(rotatedBody, 200),
+        ),
+      );
+      final session = container.read(authSessionProvider.notifier);
+      await session.login(email: 'player@example.com', password: 'sup3r-secret');
+      final before = session.sessionVersion();
+
+      expect(await session.refresh(), 'access-2');
+
+      expect(
+        session.sessionVersion(),
+        before,
+        reason: 'the version stays stable within a session so concurrent 401s share one refresh',
+      );
+    });
+
+    test('Happy path: login, register, logout and forced logout each bump the version (SES-01)', () async {
+      final store = InMemorySecureTokenStore();
+      final container = containerWith(
+        store: store,
+        authTransport: MockClient((request) async {
+          if (request.url.path == '/auth/register') {
+            return http.Response(userBody, 201);
+          }
+          if (request.url.path == '/auth/logout') {
+            return http.Response('', 204);
+          }
+          return http.Response(pairBody, 200);
+        }),
+      );
+      final session = container.read(authSessionProvider.notifier);
+      expect(session.sessionVersion(), 0);
+
+      await session.login(email: 'player@example.com', password: 'sup3r-secret');
+      expect(session.sessionVersion(), 1, reason: 'login completion is a session boundary');
+
+      await session.logout();
+      expect(session.sessionVersion(), 2, reason: 'logout is a session boundary');
+
+      await session.register(
+        email: 'player@example.com',
+        username: 'player',
+        password: 'sup3r-secret',
+      );
+      expect(session.sessionVersion(), 3, reason: 'register completion is a session boundary');
+
+      await session.onUnauthorized();
+      expect(session.sessionVersion(), 4, reason: 'forced logout is a session boundary');
+    });
+  });
 }

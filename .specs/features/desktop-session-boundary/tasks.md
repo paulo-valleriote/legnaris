@@ -374,12 +374,12 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] `sessionVersion()` returns `_version`; login and register completion bump it; a refresh applying a rotated token does not (FE6-11 concurrent sharing preserved)
-- [ ] Test: a refresh started before a login completes with the old session's token → returns null, the new access token and the new stored refresh token survive (SES-01)
-- [ ] Existing late-refresh-after-logout test still passes
-- [ ] `FakeSessionDelegate` (test/api) implements the new member
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] `sessionVersion()` returns `_version`; login and register completion bump it; a refresh applying a rotated token does not (FE6-11 concurrent sharing preserved)
+- [x] Test: a refresh started before a login completes with the old session's token → returns null, the new access token and the new stored refresh token survive (SES-01)
+- [x] Existing late-refresh-after-logout test still passes
+- [x] `FakeSessionDelegate` (test/api) implements the new member
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: unit
 **Gate**: full

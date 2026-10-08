@@ -16,6 +16,10 @@ class FakeSessionDelegate implements SessionDelegate {
   String? accessToken;
   String? refreshedToken;
 
+  /// The session generation; tests bump it to end the session while a
+  /// request or refresh is still in flight.
+  int version = 0;
+
   int refreshCalls = 0;
   int unauthorizedCalls = 0;
 
@@ -27,6 +31,9 @@ class FakeSessionDelegate implements SessionDelegate {
 
   @override
   String? currentAccessToken() => accessToken;
+
+  @override
+  int sessionVersion() => version;
 
   @override
   Future<String?> refresh() async {
