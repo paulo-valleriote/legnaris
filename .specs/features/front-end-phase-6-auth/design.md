@@ -82,7 +82,7 @@ graph TD
 
 ### `AuthenticatedClient` (decorator)
 
-- **Purpose**: Add `Authorization: Bearer`, detect `401`, refresh once (single-flight), replay once, and never touch public routes.
+- **Purpose**: Add `Authorization: Bearer`, detect `401`, refresh once (single-flight), replay once, and never touch public routes. A rejected refresh (`401`) ends the session; a transient failure is kept.
 - **Location**: `desktop/lib/api/authenticated_client.dart`
 - **Interfaces**: `http.BaseClient.send`; constructed with the inner `http.Client` and a `SessionDelegate` (`currentAccessToken`, `refresh`, `onUnauthorized`).
 - **Dependencies**: inner client, session delegate.
@@ -136,6 +136,7 @@ class AuthAuthenticated extends AuthState { final String accessToken; }
 | Invalid login/register | Mapped error from `error_mapper` | Inline message; fields kept |
 | Expired access token | Decorator refreshes once and replays | Transparent |
 | Revoked refresh family | Session clears storage, state → unauthenticated | Back to auth screen |
+| Transient refresh failure (offline / `5xx`) | `refresh` rethrows; session and stored token kept; the call surfaces the mapped offline/server error | Retry the action |
 | `GET /sheets` 404 | Show create flow | Create sheet |
 | `GET /sheets` 5xx / offline | Mapped message + Retry; session kept | Retry |
 | Secure storage unavailable | In-memory session only | Works this run; login next launch |

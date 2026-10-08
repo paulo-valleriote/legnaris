@@ -11,7 +11,7 @@ Once `lgn-7-ownership` ships, every `/templates*` and `/sheets*` route requires 
 - [ ] A login/register surface and an auth gate that shows it while unauthenticated.
 - [ ] Access token held in memory; refresh token persisted in OS secure storage (never in the local JSON store).
 - [ ] Every protected request carries `Authorization: Bearer`; a `401` transparently refreshes once and replays.
-- [ ] Refresh rotation and reuse detection handled as a forced logout back to the login screen.
+- [ ] Refresh rotation and reuse detection (a `401` rejection) handled as a forced logout back to the login screen; a transient refresh failure keeps the session.
 - [ ] After login, the app resolves the user's sheet via `GET /sheets` and opens it, or offers creation on `404`.
 - [ ] Logout revokes the refresh token and returns to the login screen.
 
@@ -45,7 +45,8 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 | 401 handling | Single-flight refresh: the first `401` triggers one refresh; concurrent `401`s await the same result; each request is retried at most once | Avoids a refresh stampede and infinite retry loops | y |
 | Sheet resolution after login | `GET /sheets` returns the single owned sheet (200) or 404; the app opens it or offers create | Backend now enforces one sheet per user; the local library is redundant | y |
 | Fate of the local library | Kept in the codebase but no longer the source of truth for "my sheet"; the server `GET /sheets` wins | Bounds this feature; library removal is a follow-up card | n |
-| Reuse-detection response | Treat a failed refresh (401) as a forced logout and clear storage | Backend revokes the whole family on reuse | y |
+| Reuse-detection response | Treat a refresh rejected with a `401` as a forced logout and clear storage | Backend revokes the whole family on reuse and answers `401` | y |
+| Transient refresh failure | An offline or `5xx` refresh failure keeps the session and the stored token; the protected call surfaces the mapped offline/server error with Retry | The backend answers `401` only for a revoked, reused or expired token; a `5xx` is `INTERNAL_ERROR` and a transport failure has no status, so neither must destroy a valid session | y |
 | Storage failure on login | The session works for the run but is not persisted; the next launch requires login | Secure storage can be unavailable (locked keychain); do not hard-fail login | n |
 | Dev HTTP override | Allowed only via the existing `API_BASE_URL` build override, marked in the connection indicator | The desktop TDD requires TLS in production and a visibly marked dev override | n |
 
@@ -68,7 +69,7 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 3. WHEN the user submits valid credentials THEN the system SHALL persist the refresh token, hold the access token in memory, and render the authenticated app.  <!-- event-driven -->
 4. WHEN the user registers successfully THEN the system SHALL immediately log in and reach the authenticated app.  <!-- event-driven -->
 5. IF a login or registration request fails THEN the system SHALL render the mapped error and keep the auth screen.  <!-- unwanted-behavior -->
-6. IF a refresh is rejected because the token family was revoked THEN the system SHALL clear the stored token and return to the auth screen.  <!-- unwanted-behavior -->
+6. IF a refresh is rejected because the token family was revoked (a `401`) THEN the system SHALL clear the stored token and return to the auth screen.  <!-- unwanted-behavior -->
 7. WHEN the user logs out THEN the system SHALL send the refresh token to `/auth/logout`, clear secure storage, and return to the auth screen.  <!-- event-driven -->
 
 **Independent Test**: With a mocked transport, start with a stored refresh token and assert one refresh then the authenticated app; assert storage holds only the refresh token; log in, register, force a login failure (mapped message, stays), force a revoked-family refresh (returns to auth, storage cleared), and log out (logout call + storage cleared).
@@ -85,12 +86,13 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 
 1. The system SHALL attach `Authorization: Bearer <access>` to every request to a protected route.  <!-- ubiquitous -->
 2. IF a protected request responds `401` THEN the system SHALL refresh once and replay that request once.  <!-- unwanted-behavior -->
-3. IF the refresh itself fails THEN the system SHALL force a logout and SHALL NOT replay the request.  <!-- unwanted-behavior -->
-4. The system SHALL send the refresh token in the `X-Refresh-Token` header and SHALL NOT rely on cookies.  <!-- ubiquitous -->
-5. IF several requests receive `401` while a refresh is in flight THEN they SHALL await the same single refresh.  <!-- unwanted-behavior -->
-6. The system SHALL NOT attach an authorization header to `/auth/*` or `/health` requests.  <!-- ubiquitous -->
+3. IF the refresh is rejected with a `401` THEN the system SHALL force a logout and SHALL NOT replay the request.  <!-- unwanted-behavior -->
+4. IF the refresh fails transiently (offline or `5xx`) THEN the system SHALL keep the session and its stored token and SHALL NOT replay the request.  <!-- unwanted-behavior -->
+5. The system SHALL send the refresh token in the `X-Refresh-Token` header and SHALL NOT rely on cookies.  <!-- ubiquitous -->
+6. IF several requests receive `401` while a refresh is in flight THEN they SHALL await the same single refresh.  <!-- unwanted-behavior -->
+7. The system SHALL NOT attach an authorization header to `/auth/*` or `/health` requests.  <!-- ubiquitous -->
 
-**Independent Test**: With a recorded transport, assert the header on a protected call and its absence on `/auth/login` and `/health`; simulate a `401` then `200` and assert exactly one refresh and one replay; simulate a failing refresh and assert zero replays and a forced logout; fire two concurrent `401`s and assert a single refresh.
+**Independent Test**: With a recorded transport, assert the header on a protected call and its absence on `/auth/login` and `/health`; simulate a `401` then `200` and assert exactly one refresh and one replay; simulate a rejected refresh (`401`) and assert zero replays and a forced logout; simulate a transient refresh failure (offline/`5xx`) and assert zero replays, the session kept and the stored token untouched; fire two concurrent `401`s and assert a single refresh.
 
 ---
 
@@ -119,6 +121,7 @@ Edge cases are usually unwanted-behavior (IF/THEN) or boundary (WHEN) criteria:
 - IF secure storage is unavailable THEN the system SHALL keep the in-memory session for the run and SHALL NOT persist the refresh token.  <!-- unwanted-behavior -->
 - WHEN an access token expires mid-session THEN the next protected request SHALL refresh and replay with no user-visible error.  <!-- event-driven -->
 - IF the user logs out while a protected request is in flight THEN a late response SHALL NOT restore the session.  <!-- unwanted-behavior -->
+- IF the app starts with a stored refresh token while offline (transport failure or `5xx`) THEN the system SHALL keep the stored token and show the auth screen for this run instead of forcing a logout.  <!-- unwanted-behavior -->
 - WHEN `GET /sheets` fails for a non-`404` reason THEN the system SHALL render the mapped error with Retry and SHALL keep the session.  <!-- event-driven -->
 - IF registration rejects the input (short password, duplicate email/username) THEN the system SHALL render the mapped error and keep the entered fields.  <!-- unwanted-behavior -->
 
@@ -166,7 +169,7 @@ How we know the feature is successful:
 
 - [ ] Against the protected backend, a fresh install can register → land on the app → create a `fantasy_v1` sheet → edit → save, with no manual token handling.
 - [ ] Restarting the app with a stored refresh token returns to the sheet without a login prompt.
-- [ ] An expired access token is refreshed transparently; a revoked refresh token forces a clean logout.
+- [ ] An expired access token is refreshed transparently; a revoked refresh token forces a clean logout and a transient refresh failure keeps the session and its stored token.
 - [ ] `flutter test` and `flutter analyze` are clean.
 
 ---

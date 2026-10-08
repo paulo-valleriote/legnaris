@@ -179,9 +179,9 @@ T7 -> T9
 **Done when**:
 
 - [x] Protected requests carry the bearer header; `/auth/*` and `/health` do not
-- [x] A `401` triggers exactly one refresh and one replay; a failed refresh forces logout and zero replays
+- [x] A `401` triggers exactly one refresh and one replay; a rejected refresh (`401`) forces logout and zero replays; a transient refresh failure keeps the session and zero replays
 - [x] Concurrent `401`s share a single refresh
-- [x] Unit tests cover header scoping, refresh+replay, failed refresh, and single-flight
+- [x] Unit tests cover header scoping, refresh+replay, rejected vs transient refresh, and single-flight
 - [x] Gate check passes: `flutter test test/api/`
 
 **Tests**: unit

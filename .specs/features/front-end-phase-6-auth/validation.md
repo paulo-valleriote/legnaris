@@ -27,7 +27,7 @@ One task-text inaccuracy (not a code gap): T6 "Done when" says "strings go throu
 
 ## Spec-Anchored Acceptance Criteria
 
-> The spec carries **23 AC lines** (7 + 6 + 5 story criteria + 5 edge criteria) but the Requirement Traceability table defines only **21 IDs** (FE6-01…FE6-21). Two story criteria share an ID with a sibling clause (FE6-09 covers "refresh once+replay" and "failed refresh → logout"; FE6-14 covers "authenticated → GET /sheets" and "200 → open Screen 2"). This is a bookkeeping under-count in `spec.md`, not a missing behavior; every criterion below has located evidence.
+> The spec carries **25 AC lines** (7 + 7 + 5 story criteria + 6 edge criteria) but the Requirement Traceability table defines only **21 IDs** (FE6-01…FE6-21). Two story criteria share an ID with a sibling clause (FE6-09 covers "refresh once+replay", "rejected refresh (401) → logout" and "transient refresh failure → session kept"; FE6-14 covers "authenticated → GET /sheets" and "200 → open Screen 2"). This is a bookkeeping under-count in `spec.md`, not a missing behavior; every criterion below has located evidence.
 
 ### P1: Session and token lifecycle
 
@@ -47,7 +47,8 @@ One task-text inaccuracy (not a code gap): T6 "Done when" says "strings go throu
 | ------------------------- | -------------------- | ----------------------- | ------ |
 | FE6-08 SHALL attach `Authorization: Bearer <access>` to every protected request | exact header value on a protected call | `desktop/test/api/authenticated_client_test.dart:60-71` - `expect(recorded.single.headers['Authorization'], 'Bearer access-1')`. Wired: `desktop/test/api/api_client_provider_test.dart:42-54` - `expect(recorded.single.headers['Authorization'], 'Bearer access-1')` | ✅ PASS |
 | FE6-09 IF protected 401 THEN refresh once and replay once | exactly one refresh, exactly two sends, replay carries new token | `desktop/test/api/authenticated_client_test.dart:104-126` - `expect(session.refreshCalls, 1)`; `expect(recorded, hasLength(2))`; `expect(recorded.last.headers['Authorization'], 'Bearer access-2')` | ✅ PASS |
-| FE6-09 (failed-refresh clause) IF refresh fails THEN force logout and NOT replay | one refresh, one `onUnauthorized`, zero replays | `desktop/test/api/authenticated_client_test.dart:156-174` - `expect(session.unauthorizedCalls, 1)`; `expect(recorded, hasLength(1), reason: 'no replay after a failed refresh')` | ✅ PASS |
+| FE6-09 (rejected clause) IF refresh rejected with 401 THEN force logout and NOT replay | one refresh, one `onUnauthorized`, zero replays | `desktop/test/api/authenticated_client_test.dart:156-174` - `expect(session.unauthorizedCalls, 1)`; `expect(recorded, hasLength(1), reason: 'no replay after a failed refresh')` | ✅ PASS |
+| FE6-09 (transient clause) IF refresh fails offline/5xx THEN keep session + stored token and NOT replay | refresh rethrows; zero `onUnauthorized`; session and token kept | `desktop/test/api/authenticated_client_test.dart` - "a transient refresh failure propagates and does not force a logout"; end-to-end: `desktop/test/auth/auth_session_test.dart` - "a 5xx refresh during a protected call keeps the session and surfaces offline" | ✅ PASS |
 | FE6-10 SHALL send refresh token in `X-Refresh-Token` and NOT rely on cookies | header value `refresh-1` on refresh/logout; no `cookie` header | `desktop/test/api/auth_api_client_test.dart:92-111` - `expect(request.headers[AuthApiClient.refreshTokenHeader], 'refresh-1')`; `:131-151` - `isNot(contains('cookie'))` | ✅ PASS |
 | FE6-11 IF several 401 while refresh in flight THEN await the same single refresh | exactly one refresh call across concurrent 401s | `desktop/test/api/authenticated_client_test.dart:176-201` - `expect(session.refreshCalls, 1, reason: 'single-flight refresh')`; responses `[200, 200]` | ✅ PASS |
 | FE6-12 SHALL NOT attach auth header to `/auth/*` or `/health` | no `Authorization` key on public paths | `desktop/test/api/authenticated_client_test.dart:73-87` - `expect(request.headers.containsKey('Authorization'), isFalse)`; `:220-235` - public 401 not refreshed (`refreshCalls == 0`) | ✅ PASS |
@@ -73,6 +74,7 @@ One task-text inaccuracy (not a code gap): T6 "Done when" says "strings go throu
 | FE6-19 IF logs out while a request is in flight THEN late response NOT restore session | late `refresh()` returns null; state stays unauthenticated; store null | `desktop/test/auth/auth_session_test.dart:275-299` - `expect(container.read(authSessionProvider), isA<AuthUnauthenticated>())`. Widget: `desktop/test/shell/logout_test.dart:109-151` - `expect(await late, isNull, reason: 'the version guard drops it')` | ✅ PASS |
 | FE6-20 WHEN `GET /sheets` fails non-404 THEN mapped error with Retry, keep session | `errorCopy(serverError)` + Retry key; state stays `AuthAuthenticated` | `desktop/test/auth/auth_gate_test.dart:305-330` - `expect(find.text(errorCopy(ApiErrorKind.serverError)), findsOneWidget)`; `expect(find.byKey(const Key('home-sheet-retry')), findsOneWidget)`; `isA<AuthAuthenticated>()`. Retry re-issues: `:332-355` | ✅ PASS |
 | FE6-21 IF registration rejects input THEN mapped error and keep entered fields | `errorCopy(invalidEdit)` + field controllers retain text | `desktop/test/auth/auth_screen_test.dart:207-233` - `expect(find.text(errorCopy(ApiErrorKind.invalidEdit)), findsOneWidget)`; `expect(fieldText(tester, 'auth-email'), 'player@example.com')`; `'auth-username' == 'player'`; `'auth-password' == 'short'` | ✅ PASS |
+| Edge: startup with a stored token while offline keeps the token | store token untouched; auth screen for this run | `desktop/test/auth/auth_session_test.dart` - "restore keeps the stored token when the refresh fails transiently" | ✅ PASS |
 
 **Status**: ✅ All criteria covered / ⚠️ 1 spec-precision gap flagged (FE6-16 indicator clause)
 
@@ -129,6 +131,8 @@ Not performed. Automated widget/unit coverage plus the discrimination sensor are
 - [x] Access token expires mid-session: transparent refresh + replay — `authenticated_client_test.dart:104-126`.
 - [x] Logout vs in-flight request: version guard discards late response — `auth_session_test.dart:275-299`, `logout_test.dart:109-151`.
 - [x] `GET /sheets` non-404 failure: mapped error + Retry, session kept — `auth_gate_test.dart:305-355`.
+- [x] Transient refresh failure (offline/`5xx`): session and stored token kept, no forced logout — `auth_session_test.dart` "transient refresh failure keeps the session" group, `authenticated_client_test.dart` "a transient refresh failure propagates and does not force a logout".
+- [x] Startup with a stored token while offline: token kept for the next launch — `auth_session_test.dart` "restore keeps the stored token when the refresh fails transiently".
 - [x] Registration rejection: mapped error, fields kept — `auth_screen_test.dart:207-233`.
 - [x] Concurrent 401s: single refresh — `authenticated_client_test.dart:176-201`.
 
@@ -137,13 +141,14 @@ Not performed. Automated widget/unit coverage plus the discrimination sensor are
 ## Gate Check
 
 - **Gate command**: `flutter analyze && flutter test` (from `desktop/`)
-- **Result**: **656 passed, 0 failed, 4 skipped**
+- **Result**: **661 passed, 0 failed, 4 skipped** (after the review fix; 656 passed before it)
 - **`flutter analyze`**: `No issues found!` (exit 0)
 - **Test count before feature** (`85b5bdd`): 590 passed, 4 skipped
 - **Test count after feature** (`170891d`): 656 passed, 4 skipped
-- **Delta**: **+66 tests** (no tests deleted; no assertions weakened)
+- **Test count after review fix**: 661 passed, 4 skipped
+- **Delta**: **+71 tests** vs base (no tests deleted; no assertions weakened; +5 added by the review fix)
 - **Skipped tests**: 4 × `desktop/test/contract/live_contract_test.dart` (`skip: contractSkip(base)`) — self-skip when no live backend is configured; pre-existing, unrelated to this feature.
-- **Failures**: none. The known `desktop/test/api/api_client_retry_test.dart` timing flake (FE1-28/FE1-29) did **not** fire on this run; it is unrelated to this feature and untouched by the diff.
+- **Failures**: none on a clean run. The known `desktop/test/api/api_client_retry_test.dart` timing flake (FE1-28/FE1-29) fired once under load during the review fix run and passes on re-run; it is unrelated to this feature and untouched by the diff.
 
 ---
 
@@ -173,12 +178,25 @@ All 21 requirement IDs have located evidence and their spec-defined outcomes mat
 
 **Overall**: ✅ Ready
 
-**Spec-anchored check**: 23/23 AC lines matched the spec outcome (21 requirement IDs; spec traceability under-assigns 2 IDs) | 1 spec-precision gap flagged (FE6-16 indicator clause)
+**Spec-anchored check**: 25/25 AC lines matched the spec outcome (21 requirement IDs; spec traceability under-assigns 2 IDs) | 1 spec-precision gap flagged (FE6-16 indicator clause)
 **Sensor**: 9/9 mutations killed (P0-full)
-**Gate**: 656 passed, 0 failed, 4 skipped
+**Gate**: 661 passed, 0 failed, 4 skipped (after the review fix)
 
 **What works**: Full session lifecycle (restore/login/register/logout/revoked-family), secure refresh-token storage with in-memory fallback, bearer-scoped transport with single-flight 401 refresh+replay, forced logout on failed refresh, auth gate with public health polling, `GET /sheets` resolution (200 open / 404 create / 5xx Retry), and shell logout with late-response guard. All spec outcomes carry value-level assertions; every injected mutant was detected.
 
 **Issues found**: One minor spec-precision gap — the unauthenticated health test does not assert the connection-indicator/provider state it names (outcome covered elsewhere by conjunction). Advisory fix only.
 
 **Next steps**: Optional minor test hardening for FE6-16; otherwise mark the feature done.
+
+---
+
+## Review Follow-up — Transient Refresh Failure (F1, 2026-10-08)
+
+A code review found that `AuthSession.refresh()` collapsed every failure into `null`, so the transport decorator could not distinguish a revoked token from an offline or `5xx` failure and forced a logout that cleared the stored refresh token.
+
+- **Fix**: `refresh()` now returns `null` only on a `401` rejection and rethrows a transient failure (`_isRejected`); `restore()` keeps the stored token on a transient failure and falls back to the auth screen for the run. The decorator propagates the transient error, so `onUnauthorized` is not called and the session is kept.
+- **Spec**: FE6-06 pins the rejection to a `401`; FE6-09 was split into a rejected clause (logout) and a transient clause (session kept); a startup-offline edge case was added. Design §Error Handling gained the transient row.
+- **Evidence**: `auth_session_test.dart` "transient refresh failure keeps the session" group (5xx rethrow + token kept, transport rethrow + token kept, restore keeps token, end-to-end 5xx keeps session and surfaces offline); `authenticated_client_test.dart` "a transient refresh failure propagates and does not force a logout".
+- **Result**: `flutter analyze` clean; 661 passed, 0 failed, 4 skipped.
+
+**Status**: ✅ Resolved.
