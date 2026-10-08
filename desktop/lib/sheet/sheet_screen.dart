@@ -378,6 +378,9 @@ class _SheetScreenState extends ConsumerState<SheetScreen> {
     try {
       final confirmed = await showDialog<bool>(
         context: context,
+        // Session navigator: a forced logout tears the confirmation down
+        // with the session instead of stranding it (NAV-04).
+        useRootNavigator: false,
         // Load-bearing: the framework gates Esc on this flag, and a barrier
         // or Esc tap lands on the safe side — dismiss equals cancel.
         barrierDismissible: true,

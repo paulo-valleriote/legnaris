@@ -223,6 +223,9 @@ class CatalogScreen extends ConsumerWidget {
     try {
       created = await showDialog<Sheet>(
         context: context,
+        // Session navigator: the dialog must die with the session branch
+        // instead of outliving it on the root navigator (NAV-04).
+        useRootNavigator: false,
         // Load-bearing: the framework gates its dismiss action (Esc) on
         // this flag (routes.dart:981) — CAT-16 breaks without it.
         barrierDismissible: true,

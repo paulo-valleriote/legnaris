@@ -117,6 +117,8 @@ class _LibrarySectionState extends ConsumerState<LibrarySection> {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
+      // Session navigator: no dialog may outlive its session (NAV-04).
+      useRootNavigator: false,
       // Load-bearing: barrier and Esc land on the safe side — dismiss equals
       // cancel (desktop/AGENTS.md: never confirm by Enter alone).
       barrierDismissible: true,

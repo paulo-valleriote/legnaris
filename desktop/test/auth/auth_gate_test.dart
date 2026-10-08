@@ -16,10 +16,12 @@ import 'package:legnaris/auth/auth_screen.dart';
 import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/auth/secure_token_store.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
+import 'package:legnaris/catalog/create_sheet_dialog.dart';
 import 'package:legnaris/connection/health_scheduler.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/main.dart';
+import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
 import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/theme/app_theme.dart';
@@ -403,62 +405,99 @@ void main() {
     );
   });
 
+  const detailBody =
+      '{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {"stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}}}}}';
+  const unauthorizedBody =
+      '{"error": {"code": "UNAUTHORIZED", "message": "revoked"}}';
+  const oneTemplateBody =
+      '{"data": [{"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {}}]}';
+
+  /// Domain responses for a session that owns `sheet-1`: the post-login
+  /// lookup 404s so the catalog presents itself, one template gives the
+  /// catalog a create entry, and the library open resolves the sheet plus its
+  /// template detail.
+  Future<http.Response> sessionDomain(http.Request request) async {
+    if (request.url.path == '/health') {
+      return http.Response(healthyBody, 200);
+    }
+    if (request.url.path == '/sheets') {
+      return http.Response(notFoundBody, 404);
+    }
+    if (request.url.path == '/sheets/sheet-1') {
+      return http.Response(sheetBody, 200);
+    }
+    if (request.url.path == '/templates') {
+      return http.Response(oneTemplateBody, 200);
+    }
+    if (request.url.path == '/templates/fantasy_v1') {
+      return http.Response(detailBody, 200);
+    }
+    return http.Response('{"data": []}', 200);
+  }
+
+  /// Restores the stored session (404 lookup → catalog), opens `sheet-1`
+  /// from the local library as a route above the catalog, and asserts the
+  /// pre-condition: two mounted `AppShell`s (base + pushed route).
+  Future<void> openPushedSheetRoute(WidgetTester tester) async {
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AuthGate)),
+    );
+    container.read(sheetLibraryProvider.notifier).upsert(entry('sheet-1'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('library-open-sheet-1')));
+    await tester.pumpAndSettle();
+
+    // The covered base shell reports as offstage, so count both shells
+    // explicitly to pin the two-navigator layout (base + pushed route).
+    expect(find.byType(SheetScreen), findsOneWidget);
+    expect(find.byType(AppShell, skipOffstage: false), findsNWidgets(2));
+  }
+
+  /// Taps the topmost shell's logout action: the pushed route's own
+  /// `AppShell` covers the base one, so exactly one button is hit-testable.
+  Future<void> logoutTopmostShell(WidgetTester tester) async {
+    final logoutButton = find.byKey(const Key('shell-logout')).hitTestable();
+    expect(logoutButton, findsOneWidget);
+    await tester.tap(logoutButton);
+    await tester.pumpAndSettle();
+  }
+
+  /// Boots the gate with a stored session whose domain and refresh answers
+  /// can be rejected on demand through the returned setter, arming the
+  /// transport-driven forced logout (NAV-03).
+  Future<void Function()> pumpGateWithRejectableSession(
+    WidgetTester tester,
+  ) async {
+    var reject = false;
+    await pumpGate(
+      tester,
+      storedToken: 'stored-refresh',
+      authHandler: (request) async =>
+          reject && request.url.path == '/auth/refresh'
+          ? http.Response(unauthorizedBody, 401)
+          : http.Response(pairBody, 200),
+      domainHandler: (request) async =>
+          reject ? http.Response(unauthorizedBody, 401) : sessionDomain(request),
+    );
+    return () => reject = true;
+  }
+
+  /// Runs a protected request after [pumpGateWithRejectableSession]'s session
+  /// was armed: the domain `401` plus the rejected refresh forces the session
+  /// end through the real transport path.
+  Future<void> forceLogoutViaTransport(WidgetTester tester) async {
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AuthGate)),
+    );
+    await expectLater(
+      container.read(apiClientProvider).getMySheet(),
+      throwsA(isA<ApiDomainException>()),
+    );
+    await tester.pumpAndSettle();
+  }
+
   group('session navigator boundary (NAV-01 … NAV-04)', () {
-    const detailBody =
-        '{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {"stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}}}}}';
-    const unauthorizedBody =
-        '{"error": {"code": "UNAUTHORIZED", "message": "revoked"}}';
-
-    /// Domain responses for a session that owns `sheet-1`: the post-login
-    /// lookup 404s so the catalog presents itself, and the library open
-    /// resolves the sheet plus its template detail.
-    Future<http.Response> sessionDomain(http.Request request) async {
-      if (request.url.path == '/health') {
-        return http.Response(healthyBody, 200);
-      }
-      if (request.url.path == '/sheets') {
-        return http.Response(notFoundBody, 404);
-      }
-      if (request.url.path == '/sheets/sheet-1') {
-        return http.Response(sheetBody, 200);
-      }
-      if (request.url.path == '/templates/fantasy_v1') {
-        return http.Response(detailBody, 200);
-      }
-      return http.Response('{"data": []}', 200);
-    }
-
-    /// Restores the stored session (404 lookup → catalog), opens `sheet-1`
-    /// from the local library as a route above the catalog, and asserts the
-    /// pre-condition: two mounted `AppShell`s (base + pushed route).
-    Future<void> openPushedSheetRoute(WidgetTester tester) async {
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(AuthGate)),
-      );
-      container.read(sheetLibraryProvider.notifier).upsert(entry('sheet-1'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('library-open-sheet-1')));
-      await tester.pumpAndSettle();
-
-      // The covered base shell reports as offstage, so count both shells
-      // explicitly to pin the two-navigator layout (base + pushed route).
-      expect(find.byType(SheetScreen), findsOneWidget);
-      expect(
-        find.byType(AppShell, skipOffstage: false),
-        findsNWidgets(2),
-      );
-    }
-
-    /// Taps the topmost shell's logout action: the pushed route's own
-    /// `AppShell` covers the base one, so exactly one button is hit-testable.
-    Future<void> logoutTopmostShell(WidgetTester tester) async {
-      final logoutButton = find.byKey(const Key('shell-logout')).hitTestable();
-      expect(logoutButton, findsOneWidget);
-      await tester.tap(logoutButton);
-      await tester.pumpAndSettle();
-    }
-
     testWidgets(
       'Edge: while unauthenticated no catalog or sheet surface renders (NAV-04)',
       (tester) async {
@@ -589,6 +628,97 @@ void main() {
         expect(find.byType(CatalogScreen), findsOneWidget);
         expect(find.byType(SheetScreen), findsNothing);
         expect(find.byType(AppShell), findsNWidgets(1));
+      },
+    );
+  });
+
+  group('session-hosted dialogs (NAV-04)', () {
+    testWidgets(
+      'Error: a forced logout while the creation dialog is open tears it down with the session (NAV-04)',
+      (tester) async {
+        final rejectSession = await pumpGateWithRejectableSession(tester);
+
+        await tester.tap(find.byKey(const Key('catalog-create-fantasy_v1')));
+        await tester.pumpAndSettle();
+        expect(find.byType(CreateSheetDialog), findsOneWidget);
+
+        rejectSession();
+        await forceLogoutViaTransport(tester);
+
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(find.byType(CreateSheetDialog), findsNothing);
+        expect(find.byType(CatalogScreen), findsNothing);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(AppShell), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Error: a forced logout with the sheet discard confirmation open ends the session without it',
+      (tester) async {
+        final rejectSession = await pumpGateWithRejectableSession(tester);
+        await openPushedSheetRoute(tester);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        container
+            .read(sheetEditControllerProvider('sheet-1').notifier)
+            .setPath('stats.dexterity', 99);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(AlertDialog),
+          findsOneWidget,
+          reason: 'the discard confirmation is up before the forced logout',
+        );
+
+        rejectSession();
+        await forceLogoutViaTransport(tester);
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(AppShell), findsNothing);
+        expect(
+          container.read(authSessionProvider),
+          isA<AuthUnauthenticated>(),
+          reason: 'the session ends even with the confirmation open',
+        );
+      },
+    );
+
+    testWidgets(
+      'Error: a forced logout while the library-removal confirmation is open tears it down (NAV-04)',
+      (tester) async {
+        final rejectSession = await pumpGateWithRejectableSession(tester);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        container.read(sheetLibraryProvider.notifier).upsert(entry('sheet-1'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('library-remove-sheet-1')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(AlertDialog),
+          findsOneWidget,
+          reason: 'the removal confirmation is up before the forced logout',
+        );
+
+        rejectSession();
+        await forceLogoutViaTransport(tester);
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(find.byType(CatalogScreen), findsNothing);
+        expect(find.byType(AppShell), findsNothing);
+        expect(
+          container.read(authSessionProvider),
+          isA<AuthUnauthenticated>(),
+          reason: 'the session ends even with the confirmation open',
+        );
       },
     );
   });

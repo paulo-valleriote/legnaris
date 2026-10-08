@@ -115,12 +115,12 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] All three dialogs push on the nearest (session) navigator: creation dialog, library-removal dialog, sheet leave/refresh confirmations
-- [ ] New gate test: opening the creation dialog and forcing a logout leaves only `AuthScreen` — no creation-dialog surface survives (NAV-04)
-- [ ] New gate test: with the sheet's discard confirmation open, a forced logout tears the dialog down without it (spec edge case), and the session ends
-- [ ] Existing dialog-flow tests still pass (single-navigator harnesses are unaffected)
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] All three dialogs push on the nearest (session) navigator: creation dialog, library-removal dialog, sheet leave/refresh confirmations
+- [x] New gate test: opening the creation dialog and forcing a logout leaves only `AuthScreen` — no creation-dialog surface survives (NAV-04)
+- [x] New gate test: with the sheet's discard confirmation open, a forced logout tears the dialog down without it (spec edge case), and the session ends
+- [x] Existing dialog-flow tests still pass (single-navigator harnesses are unaffected)
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: widget
 **Gate**: full
