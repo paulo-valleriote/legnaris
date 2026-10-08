@@ -144,11 +144,11 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] `pushSheetScreen` owns the single route shape; `catalog_screen.dart` calls it from both call sites
-- [ ] No behavior change: creation and library open routes carry the same overrides as before
-- [ ] Existing navigation tests pass unchanged: `create_sheet_navigation_test`, `library_open_navigation_test`, `create_sheet_dialog_test`
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] `pushSheetScreen` owns the single route shape; `catalog_screen.dart` calls it from both call sites
+- [x] No behavior change: creation and library open routes carry the same overrides as before
+- [x] Existing navigation tests pass unchanged: `create_sheet_navigation_test`, `library_open_navigation_test`, `create_sheet_dialog_test`
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: widget (existing navigation suite regression)
 **Gate**: full
