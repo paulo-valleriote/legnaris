@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legnaris/auth/auth_session.dart';
 import 'package:legnaris/connection/connection_indicator.dart';
 import 'package:legnaris/l10n/app_localizations.dart';
 import 'package:legnaris/shell/left_nav.dart';
@@ -69,13 +71,14 @@ class AppShell extends StatelessWidget {
   }
 }
 
-/// Top bar of the shell (CAT-05): the localized app title plus the
-/// connection indicator, right-aligned inside its reserved slot.
-class Header extends StatelessWidget {
+/// Top bar of the shell (CAT-05): the localized app title, the connection
+/// indicator in its reserved slot, and the logout action that ends the
+/// session (FE6-07, FE6-19).
+class Header extends ConsumerWidget {
   const Header({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final localizations = AppLocalizations.of(context)!;
     return SizedBox(
@@ -93,6 +96,13 @@ class Header extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: ConnectionIndicator(),
               ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            TextButton(
+              key: const Key('shell-logout'),
+              onPressed: () =>
+                  ref.read(authSessionProvider.notifier).logout(),
+              child: Text(localizations.authLogoutAction),
             ),
           ],
         ),

@@ -465,6 +465,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not update the local library. Please try again.'**
   String get libraryRemoveFailed;
+
+  /// Mode switch tab that selects the login form (FE6-05).
+  ///
+  /// In en, this message translates to:
+  /// **'Log in'**
+  String get authModeLogin;
+
+  /// Mode switch tab that selects the registration form (FE6-04).
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get authModeRegister;
+
+  /// Label of the email input on the auth screen (FE6-03, FE6-05).
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get authEmailLabel;
+
+  /// Label of the password input on the auth screen (FE6-03, FE6-05).
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get authPasswordLabel;
+
+  /// Label of the username input shown only in register mode (FE6-04, FE6-21).
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get authUsernameLabel;
+
+  /// Primary action that submits the login form (FE6-03).
+  ///
+  /// In en, this message translates to:
+  /// **'Log in'**
+  String get authSubmitLogin;
+
+  /// Primary action that submits the registration form (FE6-04).
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get authSubmitRegister;
+
+  /// Shell header action that ends the session and returns to the auth screen (FE6-07, FE6-19).
+  ///
+  /// In en, this message translates to:
+  /// **'Log out'**
+  String get authLogoutAction;
 }
 
 class _AppLocalizationsDelegate

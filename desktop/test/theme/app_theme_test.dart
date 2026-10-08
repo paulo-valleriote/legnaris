@@ -7,15 +7,25 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/api/auth_api_client.dart';
+import 'package:legnaris/auth/secure_token_store.dart';
+import 'package:legnaris/connection/health_scheduler.dart';
 import 'package:legnaris/library/sheet_library_provider.dart';
 import 'package:legnaris/main.dart';
 import 'package:legnaris/theme/app_theme.dart';
 import 'package:legnaris/theme/tokens.dart';
 
+import '../auth/fakes.dart';
+import '../connection/manual_health_scheduler.dart';
+
 double _radiusOf(ShapeBorder? shape) =>
     ((shape as RoundedRectangleBorder).borderRadius as BorderRadius).topLeft.x;
 
 void main() {
+  const pairBody =
+      '{"data": {"access_token": "access-1", "refresh_token": "refresh-1", "token_type": "Bearer", "expires_in": 900}}';
+  const notFoundBody =
+      '{"error": {"code": "NOT_FOUND", "message": "none"}}';
   final theme = buildAppTheme();
 
   group('type scale mapping (CAT-02)', () {
@@ -151,6 +161,16 @@ void main() {
           ProviderScope(
             overrides: [
               appSupportDirectoryProvider.overrideWithValue(supportDir),
+              secureTokenStoreProvider.overrideWithValue(
+                InMemorySecureTokenStore(token: 'stored-refresh'),
+              ),
+              authApiClientProvider.overrideWithValue(
+                AuthApiClient(
+                  httpClient: MockClient(
+                    (request) async => http.Response(pairBody, 200),
+                  ),
+                ),
+              ),
               apiClientProvider.overrideWithValue(
                 ApiClient(
                   httpClient: MockClient((request) async {
@@ -160,14 +180,21 @@ void main() {
                         200,
                       );
                     }
+                    if (request.url.path == '/sheets') {
+                      return http.Response(notFoundBody, 404);
+                    }
                     return http.Response('{"data": []}', 200);
                   }),
                 ),
+              ),
+              healthSchedulerProvider.overrideWithValue(
+                ManualHealthScheduler(),
               ),
             ],
             child: const LegnarisApp(),
           ),
         );
+        await tester.pumpAndSettle();
 
         expect(find.text('Legnaris'), findsOneWidget);
         final wired = Theme.of(tester.element(find.text('Legnaris')));

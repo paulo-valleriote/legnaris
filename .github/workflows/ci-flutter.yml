@@ -27,6 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # flutter-action reads the version from pubspec.yaml with yq, which is not
+      # pre-installed on Windows runners (the action's own choco fallback is
+      # unreliable), so install it explicitly beforehand.
+      - name: Install yq
+        run: choco install yq
+
       # The SDK version is pinned by desktop/pubspec.yaml (environment.flutter),
       # the single source of truth shared with local development.
       - uses: subosito/flutter-action@v2

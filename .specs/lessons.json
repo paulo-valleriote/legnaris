@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 21,
+  "next_id": 22,
   "lessons": [
     {
       "id": "L-001",
@@ -364,6 +364,24 @@
       ],
       "created": "2026-10-07T13:15:45Z",
       "last_seen": "2026-10-07T13:15:45Z"
+    },
+    {
+      "id": "L-021",
+      "key": "spec_precision_gap::assert the observable state a test name claims not only that the triggering request was sent",
+      "text": "Assert the observable state a test name claims, not only that the triggering request was sent",
+      "signal": "spec_precision_gap",
+      "scope": "desktop/tests",
+      "status": "candidate",
+      "features": [
+        "front-end-phase-6-auth"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "desktop/test/auth/auth_gate_test.dart:228-252 (FE6-16) (desktop/tests)"
+      ],
+      "created": "2026-10-08T11:53:37Z",
+      "last_seen": "2026-10-08T11:53:37Z"
     }
   ]
 }

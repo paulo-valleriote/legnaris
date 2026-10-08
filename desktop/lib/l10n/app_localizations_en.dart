@@ -221,4 +221,28 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get libraryRemoveFailed =>
       'Could not update the local library. Please try again.';
+
+  @override
+  String get authModeLogin => 'Log in';
+
+  @override
+  String get authModeRegister => 'Register';
+
+  @override
+  String get authEmailLabel => 'Email';
+
+  @override
+  String get authPasswordLabel => 'Password';
+
+  @override
+  String get authUsernameLabel => 'Username';
+
+  @override
+  String get authSubmitLogin => 'Log in';
+
+  @override
+  String get authSubmitRegister => 'Create account';
+
+  @override
+  String get authLogoutAction => 'Log out';
 }

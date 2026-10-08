@@ -134,6 +134,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: internal/app/router.go:41 (TestIntegration_ProtectedRoutesRequireJWT self-skips without Mongo) (routes)
 - last seen: 2026-10-07T13:15:45Z
 
+### L-021 - Assert the observable state a test name claims, not only that the triggering request was sent
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `desktop/tests` · harmful: 0
+- features: front-end-phase-6-auth
+- evidence: desktop/test/auth/auth_gate_test.dart:228-252 (FE6-16) (desktop/tests)
+- last seen: 2026-10-08T11:53:37Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

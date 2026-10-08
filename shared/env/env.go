@@ -41,6 +41,21 @@ const (
 
 const attrKey = "key"
 
+// Environment variables the application cannot start without. Kept as
+// constants so RequiredKeys and initVariables share one source of truth.
+const (
+	keyDatabaseURI = "DATABASE_URI"
+	keyJWTSecret   = "JWT_SECRET"
+)
+
+// RequiredKeys returns the environment variables the application cannot start
+// without. Deployment configuration (e.g. deploy/docker-compose.yml) must
+// provide every one of them; exposing the set here lets that be validated
+// against this single source of truth instead of drifting silently.
+func RequiredKeys() []string {
+	return []string{keyDatabaseURI, keyJWTSecret}
+}
+
 // defaultCORSOrigins are the allowed origins during local development. Set
 // CORS_ALLOWED_ORIGINS (comma-separated) to override, e.g. with the production
 // frontend origin.
@@ -64,14 +79,14 @@ func (e *Env) initVariables() Variables {
 	return Variables{
 		Port:                           e.lookupStringEnv("PORT", defaultPort),
 		AppName:                        e.lookupStringEnv("APP_NAME", defaultAppName),
-		DatabaseURI:                    e.lookupRequiredStringEnv("DATABASE_URI"),
+		DatabaseURI:                    e.lookupRequiredStringEnv(keyDatabaseURI),
 		DatabaseName:                   e.lookupStringEnv("DATABASE_NAME", defaultDatabaseName),
 		DatabasePingTimeout:            e.lookupDurationEnv("DATABASE_PING_TIMEOUT", defaultDatabasePingTimeout),
 		DatabaseServerSelectionTimeout: e.lookupDurationEnv("DATABASE_SERVER_SELECTION_TIMEOUT", defaultDatabaseServerSelectionTimeout),
 		DatabaseConnectTimeout:         e.lookupDurationEnv("DATABASE_CONNECT_TIMEOUT", defaultDatabaseConnectTimeout),
 		DatabaseCloseTimeout:           e.lookupDurationEnv("DATABASE_CLOSE_TIMEOUT", defaultDatabaseCloseTimeout),
 		CORSOrigins:                    e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", defaultCORSOrigins),
-		JWTSecret:                      e.lookupRequiredStringEnv("JWT_SECRET"),
+		JWTSecret:                      e.lookupRequiredStringEnv(keyJWTSecret),
 		JWTAccessTTL:                   e.lookupDurationEnv("JWT_ACCESS_TTL", defaultJWTAccessTTL),
 		AuthRefreshTTL:                 e.lookupDurationEnv("AUTH_REFRESH_TTL", defaultAuthRefreshTTL),
 		AuthBcryptCost:                 e.lookupIntEnv("AUTH_BCRYPT_COST", defaultAuthBcryptCost),
