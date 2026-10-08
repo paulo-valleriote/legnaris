@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -14,6 +15,7 @@ import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/auth/auth_gate.dart';
 import 'package:legnaris/auth/auth_screen.dart';
 import 'package:legnaris/auth/auth_session.dart';
+import 'package:legnaris/auth/authenticated_home.dart';
 import 'package:legnaris/auth/secure_token_store.dart';
 import 'package:legnaris/catalog/catalog_screen.dart';
 import 'package:legnaris/catalog/create_sheet_dialog.dart';
@@ -24,6 +26,8 @@ import 'package:legnaris/main.dart';
 import 'package:legnaris/sheet/sheet_edit_provider.dart';
 import 'package:legnaris/sheet/sheet_screen.dart';
 import 'package:legnaris/shell/app_shell.dart';
+import 'package:legnaris/shell/shortcut_registry.dart';
+import 'package:legnaris/shell/shell_state.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
 import '../connection/manual_health_scheduler.dart';
@@ -53,6 +57,7 @@ void main() {
       '{"error": {"code": "INTERNAL_ERROR", "message": "boom"}}';
   const sheetBody =
       '{"data": {"id": "sheet-1", "template_id": "fantasy_v1", "name": "Aragorn", "data": {}, "created_at": "2026-09-20T12:00:00Z", "updated_at": "2026-09-21T08:30:00Z"}}';
+  const cascadeBody = '{"data": {"derived": {"armorClass": 13}}}';
 
   Future<http.Response> defaultDomain(http.Request request) async {
     if (request.url.path == '/health') {
@@ -109,11 +114,18 @@ void main() {
             scheduler ?? ManualHealthScheduler(),
           ),
         ],
-        child: MaterialApp(
-          theme: buildAppTheme(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: AuthGate(navigatorObservers: navigatorObservers),
+        // The production app wires the shortcut/action registry at the root
+        // MaterialApp (main.dart); the harness mirrors it so keyboard
+        // dispatch (NAV-08) travels the same path.
+        child: Consumer(
+          builder: (context, ref, _) => MaterialApp(
+            theme: buildAppTheme(),
+            shortcuts: appShortcuts(),
+            actions: appActions(ref),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: AuthGate(navigatorObservers: navigatorObservers),
+          ),
         ),
       ),
     );
@@ -286,7 +298,7 @@ void main() {
     }
 
     testWidgets(
-      'Happy path: 200 opens Screen 2 for the returned sheet id',
+      'Happy path: 200 opens Screen 2 as a route above the mounted catalog (NAV-05)',
       (tester) async {
         final requests = await pumpGate(
           tester,
@@ -300,7 +312,12 @@ void main() {
           tester.widget<SheetScreen>(find.byType(SheetScreen)).sheetId,
           'sheet-1',
         );
-        expect(find.byType(CatalogScreen), findsNothing);
+        expect(
+          find.byType(CatalogScreen, skipOffstage: false),
+          findsOneWidget,
+          reason: 'the catalog stays mounted beneath the pushed Screen 2',
+        );
+        expect(find.byType(AppShell, skipOffstage: false), findsNWidgets(2));
         expect(countPath(requests.domain, '/sheets'), 1);
       },
     );
@@ -425,6 +442,31 @@ void main() {
     }
     if (request.url.path == '/sheets/sheet-1') {
       return http.Response(sheetBody, 200);
+    }
+    if (request.url.path == '/templates') {
+      return http.Response(oneTemplateBody, 200);
+    }
+    if (request.url.path == '/templates/fantasy_v1') {
+      return http.Response(detailBody, 200);
+    }
+    return http.Response('{"data": []}', 200);
+  }
+
+  /// Domain responses for a session whose post-login lookup returns the sheet
+  /// (NAV-05): Screen 2 mounts above the catalog, then serves its own fetch,
+  /// the template detail, the F5 refresh and a `Ctrl+S` commit (NAV-08).
+  Future<http.Response> postLoginDomain(http.Request request) async {
+    if (request.url.path == '/health') {
+      return http.Response(healthyBody, 200);
+    }
+    if (request.url.path == '/sheets') {
+      return http.Response(sheetBody, 200);
+    }
+    if (request.url.path == '/sheets/sheet-1') {
+      return http.Response(
+        request.method == 'PATCH' ? cascadeBody : sheetBody,
+        200,
+      );
     }
     if (request.url.path == '/templates') {
       return http.Response(oneTemplateBody, 200);
@@ -719,6 +761,220 @@ void main() {
           isA<AuthUnauthenticated>(),
           reason: 'the session ends even with the confirmation open',
         );
+      },
+    );
+  });
+
+  group('post-login sheet route (NAV-02, NAV-05 … NAV-08)', () {
+    testWidgets(
+      'Happy path: back on the post-login Screen 2 returns to the catalog (NAV-06)',
+      (tester) async {
+        await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: postLoginDomain,
+        );
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(
+          find.byType(CatalogScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(CatalogScreen), findsOneWidget);
+        expect(find.byType(AppShell), findsNWidgets(1));
+      },
+    );
+
+    testWidgets(
+      'Happy path: a dirty post-login Screen 2 confirms the discard and then returns to the catalog (NAV-06)',
+      (tester) async {
+        await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: postLoginDomain,
+        );
+        expect(find.byType(SheetScreen), findsOneWidget);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        container
+            .read(sheetEditControllerProvider('sheet-1').notifier)
+            .setPath('stats.dexterity', 99);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('sheet-back')));
+        await tester.pumpAndSettle();
+        expect(
+          find.widgetWithText(TextButton, 'Discard and leave'),
+          findsOneWidget,
+          reason: 'pending edits must be confirmed before leaving (NAV-06)',
+        );
+
+        await tester.tap(find.widgetWithText(TextButton, 'Discard and leave'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(CatalogScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Edge: a Retry after a failure plus a rebuild while in flight push exactly one Screen 2 route (NAV-07)',
+      (tester) async {
+        final retryResponse = Completer<http.Response>();
+        var sheetLookups = 0;
+        final observer = RecordingNavigatorObserver();
+        final requests = await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          navigatorObservers: [observer],
+          domainHandler: (request) async {
+            if (request.url.path == '/sheets' && sheetLookups++ == 0) {
+              return http.Response(serverErrorBody, 500);
+            }
+            if (request.url.path == '/sheets') return retryResponse.future;
+            return sessionDomain(request);
+          },
+        );
+        expect(find.byKey(const Key('home-sheet-retry')), findsOneWidget);
+        expect(
+          observer.pushed,
+          hasLength(1),
+          reason: 'only the initial session route is mounted so far',
+        );
+
+        await tester.tap(find.byKey(const Key('home-sheet-retry')));
+        await tester.pump();
+        tester.element(find.byType(AuthenticatedHome)).markNeedsBuild();
+        await tester.pump();
+        expect(
+          countPath(requests.domain, '/sheets'),
+          2,
+          reason: 'the rebuild while in flight re-issues no lookup',
+        );
+
+        retryResponse.complete(http.Response(sheetBody, 200));
+        await tester.pumpAndSettle();
+
+        expect(
+          observer.pushed,
+          hasLength(2),
+          reason: 'exactly one Screen 2 route for the whole transition (NAV-07)',
+        );
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(
+          find.byType(CatalogScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Edge: a 404 lookup presents the catalog without pushing Screen 2 (NAV-07)',
+      (tester) async {
+        final observer = RecordingNavigatorObserver();
+        final requests = await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: sessionDomain,
+          navigatorObservers: [observer],
+        );
+
+        expect(find.byType(CatalogScreen), findsOneWidget);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(
+          observer.pushed,
+          hasLength(1),
+          reason: 'no Screen 2 route for a 404 lookup (NAV-07)',
+        );
+        expect(countPath(requests.domain, '/sheets'), 1);
+      },
+    );
+
+    testWidgets(
+      'Happy path: F5 and Ctrl+S dispatch to the post-login-mounted SheetScreen (NAV-08)',
+      (tester) async {
+        final requests = await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: postLoginDomain,
+        );
+        expect(find.byType(SheetScreen), findsOneWidget);
+        expect(
+          find.byType(CatalogScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+
+        final detailLoads = countPath(requests.domain, '/templates/fantasy_v1');
+        final catalogLoads = countPath(requests.domain, '/templates');
+        await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+        await tester.pumpAndSettle();
+
+        expect(
+          countPath(requests.domain, '/templates/fantasy_v1'),
+          detailLoads + 1,
+          reason: 'F5 refreshes the mounted SheetScreen',
+        );
+        expect(
+          countPath(requests.domain, '/templates'),
+          catalogLoads,
+          reason: 'F5 never touches the catalog while a sheet is mounted',
+        );
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        container
+            .read(sheetEditControllerProvider('sheet-1').notifier)
+            .setPath('stats.dexterity', 99);
+        await tester.pumpAndSettle();
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pumpAndSettle();
+
+        final patches = requests.domain
+            .where((request) => request.method == 'PATCH')
+            .toList();
+        expect(
+          patches,
+          hasLength(1),
+          reason: 'Ctrl+S commits the pending edit exactly once (NAV-08)',
+        );
+        expect(patches.single.url.path, '/sheets/sheet-1');
+      },
+    );
+
+    testWidgets(
+      'Happy path: a session starting from a stuck shell surface resets it to the catalog (NAV-02)',
+      (tester) async {
+        await pumpGate(tester);
+        expect(find.byType(AuthScreen), findsOneWidget);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        container
+            .read(shellStateProvider.notifier)
+            .show(ShellSurface.creationDialog);
+        expect(container.read(shellStateProvider), ShellSurface.creationDialog);
+
+        await container.read(authSessionProvider.notifier).login(
+          email: 'player@example.com',
+          password: 'sup3r-secret',
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          container.read(shellStateProvider),
+          ShellSurface.catalog,
+          reason: 'the branch mount clears the surface the session inherited',
+        );
+        expect(find.byType(CatalogScreen), findsOneWidget);
       },
     );
   });

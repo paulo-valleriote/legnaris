@@ -172,13 +172,13 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] `200` after authentication → `SheetScreen` is a route pushed above a mounted `CatalogScreen` (NAV-05); the pre-existing assertion `CatalogScreen findsNothing` in `auth_gate_test.dart:284` is updated to the spec outcome (catalog beneath, sheet above)
-- [ ] Back on that Screen 2 returns to the catalog (NAV-06), including the discard-confirmed dirty path
-- [ ] Retry-after-failure plus a rebuild push exactly one Screen 2 route — counted through the `navigatorObservers` seam (NAV-07); `404` still presents the catalog with no push
-- [ ] `Ctrl+S` (and F5) dispatch to the post-login-mounted SheetScreen — `Ctrl+S` with a pending edit issues one `PATCH /sheets/:id` (NAV-08); existing shortcut tests still pass
-- [ ] `initState` resets `shellStateProvider` to `ShellSurface.catalog` post-frame (NAV-02)
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] `200` after authentication → `SheetScreen` is a route pushed above a mounted `CatalogScreen` (NAV-05); the pre-existing assertion `CatalogScreen findsNothing` in `auth_gate_test.dart:284` is updated to the spec outcome (catalog beneath, sheet above)
+- [x] Back on that Screen 2 returns to the catalog (NAV-06), including the discard-confirmed dirty path
+- [x] Retry-after-failure plus a rebuild push exactly one Screen 2 route — counted through the `navigatorObservers` seam (NAV-07); `404` still presents the catalog with no push
+- [x] `Ctrl+S` (and F5) dispatch to the post-login-mounted SheetScreen — `Ctrl+S` with a pending edit issues one `PATCH /sheets/:id` (NAV-08); existing shortcut tests still pass
+- [x] `initState` resets `shellStateProvider` to `ShellSurface.catalog` post-frame (NAV-02)
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: widget
 **Gate**: full
