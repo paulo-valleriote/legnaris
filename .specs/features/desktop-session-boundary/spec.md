@@ -137,9 +137,9 @@ Each requirement gets a unique ID for tracking across design, tasks, and validat
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------- |
-| NAV-01 | P1: Navigation dies with the session | Design | In Tasks |
+| NAV-01 | P1: Navigation dies with the session | Design | Verified |
 | NAV-02 | P1: Navigation dies with the session | Design | In Tasks |
-| NAV-03 | P1: Navigation dies with the session | Design | In Tasks |
+| NAV-03 | P1: Navigation dies with the session | Design | Verified |
 | NAV-04 | P1: Navigation dies with the session | Design | In Tasks |
 | NAV-05 | P1: The catalog is always reachable from Screen 2 | Design | In Tasks |
 | NAV-06 | P1: The catalog is always reachable from Screen 2 | Design | In Tasks |

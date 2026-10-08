@@ -86,12 +86,12 @@ T8 -------> T11 ------> T12
 
 **Done when**:
 
-- [ ] The `AuthAuthenticated` branch renders `Navigator(onGenerateRoute: …)` whose initial route is `AuthenticatedHome`; unauthenticated/restoring branches unchanged
-- [ ] `AuthGate` accepts `navigatorObservers` (default `const []`) passed to that `Navigator`
-- [ ] New gate tests: logout from a pushed SheetScreen route leaves only `AuthScreen` mounted (NAV-01); a second login starts from an empty stack — no SheetScreen from the previous session (NAV-02); a forced logout (transport-driven rejected refresh) unmounts every pushed route (NAV-03); unauthenticated renders no `CatalogScreen`/`SheetScreen` (NAV-04)
-- [ ] Existing gate/logout suites still pass (a session's routes now die with the branch)
-- [ ] Gate check passes: `cd desktop && flutter analyze && flutter test`
-- [ ] Test count: full suite green, no silent deletions
+- [x] The `AuthAuthenticated` branch renders `Navigator(onGenerateRoute: …)` whose initial route is `AuthenticatedHome`; unauthenticated/restoring branches unchanged
+- [x] `AuthGate` accepts `navigatorObservers` (default `const []`) passed to that `Navigator`
+- [x] New gate tests: logout from a pushed SheetScreen route leaves only `AuthScreen` mounted (NAV-01); a second login starts from an empty stack — no SheetScreen from the previous session (NAV-02); a forced logout (transport-driven rejected refresh) unmounts every pushed route (NAV-03); unauthenticated renders no `CatalogScreen`/`SheetScreen` (NAV-04)
+- [x] Existing gate/logout suites still pass (a session's routes now die with the branch)
+- [x] Gate check passes: `cd desktop && flutter analyze && flutter test`
+- [x] Test count: full suite green, no silent deletions
 
 **Tests**: widget
 **Gate**: full

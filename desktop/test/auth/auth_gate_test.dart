@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:legnaris/api/api_client.dart';
 import 'package:legnaris/api/api_client_provider.dart';
+import 'package:legnaris/api/api_error.dart';
 import 'package:legnaris/api/auth_api_client.dart';
 import 'package:legnaris/api/error_mapper.dart';
 import 'package:legnaris/auth/auth_gate.dart';
@@ -24,7 +25,21 @@ import 'package:legnaris/shell/app_shell.dart';
 import 'package:legnaris/theme/app_theme.dart';
 
 import '../connection/manual_health_scheduler.dart';
+import '../library/library_fixtures.dart';
 import 'fakes.dart';
+
+/// Records every `didPush` it receives, so tests can count the routes a
+/// session pushes through the `AuthGate.navigatorObservers` seam (NAV-07).
+/// Removals are deliberately not tracked: disposing the session navigator
+/// unmounts its routes without observer notifications.
+class RecordingNavigatorObserver extends NavigatorObserver {
+  final List<Route<dynamic>> pushed = [];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushed.add(route);
+  }
+}
 
 void main() {
   const pairBody =
@@ -53,6 +68,7 @@ void main() {
     Future<http.Response> Function(http.Request request)? domainHandler,
     Future<http.Response> Function(http.Request request)? authHandler,
     ManualHealthScheduler? scheduler,
+    List<NavigatorObserver> navigatorObservers = const [],
     bool settle = true,
   }) async {
     final domain = <http.Request>[];
@@ -78,13 +94,14 @@ void main() {
               }),
             ),
           ),
-          apiClientProvider.overrideWithValue(
-            ApiClient(
-              httpClient: MockClient((request) async {
-                domain.add(request);
-                return domainHandler?.call(request) ?? defaultDomain(request);
-              }),
-            ),
+          // Overriding the raw transport keeps the AuthenticatedClient
+          // decorator in the path, so a protected 401 drives the refresh /
+          // forced-logout flow exactly as in production (NAV-03).
+          apiTransportProvider.overrideWithValue(
+            MockClient((request) async {
+              domain.add(request);
+              return domainHandler?.call(request) ?? defaultDomain(request);
+            }),
           ),
           healthSchedulerProvider.overrideWithValue(
             scheduler ?? ManualHealthScheduler(),
@@ -94,7 +111,7 @@ void main() {
           theme: buildAppTheme(),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const AuthGate(),
+          home: AuthGate(navigatorObservers: navigatorObservers),
         ),
       ),
     );
@@ -382,6 +399,196 @@ void main() {
           2,
           reason: 'one lookup per authenticated transition, never a duplicate',
         );
+      },
+    );
+  });
+
+  group('session navigator boundary (NAV-01 … NAV-04)', () {
+    const detailBody =
+        '{"data": {"id": "fantasy_v1", "name": "Fantasy Template", "default": true, "fields": {"stats": {"children": {"dexterity": {"schema": {"type": "number", "label": "", "is_editable": true, "default": 10}}}}}}}';
+    const unauthorizedBody =
+        '{"error": {"code": "UNAUTHORIZED", "message": "revoked"}}';
+
+    /// Domain responses for a session that owns `sheet-1`: the post-login
+    /// lookup 404s so the catalog presents itself, and the library open
+    /// resolves the sheet plus its template detail.
+    Future<http.Response> sessionDomain(http.Request request) async {
+      if (request.url.path == '/health') {
+        return http.Response(healthyBody, 200);
+      }
+      if (request.url.path == '/sheets') {
+        return http.Response(notFoundBody, 404);
+      }
+      if (request.url.path == '/sheets/sheet-1') {
+        return http.Response(sheetBody, 200);
+      }
+      if (request.url.path == '/templates/fantasy_v1') {
+        return http.Response(detailBody, 200);
+      }
+      return http.Response('{"data": []}', 200);
+    }
+
+    /// Restores the stored session (404 lookup → catalog), opens `sheet-1`
+    /// from the local library as a route above the catalog, and asserts the
+    /// pre-condition: two mounted `AppShell`s (base + pushed route).
+    Future<void> openPushedSheetRoute(WidgetTester tester) async {
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AuthGate)),
+      );
+      container.read(sheetLibraryProvider.notifier).upsert(entry('sheet-1'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('library-open-sheet-1')));
+      await tester.pumpAndSettle();
+
+      // The covered base shell reports as offstage, so count both shells
+      // explicitly to pin the two-navigator layout (base + pushed route).
+      expect(find.byType(SheetScreen), findsOneWidget);
+      expect(
+        find.byType(AppShell, skipOffstage: false),
+        findsNWidgets(2),
+      );
+    }
+
+    /// Taps the topmost shell's logout action: the pushed route's own
+    /// `AppShell` covers the base one, so exactly one button is hit-testable.
+    Future<void> logoutTopmostShell(WidgetTester tester) async {
+      final logoutButton = find.byKey(const Key('shell-logout')).hitTestable();
+      expect(logoutButton, findsOneWidget);
+      await tester.tap(logoutButton);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'Edge: while unauthenticated no catalog or sheet surface renders (NAV-04)',
+      (tester) async {
+        await pumpGate(tester);
+
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(find.byType(CatalogScreen), findsNothing);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(AppShell), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Edge: navigatorObservers defaults to empty and receives the session navigator pushes',
+      (tester) async {
+        expect(const AuthGate().navigatorObservers, isEmpty);
+
+        final observer = RecordingNavigatorObserver();
+        await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: sessionDomain,
+          navigatorObservers: [observer],
+        );
+        expect(
+          observer.pushed,
+          hasLength(1),
+          reason: 'the session navigator pushes its initial route (NAV-02)',
+        );
+
+        await openPushedSheetRoute(tester);
+        expect(
+          observer.pushed,
+          hasLength(2),
+          reason: 'one observer push per mounted route (NAV-07 seam)',
+        );
+      },
+    );
+
+    testWidgets(
+      'Error: a transport-driven forced logout unmounts every route pushed in the session (NAV-03)',
+      (tester) async {
+        var rejectDomain = false;
+        final requests = await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          authHandler: (request) async =>
+              rejectDomain && request.url.path == '/auth/refresh'
+              ? http.Response(unauthorizedBody, 401)
+              : http.Response(pairBody, 200),
+          domainHandler: (request) async => rejectDomain
+              ? http.Response(unauthorizedBody, 401)
+              : sessionDomain(request),
+        );
+        await openPushedSheetRoute(tester);
+
+        final refreshesBefore = requests.auth
+            .where((request) => request.url.path == '/auth/refresh')
+            .length;
+        rejectDomain = true;
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        await expectLater(
+          container.read(apiClientProvider).getMySheet(),
+          throwsA(isA<ApiDomainException>()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(CatalogScreen), findsNothing);
+        expect(find.byType(AppShell), findsNothing);
+        expect(
+          container.read(authSessionProvider),
+          isA<AuthUnauthenticated>(),
+          reason: 'the rejected refresh forced the session end',
+        );
+        expect(
+          requests.auth
+              .where((request) => request.url.path == '/auth/refresh'),
+          hasLength(refreshesBefore + 1),
+          reason: 'exactly one transport refresh drove the forced logout',
+        );
+      },
+    );
+
+    testWidgets(
+      'Happy path: logout from a pushed SheetScreen route leaves only AuthScreen mounted (NAV-01)',
+      (tester) async {
+        await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: sessionDomain,
+        );
+        await openPushedSheetRoute(tester);
+
+        await logoutTopmostShell(tester);
+
+        expect(find.byType(AuthScreen), findsOneWidget);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(CatalogScreen), findsNothing);
+        expect(find.byType(AppShell), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Happy path: a second login starts from an empty stack with no route from the previous session (NAV-02)',
+      (tester) async {
+        await pumpGate(
+          tester,
+          storedToken: 'stored-refresh',
+          domainHandler: sessionDomain,
+        );
+        await openPushedSheetRoute(tester);
+        await logoutTopmostShell(tester);
+        expect(find.byType(AuthScreen), findsOneWidget);
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AuthGate)),
+        );
+        await container.read(authSessionProvider.notifier).login(
+          email: 'player@example.com',
+          password: 'sup3r-secret',
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CatalogScreen), findsOneWidget);
+        expect(find.byType(SheetScreen), findsNothing);
+        expect(find.byType(AppShell), findsNWidgets(1));
       },
     );
   });

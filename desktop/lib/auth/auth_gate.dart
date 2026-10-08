@@ -14,7 +14,12 @@ import 'package:legnaris/connection/connection_provider.dart';
 /// `GET /health` keeps running while unauthenticated (FE6-16): the indicator
 /// provider is independent of the session.
 class AuthGate extends ConsumerStatefulWidget {
-  const AuthGate({super.key});
+  const AuthGate({super.key, this.navigatorObservers = const []});
+
+  /// Observer seam mirroring `MaterialApp.navigatorObservers`, handed to the
+  /// session navigator so tests can count the routes a session pushes
+  /// (NAV-07) without depending on route-dispose notifications.
+  final List<NavigatorObserver> navigatorObservers;
 
   @override
   ConsumerState<AuthGate> createState() => _AuthGateState();
@@ -46,7 +51,19 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     // gate and its subtree.
     ref.listen(connectionProvider, (_, _) {});
     final state = ref.watch(authSessionProvider);
-    if (state is AuthAuthenticated) return const AuthenticatedHome();
+    if (state is AuthAuthenticated) {
+      // The authenticated branch owns its navigation stack (NAV-01 … NAV-04):
+      // every route pushed inside lives and dies with this Navigator, and the
+      // widget-type alternation with the branches below guarantees a fresh
+      // NavigatorState — an empty stack — per authenticated transition
+      // (NAV-02).
+      return Navigator(
+        observers: widget.navigatorObservers,
+        onGenerateRoute: (settings) => MaterialPageRoute<void>(
+          builder: (_) => const AuthenticatedHome(),
+        ),
+      );
+    }
     if (!_restoreCompleted) return const _RestoringSession();
     return const AuthScreen();
   }
