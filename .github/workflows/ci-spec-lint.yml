@@ -5,10 +5,19 @@ name: Spec & Test Lints
 #   2. requirement IDs cited in code exist in the specs -> scripts/check_requirement_ids.py
 #   3. validation.md file:line citations resolve      -> scripts/check_validation_citations.py
 # Stdlib-only Python (no setup step); run the same checks locally with
-# `make lint-specs`. Like ci-lint.yml this gates pull requests only: a merged
-# PR has already passed, and rule 3 needs the PR base to scope its diff.
+# `make lint-specs`. Gated to pull requests only: rule 3 needs the PR base to
+# scope its diff, and a merged PR has already passed.
+#
+# The rules only read *.go / *.dart sources, the scripts themselves and the
+# .specs corpus, so those are the only changes that can break them.
 on:
   pull_request:
+    paths:
+      - '**/*.go'
+      - '**/*.dart'
+      - 'scripts/**'
+      - '.specs/**'
+      - '.github/workflows/ci-spec-lint.yml'
 
 permissions:
   contents: read
