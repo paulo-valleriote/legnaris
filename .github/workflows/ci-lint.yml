@@ -2,10 +2,22 @@ name: Lint & Race
 
 on:
   pull_request:
-    # Flutter lives only under desktop/ and is covered by ci-flutter.yml;
-    # a desktop-only change must not trigger this Go pipeline.
-    paths-ignore:
-      - 'desktop/**'
+    # Allowlist, not paths-ignore (the two cannot coexist on one event): this
+    # pipeline owns the Go toolchain and the deploy stack only. A desktop-only
+    # change is covered by ci-flutter.yml, and a docs/web/spec change touches
+    # neither, so neither must trigger this pipeline. `cmd/**`, `internal/**`
+    # and `shared/**` are listed beyond `**/*.go` so non-Go assets they may
+    # carry (testdata, embedded files) still trigger it.
+    paths:
+      - '**/*.go'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'shared/**'
+      - 'deploy/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Dockerfile'
+      - '.github/workflows/ci-lint.yml'
 
 permissions:
   contents: read
