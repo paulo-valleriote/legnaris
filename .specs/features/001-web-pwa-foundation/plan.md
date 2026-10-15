@@ -4,6 +4,9 @@
 
 **Input**: Feature specification from `.specs/features/001-web-pwa-foundation/spec.md`
 
+**Program plan**: `docs/plan-web-pwa.md` (Parte B, feature F1) — the umbrella plan this feature
+implements.
+
 ## Summary
 
 Stand up the product's web client under `web/` as an installable Progressive Web App with a dense,
