@@ -8,13 +8,16 @@ name: Spec & Test Lints
 # `make lint-specs`. Gated to pull requests only: rule 3 needs the PR base to
 # scope its diff, and a merged PR has already passed.
 #
-# The rules only read *.go / *.dart sources, the scripts themselves and the
-# .specs corpus, so those are the only changes that can break them.
+# The rules read *.go / *.dart / *.ts / *.tsx sources plus the scripts and the
+# .specs corpus, so those are the only changes that can break them (the client
+# suffixes were added with the web PWA foundation, SEC-07).
 on:
   pull_request:
     paths:
       - '**/*.go'
       - '**/*.dart'
+      - 'web/**/*.ts'
+      - 'web/**/*.tsx'
       - 'scripts/**'
       - '.specs/**'
       - '.github/workflows/ci-spec-lint.yml'
@@ -36,7 +39,7 @@ jobs:
       - name: lint script self-test
         run: python3 scripts/test_lints.py
 
-      - name: rule 1 - no vacuous assertions in Dart tests
+      - name: rule 1 - no vacuous assertions in Dart/TS tests
         run: python3 scripts/check_test_assertions.py
 
       - name: rule 2 - requirement IDs cited in code exist in the specs

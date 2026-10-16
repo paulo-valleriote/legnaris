@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # Client dependencies (React/Vite/TypeScript PWA). Security updates are
+  # grouped separately from routine version updates so a security release is
+  # distinguishable in the update queue (SEC-05).
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - '*'
+      npm-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+
+  # Keep the workflow action pins current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

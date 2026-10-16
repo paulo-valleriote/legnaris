@@ -17,6 +17,8 @@ import check_requirement_ids as rule2
 import check_test_assertions as rule1
 import check_validation_citations as rule3
 
+ROOT = Path(__file__).resolve().parent.parent
+
 
 class TestVacuousAssertions(unittest.TestCase):
     def assertFlagged(self, source, arg):
@@ -102,6 +104,97 @@ class TestRequirementIds(unittest.TestCase):
     def test_reports_line_numbers(self):
         v = self.violations("ok PRV-13\n// dead RND-99")
         self.assertEqual(v, [(2, "RND-99", ".specs/**/spec.md")])
+
+    def test_tsx_citation_resolving_to_a_spec_passes(self):
+        spec = {"FND-01", "SEC-07"}
+        self.assertEqual(rule2.find_violations("// FND-01 renders the shell", spec, self.STATE), [])
+
+    def test_ts_citation_unknown_fails(self):
+        spec = {"FND-01"}
+        v = rule2.find_violations("// SEC-99 is not defined", spec, self.STATE)
+        self.assertEqual(v, [(1, "SEC-99", ".specs/**/spec.md")])
+
+    def test_client_walker_ignores_node_modules_and_build_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "web" / "src"
+            src.mkdir(parents=True)
+            (src / "app.tsx").write_text("// FND-01\n", encoding="utf-8")
+            node_modules = root / "web" / "node_modules" / "pkg"
+            node_modules.mkdir(parents=True)
+            (node_modules / "bad.ts").write_text("// FND-99\n", encoding="utf-8")
+            dist = root / "web" / "dist"
+            dist.mkdir(parents=True)
+            (dist / "out.ts").write_text("// FND-99\n", encoding="utf-8")
+            found = {p.name for p in rule2.code_files(root)}
+            self.assertEqual(found, {"app.tsx"})
+
+
+class TestClientTestSuffix(unittest.TestCase):
+    def test_only_client_test_files_are_scanned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "web" / "src"
+            src.mkdir(parents=True)
+            test_file = src / "shell.test.tsx"
+            test_file.write_text("expect(true, isTrue);\n", encoding="utf-8")
+            source_file = src / "shell.tsx"
+            source_file.write_text("expect(true, isTrue);\n", encoding="utf-8")
+
+            files = list(rule1.source_files([root / "web"]))
+
+            self.assertIn(test_file, files)
+            self.assertNotIn(source_file, files)
+
+    def test_vacuous_assertion_in_tsx_is_flagged(self):
+        self.assertEqual(rule1.find_violations("expect(true, isTrue);"), [(1, "true")])
+        self.assertEqual(rule1.find_violations("expect(value, isTruthy);"), [])
+
+
+class TestWorkflowPathFilters(unittest.TestCase):
+    """Contract test for the CI path scoping (SEC-06) and the fail-closed rule (SEC-04)."""
+
+    def pull_request_paths(self, workflow):
+        text = (ROOT / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
+        lines = text.splitlines()
+        pr = next((i for i, line in enumerate(lines) if line.strip() == "pull_request:"), None)
+        self.assertIsNotNone(pr, f"{workflow} has no pull_request trigger")
+        paths = next(
+            (i for i in range(pr + 1, len(lines)) if lines[i].strip() == "paths:"), None
+        )
+        self.assertIsNotNone(paths, f"{workflow} pull_request has no paths filter")
+        indent = len(lines[paths]) - len(lines[paths].lstrip())
+        items = []
+        for line in lines[paths + 1:]:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if len(line) - len(line.lstrip()) <= indent:
+                break
+            if stripped.startswith("-"):
+                items.append(stripped.lstrip("- ").strip().strip("'\""))
+        return set(items)
+
+    def test_client_workflow_triggers_on_web(self):
+        paths = self.pull_request_paths("ci-web.yml")
+        self.assertIn("web/**", paths)
+
+    def test_go_workflow_does_not_trigger_on_web(self):
+        paths = self.pull_request_paths("ci-lint.yml")
+        self.assertNotIn("web/**", paths)
+        self.assertFalse(any(p.startswith("web/") for p in paths))
+
+    def test_spec_lint_triggers_on_client_sources(self):
+        paths = self.pull_request_paths("ci-spec-lint.yml")
+        self.assertIn("web/**/*.ts", paths)
+        self.assertIn("web/**/*.tsx", paths)
+
+    def test_client_workflow_has_no_continue_on_error(self):
+        text = (ROOT / ".github" / "workflows" / "ci-web.yml").read_text(encoding="utf-8")
+        # Comments may explain the rule; only a real key would weaken a gate.
+        code_lines = [line for line in text.splitlines() if not line.lstrip().startswith("#")]
+        self.assertNotIn("continue-on-error", "\n".join(code_lines))
+
 
 
 class TestValidationCitations(unittest.TestCase):
