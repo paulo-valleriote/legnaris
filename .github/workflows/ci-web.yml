@@ -111,8 +111,11 @@ jobs:
         run: pipx install semgrep
       - name: Semgrep
         # --error is the gate: findings exit non-zero instead of only being reported.
+        # p/default carries the detection: it is the only pack that flagged a seeded
+        # eval(); p/xss, p/react, p/security-audit and p/nodejsscan flagged none.
         run: >-
           semgrep scan
+          --config p/default
           --config p/owasp-top-ten
           --config p/typescript
           --config p/react

@@ -72,8 +72,24 @@ export function valueAtPath(data: Record<string, unknown>, path: string): unknow
     if (!isPlainObject(current)) {
       return null;
     }
-    current = current[segment];
+    const next = ownValue(current, segment);
+    if (next === undefined) {
+      return null;
+    }
+    current = next;
   }
 
   return current === undefined ? null : current;
+}
+
+/**
+ * Reads [key] from [source] only when it is an own property.
+ *
+ * Reads stop at the object itself, so a path can never resolve through the
+ * prototype chain (`toString`, `constructor`, `__proto__`) into a value the
+ * payload never carried (API-13). An own property that happens to shadow a
+ * prototype member is ordinary data and still resolves.
+ */
+function ownValue(source: Record<string, unknown>, key: string): unknown {
+  return Object.hasOwn(source, key) ? source[key] : undefined;
 }

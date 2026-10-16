@@ -460,3 +460,12 @@ Recorded deviations are listed in `web/AGENTS.md` under "Delivered deviations fr
 feature task lists" → F2 (`web-api-client`): no MSW, no app-level client wiring yet (the
 reworded T021), the shared `src/api/parse.ts` helper, the INTERNAL_ERROR capture taken
 from an unmatched route, and the live suite's mechanism cases.
+
+### Post-close accessor narrowing
+
+`valueAtPath` (API-12 … API-14) now resolves own properties only: a segment that exists just
+through the prototype chain (`toString`, `constructor`, `__proto__`) yields no value instead of
+an inherited member, which is what API-13 already describes as "a path that points at nothing".
+The change closes the prototype-pollution finding the widened Semgrep ruleset raised on the
+indexed read and adds the matching edge cases to `api_models_sheet.test.ts`. Recorded as
+`AD-012`.

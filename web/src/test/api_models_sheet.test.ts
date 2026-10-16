@@ -102,6 +102,19 @@ describe('dotted path accessor', () => {
     expect(valueAtPath(data, 'flags.none')).toBeNull();
   });
 
+  it('Edge: a path never resolves through the prototype chain (API-13)', () => {
+    expect(valueAtPath(data, 'toString')).toBeNull();
+    expect(valueAtPath(data, 'constructor')).toBeNull();
+    expect(valueAtPath(data, '__proto__')).toBeNull();
+    expect(valueAtPath(data, 'stats.constructor')).toBeNull();
+    expect(valueAtPath(data, 'stats.hasOwnProperty')).toBeNull();
+  });
+
+  it('Edge: an own property shadowing a prototype member is still data (API-12)', () => {
+    expect(valueAtPath({ constructor: 'rendered' }, 'constructor')).toBe('rendered');
+    expect(valueAtPath({ stats: { toString: 12 } }, 'stats.toString')).toBe(12);
+  });
+
   it('Edge: a single-segment path resolves against the top level (API-12)', () => {
     expect(valueAtPath(data, 'stats')).toEqual({ dexterity: 16 });
   });

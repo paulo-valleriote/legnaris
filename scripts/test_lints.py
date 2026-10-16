@@ -245,10 +245,12 @@ class TestClientGateIntegrity(unittest.TestCase):
 
     def test_sast_job_blocks_on_findings(self):
         # A scanner that only reports its findings looks green while finding
-        # nothing, so the gate must fail the job on a finding.
+        # nothing, so the gate must fail the job on a finding; p/default is the
+        # only configured pack measured to detect a seeded sink.
         block = self.job_block("ci-web.yml", "sast")
         self.assertIn("semgrep scan", block)
         self.assertIn("--error", block)
+        self.assertIn("--config p/default", block)
         self.assertNotIn("continue-on-error", block)
 
     def test_trivy_pin_clears_the_pruned_dependency_floor(self):

@@ -18,7 +18,7 @@
 |---|---|---|---|
 | `quality` | format check, lint (ESLint incl. anti-XSS rules), type-check, unit tests, production build | yes | yes |
 | `sca` | `osv-scanner` on the lockfile, `Trivy fs`, `npm audit` (with signature verification) | yes | yes |
-| `sast` | Semgrep (`p/owasp-top-ten`, `p/typescript`, `p/react`) with `--error`, so a finding fails the job; CodeQL is deferred until the repository has GitHub Code Security (AD-012) | yes | yes |
+| `sast` | Semgrep (`p/default`, `p/owasp-top-ten`, `p/typescript`, `p/react`) with `--error`, so a finding fails the job; CodeQL is deferred until the repository has GitHub Code Security (AD-012) | yes | yes |
 | `secrets` | `gitleaks` scan of the diff and the tree | yes | yes |
 | `lockfile` | `npm ci` on the frozen lockfile, lockfile-lint integrity | yes | yes |
 
@@ -32,9 +32,17 @@ Rules:
   scanning and the CodeQL CLI are unavailable on a private repository without GitHub Code
   Security, which only GitHub Team and Enterprise plans can purchase (AD-012). Reinstatement is
   tracked with the feature's deferred tasks.
-- The three configured packs are thin for this stack: a seeded file holding `eval`, `innerHTML`
-  and `document.write` yields no finding, while `p/default` finds it. Broadening the ruleset is
-  F9-T009's scope in the program plan.
+- The ruleset carries `p/default` for detection. Measured on a seeded file holding `eval`,
+  `innerHTML`, `document.write` and `dangerouslySetInnerHTML`: `p/default` reported the `eval`
+  finding, while `p/xss` (12 rules), `p/react` (4), `p/security-audit` (22), `p/javascript` and
+  `p/typescript` (74 each), `p/owasp-top-ten` (76) and `p/nodejsscan` (114) reported nothing. The
+  DOM injection sinks are already errors in the ESLint anti-XSS set above (FND-10), which is why
+  the XSS-named packs add nothing here; the remaining packs add rules without adding detection.
+- Every finding blocks, whatever its confidence, so a finding is answered by a fix or by a
+  suppression documented in review — never by narrowing the ruleset. `p/default` flagged
+  `valueAtPath`'s `current = current[segment]` as a possible prototype-pollution loop; the
+  accessor now resolves own properties only (AD-012), which removes the pattern the rule matches
+  and stops a path from walking into the prototype chain.
 - New findings fail the pipeline even when `quality` is green (SEC-02, SEC-03).
 - Scanner versions/actions are pinned; dependabot covers the workflow's own action versions where
   the ecosystem allows it.

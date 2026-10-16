@@ -295,8 +295,9 @@ exposed defects a push-triggered run would have hidden:
 - `sast` failed because `github/codeql-action/analyze` cannot upload on a private repository
   without GitHub Code Security (personal account). The job now runs Semgrep CE with `--error`
   and no code-scanning upload (`AD-012`), which keeps the gate blocking: a seeded finding exits
-  1. The three configured packs detect no `eval`/`innerHTML`/`document.write` sink, so
-  broadening them stays F9-T009's scope.
+  1. The ruleset gained `p/default` — the only candidate pack that detected a seeded `eval` —
+  and the one finding it raised (`valueAtPath`'s indexed read) was fixed by resolving own
+  properties only, not suppressed.
 
 The first two are guarded by regression tests in `scripts/test_lints.py`, each proven to fail
 against the unfixed workflow. Evidence after the repairs: `make lint-specs` clean (42
