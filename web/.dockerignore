@@ -1,0 +1,17 @@
+# Build context hygiene for the web image: only sources and the lockfile are
+# needed, and the local env files must never leak into the bundle.
+
+node_modules
+dist
+.vite
+coverage
+playwright-report
+test-results
+blob-report
+e2e
+
+.env
+.env.*
+*.local
+
+.DS_Store

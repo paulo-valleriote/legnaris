@@ -22,6 +22,11 @@ type composeDoc struct {
 
 type composeService struct {
 	Environment map[string]string `yaml:"environment"`
+	Build       *composeBuild     `yaml:"build"`
+}
+
+type composeBuild struct {
+	Args map[string]string `yaml:"args"`
 }
 
 func readCompose(t *testing.T) composeDoc {
@@ -64,5 +69,26 @@ func TestAppServiceProvidesRequiredEnv(t *testing.T) {
 		require.True(t, present, "app.environment must define JWT_SECRET")
 		require.Contains(t, value, "JWT_SECRET",
 			"JWT_SECRET must be sourced from ${JWT_SECRET...}, never a committed literal")
+	})
+}
+
+// TestWebServiceBakesApiOrigin guards the web client's only build-time setting:
+// Vite inlines the API origin into the bundle, so a committed literal would
+// freeze every deployment to one environment's API and a browser on the web
+// domain would call the wrong host. The value must stay an environment
+// interpolation, and the service must be buildable from web/Dockerfile.
+func TestWebServiceBakesApiOrigin(t *testing.T) {
+	doc := readCompose(t)
+
+	web, ok := doc.Services["web"]
+	require.True(t, ok, "the stack must define a web service")
+
+	require.NotNil(t, web.Build, "web must be built (context ../web, dockerfile Dockerfile)")
+
+	t.Run("Happy path: the API origin comes from the deployment env", func(t *testing.T) {
+		value, present := web.Build.Args["VITE_API_BASE_URL"]
+		require.True(t, present, "web.build.args must define VITE_API_BASE_URL")
+		require.Contains(t, value, "WEB_API_BASE_URL",
+			"VITE_API_BASE_URL must be sourced from ${WEB_API_BASE_URL...}, never a committed literal")
 	})
 }

@@ -9,7 +9,7 @@
 #     `web` entrypoint and no Let's Encrypt (Cloudflare Tunnel terminates TLS).
 #   - oauth2-proxy sets non-secure cookies (the origin is HTTP behind the tunnel;
 #     the browser still sees HTTPS via Cloudflare).
-#   - cloudflared exposes api.* and ops.* through the tunnel.
+#   - cloudflared exposes api.*, app.* and ops.* through the tunnel.
 # =============================================================================
 
 services:
