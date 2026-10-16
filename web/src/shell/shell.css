@@ -1,0 +1,112 @@
+.lg-shell {
+  display: grid;
+  grid-template-columns:
+    minmax(var(--lg-size-nav-min), var(--lg-size-nav-max))
+    minmax(0, 1fr)
+    minmax(var(--lg-size-panel-min), var(--lg-size-panel-max));
+  height: 100%;
+  min-height: 0;
+  background-color: var(--lg-color-bg);
+}
+
+.lg-shell--narrow {
+  grid-template-columns:
+    minmax(var(--lg-size-nav-min), var(--lg-size-nav-max))
+    minmax(0, 1fr);
+}
+
+.lg-nav {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+  padding: var(--lg-space-16);
+  background-color: var(--lg-color-surface);
+  border-right: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-nav__title {
+  margin: 0 0 var(--lg-space-8);
+  font-size: var(--lg-type-17);
+  font-weight: var(--lg-font-weight-strong);
+  line-height: var(--lg-line-tight);
+  color: var(--lg-color-text);
+}
+
+.lg-nav__link {
+  display: flex;
+  align-items: center;
+  min-height: var(--lg-size-row);
+  padding: 0 var(--lg-space-8);
+  border-radius: var(--lg-radius-2);
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text);
+  text-decoration: none;
+}
+
+.lg-nav__link:hover {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-nav__link[aria-current='page'] {
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+}
+
+.lg-content {
+  grid-column: 2;
+  min-width: 0;
+  padding: var(--lg-space-24);
+  overflow: auto;
+}
+
+.lg-content__inner {
+  max-width: var(--lg-size-content-max);
+  margin: 0 auto;
+}
+
+.lg-panel {
+  grid-column: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+  padding: var(--lg-space-16);
+  background-color: var(--lg-color-surface);
+  border-left: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-panel__title {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-strong);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-panel__empty {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+}
+
+.lg-empty__title {
+  margin: 0;
+  font-size: var(--lg-type-17);
+  font-weight: var(--lg-font-weight-strong);
+}
+
+.lg-empty__text {
+  margin: 0;
+  max-width: var(--lg-size-content-max);
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-notfound__link {
+  color: var(--lg-color-accent);
+}
