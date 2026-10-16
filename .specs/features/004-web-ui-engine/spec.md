@@ -331,7 +331,9 @@ render a row with each mark and assert the tint and label, including a marked ro
   to appear as literal text.
 - **SC-006**: Deriving an empty draft from a template yields exactly one value per schema leaf and 0
   missing leaves; merging an empty cascade returns the base unchanged and mutates 0 inputs.
-- **SC-007**: 0 critical automated accessibility violations on the rendered form.
+- **SC-007**: Every control the engine renders exposes an accessible role and name; 0 controls are
+  rendered without one, proven by the rendering suite. The browser-level automated accessibility sweep
+  of the mounted surface belongs to the feature that mounts the engine (the engine is not a surface).
 - **SC-008**: A source scan finds 0 literal hex or px values in the engine components; 100% of the
   visual values come from the shared tokens.
 
