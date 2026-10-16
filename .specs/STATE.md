@@ -82,6 +82,14 @@
 - **Date**: 2026-10-08
 - **Status**: active
 
+### AD-011
+- **Decision**: The web client ships the Lighthouse budget configuration (`web/lighthouserc.json`, F1-T025) but not the Lighthouse runner: `@lhci/cli` is not a dependency of `web/`. The runner lands with the Lighthouse gate in F8 (`F8-T005`).
+- **Reason**: Nothing consumed `@lhci/cli` — no npm script and no CI step — while its dev-only transitive tree was the sole source of the advisories the `sca` gate reported (17 findings, 11 high; `extract-zip` and `sprintf-js` have no patched release), which made SEC-02 unsatisfiable without suppressing findings. After removal, `npm audit --audit-level=high` and `osv-scanner` both report nothing, so the gate stays unscoped and unsuppressed.
+- **Trade-off**: The installability/performance budgets in `lighthouserc.json` cannot run from a locked toolchain until F8 adds the runner; until then they are covered by the F1 quickstart's manual audit and the Playwright suites.
+- **Scope**: web/ — `package.json` and `package-lock.json` only; `lighthouserc.json`, the pipelines and the F8 gate's contract are unchanged.
+- **Date**: 2026-10-16
+- **Status**: active
+
 ## Handoff
 
 - **Feature**: `desktop-session-boundary` (desktop logout/login hygiene: navigation, session-local data, in-flight auth work) — COMPLETE, validation PASS ✅.

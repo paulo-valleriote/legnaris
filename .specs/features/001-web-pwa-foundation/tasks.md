@@ -249,7 +249,8 @@ last so it does not block the US1 branch while its gates are still being tuned.
 
 ## Completion Record
 
-Delivered on branch `main`, local commits only (not pushed):
+Delivered on branch `main`, local commits only (not pushed) — later moved, with the
+post-close gate repairs below, to `feat/web-pwa-foundation-and-api-client` (PR #64):
 
 | Group                                    | Commits                                                         |
 | ---------------------------------------- | --------------------------------------------------------------- |
@@ -275,4 +276,25 @@ Deferred, still unchecked:
   stored with the release notes, not in this repository.
 
 Recorded deviations are listed in `web/AGENTS.md` under "Delivered deviations from the F1 task
-list" (no `src/app/providers.tsx`, flat `src/test/` layout, corrected toolchain pins).
+list" (no `src/app/providers.tsx`, flat `src/test/` layout, corrected toolchain pins, no
+`@lhci/cli`).
+
+### Post-close gate repairs
+
+No pull request had triggered `ci-web.yml` when this feature closed, so its first run (PR #64)
+exposed defects a push-triggered run would have hidden:
+
+- `aquasecurity/trivy-action@0.28.0` is not a published tag, and every trivy-action release
+  before v0.33.1 depends on `aquasecurity/setup-trivy` tags the publisher has since pruned, so
+  the `sca` job failed while resolving actions and no scanner ran. The step pins `v0.36.0`.
+- The `secrets` job inherited `contents: read` alone, and gitleaks resolves the pull request's
+  commit range through `GET /pulls/{number}/commits`, so it aborted with "Resource not
+  accessible by integration". The job now grants `pull-requests: read`.
+- `sca` then failed on the advisories `@lhci/cli` pulls in; the unused dependency was removed
+  (deviation above, `AD-011`).
+
+The first two are guarded by regression tests in `scripts/test_lints.py`, each proven to fail
+against the unfixed workflow. Evidence after the repairs: `make lint-specs` clean (42
+self-tests, 465 spec IDs, 142 changed files); from `web/` — `format:check`, `lint`,
+`typecheck`, `npm test` (179 passed, 5 skipped), `npm run build`, `osv-scanner` (no issues)
+and `lockfile-lint` (clean).

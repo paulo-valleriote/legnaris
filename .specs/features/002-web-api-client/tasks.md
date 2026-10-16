@@ -425,7 +425,8 @@ one person, on the finished client.
 
 ## Completion Record
 
-Delivered on branch `main`, local commits only (not pushed):
+Delivered on branch `main`, local commits only (not pushed) — later moved to
+`feat/web-pwa-foundation-and-api-client` (PR #64):
 
 | Group                                             | Commit                                                              |
 | ------------------------------------------------- | ------------------------------------------------------------------- |

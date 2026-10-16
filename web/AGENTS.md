@@ -153,6 +153,12 @@ dropping a task.
   ESLint 9.39.5, because `typescript-eslint`, `eslint-plugin-react`, and
   `eslint-plugin-jsx-a11y` do not yet support TypeScript 6 / ESLint 10. See the
   "Toolchain version note" in `web/README.md`.
+- **No `@lhci/cli`** (the plan's tooling line named Lighthouse CI). Nothing invoked it:
+  no npm script and no CI step consume it, because the Lighthouse gate belongs to F8
+  (`F8-T005`). Its dev-only tree carried the only advisories the `sca` gate could see
+  (17 findings, 11 high, two of them — `extract-zip` and `sprintf-js` — with no patched
+  release), so the gate could not pass while it was installed. `web/lighthouserc.json`
+  (T025) stays; the runner arrives with the F8 gate. Decision: `AD-011`.
 
 ### F2 — `web-api-client`
 
