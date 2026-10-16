@@ -121,4 +121,5 @@ Before opening a PR, ensure:
 - `shared/apperr/AGENTS.md` — error codes, HTTP mapping, boundary translation
 - `shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
 - `shared/db/AGENTS.md` — MongoDB initialization
-- `desktop/AGENTS.md` — Flutter desktop app: visual rules, layout tokens, interaction patterns
+- `web/AGENTS.md` — React PWA client: visual rules, tokens, security rules, interaction patterns
+- `desktop/AGENTS.md` — deprecated Flutter desktop app (kept until the web parity gate passes)

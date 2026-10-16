@@ -1,5 +1,11 @@
 # TDD - Legnaris: Gerenciador Flexível de Fichas de RPG
 
+> **Nota (2026-10-16)**: o cliente ativo do produto passou a ser o **PWA web** em `web/`
+> (`docs/plan-web-pwa.md`, `.specs/features/001-web-pwa-foundation/`). As seções de auth
+> para clientes **nativos** abaixo ficam como referência histórica até a feature
+> `backend-browser-auth-cookies`, que migra o refresh para cookie httpOnly e remove o
+> caminho `X-Refresh-Token`.
+
 | Campo         | Valor                              |
 | ------------- | ---------------------------------- |
 | Tech Lead     | @pmv                               |

@@ -1,5 +1,10 @@
 # TDD - Legnaris Desktop: MVP do Frontend (Flutter)
 
+> **Nota (2026-10-16)**: o cliente ativo do produto passou a ser o **PWA web** em `web/`
+> (`docs/plan-web-pwa.md`, `.specs/features/001-web-pwa-foundation/`). Este TDD do desktop
+> Flutter é mantido como referência até o **gate de paridade** (F10), após o qual `desktop/`
+> é removido. Regras visuais equivalentes do cliente web: `web/AGENTS.md`.
+
 | Campo         | Valor                               |
 | ------------- | ----------------------------------- |
 | Tech Lead     | @pmv                                |
