@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from './app/router';
+import { AppProviders } from './app/providers';
 import { UpdatePrompt } from './pwa/update_prompt';
 import { registerServiceWorker } from './pwa/register_sw';
 import './theme/tokens.css';
@@ -15,8 +16,10 @@ if (!container) {
 createRoot(container).render(
   <StrictMode>
     <BrowserRouter>
-      <AppRoutes />
-      <UpdatePrompt />
+      <AppProviders>
+        <AppRoutes />
+        <UpdatePrompt />
+      </AppProviders>
     </BrowserRouter>
   </StrictMode>,
 );
