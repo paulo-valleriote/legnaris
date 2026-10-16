@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import { message } from '../l10n/strings';
 import { renderApp } from './render';
 
 describe('application shell', () => {
@@ -19,16 +20,20 @@ describe('application shell', () => {
     }
   });
 
-  it('Happy path: the content region shows the designed empty-workspace state (FND-01)', () => {
+  it('Happy path: the content region shows the template catalog in place of the empty workspace (WCT-01)', async () => {
     renderApp('/');
 
     const main = screen.getByRole('main');
-    expect(within(main).getByTestId('empty-workspace')).toBeInTheDocument();
-    expect(within(main).getByText('No workspace open')).toBeInTheDocument();
+    expect(within(main).getByTestId('catalog')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(main).getByText(message('catalog.empty'))).toBeInTheDocument(),
+    );
   });
 
-  it('Edge: the content region renders no placeholder rows or demo data (FND-01)', () => {
+  it('Edge: the content region renders no placeholder rows or demo data (FND-01)', async () => {
     renderApp('/');
+
+    await waitFor(() => expect(screen.getByText(message('catalog.empty'))).toBeInTheDocument());
 
     expect(screen.queryAllByRole('row')).toHaveLength(0);
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);

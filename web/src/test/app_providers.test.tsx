@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { AppProviders, useApiClient } from '../app/providers';
 import type { TemplateSummary } from '../api/models/template';
 import { createFakeTransport, successOutcome } from './fake_transport';
@@ -41,21 +42,27 @@ describe('AppProviders (WCT-02, WCT-12)', () => {
     expect(() => renderHook(() => useApiClient())).toThrow(/AppProviders/);
   });
 
-  it('Happy path: the query client it creates disables query retries, leaving retry to the F2 client', () => {
+  it('Happy path: the query client it creates disables query retries, leaving retry to the F2 client', async () => {
     const fake = createFakeTransport(successOutcome([]));
-    let captured: QueryClient | undefined;
+    const onClient = vi.fn<(client: QueryClient) => void>();
 
-    function QueryClientProbe() {
-      captured = useQueryClient();
+    function QueryClientProbe({ onQueryClient }: { onQueryClient: (client: QueryClient) => void }) {
+      const queryClient = useQueryClient();
+
+      useEffect(() => {
+        onQueryClient(queryClient);
+      }, [queryClient, onQueryClient]);
+
       return null;
     }
 
     render(
       <AppProviders transport={fake.transport}>
-        <QueryClientProbe />
+        <QueryClientProbe onQueryClient={onClient} />
       </AppProviders>,
     );
 
-    expect(captured?.getDefaultOptions().queries?.retry).toBe(false);
+    await waitFor(() => expect(onClient).toHaveBeenCalled());
+    expect(onClient.mock.calls[0][0].getDefaultOptions().queries?.retry).toBe(false);
   });
 });

@@ -10,13 +10,13 @@ describe('shell keyboard access', () => {
 
     await user.tab();
 
-    expect(screen.getByRole('link', { name: 'Workspace' })).toHaveFocus();
+    expect(screen.getByRole('link', { name: 'Catalog' })).toHaveFocus();
   });
 
   it('Edge: tabbing past the last control does not trap focus in the shell (FND-04)', async () => {
     const user = userEvent.setup();
     renderApp('/');
-    const link = screen.getByRole('link', { name: 'Workspace' });
+    const link = screen.getByRole('link', { name: 'Catalog' });
 
     await user.tab();
     expect(link).toHaveFocus();

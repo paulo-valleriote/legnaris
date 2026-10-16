@@ -1,0 +1,190 @@
+/**
+ * The catalog and creation-surface styles. Every value comes from the shared
+ * design tokens; no literal color or pixel value appears here (WCT-28).
+ */
+
+.lg-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-16);
+}
+
+.lg-catalog__title {
+  margin: 0;
+  font-size: var(--lg-type-17);
+  font-weight: var(--lg-font-weight-strong);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-catalog__message {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-catalog__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lg-catalog__item {
+  margin: 0;
+}
+
+.lg-catalog__entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+  width: 100%;
+  min-height: var(--lg-size-row);
+  padding: var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-2);
+  background-color: var(--lg-color-bg);
+  color: var(--lg-color-text);
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--lg-type-15);
+  cursor: pointer;
+}
+
+.lg-catalog__entry:hover {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-catalog__name {
+  font-weight: var(--lg-font-weight-strong);
+}
+
+.lg-catalog__id {
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-catalog__failure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lg-space-8);
+}
+
+.lg-button {
+  min-height: var(--lg-size-control);
+  padding: 0 var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-2);
+  background-color: var(--lg-color-surface);
+  color: var(--lg-color-text);
+  font-family: inherit;
+  font-size: var(--lg-type-15);
+  cursor: pointer;
+}
+
+.lg-button:hover {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-button--primary {
+  border-color: var(--lg-color-accent);
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+}
+
+.lg-button--primary:hover {
+  border-color: var(--lg-color-accent-hover);
+  background-color: var(--lg-color-accent-hover);
+}
+
+.lg-button:disabled {
+  border-color: var(--lg-color-border);
+  background-color: var(--lg-color-surface);
+  color: var(--lg-color-text-muted);
+  cursor: not-allowed;
+}
+
+.lg-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--lg-space-24);
+  background-color: var(--lg-color-surface);
+}
+
+.lg-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-16);
+  width: 100%;
+  max-width: var(--lg-size-content-max);
+  padding: var(--lg-space-24);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-4);
+  background-color: var(--lg-color-bg);
+}
+
+.lg-dialog__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lg-space-8);
+}
+
+.lg-dialog__title {
+  margin: 0;
+  font-size: var(--lg-type-17);
+  font-weight: var(--lg-font-weight-strong);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-dialog__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lg-space-8);
+}
+
+.lg-dialog__message {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+}
+
+.lg-dialog__label {
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-strong);
+}
+
+.lg-dialog__input {
+  min-height: var(--lg-size-control);
+  padding: 0 var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-2);
+  background-color: var(--lg-color-bg);
+  color: var(--lg-color-text);
+  font-family: inherit;
+  font-size: var(--lg-type-15);
+}
+
+.lg-dialog__note {
+  margin: 0;
+  font-size: var(--lg-type-12);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--lg-space-8);
+}

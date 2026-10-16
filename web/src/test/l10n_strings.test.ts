@@ -1,6 +1,12 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { message, messages } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const catalogDir = path.resolve(here, '../catalog');
 
 const keys = Object.keys(messages) as MessageKey[];
 
@@ -73,5 +79,36 @@ describe('translation catalog', () => {
       expect(seen.has(text)).toBe(false);
       seen.set(text, key);
     }
+  });
+});
+
+function catalogSources(): string[] {
+  return readdirSync(catalogDir)
+    .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
+    .map((name) => path.join(catalogDir, name));
+}
+
+describe('catalog copy source scan (WCT-26, SC-003, SC-004)', () => {
+  it('Edge: the catalog source resolves every message key and authors no api.error literal', () => {
+    const sources = catalogSources();
+    expect(sources.length).toBeGreaterThan(0);
+
+    const knownKeys = new Set<string>(keys);
+    let referenced = 0;
+
+    for (const file of sources) {
+      const text = readFileSync(file, 'utf8');
+
+      // Failure copy is resolved through the mapper, never by naming a key here.
+      expect(text).not.toContain('api.error.');
+
+      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+        expect(knownKeys.has(match[1])).toBe(true);
+        referenced += 1;
+      }
+    }
+
+    // Removing a referenced key must turn this suite red rather than pass vacuously.
+    expect(referenced).toBeGreaterThan(0);
   });
 });

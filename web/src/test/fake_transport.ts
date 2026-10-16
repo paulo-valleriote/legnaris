@@ -63,3 +63,45 @@ export function successOutcome(data: unknown, status = 200): HttpResponse {
 export function errorOutcome(code: string, message: string, status: number): HttpResponse {
   return { status, body: JSON.stringify({ error: { code, message } }) };
 }
+
+/** A transport whose attempts stay in flight until the test settles them. */
+export interface DeferredTransport {
+  /** The transport function to inject into the client. */
+  readonly transport: Transport;
+  /** Every request received, in order. */
+  readonly requests: HttpRequest[];
+  /** Number of attempts made so far. */
+  readonly attempts: number;
+  /** Settles the oldest in-flight attempt with [response]. */
+  resolve(response: HttpResponse): void;
+}
+
+/**
+ * Builds a transport that keeps every request pending.
+ *
+ * Used to hold a screen in its loading state and to prove that a second trigger
+ * while the request is in flight is joined rather than duplicated (WCT-03,
+ * WCT-08, WCT-13): the test settles the attempt when it is ready.
+ */
+export function createDeferredTransport(): DeferredTransport {
+  const requests: HttpRequest[] = [];
+  const pending: Array<(response: HttpResponse) => void> = [];
+
+  const transport: Transport = (request) => {
+    requests.push(request);
+    return new Promise<HttpResponse>((resolve) => {
+      pending.push(resolve);
+    });
+  };
+
+  return {
+    transport,
+    requests,
+    get attempts() {
+      return requests.length;
+    },
+    resolve(response) {
+      pending.shift()?.(response);
+    },
+  };
+}

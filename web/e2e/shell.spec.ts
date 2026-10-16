@@ -1,9 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('application shell', () => {
-  test('renders navigation, content and panel in order with the empty workspace', async ({
-    page,
-  }) => {
+  test('renders navigation, content and panel in order with the catalog', async ({ page }) => {
     await page.goto('/');
 
     const nav = page.getByRole('navigation', { name: 'Primary' });
@@ -13,7 +11,7 @@ test.describe('application shell', () => {
     await expect(nav).toBeVisible();
     await expect(main).toBeVisible();
     await expect(panel).toBeVisible();
-    await expect(main.getByText('No workspace open')).toBeVisible();
+    await expect(main.getByRole('heading', { name: 'Templates' })).toBeVisible();
     await expect(page.getByRole('row')).toHaveCount(0);
   });
 
@@ -26,10 +24,10 @@ test.describe('application shell', () => {
     await expect(page.getByRole('main')).toBeVisible();
   });
 
-  test('deep link to the root renders the shell', async ({ page }) => {
+  test('deep link to the root renders the shell and the catalog', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.getByText('No workspace open')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Templates' })).toBeVisible();
   });
 
   test('unknown route renders the designed not-found state, not a blank page', async ({ page }) => {

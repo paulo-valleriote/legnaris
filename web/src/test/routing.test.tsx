@@ -22,7 +22,7 @@ describe('declared routes (FND-08)', () => {
   it('Happy path: a deep link to the root renders the same screen as in-app navigation', () => {
     renderApp('/');
 
-    expect(screen.getByTestId('empty-workspace')).toBeInTheDocument();
+    expect(screen.getByTestId('catalog')).toBeInTheDocument();
     expect(screen.queryByTestId('not-found')).not.toBeInTheDocument();
   });
 });

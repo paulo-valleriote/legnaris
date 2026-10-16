@@ -23,5 +23,8 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // Keep the built client same-origin so the browser specs intercept the
+    // catalog request locally instead of reaching the production API.
+    env: { VITE_API_BASE_URL: `http://localhost:${PORT}` },
   },
 });
