@@ -51,7 +51,7 @@ values (FND-02).
 
 Fixed. Components must not contain magic numbers — every size, radius, and color comes
 from a `--lg-*` custom property. A rendering test enforces this (no literal hex or px
-in `src/shell/` or `src/catalog/`).
+in `src/shell/`, `src/catalog/` or `src/engine/`).
 
 | Token group           | Values                                                                                      |
 | --------------------- | ------------------------------------------------------------------------------------------- |
@@ -120,6 +120,35 @@ The typed network layer every screen mounts on. Its rules are non-negotiable.
 - **Captures are never hand-edited.** `src/api/fixtures/` holds real responses written
   verbatim by `capture.sh`; a capture that stops matching the models is a backend contract
   change and the pinned suite is expected to go red on it.
+
+## UI engine (`src/engine/`)
+
+The schema-driven rendering core (feature `web-ui-engine`): it turns a decoded
+`FieldSchema` tree into labeled sections and controls and owns **no state** — no value,
+no request, no mark. It mounts no screen; every case renders its modules directly.
+
+- `field_grouping.ts` — pure derivation of ordered, labeled sections and render rows
+  (stacked leaf, declared-column table, exclusive group).
+- `field_control.tsx` / `exclusive_control.tsx` — one control per leaf schema, one
+  single-choice control per exclusive group.
+- `sheet_form.tsx` — the composition; `sheet_defaults.ts` — the draft seed/overlay/merge;
+  `sheet_mark.ts` — the preview-mark contract; `engine.css` — token-only styles.
+- Every string resolves through `src/l10n/strings.ts`; every visual value is a `--lg-*`
+  token. Data is rendered as text; markup in a value or label stays literal (no DOM sink).
+
+**One control source.** `SheetForm` takes exactly one: `data` + `onChanged`, or both
+`controlBuilder` and `exclusiveControlBuilder`. Any other combination throws rather than
+half-render (ENG-25). In builder mode the composition reads no value, so the caller owns
+the per-field subscription and edit reporting through the seams (`controlBuilder`,
+`exclusiveControlBuilder`, optional `rowMarkBuilder`) — the web expression of `AD-001`.
+
+**Numeric guard.** The numeric input seeds from its stored value, holds its display text
+locally, and reports an edit only when the whole text resolves to a finite number: an
+empty field clears the value, `NaN`/`Infinity`/`1e999` leave the stored value unchanged.
+The desktop's partial-token parsing and restore-on-blur are deliberately dropped (ENG-12).
+
+**Mark tint.** A marked control reuses `--lg-color-surface` from `tokens.css`; no new
+token was added for the preview tint.
 
 ## Componentization
 
@@ -210,3 +239,29 @@ dropping a task.
   preview origin**, so the browser specs intercept the catalog request locally instead of
   the built client reaching the production API; `e2e/catalog.spec.ts` blocks the service
   worker and scripts the two responses.
+
+### F4 — `web-ui-engine`
+
+- **The engine mounts no surface** (spec Clarifications, 2026-10-16). No screen, no
+  `web/e2e/` case and no test-only route were added; every case renders the engine's own
+  modules directly, so the feature proves `ENG-01…ENG-29` without touching the shell.
+- **The `rowMarkBuilder` seam landed with the composition (T012), not T016.** The task list
+  ordered the seam into US3, but the composition's label row is where the seam plugs in, so
+  it shipped with `sheet_form.tsx` and US3 only added the mark tests and the shared
+  `markLabel` copy helper.
+- **`markLabel(mark)` is exported from `sheet_form.tsx`.** The desktop screen held the
+  "Modified" / "Recalculated" copy in its own localization; here the engine owns the two
+  catalog keys (`engine.modified`, `engine.recalculated`) so a caller's `rowMarkBuilder`
+  names no literal. `sheet_mark.ts` stays behavior-free (a type and a class constant).
+- **A section uses the group's declared label when non-empty, else a humanized key.** The
+  contract (`R7` / data-model) requires the label; the desktop quirk that ignores a
+  group's label is not carried over, because the contract is authoritative here.
+- **The numeric input holds its display text locally plus a forced re-render** (a
+  `useReducer` tick) instead of the desktop's `TextEditingController` + restore-on-blur:
+  React would otherwise refuse to visually reject a whole-value edit, so a rejected
+  non-finite text re-renders the controlled input back to the last accepted text (ENG-12).
+- **Data mode renders exclusive controls inert** (no `onSelect`), matching the desktop's
+  read-only preview; exclusive editing flows through `exclusiveControlBuilder`.
+- **The engine tests are flat in `src/test/`** with an `engine_*` prefix, matching the F1
+  layout, and the token/copy scans (`tokens_used.test.tsx`, `l10n_strings.test.ts`) now
+  cover `src/engine/`.

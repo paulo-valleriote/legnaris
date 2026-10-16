@@ -114,6 +114,30 @@ npx vitest run src/test/create_sheet_dialog.test.tsx  # surface states + name va
 npm run test:e2e -- catalog.spec.ts                   # axe: zero critical violations
 ```
 
+## UI engine (`src/engine/`)
+
+The stateless rendering core, ported from the desktop UI engine: it turns a decoded
+`FieldSchema` tree into labeled sections and controls, owns no state, issues no request,
+and is wired to **no screen** (F4) — every case exercises the engine's own modules
+directly. `field_grouping.ts` derives sections and rows; `field_control.tsx` and
+`exclusive_control.tsx` render one leaf and one exclusive group; `sheet_form.tsx`
+composes them; `sheet_defaults.ts` derives the draft; `sheet_mark.ts` holds the preview
+mark contract; `engine.css` styles it all from `--lg-*` tokens. Copy resolves through
+`src/l10n/strings.ts`.
+
+`SheetForm` takes **exactly one** control source — `data` plus `onChanged`, or both
+`controlBuilder` and `exclusiveControlBuilder`; any other combination throws (ENG-25).
+The caller owns the per-field value subscription, the edit reporting and the preview
+marks through the seams; the engine reads no value in builder mode.
+
+```bash
+cd web
+npm test                                              # all engine suites (engine_* files)
+npx vitest run src/test/engine_form.test.tsx          # composition and its single source
+npx vitest run src/test/engine_field_control.test.tsx # one control per schema
+npx vitest run src/test/engine_defaults.test.ts       # draft seed, overlay and cascade
+```
+
 ## Toolchain version note
 
 `package.json` pins **TypeScript 5.9** and **ESLint 9.39**, not the newer major lines the

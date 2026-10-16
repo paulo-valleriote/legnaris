@@ -159,3 +159,23 @@ dependency is added, so the lockfile and the security gates are unchanged.
 Implementation is deferred to the tasks step of this cycle (this cycle produces the spec, plan, tasks
 and analysis only). The scenarios above are the acceptance guide the implementing commits must satisfy;
 their per-scenario outcome table is appended when the implementation lands, as F3's quickstart records.
+
+## Validation outcome (2026-10-16)
+
+Run in the delivered tree; every scenario passed. The engine introduced no runtime dependency, so the
+lockfile, the bundle and the security gates are unchanged.
+
+| Scenario | Result |
+|---|---|
+| 1 — suite runs with no backend | PASS — `npm test`: 36 files, 286 passed, 5 live-suite skips |
+| 2 — every control branch proven | PASS — `engine_field_control.test.tsx` |
+| 3 — one exclusive group, one control | PASS — `engine_exclusive_control.test.tsx` |
+| 4 — field tree derives into labeled sections | PASS — `engine_grouping.test.ts` |
+| 5 — draft derived, overlaid, merged without mutation | PASS — `engine_defaults.test.ts` |
+| 6 — composition seams and marks | PASS — `engine_form.test.tsx` + `engine_marks.test.tsx` |
+| 7 — markup in data rendered as text | PASS — `engine_xss.test.tsx` |
+| 8 — no copy or visual value authored in the engine | PASS — `l10n_strings.test.ts` + `tokens_used.test.tsx` + `npm run lint` |
+| 9 — gates stay green | PASS — `format:check`, `lint`, `typecheck`, `npm test`, `npm run build`, `make lint-specs` |
+
+No surface was wired: per the 2026-10-16 clarifications the feature proves itself through the engine's
+own rendering tests, so no `web/e2e/` case and no test-only route were added.

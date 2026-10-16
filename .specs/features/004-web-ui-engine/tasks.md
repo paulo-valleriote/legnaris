@@ -231,14 +231,14 @@ control and labels its row; all three stories are independently demonstrable.
       literal exists in `web/src/engine/`, every `message('…')` key referenced there resolves to a
       catalog entry (so removing a referenced key turns the suite red — SC-004), and the engine keys are
       asserted present (ENG-27, SC-003)
-- [ ] T019 [P] Update `web/AGENTS.md` (the engine module under `web/src/engine/`, the two control-source
+- [X] T019 [P] Update `web/AGENTS.md` (the engine module under `web/src/engine/`, the two control-source
       modes and the two seams, the numeric finite-guard deviation from the desktop, the reused
       `--lg-color-surface` tint) and `web/README.md` (how to run the engine suites)
-- [ ] T020 Run the full gate set from `web/` (`npm run format:check`, `npm run lint`, `npm run typecheck`,
+- [X] T020 Run the full gate set from `web/` (`npm run format:check`, `npm run lint`, `npm run typecheck`,
       `npm test`, `npm run build`) and `make lint-specs` from the repo root, and confirm every `ENG-*`
       citation in the delivered sources resolves to `spec.md`
-- [ ] T021 Run the nine `quickstart.md` scenarios and record the per-scenario outcome with the feature
-- [ ] T022 Record any plan-versus-delivered deviation (path, naming or seam that changed) in
+- [X] T021 Run the nine `quickstart.md` scenarios and record the per-scenario outcome with the feature
+- [X] T022 Record any plan-versus-delivered deviation (path, naming or seam that changed) in
       `web/AGENTS.md` under the deviations section rather than weakening an assertion (constitution III)
 
 ---
