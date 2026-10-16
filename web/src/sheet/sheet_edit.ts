@@ -29,6 +29,59 @@ export interface PreviewMarks {
   readonly recalculated: ReadonlySet<string>;
 }
 
+/** The per-action request cap inside one window (WSC-38, SC-011). */
+export const THROTTLE_MAX = 3;
+
+/** The rolling window length, in milliseconds (WSC-38). */
+export const THROTTLE_WINDOW_MS = 60_000;
+
+/**
+ * The per-action rolling request window (WSC-38, SC-011).
+ *
+ * A pure, injectable-clock helper: it records the timestamps of the attempts
+ * still inside the window, reports whether the cap is reached, and reports when
+ * the oldest attempt leaves so an action re-enables without waiting.
+ */
+export interface RollingWindow {
+  /** Records one attempt at the current instant and drops the timestamps that left the window. */
+  record(): void;
+  /** True while the window holds [THROTTLE_MAX] attempts. */
+  isBlocked(): boolean;
+  /** The earliest instant a blocked window frees. */
+  nextFreeAt(): number;
+}
+
+/** Builds a rolling window over the injected [now] clock (WSC-38). */
+export function createRollingWindow(
+  now: () => number,
+  max: number = THROTTLE_MAX,
+  windowMs: number = THROTTLE_WINDOW_MS,
+): RollingWindow {
+  const attempts: number[] = [];
+
+  const prune = (instant: number): void => {
+    while (attempts.length > 0 && instant - attempts[0] >= windowMs) {
+      attempts.shift();
+    }
+  };
+
+  return {
+    record: () => {
+      const instant = now();
+      prune(instant);
+      attempts.push(instant);
+    },
+    isBlocked: () => {
+      prune(now());
+      return attempts.length >= max;
+    },
+    nextFreeAt: () => {
+      prune(now());
+      return attempts.length < max ? now() : attempts[0] + windowMs;
+    },
+  };
+}
+
 /** The immutable snapshot of one open sheet's edit state (WSC-12 … WSC-25). */
 export interface SheetEditState {
   /** The reference values a save advances and `isPending` compares against (WSC-16). */
@@ -51,6 +104,10 @@ export interface SheetEditState {
   readonly isPreviewing: boolean;
   /** The mapped copy of the last preview failure; cleared on success (WSC-25). */
   readonly previewError: string | undefined;
+  /** The save throttle window (WSC-38). */
+  readonly saveWindow: RollingWindow;
+  /** The preview throttle window (WSC-38). */
+  readonly previewWindow: RollingWindow;
 }
 
 /** The seed of one edit store: the template's field tree and the stored sheet (WSC-12, WSC-34). */
@@ -63,6 +120,10 @@ export interface SheetEditSeed {
 export interface SheetEditDeps {
   readonly client: ApiClient;
   readonly store: SheetStore;
+  /** The clock the throttle windows read; defaults to `Date.now` (WSC-38, R7). */
+  readonly now?: () => number;
+  /** The delay seam for the throttle re-evaluation; defaults to `setTimeout` (WSC-38). */
+  readonly schedule?: (callback: () => void, delayMs: number) => () => void;
 }
 
 /** The edit store a sheet screen mounts and every edit suite drives directly. */
@@ -85,6 +146,10 @@ export interface SheetEditStore {
   save(): Promise<void>;
   /** Sends one delta dry-run when `canPreview` holds (WSC-21 … WSC-25). */
   preview(): Promise<void>;
+  /** Discards every in-memory edit, re-seeding the display from the baseline (WSC-36, WSC-37). */
+  discard(): void;
+  /** Releases the throttle timer; the screen calls it on unmount (WSC-38). */
+  dispose(): void;
 }
 
 /** True when any edited path's current value differs from its reference (WSC-13). */
@@ -102,14 +167,19 @@ export function isBusy(state: SheetEditState): boolean {
   return state.isSaving || state.isPreviewing;
 }
 
-/** True when a save may start: pending, not busy, throttle free (WSC-19). */
+/** True when a save may start: pending, not busy, its window free (WSC-19, WSC-38). */
 export function canSave(state: SheetEditState): boolean {
-  return isPending(state) && !isBusy(state);
+  return isPending(state) && !isBusy(state) && !state.saveWindow.isBlocked();
 }
 
-/** True when a preview may start: pending, a new edit since the last preview, not busy (WSC-21, WSC-24). */
+/** True when a preview may start: pending, a new edit since the last preview, not busy, its window free (WSC-21, WSC-24, WSC-38). */
 export function canPreview(state: SheetEditState): boolean {
-  return isPending(state) && state.previewedRevision !== state.revision && !isBusy(state);
+  return (
+    isPending(state) &&
+    state.previewedRevision !== state.revision &&
+    !isBusy(state) &&
+    !state.previewWindow.isBlocked()
+  );
 }
 
 /**
@@ -188,6 +258,12 @@ function flattenPaths(value: Record<string, unknown>, prefix = ''): Set<string> 
   return paths;
 }
 
+/** The default throttle delay: a cancellable `setTimeout` (WSC-38). */
+function defaultSchedule(callback: () => void, delayMs: number): () => void {
+  const timer = setTimeout(callback, delayMs);
+  return () => clearTimeout(timer);
+}
+
 /**
  * Builds the edit store for one open sheet (WSC-12 … WSC-19, WSC-34).
  *
@@ -198,6 +274,10 @@ function flattenPaths(value: Record<string, unknown>, prefix = ''): Set<string> 
 export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): SheetEditStore {
   const editable = editableLeafPaths(seed.template.fields);
   const seeded = seedFromSheet(seed.template.fields, seed.sheet.data);
+  const clock = deps.now ?? Date.now;
+  const schedule = deps.schedule ?? defaultSchedule;
+  const saveWindow = createRollingWindow(clock);
+  const previewWindow = createRollingWindow(clock);
 
   let state: SheetEditState = {
     defaults: seeded,
@@ -210,11 +290,14 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     previewMarks: undefined,
     isPreviewing: false,
     previewError: undefined,
+    saveWindow,
+    previewWindow,
   };
 
   const listeners = new Set<() => void>();
   const pathListeners = new Map<string, Set<() => void>>();
   const marksListeners = new Set<() => void>();
+  let throttleCancel: (() => void) | undefined;
 
   const commit = (next: SheetEditState): void => {
     const previous = state;
@@ -234,6 +317,28 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     for (const listener of [...listeners]) {
       listener();
     }
+  };
+
+  const scheduleThrottle = (): void => {
+    throttleCancel?.();
+    throttleCancel = undefined;
+
+    const freed = [
+      saveWindow.isBlocked() ? saveWindow.nextFreeAt() : undefined,
+      previewWindow.isBlocked() ? previewWindow.nextFreeAt() : undefined,
+    ].filter((instant): instant is number => instant !== undefined);
+    if (freed.length === 0) {
+      return;
+    }
+
+    throttleCancel = schedule(
+      () => {
+        throttleCancel = undefined;
+        commit({ ...state });
+        scheduleThrottle();
+      },
+      Math.max(0, Math.min(...freed) - clock()),
+    );
   };
 
   const applyWrites = (writes: ReadonlyMap<string, unknown>): void => {
@@ -333,6 +438,8 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         return;
       }
 
+      saveWindow.record();
+      scheduleThrottle();
       commit({ ...state, isSaving: true, saveError: undefined });
 
       try {
@@ -362,6 +469,8 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       }
       const previewedRevision = state.revision;
 
+      previewWindow.record();
+      scheduleThrottle();
       commit({ ...state, isPreviewing: true, previewError: undefined });
 
       try {
@@ -381,6 +490,24 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       } catch (error) {
         commit({ ...state, isPreviewing: false, previewError: failureCopy(error) });
       }
+    },
+
+    discard: () => {
+      commit({
+        ...state,
+        data: cloneTree(state.defaults) as Record<string, unknown>,
+        editedPaths: new Set<string>(),
+        revision: state.revision + 1,
+        previewedRevision: undefined,
+        previewMarks: undefined,
+        saveError: undefined,
+        previewError: undefined,
+      });
+    },
+
+    dispose: () => {
+      throttleCancel?.();
+      throttleCancel = undefined;
     },
   };
 }

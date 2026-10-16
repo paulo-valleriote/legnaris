@@ -35,3 +35,13 @@ export async function evictSheet(store: SheetStore, id: string): Promise<void> {
     bestEffort(() => store.deleteDraft(id)),
   ]);
 }
+
+/**
+ * Deletes the sheet's draft, best-effort (WSC-29).
+ *
+ * The guard flows delete the draft when the person confirms discarding the
+ * in-memory edits; a failing delete never blocks the flow that triggered it.
+ */
+export function discardDraft(store: SheetStore, id: string): Promise<void> {
+  return bestEffort(() => store.deleteDraft(id));
+}
