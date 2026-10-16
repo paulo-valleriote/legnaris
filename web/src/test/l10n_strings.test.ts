@@ -8,6 +8,8 @@ import type { MessageKey } from '../l10n/strings';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const catalogDir = path.resolve(here, '../catalog');
 const engineDir = path.resolve(here, '../engine');
+const sheetDir = path.resolve(here, '../sheet');
+const libraryDir = path.resolve(here, '../library');
 
 const keys = Object.keys(messages) as MessageKey[];
 
@@ -207,6 +209,70 @@ describe('engine copy source scan (ENG-27, SC-003, SC-004)', () => {
     // Every engine key the catalog declares must be rendered somewhere, so
     // dropping a reference turns this suite red rather than pass vacuously.
     for (const key of engineFeatureKeys) {
+      expect(referenced.has(key)).toBe(true);
+    }
+  });
+});
+
+/** The keys the sheet cycle renders in `sheet/` (the F3 dialog owns `sheet.creating`). */
+const sheetSurfaceKeys: readonly MessageKey[] = [
+  'sheet.headerTitle',
+  'sheet.openLoading',
+  'sheet.templateLoading',
+  'sheet.emptyFields',
+  'sheet.missing',
+  'sheet.retryOpen',
+  'sheet.pendingEdits',
+  'sheet.save',
+  'sheet.saving',
+  'sheet.saved',
+  'sheet.preview',
+  'sheet.previewing',
+  'sheet.refreshTitle',
+  'sheet.refreshMessage',
+  'sheet.refreshConfirm',
+  'sheet.leaveTitle',
+  'sheet.leaveMessage',
+  'sheet.leaveConfirm',
+  'sheet.cancel',
+];
+
+function sheetCycleSources(): string[] {
+  const scan = (dir: string) =>
+    readdirSync(dir)
+      .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
+      .map((name) => path.join(dir, name));
+  return [
+    ...scan(sheetDir),
+    ...scan(libraryDir),
+    path.resolve(here, '../shell/shortcut_registry.ts'),
+  ];
+}
+
+describe('sheet-cycle copy source scan (WSC-32, SC-006)', () => {
+  it('Edge: the sheet cycle authors no user-facing literal and resolves every message key it renders', () => {
+    const sources = sheetCycleSources();
+    expect(sources.length).toBeGreaterThan(0);
+
+    const knownKeys = new Set<string>(keys);
+    const referenced = new Set<string>();
+
+    for (const file of sources) {
+      const text = readFileSync(file, 'utf8');
+
+      // Copy is resolved through message(), never by naming a failure key here.
+      expect(text).not.toContain('api.error.');
+
+      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+        expect(knownKeys.has(match[1])).toBe(true);
+        referenced.add(match[1]);
+      }
+    }
+
+    // Every sheet surface key the catalog declares must be rendered somewhere in
+    // the cycle, so dropping a reference turns this suite red rather than pass
+    // vacuously (SC-006).
+    for (const key of sheetSurfaceKeys) {
       expect(referenced.has(key)).toBe(true);
     }
   });

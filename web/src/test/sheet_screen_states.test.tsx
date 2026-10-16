@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
@@ -168,5 +171,64 @@ describe('sheet footer, save and Ctrl+S (WSC-12, WSC-14, WSC-16, WSC-17, WSC-19,
       expect(fake.requests.filter((request) => request.method === 'PATCH')).toHaveLength(1);
     });
     expect(screen.queryByText(message('sheet.pendingEdits'))).not.toBeInTheDocument();
+  });
+});
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+/** The feature's source directories whose files must own no DOM-injection sink (WSC-35). */
+function featureSources(): string[] {
+  return ['../sheet', '../library'].flatMap((relative) => {
+    const dir = path.resolve(here, relative);
+    return readdirSync(dir)
+      .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
+      .map((name) => path.join(dir, name));
+  });
+}
+
+describe('markup safety (WSC-35, SC-007)', () => {
+  it('Edge: a sheet name of "<script>" renders as literal text and produces no script node (WSC-35)', async () => {
+    const fake = createFakeTransport(
+      successOutcome(sheetPayload({ name: '<script>alert(1)</script>' })),
+      successOutcome(templateDetailPayload()),
+    );
+    renderApp(SHEET_URL, { client: clientWith(fake.transport) });
+
+    const name = await screen.findByTestId('sheet-name');
+
+    expect(name).toHaveTextContent('<script>alert(1)</script>');
+    expect(document.querySelectorAll('script')).toHaveLength(0);
+  });
+
+  it('Edge: a field value of "<script>" renders as literal text and produces no script node (WSC-35)', async () => {
+    const fake = createFakeTransport(
+      successOutcome(
+        sheetPayload({
+          data: {
+            identity: { characterName: '<script>x</script>', level: 3 },
+            derived: { total: 4 },
+          },
+        }),
+      ),
+      successOutcome(templateDetailPayload()),
+    );
+    renderApp(SHEET_URL, { client: clientWith(fake.transport) });
+
+    const name = await screen.findByRole('textbox', { name: 'Name' });
+
+    expect(name).toHaveValue('<script>x</script>');
+    expect(document.querySelectorAll('script')).toHaveLength(0);
+  });
+
+  it('Edge: the sheet-cycle sources own no DOM-injection sink (WSC-35)', () => {
+    const sources = featureSources();
+    expect(sources.length).toBeGreaterThan(0);
+
+    for (const file of sources) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).not.toMatch(
+        /dangerouslySetInnerHTML|\binnerHTML\b|\beval\(|new Function|document\.write/,
+      );
+    }
   });
 });

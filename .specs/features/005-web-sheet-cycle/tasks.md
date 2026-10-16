@@ -387,19 +387,19 @@ editable delta, never a derived value or credential.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T033 [P] Extend `web/src/test/tokens_used.test.tsx` to scan `web/src/sheet/` and `web/src/library/`
+- [X] T033 [P] Extend `web/src/test/tokens_used.test.tsx` to scan `web/src/sheet/` and `web/src/library/`
       for literal hex and px values and to assert every `var(--lg-*)` they reference is defined, so every
       visual value in the feature is proven to come from the shared tokens (WSC-33)
-- [ ] T034 [P] Extend `web/src/test/l10n_strings.test.ts` with the sheet-cycle copy scan: no user-facing
+- [X] T034 [P] Extend `web/src/test/l10n_strings.test.ts` with the sheet-cycle copy scan: no user-facing
       literal and no `api.error.` string exists in `web/src/sheet/`, `web/src/library/` and
       `web/src/shell/shortcut_registry.ts`, every `message('…')` key referenced there resolves to a catalog
       entry (so removing a referenced key turns the suite red — SC-006), and the `sheet.*` cycle keys are
       asserted present (WSC-32, SC-006)
-- [ ] T035 [P] Add the mounted-surface accessibility case `web/e2e/sheet.spec.ts` (WSC-39, SC-010, AD-014):
+- [X] T035 [P] Add the mounted-surface accessibility case `web/e2e/sheet.spec.ts` (WSC-39, SC-010, AD-014):
       build the real client, open the creation surface and the mounted sheet screen with Playwright, and
       assert zero critical `@axe-core/playwright` violations on each and an accessible role and name on every
       control (no new axe dependency is added)
-- [ ] T036 [P] Add the markup-safety case to `web/src/test/sheet_screen_states.test.tsx` (WSC-35, SC-007): a
+- [X] T036 [P] Add the markup-safety case to `web/src/test/sheet_screen_states.test.tsx` (WSC-35, SC-007): a
       sheet name and a field value of `"<script>"` render as literal text and produce 0 `script` nodes, and
       the feature's sources contain no DOM-injection sink
 - [ ] T037 [P] Update `web/AGENTS.md` (the new `sheet/` and `library/` modules, the `idb` direct runtime

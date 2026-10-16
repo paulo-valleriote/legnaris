@@ -8,6 +8,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const shellDir = path.resolve(here, '../shell');
 const catalogDir = path.resolve(here, '../catalog');
 const engineDir = path.resolve(here, '../engine');
+const sheetDir = path.resolve(here, '../sheet');
+const libraryDir = path.resolve(here, '../library');
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir)
@@ -72,5 +74,20 @@ describe('design token usage in the engine (ENG-28, SC-008)', () => {
 
   it('Happy path: every token the engine references is defined in tokens.css', () => {
     assertTokensAreDefined(sourceFiles(engineDir));
+  });
+});
+
+describe('design token usage in the sheet cycle (WSC-33)', () => {
+  it('Happy path: the sheet and library sources exist to inspect', () => {
+    expect(sourceFiles(sheetDir).length).toBeGreaterThan(0);
+    expect(sourceFiles(libraryDir).length).toBeGreaterThan(0);
+  });
+
+  it('Edge: no sheet or library source contains a literal color or pixel value', () => {
+    assertTokenOnlySources([...sourceFiles(sheetDir), ...sourceFiles(libraryDir)]);
+  });
+
+  it('Happy path: every token the sheet cycle references is defined in tokens.css', () => {
+    assertTokensAreDefined([...sourceFiles(sheetDir), ...sourceFiles(libraryDir)]);
   });
 });
