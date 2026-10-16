@@ -1,3 +1,27 @@
+<!--
+Sync Impact Report
+- Current version: 1.1.1 | Ratified: 2026-10-15 | Last amended: 2026-10-16
+- Version history:
+  - 1.0.0 → 1.1.0 (MINOR: two principles added; Additional Constraints and Development Workflow
+    materially expanded; no principle removed or redefined).
+  - 1.1.0 → 1.1.1 (PATCH: runtime-guidance reference updated now that the web client exists; no
+    principle added, removed, or redefined).
+- Modified principles: none at 1.1.1. At 1.1.0, III. Behavior Ships With Tests was unchanged in text
+  and became the gate for the web client through the stack constraint (Vitest / Testing Library /
+  Playwright); no redefinition.
+- Added principles: VI. Security Gates Are Blocking (NON-NEGOTIABLE) and VII. Installable,
+  Offline-Capable Web Client (both 1.1.0).
+- Added/removed sections: none (Additional Constraints and Development Workflow expanded in place).
+- Stack change: the product client is the React/TypeScript PWA under `web/`; the Flutter desktop
+  under `desktop/` is deprecated, accepted no further feature work, and is removed once the parity
+  gate passes. Requirement-ID traceability now covers TypeScript sources.
+- Development Workflow verified against the delivered surface: `make lint-web`, `make test-web` and
+  `make sec-scan` exist in the `Makefile`, and the CI job names `ci-lint`, `ci-spec-lint` and
+  `ci-web` match the workflows in `.github/workflows/`. `web/AGENTS.md` is no longer "future" — it
+  exists and is referenced from the root `AGENTS.md`.
+- Deferred TODOs: none.
+-->
+
 # Legnaris Constitution
 
 ## Core Principles
@@ -31,8 +55,10 @@ idempotency, concurrency — and then a representative happy path. Failure paths
 `apperr` code and, at the HTTP boundary, the mapped status code. Tests are table-driven with
 `t.Run` and `Happy path:` / `Edge:` / `Error:` case prefixes; assertions use `testify` (`require`
 for preconditions, `assert` otherwise); mocks are mockery-generated (`NewMockX(t)`) and never
-hand-written. `go test -race` MUST stay clean. Exceptions: generated code, changes with no behavior
-(docs, comments, CI config), and pure refactors that preserve the public contract.
+hand-written. `go test -race` MUST stay clean. The same rule holds for the web client: assertions
+cover edge cases first, and interface requirements MUST be verified through rendering tests rather
+than assumed. Exceptions: generated code, changes with no behavior (docs, comments, CI config), and
+pure refactors that preserve the public contract.
 
 Rationale: untested behavior is not delivered behavior; edge-case-first coverage is where defects
 actually live.
@@ -55,32 +81,65 @@ JSON decoding MUST go through `shared/json`, and logging MUST go through `shared
 Rationale: the DAG and the formula engine are the product's core; strict directionality keeps them
 independently testable and prevents business logic from leaking into transport code.
 
+### VI. Security Gates Are Blocking (NON-NEGOTIABLE)
+
+Dependency scanning (SCA), static analysis (SAST), secret scanning, and dynamic analysis (DAST)
+MUST run in CI on every pull request that touches the client, and MUST be blocking: no gate may be
+disabled or run with `continue-on-error`, and a new finding MUST fail the pipeline even when the
+build and tests are green. Secrets MUST never be committed; scanned artifacts (lockfiles, SBOMs)
+MUST be kept in sync with the code. Browser clients MUST NOT persist credentials in
+JavaScript-readable storage: the refresh credential is an `HttpOnly`, `Secure`, `SameSite` cookie,
+the access token lives in memory only, and every state-changing cookie-authenticated route MUST be
+protected against CSRF. The Content-Security-Policy MUST be delivered as a real HTTP header in
+enforce mode, scripts MUST be same-origin (no third-party CDN, no inline), and DOM injection sinks
+(`dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`) are forbidden.
+
+Rationale: security that is not enforced by a pipeline is a promise, not a control; a client that
+holds a session credential is only as safe as the weakest lens that never runs.
+
+### VII. Installable, Offline-Capable Web Client
+
+The product client MUST be an installable Progressive Web App served over HTTPS: it loads an
+application shell that works offline for reading, resolves deep links to the same routes a
+navigation would produce, and never caches authenticated responses or credentials in the service
+worker. Interface requirements MUST be verified by component tests and end-to-end tests of the
+primary flows; accessibility (no critical automated violations) and installability are part of
+"done", not improvements.
+
+Rationale: an installable PWA is the deliverable surface, so its offline, deep-link, and interface
+contracts are product requirements that must be gated like any other behavior.
+
 ## Additional Constraints
 
-- **Stack.** Backend: Go on Echo with MongoDB, entry point `cmd/api.go`. Desktop: Flutter with
-  Riverpod under `desktop/`. Tests use `testify`; mocks are generated by mockery (config in the
-  `go.mod` tool directive) and regenerated with `make mocks`. All environment configuration comes
-  from `shared/env`.
+- **Stack.** Backend: Go on Echo with MongoDB, entry point `cmd/api.go`. Web client: React with
+  Vite and TypeScript under `web/`, packaged as a PWA. Tests use `testify` and mockery-generated
+  mocks on the backend; Vitest, Testing Library, and Playwright on the web client. All environment
+  configuration comes from `shared/env`.
+- **Deprecated client.** `desktop/` (Flutter) is deprecated: it MUST NOT receive new features, is
+  kept only until the web client reaches functional parity, and is deleted — together with its CI
+  workflow — once that parity gate passes.
 - **Spec corpus and traceability.** Feature specifications live under `.specs/features/<feature>/`
-  and are the single source of requirement IDs. Every requirement ID cited in Go or Dart source
-  (e.g. `RND-21`, `AD-001`) MUST be defined in that corpus: `AD-*` in `.specs/STATE.md`, all other
-  IDs in a `.specs/**/spec.md`. `LGN-*` identifiers are Jira card keys and are exempt. A citation
-  that cannot be traced back to a requirement is a defect.
+  and are the single source of requirement IDs. Every requirement ID cited in Go, Dart, or
+  TypeScript source (e.g. `RND-21`, `AD-001`) MUST be defined in that corpus: `AD-*` in
+  `.specs/STATE.md`, all other IDs in a `.specs/**/spec.md`. `LGN-*` identifiers are Jira card keys
+  and are exempt. A citation that cannot be traced back to a requirement is a defect.
 - **Jira.** Every pull request MUST implement its Jira card, referenced as `LGN-\d+` in the title;
   requirements come from the card, never invented.
 - **Runtime guidance.** `AGENTS.md` and its per-directory companions (`internal/AGENTS.md`,
   `internal/sheet/template/AGENTS.md`, `internal/engine/AGENTS.md`, `shared/apperr/AGENTS.md`,
-  `shared/idgen/AGENTS.md`, `shared/db/AGENTS.md`, `desktop/AGENTS.md`) carry the implementation
-  detail; this constitution supersedes them on conflict.
+  `shared/idgen/AGENTS.md`, `shared/db/AGENTS.md`, `desktop/AGENTS.md`, and `web/AGENTS.md`) carry
+  the implementation detail; this constitution supersedes them on conflict.
 
 ## Development Workflow
 
 - Before opening a pull request run, in order: `make fmt && make lint && make vet && make
-  lint-specs`, then `make test-race`.
+  lint-specs`, then `make test-race`; changes under `web/` additionally run `make lint-web && make
+  test-web && make sec-scan`.
 - CI gates a PR: `ci-lint` (golangci-lint + `go test -race`) is blocking on new issues;
-  `ci-spec-lint` enforces non-vacuous assertions, existing requirement IDs, and resolving
-  `validation.md` citations; `ci-flutter` covers the desktop app. Generated code is exempt from the
-  behavior-ships-with-tests rule.
+  `ci-spec-lint` enforces non-vacuous assertions, existing requirement IDs (Go, Dart, and
+  TypeScript), and resolving `validation.md` citations; `ci-web` covers the web client with its
+  security gates (`ci-flutter` covers the deprecated desktop client while it exists). Generated
+  code is exempt from the behavior-ships-with-tests rule.
 - Feature work follows the Spec Kit cycle — constitution → specify → clarify → plan → tasks →
   analyze → implement — and every produced spec keeps the repository's requirement-ID and
   edge-case-first conventions.
@@ -100,4 +159,4 @@ independently testable and prevents business logic from leaking into transport c
 - Every pull request and review MUST verify compliance with these principles. Complexity that cannot
   be justified against a principle MUST be removed, or the principle amended first.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-15
+**Version**: 1.1.1 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-16

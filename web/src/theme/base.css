@@ -1,0 +1,23 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--lg-font-family);
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text);
+  background-color: var(--lg-color-bg);
+}
+
+:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: var(--lg-focus-offset);
+}

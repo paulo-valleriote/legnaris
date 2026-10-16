@@ -10,7 +10,8 @@ requirement:
     LGN-*  -> skipped                (Jira card keys, not spec requirement IDs)
 
 `ISO-8601`-style standard identifiers are skipped explicitly: they name a date
-format, not a requirement. Both `*.dart` and `*.go` sources are scanned.
+format, not a requirement. Backend (`*.go`), desktop (`*.dart`), and client
+(`*.ts`, `*.tsx`) sources are all scanned.
 
 Usage:
     python3 scripts/check_requirement_ids.py [path ...]   # default: repo root
@@ -26,8 +27,21 @@ ID = re.compile(r"\b([A-Z][A-Z0-9]*)-(\d+)\b")
 
 SKIP_PREFIXES = {"LGN"}    # Jira card keys — tracked in Jira, not in spec.md
 SKIP_IDS = {"ISO-8601", "SHA-256"}    # standards/format identifiers, not requirements
-CODE_SUFFIXES = {".dart", ".go"}
-SKIP_DIRS = {".git", ".dart_tool", "build", "node_modules", ".idea"}
+CODE_SUFFIXES = {".dart", ".go", ".ts", ".tsx"}
+SKIP_DIRS = {
+    ".git",
+    ".dart_tool",
+    "build",
+    "node_modules",
+    ".idea",
+    # Client build and tool output (never sources).
+    "dist",
+    "coverage",
+    ".vite",
+    "playwright-report",
+    "test-results",
+    "blob-report",
+}
 
 
 def collect_ids(paths, pattern=ID):

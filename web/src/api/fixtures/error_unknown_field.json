@@ -1,0 +1,24 @@
+{
+  "operation": "unknown_field",
+  "provenance": "captured from the local stack (make dev-db; go run ./cmd/api.go) at http://localhost:8080 on 2026-10-16T00:56:45Z",
+  "request": {
+    "method": "PATCH",
+    "path": "/sheets/01a14236-21c9-7546-945e-40c46d1fcd1d",
+    "body": {
+      "data": {
+        "stats": {
+          "nonexistentAbility": 3
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "UNKNOWN_FIELD",
+        "message": "field does not exist: stats.nonexistentAbility"
+      }
+    }
+  }
+}

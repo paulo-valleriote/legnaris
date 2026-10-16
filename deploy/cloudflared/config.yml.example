@@ -5,6 +5,7 @@
 #   cloudflared tunnel login
 #   cloudflared tunnel create legnaris
 #   cloudflared tunnel route dns legnaris api.legnaris.com.br
+#   cloudflared tunnel route dns legnaris app.legnaris.com.br
 #   cloudflared tunnel route dns legnaris ops.legnaris.com.br
 #   cp config.yml.example config.yml   # then set the tunnel UUID below
 
@@ -13,6 +14,8 @@ credentials-file: /home/nonroot/.cloudflared/<TUNNEL_UUID>.json
 
 ingress:
   - hostname: api.legnaris.com.br
+    service: http://traefik:80
+  - hostname: app.legnaris.com.br
     service: http://traefik:80
   - hostname: ops.legnaris.com.br
     service: http://traefik:80

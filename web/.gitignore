@@ -1,0 +1,14 @@
+# Build output and Vite cache
+dist/
+.vite/
+node_modules/
+
+# Test/coverage output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Editor/OS noise
+.DS_Store
+*.local

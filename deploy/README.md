@@ -1,9 +1,9 @@
 # Legnaris — Production stack (Docker Compose + Traefik)
 
-Self-contained stack for a single VPS: the Go app (Echo v5) + MongoDB +
-observability (Prometheus, Grafana, Loki, Alloy) + a database UI (Mongo
-Express), with admin access protected by **GitHub OAuth** (oauth2-proxy) and
-**Traefik** at the edge.
+Self-contained stack for a single VPS: the Go app (Echo v5) + the React PWA
+client (nginx) + MongoDB + observability (Prometheus, Grafana, Loki, Alloy) + a
+database UI (Mongo Express), with admin access protected by **GitHub OAuth**
+(oauth2-proxy) and **Traefik** at the edge.
 
 ---
 
@@ -13,6 +13,8 @@ Express), with admin access protected by **GitHub OAuth** (oauth2-proxy) and
 legnaris.com.br          → Vercel (frontend)           [untouched]
 api.legnaris.com.br      → Docker/Traefik              [public, no OAuth]
    └─ /                  → app API (health, templates, sheets)
+app.legnaris.com.br      → Docker/Traefik              [public, no OAuth]
+   └─ /                  → web client (service `web`, nginx)
 ops.legnaris.com.br      → Docker/Traefik              [GitHub OAuth]
    ├─ /oauth2/callback   → GitHub OAuth callback
    ├─ /grafana           → Grafana
@@ -20,9 +22,11 @@ ops.legnaris.com.br      → Docker/Traefik              [GitHub OAuth]
    └─ /mongo             → Mongo Express
 ```
 
-Why split into two subdomains? The frontend (Vercel) and the API/observability
-live on different hosts, each with its own security rule. The `api.` is public;
-the `ops.` requires a GitHub login.
+Why split into three subdomains? Each surface has its own security rule: `api.`
+and `app.` are public, `ops.` requires a GitHub login. Keeping the client on its
+own origin (`app.`) is what lets the API stay a pure JSON service with a CORS
+allowlist instead of serving two kinds of traffic from one host and one route
+table.
 
 **Threat model:** the `ops.` subdomain is the only administrative surface. It is
 gated by GitHub OAuth at the Traefik edge; Grafana, Prometheus, and Mongo
@@ -47,8 +51,8 @@ create **records** that point subdomains to destinations:
 | `CNAME` | "this name → another name" (e.g. `api` → `tunel.cfargotunnel.com`). |
 | `@` or empty | the apex domain (`legnaris.com.br`). |
 
-The apex `legnaris.com.br` already points to Vercel. You only **add** two new
-records (`api` and `ops`) — leave what already exists untouched.
+The apex `legnaris.com.br` already points to Vercel. You only **add** three new
+records (`api`, `app` and `ops`) — leave what already exists untouched.
 
 ### Traefik — the "doorman" (reverse proxy)
 Traefik sits in front of everything, listening on ports 80/443. It is **not**
@@ -56,6 +60,7 @@ your web server — it decides, for each request, which service should handle it
 based on the **Host** (requested domain) and the **path**:
 
 - Requests `api.legnaris.com.br/...` → forwards to the app.
+- Requests `app.legnaris.com.br/...` → forwards to the web client.
 - Requests `ops.legnaris.com.br/grafana` → forwards to Grafana, but first asks
   oauth2-proxy ("is this person logged in?").
 
@@ -63,7 +68,7 @@ It also handles **TLS/HTTPS**: it issues and renews certificates via Let's
 Encrypt.
 
 ### Routing — Host vs path
-- **By Host** (`api.` vs `ops.`): different domains → different services.
+- **By Host** (`api.` vs `app.` vs `ops.`): different domains → different services.
 - **By path** (`/grafana` vs `/prometheus` on the same `ops.`): same domain,
   different paths.
 
@@ -131,6 +136,7 @@ Registro.br — only *where* the zone is managed changes.
 | Name | Type | Value | Proxy |
 |---|---|---|---|
 | `api` | A | VPS IP | DNS only |
+| `app` | A | VPS IP | DNS only |
 | `ops` | A | VPS IP | DNS only |
 
 **Local (Cloudflare Tunnel):** don't create them by hand — use
@@ -152,9 +158,9 @@ Registro.br — only *where* the zone is managed changes.
 ```bash
 cd deploy
 cp .env.example .env
-# fill in: API_DOMAIN, OPS_DOMAIN, ACME_EMAIL, GITHUB_CLIENT_ID,
-# GITHUB_CLIENT_SECRET, GITHUB_USER, CORS_ALLOWED_ORIGINS, JWT_SECRET,
-# MONGO_ROOT_PASSWORD, MONGO_APP_PASSWORD, MONGO_EXPORTER_PASSWORD,
+# fill in: API_DOMAIN, WEB_DOMAIN, WEB_API_BASE_URL, OPS_DOMAIN, ACME_EMAIL,
+# GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_USER, CORS_ALLOWED_ORIGINS,
+# JWT_SECRET, MONGO_ROOT_PASSWORD, MONGO_APP_PASSWORD, MONGO_EXPORTER_PASSWORD,
 # MONGO_VIEW_PASSWORD, ME_CONFIG_BASICAUTH_USERNAME/PASSWORD,
 # GRAFANA_ADMIN_USER/PASSWORD
 openssl rand -base64 32 | tr '+/' '-_'   # use as OAUTH2_PROXY_COOKIE_SECRET
@@ -179,24 +185,42 @@ docker compose ps        # mongodb "healthy" and the rest "Up"
 ```bash
 # 1. once, on the host:
 cloudflared tunnel login
-cloudflared tunnel create legnaris
+cloudflared tunnel create legnaris      # writes ~/.cloudflared/<TUNNEL_UUID>.json
 cloudflared tunnel route dns legnaris api.legnaris.com.br   # creates the CNAME automatically
+cloudflared tunnel route dns legnaris app.legnaris.com.br
 cloudflared tunnel route dns legnaris ops.legnaris.com.br
 
 # 2. configure the tunnel:
 cp cloudflared/config.yml.example cloudflared/config.yml
 # edit and replace <TUNNEL_UUID> with the value from `cloudflared tunnel list`
+cloudflared tunnel --config cloudflared/config.yml ingress validate
+
+# 2b. the cloudflared container runs as uid 65532 and reads ~/.cloudflared
+#     through a read-only bind mount, so the directory must be traversable and
+#     the credentials file readable by that uid:
+chmod 755 ~/.cloudflared
+chmod 644 ~/.cloudflared/<TUNNEL_UUID>.json
 
 # 3. bring it up with the local override:
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
+
+If the tunnel already exists and its credentials are not on this host, fetch them
+instead of creating a second tunnel: `cloudflared tunnel token --cred-file
+~/.cloudflared/<TUNNEL_UUID>.json legnaris`.
 
 What the local override changes (vs production):
 - Traefik uses the shared `traefik.yml` with plain HTTP and **no** Let's Encrypt
   (the production-only TLS flags are dropped; Cloudflare terminates TLS).
 - oauth2-proxy sets `OAUTH2_PROXY_COOKIE_SECURE=false` (the origin is HTTP
   behind the tunnel).
-- Adds the `cloudflared` service that publishes `api.` and `ops.`.
+- Adds the `cloudflared` service that publishes `api.`, `app.` and `ops.`.
+
+The `web` service is built by this same command: its bundle is compiled with
+`WEB_API_BASE_URL`, so pointing the client at a different API (or serving it on
+a different `WEB_DOMAIN`) needs `docker compose up -d --build web`, not a
+restart. `CORS_ALLOWED_ORIGINS` must list `WEB_DOMAIN` — the two are configured
+together in `deploy/.env`.
 
 **Quick alternative (random URLs, just to check it boots):**
 ```bash
@@ -227,6 +251,7 @@ without authenticating at Cloudflare first:
 
 | URL | What it is | Protection |
 |---|---|---|
+| `https://app.legnaris.com.br/` | Web client (PWA) | public |
 | `https://api.legnaris.com.br/` | Public API | public |
 | `https://ops.legnaris.com.br/grafana` | Grafana | GitHub OAuth |
 | `https://ops.legnaris.com.br/prometheus` | Prometheus UI | GitHub OAuth |
@@ -243,11 +268,12 @@ without authenticating at Cloudflare first:
   internal network; the endpoint is not routed on the public `api.` domain.
 - **Query the database**: Mongo Express at `/mongo`.
 
-## 11. CORS (frontend → API)
+## 11. CORS (web client → API)
 
-The app allows origins from `CORS_ALLOWED_ORIGINS` (default:
-`https://legnaris.com.br` in `.env`). Without it, the browser blocks calls from
-Vercel to the API.
+The app allows origins from `CORS_ALLOWED_ORIGINS` (default in `.env.example`:
+`https://app.legnaris.com.br`). Without it, the browser blocks every call from
+the web client to the API. The origin must match exactly — scheme, host, and
+port — or the preflight fails.
 
 ## 12. Day-to-day operation
 
@@ -270,3 +296,8 @@ volumes.
 3. **Traefik `/metrics`** needs `metrics.prometheus.entryPoint: metrics`.
 4. **The OAuth callback** lives on `ops.` (not `api.`), because that's where the
    login happens.
+5. **`~/.cloudflared` must stay world-readable-ish**: the `cloudflared` image runs
+   as uid 65532 and reaches the mount as that user, so a `700` directory (what
+   `cloudflared tunnel login` creates) makes the container fail with a
+   credentials error. It also has no shell, so the failure shows up as the
+   tunnel container restarting, not as a readable error inside it.

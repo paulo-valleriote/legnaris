@@ -1,0 +1,39 @@
+{
+  "operation": "sheet_update",
+  "provenance": "captured from the local stack (make dev-db; go run ./cmd/api.go) at http://localhost:8080 on 2026-10-16T00:56:45Z",
+  "request": {
+    "method": "PATCH",
+    "path": "/sheets/01a14236-21c9-7546-945e-40c46d1fcd1d",
+    "body": {
+      "data": {
+        "stats": {
+          "dexterity": 14
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "data": {
+        "derived": {
+          "armorClass": 12
+        },
+        "modifiers": {
+          "dexterityMod": 2
+        },
+        "saves": {
+          "dexterity": 2
+        },
+        "skills": {
+          "acrobatics": {
+            "total": 2
+          },
+          "stealth": {
+            "total": 2
+          }
+        }
+      }
+    }
+  }
+}

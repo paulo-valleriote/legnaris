@@ -1,0 +1,169 @@
+name: Web CI
+
+# Client (React/Vite/TypeScript PWA) pipeline. Runs only for changes under
+# web/ or to this workflow; the Go pipeline (ci-lint.yml) is allowlisted to the
+# backend and does not trigger on web/**, so neither toolchain runs for the
+# other's changes (SEC-06).
+#
+# Every job is a required, fail-closed gate: no job sets continue-on-error and
+# none is conditionally skipped on these trigger paths (SEC-04, FND/SEC
+# contracts under .specs/features/001-web-pwa-foundation/contracts/).
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/ci-web.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/ci-web.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: lint, typecheck, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Format check
+        run: npm run format:check
+      - name: Lint (ESLint incl. anti-XSS rules)
+        run: npm run lint
+      - name: Type-check
+        run: npm run typecheck
+      - name: Unit and rendering tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+
+  sca:
+    name: dependency scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci
+        working-directory: web
+      - name: npm audit (known vulnerabilities)
+        run: npm audit --audit-level=high
+        working-directory: web
+      - name: npm audit signatures
+        run: npm audit signatures
+        working-directory: web
+      - name: Install osv-scanner
+        run: |
+          curl -fsSL -o osv-scanner "https://github.com/google/osv-scanner/releases/download/v2.2.3/osv-scanner_linux_amd64"
+          chmod +x osv-scanner
+      - name: osv-scanner (lockfile)
+        run: ./osv-scanner scan --lockfile=web/package-lock.json
+      # Pin at or above v0.33.1: earlier trivy-action releases reference
+      # aquasecurity/setup-trivy tags that the publisher has since pruned, and the
+      # step then fails while resolving them, before any scan runs.
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: web
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          format: sarif
+          output: trivy-web.sarif
+          exit-code: '1'
+      - name: Upload SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sca-sarif
+          path: trivy-web.sarif
+          if-no-files-found: ignore
+
+  sast:
+    name: static analysis
+    runs-on: ubuntu-latest
+    # CodeQL is deferred: code scanning and the CodeQL CLI are both unavailable on
+    # a private repository without GitHub Code Security, which only GitHub Team and
+    # Enterprise plans can purchase (AD-012). Semgrep carries the gate until then.
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Semgrep
+        run: pipx install semgrep
+      - name: Semgrep
+        # --error is the gate: findings exit non-zero instead of only being reported.
+        # p/default carries the detection: it is the only pack that flagged a seeded
+        # eval(); p/xss, p/react, p/security-audit and p/nodejsscan flagged none.
+        run: >-
+          semgrep scan
+          --config p/default
+          --config p/owasp-top-ten
+          --config p/typescript
+          --config p/react
+          --error
+          --sarif --output semgrep.sarif
+          web/
+        env:
+          SEMGREP_SEND_METRICS: 'off'
+      - name: Upload SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-sarif
+          path: semgrep.sarif
+          if-no-files-found: ignore
+
+  secrets:
+    name: secret scanning
+    runs-on: ubuntu-latest
+    # gitleaks resolves the pull request's commit range through
+    # GET /repos/{owner}/{repo}/pulls/{number}/commits, which the job would not
+    # reach with `contents: read` alone (SEC-03).
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  lockfile:
+    name: lockfile integrity
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install (frozen lockfile)
+        run: npm ci
+      - name: lockfile-lint
+        run: npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm

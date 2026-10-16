@@ -5,7 +5,7 @@
 DATABASE_URI := $(subst ",,$(DATABASE_URI))
 export PORT APP_NAME DATABASE_URI DATABASE_NAME CORS_ALLOWED_ORIGINS DATABASE_PING_TIMEOUT DATABASE_SERVER_SELECTION_TIMEOUT DATABASE_CONNECT_TIMEOUT DATABASE_CLOSE_TIMEOUT JWT_SECRET JWT_ACCESS_TTL AUTH_REFRESH_TTL AUTH_BCRYPT_COST
 
-.PHONY: run build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local
+.PHONY: run build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local lint-web test-web sec-scan
 
 ## --- Development ------------------------------------------------------------
 
@@ -54,6 +54,25 @@ dev-db:         ## Run only MongoDB locally with the credentials from DATABASE_U
 	docker run --rm --name legnaris-mongo "$$@" \
 		-p 27017:27017 \
 		-d mongo:7.0
+
+## --- Web client (React/Vite/TypeScript PWA) ---------------------------------
+## Local parity with the ci-web.yml pipeline; run after any change under web/.
+
+lint-web:       ## Client format-check, ESLint (anti-XSS) and type-check
+	@cd web && npm run format:check && npm run lint && npm run typecheck
+
+test-web:       ## Client unit and rendering tests (Vitest)
+	@cd web && npm test
+
+sec-scan:       ## Client security gates: SCA, secret scan, lockfile integrity
+	@cd web && npm audit --audit-level=high
+	@cd web && npm audit signatures
+	@cd web && npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
+	@if command -v gitleaks >/dev/null 2>&1; then \
+		gitleaks detect --no-banner --redact --source . ; \
+	else \
+		echo "sec-scan: gitleaks not installed locally; CI runs it (ci-web secrets job)" ; \
+	fi
 
 ## --- Deploy (deploy/ stack) -------------------------------------------------
 

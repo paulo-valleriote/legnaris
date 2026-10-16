@@ -12,7 +12,7 @@ string never triggers, and an interpolated string (dynamic content) is not
 treated as a literal.
 
 Usage:
-    python3 scripts/check_test_assertions.py [path ...]   # default: desktop/
+    python3 scripts/check_test_assertions.py [path ...]   # default: desktop/ web/
 
 Exit codes: 0 clean, 1 violations, 2 usage error.
 """
@@ -23,6 +23,23 @@ from pathlib import Path
 
 MARKER_LIT = "@LIT@"      # plain string literal: a constant, so vacuous
 MARKER_DYN = "@DYN@"      # interpolated string: has dynamic content, not vacuous
+
+# Every Dart source is scanned; for the TypeScript client only test files carry
+# assertions, so the test suffixes are matched instead of every `*.ts`/`*.tsx`.
+DART_SUFFIX = ".dart"
+CLIENT_TEST_SUFFIXES = (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")
+SKIP_DIRS = {
+    ".git",
+    ".dart_tool",
+    "build",
+    "node_modules",
+    ".idea",
+    "dist",
+    "coverage",
+    ".vite",
+    "playwright-report",
+    "test-results",
+}
 
 # First argument of expect() that makes the assertion vacuous, after
 # whitespace normalization of the extracted argument.
@@ -157,20 +174,25 @@ def find_violations(source):
     return violations
 
 
-def dart_files(paths):
+def source_files(paths):
+    """Dart sources plus client test files — the files each toolchain asserts in."""
     for raw in paths:
         p = Path(raw)
-        if p.is_dir():
-            yield from sorted(p.rglob("*.dart"))
-        elif p.is_file():
-            yield p
+        candidates = sorted(p.rglob("*")) if p.is_dir() else [p]
+        for candidate in candidates:
+            if not candidate.is_file():
+                continue
+            if any(part in SKIP_DIRS for part in candidate.parts):
+                continue
+            if candidate.suffix == DART_SUFFIX or candidate.name.endswith(CLIENT_TEST_SUFFIXES):
+                yield candidate
 
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    roots = argv or ["desktop"]
+    roots = argv or ["desktop", "web"]
     found = 0
-    for path in dart_files(roots):
+    for path in source_files(roots):
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):

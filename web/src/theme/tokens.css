@@ -1,0 +1,51 @@
+:root {
+  /* Type scale — 17 is the hard cap (contracts/shell-layout.contract.md) */
+  --lg-type-12: 12px;
+  --lg-type-13: 13px;
+  --lg-type-15: 15px;
+  --lg-type-17: 17px;
+  --lg-line-tight: 1.25;
+  --lg-line-normal: 1.5;
+  --lg-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --lg-font-weight-regular: 400;
+  --lg-font-weight-strong: 600;
+
+  /* Spacing scale */
+  --lg-space-4: 4px;
+  --lg-space-8: 8px;
+  --lg-space-12: 12px;
+  --lg-space-16: 16px;
+  --lg-space-24: 24px;
+
+  /* Radii — inputs/buttons 2, panels/dialogs 4; never above 4 */
+  --lg-radius-2: 2px;
+  --lg-radius-4: 4px;
+
+  /* Sizes */
+  --lg-size-hairline: 1px;
+  --lg-size-row: 32px;
+  --lg-size-control: 34px;
+  --lg-size-nav-min: 200px;
+  --lg-size-nav-max: 240px;
+  --lg-size-content-max: 960px;
+  --lg-size-panel-min: 280px;
+  --lg-size-panel-max: 320px;
+
+  /* Focus */
+  --lg-focus-width: 2px;
+  --lg-focus-offset: 2px;
+
+  /* Colors — every foreground token's pair is declared in theme/tokens.ts */
+  --lg-color-bg: #ffffff;
+  --lg-color-surface: #f4f4f6;
+  --lg-color-surface-hover: #e8e8ec;
+  --lg-color-border: #d8d8de;
+  --lg-color-text: #1b1b21;
+  --lg-color-text-muted: #58585f;
+  --lg-color-accent: #1a4fa3;
+  --lg-color-accent-hover: #173f82;
+  --lg-color-accent-text: #ffffff;
+  --lg-color-focus: #1a4fa3;
+  --lg-color-danger: #b3261e;
+  --lg-color-danger-text: #ffffff;
+}

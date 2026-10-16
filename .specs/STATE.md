@@ -82,6 +82,22 @@
 - **Date**: 2026-10-08
 - **Status**: active
 
+### AD-011
+- **Decision**: The web client ships the Lighthouse budget configuration (`web/lighthouserc.json`, F1-T025) but not the Lighthouse runner: `@lhci/cli` is not a dependency of `web/`. The runner lands with the Lighthouse gate in F8 (`F8-T005`).
+- **Reason**: Nothing consumed `@lhci/cli` — no npm script and no CI step — while its dev-only transitive tree was the sole source of the advisories the `sca` gate reported (17 findings, 11 high; `extract-zip` and `sprintf-js` have no patched release), which made SEC-02 unsatisfiable without suppressing findings. After removal, `npm audit --audit-level=high` and `osv-scanner` both report nothing, so the gate stays unscoped and unsuppressed.
+- **Trade-off**: The installability/performance budgets in `lighthouserc.json` cannot run from a locked toolchain until F8 adds the runner; until then they are covered by the F1 quickstart's manual audit and the Playwright suites.
+- **Scope**: web/ — `package.json` and `package-lock.json` only; `lighthouserc.json`, the pipelines and the F8 gate's contract are unchanged.
+- **Date**: 2026-10-16
+- **Status**: active
+
+### AD-012
+- **Decision**: The `sast` gate runs Semgrep Community Edition only — `pipx install semgrep` then `semgrep scan --config p/default --config p/owasp-top-ten --config p/typescript --config p/react --error` — replacing both the deprecated `semgrep/semgrep-action` wrapper and CodeQL, which is removed from `ci-web.yml` until the repository has GitHub Code Security. `valueAtPath` resolves own properties only, so the prototype-pollution heuristic the wider ruleset raised is answered by a fix instead of a suppression.
+- **Reason**: GitHub's availability table lists both code scanning and the CodeQL CLI as unavailable on a private repository without GitHub Code Security, and Code Security can only be purchased on GitHub Team or Enterprise plans — this repository is private under a personal account, so `github/codeql-action/analyze` failed with `Resource not accessible by integration`. Semgrep CE keeps SEC-02's blocking SAST enforcement at no licence cost, `--error` makes a finding fail the job (verified: exit 1 on a finding, 0 on the current tree), and `p/default` is the only candidate pack that detected a seeded `eval` sink (see `contracts/ci-gates.contract.md` for the measurements).
+- **Trade-off**: CodeQL's `security-extended` analysis is lost meanwhile. `p/default` widens the rule set to 234 rules and blocks on findings of any severity, including low-confidence heuristics: each one must be triaged, and the acceptable answer is a fix or a suppression justified in review. Reinstating CodeQL requires enabling Code Security (organization plan) or making the repository public.
+- **Scope**: `.github/workflows/ci-web.yml` (`sast` job), `contracts/ci-gates.contract.md`, `web/src/api/models/sheet.ts` (`valueAtPath` own-property reads) with its suite. Nothing else in the gate changes.
+- **Date**: 2026-10-16
+- **Status**: active
+
 ## Handoff
 
 - **Feature**: `desktop-session-boundary` (desktop logout/login hygiene: navigation, session-local data, in-flight auth work) — COMPLETE, validation PASS ✅.
