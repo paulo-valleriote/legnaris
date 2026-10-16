@@ -1,18 +1,24 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0 (MINOR: two principles added, Additional Constraints and
-  Development Workflow materially expanded; no principle removed or redefined).
-- Modified principles:
-  - III. Behavior Ships With Tests — unchanged in text, now also the gate for the web client
-    through the stack constraint below (Vitest/Testing Library/Playwright); no redefinition.
-- Added principles:
-  - VI. Security Gates Are Blocking (NON-NEGOTIABLE)
-  - VII. Installable, Offline-Capable Web Client
-- Added sections: none (Additional Constraints and Development Workflow expanded in place).
-- Removed sections: none.
+- Current version: 1.1.1 | Ratified: 2026-10-15 | Last amended: 2026-10-16
+- Version history:
+  - 1.0.0 → 1.1.0 (MINOR: two principles added; Additional Constraints and Development Workflow
+    materially expanded; no principle removed or redefined).
+  - 1.1.0 → 1.1.1 (PATCH: runtime-guidance reference updated now that the web client exists; no
+    principle added, removed, or redefined).
+- Modified principles: none at 1.1.1. At 1.1.0, III. Behavior Ships With Tests was unchanged in text
+  and became the gate for the web client through the stack constraint (Vitest / Testing Library /
+  Playwright); no redefinition.
+- Added principles: VI. Security Gates Are Blocking (NON-NEGOTIABLE) and VII. Installable,
+  Offline-Capable Web Client (both 1.1.0).
+- Added/removed sections: none (Additional Constraints and Development Workflow expanded in place).
 - Stack change: the product client is the React/TypeScript PWA under `web/`; the Flutter desktop
   under `desktop/` is deprecated, accepted no further feature work, and is removed once the parity
   gate passes. Requirement-ID traceability now covers TypeScript sources.
+- Development Workflow verified against the delivered surface: `make lint-web`, `make test-web` and
+  `make sec-scan` exist in the `Makefile`, and the CI job names `ci-lint`, `ci-spec-lint` and
+  `ci-web` match the workflows in `.github/workflows/`. `web/AGENTS.md` is no longer "future" — it
+  exists and is referenced from the root `AGENTS.md`.
 - Deferred TODOs: none.
 -->
 
@@ -121,8 +127,8 @@ contracts are product requirements that must be gated like any other behavior.
   requirements come from the card, never invented.
 - **Runtime guidance.** `AGENTS.md` and its per-directory companions (`internal/AGENTS.md`,
   `internal/sheet/template/AGENTS.md`, `internal/engine/AGENTS.md`, `shared/apperr/AGENTS.md`,
-  `shared/idgen/AGENTS.md`, `shared/db/AGENTS.md`, `desktop/AGENTS.md`, and the future
-  `web/AGENTS.md`) carry the implementation detail; this constitution supersedes them on conflict.
+  `shared/idgen/AGENTS.md`, `shared/db/AGENTS.md`, `desktop/AGENTS.md`, and `web/AGENTS.md`) carry
+  the implementation detail; this constitution supersedes them on conflict.
 
 ## Development Workflow
 
@@ -153,4 +159,4 @@ contracts are product requirements that must be gated like any other behavior.
 - Every pull request and review MUST verify compliance with these principles. Complexity that cannot
   be justified against a principle MUST be removed, or the principle amended first.
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-15
+**Version**: 1.1.1 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-16
