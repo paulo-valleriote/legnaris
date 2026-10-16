@@ -51,6 +51,14 @@ services:
     image: cloudflare/cloudflared:2026.9.1
     restart: unless-stopped
     command: tunnel --config /etc/cloudflared/config.yml run
+    # The Docker embedded resolver forwards to the host's resolver, which on
+    # some hosts answers SRV queries in compressed form; cloudflared's Go
+    # resolver rejects those (golang/go#27546) and edge discovery fails with a
+    # "Parse error" / i/o timeout, so the tunnel never connects. Pinning a
+    # public resolver here keeps _v2-origintunneld._tcp.argotunnel.com usable.
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
     volumes:
       - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
       - ~/.cloudflared:/home/nonroot/.cloudflared:ro
