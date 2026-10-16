@@ -34,6 +34,7 @@ import { markLabel, SheetForm } from '../engine/sheet_form';
 import { message } from '../l10n/strings';
 import { useApiClient, useSheetStore } from '../app/providers';
 import { templateDetailKey } from '../catalog/queries';
+import { startDraftCadence } from '../library/draft_backup';
 import { discardDraft } from '../library/sheet_library';
 import { registerLeaveGuard } from '../shell/leave_guard';
 import { useSheetShortcuts } from '../shell/shortcut_registry';
@@ -400,6 +401,15 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       }),
     [editStore],
   );
+
+  useEffect(() => {
+    void editStore.restore();
+    return startDraftCadence(storePort, () =>
+      isPending(editStore.getState())
+        ? { sheetId: sheet.id, delta: editStore.getPendingDelta() }
+        : null,
+    );
+  }, [editStore, storePort, sheet.id]);
 
   useSheetShortcuts({
     onSave: () => {

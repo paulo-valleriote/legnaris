@@ -146,6 +146,8 @@ export interface SheetEditStore {
   save(): Promise<void>;
   /** Sends one delta dry-run when `canPreview` holds (WSC-21 … WSC-25). */
   preview(): Promise<void>;
+  /** Overlays the stored draft on the seed, marking only its editable leaves pending (WSC-28). */
+  restore(): Promise<void>;
   /** Discards every in-memory edit, re-seeding the display from the baseline (WSC-36, WSC-37). */
   discard(): void;
   /** Releases the throttle timer; the screen calls it on unmount (WSC-38). */
@@ -503,6 +505,28 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         saveError: undefined,
         previewError: undefined,
       });
+    },
+
+    restore: async () => {
+      let draft: Record<string, unknown> | null;
+      try {
+        draft = await deps.store.readDraft(seed.sheet.id);
+      } catch {
+        draft = null;
+      }
+      if (draft === null) {
+        return;
+      }
+
+      const writes = new Map<string, unknown>();
+      for (const path of flattenPaths(draft)) {
+        if (editable.has(path)) {
+          writes.set(path, readPath(draft, path));
+        }
+      }
+      if (writes.size > 0) {
+        applyWrites(writes);
+      }
     },
 
     dispose: () => {
