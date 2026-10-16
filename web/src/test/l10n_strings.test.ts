@@ -37,6 +37,29 @@ const engineFeatureKeys: readonly MessageKey[] = [
   'engine.recalculated',
 ];
 
+/** The sheet-cycle copy the open, edit, draft and guard surfaces render (WSC-32, SC-006). */
+const sheetCycleKeys: readonly MessageKey[] = [
+  'sheet.headerTitle',
+  'sheet.openLoading',
+  'sheet.templateLoading',
+  'sheet.emptyFields',
+  'sheet.missing',
+  'sheet.retryOpen',
+  'sheet.pendingEdits',
+  'sheet.save',
+  'sheet.saving',
+  'sheet.saved',
+  'sheet.preview',
+  'sheet.previewing',
+  'sheet.refreshTitle',
+  'sheet.refreshMessage',
+  'sheet.refreshConfirm',
+  'sheet.leaveTitle',
+  'sheet.leaveMessage',
+  'sheet.leaveConfirm',
+  'sheet.cancel',
+];
+
 describe('translation catalog', () => {
   it('Edge: the catalog is not empty', () => {
     expect(keys.length).toBeGreaterThan(0);
@@ -100,6 +123,22 @@ describe('translation catalog', () => {
   it('Edge: the engine copy keys own distinct copy, so none is a silent duplicate (ENG-27)', () => {
     const seen = new Map<string, MessageKey>();
     for (const key of engineFeatureKeys) {
+      const text = messages[key];
+      expect(seen.has(text)).toBe(false);
+      seen.set(text, key);
+    }
+  });
+
+  it('Happy path: every sheet-cycle copy key resolves to non-empty copy (WSC-32, SC-006)', () => {
+    for (const key of sheetCycleKeys) {
+      expect(messages[key]).toBeDefined();
+      expect(message(key).trim()).not.toBe('');
+    }
+  });
+
+  it('Edge: the sheet-cycle copy keys own distinct copy, so none is a silent duplicate (WSC-32)', () => {
+    const seen = new Map<string, MessageKey>();
+    for (const key of sheetCycleKeys) {
       const text = messages[key];
       expect(seen.has(text)).toBe(false);
       seen.set(text, key);

@@ -16,8 +16,12 @@ import { createApiClient } from '../api/client';
 import { resolveApiConfigFromBuild } from '../api/config';
 import type { Transport } from '../api/transport';
 import { createFetchTransport } from '../api/transport';
+import { createIdbSheetStore } from '../library/idb_sheet_store';
+import type { SheetStore } from '../library/sheet_store';
+import { createLazySheetStore } from '../library/sheet_store';
 
 const ApiClientContext = createContext<ApiClient | undefined>(undefined);
+const SheetStoreContext = createContext<SheetStore | undefined>(undefined);
 
 export interface AppProvidersProps {
   readonly children: ReactNode;
@@ -27,6 +31,8 @@ export interface AppProvidersProps {
   readonly transport?: Transport;
   /** Injected query client; tests pass a fresh one per case. */
   readonly queryClient?: QueryClient;
+  /** Injected local store; tests pass an in-memory double (WSC-11). */
+  readonly sheetStore?: SheetStore;
 }
 
 function createDefaultQueryClient(): QueryClient {
@@ -42,16 +48,33 @@ export function useApiClient(): ApiClient {
   return client;
 }
 
+/** Resolves the local sheet store from context (WSC-11). */
+export function useSheetStore(): SheetStore {
+  const store = useContext(SheetStoreContext);
+  if (store === undefined) {
+    throw new Error('useSheetStore must be used within <AppProviders>.');
+  }
+  return store;
+}
+
 /**
- * Provides the API client and the query client to the subtree.
+ * Provides the API client, the local sheet store and the query client.
  *
  * `retry` is disabled on the query client so the retry policy stays the F2
  * client's alone; the library's own default would otherwise repeat every failed
  * read three more times.
  */
-export function AppProviders({ children, client, transport, queryClient }: AppProvidersProps) {
+export function AppProviders({
+  children,
+  client,
+  transport,
+  queryClient,
+  sheetStore,
+}: AppProvidersProps) {
   const [fallbackQueryClient] = useState(createDefaultQueryClient);
+  const [fallbackSheetStore] = useState(() => createLazySheetStore(() => createIdbSheetStore()));
   const resolvedQueryClient = queryClient ?? fallbackQueryClient;
+  const resolvedSheetStore = sheetStore ?? fallbackSheetStore;
 
   const resolvedClient = useMemo(
     () =>
@@ -65,7 +88,9 @@ export function AppProviders({ children, client, transport, queryClient }: AppPr
 
   return (
     <ApiClientContext.Provider value={resolvedClient}>
-      <QueryClientProvider client={resolvedQueryClient}>{children}</QueryClientProvider>
+      <SheetStoreContext.Provider value={resolvedSheetStore}>
+        <QueryClientProvider client={resolvedQueryClient}>{children}</QueryClientProvider>
+      </SheetStoreContext.Provider>
     </ApiClientContext.Provider>
   );
 }
