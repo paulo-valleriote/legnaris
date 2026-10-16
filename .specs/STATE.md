@@ -122,6 +122,14 @@
 - **Date**: 2026-10-16
 - **Status**: active
 
+### AD-016
+- **Decision**: The web client's server state is owned by TanStack Query (`@tanstack/react-query`, pinned 5.104.3, first added by F3). Screens read the catalog and the template detail through query hooks over the F2 `ApiClient`; the catalog query is `staleTime: Infinity` with `retry: false`, `refetchOnWindowFocus: false`, `refetchOnMount: false` and `refetchOnReconnect: false` (one request per app load), while the detail query is keyed per template identifier with `staleTime: 0` and `gcTime: 0` (one request per opening), and the query client sets `retry: false` as a default.
+- **Reason**: The program plan already selected this library (Parte 3, and the F3 task "Queries TanStack … cache `staleTime`"), and F5 needs invalidation (the refresh shortcut, F5-T005) plus at least three more server operations (sheet create/get/patch), so hand-rolling a cache in F3 would move that cost and its race risk into F5. `retry: false` and `refetchOnWindowFocus: false` are not preferences: the library's defaults (three client-side retries, revalidate on window focus) directly contradict WCT-02 and WCT-07/WCT-16, so the policy is asserted rather than assumed.
+- **Trade-off**: one runtime dependency (small — roughly 10 kB min+gzip) against the `web/AGENTS.md` rule "no new package without strict necessity"; it is the plan's server-state choice, recorded as inherited rather than invented. The library's default policy is wrong for this feature, so the query configuration becomes part of the contract and every value in it must have a test.
+- **Scope**: web/ — `package.json`/`package-lock.json`, `src/app/providers.tsx`, `src/catalog/queries.ts`. F5's refresh/invalidation and the sheet-cycle queries build on the same client and the same keys.
+- **Date**: 2026-10-16
+- **Status**: active
+
 ## Handoff
 
 - **Feature**: `desktop-session-boundary` (desktop logout/login hygiene: navigation, session-local data, in-flight auth work) — COMPLETE, validation PASS ✅.

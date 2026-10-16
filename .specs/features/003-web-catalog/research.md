@@ -35,7 +35,7 @@ have to re-derive them. It is also the seam the refresh shortcut (F5-T005) will 
 
 **Decision**: add `@tanstack/react-query` 5.104.3 as a runtime dependency. Verified at planning time:
 the latest 5.x release is 5.104.3 and its peer range is `react: ^18 || ^19`, so it accepts the pinned
-React 19.3.1.
+React 19.3.1. Recorded as `AD-016`.
 
 **Rationale**: `web/AGENTS.md` forbids a new package "without strict necessity" and bans
 *design-system* dependencies specifically. This is neither: it is the server-state library the program
