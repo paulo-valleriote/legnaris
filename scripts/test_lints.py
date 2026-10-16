@@ -243,6 +243,23 @@ class TestClientGateIntegrity(unittest.TestCase):
         self.assertIn("gitleaks/gitleaks-action@", block)
         self.assertIn("pull-requests: read", block)
 
+    def test_trivy_pin_clears_the_pruned_dependency_floor(self):
+        # Releases below v0.33.1 pull a setup-trivy tag the publisher has pruned,
+        # so the scanner cannot start; a commit SHA is immutable and skips this.
+        pin = next(
+            (
+                line.split("@", 1)[1].strip()
+                for line in self.workflow_text("ci-web.yml").splitlines()
+                if "aquasecurity/trivy-action@" in line
+            ),
+            None,
+        )
+        self.assertIsNotNone(pin, "ci-web.yml has no trivy-action pin")
+        if re.fullmatch(r"[0-9a-f]{40}", pin) is not None:
+            return
+        version = tuple(int(part) for part in pin.lstrip("v").split("."))
+        self.assertGreaterEqual(version, (0, 33, 1), f"trivy-action pin {pin} cannot resolve")
+
 
 class TestValidationCitations(unittest.TestCase):
     def setUp(self):

@@ -78,8 +78,11 @@ jobs:
           chmod +x osv-scanner
       - name: osv-scanner (lockfile)
         run: ./osv-scanner scan --lockfile=web/package-lock.json
+      # Pin at or above v0.33.1: earlier trivy-action releases reference
+      # aquasecurity/setup-trivy tags that the publisher has since pruned, and the
+      # step then fails while resolving them, before any scan runs.
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: web
