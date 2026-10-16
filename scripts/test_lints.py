@@ -243,6 +243,14 @@ class TestClientGateIntegrity(unittest.TestCase):
         self.assertIn("gitleaks/gitleaks-action@", block)
         self.assertIn("pull-requests: read", block)
 
+    def test_sast_job_blocks_on_findings(self):
+        # A scanner that only reports its findings looks green while finding
+        # nothing, so the gate must fail the job on a finding.
+        block = self.job_block("ci-web.yml", "sast")
+        self.assertIn("semgrep scan", block)
+        self.assertIn("--error", block)
+        self.assertNotIn("continue-on-error", block)
+
     def test_trivy_pin_clears_the_pruned_dependency_floor(self):
         # Releases below v0.33.1 pull a setup-trivy tag the publisher has pruned,
         # so the scanner cannot start; a commit SHA is immutable and skips this.

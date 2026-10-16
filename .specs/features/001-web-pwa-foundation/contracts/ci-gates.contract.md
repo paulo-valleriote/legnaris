@@ -18,7 +18,7 @@
 |---|---|---|---|
 | `quality` | format check, lint (ESLint incl. anti-XSS rules), type-check, unit tests, production build | yes | yes |
 | `sca` | `osv-scanner` on the lockfile, `Trivy fs`, `npm audit` (with signature verification) | yes | yes |
-| `sast` | CodeQL (JS/TS, security-extended) and Semgrep (`p/owasp-top-ten`, `p/typescript`, `p/react`) | yes | yes |
+| `sast` | Semgrep (`p/owasp-top-ten`, `p/typescript`, `p/react`) with `--error`, so a finding fails the job; CodeQL is deferred until the repository has GitHub Code Security (AD-012) | yes | yes |
 | `secrets` | `gitleaks` scan of the diff and the tree | yes | yes |
 | `lockfile` | `npm ci` on the frozen lockfile, lockfile-lint integrity | yes | yes |
 
@@ -26,6 +26,15 @@ Rules:
 
 - No job sets `continue-on-error`, and no job is conditionally skipped on the trigger paths
   (SEC-04). A scanner that fails to execute fails the job.
+- `sast` installs Semgrep Community Edition (`pipx install semgrep`) instead of the deprecated
+  `semgrep/semgrep-action` wrapper, passes `--error` so a finding fails the job rather than only
+  being reported, and uploads `semgrep.sarif` as an artifact. CodeQL is deferred: both code
+  scanning and the CodeQL CLI are unavailable on a private repository without GitHub Code
+  Security, which only GitHub Team and Enterprise plans can purchase (AD-012). Reinstatement is
+  tracked with the feature's deferred tasks.
+- The three configured packs are thin for this stack: a seeded file holding `eval`, `innerHTML`
+  and `document.write` yields no finding, while `p/default` finds it. Broadening the ruleset is
+  F9-T009's scope in the program plan.
 - New findings fail the pipeline even when `quality` is green (SEC-02, SEC-03).
 - Scanner versions/actions are pinned; dependabot covers the workflow's own action versions where
   the ecosystem allows it.

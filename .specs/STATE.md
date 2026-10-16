@@ -90,6 +90,14 @@
 - **Date**: 2026-10-16
 - **Status**: active
 
+### AD-012
+- **Decision**: The `sast` gate runs Semgrep Community Edition only, invoked as `pipx install semgrep` + `semgrep scan --config p/owasp-top-ten --config p/typescript --config p/react --error`; CodeQL is removed from `ci-web.yml` until the repository has GitHub Code Security. The deprecated `semgrep/semgrep-action` wrapper is replaced by the CLI.
+- **Reason**: GitHub's availability table lists both code scanning and the CodeQL CLI as unavailable on a private repository without GitHub Code Security, and Code Security can only be purchased on GitHub Team or Enterprise plans — this repository is private under a personal account, so `github/codeql-action/analyze` failed with `Resource not accessible by integration`. Semgrep CE keeps SEC-02's blocking SAST enforcement at no licence cost, and `--error` makes a finding fail the job instead of only being reported (verified: exit 1 on a finding).
+- **Trade-off**: CodeQL's `security-extended` analysis is lost meanwhile, and the three configured packs are thin for this stack — a seeded `eval`/`innerHTML`/`document.write` file produces no finding, while `p/default` catches it (broadening the ruleset is F9-T009's scope).
+- **Scope**: `.github/workflows/ci-web.yml` (`sast` job), `contracts/ci-gates.contract.md`. Reinstating CodeQL requires enabling Code Security (org plan) or making the repository public; nothing else in the gate changes.
+- **Date**: 2026-10-16
+- **Status**: active
+
 ## Handoff
 
 - **Feature**: `desktop-session-boundary` (desktop logout/login hygiene: navigation, session-local data, in-flight auth work) — COMPLETE, validation PASS ✅.

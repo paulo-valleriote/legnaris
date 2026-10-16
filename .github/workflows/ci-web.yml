@@ -102,30 +102,32 @@ jobs:
   sast:
     name: static analysis
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
+    # CodeQL is deferred: code scanning and the CodeQL CLI are both unavailable on
+    # a private repository without GitHub Code Security, which only GitHub Team and
+    # Enterprise plans can purchase (AD-012). Semgrep carries the gate until then.
     steps:
       - uses: actions/checkout@v7
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript
-          queries: security-extended
-      - name: Build for CodeQL
-        run: |
-          cd web
-          npm ci
-          npm run build
-      - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+      - name: Install Semgrep
+        run: pipx install semgrep
       - name: Semgrep
-        uses: semgrep/semgrep-action@v1
+        # --error is the gate: findings exit non-zero instead of only being reported.
+        run: >-
+          semgrep scan
+          --config p/owasp-top-ten
+          --config p/typescript
+          --config p/react
+          --error
+          --sarif --output semgrep.sarif
+          web/
+        env:
+          SEMGREP_SEND_METRICS: 'off'
+      - name: Upload SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          config: >-
-            p/owasp-top-ten
-            p/typescript
-            p/react
+          name: sast-sarif
+          path: semgrep.sarif
+          if-no-files-found: ignore
 
   secrets:
     name: secret scanning

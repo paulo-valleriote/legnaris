@@ -292,6 +292,11 @@ exposed defects a push-triggered run would have hidden:
   accessible by integration". The job now grants `pull-requests: read`.
 - `sca` then failed on the advisories `@lhci/cli` pulls in; the unused dependency was removed
   (deviation above, `AD-011`).
+- `sast` failed because `github/codeql-action/analyze` cannot upload on a private repository
+  without GitHub Code Security (personal account). The job now runs Semgrep CE with `--error`
+  and no code-scanning upload (`AD-012`), which keeps the gate blocking: a seeded finding exits
+  1. The three configured packs detect no `eval`/`innerHTML`/`document.write` sink, so
+  broadening them stays F9-T009's scope.
 
 The first two are guarded by regression tests in `scripts/test_lints.py`, each proven to fail
 against the unfixed workflow. Evidence after the repairs: `make lint-specs` clean (42
