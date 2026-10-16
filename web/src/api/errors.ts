@@ -1,10 +1,11 @@
 /**
- * The client's failure taxonomy (API-03, API-04, API-14, API-24).
+ * The client's failure taxonomy (API-03, API-04, API-14, API-24, API-27).
  *
- * Three distinct shapes, because the interface must tell three different things
+ * Four distinct shapes, because the interface must tell four different things
  * apart: the server refused us (domain failure), we cannot read the server
- * (defensive parse failure), and the caller addressed a value with a malformed
- * path (path failure).
+ * (defensive parse failure), the caller addressed a value with a malformed path
+ * (path failure), and the build resolved an unusable base address
+ * (configuration failure).
  */
 
 /**
@@ -94,5 +95,18 @@ export class PathFailure extends Error {
     super(`malformed data path: "${path}"`);
     this.name = 'PathFailure';
     this.path = path;
+  }
+}
+
+/**
+ * A base address the client cannot use (API-27).
+ *
+ * Raised at construction, before any request is emitted, so an unusable address
+ * never becomes a failed call.
+ */
+export class ConfigurationFailure extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConfigurationFailure';
   }
 }
