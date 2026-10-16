@@ -38,12 +38,12 @@ mode against real controls, and US1's builder-mode cases remain independently te
 
 **Purpose**: the stylesheet and copy keys every story consumes.
 
-- [ ] T001 [P] Create `web/src/engine/engine.css` with the token-based styles the engine renders —
+- [X] T001 [P] Create `web/src/engine/engine.css` with the token-based styles the engine renders —
       section header, row, row label, table header/row/cell, the control box, the numeric right
       alignment, and the marked-control tint class `lg-field--marked` expressed with
       `--lg-color-surface` — every visual value a `--lg-*` custom property, no literal hex or px
       (ENG-28, research R4)
-- [ ] T002 [P] Extend the translation catalog `web/src/l10n/strings.ts` with the four engine keys
+- [X] T002 [P] Extend the translation catalog `web/src/l10n/strings.ts` with the four engine keys
       `engine.calculated`, `engine.none`, `engine.modified` and `engine.recalculated` (data-model
       `MessageKey additions`) and extend `web/src/test/l10n_strings.test.ts` so each new key is asserted
       to resolve to non-empty copy, distinct from its neighbours (ENG-27, SC-003, SC-004)
@@ -58,7 +58,7 @@ mode against real controls, and US1's builder-mode cases remain independently te
 
 **⚠️ CRITICAL**: US2's controls and US3's marks both import this module.
 
-- [ ] T003 [P] Implement `web/src/engine/sheet_mark.ts`: the `SheetMark` union
+- [X] T003 [P] Implement `web/src/engine/sheet_mark.ts`: the `SheetMark` union
       (`'modified' | 'recalculated'`) and the marked-control class constant
       `FIELD_MARKED_CLASS = 'lg-field--marked'` (research R4). The module has no behavior of its own — it
       is a type and a class name — so it is asserted through the controls that consume it
@@ -81,7 +81,7 @@ as literal text.
 
 ### Tests for User Story 2 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T004 [P] [US2] Field-control test `web/src/test/engine_field_control.test.tsx` (ENG-07…ENG-13),
+- [X] T004 [P] [US2] Field-control test `web/src/test/engine_field_control.test.tsx` (ENG-07…ENG-13),
       edge cases first: a numeric input holding a number dismisses `"abc"` / `"Infinity"` / `"1e999"`
       (the value does not change) and reports `null` on empty; with no change handler every control is
       inert; an unrecognized editable type renders no editor and does not throw; a `null`/absent stored
@@ -89,7 +89,7 @@ as literal text.
       "Calculated" label and tints; then the happy paths — number, text, `bool` (`true`/`false`),
       `config.*` (`1`/`0`), derived with and without a formula (value read-only, "Calculated", formula
       on hover), each addressed by role and accessible name
-- [ ] T005 [P] [US2] Exclusive-control test `web/src/test/engine_exclusive_control.test.tsx`
+- [X] T005 [P] [US2] Exclusive-control test `web/src/test/engine_exclusive_control.test.tsx`
       (ENG-14…ENG-18), edge cases first: a group whose members all default to `0` offers the "none"
       entry and one with a non-zero default does not; a default-active group with no active member shows
       the "none" hint, never a blank; a group with a single member is a stacked row, not this control;
@@ -97,20 +97,20 @@ as literal text.
       on and `0`/`true`/`null`/`"1"` as off; then the happy paths — one `select` for three members (never
       three toggles), an option labelled by its `optionLabel` else its display name, selecting a member
       reports its dotted path and selecting "none" reports the clear-group signal
-- [ ] T006 [P] [US2] Markup-safety test `web/src/test/engine_xss.test.tsx` (ENG-29, SC-005): a field
+- [X] T006 [P] [US2] Markup-safety test `web/src/test/engine_xss.test.tsx` (ENG-29, SC-005): a field
       value and a label of `"<script>"` render as literal text and produce 0 `script` nodes; the engine
       sources contain no DOM-injection sink
 
 ### Implementation for User Story 2
 
-- [ ] T007 [US2] Implement `web/src/engine/field_control.tsx` per
+- [X] T007 [US2] Implement `web/src/engine/field_control.tsx` per
       `contracts/field-control.contract.md`: `SheetFieldControl` choosing the control by schema
       (non-editable first, then `bool`/`config.*` toggle, then numeric text input with `inputMode`
       `decimal`, then text input, then read-only fallback), the finite-number guard on the numeric input,
       the "Calculated" indicator with the formula on hover (dropped while a mark is present), the inert
       mode with no change handler, an accessible role/name per control, and text-only rendering
       (ENG-07…ENG-13, ENG-29)
-- [ ] T008 [US2] Implement `web/src/engine/exclusive_control.tsx` per
+- [X] T008 [US2] Implement `web/src/engine/exclusive_control.tsx` per
       `contracts/exclusive-control.contract.md`: `SheetExclusiveControl` (one native `<select>` for the
       group's members), the `exclusiveValueIsOn` activity test, the `EXCLUSIVE_NONE_VALUE` sentinel, the
       "none" entry only when no member has a non-zero default, the "none" hint for a default-active group
@@ -135,7 +135,7 @@ combination is a construction error.
 
 ### Tests for User Story 1 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T009 [P] [US1] Derivation test `web/src/test/engine_grouping.test.ts` (ENG-01…ENG-06), edge cases
+- [X] T009 [P] [US1] Derivation test `web/src/test/engine_grouping.test.ts` (ENG-01…ENG-06), edge cases
       first: an empty tree yields `[]`; a group with no leaf (and one whose only leaves sit under an empty
       sub-group) yields no section; a declared-column group none of whose columns resolve falls back to
       stacked rows and an unknown column beside a known one is skipped; a single-member exclusive group
@@ -144,7 +144,7 @@ combination is a construction error.
       section, a non-empty label wins and an empty one humanizes the key, a table row holds one field per
       declared column in declared order, `leaves` keeps the full flattened set, numeric right / other
       left alignment
-- [ ] T010 [P] [US1] Composition test `web/src/test/engine_form.test.tsx` (ENG-24, ENG-25, ENG-26,
+- [X] T010 [P] [US1] Composition test `web/src/test/engine_form.test.tsx` (ENG-24, ENG-25, ENG-26,
       SC-002), edge cases first: passing both `data` and the builders, and passing neither, is a
       construction error rather than a half-rendered form; then the happy paths — a synthetic template
       exercising **every** field type (number, text, `bool`, `config.*`, derived, unknown) plus an
@@ -155,14 +155,14 @@ combination is a construction error.
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Implement `web/src/engine/field_grouping.ts` per
+- [X] T011 [US1] Implement `web/src/engine/field_grouping.ts` per
       `contracts/section-derivation.contract.md`: `buildSections` (one section per top-level key, in
       arrival order; recursive flattening to dotted paths; empty group omitted; top-level leaf a
       one-field section; declared-column group a single table row with unknown columns skipped and a
       stacked-rows fallback; exclusive grouping by id at the first member's position, a single-member
       group not collapsed) plus the pure label helpers `fieldDisplayName`, `groupDisplayName`,
       `fieldColumnName`, `lastSegment` (ENG-01…ENG-06)
-- [ ] T012 [US1] Implement `web/src/engine/sheet_form.tsx` per
+- [X] T012 [US1] Implement `web/src/engine/sheet_form.tsx` per
       `contracts/draft-and-marks.contract.md` and `contracts/section-derivation.contract.md`: render the
       derived sections and rows (section header, table header sharing, row label, cells) and take
       exactly one control source — data mode resolving each value with `valueAtPath` and reporting

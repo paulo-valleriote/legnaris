@@ -45,11 +45,6 @@
   align-items: center;
 }
 
-.lg-field-table {
-  display: flex;
-  flex-direction: column;
-}
-
 .lg-field-table__header,
 .lg-field-table__row {
   display: flex;
