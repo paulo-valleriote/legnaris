@@ -51,7 +51,7 @@ values (FND-02).
 
 Fixed. Components must not contain magic numbers — every size, radius, and color comes
 from a `--lg-*` custom property. A rendering test enforces this (no literal hex or px
-in `src/shell/`).
+in `src/shell/` or `src/catalog/`).
 
 | Token group           | Values                                                                                      |
 | --------------------- | ------------------------------------------------------------------------------------------- |
@@ -180,3 +180,33 @@ dropping a task.
   `{"code":"INTERNAL_ERROR"}` — a real response, never a hand-written stand-in.
 - **The live suite's two mechanism cases assert the gate predicate**, not a real skip;
   the API-38 flow cases run only against a configured backend (`API_BASE_URL`).
+
+### F3 — `web-catalog`
+
+- **`@tanstack/react-query` 5.104.3 is added** (`AD-016`). It is the program plan's
+  server-state choice (Parte 3, the F3 task "Queries TanStack"), recorded here as an
+  inherited plan decision rather than a new one; it is the feature's only new runtime
+  dependency, and the query client disables the library's own retry so the retry policy
+  stays the F2 client's.
+- **`src/shell/empty_workspace.tsx` is deleted** and the root route renders
+  `src/catalog/catalog_screen.tsx` (`AD-013`). The F1 shell/routing/e2e assertions that
+  pinned the empty workspace are retargeted to the catalog, not deleted.
+- **The left navigation's root item is relabelled "Catalog"** through `nav.catalog`
+  (`AD-015`, WCT-29), and `src/app/routes.ts` follows.
+- **The creation surface is an accessible overlay, not a native `<dialog>`** (R5):
+  `jsdom` does not implement `HTMLDialogElement.showModal`, so the platform element could
+  not be driven by the rendering tests the constitution requires; the overlay keeps the
+  same `role="dialog"` / `aria-modal` / Esc / focus contract.
+- **The `.lg-empty*` rules stay in `src/shell/shell.css`** (deviation from T011). T011
+  called them "now-unused" and asked for their removal with `empty_workspace.tsx`, but
+  `src/shell/not_found.tsx` renders the same `.lg-empty` / `.lg-empty__title` /
+  `.lg-empty__text` classes; deleting the rules would strip the not-found screen's
+  styling. They are live CSS, so they are kept.
+- **The dialog's accessible title is `sheet.dialogTitle`; the template's display name is
+  rendered in the detail area.** The contract's title row and the "detail area resolves
+  the display name" obligation are both satisfied this way, and the dialog always has a
+  non-empty accessible name (WCT-14, WCT-27).
+- **`playwright.config.ts` builds the e2e client with `VITE_API_BASE_URL` set to the
+  preview origin**, so the browser specs intercept the catalog request locally instead of
+  the built client reaching the production API; `e2e/catalog.spec.ts` blocks the service
+  worker and scripts the two responses.

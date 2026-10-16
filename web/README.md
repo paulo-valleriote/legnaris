@@ -2,7 +2,8 @@
 
 The product client: an installable React + Vite + TypeScript Progressive Web App that
 replaces the deprecated Flutter desktop app. It renders a token-driven application
-shell and, in later features, the catalog, the sheet cycle, and authentication.
+shell, the template catalog and its creation surface; the sheet cycle and
+authentication arrive in later features.
 
 Program plan: [`docs/plan-web-pwa.md`](../docs/plan-web-pwa.md). Feature specs, design and
 validation guides: [`.specs/features/001-web-pwa-foundation/`](../.specs/features/001-web-pwa-foundation/)
@@ -95,6 +96,23 @@ API_BASE_URL=http://localhost:8080 npm test # also runs the live contract suite
   (default `https://api.legnaris.com.br`); an empty value falls back to the default, and a
   non-`http(s)` value fails at construction. `http://` is accepted only as an explicit
   build choice and is reported as `secure: false` on the resolved configuration.
+
+## Catalog (`src/catalog/`)
+
+The root route renders the template catalog (`catalog_screen.tsx`), and activating an
+entry opens the creation surface (`create_sheet_dialog.tsx`) as an overlay. Both read
+server state through TanStack Query hooks (`queries.ts`); `src/app/providers.tsx` builds
+the F2 client and the query client and provides them to the tree. The catalog loads once
+per app load and is cached in memory; the detail loads once per opening. Neither issues a
+mutation — creating the sheet is a later feature.
+
+```bash
+cd web
+npm test                                              # catalog, surface and query-policy suites
+npx vitest run src/test/catalog_screen.test.tsx       # the five render situations
+npx vitest run src/test/create_sheet_dialog.test.tsx  # surface states + name validation
+npm run test:e2e -- catalog.spec.ts                   # axe: zero critical violations
+```
 
 ## Toolchain version note
 
