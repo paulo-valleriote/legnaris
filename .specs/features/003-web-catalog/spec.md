@@ -259,8 +259,8 @@ disabled; type a name and confirm it enables; activate the action and confirm ze
   activating the primary action, dismissing).
 - **SC-003**: 0 user-facing literals exist in the delivered components; 100% of the copy resolves
   through the translation catalog.
-- **SC-004**: A key removed from a pinned catalog capture turns the catalog suite red on the first run
-  (0 false negatives).
+- **SC-004**: A key removed from the translation catalog that a delivered component references turns the
+  catalog suite red on the first run (0 false negatives).
 - **SC-005**: 0 critical automated accessibility violations on the catalog and the creation surface.
 - **SC-006**: Opening the same template twice issues exactly two detail requests (one per opening) and
   0 additional catalog requests.

@@ -218,8 +218,10 @@ a name and confirm it enables; activate the action and confirm zero requests wer
       with Playwright, open the catalog and the creation surface, and assert zero critical `axe-core`
       violations on each using the `@axe-core/playwright` dependency F1 already installs
 - [ ] T021 [P] Add the catalog copy source scan (a case in `web/src/test/l10n_strings.test.ts`): no
-      user-facing literal and no `api.error.` string literal exists in `web/src/catalog/`, so every
-      string is proven to resolve through the catalog (WCT-26, SC-003)
+      user-facing literal and no `api.error.` string literal exists in `web/src/catalog/`, every
+      `message('…')` key referenced there resolves to a catalog entry (so removing a referenced key turns
+      the suite red — SC-004), and every string is therefore proven to resolve through the catalog
+      (WCT-26, SC-003, SC-004)
 - [ ] T022 [P] Update `web/AGENTS.md` (the `@tanstack/react-query` dependency as an inherited plan
       decision, the deleted empty workspace, the accessible-overlay-instead-of-`<dialog>` decision) and
       `web/README.md` (how to run the catalog suites and the accessibility case)

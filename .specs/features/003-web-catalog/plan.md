@@ -144,13 +144,13 @@ web/src/
 │   └── strings.ts           # catalog.* and sheet.* copy keys added
 └── test/
     ├── render.tsx           # render helper extended to inject the client + a fresh query client
+    ├── app_providers.test.tsx        # the provider builds one injectable client; query retries off (NEW)
     ├── catalog_screen.test.tsx       # the five catalog render situations (NEW)
     ├── create_sheet_dialog.test.tsx  # the surface states, validation and zero-mutation rule (NEW)
     ├── catalog_queries.test.tsx      # one request per load/opening; no focus refetch; dedupe (NEW)
     ├── catalog_keyboard.test.tsx     # Esc, focus in/out, no keyboard trap (NEW)
     ├── shell.test.tsx                # updated: root route asserts the catalog, not the empty state
-    ├── routing.test.tsx              # updated: root route asserts the catalog
-    └── shell_keyboard.test.tsx       # updated: nav label/focus expectation
+    └── routing.test.tsx              # updated: root route asserts the catalog
 
 web/e2e/
 └── catalog.spec.ts                 # real-build axe pass: zero critical violations (NEW)
@@ -161,8 +161,8 @@ reserves for them (Parte 6), with the query module as their sibling so all three
 one screen's server state sit together. The shared context lands in `web/src/app/providers.tsx` — the
 file F1 deferred ("the module lands with the first feature that genuinely needs shared context",
 `web/AGENTS.md`) — because this is the first feature whose screens need the client and the query
-client. Tests stay flat in `web/src/test/` with a `catalog_*` prefix, matching the layout F1
-established; the render helper is extended rather than duplicated so every suite injects its own
+client. Tests stay flat in `web/src/test/` with a feature prefix (`app_*`, `catalog_*`), matching the
+layout F1 established; the render helper is extended rather than duplicated so every suite injects its own
 client. `empty_workspace.tsx` is deleted with the `.lg-empty*` rules it owned, because its own doc
 comment declares it "until the catalog feature lands" — it is a temporary stand-in, not a designed
 shell state the feature preserves, so keeping it would leave dead code. The F1 assertions that pinned

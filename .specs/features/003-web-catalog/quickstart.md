@@ -106,8 +106,8 @@ cd web && npx vitest run src/test/l10n_strings.test.ts && npm run lint
 
 **Outcome**: every visible string on both surfaces resolves through `src/l10n/strings.ts` (WCT-26,
 SC-003), and the source scan finds no literal hex or px in `web/src/catalog/` (WCT-28): every value
-comes from the shared tokens. The copy suite goes red if a pinned catalog key is removed, so a missing
-key cannot pass silently (SC-004).
+comes from the shared tokens. The copy suite goes red if a referenced catalog key is removed, so a
+missing key cannot pass silently (SC-004).
 
 ---
 

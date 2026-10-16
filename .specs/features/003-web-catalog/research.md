@@ -199,8 +199,9 @@ document".
 `AppProviders` with a fresh `QueryClient` per test (`retry: false`, `gcTime: 0`). Suites assert by
 role, accessible name and `data-testid`, and assert request counts through the fake transport rather
 than through the DOM. No MSW, no network. The F1 suites that pinned the empty workspace on `/`
-(`shell.test.tsx`, `routing.test.tsx`, `shell_keyboard.test.tsx`) and the e2e shell spec are updated to
-assert the catalog instead.
+(`shell.test.tsx`, `routing.test.tsx`) and the e2e shell spec are updated to assert the catalog
+instead; `shell_keyboard.test.tsx` asserts the nav link and the not-found route, neither of which this
+feature changes, so it is left untouched.
 
 **Rationale**: the F2 feature already established the fake transport as the assertion seam and MSW was
 deliberately not added; reusing it keeps one way to script a response and one way to count requests.
