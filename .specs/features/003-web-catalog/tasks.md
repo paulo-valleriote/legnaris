@@ -34,10 +34,10 @@ matching the flat layout F1 established. The single browser-level accessibility 
 
 **Purpose**: the dependency and copy keys every story consumes.
 
-- [ ] T001 [P] Add `@tanstack/react-query` 5.104.3 to `web/package.json` and install it — the server-state
+- [X] T001 [P] Add `@tanstack/react-query` 5.104.3 to `web/package.json` and install it — the server-state
       library the program plan selects (Parte 3) and F3-T001 names; it is the only runtime dependency
       this feature adds, recorded as an inherited plan decision in `web/AGENTS.md` (T022)
-- [ ] T002 [P] Extend the translation catalog `web/src/l10n/strings.ts` with the `catalog.*`, `sheet.*` and
+- [X] T002 [P] Extend the translation catalog `web/src/l10n/strings.ts` with the `catalog.*`, `sheet.*` and
       `nav.catalog` keys listed in `data-model.md` (title, loading, empty, retry, open hint, dialog
       title, name label, placeholder, required tooltip, create, close, detail loading/retry, and the
       navigation label) and extend `web/src/test/l10n_strings.test.ts` so every new key is asserted to
@@ -56,19 +56,19 @@ that injects them.
 
 ### Tests for the foundation ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T003 [P] Provider test `web/src/test/app_providers.test.tsx` (WCT-02, WCT-12): `AppProviders` builds
+- [X] T003 [P] Provider test `web/src/test/app_providers.test.tsx` (WCT-02, WCT-12): `AppProviders` builds
       one API client over the injected transport and exposes it through the client context; consuming
       `useApiClient` outside the provider raises the documented error; the query client it creates has
       query retries disabled, so the retry policy is the F2 client's alone
 
 ### Implementation for the foundation
 
-- [ ] T004 Implement `web/src/app/providers.tsx` per `contracts/server-state.contract.md`: `AppProviders`
+- [X] T004 Implement `web/src/app/providers.tsx` per `contracts/server-state.contract.md`: `AppProviders`
       resolves the base address with `resolveApiConfigFromBuild`, builds the client with
       `createApiClient({ baseUrl, transport: createFetchTransport(fetch) })`, creates one `QueryClient`
       with `retry: false`, and provides both through `ApiClientProvider` and `QueryClientProvider`, with
       `useApiClient` reading the client from context (never a module singleton)
-- [ ] T005 Extend the render helper `web/src/test/render.tsx` to accept an injected `ApiClient` and mount
+- [X] T005 Extend the render helper `web/src/test/render.tsx` to accept an injected `ApiClient` and mount
       `AppProviders` with a fresh `QueryClient` per test (`retry: false`, `gcTime: 0`); when no client is
       given, default to a fake transport whose catalog succeeds with an empty list, so the existing
       suites stay meaningful (test infrastructure — no behavior of its own)
@@ -88,19 +88,19 @@ situations plus a call counter proving exactly one request per app load.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T006 [US1] Catalog render test `web/src/test/catalog_screen.test.tsx` (WCT-03, WCT-04, WCT-05,
+- [X] T006 [US1] Catalog render test `web/src/test/catalog_screen.test.tsx` (WCT-03, WCT-04, WCT-05,
       WCT-06, WCT-09, WCT-10), edge cases first: while the request is in flight the loading copy shows
       and the empty copy does not; a two-entry response renders two rows in the response order with
       their names; an empty response renders exactly one line and no decorative art; a failure response
       renders the copy from `failureMessage(kind)` plus a Retry action; a malformed payload renders
       `parseFailureMessage()` plus Retry and neither a blank screen nor a partial list; an entry whose
       name is `""` renders without throwing and keeps the layout intact
-- [ ] T007 [US1] Query-policy test `web/src/test/catalog_queries.test.tsx` (WCT-02, WCT-07, WCT-08): the
+- [X] T007 [US1] Query-policy test `web/src/test/catalog_queries.test.tsx` (WCT-02, WCT-07, WCT-08): the
       first mount issues exactly one request through the fake transport; remounting the route and firing
       a window focus event issue none; Retry from the error state issues exactly one further request;
       a second activation while that request is in flight issues none (the in-flight request is joined,
       not duplicated)
-- [ ] T008 [US1] Update the F1 suites `web/src/test/shell.test.tsx`, `web/src/test/routing.test.tsx`,
+- [X] T008 [US1] Update the F1 suites `web/src/test/shell.test.tsx`, `web/src/test/routing.test.tsx`,
       `web/src/test/shell_keyboard.test.tsx` and `web/e2e/shell.spec.ts` to assert the catalog on the
       root route: the shell order and the deep-link assertions keep their shape with the catalog as the
       subject, the "no placeholder rows" edge renders the catalog's empty state and still asserts no
@@ -109,24 +109,24 @@ situations plus a call counter proving exactly one request per app load.
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Implement the catalog query in `web/src/catalog/queries.ts`: the query-key module
+- [X] T009 [US1] Implement the catalog query in `web/src/catalog/queries.ts`: the query-key module
       (`['templates']`, `['template', id]`) and `useCatalog()` calling `listTemplates` through
       `useApiClient`, configured `staleTime: Infinity`, `retry: false`, `refetchOnWindowFocus: false`,
       `refetchOnMount: false`, `refetchOnReconnect: false` per `contracts/server-state.contract.md`
       (WCT-02, WCT-08)
-- [ ] T010 [US1] Implement `web/src/catalog/catalog_screen.tsx` per
+- [X] T010 [US1] Implement `web/src/catalog/catalog_screen.tsx` per
       `contracts/catalog-render-state.contract.md`: resolve exactly one `CatalogRenderPhase` from the
       query result and render it — the loading copy, N rows in the response order (name, with the
       identifier as a secondary line), the single empty line, or the mapped/parse-failure copy with a
       Retry action — with every string from `message(key)` and every visual value from the shared tokens
       (WCT-03…WCT-06, WCT-09, WCT-10, WCT-26, WCT-28)
-- [ ] T011 [US1] Wire the root route and relabel its navigation item: render `CatalogScreen` instead of
+- [X] T011 [US1] Wire the root route and relabel its navigation item: render `CatalogScreen` instead of
       `EmptyWorkspace` in `web/src/app/router.tsx`, delete `web/src/shell/empty_workspace.tsx` (its doc
       comment declares it temporary until the catalog lands), remove the now-unused `.lg-empty*` rules
       from `web/src/shell/shell.css`, and label the root route "Catalog" in `web/src/shell/left_nav.tsx`
       through `message('nav.catalog')` (with `web/src/app/routes.ts`'s `label` metadata following), never
       as a component literal (WCT-01, WCT-29, AD-013, AD-015)
-- [ ] T012 [P] [US1] Extend `web/src/test/tokens_used.test.tsx` to scan `web/src/catalog/` for literal hex
+- [X] T012 [P] [US1] Extend `web/src/test/tokens_used.test.tsx` to scan `web/src/catalog/` for literal hex
       and px values, so every visual value in the new screens is proven to come from the shared tokens
       (WCT-28)
 
@@ -148,7 +148,7 @@ was repeated.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T013 [US2] Creation-surface detail test `web/src/test/create_sheet_dialog.test.tsx` (WCT-11…WCT-18,
+- [X] T013 [US2] Creation-surface detail test `web/src/test/create_sheet_dialog.test.tsx` (WCT-11…WCT-18,
       WCT-21), edge cases first: activating an entry opens the surface and issues exactly one detail
       request for that identifier; while it is in flight the detail area shows the loading copy and no
       previously opened template's detail; success shows the template's display name (an empty name
@@ -157,7 +157,7 @@ was repeated.
       malformed payload shows the parse-failure copy inline and never a half-filled detail; Retry
       re-requests exactly once; opening the same template again issues exactly one further request and
       starts in the loading state; opening two different entries loads each one's own detail
-- [ ] T014 [US2] Keyboard/navigation test `web/src/test/catalog_keyboard.test.tsx` (WCT-19, WCT-20,
+- [X] T014 [US2] Keyboard/navigation test `web/src/test/catalog_keyboard.test.tsx` (WCT-19, WCT-20,
       WCT-27): activating an entry moves focus into the surface; Esc and the close action dismiss it and
       return focus to the triggering entry; the catalog list is unchanged and no catalog request is
       issued; the URL is unchanged (the surface is never a route), and no control traps focus inside the
@@ -165,17 +165,17 @@ was repeated.
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Implement the detail query in `web/src/catalog/queries.ts`: `useTemplateDetail(id)`
+- [X] T015 [US2] Implement the detail query in `web/src/catalog/queries.ts`: `useTemplateDetail(id)`
       calling `getTemplate` through `useApiClient`, keyed `['template', id]` with `staleTime: 0`,
       `gcTime: 0`, `retry: false`, `refetchOnWindowFocus: false`, so each opening starts fresh and no
       previous template's detail can be shown (WCT-12, WCT-13, WCT-21)
-- [ ] T016 [US2] Implement `web/src/catalog/create_sheet_dialog.tsx` per
+- [X] T016 [US2] Implement `web/src/catalog/create_sheet_dialog.tsx` per
       `contracts/creation-surface.contract.md`: an accessible overlay (`role="dialog"`,
       `aria-modal="true"`, labelled by its title, no native `<dialog>` — research R5) whose detail area
       resolves exactly one `DetailRenderPhase` (loading, the display name, the mapped failure copy
       inline, the missing-template copy inline, or the parse-failure copy inline) with a close action
       and a Retry action that re-requests once (WCT-11…WCT-18, WCT-27)
-- [ ] T017 [US2] Hook the surface to the catalog in `web/src/catalog/catalog_screen.tsx`: activating an
+- [X] T017 [US2] Hook the surface to the catalog in `web/src/catalog/catalog_screen.tsx`: activating an
       entry records the open `templateId` and the triggering element, renders the surface over the
       catalog, returns focus to the recorded element on close, and leaves the catalog list and its cache
       untouched (WCT-11, WCT-19, WCT-20)
@@ -196,7 +196,7 @@ a name and confirm it enables; activate the action and confirm zero requests wer
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T018 [US3] Name-validation test additions in `web/src/test/create_sheet_dialog.test.tsx` (WCT-22,
+- [X] T018 [US3] Name-validation test additions in `web/src/test/create_sheet_dialog.test.tsx` (WCT-22,
       WCT-23, WCT-24, WCT-25), edge cases first: the field starts empty with a localized label and
       example placeholder; the primary action is disabled for `""` and `"   "` and exposes a tooltip
       stating a sheet name is required; it is enabled for `"  Aragorn  "` and `"Aragorn"` (validation
@@ -205,7 +205,7 @@ a name and confirm it enables; activate the action and confirm zero requests wer
 
 ### Implementation for User Story 3
 
-- [ ] T019 [US3] Implement the sheet-name field and validation in
+- [X] T019 [US3] Implement the sheet-name field and validation in
       `web/src/catalog/create_sheet_dialog.tsx`: hold the raw value in local state, derive
       `trimmedName = value.trim()`, set the primary action's `disabled` to `trimmedName === ''`, expose
       the required tooltip and an `aria-describedby` note from `sheet.nameRequired`, and make the
@@ -217,23 +217,23 @@ a name and confirm it enables; activate the action and confirm zero requests wer
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T020 [P] Add the accessibility case `web/e2e/catalog.spec.ts` (SC-005, WCT-27, AD-014): load the
+- [X] T020 [P] Add the accessibility case `web/e2e/catalog.spec.ts` (SC-005, WCT-27, AD-014): load the
       real build with Playwright, open the catalog and the creation surface, and assert zero critical
       `axe-core` violations on each using the `@axe-core/playwright` dependency F1 already installs
-- [ ] T021 [P] Add the catalog copy source scan (a case in `web/src/test/l10n_strings.test.ts`): no
+- [X] T021 [P] Add the catalog copy source scan (a case in `web/src/test/l10n_strings.test.ts`): no
       user-facing literal and no `api.error.` string literal exists in `web/src/catalog/`, every
       `message('…')` key referenced there resolves to a catalog entry (so removing a referenced key turns
       the suite red — SC-004), and every string is therefore proven to resolve through the catalog
       (WCT-26, SC-003, SC-004)
-- [ ] T022 [P] Update `web/AGENTS.md` (the `@tanstack/react-query` dependency as an inherited plan
+- [X] T022 [P] Update `web/AGENTS.md` (the `@tanstack/react-query` dependency as an inherited plan
       decision, the deleted empty workspace, the navigation rename, the accessible-overlay-instead-of-
       `<dialog>` decision, and the three F3 decisions AD-013/AD-014/AD-015) and `web/README.md` (how to
       run the catalog suites and the accessibility case)
-- [ ] T023 Run the full gate set from `web/` (`npm run format:check`, `npm run lint`, `npm run typecheck`,
+- [X] T023 Run the full gate set from `web/` (`npm run format:check`, `npm run lint`, `npm run typecheck`,
       `npm test`, `npm run build`, `npm run test:e2e`) and `make lint-specs` from the repo root, and
       confirm every `WCT-*` citation in the delivered sources resolves to `spec.md`
-- [ ] T024 Run the nine `quickstart.md` scenarios and record the outcome with the feature
-- [ ] T025 Record any plan-versus-delivered deviation (dependency, pin or path that changed) in
+- [X] T024 Run the nine `quickstart.md` scenarios and record the outcome with the feature
+- [X] T025 Record any plan-versus-delivered deviation (dependency, pin or path that changed) in
       `web/AGENTS.md` under the deviations section rather than weakening an assertion (constitution III)
 
 ---

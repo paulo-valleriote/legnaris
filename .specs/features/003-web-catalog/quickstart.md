@@ -149,3 +149,21 @@ the delivered sources resolves to `spec.md` and no assertion in the client suite
 | 7 | WCT-26, WCT-28 |
 | 8 | WCT-27 (a11y) |
 | 9 | all `WCT-*` (lint) |
+
+## Validation outcome (2026-10-16)
+
+Run in the delivered tree; every scenario passed.
+
+| Scenario | Result |
+|---|---|
+| 1 — suite runs with no backend | PASS — `npm test`: 29 files, 218 passed, 5 live-suite skips |
+| 2 — catalog replaces the empty workspace, five states distinct | PASS — `catalog_screen.test.tsx` + `routing.test.tsx` |
+| 3 — catalog loads once per app load | PASS — `catalog_queries.test.tsx` (one request; remount/focus/reconnect issue none; retry once; in-flight trigger joined) |
+| 4 — opening a template loads its own detail, once per opening | PASS — `create_sheet_dialog.test.tsx` |
+| 5 — dismissing returns to the catalog unchanged | PASS — `catalog_keyboard.test.tsx` (focus in on open, out on Esc/close, no trap) |
+| 6 — the sheet name gates the action, nothing mutates | PASS — `create_sheet_dialog.test.tsx` (0 transport attempts) |
+| 7 — no copy or visual value authored in the components | PASS — `l10n_strings.test.ts` + `tokens_used.test.tsx` + `npm run lint` |
+| 8 — zero critical accessibility violations | PASS — `npm run test:e2e -- catalog.spec.ts` (2 cases) |
+| 9 — gates stay green | PASS — `format:check`, `lint`, `typecheck`, `test`, `build`, `make lint-specs` |
+
+Full browser suite: `npm run test:e2e` — 10 passed (catalog, shell, pwa).
