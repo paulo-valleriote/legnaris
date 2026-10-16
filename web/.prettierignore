@@ -5,3 +5,6 @@ playwright-report
 test-results
 package-lock.json
 src/pwa/sw.ts
+# Pinned backend captures are written verbatim by capture.sh and must never be
+# reformatted: their bytes are the contract (API-35).
+src/api/fixtures
