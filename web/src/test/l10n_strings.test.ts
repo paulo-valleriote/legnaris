@@ -7,6 +7,7 @@ import type { MessageKey } from '../l10n/strings';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const catalogDir = path.resolve(here, '../catalog');
+const engineDir = path.resolve(here, '../engine');
 
 const keys = Object.keys(messages) as MessageKey[];
 
@@ -134,5 +135,39 @@ describe('catalog copy source scan (WCT-26, SC-003, SC-004)', () => {
 
     // Removing a referenced key must turn this suite red rather than pass vacuously.
     expect(referenced).toBeGreaterThan(0);
+  });
+});
+
+function engineSources(): string[] {
+  return readdirSync(engineDir)
+    .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
+    .map((name) => path.join(engineDir, name));
+}
+
+describe('engine copy source scan (ENG-27, SC-003, SC-004)', () => {
+  it('Edge: the engine source authors no user-facing literal and resolves every message key it renders', () => {
+    const sources = engineSources();
+    expect(sources.length).toBeGreaterThan(0);
+
+    const knownKeys = new Set<string>(keys);
+    const referenced = new Set<string>();
+
+    for (const file of sources) {
+      const text = readFileSync(file, 'utf8');
+
+      // Copy is resolved through message(), never by naming a failure key here.
+      expect(text).not.toContain('api.error.');
+
+      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+        expect(knownKeys.has(match[1])).toBe(true);
+        referenced.add(match[1]);
+      }
+    }
+
+    // Every engine key the catalog declares must be rendered somewhere, so
+    // dropping a reference turns this suite red rather than pass vacuously.
+    for (const key of engineFeatureKeys) {
+      expect(referenced.has(key)).toBe(true);
+    }
   });
 });

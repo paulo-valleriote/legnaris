@@ -224,10 +224,10 @@ control and labels its row; all three stories are independently demonstrable.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T017 [P] Extend `web/src/test/tokens_used.test.tsx` to scan `web/src/engine/` for literal hex and
+- [X] T017 [P] Extend `web/src/test/tokens_used.test.tsx` to scan `web/src/engine/` for literal hex and
       px values (and that every `var(--lg-*)` it references is defined), so every visual value in the
       engine is proven to come from the shared tokens (ENG-28, SC-008)
-- [ ] T018 [P] Extend `web/src/test/l10n_strings.test.ts` with an engine copy scan: no user-facing
+- [X] T018 [P] Extend `web/src/test/l10n_strings.test.ts` with an engine copy scan: no user-facing
       literal exists in `web/src/engine/`, every `message('…')` key referenced there resolves to a
       catalog entry (so removing a referenced key turns the suite red — SC-004), and the engine keys are
       asserted present (ENG-27, SC-003)

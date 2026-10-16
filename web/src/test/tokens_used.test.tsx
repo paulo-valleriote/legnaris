@@ -7,6 +7,7 @@ import { readTokenNames } from './tokens_files';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const shellDir = path.resolve(here, '../shell');
 const catalogDir = path.resolve(here, '../catalog');
+const engineDir = path.resolve(here, '../engine');
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir)
@@ -57,5 +58,19 @@ describe('design token usage in the catalog (WCT-28)', () => {
 
   it('Happy path: every token the catalog references is defined in tokens.css', () => {
     assertTokensAreDefined(sourceFiles(catalogDir));
+  });
+});
+
+describe('design token usage in the engine (ENG-28, SC-008)', () => {
+  it('Happy path: the engine has sources to inspect', () => {
+    expect(sourceFiles(engineDir).length).toBeGreaterThan(0);
+  });
+
+  it('Edge: no engine source contains a literal color or pixel value', () => {
+    assertTokenOnlySources(sourceFiles(engineDir));
+  });
+
+  it('Happy path: every token the engine references is defined in tokens.css', () => {
+    assertTokensAreDefined(sourceFiles(engineDir));
   });
 });
