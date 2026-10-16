@@ -749,7 +749,7 @@ sem valores mágicos; contraste AA.
   `no-unsanitized`) + teste `<script>` renderizado como texto; HTML dinâmico só via DOMPurify.
 **F9-T007 a11y (axe)** `[P]` — fluxos principais; zero violações críticas.
 **F9-T008 Report-only → enforce (saída)** — registrar violações coletadas e a virada; artefato do relatório.
-**F9-T009 Semgrep ruleset dedicado** `[P]` — `p/owasp-top-ten` + regras custom (proibir sinks, exigir CSRF header).
+**F9-T009 Semgrep ruleset dedicado** `[P]` — `p/owasp-top-ten` + regras custom (proibir sinks, exigir CSRF header); a F1 já subiu `p/default` no gate (único pack que detectou um sink semeado — ver `.specs/features/001-web-pwa-foundation/contracts/ci-gates.contract.md`), então aqui faltam as regras custom.
 **F9-T010 Headers test** `[P]` — teste que falha se CSP/HSTS/nosniff/Referrer sumirem.
 **F9-T011 Rota de report CSP (backend)** — `POST /csp-report` sem auth, body cap + rate limit,
   aceita `application/csp-report` e `application/reports+json`, **remove query/hash** da URL,
