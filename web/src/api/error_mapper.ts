@@ -1,0 +1,80 @@
+/**
+ * Failure classification and copy resolution (API-15 … API-24).
+ *
+ * The backend speaks in codes; the interface branches on kinds. This module is
+ * the only translation point, so a screen never parses a code and the copy a
+ * person sees is resolved from the translation catalog rather than typed here.
+ */
+
+import type { MessageKey } from '../l10n/strings';
+import { message } from '../l10n/strings';
+import type { FailureKind } from './errors';
+import { DomainFailure } from './errors';
+
+const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
+  INVALID_JSON: 'clientFault',
+  INVALID_REQUEST: 'invalidEdit',
+  UNKNOWN_FIELD: 'renderMismatch',
+  NOT_FOUND: 'notFound',
+  INTERNAL_ERROR: 'serverError',
+};
+
+const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
+  clientFault: 'api.error.clientFault',
+  invalidEdit: 'api.error.invalidEdit',
+  renderMismatch: 'api.error.renderMismatch',
+  notFound: 'api.error.notFound',
+  serverError: 'api.error.serverError',
+  offline: 'api.error.offline',
+  unknown: 'api.error.unknown',
+};
+
+/**
+ * Maps a backend code to the interface-facing kind (API-15 … API-21).
+ *
+ * The five codes with a dedicated kind map to it; every other code — the seven
+ * fallback codes the backend defines and any code it does not — takes the generic
+ * kind, so an unmapped code is visible rather than misclassified.
+ */
+export function apperrKind(code: string): FailureKind {
+  return KIND_BY_CODE[code] ?? 'unknown';
+}
+
+/** Resolves the copy for a failure kind from the translation catalog (API-23). */
+export function failureMessage(kind: FailureKind): string {
+  return message(KEY_BY_KIND[kind]);
+}
+
+/** Resolves the copy for a response the client could not read (API-22, API-23). */
+export function parseFailureMessage(): string {
+  return message('api.error.parse');
+}
+
+/**
+ * Rewrites a decoded domain failure with its interface-facing kind (API-15 …
+ * API-21, API-24).
+ *
+ * The envelope decoder cannot know the kind — it sees only the raw code — so the
+ * client passes every domain failure through here; the raw code, the status and
+ * the server message survive unchanged.
+ */
+export function classifyDomainFailure(failure: DomainFailure): DomainFailure {
+  return new DomainFailure({
+    kind: apperrKind(failure.code ?? ''),
+    status: failure.status,
+    code: failure.code,
+    message: failure.message,
+  });
+}
+
+/**
+ * Builds the failure for a request that failed at the transport with its
+ * attempts exhausted (API-20).
+ *
+ * It carries no status (no response was received), no code (the backend is not
+ * speaking) and no transport text, so no identifier-bearing message leaks
+ * through (API-29).
+ */
+export function offlineFailure(): DomainFailure {
+  return new DomainFailure({ kind: 'offline' });
+}

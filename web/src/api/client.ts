@@ -7,6 +7,8 @@
  */
 
 import { decodeEnvelope } from './envelope';
+import { classifyDomainFailure, offlineFailure } from './error_mapper';
+import { DefensiveParseFailure, DomainFailure } from './errors';
 import type { Sheet } from './models/sheet';
 import { parseSheet } from './models/sheet';
 import type { TemplateDetail, TemplateSummary } from './models/template';
@@ -60,6 +62,26 @@ function decodeChangeSet(data: unknown): Record<string, unknown> {
 }
 
 /**
+ * Turns anything thrown by a call into the failure the interface branches on
+ * (API-20, API-21, API-22).
+ *
+ * A defensive parse failure is preserved as-is — contract drift is never
+ * confused with a refusal — a decoded domain failure is classified, and anything
+ * else (a transport rejection) is the offline kind.
+ */
+function toClassifiedFailure(error: unknown): unknown {
+  if (error instanceof DefensiveParseFailure) {
+    return error;
+  }
+
+  if (error instanceof DomainFailure) {
+    return classifyDomainFailure(error);
+  }
+
+  return offlineFailure();
+}
+
+/**
  * Builds the client over a resolved base address and an injected transport
  * (API-07).
  *
@@ -84,9 +106,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       signal: new AbortController().signal,
     };
 
-    const response = await transport(request);
+    try {
+      const response = await transport(request);
 
-    return decodeEnvelope({ status: response.status, body: response.body, decode });
+      return decodeEnvelope({ status: response.status, body: response.body, decode });
+    } catch (error) {
+      throw toClassifiedFailure(error);
+    }
   }
 
   return {
