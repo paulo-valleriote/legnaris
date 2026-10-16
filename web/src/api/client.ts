@@ -33,7 +33,19 @@ export interface ApiClientOptions {
   readonly baseUrl: string;
   /** The single transport every request goes through (API-07). */
   readonly transport: Transport;
+  /** Per-attempt fail-fast timeout; defaults to {@link DEFAULT_REQUEST_TIMEOUT_MS} (API-30). */
+  readonly timeoutMs?: number;
+  /** Fixed delay before the single read retry; defaults to {@link DEFAULT_RETRY_DELAY_MS} (API-31). */
+  readonly retryDelayMs?: number;
+  /** Injected delay for the read retry, so the interval is asserted without waiting (API-31). */
+  readonly sleep?: (ms: number) => Promise<void>;
 }
+
+/** Fail-fast timeout bound on every request attempt, in milliseconds (API-30). */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
+
+/** Fixed delay before the single read retry, in milliseconds (API-31). */
+export const DEFAULT_RETRY_DELAY_MS = 300;
 
 /** The six consumed operations, one method each (API-01). */
 export interface ApiClient {
@@ -61,35 +73,54 @@ function decodeChangeSet(data: unknown): Record<string, unknown> {
   return data;
 }
 
-/**
- * Turns anything thrown by a call into the failure the interface branches on
- * (API-20, API-21, API-22).
- *
- * A defensive parse failure is preserved as-is — contract drift is never
- * confused with a refusal — a decoded domain failure is classified, and anything
- * else (a transport rejection) is the offline kind.
- */
-function toClassifiedFailure(error: unknown): unknown {
-  if (error instanceof DefensiveParseFailure) {
-    return error;
-  }
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  if (error instanceof DomainFailure) {
-    return classifyDomainFailure(error);
-  }
-
-  return offlineFailure();
+function isReceivedFailure(error: unknown): error is DomainFailure | DefensiveParseFailure {
+  return error instanceof DomainFailure || error instanceof DefensiveParseFailure;
 }
 
 /**
  * Builds the client over a resolved base address and an injected transport
  * (API-07).
  *
- * The transport is captured once and used by every operation; no operation
- * creates its own, so credential attachment stays a single seam.
+ * Every attempt is bounded by a fail-fast timeout; a read that fails at the
+ * transport is repeated exactly once after a fixed delay, while a response —
+ * any status — ends the attempt, and a write never repeats (API-30 … API-33).
  */
 export function createApiClient(options: ApiClientOptions): ApiClient {
   const { baseUrl, transport } = options;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+  const sleep = options.sleep ?? defaultSleep;
+
+  async function attempt<T>(
+    method: HttpMethod,
+    path: string,
+    body: string | undefined,
+    decode: (data: unknown) => T,
+  ): Promise<T> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const request: HttpRequest = {
+      url: `${baseUrl}${path}`,
+      method,
+      headers: body === undefined ? {} : { 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body }),
+      credentials: 'omit',
+      signal: controller.signal,
+    };
+
+    try {
+      const response = await transport(request);
+
+      return decodeEnvelope({ status: response.status, body: response.body, decode });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   async function call<T>(
     method: HttpMethod,
@@ -97,22 +128,23 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     body: string | undefined,
     decode: (data: unknown) => T,
   ): Promise<T> {
-    const request: HttpRequest = {
-      url: `${baseUrl}${path}`,
-      method,
-      headers: body === undefined ? {} : { 'content-type': 'application/json' },
-      ...(body === undefined ? {} : { body }),
-      credentials: 'omit',
-      signal: new AbortController().signal,
-    };
+    const attempts = method === 'GET' ? 2 : 1;
 
-    try {
-      const response = await transport(request);
+    for (let index = 0; index < attempts; index += 1) {
+      try {
+        return await attempt(method, path, body, decode);
+      } catch (error) {
+        if (isReceivedFailure(error)) {
+          throw error instanceof DomainFailure ? classifyDomainFailure(error) : error;
+        }
 
-      return decodeEnvelope({ status: response.status, body: response.body, decode });
-    } catch (error) {
-      throw toClassifiedFailure(error);
+        if (index < attempts - 1) {
+          await sleep(retryDelayMs);
+        }
+      }
     }
+
+    throw offlineFailure();
   }
 
   return {
