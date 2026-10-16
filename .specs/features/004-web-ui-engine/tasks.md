@@ -188,14 +188,14 @@ render a row with each mark and assert the tint and label, including a marked ro
 
 ### Tests for User Story 3 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T013 [P] [US3] Derivation test `web/src/test/engine_defaults.test.ts` (ENG-19…ENG-21), edge cases
+- [X] T013 [P] [US3] Derivation test `web/src/test/engine_defaults.test.ts` (ENG-19…ENG-21), edge cases
       first: `mergeCascade` with an empty override returns a value equal to the base and mutates neither
       input; a nested override changes only its leaf and preserves its siblings; `setPathValue` creates
       missing intermediate objects and overwrites an existing leaf; then the happy paths — `seedDefaults`
       yields exactly one value per leaf in section order (empty text, `false` bool, numeric default) and
       `seedFromSheet` lets a stored value win, keeps an omitted schema leaf's default, and carries an
       unknown stored key over
-- [ ] T014 [P] [US3] Mark test `web/src/test/engine_marks.test.tsx` (ENG-10, ENG-22, ENG-23), edge cases
+- [X] T014 [P] [US3] Mark test `web/src/test/engine_marks.test.tsx` (ENG-10, ENG-22, ENG-23), edge cases
       first: a row marked `modified` / `recalculated` whose value is empty still shows the tint and its
       label; a derived marked row drops the "Calculated" label; then the happy paths — a marked control
       carries `lg-field--marked`, the row shows `engine.modified` / `engine.recalculated`, and the
@@ -204,13 +204,13 @@ render a row with each mark and assert the tint and label, including a marked ro
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Implement `web/src/engine/sheet_defaults.ts` per
+- [X] T015 [US3] Implement `web/src/engine/sheet_defaults.ts` per
       `contracts/draft-and-marks.contract.md`: `seedValue`, `seedDefaults` (walking `buildSections` and
       setting each leaf's seed under its dotted path in section order), `seedFromSheet`, the deep
       `mergeCascade` (recurse where both sides hold an object, replace otherwise; fresh result; no input
       mutated; empty cascade is the identity) and the internal `setPathValue` (ENG-19…ENG-21). *Depends
       on T011.*
-- [ ] T016 [US3] Wire the mark and the row-mark seam into the engine per
+- [X] T016 [US3] Wire the mark and the row-mark seam into the engine per
       `contracts/draft-and-marks.contract.md`: pass the `mark` prop into the controls in
       `web/src/engine/field_control.tsx` and `web/src/engine/exclusive_control.tsx` (tint + "Calculated"
       yield), label a marked row with `message('engine.modified')` / `message('engine.recalculated')`,
