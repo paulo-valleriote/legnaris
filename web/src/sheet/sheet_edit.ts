@@ -17,6 +17,7 @@ import type { FieldNode, FieldSchema, TemplateDetail } from '../api/models/templ
 import { isPlainObject } from '../api/parse';
 import { buildSections } from '../engine/field_grouping';
 import { mergeCascade, seedFromSheet, setPathValue } from '../engine/sheet_defaults';
+import type { SheetMark } from '../engine/sheet_mark';
 import type { SheetStore } from '../library/sheet_store';
 import { bestEffort } from '../library/sheet_store';
 
@@ -74,12 +75,16 @@ export interface SheetEditStore {
   subscribe(listener: () => void): () => void;
   /** The per-path subscription a field control uses (AD-001, WSC-34). */
   subscribePath(path: string, listener: () => void): () => void;
+  /** A subscription that fires when the preview marks change (WSC-23). */
+  subscribeMarks(listener: () => void): () => void;
   /** Records an edit of one editable leaf (WSC-12). */
   setPath(path: string, value: unknown): void;
   /** Writes one exclusive group's selection in one emission (WSC-15). */
   setExclusive(selected: string | null, siblings: readonly string[]): void;
   /** Sends one delta `PATCH` when `canSave` holds (WSC-14, WSC-16 … WSC-19). */
   save(): Promise<void>;
+  /** Sends one delta dry-run when `canPreview` holds (WSC-21 … WSC-25). */
+  preview(): Promise<void>;
 }
 
 /** True when any edited path's current value differs from its reference (WSC-13). */
@@ -100,6 +105,34 @@ export function isBusy(state: SheetEditState): boolean {
 /** True when a save may start: pending, not busy, throttle free (WSC-19). */
 export function canSave(state: SheetEditState): boolean {
   return isPending(state) && !isBusy(state);
+}
+
+/** True when a preview may start: pending, a new edit since the last preview, not busy (WSC-21, WSC-24). */
+export function canPreview(state: SheetEditState): boolean {
+  return isPending(state) && state.previewedRevision !== state.revision && !isBusy(state);
+}
+
+/**
+ * Resolves the mark a row shows from a preview's path sets (WSC-23).
+ *
+ * A row with any modified path is "modified"; otherwise a row with any
+ * recalculated path is "recalculated"; a row the preview never touched carries
+ * no mark.
+ */
+export function markForPaths(
+  marks: PreviewMarks | undefined,
+  paths: readonly string[],
+): SheetMark | undefined {
+  if (marks === undefined) {
+    return undefined;
+  }
+  if (paths.some((path) => marks.modified.has(path))) {
+    return 'modified';
+  }
+  if (paths.some((path) => marks.recalculated.has(path))) {
+    return 'recalculated';
+  }
+  return undefined;
 }
 
 /** The editable leaf paths of a field tree, keyed by their dotted path (WSC-14). */
@@ -139,6 +172,22 @@ function cloneTree(value: unknown): unknown {
   return value;
 }
 
+/** Flattens a nested object into its dotted leaf paths, for the preview marks (WSC-23). */
+function flattenPaths(value: Record<string, unknown>, prefix = ''): Set<string> {
+  const paths = new Set<string>();
+  for (const [key, child] of Object.entries(value)) {
+    const path = prefix === '' ? key : `${prefix}.${key}`;
+    if (isPlainObject(child)) {
+      for (const nested of flattenPaths(child, path)) {
+        paths.add(nested);
+      }
+    } else {
+      paths.add(path);
+    }
+  }
+  return paths;
+}
+
 /**
  * Builds the edit store for one open sheet (WSC-12 … WSC-19, WSC-34).
  *
@@ -165,6 +214,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
 
   const listeners = new Set<() => void>();
   const pathListeners = new Map<string, Set<() => void>>();
+  const marksListeners = new Set<() => void>();
 
   const commit = (next: SheetEditState): void => {
     const previous = state;
@@ -174,6 +224,11 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         for (const listener of [...pathSubscribers]) {
           listener();
         }
+      }
+    }
+    if (previous.previewMarks !== next.previewMarks) {
+      for (const listener of [...marksListeners]) {
+        listener();
       }
     }
     for (const listener of [...listeners]) {
@@ -250,6 +305,13 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       };
     },
 
+    subscribeMarks: (listener) => {
+      marksListeners.add(listener);
+      return () => {
+        marksListeners.delete(listener);
+      };
+    },
+
     setPath: (path, value) => {
       applyWrites(new Map([[path, value]]));
     },
@@ -287,6 +349,37 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         await bestEffort(() => deps.store.deleteDraft(seed.sheet.id));
       } catch (error) {
         commit({ ...state, isSaving: false, saveError: failureCopy(error) });
+      }
+    },
+
+    preview: async () => {
+      if (!canPreview(state)) {
+        return;
+      }
+      const delta = pendingDelta(state);
+      if (!hasKeys(delta)) {
+        return;
+      }
+      const previewedRevision = state.revision;
+
+      commit({ ...state, isPreviewing: true, previewError: undefined });
+
+      try {
+        const cascade = await deps.client.previewSheet(seed.sheet.id, delta);
+        const current = state;
+        commit({
+          ...current,
+          data: mergeCascade(current.data, cascade),
+          isPreviewing: false,
+          previewError: undefined,
+          previewedRevision,
+          previewMarks: {
+            modified: flattenPaths(delta),
+            recalculated: flattenPaths(cascade),
+          },
+        });
+      } catch (error) {
+        commit({ ...state, isPreviewing: false, previewError: failureCopy(error) });
       }
     },
   };

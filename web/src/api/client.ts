@@ -1,5 +1,5 @@
 /**
- * The six typed operations of the consumed backend contract (API-01 … API-07).
+ * The typed operations of the consumed backend contract (API-01 … API-07).
  *
  * Every call goes through one place: the client builds the request, issues it
  * through the injected transport and decodes the envelope exactly once, so a
@@ -47,7 +47,7 @@ export const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
 /** Fixed delay before the single read retry, in milliseconds (API-31). */
 export const DEFAULT_RETRY_DELAY_MS = 300;
 
-/** The six consumed operations, one method each (API-01). */
+/** The consumed operations, one method each (API-01). */
 export interface ApiClient {
   health(): Promise<HealthPayload>;
   listTemplates(): Promise<TemplateSummary[]>;
@@ -55,6 +55,7 @@ export interface ApiClient {
   createSheet(input: CreateSheetInput): Promise<Sheet>;
   getSheet(id: string): Promise<Sheet>;
   patchSheet(id: string, changeSet: Record<string, unknown>): Promise<Record<string, unknown>>;
+  previewSheet(id: string, changeSet: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
 function decodeHealth(data: unknown): HealthPayload {
@@ -164,6 +165,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       call(
         'PATCH',
         `/sheets/${encodeURIComponent(id)}`,
+        JSON.stringify({ data: changeSet }),
+        decodeChangeSet,
+      ),
+    previewSheet: (id, changeSet) =>
+      call(
+        'POST',
+        `/sheets/${encodeURIComponent(id)}/preview`,
         JSON.stringify({ data: changeSet }),
         decodeChangeSet,
       ),

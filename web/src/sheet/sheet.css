@@ -59,6 +59,18 @@
   gap: var(--lg-space-4);
 }
 
+.lg-sheet__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-8);
+}
+
+.lg-field-row__mark {
+  margin-left: var(--lg-space-4);
+  font-size: var(--lg-type-12);
+  color: var(--lg-color-text-muted);
+}
+
 .lg-sheet__dirty {
   margin: 0;
   font-size: var(--lg-type-13);

@@ -1,13 +1,14 @@
 /**
- * The sheet screen (WSC-05 … WSC-20, WSC-32, WSC-35): reads the `:id` route
+ * The sheet screen (WSC-05 … WSC-25, WSC-32, WSC-35): reads the `:id` route
  * parameter, resolves the open situation and renders it. A loaded sheet shows
  * its name, mounts the F4 engine in builder mode over an edit store, and renders
- * a footer with the dirty indicator and the Save action; the loading, missing,
- * retryable and template situations each render their own mapped copy.
+ * a footer with the dirty indicator, the Preview and Save actions and their
+ * inline results; the loading, missing, retryable and template situations each
+ * render their own mapped copy.
  *
  * The screen owns the per-field subscription through the engine's builder seams
  * (AD-001): a control reads its own path from the store and reports an edit back,
- * so the engine stays stateless.
+ * and the preview marks reach the rows through the engine's mark seam.
  */
 
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
@@ -23,12 +24,13 @@ import {
 import { SheetFieldControl } from '../engine/field_control';
 import type { SheetExclusiveGroup, SheetField } from '../engine/field_grouping';
 import { buildSections } from '../engine/field_grouping';
-import { SheetForm } from '../engine/sheet_form';
+import type { SheetMark } from '../engine/sheet_mark';
+import { markLabel, SheetForm } from '../engine/sheet_form';
 import { message } from '../l10n/strings';
 import { useApiClient, useSheetStore } from '../app/providers';
 import { useSheetShortcuts } from '../shell/shortcut_registry';
-import type { SheetEditState, SheetEditStore } from './sheet_edit';
-import { canSave, createSheetEditStore, isPending } from './sheet_edit';
+import type { PreviewMarks, SheetEditState, SheetEditStore } from './sheet_edit';
+import { canPreview, canSave, createSheetEditStore, isPending, markForPaths } from './sheet_edit';
 import type { SheetOpenResult } from './sheet_open';
 import { useSheetOpen } from './sheet_open';
 import './sheet.css';
@@ -54,6 +56,12 @@ function useEditState(store: SheetEditStore): SheetEditState {
   return useSyncExternalStore(store.subscribe, store.getState);
 }
 
+/** Subscribes to the preview marks, resolving the mark [paths] carry (WSC-23). */
+function usePreviewMark(store: SheetEditStore, paths: readonly string[]): SheetMark | undefined {
+  const subscribe = useCallback((listener: () => void) => store.subscribeMarks(listener), [store]);
+  return useSyncExternalStore(subscribe, () => markForPaths(store.getState().previewMarks, paths));
+}
+
 interface ConnectedFieldProps {
   readonly store: SheetEditStore;
   readonly field: SheetField;
@@ -68,12 +76,14 @@ function ConnectedField({ store, field }: ConnectedFieldProps) {
   const value = useSyncExternalStore(subscribe, () =>
     valueAtPath(store.getState().data, field.path),
   );
+  const mark = usePreviewMark(store, [field.path]);
 
   return (
     <SheetFieldControl
       path={field.path}
       schema={field.schema}
       value={value}
+      mark={mark}
       onChanged={(next) => store.setPath(field.path, next)}
     />
   );
@@ -110,11 +120,13 @@ function ConnectedExclusive({ store, group }: ConnectedExclusiveProps) {
     }
     return undefined;
   });
+  const mark = usePreviewMark(store, paths);
 
   return (
     <SheetExclusiveControl
       group={group}
       selectedPath={selected}
+      mark={mark}
       onSelect={(signal) => {
         store.setExclusive(signal === EXCLUSIVE_NONE_VALUE ? null : signal, paths);
       }}
@@ -126,12 +138,13 @@ interface SheetFooterProps {
   readonly store: SheetEditStore;
 }
 
-/** The fixed footer: the dirty indicator, the Save action and its inline result (WSC-12, WSC-16, WSC-17). */
+/** The fixed footer: the dirty indicator, the Preview and Save actions and their inline results (WSC-12, WSC-16, WSC-17, WSC-21, WSC-25). */
 function SheetFooter({ store }: SheetFooterProps) {
   const state = useEditState(store);
   const [savedRevision, setSavedRevision] = useState<number | undefined>(undefined);
   const pending = isPending(state);
   const savable = canSave(state);
+  const previewable = canPreview(state);
   const showSaved =
     savedRevision !== undefined &&
     savedRevision === state.revision &&
@@ -156,27 +169,45 @@ function SheetFooter({ store }: SheetFooterProps) {
             {message('sheet.pendingEdits')}
           </p>
         )}
+        {state.previewError !== undefined && (
+          <p className="lg-sheet__error" role="alert" data-testid="sheet-preview-error">
+            {state.previewError}
+          </p>
+        )}
         {state.saveError !== undefined && (
           <p className="lg-sheet__error" role="alert" data-testid="sheet-save-error">
             {state.saveError}
           </p>
         )}
       </div>
-      <button
-        type="button"
-        className="lg-button lg-button--primary"
-        disabled={!savable}
-        aria-busy={state.isSaving}
-        onClick={() => {
-          void runSave();
-        }}
-      >
-        {state.isSaving
-          ? message('sheet.saving')
-          : showSaved
-            ? message('sheet.saved')
-            : message('sheet.save')}
-      </button>
+      <div className="lg-sheet__actions">
+        <button
+          type="button"
+          className="lg-button"
+          disabled={!previewable}
+          aria-busy={state.isPreviewing}
+          onClick={() => {
+            void store.preview();
+          }}
+        >
+          {state.isPreviewing ? message('sheet.previewing') : message('sheet.preview')}
+        </button>
+        <button
+          type="button"
+          className="lg-button lg-button--primary"
+          disabled={!savable}
+          aria-busy={state.isSaving}
+          onClick={() => {
+            void runSave();
+          }}
+        >
+          {state.isSaving
+            ? message('sheet.saving')
+            : showSaved
+              ? message('sheet.saved')
+              : message('sheet.save')}
+        </button>
+      </div>
     </footer>
   );
 }
@@ -194,6 +225,10 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [client, storePort, sheet, template],
   );
   const sections = buildSections(template.fields);
+  const marks = useSyncExternalStore<PreviewMarks | undefined>(
+    editStore.subscribeMarks,
+    () => editStore.getState().previewMarks,
+  );
 
   const controlBuilder = useCallback(
     (field: SheetField) => <ConnectedField store={editStore} field={field} />,
@@ -202,6 +237,15 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   const exclusiveControlBuilder = useCallback(
     (group: SheetExclusiveGroup) => <ConnectedExclusive store={editStore} group={group} />,
     [editStore],
+  );
+  const rowMarkBuilder = useCallback(
+    (paths: readonly string[]) => {
+      const mark = markForPaths(marks, paths);
+      return mark === undefined ? null : (
+        <span className="lg-field-row__mark">{markLabel(mark)}</span>
+      );
+    },
+    [marks],
   );
 
   useSheetShortcuts({
@@ -227,6 +271,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
           fields={template.fields}
           controlBuilder={controlBuilder}
           exclusiveControlBuilder={exclusiveControlBuilder}
+          rowMarkBuilder={rowMarkBuilder}
         />
       )}
       <SheetFooter store={editStore} />

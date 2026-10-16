@@ -114,6 +114,16 @@ describe('api client operations', () => {
     expect(JSON.stringify(changeSet)).toBe(snapshot);
   });
 
+  it('Happy path: previewSheet posts the change set to the stateless dry-run and decodes the cascade (API-06)', async () => {
+    const fake = createFakeTransport(successOutcome({ derived: { armorClass: 13 } }));
+    const payload = await clientWith(fake).previewSheet('sheet-1', { stats: { dexterity: 16 } });
+
+    expect(payload).toEqual({ derived: { armorClass: 13 } });
+    expect(fake.lastRequest?.method).toBe('POST');
+    expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets/sheet-1/preview`);
+    expect(fake.lastRequest?.body).toBe(JSON.stringify({ data: { stats: { dexterity: 16 } } }));
+  });
+
   it('Edge: a path identifier is percent-encoded and otherwise passed through verbatim (API-01)', async () => {
     const fake = createFakeTransport(successOutcome(sheetPayload));
     await clientWith(fake).getSheet('a/b c?d');
@@ -167,7 +177,7 @@ describe('api client operations', () => {
     await expect(clientWith(fake).health()).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Error: the six operations never use a transport other than the injected one (API-07)', async () => {
+  it('Error: the seven operations never use a transport other than the injected one (API-07)', async () => {
     const fakes = [
       createFakeTransport(successOutcome({ status: 'ok' })),
       createFakeTransport(successOutcome([templatePayload])),
@@ -175,9 +185,12 @@ describe('api client operations', () => {
       createFakeTransport(successOutcome(sheetPayload, 201)),
       createFakeTransport(successOutcome(sheetPayload)),
       createFakeTransport(successOutcome({})),
+      createFakeTransport(successOutcome({})),
     ];
 
-    const [health, list, detail, create, get, patch] = fakes.map((fake) => clientWith(fake));
+    const [health, list, detail, create, get, patch, preview] = fakes.map((fake) =>
+      clientWith(fake),
+    );
 
     await health.health();
     await list.listTemplates();
@@ -185,6 +198,7 @@ describe('api client operations', () => {
     await create.createSheet({ templateId: 'fantasy_v1', sheetName: 'Aragorn' });
     await get.getSheet('sheet-1');
     await patch.patchSheet('sheet-1', { stats: { dexterity: 12 } });
+    await preview.previewSheet('sheet-1', { stats: { dexterity: 12 } });
 
     for (const fake of fakes) {
       expect(fake.attempts).toBe(1);
