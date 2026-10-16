@@ -3,11 +3,13 @@ import { Route, Routes } from 'react-router-dom';
 import { CatalogScreen } from '../catalog/catalog_screen';
 import { AppShell } from '../shell/app_shell';
 import { NotFound } from '../shell/not_found';
+import { SheetScreen } from '../sheet/sheet_screen';
 import { DECLARED_ROUTES, NOT_FOUND_PATH } from './routes';
 
 /** Screen for each declared route, keyed by the path in `routes.ts` (FND-01, FND-08). */
 const SCREENS: Record<string, ReactElement> = {
   '/': <CatalogScreen />,
+  '/sheets/:id': <SheetScreen />,
   [NOT_FOUND_PATH]: <NotFound />,
 };
 

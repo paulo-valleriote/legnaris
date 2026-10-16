@@ -250,18 +250,15 @@ describe('sheet-name field and validation (WCT-22 … WCT-25)', () => {
     expect(create).toBeEnabled();
   });
 
-  it('Edge: typing and activating the primary action issue no request — no mutation in this feature (WCT-25)', async () => {
+  it('Edge: typing a name issues no request by itself — creation is activated explicitly (WSC-01)', async () => {
     const user = userEvent.setup();
     const fake = await openSurface(user);
 
     const input = screen.getByLabelText(message('sheet.nameLabel'));
-    const create = screen.getByRole('button', { name: message('sheet.create') });
     const before = fake.attempts;
 
     await user.type(input, 'Aragorn');
-    expect(fake.attempts).toBe(before);
 
-    await user.click(create);
     expect(fake.attempts).toBe(before);
   });
 });

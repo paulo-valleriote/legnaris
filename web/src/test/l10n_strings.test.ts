@@ -49,6 +49,7 @@ const sheetCycleKeys: readonly MessageKey[] = [
   'sheet.save',
   'sheet.saving',
   'sheet.saved',
+  'sheet.creating',
   'sheet.preview',
   'sheet.previewing',
   'sheet.refreshTitle',

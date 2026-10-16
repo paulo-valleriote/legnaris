@@ -1,0 +1,42 @@
+/**
+ * The sheet-screen styles. Every value comes from the shared design tokens; no
+ * literal color or pixel value appears here (WSC-33).
+ */
+
+.lg-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-16);
+}
+
+.lg-sheet__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+}
+
+.lg-sheet__eyebrow {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-sheet__title {
+  margin: 0;
+  font-size: var(--lg-type-17);
+  font-weight: var(--lg-font-weight-strong);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-sheet__message {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-sheet__failure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lg-space-8);
+}

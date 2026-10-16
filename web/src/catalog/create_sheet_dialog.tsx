@@ -6,13 +6,16 @@
  * mutation — creating the sheet belongs to a later feature.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import { failureMessage, parseFailureMessage } from '../api/error_mapper';
 import type { TemplateDetail } from '../api/models/template';
+import { useApiClient } from '../app/providers';
 import { message } from '../l10n/strings';
-import { useTemplateDetail } from './queries';
+import { seedCreatedSheet, useTemplateDetail } from './queries';
 
 /** The single situation the surface's detail area renders (WCT-12 … WCT-18). */
 type DetailRenderPhase =
@@ -22,22 +25,27 @@ type DetailRenderPhase =
   | { readonly kind: 'notFound'; readonly copy: string }
   | { readonly kind: 'parseError'; readonly copy: string };
 
+function describeFailure(error: unknown): string {
+  if (error instanceof DefensiveParseFailure) {
+    return parseFailureMessage();
+  }
+  return failureMessage(error instanceof DomainFailure ? error.kind : 'unknown');
+}
+
 function resolveDetailPhase(query: UseQueryResult<TemplateDetail, Error>): DetailRenderPhase {
   if (query.isPending) {
     return { kind: 'loading' };
   }
 
   if (query.isError) {
-    if (query.error instanceof DefensiveParseFailure) {
-      return { kind: 'parseError', copy: parseFailureMessage() };
-    }
+    const copy = describeFailure(query.error);
     if (query.error instanceof DomainFailure && query.error.kind === 'notFound') {
-      return { kind: 'notFound', copy: failureMessage('notFound') };
+      return { kind: 'notFound', copy };
     }
-    return {
-      kind: 'error',
-      copy: failureMessage(query.error instanceof DomainFailure ? query.error.kind : 'unknown'),
-    };
+    if (query.error instanceof DefensiveParseFailure) {
+      return { kind: 'parseError', copy };
+    }
+    return { kind: 'error', copy };
   }
 
   const data = query.data;
@@ -80,7 +88,12 @@ export interface CreateSheetDialogProps {
 
 export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProps) {
   const query = useTemplateDetail(templateId);
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [sheetName, setSheetName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const phase = resolveDetailPhase(query);
   const trimmedName = sheetName.trim();
@@ -99,6 +112,24 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  const handleCreate = useCallback(() => {
+    if (!canSubmit || isSubmitting) {
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitError(undefined);
+    void client
+      .createSheet({ templateId, sheetName: trimmedName })
+      .then((sheet) => {
+        seedCreatedSheet(queryClient, sheet);
+        navigate(`/sheets/${encodeURIComponent(sheet.id)}`);
+      })
+      .catch((error: unknown) => {
+        setSubmitError(describeFailure(error));
+        setIsSubmitting(false);
+      });
+  }, [canSubmit, isSubmitting, client, templateId, trimmedName, queryClient, navigate]);
 
   return (
     <div className="lg-overlay">
@@ -145,14 +176,21 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
             </p>
           )}
         </div>
+        {submitError !== undefined && (
+          <p className="lg-dialog__message" role="alert" data-testid="create-error">
+            {submitError}
+          </p>
+        )}
         <div className="lg-dialog__actions">
           <button
             type="button"
             className="lg-button lg-button--primary"
-            disabled={!canSubmit}
+            disabled={!canSubmit || isSubmitting}
+            aria-busy={isSubmitting}
             title={canSubmit ? undefined : message('sheet.nameRequired')}
+            onClick={handleCreate}
           >
-            {message('sheet.create')}
+            {isSubmitting ? message('sheet.creating') : message('sheet.create')}
           </button>
         </div>
       </div>

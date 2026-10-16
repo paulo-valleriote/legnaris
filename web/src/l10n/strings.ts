@@ -30,6 +30,7 @@ export const messages = {
   'sheet.namePlaceholder': 'Example: Aragorn, Ranger of the North',
   'sheet.nameRequired': 'A sheet name is required.',
   'sheet.create': 'Create sheet',
+  'sheet.creating': 'Creating sheet',
   'sheet.close': 'Close',
   'sheet.loading': 'Loading template',
   'sheet.retry': 'Try again',

@@ -9,6 +9,8 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
+import type { Sheet } from '../api/models/sheet';
 import { useApiClient } from '../app/providers';
 
 /** The catalog's query key; it carries no parameter, so every mount shares one entry. */
@@ -17,6 +19,22 @@ export const CATALOG_QUERY_KEY = ['templates'] as const;
 /** The detail's query key for one template identifier (WCT-21). */
 export function templateDetailKey(id: string) {
   return ['template', id] as const;
+}
+
+/** The sheet's query key for one identifier; the creation flow seeds it (WSC-02). */
+export function sheetKey(id: string) {
+  return ['sheet', id] as const;
+}
+
+/**
+ * Seeds a created sheet's entry so the sheet screen renders it without a second
+ * fetch (WSC-02, WSC-34).
+ *
+ * `setQueryData` stamps the entry as just-updated, so the sheet query — which
+ * reads with an infinite stale time — resolves it as fresh and issues no `GET`.
+ */
+export function seedCreatedSheet(queryClient: QueryClient, sheet: Sheet): void {
+  queryClient.setQueryData(sheetKey(sheet.id), sheet);
 }
 
 /**
