@@ -5,7 +5,7 @@
 DATABASE_URI := $(subst ",,$(DATABASE_URI))
 export PORT APP_NAME DATABASE_URI DATABASE_NAME CORS_ALLOWED_ORIGINS DATABASE_PING_TIMEOUT DATABASE_SERVER_SELECTION_TIMEOUT DATABASE_CONNECT_TIMEOUT DATABASE_CLOSE_TIMEOUT JWT_SECRET JWT_ACCESS_TTL AUTH_REFRESH_TTL AUTH_BCRYPT_COST
 
-.PHONY: run build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local lint-web test-web sec-scan
+.PHONY: run build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan
 
 ## --- Development ------------------------------------------------------------
 
@@ -84,3 +84,12 @@ deploy-down:    ## Stop the production stack
 
 deploy-local:   ## Start the stack locally via Cloudflare Tunnel
 	@docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml up -d --build
+
+# Host networking of the Docker-in-Docker dev container, not the stack: a stale
+# iptables backend can silently drop egress from the compose bridges, which
+# takes the tunnel down (see deploy/README.md §13). Both targets need root.
+net-check:      ## Diagnose container egress in the dev container (sudo)
+	@sudo scripts/dind_network.sh check
+
+net-fix:        ## Repair stale iptables-legacy rules that block container egress (sudo)
+	@sudo scripts/dind_network.sh fix

@@ -301,3 +301,18 @@ volumes.
    `cloudflared tunnel login` creates) makes the container fail with a
    credentials error. It also has no shell, so the failure shows up as the
    tunnel container restarting, not as a readable error inside it.
+
+6. **A stale iptables backend can black-hole container egress** (Docker-in-Docker
+   dev container only, never production). When a daemon restart switches the
+   iptables backend, the abandoned one keeps its rules in the kernel: a
+   `FORWARD policy DROP` chain that only knows the default bridge, so every
+   packet leaving `legnaris-prod_edge`/`_internal` is dropped. The Docker
+   embedded resolver (`127.0.0.11`) still answers container names but forwards
+   external lookups as the container IP, so the symptoms look like a DNS or
+   application bug: `cloudflared` never registers an edge connection
+   (`lookup _v2-origintunneld._tcp.argotunnel.com ... i/o timeout`), so
+   `app.`/`api.`/`ops.` stop answering, and `app` crash-loops with a Mongo
+   `server selection error` — while the host itself has working internet.
+   Diagnose and repair with `sudo make net-check` then `sudo make net-fix`
+   (the repair backs up the removed rules and verifies a real container lookup;
+   `cloudflared` and `app` recover on their own once egress is back).
