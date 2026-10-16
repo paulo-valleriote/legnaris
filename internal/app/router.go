@@ -1,15 +1,12 @@
 package app
 
 import (
-	"errors"
 	"legnaris/internal/auth"
 	"legnaris/internal/platform/cors"
 	"legnaris/internal/platform/health"
 	"legnaris/internal/platform/metrics"
-	"legnaris/shared/apperr"
 	"legnaris/shared/env"
 	"legnaris/shared/response"
-	"net/http"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -52,22 +49,12 @@ func HTTPErrorHandler(c *echo.Context, err error) {
 		return
 	}
 
-	var appErr *apperr.Error
+	appErr := asAppErr(err)
 
-	if errors.As(err, &appErr) {
-		_ = c.JSON(appErr.HttpStatus(), response.ErrorResponse{
-			Error: response.ErrorBody{
-				Code:    string(appErr.Code),
-				Message: appErr.Message,
-			},
-		})
-		return
-	}
-
-	_ = c.JSON(http.StatusInternalServerError, response.ErrorResponse{
+	_ = c.JSON(appErr.HttpStatus(), response.ErrorResponse{
 		Error: response.ErrorBody{
-			Code:    "INTERNAL_ERROR",
-			Message: "internal server error",
+			Code:    string(appErr.Code),
+			Message: appErr.Message,
 		},
 	})
 }

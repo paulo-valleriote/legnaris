@@ -11,6 +11,7 @@ const (
 	CodeUnauthorized      Code = "UNAUTHORIZED"
 	CodeForbidden         Code = "FORBIDDEN"
 	CodeNotFound          Code = "NOT_FOUND"
+	CodeMethodNotAllowed  Code = "METHOD_NOT_ALLOWED"
 	CodeConflict          Code = "CONFLICT"
 	CodeSheetLimitReached Code = "SHEET_LIMIT_REACHED"
 	CodeInternal          Code = "INTERNAL_ERROR"
@@ -38,6 +39,8 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 403
 	case CodeNotFound:
 		httpStatus = 404
+	case CodeMethodNotAllowed:
+		httpStatus = 405
 	case CodeConflict, CodeSheetLimitReached:
 		httpStatus = 409
 	case CodeInternal:

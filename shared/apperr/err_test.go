@@ -24,6 +24,7 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeUnauthorized, 401},
 		{CodeForbidden, 403},
 		{CodeNotFound, 404},
+		{CodeMethodNotAllowed, 405},
 		{CodeConflict, 409},
 		{CodeSheetLimitReached, 409},
 		{CodeInternal, 500},
