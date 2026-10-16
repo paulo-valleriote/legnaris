@@ -1,9 +1,10 @@
 /**
- * The creation surface for one template (WCT-11 … WCT-25, WCT-27).
+ * The creation surface for one template (WCT-11 … WCT-25, WCT-27, WSC-01 … WSC-04).
  *
  * An accessible overlay over the catalog: it loads the template's detail inline,
- * carries the sheet-name field with its trim/required validation, and issues no
- * mutation — creating the sheet belongs to a later feature.
+ * carries the sheet-name field with its trim/required validation, and issues one
+ * `POST /sheets` on the primary action, seeding the created sheet and navigating
+ * to it (WSC-01, WSC-02).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -11,7 +12,7 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DefensiveParseFailure, DomainFailure } from '../api/errors';
-import { failureMessage, parseFailureMessage } from '../api/error_mapper';
+import { failureCopy } from '../api/error_mapper';
 import type { TemplateDetail } from '../api/models/template';
 import { useApiClient } from '../app/providers';
 import { message } from '../l10n/strings';
@@ -26,10 +27,7 @@ type DetailRenderPhase =
   | { readonly kind: 'parseError'; readonly copy: string };
 
 function describeFailure(error: unknown): string {
-  if (error instanceof DefensiveParseFailure) {
-    return parseFailureMessage();
-  }
-  return failureMessage(error instanceof DomainFailure ? error.kind : 'unknown');
+  return failureCopy(error);
 }
 
 function resolveDetailPhase(query: UseQueryResult<TemplateDetail, Error>): DetailRenderPhase {

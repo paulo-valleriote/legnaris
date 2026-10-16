@@ -9,7 +9,7 @@
 import type { MessageKey } from '../l10n/strings';
 import { message } from '../l10n/strings';
 import type { FailureKind } from './errors';
-import { DomainFailure } from './errors';
+import { DefensiveParseFailure, DomainFailure } from './errors';
 
 const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   INVALID_JSON: 'clientFault',
@@ -48,6 +48,20 @@ export function failureMessage(kind: FailureKind): string {
 /** Resolves the copy for a response the client could not read (API-22, API-23). */
 export function parseFailureMessage(): string {
   return message('api.error.parse');
+}
+
+/**
+ * Resolves the copy a screen shows for a failed read or write (API-22, API-23).
+ *
+ * A payload the client could not decode resolves the parse copy; every other
+ * failure resolves its interface-facing kind, an unclassified error included.
+ * Shared by every screen so the mapping lives in one place.
+ */
+export function failureCopy(error: unknown): string {
+  if (error instanceof DefensiveParseFailure) {
+    return parseFailureMessage();
+  }
+  return failureMessage(error instanceof DomainFailure ? error.kind : 'unknown');
 }
 
 /**

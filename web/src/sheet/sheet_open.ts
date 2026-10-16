@@ -12,8 +12,8 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Sheet } from '../api/models/sheet';
 import type { TemplateDetail } from '../api/models/template';
-import { DefensiveParseFailure, DomainFailure } from '../api/errors';
-import { failureMessage, parseFailureMessage } from '../api/error_mapper';
+import { DomainFailure } from '../api/errors';
+import { failureCopy } from '../api/error_mapper';
 import { useApiClient, useSheetStore } from '../app/providers';
 import { sheetKey, templateDetailKey } from '../catalog/queries';
 import { message } from '../l10n/strings';
@@ -32,10 +32,7 @@ export type SheetOpenResult =
   | { readonly kind: 'templateFailure'; readonly message: string; readonly retry: () => void };
 
 function describeFailure(error: unknown): string {
-  if (error instanceof DefensiveParseFailure) {
-    return parseFailureMessage();
-  }
-  return failureMessage(error instanceof DomainFailure ? error.kind : 'unknown');
+  return failureCopy(error);
 }
 
 /**

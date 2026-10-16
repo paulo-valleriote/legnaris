@@ -40,3 +40,33 @@
   align-items: flex-start;
   gap: var(--lg-space-8);
 }
+
+.lg-sheet__footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lg-space-16);
+  padding-block: var(--lg-space-12);
+  border-top: var(--lg-size-hairline) solid var(--lg-color-border);
+  background-color: var(--lg-color-bg);
+}
+
+.lg-sheet__status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+}
+
+.lg-sheet__dirty {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-sheet__error {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-danger);
+}
