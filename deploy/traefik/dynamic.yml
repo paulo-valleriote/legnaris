@@ -1,6 +1,7 @@
 # Dynamic routing (file provider). Values are resolved from the Traefik
 # container environment at runtime:
 #   {{ env "API_DOMAIN" }}        public API hostname
+#   {{ env "WEB_DOMAIN" }}        public web client hostname
 #   {{ env "OPS_DOMAIN" }}        observability + OAuth hostname
 #   {{ env "TRAEFIK_ENTRYPOINT" }}  "websecure" (prod) or "web" (local tunnel)
 
@@ -35,6 +36,11 @@ http:
       loadBalancer:
         servers:
           - url: "http://grafana:3000"
+
+    web:
+      loadBalancer:
+        servers:
+          - url: "http://web:80"
 
     prometheus:
       loadBalancer:
@@ -89,3 +95,11 @@ http:
       rule: 'Host(`{{ env "API_DOMAIN" }}`) && !PathPrefix(`/metrics`)'
       entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
       service: app
+
+    # Public web client (no auth) on its own domain; it reaches the API cross
+    # origin, which the API's CORS allowlist has to accept.
+    web:
+      rule: 'Host(`{{ env "WEB_DOMAIN" }}`)'
+      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      service: web
+      middlewares: ["security-headers"]

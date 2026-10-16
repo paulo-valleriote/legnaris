@@ -22,6 +22,22 @@ npm ci            # frozen lockfile
 npm run dev       # development server
 ```
 
+## Container image
+
+`web/Dockerfile` builds the client into an nginx image, which the deploy stack
+runs as the `web` service on `WEB_DOMAIN` (see `deploy/README.md`):
+
+```bash
+cd deploy
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build web
+```
+
+The browser-facing API origin is a **build argument**, because Vite inlines
+every `VITE_*` value into the bundle: `WEB_API_BASE_URL` in `deploy/.env` becomes
+`VITE_API_BASE_URL` here. Changing it (or `WEB_DOMAIN`) therefore needs
+`--build web`, not a restart. The web origin must also be listed in
+`CORS_ALLOWED_ORIGINS`, which the same file configures.
+
 ## Scripts
 
 | Script                 | What it does                                             |
