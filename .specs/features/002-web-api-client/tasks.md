@@ -35,17 +35,17 @@ them.
 **Purpose**: the three shared pieces every story consumes — the copy catalog, the error shapes, and the
 test transport.
 
-- [ ] T001 [P] Create the typed English translation catalog `web/src/l10n/strings.ts` with the eight
+- [x] T001 [P] Create the typed English translation catalog `web/src/l10n/strings.ts` with the eight
       `api.error.*` keys from `contracts/error-mapping.contract.md` and a `message(key)` accessor
       (API-23), plus `web/src/test/l10n_strings.test.ts` asserting every key resolves to a non-empty
       string, that no two keys share a value by accident, and that `message` returns the catalog entry
       itself
-- [ ] T002 [P] Create the error shapes `web/src/api/errors.ts` — the `FailureKind` union, `DomainFailure`
+- [x] T002 [P] Create the error shapes `web/src/api/errors.ts` — the `FailureKind` union, `DomainFailure`
       carrying kind/status/code/message, `DefensiveParseFailure` carrying reason/status, and
       `PathFailure` carrying the offending path (API-03, API-04, API-14, API-24) — plus
       `web/src/test/api_errors.test.ts` covering the edge cases: a non-string server message becomes an
       empty string, an absent status stays absent, and the two failure classes are not interchangeable
-- [ ] T003 [P] Create the shared test transport `web/src/test/fake_transport.ts`: records every request
+- [x] T003 [P] Create the shared test transport `web/src/test/fake_transport.ts`: records every request
       and is scripted with responses or transport failures per call, so the suites can assert method,
       path, headers, body, `credentials`, and the number of attempts (test infrastructure — no behavior
       of its own)
@@ -62,11 +62,11 @@ test transport.
 
 ### Tests for the foundation ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T004 [P] Transport test `web/src/test/api_transport.test.ts` (API-07, API-29): the native adapter
+- [x] T004 [P] Transport test `web/src/test/api_transport.test.ts` (API-07, API-29): the native adapter
       passes url, method, headers, body, `credentials: 'omit'` and the abort signal through unchanged;
       it reads the status and raw text back; a rejection propagates as a transport failure; an empty
       body arrives as an empty string
-- [ ] T005 Envelope test `web/src/test/api_envelope.test.ts` (API-02, API-03, API-04, API-22): a 2xx with
+- [x] T005 Envelope test `web/src/test/api_envelope.test.ts` (API-02, API-03, API-04, API-22): a 2xx with
       `data` decodes through the per-operation callback; a failure with `error.code` raises a domain
       failure carrying status, code and message; a 2xx without `data`, an empty body and invalid JSON on
       either branch raise the defensive parse failure; a failure body with a missing or non-string
@@ -74,10 +74,10 @@ test transport.
 
 ### Implementation for the foundation
 
-- [ ] T006 Implement `web/src/api/transport.ts`: the request/response/transport types per
+- [x] T006 Implement `web/src/api/transport.ts`: the request/response/transport types per
       `contracts/transport.contract.md` and the native adapter that maps them onto the platform request
       (API-07, API-29)
-- [ ] T007 Implement `web/src/api/envelope.ts`: the single `decodeEnvelope({ status, body, decode })`
+- [x] T007 Implement `web/src/api/envelope.ts`: the single `decodeEnvelope({ status, body, decode })`
       decoder (API-02, API-03, API-04, API-22)
 
 **Checkpoint**: the transport and the decoder pass their suites; no endpoint exists yet.
@@ -95,7 +95,7 @@ and assert a defensive failure instead of an empty success.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T008 [P] [US1] Client test `web/src/test/api_client.test.ts` (API-01, API-02, API-05, API-06,
+- [x] T008 [P] [US1] Client test `web/src/test/api_client.test.ts` (API-01, API-02, API-05, API-06,
       API-07) covering, edge cases first: the six operations' method and path; the creation body
       carrying exactly `template_id` and `sheet_name`; the update body carrying exactly `data`; the
       update change set not being mutated; a success envelope decoding per operation; a failure
@@ -105,7 +105,7 @@ and assert a defensive failure instead of an empty success.
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Implement `web/src/api/client.ts` with the six typed operations over an injected
+- [x] T009 [US1] Implement `web/src/api/client.ts` with the six typed operations over an injected
       transport and a resolved base address, taking the operation path, the body and the payload
       decoder from `contracts/endpoints.contract.md` (API-01, API-02, API-05, API-06, API-07)
 
@@ -125,13 +125,13 @@ altered.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T010 [P] [US2] Template model test `web/src/test/api_models_template.test.ts` (API-08, API-09): a
+- [x] T010 [P] [US2] Template model test `web/src/test/api_models_template.test.ts` (API-08, API-09): a
       leaf is recognised by its `schema` key and a group by its `children` key; a leaf's `default`,
       `type`, `label` and `is_editable` are exposed; an omitted `formula`/`depends_on` is absent rather
       than `''`/`[]`; the optional `exclusive_group`/`option_label`/`column_label` metadata is carried
       through; a node carrying neither key is a defensive parse failure; the catalog entry's `default`
       boolean is read by key
-- [ ] T011 [P] [US2] Sheet model test `web/src/test/api_models_sheet.test.ts` (API-10, API-11, API-12,
+- [x] T011 [P] [US2] Sheet model test `web/src/test/api_models_sheet.test.ts` (API-10, API-11, API-12,
       API-13, API-14): the sheet's identifiers, name, data and timestamps decode; a whole number and a
       fractional number survive decoding unchanged; a resolving dotted path returns its value; a missing
       segment and a non-object intermediate return no value without raising; an empty path and a
@@ -139,11 +139,11 @@ altered.
 
 ### Implementation for User Story 2
 
-- [ ] T012 [P] [US2] Implement `web/src/api/models/template.ts`: the catalog/detail parse functions, the
+- [x] T012 [P] [US2] Implement `web/src/api/models/template.ts`: the catalog/detail parse functions, the
       field node union and the field schema shape (API-08, API-09)
-- [ ] T013 [P] [US2] Implement `web/src/api/models/sheet.ts`: the sheet parse function and the
+- [x] T013 [P] [US2] Implement `web/src/api/models/sheet.ts`: the sheet parse function and the
       `valueAtPath` accessor (API-10, API-11, API-12, API-13, API-14)
-- [ ] T014 [US2] Plug the model parsers into `web/src/api/client.ts` as the payload decoders of the
+- [x] T014 [US2] Plug the model parsers into `web/src/api/client.ts` as the payload decoders of the
       template and sheet operations, and decode the update payload as the recalculated effect map
       (API-01, API-02, API-08, API-10)
 
@@ -163,21 +163,21 @@ failure and assert the offline kind; render a copy and assert it equals the cata
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T015 [P] [US3] Mapper test `web/src/test/api_error_mapper.test.ts` (API-15, API-16, API-17, API-18, API-19, API-20, API-21, API-22, API-23, API-24): one case per
+- [x] T015 [P] [US3] Mapper test `web/src/test/api_error_mapper.test.ts` (API-15, API-16, API-17, API-18, API-19, API-20, API-21, API-22, API-23, API-24): one case per
       code in `contracts/error-mapping.contract.md` — the five dedicated kinds, and each of the seven
       fallback codes taking `unknown` with the raw code and message preserved — plus a code the backend
       does not define, and one case per kind asserting the resolved copy is byte-equal to the catalog
       entry (API-23)
-- [ ] T016 [P] [US3] End-to-end failure test `web/src/test/api_failure_states.test.ts` (API-20, API-21,
+- [x] T016 [P] [US3] End-to-end failure test `web/src/test/api_failure_states.test.ts` (API-20, API-21,
       API-24): a transport failure with attempts exhausted leaves the client as `offline` with no status;
       a failed response leaves the client with the mapped kind, the status, the raw code and the server
       message
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Implement `web/src/api/error_mapper.ts`: `apperrKind(code)`, the kind→key table and the
+- [x] T017 [US3] Implement `web/src/api/error_mapper.ts`: `apperrKind(code)`, the kind→key table and the
       copy resolver that reads `web/src/l10n/strings.ts` (API-15, API-16, API-17, API-18, API-19, API-20, API-21, API-22, API-23)
-- [ ] T018 [US3] Attach the mapper inside `web/src/api/client.ts` so every domain failure leaving the
+- [x] T018 [US3] Attach the mapper inside `web/src/api/client.ts` so every domain failure leaving the
       client carries its kind, and a transport failure after its attempts maps to `offline` (API-20,
       API-21, API-24)
 
@@ -196,7 +196,7 @@ each time.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T019 [P] [US4] Configuration test `web/src/test/api_config.test.ts` (API-25, API-26, API-27,
+- [x] T019 [P] [US4] Configuration test `web/src/test/api_config.test.ts` (API-25, API-26, API-27,
       API-28): no override resolves to the public API over HTTPS with `source: 'default'` and
       `secure: true`; an override is used verbatim with `source: 'override'`; an empty override falls
       back to the default; a bare host, a relative path and a non-HTTP scheme raise a configuration
@@ -204,11 +204,13 @@ each time.
 
 ### Implementation for User Story 4
 
-- [ ] T020 [P] [US4] Implement `web/src/api/config.ts`: the pure `resolveApiConfig(raw)` resolver and the
+- [x] T020 [P] [US4] Implement `web/src/api/config.ts`: the pure `resolveApiConfig(raw)` resolver and the
       `ApiConfiguration` shape (API-25, API-26, API-27, API-28), reading the build variable only at the
       module's boundary so the resolver stays testable without browser globals
-- [ ] T021 [US4] Document and, where the app wires the client, use `resolveApiConfig` as the single
-      source of the base address so the insecure state is reported rather than rendered (API-28)
+- [x] T021 [US4] Document `resolveApiConfig` in `web/README.md` as the single source of the base
+      address; no app-level client consumer exists yet, so the feature that first constructs the
+      client wires it. The insecure state is reported on the resolved configuration, not rendered
+      (API-28)
 
 **Checkpoint**: the base address is configuration, secure by default, and validated before use.
 
@@ -225,7 +227,7 @@ timeout.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T022 [P] [US5] Retry test `web/src/test/api_client_retry.test.ts` (API-30, API-31, API-32, API-33):
+- [x] T022 [P] [US5] Retry test `web/src/test/api_client_retry.test.ts` (API-30, API-31, API-32, API-33):
       a read failing at the transport is attempted exactly twice with the injected delay called once with
       the fixed interval; a read failing twice ends as `offline`; a read answered with a failure status
       is attempted once; a write failing at the transport or with a failure status is attempted once;
@@ -234,7 +236,7 @@ timeout.
 
 ### Implementation for User Story 5
 
-- [ ] T023 [US5] Implement the bounded attempts in `web/src/api/client.ts`: one abort controller per
+- [x] T023 [US5] Implement the bounded attempts in `web/src/api/client.ts`: one abort controller per
       attempt bounded by the timeout, read-only single retry through the injectable sleep, and no retry
       for writes (API-30, API-31, API-32, API-33)
 
@@ -251,7 +253,7 @@ suite turns red.
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T024 [P] [US6] Capture-driven test `web/src/test/api_contract_captures.test.ts` (API-34, API-35,
+- [x] T024 [P] [US6] Capture-driven test `web/src/test/api_contract_captures.test.ts` (API-34, API-35,
       API-36): every success capture decodes through its operation's model and asserts the declared
       shape; the update pair asserts the request carries a single change and the response only the
       recalculated effects; the drift case mutates a capture copy and asserts the decode fails; the
@@ -259,14 +261,14 @@ suite turns red.
 
 ### Implementation for User Story 6
 
-- [ ] T025 [US6] Write the capture script `web/src/api/fixtures/capture.sh` and its provenance note
+- [x] T025 [US6] Write the capture script `web/src/api/fixtures/capture.sh` and its provenance note
       `web/src/api/fixtures/README.md` per `contracts/capture-provenance.contract.md`: start the local
       stack, register a user, exercise the six operations and the failure cases, and write each raw
       response body plus its request into a JSON capture without persisting any credential (API-35)
-- [ ] T026 [US6] Produce and pin the captures into `web/src/api/fixtures/` by running the script against
+- [x] T026 [US6] Produce and pin the captures into `web/src/api/fixtures/` by running the script against
       the local stack (`make dev-db`, `go run ./cmd/api.go`); never hand-edit a capture to make a test
       pass (API-35)
-- [ ] T027 [US6] Run the suite with the API and MongoDB stopped and confirm it is green, then confirm the
+- [x] T027 [US6] Run the suite with the API and MongoDB stopped and confirm it is green, then confirm the
       drift case fails when a capture key is altered (API-34, API-36)
 
 **Checkpoint**: the contract milestone is met — the suite validates real captures with no backend.
@@ -284,7 +286,7 @@ confirm it fails loudly.
 
 ### Tests for User Story 7 ⚠️
 
-- [ ] T028 [P] [US7] Live suite `web/src/test/api_live_contract.test.ts` (API-37, API-38, API-39): gated on
+- [x] T028 [P] [US7] Live suite `web/src/test/api_live_contract.test.ts` (API-37, API-38, API-39): gated on
       `API_BASE_URL` being present, exercising creating a sheet with derived values, updating an editable
       field to receive only recalculated effects, the refusal of a derived or unknown field, and a
       missing sheet; plus the two mechanism cases — that it skips without a base address, and that a
@@ -296,18 +298,18 @@ confirm it fails loudly.
 
 ## Phase 10: Polish & Cross-Cutting Concerns
 
-- [ ] T029 [P] Add the credential-hygiene source scan `web/src/test/api_no_logging.test.ts` (API-29):
+- [x] T029 [P] Add the credential-hygiene source scan `web/src/test/api_no_logging.test.ts` (API-29):
       `web/src/api/` contains no `console.*` call and imports no logger, and every request the fake
       transport recorded carries `credentials: 'omit'`
-- [ ] T030 [P] Extend `web/README.md` with how to run the module's suites, how to re-capture the contract
+- [x] T030 [P] Extend `web/README.md` with how to run the module's suites, how to re-capture the contract
       fixtures, and how to run the live suite against a local backend; extend `web/AGENTS.md` with the
       module's rules (no logging, no implicit credentials, no user-facing literal outside the catalog,
       captures are never hand-edited)
-- [ ] T031 Run the full gate set from `web/` (`npm run format:check`, `npm run lint`, `npm run typecheck`,
+- [x] T031 Run the full gate set from `web/` (`npm run format:check`, `npm run lint`, `npm run typecheck`,
       `npm test`, `npm run build`) and `make lint-specs` from the repo root, and confirm every `API-*`
       citation in the delivered sources resolves to `spec.md`
-- [ ] T032 Run the ten `quickstart.md` scenarios and record the outcome with the feature
-- [ ] T033 Record any plan-versus-delivered deviation (dependency, pin or path that changed) in
+- [x] T032 Run the ten `quickstart.md` scenarios and record the outcome with the feature
+- [x] T033 Record any plan-versus-delivered deviation (dependency, pin or path that changed) in
       `web/AGENTS.md` under the deviations section rather than weakening an assertion (constitution III)
 
 ---
@@ -418,3 +420,42 @@ one person, on the finished client.
   `web/src/api/transport.ts`.
 - The capture set is generated, never hand-edited: a capture that stops matching the models is a backend
   contract change and the suite is expected to go red on it.
+
+---
+
+## Completion Record
+
+Delivered on branch `main`, local commits only (not pushed):
+
+| Group                                             | Commit                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| Spec, plan, tasks and analysis                    | `docs(specs): spec the web API client (transport, models, failures)` |
+| Foundational transport, envelope, errors (T001–T007) | `feat(web): add the API transport seam, envelope decoder and error shapes` |
+| Models and path accessor (T010–T013)              | `feat(web): decode template and sheet payloads faithfully`          |
+| Six typed operations (T008, T009, T014)           | `feat(web): add the six typed API operations over the injected transport` |
+| Failure classification and copy (T015–T018)       | `feat(web): classify API failures into interface states`            |
+| Base address as configuration (T019–T021)         | `feat(web): resolve the API base address from build configuration`  |
+| Bounded attempts (T022, T023)                     | `feat(web): bound API attempts with a timeout and a safe read retry` |
+| Pinned captures and drift suite (T024–T027)       | `test(web): pin the API contract to real backend captures`          |
+| Live contract suite (T028)                        | `test(web): validate the live contract when a backend is configured` |
+| Credential hygiene, docs, gates (T029–T033)       | this commit                                                         |
+
+Gate evidence at close:
+
+- `make lint-specs` clean — 39 self-tests, 465 spec IDs (39 `API-*`), 20 decision IDs, 141
+  changed files; every `API-*` citation in the delivered web sources resolves to `spec.md`.
+- From `web/` — `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`
+  (24 suites, 179 passed, 5 skipped) and `npm run build` (emits `dist/sw.js`) all pass with
+  the API and MongoDB stopped.
+- The pinned suite (`api_contract_captures.test.ts`) runs with no backend; the live suite
+  (`api_live_contract.test.ts`) skips without `API_BASE_URL` and, run against the local
+  stack (`make dev-db`, `go run ./cmd/api.go`), passed all seven cases (the four real flows
+  plus the two gating cases); pointed at an unreachable address it fails rather than
+  skipping (API-38, API-39).
+- Captures were produced by `web/src/api/fixtures/capture.sh` against the local stack
+  (14 files) and are never hand-edited (API-35).
+
+Recorded deviations are listed in `web/AGENTS.md` under "Delivered deviations from the
+feature task lists" → F2 (`web-api-client`): no MSW, no app-level client wiring yet (the
+reworded T021), the shared `src/api/parse.ts` helper, the INTERNAL_ERROR capture taken
+from an unmatched route, and the live suite's mechanism cases.

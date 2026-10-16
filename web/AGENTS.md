@@ -99,6 +99,28 @@ Every `color` foreground token declares its pair in `src/theme/tokens.ts`
 - All identifiers, comments, and user-facing strings in **English** (UI strings go
   through `src/l10n/`).
 
+## API client (`src/api/`)
+
+The typed network layer every screen mounts on. Its rules are non-negotiable.
+
+- **One transport seam.** Every request goes through the transport injected at
+  construction; no operation builds its own, and the transport is the single place a
+  credential will ever be attached. Requests carry `credentials: 'omit'` — no ambient
+  credential is attached implicitly, in any environment.
+- **No logging.** The module contains no `console.*` call and imports no logger; a request
+  body, a credential and an identifier-bearing URL never reach a log. A source scan
+  (`src/test/api_no_logging.test.ts`) enforces this.
+- **No user-facing literal.** Every message a person sees resolves through
+  `src/l10n/strings.ts`; the API module emits codes and failure kinds, never copy.
+- **Failures are classified, drift is distinct.** A refusal becomes a `DomainFailure` with
+  a `FailureKind`; an unreadable response stays a `DefensiveParseFailure`; a malformed
+  dotted path raises a `PathFailure`; an unusable base address raises a
+  `ConfigurationFailure` at construction. A new backend code must be given a kind in
+  `error_mapper.ts` — the mapping table is total over the codes the backend emits.
+- **Captures are never hand-edited.** `src/api/fixtures/` holds real responses written
+  verbatim by `capture.sh`; a capture that stops matching the models is a backend contract
+  change and the pinned suite is expected to go red on it.
+
 ## Componentization
 
 - Extract a shared component only when all hold: **≥ 3 real usages**, same shape and
@@ -114,10 +136,12 @@ Every `color` foreground token declares its pair in `src/theme/tokens.ts`
   plus plain CSS are sufficient.
 - If a dependency is ever unavoidable, justify it in the PR description.
 
-## Delivered deviations from the F1 task list
+## Delivered deviations from the feature task lists
 
 Recorded here instead of weakening an assertion (constitution III) or silently
 dropping a task.
+
+### F1 — `web-pwa-foundation`
 
 - **No `src/app/providers.tsx`** (T019). V1 has no provider layer: the shell wraps the
   route table directly in `src/app/router.tsx`. The module lands with the first feature
@@ -129,3 +153,24 @@ dropping a task.
   ESLint 9.39.5, because `typescript-eslint`, `eslint-plugin-react`, and
   `eslint-plugin-jsx-a11y` do not yet support TypeScript 6 / ESLint 10. See the
   "Toolchain version note" in `web/README.md`.
+
+### F2 — `web-api-client`
+
+- **No MSW** (the program plan's stack table named it). The injected transport satisfies
+  API-07 and makes the retry count and the `credentials: 'omit'` posture directly
+  assertable, so no network-interception dependency was added. Recorded in the plan as a
+  deliberate deferral.
+- **No app-level client wiring yet** (T021, reworded). No screen constructs the client in
+  this feature, so `resolveApiConfig` is documented in `web/README.md` as the single
+  source of the base address rather than wired into an app entry point; the first feature
+  that constructs the client consumes it. The insecure state is reported on the resolved
+  configuration, not rendered.
+- **A shared decoding helper, `src/api/parse.ts`**, is not named in the task list. It
+  holds the payload-narrowing helpers (`isPlainObject`, `drift`, `requireString`, …) that
+  the envelope and both models share, instead of duplicating them per module.
+- **The INTERNAL_ERROR capture comes from an unmatched route.** No consumed endpoint
+  deterministically returns 500, so `error_internal.json` is captured from `GET
+/no-such-route`, which surfaces through the global handler as
+  `{"code":"INTERNAL_ERROR"}` — a real response, never a hand-written stand-in.
+- **The live suite's two mechanism cases assert the gate predicate**, not a real skip;
+  the API-38 flow cases run only against a configured backend (`API_BASE_URL`).

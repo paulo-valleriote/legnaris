@@ -4,10 +4,11 @@ The product client: an installable React + Vite + TypeScript Progressive Web App
 replaces the deprecated Flutter desktop app. It renders a token-driven application
 shell and, in later features, the catalog, the sheet cycle, and authentication.
 
-Program plan: [`docs/plan-web-pwa.md`](../docs/plan-web-pwa.md). Feature spec, design and
-validation guide: [`.specs/features/001-web-pwa-foundation/`](../.specs/features/001-web-pwa-foundation/)
-(see `quickstart.md` for the runnable validation scenarios). Visual rules:
-[`AGENTS.md`](./AGENTS.md).
+Program plan: [`docs/plan-web-pwa.md`](../docs/plan-web-pwa.md). Feature specs, design and
+validation guides: [`.specs/features/001-web-pwa-foundation/`](../.specs/features/001-web-pwa-foundation/)
+(the shell) and [`.specs/features/002-web-api-client/`](../.specs/features/002-web-api-client/)
+(the typed API client) — each `quickstart.md` holds the runnable validation scenarios. Visual
+rules: [`AGENTS.md`](./AGENTS.md).
 
 ## Prerequisites
 
@@ -41,6 +42,43 @@ make lint-web     # format-check + lint + type-check
 make test-web     # Vitest
 make sec-scan     # npm audit + signatures + lockfile-lint (+ gitleaks when installed)
 ```
+
+## API client (`src/api/`)
+
+The typed network layer every screen mounts on: six named operations (health, template
+catalog, template detail, sheet creation, sheet retrieval, sheet update), one envelope
+decoder, contract-faithful template/sheet models, a failure-kind mapper, and a pure base
+address resolver. It holds no state and touches no browser global outside the transport
+adapter.
+
+```bash
+cd web
+npm test                                  # unit + pinned captures; no backend needed
+API_BASE_URL=http://localhost:8080 npm test # also runs the live contract suite
+```
+
+- **Suites.** `api_*.test.ts` cover the transport seam, the envelope, the models, the
+  client, the failure states, retry/timeout, the pinned captures and credential hygiene.
+  The pinned suite (`api_contract_captures.test.ts`) runs against real captured responses
+  and needs no backend; the live suite (`api_live_contract.test.ts`) runs only when
+  `API_BASE_URL` is set and otherwise reports as skipped.
+- **Pinned captures.** `src/api/fixtures/` holds real responses from the local stack; see
+  its [`README.md`](./src/api/fixtures/README.md) for the inventory and the reproduction
+  commands. Regenerate them with the running stack:
+
+  ```bash
+  make dev-db                            # MongoDB
+  go run ./cmd/api.go                    # the API on :8080 (needs DATABASE_URI, JWT_SECRET)
+  bash web/src/api/fixtures/capture.sh   # writes src/api/fixtures/*.json verbatim
+  ```
+
+  A capture is never hand-edited to make a test pass; a shape change is a backend contract
+  change and the suite is expected to go red on it.
+
+- **Base address.** `resolveApiConfig` reads the Vite build variable `VITE_API_BASE_URL`
+  (default `https://api.legnaris.com.br`); an empty value falls back to the default, and a
+  non-`http(s)` value fails at construction. `http://` is accepted only as an explicit
+  build choice and is reported as `secure: false` on the resolved configuration.
 
 ## Toolchain version note
 
