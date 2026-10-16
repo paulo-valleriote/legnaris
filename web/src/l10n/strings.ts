@@ -16,6 +16,23 @@ export const messages = {
   'api.error.offline': 'No connection to the server.',
   'api.error.unknown': 'Something went wrong. Try again.',
   'api.error.parse': 'The server response could not be read.',
+
+  'nav.catalog': 'Catalog',
+
+  'catalog.title': 'Templates',
+  'catalog.loading': 'Loading templates',
+  'catalog.empty': 'No templates are available.',
+  'catalog.retry': 'Retry',
+  'catalog.openHint': 'Open this template',
+
+  'sheet.dialogTitle': 'New sheet',
+  'sheet.nameLabel': 'Sheet name',
+  'sheet.namePlaceholder': 'Example: Aragorn, Ranger of the North',
+  'sheet.nameRequired': 'A sheet name is required.',
+  'sheet.create': 'Create sheet',
+  'sheet.close': 'Close',
+  'sheet.loading': 'Loading template',
+  'sheet.retry': 'Try again',
 } as const;
 
 /** A key of the English catalog. */

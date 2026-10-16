@@ -4,6 +4,24 @@ import type { MessageKey } from '../l10n/strings';
 
 const keys = Object.keys(messages) as MessageKey[];
 
+/** The catalog and creation-surface copy F3 introduces (WCT-26, WCT-29). */
+const catalogFeatureKeys: readonly MessageKey[] = [
+  'nav.catalog',
+  'catalog.title',
+  'catalog.loading',
+  'catalog.empty',
+  'catalog.retry',
+  'catalog.openHint',
+  'sheet.dialogTitle',
+  'sheet.nameLabel',
+  'sheet.namePlaceholder',
+  'sheet.nameRequired',
+  'sheet.create',
+  'sheet.close',
+  'sheet.loading',
+  'sheet.retry',
+];
+
 describe('translation catalog', () => {
   it('Edge: the catalog is not empty', () => {
     expect(keys.length).toBeGreaterThan(0);
@@ -39,5 +57,21 @@ describe('translation catalog', () => {
         'api.error.parse',
       ]),
     );
+  });
+
+  it('Happy path: every catalog and sheet copy key resolves to non-empty copy (WCT-26, WCT-29)', () => {
+    for (const key of catalogFeatureKeys) {
+      expect(messages[key]).toBeDefined();
+      expect(message(key).trim()).not.toBe('');
+    }
+  });
+
+  it('Edge: the catalog and sheet copy keys own distinct copy, so none is a silent duplicate (WCT-26)', () => {
+    const seen = new Map<string, MessageKey>();
+    for (const key of catalogFeatureKeys) {
+      const text = messages[key];
+      expect(seen.has(text)).toBe(false);
+      seen.set(text, key);
+    }
   });
 });
