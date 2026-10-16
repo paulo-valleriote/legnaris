@@ -28,6 +28,14 @@ const catalogFeatureKeys: readonly MessageKey[] = [
   'sheet.retry',
 ];
 
+/** The widget-level copy the UI engine renders (ENG-27, SC-003). */
+const engineFeatureKeys: readonly MessageKey[] = [
+  'engine.calculated',
+  'engine.none',
+  'engine.modified',
+  'engine.recalculated',
+];
+
 describe('translation catalog', () => {
   it('Edge: the catalog is not empty', () => {
     expect(keys.length).toBeGreaterThan(0);
@@ -75,6 +83,22 @@ describe('translation catalog', () => {
   it('Edge: the catalog and sheet copy keys own distinct copy, so none is a silent duplicate (WCT-26)', () => {
     const seen = new Map<string, MessageKey>();
     for (const key of catalogFeatureKeys) {
+      const text = messages[key];
+      expect(seen.has(text)).toBe(false);
+      seen.set(text, key);
+    }
+  });
+
+  it('Happy path: every engine copy key resolves to non-empty copy (ENG-27, SC-003)', () => {
+    for (const key of engineFeatureKeys) {
+      expect(messages[key]).toBeDefined();
+      expect(message(key).trim()).not.toBe('');
+    }
+  });
+
+  it('Edge: the engine copy keys own distinct copy, so none is a silent duplicate (ENG-27)', () => {
+    const seen = new Map<string, MessageKey>();
+    for (const key of engineFeatureKeys) {
       const text = messages[key];
       expect(seen.has(text)).toBe(false);
       seen.set(text, key);

@@ -1,0 +1,137 @@
+/**
+ * Styles for the schema-driven UI engine. Every visual value comes from the
+ * shared design tokens; no literal color or pixel value appears here (ENG-28).
+ */
+
+.lg-engine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-24);
+}
+
+.lg-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+}
+
+.lg-section__title {
+  margin: 0;
+  padding-bottom: var(--lg-space-4);
+  border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-strong);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-8);
+  min-height: var(--lg-size-row);
+}
+
+.lg-field-row__label {
+  flex: 2 1 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--lg-space-4);
+  font-size: var(--lg-type-15);
+}
+
+.lg-field-row__control {
+  flex: 3 1 0;
+  display: flex;
+  align-items: center;
+}
+
+.lg-field-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.lg-field-table__header,
+.lg-field-table__row {
+  display: flex;
+  align-items: center;
+  min-height: var(--lg-size-row);
+}
+
+.lg-field-table__header {
+  font-size: var(--lg-type-12);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-field-table__lead {
+  flex: 2 1 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--lg-space-4);
+  font-size: var(--lg-type-15);
+}
+
+.lg-field-table__cell {
+  flex: 3 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: var(--lg-space-8);
+}
+
+.lg-field-table__cell--number {
+  justify-content: flex-end;
+}
+
+.lg-field {
+  min-height: var(--lg-size-control);
+  width: 100%;
+  padding: 0 var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-2);
+  background-color: var(--lg-color-bg);
+  color: var(--lg-color-text);
+  font-family: var(--lg-font-family);
+  font-size: var(--lg-type-15);
+  text-align: left;
+}
+
+.lg-field:hover:enabled {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-field:disabled {
+  color: var(--lg-color-text-muted);
+  cursor: not-allowed;
+}
+
+.lg-field--numeric {
+  text-align: right;
+}
+
+.lg-field--toggle {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--lg-space-4);
+}
+
+.lg-field--marked {
+  background-color: var(--lg-color-surface);
+}
+
+.lg-field__readonly {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lg-space-8);
+  min-height: var(--lg-size-control);
+  padding: 0 var(--lg-space-8);
+  border-radius: var(--lg-radius-2);
+  font-size: var(--lg-type-15);
+}
+
+.lg-field__calculated,
+.lg-field__mark {
+  font-size: var(--lg-type-12);
+  color: var(--lg-color-text-muted);
+}

@@ -33,6 +33,11 @@ export const messages = {
   'sheet.close': 'Close',
   'sheet.loading': 'Loading template',
   'sheet.retry': 'Try again',
+
+  'engine.calculated': 'Calculated',
+  'engine.none': 'None',
+  'engine.modified': 'Modified',
+  'engine.recalculated': 'Recalculated',
 } as const;
 
 /** A key of the English catalog. */
