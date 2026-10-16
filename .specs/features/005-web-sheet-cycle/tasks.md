@@ -46,12 +46,12 @@ it extends. The backend is not touched; `api/client.ts` gains only the preview o
 
 **Purpose**: the two dependencies and the copy keys every story consumes.
 
-- [ ] T001 [P] Add the two dependencies to `web/package.json`: `idb` 7.1.1 as a direct **runtime**
+- [X] T001 [P] Add the two dependencies to `web/package.json`: `idb` 7.1.1 as a direct **runtime**
       dependency (the program plan's IndexedDB wrapper, research R5 — already resolved transitively
       through `workbox-expiration`, so only a direct declaration is added) and `fake-indexeddb` as a
       **dev-only** dependency (jsdom ships no IndexedDB; it never enters the runtime bundle). No state
       library is added (research R2)
-- [ ] T002 [P] Extend the translation catalog `web/src/l10n/strings.ts` with the sheet-cycle keys from
+- [X] T002 [P] Extend the translation catalog `web/src/l10n/strings.ts` with the sheet-cycle keys from
       `data-model.md` `MessageKey additions` — `sheet.headerTitle`, `sheet.openLoading`,
       `sheet.templateLoading`, `sheet.emptyFields`, `sheet.missing`, `sheet.retryOpen`,
       `sheet.pendingEdits`, `sheet.save`, `sheet.saving`, `sheet.saved`, `sheet.preview`,
@@ -75,7 +75,7 @@ story can be proven without it.
 
 ### Tests for the foundation ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T003 [P] Store test `web/src/test/library_store.test.ts` (WSC-11, WSC-26, WSC-27, WSC-29, WSC-30,
+- [X] T003 [P] Store test `web/src/test/library_store.test.ts` (WSC-11, WSC-26, WSC-27, WSC-29, WSC-30,
       WSC-31), edge cases first: `readSheet`/`readDraft` return `null` for a missing key, a malformed
       record, an unsupported `schemaVersion` and a foreign `id`, and none throws; `deleteSheet`/
       `deleteDraft` on a missing key resolve without throwing; a `putSheet`→`readSheet` round-trip yields
@@ -85,18 +85,18 @@ story can be proven without it.
 
 ### Implementation for the foundation
 
-- [ ] T004 Implement `web/src/library/sheet_store.ts` per `contracts/sheet-store.contract.md`: the
+- [X] T004 Implement `web/src/library/sheet_store.ts` per `contracts/sheet-store.contract.md`: the
       `SheetStore` port (`readSheet`/`putSheet`/`deleteSheet`/`readDraft`/`writeDraft`/`deleteDraft`), the
       shared `SCHEMA_VERSION = 1` versioned envelopes (`{ schemaVersion, id, sheet }` and
       `{ schemaVersion, id, delta }`), the total rule that a missing/corrupt/unsupported-version/foreign
       record reads as `null` without raising, and `createMemorySheetStore()` (a `Map`-backed double every
       logic and screen suite injects); no operation writes a credential (WSC-11, WSC-26, WSC-27, WSC-29,
       WSC-30, WSC-31)
-- [ ] T005 Implement `web/src/library/idb_sheet_store.ts` per `contracts/sheet-store.contract.md`:
+- [X] T005 Implement `web/src/library/idb_sheet_store.ts` per `contracts/sheet-store.contract.md`:
       `createIdbSheetStore(factory?)` opening one database with the `sheets` and `drafts` object stores
       and the same versioned-envelope rules — the only module in the feature that imports `idb` (research
       R5, WSC-11, WSC-30)
-- [ ] T006 Extend `web/src/app/providers.tsx` to build a `SheetStore` (the `idb` adapter by default,
+- [X] T006 Extend `web/src/app/providers.tsx` to build a `SheetStore` (the `idb` adapter by default,
       injectable) and expose it through a `useSheetStore()` context, and extend
       `web/src/test/render.tsx` to mount a fresh in-memory `SheetStore` double per test (WSC-11).
       *Depends on T004, T005.*
@@ -120,7 +120,7 @@ confirm the four distinct screen states and the local eviction on the missing ca
 
 ### Tests for User Story 1 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T007 [P] [US1] Open-situation test `web/src/test/sheet_open.test.tsx` (WSC-05…WSC-11), edge cases
+- [X] T007 [P] [US1] Open-situation test `web/src/test/sheet_open.test.tsx` (WSC-05…WSC-11), edge cases
       first: a slow response shows `sheet.openLoading` until it settles and the open issues exactly one
       `GET /sheets/:id`; a `NOT_FOUND` shows `sheet.missing` with **no** Retry, calls the store's
       `deleteSheet` and `deleteDraft`, and a throwing `deleteSheet` still shows the message; any other
@@ -129,7 +129,7 @@ confirm the four distinct screen states and the local eviction on the missing ca
       shows `sheet.emptyFields`; a direct navigation of `/sheets/:id` resolves the same screen as a client
       navigation (WSC-10); after a successful open the store holds the sheet under `schemaVersion 1` and
       no credential (WSC-11)
-- [ ] T008 [P] [US1] Creation-flow test `web/src/test/create_sheet_flow.test.tsx` (WSC-01…WSC-04), edge
+- [X] T008 [P] [US1] Creation-flow test `web/src/test/create_sheet_flow.test.tsx` (WSC-01…WSC-04), edge
       cases first: a whitespace-only name keeps the primary action disabled and issues zero requests;
       while the request is in flight the action is disabled, the surface shows progress, and a repeat
       activation issues no second request; a failure keeps the surface open with the typed name intact and
@@ -137,7 +137,7 @@ confirm the four distinct screen states and the local eviction on the missing ca
       issues exactly one `POST /sheets` carrying the template id and the name, and on success the flow
       navigates to `/sheets/:id` and the screen renders the created sheet with **zero** `GET /sheets/:id`
       because the cache was seeded
-- [ ] T009 [P] [US1] Screen-state test `web/src/test/sheet_screen_states.test.tsx` (WSC-08, WSC-10, SC-001):
+- [X] T009 [P] [US1] Screen-state test `web/src/test/sheet_screen_states.test.tsx` (WSC-08, WSC-10, SC-001):
       the loaded screen shows the sheet's name (`sheet.headerTitle`) and renders the template's field tree
       through the F4 `SheetForm` (a synthetic template exercising several field types), the loading and
       template-loading lines resolve through the catalog (no literal), and a deep link renders the same
@@ -145,32 +145,32 @@ confirm the four distinct screen states and the local eviction on the missing ca
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implement `web/src/sheet/sheet_open.ts` per `contracts/sheet-open.contract.md`:
+- [X] T010 [US1] Implement `web/src/sheet/sheet_open.ts` per `contracts/sheet-open.contract.md`:
       `useSheetOpen(sheetId)` returning the `SheetOpenResult` union (`loading` / `loaded` / `notFound` /
       `failure` / `templateLoading` / `templateFailure`), issuing exactly one `GET /sheets/:id` then one
       `GET /templates/:id`, returning `loaded` from a fresh seeded `['sheet', id]` without a second `GET`
       (WSC-02), evicting the sheet **and** its draft best-effort on `NOT_FOUND` (a failing eviction never
       hides the message, WSC-06), and taking the retryable path for an undecodable payload (WSC-07); export
       `SHEET_QUERY_KEY` (WSC-05…WSC-11)
-- [ ] T011 [US1] Implement `web/src/library/sheet_library.ts` per `contracts/sheet-store.contract.md`: the
+- [X] T011 [US1] Implement `web/src/library/sheet_library.ts` per `contracts/sheet-store.contract.md`: the
       cache read/write/evict helpers on top of the `SheetStore` port — `cacheSheet(store, sheet)` writing
       the loaded/created sheet by id under the versioned envelope (WSC-11), `readCachedSheet(store, id)`,
       and `evictSheet(store, id)` deleting the sheet and its draft best-effort (WSC-06, WSC-29); no
       credential is ever stored (WSC-31). *Depends on T004.*
-- [ ] T012 [US1] Extend `web/src/catalog/queries.ts` with the sheet query key and the create-seed seam:
+- [X] T012 [US1] Extend `web/src/catalog/queries.ts` with the sheet query key and the create-seed seam:
       `sheetKey(id)` = `['sheet', id]` and a helper that seeds that key with the `POST /sheets` `201`
       payload and marks it fresh, so the screen renders the created sheet without a second fetch (WSC-02,
       WSC-34)
-- [ ] T013 [US1] Wire the creation surface `web/src/catalog/create_sheet_dialog.tsx` per
+- [X] T013 [US1] Wire the creation surface `web/src/catalog/create_sheet_dialog.tsx` per
       `contracts/sheet-open.contract.md` and research R9: the primary action calls
       `client.createSheet({ templateId, sheetName })`, is disabled and shows progress while in flight
       (WSC-03), keeps the typed name and shows the mapped message inline on failure (WSC-04), and on
       success seeds `['sheet', id]` (T012) then navigates to `/sheets/:id` via `useNavigate` (WSC-01,
       WSC-02)
-- [ ] T014 [US1] Declare the sheet route in `web/src/app/routes.ts` (`/sheets/:id`, `audience: 'public'`,
+- [X] T014 [US1] Declare the sheet route in `web/src/app/routes.ts` (`/sheets/:id`, `audience: 'public'`,
       `deepLink: true`) and map it to `SheetScreen` in `web/src/app/router.tsx`, so the screen is
       enumerable and reachable by direct navigation (WSC-10, research R9/R10)
-- [ ] T015 [US1] Implement `web/src/sheet/sheet_screen.tsx` and `web/src/sheet/sheet.css` per
+- [X] T015 [US1] Implement `web/src/sheet/sheet_screen.tsx` and `web/src/sheet/sheet.css` per
       `contracts/sheet-open.contract.md`: read the `:id` route parameter, call `useSheetOpen`, and render
       the six situations (loading `sheet.openLoading`, loaded, `notFound` `sheet.missing` with no Retry
       action, retryable `failure` with a Retry, `templateLoading`, `templateFailure` with a Retry) — the
@@ -198,7 +198,7 @@ the edits and the mapped message both survive.
 
 ### Tests for User Story 2 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T016 [P] [US2] Edit-store test `web/src/test/sheet_edit.test.ts` (WSC-12…WSC-19, WSC-34), edge cases
+- [X] T016 [P] [US2] Edit-store test `web/src/test/sheet_edit.test.ts` (WSC-12…WSC-19, WSC-34), edge cases
       first: a redundant write (same value) advances no `revision`; an edit back to its seeded value
       un-pends and leaves `pendingDelta` empty; a derived (non-editable) path never enters the delta; an
       unchanged sibling of a changed nested group never enters the delta; a high-precision decimal is sent
@@ -209,14 +209,14 @@ the edits and the mapped message both survive.
       succeeds; then the happy paths — `setPath` records the path and produces a fresh `data` tree, the save
       sends the exact nested delta, and on success merges the returned cascade and advances `defaults` to
       `mergeCascade(mergeCascade(defaults, delta), cascade)` so the sent edits un-pend
-- [ ] T017 [US2] Footer/Save rendering cases added to `web/src/test/sheet_screen_states.test.tsx`
+- [X] T017 [US2] Footer/Save rendering cases added to `web/src/test/sheet_screen_states.test.tsx`
       (WSC-12, WSC-14, WSC-16, WSC-17): the footer shows `sheet.pendingEdits` only while pending, Save is
       disabled while clean or in flight and shows `sheet.saving`/`sheet.saved` feedback, the mapped save
       failure renders inline, and no user-facing literal is authored in the screen
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] Implement `web/src/sheet/sheet_edit.ts` per `contracts/sheet-edit.contract.md`:
+- [X] T018 [US2] Implement `web/src/sheet/sheet_edit.ts` per `contracts/sheet-edit.contract.md`:
       `createSheetEditStore(seed, deps)` with `getState`, `subscribe`, `subscribePath`, `setPath`,
       `setExclusive` and `save()` — the `editedPaths` set with `isPending` true only while a path differs
       from the reference (WSC-12, WSC-13), copy-on-write `data` (never an in-place mutation), `pendingDelta`
@@ -224,13 +224,13 @@ the edits and the mapped message both survive.
       with the delta on `canSave` only (WSC-18, WSC-19), the success merge + baseline advance (WSC-16) and
       the failure keeping edits + mapped `saveError` with no auto-retry (WSC-17); reuse `seedFromSheet`,
       `mergeCascade` and `setPathValue` from F4 (WSC-34)
-- [ ] T019 [US2] Switch `web/src/sheet/sheet_screen.tsx` to the F4 builder seams per
+- [X] T019 [US2] Switch `web/src/sheet/sheet_screen.tsx` to the F4 builder seams per
       `contracts/sheet-edit.contract.md`: build the edit store from `seedFromSheet(template, sheet)`, wire
       `controlBuilder`/`exclusiveControlBuilder` to the per-path subscription + `setPath`/`setExclusive`
       (research R2, the web expression of `AD-001`), and render the footer (dirty indicator + Save action
       with its in-flight/success feedback and the inline mapped save error) (WSC-12, WSC-14, WSC-16,
       WSC-17). *Extends T015, T018.*
-- [ ] T020 [US2] Create `web/src/shell/shortcut_registry.ts` per `contracts/shortcut-registry.contract.md`:
+- [X] T020 [US2] Create `web/src/shell/shortcut_registry.ts` per `contracts/shortcut-registry.contract.md`:
       the `SHORTCUTS` action → key map, `matchShortcut(event)`, `dispatchShortcut(action)` and the
       `useSheetShortcuts({ onSave, onRefresh })` registration seam (handlers register on mount, unregister
       on unmount), and wire `Ctrl+S`/`Cmd+S` to the screen's save with the browser default prevented while a
@@ -255,7 +255,7 @@ survive.
 
 ### Tests for User Story 3 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T021 [P] [US3] Preview test `web/src/test/sheet_preview.test.tsx` (WSC-21…WSC-25, SC-009), edge
+- [X] T021 [P] [US3] Preview test `web/src/test/sheet_preview.test.tsx` (WSC-21…WSC-25, SC-009), edge
       cases first: Preview with an empty delta issues no request; a repeat preview with no new edit issues
       none; a failed preview keeps every edit, sets the mapped `previewError`, and leaves Preview
       available; an edit after a preview clears the marks and re-enables Preview; a marked row whose value
@@ -267,17 +267,17 @@ survive.
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] Extend the API client `web/src/api/client.ts` with `previewSheet(id, changeSet)`: one
+- [X] T022 [US3] Extend the API client `web/src/api/client.ts` with `previewSheet(id, changeSet)`: one
       `POST /sheets/:id/preview` carrying `{ data: changeSet }`, decoding the returned cascade as a
       `Record<string, unknown>` exactly as `patchSheet` does, and add the operation to the `ApiClient`
       interface and its F2 contract test `web/src/test/api_client.test.ts` (WSC-21, WSC-34)
-- [ ] T023 [US3] Add `preview()` to `web/src/sheet/sheet_edit.ts` per `contracts/sheet-edit.contract.md`:
+- [X] T023 [US3] Add `preview()` to `web/src/sheet/sheet_edit.ts` per `contracts/sheet-edit.contract.md`:
       the `canPreview` gate (pending, a new `revision` since `previewedRevision`, not busy, window free),
       one preview request, the cascade merged into `data` without advancing `defaults`, `previewedRevision`
       recorded and `previewMarks` set on success, the marks cleared on any data-changing edit, and the
       failure keeping edits + mapped `previewError` with Preview still available (WSC-21…WSC-25). *Extends
       T018.*
-- [ ] T024 [US3] Wire Preview into `web/src/sheet/sheet_screen.tsx`: a Preview action beside Save
+- [X] T024 [US3] Wire Preview into `web/src/sheet/sheet_screen.tsx`: a Preview action beside Save
       (`sheet.preview`/`sheet.previewing`, disabled while clean, without a new edit, or busy), the inline
       mapped `previewError`, and a `rowMarkBuilder` feeding `previewMarks` into the F4 engine so the marks
       tint and label their rows (WSC-21, WSC-23, WSC-25, SC-009). *Extends T019.*
@@ -301,7 +301,7 @@ once it frees.
 
 ### Tests for User Story 4 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T025 [P] [US4] Guards/throttle test `web/src/test/sheet_guards.test.tsx` (WSC-20, WSC-36, WSC-37,
+- [X] T025 [P] [US4] Guards/throttle test `web/src/test/sheet_guards.test.tsx` (WSC-20, WSC-36, WSC-37,
       WSC-38, SC-011), edge cases first: `Ctrl+S` with no sheet mounted runs nothing; `F5` while a preview
       or save is in flight shows no confirmation and issues no request; a second refresh or leave
       activation while a confirmation is open is ignored; a fourth Save (and Preview) inside the rolling
@@ -314,18 +314,18 @@ once it frees.
 
 ### Implementation for User Story 4
 
-- [ ] T026 [US4] Add the `RollingWindow` throttle to `web/src/sheet/sheet_edit.ts` per
+- [X] T026 [US4] Add the `RollingWindow` throttle to `web/src/sheet/sheet_edit.ts` per
       `contracts/sheet-edit.contract.md` and `data-model.md` `RollingWindow`: a pure, injectable-clock helper
       (`record(now)`, `isBlocked(now)`, `nextFreeAt(now)`; `max 3`, `windowMs 60000`) held as the store's
       `saveWindow`/`previewWindow`, and wire `!isBlocked` into `canSave`/`canPreview` without replacing the
       in-flight no-op rules (WSC-38, SC-011, research R7). *Extends T018, T023.*
-- [ ] T027 [US4] Extend `web/src/shell/shortcut_registry.ts` and `web/src/sheet/sheet_screen.tsx` with the
+- [X] T027 [US4] Extend `web/src/shell/shortcut_registry.ts` and `web/src/sheet/sheet_screen.tsx` with the
       `F5` refresh per `contracts/shortcut-registry.contract.md`: while a sheet screen is mounted, `F5`
       re-fetches that sheet's template detail exactly once; with pending edits it confirms a discard first
       (cancel, `Esc` and the barrier keep the edits and issue no request; confirm discards the in-memory
       edits, deletes the draft and re-fetches) and it is a no-op while a preview or save is in flight and
       with no sheet screen mounted (the browser default is not prevented then) (WSC-36)
-- [ ] T028 [US4] Implement the leave guard in `web/src/sheet/sheet_screen.tsx`: leaving the screen with
+- [X] T028 [US4] Implement the leave guard in `web/src/sheet/sheet_screen.tsx`: leaving the screen with
       pending edits (a link, the nav, the browser back) confirms a discard first (confirm discards the
       in-memory edits and deletes the draft, cancel stays), a clean sheet leaves without a dialog, and an
       in-flight preview or save makes leaving a no-op; both guards are accessible dialogs (role, modal,
@@ -354,7 +354,7 @@ assert the sheet seeds cleanly instead of throwing.
 
 ### Tests for User Story 5 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T029 [P] [US5] Draft test `web/src/test/draft_backup.test.ts` (WSC-26…WSC-31, SC-004, SC-005), edge
+- [X] T029 [P] [US5] Draft test `web/src/test/draft_backup.test.ts` (WSC-26…WSC-31, SC-004, SC-005), edge
       cases first: a clean sheet's tick writes nothing; a tick with an empty delta writes nothing; a write
       failure is swallowed and the cadence keeps running; stopping the cadence stops the writes; a corrupt,
       unsupported-version or foreign draft is ignored so the sheet seeds cleanly and nothing throws; a draft
@@ -366,17 +366,17 @@ assert the sheet seeds cleanly instead of throwing.
 
 ### Implementation for User Story 5
 
-- [ ] T030 [US5] Implement `web/src/library/draft_backup.ts` per `contracts/sheet-store.contract.md`:
+- [X] T030 [US5] Implement `web/src/library/draft_backup.ts` per `contracts/sheet-store.contract.md`:
       `startDraftCadence(store, getDelta, scheduler)` — an injectable scheduler ticking once per 60 seconds
       while the sheet is pending and the delta is non-empty, writing the delta through the port, swallowing a
       write failure, and returning a stop function that clears the schedule; a no-op while the sheet is clean
       (WSC-26, WSC-27, research R6, `AD-008`)
-- [ ] T031 [US5] Extend `web/src/sheet/sheet_edit.ts` seed and lifecycle per `contracts/sheet-edit.contract.md`:
+- [X] T031 [US5] Extend `web/src/sheet/sheet_edit.ts` seed and lifecycle per `contracts/sheet-edit.contract.md`:
       overlay the stored draft on `seedFromSheet(template, sheet)`, applying **only** keys that are editable
       leaves of the loaded template and marking those restored paths pending (clearing `previewMarks` and
       leaving `defaults` the stored baseline), and delete the sheet's draft on save success (WSC-28, WSC-29,
       WSC-34). *Extends T018.*
-- [ ] T032 [US5] Wire the cadence into `web/src/sheet/sheet_screen.tsx`: start `startDraftCadence` on mount
+- [X] T032 [US5] Wire the cadence into `web/src/sheet/sheet_screen.tsx`: start `startDraftCadence` on mount
       with the store's `pendingDelta`, stop it on unmount, and delete the draft on a confirmed discard
       (WSC-26, WSC-29). *Extends T019, T028.*
 
@@ -402,15 +402,15 @@ editable delta, never a derived value or credential.
 - [X] T036 [P] Add the markup-safety case to `web/src/test/sheet_screen_states.test.tsx` (WSC-35, SC-007): a
       sheet name and a field value of `"<script>"` render as literal text and produce 0 `script` nodes, and
       the feature's sources contain no DOM-injection sink
-- [ ] T037 [P] Update `web/AGENTS.md` (the new `sheet/` and `library/` modules, the `idb` direct runtime
+- [X] T037 [P] Update `web/AGENTS.md` (the new `sheet/` and `library/` modules, the `idb` direct runtime
       dependency and the `fake-indexeddb` dev-only double, the no-state-library deviation R2, the `F5`
       template-refresh behavior, and the single shortcut registry) and `web/README.md` (how to run the sheet
       suites and the accessibility case)
-- [ ] T038 Run the full gate set from `web/` (`npm run format:check`, `npm run lint`, `npm run typecheck`,
+- [X] T038 Run the full gate set from `web/` (`npm run format:check`, `npm run lint`, `npm run typecheck`,
       `npm test`, `npm run build`, `npm run test:e2e`) and `make lint-specs` from the repo root, and confirm
       every `WSC-*` citation in the delivered sources resolves to `spec.md`
-- [ ] T039 Run the ten `quickstart.md` scenarios and record the per-scenario outcome with the feature
-- [ ] T040 Record any plan-versus-delivered deviation in `web/AGENTS.md` under the deviations section — a
+- [X] T039 Run the ten `quickstart.md` scenarios and record the per-scenario outcome with the feature
+- [X] T040 Record any plan-versus-delivered deviation in `web/AGENTS.md` under the deviations section — a
       dependency, pin or path that changed — rather than weakening an assertion (constitution III)
 
 ---

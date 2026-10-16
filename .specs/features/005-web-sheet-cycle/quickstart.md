@@ -172,9 +172,26 @@ secret, SCA, SAST and lockfile gates stay green.
 | 9 | WSC-39 |
 | 10 | all `WSC-*` (lint) |
 
-## Validation status
+## Validation outcome (2026-10-16)
 
-Implementation is deferred to the tasks step of this cycle (this cycle produces the spec, clarify, plan,
-tasks and analysis artifacts only). The scenarios above are the acceptance guide the implementing
-commits must satisfy; their per-scenario outcome table is appended when the implementation lands, as
-F3's and F4's quickstarts record.
+Run in the delivered tree with the API and MongoDB stopped; every scenario passed. The feature added no
+new runtime package: `idb` was already resolved in the lockfile (a direct declaration was added) and
+`fake-indexeddb` is a dev-only double, so the bundle and the security gates are unchanged.
+
+| Scenario | Result |
+|---|---|
+| 1 — suite runs with no backend | PASS — `npm test`: 46 files, 394 passed, 5 live-suite skips |
+| 2 — a sheet opens through every situation | PASS — `sheet_open.test.tsx` (11) |
+| 3 — created from the catalog, opened without a second fetch | PASS — `create_sheet_flow.test.tsx` (4) |
+| 4 — the delta discipline holds | PASS — `sheet_edit.test.ts` (18) |
+| 5 — dry-run previews and marks | PASS — `sheet_preview.test.tsx` (8) |
+| 6 — drafts survive a crash and restore | PASS — `draft_backup.test.ts` (11) |
+| 7 — guards and throttle protect work and server | PASS — `sheet_guards.test.tsx` (16) |
+| 8 — no copy or visual value authored | PASS — `l10n_strings.test.ts` + `tokens_used.test.tsx` (26) + `npm run lint` |
+| 9 — mounted surface has no critical a11y violation | PASS — `e2e/sheet.spec.ts` (3 axe cases: creation, mounted screen, leave dialog) |
+| 10 — the gates stay green | PASS — `format:check`, `lint`, `typecheck`, `npm test`, `npm run build`, `make lint-specs` |
+
+The browser-level case (9) mounts the real build through the F1 Playwright harness; the leave
+confirmation is exercised there as well, since it renders one surface-local `SheetConfirmation` on both
+the refresh and the leave paths. Per the recorded deviations, only in-app navigation is guarded (browser
+back is not interceptable without a data router), which no scenario above requires.

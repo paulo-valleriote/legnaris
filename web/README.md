@@ -2,13 +2,14 @@
 
 The product client: an installable React + Vite + TypeScript Progressive Web App that
 replaces the deprecated Flutter desktop app. It renders a token-driven application
-shell, the template catalog and its creation surface; the sheet cycle and
-authentication arrive in later features.
+shell, the template catalog and its creation surface, and the sheet cycle (open, edit,
+save, preview, guards and crash-safe drafts); authentication arrives in a later feature.
 
 Program plan: [`docs/plan-web-pwa.md`](../docs/plan-web-pwa.md). Feature specs, design and
 validation guides: [`.specs/features/001-web-pwa-foundation/`](../.specs/features/001-web-pwa-foundation/)
-(the shell) and [`.specs/features/002-web-api-client/`](../.specs/features/002-web-api-client/)
-(the typed API client) — each `quickstart.md` holds the runnable validation scenarios. Visual
+(the shell), [`.specs/features/002-web-api-client/`](../.specs/features/002-web-api-client/)
+(the typed API client) and [`.specs/features/005-web-sheet-cycle/`](../.specs/features/005-web-sheet-cycle/)
+(the sheet cycle) — each `quickstart.md` holds the runnable validation scenarios. Visual
 rules: [`AGENTS.md`](./AGENTS.md).
 
 ## Prerequisites
@@ -103,8 +104,8 @@ The root route renders the template catalog (`catalog_screen.tsx`), and activati
 entry opens the creation surface (`create_sheet_dialog.tsx`) as an overlay. Both read
 server state through TanStack Query hooks (`queries.ts`); `src/app/providers.tsx` builds
 the F2 client and the query client and provides them to the tree. The catalog loads once
-per app load and is cached in memory; the detail loads once per opening. Neither issues a
-mutation — creating the sheet is a later feature.
+per app load and is cached in memory; the detail loads once per opening. The creation
+surface issues one `POST /sheets` and seeds the created sheet before navigating to it.
 
 ```bash
 cd web
@@ -112,6 +113,32 @@ npm test                                              # catalog, surface and que
 npx vitest run src/test/catalog_screen.test.tsx       # the five render situations
 npx vitest run src/test/create_sheet_dialog.test.tsx  # surface states + name validation
 npm run test:e2e -- catalog.spec.ts                   # axe: zero critical violations
+```
+
+## Sheet cycle (`src/sheet/`, `src/library/`)
+
+The open/edit/preview/draft feature over one sheet, mounted at `/sheets/:id`.
+`sheet_open.ts` resolves the route id (one `GET /sheets/:id`, then one
+`GET /templates/:id`, reusing a seeded created sheet with no second fetch); `sheet_edit.ts`
+holds the in-memory edit store — pending delta, copy-on-write values, the save and preview
+lifecycle, the preview marks, two rolling throttle windows and the draft restore — exposed
+through `useSyncExternalStore`. `sheet_screen.tsx` mounts the F4 engine in builder mode with
+the sticky footer and the one guard modal. `src/library/` holds the `SheetStore` port, the
+`idb` adapter (the only module importing `idb`), the cache read/write/evict helpers and the
+injectable draft cadence. `src/shell/shortcut_registry.ts` binds `Ctrl+S`/`Cmd+S` (save) and
+`F5` (refresh the sheet's template behind a discard confirmation), and
+`src/shell/leave_guard.ts` asks before a navigation leaves unsaved work. No credential is
+ever written to local storage; the draft holds only the pending editable delta.
+
+```bash
+cd web
+npm test                                           # all sheet/library suites (sheet_*, library_*, draft_*)
+npx vitest run src/test/sheet_open.test.tsx        # the six open situations
+npx vitest run src/test/sheet_edit.test.ts         # delta, save, exclusive and baseline
+npx vitest run src/test/sheet_preview.test.tsx     # the dry-run and its marks
+npx vitest run src/test/sheet_guards.test.tsx      # F5, the leave confirmation and the throttle
+npx vitest run src/test/draft_backup.test.ts       # cadence, restore and lifecycle
+npm run test:e2e -- sheet.spec.ts                  # axe: zero critical violations on the surfaces
 ```
 
 ## UI engine (`src/engine/`)

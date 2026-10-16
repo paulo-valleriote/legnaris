@@ -150,6 +150,50 @@ The desktop's partial-token parsing and restore-on-blur are deliberately dropped
 **Mark tint.** A marked control reuses `--lg-color-surface` from `tokens.css`; no new
 token was added for the preview tint.
 
+## Sheet cycle (`src/sheet/`, `src/library/`)
+
+The open/edit/preview/draft feature over one sheet (feature `web-sheet-cycle`). It reuses
+the F2 client and the F4 engine and owns no wire model.
+
+- `src/sheet/sheet_open.ts` — the open situation for the `:id` route: one `GET /sheets/:id`
+  then one `GET /templates/:id`, a seeded fresh `['sheet', id]` rendered with no second
+  fetch, and a `NOT_FOUND` that evicts the sheet and its draft.
+- `src/sheet/sheet_edit.ts` — the in-memory edit store: `editedPaths`, the copy-on-write
+  `data`, the pending delta, the save/preview lifecycle, the preview marks, two rolling
+  throttle windows and the draft restore. It emits immutable snapshots for
+  `useSyncExternalStore` and binds no listener itself.
+- `src/sheet/sheet_screen.tsx` — the mounted screen: header, the F4 form in builder mode,
+  the sticky footer and the one guard modal.
+- `src/library/sheet_store.ts` — the `SheetStore` port, the versioned envelopes and the
+  in-memory double every suite injects; `idb_sheet_store.ts` is the only module importing
+  `idb`; `sheet_library.ts` and `draft_backup.ts` hold the cache helpers and the injectable
+  draft cadence.
+- `src/shell/shortcut_registry.ts` — the one action → key map (`Ctrl+S`/`Cmd+S` save, `F5`
+  refresh), with the mounted screen registering and unregistering its handlers;
+  `src/shell/leave_guard.ts` — the shell-level leave registry the navigation asks before it
+  leaves a surface with unsaved work.
+
+**One edit rebuilds one control.** A field control subscribes to its own dotted path
+(`store.subscribePath`) and reports edits back through the engine's `controlBuilder`/
+`exclusiveControlBuilder` seams; the screen subscribes only to the coarse signals it renders
+(footer, marks). This is the web expression of `AD-001`, obtained with
+`useSyncExternalStore` — no state library is added.
+
+**Delta, never a snapshot.** A save and a preview send only the pending editable delta,
+rebuilt through the engine's `setPathValue`; a save merges the returned cascade and advances
+the baseline, a preview merges it **without** advancing it and marks the changed and
+recalculated rows through the F4 `rowMarkBuilder`/`markLabel` seam.
+
+**Two guards, one modal.** `F5` refreshes the sheet's template detail and leaving the screen
+with pending edits asks to confirm first; both open the screen's single confirmation modal,
+so two guards never stack. The safe action carries focus, Escape and the overlay barrier
+cancel, and the destructive action is a real button — never a confirm-by-Enter default.
+
+**Best-effort local records.** A cache write, a draft write and every delete are swallowed on
+failure; no local record ever holds a credential, and the draft holds only the pending
+editable delta, restored over the stored values and filtered to the template's editable
+leaves.
+
 ## Componentization
 
 - Extract a shared component only when all hold: **≥ 3 real usages**, same shape and
@@ -265,3 +309,34 @@ dropping a task.
 - **The engine tests are flat in `src/test/`** with an `engine_*` prefix, matching the F1
   layout, and the token/copy scans (`tokens_used.test.tsx`, `l10n_strings.test.ts`) now
   cover `src/engine/`.
+
+### F5 — `web-sheet-cycle`
+
+- **No state library** (R2, `AD-001`). The plan's stack table named "Zustand + selectors (or
+  Jotai per-path)"; the per-path subscription is React's `useSyncExternalStore`, so no state
+  package was added. `idb` 7.1.1 is the feature's one new runtime dependency (already resolved
+  transitively through `workbox-expiration`), declared directly; `fake-indexeddb` 6.2.6 is
+  dev-only, because jsdom ships no IndexedDB.
+- **The store reads its draft through `restore()`, not a seed field.** The draft read is
+  asynchronous, so `createSheetEditStore` stays synchronous and `store.restore()` overlays the
+  stored draft after construction; this keeps `SheetOpenResult.loaded` unchanged (a seed-time
+  draft would have forced the draft into the open result).
+- **The leave guard is a shell-level registry, not a router blocker.** `useBlocker` requires a
+  data router, which the F1 shell does not mount, so the guard is a small module-level registry
+  (`src/shell/leave_guard.ts`) that `LeftNav` asks before it navigates. **Limitation:** a
+  browser-back gesture is not interceptable this way; only the in-app navigation is guarded.
+- **The guard modal is a screen-local component.** The refresh and leave confirmations are two
+  uses of one component inside `sheet_screen.tsx`, not a shared `ConfirmDialog`: two usages do
+  not meet the `≥ 3` extraction bar, and the single instance is what keeps the two guards from
+  stacking.
+- **The F3 dialog also renders `sheet.creating`.** T002 added the "Creating sheet" key; the F3
+  `CreateSheetDialog` is retargeted from the idle label to that key so the in-flight state has
+  its own copy rather than showing "Create sheet".
+- **`.lg-button--danger` is an outlined variant.** No `--lg-color-danger-hover` token exists,
+  so the destructive button keeps the surface background with a `--lg-color-danger` border and
+  text and tints to `--lg-color-surface-hover` on hover — a real hover change with no new
+  token (`--lg-color-danger-text` stays declared for a future filled variant).
+- **The token and copy scans now cover the feature.** `tokens_used.test.tsx` scans
+  `src/sheet/` and `src/library/` for literal colors and pixels, and `l10n_strings.test.ts`
+  scans `src/sheet/`, `src/library/` and `src/shell/shortcut_registry.ts` for user-facing
+  literals and unresolved keys (WSC-32, WSC-33).
