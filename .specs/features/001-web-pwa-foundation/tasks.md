@@ -269,7 +269,9 @@ files); from `web/` — `npm run format:check`, `npm run lint`, `npm run typeche
 Deferred, still unchecked:
 
 - **T038** — branch protection needs repository-admin access to GitHub, which this session does
-  not have. The required check names are recorded in `contracts/ci-gates.contract.md`.
+  not have (`GET /branches/main/protection` answers 403). The required check names are recorded
+  in `contracts/ci-gates.contract.md`; the seeded negatives have since been verified on a
+  throwaway branch (see "Post-close seeded-negative verification" below).
 - **T044** — the seven `quickstart.md` scenarios must run against a deployed preview;
   the local Playwright run is unavailable (no browsers installed in this environment).
 - **T048** — manual installability verification on Firefox and Safari is a manual step and is
@@ -300,7 +302,44 @@ exposed defects a push-triggered run would have hidden:
   properties only, not suppressed.
 
 The first two are guarded by regression tests in `scripts/test_lints.py`, each proven to fail
-against the unfixed workflow. Evidence after the repairs: `make lint-specs` clean (42
-self-tests, 465 spec IDs, 142 changed files); from `web/` — `format:check`, `lint`,
-`typecheck`, `npm test` (179 passed, 5 skipped), `npm run build`, `osv-scanner` (no issues)
+against the unfixed workflow. Evidence after the repairs: `make lint-specs` clean (43
+self-tests, 465 spec IDs, 143 changed files); from `web/` — `format:check`, `lint`,
+`typecheck`, `npm test` (181 passed, 5 skipped), `npm run build`, `osv-scanner` (no issues)
 and `lockfile-lint` (clean).
+
+### Post-close seeded-negative verification
+
+T038's second half — "verify the seeded negatives produce red checks" — ran on a throwaway
+branch and draft pull request (#65, based on this feature branch so PR #64's diff stayed
+clean). Each seeded gate turned red at the step meant to catch the seed, which is what SC-004
+asks for: a first run with 0 false negatives.
+
+| Job | Seed | Failed step | Observed |
+|---|---|---|---|
+| `quality` | unused variable, plus an `eval` sink | `Lint (ESLint incl. anti-XSS rules)` | 3 errors (`no-unused-vars`, `no-eval`, `security/detect-eval-with-expression`) |
+| `sca` | `lodash` pinned to 4.17.15 | `npm audit (known vulnerabilities)` | 6 advisories, 1 high severity, exit 1 |
+| `sast` | the same `eval` sink | `Semgrep` | 2 findings (2 blocking) of 234 rules, exit 1 |
+| `secrets` | a secret-shaped `ghp_…` string | `gitleaks` | 1 leak, rule `github-pat`, file and line reported |
+| `lockfile` | one `resolved` URL moved to a disallowed host | `lockfile-lint` | invalid host `registry.yarnpkg.com`, expected `registry.npmjs.org` |
+
+Runs `38884739083` and `38885004926` on `scratch/verify-gate-negatives`; the second commit
+added the lockfile seed, which is why those five jobs are red in both. `npm ci` succeeded
+(598 packages installed) before `lockfile-lint` rejected the host, so the gate failed on the
+host rule rather than on an uninstallable lockfile, and the `secrets`/`sast`/`sca`/`quality`
+failures are independent of it.
+
+The `quality` steps the first failure hid were verified against the same tree with the
+commands the job runs, since a job stops at its first failing step: a broken type makes
+`npm run typecheck` exit 2 (`TS2322`), and a failing assertion makes `npx vitest run` exit 1.
+`lockfile-lint` was exercised the same way on tampered copies of the lockfile — a
+non-`https:` URL and a disallowed host both exit 1, the clean file exits 0.
+
+The scratch branch and its pull request were deleted after the run. Back on the feature
+branch, `npm ci` reports 0 vulnerabilities and `lockfile-lint` is clean, so the seeded
+dependency and the tampered URL never reached a delivered commit.
+
+Branch protection, T038's first half, stays open. The credential available here cannot
+administer the repository at all: `GET /repos/{owner}/{repo}/branches/main/protection` answers
+403 "Resource not accessible by integration", so the rule must be applied by someone with
+repository-admin access. Its required check names are recorded in
+`contracts/ci-gates.contract.md`.
