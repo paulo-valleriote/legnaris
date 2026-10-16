@@ -35,18 +35,21 @@
 - Validation pass 1 (2026-10-16): all items satisfied on the first review.
   - **Content quality**: the specification names no language, framework, package or transport API. It
     describes the catalog, the creation surface and the detail request in the interface's vocabulary
-    (WCT-01…WCT-28); the library choices (queries, provider layering, the overlay mechanism) are left to
+    (WCT-01…WCT-29); the library choices (queries, provider layering, the overlay mechanism) are left to
     `plan.md`, and the words "template catalog" / "template detail" name *operations the product
     consumes*, not endpoints.
-  - **Requirement completeness**: all 28 requirements carry a WHEN/IF…THEN outcome; the four render
+  - **Requirement completeness**: all 29 requirements carry a WHEN/IF…THEN outcome; the four render
     situations of the list (WCT-03…WCT-06, WCT-09) and the three of the detail (WCT-13, WCT-15,
     WCT-17/WCT-18) are enumerated so a missing branch is detectable, and the single-flight behaviours
     are stated separately (WCT-08, WCT-16) rather than folded into the happy paths.
   - **Feature readiness**: every requirement is referenced by an acceptance scenario or an edge case,
-    and the traceability table maps all 28 to exactly one user story.
+    and the traceability table maps all 29 to exactly one user story.
   - **Scope bounded on purpose**: the out-of-scope items (field rendering → F4; creation/POST, the sheet
     screen and the library → F5; the refresh shortcut → F5-T005; authentication → a later feature) are
     recorded as assumptions so the boundary is reviewable rather than implied.
 - Validation pass 2, after clarification (2026-10-16): 16/16 → 16/16, no marker changed. The one
   clarification recorded the refresh/shortcut deferral explicitly (WCT-05, WCT-06 and the assumptions
   already carried it), so no requirement was reworded.
+- Validation pass 3, after the analysis and the user decisions (2026-10-16): 16/16 → 16/16. One
+  requirement was added (WCT-29: the left navigation labels the root route "Catalog"), with its
+  acceptance scenario and the three recorded decisions `AD-013`/`AD-014`/`AD-015`; no marker regressed.

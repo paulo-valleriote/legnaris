@@ -137,6 +137,7 @@ parse-failure keys are reused unchanged (WCT-26).
 
 | Key | Used by |
 |---|---|
+| `nav.catalog` | the left navigation's item for the root route (WCT-29, AD-015) |
 | `catalog.title` | the catalog screen's heading |
 | `catalog.loading` | `CatalogRenderPhase.loading` |
 | `catalog.empty` | `CatalogRenderPhase.empty` |

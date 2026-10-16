@@ -14,6 +14,7 @@
 
 - Q: The plan's F3 row lists no catalog refresh, while the web `AGENTS.md` documents F5 refresh as a V1 default and the desktop catalog phase shipped it (CAT-18/19). How should the catalog refresh behave in F3? → A: Deferred — the catalog loads once per app load and caches in memory; the F5 shortcut and the central shortcut registry land with the sheet-cycle feature (F5-T005), which the plan already owns.
 - Q: The plan says F3 adds catalog + detail queries and that F4 is the UI engine that renders the field tree. Beyond the sheet-name field, what should the creation surface render from the template detail in F3? → A: The template's display name only; schema-driven fields, grouping and exclusive options belong to the UI-engine feature (F4), so no grouping logic is built here.
+- Q: The left navigation's item for the root route reads "Workspace", but after this feature the root route is the template catalog. Should the label change? → A: Rename it to "Catalog" (user decision, 2026-10-16), resolving the label through the shared translation catalog rather than a literal in the component; the not-found copy and the right panel keep "workspace" as a product term.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -56,6 +57,8 @@ render situations plus a call counter proving exactly one request per activation
    Retry, never a blank screen and never a partial list. (WCT-09)
 10. **Given** a catalog entry whose name is an empty string, **When** the list renders, **Then** the
     entry still renders without throwing and the layout stays intact. (WCT-10)
+11. **Given** the app has loaded, **When** the navigation renders, **Then** the root route's navigation
+    item is labelled "Catalog", not "Workspace". (WCT-29)
 
 ---
 
@@ -234,6 +237,8 @@ disabled; type a name and confirm it enables; activate the action and confirm ze
   control exposes a visible focus state.
 - **WCT-28**: The catalog and the creation surface MUST derive every visual value (spacing, type, radius,
   color, focus, hover) from the shared token set; no ad-hoc visual value may be introduced.
+- **WCT-29**: The left navigation MUST label the root route "Catalog", resolving the label through the
+  shared translation catalog rather than a literal in the component.
 
 ### Key Entities
 

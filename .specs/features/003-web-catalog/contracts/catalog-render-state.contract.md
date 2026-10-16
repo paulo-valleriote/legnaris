@@ -20,13 +20,15 @@ resolves every string through the translation catalog.
 
 1. The catalog replaces the designed empty-workspace state on the root route (WCT-01): the root route
    mounts the catalog screen and `web/src/shell/empty_workspace.tsx` is deleted with its `.lg-empty*`
-   rules.
-2. Retry is the only way to leave `error`/`parseError`; activating it re-enters `loading` and issues
+   rules (`AD-013`).
+2. The left navigation's item for the root route is labelled "Catalog" through the copy catalog
+   (WCT-29, `AD-015`).
+3. Retry is the only way to leave `error`/`parseError`; activating it re-enters `loading` and issues
    exactly one request (WCT-07).
-3. Every string comes from `message(key)`; no literal is authored in `web/src/catalog/` (WCT-26).
-4. Every visual value (spacing, type, radius, color, focus, hover) comes from the shared tokens; no
+4. Every string comes from `message(key)`; no literal is authored in `web/src/catalog/` (WCT-26).
+5. Every visual value (spacing, type, radius, color, focus, hover) comes from the shared tokens; no
    literal hex or px appears in `web/src/catalog/` (WCT-28).
-5. Activating an entry opens the creation surface for that entry's identifier (WCT-11) and does not
+6. Activating an entry opens the creation surface for that entry's identifier (WCT-11) and does not
    navigate.
 
 ## Test obligations
@@ -36,5 +38,6 @@ resolves every string through the translation catalog.
   copy with Retry.
 - A case with an entry whose name is `""` asserts the row renders without throwing.
 - A case activates Retry from each error phase and asserts one further request.
+- A case asserts the left navigation's root item is named "Catalog" (WCT-29).
 - A source scan asserts no literal hex/px and no `api.error.` string literal outside the l10n catalog
   in `web/src/catalog/`.

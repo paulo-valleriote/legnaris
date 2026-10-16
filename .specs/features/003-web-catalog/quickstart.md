@@ -29,7 +29,8 @@ integration runs in (WCT-02, WCT-12).
 cd web && npx vitest run src/test/catalog_screen.test.tsx src/test/routing.test.tsx
 ```
 
-**Outcome**: the root route renders the catalog, not `EmptyWorkspace` (WCT-01). Five cases prove the
+**Outcome**: the root route renders the catalog, not `EmptyWorkspace` (WCT-01), and the navigation's
+root item is named "Catalog" (WCT-29). Five cases prove the
 five situations separately (SC-001): while the request is in flight the loading copy shows and the
 empty copy does not (WCT-03); a two-entry response renders two rows in the response order with their
 names (WCT-04); an empty response renders one plain line and no decorative art (WCT-05); a failure
@@ -118,7 +119,7 @@ cd web && npm run test:e2e -- catalog.spec.ts
 ```
 
 **Outcome**: the Playwright case loads the real build, opens the catalog and the creation surface and
-asserts zero critical `axe-core` violations on each (SC-005), using the `@axe-core/playwright`
+asserts zero critical `axe-core` violations on each (SC-005, AD-014), using the `@axe-core/playwright`
 dependency F1 already installs. The broader axe sweep of every main flow is F9-T007.
 
 ---
@@ -140,7 +141,7 @@ the delivered sources resolves to `spec.md` and no assertion in the client suite
 | Scenario | Requirements |
 |---|---|
 | 1 | WCT-02, WCT-12 |
-| 2 | WCT-01, WCT-03…WCT-06, WCT-09, WCT-10 |
+| 2 | WCT-01, WCT-03…WCT-06, WCT-09, WCT-10, WCT-29 |
 | 3 | WCT-02, WCT-07, WCT-08 |
 | 4 | WCT-11…WCT-18, WCT-21 |
 | 5 | WCT-19, WCT-20, WCT-27 |

@@ -50,10 +50,10 @@ Testing Library queries by role/name/test id. The catalog states, the surface st
 validation, the keyboard flow and the "zero mutating requests" rule are all proven by rendering
 tests, per constitution III and VII. Accessibility is verified by a Playwright case over the real
 build using `@axe-core/playwright` 4.14.0 (already installed by F1) asserting zero critical
-violations on the catalog and the creation surface (SC-005), on top of the ARIA-structure assertions
-in the rendering suites; the broader axe sweep of every main flow is F9-T007. The F1
-shell/routing/e2e assertions that pinned the empty-workspace state are updated to the catalog (no
-assertion is weakened).
+violations on the catalog and the creation surface (SC-005, `AD-014`), on top of the ARIA-structure
+assertions in the rendering suites; the broader axe sweep of every main flow is F9-T007. The F1
+shell/routing/e2e assertions that pinned the empty-workspace state are updated to the catalog, and the
+navigation rename moves `shell_keyboard.test.tsx` with them (no assertion is weakened).
 
 **Target Platform**: browsers — the latest two versions of Chrome, Edge, Firefox and Safari, served
 over HTTPS; the screens use React DOM, the F2 client and no browser global beyond the transport
@@ -132,16 +132,18 @@ inherited decision rather than a new one.
 web/src/
 ├── app/
 │   ├── providers.tsx        # builds the API client + query client; the app's shared context (NEW)
-│   └── router.tsx           # root route renders the catalog screen instead of the empty workspace
+│   ├── router.tsx           # root route renders the catalog screen instead of the empty workspace
+│   └── routes.ts            # the root route's label metadata follows the navigation rename (AD-015)
 ├── catalog/
 │   ├── queries.ts           # query keys + the catalog and detail query hooks (NEW)
 │   ├── catalog_screen.tsx   # loading / list / empty / error / parse-error states (NEW)
 │   └── create_sheet_dialog.tsx  # the creation surface + sheet-name validation (NEW)
 ├── shell/
+│   ├── left_nav.tsx         # the root item is relabelled "Catalog" through the copy catalog (AD-015)
 │   ├── shell.css            # the temporary .lg-empty* rules are removed with the component
 │   └── empty_workspace.tsx  # DELETED: its own doc comment declares it temporary until the catalog lands
 ├── l10n/
-│   └── strings.ts           # catalog.* and sheet.* copy keys added
+│   └── strings.ts           # catalog.*, sheet.* and nav.catalog copy keys added
 └── test/
     ├── render.tsx           # render helper extended to inject the client + a fresh query client
     ├── app_providers.test.tsx        # the provider builds one injectable client; query retries off (NEW)
@@ -150,6 +152,7 @@ web/src/
     ├── catalog_queries.test.tsx      # one request per load/opening; no focus refetch; dedupe (NEW)
     ├── catalog_keyboard.test.tsx     # Esc, focus in/out, no keyboard trap (NEW)
     ├── shell.test.tsx                # updated: root route asserts the catalog, not the empty state
+    ├── shell_keyboard.test.tsx       # updated: the root nav item is named "Catalog" (AD-015)
     └── routing.test.tsx              # updated: root route asserts the catalog
 
 web/e2e/
@@ -163,12 +166,16 @@ file F1 deferred ("the module lands with the first feature that genuinely needs 
 `web/AGENTS.md`) — because this is the first feature whose screens need the client and the query
 client. Tests stay flat in `web/src/test/` with a feature prefix (`app_*`, `catalog_*`), matching the
 layout F1 established; the render helper is extended rather than duplicated so every suite injects its own
-client. `empty_workspace.tsx` is deleted with the `.lg-empty*` rules it owned, because its own doc
-comment declares it "until the catalog feature lands" — it is a temporary stand-in, not a designed
-shell state the feature preserves, so keeping it would leave dead code. The F1 assertions that pinned
-the empty state on `/` are rewritten to pin the catalog instead — the same assertions (shell order, no
-placeholder rows, deep link), a truthful subject. The shell suites' "no placeholder rows" edge stays
-meaningful by rendering the catalog's empty state, where no row may be fabricated.
+client. `empty_workspace.tsx` is deleted with the `.lg-empty*` rules it owned (`AD-013`), because its
+own doc comment declares it "until the catalog feature lands" — it is a temporary stand-in, not a
+designed shell state the feature preserves, so keeping it would leave dead code. The F1 assertions that
+pinned the empty state on `/` are rewritten to pin the catalog instead — the same assertions (shell
+order, no placeholder rows, deep link), a truthful subject. The shell suites' "no placeholder rows"
+edge stays meaningful by rendering the catalog's empty state, where no row may be fabricated. The
+navigation item for the root route is relabelled "Catalog" and resolved through the copy catalog
+instead of a component literal (`AD-015`, WCT-29), which moves `shell_keyboard.test.tsx` and the e2e
+shell spec in the same commit; the feature's accessibility outcome is measured by a Playwright axe case
+over the real build (`AD-014`).
 
 ## Complexity Tracking
 

@@ -37,11 +37,11 @@ matching the flat layout F1 established. The single browser-level accessibility 
 - [ ] T001 [P] Add `@tanstack/react-query` 5.104.3 to `web/package.json` and install it — the server-state
       library the program plan selects (Parte 3) and F3-T001 names; it is the only runtime dependency
       this feature adds, recorded as an inherited plan decision in `web/AGENTS.md` (T022)
-- [ ] T002 [P] Extend the translation catalog `web/src/l10n/strings.ts` with the `catalog.*` and `sheet.*`
-      keys listed in `data-model.md` (title, loading, empty, retry, open hint, dialog title, name label,
-      placeholder, required tooltip, create, close, detail loading/retry) and extend
-      `web/src/test/l10n_strings.test.ts` so every new key is asserted to resolve to a non-empty string
-      and distinct from its neighbours (WCT-26)
+- [ ] T002 [P] Extend the translation catalog `web/src/l10n/strings.ts` with the `catalog.*`, `sheet.*` and
+      `nav.catalog` keys listed in `data-model.md` (title, loading, empty, retry, open hint, dialog
+      title, name label, placeholder, required tooltip, create, close, detail loading/retry, and the
+      navigation label) and extend `web/src/test/l10n_strings.test.ts` so every new key is asserted to
+      resolve to a non-empty string and distinct from its neighbours (WCT-26, WCT-29)
 
 **Checkpoint**: `cd web && npm test` passes with the dependency and the new keys in place.
 
@@ -100,11 +100,12 @@ situations plus a call counter proving exactly one request per app load.
       a window focus event issue none; Retry from the error state issues exactly one further request;
       a second activation while that request is in flight issues none (the in-flight request is joined,
       not duplicated)
-- [ ] T008 [US1] Update the F1 suites `web/src/test/shell.test.tsx`, `web/src/test/routing.test.tsx` and
-      `web/e2e/shell.spec.ts` to assert the catalog on the root route: the shell order and the deep-link
-      assertions keep their shape with the catalog as the subject, and the "no placeholder rows" edge
-      renders the catalog's empty state and still asserts no row/listitem/table is fabricated (no
-      assertion is weakened — the subject moves to the feature that owns it)
+- [ ] T008 [US1] Update the F1 suites `web/src/test/shell.test.tsx`, `web/src/test/routing.test.tsx`,
+      `web/src/test/shell_keyboard.test.tsx` and `web/e2e/shell.spec.ts` to assert the catalog on the
+      root route: the shell order and the deep-link assertions keep their shape with the catalog as the
+      subject, the "no placeholder rows" edge renders the catalog's empty state and still asserts no
+      row/listitem/table is fabricated, and the keyboard suite asserts the root navigation item is named
+      "Catalog" (no assertion is weakened — the subject moves to the feature that owns it; WCT-29)
 
 ### Implementation for User Story 1
 
@@ -119,10 +120,12 @@ situations plus a call counter proving exactly one request per app load.
       identifier as a secondary line), the single empty line, or the mapped/parse-failure copy with a
       Retry action — with every string from `message(key)` and every visual value from the shared tokens
       (WCT-03…WCT-06, WCT-09, WCT-10, WCT-26, WCT-28)
-- [ ] T011 [US1] Wire the root route: render `CatalogScreen` instead of `EmptyWorkspace` in
-      `web/src/app/router.tsx`, delete `web/src/shell/empty_workspace.tsx` (its doc comment declares it
-      temporary until the catalog lands), and remove the now-unused `.lg-empty*` rules from
-      `web/src/shell/shell.css` (WCT-01)
+- [ ] T011 [US1] Wire the root route and relabel its navigation item: render `CatalogScreen` instead of
+      `EmptyWorkspace` in `web/src/app/router.tsx`, delete `web/src/shell/empty_workspace.tsx` (its doc
+      comment declares it temporary until the catalog lands), remove the now-unused `.lg-empty*` rules
+      from `web/src/shell/shell.css`, and label the root route "Catalog" in `web/src/shell/left_nav.tsx`
+      through `message('nav.catalog')` (with `web/src/app/routes.ts`'s `label` metadata following), never
+      as a component literal (WCT-01, WCT-29, AD-013, AD-015)
 - [ ] T012 [P] [US1] Extend `web/src/test/tokens_used.test.tsx` to scan `web/src/catalog/` for literal hex
       and px values, so every visual value in the new screens is proven to come from the shared tokens
       (WCT-28)
@@ -214,17 +217,18 @@ a name and confirm it enables; activate the action and confirm zero requests wer
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T020 [P] Add the accessibility case `web/e2e/catalog.spec.ts` (SC-005, WCT-27): load the real build
-      with Playwright, open the catalog and the creation surface, and assert zero critical `axe-core`
-      violations on each using the `@axe-core/playwright` dependency F1 already installs
+- [ ] T020 [P] Add the accessibility case `web/e2e/catalog.spec.ts` (SC-005, WCT-27, AD-014): load the
+      real build with Playwright, open the catalog and the creation surface, and assert zero critical
+      `axe-core` violations on each using the `@axe-core/playwright` dependency F1 already installs
 - [ ] T021 [P] Add the catalog copy source scan (a case in `web/src/test/l10n_strings.test.ts`): no
       user-facing literal and no `api.error.` string literal exists in `web/src/catalog/`, every
       `message('…')` key referenced there resolves to a catalog entry (so removing a referenced key turns
       the suite red — SC-004), and every string is therefore proven to resolve through the catalog
       (WCT-26, SC-003, SC-004)
 - [ ] T022 [P] Update `web/AGENTS.md` (the `@tanstack/react-query` dependency as an inherited plan
-      decision, the deleted empty workspace, the accessible-overlay-instead-of-`<dialog>` decision) and
-      `web/README.md` (how to run the catalog suites and the accessibility case)
+      decision, the deleted empty workspace, the navigation rename, the accessible-overlay-instead-of-
+      `<dialog>` decision, and the three F3 decisions AD-013/AD-014/AD-015) and `web/README.md` (how to
+      run the catalog suites and the accessibility case)
 - [ ] T023 Run the full gate set from `web/` (`npm run format:check`, `npm run lint`, `npm run typecheck`,
       `npm test`, `npm run build`, `npm run test:e2e`) and `make lint-specs` from the repo root, and
       confirm every `WCT-*` citation in the delivered sources resolves to `spec.md`

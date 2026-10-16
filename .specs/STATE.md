@@ -98,6 +98,30 @@
 - **Date**: 2026-10-16
 - **Status**: active
 
+### AD-013
+- **Decision**: The catalog replaces the web shell's designed empty state: `web/src/shell/empty_workspace.tsx` is deleted together with the `.lg-empty*` rules it owned in `web/src/shell/shell.css`, and the root route renders the catalog screen (WCT-01).
+- **Reason**: The component's own doc comment declares it "until the catalog feature lands" — it was a temporary stand-in that kept the shell free of placeholder rows, not a state the product preserves. Keeping it after the catalog lands would leave an unreachable module and dead CSS.
+- **Trade-off**: The F1 suites that pinned the empty state (`shell.test.tsx`, `routing.test.tsx`, `web/e2e/shell.spec.ts`) are retargeted to the catalog instead of deleted, so the shell-order, deep-link and "no placeholder rows" assertions survive with a truthful subject and the change still touches F1 artifacts in the same commit.
+- **Scope**: web/ — `src/app/router.tsx`, `src/shell/empty_workspace.tsx` (removed), `src/shell/shell.css`, and the three F1 suites.
+- **Date**: 2026-10-16
+- **Status**: active
+
+### AD-014
+- **Decision**: F3's accessibility outcome (SC-005 — zero critical automated violations on the catalog and the creation surface) is verified by a Playwright case against the real build using the `@axe-core/playwright` dependency F1 already installs (`web/e2e/catalog.spec.ts`), on top of the ARIA-structure assertions in the Vitest rendering suites. No axe dependency is added to the Vitest tree and no new CI gate is created; the end-to-end axe sweep of every main flow remains `F9-T007`.
+- **Reason**: Constitution VII makes "no critical automated violations" part of done, and the browser-level case is the honest place to measure it — a real build and a real layout. F1 installed the tool for exactly this, so the measurement costs no new dependency and no new gate.
+- **Trade-off**: the F3 measurement runs in the Playwright suite rather than Vitest, so it is not part of `make test-web`; until `F8-T005`/`F9-T007` the browser suite is the only automated accessibility evidence and must be run explicitly.
+- **Scope**: web/ — `web/e2e/catalog.spec.ts` (new), `web/e2e/shell.spec.ts` (updated), plus the plan and quickstart. The F9 sweep is unchanged.
+- **Date**: 2026-10-16
+- **Status**: active
+
+### AD-015
+- **Decision**: The left navigation's item for the root route is relabelled "Catalog" (it read "Workspace"), and the label resolves through the translation catalog (`nav.catalog` in `web/src/l10n/strings.ts`) instead of a literal in the component; the declared route's `label` metadata in `web/src/app/routes.ts` follows (WCT-29).
+- **Reason**: after F3 the root route *is* the template catalog, so "Workspace" no longer names what the item opens; and touching the label was the moment to bring it under the WCT-26 rule that no user-facing literal lives in a component.
+- **Trade-off**: an F1 suite (`shell_keyboard.test.tsx`) and the e2e shell spec's navigation expectations move with the label in the same commit. The not-found copy ("Return to the workspace") and the right-panel copy keep "workspace" as a product term, so the vocabulary is now deliberately mixed.
+- **Scope**: web/ — `src/shell/left_nav.tsx`, `src/app/routes.ts`, `src/l10n/strings.ts`, `src/test/shell_keyboard.test.tsx`, `web/e2e/shell.spec.ts`.
+- **Date**: 2026-10-16
+- **Status**: active
+
 ## Handoff
 
 - **Feature**: `desktop-session-boundary` (desktop logout/login hygiene: navigation, session-local data, in-flight auth work) — COMPLETE, validation PASS ✅.
