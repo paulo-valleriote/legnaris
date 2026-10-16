@@ -6,6 +6,7 @@ both positive cases (violation detected, correct reason) and negative cases
 (the current corpus stays clean). Run: python3 scripts/test_lints.py
 """
 
+import re
 import sys
 import tempfile
 import unittest
@@ -195,6 +196,52 @@ class TestWorkflowPathFilters(unittest.TestCase):
         code_lines = [line for line in text.splitlines() if not line.lstrip().startswith("#")]
         self.assertNotIn("continue-on-error", "\n".join(code_lines))
 
+
+class TestClientGateIntegrity(unittest.TestCase):
+    """Contract tests for the client security gates (SEC-02 … SEC-04, ci-gates contract).
+
+    Both cases are regressions found by the first pull request that ran ci-web.yml:
+    a pin that no action ever published, and a scanner job whose token could not
+    read the change it was supposed to scan.
+    """
+
+    def workflow_text(self, workflow):
+        return (ROOT / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
+
+    def job_block(self, workflow, job):
+        lines = self.workflow_text(workflow).splitlines()
+        start = next((i for i, line in enumerate(lines) if line.rstrip() == f"  {job}:"), None)
+        self.assertIsNotNone(start, f"{workflow} has no {job} job")
+        block = []
+        for line in lines[start + 1:]:
+            if line.strip() and len(line) - len(line.lstrip()) <= 2:
+                break
+            block.append(line)
+        return "\n".join(block)
+
+    def test_action_refs_are_published_form(self):
+        # An unresolvable ref fails the job while it is still preparing steps, so
+        # the scanner never runs: every third-party `uses:` must be a v-prefixed
+        # tag (how these actions publish releases) or an immutable commit SHA.
+        tag = re.compile(r"v\d+(\.\d+)*")
+        actions = set()
+        for workflow in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+            for line in workflow.read_text(encoding="utf-8").splitlines():
+                match = re.match(r"\s*-?\s*uses:\s*(\S+)\s*$", line)
+                if match is None or match.group(1).startswith("./"):
+                    continue
+                action, separator, pin = match.group(1).partition("@")
+                actions.add(action)
+                pinned = separator == "@" and (
+                    tag.fullmatch(pin) is not None or re.fullmatch(r"[0-9a-f]{40}", pin) is not None
+                )
+                self.assertTrue(pinned, f"{workflow.name}: {action} is pinned to '{pin}'")
+        self.assertIn("aquasecurity/trivy-action", actions)
+
+    def test_secret_scan_job_reads_the_pull_request(self):
+        block = self.job_block("ci-web.yml", "secrets")
+        self.assertIn("gitleaks/gitleaks-action@", block)
+        self.assertIn("pull-requests: read", block)
 
 
 class TestValidationCitations(unittest.TestCase):
