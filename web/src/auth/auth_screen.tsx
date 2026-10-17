@@ -133,7 +133,7 @@ export function AuthScreen() {
           <footer className="lg-auth__footer">
             <button
               type="submit"
-              className="lg-button lg-button--primary"
+              className="lg-button lg-button--primary lg-button--md"
               disabled={busy}
               aria-busy={busy}
             >

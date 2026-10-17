@@ -13,6 +13,7 @@ import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import { failureMessage, parseFailureMessage } from '../api/error_mapper';
 import type { TemplateSummary } from '../api/models/template';
 import { message } from '../l10n/strings';
+import { Button } from '../ui/button';
 import { CreateSheetDialog } from './create_sheet_dialog';
 import { useCatalog } from './queries';
 import './catalog.css';
@@ -63,7 +64,7 @@ function CatalogBody({ phase, onRetry, onOpen }: CatalogBodyProps) {
             <li className="lg-catalog__item" key={`${entry.id}-${index}`}>
               <button
                 type="button"
-                className="lg-catalog__entry"
+                className="lg-catalog__entry lg-button lg-button--secondary lg-button--md"
                 title={message('catalog.openHint')}
                 onClick={(event) => onOpen(entry.id, event.currentTarget)}
               >
@@ -79,9 +80,7 @@ function CatalogBody({ phase, onRetry, onOpen }: CatalogBodyProps) {
       return (
         <div className="lg-catalog__failure">
           <p className="lg-catalog__message">{phase.copy}</p>
-          <button type="button" className="lg-button" onClick={onRetry}>
-            {message('catalog.retry')}
-          </button>
+          <Button variant="primary" size="md" label={message('catalog.retry')} onClick={onRetry} />
         </div>
       );
   }
