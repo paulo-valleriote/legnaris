@@ -275,6 +275,13 @@ The app allows origins from `CORS_ALLOWED_ORIGINS` (default in `.env.example`:
 the web client to the API. The origin must match exactly — scheme, host, and
 port — or the preflight fails.
 
+`make deploy-up` / `make deploy-local` strip the local-development variables the
+root `Makefile` exports for `make run`, so this file's values win. A shell
+variable outranks a compose environment file: a leaked empty
+`CORS_ALLOWED_ORIGINS` would fall through to the compose default
+(`http://localhost:3000`) and silently block the real frontend origin. Run the
+deploy through `make`, or pass `env -u CORS_ALLOWED_ORIGINS …` yourself.
+
 ## 12. Day-to-day operation
 
 ```bash

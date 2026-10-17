@@ -3,7 +3,17 @@
 # which breaks both the Mongo connection string and dev-db's credential
 # parsing — strip double quotes once, at include time.
 DATABASE_URI := $(subst ",,$(DATABASE_URI))
-export PORT APP_NAME DATABASE_URI DATABASE_NAME CORS_ALLOWED_ORIGINS DATABASE_PING_TIMEOUT DATABASE_SERVER_SELECTION_TIMEOUT DATABASE_CONNECT_TIMEOUT DATABASE_CLOSE_TIMEOUT JWT_SECRET JWT_ACCESS_TTL AUTH_REFRESH_TTL AUTH_BCRYPT_COST AUTH_RATE_LIMIT_ATTEMPTS AUTH_RATE_LIMIT_WINDOW
+# The runtime configuration the Go server reads, resolved from the root .env.
+APP_ENV_KEYS = PORT APP_NAME DATABASE_URI DATABASE_NAME CORS_ALLOWED_ORIGINS DATABASE_PING_TIMEOUT DATABASE_SERVER_SELECTION_TIMEOUT DATABASE_CONNECT_TIMEOUT DATABASE_CLOSE_TIMEOUT JWT_SECRET JWT_ACCESS_TTL AUTH_REFRESH_TTL AUTH_BCRYPT_COST AUTH_RATE_LIMIT_ATTEMPTS AUTH_RATE_LIMIT_WINDOW
+export $(APP_ENV_KEYS)
+
+# A shell variable outranks a compose environment file, so the local-dev values
+# exported above (read from the root .env for `make run`) must be stripped from
+# the deploy recipes or they silently override deploy/.env — an unset
+# CORS_ALLOWED_ORIGINS, for example, fell through to the compose default
+# `http://localhost:3000` and made the deployed API refuse the real frontend
+# origin. `env -u` on every key leaves deploy/.env authoritative.
+COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
 .PHONY: run build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan
 
@@ -77,13 +87,13 @@ sec-scan:       ## Client security gates: SCA, secret scan, lockfile integrity
 ## --- Deploy (deploy/ stack) -------------------------------------------------
 
 deploy-up:      ## Start the production stack
-	@docker compose -f deploy/docker-compose.yml up -d --build
+	@env $(COMPOSE_ENV_UNSET) docker compose -f deploy/docker-compose.yml up -d --build
 
 deploy-down:    ## Stop the production stack
-	@docker compose -f deploy/docker-compose.yml down
+	@env $(COMPOSE_ENV_UNSET) docker compose -f deploy/docker-compose.yml down
 
 deploy-local:   ## Start the stack locally via Cloudflare Tunnel
-	@docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml up -d --build
+	@env $(COMPOSE_ENV_UNSET) docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml up -d --build
 
 # Host networking of the Docker-in-Docker dev container, not the stack: a stale
 # iptables backend can silently drop egress from the compose bridges, which
