@@ -23,6 +23,15 @@ export async function openLibrary(version: number = 1): Promise<IDBPDatabase<She
   });
 }
 
+export async function evictSheet(templateId: string, sheetId: string | null, db?: IDBPDatabase<SheetLibraryDB>) {
+  const instance = db ?? (await openLibrary());
+  const all = await instance.getAllFromIndex('drafts', 'by-template', templateId);
+  const matches = all.filter((d) => d.sheet_id === sheetId);
+  for (const m of matches) {
+    await instance.delete('drafts', m.key);
+  }
+}
+
 export async function saveDraft(entry: DraftEntry, db?: IDBPDatabase<SheetLibraryDB>) {
   const instance = db ?? (await openLibrary());
   await instance.put('drafts', { ...entry, key: `${entry.template_id}:${entry.sheet_id ?? 'new'}` });
