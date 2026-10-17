@@ -122,4 +122,4 @@ Before opening a PR, ensure:
 - `shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
 - `shared/db/AGENTS.md` — MongoDB initialization
 - `web/AGENTS.md` — React PWA client: visual rules, tokens, security rules, interaction patterns
-- `desktop/AGENTS.md` — deprecated Flutter desktop app (kept until the web parity gate passes)
+- `web/AGENTS.md` — PWA React/TS rules; desktop deprecated and removed (F10)

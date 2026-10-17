@@ -31,7 +31,7 @@
 
 - [x] T003 [US1] Configure Playwright visual comparison thresholds; add reference artifact download / artifact reference config.
   - *File*: `playwright.config.ts` / `.github/workflows/` (if artifact upload needed)
-- [ ] T004 [US1] Add `web/src/test/e2e/parity.spec.ts` with golden comparison for template/sheet/catalog/shell (using existing `template-01` reference or manual sign-off if no artifact).
+- [x] T004 [US1] Add `web/src/test/e2e/parity.spec.ts` with golden comparison for template/sheet/catalog/shell (using existing `template-01` reference or manual sign-off if no artifact).
   - *File*: `web/src/test/e2e/parity.spec.ts`
 
 **Checkpoint US1**: `npm run test:web -- --grep="parity"` passes (or documented sign-off if no artifact). Gate: POL-01 must be green before T010+ removal tasks.
