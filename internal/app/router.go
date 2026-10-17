@@ -25,7 +25,7 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	httpMetrics.Register(router)
 
 	health.RegisterHealthRoutes(router.Group(""))
-	modules.Auth.Controller.RegisterRoutes(router.Group("/auth"))
+	registerAuthRoutes(router.Group("/auth"), modules, deps.Variables.CORSOrigins, httpMetrics)
 
 	// Every sheets and templates route sits behind the JWT middleware; only
 	// health, metrics, and the auth endpoints stay public (OWN-15…OWN-18).
@@ -39,6 +39,20 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
 	return router
+}
+
+// registerAuthRoutes mounts the auth endpoints with their per-route guards.
+// Login and registration are rate limited per address and, because the body
+// carries an account identity, per account; refresh is rate limited per address
+// only and, like logout, refuses a request from an origin outside the allowlist
+// before any credential work (AUTH-13, AUTH-17, AUTH-26).
+func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, observer Observer) {
+	limiter := modules.Auth.RateLimiter
+
+	group.POST("/register", modules.Auth.Controller.Register, rateLimit(limiter, observer, true))
+	group.POST("/login", modules.Auth.Controller.Login, rateLimit(limiter, observer, true))
+	group.POST("/refresh", modules.Auth.Controller.Refresh, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
+	group.POST("/logout", modules.Auth.Controller.Logout, requireAllowedOrigin(origins))
 }
 
 func HTTPErrorHandler(c *echo.Context, err error) {

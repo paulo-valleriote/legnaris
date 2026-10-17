@@ -2,8 +2,10 @@ package app
 
 import (
 	"fmt"
+	"time"
 
 	"legnaris/internal/auth"
+	"legnaris/internal/platform/ratelimit"
 	"legnaris/internal/sheet"
 	"legnaris/internal/sheet/template"
 	"legnaris/internal/user"
@@ -25,6 +27,7 @@ type AuthModule struct {
 	Controller   *AuthController
 	Service      auth.Service
 	TokenManager auth.TokenManager
+	RateLimiter  *ratelimit.Limiter
 }
 
 type Modules struct {
@@ -60,12 +63,15 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 		return nil, fmt.Errorf("build token manager: %w", err)
 	}
 
+	csrfManager := auth.NewCSRFTokenManager([]byte(cfg.Variables.JWTSecret))
+
 	authService := auth.NewService(
 		userRepository,
 		refreshTokenRepository,
 		hasher,
 		tokenManager,
 		auth.NewRefreshTokenGenerator(),
+		csrfManager,
 		observer,
 		auth.Config{
 			RefreshTTL: cfg.Variables.AuthRefreshTTL,
@@ -73,6 +79,12 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 		log,
 	)
 	authController := NewAuthController(authService)
+
+	authLimiter := ratelimit.New(
+		cfg.Variables.AuthRateLimitAttempts,
+		cfg.Variables.AuthRateLimitWindow,
+		time.Now,
+	)
 
 	return &Modules{
 		Template: TemplateModule{
@@ -87,6 +99,7 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 			Controller:   authController,
 			Service:      authService,
 			TokenManager: tokenManager,
+			RateLimiter:  authLimiter,
 		},
 	}, nil
 }

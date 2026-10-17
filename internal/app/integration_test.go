@@ -3,6 +3,7 @@ package app_test
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -17,7 +18,6 @@ import (
 	"legnaris/internal/platform/metrics"
 	"legnaris/internal/sheet"
 	"legnaris/internal/sheet/template"
-	"legnaris/internal/user"
 	"legnaris/shared/db"
 	"legnaris/shared/env"
 	"legnaris/shared/logger"
@@ -89,8 +89,9 @@ func doRequest(t *testing.T, h http.Handler, method, path, body string) *httptes
 // with; it clears the service's length checks.
 const integrationPassword = "sup3r-secret"
 
-// newAuthUser registers a fresh user and returns an access token plus its id.
-// Protected integration requests authenticate with the returned token.
+// newAuthUser registers a fresh user and returns the session's access token plus
+// the user id parsed from its subject. Registration signs the browser in, so no
+// separate login is needed (AUTH-02).
 func newAuthUser(t *testing.T, h http.Handler, email, username string) (token string, userID string) {
 	t.Helper()
 
@@ -98,19 +99,29 @@ func newAuthUser(t *testing.T, h http.Handler, email, username string) (token st
 	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
 	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
 
-	var created response.Success[user.UserDTO]
-	require.NoError(t, json.Unmarshal(registerRec.Body.Bytes(), &created))
-	require.NotEmpty(t, created.Data.ID)
+	var session response.Success[auth.SessionResponse]
+	require.NoError(t, json.Unmarshal(registerRec.Body.Bytes(), &session))
+	require.NotEmpty(t, session.Data.AccessToken)
 
-	loginBody := fmt.Sprintf(`{"email":%q,"password":%q}`, email, integrationPassword)
-	loginRec := doRequest(t, h, http.MethodPost, "/auth/login", loginBody)
-	require.Equal(t, http.StatusOK, loginRec.Code, loginRec.Body.String())
+	return session.Data.AccessToken, jwtSubject(t, session.Data.AccessToken)
+}
 
-	var pair response.Success[auth.TokenPair]
-	require.NoError(t, json.Unmarshal(loginRec.Body.Bytes(), &pair))
-	require.NotEmpty(t, pair.Data.AccessToken)
+// jwtSubject decodes the `sub` claim from an access token's payload without
+// re-verifying the signature; the server just issued the token.
+func jwtSubject(t *testing.T, token string) string {
+	t.Helper()
 
-	return pair.Data.AccessToken, created.Data.ID
+	parts := strings.Split(token, ".")
+	require.Len(t, parts, 3, "a JWT has three segments")
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	require.NoError(t, err)
+
+	var claims struct {
+		Subject string `json:"sub"`
+	}
+	require.NoError(t, json.Unmarshal(payload, &claims))
+	require.NotEmpty(t, claims.Subject)
+	return claims.Subject
 }
 
 // doAuthRequest issues a request with the bearer token attached (empty token

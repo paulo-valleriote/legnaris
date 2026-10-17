@@ -10,10 +10,13 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// RefreshTokenHeader carries the opaque refresh token on /auth/refresh and
-// /auth/logout. Native clients (desktop/mobile) store it in the OS secure
-// storage and resend it here.
-const RefreshTokenHeader = "X-Refresh-Token"
+// csrfHeader carries the session-bound CSRF token the page echoes back on the
+// cookie-authenticated routes (AUTH-09).
+const csrfHeader = "X-CSRF-Token"
+
+// bearerTokenType is the scheme echoed in the session body; the access-token
+// contract is unchanged (AUTH-26).
+const bearerTokenType = "Bearer"
 
 type AuthController struct {
 	service auth.Service
@@ -25,13 +28,8 @@ func NewAuthController(service auth.Service) *AuthController {
 	}
 }
 
-func (ac *AuthController) RegisterRoutes(group *echo.Group) {
-	group.POST("/register", ac.Register)
-	group.POST("/login", ac.Login)
-	group.POST("/refresh", ac.Refresh)
-	group.POST("/logout", ac.Logout)
-}
-
+// Register creates the account and signs it in: 201 with the session body and
+// both cookies (AUTH-02).
 func (ac *AuthController) Register(c *echo.Context) error {
 	var cmd auth.RegisterCommand
 
@@ -39,13 +37,17 @@ func (ac *AuthController) Register(c *echo.Context) error {
 		return decodeError(err)
 	}
 
-	created, err := ac.service.Register(c.Request().Context(), cmd)
+	session, err := ac.service.Register(c.Request().Context(), cmd)
 	if err != nil {
 		return err
 	}
-	return response.Created(c, created.ToDTO())
+
+	ac.setSessionCookies(c, session)
+	return response.Created(c, sessionResponse(session))
 }
 
+// Login establishes a session: 200 with the session body and both cookies
+// (AUTH-01).
 func (ac *AuthController) Login(c *echo.Context) error {
 	var cmd auth.LoginCommand
 
@@ -53,31 +55,75 @@ func (ac *AuthController) Login(c *echo.Context) error {
 		return decodeError(err)
 	}
 
-	pair, err := ac.service.Login(c.Request().Context(), cmd)
+	session, err := ac.service.Login(c.Request().Context(), cmd)
 	if err != nil {
 		return err
 	}
-	return response.OK(c, pair)
+
+	ac.setSessionCookies(c, session)
+	return response.OK(c, sessionResponse(session))
 }
 
-// Refresh and Logout take the refresh token from the X-Refresh-Token header and
-// have no request body.
+// Refresh consumes the refresh credential from the cookie only and rotates the
+// session: 200 with the session body and rotated cookies (AUTH-03, AUTH-05).
+// The X-CSRF-Token header is read here and verified by the service (AUTH-09).
 func (ac *AuthController) Refresh(c *echo.Context) error {
-	pair, err := ac.service.Refresh(c.Request().Context(), auth.RefreshCommand{
-		RefreshToken: c.Request().Header.Get(RefreshTokenHeader),
+	session, err := ac.service.Refresh(c.Request().Context(), auth.RefreshCommand{
+		RefreshToken: refreshCookieValue(c),
+		CSRFToken:    c.Request().Header.Get(csrfHeader),
 	})
 	if err != nil {
 		return err
 	}
-	return response.OK(c, pair)
+
+	ac.setSessionCookies(c, session)
+	return response.OK(c, sessionResponse(session))
 }
 
+// Logout revokes the session's family and clears both cookies, answering 204
+// (AUTH-04). With no cookie, logout is a 204 no-op that sets nothing (AUTH-06).
 func (ac *AuthController) Logout(c *echo.Context) error {
+	credential := refreshCookieValue(c)
+
 	err := ac.service.Logout(c.Request().Context(), auth.LogoutCommand{
-		RefreshToken: c.Request().Header.Get(RefreshTokenHeader),
+		RefreshToken: credential,
+		CSRFToken:    c.Request().Header.Get(csrfHeader),
 	})
 	if err != nil {
 		return err
+	}
+
+	if credential != "" {
+		c.SetCookie(auth.ClearRefreshCookie())
+		c.SetCookie(auth.ClearCSRFCookie())
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+// setSessionCookies writes the refresh credential and the CSRF token as the two
+// contract-fixed cookies. The credential never reaches the body (AUTH-01,
+// AUTH-08, AUTH-12).
+func (ac *AuthController) setSessionCookies(c *echo.Context, session *auth.Session) {
+	c.SetCookie(auth.RefreshCookie(session.RefreshToken, session.RefreshMaxAge))
+	c.SetCookie(auth.CSRFCookie(session.CSRFToken, session.RefreshMaxAge))
+}
+
+// refreshCookieValue reads the refresh credential from the __Host cookie. A
+// value supplied in a header or body is never consulted (AUTH-05).
+func refreshCookieValue(c *echo.Context) string {
+	cookie, err := c.Cookie(auth.RefreshCookieName)
+	if err != nil || cookie == nil {
+		return ""
+	}
+	return cookie.Value
+}
+
+// sessionResponse projects the service's session onto the wire body, which
+// carries no refresh credential (AUTH-08).
+func sessionResponse(session *auth.Session) auth.SessionResponse {
+	return auth.SessionResponse{
+		AccessToken: session.AccessToken,
+		TokenType:   bearerTokenType,
+		ExpiresIn:   session.ExpiresIn,
+	}
 }
