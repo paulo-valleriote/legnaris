@@ -41,23 +41,38 @@ type LoginCommand struct {
 	Password string `json:"password"`
 }
 
-// RefreshCommand and LogoutCommand carry the refresh token read from the
-// X-Refresh-Token header. They have no JSON body by design.
+// RefreshCommand and LogoutCommand carry the refresh credential read from the
+// __Host-legnaris_refresh cookie and the CSRF token read from the X-CSRF-Token
+// header. Neither has a JSON body by design (AUTH-05, AUTH-09).
 type RefreshCommand struct {
 	RefreshToken string
+	CSRFToken    string
 }
 
 type LogoutCommand struct {
 	RefreshToken string
+	CSRFToken    string
 }
 
-// TokenPair is the login/refresh response body. The refresh token is an opaque
-// credential the client stores in the OS secure storage.
-type TokenPair struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"`
+// Session is the material Register, Login and Refresh hand to the controller.
+// Only the controller decides what becomes a cookie and what becomes a body
+// (AUTH-01, AUTH-02, AUTH-03). RefreshToken and CSRFToken never reach a body.
+type Session struct {
+	AccessToken   string
+	ExpiresIn     int
+	RefreshToken  string
+	RefreshMaxAge int
+	CSRFToken     string
+	UserID        string
+}
+
+// SessionResponse is the login, registration and refresh body. It has no
+// refresh field, so the credential appears only in Set-Cookie (AUTH-01,
+// AUTH-02, AUTH-03, AUTH-08).
+type SessionResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
 }
 
 // Config carries the refresh-token lifetime resolved from the environment.
@@ -67,9 +82,9 @@ type Config struct {
 }
 
 type Service interface {
-	Register(ctx context.Context, cmd RegisterCommand) (*user.User, error)
-	Login(ctx context.Context, cmd LoginCommand) (*TokenPair, error)
-	Refresh(ctx context.Context, cmd RefreshCommand) (*TokenPair, error)
+	Register(ctx context.Context, cmd RegisterCommand) (*Session, error)
+	Login(ctx context.Context, cmd LoginCommand) (*Session, error)
+	Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error)
 	Logout(ctx context.Context, cmd LogoutCommand) error
 }
 
@@ -79,6 +94,7 @@ type ServiceImpl struct {
 	hasher        PasswordHasher
 	tokens        TokenManager
 	generator     RefreshTokenGenerator
+	csrf          CSRFTokenManager
 	observer      Observer
 	log           logger.StructuredLogger
 	cfg           Config
@@ -90,6 +106,7 @@ func NewService(
 	hasher PasswordHasher,
 	tokens TokenManager,
 	generator RefreshTokenGenerator,
+	csrf CSRFTokenManager,
 	observer Observer,
 	cfg Config,
 	log logger.StructuredLogger,
@@ -100,13 +117,17 @@ func NewService(
 		hasher:        hasher,
 		tokens:        tokens,
 		generator:     generator,
+		csrf:          csrf,
 		observer:      observer,
 		log:           log,
 		cfg:           cfg,
 	}
 }
 
-func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*user.User, error) {
+// Register creates the account and, on success, signs it in exactly as Login
+// does: a duplicate email still answers 409 before any session is issued
+// (AUTH-02).
+func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Session, error) {
 	email := normalizeEmail(cmd.Email)
 	username := strings.TrimSpace(cmd.Username)
 
@@ -156,11 +177,16 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*user.
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
+	session, err := s.signIn(ctx, newUser.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	s.log.Info(ctx, "user registered", logger.Attribute{Key: attrUserID, Value: newUser.ID})
-	return newUser, nil
+	return session, nil
 }
 
-func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*TokenPair, error) {
+func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*Session, error) {
 	email := normalizeEmail(cmd.Email)
 
 	stored, err := s.users.FetchByEmail(ctx, email)
@@ -175,21 +201,19 @@ func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*TokenPair, 
 		return nil, s.invalidCredentials(ctx, "password mismatch")
 	}
 
-	access, err := s.tokens.Issue(stored.ID)
-	if err != nil {
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
-	}
-
-	raw, _, err := s.issueRefreshToken(ctx, stored.ID, "")
+	session, err := s.signIn(ctx, stored.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	s.log.Info(ctx, "login succeeded", logger.Attribute{Key: attrUserID, Value: stored.ID})
-	return s.tokenPair(access, raw), nil
+	return session, nil
 }
 
-func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*TokenPair, error) {
+// Refresh consumes the presented cookie credential, verifies the CSRF token
+// against the resolved family before any mutation, and rotates both the refresh
+// and CSRF values together (AUTH-03, AUTH-10, AUTH-11, AUTH-12).
+func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error) {
 	if cmd.RefreshToken == "" {
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgRefreshTokenRequired, nil)
 	}
@@ -200,6 +224,10 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*TokenPa
 			return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, err)
 		}
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	if err := s.csrf.Verify(cmd.CSRFToken, stored.FamilyID); err != nil {
+		return nil, apperr.NewError(apperr.CodeForbidden, MsgCSRFInvalid, err)
 	}
 
 	if stored.Revoked {
@@ -214,7 +242,7 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*TokenPa
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	rawNew, newID, err := s.issueRefreshToken(ctx, stored.UserID, stored.FamilyID)
+	issued, err := s.issueRefreshToken(ctx, stored.UserID, stored.FamilyID)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +253,7 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*TokenPa
 	// Instead, we return an error indicating the token was already rotated.
 	// The client that lost the race will need to re-authenticate, but the other
 	// client's valid tokens remain intact.
-	claimed, err := s.refreshTokens.RevokeByID(ctx, stored.ID, newID)
+	claimed, err := s.refreshTokens.RevokeByID(ctx, stored.ID, issued.id)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
@@ -238,10 +266,18 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*TokenPa
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 	}
 
+	session, err := s.newSession(ctx, stored.UserID, issued.raw, issued.familyID, access)
+	if err != nil {
+		return nil, err
+	}
+
 	s.log.Info(ctx, "refresh rotated", logger.Attribute{Key: attrUserID, Value: stored.UserID})
-	return s.tokenPair(access, rawNew), nil
+	return session, nil
 }
 
+// Logout revokes the resolved session's family. A missing or unknown credential
+// is an idempotent no-op and owes no CSRF check; a resolved session must present
+// a valid CSRF token (AUTH-04, AUTH-06, AUTH-10).
 func (s *ServiceImpl) Logout(ctx context.Context, cmd LogoutCommand) error {
 	if cmd.RefreshToken == "" {
 		return nil
@@ -256,6 +292,10 @@ func (s *ServiceImpl) Logout(ctx context.Context, cmd LogoutCommand) error {
 		return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
+	if err := s.csrf.Verify(cmd.CSRFToken, stored.FamilyID); err != nil {
+		return apperr.NewError(apperr.CodeForbidden, MsgCSRFInvalid, err)
+	}
+
 	if err := s.refreshTokens.RevokeFamily(ctx, stored.FamilyID); err != nil {
 		return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
@@ -263,27 +303,70 @@ func (s *ServiceImpl) Logout(ctx context.Context, cmd LogoutCommand) error {
 	return nil
 }
 
+// signIn mints a brand-new session for a user: a fresh family of refresh
+// credentials plus the CSRF token bound to it. It is the shared tail of
+// Register and Login.
+func (s *ServiceImpl) signIn(ctx context.Context, userID string) (*Session, error) {
+	access, err := s.tokens.Issue(userID)
+	if err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	issued, err := s.issueRefreshToken(ctx, userID, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return s.newSession(ctx, userID, issued.raw, issued.familyID, access)
+}
+
+// newSession binds a freshly minted CSRF token to the session's family so the
+// controller can set the refresh and CSRF cookies together (AUTH-09, AUTH-12).
+func (s *ServiceImpl) newSession(ctx context.Context, userID, rawRefresh, familyID string, access AccessToken) (*Session, error) {
+	csrfToken, err := s.csrf.Issue(familyID)
+	if err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	return &Session{
+		AccessToken:   access.Value,
+		ExpiresIn:     access.ExpiresIn,
+		RefreshToken:  rawRefresh,
+		RefreshMaxAge: int(s.cfg.RefreshTTL.Seconds()),
+		CSRFToken:     csrfToken,
+		UserID:        userID,
+	}, nil
+}
+
+// issuedRefresh is the persisted credential plus the material the caller needs:
+// the raw value for the cookie, the family for the CSRF binding, and the row id
+// that rotation points the predecessor's replaced_by at.
+type issuedRefresh struct {
+	raw      string
+	id       string
+	familyID string
+}
+
 // issueRefreshToken persists a refresh token for the given family, minting a
 // new family when familyID is empty. It returns the raw token — only its hash
-// is persisted — and the new token's id, which rotation needs to point the
-// predecessor's replaced_by at its heir.
-func (s *ServiceImpl) issueRefreshToken(ctx context.Context, userID string, familyID string) (string, string, error) {
+// is persisted — the family id and the new token's id.
+func (s *ServiceImpl) issueRefreshToken(ctx context.Context, userID string, familyID string) (issuedRefresh, error) {
 	if familyID == "" {
 		generated, err := idgen.New()
 		if err != nil {
-			return "", "", apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+			return issuedRefresh{}, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 		}
 		familyID = generated
 	}
 
 	id, err := idgen.New()
 	if err != nil {
-		return "", "", apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+		return issuedRefresh{}, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
 	raw, err := s.generator.Generate()
 	if err != nil {
-		return "", "", apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+		return issuedRefresh{}, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
 	now := time.Now()
@@ -296,10 +379,10 @@ func (s *ServiceImpl) issueRefreshToken(ctx context.Context, userID string, fami
 		CreatedAt: now,
 	}
 	if err := s.refreshTokens.Create(ctx, token); err != nil {
-		return "", "", apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+		return issuedRefresh{}, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	return raw, id, nil
+	return issuedRefresh{raw: raw, id: id, familyID: familyID}, nil
 }
 
 func (s *ServiceImpl) invalidCredentials(ctx context.Context, reason string) error {
@@ -319,15 +402,6 @@ func (s *ServiceImpl) reuseDetected(ctx context.Context, token *RefreshToken) er
 		logger.Attribute{Key: attrUserID, Value: token.UserID},
 	)
 	return apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
-}
-
-func (s *ServiceImpl) tokenPair(access AccessToken, refresh string) *TokenPair {
-	return &TokenPair{
-		AccessToken:  access.Value,
-		RefreshToken: refresh,
-		TokenType:    "Bearer",
-		ExpiresIn:    access.ExpiresIn,
-	}
 }
 
 func normalizeEmail(email string) string {

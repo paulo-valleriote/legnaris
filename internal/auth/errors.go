@@ -15,6 +15,7 @@ const (
 	MsgPasswordTooLong      = "password must be at most 72 bytes"
 	MsgRefreshTokenRequired = "refresh token is required"
 	MsgInvalidRefreshToken  = "invalid refresh token"
+	MsgCSRFInvalid          = "csrf token is invalid"
 	MsgInternal             = "internal error"
 )
 
@@ -26,4 +27,5 @@ var (
 	ErrPasswordMismatch  = errors.New("password does not match")
 	ErrExpiredToken      = errors.New("access token expired")
 	ErrInvalidToken      = errors.New("access token is invalid")
+	ErrCSRFTokenInvalid  = errors.New("csrf token is invalid")
 )
