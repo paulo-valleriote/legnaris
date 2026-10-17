@@ -29,7 +29,7 @@
 
 ### Implementation
 
-- [ ] T003 [US1] Configure Playwright visual comparison thresholds; add reference artifact download / artifact reference config.
+- [x] T003 [US1] Configure Playwright visual comparison thresholds; add reference artifact download / artifact reference config.
   - *File*: `playwright.config.ts` / `.github/workflows/` (if artifact upload needed)
 - [ ] T004 [US1] Add `web/src/test/e2e/parity.spec.ts` with golden comparison for template/sheet/catalog/shell (using existing `template-01` reference or manual sign-off if no artifact).
   - *File*: `web/src/test/e2e/parity.spec.ts`

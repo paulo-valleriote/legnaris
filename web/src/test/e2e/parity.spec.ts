@@ -8,5 +8,7 @@ test.describe('F10 POL-01 Parity Gate', () => {
     // Reference comparison requires configured reference artifact + threshold.
     // This test intentionally fails until the parity gate contract is satisfied.
     expect(page.locator('[data-testid="sheet-form"]').count()).toBeGreaterThan(0);
+    // Reference comparison configured (POL-01 reference artifact present).
+    await expect(page).toHaveScreenshot('parity-template-01.png', { maxDiffPixelRatio: 0.05 });
   });
 });
