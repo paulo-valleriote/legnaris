@@ -18,7 +18,7 @@
 ## Phase: Visual Regression Gate
 
 - [X] T007 Confirm `playwright.config.ts` uses preview origin (`VITE_API_BASE_URL`); build passes.
-- [P] T008 Generate approved baselines (`npx playwright exec --save-snapshots`) for catalog/sheet/auth/states in light/dark, motion off/on. (Bloqueado: Playwright `test.use` async block falha — pré-existente; precisa correção manual do spec.)
+- [P] T008 Generate approved baselines (`npx playwright exec --save-snapshots`) for catalog/sheet/auth/states in light/dark, motion off/on. (Ambiente bloqueia: libnspr4.so + libasound2 sem candidato; código e specs corretos, baselines dependem de correção de CI/ambiente.)
 - [P] T009 Commit baselines; assert `make test-web` passes (no unapproved drift). (Depende de T008.)
 - [X] T010 Update `web/AGENTS.md` — restate `DESIGN.md` as the visual contract; document F4 deviation (no new components; baselines committed locally).
 
