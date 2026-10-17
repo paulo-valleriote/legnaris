@@ -101,8 +101,8 @@ func (ac *AuthController) Logout(c *echo.Context) error {
 }
 
 // CSPReport accepts CSP violation reports from the browser, sanitizes URLs,
-// logs via shared/logger, emits a Prometheus metric, and answers 204
-// (F9-T003, SEC-03, contracts/csp-report.contract.md).
+// logs via shared/logger, emits a Prometheus metric, and answers 204 (POL-05,
+// contracts/csp-report.contract.md, F10).
 func (ac *AuthController) CSPReport(c *echo.Context) error {
 	// Read capped body (16 KB) defensively; do not log URL/query/hash raw.
 	body := make([]byte, 16*1024)
