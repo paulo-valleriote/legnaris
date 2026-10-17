@@ -11,8 +11,10 @@ validation guides: [`.specs/features/001-web-pwa-foundation/`](../.specs/feature
 (the shell), [`.specs/features/002-web-api-client/`](../.specs/features/002-web-api-client/)
 (the typed API client), [`.specs/features/005-web-sheet-cycle/`](../.specs/features/005-web-sheet-cycle/)
 (the sheet cycle) and [`.specs/features/007-web-auth-session/`](../.specs/features/007-web-auth-session/)
-(the auth session) — each `quickstart.md` holds the runnable validation scenarios. Visual
-rules: [`AGENTS.md`](./AGENTS.md).
+(the auth session) and [`.specs/features/008-web-ui-foundation/`](../.specs/features/008-web-ui-foundation/)
+(the visual foundation) — each `quickstart.md` holds the runnable validation scenarios.
+Visual rules: [`DESIGN.md`](./DESIGN.md); development, security and architecture rules:
+[`AGENTS.md`](./AGENTS.md).
 
 ## Prerequisites
 
@@ -61,6 +63,37 @@ Local parity with the CI pipeline (`ci-web.yml`):
 make lint-web     # format-check + lint + type-check
 make test-web     # Vitest
 make sec-scan     # npm audit + signatures + lockfile-lint (+ gitleaks when installed)
+```
+
+## Design foundation (`src/theme/`, `src/shell/`, `public/`)
+
+The visual system is three-layer CSS custom properties plus plain CSS — **no UI library, theme
+framework or font package**. The full rules live in [`DESIGN.md`](./DESIGN.md).
+
+- **Tokens.** `src/theme/tokens.css` is the one file that declares literal values (primitives →
+  semantic aliases → the occasional component token), mirrored in `src/theme/tokens.ts`. The light
+  theme is on `:root` and the dark theme under `[data-theme='dark']`, each setting `color-scheme`;
+  every component consumes `--lg-*` only. Contrast is asserted per theme in
+  `src/test/tokens_contrast.test.ts`.
+- **Theme preference.** The choice is exactly `light` | `dark` under `localStorage['lg.theme']`.
+  `public/theme-init.js` is a same-origin **classic** head script that resolves it (falling back to
+  `prefers-color-scheme` when nothing is stored) before the first paint, so there is no load flash
+  and no inline script to hash; `src/theme/theme.ts` owns the runtime resolution and the
+  `src/shell/theme_toggle.tsx` control writes the choice back.
+- **Shell.** Two regions only — navigation then content (`src/shell/app_shell.tsx`), a two-column
+  grid in `src/shell/shell.css`. The old contextual right panel is gone.
+- **Font.** Geist is **vendored**, not installed: `public/fonts/geist/Geist-Variable.woff2`
+  (69,492 bytes, sha256 `9ce2d97863cab59a0c7522534112d6c42a4e25c0e6b2ab37766761b0f82cfbd6`) with its
+  OFL-1.1 license beside it as `Geist-LICENSE.txt`, both extracted from the official `geist@1.8.1`
+  release on the npm registry (`dist/fonts/geist-sans/`, published by Vercel). One `@font-face` in
+  `src/theme/fonts.css`, preloaded from `index.html`; nothing is fetched from a third-party origin.
+
+```bash
+cd web
+npm test                                          # tokens_contrast, self_hosted_assets, theme_toggle, shell
+npx vitest run src/test/tokens_contrast.test.ts   # AA in both themes
+npx vitest run src/test/theme_toggle.test.tsx     # resolution, persistence, no third state
+npm run test:e2e -- theme.spec.ts                 # explicit choice survives a reload, no flash
 ```
 
 ## API client (`src/api/`)
