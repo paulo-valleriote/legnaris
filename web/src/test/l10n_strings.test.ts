@@ -8,6 +8,7 @@ import type { MessageKey } from '../l10n/strings';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const catalogDir = path.resolve(here, '../catalog');
 const engineDir = path.resolve(here, '../engine');
+const authDir = path.resolve(here, '../auth');
 const sheetDir = path.resolve(here, '../sheet');
 const libraryDir = path.resolve(here, '../library');
 
@@ -273,6 +274,97 @@ describe('sheet-cycle copy source scan (WSC-32, SC-006)', () => {
     // the cycle, so dropping a reference turns this suite red rather than pass
     // vacuously (SC-006).
     for (const key of sheetSurfaceKeys) {
+      expect(referenced.has(key)).toBe(true);
+    }
+  });
+});
+
+/** The auth surface and session copy the feature introduces (WAS-19, WAS-25, WAS-30, WAS-31). */
+const authFeatureKeys: readonly MessageKey[] = [
+  'auth.title',
+  'auth.modeLogin',
+  'auth.modeRegister',
+  'auth.emailLabel',
+  'auth.passwordLabel',
+  'auth.usernameLabel',
+  'auth.submitLogin',
+  'auth.submitRegister',
+  'auth.restoring',
+  'nav.ownSheet',
+  'nav.logout',
+  'sheet.ownTitle',
+  'sheet.ownLoading',
+  'sheet.ownEmpty',
+  'sheet.ownOpen',
+  'sheet.ownRetry',
+  'sheet.ownDelete',
+  'sheet.ownDeleteTitle',
+  'sheet.ownDeleteMessage',
+  'sheet.ownDeleteConfirm',
+  'sheet.ownCancel',
+  'api.error.unauthorized',
+  'api.error.forbidden',
+  'api.error.rateLimited',
+];
+
+/** The keys the auth directory renders; the rest are owned by the shell and the sheet surface. */
+const authSurfaceKeys: readonly MessageKey[] = [
+  'auth.title',
+  'auth.modeLogin',
+  'auth.modeRegister',
+  'auth.emailLabel',
+  'auth.passwordLabel',
+  'auth.usernameLabel',
+  'auth.submitLogin',
+  'auth.submitRegister',
+  'auth.restoring',
+];
+
+function authSources(): string[] {
+  return readdirSync(authDir)
+    .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
+    .map((name) => path.join(authDir, name));
+}
+
+describe('auth copy keys and source scan (WAS-19, WAS-25, WAS-30, WAS-31)', () => {
+  it('Happy path: every auth and session copy key resolves to non-empty copy', () => {
+    for (const key of authFeatureKeys) {
+      expect(messages[key]).toBeDefined();
+      expect(message(key).trim()).not.toBe('');
+    }
+  });
+
+  it('Edge: the auth and session copy keys own distinct copy, so none is a silent duplicate', () => {
+    const seen = new Map<string, MessageKey>();
+    for (const key of authFeatureKeys) {
+      const text = messages[key];
+      expect(seen.has(text)).toBe(false);
+      seen.set(text, key);
+    }
+  });
+
+  it('Edge: the auth source authors no api.error literal and resolves every message key it renders', () => {
+    const sources = authSources();
+    expect(sources.length).toBeGreaterThan(0);
+
+    const knownKeys = new Set<string>(keys);
+    const referenced = new Set<string>();
+
+    for (const file of sources) {
+      const text = readFileSync(file, 'utf8');
+
+      // Failure copy is resolved through the mapper, never by naming a key here.
+      expect(text).not.toContain('api.error.');
+
+      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+        expect(knownKeys.has(match[1])).toBe(true);
+        referenced.add(match[1]);
+      }
+    }
+
+    // Every auth-surface key the catalog declares must be rendered somewhere in
+    // the directory, so dropping a reference turns this suite red (WAS-31).
+    for (const key of authSurfaceKeys) {
       expect(referenced.has(key)).toBe(true);
     }
   });

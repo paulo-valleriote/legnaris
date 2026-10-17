@@ -120,6 +120,47 @@ describe('sheet store: draft envelope (WSC-26, WSC-30, WSC-31)', () => {
   });
 });
 
+describe('sheet store: session clear-all (WAS-21)', () => {
+  it('Happy path: the in-memory double empties both the sheets and the drafts', async () => {
+    const store = createMemorySheetStore();
+    await store.putSheet(SHEET);
+    await store.writeDraft(SHEET.id, { stats: { dexterity: 18 } });
+
+    await store.clearAll();
+
+    await expect(store.readSheet(SHEET.id)).resolves.toBeNull();
+    await expect(store.readDraft(SHEET.id)).resolves.toBeNull();
+    expect(store.records()).toEqual([]);
+  });
+
+  it('Edge: clearAll on an already-empty double resolves without throwing', async () => {
+    const store = createMemorySheetStore();
+
+    await expect(store.clearAll()).resolves.toBeUndefined();
+  });
+
+  it('Happy path: the idb adapter empties both object stores', async () => {
+    const { store, db } = await idbHarness();
+    await store.putSheet(SHEET);
+    await store.writeDraft(SHEET.id, { stats: { dexterity: 18 } });
+
+    await store.clearAll();
+
+    await expect(db.getAll('sheets')).resolves.toEqual([]);
+    await expect(db.getAll('drafts')).resolves.toEqual([]);
+    await expect(store.readSheet(SHEET.id)).resolves.toBeNull();
+    await expect(store.readDraft(SHEET.id)).resolves.toBeNull();
+  });
+
+  it('Edge: the idb adapter clearAll on an already-empty database resolves without throwing', async () => {
+    const { store, db } = await idbHarness();
+
+    await expect(store.clearAll()).resolves.toBeUndefined();
+    await expect(db.getAll('sheets')).resolves.toEqual([]);
+    await expect(db.getAll('drafts')).resolves.toEqual([]);
+  });
+});
+
 describe('sheet store: idb adapter under fake-indexeddb (WSC-11, WSC-30)', () => {
   it('Happy path: round-trips a sheet and a draft', async () => {
     const { store } = await idbHarness();

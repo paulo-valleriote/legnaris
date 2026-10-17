@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { seedSession } from './auth_seed';
 
 test.describe('application shell', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+  });
+
   test('renders navigation, content and panel in order with the catalog', async ({ page }) => {
     await page.goto('/');
 

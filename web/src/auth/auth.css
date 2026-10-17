@@ -1,0 +1,105 @@
+/**
+ * The auth-surface styles. Every value comes from the shared design tokens; no
+ * literal color or pixel value appears here (WAS-31).
+ */
+
+.lg-auth {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100%;
+  padding: var(--lg-space-24);
+  background-color: var(--lg-color-bg);
+}
+
+.lg-auth__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-16);
+  width: 100%;
+  max-width: var(--lg-size-content-max);
+  padding: var(--lg-space-24);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-4);
+  background-color: var(--lg-color-surface);
+}
+
+.lg-auth__title {
+  margin: 0;
+  font-size: var(--lg-type-17);
+  font-weight: var(--lg-font-weight-strong);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-auth__modes {
+  display: flex;
+  gap: var(--lg-space-8);
+}
+
+.lg-auth__mode {
+  min-height: var(--lg-size-control);
+  padding: 0 var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-2);
+  background-color: var(--lg-color-bg);
+  color: var(--lg-color-text);
+  font-family: inherit;
+  font-size: var(--lg-type-15);
+  cursor: pointer;
+}
+
+.lg-auth__mode:hover {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-auth__mode[aria-pressed='true'] {
+  border-color: var(--lg-color-accent);
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+}
+
+.lg-auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-16);
+}
+
+.lg-auth__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+}
+
+.lg-auth__label {
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-strong);
+  color: var(--lg-color-text);
+}
+
+.lg-auth__input {
+  min-height: var(--lg-size-control);
+  padding: 0 var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-2);
+  background-color: var(--lg-color-bg);
+  color: var(--lg-color-text);
+  font-family: inherit;
+  font-size: var(--lg-type-15);
+}
+
+.lg-auth__error {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-danger);
+}
+
+.lg-auth__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.lg-auth__restoring {
+  margin: var(--lg-space-24);
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+}

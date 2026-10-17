@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { seedSession } from './auth_seed';
 
 test.describe('installable, offline client', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+  });
+
   test('declares a valid web app manifest', async ({ page }) => {
     await page.goto('/');
     const href = await page.getAttribute('link[rel="manifest"]', 'href');

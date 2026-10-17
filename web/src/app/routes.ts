@@ -18,7 +18,14 @@ export interface DeclaredRoute {
 export const NOT_FOUND_PATH = '*';
 
 export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
-  { path: '/', label: 'Catalog', audience: 'public', deepLink: true, notFound: false },
-  { path: '/sheets/:id', label: 'Sheet', audience: 'public', deepLink: true, notFound: false },
-  { path: NOT_FOUND_PATH, label: 'Not found', audience: 'public', deepLink: true, notFound: true },
+  { path: '/', label: 'Catalog', audience: 'session', deepLink: true, notFound: false },
+  { path: '/sheets/:id', label: 'Sheet', audience: 'session', deepLink: true, notFound: false },
+  {
+    path: '/your-sheet',
+    label: 'Your sheet',
+    audience: 'session',
+    deepLink: true,
+    notFound: false,
+  },
+  { path: NOT_FOUND_PATH, label: 'Not found', audience: 'session', deepLink: true, notFound: true },
 ];

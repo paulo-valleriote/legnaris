@@ -53,6 +53,30 @@
   color: var(--lg-color-accent-text);
 }
 
+.lg-nav__logout {
+  display: flex;
+  align-items: center;
+  min-height: var(--lg-size-row);
+  padding: 0 var(--lg-space-8);
+  border: 0;
+  border-radius: var(--lg-radius-2);
+  background-color: transparent;
+  font-family: inherit;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lg-nav__logout:hover {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-nav__logout:disabled {
+  color: var(--lg-color-text-muted);
+  cursor: not-allowed;
+}
+
 .lg-content {
   grid-column: 2;
   min-width: 0;

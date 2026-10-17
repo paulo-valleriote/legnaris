@@ -7,6 +7,7 @@ import { createFakeTransport, successOutcome } from './fake_transport';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(here, '../api');
+const authDir = path.resolve(here, '../auth');
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -17,6 +18,19 @@ function sourceFiles(dir: string): string[] {
     }
 
     return entry.endsWith('.ts') ? [full] : [];
+  });
+}
+
+/** The auth sources, `.ts` and `.tsx`, so a component is inspected too (WAS-32). */
+function authSourceFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const full = path.join(dir, entry);
+
+    if (statSync(full).isDirectory()) {
+      return authSourceFiles(full);
+    }
+
+    return entry.endsWith('.ts') || entry.endsWith('.tsx') ? [full] : [];
   });
 }
 
@@ -45,6 +59,18 @@ const sheetPayload = {
 describe('credential hygiene (API-29)', () => {
   it('Edge: the API module contains no logging call and imports no logger (API-29)', () => {
     const files = sourceFiles(apiDir);
+    expect(files.length).toBeGreaterThan(0);
+
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8');
+
+      expect(source, file).not.toMatch(/\bconsole\s*\./);
+      expect(source, file).not.toMatch(/(?:from|import)\s*['"][^'"]*logger[^'"]*['"]/);
+    }
+  });
+
+  it('Edge: the auth module contains no logging call and imports no logger (WAS-32)', () => {
+    const files = authSourceFiles(authDir);
     expect(files.length).toBeGreaterThan(0);
 
     for (const file of files) {

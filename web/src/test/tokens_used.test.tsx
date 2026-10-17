@@ -8,6 +8,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const shellDir = path.resolve(here, '../shell');
 const catalogDir = path.resolve(here, '../catalog');
 const engineDir = path.resolve(here, '../engine');
+const authDir = path.resolve(here, '../auth');
 const sheetDir = path.resolve(here, '../sheet');
 const libraryDir = path.resolve(here, '../library');
 
@@ -89,5 +90,19 @@ describe('design token usage in the sheet cycle (WSC-33)', () => {
 
   it('Happy path: every token the sheet cycle references is defined in tokens.css', () => {
     assertTokensAreDefined([...sourceFiles(sheetDir), ...sourceFiles(libraryDir)]);
+  });
+});
+
+describe('design token usage in the auth surface (WAS-31)', () => {
+  it('Happy path: the auth sources exist to inspect', () => {
+    expect(sourceFiles(authDir).length).toBeGreaterThan(0);
+  });
+
+  it('Edge: no auth source contains a literal color or pixel value', () => {
+    assertTokenOnlySources(sourceFiles(authDir));
+  });
+
+  it('Happy path: every token the auth surface references is defined in tokens.css', () => {
+    assertTokensAreDefined(sourceFiles(authDir));
   });
 });

@@ -56,6 +56,8 @@ export interface SheetStore {
   writeDraft(id: string, delta: Record<string, unknown>): Promise<void>;
   /** Deletes the draft for [id], best-effort (WSC-29). */
   deleteDraft(id: string): Promise<void>;
+  /** Deletes every cached sheet and every draft at a session boundary (WAS-21). */
+  clearAll(): Promise<void>;
 }
 
 function isSheet(value: unknown): value is Sheet {
@@ -159,6 +161,7 @@ export function createLazySheetStore(open: () => Promise<SheetStore>): SheetStor
     readDraft: (id) => resolve().then((store) => store.readDraft(id)),
     writeDraft: (id, delta) => resolve().then((store) => store.writeDraft(id, delta)),
     deleteDraft: (id) => bestEffort(() => resolve().then((store) => store.deleteDraft(id))),
+    clearAll: () => bestEffort(() => resolve().then((store) => store.clearAll())),
   };
 }
 
@@ -194,6 +197,11 @@ export function createMemorySheetStore(): MemorySheetStore {
     },
     deleteDraft: (id) => {
       drafts.delete(id);
+      return Promise.resolve();
+    },
+    clearAll: () => {
+      sheets.clear();
+      drafts.clear();
       return Promise.resolve();
     },
     putRawSheet: (id, record) => {

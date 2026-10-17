@@ -29,6 +29,10 @@ describe('shell keyboard access', () => {
     const user = userEvent.setup();
     renderApp('/unknown');
 
+    // The navigation now offers the catalog link, the own-sheet link and the
+    // sign-out control (WAS-19, WAS-25) ahead of the content link.
+    await user.tab();
+    await user.tab();
     await user.tab();
     await user.tab();
 

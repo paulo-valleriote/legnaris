@@ -1,0 +1,26 @@
+/**
+ * The "Your sheet" destination layout. Every value comes from the shared design
+ * tokens; no literal color or pixel value appears here (WAS-31).
+ */
+
+.lg-yoursheet__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lg-space-16);
+  padding: var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-2);
+  background-color: var(--lg-color-surface);
+}
+
+.lg-yoursheet__name {
+  font-size: var(--lg-type-15);
+  font-weight: var(--lg-font-weight-strong);
+}
+
+.lg-yoursheet__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-8);
+}

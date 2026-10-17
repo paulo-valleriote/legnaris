@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { seedSession } from './auth_seed';
 
 // The service worker is irrelevant to the accessibility measurement and would
 // sit between the page and the intercepted catalog request.
@@ -33,6 +34,7 @@ function criticalViolations(results: Awaited<ReturnType<AxeBuilder['analyze']>>)
 
 test.describe('catalog accessibility (SC-005, AD-014)', () => {
   test.beforeEach(async ({ page }) => {
+    await seedSession(page);
     await page.route('**/templates/*', (route) => route.fulfill({ json: { data: DETAIL } }));
     await page.route('**/templates', (route) => route.fulfill({ json: { data: CATALOG } }));
   });
