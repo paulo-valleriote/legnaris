@@ -1,8 +1,8 @@
-# Plano Web PWA (Legnaris) — v3
+# Plano Web PWA (Legnaris) — v3.1
 
 > **Programa**: substituir o app Flutter desktop por um PWA React/TS, seguindo as fases do
 > desktop, com SCA/SAST/DAST e testes de lógica e de requisitos de interface.
-> **Status**: v3 FINAL (2026-10-15). Documento de **planejamento** — a execução acontece pelo
+> **Status**: v3.1 FINAL (2026-10-16). Documento de **planejamento** — a execução acontece pelo
 > ciclo Spec Kit (ver `.specs/features/001-web-pwa-foundation/`).
 > **Escopo dos arquivos**: este documento é o plano-programa (F0–F10) e fica em pt-BR, na
 > exceção prevista pela constituição para `docs/`. Ele não define requirement IDs — quem os
@@ -17,7 +17,7 @@
 
 ## Parte A — Resumo
 
-> **Status: FINAL (v3)** — resumo. O detalhamento autoritativo de cada tarefa está na Parte B
+> **Status: FINAL (v3.1)** — resumo. O detalhamento autoritativo de cada tarefa está na Parte B
 > (inclui o Apêndice A — CSP report).
 > Objetivo: substituir o app Flutter desktop por um **PWA React/TS**, espelhando as fases
 > do desktop, com **SCA/SAST/DAST**, testes de **lógica** e de **requisitos de interface**.
@@ -106,7 +106,7 @@ o refresh vai em **cookie httpOnly** e o access token fica **em memória**.
   **double-submit token** (`__Host-legnaris_csrf` não-httpOnly, reenviado em `X-CSRF-Token` e
   validado contra o servidor) + **validação de `Origin`/`Referer`** — só em `/auth/refresh` e `/auth/logout`.
 - **CORS**: `Access-Control-Allow-Credentials: true` com **origem exata** (nunca `*`), `Vary: Origin`.
-- **Topologia**: app em `www.legnaris.com.br`, API em `www.api.legnaris.com.br` — cross-origin,
+- **Topologia**: app em `app.legnaris.com.br`, API em `api.legnaris.com.br` — cross-origin,
   **same-site** (não é third-party cookie, por isso subdomínio); CSP emitida pela origem do
   **frontend**, `connect-src` da API.
 - **XSS**: o refresh httpOnly **não vaza** para JS; um XSS ainda age na sessão (access em memória),
@@ -319,7 +319,7 @@ web/
 ### 11. Decisões registradas / pontos abertos
 
 **Decidido:**
-- Topologia: app `www.legnaris.com.br` + API `www.api.legnaris.com.br` (cross-origin, **same-site**
+- Topologia: app `app.legnaris.com.br` + API `api.legnaris.com.br` (cross-origin, **same-site**
   → cookie httpOnly funciona com `SameSite=Strict`; não é third-party cookie).
 - Report CSP: **rota no backend** `POST /csp-report` → Loki/Grafana; sem coletor externo por ora.
 - CSP emitida pela origem do **frontend**; `connect-src` da API.
@@ -344,11 +344,13 @@ web/
 
 > Documento de planejamento **FINAL**. **Não implementar.** Cada tarefa traz objetivo, passos,
 > arquivos, critérios de aceite e testes. Ênfase nas tarefas de **segurança**.
-> Data: 2026-10-15. Versão 3 (final).
+> Data: 2026-10-16. Versão 3.1 (final).
 >
 > Changelog: v1 (rascunho) → v2 (auth migrada para **cookie httpOnly** + arsenal de controle
 > ampliado) → v3 (topologia app/API definida, **CSP report** e **rate limiting** em escopo,
-> referências de tarefas normalizadas, critérios de saída).
+> referências de tarefas normalizadas, critérios de saída) → v3.1 (hosts da topologia corrigidos
+> para **`app.legnaris.com.br`** (app) e **`api.legnaris.com.br`** (API), conforme
+> `deploy/.env.example`).
 
 ---
 
@@ -373,7 +375,7 @@ web/
 | PWA/offline | Instalável + offline shell + IndexedDB (cache + drafts) |
 | Segurança | GitHub-native + `osv-scanner` + **Trivy** + **Semgrep** + OWASP ZAP + SBOM + headers/CSP evaluator |
 | Desktop | **Descontinuado** → remover o caminho nativo (`X-Refresh-Token`) do backend |
-| Topologia | App `www.legnaris.com.br` + API `www.api.legnaris.com.br` (cross-origin, same-site) |
+| Topologia | App `app.legnaris.com.br` + API `api.legnaris.com.br` (cross-origin, same-site) |
 | CSP report | Rota no backend `POST /csp-report` → Loki/Grafana (sem coletor externo por ora) |
 | Rate limiting | **Em escopo** — `/auth/*` + `/csp-report` (limitador compartilhado) |
 | Fora de escopo | Fila de escrita offline (Background Sync de PATCH); import/export pela UI |
@@ -501,17 +503,17 @@ Set-Cookie: __Host-legnaris_refresh=<opaque>; HttpOnly; Secure; SameSite=Strict;
   → **impacto limitado à sessão**; o refresh httpOnly **não vaza** e, ao rotacionar/expirar,
   o atacante perde acesso. **Não** é persistente.
 
-#### 3.6 Topologia (app em `www.legnaris.com.br`, API em `www.api.legnaris.com.br`)
+#### 3.6 Topologia (app em `app.legnaris.com.br`, API em `api.legnaris.com.br`)
 
 - **Cross-origin, same-site** (registrable domain `legnaris.com.br`) ⇒ ao emitir a CSP, use
-  `connect-src https://www.api.legnaris.com.br`; o cookie httpOnly **é enviado** e o
+  `connect-src https://api.legnaris.com.br`; o cookie httpOnly **é enviado** e o
   `SameSite=Strict` bloqueia CSRF **cross-site**.
 - **Não é third-party cookie** ⇒ não é bloqueado por ITP/Safari nem pelo Chrome — motivo para
   usar **subdomínio** e não um domínio registrável diferente (que quebraria o silent refresh).
 - CORS com credenciais: origem **exata** + `Allow-Credentials: true` + `Vary: Origin` +
   `Access-Control-Allow-Headers: X-CSRF-Token`.
 - **CSP é header do documento**: emitida pela origem do **frontend** (Traefik/proxy de
-  `www.legnaris.com.br`), **não** pela API (Echo, que só devolve JSON).
+  `app.legnaris.com.br`), **não** pela API (Echo, que só devolve JSON).
 - **Endpoint de report CSP**: `POST /csp-report` no backend — sem auth, body cap + rate limit,
   **remover query/hash** da URL antes de logar; log estruturado em **Loki** + métrica no
   **Prometheus** → alerta no **Grafana** (stack já existe em `deploy/`). Coletor externo fica
@@ -732,12 +734,12 @@ sem valores mágicos; contraste AA.
 **F9-T001 CSP + headers (header HTTP, enforce)** — **SEGURANÇA (principal)**
   ```
   default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self';
-  connect-src 'self' https://www.api.legnaris.com.br; object-src 'none'; base-uri 'self'; form-action 'self';
+  connect-src 'self' https://api.legnaris.com.br; object-src 'none'; base-uri 'self'; form-action 'self';
   frame-ancestors 'none'; require-trusted-types-for 'script';
-  report-uri https://www.api.legnaris.com.br/csp-report
+  report-uri https://api.legnaris.com.br/csp-report
   ```
-  - Emitida pela origem do **frontend** (Traefik/proxy de `www.legnaris.com.br`) — **não** pela API
-    (Echo só devolve JSON); `report-only → enforce`; `connect-src https://www.api.legnaris.com.br`.
+  - Emitida pela origem do **frontend** (Traefik/proxy de `app.legnaris.com.br`) — **não** pela API
+    (Echo só devolve JSON); `report-only → enforce`; `connect-src https://api.legnaris.com.br`.
   - Complementos: `HSTS`, `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
     `Permissions-Policy`, `X-Frame-Options: DENY`, `COOP: same-origin`.
   - **Aceite**: header em prod; nenhuma violação no fluxo; virada registrada (F9-T008).
@@ -812,7 +814,7 @@ citação de requirement ID ou assertiva vazia **quebra** o CI.
 ### 10. Decisões registradas / pontos abertos
 
 **Decidido:**
-- Topologia: app em `www.legnaris.com.br`, API em `www.api.legnaris.com.br` (cross-origin, same-site).
+- Topologia: app em `app.legnaris.com.br`, API em `api.legnaris.com.br` (cross-origin, same-site).
 - Endpoint de report CSP: **rota no backend** (`POST /csp-report`) → Loki/Grafana; sem coletor externo por ora.
 - CSP emitida pela origem do **frontend**; `connect-src` da API.
 - **Rate limiting entra** no escopo → F6B-T006 (`/auth/*`) e limitador **compartilhado** também em
@@ -867,14 +869,14 @@ Serve para dois momentos:
 
 ```
 # moderno (Reporting API)
-Reporting-Endpoints: csp-endpoint="https://www.api.legnaris.com.br/csp-report"
+Reporting-Endpoints: csp-endpoint="https://api.legnaris.com.br/csp-report"
 Content-Security-Policy: ...; report-to csp-endpoint
 
 # legado (fallback para browsers antigos)
-Content-Security-Policy: ...; report-uri https://www.api.legnaris.com.br/csp-report
+Content-Security-Policy: ...; report-uri https://api.legnaris.com.br/csp-report
 
 # fase de coleta (não bloqueia)
-Content-Security-Policy-Report-Only: ...; report-uri https://www.api.legnaris.com.br/csp-report
+Content-Security-Policy-Report-Only: ...; report-uri https://api.legnaris.com.br/csp-report
 ```
 
 #### A.3 Payloads (dois formatos → normalizar)
@@ -882,20 +884,20 @@ Content-Security-Policy-Report-Only: ...; report-uri https://www.api.legnaris.co
 `report-uri` → `Content-Type: application/csp-report`:
 ```json
 { "csp-report": {
-  "document-uri": "https://www.legnaris.com.br/sheet/abc",
+  "document-uri": "https://app.legnaris.com.br/sheet/abc",
   "violated-directive": "script-src-elem",
   "effective-directive": "script-src-elem",
   "original-policy": "default-src 'self'; ...",
   "disposition": "enforce",
   "blocked-uri": "https://evil.example.com/x.js",
-  "source-file": "https://www.legnaris.com.br/assets/index-abc.js",
+  "source-file": "https://app.legnaris.com.br/assets/index-abc.js",
   "line-number": 12, "column-number": 345, "status-code": 200
 }}
 ```
 
 `report-to` → `Content-Type: application/reports+json` (array):
 ```json
-[{ "type": "csp-violation", "url": "https://www.legnaris.com.br/...", "age": 123,
+[{ "type": "csp-violation", "url": "https://app.legnaris.com.br/...", "age": 123,
    "user_agent": "...", "body": {
      "documentURL": "...", "blockedURL": "...", "effectiveDirective": "script-src-elem",
      "originalPolicy": "...", "disposition": "enforce", "lineNumber": 12, "columnNumber": 345 }}
