@@ -4,8 +4,6 @@ import { seedSession } from './auth_seed';
 
 // The service worker is irrelevant to the accessibility measurement and would
 // sit between the page and the intercepted API requests.
-test.use({ serviceWorkers: 'block' });
-
 const TEMPLATE_ID = 'fantasy_v1';
 const SHEET_ID = '01a14236-21c9-7546-945e-40c46d1fcd1d';
 
@@ -40,6 +38,7 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility (SC-010
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(criticalViolations(results)).toEqual([]);
+    await expect(page).toHaveScreenshot('auth.png');
   });
 
   test('the signed-in shell has no critical violations and names the session controls', async ({

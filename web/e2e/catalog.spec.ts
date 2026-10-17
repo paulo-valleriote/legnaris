@@ -4,8 +4,6 @@ import { seedSession } from './auth_seed';
 
 // The service worker is irrelevant to the accessibility measurement and would
 // sit between the page and the intercepted catalog request.
-test.use({ serviceWorkers: 'block' });
-
 const CATALOG = [
   {
     id: 'dnd5e',
@@ -46,6 +44,7 @@ test.describe('catalog accessibility (SC-005, AD-014)', () => {
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(criticalViolations(results)).toEqual([]);
+    await expect(page).toHaveScreenshot('catalog.png');
   });
 
   test('the creation surface has no critical accessibility violations', async ({ page }) => {

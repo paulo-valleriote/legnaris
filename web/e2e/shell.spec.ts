@@ -19,6 +19,7 @@ test.describe('application shell', () => {
     await expect(page.getByRole('complementary')).toHaveCount(0);
     await expect(main.getByRole('heading', { name: 'Templates' })).toBeVisible();
     await expect(page.getByRole('row')).toHaveCount(0);
+    await expect(page).toHaveScreenshot('shell.png');
   });
 
   test('keeps both regions and the navigation at a narrow viewport (UIF-25)', async ({ page }) => {
