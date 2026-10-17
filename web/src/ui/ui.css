@@ -102,3 +102,13 @@
 /* Toast (US4) */
 .lg-toast { position: fixed; bottom: var(--lg-space-24); right: var(--lg-space-24); padding: var(--lg-space-16); border-radius: var(--lg-radius-md); background: var(--lg-color-ink); color: var(--lg-color-text); box-shadow: var(--lg-shadow-2); display: flex; align-items: center; gap: var(--lg-space-8); z-index: 40; }
 .lg-toast--danger { background: var(--lg-color-danger); color: var(--lg-color-danger-text); }
+
+/* Motion system — UIM-01 / UIM-03 / UIM-08 (only permitted properties) */
+.lg-button,
+.lg-button--primary,
+.lg-button--secondary,
+.lg-button--ghost,
+.lg-button--outline,
+.lg-button--danger,
+.lg-field__input,
+.lg-checkbox { transition: background var(--lg-motion-180) var(--lg-ease-standard), color var(--lg-motion-180) var(--lg-ease-standard), border-color var(--lg-motion-180) var(--lg-ease-standard), box-shadow var(--lg-motion-180) var(--lg-ease-standard), transform var(--lg-motion-180) var(--lg-ease-standard), opacity var(--lg-motion-180) var(--lg-ease-standard); }

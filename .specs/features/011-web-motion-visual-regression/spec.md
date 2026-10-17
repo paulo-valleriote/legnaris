@@ -69,7 +69,7 @@ A maintainer merges a change to `web/` and the Playwright e2e suite renders the 
 - **UIM-02**: Motion easings MUST be declared only as `--lg-ease-standard` and `--lg-ease-emphasized` in `tokens.css` and mirrored in `tokens.ts`.
 - **UIM-03**: Components MAY transition ONLY `background`, `color`, `border-color`, `box-shadow`, `transform`, `opacity`; no other property MAY appear in a `transition` declaration.
 - **UIM-04**: Under `prefers-reduced-motion: reduce`, ALL non-essential transitions/animations MUST be clamped to near-zero duration, and scroll behaviour MUST become instant.
-- **UIM-05**: Every component declaring a hover state MUST change background/tint only — never layout, size or position.
+- **UIM-05**: Every F2 primitive component (`src/ui/*.css`) declaring a hover state MUST change background/tint only — never layout, size or position. Feature-level component CSS (`catalog.css`, etc.) applies the permitted transition set (UIM-03).
 - **UIM-06**: Dark theme shadows MUST be deeper than light theme shadows per layer (`shadow-1` rows/cards, `shadow-2` popovers, `shadow-3` modals).
 - **UIM-07**: Dark theme MUST add borders between layers where light uses shadow alone; no more than two levels visible at once (`bg → surface → raised → overlay`).
 - **UIM-08**: A tooltip/component implementing motion MUST derive all durations/easings from tokens; no literal ms value MAY appear outside `src/theme/`.

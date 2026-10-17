@@ -12,7 +12,7 @@
 
 ## Phase: Dark Theme Polish
 
-- [ ] T005 Verify dark shadows (`shadow-1..3`) deeper than light per layer; add borders (`border`, `border-strong`) where needed.
+- [ ] T005 Verify dark shadows (`shadow-1..3`) deeper than light per layer; add borders (`border`, `border-strong`) where needed; assert focus-visible (`--lg-focus-*`) distinguishable from hover in dark (UIM-16).
 - [ ] T006 Assert contrast passes for all shadow/border pairs in both themes (`tokens_contrast.test.ts`).
 
 ## Phase: Visual Regression Gate
