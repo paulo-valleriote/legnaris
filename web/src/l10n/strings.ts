@@ -34,6 +34,10 @@ export const messages = {
   'nav.ownSheet': 'Your sheet',
   'nav.logout': 'Sign out',
 
+  'theme.toggleLabel': 'Switch theme',
+  'theme.switchToDark': 'Switch to dark',
+  'theme.switchToLight': 'Switch to light',
+
   'catalog.title': 'Templates',
   'catalog.loading': 'Loading templates',
   'catalog.empty': 'No templates are available.',

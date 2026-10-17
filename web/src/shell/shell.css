@@ -53,7 +53,8 @@
   color: var(--lg-color-accent-text);
 }
 
-.lg-nav__logout {
+.lg-nav__logout,
+.lg-nav__theme {
   display: flex;
   align-items: center;
   min-height: var(--lg-size-row);
@@ -68,7 +69,8 @@
   cursor: pointer;
 }
 
-.lg-nav__logout:hover {
+.lg-nav__logout:hover,
+.lg-nav__theme:hover {
   background-color: var(--lg-color-surface-hover);
 }
 

@@ -6,12 +6,22 @@ import { describe, expect, it } from 'vitest';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(path.resolve(here, '../../index.html'), 'utf8');
 
+function scriptTags(): string[] {
+  return [...html.matchAll(/<script\b[^>]*>/gi)].map((match) => match[0]);
+}
+
 describe('served HTML asset policy (FND-10)', () => {
   it('Happy path: the entry script is an external, same-origin module', () => {
-    const scripts = [...html.matchAll(/<script\b[^>]*>/gi)].map((m) => m[0]);
-    expect(scripts).toHaveLength(1);
-    expect(scripts[0]).toContain('type="module"');
-    expect(scripts[0]).toContain('/src/main.tsx');
+    const entry = scriptTags().find((tag) => tag.includes('type="module"'));
+    expect(entry).toBeDefined();
+    expect(entry).toContain('/src/main.tsx');
+  });
+
+  it('Happy path: the theme boot script is an external, same-origin classic script (UIF-20)', () => {
+    const boot = scriptTags().find((tag) => tag.includes('theme-init.js'));
+    expect(boot).toBeDefined();
+    expect(boot).not.toContain('type="module"');
+    expect(boot).toContain('src="/theme-init.js"');
   });
 
   it('Edge: there is no inline script body', () => {

@@ -8,6 +8,7 @@ interface Entry {
 
 const entries = new Set<Entry>();
 let viewportWidth = 1280;
+let prefersDark = false;
 
 function evaluate(media: string, width: number): boolean {
   const max = /max-width:\s*(\d+)px/.exec(media);
@@ -18,12 +19,16 @@ function evaluate(media: string, width: number): boolean {
   if (min) {
     return width >= Number(min[1]);
   }
+  if (/prefers-color-scheme:\s*dark/.test(media)) {
+    return prefersDark;
+  }
+  if (/prefers-color-scheme:\s*light/.test(media)) {
+    return !prefersDark;
+  }
   return false;
 }
 
-/** Updates the simulated viewport width and notifies every media-query listener. */
-export function setViewportWidth(width: number): void {
-  viewportWidth = width;
+function notify(): void {
   for (const entry of entries) {
     const matches = evaluate(entry.media, viewportWidth);
     (entry.mql as { matches: boolean }).matches = matches;
@@ -33,9 +38,22 @@ export function setViewportWidth(width: number): void {
   }
 }
 
+/** Updates the simulated viewport width and notifies every media-query listener. */
+export function setViewportWidth(width: number): void {
+  viewportWidth = width;
+  notify();
+}
+
+/** Updates the simulated system color-scheme preference and notifies every listener. */
+export function setPrefersDark(value: boolean): void {
+  prefersDark = value;
+  notify();
+}
+
 /** Installs a deterministic `window.matchMedia` for jsdom (which has none). */
 export function installMatchMedia(): void {
   viewportWidth = 1280;
+  prefersDark = false;
   entries.clear();
   window.matchMedia = ((media: string): MediaQueryList => {
     const listeners = new Set<ChangeListener>();
