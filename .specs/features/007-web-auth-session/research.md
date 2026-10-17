@@ -220,7 +220,10 @@ mapper does not know them, so without this they would all render "Something went
 carries the server's retry hint, and the spec asks for its own kind and copy (WAS-30, SC-008); `403`
 arises on a CSRF/origin refusal and must not be swallowed locally (spec edge case); `409` is left
 generic on purpose, so the auth surface never reveals whether an email already exists (WAS-10). The
-mapping table stays total over the codes the backend emits (the F2 mapper's rule).
+mapping table stays total over the codes the backend emits (the F2 mapper's rule). The client does
+**not** read the `Retry-After` header: the F2 `HttpResponse` carries status and body only, and the flat
+copy catalog cannot interpolate a number, so "the retry hint" is the mapped `rateLimited` copy itself
+(`api.error.rateLimited`) rather than the server's numeric value (WAS-30).
 
 **Alternatives considered**:
 
@@ -287,7 +290,7 @@ that re-requests exactly once — WAS-27). A delete control opens the screen's c
 stating the exact consequence; cancel issues **zero** requests, confirm issues exactly one
 `DELETE /sheets/:id`; on success the local cache and the sheet's draft are removed and the empty state
 shows, on failure the sheet is kept with the mapped copy (WAS-28, WAS-29). The destination is reached
-through a session-only left-nav entry (`nav.yourSheet`) and the server is the source of truth — the
+through a session-only left-nav entry (`nav.ownSheet`) and the server is the source of truth — the
 local cache is never read to decide it (WAS-25).
 
 **Rationale**: the program plan assigns `GET /sheets` + `DELETE /sheets/:id` to this feature
@@ -336,10 +339,10 @@ pure and testable.
 **Decision**: extend the single English catalog (`web/src/l10n/strings.ts`) with the feature's keys —
 the auth surface (`auth.title`, `auth.modeLogin`, `auth.modeRegister`, `auth.emailLabel`,
 `auth.passwordLabel`, `auth.usernameLabel`, `auth.submitLogin`, `auth.submitRegister`,
-`auth.restoring`), the navigation (`nav.yourSheet`, `nav.logout`), the "Your sheet" surface
-(`yourSheet.title`, `yourSheet.loading`, `yourSheet.empty`, `yourSheet.open`, `yourSheet.retry`,
-`yourSheet.delete`, `yourSheet.deleteTitle`, `yourSheet.deleteMessage`, `yourSheet.deleteConfirm`,
-`yourSheet.cancel`) and the three error kinds (`api.error.unauthorized`, `api.error.forbidden`,
+`auth.restoring`), the navigation (`nav.ownSheet`, `nav.logout`), the "Your sheet" surface
+(`sheet.ownTitle`, `sheet.ownLoading`, `sheet.ownEmpty`, `sheet.ownOpen`, `sheet.ownRetry`,
+`sheet.ownDelete`, `sheet.ownDeleteTitle`, `sheet.ownDeleteMessage`, `sheet.ownDeleteConfirm`,
+`sheet.ownCancel`) and the three error kinds (`api.error.unauthorized`, `api.error.forbidden`,
 `api.error.rateLimited`). No literal string is authored in `web/src/auth/` or `web/src/sheet/`
 (WAS-31, SC-008). Suites stay flat in `web/src/test/` with an `auth_*` / `session_*` /
 `your_sheet_*` prefix, edge cases first, driving the existing `fake_transport.ts`, the in-memory

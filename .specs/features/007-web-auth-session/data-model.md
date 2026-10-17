@@ -183,14 +183,14 @@ The feature's copy resolves through the single catalog (`web/src/l10n/strings.ts
 | `auth.emailLabel` / `auth.passwordLabel` / `auth.usernameLabel` | the form fields (`WAS-09`) |
 | `auth.submitLogin` / `auth.submitRegister` | the single primary action (`WAS-09`) |
 | `auth.restoring` | the restoring state before the first restore settles (`WAS-03`) |
-| `nav.yourSheet` / `nav.logout` | the session-only navigation entry and sign-out (`WAS-19`, `WAS-25`) |
-| `yourSheet.title` / `yourSheet.loading` | the destination's header and loading state (`WAS-25`) |
-| `yourSheet.empty` | the designed empty state (`WAS-26`) |
-| `yourSheet.open` / `yourSheet.retry` | the Open and Retry actions (`WAS-25`, `WAS-27`) |
-| `yourSheet.delete` | the delete control (`WAS-28`) |
-| `yourSheet.deleteTitle` / `yourSheet.deleteMessage` / `yourSheet.deleteConfirm` | the confirmation dialog stating the exact consequence (`WAS-28`) |
-| `yourSheet.cancel` | the dialog's safe action (`WAS-28`) |
-| `api.error.unauthorized` / `api.error.forbidden` / `api.error.rateLimited` | the three classified session codes (`WAS-30`) |
+| `nav.ownSheet` / `nav.logout` | the session-only navigation entry and sign-out (`WAS-19`, `WAS-25`) |
+| `sheet.ownTitle` / `sheet.ownLoading` | the destination's header and loading state (`WAS-25`) |
+| `sheet.ownEmpty` | the designed empty state (`WAS-26`) |
+| `sheet.ownOpen` / `sheet.ownRetry` | the Open and Retry actions (`WAS-25`, `WAS-27`) |
+| `sheet.ownDelete` | the delete control (`WAS-28`) |
+| `sheet.ownDeleteTitle` / `sheet.ownDeleteMessage` / `sheet.ownDeleteConfirm` | the confirmation dialog stating the exact consequence (`WAS-28`) |
+| `sheet.ownCancel` | the dialog's safe action (`WAS-28`) |
+| `api.error.unauthorized` / `api.error.forbidden` / `api.error.rateLimited` | the three classified session codes (`WAS-30`); the `rateLimited` copy is the retry hint — the client does not read `Retry-After` |
 
 **Invariants**: no user-facing literal exists in `web/src/auth/` or in the new `web/src/sheet/`
 modules; every branch resolves a key through `message()`, which is what `WAS-31` and `SC-008` assert.

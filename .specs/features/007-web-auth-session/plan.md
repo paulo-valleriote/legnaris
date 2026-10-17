@@ -81,12 +81,13 @@ sink, server text and data rendered as text (WAS-31); no user-facing literal out
 and copy in English only; every `WAS-*` citation resolves through the spec lint already covering
 `*.ts`/`*.tsx`. No new CI gate is introduced (no new dependency).
 
-**Scale/Scope**: 9 new client modules (`request.ts`, `auth_api.ts`, `authenticated_transport.ts`,
-`csrf.ts` under `api/`; `auth_session.ts`, `auth_gate.tsx`, `auth_screen.tsx` under `auth/`;
-`session_data.ts` under `library/`; `your_sheet.ts` + `your_sheet_screen.tsx` under `sheet/`) plus ~9
+**Scale/Scope**: 10 new client modules (`request.ts`, `auth_api.ts`, `authenticated_transport.ts`,
+`csrf.ts` under `api/`; `auth_session.ts`, `auth_gate.tsx`, `auth_screen.tsx`, `auth.css` under `auth/`;
+`session_data.ts` under `library/`; `your_sheet.ts` + `your_sheet_screen.tsx` under `sheet/`) plus ~10
 extended modules (`transport.ts`, `client.ts`, `errors.ts`, `error_mapper.ts`, `sheet_store.ts`,
 `idb_sheet_store.ts`, `providers.tsx`, `routes.ts`, `router.tsx`, `left_nav.tsx`, `strings.ts`), a
-group of l10n keys, ~10 test suites plus one extended scan pair and one Playwright case, 4 user
+group of l10n keys, ~10 test suites, the ~14 F1/F3 `renderApp` suites and the four `web/e2e/*.spec.ts`
+specs retargeted behind the session, the extended scan pair, and one Playwright case, 4 user
 stories (3 P1, 1 P2) and 33 requirements.
 
 ## Constitution Check
@@ -158,7 +159,8 @@ web/src/
 ├── auth/                           # the session (NEW)
 │   ├── auth_session.ts             # in-memory token, version, states, restore/login/register/logout (WAS-01 … WAS-24)
 │   ├── auth_gate.tsx               # gate + restoring state (WAS-03, WAS-08, WAS-24)
-│   └── auth_screen.tsx             # sign-in / registration form (WAS-07, WAS-09, WAS-10)
+│   ├── auth_screen.tsx             # sign-in / registration form (WAS-07, WAS-09, WAS-10)
+│   └── auth.css                    # token-only styles for the auth surface
 ├── library/                        # local persistence
 │   ├── sheet_store.ts              # extended: clearAll() on the port + in-memory double (WAS-21)
 │   ├── idb_sheet_store.ts          # extended: clearAll() clears both object stores (WAS-21)
@@ -182,10 +184,12 @@ web/src/
     ├── auth_gate.test.tsx          # restoring, unauthenticated, authenticated, deep-link reset (NEW)
     ├── session_boundary.test.ts    # sweep clears cache+drafts; transient keeps them (NEW)
     ├── your_sheet.test.tsx         # resolve/empty/failure/retry/delete cancel+confirm (NEW)
-    ├── error_mapper.test.ts        # extended: 401/403/429 kinds, unmapped stays generic (extended)
+    ├── api_error_mapper.test.ts    # extended: 401/403/429 kinds, unmapped stays generic (extended)
     ├── library_store.test.ts       # extended: clearAll (fake-indexeddb) (extended)
+    ├── api_no_logging.test.ts      # extended: scans src/auth/ too (WAS-32) (extended)
+    ├── render.tsx                  # extended: mounts an injected session, authenticated by default
     ├── tokens_used.test.tsx        # extended: scans src/auth/ (extended)
-    └── l10n_strings.test.ts        # extended: auth-*/yourSheet-* keys + source scan (extended)
+    └── l10n_strings.test.ts        # extended: auth-*/sheet.own* keys + source scan (extended)
 web/e2e/
     └── auth.spec.ts                # sign-in + your-sheet axe sweep (SC-010) (NEW)
 ```
@@ -196,20 +200,24 @@ web/e2e/
 `api/{...,auth_api.ts,authenticated_client.ts}`), so the ported units map onto their desktop
 counterparts (`auth_session.dart`, `auth_gate.dart`, `auth_screen.dart`, `authenticated_client.dart`)
 and `auth_session.ts` replaces the task's `session_store.ts` name because there is no stored token to
-read (`R3`). The split is deliberate: `api/` owns the wire — one shared request helper, the auth
+read, while `authenticated_transport.ts` replaces `authenticated_client.ts` because it is a transport
+decorator rather than a client (`R3`, `AD-017`). The split is deliberate: `api/` owns the wire — one shared request helper, the auth
 operations, the authenticated-transport decorator and the CSRF reader — `auth/` owns the in-memory
 session, the gate and the form, `library/` owns the session-local sweep, and `sheet/` owns the
 "Your sheet" resolve/delete surface. `transport.ts` keeps its name and is widened in place, because
 the request's credential posture is a property of the request, not of the transport (F2 `API-29`
 keeps `omit` for every non-auth call). The gate wraps the route table inside `AppShell`, so the
 catalog, the sheet surface and the "Your sheet" destination render only with a session (WAS-08); the
-left-nav entry and sign-out are session-only children of the persistent nav. Styles stay in the
-existing `shell.css` / `sheet.css` expressed only in `--lg-*` tokens, and new styles, if any, live in
-one `auth.css` scoped to the auth surface, so the F1 token-usage scan can inspect the new
-directories the same way it inspects `shell/`, `catalog/` and `engine/`. Tests stay flat in
-`web/src/test/` with the feature prefixes, and the two cross-cutting scans plus the Playwright axe
-case are extended rather than duplicated so the token, copy and accessibility rules keep one gate
-each.
+left-nav entry and sign-out are session-only children of the persistent nav. Styles stay in `--lg-*`
+tokens: the auth surface gets one new `web/src/auth/auth.css`, the "Your sheet" surface reuses the
+existing `sheet.css`, and the sign-out control reuses `shell.css`, so the F1 token-usage scan can
+inspect the new directory the same way it inspects `shell/`, `catalog/` and `engine/`. Tests stay
+flat in `web/src/test/` with the feature prefixes; the shared `render.tsx` helper mounts an injected
+session (authenticated by default) so the earlier `renderApp` suites and the four `web/e2e/*.spec.ts`
+specs render truthfully behind the gate rather than being deleted (`T019`, `T020`, `WAS-08`), and the
+cross-cutting scans — including the no-logging scan, now covering `web/src/auth/` — plus the
+Playwright axe case are extended rather than duplicated so the token, copy and accessibility rules
+keep one gate each.
 
 ## Complexity Tracking
 

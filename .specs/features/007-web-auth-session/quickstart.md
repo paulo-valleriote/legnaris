@@ -120,7 +120,7 @@ kept with the mapped copy (WAS-29).
 ## 8. The session codes are classified
 
 ```bash
-cd web && npx vitest run src/test/error_mapper.test.ts
+cd web && npx vitest run src/test/api_error_mapper.test.ts
 ```
 
 **Outcome**: `UNAUTHORIZED` maps to `unauthorized`, `FORBIDDEN` to `forbidden`, `RATE_LIMITED` to

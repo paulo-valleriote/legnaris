@@ -207,8 +207,8 @@ delete failure and assert the sheet is kept with the mapped message.
   session neither ends nor overwrites the current one. (WAS-17)
 - **CSRF cookie absent**: refresh/logout are still attempted with whatever the client can
   read; the server's 403 is mapped, never a silent local failure. (WAS-18)
-- **Rate limited**: the server's 429 is mapped to its own kind with the retry hint; it is
-  never rendered as a generic failure. (WAS-30)
+- **Rate limited**: the server's 429 is mapped to its own kind with copy that tells the
+  person to retry shortly; it is never rendered as a generic failure. (WAS-30)
 - **Sign-out during pending edits**: leaving the sheet with unsaved work is already guarded
   (`WSC-37`); sign-out clears the session's draft records regardless. (WAS-21)
 - **Sign-out activated twice**: at most one `/auth/logout`. (WAS-23)
@@ -342,8 +342,8 @@ delete failure and assert the sheet is kept with the mapped message.
 
 - **WAS-30**: The client MUST give the session codes the backend emits an interface-facing
   classification and copy — at least 401 (session/unauthorized) and 429 (rate limited,
-  with the server's retry hint) — and MUST leave a code it does not classify on the generic
-  kind rather than misclassifying it.
+  with copy that tells the person to retry shortly) — and MUST leave a code it does not
+  classify on the generic kind rather than misclassifying it.
 - **WAS-31**: Every user-visible string the feature renders MUST resolve through the shared
   translation catalog and every visual value from the shared token set; a value containing
   markup MUST render as text and the feature MUST NOT introduce a DOM-injection sink.

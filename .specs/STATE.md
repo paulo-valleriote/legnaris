@@ -130,6 +130,14 @@
 - **Date**: 2026-10-16
 - **Status**: active
 
+### AD-017
+- **Decision**: F7 (`web-auth-session`) renames two modules relative to the program plan's F7 listing (Parte 6): `session_store.ts` becomes `web/src/auth/auth_session.ts`, and `authenticated_client.ts` becomes `web/src/api/authenticated_transport.ts`. There is no token store to read — the access token lives in memory only (WAS-01) — so `auth_session` names the unit honestly; and the F2 seam to decorate is the `Transport`, not the `ApiClient`, so the decorator is a transport. The "Your sheet" copy keys drop the camelCase namespace: `nav.yourSheet` → `nav.ownSheet` and `yourSheet.*` → `sheet.own*`, matching the one-lowercase-word namespace convention (`nav.catalog`, `sheet.dialogTitle`).
+- **Reason**: Constitution VII and the F7 spec make the in-memory-only credential a hard boundary, so a module named after a persisted store would misdescribe the guarantee the feature must prove; and the F2 client already delegates the wire to `Transport`, so decorating there is what makes the Bearer/single-flight-refresh rules testable without the client. The copy-key rename keeps the catalog's namespace convention intact before any key is shipped.
+- **Trade-off**: the delivered file names no longer match the program plan's F7 listing, so the plan's `Structure Decision` and this record are the traceability (the spec's requirements are unaffected). The renames are design-time only — no code exists yet — so no F1/F2 suite moves because of them.
+- **Scope**: `.specs/features/007-web-auth-session/plan.md` (structure listing and `Structure Decision`), `research.md` (R3), `data-model.md` (copy catalog). Implementation will create the renamed modules.
+- **Date**: 2026-10-16
+- **Status**: active
+
 ## Handoff
 
 - **Feature**: `desktop-session-boundary` (desktop logout/login hygiene: navigation, session-local data, in-flight auth work) — COMPLETE, validation PASS ✅.
