@@ -14,7 +14,9 @@ validation guides: [`.specs/features/001-web-pwa-foundation/`](../.specs/feature
 (the auth session) and [`.specs/features/008-web-ui-foundation/`](../.specs/features/008-web-ui-foundation/)
 (the visual foundation) — each `quickstart.md` holds the runnable validation scenarios.
 Visual rules: [`DESIGN.md`](./DESIGN.md); development, security and architecture rules:
-[`AGENTS.md`](./AGENTS.md).
+[`AGENTS.md`](./AGENTS.md). Shared primitives layer: `web/src/ui/` (`button`, `field`,
+`checkbox`, `dialog`, `toast`, `focus_trap`), extended literal/copy scans (`tokens_used`,
+`l10n_strings`) and requirement-ID lint over `.css`.
 
 ## Prerequisites
 

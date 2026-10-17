@@ -46,7 +46,7 @@ task here is green on its own.
 - [X] T002 [P] `web/src/test/ui_layer.test.ts` — edge first: a module whose import specifier names a feature directory (for example `../catalog/…`) is reported, a barrel (`index.ts`) under `src/ui/` is reported, a missing `ui.css` is reported; happy path: `web/src/ui/` exists with its one stylesheet and no file under it names a feature directory (UIP-02). Fails until T006.
 - [X] T003 [P] Extend `web/src/test/tokens_used.test.tsx` — add a `web/src/ui/` block: edge first, a literal hex colour or `NNpx` value under `src/ui/` is reported and a `var(--lg-*)` that no token declares is reported; happy path: the layer is clean and every token it references resolves (UIP-04, SC-002). Fails until T006.
 - [ ] T004 [P] Extend `web/src/test/l10n_strings.test.ts` — add a `web/src/ui/` block: edge first, a JSX text node that is a user-facing literal is reported and a `ui.*` key the catalog does not declare is reported; happy path: every key the layer renders resolves (UIP-05, SC-004). Fails until T006/T007.
-- [ ] T005 [P] Extend `scripts/check_requirement_ids.py` — add `.css` to the walked suffix set — and add its self-test case to `scripts/test_lints.py`: edge first, a `.css` file citing an unknown ID is flagged, a commented citation is still read and an import line is skipped; happy path, a `.css` file citing a known ID passes and the whole corpus stays clean (UIP-06, `R7`). Safe on the current corpus: every ID already cited in a client stylesheet resolves.
+- [X] T005 [P] Extend `scripts/check_requirement_ids.py` — add `.css` to the walked suffix set — and add its self-test case to `scripts/test_lints.py`: edge first, a `.css` file citing an unknown ID is flagged, a commented citation is still read and an import line is skipped; happy path, a `.css` file citing a known ID passes and the whole corpus stays clean (UIP-06, `R7`). Safe on the current corpus: every ID already cited in a client stylesheet resolves.
 - [X] T006 [P] `web/src/ui/ui.css` — create the layer's single stylesheet with its header comment naming the class convention `lg-<block>__<element>--<modifier>`; token-only, no literal colour and no pixel value (UIP-01, UIP-04, UIP-06, `R1`).
 - [X] T007 [P] `web/src/l10n/strings.ts` — add the layer's one chrome key `ui.dismiss` (UIP-24).
 
@@ -160,9 +160,9 @@ it can be dropped without touching any other story.
 final gates.
 
 - [X] T028 [P] Extend `web/src/test/ui_layer.test.ts` — assert the layer holds exactly the five primitive modules (`button.tsx`, `field.tsx`, `checkbox.tsx`, `dialog.tsx`, `toast.tsx`) plus the focus helper (`focus_trap.ts`) and no unexpected module (UIP-01).
-- [ ] T029 [P] Update `web/README.md` (the new layer, its primitives and the two extended scans) and add this feature's delivered deviations to the `web/AGENTS.md` log (the stylesheet-walker extension, the standalone focus module, the notice's no-timer boundary).
-- [ ] T030 Run the [quickstart.md](./quickstart.md) scenarios end to end (`cd web && npm test`, the individual suites, `npm run lint`, `npm run build`) and `make lint-specs`; confirm no dependency was added (SC-005, SC-006).
-- [ ] T031 Final gates: `make fmt && make lint && make vet && make lint-specs` from the repo root and `make lint-web && make test-web && make sec-scan` from the client, with the full suite green.
+- [X] T029 [P] Update `web/README.md` (the new layer, its primitives and the two extended scans) and add this feature's delivered deviations to the `web/AGENTS.md` log (the stylesheet-walker extension, the standalone focus module, the notice's no-timer boundary).
+- [X] T030 Run the [quickstart.md](./quickstart.md) scenarios end to end (`cd web && npm test`, the individual suites, `npm run lint`, `npm run build`) and `make lint-specs`; confirm no dependency was added (SC-005, SC-006).
+- [X] T031 Final gates: `make fmt && make lint && make vet && make lint-specs` from the repo root and `make lint-web && make test-web && make sec-scan` from the client, with the full suite green.
 
 **Total tasks**: 31.
 
