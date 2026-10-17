@@ -64,7 +64,7 @@ carry the two new documented variables. No `web/` or `desktop/` file is touched.
 - [ ] T003 [P] Extend `shared/logger/logger.go` `redactedKeys` with the two cookie names
       (`__host-legnaris_refresh`, `__host-legnaris_csrf` — literal strings, since `shared` must not import
       `internal/auth`) and add the redaction cases in `shared/logger/logger_test.go` asserting a record
-      whose key names either cookie is `[REDACTED]` (AUTH-25)
+      whose key names either cookie is `[REDACTED]` (AUTH-25, SC-006)
 
 **Checkpoint**: `go test ./shared/...` passes with the new defaults, the 429 mapping and the new redaction
 in place.
@@ -137,15 +137,19 @@ and revokes the family; then drive absent, expired, revoked and reused credentia
       registration still creates the account and a duplicate email is still `CONFLICT` before any session
       is issued; refresh with an empty credential is `UNAUTHORIZED`; an unknown, expired and
       already-rotated credential each map to `UNAUTHORIZED` with the typed code; a reused rotated
-      credential revokes the family so its successor dies too; a refused refresh touches nothing; then the
-      happy paths — register and login return a `Session` carrying an access token, a raw refresh
-      credential, the family-scoped `RefreshMaxAge` and a fresh CSRF token; a refresh returns a `Session`
+      credential revokes the family so its successor dies too; a refused refresh touches nothing; the
+      existing concurrent-rotation regression case is **preserved** — a lost claim (`RevokeByID` →
+      false) answers 401, calls neither `RefreshReuseDetected` nor `RevokeFamily`, and leaves the
+      winner's successor valid (spec Edge Cases, "concurrent refresh"); then the happy paths — register
+      and login return a `Session` carrying an access token, a raw refresh credential, the family-scoped
+      `RefreshMaxAge` and a fresh CSRF token; a refresh returns a `Session`
       whose refresh credential **and** CSRF token both differ from the presented ones; logout resolves the
       session, revokes the family and returns nil
 - [ ] T009 [P] [US1] Controller test `internal/app/auth_test.go` rewritten (AUTH-01, AUTH-02, AUTH-03,
-      AUTH-04, AUTH-05, AUTH-06, AUTH-08, AUTH-09, AUTH-12, AUTH-22, AUTH-24, AUTH-27, SC-001), edge cases
-      first: a credential supplied in `X-Refresh-Token` or in a body is ignored (the command carries the
-      cookie's value, or empty); refresh with no cookie is 401 `UNAUTHORIZED`; logout with no cookie is 204
+      AUTH-04, AUTH-05, AUTH-06, AUTH-08, AUTH-09, AUTH-12, AUTH-22, AUTH-24, AUTH-27, SC-001, SC-006),
+      edge cases first: a credential supplied in `X-Refresh-Token` or in a body is ignored (the command
+      carries the cookie's value, or empty); refresh with no cookie is 401 `UNAUTHORIZED`; logout with no
+      cookie is 204
       and sets no session; a failure body never contains a credential; then the happy paths — login,
       registration (still 201) and refresh each set the refresh cookie with the full attribute set and the
       CSRF cookie (not `HttpOnly`) and return `{access_token, token_type, expires_in}` with **no**
@@ -233,7 +237,9 @@ and assert it is refused.
       and **before** the reuse/expiry branch, `Verify` the command's CSRF token against the **resolved**
       family and refuse with `apperr.NewError(apperr.CodeForbidden, MsgCSRFInvalid, nil)` when it is
       missing, malformed, or bound to another family — leaving the session untouched; skip the check for a
-      logout that resolves to no session (a 204 no-op owes no CSRF) (AUTH-10, AUTH-11, AUTH-12, AUTH-23)
+      logout that resolves to no session (a 204 no-op owes no CSRF); **update the US1 refresh/logout
+      service tests to present a valid session-bound CSRF token** so they keep asserting success
+      (AUTH-10, AUTH-11, AUTH-12, AUTH-23)
 - [ ] T019 [US2] Extend `internal/app/auth.go` to fill `CSRFToken` from the `X-CSRF-Token` request header
       into `RefreshCommand`/`LogoutCommand` (extends T012) (AUTH-09, AUTH-10)
 - [ ] T020 [US2] Mount the origin guard in `internal/app/router.go` on `/auth/refresh` and

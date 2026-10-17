@@ -170,12 +170,17 @@ internal/app/
 ├── origin_test.go         # missing/allowed/disallowed Origin and Referer (NEW; AUTH-13)
 ├── ratelimit_test.go      # over-limit 429 + Retry-After, independent keys, window free (NEW;
 │                          # AUTH-17…AUTH-20)
+├── cookie_scope_test.go   # /sheets and /templates stay Bearer-only, never require a cookie (NEW;
+│                          # AUTH-26)
 └── integration_test.go    # token-pair decode replaced by the session body (extended)
 
 internal/platform/
 ├── cors/cors.go           # AllowCredentials + X-CSRF-Token, drop X-Refresh-Token (extended;
 │                          # AUTH-14…AUTH-16, AUTH-21)
 ├── cors/cors_test.go      # credentialed preflight and exact-origin echo (extended)
+├── metrics/metrics.go     # the rate-limit block counter legnaris_auth_rate_limited_total (extended;
+│                          # AUTH-20)
+├── metrics/metrics_test.go # the block counter increments (extended; AUTH-20)
 └── ratelimit/             # the reusable in-process sliding-window limiter (NEW; AUTH-17…AUTH-20)
     ├── limiter.go
     └── limiter_test.go

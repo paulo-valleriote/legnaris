@@ -297,8 +297,9 @@ of a refresh cookie.
 
 - **AUTH-21**: The server MUST NOT read the native `X-Refresh-Token` header on any route, MUST remove
   it from the cross-origin allowed headers, and MUST remove or rewrite the exported constant and
-  every test that pinned the native transport — including the tests asserting that no refresh cookie
-  is set.
+  every **backend** test that pinned the native transport — including the tests asserting that no
+  refresh cookie is set (the deprecated `desktop/` client and the superseded planning artifact are out
+  of scope; see SC-005 and research R9).
 - **AUTH-22**: A request that sets the retired native refresh header MUST have its outcome determined
   solely by the cookie, exactly as if the header were absent.
 
@@ -350,8 +351,11 @@ of a refresh cookie.
   credentialed cross-origin preflights for the auth routes succeed and advertise `X-CSRF-Token`.
 - **SC-004**: In any configured window, the request that exceeds a key's limit is answered 429 with
   `Retry-After`, 0 tokens are issued for it, and 0 other keys are affected.
-- **SC-005**: 0 occurrences of the native refresh-header transport remain in the sources, and 0 tests
-  still assert the absence of a refresh cookie.
+- **SC-005**: 0 occurrences of the native refresh-header transport remain in the delivered backend
+  sources (`internal/`, `shared/`, `Makefile`, `deploy/`), and 0 tests still assert the absence of a
+  refresh cookie. The deprecated `desktop/` client and the superseded
+  `.specs/features/front-end-phase-6-auth/` artifacts still name the header; they are retired by F10
+  (`web-polish-decommission`) and are out of scope here (research R9).
 - **SC-006**: 0 refresh credentials and 0 CSRF secrets appear in logs, response bodies, or URLs.
 - **SC-007**: 100% of new failure paths assert their typed code and mapped status, and 0 suites are
   non-vacuous.
