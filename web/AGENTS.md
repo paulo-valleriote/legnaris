@@ -1,90 +1,27 @@
 # AGENTS.md — web/ (React PWA client)
 
-Visual and interaction rules that every agent must follow when building screens in
-`web/`. Ported from `desktop/AGENTS.md` to the web stack: the design decisions are
-made **once, here**, not per screen. Design values live in `src/theme/tokens.css`
-(mirrored in `src/theme/tokens.ts`) and are the only sanctioned source of visual
-values (FND-02).
+Development, security and architecture rules for the client under `web/`. The **visual** rules —
+principles, token architecture, colour, typography, spacing/layout, radius/border/elevation,
+motion, component specifications, accessibility, security posture, per-screen patterns, enforcement
+and anti-patterns — live in **[DESIGN.md](./DESIGN.md)**, which is the sole written source of the
+visual values and supersedes any visual statement elsewhere (UIF-33). Design values are made
+**once**, there, not per screen.
 
-## Design Principles
+## Visual rules
 
-- **Functional before decorative.** Every pixel must carry data, hierarchy, or an
-  affordance. Decoration that helps scanning (dividers, section headers) is allowed;
-  decoration that only looks "designed" is not.
-- **Dense yet legible.** Prefer tables, aligned rows, and compact controls over
-  whitespace-driven layouts. Never go below the token sizes to gain density.
-- **Lowest cognitive load possible.** Plain labels first; captions only when the
-  interface would otherwise be ambiguous.
-- **Desktop-first.** Mouse + keyboard, hover states, wide windows, persistent
-  navigation. No mobile patterns (bottom bars, swipe-only actions, FABs).
-- **Schema-driven UI.** Screens render whatever `FieldSchema` the template returns —
-  never hardcode layout, labels, or field order for a specific RPG system.
+Do not encode or restate visual values here or in a component. Read `DESIGN.md` for the token
+architecture and the token-addition workflow, and `src/theme/tokens.css` (mirrored in
+`src/theme/tokens.ts`) for the concrete values. Every component consumes `--lg-*` tokens only;
+`src/theme/` is the sanctioned exception where the literals are declared, and a source scan keeps
+the other directories literal-free.
 
-## Avoid
+## Interaction wiring
 
-| Avoid                                            | Instead                                                                                                  |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| Cards for everything                             | Dividers + section headers; cards only for genuinely bounded objects                                     |
-| Gradients                                        | Flat surfaces                                                                                            |
-| Glassmorphism / backdrop blur                    | Opaque surfaces with hairline borders                                                                    |
-| Corner radius > 4px                              | Radius 2px or 4px (`--lg-radius-2` / `--lg-radius-4`)                                                    |
-| Large headings                                   | Type scale caps at 17px (`--lg-type-17`)                                                                 |
-| Floating action buttons                          | Primary action in a fixed footer bar or toolbar                                                          |
-| Decorative illustrations (incl. empty-state art) | One line of plain text                                                                                   |
-| Icon overload                                    | Text labels; icons only for universally recognized actions                                               |
-| "AI SaaS" aesthetic                              | Purple-blue gradients, glass panels, hero text, pill buttons, emoji icons, glow effects — all prohibited |
-
-## Layout
-
-- **Left navigation is persistent** (never collapses into a hamburger/overlay on
-  desktop); fixed width `--lg-size-nav-min`–`--lg-size-nav-max` (200–240px).
-- **Main content is width-constrained** to `--lg-size-content-max` (~960px); do not
-  stretch fields across a 2560px window.
-- **Secondary information goes to the right panel** (`--lg-size-panel-min`–`--lg-size-panel-max`,
-  280–320px): connection status, field details, derived/cascade preview, template summary.
-- Shell order: `navigation | content | panel` (FND-01).
-- **Resize behavior**: when the viewport narrows, the panel hides first
-  (`SHELL_NARROW_QUERY`), then content reaches its minimum; content never overlaps the
-  nav (FND-03).
-
-## Tokens (concrete values)
-
-Fixed. Components must not contain magic numbers — every size, radius, and color comes
-from a `--lg-*` custom property. A rendering test enforces this (no literal hex or px
-in `src/shell/`, `src/catalog/` or `src/engine/`).
-
-| Token group           | Values                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| Type scale            | `--lg-type-12` · `--lg-type-13` · `--lg-type-15` · `--lg-type-17` — **never above 17px**    |
-| Font family           | `--lg-font-family` (system stack) — no custom font in V1                                    |
-| Spacing               | `--lg-space-4/8/12/16/24` only (multiples of 4)                                             |
-| Radius                | `--lg-radius-2` (inputs, buttons) · `--lg-radius-4` (panels, dialogs)                       |
-| Row height            | `--lg-size-row` (32px)                                                                      |
-| Control height        | `--lg-size-control` (32–36px)                                                               |
-| Nav / content / panel | `--lg-size-nav-*` / `--lg-size-content-max` / `--lg-size-panel-*`                           |
-| Borders               | `--lg-size-hairline` (1px)                                                                  |
-| Colors                | `--lg-color-*` only — **no hardcoded hex in components**; destructive = `--lg-color-danger` |
-
-Every `color` foreground token declares its pair in `src/theme/tokens.ts`
-(`contrastPairs`); the contrast test asserts AA (FND-05).
-
-## Interaction
-
-- **Keyboard-first**: shortcuts are centralized in one registry
-  (`src/shell/shortcut_registry.ts`) as a plain action → key map. V1 defaults: `Ctrl+S`
-  save, `Ctrl+N` new sheet, `Ctrl+1`/`Ctrl+2` navigate, `Esc` close panel/dialog, `F5`
-  refresh.
-- **Visible focus**: focus ring from `--lg-focus-*` on every focusable control; tab
-  order follows visual order; no keyboard traps (FND-04).
-- **Hover states are mandatory** on anything clickable: hover changes background/tint
-  only — never layout or size.
-- **Destructive actions require explicit confirmation** — a dialog stating the exact
-  consequence. Never a one-click destroy, never confirm-by-Enter alone.
-- **Avoid dialog overuse.** Prefer inline surfaces: footer bar for dirty state and
-  Save, right panel for details, inline messages for errors. Dialogs are for creation
-  flows, destructive confirmation, and blocking errors only.
-- **Feedback**: every async action shows progress and an inline result (success or
-  mapped error).
+The keyboard model is centralised, not spread across screens: shortcuts live in one registry
+(`src/shell/shortcut_registry.ts`) as a plain action → key map, and the shell-level leave registry
+(`src/shell/leave_guard.ts`) is what a navigation asks before leaving a surface with unsaved work.
+The visual side of interaction — focus ring, hover, dialog avoidance, feedback — is specified in
+`DESIGN.md`.
 
 ## Security rules (non-negotiable)
 
@@ -95,7 +32,8 @@ Every `color` foreground token declares its pair in `src/theme/tokens.ts`
   same-origin, so a strict Content-Security-Policy can be enforced later.
 - **No credentials in JavaScript-readable storage**: never put a token in
   `localStorage`, `sessionStorage`, or IndexedDB. The refresh credential is an
-  `HttpOnly` cookie; the access token lives in memory only.
+  `HttpOnly` cookie; the access token lives in memory only. (A display preference such as the
+  theme is not a credential and may persist.)
 - All identifiers, comments, and user-facing strings in **English** (UI strings go
   through `src/l10n/`).
 
@@ -194,6 +132,16 @@ failure; no local record ever holds a credential, and the draft holds only the p
 editable delta, restored over the stored values and filtered to the template's editable
 leaves.
 
+## Theme (`src/theme/`)
+
+- `theme.ts` — the theme store over injected seams (storage, media-query reader, root). The
+  resolution order, the live system follow while nothing is stored, and every swallowed
+  storage failure are specified in `DESIGN.md`; the accepted values are exactly `light` and
+  `dark` under `lg.theme`.
+- `use_theme.ts` — the `useSyncExternalStore` hook the control and any surface read.
+- `public/theme-init.js` — the same-origin classic head script that resolves the theme before
+  the first paint; no inline script and no policy hash (`UIF-20`).
+
 ## Componentization
 
 - Extract a shared component only when all hold: **≥ 3 real usages**, same shape and
@@ -205,8 +153,8 @@ leaves.
 ## Dependencies
 
 - **No new package without strict necessity.** Design-system dependencies (font
-  packages, theme frameworks, component libraries) are prohibited in V1 — the tokens
-  plus plain CSS are sufficient.
+  packages, theme frameworks, component libraries) are prohibited — the tokens plus plain
+  CSS are sufficient, and the font is vendored, not depended on.
 - If a dependency is ever unavoidable, justify it in the PR description.
 
 ## Delivered deviations from the feature task lists
@@ -249,7 +197,7 @@ dropping a task.
   the envelope and both models share, instead of duplicating them per module.
 - **The INTERNAL_ERROR capture comes from an unmatched route.** No consumed endpoint
   deterministically returns 500, so `error_internal.json` is captured from `GET
-/no-such-route`, which surfaces through the global handler as
+  /no-such-route`, which surfaces through the global handler as
   `{"code":"INTERNAL_ERROR"}` — a real response, never a hand-written stand-in.
 - **The live suite's two mechanism cases assert the gate predicate**, not a real skip;
   the API-38 flow cases run only against a configured backend (`API_BASE_URL`).
@@ -264,8 +212,8 @@ dropping a task.
 - **`src/shell/empty_workspace.tsx` is deleted** and the root route renders
   `src/catalog/catalog_screen.tsx` (`AD-013`). The F1 shell/routing/e2e assertions that
   pinned the empty workspace are retargeted to the catalog, not deleted.
-- **The left navigation's root item is relabelled "Catalog"** through `nav.catalog`
-  (`AD-015`, WCT-29), and `src/app/routes.ts` follows.
+- **The left navigation's root item is relabelled "Catalog"** through
+  `nav.catalog` (`AD-015`, WCT-29), and `src/app/routes.ts` follows.
 - **The creation surface is an accessible overlay, not a native `<dialog>`** (R5):
   `jsdom` does not implement `HTMLDialogElement.showModal`, so the platform element could
   not be driven by the rendering tests the constitution requires; the overlay keeps the
@@ -376,3 +324,24 @@ dropping a task.
   the previously public shell, catalog, sheet and PWA specs still render behind the session
   (WAS-08, `AD-013`), and `e2e/auth.spec.ts` adds the axe sweep over the auth surface, the
   signed-in shell and the "Your sheet" surface (SC-010).
+
+### F1 — `web-ui-foundation`
+
+- **The vendored font artifact is `Geist-Variable.woff2`**, not the plan's `Geist[wght].woff2`:
+  brackets in a `url()` token and an HTML attribute require percent-encoding, and the official
+  file is already named `Geist-Variable.woff2`. The file's role is unchanged (`R4`).
+- **The theme control lives at `src/shell/theme_toggle.tsx`**, with its logic in
+  `src/theme/theme.ts` and `src/theme/use_theme.ts`. `shell/` stays under the literal scan, so
+  the control's styles are token-only and it authors no visual value.
+- **`--lg-size-content-min` (320 px) is added** to the size primitives. The two-region grid
+  needs a content minimum so the content never collapses under the navigation, and the literal
+  scan forbids a bare pixel value in `shell.css`.
+- **The motion tokens are named `--lg-motion-120/180/240`**, matching their declared durations;
+  the source plan spelled the first `--lg-motion-100` while giving it 120 ms.
+- **`src/shell/use_media_query.ts` is deleted** with the panel; nothing else used it once the
+  shell stopped reading the narrow breakpoint.
+- **The retargeted suites.** `shell.test.tsx`, `shell_responsive.test.tsx`,
+  `shell_keyboard.test.tsx` and `web/e2e/shell.spec.ts` now assert the two remaining regions
+  and the removed panel, and `no_inline_assets.test.ts` accepts the two external scripts (the
+  same-origin theme boot script plus the module entry) while still forbidding inline bodies
+  (`UIF-32`).
