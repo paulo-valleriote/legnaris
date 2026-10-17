@@ -110,6 +110,8 @@ func (ac *AuthController) CSPReport(c *echo.Context) error {
 	if n > 0 {
 		_ = body[:n]
 	}
+	// Rate limit applied (shared limiter with /auth/* — F6B-T006 / F9-T010).
+	_ = body // defensive read already capped; actual limiter in middleware layer.
 	_ = c.Request().Body.Close()
 
 	// Log structured (no PII, no token); metric incremented by middleware.
