@@ -24,6 +24,8 @@ type Variables struct {
 	JWTAccessTTL                   time.Duration
 	AuthRefreshTTL                 time.Duration
 	AuthBcryptCost                 int
+	AuthRateLimitAttempts          int
+	AuthRateLimitWindow            time.Duration
 }
 
 const (
@@ -37,6 +39,8 @@ const (
 	defaultJWTAccessTTL                   = 15 * time.Minute
 	defaultAuthRefreshTTL                 = 720 * time.Hour
 	defaultAuthBcryptCost                 = 12
+	defaultAuthRateLimitAttempts          = 10
+	defaultAuthRateLimitWindow            = 1 * time.Minute
 )
 
 const attrKey = "key"
@@ -90,6 +94,8 @@ func (e *Env) initVariables() Variables {
 		JWTAccessTTL:                   e.lookupDurationEnv("JWT_ACCESS_TTL", defaultJWTAccessTTL),
 		AuthRefreshTTL:                 e.lookupDurationEnv("AUTH_REFRESH_TTL", defaultAuthRefreshTTL),
 		AuthBcryptCost:                 e.lookupIntEnv("AUTH_BCRYPT_COST", defaultAuthBcryptCost),
+		AuthRateLimitAttempts:          e.lookupIntEnv("AUTH_RATE_LIMIT_ATTEMPTS", defaultAuthRateLimitAttempts),
+		AuthRateLimitWindow:            e.lookupDurationEnv("AUTH_RATE_LIMIT_WINDOW", defaultAuthRateLimitWindow),
 	}
 }
 

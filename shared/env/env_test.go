@@ -194,6 +194,70 @@ func TestInitVariablesDefaults(t *testing.T) {
 		vars := e.initVariables()
 		require.Equal(t, 12, vars.AuthBcryptCost)
 	})
+
+	t.Run("AuthRateLimitAttempts defaults to 10", func(t *testing.T) {
+		unsetEnv(t, "AUTH_RATE_LIMIT_ATTEMPTS")
+		vars := e.initVariables()
+		require.Equal(t, 10, vars.AuthRateLimitAttempts)
+	})
+
+	t.Run("AuthRateLimitWindow defaults to 1m", func(t *testing.T) {
+		unsetEnv(t, "AUTH_RATE_LIMIT_WINDOW")
+		vars := e.initVariables()
+		require.Equal(t, time.Minute, vars.AuthRateLimitWindow)
+	})
+}
+
+// TestInitVariablesRateLimitOverrides covers the override path and the
+// invalid-value fallback for the rate-limit pair: an absent or unusable value
+// keeps the documented default rather than a magic zero (AUTH-20, AUTH-24).
+func TestInitVariablesRateLimitOverrides(t *testing.T) {
+	e := newTestEnv()
+
+	t.Run("Happy path: valid values override the defaults", func(t *testing.T) {
+		t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "25")
+		t.Setenv("AUTH_RATE_LIMIT_WINDOW", "2m")
+		vars := e.initVariables()
+		require.Equal(t, 25, vars.AuthRateLimitAttempts)
+		require.Equal(t, 2*time.Minute, vars.AuthRateLimitWindow)
+	})
+
+	t.Run("Edge: a zero attempts value falls back to 10", func(t *testing.T) {
+		t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "0")
+		unsetEnv(t, "AUTH_RATE_LIMIT_WINDOW")
+		vars := e.initVariables()
+		require.Equal(t, 10, vars.AuthRateLimitAttempts)
+	})
+
+	t.Run("Edge: a negative attempts value falls back to 10", func(t *testing.T) {
+		t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "-3")
+		vars := e.initVariables()
+		require.Equal(t, 10, vars.AuthRateLimitAttempts)
+	})
+
+	t.Run("Edge: a non-numeric attempts value falls back to 10", func(t *testing.T) {
+		t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "many")
+		vars := e.initVariables()
+		require.Equal(t, 10, vars.AuthRateLimitAttempts)
+	})
+
+	t.Run("Edge: an invalid window falls back to 1m", func(t *testing.T) {
+		t.Setenv("AUTH_RATE_LIMIT_WINDOW", "not-a-duration")
+		vars := e.initVariables()
+		require.Equal(t, time.Minute, vars.AuthRateLimitWindow)
+	})
+
+	t.Run("Edge: a zero window falls back to 1m", func(t *testing.T) {
+		t.Setenv("AUTH_RATE_LIMIT_WINDOW", "0s")
+		vars := e.initVariables()
+		require.Equal(t, time.Minute, vars.AuthRateLimitWindow)
+	})
+
+	t.Run("Edge: a negative window falls back to 1m", func(t *testing.T) {
+		t.Setenv("AUTH_RATE_LIMIT_WINDOW", "-5s")
+		vars := e.initVariables()
+		require.Equal(t, time.Minute, vars.AuthRateLimitWindow)
+	})
 }
 
 func TestLookupIntEnv(t *testing.T) {

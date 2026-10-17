@@ -14,6 +14,7 @@ const (
 	CodeMethodNotAllowed  Code = "METHOD_NOT_ALLOWED"
 	CodeConflict          Code = "CONFLICT"
 	CodeSheetLimitReached Code = "SHEET_LIMIT_REACHED"
+	CodeRateLimited       Code = "RATE_LIMITED"
 	CodeInternal          Code = "INTERNAL_ERROR"
 	CodeCycleDetected     Code = "CYCLE_DETECTED"
 	CodeInvalidDependency Code = "INVALID_DEPENDENCY"
@@ -43,6 +44,8 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 405
 	case CodeConflict, CodeSheetLimitReached:
 		httpStatus = 409
+	case CodeRateLimited:
+		httpStatus = 429
 	case CodeInternal:
 		httpStatus = 500
 	}

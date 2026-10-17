@@ -70,7 +70,15 @@ func (l Logger) With(key string, value string) StructuredLogger {
 
 // redactedKeys is an immutable list of sensitive keys.
 // A "_" prefix/suffix marks an exact match; otherwise Contains is used.
-var redactedKeys = []string{"password", "token", "_cookie", "cookie_", "api_key", "_hash", "hash_", "document_number", "cpf", "cnpj", "email", "user_email"}
+var redactedKeys = []string{
+	"password", "token", "_cookie", "cookie_", "api_key", "_hash", "hash_",
+	"document_number", "cpf", "cnpj", "email", "user_email",
+	// The two browser auth cookies carry the refresh credential and the CSRF
+	// token; naming them keeps a record keyed by either one out of the logs
+	// (AUTH-25, SC-006). They are literal strings because shared must not
+	// import internal/auth.
+	"__host-legnaris_refresh", "__host-legnaris_csrf",
+}
 
 func redactSecrets(groups []string, a slog.Attr) slog.Attr {
 	loweredKey := strings.ToLower(a.Key)

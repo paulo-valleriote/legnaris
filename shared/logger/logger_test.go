@@ -77,6 +77,24 @@ func TestRedactSecrets(t *testing.T) {
 			expected: "public",
 		},
 		{
+			name:     "Happy path: the refresh cookie name is redacted",
+			key:      "__host-legnaris_refresh",
+			value:    "raw-refresh-credential",
+			expected: "[REDACTED]",
+		},
+		{
+			name:     "Happy path: the CSRF cookie name is redacted",
+			key:      "__host-legnaris_csrf",
+			value:    "csrf-token-value",
+			expected: "[REDACTED]",
+		},
+		{
+			name:     "Edge: a cookie key with an uppercase name is redacted",
+			key:      "__Host-Legnaris_Refresh",
+			value:    "raw-refresh-credential",
+			expected: "[REDACTED]",
+		},
+		{
 			name:     "Edge: unrelated key is not redacted",
 			key:      "username",
 			value:    "john_doe",
