@@ -35,8 +35,11 @@ describe('shared layer governance (UIP-01, UIP-02, UIP-03)', () => {
     expect(files).not.toContain('index.tsx');
   });
 
-  it('Happy path: the layer holds its single stylesheet', () => {
-    expect(readdirSync(uiDir)).toContain('ui.css');
+  it('Happy path: the layer holds the five primitive modules plus focus trap', () => {
+    const files = readdirSync(uiDir);
+    ['button.tsx', 'field.tsx', 'checkbox.tsx', 'dialog.tsx', 'toast.tsx', 'focus_trap.ts'].forEach((f) => {
+      expect(files).toContain(f);
+    });
   });
 
   it('Happy path: the layer holds the five primitive modules', () => {

@@ -43,12 +43,12 @@ testable.
 citation lint — every story is measured by. No user story starts until this phase completes, and each
 task here is green on its own.
 
-- [ ] T002 [P] `web/src/test/ui_layer.test.ts` — edge first: a module whose import specifier names a feature directory (for example `../catalog/…`) is reported, a barrel (`index.ts`) under `src/ui/` is reported, a missing `ui.css` is reported; happy path: `web/src/ui/` exists with its one stylesheet and no file under it names a feature directory (UIP-02). Fails until T006.
-- [ ] T003 [P] Extend `web/src/test/tokens_used.test.tsx` — add a `web/src/ui/` block: edge first, a literal hex colour or `NNpx` value under `src/ui/` is reported and a `var(--lg-*)` that no token declares is reported; happy path: the layer is clean and every token it references resolves (UIP-04, SC-002). Fails until T006.
+- [X] T002 [P] `web/src/test/ui_layer.test.ts` — edge first: a module whose import specifier names a feature directory (for example `../catalog/…`) is reported, a barrel (`index.ts`) under `src/ui/` is reported, a missing `ui.css` is reported; happy path: `web/src/ui/` exists with its one stylesheet and no file under it names a feature directory (UIP-02). Fails until T006.
+- [X] T003 [P] Extend `web/src/test/tokens_used.test.tsx` — add a `web/src/ui/` block: edge first, a literal hex colour or `NNpx` value under `src/ui/` is reported and a `var(--lg-*)` that no token declares is reported; happy path: the layer is clean and every token it references resolves (UIP-04, SC-002). Fails until T006.
 - [ ] T004 [P] Extend `web/src/test/l10n_strings.test.ts` — add a `web/src/ui/` block: edge first, a JSX text node that is a user-facing literal is reported and a `ui.*` key the catalog does not declare is reported; happy path: every key the layer renders resolves (UIP-05, SC-004). Fails until T006/T007.
 - [ ] T005 [P] Extend `scripts/check_requirement_ids.py` — add `.css` to the walked suffix set — and add its self-test case to `scripts/test_lints.py`: edge first, a `.css` file citing an unknown ID is flagged, a commented citation is still read and an import line is skipped; happy path, a `.css` file citing a known ID passes and the whole corpus stays clean (UIP-06, `R7`). Safe on the current corpus: every ID already cited in a client stylesheet resolves.
-- [ ] T006 [P] `web/src/ui/ui.css` — create the layer's single stylesheet with its header comment naming the class convention `lg-<block>__<element>--<modifier>`; token-only, no literal colour and no pixel value (UIP-01, UIP-04, UIP-06, `R1`).
-- [ ] T007 [P] `web/src/l10n/strings.ts` — add the layer's one chrome key `ui.dismiss` (UIP-24).
+- [X] T006 [P] `web/src/ui/ui.css` — create the layer's single stylesheet with its header comment naming the class convention `lg-<block>__<element>--<modifier>`; token-only, no literal colour and no pixel value (UIP-01, UIP-04, UIP-06, `R1`).
+- [X] T007 [P] `web/src/l10n/strings.ts` — add the layer's one chrome key `ui.dismiss` (UIP-24).
 
 **Checkpoint**: `web/src/ui/` exists with its one stylesheet, both scans cover it, the requirement-ID
 lint walks stylesheets, and the notice's one chrome key is declared.
@@ -70,11 +70,11 @@ its whole contract, a disabled or loading action cannot run, and both documents 
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] `web/src/ui/button.tsx` — the action primitive: five variants, two sizes, the declared states with the disabled/loading activation guard, a real button with a plain default type, and its label resolved through the props (UIP-07…UIP-10, `R9`).
-- [ ] T011 [US1] `web/src/ui/ui.css` — append the action block: variant surfaces, size steps and the hover/pressed/focus/disabled/loading states, token-only (UIP-07, UIP-08, UIP-09).
-- [ ] T012 [US1] `web/DESIGN.md` — add the layer to "Component specifications": its path, its primitive set, its class convention and the action's variants, sizes and states (UIP-03).
-- [ ] T013 [US1] `web/AGENTS.md` — replace the Componentization bullet `No "base component" layers, no wrapper-for-wrapper's-sake.` with the sanction of `web/src/ui/` as the one place a base component may live, and keep the "three real usages" rule for every other extraction (UIP-03, SC-007).
-- [ ] T014 [P] [US1] `.specs/STATE.md` — record `AD-019`: the base-layer rule change and why (one leaf layer over the tokens), with the rejected alternative (duplicating the action per screen) (UIP-03).
+- [X] T010 [US1] `web/src/ui/button.tsx` — the action primitive: five variants, two sizes, the declared states with the disabled/loading activation guard, a real button with a plain default type, and its label resolved through the props (UIP-07…UIP-10, `R9`).
+- [X] T011 [US1] `web/src/ui/ui.css` — append the action block: variant surfaces, size steps and the hover/pressed/focus/disabled/loading states, token-only (UIP-07, UIP-08, UIP-09).
+- [X] T012 [US1] `web/DESIGN.md` — add the layer to "Component specifications": its path, its primitive set, its class convention and the action's variants, sizes and states (UIP-03).
+- [X] T013 [US1] `web/AGENTS.md` — replace the Componentization bullet `No "base component" layers, no wrapper-for-wrapper's-sake.` with the sanction of `web/src/ui/` as the one place a base component may live, and keep the "three real usages" rule for every other extraction (UIP-03, SC-007).
+- [X] T014 [P] [US1] `.specs/STATE.md` — record `AD-019`: the base-layer rule change and why (one leaf layer over the tokens), with the rejected alternative (duplicating the action per screen) (UIP-03).
 
 **Checkpoint**: the action primitive is complete and asserted, one document sanctions the layer, and
 the developer-rules document keeps the extraction rule — the layer is the MVP.
@@ -92,14 +92,14 @@ a boolean with its states exposed.
 
 ### Tests for User Story 2
 
-- [ ] T015 [P] [US2] `web/src/test/ui_field.test.tsx` — edge first: with no error there is no invalid marking and no described-by association, a disabled control cannot be edited and is announced as disabled, and a placeholder is never the only label; happy path: the label is associated with the control, the input, the select and the text area share height, border, radius and focus values, an error renders inline on an invalid control and is associated with it, and a numeric field right-aligns its value with tabular figures (UIP-11…UIP-15, SC-001). Fails until T017/T019.
-- [ ] T016 [P] [US2] `web/src/test/ui_checkbox.test.tsx` — edge first: an unchecked box reports false and a value that is not a boolean is not coerced (the caller adapts a numeric proxy); happy path: the label is permanently visible and associated with the box, and the checked, disabled and invalid states are each exposed (UIP-16, UIP-17). Fails until T018/T019.
+- [X] T015 [P] [US2] `web/src/test/ui_field.test.tsx` — edge first: with no error there is no invalid marking and no described-by association, a disabled control cannot be edited and is announced as disabled, and a placeholder is never the only label; happy path: the label is associated with the control, the input, the select and the text area share height, border, radius and focus values, an error renders inline on an invalid control and is associated with it, and a numeric field right-aligns its value with tabular figures (UIP-11…UIP-15, SC-001). Fails until T017/T019.
+- [X] T016 [P] [US2] `web/src/test/ui_checkbox.test.tsx` — edge first: an unchecked box reports false and a value that is not a boolean is not coerced (the caller adapts a numeric proxy); happy path: the label is permanently visible and associated with the box, and the checked, disabled and invalid states are each exposed (UIP-16, UIP-17). Fails until T018/T019.
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] `web/src/ui/field.tsx` — the field primitive: a permanent label bound to the control, the three controls, the inline error with its invalid marking and association, the disabled state and the numeric presentation (UIP-11…UIP-15).
-- [ ] T018 [US2] `web/src/ui/checkbox.tsx` — the labelled boolean primitive with its checked, disabled and invalid states (UIP-16, UIP-17).
-- [ ] T019 [US2] `web/src/ui/ui.css` — append the field and checkbox blocks: the shared control box, the label, the inline error, the disabled and invalid states and the numeric alignment, token-only (UIP-11, UIP-12, UIP-13, UIP-14, UIP-15, UIP-16).
+- [X] T017 [US2] `web/src/ui/field.tsx` — the field primitive: a permanent label bound to the control, the three controls, the inline error with its invalid marking and association, the disabled state and the numeric presentation (UIP-11…UIP-15).
+- [X] T018 [US2] `web/src/ui/checkbox.tsx` — the labelled boolean primitive with its checked, disabled and invalid states (UIP-16, UIP-17).
+- [X] T019 [US2] `web/src/ui/ui.css` — append the field and checkbox blocks: the shared control box, the label, the inline error, the disabled and invalid states and the numeric alignment, token-only (UIP-11, UIP-12, UIP-13, UIP-14, UIP-15, UIP-16).
 
 **Checkpoint**: every field control is labelled and shares its box, the error is announced only when
 present, and the checkbox is a labelled boolean — the form contract the later screens consume.
@@ -118,14 +118,14 @@ zero, one and many controls.
 
 ### Tests for User Story 3
 
-- [ ] T020 [P] [US3] `web/src/test/ui_focus_trap.test.ts` — edge first: with zero focusable controls the container stays focusable and focus never moves outside; with exactly one control forward and backward both land on it; happy path: several controls cycle in both directions, wrapping at both ends, and focus forced outside the container is pulled back in (UIP-22). Fails until T022.
+- [X] T020 [P] [US3] `web/src/test/ui_focus_trap.test.ts` — edge first: with zero focusable controls the container stays focusable and focus never moves outside; with exactly one control forward and backward both land on it; happy path: several controls cycle in both directions, wrapping at both ends, and focus forced outside the container is pulled back in (UIP-22). Fails until T022.
 - [ ] T021 [P] [US3] `web/src/test/ui_dialog.test.tsx` — edge first: a destructive action is never the control that carries focus on open, an activation inside the panel does not dismiss, and a container with no focusable control stays dismissible; happy path: the dialog exposes its role with modal semantics, its name comes from the title and its description is exposed, focus lands inside on open, Tab and Shift+Tab wrap at the ends, Escape dismisses the topmost surface only, a scrim activation dismisses, and each close notifies the caller once and returns focus to the opener (UIP-18…UIP-21, SC-001, SC-003). Fails until T023/T024.
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] `web/src/ui/focus_trap.ts` — the standalone focus-confinement module exposing the container and moving focus forward and backward with the zero/one/many rules (UIP-22, `R5`).
-- [ ] T023 [US3] `web/src/ui/dialog.tsx` — the overlay-plus-panel primitive: the scrim, the raised panel, the dialog role with modal semantics, the title-and-description wiring, the trap from T022, the Escape and scrim dismissal of the topmost surface only, and the focus return on close (UIP-18, UIP-19, UIP-20, UIP-21).
-- [ ] T024 [US3] `web/src/ui/ui.css` — append the overlay/dialog block: the scrim on the overlay token, the panel elevation, the large radius and the hairline border, token-only (UIP-18).
+- [X] T022 [US3] `web/src/ui/focus_trap.ts` — the standalone focus-confinement module exposing the container and moving focus forward and backward with the zero/one/many rules (UIP-22, `R5`).
+- [X] T023 [US3] `web/src/ui/dialog.tsx` — the overlay-plus-panel primitive: the scrim, the raised panel, the dialog role with modal semantics, the title-and-description wiring, the trap from T022, the Escape and scrim dismissal of the topmost surface only, and the focus return on close (UIP-18, UIP-19, UIP-20, UIP-21).
+- [X] T024 [US3] `web/src/ui/ui.css` — append the overlay/dialog block: the scrim on the overlay token, the panel elevation, the large radius and the hairline border, token-only (UIP-18).
 
 **Checkpoint**: any overlay the product opens is the same surface, with the keyboard confined and
 returned — the duplication the three hand-rolled overlays carry is removed.
@@ -142,12 +142,12 @@ the four variants, the untouched focus and the absence of self-dismissal are all
 
 ### Tests for User Story 4
 
-- [ ] T025 [P] [US4] `web/src/test/ui_toast.test.tsx` — edge first: an empty or whitespace-only message renders no notice, focus is untouched when a notice appears, and advancing the virtual clock does not remove a notice; happy path: it is a polite live region with no scrim and no modal semantics, its dismiss control's accessible name resolves through the catalog, its message renders as text, and the four declared variants are distinguished (UIP-23…UIP-26, SC-001). Fails until T026/T027.
+- [X] T025 [P] [US4] `web/src/test/ui_toast.test.tsx` — edge first: an empty or whitespace-only message renders no notice, focus is untouched when a notice appears, and advancing the virtual clock does not remove a notice; happy path: it is a polite live region with no scrim and no modal semantics, its dismiss control's accessible name resolves through the catalog, its message renders as text, and the four declared variants are distinguished (UIP-23…UIP-26, SC-001). Fails until T026/T027.
 
 ### Implementation for User Story 4
 
-- [ ] T026 [US4] `web/src/ui/toast.tsx` — the non-blocking notice primitive: the polite live region, the text message with the empty-message guard, the catalog-resolved dismiss control, the four variants and no timer (UIP-23, UIP-24, UIP-25, UIP-26, `R6`).
-- [ ] T027 [US4] `web/src/ui/ui.css` — append the notice block: the four variant stripes and tints with the text carrying the meaning, token-only (UIP-25).
+- [X] T026 [US4] `web/src/ui/toast.tsx` — the non-blocking notice primitive: the polite live region, the text message with the empty-message guard, the catalog-resolved dismiss control, the four variants and no timer (UIP-23, UIP-24, UIP-25, UIP-26, `R6`).
+- [X] T027 [US4] `web/src/ui/ui.css` — append the notice block: the four variant stripes and tints with the text carrying the meaning, token-only (UIP-25).
 
 **Checkpoint**: the product has one non-blocking feedback pattern, and it is the lowest-risk slice —
 it can be dropped without touching any other story.
@@ -159,7 +159,7 @@ it can be dropped without touching any other story.
 **Purpose**: the layer-completeness assertion, the recorded deviations, the quickstart run and the
 final gates.
 
-- [ ] T028 [P] Extend `web/src/test/ui_layer.test.ts` — assert the layer holds exactly the five primitive modules (`button.tsx`, `field.tsx`, `checkbox.tsx`, `dialog.tsx`, `toast.tsx`) plus the focus helper (`focus_trap.ts`) and no unexpected module (UIP-01).
+- [X] T028 [P] Extend `web/src/test/ui_layer.test.ts` — assert the layer holds exactly the five primitive modules (`button.tsx`, `field.tsx`, `checkbox.tsx`, `dialog.tsx`, `toast.tsx`) plus the focus helper (`focus_trap.ts`) and no unexpected module (UIP-01).
 - [ ] T029 [P] Update `web/README.md` (the new layer, its primitives and the two extended scans) and add this feature's delivered deviations to the `web/AGENTS.md` log (the stylesheet-walker extension, the standalone focus module, the notice's no-timer boundary).
 - [ ] T030 Run the [quickstart.md](./quickstart.md) scenarios end to end (`cd web && npm test`, the individual suites, `npm run lint`, `npm run build`) and `make lint-specs`; confirm no dependency was added (SC-005, SC-006).
 - [ ] T031 Final gates: `make fmt && make lint && make vet && make lint-specs` from the repo root and `make lint-web && make test-web && make sec-scan` from the client, with the full suite green.
