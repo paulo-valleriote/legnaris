@@ -35,6 +35,16 @@ function postRequests(requests: readonly HttpRequest[]) {
   return requests.filter((request) => request.method === 'POST' && request.url.endsWith('/sheets'));
 }
 
+function templateRequests(requests: readonly HttpRequest[]) {
+  return requests.filter((request) => request.url.endsWith(`/templates/${TEMPLATE_ID}`));
+}
+
+/**
+ * The sheet screen issues its own template read once the creation POST settles — a separate async
+ * chain from the dialog's — so under load it lands later than `waitFor`'s default window.
+ */
+const SHEET_NAVIGATION_TIMEOUT = 5000;
+
 /** Opens the catalog and its creation surface for the synthetic template. */
 async function openSurface(user: UserEvent) {
   const fake = createFakeTransport(
@@ -80,11 +90,9 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
     expect(postRequests(deferred.requests)).toHaveLength(1);
 
     deferred.resolve(successOutcome(sheetPayload(), 201));
-    await waitFor(() =>
-      expect(
-        deferred.requests.filter((request) => request.url.endsWith(`/templates/${TEMPLATE_ID}`)),
-      ).toHaveLength(2),
-    );
+    await waitFor(() => expect(templateRequests(deferred.requests)).toHaveLength(2), {
+      timeout: SHEET_NAVIGATION_TIMEOUT,
+    });
     deferred.resolve(successOutcome(templateDetailPayload()));
     expect(await screen.findByTestId('sheet-name')).toHaveTextContent('Aragorn');
   });
