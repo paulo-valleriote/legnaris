@@ -70,7 +70,7 @@ empty value, `Max-Age=0`) and revokes the family, so a later refresh with the sa
 ## 5. CSRF is required and a refusal leaves the session untouched
 
 ```bash
-go test ./internal/app/ -run 'TestAuthController_Refresh|TestAuthController_Logout|TestOrigin' -v
+go test ./internal/app/ -run 'TestAuthController_Refresh|TestAuthController_Logout' -v
 ```
 
 **Outcome**: refresh or logout with a missing, malformed or foreign `X-CSRF-Token` answers 403
@@ -82,7 +82,7 @@ while refresh with no cookie at all is 401 (AUTH-06, AUTH-10, AUTH-11, SC-002).
 ## 6. A cookie-authenticated call with no allowed origin is refused
 
 ```bash
-go test ./internal/app/ -run TestOrigin -v
+go test ./internal/app/ -run TestRequireAllowedOrigin -v
 ```
 
 **Outcome**: a refresh or logout whose `Origin` is absent, or present but outside the allowlist (or whose
@@ -121,8 +121,8 @@ increments `legnaris_auth_rate_limited_total` (AUTH-17…AUTH-20, SC-004).
 ## 9. The native transport is gone
 
 ```bash
-! grep -rn "X-Refresh-Token" internal/ && \
-go test ./internal/app/ -run 'TestAuthController|TestPreflight' -v
+! grep -rn --include='*.go' --exclude='*_test.go' "X-Refresh-Token" internal/ && \
+go test ./internal/app/ -run 'TestAuthController|TestCORSPreflight' -v
 ```
 
 **Outcome**: no Go source reads the retired header and no allowlist advertises it; a request that sets
@@ -198,7 +198,46 @@ gates see nothing new to vet.
 | 10 | AUTH-01…AUTH-04, AUTH-08, AUTH-10 |
 | 11 | AUTH-23, AUTH-27, AUTH-28 |
 
-## Validation outcome
+## Validation outcome (2026-10-16)
 
-Not yet run — this feature is planned, not implemented. The outcome table is filled during
-implementation, as F5's `quickstart.md` shows.
+Run in the delivered tree on branch `main`. Scenarios 1 and 5–9 are pure-unit and needed no database;
+scenarios 2–4 ran against a local MongoDB started with `make dev-db` (the integration suite self-skips
+without it) and scenario 10 against the real API booted with `make run` on `:8080`. Every scenario passed.
+The two scenario commands that named now-renamed tests were corrected in place (see deviations), and no
+assertion was weakened to reach a green result.
+
+| Scenario | Result |
+|---|---|
+| 1 — the pure rules pass with no database | PASS — `ok` for `internal/auth`, `internal/platform/ratelimit`, `shared/apperr`, `shared/logger`, `shared/env` (5 packages) |
+| 2 — login and registration set the cookie and the session body | PASS — `TestIntegration_AuthRegister` (4) + `TestIntegration_AuthLogin` (3) |
+| 3 — refresh rotates the credential and the CSRF token | PASS — `TestIntegration_AuthRefreshRotation` (4, incl. reuse revoking the family) |
+| 4 — logout clears the cookies and revokes the family | PASS — `TestIntegration_AuthLogout` (3, incl. the no-cookie 204 no-op) |
+| 5 — CSRF is required and a refusal leaves the session untouched | PASS — `TestAuthController_Refresh` + `TestAuthController_Logout` (11) |
+| 6 — a cookie call with no allowed origin is refused | PASS — `TestRequireAllowedOrigin` (11) |
+| 7 — CORS is credentialed and exact-origin | PASS — `TestCORSPreflight`/`TestCORSActualRequest` in `internal/app` + `internal/platform/cors` (9) |
+| 8 — repeated auth attempts are limited | PASS — `TestRateLimit` (9) |
+| 9 — the native transport is gone | PASS — no non-test Go source references `X-Refresh-Token`; `TestAuthController` + `TestCORSPreflight` (21) |
+| 10 — a manual walkthrough against a running API | PASS — register 201 (body `access_token`/`token_type`/`expires_in`, no `refresh_token`), refresh 200 with rotated refresh+CSRF values, refresh without CSRF 403, logout 204; the jar holds an `HttpOnly` `__Host-legnaris_refresh` and a readable `__Host-legnaris_csrf`, both `Secure; Path=/` |
+| 11 — the gates stay green | PASS — `make fmt`, `make vet`, `make lint-specs` (599 spec IDs, 34 decision IDs, 55 changed files) and `make test-race` all clean; `golangci-lint run ./internal/... ./shared/... ./cmd/... ./deploy/...` → 0 issues |
+
+### Deviations from the plan (T036)
+
+1. **`make lint` (bare) fails on a pre-existing, unrelated file.** `make lint` runs `golangci-lint run`
+   with no path filter, so it also scans the gitignored `web/node_modules/flatted/golang/pkg/flatted/flatted.go`
+   and reports two `gocyclo` findings (`Stringify`, `Parse`). Both are present on `HEAD` before this
+   feature and are untouched by it; every package this feature changes is clean under the scoped run
+   above. The gate was not weakened to hide it.
+2. **Scenario commands reconciled to the delivered test names.** The plan named `TestOrigin` for the origin
+   guard; the delivered test is `TestRequireAllowedOrigin`, so scenario 6 uses it and scenario 5 drops the
+   `TestOrigin` arm (origin is scenario 6's subject). Scenario 9's grep now excludes `*_test.go` — the
+   retired `X-Refresh-Token` literal is intentionally referenced by the inert-header tests (AUTH-22) — and
+   targets `TestCORSPreflight` rather than the non-existent `TestPreflight`.
+3. **Limiter memory sweep added beyond the planned seam.** `internal/platform/ratelimit/limiter.go` sweeps
+   expired keys on every `Allow` (`dropExpired`), so a key whose newest attempt has left the window is
+   dropped instead of retained forever. This extends the plan's `New(max, window, now)`/`Allow(key, now)`
+   shape and is covered by a white-box test.
+4. **Integration helper isolation fixed during validation.** Because the integration scenarios had only
+   ever self-skipped, running them with MongoDB up surfaced a duplicate-registration race inside a single
+   test function (one router hosts more than one account). `registerAuthUser` now takes the email, so a
+   test can register several distinct users in the collections its router drops once.
+

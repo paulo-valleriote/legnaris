@@ -52,16 +52,16 @@ carry the two new documented variables. No `web/` or `desktop/` file is touched.
 
 **Purpose**: the configuration, error-taxonomy and redaction primitives every story consumes.
 
-- [ ] T001 [P] Extend `shared/env/env.go` with `AuthRateLimitAttempts int` (`AUTH_RATE_LIMIT_ATTEMPTS`,
+- [X] T001 [P] Extend `shared/env/env.go` with `AuthRateLimitAttempts int` (`AUTH_RATE_LIMIT_ATTEMPTS`,
       default `10`) and `AuthRateLimitWindow time.Duration` (`AUTH_RATE_LIMIT_WINDOW`, default `1m`), read
       through the existing `lookupIntEnv`/`lookupDurationEnv` helpers so an absent or invalid value warns
       and falls back to the default; extend `shared/env/env_test.go` with the default, the
       invalid/zero/negative fallback, and the override path; export the two optional variables in
       `Makefile` and document them in `deploy/.env.example` (AUTH-20, AUTH-24)
-- [ ] T002 [P] Add `CodeRateLimited Code = "RATE_LIMITED"` mapped to 429 in `shared/apperr/err.go`, and
+- [X] T002 [P] Add `CodeRateLimited Code = "RATE_LIMITED"` mapped to 429 in `shared/apperr/err.go`, and
       add its row (`{CodeRateLimited, 429}`) to the status-mapping table in `shared/apperr/err_test.go` so
       the new code can never silently fall back to 500 (AUTH-23)
-- [ ] T003 [P] Extend `shared/logger/logger.go` `redactedKeys` with the two cookie names
+- [X] T003 [P] Extend `shared/logger/logger.go` `redactedKeys` with the two cookie names
       (`__host-legnaris_refresh`, `__host-legnaris_csrf` — literal strings, since `shared` must not import
       `internal/auth`) and add the redaction cases in `shared/logger/logger_test.go` asserting a record
       whose key names either cookie is `[REDACTED]` (AUTH-25, SC-006)
@@ -81,13 +81,13 @@ builders describe and US2 verifies the tokens this manager mints.
 
 ### Tests for the foundation ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T004 [P] Cookie-descriptor test `internal/auth/cookie_test.go` (AUTH-01, AUTH-09, AUTH-24): the set
+- [X] T004 [P] Cookie-descriptor test `internal/auth/cookie_test.go` (AUTH-01, AUTH-09, AUTH-24): the set
       builders produce exactly `__Host-legnaris_refresh` (`HttpOnly`, `Secure`, `SameSite=Strict`,
       `Path=/`, no `Domain`, `Max-Age` = the passed lifetime) and `__Host-legnaris_csrf` (same, **not**
       `HttpOnly`); the clear builders produce the same name/attributes with an empty value and
       `Max-Age=-1`; a dropped `HttpOnly`/`Secure`/`SameSite=Strict`/`Path=/`/`__Host-` attribute fails the
       assertion, not the suite silently
-- [ ] T005 [P] CSRF-manager test `internal/auth/csrf_test.go` (AUTH-09, AUTH-10, AUTH-11, AUTH-12), edge
+- [X] T005 [P] CSRF-manager test `internal/auth/csrf_test.go` (AUTH-09, AUTH-10, AUTH-11, AUTH-12), edge
       cases first: an empty/`null` token, a non-base64 value, a truncated value and a value with a flipped
       MAC byte all fail `Verify`; a token issued for `familyA` fails `Verify` against `familyB`; every
       `Issue` yields a different value (fresh nonce, so rotation changes the token); then the happy path —
@@ -96,13 +96,13 @@ builders describe and US2 verifies the tokens this manager mints.
 
 ### Implementation for the foundation
 
-- [ ] T006 [P] Implement `internal/auth/cookie.go` per `contracts/auth-session.contract.md` and
+- [X] T006 [P] Implement `internal/auth/cookie.go` per `contracts/auth-session.contract.md` and
       `data-model.md` `Cookie descriptors`: the exported name constants
       (`RefreshCookieName = "__Host-legnaris_refresh"`, `CSRFCookieName = "__Host-legnaris_csrf"`) and the
       builders `RefreshCookie(value, maxAge)`, `CSRFCookie(value, maxAge)`, `ClearRefreshCookie()`,
       `ClearCSRFCookie()` returning `*http.Cookie` with the contract-fixed attribute set; the names and
       attributes are constants, never configuration (AUTH-01, AUTH-09, AUTH-24)
-- [ ] T007 [P] Implement `internal/auth/csrf.go` per `contracts/csrf.contract.md` and `research.md` R2: the
+- [X] T007 [P] Implement `internal/auth/csrf.go` per `contracts/csrf.contract.md` and `research.md` R2: the
       `CSRFTokenManager` interface (`Issue(familyID) (string, error)`, `Verify(token, familyID) error`) and
       `NewCSRFTokenManager(secret []byte)`, minting `base64url(nonce ‖ HMAC-SHA256(key, "csrf/v1" ‖ 0x00 ‖
       familyID ‖ 0x00 ‖ nonce))` with a 16-byte `crypto/rand` nonce and `key = HMAC-SHA256(secret,
@@ -132,7 +132,7 @@ and revokes the family; then drive absent, expired, revoked and reused credentia
 
 ### Tests for User Story 1 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T008 [P] [US1] Service test `internal/auth/service_test.go` rewritten/extended (AUTH-01, AUTH-02,
+- [X] T008 [P] [US1] Service test `internal/auth/service_test.go` rewritten/extended (AUTH-01, AUTH-02,
       AUTH-03, AUTH-04, AUTH-05, AUTH-07, AUTH-08, AUTH-11, AUTH-12, AUTH-23, AUTH-27), edge cases first:
       registration still creates the account and a duplicate email is still `CONFLICT` before any session
       is issued; refresh with an empty credential is `UNAUTHORIZED`; an unknown, expired and
@@ -145,7 +145,7 @@ and revokes the family; then drive absent, expired, revoked and reused credentia
       `RefreshMaxAge` and a fresh CSRF token; a refresh returns a `Session`
       whose refresh credential **and** CSRF token both differ from the presented ones; logout resolves the
       session, revokes the family and returns nil
-- [ ] T009 [P] [US1] Controller test `internal/app/auth_test.go` rewritten (AUTH-01, AUTH-02, AUTH-03,
+- [X] T009 [P] [US1] Controller test `internal/app/auth_test.go` rewritten (AUTH-01, AUTH-02, AUTH-03,
       AUTH-04, AUTH-05, AUTH-06, AUTH-08, AUTH-09, AUTH-12, AUTH-22, AUTH-24, AUTH-27, SC-001, SC-006),
       edge cases first: a credential supplied in `X-Refresh-Token` or in a body is ignored (the command
       carries the cookie's value, or empty); refresh with no cookie is 401 `UNAUTHORIZED`; logout with no
@@ -155,7 +155,7 @@ and revokes the family; then drive absent, expired, revoked and reused credentia
       CSRF cookie (not `HttpOnly`) and return `{access_token, token_type, expires_in}` with **no**
       `refresh_token` field; logout answers 204 and clears **both** cookies (same names, empty value,
       `Max-Age=0`)
-- [ ] T010 [P] [US1] Integration test `internal/app/auth_integration_test.go` rewritten
+- [X] T010 [P] [US1] Integration test `internal/app/auth_integration_test.go` rewritten
       (AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-06, AUTH-07, AUTH-12, SC-001), edge cases first: refresh
       with no cookie is 401; reusing the already-rotated credential is 401 and revokes the whole family so
       the rotated successor is 401 too; logout with no cookie is 204 and changes nothing; then the happy
@@ -165,7 +165,7 @@ and revokes the family; then drive absent, expired, revoked and reused credentia
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Restructure `internal/auth/service.go` per `contracts/auth-session.contract.md` and
+- [X] T011 [US1] Restructure `internal/auth/service.go` per `contracts/auth-session.contract.md` and
       `research.md` R1/R8: replace `TokenPair` with `Session` (access token, `ExpiresIn`, raw
       `RefreshToken`, `RefreshMaxAge` seconds, `CSRFToken`, `UserID`) and `SessionResponse` (no refresh
       field); extend `RefreshCommand`/`LogoutCommand` with `CSRFToken`; change the `Service` interface to
@@ -175,18 +175,18 @@ and revokes the family; then drive absent, expired, revoked and reused credentia
       `Session` with a freshly minted CSRF token bound to the family and rotate both the refresh and CSRF
       values together; have `Logout` revoke the family; add `MsgCSRFInvalid` to `internal/auth/errors.go`
       (AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-07, AUTH-08, AUTH-09, AUTH-11, AUTH-12, AUTH-23)
-- [ ] T012 [US1] Rewrite `internal/app/auth.go` per `contracts/auth-session.contract.md` and
+- [X] T012 [US1] Rewrite `internal/app/auth.go` per `contracts/auth-session.contract.md` and
       `research.md` R3/R4/R8: read the refresh credential from `c.Cookie(auth.RefreshCookieName)` on
       refresh/logout (never from a header or body — AUTH-05), set `auth.RefreshCookie(...)` and
       `auth.CSRFCookie(...)` on every success from the returned `Session`, serialise `auth.SessionResponse`
       (200 on login/refresh, 201 on registration), clear both cookies and answer 204 on logout; the
       `X-CSRF-Token` header is read into the command here (its verification is US2)
       (AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, AUTH-09, AUTH-12, AUTH-22)
-- [ ] T013 [US1] Wire the new seam in `internal/app/bootstrap.go`: build the CSRF manager from the
+- [X] T013 [US1] Wire the new seam in `internal/app/bootstrap.go`: build the CSRF manager from the
       configured JWT secret (`auth.NewCSRFTokenManager([]byte(cfg.Variables.JWTSecret))`) and pass it to
       `auth.NewService`, then run `make mocks` to regenerate `internal/auth/mocks/` for the changed
       `Service` interface (AUTH-11, AUTH-12)
-- [ ] T014 [US1] Update `internal/app/integration_test.go` (the token-pair decode helper and
+- [X] T014 [US1] Update `internal/app/integration_test.go` (the token-pair decode helper and
       `newAuthUser`) to the session body so the bearer-route suites keep compiling and authenticate with
       the access token as before (AUTH-01, AUTH-02, AUTH-26)
 
@@ -211,13 +211,13 @@ and assert it is refused.
 
 ### Tests for User Story 2 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T015 [P] [US2] Origin-guard test `internal/app/origin_test.go` (AUTH-13, AUTH-23, AUTH-27, SC-002),
+- [X] T015 [P] [US2] Origin-guard test `internal/app/origin_test.go` (AUTH-13, AUTH-23, AUTH-27, SC-002),
       edge cases first: a refresh/logout with no `Origin` and no `Referer` is 403 `FORBIDDEN` with
       `app.MsgOriginNotAllowed`; an unlisted `Origin` is 403 and **no** `Access-Control-Allow-Origin` is
       returned; a `Referer` whose origin is unlisted is 403 while one whose origin is allowlisted passes;
       a bearer route with no `Origin` is **not** rejected (the guard is scoped); then the happy path — an
       allowlisted `Origin` lets the call reach the CSRF/credential checks
-- [ ] T016 [P] [US2] CSRF boundary cases added to `internal/app/auth_test.go` (AUTH-06, AUTH-10, AUTH-11,
+- [X] T016 [P] [US2] CSRF boundary cases added to `internal/app/auth_test.go` (AUTH-06, AUTH-10, AUTH-11,
       AUTH-12, AUTH-23, AUTH-27, SC-002), edge cases first: refresh/logout with the cookie present but the
       `X-CSRF-Token` header absent, malformed, or minted for another family each answer 403 `FORBIDDEN`
       and neither rotate nor revoke (assert the mock records no mutation); refresh with a CSRF header but
@@ -226,13 +226,13 @@ and assert it is refused.
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Implement the origin guard `internal/app/origin.go` per
+- [X] T017 [US2] Implement the origin guard `internal/app/origin.go` per
       `contracts/cors-origin.contract.md` and `research.md` R6: `requireAllowedOrigin(origins []string)
       echo.MiddlewareFunc` comparing the request `Origin` (falling back to the **origin** of `Referer`:
       scheme + host + optional port) against the allowlist by exact, case-insensitive match; absent or
       unmatched ⇒ `apperr.NewError(apperr.CodeForbidden, MsgOriginNotAllowed, nil)` (403) before the
       handler runs; export `MsgOriginNotAllowed` (AUTH-13, AUTH-23)
-- [ ] T018 [US2] Add CSRF verification to `internal/auth/service.go` per `contracts/csrf.contract.md` and
+- [X] T018 [US2] Add CSRF verification to `internal/auth/service.go` per `contracts/csrf.contract.md` and
       `research.md` R3: on refresh and logout, after the cookie-presence and credential-resolution steps
       and **before** the reuse/expiry branch, `Verify` the command's CSRF token against the **resolved**
       family and refuse with `apperr.NewError(apperr.CodeForbidden, MsgCSRFInvalid, nil)` when it is
@@ -240,9 +240,9 @@ and assert it is refused.
       logout that resolves to no session (a 204 no-op owes no CSRF); **update the US1 refresh/logout
       service tests to present a valid session-bound CSRF token** so they keep asserting success
       (AUTH-10, AUTH-11, AUTH-12, AUTH-23)
-- [ ] T019 [US2] Extend `internal/app/auth.go` to fill `CSRFToken` from the `X-CSRF-Token` request header
+- [X] T019 [US2] Extend `internal/app/auth.go` to fill `CSRFToken` from the `X-CSRF-Token` request header
       into `RefreshCommand`/`LogoutCommand` (extends T012) (AUTH-09, AUTH-10)
-- [ ] T020 [US2] Mount the origin guard in `internal/app/router.go` on `/auth/refresh` and
+- [X] T020 [US2] Mount the origin guard in `internal/app/router.go` on `/auth/refresh` and
       `/auth/logout` only, leaving `/auth/login`, `/auth/register`, `/sheets` and `/templates` unguarded
       (AUTH-13, AUTH-26). *Depends on T017.*
 
@@ -265,20 +265,20 @@ returned and no wildcard appears.
 
 ### Tests for User Story 3 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T021 [P] [US3] Rewrite the preflight/credential boundary test `internal/app/cors_test.go`
+- [X] T021 [P] [US3] Rewrite the preflight/credential boundary test `internal/app/cors_test.go`
       (AUTH-14, AUTH-15, AUTH-16, AUTH-21, SC-003), edge cases first: a preflight from an **unlisted**
       origin advertises no allow-origin and no allow-headers; a request from an unlisted origin receives no
       allow-origin header and no `*` with credentials; then the happy path — a preflight and a real request
       from the allowlisted origin answer with that exact `Access-Control-Allow-Origin`,
       `Access-Control-Allow-Credentials: true`, `Vary: Origin`, and `X-CSRF-Token` in the advertised
       headers, with the retired `X-Refresh-Token` **absent**
-- [ ] T022 [P] [US3] Extend `internal/platform/cors/cors_test.go` (AUTH-14, AUTH-15): a preflight from an
+- [X] T022 [P] [US3] Extend `internal/platform/cors/cors_test.go` (AUTH-14, AUTH-15): a preflight from an
       allowlisted origin echoes the exact origin with credentials and `Vary: Origin`; an unlisted origin
       receives no allow-origin; the retired header is never advertised
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Extend `internal/platform/cors/cors.go` per `contracts/cors-origin.contract.md` and
+- [X] T023 [US3] Extend `internal/platform/cors/cors.go` per `contracts/cors-origin.contract.md` and
       `research.md` R5: set `AllowCredentials: true`, change `AllowHeaders` to `Content-Type`,
       `Authorization`, `X-Request-ID`, `X-CSRF-Token`, and **delete** the `refreshTokenHeader` constant and
       its allowlist entry; rely on Echo v5's default origin function for the exact-origin echo and
@@ -303,13 +303,13 @@ assert the key is allowed again; drive register and refresh the same way.
 
 ### Tests for User Story 4 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T024 [P] [US4] Limiter engine test `internal/platform/ratelimit/limiter_test.go` (AUTH-17, AUTH-18,
+- [X] T024 [P] [US4] Limiter engine test `internal/platform/ratelimit/limiter_test.go` (AUTH-17, AUTH-18,
       AUTH-19, AUTH-20), edge cases first: a fresh key is admitted; the attempt that equals the cap is
       admitted and the next is refused with a positive `retryAfter`; exhausting one key leaves another
       admitted; with an injected clock, advancing past the window admits the key again; a key whose
       attempts age out is dropped so the map does not grow unboundedly; then the happy path — repeated
       `Allow` under the cap records and returns `true`
-- [ ] T025 [P] [US4] Rate-limit boundary test `internal/app/ratelimit_test.go` (AUTH-17, AUTH-18,
+- [X] T025 [P] [US4] Rate-limit boundary test `internal/app/ratelimit_test.go` (AUTH-17, AUTH-18,
       AUTH-19, AUTH-20, AUTH-23, AUTH-27, SC-004), edge cases first: a different address and a different
       account are each unaffected when one key is exhausted; once the injected window frees, the same key
       is admitted again; register and refresh behave exactly like login; then the happy paths — the request
@@ -319,17 +319,17 @@ assert the key is allowed again; drive register and refresh the same way.
 
 ### Implementation for User Story 4
 
-- [ ] T026 [US4] Implement the reusable limiter engine `internal/platform/ratelimit/limiter.go` per
+- [X] T026 [US4] Implement the reusable limiter engine `internal/platform/ratelimit/limiter.go` per
       `contracts/rate-limit.contract.md` and `research.md` R7: a mutex-guarded map from key to the
       timestamps of the attempts inside the window, `New(max int, window time.Duration, now func()
       time.Time) *Limiter` and `Allow(key string, now time.Time) (allowed bool, retryAfter time.Duration)`
       that drops attempts older than the window and deletes a key whose list empties; standard library
       only, no `apperr` import (AUTH-17, AUTH-18, AUTH-19, AUTH-20)
-- [ ] T027 [US4] Add the block counter `legnaris_auth_rate_limited_total` to
+- [X] T027 [US4] Add the block counter `legnaris_auth_rate_limited_total` to
       `internal/platform/metrics/metrics.go` with an exported `RateLimitBlocked()` method (the seam the
       guard calls) and extend `internal/platform/metrics/metrics_test.go` to assert it increments
       (AUTH-20)
-- [ ] T028 [US4] Implement the rate-limit guard `internal/app/ratelimit.go` per
+- [X] T028 [US4] Implement the rate-limit guard `internal/app/ratelimit.go` per
       `contracts/rate-limit.contract.md` and `research.md` R7: `rateLimit(limiter *ratelimit.Limiter,
       observer Observer, withAccount bool) echo.MiddlewareFunc` that always checks `ip:<c.RealIP()>` and,
       on login/registration, adds `account:<normalized email>` read from the JSON body (the body is read
@@ -337,7 +337,7 @@ assert the key is allowed again; drive register and refresh the same way.
       rounded up), calls `observer.RateLimitBlocked()`, and returns `apperr.NewError(apperr.CodeRateLimited,
       MsgRateLimited, nil)` (429) without reaching the handler; export `MsgRateLimited`
       (AUTH-17, AUTH-18, AUTH-19, AUTH-20, AUTH-23)
-- [ ] T029 [US4] Build the limiter in `internal/app/bootstrap.go` from
+- [X] T029 [US4] Build the limiter in `internal/app/bootstrap.go` from
       `AuthRateLimitAttempts`/`AuthRateLimitWindow` and mount the guard in `internal/app/router.go` on
       `/auth/login`, `/auth/register` and `/auth/refresh` only (logout and the bearer routes are not
       limited) (AUTH-17, AUTH-20, AUTH-26). *Depends on T026, T028.*
@@ -361,14 +361,14 @@ refresh cookie.
 
 ### Tests for User Story 5 ⚠️ (write first; they must fail before the implementation)
 
-- [ ] T030 [P] [US5] Inert-header case added to `internal/app/auth_test.go` (AUTH-21, AUTH-22, SC-005): a
+- [X] T030 [P] [US5] Inert-header case added to `internal/app/auth_test.go` (AUTH-21, AUTH-22, SC-005): a
       request that sets `X-Refresh-Token` is resolved solely by the cookie — refresh answers 401 when the
       cookie is absent even though the header is set, and logout answers 204 — exactly as if the header
       were absent; the constant `app.RefreshTokenHeader` no longer exists for the test to reference
 
 ### Implementation for User Story 5
 
-- [ ] T031 [US5] Remove the exported `app.RefreshTokenHeader` constant and every remaining read of it, and
+- [X] T031 [US5] Remove the exported `app.RefreshTokenHeader` constant and every remaining read of it, and
       confirm the CORS `refreshTokenHeader` constant/entry removed by T023 leaves no other reference, so no
       source or allow-list advertises or reads the native transport (AUTH-21, AUTH-22)
 
@@ -381,19 +381,19 @@ cookie.
 
 **Purpose**: the cross-cutting requirements and the gate sweep that close the feature.
 
-- [ ] T032 [P] Add `internal/app/cookie_scope_test.go` (AUTH-26, SC-008): `/sheets` and `/templates`
+- [X] T032 [P] Add `internal/app/cookie_scope_test.go` (AUTH-26, SC-008): `/sheets` and `/templates`
       keep working with an `Authorization: Bearer` access token, never require a cookie, and are not
       rejected by the origin or rate-limit guards when `Origin` is absent; the access-token contract is
       unchanged
-- [ ] T033 [P] Requirement/English audit (AUTH-27, AUTH-28, SC-007): confirm every `AUTH-01…AUTH-28`
+- [X] T033 [P] Requirement/English audit (AUTH-27, AUTH-28, SC-007): confirm every `AUTH-01…AUTH-28`
       citation in the delivered sources resolves to `spec.md` via `make lint-specs`, that every new
       failure path asserts its typed code and mapped status (401/403/429), that no suite is vacuous, and
       that all identifiers, comments, log messages and user-facing strings are English
-- [ ] T034 Run the backend gate set — `make fmt && make lint && make vet && make lint-specs` then
+- [X] T034 Run the backend gate set — `make fmt && make lint && make vet && make lint-specs` then
       `make test-race` — and confirm it stays clean with no new dependency declared (SC-001…SC-008)
-- [ ] T035 Run the eleven `quickstart.md` scenarios and record the per-scenario outcome with the feature,
+- [X] T035 Run the eleven `quickstart.md` scenarios and record the per-scenario outcome with the feature,
       filling the `Validation outcome` section (SC-001…SC-008)
-- [ ] T036 Record any plan-versus-delivered deviation (a path, a default, or a seam that changed) in the
+- [X] T036 Record any plan-versus-delivered deviation (a path, a default, or a seam that changed) in the
       feature's `quickstart.md`/`research.md` rather than weakening an assertion (constitution III,
       AUTH-27)
 
