@@ -134,3 +134,19 @@ func TestMiddlewareRecordsStatusAfterErrorHandling(t *testing.T) {
 		t.Errorf("expected %q in /metrics output, got:\n%s", want, body)
 	}
 }
+
+// TestRateLimitBlockedIncrementsCounter pins the counter the rate-limit guard
+// increments on every refused request (AUTH-20).
+func TestRateLimitBlockedIncrementsCounter(t *testing.T) {
+	e := echo.New()
+	m := New()
+	m.Register(e)
+
+	m.RateLimitBlocked()
+	m.RateLimitBlocked()
+
+	body := scrapeMetrics(t, e)
+	if !strings.Contains(body, "legnaris_auth_rate_limited_total 2") {
+		t.Errorf("expected the rate-limited counter at 2 in /metrics output, got:\n%s", body)
+	}
+}

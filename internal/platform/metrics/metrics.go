@@ -19,9 +19,13 @@ type Metrics struct {
 	requestsTotal            *prometheus.CounterVec
 	authLoginFailures        prometheus.Counter
 	authRefreshReuseDetected prometheus.Counter
+	authRateLimited          prometheus.Counter
 }
 
 const metricsNamespace = "legnaris"
+
+// authSubsystem is the Prometheus subsystem shared by the auth observers.
+const authSubsystem = "auth"
 
 // New builds a Metrics instance with its own registry and collectors.
 func New() *Metrics {
@@ -50,19 +54,26 @@ func New() *Metrics {
 
 	authLoginFailures := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
-		Subsystem: "auth",
+		Subsystem: authSubsystem,
 		Name:      "login_failures_total",
 		Help:      "Total number of failed login attempts.",
 	})
 
 	authRefreshReuseDetected := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
-		Subsystem: "auth",
+		Subsystem: authSubsystem,
 		Name:      "refresh_reuse_detected_total",
 		Help:      "Total number of refresh token reuse detections (possible theft).",
 	})
 
-	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected)
+	authRateLimited := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: authSubsystem,
+		Name:      "rate_limited_total",
+		Help:      "Total number of auth requests refused by the rate limiter.",
+	})
+
+	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected, authRateLimited)
 
 	// The private registry must be self-sufficient: register the standard Go
 	// and process collectors so the deployment's own resource metrics (goroutines,
@@ -78,6 +89,7 @@ func New() *Metrics {
 		requestsTotal:            requestsTotal,
 		authLoginFailures:        authLoginFailures,
 		authRefreshReuseDetected: authRefreshReuseDetected,
+		authRateLimited:          authRateLimited,
 	}
 }
 
@@ -90,6 +102,12 @@ func (m *Metrics) LoginFailure() {
 // token being presented again, which revokes the whole family.
 func (m *Metrics) RefreshReuseDetected() {
 	m.authRefreshReuseDetected.Inc()
+}
+
+// RateLimitBlocked implements app.Observer: it counts a request refused by the
+// auth rate limiter (AUTH-20).
+func (m *Metrics) RateLimitBlocked() {
+	m.authRateLimited.Inc()
 }
 
 // Middleware records request count and latency per route and status code.

@@ -9,21 +9,24 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 )
 
-// refreshTokenHeader mirrors app.RefreshTokenHeader (internal/app/auth.go). The
-// browser client sends the opaque refresh token on /auth/refresh and
-// /auth/logout; a custom request header has to be advertised here or the
-// preflight fails and the request never leaves the browser. The platform layer
-// cannot import the application layer, so the name is mirrored and the pair is
-// pinned by the boundary test in internal/app (cors_test.go).
-const refreshTokenHeader = "X-Refresh-Token"
+// csrfHeader mirrors app's X-CSRF-Token header. The browser reads the CSRF
+// cookie and echoes it on the cookie-authenticated auth routes; a custom
+// request header must be advertised here or the preflight fails and the request
+// never leaves the browser. The platform layer cannot import the application
+// layer, so the name is mirrored (AUTH-16).
+const csrfHeader = "X-CSRF-Token"
 
-// Middleware returns a CORS middleware that allows requests from the given
-// origins (e.g. the frontend origin). It also handles preflight OPTIONS.
+// Middleware returns a CORS middleware that allows credentialed requests from
+// the given origins (e.g. the frontend origin). Echo's default origin function
+// matches case-insensitively, echoes the allowlist entry exactly, refuses to
+// build a wildcard with credentials, and always adds Vary: Origin (AUTH-14,
+// AUTH-15). It also handles preflight OPTIONS.
 func Middleware(origins []string) echo.MiddlewareFunc {
 	return middleware.CORSWithConfig(middleware.CORSConfig{
 		// Clone the caller's slice so a later mutation of Variables.CORSOrigins
 		// cannot race with the per-request read of AllowOrigins.
-		AllowOrigins: slices.Clone(origins),
+		AllowOrigins:     slices.Clone(origins),
+		AllowCredentials: true,
 		AllowMethods: []string{
 			http.MethodGet,
 			http.MethodPost,
@@ -35,7 +38,7 @@ func Middleware(origins []string) echo.MiddlewareFunc {
 			echo.HeaderContentType,
 			echo.HeaderAuthorization,
 			echo.HeaderXRequestID,
-			refreshTokenHeader,
+			csrfHeader,
 		},
 		ExposeHeaders: []string{echo.HeaderXRequestID},
 	})
