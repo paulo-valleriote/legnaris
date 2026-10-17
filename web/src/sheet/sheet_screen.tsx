@@ -32,6 +32,7 @@ import { buildSections } from '../engine/field_grouping';
 import type { SheetMark } from '../engine/sheet_mark';
 import { markLabel, SheetForm } from '../engine/sheet_form';
 import { message } from '../l10n/strings';
+import { Button } from '../ui/button';
 import { useApiClient, useSheetStore } from '../app/providers';
 import { templateDetailKey } from '../catalog/queries';
 import { startDraftCadence } from '../library/draft_backup';
@@ -60,9 +61,7 @@ function RetryAction({ copy, onRetry }: RetryActionProps) {
   return (
     <div className="lg-sheet__failure">
       <p className="lg-sheet__message">{copy}</p>
-      <button type="button" className="lg-button" onClick={onRetry}>
-        {message('sheet.retryOpen')}
-      </button>
+      <Button variant="primary" size="sm" label={message('sheet.retryOpen')} onClick={onRetry} />
     </div>
   );
 }
@@ -197,32 +196,30 @@ function SheetFooter({ store }: SheetFooterProps) {
         )}
       </div>
       <div className="lg-sheet__actions">
-        <button
-          type="button"
-          className="lg-button"
+        <Button
+          variant="secondary"
+          size="sm"
           disabled={!previewable}
-          aria-busy={state.isPreviewing}
+          loading={state.isPreviewing}
+          label={state.isPreviewing ? message('sheet.previewing') : message('sheet.preview')}
           onClick={() => {
             void store.preview();
           }}
-        >
-          {state.isPreviewing ? message('sheet.previewing') : message('sheet.preview')}
-        </button>
-        <button
-          type="button"
-          className="lg-button lg-button--primary"
+        />
+        <Button
+          variant="primary"
+          size="sm"
           disabled={!savable}
-          aria-busy={state.isSaving}
-          onClick={() => {
-            void runSave();
-          }}
-        >
-          {state.isSaving
+          loading={state.isSaving}
+          label={state.isSaving
             ? message('sheet.saving')
             : showSaved
               ? message('sheet.saved')
               : message('sheet.save')}
-        </button>
+          onClick={() => {
+            void runSave();
+          }}
+        />
       </div>
     </footer>
   );
