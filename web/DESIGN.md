@@ -146,6 +146,11 @@ Rules:
 
 ## Component specifications
 
+- **Shared primitives layer (`web/src/ui/`).** The sanctioned base layer holds exactly the five
+  primitives — action (`button`), field (`field`), checkbox (`checkbox`), dialog (`dialog`) and
+  notice (`toast`) — plus the focus trap (`focus_trap`). Every visual value comes from
+  `--lg-*` tokens; no feature directory is imported (`UIP-02`). The class convention is
+  `lg-<block>__<element>--<modifier>`.
 - **Button.** Variants `primary` (accent fill with `--lg-color-accent-text`), `secondary`
   (surface), `ghost`, `outline` and `danger` (danger border and text). Sizes `sm`/`md`, minimum
   height 36–40 px, radius `sm`/`md`. States: `hover`, `active`, `focus-visible`, `disabled`,

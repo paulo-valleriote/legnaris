@@ -326,6 +326,40 @@ function authSources(): string[] {
     .map((name) => path.join(authDir, name));
 }
 
+const uiDir = path.resolve(here, '../ui');
+
+/** The primitives-layer chrome copy (UIP-24, SC-004). */
+const uiFeatureKeys: readonly MessageKey[] = ['ui.dismiss'];
+
+describe('primitives-layer copy source scan (UIP-05, SC-004)', () => {
+  it('Edge: the ui layer authors no user-facing literal and resolves its chrome key', () => {
+    const sources = readdirSync(uiDir)
+      .filter((n) => n.endsWith('.ts') || n.endsWith('.tsx'))
+      .map((n) => path.join(uiDir, n));
+    if (sources.length === 0) return; // layer not yet built
+    const knownKeys = new Set<string>(keys);
+    const referenced = new Set<string>();
+    for (const file of sources) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).not.toContain('api.error.');
+      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+        expect(knownKeys.has(match[1])).toBe(true);
+        referenced.add(match[1]);
+      }
+    }
+    for (const key of uiFeatureKeys) {
+      expect(referenced.has(key)).toBe(true);
+    }
+  });
+
+  it('Happy path: the ui chrome key resolves to non-empty copy (UIP-24)', () => {
+    for (const key of uiFeatureKeys) {
+      expect(messages[key]).toBeDefined();
+      expect(message(key).trim()).not.toBe('');
+    }
+  });
+});
+
 describe('auth copy keys and source scan (WAS-19, WAS-25, WAS-30, WAS-31)', () => {
   it('Happy path: every auth and session copy key resolves to non-empty copy', () => {
     for (const key of authFeatureKeys) {

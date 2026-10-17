@@ -148,7 +148,10 @@ leaves.
   purpose, and the extraction does not leak schema-specific logic into it.
 - Never abstract the schema-driven UI Engine internals, screen-specific layouts,
   one-off dialogs, or wireframe structures.
-- No "base component" layers, no wrapper-for-wrapper's-sake.
+- One sanctioned base layer at `web/src/ui/` holds the five primitives (`button`, `field`,
+  `checkbox`, `dialog`, `toast`) plus the focus trap; it imports no feature directory,
+  uses `lg-<block>__<element>--<modifier>` and keeps the `≥ 3 real usages` rule for every
+  other extraction (UIP-01, UIP-03, SC-007). No wrapper-for-wrapper's-sake elsewhere.
 
 ## Dependencies
 

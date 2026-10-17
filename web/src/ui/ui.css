@@ -1,0 +1,84 @@
+/**
+ * Shared base layer — web/src/ui/
+ * Class convention: lg-<block>__<element>--<modifier>
+ * Token-only: every value is a --lg-* token; no literal colour or px.
+ * Requirement citations gated in source (UIP-01, UIP-04, UIP-06).
+ */
+
+.lg-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--lg-font-family);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  border: var(--lg-size-hairline) solid;
+  border-radius: var(--lg-radius-sm);
+  cursor: pointer;
+  background: var(--lg-color-surface);
+  color: var(--lg-color-text);
+  min-height: var(--lg-size-control);
+  padding: var(--lg-space-8) var(--lg-space-16);
+}
+
+.lg-button--primary {
+  background: var(--lg-color-accent);
+  border-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+}
+
+.lg-button--secondary {
+  background: var(--lg-color-surface);
+  border-color: var(--lg-color-border-strong);
+  color: var(--lg-color-text);
+}
+
+.lg-button--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--lg-color-text);
+}
+
+.lg-button--outline {
+  background: transparent;
+  border-color: var(--lg-color-border-strong);
+  color: var(--lg-color-text);
+}
+
+.lg-button--danger {
+  background: transparent;
+  border-color: var(--lg-color-danger);
+  color: var(--lg-color-danger);
+}
+
+.lg-button--sm {
+  font-size: var(--lg-type-13);
+  padding: var(--lg-space-2) var(--lg-space-12);
+  border-radius: var(--lg-radius-sm);
+}
+
+.lg-button--md {
+  font-size: var(--lg-type-15);
+  padding: var(--lg-space-8) var(--lg-space-16);
+  border-radius: var(--lg-radius-md);
+}
+
+.lg-button:hover:not(:disabled) {
+  background: var(--lg-color-surface-hover);
+}
+
+.lg-button--primary:hover:not(:disabled) {
+  background: var(--lg-color-accent-hover);
+  border-color: var(--lg-color-accent-hover);
+}
+
+.lg-button:focus-visible {
+  outline: var(--lg-size-hairline) solid var(--lg-color-focus);
+  outline-offset: var(--lg-focus-offset);
+}
+
+.lg-button:disabled,
+.lg-button[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

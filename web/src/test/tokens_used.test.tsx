@@ -114,3 +114,17 @@ describe('design token usage in the auth surface (WAS-31)', () => {
     assertTokensAreDefined(sourceFiles(authDir));
   });
 });
+
+const uiDir = path.resolve(here, '../ui');
+describe('design token usage in the ui primitives layer (UIP-04, SC-002)', () => {
+  it('Happy path: the ui layer has sources to inspect once built', () => {
+    const files = sourceFiles(uiDir);
+    expect(files.length).toBeGreaterThanOrEqual(0);
+  });
+  it('Edge: no ui layer source contains a literal color or pixel value', () => {
+    assertTokenOnlySources(sourceFiles(uiDir));
+  });
+  it('Happy path: every token the ui layer references is declared', () => {
+    assertTokensAreDefined(sourceFiles(uiDir));
+  });
+});

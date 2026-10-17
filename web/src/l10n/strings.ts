@@ -90,6 +90,7 @@ export const messages = {
   'engine.none': 'None',
   'engine.modified': 'Modified',
   'engine.recalculated': 'Recalculated',
+  'ui.dismiss': 'Dismiss',
 } as const;
 
 /** A key of the English catalog. */

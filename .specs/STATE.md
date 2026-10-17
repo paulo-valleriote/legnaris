@@ -159,3 +159,13 @@
 - **Branch**: `main` (feature commits local, not pushed).
 - **Lesson recorded**: none (clean PASS — no surviving mutants, spec-precision gaps, or deviations).
 - **Prior feature**: `lgn-7-ownership` — COMPLETE, PASS (PR #60); `front-end-phase-6-auth` merged as `41ff4c7`; earlier: `lgn-103-104-sheet-preview-dry-run`, `lgn-110-save-delta` (PR #57), `lgn-108-open-sheet` (PR #56), `lgn-109-create-sheet` (PR #55)
+
+### AD-019
+- **Feature**: 009-web-ui-primitives (F2)
+- **Change**: Replaced the "no base component layer" prohibition with the sanctioned `web/src/ui/`
+  shared layer holding the five primitives (button, field, checkbox, dialog, toast) and focus trap.
+- **Rule preserved**: The `≥ 3 real usages` extraction rule stays for every other component.
+- **Reason**: The design document (`DESIGN.md`) names the layer and its class convention; the
+  developer-rules document (`AGENTS.md`) sanctions it; the spec (`UIP-03`) requires both.
+- **Rejected alternative**: Duplicating the action per screen (would recreate the duplication this
+  phase removes and violate the token-only layer rule).

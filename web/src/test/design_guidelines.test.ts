@@ -82,6 +82,14 @@ describe('design guidelines (UIF-33, SC-006)', () => {
     expect(read(agentsPath)).toContain('DESIGN.md');
   });
 
+  it('Happy path: the shared layer is sanctioned in DESIGN.md and AGENTS.md (UIP-03)', () => {
+    const design = read(designPath);
+    const agents = read(agentsPath);
+    expect(design).toContain('src/ui/');
+    expect(agents).toContain('src/ui/');
+    expect(design).toContain('lg-<block>');
+  });
+
   it('Edge: the developer-rules document restates no visual token value', () => {
     const agents = read(agentsPath);
 
