@@ -23,7 +23,7 @@
 
 ### Tests (must fail before implementation)
 
-- [ ] T002 [US1] Playwright contract: screenshot comparison of shell/template/sheet/catalog against desktop reference; fail if artifacts missing.
+- [x] T002 [US1] Playwright contract: screenshot comparison of shell/template/sheet/catalog against desktop reference; fail if artifacts missing.
   - *File*: `web/src/test/e2e/parity.spec.ts` (or add to existing Playwright suite)
   - *Evidence*: `POL-01` / contract `parity-gate.contract.md`
 
@@ -70,7 +70,7 @@
   - *File*: `internal/app/auth.go`
   - *Requires*: F6 delivered (cookie mechanism exists).
 
-- [ ] T011 [P] [US2] Update `internal/app/router.go` / middleware: inject CSP `enforce` header (not only report-only); include `report-uri` / `report-to`; set `connect-src https://api.legnaris.com.br`; `frame-ancestors 'none'`; `require-trusted-types-for 'script'`.
+- [x] T011 [P] [US2] Update `internal/app/router.go` / middleware: inject CSP `enforce` header (not only report-only); include `report-uri` / `report-to`; set `connect-src https://api.legnaris.com.br`; `frame-ancestors 'none'`; `require-trusted-types-for 'script'`.
   - *File*: `internal/app/router.go` (or CSP middleware file)
   - *Requires*: CSP collect phase from F9 completed (if any violations exist, fix before enforce).
 
