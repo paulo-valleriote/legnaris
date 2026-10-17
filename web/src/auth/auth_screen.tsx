@@ -125,7 +125,7 @@ export function AuthScreen() {
           </div>
 
           {error !== undefined && (
-            <p className="lg-auth__error" role="alert" data-testid="auth-error">
+            <p className="lg-auth__error" role="alert" aria-live="polite" data-testid="auth-error">
               {error}
             </p>
           )}

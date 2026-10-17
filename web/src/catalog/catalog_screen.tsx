@@ -56,7 +56,12 @@ function CatalogBody({ phase, onRetry, onOpen }: CatalogBodyProps) {
     case 'loading':
       return <p className="lg-catalog__message">{message('catalog.loading')}</p>;
     case 'empty':
-      return <p className="lg-catalog__message">{message('catalog.empty')}</p>;
+      return (
+        <div className="lg-catalog__failure">
+          <p className="lg-catalog__message">{message('catalog.empty')}</p>
+          <Button variant="primary" size="md" label={message('catalog.retry')} onClick={onRetry} />
+        </div>
+      );
     case 'loaded':
       return (
         <ul className="lg-catalog__list">

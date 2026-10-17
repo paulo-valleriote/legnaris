@@ -156,6 +156,25 @@ describe('sheet form table rows (ENG-04, ENG-06)', () => {
     ),
   };
 
+  it('Happy path: collapsed sections render an expand button instead of rows, and toggle reports the key (F3 progressive disclosure)', () => {
+    const onToggle = vi.fn();
+    render(
+      <SheetForm
+        fields={FIELDS}
+        data={DATA}
+        onChanged={vi.fn()}
+        collapsedSectionKeys={['flags', 'config']}
+        onToggleSection={onToggle}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Flags: Expand section' })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'NPC' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Flags: Expand section' }));
+    expect(onToggle).toHaveBeenCalledWith('flags');
+  });
+
   it('Happy path: a declared-column group draws one row with a shared header and aligned cells (ENG-04, ENG-06)', () => {
     const { container } = render(
       <SheetForm

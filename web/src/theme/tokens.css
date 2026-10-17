@@ -45,11 +45,12 @@
 
   --lg-size-hairline: 1px;
   --lg-size-row: 32px;
-  --lg-size-control: 36px;
+  --lg-size-control: 44px;
   --lg-size-nav-min: 200px;
   --lg-size-nav-max: 240px;
   --lg-size-content-min: 320px;
   --lg-size-content-max: 960px;
+  --lg-size-panel-max: 600px;
 
   --lg-focus-width: 2px;
   --lg-focus-offset: 2px;
@@ -132,6 +133,7 @@
   --lg-color-success: var(--lg-success-700);
   --lg-color-warning: var(--lg-warning-700);
   --lg-color-focus: var(--lg-amber-800);
+  --lg-color-ink: var(--lg-ink-900);
 
   --lg-shadow-1: 0 1px 2px rgba(42, 33, 24, 0.08);
   --lg-shadow-2: 0 4px 12px rgba(42, 33, 24, 0.12);
@@ -163,6 +165,7 @@
   --lg-color-success: var(--lg-success-400);
   --lg-color-warning: var(--lg-warning-400);
   --lg-color-focus: var(--lg-amber-400);
+  --lg-color-ink: var(--lg-charcoal-900);
 
   --lg-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
   --lg-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.6);

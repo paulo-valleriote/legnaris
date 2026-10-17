@@ -42,6 +42,10 @@ export interface SheetFormProps {
   ) => ReactNode;
   /** Optional per-row preview mark source; orthogonal to the control source (ENG-23). */
   readonly rowMarkBuilder?: (paths: readonly string[]) => ReactNode;
+  /** Sections whose keys are collapsed; the caller owns the collapse state (F3 progressive disclosure). */
+  readonly collapsedSectionKeys?: readonly string[];
+  /** Reports a section toggle when progressive disclosure is enabled. */
+  readonly onToggleSection?: (key: string) => void;
 }
 
 /** The copy a row shows for its preview mark (ENG-22). */
@@ -60,6 +64,8 @@ export function SheetForm({
   controlBuilder,
   exclusiveControlBuilder,
   rowMarkBuilder,
+  collapsedSectionKeys,
+  onToggleSection,
 }: SheetFormProps) {
   const hasData = data !== undefined;
   const hasAnyBuilder = controlBuilder !== undefined || exclusiveControlBuilder !== undefined;
@@ -185,7 +191,24 @@ export function SheetForm({
   );
 
   const renderSection = (section: SheetSection): ReactNode => {
+    const isCollapsed = collapsedSectionKeys?.includes(section.key) ?? false;
     const rows: ReactNode[] = [];
+    if (isCollapsed) {
+      return (
+        <section className="lg-section lg-section--collapsed" key={section.key}>
+          <button
+            type="button"
+            className="lg-button lg-button--secondary lg-button--sm"
+            onClick={() => onToggleSection?.(section.key)}
+            aria-expanded="false"
+            aria-label={`${section.label}: ${message('engine.expand')}`}
+          >
+            <span className="lg-section__title">{section.label}</span>
+            <span>{message('engine.expand')}</span>
+          </button>
+        </section>
+      );
+    }
     let activeColumns: string | undefined;
     let tableIndex = 0;
     section.rows.forEach((row, index) => {

@@ -7,6 +7,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--lg-space-24);
+  container-type: inline-size;
+}
+
+@container (max-width: 640px) {
+  .lg-engine {
+    gap: var(--lg-space-16);
+  }
+  .lg-section {
+    gap: var(--lg-space-4);
+  }
 }
 
 .lg-section {
@@ -19,7 +29,7 @@
   margin: 0;
   padding-bottom: var(--lg-space-4);
   border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
-  font-size: var(--lg-type-13);
+  font-size: clamp(var(--lg-type-13), 1.2rem, var(--lg-type-20));
   font-weight: var(--lg-font-weight-semibold);
   color: var(--lg-color-text-muted);
 }
@@ -129,4 +139,28 @@
 .lg-field__mark {
   font-size: var(--lg-type-12);
   color: var(--lg-color-text-muted);
+}
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.lg-section--reveal:nth-child(1) { animation-delay: 0ms; }
+.lg-section--reveal:nth-child(2) { animation-delay: 60ms; }
+.lg-section--reveal:nth-child(3) { animation-delay: 120ms; }
+.lg-section--reveal:nth-child(4) { animation-delay: 180ms; }
+
+.lg-section--reveal {
+  animation: reveal 240ms var(--lg-ease-emphasized) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-engine *,
+  .lg-engine *::before,
+  .lg-engine *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

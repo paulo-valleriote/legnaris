@@ -54,13 +54,16 @@ export function SheetExclusiveControl({
   const value = active ?? (allowsNone ? EXCLUSIVE_NONE_VALUE : '');
 
   return (
-    <select
-      className={`lg-field${mark !== undefined ? ` ${FIELD_MARKED_CLASS}` : ''}`}
-      aria-label={label}
-      value={value}
-      disabled={onSelect === undefined}
-      onChange={(event: ChangeEvent<HTMLSelectElement>) => onSelect?.(event.target.value)}
-    >
+    <label htmlFor={`lg-exclusive-${label}`} className="lg-field__label-wrapper">
+      <span className="lg-field__label">{label}</span>
+      <select
+        id={`lg-exclusive-${label}`}
+        className={`lg-field${mark !== undefined ? ` ${FIELD_MARKED_CLASS}` : ''}`}
+        aria-label={label}
+        value={value}
+        disabled={onSelect === undefined}
+        onChange={(event: ChangeEvent<HTMLSelectElement>) => onSelect?.(event.target.value)}
+      >
       {showsHint && (
         <option value="" disabled>
           {message('engine.none')}
@@ -73,6 +76,7 @@ export function SheetExclusiveControl({
         </option>
       ))}
     </select>
+    </label>
   );
 }
 

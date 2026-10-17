@@ -1,5 +1,3 @@
-import { message } from '../l10n/strings';
-
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger';
 export type ButtonSize = 'sm' | 'md';
 

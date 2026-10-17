@@ -87,6 +87,8 @@ export const messages = {
   'sheet.ownCancel': 'Keep sheet',
 
   'engine.calculated': 'Calculated',
+  'engine.expand': 'Expand section',
+  'engine.collapse': 'Collapse section',
   'engine.none': 'None',
   'engine.modified': 'Modified',
   'engine.recalculated': 'Recalculated',

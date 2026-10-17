@@ -155,7 +155,7 @@ interface ToggleControlProps {
 function ToggleControl({ schema, value, label, disabled, marked, onToggle }: ToggleControlProps) {
   const emitsBoolean = schema.type === 'bool';
   return (
-    <span className={`lg-field--toggle${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}>
+    <label className={`lg-field--toggle${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}>
       <input
         type="checkbox"
         className="lg-field__toggle"
@@ -166,7 +166,8 @@ function ToggleControl({ schema, value, label, disabled, marked, onToggle }: Tog
           onToggle?.(emitsBoolean ? event.target.checked : event.target.checked ? 1 : 0)
         }
       />
-    </span>
+      <span className="lg-field__label">{label}</span>
+    </label>
   );
 }
 
@@ -217,14 +218,18 @@ function NumericControl({ value, label, disabled, marked, onChanged }: NumericCo
   };
 
   return (
-    <input
-      type="text"
-      inputMode="decimal"
-      className={`lg-field lg-field--numeric${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}
-      aria-label={label}
-      value={text}
-      disabled={disabled}
-      onChange={handleChange}
-    />
+    <label htmlFor={`lg-field-num-${label}`} className={`lg-field--numeric-wrapper${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}>
+      <span className="lg-field__label">{label}</span>
+      <input
+        id={`lg-field-num-${label}`}
+        type="text"
+        inputMode="decimal"
+        className={`lg-field lg-field--numeric${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}
+        aria-label={label}
+        value={text}
+        disabled={disabled}
+        onChange={handleChange}
+      />
+    </label>
   );
 }

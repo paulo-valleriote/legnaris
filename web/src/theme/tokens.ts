@@ -179,6 +179,7 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-size-nav-max', 'navigation maximum width'],
     ['--lg-size-content-min', 'content minimum width'],
     ['--lg-size-content-max', 'readable content measure'],
+    ['--lg-size-panel-max', 'dialog/panel maximum width'],
   ]),
   ...group('primitive', 'focus', [
     ['--lg-focus-width', 'focus ring outline width'],
@@ -213,6 +214,7 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-color-success', 'success state'],
     ['--lg-color-warning', 'warning state'],
     ['--lg-color-focus', 'focus ring'],
+    ['--lg-color-ink', 'ink surface (toasts)'],
   ]),
   ...group('semantic', 'shadow', [
     ['--lg-shadow-1', 'elevation for rows and cards'],

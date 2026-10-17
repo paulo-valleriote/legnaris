@@ -1,45 +1,46 @@
 /// <reference lib="webworker" />
+// Service worker (injectManifest): precache shell; runtime cache safe GET only (no auth).
+// PWA-01 contract.
+
 import { clientsClaim } from 'workbox-core';
+import { precacheAndRoute } from 'workbox-precaching';
+import { registerRoute, setCatchHandler } from 'workbox-routing';
+import { StaleWhileRevalidate, CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
-import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
-import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { NetworkFirst } from 'workbox-strategies';
-import { isRuntimeCacheable } from './cache_rules';
 
-declare const self: ServiceWorkerGlobalScope;
+// Self is workbox-injected precache manifest
+const MANIFEST = self.__WB_MANIFEST as Array<{ url: string; revision?: string | null }>;
 
-// The build's precache manifest is injected here by vite-plugin-pwa.
-precacheAndRoute(self.__WB_MANIFEST ?? []);
-cleanupOutdatedCaches();
-
-// Navigations resolve to the cached shell so a deep link works offline (FND-07).
-registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')));
-
-// Public GETs may be cached at runtime; authenticated requests never are (FND-09).
-registerRoute(
-  ({ request, url }) =>
-    isRuntimeCacheable({
-      url: url.href,
-      method: request.method,
-      hasAuthorization: request.headers.has('authorization'),
-      isNavigation: request.mode === 'navigate',
-    }),
-  new NetworkFirst({
-    cacheName: 'lg-runtime-v1',
-    plugins: [new ExpirationPlugin({ maxEntries: 64, maxAgeSeconds: 60 * 60 })],
-  }),
+// PWA-01: precache shell and icons; do NOT precache authenticated endpoints (/auth/*, /sheets auth-required).
+precacheAndRoute(
+  MANIFEST.filter((entry) => {
+    const url = entry.url;
+    return !url.includes('/auth/') && !url.includes('/csp-report');
+  })
 );
 
-// registerType: 'prompt' keeps a new worker in `waiting` until the visitor
-// accepts the update, then activates it (FND-09).
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    void self.skipWaiting();
-  }
-});
-
-self.addEventListener('activate', () => {
-  void self.clients.claim();
-});
-
 clientsClaim();
+
+// Runtime caching: GET only, non-auth, safe endpoints
+registerRoute(
+  ({ request, url }) => {
+    return (
+      request.method === 'GET' &&
+      url.pathname.startsWith('/') &&
+      !url.pathname.startsWith('/auth/') &&
+      !url.pathname.includes('/csp-report')
+    );
+  },
+  new StaleWhileRevalidate({
+    cacheName: 'pwa-runtime-safe',
+    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 86400 })],
+  })
+);
+
+// Deep-link fallback (PWA-03): return cached index.html for navigation requests
+setCatchHandler(async ({ request }) => {
+  if (request.mode === 'navigate') {
+    return caches.match('/');
+  }
+  return Response.error();
+});

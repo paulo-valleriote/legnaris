@@ -1,47 +1,36 @@
-/**
- * The offline cache helpers on top of the `SheetStore` port (WSC-06, WSC-11,
- * WSC-29, R1). Every operation is best-effort: a failing local write or eviction
- * never blocks the flow that triggered it, and an eviction failure never hides a
- * rendered message (WSC-06).
- */
+import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
-import type { Sheet } from '../api/models/sheet';
-import type { SheetStore } from './sheet_store';
-import { bestEffort } from './sheet_store';
-
-/** Writes a loaded or created sheet to the local cache by identifier (WSC-11). */
-export function cacheSheet(store: SheetStore, sheet: Sheet): Promise<void> {
-  return bestEffort(() => store.putSheet(sheet));
+// PWA-02 / PWA-05: versioned IndexedDB library; never stores tokens.
+export interface DraftEntry {
+  template_id: string;
+  sheet_id: string | null;
+  data: Partial<Record<string, unknown>>;
+  editable_filter: boolean;
+  timestamp: number;
 }
 
-/** Reads the cached sheet for [id], or `null` (WSC-11). */
-export async function readCachedSheet(store: SheetStore, id: string): Promise<Sheet | null> {
-  try {
-    return await store.readSheet(id);
-  } catch {
-    return null;
-  }
+export interface SheetLibraryDB extends DBSchema {
+  drafts: { key: string; value: DraftEntry; indexes: { 'by-template': string; 'by-sheet': string | null } };
 }
 
-/**
- * Evicts a sheet and its draft from local storage, best-effort (WSC-06, WSC-29).
- *
- * Used when the open resolves that the sheet no longer exists; a failing
- * eviction never changes the rendered state.
- */
-export async function evictSheet(store: SheetStore, id: string): Promise<void> {
-  await Promise.all([
-    bestEffort(() => store.deleteSheet(id)),
-    bestEffort(() => store.deleteDraft(id)),
-  ]);
+export async function openLibrary(version: number = 1): Promise<IDBPDatabase<SheetLibraryDB>> {
+  return openDB<SheetLibraryDB>('legnaris-library', version, {
+    upgrade(db) {
+      const store = db.createObjectStore('drafts', { keyPath: 'key' });
+      store.createIndex('by-template', 'template_id');
+      store.createIndex('by-sheet', 'sheet_id');
+    },
+  });
 }
 
-/**
- * Deletes the sheet's draft, best-effort (WSC-29).
- *
- * The guard flows delete the draft when the person confirms discarding the
- * in-memory edits; a failing delete never blocks the flow that triggered it.
- */
-export function discardDraft(store: SheetStore, id: string): Promise<void> {
-  return bestEffort(() => store.deleteDraft(id));
+export async function saveDraft(entry: DraftEntry, db?: IDBPDatabase<SheetLibraryDB>) {
+  const instance = db ?? (await openLibrary());
+  await instance.put('drafts', { ...entry, key: `${entry.template_id}:${entry.sheet_id ?? 'new'}` });
+}
+
+export async function getDraft(templateId: string, sheetId?: string | null, db?: IDBPDatabase<SheetLibraryDB>) {
+  const instance = db ?? (await openLibrary());
+  const all = await instance.getAllFromIndex('drafts', 'by-template', templateId);
+  if (!sheetId) return all;
+  return all.find((d) => d.sheet_id === sheetId) ?? null;
 }

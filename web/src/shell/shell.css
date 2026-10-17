@@ -112,3 +112,13 @@
 .lg-notfound__link {
   color: var(--lg-color-accent);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-shell *,
+  .lg-shell *::before,
+  .lg-shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
