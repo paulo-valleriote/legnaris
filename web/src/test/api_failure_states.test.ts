@@ -83,11 +83,12 @@ describe('failure states out of the client', () => {
       'SHEET_LIMIT_REACHED',
       'UNAUTHORIZED',
       'FORBIDDEN',
+      'RATE_LIMITED',
     ];
 
     for (const code of codes) {
       expect(apperrKind(code)).toMatch(
-        /^(clientFault|invalidEdit|renderMismatch|notFound|serverError|unknown)$/,
+        /^(clientFault|invalidEdit|renderMismatch|notFound|serverError|unauthorized|forbidden|rateLimited|unknown)$/,
       );
     }
   });

@@ -19,6 +19,9 @@ export type FailureKind =
   | 'notFound'
   | 'serverError'
   | 'offline'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'rateLimited'
   | 'unknown';
 
 /** Input of a {@link DomainFailure}. */

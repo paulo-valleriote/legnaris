@@ -7,8 +7,8 @@
  * the suites can count attempts without a server.
  */
 
-/** The HTTP methods the six consumed operations use. */
-export type HttpMethod = 'GET' | 'POST' | 'PATCH';
+/** The HTTP methods the consumed operations use. */
+export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
 /** A request as the client describes it, before any platform mapping. */
 export interface HttpRequest {
@@ -19,8 +19,12 @@ export interface HttpRequest {
   readonly headers: Readonly<Record<string, string>>;
   /** JSON text, absent for reads. */
   readonly body?: string;
-  /** Fixed posture: no ambient credential is attached implicitly (API-29). */
-  readonly credentials: 'omit';
+  /**
+   * Credential posture. `'omit'` is the default and attaches no ambient
+   * credential (API-29); `'include'` attaches the browser's cookies and is used
+   * only by the four `/auth/*` session calls (WAS-06).
+   */
+  readonly credentials: 'omit' | 'include';
   /** Aborted when the attempt outlives the timeout, or when the caller cancels. */
   readonly signal: AbortSignal;
 }

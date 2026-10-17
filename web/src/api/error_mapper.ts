@@ -17,6 +17,9 @@ const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   UNKNOWN_FIELD: 'renderMismatch',
   NOT_FOUND: 'notFound',
   INTERNAL_ERROR: 'serverError',
+  UNAUTHORIZED: 'unauthorized',
+  FORBIDDEN: 'forbidden',
+  RATE_LIMITED: 'rateLimited',
 };
 
 const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
@@ -26,15 +29,18 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
   notFound: 'api.error.notFound',
   serverError: 'api.error.serverError',
   offline: 'api.error.offline',
+  unauthorized: 'api.error.unauthorized',
+  forbidden: 'api.error.forbidden',
+  rateLimited: 'api.error.rateLimited',
   unknown: 'api.error.unknown',
 };
 
 /**
- * Maps a backend code to the interface-facing kind (API-15 … API-21).
+ * Maps a backend code to the interface-facing kind (API-15 … API-21, WAS-30).
  *
- * The five codes with a dedicated kind map to it; every other code — the seven
- * fallback codes the backend defines and any code it does not — takes the generic
- * kind, so an unmapped code is visible rather than misclassified.
+ * The codes with a dedicated kind map to it; every other code — the fallback
+ * codes the backend defines and any code it does not — takes the generic kind,
+ * so an unmapped code is visible rather than misclassified.
  */
 export function apperrKind(code: string): FailureKind {
   return KIND_BY_CODE[code] ?? 'unknown';

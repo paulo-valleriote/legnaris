@@ -202,7 +202,7 @@ describe('pinned contract captures', () => {
       [loadCapture('error_unknown_field'), 'renderMismatch', 'UNKNOWN_FIELD'],
       [loadCapture('error_invalid_json'), 'clientFault', 'INVALID_JSON'],
       [loadCapture('error_internal'), 'serverError', 'INTERNAL_ERROR'],
-      [loadCapture('error_unauthorized'), 'unknown', 'UNAUTHORIZED'],
+      [loadCapture('error_unauthorized'), 'unauthorized', 'UNAUTHORIZED'],
     ];
 
     for (const [capture, kind, code] of cases) {

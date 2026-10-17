@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   apperrKind,
   classifyDomainFailure,
+  failureCopy,
   failureMessage,
   offlineFailure,
   parseFailureMessage,
@@ -17,6 +18,9 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['UNKNOWN_FIELD', 'renderMismatch'],
   ['NOT_FOUND', 'notFound'],
   ['INTERNAL_ERROR', 'serverError'],
+  ['UNAUTHORIZED', 'unauthorized'],
+  ['FORBIDDEN', 'forbidden'],
+  ['RATE_LIMITED', 'rateLimited'],
 ];
 
 const fallback = [
@@ -25,8 +29,6 @@ const fallback = [
   'INVALID_DEPENDENCY',
   'INVALID_PATH',
   'SHEET_LIMIT_REACHED',
-  'UNAUTHORIZED',
-  'FORBIDDEN',
 ] as const;
 
 const keyByKind: Record<FailureKind, MessageKey> = {
@@ -36,6 +38,9 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   notFound: 'api.error.notFound',
   serverError: 'api.error.serverError',
   offline: 'api.error.offline',
+  unauthorized: 'api.error.unauthorized',
+  forbidden: 'api.error.forbidden',
+  rateLimited: 'api.error.rateLimited',
   unknown: 'api.error.unknown',
 };
 
@@ -138,5 +143,33 @@ describe('failure copy', () => {
     const copy = (Object.keys(keyByKind) as FailureKind[]).map((kind) => failureMessage(kind));
 
     expect(new Set(copy).size).toBe(copy.length);
+  });
+});
+
+describe('session code classification (WAS-30, SC-008, SC-009)', () => {
+  it('Edge: UNAUTHORIZED, FORBIDDEN and RATE_LIMITED map to their dedicated kinds (WAS-30)', () => {
+    expect(apperrKind('UNAUTHORIZED')).toBe('unauthorized');
+    expect(apperrKind('FORBIDDEN')).toBe('forbidden');
+    expect(apperrKind('RATE_LIMITED')).toBe('rateLimited');
+  });
+
+  it('Edge: the three session kinds resolve their catalog copy byte-for-byte (WAS-30, SC-008)', () => {
+    expect(failureMessage('unauthorized')).toBe(messages['api.error.unauthorized']);
+    expect(failureMessage('forbidden')).toBe(messages['api.error.forbidden']);
+    expect(failureMessage('rateLimited')).toBe(messages['api.error.rateLimited']);
+  });
+
+  it('Edge: failureCopy resolves a catalog string and never echoes the server message (SC-009)', () => {
+    const failure = classifyDomainFailure(
+      new DomainFailure({
+        kind: 'unknown',
+        status: 500,
+        code: 'INTERNAL_ERROR',
+        message: 'traceback: secret internal detail',
+      }),
+    );
+
+    expect(failureCopy(failure)).toBe(messages['api.error.serverError']);
+    expect(failureCopy(failure)).not.toContain('traceback');
   });
 });

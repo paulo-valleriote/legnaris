@@ -222,3 +222,60 @@ describe('api client operations', () => {
     expect(parseError).not.toBeInstanceOf(DomainFailure);
   });
 });
+
+describe('api client own-sheet operations (WAS-25, WAS-28)', () => {
+  it('Happy path: getMySheet issues one GET /sheets and decodes the sheet (WAS-25)', async () => {
+    const fake = createFakeTransport(successOutcome(sheetPayload));
+
+    const payload = await clientWith(fake).getMySheet();
+
+    expect(payload.id).toBe(sheetPayload.id);
+    expect(payload.name).toBe('Aragorn');
+    expect(fake.lastRequest?.method).toBe('GET');
+    expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets`);
+    expect(fake.lastRequest?.body).toBeUndefined();
+    expect(fake.lastRequest?.credentials).toBe('omit');
+    expect(fake.attempts).toBe(1);
+  });
+
+  it('Happy path: deleteSheet issues one DELETE /sheets/:id and accepts a 204 (WAS-28)', async () => {
+    const fake = createFakeTransport({ status: 204, body: '' });
+
+    await expect(clientWith(fake).deleteSheet(sheetPayload.id)).resolves.toBeUndefined();
+
+    expect(fake.lastRequest?.method).toBe('DELETE');
+    expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets/${sheetPayload.id}`);
+    expect(fake.lastRequest?.body).toBeUndefined();
+    expect(fake.attempts).toBe(1);
+  });
+
+  it('Edge: a path identifier is percent-encoded on delete too (API-01)', async () => {
+    const fake = createFakeTransport({ status: 204, body: '' });
+
+    await clientWith(fake).deleteSheet('a/b c?d');
+
+    expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets/${encodeURIComponent('a/b c?d')}`);
+  });
+
+  it('Error: a 404 on getMySheet classifies as notFound (WAS-25)', async () => {
+    const fake = createFakeTransport(errorOutcome('NOT_FOUND', 'no sheet', 404));
+
+    await expect(clientWith(fake).getMySheet()).rejects.toMatchObject({
+      name: 'DomainFailure',
+      kind: 'notFound',
+      code: 'NOT_FOUND',
+      status: 404,
+    });
+  });
+
+  it('Error: a failing delete never repeats and surfaces a classified failure (WAS-28)', async () => {
+    const fake = createFakeTransport(errorOutcome('INTERNAL_ERROR', 'boom', 500));
+
+    const error = await clientWith(fake)
+      .deleteSheet(sheetPayload.id)
+      .catch((cause: unknown) => cause);
+
+    expect(error).toMatchObject({ name: 'DomainFailure', kind: 'serverError' });
+    expect(fake.attempts).toBe(1);
+  });
+});

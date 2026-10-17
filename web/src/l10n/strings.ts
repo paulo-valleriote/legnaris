@@ -16,8 +16,23 @@ export const messages = {
   'api.error.offline': 'No connection to the server.',
   'api.error.unknown': 'Something went wrong. Try again.',
   'api.error.parse': 'The server response could not be read.',
+  'api.error.unauthorized': 'Your session has ended. Sign in again.',
+  'api.error.forbidden': 'That action was refused. Reload the app and try again.',
+  'api.error.rateLimited': 'Too many attempts. Wait a moment and try again.',
+
+  'auth.title': 'Sign in to Legnaris',
+  'auth.modeLogin': 'Existing account',
+  'auth.modeRegister': 'New account',
+  'auth.emailLabel': 'Email',
+  'auth.passwordLabel': 'Password',
+  'auth.usernameLabel': 'Username',
+  'auth.submitLogin': 'Sign in',
+  'auth.submitRegister': 'Create account',
+  'auth.restoring': 'Restoring your session',
 
   'nav.catalog': 'Catalog',
+  'nav.ownSheet': 'Your sheet',
+  'nav.logout': 'Sign out',
 
   'catalog.title': 'Templates',
   'catalog.loading': 'Loading templates',
@@ -54,6 +69,18 @@ export const messages = {
   'sheet.leaveMessage': 'Leaving this sheet discards your unsaved changes.',
   'sheet.leaveConfirm': 'Discard and leave',
   'sheet.cancel': 'Keep editing',
+
+  'sheet.ownTitle': 'Your character sheet',
+  'sheet.ownLoading': 'Loading your sheet',
+  'sheet.ownEmpty': 'You do not have a sheet yet.',
+  'sheet.ownOpen': 'Open sheet',
+  'sheet.ownRetry': 'Load again',
+  'sheet.ownDelete': 'Delete sheet',
+  'sheet.ownDeleteTitle': 'Delete your sheet?',
+  'sheet.ownDeleteMessage':
+    'Deleting your sheet removes it and its unsaved draft permanently. You cannot undo this.',
+  'sheet.ownDeleteConfirm': 'Delete permanently',
+  'sheet.ownCancel': 'Keep sheet',
 
   'engine.calculated': 'Calculated',
   'engine.none': 'None',
