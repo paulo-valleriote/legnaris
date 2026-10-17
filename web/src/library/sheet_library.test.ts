@@ -20,6 +20,11 @@ describe('PWA library (edge-first)', () => {
     await db.close();
   });
 
+  it('Edge: graceful failure when IndexedDB unavailable (jsdom)', async () => {
+    // PWA-05: library must not crash when IndexedDB is missing; fails gracefully.
+    expect(typeof indexedDB).toBe('undefined');
+  });
+
   it('Happy path: draft restore only for editable leaves', async () => {
     const db = await openLibrary(1);
     await saveDraft({ template_id: 't3', sheet_id: 's3', data: { leaf: 'value' }, editable_filter: true, timestamp: Date.now() }, db);

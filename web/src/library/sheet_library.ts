@@ -10,7 +10,11 @@ export interface DraftEntry {
 }
 
 export interface SheetLibraryDB extends DBSchema {
-  drafts: { key: string; value: DraftEntry; indexes: { 'by-template': string; 'by-sheet': string | null } };
+  drafts: {
+    key: string;
+    value: DraftEntry;
+    indexes: { 'by-template': string; 'by-sheet': string | null };
+  };
 }
 
 export async function openLibrary(version: number = 1): Promise<IDBPDatabase<SheetLibraryDB>> {
@@ -23,7 +27,11 @@ export async function openLibrary(version: number = 1): Promise<IDBPDatabase<She
   });
 }
 
-export async function evictSheet(templateId: string, sheetId: string | null, db?: IDBPDatabase<SheetLibraryDB>) {
+export async function evictSheet(
+  templateId: string,
+  sheetId: string | null,
+  db?: IDBPDatabase<SheetLibraryDB>,
+) {
   const instance = db ?? (await openLibrary());
   const all = await instance.getAllFromIndex('drafts', 'by-template', templateId);
   const matches = all.filter((d) => d.sheet_id === sheetId);
@@ -34,10 +42,17 @@ export async function evictSheet(templateId: string, sheetId: string | null, db?
 
 export async function saveDraft(entry: DraftEntry, db?: IDBPDatabase<SheetLibraryDB>) {
   const instance = db ?? (await openLibrary());
-  await instance.put('drafts', { ...entry, key: `${entry.template_id}:${entry.sheet_id ?? 'new'}` });
+  await instance.put('drafts', {
+    ...entry,
+    key: `${entry.template_id}:${entry.sheet_id ?? 'new'}`,
+  });
 }
 
-export async function getDraft(templateId: string, sheetId?: string | null, db?: IDBPDatabase<SheetLibraryDB>) {
+export async function getDraft(
+  templateId: string,
+  sheetId?: string | null,
+  db?: IDBPDatabase<SheetLibraryDB>,
+) {
   const instance = db ?? (await openLibrary());
   const all = await instance.getAllFromIndex('drafts', 'by-template', templateId);
   if (!sheetId) return all;

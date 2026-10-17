@@ -16,7 +16,7 @@ precacheAndRoute(
   MANIFEST.filter((entry) => {
     const url = entry.url;
     return !url.includes('/auth/') && !url.includes('/csp-report');
-  })
+  }),
 );
 
 clientsClaim();
@@ -34,7 +34,7 @@ registerRoute(
   new StaleWhileRevalidate({
     cacheName: 'pwa-runtime-safe',
     plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 86400 })],
-  })
+  }),
 );
 
 // Deep-link fallback (PWA-03): return cached index.html for navigation requests
