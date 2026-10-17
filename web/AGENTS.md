@@ -340,3 +340,39 @@ dropping a task.
   `src/sheet/` and `src/library/` for literal colors and pixels, and `l10n_strings.test.ts`
   scans `src/sheet/`, `src/library/` and `src/shell/shortcut_registry.ts` for user-facing
   literals and unresolved keys (WSC-32, WSC-33).
+
+### F7 — `web-auth-session`
+
+- **`session_store.ts` shipped as `auth_session.ts`.** The plan named the session module
+  `src/auth/session_store.ts`; it landed as `src/auth/auth_session.ts`, because the module
+  is the session itself (state + the four operations + the in-memory token), not a store
+  any surface subscribes to through a separate seam.
+- **`authenticated_client.ts` shipped as `authenticated_transport.ts`.** The plan named the
+  decorator `src/api/authenticated_client.ts`; it landed as
+  `src/api/authenticated_transport.ts` and decorates the `Transport`, not the `ApiClient`,
+  so the Bearer attach, the single-flight refresh and the one replay sit at the wire seam
+  every request already crosses.
+- **No token store — the access token is memory-only** (R9, WAS-32). There is no
+  `localStorage`/`sessionStorage`/cookie write anywhere in `src/auth/`; the token lives in a
+  module-private field and is exposed only to the authenticated transport and the session's
+  own snapshot. A reload therefore holds no session until the silent refresh re-establishes
+  it, which is the intended "nothing a script can persist" posture.
+- **Single-flight refresh lives on the session, not the decorator.** `AuthSession.refresh()`
+  coalesces concurrent callers over one `/auth/refresh` (`refreshInFlight`); the
+  authenticated transport calls `session.refresh()` instead of owning its own in-flight
+  promise, so a burst of `401`s from any surface shares one rotation (WAS-12, WAS-13).
+- **Sign-out has no confirmation dialog.** The plan left the confirmation open; sign-out
+  drops the token and sweeps the cache immediately, and the control is disabled while the
+  request is in flight, so a double activation issues one `/auth/logout` (WAS-19, WAS-23).
+  A confirmation was judged unnecessary because the action is recoverable by signing in
+  again and the in-flight guard already covers the double-activation edge.
+- **The fake transport needed no extension** (T001). `createFakeTransport` records the whole
+  `HttpRequest`, so `method`, `credentials`, `url` and `headers` are already readable off each
+  recorded request once `T004` widened the type; the scripted `{status, body}` queue was
+  already in place, so the seam is unchanged.
+- **The browser specs seed `/auth/refresh`.** `playwright.config.ts` builds the e2e client
+  with `VITE_API_BASE_URL` pointing at the preview origin, so the built client's cold-start
+  refresh targets that origin; `e2e/auth_seed.ts` routes `/auth/refresh` to a session body so
+  the previously public shell, catalog, sheet and PWA specs still render behind the session
+  (WAS-08, `AD-013`), and `e2e/auth.spec.ts` adds the axe sweep over the auth surface, the
+  signed-in shell and the "Your sheet" surface (SC-010).

@@ -2,14 +2,16 @@
 
 The product client: an installable React + Vite + TypeScript Progressive Web App that
 replaces the deprecated Flutter desktop app. It renders a token-driven application
-shell, the template catalog and its creation surface, and the sheet cycle (open, edit,
-save, preview, guards and crash-safe drafts); authentication arrives in a later feature.
+shell, the template catalog and its creation surface, the sheet cycle (open, edit,
+save, preview, guards and crash-safe drafts), and the browser cookie session
+(sign-in, registration, single-flight silent refresh and sign-out).
 
 Program plan: [`docs/plan-web-pwa.md`](../docs/plan-web-pwa.md). Feature specs, design and
 validation guides: [`.specs/features/001-web-pwa-foundation/`](../.specs/features/001-web-pwa-foundation/)
 (the shell), [`.specs/features/002-web-api-client/`](../.specs/features/002-web-api-client/)
-(the typed API client) and [`.specs/features/005-web-sheet-cycle/`](../.specs/features/005-web-sheet-cycle/)
-(the sheet cycle) — each `quickstart.md` holds the runnable validation scenarios. Visual
+(the typed API client), [`.specs/features/005-web-sheet-cycle/`](../.specs/features/005-web-sheet-cycle/)
+(the sheet cycle) and [`.specs/features/007-web-auth-session/`](../.specs/features/007-web-auth-session/)
+(the auth session) — each `quickstart.md` holds the runnable validation scenarios. Visual
 rules: [`AGENTS.md`](./AGENTS.md).
 
 ## Prerequisites
@@ -63,11 +65,11 @@ make sec-scan     # npm audit + signatures + lockfile-lint (+ gitleaks when inst
 
 ## API client (`src/api/`)
 
-The typed network layer every screen mounts on: six named operations (health, template
-catalog, template detail, sheet creation, sheet retrieval, sheet update), one envelope
-decoder, contract-faithful template/sheet models, a failure-kind mapper, and a pure base
-address resolver. It holds no state and touches no browser global outside the transport
-adapter.
+The typed network layer every screen mounts on: the named operations (health, template
+catalog, template detail, sheet creation, retrieval, own-sheet read and delete, sheet
+update and preview), one envelope decoder, contract-faithful template/sheet models, a
+failure-kind mapper, and a pure base address resolver. It holds no state and touches no
+browser global outside the transport adapter.
 
 ```bash
 cd web
@@ -97,6 +99,33 @@ API_BASE_URL=http://localhost:8080 npm test # also runs the live contract suite
   (default `https://api.legnaris.com.br`); an empty value falls back to the default, and a
   non-`http(s)` value fails at construction. `http://` is accepted only as an explicit
   build choice and is reported as `secure: false` on the resolved configuration.
+
+## Auth session (`src/auth/`, `src/api/auth_api.ts`)
+
+The browser cookie session that gates every surface. `src/api/auth_api.ts` is the four
+`/auth/*` operations (register, login, refresh, logout) over the **raw** transport with
+`credentials: 'include'` and the `X-CSRF-Token` echo on refresh/logout; `src/api/csrf.ts`
+reads the script-readable `__Host-legnaris_csrf` cookie. `src/auth/auth_session.ts` holds
+the short-lived access token **in memory only** — nothing is persisted — with a session
+version and a `restoring | unauthenticated | authenticating | authenticated` state, plus
+single-flight `refresh()` and `logout()`. `src/api/authenticated_transport.ts` decorates the
+transport: it attaches `Authorization: Bearer` to a protected path, refreshes once on a
+`401` and replays once, while `/health` and `/auth/*` are never Bearer-authenticated.
+`src/auth/auth_gate.tsx` runs the one cold-start restore, renders the sign-in surface while
+no session is held and otherwise mounts the shell. A definitive boundary (sign-out or forced
+logout) sweeps the session-local data through `src/library/session_data.ts`
+(`store.clearAll()`); a transient refresh failure keeps it. `src/sheet/your_sheet_screen.tsx`
+renders the signed-in person's own sheet (`GET /sheets`) with a confirmed delete.
+
+```bash
+cd web
+npm test                                                 # auth_*, session_* and your_sheet suites
+npx vitest run src/test/auth_gate.test.tsx               # restoring, rejected cookie, deep-link reset
+npx vitest run src/test/authenticated_transport.test.ts  # Bearer, single-flight refresh, replay
+npx vitest run src/test/session_boundary.test.ts         # sign-out sweep and single-flight
+npx vitest run src/test/your_sheet.test.tsx              # resolve, open and confirmed delete
+npm run test:e2e -- auth.spec.ts                         # axe: zero critical violations
+```
 
 ## Catalog (`src/catalog/`)
 
