@@ -48,9 +48,8 @@
   --lg-size-control: 36px;
   --lg-size-nav-min: 200px;
   --lg-size-nav-max: 240px;
+  --lg-size-content-min: 320px;
   --lg-size-content-max: 960px;
-  --lg-size-panel-min: 280px;
-  --lg-size-panel-max: 320px;
 
   --lg-focus-width: 2px;
   --lg-focus-offset: 2px;

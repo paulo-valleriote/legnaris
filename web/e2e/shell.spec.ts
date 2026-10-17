@@ -6,27 +6,26 @@ test.describe('application shell', () => {
     await seedSession(page);
   });
 
-  test('renders navigation, content and panel in order with the catalog', async ({ page }) => {
+  test('renders the navigation then the content, with no third region (UIF-24)', async ({ page }) => {
     await page.goto('/');
 
     const nav = page.getByRole('navigation', { name: 'Primary' });
     const main = page.getByRole('main');
-    const panel = page.getByRole('complementary');
 
     await expect(nav).toBeVisible();
     await expect(main).toBeVisible();
-    await expect(panel).toBeVisible();
+    await expect(page.getByRole('complementary')).toHaveCount(0);
     await expect(main.getByRole('heading', { name: 'Templates' })).toBeVisible();
     await expect(page.getByRole('row')).toHaveCount(0);
   });
 
-  test('collapses the contextual panel first at a narrow viewport', async ({ page }) => {
+  test('keeps both regions and the navigation at a narrow viewport (UIF-25)', async ({ page }) => {
     await page.setViewportSize({ width: 600, height: 900 });
     await page.goto('/');
 
-    await expect(page.getByRole('complementary')).toBeHidden();
     await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
     await expect(page.getByRole('main')).toBeVisible();
+    await expect(page.getByRole('complementary')).toHaveCount(0);
   });
 
   test('deep link to the root renders the shell and the catalog', async ({ page }) => {

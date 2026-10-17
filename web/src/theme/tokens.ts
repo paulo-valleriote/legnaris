@@ -4,9 +4,6 @@
  * truth (UIF-01, UIF-02, UIF-28, UIF-31).
  */
 
-/** The width below which the contextual panel collapses first (FND-03). */
-export const SHELL_NARROW_QUERY = '(max-width: 900px)';
-
 /** The two declared themes; the closed set (`UIF-17`, `UIF-19`, `UIF-22`). */
 export type ThemeName = 'light' | 'dark';
 
@@ -180,9 +177,8 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-size-control', 'control height'],
     ['--lg-size-nav-min', 'navigation minimum width'],
     ['--lg-size-nav-max', 'navigation maximum width'],
+    ['--lg-size-content-min', 'content minimum width'],
     ['--lg-size-content-max', 'readable content measure'],
-    ['--lg-size-panel-min', 'panel minimum width'],
-    ['--lg-size-panel-max', 'panel maximum width'],
   ]),
   ...group('primitive', 'focus', [
     ['--lg-focus-width', 'focus ring outline width'],

@@ -22,7 +22,7 @@ it, and the requirements that make those rules testable. There is no server enti
    `--lg-danger-*`, `--lg-space-2/4/8/12/16/24/32/48`, `--lg-radius-sm/md/lg/pill`,
    `--lg-font-family/size-*/weight-*/line-*`, `--lg-motion-120/180/240` and the easing pair, plus the
    size tokens that survive (`--lg-size-hairline`, `--lg-size-row`, `--lg-size-control`,
-   `--lg-size-nav-min/max`, `--lg-size-content-max`).
+   `--lg-size-nav-min/max`, `--lg-size-content-min/max`).
 2. **Semantics** — the roles components consume:
 
    | Role | Token |
