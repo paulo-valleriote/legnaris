@@ -30,6 +30,9 @@ linters:
     generated: lax
     presets:
       - comments
+    # The web client's dependencies ship Go sources (e.g. flatted) that are not ours to lint.
+    paths:
+      - web/node_modules
     rules:
       - path: _test\.go
         linters:
