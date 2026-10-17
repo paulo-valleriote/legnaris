@@ -1,3 +1,11 @@
+/**
+ * The literal-value scan: the scanned component directories must contain no
+ * hexadecimal color and no pixel value, and every token they reference must be
+ * declared in `tokens.css` (UIF-29, UIF-30).
+ *
+ * `src/theme/` is the deliberate exception and is therefore never scanned: it is
+ * where the literal values are declared. The scan forbids them everywhere else.
+ */
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

@@ -188,8 +188,9 @@ token architecture.
    development, security and architecture rules and defers all visual values to the design
    document. (UIF-33)
 3. **Given** this feature's decisions, **When** the decision log is read, **Then** it records the
-   three-layer tokens with two themes, the theme preference in `localStorage`, the inline
-   theme-resolution script with its policy hash, and the removal of the panel. (UIF-34)
+   three-layer tokens with two themes, the theme preference in `localStorage`, the same-origin
+   no-flash head script (with the inline-plus-hash alternative rejected), and the removal of the
+   panel. (UIF-34)
 
 ---
 
