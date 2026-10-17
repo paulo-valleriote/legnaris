@@ -6,7 +6,9 @@ test.describe('application shell', () => {
     await seedSession(page);
   });
 
-  test('renders the navigation then the content, with no third region (UIF-24)', async ({ page }) => {
+  test('renders the navigation then the content, with no third region (UIF-24)', async ({
+    page,
+  }) => {
     await page.goto('/');
 
     const nav = page.getByRole('navigation', { name: 'Primary' });

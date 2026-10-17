@@ -197,7 +197,7 @@ dropping a task.
   the envelope and both models share, instead of duplicating them per module.
 - **The INTERNAL_ERROR capture comes from an unmatched route.** No consumed endpoint
   deterministically returns 500, so `error_internal.json` is captured from `GET
-  /no-such-route`, which surfaces through the global handler as
+/no-such-route`, which surfaces through the global handler as
   `{"code":"INTERNAL_ERROR"}` — a real response, never a hand-written stand-in.
 - **The live suite's two mechanism cases assert the gate predicate**, not a real skip;
   the API-38 flow cases run only against a configured backend (`API_BASE_URL`).

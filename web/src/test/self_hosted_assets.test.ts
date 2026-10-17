@@ -104,7 +104,10 @@ describe('self-hosted font assets (UIF-14, UIF-15, UIF-16, SC-005)', () => {
   });
 
   it('Happy path: --lg-font-family leads with the vendored family and keeps a system fallback', () => {
-    const value = tokensCss().match(/--lg-font-family\s*:\s*([^;]+);/)?.[1]?.trim() ?? '';
+    const value =
+      tokensCss()
+        .match(/--lg-font-family\s*:\s*([^;]+);/)?.[1]
+        ?.trim() ?? '';
     expect(value.startsWith("'Geist'")).toBe(true);
     expect(value).toContain('system-ui');
   });

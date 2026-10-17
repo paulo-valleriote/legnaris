@@ -229,17 +229,17 @@ Rules:
 
 ## Anti-patterns
 
-| Avoid | Instead |
-| --- | --- |
-| Cards for everything | Dividers + section headers; cards only for genuinely bounded objects |
-| Gradients, glow, glassmorphism / backdrop blur | Flat surfaces, opaque surfaces with hairline borders |
-| Heavy or decorative shadows | One of the three elevation steps |
-| A second accent, or the accent used decoratively | One accent per theme, reserved to action / active / selection |
-| Hardcoded hex, pixel or pixel-font values in a component | A `--lg-*` token; add one in both themes if it is genuinely missing |
-| Body text or an accent label that fails AA | Adjust the token until the both-theme assertion passes |
-| Animation longer than 240 ms, or that ignores reduced motion | A declared duration and easing, zeroed under `prefers-reduced-motion` |
-| Large decorative headings, hero text, pill buttons, emoji icons, "AI SaaS" aesthetic | The declared type scale and the restrained component set |
-| Floating action buttons, bottom bars, swipe-only actions | A persistent navigation and a fixed footer/toolbar action |
-| Decorative illustrations, including empty-state art | One line of plain text |
-| Icon overload or icon-only controls without an accessible name | Text labels; icons only for universally recognised actions, always named |
-| Placeholder rows, lorem text or demo data | A designed empty state |
+| Avoid                                                                                | Instead                                                                  |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Cards for everything                                                                 | Dividers + section headers; cards only for genuinely bounded objects     |
+| Gradients, glow, glassmorphism / backdrop blur                                       | Flat surfaces, opaque surfaces with hairline borders                     |
+| Heavy or decorative shadows                                                          | One of the three elevation steps                                         |
+| A second accent, or the accent used decoratively                                     | One accent per theme, reserved to action / active / selection            |
+| Hardcoded hex, pixel or pixel-font values in a component                             | A `--lg-*` token; add one in both themes if it is genuinely missing      |
+| Body text or an accent label that fails AA                                           | Adjust the token until the both-theme assertion passes                   |
+| Animation longer than 240 ms, or that ignores reduced motion                         | A declared duration and easing, zeroed under `prefers-reduced-motion`    |
+| Large decorative headings, hero text, pill buttons, emoji icons, "AI SaaS" aesthetic | The declared type scale and the restrained component set                 |
+| Floating action buttons, bottom bars, swipe-only actions                             | A persistent navigation and a fixed footer/toolbar action                |
+| Decorative illustrations, including empty-state art                                  | One line of plain text                                                   |
+| Icon overload or icon-only controls without an accessible name                       | Text labels; icons only for universally recognised actions, always named |
+| Placeholder rows, lorem text or demo data                                            | A designed empty state                                                   |

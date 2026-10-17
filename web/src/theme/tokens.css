@@ -9,8 +9,8 @@
  */
 :root {
   /* Layer 1 — primitives */
-  --lg-font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
-    sans-serif;
+  --lg-font-family:
+    'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
   --lg-type-12: 12px;
   --lg-type-13: 13px;

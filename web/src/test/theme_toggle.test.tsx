@@ -63,7 +63,9 @@ describe('theme resolution (UIF-17, UIF-19, UIF-21, UIF-22, UIF-23)', () => {
 
   it('Edge: a stored value outside the accepted set falls back to the system preference', () => {
     setPrefersDark(true);
-    const store = createThemeStore(browserDeps(memoryStorage({ [THEME_STORAGE_KEY]: 'purple' }).storage));
+    const store = createThemeStore(
+      browserDeps(memoryStorage({ [THEME_STORAGE_KEY]: 'purple' }).storage),
+    );
 
     expect(store.getSnapshot()).toBe('dark');
   });
@@ -86,7 +88,9 @@ describe('theme resolution (UIF-17, UIF-19, UIF-21, UIF-22, UIF-23)', () => {
 
   it('Edge: a system change is ignored once an explicit theme is stored', () => {
     setPrefersDark(false);
-    const store = createThemeStore(browserDeps(memoryStorage({ [THEME_STORAGE_KEY]: 'light' }).storage));
+    const store = createThemeStore(
+      browserDeps(memoryStorage({ [THEME_STORAGE_KEY]: 'light' }).storage),
+    );
 
     setPrefersDark(true);
 
@@ -95,7 +99,11 @@ describe('theme resolution (UIF-17, UIF-19, UIF-21, UIF-22, UIF-23)', () => {
 
   it('Edge: with no system signal the theme resolves to the documented default', () => {
     const noSignal = () => ({ matches: false }) as MediaQueryList;
-    const store = createThemeStore({ storage: memoryStorage().storage, matchMedia: noSignal, root: document.createElement('div') });
+    const store = createThemeStore({
+      storage: memoryStorage().storage,
+      matchMedia: noSignal,
+      root: document.createElement('div'),
+    });
 
     expect(store.getSnapshot()).toBe('light');
   });

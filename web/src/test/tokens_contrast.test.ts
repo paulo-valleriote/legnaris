@@ -45,7 +45,9 @@ describe('design token contrast across both themes (UIF-02, UIF-28, UIF-31, SC-0
   });
 
   it('Edge: every semantic token resolves in both themes (no one-theme token)', () => {
-    expect(namesPresentInOneOnly(declaredSemantics('light'), declaredSemantics('dark'))).toEqual([]);
+    expect(namesPresentInOneOnly(declaredSemantics('light'), declaredSemantics('dark'))).toEqual(
+      [],
+    );
   });
 
   it('Edge: every contrast pair resolves its two variables in both themes', () => {
@@ -82,7 +84,9 @@ describe('reduced motion (UIF-13)', () => {
   });
 
   it('Happy path: base.css zeroes non-essential animation under prefers-reduced-motion', () => {
-    const block = baseCss.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)\}/)?.[1];
+    const block = baseCss.match(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)\}/,
+    )?.[1];
     expect(block).toBeDefined();
     expect(block).toMatch(/animation-duration:\s*0/);
     expect(block).toMatch(/transition-duration:\s*0/);
