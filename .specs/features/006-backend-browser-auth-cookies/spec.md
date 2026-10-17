@@ -360,10 +360,10 @@ of a refresh cookie.
 ## Assumptions
 
 - The deployed hosts are the web client on `app.legnaris.com.br` and the API on
-  `api.legnaris.com.br` (`deploy/.env.example`); the program plan's `www.*` names are superseded by
-  the deployed configuration, and the allowlist is the configured `CORS_ALLOWED_ORIGINS`, matched as
-  exact origins. Because both hosts share the registrable domain, the request is cross-origin but
-  same-site, so `SameSite=Strict` still sends the cookie.
+  `api.legnaris.com.br` (`deploy/.env.example`, and the corrected program plan); the allowlist is
+  the configured `CORS_ALLOWED_ORIGINS`, matched as exact origins. Because both hosts share the
+  registrable domain, the request is cross-origin but same-site, so `SameSite=Strict` still sends the
+  cookie.
 - Every non-local environment serves over HTTPS. The `__Host-` prefix requires `Secure`, `Path=/`, and
   no `Domain`, so the cookie is host-only for the API; local development uses `http://localhost`,
   which browsers treat as a secure context, and the attributes are never weakened.
