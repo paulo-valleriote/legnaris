@@ -167,3 +167,13 @@ jobs:
         run: npm ci
       - name: lockfile-lint
         run: npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
+
+  dependency-review:
+    name: dependency review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          comment-summary-in-pr: always
