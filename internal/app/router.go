@@ -21,6 +21,7 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	router.Use(httpMetrics.Middleware)
 	router.Use(middleware.RequestLogger())
 	router.Use(middleware.Recover())
+	router.Use(cspMiddleware()) // POL-02 enforce (F10)
 
 	httpMetrics.Register(router)
 
@@ -71,4 +72,21 @@ func HTTPErrorHandler(c *echo.Context, err error) {
 			Message: appErr.Message,
 		},
 	})
+}
+
+// cspMiddleware delivers CSP in enforce mode (POL-02 / F9-T001 / F10).
+func cspMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			c.Response().Header().Set("Content-Security-Policy",
+				"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; "+
+				"connect-src 'self' https://api.legnaris.com.br; object-src 'none'; base-uri 'self'; form-action 'self'; "+
+				"frame-ancestors 'none'; require-trusted-types-for 'script'; report-uri https://api.legnaris.com.br/csp-report")
+			c.Response().Header().Set("Report-To", `csp-endpoint="https://api.legnaris.com.br/csp-report"`)
+			c.Response().Header().Set("Reporting-Endpoints", `csp-endpoint="https://api.legnaris.com.br/csp-report"`)
+			c.Response().Header().Set("X-Frame-Options", "DENY")
+			c.Response().Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			return next(c)
+		}
+	}
 }
