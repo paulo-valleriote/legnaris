@@ -1,0 +1,4 @@
+# OWASP ZAP baseline accepted rules (F9-T007 / SEC-05).
+# Any new alert not listed here must be resolved before merge (fail-closed).
+# Format: <rule-id> | <severity> | <justification>
+# Empty file = no alerts accepted by default.
