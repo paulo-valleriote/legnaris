@@ -20,7 +20,7 @@ it, and the requirements that make those rules testable. There is no server enti
 
 1. **Primitives** — `--lg-ink-*` (warm neutral ramp), `--lg-amber-*` (accent ramp),
    `--lg-danger-*`, `--lg-space-2/4/8/12/16/24/32/48`, `--lg-radius-sm/md/lg/pill`,
-   `--lg-font-family/size-*/weight-*/line-*`, `--lg-motion-100/180/240` and the easing pair, plus the
+   `--lg-font-family/size-*/weight-*/line-*`, `--lg-motion-120/180/240` and the easing pair, plus the
    size tokens that survive (`--lg-size-hairline`, `--lg-size-row`, `--lg-size-control`,
    `--lg-size-nav-min/max`, `--lg-size-content-max`).
 2. **Semantics** — the roles components consume:
@@ -48,7 +48,7 @@ it, and the requirements that make those rules testable. There is no server enti
 `--lg-line-tight` (1.2) and `--lg-line-normal` (1.5). Tabular figures are applied by the components
 that render numbers (`UIF-08`), not by a token.
 
-**Motion** (`UIF-12`, `UIF-13`): `--lg-motion-100/180/240` (120/180/240 ms),
+**Motion** (`UIF-12`, `UIF-13`): `--lg-motion-120/180/240` (120/180/240 ms),
 `--lg-ease-standard`, `--lg-ease-emphasized`; transitions are limited to background, color,
 border-color, box-shadow, transform and opacity, and are zeroed under
 `prefers-reduced-motion: reduce`.

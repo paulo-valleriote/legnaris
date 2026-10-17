@@ -20,14 +20,14 @@
   max-width: var(--lg-size-content-max);
   padding: var(--lg-space-24);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-4);
+  border-radius: var(--lg-radius-md);
   background-color: var(--lg-color-surface);
 }
 
 .lg-auth__title {
   margin: 0;
-  font-size: var(--lg-type-17);
-  font-weight: var(--lg-font-weight-strong);
+  font-size: var(--lg-type-18);
+  font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
 }
 
@@ -40,7 +40,7 @@
   min-height: var(--lg-size-control);
   padding: 0 var(--lg-space-12);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-2);
+  border-radius: var(--lg-radius-sm);
   background-color: var(--lg-color-bg);
   color: var(--lg-color-text);
   font-family: inherit;
@@ -72,7 +72,7 @@
 
 .lg-auth__label {
   font-size: var(--lg-type-13);
-  font-weight: var(--lg-font-weight-strong);
+  font-weight: var(--lg-font-weight-semibold);
   color: var(--lg-color-text);
 }
 
@@ -80,7 +80,7 @@
   min-height: var(--lg-size-control);
   padding: 0 var(--lg-space-8);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-2);
+  border-radius: var(--lg-radius-sm);
   background-color: var(--lg-color-bg);
   color: var(--lg-color-text);
   font-family: inherit;

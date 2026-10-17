@@ -20,7 +20,7 @@
   padding-bottom: var(--lg-space-4);
   border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
   font-size: var(--lg-type-13);
-  font-weight: var(--lg-font-weight-strong);
+  font-weight: var(--lg-font-weight-semibold);
   color: var(--lg-color-text-muted);
 }
 
@@ -82,7 +82,7 @@
   width: 100%;
   padding: 0 var(--lg-space-8);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-2);
+  border-radius: var(--lg-radius-sm);
   background-color: var(--lg-color-bg);
   color: var(--lg-color-text);
   font-family: var(--lg-font-family);
@@ -121,7 +121,7 @@
   gap: var(--lg-space-8);
   min-height: var(--lg-size-control);
   padding: 0 var(--lg-space-8);
-  border-radius: var(--lg-radius-2);
+  border-radius: var(--lg-radius-sm);
   font-size: var(--lg-type-15);
 }
 

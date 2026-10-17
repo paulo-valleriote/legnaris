@@ -1,51 +1,171 @@
+/*
+ * The single source of literal visual values (UIF-01). Three layers:
+ *   1. primitives — raw scales with no role;
+ *   2. semantics   — the roles components consume, declared per theme;
+ *   3. components  — added only where no semantic covers the need.
+ * The light theme lives on `:root`; the dark theme overrides the semantic layer under the
+ * dark-theme attribute selector. Every semantic resolves in both (UIF-02); each block
+ * declares its `color-scheme` (UIF-03).
+ */
 :root {
-  /* Type scale — 17 is the hard cap (contracts/shell-layout.contract.md) */
+  /* Layer 1 — primitives */
+  --lg-font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+
   --lg-type-12: 12px;
   --lg-type-13: 13px;
   --lg-type-15: 15px;
-  --lg-type-17: 17px;
-  --lg-line-tight: 1.25;
-  --lg-line-normal: 1.5;
-  --lg-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --lg-font-weight-regular: 400;
-  --lg-font-weight-strong: 600;
+  --lg-type-16: 16px;
+  --lg-type-18: 18px;
+  --lg-type-20: 20px;
+  --lg-type-24: 24px;
+  --lg-type-30: 30px;
 
-  /* Spacing scale */
+  --lg-font-weight-regular: 400;
+  --lg-font-weight-medium: 500;
+  --lg-font-weight-semibold: 600;
+  --lg-font-weight-bold: 700;
+
+  --lg-line-tight: 1.2;
+  --lg-line-normal: 1.5;
+
+  --lg-space-2: 2px;
   --lg-space-4: 4px;
   --lg-space-8: 8px;
   --lg-space-12: 12px;
   --lg-space-16: 16px;
   --lg-space-24: 24px;
+  --lg-space-32: 32px;
+  --lg-space-48: 48px;
 
-  /* Radii — inputs/buttons 2, panels/dialogs 4; never above 4 */
-  --lg-radius-2: 2px;
-  --lg-radius-4: 4px;
+  --lg-radius-sm: 4px;
+  --lg-radius-md: 8px;
+  --lg-radius-lg: 12px;
+  --lg-radius-pill: 999px;
 
-  /* Sizes */
   --lg-size-hairline: 1px;
   --lg-size-row: 32px;
-  --lg-size-control: 34px;
+  --lg-size-control: 36px;
   --lg-size-nav-min: 200px;
   --lg-size-nav-max: 240px;
   --lg-size-content-max: 960px;
   --lg-size-panel-min: 280px;
   --lg-size-panel-max: 320px;
 
-  /* Focus */
   --lg-focus-width: 2px;
   --lg-focus-offset: 2px;
 
-  /* Colors — every foreground token's pair is declared in theme/tokens.ts */
-  --lg-color-bg: #ffffff;
-  --lg-color-surface: #f4f4f6;
-  --lg-color-surface-hover: #e8e8ec;
-  --lg-color-border: #d8d8de;
-  --lg-color-text: #1b1b21;
-  --lg-color-text-muted: #58585f;
-  --lg-color-accent: #1a4fa3;
-  --lg-color-accent-hover: #173f82;
-  --lg-color-accent-text: #ffffff;
-  --lg-color-focus: #1a4fa3;
-  --lg-color-danger: #b3261e;
-  --lg-color-danger-text: #ffffff;
+  --lg-motion-120: 120ms;
+  --lg-motion-180: 180ms;
+  --lg-motion-240: 240ms;
+  --lg-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --lg-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
+
+  /* Ramp: warm parchment (light surfaces) */
+  --lg-parchment-000: #ffffff;
+  --lg-parchment-50: #fbf6ea;
+  --lg-parchment-100: #f5eddd;
+  --lg-parchment-200: #efe6d4;
+  --lg-parchment-300: #e4d8bf;
+  --lg-parchment-400: #d6c9af;
+  --lg-parchment-500: #b9a886;
+
+  /* Ramp: warm ink (light text) */
+  --lg-ink-500: #726046;
+  --lg-ink-600: #6b5b47;
+  --lg-ink-900: #2a2118;
+
+  /* Ramp: neutral charcoal (dark surfaces and text) */
+  --lg-charcoal-950: #141518;
+  --lg-charcoal-900: #17181b;
+  --lg-charcoal-800: #212327;
+  --lg-charcoal-700: #2a2d33;
+  --lg-charcoal-600: #33363b;
+  --lg-charcoal-500: #4a4e54;
+  --lg-charcoal-400: #948d85;
+  --lg-charcoal-300: #a8a29b;
+  --lg-charcoal-100: #ece9e4;
+
+  /* Ramp: amber (the single accent) */
+  --lg-amber-400: #fbbf24;
+  --lg-amber-500: #f59e0b;
+  --lg-amber-600: #b45309;
+  --lg-amber-700: #92400e;
+  --lg-amber-800: #8a4a08;
+  --lg-amber-ink: #201a10;
+
+  /* Ramp: danger */
+  --lg-danger-400: #f87171;
+  --lg-danger-500: #fca5a5;
+  --lg-danger-600: #a83232;
+  --lg-danger-700: #8c2828;
+  --lg-danger-950: #3b0a0a;
+
+  /* Ramp: system states */
+  --lg-info-400: #60a5fa;
+  --lg-info-700: #1d4ed8;
+  --lg-success-400: #4ade80;
+  --lg-success-700: #15803d;
+  --lg-warning-400: #fbbf24;
+  --lg-warning-700: #a16207;
+
+  /* Layer 2 — semantics (light parchment) */
+  color-scheme: light;
+
+  --lg-color-bg: var(--lg-parchment-200);
+  --lg-color-surface: var(--lg-parchment-50);
+  --lg-color-surface-hover: var(--lg-parchment-100);
+  --lg-color-raised: var(--lg-parchment-000);
+  --lg-color-inset: var(--lg-parchment-300);
+  --lg-color-overlay: rgba(42, 33, 24, 0.4);
+  --lg-color-text: var(--lg-ink-900);
+  --lg-color-text-muted: var(--lg-ink-600);
+  --lg-color-text-subtle: var(--lg-ink-500);
+  --lg-color-border: var(--lg-parchment-400);
+  --lg-color-border-strong: var(--lg-parchment-500);
+  --lg-color-accent: var(--lg-amber-600);
+  --lg-color-accent-hover: var(--lg-amber-700);
+  --lg-color-accent-text: var(--lg-parchment-000);
+  --lg-color-danger: var(--lg-danger-600);
+  --lg-color-danger-hover: var(--lg-danger-700);
+  --lg-color-danger-text: var(--lg-parchment-000);
+  --lg-color-info: var(--lg-info-700);
+  --lg-color-success: var(--lg-success-700);
+  --lg-color-warning: var(--lg-warning-700);
+  --lg-color-focus: var(--lg-amber-800);
+
+  --lg-shadow-1: 0 1px 2px rgba(42, 33, 24, 0.08);
+  --lg-shadow-2: 0 4px 12px rgba(42, 33, 24, 0.12);
+  --lg-shadow-3: 0 12px 32px rgba(42, 33, 24, 0.18);
+}
+
+[data-theme='dark'] {
+  /* Layer 2 — semantics (charcoal + amber) */
+  color-scheme: dark;
+
+  --lg-color-bg: var(--lg-charcoal-900);
+  --lg-color-surface: var(--lg-charcoal-800);
+  --lg-color-surface-hover: var(--lg-charcoal-700);
+  --lg-color-raised: var(--lg-charcoal-700);
+  --lg-color-inset: var(--lg-charcoal-950);
+  --lg-color-overlay: rgba(0, 0, 0, 0.6);
+  --lg-color-text: var(--lg-charcoal-100);
+  --lg-color-text-muted: var(--lg-charcoal-300);
+  --lg-color-text-subtle: var(--lg-charcoal-400);
+  --lg-color-border: var(--lg-charcoal-600);
+  --lg-color-border-strong: var(--lg-charcoal-500);
+  --lg-color-accent: var(--lg-amber-500);
+  --lg-color-accent-hover: var(--lg-amber-400);
+  --lg-color-accent-text: var(--lg-amber-ink);
+  --lg-color-danger: var(--lg-danger-400);
+  --lg-color-danger-hover: var(--lg-danger-500);
+  --lg-color-danger-text: var(--lg-danger-950);
+  --lg-color-info: var(--lg-info-400);
+  --lg-color-success: var(--lg-success-400);
+  --lg-color-warning: var(--lg-warning-400);
+  --lg-color-focus: var(--lg-amber-400);
+
+  --lg-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --lg-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --lg-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.72);
 }

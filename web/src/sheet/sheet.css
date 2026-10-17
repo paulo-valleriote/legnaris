@@ -23,8 +23,8 @@
 
 .lg-sheet__title {
   margin: 0;
-  font-size: var(--lg-type-17);
-  font-weight: var(--lg-font-weight-strong);
+  font-size: var(--lg-type-18);
+  font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
 }
 

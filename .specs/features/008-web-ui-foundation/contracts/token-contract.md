@@ -36,7 +36,7 @@ clause of that contract is superseded by `shell-two-region.contract.md`.
 | Radius | `--lg-radius-sm` (4) · `md` (8) · `lg` (12) · `pill` (999) |
 | Border | `--lg-size-hairline` (1px) + `--lg-color-border` / `--lg-color-border-strong` |
 | Elevation | `--lg-shadow-1` (lines/cards) · `--lg-shadow-2` (popover) · `--lg-shadow-3` (modal) |
-| Motion | `--lg-motion-100/180/240` · `--lg-ease-standard` · `--lg-ease-emphasized` |
+| Motion | `--lg-motion-120/180/240` · `--lg-ease-standard` · `--lg-ease-emphasized` |
 | Layout | `--lg-size-row` · `--lg-size-control` · `--lg-size-nav-min/max` · `--lg-size-content-max` |
 
 ## Themes

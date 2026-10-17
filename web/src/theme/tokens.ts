@@ -1,14 +1,19 @@
 /**
  * Typed mirror of `tokens.css`. Tests read the CSS file and assert that these
  * declarations stay in sync, so the visual contract has a single source of
- * truth (FND-02, FND-05).
+ * truth (UIF-01, UIF-02, UIF-28, UIF-31).
  */
 
 /** The width below which the contextual panel collapses first (FND-03). */
 export const SHELL_NARROW_QUERY = '(max-width: 900px)';
 
+/** The two declared themes; the closed set (`UIF-17`, `UIF-19`, `UIF-22`). */
+export type ThemeName = 'light' | 'dark';
+
 export interface ContrastPair {
   readonly description: string;
+  /** The theme the pair is measured in (`R9`). */
+  readonly theme: ThemeName;
   /** CSS custom property holding the foreground color. */
   readonly foregroundVar: string;
   /** CSS custom property holding the background the foreground sits on. */
@@ -17,11 +22,14 @@ export interface ContrastPair {
   readonly minRatio: number;
 }
 
-/**
- * Every color token used as a foreground on a background declares its pair
- * here; `tokens_contrast.test.ts` asserts each pair meets `minRatio` (FND-05).
- */
-export const contrastPairs: readonly ContrastPair[] = [
+interface PairSpec {
+  readonly description: string;
+  readonly foregroundVar: string;
+  readonly backgroundVar: string;
+  readonly minRatio: number;
+}
+
+const pairSpecs: readonly PairSpec[] = [
   {
     description: 'body text on background',
     foregroundVar: '--lg-color-text',
@@ -44,6 +52,12 @@ export const contrastPairs: readonly ContrastPair[] = [
     description: 'muted text on surface',
     foregroundVar: '--lg-color-text-muted',
     backgroundVar: '--lg-color-surface',
+    minRatio: 4.5,
+  },
+  {
+    description: 'subtle text on background',
+    foregroundVar: '--lg-color-text-subtle',
+    backgroundVar: '--lg-color-bg',
     minRatio: 4.5,
   },
   {
@@ -78,36 +92,135 @@ export const contrastPairs: readonly ContrastPair[] = [
   },
 ];
 
+/**
+ * Every color token used as a foreground on a background declares its pair here, once per
+ * theme; `tokens_contrast.test.ts` asserts each pair meets `minRatio` in its own theme
+ * (UIF-28, UIF-31).
+ */
+export const contrastPairs: readonly ContrastPair[] = (['light', 'dark'] as const).flatMap(
+  (theme) => pairSpecs.map((spec) => ({ ...spec, theme })),
+);
+
+/** The layer a design token belongs to (data-model.md §1). */
+export type TokenLayer = 'primitive' | 'semantic' | 'component';
+
 /** Category of a design token; a closed set (data-model.md). */
-export type TokenCategory = 'type' | 'space' | 'radius' | 'size' | 'color' | 'focus';
+export type TokenCategory =
+  | 'type'
+  | 'weight'
+  | 'line'
+  | 'font'
+  | 'space'
+  | 'radius'
+  | 'size'
+  | 'color'
+  | 'shadow'
+  | 'motion'
+  | 'focus';
 
 export interface DesignToken {
   /** CSS custom property name, e.g. `--lg-space-8`. */
   readonly name: string;
+  readonly layer: TokenLayer;
   readonly category: TokenCategory;
   readonly purpose: string;
 }
 
+function group(
+  layer: TokenLayer,
+  category: TokenCategory,
+  entries: readonly (readonly [string, string])[],
+): DesignToken[] {
+  return entries.map(([name, purpose]) => ({ name, layer, category, purpose }));
+}
+
 export const designTokens: readonly DesignToken[] = [
-  { name: '--lg-type-12', category: 'type', purpose: 'smallest supporting text' },
-  { name: '--lg-type-13', category: 'type', purpose: 'secondary label / dense rows' },
-  { name: '--lg-type-15', category: 'type', purpose: 'default body and control text' },
-  { name: '--lg-type-17', category: 'type', purpose: 'section title, hard cap' },
-  { name: '--lg-space-4', category: 'space', purpose: 'tight inline gap' },
-  { name: '--lg-space-8', category: 'space', purpose: 'control padding and row gap' },
-  { name: '--lg-space-12', category: 'space', purpose: 'group separation' },
-  { name: '--lg-space-16', category: 'space', purpose: 'region padding' },
-  { name: '--lg-space-24', category: 'space', purpose: 'section separation' },
-  { name: '--lg-radius-2', category: 'radius', purpose: 'inputs and buttons' },
-  { name: '--lg-radius-4', category: 'radius', purpose: 'panels and dialogs' },
-  { name: '--lg-size-hairline', category: 'size', purpose: 'hairline border width' },
-  { name: '--lg-size-row', category: 'size', purpose: 'dense list row height' },
-  { name: '--lg-size-control', category: 'size', purpose: 'control height' },
-  { name: '--lg-size-nav-min', category: 'size', purpose: 'navigation minimum width' },
-  { name: '--lg-size-nav-max', category: 'size', purpose: 'navigation maximum width' },
-  { name: '--lg-size-content-max', category: 'size', purpose: 'readable content measure' },
-  { name: '--lg-size-panel-min', category: 'size', purpose: 'panel minimum width' },
-  { name: '--lg-size-panel-max', category: 'size', purpose: 'panel maximum width' },
-  { name: '--lg-focus-width', category: 'focus', purpose: 'focus ring outline width' },
-  { name: '--lg-focus-offset', category: 'focus', purpose: 'focus ring offset' },
+  ...group('primitive', 'font', [
+    ['--lg-font-family', 'self-hosted family with a system fallback'],
+  ]),
+  ...group('primitive', 'type', [
+    ['--lg-type-12', 'smallest supporting text'],
+    ['--lg-type-13', 'secondary label / dense rows'],
+    ['--lg-type-15', 'default body and control text'],
+    ['--lg-type-16', 'emphasized body'],
+    ['--lg-type-18', 'section subtitle'],
+    ['--lg-type-20', 'section title'],
+    ['--lg-type-24', 'page title'],
+    ['--lg-type-30', 'display title, no upper cap'],
+  ]),
+  ...group('primitive', 'weight', [
+    ['--lg-font-weight-regular', 'body text'],
+    ['--lg-font-weight-medium', 'controls and active labels'],
+    ['--lg-font-weight-semibold', 'section titles'],
+    ['--lg-font-weight-bold', 'maximal emphasis'],
+  ]),
+  ...group('primitive', 'line', [
+    ['--lg-line-tight', 'headings'],
+    ['--lg-line-normal', 'body'],
+  ]),
+  ...group('primitive', 'space', [
+    ['--lg-space-2', 'hairline gap'],
+    ['--lg-space-4', 'tight inline gap'],
+    ['--lg-space-8', 'control padding and row gap'],
+    ['--lg-space-12', 'group separation'],
+    ['--lg-space-16', 'region padding'],
+    ['--lg-space-24', 'section separation'],
+    ['--lg-space-32', 'block separation'],
+    ['--lg-space-48', 'page separation'],
+  ]),
+  ...group('primitive', 'radius', [
+    ['--lg-radius-sm', 'inputs and small controls'],
+    ['--lg-radius-md', 'buttons and cards'],
+    ['--lg-radius-lg', 'panels and overlays'],
+    ['--lg-radius-pill', 'pills and switches'],
+  ]),
+  ...group('primitive', 'size', [
+    ['--lg-size-hairline', 'hairline border width'],
+    ['--lg-size-row', 'dense list row height'],
+    ['--lg-size-control', 'control height'],
+    ['--lg-size-nav-min', 'navigation minimum width'],
+    ['--lg-size-nav-max', 'navigation maximum width'],
+    ['--lg-size-content-max', 'readable content measure'],
+    ['--lg-size-panel-min', 'panel minimum width'],
+    ['--lg-size-panel-max', 'panel maximum width'],
+  ]),
+  ...group('primitive', 'focus', [
+    ['--lg-focus-width', 'focus ring outline width'],
+    ['--lg-focus-offset', 'focus ring offset'],
+  ]),
+  ...group('primitive', 'motion', [
+    ['--lg-motion-120', 'fast transition'],
+    ['--lg-motion-180', 'default transition'],
+    ['--lg-motion-240', 'slow transition'],
+    ['--lg-ease-standard', 'default easing'],
+    ['--lg-ease-emphasized', 'overshooting easing'],
+  ]),
+  ...group('semantic', 'color', [
+    ['--lg-color-bg', 'page background'],
+    ['--lg-color-surface', 'card and region surface'],
+    ['--lg-color-surface-hover', 'surface hover tint'],
+    ['--lg-color-raised', 'raised layer above the surface'],
+    ['--lg-color-inset', 'recessed well'],
+    ['--lg-color-overlay', 'modal backdrop scrim'],
+    ['--lg-color-text', 'body text'],
+    ['--lg-color-text-muted', 'secondary text'],
+    ['--lg-color-text-subtle', 'tertiary text'],
+    ['--lg-color-border', 'default hairline border'],
+    ['--lg-color-border-strong', 'emphasized border'],
+    ['--lg-color-accent', 'accent fill'],
+    ['--lg-color-accent-hover', 'accent fill hover'],
+    ['--lg-color-accent-text', 'text on an accent fill'],
+    ['--lg-color-danger', 'danger fill'],
+    ['--lg-color-danger-hover', 'danger fill hover'],
+    ['--lg-color-danger-text', 'text on a danger fill'],
+    ['--lg-color-info', 'informational state'],
+    ['--lg-color-success', 'success state'],
+    ['--lg-color-warning', 'warning state'],
+    ['--lg-color-focus', 'focus ring'],
+  ]),
+  ...group('semantic', 'shadow', [
+    ['--lg-shadow-1', 'elevation for rows and cards'],
+    ['--lg-shadow-2', 'elevation for popovers'],
+    ['--lg-shadow-3', 'elevation for modals'],
+  ]),
 ];

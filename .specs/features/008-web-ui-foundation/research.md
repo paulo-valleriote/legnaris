@@ -149,7 +149,7 @@ existing, and root is where the CSS custom properties are declared.
 **Decision**: `--lg-size-content-max` (~960 px) stays, because readability is unchanged by having
 more viewport; the rest of the scale is replaced: type `12/13/15/16/18/20/24/30`, spacing
 `2/4/8/12/16/24/32/48`, radius `sm 4 / md 8 / lg 12 / pill 999`, elevation `shadow-1..3`, motion
-`--lg-motion-100/180/240` with `standard`/`emphasized` easings.
+`--lg-motion-120/180/240` with `standard`/`emphasized` easings.
 
 **Rationale**: the plan locks "content with a readable measure (keep `--lg-size-content-max`)" and
 identifies the 17 px cap, the 4 px radius cap and the missing elevation as the defects. Widening the

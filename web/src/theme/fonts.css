@@ -1,0 +1,11 @@
+/*
+ * The one self-hosted family (UIF-14). The variable artifact and its OFL license live beside
+ * each other under `public/fonts/geist/`; nothing is fetched from a third-party origin.
+ */
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/geist/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}

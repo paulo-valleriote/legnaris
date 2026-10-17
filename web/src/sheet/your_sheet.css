@@ -10,13 +10,13 @@
   gap: var(--lg-space-16);
   padding: var(--lg-space-12);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-2);
+  border-radius: var(--lg-radius-sm);
   background-color: var(--lg-color-surface);
 }
 
 .lg-yoursheet__name {
   font-size: var(--lg-type-15);
-  font-weight: var(--lg-font-weight-strong);
+  font-weight: var(--lg-font-weight-semibold);
 }
 
 .lg-yoursheet__actions {
