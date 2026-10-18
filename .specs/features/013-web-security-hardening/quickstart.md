@@ -19,3 +19,19 @@ make lint-web
 make test-web
 make sec-scan  # definido no Makefile (F9-T011)
 ```
+
+**Verificação em preview/produção** (itens manuais — `F1-T044`, `F1-T048`):
+
+```bash
+# Header de documento: CSP em enforce + HSTS + frame-ancestors + Trusted Types (POL-02 / edge "never report-only").
+curl -sI https://app.legnaris.com.br | grep -iE 'content-security-policy(-report-only)?|strict-transport-security|reporting-endpoints'
+
+# Endpoint de report: 204 no formato csp-report (e no formato reports+json). A URL com ?q=1#frag
+# sai sanitizada no log; `legnaris_csp_reports_total` é incrementada.
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.legnaris.com.br/csp-report \
+  -H 'Content-Type: application/csp-report' \
+  -d '{"csp-report":{"document-uri":"https://app.legnaris.com.br/x?q=1#f","blocked-uri":"https://evil.test/s.js?t=1","effective-directive":"script-src","disposition":"enforce"}}'
+```
+
+A checagem interativa de instalabilidade (Firefox e Safari, duas versões mais recentes) permanece
+manual e é registrada nas release notes — ver `001-web-pwa-foundation/quickstart.md` cenário 2.

@@ -18,6 +18,22 @@ npm ci                     # frozen lockfile — also the `lockfile` gate's loca
 npm run dev                # development server
 ```
 
+## Deployed preview (required for the final pass)
+
+Scenarios 2 (real install affordance) and the "Definition of done" line below need HTTPS on a
+public hostname, not the local preview server. Bring the stack up and run the scenarios against it:
+
+```bash
+make deploy-up             # production stack (Traefik terminates TLS on the web domain)
+# or, for a local tunnel that keeps the same hostnames:
+make deploy-local
+make deploy-down           # tear the stack down when done
+```
+
+**Expect**: `https://<WEB_DOMAIN>` serves the built client with the `web-security-headers`
+middleware applied (CSP in `enforce` plus HSTS / `nosniff` / `Referrer-Policy`). This is the
+surface T044's seven scenarios must run against.
+
 ## Scenario 1 — Shell renders (FND-01, FND-03, FND-04, FND-05)
 
 1. Open the development URL.

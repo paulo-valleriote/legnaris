@@ -1,24 +1,28 @@
 <!--
 Sync Impact Report
-- Current version: 1.1.1 | Ratified: 2026-10-15 | Last amended: 2026-10-16
+- Current version: 1.1.2 | Ratified: 2026-10-15 | Last amended: 2026-10-18
 - Version history:
   - 1.0.0 → 1.1.0 (MINOR: two principles added; Additional Constraints and Development Workflow
     materially expanded; no principle removed or redefined).
   - 1.1.0 → 1.1.1 (PATCH: runtime-guidance reference updated now that the web client exists; no
     principle added, removed, or redefined).
-- Modified principles: none at 1.1.1. At 1.1.0, III. Behavior Ships With Tests was unchanged in text
+  - 1.1.1 → 1.1.2 (PATCH: the deprecated-client clause, the runtime-guidance list, the traceability
+    scope and the Development Workflow are corrected now that `desktop/` and `ci-flutter.yml` are
+    removed; no principle added, removed, or redefined).
+- Modified principles: none at 1.1.2. At 1.1.0, III. Behavior Ships With Tests was unchanged in text
   and became the gate for the web client through the stack constraint (Vitest / Testing Library /
   Playwright); no redefinition.
 - Added principles: VI. Security Gates Are Blocking (NON-NEGOTIABLE) and VII. Installable,
   Offline-Capable Web Client (both 1.1.0).
 - Added/removed sections: none (Additional Constraints and Development Workflow expanded in place).
-- Stack change: the product client is the React/TypeScript PWA under `web/`; the Flutter desktop
-  under `desktop/` is deprecated, accepted no further feature work, and is removed once the parity
-  gate passes. Requirement-ID traceability now covers TypeScript sources.
-- Development Workflow verified against the delivered surface: `make lint-web`, `make test-web` and
-  `make sec-scan` exist in the `Makefile`, and the CI job names `ci-lint`, `ci-spec-lint` and
-  `ci-web` match the workflows in `.github/workflows/`. `web/AGENTS.md` is no longer "future" — it
-  exists and is referenced from the root `AGENTS.md`.
+- Stack change: the product client is the React/TypeScript PWA under `web/`. The Flutter desktop
+  under `desktop/` is gone: it was deprecated, accepted no further feature work, and was deleted —
+  together with `ci-flutter.yml` — once the Playwright parity gate passed. Requirement-ID
+  traceability now covers Go and TypeScript sources.
+- Amendment verified: `desktop/` and `ci-flutter.yml` no longer exist in the tree, the web parity
+  gate is green (`web/e2e/baselines/` committed), and the CI job names `ci-lint`, `ci-spec-lint`
+  and `ci-web` still match the workflows in `.github/workflows/`. The lint scanners retain `.dart`
+  support for legacy sources, but no Dart source is part of the delivered surface.
 - Deferred TODOs: none.
 -->
 
@@ -115,20 +119,20 @@ contracts are product requirements that must be gated like any other behavior.
   Vite and TypeScript under `web/`, packaged as a PWA. Tests use `testify` and mockery-generated
   mocks on the backend; Vitest, Testing Library, and Playwright on the web client. All environment
   configuration comes from `shared/env`.
-- **Deprecated client.** `desktop/` (Flutter) is deprecated: it MUST NOT receive new features, is
-  kept only until the web client reaches functional parity, and is deleted — together with its CI
-  workflow — once that parity gate passes.
+- **No deprecated client.** The Flutter desktop under `desktop/` was deprecated, received no new
+  features, and was deleted — together with its `ci-flutter.yml` workflow — once the web client's
+  Playwright parity gate passed. No desktop client is part of the delivered surface.
 - **Spec corpus and traceability.** Feature specifications live under `.specs/features/<feature>/`
-  and are the single source of requirement IDs. Every requirement ID cited in Go, Dart, or
-  TypeScript source (e.g. `RND-21`, `AD-001`) MUST be defined in that corpus: `AD-*` in
+  and are the single source of requirement IDs. Every requirement ID cited in Go or TypeScript
+  source (e.g. `RND-21`, `AD-001`) MUST be defined in that corpus: `AD-*` in
   `.specs/STATE.md`, all other IDs in a `.specs/**/spec.md`. `LGN-*` identifiers are Jira card keys
   and are exempt. A citation that cannot be traced back to a requirement is a defect.
 - **Jira.** Every pull request MUST implement its Jira card, referenced as `LGN-\d+` in the title;
   requirements come from the card, never invented.
 - **Runtime guidance.** `AGENTS.md` and its per-directory companions (`internal/AGENTS.md`,
   `internal/sheet/template/AGENTS.md`, `internal/engine/AGENTS.md`, `shared/apperr/AGENTS.md`,
-  `shared/idgen/AGENTS.md`, `shared/db/AGENTS.md`, `desktop/AGENTS.md`, and `web/AGENTS.md`) carry
-  the implementation detail; this constitution supersedes them on conflict.
+  `shared/idgen/AGENTS.md`, `shared/db/AGENTS.md`, and `web/AGENTS.md`) carry the implementation
+  detail; this constitution supersedes them on conflict.
 
 ## Development Workflow
 
@@ -136,10 +140,9 @@ contracts are product requirements that must be gated like any other behavior.
   lint-specs`, then `make test-race`; changes under `web/` additionally run `make lint-web && make
   test-web && make sec-scan`.
 - CI gates a PR: `ci-lint` (golangci-lint + `go test -race`) is blocking on new issues;
-  `ci-spec-lint` enforces non-vacuous assertions, existing requirement IDs (Go, Dart, and
-  TypeScript), and resolving `validation.md` citations; `ci-web` covers the web client with its
-  security gates (`ci-flutter` covers the deprecated desktop client while it exists). Generated
-  code is exempt from the behavior-ships-with-tests rule.
+  `ci-spec-lint` enforces non-vacuous assertions, existing requirement IDs (Go and TypeScript),
+  and resolving `validation.md` citations; `ci-web` covers the web client with its security gates.
+  Generated code is exempt from the behavior-ships-with-tests rule.
 - Feature work follows the Spec Kit cycle — constitution → specify → clarify → plan → tasks →
   analyze → implement — and every produced spec keeps the repository's requirement-ID and
   edge-case-first conventions.
@@ -159,4 +162,4 @@ contracts are product requirements that must be gated like any other behavior.
 - Every pull request and review MUST verify compliance with these principles. Complexity that cannot
   be justified against a principle MUST be removed, or the principle amended first.
 
-**Version**: 1.1.1 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-16
+**Version**: 1.1.2 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-18

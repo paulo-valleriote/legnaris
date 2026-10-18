@@ -32,7 +32,7 @@
 ## Requirement-ID Verification
 
 - [x] Prefix `POL-` verified unique: `grep -r 'POL-' .specs/` returns zero hits before creation; only this spec defines `POL-01` to `POL-10`.
-- [ ] `make lint-specs` will verify resolution after task mapping (pending tasks). Note: spec lint runs once tasks exist; checklist records expectation.
+- [x] `make lint-specs` verifies resolution: tasks are mapped and `check_requirement_ids` reports clean with `POL-*` IDs resolving.
 
 ## Notes
 

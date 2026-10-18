@@ -119,7 +119,7 @@ confirm the opposite.
 - [x] T035 [US2] Tighten the Go workflow filters in `.github/workflows/ci-lint.yml` so client-only changes do not trigger it (SEC-06)
 - [x] T036 [P] [US2] Create or extend `.github/dependabot.yml` with the npm ecosystem for `/web` (weekly) and a separate security-update group (SEC-05)
 - [x] T037 [US2] Add `lint-web`, `test-web`, and `sec-scan` targets to `Makefile` mirroring the pipeline (Development Workflow) and list them in the `Makefile` help block
-- [ ] T038 [US2] Configure branch protection to require the `ci-web` jobs (recorded in `contracts/ci-gates.contract.md` as the enforcement surface) and verify the seeded negatives from T030 produce red checks
+- [ ] T038 [US2] Configure branch protection to require the `ci-web` jobs (recorded in `contracts/ci-gates.contract.md` as the enforcement surface) and verify the seeded negatives from T030 produce red checks — **manual, still open** (see "Deferred, still unchecked"; the seeded-negative half is verified, the branch-protection half needs repository-admin access)
 
 **Checkpoint**: a client-only PR shows exactly the five `ci-web` jobs as required, and both seeded negatives fail.
 
@@ -149,11 +149,11 @@ and contrast tests pass and the rules are documented.
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [x] T043 [P] Extend `web/README.md` (created in T030) with local development and preview-server instructions, and link the `quickstart.md` validation scenarios
-- [ ] T044 Run the full `quickstart.md` validation set against the deployed preview (all seven scenarios) and record the outcome with the spec
+- [ ] T044 Run the full `quickstart.md` validation set against the deployed preview (all seven scenarios) and record the outcome with the spec — **manual, still open** (requires a deployed preview; see "Deferred, still unchecked"; the preview-server paths are covered by `web/e2e/`)
 - [x] T045 [P] Update `docs/TDD-desktop-mvp.md` and `docs/TDD.md` client references to point at the web client as the active surface (the constitution now names it)
 - [x] T046 Verify the constitution's Development Workflow section matches the delivered targets and CI job names; amend the constitution if the delivered names differ
 - [x] T047 Run `make lint-specs` and the client gates one final time, and confirm every `FND-*`/`SEC-*` citation in the delivered client sources resolves to `spec.md`
-- [ ] T048 [P] Record the manual installability verification for the non-Chromium engines (latest two versions of Firefox and Safari) per `contracts/pwa-installability.contract.md`, and store the result with the release notes (FND-06, SC-002)
+- [ ] T048 [P] Record the manual installability verification for the non-Chromium engines (latest two versions of Firefox and Safari) per `contracts/pwa-installability.contract.md`, and store the result with the release notes (FND-06, SC-002) — **manual, still open** (browser installability cannot be asserted headlessly; see "Deferred, still unchecked")
 
 ---
 
