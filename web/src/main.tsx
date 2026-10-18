@@ -5,18 +5,13 @@ import { AppRoutes } from './app/router';
 import { AppProviders } from './app/providers';
 import { UpdatePrompt } from './pwa/update_prompt';
 import { registerServiceWorker } from './pwa/register_sw';
+import { installTrustedTypesPolicy } from './pwa/trusted_types';
 import './theme/tokens.css';
 import './theme/base.css';
 
-// Trusted Types default policy (F9-T005 / SEC-02): closes DOM-based XSS sinks.
-// No inline HTML assignment without a TrustedHTML object after this point.
-if (window.trustedTypes && window.trustedTypes.createPolicy) {
-  window.trustedTypes.createPolicy('default', {
-    createHTML: (input: string) => input,
-    createScriptURL: (input: string) => input,
-    createScript: (input: string) => input,
-  });
-}
+// Trusted Types default policy (F9-T005 / SEC-02, SEC-06): closes DOM-based XSS
+// sinks. No inline HTML assignment without a TrustedHTML object after this point.
+installTrustedTypesPolicy();
 
 const container = document.getElementById('root');
 if (!container) {
