@@ -1,6 +1,6 @@
 # Implementation Plan: 014-web-polish-decommission (F10)
 
-**Branch**: `014-web-polish-decommission` | **Date**: 2026-10-17 | **Spec**: `.specs/features/014-web-polish-decommission/spec.md` | **Status**: Plan (specify → clarify → plan; implement not authorized yet)
+**Branch**: `014-web-polish-decommission` | **Date**: 2026-10-17 | **Spec**: `.specs/features/014-web-polish-decommission/spec.md` | **Status**: Implemented (specify → clarify → plan → tasks → analyze → implement; user authorized implementation)
 
 **Input**: Feature specification from spec.md (POL-01…POL-10; visual parity, CSP enforce, cookie/auth removal, rate limit, CSP report, security gates, desktop removal, traceability).
 
@@ -24,7 +24,7 @@
 
 **Performance Goals**: Not primary — closure feature; CSP/report endpoint must respond <200ms; rate-limit enforcement must not degrade auth latency.
 
-**Constraints**: Security gates blocking (Principle VI); no `continue-on-error`; desktop deprecated (constitution v1.1.1); parity gate must pass before removal; `POL-*` IDs isolated.
+**Constraints**: Security gates blocking (Principle VI); no `continue-on-error`; desktop deprecated (constitution §Additional Constraints); parity gate must pass before removal completion; `POL-*` IDs isolated.
 
 **Scale/Scope**: Single feature (014), closes program F10; touches `internal/app/auth.go`, `internal/app/router.go` (CSP/report), `web/src/`, `.github/workflows/`, `Makefile`, `AGENTS.md`.
 
@@ -67,8 +67,8 @@ frontend (web/):
 
 CI / repo (closure):
   .github/workflows/ci-web.yml  # security jobs (already exists; enhance gate enforcement)
-  Makefile                      # remove desktop targets; keep lint-web / test-web / sec-scan
-  desktop/                      # REMOVE once POL-01 passes
+  Makefile                      # desktop targets removed; keep lint-web / test-web / sec-scan
+  desktop/                      # REMOVED (parity gate green; see parity-gate.contract.md)
   ci-flutter.yml                # REMOVE
 ```
 
@@ -90,9 +90,9 @@ No constitution violations requiring justification — feature is purely closure
 
 - **CSP rollout**: `Report-Only` (current) → collect → fix → `enforce`. Rejected: jump to enforce without collection (risky for unknown third-party / extension noise); rejected: stay in report-only (fails POL-02 / Principle VI).
 - **Cookie refresh path removal**: remove `X-Refresh-Token` read + `Set-Cookie` prohibition test; rely solely on `__Host-legnaris_refresh`. Rejected: keep both (maintains desktop dependency, violates decommission goal).
-- **Rate limit shared key**: use IP (+ identity when auth present) for `/auth/*` and `/csp-report`. Rejected: separate limiters (complex; shared is sufficient for closure).
+- **Rate limit shared key**: use IP (+ identity when auth present) for `/auth/*` and `/csp-report`. Rejected: separate limiters (complex; shared is sufficient for closure). *As delivered, the plan's open decision was resolved the other way: `/csp-report` reuses the `ratelimit.Limiter` implementation but with its own instance, env (`CSP_REPORT_RATE_LIMIT_ATTEMPTS`/`CSP_REPORT_RATE_LIMIT_WINDOW`, default 30/1m) and key namespace `csp:ip:`, because the `/auth/*` default (10/1m) is too low for report bursts.* See `tasks.md` T012/T013.
 - **Desktop removal gate**: only after PLAYWRIGHT parity passes (`POL-01`). Rejected: remove before gate (violates plan's definition of done / risk of broken UI without reference).
-- **Reference artifact storage**: Playwright screenshots in CI artifacts (not in repo). Rejected: commit reference images (bloats repo; artifacts sufficient for review).
+- **Reference artifact storage**: Playwright screenshots in CI artifacts (not in repo). Rejected: commit reference images (bloats repo; artifacts sufficient for review). *As delivered, the plan's decision was reversed: a small, stable baseline set is committed under `web/e2e/baselines/` so `toHaveScreenshot` is a real gate instead of passing vacuously when no artifact is downloaded.* See `contracts/parity-gate.contract.md` and `tasks.md` T003/T004.
 
 ---
 

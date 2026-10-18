@@ -150,3 +150,25 @@ func TestRateLimitBlockedIncrementsCounter(t *testing.T) {
 		t.Errorf("expected the rate-limited counter at 2 in /metrics output, got:\n%s", body)
 	}
 }
+
+// TestCSPReportReportedIncrementsCounter pins the CSP violation counter and its
+// labels (POL-05, A6).
+func TestCSPReportReportedIncrementsCounter(t *testing.T) {
+	e := echo.New()
+	m := New()
+	m.Register(e)
+
+	m.CSPReportReported("script-src", "enforce")
+	m.CSPReportReported("script-src", "enforce")
+	m.CSPReportReported("style-src", "report")
+
+	body := scrapeMetrics(t, e)
+	for _, want := range []string{
+		`legnaris_csp_reports_total{disposition="enforce",effective_directive="script-src"} 2`,
+		`legnaris_csp_reports_total{disposition="report",effective_directive="style-src"} 1`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in /metrics output, got:\n%s", want, body)
+		}
+	}
+}

@@ -100,24 +100,6 @@ func (ac *AuthController) Logout(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// CSPReport accepts CSP violation reports from the browser, sanitizes URLs,
-// logs via shared/logger, emits a Prometheus metric, and answers 204 (POL-05,
-// contracts/csp-report.contract.md, F10).
-func (ac *AuthController) CSPReport(c *echo.Context) error {
-	// Read capped body (16 KB) defensively; do not log URL/query/hash raw.
-	body := make([]byte, 16*1024)
-	n, _ := c.Request().Body.Read(body)
-	if n > 0 {
-		_ = body[:n]
-	}
-	// Rate limit applied (shared limiter with /auth/* — F6B-T006 / F9-T010).
-	_ = body // defensive read already capped; actual limiter in middleware layer.
-	_ = c.Request().Body.Close()
-
-	// Log structured (no PII, no token); metric incremented by middleware.
-	return c.NoContent(http.StatusNoContent)
-}
-
 // setSessionCookies writes the refresh credential and the CSRF token as the two
 // contract-fixed cookies. The credential never reaches the body (AUTH-01,
 // AUTH-08, AUTH-12).

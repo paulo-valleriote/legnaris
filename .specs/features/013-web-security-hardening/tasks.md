@@ -1,6 +1,8 @@
 # Tasks: Web Security Hardening (F9)
 
-Fonte: `docs/plan-web-pwa.md` §6 (F9); `spec.md` (`SEC-01` a `SEC-11`). Nenhum código implementado ainda (autorização explícita do usuário requerida pelo Skill para Passo 7).
+Fonte: `docs/plan-web-pwa.md` §6 (F9); `spec.md` (`SEC-01` a `SEC-11`). Implemented and closed by
+F10 / `014-web-polish-decommission`; the notes on the delivered tasks record where the
+implementation deviates from the original wording.
 
 ---
 
@@ -25,38 +27,63 @@ Fonte: `docs/plan-web-pwa.md` §6 (F9); `spec.md` (`SEC-01` a `SEC-11`). Nenhum 
 
 ### US-1 / P1 — Security gates block bad PRs
 
-- [ ] T001 [US1] `security-gates-ci`: estender `ci-web.yml` com `sca` (`osv-scanner` + `Trivy fs` + `npm audit`), `sast` (`CodeQL` + `Semgrep`), `secrets` (`gitleaks`), `dependency-review`, `lockfile-lint`; **sem** `continue-on-error`; `web/.github/workflows/ci-web.yml`.
-- [ ] T002 [US1] `dependabot-config`: criar `.github/dependabot.yml` para `npm /web`; `web/`.
-- [ ] T003 [US1] `lint-anti-xss`: ativar `typescript-eslint` com `react/no-danger`, `no-eval`, `no-new-func`, `no-unsanitized`; `eslint-plugin-security`; `web/package.json` + `.eslintrc`.
+- [x] T001 [US1] `security-gates-ci`: estender `ci-web.yml` com `sca` (`osv-scanner` + `Trivy fs` + `npm audit`), `sast` (`CodeQL` + `Semgrep`), `secrets` (`gitleaks`), `dependency-review`, `lockfile-lint`; **sem** `continue-on-error`; `web/.github/workflows/ci-web.yml`.
+  - *Delivered*: `sca`, `sast`, `secrets`, `lockfile`, `dependency-review`. F10 extended the same
+    workflow with `hardening` (hadolint + Trivy config), `sbom` (Syft), `e2e` (Playwright + axe +
+    committed visual baselines), `dast` (ZAP baseline) and `lighthouse` (LHCI). CodeQL stays deferred
+    (AD-012) while the repository is private.
+- [x] T002 [US1] `dependabot-config`: criar `.github/dependabot.yml` para `npm /web`; `web/`.
+- [x] T003 [US1] `lint-anti-xss`: ativar `typescript-eslint` com `react/no-danger`, `no-eval`, `no-new-func`, `no-unsanitized`; `eslint-plugin-security`; `web/package.json` + `.eslintrc`.
 
 ### US-2 / P1 — CSP protege o app
 
-- [ ] T004 [US2] `csp-header-config`: configurar `Content-Security-Policy` + `Reporting-Endpoints` + `report-uri` (fallback) via proxy (`app.legnaris.com.br`); `connect-src` inclui `https://api.legnaris.com.br`; `require-trusted-types-for 'script'`; começar em `report-only` (`F9-T008`).
-- [ ] T005 [US2] `trusted-types-policy`: inicializar `trusted-types` default em `web/src/main.tsx`; testes `F4-T007` + `F9-T006`; `web/src/main.tsx`.
+- [x] T004 [US2] `csp-header-config`: configurar `Content-Security-Policy` + `Reporting-Endpoints` + `report-uri` (fallback) via proxy (`app.legnaris.com.br`); `connect-src` inclui `https://api.legnaris.com.br`; `require-trusted-types-for 'script'`; começar em `report-only` (`F9-T008`).
+  - *Delivered*: `deploy/traefik/dynamic.yml` `web-security-headers`, applied to the `web` router.
+    Enforced directly (no report-only phase) because the policy was already delivered as a `<meta>` and
+    an Echo middleware during rollout. The Echo middleware and the `index.html` `<meta>` were removed so
+    the policy is defined once, at the document origin.
+- [x] T005 [US2] `trusted-types-policy`: inicializar `trusted-types` default em `web/src/main.tsx`; testes `F4-T007` + `F9-T006`; `web/src/main.tsx`.
 
 ### US-3 / P2 — Headers presentes e testados
 
-- [ ] T006 [US3] `headers-test`: criar `web/src/test/headers.spec.ts` (ou `tests/integration/headers.test.ts`) que faz `curl -I` e confirma `HSTS`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `COOP`, `CORP`; falha se algum sumir (`F9-T010`).
+- [x] T006 [US3] `headers-test`: criar `web/src/test/headers.spec.ts` (ou `tests/integration/headers.test.ts`) que faz `curl -I` e confirma `HSTS`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `COOP`, `CORP`; falha se algum sumir (`F9-T010`).
+  - *Delivered*: `web/e2e/headers.spec.ts`. The original `web/src/test/headers.spec.ts` asserted only
+    that a constant array was non-empty (vacuous) and was replaced by a real Playwright check of the
+    served document's response headers. The production origin (Traefik) is verified with the
+    `curl -I https://app.legnaris.com.br` command in the quickstart; the preview origin is what the
+    browser spec asserts.
 
 ### US-4 / P2 — DAST detecta novos alertas
 
-- [ ] T007 [P] [US4] `zap-baseline-cfg`: criar `.zap/rules.tsv`; configurar `zap-baseline` no `ci-web.yml`; salvar artefato; falha se novo alerta sem justificativa (`F9-T005`).
+- [x] T007 [P] [US4] `zap-baseline-cfg`: criar `.zap/rules.tsv`; configurar `zap-baseline` no `ci-web.yml`; salvar artefato; falha se novo alerta sem justificativa (`F9-T005`).
+  - *Delivered*: the `dast` job runs `zap-baseline.py` against the built preview with `-i`, so a rule
+    absent from `.zap/rules.tsv` is downgraded to INFO (reported, non-blocking) and only the triaged
+    rules gate. The header/CSP rules are promoted to FAIL, so removing a header turns the job red.
 
 ### US-5 / P2 — Trusted Types bloqueia sinks
 
-- [ ] T008 [US5] `trusted-types-sink-test`: testar `element.innerHTML = ...` rejeitado sem política confiável; testear `<script>` como texto renderiza escapado (`F9-T006`).
+- [x] T008 [US5] `trusted-types-sink-test`: testar `element.innerHTML = ...` rejeitado sem política confiável; testear `<script>` como texto renderiza escapado (`F9-T006`).
 
 ### US-6 / P3 — Rate limiting protege endpoints
 
-- [ ] T009 [P] [US6] `backend-csp-report-endpoint`: implementar `POST /csp-report` em `internal/app/auth.go` (ou rota dedicada); aceitar `application/csp-report` + `application/reports+json`; responder `204`; sanitizar URL; log + métrica (`F9-T003`).
-- [ ] T010 [US6] `rate-limit-shared`: aplicar rate limit compartilhado (`F6B-T006`) a `/auth/*` + `POST /csp-report`; responder `429` + `Retry-After`; testar (`F9-T004`).
+- [x] T009 [P] [US6] `backend-csp-report-endpoint`: implementar `POST /csp-report` em `internal/app/auth.go` (ou rota dedicada); aceitar `application/csp-report` + `application/reports+json`; responder `204`; sanitizar URL; log + métrica (`F9-T003`).
+  - *Delivered*: `internal/app/csp_report.go`, mounted by `internal/app/router.go`. The dead
+    `AuthController.CSPReport` stub was deleted. Metric: `legnaris_csp_reports_total`
+    (`csp_reports_total`) with labels `effective_directive`, `disposition`.
+- [x] T010 [US6] `rate-limit-shared`: aplicar rate limit compartilhado (`F6B-T006`) a `/auth/*` + `POST /csp-report`; responder `429` + `Retry-After`; testar (`F9-T004`).
+  - *Delivered*: the `/csp-report` guard reuses the `ratelimit.Limiter` implementation but with its own
+    instance, env (`CSP_REPORT_RATE_LIMIT_ATTEMPTS` / `CSP_REPORT_RATE_LIMIT_WINDOW`, default 30/1m)
+    and key namespace (`csp:ip:`). Sharing the auth budget would make a page's violation burst consume
+    the auth limit (they are independent), which is why the plan's open decision resolved this way.
 
 ### Cross-cutting (todas as US)
 
-- [ ] T011 [P] [US1/US2/US3/US4/US5/US6] `check-requirement-ids-ts`: estender `scripts/check_requirement_ids.py` para `*.ts/*.tsx`; atualizar `ci-spec-lint.yml`; `scripts/check_requirement_ids.py`; `web/`.
-- [ ] T012 [P] [US3/US8] `csp-report-to-enforce`: registrar violações coletadas (`report-only`); virada para `enforce` (`Content-Security-Policy`) após coleta; artefato do relatório; `F9-T008`.
-- [ ] T013 [P] [US1/US4] `sec-scan-make`: adicionar `sec-scan` ao `Makefile` (`lint-web` + `lint-specs` + `npm audit` + `osv-scanner`); `Makefile`; `web/AGENTS.md` atualizado.
-- [ ] T014 [US2/US5] `sw-external-register`: confirmar registro de SW externo (`registerSW.ts`, não `injectRegister` inline) para manter `script-src 'self'`; `web/src/pwa/registerSW.ts`; `F1-T006`.
+- [x] T011 [P] [US1/US2/US3/US4/US5/US6] `check-requirement-ids-ts`: estender `scripts/check_requirement_ids.py` para `*.ts/*.tsx`; atualizar `ci-spec-lint.yml`; `scripts/check_requirement_ids.py`; `web/`.
+- [x] T012 [P] [US3/US8] `csp-report-to-enforce`: registrar violações coletadas (`report-only`); virada para `enforce` (`Content-Security-Policy`) após coleta; artefato do relatório; `F9-T008`.
+  - *Delivered*: the header is delivered in `enforce` (not Report-Only) with both `report-to` and the
+    legacy `report-uri` fallback; see `.specs/features/013-web-security-hardening/enforce.md`.
+- [x] T013 [P] [US1/US4] `sec-scan-make`: adicionar `sec-scan` ao `Makefile` (`lint-web` + `lint-specs` + `npm audit` + `osv-scanner`); `Makefile`; `web/AGENTS.md` atualizado.
+- [x] T014 [US2/US5] `sw-external-register`: confirmar registro de SW externo (`registerSW.ts`, não `injectRegister` inline) para manter `script-src 'self'`; `web/src/pwa/registerSW.ts`; `F1-T006`.
 
 ---
 

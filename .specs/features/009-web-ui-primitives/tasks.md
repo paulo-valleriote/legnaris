@@ -31,7 +31,7 @@ testable.
 
 **Purpose**: pin down the starting point so a later red is attributable to this feature.
 
-- [ ] T001 Run the baseline on the feature branch — `cd web && npm test && npm run lint && npm run typecheck` — and record the green result. No file changes; this is the reference every story checkpoint compares against.
+- [x] T001 Run the baseline on the feature branch — `cd web && npm test && npm run lint && npm run typecheck` — and record the green result. No file changes; this is the reference every story checkpoint compares against.
 
 **Checkpoint**: the client suites, lint and typecheck are green before any change.
 
@@ -45,7 +45,7 @@ task here is green on its own.
 
 - [X] T002 [P] `web/src/test/ui_layer.test.ts` — edge first: a module whose import specifier names a feature directory (for example `../catalog/…`) is reported, a barrel (`index.ts`) under `src/ui/` is reported, a missing `ui.css` is reported; happy path: `web/src/ui/` exists with its one stylesheet and no file under it names a feature directory (UIP-02). Fails until T006.
 - [X] T003 [P] Extend `web/src/test/tokens_used.test.tsx` — add a `web/src/ui/` block: edge first, a literal hex colour or `NNpx` value under `src/ui/` is reported and a `var(--lg-*)` that no token declares is reported; happy path: the layer is clean and every token it references resolves (UIP-04, SC-002). Fails until T006.
-- [ ] T004 [P] Extend `web/src/test/l10n_strings.test.ts` — add a `web/src/ui/` block: edge first, a JSX text node that is a user-facing literal is reported and a `ui.*` key the catalog does not declare is reported; happy path: every key the layer renders resolves (UIP-05, SC-004). Fails until T006/T007.
+- [x] T004 [P] Extend `web/src/test/l10n_strings.test.ts` — add a `web/src/ui/` block: edge first, a JSX text node that is a user-facing literal is reported and a `ui.*` key the catalog does not declare is reported; happy path: every key the layer renders resolves (UIP-05, SC-004). Fails until T006/T007.
 - [X] T005 [P] Extend `scripts/check_requirement_ids.py` — add `.css` to the walked suffix set — and add its self-test case to `scripts/test_lints.py`: edge first, a `.css` file citing an unknown ID is flagged, a commented citation is still read and an import line is skipped; happy path, a `.css` file citing a known ID passes and the whole corpus stays clean (UIP-06, `R7`). Safe on the current corpus: every ID already cited in a client stylesheet resolves.
 - [X] T006 [P] `web/src/ui/ui.css` — create the layer's single stylesheet with its header comment naming the class convention `lg-<block>__<element>--<modifier>`; token-only, no literal colour and no pixel value (UIP-01, UIP-04, UIP-06, `R1`).
 - [X] T007 [P] `web/src/l10n/strings.ts` — add the layer's one chrome key `ui.dismiss` (UIP-24).
@@ -65,8 +65,8 @@ its whole contract, a disabled or loading action cannot run, and both documents 
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] `web/src/test/ui_button.test.tsx` — edge first: activating a disabled action does not run its handler, activating a loading one does not either, and an action with no explicit type inside a form is still a plain button; happy path: the five variants render their declared classes with danger outlined rather than filled, both sizes render at or above the declared control height, focus-visible is reachable, loading shows the caller's in-flight label and announces busy, and the accessible name comes from the content or an explicit name (UIP-07…UIP-10, SC-001, SC-003). Fails until T010/T011.
-- [ ] T009 [P] [US1] Extend `web/src/test/design_guidelines.test.ts` — edge first: a document that still forbids a base component layer is reported, a developer-rules document that drops the "three real usages" rule is reported; happy path: `web/DESIGN.md` names `web/src/ui/`, its five primitives and the class convention, and `web/AGENTS.md` sanctions the layer while keeping the ≥3-usages rule (UIP-03, SC-007). Fails until T012/T013.
+- [x] T008 [P] [US1] `web/src/test/ui_button.test.tsx` — edge first: activating a disabled action does not run its handler, activating a loading one does not either, and an action with no explicit type inside a form is still a plain button; happy path: the five variants render their declared classes with danger outlined rather than filled, both sizes render at or above the declared control height, focus-visible is reachable, loading shows the caller's in-flight label and announces busy, and the accessible name comes from the content or an explicit name (UIP-07…UIP-10, SC-001, SC-003). Fails until T010/T011.
+- [x] T009 [P] [US1] Extend `web/src/test/design_guidelines.test.ts` — edge first: a document that still forbids a base component layer is reported, a developer-rules document that drops the "three real usages" rule is reported; happy path: `web/DESIGN.md` names `web/src/ui/`, its five primitives and the class convention, and `web/AGENTS.md` sanctions the layer while keeping the ≥3-usages rule (UIP-03, SC-007). Fails until T012/T013.
 
 ### Implementation for User Story 1
 
@@ -119,7 +119,7 @@ zero, one and many controls.
 ### Tests for User Story 3
 
 - [X] T020 [P] [US3] `web/src/test/ui_focus_trap.test.ts` — edge first: with zero focusable controls the container stays focusable and focus never moves outside; with exactly one control forward and backward both land on it; happy path: several controls cycle in both directions, wrapping at both ends, and focus forced outside the container is pulled back in (UIP-22). Fails until T022.
-- [ ] T021 [P] [US3] `web/src/test/ui_dialog.test.tsx` — edge first: a destructive action is never the control that carries focus on open, an activation inside the panel does not dismiss, and a container with no focusable control stays dismissible; happy path: the dialog exposes its role with modal semantics, its name comes from the title and its description is exposed, focus lands inside on open, Tab and Shift+Tab wrap at the ends, Escape dismisses the topmost surface only, a scrim activation dismisses, and each close notifies the caller once and returns focus to the opener (UIP-18…UIP-21, SC-001, SC-003). Fails until T023/T024.
+- [x] T021 [P] [US3] `web/src/test/ui_dialog.test.tsx` — edge first: a destructive action is never the control that carries focus on open, an activation inside the panel does not dismiss, and a container with no focusable control stays dismissible; happy path: the dialog exposes its role with modal semantics, its name comes from the title and its description is exposed, focus lands inside on open, Tab and Shift+Tab wrap at the ends, Escape dismisses the topmost surface only, a scrim activation dismisses, and each close notifies the caller once and returns focus to the opener (UIP-18…UIP-21, SC-001, SC-003). Fails until T023/T024.
 
 ### Implementation for User Story 3
 

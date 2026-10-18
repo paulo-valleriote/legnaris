@@ -22,6 +22,27 @@ http:
         contentTypeNosniff: true
         referrerPolicy: "strict-origin-when-cross-origin"
 
+    # Document security headers for the web client origin only (POL-02 / F9-T005).
+    # Dedicated instead of widening `security-headers` so the ops routers
+    # (Grafana, Prometheus, Mongo Express) keep their own policy and a CSP
+    # change here can never break the observability stack.
+    web-security-headers:
+      headers:
+        # Enforce (not Report-Only): the policy is delivered with every document
+        # and a violation is reported to the collector (csp-enforce.contract.md).
+        contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.legnaris.com.br; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; report-to csp-endpoint; report-uri https://api.legnaris.com.br/csp-report"
+        customResponseHeaders:
+          Reporting-Endpoints: 'csp-endpoint="https://api.legnaris.com.br/csp-report"'
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        frameDeny: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)"
+        crossOriginOpenerPolicy: "same-origin"
+        crossOriginResourcePolicy: "same-origin"
+
   services:
     app:
       loadBalancer:
@@ -102,4 +123,4 @@ http:
       rule: 'Host(`{{ env "WEB_DOMAIN" }}`)'
       entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
       service: web
-      middlewares: ["security-headers"]
+      middlewares: ["web-security-headers"]

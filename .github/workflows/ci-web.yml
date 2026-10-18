@@ -1,22 +1,31 @@
 name: Web CI
 
 # Client (React/Vite/TypeScript PWA) pipeline. Runs only for changes under
-# web/ or to this workflow; the Go pipeline (ci-lint.yml) is allowlisted to the
-# backend and does not trigger on web/**, so neither toolchain runs for the
-# other's changes (SEC-06).
+# web/, to the ZAP rule set, or to this workflow; the Go pipeline (ci-lint.yml)
+# is allowlisted to the backend and does not trigger on web/**, so neither
+# toolchain runs for the other's changes (SEC-06).
 #
 # Every job is a required, fail-closed gate: no job sets continue-on-error and
 # none is conditionally skipped on these trigger paths (SEC-04, FND/SEC
 # contracts under .specs/features/001-web-pwa-foundation/contracts/).
+#
+# Gates: quality (format, lint, typecheck, tests with coverage thresholds,
+# build), sca (osv/Trivy/npm audit/signatures), sast (Semgrep), secrets
+# (gitleaks), lockfile (lockfile-lint), dependency-review, hardening (hadolint +
+# Trivy config), e2e (Playwright browser suite against the committed visual
+# baseline), dast (OWASP ZAP baseline), lighthouse (LHCI), sbom (Syft) — POL-06,
+# SC-02, SC-06, F10-T003.
 on:
   pull_request:
     paths:
       - 'web/**'
+      - '.zap/**'
       - '.github/workflows/ci-web.yml'
   push:
     branches: [main]
     paths:
       - 'web/**'
+      - '.zap/**'
       - '.github/workflows/ci-web.yml'
 
 permissions:
@@ -48,8 +57,8 @@ jobs:
         run: npm run lint
       - name: Type-check
         run: npm run typecheck
-      - name: Unit and rendering tests
-        run: npm test
+      - name: Unit and rendering tests (coverage thresholds gate a regression)
+        run: npm run test:coverage
       - name: Production build
         run: npm run build
 
@@ -104,7 +113,9 @@ jobs:
     runs-on: ubuntu-latest
     # CodeQL is deferred: code scanning and the CodeQL CLI are both unavailable on
     # a private repository without GitHub Code Security, which only GitHub Team and
-    # Enterprise plans can purchase (AD-012). Semgrep carries the gate until then.
+    # Enterprise plans can purchase (AD-012). Semgrep carries the gate until then,
+    # and CodeQL is switched on only if the repository becomes public or moves to
+    # a plan that includes Code Security.
     steps:
       - uses: actions/checkout@v7
       - name: Install Semgrep
@@ -177,3 +188,165 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           comment-summary-in-pr: always
+
+  hardening:
+    name: container and Dockerfile hardening
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: hadolint (Dockerfile best practices)
+        uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: web/Dockerfile
+          failure-threshold: warning
+      # Trivy's IaC checks over the image definition. Blocking on CRITICAL only:
+      # DS002 ("image user is root", HIGH) is an accepted property of the static
+      # nginx image, whose master must start as root to bind port 80 and drops
+      # its workers to the unprivileged `nginx` user.
+      - name: Trivy config scan (IaC)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: web
+          severity: CRITICAL
+          exit-code: '1'
+
+  sbom:
+    name: software bill of materials
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Syft derives the SPDX SBOM from the client's manifest and lockfile and
+      # uploads it as a workflow artifact (POL-06 / SC-02).
+      - name: Generate the SBOM (Syft)
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./web
+          format: spdx-json
+          output-file: web-sbom.spdx.json
+          artifact-name: web-sbom
+
+  e2e:
+    name: browser end-to-end and visual parity
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Install the Chromium engine
+        run: npx playwright install --with-deps chromium
+      # The Playwright webServer builds the client and serves the preview; every
+      # spec runs — accessibility (axe), PWA installability/offline, document
+      # security headers and the visual baseline comparison. The baselines under
+      # e2e/baselines are committed, so a layout change fails the comparison
+      # instead of passing vacuously (POL-01, POL-02, F10-T003, D1–D3).
+      - name: Run the browser suite
+        run: npm run test:e2e
+      - name: Upload the Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          if-no-files-found: ignore
+
+  dast:
+    name: dynamic analysis (ZAP baseline)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build the client under test
+        run: npm run build
+      - name: Serve the built client
+        run: |
+          npx vite preview --port 4173 --strictPort >"$RUNNER_TEMP/preview.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://localhost:4173/ 2>/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS -o /dev/null http://localhost:4173/
+      # The ZAP image runs as its own `zap` user, which is neither the runner's
+      # UID nor in its group: it must be able to write the report files into the
+      # bind mount, or zap-baseline.py raises and exits 3 before reporting.
+      - name: Prepare the ZAP workspace
+        run: |
+          mkdir -p zap-wrk
+          chmod 777 zap-wrk
+          cp ../.zap/rules.tsv zap-wrk/rules.tsv
+      # `--network host` lets the ZAP container reach the preview server on the
+      # runner's loopback. `-i` downgrades every rule absent from
+      # .zap/rules.tsv to INFO, so only the rules triaged there gate; the ones
+      # promoted to FAIL — CSP, X-Frame-Options, nosniff, Permissions-Policy,
+      # CORP, cross-domain scripts — turn a regression into a red job
+      # (POL-06, SEC-05, F9-T007). A new alert of another kind is triaged into
+      # that file with a justification.
+      - name: ZAP baseline scan
+        run: |
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE/web/zap-wrk:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t http://localhost:4173 \
+              -c rules.tsv \
+              -i \
+              -r zap-report.html \
+              -J zap-report.json \
+              -w zap-report.md
+      - name: Upload the ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: web/zap-wrk/zap-report.*
+          if-no-files-found: ignore
+
+  lighthouse:
+    name: lighthouse audits
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
+      # @lhci/cli runs through npx instead of being declared in package.json: its
+      # dev-only tree carried the only advisories the `sca` gate could see
+      # (AD-011), so it stays out of the lockfile and lives only in this job.
+      # Installability and offline behaviour are asserted by e2e/pwa.spec.ts —
+      # Lighthouse 12+ dropped its PWA category, so lighthouserc.json asserts the
+      # performance, accessibility, best-practices and SEO categories (F8-T005).
+      - name: Lighthouse CI
+        run: npx --yes @lhci/cli@0.15.1 autorun --config=./lighthouserc.json
+      - name: Upload the Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: web/lighthouse-report
+          if-no-files-found: ignore

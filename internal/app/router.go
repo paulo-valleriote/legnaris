@@ -1,10 +1,13 @@
 package app
 
 import (
+	"time"
+
 	"legnaris/internal/auth"
 	"legnaris/internal/platform/cors"
 	"legnaris/internal/platform/health"
 	"legnaris/internal/platform/metrics"
+	"legnaris/internal/platform/ratelimit"
 	"legnaris/shared/env"
 	"legnaris/shared/response"
 
@@ -21,12 +24,15 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	router.Use(httpMetrics.Middleware)
 	router.Use(middleware.RequestLogger())
 	router.Use(middleware.Recover())
-	router.Use(cspMiddleware()) // POL-02 enforce (F10)
 
 	httpMetrics.Register(router)
 
 	health.RegisterHealthRoutes(router.Group(""))
 	registerAuthRoutes(router.Group("/auth"), modules, deps.Variables.CORSOrigins, httpMetrics)
+
+	// The CSP report collector is public: a violation report carries no
+	// credential and the browser sends it without one (POL-04).
+	registerCSPReportRoute(router, deps, httpMetrics)
 
 	// Every sheets and templates route sits behind the JWT middleware; only
 	// health, metrics, and the auth endpoints stay public (OWN-15…OWN-18).
@@ -74,19 +80,15 @@ func HTTPErrorHandler(c *echo.Context, err error) {
 	})
 }
 
-// cspMiddleware delivers CSP in enforce mode (POL-02 / F9-T001 / F10).
-func cspMiddleware() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c *echo.Context) error {
-			c.Response().Header().Set("Content-Security-Policy",
-				"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; "+
-				"connect-src 'self' https://api.legnaris.com.br; object-src 'none'; base-uri 'self'; form-action 'self'; "+
-				"frame-ancestors 'none'; require-trusted-types-for 'script'; report-uri https://api.legnaris.com.br/csp-report")
-			c.Response().Header().Set("Report-To", `csp-endpoint="https://api.legnaris.com.br/csp-report"`)
-			c.Response().Header().Set("Reporting-Endpoints", `csp-endpoint="https://api.legnaris.com.br/csp-report"`)
-			c.Response().Header().Set("X-Frame-Options", "DENY")
-			c.Response().Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-			return next(c)
-		}
-	}
+// registerCSPReportRoute mounts the public CSP violation collector behind its
+// own address limiter (POL-04, POL-05, A7).
+func registerCSPReportRoute(router *echo.Echo, deps env.Env, observer *metrics.Metrics) {
+	controller := NewCSPReportController(deps.Logger, observer)
+	limiter := ratelimit.New(
+		deps.Variables.CSPReportRateLimitAttempts,
+		deps.Variables.CSPReportRateLimitWindow,
+		time.Now,
+	)
+
+	router.POST("/csp-report", controller.Report, cspRateLimit(limiter))
 }

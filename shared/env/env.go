@@ -26,6 +26,8 @@ type Variables struct {
 	AuthBcryptCost                 int
 	AuthRateLimitAttempts          int
 	AuthRateLimitWindow            time.Duration
+	CSPReportRateLimitAttempts     int
+	CSPReportRateLimitWindow       time.Duration
 }
 
 const (
@@ -41,6 +43,11 @@ const (
 	defaultAuthBcryptCost                 = 12
 	defaultAuthRateLimitAttempts          = 10
 	defaultAuthRateLimitWindow            = 1 * time.Minute
+	// A single page can emit several CSP reports in a row, so the report cap is
+	// deliberately looser than the auth cap's 10/min while staying bounded
+	// (POL-05, contract csp-report.contract.md).
+	defaultCSPReportRateLimitAttempts = 30
+	defaultCSPReportRateLimitWindow   = 1 * time.Minute
 )
 
 const attrKey = "key"
@@ -96,6 +103,8 @@ func (e *Env) initVariables() Variables {
 		AuthBcryptCost:                 e.lookupIntEnv("AUTH_BCRYPT_COST", defaultAuthBcryptCost),
 		AuthRateLimitAttempts:          e.lookupIntEnv("AUTH_RATE_LIMIT_ATTEMPTS", defaultAuthRateLimitAttempts),
 		AuthRateLimitWindow:            e.lookupDurationEnv("AUTH_RATE_LIMIT_WINDOW", defaultAuthRateLimitWindow),
+		CSPReportRateLimitAttempts:     e.lookupIntEnv("CSP_REPORT_RATE_LIMIT_ATTEMPTS", defaultCSPReportRateLimitAttempts),
+		CSPReportRateLimitWindow:       e.lookupDurationEnv("CSP_REPORT_RATE_LIMIT_WINDOW", defaultCSPReportRateLimitWindow),
 	}
 }
 

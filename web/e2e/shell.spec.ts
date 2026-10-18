@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { seedSession } from './auth_seed';
 
+// The service worker is irrelevant to the shell assertions, and its lifecycle
+// races the screenshot: once it activates, the "Ready to work offline." notice
+// is on screen, so the reference image would depend on when the cache warmed up
+// rather than on the layout under test (POL-01).
+test.use({ serviceWorkers: 'block' });
+
 test.describe('application shell', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page);

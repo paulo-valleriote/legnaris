@@ -3,7 +3,10 @@ import { expect, test } from '@playwright/test';
 import { seedSession } from './auth_seed';
 
 // The service worker is irrelevant to the accessibility measurement and would
-// sit between the page and the intercepted API requests.
+// sit between the page and the intercepted API requests; its offline-ready
+// notice would also race the screenshot of the auth surface.
+test.use({ serviceWorkers: 'block' });
+
 const TEMPLATE_ID = 'fantasy_v1';
 const SHEET_ID = '01a14236-21c9-7546-945e-40c46d1fcd1d';
 
