@@ -55,7 +55,6 @@ export function SheetExclusiveControl({
 
   return (
     <label htmlFor={`lg-exclusive-${label}`} className="lg-field__label-wrapper">
-      <span className="lg-field__label">{label}</span>
       <select
         id={`lg-exclusive-${label}`}
         className={`lg-field${mark !== undefined ? ` ${FIELD_MARKED_CLASS}` : ''}`}
