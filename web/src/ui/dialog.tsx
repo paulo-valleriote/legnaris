@@ -21,8 +21,14 @@ export function Dialog({ open, title, description, onClose, children }: DialogPr
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="lg-dialog__scrim" role="presentation" onClick={onClose} aria-modal="true" aria-label={title}>
-      <div ref={panelRef} className="lg-dialog__panel" role="dialog" aria-modal="true" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
+    <div
+      className="lg-dialog__scrim"
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div ref={panelRef} className="lg-dialog__panel" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
         <h2 className="lg-dialog__title">{title}</h2>
         {description ? <p className="lg-dialog__desc">{description}</p> : null}
         {children}
