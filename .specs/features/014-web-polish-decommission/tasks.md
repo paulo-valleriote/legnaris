@@ -158,10 +158,13 @@
   - *Delivered*: `tasks.md` ticked with per-task deviation notes; `checklists/requirements.md` has all
     items ticked.
 
-- [ ] T029 [US4] Final commit message: conventional commit referencing `POL-*` requirements and gate results; include `tests:` in message if tests added; no token committed.
+- [x] T029 [US4] Final commit message: conventional commit referencing `POL-*` requirements and gate results; include `tests:` in message if tests added; no token committed.
   - *Evidence*: `POL-10`; `make fmt && make lint && make vet && make lint-specs && make test-race`
-  - *Pending*: the feature work is complete and every gate is green locally, but the commit/PR itself is
-    a separate step (this task stays unticked until the changes land).
+  - *Delivered*: seven conventional commits on `feat/web-pwa-remaining-gaps` (PR #77), each referencing its
+    `POL-*` requirements, with the backend endpoint, the header gate and the parity references shipping tests
+    in the same commit. No token is present in any of them. All gates green locally; `ci-web` is green except
+    `dependency review`, which fails on `main` too for the repository-settings reason recorded above. The
+    commits are pushed and the PR is open but not merged.
 
 **Checkpoint US4 / Final Gate**: All `POL-*` requirements mapped; all gates green; desktop removed; `sec-scan` zero new findings; `test-race` clean; `lint-specs` clean (except pre-existing). Feature complete — ready to merge.
 
