@@ -279,13 +279,17 @@ jobs:
         run: |
           npx vite preview --port 4173 --strictPort >"$RUNNER_TEMP/preview.log" 2>&1 &
           for _ in $(seq 1 30); do
-            if curl -fsS -o /dev/null http://localhost:4173/; then break; fi
+            if curl -fsS -o /dev/null http://localhost:4173/ 2>/dev/null; then break; fi
             sleep 1
           done
           curl -fsS -o /dev/null http://localhost:4173/
+      # The ZAP image runs as its own `zap` user, which is neither the runner's
+      # UID nor in its group: it must be able to write the report files into the
+      # bind mount, or zap-baseline.py raises and exits 3 before reporting.
       - name: Prepare the ZAP workspace
         run: |
           mkdir -p zap-wrk
+          chmod 777 zap-wrk
           cp ../.zap/rules.tsv zap-wrk/rules.tsv
       # `--network host` lets the ZAP container reach the preview server on the
       # runner's loopback. `-i` downgrades every rule absent from
