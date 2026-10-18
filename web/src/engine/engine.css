@@ -10,7 +10,9 @@
   container-type: inline-size;
 }
 
-@container (max-width: 640px) {
+/* Container queries do not resolve custom properties, so the narrow breakpoint
+   is declared in a relative unit rather than a `px` literal (UIF-29). */
+@container (max-width: 40rem) {
   .lg-engine {
     gap: var(--lg-space-16);
   }
@@ -142,7 +144,7 @@
 }
 
 @keyframes reveal {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(var(--lg-space-4)); }
   to { opacity: 1; transform: translateY(0); }
 }
 
