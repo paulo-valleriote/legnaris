@@ -190,3 +190,29 @@
 - Security gates blocking: no `continue-on-error`; new finding = pipeline failure (Principle VI).
 - No desktop removal until parity gate passes (plan v3.1 §F10; contract `parity-gate.contract.md`).
 - `POL-*` IDs isolated and traceable; `AD-*` referenced for design decisions; `SEC-*` / `FND-*` not reused.
+
+## Gate repairs on the first CI run
+
+The first complete `ci-web` run for this feature (PR #77) exercised the jobs added
+for POL-06 for the first time and found two harness defects, both fixed on the same
+branch (`816c959`, `677c919`):
+
+- The `e2e` visual gate compared a warmed-up page against a cold one. The shell,
+  auth and catalog references had captured the service worker's "Ready to work
+  offline." notice, which is only on screen once the cache has warmed; the timing
+  differs between a workstation and the CI runner, and a 1%-of-pixels diff in the
+  toast alone failed the comparison. The three specs now block the service worker,
+  as `parity.spec.ts`, `sheet.spec.ts` and `headers.spec.ts` already did, and the
+  references were re-generated. The worker's own behaviour stays covered by
+  `pwa.spec.ts`, which needs it live.
+- The `dast` job bind-mounted `web/zap-wrk` into the ZAP container without letting
+  the image's own `zap` user write to it, so `zap-baseline.py` raised on its report
+  and exited 3 even though every rule passed. The workspace is now created
+  world-writable before the scan.
+
+`dependency review` fails on every run, including the `main` pushes that predate
+this feature, with "Dependency review is not supported on this repository": it
+requires the dependency graph plus GitHub Advanced Security, which the private
+repository does not have. `sca` (osv-scanner + Trivy + npm audit) remains the
+blocking dependency gate; resolving `dependency review` is a repository-settings
+decision outside this feature.
