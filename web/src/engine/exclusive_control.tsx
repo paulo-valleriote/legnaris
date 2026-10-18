@@ -64,18 +64,18 @@ export function SheetExclusiveControl({
         disabled={onSelect === undefined}
         onChange={(event: ChangeEvent<HTMLSelectElement>) => onSelect?.(event.target.value)}
       >
-      {showsHint && (
-        <option value="" disabled>
-          {message('engine.none')}
-        </option>
-      )}
-      {allowsNone && <option value={EXCLUSIVE_NONE_VALUE}>{message('engine.none')}</option>}
-      {group.options.map((option) => (
-        <option key={option.path} value={option.path}>
-          {optionLabel(option)}
-        </option>
-      ))}
-    </select>
+        {showsHint && (
+          <option value="" disabled>
+            {message('engine.none')}
+          </option>
+        )}
+        {allowsNone && <option value={EXCLUSIVE_NONE_VALUE}>{message('engine.none')}</option>}
+        {group.options.map((option) => (
+          <option key={option.path} value={option.path}>
+            {optionLabel(option)}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

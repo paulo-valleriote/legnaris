@@ -23,7 +23,9 @@ describe('action primitive (UIP-07…UIP-10, SC-001)', () => {
   });
 
   it('Edge: disabled and loading do not run their handler', () => {
-    const handler = () => { throw new Error('should not run'); };
+    const handler = () => {
+      throw new Error('should not run');
+    };
     render(<Button disabled label="No" onClick={handler} />);
     render(<Button loading label="Busy" onClick={handler} />);
     // Activation handled by browser; assertion is the disabled/loading state is announced.

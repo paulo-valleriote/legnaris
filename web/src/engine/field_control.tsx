@@ -217,7 +217,10 @@ function NumericControl({ value, label, disabled, marked, onChanged }: NumericCo
   };
 
   return (
-    <label htmlFor={`lg-field-num-${label}`} className={`lg-field--numeric-wrapper${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}>
+    <label
+      htmlFor={`lg-field-num-${label}`}
+      className={`lg-field--numeric-wrapper${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}
+    >
       <input
         id={`lg-field-num-${label}`}
         type="text"

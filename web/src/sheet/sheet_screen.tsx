@@ -211,11 +211,13 @@ function SheetFooter({ store }: SheetFooterProps) {
           size="sm"
           disabled={!savable}
           loading={state.isSaving}
-          label={state.isSaving
-            ? message('sheet.saving')
-            : showSaved
-              ? message('sheet.saved')
-              : message('sheet.save')}
+          label={
+            state.isSaving
+              ? message('sheet.saving')
+              : showSaved
+                ? message('sheet.saved')
+                : message('sheet.save')
+          }
           onClick={() => {
             void runSave();
           }}

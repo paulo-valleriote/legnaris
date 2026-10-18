@@ -9,7 +9,16 @@ export interface FieldProps {
   name?: string;
 }
 
-export function Field({ label, error, disabled, numeric, value = '', placeholder, onChange, name }: FieldProps) {
+export function Field({
+  label,
+  error,
+  disabled,
+  numeric,
+  value = '',
+  placeholder,
+  onChange,
+  name,
+}: FieldProps) {
   const id = name || label.toLowerCase().replace(/\s+/g, '-');
   return (
     <label className="lg-field" htmlFor={id}>
@@ -27,7 +36,11 @@ export function Field({ label, error, disabled, numeric, value = '', placeholder
         onChange={(e) => onChange?.(e.target.value)}
         style={{ textAlign: numeric ? 'right' : 'left', fontVariantNumeric: 'tabular-nums' }}
       />
-      {error ? <span id={`${id}-error`} className="lg-field__error">{error}</span> : null}
+      {error ? (
+        <span id={`${id}-error`} className="lg-field__error">
+          {error}
+        </span>
+      ) : null}
     </label>
   );
 }

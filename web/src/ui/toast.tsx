@@ -12,7 +12,11 @@ export function Toast({ message: msg, variant = 'info', onDismiss }: ToastProps)
     <aside className={`lg-toast lg-toast--${variant}`} role="status" aria-live="polite">
       <span className="lg-toast__message">{msg}</span>
       {onDismiss ? (
-        <button className="lg-toast__dismiss" onClick={onDismiss} aria-label={message('ui.dismiss')}>
+        <button
+          className="lg-toast__dismiss"
+          onClick={onDismiss}
+          aria-label={message('ui.dismiss')}
+        >
           ×
         </button>
       ) : null}

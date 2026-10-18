@@ -8,9 +8,7 @@ const uiDir = path.resolve(here, '../ui');
 
 function uiSourceFiles(): string[] {
   return readdirSync(uiDir)
-    .filter(
-      (n) => n.endsWith('.tsx') || n.endsWith('.ts') || n.endsWith('.css')
-    )
+    .filter((n) => n.endsWith('.tsx') || n.endsWith('.ts') || n.endsWith('.css'))
     .map((n) => path.join(uiDir, n));
 }
 
@@ -20,9 +18,7 @@ describe('shared layer governance (UIP-01, UIP-02, UIP-03)', () => {
     for (const f of files) {
       const text = readFileSync(f, 'utf8');
       // The layer must not reference feature directories.
-      const importLines = text
-        .split('\n')
-        .filter((line) => line.includes('import'));
+      const importLines = text.split('\n').filter((line) => line.includes('import'));
       for (const line of importLines) {
         expect(line).not.toMatch(/\.\.(\/shell|\/catalog|\/engine|\/auth|\/sheet|\/library)\//);
       }
@@ -37,9 +33,11 @@ describe('shared layer governance (UIP-01, UIP-02, UIP-03)', () => {
 
   it('Happy path: the layer holds the five primitive modules plus focus trap', () => {
     const files = readdirSync(uiDir);
-    ['button.tsx', 'field.tsx', 'checkbox.tsx', 'dialog.tsx', 'toast.tsx', 'focus_trap.ts'].forEach((f) => {
-      expect(files).toContain(f);
-    });
+    ['button.tsx', 'field.tsx', 'checkbox.tsx', 'dialog.tsx', 'toast.tsx', 'focus_trap.ts'].forEach(
+      (f) => {
+        expect(files).toContain(f);
+      },
+    );
   });
 
   it('Happy path: the layer holds the five primitive modules', () => {

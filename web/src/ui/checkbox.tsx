@@ -7,7 +7,14 @@ export interface CheckboxProps {
   name?: string;
 }
 
-export function Checkbox({ label, checked = false, disabled, invalid, onChange, name }: CheckboxProps) {
+export function Checkbox({
+  label,
+  checked = false,
+  disabled,
+  invalid,
+  onChange,
+  name,
+}: CheckboxProps) {
   const id = name || label.toLowerCase().replace(/\s+/g, '-');
   return (
     <label className="lg-checkbox" htmlFor={id}>
