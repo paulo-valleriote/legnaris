@@ -20,6 +20,7 @@ type Metrics struct {
 	authLoginFailures        prometheus.Counter
 	authRefreshReuseDetected prometheus.Counter
 	authRateLimited          prometheus.Counter
+	cspReports               *prometheus.CounterVec
 }
 
 const metricsNamespace = "legnaris"
@@ -73,7 +74,13 @@ func New() *Metrics {
 		Help:      "Total number of auth requests refused by the rate limiter.",
 	})
 
-	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected, authRateLimited)
+	cspReports := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Name:      "csp_reports_total",
+		Help:      "Total number of collected CSP violation reports.",
+	}, []string{"effective_directive", "disposition"})
+
+	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports)
 
 	// The private registry must be self-sufficient: register the standard Go
 	// and process collectors so the deployment's own resource metrics (goroutines,
@@ -90,6 +97,7 @@ func New() *Metrics {
 		authLoginFailures:        authLoginFailures,
 		authRefreshReuseDetected: authRefreshReuseDetected,
 		authRateLimited:          authRateLimited,
+		cspReports:               cspReports,
 	}
 }
 
@@ -108,6 +116,13 @@ func (m *Metrics) RefreshReuseDetected() {
 // auth rate limiter (AUTH-20).
 func (m *Metrics) RateLimitBlocked() {
 	m.authRateLimited.Inc()
+}
+
+// CSPReportReported implements app.CSPReportObserver: it counts a collected CSP
+// violation report, labelled by the violated directive and the disposition
+// (POL-05, A6).
+func (m *Metrics) CSPReportReported(effectiveDirective, disposition string) {
+	m.cspReports.WithLabelValues(effectiveDirective, disposition).Inc()
 }
 
 // Middleware records request count and latency per route and status code.

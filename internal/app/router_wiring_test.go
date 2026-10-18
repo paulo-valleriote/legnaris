@@ -119,5 +119,10 @@ func TestRouterWiring_RequireAuthGuardsProtectedRoutes(t *testing.T) {
 		// database access, so a 400 here proves the route is not JWT-gated.
 		rrec := doRequest(t, h, http.MethodPost, "/auth/register", `{}`)
 		require.Equal(t, http.StatusBadRequest, rrec.Code, "register must stay public")
+
+		// The CSP report collector is public and always answers 204 (POL-04).
+		crec := doRequest(t, h, http.MethodPost, "/csp-report",
+			`{"csp-report":{"effective-directive":"script-src","disposition":"enforce"}}`)
+		require.Equal(t, http.StatusNoContent, crec.Code, "csp-report must stay public")
 	})
 }

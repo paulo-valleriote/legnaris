@@ -53,11 +53,15 @@ func rateLimit(limiter *ratelimit.Limiter, observer Observer, withAccount bool) 
 	}
 }
 
-// rateLimited sets Retry-After (whole seconds, rounded up), records the block,
-// and returns the typed 429 (AUTH-18, AUTH-23).
+// rateLimited sets Retry-After (whole seconds, rounded up), records the block
+// when an observer is present, and returns the typed 429 (AUTH-18, AUTH-23). The
+// observer is optional so a guard whose blocks must not be counted against the
+// auth metric (the CSP report collector) can reuse the same refusal.
 func rateLimited(c *echo.Context, observer Observer, retryAfter time.Duration) error {
 	c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(retryAfterSeconds(retryAfter)))
-	observer.RateLimitBlocked()
+	if observer != nil {
+		observer.RateLimitBlocked()
+	}
 	return apperr.NewError(apperr.CodeRateLimited, MsgRateLimited, nil)
 }
 
