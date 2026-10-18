@@ -166,7 +166,6 @@ function ToggleControl({ schema, value, label, disabled, marked, onToggle }: Tog
           onToggle?.(emitsBoolean ? event.target.checked : event.target.checked ? 1 : 0)
         }
       />
-      <span className="lg-field__label">{label}</span>
     </label>
   );
 }
@@ -219,7 +218,6 @@ function NumericControl({ value, label, disabled, marked, onChanged }: NumericCo
 
   return (
     <label htmlFor={`lg-field-num-${label}`} className={`lg-field--numeric-wrapper${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}>
-      <span className="lg-field__label">{label}</span>
       <input
         id={`lg-field-num-${label}`}
         type="text"
