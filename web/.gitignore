@@ -9,6 +9,13 @@ playwright-report/
 test-results/
 blob-report/
 
+# Lighthouse CI output (lighthouserc.json)
+.lighthouseci/
+lighthouse-report/
+
+# ZAP baseline workspace (ci-web.yml dast job)
+zap-wrk/
+
 # Editor/OS noise
 .DS_Store
 *.local
