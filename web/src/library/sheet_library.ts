@@ -1,60 +1,32 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+/**
+ * Cache helpers over the sheet-store port (WSC-06, WSC-11, WSC-29).
+ *
+ * The local record itself lives behind the F5 `SheetStore`
+ * (`sheet_store.ts` / `idb_sheet_store.ts`); these helpers only name the flows
+ * that touch it — caching a loaded sheet, evicting a missing sheet together
+ * with its draft, and discarding a draft. Every one is best-effort: a local
+ * record is an offline optimisation and a failure must never block the flow
+ * that triggered it (WSC-06).
+ */
 
-// PWA-02 / PWA-05: versioned IndexedDB library; never stores tokens.
-export interface DraftEntry {
-  template_id: string;
-  sheet_id: string | null;
-  data: Partial<Record<string, unknown>>;
-  editable_filter: boolean;
-  timestamp: number;
+import type { Sheet } from '../api/models/sheet';
+import type { SheetStore } from './sheet_store';
+import { bestEffort } from './sheet_store';
+
+/** Caches a loaded or created sheet by its identifier (WSC-11). */
+export function cacheSheet(store: SheetStore, sheet: Sheet): Promise<void> {
+  return bestEffort(() => store.putSheet(sheet));
 }
 
-export interface SheetLibraryDB extends DBSchema {
-  drafts: {
-    key: string;
-    value: DraftEntry;
-    indexes: { 'by-template': string; 'by-sheet': string | null };
-  };
+/** Evicts a missing sheet and its draft (WSC-06, WSC-29). */
+export function evictSheet(store: SheetStore, sheetId: string): Promise<void> {
+  return Promise.all([
+    bestEffort(() => store.deleteSheet(sheetId)),
+    bestEffort(() => store.deleteDraft(sheetId)),
+  ]).then(() => undefined);
 }
 
-export async function openLibrary(version: number = 1): Promise<IDBPDatabase<SheetLibraryDB>> {
-  return openDB<SheetLibraryDB>('legnaris-library', version, {
-    upgrade(db) {
-      const store = db.createObjectStore('drafts', { keyPath: 'key' });
-      store.createIndex('by-template', 'template_id');
-      store.createIndex('by-sheet', 'sheet_id');
-    },
-  });
-}
-
-export async function evictSheet(
-  templateId: string,
-  sheetId: string | null,
-  db?: IDBPDatabase<SheetLibraryDB>,
-) {
-  const instance = db ?? (await openLibrary());
-  const all = await instance.getAllFromIndex('drafts', 'by-template', templateId);
-  const matches = all.filter((d) => d.sheet_id === sheetId);
-  for (const m of matches) {
-    await instance.delete('drafts', m.key);
-  }
-}
-
-export async function saveDraft(entry: DraftEntry, db?: IDBPDatabase<SheetLibraryDB>) {
-  const instance = db ?? (await openLibrary());
-  await instance.put('drafts', {
-    ...entry,
-    key: `${entry.template_id}:${entry.sheet_id ?? 'new'}`,
-  });
-}
-
-export async function getDraft(
-  templateId: string,
-  sheetId?: string | null,
-  db?: IDBPDatabase<SheetLibraryDB>,
-) {
-  const instance = db ?? (await openLibrary());
-  const all = await instance.getAllFromIndex('drafts', 'by-template', templateId);
-  if (!sheetId) return all;
-  return all.find((d) => d.sheet_id === sheetId) ?? null;
+/** Discards the draft of an abandoned edit (WSC-29). */
+export function discardDraft(store: SheetStore, sheetId: string): Promise<void> {
+  return bestEffort(() => store.deleteDraft(sheetId));
 }
