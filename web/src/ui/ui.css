@@ -96,7 +96,7 @@
 
 /* Dialog (US3) */
 .lg-dialog__scrim { position: fixed; inset: 0; background: var(--lg-color-overlay); display: flex; align-items: center; justify-content: center; z-index: 50; }
-.lg-dialog__panel { background: var(--lg-color-surface); border-radius: var(--lg-radius-lg); padding: var(--lg-space-24); box-shadow: var(--lg-shadow-3); border: var(--lg-size-hairline) solid var(--lg-color-border); max-width: var(--lg-size-panel-max); width: 90%; outline: none; }
+.lg-dialog__panel { background: var(--lg-color-surface); border-radius: var(--lg-radius-lg); padding: var(--lg-space-24); box-shadow: var(--lg-shadow-3); border: var(--lg-size-hairline) solid var(--lg-color-border); max-width: var(--lg-size-dialog-max); width: 90%; outline: none; }
 .lg-dialog__title { font-size: var(--lg-type-20); font-weight: var(--lg-font-weight-bold); margin-bottom: var(--lg-space-8); }
 
 /* Toast (US4) */

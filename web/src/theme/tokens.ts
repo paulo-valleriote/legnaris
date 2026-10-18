@@ -179,7 +179,7 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-size-nav-max', 'navigation maximum width'],
     ['--lg-size-content-min', 'content minimum width'],
     ['--lg-size-content-max', 'readable content measure'],
-    ['--lg-size-panel-max', 'dialog/panel maximum width'],
+    ['--lg-size-dialog-max', 'dialog maximum width'],
   ]),
   ...group('primitive', 'focus', [
     ['--lg-focus-width', 'focus ring outline width'],
