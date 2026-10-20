@@ -69,14 +69,14 @@ failure with no session and no cookie, and the account still reachable through s
 
 ### Tests for User Story 1 (write first; they must fail to compile until T006–T007 land — see Notes)
 
-- [ ] T004 [US1] Extend `internal/auth/service_test.go` (mockery `Repository`, `ChallengeRepository`, `CodeMailer`, `RefreshTokenRepository`, `TokenManager`, `CSRF`, `PasswordHasher`): register with the gate off returns a `Session` and no challenge (legacy parity); register with the gate on returns a `Challenge` whose purpose is `verify_email`, calls `Create` before `IssueChallenge`, and leaves `EmailVerifiedAt` absent; login with the gate on returns a `Challenge` whose purpose is `login_otp`; **exactly one half is ever set**; the password comparison is invoked on the unknown-address path too (assert on the hasher fake's call count) while the answer stays the one uniform 401; a mismatching password starts nothing; an unparseable address is the same uniform 401; `IssueChallenge` failing with `CodeEmailUnavailable` and with a store error propagates unchanged with no credential and leaves the account recoverable; two concurrent sign-ins produce two challenges of which only the later verifies (`TFA-01`…`TFA-05`, `TFA-13`).
-- [ ] T005 [P] [US1] Extend `internal/app/auth_test.go` through the router with fakes: both gate states for `POST /auth/register` (201 session body + both cookies vs 201 challenge body + **no `Set-Cookie`**) and `POST /auth/login` (200 session body + cookies vs 202 challenge body + no cookie); assert the challenge body's three fields and that no response carries an access token, a refresh token or a CSRF token; the four credential failures answer byte-identical 401 `UNAUTHORIZED` bodies; a malformed body answers 400 `INVALID_JSON`/`INVALID_REQUEST`/`UNKNOWN_FIELD`; the allowance-spent registration answers 503 `EMAIL_UNAVAILABLE` with `Retry-After`, the store failure 500 `INTERNAL_ERROR` (`TFA-01`, `TFA-02`, `TFA-05`, `TFA-10`, `TFA-13`, `SC-001`, `SC-002`).
+- [ ] T004 [US1] Extend `internal/auth/service_test.go` (mockery `Repository`, `ChallengeRepository`, `CodeMailer`, `RefreshTokenRepository`, `TokenManager`, `CSRF`, `PasswordHasher`): register with the gate off returns a `Session` and no challenge (legacy parity); register with the gate on returns a `Challenge` whose purpose is `verify_email`, calls `Create` before `IssueChallenge`, and leaves `EmailVerifiedAt` absent; login with the gate on returns a `Challenge` whose purpose is `login_otp`; **exactly one half is ever set**; the password comparison is invoked on the unknown-address path too (assert on the hasher fake's call count) while the answer stays the one uniform 401; a mismatching password starts nothing; an unparseable address is the same uniform 401; `IssueChallenge` failing with `CodeEmailUnavailable` and with a store error propagates unchanged with no credential and leaves the account recoverable; two concurrent sign-ins produce two challenges of which only the later verifies (`TFA-01`, `TFA-02`, `TFA-03`, `TFA-04`, `TFA-05`, `TFA-13`).
+- [ ] T005 [P] [US1] Extend `internal/app/auth_test.go` through the router with fakes: both gate states for `POST /auth/register` (201 session body + both cookies vs 201 challenge body + **no `Set-Cookie`**) and `POST /auth/login` (200 session body + cookies vs 202 challenge body + no cookie); assert the challenge body's three fields and that no response carries an access token, a refresh token or a CSRF token; the four credential failures answer byte-identical 401 `UNAUTHORIZED` bodies; a malformed body answers 400 `INVALID_JSON`/`INVALID_REQUEST`/`UNKNOWN_FIELD`; the allowance-spent registration answers 503 `EMAIL_UNAVAILABLE` with `Retry-After`, the store failure 500 `INTERNAL_ERROR`; extend `shared/apperr/err_test.go` so every code asserted here has its documented status, which is the plan's mapping-test promise; and scan every captured response body, response header and log line from the new register and sign-in paths for `\b\d{6}\b` and for a full address, asserting neither appears (`TFA-01`, `TFA-02`, `TFA-05`, `TFA-10`, `TFA-13`, `TFA-16`, `SC-001`, `SC-002`).
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Extend `internal/auth/service.go` and `internal/auth/start.go` with the gate branch: `Register` keeps validation/hashing/`Create` then, per `Config.RequireEmailVerification`, returns `Session` (via `signIn`, unchanged) or `Challenge` (via `IssueChallenge` with `PurposeVerifyEmail` and the canonical address, propagating its typed errors); `Login` keeps canonicalization/`FetchByEmail`/`Compare`, performs one comparison against the package-level dummy bcrypt digest on the unknown-address path before the uniform 401, and then branches the same way with `PurposeLoginOTP`; the purpose is bound at the call site and never read from a command (`TFA-01`…`TFA-05`, `TFA-13`); run `make mocks` to regenerate `internal/auth/mocks/mock_Service.go` for the changed signatures (`TFA-15`).
-- [ ] T007 [US1] Extend `internal/app/auth.go` (project the `StartOutcome`: legacy → `setSessionCookies` + session body with 201/200; challenge → the challenge body with 201/202 and **no** cookie write) and `internal/app/bootstrap.go` (copy `Variables.RequireEmailVerification` into `auth.Config`), plus `internal/app/bootstrap_test.go` asserting the parsed switch reaches the service config and that `NewModules` still fails fast only on the existing required keys (`TFA-01`, `TFA-02`, `TFA-07`, `TFA-10`).
-- [ ] T008 [US1] Extend `internal/app/auth_integration_test.go` (Mongo, self-skip) with the gated journey end to end: register → 201 challenge with no cookie → read the recorded intention's payload code → `POST /auth/challenge/verify` → 200 session + both cookies → account carries a verification timestamp → `GET /auth/me` reports verified; sign in again → 202 → verify → 200; a second registration of the same address → 409 with no challenge and no new intention (`TFA-01`, `TFA-04`, `TFA-11`, `TFA-13`).
+- [ ] T006 [US1] Extend `internal/auth/service.go` and `internal/auth/start.go` with the gate branch: `Register` keeps validation/hashing/`Create` then, per `Config.RequireEmailVerification`, returns `Session` (via `signIn`, unchanged) or `Challenge` (via `IssueChallenge` with `PurposeVerifyEmail` and the canonical address, propagating its typed errors); `Login` keeps canonicalization/`FetchByEmail`/`Compare`, performs one comparison against the package-level dummy bcrypt digest on the unknown-address path before the uniform 401, and then branches the same way with `PurposeLoginOTP`; the purpose is bound at the call site and never read from a command (`TFA-01`, `TFA-02`, `TFA-03`, `TFA-04`, `TFA-05`, `TFA-13`); run `make mocks` to regenerate `internal/auth/mocks/mock_Service.go` for the changed signatures (`TFA-15`).
+- [ ] T007 [US1] Extend `internal/app/auth.go` (project the `StartOutcome`: legacy → `setSessionCookies` + session body with 201/200; challenge → the challenge body with 201/202 and **no** cookie write) and `internal/app/bootstrap.go` (copy `Variables.RequireEmailVerification` into `auth.Config`), plus `internal/app/bootstrap_test.go` asserting the parsed gate reaches the service config and that `NewModules` still fails fast only on the existing required keys (`TFA-01`, `TFA-02`, `TFA-07`, `TFA-10`).
+- [ ] T008 [US1] Extend `internal/app/auth_integration_test.go` (Mongo, self-skip) with the gated journey end to end: register → 201 challenge with no cookie → read the recorded intention's payload code → `POST /auth/challenge/verify` → 200 session + both cookies → the account carries a verification timestamp; sign in again → 202 → verify → 200; a second registration of the same address → 409 with no challenge and no new intention (`TFA-01`, `TFA-04`, `TFA-11`, `TFA-13`).
 
 **Checkpoint**: US1 is independently complete — the code step is the only door to a session, and the
 legacy path is untouched with the gate off.
@@ -119,7 +119,7 @@ and for a deleted account → 401 with no account data; a store failure → 500.
 
 - [ ] T011 [P] [US3] Extend `internal/user/user_test.go` with the DTO projection: `EmailVerifiedAt == nil` → `email_verified: false`; a timestamp present → `true`; the instant itself is absent from the JSON for both; the hash is never serialized (`TFA-08`, `TFA-09`).
 - [ ] T012 [P] [US3] Add `internal/auth/profile_test.go`: the profile of an existing account projects the identifier, canonical address, display name and the derived boolean; an account that no longer exists is a typed `UNAUTHORIZED` (401) with a message constant; a store failure is `INTERNAL_ERROR` and never reported as unauthorized; the stored instant is not part of the result (`TFA-08`, `TFA-09`, `TFA-10`).
-- [ ] T013 [US3] Extend `internal/app/auth_test.go` and `internal/app/router_wiring_test.go`: `GET /auth/me` answers 200 with the four fields and the boolean for a verified and an unverified account; no credential/malformed/expired/forged → 401 with no account data; a deleted account → 401 (not 404); a store failure → 500; the route is mounted inside the `/auth` group behind the bearer guard and the route inventory test covers it (`TFA-08`, `TFA-09`, `TFA-10`, `SC-006`).
+- [ ] T013 [US3] Extend `internal/app/auth_test.go` and `internal/app/router_wiring_test.go`: `GET /auth/me` answers 200 with the four fields and the boolean for a verified and an unverified account; no credential/malformed/expired/forged → 401 with no account data; a deleted account → 401 (not 404) with the new message constant; a store failure → 500; the route is mounted inside the `/auth` group behind the bearer guard and the route inventory test covers it; extend `internal/app/auth_integration_test.go` (Mongo, self-skip) so the gated journey of T008 re-reads the identity after verification and asserts only `email_verified` changed (`TFA-08`, `TFA-09`, `TFA-10`, `SC-006`).
 
 ### Implementation for User Story 3
 
@@ -134,19 +134,19 @@ truthful source of verification state.
 
 ## Phase 6: User Story 4 — The whole change can be deployed dark and turned on deliberately (Priority: P2)
 
-**Goal**: One documented switch, off by default, that the operator flips without changing the required
+**Goal**: One documented gate, off by default, that the operator flips without changing the required
 variable set, the challenge domain, or any account; with it off, the legacy contract is provably
 identical.
 
-**Independent Test**: With the switch off, the pre-existing register/sign-in/renewal suites pass
+**Independent Test**: With the gate off, the pre-existing register/sign-in/renewal suites pass
 byte-for-byte and the challenge suites pass unchanged; with it on, the three contract changes hold and
-the challenge suites still pass; the switch is absent from `RequiredKeys()` and present in the
+the challenge suites still pass; the gate is absent from `RequiredKeys()` and present in the
 deployment files.
 
 ### Tests and implementation for User Story 4
 
-- [ ] T017 [US4] Extend `deploy/.env.example`, `deploy/docker-compose.yml`, `deploy/README.md`, `Makefile` and `deploy/compose_test.go` with the optional switch exactly as `contracts/configuration.contract.md` fixes it: the required set is unchanged, the key is present and optional, and the readme states what it governs and that stage 7 performs the flip (`TFA-07`, `TFA-16`).
-- [ ] T018 [US4] Extend `internal/app/auth_integration_test.go` and `internal/app/auth_test.go` with the switching parity sweep: with the gate off, the register/sign-in/renewal outcomes are byte-identical to the pre-change expectations (status, body and cookies); with the gate on, the challenge domain's own suites (`internal/auth/challenge_*`) pass unchanged and no account document is rewritten by either setting (`TFA-11`, `TFA-12`, `SC-004`, `SC-007`).
+- [ ] T017 [US4] Extend `deploy/.env.example`, `deploy/docker-compose.yml`, `deploy/README.md`, `Makefile` and `deploy/compose_test.go` with the optional gate exactly as `contracts/configuration.contract.md` fixes it: the required set is unchanged, the key is present and optional, and the readme states what it governs and that stage 7 performs the flip (`TFA-07`, `TFA-16`).
+- [ ] T018 [US4] Extend `internal/app/auth_integration_test.go` and `internal/app/auth_test.go` with the gate parity sweep: with the gate off, the register/sign-in/renewal contract outcomes are byte-identical to the pre-change expectations (status, body and cookies; response time is not part of the parity, because the equalized password work of `TFA-05` applies in both states); with the gate on, the challenge domain's own suites (`internal/auth/challenge_*`) pass unchanged and no account document is rewritten by either setting (`TFA-05`, `TFA-11`, `TFA-12`, `SC-004`, `SC-007`).
 
 **Checkpoint**: The change is deployable dark; the flip is a configuration act, and stage 7 needs no
 code change.
@@ -157,7 +157,7 @@ code change.
 
 - [ ] T019 [P] Amend the three delivered specs in place with the supersession pointers of `data-model.md` §6 — `.specs/features/006-backend-browser-auth-cookies/spec.md` (`AUTH-01`, `AUTH-02` → `TFA-02`, `TFA-01`), `.specs/features/007-web-auth-session/spec.md` (`WAS-02` → `TFA-02`, client work deferred to stage 5) and `.specs/features/015-auth-prerequisites/spec.md` (`PRQ-12`, `PRQ-14` → `TFA-09`, `TFA-08`, read path only); run `make lint-specs` and confirm every cited ID still resolves (`TFA-14`).
 - [ ] T020 [P] Record the decision in `.specs/STATE.md` as a new `AD-*` entry: the gate as one optional setting decided inside the auth service with `Register`/`Login` returning a discriminated outcome, the renewal refusal revoking the family, and the boolean projection of the verification state — following the `AD-016`/`AD-020`/`AD-021` precedent (`TFA-06`, `TFA-07`, `TFA-08`).
-- [ ] T021 Run the full gate — `make fmt && make lint && make vet && make lint-specs` then `make test-race` — and validate `quickstart.md` section by section (the legacy parity run, the gated register → verify → session run, the renewal refusal, the switch parsing, the traceability sweep); record any deviation instead of weakening an assertion (`TFA-15`, `TFA-16`, `SC-001`…`SC-007`).
+- [ ] T021 Run the full gate — `make fmt && make lint && make vet && make lint-specs` then `make test-race` — and validate `quickstart.md` section by section (the legacy parity run, the gated register → verify → session run, the renewal refusal, the gate parsing, the traceability sweep); record any deviation instead of weakening an assertion (`TFA-15`, `TFA-16`, `SC-001`…`SC-007`).
 
 ---
 
@@ -187,7 +187,7 @@ code change.
   is sequenced after US1.
 - **US3 (P2)**: independently testable; its controller edit shares `auth.go`/`auth_test.go` with US1,
   so it follows it.
-- **US4 (P2)**: the cross-cutting switch; its parity sweep consumes every story.
+- **US4 (P2)**: the cross-cutting gate; its parity sweep consumes every story.
 
 ### Within Each User Story
 
@@ -236,7 +236,7 @@ Task: "internal/app/auth_test.go: 201/200 vs 201/202, no Set-Cookie, uniform 401
 ### Incremental Delivery
 
 1. Foundation → US1 (start a challenge) → validate → US2 (renewal gate) → validate → US3 (identity
-   read) → US4 (the switch and the parity sweep) → Polish.
+   read) → US4 (the gate and the parity sweep) → Polish.
 2. Each story keeps the previous ones green and adds one capability; with the gate off, no story
    changes an observable outcome for a single deploy.
 

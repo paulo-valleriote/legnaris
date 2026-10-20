@@ -35,7 +35,7 @@ go test -race -run 'Gate|Start|Refresh|Profile|Bool' ./internal/auth/... ./inter
 go test -race ./internal/app/... -run Integration      # self-skips without MongoDB
 ```
 
-## 2. Legacy parity — the switch off (`TFA-12`, `SC-004`)
+## 2. Legacy parity — the gate off (`TFA-12`, `SC-004`)
 
 With `AUTH_REQUIRE_EMAIL_VERIFICATION` unset (the default):
 
@@ -50,9 +50,9 @@ make run             # terminal 2, no AUTH_REQUIRE_EMAIL_VERIFICATION
 3. `POST /auth/refresh` with the cookies and the CSRF header → **`200`**, rotated cookies.
 4. `POST /auth/me` with the access token → **`200`** with `email_verified: false`.
 
-Any deviation here is a regression: the switch must change nothing while it is off.
+Any deviation here is a regression: the gate must change nothing while it is off.
 
-## 3. The gated flow — the switch on (`SC-001`, `TFA-01`…`TFA-05`)
+## 3. The gated flow — the gate on (`SC-001`, `TFA-01`…`TFA-05`)
 
 ```bash
 AUTH_REQUIRE_EMAIL_VERIFICATION=true make run
@@ -75,7 +75,7 @@ AUTH_REQUIRE_EMAIL_VERIFICATION=true make run
 
 ## 4. The renewal gate (`TFA-06`, `SC-003`)
 
-1. With the switch **off**, sign in once and keep the `__Host-` refresh cookie (this session has no
+1. With the gate **off**, sign in once and keep the `__Host-` refresh cookie (this session has no
    verification timestamp only if the account never verified; use a fresh account and skip
    verification for this scenario).
 2. Restart with `AUTH_REQUIRE_EMAIL_VERIFICATION=true`.
@@ -83,7 +83,7 @@ AUTH_REQUIRE_EMAIL_VERIFICATION=true make run
    credential's family is revoked and no new row was minted.
 4. Sign in and complete the code step (step 3 above), then refresh again → **`200`**.
 
-## 5. The rollout switch (`TFA-07`, `TFA-16`)
+## 5. The rollout gate (`TFA-07`, `TFA-16`)
 
 ```bash
 AUTH_REQUIRE_EMAIL_VERIFICATION=maybe make run      # expect: boots, warns, gate stays off

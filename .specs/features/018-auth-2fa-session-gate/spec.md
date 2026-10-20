@@ -14,7 +14,7 @@
 
 - Q: When renewal is refused because the account has never verified its email, should the presented refresh credential's whole session family be revoked, ending that session everywhere? → A: Revoke the family (user decision, 2026-10-20): the refusal mirrors the existing missing-account branch, so a session issued before the rule cannot renew once more anywhere, and the person recovers by signing in and completing the code step (`TFA-06`, `SC-003`).
 - Q: This feature fixes sign-in's timing oracle, but registration still answers 409 for an address that already has an account (plan finding F-05). Is fixing that part of this feature's scope? → A: Out of scope here (user decision, 2026-10-20): the plan's stage-4 text addresses only the sign-in oracle, so registration keeps its conflict outcome and F-05's registration half remains a documented residual risk — changing it would break the existing contract and the client (`TFA-01`, Assumptions).
-- Q: Plan §9 stage 7 wants to turn the rule on for new accounts before everyone. Should this feature's toggle already support that staged order? → A: No — one on/off switch, default off (user decision, 2026-10-20). The staged order and any cohort notion remain stage 7's; the operator flip is a configuration act, and this feature ships the switch (`TFA-07`, `TFA-12`).
+- Q: Plan §9 stage 7 wants to turn the rule on for new accounts before everyone. Should this feature's toggle already support that staged order? → A: No — one on/off gate, default off (user decision, 2026-10-20). The staged order and any cohort notion remain stage 7's; the operator flip is a configuration act, and this feature ships the gate (`TFA-07`, `TFA-12`).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -70,18 +70,18 @@ After a page reload the client has only an access credential and no idea whether
 
 ### User Story 4 - The whole change can be deployed dark and turned on deliberately (Priority: P2)
 
-The register and sign-in contracts break every client at once. Shipping that only as "the new behavior" means the deploy itself is the cutover, with no way to back out. The change must be one configuration switch, off by default, that the operator turns on when the clients and the deployment are ready — and the switch must change nothing else.
+The register and sign-in contracts break every client at once. Shipping that only as "the new behavior" means the deploy itself is the cutover, with no way to back out. The change must be one configuration gate, off by default, that the operator turns on when the clients and the deployment are ready — and the gate must change nothing else.
 
-**Why this priority**: plan §9 stage 7 exists precisely because a breaking contract change needs a dark-ship and a deliberate flip; this feature delivers the switch so that stage is a configuration act.
+**Why this priority**: plan §9 stage 7 exists precisely because a breaking contract change needs a dark-ship and a deliberate flip; this feature delivers the gate so that stage is a configuration act.
 
-**Independent Test**: with the switch off, run the existing register, sign-in and renewal suites unchanged and assert they pass byte-for-byte; with it on, assert the three contract changes hold and that the challenge domain's own suites pass unchanged; assert the switch is absent from the deployment's required-variable list.
+**Independent Test**: with the gate off, run the existing register, sign-in and renewal suites unchanged and assert they pass byte-for-byte on status, body, cookies and stored data; with it on, assert the three contract changes hold and that the challenge domain's own suites pass unchanged; assert the gate is absent from the deployment's required-variable list.
 
 **Acceptance Scenarios**:
 
-1. **Given** the switch is off, **When** a registration succeeds, **Then** the account is created and the session is established exactly as today. (TFA-07, TFA-12)
-2. **Given** the switch is off, **When** the client reads its identity, **Then** the read is still available and truthful. (TFA-08)
-3. **Given** the switch is on, **When** codes are issued, verified and left to expire, **Then** the challenge domain's own rules, limits and counters are unchanged. (TFA-11)
-4. **Given** the daily send allowance is already spent, **When** a registration would start a code step, **Then** the refusal is the existing typed unavailable outcome with a retry hint and no session, and the same credentials can still obtain a code afterwards instead of the account becoming unreachable. (TFA-13)
+1. **Given** the gate is off, **When** a registration succeeds, **Then** the account is created and the session is established exactly as today. (TFA-07, TFA-12)
+2. **Given** the gate is off, **When** the client reads its identity, **Then** the read is still available and truthful. (TFA-08)
+3. **Given** the gate is on, **When** codes are issued, verified and left to expire, **Then** the challenge domain's own rules, limits and counters are unchanged. (TFA-11)
+4. **Given** the daily send allowance is already spent, **When** a registration would start a code step, **Then** the refusal is the existing typed unavailable outcome with a retry hint and no session, and the same credentials can still obtain a code once the daily allowance frees at the next UTC day, instead of the account becoming unreachable. (TFA-13)
 
 ---
 
@@ -99,7 +99,7 @@ The register and sign-in contracts break every client at once. Shipping that onl
 - **Gate flipped while sessions exist**: renewal of a pre-existing session is refused from the next renewal onward; nothing else changes. (TFA-06, TFA-12)
 - **Gate flipped off again**: register, sign-in and renewal return to today's behavior; no account data is rewritten either way. (TFA-12)
 - **Send allowance exhausted at registration**: no session, the typed unavailable outcome with a retry hint, and the account is not left unable to obtain a code later. (TFA-13)
-- **Identity read for an account removed after the access credential was minted**: the existing not-found or unauthorized handling decides; no account data is invented. (TFA-09)
+- **Identity read for an account removed after the access credential was minted**: the credential no longer names a usable account, so it is answered 401 unauthorized with no account data — never 404 and never a partial record. (TFA-09)
 - **Verification instant leaking**: only the boolean state is reported; the instant never appears in a response. (TFA-08)
 - **Credential appearing on a challenge-issuing answer**: prohibited — the register and sign-in answers of the gate carry no cookie and no access credential. (TFA-01, TFA-02)
 - **Challenge start failing in the store after a registration created the account**: reported as an internal failure with no session and no credential, and the code step can be started again with the same credentials. (TFA-13)
@@ -114,7 +114,7 @@ The register and sign-in contracts break every client at once. Shipping that onl
 - **TFA-02**: WHEN the gate is enabled and sign-in presents valid credentials, the server MUST start a code step whose purpose is the sign-in's and answer the accepted outcome carrying the same information as TFA-01 — and MUST establish no session. WHEN the credentials are invalid, the existing uniform invalid-credentials outcome MUST be unchanged and no code step MUST be started.
 - **TFA-03**: A code step MUST be started only after the request's own credential proof succeeded — a valid registration input, or a matching password for a known account — so no request can cause a code to be sent for an account it did not authenticate. The purpose MUST be derived by the server from the operation and MUST NOT be accepted from the client.
 - **TFA-04**: The only way to establish a session while the gate is enabled MUST be a successful verification of a started code step, and that verification MUST keep the challenge domain's existing contract exactly: consumed at most once, the account's verification timestamp recorded when absent and preserved when present, then the session established exactly as sign-in establishes it. A verification whose purpose is the registration's MUST establish the session too.
-- **TFA-05**: Sign-in MUST perform the same password-verification work for an unknown address as for a known one, so neither the status, the body nor the response time distinguishes an account that does not exist from one whose password is wrong.
+- **TFA-05**: Sign-in MUST perform the same password-verification work for an unknown address as for a known one — whichever state the gate is in — so neither the status, the body nor the response time distinguishes an account that does not exist from one whose password is wrong.
 
 **Renewal consults the verification state (US2)**
 
@@ -129,12 +129,12 @@ The register and sign-in contracts break every client at once. Shipping that onl
 
 - **TFA-07**: The gate MUST be a single on/off configuration setting, optional and documented, whose default is disabled; enabling it changes only the register, sign-in and renewal contracts above and MUST NOT rewrite any account data or change the stored verification semantics.
 - **TFA-11**: The gate MUST NOT change the challenge domain delivered by the preceding feature: its purposes, its limits, its consumption, its resend rules and its counters MUST behave identically with the gate either way, and no new session, cookie or access-credential format MUST be introduced.
-- **TFA-12**: WHILE the gate is disabled, the observable register, sign-in and renewal behavior MUST be exactly today's, so the existing suites pass unchanged; the identity read of TFA-08 remains available.
+- **TFA-12**: WHILE the gate is disabled, the register, sign-in and renewal **contract** — status, body, cookies and stored data — MUST be exactly today's, so the existing suites pass unchanged; response time alone is not part of that parity, because the equalized password work of TFA-05 applies in both states; the identity read of TFA-08 remains available.
 - **TFA-13**: WHEN the daily send allowance refuses the code step that a registration would start, or the store fails while starting it, the server MUST answer the typed failure with no session and no credential, and MUST NOT leave the person unable to obtain a code later with the same credentials.
 
 **Cross-cutting**
 
-- **TFA-10**: Every new failure mode — a refused renewal for an unverified account, an unavailable send at registration, a store failure while starting a code step, and an unauthorized identity read — MUST be a typed error with an exported message constant and a documented HTTP status, and the boundary MUST map it exactly. No new credential surface MUST be added: the register, sign-in and code-step routes keep the guards and per-address limits they already have.
+- **TFA-10**: Every new failure mode — a refused renewal for an unverified account, an unavailable send at registration, a store failure while starting a code step, an unauthorized identity read, and an identity read whose credential names an account that no longer exists — MUST be a typed error with an exported message constant and a documented HTTP status, and the boundary MUST map it exactly. The missing-account read is 401 `UNAUTHORIZED` and MUST NOT be 404, so it is indistinguishable from an invalid credential. No new credential surface MUST be added: the register, sign-in and code-step routes keep the guards and per-address limits they already have.
 - **TFA-14**: The requirement corpus MUST record the contract this feature supersedes: the existing registration and sign-in requirements that describe a session established immediately no longer describe the gate-enabled behavior, and the client-side premise that registration authenticates MUST be recorded as superseded by the client stage. Requirement IDs cited in source MUST keep resolving to a definition that matches the shipped behavior.
 - **TFA-15**: Every requirement MUST ship tests — edge cases first, then one happy path — updating the suites that assume "registration and sign-in return a session" in the same change, using the injected clock for every boundary and with no sleeps, asserting the typed error and mapped status on every failure path, and staying clean under the race detector.
 - **TFA-16**: The gate MUST come from the shared configuration surface and MUST be documented; it MUST NOT be added to the deployment's required-variable set, and the deployment description and its validation MUST follow it. All identifiers, comments, log messages and user-facing strings MUST be written in English, and no log line this feature adds may carry a code or an unmasked address.
@@ -153,7 +153,7 @@ The register and sign-in contracts break every client at once. Shipping that onl
 - **SC-001**: With the gate enabled, 0 successful registrations and 0 valid-credential sign-ins establish a session, set a session cookie or return an access credential; 100% answer with the challenge handle instead.
 - **SC-002**: 0 sign-in responses are distinguishable — in status, body or password-checking work — between an address with no account and an address whose password is wrong.
 - **SC-003**: 100% of renewals for an account with no verification timestamp answer unauthorized with the family revoked and issue 0 credentials; 0 such sessions renew even once.
-- **SC-004**: With the gate disabled, 0 register, sign-in or renewal outcomes differ from today's, and 100% of the pre-existing suites pass unchanged.
+- **SC-004**: With the gate disabled, 0 register, sign-in or renewal **contract** outcomes differ from today's (status, body, cookies, stored data), and 100% of the pre-existing suites pass unchanged.
 - **SC-005**: 100% of new failure paths assert their typed code and mapped status; the suite is race-clean and runs with 0 sleeps.
 - **SC-006**: The verification state is readable in one authenticated request in 100% of signed-in states, and 0 responses disclose the verification instant, the password hash or any credential.
 - **SC-007**: With the gate enabled, 100% of the challenge domain's own suites and limits behave identically to the preceding feature, and 0 accounts are rewritten by enabling or disabling the gate.
@@ -161,7 +161,7 @@ The register and sign-in contracts break every client at once. Shipping that onl
 ## Assumptions
 
 - This is the fourth of the features derived from `docs/plan-auth-otp-2fa-email.md` §9; it delivers stage 4 (the register/sign-in hardening, the renewal gate and the verification read) only. The client changes — the pending-code state, the code screen, the error mapping and the copy — are stage 5, and this feature changes no client code while recording its premise as superseded.
-- The gate is one global on/off setting whose default is disabled (clarification, 2026-10-20). Plan §9 stage 7 describes a staged activation ("new accounts first, then everyone"); a single switch cannot express a cohort, so the staged order, the operational flip and any optional cleanup of pre-existing refresh families remain stage 7's, which may amend the setting if a cohort is required.
+- The gate is one global on/off setting whose default is disabled (clarification, 2026-10-20). Plan §9 stage 7 describes a staged activation ("new accounts first, then everyone"); a single gate cannot express a cohort, so the staged order, the operational flip and any optional cleanup of pre-existing refresh families remain stage 7's, which may amend the setting if a cohort is required.
 - Decision D4 is already delivered by the challenge domain (the verification that sets the timestamp when absent and preserves it when present, `OTP-07`); this feature only wires registration and sign-in to it and gates renewal on the same fact.
 - The renewal refusal for an unverified account revokes the presented credential's family, matching the existing missing-account branch and the plan's containment intent (clarification, 2026-10-20).
 - Registration's existing duplicate-address conflict outcome is unchanged (clarification, 2026-10-20: out of scope for this feature), so it still reveals that an address has an account; plan finding F-05 is only partially addressed here, because the sign-in timing oracle is fixed and the registration conflict is not.

@@ -140,7 +140,7 @@ renumbered or deleted, so every existing citation still resolves.
 ## 7. What is deliberately absent
 
 - **No `email_verified` on the challenge or refresh records** — the state is an account fact.
-- **No cohort / percentage / per-account flag** — one global switch (spec Clarifications,
+- **No cohort / percentage / per-account flag** — one global gate (spec Clarifications,
   2026-10-20); a staged activation is stage 7's concern.
 - **No migration, backfill or cleanup command** — every existing account keeps `EmailVerifiedAt` absent
   (`TFA-07`, `SC-007`).

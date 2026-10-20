@@ -17,7 +17,7 @@ code, does not perform the operational activation (stage 7) and adds no email or
 ## Summary
 
 Turn the code step delivered by `017-otp-challenges` into the required middle of registration and
-sign-in, behind one switch that ships dark:
+sign-in, behind one gate that ships dark:
 
 1. **Registration and sign-in stop issuing a session.** With the gate enabled, `Register` validates
    and creates the unverified account and starts a `verify_email` challenge; `Login` verifies the
@@ -92,8 +92,10 @@ No additional round trip on any path.
 
 **Constraints**: the gate is a single on/off setting, optional and documented, **not** added to
 `env.RequiredKeys()` (`TFA-07`, `TFA-16`), so `deploy/compose_test.go` keeps validating the same
-required set. With the gate disabled every register, sign-in and renewal outcome is exactly today's
-(`TFA-12`, `SC-004`). No new failure outcome is added to the wire beyond the typed errors already
+required set. With the gate disabled every register, sign-in and renewal **contract** outcome is exactly
+today's — status, body, cookies and stored data (`TFA-12`, `SC-004`); response time alone is not part of
+that parity, because the equalized password work of `TFA-05` is a security fix that applies in both
+states. No new failure outcome is added to the wire beyond the typed errors already
 mapped: the renewal refusal and the identity-read failures are `UNAUTHORIZED` (401), a registration
 whose challenge cannot be started is the existing `EMAIL_UNAVAILABLE` (503) when the daily allowance
 is spent and `INTERNAL_ERROR` (500) on a store failure, and a malformed body keeps `INVALID_JSON` /
@@ -101,7 +103,7 @@ is spent and `INTERNAL_ERROR` (500) on a store failure, and a malformed body kee
 upward import; `internal/auth` continues not to import the email domain. All source and strings are
 English (`TFA-16`); `go test -race` stays clean (`TFA-15`).
 
-**Scale/Scope**: 4 user stories (2 P1, 2 P2), 16 requirements, 5 internal contracts; roughly 20
+**Scale/Scope**: 4 user stories (2 P1, 2 P2), 16 requirements, 5 internal contracts; roughly 15
 touched or created files across `internal/auth`, `internal/app`, `internal/user`, `shared/env`,
 `deploy/`, `Makefile` and three existing specs; 8 new or extended suites; 1 regenerated mock
 (`auth.Service`).
@@ -112,7 +114,7 @@ touched or created files across `internal/auth`, `internal/app`, `internal/user`
 
 | Principle | Gate | Status |
 |---|---|---|
-| I. Typed Errors at Every Boundary | No new failure mode introduces a code without a message constant and a mapped status (`TFA-10`): the renewal refusal of an unverified account reuses the existing uniform `UNAUTHORIZED` (401) so it is indistinguishable from a missing account, a registration whose challenge cannot be started keeps `EMAIL_UNAVAILABLE` (503) with a retry hint or `INTERNAL_ERROR` (500), and the identity read answers `UNAUTHORIZED` (401) without a credential or for an account that no longer exists. `shared/apperr`'s mapping test extends to the statuses asserted here; no string-matched error is introduced. | PASS |
+| I. Typed Errors at Every Boundary | No new failure mode introduces a code without a message constant and a mapped status (`TFA-10`): the renewal refusal of an unverified account reuses the existing uniform `UNAUTHORIZED` (401) so it is indistinguishable from a missing account, a registration whose challenge cannot be started keeps `EMAIL_UNAVAILABLE` (503) with a retry hint or `INTERNAL_ERROR` (500), and the identity read answers `UNAUTHORIZED` (401) both without a credential and — with a new exported message constant, never 404 — for an account that no longer exists. `shared/apperr`'s mapping test extends to the statuses asserted here; no string-matched error is introduced. | PASS |
 | II. Canonical Identifiers | No identity is generated or parsed by this feature: the account identity comes from the bearer token (already validated), and challenge identities are minted and validated entirely by the preceding feature (`OTP-01`). The new route accepts no identifier from the client. | PASS |
 | III. Behavior Ships With Tests (NON-NEGOTIABLE) | Every requirement lands with tests in the same commit, edge cases first: both gate states for register, sign-in and renewal; a registration whose challenge cannot be started (allowance spent, store failure); unknown address versus wrong password (body and work); renewal for an absent timestamp and an existing one, with the family revoked; the identity read before and after verification, without a credential, and for a missing account; the boolean parsing of the setting; and the "no `Set-Cookie`, no access credential" assertion on the challenge-issuing answers. Then one happy path per suite. `go test -race` stays clean with concurrent sign-ins and concurrent renewals (`TFA-15`, `SC-005`). | PASS |
 | IV. English-Only Source | Identifiers, comments, log messages, message constants and the (unchanged) English copy are English (`TFA-16`); no user-facing string is added by this feature. | PASS |
@@ -122,7 +124,7 @@ touched or created files across `internal/auth`, `internal/app`, `internal/user`
 | Additional Constraints — Stack | Go on Echo with MongoDB and `shared/env`, `testify` + mockery tests — unchanged; **no dependency is added** and no new binary is introduced. | PASS |
 | Additional Constraints — Spec corpus and traceability | `TFA-01`…`TFA-16` are defined in `spec.md`; the superseded rules (`AUTH-01`, `AUTH-02`, `PRQ-12`, `PRQ-14`, `WAS-02`) remain defined in their own specs and are amended in place with a pointer to the superseding requirement, so `scripts/check_requirement_ids.py` stays green and no citation resolves to a statement that no longer describes the shipped behaviour (`TFA-14`). | PASS |
 | Additional Constraints — Jira | The implementing PR must reference its `LGN-\d+` card; recorded for the PR, not claimed by this artifact. | PASS (noted) |
-| Development Workflow | The backend sequence (`make fmt && make lint && make vet && make lint-specs`, then `make test-race`) covers the change; `make mocks` regenerates the widened `auth.Service` mock; `deploy/compose_test.go` still validates the required set unchanged and gains a case for the optional switch. | PASS |
+| Development Workflow | The backend sequence (`make fmt && make lint && make vet && make lint-specs`, then `make test-race`) covers the change; `make mocks` regenerates the widened `auth.Service` mock; `deploy/compose_test.go` still validates the required set unchanged and gains a case for the optional gate. | PASS |
 
 No principle is waived; **Complexity Tracking** stays empty.
 
@@ -180,20 +182,20 @@ internal/app/
 ├── auth_integration_test.go    # EXTENDED: register → verify → session end to end with the gate on (Mongo, self-skip)
 ├── router.go                   # EXTENDED: GET /auth/me behind the bearer middleware (TFA-09)
 ├── router_wiring_test.go       # EXTENDED: the new route is mounted and guarded
-├── bootstrap.go                # EXTENDED: read the switch into auth.Config
-└── bootstrap_test.go           # EXTENDED: the switch reaches the service config
+├── bootstrap.go                # EXTENDED: read the gate into auth.Config
+└── bootstrap_test.go           # EXTENDED: the gate reaches the service config
 
 shared/env/
 ├── env.go                      # EXTENDED: AUTH_REQUIRE_EMAIL_VERIFICATION + lookupBoolEnv (TFA-07, TFA-16)
 └── env_test.go                 # EXTENDED: default off, true/false parsing, an unparseable value, and the required set unchanged
 
 deploy/
-├── docker-compose.yml          # EXTENDED: pass the switch through to the api service
-├── .env.example                # EXTENDED: the switch and its documented default
-├── compose_test.go             # EXTENDED: the required set still holds; the switch is present and optional
-└── README.md                   # EXTENDED: what the switch governs and the stage-7 flip
+├── docker-compose.yml          # EXTENDED: pass the gate through to the api service
+├── .env.example                # EXTENDED: the gate and its documented default
+├── compose_test.go             # EXTENDED: the required set still holds; the gate is present and optional
+└── README.md                   # EXTENDED: what the gate governs and the stage-7 flip
 
-Makefile                        # EXTENDED: export the switch to the app process
+Makefile                        # EXTENDED: export the gate to the app process
 
 .specs/features/006-backend-browser-auth-cookies/spec.md   # AMENDED: AUTH-01/AUTH-02 marked superseded (TFA-14)
 .specs/features/015-auth-prerequisites/spec.md             # AMENDED: PRQ-12/PRQ-14 superseded for the read path (TFA-14)

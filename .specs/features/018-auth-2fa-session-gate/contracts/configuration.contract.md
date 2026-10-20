@@ -36,9 +36,9 @@ func (e *Env) lookupBoolEnv(key string, defaultValue bool) bool
 |---|---|
 | `deploy/.env.example` | the variable with its documented default and a one-line description |
 | `deploy/docker-compose.yml` | passed through to the `api` service |
-| `deploy/README.md` | what the switch governs, that it is optional, and that stage 7 is the flip |
+| `deploy/README.md` | what the gate governs, that it is optional, and that stage 7 is the flip |
 | `Makefile` | exported to the app process (`make run`) |
-| `deploy/compose_test.go` | the required set is **unchanged**; the switch is present and not required |
+| `deploy/compose_test.go` | the required set is **unchanged**; the gate is present and not required |
 
 ## Invariants
 
@@ -46,9 +46,9 @@ func (e *Env) lookupBoolEnv(key string, defaultValue bool) bool
    `{DATABASE_URI, JWT_SECRET, EMAIL_CODE_SECRET}`, and `deploy/compose_test.go` keeps asserting it.
 2. **Documented** (`TFA-16`): the variable appears in `.env.example` and `deploy/README.md`; an
    undocumented setting is not shipped.
-3. **No secret** (`TFA-16`): the switch carries no credential and is safe to log by name; no log line
+3. **No secret** (`TFA-16`): the gate carries no credential and is safe to log by name; no log line
    this feature adds carries a code or an unmasked address.
-4. **No cross-talk** (`TFA-11`): the switch does not alter the challenge policy values
+4. **No cross-talk** (`TFA-11`): the gate does not alter the challenge policy values
    (`AUTH_OTP_*`), the email settings (`EMAIL_*`) or the rate limits (`AUTH_RATE_LIMIT_*`).
 
 ## Tests
