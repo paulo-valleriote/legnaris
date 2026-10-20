@@ -33,6 +33,19 @@ type Repository interface {
 canonical UUID v7 identity (or validates a supplied one) and starts the row `pending` with
 `next_attempt_at = now`, `attempts = 0` and no lease.
 
+```go
+var ErrInvalidIntentID = errors.New("intent identity is not a canonical UUID v7")
+```
+
+Every identity — generated or read — is screened with `shared/idgen.Validate`; a non-canonical one is
+rejected with `ErrInvalidIntentID` (wrapping `shared/idgen.ErrInvalidID`), so the relay can act on one
+typed sentinel (`EML-18`, `EML-19`).
+
+**Error taxonomy note.** These sentinels are declared with `errors.New`, never `apperr`. This package
+is a non-HTTP layer with no status to map: the precedent is `shared/idgen.ErrInvalidID` and
+`shared/db`'s own typed errors, and `shared/db/AGENTS.md` states the same rule for its layer. The
+constitution's Principle I is scoped to boundaries; there is no boundary here.
+
 ## Rules
 
 - `Create` writes one document and never publishes; the request-serving caller returns only after it
@@ -67,7 +80,7 @@ canonical UUID v7 identity (or validates a supplied one) and starts the row `pen
 | claim while a lease is still live | the row is not returned |
 | claim exactly at lease expiry (`locked_until == now`) | the row is returned (`$lte`) |
 | empty outbox | `Claim` returns no rows, no error |
-| row with a non-canonical `_id` | rejected, not published (EML-18) |
+| row with a non-canonical `_id` | rejected with `ErrInvalidIntentID`, not published (EML-18) |
 | `MarkPublished` on an already-published row | no-op safe (idempotent write by `_id`) |
 | retention: published row past the window | eligible for the TTL monitor; pending/failed rows (`published_at` null) are never expired |
 | store failure during `Claim` | returned unwrapped for the relay to log; the relay stops the pass and tries the next tick |

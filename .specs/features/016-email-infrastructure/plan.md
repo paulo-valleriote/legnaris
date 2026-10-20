@@ -70,7 +70,8 @@ otherwise, mockery mocks (`NewMockX(t)`, `make mocks` after an interface change)
 ordinary fakes for the recording doubles. Pure unit suites for the message contract (golden file),
 the renderer, the outbox planner/claim semantics, the relay loop and the error classification; a
 `resend` suite drives the adapter against an `httptest` server through the real SDK; an `amqp`
-suite drives the broker against a fake `Channel`-shaped collaborator; Mongo-dependent behavior lives
+suite drives the broker against a fake implementing the package's `channel` seam (an interface plus
+an injectable dial function); Mongo-dependent behavior lives
 in self-skipping integration suites. Nothing in `go test ./...` requires a broker (EML-20, SC-008).
 
 **Target Platform**: the Go backend on Linux. `cmd/relay` joins the internal network only, beside
@@ -191,14 +192,16 @@ internal/email/relay/                   # NEW service: poll, claim, publish, bac
 └── mocks/                              # NEW: mockery-generated Publisher
 
 internal/email/amqp/                    # NEW adapter: RabbitMQ publisher + topology
+├── channel.go                          # NEW: the channel seam (interface + injectable dial func) so the broker is fakeable (EML-06, EML-07)
 ├── broker.go                           # NEW: DialConfig(Recovery), DeclareTopology, confirmed mandatory publish (EML-06, EML-07)
 ├── topology.go                         # NEW: exchange/queues/retry tiers/DLQ arguments (EML-06)
 ├── broker_test.go                      # NEW: confirms, nack, unroutable return, blocked, reconnect state
 └── topology_test.go                    # NEW: the declared entity set and its arguments
 
-internal/email/emailtest/               # NEW test double: the fake sender/publisher and fixtures
-├── recorder.go                         # NEW: recording Sender and Publisher, injectable failures (EML-10)
-└── fixtures.go                         # NEW: intent/message builders for suites
+internal/email/emailtest/               # NEW test double: the fake sender and fixtures
+├── recorder.go                         # NEW: recording Sender, injectable failures (EML-10)
+├── recorder_test.go                    # NEW: the recorder records and surfaces the injected sentinel
+└── fixtures.go                         # NEW: message/outbound builders for suites
 
 internal/platform/metrics/
 └── metrics.go                          # EXTENDED: outbox backlog gauge, publish counter, Handler() for the relay (EML-23)
@@ -213,11 +216,12 @@ deploy/
 ├── docker-compose.yml                  # EXTENDED: rabbitmq service (internal only) + relay service (EML-16)
 ├── .env.example                        # EXTENDED: documented optional email/broker variables
 ├── compose_test.go                     # EXTENDED: broker has no published port; the relay is a separate service; required set unchanged
+├── README.md                           # EXTENDED: how to run the relay and the optional variables
 └── prometheus/prometheus.yml           # EXTENDED: scrape the relay listener
 
 Dockerfile                              # EXTENDED: build /relay into the runtime image
 Makefile                                # EXTENDED: export the optional variables; relay target
-.mockery.yaml                           # EXTENDED: email Sender/Renderer, outbox Repository, relay Publisher/Observer
+.mockery.yaml                           # EXTENDED: email Sender, outbox Repository, relay Publisher/Observer
 ```
 
 **Structure Decision**: the message contract and the sender port live in `internal/email` because
@@ -234,9 +238,9 @@ the seam with tests and no HTTP caller.
 The relay loop lives in `internal/email/relay`, declared against interfaces (`Publisher` and the
 outbox store) so the whole failure matrix — confirm, nack, timeout, unroutable, crash-between,
 concurrent claims — is unit-tested with fakes and no broker. The RabbitMQ specifics live in
-`internal/email/amqp` (topology + confirmed publish) and the provider specifics in
-`internal/email/resend` (idempotency + timeout + classification), so a provider or broker swap is an
-adapter swap.
+`internal/email/amqp` (a `channel` seam plus the topology and the confirmed publish, so the failure
+paths are fakeable) and the provider specifics in `internal/email/resend` (idempotency + timeout +
+classification), so a provider or broker swap is an adapter swap.
 
 `cmd/relay` is a separate binary (O2): it owns the process lifecycle (env validation fail-fast,
 Mongo + broker connections, the metrics listener, SIGTERM draining), so a broker outage can never

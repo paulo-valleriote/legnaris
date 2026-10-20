@@ -278,11 +278,14 @@ are driven by the *worker* on a transient send failure; the queue-level DLX is t
 one publish channel (`Confirm(false)`), a `NotifyReturn` channel and a `NotifyBlocked` channel, and
 per publish calls `PublishWithDeferredConfirmWithContext(ctx, "legnaris.email", "email.otp", true,
 false, Publishing{ContentType: "application/json", DeliveryMode: Persistent, MessageId: msg.ID,
-Body: body})` then `WaitContext(confirmCtx)`. Success requires: the publish call did not error, the
-confirmation acked, and — checked before returning — no basic.return was recorded for that delivery.
-An unacked confirmation, a transport error, a return, or a blocked connection is `ErrTransient`; the
-relay reschedules. `NotifyStateChange` is drained by a supervisor goroutine; the relay logs state
-changes and does not exit.
+Body: body})` then `WaitContext(confirmCtx)`. The connection and channel are reached through a
+`channel` seam — a small interface over the operations the adapter uses plus an injectable dial
+function — so the publish, nack, timeout, `basic.return` and blocked paths are unit-tested against a
+fake with no broker running. Success requires: the publish call did not error, the confirmation
+acked, and — checked before returning — no basic.return was recorded for that delivery. An unacked
+confirmation, a transport error, a return, or a blocked connection is `ErrTransient`; the relay
+reschedules. `NotifyStateChange` is drained by a supervisor goroutine; the relay logs state changes
+and does not exit.
 
 **Rationale**: `EML-02`/`EML-07` require "marked published only after the broker confirms routing";
 a publisher confirm alone only says the broker accepted the message, so `mandatory=true` +
@@ -306,7 +309,7 @@ exists to drain `NotifyStateChange` (the library documents that not draining it 
 |---|---|---|
 | `EMAIL_PROVIDER` | `log` | sender selection (`log` \| `resend`); unknown value fails the sender build |
 | `RESEND_API_KEY` | empty | required by the `resend` adapter constructor |
-| `EMAIL_FROM` | `Legnaris <no-reply@legnaris.local>` | the `resend` adapter |
+| `EMAIL_FROM` | empty | the `resend` adapter (required non-empty; the `log` sender substitutes a built-in placeholder) |
 | `EMAIL_SEND_TIMEOUT` | `10s` | the sender adapters |
 | `RABBITMQ_URL` | empty | required by `cmd/relay` (fail fast with `ErrBrokerUnavailable`) |
 | `EMAIL_RELAY_POLL_INTERVAL` | `1s` | the relay loop |

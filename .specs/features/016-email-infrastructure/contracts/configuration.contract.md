@@ -15,7 +15,7 @@ actually needs a setting validates it.
 |---|---|---|
 | `EMAIL_PROVIDER` | `log` | the sender builder (unknown value → error) |
 | `RESEND_API_KEY` | empty | `internal/email/resend.New` (required when provider is `resend`) |
-| `EMAIL_FROM` | `Legnaris <no-reply@legnaris.local>` | `internal/email/resend.New` |
+| `EMAIL_FROM` | empty | `internal/email/resend.New` (required non-empty when provider is `resend`) |
 | `EMAIL_SEND_TIMEOUT` | `10s` | the sender adapters (positive duration) |
 | `RABBITMQ_URL` | empty | `cmd/relay` (required, parseable) |
 | `EMAIL_RELAY_POLL_INTERVAL` | `1s` | `cmd/relay` |
@@ -45,6 +45,7 @@ actually needs a setting validates it.
 |---|---|
 | every new variable unset | the API starts; the relay fails fast on the empty broker URL |
 | `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` empty | building the sender fails with a clear error |
+| `EMAIL_PROVIDER=resend`, `EMAIL_FROM` empty | building the sender fails with a clear error |
 | `EMAIL_PROVIDER=bogus` | building the sender fails with a clear error |
 | `EMAIL_SEND_TIMEOUT=abc` | default `10s`, warning logged |
 | `EMAIL_RELAY_BATCH=0` | default `25`, warning logged (non-positive → default) |

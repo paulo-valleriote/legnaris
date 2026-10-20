@@ -34,12 +34,17 @@ Normative classification: an adapter returns `nil` on success, an error wrapping
 a retry may succeed, and an error wrapping `ErrPermanent` when it cannot. Callers decide with
 `errors.Is`.
 
+**Error taxonomy note.** `ErrTransient` and `ErrPermanent` are `errors.New` sentinels, not `apperr`
+codes: this domain is a non-HTTP layer with no status to map, following the `shared/idgen.ErrInvalidID`
+and `shared/db` precedent (the same applies to `ErrUnknownTemplate` here and `ErrInvalidIntentID` in
+`outbox`). The constitution's Principle I is scoped to boundaries; there is no boundary here.
+
 ## Adapters and outcomes
 
 | Adapter | Construction | `Send` behaviour |
 |---|---|---|
-| `internal/email/resend` | `New(apiKey, from string, timeout time.Duration) (*Sender, error)`; empty `apiKey`/`from` → error | `client.Emails.SendWithOptions(ctx, req, &resend.SendEmailOptions{IdempotencyKey: m.IdempotencyKey})`; classification in the table below |
-| `internal/email.LogSender` | `NewLogSender(log)` | writes one structured line (id, purpose, masked recipient) and returns `nil`; **no network call** |
+| `internal/email/resend` | `New(apiKey, from string, timeout time.Duration) (*Sender, error)`; empty `apiKey` **or** empty `from` → error (the constructor never accepts the unconfigured case, so a real deployment must set `EMAIL_FROM`, which defaults to empty) | `client.Emails.SendWithOptions(ctx, req, &resend.SendEmailOptions{IdempotencyKey: m.IdempotencyKey})`; classification in the table below |
+| `internal/email.LogSender` | `NewLogSender(log)`; needs no `EMAIL_FROM` (it logs a built-in placeholder `From`) | writes one structured line (id, purpose, recipient masked as the first local-part character plus the domain, e.g. `a***@example.com`) and returns `nil`; **no network call** |
 | `internal/email/emailtest.Recorder` | `NewRecorder()` | records the `Outbound`; returns an injected sentinel when configured |
 
 ## Resend classification (`http.RoundTripper` wraps the SDK transport)

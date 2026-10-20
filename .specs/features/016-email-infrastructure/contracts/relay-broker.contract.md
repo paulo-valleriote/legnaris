@@ -56,8 +56,13 @@ the in-flight batch finishes (graceful shutdown, EML-05).
 - `Dial(url string, cfg Config) (*Broker, error)` → `amqp.DialConfig(url, amqp.Config{Recovery:
   &amqp.Recovery{}})`, then one channel with `Confirm(false)`, `NotifyReturn`, and a
   `NotifyBlocked`/`NotifyStateChange` drain goroutine.
-- `DeclareTopology()` declares the entities in `data-model.md` §4 idempotently; called once at
-  startup before the first publish (EML-06).
+- The connection and channel are reached through the `channel` seam declared in
+  `internal/email/amqp/channel.go`: a small interface over the operations the adapter uses, plus an
+  injectable dial function value, so the publish, nack, timeout, `basic.return` and blocked paths are
+  unit-tested against a fake with no broker running (`EML-07`, `EML-19`).
+- `DeclareTopology()` declares the entities in `data-model.md` §4 idempotently — including
+  `email.otp`'s `x-max-length: 10000` and its 80%-of-limit alert — and is called once at startup
+  before the first publish (EML-06).
 - `Publish(ctx, msg)`:
   1. marshal `msg` (the message contract);
   2. `PublishWithDeferredConfirmWithContext(ctx, "legnaris.email", "email.otp", true, false,
@@ -74,7 +79,7 @@ the in-flight batch finishes (graceful shutdown, EML-05).
 | publish confirmed + routed | — | `MarkPublished` |
 | broker nack, confirm timeout, blocked, transport error | `ErrTransient` | `Reschedule` or `MarkTerminal` at the cap |
 | unroutable (`basic.return`) | `ErrTransient` | `Reschedule` (topology/queue may come back) |
-| non-canonical identity | domain error | `MarkTerminal` |
+| non-canonical identity | `ErrInvalidIntentID` | `MarkTerminal` |
 | blank/unparseable `RABBITMQ_URL` at startup | `ErrBrokerUnavailable` | fail fast, never poll |
 
 ## Invariants

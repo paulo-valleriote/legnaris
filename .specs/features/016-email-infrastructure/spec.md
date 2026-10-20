@@ -19,7 +19,7 @@
 
 ### User Story 1 - A queued email is not lost when the publisher crashes (Priority: P1)
 
-Someone has just entered their credentials and waits for a short code by email; without it they cannot finish signing in. The intention to send that code must be written durably before anyone is told the request was accepted, and a separate publisher process must move stored intentions to the message broker — confirming each one, and re-publishing anything a crash left unconfirmed. A crash, a broker outage, or a second publisher running at the same time must never silently lose the code, and a duplicate must be harmless because every intention carries a stable identity the provider can de-duplicate.
+Someone has just entered their credentials and waits for a short code by email; without it they cannot finish signing in. The intention to send that code must be written durably before anyone is told the request was accepted, and a separate publisher process — the relay, `cmd/relay` — must move stored intentions to the message broker, confirming each one and re-publishing anything a crash left unconfirmed. A crash, a broker outage, or a second publisher running at the same time must never silently lose the code, and a duplicate must be harmless because every intention carries a stable identity the provider can de-duplicate.
 
 **Why this priority**: the whole 2FA program depends on the code actually arriving; a lost intention locks the user out with no recovery path, and the request-serving process must stay healthy when the broker is down.
 
@@ -31,7 +31,7 @@ Someone has just entered their credentials and waits for a short code by email; 
 2. **Given** a publisher whose publication is not confirmed, **When** a pass completes, **Then** the intention remains unpublished with an incremented attempt count and is not retried before its scheduled backoff. (EML-04)
 3. **Given** two publishers claiming work at the same time, **When** they lease, **Then** no intention is claimed by both, and a claim held by a stopped publisher is invisible to the other until it expires. (EML-03)
 4. **Given** a publisher that stopped after publishing but before marking, **When** it restarts or its expired claim is reclaimed, **Then** the intention is republished and the duplicate is harmless because its identity is stable. (EML-03, EML-18)
-5. **Given** an intention that reaches the attempt cap, **When** the cap is exceeded, **Then** it is marked failed for operator attention and is never published again. (EML-04)
+5. **Given** an intention that reaches the publication-attempt cap, **When** the cap is exceeded, **Then** it is marked failed for operator attention and is never published again. (EML-04)
 6. **Given** the publisher is starting, **When** the broker topology is not yet declared, **Then** the publisher declares the exchange, work queue, retry tiers and dead-letter queue idempotently before its first publish. (EML-06)
 
 ---
@@ -81,7 +81,7 @@ All email and broker settings are optional with documented defaults, so the requ
 - **Broker refuses to confirm, or the confirmation times out**: treated as a failed publication, never as a success. (EML-02, EML-04)
 - **Message the broker cannot route** (no queue bound): detected through mandatory publication and treated as a failure, not a success. (EML-07)
 - **Empty outbox**: a pass claims nothing, publishes nothing, and is not an error. (EML-05)
-- **Attempt cap reached**: the intention is failed and surfaced; it is not retried and not silently dropped. (EML-04)
+- **Publication-attempt cap reached**: the intention is failed and surfaced; it is not retried and not silently dropped. (EML-04)
 - **Intention payload that cannot produce a message** (missing/invalid recipient, unknown template): a permanent outcome, never retried forever. (EML-11, EML-12)
 - **Provider rate limit** (including a spent daily free-tier allowance reported as a rate limit): retryable, so the pipeline backs off rather than failing the message. (EML-09, EML-12)
 - **Provider permanent client error** (for example an invalid recipient): permanent, so the pipeline stops retrying. (EML-12)
@@ -99,12 +99,12 @@ All email and broker settings are optional with documented defaults, so the requ
 **Durable intent and publication (US1)**
 
 - **EML-01**: WHEN an email is requested, the system MUST persist a durable send intention before reporting acceptance, and the request-serving process MUST NOT contact the email provider or the message broker.
-- **EML-02**: A separate publisher process MUST move stored intentions to the message broker at least once, and MUST mark an intention published only after the broker has confirmed it accepted the message for routing.
+- **EML-02**: A separate publisher process MUST move stored intentions to the message broker at least once, and MUST mark an intention published only after the broker has confirmed it accepted the message for routing (the publish mode that makes this possible is fixed by `EML-07`).
 - **EML-03**: The publisher MUST claim a batch of intentions atomically so that concurrent publishers never publish the same intention, and a claim held by a stopped publisher MUST expire so the intention becomes eligible again. A duplicate publish from a crash between publish and mark MUST be harmless.
-- **EML-04**: WHEN publication fails, the intention MUST remain unpublished with an incremented attempt count and a bounded, increasing backoff; WHEN the attempt cap is reached, the intention MUST be marked failed for operator attention and MUST NOT be republished.
+- **EML-04**: WHEN publication fails, the intention MUST remain unpublished with an incremented attempt count and a bounded, increasing backoff; WHEN the publication-attempt cap is reached, the intention MUST be marked failed for operator attention and MUST NOT be republished. The cap counts failed publications of one intention; the message's `attempt` counter and the worker's send-retry cap are a different counter and belong to a later feature.
 - **EML-05**: The publisher MUST poll on a bounded interval and MUST shut down gracefully — stop claiming new work, finish in-flight publications, then release resources.
 - **EML-06**: The publisher MUST declare the broker topology idempotently before publishing: a main direct exchange, a durable main work queue that dead-letters to a retry exchange, delay-tier retry queues that dead-letter back to the main exchange, and a durable dead-letter queue; the topology MUST NOT require a broker plugin or a version-specific extension.
-- **EML-07**: Every published message MUST conform to the documented contract (stable identity, type, recipient, template, data, created time, attempt) and MUST be published mandatorily and persistently, so a message the broker cannot route is treated as a failure rather than a success.
+- **EML-07**: Every published message MUST conform to the documented contract (stable identity, type, recipient, template, data, created time, attempt) and MUST be published mandatorily and persistently, so a message the broker cannot route is treated as a failure rather than a success (the marking precondition this enables is `EML-02`).
 
 **Sending (US2)**
 
@@ -113,7 +113,7 @@ All email and broker settings are optional with documented defaults, so the requ
 - **EML-10**: The system MUST provide a development adapter that performs no network call and a test double that records sends; no unit test may invoke the provider.
 - **EML-11**: Each message MUST be rendered from one embedded template per purpose (email verification and login code), selected by its purpose, producing both a plain-text and an HTML body that carry the code and its lifetime; the subject MUST NOT carry the code, and an unknown purpose MUST be a permanent failure.
 - **EML-12**: A send failure MUST be classified as retryable (rate limit, server error, timeout) or permanent (invalid recipient, unknown template); the classification MUST be a typed, testable outcome at the port boundary.
-- **EML-13**: The code MUST never appear in a log line, an error message, or a message subject, and logs MUST identify a message by its identity and purpose only, masking the recipient.
+- **EML-13**: The code MUST never appear in a log line, an error message, or a message subject, and logs MUST identify a message by its identity and purpose only, masking the recipient as the first character of the local part plus the domain (for example `a***@example.com`).
 
 **Configuration, data and deployment (US3)**
 
@@ -137,7 +137,7 @@ All email and broker settings are optional with documented defaults, so the requ
 - **Message**: the contract-shaped payload handed to the broker — stable identity, type, recipient, template, data, created time, attempt.
 - **Template**: an embedded, per-purpose pair of plain-text and HTML bodies, rendered with the code and its lifetime, with a code-free subject.
 - **Send outcome**: the typed result of a send attempt — success, retryable failure, or permanent failure.
-- **Broker topology**: the exchange, main work queue, delay-tier retry queues, and dead-letter queue the publisher declares and publishes through.
+- **Broker topology**: the exchange, main work queue, delay-tier retry queues, and dead-letter queue the relay (the publisher process) declares and publishes through.
 - **Configuration**: the optional, documented email and broker settings sourced from the shared configuration surface.
 
 ## Success Criteria *(mandatory)*
@@ -158,7 +158,7 @@ All email and broker settings are optional with documented defaults, so the requ
 - This is the second of the features derived from `docs/plan-auth-otp-2fa-email.md` §9; it delivers stage 2 (the infrastructure seams) only. The consumer that reads messages from the broker, checks code expiry, and calls the sender is a later feature, and so are the challenge HTTP endpoints and the API-side enqueue. Nothing calls the sender or the outbox from a running process yet, exactly as the preceding feature shipped seams with no HTTP surface change.
 - The chosen transactional provider and the chosen message broker are the plan's decisions (D5, D6). The provider stays behind the port, so switching to another provider is a configuration-plus-adapter change, not a rewrite of callers.
 - The SMTP adapter is not delivered: the plan makes it conditional and only the real provider plus the development/test stand-ins are in scope.
-- The retry policy is the plan's decision O1 — delay tiers of 30 seconds, 2 minutes and 5 minutes, an attempt cap of 5, a publication-confirmation timeout on the order of seconds, a claim lease of about 30 seconds, and a poll interval on the order of a second; the exact defaults are documented and configurable.
+- The retry policy is the plan's decision O1 — delay tiers of 30 seconds, 2 minutes and 5 minutes, an attempt cap of 5, a publication-confirmation timeout on the order of seconds, a claim lease of about 30 seconds, and a poll interval on the order of a second; the exact defaults are documented and configurable. The O1 attempt cap of 5 governs the worker's *send* retries and belongs to a later feature; this feature's *publication*-attempt cap is its own setting (`EMAIL_RELAY_MAX_ATTEMPTS`, default 5), and the two counters never share state.
 - The stored-intention retention window is the plan's suggestion of 7 days for published rows.
 - The daily provider-quota guard (the request path answering an "unavailable" outcome when the free-tier ceiling is reached) belongs to the API-side feature that enqueues intentions; this feature only requires that a provider rate limit is classified retryable.
 - Domain authentication (SPF/DKIM/DMARC) and bounce/complaint webhooks are operational tasks outside this code deliverable.

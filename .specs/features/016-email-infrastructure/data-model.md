@@ -121,7 +121,7 @@ Owned by `internal/email/amqp`. All durable; declared idempotently before the fi
 | Entity | Kind | Arguments | Purpose |
 |---|---|---|---|
 | `legnaris.email` | direct exchange | — | the main exchange; fresh publishes use key `email.otp` |
-| `email.otp` | quorum queue | `x-max-length`, `x-overflow: reject-publish`, `x-dead-letter-exchange: legnaris.email.retry`, `x-dead-letter-routing-key: 30s` | the work queue; full → nack so the relay backs off and the outbox keeps the intent |
+| `email.otp` | quorum queue | `x-max-length: 10000`, `x-overflow: reject-publish`, `x-dead-letter-exchange: legnaris.email.retry`, `x-dead-letter-routing-key: 30s` | the work queue; full → nack so the relay backs off and the outbox keeps the intent |
 | `legnaris.email.retry` | direct exchange | — | the retry exchange (used by the worker) |
 | `email.retry.30s` | quorum queue | `x-message-ttl: 30000`, DLX back to `legnaris.email` key `email.otp` | first delay tier |
 | `email.retry.2m` | quorum queue | `x-message-ttl: 120000`, DLX back | second delay tier |
@@ -129,7 +129,10 @@ Owned by `internal/email/amqp`. All durable; declared idempotently before the fi
 | `email.dead` | quorum queue | — (bound to `legnaris.email` key `email.dead`) | dead letters for inspection/replay |
 
 The relay declares the topology; the delay-tier DLX cycle is driven by the worker (deferred), so the
-exchange and queues exist and are correct before any consumer is written.
+exchange and queues exist and are correct before any consumer is written. `email.otp` declares
+`x-max-length: 10000` as a documented code constant in `internal/email/amqp`; the queue-depth alert
+fires at 80% of it (8000 messages ready), alongside the program plan's "oldest message > 2 min" and
+"outbox backlog > 100" alerts.
 
 ---
 
@@ -141,7 +144,7 @@ Owned by `shared/env`. `RequiredKeys()` stays `{DATABASE_URI, JWT_SECRET}`.
 |---|---|---|---|
 | `EMAIL_PROVIDER` | `log` | sender selection | unknown value → send build error |
 | `RESEND_API_KEY` | empty | `internal/email/resend` | required when provider is `resend` |
-| `EMAIL_FROM` | `Legnaris <no-reply@legnaris.local>` | `internal/email/resend` | required when provider is `resend` |
+| `EMAIL_FROM` | empty | `internal/email/resend` | required (non-empty) when provider is `resend`; the log sender uses a built-in placeholder instead |
 | `EMAIL_SEND_TIMEOUT` | `10s` | sender adapters | positive duration |
 | `RABBITMQ_URL` | empty | `cmd/relay` | required, parseable AMQP URI (else `ErrBrokerUnavailable`) |
 | `EMAIL_RELAY_POLL_INTERVAL` | `1s` | relay loop | positive |

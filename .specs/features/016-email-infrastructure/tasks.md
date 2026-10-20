@@ -25,7 +25,7 @@ exclusive to this feature.
 
 This is a Go backend plus a background binary in one module; all paths are repository-relative
 (`internal/…`, `shared/…`, `cmd/…`, `deploy/…`). Tests live next to the code as `*_test.go`; shared
-test doubles live in `internal/email/emailtest`.
+test doubles live in `internal/email/emailtest` (US2).
 
 ---
 
@@ -51,34 +51,36 @@ relay (US1) and the templates/sender (US2) build on a fixed wire format.
 
 ---
 
-## Phase 3: User Story 1 — A queued email is not lost when the publisher crashes (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 — A queued email is not lost when the relay crashes (Priority: P1) 🎯 MVP
 
 **Goal**: The intention is stored durably, claimed atomically with a lease, and published to the
-broker at least once with confirmation; a crash, a second publisher or a broker outage loses
-nothing, and the broker topology exists before the first publish.
+broker at least once with confirmation; a crash, a second relay, or a broker outage loses nothing,
+and the broker topology exists before the first publish.
 
-**Independent Test**: With a fake publisher and a Mongo-backed (self-skipping) store, write pending
-intentions and run one pass — each is published once and marked published; refuse confirmations —
-the row stays pending with an incremented attempt and a later eligibility; expire a lease without
-marking — a second pass republishes and converges; lease from two publishers — no shared row; reach
-the cap — the row is failed. Without a broker, the topology and publish semantics are proven against
-a fake channel.
+**Independent Test**: With mockery `Publisher`/`Observer` mocks and a Mongo-backed (self-skipping)
+store, write pending intentions and run one pass — each is published once and marked published;
+refuse confirmations — the row stays pending with an incremented attempt and a later eligibility;
+expire a lease without marking — a second pass republishes and converges; lease from two relays — no
+shared row; reach the publication-attempt cap — the row is failed. Without a broker, the topology
+and publish semantics are proven against the `channel` seam's fake.
 
-### Tests for User Story 1 (write first; they must fail before T007–T012)
+> The relay suite uses the mockery `Publisher`/`Observer`/`Repository` mocks (no cross-story import);
+> the recording double lives in US2's `emailtest`.
 
-- [ ] T003 [P] [US1] Add `internal/email/outbox/intent_test.go`: `NewIntent` produces a canonical UUID v7 that `idgen.Validate` accepts, starts `pending` with `attempts 0` and `next_attempt_at == now` and no lease, and rejects a supplied non-canonical identity; the payload round-trips the code, lifetime and purpose (`EML-01`, `EML-18`).
-- [ ] T004 [P] [US1] Add `internal/email/outbox/repository_test.go` (Mongo, self-skip when `DATABASE_URI` is unreachable): `Create` writes one document; two concurrent `Claim` calls never return the same row; a live lease hides a row while `locked_until == now` is claimable; `Reschedule` increments `attempts` and moves `next_attempt_at`; `MarkPublished` sets `published_at` once and hides the row; `MarkTerminal` hides the row permanently; `Backlog` counts pending; a row whose `_id` is not canonical is rejected rather than published; `db.EnsureIndexes` created `email_outbox_status_next_attempt` and `email_outbox_published_at_ttl` (`EML-03`, `EML-04`, `EML-17`, `EML-18`).
-- [ ] T005 [P] [US1] Add `internal/email/relay/relay_test.go` with fake publisher and fake store: a confirmed publish marks published and reports `published`; a transient error reschedules with the tier backoff and reports `retried`; reaching the cap marks terminal and reports `failed`; a non-canonical identity marks terminal without calling the publisher; a crash-between (published but unmarked) republishes the same identity and converges; two relays never publish the same identity; an empty outbox is a no-op; a cancelled context returns after the in-flight batch (`EML-02`…`EML-05`, `EML-23`, `SC-001`, `SC-002`).
-- [ ] T006 [P] [US1] Add `internal/email/amqp/topology_test.go` (the declared entity set and each queue's arguments: quorum type, `x-message-ttl`, DLX and routing key, `x-max-length`, `x-overflow: reject-publish`) and `internal/email/amqp/broker_test.go` against a fake channel-shaped collaborator (a confirmed publish returns nil; `Ack=false`, a wait timeout, a transport error and a blocked connection are transient; a recorded `basic.return` is transient; the publishing carries `ContentType`, `DeliveryMode: Persistent` and `MessageId`) with no broker required (`EML-06`, `EML-07`, `EML-19`).
+### Tests for User Story 1 (write first; they must fail to compile until T007–T011 land — see Notes)
+
+- [ ] T003 [P] [US1] Add `internal/email/outbox/intent_test.go`: `NewIntent` produces a canonical UUID v7 that `idgen.Validate` accepts, starts `pending` with `attempts 0` and `next_attempt_at == now` and no lease, and rejects a supplied non-canonical identity with `ErrInvalidIntentID`; the payload round-trips the code, lifetime and purpose (`EML-01`, `EML-18`).
+- [ ] T004 [P] [US1] Add `internal/email/outbox/repository_test.go` (Mongo, self-skip when `DATABASE_URI` is unreachable): `Create` writes one document; two concurrent `Claim` calls never return the same row; a live lease hides a row while `locked_until == now` is claimable; `Reschedule` increments `attempts` and moves `next_attempt_at`; `MarkPublished` sets `published_at` once and hides the row; `MarkTerminal` hides the row permanently; `Backlog` counts pending; a row whose `_id` is not canonical is rejected with `ErrInvalidIntentID`; `db.EnsureIndexes` created `email_outbox_status_next_attempt` and `email_outbox_published_at_ttl` (`EML-03`, `EML-04`, `EML-17`, `EML-18`).
+- [ ] T005 [P] [US1] Add `internal/email/relay/relay_test.go` with the mockery `Publisher`, `Observer` and outbox `Repository` mocks: a confirmed publish marks published and reports `published`; a transient error reschedules with the tier backoff and reports `retried`; reaching the publication-attempt cap marks terminal and reports `failed`; a non-canonical identity marks terminal without calling the publisher; a crash-between (published but unmarked) republishes the same identity and converges; two relays never publish the same identity; an empty outbox is a no-op; a cancelled context returns after the in-flight batch (`EML-02`…`EML-05`, `EML-23`, `SC-001`, `SC-002`).
+- [ ] T006 [P] [US1] Add `internal/email/amqp/topology_test.go` (the declared entity set and each queue's arguments: quorum type, `x-message-ttl`, DLX and routing key, `email.otp`'s `x-max-length: 10000` and `x-overflow: reject-publish`) and `internal/email/amqp/broker_test.go` against a fake implementing the `channel` seam (a confirmed publish returns nil; `Ack=false`, a wait timeout, a transport error and a blocked connection are transient; a recorded `basic.return` is transient; the publishing carries `ContentType`, `DeliveryMode: Persistent` and `MessageId`) with no broker required (`EML-06`, `EML-07`, `EML-19`).
 
 ### Implementation for User Story 1
 
-- [ ] T007 [P] [US1] Add `internal/email/outbox/intent.go`: the `Intent` record (identity, recipient, template, `Payload`, `Status` and the `pending`/`published`/`failed` constants, `Attempts`, `NextAttemptAt`, `LockedUntil`, `LockedBy`, `CreatedAt`, `PublishedAt`, `LastError`) with the `bson` tags from `data-model.md` §1, and `NewIntent` generating a canonical UUID v7 via `shared/idgen` and validating a supplied one (`EML-01`, `EML-18`).
+- [ ] T007 [P] [US1] Add `internal/email/outbox/intent.go`: the `Intent` record (identity, recipient, template, `Payload`, `Status` and the `pending`/`published`/`failed` constants, `Attempts`, `NextAttemptAt`, `LockedUntil`, `LockedBy`, `CreatedAt`, `PublishedAt`, `LastError`) with the `bson` tags from `data-model.md` §1, `NewIntent` generating a canonical UUID v7 via `shared/idgen` and validating a supplied one, and `ErrInvalidIntentID` carrying the one-line "why" comment that cites the non-HTTP-layer precedent (`shared/idgen.ErrInvalidID`, `shared/db`) for using a bare sentinel instead of `apperr` (`EML-01`, `EML-18`, `EML-19`).
 - [ ] T008 [P] [US1] Add `internal/email/relay/publisher.go`: the `Publisher` port (`Publish(ctx, email.Message) error`), the `Observer` port (`PublishResult(result string)`, `BacklogPending(n int)`) and the relay `Config` (`PollInterval`, `Lease`, `Batch`, `ConfirmTimeout`, `MaxAttempts`, `Backoff`, `Now`, `ClaimerID`) with documented defaults matching `data-model.md` §5 (`EML-02`, `EML-07`, `EML-23`).
-- [ ] T009 [US1] Add `internal/email/outbox/repository.go`: `Create`, `Claim` (one conditional `findOneAndUpdate` per row with the filter and lease from `contracts/outbox.contract.md`, sorted by `next_attempt_at`, capped at `limit`), `MarkPublished`, `Reschedule`, `MarkTerminal`, `Backlog`, plus the `Repository` interface and `NewRepository`; validate every identity with `idgen.Validate`; add `legnaris/internal/email/outbox` to `.mockery.yaml` and run `make mocks`; extend `shared/db/indexes.go` with `email_outbox_status_next_attempt` and `email_outbox_published_at_ttl` (expireAfterSeconds = the retention default) (`EML-01`, `EML-03`, `EML-04`, `EML-17`, `EML-18`).
-- [ ] T010 [US1] Add `internal/email/relay/relay.go`: `Run(ctx)` polling on `PollInterval`, claiming a `Batch` with `Lease`, encoding each intent into an `email.Message` with `Attempt: 0`, publishing through the `Publisher`, marking published on success, rescheduling with the tier backoff (`5s/15s/1m/5m` schedule from `data-model.md` §5), marking terminal at the cap, reporting each outcome to the `Observer`, updating the backlog gauge, and returning after the in-flight batch on cancellation; add `legnaris/internal/email/relay` to `.mockery.yaml` and run `make mocks` (`EML-02`…`EML-06`, `EML-19`, `EML-23`).
-- [ ] T011 [P] [US1] Add `internal/email/amqp/broker.go` and `internal/email/amqp/topology.go`: `Dial(url)` via `amqp.DialConfig` with `Config.Recovery` and a `NotifyStateChange`/`NotifyBlocked` drain goroutine; `DeclareTopology()` declaring the entities in `data-model.md` §4 idempotently; `Publish(ctx, msg)` using `Confirm(false)` + `PublishWithDeferredConfirmWithContext(..., mandatory=true, ...)` + `WaitContext` and refusing to report success on a recorded `basic.return`; `Close()`; add the `github.com/rabbitmq/amqp091-go` dependency (`EML-06`, `EML-07`, `EML-19`).
-- [ ] T012 [US1] Add `internal/email/emailtest/recorder.go` (a recording `Sender` and `Publisher` with injectable failure sentinels) and `internal/email/emailtest/fixtures.go` (intent/message builders reused by the suites) (`EML-10`).
+- [ ] T009 [US1] Add `internal/email/outbox/repository.go`: `Create`, `Claim` (one conditional `findOneAndUpdate` per row with the filter and lease from `contracts/outbox.contract.md`, sorted by `next_attempt_at`, capped at `limit`), `MarkPublished`, `Reschedule`, `MarkTerminal`, `Backlog`, plus the `Repository` interface and `NewRepository`; validate every identity with `idgen.Validate` and return `ErrInvalidIntentID` for a non-canonical one; add `legnaris/internal/email/outbox` to `.mockery.yaml` and run `make mocks`; extend `shared/db/indexes.go` with `email_outbox_status_next_attempt` and `email_outbox_published_at_ttl` (expireAfterSeconds = the retention default) (`EML-01`, `EML-03`, `EML-04`, `EML-17`, `EML-18`).
+- [ ] T010 [US1] Add `internal/email/relay/relay.go`: `Run(ctx)` polling on `PollInterval`, claiming a `Batch` with `Lease`, encoding each intent into an `email.Message` with `Attempt: 0`, publishing through the `Publisher`, marking published on success, rescheduling with the tier backoff (`5s/15s/1m/5m`), marking terminal at the **publication-attempt** cap, reporting each outcome to the `Observer`, updating the backlog gauge, and returning after the in-flight batch on cancellation; add `legnaris/internal/email/relay` to `.mockery.yaml` and run `make mocks` (`EML-02`…`EML-06`, `EML-19`, `EML-23`).
+- [ ] T011 [P] [US1] Add `internal/email/amqp/channel.go` (the `channel` seam: a small interface over the channel operations the adapter uses, plus an injectable dial function value), `internal/email/amqp/topology.go` (the exchange, the quorum work queue with `x-max-length: 10000`/`x-overflow: reject-publish`/DLX, the three delay-tier queues with `x-message-ttl` and DLX back, and the DLQ) and `internal/email/amqp/broker.go` (`Dial(url)` via `amqp.DialConfig` with `Config.Recovery` and a `NotifyStateChange`/`NotifyBlocked` drain goroutine; `DeclareTopology()`; `Publish(ctx, msg)` using `Confirm(false)` + `PublishWithDeferredConfirmWithContext(..., mandatory=true, ...)` + `WaitContext`, refusing to report success on a recorded `basic.return`; `Close()`); add the `github.com/rabbitmq/amqp091-go` dependency (`EML-06`, `EML-07`, `EML-19`).
 
 **Checkpoint**: US1 is independently complete — a stored intention reaches the broker once, survives a crash, and the topology is declared; no other story is required.
 
@@ -95,19 +97,20 @@ subject; drive the real adapter against an `httptest` provider and assert 200 �
 timeout → `ErrTransient`, 400/422 → `ErrPermanent`, and the idempotency key on the request; assert
 the development adapter performs no network call; assert an unknown purpose is a permanent failure.
 
-### Tests for User Story 2 (write first; they must fail before T017–T020)
+### Tests for User Story 2 (write first; they must fail to compile until T016–T020 land — see Notes)
 
-- [ ] T013 [P] [US2] Add `internal/email/sender_test.go`: `ErrTransient` and `ErrPermanent` are distinct sentinels and an adapter error wrapping either is recognised by `errors.Is` (`EML-08`, `EML-12`).
-- [ ] T014 [P] [US2] Add `internal/email/template_test.go`: for `verify_email` and `login_otp`, the subject does not contain the code while both the text and HTML bodies contain the code and the lifetime; an unknown purpose returns `ErrUnknownTemplate` with an empty result; HTML-significant characters in the code are escaped in HTML and verbatim in text; rendering is deterministic; a leading-zero code is preserved (`EML-11`, `EML-13`, `EML-22`).
-- [ ] T015 [P] [US2] Add `internal/email/resend/transport_test.go` (status capture, body truncation, body close) and `internal/email/resend/sender_test.go` against an `httptest` provider: 200 → success and the provider received `Idempotency-Key` equal to the intention id; 429/5xx/timeout/network error → `errors.Is(err, ErrTransient)`; 400/422 → `errors.Is(err, ErrPermanent)`; empty `apiKey` or `from` → a build error (`EML-09`, `EML-10`, `EML-12`).
-- [ ] T016 [P] [US2] Add `internal/email/sender_log_test.go`: the development sender makes no network call, records a masked recipient, and never logs the code (`EML-10`, `EML-13`).
+- [ ] T012 [P] [US2] Add `internal/email/sender_test.go`: `ErrTransient` and `ErrPermanent` are distinct sentinels and an adapter error wrapping either is recognised by `errors.Is` (`EML-08`, `EML-12`).
+- [ ] T013 [P] [US2] Add `internal/email/template_test.go`: for `verify_email` and `login_otp`, the subject does not contain the code while both the text and HTML bodies contain the code and the lifetime; an unknown purpose returns `ErrUnknownTemplate` with an empty result; HTML-significant characters in the code are escaped in HTML and verbatim in text; rendering is deterministic; a leading-zero code is preserved (`EML-11`, `EML-13`, `EML-22`).
+- [ ] T014 [P] [US2] Add `internal/email/resend/transport_test.go` (status capture, body truncation, body close) and `internal/email/resend/sender_test.go` against an `httptest` provider: 200 → success and the provider received `Idempotency-Key` equal to the intention id; 429/5xx/timeout/network error → `errors.Is(err, ErrTransient)`; 400/422 → `errors.Is(err, ErrPermanent)`; empty `apiKey` or `from` → a build error (`EML-09`, `EML-10`, `EML-12`).
+- [ ] T015 [P] [US2] Add `internal/email/sender_log_test.go`: the development sender makes no network call, records the recipient masked as `a***@example.com` (first local-part character plus domain), and never logs the code (`EML-10`, `EML-13`).
 
 ### Implementation for User Story 2
 
-- [ ] T017 [P] [US2] Add `internal/email/sender.go`: the `Outbound` value (`IdempotencyKey`, `To`, `Subject`, `Text`, `HTML`), the `Sender` interface (`Send(ctx, Outbound) error`), and the `ErrTransient`/`ErrPermanent` sentinels; add `legnaris/internal/email` to `.mockery.yaml` (`Sender`, `Renderer`) and run `make mocks` (`EML-08`, `EML-12`).
-- [ ] T018 [US2] Add `internal/email/template.go` and `internal/email/templates/` (`verify_email.{subject.txt,body.txt,body.html}`, `login_otp.{subject.txt,body.txt,body.html}`, English copy, code-free subject): the `Renderer` interface, `Rendered`, `ErrUnknownTemplate`, and the `//go:embed`-backed implementation parsing the subject/text with `text/template` and the HTML body with `html/template` (`EML-11`, `EML-13`).
-- [ ] T019 [P] [US2] Add `internal/email/sender_log.go`: the development `LogSender` (structured line with the id, purpose and masked recipient; returns nil; no network) (`EML-10`, `EML-13`).
-- [ ] T020 [US2] Add `internal/email/resend/transport.go` (the `http.RoundTripper` mapping non-2xx to a typed status error) and `internal/email/resend/sender.go` (`New(apiKey, from, timeout)` building the SDK client via `resend.NewCustomClient` and sending with `SendWithOptions` + `SendEmailOptions{IdempotencyKey}`, mapping outcomes per `contracts/sender.contract.md`); add the `github.com/resend/resend-go/v4` dependency (`EML-09`, `EML-12`).
+- [ ] T016 [P] [US2] Add `internal/email/sender.go`: the `Outbound` value (`IdempotencyKey`, `To`, `Subject`, `Text`, `HTML`), the `Sender` interface (`Send(ctx, Outbound) error`), and the `ErrTransient`/`ErrPermanent` sentinels carrying the one-line "why" comment that cites the non-HTTP-layer precedent (`shared/idgen.ErrInvalidID`, `shared/db`) for a bare sentinel instead of `apperr`; add `legnaris/internal/email` (interface `Sender`) to `.mockery.yaml` and run `make mocks` (`EML-08`, `EML-12`, `EML-19`).
+- [ ] T017 [US2] Add `internal/email/template.go` and `internal/email/templates/` (`verify_email.{subject.txt,body.txt,body.html}`, `login_otp.{subject.txt,body.txt,body.html}`, English copy, code-free subject): the `Renderer` interface, `Rendered`, `ErrUnknownTemplate`, and the `//go:embed`-backed implementation parsing the subject/text with `text/template` and the HTML body with `html/template` (`EML-11`, `EML-13`).
+- [ ] T018 [P] [US2] Add `internal/email/sender_log.go`: the development `LogSender` (structured line with the id, purpose and recipient masked as `a***@example.com`; returns nil; no network; a built-in placeholder `From`) (`EML-10`, `EML-13`).
+- [ ] T019 [US2] Add `internal/email/resend/transport.go` (the `http.RoundTripper` mapping non-2xx to a typed status error) and `internal/email/resend/sender.go` (`New(apiKey, from, timeout) (*Sender, error)` rejecting an empty `apiKey` or empty `from`, building the SDK client via `resend.NewCustomClient` and sending with `SendWithOptions` + `SendEmailOptions{IdempotencyKey}`, mapping outcomes per `contracts/sender.contract.md`); add the `github.com/resend/resend-go/v4` dependency (`EML-09`, `EML-12`).
+- [ ] T020 [US2] Add `internal/email/emailtest/recorder.go` (a recording `Sender` with injectable failure sentinels), `internal/email/emailtest/fixtures.go` (message/outbound builders over `email.Message` and `email.Outbound` — never `outbox.Intent`, to keep the import inside US2) and `internal/email/emailtest/recorder_test.go` proving the recorder records and surfaces the injected sentinel (`EML-10`).
 
 **Checkpoint**: US2 is independently complete; US1 is untouched.
 
@@ -125,17 +128,17 @@ and assert each fails fast with a typed error and never polls; validate the depl
 and assert the broker has no published port and the relay is a separate service; observe the backlog
 and publish-outcome metrics.
 
-### Tests for User Story 3 (write first; they must fail before T024–T028)
+### Tests for User Story 3 (write first; they must fail to compile until T024–T028 land — see Notes)
 
 - [ ] T021 [P] [US3] Extend `shared/env/env_test.go` for every new variable: absent → default, blank → default, valid → parsed, invalid duration/int → default with a warning; `RequiredKeys()` stays exactly `DATABASE_URI`, `JWT_SECRET` (`EML-14`, `EML-16`).
-- [ ] T022 [P] [US3] Extend `deploy/compose_test.go`: each new key is present on the app/relay service as an optional interpolation; the `rabbitmq` service declares no `ports:` and a healthcheck; the `relay` service is defined separately and only `relay`/`worker`-style services depend on the broker; `env.RequiredKeys()` is unchanged (`EML-16`).
+- [ ] T022 [P] [US3] Extend `deploy/compose_test.go`: each new key is present on the app/relay service as an optional interpolation; the `rabbitmq` service declares no `ports:` and a healthcheck; the `relay` service is defined separately and only `relay` depends on the broker; `env.RequiredKeys()` is unchanged (`EML-16`).
 - [ ] T023 [P] [US3] Add `cmd/relay/main_test.go`: an empty and an unparseable `RABBITMQ_URL` make the process fail fast with `ErrBrokerUnavailable` before any poll; a cancelled context lets the in-flight batch finish and returns (`EML-15`, `EML-19`).
 
 ### Implementation for User Story 3
 
-- [ ] T024 [P] [US3] Extend `shared/env/env.go` with the `Variables` fields and default constants for `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SEND_TIMEOUT`, `RABBITMQ_URL`, `EMAIL_RELAY_POLL_INTERVAL`, `EMAIL_RELAY_LEASE`, `EMAIL_RELAY_BATCH`, `EMAIL_RELAY_CONFIRM_TIMEOUT`, `EMAIL_RELAY_MAX_ATTEMPTS`, `EMAIL_OUTBOX_RETENTION` and `EMAIL_RELAY_METRICS_ADDR`, using the existing lookup helpers; keep `RequiredKeys()` unchanged (`EML-14`).
-- [ ] T025 [P] [US3] Extend `internal/platform/metrics/metrics.go` with `email_outbox_backlog` (gauge), `email_publish_total{result}` (counter) and `email_dead_total` (counter), a `Handler() http.Handler` for a non-Echo server, and `PublishResult`/`BacklogPending` implementing the relay `Observer`; keep the API's `Register(e)` and existing collectors unchanged (`EML-23`).
-- [ ] T026 [US3] Add `cmd/relay/main.go`: load `shared/env`, fail fast with `ErrBrokerUnavailable` on a blank/unparseable `RABBITMQ_URL`, open Mongo and the broker, declare the topology, build the outbox store and the relay with the configured knobs, serve `metrics.Handler()` on `EMAIL_RELAY_METRICS_ADDR`, and run with SIGINT/SIGTERM draining (`EML-05`, `EML-15`, `EML-16`).
+- [ ] T024 [P] [US3] Extend `shared/env/env.go` with the `Variables` fields and default constants for `EMAIL_PROVIDER` (`log`), `RESEND_API_KEY` (empty), `EMAIL_FROM` (**empty**; the `resend` adapter requires it non-empty), `EMAIL_SEND_TIMEOUT` (`10s`), `RABBITMQ_URL` (empty; the relay requires it), `EMAIL_RELAY_POLL_INTERVAL` (`1s`), `EMAIL_RELAY_LEASE` (`30s`), `EMAIL_RELAY_BATCH` (`25`), `EMAIL_RELAY_CONFIRM_TIMEOUT` (`5s`), `EMAIL_RELAY_MAX_ATTEMPTS` (`5`), `EMAIL_OUTBOX_RETENTION` (`168h`) and `EMAIL_RELAY_METRICS_ADDR` (`:9100`), using the existing lookup helpers; keep `RequiredKeys()` unchanged (`EML-14`).
+- [ ] T025 [P] [US3] Extend `internal/platform/metrics/metrics.go` with `email_outbox_backlog` (gauge), `email_publish_total{result}` (counter) and `email_dead_total` (counter), a `Handler() http.Handler` for a non-Echo server, and `PublishResult`/`BacklogPending` implementing the relay `Observer` declared in T008; keep the API's `Register(e)` and existing collectors unchanged (`EML-23`).
+- [ ] T026 [US3] Add `cmd/relay/main.go` with a testable `run(ctx, cfg, deps) error` seam: load `shared/env`, fail fast with `ErrBrokerUnavailable` on a blank/unparseable `RABBITMQ_URL`, open Mongo and the broker, declare the topology, build the outbox store and the relay with the configured knobs, serve `metrics.Handler()` on `EMAIL_RELAY_METRICS_ADDR`, and run with SIGINT/SIGTERM draining (`EML-05`, `EML-15`, `EML-16`).
 - [ ] T027 [P] [US3] Extend `deploy/docker-compose.yml` (a `rabbitmq` service on `internal` only, no published ports, a `rabbitmq-diagnostics -q ping` healthcheck, a data volume; a `relay` service built from the same image with the broker/Mongo dependencies and the email/broker variables), `deploy/.env.example` (the documented optional variables) and `deploy/prometheus/prometheus.yml` (scrape the relay listener) (`EML-16`).
 - [ ] T028 [P] [US3] Extend `Dockerfile` (build `/relay` from `./cmd/relay` into the runtime image beside `/app` and `/canonicalize-emails`) and `Makefile` (add the new optional variables to `APP_ENV_KEYS` and a `relay` target) (`EML-16`).
 
@@ -161,27 +164,32 @@ and publish-outcome metrics.
 
 - **Setup (T001)**: no dependencies; blocks nothing technically but must be run first to establish a clean baseline.
 - **Foundational (T002)**: depends on T001. Blocks US1 and US2 (both consume the message contract). US3 does not consume it.
-- **US1 (T003–T012)**: depends on T001 and T002. Independent of US2 and US3.
-- **US2 (T013–T020)**: depends on T001 and T002. Independent of US1 and US3.
-- **US3 (T021–T028)**: depends on T001; T026 additionally depends on T010, T011, T024 and T025.
+- **US1 (T003–T011)**: depends on T001 and T002. Independent of US2 and US3.
+- **US2 (T012–T020)**: depends on T001 and T002. Independent of US1 and US3.
+- **US3 (T021–T028)**: depends on T001; T025 also depends on T008 (it implements the relay `Observer`), and T026 additionally depends on T010, T011, T024 and T025.
 - **Polish (T029–T033)**: depends on every story in scope; T031/T032 need all implemented tasks.
 
 ### Within Each Story
 
-- Tests (and the interfaces they compile against) come before the behavior they cover; a test task must be seen failing before its implementation task completes.
-- Record → store → relay → broker adapter (US1); port → templates → adapters (US2); config/metrics → process → deployment (US3).
+- Tests come before the behavior they cover. The story test tasks are written against the interfaces
+  and types declared by the implementation tasks **in the same phase**; until those declarations
+  land the tests do not compile, and that compilation failure is the recorded "fails first" evidence
+  — there is no separate seam task.
+- Record → store → relay → broker adapter (US1); port → templates → adapters → recorder (US2);
+  config/metrics → process → deployment (US3).
 - Every task ships its tests in the same commit; no assertion is weakened to make a gate pass.
 
 ### User Story Dependency Graph
 
 ```text
-T001 ─┬── T002 ─┬── T003/T004/T005/T006 → T007 → T009 → T010 → T012   (US1)
+T001 ─┬── T002 ─┬── T003/T004/T005/T006 → T007 → T009 → T010   (US1)
       │         │                         T008 ─┘
-      │         │                         T011                         (US1)
-      │         └── T013/T014/T015/T016 → T017 → T018 → T020           (US2)
-      │                                    T019                        (US2)
-      ├── T021/T022/T023 → T024 → T026 → T027/T028                    (US3)
-      │                    T025 ─┘
+      │         │                         T011                (US1)
+      │         └── T012/T013/T014/T015 → T016 → T017 → T019   (US2)
+      │                                    T018 ─┘
+      │                                    T020                (US2)
+      ├── T021/T022/T023 → T024 → T026 → T027/T028            (US3)
+      │                    T025 ─┘   (T025 also needs T008)
       └── T010/T011 → T026
 T030 → T031 → T032 → T033
 ```
@@ -205,20 +213,21 @@ T005 relay table            (internal/email/relay/relay_test.go)
 T006 topology/broker table  (internal/email/amqp/*_test.go)
         ↓ after the tests are written
 T007 (intent.go) ─┐
-T008 (publisher.go)┤→ T009 (repository.go + indexes + mocks) → T010 (relay.go) → T012 (emailtest)
+T008 (publisher.go)┤→ T009 (repository.go + indexes + mocks) → T010 (relay.go)
 T011 (amqp/*.go)  ─┘ (independent of T009/T010; depends only on T002)
 ```
 
 ### User Story 2
 
 ```text
-T013 port table            (internal/email/sender_test.go)
-T014 template table        (internal/email/template_test.go)
-T015 resend table          (internal/email/resend/*_test.go)
-T016 dev-sender table      (internal/email/sender_log_test.go)
+T012 port table            (internal/email/sender_test.go)
+T013 template table        (internal/email/template_test.go)
+T014 resend table          (internal/email/resend/*_test.go)
+T015 dev-sender table      (internal/email/sender_log_test.go)
         ↓
-T017 (sender.go + mocks) → T018 (template.go + templates/) → T020 (resend/*.go)
-                           T019 (sender_log.go)
+T016 (sender.go + Sender mock) → T017 (template.go + templates/) → T019 (resend/*.go)
+                                 T018 (sender_log.go)
+                                 T020 (emailtest/recorder.go + fixtures.go + recorder_test.go)
 ```
 
 ### User Story 3
@@ -238,8 +247,8 @@ T025 (metrics)─┴→ T026 (cmd/relay/main.go) → T027 (compose/.env/promethe
 
 ### MVP First (User Story 1 only)
 
-1. Complete T001, T002 and Phase 3 (T003–T012).
-2. **STOP and VALIDATE**: run `go test ./internal/email/...` and the quickstart §4 scenario.
+1. Complete T001, T002 and Phase 3 (T003–T011).
+2. **STOP and VALIDATE**: run `go test ./internal/email/outbox/... ./internal/email/relay/... ./internal/email/amqp/...` and the quickstart §4 scenario.
 3. Deploy/demo: US1 alone proves no email is lost with no broker running — the program plan's core
    reliability fix.
 
@@ -251,16 +260,16 @@ the only path an email actually leaves the system.
 1. T001 → clean baseline.
 2. T002 → the wire contract is frozen.
 3. US1 → durable outbox + relay + topology.
-4. US2 → sender port + adapters + templates.
+4. US2 → sender port + adapters + templates + recorder.
 5. US3 → optional configuration + deployment surface + relay process.
 6. Polish → docs, decision record, full gates, quickstart validation.
 
 ### Parallel Team Strategy
 
 - One developer takes US1 (outbox + relay + broker), another takes US2 (port + templates +
-  adapters) right after T002; they touch disjoint packages.
+  adapters) right after T002; they touch disjoint packages and do not import each other's doubles.
 - One developer takes US3 (config + deployment) in parallel; T026 serialises behind US1's T010/T011.
-- Within US1, one developer owns the outbox/relay half (T007–T010, T012) and another the broker half
+- Within US1, one developer owns the outbox/relay half (T007–T010) and another the broker half
   (T011).
 
 ---
@@ -270,27 +279,27 @@ the only path an email actually leaves the system.
 | Requirement | Task(s) | Independent proof |
 |---|---|---|
 | `EML-01` | T003, T007, T009 | `Create` writes before acceptance; the relay-only write path |
-| `EML-02` | T005, T008, T010, T019 | success marks published only after a confirm |
+| `EML-02` | T005, T008, T010 | success marks published only after a confirm |
 | `EML-03` | T004, T009, T010 | unique claim under two callers; lease expiry re-claim |
-| `EML-04` | T004, T009, T010 | backoff on failure; terminal at the cap |
+| `EML-04` | T004, T009, T010 | backoff on failure; terminal at the **publication-attempt** cap |
 | `EML-05` | T005, T010, T026 | poll loop; cancellation drains the in-flight batch |
 | `EML-06` | T006, T011 | the declared topology and its arguments; declared before the first publish |
 | `EML-07` | T002, T005, T006, T011 | the message contract; mandatory publish + return detection |
-| `EML-08` | T013, T017 | one port; adapter selection |
-| `EML-09` | T015, T020 | idempotency key + timeout + status mapping on `httptest` |
-| `EML-10` | T012, T016, T019 | recorder and dev sender; no provider call in a unit test |
-| `EML-11` | T014, T018 | per-purpose subject/bodies; code-free subject; unknown purpose |
-| `EML-12` | T013, T015, T020 | transient vs permanent sentinels |
-| `EML-13` | T014, T016, T019 | code never in a subject/log/error; masked recipient |
+| `EML-08` | T012, T016 | one port; adapter selection |
+| `EML-09` | T014, T019 | idempotency key + timeout + status mapping on `httptest` |
+| `EML-10` | T015, T018, T020 | recorder and dev sender; no provider call in a unit test |
+| `EML-11` | T013, T017 | per-purpose subject/bodies; code-free subject; unknown purpose |
+| `EML-12` | T012, T014, T019 | transient vs permanent sentinels |
+| `EML-13` | T013, T015, T018 | code never in a subject/log/error; recipient masked as `a***@example.com` |
 | `EML-14` | T021, T024 | optional variables with defaults; required set unchanged |
 | `EML-15` | T023, T026 | fail fast on a blank/invalid broker URL |
 | `EML-16` | T022, T024, T026, T027, T028 | broker not published; relay is separate; app starts without them |
 | `EML-17` | T004, T009 | the two indexes; retention touches published rows only |
-| `EML-18` | T002, T003, T004, T007, T009 | canonical UUID v7; non-canonical rejected |
-| `EML-19` | T006, T010, T011, T023, T026 | typed sentinels and the relay's exact action |
+| `EML-18` | T002, T003, T004, T007, T009 | canonical UUID v7; non-canonical → `ErrInvalidIntentID` |
+| `EML-19` | T006, T007, T010, T011, T016, T023, T026 | typed sentinels and the relay's exact action |
 | `EML-20` | T031 (and every task's tests) | `make test-race` clean; edge cases before happy path |
 | `EML-21` | T031 (and every source task) | English-only identifiers, comments, logs, templates |
-| `EML-22` | T002, T014 | golden message file; per-purpose rendering assertions |
+| `EML-22` | T002, T013 | golden message file; per-purpose rendering assertions |
 | `EML-23` | T005, T008, T010, T025 | backlog gauge + publish outcomes via `Observer` |
 
 **Coverage**: 23 requirements, 23 mapped to at least one task, 0 unmapped.
@@ -302,8 +311,8 @@ the only path an email actually leaves the system.
 | `SC-001` | T005, T010, T032, T033 |
 | `SC-002` | T004, T005, T032 |
 | `SC-003` | T002, T006, T011, T032 |
-| `SC-004` | T013, T015, T016, T020, T032 |
-| `SC-005` | T014, T016, T019, T032 |
+| `SC-004` | T012, T014, T015, T019, T032 |
+| `SC-005` | T013, T015, T018, T032 |
 | `SC-006` | T021, T022, T024, T032 |
 | `SC-007` | T006, T022, T027, T033 |
 | `SC-008` | T031, every boundary assertion |
@@ -315,8 +324,17 @@ the only path an email actually leaves the system.
 - `[P]` tasks touch different files and have no dependency on an incomplete task.
 - Tests are not optional in this repository: each implementation task lands with the tests that
   prove it, in the same commit, edge cases first.
+- **Tests-first evidence.** Each story's test tasks precede its implementation tasks and, by design,
+  do not compile until the interfaces/types those tasks declare exist; the recorded "fails first"
+  evidence for a test task is that compilation failure. No separate seam task is used.
+- **Story independence.** US1's relay suite uses the mockery `Publisher`/`Observer`/`Repository`
+  mocks and never imports US2's `emailtest`; `emailtest` lives entirely in US2 and its fixtures use
+  only `email.Message`/`email.Outbound` (never `outbox.Intent`).
+- **Bare sentinels.** `ErrTransient`, `ErrPermanent`, `ErrUnknownTemplate` and `ErrInvalidIntentID`
+  are declared with `errors.New` (not `apperr`) and each carries the one-line "why" comment citing
+  `shared/idgen`/`shared/db`; the email domain is a non-HTTP layer with no boundary to map.
 - Two new third-party dependencies are introduced, each by the task that imports it (`amqp` in T011,
-  `resend` in T020); no other dependency is added, and no new required environment variable appears
+  `resend` in T019); no other dependency is added, and no new required environment variable appears
   (`EML-14`).
 - The API boot path never imports `internal/email`: `cmd/relay` is a separate binary (`EML-16`).
 - Commits are local. Do not push, and never print, log or commit a token.
