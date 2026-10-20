@@ -8,7 +8,14 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"legnaris/shared/logger"
+)
+
+// Stored field names shared by every filter and projection in this file.
+const (
+	fieldID    = "_id"
+	fieldEmail = "email"
 )
 
 type Repository interface {
@@ -49,11 +56,11 @@ func (r *RepositoryImpl) Create(ctx context.Context, user *User) error {
 }
 
 func (r *RepositoryImpl) FetchByEmail(ctx context.Context, email string) (*User, error) {
-	return r.fetchOne(ctx, bson.D{{Key: "email", Value: email}})
+	return r.fetchOne(ctx, bson.D{{Key: fieldEmail, Value: email}})
 }
 
 func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*User, error) {
-	return r.fetchOne(ctx, bson.D{{Key: "_id", Value: id}})
+	return r.fetchOne(ctx, bson.D{{Key: fieldID, Value: id}})
 }
 
 // MarkEmailVerified records the first verification instant for an existing
@@ -64,7 +71,7 @@ func (r *RepositoryImpl) MarkEmailVerified(ctx context.Context, id string, at ti
 	result, err := r.collection.UpdateOne(
 		ctx,
 		bson.D{
-			{Key: "_id", Value: id},
+			{Key: fieldID, Value: id},
 			{Key: "email_verified_at", Value: nil},
 		},
 		bson.D{{Key: "$set", Value: bson.D{
@@ -100,4 +107,61 @@ func (r *RepositoryImpl) fetchOne(ctx context.Context, filter bson.D) (*User, er
 		return nil, fmt.Errorf("fetch user: %w", err)
 	}
 	return &result, nil
+}
+
+// ListEmailIdentities reads every account's identifier and stored address,
+// projecting nothing else, so the migration never loads credential material
+// (PRQ-11).
+func (r *RepositoryImpl) ListEmailIdentities(ctx context.Context) ([]EmailIdentity, error) {
+	cursor, err := r.collection.Find(ctx, bson.D{}, options.Find().SetProjection(bson.D{
+		{Key: fieldID, Value: 1},
+		{Key: fieldEmail, Value: 1},
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("list email identities: %w", err)
+	}
+
+	var documents []struct {
+		ID    string `bson:"_id"`
+		Email string `bson:"email"`
+	}
+	if err := cursor.All(ctx, &documents); err != nil {
+		return nil, fmt.Errorf("list email identities: %w", err)
+	}
+
+	identities := make([]EmailIdentity, 0, len(documents))
+	for _, document := range documents {
+		identities = append(identities, EmailIdentity{ID: document.ID, Email: document.Email})
+	}
+	return identities, nil
+}
+
+// UpdateEmail rewrites one row's stored address and updated_at, matching by
+// identifier so no other field changes and no document is ever created
+// (PRQ-11).
+func (r *RepositoryImpl) UpdateEmail(ctx context.Context, id string, email string, updatedAt time.Time) error {
+	result, err := r.collection.UpdateOne(
+		ctx,
+		bson.D{{Key: fieldID, Value: id}},
+		bson.D{{Key: "$set", Value: bson.D{
+			{Key: fieldEmail, Value: email},
+			{Key: "updated_at", Value: updatedAt},
+		}}},
+	)
+	if err != nil {
+		return fmt.Errorf("update email: %w", err)
+	}
+	if result.MatchedCount == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// NewEmailMigrationStore exposes the migration seam without widening the
+// Repository contract consumed by the API (PRQ-11).
+func NewEmailMigrationStore(db *mongo.Database, log logger.StructuredLogger) EmailMigrationStore {
+	return &RepositoryImpl{
+		collection: db.Collection("users"),
+		logger:     log,
+	}
 }

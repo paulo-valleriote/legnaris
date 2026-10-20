@@ -31,6 +31,22 @@ func newUserRepository(t *testing.T) user.Repository {
 func newUserRepositoryFixture(t *testing.T) (user.Repository, *mongo.Collection) {
 	t.Helper()
 
+	mdb := newUserRepositoryDatabase(t)
+	return user.NewRepository(mdb, logger.NewLogger(slog.LevelError)), mdb.Collection("users")
+}
+
+// newEmailMigrationFixture exposes the operator seam over the same isolated
+// database, so the migration tests can inspect persisted documents.
+func newEmailMigrationFixture(t *testing.T) (user.EmailMigrationStore, *mongo.Collection) {
+	t.Helper()
+
+	mdb := newUserRepositoryDatabase(t)
+	return user.NewEmailMigrationStore(mdb, logger.NewLogger(slog.LevelError)), mdb.Collection("users")
+}
+
+func newUserRepositoryDatabase(t *testing.T) *mongo.Database {
+	t.Helper()
+
 	log := logger.NewLogger(slog.LevelError)
 	cfg := env.NewEnv(log)
 
@@ -51,7 +67,7 @@ func newUserRepositoryFixture(t *testing.T) (user.Repository, *mongo.Collection)
 	})
 
 	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
-	return user.NewRepository(mdb, log), mdb.Collection("users")
+	return mdb
 }
 
 func sampleUser() *user.User {
@@ -63,6 +79,16 @@ func sampleUser() *user.User {
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
+}
+
+// rawTime reads a stored date field from a raw document. Decoding into bson.M
+// keeps MongoDB dates as bson.DateTime, so assertions compare the instant, not
+// the Go representation.
+func rawTime(t *testing.T, raw bson.M, field string) time.Time {
+	t.Helper()
+	stored, ok := raw[field].(interface{ Time() time.Time })
+	require.True(t, ok, "%s must decode as a date", field)
+	return stored.Time()
 }
 
 func TestUserRepository(t *testing.T) {
@@ -154,6 +180,7 @@ func TestUserRepository_MarkEmailVerified(t *testing.T) {
 		repo, collection := newUserRepositoryFixture(t)
 		u := sampleUser()
 		require.NoError(t, repo.Create(ctx, u))
+		before := rawDocument(t, collection, u.ID)
 
 		require.NoError(t, repo.MarkEmailVerified(ctx, u.ID, verifiedAt))
 
@@ -162,9 +189,9 @@ func TestUserRepository_MarkEmailVerified(t *testing.T) {
 		assert.Equal(t, u.Email, raw["email"])
 		assert.Equal(t, u.Username, raw["username"])
 		assert.Equal(t, u.PasswordHash, raw["password_hash"])
-		assert.Equal(t, u.CreatedAt, raw["created_at"], "creation time must never move")
-		assert.Equal(t, verifiedAt, raw["email_verified_at"])
-		assert.Equal(t, verifiedAt, raw["updated_at"])
+		assert.Equal(t, before["created_at"], raw["created_at"], "creation time must never move")
+		assert.True(t, verifiedAt.Equal(rawTime(t, raw, "email_verified_at")))
+		assert.True(t, verifiedAt.Equal(rawTime(t, raw, "updated_at")))
 	})
 
 	t.Run("Edge: a second call is a no-op that preserves the first timestamp and updated_at", func(t *testing.T) {
@@ -179,7 +206,7 @@ func TestUserRepository_MarkEmailVerified(t *testing.T) {
 		require.NoError(t, repo.MarkEmailVerified(ctx, u.ID, later))
 
 		after := rawDocument(t, collection, u.ID)
-		assert.Equal(t, verifiedAt, after["email_verified_at"], "the first verification instant wins")
+		assert.True(t, verifiedAt.Equal(rawTime(t, after, "email_verified_at")), "the first verification instant wins")
 		assert.Equal(t, before["updated_at"], after["updated_at"], "a no-op must not touch updated_at")
 		assert.Equal(t, before, after)
 	})
@@ -217,5 +244,96 @@ func TestUserRepository_MarkEmailVerified(t *testing.T) {
 		}
 		assert.Equal(t, 1, matches, "the stored value must be one of the submitted instants")
 		assert.Equal(t, raw["email_verified_at"], raw["updated_at"])
+	})
+}
+
+// TestUserRepository_EmailMigration covers the operator seam: the listing reads
+// every row's identifier and address, and the update touches only email and
+// updated_at without creating a document (PRQ-11).
+func TestUserRepository_EmailMigration(t *testing.T) {
+	ctx := context.Background()
+	migratedAt := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+
+	rawDocument := func(t *testing.T, collection *mongo.Collection, id string) bson.M {
+		t.Helper()
+		var raw bson.M
+		require.NoError(t, collection.FindOne(ctx, bson.M{"_id": id}).Decode(&raw))
+		return raw
+	}
+
+	t.Run("Edge: an empty collection lists no rows", func(t *testing.T) {
+		store, _ := newEmailMigrationFixture(t)
+
+		identities, err := store.ListEmailIdentities(ctx)
+		require.NoError(t, err)
+		assert.Empty(t, identities)
+	})
+
+	t.Run("Happy path: listing returns every row's identifier and address", func(t *testing.T) {
+		store, collection := newEmailMigrationFixture(t)
+
+		first := sampleUser()
+		second := sampleUser()
+		second.ID = "01900000-0000-7000-8000-000000000002"
+		second.Email = "Second@Example.COM"
+		_, err := collection.InsertOne(ctx, first)
+		require.NoError(t, err)
+		_, err = collection.InsertOne(ctx, second)
+		require.NoError(t, err)
+
+		identities, err := store.ListEmailIdentities(ctx)
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []user.EmailIdentity{
+			{ID: first.ID, Email: first.Email},
+			{ID: second.ID, Email: second.Email},
+		}, identities)
+	})
+
+	t.Run("Happy path: the update sets only email and updated_at", func(t *testing.T) {
+		store, collection := newEmailMigrationFixture(t)
+
+		u := sampleUser()
+		_, err := collection.InsertOne(ctx, u)
+		require.NoError(t, err)
+		before := rawDocument(t, collection, u.ID)
+
+		const canonical = "canonical@example.com"
+		require.NoError(t, store.UpdateEmail(ctx, u.ID, canonical, migratedAt))
+
+		after := rawDocument(t, collection, u.ID)
+		assert.Equal(t, canonical, after["email"])
+		assert.True(t, migratedAt.Equal(rawTime(t, after, "updated_at")))
+		assert.Equal(t, u.ID, after["_id"], "the identifier must never change")
+		assert.Equal(t, u.Username, after["username"])
+		assert.Equal(t, u.PasswordHash, after["password_hash"])
+		assert.Equal(t, before["created_at"], after["created_at"])
+
+		_, verifiedPresent := after["email_verified_at"]
+		assert.False(t, verifiedPresent, "the migration must not add a verification timestamp")
+	})
+
+	t.Run("Edge: the updated row is visible to the next listing", func(t *testing.T) {
+		store, collection := newEmailMigrationFixture(t)
+
+		u := sampleUser()
+		_, err := collection.InsertOne(ctx, u)
+		require.NoError(t, err)
+		require.NoError(t, store.UpdateEmail(ctx, u.ID, "canonical@example.com", migratedAt))
+
+		identities, err := store.ListEmailIdentities(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, []user.EmailIdentity{{ID: u.ID, Email: "canonical@example.com"}}, identities)
+	})
+
+	t.Run("Error: an unknown identifier reports not found and creates nothing", func(t *testing.T) {
+		store, collection := newEmailMigrationFixture(t)
+
+		const unknownID = "01900000-0000-7000-8000-00000000dead"
+		err := store.UpdateEmail(ctx, unknownID, "canonical@example.com", migratedAt)
+		require.ErrorIs(t, err, user.ErrUserNotFound)
+
+		count, err := collection.CountDocuments(ctx, bson.M{})
+		require.NoError(t, err)
+		assert.Zero(t, count, "a missing identifier must never become an upsert")
 	})
 }
