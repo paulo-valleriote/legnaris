@@ -40,3 +40,22 @@ packages:
       TokenManager: {}
       RefreshTokenGenerator: {}
       Observer: {}
+  legnaris/internal/email/outbox:
+    config:
+      dir: internal/email/outbox/mocks
+      outpkg: mocks
+    interfaces:
+      Repository: {}
+  legnaris/internal/email/relay:
+    config:
+      dir: internal/email/relay/mocks
+      outpkg: mocks
+    interfaces:
+      Publisher: {}
+      Observer: {}
+  legnaris/internal/email:
+    config:
+      dir: internal/email/mocks
+      outpkg: mocks
+    interfaces:
+      Sender: {}
