@@ -1056,6 +1056,194 @@ func TestService_Refresh(t *testing.T) {
 	})
 }
 
+// TestService_RefreshVerificationGate covers the renewal gate: with the gate
+// enabled, an account that never verified its address cannot renew — the
+// credential's family is revoked and nothing is issued — while a verified
+// account and a disabled gate keep rotating exactly as before (TFA-06, TFA-12,
+// SC-003).
+func TestService_RefreshVerificationGate(t *testing.T) {
+	ctx := context.Background()
+
+	activeToken := func() *auth.RefreshToken {
+		return &auth.RefreshToken{
+			ID:        validTokenID,
+			UserID:    validUserID,
+			FamilyID:  validFamily,
+			ExpiresAt: time.Now().Add(time.Hour),
+		}
+	}
+
+	verifiedAt := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+	verifiedAccount := func() *user.User {
+		return &user.User{ID: validUserID, Email: testEmail, Username: "player", EmailVerifiedAt: &verifiedAt}
+	}
+	unverifiedAccount := func() *user.User {
+		return &user.User{ID: validUserID, Email: testEmail, Username: "player"}
+	}
+
+	t.Run("Error: an unverified account is refused, the family is revoked and nothing is issued", func(t *testing.T) {
+		service, m := newGatedAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidRefreshToken, appErr.Message)
+
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.generator.AssertNotCalled(t, "Generate")
+		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+		m.refreshTokens.AssertNotCalled(t, "RevokeByID", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Happy path: a verified account still rotates in the same family", func(t *testing.T) {
+		service, m := newGatedAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(verifiedAccount(), nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "new-access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
+		m.refreshTokens.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(token *auth.RefreshToken) bool {
+				return token.UserID == validUserID && token.FamilyID == validFamily
+			})).
+			Return(nil).
+			Once()
+		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(true, nil).Once()
+
+		session, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		require.NoError(t, err)
+		assert.Equal(t, "new-access", session.AccessToken)
+		assert.Equal(t, validUserID, session.UserID)
+		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: the disabled gate rotates an unverified account exactly as before", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "new-access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(true, nil).Once()
+
+		session, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		require.NoError(t, err)
+		assert.Equal(t, "new-access", session.AccessToken)
+		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: the second attempt after the refusal fails again and mints nothing", func(t *testing.T) {
+		service, m := newGatedAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		revoked := activeToken()
+		revoked.Revoked = true
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+
+		// The family is gone, so the credential now reads as revoked and the
+		// reuse rule decides, before the account is ever consulted.
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(revoked, nil).Once()
+		m.observer.EXPECT().RefreshReuseDetected().Return().Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
+
+		_, err = service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: a missing account keeps deciding before the gate", func(t *testing.T) {
+		service, m := newGatedAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(nil, user.ErrUserNotFound).Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+	})
+
+	t.Run("Edge: an expired credential keeps deciding before the gate", func(t *testing.T) {
+		service, m := newGatedAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		expired := activeToken()
+		expired.ExpiresAt = time.Now().Add(-time.Minute)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(expired, nil).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+		m.users.AssertNotCalled(t, "FetchByID", mock.Anything, mock.Anything)
+		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: a failed revocation on the refusal is an internal failure and issues nothing", func(t *testing.T) {
+		service, m := newGatedAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(errors.New("mongo down")).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeInternal)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInternal, appErr.Message)
+
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: two concurrent renewals of an unverified account issue zero credentials", func(t *testing.T) {
+		service, m := newGatedAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Times(2)
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Times(2)
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Times(2)
+
+		errs := make([]error, 2)
+		var wg sync.WaitGroup
+		for i := range errs {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				_, errs[index] = service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+			}(i)
+		}
+		wg.Wait()
+
+		for i := range errs {
+			assertAppErr(t, errs[i], apperr.CodeUnauthorized)
+		}
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.generator.AssertNotCalled(t, "Generate")
+		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+	})
+}
+
 func TestService_Logout(t *testing.T) {
 	ctx := context.Background()
 

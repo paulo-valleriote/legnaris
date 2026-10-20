@@ -309,27 +309,9 @@ func (s *ServiceImpl) spendPasswordWork(password string) {
 // against the resolved family before any mutation, and rotates both the refresh
 // and CSRF values together (AUTH-03, AUTH-10, AUTH-11, AUTH-12).
 func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error) {
-	if cmd.RefreshToken == "" {
-		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgRefreshTokenRequired, nil)
-	}
-
-	stored, err := s.refreshTokens.FetchByHash(ctx, HashRefreshToken(cmd.RefreshToken))
+	stored, err := s.resolveCredential(ctx, cmd)
 	if err != nil {
-		if errors.Is(err, ErrRefreshTokenNotFound) {
-			return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, err)
-		}
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
-	}
-
-	if err := s.csrf.Verify(cmd.CSRFToken, stored.FamilyID); err != nil {
-		return nil, apperr.NewError(apperr.CodeForbidden, MsgCSRFInvalid, err)
-	}
-
-	if stored.Revoked {
-		return nil, s.reuseDetected(ctx, stored)
-	}
-	if !s.clock.Now().Before(stored.ExpiresAt) {
-		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
+		return nil, err
 	}
 
 	// Renewal must not survive the account it names: load it after the existing
@@ -344,6 +326,11 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 			return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, err)
 		}
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	// The renewal gate: a session minted before the rule cannot outlive it.
+	if err := s.verificationGate(ctx, account, stored.FamilyID); err != nil {
+		return nil, err
 	}
 
 	access, err := s.tokens.Issue(account.ID)
@@ -382,6 +369,58 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 
 	s.log.Info(ctx, "refresh rotated", logger.Attribute{Key: attrUserID, Value: account.ID})
 	return session, nil
+}
+
+// resolveCredential applies the credential rules to the presented cookie
+// credential, in the order they decide: the credential must be present, known,
+// carry a valid CSRF token for its family, not be revoked and not be expired.
+// An unknown credential is refused before the CSRF token is even looked at
+// (AUTH-03, AUTH-10, AUTH-11, AUTH-12).
+func (s *ServiceImpl) resolveCredential(ctx context.Context, cmd RefreshCommand) (*RefreshToken, error) {
+	if cmd.RefreshToken == "" {
+		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgRefreshTokenRequired, nil)
+	}
+
+	stored, err := s.refreshTokens.FetchByHash(ctx, HashRefreshToken(cmd.RefreshToken))
+	if err != nil {
+		if errors.Is(err, ErrRefreshTokenNotFound) {
+			return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, err)
+		}
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	if err := s.csrf.Verify(cmd.CSRFToken, stored.FamilyID); err != nil {
+		return nil, apperr.NewError(apperr.CodeForbidden, MsgCSRFInvalid, err)
+	}
+
+	if stored.Revoked {
+		return nil, s.reuseDetected(ctx, stored)
+	}
+	if !s.clock.Now().Before(stored.ExpiresAt) {
+		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
+	}
+
+	return stored, nil
+}
+
+// verificationGate refuses the renewal of an account that never verified its
+// address while the rollout gate is enabled: the presented credential's family
+// is revoked and the uniform invalid-credential outcome is returned, so the
+// refusal is indistinguishable from the missing-account branch and the caller
+// recovers by signing in (TFA-06).
+func (s *ServiceImpl) verificationGate(ctx context.Context, account *user.User, familyID string) error {
+	if !s.cfg.RequireEmailVerification || account.EmailVerifiedAt != nil {
+		return nil
+	}
+
+	if revokeErr := s.refreshTokens.RevokeFamily(ctx, familyID); revokeErr != nil {
+		return apperr.NewError(apperr.CodeInternal, MsgInternal, revokeErr)
+	}
+
+	s.log.Warn(ctx, "refresh refused: the account never verified its address",
+		logger.Attribute{Key: attrUserID, Value: account.ID},
+	)
+	return apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 }
 
 // Logout revokes the resolved session's family. A missing or unknown credential

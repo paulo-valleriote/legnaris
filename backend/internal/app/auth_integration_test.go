@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/response"
 
 	"github.com/stretchr/testify/assert"
@@ -163,6 +164,42 @@ func TestIntegration_GatedSignIn(t *testing.T) {
 		require.Equal(t, http.StatusConflict, dupRec.Code, dupRec.Body.String())
 		assert.Empty(t, dupRec.Header().Get("Set-Cookie"))
 		assert.Equal(t, before, outboxCount(t, mdb), "a refused registration sends nothing")
+	})
+}
+
+// TestIntegration_RenewalGate covers the renewal gate end to end: a session
+// minted before the gate was enabled cannot renew once the gate is on — the
+// renewal is refused with no credential and the family is revoked — and the
+// same session renews normally while the gate is off (TFA-06, SC-003).
+func TestIntegration_RenewalGate(t *testing.T) {
+	// The gated stack is built first: building the legacy stack drops the
+	// collections, so this order keeps the minted session's rows alive.
+	gated, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "true"})
+	legacy, _, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "false"})
+
+	const email = "renewal-gate@example.com"
+	cookies := registerAuthUser(t, legacy, email, "renewal-gate")
+
+	t.Run("Edge: the disabled gate renews the session", func(t *testing.T) {
+		rec := authPost(t, legacy, "/auth/refresh", cookies, "")
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		assert.NotEmpty(t, cookiesFrom(t, rec).refresh)
+	})
+
+	t.Run("Error: the enabled gate refuses the renewal and revokes the family", func(t *testing.T) {
+		rec := authPost(t, gated, "/auth/refresh", cookies, "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeUnauthorized), body.Error.Code)
+		assert.Equal(t, auth.MsgInvalidRefreshToken, body.Error.Message)
+
+		count, err := mdb.Collection("refresh_tokens").
+			CountDocuments(context.Background(), bson.M{"family_id": bson.M{"$exists": true}, "revoked": false})
+		require.NoError(t, err)
+		assert.Zero(t, count, "the refused renewal leaves no live credential behind")
 	})
 }
 

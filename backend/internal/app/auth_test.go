@@ -558,6 +558,26 @@ func TestAuthController_RefreshAccountFailures(t *testing.T) {
 		assert.NotContains(t, rec.Body.String(), "access_token")
 	})
 
+	t.Run("Error: the renewal of an unverified account is the same 401 and sets no cookie", func(t *testing.T) {
+		// The refusal for an account that never verified is deliberately
+		// indistinguishable from the missing-account one (TFA-06, TFA-10).
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Refresh(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeUnauthorized, auth.MsgInvalidRefreshToken, nil)).
+			Once()
+
+		rec := refreshRequest(t, newAuthRouter(t, service))
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeUnauthorized), body.Error.Code)
+		assert.Equal(t, auth.MsgInvalidRefreshToken, body.Error.Message)
+		assert.NotContains(t, rec.Body.String(), "access_token")
+	})
+
 	t.Run("Error: an account-store failure is 500 and sets no cookie", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		service.EXPECT().
