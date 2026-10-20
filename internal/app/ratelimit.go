@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"legnaris/internal/platform/ratelimit"
-	"legnaris/shared/apperr"
-
 	"github.com/labstack/echo/v5"
+	"legnaris/internal/platform/ratelimit"
+	"legnaris/internal/user"
+	"legnaris/shared/apperr"
 )
 
 // MsgRateLimited is the user-facing message for a request refused by the rate
@@ -80,18 +80,26 @@ func ipKey(c *echo.Context) string {
 }
 
 func accountKey(email string) string {
-	return "account:" + normalizeAccountKey(email)
+	return "account:" + canonicalAccountEmail(email)
 }
 
-// normalizeAccountKey mirrors the service's email normalization so both layers
-// bucket the same account under the same key.
-func normalizeAccountKey(email string) string {
-	return strings.ToLower(strings.TrimSpace(email))
+// canonicalAccountEmail applies the same rule as the service, so sign-in and
+// registration bucket one mailbox under one key however it is spelled
+// (PRQ-09). An address the rule rejects still gets a stable, non-empty key:
+// otherwise a client could escape the per-account budget by sending a
+// malformed value.
+func canonicalAccountEmail(email string) string {
+	canonical, err := user.CanonicalEmail(email)
+	if err != nil {
+		return strings.ToLower(strings.TrimSpace(email))
+	}
+	return canonical
 }
 
 // peekEmail reads the email from the JSON body without consuming it: the bytes
 // are put back so the handler still decodes the same request (AUTH-17). A body
-// that is absent or not JSON simply yields no account key.
+// that is absent or not JSON simply yields no account key; a blank value yields
+// no key either, while a malformed non-blank value keeps its own stable bucket.
 func peekEmail(r *http.Request) string {
 	if r.Body == nil {
 		return ""
@@ -109,5 +117,5 @@ func peekEmail(r *http.Request) string {
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return ""
 	}
-	return normalizeAccountKey(payload.Email)
+	return strings.TrimSpace(payload.Email)
 }

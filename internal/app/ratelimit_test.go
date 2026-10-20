@@ -61,7 +61,36 @@ func (h *rateLimitHarness) post(t *testing.T, path, body, remoteAddr string) *ht
 }
 
 func loginBody(email string) string {
-	return `{"email":"` + email + `","password":"sup3r-secret"}`
+	payload, err := json.Marshal(map[string]string{"email": email, "password": "sup3r-secret"})
+	if err != nil {
+		panic(err)
+	}
+	return string(payload)
+}
+
+// TestAccountKey proves the rate-limit key uses the shared canonical rule, so
+// every spelling of one mailbox shares one bucket (PRQ-09).
+func TestAccountKey(t *testing.T) {
+	t.Run("Happy path: equivalent spellings share one key", func(t *testing.T) {
+		for _, email := range []string{
+			"Name <Player@Example.com>",
+			"  player@example.com ",
+			"PLAYER@EXAMPLE.COM",
+		} {
+			assert.Equal(t, "account:player@example.com", accountKey(email), email)
+		}
+	})
+
+	t.Run("Edge: +tag and dotted spellings keep distinct keys", func(t *testing.T) {
+		assert.Equal(t, "account:player+news@example.com", accountKey("Player+News@Example.com"))
+		assert.Equal(t, "account:p.layer@example.com", accountKey("P.Layer@Example.com"))
+		assert.NotEqual(t, accountKey("player@example.com"), accountKey("player+news@example.com"))
+	})
+
+	t.Run("Edge: an unparseable value falls back to a stable trimmed lowercase key", func(t *testing.T) {
+		assert.Equal(t, "account:not-an-email", accountKey("  Not-An-Email  "))
+		assert.NotEqual(t, "account:", accountKey("not-an-email"))
+	})
 }
 
 func assertRateLimited(t *testing.T, rec *httptest.ResponseRecorder) {
@@ -122,6 +151,16 @@ func TestRateLimit(t *testing.T) {
 
 		assertRateLimited(t, harness.post(t, "/login", loginBody("A@Example.com"), "10.0.0.2:1"))
 		assert.Equal(t, 1, *harness.calls, "the account key must block the credential work")
+	})
+
+	t.Run("Edge: a display-name spelling shares the account bucket", func(t *testing.T) {
+		now := time.Unix(1_000, 0)
+		harness := newRateLimitHarness(ratelimit.New(1, time.Minute, func() time.Time { return now }))
+
+		require.Equal(t, http.StatusOK, harness.post(t, "/login", loginBody("a@example.com"), "10.0.0.1:1").Code)
+
+		assertRateLimited(t, harness.post(t, "/login", loginBody("Name <A@Example.COM>"), "10.0.0.2:1"))
+		assert.Equal(t, 1, *harness.calls, "the canonical account key must block the credential work")
 	})
 
 	t.Run("Edge: the window frees the same key again", func(t *testing.T) {
