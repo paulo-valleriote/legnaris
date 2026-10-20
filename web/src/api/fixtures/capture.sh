@@ -16,7 +16,7 @@ TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-PROVENANCE="captured from the local stack (make dev-db; go run ./cmd/api.go) at ${BASE_URL} on ${STAMP}"
+PROVENANCE="captured from the local stack (make dev-db; go run ./backend/cmd/api.go) at ${BASE_URL} on ${STAMP}"
 TOKEN=""
 
 command -v jq >/dev/null 2>&1 || {

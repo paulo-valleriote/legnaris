@@ -3,35 +3,35 @@ issue-845-fix: true
 resolve-type-alias: false
 disable-version-string: true
 packages:
-  legnaris/shared/logger:
+  legnaris/backend/shared/logger:
     config:
-      dir: shared/logger/mocks
+      dir: backend/shared/logger/mocks
       outpkg: mocks
     interfaces:
       StructuredLogger: {}
-  legnaris/internal/sheet:
+  legnaris/backend/internal/sheet:
     config:
-      dir: internal/sheet/mocks
+      dir: backend/internal/sheet/mocks
       outpkg: mocks
     interfaces:
       Repository: {}
       Service: {}
-  legnaris/internal/sheet/template:
+  legnaris/backend/internal/sheet/template:
     config:
-      dir: internal/sheet/template/mocks
+      dir: backend/internal/sheet/template/mocks
       outpkg: mocks
     interfaces:
       Service: {}
-  legnaris/internal/user:
+  legnaris/backend/internal/user:
     config:
-      dir: internal/user/mocks
+      dir: backend/internal/user/mocks
       outpkg: mocks
     interfaces:
       Repository: {}
       EmailMigrationStore: {}
-  legnaris/internal/auth:
+  legnaris/backend/internal/auth:
     config:
-      dir: internal/auth/mocks
+      dir: backend/internal/auth/mocks
       outpkg: mocks
     interfaces:
       RefreshTokenRepository: {}
@@ -43,22 +43,22 @@ packages:
       ChallengeRepository: {}
       CodeMailer: {}
       ChallengeObserver: {}
-  legnaris/internal/email/outbox:
+  legnaris/backend/internal/email/outbox:
     config:
-      dir: internal/email/outbox/mocks
+      dir: backend/internal/email/outbox/mocks
       outpkg: mocks
     interfaces:
       Repository: {}
-  legnaris/internal/email/relay:
+  legnaris/backend/internal/email/relay:
     config:
-      dir: internal/email/relay/mocks
+      dir: backend/internal/email/relay/mocks
       outpkg: mocks
     interfaces:
       Publisher: {}
       Observer: {}
-  legnaris/internal/email:
+  legnaris/backend/internal/email:
     config:
-      dir: internal/email/mocks
+      dir: backend/internal/email/mocks
       outpkg: mocks
     interfaces:
       Sender: {}

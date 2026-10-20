@@ -150,7 +150,7 @@ graph LR
 | `/sheets/:id`   | GET    | Abrir ficha da biblioteca local   | `{"data": {...}}`    |
 | `/sheets/:id`   | PATCH  | Salvar edições (delta) → cascata  | `{"data": {delta}}`  |
 
-**Mapeamento de erros `apperr` → UI** (códigos reais de `shared/apperr/err.go`):
+**Mapeamento de erros `apperr` → UI** (códigos reais de `backend/shared/apperr/err.go`):
 
 | Code                | HTTP provável | Tratamento na UI                                              |
 | ------------------- | ------------- | ------------------------------------------------------------- |
@@ -329,7 +329,7 @@ O backend já tem a stack Prometheus/Grafana/Loki versionada em `deploy/` — a 
 | Termo | Definição |
 | ----- | --------- |
 | **UI Engine dirigido por schema** | Camada que renderiza a ficha dinamicamente a partir do `FieldSchema` do template (agrupamento, inputs por tipo, read-only para derivados, toggles de config) — sem código por sistema de RPG. |
-| **Envelope de resposta** | Formato padronizado da API: `{"data": ...}` no sucesso; `{"error": {"code", "message"}}` no erro (`shared/response`). |
+| **Envelope de resposta** | Formato padronizado da API: `{"data": ...}` no sucesso; `{"error": {"code", "message"}}` no erro (`backend/shared/response`). |
 | **Delta de cascata (PATCH)** | Resposta do `PATCH /sheets/:id` contendo **apenas** os campos derivados recalculados — exige merge incremental no cliente. |
 | **Biblioteca local de fichas** | Índice local `{id, name, template_id}` das fichas criadas — necessário porque a API não tem `GET /sheets` (lista) nem usuário na V1. |
 | **Nó proxy de configuração** | Campo editável 0/1 (ex: `config.acUsesDex`) renderizado como toggle — peça da estratégia anti-copyright do backend. |

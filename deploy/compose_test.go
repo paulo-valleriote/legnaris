@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"legnaris/shared/env"
+	"legnaris/backend/shared/env"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

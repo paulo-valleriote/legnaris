@@ -26,15 +26,15 @@ make fmt                 # Format code
 
 ## Environment
 
-- `PORT`, `APP_NAME`, `DATABASE_URI`, `CORS_ALLOWED_ORIGINS` — defaults in `shared/env/env.go`
+- `PORT`, `APP_NAME`, `DATABASE_URI`, `CORS_ALLOWED_ORIGINS` — defaults in `backend/shared/env/env.go`
 - **GitHub token:** read `OPENCODE_PR` from repo-root `.env` (gitignored); never print/commit; use via `Authorization` header / push URL only
 
 ## Conventions (Repo-wide)
 
-- **Typed errors** — see `shared/apperr/AGENTS.md` (reference)
-- **IDs** — every server-generated entity ID is a canonical lowercase UUID v7 via `shared/idgen` (`New` to generate, `Validate` at the service boundary); never call `uuid.New`/`uuid.NewString` directly. Template IDs are code-defined slugs, exempt from `idgen` but validated as `^[a-z][a-z0-9_]*$` in `FetchTemplate` — see `shared/idgen/AGENTS.md`
-- **JSON decoding** — use `shared/json/decode.go`
-- **Logging** — use `shared/logger` (zerolog-based)
+- **Typed errors** — see `backend/shared/apperr/AGENTS.md` (reference)
+- **IDs** — every server-generated entity ID is a canonical lowercase UUID v7 via `backend/shared/idgen` (`New` to generate, `Validate` at the service boundary); never call `uuid.New`/`uuid.NewString` directly. Template IDs are code-defined slugs, exempt from `idgen` but validated as `^[a-z][a-z0-9_]*$` in `FetchTemplate` — see `backend/shared/idgen/AGENTS.md`
+- **JSON decoding** — use `backend/shared/json/decode.go`
+- **Logging** — use `backend/shared/logger` (zerolog-based)
 - **Mocks** — generated via `mockery` (config in `go.mod` tool directive)
 - **English only** — all identifiers, comments, log messages, and user-facing strings must be in English. Exception: `docs/TDD.md` stays in pt-BR.
 
@@ -65,7 +65,7 @@ Every test suite must cover, in this order of priority:
   expectations). Never hand-write mocks; run `make mocks` after interface changes.
 - Tests live next to the code (`*_test.go`); use `package X_test` when only the public
   API is exercised. Shared fixtures go in a dedicated package (e.g.
-  `internal/sheet/sheettest`).
+  `backend/internal/sheet/sheettest`).
 - Unit tests must not require external services; integration tests self-skip when
   MongoDB is unavailable (see `deploy/` stack).
 - Run: `go test ./...` · single test: `go test -run TestName ./pkg/path` ·
@@ -115,11 +115,11 @@ Before opening a PR, ensure:
 
 ## References
 
-- `internal/AGENTS.md` — architecture, layering, service conventions
-- `internal/sheet/template/AGENTS.md` — DAG, Template, Registry, Gotchas
-- `internal/engine/AGENTS.md` — formula engine (expr-lang wrapper)
-- `shared/apperr/AGENTS.md` — error codes, HTTP mapping, boundary translation
-- `shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
-- `shared/db/AGENTS.md` — MongoDB initialization
+- `backend/internal/AGENTS.md` — architecture, layering, service conventions
+- `backend/internal/sheet/template/AGENTS.md` — DAG, Template, Registry, Gotchas
+- `backend/internal/engine/AGENTS.md` — formula engine (expr-lang wrapper)
+- `backend/shared/apperr/AGENTS.md` — error codes, HTTP mapping, boundary translation
+- `backend/shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
+- `backend/shared/db/AGENTS.md` — MongoDB initialization
 - `web/AGENTS.md` — React PWA client: visual rules, tokens, security rules, interaction patterns
 - `web/AGENTS.md` — PWA React/TS rules; desktop deprecated and removed (F10)

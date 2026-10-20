@@ -123,7 +123,7 @@ API_BASE_URL=http://localhost:8080 npm test # also runs the live contract suite
 
   ```bash
   make dev-db                            # MongoDB
-  go run ./cmd/api.go                    # the API on :8080 (needs DATABASE_URI, JWT_SECRET)
+  go run ./backend/cmd/api.go                    # the API on :8080 (needs DATABASE_URI, JWT_SECRET)
   bash web/src/api/fixtures/capture.sh   # writes src/api/fixtures/*.json verbatim
   ```
 

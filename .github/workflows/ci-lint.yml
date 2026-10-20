@@ -4,14 +4,14 @@ on:
   pull_request:
     # Allowlist, not paths-ignore (the two cannot coexist on one event): this
     # pipeline owns the Go toolchain and the deploy stack only. A docs/web/spec
-    # change touches neither, so it must not trigger this pipeline. `cmd/**`,
-    # `internal/**` and `shared/**` are listed beyond `**/*.go` so non-Go assets
-    # they may carry (testdata, embedded files) still trigger it.
+    # change touches neither, so it must not trigger this pipeline. `backend/cmd/**`,
+    # `backend/internal/**` and `backend/shared/**` are listed beyond `**/*.go` so
+    # non-Go assets they may carry (testdata, embedded files) still trigger it.
     paths:
       - '**/*.go'
-      - 'cmd/**'
-      - 'internal/**'
-      - 'shared/**'
+      - 'backend/cmd/**'
+      - 'backend/internal/**'
+      - 'backend/shared/**'
       - 'deploy/**'
       - 'go.mod'
       - 'go.sum'
