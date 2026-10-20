@@ -279,6 +279,8 @@ without authenticating at Cloudflare first:
 - **Edge/DB metrics**: Prometheus scrapes Traefik and MongoDB Exporter.
 - **App metrics**: Prometheus scrapes the app's `/metrics` directly on the
   internal network; the endpoint is not routed on the public `api.` domain.
+- **Relay metrics**: Prometheus scrapes the relay's own listener (`relay:9100`)
+  for the outbox backlog and the publication outcomes by result.
 - **Query the database**: Mongo Express at `/mongo`.
 
 ## 11. CORS (web client → API)
@@ -318,6 +320,41 @@ and writes nothing; resolve the duplicate manually, since the command never
 merges accounts. Only `email` and `updated_at` change, and a second run over
 repaired data is a no-op. The command is a separate binary and is never part of
 the API boot path.
+
+### Email relay (publisher, optional)
+
+The relay is a separate process (`cmd/relay`, shipped as `/relay` in the same
+image) that drains the durable `email_outbox` collection to RabbitMQ. It is
+optional: the API boots and serves without it and without any email or broker
+variable. Turn it on by setting `RABBITMQ_URL` (and optionally the relay knobs)
+in `.env` and bringing the `relay` service up.
+
+```bash
+docker compose up -d rabbitmq relay      # start the broker and the publisher
+docker compose logs -f relay             # publication outcomes
+```
+
+- **Fail-fast**: a blank or unparseable `RABBITMQ_URL` stops the relay with
+  `ErrBrokerUnavailable` before it opens the database or polls; it never runs
+  "with no broker". The API never reads `RABBITMQ_URL` and never depends on the
+  broker to start.
+- **Topology**: on startup the relay declares the exchange, the work queue, the
+  three delay-tier retry queues and the dead-letter queue, idempotently — no
+  broker plugin is required. The broker publishes no host port.
+- **Optional variables** (with the app's defaults): `EMAIL_PROVIDER` (`log`),
+  `RESEND_API_KEY` (empty), `EMAIL_FROM` (empty), `EMAIL_SEND_TIMEOUT` (`10s`),
+  `RABBITMQ_URL` (empty; required by the relay), `EMAIL_RELAY_POLL_INTERVAL`
+  (`1s`), `EMAIL_RELAY_LEASE` (`30s`), `EMAIL_RELAY_BATCH` (`25`),
+  `EMAIL_RELAY_CONFIRM_TIMEOUT` (`5s`), `EMAIL_RELAY_MAX_ATTEMPTS` (`5`),
+  `EMAIL_OUTBOX_RETENTION` (`168h`), `EMAIL_RELAY_METRICS_ADDR` (`:9100`).
+- **Metrics**: the relay serves its own listener on `EMAIL_RELAY_METRICS_ADDR`
+  (`:9100`), scraped by Prometheus on the internal network:
+  `legnaris_email_outbox_backlog` (pending gauge) and
+  `legnaris_email_publish_total{result}` (`published`/`retried`/`failed`).
+- **Stuck emails**: a send intention is marked published only after the broker
+  confirms it; a failed publication is retried with backoff and, once the cap
+  (`EMAIL_RELAY_MAX_ATTEMPTS`) is reached, marked `failed` for operator
+  attention. Inspect the `email_outbox` collection for pending/failed rows.
 
 Backup: the `legnaris-prod_mongo_data`, `..._prometheus_data`, `..._loki_data`
 volumes.
