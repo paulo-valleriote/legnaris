@@ -146,8 +146,8 @@ func TestAppServiceTrustedProxyCIDRs(t *testing.T) {
 			"the set must be optional and sourced from the deployment env")
 	})
 
-	t.Run("Edge: the required-variable list is unchanged", func(t *testing.T) {
-		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET"}, env.RequiredKeys())
+	t.Run("Edge: the required-variable list gains only the digest secret", func(t *testing.T) {
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, env.RequiredKeys())
 	})
 }
 
@@ -228,8 +228,8 @@ func TestEmailConfigurationIsOptional(t *testing.T) {
 		}
 	})
 
-	t.Run("Edge: the required-variable list is unchanged", func(t *testing.T) {
-		assert.Equal(t, []string{"DATABASE_URI", "JWT_SECRET"}, env.RequiredKeys())
+	t.Run("Edge: the required-variable list gains only the digest secret", func(t *testing.T) {
+		assert.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, env.RequiredKeys())
 	})
 }
 
@@ -256,6 +256,45 @@ func TestRabbitMQPasswordIsRequired(t *testing.T) {
 		assert.Contains(t, string(raw), "RABBITMQ_PASSWORD=",
 			"the CI compose gate interpolates .env.example, so the placeholder must be present")
 		assert.NotContains(t, string(raw), "# RABBITMQ_PASSWORD=",
+			"the placeholder must not be commented out")
+	})
+}
+
+// TestChallengeConfigurationIsRequiredAndDocumented guards the code-step
+// settings: the digest secret is a required interpolation the CI compose gate
+// can satisfy from .env.example, and every optional setting is passed through
+// as an interpolation with the app's documented default (OTP-18, SC-008).
+func TestChallengeConfigurationIsRequiredAndDocumented(t *testing.T) {
+	doc := readCompose(t)
+
+	app, ok := doc.Services["app"]
+	require.True(t, ok, "the stack must define an app service")
+
+	t.Run("Happy path: the digest secret is a required interpolation", func(t *testing.T) {
+		value, present := app.Environment["EMAIL_CODE_SECRET"]
+		require.True(t, present, "app.environment must define EMAIL_CODE_SECRET")
+		assert.Contains(t, value, "${EMAIL_CODE_SECRET:?",
+			"a missing digest secret must fail the stack, never boot a weak one")
+	})
+
+	t.Run("Happy path: the optional challenge settings are interpolations", func(t *testing.T) {
+		for _, key := range []string{
+			"AUTH_OTP_TTL", "AUTH_OTP_CEILING", "AUTH_OTP_RESEND_COOLDOWN",
+			"AUTH_OTP_MAX_ATTEMPTS", "AUTH_OTP_DAILY_SEND_CAP",
+			"AUTH_OTP_USER_WINDOW", "AUTH_OTP_USER_LIMIT",
+		} {
+			value, present := app.Environment[key]
+			require.Truef(t, present, "app.environment must pass %s through", key)
+			assert.Containsf(t, value, "${", "app.environment[%s] must be an interpolation", key)
+		}
+	})
+
+	t.Run("Happy path: .env.example provides the required placeholder", func(t *testing.T) {
+		raw, err := os.ReadFile(".env.example")
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), "EMAIL_CODE_SECRET=",
+			"the CI compose gate interpolates .env.example, so the placeholder must be present")
+		assert.NotContains(t, string(raw), "# EMAIL_CODE_SECRET=",
 			"the placeholder must not be commented out")
 	})
 }

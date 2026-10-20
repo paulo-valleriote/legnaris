@@ -122,14 +122,26 @@ services:
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
       # Optional email-delivery settings. The API records send intentions but
       # never contacts the provider or the broker, so none of these is required
-      # to boot; the deployment's required-variable list is unchanged. RABBITMQ_URL
-      # is deliberately absent here: the request-serving process never reads it
-      # (EML-14, EML-16).
+      # to boot; RABBITMQ_URL is deliberately absent here because the
+      # request-serving process never reads it (EML-14, EML-16).
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
       EMAIL_SEND_TIMEOUT: ${EMAIL_SEND_TIMEOUT:-10s}
       EMAIL_OUTBOX_RETENTION: ${EMAIL_OUTBOX_RETENTION:-168h}
+      # The OTP digest key is required: the API itself digests codes, so an
+      # absent or too-short value must fail the boot rather than weaken every
+      # code. It must differ from JWT_SECRET (F-09, OTP-18, SC-008).
+      EMAIL_CODE_SECRET: ${EMAIL_CODE_SECRET:?EMAIL_CODE_SECRET is required}
+      # Optional challenge settings; the app defaults are 10m / 30m / 60s / 5 /
+      # 80 / 1h / 10 (OTP-18).
+      AUTH_OTP_TTL: ${AUTH_OTP_TTL:-10m}
+      AUTH_OTP_CEILING: ${AUTH_OTP_CEILING:-30m}
+      AUTH_OTP_RESEND_COOLDOWN: ${AUTH_OTP_RESEND_COOLDOWN:-60s}
+      AUTH_OTP_MAX_ATTEMPTS: ${AUTH_OTP_MAX_ATTEMPTS:-5}
+      AUTH_OTP_DAILY_SEND_CAP: ${AUTH_OTP_DAILY_SEND_CAP:-80}
+      AUTH_OTP_USER_WINDOW: ${AUTH_OTP_USER_WINDOW:-1h}
+      AUTH_OTP_USER_LIMIT: ${AUTH_OTP_USER_LIMIT:-10}
     networks:
       - edge
       - internal

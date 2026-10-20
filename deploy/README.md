@@ -160,11 +160,13 @@ cd deploy
 cp .env.example .env
 # fill in: API_DOMAIN, WEB_DOMAIN, WEB_API_BASE_URL, OPS_DOMAIN, ACME_EMAIL,
 # GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_USER, CORS_ALLOWED_ORIGINS,
-# JWT_SECRET, MONGO_ROOT_PASSWORD, MONGO_APP_PASSWORD, MONGO_EXPORTER_PASSWORD,
+# JWT_SECRET, EMAIL_CODE_SECRET, MONGO_ROOT_PASSWORD, MONGO_APP_PASSWORD,
+# MONGO_EXPORTER_PASSWORD,
 # MONGO_VIEW_PASSWORD, ME_CONFIG_BASICAUTH_USERNAME/PASSWORD,
 # GRAFANA_ADMIN_USER/PASSWORD
 openssl rand -base64 32 | tr '+/' '-_'   # use as OAUTH2_PROXY_COOKIE_SECRET
 openssl rand -base64 48                  # use as JWT_SECRET
+openssl rand -base64 48                  # use as EMAIL_CODE_SECRET (distinct!)
 ```
 
 MongoDB is created with least-privileged users (provisioned by
@@ -347,6 +349,28 @@ docker compose logs -f relay             # publication outcomes
   (`1s`), `EMAIL_RELAY_LEASE` (`30s`), `EMAIL_RELAY_BATCH` (`25`),
   `EMAIL_RELAY_CONFIRM_TIMEOUT` (`5s`), `EMAIL_RELAY_MAX_ATTEMPTS` (`5`),
   `EMAIL_OUTBOX_RETENTION` (`168h`), `EMAIL_RELAY_METRICS_ADDR` (`:9100`).
+
+## One-time-code challenges
+
+The API gates sign-in and registration behind a six-digit code emailed to the
+account. Codes are generated with `crypto/rand`, stored only as an HMAC-SHA256
+digest, consumed at most once and never logged.
+
+- **Required**: `EMAIL_CODE_SECRET` keys the code digest and must be at least 32
+  bytes and distinct from `JWT_SECRET`. An absent, blank or short value stops the
+  API at boot (`EMAIL_CODE_SECRET:?` in the compose file), because a weak key
+  would silently weaken every code.
+- **Optional** (with the app's defaults): `AUTH_OTP_TTL` (`10m`, the code's
+  lifetime), `AUTH_OTP_CEILING` (`30m`, the absolute limit a resend can never
+  pass), `AUTH_OTP_RESEND_COOLDOWN` (`60s`), `AUTH_OTP_MAX_ATTEMPTS` (`5`),
+  `AUTH_OTP_DAILY_SEND_CAP` (`80`, deliberately below the provider's free-tier
+  allowance of 100), `AUTH_OTP_USER_WINDOW` (`1h`) and `AUTH_OTP_USER_LIMIT`
+  (`10` challenges per account per window).
+- **Verification failures** answer one uniform `OTP_INVALID` (401), so an
+  unknown, expired, consumed, wrong or exhausted code is indistinguishable. The
+  daily send cap answers `EMAIL_UNAVAILABLE` (503) with `Retry-After`, and the
+  per-address and per-account bounds answer `RATE_LIMITED` (429).
+
 - **Metrics**: the relay serves its own listener on `EMAIL_RELAY_METRICS_ADDR`
   (`:9100`), scraped by Prometheus on the internal network:
   `legnaris_email_outbox_backlog` (pending gauge) and
