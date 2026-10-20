@@ -73,6 +73,7 @@ func newAuthServiceWithClock(t *testing.T, clock auth.Clock) (auth.Service, *aut
 		m.observer,
 		auth.Config{RefreshTTL: testRefreshTTL, Now: clock},
 		logger.NewLogger(slog.LevelError),
+		auth.ChallengeDeps{},
 	)
 	return service, m
 }

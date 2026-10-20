@@ -17,6 +17,17 @@ const (
 	MsgInvalidRefreshToken  = "invalid refresh token"
 	MsgCSRFInvalid          = "csrf token is invalid"
 	MsgInternal             = "internal error"
+
+	// Challenge copy. MsgOTPInvalid is the one uniform message every
+	// verification failure carries, so unknown, expired, consumed, wrong and
+	// exhausted are indistinguishable (OTP-08).
+	MsgOTPInvalid          = "invalid or expired code"
+	MsgEmailUnavailable    = "email delivery is temporarily unavailable; retry later"
+	MsgChallengeIDRequired = "challenge_id is required"
+	MsgCodeRequired        = "code is required"
+	// MsgRateLimited mirrors the rate-limit guard's copy for the durable
+	// per-account bound the service enforces itself (OTP-14).
+	MsgRateLimited = "too many attempts; retry later"
 )
 
 // Lower-layer sentinels for the auth components (hasher, token manager,

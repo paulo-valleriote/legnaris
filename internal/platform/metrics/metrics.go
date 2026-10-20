@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"legnaris/internal/auth"
+
 	"github.com/labstack/echo/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -25,12 +27,19 @@ type Metrics struct {
 	emailOutboxBacklog       prometheus.Gauge
 	emailPublishTotal        *prometheus.CounterVec
 	emailDeadTotal           prometheus.Counter
+	authOTPIssued            *prometheus.CounterVec
+	authOTPVerify            *prometheus.CounterVec
+	authOTPResend            *prometheus.CounterVec
+	authOTPCapBlocked        prometheus.Counter
 }
 
 const metricsNamespace = "legnaris"
 
 // authSubsystem is the Prometheus subsystem shared by the auth observers.
 const authSubsystem = "auth"
+
+// resultLabel is the label carried by every outcome-partitioned counter.
+const resultLabel = "result"
 
 // New builds a Metrics instance with its own registry and collectors.
 func New() *Metrics {
@@ -97,7 +106,7 @@ func New() *Metrics {
 		Namespace: metricsNamespace,
 		Name:      "email_publish_total",
 		Help:      "Email publication outcomes by result (published, retried, failed).",
-	}, []string{"result"})
+	}, []string{resultLabel})
 
 	emailDeadTotal := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
@@ -105,8 +114,40 @@ func New() *Metrics {
 		Help:      "Email messages dead-lettered for operator attention.",
 	})
 
+	// Code-step series (OTP-16): issuance by purpose, verification outcomes,
+	// resend outcomes and cap refusals. No series carries a code, a challenge
+	// identity or an unmasked address.
+	authOTPIssued := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: authSubsystem,
+		Name:      "otp_issued_total",
+		Help:      "Challenges issued by purpose (each recorded one send intention).",
+	}, []string{"purpose"})
+
+	authOTPVerify := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: authSubsystem,
+		Name:      "otp_verify_total",
+		Help:      "Verification outcomes by result (the internal classification of the uniform failure).",
+	}, []string{resultLabel})
+
+	authOTPResend := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: authSubsystem,
+		Name:      "otp_resend_total",
+		Help:      "Resend outcomes by result (sent, suppressed, capped).",
+	}, []string{resultLabel})
+
+	authOTPCapBlocked := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: authSubsystem,
+		Name:      "otp_cap_blocked_total",
+		Help:      "Requests refused because the daily email send cap was reached.",
+	})
+
 	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports,
-		emailOutboxBacklog, emailPublishTotal, emailDeadTotal)
+		emailOutboxBacklog, emailPublishTotal, emailDeadTotal,
+		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked)
 
 	// The private registry must be self-sufficient: register the standard Go
 	// and process collectors so the deployment's own resource metrics (goroutines,
@@ -127,8 +168,16 @@ func New() *Metrics {
 		emailOutboxBacklog:       emailOutboxBacklog,
 		emailPublishTotal:        emailPublishTotal,
 		emailDeadTotal:           emailDeadTotal,
+		authOTPIssued:            authOTPIssued,
+		authOTPVerify:            authOTPVerify,
+		authOTPResend:            authOTPResend,
+		authOTPCapBlocked:        authOTPCapBlocked,
 	}
 }
+
+// Metrics implements both auth observers (auth.Observer and
+// auth.ChallengeObserver), so one instance is wired as both at bootstrap.
+var _ auth.ChallengeObserver = (*Metrics)(nil)
 
 // LoginFailure implements auth.Observer: it counts a rejected credential check.
 func (m *Metrics) LoginFailure() {
@@ -212,4 +261,30 @@ func (m *Metrics) BacklogPending(pending int) {
 // reserved for the worker that will dead-letter a poison message (EML-23).
 func (m *Metrics) MessageDead() {
 	m.emailDeadTotal.Inc()
+}
+
+// The remaining methods implement auth.ChallengeObserver, so the same Metrics
+// instance is the code-step observer wired at bootstrap (OTP-16).
+
+// ChallengeIssued counts a challenge issued for a purpose.
+func (m *Metrics) ChallengeIssued(purpose auth.Purpose) {
+	m.authOTPIssued.WithLabelValues(string(purpose)).Inc()
+}
+
+// ChallengeVerified counts a verification outcome by its classification. The
+// classification never reaches the client, which always sees the uniform
+// failure (OTP-08, OTP-16).
+func (m *Metrics) ChallengeVerified(result string) {
+	m.authOTPVerify.WithLabelValues(result).Inc()
+}
+
+// ResendRequested counts a resend outcome (sent, suppressed, capped).
+func (m *Metrics) ResendRequested(result string) {
+	m.authOTPResend.WithLabelValues(result).Inc()
+}
+
+// SendCapBlocked counts a request refused because the daily send cap was
+// reached (OTP-13).
+func (m *Metrics) SendCapBlocked() {
+	m.authOTPCapBlocked.Inc()
 }

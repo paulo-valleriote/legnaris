@@ -37,8 +37,22 @@ const testDatabaseName = "legnaris"
 func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	t.Helper()
 
+	handler, mdb, _ := newIntegrationStack(t, nil)
+	return handler, mdb
+}
+
+// newIntegrationStack is newIntegrationRouter with the wired modules exposed
+// and optional environment overrides, so a suite can drive the service directly
+// and shrink a configured bound without touching the production defaults.
+func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *mongo.Database, *app.Modules) {
+	t.Helper()
+
 	t.Setenv("JWT_SECRET", "integration-test-secret")
 	t.Setenv("AUTH_BCRYPT_COST", "12")
+	t.Setenv("EMAIL_CODE_SECRET", "integration-test-code-secret-0123456789")
+	for key, value := range extra {
+		t.Setenv(key, value)
+	}
 
 	log := logger.NewLogger(slog.LevelError)
 	env := env.NewEnv(log)
@@ -62,11 +76,15 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	_ = mdb.Collection("sheets").Drop(ctx)
 	_ = mdb.Collection("users").Drop(ctx)
 	_ = mdb.Collection("refresh_tokens").Drop(ctx)
+	_ = mdb.Collection("email_outbox").Drop(ctx)
+	_ = mdb.Collection("auth_challenges").Drop(ctx)
 	t.Cleanup(func() {
 		_ = mdb.Collection("sheets").Drop(context.Background())
 		_ = mdb.Collection("template").Drop(context.Background())
 		_ = mdb.Collection("users").Drop(context.Background())
 		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
+		_ = mdb.Collection("email_outbox").Drop(context.Background())
+		_ = mdb.Collection("auth_challenges").Drop(context.Background())
 	})
 
 	require.NoError(t, db.EnsureIndexes(ctx, mdb))
@@ -74,10 +92,10 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	modules, err := app.NewModules(database, registry, env, auth.NewNopObserver())
+	modules, err := app.NewModules(database, registry, env, auth.NewNopObserver(), auth.NewNopChallengeObserver())
 	require.NoError(t, err)
 
-	return app.NewRouter(env, modules, metrics.New()), mdb
+	return app.NewRouter(env, modules, metrics.New()), mdb, modules
 }
 
 func doRequest(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {

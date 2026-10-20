@@ -70,6 +70,41 @@ func TestChallengePolicy_CooldownElapsed(t *testing.T) {
 	}
 }
 
+// TestChallengePolicy_DeadlineWithin pins the resend deadline: now plus the
+// lifetime, clamped to the stored absolute ceiling (OTP-10).
+func TestChallengePolicy_DeadlineWithin(t *testing.T) {
+	policy := testPolicy()
+	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name    string
+		ceiling time.Time
+		want    time.Time
+	}{
+		{
+			name:    "Happy path: a ceiling inside the lifetime clamps the deadline",
+			ceiling: now.Add(5 * time.Minute),
+			want:    now.Add(5 * time.Minute),
+		},
+		{
+			name:    "Edge: a ceiling beyond the lifetime is never reached",
+			ceiling: now.Add(30 * time.Minute),
+			want:    now.Add(policy.Lifetime),
+		},
+		{
+			name:    "Edge: a ceiling exactly at the lifetime is not clamped further",
+			ceiling: now.Add(policy.Lifetime),
+			want:    now.Add(policy.Lifetime),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, policy.DeadlineWithin(tc.ceiling, now))
+		})
+	}
+}
+
 // TestChallengePolicy_DayStart pins the daily-cap window origin: the UTC
 // midnight of the given instant, regardless of the input's location (OTP-13).
 func TestChallengePolicy_DayStart(t *testing.T) {

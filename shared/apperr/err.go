@@ -1,6 +1,9 @@
 package apperr
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type Code string
 
@@ -33,6 +36,17 @@ type Error struct {
 	Message    string
 	Err        error
 	httpStatus int
+	// RetryAfter is the optional hint the HTTP boundary renders as the
+	// Retry-After header; a non-positive value means no header.
+	RetryAfter time.Duration
+}
+
+// WithRetryAfter attaches the wait hint a rate-limited or unavailable response
+// advertises (OTP-13, OTP-14). It returns the same error so a producer can set
+// the hint inline.
+func (e *Error) WithRetryAfter(retryAfter time.Duration) *Error {
+	e.RetryAfter = retryAfter
+	return e
 }
 
 func NewError(code Code, message string, err error) *Error {

@@ -83,11 +83,27 @@ type Config struct {
 	Now Clock
 }
 
+// ChallengeDeps bundles the challenge collaborators so adding them does not
+// grow NewService's parameter list without bound (T017). The service owns the
+// policy; the store, the code toolkit, the mailer port and the observer are
+// injected.
+type ChallengeDeps struct {
+	Repository ChallengeRepository
+	Generator  CodeGenerator
+	Digest     *CodeDigest
+	Mailer     CodeMailer
+	Observer   ChallengeObserver
+	Policy     ChallengePolicy
+}
+
 type Service interface {
 	Register(ctx context.Context, cmd RegisterCommand) (*Session, error)
 	Login(ctx context.Context, cmd LoginCommand) (*Session, error)
 	Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error)
 	Logout(ctx context.Context, cmd LogoutCommand) error
+	IssueChallenge(ctx context.Context, cmd IssueChallengeCommand) (*ChallengeIssued, error)
+	VerifyChallenge(ctx context.Context, cmd VerifyChallengeCommand) (*Session, error)
+	ResendChallenge(ctx context.Context, cmd ResendChallengeCommand) (*ResendResult, error)
 }
 
 type ServiceImpl struct {
@@ -101,6 +117,7 @@ type ServiceImpl struct {
 	log           logger.StructuredLogger
 	cfg           Config
 	clock         Clock
+	challenge     ChallengeDeps
 }
 
 func NewService(
@@ -113,7 +130,11 @@ func NewService(
 	observer Observer,
 	cfg Config,
 	log logger.StructuredLogger,
+	challenge ChallengeDeps,
 ) Service {
+	if challenge.Observer == nil {
+		challenge.Observer = NewNopChallengeObserver()
+	}
 	return &ServiceImpl{
 		users:         users,
 		refreshTokens: refreshTokens,
@@ -125,6 +146,7 @@ func NewService(
 		log:           log,
 		cfg:           cfg,
 		clock:         cfg.Now,
+		challenge:     challenge,
 	}
 }
 

@@ -37,6 +37,19 @@ func (p ChallengePolicy) Deadline(createdAt, now time.Time) time.Time {
 	return deadline
 }
 
+// DeadlineWithin returns the deadline a resend may set: now plus the configured
+// lifetime, clamped to the challenge's stored absolute ceiling, so a resend can
+// push the deadline out but never past that ceiling (OTP-10). The stored
+// ceiling is the authority, not a re-derivation from creation, so a policy
+// change after issuance cannot move an existing challenge's ceiling.
+func (p ChallengePolicy) DeadlineWithin(ceilingAt, now time.Time) time.Time {
+	deadline := now.Add(p.Lifetime)
+	if deadline.After(ceilingAt) {
+		return ceilingAt
+	}
+	return deadline
+}
+
 // CooldownElapsed reports whether a resend may record a new send at now: it is
 // allowed exactly at lastSentAt+ResendCooldown and rejected one nanosecond
 // before (OTP-10).

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strconv"
 	"time"
 
 	"legnaris/internal/auth"
@@ -59,11 +60,18 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 // before any credential work (AUTH-13, AUTH-17, AUTH-26).
 func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, observer Observer) {
 	limiter := modules.Auth.RateLimiter
+	challengeController := NewChallengeController(modules.Auth.Service, observer)
 
 	group.POST("/register", modules.Auth.Controller.Register, rateLimit(limiter, observer, true))
 	group.POST("/login", modules.Auth.Controller.Login, rateLimit(limiter, observer, true))
 	group.POST("/refresh", modules.Auth.Controller.Refresh, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
 	group.POST("/logout", modules.Auth.Controller.Logout, requireAllowedOrigin(origins))
+
+	// The two unified code-step routes present a capability and no session
+	// credential, so they take the per-address limiter and no origin guard —
+	// exactly like sign-in and registration (OTP-19, R13).
+	group.POST("/challenge/verify", challengeController.Verify, rateLimit(limiter, observer, false))
+	group.POST("/challenge/resend", challengeController.Resend, rateLimit(limiter, observer, false))
 }
 
 func HTTPErrorHandler(c *echo.Context, err error) {
@@ -75,6 +83,12 @@ func HTTPErrorHandler(c *echo.Context, err error) {
 	}
 
 	appErr := asAppErr(err)
+
+	// A refused request that carries a wait hint advertises it, so the client
+	// can render a countdown (OTP-13, OTP-14).
+	if appErr.RetryAfter > 0 {
+		c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(retryAfterSeconds(appErr.RetryAfter)))
+	}
 
 	_ = c.JSON(appErr.HttpStatus(), response.ErrorResponse{
 		Error: response.ErrorBody{

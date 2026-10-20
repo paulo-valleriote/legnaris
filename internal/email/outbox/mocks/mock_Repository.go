@@ -142,6 +142,121 @@ func (_c *MockRepository_Claim_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
+// Clone provides a mock function with given fields: ctx, id, now
+func (_m *MockRepository) Clone(ctx context.Context, id string, now time.Time) (outbox.Intent, error) {
+	ret := _m.Called(ctx, id, now)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Clone")
+	}
+
+	var r0 outbox.Intent
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) (outbox.Intent, error)); ok {
+		return rf(ctx, id, now)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) outbox.Intent); ok {
+		r0 = rf(ctx, id, now)
+	} else {
+		r0 = ret.Get(0).(outbox.Intent)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, time.Time) error); ok {
+		r1 = rf(ctx, id, now)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_Clone_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Clone'
+type MockRepository_Clone_Call struct {
+	*mock.Call
+}
+
+// Clone is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - now time.Time
+func (_e *MockRepository_Expecter) Clone(ctx interface{}, id interface{}, now interface{}) *MockRepository_Clone_Call {
+	return &MockRepository_Clone_Call{Call: _e.mock.On("Clone", ctx, id, now)}
+}
+
+func (_c *MockRepository_Clone_Call) Run(run func(ctx context.Context, id string, now time.Time)) *MockRepository_Clone_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockRepository_Clone_Call) Return(_a0 outbox.Intent, _a1 error) *MockRepository_Clone_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_Clone_Call) RunAndReturn(run func(context.Context, string, time.Time) (outbox.Intent, error)) *MockRepository_Clone_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CountSince provides a mock function with given fields: ctx, since
+func (_m *MockRepository) CountSince(ctx context.Context, since time.Time) (int, error) {
+	ret := _m.Called(ctx, since)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountSince")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) (int, error)); ok {
+		return rf(ctx, since)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) int); ok {
+		r0 = rf(ctx, since)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = rf(ctx, since)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_CountSince_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountSince'
+type MockRepository_CountSince_Call struct {
+	*mock.Call
+}
+
+// CountSince is a helper method to define mock.On call
+//   - ctx context.Context
+//   - since time.Time
+func (_e *MockRepository_Expecter) CountSince(ctx interface{}, since interface{}) *MockRepository_CountSince_Call {
+	return &MockRepository_CountSince_Call{Call: _e.mock.On("CountSince", ctx, since)}
+}
+
+func (_c *MockRepository_CountSince_Call) Run(run func(ctx context.Context, since time.Time)) *MockRepository_CountSince_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockRepository_CountSince_Call) Return(_a0 int, _a1 error) *MockRepository_CountSince_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_CountSince_Call) RunAndReturn(run func(context.Context, time.Time) (int, error)) *MockRepository_CountSince_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function with given fields: ctx, intent
 func (_m *MockRepository) Create(ctx context.Context, intent outbox.Intent) error {
 	ret := _m.Called(ctx, intent)

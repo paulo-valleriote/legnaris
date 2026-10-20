@@ -2,12 +2,18 @@ package metrics
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
+	"legnaris/internal/auth"
+
 	"github.com/labstack/echo/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // newTestRouter builds an Echo instance with a Metrics instance registered
@@ -204,4 +210,75 @@ func TestEmailMetrics(t *testing.T) {
 			t.Errorf("expected %q in the metrics output, got:\n%s", want, body)
 		}
 	}
+}
+
+// TestOTPMetrics pins the code-step series and their exact label sets, and
+// proves the type satisfies the challenge observer without any series carrying
+// a code, a challenge identity or an unmasked address (OTP-15, OTP-16).
+func TestOTPMetrics(t *testing.T) {
+	observer := New()
+
+	observer.ChallengeIssued(auth.PurposeVerifyEmail)
+	observer.ChallengeIssued(auth.PurposeLoginOTP)
+	observer.ChallengeIssued(auth.PurposeLoginOTP)
+	observer.ChallengeVerified(auth.ResultVerified)
+	for _, result := range []string{
+		auth.ResultInvalid, auth.ResultExpired, auth.ResultConsumed,
+		auth.ResultExhausted, auth.ResultUnknown,
+	} {
+		observer.ChallengeVerified(result)
+	}
+	observer.ResendRequested(auth.ResendSent)
+	observer.ResendRequested(auth.ResendSuppressed)
+	observer.ResendRequested(auth.ResendCapped)
+	observer.SendCapBlocked()
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	observer.Handler().ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	body := rec.Body.String()
+	t.Run("Happy path: issuance is counted per purpose", func(t *testing.T) {
+		for _, want := range []string{
+			`legnaris_auth_otp_issued_total{purpose="verify_email"} 1`,
+			`legnaris_auth_otp_issued_total{purpose="login_otp"} 2`,
+		} {
+			assert.Contains(t, body, want)
+		}
+	})
+
+	t.Run("Happy path: every verification result has its own series", func(t *testing.T) {
+		for _, result := range []string{
+			auth.ResultVerified, auth.ResultInvalid, auth.ResultExpired,
+			auth.ResultConsumed, auth.ResultExhausted, auth.ResultUnknown,
+		} {
+			assert.Contains(t, body, fmt.Sprintf(`legnaris_auth_otp_verify_total{result="%s"} 1`, result))
+		}
+	})
+
+	t.Run("Happy path: every resend result has its own series", func(t *testing.T) {
+		for _, result := range []string{auth.ResendSent, auth.ResendSuppressed, auth.ResendCapped} {
+			assert.Contains(t, body, fmt.Sprintf(`legnaris_auth_otp_resend_total{result="%s"} 1`, result))
+		}
+	})
+
+	t.Run("Happy path: the cap refusal is counted", func(t *testing.T) {
+		assert.Contains(t, body, "legnaris_auth_otp_cap_blocked_total 1")
+	})
+
+	t.Run("Edge: no OTP series carries a code or an unmasked address", func(t *testing.T) {
+		// Scan only the code-step series; the Go/process collectors legitimately
+		// expose runtime numbers.
+		var otpLines []string
+		for _, line := range strings.Split(body, "\n") {
+			if strings.Contains(line, "legnaris_auth_otp") {
+				otpLines = append(otpLines, line)
+			}
+		}
+		joined := strings.Join(otpLines, "\n")
+		assert.NotEmpty(t, otpLines, "the code-step series must be exposed")
+		assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), joined)
+		assert.NotContains(t, joined, "@")
+	})
 }

@@ -3,6 +3,7 @@ package apperr
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -46,4 +47,17 @@ func TestNewError_StatusMapping(t *testing.T) {
 func TestHttpStatus_UnmappedCodeFallsBackTo500(t *testing.T) {
 	err := &Error{Code: "SOMETHING_NEW", Message: "unmapped"}
 	assert.Equal(t, 500, err.HttpStatus())
+}
+
+// TestWithRetryAfter pins the wait hint the HTTP boundary renders as
+// Retry-After: a fresh error carries none, and the setter returns the same
+// error so a producer can chain it (OTP-13, OTP-14).
+func TestWithRetryAfter(t *testing.T) {
+	plain := NewError(CodeRateLimited, "slow down", nil)
+	assert.Zero(t, plain.RetryAfter, "an error without a hint advertises none")
+
+	hinted := NewError(CodeEmailUnavailable, "unavailable", nil).WithRetryAfter(90 * time.Second)
+	assert.Equal(t, 90*time.Second, hinted.RetryAfter)
+	assert.Equal(t, 503, hinted.HttpStatus())
+	assert.Equal(t, CodeEmailUnavailable, hinted.Code)
 }

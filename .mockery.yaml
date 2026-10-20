@@ -40,6 +40,9 @@ packages:
       TokenManager: {}
       RefreshTokenGenerator: {}
       Observer: {}
+      ChallengeRepository: {}
+      CodeMailer: {}
+      ChallengeObserver: {}
   legnaris/internal/email/outbox:
     config:
       dir: internal/email/outbox/mocks

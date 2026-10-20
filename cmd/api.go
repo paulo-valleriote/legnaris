@@ -57,7 +57,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 
 	httpMetrics := metrics.New()
 
-	modules, err := app.NewModules(database, registry, cfg, httpMetrics)
+	modules, err := app.NewModules(database, registry, cfg, httpMetrics, httpMetrics)
 	if err != nil {
 		return fmt.Errorf("build modules: %w", err)
 	}

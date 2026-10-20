@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"legnaris/internal/auth"
+	"legnaris/internal/email/outbox"
 	"legnaris/internal/platform/clientip"
 	"legnaris/internal/platform/ratelimit"
 	"legnaris/internal/sheet"
@@ -43,9 +44,15 @@ type Modules struct {
 }
 
 // NewModules wires every domain module. It returns an error for configuration
-// that must fail fast at boot (JWT secret, bcrypt cost) instead of producing a
-// half-usable server.
-func NewModules(database *db.Database, registry *template.Registry, cfg env.Env, observer auth.Observer) (*Modules, error) {
+// that must fail fast at boot (JWT secret, bcrypt cost, the code-digest secret)
+// instead of producing a half-usable server.
+func NewModules(
+	database *db.Database,
+	registry *template.Registry,
+	cfg env.Env,
+	observer auth.Observer,
+	challengeObserver auth.ChallengeObserver,
+) (*Modules, error) {
 	log := cfg.Logger
 	mdb := database.Client.Database(cfg.Variables.DatabaseName)
 
@@ -82,6 +89,25 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 
 	csrfManager := auth.NewCSRFTokenManager([]byte(cfg.Variables.JWTSecret))
 
+	// The code-digest secret is required and validated here, so the process
+	// never starts hashing codes with a weak or absent key (F-09, OTP-18).
+	codeDigest, err := auth.NewCodeDigest(cfg.Variables.EmailCodeSecret)
+	if err != nil {
+		return nil, fmt.Errorf("build code digest: %w", err)
+	}
+
+	challengeRepository := auth.NewChallengeRepository(mdb)
+	codeMailer := NewEmailIntent(outbox.NewRepository(mdb, log), log)
+	challengePolicy := auth.ChallengePolicy{
+		Lifetime:         cfg.Variables.AuthOTPTTL,
+		Ceiling:          cfg.Variables.AuthOTPCeiling,
+		ResendCooldown:   cfg.Variables.AuthOTPResendCooldown,
+		MaxAttempts:      cfg.Variables.AuthOTPMaxAttempts,
+		DailySendCap:     cfg.Variables.AuthOTPDailySendCap,
+		UserWindow:       cfg.Variables.AuthOTPUserWindow,
+		MaxPerUserWindow: cfg.Variables.AuthOTPUserLimit,
+	}
+
 	authService := auth.NewService(
 		userRepository,
 		refreshTokenRepository,
@@ -95,6 +121,14 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 			Now:        now,
 		},
 		log,
+		auth.ChallengeDeps{
+			Repository: challengeRepository,
+			Generator:  auth.NewCodeGenerator(),
+			Digest:     codeDigest,
+			Mailer:     codeMailer,
+			Observer:   challengeObserver,
+			Policy:     challengePolicy,
+		},
 	)
 	authController := NewAuthController(authService)
 

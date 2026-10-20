@@ -11,6 +11,7 @@ import (
 	"legnaris/internal/email/outbox"
 	"legnaris/shared/db"
 	"legnaris/shared/env"
+	"legnaris/shared/idgen"
 	"legnaris/shared/logger"
 
 	"github.com/stretchr/testify/assert"
@@ -352,5 +353,98 @@ func TestRepository_Indexes(t *testing.T) {
 		seconds, ok := ttl["expireAfterSeconds"].(int32)
 		require.True(t, ok, "the TTL index must carry expireAfterSeconds")
 		assert.Equal(t, int32(outboxTestRetention.Seconds()), seconds)
+	})
+}
+
+// TestRepository_Clone proves a resend re-records the same payload under a fresh
+// identity — what keeps the provider's idempotency key from suppressing the
+// second send — and leaves the original row untouched (OTP-10, EML-18).
+func TestRepository_Clone(t *testing.T) {
+	repo, collection := newOutboxFixture(t)
+	ctx := context.Background()
+	now := sampleNow()
+
+	original := mustIntent(t, "player@example.com", now)
+	require.NoError(t, repo.Create(ctx, original))
+
+	t.Run("Happy path: the clone carries a fresh identity, the same message and a fresh eligibility", func(t *testing.T) {
+		later := now.Add(time.Minute)
+		cloned, err := repo.Clone(ctx, original.ID, later)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, original.ID, cloned.ID, "the resend must not reuse the identity")
+		assert.NoError(t, idgen.Validate(cloned.ID), "the clone must carry a canonical UUID v7")
+		assert.Equal(t, original.To, cloned.To)
+		assert.Equal(t, original.Template, cloned.Template)
+		assert.Equal(t, original.Payload, cloned.Payload)
+		assert.Equal(t, outbox.StatusPending, cloned.Status)
+		assert.Zero(t, cloned.Attempts)
+		assert.Equal(t, later, cloned.NextAttemptAt)
+
+		count, err := collection.CountDocuments(ctx, bson.D{})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), count, "the clone must be a new row")
+	})
+
+	t.Run("Edge: the original row is untouched", func(t *testing.T) {
+		var stored outbox.Intent
+		require.NoError(t, collection.FindOne(ctx, bson.D{{Key: "_id", Value: original.ID}}).Decode(&stored))
+		assert.Equal(t, original, stored)
+	})
+
+	t.Run("Error: an unknown identity is a typed not-found", func(t *testing.T) {
+		_, err := repo.Clone(ctx, mustIntent(t, "ghost@example.com", now).ID, now)
+		assert.ErrorIs(t, err, outbox.ErrIntentNotFound)
+	})
+
+	t.Run("Error: a non-canonical identity is rejected before any read", func(t *testing.T) {
+		_, err := repo.Clone(ctx, "not-a-uuid", now)
+		assert.ErrorIs(t, err, outbox.ErrInvalidIntentID)
+	})
+}
+
+// TestRepository_CountSince proves the daily-cap count honours the window: only
+// rows recorded at or after the instant are counted (OTP-13).
+func TestRepository_CountSince(t *testing.T) {
+	repo, collection := newOutboxFixture(t)
+	ctx := context.Background()
+	now := sampleNow()
+
+	require.NoError(t, repo.Create(ctx, mustIntent(t, "one@example.com", now.Add(-2*time.Hour))))
+	require.NoError(t, repo.Create(ctx, mustIntent(t, "two@example.com", now.Add(-time.Minute))))
+	require.NoError(t, repo.Create(ctx, mustIntent(t, "three@example.com", now)))
+
+	t.Run("Happy path: rows at or after the instant are counted", func(t *testing.T) {
+		count, err := repo.CountSince(ctx, now.Add(-time.Minute))
+		require.NoError(t, err)
+		assert.Equal(t, 2, count, "the boundary row and the later one are counted")
+	})
+
+	t.Run("Edge: an instant after every row counts nothing", func(t *testing.T) {
+		count, err := repo.CountSince(ctx, now.Add(time.Hour))
+		require.NoError(t, err)
+		assert.Zero(t, count, "a future window fails open with headroom")
+	})
+
+	t.Run("Edge: an instant before every row counts them all", func(t *testing.T) {
+		count, err := repo.CountSince(ctx, now.Add(-24*time.Hour))
+		require.NoError(t, err)
+		assert.Equal(t, 3, count)
+	})
+
+	t.Run("Happy path: the created_at index exists", func(t *testing.T) {
+		cursor, err := collection.Indexes().List(ctx)
+		require.NoError(t, err)
+
+		var listed []bson.M
+		require.NoError(t, cursor.All(ctx, &listed))
+
+		names := make([]string, 0, len(listed))
+		for _, index := range listed {
+			if name, ok := index["name"].(string); ok {
+				names = append(names, name)
+			}
+		}
+		assert.Contains(t, names, "email_outbox_created_at", "the created_at index must exist")
 	})
 }

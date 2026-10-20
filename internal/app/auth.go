@@ -42,7 +42,7 @@ func (ac *AuthController) Register(c *echo.Context) error {
 		return err
 	}
 
-	ac.setSessionCookies(c, session)
+	setSessionCookies(c, session)
 	return response.Created(c, sessionResponse(session))
 }
 
@@ -60,7 +60,7 @@ func (ac *AuthController) Login(c *echo.Context) error {
 		return err
 	}
 
-	ac.setSessionCookies(c, session)
+	setSessionCookies(c, session)
 	return response.OK(c, sessionResponse(session))
 }
 
@@ -76,7 +76,7 @@ func (ac *AuthController) Refresh(c *echo.Context) error {
 		return err
 	}
 
-	ac.setSessionCookies(c, session)
+	setSessionCookies(c, session)
 	return response.OK(c, sessionResponse(session))
 }
 
@@ -102,8 +102,9 @@ func (ac *AuthController) Logout(c *echo.Context) error {
 
 // setSessionCookies writes the refresh credential and the CSRF token as the two
 // contract-fixed cookies. The credential never reaches the body (AUTH-01,
-// AUTH-08, AUTH-12).
-func (ac *AuthController) setSessionCookies(c *echo.Context, session *auth.Session) {
+// AUTH-08, AUTH-12). It is shared with the challenge verification controller,
+// which establishes the same session.
+func setSessionCookies(c *echo.Context, session *auth.Session) {
 	c.SetCookie(auth.RefreshCookie(session.RefreshToken, session.RefreshMaxAge))
 	c.SetCookie(auth.CSRFCookie(session.CSRFToken, session.RefreshMaxAge))
 }

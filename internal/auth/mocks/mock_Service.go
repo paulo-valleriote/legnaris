@@ -22,6 +22,65 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// IssueChallenge provides a mock function with given fields: ctx, cmd
+func (_m *MockService) IssueChallenge(ctx context.Context, cmd auth.IssueChallengeCommand) (*auth.ChallengeIssued, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IssueChallenge")
+	}
+
+	var r0 *auth.ChallengeIssued
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, auth.IssueChallengeCommand) (*auth.ChallengeIssued, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, auth.IssueChallengeCommand) *auth.ChallengeIssued); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*auth.ChallengeIssued)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, auth.IssueChallengeCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_IssueChallenge_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IssueChallenge'
+type MockService_IssueChallenge_Call struct {
+	*mock.Call
+}
+
+// IssueChallenge is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd auth.IssueChallengeCommand
+func (_e *MockService_Expecter) IssueChallenge(ctx interface{}, cmd interface{}) *MockService_IssueChallenge_Call {
+	return &MockService_IssueChallenge_Call{Call: _e.mock.On("IssueChallenge", ctx, cmd)}
+}
+
+func (_c *MockService_IssueChallenge_Call) Run(run func(ctx context.Context, cmd auth.IssueChallengeCommand)) *MockService_IssueChallenge_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(auth.IssueChallengeCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_IssueChallenge_Call) Return(_a0 *auth.ChallengeIssued, _a1 error) *MockService_IssueChallenge_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_IssueChallenge_Call) RunAndReturn(run func(context.Context, auth.IssueChallengeCommand) (*auth.ChallengeIssued, error)) *MockService_IssueChallenge_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Login provides a mock function with given fields: ctx, cmd
 func (_m *MockService) Login(ctx context.Context, cmd auth.LoginCommand) (*auth.Session, error) {
 	ret := _m.Called(ctx, cmd)
@@ -242,6 +301,124 @@ func (_c *MockService_Register_Call) Return(_a0 *auth.Session, _a1 error) *MockS
 }
 
 func (_c *MockService_Register_Call) RunAndReturn(run func(context.Context, auth.RegisterCommand) (*auth.Session, error)) *MockService_Register_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ResendChallenge provides a mock function with given fields: ctx, cmd
+func (_m *MockService) ResendChallenge(ctx context.Context, cmd auth.ResendChallengeCommand) (*auth.ResendResult, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResendChallenge")
+	}
+
+	var r0 *auth.ResendResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, auth.ResendChallengeCommand) (*auth.ResendResult, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, auth.ResendChallengeCommand) *auth.ResendResult); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*auth.ResendResult)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, auth.ResendChallengeCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ResendChallenge_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResendChallenge'
+type MockService_ResendChallenge_Call struct {
+	*mock.Call
+}
+
+// ResendChallenge is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd auth.ResendChallengeCommand
+func (_e *MockService_Expecter) ResendChallenge(ctx interface{}, cmd interface{}) *MockService_ResendChallenge_Call {
+	return &MockService_ResendChallenge_Call{Call: _e.mock.On("ResendChallenge", ctx, cmd)}
+}
+
+func (_c *MockService_ResendChallenge_Call) Run(run func(ctx context.Context, cmd auth.ResendChallengeCommand)) *MockService_ResendChallenge_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(auth.ResendChallengeCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_ResendChallenge_Call) Return(_a0 *auth.ResendResult, _a1 error) *MockService_ResendChallenge_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ResendChallenge_Call) RunAndReturn(run func(context.Context, auth.ResendChallengeCommand) (*auth.ResendResult, error)) *MockService_ResendChallenge_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// VerifyChallenge provides a mock function with given fields: ctx, cmd
+func (_m *MockService) VerifyChallenge(ctx context.Context, cmd auth.VerifyChallengeCommand) (*auth.Session, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VerifyChallenge")
+	}
+
+	var r0 *auth.Session
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, auth.VerifyChallengeCommand) (*auth.Session, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, auth.VerifyChallengeCommand) *auth.Session); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*auth.Session)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, auth.VerifyChallengeCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_VerifyChallenge_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VerifyChallenge'
+type MockService_VerifyChallenge_Call struct {
+	*mock.Call
+}
+
+// VerifyChallenge is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd auth.VerifyChallengeCommand
+func (_e *MockService_Expecter) VerifyChallenge(ctx interface{}, cmd interface{}) *MockService_VerifyChallenge_Call {
+	return &MockService_VerifyChallenge_Call{Call: _e.mock.On("VerifyChallenge", ctx, cmd)}
+}
+
+func (_c *MockService_VerifyChallenge_Call) Run(run func(ctx context.Context, cmd auth.VerifyChallengeCommand)) *MockService_VerifyChallenge_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(auth.VerifyChallengeCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_VerifyChallenge_Call) Return(_a0 *auth.Session, _a1 error) *MockService_VerifyChallenge_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_VerifyChallenge_Call) RunAndReturn(run func(context.Context, auth.VerifyChallengeCommand) (*auth.Session, error)) *MockService_VerifyChallenge_Call {
 	_c.Call.Return(run)
 	return _c
 }

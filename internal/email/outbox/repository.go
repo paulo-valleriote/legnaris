@@ -19,6 +19,7 @@ const (
 	fieldStatus           = "status"
 	fieldAttempts         = "attempts"
 	fieldNextAttemptAt    = "next_attempt_at"
+	fieldCreatedAt        = "created_at"
 	fieldLockedUntil      = "locked_until"
 	fieldLockedBy         = "locked_by"
 	fieldPublishedAt      = "published_at"
@@ -26,8 +27,13 @@ const (
 	operandSet            = "$set"
 	operandInc            = "$inc"
 	operandLTE            = "$lte"
+	operandGTE            = "$gte"
 	operandOr             = "$or"
 )
+
+// ErrIntentNotFound reports a Clone targeting an identity the store does not
+// hold — for example one the retention window already retired.
+var ErrIntentNotFound = errors.New("intent not found")
 
 // Repository is the durable-intention contract consumed by the relay; the
 // API-side caller will use Create (EML-01, EML-03, EML-04, EML-17).
@@ -38,6 +44,13 @@ type Repository interface {
 	Reschedule(ctx context.Context, id string, now, nextAt time.Time, lastError string) error
 	MarkTerminal(ctx context.Context, id string, now time.Time, lastError string) error
 	Backlog(ctx context.Context) (int, error)
+	// Clone creates a new pending intention from an existing one's recipient,
+	// template and payload, with a fresh canonical identity, attempts = 0 and
+	// next_attempt_at = now. An unknown identity is ErrIntentNotFound (OTP-10).
+	Clone(ctx context.Context, id string, now time.Time) (Intent, error)
+	// CountSince counts intentions recorded at or after since; it backs the
+	// daily send cap (OTP-13).
+	CountSince(ctx context.Context, since time.Time) (int, error)
 }
 
 // RepositoryImpl is the MongoDB-backed outbox store.
@@ -170,6 +183,46 @@ func (r *RepositoryImpl) Backlog(ctx context.Context) (int, error) {
 	count, err := r.collection.CountDocuments(ctx, bson.D{{Key: fieldStatus, Value: StatusPending}})
 	if err != nil {
 		return 0, fmt.Errorf("count pending intents: %w", err)
+	}
+	return int(count), nil
+}
+
+// Clone records a resend: it reads the identified intention and writes a new
+// pending row with a fresh canonical identity, the same recipient, template and
+// payload, attempts = 0 and next_attempt_at = now. The fresh identity is what
+// keeps the provider's idempotency key from suppressing the second send
+// (R3, EML-18, OTP-10).
+func (r *RepositoryImpl) Clone(ctx context.Context, id string, now time.Time) (Intent, error) {
+	if err := validateIntentID(id); err != nil {
+		return Intent{}, err
+	}
+
+	var existing Intent
+	if err := r.collection.FindOne(ctx, bson.D{{Key: fieldID, Value: id}}).Decode(&existing); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return Intent{}, ErrIntentNotFound
+		}
+		return Intent{}, fmt.Errorf("read intent to clone: %w", err)
+	}
+
+	fresh, err := NewIntent("", existing.To, existing.Template, existing.Payload, now)
+	if err != nil {
+		return Intent{}, err
+	}
+	if err := r.Create(ctx, fresh); err != nil {
+		return Intent{}, err
+	}
+	return fresh, nil
+}
+
+// CountSince counts every intention recorded at or after since, the daily
+// send-cap's only input; the {created_at: 1} index backs it (OTP-13).
+func (r *RepositoryImpl) CountSince(ctx context.Context, since time.Time) (int, error) {
+	count, err := r.collection.CountDocuments(ctx, bson.D{
+		{Key: fieldCreatedAt, Value: bson.D{{Key: operandGTE, Value: since}}},
+	})
+	if err != nil {
+		return 0, fmt.Errorf("count intents since: %w", err)
 	}
 	return int(count), nil
 }
