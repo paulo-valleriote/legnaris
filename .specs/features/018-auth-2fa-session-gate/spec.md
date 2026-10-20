@@ -8,6 +8,14 @@
 
 **Input**: User description: "harden sign-in: registration and sign-in issue an email code challenge instead of a session, renewal refuses accounts without a verification timestamp, and the client can read its verification state" (plan `docs/plan-auth-otp-2fa-email.md` §9 stage 4; decisions D1, D2, D4, O5; findings F-02, F-03, F-05, F-10)
 
+## Clarifications
+
+### Session 2026-10-20
+
+- Q: When renewal is refused because the account has never verified its email, should the presented refresh credential's whole session family be revoked, ending that session everywhere? → A: Revoke the family (user decision, 2026-10-20): the refusal mirrors the existing missing-account branch, so a session issued before the rule cannot renew once more anywhere, and the person recovers by signing in and completing the code step (`TFA-06`, `SC-003`).
+- Q: This feature fixes sign-in's timing oracle, but registration still answers 409 for an address that already has an account (plan finding F-05). Is fixing that part of this feature's scope? → A: Out of scope here (user decision, 2026-10-20): the plan's stage-4 text addresses only the sign-in oracle, so registration keeps its conflict outcome and F-05's registration half remains a documented residual risk — changing it would break the existing contract and the client (`TFA-01`, Assumptions).
+- Q: Plan §9 stage 7 wants to turn the rule on for new accounts before everyone. Should this feature's toggle already support that staged order? → A: No — one on/off switch, default off (user decision, 2026-10-20). The staged order and any cohort notion remain stage 7's; the operator flip is a configuration act, and this feature ships the switch (`TFA-07`, `TFA-12`).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Proving a password is no longer proving the mailbox (Priority: P1)
@@ -119,7 +127,7 @@ The register and sign-in contracts break every client at once. Shipping that onl
 
 **The rollout gate (US4)**
 
-- **TFA-07**: The gate MUST be a single configuration setting, optional and documented, whose default is disabled; enabling it changes only the register, sign-in and renewal contracts above and MUST NOT rewrite any account data or change the stored verification semantics.
+- **TFA-07**: The gate MUST be a single on/off configuration setting, optional and documented, whose default is disabled; enabling it changes only the register, sign-in and renewal contracts above and MUST NOT rewrite any account data or change the stored verification semantics.
 - **TFA-11**: The gate MUST NOT change the challenge domain delivered by the preceding feature: its purposes, its limits, its consumption, its resend rules and its counters MUST behave identically with the gate either way, and no new session, cookie or access-credential format MUST be introduced.
 - **TFA-12**: WHILE the gate is disabled, the observable register, sign-in and renewal behavior MUST be exactly today's, so the existing suites pass unchanged; the identity read of TFA-08 remains available.
 - **TFA-13**: WHEN the daily send allowance refuses the code step that a registration would start, or the store fails while starting it, the server MUST answer the typed failure with no session and no credential, and MUST NOT leave the person unable to obtain a code later with the same credentials.
@@ -153,10 +161,10 @@ The register and sign-in contracts break every client at once. Shipping that onl
 ## Assumptions
 
 - This is the fourth of the features derived from `docs/plan-auth-otp-2fa-email.md` §9; it delivers stage 4 (the register/sign-in hardening, the renewal gate and the verification read) only. The client changes — the pending-code state, the code screen, the error mapping and the copy — are stage 5, and this feature changes no client code while recording its premise as superseded.
-- The gate is one global boolean whose default is disabled. Plan §9 stage 7 describes a staged activation ("new accounts first, then everyone"); a single boolean cannot express a cohort, so the staged order, the operational flip and any optional cleanup of pre-existing refresh families remain stage 7's, which may amend the setting if a cohort is required.
+- The gate is one global on/off setting whose default is disabled (clarification, 2026-10-20). Plan §9 stage 7 describes a staged activation ("new accounts first, then everyone"); a single switch cannot express a cohort, so the staged order, the operational flip and any optional cleanup of pre-existing refresh families remain stage 7's, which may amend the setting if a cohort is required.
 - Decision D4 is already delivered by the challenge domain (the verification that sets the timestamp when absent and preserves it when present, `OTP-07`); this feature only wires registration and sign-in to it and gates renewal on the same fact.
-- The renewal refusal for an unverified account revokes the presented credential's family, matching the existing missing-account branch and the plan's containment intent; the alternative (refusing without revoking) is a deliberate decision recorded during clarification.
-- Registration's existing duplicate-address conflict outcome is unchanged, so it still reveals that an address has an account (plan finding F-05 is only partially addressed here: the sign-in timing oracle is fixed, the registration conflict is not).
+- The renewal refusal for an unverified account revokes the presented credential's family, matching the existing missing-account branch and the plan's containment intent (clarification, 2026-10-20).
+- Registration's existing duplicate-address conflict outcome is unchanged (clarification, 2026-10-20: out of scope for this feature), so it still reveals that an address has an account; plan finding F-05 is only partially addressed here, because the sign-in timing oracle is fixed and the registration conflict is not.
 - The identity read reuses the existing bearer authentication and the existing success body envelope; the exact field names and envelope shape are fixed during design, and the verification state is a boolean while the stored instant stays internal.
 - The preceding features' seams are what this feature builds on: the canonical address and real client address (`PRQ`), the durable send intention and its daily cap (`EML`, `OTP-13`), and the challenge issuance, uniform verification failure and per-key limits (`OTP`). No new third-party dependency is expected.
 - No account data is migrated: every existing account has no verification timestamp, and enabling the gate does not backfill one; a person with an existing session and no timestamp recovers by signing in and completing the code step.
