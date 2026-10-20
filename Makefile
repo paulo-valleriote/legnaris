@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: run relay build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails
+.PHONY: run relay build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails
 
 ## --- Development ------------------------------------------------------------
 
@@ -48,6 +48,9 @@ lint-specs:     ## Run spec/test lint rules (CI parity: assertions, requirement 
 
 fmt:            ## Format code
 	@go fmt ./...
+
+mod-check:      ## Verify go.mod/go.sum are tidy
+	@go mod tidy -diff
 
 mocks:          ## Generate mocks (after interface changes)
 	@go tool mockery

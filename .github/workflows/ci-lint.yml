@@ -37,6 +37,12 @@ jobs:
           version: v2.13
           args: --new=false
 
+      # A dependency added as `// indirect` while a source imports it directly
+      # stays harmless at build time but drifts from `go mod tidy`; this gate
+      # keeps go.mod/go.sum canonical (mirrored by `make mod-check`).
+      - name: go.mod is tidy
+        run: go mod tidy -diff
+
   race:
     name: tests (race detector)
     runs-on: ubuntu-latest
