@@ -11,10 +11,10 @@ name: Web CI
 #
 # Gates: quality (format, lint, typecheck, tests with coverage thresholds,
 # build), sca (osv/Trivy/npm audit/signatures), sast (Semgrep), secrets
-# (gitleaks), lockfile (lockfile-lint), dependency-review, hardening (hadolint +
-# Trivy config), e2e (Playwright browser suite against the committed visual
-# baseline), dast (OWASP ZAP baseline), lighthouse (LHCI), sbom (Syft) — POL-06,
-# SC-02, SC-06, F10-T003.
+# (gitleaks), lockfile (lockfile-lint), hardening (hadolint + Trivy config),
+# e2e (Playwright browser suite against the committed visual baseline), dast
+# (OWASP ZAP baseline), lighthouse (LHCI), sbom (Syft) — POL-06, SC-02, SC-06,
+# F10-T003.
 on:
   pull_request:
     paths:
@@ -179,15 +179,11 @@ jobs:
       - name: lockfile-lint
         run: npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
 
-  dependency-review:
-    name: dependency review
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v5
-        with:
-          comment-summary-in-pr: always
+  # `dependency-review` is intentionally absent: the action requires the
+  # dependency graph plus GitHub Advanced Security, which this private
+  # repository does not have, so the job failed on every run including `main`
+  # pushes and buried the results of the gates that do run. `sca` (osv-scanner,
+  # Trivy fs, npm audit) is the blocking dependency gate (POL-06, SEC-01).
 
   hardening:
     name: container and Dockerfile hardening

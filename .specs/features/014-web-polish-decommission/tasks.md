@@ -219,3 +219,10 @@ requires the dependency graph plus GitHub Advanced Security, which the private
 repository does not have. `sca` (osv-scanner + Trivy + npm audit) remains the
 blocking dependency gate; resolving `dependency review` is a repository-settings
 decision outside this feature.
+
+**Decision**: the job was removed from `ci-web.yml` instead of left red, because a
+permanently failing required gate cannot be distinguished from a real regression
+and it buried the ten gates that do run. `sca` (`osv-scanner` + Trivy fs + `npm
+audit`) stays the blocking dependency gate, unchanged. Reinstating the job is one
+block once the repository enables the dependency graph and GitHub Advanced
+Security.
