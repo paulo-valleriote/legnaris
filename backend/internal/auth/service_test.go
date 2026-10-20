@@ -29,6 +29,11 @@ const (
 	testEmail    = "player@example.com"
 	testPassword = "sup3r-secret"
 	testHash     = "bcrypt-hash"
+	// testDummyHash is the digest the mocked hasher hands out for the
+	// unknown-address path. The mock never parses it; it proves the service
+	// compares against the hasher's own digest and not against a digest
+	// pinned to a fixed cost (TFA-05).
+	testDummyHash = "$2a$12$0Zk6vB0z0nM8pQ3fS6tUu1mB7xJ4kQ2wR8dH5nL0cV3yA1eT9gG"
 
 	testCSRFSecret = "test-secret"
 	testRefreshTTL = 720 * time.Hour
@@ -530,19 +535,22 @@ func TestService_Login(t *testing.T) {
 
 		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(nil, user.ErrUserNotFound).Once()
 		m.observer.EXPECT().LoginFailure().Return().Once()
-		m.hasher.EXPECT().Compare(mock.Anything, testPassword).Return(auth.ErrPasswordMismatch).Once()
+		m.hasher.EXPECT().DummyHash().Return(testDummyHash).Once()
+		m.hasher.EXPECT().Compare(testDummyHash, testPassword).Return(auth.ErrPasswordMismatch).Once()
 
 		_, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
 		assertAppErr(t, err, apperr.CodeUnauthorized)
 
 		m.hasher.AssertNumberOfCalls(t, "Compare", 1)
+		m.hasher.AssertCalled(t, "Compare", testDummyHash, testPassword)
 	})
 
 	t.Run("Error: an unparseable address is a uniform 401 with no store lookup", func(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.observer.EXPECT().LoginFailure().Return().Once()
-		m.hasher.EXPECT().Compare(mock.Anything, testPassword).Return(auth.ErrPasswordMismatch).Once()
+		m.hasher.EXPECT().DummyHash().Return(testDummyHash).Once()
+		m.hasher.EXPECT().Compare(testDummyHash, testPassword).Return(auth.ErrPasswordMismatch).Once()
 
 		_, err := service.Login(ctx, auth.LoginCommand{Email: "not-an-email", Password: testPassword})
 		assertAppErr(t, err, apperr.CodeUnauthorized)
@@ -558,7 +566,8 @@ func TestService_Login(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.observer.EXPECT().LoginFailure().Return().Once()
-		m.hasher.EXPECT().Compare(mock.Anything, testPassword).Return(auth.ErrPasswordMismatch).Once()
+		m.hasher.EXPECT().DummyHash().Return(testDummyHash).Once()
+		m.hasher.EXPECT().Compare(testDummyHash, testPassword).Return(auth.ErrPasswordMismatch).Once()
 
 		overLong := strings.Repeat("a", user.MaxEmailLength-len("@example.com")+1) + "@example.com"
 		_, err := service.Login(ctx, auth.LoginCommand{Email: overLong, Password: testPassword})
@@ -786,13 +795,15 @@ func TestService_StartOutcome(t *testing.T) {
 		service, m := newGatedAuthService(t)
 
 		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(nil, user.ErrUserNotFound).Once()
-		m.hasher.EXPECT().Compare(mock.Anything, testPassword).Return(auth.ErrPasswordMismatch).Once()
+		m.hasher.EXPECT().DummyHash().Return(testDummyHash).Once()
+		m.hasher.EXPECT().Compare(testDummyHash, testPassword).Return(auth.ErrPasswordMismatch).Once()
 		m.observer.EXPECT().LoginFailure().Return().Once()
 
 		_, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
 		assertAppErr(t, err, apperr.CodeUnauthorized)
 
 		m.hasher.AssertNumberOfCalls(t, "Compare", 1)
+		m.hasher.AssertCalled(t, "Compare", testDummyHash, testPassword)
 		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
 		m.mailer.AssertNotCalled(t, "Record", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})

@@ -29,14 +29,6 @@ var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 // attrUserID is the structured-log field carrying the authenticated user id.
 const attrUserID = "user_id"
 
-// dummyPasswordHash is a bcrypt digest of a password no account can present.
-// The unknown-address path compares the submitted password against it so the
-// sign-in of an address that does not exist costs the same password work as
-// the sign-in of a known one, and the result is discarded (TFA-05, R5). It
-// carries the repository's documented bcrypt cost — 12, the default and the
-// floor of AUTH_BCRYPT_COST — so both paths spend the same rounds.
-const dummyPasswordHash = "$2a$12$FHRXgLT/5yVtMBbPBq11WeLdPhSthVfAga1EIV4qkWeIIo0FvqTRq"
-
 type RegisterCommand struct {
 	Email    string `json:"email"`
 	Username string `json:"username"`
@@ -300,10 +292,11 @@ func (s *ServiceImpl) startChallenge(ctx context.Context, userID, email string, 
 // spendPasswordWork performs the password comparison the unknown-account path
 // owes, so the response time of a sign-in for an address that does not exist
 // falls into the same class as the one for an address whose password is wrong.
-// The comparison runs against a digest no account stores, so its result is
-// discarded (TFA-05, R5).
+// The comparison runs against the hasher's dummy hash — a bcrypt digest at the
+// configured work factor that no account stores — and its result is discarded
+// (TFA-05, R5).
 func (s *ServiceImpl) spendPasswordWork(password string) {
-	_ = s.hasher.Compare(dummyPasswordHash, password)
+	_ = s.hasher.Compare(s.hasher.DummyHash(), password)
 }
 
 // Refresh consumes the presented cookie credential, verifies the CSRF token

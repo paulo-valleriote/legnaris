@@ -64,6 +64,51 @@ func (_c *MockPasswordHasher_Compare_Call) RunAndReturn(run func(string, string)
 	return _c
 }
 
+// DummyHash provides a mock function with no fields
+func (_m *MockPasswordHasher) DummyHash() string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for DummyHash")
+	}
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// MockPasswordHasher_DummyHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DummyHash'
+type MockPasswordHasher_DummyHash_Call struct {
+	*mock.Call
+}
+
+// DummyHash is a helper method to define mock.On call
+func (_e *MockPasswordHasher_Expecter) DummyHash() *MockPasswordHasher_DummyHash_Call {
+	return &MockPasswordHasher_DummyHash_Call{Call: _e.mock.On("DummyHash")}
+}
+
+func (_c *MockPasswordHasher_DummyHash_Call) Run(run func()) *MockPasswordHasher_DummyHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockPasswordHasher_DummyHash_Call) Return(_a0 string) *MockPasswordHasher_DummyHash_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockPasswordHasher_DummyHash_Call) RunAndReturn(run func() string) *MockPasswordHasher_DummyHash_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Hash provides a mock function with given fields: password
 func (_m *MockPasswordHasher) Hash(password string) (string, error) {
 	ret := _m.Called(password)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestPasswordHasher(t *testing.T) {
@@ -53,5 +54,69 @@ func TestPasswordHasher(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.False(t, strings.Contains(hash, "plaintext-needle"))
+	})
+}
+
+// TestPasswordHasherDummyHash pins the digest the unknown-address sign-in
+// compares against: it must be a bcrypt hash at the hasher's own work factor,
+// so both credential failures cost the same work whatever AUTH_BCRYPT_COST is.
+// bcrypt spends the rounds encoded in the digest it is given, so a digest
+// pinned to a fixed cost would re-open the account-existence oracle the
+// comparison exists to close (TFA-05).
+func TestPasswordHasherDummyHash(t *testing.T) {
+	t.Run("Happy path: the dummy hash carries the configured cost", func(t *testing.T) {
+		hasher, err := auth.NewPasswordHasher(12)
+		require.NoError(t, err)
+
+		cost, err := bcrypt.Cost([]byte(hasher.DummyHash()))
+		require.NoError(t, err)
+		assert.Equal(t, 12, cost)
+	})
+
+	t.Run("Edge: a raised work factor moves the dummy hash with it", func(t *testing.T) {
+		hasher, err := auth.NewPasswordHasher(13)
+		require.NoError(t, err)
+
+		cost, err := bcrypt.Cost([]byte(hasher.DummyHash()))
+		require.NoError(t, err)
+		assert.Equal(t, 13, cost, "the dummy hash must never fall behind the configured cost")
+	})
+
+	t.Run("Edge: the dummy hash is stable across calls", func(t *testing.T) {
+		hasher, err := auth.NewPasswordHasher(12)
+		require.NoError(t, err)
+
+		assert.Equal(t, hasher.DummyHash(), hasher.DummyHash())
+	})
+
+	t.Run("Edge: the dummy hash follows the cost and nothing else", func(t *testing.T) {
+		floor, err := auth.NewPasswordHasher(12)
+		require.NoError(t, err)
+
+		raised, err := auth.NewPasswordHasher(13)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, floor.DummyHash(), raised.DummyHash(),
+			"a different work factor must produce a different digest")
+		assert.Equal(t, len(floor.DummyHash()), len(raised.DummyHash()),
+			"the digest must stay a well-formed bcrypt string")
+	})
+
+	t.Run("Edge: no password matches the dummy hash", func(t *testing.T) {
+		hasher, err := auth.NewPasswordHasher(12)
+		require.NoError(t, err)
+
+		for _, password := range []string{"", "correct horse battery staple"} {
+			assert.ErrorIs(t, hasher.Compare(hasher.DummyHash(), password), auth.ErrPasswordMismatch,
+				"the dummy hash must never accept a password")
+		}
+	})
+
+	t.Run("Error: a cost outside the accepted range builds no dummy hash", func(t *testing.T) {
+		_, err := auth.NewPasswordHasher(11)
+		require.ErrorIs(t, err, auth.ErrInvalidBcryptCost)
+
+		_, err = auth.NewPasswordHasher(32)
+		require.ErrorIs(t, err, auth.ErrInvalidBcryptCost)
 	})
 }
