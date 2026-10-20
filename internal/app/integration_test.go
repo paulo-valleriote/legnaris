@@ -37,8 +37,22 @@ const testDatabaseName = "legnaris"
 func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	t.Helper()
 
+	handler, mdb, _ := newIntegrationStack(t, nil)
+	return handler, mdb
+}
+
+// newIntegrationStack is newIntegrationRouter with the wired modules exposed
+// and optional environment overrides, so a suite can drive the service directly
+// and shrink a configured bound without touching the production defaults.
+func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *mongo.Database, *app.Modules) {
+	t.Helper()
+
 	t.Setenv("JWT_SECRET", "integration-test-secret")
 	t.Setenv("AUTH_BCRYPT_COST", "12")
+	t.Setenv("EMAIL_CODE_SECRET", "integration-test-code-secret-0123456789")
+	for key, value := range extra {
+		t.Setenv(key, value)
+	}
 
 	log := logger.NewLogger(slog.LevelError)
 	env := env.NewEnv(log)
@@ -62,11 +76,15 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	_ = mdb.Collection("sheets").Drop(ctx)
 	_ = mdb.Collection("users").Drop(ctx)
 	_ = mdb.Collection("refresh_tokens").Drop(ctx)
+	_ = mdb.Collection("email_outbox").Drop(ctx)
+	_ = mdb.Collection("auth_challenges").Drop(ctx)
 	t.Cleanup(func() {
 		_ = mdb.Collection("sheets").Drop(context.Background())
 		_ = mdb.Collection("template").Drop(context.Background())
 		_ = mdb.Collection("users").Drop(context.Background())
 		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
+		_ = mdb.Collection("email_outbox").Drop(context.Background())
+		_ = mdb.Collection("auth_challenges").Drop(context.Background())
 	})
 
 	require.NoError(t, db.EnsureIndexes(ctx, mdb))
@@ -74,10 +92,10 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	modules, err := app.NewModules(database, registry, env, auth.NewNopObserver())
+	modules, err := app.NewModules(database, registry, env, auth.NewNopObserver(), auth.NewNopChallengeObserver())
 	require.NoError(t, err)
 
-	return app.NewRouter(env, modules, metrics.New()), mdb
+	return app.NewRouter(env, modules, metrics.New()), mdb, modules
 }
 
 func doRequest(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
@@ -887,4 +905,80 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 		secondDelete := doAuthRequest(t, h, tokenA, http.MethodDelete, "/sheets/"+sheetID, "")
 		require.Equal(t, http.StatusNotFound, secondDelete.Code)
 	})
+}
+
+// TestIntegration_CanonicalEmail covers the mailbox-identity journey end to end
+// (PRQ-08, PRQ-10, PRQ-15, SC-004, SC-005): a display-name registration stores
+// the bare lowercase address with no verification timestamp, another spelling of
+// the same mailbox is a 409 with one row, sign-in accepts a third spelling for
+// the same account, and the boot path leaves a legacy document untouched.
+func TestIntegration_CanonicalEmail(t *testing.T) {
+	h, mdb := newIntegrationRouter(t)
+	ctx := context.Background()
+
+	const canonical = "player@example.com"
+	registerBody := fmt.Sprintf(
+		`{"email":%q,"username":"player","password":%q}`,
+		"  Player One <Player@Example.COM>  ",
+		integrationPassword,
+	)
+
+	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
+	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
+
+	var session response.Success[auth.SessionResponse]
+	require.NoError(t, json.Unmarshal(registerRec.Body.Bytes(), &session))
+	registeredID := jwtSubject(t, session.Data.AccessToken)
+
+	var stored bson.M
+	require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.D{{Key: "email", Value: canonical}}).Decode(&stored))
+	assert.Equal(t, registeredID, stored["_id"])
+	assert.NotContains(t, stored, "email_verified_at", "registration must not backfill a verification timestamp")
+
+	duplicateRec := doRequest(
+		t,
+		h,
+		http.MethodPost,
+		"/auth/register",
+		fmt.Sprintf(`{"email":%q,"username":"other","password":%q}`, "PLAYER@example.com", integrationPassword),
+	)
+	require.Equal(t, http.StatusConflict, duplicateRec.Code, duplicateRec.Body.String())
+
+	var duplicateBody response.ErrorResponse
+	require.NoError(t, json.Unmarshal(duplicateRec.Body.Bytes(), &duplicateBody))
+	assert.Equal(t, "CONFLICT", duplicateBody.Error.Code)
+	assert.Equal(t, auth.MsgEmailAlreadyExists, duplicateBody.Error.Message)
+
+	count, err := mdb.Collection("users").CountDocuments(ctx, bson.D{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), count, "one mailbox must stay one account")
+
+	loginRec := doRequest(
+		t,
+		h,
+		http.MethodPost,
+		"/auth/login",
+		fmt.Sprintf(`{"email":%q,"password":%q}`, "Another Name <player@example.com>", integrationPassword),
+	)
+	require.Equal(t, http.StatusOK, loginRec.Code, loginRec.Body.String())
+
+	var loginSession response.Success[auth.SessionResponse]
+	require.NoError(t, json.Unmarshal(loginRec.Body.Bytes(), &loginSession))
+	assert.Equal(t, registeredID, jwtSubject(t, loginSession.Data.AccessToken))
+
+	legacyID := "01900000-0000-7000-8000-0000000000aa"
+	_, err = mdb.Collection("users").InsertOne(ctx, bson.M{
+		"_id":           legacyID,
+		"email":         "Legacy@Example.COM",
+		"username":      "legacy",
+		"password_hash": "bcrypt-hash",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, db.EnsureIndexes(ctx, mdb))
+
+	var legacy bson.M
+	require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.D{{Key: "_id", Value: legacyID}}).Decode(&legacy))
+	assert.NotContains(t, legacy, "email_verified_at", "the boot path must not backfill a legacy document")
+	assert.Equal(t, "Legacy@Example.COM", legacy["email"], "the boot path must not rewrite a legacy address")
 }

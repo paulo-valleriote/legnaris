@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"legnaris/shared/logger"
 	"legnaris/shared/response"
 
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -30,9 +32,30 @@ import (
 // that runs in CI, where the integration suite self-skips without a database.
 func newWiringRouter(t *testing.T) (http.Handler, *app.Modules) {
 	t.Helper()
+	return newWiringRouterWithEnv(t, nil)
+}
+
+// newWiringRouterWithEnv is newWiringRouter with extra environment overrides,
+// so a route-level suite can shrink the rate-limit cap without touching the
+// production defaults.
+func newWiringRouterWithEnv(t *testing.T, extra map[string]string) (http.Handler, *app.Modules) {
+	t.Helper()
+
+	router, modules := newWiringEcho(t, extra)
+	return router, modules
+}
+
+// newWiringEcho exposes the concrete router, so a guard can inspect the
+// registered route inventory in addition to driving requests.
+func newWiringEcho(t *testing.T, extra map[string]string) (*echo.Echo, *app.Modules) {
+	t.Helper()
 
 	t.Setenv("JWT_SECRET", "wiring-test-secret")
 	t.Setenv("AUTH_BCRYPT_COST", "12")
+	t.Setenv("EMAIL_CODE_SECRET", "wiring-test-code-secret-0123456789")
+	for key, value := range extra {
+		t.Setenv(key, value)
+	}
 
 	log := logger.NewLogger(slog.LevelError)
 	env := env.NewEnv(log)
@@ -50,10 +73,39 @@ func newWiringRouter(t *testing.T) (http.Handler, *app.Modules) {
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	modules, err := app.NewModules(&db.Database{Client: client}, registry, env, auth.NewNopObserver())
+	modules, err := app.NewModules(&db.Database{Client: client}, registry, env, auth.NewNopObserver(), auth.NewNopChallengeObserver())
 	require.NoError(t, err)
 
 	return app.NewRouter(env, modules, metrics.New()), modules
+}
+
+// TestRouterWiring_AuthRouteInventory guards the auth HTTP surface: the four
+// session routes plus the two unified code-step routes, whose purpose is
+// resolved server-side and never accepted from the client (OTP-09, OTP-19).
+func TestRouterWiring_AuthRouteInventory(t *testing.T) {
+	router, _ := newWiringEcho(t, nil)
+
+	var got []string
+	for _, route := range router.Router().Routes() {
+		if route.Path == "/auth" || strings.HasPrefix(route.Path, "/auth/") {
+			got = append(got, route.Method+" "+route.Path)
+		}
+	}
+
+	assert.ElementsMatch(t, []string{
+		http.MethodPost + " /auth/register",
+		http.MethodPost + " /auth/login",
+		http.MethodPost + " /auth/refresh",
+		http.MethodPost + " /auth/logout",
+		// Stage 3 adds exactly these two routes; no other route may appear.
+		http.MethodPost + " /auth/challenge/verify",
+		http.MethodPost + " /auth/challenge/resend",
+	}, got, "the auth surface must be exactly the session routes plus the two challenge routes")
+
+	for _, route := range got {
+		assert.NotContains(t, route, "purpose",
+			"the challenge purpose must never be part of the route contract (OTP-09)")
+	}
 }
 
 // TestRouterWiring_RequireAuthGuardsProtectedRoutes covers OWN-15…OWN-18

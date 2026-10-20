@@ -25,6 +25,7 @@ networks:
 
 volumes:
   mongo_data:
+  rabbitmq_data:
   prometheus_data:
   grafana_data:
   loki_data:
@@ -115,6 +116,32 @@ services:
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
       AUTH_REFRESH_TTL: ${AUTH_REFRESH_TTL:-720h}
       AUTH_BCRYPT_COST: ${AUTH_BCRYPT_COST:-12}
+      # Optional trusted proxy set for client-address resolution. Unset keeps
+      # the app default (loopback + private + link-local); a comma-separated
+      # CIDR list replaces the non-loopback portion.
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+      # Optional email-delivery settings. The API records send intentions but
+      # never contacts the provider or the broker, so none of these is required
+      # to boot; RABBITMQ_URL is deliberately absent here because the
+      # request-serving process never reads it (EML-14, EML-16).
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_SEND_TIMEOUT: ${EMAIL_SEND_TIMEOUT:-10s}
+      EMAIL_OUTBOX_RETENTION: ${EMAIL_OUTBOX_RETENTION:-168h}
+      # The OTP digest key is required: the API itself digests codes, so an
+      # absent or too-short value must fail the boot rather than weaken every
+      # code. It must differ from JWT_SECRET (F-09, OTP-18, SC-008).
+      EMAIL_CODE_SECRET: ${EMAIL_CODE_SECRET:?EMAIL_CODE_SECRET is required}
+      # Optional challenge settings; the app defaults are 10m / 30m / 60s / 5 /
+      # 80 / 1h / 10 (OTP-18).
+      AUTH_OTP_TTL: ${AUTH_OTP_TTL:-10m}
+      AUTH_OTP_CEILING: ${AUTH_OTP_CEILING:-30m}
+      AUTH_OTP_RESEND_COOLDOWN: ${AUTH_OTP_RESEND_COOLDOWN:-60s}
+      AUTH_OTP_MAX_ATTEMPTS: ${AUTH_OTP_MAX_ATTEMPTS:-5}
+      AUTH_OTP_DAILY_SEND_CAP: ${AUTH_OTP_DAILY_SEND_CAP:-80}
+      AUTH_OTP_USER_WINDOW: ${AUTH_OTP_USER_WINDOW:-1h}
+      AUTH_OTP_USER_LIMIT: ${AUTH_OTP_USER_LIMIT:-10}
     networks:
       - edge
       - internal
@@ -169,6 +196,58 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+
+  # ---- Message broker ---------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:4-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: legnaris
+      # Required: the broker must never start with an empty password, and the
+      # relay's default RABBITMQ_URL is derived from the same value.
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    # The broker is reachable only on the internal network: it declares no
+    # published host port, so only the relay can reach it (EML-16).
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ---- Email relay (publication process) --------------------------------------
+  relay:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: legnaris-app:local
+    restart: unless-stopped
+    # The shared image carries /relay beside /app; the relay is a separate
+    # process with its own lifecycle (O2, EML-16).
+    entrypoint: ["/relay"]
+    environment:
+      DATABASE_URI: mongodb://legnaris_app:${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}@mongodb:27017/legnaris
+      DATABASE_NAME: legnaris
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://legnaris:${RABBITMQ_PASSWORD}@rabbitmq:5672/}
+      EMAIL_RELAY_POLL_INTERVAL: ${EMAIL_RELAY_POLL_INTERVAL:-1s}
+      EMAIL_RELAY_LEASE: ${EMAIL_RELAY_LEASE:-30s}
+      EMAIL_RELAY_BATCH: ${EMAIL_RELAY_BATCH:-25}
+      EMAIL_RELAY_CONFIRM_TIMEOUT: ${EMAIL_RELAY_CONFIRM_TIMEOUT:-5s}
+      EMAIL_RELAY_MAX_ATTEMPTS: ${EMAIL_RELAY_MAX_ATTEMPTS:-5}
+      EMAIL_OUTBOX_RETENTION: ${EMAIL_OUTBOX_RETENTION:-168h}
+      EMAIL_RELAY_METRICS_ADDR: ${EMAIL_RELAY_METRICS_ADDR:-:9100}
+    # Only the relay depends on the broker; the app never does (EML-16).
+    networks:
+      - internal
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   mongodb-exporter:
     image: percona/mongodb_exporter:0.40.0

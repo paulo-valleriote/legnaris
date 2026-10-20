@@ -289,3 +289,237 @@ func TestLookupIntEnv(t *testing.T) {
 		})
 	}
 }
+
+// TestTrustedProxyCIDRs covers the optional proxy set: unset and blank select
+// the documented default (nil), a configured list is trimmed, and the
+// configured-empty value stays distinct from "unset" (PRQ-03, PRQ-18).
+func TestTrustedProxyCIDRs(t *testing.T) {
+	e := newTestEnv()
+
+	tests := []struct {
+		name string
+		set  bool
+		val  string
+		want []string
+	}{
+		{name: "Edge: unset selects the default (nil)", set: false, want: nil},
+		{name: "Edge: an empty value selects the default (nil)", set: true, val: "", want: nil},
+		{name: "Happy path: a comma-separated list is trimmed", set: true, val: " 10.0.0.0/8 , 172.16.0.0/12 ", want: []string{"10.0.0.0/8", "172.16.0.0/12"}},
+		{name: "Edge: a configured-empty list stays empty and non-nil", set: true, val: ",", want: []string{}},
+		{name: "Edge: an invalid value is preserved for the boot-time policy", set: true, val: "not-a-cidr", want: []string{"not-a-cidr"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.set {
+				t.Setenv("TRUSTED_PROXY_CIDRS", tc.val)
+			} else {
+				unsetEnv(t, "TRUSTED_PROXY_CIDRS")
+			}
+
+			got := e.initVariables().TrustedProxyCIDRs
+			require.Equal(t, tc.want, got)
+			if tc.set && tc.val == "," {
+				require.NotNil(t, got, "a configured-empty set must not collapse into the default")
+			}
+		})
+	}
+
+	t.Run("Edge: the required key list is unchanged", func(t *testing.T) {
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
+	})
+}
+
+// TestInitVariablesEmailDefaults covers the optional email and broker surface:
+// an absent value selects the documented default and the required set is
+// unchanged, so the API still boots with none of them set (EML-14).
+func TestInitVariablesEmailDefaults(t *testing.T) {
+	e := newTestEnv()
+
+	for _, key := range []string{
+		"EMAIL_PROVIDER", "RESEND_API_KEY", "EMAIL_FROM", "EMAIL_SEND_TIMEOUT",
+		"RABBITMQ_URL", "EMAIL_RELAY_POLL_INTERVAL", "EMAIL_RELAY_LEASE",
+		"EMAIL_RELAY_BATCH", "EMAIL_RELAY_CONFIRM_TIMEOUT", "EMAIL_RELAY_MAX_ATTEMPTS",
+		"EMAIL_OUTBOX_RETENTION", "EMAIL_RELAY_METRICS_ADDR",
+	} {
+		unsetEnv(t, key)
+	}
+
+	vars := e.initVariables()
+
+	t.Run("Happy path: the provider defaults to the development sender", func(t *testing.T) {
+		require.Equal(t, "log", vars.EmailProvider)
+	})
+
+	t.Run("Happy path: the provider secrets and sender are empty by default", func(t *testing.T) {
+		require.Empty(t, vars.ResendAPIKey)
+		require.Empty(t, vars.EmailFrom)
+		require.Empty(t, vars.RabbitMQURL)
+	})
+
+	t.Run("Happy path: the durations default to the documented values", func(t *testing.T) {
+		require.Equal(t, 10*time.Second, vars.EmailSendTimeout)
+		require.Equal(t, 1*time.Second, vars.EmailRelayPollInterval)
+		require.Equal(t, 30*time.Second, vars.EmailRelayLease)
+		require.Equal(t, 5*time.Second, vars.EmailRelayConfirmTimeout)
+		require.Equal(t, DefaultEmailOutboxRetention, vars.EmailOutboxRetention)
+		require.Equal(t, 168*time.Hour, vars.EmailOutboxRetention)
+	})
+
+	t.Run("Happy path: the integer and address defaults are the documented values", func(t *testing.T) {
+		require.Equal(t, 25, vars.EmailRelayBatch)
+		require.Equal(t, 5, vars.EmailRelayMaxAttempts)
+		require.Equal(t, ":9100", vars.EmailRelayMetricsAddr)
+	})
+
+	t.Run("Edge: the required key list gains only the digest secret", func(t *testing.T) {
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
+	})
+}
+
+// TestInitVariablesEmailOverrides covers the override and fallback paths for the
+// new variables: valid values are parsed and a blank or unusable one keeps the
+// default rather than a magic zero (EML-14).
+func TestInitVariablesEmailOverrides(t *testing.T) {
+	e := newTestEnv()
+
+	t.Run("Happy path: valid values override the defaults", func(t *testing.T) {
+		t.Setenv("EMAIL_PROVIDER", "resend")
+		t.Setenv("RESEND_API_KEY", "re_test")
+		t.Setenv("EMAIL_FROM", "no-reply@example.com")
+		t.Setenv("EMAIL_SEND_TIMEOUT", "3s")
+		t.Setenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+		t.Setenv("EMAIL_RELAY_BATCH", "50")
+		t.Setenv("EMAIL_RELAY_MAX_ATTEMPTS", "9")
+		t.Setenv("EMAIL_OUTBOX_RETENTION", "24h")
+		t.Setenv("EMAIL_RELAY_METRICS_ADDR", ":9200")
+
+		vars := e.initVariables()
+
+		require.Equal(t, "resend", vars.EmailProvider)
+		require.Equal(t, "re_test", vars.ResendAPIKey)
+		require.Equal(t, "no-reply@example.com", vars.EmailFrom)
+		require.Equal(t, 3*time.Second, vars.EmailSendTimeout)
+		require.Equal(t, "amqp://guest:guest@rabbitmq:5672/", vars.RabbitMQURL)
+		require.Equal(t, 50, vars.EmailRelayBatch)
+		require.Equal(t, 9, vars.EmailRelayMaxAttempts)
+		require.Equal(t, 24*time.Hour, vars.EmailOutboxRetention)
+		require.Equal(t, ":9200", vars.EmailRelayMetricsAddr)
+	})
+
+	t.Run("Edge: blank values select the defaults", func(t *testing.T) {
+		t.Setenv("EMAIL_PROVIDER", "")
+		t.Setenv("RABBITMQ_URL", "")
+		t.Setenv("EMAIL_SEND_TIMEOUT", "")
+
+		vars := e.initVariables()
+
+		require.Equal(t, "log", vars.EmailProvider)
+		require.Empty(t, vars.RabbitMQURL)
+		require.Equal(t, 10*time.Second, vars.EmailSendTimeout)
+	})
+
+	t.Run("Edge: an invalid duration falls back to the default", func(t *testing.T) {
+		t.Setenv("EMAIL_SEND_TIMEOUT", "not-a-duration")
+		require.Equal(t, 10*time.Second, e.initVariables().EmailSendTimeout)
+	})
+
+	t.Run("Edge: a non-positive batch falls back to the default", func(t *testing.T) {
+		t.Setenv("EMAIL_RELAY_BATCH", "0")
+		require.Equal(t, 25, e.initVariables().EmailRelayBatch)
+	})
+
+	t.Run("Edge: a non-numeric attempt cap falls back to the default", func(t *testing.T) {
+		t.Setenv("EMAIL_RELAY_MAX_ATTEMPTS", "many")
+		require.Equal(t, 5, e.initVariables().EmailRelayMaxAttempts)
+	})
+}
+
+// TestInitVariablesChallengeDefaults covers the optional challenge surface: an
+// absent value selects the documented default and the required set gains only
+// the digest secret, so the API boots with none of the optional settings set
+// (OTP-18).
+func TestInitVariablesChallengeDefaults(t *testing.T) {
+	e := newTestEnv()
+
+	for _, key := range []string{
+		"AUTH_OTP_TTL", "AUTH_OTP_CEILING", "AUTH_OTP_RESEND_COOLDOWN",
+		"AUTH_OTP_MAX_ATTEMPTS", "AUTH_OTP_DAILY_SEND_CAP",
+		"AUTH_OTP_USER_WINDOW", "AUTH_OTP_USER_LIMIT",
+	} {
+		unsetEnv(t, key)
+	}
+
+	vars := e.initVariables()
+
+	t.Run("Happy path: the durations default to the documented values", func(t *testing.T) {
+		require.Equal(t, 10*time.Minute, vars.AuthOTPTTL)
+		require.Equal(t, 30*time.Minute, vars.AuthOTPCeiling)
+		require.Equal(t, 60*time.Second, vars.AuthOTPResendCooldown)
+		require.Equal(t, time.Hour, vars.AuthOTPUserWindow)
+	})
+
+	t.Run("Happy path: the integer caps default to the documented values", func(t *testing.T) {
+		require.Equal(t, 5, vars.AuthOTPMaxAttempts)
+		require.Equal(t, 80, vars.AuthOTPDailySendCap)
+		require.Equal(t, 10, vars.AuthOTPUserLimit)
+	})
+
+	t.Run("Edge: the required key list includes the digest secret", func(t *testing.T) {
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
+	})
+
+	t.Run("Edge: the secret is empty when unset (required)", func(t *testing.T) {
+		unsetEnv(t, "EMAIL_CODE_SECRET")
+		require.Empty(t, e.initVariables().EmailCodeSecret)
+	})
+}
+
+// TestInitVariablesChallengeOverrides covers the override and fallback paths:
+// valid values are parsed and a blank or unusable one keeps the default rather
+// than a magic zero (OTP-18).
+func TestInitVariablesChallengeOverrides(t *testing.T) {
+	e := newTestEnv()
+
+	t.Run("Happy path: valid values override the defaults", func(t *testing.T) {
+		t.Setenv("EMAIL_CODE_SECRET", "0123456789abcdef0123456789abcdef")
+		t.Setenv("AUTH_OTP_TTL", "5m")
+		t.Setenv("AUTH_OTP_CEILING", "20m")
+		t.Setenv("AUTH_OTP_RESEND_COOLDOWN", "30s")
+		t.Setenv("AUTH_OTP_MAX_ATTEMPTS", "3")
+		t.Setenv("AUTH_OTP_DAILY_SEND_CAP", "40")
+		t.Setenv("AUTH_OTP_USER_WINDOW", "2h")
+		t.Setenv("AUTH_OTP_USER_LIMIT", "25")
+
+		vars := e.initVariables()
+
+		require.Equal(t, "0123456789abcdef0123456789abcdef", vars.EmailCodeSecret)
+		require.Equal(t, 5*time.Minute, vars.AuthOTPTTL)
+		require.Equal(t, 20*time.Minute, vars.AuthOTPCeiling)
+		require.Equal(t, 30*time.Second, vars.AuthOTPResendCooldown)
+		require.Equal(t, 3, vars.AuthOTPMaxAttempts)
+		require.Equal(t, 40, vars.AuthOTPDailySendCap)
+		require.Equal(t, 2*time.Hour, vars.AuthOTPUserWindow)
+		require.Equal(t, 25, vars.AuthOTPUserLimit)
+	})
+
+	t.Run("Edge: an invalid duration falls back to the default", func(t *testing.T) {
+		t.Setenv("AUTH_OTP_TTL", "not-a-duration")
+		require.Equal(t, 10*time.Minute, e.initVariables().AuthOTPTTL)
+	})
+
+	t.Run("Edge: a zero duration falls back to the default", func(t *testing.T) {
+		t.Setenv("AUTH_OTP_RESEND_COOLDOWN", "0s")
+		require.Equal(t, 60*time.Second, e.initVariables().AuthOTPResendCooldown)
+	})
+
+	t.Run("Edge: a zero attempt cap falls back to the default", func(t *testing.T) {
+		t.Setenv("AUTH_OTP_MAX_ATTEMPTS", "0")
+		require.Equal(t, 5, e.initVariables().AuthOTPMaxAttempts)
+	})
+
+	t.Run("Edge: a non-numeric daily cap falls back to the default", func(t *testing.T) {
+		t.Setenv("AUTH_OTP_DAILY_SEND_CAP", "many")
+		require.Equal(t, 80, e.initVariables().AuthOTPDailySendCap)
+	})
+}

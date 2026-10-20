@@ -45,6 +45,13 @@ type authMocks struct {
 
 func newAuthService(t *testing.T) (auth.Service, *authMocks) {
 	t.Helper()
+	return newAuthServiceWithClock(t, nil)
+}
+
+// newAuthServiceWithClock builds the service over the shared mock set with an
+// explicit time source, so timestamp assertions need no sleeping (PRQ-16).
+func newAuthServiceWithClock(t *testing.T, clock auth.Clock) (auth.Service, *authMocks) {
+	t.Helper()
 
 	m := &authMocks{
 		users:         usermocks.NewMockRepository(t),
@@ -64,8 +71,9 @@ func newAuthService(t *testing.T) (auth.Service, *authMocks) {
 		m.generator,
 		m.csrf,
 		m.observer,
-		auth.Config{RefreshTTL: testRefreshTTL},
+		auth.Config{RefreshTTL: testRefreshTTL, Now: clock},
 		logger.NewLogger(slog.LevelError),
+		auth.ChallengeDeps{},
 	)
 	return service, m
 }
@@ -148,10 +156,21 @@ func TestService_Register(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
-		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(user.ErrEmailAlreadyExists).Once()
+		m.users.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool { return u.Email == testEmail })).
+			Return(user.ErrEmailAlreadyExists).
+			Once()
 
-		_, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
+		_, err := service.Register(ctx, auth.RegisterCommand{
+			Email:    "Another Name <Player@Example.com>",
+			Username: "player",
+			Password: testPassword,
+		})
 		assertAppErr(t, err, apperr.CodeConflict)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgEmailAlreadyExists, appErr.Message)
 		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
 		m.generator.AssertNotCalled(t, "Generate")
 	})
@@ -161,7 +180,74 @@ func TestService_Register(t *testing.T) {
 
 		_, err := service.Register(ctx, auth.RegisterCommand{Email: "not-an-email", Username: "player", Password: testPassword})
 		assertAppErr(t, err, apperr.CodeInvalidRequest)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidEmail, appErr.Message)
 		m.hasher.AssertNotCalled(t, "Hash", mock.Anything)
+	})
+
+	t.Run("Error: a 255-byte address is a 400 with the invalid-email message", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		overLong := strings.Repeat("a", user.MaxEmailLength-len("@example.com")+1) + "@example.com"
+		_, err := service.Register(ctx, auth.RegisterCommand{Email: overLong, Username: "player", Password: testPassword})
+		assertAppErr(t, err, apperr.CodeInvalidRequest)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidEmail, appErr.Message)
+		m.hasher.AssertNotCalled(t, "Hash", mock.Anything)
+	})
+
+	t.Run("Happy path: a display-name spelling is persisted as the bare canonical address", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		var stored string
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+				stored = u.Email
+				return true
+			})).
+			Return(nil).
+			Once()
+		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := service.Register(ctx, auth.RegisterCommand{
+			Email:    "Name <Player@Example.COM>",
+			Username: "player",
+			Password: testPassword,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testEmail, stored)
+	})
+
+	t.Run("Edge: dotted and +tag spellings are persisted verbatim after lowercasing", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		var stored string
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+				stored = u.Email
+				return true
+			})).
+			Return(nil).
+			Once()
+		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := service.Register(ctx, auth.RegisterCommand{
+			Email:    "P.Layer+News@Example.com",
+			Username: "player",
+			Password: testPassword,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "p.layer+news@example.com", stored)
 	})
 
 	t.Run("Error: empty username is rejected", func(t *testing.T) {
@@ -313,6 +399,37 @@ func TestService_Login(t *testing.T) {
 		require.NoError(t, m.csrf.Verify(session.CSRFToken, familyID))
 	})
 
+	t.Run("Happy path: a display-name spelling reaches the canonical account", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(storedUser(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		session, err := service.Login(ctx, auth.LoginCommand{
+			Email:    "Another Name <PLAYER@Example.COM>",
+			Password: testPassword,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, validUserID, session.UserID)
+	})
+
+	t.Run("Edge: dotted and +tag spellings are passed through unchanged", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		const tagged = "p.layer+news@example.com"
+		m.users.EXPECT().FetchByEmail(mock.Anything, tagged).Return(storedUser(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := service.Login(ctx, auth.LoginCommand{Email: "P.Layer+News@Example.com", Password: testPassword})
+		require.NoError(t, err)
+	})
+
 	t.Run("Edge: each login mints a distinct CSRF token", func(t *testing.T) {
 		service, m := newAuthService(t)
 
@@ -337,6 +454,35 @@ func TestService_Login(t *testing.T) {
 
 		_, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
 		assertAppErr(t, err, apperr.CodeUnauthorized)
+	})
+
+	t.Run("Error: an unparseable address is a uniform 401 with no store lookup", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.observer.EXPECT().LoginFailure().Return().Once()
+
+		_, err := service.Login(ctx, auth.LoginCommand{Email: "not-an-email", Password: testPassword})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidCredentials, appErr.Message)
+		m.users.AssertNotCalled(t, "FetchByEmail", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: an over-long address is a uniform 401 with no store lookup", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.observer.EXPECT().LoginFailure().Return().Once()
+
+		overLong := strings.Repeat("a", user.MaxEmailLength-len("@example.com")+1) + "@example.com"
+		_, err := service.Login(ctx, auth.LoginCommand{Email: overLong, Password: testPassword})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidCredentials, appErr.Message)
+		m.users.AssertNotCalled(t, "FetchByEmail", mock.Anything, mock.Anything)
 	})
 
 	t.Run("Error: wrong password returns a generic 401 and records the failure", func(t *testing.T) {
@@ -404,6 +550,7 @@ func TestService_Refresh(t *testing.T) {
 
 		var familyID string
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, auth.HashRefreshToken("current-refresh")).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(true, nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "new-access", ExpiresIn: 900}, nil).Once()
@@ -507,6 +654,7 @@ func TestService_Refresh(t *testing.T) {
 
 		csrfToken := m.issueCSRF(t, validFamily)
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
@@ -525,6 +673,7 @@ func TestService_Refresh(t *testing.T) {
 
 		csrfToken := m.issueCSRF(t, validFamily)
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
@@ -539,6 +688,7 @@ func TestService_Refresh(t *testing.T) {
 
 		csrfToken := m.issueCSRF(t, validFamily)
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{}, errors.New("sign failed")).Once()
 
 		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
@@ -551,6 +701,7 @@ func TestService_Refresh(t *testing.T) {
 
 		csrfToken := m.issueCSRF(t, validFamily)
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(errors.New("insert failed")).Once()
@@ -651,5 +802,196 @@ func TestService_Logout(t *testing.T) {
 
 		err := service.Logout(ctx, auth.LogoutCommand{RefreshToken: "raw-refresh", CSRFToken: csrfToken})
 		assertAppErr(t, err, apperr.CodeInternal)
+	})
+}
+
+// TestService_Clock pins the auth timestamps to the injected clock: registration
+// writes exact instants and the refresh expiry boundary is crossed without
+// sleeping (PRQ-16, SC-007).
+func TestService_Clock(t *testing.T) {
+	ctx := context.Background()
+
+	frozen := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+	now := frozen
+
+	t.Run("Happy path: registration stamps created_at, updated_at and expires_at from the clock", func(t *testing.T) {
+		service, m := newAuthServiceWithClock(t, func() time.Time { return now })
+
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+				return u.CreatedAt.Equal(frozen) && u.UpdatedAt.Equal(frozen) && u.EmailVerifiedAt == nil
+			})).
+			Return(nil).
+			Once()
+		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw-refresh", nil).Once()
+		m.refreshTokens.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(token *auth.RefreshToken) bool {
+				return token.CreatedAt.Equal(frozen) && token.ExpiresAt.Equal(frozen.Add(testRefreshTTL))
+			})).
+			Return(nil).
+			Once()
+
+		session, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
+		require.NoError(t, err)
+		assert.Equal(t, "access", session.AccessToken)
+	})
+
+	t.Run("Edge: refresh is valid one nanosecond before expiry and expired at the exact instant", func(t *testing.T) {
+		service, m := newAuthServiceWithClock(t, func() time.Time { return now })
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		expiresAt := frozen.Add(time.Hour)
+		active := func() *auth.RefreshToken {
+			return &auth.RefreshToken{
+				ID:        validTokenID,
+				UserID:    validUserID,
+				FamilyID:  validFamily,
+				ExpiresAt: expiresAt,
+				CreatedAt: frozen,
+			}
+		}
+
+		now = expiresAt.Add(-time.Nanosecond)
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(active(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(true, nil).Once()
+
+		session, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		require.NoError(t, err, "one nanosecond before expiry must still rotate")
+		assert.Equal(t, "access", session.AccessToken)
+
+		now = expiresAt
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(active(), nil).Once()
+
+		_, err = service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+		m.tokens.AssertNumberOfCalls(t, "Issue", 1)
+	})
+}
+
+// TestService_RefreshRequiresAccount covers the account lookup that renewal now
+// performs after the existing credential rules and before issuing anything: a
+// missing account revokes the family and answers 401, a store failure answers
+// 500, and a success names the loaded account (PRQ-05, PRQ-06, PRQ-07).
+func TestService_RefreshRequiresAccount(t *testing.T) {
+	ctx := context.Background()
+
+	activeToken := func() *auth.RefreshToken {
+		return &auth.RefreshToken{
+			ID:        validTokenID,
+			UserID:    validUserID,
+			FamilyID:  validFamily,
+			ExpiresAt: time.Now().Add(time.Hour),
+		}
+	}
+
+	requireMessage := func(t *testing.T, err error, code apperr.Code, message string) {
+		t.Helper()
+		assertAppErr(t, err, code)
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, message, appErr.Message)
+	}
+
+	t.Run("Error: a missing account is 401 with the family revoked and nothing issued", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(nil, user.ErrUserNotFound).Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		requireMessage(t, err, apperr.CodeUnauthorized, auth.MsgInvalidRefreshToken)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.generator.AssertNotCalled(t, "Generate")
+		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: a revoked credential keeps its existing outcome even when the account is missing", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		revoked := activeToken()
+		revoked.Revoked = true
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(revoked, nil).Once()
+		m.observer.EXPECT().RefreshReuseDetected().Return().Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		requireMessage(t, err, apperr.CodeUnauthorized, auth.MsgInvalidRefreshToken)
+		m.users.AssertNotCalled(t, "FetchByID", mock.Anything, mock.Anything)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+	})
+
+	t.Run("Edge: an expired credential keeps its existing outcome even when the account is missing", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		expired := activeToken()
+		expired.ExpiresAt = time.Now().Add(-time.Minute)
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(expired, nil).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		requireMessage(t, err, apperr.CodeUnauthorized, auth.MsgInvalidRefreshToken)
+		m.users.AssertNotCalled(t, "FetchByID", mock.Anything, mock.Anything)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+	})
+
+	t.Run("Error: an account-store failure is 500, issues nothing and leaves the family untouched", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(nil, errors.New("mongo down")).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		requireMessage(t, err, apperr.CodeInternal, auth.MsgInternal)
+		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.generator.AssertNotCalled(t, "Generate")
+	})
+
+	t.Run("Error: a failed family revocation on the missing-account path is 500 and issues nothing", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(nil, user.ErrUserNotFound).Once()
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(errors.New("mongo down")).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		requireMessage(t, err, apperr.CodeInternal, auth.MsgInternal)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.generator.AssertNotCalled(t, "Generate")
+	})
+
+	t.Run("Happy path: issuance names the loaded account and rotates in the same family", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		const loadedAccountID = "01900000-0000-7000-8000-0000000000aa"
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: loadedAccountID}, nil).Once()
+		m.tokens.EXPECT().Issue(loadedAccountID).Return(auth.AccessToken{Value: "new-access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
+		m.refreshTokens.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(token *auth.RefreshToken) bool {
+				return token.UserID == loadedAccountID && token.FamilyID == validFamily
+			})).
+			Return(nil).
+			Once()
+		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(true, nil).Once()
+
+		session, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		require.NoError(t, err)
+		assert.Equal(t, loadedAccountID, session.UserID, "the session must belong to the loaded account")
+		assert.Equal(t, "new-access", session.AccessToken)
 	})
 }

@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 const (
@@ -154,7 +156,7 @@ func TestIntegration_AuthLogin(t *testing.T) {
 		require.NotEmpty(t, cookies.refresh)
 		require.NotEmpty(t, cookies.csrf)
 
-		manager, err := auth.NewTokenManager("integration-test-secret", 15*time.Minute)
+		manager, err := auth.NewTokenManager("integration-test-secret", 15*time.Minute, time.Now)
 		require.NoError(t, err)
 
 		userID, err := manager.Parse(session.AccessToken)
@@ -260,5 +262,57 @@ func TestIntegration_AuthLogout(t *testing.T) {
 
 		afterLogout := authPost(t, h, "/auth/refresh", rotated, "")
 		require.Equal(t, http.StatusUnauthorized, afterLogout.Code)
+	})
+}
+
+// TestIntegration_AuthRefreshRequiresAccount proves renewal resolves the account
+// end to end: a deleted account answers 401 with no cookie and a dead family,
+// while a present account yields a token naming that account (PRQ-05, PRQ-06,
+// SC-003).
+func TestIntegration_AuthRefreshRequiresAccount(t *testing.T) {
+	h, mdb := newIntegrationRouter(t)
+	ctx := context.Background()
+
+	t.Run("Happy path: a present account refreshes and the access token names it", func(t *testing.T) {
+		const email = "present-account@example.com"
+		cookies := registerAuthUser(t, h, email, "present-account")
+
+		var stored struct {
+			ID string `bson:"_id"`
+		}
+		require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.M{"email": email}).Decode(&stored))
+		require.NotEmpty(t, stored.ID)
+
+		rec := authPost(t, h, "/auth/refresh", cookies, "")
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		session := decodeSession(t, rec)
+		manager, err := auth.NewTokenManager("integration-test-secret", 15*time.Minute, time.Now)
+		require.NoError(t, err)
+
+		subject, err := manager.Parse(session.AccessToken)
+		require.NoError(t, err)
+		assert.Equal(t, stored.ID, subject, "the renewed token must name the loaded account")
+	})
+
+	t.Run("Error: a deleted account is 401, sets no cookie and revokes the family", func(t *testing.T) {
+		const email = "deleted-account@example.com"
+		cookies := registerAuthUser(t, h, email, "deleted-account")
+
+		_, err := mdb.Collection("users").DeleteOne(ctx, bson.M{"email": email})
+		require.NoError(t, err)
+
+		rec := authPost(t, h, "/auth/refresh", cookies, "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "UNAUTHORIZED", body.Error.Code)
+		assert.Equal(t, auth.MsgInvalidRefreshToken, body.Error.Message)
+
+		replay := authPost(t, h, "/auth/refresh", cookies, "")
+		require.Equal(t, http.StatusUnauthorized, replay.Code, "the family must be revoked")
+		assert.Empty(t, replay.Header().Get("Set-Cookie"))
 	})
 }

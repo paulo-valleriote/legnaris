@@ -44,7 +44,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 		}
 	}()
 
-	if err := db.EnsureIndexes(ctx, database.Client.Database(cfg.Variables.DatabaseName)); err != nil {
+	if err := db.EnsureIndexesWithRetention(ctx, database.Client.Database(cfg.Variables.DatabaseName), cfg.Variables.EmailOutboxRetention); err != nil {
 		return fmt.Errorf("ensure indexes: %w", err)
 	}
 
@@ -57,7 +57,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 
 	httpMetrics := metrics.New()
 
-	modules, err := app.NewModules(database, registry, cfg, httpMetrics)
+	modules, err := app.NewModules(database, registry, cfg, httpMetrics, httpMetrics)
 	if err != nil {
 		return fmt.Errorf("build modules: %w", err)
 	}

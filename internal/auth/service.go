@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"net/mail"
 	"regexp"
 	"strings"
 	"time"
@@ -79,6 +78,22 @@ type SessionResponse struct {
 // The access-token TTL is a TokenManager concern, not a service one.
 type Config struct {
 	RefreshTTL time.Duration
+	// Now is the single clock for timestamps written or compared here. Nil
+	// means the system clock (PRQ-16).
+	Now Clock
+}
+
+// ChallengeDeps bundles the challenge collaborators so adding them does not
+// grow NewService's parameter list without bound (T017). The service owns the
+// policy; the store, the code toolkit, the mailer port and the observer are
+// injected.
+type ChallengeDeps struct {
+	Repository ChallengeRepository
+	Generator  CodeGenerator
+	Digest     *CodeDigest
+	Mailer     CodeMailer
+	Observer   ChallengeObserver
+	Policy     ChallengePolicy
 }
 
 type Service interface {
@@ -86,6 +101,9 @@ type Service interface {
 	Login(ctx context.Context, cmd LoginCommand) (*Session, error)
 	Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error)
 	Logout(ctx context.Context, cmd LogoutCommand) error
+	IssueChallenge(ctx context.Context, cmd IssueChallengeCommand) (*ChallengeIssued, error)
+	VerifyChallenge(ctx context.Context, cmd VerifyChallengeCommand) (*Session, error)
+	ResendChallenge(ctx context.Context, cmd ResendChallengeCommand) (*ResendResult, error)
 }
 
 type ServiceImpl struct {
@@ -98,6 +116,8 @@ type ServiceImpl struct {
 	observer      Observer
 	log           logger.StructuredLogger
 	cfg           Config
+	clock         Clock
+	challenge     ChallengeDeps
 }
 
 func NewService(
@@ -110,7 +130,11 @@ func NewService(
 	observer Observer,
 	cfg Config,
 	log logger.StructuredLogger,
+	challenge ChallengeDeps,
 ) Service {
+	if challenge.Observer == nil {
+		challenge.Observer = NewNopChallengeObserver()
+	}
 	return &ServiceImpl{
 		users:         users,
 		refreshTokens: refreshTokens,
@@ -121,6 +145,8 @@ func NewService(
 		observer:      observer,
 		log:           log,
 		cfg:           cfg,
+		clock:         cfg.Now,
+		challenge:     challenge,
 	}
 }
 
@@ -128,12 +154,11 @@ func NewService(
 // does: a duplicate email still answers 409 before any session is issued
 // (AUTH-02).
 func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Session, error) {
-	email := normalizeEmail(cmd.Email)
-	username := strings.TrimSpace(cmd.Username)
-
-	if _, err := mail.ParseAddress(email); err != nil {
+	email, err := user.CanonicalEmail(cmd.Email)
+	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgInvalidEmail, err)
 	}
+	username := strings.TrimSpace(cmd.Username)
 	if username == "" {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgUsernameRequired, nil)
 	}
@@ -160,7 +185,7 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Sessi
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	now := time.Now()
+	now := s.clock.Now()
 	newUser := &user.User{
 		ID:           id,
 		Email:        email,
@@ -187,7 +212,13 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Sessi
 }
 
 func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*Session, error) {
-	email := normalizeEmail(cmd.Email)
+	email, err := user.CanonicalEmail(cmd.Email)
+	if err != nil {
+		// An unparseable address is indistinguishable from an unknown one, so the
+		// response never reveals whether an account could have existed (PRQ-09,
+		// PRQ-10, PRQ-17).
+		return nil, s.invalidCredentials(ctx, "unparseable email")
+	}
 
 	stored, err := s.users.FetchByEmail(ctx, email)
 	if err != nil {
@@ -233,16 +264,30 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 	if stored.Revoked {
 		return nil, s.reuseDetected(ctx, stored)
 	}
-	if time.Now().After(stored.ExpiresAt) {
+	if !s.clock.Now().Before(stored.ExpiresAt) {
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 	}
 
-	access, err := s.tokens.Issue(stored.UserID)
+	// Renewal must not survive the account it names: load it after the existing
+	// credential rules and before the first issuance, so a missing account can
+	// never receive a credential (PRQ-05, PRQ-06).
+	account, err := s.users.FetchByID(ctx, stored.UserID)
+	if err != nil {
+		if errors.Is(err, user.ErrUserNotFound) {
+			if revokeErr := s.refreshTokens.RevokeFamily(ctx, stored.FamilyID); revokeErr != nil {
+				return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, revokeErr)
+			}
+			return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, err)
+		}
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	access, err := s.tokens.Issue(account.ID)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	issued, err := s.issueRefreshToken(ctx, stored.UserID, stored.FamilyID)
+	issued, err := s.issueRefreshToken(ctx, account.ID, stored.FamilyID)
 	if err != nil {
 		return nil, err
 	}
@@ -262,16 +307,16 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 		// The successor token we created is valid and in the family.
 		// Do NOT revoke the family — that would invalidate the other client's tokens.
 		// Return an error; the client must re-authenticate (their refresh token is now revoked).
-		s.log.Info(ctx, "refresh concurrent rotation detected", logger.Attribute{Key: attrUserID, Value: stored.UserID})
+		s.log.Info(ctx, "refresh concurrent rotation detected", logger.Attribute{Key: attrUserID, Value: account.ID})
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 	}
 
-	session, err := s.newSession(ctx, stored.UserID, issued.raw, issued.familyID, access)
+	session, err := s.newSession(ctx, account.ID, issued.raw, issued.familyID, access)
 	if err != nil {
 		return nil, err
 	}
 
-	s.log.Info(ctx, "refresh rotated", logger.Attribute{Key: attrUserID, Value: stored.UserID})
+	s.log.Info(ctx, "refresh rotated", logger.Attribute{Key: attrUserID, Value: account.ID})
 	return session, nil
 }
 
@@ -369,7 +414,7 @@ func (s *ServiceImpl) issueRefreshToken(ctx context.Context, userID string, fami
 		return issuedRefresh{}, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	now := time.Now()
+	now := s.clock.Now()
 	token := &RefreshToken{
 		ID:        id,
 		TokenHash: HashRefreshToken(raw),
@@ -402,8 +447,4 @@ func (s *ServiceImpl) reuseDetected(ctx context.Context, token *RefreshToken) er
 		logger.Attribute{Key: attrUserID, Value: token.UserID},
 	)
 	return apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
-}
-
-func normalizeEmail(email string) string {
-	return strings.ToLower(strings.TrimSpace(email))
 }

@@ -40,10 +40,14 @@ func newIndexesTestDatabase(t *testing.T) *mongo.Database {
 	_ = mdb.Collection("users").Drop(context.Background())
 	_ = mdb.Collection("refresh_tokens").Drop(context.Background())
 	_ = mdb.Collection("sheets").Drop(context.Background())
+	_ = mdb.Collection("email_outbox").Drop(context.Background())
+	_ = mdb.Collection("auth_challenges").Drop(context.Background())
 	t.Cleanup(func() {
 		_ = mdb.Collection("users").Drop(context.Background())
 		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
 		_ = mdb.Collection("sheets").Drop(context.Background())
+		_ = mdb.Collection("email_outbox").Drop(context.Background())
+		_ = mdb.Collection("auth_challenges").Drop(context.Background())
 	})
 
 	return mdb
@@ -154,5 +158,107 @@ func TestEnsureIndexes(t *testing.T) {
 		_, err = sheets.InsertOne(ctx, bson.M{"_id": "sheet-2", "owner_id": "owner-1"})
 		require.Error(t, err)
 		assert.True(t, mongo.IsDuplicateKeyError(err), "a second sheet for the owner must be a duplicate key error")
+	})
+}
+
+// TestEnsureIndexesWithRetention proves the configured retention window reaches
+// the outbox TTL index and that changing it reconciles the existing index
+// instead of failing the boot (EML-17).
+func TestEnsureIndexesWithRetention(t *testing.T) {
+	mdb := newIndexesTestDatabase(t)
+	ctx := context.Background()
+
+	t.Run("Happy path: the configured window is applied", func(t *testing.T) {
+		require.NoError(t, db.EnsureIndexesWithRetention(ctx, mdb, 24*time.Hour))
+
+		emailOutbox := listIndexes(t, mdb, "email_outbox")
+		ttl, ok := emailOutbox["email_outbox_published_at_ttl"]
+		require.True(t, ok, "the outbox TTL index must exist, got %v", emailOutbox)
+		assert.Equal(t, int32((24 * time.Hour).Seconds()), indexExpireAfterSeconds(t, ttl))
+	})
+
+	t.Run("Edge: a changed window reconciles the existing index", func(t *testing.T) {
+		require.NoError(t, db.EnsureIndexesWithRetention(ctx, mdb, 48*time.Hour))
+
+		emailOutbox := listIndexes(t, mdb, "email_outbox")
+		ttl, ok := emailOutbox["email_outbox_published_at_ttl"]
+		require.True(t, ok, "the outbox TTL index must exist, got %v", emailOutbox)
+		assert.Equal(t, int32((48 * time.Hour).Seconds()), indexExpireAfterSeconds(t, ttl),
+			"MongoDB refuses createIndexes with changed options, so the window must be reconciled in place")
+	})
+
+	t.Run("Edge: re-applying the same window is idempotent", func(t *testing.T) {
+		require.NoError(t, db.EnsureIndexesWithRetention(ctx, mdb, 48*time.Hour))
+	})
+}
+
+// TestEnsureIndexes_AuthChallenges pins the challenge collection's indexes and
+// the one-active invariant the unique partial index enforces: a second active
+// row for one account and purpose is rejected while a consumed one is admitted
+// (OTP-01, OTP-06, OTP-13).
+func TestEnsureIndexes_AuthChallenges(t *testing.T) {
+	mdb := newIndexesTestDatabase(t)
+	ctx := context.Background()
+	require.NoError(t, db.EnsureIndexes(ctx, mdb))
+
+	challenges := listIndexes(t, mdb, "auth_challenges")
+
+	t.Run("Happy path: the active unique index exists with a partial filter", func(t *testing.T) {
+		active, ok := challenges["auth_challenges_active_unique"]
+		require.True(t, ok, "the active-challenge unique index must exist, got %v", challenges)
+		assert.True(t, indexIsUnique(active), "the active-challenge index must be unique")
+		_, hasFilter := active["partialFilterExpression"]
+		assert.True(t, hasFilter, "the unique index must be partial on the consumed marker")
+	})
+
+	t.Run("Happy path: the expiry TTL index exists with expireAfterSeconds 0", func(t *testing.T) {
+		ttl, ok := challenges["auth_challenges_expires_at_ttl"]
+		require.True(t, ok, "the expiry TTL index must exist, got %v", challenges)
+		assert.Equal(t, int32(0), indexExpireAfterSeconds(t, ttl))
+	})
+
+	t.Run("Happy path: the outbox created_at index exists", func(t *testing.T) {
+		outbox := listIndexes(t, mdb, "email_outbox")
+		_, ok := outbox["email_outbox_created_at"]
+		assert.True(t, ok, "the outbox created_at index must exist, got %v", outbox)
+	})
+
+	t.Run("Edge: a second active row for one account and purpose is rejected", func(t *testing.T) {
+		coll := mdb.Collection("auth_challenges")
+		row := bson.M{
+			"user_id":     "u1",
+			"purpose":     "login_otp",
+			"consumed_at": nil,
+			"expires_at":  time.Now().Add(time.Hour),
+		}
+		row["_id"] = "c1"
+		_, err := coll.InsertOne(ctx, row)
+		require.NoError(t, err)
+
+		row["_id"] = "c2"
+		_, err = coll.InsertOne(ctx, row)
+		require.Error(t, err)
+		assert.True(t, mongo.IsDuplicateKeyError(err), "a second active row must be a duplicate key error")
+	})
+
+	t.Run("Edge: a consumed row is admitted alongside a new active one", func(t *testing.T) {
+		coll := mdb.Collection("auth_challenges")
+		_, err := coll.InsertOne(ctx, bson.M{
+			"_id":         "c3",
+			"user_id":     "u2",
+			"purpose":     "login_otp",
+			"consumed_at": time.Now(),
+			"expires_at":  time.Now().Add(time.Hour),
+		})
+		require.NoError(t, err)
+
+		_, err = coll.InsertOne(ctx, bson.M{
+			"_id":         "c4",
+			"user_id":     "u2",
+			"purpose":     "login_otp",
+			"consumed_at": nil,
+			"expires_at":  time.Now().Add(time.Hour),
+		})
+		require.NoError(t, err, "a consumed row must not block a new active one")
 	})
 }

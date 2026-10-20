@@ -28,6 +28,7 @@ packages:
       outpkg: mocks
     interfaces:
       Repository: {}
+      EmailMigrationStore: {}
   legnaris/internal/auth:
     config:
       dir: internal/auth/mocks
@@ -39,3 +40,25 @@ packages:
       TokenManager: {}
       RefreshTokenGenerator: {}
       Observer: {}
+      ChallengeRepository: {}
+      CodeMailer: {}
+      ChallengeObserver: {}
+  legnaris/internal/email/outbox:
+    config:
+      dir: internal/email/outbox/mocks
+      outpkg: mocks
+    interfaces:
+      Repository: {}
+  legnaris/internal/email/relay:
+    config:
+      dir: internal/email/relay/mocks
+      outpkg: mocks
+    interfaces:
+      Publisher: {}
+      Observer: {}
+  legnaris/internal/email:
+    config:
+      dir: internal/email/mocks
+      outpkg: mocks
+    interfaces:
+      Sender: {}

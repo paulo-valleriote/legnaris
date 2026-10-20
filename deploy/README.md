@@ -160,17 +160,32 @@ cd deploy
 cp .env.example .env
 # fill in: API_DOMAIN, WEB_DOMAIN, WEB_API_BASE_URL, OPS_DOMAIN, ACME_EMAIL,
 # GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_USER, CORS_ALLOWED_ORIGINS,
-# JWT_SECRET, MONGO_ROOT_PASSWORD, MONGO_APP_PASSWORD, MONGO_EXPORTER_PASSWORD,
+# JWT_SECRET, EMAIL_CODE_SECRET, MONGO_ROOT_PASSWORD, MONGO_APP_PASSWORD,
+# MONGO_EXPORTER_PASSWORD,
 # MONGO_VIEW_PASSWORD, ME_CONFIG_BASICAUTH_USERNAME/PASSWORD,
 # GRAFANA_ADMIN_USER/PASSWORD
 openssl rand -base64 32 | tr '+/' '-_'   # use as OAUTH2_PROXY_COOKIE_SECRET
 openssl rand -base64 48                  # use as JWT_SECRET
+openssl rand -base64 48                  # use as EMAIL_CODE_SECRET (distinct!)
 ```
 
 MongoDB is created with least-privileged users (provisioned by
 `mongodb/init/01-create-users.js` on first boot): `legnaris_app` (read/write),
 `legnaris_exporter` (server metrics), and `legnaris_view` (read-only, used by
 Mongo Express). Services never connect as `root`.
+
+`TRUSTED_PROXY_CIDRS` is optional. Left unset, the API trusts loopback, private
+and link-local peers, which covers the proxy on the same host or Docker network
+without configuration. A comma-separated CIDR set replaces the non-loopback
+portion:
+
+```bash
+TRUSTED_PROXY_CIDRS=172.18.0.0/16,10.0.0.0/8
+```
+
+Loopback stays trusted in every case, and an invalid value fails the API boot
+instead of silently trusting nothing. Only the direct peer decides whether the
+forwarding header is read; a forged chain from any other address is ignored.
 
 ## 7. Deploy (production)
 
@@ -266,6 +281,8 @@ without authenticating at Cloudflare first:
 - **Edge/DB metrics**: Prometheus scrapes Traefik and MongoDB Exporter.
 - **App metrics**: Prometheus scrapes the app's `/metrics` directly on the
   internal network; the endpoint is not routed on the public `api.` domain.
+- **Relay metrics**: Prometheus scrapes the relay's own listener (`relay:9100`)
+  for the outbox backlog and the publication outcomes by result.
 - **Query the database**: Mongo Express at `/mongo`.
 
 ## 11. CORS (web client → API)
@@ -291,6 +308,77 @@ docker compose restart app
 docker compose down          # stop without deleting data
 docker compose down -v       # stop AND delete volumes (destroys data)
 ```
+
+### Email canonicalization (one-shot)
+
+```bash
+docker compose run --rm --entrypoint /canonicalize-emails app           # dry run
+docker compose run --rm --entrypoint /canonicalize-emails app -apply    # write
+```
+
+The report lists `scanned`, `change`, `collision`, `invalid` and `written` (or
+`dry run`) lines. A collision or an unparseable row aborts the run with exit 1
+and writes nothing; resolve the duplicate manually, since the command never
+merges accounts. Only `email` and `updated_at` change, and a second run over
+repaired data is a no-op. The command is a separate binary and is never part of
+the API boot path.
+
+### Email relay (publisher, optional)
+
+The relay is a separate process (`cmd/relay`, shipped as `/relay` in the same
+image) that drains the durable `email_outbox` collection to RabbitMQ. It is
+optional: the API boots and serves without it and without any email or broker
+variable. Turn it on by setting `RABBITMQ_URL` (and optionally the relay knobs)
+in `.env` and bringing the `relay` service up.
+
+```bash
+docker compose up -d rabbitmq relay      # start the broker and the publisher
+docker compose logs -f relay             # publication outcomes
+```
+
+- **Fail-fast**: a blank or unparseable `RABBITMQ_URL` stops the relay with
+  `ErrBrokerUnavailable` before it opens the database or polls; it never runs
+  "with no broker". The API never reads `RABBITMQ_URL` and never depends on the
+  broker to start.
+- **Topology**: on startup the relay declares the exchange, the work queue, the
+  three delay-tier retry queues and the dead-letter queue, idempotently — no
+  broker plugin is required. The broker publishes no host port.
+- **Optional variables** (with the app's defaults): `EMAIL_PROVIDER` (`log`),
+  `RESEND_API_KEY` (empty), `EMAIL_FROM` (empty), `EMAIL_SEND_TIMEOUT` (`10s`),
+  `RABBITMQ_URL` (empty; required by the relay), `EMAIL_RELAY_POLL_INTERVAL`
+  (`1s`), `EMAIL_RELAY_LEASE` (`30s`), `EMAIL_RELAY_BATCH` (`25`),
+  `EMAIL_RELAY_CONFIRM_TIMEOUT` (`5s`), `EMAIL_RELAY_MAX_ATTEMPTS` (`5`),
+  `EMAIL_OUTBOX_RETENTION` (`168h`), `EMAIL_RELAY_METRICS_ADDR` (`:9100`).
+
+## One-time-code challenges
+
+The API gates sign-in and registration behind a six-digit code emailed to the
+account. Codes are generated with `crypto/rand`, stored only as an HMAC-SHA256
+digest, consumed at most once and never logged.
+
+- **Required**: `EMAIL_CODE_SECRET` keys the code digest and must be at least 32
+  bytes and distinct from `JWT_SECRET`. An absent, blank or short value stops the
+  API at boot (`EMAIL_CODE_SECRET:?` in the compose file), because a weak key
+  would silently weaken every code.
+- **Optional** (with the app's defaults): `AUTH_OTP_TTL` (`10m`, the code's
+  lifetime), `AUTH_OTP_CEILING` (`30m`, the absolute limit a resend can never
+  pass), `AUTH_OTP_RESEND_COOLDOWN` (`60s`), `AUTH_OTP_MAX_ATTEMPTS` (`5`),
+  `AUTH_OTP_DAILY_SEND_CAP` (`80`, deliberately below the provider's free-tier
+  allowance of 100), `AUTH_OTP_USER_WINDOW` (`1h`) and `AUTH_OTP_USER_LIMIT`
+  (`10` challenges per account per window).
+- **Verification failures** answer one uniform `OTP_INVALID` (401), so an
+  unknown, expired, consumed, wrong or exhausted code is indistinguishable. The
+  daily send cap answers `EMAIL_UNAVAILABLE` (503) with `Retry-After`, and the
+  per-address and per-account bounds answer `RATE_LIMITED` (429).
+
+- **Metrics**: the relay serves its own listener on `EMAIL_RELAY_METRICS_ADDR`
+  (`:9100`), scraped by Prometheus on the internal network:
+  `legnaris_email_outbox_backlog` (pending gauge) and
+  `legnaris_email_publish_total{result}` (`published`/`retried`/`failed`).
+- **Stuck emails**: a send intention is marked published only after the broker
+  confirms it; a failed publication is retried with backoff and, once the cap
+  (`EMAIL_RELAY_MAX_ATTEMPTS`) is reached, marked `failed` for operator
+  attention. Inspect the `email_outbox` collection for pending/failed rows.
 
 Backup: the `legnaris-prod_mongo_data`, `..._prometheus_data`, `..._loki_data`
 volumes.

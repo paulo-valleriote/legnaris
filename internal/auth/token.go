@@ -27,19 +27,21 @@ type TokenManager interface {
 type jwtTokenManager struct {
 	secret []byte
 	ttl    time.Duration
+	clock  Clock
 }
 
 // NewTokenManager builds the HS256 token manager. An empty secret is a startup
-// error: a service that cannot sign tokens must not boot.
-func NewTokenManager(secret string, ttl time.Duration) (TokenManager, error) {
+// error: a service that cannot sign tokens must not boot. A nil clock defaults
+// to the system clock (PRQ-16).
+func NewTokenManager(secret string, ttl time.Duration, clock Clock) (TokenManager, error) {
 	if secret == "" {
 		return nil, ErrEmptyJWTSecret
 	}
-	return &jwtTokenManager{secret: []byte(secret), ttl: ttl}, nil
+	return &jwtTokenManager{secret: []byte(secret), ttl: ttl, clock: clock}, nil
 }
 
 func (m *jwtTokenManager) Issue(userID string) (AccessToken, error) {
-	now := time.Now()
+	now := m.clock.Now()
 
 	jti, err := idgen.New()
 	if err != nil {
@@ -71,6 +73,9 @@ func (m *jwtTokenManager) Parse(token string) (string, error) {
 		// Pin the algorithm: never trust the alg header, which rules out the
 		// "alg: none" and HS/RS confusion attacks.
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		// Validate expiry against the injected clock so issuance and parsing
+		// agree in tests and production (PRQ-16).
+		jwt.WithTimeFunc(m.clock.Now),
 	)
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
