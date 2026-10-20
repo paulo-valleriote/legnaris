@@ -39,3 +39,4 @@ go.work.sum
 
 # Python bytecode (skill scripts)
 __pycache__/
+node_modules/
