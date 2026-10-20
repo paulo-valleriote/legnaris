@@ -10,6 +10,30 @@
   padding-bottom: var(--lg-space-24);
 }
 
+/* The editor route fills the content region so its footer sits on the page end
+   even when the form is shorter than the viewport. */
+.lg-sheet--editor {
+  flex: 1;
+  padding-bottom: 0;
+}
+
+/* The editor owns the full content width so the action bar can be full-bleed;
+   every other child keeps the readable measure. */
+.lg-content:has(.lg-sheet--editor) {
+  padding-inline: 0;
+}
+
+.lg-content__inner:has(> .lg-sheet--editor) {
+  max-width: none;
+}
+
+.lg-sheet--editor > :not(.lg-sheet__footer):not(.lg-overlay) {
+  width: 100%;
+  max-width: calc(var(--lg-size-content-max) + 2 * var(--lg-space-24));
+  margin-inline: auto;
+  padding-inline: var(--lg-space-24);
+}
+
 .lg-sheet__header {
   display: flex;
   flex-direction: column;
@@ -47,13 +71,14 @@
   bottom: 0;
   z-index: 10;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--lg-space-16);
-  padding-block: var(--lg-space-12);
+  gap: var(--lg-space-12) var(--lg-space-16);
+  margin-top: auto;
+  padding: var(--lg-space-12) max(var(--lg-space-24), calc((100% - var(--lg-size-content-max)) / 2));
   border-top: var(--lg-size-hairline) solid var(--lg-color-border);
-  background-color: var(--lg-color-bg);
-  box-shadow: var(--lg-shadow-1);
+  background-color: var(--lg-color-surface);
 }
 
 .lg-sheet__status {

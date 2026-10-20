@@ -157,12 +157,14 @@ Rules:
   `loading`. A destructive button is never a one-click destroy and never a confirm-by-Enter
   default.
 - **Fields.** Input, select, textarea, checkbox, radio, switch. A permanent label (never a
-  placeholder as label), an inline error, and the design-token border and radius. Numeric inputs
-  are right-aligned with tabular figures.
+  placeholder as label), an inline error, and the design-token border and radius. Text and
+  numeric inputs are right-aligned; numeric fields use tabular figures.
 - **Data.** Tables and aligned rows over cards; tabular figures; a header row in muted text; a
   hairline divider between groups. No zebra striping.
-- **Navigation.** A persistent left region; the current item is marked with the accent fill and
-  `--lg-color-accent-text`; the footer hosts the session control and the theme control.
+- **Navigation.** A persistent left region opening with a brand lockup (sigil, tracked wordmark
+  and tagline); each item pairs an icon with its label and closes with a chevron, and the current
+  item is marked with the accent fill and `--lg-color-accent-text`; the footer hosts the
+  icon-and-label session control and the theme switch (two end icons over a sliding thumb).
 - **Dialog / overlay.** `--lg-shadow-3`, `role="dialog"`, `aria-modal`, `Esc` cancels and focus is
   trapped within. The scrim uses `--lg-color-overlay`.
 - **Feedback.** Every async action shows progress and an inline result (success or a mapped error).
@@ -205,7 +207,8 @@ Rules:
 - **Catalog / list.** A page title, a hairline-divided list or table, an empty state in muted text,
   and an inline retry on failure.
 - **Detail / form.** A header with the record's identity, aligned labelled fields, a sticky footer
-  bar carrying the dirty state and the primary action, and inline validation.
+  bar anchored to the page end carrying the dirty state and the primary action, and inline
+  validation.
 - **Auth.** A centred panel on the page background; the mode switch uses the accent for the active
   mode; errors render inline, never as a toast alone.
 - **States (loading / empty / error / not found).** Each is designed: a short line of plain text

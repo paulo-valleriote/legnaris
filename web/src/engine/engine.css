@@ -55,12 +55,17 @@
   flex: 3 1 0;
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 
+/* Header and rows share the stacked row's 2fr/3fr label-control split, so the
+   first cell starts on the same vertical guide as a normal control. */
 .lg-field-table__header,
 .lg-field-table__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   align-items: center;
+  gap: var(--lg-space-8);
   min-height: var(--lg-size-row);
 }
 
@@ -70,19 +75,25 @@
 }
 
 .lg-field-table__lead {
-  flex: 2 1 0;
   display: flex;
   align-items: baseline;
   gap: var(--lg-space-4);
   font-size: var(--lg-type-15);
 }
 
+.lg-field-table__cells {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-8);
+  min-width: 0;
+}
+
 .lg-field-table__cell {
-  flex: 3 1 0;
+  flex: 1 1 0;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding-left: var(--lg-space-8);
+  min-width: 0;
 }
 
 .lg-field-table__cell--number {
@@ -102,6 +113,11 @@
   text-align: left;
 }
 
+input.lg-field {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .lg-field:hover:enabled {
   background-color: var(--lg-color-surface-hover);
 }
@@ -113,6 +129,15 @@
 
 .lg-field--numeric {
   text-align: right;
+}
+
+/* The wrappers are flex items; without an explicit width the control falls
+   back to its intrinsic size and stops lining up with the text inputs. */
+.lg-field--numeric-wrapper,
+.lg-field__label-wrapper {
+  display: flex;
+  width: 100%;
+  min-width: 0;
 }
 
 .lg-field--toggle {
@@ -141,6 +166,18 @@
 .lg-field__mark {
   font-size: var(--lg-type-12);
   color: var(--lg-color-text-muted);
+}
+
+/* Numeric values, editable or derived, share the right edge of the control
+   column; the calculated caption moves before the value so it never pushes it
+   off that edge. */
+.lg-field__readonly--numeric {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.lg-field__readonly--numeric .lg-field__calculated {
+  order: -1;
 }
 
 @keyframes reveal {

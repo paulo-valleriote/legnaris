@@ -476,7 +476,7 @@ export function SheetScreen() {
 
   return (
     <section
-      className="lg-sheet"
+      className="lg-sheet lg-sheet--editor"
       aria-label={message('sheet.headerTitle')}
       data-testid="sheet-screen"
     >

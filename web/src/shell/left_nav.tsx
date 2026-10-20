@@ -1,7 +1,9 @@
 import { useState, useSyncExternalStore } from 'react';
+import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../app/providers';
 import { message } from '../l10n/strings';
+import { BrandMark } from './brand_mark';
 import { leaveIsGuarded, requestLeave } from './leave_guard';
 import { ThemeToggle } from './theme_toggle';
 
@@ -10,9 +12,81 @@ const CATALOG_PATH = '/';
 /** The route the session-only own-sheet item targets. */
 const OWN_SHEET_PATH = '/your-sheet';
 
+/** A stack of layers, the template-catalog affordance. */
+function CatalogIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3 20 7l-8 4-8-4 8-4Z" />
+      <path d="m4 12 8 4 8-4" />
+      <path d="m4 17 8 4 8-4" />
+    </svg>
+  );
+}
+
+/** A page with written rows, the character-sheet affordance. */
+function SheetIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6" />
+      <path d="M9 17h4" />
+    </svg>
+  );
+}
+
+/** A doorway arrow, the session-ending affordance. */
+function SignOutIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" />
+      <path d="m15 8 4 4-4 4" />
+      <path d="M19 12H9" />
+    </svg>
+  );
+}
+
+/** A trailing arrow that reads as "goes somewhere". */
+function ChevronIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
 interface NavEntryProps {
   readonly path: string;
   readonly label: string;
+  readonly icon: ReactNode;
 }
 
 /**
@@ -20,7 +94,7 @@ interface NavEntryProps {
  * surface with unsaved work asks its guard to confirm before the navigation runs,
  * while any other click navigates through the link untouched.
  */
-function NavEntry({ path, label }: NavEntryProps) {
+function NavEntry({ path, label, icon }: NavEntryProps) {
   const navigate = useNavigate();
 
   return (
@@ -35,19 +109,26 @@ function NavEntry({ path, label }: NavEntryProps) {
         requestLeave(() => navigate(path));
       }}
     >
-      {label}
+      <span className="lg-nav__icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="lg-nav__label">{label}</span>
+      <span className="lg-nav__chevron" aria-hidden="true">
+        <ChevronIcon />
+      </span>
     </NavLink>
   );
 }
 
 /**
- * The persistent navigation region (order 1). It lists the declared routes; it
- * never collapses into an overlay at desktop widths (UIF-24, UIF-25). The root
- * item is labelled through the copy catalog, never a literal (WCT-29).
+ * The persistent navigation region (order 1). It opens with the product lockup,
+ * then lists the declared routes; it never collapses into an overlay at desktop
+ * widths (UIF-24, UIF-25). The root item is labelled through the copy catalog,
+ * never a literal (WCT-29).
  *
  * The own-sheet entry renders only while a session is held (WAS-19, WAS-25); the
- * footer hosts the sign-out control and the theme control, sign-out disabled
- * while its teardown is in flight (WAS-23, UIF-27).
+ * footer hosts the sign-out control and the theme switch, sign-out disabled while
+ * its teardown is in flight (WAS-23, UIF-27).
  */
 export function LeftNav() {
   const session = useAuthSession();
@@ -64,21 +145,37 @@ export function LeftNav() {
 
   return (
     <nav className="lg-nav" aria-label="Primary">
-      <p className="lg-nav__title">Legnaris</p>
-      <NavEntry path={CATALOG_PATH} label={message('nav.catalog')} />
-      {snapshot.state === 'authenticated' && (
-        <NavEntry path={OWN_SHEET_PATH} label={message('nav.ownSheet')} />
-      )}
+      <div className="lg-nav__brand">
+        <span className="lg-nav__mark" aria-hidden="true">
+          <BrandMark />
+        </span>
+        <span className="lg-nav__brand-text">
+          <span className="lg-nav__wordmark">{message('app.name')}</span>
+          <span className="lg-nav__tagline">{message('nav.tagline')}</span>
+        </span>
+      </div>
+
+      <div className="lg-nav__group">
+        <p className="lg-nav__group-label">{message('nav.sectionWorkspace')}</p>
+        <NavEntry path={CATALOG_PATH} label={message('nav.catalog')} icon={<CatalogIcon />} />
+        {snapshot.state === 'authenticated' && (
+          <NavEntry path={OWN_SHEET_PATH} label={message('nav.ownSheet')} icon={<SheetIcon />} />
+        )}
+      </div>
+
       <div className="lg-nav__footer">
         {snapshot.state === 'authenticated' && (
           <button
             type="button"
-            className="lg-nav__logout"
+            className="lg-nav__action lg-nav__signout"
             onClick={signOut}
             disabled={signingOut}
             aria-busy={signingOut}
           >
-            {message('nav.logout')}
+            <span className="lg-nav__icon" aria-hidden="true">
+              <SignOutIcon />
+            </span>
+            <span className="lg-nav__label">{message('nav.logout')}</span>
           </button>
         )}
         <ThemeToggle />

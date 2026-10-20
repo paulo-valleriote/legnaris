@@ -166,11 +166,13 @@ export function SheetForm({
       data-testid={`table-header-${sectionKey}-${tableIndex}`}
     >
       <span className="lg-field-table__lead" />
-      {row.fields.map((field) => (
-        <span className={cellClass(field.schema)} key={field.path}>
-          {fieldColumnName(lastSegment(field.path), field.schema)}
-        </span>
-      ))}
+      <span className="lg-field-table__cells">
+        {row.fields.map((field) => (
+          <span className={cellClass(field.schema)} key={field.path}>
+            {fieldColumnName(lastSegment(field.path), field.schema)}
+          </span>
+        ))}
+      </span>
     </div>
   );
 
@@ -182,11 +184,13 @@ export function SheetForm({
           row.fields.map((field) => field.path),
         )}
       </span>
-      {row.fields.map((field) => (
-        <span className={cellClass(field.schema)} key={field.path}>
-          {renderControl(field)}
-        </span>
-      ))}
+      <span className="lg-field-table__cells">
+        {row.fields.map((field) => (
+          <span className={cellClass(field.schema)} key={field.path}>
+            {renderControl(field)}
+          </span>
+        ))}
+      </span>
     </div>
   );
 

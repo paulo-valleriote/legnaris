@@ -1,13 +1,14 @@
 /**
  * The auth surface (WAS-07, WAS-09, WAS-10, R9).
  *
- * One place offers sign-in and registration through a mode switch. The single
- * primary action submits through the session, is disabled and shows progress
- * while a submit is in flight, and the password is a hidden-content control. A
- * failed submit keeps the typed values and renders the mapped failure copy
- * resolved from the catalog — never the server message, so the copy never
- * reveals whether an email exists (WAS-10). Switching mode clears a stale error
- * but keeps the values.
+ * One place offers sign-in and registration through a mode switch, opening with
+ * the brand lockup and a mode-specific title so the first screen of the product
+ * carries its identity. The single primary action submits through the session,
+ * is disabled and shows progress while a submit is in flight, and the password
+ * is a hidden-content control. A failed submit keeps the typed values and
+ * renders the mapped failure copy resolved from the catalog — never the server
+ * message, so the copy never reveals whether an email exists (WAS-10). Switching
+ * mode clears a stale error but keeps the values.
  */
 
 import { useState, useSyncExternalStore } from 'react';
@@ -15,6 +16,7 @@ import type { FormEvent } from 'react';
 import { failureCopy } from '../api/error_mapper';
 import { useAuthSession } from '../app/providers';
 import { message } from '../l10n/strings';
+import { BrandMark } from '../shell/brand_mark';
 import './auth.css';
 
 type AuthMode = 'login' | 'register';
@@ -56,11 +58,24 @@ export function AuthScreen() {
   return (
     <div className="lg-auth">
       <section className="lg-auth__panel" aria-labelledby="auth-title">
-        <h1 className="lg-auth__title" id="auth-title">
-          {message('auth.title')}
-        </h1>
+        <header className="lg-auth__brand">
+          <span className="lg-auth__mark" aria-hidden="true">
+            <BrandMark />
+          </span>
+          <span className="lg-auth__wordmark">{message('app.name')}</span>
+          <span className="lg-auth__tagline">{message('nav.tagline')}</span>
+        </header>
 
-        <div className="lg-auth__modes" role="group" aria-label={message('auth.title')}>
+        <div className="lg-auth__intro">
+          <h1 className="lg-auth__title" id="auth-title">
+            {mode === 'login' ? message('auth.titleLogin') : message('auth.titleRegister')}
+          </h1>
+          <p className="lg-auth__subtitle">
+            {mode === 'login' ? message('auth.subtitleLogin') : message('auth.subtitleRegister')}
+          </p>
+        </div>
+
+        <div className="lg-auth__modes" role="group" aria-label={message('auth.modeGroupLabel')}>
           <button
             type="button"
             className="lg-auth__mode"
@@ -133,7 +148,7 @@ export function AuthScreen() {
           <footer className="lg-auth__footer">
             <button
               type="submit"
-              className="lg-button lg-button--primary lg-button--md"
+              className="lg-button lg-button--primary lg-button--md lg-auth__submit"
               disabled={busy}
               aria-busy={busy}
             >

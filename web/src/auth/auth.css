@@ -1,11 +1,16 @@
 /**
  * The auth-surface styles. Every value comes from the shared design tokens; no
  * literal color or pixel value appears here (WAS-31).
+ *
+ * The panel is a focused column on the page background, opening with the brand
+ * lockup and a mode-specific title. The mode switch is one segmented track so
+ * only the active mode carries the accent fill.
  */
 
 .lg-auth {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  align-items: safe center;
   justify-content: center;
   min-height: 100%;
   padding: var(--lg-space-24);
@@ -15,45 +20,105 @@
 .lg-auth__panel {
   display: flex;
   flex-direction: column;
-  gap: var(--lg-space-16);
+  gap: var(--lg-space-24);
   width: 100%;
-  max-width: var(--lg-size-content-max);
-  padding: var(--lg-space-24);
+  max-width: var(--lg-size-auth-max);
+  padding: var(--lg-space-32);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
   border-radius: var(--lg-radius-md);
   background-color: var(--lg-color-surface);
+  box-shadow: var(--lg-shadow-1);
+}
+
+.lg-auth__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lg-space-8);
+  padding-bottom: var(--lg-space-24);
+  border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-auth__mark {
+  display: block;
+  width: var(--lg-space-32);
+  height: var(--lg-space-32);
+  color: var(--lg-color-text);
+}
+
+.lg-auth__mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.lg-auth__wordmark {
+  font-size: var(--lg-type-16);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.lg-auth__tagline {
+  font-size: var(--lg-type-12);
+  line-height: var(--lg-line-tight);
+  letter-spacing: 0.02em;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-auth__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
 }
 
 .lg-auth__title {
   margin: 0;
-  font-size: var(--lg-type-18);
+  font-size: var(--lg-type-24);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
 }
 
+.lg-auth__subtitle {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
+}
+
 .lg-auth__modes {
-  display: flex;
-  gap: var(--lg-space-8);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--lg-space-2);
+  padding: var(--lg-space-2);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-md);
+  background-color: var(--lg-color-inset);
 }
 
 .lg-auth__mode {
-  min-height: var(--lg-size-control);
+  min-height: calc(var(--lg-size-control) - var(--lg-space-4));
   padding: 0 var(--lg-space-12);
-  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border: 0;
   border-radius: var(--lg-radius-sm);
-  background-color: var(--lg-color-bg);
-  color: var(--lg-color-text);
+  background-color: transparent;
+  color: var(--lg-color-text-muted);
   font-family: inherit;
   font-size: var(--lg-type-15);
+  font-weight: var(--lg-font-weight-medium);
   cursor: pointer;
+  transition:
+    background-color var(--lg-motion-180) var(--lg-ease-standard),
+    color var(--lg-motion-180) var(--lg-ease-standard);
 }
 
 .lg-auth__mode:hover {
   background-color: var(--lg-color-surface-hover);
+  color: var(--lg-color-text);
 }
 
 .lg-auth__mode[aria-pressed='true'] {
-  border-color: var(--lg-color-accent);
   background-color: var(--lg-color-accent);
   color: var(--lg-color-accent-text);
 }
@@ -78,28 +143,54 @@
 
 .lg-auth__input {
   min-height: var(--lg-size-control);
-  padding: 0 var(--lg-space-8);
+  padding: 0 var(--lg-space-12);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
   border-radius: var(--lg-radius-sm);
   background-color: var(--lg-color-bg);
   color: var(--lg-color-text);
   font-family: inherit;
   font-size: var(--lg-type-15);
+  transition: border-color var(--lg-motion-180) var(--lg-ease-standard);
+}
+
+.lg-auth__input:hover {
+  border-color: var(--lg-color-border-strong);
 }
 
 .lg-auth__error {
   margin: 0;
-  font-size: var(--lg-type-13);
+  padding: var(--lg-space-8) var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-danger);
+  border-radius: var(--lg-radius-sm);
+  background-color: var(--lg-color-bg);
   color: var(--lg-color-danger);
+  font-size: var(--lg-type-13);
 }
 
 .lg-auth__footer {
-  display: flex;
-  justify-content: flex-end;
+  display: block;
+}
+
+.lg-auth__submit {
+  width: 100%;
 }
 
 .lg-auth__restoring {
   margin: var(--lg-space-24);
   font-size: var(--lg-type-15);
   color: var(--lg-color-text-muted);
+}
+
+@media (max-width: 30rem) {
+  .lg-auth {
+    padding: 0;
+  }
+
+  .lg-auth__panel {
+    max-width: none;
+    padding: var(--lg-space-24);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
 }

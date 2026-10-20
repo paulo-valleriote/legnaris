@@ -10,4 +10,11 @@ describe('PWA-01 SW contract', () => {
     expect(swSource).not.toContain('dangerouslySetInnerHTML');
     expect(swSource).not.toContain('localStorage');
   });
+
+  it('should activate the waiting worker when the update notice asks for it', () => {
+    // `registerType: 'prompt'` never activates on its own: the page's
+    // `messageSkipWaiting()` only lands if the worker answers this message.
+    expect(swSource).toContain('SKIP_WAITING');
+    expect(swSource).toContain('self.skipWaiting()');
+  });
 });

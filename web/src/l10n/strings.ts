@@ -20,7 +20,11 @@ export const messages = {
   'api.error.forbidden': 'That action was refused. Reload the app and try again.',
   'api.error.rateLimited': 'Too many attempts. Wait a moment and try again.',
 
-  'auth.title': 'Sign in to Legnaris',
+  'auth.titleLogin': 'Sign in to your archive',
+  'auth.titleRegister': 'Create your archive',
+  'auth.subtitleLogin': 'Continue where your last sheet left off.',
+  'auth.subtitleRegister': 'One account keeps every character sheet in one place.',
+  'auth.modeGroupLabel': 'Account mode',
   'auth.modeLogin': 'Existing account',
   'auth.modeRegister': 'New account',
   'auth.emailLabel': 'Email',
@@ -30,10 +34,14 @@ export const messages = {
   'auth.submitRegister': 'Create account',
   'auth.restoring': 'Restoring your session',
 
+  'app.name': 'Legnaris',
   'nav.catalog': 'Catalog',
   'nav.ownSheet': 'Your sheet',
   'nav.logout': 'Sign out',
+  'nav.sectionWorkspace': 'Workspace',
+  'nav.tagline': 'Character archive',
 
+  'theme.label': 'Theme',
   'theme.toggleLabel': 'Switch theme',
   'theme.switchToDark': 'Switch to dark',
   'theme.switchToLight': 'Switch to light',
@@ -45,6 +53,7 @@ export const messages = {
   'catalog.openHint': 'Open this template',
 
   'sheet.dialogTitle': 'New sheet',
+  'sheet.templateLabel': 'Template',
   'sheet.nameLabel': 'Sheet name',
   'sheet.namePlaceholder': 'Example: Aragorn, Ranger of the North',
   'sheet.nameRequired': 'A sheet name is required.',

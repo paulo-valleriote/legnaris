@@ -51,6 +51,7 @@
   --lg-size-content-min: 320px;
   --lg-size-content-max: 960px;
   --lg-size-dialog-max: 600px;
+  --lg-size-auth-max: 400px;
 
   --lg-focus-width: 2px;
   --lg-focus-offset: 2px;

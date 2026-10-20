@@ -52,18 +52,25 @@ function resolveDetailPhase(query: UseQueryResult<TemplateDetail, Error>): Detai
 
 interface DetailBodyProps {
   readonly phase: DetailRenderPhase;
+  readonly templateId: string;
   readonly onRetry: () => void;
 }
 
-function DetailBody({ phase, onRetry }: DetailBodyProps) {
+function DetailBody({ phase, templateId, onRetry }: DetailBodyProps) {
   switch (phase.kind) {
     case 'loading':
       return <p className="lg-dialog__message">{message('sheet.loading')}</p>;
     case 'loaded':
       return (
-        <p className="lg-dialog__message" data-testid="detail-name">
-          {phase.name}
-        </p>
+        <div className="lg-dialog__template">
+          <div className="lg-dialog__template-main">
+            <p className="lg-dialog__eyebrow">{message('sheet.templateLabel')}</p>
+            <p className="lg-dialog__template-name" data-testid="detail-name">
+              {phase.name}
+            </p>
+          </div>
+          <p className="lg-dialog__template-code">{templateId}</p>
+        </div>
       );
     case 'error':
     case 'notFound':
@@ -142,13 +149,18 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
           <h2 className="lg-dialog__title" id="create-sheet-dialog-title">
             {message('sheet.dialogTitle')}
           </h2>
-          <button type="button" className="lg-button" onClick={onClose}>
+          <button
+            type="button"
+            className="lg-button lg-button--ghost lg-button--sm"
+            onClick={onClose}
+          >
             {message('sheet.close')}
           </button>
         </div>
         <div className="lg-dialog__body">
           <DetailBody
             phase={phase}
+            templateId={templateId}
             onRetry={() => {
               void query.refetch();
             }}

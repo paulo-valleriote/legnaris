@@ -35,7 +35,7 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility (SC-010
     );
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: 'Sign in to Legnaris' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sign in to your archive' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
 

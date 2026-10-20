@@ -180,6 +180,7 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-size-content-min', 'content minimum width'],
     ['--lg-size-content-max', 'readable content measure'],
     ['--lg-size-dialog-max', 'dialog maximum width'],
+    ['--lg-size-auth-max', 'auth panel maximum width'],
   ]),
   ...group('primitive', 'focus', [
     ['--lg-focus-width', 'focus ring outline width'],

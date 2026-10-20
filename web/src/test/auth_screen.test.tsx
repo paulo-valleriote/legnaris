@@ -47,6 +47,36 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.usernameLabel'))).toBeInTheDocument();
   });
 
+  it('Happy path: the heading and supporting line follow the selected mode (WAS-09)', async () => {
+    const user = userEvent.setup();
+    renderAuth(createDeferredTransport().transport);
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(message('auth.titleLogin'));
+    expect(screen.getByText(message('auth.subtitleLogin'))).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      message('auth.titleRegister'),
+    );
+    expect(screen.queryByText(message('auth.subtitleLogin'))).not.toBeInTheDocument();
+    expect(screen.getByText(message('auth.subtitleRegister'))).toBeInTheDocument();
+  });
+
+  it('Happy path: the mode switch names its group and marks exactly one mode as pressed (WAS-09)', () => {
+    renderAuth(createDeferredTransport().transport);
+
+    expect(screen.getByRole('group', { name: message('auth.modeGroupLabel') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('auth.modeLogin') })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: message('auth.modeRegister') })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
   it('Edge: the password is a hidden-content control (WAS-09)', () => {
     const deferred = createDeferredTransport();
     renderAuth(deferred.transport);

@@ -21,6 +21,16 @@ precacheAndRoute(
 
 clientsClaim();
 
+// `registerType: 'prompt'` parks the new worker until the user accepts the
+// notice. The page asks for that activation by messaging the waiting worker;
+// without this listener the worker never activates and the page never reloads.
+self.addEventListener('message', (event: ExtendableMessageEvent) => {
+  const data = event.data as { type?: unknown } | null;
+  if (data?.type === 'SKIP_WAITING') {
+    void self.skipWaiting();
+  }
+});
+
 // Runtime caching: GET only, non-auth, safe endpoints
 registerRoute(
   ({ request, url }) => {

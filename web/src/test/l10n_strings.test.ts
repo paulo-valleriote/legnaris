@@ -281,7 +281,11 @@ describe('sheet-cycle copy source scan (WSC-32, SC-006)', () => {
 
 /** The auth surface and session copy the feature introduces (WAS-19, WAS-25, WAS-30, WAS-31). */
 const authFeatureKeys: readonly MessageKey[] = [
-  'auth.title',
+  'auth.titleLogin',
+  'auth.titleRegister',
+  'auth.subtitleLogin',
+  'auth.subtitleRegister',
+  'auth.modeGroupLabel',
   'auth.modeLogin',
   'auth.modeRegister',
   'auth.emailLabel',
@@ -309,7 +313,11 @@ const authFeatureKeys: readonly MessageKey[] = [
 
 /** The keys the auth directory renders; the rest are owned by the shell and the sheet surface. */
 const authSurfaceKeys: readonly MessageKey[] = [
-  'auth.title',
+  'auth.titleLogin',
+  'auth.titleRegister',
+  'auth.subtitleLogin',
+  'auth.subtitleRegister',
+  'auth.modeGroupLabel',
   'auth.modeLogin',
   'auth.modeRegister',
   'auth.emailLabel',

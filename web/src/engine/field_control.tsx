@@ -129,9 +129,12 @@ interface ReadOnlyValueProps {
 }
 
 function ReadOnlyValue({ label, schema, value, calculated, marked }: ReadOnlyValueProps) {
+  const numeric = schema.type === 'number';
   return (
     <span
-      className={`lg-field__readonly${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}
+      className={`lg-field__readonly${numeric ? ' lg-field__readonly--numeric' : ''}${
+        marked ? ` ${FIELD_MARKED_CLASS}` : ''
+      }`}
       role="status"
       aria-label={label}
     >

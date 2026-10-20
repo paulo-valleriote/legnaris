@@ -90,10 +90,21 @@ describe('sheet form composition (ENG-24, ENG-25, ENG-26, SC-002)', () => {
     expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Aragorn');
     expect(screen.getByRole('textbox', { name: 'Level' })).toHaveValue('3');
+    expect(screen.getByRole('textbox', { name: 'Level' }).parentElement).toHaveClass(
+      'lg-field--numeric-wrapper',
+    );
     expect(screen.getByRole('checkbox', { name: 'NPC' })).not.toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'House rules' })).not.toBeChecked();
     expect(screen.getByRole('status', { name: 'Total' })).toBeInTheDocument();
-    expect(screen.getByRole('status', { name: 'Mystery' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Total' })).toHaveClass(
+      'lg-field__readonly--numeric',
+    );
+    expect(screen.getByRole('status', { name: 'Mystery' })).not.toHaveClass(
+      'lg-field__readonly--numeric',
+    );
+    expect(screen.getByRole('combobox', { name: 'Ability' }).parentElement).toHaveClass(
+      'lg-field__label-wrapper',
+    );
     expect(screen.getByRole('combobox', { name: 'Ability' })).toBeInTheDocument();
     expect(screen.getByText('Armor class ability')).toBeInTheDocument();
     expect(container.textContent).not.toContain('characterName');
@@ -187,6 +198,10 @@ describe('sheet form table rows (ENG-04, ENG-06)', () => {
     expect(screen.getByRole('textbox', { name: 'Dexterity' })).toHaveValue('14');
     expect(container.querySelectorAll('.lg-field-table__header')).toHaveLength(1);
     expect(container.querySelectorAll('.lg-field-table__row')).toHaveLength(1);
+    expect(container.querySelectorAll('.lg-field-table__cells')).toHaveLength(2);
+    expect(
+      container.querySelectorAll('.lg-field-table__cells > .lg-field-table__cell'),
+    ).toHaveLength(4);
     expect(container.querySelectorAll('.lg-field-table__cell--number')).toHaveLength(4);
   });
 });
