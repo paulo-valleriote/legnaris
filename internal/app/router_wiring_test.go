@@ -30,9 +30,20 @@ import (
 // that runs in CI, where the integration suite self-skips without a database.
 func newWiringRouter(t *testing.T) (http.Handler, *app.Modules) {
 	t.Helper()
+	return newWiringRouterWithEnv(t, nil)
+}
+
+// newWiringRouterWithEnv is newWiringRouter with extra environment overrides,
+// so a route-level suite can shrink the rate-limit cap without touching the
+// production defaults.
+func newWiringRouterWithEnv(t *testing.T, extra map[string]string) (http.Handler, *app.Modules) {
+	t.Helper()
 
 	t.Setenv("JWT_SECRET", "wiring-test-secret")
 	t.Setenv("AUTH_BCRYPT_COST", "12")
+	for key, value := range extra {
+		t.Setenv(key, value)
+	}
 
 	log := logger.NewLogger(slog.LevelError)
 	env := env.NewEnv(log)

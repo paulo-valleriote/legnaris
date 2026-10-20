@@ -2,9 +2,11 @@ package app
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"legnaris/internal/auth"
+	"legnaris/internal/platform/clientip"
 	"legnaris/internal/platform/ratelimit"
 	"legnaris/internal/sheet"
 	"legnaris/internal/sheet/template"
@@ -34,6 +36,10 @@ type Modules struct {
 	Template TemplateModule
 	Sheet    SheetModule
 	Auth     AuthModule
+	// ClientIP is the boot-time address resolver installed as the router's
+	// IPExtractor, so every c.RealIP() consumer reads the same resolution
+	// (PRQ-03, PRQ-04).
+	ClientIP func(*http.Request) string
 }
 
 // NewModules wires every domain module. It returns an error for configuration
@@ -42,6 +48,13 @@ type Modules struct {
 func NewModules(database *db.Database, registry *template.Registry, cfg env.Env, observer auth.Observer) (*Modules, error) {
 	log := cfg.Logger
 	mdb := database.Client.Database(cfg.Variables.DatabaseName)
+
+	// The trust boundary is configuration; an invalid CIDR must stop the boot
+	// instead of silently trusting the wrong network (PRQ-03).
+	clientIPPolicy, err := clientip.New(cfg.Variables.TrustedProxyCIDRs)
+	if err != nil {
+		return nil, fmt.Errorf("build client IP policy: %w", err)
+	}
 
 	templateService := template.NewService(registry)
 	templateController := NewTemplateController(templateService)
@@ -106,5 +119,6 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 			TokenManager: tokenManager,
 			RateLimiter:  authLimiter,
 		},
+		ClientIP: clientIPPolicy.Resolve,
 	}, nil
 }

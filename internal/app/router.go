@@ -18,6 +18,10 @@ import (
 func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *echo.Echo {
 	router := echo.New()
 	router.HTTPErrorHandler = HTTPErrorHandler
+	// Installed before any route or middleware so every c.RealIP() consumer —
+	// today the auth and CSP limiters — reads the resolved client, not the
+	// proxy's shared address (PRQ-04).
+	router.IPExtractor = modules.ClientIP
 
 	router.Use(middleware.RequestID())
 	router.Use(cors.Middleware(deps.Variables.CORSOrigins))
