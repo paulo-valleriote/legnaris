@@ -155,10 +155,21 @@ func TestService_Register(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
-		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(user.ErrEmailAlreadyExists).Once()
+		m.users.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool { return u.Email == testEmail })).
+			Return(user.ErrEmailAlreadyExists).
+			Once()
 
-		_, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
+		_, err := service.Register(ctx, auth.RegisterCommand{
+			Email:    "Another Name <Player@Example.com>",
+			Username: "player",
+			Password: testPassword,
+		})
 		assertAppErr(t, err, apperr.CodeConflict)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgEmailAlreadyExists, appErr.Message)
 		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
 		m.generator.AssertNotCalled(t, "Generate")
 	})
@@ -168,7 +179,74 @@ func TestService_Register(t *testing.T) {
 
 		_, err := service.Register(ctx, auth.RegisterCommand{Email: "not-an-email", Username: "player", Password: testPassword})
 		assertAppErr(t, err, apperr.CodeInvalidRequest)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidEmail, appErr.Message)
 		m.hasher.AssertNotCalled(t, "Hash", mock.Anything)
+	})
+
+	t.Run("Error: a 255-byte address is a 400 with the invalid-email message", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		overLong := strings.Repeat("a", user.MaxEmailLength-len("@example.com")+1) + "@example.com"
+		_, err := service.Register(ctx, auth.RegisterCommand{Email: overLong, Username: "player", Password: testPassword})
+		assertAppErr(t, err, apperr.CodeInvalidRequest)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidEmail, appErr.Message)
+		m.hasher.AssertNotCalled(t, "Hash", mock.Anything)
+	})
+
+	t.Run("Happy path: a display-name spelling is persisted as the bare canonical address", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		var stored string
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+				stored = u.Email
+				return true
+			})).
+			Return(nil).
+			Once()
+		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := service.Register(ctx, auth.RegisterCommand{
+			Email:    "Name <Player@Example.COM>",
+			Username: "player",
+			Password: testPassword,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testEmail, stored)
+	})
+
+	t.Run("Edge: dotted and +tag spellings are persisted verbatim after lowercasing", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		var stored string
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+				stored = u.Email
+				return true
+			})).
+			Return(nil).
+			Once()
+		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := service.Register(ctx, auth.RegisterCommand{
+			Email:    "P.Layer+News@Example.com",
+			Username: "player",
+			Password: testPassword,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "p.layer+news@example.com", stored)
 	})
 
 	t.Run("Error: empty username is rejected", func(t *testing.T) {
@@ -320,6 +398,37 @@ func TestService_Login(t *testing.T) {
 		require.NoError(t, m.csrf.Verify(session.CSRFToken, familyID))
 	})
 
+	t.Run("Happy path: a display-name spelling reaches the canonical account", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(storedUser(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		session, err := service.Login(ctx, auth.LoginCommand{
+			Email:    "Another Name <PLAYER@Example.COM>",
+			Password: testPassword,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, validUserID, session.UserID)
+	})
+
+	t.Run("Edge: dotted and +tag spellings are passed through unchanged", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		const tagged = "p.layer+news@example.com"
+		m.users.EXPECT().FetchByEmail(mock.Anything, tagged).Return(storedUser(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := service.Login(ctx, auth.LoginCommand{Email: "P.Layer+News@Example.com", Password: testPassword})
+		require.NoError(t, err)
+	})
+
 	t.Run("Edge: each login mints a distinct CSRF token", func(t *testing.T) {
 		service, m := newAuthService(t)
 
@@ -344,6 +453,35 @@ func TestService_Login(t *testing.T) {
 
 		_, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
 		assertAppErr(t, err, apperr.CodeUnauthorized)
+	})
+
+	t.Run("Error: an unparseable address is a uniform 401 with no store lookup", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.observer.EXPECT().LoginFailure().Return().Once()
+
+		_, err := service.Login(ctx, auth.LoginCommand{Email: "not-an-email", Password: testPassword})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidCredentials, appErr.Message)
+		m.users.AssertNotCalled(t, "FetchByEmail", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: an over-long address is a uniform 401 with no store lookup", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.observer.EXPECT().LoginFailure().Return().Once()
+
+		overLong := strings.Repeat("a", user.MaxEmailLength-len("@example.com")+1) + "@example.com"
+		_, err := service.Login(ctx, auth.LoginCommand{Email: overLong, Password: testPassword})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidCredentials, appErr.Message)
+		m.users.AssertNotCalled(t, "FetchByEmail", mock.Anything, mock.Anything)
 	})
 
 	t.Run("Error: wrong password returns a generic 401 and records the failure", func(t *testing.T) {

@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"net/mail"
 	"regexp"
 	"strings"
 	"time"
@@ -133,12 +132,11 @@ func NewService(
 // does: a duplicate email still answers 409 before any session is issued
 // (AUTH-02).
 func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Session, error) {
-	email := normalizeEmail(cmd.Email)
-	username := strings.TrimSpace(cmd.Username)
-
-	if _, err := mail.ParseAddress(email); err != nil {
+	email, err := user.CanonicalEmail(cmd.Email)
+	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgInvalidEmail, err)
 	}
+	username := strings.TrimSpace(cmd.Username)
 	if username == "" {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgUsernameRequired, nil)
 	}
@@ -192,7 +190,13 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Sessi
 }
 
 func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*Session, error) {
-	email := normalizeEmail(cmd.Email)
+	email, err := user.CanonicalEmail(cmd.Email)
+	if err != nil {
+		// An unparseable address is indistinguishable from an unknown one, so the
+		// response never reveals whether an account could have existed (PRQ-09,
+		// PRQ-10, PRQ-17).
+		return nil, s.invalidCredentials(ctx, "unparseable email")
+	}
 
 	stored, err := s.users.FetchByEmail(ctx, email)
 	if err != nil {
@@ -421,8 +425,4 @@ func (s *ServiceImpl) reuseDetected(ctx context.Context, token *RefreshToken) er
 		logger.Attribute{Key: attrUserID, Value: token.UserID},
 	)
 	return apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
-}
-
-func normalizeEmail(email string) string {
-	return strings.ToLower(strings.TrimSpace(email))
 }
