@@ -28,6 +28,10 @@ type Variables struct {
 	AuthRateLimitWindow            time.Duration
 	CSPReportRateLimitAttempts     int
 	CSPReportRateLimitWindow       time.Duration
+	// TrustedProxyCIDRs is the operator's trusted proxy set. It is nil when
+	// unset or blank, which selects the documented loopback/private/link-local
+	// default; a configured value replaces the non-loopback portion (PRQ-03).
+	TrustedProxyCIDRs []string
 }
 
 const (
@@ -55,8 +59,9 @@ const attrKey = "key"
 // Environment variables the application cannot start without. Kept as
 // constants so RequiredKeys and initVariables share one source of truth.
 const (
-	keyDatabaseURI = "DATABASE_URI"
-	keyJWTSecret   = "JWT_SECRET"
+	keyDatabaseURI       = "DATABASE_URI"
+	keyJWTSecret         = "JWT_SECRET"
+	keyTrustedProxyCIDRs = "TRUSTED_PROXY_CIDRS"
 )
 
 // RequiredKeys returns the environment variables the application cannot start
@@ -105,6 +110,7 @@ func (e *Env) initVariables() Variables {
 		AuthRateLimitWindow:            e.lookupDurationEnv("AUTH_RATE_LIMIT_WINDOW", defaultAuthRateLimitWindow),
 		CSPReportRateLimitAttempts:     e.lookupIntEnv("CSP_REPORT_RATE_LIMIT_ATTEMPTS", defaultCSPReportRateLimitAttempts),
 		CSPReportRateLimitWindow:       e.lookupDurationEnv("CSP_REPORT_RATE_LIMIT_WINDOW", defaultCSPReportRateLimitWindow),
+		TrustedProxyCIDRs:              e.lookupTrustedProxyCIDRs(),
 	}
 }
 
@@ -146,6 +152,27 @@ func (e *Env) lookupStringSliceEnv(key string, defaultValue []string) []string {
 	for _, part := range parts {
 		part = strings.TrimSuffix(strings.TrimSpace(part), "/")
 		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
+}
+
+// lookupTrustedProxyCIDRs reads the optional trusted proxy set. It preserves the
+// distinction the resolver needs: unset and blank mean "use the documented
+// default" (nil), while a configured value such as "," means "trust exactly what
+// I listed" (empty, non-nil). CIDRs are not validated here; an invalid entry is
+// a boot error when the policy is built (PRQ-03, PRQ-18).
+func (e *Env) lookupTrustedProxyCIDRs() []string {
+	value, found := os.LookupEnv(keyTrustedProxyCIDRs)
+	if !found || value == "" {
+		return nil
+	}
+
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
 			result = append(result, part)
 		}
 	}

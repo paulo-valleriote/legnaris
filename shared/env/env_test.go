@@ -289,3 +289,43 @@ func TestLookupIntEnv(t *testing.T) {
 		})
 	}
 }
+
+// TestTrustedProxyCIDRs covers the optional proxy set: unset and blank select
+// the documented default (nil), a configured list is trimmed, and the
+// configured-empty value stays distinct from "unset" (PRQ-03, PRQ-18).
+func TestTrustedProxyCIDRs(t *testing.T) {
+	e := newTestEnv()
+
+	tests := []struct {
+		name string
+		set  bool
+		val  string
+		want []string
+	}{
+		{name: "Edge: unset selects the default (nil)", set: false, want: nil},
+		{name: "Edge: an empty value selects the default (nil)", set: true, val: "", want: nil},
+		{name: "Happy path: a comma-separated list is trimmed", set: true, val: " 10.0.0.0/8 , 172.16.0.0/12 ", want: []string{"10.0.0.0/8", "172.16.0.0/12"}},
+		{name: "Edge: a configured-empty list stays empty and non-nil", set: true, val: ",", want: []string{}},
+		{name: "Edge: an invalid value is preserved for the boot-time policy", set: true, val: "not-a-cidr", want: []string{"not-a-cidr"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.set {
+				t.Setenv("TRUSTED_PROXY_CIDRS", tc.val)
+			} else {
+				unsetEnv(t, "TRUSTED_PROXY_CIDRS")
+			}
+
+			got := e.initVariables().TrustedProxyCIDRs
+			require.Equal(t, tc.want, got)
+			if tc.set && tc.val == "," {
+				require.NotNil(t, got, "a configured-empty set must not collapse into the default")
+			}
+		})
+	}
+
+	t.Run("Edge: the required key list is unchanged", func(t *testing.T) {
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET"}, RequiredKeys())
+	})
+}
