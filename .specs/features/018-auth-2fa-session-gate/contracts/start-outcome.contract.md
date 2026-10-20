@@ -47,8 +47,10 @@ The purpose is bound to the operation at the call site and never crosses the HTT
    session, and `VerifyChallenge` remains the only gated route to one.
 4. **Uniform failure precedes the decision** (`TFA-05`): the dummy-digest comparison happens on the
    unknown-address path before the uniform 401 is produced, so both credential failures cost the same
-   work. The dummy digest is a package-level bcrypt hash at the repository's cost and its result is
-   discarded.
+   work. The dummy digest carries the **configured** work factor — the one `AUTH_BCRYPT_COST` resolves
+   to, which the hasher owns — and its result is discarded. A digest pinned to a fixed cost would spend
+   fewer rounds than the known path whenever the deployment raised the cost, reopening the oracle this
+   comparison exists to close (amended 2026-10-20 after the delivery review).
 5. **Recoverability** (`TFA-13`): a failure from `IssueChallenge` (allowance spent → `EMAIL_UNAVAILABLE`
    503 with retry hint; store failure → `INTERNAL_ERROR` 500) propagates unchanged, with no session and
    no credential; the account keeps no verification timestamp and sign-in remains the recovery door
@@ -67,6 +69,10 @@ The purpose is bound to the operation at the call site and never crosses the HTT
 - Table over gate × {register, login} asserting which half is set.
 - Gate on, unknown address vs wrong password: same typed code, same message, and the password
   comparison exercised on both (a `PasswordHasher` fake counts the calls).
+- Gate on, unknown address: the comparison runs against the **hasher's** dummy digest, never against a
+  digest pinned in the source.
+- The dummy digest carries the configured work factor: `bcrypt.Cost` of it equals the cost the hasher
+  was built with, at the floor and at a raised cost (the regression this amendment closes).
 - Gate on, `IssueChallenge` failing with each typed error: propagated, no session, account untouched.
 - Gate off: `Session` equals the pre-existing expectations (the existing cases, run unchanged).
 - Concurrency: two sign-ins for one account with the gate on produce two distinct challenges and only

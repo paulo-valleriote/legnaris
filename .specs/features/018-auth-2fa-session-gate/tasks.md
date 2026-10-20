@@ -161,6 +161,18 @@ code change.
 
 ---
 
+## Phase 8: Delivery Review Remediation (2026-10-20)
+
+The delivery review of this feature found one residual risk against `TFA-05`: the digest the
+unknown-address path compared against was pinned to a package-level literal at cost 12 — the *floor* of
+`AUTH_BCRYPT_COST`, not the configured cost. bcrypt spends the rounds encoded in the digest it is
+handed, so a deployment that raised the work factor made the unknown-address path measurably cheaper
+than the known one, reopening the account-existence oracle the comparison exists to close.
+
+- [X] T022 [US1] Move the dummy digest to the hasher that owns the work factor: `PasswordHasher` gains `DummyHash()`, `NewPasswordHasher` derives the digest at the configured cost (the cost field of a template digest is rewritten, so bcrypt spends the configured rounds and the construction stays free), `internal/auth/service.go` compares against `s.hasher.DummyHash()` instead of the removed `dummyPasswordHash` constant, and `make mocks` regenerates `internal/auth/mocks/mock_PasswordHasher.go`; extend `internal/auth/password_test.go` with the cost assertions (the configured cost is carried, a raised cost moves with it, no password matches) and `internal/auth/service_test.go` with the assertion that the unknown-address path compares against the **hasher's** digest; amend `research.md` R5, `contracts/start-outcome.contract.md` invariant 4 and the `spec.md` edge case with the work-factor-change limitation (`TFA-05`, `TFA-15`).
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

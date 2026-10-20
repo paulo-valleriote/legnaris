@@ -55,10 +55,10 @@ on Echo v5.3.1 (`github.com/labstack/echo/v5 v5.3.1`), MongoDB driver v2.9.1
 repository already carries.
 
 **Primary Dependencies**: none added. The gate decision is plain service policy; the timing-uniform
-sign-in uses the existing `PasswordHasher` (bcrypt) with one package-level dummy digest; the identity
-read reuses `user.Repository.FetchByID`; configuration reuses `shared/env`; logging stays on
-`shared/logger`; typing stays on `shared/apperr`; route guards reuse the existing bearer middleware
-and per-address limiter.
+sign-in uses the existing `PasswordHasher` (bcrypt) with the hasher's own dummy digest, derived at the
+configured work factor; the identity read reuses `user.Repository.FetchByID`; configuration reuses
+`shared/env`; logging stays on `shared/logger`; typing stays on `shared/apperr`; route guards reuse the
+existing bearer middleware and per-address limiter.
 
 **Storage**: MongoDB 7.0 standalone. **No collection, index or document shape changes.** `users` is
 read through `FetchByID` and its verification timestamp continues to be written only by the existing

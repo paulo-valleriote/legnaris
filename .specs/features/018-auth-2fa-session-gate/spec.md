@@ -94,6 +94,7 @@ The register and sign-in contracts break every client at once. Shipping that onl
 - **Sign-in for an account with no verification timestamp**: the code step carries the sign-in purpose, and verifying it records the timestamp as part of establishing the session (decision D4). (TFA-04)
 - **Sign-in for an account already verified**: the existing timestamp is preserved unchanged. (TFA-04)
 - **Unknown address versus wrong password at sign-in**: identical status, identical body and indistinguishable work performed. (TFA-05)
+- **Raising the work factor after accounts exist**: the known-address path spends the rounds of the digest the account was stored with, while the unknown-address path spends the configured ones, so the two classes separate until the accounts are re-hashed; the repository has no data-migration framework, so a work-factor change is a re-hash operation and not a configuration change. (TFA-05)
 - **Renewal for an account deleted between the credential lookup and the account lookup**: unchanged — the missing-account rule decides. (TFA-06)
 - **Renewal for an account with no verification timestamp while the gate is on**: refused, family revoked, no credential issued; a second attempt with the same credential also fails, and the person recovers by signing in and completing the code step. (TFA-06)
 - **Gate flipped while sessions exist**: renewal of a pre-existing session is refused from the next renewal onward; nothing else changes. (TFA-06, TFA-12)

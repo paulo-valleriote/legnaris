@@ -118,9 +118,9 @@ renewal act on.
 
 ## R5. The uniform sign-in spends the password work even when the address is unknown
 
-**Decision**: when `FetchByEmail` reports no account, `Login` performs one bcrypt comparison against a
-package-level dummy digest before answering the existing uniform `UNAUTHORIZED` outcome. The digest is
-computed once (a fixed bcrypt hash at the repository's existing cost) and its result is discarded.
+**Decision**: when `FetchByEmail` reports no account, `Login` performs one bcrypt comparison against the
+hasher's dummy digest before answering the existing uniform `UNAUTHORIZED` outcome. The digest carries
+the hasher's own work factor — the one `AUTH_BCRYPT_COST` resolves to — and its result is discarded.
 
 **Rationale**: the current code returns before the comparison on the unknown-address path, so the
 response time falls into two distinct classes — the oracle finding F-05 names. Running the same
@@ -129,15 +129,35 @@ the dummy digest cannot match any real password because no account stores it. `T
 exactly this, and the existing `invalidCredentials` tail remains the single producer of the outcome so
 the two cases cannot diverge in the answer.
 
+**Amendment (2026-10-20, delivery review)**: the first implementation pinned the digest to a
+package-level literal at cost 12, which is the *floor* of `AUTH_BCRYPT_COST`, not the configured
+cost. bcrypt spends the rounds encoded in the digest it is handed, so a deployment that raised the
+cost would have made the unknown-address path measurably cheaper than the known one — the oracle
+`TFA-05` closes would have reopened. The digest now derives from the configured cost, and the
+derivation rewrites the cost field of a template digest instead of generating a new one: bcrypt does
+the work before it compares, so the rounds are what the field says, and the construction stays free
+(one bcrypt hash per boot, and per suite that wires the application, is not worth paying for a digest
+whose result is discarded).
+
 **Alternatives considered**:
 
-- *Always hashing the submitted password* — rejected: hashing is far more expensive than comparing,
-  so it would multiply the cost of every sign-in to equalize it, and the comparison already dominates
-  the path.
+- *Always hashing the submitted password* — rejected: `bcrypt.GenerateFromPassword` refuses a password
+  longer than 72 bytes and returns immediately, so the unknown-address path would do no work at all
+  for a long submission and the oracle would reopen. It also replaces a comparison with a generation,
+  which is a different operation from the one the known path performs.
+- *Generating the dummy digest at the configured cost* — rejected: the digest would then cost one
+  bcrypt hash per boot, and one per suite that wires the application, for a value whose result is
+  discarded. The cost-field rewrite reaches the same work for free.
 - *Answering a shorter generic response and accepting the timing difference* — rejected: it is the
   defect being fixed.
 - *Adding a random delay* — rejected: unbounded and untestable; the deterministic comparison is
   measurable in a test and costs nothing.
+
+**Known limitation**: the known-address path spends the rounds of the *stored* digest, so an account
+created before a cost increase is compared at its old cost while the unknown-address path spends the
+configured one. Raising `AUTH_BCRYPT_COST` therefore separates the two classes until the accounts are
+re-hashed, and the repository has no data-migration framework (plan finding F-12). The deployment
+treats a cost change as a re-hash operation, not as a configuration change.
 
 ## R6. A registration whose challenge cannot be started answers the typed failure and stays recoverable
 
