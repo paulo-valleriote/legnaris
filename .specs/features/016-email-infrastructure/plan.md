@@ -217,7 +217,7 @@ deploy/
 
 Dockerfile                              # EXTENDED: build /relay into the runtime image
 Makefile                                # EXTENDED: export the optional variables; relay target
-.mockery.yaml                           # EXTENDED: email Sender, outbox Repository and relay Publisher
+.mockery.yaml                           # EXTENDED: email Sender/Renderer, outbox Repository, relay Publisher/Observer
 ```
 
 **Structure Decision**: the message contract and the sender port live in `internal/email` because
