@@ -14,7 +14,7 @@ proxy, without letting a request choose its own key.
 |---|---|---|
 | Direct peer | `http.Request.RemoteAddr` | Host portion; a bare address is accepted; IPv4-mapped IPv6 is unmapped |
 | Forwarding chain | Every `X-Forwarded-For` header value, in request order, split on `,` | Entries may carry IPv6 brackets and `:port` |
-| Trusted set | `TRUSTED_PROXY_CIDRS` at boot | `nil` = loopback + private + link-local; set = loopback + the listed prefixes; invalid = startup error |
+| Trusted set | `TRUSTED_PROXY_CIDRS` at boot | unset or blank = `nil` (loopback + private + link-local); any configured value = loopback + exactly its prefixes, so an empty list such as `,` trusts loopback only; invalid = startup error |
 
 `X-Real-IP` and any other header are **not** consulted.
 

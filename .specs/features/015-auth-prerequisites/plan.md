@@ -76,9 +76,10 @@ invoked explicitly by the operator.
 untouched (the HTTP contract does not change, `PRQ-14`).
 
 **Performance Goals**: no throughput target. Address resolution is a single pass over the forwarding
-chain (O(hops), no state); canonicalization is one `net/mail` parse per register/login, replacing the
-parse the service already performs; refresh gains exactly one `users` lookup, which `PRQ-05`
-requires. The limiter's key set and window are unchanged.
+chain (O(hops), no state); canonicalization is one `net/mail` parse per register (replacing the parse
+the service already performs) and one per login (new, so the lookup keys on the same value); refresh
+gains exactly one `users` lookup, which `PRQ-05` requires. The limiter's key set and window are
+unchanged.
 
 **Constraints**: no HTTP request or response shape changes (`PRQ-14`); every new failure path is a
 typed `apperr` mapped to its documented status (`PRQ-17`); configuration stays optional with
@@ -163,11 +164,13 @@ internal/platform/clientip/
 internal/app/
 ├── router.go                           # EXTENDED: router.IPExtractor = modules.ClientIP (PRQ-04)
 ├── bootstrap.go                        # EXTENDED: build the policy and the clock, hand both to the modules
-├── ratelimit.go                        # EXTENDED: account key uses the canonical rule (PRQ-08…PRQ-10)
+├── ratelimit.go                        # EXTENDED: account key uses the canonical rule (PRQ-09)
 ├── client_ip_test.go                   # NEW: two clients behind one proxy limited independently; forged chain has no effect
 ├── ratelimit_test.go                   # EXTENDED: equivalent spellings share the account key
 ├── auth_test.go                        # EXTENDED: refresh missing account 401 mapping at the boundary
-└── integration_test.go                 # EXTENDED: register/login spellings resolve one account, duplicate is 409
+├── auth_integration_test.go            # EXTENDED: refresh with a deleted account end to end (PRQ-05, PRQ-06)
+├── integration_test.go                 # EXTENDED: register/login spellings resolve one account, duplicate is 409
+└── router_wiring_test.go               # EXTENDED: the auth route inventory stays unchanged (PRQ-14)
 
 internal/auth/
 ├── clock.go                            # NEW: Clock func type and its system default (PRQ-16)
@@ -181,7 +184,7 @@ internal/auth/
 internal/user/
 ├── user.go                             # EXTENDED: optional EmailVerifiedAt, absent until set (PRQ-12)
 ├── email.go                            # NEW: CanonicalEmail + ErrInvalidEmail + MaxEmailLength (PRQ-08)
-├── repository.go                       # EXTENDED: MarkEmailVerified conditional update (PRQ-13)
+├── repository.go                       # EXTENDED: MarkEmailVerified (PRQ-13) + migration store methods and NewEmailMigrationStore (PRQ-11)
 ├── email_migration.go                  # NEW: plan/apply split, EmailMigrationStore (PRQ-11)
 ├── user_test.go                        # NEW: the DTO carries no verification field (PRQ-14)
 ├── email_test.go                       # NEW: parse/trim/lowercase/length/boundary table

@@ -66,7 +66,7 @@ People type the same mailbox in different ways: with a display name, in capitals
 
 **Why this priority**: every later feature sends a six-digit code to the stored address; a stored display name is an undeliverable recipient, and a duplicate account splits the verification state between two rows. It is not P1 only because no current release depends on the new flow yet.
 
-**Independent Test**: register with a display-name form of an address and assert the stored value is the bare lowercase address; register again with a different spelling of the same mailbox and assert a conflict; sign in with a differently spelled form and assert the same account is reached; run the migration in dry-run and then for real over a seeded non-canonical row and assert only the address and modification time change; seed a collision and assert the run aborts without writing; drive boundary lengths and invalid forms and assert the existing typed 400 on registration.
+**Independent Test**: register with a display-name form of an address and assert the stored value is the bare lowercase address; register again with a different spelling of the same mailbox and assert a conflict; sign in with a differently spelled form and assert the same account is reached and the per-account limit bucket is shared; run the migration in dry-run and then for real over a seeded non-canonical row and assert only the address and modification time change; seed a collision and assert the run aborts without writing; drive boundary lengths and invalid forms and assert the existing typed 400 on registration.
 
 **Acceptance Scenarios**:
 
@@ -76,6 +76,7 @@ People type the same mailbox in different ways: with a display name, in capitals
 4. **Given** an address that cannot be parsed, or one longer than the accepted maximum, **When** registration is called, **Then** it is refused with the existing typed invalid-request outcome. (PRQ-08)
 5. **Given** a `+tag` or a dot inside the local part, **When** the address is canonicalized, **Then** neither is removed. (PRQ-08)
 6. **Given** existing rows with non-canonical addresses, **When** the migration runs in dry-run mode, **Then** it reports the intended canonical values and writes nothing; **When** it runs for real, **Then** it rewrites only the address and modification time, and a run that finds two rows canonicalizing to one address aborts without writing. (PRQ-11)
+7. **Given** one mailbox reachable through several spellings, **When** sign-in is attempted repeatedly using those spellings, **Then** the attempts consume one per-account budget and the account key is never empty. (PRQ-09)
 
 ---
 
@@ -86,9 +87,10 @@ People type the same mailbox in different ways: with a display name, in capitals
 - **Forwarding chain naming IPv6 addresses with or without brackets, or entries with ports**: the address is still resolved. (PRQ-01)
 - **Two forwarding headers on one request**: their values are treated as one chain in order. (PRQ-01)
 - **Forged forwarding header from an untrusted peer**: 0 effect on limits or on any address-derived decision. (PRQ-02)
-- **Trusted proxy set empty or unconfigured**: the documented loopback-plus-private default applies and the deployment still limits per client; a request is never keyed by an empty address. (PRQ-03)
+- **Trusted proxy set unset or blank**: the documented loopback-plus-private-and-link-local default applies and the deployment still limits per client; a request is never keyed by an empty address. (PRQ-03)
+- **Trusted proxy set configured but empty** (for example `","`): the configured set replaces the whole non-loopback portion, so only loopback is trusted; this is fail-closed and never a fallback to the default. (PRQ-03)
 - **An attacker inside the trusted proxy network**: can choose its own forwarded address; the trust boundary is the proxy network, and the deployment keeps that network internal. (PRQ-03, Assumptions)
-- **Address at the 254-character maximum** is accepted; one character more is refused. (PRQ-08)
+- **Address whose canonical form is 254 bytes** is accepted; one byte more is refused. (PRQ-08)
 - **Empty, whitespace-only, `@`-less, or domain-less address** on registration: refused with the existing typed invalid request; on sign-in: the uniform invalid-credentials outcome. (PRQ-08, PRQ-09)
 - **Login with a display-name form**: canonicalized before lookup; a parse failure still answers the same generic 401 and does not reveal account existence. (PRQ-09)
 - **Duplicate account under a display-name spelling of an existing address**: conflict, no second row. (PRQ-10)
@@ -99,6 +101,7 @@ People type the same mailbox in different ways: with a display name, in capitals
 - **Refresh for an account removed between the credential lookup and the account lookup**: answered 401 with the family revoked, exactly like a missing account. (PRQ-05)
 - **Refresh with a revoked/expired/reused credential whose account is missing**: the existing credential rules decide first; the account check does not change those outcomes. (PRQ-05)
 - **Account-store failure during refresh**: internal failure, no credential issued, family untouched. (PRQ-07)
+- **Family revocation failure while handling a missing account**: internal failure, no credential issued, and the caller sees neither a 401 nor a session. (PRQ-05)
 - **Verification timestamp already set**: marking it again is a no-op that preserves the first value and does not fail. (PRQ-13)
 - **Verification timestamp for an unknown account**: reported as not found, never created. (PRQ-13)
 - **Deploy over existing data**: no existing account gains a verification timestamp. (PRQ-15)
@@ -112,32 +115,32 @@ People type the same mailbox in different ways: with a display name, in capitals
 
 - **PRQ-01**: WHEN a request carries a forwarding chain, the server MUST resolve the client address as the nearest untrusted hop from the server outward; WHEN the chain is absent or cannot be parsed, it MUST use the direct peer address.
 - **PRQ-02**: WHEN a request's direct peer is outside the trusted proxy set, the server MUST ignore any forwarding header it carries and MUST use the direct peer address.
-- **PRQ-03**: The trusted proxy set MUST come from configuration; by default it MUST trust loopback, private, and link-local networks, and a configured comma-separated CIDR set MUST replace the non-loopback portion of that default (loopback stays trusted). The set MUST NOT be hardcoded in request handling, and a request MUST never be keyed by an empty address.
+- **PRQ-03**: The trusted proxy set MUST come from configuration; by default it MUST trust loopback, private, and link-local networks, and a configured comma-separated CIDR set MUST replace the non-loopback portion of that default (loopback stays trusted). An unset or blank variable selects the default; a configured value selects exactly the operator's set and never falls back to the default. The set MUST NOT be hardcoded in request handling, and a request MUST never be keyed by an empty address.
 - **PRQ-04**: Every per-address decision on the auth routes — including the existing rate-limit keys — MUST use the resolved client address, so two clients behind one proxy are limited independently and an untrusted peer cannot choose its key.
 
 **Resolve the account on renewal (US2)**
 
-- **PRQ-05**: WHEN refresh resolves a credential, the server MUST load the credential's account before issuing anything; IF the account cannot be found, refresh MUST be answered 401, MUST NOT issue an access or refresh credential, and MUST revoke the presented credential's family.
+- **PRQ-05**: WHEN refresh resolves a credential, the server MUST load the credential's account before issuing anything; IF the account cannot be found, refresh MUST be answered 401, MUST NOT issue an access or refresh credential, and MUST revoke the presented credential's family. IF that revocation itself fails, refresh MUST be answered as an internal failure and MUST still issue nothing.
 - **PRQ-06**: WHEN refresh succeeds, the issued access token MUST name the account that was loaded, and the rotated session MUST belong to that same account.
 - **PRQ-07**: An account-store failure while resolving the account MUST be reported as an internal failure — never as invalid credentials — and MUST NOT issue any credential. The new failure path MUST use a typed error with an exported message and a documented status.
 
 **Canonical email (US3)**
 
-- **PRQ-08**: WHEN an account is created, the server MUST parse the supplied address, persist the bare canonical address (no display name, no surrounding whitespace, lowercase), and refuse an unparseable address or one longer than 254 characters with the existing typed invalid-request outcome. Lowercasing and trimming MUST be the only transformations: dots and `+tags` in the local part MUST be preserved.
-- **PRQ-09**: SIGN-IN MUST canonicalize the supplied address the same way before lookup so equivalent spellings resolve to the same account; an address that cannot be parsed MUST still produce the uniform invalid-credentials outcome so account existence is not revealed.
+- **PRQ-08**: WHEN an account is created, the server MUST parse the supplied address, persist the bare canonical address (no display name, no surrounding whitespace, lowercase), and refuse an unparseable address, or an address whose canonical form is longer than 254 bytes, with the existing typed invalid-request outcome. Lowercasing and trimming MUST be the only transformations: dots and `+tags` in the local part MUST be preserved.
+- **PRQ-09**: SIGN-IN MUST canonicalize the supplied address the same way before lookup so equivalent spellings resolve to the same account; an address that cannot be parsed MUST still produce the uniform invalid-credentials outcome so account existence is not revealed. The per-account rate-limit key MUST use the same canonicalization, with a trimmed-lowercase fallback when the address cannot be parsed, so every spelling of one mailbox occupies one budget.
 - **PRQ-10**: Duplicate-account detection MUST compare canonical addresses, so two spellings of one mailbox cannot create two accounts (409, no second row).
-- **PRQ-11**: The feature MUST provide a one-shot, operator-run, idempotent migration command that canonicalizes existing stored addresses using the same rules as creation, supports a dry-run mode that reports intended changes without writing, changes only the address and modification time of each repaired row, exits unsuccessfully when two rows canonicalize to one address or a stored address cannot be parsed (reporting the affected rows and writing nothing), and is never part of the API boot path.
+- **PRQ-11**: The feature MUST provide a one-shot, operator-run, idempotent migration command that canonicalizes existing stored addresses using the same rules as creation, supports a dry-run mode that reports intended changes without writing, changes only the address and modification time of each repaired row, exits with status 1 when two rows canonicalize to one address or a stored address cannot be parsed (reporting the affected rows and writing nothing), exits with status 2 on a usage error, and is never part of the API boot path.
 
 **A verification-ready account record**
 
 - **PRQ-12**: The account record MUST carry an optional email-verification timestamp that is absent for every existing and newly created account; the feature MUST NOT backfill it.
 - **PRQ-13**: The account store MUST expose an operation that records the verification timestamp for an existing account, leaves every other field untouched, updates the modification timestamp in the same write, is idempotent when the timestamp is already set (the first value is preserved), and reports an unknown account as not found.
 - **PRQ-14**: The verification operation MUST NOT be reachable from the HTTP surface in this feature, and no existing endpoint MUST change its response shape.
-- **PRQ-15**: Deployment over existing accounts MUST leave the count of accounts carrying a verification timestamp unchanged.
+- **PRQ-15**: Boot and index creation over existing accounts MUST NOT add the field: the count of accounts carrying a verification timestamp is unchanged after deployment.
 
 **Deterministic time**
 
-- **PRQ-16**: Every timestamp the auth service writes or compares (account creation, credential issuance, credential expiry, reuse and rotation decisions) MUST come from one injectable clock; production MUST use the system clock, and the observable behavior MUST be unchanged.
+- **PRQ-16**: Every timestamp the auth service writes or compares — account creation, refresh-credential issuance, refresh-credential expiry, and access-token issuance and validation — MUST come from one injectable clock; production MUST use the system clock, and the observable behavior MUST be unchanged. Reuse and rotation decisions carry no timestamps and are decided by credential state alone.
 
 **Cross-cutting**
 

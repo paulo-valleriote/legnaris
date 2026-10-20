@@ -96,13 +96,13 @@ index remains the durable guard for concurrent registrations.
 
 | Configuration | Trusted set |
 |---|---|
-| `TRUSTED_PROXY_CIDRS` unset/empty | loopback + private (RFC 1918, ULA) + link-local unicast |
+| `TRUSTED_PROXY_CIDRS` unset or blank (`""`) | loopback + private (RFC 1918, ULA) + link-local unicast |
 | `TRUSTED_PROXY_CIDRS=10.0.0.0/8,172.16.0.0/12` | loopback + those two prefixes only |
 | `TRUSTED_PROXY_CIDRS` with an invalid entry | boot error (no silent fallback) |
 | `TRUSTED_PROXY_CIDRS=","` (configured, no entries) | loopback only (fail-closed) |
 
 The resolved address is the only key source for the auth limiter (`ip:<resolved>`), replacing the
-proxy's shared address. The account key remains `account:<canonical email>` (`PRQ-04`, `AUTH-17`).
+proxy's shared address. The account key becomes `account:<canonical email>` (`PRQ-09`, `AUTH-17`).
 
 ---
 
@@ -167,8 +167,10 @@ PlanEmailCanonicalization ──► Blocked (collision / invalid)
 | M5 | Ids are preserved; no merge of two accounts is ever attempted (`PRQ-11`) |
 
 The store interface (`EmailMigrationStore`) is `ListEmailIdentities(ctx)` and
-`UpdateEmail(ctx, id, email, updatedAt)`; `RepositoryImpl` implements it, while `Repository` keeps its
-four existing methods so the auth service's interface does not grow.
+`UpdateEmail(ctx, id, email, updatedAt)`; `RepositoryImpl` implements it and is reached through the
+dedicated `NewEmailMigrationStore` constructor, so `Repository` does not gain the migration methods.
+`Repository` does grow by `MarkEmailVerified` (`PRQ-13`) — from three methods to four — which changes
+the auth service's dependency interface and its generated mock, as `F-06` anticipated.
 
 ---
 

@@ -54,9 +54,9 @@ future challenge endpoints inherit it for free (`PRQ-04`).
 ## R2. The trusted proxy set is optional configuration with a fail-closed default
 
 **Decision**: `shared/env` gains `TrustedProxyCIDRs []string`, read from `TRUSTED_PROXY_CIDRS`
-(comma-separated CIDRs). The value is `nil` when the variable is unset or empty; a set value is
-trimmed, blank entries are dropped, and an explicitly set but empty list is preserved as an empty
-non-nil slice. `clientip.New(ranges []string)` interprets:
+(comma-separated CIDRs). The value is `nil` when the variable is unset or blank (`""`); any other set
+value is trimmed, blank entries are dropped, and an explicitly empty list such as `","` is preserved
+as an empty non-nil slice. `clientip.New(ranges []string)` interprets:
 
 - `nil` → trust **loopback + private + link-local** (the documented default);
 - non-nil → trust **loopback** plus exactly the configured prefixes;
@@ -153,7 +153,8 @@ features must deliver to.
 
 **Decision**: `internal/app/ratelimit.go` replaces `normalizeAccountKey` with a call to
 `user.CanonicalEmail`; when the input cannot be parsed it falls back to
-`strings.ToLower(strings.TrimSpace(...))`, so an invalid spelling still occupies a stable bucket.
+`strings.ToLower(strings.TrimSpace(...))`, so an invalid spelling still occupies a stable bucket
+(`PRQ-09`).
 
 **Rationale**: `AUTH-17`'s per-account key exists to stop one account from being attacked from many
 addresses. Once sign-in accepts `"Name <a@b.com>"` as the same account, a raw lower+trim key would
