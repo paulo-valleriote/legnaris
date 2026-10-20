@@ -46,6 +46,7 @@ type databaseHandle interface {
 // startup logic is exercised without Mongo or a broker (EML-15).
 type dependencies struct {
 	openDatabase  func(cfg env.Env) (databaseHandle, error)
+	ensureIndexes func(ctx context.Context, cfg env.Env, database databaseHandle) error
 	newRepository func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (outbox.Repository, error)
 	dialBroker    func(cfg env.Env) (brokerClient, error)
 	serveMetrics  func(addr string, handler http.Handler) (func(ctx context.Context) error, error)
@@ -81,6 +82,13 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 		return fmt.Errorf("open database: %w", err)
 	}
 	defer closeDatabase(cfg, database, cfg.Logger)
+
+	// The relay is self-sufficient: it ensures the outbox indexes itself, so a
+	// relay started before (or without) the API still has the claim index and
+	// the retention TTL (EML-17).
+	if err := deps.ensureIndexes(ctx, cfg, database); err != nil {
+		return fmt.Errorf("ensure indexes: %w", err)
+	}
 
 	broker, err := deps.dialBroker(cfg)
 	if err != nil {
@@ -182,6 +190,13 @@ func defaultDependencies() dependencies {
 	return dependencies{
 		openDatabase: func(cfg env.Env) (databaseHandle, error) {
 			return db.InitMongo(cfg)
+		},
+		ensureIndexes: func(ctx context.Context, cfg env.Env, database databaseHandle) error {
+			mongo, ok := database.(*db.Database)
+			if !ok {
+				return fmt.Errorf("unexpected database handle type %T", database)
+			}
+			return db.EnsureIndexesWithRetention(ctx, mongo.Client.Database(cfg.Variables.DatabaseName), cfg.Variables.EmailOutboxRetention)
 		},
 		newRepository: func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (outbox.Repository, error) {
 			mongo, ok := database.(*db.Database)

@@ -69,10 +69,15 @@ func TestRun_FailsFastOnBadBrokerURL(t *testing.T) {
 
 			dialed := false
 			opened := false
+			indexesEnsured := false
 			deps := dependencies{
 				openDatabase: func(env.Env) (databaseHandle, error) {
 					opened = true
 					return &fakeDatabase{}, nil
+				},
+				ensureIndexes: func(context.Context, env.Env, databaseHandle) error {
+					indexesEnsured = true
+					return nil
 				},
 				newRepository: func(env.Env, databaseHandle, logger.StructuredLogger) (outbox.Repository, error) {
 					return outboxmocks.NewMockRepository(t), nil
@@ -90,6 +95,7 @@ func TestRun_FailsFastOnBadBrokerURL(t *testing.T) {
 			assert.ErrorIs(t, err, amqp.ErrBrokerUnavailable)
 			assert.False(t, dialed, "the broker must not be dialed on a bad URL")
 			assert.False(t, opened, "the database must not be opened on a bad URL")
+			assert.False(t, indexesEnsured, "the indexes must not be ensured on a bad URL")
 		})
 	}
 }
@@ -118,9 +124,14 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 
 	broker := &fakeBroker{}
 	database := &fakeDatabase{}
+	indexesEnsured := false
 
 	deps := dependencies{
 		openDatabase: func(env.Env) (databaseHandle, error) { return database, nil },
+		ensureIndexes: func(context.Context, env.Env, databaseHandle) error {
+			indexesEnsured = true
+			return nil
+		},
 		newRepository: func(env.Env, databaseHandle, logger.StructuredLogger) (outbox.Repository, error) {
 			return repository, nil
 		},
@@ -133,6 +144,7 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 
 	require.NoError(t, run(ctx, cfg, deps))
 
+	assert.True(t, indexesEnsured, "the relay must ensure the outbox indexes")
 	assert.True(t, broker.declared, "the topology must be declared before publishing")
 	assert.True(t, broker.closed, "the broker must be closed on shutdown")
 	assert.True(t, database.closed, "the database must be closed on shutdown")
