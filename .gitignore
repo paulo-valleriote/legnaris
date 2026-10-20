@@ -8,6 +8,9 @@
 *.so
 *.dylib
 
+# `make build` output (go build ./backend/cmd/api.go)
+/api
+
 # Test binary, built with `go test -c`
 *.test
 

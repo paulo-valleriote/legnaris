@@ -9,7 +9,7 @@ any capture fails the suite (API-36).
 
 ```bash
 make dev-db                          # MongoDB for local development
-go run ./cmd/api.go                  # the API on its local port (default :8080)
+go run ./backend/cmd/api.go                  # the API on its local port (default :8080)
 bash web/src/api/fixtures/capture.sh # registers a throwaway user and captures every case
 ```
 

@@ -2,12 +2,12 @@
 
 ## Files to modify
 
-- [x] shared/env/env.go - Add DatabaseName and 4 timeout durations, remove default credentials from DATABASE_URI
-- [x] shared/env/env_test.go - Add tests for lookupDurationEnv and lookupRequiredStringEnv
-- [x] shared/db/database.go - Read timeouts from env, use timeout for Disconnect on ping failure
-- [x] internal/app/bootstrap.go - NewModules accepts dbName parameter
-- [x] cmd/api.go - Pass DatabaseName to NewModules, use DatabaseCloseTimeout for Close
-- [x] internal/app/integration_test.go - Update NewModules call, use timeout for Close
+- [x] backend/shared/env/env.go - Add DatabaseName and 4 timeout durations, remove default credentials from DATABASE_URI
+- [x] backend/shared/env/env_test.go - Add tests for lookupDurationEnv and lookupRequiredStringEnv
+- [x] backend/shared/db/database.go - Read timeouts from env, use timeout for Disconnect on ping failure
+- [x] backend/internal/app/bootstrap.go - NewModules accepts dbName parameter
+- [x] backend/cmd/api.go - Pass DatabaseName to NewModules, use DatabaseCloseTimeout for Close
+- [x] backend/internal/app/integration_test.go - Update NewModules call, use timeout for Close
 - [x] Makefile - Add export for env vars
 - [x] .env.example - Add DATABASE_NAME and timeout variables
 - [x] AGENTS.md - Update env vars list and Quick Start note

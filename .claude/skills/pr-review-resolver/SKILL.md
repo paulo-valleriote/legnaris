@@ -98,7 +98,7 @@ Expected output: a triage list — finding → classification → rationale → 
 Only for findings classified **Fix** (depends on Step 4).
 
 - Make the smallest change that resolves the finding. No drive-by refactoring, no reformatting untouched code.
-- Follow AGENTS.md conventions: typed errors via `apperr` at service/controller layers and layer-local typed errors elsewhere, English-only strings and comments, `shared/json` for decoding, correct HTTP status mapping for any new error code.
+- Follow AGENTS.md conventions: typed errors via `apperr` at service/controller layers and layer-local typed errors elsewhere, English-only strings and comments, `backend/shared/json` for decoding, correct HTTP status mapping for any new error code.
 - A fix that adds a comment or doc line must not duplicate text the finding flagged as duplication — reference the canonical location instead.
 - A fix that proves impossible without breaking another requirement → reclassify as **Left on purpose** with that reason and edit nothing for it.
 

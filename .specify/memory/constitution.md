@@ -32,7 +32,7 @@ Sync Impact Report
 
 ### I. Typed Errors at Every Boundary
 
-Domain errors MUST be expressed with `shared/apperr` — `apperr.NewError(code, message, err)` —
+Domain errors MUST be expressed with `backend/shared/apperr` — `apperr.NewError(code, message, err)` —
 never a bare `errors.New`. The cause passed to `apperr` MUST be `nil` or a lower-layer typed error.
 Services MUST export the user-facing message constants (plain strings) that controllers reuse, and
 each boundary MUST translate lower-layer errors with `errors.Is`/`errors.As` and map the typed code
@@ -43,7 +43,7 @@ prevents string-matched errors from leaking across layers.
 
 ### II. Canonical Identifiers
 
-Every server-generated entity ID MUST be a canonical lowercase UUID v7 produced by `shared/idgen`
+Every server-generated entity ID MUST be a canonical lowercase UUID v7 produced by `backend/shared/idgen`
 (`idgen.New`), and every inbound ID MUST be validated at the service boundary with `idgen.Validate`.
 Calling `uuid.New`/`uuid.NewString` directly is forbidden. Code-defined template IDs are the sole
 exception: they are slugs matching `^[a-z][a-z0-9_]*$`, validated where templates are fetched.
@@ -77,10 +77,10 @@ searchable.
 
 ### V. Layered Architecture
 
-Imports MUST respect `app → sheet → template → engine → shared`. `internal/app` calls the sheet
+Imports MUST respect `app → sheet → template → engine → shared`. `backend/internal/app` calls the sheet
 service only; the sheet service calls `template` (DAG/Registry) and the repository; `template` calls
-`engine` for formula evaluation; `engine`, the repository, and `shared/*` MUST NOT import upward.
-JSON decoding MUST go through `shared/json`, and logging MUST go through `shared/logger`.
+`engine` for formula evaluation; `engine`, the repository, and `backend/shared/*` MUST NOT import upward.
+JSON decoding MUST go through `backend/shared/json`, and logging MUST go through `backend/shared/logger`.
 
 Rationale: the DAG and the formula engine are the product's core; strict directionality keeps them
 independently testable and prevents business logic from leaking into transport code.
@@ -115,10 +115,10 @@ contracts are product requirements that must be gated like any other behavior.
 
 ## Additional Constraints
 
-- **Stack.** Backend: Go on Echo with MongoDB, entry point `cmd/api.go`. Web client: React with
+- **Stack.** Backend: Go on Echo with MongoDB, entry point `backend/cmd/api.go`. Web client: React with
   Vite and TypeScript under `web/`, packaged as a PWA. Tests use `testify` and mockery-generated
   mocks on the backend; Vitest, Testing Library, and Playwright on the web client. All environment
-  configuration comes from `shared/env`.
+  configuration comes from `backend/shared/env`.
 - **No deprecated client.** The Flutter desktop under `desktop/` was deprecated, received no new
   features, and was deleted — together with its `ci-flutter.yml` workflow — once the web client's
   Playwright parity gate passed. No desktop client is part of the delivered surface.
@@ -129,9 +129,9 @@ contracts are product requirements that must be gated like any other behavior.
   and are exempt. A citation that cannot be traced back to a requirement is a defect.
 - **Jira.** Every pull request MUST implement its Jira card, referenced as `LGN-\d+` in the title;
   requirements come from the card, never invented.
-- **Runtime guidance.** `AGENTS.md` and its per-directory companions (`internal/AGENTS.md`,
-  `internal/sheet/template/AGENTS.md`, `internal/engine/AGENTS.md`, `shared/apperr/AGENTS.md`,
-  `shared/idgen/AGENTS.md`, `shared/db/AGENTS.md`, and `web/AGENTS.md`) carry the implementation
+- **Runtime guidance.** `AGENTS.md` and its per-directory companions (`backend/internal/AGENTS.md`,
+  `backend/internal/sheet/template/AGENTS.md`, `backend/internal/engine/AGENTS.md`, `backend/shared/apperr/AGENTS.md`,
+  `backend/shared/idgen/AGENTS.md`, `backend/shared/db/AGENTS.md`, and `web/AGENTS.md`) carry the implementation
   detail; this constitution supersedes them on conflict.
 
 ## Development Workflow

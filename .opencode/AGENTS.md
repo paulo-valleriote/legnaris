@@ -13,7 +13,7 @@ AI reviewers + linters evaluate PRs against these criteria. AI findings are advi
 - Extract shared logic; `dupl` flags near-duplicate blocks.
 
 ### Conventions
-- Follow AGENTS.md: typed errors via `shared/apperr`, JSON decoding via `shared/json`, structured logging via `shared/logger`, layering (app → sheet → template → engine → shared).
+- Follow AGENTS.md: typed errors via `backend/shared/apperr`, JSON decoding via `backend/shared/json`, structured logging via `backend/shared/logger`, layering (app → sheet → template → engine → shared).
 
 ### English Only
 - All identifiers, comments, log messages, user-facing strings in English. No Portuguese (pt-BR) code or strings.

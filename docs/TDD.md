@@ -24,11 +24,11 @@ Legnaris é um backend em Go para gerenciamento de fichas de RPG de mesa (TTRPG)
 
 O estado atual do código já contém o núcleo diferenciador funcionando:
 
-- **Engine de fórmulas** (`internal/engine`): compila e avalia expressões declarativas via `expr-lang`, com funções customizadas (`floor`, `max`).
-- **Templates** (`internal/sheet/template`): `FieldSchema` define tipo, fórmula, dependências (`depends_on`), editabilidade e valor default de cada campo.
-- **DAG de dependências** (`internal/sheet/template/dag.go`): constrói um grafo acíclico dirigido a partir dos campos do template, com ordenação topológica (algoritmo de Kahn), detecção de ciclos e recálculo em cascata com propagação seletiva (só recalcula nós afetados pela mudança).
-- **Fichas** (`internal/sheet`): documentos flexíveis (`map[string]any`) vinculados a um template, com criação (valores iniciais calculados) e atualização parcial com validação de editabilidade e recálculo de campos derivados.
-- **Infraestrutura**: API REST com Echo v5, MongoDB como banco, tratamento de erros tipado (`shared/apperr`), logger estruturado, mocks gerados com Mockery.
+- **Engine de fórmulas** (`backend/internal/engine`): compila e avalia expressões declarativas via `expr-lang`, com funções customizadas (`floor`, `max`).
+- **Templates** (`backend/internal/sheet/template`): `FieldSchema` define tipo, fórmula, dependências (`depends_on`), editabilidade e valor default de cada campo.
+- **DAG de dependências** (`backend/internal/sheet/template/dag.go`): constrói um grafo acíclico dirigido a partir dos campos do template, com ordenação topológica (algoritmo de Kahn), detecção de ciclos e recálculo em cascata com propagação seletiva (só recalcula nós afetados pela mudança).
+- **Fichas** (`backend/internal/sheet`): documentos flexíveis (`map[string]any`) vinculados a um template, com criação (valores iniciais calculados) e atualização parcial com validação de editabilidade e recálculo de campos derivados.
+- **Infraestrutura**: API REST com Echo v5, MongoDB como banco, tratamento de erros tipado (`backend/shared/apperr`), logger estruturado, mocks gerados com Mockery.
 
 **Domínio**: ferramentas para jogos de RPG de mesa — um mercado com players estabelecidos que licenciam conteúdo oficial de sistemas. O Legnaris se posiciona deliberadamente no lado oposto: zero conteúdo licenciado, 100% estrutura genérica.
 
@@ -100,16 +100,16 @@ O estado atual do código já contém o núcleo diferenciador funcionando:
 
 ### Visão Geral da Arquitetura
 
-API REST stateless em Go, organizada em módulos de domínio sob `internal/`, com o motor de cálculo desacoplado da persistência. No MVP, **templates são código**: o catálogo default vive em `internal/sheet/template` (como o `FantasyV1Seed` atual), é carregado no boot em um **registry em memória** que já materializa os DAGs com fórmulas compiladas — atualizações de ficha são resolvidas sem recompilação e sem queries de template. O MongoDB persiste apenas dados de usuários: `users`, `refresh_tokens` e `sheets`.
+API REST stateless em Go, organizada em módulos de domínio sob `backend/internal/`, com o motor de cálculo desacoplado da persistência. No MVP, **templates são código**: o catálogo default vive em `backend/internal/sheet/template` (como o `FantasyV1Seed` atual), é carregado no boot em um **registry em memória** que já materializa os DAGs com fórmulas compiladas — atualizações de ficha são resolvidas sem recompilação e sem queries de template. O MongoDB persiste apenas dados de usuários: `users`, `refresh_tokens` e `sheets`.
 
 **Componentes-chave**:
 
-- **API Layer** (`internal/app`): controllers Echo, roteamento, tratamento de erros tipado → respostas JSON padronizadas.
-- **Auth Module** (novo, `internal/auth` + expansão de `internal/user`): emissão/validação de JWT, hash de senhas, middleware de autenticação, refresh rotation.
-- **Template Catalog** (`internal/sheet/template`): templates default definidos em código, validados e compilados no boot, servidos read-only do registry em memória (elimina o seed no Mongo e a coleção `template`).
-- **Sheet Module** (`internal/sheet`): ciclo de vida da ficha (1 por usuário), atualização parcial com recálculo, import/export.
-- **Formula Engine** (`internal/engine`): compilação e avaliação de fórmulas (já existente, sem mudanças arquiteturais previstas).
-- **Shared** (`shared/`): env, logger, db, apperr, response — já existentes.
+- **API Layer** (`backend/internal/app`): controllers Echo, roteamento, tratamento de erros tipado → respostas JSON padronizadas.
+- **Auth Module** (novo, `backend/internal/auth` + expansão de `backend/internal/user`): emissão/validação de JWT, hash de senhas, middleware de autenticação, refresh rotation.
+- **Template Catalog** (`backend/internal/sheet/template`): templates default definidos em código, validados e compilados no boot, servidos read-only do registry em memória (elimina o seed no Mongo e a coleção `template`).
+- **Sheet Module** (`backend/internal/sheet`): ciclo de vida da ficha (1 por usuário), atualização parcial com recálculo, import/export.
+- **Formula Engine** (`backend/internal/engine`): compilação e avaliação de fórmulas (já existente, sem mudanças arquiteturais previstas).
+- **Shared** (`backend/shared/`): env, logger, db, apperr, response — já existentes.
 
 **Diagrama de arquitetura**:
 
@@ -268,17 +268,17 @@ Os clientes do produto são **nativos** (desktop Flutter + mobile futuro), sem S
 
 | Item | Local | Evidência |
 | ---- | ----- | --------- |
-| Mensagem de erro "template not found" no repositório de **fichas** | `internal/sheet/repository.go` | `ErrSheetNotFound = "sheet not found"` (linha 26); o "template not found" restante em `service.go:67` está correto (lookup de DAG) |
+| Mensagem de erro "template not found" no repositório de **fichas** | `backend/internal/sheet/repository.go` | `ErrSheetNotFound = "sheet not found"` (linha 26); o "template not found" restante em `service.go:67` está correto (lookup de DAG) |
 | Resquícios de PostgreSQL (README, Makefile, docker-compose `migrate`) | raiz | Sem matches em Makefile/compose; não existe `README.md` na raiz |
-| Seed de templates no Mongo a cada boot | `cmd/api.go` | Commit `e0e4154` (2026-09-23): templates em memória; única collection em código é `sheets` |
-| `log.Fatal` dentro de listagem do repositório de templates | `internal/sheet/template/repository.go` | Arquivo não existe mais; leituras vêm do registry em memória (`registry.go`) |
-| Funções `floor`/`max` com rejeição de `int` inconsistente | `internal/engine/engine.go` | `coerceFloat64` (linha 55) normaliza todos os tipos numéricos |
+| Seed de templates no Mongo a cada boot | `backend/cmd/api.go` | Commit `e0e4154` (2026-09-23): templates em memória; única collection em código é `sheets` |
+| `log.Fatal` dentro de listagem do repositório de templates | `backend/internal/sheet/template/repository.go` | Arquivo não existe mais; leituras vêm do registry em memória (`registry.go`) |
+| Funções `floor`/`max` com rejeição de `int` inconsistente | `backend/internal/engine/engine.go` | `coerceFloat64` (linha 55) normaliza todos os tipos numéricos |
 
 **Pendente**
 
 | Item | Local | Correção |
 | ---- | ----- | -------- |
-| Persistência do partial update como mapa aninhado vs chaves pontilhadas | `internal/sheet/service.go` | Normalizar para `$set` com chaves `data.x.y` |
+| Persistência do partial update como mapa aninhado vs chaves pontilhadas | `backend/internal/sheet/service.go` | Normalizar para `$set` com chaves `data.x.y` |
 
 ---
 
@@ -372,7 +372,7 @@ Os clientes do produto são **nativos** (desktop Flutter + mobile futuro), sem S
 
 | Tipo | Escopo | Meta de Cobertura | Abordagem |
 | ---- | ------ | ----------------- | --------- |
-| **Unitários** | engine, DAG, services, auth | > 80% nos módulos de domínio | `testify` + mocks Mockery (já configurado; usar os mocks existentes em `internal/*/mocks` sem duplicar) |
+| **Unitários** | engine, DAG, services, auth | > 80% nos módulos de domínio | `testify` + mocks Mockery (já configurado; usar os mocks existentes em `backend/internal/*/mocks` sem duplicar) |
 | **Integração** | repositories + MongoDB real | caminhos críticos | MongoDB em container (docker-compose já existe) |
 | **E2E de API** | fluxos completos HTTP | happy path + erros | servidor Echo em processo de teste contra Mongo de teste |
 | **Carga** | recálculo de fichas sob concorrência | baseline | k6 ou vegeta contra staging |
@@ -428,7 +428,7 @@ Exposição via endpoint `/metrics` (formato Prometheus), coletado pela stack j�
 
 ### Logging Estruturado
 
-Manter o padrão JSON já estabelecido em `shared/logger`, com campos obrigatórios: `level`, `timestamp`, `message`, `request_id`, `user_id` (quando autenticado), `route`, `duration_ms`.
+Manter o padrão JSON já estabelecido em `backend/shared/logger`, com campos obrigatórios: `level`, `timestamp`, `message`, `request_id`, `user_id` (quando autenticado), `route`, `duration_ms`.
 
 **Logar**: requests HTTP, falhas de auth, reuso de refresh token detectado, operações de escrita (create/update/delete/import), falhas de validação de import.
 **Nunca logar**: senhas, tokens JWT/refresh, segredos, payload completo de fichas (apenas IDs e chaves alteradas).

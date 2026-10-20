@@ -325,7 +325,7 @@ the API boot path.
 
 ### Email relay (publisher, optional)
 
-The relay is a separate process (`cmd/relay`, shipped as `/relay` in the same
+The relay is a separate process (`backend/cmd/relay`, shipped as `/relay` in the same
 image) that drains the durable `email_outbox` collection to RabbitMQ. It is
 optional: the API boots and serves without it and without any email or broker
 variable. Turn it on by setting `RABBITMQ_URL` (and optionally the relay knobs)

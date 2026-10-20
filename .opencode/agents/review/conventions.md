@@ -46,11 +46,11 @@ every finding must point to a line the diff adds or changes.
 
 ## Category
 
-- **Typed errors**: bare/untyped `errors.New` for domain errors; `apperr` used outside `internal/app`/`internal/sheet` services and controllers; lower layers importing `apperr`; a freshly created `errors.New` passed as the `apperr.NewError` cause instead of `nil` or a lower-layer typed error; services not translating lower-layer errors with `errors.Is`/`errors.As`.
-- **New error codes**: a new `apperr.Code` without its HTTP status mapping in `apperr.NewError` (`shared/apperr/err.go`), without confirming `HTTPErrorHandler` serialization, or without a test asserting the status mapping.
+- **Typed errors**: bare/untyped `errors.New` for domain errors; `apperr` used outside `backend/internal/app`/`backend/internal/sheet` services and controllers; lower layers importing `apperr`; a freshly created `errors.New` passed as the `apperr.NewError` cause instead of `nil` or a lower-layer typed error; services not translating lower-layer errors with `errors.Is`/`errors.As`.
+- **New error codes**: a new `apperr.Code` without its HTTP status mapping in `apperr.NewError` (`backend/shared/apperr/err.go`), without confirming `HTTPErrorHandler` serialization, or without a test asserting the status mapping.
 - **Layering**: app → sheet → template → engine → shared respected; no upward imports.
-- **JSON decoding**: hand-rolled decoding instead of `shared/json`; PATCH bodies not using the nested map shape flattened to DAG dot-keys.
-- **Logging**: ad-hoc logging instead of `shared/logger`.
+- **JSON decoding**: hand-rolled decoding instead of `backend/shared/json`; PATCH bodies not using the nested map shape flattened to DAG dot-keys.
+- **Logging**: ad-hoc logging instead of `backend/shared/logger`.
 - **Tests and mocks**: interface changes without regenerated mocks (`make mocks`); tests not using testify + Mockery patterns; integration tests that would not self-skip without MongoDB.
 - **Invalid field names**: field names not matching `^[A-Za-z][A-Za-z0-9]*$` per `BuildDAG` validation.
 

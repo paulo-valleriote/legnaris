@@ -20,13 +20,13 @@ COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 ## --- Development ------------------------------------------------------------
 
 run:            ## Run the API locally
-	@go run ./cmd/api.go
+	@go run ./backend/cmd/api.go
 
 relay:          ## Run the email relay publisher locally (needs DATABASE_URI and RABBITMQ_URL)
-	@go run ./cmd/relay
+	@go run ./backend/cmd/relay
 
 build:          ## Build the API binary
-	@go build ./cmd/api.go
+	@go build ./backend/cmd/api.go
 
 test:           ## Run tests (integration tests self-skip without MongoDB)
 	@go test ./...
@@ -56,7 +56,7 @@ mocks:          ## Generate mocks (after interface changes)
 	@go tool mockery
 
 migrate-emails: ## Repair legacy email addresses (dry run; ARGS="-apply" writes)
-	@go run ./cmd/canonicalize-emails $(ARGS)
+	@go run ./backend/cmd/canonicalize-emails $(ARGS)
 
 # dev-db derives MongoDB's root credentials from DATABASE_URI (exported from
 # .env above), so the container can never diverge from what the app and
