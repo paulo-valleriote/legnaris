@@ -172,3 +172,36 @@ func TestCSPReportReportedIncrementsCounter(t *testing.T) {
 		}
 	}
 }
+
+// TestEmailMetrics pins the relay-facing series: the pending-backlog gauge, the
+// publication outcomes by result, and the dead-letter counter, all served by the
+// standalone Handler for a process with no Echo server (EML-23).
+func TestEmailMetrics(t *testing.T) {
+	m := New()
+
+	m.BacklogPending(3)
+	m.PublishResult("published")
+	m.PublishResult("published")
+	m.PublishResult("failed")
+	m.MessageDead()
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	m.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200 from the metrics handler, got %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	for _, want := range []string{
+		"legnaris_email_outbox_backlog 3",
+		`legnaris_email_publish_total{result="published"} 2`,
+		`legnaris_email_publish_total{result="failed"} 1`,
+		"legnaris_email_dead_total 1",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in the metrics output, got:\n%s", want, body)
+		}
+	}
+}

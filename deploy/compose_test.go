@@ -6,6 +6,7 @@ import (
 
 	"legnaris/shared/env"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
@@ -21,12 +22,47 @@ type composeDoc struct {
 }
 
 type composeService struct {
-	Environment map[string]string `yaml:"environment"`
-	Build       *composeBuild     `yaml:"build"`
+	Environment map[string]string   `yaml:"environment"`
+	Build       *composeBuild       `yaml:"build"`
+	Ports       []string            `yaml:"ports"`
+	Healthcheck *composeHealthcheck `yaml:"healthcheck"`
+	DependsOn   composeDependsOn    `yaml:"depends_on"`
 }
 
 type composeBuild struct {
 	Args map[string]string `yaml:"args"`
+}
+
+type composeHealthcheck struct {
+	Test []string `yaml:"test"`
+}
+
+// composeDependsOn accepts both the short (sequence) and long (mapping)
+// depends_on forms, so every service's dependencies can be inspected.
+type composeDependsOn map[string]any
+
+func (d *composeDependsOn) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.MappingNode:
+		parsed := map[string]any{}
+		if err := value.Decode(&parsed); err != nil {
+			return err
+		}
+		*d = parsed
+	case yaml.SequenceNode:
+		var names []string
+		if err := value.Decode(&names); err != nil {
+			return err
+		}
+		parsed := make(map[string]any, len(names))
+		for _, name := range names {
+			parsed[name] = nil
+		}
+		*d = parsed
+	default:
+		*d = composeDependsOn{}
+	}
+	return nil
 }
 
 func readCompose(t *testing.T) composeDoc {
@@ -112,5 +148,87 @@ func TestAppServiceTrustedProxyCIDRs(t *testing.T) {
 
 	t.Run("Edge: the required-variable list is unchanged", func(t *testing.T) {
 		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET"}, env.RequiredKeys())
+	})
+}
+
+// TestRabbitMQServiceIsInternalOnly guards the broker's exposure: it is a
+// separate service reachable only on the internal network, with no published
+// host port and a healthcheck (EML-16, SC-007).
+func TestRabbitMQServiceIsInternalOnly(t *testing.T) {
+	doc := readCompose(t)
+
+	rabbitmq, ok := doc.Services["rabbitmq"]
+	require.True(t, ok, "the stack must define a rabbitmq service")
+
+	t.Run("Happy path: the broker publishes no host port", func(t *testing.T) {
+		assert.Empty(t, rabbitmq.Ports, "the broker must not be reachable from the host")
+	})
+
+	t.Run("Happy path: the broker has a healthcheck", func(t *testing.T) {
+		require.NotNil(t, rabbitmq.Healthcheck, "the broker must declare a healthcheck")
+		assert.NotEmpty(t, rabbitmq.Healthcheck.Test)
+	})
+}
+
+// TestRelayIsASeparateService guards the relay topology: it is a separate
+// service reachable only internally, the only one that depends on the broker,
+// while the API never depends on the broker to start (EML-16).
+func TestRelayIsASeparateService(t *testing.T) {
+	doc := readCompose(t)
+
+	relay, ok := doc.Services["relay"]
+	require.True(t, ok, "the stack must define a relay service")
+	app, ok := doc.Services["app"]
+	require.True(t, ok, "the stack must define an app service")
+
+	t.Run("Happy path: the relay depends on the broker", func(t *testing.T) {
+		_, present := relay.DependsOn["rabbitmq"]
+		assert.True(t, present, "the relay must wait for the broker")
+	})
+
+	t.Run("Edge: the API does not depend on the broker", func(t *testing.T) {
+		_, present := app.DependsOn["rabbitmq"]
+		assert.False(t, present, "the API must start without the broker")
+	})
+
+	t.Run("Happy path: the relay publishes no host port", func(t *testing.T) {
+		assert.Empty(t, relay.Ports, "the relay must be reachable only internally")
+	})
+}
+
+// TestEmailConfigurationIsOptional guards the configuration surface: every new
+// email/broker setting is an optional interpolation, the API never receives the
+// broker URL, and the required-variable list is unchanged (EML-14, EML-16).
+func TestEmailConfigurationIsOptional(t *testing.T) {
+	doc := readCompose(t)
+
+	app, ok := doc.Services["app"]
+	require.True(t, ok, "the stack must define an app service")
+	relay, ok := doc.Services["relay"]
+	require.True(t, ok, "the stack must define a relay service")
+
+	t.Run("Happy path: the API passes the optional email settings through", func(t *testing.T) {
+		for _, key := range []string{"EMAIL_PROVIDER", "RESEND_API_KEY", "EMAIL_FROM", "EMAIL_SEND_TIMEOUT", "EMAIL_OUTBOX_RETENTION"} {
+			value, present := app.Environment[key]
+			require.Truef(t, present, "app.environment must pass %s through", key)
+			assert.Containsf(t, value, "${", "app.environment[%s] must be an optional interpolation", key)
+		}
+	})
+
+	t.Run("Edge: the API never receives the broker URL", func(t *testing.T) {
+		_, present := app.Environment["RABBITMQ_URL"]
+		assert.False(t, present, "the request-serving process must never read RABBITMQ_URL")
+	})
+
+	t.Run("Happy path: the relay receives the broker and relay settings", func(t *testing.T) {
+		for _, key := range []string{"RABBITMQ_URL", "EMAIL_RELAY_POLL_INTERVAL", "EMAIL_RELAY_LEASE", "EMAIL_RELAY_BATCH", "EMAIL_RELAY_CONFIRM_TIMEOUT", "EMAIL_RELAY_MAX_ATTEMPTS", "EMAIL_RELAY_METRICS_ADDR"} {
+			value, present := relay.Environment[key]
+			require.Truef(t, present, "relay.environment must pass %s through", key)
+			assert.Containsf(t, value, "${", "relay.environment[%s] must be an optional interpolation", key)
+		}
+	})
+
+	t.Run("Edge: the required-variable list is unchanged", func(t *testing.T) {
+		assert.Equal(t, []string{"DATABASE_URI", "JWT_SECRET"}, env.RequiredKeys())
 	})
 }

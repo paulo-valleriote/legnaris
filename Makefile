@@ -4,7 +4,7 @@
 # parsing — strip double quotes once, at include time.
 DATABASE_URI := $(subst ",,$(DATABASE_URI))
 # The runtime configuration the Go server reads, resolved from the root .env.
-APP_ENV_KEYS = PORT APP_NAME DATABASE_URI DATABASE_NAME CORS_ALLOWED_ORIGINS DATABASE_PING_TIMEOUT DATABASE_SERVER_SELECTION_TIMEOUT DATABASE_CONNECT_TIMEOUT DATABASE_CLOSE_TIMEOUT JWT_SECRET JWT_ACCESS_TTL AUTH_REFRESH_TTL AUTH_BCRYPT_COST AUTH_RATE_LIMIT_ATTEMPTS AUTH_RATE_LIMIT_WINDOW CSP_REPORT_RATE_LIMIT_ATTEMPTS CSP_REPORT_RATE_LIMIT_WINDOW TRUSTED_PROXY_CIDRS
+APP_ENV_KEYS = PORT APP_NAME DATABASE_URI DATABASE_NAME CORS_ALLOWED_ORIGINS DATABASE_PING_TIMEOUT DATABASE_SERVER_SELECTION_TIMEOUT DATABASE_CONNECT_TIMEOUT DATABASE_CLOSE_TIMEOUT JWT_SECRET JWT_ACCESS_TTL AUTH_REFRESH_TTL AUTH_BCRYPT_COST AUTH_RATE_LIMIT_ATTEMPTS AUTH_RATE_LIMIT_WINDOW CSP_REPORT_RATE_LIMIT_ATTEMPTS CSP_REPORT_RATE_LIMIT_WINDOW TRUSTED_PROXY_CIDRS EMAIL_PROVIDER RESEND_API_KEY EMAIL_FROM EMAIL_SEND_TIMEOUT RABBITMQ_URL EMAIL_RELAY_POLL_INTERVAL EMAIL_RELAY_LEASE EMAIL_RELAY_BATCH EMAIL_RELAY_CONFIRM_TIMEOUT EMAIL_RELAY_MAX_ATTEMPTS EMAIL_OUTBOX_RETENTION EMAIL_RELAY_METRICS_ADDR
 export $(APP_ENV_KEYS)
 
 # A shell variable outranks a compose environment file, so the local-dev values
@@ -15,12 +15,15 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: run build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails
+.PHONY: run relay build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails
 
 ## --- Development ------------------------------------------------------------
 
 run:            ## Run the API locally
 	@go run ./cmd/api.go
+
+relay:          ## Run the email relay publisher locally (needs DATABASE_URI and RABBITMQ_URL)
+	@go run ./cmd/relay
 
 build:          ## Build the API binary
 	@go build ./cmd/api.go

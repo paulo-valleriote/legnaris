@@ -32,6 +32,22 @@ type Variables struct {
 	// unset or blank, which selects the documented loopback/private/link-local
 	// default; a configured value replaces the non-loopback portion (PRQ-03).
 	TrustedProxyCIDRs []string
+	// Email and broker settings are all optional with documented defaults, so
+	// the request-serving process starts when none of them is set and the
+	// deployment's required-variable list is unchanged. The relay — not the
+	// API — validates the broker URL it needs (EML-14, EML-15, EML-16).
+	EmailProvider            string
+	ResendAPIKey             string
+	EmailFrom                string
+	EmailSendTimeout         time.Duration
+	RabbitMQURL              string
+	EmailRelayPollInterval   time.Duration
+	EmailRelayLease          time.Duration
+	EmailRelayBatch          int
+	EmailRelayConfirmTimeout time.Duration
+	EmailRelayMaxAttempts    int
+	EmailOutboxRetention     time.Duration
+	EmailRelayMetricsAddr    string
 }
 
 const (
@@ -52,6 +68,15 @@ const (
 	// (POL-05, contract csp-report.contract.md).
 	defaultCSPReportRateLimitAttempts = 30
 	defaultCSPReportRateLimitWindow   = 1 * time.Minute
+	// Email-delivery and relay defaults (EML-14).
+	defaultEmailProvider            = "log"
+	defaultEmailSendTimeout         = 10 * time.Second
+	defaultEmailRelayPollInterval   = 1 * time.Second
+	defaultEmailRelayLease          = 30 * time.Second
+	defaultEmailRelayBatch          = 25
+	defaultEmailRelayConfirmTimeout = 5 * time.Second
+	defaultEmailRelayMaxAttempts    = 5
+	defaultEmailRelayMetricsAddr    = ":9100"
 )
 
 // DefaultEmailOutboxRetention is the retention window after which a published
@@ -117,6 +142,18 @@ func (e *Env) initVariables() Variables {
 		CSPReportRateLimitAttempts:     e.lookupIntEnv("CSP_REPORT_RATE_LIMIT_ATTEMPTS", defaultCSPReportRateLimitAttempts),
 		CSPReportRateLimitWindow:       e.lookupDurationEnv("CSP_REPORT_RATE_LIMIT_WINDOW", defaultCSPReportRateLimitWindow),
 		TrustedProxyCIDRs:              e.lookupTrustedProxyCIDRs(),
+		EmailProvider:                  e.lookupStringEnv("EMAIL_PROVIDER", defaultEmailProvider),
+		ResendAPIKey:                   e.lookupStringEnv("RESEND_API_KEY", ""),
+		EmailFrom:                      e.lookupStringEnv("EMAIL_FROM", ""),
+		EmailSendTimeout:               e.lookupDurationEnv("EMAIL_SEND_TIMEOUT", defaultEmailSendTimeout),
+		RabbitMQURL:                    e.lookupStringEnv("RABBITMQ_URL", ""),
+		EmailRelayPollInterval:         e.lookupDurationEnv("EMAIL_RELAY_POLL_INTERVAL", defaultEmailRelayPollInterval),
+		EmailRelayLease:                e.lookupDurationEnv("EMAIL_RELAY_LEASE", defaultEmailRelayLease),
+		EmailRelayBatch:                e.lookupIntEnv("EMAIL_RELAY_BATCH", defaultEmailRelayBatch),
+		EmailRelayConfirmTimeout:       e.lookupDurationEnv("EMAIL_RELAY_CONFIRM_TIMEOUT", defaultEmailRelayConfirmTimeout),
+		EmailRelayMaxAttempts:          e.lookupIntEnv("EMAIL_RELAY_MAX_ATTEMPTS", defaultEmailRelayMaxAttempts),
+		EmailOutboxRetention:           e.lookupDurationEnv("EMAIL_OUTBOX_RETENTION", DefaultEmailOutboxRetention),
+		EmailRelayMetricsAddr:          e.lookupStringEnv("EMAIL_RELAY_METRICS_ADDR", defaultEmailRelayMetricsAddr),
 	}
 }
 

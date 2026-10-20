@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"net/http"
 	"strconv"
 	"time"
 
@@ -21,6 +22,9 @@ type Metrics struct {
 	authRefreshReuseDetected prometheus.Counter
 	authRateLimited          prometheus.Counter
 	cspReports               *prometheus.CounterVec
+	emailOutboxBacklog       prometheus.Gauge
+	emailPublishTotal        *prometheus.CounterVec
+	emailDeadTotal           prometheus.Counter
 }
 
 const metricsNamespace = "legnaris"
@@ -80,7 +84,29 @@ func New() *Metrics {
 		Help:      "Total number of collected CSP violation reports.",
 	}, []string{"effective_directive", "disposition"})
 
-	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports)
+	// Email-delivery series consumed by the relay: the pending backlog gauge,
+	// the publication outcomes by result, and a dead-letter counter reserved
+	// for the worker (EML-23).
+	emailOutboxBacklog := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "email_outbox_backlog",
+		Help:      "Pending email send intentions awaiting publication.",
+	})
+
+	emailPublishTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Name:      "email_publish_total",
+		Help:      "Email publication outcomes by result (published, retried, failed).",
+	}, []string{"result"})
+
+	emailDeadTotal := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Name:      "email_dead_total",
+		Help:      "Email messages dead-lettered for operator attention.",
+	})
+
+	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports,
+		emailOutboxBacklog, emailPublishTotal, emailDeadTotal)
 
 	// The private registry must be self-sufficient: register the standard Go
 	// and process collectors so the deployment's own resource metrics (goroutines,
@@ -98,6 +124,9 @@ func New() *Metrics {
 		authRefreshReuseDetected: authRefreshReuseDetected,
 		authRateLimited:          authRateLimited,
 		cspReports:               cspReports,
+		emailOutboxBacklog:       emailOutboxBacklog,
+		emailPublishTotal:        emailPublishTotal,
+		emailDeadTotal:           emailDeadTotal,
 	}
 }
 
@@ -158,4 +187,29 @@ func (m *Metrics) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 // Register exposes the /metrics endpoint backed by this instance's registry.
 func (m *Metrics) Register(e *echo.Echo) {
 	e.GET("/metrics", echo.WrapHandler(promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})))
+}
+
+// Handler exposes this instance's registry as a plain http.Handler, so the
+// relay — a separate process with no Echo server — can serve its own metrics
+// listener from the same namespace (EML-23).
+func (m *Metrics) Handler() http.Handler {
+	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
+}
+
+// PublishResult implements the relay Observer: it counts one publication
+// outcome by result ("published", "retried", "failed") (EML-23).
+func (m *Metrics) PublishResult(result string) {
+	m.emailPublishTotal.WithLabelValues(result).Inc()
+}
+
+// BacklogPending implements the relay Observer: it sets the pending-backlog
+// gauge so a stalled pipeline can be alerted on (EML-23).
+func (m *Metrics) BacklogPending(pending int) {
+	m.emailOutboxBacklog.Set(float64(pending))
+}
+
+// MessageDead counts a message dead-lettered for operator attention; it is
+// reserved for the worker that will dead-letter a poison message (EML-23).
+func (m *Metrics) MessageDead() {
+	m.emailDeadTotal.Inc()
 }

@@ -329,3 +329,108 @@ func TestTrustedProxyCIDRs(t *testing.T) {
 		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET"}, RequiredKeys())
 	})
 }
+
+// TestInitVariablesEmailDefaults covers the optional email and broker surface:
+// an absent value selects the documented default and the required set is
+// unchanged, so the API still boots with none of them set (EML-14).
+func TestInitVariablesEmailDefaults(t *testing.T) {
+	e := newTestEnv()
+
+	for _, key := range []string{
+		"EMAIL_PROVIDER", "RESEND_API_KEY", "EMAIL_FROM", "EMAIL_SEND_TIMEOUT",
+		"RABBITMQ_URL", "EMAIL_RELAY_POLL_INTERVAL", "EMAIL_RELAY_LEASE",
+		"EMAIL_RELAY_BATCH", "EMAIL_RELAY_CONFIRM_TIMEOUT", "EMAIL_RELAY_MAX_ATTEMPTS",
+		"EMAIL_OUTBOX_RETENTION", "EMAIL_RELAY_METRICS_ADDR",
+	} {
+		unsetEnv(t, key)
+	}
+
+	vars := e.initVariables()
+
+	t.Run("Happy path: the provider defaults to the development sender", func(t *testing.T) {
+		require.Equal(t, "log", vars.EmailProvider)
+	})
+
+	t.Run("Happy path: the provider secrets and sender are empty by default", func(t *testing.T) {
+		require.Empty(t, vars.ResendAPIKey)
+		require.Empty(t, vars.EmailFrom)
+		require.Empty(t, vars.RabbitMQURL)
+	})
+
+	t.Run("Happy path: the durations default to the documented values", func(t *testing.T) {
+		require.Equal(t, 10*time.Second, vars.EmailSendTimeout)
+		require.Equal(t, 1*time.Second, vars.EmailRelayPollInterval)
+		require.Equal(t, 30*time.Second, vars.EmailRelayLease)
+		require.Equal(t, 5*time.Second, vars.EmailRelayConfirmTimeout)
+		require.Equal(t, DefaultEmailOutboxRetention, vars.EmailOutboxRetention)
+		require.Equal(t, 168*time.Hour, vars.EmailOutboxRetention)
+	})
+
+	t.Run("Happy path: the integer and address defaults are the documented values", func(t *testing.T) {
+		require.Equal(t, 25, vars.EmailRelayBatch)
+		require.Equal(t, 5, vars.EmailRelayMaxAttempts)
+		require.Equal(t, ":9100", vars.EmailRelayMetricsAddr)
+	})
+
+	t.Run("Edge: the required key list is unchanged", func(t *testing.T) {
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET"}, RequiredKeys())
+	})
+}
+
+// TestInitVariablesEmailOverrides covers the override and fallback paths for the
+// new variables: valid values are parsed and a blank or unusable one keeps the
+// default rather than a magic zero (EML-14).
+func TestInitVariablesEmailOverrides(t *testing.T) {
+	e := newTestEnv()
+
+	t.Run("Happy path: valid values override the defaults", func(t *testing.T) {
+		t.Setenv("EMAIL_PROVIDER", "resend")
+		t.Setenv("RESEND_API_KEY", "re_test")
+		t.Setenv("EMAIL_FROM", "no-reply@example.com")
+		t.Setenv("EMAIL_SEND_TIMEOUT", "3s")
+		t.Setenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+		t.Setenv("EMAIL_RELAY_BATCH", "50")
+		t.Setenv("EMAIL_RELAY_MAX_ATTEMPTS", "9")
+		t.Setenv("EMAIL_OUTBOX_RETENTION", "24h")
+		t.Setenv("EMAIL_RELAY_METRICS_ADDR", ":9200")
+
+		vars := e.initVariables()
+
+		require.Equal(t, "resend", vars.EmailProvider)
+		require.Equal(t, "re_test", vars.ResendAPIKey)
+		require.Equal(t, "no-reply@example.com", vars.EmailFrom)
+		require.Equal(t, 3*time.Second, vars.EmailSendTimeout)
+		require.Equal(t, "amqp://guest:guest@rabbitmq:5672/", vars.RabbitMQURL)
+		require.Equal(t, 50, vars.EmailRelayBatch)
+		require.Equal(t, 9, vars.EmailRelayMaxAttempts)
+		require.Equal(t, 24*time.Hour, vars.EmailOutboxRetention)
+		require.Equal(t, ":9200", vars.EmailRelayMetricsAddr)
+	})
+
+	t.Run("Edge: blank values select the defaults", func(t *testing.T) {
+		t.Setenv("EMAIL_PROVIDER", "")
+		t.Setenv("RABBITMQ_URL", "")
+		t.Setenv("EMAIL_SEND_TIMEOUT", "")
+
+		vars := e.initVariables()
+
+		require.Equal(t, "log", vars.EmailProvider)
+		require.Empty(t, vars.RabbitMQURL)
+		require.Equal(t, 10*time.Second, vars.EmailSendTimeout)
+	})
+
+	t.Run("Edge: an invalid duration falls back to the default", func(t *testing.T) {
+		t.Setenv("EMAIL_SEND_TIMEOUT", "not-a-duration")
+		require.Equal(t, 10*time.Second, e.initVariables().EmailSendTimeout)
+	})
+
+	t.Run("Edge: a non-positive batch falls back to the default", func(t *testing.T) {
+		t.Setenv("EMAIL_RELAY_BATCH", "0")
+		require.Equal(t, 25, e.initVariables().EmailRelayBatch)
+	})
+
+	t.Run("Edge: a non-numeric attempt cap falls back to the default", func(t *testing.T) {
+		t.Setenv("EMAIL_RELAY_MAX_ATTEMPTS", "many")
+		require.Equal(t, 5, e.initVariables().EmailRelayMaxAttempts)
+	})
+}
