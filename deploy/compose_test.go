@@ -232,3 +232,30 @@ func TestEmailConfigurationIsOptional(t *testing.T) {
 		assert.Equal(t, []string{"DATABASE_URI", "JWT_SECRET"}, env.RequiredKeys())
 	})
 }
+
+// TestRabbitMQPasswordIsRequired guards the broker credential: a forgotten
+// RABBITMQ_PASSWORD must fail `docker compose config` (and therefore `up`)
+// instead of starting the broker with an empty password, and .env.example must
+// carry the placeholder the CI compose gate interpolates (EML-16).
+func TestRabbitMQPasswordIsRequired(t *testing.T) {
+	doc := readCompose(t)
+
+	rabbitmq, ok := doc.Services["rabbitmq"]
+	require.True(t, ok, "the stack must define a rabbitmq service")
+
+	t.Run("Happy path: the broker password is a required interpolation", func(t *testing.T) {
+		value, present := rabbitmq.Environment["RABBITMQ_DEFAULT_PASS"]
+		require.True(t, present, "rabbitmq.environment must define RABBITMQ_DEFAULT_PASS")
+		assert.Contains(t, value, "${RABBITMQ_PASSWORD:?",
+			"a missing password must fail the stack, never start an empty one")
+	})
+
+	t.Run("Happy path: .env.example provides the placeholder", func(t *testing.T) {
+		raw, err := os.ReadFile(".env.example")
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), "RABBITMQ_PASSWORD=",
+			"the CI compose gate interpolates .env.example, so the placeholder must be present")
+		assert.NotContains(t, string(raw), "# RABBITMQ_PASSWORD=",
+			"the placeholder must not be commented out")
+	})
+}

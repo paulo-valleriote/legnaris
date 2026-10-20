@@ -191,7 +191,9 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: legnaris
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      # Required: the broker must never start with an empty password, and the
+      # relay's default RABBITMQ_URL is derived from the same value.
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     # The broker is reachable only on the internal network: it declares no
