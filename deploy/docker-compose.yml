@@ -115,6 +115,10 @@ services:
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
       AUTH_REFRESH_TTL: ${AUTH_REFRESH_TTL:-720h}
       AUTH_BCRYPT_COST: ${AUTH_BCRYPT_COST:-12}
+      # Optional trusted proxy set for client-address resolution. Unset keeps
+      # the app default (loopback + private + link-local); a comma-separated
+      # CIDR list replaces the non-loopback portion.
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
     networks:
       - edge
       - internal

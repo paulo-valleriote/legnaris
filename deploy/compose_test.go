@@ -92,3 +92,25 @@ func TestWebServiceBakesApiOrigin(t *testing.T) {
 			"VITE_API_BASE_URL must be sourced from ${WEB_API_BASE_URL...}, never a committed literal")
 	})
 }
+
+// TestAppServiceTrustedProxyCIDRs guards the optional proxy-set pass-through:
+// the operator can narrow or widen the trust boundary from the deployment env,
+// and leaving it unset keeps the app's documented default. The required-variable
+// contract is deliberately unchanged (PRQ-03, PRQ-18).
+func TestAppServiceTrustedProxyCIDRs(t *testing.T) {
+	doc := readCompose(t)
+
+	app, ok := doc.Services["app"]
+	require.True(t, ok, "the stack must define an app service")
+
+	t.Run("Happy path: the proxy set is an optional interpolation", func(t *testing.T) {
+		value, present := app.Environment["TRUSTED_PROXY_CIDRS"]
+		require.True(t, present, "app.environment must pass TRUSTED_PROXY_CIDRS through")
+		require.Contains(t, value, "${TRUSTED_PROXY_CIDRS:-}",
+			"the set must be optional and sourced from the deployment env")
+	})
+
+	t.Run("Edge: the required-variable list is unchanged", func(t *testing.T) {
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET"}, env.RequiredKeys())
+	})
+}
