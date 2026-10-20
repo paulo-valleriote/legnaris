@@ -28,6 +28,7 @@ packages:
       outpkg: mocks
     interfaces:
       Repository: {}
+      EmailMigrationStore: {}
   legnaris/internal/auth:
     config:
       dir: internal/auth/mocks
