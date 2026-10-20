@@ -172,6 +172,19 @@ MongoDB is created with least-privileged users (provisioned by
 `legnaris_exporter` (server metrics), and `legnaris_view` (read-only, used by
 Mongo Express). Services never connect as `root`.
 
+`TRUSTED_PROXY_CIDRS` is optional. Left unset, the API trusts loopback, private
+and link-local peers, which covers the proxy on the same host or Docker network
+without configuration. A comma-separated CIDR set replaces the non-loopback
+portion:
+
+```bash
+TRUSTED_PROXY_CIDRS=172.18.0.0/16,10.0.0.0/8
+```
+
+Loopback stays trusted in every case, and an invalid value fails the API boot
+instead of silently trusting nothing. Only the direct peer decides whether the
+forwarding header is read; a forged chain from any other address is ignored.
+
 ## 7. Deploy (production)
 
 ```bash
@@ -291,6 +304,20 @@ docker compose restart app
 docker compose down          # stop without deleting data
 docker compose down -v       # stop AND delete volumes (destroys data)
 ```
+
+### Email canonicalization (one-shot)
+
+```bash
+docker compose run --rm --entrypoint /canonicalize-emails app           # dry run
+docker compose run --rm --entrypoint /canonicalize-emails app -apply    # write
+```
+
+The report lists `scanned`, `change`, `collision`, `invalid` and `written` (or
+`dry run`) lines. A collision or an unparseable row aborts the run with exit 1
+and writes nothing; resolve the duplicate manually, since the command never
+merges accounts. Only `email` and `updated_at` change, and a second run over
+repaired data is a no-op. The command is a separate binary and is never part of
+the API boot path.
 
 Backup: the `legnaris-prod_mongo_data`, `..._prometheus_data`, `..._loki_data`
 volumes.
