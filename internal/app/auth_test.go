@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -344,5 +345,56 @@ func TestAuthController_Logout(t *testing.T) {
 		rec := serve(t, h, req)
 		require.Equal(t, http.StatusForbidden, rec.Code)
 		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+	})
+}
+
+// TestAuthController_RefreshAccountFailures pins the HTTP mapping of the new
+// renewal failures: a missing account is 401 with no cookie, a store failure is
+// 500 with no cookie, and neither changes the response body shape (PRQ-07,
+// PRQ-14, PRQ-17).
+func TestAuthController_RefreshAccountFailures(t *testing.T) {
+	refreshRequest := func(t *testing.T, h http.Handler) *httptest.ResponseRecorder {
+		t.Helper()
+
+		req := newRequest(http.MethodPost, "/auth/refresh", "")
+		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: "cookie-refresh"})
+		req.Header.Set("X-CSRF-Token", "csrf-token")
+		return serve(t, h, req)
+	}
+
+	t.Run("Error: a missing account is 401 and sets no cookie", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Refresh(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeUnauthorized, auth.MsgInvalidRefreshToken, nil)).
+			Once()
+
+		rec := refreshRequest(t, newAuthRouter(t, service))
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeUnauthorized), body.Error.Code)
+		assert.Equal(t, auth.MsgInvalidRefreshToken, body.Error.Message)
+		assert.NotContains(t, rec.Body.String(), "access_token")
+	})
+
+	t.Run("Error: an account-store failure is 500 and sets no cookie", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Refresh(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeInternal, auth.MsgInternal, errors.New("mongo down"))).
+			Once()
+
+		rec := refreshRequest(t, newAuthRouter(t, service))
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeInternal), body.Error.Code)
+		assert.Equal(t, auth.MsgInternal, body.Error.Message)
+		assert.NotContains(t, rec.Body.String(), "access_token")
 	})
 }

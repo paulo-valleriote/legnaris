@@ -242,12 +242,26 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 	}
 
-	access, err := s.tokens.Issue(stored.UserID)
+	// Renewal must not survive the account it names: load it after the existing
+	// credential rules and before the first issuance, so a missing account can
+	// never receive a credential (PRQ-05, PRQ-06).
+	account, err := s.users.FetchByID(ctx, stored.UserID)
+	if err != nil {
+		if errors.Is(err, user.ErrUserNotFound) {
+			if revokeErr := s.refreshTokens.RevokeFamily(ctx, stored.FamilyID); revokeErr != nil {
+				return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, revokeErr)
+			}
+			return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, err)
+		}
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	access, err := s.tokens.Issue(account.ID)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	issued, err := s.issueRefreshToken(ctx, stored.UserID, stored.FamilyID)
+	issued, err := s.issueRefreshToken(ctx, account.ID, stored.FamilyID)
 	if err != nil {
 		return nil, err
 	}
@@ -267,16 +281,16 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 		// The successor token we created is valid and in the family.
 		// Do NOT revoke the family — that would invalidate the other client's tokens.
 		// Return an error; the client must re-authenticate (their refresh token is now revoked).
-		s.log.Info(ctx, "refresh concurrent rotation detected", logger.Attribute{Key: attrUserID, Value: stored.UserID})
+		s.log.Info(ctx, "refresh concurrent rotation detected", logger.Attribute{Key: attrUserID, Value: account.ID})
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 	}
 
-	session, err := s.newSession(ctx, stored.UserID, issued.raw, issued.familyID, access)
+	session, err := s.newSession(ctx, account.ID, issued.raw, issued.familyID, access)
 	if err != nil {
 		return nil, err
 	}
 
-	s.log.Info(ctx, "refresh rotated", logger.Attribute{Key: attrUserID, Value: stored.UserID})
+	s.log.Info(ctx, "refresh rotated", logger.Attribute{Key: attrUserID, Value: account.ID})
 	return session, nil
 }
 
