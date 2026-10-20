@@ -79,6 +79,9 @@ type SessionResponse struct {
 // The access-token TTL is a TokenManager concern, not a service one.
 type Config struct {
 	RefreshTTL time.Duration
+	// Now is the single clock for timestamps written or compared here. Nil
+	// means the system clock (PRQ-16).
+	Now Clock
 }
 
 type Service interface {
@@ -98,6 +101,7 @@ type ServiceImpl struct {
 	observer      Observer
 	log           logger.StructuredLogger
 	cfg           Config
+	clock         Clock
 }
 
 func NewService(
@@ -121,6 +125,7 @@ func NewService(
 		observer:      observer,
 		log:           log,
 		cfg:           cfg,
+		clock:         cfg.Now,
 	}
 }
 
@@ -160,7 +165,7 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Sessi
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	now := time.Now()
+	now := s.clock.Now()
 	newUser := &user.User{
 		ID:           id,
 		Email:        email,
@@ -233,7 +238,7 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 	if stored.Revoked {
 		return nil, s.reuseDetected(ctx, stored)
 	}
-	if time.Now().After(stored.ExpiresAt) {
+	if !s.clock.Now().Before(stored.ExpiresAt) {
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 	}
 
@@ -369,7 +374,7 @@ func (s *ServiceImpl) issueRefreshToken(ctx context.Context, userID string, fami
 		return issuedRefresh{}, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	now := time.Now()
+	now := s.clock.Now()
 	token := &RefreshToken{
 		ID:        id,
 		TokenHash: HashRefreshToken(raw),

@@ -58,7 +58,11 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 		return nil, fmt.Errorf("build password hasher: %w", err)
 	}
 
-	tokenManager, err := auth.NewTokenManager(cfg.Variables.JWTSecret, cfg.Variables.JWTAccessTTL)
+	// One clock for every auth timestamp, so expiry boundaries are testable
+	// without sleeping (PRQ-16).
+	now := auth.Clock(time.Now)
+
+	tokenManager, err := auth.NewTokenManager(cfg.Variables.JWTSecret, cfg.Variables.JWTAccessTTL, now)
 	if err != nil {
 		return nil, fmt.Errorf("build token manager: %w", err)
 	}
@@ -75,6 +79,7 @@ func NewModules(database *db.Database, registry *template.Registry, cfg env.Env,
 		observer,
 		auth.Config{
 			RefreshTTL: cfg.Variables.AuthRefreshTTL,
+			Now:        now,
 		},
 		log,
 	)

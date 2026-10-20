@@ -154,7 +154,7 @@ func TestIntegration_AuthLogin(t *testing.T) {
 		require.NotEmpty(t, cookies.refresh)
 		require.NotEmpty(t, cookies.csrf)
 
-		manager, err := auth.NewTokenManager("integration-test-secret", 15*time.Minute)
+		manager, err := auth.NewTokenManager("integration-test-secret", 15*time.Minute, time.Now)
 		require.NoError(t, err)
 
 		userID, err := manager.Parse(session.AccessToken)

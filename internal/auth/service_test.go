@@ -45,6 +45,13 @@ type authMocks struct {
 
 func newAuthService(t *testing.T) (auth.Service, *authMocks) {
 	t.Helper()
+	return newAuthServiceWithClock(t, nil)
+}
+
+// newAuthServiceWithClock builds the service over the shared mock set with an
+// explicit time source, so timestamp assertions need no sleeping (PRQ-16).
+func newAuthServiceWithClock(t *testing.T, clock auth.Clock) (auth.Service, *authMocks) {
+	t.Helper()
 
 	m := &authMocks{
 		users:         usermocks.NewMockRepository(t),
@@ -64,7 +71,7 @@ func newAuthService(t *testing.T) (auth.Service, *authMocks) {
 		m.generator,
 		m.csrf,
 		m.observer,
-		auth.Config{RefreshTTL: testRefreshTTL},
+		auth.Config{RefreshTTL: testRefreshTTL, Now: clock},
 		logger.NewLogger(slog.LevelError),
 	)
 	return service, m
@@ -651,5 +658,73 @@ func TestService_Logout(t *testing.T) {
 
 		err := service.Logout(ctx, auth.LogoutCommand{RefreshToken: "raw-refresh", CSRFToken: csrfToken})
 		assertAppErr(t, err, apperr.CodeInternal)
+	})
+}
+
+// TestService_Clock pins the auth timestamps to the injected clock: registration
+// writes exact instants and the refresh expiry boundary is crossed without
+// sleeping (PRQ-16, SC-007).
+func TestService_Clock(t *testing.T) {
+	ctx := context.Background()
+
+	frozen := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+	now := frozen
+
+	t.Run("Happy path: registration stamps created_at, updated_at and expires_at from the clock", func(t *testing.T) {
+		service, m := newAuthServiceWithClock(t, func() time.Time { return now })
+
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+				return u.CreatedAt.Equal(frozen) && u.UpdatedAt.Equal(frozen) && u.EmailVerifiedAt == nil
+			})).
+			Return(nil).
+			Once()
+		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw-refresh", nil).Once()
+		m.refreshTokens.EXPECT().
+			Create(mock.Anything, mock.MatchedBy(func(token *auth.RefreshToken) bool {
+				return token.CreatedAt.Equal(frozen) && token.ExpiresAt.Equal(frozen.Add(testRefreshTTL))
+			})).
+			Return(nil).
+			Once()
+
+		session, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
+		require.NoError(t, err)
+		assert.Equal(t, "access", session.AccessToken)
+	})
+
+	t.Run("Edge: refresh is valid one nanosecond before expiry and expired at the exact instant", func(t *testing.T) {
+		service, m := newAuthServiceWithClock(t, func() time.Time { return now })
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		expiresAt := frozen.Add(time.Hour)
+		active := func() *auth.RefreshToken {
+			return &auth.RefreshToken{
+				ID:        validTokenID,
+				UserID:    validUserID,
+				FamilyID:  validFamily,
+				ExpiresAt: expiresAt,
+				CreatedAt: frozen,
+			}
+		}
+
+		now = expiresAt.Add(-time.Nanosecond)
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(active(), nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(true, nil).Once()
+
+		session, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		require.NoError(t, err, "one nanosecond before expiry must still rotate")
+		assert.Equal(t, "access", session.AccessToken)
+
+		now = expiresAt
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(active(), nil).Once()
+
+		_, err = service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+		m.tokens.AssertNumberOfCalls(t, "Issue", 1)
 	})
 }
