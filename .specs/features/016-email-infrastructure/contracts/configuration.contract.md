@@ -13,7 +13,7 @@ actually needs a setting validates it.
 
 | Variable | Default constant | Validated by |
 |---|---|---|
-| `EMAIL_PROVIDER` | `log` | the sender builder (unknown value → error) |
+| `EMAIL_PROVIDER` | `log` | `internal/email/factory.New` (unknown value → `ErrUnknownProvider`) |
 | `RESEND_API_KEY` | empty | `internal/email/resend.New` (required when provider is `resend`) |
 | `EMAIL_FROM` | empty | `internal/email/resend.New` (required non-empty when provider is `resend`) |
 | `EMAIL_SEND_TIMEOUT` | `10s` | the sender adapters (positive duration) |
@@ -55,7 +55,9 @@ actually needs a setting validates it.
 ## Test evidence
 
 - `shared/env/env_test.go`: each variable absent/blank/valid/invalid; `RequiredKeys()` unchanged.
-- `internal/email/resend/sender_test.go`: empty key/from → build error; unknown provider → error.
+- `internal/email/factory/factory_test.go`: provider selection, unknown provider → `ErrUnknownProvider`,
+  and the Resend branch's empty key/From build error.
+- `internal/email/resend/sender_test.go`: empty key/from → build error.
 - `cmd/relay/main_test.go`: blank/unparseable URL → fail fast.
 - `deploy/compose_test.go`: the new keys are optional interpolations; the broker has no published
   port; the app's required set is unchanged.

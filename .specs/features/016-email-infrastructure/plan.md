@@ -172,6 +172,10 @@ internal/email/                         # NEW domain: message contract, sender p
 ├── template_test.go                    # NEW: per-purpose rendering, unknown purpose, code-free subject
 └── sender_log_test.go                  # NEW: no network, masked recipient, code never logged
 
+internal/email/factory/                 # NEW: the configuration-driven sender selection (EML-08)
+├── factory.go                          # NEW: New → log/resend adapter; ErrUnknownProvider
+└── factory_test.go                     # NEW: provider selection, unknown provider, resend build error
+
 internal/email/resend/                  # NEW adapter: the real provider
 ├── sender.go                           # NEW: SendWithOptions + idempotency key + timeout (EML-09)
 ├── transport.go                        # NEW: http.RoundTripper mapping non-2xx to a typed status error (R5)

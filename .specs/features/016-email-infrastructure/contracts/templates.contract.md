@@ -21,6 +21,7 @@ const (
 type Data struct {
     Code             string
     ExpiresInMinutes int
+    Purpose          Purpose
 }
 
 type Rendered struct {

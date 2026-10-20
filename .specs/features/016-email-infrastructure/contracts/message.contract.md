@@ -74,6 +74,9 @@ Normative JSON (the golden file):
 
 ## Test evidence
 
-- `internal/email/message_test.go`: golden-file equality, leading-zero code, `MessageId` derivation,
-  and the code absent from the encoded properties.
+- `internal/email/message_test.go`: golden-file equality, decodes into the contract type, and the
+  RFC 3339 `created_at`.
+- `internal/email/amqp/publishing_test.go`: the derived AMQP properties
+  (`ContentType: application/json`, `DeliveryMode: Persistent`, `MessageId: id`) and the code absent
+  from them.
 - `internal/email/relay/relay_test.go`: the encoded message carries the intention identity and `0`.
