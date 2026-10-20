@@ -9,6 +9,8 @@ type User struct {
 	PasswordHash string `bson:"password_hash" json:"-"`
 	// EmailVerifiedAt is absent until verification happens; it is never
 	// backfilled and never exposed on the wire DTO (PRQ-12, PRQ-14, PRQ-15).
+	// The derived boolean on the DTO is the only representation of the state
+	// (TFA-08).
 	EmailVerifiedAt *time.Time `bson:"email_verified_at,omitempty" json:"email_verified_at,omitempty"`
 	CreatedAt       time.Time  `bson:"created_at" json:"created_at"`
 	UpdatedAt       time.Time  `bson:"updated_at" json:"updated_at"`
@@ -17,17 +19,22 @@ type User struct {
 // UserDTO is the wire shape of a user. It deliberately has no password field:
 // the hash is never part of an API response.
 type UserDTO struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	Username  string    `json:"username"`
-	CreatedAt time.Time `json:"created_at"`
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	// EmailVerified reports whether the account's address was ever verified.
+	// The stored instant stays internal: only this derived state reaches the
+	// wire (TFA-08, TFA-09).
+	EmailVerified bool      `json:"email_verified"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 func (u *User) ToDTO() UserDTO {
 	return UserDTO{
-		ID:        u.ID,
-		Email:     u.Email,
-		Username:  u.Username,
-		CreatedAt: u.CreatedAt,
+		ID:            u.ID,
+		Email:         u.Email,
+		Username:      u.Username,
+		EmailVerified: u.EmailVerifiedAt != nil,
+		CreatedAt:     u.CreatedAt,
 	}
 }

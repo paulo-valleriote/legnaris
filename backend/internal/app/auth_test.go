@@ -13,6 +13,7 @@ import (
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
 	authmocks "legnaris/backend/internal/auth/mocks"
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/response"
 
@@ -285,6 +286,152 @@ func TestAuthController_Login(t *testing.T) {
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 		assert.Empty(t, rec.Header().Get("Set-Cookie"))
 		assert.NotContains(t, rec.Body.String(), "raw-refresh")
+	})
+}
+
+// newMeRouter mounts the identity read behind the bearer middleware, so the
+// route's guard is exercised with the production parser.
+func newMeRouter(t *testing.T, service auth.Service, tokens auth.TokenManager) http.Handler {
+	t.Helper()
+
+	e := echo.New()
+	e.HTTPErrorHandler = app.HTTPErrorHandler
+
+	controller := app.NewAuthController(service)
+	group := e.Group("/auth")
+	group.GET("/me", controller.Me, auth.Middleware(tokens))
+	return e
+}
+
+// TestAuthController_Me covers the identity read: the four reported fields and
+// the derived verification state, the uniform unauthorized outcome without a
+// usable credential, and the store failure (TFA-08, TFA-09, TFA-10).
+func TestAuthController_Me(t *testing.T) {
+	tokens, err := auth.NewTokenManager("me-test-secret", 15*time.Minute, time.Now)
+	require.NoError(t, err)
+
+	access, err := tokens.Issue("01900000-0000-7000-8000-000000000001")
+	require.NoError(t, err)
+
+	profile := &user.UserDTO{
+		ID:            "01900000-0000-7000-8000-000000000001",
+		Email:         "player@example.com",
+		Username:      "player",
+		EmailVerified: false,
+		CreatedAt:     time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC),
+	}
+
+	t.Run("Happy path: the identity read reports the account and its state", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Profile(mock.Anything, "01900000-0000-7000-8000-000000000001").
+			Return(profile, nil).
+			Once()
+
+		h := newMeRouter(t, service, tokens)
+		req := newRequest(http.MethodGet, "/auth/me", "")
+		req.Header.Set("Authorization", "Bearer "+access.Value)
+
+		rec := serve(t, h, req)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		var body response.Success[user.UserDTO]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, profile.ID, body.Data.ID)
+		assert.Equal(t, profile.Email, body.Data.Email)
+		assert.Equal(t, profile.Username, body.Data.Username)
+		assert.False(t, body.Data.EmailVerified)
+
+		assert.NotContains(t, rec.Body.String(), "email_verified_at", "the instant never reaches the wire")
+		assert.NotContains(t, rec.Body.String(), "password", "the hash never reaches the wire")
+		assert.NotContains(t, rec.Body.String(), "access_token")
+	})
+
+	t.Run("Happy path: a verified account reports the true state", func(t *testing.T) {
+		verified := *profile
+		verified.EmailVerified = true
+
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Profile(mock.Anything, mock.Anything).
+			Return(&verified, nil).
+			Once()
+
+		h := newMeRouter(t, service, tokens)
+		req := newRequest(http.MethodGet, "/auth/me", "")
+		req.Header.Set("Authorization", "Bearer "+access.Value)
+
+		rec := serve(t, h, req)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var body response.Success[user.UserDTO]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.True(t, body.Data.EmailVerified)
+	})
+
+	t.Run("Error: no credential is 401 with no account data", func(t *testing.T) {
+		service := authmocks.NewMockService(t) // no expectations: the service is never reached
+
+		h := newMeRouter(t, service, tokens)
+		rec := serve(t, h, newRequest(http.MethodGet, "/auth/me", ""))
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeUnauthorized), body.Error.Code)
+		assert.NotContains(t, rec.Body.String(), "player@example.com")
+	})
+
+	t.Run("Error: a forged credential is 401 with no account data", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+
+		h := newMeRouter(t, service, tokens)
+		req := newRequest(http.MethodGet, "/auth/me", "")
+		req.Header.Set("Authorization", "Bearer not-a-token")
+
+		rec := serve(t, h, req)
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		assert.NotContains(t, rec.Body.String(), "player@example.com")
+	})
+
+	t.Run("Error: an account that no longer exists is 401, not 404", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Profile(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeUnauthorized, auth.MsgAccountUnavailable, nil)).
+			Once()
+
+		h := newMeRouter(t, service, tokens)
+		req := newRequest(http.MethodGet, "/auth/me", "")
+		req.Header.Set("Authorization", "Bearer "+access.Value)
+
+		rec := serve(t, h, req)
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeUnauthorized), body.Error.Code)
+		assert.Equal(t, auth.MsgAccountUnavailable, body.Error.Message)
+		assert.NotContains(t, rec.Body.String(), "player@example.com")
+	})
+
+	t.Run("Error: a store failure is 500", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Profile(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeInternal, auth.MsgInternal, errors.New("mongo down"))).
+			Once()
+
+		h := newMeRouter(t, service, tokens)
+		req := newRequest(http.MethodGet, "/auth/me", "")
+		req.Header.Set("Authorization", "Bearer "+access.Value)
+
+		rec := serve(t, h, req)
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeInternal), body.Error.Code)
 	})
 }
 

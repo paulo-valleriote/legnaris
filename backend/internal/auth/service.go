@@ -117,6 +117,7 @@ type Service interface {
 	IssueChallenge(ctx context.Context, cmd IssueChallengeCommand) (*ChallengeIssued, error)
 	VerifyChallenge(ctx context.Context, cmd VerifyChallengeCommand) (*Session, error)
 	ResendChallenge(ctx context.Context, cmd ResendChallengeCommand) (*ResendResult, error)
+	Profile(ctx context.Context, userID string) (*user.UserDTO, error)
 }
 
 type ServiceImpl struct {

@@ -80,8 +80,9 @@ func newWiringEcho(t *testing.T, extra map[string]string) (*echo.Echo, *app.Modu
 }
 
 // TestRouterWiring_AuthRouteInventory guards the auth HTTP surface: the four
-// session routes plus the two unified code-step routes, whose purpose is
-// resolved server-side and never accepted from the client (OTP-09, OTP-19).
+// session routes, the two unified code-step routes, whose purpose is resolved
+// server-side and never accepted from the client (OTP-09, OTP-19), and the
+// identity read (TFA-09).
 func TestRouterWiring_AuthRouteInventory(t *testing.T) {
 	router, _ := newWiringEcho(t, nil)
 
@@ -100,12 +101,53 @@ func TestRouterWiring_AuthRouteInventory(t *testing.T) {
 		// Stage 3 adds exactly these two routes; no other route may appear.
 		http.MethodPost + " /auth/challenge/verify",
 		http.MethodPost + " /auth/challenge/resend",
-	}, got, "the auth surface must be exactly the session routes plus the two challenge routes")
+		// The identity read is the only read of the signed-in account.
+		http.MethodGet + " /auth/me",
+	}, got, "the auth surface must be exactly the session routes plus the two challenge routes plus the identity read")
 
 	for _, route := range got {
 		assert.NotContains(t, route, "purpose",
 			"the challenge purpose must never be part of the route contract (OTP-09)")
 	}
+}
+
+// TestRouterWiring_MeRequiresBearer pins the identity read's guard: without a
+// credential it is 401 with no account data, and with one it reaches the
+// handler (TFA-09).
+func TestRouterWiring_MeRequiresBearer(t *testing.T) {
+	h, modules := newWiringRouter(t)
+
+	t.Run("Edge: no credential is 401 with no account data", func(t *testing.T) {
+		rec := doAuthRequest(t, h, "", http.MethodGet, "/auth/me", "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "UNAUTHORIZED", body.Error.Code)
+		assert.NotContains(t, rec.Body.String(), "@")
+	})
+
+	t.Run("Edge: a forged credential is 401", func(t *testing.T) {
+		rec := doAuthRequest(t, h, "not-a-jwt", http.MethodGet, "/auth/me", "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+
+	t.Run("Happy path: a valid credential reaches the handler", func(t *testing.T) {
+		access, err := modules.Auth.TokenManager.Issue("01900000-0000-7000-8000-000000000001")
+		require.NoError(t, err)
+
+		// The wiring router's database never answers, so the read reaches the
+		// handler and fails in the store: the guard let the request through,
+		// and the store failure is the typed 500 — never a 404 and never a
+		// guard refusal (TFA-09, TFA-10).
+		rec := doAuthRequest(t, h, access.Value, http.MethodGet, "/auth/me", "")
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "INTERNAL_ERROR", body.Error.Code)
+		assert.NotContains(t, rec.Body.String(), "@")
+	})
 }
 
 // TestRouterWiring_RequireAuthGuardsProtectedRoutes covers OWN-15…OWN-18

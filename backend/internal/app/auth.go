@@ -117,6 +117,24 @@ func (ac *AuthController) Logout(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// Me answers the signed-in account: its identifier, its canonical address, its
+// display name and whether its address was verified. The account identity comes
+// from the access credential, never from the request, and the verification
+// instant is never disclosed (TFA-08, TFA-09).
+func (ac *AuthController) Me(c *echo.Context) error {
+	userID, ok := auth.UserID(c)
+	if !ok {
+		return apperr.NewError(apperr.CodeUnauthorized, auth.MsgAuthorizationRequired, nil)
+	}
+
+	profile, err := ac.service.Profile(c.Request().Context(), userID)
+	if err != nil {
+		return err
+	}
+
+	return response.OK(c, profile)
+}
+
 // setSessionCookies writes the refresh credential and the CSRF token as the two
 // contract-fixed cookies. The credential never reaches the body (AUTH-01,
 // AUTH-08, AUTH-12). It is shared with the challenge verification controller,

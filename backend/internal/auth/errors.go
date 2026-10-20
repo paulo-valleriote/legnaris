@@ -17,6 +17,11 @@ const (
 	MsgInvalidRefreshToken  = "invalid refresh token"
 	MsgCSRFInvalid          = "csrf token is invalid"
 	MsgInternal             = "internal error"
+	// MsgAccountUnavailable is the identity read's answer for a credential that
+	// names no usable account: the account was removed, or never existed. It is
+	// deliberately the same unauthorized outcome as an invalid credential, so
+	// the two are indistinguishable (TFA-09, TFA-10).
+	MsgAccountUnavailable = "account is unavailable"
 
 	// Challenge copy. MsgOTPInvalid is the one uniform message every
 	// verification failure carries, so unknown, expired, consumed, wrong and

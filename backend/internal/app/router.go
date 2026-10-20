@@ -72,6 +72,11 @@ func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, o
 	// exactly like sign-in and registration (OTP-19, R13).
 	group.POST("/challenge/verify", challengeController.Verify, rateLimit(limiter, observer, false))
 	group.POST("/challenge/resend", challengeController.Resend, rateLimit(limiter, observer, false))
+
+	// The identity read is the only route that needs an access credential: it
+	// answers the signed-in account and its verification state, and it reuses
+	// the one bearer parser the protected groups use (TFA-08, TFA-09).
+	group.GET("/me", modules.Auth.Controller.Me, auth.Middleware(modules.Auth.TokenManager))
 }
 
 func HTTPErrorHandler(c *echo.Context, err error) {

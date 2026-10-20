@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/response"
 
@@ -201,6 +202,66 @@ func TestIntegration_RenewalGate(t *testing.T) {
 		require.NoError(t, err)
 		assert.Zero(t, count, "the refused renewal leaves no live credential behind")
 	})
+}
+
+// TestIntegration_IdentityRead covers the identity read end to end: a signed-in
+// account reports its verification state, and only that field changes when the
+// address is verified (TFA-08, SC-006).
+func TestIntegration_IdentityRead(t *testing.T) {
+	// The gated stack is built first: building the legacy stack drops the
+	// collections, so this order keeps the legacy session's rows alive.
+	gated, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "true"})
+	legacy, _, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "false"})
+
+	const email = "identity-read@example.com"
+	registerBody := fmt.Sprintf(`{"email":%q,"username":"identity","password":%q}`, email, authPassword)
+
+	registerRec := doRequest(t, legacy, http.MethodPost, "/auth/register", registerBody)
+	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
+	legacySession := decodeSession(t, registerRec)
+	require.NotEmpty(t, legacySession.AccessToken)
+
+	before := readIdentity(t, legacy, legacySession.AccessToken)
+	assert.False(t, before.EmailVerified, "an account that never verified reports the unverified state")
+
+	// The gated sign-in starts a code step; verifying it records the timestamp.
+	loginRec := doRequest(t, gated, http.MethodPost, "/auth/login",
+		fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
+	require.Equal(t, http.StatusAccepted, loginRec.Code, loginRec.Body.String())
+
+	var issued response.Success[auth.ChallengeIssued]
+	require.NoError(t, json.Unmarshal(loginRec.Body.Bytes(), &issued))
+	require.NotEmpty(t, issued.Data.ChallengeID)
+
+	code := pendingCode(t, mdb)
+	verifyRec := doRequest(t, gated, http.MethodPost, verifyRoute,
+		`{"challenge_id":"`+issued.Data.ChallengeID+`","code":"`+code+`"}`)
+	require.Equal(t, http.StatusOK, verifyRec.Code, verifyRec.Body.String())
+	verifiedSession := decodeSession(t, verifyRec)
+	require.NotEmpty(t, verifiedSession.AccessToken)
+
+	after := readIdentity(t, gated, verifiedSession.AccessToken)
+	assert.True(t, after.EmailVerified, "a verified account reports the verified state")
+
+	assert.Equal(t, before.ID, after.ID)
+	assert.Equal(t, before.Email, after.Email)
+	assert.Equal(t, before.Username, after.Username)
+	assert.Equal(t, before.CreatedAt, after.CreatedAt)
+	assert.NotEqual(t, before.EmailVerified, after.EmailVerified, "only the verification state changes")
+}
+
+// readIdentity reads the signed-in account and returns the projected profile.
+func readIdentity(t *testing.T, h http.Handler, token string) user.UserDTO {
+	t.Helper()
+
+	rec := doAuthRequest(t, h, token, http.MethodGet, "/auth/me", "")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	var body response.Success[user.UserDTO]
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.NotContains(t, rec.Body.String(), "email_verified_at", "the instant never reaches the wire")
+	assert.NotContains(t, rec.Body.String(), "password", "the hash never reaches the wire")
+	return body.Data
 }
 
 func TestIntegration_AuthRegister(t *testing.T) {
