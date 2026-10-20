@@ -129,7 +129,7 @@ Sending a code costs money, consumes a shared daily allowance, and burns the rep
 
 **The resend endpoint (US2)**
 
-- **OTP-10**: A resend MUST be idempotent for the client: it MUST answer the accepted outcome whether or not it recorded a new send, it MUST NOT rotate the code or change the challenge identity, it MUST record a new send intention for the same code only when the cool-down window has elapsed, and it MUST extend the deadline by at most the documented absolute ceiling from the challenge's creation.
+- **OTP-10**: A resend MUST be idempotent for the client: it MUST answer the accepted outcome whether or not it recorded a new send, it MUST answer with the retry window so a client can render its countdown, it MUST NOT rotate the code or change the challenge identity, it MUST record a new send intention for the same code only when the cool-down window has elapsed, and it MUST extend the deadline by at most the documented absolute ceiling from the challenge's creation.
 - **OTP-11**: A resend for an unknown, consumed, or expired challenge identity MUST answer indistinguishably from an accepted resend and MUST NOT resurrect or create anything.
 
 **The send cap (US4)**

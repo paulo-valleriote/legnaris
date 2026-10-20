@@ -109,9 +109,9 @@ adapts). All source and strings are English (`OTP-21`); `go test -race` stays cl
 
 **Scale/Scope**: 4 user stories (2 P1, 2 P2), 21 requirements, 6 internal contracts; roughly 30
 touched or created files across `internal/auth`, `internal/app`, `internal/email/outbox`,
-`internal/platform/metrics`, `shared/{apperr,env,db}`, `deploy/` and `.mockery.yaml`; about 12 new or
-extended suites; 3 new interface implementations mocked (the challenge repository, the mailer) plus
-the regenerated `Service` mock.
+`internal/platform/metrics`, `shared/{apperr,env,db}`, `deploy/` and `.mockery.yaml`; 16 new or
+extended suites; 2 newly mocked interfaces (the challenge repository, the mailer) plus 2 regenerated
+mocks (the widened `auth.Service` and the extended outbox `Repository`).
 
 ## Constitution Check
 
@@ -195,6 +195,7 @@ internal/app/
 ├── email_intent_test.go            # NEW: the adapter's mapping, count and clone behaviour (outbox faked)
 ├── router.go                       # EXTENDED: the two routes with the address limiter (OTP-14, OTP-19)
 ├── bootstrap.go                    # EXTENDED: wire repository, toolkit, mailer, observer, policy; fail fast on the secret (OTP-18)
+├── bootstrap_test.go               # NEW: NewModules fails fast on an absent/blank/short secret and starts with a valid one (OTP-18, SC-008)
 ├── auth_integration_test.go        # EXTENDED: issue → verify → session, and resend, end to end (Mongo, self-skip) (OTP-07…OTP-11)
 └── auth_test.go                    # EXTENDED: the route inventory assertion keeps covering the new paths
 
