@@ -133,9 +133,9 @@ People type the same mailbox in different ways: with a display name, in capitals
 
 **A verification-ready account record**
 
-- **PRQ-12**: The account record MUST carry an optional email-verification timestamp that is absent for every existing and newly created account; the feature MUST NOT backfill it.
+- **PRQ-12**: The account record MUST carry an optional email-verification timestamp that is absent for every existing and newly created account; the feature MUST NOT backfill it. **Superseded for the read path by `TFA-09`** (`.specs/features/018-auth-2fa-session-gate/spec.md`): the identity read reports the derived verification state, while the stored instant stays internal and the record itself is unchanged.
 - **PRQ-13**: The account store MUST expose an operation that records the verification timestamp for an existing account, leaves every other field untouched, updates the modification timestamp in the same write, is idempotent when the timestamp is already set (the first value is preserved), and reports an unknown account as not found.
-- **PRQ-14**: The verification operation MUST NOT be reachable from the HTTP surface in this feature, and no existing endpoint MUST change its response shape.
+- **PRQ-14**: The verification operation MUST NOT be reachable from the HTTP surface in this feature, and no existing endpoint MUST change its response shape. **Superseded for the read path by `TFA-08`** (`.specs/features/018-auth-2fa-session-gate/spec.md`): the new identity read reports the verification state as a boolean and never the instant, and no pre-existing endpoint changed its response shape.
 - **PRQ-15**: Boot and index creation over existing accounts MUST NOT add the field: the count of accounts carrying a verification timestamp is unchanged after deployment.
 
 **Deterministic time**

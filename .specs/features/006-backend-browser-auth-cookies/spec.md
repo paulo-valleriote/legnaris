@@ -233,10 +233,11 @@ of a refresh cookie.
   and MUST set the refresh credential as an `HttpOnly`, `Secure`, `SameSite=Strict`, `__Host-`
   prefixed cookie named on the `__Host-legnaris_` prefix with `Path=/`, no `Domain`, and a `Max-Age`
   equal to the configured refresh lifetime; the response body MUST NOT contain the refresh
-  credential.
+  credential. **Superseded for the gate-enabled behavior by `TFA-02`** (`.specs/features/018-auth-2fa-session-gate/spec.md`): while the rollout gate is on, a login answers a code step instead of a session; with the gate off this requirement holds unchanged.
 - **AUTH-02**: WHEN a registration succeeds, the server MUST create the account and establish the
   session exactly as a login does — access token in the body, refresh cookie set — in place of
   returning only the created account, and MUST NOT return the refresh credential in the body.
+  **Superseded for the gate-enabled behavior by `TFA-01`** (`.specs/features/018-auth-2fa-session-gate/spec.md`): while the rollout gate is on, a registration creates the unverified account and answers a code step instead of a session; with the gate off this requirement holds unchanged.
 - **AUTH-03**: WHEN a refresh succeeds, the server MUST consume the presented credential, mint a
   successor in the same family, set the new refresh cookie, and return a new access token in the
   body; the body MUST NOT contain the refresh credential.

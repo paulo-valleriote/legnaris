@@ -48,7 +48,7 @@ make run             # terminal 2, no AUTH_REQUIRE_EMAIL_VERIFICATION
    cookies set. *(the pre-existing contract)*
 2. `POST /auth/login` with those credentials → **`200`** with an access token and cookies.
 3. `POST /auth/refresh` with the cookies and the CSRF header → **`200`**, rotated cookies.
-4. `POST /auth/me` with the access token → **`200`** with `email_verified: false`.
+4. `GET /auth/me` with the access token → **`200`** with `email_verified: false`.
 
 Any deviation here is a regression: the gate must change nothing while it is off.
 
@@ -89,7 +89,7 @@ AUTH_REQUIRE_EMAIL_VERIFICATION=true make run
 AUTH_REQUIRE_EMAIL_VERIFICATION=maybe make run      # expect: boots, warns, gate stays off
 env | grep AUTH_REQUIRE_EMAIL_VERIFICATION          # absent => default off
 grep -c AUTH_REQUIRE_EMAIL_VERIFICATION deploy/.env.example deploy/README.md
-make -n run | grep AUTH_REQUIRE_EMAIL_VERIFICATION  # the Makefile exports it
+grep -c AUTH_REQUIRE_EMAIL_VERIFICATION Makefile    # the Makefile exports it to `make run`
 ```
 
 `deploy/compose_test.go` must still pass with the required set unchanged.
