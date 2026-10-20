@@ -40,10 +40,12 @@ func newIndexesTestDatabase(t *testing.T) *mongo.Database {
 	_ = mdb.Collection("users").Drop(context.Background())
 	_ = mdb.Collection("refresh_tokens").Drop(context.Background())
 	_ = mdb.Collection("sheets").Drop(context.Background())
+	_ = mdb.Collection("email_outbox").Drop(context.Background())
 	t.Cleanup(func() {
 		_ = mdb.Collection("users").Drop(context.Background())
 		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
 		_ = mdb.Collection("sheets").Drop(context.Background())
+		_ = mdb.Collection("email_outbox").Drop(context.Background())
 	})
 
 	return mdb
@@ -154,5 +156,36 @@ func TestEnsureIndexes(t *testing.T) {
 		_, err = sheets.InsertOne(ctx, bson.M{"_id": "sheet-2", "owner_id": "owner-1"})
 		require.Error(t, err)
 		assert.True(t, mongo.IsDuplicateKeyError(err), "a second sheet for the owner must be a duplicate key error")
+	})
+}
+
+// TestEnsureIndexesWithRetention proves the configured retention window reaches
+// the outbox TTL index and that changing it reconciles the existing index
+// instead of failing the boot (EML-17).
+func TestEnsureIndexesWithRetention(t *testing.T) {
+	mdb := newIndexesTestDatabase(t)
+	ctx := context.Background()
+
+	t.Run("Happy path: the configured window is applied", func(t *testing.T) {
+		require.NoError(t, db.EnsureIndexesWithRetention(ctx, mdb, 24*time.Hour))
+
+		emailOutbox := listIndexes(t, mdb, "email_outbox")
+		ttl, ok := emailOutbox["email_outbox_published_at_ttl"]
+		require.True(t, ok, "the outbox TTL index must exist, got %v", emailOutbox)
+		assert.Equal(t, int32((24 * time.Hour).Seconds()), indexExpireAfterSeconds(t, ttl))
+	})
+
+	t.Run("Edge: a changed window reconciles the existing index", func(t *testing.T) {
+		require.NoError(t, db.EnsureIndexesWithRetention(ctx, mdb, 48*time.Hour))
+
+		emailOutbox := listIndexes(t, mdb, "email_outbox")
+		ttl, ok := emailOutbox["email_outbox_published_at_ttl"]
+		require.True(t, ok, "the outbox TTL index must exist, got %v", emailOutbox)
+		assert.Equal(t, int32((48 * time.Hour).Seconds()), indexExpireAfterSeconds(t, ttl),
+			"MongoDB refuses createIndexes with changed options, so the window must be reconciled in place")
+	})
+
+	t.Run("Edge: re-applying the same window is idempotent", func(t *testing.T) {
+		require.NoError(t, db.EnsureIndexesWithRetention(ctx, mdb, 48*time.Hour))
 	})
 }

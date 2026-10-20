@@ -21,6 +21,10 @@ import (
 
 const repositoryTestDatabase = "legnaris_email_outbox_test"
 
+// outboxTestRetention is a retention window distinct from the default so the
+// suite proves the configured window reaches the TTL index (EML-17).
+const outboxTestRetention = 24 * time.Hour
+
 // newOutboxFixture connects to MongoDB, gives the test a clean email_outbox
 // collection with the production indexes, and self-skips when MongoDB is
 // unavailable so the unit run stays hermetic (EML-20).
@@ -46,7 +50,7 @@ func newOutboxFixture(t *testing.T) (outbox.Repository, *mongo.Collection) {
 		_ = mdb.Collection("email_outbox").Drop(context.Background())
 	})
 
-	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
+	require.NoError(t, db.EnsureIndexesWithRetention(context.Background(), mdb, outboxTestRetention))
 	return outbox.NewRepository(mdb, logger.NewLogger(slog.LevelError)), mdb.Collection("email_outbox")
 }
 
@@ -347,6 +351,6 @@ func TestRepository_Indexes(t *testing.T) {
 
 		seconds, ok := ttl["expireAfterSeconds"].(int32)
 		require.True(t, ok, "the TTL index must carry expireAfterSeconds")
-		assert.Equal(t, int32(env.DefaultEmailOutboxRetention.Seconds()), seconds)
+		assert.Equal(t, int32(outboxTestRetention.Seconds()), seconds)
 	})
 }

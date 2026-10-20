@@ -44,7 +44,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 		}
 	}()
 
-	if err := db.EnsureIndexes(ctx, database.Client.Database(cfg.Variables.DatabaseName)); err != nil {
+	if err := db.EnsureIndexesWithRetention(ctx, database.Client.Database(cfg.Variables.DatabaseName), cfg.Variables.EmailOutboxRetention); err != nil {
 		return fmt.Errorf("ensure indexes: %w", err)
 	}
 

@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -22,14 +23,23 @@ const (
 	emailOutboxPublishedAtTTL      = "email_outbox_published_at_ttl"
 )
 
-// EnsureIndexes creates the indexes required by the application. It runs at
-// boot, before the server accepts traffic, and is safe to call repeatedly:
-// MongoDB treats an identical createIndex as a no-op. The TTL index has
-// expireAfterSeconds=0, so documents are removed as soon as expires_at passes.
-// The unique index on sheets.owner_id is the durable one-sheet-per-user
-// invariant: it rejects a second sheet for an owner even under concurrent
-// creates that both pass the service's pre-check.
+// EnsureIndexes creates the indexes required by the application, retiring
+// published send intentions after the documented default retention window. It
+// runs at boot, before the server accepts traffic, and is safe to call
+// repeatedly: MongoDB treats an identical createIndex as a no-op. The TTL index
+// has expireAfterSeconds=0, so documents are removed as soon as expires_at
+// passes. The unique index on sheets.owner_id is the durable
+// one-sheet-per-user invariant: it rejects a second sheet for an owner even
+// under concurrent creates that both pass the service's pre-check.
 func EnsureIndexes(ctx context.Context, database *mongo.Database) error {
+	return EnsureIndexesWithRetention(ctx, database, env.DefaultEmailOutboxRetention)
+}
+
+// EnsureIndexesWithRetention creates every index, using retention as the
+// email_outbox published_at TTL window so the operator's configured
+// EMAIL_OUTBOX_RETENTION actually governs how long a published intention is
+// kept (EML-17). Callers that have no configured window use EnsureIndexes.
+func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, retention time.Duration) error {
 	users := database.Collection("users")
 	if _, err := users.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "email", Value: 1}},
@@ -68,19 +78,69 @@ func EnsureIndexes(ctx context.Context, database *mongo.Database) error {
 	// TTL on published_at retires published rows after the retention window and
 	// never touches a pending or failed row, whose published_at is null
 	// (EML-17).
-	emailOutbox := database.Collection("email_outbox")
-	if _, err := emailOutbox.Indexes().CreateMany(ctx, []mongo.IndexModel{
-		{
-			Keys:    bson.D{{Key: "status", Value: 1}, {Key: "next_attempt_at", Value: 1}},
-			Options: options.Index().SetName(emailOutboxStatusNextAttempt),
-		},
-		{
-			Keys:    bson.D{{Key: "published_at", Value: 1}},
-			Options: options.Index().SetExpireAfterSeconds(int32(env.DefaultEmailOutboxRetention.Seconds())).SetName(emailOutboxPublishedAtTTL),
-		},
-	}); err != nil {
-		return fmt.Errorf("create email_outbox indexes: %w", err)
+	if err := ensureEmailOutboxIndexes(ctx, database, retention); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+// ensureEmailOutboxIndexes creates the claim index and reconciles the TTL
+// index with the configured retention window.
+func ensureEmailOutboxIndexes(ctx context.Context, database *mongo.Database, retention time.Duration) error {
+	emailOutbox := database.Collection("email_outbox")
+	if _, err := emailOutbox.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "status", Value: 1}, {Key: "next_attempt_at", Value: 1}},
+		Options: options.Index().SetName(emailOutboxStatusNextAttempt),
+	}); err != nil {
+		return fmt.Errorf("create email_outbox index: %w", err)
+	}
+
+	if err := ensureEmailOutboxTTL(ctx, database, retention); err != nil {
+		return fmt.Errorf("create email_outbox TTL index: %w", err)
+	}
+	return nil
+}
+
+// ensureEmailOutboxTTL creates the published_at TTL index, or updates it in
+// place when the retention window changed. MongoDB refuses createIndexes when an
+// index name carries different options, so a changed window must reconcile
+// through collMod instead of failing the boot (EML-17).
+func ensureEmailOutboxTTL(ctx context.Context, database *mongo.Database, retention time.Duration) error {
+	emailOutbox := database.Collection("email_outbox")
+	seconds := int32(retention.Seconds())
+
+	specs, err := emailOutbox.Indexes().ListSpecifications(ctx)
+	if err != nil {
+		return fmt.Errorf("list email_outbox indexes: %w", err)
+	}
+
+	for _, spec := range specs {
+		if spec.Name != emailOutboxPublishedAtTTL {
+			continue
+		}
+		if spec.ExpireAfterSeconds != nil && *spec.ExpireAfterSeconds == seconds {
+			return nil
+		}
+		return updateEmailOutboxTTL(ctx, database, seconds)
+	}
+
+	if _, err := emailOutbox.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "published_at", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(seconds).SetName(emailOutboxPublishedAtTTL),
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// updateEmailOutboxTTL applies a new retention window to the existing TTL index.
+func updateEmailOutboxTTL(ctx context.Context, database *mongo.Database, seconds int32) error {
+	return database.RunCommand(ctx, bson.D{
+		{Key: "collMod", Value: "email_outbox"},
+		{Key: "index", Value: bson.D{
+			{Key: "name", Value: emailOutboxPublishedAtTTL},
+			{Key: "expireAfterSeconds", Value: seconds},
+		}},
+	}).Err()
 }
