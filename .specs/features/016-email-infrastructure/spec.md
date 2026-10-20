@@ -8,6 +8,13 @@
 
 **Input**: User description: "Deliver the async email delivery foundation: the EmailSender port with Resend and log adapters, embedded templates, configuration, a fake sender for tests, and the Mongo outbox plus relay publisher" (plan `docs/plan-auth-otp-2fa-email.md` §9 stage 2, decisions D5, D6, O1, O2, O4)
 
+## Clarifications
+
+### Session 2026-10-20
+
+- Q: In which language should the OTP email subject and both bodies (plain-text and HTML) be written? → A: English (user decision, 2026-10-20): the email copy is a user-facing string under Principle IV, so it ships in English and no constitution amendment is needed (`EML-11`, `EML-21`).
+- Q: How should the embedded OTP templates be organised for the two known purposes (email verification and login code)? → A: One embedded template per purpose (user decision, 2026-10-20): each purpose selects its own template with its own subject and bodies, giving per-purpose test targets (`EML-11`, `EML-22`).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A queued email is not lost when the publisher crashes (Priority: P1)
@@ -104,7 +111,7 @@ All email and broker settings are optional with documented defaults, so the requ
 - **EML-08**: All callers MUST send through one port; provider-specific behaviour MUST stay behind an adapter selected by configuration.
 - **EML-09**: The real provider adapter MUST send over HTTPS, MUST supply a stable idempotency key per intention, MUST honour a bounded per-send timeout, and MUST map provider outcomes to the retryable/permanent classification.
 - **EML-10**: The system MUST provide a development adapter that performs no network call and a test double that records sends; no unit test may invoke the provider.
-- **EML-11**: Each message MUST be rendered from an embedded template selected by its purpose, producing both a plain-text and an HTML body that carry the code and its lifetime; the subject MUST NOT carry the code, and an unknown purpose MUST be a permanent failure.
+- **EML-11**: Each message MUST be rendered from one embedded template per purpose (email verification and login code), selected by its purpose, producing both a plain-text and an HTML body that carry the code and its lifetime; the subject MUST NOT carry the code, and an unknown purpose MUST be a permanent failure.
 - **EML-12**: A send failure MUST be classified as retryable (rate limit, server error, timeout) or permanent (invalid recipient, unknown template); the classification MUST be a typed, testable outcome at the port boundary.
 - **EML-13**: The code MUST never appear in a log line, an error message, or a message subject, and logs MUST identify a message by its identity and purpose only, masking the recipient.
 
@@ -159,4 +166,5 @@ All email and broker settings are optional with documented defaults, so the requ
 - Identifiers are canonical UUID v7 from the shared generator, and the intention identity doubles as the provider idempotency key.
 - The broker runs on a single node: without high availability an outage may delay emails, but the durable intentions mean they are not lost.
 - No HTTP contract changes: the request-serving routes, their payloads and their status codes are untouched by this feature.
+- The email copy (subject and both bodies) is written in English, consistent with Principle IV, and there is no localisation path in this feature. One embedded template exists per purpose, and the message's purpose selects it.
 - Requirement-ID prefix `EML` is exclusive to this feature; `D5`, `D6`, `O1`, `O2`, `O4`, `F-16` belong to the plan and are not requirement IDs.

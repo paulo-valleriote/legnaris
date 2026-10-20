@@ -31,6 +31,9 @@
 
 ## Notes
 
+- Clarify session 2026-10-20 resolved the two open decisions the plan itself flagged or left silent:
+  the email copy ships in English (Principle IV, no amendment) and there is one embedded template
+  per purpose (`EML-11`, `EML-22`).
 - Requirements `EML-01`…`EML-23` are sequential and each acceptance scenario or edge case cites at
   least one. The prefix `EML` is unique to this feature.
 - Deliberately technology-neutral in the requirements: the provider and the broker are named only in
