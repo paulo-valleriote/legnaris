@@ -32,9 +32,9 @@ const attrUserID = "user_id"
 // dummyPasswordHash is a bcrypt digest of a password no account can present.
 // The unknown-address path compares the submitted password against it so the
 // sign-in of an address that does not exist costs the same password work as
-// the sign-in of a known one, and the result is discarded (TFA-05, R5). It is
-// at the repository's documented bcrypt cost, so both paths spend the same
-// rounds.
+// the sign-in of a known one, and the result is discarded (TFA-05, R5). It
+// carries the repository's documented bcrypt cost — 12, the default and the
+// floor of AUTH_BCRYPT_COST — so both paths spend the same rounds.
 const dummyPasswordHash = "$2a$12$FHRXgLT/5yVtMBbPBq11WeLdPhSthVfAga1EIV4qkWeIIo0FvqTRq"
 
 type RegisterCommand struct {
