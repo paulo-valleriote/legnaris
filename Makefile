@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: run build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan
+.PHONY: run build test test-race vet lint lint-specs fmt mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails
 
 ## --- Development ------------------------------------------------------------
 
@@ -48,6 +48,9 @@ fmt:            ## Format code
 
 mocks:          ## Generate mocks (after interface changes)
 	@go tool mockery
+
+migrate-emails: ## Repair legacy email addresses (dry run; ARGS="-apply" writes)
+	@go run ./cmd/canonicalize-emails $(ARGS)
 
 # dev-db derives MongoDB's root credentials from DATABASE_URI (exported from
 # .env above), so the container can never diverge from what the app and
