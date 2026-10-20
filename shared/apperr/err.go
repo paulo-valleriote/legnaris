@@ -19,6 +19,13 @@ const (
 	CodeCycleDetected     Code = "CYCLE_DETECTED"
 	CodeInvalidDependency Code = "INVALID_DEPENDENCY"
 	CodeInvalidPath       Code = "INVALID_PATH"
+	// CodeOTPInvalid is the one uniform outcome of every verification failure
+	// (unknown, expired, consumed, wrong or exhausted), so no case is
+	// distinguishable from another (OTP-08).
+	CodeOTPInvalid Code = "OTP_INVALID"
+	// CodeEmailUnavailable is the daily send cap being reached: no intention is
+	// recorded and the caller is told to retry later (OTP-13).
+	CodeEmailUnavailable Code = "EMAIL_UNAVAILABLE"
 )
 
 type Error struct {
@@ -34,7 +41,7 @@ func NewError(code Code, message string, err error) *Error {
 	case CodeInvalidJSON, CodeUnknownField, CodeInvalidRequest,
 		CodeCycleDetected, CodeInvalidDependency, CodeInvalidPath:
 		httpStatus = 400
-	case CodeUnauthorized:
+	case CodeUnauthorized, CodeOTPInvalid:
 		httpStatus = 401
 	case CodeForbidden:
 		httpStatus = 403
@@ -46,6 +53,8 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 409
 	case CodeRateLimited:
 		httpStatus = 429
+	case CodeEmailUnavailable:
+		httpStatus = 503
 	case CodeInternal:
 		httpStatus = 500
 	}

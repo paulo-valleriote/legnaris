@@ -20,7 +20,10 @@ const (
 	refreshTokensExpiresAtTTLIndex = "refresh_tokens_expires_at_ttl"
 	sheetsOwnerIDUniqueIndex       = "sheets_owner_id_unique"
 	emailOutboxStatusNextAttempt   = "email_outbox_status_next_attempt"
+	emailOutboxCreatedAt           = "email_outbox_created_at"
 	emailOutboxPublishedAtTTL      = "email_outbox_published_at_ttl"
+	authChallengesActiveUnique     = "auth_challenges_active_unique"
+	authChallengesExpiresAtTTL     = "auth_challenges_expires_at_ttl"
 )
 
 // EnsureIndexes creates the indexes required by the application, retiring
@@ -82,6 +85,35 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 		return err
 	}
 
+	if err := ensureAuthChallengeIndexes(ctx, database); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ensureAuthChallengeIndexes creates the challenge collection's two indexes: the
+// unique partial index that makes at most one active challenge per account and
+// purpose a store-enforced invariant, and the TTL that retires old rows as
+// hygiene only — expiry is always decided by comparing the stored instant with
+// the clock, never by the row's absence (OTP-01, OTP-06).
+func ensureAuthChallengeIndexes(ctx context.Context, database *mongo.Database) error {
+	challenges := database.Collection("auth_challenges")
+	if _, err := challenges.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "purpose", Value: 1}},
+			Options: options.Index().
+				SetUnique(true).
+				SetPartialFilterExpression(bson.D{{Key: "consumed_at", Value: bson.D{{Key: "$eq", Value: nil}}}}).
+				SetName(authChallengesActiveUnique),
+		},
+		{
+			Keys:    bson.D{{Key: "expires_at", Value: 1}},
+			Options: options.Index().SetExpireAfterSeconds(0).SetName(authChallengesExpiresAtTTL),
+		},
+	}); err != nil {
+		return fmt.Errorf("create auth_challenges indexes: %w", err)
+	}
 	return nil
 }
 
@@ -94,6 +126,15 @@ func ensureEmailOutboxIndexes(ctx context.Context, database *mongo.Database, ret
 		Options: options.Index().SetName(emailOutboxStatusNextAttempt),
 	}); err != nil {
 		return fmt.Errorf("create email_outbox index: %w", err)
+	}
+
+	// The created_at index backs the daily send-cap count over recorded
+	// intentions (OTP-13).
+	if _, err := emailOutbox.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "created_at", Value: 1}},
+		Options: options.Index().SetName(emailOutboxCreatedAt),
+	}); err != nil {
+		return fmt.Errorf("create email_outbox created_at index: %w", err)
 	}
 
 	if err := ensureEmailOutboxTTL(ctx, database, retention); err != nil {
