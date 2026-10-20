@@ -33,6 +33,10 @@ http:
         contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.legnaris.com.br; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; report-to csp-endpoint; report-uri https://api.legnaris.com.br/csp-report"
         customResponseHeaders:
           Reporting-Endpoints: 'csp-endpoint="https://api.legnaris.com.br/csp-report"'
+          # Traefik v3.3 has no dedicated COOP/CORP options; customResponseHeaders
+          # is the supported way to set them (headers.contract.md).
+          Cross-Origin-Opener-Policy: "same-origin"
+          Cross-Origin-Resource-Policy: "same-origin"
         stsSeconds: 63072000
         stsIncludeSubdomains: true
         stsPreload: true
@@ -40,8 +44,6 @@ http:
         contentTypeNosniff: true
         referrerPolicy: "strict-origin-when-cross-origin"
         permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)"
-        crossOriginOpenerPolicy: "same-origin"
-        crossOriginResourcePolicy: "same-origin"
 
   services:
     app:

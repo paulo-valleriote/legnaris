@@ -323,3 +323,11 @@ volumes.
    Diagnose and repair with `sudo make net-check` then `sudo make net-fix`
    (the repair backs up the removed rules and verifies a real container lookup;
    `cloudflared` and `app` recover on their own once egress is back).
+7. **One unsupported key in `traefik/dynamic.yml` disables every route**: the
+   file provider rejects the whole configuration (`field not found, node: ...`
+   in `docker logs traefik`), so all routers vanish and requests get a plain 404
+   with no CORS headers — which the browser reports as a CORS error on login or
+   registration. Traefik v3.3 has no `crossOriginOpenerPolicy` /
+   `crossOriginResourcePolicy` header options; COOP/CORP are set through
+   `customResponseHeaders`. `go test ./deploy/...` fails on any headers option
+   the pinned version does not support.
