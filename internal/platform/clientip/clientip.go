@@ -76,14 +76,12 @@ func New(configured []string) (*Policy, error) {
 			return nil, err
 		}
 	}
-	if configured != nil {
-		for _, raw := range configured {
-			if strings.TrimSpace(raw) == "" {
-				continue
-			}
-			if err := add(raw); err != nil {
-				return nil, err
-			}
+	for _, raw := range configured {
+		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+		if err := add(raw); err != nil {
+			return nil, err
 		}
 	}
 

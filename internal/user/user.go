@@ -3,10 +3,10 @@ package user
 import "time"
 
 type User struct {
-	ID           string    `bson:"_id,omitempty" json:"id"`
-	Email        string    `bson:"email" json:"email"`
-	Username     string    `bson:"username" json:"username"`
-	PasswordHash string    `bson:"password_hash" json:"-"`
+	ID           string `bson:"_id,omitempty" json:"id"`
+	Email        string `bson:"email" json:"email"`
+	Username     string `bson:"username" json:"username"`
+	PasswordHash string `bson:"password_hash" json:"-"`
 	// EmailVerifiedAt is absent until verification happens; it is never
 	// backfilled and never exposed on the wire DTO (PRQ-12, PRQ-14, PRQ-15).
 	EmailVerifiedAt *time.Time `bson:"email_verified_at,omitempty" json:"email_verified_at,omitempty"`
