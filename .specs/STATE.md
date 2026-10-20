@@ -169,3 +169,11 @@
   developer-rules document (`AGENTS.md`) sanctions it; the spec (`UIP-03`) requires both.
 - **Rejected alternative**: Duplicating the action per screen (would recreate the duplication this
   phase removes and violate the token-only layer rule).
+
+### AD-020
+- **Decision**: The email-delivery domain is a new `internal/email` package with focused subpackages — `resend` (the real provider adapter), `outbox` (the durable intention and its Mongo store), `relay` (the poll/claim/publish loop), `amqp` (the RabbitMQ topology and confirmed publish) and `emailtest` (the recording doubles) — wired by one new binary, `cmd/relay`. It adds two third-party client libraries: `github.com/resend/resend-go/v4` (v4.9.0) and `github.com/rabbitmq/amqp091-go` (v1.16.0), each isolated to a single adapter package.
+- **Reason**: The message contract and the sender port are shared by two processes that must not own each other (the relay publishes; the future worker sends), so they live in one domain package both import. Isolating the broker and the provider keeps the relay loop testable against interfaces with no service running, and the separate `cmd/relay` binary owns the process lifecycle so a broker outage can never reach the HTTP API. Following the AD-016 precedent, a client library is added without a constitution amendment.
+- **Trade-off**: Two new dependencies and a second binary in the shared runtime image; the API boot path deliberately never imports `internal/email`. `EMAIL_OUTBOX_RETENTION` stays a shared exported constant so `shared/db`'s TTL index and `shared/env` cannot drift. No new required environment variable: `RABBITMQ_URL` is validated by the relay, not the API (`env.RequiredKeys()` is unchanged).
+- **Scope**: `internal/email/{,resend,outbox,relay,amqp,emailtest}`, `cmd/relay`, `shared/env`, `shared/db/indexes.go`, `internal/platform/metrics`, `deploy/`, `Dockerfile`, `Makefile`, `.mockery.yaml`. Feature `016-email-infrastructure` (`EML-08`, `EML-14`).
+- **Date**: 2026-10-20
+- **Status**: active
