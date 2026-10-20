@@ -54,6 +54,12 @@ const (
 	defaultCSPReportRateLimitWindow   = 1 * time.Minute
 )
 
+// DefaultEmailOutboxRetention is the retention window after which a published
+// send intention becomes eligible for retirement; it backs the email_outbox
+// published_at TTL index (EML-17). It is exported so shared/db's index
+// declaration and this variable's default share one source of truth.
+const DefaultEmailOutboxRetention = 168 * time.Hour
+
 const attrKey = "key"
 
 // Environment variables the application cannot start without. Kept as
