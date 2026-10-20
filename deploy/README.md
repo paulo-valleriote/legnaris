@@ -371,6 +371,28 @@ digest, consumed at most once and never logged.
   daily send cap answers `EMAIL_UNAVAILABLE` (503) with `Retry-After`, and the
   per-address and per-account bounds answer `RATE_LIMITED` (429).
 
+## The sign-in hardening gate
+
+`AUTH_REQUIRE_EMAIL_VERIFICATION` decides whether the code step is the **only**
+door into a session.
+
+- **Optional, off by default.** With it unset (or `false`), registration and
+  sign-in answer a session exactly as they always did and renewal never looks
+  at the verification state — the deployed contract is unchanged.
+- **With it on**, registration answers `201` with a `verify_email` challenge
+  and sign-in answers `202` with a `login_otp` challenge: no cookie, no access
+  credential, no session. The session is established only when the emailed code
+  is verified. Renewal refuses an account that never verified its address (401,
+  the credential's family revoked) so a session minted before the rule cannot
+  outlive it.
+- **The flip is an operator act.** Set it to `true` in `deploy/.env`, restart
+  the `api` service, and every client must already understand the new contract:
+  this is a breaking change for the register and sign-in responses, so it is
+  deliberately not automatic and not staged by the deployment itself.
+- **No data moves.** Enabling or disabling the gate rewrites no account: the
+  verification timestamp is written only by the code verification itself, and
+  every existing account simply has none until it verifies.
+
 - **Metrics**: the relay serves its own listener on `EMAIL_RELAY_METRICS_ADDR`
   (`:9100`), scraped by Prometheus on the internal network:
   `legnaris_email_outbox_backlog` (pending gauge) and

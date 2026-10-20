@@ -264,6 +264,49 @@ func readIdentity(t *testing.T, h http.Handler, token string) user.UserDTO {
 	return body.Data
 }
 
+// TestIntegration_GateParity proves the gate changes no stored account and
+// leaves the legacy contract untouched while it is disabled: the registration
+// still answers a session with both cookies, and a gated sign-in rewrites no
+// account document (TFA-07, TFA-12, SC-004, SC-007).
+func TestIntegration_GateParity(t *testing.T) {
+	// The gated stack is built first: building the legacy stack drops the
+	// collections, so this order keeps the registered account alive.
+	gated, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "true"})
+	legacy, _, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "false"})
+	ctx := context.Background()
+
+	const email = "gate-parity@example.com"
+	registerBody := fmt.Sprintf(`{"email":%q,"username":"parity","password":%q}`, email, authPassword)
+
+	t.Run("Happy path: the disabled gate keeps the legacy registration contract", func(t *testing.T) {
+		registerRec := doRequest(t, legacy, http.MethodPost, "/auth/register", registerBody)
+		require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
+
+		session := decodeSession(t, registerRec)
+		require.NotEmpty(t, session.AccessToken)
+
+		cookies := cookiesFrom(t, registerRec)
+		require.NotEmpty(t, cookies.refresh, "the legacy contract sets the refresh cookie")
+		require.NotEmpty(t, cookies.csrf, "the legacy contract sets the CSRF cookie")
+		assert.NotContains(t, registerRec.Body.String(), "challenge_id",
+			"the legacy contract carries no challenge")
+	})
+
+	var before bson.M
+	require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.M{"email": email}).Decode(&before))
+	require.NotEmpty(t, before)
+
+	t.Run("Edge: the enabled gate rewrites no account", func(t *testing.T) {
+		loginRec := doRequest(t, gated, http.MethodPost, "/auth/login",
+			fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
+		require.Equal(t, http.StatusAccepted, loginRec.Code, loginRec.Body.String())
+
+		var after bson.M
+		require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.M{"email": email}).Decode(&after))
+		assert.Equal(t, before, after, "enabling the gate must not rewrite any account")
+	})
+}
+
 func TestIntegration_AuthRegister(t *testing.T) {
 	h, _ := newIntegrationRouter(t)
 

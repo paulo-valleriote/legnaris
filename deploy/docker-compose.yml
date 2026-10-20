@@ -142,6 +142,11 @@ services:
       AUTH_OTP_DAILY_SEND_CAP: ${AUTH_OTP_DAILY_SEND_CAP:-80}
       AUTH_OTP_USER_WINDOW: ${AUTH_OTP_USER_WINDOW:-1h}
       AUTH_OTP_USER_LIMIT: ${AUTH_OTP_USER_LIMIT:-10}
+      # The sign-in hardening gate ships dark: with it on, registration and
+      # sign-in answer a code step instead of a session, and renewal refuses an
+      # account that never verified its address. Optional, off by default, and
+      # it rewrites no account (TFA-07, TFA-12).
+      AUTH_REQUIRE_EMAIL_VERIFICATION: ${AUTH_REQUIRE_EMAIL_VERIFICATION:-false}
     networks:
       - edge
       - internal

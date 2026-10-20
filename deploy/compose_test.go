@@ -16,6 +16,9 @@ import (
 // base is sufficient.
 const composeFile = "docker-compose.yml"
 
+// envExampleFile is the deployment template the operator copies into deploy/.env.
+const envExampleFile = ".env.example"
+
 // composeDoc is the minimal shape needed to inspect service environments.
 type composeDoc struct {
 	Services map[string]composeService `yaml:"services"`
@@ -148,6 +151,35 @@ func TestAppServiceTrustedProxyCIDRs(t *testing.T) {
 
 	t.Run("Edge: the required-variable list gains only the digest secret", func(t *testing.T) {
 		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, env.RequiredKeys())
+	})
+}
+
+// TestAppServiceEmailVerificationGate guards the rollout gate's deployment
+// wiring: it is passed through to the app container, it is optional, and it
+// does not join the required-variable set (TFA-07, TFA-16).
+func TestAppServiceEmailVerificationGate(t *testing.T) {
+	doc := readCompose(t)
+
+	app, ok := doc.Services["app"]
+	require.True(t, ok, "the stack must define an app service")
+
+	t.Run("Happy path: the gate is an optional interpolation with a disabled default", func(t *testing.T) {
+		value, present := app.Environment["AUTH_REQUIRE_EMAIL_VERIFICATION"]
+		require.True(t, present, "app.environment must pass AUTH_REQUIRE_EMAIL_VERIFICATION through")
+		assert.Contains(t, value, "${AUTH_REQUIRE_EMAIL_VERIFICATION:-false}",
+			"the gate must be optional and default to the disabled state")
+	})
+
+	t.Run("Edge: the required-variable list is unchanged", func(t *testing.T) {
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, env.RequiredKeys())
+	})
+
+	t.Run("Happy path: the deployment template documents the gate", func(t *testing.T) {
+		raw, err := os.ReadFile(envExampleFile)
+		require.NoErrorf(t, err, "read %s", envExampleFile)
+
+		assert.Contains(t, string(raw), "AUTH_REQUIRE_EMAIL_VERIFICATION",
+			"the gate must be documented in the deployment template")
 	})
 }
 
