@@ -60,6 +60,11 @@ type Variables struct {
 	AuthOTPDailySendCap   int
 	AuthOTPUserWindow     time.Duration
 	AuthOTPUserLimit      int
+	// RequireEmailVerification is the rollout gate of the sign-in hardening:
+	// when it is enabled, registration and sign-in answer a started code step
+	// instead of a session, and renewal refuses an account that never verified
+	// its address. It is optional and disabled by default (TFA-07, TFA-16).
+	RequireEmailVerification bool
 }
 
 const (
@@ -99,6 +104,9 @@ const (
 	defaultAuthOTPDailySendCap   = 80
 	defaultAuthOTPUserWindow     = time.Hour
 	defaultAuthOTPUserLimit      = 10
+	// The sign-in hardening gate ships dark: an unset or unusable value keeps
+	// the legacy contract (TFA-07).
+	defaultAuthRequireEmailVerification = false
 )
 
 // DefaultEmailOutboxRetention is the retention window after which a published
@@ -109,13 +117,21 @@ const DefaultEmailOutboxRetention = 168 * time.Hour
 
 const attrKey = "key"
 
+// Structured-log field keys shared by the readers that report an unusable
+// value: the raw value and the default that replaced it.
+const (
+	attrValue   = "value"
+	attrDefault = "default"
+)
+
 // Environment variables the application cannot start without. Kept as
 // constants so RequiredKeys and initVariables share one source of truth.
 const (
-	keyDatabaseURI       = "DATABASE_URI"
-	keyJWTSecret         = "JWT_SECRET"
-	keyEmailCodeSecret   = "EMAIL_CODE_SECRET"
-	keyTrustedProxyCIDRs = "TRUSTED_PROXY_CIDRS"
+	keyDatabaseURI                  = "DATABASE_URI"
+	keyJWTSecret                    = "JWT_SECRET"
+	keyEmailCodeSecret              = "EMAIL_CODE_SECRET"
+	keyTrustedProxyCIDRs            = "TRUSTED_PROXY_CIDRS"
+	keyAuthRequireEmailVerification = "AUTH_REQUIRE_EMAIL_VERIFICATION"
 )
 
 // RequiredKeys returns the environment variables the application cannot start
@@ -185,6 +201,7 @@ func (e *Env) initVariables() Variables {
 		AuthOTPDailySendCap:            e.lookupIntEnv("AUTH_OTP_DAILY_SEND_CAP", defaultAuthOTPDailySendCap),
 		AuthOTPUserWindow:              e.lookupDurationEnv("AUTH_OTP_USER_WINDOW", defaultAuthOTPUserWindow),
 		AuthOTPUserLimit:               e.lookupIntEnv("AUTH_OTP_USER_LIMIT", defaultAuthOTPUserLimit),
+		RequireEmailVerification:       e.lookupBoolEnv(keyAuthRequireEmailVerification, defaultAuthRequireEmailVerification),
 	}
 }
 
@@ -269,8 +286,8 @@ func (e *Env) lookupDurationEnv(key string, defaultValue time.Duration) time.Dur
 			context.Background(),
 			"invalid duration value for environment variable; using default",
 			logger.Attribute{Key: attrKey, Value: key},
-			logger.Attribute{Key: "value", Value: value},
-			logger.Attribute{Key: "default", Value: defaultValue.String()},
+			logger.Attribute{Key: attrValue, Value: value},
+			logger.Attribute{Key: attrDefault, Value: defaultValue.String()},
 		)
 		return defaultValue
 	}
@@ -308,8 +325,34 @@ func (e *Env) lookupIntEnv(key string, defaultValue int) int {
 			context.Background(),
 			"invalid integer value for environment variable; using default",
 			logger.Attribute{Key: attrKey, Value: key},
-			logger.Attribute{Key: "value", Value: value},
-			logger.Attribute{Key: "default", Value: strconv.Itoa(defaultValue)},
+			logger.Attribute{Key: attrValue, Value: value},
+			logger.Attribute{Key: attrDefault, Value: strconv.Itoa(defaultValue)},
+		)
+		return defaultValue
+	}
+	return parsed
+}
+
+// lookupBoolEnv reads a boolean from the environment using the spellings
+// strconv.ParseBool accepts (1/0/t/f/true/false/TRUE/FALSE/True/False). When
+// the variable is unset, empty or unparseable, it logs a structured warning and
+// returns the provided default. An optional setting never fails the boot: the
+// fallback direction is the safe one, so a typo in the deployment disables the
+// feature instead of enabling it (TFA-07, TFA-16).
+func (e *Env) lookupBoolEnv(key string, defaultValue bool) bool {
+	value, found := e.lookupEnv(key)
+	if !found {
+		return defaultValue
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		e.Logger.Warn(
+			context.Background(),
+			"invalid boolean value for environment variable; using default",
+			logger.Attribute{Key: attrKey, Value: key},
+			logger.Attribute{Key: attrValue, Value: value},
+			logger.Attribute{Key: attrDefault, Value: strconv.FormatBool(defaultValue)},
 		)
 		return defaultValue
 	}
