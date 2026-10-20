@@ -127,7 +127,7 @@ func (b *Broker) Publish(ctx context.Context, msg email.Message) error {
 		return fmt.Errorf("%w: encode message: %v", email.ErrTransient, err)
 	}
 
-	props := msg.AMQPProperties()
+	props := provision(msg)
 	props.Body = body
 
 	pending, err := b.ch.PublishWithDeferredConfirmWithContext(ctx, exchangeMain, routingKeyOTP, true, false, props)

@@ -6,11 +6,7 @@
 // services.
 package email
 
-import (
-	"time"
-
-	amqp "github.com/rabbitmq/amqp091-go"
-)
+import "time"
 
 // Purpose selects the embedded template that renders a message; one template
 // exists per purpose (EML-11).
@@ -56,16 +52,4 @@ type Data struct {
 	Code             string  `json:"code"`
 	ExpiresInMinutes int     `json:"expires_in_minutes"`
 	Purpose          Purpose `json:"purpose"`
-}
-
-// AMQPProperties derives the broker properties that must accompany the encoded
-// message: JSON content type, persistent delivery and the intention identity as
-// the broker-level MessageId (EML-07). The body is set by the publisher; the
-// code is deliberately absent from every derived property (EML-13).
-func (m Message) AMQPProperties() amqp.Publishing {
-	return amqp.Publishing{
-		ContentType:  "application/json",
-		DeliveryMode: amqp.Persistent,
-		MessageId:    m.ID,
-	}
 }

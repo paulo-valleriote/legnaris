@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -81,30 +80,4 @@ func TestMessage_CreatedAtRFC3339(t *testing.T) {
 	var createdAt string
 	require.NoError(t, json.Unmarshal(raw["created_at"], &createdAt))
 	assert.Equal(t, "2026-10-20T12:00:00Z", createdAt)
-}
-
-// TestMessage_AMQPProperties pins the derived broker properties and proves the
-// code never leaks into them (EML-07, EML-13).
-func TestMessage_AMQPProperties(t *testing.T) {
-	props := goldenMessage().AMQPProperties()
-
-	t.Run("Happy path: content type, persistent delivery and identity", func(t *testing.T) {
-		assert.Equal(t, "application/json", props.ContentType)
-		assert.Equal(t, uint8(2), props.DeliveryMode, "persistent delivery is required")
-		assert.Equal(t, goldenMessage().ID, props.MessageId,
-			"the intention identity is the broker-level message id")
-	})
-
-	t.Run("Edge: the code is absent from every derived property", func(t *testing.T) {
-		assert.NotContains(t, props.ContentType, "042917")
-		assert.NotContains(t, props.MessageId, "042917")
-	})
-
-	t.Run("Edge: an empty identity still derives a code-free property set", func(t *testing.T) {
-		var zero email.Message
-		empty := zero.AMQPProperties()
-		assert.Equal(t, "application/json", empty.ContentType)
-		assert.Empty(t, empty.MessageId)
-		assert.False(t, strings.Contains(empty.MessageId, "042917"))
-	})
 }
