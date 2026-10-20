@@ -29,6 +29,14 @@ var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 // attrUserID is the structured-log field carrying the authenticated user id.
 const attrUserID = "user_id"
 
+// dummyPasswordHash is a bcrypt digest of a password no account can present.
+// The unknown-address path compares the submitted password against it so the
+// sign-in of an address that does not exist costs the same password work as
+// the sign-in of a known one, and the result is discarded (TFA-05, R5). It is
+// at the repository's documented bcrypt cost, so both paths spend the same
+// rounds.
+const dummyPasswordHash = "$2a$12$FHRXgLT/5yVtMBbPBq11WeLdPhSthVfAga1EIV4qkWeIIo0FvqTRq"
+
 type RegisterCommand struct {
 	Email    string `json:"email"`
 	Username string `json:"username"`
@@ -78,6 +86,11 @@ type SessionResponse struct {
 // The access-token TTL is a TokenManager concern, not a service one.
 type Config struct {
 	RefreshTTL time.Duration
+	// RequireEmailVerification is the rollout gate and the single decision
+	// point of the sign-in hardening: when it is enabled, Register and Login
+	// answer a started code step instead of a session, and Refresh refuses an
+	// account that never verified its address (TFA-01, TFA-02, TFA-06, TFA-07).
+	RequireEmailVerification bool
 	// Now is the single clock for timestamps written or compared here. Nil
 	// means the system clock (PRQ-16).
 	Now Clock
@@ -97,8 +110,8 @@ type ChallengeDeps struct {
 }
 
 type Service interface {
-	Register(ctx context.Context, cmd RegisterCommand) (*Session, error)
-	Login(ctx context.Context, cmd LoginCommand) (*Session, error)
+	Register(ctx context.Context, cmd RegisterCommand) (*StartOutcome, error)
+	Login(ctx context.Context, cmd LoginCommand) (*StartOutcome, error)
 	Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error)
 	Logout(ctx context.Context, cmd LogoutCommand) error
 	IssueChallenge(ctx context.Context, cmd IssueChallengeCommand) (*ChallengeIssued, error)
@@ -150,10 +163,11 @@ func NewService(
 	}
 }
 
-// Register creates the account and, on success, signs it in exactly as Login
-// does: a duplicate email still answers 409 before any session is issued
-// (AUTH-02).
-func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Session, error) {
+// Register creates the account and, on success, either signs it in exactly as
+// Login does or starts the code step that must be verified first, depending on
+// the rollout gate. A duplicate email still answers 409 before any session is
+// issued and before any code is sent (AUTH-02, TFA-01).
+func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*StartOutcome, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgInvalidEmail, err)
@@ -202,27 +216,45 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Sessi
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
+	// The account exists and carries no verification timestamp: the code step
+	// is what records it (TFA-01, TFA-04).
+	if s.cfg.RequireEmailVerification {
+		issued, err := s.startChallenge(ctx, newUser.ID, newUser.Email, PurposeVerifyEmail)
+		if err != nil {
+			return nil, err
+		}
+		s.log.Info(ctx, "registration challenge started", logger.Attribute{Key: attrUserID, Value: newUser.ID})
+		return &StartOutcome{Challenge: issued}, nil
+	}
+
 	session, err := s.signIn(ctx, newUser.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	s.log.Info(ctx, "user registered", logger.Attribute{Key: attrUserID, Value: newUser.ID})
-	return session, nil
+	return &StartOutcome{Session: session}, nil
 }
 
-func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*Session, error) {
+// Login proves the password and, on success, either establishes the session
+// exactly as today or starts the code step that must be verified first,
+// depending on the rollout gate. Every credential failure answers the one
+// uniform outcome and starts nothing (TFA-02, TFA-05).
+func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*StartOutcome, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
 		// An unparseable address is indistinguishable from an unknown one, so the
 		// response never reveals whether an account could have existed (PRQ-09,
-		// PRQ-10, PRQ-17).
+		// PRQ-10, PRQ-17). The password work is still spent, so the timing
+		// class is the same as the known-account path (TFA-05).
+		s.spendPasswordWork(cmd.Password)
 		return nil, s.invalidCredentials(ctx, "unparseable email")
 	}
 
 	stored, err := s.users.FetchByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
+			s.spendPasswordWork(cmd.Password)
 			return nil, s.invalidCredentials(ctx, "unknown email")
 		}
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
@@ -232,13 +264,45 @@ func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*Session, er
 		return nil, s.invalidCredentials(ctx, "password mismatch")
 	}
 
+	if s.cfg.RequireEmailVerification {
+		issued, err := s.startChallenge(ctx, stored.ID, stored.Email, PurposeLoginOTP)
+		if err != nil {
+			return nil, err
+		}
+		s.log.Info(ctx, "login challenge started", logger.Attribute{Key: attrUserID, Value: stored.ID})
+		return &StartOutcome{Challenge: issued}, nil
+	}
+
 	session, err := s.signIn(ctx, stored.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	s.log.Info(ctx, "login succeeded", logger.Attribute{Key: attrUserID, Value: stored.ID})
-	return session, nil
+	return &StartOutcome{Session: session}, nil
+}
+
+// startChallenge starts the code step a gated registration or sign-in owes. The
+// purpose is bound here, from the operation that reached this point, and is
+// never read from a command the client controls (TFA-03).
+func (s *ServiceImpl) startChallenge(ctx context.Context, userID, email string, purpose Purpose) (*ChallengeIssued, error) {
+	if s.challenge.Repository == nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, nil)
+	}
+	return s.IssueChallenge(ctx, IssueChallengeCommand{
+		UserID:  userID,
+		Email:   email,
+		Purpose: purpose,
+	})
+}
+
+// spendPasswordWork performs the password comparison the unknown-account path
+// owes, so the response time of a sign-in for an address that does not exist
+// falls into the same class as the one for an address whose password is wrong.
+// The comparison runs against a digest no account stores, so its result is
+// discarded (TFA-05, R5).
+func (s *ServiceImpl) spendPasswordWork(password string) {
+	_ = s.hasher.Compare(dummyPasswordHash, password)
 }
 
 // Refresh consumes the presented cookie credential, verifies the CSRF token

@@ -43,6 +43,18 @@ type Modules struct {
 	ClientIP func(*http.Request) string
 }
 
+// authServiceConfig maps the resolved environment onto the auth service's
+// configuration. The rollout gate is carried here, so the service — and not
+// the controller — is the single place that decides whether a session or a code
+// step is issued (TFA-01, TFA-02, TFA-07).
+func authServiceConfig(vars env.Variables, now auth.Clock) auth.Config {
+	return auth.Config{
+		RefreshTTL:               vars.AuthRefreshTTL,
+		RequireEmailVerification: vars.RequireEmailVerification,
+		Now:                      now,
+	}
+}
+
 // NewModules wires every domain module. It returns an error for configuration
 // that must fail fast at boot (JWT secret, bcrypt cost, the code-digest secret)
 // instead of producing a half-usable server.
@@ -116,10 +128,7 @@ func NewModules(
 		auth.NewRefreshTokenGenerator(),
 		csrfManager,
 		observer,
-		auth.Config{
-			RefreshTTL: cfg.Variables.AuthRefreshTTL,
-			Now:        now,
-		},
+		authServiceConfig(cfg.Variables, now),
 		log,
 		auth.ChallengeDeps{
 			Repository: challengeRepository,

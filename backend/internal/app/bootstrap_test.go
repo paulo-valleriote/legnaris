@@ -31,6 +31,7 @@ func buildModules(t *testing.T, secret string, secretPresent bool) (*app.Modules
 
 	t.Setenv("JWT_SECRET", "bootstrap-test-secret")
 	t.Setenv("AUTH_BCRYPT_COST", "12")
+	t.Setenv("AUTH_REQUIRE_EMAIL_VERIFICATION", "false")
 	if secretPresent {
 		t.Setenv("EMAIL_CODE_SECRET", secret)
 	} else {
@@ -92,5 +93,26 @@ func TestNewModules_EmailCodeSecret(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, modules)
 		assert.NotNil(t, modules.Auth.Service, "the challenge service must be wired")
+	})
+}
+
+// TestNewModules_EmailVerificationGate pins the rollout gate's boot behaviour:
+// it is optional, it never fails the boot, and the required-variable set is
+// unchanged, so the deployment's contract does not move (TFA-07, TFA-16).
+func TestNewModules_EmailVerificationGate(t *testing.T) {
+	for _, gate := range []string{"true", "false"} {
+		t.Run("Happy path: the gate boots the server in the "+gate+" state", func(t *testing.T) {
+			t.Setenv("AUTH_REQUIRE_EMAIL_VERIFICATION", gate)
+
+			modules, err := buildModules(t, strings.Repeat("k", 32), true)
+
+			require.NoError(t, err)
+			require.NotNil(t, modules)
+			assert.NotNil(t, modules.Auth.Service)
+		})
+	}
+
+	t.Run("Edge: the gate is not a required variable", func(t *testing.T) {
+		assert.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, env.RequiredKeys())
 	})
 }

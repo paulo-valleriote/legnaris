@@ -5,8 +5,10 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
@@ -76,6 +78,22 @@ func session() *auth.Session {
 	}
 }
 
+// sessionOutcome is the service result of a legacy registration or sign-in:
+// the established session and no code step (TFA-07, TFA-12).
+func sessionOutcome() *auth.StartOutcome {
+	return &auth.StartOutcome{Session: session()}
+}
+
+// challengeOutcome is the service result of a gated registration or sign-in:
+// the started code step and no session (TFA-01, TFA-02).
+func challengeOutcome() *auth.StartOutcome {
+	return &auth.StartOutcome{Challenge: &auth.ChallengeIssued{
+		ChallengeID: "01900000-0000-7000-8000-000000000009",
+		ExpiresIn:   600,
+		ResendAfter: 60,
+	}}
+}
+
 func assertSessionCookies(t *testing.T, rec *httptest.ResponseRecorder) {
 	t.Helper()
 
@@ -114,12 +132,31 @@ func assertSessionBody(t *testing.T, rec *httptest.ResponseRecorder) {
 	assert.NotContains(t, raw, "csrf-token", "the CSRF token travels only in the cookie")
 }
 
+// assertChallengeBody pins the gated answer: the challenge handle, its
+// lifetime and the resend window, with no credential of any kind in the body
+// and no cookie in the headers (TFA-01, TFA-02, SC-001).
+func assertChallengeBody(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
+
+	var body response.Success[auth.ChallengeIssued]
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "01900000-0000-7000-8000-000000000009", body.Data.ChallengeID)
+	assert.Equal(t, 600, body.Data.ExpiresIn)
+	assert.Equal(t, 60, body.Data.ResendAfter)
+
+	raw := rec.Body.String()
+	assert.NotContains(t, raw, "access_token", "the body must carry no access credential")
+	assert.NotContains(t, raw, "refresh_token", "the body must carry no refresh credential")
+	assert.NotContains(t, raw, "csrf", "the CSRF token travels only in the cookie")
+	assert.Empty(t, rec.Header().Get("Set-Cookie"), "a code-step answer sets no cookie")
+}
+
 func TestAuthController_Register(t *testing.T) {
 	t.Run("Happy path: 201 with the session body and both cookies", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		service.EXPECT().
 			Register(mock.Anything, auth.RegisterCommand{Email: "player@example.com", Username: "player", Password: "sup3r-secret"}).
-			Return(session(), nil).
+			Return(sessionOutcome(), nil).
 			Once()
 
 		h := newAuthRouter(t, service)
@@ -128,6 +165,20 @@ func TestAuthController_Register(t *testing.T) {
 
 		assertSessionCookies(t, rec)
 		assertSessionBody(t, rec)
+	})
+
+	t.Run("Happy path: the gated registration answers 201 with the challenge and no cookie", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Register(mock.Anything, mock.Anything).
+			Return(challengeOutcome(), nil).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/register", `{"email":"player@example.com","username":"player","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusCreated, rec.Code)
+
+		assertChallengeBody(t, rec)
 	})
 
 	t.Run("Error: invalid body returns 400", func(t *testing.T) {
@@ -155,6 +206,41 @@ func TestAuthController_Register(t *testing.T) {
 		require.Equal(t, http.StatusConflict, rec.Code)
 		assert.Empty(t, rec.Header().Get("Set-Cookie"))
 	})
+
+	t.Run("Error: the spent daily allowance answers 503 with a retry hint and no cookie", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Register(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeEmailUnavailable, auth.MsgEmailUnavailable, nil).WithRetryAfter(90*time.Second)).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/register", `{"email":"player@example.com","username":"player","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+		assert.Equal(t, "90", rec.Header().Get("Retry-After"))
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeEmailUnavailable), body.Error.Code)
+	})
+
+	t.Run("Error: a store failure while starting the code step answers 500", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Register(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeInternal, auth.MsgInternal, errors.New("mongo down"))).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/register", `{"email":"player@example.com","username":"player","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeInternal), body.Error.Code)
+	})
 }
 
 func TestAuthController_Login(t *testing.T) {
@@ -162,7 +248,7 @@ func TestAuthController_Login(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		service.EXPECT().
 			Login(mock.Anything, auth.LoginCommand{Email: "player@example.com", Password: "sup3r-secret"}).
-			Return(session(), nil).
+			Return(sessionOutcome(), nil).
 			Once()
 
 		h := newAuthRouter(t, service)
@@ -171,6 +257,20 @@ func TestAuthController_Login(t *testing.T) {
 
 		assertSessionCookies(t, rec)
 		assertSessionBody(t, rec)
+	})
+
+	t.Run("Happy path: the gated sign-in answers 202 with the challenge and no cookie", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Login(mock.Anything, mock.Anything).
+			Return(challengeOutcome(), nil).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusAccepted, rec.Code)
+
+		assertChallengeBody(t, rec)
 	})
 
 	t.Run("Error: invalid credentials map to 401 and set no cookie", func(t *testing.T) {
@@ -186,6 +286,84 @@ func TestAuthController_Login(t *testing.T) {
 		assert.Empty(t, rec.Header().Get("Set-Cookie"))
 		assert.NotContains(t, rec.Body.String(), "raw-refresh")
 	})
+}
+
+// TestAuthController_CredentialFailuresAreUniform pins the one uniform
+// credential failure: the four ways a sign-in can fail answer the same status
+// and the same body, so no caller can tell them apart (TFA-05, SC-002).
+func TestAuthController_CredentialFailuresAreUniform(t *testing.T) {
+	failures := []struct {
+		name string
+		body string
+	}{
+		{name: "unknown address", body: `{"email":"nobody@example.com","password":"sup3r-secret"}`},
+		{name: "wrong password", body: `{"email":"player@example.com","password":"wrong"}`},
+		{name: "unparseable address", body: `{"email":"not-an-email","password":"sup3r-secret"}`},
+		{name: "over-long address", body: `{"email":"` + strings.Repeat("a", 250) + `@example.com","password":"sup3r-secret"}`},
+	}
+
+	var bodies []string
+	for _, tc := range failures {
+		t.Run("Edge: "+tc.name+" answers the one uniform 401", func(t *testing.T) {
+			service := authmocks.NewMockService(t)
+			service.EXPECT().
+				Login(mock.Anything, mock.Anything).
+				Return(nil, apperr.NewError(apperr.CodeUnauthorized, auth.MsgInvalidCredentials, nil)).
+				Once()
+
+			h := newAuthRouter(t, service)
+			rec := doRequest(t, h, http.MethodPost, "/auth/login", tc.body)
+			require.Equal(t, http.StatusUnauthorized, rec.Code)
+			assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+			var body response.ErrorResponse
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, string(apperr.CodeUnauthorized), body.Error.Code)
+			assert.Equal(t, auth.MsgInvalidCredentials, body.Error.Message)
+
+			bodies = append(bodies, rec.Body.String())
+		})
+	}
+
+	t.Run("Edge: every credential failure answered byte-identically", func(t *testing.T) {
+		require.Len(t, bodies, len(failures))
+		for i := 1; i < len(bodies); i++ {
+			assert.Equal(t, bodies[0], bodies[i],
+				"failure %q must be indistinguishable from %q", failures[i].name, failures[0].name)
+		}
+	})
+}
+
+// TestAuthController_GatedAnswersDiscloseNothing sweeps the bodies and headers
+// of the two gated answers: no six-digit code and no address may appear in
+// either (TFA-16, SC-001).
+func TestAuthController_GatedAnswersDiscloseNothing(t *testing.T) {
+	for _, route := range []string{"/auth/register", "/auth/login"} {
+		t.Run("Edge: "+route+" discloses neither a code nor an address", func(t *testing.T) {
+			service := authmocks.NewMockService(t)
+			service.EXPECT().
+				Register(mock.Anything, mock.Anything).
+				Return(challengeOutcome(), nil).
+				Maybe()
+			service.EXPECT().
+				Login(mock.Anything, mock.Anything).
+				Return(challengeOutcome(), nil).
+				Maybe()
+
+			h := newAuthRouter(t, service)
+			rec := doRequest(t, h, http.MethodPost, route, `{"email":"player@example.com","username":"player","password":"sup3r-secret"}`)
+			require.NotEqual(t, http.StatusUnauthorized, rec.Code)
+
+			assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), rec.Body.String())
+			assert.NotContains(t, rec.Body.String(), "player@example.com")
+			for key, values := range rec.Header() {
+				for _, value := range values {
+					assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), value, "header %s must carry no code", key)
+					assert.NotContains(t, value, "@", "header %s must carry no address", key)
+				}
+			}
+		})
+	}
 }
 
 func TestAuthController_Refresh(t *testing.T) {

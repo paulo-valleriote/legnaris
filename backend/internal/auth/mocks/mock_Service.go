@@ -82,23 +82,23 @@ func (_c *MockService_IssueChallenge_Call) RunAndReturn(run func(context.Context
 }
 
 // Login provides a mock function with given fields: ctx, cmd
-func (_m *MockService) Login(ctx context.Context, cmd auth.LoginCommand) (*auth.Session, error) {
+func (_m *MockService) Login(ctx context.Context, cmd auth.LoginCommand) (*auth.StartOutcome, error) {
 	ret := _m.Called(ctx, cmd)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Login")
 	}
 
-	var r0 *auth.Session
+	var r0 *auth.StartOutcome
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, auth.LoginCommand) (*auth.Session, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, auth.LoginCommand) (*auth.StartOutcome, error)); ok {
 		return rf(ctx, cmd)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, auth.LoginCommand) *auth.Session); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, auth.LoginCommand) *auth.StartOutcome); ok {
 		r0 = rf(ctx, cmd)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*auth.Session)
+			r0 = ret.Get(0).(*auth.StartOutcome)
 		}
 	}
 
@@ -130,12 +130,12 @@ func (_c *MockService_Login_Call) Run(run func(ctx context.Context, cmd auth.Log
 	return _c
 }
 
-func (_c *MockService_Login_Call) Return(_a0 *auth.Session, _a1 error) *MockService_Login_Call {
+func (_c *MockService_Login_Call) Return(_a0 *auth.StartOutcome, _a1 error) *MockService_Login_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockService_Login_Call) RunAndReturn(run func(context.Context, auth.LoginCommand) (*auth.Session, error)) *MockService_Login_Call {
+func (_c *MockService_Login_Call) RunAndReturn(run func(context.Context, auth.LoginCommand) (*auth.StartOutcome, error)) *MockService_Login_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -247,23 +247,23 @@ func (_c *MockService_Refresh_Call) RunAndReturn(run func(context.Context, auth.
 }
 
 // Register provides a mock function with given fields: ctx, cmd
-func (_m *MockService) Register(ctx context.Context, cmd auth.RegisterCommand) (*auth.Session, error) {
+func (_m *MockService) Register(ctx context.Context, cmd auth.RegisterCommand) (*auth.StartOutcome, error) {
 	ret := _m.Called(ctx, cmd)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Register")
 	}
 
-	var r0 *auth.Session
+	var r0 *auth.StartOutcome
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, auth.RegisterCommand) (*auth.Session, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, auth.RegisterCommand) (*auth.StartOutcome, error)); ok {
 		return rf(ctx, cmd)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, auth.RegisterCommand) *auth.Session); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, auth.RegisterCommand) *auth.StartOutcome); ok {
 		r0 = rf(ctx, cmd)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*auth.Session)
+			r0 = ret.Get(0).(*auth.StartOutcome)
 		}
 	}
 
@@ -295,12 +295,12 @@ func (_c *MockService_Register_Call) Run(run func(ctx context.Context, cmd auth.
 	return _c
 }
 
-func (_c *MockService_Register_Call) Return(_a0 *auth.Session, _a1 error) *MockService_Register_Call {
+func (_c *MockService_Register_Call) Return(_a0 *auth.StartOutcome, _a1 error) *MockService_Register_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockService_Register_Call) RunAndReturn(run func(context.Context, auth.RegisterCommand) (*auth.Session, error)) *MockService_Register_Call {
+func (_c *MockService_Register_Call) RunAndReturn(run func(context.Context, auth.RegisterCommand) (*auth.StartOutcome, error)) *MockService_Register_Call {
 	_c.Call.Return(run)
 	return _c
 }

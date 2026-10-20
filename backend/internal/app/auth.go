@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/json"
 	"legnaris/backend/shared/response"
 
@@ -28,8 +29,9 @@ func NewAuthController(service auth.Service) *AuthController {
 	}
 }
 
-// Register creates the account and signs it in: 201 with the session body and
-// both cookies (AUTH-02).
+// Register creates the account and answers the service's decision: with the
+// gate off it is 201 with the session body and both cookies, with the gate on
+// it is 201 with the started code step and no cookie at all (AUTH-02, TFA-01).
 func (ac *AuthController) Register(c *echo.Context) error {
 	var cmd auth.RegisterCommand
 
@@ -37,17 +39,25 @@ func (ac *AuthController) Register(c *echo.Context) error {
 		return decodeError(err)
 	}
 
-	session, err := ac.service.Register(c.Request().Context(), cmd)
+	outcome, err := ac.service.Register(c.Request().Context(), cmd)
 	if err != nil {
 		return err
 	}
 
-	setSessionCookies(c, session)
-	return response.Created(c, sessionResponse(session))
+	if outcome.Challenge != nil {
+		return response.Created(c, outcome.Challenge)
+	}
+	if outcome.Session == nil {
+		return apperr.NewError(apperr.CodeInternal, auth.MsgInternal, nil)
+	}
+
+	setSessionCookies(c, outcome.Session)
+	return response.Created(c, sessionResponse(outcome.Session))
 }
 
-// Login establishes a session: 200 with the session body and both cookies
-// (AUTH-01).
+// Login answers the service's decision: with the gate off it is 200 with the
+// session body and both cookies, with the gate on it is 202 with the started
+// code step and no cookie at all (AUTH-01, TFA-02).
 func (ac *AuthController) Login(c *echo.Context) error {
 	var cmd auth.LoginCommand
 
@@ -55,13 +65,20 @@ func (ac *AuthController) Login(c *echo.Context) error {
 		return decodeError(err)
 	}
 
-	session, err := ac.service.Login(c.Request().Context(), cmd)
+	outcome, err := ac.service.Login(c.Request().Context(), cmd)
 	if err != nil {
 		return err
 	}
 
-	setSessionCookies(c, session)
-	return response.OK(c, sessionResponse(session))
+	if outcome.Challenge != nil {
+		return response.JSON(c, http.StatusAccepted, outcome.Challenge)
+	}
+	if outcome.Session == nil {
+		return apperr.NewError(apperr.CodeInternal, auth.MsgInternal, nil)
+	}
+
+	setSessionCookies(c, outcome.Session)
+	return response.OK(c, sessionResponse(outcome.Session))
 }
 
 // Refresh consumes the refresh credential from the cookie only and rotates the

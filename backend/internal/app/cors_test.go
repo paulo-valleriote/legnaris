@@ -89,7 +89,7 @@ func TestCORSPreflight(t *testing.T) {
 func TestCORSActualRequest(t *testing.T) {
 	t.Run("Happy path: the allowlisted origin is echoed exactly, never a wildcard", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
-		service.EXPECT().Login(mock.Anything, mock.Anything).Return(session(), nil).Once()
+		service.EXPECT().Login(mock.Anything, mock.Anything).Return(sessionOutcome(), nil).Once()
 		h := newAuthRouterWithCORS(t, service)
 
 		req := newRequest(http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
@@ -107,7 +107,7 @@ func TestCORSActualRequest(t *testing.T) {
 
 	t.Run("Edge: a request from an unlisted origin receives no allow-origin and never a wildcard", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
-		service.EXPECT().Login(mock.Anything, mock.Anything).Return(session(), nil).Once()
+		service.EXPECT().Login(mock.Anything, mock.Anything).Return(sessionOutcome(), nil).Once()
 		h := newAuthRouterWithCORS(t, service)
 
 		req := newRequest(http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)

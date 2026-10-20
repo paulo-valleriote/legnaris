@@ -97,6 +97,75 @@ func registerAuthUser(t *testing.T, h http.Handler, email, username string) auth
 	return cookies
 }
 
+// TestIntegration_GatedSignIn drives the gated journey end to end: the
+// registration answers a challenge and no session, the code the recorded
+// intention carries verifies it into the account's first session and records
+// the verification timestamp, and a sign-in starts a second code step
+// (TFA-01, TFA-04, TFA-11, TFA-13).
+func TestIntegration_GatedSignIn(t *testing.T) {
+	h, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "true"})
+	ctx := context.Background()
+
+	const email = "gated-register@example.com"
+	registerBody := fmt.Sprintf(`{"email":%q,"username":"gated","password":%q}`, email, authPassword)
+
+	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
+	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
+	assert.Empty(t, registerRec.Header().Get("Set-Cookie"), "the gated registration sets no cookie")
+	assert.NotContains(t, registerRec.Body.String(), "access_token")
+
+	var issued response.Success[auth.ChallengeIssued]
+	require.NoError(t, json.Unmarshal(registerRec.Body.Bytes(), &issued))
+	require.NotEmpty(t, issued.Data.ChallengeID)
+	assert.Equal(t, 600, issued.Data.ExpiresIn)
+	assert.Equal(t, 60, issued.Data.ResendAfter)
+
+	userID := userIDByEmail(t, mdb, email)
+	var stored struct {
+		VerifiedAt *time.Time `bson:"email_verified_at"`
+	}
+	require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.M{"_id": userID}).Decode(&stored))
+	assert.Nil(t, stored.VerifiedAt, "the registration leaves the account unverified")
+
+	code := pendingCode(t, mdb)
+
+	t.Run("Happy path: verifying the code establishes the account's first session", func(t *testing.T) {
+		verifyRec := doRequest(t, h, http.MethodPost, verifyRoute,
+			`{"challenge_id":"`+issued.Data.ChallengeID+`","code":"`+code+`"}`)
+		require.Equal(t, http.StatusOK, verifyRec.Code, verifyRec.Body.String())
+
+		session := decodeSession(t, verifyRec)
+		require.NotEmpty(t, session.AccessToken)
+
+		cookies := cookiesFrom(t, verifyRec)
+		require.NotEmpty(t, cookies.refresh, "the verified session sets the refresh cookie")
+		require.NotEmpty(t, cookies.csrf, "the verified session sets the CSRF cookie")
+
+		require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.M{"_id": userID}).Decode(&stored))
+		assert.NotNil(t, stored.VerifiedAt, "the verification records the timestamp")
+	})
+
+	t.Run("Happy path: a sign-in starts a second code step and no session", func(t *testing.T) {
+		loginRec := doRequest(t, h, http.MethodPost, "/auth/login",
+			fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
+		require.Equal(t, http.StatusAccepted, loginRec.Code, loginRec.Body.String())
+		assert.Empty(t, loginRec.Header().Get("Set-Cookie"))
+
+		var loginIssued response.Success[auth.ChallengeIssued]
+		require.NoError(t, json.Unmarshal(loginRec.Body.Bytes(), &loginIssued))
+		assert.NotEqual(t, issued.Data.ChallengeID, loginIssued.Data.ChallengeID)
+	})
+
+	t.Run("Error: a duplicate registration is 409 with no challenge and no send", func(t *testing.T) {
+		before := outboxCount(t, mdb)
+
+		dupRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
+		require.Equal(t, http.StatusConflict, dupRec.Code, dupRec.Body.String())
+		assert.Empty(t, dupRec.Header().Get("Set-Cookie"))
+		assert.Equal(t, before, outboxCount(t, mdb), "a refused registration sends nothing")
+	})
+}
+
 func TestIntegration_AuthRegister(t *testing.T) {
 	h, _ := newIntegrationRouter(t)
 
