@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"legnaris/shared/logger"
 	"legnaris/shared/response"
 
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -37,6 +39,15 @@ func newWiringRouter(t *testing.T) (http.Handler, *app.Modules) {
 // so a route-level suite can shrink the rate-limit cap without touching the
 // production defaults.
 func newWiringRouterWithEnv(t *testing.T, extra map[string]string) (http.Handler, *app.Modules) {
+	t.Helper()
+
+	router, modules := newWiringEcho(t, extra)
+	return router, modules
+}
+
+// newWiringEcho exposes the concrete router, so a guard can inspect the
+// registered route inventory in addition to driving requests.
+func newWiringEcho(t *testing.T, extra map[string]string) (*echo.Echo, *app.Modules) {
 	t.Helper()
 
 	t.Setenv("JWT_SECRET", "wiring-test-secret")
@@ -65,6 +76,27 @@ func newWiringRouterWithEnv(t *testing.T, extra map[string]string) (http.Handler
 	require.NoError(t, err)
 
 	return app.NewRouter(env, modules, metrics.New()), modules
+}
+
+// TestRouterWiring_AuthRouteInventoryUnchanged guards the HTTP surface this
+// feature must not grow: the auth group carries exactly the four session
+// routes, with no verification or profile endpoint (PRQ-12, PRQ-13, PRQ-14).
+func TestRouterWiring_AuthRouteInventoryUnchanged(t *testing.T) {
+	router, _ := newWiringEcho(t, nil)
+
+	var got []string
+	for _, route := range router.Router().Routes() {
+		if route.Path == "/auth" || strings.HasPrefix(route.Path, "/auth/") {
+			got = append(got, route.Method+" "+route.Path)
+		}
+	}
+
+	assert.ElementsMatch(t, []string{
+		http.MethodPost + " /auth/register",
+		http.MethodPost + " /auth/login",
+		http.MethodPost + " /auth/refresh",
+		http.MethodPost + " /auth/logout",
+	}, got, "the auth surface must not gain a route")
 }
 
 // TestRouterWiring_RequireAuthGuardsProtectedRoutes covers OWN-15…OWN-18
