@@ -1,11 +1,18 @@
 /**
- * The in-memory session (WAS-01 … WAS-24, R3).
+ * The in-memory session (WAS-01 … WAS-24, R3, WCS-01 … WCS-06, WCS-19 … WCS-21).
  *
  * The session holds the short-lived access token **in memory only** — it is
  * never persisted — plus a session-version counter and a `restoring |
- * unauthenticated | authenticating | authenticated` state. It emits immutable
- * snapshots for `useSyncExternalStore` (the F5 store pattern, no state library)
- * and implements the `SessionDelegate` the authenticated transport drives.
+ * unauthenticated | authenticating | pendingCode | authenticated` state. It
+ * emits immutable snapshots for `useSyncExternalStore` (the F5 store pattern,
+ * no state library) and implements the `SessionDelegate` the authenticated
+ * transport drives.
+ *
+ * A credential operation answers either a session or a code step, and the
+ * session follows the answer: a session establishes the session exactly as
+ * before, a code step establishes nothing at all and holds the challenge handle
+ * privately beside the access token (WCS-01, WCS-02, R4). The handle never
+ * reaches the snapshot, so no subscriber can read, persist or leak it.
  *
  * `refresh()` is single-flight so every concurrent `401` shares one rotation, and
  * `logout()` is single-flight so a repeated sign-out asks the server once. The
@@ -13,23 +20,50 @@
  * `onUnauthorized()` — never on the transient restore fallback (WAS-05, WAS-21).
  */
 
-import type { AuthApi, LoginInput, RegisterInput } from '../api/auth_api';
+import type { AuthApi, LoginInput, RegisterInput, SignInOutcome } from '../api/auth_api';
 import { DomainFailure } from '../api/errors';
 import type { SessionDelegate } from '../api/authenticated_transport';
 
-/** The four session states the gate renders (WAS-03, WAS-08). */
-export type SessionState = 'restoring' | 'unauthenticated' | 'authenticating' | 'authenticated';
+/** The session states the gate renders (WAS-03, WAS-08, WCS-02). */
+export type SessionState =
+  | 'restoring'
+  | 'unauthenticated'
+  | 'authenticating'
+  | 'pendingCode'
+  | 'authenticated';
 
-/** The immutable session snapshot a subscriber reads (R3). */
+/**
+ * The pending code step the snapshot projects (WCS-02, WCS-19, WCS-20).
+ *
+ * It carries the origin, the address the code was sent to, the username the
+ * person typed and the advertised lifetime and window. It never carries the
+ * password and never carries the handle.
+ */
+export interface PendingCodeStep {
+  /** Which operation started the step; drives the copy and the restored form (WCS-21). */
+  readonly origin: 'register' | 'login';
+  /** The address the code was sent to; the surface names it (WCS-19). */
+  readonly email: string;
+  /** The registration's username, restored with the form (WCS-21). */
+  readonly username: string | null;
+  /** The advertised lifetime, in seconds; the surface states it (WCS-20). */
+  readonly expiresIn: number;
+  /** The advertised resend window, in seconds; the surface counts it down (WCS-07). */
+  readonly resendAfter: number;
+}
+
+/** The immutable session snapshot a subscriber reads (R3, WCS-02). */
 export interface SessionSnapshot {
   readonly accessToken: string | null;
   readonly version: number;
   readonly state: SessionState;
+  /** The pending step; non-null exactly while the state is `pendingCode`. */
+  readonly pending: PendingCodeStep | null;
 }
 
 /** Construction options for {@link createAuthSession}. */
 export interface AuthSessionOptions {
-  /** The four session operations the session calls (R2). */
+  /** The session and challenge operations the session calls (R2). */
   readonly authApi: AuthApi;
   /** Sweeps the session-local data at a definitive boundary; best-effort (WAS-21). */
   readonly clearSessionData?: () => Promise<void>;
@@ -39,7 +73,7 @@ export interface AuthSessionOptions {
   readonly initialAccessToken?: string | null;
 }
 
-/** The session the gate, the screens and the transport read (R3). */
+/** The session the gate, the screens and the transport read (R3, WCS-02). */
 export interface AuthSession extends SessionDelegate {
   getSnapshot(): SessionSnapshot;
   subscribe(listener: () => void): () => void;
@@ -47,6 +81,12 @@ export interface AuthSession extends SessionDelegate {
   restore(): Promise<void>;
   login(input: LoginInput): Promise<void>;
   register(input: RegisterInput): Promise<void>;
+  /** Verifies the entered code and establishes the session (WCS-03). */
+  submitCode(code: string): Promise<void>;
+  /** Asks for the code again, without rotating the handle or the code (WCS-08). */
+  resendCode(): Promise<void>;
+  /** Abandons the step; issues no request (WCS-06). */
+  cancelCodeStep(): void;
   logout(): Promise<void>;
 }
 
@@ -64,13 +104,17 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
   let version = 0;
   let refreshInFlight: Promise<string | null> | undefined;
   let logoutInFlight: Promise<void> | undefined;
+  let resendInFlight: Promise<void> | undefined;
+  let pendingStep: PendingCodeStep | null = null;
+  let pendingHandle: string | null = null;
   const listeners = new Set<() => void>();
-  let snapshot: SessionSnapshot = Object.freeze({ accessToken, version, state });
+  let snapshot: SessionSnapshot = Object.freeze({ accessToken, version, state, pending: null });
 
   function commit(next: {
     readonly state?: SessionState;
     readonly accessToken?: string | null;
     readonly version?: number;
+    readonly pending?: PendingCodeStep | null;
   }): void {
     if (next.state !== undefined) {
       state = next.state;
@@ -81,7 +125,10 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     if (next.version !== undefined) {
       version = next.version;
     }
-    snapshot = Object.freeze({ accessToken, version, state });
+    if (next.pending !== undefined) {
+      pendingStep = next.pending;
+    }
+    snapshot = Object.freeze({ accessToken, version, state, pending: pendingStep });
     for (const listener of listeners) {
       listener();
     }
@@ -127,16 +174,104 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     }
   }
 
-  async function authenticate(apply: () => Promise<{ accessToken: string }>): Promise<void> {
+  async function authenticate(
+    origin: 'register' | 'login',
+    input: { readonly email: string; readonly username?: string },
+    apply: () => Promise<SignInOutcome>,
+  ): Promise<void> {
     commit({ state: 'authenticating' });
 
     try {
-      const body = await apply();
-      commit({ version: version + 1, accessToken: body.accessToken, state: 'authenticated' });
+      const outcome = await apply();
+
+      if (outcome.kind === 'session') {
+        pendingHandle = null;
+        commit({
+          version: version + 1,
+          accessToken: outcome.session.accessToken,
+          state: 'authenticated',
+          pending: null,
+        });
+        return;
+      }
+
+      // A code step establishes nothing: no token is held and the version does
+      // not move, because no session began (WCS-01, WCS-02).
+      pendingHandle = outcome.challenge.challengeId;
+      commit({
+        state: 'pendingCode',
+        accessToken: null,
+        pending: {
+          origin,
+          email: input.email,
+          username: input.username ?? null,
+          expiresIn: outcome.challenge.expiresIn,
+          resendAfter: outcome.challenge.resendAfter,
+        },
+      });
     } catch (error) {
-      commit({ state: 'unauthenticated' });
+      pendingHandle = null;
+      commit({ state: 'unauthenticated', pending: null });
       throw error;
     }
+  }
+
+  async function submitCode(code: string): Promise<void> {
+    const handle = pendingHandle;
+
+    if (handle === null) {
+      throw new Error('no code step is pending');
+    }
+
+    const body = await authApi.verifyChallenge({ challengeId: handle, code });
+
+    // An answer for a step that was abandoned or superseded is dropped: it
+    // establishes no session and overwrites nothing (WCS-06, R10).
+    if (pendingHandle !== handle) {
+      return;
+    }
+
+    pendingHandle = null;
+    commit({
+      version: version + 1,
+      accessToken: body.accessToken,
+      state: 'authenticated',
+      pending: null,
+    });
+  }
+
+  function resendCode(): Promise<void> {
+    if (resendInFlight !== undefined) {
+      return resendInFlight;
+    }
+
+    const handle = pendingHandle;
+
+    if (handle === null) {
+      return Promise.reject(new Error('no code step is pending'));
+    }
+
+    const pending = (async (): Promise<void> => {
+      try {
+        const result = await authApi.resendChallenge({ challengeId: handle });
+
+        if (pendingHandle !== handle || pendingStep === null) {
+          return;
+        }
+
+        commit({ pending: { ...pendingStep, resendAfter: result.resendAfter } });
+      } finally {
+        resendInFlight = undefined;
+      }
+    })();
+
+    resendInFlight = pending;
+    return pending;
+  }
+
+  function cancelCodeStep(): void {
+    pendingHandle = null;
+    commit({ state: 'unauthenticated', pending: null });
   }
 
   function logout(): Promise<void> {
@@ -179,8 +314,11 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     refresh,
     onUnauthorized,
     restore,
-    login: (input) => authenticate(() => authApi.login(input)),
-    register: (input) => authenticate(() => authApi.register(input)),
+    login: (input) => authenticate('login', input, () => authApi.login(input)),
+    register: (input) => authenticate('register', input, () => authApi.register(input)),
+    submitCode,
+    resendCode,
+    cancelCodeStep,
     logout,
   };
 }
