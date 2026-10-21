@@ -1,0 +1,18 @@
+{
+  "operation": "login_challenge",
+  "provenance": "captured from the local stack (make dev-db; go run ./backend/cmd/api.go) at http://localhost:8080 on 2026-10-21T02:10:06Z",
+  "request": {
+    "method": "POST",
+    "path": "/auth/login"
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "data": {
+        "challenge_id": "01a15c39-127f-7628-b0d6-c6f5b91cf386",
+        "expires_in": 600,
+        "resend_after": 60
+      }
+    }
+  }
+}
