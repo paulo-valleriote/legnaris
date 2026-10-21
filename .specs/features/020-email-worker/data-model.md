@@ -112,6 +112,10 @@ unchanged (WKR-19).
 Reused unchanged from the delivered configuration surface: `RABBITMQ_URL`, `EMAIL_PROVIDER`,
 `RESEND_API_KEY`, `EMAIL_FROM` and `EMAIL_SEND_TIMEOUT`.
 
+One documented constant rather than a setting: the delay between a failed consumer registration and
+the next attempt is **5 seconds** — long enough not to hammer a broker that is refusing, short enough
+that consumption resumes promptly once it is back.
+
 ---
 
 ## 5. The counters

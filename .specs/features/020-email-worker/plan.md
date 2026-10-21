@@ -194,6 +194,7 @@ backend/internal/email/amqp/          # EXTENDED: the consumer side of the adapt
 ├── broker.go                         # EXTENDED: a consumer channel, a routed publish, the destination mapping (R5, R6, R7)
 ├── consuming.go                      # NEW: the delivery source over the broker (consume, ack, nack, re-consume) (WKR-16, WKR-17)
 ├── consuming_test.go                 # NEW: the delivery stream, the ack and nack paths, the stream ending
+├── integration_test.go               # NEW: the optional broker suite that self-skips without RABBITMQ_URL (WKR-27)
 └── topology_test.go                  # EXTENDED: the destination mapping matches the declared topology
 
 backend/internal/email/factory/       # UNCHANGED: the provider selection is reused as delivered (R13)

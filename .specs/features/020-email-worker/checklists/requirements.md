@@ -60,3 +60,15 @@
   amended spec and all still pass: each answer is expressed as an observable outcome, names no
   framework, module or file, and leaves the feature's scope bounded. Pass count unchanged at
   16/16.
+- **Analyze remediation (2026-10-21)**: the read-only analysis found two contradictions between MUST
+  requirements — `WKR-02` enumerated only two outcomes for a delivery that was not sent successfully,
+  which excluded the expired outcome of `WKR-03`, and `WKR-12` required the dead-letter route for a
+  message that `WKR-03` forbids it from reaching. Both were amended by user approval: `WKR-02` now
+  names all four outcomes, `WKR-12` now states that the expiry is decided first, and the precedence
+  is recorded as an edge case. `SC-004` now counts deliveries rather than send attempts; the
+  re-registration delay is fixed at 5 seconds; the "route" and "queue" wording is reconciled once in
+  the destination contract; the retry window's interaction with the code's lifetime is recorded in
+  Assumptions and in the worker contract; the tasks gained the two missing pieces (the contract's
+  documentation touch and the self-skipping broker suite) and now cite every measurable outcome.
+  The items were re-evaluated against the amended spec and all still pass. Pass count unchanged at
+  16/16.

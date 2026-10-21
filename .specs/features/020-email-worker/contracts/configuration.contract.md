@@ -42,6 +42,10 @@ The worker reads the settings the earlier features already declared, unchanged:
 - **Every default is documented** and every zero value in the worker's configuration struct is filled
   from it, so a partially configured worker still runs.
 
+One value is deliberately **not** a setting: the delay between a failed consumer registration and the
+next attempt is a fixed 5 seconds. A configurable delay would let an operator turn the retry into a
+hot loop against a broker that is refusing; the constant is documented in `data-model.md`.
+
 ## Boundary cases
 
 | Case | Result |

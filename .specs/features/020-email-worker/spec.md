@@ -146,6 +146,7 @@ and assert no code and no unmasked address appears in any of them.
 ### Edge Cases
 
 - **Code already expired when the message is consumed**: acknowledged without sending and counted as expired; the provider is never called, and the message does not reach the dead-letter route. (WKR-03)
+- **Message both expired and at the attempt cap**: the expiry is decided first — acknowledged and counted as expired, never parked in the dead-letter route. (WKR-03, WKR-12)
 - **Code the person already typed before the worker got to the message**: the message is still delivered — the consumer does not consult the challenge store, and the code is single-use, so the extra email is harmless. (WKR-07)
 - **Message body that is not a message at all**: dead-lettered and acknowledged, so a poison payload cannot be retried forever. (WKR-04)
 - **Message whose identity is not a canonical UUID v7**: dead-lettered and acknowledged; it is never republished, so a malformed identity never becomes a provider idempotency key. (WKR-04)
@@ -174,7 +175,7 @@ and assert no code and no unmasked address appears in any of them.
 **Delivery (US1)**
 
 - **WKR-01**: The system MUST provide the delivery as its own executable, separate from the request-serving process; it MUST NOT require the database to run and the request-serving process MUST NOT depend on it to start.
-- **WKR-02**: The consumer MUST acknowledge a message only after its send succeeded; every other outcome MUST either leave the message unacknowledged or move it to the dead-letter route.
+- **WKR-02**: Every delivery MUST end in exactly one of four outcomes — sent and acknowledged, dead-lettered and acknowledged, expired and acknowledged without a send, or left unacknowledged for redelivery — and no acknowledgement may precede the action it confirms.
 - **WKR-03**: WHEN the message's code lifetime has elapsed, the consumer MUST acknowledge the message without sending it and MUST record the outcome as expired; it MUST NOT move an expired message to the dead-letter route.
 - **WKR-04**: A message that cannot be decoded, whose identity is not a canonical UUID v7, or whose code is missing MUST be treated as permanently unusable: it MUST be moved to the dead-letter route and acknowledged, and MUST NOT be sent or republished.
 - **WKR-05**: WHEN a message's purpose selects no template, the consumer MUST treat it as a permanent failure: the message MUST be moved to the dead-letter route and acknowledged, and no send MUST be attempted.
@@ -187,7 +188,7 @@ and assert no code and no unmasked address appears in any of them.
 - **WKR-09**: WHEN a send fails with a retryable outcome, the consumer MUST republish the message to the delay tier that matches its attempt count with the attempt count incremented, and MUST acknowledge the original only after the republish was confirmed by the broker.
 - **WKR-10**: The attempt count MUST be carried by the message itself and MUST count the send attempts already made; the consumer MUST NOT depend on the broker's dead-letter history to decide whether to retry.
 - **WKR-11**: WHEN a send fails with a permanent outcome, the consumer MUST move the message to the dead-letter route, acknowledge it and record the dead-letter.
-- **WKR-12**: WHEN a message's attempt count has reached the configured cap, the consumer MUST move it to the dead-letter route without sending again, acknowledge it and record the dead-letter.
+- **WKR-12**: WHEN a message that has not expired reaches the configured attempt cap, the consumer MUST move it to the dead-letter route without sending again, acknowledge it and record the dead-letter. The expiry of `WKR-03` is decided first, so an expired message is acknowledged and counted and never reaches the dead-letter route.
 - **WKR-13**: WHEN a republish is not confirmed by the broker, the consumer MUST NOT acknowledge the original message, so the broker redelivers it and no send is lost.
 - **WKR-14**: The delay tiers MUST be the ones the broker topology already declares — 30 seconds for the first retry, 2 minutes for the second and 5 minutes for every later retry — and the send-attempt cap MUST be 5; both MUST be configurable with documented defaults, and the retry MUST NOT require a broker plugin or a version-specific extension.
 - **WKR-15**: A republished message MUST keep the identity, recipient, template, data and creation time of the original; only the attempt count may change.
@@ -228,7 +229,7 @@ and assert no code and no unmasked address appears in any of them.
 - **SC-001**: 0 queued messages are lost: every message the consumer receives ends in a send, a deliberate dead-letter, a deliberate expiry or an unacknowledged redelivery, and none disappears silently.
 - **SC-002**: 0 expired codes are delivered: no message whose lifetime has elapsed reaches the provider, and 0 expired messages reach the dead-letter route.
 - **SC-003**: 0 messages are retried forever: every message that fails permanently or exhausts its attempt cap reaches the dead-letter route and is never sent again; every message that expired is acknowledged and counted instead.
-- **SC-004**: 100% of send attempts end in exactly one of the four outcomes — sent, retried, dead-lettered, expired — and each outcome is counted separately.
+- **SC-004**: 100% of deliveries end in exactly one of the four outcomes — sent, retried, dead-lettered, expired — and each outcome is counted separately.
 - **SC-005**: 0 codes appear in any log line, error message, metric series or subject across the suite.
 - **SC-006**: The request-serving process starts with 0 email and 0 broker variables set, and the documented required-variable list is unchanged.
 - **SC-007**: The delivery process recovers from a broker outage on its own and resumes consuming without a restart.
@@ -243,6 +244,7 @@ and assert no code and no unmasked address appears in any of them.
 - The delivery guarantee is at-least-once, not exactly-once: a crash between the provider's acceptance and the acknowledgement produces a duplicate, and the message identity is the provider's idempotency key that de-duplicates it.
 - The consumer needs no database: the code's lifetime travels on the message, so the expiry decision needs no lookup and the process starts without the store (clarification, 2026-10-21). The deadline it honours is the one the message states, not the challenge's: a code the person already typed may still be delivered once, and the code is single-use, so the extra email is harmless.
 - The dead-letter route is for inspection: this feature ships no replay tool, and re-sending a dead code is a separate operator concern for a later cycle (clarification, 2026-10-21). An expired message is acknowledged and counted, never dead-lettered, so the route stays reserved for messages that can never succeed.
+- The retry window is longer than the code's lifetime: the delay tiers add up to about 17 minutes, while a code lives for minutes, not hours. A message that fails every attempt is therefore normally expired before it reaches the attempt cap, so it is acknowledged and counted as expired rather than parked in the dead-letter route — the dead-letter counter stays near zero even when the provider is refusing, and the expired counter is where that shows up.
 - The code travels in the clear inside the message because the request-serving process generated and hashed it; the consumer renders it, sends it and keeps no copy of it.
 - The daily send cap is already enforced where the code is requested; this feature does not re-implement it, and a provider that reports its daily allowance spent arrives as a retryable outcome and is backed off, not dropped.
 - The template version is deployed with the consumer: when a template changes, the process that renders it and the process that generated the message are released together.

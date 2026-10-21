@@ -55,8 +55,9 @@ type DeliverySource interface {
 
 - The stream **ends** when the broker cancels the consumer (`basic.cancel`) or the channel closes. The
   worker treats the end of the stream as "re-register and continue", not as a fatal error (WKR-17).
-- A registration failure is reported to the caller; the worker retries it with a short backoff until
-  the stop signal arrives.
+- A registration failure is reported to the caller; the worker retries it after a fixed delay of
+  **5 seconds** until the stop signal arrives. The delay is a documented constant of the worker, not
+  a setting: one number, one behaviour, and no way to configure a hot loop.
 
 ## Republishing to a destination
 

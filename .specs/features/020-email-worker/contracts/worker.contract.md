@@ -37,11 +37,14 @@ delivery arrives
 
 ## Rules
 
-- **Acknowledgement is the last step.** A delivery is acknowledged after the send succeeded, after it
-  was deliberately dead-lettered, or after it was deliberately found expired — never before (WKR-02).
+- **The acknowledgement is the last step.** A delivery ends in exactly one of four outcomes — sent and
+  acknowledged, dead-lettered and acknowledged, expired and acknowledged without a send, or left
+  unacknowledged for redelivery — and no acknowledgement precedes the action it confirms (WKR-02).
 - **A message is never dropped.** The only two paths that leave a delivery unacknowledged are an
   unconfirmed republish and an unconfirmed dead-letter publish; in both the broker still owns the
   message and redelivers it (WKR-13).
+- **The expiry is decided first.** A message whose lifetime has elapsed is acknowledged and counted as
+  expired, whatever its attempt count; it never reaches the dead-letter route (WKR-03, WKR-12).
 - **The deadline is the message's own.** `CreatedAt + ExpiresInMinutes` against the injected clock; the
   challenge store is never consulted (WKR-07, the clarification of 2026-10-21).
 - **The attempt count is the message's own.** It counts the send attempts already made; the broker's
@@ -53,6 +56,13 @@ delivery arrives
   (WKR-06, WKR-21, WKR-22).
 - **The identity is the idempotency key.** The same identity is handed to the provider on every
   attempt, so a redelivered message produces a duplicate the provider de-duplicates (WKR-08).
+
+## What an operator sees when the provider refuses
+
+The delay tiers add up to about 17 minutes, while a code lives for minutes, not hours. A message that
+fails every attempt is therefore normally **expired** before it reaches the attempt cap: it is
+acknowledged and counted as expired, not parked in the dead-letter route. The dead-letter counter
+stays near zero even while the provider is refusing, and the expired counter is where that shows up.
 
 ## Outcomes and their counters
 

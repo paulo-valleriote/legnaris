@@ -33,6 +33,8 @@ const (
 - The vocabulary is closed: exactly four names, and the worker never builds one from a string.
 - The names are domain words, not broker words: a routing key appears in exactly one place, the
   adapter's mapping (`research.md` R3).
+- The worker's intent is a **route**; the broker's entity is a **queue**. The two words describe the
+  same thing from each side — the route the worker names, the queue the message lands in.
 - The worker queue is not a destination: the worker only publishes *away* from it.
 
 ## Mapping
