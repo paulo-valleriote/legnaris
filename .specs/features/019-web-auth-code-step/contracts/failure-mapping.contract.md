@@ -42,9 +42,9 @@ type FailureKind =
 
 | Key | Copy | The next step it must name |
 |---|---|---|
-| `api.error.invalidCode` | That code is invalid or has expired. | correct the digits, or start the step over |
-| `api.error.emailUnavailable` | Email delivery is temporarily unavailable. Try again shortly. | wait, then resend |
-| `api.error.conflict` | An account already exists for that address. Sign in instead. | switch to sign-in |
+| `api.error.invalidCode` | That code is not valid or has expired. Check the newest email, or send a new code. | the newest email and the resend action — a stale message is the most common cause of a refused code (`WCS-11`) |
+| `api.error.emailUnavailable` | We could not send the code right now. Try again in a moment. | wait, then resend; it must not disclose the account's state (`WCS-09`) |
+| `api.error.conflict` | That email already has an account. Sign in instead. | switch to sign-in, through the inline action the refusal carries (`WCS-27`) |
 
 ## Invariants
 
@@ -58,6 +58,10 @@ type FailureKind =
    code.
 5. **CONFLICT scope.** The `conflict` copy names the address because the server emits `CONFLICT` in
    exactly one place today; if another route starts emitting it, this copy must be revisited (`R6`).
+6. **The offered recovery is offered.** The duplicate-address refusal carries an inline action that
+   switches the credential form to sign-in, keeps the address and moves the focus to the password field,
+   so the copy's promise can be taken (`WCS-27`). The action is part of the surface, not of the mapper:
+   the mapper still emits a kind and a sentence only (`WCS-13`).
 
 ## Boundary cases
 

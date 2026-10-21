@@ -25,10 +25,11 @@ finish the step:
    the outcome: a session body establishes the session exactly as today, a code step enters the
    pending state and holds no credential at all.
 2. **A pending-code state and a code surface.** `AuthSession` gains the `pendingCode` state carrying
-   the handle (module-private), the origin operation and the resend window; `AuthGate` renders the new
-   code surface instead of the credential form while a step is pending, on the same single auth
-   surface and at the same URL. The surface collects the six-digit code and offers resend with a
-   countdown.
+   the handle (module-private), the origin operation, the address, the advertised lifetime and the
+   resend window; `AuthGate` renders the new code surface instead of the credential form while a step is
+   pending, on the same single auth surface and at the same URL. The surface names the address and the
+   code's lifetime, collects the six-digit code over six single-digit positions, owns the focus, and
+   offers resend with a countdown, an honest confirmation and one way back.
 3. **Two new operations on the raw transport.** `verifyChallenge` and `resendChallenge` join the four
    session operations in `auth_api.ts`; both go through the existing caller over the **raw** transport
    with `credentials: 'include'`, so the verification answer's `Set-Cookie` is honored cross-origin,
@@ -36,11 +37,14 @@ finish the step:
 4. **The new codes get a kind and a copy.** `error_mapper.ts` gains three kinds —
    `invalidCode`, `emailUnavailable`, `conflict` — and the catalog gains the matching copy, so a wrong
    digit, an exhausted send allowance and a duplicate address stop collapsing into "Something went
-   wrong."
+   wrong." The catalog also gains a **parameterized** resolution, so the copy that carries the address,
+   the remaining time or the account mode is resolved by the catalog and never concatenated by a
+   surface.
 
 The change is confined to the web client: `src/api` (the outcome decode, the two operations, the
 failure kinds and the mapping), `src/auth` (the session state, the code surface, its styles),
-`src/l10n` (the copy), `src/api/fixtures` (the pinned captures and the capture script) and the flat
+`src/l10n` (the copy and the parameterized resolution), `src/api/fixtures` (the pinned captures and the
+capture script), `web/DESIGN.md` (the code field's and the surface's visual contract) and the flat
 suites under `src/test/` plus the auth end-to-end spec. **No new dependency, no new route, no new
 storage, and no Go change.** `WAS-02`'s premise is reconciled in the corpus in the same change
 (spec `WCS-18`).
@@ -55,15 +59,18 @@ React/TypeScript PWA under `web/`; the backend is untouched.
 `Transport`, `createCaller`/`decodeEnvelope`, the `DomainFailure`/`DefensiveParseFailure` taxonomy,
 the classification mapper and the translation catalog. React's `useSyncExternalStore` continues to
 carry the session state to the gate and the surfaces, and the resend countdown is a plain effect timer
-in the surface — no state library, no query library involvement, no date library. The auth objects
-are already constructed in `src/app/providers.tsx`; its options are unchanged, so the composition root
-is not edited.
+in the surface — no state library, no query library involvement, no date library. The translation
+catalog gains a **parameterized** resolution — a second exported function in the same module, not a
+dependency — and the code field's six positions are one editable field plus presentational markup, so
+no component library and no formatting library come in. The auth objects are already constructed in
+`src/app/providers.tsx`; its options are unchanged, so the composition root is not edited.
 
-**Storage**: none. The pending handle, the origin and the entered code live in the session's
-in-memory state and die with the tab; the access credential stays in the module-private field it
-already uses. **No `localStorage`, `sessionStorage`, IndexedDB or cookie write is added**
-(`WCS-05`, `WCS-16`, `SC-007`). The registered-capture set under `src/api/fixtures/` is committed
-fixture data, not runtime storage.
+**Storage**: none. The pending handle, the origin, the address, the username and the entered code live
+in the session's in-memory state and die with the tab; the access credential stays in the module-private
+field it already uses. **No `localStorage`, `sessionStorage`, IndexedDB or cookie write is added**
+(`WCS-05`, `WCS-16`, `SC-007`). The address and the username are identifiers the person typed, not
+credentials, and they are never persisted (`WCS-19`, `WCS-21`). The registered-capture set under
+`src/api/fixtures/` is committed fixture data, not runtime storage.
 
 **Testing**: `npm test` (Vitest 5.0.5) with the injected fake transport and Testing Library
 (`@testing-library/react` 16.3.3, `user-event` 14.6.8); `npm run test:e2e` (Playwright 1.64.1 with
@@ -101,9 +108,10 @@ JavaScript-readable store, no third-party script/style/font is introduced, no DO
 added, every string resolves through `src/l10n/strings.ts` and every visual value from the token set,
 and all source stays English (`WCS-16`, `WCS-15`).
 
-**Scale/Scope**: 3 user stories (2 P1, 1 P2), 18 requirements, 4 internal contracts; 8 touched or
-created client modules plus the capture script and its README, 8 suites (7 extended, 1 new) and 7 new
-fixtures; one amended spec (`WAS-02`). No backend file, no dependency, no route, no storage.
+**Scale/Scope**: 3 user stories (2 P1, 1 P2), 27 requirements, 4 internal contracts; 9 touched or
+created client modules plus the capture script and its README, `web/DESIGN.md`, 8 suites (7 extended, 1
+new) and 7 new fixtures; one amended spec (`WAS-02`). No backend file, no dependency, no route, no
+storage.
 
 ## Constitution Check
 
@@ -119,7 +127,7 @@ fixtures; one amended spec (`WAS-02`). No backend file, no dependency, no route,
 | VI. Security Gates Are Blocking (NON-NEGOTIABLE) | The change preserves every control and adds none that weakens one: the pending handle and the code are memory-only, no credential enters JS-readable storage, the challenge calls keep the raw transport with no Bearer and no refresh trigger, no third-party asset or DOM-injection sink is added, and the CSP/CSRF posture is unchanged. The one security-relevant judgement — carrying the handle in memory only — is the stricter of the two options (`SC-007`). | PASS |
 | VII. Installable, Offline-Capable Web Client | The code surface is part of the application shell's auth boundary and is reachable offline exactly as the credential form is; no authenticated response is cached and the service worker's rules are untouched. The surface's accessibility is gated by the existing axe sweep, which gains the new surface (`WCS-17`, `SC-006`). | PASS |
 | Additional Constraints — Stack | React with Vite and TypeScript under `web/`, Vitest + Testing Library + Playwright — unchanged; **no dependency is added** and no Go source is touched. | PASS |
-| Additional Constraints — Spec corpus and traceability | `WCS-01`…`WCS-18` are defined in this feature's `spec.md`; the superseded `WAS-02` stays defined in its own spec and is amended in place with a pointer to the superseding requirement, so `scripts/check_requirement_ids.py` stays green and no citation resolves to a statement that no longer describes the shipped behaviour (`WCS-18`). | PASS |
+| Additional Constraints — Spec corpus and traceability | `WCS-01`…`WCS-27` are defined in this feature's `spec.md`; the superseded `WAS-02` stays defined in its own spec and is amended in place with a pointer to the superseding requirement, so `scripts/check_requirement_ids.py` stays green and no citation resolves to a statement that no longer describes the shipped behaviour (`WCS-18`). | PASS |
 | Additional Constraints — Jira | The implementing PR must reference its `LGN-\d+` card; recorded for the PR, not claimed by this artifact. | PASS (noted) |
 | Development Workflow | The client sequence (`make lint-web && make test-web && make sec-scan`) covers the change; `make lint-specs` covers the amended spec and the new citations; the auth end-to-end spec gains the code-step case and the axe sweep over the new surface. | PASS |
 
@@ -134,6 +142,16 @@ in **one** table, so an unmapped code stays visible rather than silently generic
 could have drifted were closed in research: the discrimination is by payload shape rather than status
 (`R1`), the handle stays memory-only rather than persisted (`R2`), and the resend action's disabled
 window is the local window rather than the server's unreadable `Retry-After` (`R3`).
+
+**Post-design re-check (after the design review of 2026-10-20)**: still PASS, and three more
+single-owner rules hold. The code's value lives in **one** place — the editable field — and the six
+positions render it, so no copy of the code can disagree with the one that is sent (`R14`). The
+surface's focus is owned by the surface itself, so no screen outside it can move the focus and leave it
+stranded (`R13`). The copy that carries a value is resolved by the catalog through **one**
+parameterized resolution, so no surface concatenates a sentence with a value (`WCS-13`). The design
+review adds no dependency, no route, no store and no server contract: the address and the advertised
+lifetime are fields the client already receives, and the email is the sibling surface the screen is
+made to agree with (`R11`).
 
 ## Project Structure
 
@@ -165,13 +183,15 @@ web/src/api/
 └── errors.ts                        # EXTENDED: FailureKind gains invalidCode, emailUnavailable, conflict (WCS-11)
 
 web/src/auth/
-├── auth_session.ts                  # EXTENDED: the pendingCode state, the outcome branch, submitCode, resendCode, cancelCodeStep (WCS-02, WCS-03, WCS-04, WCS-06, WCS-08)
-├── auth_code_screen.tsx             # NEW: the code surface — the code field, the resend action and its countdown (WCS-03, WCS-05, WCS-07, WCS-09)
+├── auth_session.ts                  # EXTENDED: the pendingCode state, the outcome branch, submitCode, resendCode, cancelCodeStep (WCS-02, WCS-03, WCS-04, WCS-06, WCS-08, WCS-19, WCS-21)
+├── auth_code_screen.tsx             # NEW: the code surface — the instruction, the code field over six positions, the resend action and its countdown, the way back (WCS-03, WCS-05, WCS-07, WCS-09, WCS-19…WCS-26)
 ├── auth_gate.tsx                    # EXTENDED: render the code surface while a step is pending (WCS-02)
-└── auth.css                         # EXTENDED: the code surface's token-only styles (WCS-16)
+└── auth.css                         # EXTENDED: the code surface's token-only styles (WCS-16, WCS-24, WCS-25)
 
 web/src/l10n/
-└── strings.ts                       # EXTENDED: the code-surface copy and the three new failure copies (WCS-13, WCS-16)
+└── strings.ts                       # EXTENDED: the code-surface copy, the three new failure copies, the parameterized resolution (WCS-13, WCS-16)
+
+web/DESIGN.md                        # EXTENDED: the code field's and the code surface's visual contract (WCS-24, WCS-25)
 
 web/src/api/fixtures/
 ├── capture.sh                       # EXTENDED: capture the code-step family when the stack's gate is on

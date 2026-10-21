@@ -1,6 +1,6 @@
 # Research — The Code Step in the Client
 
-**Feature**: `.specs/features/019-web-auth-code-step/` | **Requirements**: `WCS-01` … `WCS-18`
+**Feature**: `.specs/features/019-web-auth-code-step/` | **Requirements**: `WCS-01` … `WCS-27`
 
 Phase 0 resolves the design questions the specification leaves open. Each entry states the decision,
 the reason, the alternative rejected and the scope it binds.
@@ -280,6 +280,159 @@ beside the version, for the same job the handle already does.
 
 ---
 
+## R11 — The code surface names the address and the code's lifetime
+
+**Decision**: the pending step carries the address the credential operation carried and the challenge
+answer's advertised lifetime; the surface's instruction line names the address verbatim and states how
+long the code remains valid, in the same unit the emailed message uses. The statement is re-seeded when
+a resend extends the step. The address is never persisted and never masked.
+
+**Reason**: the screen and the email are the two surfaces a person reads for the same fact, and today
+they disagree: the email states "The code expires in N minutes" while the client throws the advertised
+lifetime away, so a person whose code expired is told nothing until they are refused. The address is the
+other half: a mistyped address is the most common reason a code never arrives, and a surface that does
+not name the address gives the person no way to notice the mistake. The specification's own Key Entities
+already listed "the advertised lifetime" among the pending step's contents, so dropping it in the data
+model was an internal inconsistency, not a decision.
+
+**Rejected alternative**: masking the address — rejected because the whole point is to let the person
+*check* it, and a mask hides the typo that is the likely cause. Rejected: a ticking expiry countdown —
+rejected because the email states minutes, and a seconds ticker next to a minutes sentence makes the two
+surfaces disagree again; a static statement in the email's own unit is the one that holds. Rejected:
+leaving the lifetime out of the surface as "the person's business" — rejected because the person cannot
+tell a stale code from a wrong one, and the screen has the information to help.
+
+**Scope**: `web/src/auth/auth_session.ts`, `web/src/auth/auth_code_screen.tsx`,
+`web/src/l10n/strings.ts`, spec `WCS-19` and `WCS-20`.
+
+---
+
+## R12 — The way back restores the address and the account mode; the password is never carried
+
+**Decision**: abandoning the step returns the credential form with the address and the account mode the
+step started with, and an empty password field. The pending step carries the address and the username,
+never the password.
+
+**Reason**: the credential form holds its values in component state, and the gate renders the form
+**or** the code surface — never both — so the form unmounts while the step is pending and its values
+die with it. "Start over" would therefore return an empty form, and the person would retype the
+address: precisely the field that is most likely to be wrong and precisely the one they need to fix.
+The specification was silent on this, and the silence would have shipped the bug.
+
+**Rejected alternative**: keeping the credential form mounted and hidden — rejected because it would
+keep the password in the DOM and in the tab order for the whole step. Rejected: carrying the password
+through the pending step — rejected because a pending state that holds a secret is a secret with a
+longer lifetime, and the person can retype a password in seconds. Rejected: keeping the whole form
+state in the session, including the password — rejected for the same reason.
+
+**Scope**: `web/src/auth/auth_session.ts`, `web/src/auth/auth_screen.tsx`, `web/src/auth/auth_code_screen.tsx`,
+spec `WCS-21`.
+
+---
+
+## R13 — The surface owns the focus, and the countdown is not a live region
+
+**Decision**: the code field takes the focus when the surface appears; a refusal keeps the focus on that
+field and is associated with it as the field's description; the way back moves the focus to the
+credential form. The resend countdown is static text outside any live region, and the change that
+makes the resend action available is announced once. While the resend action is unavailable it stays
+reachable by keyboard and by assistive technology.
+
+**Reason**: the contract said the countdown was "announced as text" without saying how, and a ticking
+second inside a polite live region produces sixty announcements a minute — the kind of noise that makes
+a person turn the screen reader off. The focus rules were simply absent, and the focus is lost to the
+document body whenever one surface replaces another, which is the definition of a keyboard trap for a
+short time. A disabled resend action also leaves the tab order entirely, so the person cannot find it
+or learn why it is unavailable; the countdown text beside it is not discoverable either.
+
+**Rejected alternative**: `aria-live="polite"` on the countdown — rejected for the announcement storm.
+Rejected: leaving the field's focus to the browser's default — rejected because the surface is the
+whole application at that moment and the person must be dropped straight into the one field that
+matters. Rejected: moving the focus to the error message on a refusal — rejected because the person has
+to type a correction, not read a sentence, and moving the focus away from the field makes the correction
+harder.
+
+**Scope**: `web/src/auth/auth_code_screen.tsx`, `web/src/auth/auth_screen.tsx`, spec `WCS-22` and
+`WCS-23`.
+
+---
+
+## R14 — The code is presented as six single-digit positions over one editable field
+
+**Decision**: the code field is one editable field holding the whole code, presented as six
+single-digit positions that follow the field's value. The field keeps a visible permanent label, an
+accessible name, a numeric input mode and the platform's one-time-code autofill.
+
+**Reason**: a plain text field is the generic shape for this screen, and it hides the one fact that
+matters — the code is six digits and three of them are still missing. The positions make the length
+visible and show which digit is absent, which is exactly what a person needs when the autofill did not
+fire or the paste was partial. The positions are presentational and follow the field's value, so the
+platform's autofill, a whole-code paste and leading zeros behave exactly as they would with a single
+field: the value lives in one place and is sent exactly as typed.
+
+**Rejected alternative**: six real inputs with focus moving between them — rejected because it breaks
+the platform's one-time-code autofill, makes a whole-code paste land in the first box only, and splits
+the value across six places that can disagree. Rejected: a single field with no positions — rejected
+because it is the generic shape the design is trying to leave behind, and it gives the person nothing
+about how many digits are still missing. Rejected: a canvas or a masked glyph per digit — rejected
+because it hides the value from assistive technology and from the person copying it.
+
+**Scope**: `web/src/auth/auth_code_screen.tsx`, `web/src/auth/auth.css`, `web/DESIGN.md`, spec `WCS-24`.
+
+---
+
+## R15 — The composition is specified, and the origin line replaces the mode switch
+
+**Decision**: the code surface presents its blocks in a fixed order — the brand lockup, the origin line,
+the heading, the instruction, the code field, the refusal, the primary action, the resend row and the
+way back. The origin line is a static line naming the account mode, and it replaces the credential
+form's mode switch rather than leaving a hole in the panel. The swap between the two surfaces is
+limited to opacity and transform, lasts no longer than the longest declared motion duration, and is
+zeroed under the reduced-motion preference.
+
+**Reason**: the contract listed what the surface *does* but never the order of its blocks, so the
+composition was left to whoever implemented it and the committed visual baseline had nothing to pin.
+The mode switch vanishing is the sharper problem: it is the most prominent interactive element of the
+credential form, and the panel silently changes shape when it disappears, taking the person's frame of
+mind ("I am creating an account") with it. A static line keeps the panel's rhythm and the person's
+context without pretending to be a control.
+
+**Rejected alternative**: keeping the mode switch rendered but unavailable — rejected because a control
+that cannot be used is noise, and the accent fill that marks the active mode would then be marking
+nothing. Rejected: an accent-filled origin badge — rejected because the accent marks an action, an
+active state or a selection, and a decorative badge is accent used as ornament. Rejected: no origin
+indication at all — rejected because the two steps differ in what they prove, and the person benefits
+from knowing which one they are in.
+
+**Scope**: `web/src/auth/auth_code_screen.tsx`, `web/src/auth/auth.css`, `web/DESIGN.md`, spec `WCS-25`.
+
+---
+
+## R16 — The resend confirms without invalidating, and the conflict offers its recovery
+
+**Decision**: a recorded resend is confirmed inline, in a status an assistive technology announces once,
+and the confirmation says that either code works; it replaces an earlier refusal rather than sitting
+beside it. The duplicate-address refusal carries an inline action that switches the credential form to
+sign-in, keeps the address and moves the focus to the password field.
+
+**Reason**: a resend neither rotates the handle nor invalidates the code the person already holds
+(`WCS-10`), so the obvious confirmation — "use your newest code" — would be false, and a person who
+discards a working code because the screen told them to would fail a step they had already passed. The
+absence of any confirmation is the other failure: the only signal is the action greying out again, and
+the person cannot tell a recorded send from a suppressed one. The duplicate-address copy already
+promised sign-in while offering no way to take it; an inline action turns the promise into a path.
+
+**Rejected alternative**: "your new code is on its way, use the newest one" — rejected because it
+contradicts `WCS-10`. Rejected: a toast for the confirmation — rejected because the design contract
+keeps feedback inline and a toast disappears before a person who is waiting on their mail has read it.
+Rejected: making the conflict's recovery a second mode switch — rejected because the person who is
+being refused is looking at the error, not at the control that caused it.
+
+**Scope**: `web/src/auth/auth_code_screen.tsx`, `web/src/auth/auth_screen.tsx`, `web/src/l10n/strings.ts`,
+spec `WCS-26` and `WCS-27`.
+
+---
+
 ## Summary of resolved unknowns
 
 | Question the plan left open | Resolution |
@@ -294,6 +447,14 @@ beside the version, for the same job the handle already does.
 | How the captures cover both gate states | The script branches on the real answer (`R8`) |
 | What the countdown costs | One effect timer, no dependency (`R9`) |
 | How a stale verification is discarded | By comparing the handle (`R10`) |
+| What context the code surface gives the person | The address and the code's lifetime, in the email's own unit (`R11`) |
+| What the way back restores | The address and the account mode; never the password (`R12`) |
+| Who owns the focus, and what is announced | The surface owns the focus; the countdown is not a live region (`R13`) |
+| How the code is presented | Six single-digit positions over one editable field (`R14`) |
+| How the surface is composed | A fixed block order, an origin line in place of the mode switch, one restrained transition (`R15`) |
+| What the resend and the conflict offer | An honest resend confirmation and an actionable conflict recovery (`R16`) |
 
 No unknown remains from the Technical Context; the specification's three clarifications were resolved
-by user decision on 2026-10-20, and one requirement (`WCS-09`) was amended to match `R3`.
+by user decision on 2026-10-20, and one requirement (`WCS-09`) was amended to match `R3`. The design
+review of 2026-10-20 added `R11` … `R16` and the requirements `WCS-19` … `WCS-27` that follow from
+them; they complete the code screen the plan's §3.5 asks for and change no server contract.

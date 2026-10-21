@@ -2,7 +2,7 @@
 
 **Input**: Design documents from `.specs/features/019-web-auth-code-step/`
 
-**Prerequisites**: `plan.md`, `spec.md` (`WCS-01`…`WCS-18`), `research.md` (`R1`…`R10`),
+**Prerequisites**: `plan.md`, `spec.md` (`WCS-01`…`WCS-27`), `research.md` (`R1`…`R16`),
 `data-model.md`, `contracts/`, `quickstart.md`
 
 **Tests**: Required, not optional — the constitution makes behavior ship with tests in the same commit
@@ -40,7 +40,7 @@ the delivered features put a shared seam before the stories that build on it.
 
 - [ ] T002 [P] Add `invalidCode`, `emailUnavailable` and `conflict` to the `FailureKind` union — `web/src/api/errors.ts` (WCS-11)
 - [ ] T003 [P] Add the code-surface copy keys and the `api.error.invalidCode` / `api.error.emailUnavailable` entries to the catalog; the `CONFLICT` copy lands with US3 — `web/src/l10n/strings.ts` (WCS-13, WCS-16)
-- [ ] T004 Add the `OTP_INVALID` → `invalidCode` and `EMAIL_UNAVAILABLE` → `emailUnavailable` entries to the mapping table, keeping every existing entry unchanged and the unmapped fallback intact — `web/src/api/error_mapper.ts` (WCS-11, WCS-12) *(depends on T002, T003)*
+- [ ] T004 Add the parameterized resolution to the catalog, so the copy that carries the address, the remaining time or the account mode is resolved by the catalog and never concatenated by a surface — `web/src/l10n/strings.ts` (WCS-13)
 - [ ] T005 [P] Make the capture script branch on the answer it actually received (session body versus code step) and document running it once per gate state, leaving the other family's files untouched — `web/src/api/fixtures/capture.sh`, `web/src/api/fixtures/README.md` (WCS-14, R8)
 - [ ] T006 Capture the seven code-step fixtures from the real backend, bytes verbatim — `web/src/api/fixtures/auth_register_challenge.json`, `auth_login_challenge.json`, `auth_challenge_verify.json`, `auth_challenge_resend.json`, `error_otp_invalid.json`, `error_email_unavailable.json`, `error_conflict.json` (WCS-14) *(depends on T005)*
 - [ ] T007 Extend the pinned suite to decode the seven fixtures with no backend running and to fail on a hand-edited key — `web/src/test/api_contract_captures.test.ts` (WCS-14) *(depends on T006)*
@@ -52,28 +52,34 @@ the delivered features put a shared seam before the stories that build on it.
 ## Phase 3: User Story 1 — Registering or signing in now asks for a code (Priority: P1) 🎯 MVP
 
 **Goal**: the credential operations accept either answer without knowing the gate; a code step becomes
-an in-memory pending state rendered by a code surface; submitting the code establishes the session; a
-refusal keeps the step.
+an in-memory pending state rendered by a code surface that names the address and the code's lifetime;
+submitting the code establishes the session; a refusal keeps the step.
 
 **Independent Test**: drive `register`/`login` with a challenge answer and assert no session, no token
-and the code surface; submit the correct code and assert the session is established exactly as a
+and the code surface; assert the surface names the address and the stated lifetime and that the code
+field holds the focus; submit the correct code and assert the session is established exactly as a
 session answer does; submit a wrong code and assert the surface stays with the mapped copy; abandon and
-assert no request.
+assert the form returns with the address kept and no request issued.
 
 ### Tests for User Story 1 (write first, ensure they FAIL) ⚠️
 
 - [ ] T008 [P] [US1] Decode both outcomes from `register` and `login`, the shape discrimination, the ambiguous and malformed payloads, the two new operations' method/path/body/credentials and absent headers, and leading zeros preserved — `web/src/test/auth_api.test.ts` (WCS-01, WCS-03, WCS-15)
 - [ ] T009 [P] [US1] The outcome branch, the `pending !== null` iff `pendingCode` invariant, submit success and refusal, the version counter's unchanged semantics, the stale-handle guard and abandonment — `web/src/test/auth_session.test.ts` (WCS-02, WCS-03, WCS-04, WCS-06)
-- [ ] T010 [P] [US1] The gate renders the code surface while pending, never the shell, and never treats a code-step answer as a session — `web/src/test/auth_gate.test.tsx` (WCS-02)
-- [ ] T011 [P] [US1] The surface's origin-specific copy, the code field's `inputMode`/`autoComplete`/label, the in-flight submit, the refusal copy with the code kept, and "start over" clearing and issuing nothing — `web/src/test/auth_code_screen.test.tsx` (WCS-03, WCS-04, WCS-05, WCS-06, WCS-16)
-- [ ] T012 [P] [US1] Move the credential-form and session-boundary cases that assumed a session answer; keep the legacy gate-off path asserted beside the code-step path — `web/src/test/auth_screen.test.tsx`, `web/src/test/session_boundary.test.ts` (WCS-01, WCS-17)
+- [ ] T010 [P] [US1] The pending step's projection — the address, the username and the advertised lifetime — and the absence of a password in it — `web/src/test/auth_session.test.ts` (WCS-19, WCS-20, WCS-21)
+- [ ] T011 [P] [US1] The gate renders the code surface while pending, never the shell, and never treats a code-step answer as a session — `web/src/test/auth_gate.test.tsx` (WCS-02)
+- [ ] T012 [P] [US1] The surface's origin-specific copy, the instruction naming the address and the stated lifetime, the field's `inputMode`/`autoComplete`/label, the six positions following the field's value, the focus on the field when the surface appears and after a refusal, the refusal associated with the field, the in-flight submit, and "start over" clearing and issuing nothing — `web/src/test/auth_code_screen.test.tsx` (WCS-03, WCS-04, WCS-05, WCS-06, WCS-16, WCS-19, WCS-20, WCS-22, WCS-24)
+- [ ] T013 [P] [US1] The surface's composition — the origin line in place of the mode switch, the block order, and the transition limited to opacity and transform and zeroed under reduced motion — `web/src/test/auth_code_screen.test.tsx` (WCS-25)
+- [ ] T014 [P] [US1] The credential form's values restored after the step is abandoned — the address and the account mode kept, the password empty, the way back moving the focus to the form — `web/src/test/auth_screen.test.tsx` (WCS-21, WCS-22)
+- [ ] T015 [P] [US1] Move the credential-form and session-boundary cases that assumed a session answer; keep the legacy gate-off path asserted beside the code-step path — `web/src/test/auth_screen.test.tsx`, `web/src/test/session_boundary.test.ts` (WCS-01, WCS-17)
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Add `SignInOutcome`, `ChallengeStep`, `ResendResult`, `decodeSignInOutcome` and the `verifyChallenge` / `resendChallenge` operations; keep `refresh`/`logout` unchanged — `web/src/api/auth_api.ts` (WCS-01, WCS-03, WCS-15)
-- [ ] T014 [US1] Add the `pendingCode` state, the snapshot's `pending` projection, the outcome branch in `register`/`login`, `submitCode` with the stale-handle guard, and `cancelCodeStep`; keep the handle module-private — `web/src/auth/auth_session.ts` (WCS-02, WCS-03, WCS-04, WCS-06)
-- [ ] T015 [US1] Build the code surface — origin copy, the one-time-code field, the submit with its progress state, the inline mapped refusal, the "start over" action, and its token-only styles — `web/src/auth/auth_code_screen.tsx`, `web/src/auth/auth.css` (WCS-03, WCS-05, WCS-16)
-- [ ] T016 [US1] Render the code surface in place of the credential form while a step is pending, leaving the URL and the route table unchanged — `web/src/auth/auth_gate.tsx` (WCS-02)
+- [ ] T016 [US1] Add `SignInOutcome`, `ChallengeStep`, `ResendResult`, `decodeSignInOutcome` and the `verifyChallenge` / `resendChallenge` operations; keep `refresh`/`logout` unchanged — `web/src/api/auth_api.ts` (WCS-01, WCS-03, WCS-15)
+- [ ] T017 [US1] Add the `pendingCode` state, the snapshot's `pending` projection carrying the address, the username and the advertised lifetime, the outcome branch in `register`/`login`, `submitCode` with the stale-handle guard, and `cancelCodeStep`; keep the handle module-private — `web/src/auth/auth_session.ts` (WCS-02, WCS-03, WCS-04, WCS-06, WCS-19, WCS-20, WCS-21)
+- [ ] T018 [US1] Build the code surface — the origin line, the heading, the instruction that names the address and the stated lifetime, the code field over six single-digit positions, the submit with its progress state, the inline refusal associated with the field, the way back, and its token-only styles — `web/src/auth/auth_code_screen.tsx`, `web/src/auth/auth.css` (WCS-03, WCS-05, WCS-16, WCS-19, WCS-20, WCS-22, WCS-24, WCS-25)
+- [ ] T019 [US1] Render the code surface in place of the credential form while a step is pending, leaving the URL and the route table unchanged — `web/src/auth/auth_gate.tsx` (WCS-02)
+- [ ] T020 [US1] Restore the credential form's address and account mode when the step is abandoned, clear the password, and move the focus to the form — `web/src/auth/auth_screen.tsx` (WCS-21, WCS-22)
+- [ ] T021 [US1] Specify the code field and the code surface in the visual contract — the field's construction, the surface's block order and the transition's rules — `web/DESIGN.md` (WCS-24, WCS-25)
 
 **Checkpoint**: US1 is exercisable end to end against a gated stack; US1 is the MVP.
 
@@ -81,23 +87,26 @@ assert no request.
 
 ## Phase 4: User Story 2 — The code never arrived (Priority: P1)
 
-**Goal**: the surface offers a resend action governed by an honest countdown, issues one request per
-activation, and never rotates the handle or discards the code.
+**Goal**: the surface offers a resend action governed by an honest countdown that is announced once,
+issues one request per activation, confirms itself without invalidating the code the person holds, and
+never rotates the handle or discards the code.
 
-**Independent Test**: assert the action is disabled with the remaining seconds; elapse the window and
-activate once (one request, countdown re-seeded); activate twice (one request); answer unavailable and
-assert the copy, the kept handle and the re-armed action; submit the same code afterwards and assert it
-still verifies.
+**Independent Test**: assert the action is unreachable-but-findable with the remaining seconds; elapse
+the window and activate once (one request, countdown re-seeded); activate twice (one request); answer
+unavailable and assert the copy, the kept handle and the re-armed action; assert the confirmation names
+both codes as valid; submit the same code afterwards and assert it still verifies.
 
 ### Tests for User Story 2 (write first, ensure they FAIL) ⚠️
 
-- [ ] T017 [P] [US2] The countdown's enable boundary under fake timers, one request per activation, the unavailable copy re-arming at the window's end, and the entered code untouched — `web/src/test/auth_code_screen.test.tsx` (WCS-07, WCS-08, WCS-09, WCS-10)
-- [ ] T018 [P] [US2] `resendCode` single-flight with concurrent callers and the window re-seeded from the answer, leaving the handle and the pending state intact on failure — `web/src/test/auth_session.test.ts` (WCS-08, WCS-10)
+- [ ] T022 [P] [US2] The countdown's enable boundary under fake timers, one request per activation, the unavailable copy re-arming at the window's end, and the entered code untouched — `web/src/test/auth_code_screen.test.tsx` (WCS-07, WCS-08, WCS-09, WCS-10)
+- [ ] T023 [P] [US2] The countdown announced once and never per tick, and the resend action still reachable by keyboard and by assistive technology while it is unavailable — `web/src/test/auth_code_screen.test.tsx` (WCS-07, WCS-23)
+- [ ] T024 [P] [US2] The resend confirmation — announced once, naming both codes as valid, and replacing an earlier refusal instead of sitting beside it — `web/src/test/auth_code_screen.test.tsx` (WCS-26)
+- [ ] T025 [P] [US2] `resendCode` single-flight with concurrent callers and the window re-seeded from the answer, leaving the handle and the pending state intact on failure — `web/src/test/auth_session.test.ts` (WCS-08, WCS-10)
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Add `resendCode` as a single-flight operation that re-seeds the advertised window on success and rethrows without touching the pending state on failure — `web/src/auth/auth_session.ts` (WCS-08, WCS-10)
-- [ ] T020 [US2] Add the resend action with its local countdown seeded from `pending.resendAfter`, disabled while the window runs and while a request is in flight, re-arming at the window's end after an unavailable answer — `web/src/auth/auth_code_screen.tsx` (WCS-07, WCS-08, WCS-09)
+- [ ] T026 [US2] Add `resendCode` as a single-flight operation that re-seeds the advertised window on success and rethrows without touching the pending state on failure — `web/src/auth/auth_session.ts` (WCS-08, WCS-10)
+- [ ] T027 [US2] Add the resend action with its local countdown seeded from `pending.resendAfter`, the countdown as static text outside any live region, the action reachable while unavailable, the recorded-resend confirmation, and the action re-arming at the window's end after an unavailable answer — `web/src/auth/auth_code_screen.tsx` (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)
 
 **Checkpoint**: US1 and US2 both work independently; a person whose mail fails has a path forward.
 
@@ -105,21 +114,25 @@ still verifies.
 
 ## Phase 5: User Story 3 — The failure the person sees names the real cause (Priority: P2)
 
-**Goal**: the duplicate-address conflict gets its own kind and copy at the credential form, and the
-mapping is proven total over the auth surface's codes with the unmapped fallback intact.
+**Goal**: the duplicate-address conflict gets its own kind, its own copy and an action that takes the
+offered recovery at the credential form, and the mapping is proven total over the auth surface's codes
+with the unmapped fallback intact.
 
 **Independent Test**: classify each of the three new codes and assert its kind and resolved copy; feed
 an unknown code and assert the generic kind with its raw code preserved; register a duplicate address
-and assert the conflict copy naming the address and offering sign-in.
+and assert the conflict copy naming the address and offering sign-in, and that the offered action
+switches the form, keeps the address and moves the focus.
 
 ### Tests for User Story 3 (write first, ensure they FAIL) ⚠️
 
-- [ ] T021 [P] [US3] Each new code's kind and resolved copy, the copy coming from the catalog rather than the server message, the unknown fallback, and the existing entries unchanged — `web/src/test/api_error_mapper.test.ts` (WCS-11, WCS-12, WCS-13)
-- [ ] T022 [P] [US3] The duplicate-address conflict copy at registration names the address and offers sign-in, keeping the typed values — `web/src/test/auth_screen.test.tsx` (WCS-11)
+- [ ] T028 [P] [US3] Each new code's kind and resolved copy, the copy coming from the catalog rather than the server message, the unknown fallback, and the existing entries unchanged — `web/src/test/api_error_mapper.test.ts` (WCS-11, WCS-12, WCS-13)
+- [ ] T029 [P] [US3] The duplicate-address conflict copy at registration names the address and offers sign-in, keeping the typed values — `web/src/test/auth_screen.test.tsx` (WCS-11)
+- [ ] T030 [P] [US3] The conflict refusal's inline action — switching the form to sign-in, keeping the address and moving the focus to the password field — `web/src/test/auth_screen.test.tsx` (WCS-27)
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Add the `CONFLICT` → `conflict` entry with its copy key and the catalog copy that names the address and offers sign-in, recording that the server emits `CONFLICT` in one place only — `web/src/api/error_mapper.ts`, `web/src/l10n/strings.ts` (WCS-11, WCS-13)
+- [ ] T031 [US3] Add the `CONFLICT` → `conflict` entry with its copy key and the catalog copy that names the address and offers sign-in, recording that the server emits `CONFLICT` in one place only — `web/src/api/error_mapper.ts`, `web/src/l10n/strings.ts` (WCS-11, WCS-13)
+- [ ] T032 [US3] Add the conflict refusal's inline sign-in action — switching the mode, keeping the address and moving the focus to the password field — `web/src/auth/auth_screen.tsx` (WCS-27)
 
 **Checkpoint**: all three stories are independently functional.
 
@@ -127,9 +140,9 @@ and assert the conflict copy naming the address and offering sign-in.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T024 [P] Add the code-step flow end to end (intercept a challenge answer, render the surface, complete against a verification answer) and the axe sweep over the code surface — `web/e2e/auth.spec.ts` (WCS-17)
-- [ ] T025 [P] Reconcile the corpus: mark `WAS-02`'s premise as delivered by this feature's requirements, with a pointer to the superseding requirement — `.specs/features/007-web-auth-session/spec.md` (WCS-18)
-- [ ] T026 Run the full gate set and the quickstart scenarios — `npm run lint && npm run typecheck && npm test && npm run test:e2e` under `web/`, and `make lint-specs` at the root; record the results (WCS-16, WCS-17, WCS-18)
+- [ ] T033 [P] Add the code-step flow end to end (intercept a challenge answer, render the surface, complete against a verification answer) and the axe sweep over the code surface — `web/e2e/auth.spec.ts` (WCS-17)
+- [ ] T034 [P] Reconcile the corpus: mark `WAS-02`'s premise as delivered by this feature's requirements, with a pointer to the superseding requirement — `.specs/features/007-web-auth-session/spec.md` (WCS-18)
+- [ ] T035 Run the full gate set and the quickstart scenarios — `npm run lint && npm run typecheck && npm test && npm run test:e2e` under `web/`, and `make lint-specs` at the root; record the results (WCS-16, WCS-17, WCS-18)
 
 ---
 
@@ -138,10 +151,10 @@ and assert the conflict copy naming the address and offering sign-in.
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: no dependency.
-- **Foundational (Phase 2)**: depends on Setup; **blocks every story** — the refusal kinds, the copy and
-  the pinned contract are consumed by all three.
+- **Foundational (Phase 2)**: depends on Setup; **blocks every story** — the refusal kinds, the copy
+  and the pinned contract are consumed by all three.
 - **US1 (Phase 3)**: depends on Phase 2. It is the MVP and the largest slice.
-- **US2 (Phase 4)**: depends on Phase 2; integrates with US1's surface (`T015`) and session (`T014`),
+- **US2 (Phase 4)**: depends on Phase 2; integrates with US1's surface (T018) and session (T017),
   so in a sequential run it follows US1.
 - **US3 (Phase 5)**: depends on Phase 2 (the taxonomy); its copy lands in the shared catalog, so
   sequential runs follow US1.
@@ -151,24 +164,33 @@ and assert the conflict copy naming the address and offering sign-in.
 
 | Requirement | Tasks |
 |---|---|
-| `WCS-01` | T008, T012, T013 |
-| `WCS-02` | T009, T010, T014, T016 |
-| `WCS-03` | T008, T009, T011, T013, T014, T015 |
-| `WCS-04` | T009, T011, T014 |
-| `WCS-05` | T011, T015 |
-| `WCS-06` | T009, T011, T014 |
-| `WCS-07` | T017, T020 |
-| `WCS-08` | T017, T018, T019, T020 |
-| `WCS-09` | T017, T020 |
-| `WCS-10` | T017, T018, T019 |
-| `WCS-11` | T002, T004, T021, T022, T023 |
-| `WCS-12` | T004, T021 |
-| `WCS-13` | T003, T021, T023 |
+| `WCS-01` | T008, T015, T016 |
+| `WCS-02` | T009, T011, T017, T019 |
+| `WCS-03` | T008, T009, T012, T016, T017, T018 |
+| `WCS-04` | T009, T012, T017, T018 |
+| `WCS-05` | T012, T018 |
+| `WCS-06` | T009, T012, T017, T020 |
+| `WCS-07` | T022, T023, T027 |
+| `WCS-08` | T022, T025, T026, T027 |
+| `WCS-09` | T022, T027 |
+| `WCS-10` | T022, T024, T025, T026, T027 |
+| `WCS-11` | T002, T004, T028, T029, T031 |
+| `WCS-12` | T004, T028 |
+| `WCS-13` | T003, T004, T028, T031 |
 | `WCS-14` | T005, T006, T007 |
-| `WCS-15` | T008, T013 |
-| `WCS-16` | T001, T003, T011, T015, T026 |
-| `WCS-17` | T012, T024, T026 |
-| `WCS-18` | T025, T026 |
+| `WCS-15` | T008, T016 |
+| `WCS-16` | T001, T003, T012, T018, T035 |
+| `WCS-17` | T012, T013, T015, T033, T035 |
+| `WCS-18` | T034, T035 |
+| `WCS-19` | T010, T012, T017, T018 |
+| `WCS-20` | T010, T012, T017, T018 |
+| `WCS-21` | T009, T010, T012, T014, T017, T020 |
+| `WCS-22` | T012, T014, T018, T020 |
+| `WCS-23` | T023, T027 |
+| `WCS-24` | T012, T018, T021 |
+| `WCS-25` | T013, T018, T021 |
+| `WCS-26` | T024, T027 |
+| `WCS-27` | T030, T032 |
 
 Every requirement is covered by at least one task; no task is unmapped.
 
@@ -176,34 +198,36 @@ Every requirement is covered by at least one task; no task is unmapped.
 
 - Tests are written and must fail before the implementation they cover.
 - Types before the table (T002 before T004); the table before the surface that shows its copy.
-- The session state before the surface that reads it (T014 before T015).
+- The session state before the surface that reads it (T017 before T018).
 - A story's tests and its implementation land in the same commit (constitution III).
 
 ### Parallel Opportunities
 
-- `T002`, `T003`, `T005` touch different files and can run together; `T004` waits on `T002`/`T003`.
-- `T008`–`T012` are five different files and can be written together.
-- `T017` and `T018` are different files and can be written together.
-- `T021` and `T022` are different files and can be written together.
-- `T024` and `T025` are independent and can run together.
+- `T002`, `T003`, `T005` touch different files and can run together; `T004` waits on `T003`.
+- `T008`–`T015` are eight different files and can be written together.
+- `T022`, `T023`, `T024` and `T025` are different files and can be written together.
+- `T026`, `T027` and `T028` are different files and can be written together.
+- `T033` and `T034` are independent and can run together.
 
 ---
 
 ## Parallel Example: User Story 1
 
 ```bash
-# Write the five US1 suites together (they must fail first):
+# Write the US1 suites together (they must fail first):
 Task: "auth_api.test.ts — both outcomes, the discrimination, the new operations"
-Task: "auth_session.test.ts — the pending state, submit, the stale-handle guard"
+Task: "auth_session.test.ts — the pending state, the address and the lifetime, submit, the stale-handle guard"
 Task: "auth_gate.test.tsx — the gate renders the code surface while pending"
-Task: "auth_code_screen.test.tsx — the surface's rendering, refusal copy, start over"
-Task: "auth_screen.test.tsx + session_boundary.test.ts — the moved cases"
+Task: "auth_code_screen.test.tsx — the surface's rendering, the instruction, the six positions, the focus, the refusal, start over"
+Task: "auth_screen.test.tsx + session_boundary.test.ts — the moved cases and the restored values"
 
 # Then the implementation in dependency order:
 Task: "auth_api.ts — the outcome and the two new operations"
-Task: "auth_session.ts — the pending state and submitCode"
+Task: "auth_session.ts — the pending state, the address, the lifetime and submitCode"
 Task: "auth_code_screen.tsx + auth.css — the surface"
 Task: "auth_gate.tsx — render the surface while pending"
+Task: "auth_screen.tsx — the restored values and the focus"
+Task: "DESIGN.md — the code field and the surface's visual contract"
 ```
 
 ---
@@ -212,7 +236,8 @@ Task: "auth_gate.tsx — render the surface while pending"
 
 ### MVP first (User Story 1 only)
 
-1. Phase 1 Setup, then Phase 2 Foundational — the taxonomy, the copy and the pinned captures.
+1. Phase 1 Setup, then Phase 2 Foundational — the taxonomy, the copy, the parameterized resolution and
+   the pinned captures.
 2. Phase 3 `US1`: the outcome, the pending state, the code surface and the gate.
 3. **STOP and validate**: run the US1 independent test and the quickstart scenarios 1, 2, 3, 6 and 7.
    At this point a person on a gated deployment can register, receive a code and sign in — the MVP.
@@ -220,7 +245,8 @@ Task: "auth_gate.tsx — render the surface while pending"
 ### Incremental delivery
 
 4. Add `US2` (resend) → validate scenario 4 → the mail-failure path is closed.
-5. Add `US3` (the conflict copy) → validate scenario 5 → the credential form names the real cause.
+5. Add `US3` (the conflict copy and its action) → validate scenario 5 → the credential form names the
+   real cause and offers a way to take it.
 6. Polish → the e2e flow, the corpus reconciliation, scenario 8 and the full gate set.
 
 Each increment adds value without breaking the previous one, and the gate-off path stays asserted
@@ -233,7 +259,9 @@ throughout so the deployed behavior cannot regress.
 - `[P]` marks different files with no incomplete dependency; tasks that touch the same file
   (`auth_session.ts`, `auth_code_screen.tsx`, `auth_screen.test.tsx`, `strings.ts`,
   `error_mapper.ts`) are deliberately sequential even across stories.
-- The handle never leaves `auth_session.ts` (T014) — no test, fixture or surface holds it.
-- The refusal copy arrives from the catalog, never from the server message (T021).
+- The handle never leaves `auth_session.ts` (T017) — no test, fixture or surface holds it.
+- The password never enters the pending state (T010, T017); the address and the username do, and they
+  are never persisted.
+- The refusal copy arrives from the catalog, never from the server message (T026).
 - Tests cannot be deferred: the constitution makes code without tests in the same commit incomplete.
 - No task adds a dependency, a route, a local store or a Go change; a diff that does is out of scope.

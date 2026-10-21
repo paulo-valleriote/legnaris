@@ -19,6 +19,9 @@ type SessionState =
 
 interface PendingCodeStep {
   readonly origin: 'register' | 'login';
+  readonly email: string;
+  readonly username: string | null;
+  readonly expiresIn: number;
   readonly resendAfter: number;
 }
 
@@ -49,8 +52,10 @@ snapshot and never returned by a method (`R4`).
 
 - `register`/`login` enter `authenticating`, call the operation, then branch on the outcome: a
   `'session'` outcome commits `authenticated` with the token and `version + 1` exactly as today; a
-  `'challenge'` outcome commits `pendingCode` with `pending = { origin, resendAfter }`, holds the
-  handle privately, and leaves the token `null` and `version` unchanged.
+  `'challenge'` outcome commits `pendingCode` with `pending = { origin, email, username, expiresIn,
+  resendAfter }`, holds the handle privately, and leaves the token `null` and `version` unchanged. The
+  address and the username come from the credential input the operation was called with, so the surface
+  names where the code went and the way back restores the form (`WCS-19`, `WCS-21`).
 - `submitCode` calls `verifyChallenge` with the held handle; on success it commits `authenticated`
   (token, `version + 1`, `pending = null`, handle cleared); on failure it rethrows to the caller and
   leaves the pending state untouched so the surface can show the mapped copy.
@@ -62,7 +67,9 @@ snapshot and never returned by a method (`R4`).
   answer; on failure it rethrows and leaves the pending state untouched, because a resend never rotates
   the handle or the code (`WCS-10`).
 - `cancelCodeStep` clears the handle and the entered code (the latter lives in the surface), commits
-  `unauthenticated`, and issues no request (`WCS-06`).
+  `unauthenticated`, and issues no request (`WCS-06`). The address and the account mode the step started
+  with survive it, so the credential form returns with the address the person typed and an empty
+  password field (`WCS-21`).
 - `logout` and `onUnauthorized` are unchanged and unreachable while pending, because no session is held.
 
 ## Invariants
@@ -79,12 +86,14 @@ snapshot and never returned by a method (`R4`).
    move the state away from `unauthenticated` or write a token.
 6. **Memory-only.** Nothing about the pending step survives a reload; `restore()` begins at
    `restoring` with `pending === null`.
+7. **No secret in the pending state.** The pending step carries the address and the username the person
+   typed, never the password (`WCS-21`).
 
 ## Boundary cases
 
 | Case | Result |
 |---|---|
-| register answered with a code step | `pendingCode`, no token, `version` unchanged (`WCS-02`) |
+| register answered with a code step | `pendingCode`, no token, `version` unchanged, the address and the advertised lifetime on the pending step (`WCS-02`, `WCS-19`, `WCS-20`) |
 | register answered with a session | `authenticated`, token held, `version + 1` (`WCS-01`) |
 | verification succeeds | `authenticated`, token held, `version + 1`, pending cleared (`WCS-03`) |
 | verification refused | `pendingCode` kept, failure rethrown, no token (`WCS-04`) |
@@ -92,6 +101,7 @@ snapshot and never returned by a method (`R4`).
 | a second step replaces the first | an answer for the first handle is dropped (`R10`) |
 | `resendCode` called twice in flight | one request; the second caller shares the promise (`WCS-08`) |
 | `resendCode` refused | pending kept, failure rethrown, handle and code unchanged (`WCS-10`) |
+| `cancelCodeStep` | the pending step cleared and the address and the mode kept for the form; the password never was part of it (`WCS-21`) |
 | reload while pending | `restoring`; no pending step (`WCS-02`) |
 | `logout` while pending | not reachable; no session to end |
 

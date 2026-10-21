@@ -1,6 +1,6 @@
 # Data Model — The Code Step in the Client
 
-**Feature**: `.specs/features/019-web-auth-code-step/` | **Requirements**: `WCS-01` … `WCS-18`
+**Feature**: `.specs/features/019-web-auth-code-step/` | **Requirements**: `WCS-01` … `WCS-27`
 
 The feature defines no persisted data. Everything below is either a wire shape the client decodes or an
 in-memory shape the session holds for the life of the tab. No store, index, collection or migration is
@@ -108,6 +108,10 @@ type SessionState =
 ```ts
 interface PendingCodeStep {
   readonly origin: 'register' | 'login';   // which operation started the step; drives the copy
+                                           // and is the account mode the form returns to
+  readonly email: string;                  // the address the code was sent to; the surface names it
+  readonly username: string | null;        // the registration's username, restored with the form
+  readonly expiresIn: number;              // the advertised lifetime, in seconds; the surface states it
   readonly resendAfter: number;            // seeds the surface's local window
 }
 ```
@@ -116,6 +120,10 @@ The **handle is not on the snapshot**. It stays in a module-private field beside
 the surface acts on the step only through the session's `submitCode` / `resendCode` / `cancelCodeStep`
 methods (`WCS-02`, `R4`). There is therefore no second copy of the handle to keep in sync, and no
 subscriber can read, persist or leak it.
+
+The step carries the **address and the username the person typed** so the surface can name where the
+code went and so the way back restores the form (`WCS-19`, `WCS-21`). It carries **no password**: the
+secret is never part of the pending state, and the form returns with an empty password field.
 
 ### `SessionSnapshot` (extended)
 
@@ -133,6 +141,7 @@ interface SessionSnapshot {
 - `pending !== null` **iff** `state === 'pendingCode'`; both are cleared together.
 - While `pending !== null`, `accessToken === null` and `version` is unchanged.
 - The snapshot carries no handle, no code and no credential beyond the existing access token.
+- The snapshot carries **no password**: the pending step holds the address and the username only.
 - A reload restores `restoring` and finds no pending step (`R2`, `WCS-02`).
 
 ## 4. State transitions
@@ -143,14 +152,14 @@ interface SessionSnapshot {
 | `restoring` | silent refresh refused / transient | `unauthenticated` | (unchanged) |
 | `unauthenticated` | register / sign-in submitted | `authenticating` | (unchanged) |
 | `authenticating` | answer is a **session** | `authenticated` | token held, `version + 1` (unchanged) |
-| `authenticating` | answer is a **code step** | `pendingCode` | `pending = { origin, resendAfter }`, handle held privately, **no token, no version bump** |
+| `authenticating` | answer is a **code step** | `pendingCode` | `pending = { origin, email, username, expiresIn, resendAfter }`, handle held privately, **no token, no version bump** |
 | `authenticating` | refusal | `unauthenticated` | mapped copy shown by the surface (unchanged) |
 | `pendingCode` | `submitCode` succeeds | `authenticated` | token held, `version + 1`, `pending = null` |
 | `pendingCode` | `submitCode` refused | `pendingCode` | pending kept, copy shown, no token |
 | `pendingCode` | `submitCode` answer for a **stale handle** | unchanged | answer discarded (`R10`) |
 | `pendingCode` | `resendCode` answered | `pendingCode` | `pending.resendAfter` updated from the answer |
 | `pendingCode` | `resendCode` refused (unavailable / rate limited) | `pendingCode` | pending kept, copy shown, action re-arms at the window's end (`R3`) |
-| `pendingCode` | `cancelCodeStep` | `unauthenticated` | handle and entered code cleared, `pending = null`, no request |
+| `pendingCode` | `cancelCodeStep` | `unauthenticated` | handle and entered code cleared, `pending = null`, no request; the form returns with the address and the account mode (`WCS-21`) |
 | `pendingCode` | sign-out / forced logout | — | not reachable: no session is held while pending |
 
 **Version semantics (unchanged definition)**: `version` increments only where a session is established
@@ -184,23 +193,35 @@ starts emitting it, the copy must be revisited (`R6`).
 
 ## 6. Catalog keys (new)
 
-| Key | Purpose |
-|---|---|
-| `auth.codeTitle` | the code surface's heading |
-| `auth.codeSubtitleRegister` | "confirm the address you registered" copy |
-| `auth.codeSubtitleLogin` | "sign in with the code we emailed" copy |
-| `auth.codeLabel` | the code field's label |
-| `auth.codeSubmit` | the submit action |
-| `auth.codeVerifying` | the in-flight submit label |
-| `auth.codeResend` | the resend action |
-| `auth.codeResendIn` | the countdown, formatted with the remaining seconds |
-| `auth.codeResendSent` | the confirmation after a resend is recorded |
-| `auth.codeStartOver` | the way back to the credential form |
-| `api.error.invalidCode` | the uniform code refusal copy |
-| `api.error.emailUnavailable` | the unavailable-send copy |
-| `api.error.conflict` | the duplicate-address copy, offering sign-in |
+| Key | Copy | Purpose |
+|---|---|---|
+| `auth.codeTitle` | Enter your code | the code surface's heading |
+| `auth.codeOriginRegister` | New account | the static origin line, registration step |
+| `auth.codeOriginLogin` | Existing account | the static origin line, sign-in step |
+| `auth.codeInstruction` | We sent a 6-digit code to {email}. It expires in {minutes} minutes. | the instruction that names the address and the stated lifetime |
+| `auth.codeExpired` | This code has expired. Send a new one or start over. | the state after the stated lifetime passes |
+| `auth.codeLabel` | 6-digit code | the code field's permanent label |
+| `auth.codeSubmit` | Verify | the primary action |
+| `auth.codeVerifying` | Verifying… | the in-flight submit label |
+| `auth.codeResendHint` | Didn't get it? | the lead-in to the resend row |
+| `auth.codeResend` | Resend code | the resend action |
+| `auth.codeResendIn` | Resend in {seconds}s | the countdown, formatted with the remaining seconds |
+| `auth.codeResendSent` | We sent another code. Either code works. | the confirmation after a resend is recorded |
+| `auth.codeBackRegister` | Back to registration | the way back from a registration step |
+| `auth.codeBackLogin` | Back to sign-in | the way back from a sign-in step |
+| `api.error.invalidCode` | That code is not valid or has expired. Check the newest email, or send a new code. | the uniform code refusal copy |
+| `api.error.emailUnavailable` | We could not send the code right now. Try again in a moment. | the unavailable-send copy |
+| `api.error.conflict` | That email already has an account. Sign in instead. | the duplicate-address copy, offering sign-in |
 
 Every key resolves through `src/l10n/strings.ts`; no surface authors a literal (`WCS-13`, `WCS-16`).
+
+Three keys carry a value — `{email}`, `{minutes}`, `{seconds}` — so the catalog resolves them through a
+**parameterized** resolution, and no surface concatenates a sentence with a value the catalog did not
+resolve (`WCS-13`). The keys without a parameter keep resolving to the catalog entry itself.
+
+The instruction's wording is the same one the emailed message uses for the lifetime, so the two
+surfaces a person reads agree (`WCS-20`). The resend confirmation says that either code works,
+because a resend invalidates neither (`WCS-26`, `WCS-10`).
 
 ## 7. The operations (extended `AuthApi`)
 
@@ -232,7 +253,10 @@ and none can trigger a refresh (`WCS-15`, `R7`).
 | verification answer for an abandoned handle | discarded; the credential form stays, no token (`WCS-06`, `R10`) |
 | resend `202` | window re-seeded from `resend_after`; handle and code unchanged (`WCS-08`, `WCS-10`) |
 | resend `503 EMAIL_UNAVAILABLE` | pending kept, `emailUnavailable` copy, action re-arms at the window's end (`WCS-09`, `R3`) |
-| registration `409 CONFLICT` | `conflict` copy naming the address and offering sign-in; credential form keeps its values (`WCS-11`) |
+| registration `409 CONFLICT` | `conflict` copy naming the address and offering sign-in; credential form keeps its values, and the refusal carries the action that switches to sign-in (`WCS-11`, `WCS-27`) |
 | a code with leading zeros submitted | sent exactly as typed (`WCS-03`) |
+| a code pasted or filled as a whole | the six positions follow the field's value; the code is sent exactly as typed (`WCS-24`) |
+| the step abandoned | the credential form returns with the address and the account mode; the password is empty (`WCS-21`) |
+| the stated lifetime elapses | the surface shows the expired state and offers the resend and the way back (`WCS-20`) |
 | reload while pending | `restoring` → `unauthenticated`; the credential form returns (`WCS-02`, `R2`) |
 | unknown backend code | `unknown` kind, raw code preserved (`WCS-12`) |

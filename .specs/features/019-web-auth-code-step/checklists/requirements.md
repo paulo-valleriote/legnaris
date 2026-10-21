@@ -45,6 +45,15 @@
   `R3` established that the client cannot read the server's `Retry-After` header across origins; the
   requirement now binds the surface's local window and the copy instead of an unreadable hint. The
   amendment is recorded in the requirement itself and in Assumptions.
-- **Traceability**: `WCS-01` … `WCS-18` are defined only in this spec, and `WAS-02`'s premise is
+- **Amendment (2026-10-20, design review)**: the design review of the code screen added `WCS-19` …
+  `WCS-27` and amended `WCS-04`, `WCS-06`, `WCS-07`, `WCS-11` and `WCS-13`. The review completes the
+  code screen the program plan's §3.5 asks for — it names the address and the code's lifetime, owns the
+  focus, presents the code over six positions, and makes the two offered recoveries real — and changes
+  no server contract, no scope and no dependency. The decisions are recorded as `R11` … `R16` in
+  `research.md`, and the questions that produced them are in the Clarifications session of 2026-10-20.
+  The checklist items were re-evaluated against the amended spec and all still pass: the new
+  requirements state observable outcomes ("names the address", "the focus remains on the code field",
+  "announced once"), name no framework, module or file, and keep the surface's scope bounded.
+- **Traceability**: `WCS-01` … `WCS-27` are defined only in this spec, and `WAS-02`'s premise is
   reconciled in its own spec with a pointer to the superseding requirement (`WCS-18`), so
   `scripts/check_requirement_ids.py` stays green.
