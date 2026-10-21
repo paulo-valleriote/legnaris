@@ -253,7 +253,10 @@ delete failure and assert the sheet is kept with the mapped message.
   IndexedDB, and MUST attach the token to the protected calls that follow.
 - **WAS-02**: WHEN registration succeeds, the client MUST establish the session from the
   registration response (the backend signs the browser in on registration) and MUST NOT
-  issue a follow-up login. **Superseded by `TFA-02`** (`.specs/features/018-auth-2fa-session-gate/spec.md`): while the rollout gate is on, the registration response carries a code step and no session, so the client premise "registration authenticates" no longer holds; the client adaptation is the next stage's work and this requirement stands for the gate-disabled behavior only.
+  issue a follow-up login. **Superseded by `TFA-02`** (`.specs/features/018-auth-2fa-session-gate/spec.md`): while the rollout gate is on, the registration response carries a code step and no session, so the client premise "registration authenticates" no longer holds. The client half of that change is delivered by **`WCS-01`**
+  (`.specs/features/019-web-auth-code-step/spec.md`): the client accepts either answer, establishes no
+  session from a code step and renders the code surface instead. This requirement therefore stands for
+  the gate-disabled behavior only.
 - **WAS-03**: WHEN the app starts or resumes holding no in-memory access token, the client
   MUST attempt exactly one silent refresh before deciding the session state and MUST show
   a restoring state, not the sign-in form, while it is in flight.
