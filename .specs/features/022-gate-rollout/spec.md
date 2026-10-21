@@ -174,7 +174,7 @@ what happens to the accounts and to the pending code steps at each flip.
 - **SC-001**: The rule can be in exactly one of its three states, and no deployment ever runs on an unrecognised one: 0 processes start with an unknown value.
 - **SC-002**: 0 accounts are locked out by the first step: in the registration-only state, every existing account can still sign in with a password.
 - **SC-003**: 100% of the sessions issued before the cutover stop renewing at their first renewal attempt, with no operator action.
-- **SC-004**: 0 accounts that verified their mailbox are asked to prove it again, in any state.
+- **SC-004**: 0 accounts that verified their mailbox are treated as unverified in any state: their renewal is never refused.
 - **SC-005**: 0 client changes are needed: the answers a client receives are the same two it already handles.
 - **SC-006**: The client contract is unchanged across the three states: 0 new answer shapes, 0 new failure codes.
 - **SC-007**: The runbook states the order, the numbers, the window, the way back and the consequences of each flip: 0 undocumented steps in the activation.
