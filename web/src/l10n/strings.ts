@@ -5,6 +5,9 @@
  * Every key is a plain string in the single V1 locale. Components and the API
  * client resolve copy through `message()` rather than embedding literals, so a
  * later localization feature replaces this module without touching call sites.
+ * The copy that carries a value — the address, the remaining time, the account
+ * mode — resolves through `messageWith()`, so the sentence and the value stay
+ * in the catalog together (WCS-13).
  */
 
 export const messages = {
@@ -19,6 +22,10 @@ export const messages = {
   'api.error.unauthorized': 'Your session has ended. Sign in again.',
   'api.error.forbidden': 'That action was refused. Reload the app and try again.',
   'api.error.rateLimited': 'Too many attempts. Wait a moment and try again.',
+  'api.error.invalidCode':
+    'That code is not valid or has expired. Check the newest email, or send a new code.',
+  'api.error.emailUnavailable': 'We could not send the code right now. Try again in a moment.',
+  'api.error.conflict': 'That email already has an account. Sign in instead.',
 
   'auth.titleLogin': 'Sign in to your archive',
   'auth.titleRegister': 'Create your archive',
@@ -33,6 +40,26 @@ export const messages = {
   'auth.submitLogin': 'Sign in',
   'auth.submitRegister': 'Create account',
   'auth.restoring': 'Restoring your session',
+  'auth.conflictSignIn': 'Sign in with this email instead',
+
+  'auth.accountModeNew': 'new account',
+  'auth.accountModeExisting': 'existing account',
+  'auth.codeOrigin': 'Confirming your {mode}',
+  'auth.codeTitleRegister': 'Confirm your email',
+  'auth.codeTitleLogin': 'Check your email',
+  'auth.codeInstruction': 'We sent a 6-digit code to {email}. It expires in {minutes} minutes.',
+  'auth.codeInstructionExpired': 'We sent a 6-digit code to {email}. It has expired.',
+  'auth.codeExpired': 'Send a new code or start over.',
+  'auth.codeLabel': '6-digit code',
+  'auth.codeSubmit': 'Verify',
+  'auth.codeVerifying': 'Verifying…',
+  'auth.codeResendHint': "Didn't get it?",
+  'auth.codeResend': 'Resend code',
+  'auth.codeResendReady': 'The resend action is available.',
+  'auth.codeResendIn': 'Resend in {seconds}s',
+  'auth.codeResendSent': 'We sent another code. Either code works.',
+  'auth.codeBackRegister': 'Back to registration',
+  'auth.codeBackLogin': 'Back to sign-in',
 
   'app.name': 'Legnaris',
   'nav.catalog': 'Catalog',
@@ -107,7 +134,31 @@ export const messages = {
 /** A key of the English catalog. */
 export type MessageKey = keyof typeof messages;
 
+/** The values a parameterized catalog entry resolves (WCS-13). */
+export type MessageValues = Readonly<Record<string, string | number>>;
+
 /** Resolves the copy for [key] from the English catalog (API-23). */
 export function message(key: MessageKey): string {
   return messages[key];
+}
+
+/**
+ * Resolves a catalog entry that carries values (WCS-13).
+ *
+ * The catalog owns the sentence; the caller hands over the values it holds —
+ * the address, the remaining time, the account mode — so no surface
+ * concatenates copy with a value the catalog did not resolve. A placeholder
+ * without a value is a programming error and raises rather than rendering a
+ * half-resolved sentence.
+ */
+export function messageWith(key: MessageKey, values: MessageValues): string {
+  return messages[key].replace(/\{(\w+)\}/g, (_match, name: string) => {
+    const value = values[name];
+
+    if (value === undefined) {
+      throw new Error(`the copy "${key}" needs a value for "${name}"`);
+    }
+
+    return String(value);
+  });
 }

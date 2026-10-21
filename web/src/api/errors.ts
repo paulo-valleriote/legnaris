@@ -11,6 +11,10 @@
 /**
  * UI-facing class of a failure; a screen branches on this instead of parsing a
  * response (API-15 … API-21).
+ *
+ * The three auth kinds name the refusals the code step introduced: a refused
+ * code, a send the server could not make and an address that already has an
+ * account (WCS-11).
  */
 export type FailureKind =
   | 'clientFault'
@@ -22,7 +26,10 @@ export type FailureKind =
   | 'unauthorized'
   | 'forbidden'
   | 'rateLimited'
-  | 'unknown';
+  | 'unknown'
+  | 'invalidCode'
+  | 'emailUnavailable'
+  | 'conflict';
 
 /** Input of a {@link DomainFailure}. */
 export interface DomainFailureInput {

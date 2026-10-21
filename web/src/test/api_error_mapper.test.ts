@@ -3,6 +3,7 @@ import {
   apperrKind,
   classifyDomainFailure,
   failureCopy,
+  failureKind,
   failureMessage,
   offlineFailure,
   parseFailureMessage,
@@ -21,10 +22,12 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['UNAUTHORIZED', 'unauthorized'],
   ['FORBIDDEN', 'forbidden'],
   ['RATE_LIMITED', 'rateLimited'],
+  ['OTP_INVALID', 'invalidCode'],
+  ['EMAIL_UNAVAILABLE', 'emailUnavailable'],
+  ['CONFLICT', 'conflict'],
 ];
 
 const fallback = [
-  'CONFLICT',
   'CYCLE_DETECTED',
   'INVALID_DEPENDENCY',
   'INVALID_PATH',
@@ -42,6 +45,9 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   forbidden: 'api.error.forbidden',
   rateLimited: 'api.error.rateLimited',
   unknown: 'api.error.unknown',
+  invalidCode: 'api.error.invalidCode',
+  emailUnavailable: 'api.error.emailUnavailable',
+  conflict: 'api.error.conflict',
 };
 
 describe('backend code to failure kind', () => {
@@ -88,13 +94,13 @@ describe('classifying a domain failure', () => {
       new DomainFailure({
         kind: 'unknown',
         status: 409,
-        code: 'CONFLICT',
+        code: 'SHEET_LIMIT_REACHED',
         message: 'already exists',
       }),
     );
 
     expect(classified.kind).toBe('unknown');
-    expect(classified.code).toBe('CONFLICT');
+    expect(classified.code).toBe('SHEET_LIMIT_REACHED');
     expect(classified.message).toBe('already exists');
   });
 
@@ -171,5 +177,79 @@ describe('session code classification (WAS-30, SC-008, SC-009)', () => {
 
     expect(failureCopy(failure)).toBe(messages['api.error.serverError']);
     expect(failureCopy(failure)).not.toContain('traceback');
+  });
+});
+
+describe('the code-step refusal kinds (WCS-11, WCS-12, WCS-13)', () => {
+  it('Happy path: each new code resolves its own kind and its own catalog copy (WCS-11)', () => {
+    expect(apperrKind('OTP_INVALID')).toBe('invalidCode');
+    expect(apperrKind('EMAIL_UNAVAILABLE')).toBe('emailUnavailable');
+    expect(apperrKind('CONFLICT')).toBe('conflict');
+
+    expect(failureMessage('invalidCode')).toBe(messages['api.error.invalidCode']);
+    expect(failureMessage('emailUnavailable')).toBe(messages['api.error.emailUnavailable']);
+    expect(failureMessage('conflict')).toBe(messages['api.error.conflict']);
+  });
+
+  it('Edge: the invalid-code copy names the newest email and the resend as the next step (WCS-11)', () => {
+    const copy = messages['api.error.invalidCode'];
+
+    expect(copy).toMatch(/email/i);
+    expect(copy).toMatch(/send a new code/i);
+    expect(copy).not.toBe(messages['api.error.unknown']);
+  });
+
+  it('Edge: the unavailable-send copy names the wait and discloses no account state (WCS-11)', () => {
+    const copy = messages['api.error.emailUnavailable'];
+
+    expect(copy).toMatch(/try again/i);
+    expect(copy).not.toMatch(/account|exist|registered/i);
+  });
+
+  it('Edge: no two of the new kinds share copy, and none of them is the generic copy (WCS-11)', () => {
+    const copy = ['invalidCode', 'emailUnavailable', 'conflict'].map((kind) =>
+      failureMessage(kind as FailureKind),
+    );
+
+    expect(new Set(copy).size).toBe(copy.length);
+    expect(copy).not.toContain(messages['api.error.unknown']);
+  });
+
+  it('Edge: a code the table does not classify keeps the generic kind with its raw code and status (WCS-12)', () => {
+    const classified = classifyDomainFailure(
+      new DomainFailure({
+        kind: 'unknown',
+        status: 418,
+        code: 'SOMETHING_NEW',
+        message: 'teapot',
+      }),
+    );
+
+    expect(classified.kind).toBe('unknown');
+    expect(classified.code).toBe('SOMETHING_NEW');
+    expect(classified.status).toBe(418);
+  });
+
+  it('Happy path: the copy comes from the catalog, never from the server message (WCS-13)', () => {
+    const failure = classifyDomainFailure(
+      new DomainFailure({
+        kind: 'unknown',
+        status: 401,
+        code: 'OTP_INVALID',
+        message: 'internal detail about the stored code',
+      }),
+    );
+
+    expect(failureCopy(failure)).toBe(messages['api.error.invalidCode']);
+    expect(failureCopy(failure)).not.toContain('internal detail');
+  });
+
+  it('Happy path: failureKind resolves the kind a surface branches on (WCS-27)', () => {
+    const failure = classifyDomainFailure(
+      new DomainFailure({ kind: 'unknown', status: 409, code: 'CONFLICT' }),
+    );
+
+    expect(failureKind(failure)).toBe('conflict');
+    expect(failureKind(new Error('not a failure'))).toBe('unknown');
   });
 });

@@ -28,7 +28,7 @@ describe('failure states out of the client', () => {
   });
 
   it('Edge: a failure with an unmapped code keeps the generic kind, the raw code and the message (API-21)', async () => {
-    const fake = createFakeTransport(errorOutcome('CONFLICT', 'already exists', 409));
+    const fake = createFakeTransport(errorOutcome('SHEET_LIMIT_REACHED', 'already exists', 409));
 
     const failure = await clientWith(fake)
       .getSheet('sheet-1')
@@ -38,7 +38,7 @@ describe('failure states out of the client', () => {
     expect(failure).toMatchObject({
       kind: 'unknown',
       status: 409,
-      code: 'CONFLICT',
+      code: 'SHEET_LIMIT_REACHED',
       message: 'already exists',
     });
   });
@@ -69,7 +69,7 @@ describe('failure states out of the client', () => {
     expect(failure.message).not.toContain(baseUrl);
   });
 
-  it('Happy path: the classification table is total over the codes the backend emits (API-15, API-16, API-17, API-18, API-19, API-21)', () => {
+  it('Happy path: the classification table is total over the codes the backend emits (API-15, API-16, API-17, API-18, API-19, API-21, WCS-11)', () => {
     const codes = [
       'INVALID_JSON',
       'INVALID_REQUEST',
@@ -84,11 +84,13 @@ describe('failure states out of the client', () => {
       'UNAUTHORIZED',
       'FORBIDDEN',
       'RATE_LIMITED',
+      'OTP_INVALID',
+      'EMAIL_UNAVAILABLE',
     ];
 
     for (const code of codes) {
       expect(apperrKind(code)).toMatch(
-        /^(clientFault|invalidEdit|renderMismatch|notFound|serverError|unauthorized|forbidden|rateLimited|unknown)$/,
+        /^(clientFault|invalidEdit|renderMismatch|notFound|serverError|unauthorized|forbidden|rateLimited|invalidCode|emailUnavailable|conflict|unknown)$/,
       );
     }
   });

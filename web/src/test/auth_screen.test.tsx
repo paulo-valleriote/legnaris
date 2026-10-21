@@ -124,7 +124,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('secret');
   });
 
-  it('Edge: a duplicate email and any other unmapped registration failure render the same catalog copy (WAS-10)', async () => {
+  it('Edge: a duplicate address names the conflict, and any other unmapped registration failure keeps the generic copy (WAS-10, WCS-11)', async () => {
     const user = userEvent.setup();
     const duplicate = createDeferredTransport();
     const { unmount } = renderAuth(duplicate.transport);
@@ -137,9 +137,9 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     duplicate.resolve(errorOutcome('CONFLICT', 'email already exists', 409));
 
     await waitFor(() => expect(screen.getByTestId('auth-error')).toBeInTheDocument());
-    const duplicateCopy = screen.getByTestId('auth-error').textContent;
-    expect(duplicateCopy).toBe(message('api.error.unknown'));
-    expect(duplicateCopy).not.toContain('already exists');
+    expect(screen.getByTestId('auth-error').textContent).toBe(message('api.error.conflict'));
+    expect(screen.getByTestId('auth-error').textContent).not.toContain('already exists');
+    expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
 
     unmount();
 
@@ -153,7 +153,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     other.resolve(errorOutcome('SOMETHING_NEW', 'email already exists', 409));
 
     await waitFor(() => expect(screen.getByTestId('auth-error')).toBeInTheDocument());
-    expect(screen.getByTestId('auth-error').textContent).toBe(duplicateCopy);
+    expect(screen.getByTestId('auth-error').textContent).toBe(message('api.error.unknown'));
   });
 
   it('Edge: a server message carrying markup never becomes DOM (WAS-10, WAS-31)', async () => {
