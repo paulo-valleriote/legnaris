@@ -344,3 +344,45 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     expect(JSON.stringify(window.sessionStorage)).not.toContain('challenge-1');
   });
 });
+
+describe('the resend (WCS-08, WCS-10)', () => {
+  it('Happy path: concurrent resend calls share one request and re-seed the window (WCS-08, WCS-10)', async () => {
+    const fake = createFakeTransport(
+      successOutcome(CHALLENGE_BODY),
+      successOutcome({ resend_after: 90 }, 202),
+    );
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.login({ email: 'a@b.test', password: 'secret' });
+
+    const first = session.resendCode();
+    const second = session.resendCode();
+
+    expect(second).toBe(first);
+    await first;
+
+    expect(
+      fake.requests.filter((request) => request.url.endsWith('/auth/challenge/resend')),
+    ).toHaveLength(1);
+    expect(session.getSnapshot().pending?.resendAfter).toBe(90);
+  });
+
+  it('Edge: a refused resend keeps the pending step, the handle and the window (WCS-09, WCS-10)', async () => {
+    const fake = createFakeTransport(
+      successOutcome(CHALLENGE_BODY),
+      errorOutcome('EMAIL_UNAVAILABLE', 'email delivery is temporarily unavailable', 503),
+    );
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.login({ email: 'a@b.test', password: 'secret' });
+
+    await expect(session.resendCode()).rejects.toMatchObject({
+      name: 'DomainFailure',
+      kind: 'emailUnavailable',
+    });
+
+    expect(session.getSnapshot()).toMatchObject({ state: 'pendingCode', accessToken: null });
+    expect(session.getSnapshot().pending?.resendAfter).toBe(60);
+    expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
+  });
+});

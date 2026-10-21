@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createAuthApi } from '../api/auth_api';
 import { AppProviders } from '../app/providers';
@@ -201,6 +201,249 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(window.sessionStorage.length).toBe(0);
     expect(field).toHaveAccessibleName(message('auth.codeLabel'));
     expect(field.getAttribute('aria-label')).toBeNull();
+  });
+});
+
+describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
+  it('Edge: the resend action is unavailable while the window runs and shows the remaining seconds (WCS-07)', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+
+    try {
+      await renderCodeSurface([successOutcome(CHALLENGE_BODY)]);
+
+      const resend = screen.getByTestId('code-resend');
+      expect(resend).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByTestId('code-countdown')).toHaveTextContent('Resend in 60s');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Edge: the action becomes available when the window elapses (WCS-07)', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+
+    try {
+      await renderCodeSurface([successOutcome(CHALLENGE_BODY)]);
+
+      await act(async () => {
+        await vi.advanceTimersByTime(60_000);
+      });
+
+      expect(screen.queryByTestId('code-countdown')).not.toBeInTheDocument();
+      expect(screen.getByTestId('code-resend')).toHaveAttribute('aria-disabled', 'false');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Edge: one activation issues one resend request, and a repeat activation issues none (WCS-08)', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+
+    try {
+      const { fake } = await renderCodeSurface([
+        successOutcome(CHALLENGE_BODY),
+        successOutcome({ resend_after: 60 }, 202),
+      ]);
+
+      await act(async () => {
+        await vi.advanceTimersByTime(60_000);
+      });
+
+      const resend = screen.getByTestId('code-resend');
+      fireEvent.click(resend);
+      fireEvent.click(resend);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(
+        fake.requests.filter((request) => request.url.endsWith('/auth/challenge/resend')),
+      ).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Edge: an unavailable send shows the mapped copy and re-arms the action for a window (WCS-09)', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+
+    try {
+      await renderCodeSurface([
+        successOutcome(CHALLENGE_BODY),
+        errorOutcome('EMAIL_UNAVAILABLE', 'email delivery is temporarily unavailable', 503),
+      ]);
+
+      await act(async () => {
+        await vi.advanceTimersByTime(60_000);
+      });
+
+      fireEvent.click(screen.getByTestId('code-resend'));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId('code-refusal')).toHaveTextContent(
+        message('api.error.emailUnavailable'),
+      );
+      expect(screen.getByTestId('code-resend')).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByTestId('code-countdown')).toHaveTextContent('Resend in 60s');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Edge: a resend never discards the entered code (WCS-10)', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+
+    try {
+      await renderCodeSurface([
+        successOutcome(CHALLENGE_BODY),
+        successOutcome({ resend_after: 60 }, 202),
+      ]);
+
+      const field = screen.getByLabelText(message('auth.codeLabel'));
+      fireEvent.change(field, { target: { value: '042917' } });
+
+      await act(async () => {
+        await vi.advanceTimersByTime(60_000);
+      });
+      fireEvent.click(screen.getByTestId('code-resend'));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(field).toHaveValue('042917');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Edge: the stated lifetime elapses and the surface says the code expired (WCS-20)', async () => {
+    vi.useFakeTimers();
+
+    try {
+      await renderCodeSurface([successOutcome(CHALLENGE_BODY)]);
+
+      await act(async () => {
+        await vi.advanceTimersByTime(600_000);
+      });
+
+      expect(screen.getByTestId('code-instruction')).toHaveTextContent('a@b.test');
+      expect(screen.getByTestId('code-instruction')).toHaveTextContent('expired');
+      expect(screen.getByTestId('code-expired')).toBeInTheDocument();
+      expect(screen.getByTestId('code-resend')).toBeInTheDocument();
+      expect(screen.getByTestId('code-back')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Edge: the countdown is static text outside any live region, so a tick announces nothing (WCS-23)', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+
+    try {
+      await renderCodeSurface([successOutcome(CHALLENGE_BODY)]);
+
+      const countdown = screen.getByTestId('code-countdown');
+      expect(countdown.closest('[aria-live]')).toBeNull();
+      expect(countdown).not.toHaveAttribute('aria-live');
+      expect(screen.getByTestId('code-status')).toHaveTextContent('');
+
+      await act(async () => {
+        await vi.advanceTimersByTime(1000);
+      });
+
+      expect(screen.getByTestId('code-countdown')).toHaveTextContent('Resend in 59s');
+      expect(screen.getByTestId('code-status')).toHaveTextContent('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Edge: the action stays reachable by keyboard while it is unavailable (WCS-07)', async () => {
+    await renderCodeSurface([successOutcome(CHALLENGE_BODY)]);
+
+    const resend = screen.getByTestId('code-resend');
+    expect(resend).not.toBeDisabled();
+    resend.focus();
+    expect(resend).toHaveFocus();
+    expect(resend).toHaveAccessibleName(message('auth.codeResend'));
+  });
+
+  it('Edge: the change that makes the action available is announced once (WCS-23)', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+
+    try {
+      await renderCodeSurface([successOutcome(CHALLENGE_BODY)]);
+
+      await act(async () => {
+        await vi.advanceTimersByTime(60_000);
+      });
+
+      const status = screen.getByTestId('code-status');
+      expect(status).toHaveAttribute('role', 'status');
+      expect(status).toHaveTextContent(message('auth.codeResendReady'));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Happy path: a recorded resend is confirmed once, names both codes as valid, and replaces an earlier refusal (WCS-26)', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+
+    try {
+      await renderCodeSurface([
+        successOutcome(CHALLENGE_BODY),
+        errorOutcome('OTP_INVALID', 'invalid or expired code', 401),
+        successOutcome({ resend_after: 60 }, 202),
+      ]);
+
+      fireEvent.change(screen.getByLabelText(message('auth.codeLabel')), {
+        target: { value: '042917' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: message('auth.codeSubmit') }));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId('code-refusal')).toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTime(60_000);
+      });
+      fireEvent.click(screen.getByTestId('code-resend'));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const status = screen.getByTestId('code-status');
+      expect(status).toHaveTextContent(message('auth.codeResendSent'));
+      expect(status.textContent).not.toMatch(/void|no longer/i);
+      expect(screen.queryByTestId('code-refusal')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -251,6 +251,43 @@
   color: var(--lg-color-accent-hover);
 }
 
+.lg-auth__resend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-12);
+}
+
+.lg-auth__hint {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-auth__resend-action[aria-disabled='true'] {
+  color: var(--lg-color-text-subtle);
+  cursor: not-allowed;
+}
+
+.lg-auth__countdown {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  font-variant-numeric: tabular-nums;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-auth__status {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-auth__notice {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-danger);
+}
+
 .lg-auth__restoring {
   margin: var(--lg-space-24);
   font-size: var(--lg-type-15);
