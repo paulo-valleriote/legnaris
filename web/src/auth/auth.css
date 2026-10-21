@@ -251,6 +251,27 @@
   color: var(--lg-color-accent-hover);
 }
 
+.lg-auth__refusal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+}
+
+.lg-auth__inline-action {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--lg-color-accent);
+  font-family: inherit;
+  font-size: var(--lg-type-13);
+  cursor: pointer;
+}
+
+.lg-auth__inline-action:hover {
+  color: var(--lg-color-accent-hover);
+}
+
 .lg-auth__resend {
   display: flex;
   flex-wrap: wrap;

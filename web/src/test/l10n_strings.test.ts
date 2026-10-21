@@ -390,6 +390,7 @@ const authSurfaceKeys: readonly MessageKey[] = [
   'auth.codeResendSent',
   'auth.codeBackRegister',
   'auth.codeBackLogin',
+  'auth.conflictSignIn',
 ];
 
 function authSources(): string[] {

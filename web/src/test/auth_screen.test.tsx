@@ -207,4 +207,62 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     );
     expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveFocus();
   });
+
+  it('Happy path: the duplicate-address refusal offers the sign-in it promises, keeping the typed values (WCS-11, WCS-27)', async () => {
+    const user = userEvent.setup();
+    const duplicate = createDeferredTransport();
+    renderAuth(duplicate.transport);
+
+    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.usernameLabel')), 'aragorn');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitRegister') }));
+    duplicate.resolve(errorOutcome('CONFLICT', 'email already exists', 409));
+
+    await waitFor(() => expect(screen.getByTestId('auth-error')).toBeInTheDocument());
+    expect(screen.getByTestId('auth-error')).toHaveTextContent(message('api.error.conflict'));
+    expect(screen.getByTestId('auth-conflict-action')).toBeInTheDocument();
+    expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
+  });
+
+  it('Happy path: taking the offered action switches to sign-in, keeps the address and moves the focus to the password (WCS-27)', async () => {
+    const user = userEvent.setup();
+    const duplicate = createDeferredTransport();
+    renderAuth(duplicate.transport);
+
+    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitRegister') }));
+    duplicate.resolve(errorOutcome('CONFLICT', 'email already exists', 409));
+
+    await waitFor(() => expect(screen.getByTestId('auth-conflict-action')).toBeInTheDocument());
+    await user.click(screen.getByTestId('auth-conflict-action'));
+
+    expect(screen.getByRole('button', { name: message('auth.modeLogin') })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByLabelText(message('auth.usernameLabel'))).not.toBeInTheDocument();
+    expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
+    expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('secret');
+    expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveFocus();
+    expect(screen.queryByTestId('auth-error')).not.toBeInTheDocument();
+  });
+
+  it('Edge: an unmapped refusal carries no offered action (WCS-12, WCS-27)', async () => {
+    const user = userEvent.setup();
+    const other = createDeferredTransport();
+    renderAuth(other.transport);
+
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
+    other.resolve(errorOutcome('SOMETHING_NEW', 'email already exists', 409));
+
+    await waitFor(() => expect(screen.getByTestId('auth-error')).toBeInTheDocument());
+    expect(screen.getByTestId('auth-error')).toHaveTextContent(message('api.error.unknown'));
+    expect(screen.queryByTestId('auth-conflict-action')).not.toBeInTheDocument();
+  });
 });
