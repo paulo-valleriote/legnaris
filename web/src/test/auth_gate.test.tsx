@@ -9,12 +9,19 @@ import { createAuthSession } from '../auth/auth_session';
 import { clearSessionData } from '../library/session_data';
 import { createMemorySheetStore } from '../library/sheet_store';
 import { message } from '../l10n/strings';
-import { createDeferredTransport, errorOutcome, successOutcome } from './fake_transport';
+import {
+  createDeferredTransport,
+  createFakeTransport,
+  errorOutcome,
+  successOutcome,
+} from './fake_transport';
 import { renderApp } from './render';
 
 const BASE_URL = 'http://api.test';
 
 const SESSION_BODY = { access_token: 'access-1', token_type: 'Bearer', expires_in: 900 };
+
+const CHALLENGE_BODY = { challenge_id: 'challenge-1', expires_in: 600, resend_after: 60 };
 
 const SHEET: Sheet = {
   id: '01a0f967-f42b-710e-851f-8f293a634921',
@@ -132,5 +139,97 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
 
     await waitFor(() => expect(screen.getByTestId('catalog')).toBeInTheDocument());
     expect(screen.queryByTestId('sheet-screen')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: a code-step answer renders the code surface in place of the credential form and holds no session (WCS-01, WCS-02)', async () => {
+    const user = userEvent.setup();
+    const sessionTransport = createDeferredTransport();
+    const session = restoringSession(sessionTransport.transport);
+
+    renderApp('/', { session });
+
+    sessionTransport.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
+    );
+
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
+    sessionTransport.resolve(successOutcome(CHALLENGE_BODY, 202));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(message('auth.codeLabel'))).toBeInTheDocument(),
+    );
+    expect(screen.queryByLabelText(message('auth.emailLabel'))).not.toBeInTheDocument();
+    expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
+    expect(session.getSnapshot().state).toBe('pendingCode');
+    expect(session.getSnapshot().accessToken).toBeNull();
+    expect(session.currentAccessToken()).toBeNull();
+  });
+
+  it('Edge: a session answer never shows the code surface (WCS-01)', async () => {
+    const user = userEvent.setup();
+    const sessionTransport = createDeferredTransport();
+    const catalog = createDeferredTransport();
+    const session = restoringSession(sessionTransport.transport);
+
+    renderApp('/', { session, client: clientWith(catalog.transport) });
+
+    sessionTransport.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
+    );
+
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
+    sessionTransport.resolve(successOutcome(SESSION_BODY));
+    catalog.resolve(successOutcome([]));
+
+    await waitFor(() => expect(screen.getByTestId('catalog')).toBeInTheDocument());
+    expect(screen.queryByLabelText(message('auth.codeLabel'))).not.toBeInTheDocument();
+  });
+
+  it('Happy path: abandoning the step returns the form with the address and the mode, an empty password and the focus (WCS-21, WCS-22)', async () => {
+    const user = userEvent.setup();
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 202));
+    const session = createAuthSession({
+      authApi: createAuthApi({
+        baseUrl: BASE_URL,
+        transport: fake.transport,
+        readCsrfToken: () => undefined,
+      }),
+    });
+
+    renderApp('/', { session });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.usernameLabel')), 'aragorn');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitRegister') }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(message('auth.codeLabel'))).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByTestId('code-back'));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(message('auth.emailLabel'))).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
+    expect(screen.getByLabelText(message('auth.usernameLabel'))).toHaveValue('aragorn');
+    expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('');
+    expect(screen.getByRole('button', { name: message('auth.modeRegister') })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveFocus();
   });
 });

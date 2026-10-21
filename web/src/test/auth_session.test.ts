@@ -226,10 +226,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
   });
 
   it('Happy path: the verified code establishes the session exactly as a session answer does (WCS-03)', async () => {
-    const fake = createFakeTransport(
-      successOutcome(CHALLENGE_BODY),
-      successOutcome(SESSION_BODY),
-    );
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY), successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
     await session.login({ email: 'a@b.test', password: 'secret' });
@@ -284,6 +281,32 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
       pending: null,
     });
     expect(fake.attempts).toBe(before);
+  });
+
+  it('Happy path: the values the person typed survive the abandonment, and the password does not (WCS-21)', async () => {
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
+    session.cancelCodeStep();
+
+    expect(session.getSnapshot().restored).toEqual({
+      origin: 'register',
+      email: 'a@b.test',
+      username: 'aragorn',
+    });
+    expect(JSON.stringify(session.getSnapshot())).not.toContain('secret');
+    expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
+  });
+
+  it('Edge: a verified step leaves nothing to restore (WCS-21)', async () => {
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY), successOutcome(SESSION_BODY));
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.login({ email: 'a@b.test', password: 'secret' });
+    await session.submitCode('042917');
+
+    expect(session.getSnapshot().restored).toBeNull();
   });
 
   it('Edge: an answer for an abandoned step is dropped and establishes no session (WCS-06, R10)', async () => {

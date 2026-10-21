@@ -5,6 +5,7 @@ import { createAuthApi } from '../api/auth_api';
 import type { Transport } from '../api/transport';
 import { AppProviders } from '../app/providers';
 import { AuthScreen } from '../auth/auth_screen';
+import type { RestoredForm } from '../auth/auth_screen';
 import { createAuthSession } from '../auth/auth_session';
 import { createMemorySheetStore } from '../library/sheet_store';
 import { message } from '../l10n/strings';
@@ -18,6 +19,7 @@ const SESSION_BODY = { access_token: 'access-1', token_type: 'Bearer', expires_i
 function renderAuth(
   transport: Transport,
   readCsrfToken: () => string | undefined = () => undefined,
+  restore?: RestoredForm,
 ) {
   const session = createAuthSession({
     authApi: createAuthApi({ baseUrl: BASE_URL, transport, readCsrfToken }),
@@ -25,7 +27,7 @@ function renderAuth(
 
   const view = render(
     <AppProviders session={session} sheetStore={createMemorySheetStore()}>
-      <AuthScreen />
+      <AuthScreen restore={restore} />
     </AppProviders>,
   );
 
@@ -187,5 +189,22 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.queryByTestId('auth-error')).not.toBeInTheDocument();
     expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('secret');
+  });
+
+  it('Happy path: a form that comes back from an abandoned step keeps the address and the mode, and the password is empty (WCS-21, WCS-22)', () => {
+    renderAuth(createDeferredTransport().transport, () => undefined, {
+      origin: 'register',
+      email: 'a@b.test',
+      username: 'aragorn',
+    });
+
+    expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
+    expect(screen.getByLabelText(message('auth.usernameLabel'))).toHaveValue('aragorn');
+    expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('');
+    expect(screen.getByRole('button', { name: message('auth.modeRegister') })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveFocus();
   });
 });

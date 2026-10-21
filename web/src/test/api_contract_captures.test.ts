@@ -362,7 +362,11 @@ describe('the pinned code-step captures (WCS-14)', () => {
     });
 
     await expect(
-      createAuthApi({ baseUrl, transport: fake.transport, readCsrfToken: () => undefined }).register({
+      createAuthApi({
+        baseUrl,
+        transport: fake.transport,
+        readCsrfToken: () => undefined,
+      }).register({
         email: 'a@b.test',
         username: 'aragorn',
         password: 'secret',

@@ -164,7 +164,10 @@ describe('the credential answer carries either a session or a code step (WCS-01,
     const challengeFake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
 
     const session = await authWith(sessionFake).login({ email: 'a@b.test', password: 'secret' });
-    const challenge = await authWith(challengeFake).login({ email: 'a@b.test', password: 'secret' });
+    const challenge = await authWith(challengeFake).login({
+      email: 'a@b.test',
+      password: 'secret',
+    });
 
     expect(sessionFake.lastRequest?.url).toBe(challengeFake.lastRequest?.url);
     expect(session.kind).toBe('session');

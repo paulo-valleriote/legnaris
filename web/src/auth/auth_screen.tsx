@@ -1,5 +1,5 @@
 /**
- * The auth surface (WAS-07, WAS-09, WAS-10, R9).
+ * The auth surface (WAS-07, WAS-09, WAS-10, R9, WCS-21, WCS-22).
  *
  * One place offers sign-in and registration through a mode switch, opening with
  * the brand lockup and a mode-specific title so the first screen of the product
@@ -9,28 +9,42 @@
  * renders the mapped failure copy resolved from the catalog — never the server
  * message, so the copy never reveals whether an email exists (WAS-10). Switching
  * mode clears a stale error but keeps the values.
+ *
+ * A form that comes back from an abandoned code step returns with the address
+ * and the account mode the step started with and with an empty password
+ * (WCS-21); the password never was part of the pending step.
  */
 
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { FormEvent } from 'react';
 import { failureCopy } from '../api/error_mapper';
 import { useAuthSession } from '../app/providers';
 import { message } from '../l10n/strings';
 import { BrandMark } from '../shell/brand_mark';
+import type { RestoredForm } from './auth_session';
 import './auth.css';
 
 type AuthMode = 'login' | 'register';
 
+export type { RestoredForm };
+
 /** The single sign-in / registration surface (WAS-09). */
-export function AuthScreen() {
+export function AuthScreen({ restore }: { readonly restore?: RestoredForm | null }) {
   const session = useAuthSession();
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const [mode, setMode] = useState<AuthMode>('login');
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
+  const [mode, setMode] = useState<AuthMode>(restore?.origin ?? 'login');
+  const [email, setEmail] = useState(restore?.email ?? '');
+  const [username, setUsername] = useState(restore?.username ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
   const busy = snapshot.state === 'authenticating';
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (restore !== undefined && restore !== null) {
+      emailRef.current?.focus();
+    }
+  }, [restore]);
 
   const switchMode = (next: AuthMode) => {
     setMode(next);
@@ -101,6 +115,7 @@ export function AuthScreen() {
             </label>
             <input
               id="auth-email"
+              ref={emailRef}
               className="lg-auth__input"
               type="email"
               autoComplete="email"

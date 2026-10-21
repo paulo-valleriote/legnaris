@@ -26,11 +26,7 @@ import type { SessionDelegate } from '../api/authenticated_transport';
 
 /** The session states the gate renders (WAS-03, WAS-08, WCS-02). */
 export type SessionState =
-  | 'restoring'
-  | 'unauthenticated'
-  | 'authenticating'
-  | 'pendingCode'
-  | 'authenticated';
+  'restoring' | 'unauthenticated' | 'authenticating' | 'pendingCode' | 'authenticated';
 
 /**
  * The pending code step the snapshot projects (WCS-02, WCS-19, WCS-20).
@@ -52,6 +48,22 @@ export interface PendingCodeStep {
   readonly resendAfter: number;
 }
 
+/**
+ * The values the credential form comes back with after an abandoned step
+ * (WCS-21).
+ *
+ * They are the identifiers the person typed — never the password — and they
+ * live in memory for the life of the tab.
+ */
+export interface RestoredForm {
+  /** The account mode the step started with. */
+  readonly origin: 'register' | 'login';
+  /** The address the person typed. */
+  readonly email: string;
+  /** The username the person typed, for a registration step. */
+  readonly username: string | null;
+}
+
 /** The immutable session snapshot a subscriber reads (R3, WCS-02). */
 export interface SessionSnapshot {
   readonly accessToken: string | null;
@@ -59,6 +71,8 @@ export interface SessionSnapshot {
   readonly state: SessionState;
   /** The pending step; non-null exactly while the state is `pendingCode`. */
   readonly pending: PendingCodeStep | null;
+  /** The values the form returns with after an abandoned step (WCS-21). */
+  readonly restored: RestoredForm | null;
 }
 
 /** Construction options for {@link createAuthSession}. */
@@ -107,14 +121,22 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
   let resendInFlight: Promise<void> | undefined;
   let pendingStep: PendingCodeStep | null = null;
   let pendingHandle: string | null = null;
+  let restoredForm: RestoredForm | null = null;
   const listeners = new Set<() => void>();
-  let snapshot: SessionSnapshot = Object.freeze({ accessToken, version, state, pending: null });
+  let snapshot: SessionSnapshot = Object.freeze({
+    accessToken,
+    version,
+    state,
+    pending: null,
+    restored: null,
+  });
 
   function commit(next: {
     readonly state?: SessionState;
     readonly accessToken?: string | null;
     readonly version?: number;
     readonly pending?: PendingCodeStep | null;
+    readonly restored?: RestoredForm | null;
   }): void {
     if (next.state !== undefined) {
       state = next.state;
@@ -128,7 +150,16 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     if (next.pending !== undefined) {
       pendingStep = next.pending;
     }
-    snapshot = Object.freeze({ accessToken, version, state, pending: pendingStep });
+    if (next.restored !== undefined) {
+      restoredForm = next.restored;
+    }
+    snapshot = Object.freeze({
+      accessToken,
+      version,
+      state,
+      pending: pendingStep,
+      restored: restoredForm,
+    });
     for (const listener of listeners) {
       listener();
     }
@@ -191,6 +222,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
           accessToken: outcome.session.accessToken,
           state: 'authenticated',
           pending: null,
+          restored: null,
         });
         return;
       }
@@ -208,6 +240,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
           expiresIn: outcome.challenge.expiresIn,
           resendAfter: outcome.challenge.resendAfter,
         },
+        restored: { origin, email: input.email, username: input.username ?? null },
       });
     } catch (error) {
       pendingHandle = null;
@@ -237,6 +270,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
       accessToken: body.accessToken,
       state: 'authenticated',
       pending: null,
+      restored: null,
     });
   }
 
@@ -270,6 +304,9 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
   }
 
   function cancelCodeStep(): void {
+    // The handle and the code go; the values the person typed stay, so the
+    // credential form comes back with the address and the account mode
+    // (WCS-06, WCS-21).
     pendingHandle = null;
     commit({ state: 'unauthenticated', pending: null });
   }
@@ -285,7 +322,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
       } catch {
         // Sign-out is best-effort: a failed logout never blocks the teardown (WAS-19).
       }
-      commit({ version: version + 1, accessToken: null, state: 'unauthenticated' });
+      commit({ version: version + 1, accessToken: null, state: 'unauthenticated', restored: null });
       await clearSessionData();
     })();
 

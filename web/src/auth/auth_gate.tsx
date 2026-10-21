@@ -1,18 +1,24 @@
 /**
- * The auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24, R8).
+ * The auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24, R8, WCS-02, WCS-21).
  *
  * It runs the one cold-start restore on mount, renders the minimal restoring
  * state until that restore settles, renders `AuthScreen` whenever no session is
- * held (the catalog, the sheet and the "Your sheet" destination never mount), and
- * renders the route tree when authenticated. A deep link visited without a
+ * held (the catalog, the sheet and the "Your sheet" destination never mount),
+ * and renders the route tree when authenticated. A deep link visited without a
  * session is not resumed: as soon as the session settles unauthenticated, the
  * location resets to `/`, so the next session starts on the catalog.
+ *
+ * A pending code step replaces the credential form in place, on the same URL
+ * and with no declared route (R5). The session keeps the values the abandoned
+ * step started with, so the form comes back with the address and the account
+ * mode the person typed and with an empty password (WCS-21).
  */
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../app/providers';
 import { message } from '../l10n/strings';
+import { AuthCodeScreen } from './auth_code_screen';
 import { AuthScreen } from './auth_screen';
 import './auth.css';
 
@@ -41,8 +47,12 @@ export function AuthGate() {
     );
   }
 
+  if (snapshot.state === 'pendingCode') {
+    return <AuthCodeScreen />;
+  }
+
   if (snapshot.state !== 'authenticated') {
-    return <AuthScreen />;
+    return <AuthScreen restore={snapshot.restored} />;
   }
 
   return <Outlet />;

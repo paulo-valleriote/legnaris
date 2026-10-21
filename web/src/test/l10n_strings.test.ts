@@ -194,7 +194,7 @@ describe('catalog copy source scan (WCT-26, SC-003, SC-004)', () => {
       // Failure copy is resolved through the mapper, never by naming a key here.
       expect(text).not.toContain('api.error.');
 
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced += 1;
       }
@@ -225,7 +225,7 @@ describe('engine copy source scan (ENG-27, SC-003, SC-004)', () => {
       // Copy is resolved through message(), never by naming a failure key here.
       expect(text).not.toContain('api.error.');
 
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced.add(match[1]);
       }
@@ -288,7 +288,7 @@ describe('sheet-cycle copy source scan (WSC-32, SC-006)', () => {
       // Copy is resolved through message(), never by naming a failure key here.
       expect(text).not.toContain('api.error.');
 
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced.add(match[1]);
       }
@@ -372,6 +372,17 @@ const authSurfaceKeys: readonly MessageKey[] = [
   'auth.submitLogin',
   'auth.submitRegister',
   'auth.restoring',
+  'auth.accountModeNew',
+  'auth.accountModeExisting',
+  'auth.codeOrigin',
+  'auth.codeTitleRegister',
+  'auth.codeTitleLogin',
+  'auth.codeInstruction',
+  'auth.codeLabel',
+  'auth.codeSubmit',
+  'auth.codeVerifying',
+  'auth.codeBackRegister',
+  'auth.codeBackLogin',
 ];
 
 function authSources(): string[] {
@@ -396,7 +407,7 @@ describe('primitives-layer copy source scan (UIP-05, SC-004)', () => {
     for (const file of sources) {
       const text = readFileSync(file, 'utf8');
       expect(text).not.toContain('api.error.');
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced.add(match[1]);
       }
@@ -444,7 +455,7 @@ describe('auth copy keys and source scan (WAS-19, WAS-25, WAS-30, WAS-31)', () =
       // Failure copy is resolved through the mapper, never by naming a key here.
       expect(text).not.toContain('api.error.');
 
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced.add(match[1]);
       }
