@@ -48,6 +48,12 @@ type Variables struct {
 	EmailRelayMaxAttempts    int
 	EmailOutboxRetention     time.Duration
 	EmailRelayMetricsAddr    string
+	// The worker's settings are optional too: the worker validates the broker
+	// and the provider itself, so the required list stays unchanged (WKR-14,
+	// WKR-16, WKR-19, WKR-20).
+	EmailWorkerPrefetch    int
+	EmailWorkerMaxAttempts int
+	EmailWorkerMetricsAddr string
 	// EmailCodeSecret keys the OTP digest and is required: the API itself
 	// digests codes, so an absent, blank or too-short value must fail the boot
 	// rather than silently weaken every code (F-09, OTP-18, SC-008). The
@@ -94,6 +100,11 @@ const (
 	defaultEmailRelayConfirmTimeout = 5 * time.Second
 	defaultEmailRelayMaxAttempts    = 5
 	defaultEmailRelayMetricsAddr    = ":9100"
+
+	// Email-worker defaults (WKR-14, WKR-16, WKR-20).
+	defaultEmailWorkerPrefetch    = 10
+	defaultEmailWorkerMaxAttempts = 5
+	defaultEmailWorkerMetricsAddr = ":9101"
 	// Challenge defaults (OTP-18): the code lifetime, its absolute ceiling, the
 	// resend cooldown, the attempt cap, the daily send cap (deliberately below
 	// the provider's free-tier 100) and the durable per-account bound.
@@ -193,6 +204,9 @@ func (e *Env) initVariables() Variables {
 		EmailRelayMaxAttempts:          e.lookupIntEnv("EMAIL_RELAY_MAX_ATTEMPTS", defaultEmailRelayMaxAttempts),
 		EmailOutboxRetention:           e.lookupDurationEnv("EMAIL_OUTBOX_RETENTION", DefaultEmailOutboxRetention),
 		EmailRelayMetricsAddr:          e.lookupStringEnv("EMAIL_RELAY_METRICS_ADDR", defaultEmailRelayMetricsAddr),
+		EmailWorkerPrefetch:            e.lookupIntEnv("EMAIL_WORKER_PREFETCH", defaultEmailWorkerPrefetch),
+		EmailWorkerMaxAttempts:         e.lookupIntEnv("EMAIL_WORKER_MAX_ATTEMPTS", defaultEmailWorkerMaxAttempts),
+		EmailWorkerMetricsAddr:         e.lookupStringEnv("EMAIL_WORKER_METRICS_ADDR", defaultEmailWorkerMetricsAddr),
 		EmailCodeSecret:                e.lookupRequiredStringEnv(keyEmailCodeSecret),
 		AuthOTPTTL:                     e.lookupDurationEnv("AUTH_OTP_TTL", defaultAuthOTPTTL),
 		AuthOTPCeiling:                 e.lookupDurationEnv("AUTH_OTP_CEILING", defaultAuthOTPCeiling),

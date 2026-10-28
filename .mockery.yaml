@@ -62,3 +62,12 @@ packages:
       outpkg: mocks
     interfaces:
       Sender: {}
+  legnaris/backend/internal/email/worker:
+    config:
+      dir: backend/internal/email/worker/mocks
+      outpkg: mocks
+    interfaces:
+      DeliverySource: {}
+      DeliveryHandle: {}
+      Republisher: {}
+      Observer: {}

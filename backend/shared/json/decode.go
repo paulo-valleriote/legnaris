@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	encodingJson "encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ const MaxBodySize = 1 << 20 // 1MiB
 var (
 	ErrInvalidJSON  = errors.New("request body contains invalid JSON")
 	ErrUnknownField = errors.New("request body contains an unknown field")
+	ErrBodyTooLarge = errors.New("body exceeds the maximum size")
 )
 
 func Decode[T any](c *echo.Context, dst *T) error {
@@ -38,5 +40,24 @@ func Decode[T any](c *echo.Context, dst *T) error {
 		return ErrUnknownField
 	}
 
+	return nil
+}
+
+// DecodeBytes decodes one JSON value from a byte slice bounded by MaxBodySize.
+// Unlike Decode it tolerates unknown fields: a consumer must not reject a
+// message a newer producer wrote during a rolling deploy (WKR-04).
+func DecodeBytes[T any](body []byte, dst *T) error {
+	if len(body) > MaxBodySize {
+		return ErrBodyTooLarge
+	}
+
+	dec := encodingJson.NewDecoder(bytes.NewReader(body))
+	if err := dec.Decode(dst); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidJSON, err)
+	}
+
+	if dec.Decode(&struct{}{}) != io.EOF {
+		return fmt.Errorf("%w: trailing data", ErrInvalidJSON)
+	}
 	return nil
 }
