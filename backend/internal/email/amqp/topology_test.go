@@ -1,6 +1,7 @@
 package amqp
 
 import (
+	"legnaris/backend/internal/email"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -87,5 +88,36 @@ func TestEmailTopology_Declare(t *testing.T) {
 			}
 		}
 		assert.True(t, found, "the work queue must be bound to %s keyed %s", exchangeMain, routingKeyOTP)
+	})
+}
+
+// TestRoute_MatchesTheDeclaredTopology proves every destination reaches a queue
+// the topology declares and binds, so a routing key spelled in route can never
+// drift from the declared bindings (WKR-09, WKR-11).
+func TestRoute_MatchesTheDeclaredTopology(t *testing.T) {
+	tests := []struct {
+		name        string
+		destination email.Destination
+		wantQueue   string
+	}{
+		{name: "Happy path: the first retry tier", destination: email.DestinationRetry30s, wantQueue: queueRetry30s},
+		{name: "Happy path: the second retry tier", destination: email.DestinationRetry2m, wantQueue: queueRetry2m},
+		{name: "Happy path: the last retry tier", destination: email.DestinationRetry5m, wantQueue: queueRetry5m},
+		{name: "Happy path: the dead-letter route", destination: email.DestinationDeadLetter, wantQueue: queueDead},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			exchange, key, err := route(tc.destination)
+			require.NoError(t, err)
+
+			queue := queueByName(t, tc.wantQueue)
+			assert.Contains(t, queue.Bindings, bindingSpec{Exchange: exchange, RoutingKey: key})
+		})
+	}
+
+	t.Run("Edge: the work queue is never a destination", func(t *testing.T) {
+		_, _, err := route(email.Destination(queueWork))
+		assert.ErrorIs(t, err, ErrUnknownDestination)
 	})
 }

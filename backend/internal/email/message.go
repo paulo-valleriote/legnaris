@@ -1,6 +1,6 @@
 // Package email owns the provider-agnostic email domain shared by the relay
-// (which publishes a send intention) and the future worker (which renders it
-// and calls a provider): the published message contract, the sending port, the
+// (which publishes a send intention) and the worker (which renders it and calls
+// a provider): the published message contract, the sending port, the
 // embedded templates and the development sender. It imports only the standard
 // library and backend/shared/*, so it can be exercised with plain values and no
 // services.
@@ -23,9 +23,10 @@ const (
 const TypeOTP = "email.otp"
 
 // Message is the one wire shape handed to the broker. The relay encodes an
-// intention into it, the broker adapter publishes it, and the future worker
-// will decode it; the golden file in testdata pins the shape so the three
-// cannot drift (EML-07, EML-18, EML-22).
+// intention into it, the broker adapter publishes it, and the worker decodes it
+// with shared/json.DecodeBytes, which tolerates unknown fields so the contract
+// may only grow; the golden file in testdata pins the shape so the three cannot
+// drift (EML-07, EML-18, EML-22, WKR-04).
 type Message struct {
 	// ID is the intention's canonical UUID v7 and also the provider
 	// idempotency key (EML-18).

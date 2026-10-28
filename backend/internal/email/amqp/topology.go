@@ -1,7 +1,10 @@
 package amqp
 
 import (
+	"errors"
 	"fmt"
+
+	"legnaris/backend/internal/email"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -182,4 +185,26 @@ func (t topology) declare(ch channel) error {
 		}
 	}
 	return nil
+}
+
+// ErrUnknownDestination reports a destination outside the domain's closed
+// vocabulary; nothing is published (WKR-09).
+var ErrUnknownDestination = errors.New("unknown email destination")
+
+// route maps a destination to the exchange and routing key that reach its
+// queue. It is the only place a routing key is chosen for the worker (WKR-09,
+// WKR-11).
+func route(destination email.Destination) (exchange, key string, err error) {
+	switch destination {
+	case email.DestinationRetry30s:
+		return exchangeRetry, routingKey30s, nil
+	case email.DestinationRetry2m:
+		return exchangeRetry, routingKey2m, nil
+	case email.DestinationRetry5m:
+		return exchangeRetry, routingKey5m, nil
+	case email.DestinationDeadLetter:
+		return exchangeMain, routingKeyDead, nil
+	default:
+		return "", "", fmt.Errorf("%w: %q", ErrUnknownDestination, string(destination))
+	}
 }

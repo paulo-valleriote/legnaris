@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"legnaris/backend/internal/email"
+	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -24,10 +26,28 @@ const defaultConfirmTimeout = 5 * time.Second
 // (EML-15).
 var ErrBrokerUnavailable = errors.New("message broker is unavailable")
 
+// ValidateURL rejects an absent or unusable broker URL with the typed startup
+// error, so a process that needs the broker never begins work without one
+// (EML-15, WKR-19).
+func ValidateURL(raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return fmt.Errorf("%w: RABBITMQ_URL is not set", ErrBrokerUnavailable)
+	}
+
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "amqp" && parsed.Scheme != "amqps") || parsed.Host == "" {
+		return fmt.Errorf("%w: RABBITMQ_URL is not a valid AMQP URI", ErrBrokerUnavailable)
+	}
+	return nil
+}
+
 // Config configures a broker connection.
 type Config struct {
 	// ConfirmTimeout bounds each publish's confirmation wait.
 	ConfirmTimeout time.Duration
+	// Prefetch bounds the unacknowledged deliveries the consumer holds; zero
+	// leaves the broker's default (WKR-16).
+	Prefetch int
 	// Logger records state changes and blocking notifications.
 	Logger logger.StructuredLogger
 }
@@ -39,6 +59,15 @@ type Broker struct {
 	returns        chan amqp.Return
 	logger         logger.StructuredLogger
 	confirmTimeout time.Duration
+	prefetch       int
+
+	// publishMu serializes publishes: the worker publishes from concurrent
+	// handlers and the confirm bookkeeping below is per channel.
+	publishMu sync.Mutex
+
+	consumerMu  sync.Mutex
+	consumerCh  channel
+	consumerSeq int
 
 	mu       sync.Mutex
 	blocked  bool
@@ -90,6 +119,7 @@ func dialWith(dial dialer, url string, cfg Config) (*Broker, error) {
 		returns:        ch.NotifyReturn(make(chan amqp.Return, 1)),
 		logger:         cfg.Logger,
 		confirmTimeout: confirmTimeout,
+		prefetch:       cfg.Prefetch,
 		unrouted:       make(map[string]struct{}),
 		done:           make(chan struct{}),
 	}
@@ -112,14 +142,29 @@ func (b *Broker) DeclareTopology() error {
 	return nil
 }
 
-// Publish encodes the message and publishes it mandatorily and persistently,
-// then waits for the publisher confirm. It reports nil only when the broker
-// accepted the message for routing: a nack, a confirm timeout, a transport
-// error, a blocked connection or a recorded basic.return are transient, so the
-// relay reschedules instead of marking the row published (EML-02, EML-07).
+// Publish encodes the message and publishes it mandatorily and persistently
+// to the work queue, then waits for the publisher confirm. It reports nil only
+// when the broker accepted the message for routing: a nack, a confirm timeout, a
+// transport error, a blocked connection or a recorded basic.return are
+// transient, so the relay reschedules instead of marking the row published
+// (EML-02, EML-07).
 func (b *Broker) Publish(ctx context.Context, msg email.Message) error {
-	if b.isBlocked() {
-		return fmt.Errorf("%w: connection blocked", email.ErrTransient)
+	body, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("%w: encode message: %v", email.ErrTransient, err)
+	}
+
+	props := provision(msg)
+	props.Body = body
+	return b.publish(ctx, exchangeMain, routingKeyOTP, props)
+}
+
+// PublishTo publishes the message to a destination the domain names, with the
+// same guarantees as Publish (WKR-09, WKR-11, WKR-13).
+func (b *Broker) PublishTo(ctx context.Context, destination email.Destination, msg email.Message) error {
+	exchange, key, err := route(destination)
+	if err != nil {
+		return err
 	}
 
 	body, err := json.Marshal(msg)
@@ -129,8 +174,36 @@ func (b *Broker) Publish(ctx context.Context, msg email.Message) error {
 
 	props := provision(msg)
 	props.Body = body
+	return b.publish(ctx, exchange, key, props)
+}
 
-	pending, err := b.ch.PublishWithDeferredConfirmWithContext(ctx, exchangeMain, routingKeyOTP, true, false, props)
+// PublishBodyTo publishes a body that could not be decoded, unchanged, under a
+// fresh identity so an unroutable publish is still detected (WKR-04).
+func (b *Broker) PublishBodyTo(ctx context.Context, destination email.Destination, body []byte) error {
+	exchange, key, err := route(destination)
+	if err != nil {
+		return err
+	}
+
+	id, err := idgen.New()
+	if err != nil {
+		return fmt.Errorf("%w: %v", email.ErrTransient, err)
+	}
+
+	props := provision(email.Message{ID: id})
+	props.Body = body
+	return b.publish(ctx, exchange, key, props)
+}
+
+func (b *Broker) publish(ctx context.Context, exchange, key string, props amqp.Publishing) error {
+	if b.isBlocked() {
+		return fmt.Errorf("%w: connection blocked", email.ErrTransient)
+	}
+
+	b.publishMu.Lock()
+	defer b.publishMu.Unlock()
+
+	pending, err := b.ch.PublishWithDeferredConfirmWithContext(ctx, exchange, key, true, false, props)
 	if err != nil {
 		return fmt.Errorf("%w: publish: %v", email.ErrTransient, err)
 	}
@@ -147,7 +220,7 @@ func (b *Broker) Publish(ctx context.Context, msg email.Message) error {
 	}
 
 	b.drainReturns()
-	if b.takeReturned(msg.ID) {
+	if b.takeReturned(props.MessageId) {
 		return fmt.Errorf("%w: message unroutable", email.ErrTransient)
 	}
 	return nil
@@ -158,6 +231,7 @@ func (b *Broker) Close() error {
 	b.closeOnce.Do(func() { close(b.done) })
 	b.wg.Wait()
 
+	b.closeConsumer()
 	if b.ch != nil {
 		_ = b.ch.Close()
 	}

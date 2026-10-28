@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -72,6 +73,19 @@ type fakeChannel struct {
 	returnBeforeConfirm bool
 	confirm             confirmation
 
+	mu         sync.Mutex
+	deliveries chan amqp.Delivery
+	qosCount   int
+	qosCalled  bool
+	qosErr     error
+	consumeErr error
+	cancelErr  error
+	cancelled  []string
+
+	consumeQueue   string
+	consumeTag     string
+	consumeAutoAck bool
+
 	published     []amqp.Publishing
 	lastExchange  string
 	lastKey       string
@@ -138,7 +152,30 @@ func (f *fakeChannel) PublishWithDeferredConfirmWithContext(_ context.Context, e
 	return &fakeConfirmation{acked: true}, nil
 }
 
+func (f *fakeChannel) Qos(prefetchCount, prefetchSize int, global bool) error {
+	f.qosCalled = true
+	f.qosCount = prefetchCount
+	return f.qosErr
+}
+
+func (f *fakeChannel) Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error) {
+	f.consumeQueue, f.consumeTag, f.consumeAutoAck = queue, consumer, autoAck
+	if f.consumeErr != nil {
+		return nil, f.consumeErr
+	}
+	return f.deliveries, nil
+}
+
+func (f *fakeChannel) Cancel(consumer string, noWait bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.cancelled = append(f.cancelled, consumer)
+	return f.cancelErr
+}
+
 func (f *fakeChannel) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.closed = true
 	return nil
 }
@@ -147,9 +184,24 @@ func (f *fakeChannel) Close() error {
 type fakeConnection struct {
 	channel *fakeChannel
 	closed  bool
+
+	// consumers are handed out, in order, after the first channel, so the
+	// publisher and the consumer get channels of their own.
+	consumers  []*fakeChannel
+	opened     int
+	channelErr error
 }
 
-func (c *fakeConnection) Channel() (channel, error)                 { return c.channel, nil }
+func (c *fakeConnection) Channel() (channel, error) {
+	if c.channelErr != nil && c.opened > 0 {
+		return nil, c.channelErr
+	}
+	c.opened++
+	if c.opened > 1 && c.opened-2 < len(c.consumers) {
+		return c.consumers[c.opened-2], nil
+	}
+	return c.channel, nil
+}
 func (c *fakeConnection) NotifyStateChange(chan *amqp.StateChanged) {}
 func (c *fakeConnection) NotifyBlocked(recv chan amqp.Blocking) chan amqp.Blocking {
 	return recv
@@ -344,4 +396,35 @@ func TestBroker_Close(t *testing.T) {
 	t.Run("Edge: closing twice is safe", func(t *testing.T) {
 		require.NoError(t, broker.Close())
 	})
+}
+
+// TestValidateURL pins the startup validation shared by the relay and the
+// worker (EML-15, WKR-19).
+func TestValidateURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{name: "Happy path: a plain AMQP URI", url: "amqp://guest:guest@rabbitmq:5672/"},
+		{name: "Happy path: a TLS URI with a vhost", url: "amqps://user:pass@broker.example:5671/vhost"},
+		{name: "Error: empty", url: "", wantErr: true},
+		{name: "Error: blank", url: "   ", wantErr: true},
+		{name: "Error: not a URI", url: "not-a-uri", wantErr: true},
+		{name: "Error: a foreign scheme", url: "http://localhost:5672/", wantErr: true},
+		{name: "Error: a missing host", url: "amqp://", wantErr: true},
+		{name: "Error: an unparseable URI", url: "amqp://%zz", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateURL(tc.url)
+
+			if tc.wantErr {
+				assert.ErrorIs(t, err, ErrBrokerUnavailable)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
 }

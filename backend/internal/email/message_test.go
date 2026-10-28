@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/email"
+	sharedjson "legnaris/backend/shared/json"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,4 +81,27 @@ func TestMessage_CreatedAtRFC3339(t *testing.T) {
 	var createdAt string
 	require.NoError(t, json.Unmarshal(raw["created_at"], &createdAt))
 	assert.Equal(t, "2026-10-20T12:00:00Z", createdAt)
+}
+
+// TestMessage_GoldenDecodesThroughTheConsumerDecoder proves the shape the worker
+// decodes is the shape the publisher pins, and that a newer publisher's extra
+// field does not break it (WKR-04).
+func TestMessage_GoldenDecodesThroughTheConsumerDecoder(t *testing.T) {
+	t.Run("Happy path: the golden file decodes into the pinned message", func(t *testing.T) {
+		var got email.Message
+		require.NoError(t, sharedjson.DecodeBytes(readGolden(t), &got))
+		assert.Equal(t, goldenMessage(), got)
+	})
+
+	t.Run("Edge: an unknown field from a newer publisher is tolerated", func(t *testing.T) {
+		var object map[string]any
+		require.NoError(t, json.Unmarshal(readGolden(t), &object))
+		object["priority"] = "high"
+		raw, err := json.Marshal(object)
+		require.NoError(t, err)
+
+		var got email.Message
+		require.NoError(t, sharedjson.DecodeBytes(raw, &got))
+		assert.Equal(t, goldenMessage(), got)
+	})
 }
