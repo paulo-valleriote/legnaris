@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createAuthApi } from '../api/auth_api';
 import { DomainFailure } from '../api/errors';
-import type { Transport } from '../api/transport';
+import type { HttpResponse, Transport } from '../api/transport';
 import { createAuthSession } from '../auth/auth_session';
 import {
   createFakeTransport,
@@ -33,19 +33,6 @@ function authApiWith(fake: { readonly transport: Transport }) {
 }
 
 describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
-  it('Happy path: login holds the token in memory and flips to authenticated (WAS-01)', async () => {
-    const fake = createFakeTransport(successOutcome(SESSION_BODY));
-    const session = createAuthSession({ authApi: authApiWith(fake) });
-
-    await session.login({ email: 'a@b.test', password: 'secret' });
-
-    expect(session.getSnapshot()).toMatchObject({
-      state: 'authenticated',
-      accessToken: 'access-1',
-    });
-    expect(session.currentAccessToken()).toBe('access-1');
-  });
-
   it('Edge: login bumps the version exactly once, before applying the token (WAS-17)', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
@@ -111,18 +98,6 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     expect(session.getSnapshot().version).toBe(0);
   });
 
-  it('Security: login never writes the token to a script-readable store (WAS-32)', async () => {
-    const fake = createFakeTransport(successOutcome(SESSION_BODY));
-    const session = createAuthSession({ authApi: authApiWith(fake) });
-
-    await session.login({ email: 'a@b.test', password: 'secret' });
-
-    expect(window.localStorage.length).toBe(0);
-    expect(window.sessionStorage.length).toBe(0);
-    expect(JSON.stringify(window.localStorage)).not.toContain('access-1');
-    expect(JSON.stringify(window.sessionStorage)).not.toContain('access-1');
-  });
-
   it('Edge: restore on a valid cookie settles authenticated through exactly one silent refresh (WAS-03)', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
@@ -166,50 +141,34 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     await expect(Promise.all([first, second])).resolves.toEqual(['access-1', 'access-1']);
     expect(deferred.attempts).toBe(1);
   });
-});
 
-describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () => {
-  it('Happy path: a code step establishes no session and holds no credential (WCS-01, WCS-02)', async () => {
-    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
-    const session = createAuthSession({ authApi: authApiWith(fake) });
-
-    await session.register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
-
-    expect(session.getSnapshot()).toMatchObject({ state: 'pendingCode', accessToken: null });
-    expect(session.currentAccessToken()).toBeNull();
-    expect(session.getSnapshot().version).toBe(0);
-  });
-
-  it('Happy path: the pending projection is non-null exactly while the state is pendingCode (WCS-02)', async () => {
-    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
+  it('Security: login never writes the token to a script-readable store (WAS-32)', async () => {
+    const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
     await session.login({ email: 'a@b.test', password: 'secret' });
 
-    expect(session.getSnapshot().pending).not.toBeNull();
-    expect(session.getSnapshot().state).toBe('pendingCode');
-
-    session.cancelCodeStep();
-
-    expect(session.getSnapshot().pending).toBeNull();
-    expect(session.getSnapshot().state).toBe('unauthenticated');
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+    expect(JSON.stringify(window.localStorage)).not.toContain('access-1');
+    expect(JSON.stringify(window.sessionStorage)).not.toContain('access-1');
   });
 
-  it('Happy path: the pending step carries the address, the username and the advertised lifetime (WCS-19, WCS-20)', async () => {
-    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
+  it('Happy path: login holds the token in memory and flips to authenticated (WAS-01)', async () => {
+    const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
-    await session.register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
+    await session.login({ email: 'a@b.test', password: 'secret' });
 
-    expect(session.getSnapshot().pending).toEqual({
-      origin: 'register',
-      email: 'a@b.test',
-      username: 'aragorn',
-      expiresIn: 600,
-      resendAfter: 60,
+    expect(session.getSnapshot()).toMatchObject({
+      state: 'authenticated',
+      accessToken: 'access-1',
     });
+    expect(session.currentAccessToken()).toBe('access-1');
   });
+});
 
+describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () => {
   it('Edge: a sign-in step carries no username, and no step carries the password (WCS-21)', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
@@ -223,24 +182,6 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     });
     expect(JSON.stringify(session.getSnapshot())).not.toContain('secret');
     expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
-  });
-
-  it('Happy path: the verified code establishes the session exactly as a session answer does (WCS-03)', async () => {
-    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY), successOutcome(SESSION_BODY));
-    const session = createAuthSession({ authApi: authApiWith(fake) });
-
-    await session.login({ email: 'a@b.test', password: 'secret' });
-    await session.submitCode('042917');
-
-    expect(session.getSnapshot()).toMatchObject({
-      state: 'authenticated',
-      accessToken: 'access-1',
-      version: 1,
-      pending: null,
-    });
-    expect(fake.lastRequest?.body).toBe(
-      JSON.stringify({ challenge_id: 'challenge-1', code: '042917' }),
-    );
   });
 
   it('Edge: a refused code keeps the pending step and establishes no session (WCS-04)', async () => {
@@ -281,22 +222,6 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
       pending: null,
     });
     expect(fake.attempts).toBe(before);
-  });
-
-  it('Happy path: the values the person typed survive the abandonment, and the password does not (WCS-21)', async () => {
-    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
-    const session = createAuthSession({ authApi: authApiWith(fake) });
-
-    await session.register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
-    session.cancelCodeStep();
-
-    expect(session.getSnapshot().restored).toEqual({
-      origin: 'register',
-      email: 'a@b.test',
-      username: 'aragorn',
-    });
-    expect(JSON.stringify(session.getSnapshot())).not.toContain('secret');
-    expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
   });
 
   it('Edge: a verified step leaves nothing to restore (WCS-21)', async () => {
@@ -343,9 +268,160 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     expect(JSON.stringify(window.localStorage)).not.toContain('challenge-1');
     expect(JSON.stringify(window.sessionStorage)).not.toContain('challenge-1');
   });
+
+  it('Edge: a second sign-in starts a new handle and supersedes the first (WCS-06)', async () => {
+    const fake = createFakeTransport(
+      successOutcome({ ...CHALLENGE_BODY, challenge_id: 'challenge-1' }),
+      successOutcome({ ...CHALLENGE_BODY, challenge_id: 'challenge-2' }),
+      successOutcome(SESSION_BODY),
+    );
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.login({ email: 'a@b.test', password: 'secret' });
+    await session.login({ email: 'a@b.test', password: 'secret' });
+
+    expect(session.getSnapshot().pending).not.toBeNull();
+    expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
+
+    await session.submitCode('042917');
+
+    expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual({
+      challenge_id: 'challenge-2',
+      code: '042917',
+    });
+    expect(session.getSnapshot()).toMatchObject({
+      state: 'authenticated',
+      accessToken: 'access-1',
+    });
+  });
+
+  it('Edge: an answer for a superseded handle establishes no session (WCS-06, R10)', async () => {
+    const resolvers: Array<(response: HttpResponse) => void> = [];
+    const transport: Transport = () =>
+      new Promise<HttpResponse>((resolve) => {
+        resolvers.push(resolve);
+      });
+    const session = createAuthSession({ authApi: authApiWith({ transport }) });
+
+    const first = session.login({ email: 'a@b.test', password: 'secret' });
+    await vi.waitFor(() => expect(resolvers).toHaveLength(1));
+    resolvers[0](successOutcome({ ...CHALLENGE_BODY, challenge_id: 'challenge-1' }));
+    await first;
+
+    const verification = session.submitCode('042917');
+    await vi.waitFor(() => expect(resolvers).toHaveLength(2));
+
+    const second = session.login({ email: 'a@b.test', password: 'secret' });
+    await vi.waitFor(() => expect(resolvers).toHaveLength(3));
+    resolvers[2](successOutcome({ ...CHALLENGE_BODY, challenge_id: 'challenge-2' }));
+    await second;
+
+    resolvers[1](successOutcome(SESSION_BODY));
+    await verification;
+
+    expect(session.getSnapshot()).toMatchObject({
+      state: 'pendingCode',
+      accessToken: null,
+      version: 0,
+    });
+  });
+
+  it('Happy path: a code step establishes no session and holds no credential (WCS-01, WCS-02)', async () => {
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
+
+    expect(session.getSnapshot()).toMatchObject({ state: 'pendingCode', accessToken: null });
+    expect(session.currentAccessToken()).toBeNull();
+    expect(session.getSnapshot().version).toBe(0);
+  });
+
+  it('Happy path: the pending projection is non-null exactly while the state is pendingCode (WCS-02)', async () => {
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.login({ email: 'a@b.test', password: 'secret' });
+
+    expect(session.getSnapshot().pending).not.toBeNull();
+    expect(session.getSnapshot().state).toBe('pendingCode');
+
+    session.cancelCodeStep();
+
+    expect(session.getSnapshot().pending).toBeNull();
+    expect(session.getSnapshot().state).toBe('unauthenticated');
+  });
+
+  it('Happy path: the pending step carries the address, the username and the advertised lifetime (WCS-19, WCS-20)', async () => {
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
+
+    expect(session.getSnapshot().pending).toEqual({
+      origin: 'register',
+      email: 'a@b.test',
+      username: 'aragorn',
+      expiresIn: 600,
+      resendAfter: 60,
+    });
+  });
+
+  it('Happy path: the verified code establishes the session exactly as a session answer does (WCS-03)', async () => {
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY), successOutcome(SESSION_BODY));
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.login({ email: 'a@b.test', password: 'secret' });
+    await session.submitCode('042917');
+
+    expect(session.getSnapshot()).toMatchObject({
+      state: 'authenticated',
+      accessToken: 'access-1',
+      version: 1,
+      pending: null,
+    });
+    expect(fake.lastRequest?.body).toBe(
+      JSON.stringify({ challenge_id: 'challenge-1', code: '042917' }),
+    );
+  });
+
+  it('Happy path: the values the person typed survive the abandonment, and the password does not (WCS-21)', async () => {
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
+    session.cancelCodeStep();
+
+    expect(session.getSnapshot().restored).toEqual({
+      origin: 'register',
+      email: 'a@b.test',
+      username: 'aragorn',
+    });
+    expect(JSON.stringify(session.getSnapshot())).not.toContain('secret');
+    expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
+  });
 });
 
 describe('the resend (WCS-08, WCS-10)', () => {
+  it('Edge: a refused resend keeps the pending step, the handle and the window (WCS-09, WCS-10)', async () => {
+    const fake = createFakeTransport(
+      successOutcome(CHALLENGE_BODY),
+      errorOutcome('EMAIL_UNAVAILABLE', 'email delivery is temporarily unavailable', 503),
+    );
+    const session = createAuthSession({ authApi: authApiWith(fake) });
+
+    await session.login({ email: 'a@b.test', password: 'secret' });
+
+    await expect(session.resendCode()).rejects.toMatchObject({
+      name: 'DomainFailure',
+      kind: 'emailUnavailable',
+    });
+
+    expect(session.getSnapshot()).toMatchObject({ state: 'pendingCode', accessToken: null });
+    expect(session.getSnapshot().pending?.resendAfter).toBe(60);
+    expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
+  });
+
   it('Happy path: concurrent resend calls share one request and re-seed the window (WCS-08, WCS-10)', async () => {
     const fake = createFakeTransport(
       successOutcome(CHALLENGE_BODY),
@@ -365,24 +441,5 @@ describe('the resend (WCS-08, WCS-10)', () => {
       fake.requests.filter((request) => request.url.endsWith('/auth/challenge/resend')),
     ).toHaveLength(1);
     expect(session.getSnapshot().pending?.resendAfter).toBe(90);
-  });
-
-  it('Edge: a refused resend keeps the pending step, the handle and the window (WCS-09, WCS-10)', async () => {
-    const fake = createFakeTransport(
-      successOutcome(CHALLENGE_BODY),
-      errorOutcome('EMAIL_UNAVAILABLE', 'email delivery is temporarily unavailable', 503),
-    );
-    const session = createAuthSession({ authApi: authApiWith(fake) });
-
-    await session.login({ email: 'a@b.test', password: 'secret' });
-
-    await expect(session.resendCode()).rejects.toMatchObject({
-      name: 'DomainFailure',
-      kind: 'emailUnavailable',
-    });
-
-    expect(session.getSnapshot()).toMatchObject({ state: 'pendingCode', accessToken: null });
-    expect(session.getSnapshot().pending?.resendAfter).toBe(60);
-    expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
   });
 });

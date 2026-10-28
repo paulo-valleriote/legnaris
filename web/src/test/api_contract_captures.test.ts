@@ -113,6 +113,49 @@ function leafPaths(value: unknown, prefix = ''): string[] {
 }
 
 describe('pinned contract captures', () => {
+  it('Error: altering a key in a capture turns the decode red on the first run (API-36)', async () => {
+    const mutated = structuredClone(templateDetail);
+    const body = mutated.response?.body as { data: Record<string, unknown> };
+    delete body.data['default'];
+
+    const fake = createFakeTransport({
+      status: mutated.response?.status ?? 200,
+      body: JSON.stringify(mutated.response?.body),
+    });
+
+    await expect(
+      createApiClient({ baseUrl, transport: fake.transport }).getTemplate('fantasy_v1'),
+    ).rejects.toBeInstanceOf(DefensiveParseFailure);
+  });
+
+  it('Error: a capture whose field type drifts is refused rather than coerced (API-36)', async () => {
+    const mutated = structuredClone(health);
+    const body = mutated.response?.body as { data: Record<string, unknown> };
+    body.data['status'] = 42;
+
+    const fake = createFakeTransport({
+      status: mutated.response?.status ?? 200,
+      body: JSON.stringify(mutated.response?.body),
+    });
+
+    await expect(
+      createApiClient({ baseUrl, transport: fake.transport }).health(),
+    ).rejects.toBeInstanceOf(DefensiveParseFailure);
+  });
+
+  it('Edge: no capture carries a credential (API-35)', () => {
+    for (const name of fixtureNames) {
+      const raw = readFileSync(path.join(fixturesDir, `${name}.json`), 'utf8');
+
+      // A capture may carry the shape of a credential — its key and the
+      // redacted placeholder — but never a credential value (API-35, WCS-14).
+      expect(raw).not.toMatch(/"access_token"\s*:\s*"(?!redacted-access-token)/);
+      expect(raw).not.toMatch(/"refresh_token"\s*:\s*"[^"]+"/);
+      expect(raw).not.toMatch(/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/);
+      expect(raw).not.toMatch(/Bearer\s+[A-Za-z0-9._-]{8,}/);
+    }
+  });
+
   it('Happy path: the health capture decodes through the health operation (API-34, API-35)', async () => {
     const fake = createFakeTransport(respond(health));
     const payload = await createApiClient({ baseUrl, transport: fake.transport }).health();
@@ -234,52 +277,32 @@ describe('pinned contract captures', () => {
       expect((failure as DomainFailure).status).toBe(capture.response?.status);
     }
   });
-
-  it('Error: altering a key in a capture turns the decode red on the first run (API-36)', async () => {
-    const mutated = structuredClone(templateDetail);
-    const body = mutated.response?.body as { data: Record<string, unknown> };
-    delete body.data['default'];
-
-    const fake = createFakeTransport({
-      status: mutated.response?.status ?? 200,
-      body: JSON.stringify(mutated.response?.body),
-    });
-
-    await expect(
-      createApiClient({ baseUrl, transport: fake.transport }).getTemplate('fantasy_v1'),
-    ).rejects.toBeInstanceOf(DefensiveParseFailure);
-  });
-
-  it('Error: a capture whose field type drifts is refused rather than coerced (API-36)', async () => {
-    const mutated = structuredClone(health);
-    const body = mutated.response?.body as { data: Record<string, unknown> };
-    body.data['status'] = 42;
-
-    const fake = createFakeTransport({
-      status: mutated.response?.status ?? 200,
-      body: JSON.stringify(mutated.response?.body),
-    });
-
-    await expect(
-      createApiClient({ baseUrl, transport: fake.transport }).health(),
-    ).rejects.toBeInstanceOf(DefensiveParseFailure);
-  });
-
-  it('Edge: no capture carries a credential (API-35)', () => {
-    for (const name of fixtureNames) {
-      const raw = readFileSync(path.join(fixturesDir, `${name}.json`), 'utf8');
-
-      // A capture may carry the shape of a credential — its key and the
-      // redacted placeholder — but never a credential value (API-35, WCS-14).
-      expect(raw).not.toMatch(/"access_token"\s*:\s*"(?!redacted-access-token)/);
-      expect(raw).not.toMatch(/"refresh_token"\s*:\s*"[^"]+"/);
-      expect(raw).not.toMatch(/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/);
-      expect(raw).not.toMatch(/Bearer\s+[A-Za-z0-9._-]{8,}/);
-    }
-  });
 });
 
 describe('the pinned code-step captures (WCS-14)', () => {
+  it('Error: a hand-edited key in a code-step capture turns the decode red (WCS-14, API-36)', async () => {
+    const mutated = structuredClone(loadCapture('auth_register_challenge'));
+    const body = mutated.response?.body as { data: Record<string, unknown> };
+    delete body.data['challenge_id'];
+
+    const fake = createFakeTransport({
+      status: mutated.response?.status ?? 201,
+      body: JSON.stringify(mutated.response?.body),
+    });
+
+    await expect(
+      createAuthApi({
+        baseUrl,
+        transport: fake.transport,
+        readCsrfToken: () => undefined,
+      }).register({
+        email: 'a@b.test',
+        username: 'aragorn',
+        password: 'secret',
+      }),
+    ).rejects.toBeInstanceOf(DefensiveParseFailure);
+  });
+
   it('Happy path: the registration capture decodes as a code step and carries no credential (WCS-14)', async () => {
     const capture = loadCapture('auth_register_challenge');
     const payload = (capture.response?.body as { data: Record<string, unknown> }).data;
@@ -349,28 +372,5 @@ describe('the pinned code-step captures (WCS-14)', () => {
       expect(failure).toMatchObject({ kind, code });
       expect((failure as DomainFailure).status).toBe(capture.response?.status);
     }
-  });
-
-  it('Error: a hand-edited key in a code-step capture turns the decode red (WCS-14, API-36)', async () => {
-    const mutated = structuredClone(loadCapture('auth_register_challenge'));
-    const body = mutated.response?.body as { data: Record<string, unknown> };
-    delete body.data['challenge_id'];
-
-    const fake = createFakeTransport({
-      status: mutated.response?.status ?? 201,
-      body: JSON.stringify(mutated.response?.body),
-    });
-
-    await expect(
-      createAuthApi({
-        baseUrl,
-        transport: fake.transport,
-        readCsrfToken: () => undefined,
-      }).register({
-        email: 'a@b.test',
-        username: 'aragorn',
-        password: 'secret',
-      }),
-    ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 });

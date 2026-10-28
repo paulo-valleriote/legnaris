@@ -48,23 +48,6 @@ function restoringSession(
 }
 
 describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
-  it('Happy path: a valid cookie restores through exactly one silent refresh, showing restoring until it settles (WAS-03)', async () => {
-    const deferred = createDeferredTransport();
-    const session = restoringSession(deferred.transport);
-
-    renderApp('/', { session, client: clientWith(createDeferredTransport().transport) });
-
-    expect(screen.getByTestId('auth-restoring')).toHaveTextContent(message('auth.restoring'));
-
-    deferred.resolve(successOutcome(SESSION_BODY));
-
-    await waitFor(() => expect(screen.getByTestId('catalog')).toBeInTheDocument());
-    expect(screen.queryByTestId('auth-restoring')).not.toBeInTheDocument();
-    expect(
-      deferred.requests.filter((request) => request.url.endsWith('/auth/refresh')),
-    ).toHaveLength(1);
-  });
-
   it('Edge: a rejected cookie shows the sign-in form with no session (WAS-04)', async () => {
     const fake = createDeferredTransport();
     const session = restoringSession(fake.transport);
@@ -141,6 +124,46 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     expect(screen.queryByTestId('sheet-screen')).not.toBeInTheDocument();
   });
 
+  it('Edge: a session answer never shows the code surface (WCS-01)', async () => {
+    const user = userEvent.setup();
+    const sessionTransport = createDeferredTransport();
+    const catalog = createDeferredTransport();
+    const session = restoringSession(sessionTransport.transport);
+
+    renderApp('/', { session, client: clientWith(catalog.transport) });
+
+    sessionTransport.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
+    );
+
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
+    sessionTransport.resolve(successOutcome(SESSION_BODY));
+    catalog.resolve(successOutcome([]));
+
+    await waitFor(() => expect(screen.getByTestId('catalog')).toBeInTheDocument());
+    expect(screen.queryByLabelText(message('auth.codeLabel'))).not.toBeInTheDocument();
+  });
+
+  it('Happy path: a valid cookie restores through exactly one silent refresh, showing restoring until it settles (WAS-03)', async () => {
+    const deferred = createDeferredTransport();
+    const session = restoringSession(deferred.transport);
+
+    renderApp('/', { session, client: clientWith(createDeferredTransport().transport) });
+
+    expect(screen.getByTestId('auth-restoring')).toHaveTextContent(message('auth.restoring'));
+
+    deferred.resolve(successOutcome(SESSION_BODY));
+
+    await waitFor(() => expect(screen.getByTestId('catalog')).toBeInTheDocument());
+    expect(screen.queryByTestId('auth-restoring')).not.toBeInTheDocument();
+    expect(
+      deferred.requests.filter((request) => request.url.endsWith('/auth/refresh')),
+    ).toHaveLength(1);
+  });
+
   it('Happy path: a code-step answer renders the code surface in place of the credential form and holds no session (WCS-01, WCS-02)', async () => {
     const user = userEvent.setup();
     const sessionTransport = createDeferredTransport();
@@ -166,29 +189,6 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     expect(session.getSnapshot().state).toBe('pendingCode');
     expect(session.getSnapshot().accessToken).toBeNull();
     expect(session.currentAccessToken()).toBeNull();
-  });
-
-  it('Edge: a session answer never shows the code surface (WCS-01)', async () => {
-    const user = userEvent.setup();
-    const sessionTransport = createDeferredTransport();
-    const catalog = createDeferredTransport();
-    const session = restoringSession(sessionTransport.transport);
-
-    renderApp('/', { session, client: clientWith(catalog.transport) });
-
-    sessionTransport.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
-    );
-
-    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
-    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
-    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
-    sessionTransport.resolve(successOutcome(SESSION_BODY));
-    catalog.resolve(successOutcome([]));
-
-    await waitFor(() => expect(screen.getByTestId('catalog')).toBeInTheDocument());
-    expect(screen.queryByLabelText(message('auth.codeLabel'))).not.toBeInTheDocument();
   });
 
   it('Happy path: abandoning the step returns the form with the address and the mode, an empty password and the focus (WCS-21, WCS-22)', async () => {

@@ -291,3 +291,42 @@ throughout so the deployed behavior cannot regress.
   line or the sender's output, so the script reads it from the `email_outbox` collection with
   `mongosh`, and the run removes the send intentions it recorded so the day's allowance is restored.
   The README documents the requirement and the quick local configuration.
+
+### Phase 7 — Convergence
+
+- **The abandoned code is cleared by the gate, not by the surface (T037, WCS-06).** `AuthCodeScreen`
+  renders nothing while no step is pending, but the component stays mounted, so its local code state
+  would survive a cancel if the surface were rendered on its own. The gate unmounts the surface
+  instead — `pendingCode` renders `AuthCodeScreen`, every other state renders `AuthScreen` — so the
+  entered code dies with the component. The assertion is therefore driven through the real gate: the
+  abandoned digits are gone from the document and the next step opens on an empty field. The suite
+  proves the product's mount, not a synthetic one.
+- **The superseded handle is asserted at the transport seam (T044, WCS-06).** The second sign-in's
+  answer must arrive *after* the first verification is already in flight, so the case drives a
+  transport whose attempts are settled by index rather than in order; a FIFO transport could not
+  express "the stale answer lands late".
+- **The gate set ran green except for four pre-existing screenshot baselines.** `npm run lint`,
+  `npm run typecheck` and `npm test` pass; `npm run test:e2e` passes 19 of 23, and the four
+  failures are the visual-parity baselines (`shell`, `catalog`, `sheet`), which differ on this
+  machine's font rendering and fail identically on the unmodified tree. No accessibility assertion
+  failed, and the auth spec — the credential surface, the code surface and the signed-in shell —
+  is green.
+
+---
+
+## Phase 7: Convergence
+
+**Purpose**: close the gap between the shipped behaviour and the obligations the artifacts still
+carry. The implementation satisfies every functional requirement; what remains is the test depth
+`WCS-17` demands and the edge-cases-first ordering `SC-005` states. No product code changes here —
+each task adds an assertion or reorders an existing one.
+
+- [X] T036 Move the session-boundary suite with the code-step path: add the pending-step case in which a refresh cookie from an earlier session is present, asserting the pending state is never read as a session and the cold-start refresh keeps its behaviour — `web/src/test/session_boundary.test.ts` — per WCS-01, WCS-17 (partial)
+- [X] T037 Assert that abandoning the code surface clears the entered code, not only an empty field — `web/src/test/auth_code_screen.test.tsx` — per WCS-06 (partial)
+- [X] T038 Assert that neither challenge operation triggers a refresh, by counting the issued requests and asserting no `/auth/refresh` call — `web/src/test/auth_api.test.ts` — per WCS-15 (partial)
+- [X] T039 Assert that the instruction line describes the code field, so the address and the stated lifetime are read with it — `web/src/test/auth_code_screen.test.tsx` — per WCS-22 (partial)
+- [X] T040 Assert that the six code positions are hidden from assistive technology, so they are never the only way the code is read — `web/src/test/auth_code_screen.test.tsx` — per WCS-24 (partial)
+- [X] T041 Pin the refusal's and the resend row's positions in the surface's declared block order — `web/src/test/auth_code_screen.test.tsx` — per WCS-25 (partial)
+- [X] T042 Reorder the moved and new suites so the edge and error cases precede the happy path — `web/src/test/auth_api.test.ts`, `web/src/test/auth_session.test.ts`, `web/src/test/auth_code_screen.test.tsx`, `web/src/test/auth_gate.test.tsx`, `web/src/test/auth_screen.test.tsx`, `web/src/test/api_error_mapper.test.ts`, `web/src/test/api_contract_captures.test.ts` — per SC-005, WCS-17 (partial)
+- [X] T043 Assert that a corrected code can be submitted after a refused one — `web/src/test/auth_code_screen.test.tsx` — per WCS-04 (partial)
+- [X] T044 Assert that a second sign-in starts a new handle and supersedes the first — `web/src/test/auth_session.test.ts` — per WCS-06 (partial)

@@ -17,6 +17,7 @@ import {
   successOutcome,
 } from './fake_transport';
 import type { FakeOutcome } from './fake_transport';
+import { renderApp } from './render';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = 'http://api.test';
@@ -60,22 +61,6 @@ async function renderCodeSurface(
 }
 
 describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
-  it('Happy path: the surface names the address, states the lifetime and takes the focus (WCS-19, WCS-20, WCS-22)', async () => {
-    await renderCodeSurface();
-
-    expect(screen.getByTestId('code-instruction')).toHaveTextContent('a@b.test');
-    expect(screen.getByTestId('code-instruction')).toHaveTextContent('10 minutes');
-    expect(screen.getByLabelText(message('auth.codeLabel'))).toHaveFocus();
-  });
-
-  it('Happy path: the origin line names the account mode the step started with (WCS-25)', async () => {
-    await renderCodeSurface();
-
-    expect(screen.getByTestId('code-origin')).toHaveTextContent(
-      message('auth.accountModeExisting'),
-    );
-  });
-
   it('Edge: the field is one editable input with a numeric mode and the one-time-code autofill (WCS-24)', async () => {
     await renderCodeSurface();
 
@@ -84,42 +69,6 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(field).toHaveAttribute('inputmode', 'numeric');
     expect(field).toHaveAttribute('autocomplete', 'one-time-code');
     expect(field).toHaveAccessibleName(message('auth.codeLabel'));
-  });
-
-  it('Happy path: the six positions follow the field value, so a pasted code lands whole (WCS-24)', async () => {
-    const user = userEvent.setup();
-    await renderCodeSurface();
-
-    const field = screen.getByLabelText(message('auth.codeLabel'));
-    await user.click(field);
-    await user.paste('042917');
-
-    expect(field).toHaveValue('042917');
-    expect(screen.getByTestId('code-slot-0')).toHaveTextContent('0');
-    expect(screen.getByTestId('code-slot-1')).toHaveTextContent('4');
-    expect(screen.getByTestId('code-slot-2')).toHaveTextContent('2');
-    expect(screen.getByTestId('code-slot-3')).toHaveTextContent('9');
-    expect(screen.getByTestId('code-slot-4')).toHaveTextContent('1');
-    expect(screen.getByTestId('code-slot-5')).toHaveTextContent('7');
-  });
-
-  it('Happy path: the submitted code reaches the server exactly as typed, leading zeros included (WCS-03)', async () => {
-    const user = userEvent.setup();
-    const { fake } = await renderCodeSurface([
-      successOutcome(CHALLENGE_BODY),
-      successOutcome(SESSION_BODY),
-    ]);
-
-    const field = screen.getByLabelText(message('auth.codeLabel'));
-    await user.click(field);
-    await user.paste('042917');
-    await user.click(screen.getByRole('button', { name: message('auth.codeSubmit') }));
-
-    await waitFor(() => expect(fake.attempts).toBe(2));
-    expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual({
-      challenge_id: 'challenge-1',
-      code: '042917',
-    });
   });
 
   it('Edge: a refused code keeps the entered code, keeps the focus on the field and shows the mapped copy (WCS-04, WCS-22)', async () => {
@@ -189,6 +138,102 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(fake.attempts).toBe(before);
   });
 
+  it('Edge: a corrected code can be submitted after a refused one (WCS-04)', async () => {
+    const user = userEvent.setup();
+    const { fake, session } = await renderCodeSurface([
+      successOutcome(CHALLENGE_BODY),
+      errorOutcome('OTP_INVALID', 'invalid or expired code', 401),
+      successOutcome(SESSION_BODY),
+    ]);
+
+    const field = screen.getByLabelText(message('auth.codeLabel'));
+    await user.click(field);
+    await user.paste('042917');
+    await user.click(screen.getByRole('button', { name: message('auth.codeSubmit') }));
+
+    await waitFor(() => expect(screen.getByTestId('code-refusal')).toBeInTheDocument());
+
+    await user.clear(field);
+    await user.type(field, '123456');
+    await user.click(screen.getByRole('button', { name: message('auth.codeSubmit') }));
+
+    await waitFor(() => expect(session.getSnapshot().state).toBe('authenticated'));
+    expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual({
+      challenge_id: 'challenge-1',
+      code: '123456',
+    });
+    expect(screen.queryByTestId('code-refusal')).not.toBeInTheDocument();
+  });
+
+  it('Edge: the instruction line describes the code field, so the address and the stated lifetime are read with it (WCS-22)', async () => {
+    await renderCodeSurface();
+
+    const field = screen.getByLabelText(message('auth.codeLabel'));
+    const instruction = screen.getByTestId('code-instruction');
+
+    expect(instruction).toHaveAttribute('id', 'auth-code-instruction');
+    expect(field.getAttribute('aria-describedby')).toContain('auth-code-instruction');
+    expect(field).toHaveAccessibleDescription(instruction.textContent ?? '');
+    expect(field).toHaveAccessibleDescription(/a@b\.test/);
+    expect(field).toHaveAccessibleDescription(/10 minutes/);
+  });
+
+  it('Edge: the six positions are hidden from assistive technology, so they are never the only way the code is read (WCS-24)', async () => {
+    await renderCodeSurface();
+
+    const positions = screen.getByTestId('code-slot-0').parentElement;
+
+    expect(positions).not.toBeNull();
+    expect(positions).toHaveAttribute('aria-hidden', 'true');
+
+    for (let index = 0; index < 6; index += 1) {
+      expect(positions?.contains(screen.getByTestId(`code-slot-${index}`))).toBe(true);
+    }
+  });
+
+  it('Edge: abandoning the surface clears the entered code, not only an empty field (WCS-06)', async () => {
+    const user = userEvent.setup();
+    const fake = createFakeTransport(
+      errorOutcome('UNAUTHORIZED', 'no cookie', 401),
+      successOutcome(CHALLENGE_BODY, 202),
+      successOutcome({ ...CHALLENGE_BODY, challenge_id: 'challenge-2' }, 202),
+    );
+    const session = createAuthSession({
+      authApi: createAuthApi({
+        baseUrl: BASE_URL,
+        transport: fake.transport,
+        readCsrfToken: () => undefined,
+      }),
+    });
+
+    renderApp('/', { session });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
+    );
+
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
+
+    const field = await screen.findByLabelText(message('auth.codeLabel'));
+    await user.click(field);
+    await user.paste('042917');
+
+    await user.click(screen.getByTestId('code-back'));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(message('auth.emailLabel'))).toBeInTheDocument(),
+    );
+    expect(document.body.textContent ?? '').not.toContain('042917');
+
+    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
+
+    const fresh = await screen.findByLabelText(message('auth.codeLabel'));
+    expect(fresh).toHaveValue('');
+    expect(fake.attempts).toBe(3);
+  });
+
   it('Security: the entered code is never persisted and never becomes the field name (WCS-05)', async () => {
     const user = userEvent.setup();
     await renderCodeSurface();
@@ -201,6 +246,58 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(window.sessionStorage.length).toBe(0);
     expect(field).toHaveAccessibleName(message('auth.codeLabel'));
     expect(field.getAttribute('aria-label')).toBeNull();
+  });
+
+  it('Happy path: the surface names the address, states the lifetime and takes the focus (WCS-19, WCS-20, WCS-22)', async () => {
+    await renderCodeSurface();
+
+    expect(screen.getByTestId('code-instruction')).toHaveTextContent('a@b.test');
+    expect(screen.getByTestId('code-instruction')).toHaveTextContent('10 minutes');
+    expect(screen.getByLabelText(message('auth.codeLabel'))).toHaveFocus();
+  });
+
+  it('Happy path: the origin line names the account mode the step started with (WCS-25)', async () => {
+    await renderCodeSurface();
+
+    expect(screen.getByTestId('code-origin')).toHaveTextContent(
+      message('auth.accountModeExisting'),
+    );
+  });
+
+  it('Happy path: the six positions follow the field value, so a pasted code lands whole (WCS-24)', async () => {
+    const user = userEvent.setup();
+    await renderCodeSurface();
+
+    const field = screen.getByLabelText(message('auth.codeLabel'));
+    await user.click(field);
+    await user.paste('042917');
+
+    expect(field).toHaveValue('042917');
+    expect(screen.getByTestId('code-slot-0')).toHaveTextContent('0');
+    expect(screen.getByTestId('code-slot-1')).toHaveTextContent('4');
+    expect(screen.getByTestId('code-slot-2')).toHaveTextContent('2');
+    expect(screen.getByTestId('code-slot-3')).toHaveTextContent('9');
+    expect(screen.getByTestId('code-slot-4')).toHaveTextContent('1');
+    expect(screen.getByTestId('code-slot-5')).toHaveTextContent('7');
+  });
+
+  it('Happy path: the submitted code reaches the server exactly as typed, leading zeros included (WCS-03)', async () => {
+    const user = userEvent.setup();
+    const { fake } = await renderCodeSurface([
+      successOutcome(CHALLENGE_BODY),
+      successOutcome(SESSION_BODY),
+    ]);
+
+    const field = screen.getByLabelText(message('auth.codeLabel'));
+    await user.click(field);
+    await user.paste('042917');
+    await user.click(screen.getByRole('button', { name: message('auth.codeSubmit') }));
+
+    await waitFor(() => expect(fake.attempts).toBe(2));
+    expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual({
+      challenge_id: 'challenge-1',
+      code: '042917',
+    });
   });
 });
 
@@ -448,6 +545,55 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
 });
 
 describe('the code surface composition (WCS-25)', () => {
+  it('Edge: the swap animates opacity and transform only, and no longer than the longest motion duration (WCS-25)', () => {
+    const styles = readFileSync(path.resolve(here, '../auth/auth.css'), 'utf8');
+    const keyframes = styles.match(/@keyframes lg-auth-swap \{[\s\S]*?\n\}/)?.[0] ?? '';
+    const properties = [...keyframes.matchAll(/^\s*([a-z-]+):/gm)].map((match) => match[1]);
+
+    expect([...new Set(properties)]).toEqual(['opacity', 'transform']);
+    expect(styles).toContain('animation: lg-auth-swap var(--lg-motion-240)');
+  });
+
+  it('Edge: the swap is zeroed when the person asks for reduced motion (WCS-25)', () => {
+    const styles = readFileSync(path.resolve(here, '../auth/auth.css'), 'utf8');
+    const reduced =
+      styles.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/)?.[0] ?? '';
+
+    expect(reduced).toContain('animation: none');
+  });
+
+  it('Edge: the refusal and the resend row hold their declared positions (WCS-25)', async () => {
+    await renderCodeSurface([
+      successOutcome(CHALLENGE_BODY),
+      errorOutcome('OTP_INVALID', 'invalid or expired code', 401),
+    ]);
+
+    fireEvent.change(screen.getByLabelText(message('auth.codeLabel')), {
+      target: { value: '042917' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: message('auth.codeSubmit') }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const blocks = [
+      screen.getByTestId('code-origin'),
+      screen.getByRole('heading', { level: 1 }),
+      screen.getByTestId('code-instruction'),
+      screen.getByLabelText(message('auth.codeLabel')),
+      screen.getByTestId('code-refusal'),
+      screen.getByRole('button', { name: message('auth.codeSubmit') }),
+      screen.getByTestId('code-resend-row'),
+      screen.getByTestId('code-back'),
+    ];
+
+    for (let index = 0; index < blocks.length - 1; index += 1) {
+      const position = blocks[index].compareDocumentPosition(blocks[index + 1]);
+      expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
   it('Happy path: the blocks appear in the declared order and the mode switch is gone (WCS-25)', async () => {
     await renderCodeSurface();
 
@@ -466,22 +612,5 @@ describe('the code surface composition (WCS-25)', () => {
       const position = blocks[index].compareDocumentPosition(blocks[index + 1]);
       expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
-  });
-
-  it('Edge: the swap animates opacity and transform only, and no longer than the longest motion duration (WCS-25)', () => {
-    const styles = readFileSync(path.resolve(here, '../auth/auth.css'), 'utf8');
-    const keyframes = styles.match(/@keyframes lg-auth-swap \{[\s\S]*?\n\}/)?.[0] ?? '';
-    const properties = [...keyframes.matchAll(/^\s*([a-z-]+):/gm)].map((match) => match[1]);
-
-    expect([...new Set(properties)]).toEqual(['opacity', 'transform']);
-    expect(styles).toContain('animation: lg-auth-swap var(--lg-motion-240)');
-  });
-
-  it('Edge: the swap is zeroed when the person asks for reduced motion (WCS-25)', () => {
-    const styles = readFileSync(path.resolve(here, '../auth/auth.css'), 'utf8');
-    const reduced =
-      styles.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/)?.[0] ?? '';
-
-    expect(reduced).toContain('animation: none');
   });
 });

@@ -31,6 +31,56 @@ function authWith(
 }
 
 describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15)', () => {
+  it('Error: a malformed session body is a defensive parse failure (WAS-02)', async () => {
+    const fake = createFakeTransport(successOutcome({ access_token: 'access-1' }));
+
+    await expect(
+      authWith(fake).login({ email: 'a@b.test', password: 'secret' }),
+    ).rejects.toBeInstanceOf(DefensiveParseFailure);
+  });
+
+  it('Error: a 401 refusal surfaces as a classified unauthorized domain failure (WAS-04, WAS-30)', async () => {
+    const fake = createFakeTransport(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
+
+    await expect(authWith(fake).refresh()).rejects.toMatchObject({
+      name: 'DomainFailure',
+      kind: 'unauthorized',
+      status: 401,
+    });
+  });
+
+  it('Edge: register issues no follow-up login, so exactly one request is sent (WAS-02)', async () => {
+    const fake = createFakeTransport(successOutcome(SESSION_BODY, 201));
+
+    await authWith(fake).register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
+
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.requests.some((request) => request.url.endsWith('/auth/login'))).toBe(false);
+  });
+
+  it('Edge: register and login send no CSRF header (WAS-18, WCS-15)', async () => {
+    const registerFake = createFakeTransport(successOutcome(SESSION_BODY, 201));
+    const loginFake = createFakeTransport(successOutcome(SESSION_BODY));
+
+    await authWith(registerFake, () => 'csrf-value').register({
+      email: 'a@b.test',
+      username: 'aragorn',
+      password: 'secret',
+    });
+    await authWith(loginFake, () => 'csrf-value').login({ email: 'a@b.test', password: 'secret' });
+
+    expect(registerFake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
+    expect(loginFake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
+  });
+
+  it('Edge: an absent CSRF token on refresh sends no header (WAS-18)', async () => {
+    const fake = createFakeTransport(successOutcome(SESSION_BODY));
+
+    await authWith(fake, () => undefined).refresh();
+
+    expect(fake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
+  });
+
   it('Happy path: register posts one credentials-include request and decodes the session outcome (WAS-02, WAS-06, WCS-01)', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY, 201));
 
@@ -53,15 +103,6 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     );
   });
 
-  it('Edge: register issues no follow-up login, so exactly one request is sent (WAS-02)', async () => {
-    const fake = createFakeTransport(successOutcome(SESSION_BODY, 201));
-
-    await authWith(fake).register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
-
-    expect(fake.requests).toHaveLength(1);
-    expect(fake.requests.some((request) => request.url.endsWith('/auth/login'))).toBe(false);
-  });
-
   it('Happy path: login posts one credentials-include request and decodes the session outcome (WAS-01, WAS-06, WCS-01)', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
 
@@ -72,21 +113,6 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     expect(fake.lastRequest?.method).toBe('POST');
     expect(fake.lastRequest?.url).toBe(`${BASE_URL}/auth/login`);
     expect(fake.lastRequest?.credentials).toBe('include');
-  });
-
-  it('Edge: register and login send no CSRF header (WAS-18, WCS-15)', async () => {
-    const registerFake = createFakeTransport(successOutcome(SESSION_BODY, 201));
-    const loginFake = createFakeTransport(successOutcome(SESSION_BODY));
-
-    await authWith(registerFake, () => 'csrf-value').register({
-      email: 'a@b.test',
-      username: 'aragorn',
-      password: 'secret',
-    });
-    await authWith(loginFake, () => 'csrf-value').login({ email: 'a@b.test', password: 'secret' });
-
-    expect(registerFake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
-    expect(loginFake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
   });
 
   it('Happy path: refresh echoes the CSRF cookie when present (WAS-18)', async () => {
@@ -100,14 +126,6 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     expect(fake.lastRequest?.headers?.['X-CSRF-Token']).toBe('csrf-value');
   });
 
-  it('Edge: an absent CSRF token on refresh sends no header (WAS-18)', async () => {
-    const fake = createFakeTransport(successOutcome(SESSION_BODY));
-
-    await authWith(fake, () => undefined).refresh();
-
-    expect(fake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
-  });
-
   it('Happy path: logout accepts a 204 no-content response and echoes the CSRF token (WAS-18)', async () => {
     const fake = createFakeTransport({ status: 204, body: '' });
 
@@ -118,62 +136,9 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     expect(fake.lastRequest?.credentials).toBe('include');
     expect(fake.lastRequest?.headers?.['X-CSRF-Token']).toBe('csrf-value');
   });
-
-  it('Error: a malformed session body is a defensive parse failure (WAS-02)', async () => {
-    const fake = createFakeTransport(successOutcome({ access_token: 'access-1' }));
-
-    await expect(
-      authWith(fake).login({ email: 'a@b.test', password: 'secret' }),
-    ).rejects.toBeInstanceOf(DefensiveParseFailure);
-  });
-
-  it('Error: a 401 refusal surfaces as a classified unauthorized domain failure (WAS-04, WAS-30)', async () => {
-    const fake = createFakeTransport(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
-
-    await expect(authWith(fake).refresh()).rejects.toMatchObject({
-      name: 'DomainFailure',
-      kind: 'unauthorized',
-      status: 401,
-    });
-  });
 });
 
 describe('the credential answer carries either a session or a code step (WCS-01, WCS-03)', () => {
-  it('Happy path: a challenge answer decodes as a code step and carries no credential (WCS-01)', async () => {
-    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
-
-    const outcome = await authWith(fake).register({
-      email: 'a@b.test',
-      username: 'aragorn',
-      password: 'secret',
-    });
-
-    expect(outcome).toEqual({
-      kind: 'challenge',
-      challenge: {
-        challengeId: '01a15c37-6f2d-7640-9dac-db9046d08d5c',
-        expiresIn: 600,
-        resendAfter: 60,
-      },
-    });
-    expect(fake.lastRequest?.body).not.toContain('access_token');
-  });
-
-  it('Edge: the discrimination reads the payload shape, not the status, because registration answers 201 in both gate states (WCS-01, R1)', async () => {
-    const sessionFake = createFakeTransport(successOutcome(SESSION_BODY, 201));
-    const challengeFake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
-
-    const session = await authWith(sessionFake).login({ email: 'a@b.test', password: 'secret' });
-    const challenge = await authWith(challengeFake).login({
-      email: 'a@b.test',
-      password: 'secret',
-    });
-
-    expect(sessionFake.lastRequest?.url).toBe(challengeFake.lastRequest?.url);
-    expect(session.kind).toBe('session');
-    expect(challenge.kind).toBe('challenge');
-  });
-
   it('Error: an answer carrying both a session and a challenge is a defensive parse failure (WCS-01, R1)', async () => {
     const fake = createFakeTransport(successOutcome({ ...SESSION_BODY, ...CHALLENGE_BODY }, 201));
 
@@ -199,24 +164,60 @@ describe('the credential answer carries either a session or a code step (WCS-01,
       authWith(fake).register({ email: 'a@b.test', username: 'aragorn', password: 'secret' }),
     ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
+
+  it('Edge: the discrimination reads the payload shape, not the status, because registration answers 201 in both gate states (WCS-01, R1)', async () => {
+    const sessionFake = createFakeTransport(successOutcome(SESSION_BODY, 201));
+    const challengeFake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
+
+    const session = await authWith(sessionFake).login({ email: 'a@b.test', password: 'secret' });
+    const challenge = await authWith(challengeFake).login({
+      email: 'a@b.test',
+      password: 'secret',
+    });
+
+    expect(sessionFake.lastRequest?.url).toBe(challengeFake.lastRequest?.url);
+    expect(session.kind).toBe('session');
+    expect(challenge.kind).toBe('challenge');
+  });
+
+  it('Happy path: a challenge answer decodes as a code step and carries no credential (WCS-01)', async () => {
+    const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
+
+    const outcome = await authWith(fake).register({
+      email: 'a@b.test',
+      username: 'aragorn',
+      password: 'secret',
+    });
+
+    expect(outcome).toEqual({
+      kind: 'challenge',
+      challenge: {
+        challengeId: '01a15c37-6f2d-7640-9dac-db9046d08d5c',
+        expiresIn: 600,
+        resendAfter: 60,
+      },
+    });
+    expect(fake.lastRequest?.body).not.toContain('access_token');
+  });
 });
 
 describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
-  it('Happy path: the verification posts the handle and the code and decodes the session body (WCS-03)', async () => {
-    const fake = createFakeTransport(successOutcome(SESSION_BODY));
+  it('Error: a refused code surfaces as the invalid-code kind (WCS-11)', async () => {
+    const fake = createFakeTransport(errorOutcome('OTP_INVALID', 'invalid or expired code', 401));
 
-    const body = await authWith(fake).verifyChallenge({
-      challengeId: 'challenge-1',
-      code: '042917',
-    });
+    await expect(
+      authWith(fake).verifyChallenge({ challengeId: 'challenge-1', code: '000000' }),
+    ).rejects.toMatchObject({ name: 'DomainFailure', kind: 'invalidCode', status: 401 });
+  });
 
-    expect(body).toEqual({ accessToken: 'access-1', tokenType: 'Bearer', expiresIn: 900 });
-    expect(fake.lastRequest?.method).toBe('POST');
-    expect(fake.lastRequest?.url).toBe(`${BASE_URL}/auth/challenge/verify`);
-    expect(fake.lastRequest?.credentials).toBe('include');
-    expect(fake.lastRequest?.body).toBe(
-      JSON.stringify({ challenge_id: 'challenge-1', code: '042917' }),
+  it('Error: an unavailable send surfaces as the email-unavailable kind (WCS-11)', async () => {
+    const fake = createFakeTransport(
+      errorOutcome('EMAIL_UNAVAILABLE', 'email delivery is temporarily unavailable', 503),
     );
+
+    await expect(
+      authWith(fake).resendChallenge({ challengeId: 'challenge-1' }),
+    ).rejects.toMatchObject({ name: 'DomainFailure', kind: 'emailUnavailable', status: 503 });
   });
 
   it('Edge: a code with leading zeros reaches the server exactly as typed (WCS-03)', async () => {
@@ -228,18 +229,6 @@ describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
       challenge_id: 'challenge-1',
       code: '042917',
     });
-  });
-
-  it('Happy path: the resend posts the handle alone and decodes the advertised window (WCS-08)', async () => {
-    const fake = createFakeTransport(successOutcome({ resend_after: 60 }, 202));
-
-    const result = await authWith(fake).resendChallenge({ challengeId: 'challenge-1' });
-
-    expect(result).toEqual({ resendAfter: 60 });
-    expect(fake.lastRequest?.method).toBe('POST');
-    expect(fake.lastRequest?.url).toBe(`${BASE_URL}/auth/challenge/resend`);
-    expect(fake.lastRequest?.credentials).toBe('include');
-    expect(fake.lastRequest?.body).toBe(JSON.stringify({ challenge_id: 'challenge-1' }));
   });
 
   it('Edge: neither challenge operation sends a CSRF header or a Bearer (WCS-15, R7)', async () => {
@@ -258,21 +247,45 @@ describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
     }
   });
 
-  it('Error: a refused code surfaces as the invalid-code kind (WCS-11)', async () => {
-    const fake = createFakeTransport(errorOutcome('OTP_INVALID', 'invalid or expired code', 401));
+  it('Edge: neither challenge operation triggers a refresh, so each issues exactly one request (WCS-15)', async () => {
+    const verifyFake = createFakeTransport(successOutcome(SESSION_BODY));
+    const resendFake = createFakeTransport(successOutcome({ resend_after: 60 }, 202));
 
-    await expect(
-      authWith(fake).verifyChallenge({ challengeId: 'challenge-1', code: '000000' }),
-    ).rejects.toMatchObject({ name: 'DomainFailure', kind: 'invalidCode', status: 401 });
+    await authWith(verifyFake).verifyChallenge({ challengeId: 'challenge-1', code: '042917' });
+    await authWith(resendFake).resendChallenge({ challengeId: 'challenge-1' });
+
+    for (const fake of [verifyFake, resendFake]) {
+      expect(fake.requests).toHaveLength(1);
+      expect(fake.requests.some((request) => request.url.endsWith('/auth/refresh'))).toBe(false);
+    }
   });
 
-  it('Error: an unavailable send surfaces as the email-unavailable kind (WCS-11)', async () => {
-    const fake = createFakeTransport(
-      errorOutcome('EMAIL_UNAVAILABLE', 'email delivery is temporarily unavailable', 503),
-    );
+  it('Happy path: the verification posts the handle and the code and decodes the session body (WCS-03)', async () => {
+    const fake = createFakeTransport(successOutcome(SESSION_BODY));
 
-    await expect(
-      authWith(fake).resendChallenge({ challengeId: 'challenge-1' }),
-    ).rejects.toMatchObject({ name: 'DomainFailure', kind: 'emailUnavailable', status: 503 });
+    const body = await authWith(fake).verifyChallenge({
+      challengeId: 'challenge-1',
+      code: '042917',
+    });
+
+    expect(body).toEqual({ accessToken: 'access-1', tokenType: 'Bearer', expiresIn: 900 });
+    expect(fake.lastRequest?.method).toBe('POST');
+    expect(fake.lastRequest?.url).toBe(`${BASE_URL}/auth/challenge/verify`);
+    expect(fake.lastRequest?.credentials).toBe('include');
+    expect(fake.lastRequest?.body).toBe(
+      JSON.stringify({ challenge_id: 'challenge-1', code: '042917' }),
+    );
+  });
+
+  it('Happy path: the resend posts the handle alone and decodes the advertised window (WCS-08)', async () => {
+    const fake = createFakeTransport(successOutcome({ resend_after: 60 }, 202));
+
+    const result = await authWith(fake).resendChallenge({ challengeId: 'challenge-1' });
+
+    expect(result).toEqual({ resendAfter: 60 });
+    expect(fake.lastRequest?.method).toBe('POST');
+    expect(fake.lastRequest?.url).toBe(`${BASE_URL}/auth/challenge/resend`);
+    expect(fake.lastRequest?.credentials).toBe('include');
+    expect(fake.lastRequest?.body).toBe(JSON.stringify({ challenge_id: 'challenge-1' }));
   });
 });

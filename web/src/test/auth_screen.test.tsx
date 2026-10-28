@@ -35,50 +35,6 @@ function renderAuth(
 }
 
 describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
-  it('Happy path: the login mode renders email and password, and the register mode adds a username (WAS-09)', async () => {
-    const user = userEvent.setup();
-    const deferred = createDeferredTransport();
-    renderAuth(deferred.transport);
-
-    expect(screen.getByLabelText(message('auth.emailLabel'))).toBeInTheDocument();
-    expect(screen.getByLabelText(message('auth.passwordLabel'))).toBeInTheDocument();
-    expect(screen.queryByLabelText(message('auth.usernameLabel'))).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
-
-    expect(screen.getByLabelText(message('auth.usernameLabel'))).toBeInTheDocument();
-  });
-
-  it('Happy path: the heading and supporting line follow the selected mode (WAS-09)', async () => {
-    const user = userEvent.setup();
-    renderAuth(createDeferredTransport().transport);
-
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(message('auth.titleLogin'));
-    expect(screen.getByText(message('auth.subtitleLogin'))).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
-
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      message('auth.titleRegister'),
-    );
-    expect(screen.queryByText(message('auth.subtitleLogin'))).not.toBeInTheDocument();
-    expect(screen.getByText(message('auth.subtitleRegister'))).toBeInTheDocument();
-  });
-
-  it('Happy path: the mode switch names its group and marks exactly one mode as pressed (WAS-09)', () => {
-    renderAuth(createDeferredTransport().transport);
-
-    expect(screen.getByRole('group', { name: message('auth.modeGroupLabel') })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('auth.modeLogin') })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: message('auth.modeRegister') })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-  });
-
   it('Edge: the password is a hidden-content control (WAS-09)', () => {
     const deferred = createDeferredTransport();
     renderAuth(deferred.transport);
@@ -87,26 +43,6 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
       'type',
       'password',
     );
-  });
-
-  it('Happy path: the primary action disables and shows progress while a submit is in flight, and a repeat activation issues no second request (WAS-09)', async () => {
-    const user = userEvent.setup();
-    const deferred = createDeferredTransport();
-    renderAuth(deferred.transport);
-
-    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
-    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
-
-    const submit = screen.getByRole('button', { name: message('auth.submitLogin') });
-    await user.click(submit);
-
-    expect(submit).toBeDisabled();
-    expect(submit).toHaveAttribute('aria-busy', 'true');
-
-    await user.click(submit);
-    expect(deferred.attempts).toBe(1);
-
-    deferred.resolve(successOutcome(SESSION_BODY));
   });
 
   it('Edge: a failed submit keeps the typed values and renders the mapped copy (WAS-07)', async () => {
@@ -191,6 +127,85 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('secret');
   });
 
+  it('Edge: an unmapped refusal carries no offered action (WCS-12, WCS-27)', async () => {
+    const user = userEvent.setup();
+    const other = createDeferredTransport();
+    renderAuth(other.transport);
+
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
+    other.resolve(errorOutcome('SOMETHING_NEW', 'email already exists', 409));
+
+    await waitFor(() => expect(screen.getByTestId('auth-error')).toBeInTheDocument());
+    expect(screen.getByTestId('auth-error')).toHaveTextContent(message('api.error.unknown'));
+    expect(screen.queryByTestId('auth-conflict-action')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: the login mode renders email and password, and the register mode adds a username (WAS-09)', async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferredTransport();
+    renderAuth(deferred.transport);
+
+    expect(screen.getByLabelText(message('auth.emailLabel'))).toBeInTheDocument();
+    expect(screen.getByLabelText(message('auth.passwordLabel'))).toBeInTheDocument();
+    expect(screen.queryByLabelText(message('auth.usernameLabel'))).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+
+    expect(screen.getByLabelText(message('auth.usernameLabel'))).toBeInTheDocument();
+  });
+
+  it('Happy path: the heading and supporting line follow the selected mode (WAS-09)', async () => {
+    const user = userEvent.setup();
+    renderAuth(createDeferredTransport().transport);
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(message('auth.titleLogin'));
+    expect(screen.getByText(message('auth.subtitleLogin'))).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      message('auth.titleRegister'),
+    );
+    expect(screen.queryByText(message('auth.subtitleLogin'))).not.toBeInTheDocument();
+    expect(screen.getByText(message('auth.subtitleRegister'))).toBeInTheDocument();
+  });
+
+  it('Happy path: the mode switch names its group and marks exactly one mode as pressed (WAS-09)', () => {
+    renderAuth(createDeferredTransport().transport);
+
+    expect(screen.getByRole('group', { name: message('auth.modeGroupLabel') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('auth.modeLogin') })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: message('auth.modeRegister') })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('Happy path: the primary action disables and shows progress while a submit is in flight, and a repeat activation issues no second request (WAS-09)', async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferredTransport();
+    renderAuth(deferred.transport);
+
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+
+    const submit = screen.getByRole('button', { name: message('auth.submitLogin') });
+    await user.click(submit);
+
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAttribute('aria-busy', 'true');
+
+    await user.click(submit);
+    expect(deferred.attempts).toBe(1);
+
+    deferred.resolve(successOutcome(SESSION_BODY));
+  });
+
   it('Happy path: a form that comes back from an abandoned step keeps the address and the mode, and the password is empty (WCS-21, WCS-22)', () => {
     renderAuth(createDeferredTransport().transport, () => undefined, {
       origin: 'register',
@@ -249,20 +264,5 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('secret');
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveFocus();
     expect(screen.queryByTestId('auth-error')).not.toBeInTheDocument();
-  });
-
-  it('Edge: an unmapped refusal carries no offered action (WCS-12, WCS-27)', async () => {
-    const user = userEvent.setup();
-    const other = createDeferredTransport();
-    renderAuth(other.transport);
-
-    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
-    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
-    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
-    other.resolve(errorOutcome('SOMETHING_NEW', 'email already exists', 409));
-
-    await waitFor(() => expect(screen.getByTestId('auth-error')).toBeInTheDocument());
-    expect(screen.getByTestId('auth-error')).toHaveTextContent(message('api.error.unknown'));
-    expect(screen.queryByTestId('auth-conflict-action')).not.toBeInTheDocument();
   });
 });
