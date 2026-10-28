@@ -29,8 +29,8 @@ alert rules belong to the next feature.
 
 **Purpose**: confirm the change needs nothing installed and nothing new declared.
 
-- [ ] T001 [P] Confirm no dependency is added: `go.mod` and `go.sum` stay byte-identical — the pinned `amqp091-go` v1.16.0 already carries the consumer surface this feature needs (`research.md` R1, R7)
-- [ ] T002 [P] Confirm the deployment stack is untouched: `deploy/docker-compose.yml`, `deploy/.env.example`, `deploy/compose_test.go` and `deploy/prometheus/prometheus.yml` stay byte-identical, and `env.RequiredKeys()` is unchanged (WKR-19, SC-006)
+- [x] T001 [P] Confirm no dependency is added: `go.mod` and `go.sum` stay byte-identical — the pinned `amqp091-go` v1.16.0 already carries the consumer surface this feature needs (`research.md` R1, R7)
+- [x] T002 [P] Confirm the deployment stack is untouched: `deploy/docker-compose.yml`, `deploy/.env.example`, `deploy/compose_test.go` and `deploy/prometheus/prometheus.yml` stay byte-identical, and `env.RequiredKeys()` is unchanged (WKR-19, SC-006)
 
 ---
 
@@ -40,11 +40,11 @@ alert rules belong to the next feature.
 consumes. They land first — mirroring how the delivered features put a shared seam before the stories
 that build on it.
 
-- [ ] T003 [P] Add the `Destination` type and its four names — `retry_30s`, `retry_2m`, `retry_5m`, `dead_letter` — with the test that pins them; the names are domain words, never routing keys — `backend/internal/email/destination.go`, `backend/internal/email/destination_test.go` (WKR-09, WKR-11, WKR-12, R3)
-- [ ] T004 [P] Add the bounded byte-slice decoder that tolerates unknown fields, with the test that pins the bound, the tolerance and the typed error; `RequiredKeys` and the HTTP decoder stay untouched — `backend/shared/json/decode.go`, `backend/shared/json/decode_test.go` (WKR-04, R10)
-- [ ] T005 [P] Add the three optional worker settings with their documented defaults — `EMAIL_WORKER_PREFETCH` (10), `EMAIL_WORKER_MAX_ATTEMPTS` (5), `EMAIL_WORKER_METRICS_ADDR` (`:9101`) — and the tests that pin the absent, blank, valid and malformed cases; `env.RequiredKeys()` stays exactly what it is — `backend/shared/env/env.go`, `backend/shared/env/env_test.go` (WKR-14, WKR-16, WKR-19, WKR-20, R12)
-- [ ] T006 [P] Add the worker's two ports — the delivery source with its acknowledge/reject handle, and the republisher that takes a destination — plus the typed sentinels with their documented effects; generate the mocks with `make mocks` — `backend/internal/email/worker/ports.go`, `backend/internal/email/worker/errors.go`, `backend/internal/email/worker/ports_test.go`, `backend/internal/email/worker/mocks/` (WKR-02, WKR-13, WKR-23, R2)
-- [ ] T007 [P] Extend the metrics package with the send-outcome counter (`sent`, `retried`, `dead_lettered`, `expired`), the send-duration histogram and the expired counter, reusing the dead-letter counter the earlier feature declared; the tests pin the labels and assert no series carries a code or an address — `backend/internal/platform/metrics/metrics.go`, `backend/internal/platform/metrics/metrics_test.go` (WKR-21, R11)
+- [x] T003 [P] Add the `Destination` type and its four names — `retry_30s`, `retry_2m`, `retry_5m`, `dead_letter` — with the test that pins them; the names are domain words, never routing keys — `backend/internal/email/destination.go`, `backend/internal/email/destination_test.go` (WKR-09, WKR-11, WKR-12, R3)
+- [x] T004 [P] Add the bounded byte-slice decoder that tolerates unknown fields, with the test that pins the bound, the tolerance and the typed error; `RequiredKeys` and the HTTP decoder stay untouched — `backend/shared/json/decode.go`, `backend/shared/json/decode_test.go` (WKR-04, R10)
+- [x] T005 [P] Add the three optional worker settings with their documented defaults — `EMAIL_WORKER_PREFETCH` (10), `EMAIL_WORKER_MAX_ATTEMPTS` (5), `EMAIL_WORKER_METRICS_ADDR` (`:9101`) — and the tests that pin the absent, blank, valid and malformed cases; `env.RequiredKeys()` stays exactly what it is — `backend/shared/env/env.go`, `backend/shared/env/env_test.go` (WKR-14, WKR-16, WKR-19, WKR-20, R12)
+- [x] T006 [P] Add the worker's two ports — the delivery source with its acknowledge/reject handle, and the republisher that takes a destination — plus the typed sentinels with their documented effects; generate the mocks with `make mocks` — `backend/internal/email/worker/ports.go`, `backend/internal/email/worker/errors.go`, `backend/internal/email/worker/ports_test.go`, `backend/internal/email/worker/mocks/` (WKR-02, WKR-13, WKR-23, R2)
+- [x] T007 [P] Extend the metrics package with the send-outcome counter (`sent`, `retried`, `dead_lettered`, `expired`), the send-duration histogram and the expired counter, reusing the dead-letter counter the earlier feature declared; the tests pin the labels and assert no series carries a code or an address — `backend/internal/platform/metrics/metrics.go`, `backend/internal/platform/metrics/metrics_test.go` (WKR-21, R11)
 
 **Checkpoint**: the vocabulary, the decoder, the settings, the ports and the counters are in place;
 the stories can begin.
@@ -66,17 +66,17 @@ one fake deliver each message once.
 
 ### Tests for User Story 1 (write first, ensure they FAIL) ⚠️
 
-- [ ] T008 [P] [US1] The decode-and-validate matrix — the undecodable body, the unknown field, the non-canonical identity, the missing code, the wrong type, the unknown purpose, the zero lifetime, the future creation time and the negative attempt count — each asserting the dead-letter, the acknowledgement and that nothing was sent — `backend/internal/email/worker/worker_test.go` (WKR-04, WKR-05, WKR-07)
-- [ ] T009 [P] [US1] The expiry decision against the injected clock: past the deadline nothing is sent, the message is acknowledged and the expired counter moves; before the deadline the message is sent (WKR-03, SC-002)
-- [ ] T010 [P] [US1] The render-and-send path: the subject, the plain-text body, the HTML body and the identity as the provider idempotency key reach the sending port, and the acknowledgement happens only after the send succeeded — `backend/internal/email/worker/worker_test.go` (WKR-02, WKR-06, WKR-08, SC-004)
-- [ ] T011 [P] [US1] Two consumers over one fake delivery source deliver each message once, and a redelivered message is sent again with the same idempotency key — `backend/internal/email/worker/worker_test.go` (WKR-08, WKR-16)
+- [x] T008 [P] [US1] The decode-and-validate matrix — the undecodable body, the unknown field, the non-canonical identity, the missing code, the wrong type, the unknown purpose, the zero lifetime, the future creation time and the negative attempt count — each asserting the dead-letter, the acknowledgement and that nothing was sent — `backend/internal/email/worker/worker_test.go` (WKR-04, WKR-05, WKR-07)
+- [x] T009 [P] [US1] The expiry decision against the injected clock: past the deadline nothing is sent, the message is acknowledged and the expired counter moves; before the deadline the message is sent (WKR-03, SC-002)
+- [x] T010 [P] [US1] The render-and-send path: the subject, the plain-text body, the HTML body and the identity as the provider idempotency key reach the sending port, and the acknowledgement happens only after the send succeeded — `backend/internal/email/worker/worker_test.go` (WKR-02, WKR-06, WKR-08, SC-004)
+- [x] T011 [P] [US1] Two consumers over one fake delivery source deliver each message once, and a redelivered message is sent again with the same idempotency key — `backend/internal/email/worker/worker_test.go` (WKR-08, WKR-16)
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Implement the decode, the field validation and the deadline decision over the message's own creation time and advertised lifetime; the challenge store is never consulted — `backend/internal/email/worker/worker.go` (WKR-03, WKR-04, WKR-05, WKR-07)
-- [ ] T013 [US1] Implement the render-and-send path through the delivered renderer and sending port, and the acknowledgement rules — a delivery ends in exactly one of four outcomes: sent and acknowledged, dead-lettered and acknowledged, expired and acknowledged without a send, or left unacknowledged for redelivery — `backend/internal/email/worker/worker.go` (WKR-02, WKR-06, WKR-08, SC-001, SC-004)
-- [ ] T014 [US1] Add the broker's delivery source: the consumer channel of its own, the prefetch applied before the consumer starts, the manual acknowledgement, the delivery stream and the acknowledge/reject handle — `backend/internal/email/amqp/consuming.go`, `backend/internal/email/amqp/channel.go`, `backend/internal/email/amqp/consuming_test.go` (WKR-02, WKR-16)
-- [ ] T015 [US1] Add the consume loop over the delivery source: one delivery at a time, the worker's own clock and configuration, and the handler bound — `backend/internal/email/worker/worker.go`, `backend/internal/email/worker/config.go` (WKR-01, WKR-02, WKR-16)
+- [x] T012 [US1] Implement the decode, the field validation and the deadline decision over the message's own creation time and advertised lifetime; the challenge store is never consulted — `backend/internal/email/worker/worker.go` (WKR-03, WKR-04, WKR-05, WKR-07)
+- [x] T013 [US1] Implement the render-and-send path through the delivered renderer and sending port, and the acknowledgement rules — a delivery ends in exactly one of four outcomes: sent and acknowledged, dead-lettered and acknowledged, expired and acknowledged without a send, or left unacknowledged for redelivery — `backend/internal/email/worker/worker.go` (WKR-02, WKR-06, WKR-08, SC-001, SC-004)
+- [x] T014 [US1] Add the broker's delivery source: the consumer channel of its own, the prefetch applied before the consumer starts, the manual acknowledgement, the delivery stream and the acknowledge/reject handle — `backend/internal/email/amqp/consuming.go`, `backend/internal/email/amqp/channel.go`, `backend/internal/email/amqp/consuming_test.go` (WKR-02, WKR-16)
+- [x] T015 [US1] Add the consume loop over the delivery source: one delivery at a time, the worker's own clock and configuration, and the handler bound — `backend/internal/email/worker/worker.go`, `backend/internal/email/worker/config.go` (WKR-01, WKR-02, WKR-16)
 
 **Checkpoint**: US1 is exercisable end to end against a fake broker and a fake sender; US1 is the MVP.
 
@@ -97,16 +97,16 @@ once.
 
 ### Tests for User Story 2 (write first, ensure they FAIL) ⚠️
 
-- [ ] T016 [P] [US2] The retry ladder: the first failure uses the 30-second tier, the second the 2-minute tier, the later ones the 5-minute tier, and the republished message keeps its identity, recipient, template, data and creation time with only the attempt count changed — `backend/internal/email/worker/retry_test.go` (WKR-09, WKR-14, WKR-15, SC-003)
-- [ ] T017 [P] [US2] The terminal paths: the permanent failure, the exhausted attempt cap and the attempt count already at the cap — each reaching the dead-letter route, acknowledged and counted, with no second send; the expiry is decided first, so an expired message at the cap is acknowledged and counted instead — `backend/internal/email/worker/retry_test.go` (WKR-11, WKR-12, SC-003)
-- [ ] T018 [P] [US2] The unconfirmed republish and the unconfirmed dead-letter publish: the original stays unacknowledged in both cases, so the broker redelivers it — `backend/internal/email/worker/retry_test.go` (WKR-13, SC-001)
-- [ ] T019 [P] [US2] The destination mapping and the routed publish in the broker adapter: each destination reaches its exchange and routing key, the publish is mandatory and confirmed, and an unroutable message is a failure — `backend/internal/email/amqp/consuming_test.go`, `backend/internal/email/amqp/topology_test.go` (WKR-09, WKR-11, R3)
+- [x] T016 [P] [US2] The retry ladder: the first failure uses the 30-second tier, the second the 2-minute tier, the later ones the 5-minute tier, and the republished message keeps its identity, recipient, template, data and creation time with only the attempt count changed — `backend/internal/email/worker/retry_test.go` (WKR-09, WKR-14, WKR-15, SC-003)
+- [x] T017 [P] [US2] The terminal paths: the permanent failure, the exhausted attempt cap and the attempt count already at the cap — each reaching the dead-letter route, acknowledged and counted, with no second send; the expiry is decided first, so an expired message at the cap is acknowledged and counted instead — `backend/internal/email/worker/retry_test.go` (WKR-11, WKR-12, SC-003)
+- [x] T018 [P] [US2] The unconfirmed republish and the unconfirmed dead-letter publish: the original stays unacknowledged in both cases, so the broker redelivers it — `backend/internal/email/worker/retry_test.go` (WKR-13, SC-001)
+- [x] T019 [P] [US2] The destination mapping and the routed publish in the broker adapter: each destination reaches its exchange and routing key, the publish is mandatory and confirmed, and an unroutable message is a failure — `backend/internal/email/amqp/consuming_test.go`, `backend/internal/email/amqp/topology_test.go` (WKR-09, WKR-11, R3)
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] Implement the retry ladder and the attempt cap over the message's own attempt count; the broker's dead-letter history is never consulted — `backend/internal/email/worker/retry.go` (WKR-09, WKR-10, WKR-12, WKR-14)
-- [ ] T021 [US2] Add the routed, confirmed and mandatory publish to the broker adapter and the destination mapping it owns — `backend/internal/email/amqp/broker.go` (WKR-09, WKR-11, WKR-13)
-- [ ] T022 [US2] Wire the worker's outcomes to the retry, the dead-letter and the expired paths, and the acknowledgement that follows each — `backend/internal/email/worker/worker.go` (WKR-02, WKR-03, WKR-11, WKR-12, WKR-13, SC-001, SC-003, SC-004)
+- [x] T020 [US2] Implement the retry ladder and the attempt cap over the message's own attempt count; the broker's dead-letter history is never consulted — `backend/internal/email/worker/retry.go` (WKR-09, WKR-10, WKR-12, WKR-14)
+- [x] T021 [US2] Add the routed, confirmed and mandatory publish to the broker adapter and the destination mapping it owns — `backend/internal/email/amqp/broker.go` (WKR-09, WKR-11, WKR-13)
+- [x] T022 [US2] Wire the worker's outcomes to the retry, the dead-letter and the expired paths, and the acknowledgement that follows each — `backend/internal/email/worker/worker.go` (WKR-02, WKR-03, WKR-11, WKR-12, WKR-13, SC-001, SC-003, SC-004)
 
 **Checkpoint**: US1 and US2 both work independently; a provider outage delays a code instead of losing
 it.
@@ -127,16 +127,16 @@ unacknowledged and releases its resources.
 
 ### Tests for User Story 3 (write first, ensure they FAIL) ⚠️
 
-- [ ] T023 [P] [US3] The fail-fast paths — the blank broker address, the malformed address, the unknown provider, the missing provider key — each stopping the process before it consumes anything, with the typed error — `backend/cmd/worker/main_test.go` (WKR-19)
-- [ ] T024 [P] [US3] The graceful stop: no new message is taken, the message in flight finishes, an unfinished message is left unacknowledged and the resources are released — `backend/cmd/worker/main_test.go` (WKR-18, SC-008)
-- [ ] T025 [P] [US3] The stream that ends and the consumer that re-registers — `backend/internal/email/amqp/consuming_test.go`, `backend/internal/email/worker/worker_test.go` (WKR-17, SC-007)
+- [x] T023 [P] [US3] The fail-fast paths — the blank broker address, the malformed address, the unknown provider, the missing provider key — each stopping the process before it consumes anything, with the typed error — `backend/cmd/worker/main_test.go` (WKR-19)
+- [x] T024 [P] [US3] The graceful stop: no new message is taken, the message in flight finishes, an unfinished message is left unacknowledged and the resources are released — `backend/cmd/worker/main_test.go` (WKR-18, SC-008)
+- [x] T025 [P] [US3] The stream that ends and the consumer that re-registers — `backend/internal/email/amqp/consuming_test.go`, `backend/internal/email/worker/worker_test.go` (WKR-17, SC-007)
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Add the supervisor loop: when the delivery stream ends the consumer is registered again and consumption continues, with the broker outage logged rather than fatal — `backend/internal/email/worker/worker.go` (WKR-17, SC-007)
-- [ ] T027 [US3] Wire the process — the broker validation, the provider selection through the delivered factory, the renderer, the metrics listener, the consume loop and the stop signal — `backend/cmd/worker/main.go` (WKR-01, WKR-18, WKR-19, WKR-20, SC-006, SC-008)
-- [ ] T028 [P] [US3] Add the optional broker integration suite that self-skips without `RABBITMQ_URL`: it connects, declares the topology, publishes a message, consumes it and acknowledges it, so the real broker is exercised without making it a requirement for the suite — `backend/internal/email/amqp/integration_test.go` (WKR-27, SC-009)
-- [ ] T029 [US3] Build the worker binary into the runtime image beside `/app` and `/relay`, and add the Makefile target that runs it — `Dockerfile`, `Makefile` (WKR-26)
+- [x] T026 [US3] Add the supervisor loop: when the delivery stream ends the consumer is registered again and consumption continues, with the broker outage logged rather than fatal — `backend/internal/email/worker/worker.go` (WKR-17, SC-007)
+- [x] T027 [US3] Wire the process — the broker validation, the provider selection through the delivered factory, the renderer, the metrics listener, the consume loop and the stop signal — `backend/cmd/worker/main.go` (WKR-01, WKR-18, WKR-19, WKR-20, SC-006, SC-008)
+- [x] T028 [P] [US3] Add the optional broker integration suite that self-skips without `RABBITMQ_URL`: it connects, declares the topology, publishes a message, consumes it and acknowledges it, so the real broker is exercised without making it a requirement for the suite — `backend/internal/email/amqp/integration_test.go` (WKR-27, SC-009)
+- [x] T029 [US3] Build the worker binary into the runtime image beside `/app` and `/relay`, and add the Makefile target that runs it — `Dockerfile`, `Makefile` (WKR-26)
 
 **Checkpoint**: the process stands on its own; the stack that runs it is the next feature.
 
@@ -154,12 +154,12 @@ address appears in any of them.
 
 ### Tests for User Story 4 (write first, ensure they FAIL) ⚠️
 
-- [ ] T030 [P] [US4] The counters per outcome and the duration histogram — `backend/internal/platform/metrics/metrics_test.go` (WKR-21, SC-004)
-- [ ] T031 [P] [US4] The logs: a message is identified by its identity and its purpose, the recipient is masked as the first character of the local part plus the domain, and the code appears in no attribute and no series — `backend/internal/email/worker/worker_test.go` (WKR-06, WKR-21, WKR-22, SC-005)
+- [x] T030 [P] [US4] The counters per outcome and the duration histogram — `backend/internal/platform/metrics/metrics_test.go` (WKR-21, SC-004)
+- [x] T031 [P] [US4] The logs: a message is identified by its identity and its purpose, the recipient is masked as the first character of the local part plus the domain, and the code appears in no attribute and no series — `backend/internal/email/worker/worker_test.go` (WKR-06, WKR-21, WKR-22, SC-005)
 
 ### Implementation for User Story 4
 
-- [ ] T032 [US4] Report every outcome to the metrics observer and mask the recipient in every log line — `backend/internal/email/worker/worker.go`, `backend/internal/platform/metrics/metrics.go` (WKR-21, WKR-22, SC-005)
+- [x] T032 [US4] Report every outcome to the metrics observer and mask the recipient in every log line — `backend/internal/email/worker/worker.go`, `backend/internal/platform/metrics/metrics.go` (WKR-21, WKR-22, SC-005)
 
 **Checkpoint**: the pipeline is observable; the alert rules that read these counters are the next
 feature.
@@ -168,10 +168,10 @@ feature.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T033 [P] Record the feature's decisions in the decision log — `.specs/STATE.md` (AD-023): the package layout, the two worker ports, the domain-owned destination vocabulary, the message-local expiry decision, the retry ladder, the library-plus-supervisor reconnection and the decode helper (WKR-01, WKR-07, WKR-09, WKR-23)
-- [ ] T034 [P] Extend the shared mock configuration with the worker's two ports — `.mockery.yaml` (WKR-23)
-- [ ] T035 [P] Name the consumer in the message contract's documentation and pin the round-trip that proves the shape the worker decodes — `backend/internal/email/message.go`, `backend/internal/email/message_test.go` (WKR-04)
-- [ ] T036 Run the gates and record the result: `make fmt && make lint && make vet && make lint-specs`, then `make test-race`; the race detector must stay clean, no test may need a broker or a provider, and every identifier, comment and string the change adds is English (WKR-24, WKR-25, WKR-27, SC-009)
+- [x] T033 [P] Record the feature's decisions in the decision log — `.specs/STATE.md` (AD-023): the package layout, the two worker ports, the domain-owned destination vocabulary, the message-local expiry decision, the retry ladder, the library-plus-supervisor reconnection and the decode helper (WKR-01, WKR-07, WKR-09, WKR-23)
+- [x] T034 [P] Extend the shared mock configuration with the worker's two ports — `.mockery.yaml` (WKR-23)
+- [x] T035 [P] Name the consumer in the message contract's documentation and pin the round-trip that proves the shape the worker decodes — `backend/internal/email/message.go`, `backend/internal/email/message_test.go` (WKR-04)
+- [x] T036 Run the gates and record the result: `make fmt && make lint && make vet && make lint-specs`, then `make test-race`; the race detector must stay clean, no test may need a broker or a provider, and every identifier, comment and string the change adds is English (WKR-24, WKR-25, WKR-27, SC-009)
 
 ---
 
