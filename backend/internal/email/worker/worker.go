@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -223,9 +224,19 @@ func (w *Worker) acknowledge(ctx context.Context, delivery Delivery, msg email.M
 	}
 }
 
+// maxLifetimeMinutes is the largest lifetime whose duration still fits in a
+// time.Duration; anything above it never expires within a representable time.
+const maxLifetimeMinutes int64 = math.MaxInt64 / int64(time.Minute)
+
 // expired reports whether the message's own deadline has passed. A zero or
 // negative lifetime has always passed (WKR-07).
 func (w *Worker) expired(msg email.Message) bool {
+	if msg.Data.ExpiresInMinutes <= 0 {
+		return true
+	}
+	if int64(msg.Data.ExpiresInMinutes) > maxLifetimeMinutes {
+		return false
+	}
 	deadline := msg.CreatedAt.Add(time.Duration(msg.Data.ExpiresInMinutes) * time.Minute)
 	return !w.config.Now().Before(deadline)
 }

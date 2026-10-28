@@ -685,3 +685,50 @@ func TestInitVariablesWorkerSettings(t *testing.T) {
 		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
 	})
 }
+
+// TestInitVariablesEmailRetryDelays proves the retry tiers are optional: an
+// absent, blank, malformed or non-positive value reads as zero, which the
+// broker resolves to the tier's default (WKR-14).
+func TestInitVariablesEmailRetryDelays(t *testing.T) {
+	e := newTestEnv()
+	keys := []string{"EMAIL_RETRY_DELAY_FIRST", "EMAIL_RETRY_DELAY_SECOND", "EMAIL_RETRY_DELAY_LATER"}
+
+	tests := []struct {
+		name  string
+		first string
+		later string
+		want  [2]time.Duration
+	}{
+		{name: "Happy path: valid durations override the tiers", first: "10s", later: "1m30s", want: [2]time.Duration{10 * time.Second, 90 * time.Second}},
+		{name: "Edge: blank values read as zero", first: "", later: "", want: [2]time.Duration{}},
+		{name: "Edge: malformed values read as zero", first: "soon", later: "5", want: [2]time.Duration{}},
+		{name: "Edge: non-positive values read as zero", first: "0s", later: "-1m", want: [2]time.Duration{}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("EMAIL_RETRY_DELAY_FIRST", tc.first)
+			t.Setenv("EMAIL_RETRY_DELAY_SECOND", "")
+			t.Setenv("EMAIL_RETRY_DELAY_LATER", tc.later)
+
+			vars := e.initVariables()
+
+			require.Equal(t, tc.want[0], vars.EmailRetryDelayFirst)
+			require.Zero(t, vars.EmailRetryDelaySecond)
+			require.Equal(t, tc.want[1], vars.EmailRetryDelayLater)
+		})
+	}
+
+	t.Run("Edge: unset variables read as zero and the required list is unchanged", func(t *testing.T) {
+		for _, key := range keys {
+			unsetEnv(t, key)
+		}
+
+		vars := e.initVariables()
+
+		require.Zero(t, vars.EmailRetryDelayFirst)
+		require.Zero(t, vars.EmailRetryDelaySecond)
+		require.Zero(t, vars.EmailRetryDelayLater)
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
+	})
+}

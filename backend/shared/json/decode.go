@@ -13,7 +13,7 @@ import (
 
 const MaxBodySize = 1 << 20 // 1MiB
 
-// ErrInvalidJSON and ErrUnknownField are typed decoding errors. This package
+// ErrInvalidJSON, ErrUnknownField and ErrBodyTooLarge are typed decoding errors. This package
 // must not import backend/shared/apperr: controllers translate these errors to apperr
 // codes at the HTTP boundary.
 var (

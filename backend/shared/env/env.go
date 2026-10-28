@@ -51,6 +51,11 @@ type Variables struct {
 	// The worker's settings are optional too: the worker validates the broker
 	// and the provider itself, so the required list stays unchanged (WKR-14,
 	// WKR-16, WKR-19, WKR-20).
+	// The retry delay tiers are shared by every process that declares the
+	// topology; zero selects the tier's default (WKR-14).
+	EmailRetryDelayFirst   time.Duration
+	EmailRetryDelaySecond  time.Duration
+	EmailRetryDelayLater   time.Duration
 	EmailWorkerPrefetch    int
 	EmailWorkerMaxAttempts int
 	EmailWorkerMetricsAddr string
@@ -204,6 +209,9 @@ func (e *Env) initVariables() Variables {
 		EmailRelayMaxAttempts:          e.lookupIntEnv("EMAIL_RELAY_MAX_ATTEMPTS", defaultEmailRelayMaxAttempts),
 		EmailOutboxRetention:           e.lookupDurationEnv("EMAIL_OUTBOX_RETENTION", DefaultEmailOutboxRetention),
 		EmailRelayMetricsAddr:          e.lookupStringEnv("EMAIL_RELAY_METRICS_ADDR", defaultEmailRelayMetricsAddr),
+		EmailRetryDelayFirst:           e.lookupDurationEnv("EMAIL_RETRY_DELAY_FIRST", 0),
+		EmailRetryDelaySecond:          e.lookupDurationEnv("EMAIL_RETRY_DELAY_SECOND", 0),
+		EmailRetryDelayLater:           e.lookupDurationEnv("EMAIL_RETRY_DELAY_LATER", 0),
 		EmailWorkerPrefetch:            e.lookupIntEnv("EMAIL_WORKER_PREFETCH", defaultEmailWorkerPrefetch),
 		EmailWorkerMaxAttempts:         e.lookupIntEnv("EMAIL_WORKER_MAX_ATTEMPTS", defaultEmailWorkerMaxAttempts),
 		EmailWorkerMetricsAddr:         e.lookupStringEnv("EMAIL_WORKER_METRICS_ADDR", defaultEmailWorkerMetricsAddr),

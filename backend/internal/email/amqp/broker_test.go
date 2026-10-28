@@ -378,6 +378,55 @@ func TestBroker_DeclareTopology(t *testing.T) {
 	})
 }
 
+// TestBroker_DeclareTopology_RetryDelays proves the delay tiers follow the
+// configured delays, fall back to the documented defaults, and an unusable
+// delay is refused before anything is declared (WKR-14).
+func TestBroker_DeclareTopology_RetryDelays(t *testing.T) {
+	ttlOf := func(t *testing.T, fake *fakeChannel, name string) any {
+		t.Helper()
+		for _, queue := range fake.queues {
+			if queue.name == name {
+				return queue.args[argMessageTTL]
+			}
+		}
+		t.Fatalf("queue %s was not declared", name)
+		return nil
+	}
+
+	tests := []struct {
+		name    string
+		delays  RetryDelays
+		want    [3]int32
+		wantErr error
+	}{
+		{name: "Happy path: configured delays become the tier TTLs", delays: RetryDelays{First: time.Second, Second: 4 * time.Second, Later: 9 * time.Second}, want: [3]int32{1000, 4000, 9000}},
+		{name: "Edge: zero delays fall back to 30s, 2m and 5m", delays: RetryDelays{}, want: [3]int32{30000, 120000, 300000}},
+		{name: "Edge: a single configured tier keeps the other defaults", delays: RetryDelays{Second: time.Minute}, want: [3]int32{30000, 60000, 300000}},
+		{name: "Error: a negative delay is refused", delays: RetryDelays{First: -time.Second}, wantErr: ErrInvalidRetryDelay},
+		{name: "Error: a delay below one millisecond is refused", delays: RetryDelays{First: time.Microsecond}, wantErr: ErrInvalidRetryDelay},
+		{name: "Error: a delay beyond the broker TTL range is refused", delays: RetryDelays{Later: 30 * 24 * time.Hour}, wantErr: ErrInvalidRetryDelay},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeChannel{}
+			broker, _ := newFakeBroker(t, fake, Config{RetryDelays: tc.delays})
+
+			err := broker.DeclareTopology()
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				assert.Empty(t, fake.queues, "nothing may be declared with an unusable delay")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want[0], ttlOf(t, fake, queueRetry30s))
+			assert.Equal(t, tc.want[1], ttlOf(t, fake, queueRetry2m))
+			assert.Equal(t, tc.want[2], ttlOf(t, fake, queueRetry5m))
+		})
+	}
+}
+
 // TestBroker_Close proves Close closes the channel and connection and stops the
 // supervisor, so no goroutine leaks (EML-05).
 func TestBroker_Close(t *testing.T) {

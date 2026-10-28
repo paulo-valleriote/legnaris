@@ -3,6 +3,7 @@ package worker_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -145,6 +146,9 @@ func TestWorker_ExpiryDecision(t *testing.T) {
 		{name: "Edge: a zero lifetime is already expired", now: created, lifetime: 0, createdAt: created, wantExpired: true},
 		{name: "Edge: a negative lifetime is already expired", now: created, lifetime: -5, createdAt: created, wantExpired: true},
 		{name: "Edge: a creation time in the future is sent", now: created, lifetime: 10, createdAt: created.Add(time.Hour)},
+		{name: "Edge: a zero lifetime with a future creation time is expired", now: created, lifetime: 0, createdAt: created.Add(time.Hour), wantExpired: true},
+		{name: "Edge: a negative lifetime with a future creation time is expired", now: created, lifetime: -5, createdAt: created.Add(time.Hour), wantExpired: true},
+		{name: "Edge: a lifetime that overflows a duration is sent, not wrapped into expiry", now: created, lifetime: math.MaxInt, createdAt: created},
 	}
 
 	for _, tc := range tests {

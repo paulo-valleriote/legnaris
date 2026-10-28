@@ -11,7 +11,7 @@ import (
 func queueByName(t *testing.T, name string) queueSpec {
 	t.Helper()
 
-	for _, queue := range emailTopology().Queues {
+	for _, queue := range emailTopology(defaultRetryDelays).Queues {
 		if queue.Name == name {
 			return queue
 		}
@@ -65,7 +65,7 @@ func TestEmailTopology_Queues(t *testing.T) {
 // exchanged set and bindings the topology describes, idempotently (EML-06).
 func TestEmailTopology_Declare(t *testing.T) {
 	fake := &fakeChannel{}
-	require.NoError(t, emailTopology().declare(fake))
+	require.NoError(t, emailTopology(defaultRetryDelays).declare(fake))
 
 	t.Run("Happy path: both exchanges are declared direct and durable", func(t *testing.T) {
 		require.Len(t, fake.exchanges, 2)
@@ -121,3 +121,5 @@ func TestRoute_MatchesTheDeclaredTopology(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUnknownDestination)
 	})
 }
+
+var defaultRetryDelays = RetryDelays{First: DefaultRetryDelayFirst, Second: DefaultRetryDelaySecond, Later: DefaultRetryDelayLater}

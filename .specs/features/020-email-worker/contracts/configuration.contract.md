@@ -15,6 +15,20 @@ The settings the delivery process reads, where they come from, and what happens 
 | `EMAIL_WORKER_MAX_ATTEMPTS` | `5` | the send-attempt cap | the default is used |
 | `EMAIL_WORKER_METRICS_ADDR` | `:9101` | the address of the worker's own metrics listener | the default is used |
 
+The retry delay tiers are optional and shared: the relay and the worker both declare the topology, so
+both MUST run with the same values. The broker refuses to redeclare a queue with a different TTL, so
+changing a value on a broker that already holds the queue means recreating that queue first. (WKR-14)
+
+| Variable | Default | Meaning | Effect when absent or blank |
+|---|---|---|---|
+| `EMAIL_RETRY_DELAY_FIRST` | `30s` | delay before the first retry | the default is used |
+| `EMAIL_RETRY_DELAY_SECOND` | `2m` | delay before the second retry | the default is used |
+| `EMAIL_RETRY_DELAY_LATER` | `5m` | delay before every later retry | the default is used |
+
+A delay is a Go duration; a malformed or non-positive value reads as absent. A delay below one
+millisecond or beyond the broker's 32-bit millisecond TTL range fails the topology declaration with
+`ErrInvalidRetryDelay`.
+
 All three are **optional** and documented; the deployment's required-variable list is unchanged
 (`env.RequiredKeys()` stays exactly what it is).
 

@@ -44,7 +44,8 @@ const authSubsystem = "auth"
 // resultLabel is the label carried by every outcome-partitioned counter.
 const resultLabel = "result"
 
-// New builds a Metrics instance with its own registry and collectors.
+// New builds a Metrics instance with its own registry and collectors. No
+// worker series ever carries the recipient or the code as a label (WKR-21).
 func New() *Metrics {
 	registry := prometheus.NewRegistry()
 
@@ -117,9 +118,6 @@ func New() *Metrics {
 		Help:      "Email messages dead-lettered for operator attention.",
 	})
 
-	// Worker series: delivery outcomes by result, the provider's latency and
-	// the codes dropped for having expired. The recipient and the code are never
-	// a label (WKR-21).
 	emailSendTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
 		Name:      "email_send_total",

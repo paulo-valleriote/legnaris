@@ -48,6 +48,9 @@ type Config struct {
 	// Prefetch bounds the unacknowledged deliveries the consumer holds; zero
 	// leaves the broker's default (WKR-16).
 	Prefetch int
+	// RetryDelays sets the retry tiers declared with the topology; zero tiers
+	// use their defaults (WKR-14).
+	RetryDelays RetryDelays
 	// Logger records state changes and blocking notifications.
 	Logger logger.StructuredLogger
 }
@@ -60,6 +63,7 @@ type Broker struct {
 	logger         logger.StructuredLogger
 	confirmTimeout time.Duration
 	prefetch       int
+	retryDelays    RetryDelays
 
 	// publishMu serializes publishes: the worker publishes from concurrent
 	// handlers and the confirm bookkeeping below is per channel.
@@ -120,6 +124,7 @@ func dialWith(dial dialer, url string, cfg Config) (*Broker, error) {
 		logger:         cfg.Logger,
 		confirmTimeout: confirmTimeout,
 		prefetch:       cfg.Prefetch,
+		retryDelays:    cfg.RetryDelays,
 		unrouted:       make(map[string]struct{}),
 		done:           make(chan struct{}),
 	}
@@ -136,7 +141,11 @@ func dialWith(dial dialer, url string, cfg Config) (*Broker, error) {
 // DeclareTopology declares the email topology idempotently, before the first
 // publish; a declaration failure stops startup (EML-06).
 func (b *Broker) DeclareTopology() error {
-	if err := emailTopology().declare(b.ch); err != nil {
+	delays, err := b.retryDelays.resolve()
+	if err != nil {
+		return fmt.Errorf("declare email topology: %w", err)
+	}
+	if err := emailTopology(delays).declare(b.ch); err != nil {
 		return fmt.Errorf("declare email topology: %w", err)
 	}
 	return nil

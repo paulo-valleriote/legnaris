@@ -153,7 +153,12 @@ func defaultDependencies() dependencies {
 		dialBroker: func(cfg env.Env) (brokerClient, error) {
 			broker, err := amqp.Dial(cfg.Variables.RabbitMQURL, amqp.Config{
 				Prefetch: cfg.Variables.EmailWorkerPrefetch,
-				Logger:   cfg.Logger,
+				RetryDelays: amqp.RetryDelays{
+					First:  cfg.Variables.EmailRetryDelayFirst,
+					Second: cfg.Variables.EmailRetryDelaySecond,
+					Later:  cfg.Variables.EmailRetryDelayLater,
+				},
+				Logger: cfg.Logger,
 			})
 			if err != nil {
 				return nil, err
