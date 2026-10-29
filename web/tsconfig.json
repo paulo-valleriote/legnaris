@@ -17,6 +17,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "strict": true,
     "noUnusedLocals": true,
@@ -24,6 +25,6 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "e2e", "vite.config.ts", "playwright.config.ts"],
+  "include": ["src", "e2e", "config", "vite.config.ts", "playwright.config.ts"],
   "exclude": ["src/pwa/sw.ts", "dist", "node_modules", "coverage"]
 }

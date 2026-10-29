@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import { useStageThemeColor } from '../landing/use_stage_theme_color';
 import { LeftNav } from './left_nav';
 import './shell.css';
 
@@ -8,6 +9,8 @@ import './shell.css';
  * content keeps its minimum width (UIF-25); there is no contextual panel.
  */
 export function AppShell() {
+  useStageThemeColor();
+
   return (
     <div className="lg-shell">
       <LeftNav />

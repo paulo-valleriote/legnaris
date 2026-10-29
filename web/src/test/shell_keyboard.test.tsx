@@ -14,10 +14,10 @@ describe('shell keyboard access', () => {
     expect(screen.getByRole('link', { name: message('nav.catalog') })).toHaveFocus();
   });
 
-  it('Happy path: the theme control is reachable in the navigation tab order (UIF-18, UIF-27)', async () => {
+  it('Happy path: the sign-out control is reachable in the navigation tab order (WAS-23)', async () => {
     const user = userEvent.setup();
     renderApp('/');
-    const control = screen.getByRole('button', { name: message('theme.toggleLabel') });
+    const control = screen.getByRole('button', { name: message('nav.logout') });
 
     let reached = false;
     for (let step = 0; step < 6 && !reached; step += 1) {
@@ -45,8 +45,8 @@ describe('shell keyboard access', () => {
     renderApp('/unknown');
 
     // The navigation offers the catalog link, the own-sheet link and the footer's
-    // sign-out and theme controls (WAS-19, UIF-27) ahead of the content link.
-    for (let step = 0; step < 5; step += 1) {
+    // sign-out control (WAS-19) ahead of the content link.
+    for (let step = 0; step < 4; step += 1) {
       await user.tab();
     }
 

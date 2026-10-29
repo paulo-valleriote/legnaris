@@ -3,7 +3,8 @@
 ## Quick Start
 
 ```bash
-go run ./cmd/api.go      # Run API (MongoDB required; no Mongo yet? `make dev-db`)
+make dev                 # Clean MongoDB + API + web, one command (see README.md)
+go run ./backend/cmd/api.go  # Run API alone (MongoDB required; no Mongo yet? `make dev-db`)
 go test ./...            # Run tests
 make mocks               # Generate mocks (after interface changes)
 make fmt                 # Format code
@@ -13,6 +14,7 @@ make fmt                 # Format code
 
 | Task | Command |
 |------|---------|
+| Run everything locally (clean DB + API + web) | `make dev` |
 | Run server | `make run` |
 | Build | `make build` |
 | Test (race) | `make test-race` |

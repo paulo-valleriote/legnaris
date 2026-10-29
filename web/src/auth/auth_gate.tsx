@@ -2,11 +2,13 @@
  * The auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24, R8, WCS-02, WCS-21).
  *
  * It runs the one cold-start restore on mount, renders the minimal restoring
- * state until that restore settles, renders `AuthScreen` whenever no session is
- * held (the catalog, the sheet and the "Your sheet" destination never mount),
- * and renders the route tree when authenticated. A deep link visited without a
- * session is not resumed: as soon as the session settles unauthenticated, the
- * location resets to `/`, so the next session starts on the catalog.
+ * state until that restore settles, renders the landing on `/` and `AuthScreen`
+ * on every other path whenever no session is held (the catalog, the sheet and
+ * the "Your sheet" destination never mount), and renders the route tree when
+ * authenticated. A deep link visited without a session is not resumed: as soon
+ * as the session settles unauthenticated, the location moves to the sign-in
+ * path, and once signed in the auth paths hand over to `/`, so the next session
+ * starts on the catalog.
  *
  * A pending code step replaces the credential form in place, on the same URL
  * and with no declared route (R5). The session keeps the values the abandoned
@@ -15,12 +17,17 @@
  */
 
 import { useEffect, useSyncExternalStore } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../app/providers';
+import { LANDING_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
+import { LandingScreen } from '../landing/landing_screen';
 import { AuthCodeScreen } from './auth_code_screen';
 import { AuthScreen } from './auth_screen';
 import './auth.css';
+
+const AUTH_PATHS: ReadonlySet<string> = new Set([SIGN_IN_PATH, SIGN_UP_PATH]);
+const PUBLIC_PATHS: ReadonlySet<string> = new Set([LANDING_PATH, SIGN_IN_PATH, SIGN_UP_PATH]);
 
 /** The gate that decides what the whole client renders (R8). */
 export function AuthGate() {
@@ -34,8 +41,8 @@ export function AuthGate() {
   }, [session]);
 
   useEffect(() => {
-    if (snapshot.state === 'unauthenticated' && location.pathname !== '/') {
-      navigate('/', { replace: true });
+    if (snapshot.state === 'unauthenticated' && !PUBLIC_PATHS.has(location.pathname)) {
+      navigate(SIGN_IN_PATH, { replace: true });
     }
   }, [snapshot.state, location.pathname, navigate]);
 
@@ -52,7 +59,20 @@ export function AuthGate() {
   }
 
   if (snapshot.state !== 'authenticated') {
-    return <AuthScreen restore={snapshot.restored} />;
+    if (snapshot.restored === null && location.pathname === LANDING_PATH) {
+      return <LandingScreen />;
+    }
+
+    return (
+      <AuthScreen
+        restore={snapshot.restored}
+        initialMode={location.pathname === SIGN_UP_PATH ? 'register' : 'login'}
+      />
+    );
+  }
+
+  if (AUTH_PATHS.has(location.pathname)) {
+    return <Navigate to={LANDING_PATH} replace />;
   }
 
   return <Outlet />;

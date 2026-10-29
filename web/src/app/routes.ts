@@ -14,6 +14,13 @@ export interface DeclaredRoute {
   readonly notFound: boolean;
 }
 
+/** The landing a visitor without a session sees; the catalog takes `/` once signed in. */
+export const LANDING_PATH = '/';
+
+/** The public sign-in and registration surfaces; neither is a shell route. */
+export const SIGN_IN_PATH = '/sign-in';
+export const SIGN_UP_PATH = '/sign-up';
+
 /** The single fallback route; renders the designed not-found state (FND-08). */
 export const NOT_FOUND_PATH = '*';
 

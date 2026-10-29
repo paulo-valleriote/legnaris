@@ -52,7 +52,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     const fake = createDeferredTransport();
     const session = restoringSession(fake.transport);
 
-    renderApp('/', { session });
+    renderApp('/sign-in', { session });
 
     fake.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
 
@@ -69,7 +69,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     await store.putSheet(SHEET);
     const session = restoringSession(fake.transport, () => clearSessionData(store));
 
-    renderApp('/', { session, sheetStore: store });
+    renderApp('/sign-in', { session, sheetStore: store });
 
     fake.resolve({
       status: 500,
@@ -87,7 +87,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     const fake = createDeferredTransport();
     const session = restoringSession(fake.transport);
 
-    renderApp('/', { session });
+    renderApp('/sign-in', { session });
     fake.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
 
     await waitFor(() =>
@@ -130,7 +130,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     const catalog = createDeferredTransport();
     const session = restoringSession(sessionTransport.transport);
 
-    renderApp('/', { session, client: clientWith(catalog.transport) });
+    renderApp('/sign-in', { session, client: clientWith(catalog.transport) });
 
     sessionTransport.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
     await waitFor(() =>
@@ -151,7 +151,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     const deferred = createDeferredTransport();
     const session = restoringSession(deferred.transport);
 
-    renderApp('/', { session, client: clientWith(createDeferredTransport().transport) });
+    renderApp('/sign-in', { session, client: clientWith(createDeferredTransport().transport) });
 
     expect(screen.getByTestId('auth-restoring')).toHaveTextContent(message('auth.restoring'));
 
@@ -169,7 +169,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     const sessionTransport = createDeferredTransport();
     const session = restoringSession(sessionTransport.transport);
 
-    renderApp('/', { session });
+    renderApp('/sign-in', { session });
 
     sessionTransport.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
     await waitFor(() =>
@@ -202,7 +202,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
       }),
     });
 
-    renderApp('/', { session });
+    renderApp('/sign-in', { session });
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),

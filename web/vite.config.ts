@@ -1,48 +1,21 @@
+import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-
-// The document security headers the origin delivers to the web client. In
-// production they come from Traefik (`deploy/traefik/dynamic.yml`
-// `web-security-headers`); the dev and preview servers mirror them so the
-// header gate asserts the real policy locally too (POL-02, B6). Keep the two
-// lists in step — the policy is defined once per origin, never in the HTML.
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  "script-src 'self'",
-  "style-src 'self'",
-  "img-src 'self' data:",
-  "font-src 'self'",
-  "connect-src 'self' https://api.legnaris.com.br",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  "require-trusted-types-for 'script'",
-  'report-to csp-endpoint',
-  'report-uri https://api.legnaris.com.br/csp-report',
-].join('; ');
-
-const securityHeaders = {
-  'Content-Security-Policy': contentSecurityPolicy,
-  'Reporting-Endpoints': 'csp-endpoint="https://api.legnaris.com.br/csp-report"',
-  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-  'X-Frame-Options': 'DENY',
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy':
-    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)',
-  'Cross-Origin-Opener-Policy': 'same-origin',
-  'Cross-Origin-Resource-Policy': 'same-origin',
-};
+import { buildSecurityHeaders, resolveDevApiOrigin } from './config/security_headers.ts';
 
 // `appType: 'spa'` makes both the dev and preview servers fall back to
 // `index.html` for unknown paths, so a cold deep link resolves before the
 // service worker exists (FND-08).
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   appType: 'spa',
-  server: { headers: securityHeaders },
-  preview: { headers: securityHeaders },
+  server: {
+    headers: buildSecurityHeaders(
+      resolveDevApiOrigin(loadEnv(mode, process.cwd(), 'VITE_').VITE_API_BASE_URL),
+      true,
+    ),
+  },
+  preview: { headers: buildSecurityHeaders() },
   plugins: [
     react(),
     VitePWA({
@@ -80,4 +53,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

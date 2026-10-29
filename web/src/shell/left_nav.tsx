@@ -5,7 +5,6 @@ import { useAuthSession } from '../app/providers';
 import { message } from '../l10n/strings';
 import { BrandMark } from './brand_mark';
 import { leaveIsGuarded, requestLeave } from './leave_guard';
-import { ThemeToggle } from './theme_toggle';
 
 /** The route the root navigation item targets. */
 const CATALOG_PATH = '/';
@@ -127,8 +126,9 @@ function NavEntry({ path, label, icon }: NavEntryProps) {
  * never a literal (WCT-29).
  *
  * The own-sheet entry renders only while a session is held (WAS-19, WAS-25); the
- * footer hosts the sign-out control and the theme switch, sign-out disabled while
- * its teardown is in flight (WAS-23, UIF-27).
+ * footer hosts the sign-out control, disabled while its teardown is in flight
+ * (WAS-23). The signed-in app is always dark, so the navigation carries no theme
+ * control.
  */
 export function LeftNav() {
   const session = useAuthSession();
@@ -178,7 +178,6 @@ export function LeftNav() {
             <span className="lg-nav__label">{message('nav.logout')}</span>
           </button>
         )}
-        <ThemeToggle />
       </div>
     </nav>
   );

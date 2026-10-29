@@ -26,6 +26,24 @@ type CatalogRenderPhase =
   | { readonly kind: 'error'; readonly copy: string }
   | { readonly kind: 'parseError'; readonly copy: string };
 
+/** A trailing arrow that marks an entry as opening something. */
+function OpenIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
 function resolveCatalogPhase(query: UseQueryResult<TemplateSummary[], Error>): CatalogRenderPhase {
   if (query.isPending) {
     return { kind: 'loading' };
@@ -73,8 +91,13 @@ function CatalogBody({ phase, onRetry, onOpen }: CatalogBodyProps) {
                 title={message('catalog.openHint')}
                 onClick={(event) => onOpen(entry.id, event.currentTarget)}
               >
-                <span className="lg-catalog__name">{entry.name}</span>
-                <span className="lg-catalog__id">{entry.id}</span>
+                <span className="lg-catalog__text">
+                  <span className="lg-catalog__name">{entry.name}</span>
+                  <span className="lg-catalog__id">{entry.id}</span>
+                </span>
+                <span className="lg-catalog__open">
+                  <OpenIcon />
+                </span>
               </button>
             </li>
           ))}

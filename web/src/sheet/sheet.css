@@ -48,9 +48,11 @@
 
 .lg-sheet__title {
   margin: 0;
-  font-size: var(--lg-type-18);
+  font-size: var(--lg-type-30);
   font-weight: var(--lg-font-weight-semibold);
-  line-height: var(--lg-line-tight);
+  line-height: var(--lg-line-display);
+  letter-spacing: var(--lg-tracking-display);
+  text-wrap: balance;
 }
 
 .lg-sheet__message {

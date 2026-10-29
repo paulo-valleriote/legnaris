@@ -21,7 +21,7 @@ import { failureCopy } from '../api/error_mapper';
 import { useAuthSession } from '../app/providers';
 import type { PendingCodeStep } from './auth_session';
 import { message, messageWith } from '../l10n/strings';
-import { BrandMark } from '../shell/brand_mark';
+import { AuthStage } from './auth_stage';
 import './auth.css';
 
 /** The digits the code carries (WCS-24). */
@@ -135,15 +135,8 @@ export function AuthCodeScreen() {
 
   return (
     <div className="lg-auth">
+      <AuthStage linked={false} />
       <section className="lg-auth__panel" aria-labelledby="auth-code-title">
-        <header className="lg-auth__brand">
-          <span className="lg-auth__mark" aria-hidden="true">
-            <BrandMark />
-          </span>
-          <span className="lg-auth__wordmark">{message('app.name')}</span>
-          <span className="lg-auth__tagline">{message('nav.tagline')}</span>
-        </header>
-
         <p className="lg-auth__origin" data-testid="code-origin">
           {messageWith('auth.codeOrigin', {
             mode:
@@ -221,7 +214,7 @@ export function AuthCodeScreen() {
           <footer className="lg-auth__footer">
             <button
               type="submit"
-              className="lg-button lg-button--primary lg-button--md lg-auth__submit"
+              className="lg-auth__submit"
               disabled={submitting}
               aria-busy={submitting}
             >
@@ -234,7 +227,7 @@ export function AuthCodeScreen() {
           <p className="lg-auth__hint">{message('auth.codeResendHint')}</p>
           <button
             type="button"
-            className="lg-button lg-button--secondary lg-button--md lg-auth__resend-action"
+            className="lg-auth__resend-action"
             aria-disabled={resendUnavailable}
             aria-describedby={resendRemaining > 0 ? 'auth-code-countdown' : undefined}
             data-testid="code-resend"

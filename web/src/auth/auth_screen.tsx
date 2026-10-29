@@ -2,8 +2,8 @@
  * The auth surface (WAS-07, WAS-09, WAS-10, R9, WCS-21, WCS-22).
  *
  * One place offers sign-in and registration through a mode switch, opening with
- * the brand lockup and a mode-specific title so the first screen of the product
- * carries its identity. The single primary action submits through the session,
+ * a mode-specific title beside the landing's photograph, so the surface carries
+ * the same identity as the page that led to it. The single primary action submits through the session,
  * is disabled and shows progress while a submit is in flight, and the password
  * is a hidden-content control. A failed submit keeps the typed values and
  * renders the mapped failure copy resolved from the catalog — never the server
@@ -21,19 +21,25 @@ import { failureCopy, failureKind } from '../api/error_mapper';
 import type { FailureKind } from '../api/errors';
 import { useAuthSession } from '../app/providers';
 import { message } from '../l10n/strings';
-import { BrandMark } from '../shell/brand_mark';
 import type { RestoredForm } from './auth_session';
+import { AuthStage } from './auth_stage';
 import './auth.css';
 
-type AuthMode = 'login' | 'register';
+export type AuthMode = 'login' | 'register';
 
 export type { RestoredForm };
 
+interface AuthScreenProps {
+  readonly restore?: RestoredForm | null;
+  /** The mode the surface opens in when no abandoned code step dictates one. */
+  readonly initialMode?: AuthMode;
+}
+
 /** The single sign-in / registration surface (WAS-09). */
-export function AuthScreen({ restore }: { readonly restore?: RestoredForm | null }) {
+export function AuthScreen({ restore, initialMode = 'login' }: AuthScreenProps) {
   const session = useAuthSession();
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const [mode, setMode] = useState<AuthMode>(restore?.origin ?? 'login');
+  const [mode, setMode] = useState<AuthMode>(restore?.origin ?? initialMode);
   const [email, setEmail] = useState(restore?.email ?? '');
   const [username, setUsername] = useState(restore?.username ?? '');
   const [password, setPassword] = useState('');
@@ -88,15 +94,8 @@ export function AuthScreen({ restore }: { readonly restore?: RestoredForm | null
 
   return (
     <div className="lg-auth">
+      <AuthStage />
       <section className="lg-auth__panel" aria-labelledby="auth-title">
-        <header className="lg-auth__brand">
-          <span className="lg-auth__mark" aria-hidden="true">
-            <BrandMark />
-          </span>
-          <span className="lg-auth__wordmark">{message('app.name')}</span>
-          <span className="lg-auth__tagline">{message('nav.tagline')}</span>
-        </header>
-
         <div className="lg-auth__intro">
           <h1 className="lg-auth__title" id="auth-title">
             {mode === 'login' ? message('auth.titleLogin') : message('auth.titleRegister')}
@@ -196,12 +195,7 @@ export function AuthScreen({ restore }: { readonly restore?: RestoredForm | null
           )}
 
           <footer className="lg-auth__footer">
-            <button
-              type="submit"
-              className="lg-button lg-button--primary lg-button--md lg-auth__submit"
-              disabled={busy}
-              aria-busy={busy}
-            >
+            <button type="submit" className="lg-auth__submit" disabled={busy} aria-busy={busy}>
               {mode === 'login' ? message('auth.submitLogin') : message('auth.submitRegister')}
             </button>
           </footer>

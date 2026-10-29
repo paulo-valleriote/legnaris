@@ -68,11 +68,6 @@ export const messages = {
   'nav.sectionWorkspace': 'Workspace',
   'nav.tagline': 'Character archive',
 
-  'theme.label': 'Theme',
-  'theme.toggleLabel': 'Switch theme',
-  'theme.switchToDark': 'Switch to dark',
-  'theme.switchToLight': 'Switch to light',
-
   'catalog.title': 'Templates',
   'catalog.loading': 'Loading templates',
   'catalog.empty': 'No templates are available.',
@@ -128,6 +123,66 @@ export const messages = {
   'engine.none': 'None',
   'engine.modified': 'Modified',
   'engine.recalculated': 'Recalculated',
+  'landing.create': 'Start your archive',
+  'landing.heroTitle': 'A character sheet that does its own math.',
+  'landing.heroLead':
+    'Legnaris models any tabletop RPG as typed fields and formulas, so modifiers and skills recalculate the moment you change a number.',
+  'landing.principlesTitle': 'Built for the table, not the spreadsheet.',
+  'landing.principle1Title': 'No game content, ever',
+  'landing.principle1Body':
+    'Legnaris ships calculation mechanics and generic structure, never a publisher’s rules text. The structure is generic; the content is yours.',
+  'landing.principle2Title': 'Derived values are computed',
+  'landing.principle2Body':
+    'A formula is written once. Modifiers, totals and skills follow every edit on their own, in the order they depend on each other.',
+  'landing.principle3Title': 'Safe mid-session',
+  'landing.principle3Body':
+    'A crash or a dropped connection does not cost you the evening: pending edits are kept as a local draft until you save them.',
+  'landing.principle4Title': 'Your data stays yours',
+  'landing.principle4Body':
+    'Export any sheet as self-contained JSON and import it back, or host Legnaris yourself. Your sheets outlive the service.',
+  'landing.howTitle': 'Change one number. Watch the rest follow.',
+  'landing.howStepsLabel': 'Steps',
+  'landing.step1Title': 'Pick a template',
+  'landing.step1Body':
+    'Choose a reviewed template that describes your system as typed fields and formulas.',
+  'landing.step2Title': 'Fill in the sheet',
+  'landing.step2Body': 'Type the values only you know. Everything else is derived.',
+  'landing.step3Title': 'Play',
+  'landing.step3Body':
+    'Edit mid-session, on your phone if you like. The sheet recalculates as you go.',
+  'landing.demoLabel': 'Live example of a recalculating sheet',
+  'landing.demoBase': 'Might',
+  'landing.demoBaseDown': 'Lower Might',
+  'landing.demoBaseUp': 'Raise Might',
+  'landing.demoModifier': 'Modifier',
+  'landing.demoClimbing': 'Climbing',
+  'landing.demoCarry': 'Carry limit',
+  'landing.demoFormulaModifier': '(Might − 10) ÷ 2, rounded down',
+  'landing.demoFormulaClimbing': 'Modifier + 3',
+  'landing.demoFormulaCarry': 'Might × 7',
+  'landing.demoNote':
+    'Demo values and formulas, not taken from any game. Push Might to either end.',
+  'landing.demoNoteMax': 'Thirty. The ceiling, and the sheet did not blink.',
+  'landing.demoNoteMin': 'One. Modifier −5, and the arithmetic still holds.',
+  'landing.faqTitle': 'Questions, answered plainly.',
+  'landing.faq1Question': 'Which game systems does it support?',
+  'landing.faq1Answer':
+    'Templates describe fields and formulas, so no system is hard-coded and no publisher content is included. Version 1 offers a reviewed catalog of templates; creating your own is not available yet.',
+  'landing.faq2Question': 'Can I use it on my phone at the table?',
+  'landing.faq2Answer':
+    'Yes. Legnaris is an installable web app built for reading and editing a sheet quickly during a session.',
+  'landing.faq3Question': 'What happens if I lose connection or the page crashes?',
+  'landing.faq3Answer':
+    'Your pending edits are kept as a local draft and restored the next time you open the sheet.',
+  'landing.faq4Question': 'Can I take my sheet somewhere else?',
+  'landing.faq4Answer':
+    'Yes. Export a sheet as JSON, import it back later, or self-host the whole service.',
+  'landing.faq5Question': 'Can I share a sheet with my table?',
+  'landing.faq5Answer':
+    'Not yet. Version 1 gives each account one sheet, with no sharing or game master tools.',
+  'landing.closeTitle': 'Open your archive and let the sheet do the counting.',
+  'landing.footerLabel': 'Site',
+  'landing.copyright': '© {year} Legnaris',
   'ui.dismiss': 'Dismiss',
 } as const;
 

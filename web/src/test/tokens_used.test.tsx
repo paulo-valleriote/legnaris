@@ -19,6 +19,7 @@ const engineDir = path.resolve(here, '../engine');
 const authDir = path.resolve(here, '../auth');
 const sheetDir = path.resolve(here, '../sheet');
 const libraryDir = path.resolve(here, '../library');
+const landingDir = path.resolve(here, '../landing');
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir)
@@ -112,6 +113,20 @@ describe('design token usage in the auth surface (WAS-31)', () => {
 
   it('Happy path: every token the auth surface references is defined in tokens.css', () => {
     assertTokensAreDefined(sourceFiles(authDir));
+  });
+});
+
+describe('design token usage in the landing surface (DESIGN.md, Landing surface)', () => {
+  it('Happy path: the landing sources exist to inspect', () => {
+    expect(sourceFiles(landingDir).length).toBeGreaterThan(0);
+  });
+
+  it('Edge: no landing source contains a literal color or pixel value', () => {
+    assertTokenOnlySources(sourceFiles(landingDir));
+  });
+
+  it('Happy path: every token the landing references is defined in tokens.css', () => {
+    assertTokensAreDefined(sourceFiles(landingDir));
   });
 });
 
