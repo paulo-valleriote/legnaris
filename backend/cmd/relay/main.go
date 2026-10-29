@@ -11,10 +11,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -125,15 +123,7 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 // validateBrokerURL rejects an absent or unusable broker URL with the typed
 // startup error, so the relay never begins polling without a broker (EML-15).
 func validateBrokerURL(raw string) error {
-	if strings.TrimSpace(raw) == "" {
-		return fmt.Errorf("%w: RABBITMQ_URL is not set", amqp.ErrBrokerUnavailable)
-	}
-
-	parsed, err := url.Parse(raw)
-	if err != nil || (parsed.Scheme != "amqp" && parsed.Scheme != "amqps") || parsed.Host == "" {
-		return fmt.Errorf("%w: RABBITMQ_URL is not a valid AMQP URI", amqp.ErrBrokerUnavailable)
-	}
-	return nil
+	return amqp.ValidateURL(raw)
 }
 
 // relayConfig maps the optional configuration onto the relay's knobs; every
@@ -208,7 +198,12 @@ func defaultDependencies() dependencies {
 		dialBroker: func(cfg env.Env) (brokerClient, error) {
 			broker, err := amqp.Dial(cfg.Variables.RabbitMQURL, amqp.Config{
 				ConfirmTimeout: cfg.Variables.EmailRelayConfirmTimeout,
-				Logger:         cfg.Logger,
+				RetryDelays: amqp.RetryDelays{
+					First:  cfg.Variables.EmailRetryDelayFirst,
+					Second: cfg.Variables.EmailRetryDelaySecond,
+					Later:  cfg.Variables.EmailRetryDelayLater,
+				},
+				Logger: cfg.Logger,
 			})
 			if err != nil {
 				return nil, err

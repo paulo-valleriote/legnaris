@@ -1,7 +1,12 @@
 package amqp
 
 import (
+	"errors"
 	"fmt"
+	"math"
+	"time"
+
+	"legnaris/backend/internal/email"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -79,7 +84,7 @@ type topology struct {
 // exchange, a quorum work queue that dead-letters to the retry exchange, three
 // delay-tier retry queues that dead-letter back, and a dead-letter queue. All
 // are durable and declared idempotently before the first publish (EML-06).
-func emailTopology() topology {
+func emailTopology(delays RetryDelays) topology {
 	return topology{
 		Exchanges: []exchangeSpec{
 			{Name: exchangeMain, Kind: amqp.ExchangeDirect, Durable: true},
@@ -97,7 +102,7 @@ func emailTopology() topology {
 			{
 				Name:    queueRetry30s,
 				Durable: true,
-				Args:    quorumArgs(retryTierArgs(30000)),
+				Args:    quorumArgs(retryTierArgs(delays.First)),
 				Bindings: []bindingSpec{
 					{Exchange: exchangeRetry, RoutingKey: routingKey30s},
 				},
@@ -105,7 +110,7 @@ func emailTopology() topology {
 			{
 				Name:    queueRetry2m,
 				Durable: true,
-				Args:    quorumArgs(retryTierArgs(120000)),
+				Args:    quorumArgs(retryTierArgs(delays.Second)),
 				Bindings: []bindingSpec{
 					{Exchange: exchangeRetry, RoutingKey: routingKey2m},
 				},
@@ -113,7 +118,7 @@ func emailTopology() topology {
 			{
 				Name:    queueRetry5m,
 				Durable: true,
-				Args:    quorumArgs(retryTierArgs(300000)),
+				Args:    quorumArgs(retryTierArgs(delays.Later)),
 				Bindings: []bindingSpec{
 					{Exchange: exchangeRetry, RoutingKey: routingKey5m},
 				},
@@ -153,9 +158,9 @@ func workQueueArgs() amqp.Table {
 
 // retryTierArgs returns one delay tier's arguments: a message TTL that routes
 // back to the main exchange when it expires (EML-06).
-func retryTierArgs(ttlMilliseconds int32) amqp.Table {
+func retryTierArgs(delay time.Duration) amqp.Table {
 	return amqp.Table{
-		argMessageTTL:         ttlMilliseconds,
+		argMessageTTL:         int32(delay.Milliseconds()),
 		argDeadLetterExchange: exchangeMain,
 		argDeadLetterKey:      routingKeyOTP,
 	}
@@ -182,4 +187,69 @@ func (t topology) declare(ch channel) error {
 		}
 	}
 	return nil
+}
+
+// ErrUnknownDestination reports a destination outside the domain's closed
+// vocabulary; nothing is published (WKR-09).
+var ErrUnknownDestination = errors.New("unknown email destination")
+
+// route maps a destination to the exchange and routing key that reach its
+// queue. It is the only place a routing key is chosen for the worker (WKR-09,
+// WKR-11).
+func route(destination email.Destination) (exchange, key string, err error) {
+	switch destination {
+	case email.DestinationRetry30s:
+		return exchangeRetry, routingKey30s, nil
+	case email.DestinationRetry2m:
+		return exchangeRetry, routingKey2m, nil
+	case email.DestinationRetry5m:
+		return exchangeRetry, routingKey5m, nil
+	case email.DestinationDeadLetter:
+		return exchangeMain, routingKeyDead, nil
+	default:
+		return "", "", fmt.Errorf("%w: %q", ErrUnknownDestination, string(destination))
+	}
+}
+
+// Default retry delays: the 30 second, 2 minute and 5 minute tiers of WKR-14.
+const (
+	DefaultRetryDelayFirst  = 30 * time.Second
+	DefaultRetryDelaySecond = 2 * time.Minute
+	DefaultRetryDelayLater  = 5 * time.Minute
+)
+
+// ErrInvalidRetryDelay reports a retry delay the broker cannot use as a queue
+// message TTL.
+var ErrInvalidRetryDelay = errors.New("email: invalid retry delay")
+
+// RetryDelays are the delay tiers of the retry queues; a zero value selects
+// the tier's default. Every process that declares the topology must use the
+// same values: the broker refuses to redeclare a queue with a different TTL.
+type RetryDelays struct {
+	First  time.Duration
+	Second time.Duration
+	Later  time.Duration
+}
+
+// resolve fills zero tiers with their defaults and rejects a delay outside
+// the broker's 32-bit millisecond TTL range (WKR-14).
+func (d RetryDelays) resolve() (RetryDelays, error) {
+	resolved := RetryDelays{
+		First:  orDefault(d.First, DefaultRetryDelayFirst),
+		Second: orDefault(d.Second, DefaultRetryDelaySecond),
+		Later:  orDefault(d.Later, DefaultRetryDelayLater),
+	}
+	for _, delay := range []time.Duration{resolved.First, resolved.Second, resolved.Later} {
+		if delay < time.Millisecond || delay.Milliseconds() > math.MaxInt32 {
+			return RetryDelays{}, fmt.Errorf("%w: %s", ErrInvalidRetryDelay, delay)
+		}
+	}
+	return resolved, nil
+}
+
+func orDefault(value, fallback time.Duration) time.Duration {
+	if value == 0 {
+		return fallback
+	}
+	return value
 }

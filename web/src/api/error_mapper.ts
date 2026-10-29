@@ -4,6 +4,9 @@
  * The backend speaks in codes; the interface branches on kinds. This module is
  * the only translation point, so a screen never parses a code and the copy a
  * person sees is resolved from the translation catalog rather than typed here.
+ * The three refusals the code step introduced — the refused code, the
+ * unavailable send and the duplicate address — carry a kind and a copy of their
+ * own, so they never collapse into the generic sentence (WCS-11).
  */
 
 import type { MessageKey } from '../l10n/strings';
@@ -20,6 +23,9 @@ const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   UNAUTHORIZED: 'unauthorized',
   FORBIDDEN: 'forbidden',
   RATE_LIMITED: 'rateLimited',
+  OTP_INVALID: 'invalidCode',
+  EMAIL_UNAVAILABLE: 'emailUnavailable',
+  CONFLICT: 'conflict',
 };
 
 const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
@@ -33,6 +39,9 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
   forbidden: 'api.error.forbidden',
   rateLimited: 'api.error.rateLimited',
   unknown: 'api.error.unknown',
+  invalidCode: 'api.error.invalidCode',
+  emailUnavailable: 'api.error.emailUnavailable',
+  conflict: 'api.error.conflict',
 };
 
 /**
@@ -49,6 +58,16 @@ export function apperrKind(code: string): FailureKind {
 /** Resolves the copy for a failure kind from the translation catalog (API-23). */
 export function failureMessage(kind: FailureKind): string {
   return message(KEY_BY_KIND[kind]);
+}
+
+/**
+ * Resolves the interface-facing kind of a failure (WCS-27).
+ *
+ * A surface branches on the kind — the duplicate-address refusal carries an
+ * action the person can take — while the copy comes from the catalog.
+ */
+export function failureKind(error: unknown): FailureKind {
+  return error instanceof DomainFailure ? error.kind : 'unknown';
 }
 
 /** Resolves the copy for a response the client could not read (API-22, API-23). */

@@ -1,0 +1,16 @@
+{
+  "operation": "challenge_resend",
+  "provenance": "captured from the local stack (make dev-db; go run ./backend/cmd/api.go) at http://localhost:8080 on 2026-10-21T02:10:06Z",
+  "request": {
+    "method": "POST",
+    "path": "/auth/challenge/resend"
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "data": {
+        "resend_after": 60
+      }
+    }
+  }
+}

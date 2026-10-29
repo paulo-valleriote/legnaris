@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { createAuthApi } from '../api/auth_api';
 import { createApiClient } from '../api/client';
 import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import type { FieldSchema } from '../api/models/template';
@@ -34,7 +35,17 @@ const fixtureNames = [
   'error_invalid_json',
   'error_internal',
   'error_unauthorized',
+  'auth_register_challenge',
+  'auth_login_challenge',
+  'auth_challenge_verify',
+  'auth_challenge_resend',
+  'error_otp_invalid',
+  'error_email_unavailable',
+  'error_conflict',
 ] as const;
+
+/** The placeholder a capture carries in place of a credential (API-35). */
+const REDACTED_TOKEN = 'redacted-access-token';
 
 function loadCapture(name: string): Capture {
   return JSON.parse(readFileSync(path.join(fixturesDir, `${name}.json`), 'utf8')) as Capture;
@@ -59,6 +70,14 @@ function respond(capture: Capture): { status: number; body: string } {
 
 function clientFor(capture: Capture) {
   return createApiClient({ baseUrl, transport: createFakeTransport(respond(capture)).transport });
+}
+
+function authApiFor(capture: Capture) {
+  return createAuthApi({
+    baseUrl,
+    transport: createFakeTransport(respond(capture)).transport,
+    readCsrfToken: () => undefined,
+  });
 }
 
 function requestBodyOf(capture: Capture): Record<string, unknown> {
@@ -94,6 +113,49 @@ function leafPaths(value: unknown, prefix = ''): string[] {
 }
 
 describe('pinned contract captures', () => {
+  it('Error: altering a key in a capture turns the decode red on the first run (API-36)', async () => {
+    const mutated = structuredClone(templateDetail);
+    const body = mutated.response?.body as { data: Record<string, unknown> };
+    delete body.data['default'];
+
+    const fake = createFakeTransport({
+      status: mutated.response?.status ?? 200,
+      body: JSON.stringify(mutated.response?.body),
+    });
+
+    await expect(
+      createApiClient({ baseUrl, transport: fake.transport }).getTemplate('fantasy_v1'),
+    ).rejects.toBeInstanceOf(DefensiveParseFailure);
+  });
+
+  it('Error: a capture whose field type drifts is refused rather than coerced (API-36)', async () => {
+    const mutated = structuredClone(health);
+    const body = mutated.response?.body as { data: Record<string, unknown> };
+    body.data['status'] = 42;
+
+    const fake = createFakeTransport({
+      status: mutated.response?.status ?? 200,
+      body: JSON.stringify(mutated.response?.body),
+    });
+
+    await expect(
+      createApiClient({ baseUrl, transport: fake.transport }).health(),
+    ).rejects.toBeInstanceOf(DefensiveParseFailure);
+  });
+
+  it('Edge: no capture carries a credential (API-35)', () => {
+    for (const name of fixtureNames) {
+      const raw = readFileSync(path.join(fixturesDir, `${name}.json`), 'utf8');
+
+      // A capture may carry the shape of a credential — its key and the
+      // redacted placeholder — but never a credential value (API-35, WCS-14).
+      expect(raw).not.toMatch(/"access_token"\s*:\s*"(?!redacted-access-token)/);
+      expect(raw).not.toMatch(/"refresh_token"\s*:\s*"[^"]+"/);
+      expect(raw).not.toMatch(/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/);
+      expect(raw).not.toMatch(/Bearer\s+[A-Za-z0-9._-]{8,}/);
+    }
+  });
+
   it('Happy path: the health capture decodes through the health operation (API-34, API-35)', async () => {
     const fake = createFakeTransport(respond(health));
     const payload = await createApiClient({ baseUrl, transport: fake.transport }).health();
@@ -215,42 +277,100 @@ describe('pinned contract captures', () => {
       expect((failure as DomainFailure).status).toBe(capture.response?.status);
     }
   });
+});
 
-  it('Error: altering a key in a capture turns the decode red on the first run (API-36)', async () => {
-    const mutated = structuredClone(templateDetail);
+describe('the pinned code-step captures (WCS-14)', () => {
+  it('Error: a hand-edited key in a code-step capture turns the decode red (WCS-14, API-36)', async () => {
+    const mutated = structuredClone(loadCapture('auth_register_challenge'));
     const body = mutated.response?.body as { data: Record<string, unknown> };
-    delete body.data['default'];
+    delete body.data['challenge_id'];
 
     const fake = createFakeTransport({
-      status: mutated.response?.status ?? 200,
+      status: mutated.response?.status ?? 201,
       body: JSON.stringify(mutated.response?.body),
     });
 
     await expect(
-      createApiClient({ baseUrl, transport: fake.transport }).getTemplate('fantasy_v1'),
+      createAuthApi({
+        baseUrl,
+        transport: fake.transport,
+        readCsrfToken: () => undefined,
+      }).register({
+        email: 'a@b.test',
+        username: 'aragorn',
+        password: 'secret',
+      }),
     ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Error: a capture whose field type drifts is refused rather than coerced (API-36)', async () => {
-    const mutated = structuredClone(health);
-    const body = mutated.response?.body as { data: Record<string, unknown> };
-    body.data['status'] = 42;
+  it('Happy path: the registration capture decodes as a code step and carries no credential (WCS-14)', async () => {
+    const capture = loadCapture('auth_register_challenge');
+    const payload = (capture.response?.body as { data: Record<string, unknown> }).data;
 
-    const fake = createFakeTransport({
-      status: mutated.response?.status ?? 200,
-      body: JSON.stringify(mutated.response?.body),
+    const outcome = await authApiFor(capture).register({
+      email: 'a@b.test',
+      username: 'aragorn',
+      password: 'secret',
     });
 
-    await expect(
-      createApiClient({ baseUrl, transport: fake.transport }).health(),
-    ).rejects.toBeInstanceOf(DefensiveParseFailure);
+    expect(capture.response?.status).toBe(201);
+    expect(outcome).toEqual({
+      kind: 'challenge',
+      challenge: {
+        challengeId: payload['challenge_id'],
+        expiresIn: 600,
+        resendAfter: 60,
+      },
+    });
   });
 
-  it('Edge: no capture carries a credential (API-35)', () => {
-    for (const name of fixtureNames) {
-      const raw = readFileSync(path.join(fixturesDir, `${name}.json`), 'utf8');
+  it('Happy path: the sign-in capture decodes as a code step (WCS-14)', async () => {
+    const capture = loadCapture('auth_login_challenge');
 
-      expect(raw).not.toMatch(/access_token|refresh_token|Bearer\s/);
+    const outcome = await authApiFor(capture).login({ email: 'a@b.test', password: 'secret' });
+
+    expect(capture.response?.status).toBe(202);
+    expect(outcome.kind).toBe('challenge');
+  });
+
+  it('Happy path: the verification capture decodes as a session body with a redacted token (WCS-14)', async () => {
+    const capture = loadCapture('auth_challenge_verify');
+
+    const body = await authApiFor(capture).verifyChallenge({
+      challengeId: 'challenge-1',
+      code: '042917',
+    });
+
+    expect(capture.response?.status).toBe(200);
+    expect(body.accessToken).toBe(REDACTED_TOKEN);
+    expect(body.tokenType).toBe('Bearer');
+    expect(body.expiresIn).toBe(900);
+  });
+
+  it('Happy path: the resend capture decodes as the advertised window (WCS-14)', async () => {
+    const capture = loadCapture('auth_challenge_resend');
+
+    const result = await authApiFor(capture).resendChallenge({ challengeId: 'challenge-1' });
+
+    expect(capture.response?.status).toBe(202);
+    expect(result).toEqual({ resendAfter: 60 });
+  });
+
+  it('Happy path: each code-step refusal maps to the kind the interface branches on (WCS-11, WCS-14)', async () => {
+    const cases: ReadonlyArray<readonly [Capture, string, string]> = [
+      [loadCapture('error_otp_invalid'), 'invalidCode', 'OTP_INVALID'],
+      [loadCapture('error_email_unavailable'), 'emailUnavailable', 'EMAIL_UNAVAILABLE'],
+      [loadCapture('error_conflict'), 'conflict', 'CONFLICT'],
+    ];
+
+    for (const [capture, kind, code] of cases) {
+      const failure = await authApiFor(capture)
+        .register({ email: 'a@b.test', username: 'aragorn', password: 'secret' })
+        .catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(DomainFailure);
+      expect(failure).toMatchObject({ kind, code });
+      expect((failure as DomainFailure).status).toBe(capture.response?.status);
     }
   });
 });

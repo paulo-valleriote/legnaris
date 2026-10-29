@@ -125,6 +125,21 @@ The step carries the **address and the username the person typed** so the surfac
 code went and so the way back restores the form (`WCS-19`, `WCS-21`). It carries **no password**: the
 secret is never part of the pending state, and the form returns with an empty password field.
 
+### `RestoredForm` (new) — the values the form comes back with
+
+```ts
+interface RestoredForm {
+  readonly origin: 'register' | 'login';   // the account mode the step started with
+  readonly email: string;                  // the address the person typed
+  readonly username: string | null;        // the username the person typed
+}
+```
+
+The credential form unmounts while the step is pending, so the values that must survive the
+abandonment live in the session's `restored` projection rather than in a component's local state
+(`WCS-21`). They are identifiers the person typed, never a credential, and they live for the life of
+the tab.
+
 ### `SessionSnapshot` (extended)
 
 ```ts
@@ -133,6 +148,7 @@ interface SessionSnapshot {
   readonly version: number;                // unchanged: bumps at session boundaries only
   readonly state: SessionState;
   readonly pending: PendingCodeStep | null; // NEW: non-null iff state === 'pendingCode'
+  readonly restored: RestoredForm | null;   // NEW: the values the form comes back with
 }
 ```
 
@@ -143,6 +159,9 @@ interface SessionSnapshot {
 - The snapshot carries no handle, no code and no credential beyond the existing access token.
 - The snapshot carries **no password**: the pending step holds the address and the username only.
 - A reload restores `restoring` and finds no pending step (`R2`, `WCS-02`).
+- `restored` carries the address, the username and the account mode from the moment a step starts until
+  a session is established; the credential form reads it when it mounts, because the form unmounts
+  while the step is pending (`WCS-21`). It never carries the password.
 
 ## 4. State transitions
 

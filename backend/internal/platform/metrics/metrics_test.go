@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"legnaris/backend/internal/auth"
 
@@ -281,4 +282,74 @@ func TestOTPMetrics(t *testing.T) {
 		assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), joined)
 		assert.NotContains(t, joined, "@")
 	})
+}
+
+func scrapeHandler(t *testing.T, m *Metrics) string {
+	t.Helper()
+
+	rec := httptest.NewRecorder()
+	m.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	return rec.Body.String()
+}
+
+// TestWorkerMetrics pins the delivery series: every outcome is counted under
+// its own label, the duration histogram observes, and the dead-letter and
+// expired counters move on their own (WKR-21).
+func TestWorkerMetrics(t *testing.T) {
+	m := New()
+
+	for _, result := range []string{"sent", "sent", "retried", "dead_lettered", "expired"} {
+		m.SendResult(result)
+	}
+	m.SendDuration(250 * time.Millisecond)
+	m.MessageDead()
+	m.MessageExpired()
+	m.MessageExpired()
+
+	body := scrapeHandler(t, m)
+
+	for _, want := range []string{
+		`legnaris_email_send_total{result="sent"} 2`,
+		`legnaris_email_send_total{result="retried"} 1`,
+		`legnaris_email_send_total{result="dead_lettered"} 1`,
+		`legnaris_email_send_total{result="expired"} 1`,
+		"legnaris_email_send_duration_seconds_count 1",
+		"legnaris_email_dead_total 1",
+		"legnaris_email_expired_total 2",
+	} {
+		assert.Contains(t, body, want)
+	}
+}
+
+// TestWorkerMetrics_NoSensitiveLabels proves no worker series carries a code or
+// an address: the only label is the outcome (WKR-21, WKR-22).
+func TestWorkerMetrics_NoSensitiveLabels(t *testing.T) {
+	m := New()
+	m.SendResult("sent")
+	m.SendDuration(time.Second)
+	m.MessageDead()
+	m.MessageExpired()
+
+	body := scrapeHandler(t, m)
+
+	for _, line := range strings.Split(body, "\n") {
+		if !strings.HasPrefix(line, "legnaris_email_send") &&
+			!strings.HasPrefix(line, "legnaris_email_dead") &&
+			!strings.HasPrefix(line, "legnaris_email_expired") {
+			continue
+		}
+		assert.NotContains(t, line, "@", line)
+		assert.NotRegexp(t, `\b\d{6}\b`, line)
+		if strings.Contains(line, "{") && !strings.Contains(line, "le=") {
+			assert.Regexp(t, `\{result="(sent|retried|dead_lettered|expired)"\}`, line)
+		}
+	}
+}
+
+// TestWorkerMetrics_UnexpectedResult proves an unknown outcome still lands in
+// its own series rather than panicking: the caller owns the vocabulary.
+func TestWorkerMetrics_UnexpectedResult(t *testing.T) {
+	m := New()
+	assert.NotPanics(t, func() { m.SendResult("") })
 }

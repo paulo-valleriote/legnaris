@@ -348,3 +348,30 @@ dropping a task.
   and the removed panel, and `no_inline_assets.test.ts` accepts the two external scripts (the
   same-origin theme boot script plus the module entry) while still forbidding inline bodies
   (`UIF-32`).
+
+### F8 — `web-auth-code-step`
+
+- **The code step is a state of the auth surface, not a route** (WCS-02). `AuthGate` renders
+  `AuthCodeScreen` in place of the credential form while a step is pending; no entry was added
+  to `src/app/routes.ts` and the URL never changes. The challenge handle lives in a
+  module-private field beside the access token, so no subscriber can read or persist it.
+- **The values the form comes back with live in the session** (WCS-21). The credential form
+  unmounts while the step is pending, so the address and the account mode survive the
+  abandonment in the session's `restored` projection rather than in a component's local state.
+  The snapshot gained that field; the contract and the data model were amended in the same
+  change.
+- **The credential operations decode a discriminated outcome** (WCS-01). `register` and `login`
+  answer either a session or a code step, and the discrimination reads the payload's own keys,
+  never the status: registration answers `201` in both gate states. A payload carrying both
+  keys or neither is a `DefensiveParseFailure`.
+- **The copy that carries a value resolves through the catalog** (WCS-13). `messageWith()` is
+  the parameterized resolution next to `message()` in `src/l10n/strings.ts`; no surface
+  concatenates a sentence with a value.
+- **The pinned capture carries a redacted token** (API-35, WCS-14). The verification capture
+  keeps the session body's shape with the `redacted-access-token` placeholder, and the pinned
+  suite's credential assertion looks for a credential _value_ instead of the key's name.
+- **The capture script reads the code from the send intention** (WCS-14). The code never
+  reaches a log line or the sender's output, so `capture.sh` reads it from the `email_outbox`
+  collection with `mongosh`, and the run removes the send intentions it recorded so the day's
+  allowance is restored. The fixtures' README documents the requirement and the quick local
+  configuration.

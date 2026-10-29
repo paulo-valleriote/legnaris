@@ -635,3 +635,100 @@ func TestInitVariablesChallengeOverrides(t *testing.T) {
 		require.Equal(t, 80, e.initVariables().AuthOTPDailySendCap)
 	})
 }
+
+// TestInitVariablesWorkerSettings covers the worker's optional settings: an
+// absent, blank or malformed value selects the documented default and the
+// required list is unchanged (WKR-14, WKR-16, WKR-19, WKR-20).
+func TestInitVariablesWorkerSettings(t *testing.T) {
+	e := newTestEnv()
+
+	tests := []struct {
+		name         string
+		prefetch     string
+		maxAttempts  string
+		metricsAddr  string
+		wantPrefetch int
+		wantAttempts int
+		wantAddr     string
+	}{
+		{name: "Happy path: valid values override the defaults", prefetch: "4", maxAttempts: "7", metricsAddr: ":9300", wantPrefetch: 4, wantAttempts: 7, wantAddr: ":9300"},
+		{name: "Edge: blank values select the defaults", prefetch: "", maxAttempts: "", metricsAddr: "", wantPrefetch: 10, wantAttempts: 5, wantAddr: ":9101"},
+		{name: "Edge: zero falls back to the defaults", prefetch: "0", maxAttempts: "0", wantPrefetch: 10, wantAttempts: 5, wantAddr: ":9101"},
+		{name: "Edge: negative falls back to the defaults", prefetch: "-3", maxAttempts: "-1", wantPrefetch: 10, wantAttempts: 5, wantAddr: ":9101"},
+		{name: "Edge: non-numeric falls back to the defaults", prefetch: "many", maxAttempts: "lots", wantPrefetch: 10, wantAttempts: 5, wantAddr: ":9101"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("EMAIL_WORKER_PREFETCH", tc.prefetch)
+			t.Setenv("EMAIL_WORKER_MAX_ATTEMPTS", tc.maxAttempts)
+			t.Setenv("EMAIL_WORKER_METRICS_ADDR", tc.metricsAddr)
+
+			vars := e.initVariables()
+
+			require.Equal(t, tc.wantPrefetch, vars.EmailWorkerPrefetch)
+			require.Equal(t, tc.wantAttempts, vars.EmailWorkerMaxAttempts)
+			require.Equal(t, tc.wantAddr, vars.EmailWorkerMetricsAddr)
+		})
+	}
+
+	t.Run("Edge: unset variables select the defaults and the required list is unchanged", func(t *testing.T) {
+		for _, key := range []string{"EMAIL_WORKER_PREFETCH", "EMAIL_WORKER_MAX_ATTEMPTS", "EMAIL_WORKER_METRICS_ADDR"} {
+			unsetEnv(t, key)
+		}
+
+		vars := e.initVariables()
+
+		require.Equal(t, 10, vars.EmailWorkerPrefetch)
+		require.Equal(t, 5, vars.EmailWorkerMaxAttempts)
+		require.Equal(t, ":9101", vars.EmailWorkerMetricsAddr)
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
+	})
+}
+
+// TestInitVariablesEmailRetryDelays proves the retry tiers are optional: an
+// absent, blank, malformed or non-positive value reads as zero, which the
+// broker resolves to the tier's default (WKR-14).
+func TestInitVariablesEmailRetryDelays(t *testing.T) {
+	e := newTestEnv()
+	keys := []string{"EMAIL_RETRY_DELAY_FIRST", "EMAIL_RETRY_DELAY_SECOND", "EMAIL_RETRY_DELAY_LATER"}
+
+	tests := []struct {
+		name  string
+		first string
+		later string
+		want  [2]time.Duration
+	}{
+		{name: "Happy path: valid durations override the tiers", first: "10s", later: "1m30s", want: [2]time.Duration{10 * time.Second, 90 * time.Second}},
+		{name: "Edge: blank values read as zero", first: "", later: "", want: [2]time.Duration{}},
+		{name: "Edge: malformed values read as zero", first: "soon", later: "5", want: [2]time.Duration{}},
+		{name: "Edge: non-positive values read as zero", first: "0s", later: "-1m", want: [2]time.Duration{}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("EMAIL_RETRY_DELAY_FIRST", tc.first)
+			t.Setenv("EMAIL_RETRY_DELAY_SECOND", "")
+			t.Setenv("EMAIL_RETRY_DELAY_LATER", tc.later)
+
+			vars := e.initVariables()
+
+			require.Equal(t, tc.want[0], vars.EmailRetryDelayFirst)
+			require.Zero(t, vars.EmailRetryDelaySecond)
+			require.Equal(t, tc.want[1], vars.EmailRetryDelayLater)
+		})
+	}
+
+	t.Run("Edge: unset variables read as zero and the required list is unchanged", func(t *testing.T) {
+		for _, key := range keys {
+			unsetEnv(t, key)
+		}
+
+		vars := e.initVariables()
+
+		require.Zero(t, vars.EmailRetryDelayFirst)
+		require.Zero(t, vars.EmailRetryDelaySecond)
+		require.Zero(t, vars.EmailRetryDelayLater)
+		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
+	})
+}

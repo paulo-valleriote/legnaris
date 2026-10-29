@@ -19,6 +19,8 @@ const BASE_URL = 'http://api.test';
 
 const SESSION_BODY = { access_token: 'access-1', token_type: 'Bearer', expires_in: 900 };
 
+const CHALLENGE_BODY = { challenge_id: 'challenge-1', expires_in: 600, resend_after: 60 };
+
 const SHEET: Sheet = {
   id: '01a0f967-f42b-710e-851f-8f293a634921',
   templateId: 'fantasy_v1',
@@ -120,6 +122,36 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
 
     expect(session.getSnapshot()).toMatchObject({ state: 'unauthenticated', accessToken: null });
     expect(store.records()).toEqual([]);
+  });
+
+  it('Edge: a pending code step is never read as a session, and the cold-start refresh keeps its behaviour (WCS-01, WAS-03)', async () => {
+    const store = createMemorySheetStore();
+    const fake = createFakeTransport(
+      successOutcome(SESSION_BODY), // the cold-start refresh: the cookie of an earlier session
+      successOutcome(CHALLENGE_BODY, 202), // the credential operation answers with a code step
+    );
+    const session = sessionOver(fake.transport, () => clearSessionData(store), 'restoring');
+
+    renderApp('/', { session });
+
+    await waitFor(() => expect(screen.getByTestId('catalog')).toBeInTheDocument());
+    expect(fake.requests.filter((request) => request.url.endsWith('/auth/refresh'))).toHaveLength(
+      1,
+    );
+
+    await act(async () => {
+      await session.login({ email: 'a@b.test', password: 'secret' });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(message('auth.codeLabel'))).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
+    expect(session.getSnapshot()).toMatchObject({ state: 'pendingCode', accessToken: null });
+    expect(session.currentAccessToken()).toBeNull();
+    expect(fake.requests.filter((request) => request.url.endsWith('/auth/refresh'))).toHaveLength(
+      1,
+    );
   });
 
   it('Edge: activating sign-out twice in one frame issues exactly one /auth/logout (WAS-23)', async () => {

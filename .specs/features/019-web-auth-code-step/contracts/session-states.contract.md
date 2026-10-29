@@ -25,11 +25,18 @@ interface PendingCodeStep {
   readonly resendAfter: number;
 }
 
+interface RestoredForm {
+  readonly origin: 'register' | 'login';
+  readonly email: string;
+  readonly username: string | null;
+}
+
 interface SessionSnapshot {
   readonly accessToken: string | null;
   readonly version: number;
   readonly state: SessionState;
   readonly pending: PendingCodeStep | null;
+  readonly restored: RestoredForm | null;
 }
 
 interface AuthSession extends SessionDelegate {
@@ -70,6 +77,10 @@ snapshot and never returned by a method (`R4`).
   `unauthenticated`, and issues no request (`WCS-06`). The address and the account mode the step started
   with survive it, so the credential form returns with the address the person typed and an empty
   password field (`WCS-21`).
+- The surviving values live in the snapshot's `restored` projection, which the session keeps from the
+  moment a step starts until a session is established. The credential form reads them when it mounts —
+  the form unmounts while the step is pending, so no component keeps them in local state
+  (`WCS-21`).
 - `logout` and `onUnauthorized` are unchanged and unreachable while pending, because no session is held.
 
 ## Invariants
@@ -88,6 +99,8 @@ snapshot and never returned by a method (`R4`).
    `restoring` with `pending === null`.
 7. **No secret in the pending state.** The pending step carries the address and the username the person
    typed, never the password (`WCS-21`).
+8. **The restored values are identifiers.** `restored` carries the address, the username and the
+   account mode; it never carries the password, and it is cleared once a session is established.
 
 ## Boundary cases
 

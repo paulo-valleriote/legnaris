@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -72,6 +73,19 @@ type fakeChannel struct {
 	returnBeforeConfirm bool
 	confirm             confirmation
 
+	mu         sync.Mutex
+	deliveries chan amqp.Delivery
+	qosCount   int
+	qosCalled  bool
+	qosErr     error
+	consumeErr error
+	cancelErr  error
+	cancelled  []string
+
+	consumeQueue   string
+	consumeTag     string
+	consumeAutoAck bool
+
 	published     []amqp.Publishing
 	lastExchange  string
 	lastKey       string
@@ -138,7 +152,30 @@ func (f *fakeChannel) PublishWithDeferredConfirmWithContext(_ context.Context, e
 	return &fakeConfirmation{acked: true}, nil
 }
 
+func (f *fakeChannel) Qos(prefetchCount, prefetchSize int, global bool) error {
+	f.qosCalled = true
+	f.qosCount = prefetchCount
+	return f.qosErr
+}
+
+func (f *fakeChannel) Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error) {
+	f.consumeQueue, f.consumeTag, f.consumeAutoAck = queue, consumer, autoAck
+	if f.consumeErr != nil {
+		return nil, f.consumeErr
+	}
+	return f.deliveries, nil
+}
+
+func (f *fakeChannel) Cancel(consumer string, noWait bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.cancelled = append(f.cancelled, consumer)
+	return f.cancelErr
+}
+
 func (f *fakeChannel) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.closed = true
 	return nil
 }
@@ -147,9 +184,24 @@ func (f *fakeChannel) Close() error {
 type fakeConnection struct {
 	channel *fakeChannel
 	closed  bool
+
+	// consumers are handed out, in order, after the first channel, so the
+	// publisher and the consumer get channels of their own.
+	consumers  []*fakeChannel
+	opened     int
+	channelErr error
 }
 
-func (c *fakeConnection) Channel() (channel, error)                 { return c.channel, nil }
+func (c *fakeConnection) Channel() (channel, error) {
+	if c.channelErr != nil && c.opened > 0 {
+		return nil, c.channelErr
+	}
+	c.opened++
+	if c.opened > 1 && c.opened-2 < len(c.consumers) {
+		return c.consumers[c.opened-2], nil
+	}
+	return c.channel, nil
+}
 func (c *fakeConnection) NotifyStateChange(chan *amqp.StateChanged) {}
 func (c *fakeConnection) NotifyBlocked(recv chan amqp.Blocking) chan amqp.Blocking {
 	return recv
@@ -326,6 +378,55 @@ func TestBroker_DeclareTopology(t *testing.T) {
 	})
 }
 
+// TestBroker_DeclareTopology_RetryDelays proves the delay tiers follow the
+// configured delays, fall back to the documented defaults, and an unusable
+// delay is refused before anything is declared (WKR-14).
+func TestBroker_DeclareTopology_RetryDelays(t *testing.T) {
+	ttlOf := func(t *testing.T, fake *fakeChannel, name string) any {
+		t.Helper()
+		for _, queue := range fake.queues {
+			if queue.name == name {
+				return queue.args[argMessageTTL]
+			}
+		}
+		t.Fatalf("queue %s was not declared", name)
+		return nil
+	}
+
+	tests := []struct {
+		name    string
+		delays  RetryDelays
+		want    [3]int32
+		wantErr error
+	}{
+		{name: "Happy path: configured delays become the tier TTLs", delays: RetryDelays{First: time.Second, Second: 4 * time.Second, Later: 9 * time.Second}, want: [3]int32{1000, 4000, 9000}},
+		{name: "Edge: zero delays fall back to 30s, 2m and 5m", delays: RetryDelays{}, want: [3]int32{30000, 120000, 300000}},
+		{name: "Edge: a single configured tier keeps the other defaults", delays: RetryDelays{Second: time.Minute}, want: [3]int32{30000, 60000, 300000}},
+		{name: "Error: a negative delay is refused", delays: RetryDelays{First: -time.Second}, wantErr: ErrInvalidRetryDelay},
+		{name: "Error: a delay below one millisecond is refused", delays: RetryDelays{First: time.Microsecond}, wantErr: ErrInvalidRetryDelay},
+		{name: "Error: a delay beyond the broker TTL range is refused", delays: RetryDelays{Later: 30 * 24 * time.Hour}, wantErr: ErrInvalidRetryDelay},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeChannel{}
+			broker, _ := newFakeBroker(t, fake, Config{RetryDelays: tc.delays})
+
+			err := broker.DeclareTopology()
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				assert.Empty(t, fake.queues, "nothing may be declared with an unusable delay")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want[0], ttlOf(t, fake, queueRetry30s))
+			assert.Equal(t, tc.want[1], ttlOf(t, fake, queueRetry2m))
+			assert.Equal(t, tc.want[2], ttlOf(t, fake, queueRetry5m))
+		})
+	}
+}
+
 // TestBroker_Close proves Close closes the channel and connection and stops the
 // supervisor, so no goroutine leaks (EML-05).
 func TestBroker_Close(t *testing.T) {
@@ -344,4 +445,35 @@ func TestBroker_Close(t *testing.T) {
 	t.Run("Edge: closing twice is safe", func(t *testing.T) {
 		require.NoError(t, broker.Close())
 	})
+}
+
+// TestValidateURL pins the startup validation shared by the relay and the
+// worker (EML-15, WKR-19).
+func TestValidateURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{name: "Happy path: a plain AMQP URI", url: "amqp://guest:guest@rabbitmq:5672/"},
+		{name: "Happy path: a TLS URI with a vhost", url: "amqps://user:pass@broker.example:5671/vhost"},
+		{name: "Error: empty", url: "", wantErr: true},
+		{name: "Error: blank", url: "   ", wantErr: true},
+		{name: "Error: not a URI", url: "not-a-uri", wantErr: true},
+		{name: "Error: a foreign scheme", url: "http://localhost:5672/", wantErr: true},
+		{name: "Error: a missing host", url: "amqp://", wantErr: true},
+		{name: "Error: an unparseable URI", url: "amqp://%zz", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateURL(tc.url)
+
+			if tc.wantErr {
+				assert.ErrorIs(t, err, ErrBrokerUnavailable)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
 }

@@ -39,7 +39,14 @@ function defaultClient(): ApiClient {
 /** An auth client no suite expects to call, so an unscripted operation fails loudly. */
 function unusedAuthApi(): AuthApi {
   const unused = () => Promise.reject(new Error('auth operation is not scripted for this suite'));
-  return { register: unused, login: unused, refresh: unused, logout: () => Promise.resolve() };
+  return {
+    register: unused,
+    login: unused,
+    refresh: unused,
+    logout: () => Promise.resolve(),
+    verifyChallenge: unused,
+    resendChallenge: unused,
+  };
 }
 
 /** Seeds the app's session from the two named postures, so the gate renders deterministically. */

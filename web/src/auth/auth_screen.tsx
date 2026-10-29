@@ -1,5 +1,5 @@
 /**
- * The auth surface (WAS-07, WAS-09, WAS-10, R9).
+ * The auth surface (WAS-07, WAS-09, WAS-10, R9, WCS-21, WCS-22).
  *
  * One place offers sign-in and registration through a mode switch, opening with
  * the brand lockup and a mode-specific title so the first screen of the product
@@ -9,32 +9,63 @@
  * renders the mapped failure copy resolved from the catalog — never the server
  * message, so the copy never reveals whether an email exists (WAS-10). Switching
  * mode clears a stale error but keeps the values.
+ *
+ * A form that comes back from an abandoned code step returns with the address
+ * and the account mode the step started with and with an empty password
+ * (WCS-21); the password never was part of the pending step.
  */
 
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { FormEvent } from 'react';
-import { failureCopy } from '../api/error_mapper';
+import { failureCopy, failureKind } from '../api/error_mapper';
+import type { FailureKind } from '../api/errors';
 import { useAuthSession } from '../app/providers';
 import { message } from '../l10n/strings';
 import { BrandMark } from '../shell/brand_mark';
+import type { RestoredForm } from './auth_session';
 import './auth.css';
 
 type AuthMode = 'login' | 'register';
 
+export type { RestoredForm };
+
 /** The single sign-in / registration surface (WAS-09). */
-export function AuthScreen() {
+export function AuthScreen({ restore }: { readonly restore?: RestoredForm | null }) {
   const session = useAuthSession();
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const [mode, setMode] = useState<AuthMode>('login');
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
+  const [mode, setMode] = useState<AuthMode>(restore?.origin ?? 'login');
+  const [email, setEmail] = useState(restore?.email ?? '');
+  const [username, setUsername] = useState(restore?.username ?? '');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<
+    { readonly copy: string; readonly kind: FailureKind } | undefined
+  >(undefined);
+  const [passwordFocus, setPasswordFocus] = useState(0);
   const busy = snapshot.state === 'authenticating';
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (restore !== undefined && restore !== null) {
+      emailRef.current?.focus();
+    }
+  }, [restore]);
+
+  useEffect(() => {
+    if (passwordFocus > 0) {
+      passwordRef.current?.focus();
+    }
+  }, [passwordFocus]);
 
   const switchMode = (next: AuthMode) => {
     setMode(next);
     setError(undefined);
+  };
+
+  const switchToSignIn = () => {
+    setMode('login');
+    setError(undefined);
+    setPasswordFocus((value) => value + 1);
   };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -51,7 +82,7 @@ export function AuthScreen() {
         : session.register({ email, username, password });
 
     void pending.catch((cause: unknown) => {
-      setError(failureCopy(cause));
+      setError({ copy: failureCopy(cause), kind: failureKind(cause) });
     });
   };
 
@@ -101,6 +132,7 @@ export function AuthScreen() {
             </label>
             <input
               id="auth-email"
+              ref={emailRef}
               className="lg-auth__input"
               type="email"
               autoComplete="email"
@@ -131,6 +163,7 @@ export function AuthScreen() {
             </label>
             <input
               id="auth-password"
+              ref={passwordRef}
               className="lg-auth__input"
               type="password"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
@@ -140,9 +173,26 @@ export function AuthScreen() {
           </div>
 
           {error !== undefined && (
-            <p className="lg-auth__error" role="alert" aria-live="polite" data-testid="auth-error">
-              {error}
-            </p>
+            <div className="lg-auth__refusal">
+              <p
+                className="lg-auth__error"
+                role="alert"
+                aria-live="polite"
+                data-testid="auth-error"
+              >
+                {error.copy}
+              </p>
+              {error.kind === 'conflict' && (
+                <button
+                  type="button"
+                  className="lg-auth__inline-action"
+                  data-testid="auth-conflict-action"
+                  onClick={switchToSignIn}
+                >
+                  {message('auth.conflictSignIn')}
+                </button>
+              )}
+            </div>
           )}
 
           <footer className="lg-auth__footer">

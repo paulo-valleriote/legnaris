@@ -26,6 +26,9 @@ type channel interface {
 	Confirm(noWait bool) error
 	NotifyReturn(c chan amqp.Return) chan amqp.Return
 	PublishWithDeferredConfirmWithContext(ctx context.Context, exchange, key string, mandatory, immediate bool, msg amqp.Publishing) (confirmation, error)
+	Qos(prefetchCount, prefetchSize int, global bool) error
+	Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error)
+	Cancel(consumer string, noWait bool) error
 	Close() error
 }
 
@@ -69,6 +72,18 @@ func (c *amqpChannel) PublishWithDeferredConfirmWithContext(ctx context.Context,
 		return nil, err
 	}
 	return conf, nil
+}
+
+func (c *amqpChannel) Qos(prefetchCount, prefetchSize int, global bool) error {
+	return c.ch.Qos(prefetchCount, prefetchSize, global)
+}
+
+func (c *amqpChannel) Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error) {
+	return c.ch.Consume(queue, consumer, autoAck, exclusive, noLocal, noWait, args)
+}
+
+func (c *amqpChannel) Cancel(consumer string, noWait bool) error {
+	return c.ch.Cancel(consumer, noWait)
 }
 
 func (c *amqpChannel) Close() error {

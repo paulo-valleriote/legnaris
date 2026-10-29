@@ -27,6 +27,9 @@ type Metrics struct {
 	emailOutboxBacklog       prometheus.Gauge
 	emailPublishTotal        *prometheus.CounterVec
 	emailDeadTotal           prometheus.Counter
+	emailSendTotal           *prometheus.CounterVec
+	emailSendDuration        prometheus.Histogram
+	emailExpiredTotal        prometheus.Counter
 	authOTPIssued            *prometheus.CounterVec
 	authOTPVerify            *prometheus.CounterVec
 	authOTPResend            *prometheus.CounterVec
@@ -41,7 +44,8 @@ const authSubsystem = "auth"
 // resultLabel is the label carried by every outcome-partitioned counter.
 const resultLabel = "result"
 
-// New builds a Metrics instance with its own registry and collectors.
+// New builds a Metrics instance with its own registry and collectors. No
+// worker series ever carries the recipient or the code as a label (WKR-21).
 func New() *Metrics {
 	registry := prometheus.NewRegistry()
 
@@ -114,6 +118,25 @@ func New() *Metrics {
 		Help:      "Email messages dead-lettered for operator attention.",
 	})
 
+	emailSendTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Name:      "email_send_total",
+		Help:      "Email delivery outcomes by result (sent, retried, dead_lettered, expired).",
+	}, []string{resultLabel})
+
+	emailSendDuration := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: metricsNamespace,
+		Name:      "email_send_duration_seconds",
+		Help:      "Provider send latency in seconds.",
+		Buckets:   prometheus.DefBuckets,
+	})
+
+	emailExpiredTotal := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Name:      "email_expired_total",
+		Help:      "Email messages dropped because their code had expired.",
+	})
+
 	// Code-step series (OTP-16): issuance by purpose, verification outcomes,
 	// resend outcomes and cap refusals. No series carries a code, a challenge
 	// identity or an unmasked address.
@@ -147,6 +170,7 @@ func New() *Metrics {
 
 	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports,
 		emailOutboxBacklog, emailPublishTotal, emailDeadTotal,
+		emailSendTotal, emailSendDuration, emailExpiredTotal,
 		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked)
 
 	// The private registry must be self-sufficient: register the standard Go
@@ -168,6 +192,9 @@ func New() *Metrics {
 		emailOutboxBacklog:       emailOutboxBacklog,
 		emailPublishTotal:        emailPublishTotal,
 		emailDeadTotal:           emailDeadTotal,
+		emailSendTotal:           emailSendTotal,
+		emailSendDuration:        emailSendDuration,
+		emailExpiredTotal:        emailExpiredTotal,
 		authOTPIssued:            authOTPIssued,
 		authOTPVerify:            authOTPVerify,
 		authOTPResend:            authOTPResend,
@@ -257,10 +284,28 @@ func (m *Metrics) BacklogPending(pending int) {
 	m.emailOutboxBacklog.Set(float64(pending))
 }
 
-// MessageDead counts a message dead-lettered for operator attention; it is
-// reserved for the worker that will dead-letter a poison message (EML-23).
+// MessageDead counts a message dead-lettered for operator attention (EML-23,
+// WKR-21).
 func (m *Metrics) MessageDead() {
 	m.emailDeadTotal.Inc()
+}
+
+// SendResult implements the worker Observer: it counts one delivery outcome
+// by result ("sent", "retried", "dead_lettered", "expired") (WKR-21).
+func (m *Metrics) SendResult(result string) {
+	m.emailSendTotal.WithLabelValues(result).Inc()
+}
+
+// SendDuration implements the worker Observer: it observes how long one
+// provider send took (WKR-21).
+func (m *Metrics) SendDuration(d time.Duration) {
+	m.emailSendDuration.Observe(d.Seconds())
+}
+
+// MessageExpired implements the worker Observer: it counts a message dropped
+// because its code had expired (WKR-21).
+func (m *Metrics) MessageExpired() {
+	m.emailExpiredTotal.Inc()
 }
 
 // The remaining methods implement auth.ChallengeObserver, so the same Metrics

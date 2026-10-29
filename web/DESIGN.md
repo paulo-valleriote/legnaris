@@ -169,6 +169,17 @@ Rules:
   trapped within. The scrim uses `--lg-color-overlay`.
 - **Feedback.** Every async action shows progress and an inline result (success or a mapped error).
   Loading, empty and error states are designed, never blank.
+- **Code field.** One editable field holds the whole code, presented as six
+  single-digit positions that follow the field's value. The field keeps a
+  permanent label, a numeric input mode and the platform's one-time-code
+  autofill, so a paste, an autofill and a code with leading zeros land whole.
+  The positions are presentational and never a second copy of the value.
+- **Code surface.** The auth surface's second state: the origin line replaces
+  the mode switch, and the blocks follow a fixed order — the origin line, the
+  heading, the instruction, the code field, the refusal, the primary action, the
+  resend row and the way back. The swap between the two surfaces is a fade and a
+  small movement, at most the longest declared motion duration, and zeroed under
+  `prefers-reduced-motion`.
 
 ---
 
@@ -211,6 +222,10 @@ Rules:
   validation.
 - **Auth.** A centred panel on the page background; the mode switch uses the accent for the active
   mode; errors render inline, never as a toast alone.
+- **Auth — the code step.** The same panel in its second state, with no route of its own: it names
+  the address the code was sent to and how long the code remains valid, takes the code over one
+  field, keeps the refusal against that field, and offers the resend with its countdown and one way
+  back to the credential form.
 - **States (loading / empty / error / not found).** Each is designed: a short line of plain text
   and, where there is an action, one control. No illustration, no demo data.
 - **Overlays.** Creation flows, destructive confirmations and blocking errors use the one dialog

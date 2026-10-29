@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { message, messages } from '../l10n/strings';
+import { message, messageWith, messages } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -150,6 +150,30 @@ describe('translation catalog', () => {
   });
 });
 
+describe('the parameterized copy resolution (WCS-13)', () => {
+  it('Happy path: a parameterized entry resolves its placeholders from the given values', () => {
+    expect(messageWith('auth.codeInstruction', { email: 'a@b.test', minutes: 10 })).toBe(
+      'We sent a 6-digit code to a@b.test. It expires in 10 minutes.',
+    );
+  });
+
+  it('Happy path: the countdown resolves its remaining seconds from the catalog', () => {
+    expect(messageWith('auth.codeResendIn', { seconds: 42 })).toBe('Resend in 42s');
+  });
+
+  it('Edge: a placeholder without a value raises rather than rendering half a sentence', () => {
+    expect(() => messageWith('auth.codeInstruction', { email: 'a@b.test' })).toThrow();
+  });
+
+  it('Edge: no catalog entry keeps a placeholder after a resolution', () => {
+    for (const key of keys) {
+      expect(
+        messageWith(key, { email: 'a@b.test', minutes: 10, seconds: 42, mode: 'new account' }),
+      ).not.toMatch(/\{(\w+)\}/);
+    }
+  });
+});
+
 function catalogSources(): string[] {
   return readdirSync(catalogDir)
     .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
@@ -170,7 +194,7 @@ describe('catalog copy source scan (WCT-26, SC-003, SC-004)', () => {
       // Failure copy is resolved through the mapper, never by naming a key here.
       expect(text).not.toContain('api.error.');
 
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced += 1;
       }
@@ -201,7 +225,7 @@ describe('engine copy source scan (ENG-27, SC-003, SC-004)', () => {
       // Copy is resolved through message(), never by naming a failure key here.
       expect(text).not.toContain('api.error.');
 
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced.add(match[1]);
       }
@@ -264,7 +288,7 @@ describe('sheet-cycle copy source scan (WSC-32, SC-006)', () => {
       // Copy is resolved through message(), never by naming a failure key here.
       expect(text).not.toContain('api.error.');
 
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced.add(match[1]);
       }
@@ -294,6 +318,25 @@ const authFeatureKeys: readonly MessageKey[] = [
   'auth.submitLogin',
   'auth.submitRegister',
   'auth.restoring',
+  'auth.conflictSignIn',
+  'auth.accountModeNew',
+  'auth.accountModeExisting',
+  'auth.codeOrigin',
+  'auth.codeTitleRegister',
+  'auth.codeTitleLogin',
+  'auth.codeInstruction',
+  'auth.codeInstructionExpired',
+  'auth.codeExpired',
+  'auth.codeLabel',
+  'auth.codeSubmit',
+  'auth.codeVerifying',
+  'auth.codeResendHint',
+  'auth.codeResend',
+  'auth.codeResendReady',
+  'auth.codeResendIn',
+  'auth.codeResendSent',
+  'auth.codeBackRegister',
+  'auth.codeBackLogin',
   'nav.ownSheet',
   'nav.logout',
   'sheet.ownTitle',
@@ -309,6 +352,9 @@ const authFeatureKeys: readonly MessageKey[] = [
   'api.error.unauthorized',
   'api.error.forbidden',
   'api.error.rateLimited',
+  'api.error.invalidCode',
+  'api.error.emailUnavailable',
+  'api.error.conflict',
 ];
 
 /** The keys the auth directory renders; the rest are owned by the shell and the sheet surface. */
@@ -326,6 +372,25 @@ const authSurfaceKeys: readonly MessageKey[] = [
   'auth.submitLogin',
   'auth.submitRegister',
   'auth.restoring',
+  'auth.accountModeNew',
+  'auth.accountModeExisting',
+  'auth.codeOrigin',
+  'auth.codeTitleRegister',
+  'auth.codeTitleLogin',
+  'auth.codeInstruction',
+  'auth.codeInstructionExpired',
+  'auth.codeExpired',
+  'auth.codeLabel',
+  'auth.codeSubmit',
+  'auth.codeVerifying',
+  'auth.codeResendHint',
+  'auth.codeResend',
+  'auth.codeResendReady',
+  'auth.codeResendIn',
+  'auth.codeResendSent',
+  'auth.codeBackRegister',
+  'auth.codeBackLogin',
+  'auth.conflictSignIn',
 ];
 
 function authSources(): string[] {
@@ -350,7 +415,7 @@ describe('primitives-layer copy source scan (UIP-05, SC-004)', () => {
     for (const file of sources) {
       const text = readFileSync(file, 'utf8');
       expect(text).not.toContain('api.error.');
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced.add(match[1]);
       }
@@ -398,7 +463,7 @@ describe('auth copy keys and source scan (WAS-19, WAS-25, WAS-30, WAS-31)', () =
       // Failure copy is resolved through the mapper, never by naming a key here.
       expect(text).not.toContain('api.error.');
 
-      for (const match of text.matchAll(/message\(\s*'([^']+)'\s*\)/g)) {
+      for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
         expect(knownKeys.has(match[1])).toBe(true);
         referenced.add(match[1]);
       }

@@ -1,0 +1,17 @@
+{
+  "operation": "email_unavailable",
+  "provenance": "captured from the local stack (make dev-db; go run ./backend/cmd/api.go) at http://localhost:8080 on 2026-10-21T02:10:06Z",
+  "request": {
+    "method": "POST",
+    "path": "/auth/register"
+  },
+  "response": {
+    "status": 503,
+    "body": {
+      "error": {
+        "code": "EMAIL_UNAVAILABLE",
+        "message": "email delivery is temporarily unavailable; retry later"
+      }
+    }
+  }
+}

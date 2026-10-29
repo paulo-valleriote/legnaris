@@ -4,7 +4,9 @@
  *
  * The panel is a focused column on the page background, opening with the brand
  * lockup and a mode-specific title. The mode switch is one segmented track so
- * only the active mode carries the accent fill.
+ * only the active mode carries the accent fill. The code surface shares the
+ * panel and adds the code field's six single-digit positions, the origin line
+ * that replaces the mode switch, and the swap between the two surfaces.
  */
 
 .lg-auth {
@@ -28,6 +30,28 @@
   border-radius: var(--lg-radius-md);
   background-color: var(--lg-color-surface);
   box-shadow: var(--lg-shadow-1);
+  animation: lg-auth-swap var(--lg-motion-240) var(--lg-ease-standard);
+}
+
+/* The swap between the credential form and the code surface: one fade and one
+   small movement, never longer than the longest declared motion duration
+   (WCS-25). */
+@keyframes lg-auth-swap {
+  from {
+    opacity: 0;
+    transform: translateY(var(--lg-space-4));
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-auth__panel {
+    animation: none;
+  }
 }
 
 .lg-auth__brand {
@@ -173,6 +197,116 @@
 
 .lg-auth__submit {
   width: 100%;
+}
+
+.lg-auth__origin {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-semibold);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-auth__code {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+}
+
+.lg-auth__code-input {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.4em;
+}
+
+.lg-auth__code-slots {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--lg-space-8);
+}
+
+.lg-auth__code-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--lg-size-control);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-sm);
+  background-color: var(--lg-color-bg);
+  font-size: var(--lg-type-24);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lg-line-tight);
+}
+
+.lg-auth__back {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--lg-color-accent);
+  font-family: inherit;
+  font-size: var(--lg-type-13);
+  cursor: pointer;
+}
+
+.lg-auth__back:hover {
+  color: var(--lg-color-accent-hover);
+}
+
+.lg-auth__refusal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+}
+
+.lg-auth__inline-action {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--lg-color-accent);
+  font-family: inherit;
+  font-size: var(--lg-type-13);
+  cursor: pointer;
+}
+
+.lg-auth__inline-action:hover {
+  color: var(--lg-color-accent-hover);
+}
+
+.lg-auth__resend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-12);
+}
+
+.lg-auth__hint {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-auth__resend-action[aria-disabled='true'] {
+  color: var(--lg-color-text-subtle);
+  cursor: not-allowed;
+}
+
+.lg-auth__countdown {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  font-variant-numeric: tabular-nums;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-auth__status {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-auth__notice {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-danger);
 }
 
 .lg-auth__restoring {
