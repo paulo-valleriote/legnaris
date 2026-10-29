@@ -30,6 +30,11 @@ what makes that decision real rather than notional.
 
 ## R2. The broker's accounts are provisioned by operator commands, documented in the runbook
 
+> **Superseded 2026-10-29 (AD-027)**: the user asked for the provisioning to run with the deploy. The
+> same idempotent `rabbitmqctl` steps now run in the broker's container on every start
+> (`deploy/rabbitmq/provision.sh`), with the operator's password read from `deploy/.env`. The text
+> below is the original reasoning; the definitions-file alternatives stay rejected.
+
 **Decision**: the broker's delivery vhost, the application's account rights and the operator's account
 are all provisioned by `rabbitmqctl` commands that the operator runs once per broker volume, with the
 passwords read from the environment. The commands are idempotent, so the runbook can be re-run safely.

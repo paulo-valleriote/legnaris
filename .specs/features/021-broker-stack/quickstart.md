@@ -57,8 +57,8 @@ docker compose -f deploy/docker-compose.yml up -d --build rabbitmq worker
 Expected: the broker becomes healthy, the worker starts after it, and the worker's metrics appear at
 `http://localhost:9101/metrics` from inside the network.
 
-Then provision the broker (the runbook's commands, in order — the delivery vhost, the operator's
-account, the application's rights) and open the console at `https://<ops-domain>/rabbitmq/`: the
+The broker provisions itself on start (the delivery vhost, the operator's account from
+`RABBITMQ_OPS_PASSWORD`, the application's rights) and reports healthy only afterwards. Open the console at `https://<ops-domain>/rabbitmq/`: the
 operator's gate answers first, and the broker's login accepts the operator's account and refuses the
 application's.
 

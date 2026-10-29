@@ -215,6 +215,9 @@ services:
       # Required: the broker must never start with an empty password, and the
       # relay's default RABBITMQ_URL is derived from the same value.
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      # The console account's password, read only by the provisioning that runs
+      # beside the broker. Empty leaves the account as it is (BRK-10, BRK-11).
+      RABBITMQ_OPS_PASSWORD: ${RABBITMQ_OPS_PASSWORD:-}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/20-legnaris.conf:ro
@@ -224,12 +227,19 @@ services:
     # relay and the worker connect directly (EML-16, BRK-05, BRK-07, BRK-12).
     networks:
       - internal
+    # Healthy means the broker answers and the provisioning has given the
+    # application's account its rights on the delivery vhost, so the relay and
+    # the worker never start against an unprovisioned broker (BRK-09).
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test:
+        - CMD-SHELL
+        - >-
+          rabbitmq-diagnostics -q ping &&
+          rabbitmqctl -q --no-table-headers list_permissions -p legnaris | cut -f1 | grep -qx legnaris
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
-      start_period: 20s
+      start_period: 40s
 
   # ---- Email relay (publication process) --------------------------------------
   relay:
@@ -273,8 +283,8 @@ services:
     # codes and never reaches the site (O2, BRK-01, BRK-03, BRK-20).
     entrypoint: ["/worker"]
     environment:
-      # The same delivery vhost as the relay; provision it first (README,
-      # "RabbitMQ provisioning").
+      # The same delivery vhost as the relay; the broker provisions it on start
+      # (README, "RabbitMQ provisioning").
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://legnaris:${RABBITMQ_PASSWORD}@rabbitmq:5672/legnaris}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}
       RESEND_API_KEY: ${RESEND_API_KEY:-}

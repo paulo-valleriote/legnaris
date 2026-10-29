@@ -375,6 +375,9 @@ const (
 	prometheusFile    = "prometheus/prometheus.yml"
 	deliveryVhost     = "legnaris"
 	operatorAccount   = "operator"
+	provisionScript   = "rabbitmq/provision.sh"
+	entrypointScript  = "rabbitmq/entrypoint.sh"
+	opsPasswordKey    = "RABBITMQ_OPS_PASSWORD"
 )
 
 var exactBrokerImage = regexp.MustCompile(`^rabbitmq:4\.\d+\.\d+-management(-alpine)?$`)
@@ -568,6 +571,28 @@ func TestBrokerServiceShape(t *testing.T) {
 	t.Run("Happy path: the broker configuration is mounted read-only", func(t *testing.T) {
 		assert.Contains(t, rabbitmq.Volumes, "./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/20-legnaris.conf:ro")
 	})
+
+	t.Run("Edge: healthy means provisioned, so the relay and the worker never meet a bare broker", func(t *testing.T) {
+		require.NotNil(t, rabbitmq.Healthcheck)
+		check := strings.Join(rabbitmq.Healthcheck.Test, " ")
+		assert.Contains(t, check, "rabbitmq-diagnostics -q ping")
+		assert.Contains(t, check, "list_permissions -p "+deliveryVhost)
+		for _, name := range []string{"relay", "worker"} {
+			assert.Equalf(t, map[string]any{"condition": "service_healthy"}, doc.Services[name].DependsOn["rabbitmq"],
+				"%s must wait for the broker to be healthy", name)
+		}
+	})
+
+	t.Run("Edge: the operator's password is an optional interpolation that only the broker receives", func(t *testing.T) {
+		assert.Equal(t, "${"+opsPasswordKey+":-}", rabbitmq.Environment[opsPasswordKey])
+		for name, service := range doc.Services {
+			if name == "rabbitmq" {
+				continue
+			}
+			_, present := service.Environment[opsPasswordKey]
+			assert.Falsef(t, present, "%s must not receive the operator's password", name)
+		}
+	})
 }
 
 // TestDerivedBrokerImageEnablesMetricsAtBuild guards the build-time enablement:
@@ -582,9 +607,27 @@ func TestDerivedBrokerImageEnablesMetricsAtBuild(t *testing.T) {
 		assert.Contains(t, dockerfile, "RUN rabbitmq-plugins enable --offline rabbitmq_prometheus")
 	})
 
-	t.Run("Edge: the image does not enable plugins when it starts", func(t *testing.T) {
-		assert.NotContains(t, dockerfile, "CMD")
-		assert.NotContains(t, dockerfile, "ENTRYPOINT")
+	t.Run("Edge: nothing enables plugins when the broker starts", func(t *testing.T) {
+		for _, file := range []string{entrypointScript, provisionScript} {
+			script, err := os.ReadFile(file)
+			require.NoErrorf(t, err, "read %s", file)
+			assert.NotContainsf(t, string(script), "rabbitmq-plugins", "%s must not touch plugins", file)
+		}
+	})
+
+	t.Run("Happy path: the image starts through the provisioning entrypoint and still runs the broker", func(t *testing.T) {
+		assert.Contains(t, dockerfile, `ENTRYPOINT ["legnaris-entrypoint"]`)
+		assert.Contains(t, dockerfile, `CMD ["rabbitmq-server"]`)
+	})
+
+	t.Run("Edge: both scripts are copied into the image and executable", func(t *testing.T) {
+		assert.Contains(t, dockerfile, "COPY provision.sh /usr/local/bin/legnaris-provision")
+		assert.Contains(t, dockerfile, "COPY entrypoint.sh /usr/local/bin/legnaris-entrypoint")
+		for _, file := range []string{entrypointScript, provisionScript} {
+			info, err := os.Stat(file)
+			require.NoErrorf(t, err, "stat %s", file)
+			assert.NotZerof(t, info.Mode()&0o111, "%s must be executable", file)
+		}
 	})
 }
 
@@ -628,58 +671,129 @@ func runbookSection(t *testing.T, heading string) string {
 	return section
 }
 
-// TestRunbookCarriesTheBrokerProvisioning guards the operator's runbook: the
-// provisioning steps are there, in the contract's order, with the passwords
-// read from the environment, and the application's account ends with no
-// console right (BRK-09, BRK-10, BRK-11, BRK-16, BRK-17, SC-003).
-func TestRunbookCarriesTheBrokerProvisioning(t *testing.T) {
-	section := runbookSection(t, "## RabbitMQ provisioning")
+// TestProvisioningScriptConfiguresTheBroker guards the script the broker runs
+// beside itself: the steps are there, in the contract's order, the operator's
+// password comes from the environment, and the application's account ends with
+// no console right and the health check's signal as the last step (BRK-09,
+// BRK-10, BRK-11, SC-003).
+func TestProvisioningScriptConfiguresTheBroker(t *testing.T) {
+	raw, err := os.ReadFile(provisionScript)
+	require.NoErrorf(t, err, "read %s", provisionScript)
+	script := string(raw)
 
-	t.Run("Happy path: the steps appear in order", func(t *testing.T) {
+	t.Run("Happy path: the steps appear in order, the application's rights last", func(t *testing.T) {
 		steps := []string{
-			"add_vhost " + deliveryVhost,
-			"add_user " + operatorAccount,
-			"set_user_tags " + operatorAccount + " management",
-			"set_permissions -p " + deliveryVhost + " " + operatorAccount,
-			"set_user_tags " + deliveryVhost,
-			"clear_permissions -p / " + deliveryVhost,
-			"set_permissions -p " + deliveryVhost + " " + deliveryVhost,
+			"rabbitmqctl await_startup",
+			`add_vhost "$vhost"`,
+			`add_user "$operator"`,
+			`set_user_tags "$operator" management`,
+			`set_permissions -p "$vhost" "$operator"`,
+			`set_user_tags "$vhost"`,
+			`clear_permissions -p / "$vhost"`,
+			`set_permissions -p "$vhost" "$vhost"`,
 		}
 		cursor := 0
 		for _, step := range steps {
-			offset := strings.Index(section[cursor:], step)
+			offset := strings.Index(script[cursor:], step)
 			require.GreaterOrEqualf(t, offset, 0, "the step %q must appear after the previous one", step)
 			cursor += offset + len(step)
 		}
+		assert.Equal(t, `".*" ".*" ".*"`, strings.TrimSpace(script[cursor:]), "the application's rights must be the last step")
+	})
+
+	t.Run("Edge: the names are the contract's", func(t *testing.T) {
+		assert.Contains(t, script, "vhost="+deliveryVhost)
+		assert.Contains(t, script, "operator="+operatorAccount)
 	})
 
 	t.Run("Edge: the application's account is never given a tag", func(t *testing.T) {
-		for _, line := range strings.Split(section, "\n") {
-			if strings.Contains(line, "set_user_tags "+deliveryVhost) {
+		for _, line := range strings.Split(script, "\n") {
+			if strings.Contains(line, `set_user_tags "$vhost"`) {
 				assert.NotContains(t, line, "management")
 				assert.NotContains(t, line, "administrator")
 			}
 		}
 	})
 
-	t.Run("Edge: the operator's password is read from the environment, never typed in the command", func(t *testing.T) {
-		assert.Contains(t, section, "-e RABBITMQ_OPS_PASSWORD")
-		assert.NotRegexp(t, `RABBITMQ_OPS_PASSWORD=\S`, section)
+	t.Run("Edge: the operator's password is read from the environment, never written in the script", func(t *testing.T) {
+		assert.Contains(t, script, `"${`+opsPasswordKey+`:-}"`)
+		assert.NotRegexp(t, opsPasswordKey+`=\S`, script)
 	})
 
-	t.Run("Edge: an unset or empty operator password stops the script before any change", func(t *testing.T) {
-		guard := `: "${RABBITMQ_OPS_PASSWORD:?`
-		guardAt := strings.Index(section, guard)
-		require.GreaterOrEqual(t, guardAt, 0, "the script must refuse a missing password")
-		assert.Less(t, guardAt, strings.Index(section, "add_vhost "+deliveryVhost),
-			"the guard must run before the first change")
+	t.Run("Edge: an empty operator password skips the operator and still provisions the application", func(t *testing.T) {
+		guardAt := strings.Index(script, `if [ -n "${`+opsPasswordKey+`:-}" ]`)
+		require.GreaterOrEqual(t, guardAt, 0, "the operator steps must be guarded")
+		assert.Less(t, guardAt, strings.Index(script, `add_user "$operator"`))
+		assert.Less(t, strings.Index(script, "\nfi\n"), strings.Index(script, `clear_permissions -p / "$vhost"`),
+			"the application's steps must sit outside the guard")
 	})
 
-	t.Run("Edge: the section says the steps are re-runnable and the pipeline waits for them", func(t *testing.T) {
-		lower := strings.ToLower(section)
+	t.Run("Edge: every step is repeatable", func(t *testing.T) {
+		assert.Contains(t, script, "set -eu")
+		assert.Contains(t, script, `list_vhosts | grep -qx "$vhost" \`, "add_vhost must be guarded by an existence check")
+		assert.Contains(t, script, "change_password", "an existing operator account is rotated, not re-added")
+	})
+
+	t.Run("Edge: a broker that never comes up fails the script instead of waiting forever", func(t *testing.T) {
+		assert.Contains(t, script, "exit 1")
+	})
+}
+
+// TestEntrypointProvisionsBesideTheBroker guards the wrapper: the broker keeps
+// the image's own entrypoint, a failed provisioning stops it so the restart
+// policy retries, and a stop signal reaches the broker (BRK-09).
+func TestEntrypointProvisionsBesideTheBroker(t *testing.T) {
+	raw, err := os.ReadFile(entrypointScript)
+	require.NoErrorf(t, err, "read %s", entrypointScript)
+	script := string(raw)
+
+	t.Run("Happy path: the broker starts through the image's entrypoint and the script runs as its user", func(t *testing.T) {
+		assert.Contains(t, script, `docker-entrypoint.sh "$@" &`)
+		assert.Contains(t, script, "gosu rabbitmq legnaris-provision")
+	})
+
+	t.Run("Edge: a stop signal is forwarded to the broker", func(t *testing.T) {
+		assert.Contains(t, script, "trap 'kill -TERM")
+	})
+
+	t.Run("Edge: a failed provisioning stops the broker and the container exits with the broker's status", func(t *testing.T) {
+		failure := strings.Index(script, `if ! wait "$provision"`)
+		require.GreaterOrEqual(t, failure, 0)
+		assert.Contains(t, script[failure:], `kill -TERM "$broker"`)
+		assert.Contains(t, script, `exit "$status"`)
+	})
+}
+
+// TestRunbookCarriesTheBrokerProvisioning guards the operator's runbook: it
+// says the broker provisions itself, what the operator sets, and what the
+// application's account ends with (BRK-09, BRK-10, BRK-11, BRK-16, SC-003).
+func TestRunbookCarriesTheBrokerProvisioning(t *testing.T) {
+	section := runbookSection(t, "## RabbitMQ provisioning")
+	lower := strings.ToLower(section)
+
+	t.Run("Happy path: the runbook names the script and the variable the operator sets", func(t *testing.T) {
+		assert.Contains(t, section, "rabbitmq/provision.sh")
+		assert.Contains(t, section, opsPasswordKey)
+	})
+
+	t.Run("Edge: the section says the provisioning is automatic, re-run on every start and gates the pipeline", func(t *testing.T) {
 		assert.Contains(t, lower, "idempotent")
-		assert.Contains(t, lower, "before the relay and the worker")
-		assert.Contains(t, lower, "volume is replaced")
+		assert.Contains(t, lower, "every start")
+		assert.Contains(t, lower, "healthy")
+	})
+
+	t.Run("Edge: the section says what happens with an empty password and when it is rotated", func(t *testing.T) {
+		assert.Contains(t, lower, "empty")
+		assert.Contains(t, lower, "rotate")
+	})
+
+	t.Run("Edge: the runbook no longer asks for a manual provisioning command", func(t *testing.T) {
+		assert.NotContains(t, section, "rabbitmqctl add_vhost")
+		assert.NotContains(t, section, "read -rs")
+	})
+
+	t.Run("Edge: the section keeps the volume warning", func(t *testing.T) {
+		assert.Contains(t, lower, "rabbitmq_data")
 	})
 }
 
@@ -713,10 +827,11 @@ var credentialInURL = regexp.MustCompile(`(?:amqps?|mongodb)://[^:/\s@]+:([^@\s]
 // operator's password reaches no service, is not an interpolation of the stack
 // and no address carries a literal password (BRK-11, BRK-21, SC-004, SC-005).
 func TestNoBrokerCredentialIsCommitted(t *testing.T) {
-	t.Run("Edge: the operator's password reaches no service", func(t *testing.T) {
+	t.Run("Edge: the operator's password appears in the stack only as the broker's optional interpolation", func(t *testing.T) {
 		raw, err := os.ReadFile(composeFile)
 		require.NoError(t, err)
-		assert.NotContains(t, string(raw), "RABBITMQ_OPS_PASSWORD")
+		assert.Equal(t, 2, strings.Count(string(raw), opsPasswordKey), "one comment-free mention for the key and one for the interpolation")
+		assert.Contains(t, string(raw), opsPasswordKey+": ${"+opsPasswordKey+":-}")
 	})
 
 	t.Run("Edge: the example environment carries the operator's password only as a comment", func(t *testing.T) {

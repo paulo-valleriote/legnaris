@@ -6,3 +6,8 @@
 FROM rabbitmq:4.4.0-management
 
 RUN rabbitmq-plugins enable --offline rabbitmq_prometheus
+
+COPY provision.sh /usr/local/bin/legnaris-provision
+COPY entrypoint.sh /usr/local/bin/legnaris-entrypoint
+ENTRYPOINT ["legnaris-entrypoint"]
+CMD ["rabbitmq-server"]
