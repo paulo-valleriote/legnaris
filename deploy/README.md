@@ -346,7 +346,7 @@ the API boot path.
 The relay is a separate process (`backend/cmd/relay`, shipped as `/relay` in the same
 image) that drains the durable `email_outbox` collection to RabbitMQ. It is
 optional: the API boots and serves without it and without any email or broker
-variable. Turn it on by provisioning the broker (see "RabbitMQ provisioning")
+variable. Turn it on by setting `RABBITMQ_OPS_PASSWORD` (see "RabbitMQ provisioning")
 and bringing the `relay` service up; `RABBITMQ_URL` defaults to the delivery
 vhost and only needs setting to override it.
 
@@ -377,7 +377,7 @@ through the configured provider. It needs no database. The API depends on
 neither the worker nor the broker, so an outage of either only delays codes.
 
 ```bash
-docker compose up -d rabbitmq relay worker   # after the provisioning below
+docker compose up -d rabbitmq relay worker   # the broker provisions itself first (see below)
 docker compose logs -f worker                # send outcomes
 ```
 
@@ -408,57 +408,49 @@ accounts with different powers: `legnaris` (the application's, created by the
 image from `RABBITMQ_PASSWORD`) moves codes in and out of that vhost and can
 never open the console; `operator` (the maintainer's) can open the console.
 Vhosts, accounts and permissions are broker state, not configuration, so the
-operator provisions them with the commands below. Nothing is provisioned
-silently on boot and no broker credential is committed.
-
-Run it once per broker volume, **before the relay and the worker are deployed**:
-an unprovisioned broker has no `legnaris` vhost, so neither can connect. Run it
-again whenever the broker's volume is replaced.
+broker's own container provisions them: `rabbitmq/entrypoint.sh` starts the
+broker and then runs `rabbitmq/provision.sh` beside it. There is nothing for
+the operator to run.
 
 ```bash
-cd deploy
-docker compose up -d --build rabbitmq
-read -rs RABBITMQ_OPS_PASSWORD && export RABBITMQ_OPS_PASSWORD
+# deploy/.env
+RABBITMQ_OPS_PASSWORD=<a password for the console's operator account>
 
-docker compose exec -e RABBITMQ_OPS_PASSWORD rabbitmq sh -ec '
-  : "${RABBITMQ_OPS_PASSWORD:?RABBITMQ_OPS_PASSWORD is required}"
-  rabbitmqctl -q --no-table-headers list_vhosts | grep -qx legnaris \
-    || rabbitmqctl add_vhost legnaris
-
-  if rabbitmqctl -q --no-table-headers list_users | cut -f1 | grep -qx operator; then
-    rabbitmqctl change_password operator "$RABBITMQ_OPS_PASSWORD"
-  else
-    rabbitmqctl add_user operator "$RABBITMQ_OPS_PASSWORD"
-  fi
-  rabbitmqctl set_user_tags operator management
-  rabbitmqctl set_permissions -p legnaris operator ".*" ".*" ".*"
-
-  rabbitmqctl set_user_tags legnaris
-  rabbitmqctl clear_permissions -p / legnaris
-  rabbitmqctl set_permissions -p legnaris legnaris ".*" ".*" ".*"
-'
-unset RABBITMQ_OPS_PASSWORD
+make deploy-up
 ```
 
-- **Idempotent**: every step can be repeated. Running it again changes nothing
-  that is already right, and re-running it rotates the operator's password to
-  the one in your shell.
-- **The operator's password** is read from the environment of your shell at the
-  moment the command runs. It is never written to `.env` or the repository and
-  no service receives it. If it is unset or empty the script stops before any
-  change; the application keeps working, because it never uses that account.
-  `rabbitmqctl` receives it as an argument, so it is visible in the broker
-  container's process list while the command runs; anyone who can exec into
-  that container already controls the broker.
-- **Migrating an existing broker**: a `.env` that sets `RABBITMQ_URL` ending in
-  `/` still targets the default vhost, and the last commands remove the
-  application account's rights there. Point it at `.../legnaris` (or unset it)
-  before provisioning. Queues already declared in the default vhost are not
-  moved and can be deleted from the console once nothing reads them.
+- **Idempotent, on every start**: the script creates what is missing and
+  repeats what is already right, so a restart, a new image or a replaced
+  container leaves the same end state.
+- **The pipeline waits for it**: the broker reports healthy only once the
+  application's account has its rights on the delivery vhost, and the relay and
+  the worker start when the broker is healthy. An unprovisioned broker keeps
+  them waiting instead of failing against it.
+- **A failed provisioning** stops the broker so the restart policy retries it;
+  read `docker compose logs rabbitmq`.
+- **`RABBITMQ_OPS_PASSWORD`** is read only by the broker's container. It is the
+  one broker credential stored in `deploy/.env` (gitignored, like the others);
+  it is never committed and no other service receives it. Changing it and
+  restarting the broker rotates the operator's password. When it is empty the
+  operator account is left as it is (not created, not removed): the vhost and
+  the application's rights are still provisioned and only the console login is
+  missing. `rabbitmqctl` receives the value as an argument, so it is visible in
+  the broker container's process list while the script runs; anyone who can
+  exec into that container already controls the broker.
 - **What the application's account ends with**: no tag, so the console refuses
   its login, and permissions on `legnaris` only, so it sees no other vhost. The
   image creates that account with the administrator tag and rights on `/`; the
-  last three commands remove both.
+  last steps remove both.
+- **Migrating an existing broker**: a `.env` that sets `RABBITMQ_URL` ending in
+  `/` still targets the default vhost, and the provisioning removes the
+  application account's rights there. Point it at `.../legnaris` (or unset it)
+  before the deploy. Queues already declared in the default vhost are not moved
+  and can be deleted from the console once nothing reads them.
+- **The broker's volume**: `rabbitmq_data` keeps the queues and the accounts.
+  The broker names its data after its node name, which defaults to the
+  container's hostname; a container recreated under a new hostname starts an
+  empty node. The provisioning recreates the vhost and the accounts on it, and
+  the messages stay with the old node's data in the volume.
 - **Check**: sign in at `/rabbitmq/` as `operator` (after the GitHub login);
   the same page must refuse the `legnaris` account.
 

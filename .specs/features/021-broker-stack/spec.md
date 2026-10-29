@@ -12,7 +12,7 @@
 
 ### Session 2026-10-21
 
-- Q: How should the operator's broker account be provisioned? → A: By an operator command documented in the runbook, reading the password from the environment (user decision, 2026-10-21): no credential material enters the repository, no password hash is generated at deploy time, and creating the account is a visible operator act rather than something the stack does silently (`BRK-10`, `BRK-11`, `BRK-16`).
+- Q: How should the operator's broker account be provisioned? → A: *(superseded 2026-10-29, AD-027: the same steps now run automatically in the broker's container on every start, the password read from `deploy/.env`)* By an operator command documented in the runbook, reading the password from the environment (user decision, 2026-10-21): no credential material enters the repository, no password hash is generated at deploy time, and creating the account is a visible operator act rather than something the stack does silently (`BRK-10`, `BRK-11`, `BRK-16`).
 - Q: How should the broker's own metrics plugin be enabled? → A: Through a small derived image that enables it at build time (user decision, 2026-10-21): the plugin is on before the broker ever starts, so the health check never races a broker that is still configuring itself, and the stack's service gains a build step instead of a command it has to trust (`BRK-14`).
 
 ## User Scenarios & Testing *(mandatory)*

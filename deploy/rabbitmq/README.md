@@ -13,5 +13,9 @@ release and enables the `rabbitmq_prometheus` plugin while the image is built.
 - **`rabbitmq.conf`:** mounted by the stack as `conf.d/20-legnaris.conf`. It
   moves the console under `/rabbitmq` and states the metrics port.
 
-Provisioning of the vhost and the accounts is an operator act, documented in
-`../README.md` ("RabbitMQ provisioning").
+- **`entrypoint.sh` and `provision.sh`:** the image starts the broker through
+  the wrapper, which runs the provisioning beside it on every start (the
+  delivery vhost, the operator's console account, the application's rights).
+  They run in the broker's container because `rabbitmqctl` reaches the broker
+  by its node name, which no other container knows. Documented in
+  `../README.md` ("RabbitMQ provisioning").

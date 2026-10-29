@@ -86,7 +86,7 @@ Every target is on the internal network and none is reachable from the host (`BR
 | Variable | Required? | Used by | Meaning |
 |---|---|---|---|
 | `RABBITMQ_PASSWORD` | yes (already) | the broker's default account | the application's broker credential |
-| `RABBITMQ_OPS_PASSWORD` | **no** (operator-only) | the provisioning command | the operator's broker credential |
+| `RABBITMQ_OPS_PASSWORD` | **no** (optional) | the broker's provisioning script only | the operator's broker credential; empty leaves the account as it is |
 | `RABBITMQ_URL` | no (already) | the publisher, the worker | the broker's address, naming the delivery vhost |
 
 The stack's required-variable list is unchanged: the operator's password never reaches a service, so
