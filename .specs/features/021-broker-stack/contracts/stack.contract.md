@@ -14,7 +14,7 @@ asserts.
 | Service | Must exist | Must not |
 |---|---|---|
 | `worker` | be built from the shared image, start on its own entrypoint, sit on the internal network, wait for the broker's health check, carry the broker's address, the provider settings and the worker's own settings | publish a host port, depend on the database, be depended on by the site |
-| `rabbitmq` | publish no host port, declare a health check, name an exact 4.x version, join the edge network for its console's route only | publish the console's port or its metrics port on the host |
+| `rabbitmq` | publish no host port, declare a health check, name an exact 4.x version, stay on the internal network (the edge router reaches it there) | publish the console's port or its metrics port on the host |
 | `app` | keep its own environment unchanged | receive the broker's address or any worker setting |
 | `relay` | keep its own environment unchanged | receive the operator's password |
 

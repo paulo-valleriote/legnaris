@@ -3,6 +3,7 @@ package deploy_test
 import (
 	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -163,4 +164,153 @@ func TestSupportedHeaderOptionsHasNoDuplicates(t *testing.T) {
 
 	assert.True(t, slices.IsSorted(supportedHeaderOptions),
 		"supportedHeaderOptions must stay sorted for reviewable diffs")
+}
+
+type dynamicRoutes struct {
+	HTTP struct {
+		Routers map[string]struct {
+			Rule        string   `yaml:"rule"`
+			Service     string   `yaml:"service"`
+			Middlewares []string `yaml:"middlewares"`
+		} `yaml:"routers"`
+		Services map[string]struct {
+			LoadBalancer struct {
+				Servers []struct {
+					URL string `yaml:"url"`
+				} `yaml:"servers"`
+			} `yaml:"loadBalancer"`
+		} `yaml:"services"`
+	} `yaml:"http"`
+}
+
+func readRoutes(t *testing.T) dynamicRoutes {
+	t.Helper()
+
+	raw, err := os.ReadFile(dynamicFile)
+	require.NoErrorf(t, err, "read %s", dynamicFile)
+
+	var doc dynamicRoutes
+	require.NoErrorf(t, yaml.Unmarshal(raw, &doc), "parse %s", dynamicFile)
+	return doc
+}
+
+const opsHostRule = "Host(`{{ env \"OPS_DOMAIN\" }}`)"
+
+// TestBrokerConsoleRouteIsTheOperators guards the console's route: the
+// operator's domain, its own path prefix, the broker's console, and the
+// sign-in gate and security headers in that order (BRK-07, BRK-08, SC-002).
+func TestBrokerConsoleRouteIsTheOperators(t *testing.T) {
+	doc := readRoutes(t)
+
+	router, ok := doc.HTTP.Routers["rabbitmq"]
+	require.True(t, ok, "the edge must define a rabbitmq router")
+
+	t.Run("Happy path: the rule is the operator's domain and the console's prefix", func(t *testing.T) {
+		assert.Equal(t, opsHostRule+" && PathPrefix(`/rabbitmq`)", router.Rule)
+	})
+
+	t.Run("Happy path: the gate answers first, then the security headers", func(t *testing.T) {
+		assert.Equal(t, []string{"oauth", "security-headers"}, router.Middlewares)
+	})
+
+	t.Run("Happy path: the router reaches the broker's console on its internal port", func(t *testing.T) {
+		assert.Equal(t, "rabbitmq", router.Service)
+		service, present := doc.HTTP.Services["rabbitmq"]
+		require.True(t, present, "the edge must define a rabbitmq service")
+		require.Len(t, service.LoadBalancer.Servers, 1)
+		assert.Equal(t, "http://rabbitmq:15672", service.LoadBalancer.Servers[0].URL)
+	})
+
+	t.Run("Edge: the prefix is the one the broker serves its console under", func(t *testing.T) {
+		raw, err := os.ReadFile(brokerConfigFile)
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), consolePrefixConf)
+	})
+
+	t.Run("Edge: no other router reaches the broker's console", func(t *testing.T) {
+		for name, other := range doc.HTTP.Routers {
+			if name != "rabbitmq" {
+				assert.NotEqualf(t, "rabbitmq", other.Service, "router %s must not route to the broker", name)
+			}
+		}
+	})
+}
+
+// TestOperatorRoutesKeepTheirGate guards every route on the operator's domain:
+// all but the OAuth callback carry the sign-in gate, and the three consoles
+// already there are unchanged (BRK-08, SC-009).
+func TestOperatorRoutesKeepTheirGate(t *testing.T) {
+	doc := readRoutes(t)
+
+	t.Run("Edge: every operator route but the OAuth callback carries the gate first", func(t *testing.T) {
+		checked := 0
+		for name, router := range doc.HTTP.Routers {
+			if !strings.HasPrefix(router.Rule, opsHostRule) || name == "oauth2-proxy" {
+				continue
+			}
+			checked++
+			require.NotEmptyf(t, router.Middlewares, "router %s must carry the sign-in gate", name)
+			assert.Equalf(t, "oauth", router.Middlewares[0], "router %s must be gated before anything else", name)
+			assert.Containsf(t, router.Middlewares, "security-headers", "router %s must carry the security headers", name)
+		}
+		require.GreaterOrEqual(t, checked, 5, "guard: the four consoles and the home must be checked")
+	})
+
+	tests := []struct {
+		name    string
+		router  string
+		rule    string
+		service string
+	}{
+		{name: "Happy path: grafana is unchanged", router: "grafana", rule: opsHostRule + " && PathPrefix(`/grafana`)", service: "grafana"},
+		{name: "Happy path: prometheus is unchanged", router: "prometheus", rule: opsHostRule + " && PathPrefix(`/prometheus`)", service: "prometheus"},
+		{name: "Happy path: mongo-express is unchanged", router: "mongo-express", rule: opsHostRule + " && PathPrefix(`/mongo`)", service: "mongo-express"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			router, ok := doc.HTTP.Routers[tc.router]
+			require.True(t, ok)
+			assert.Equal(t, tc.rule, router.Rule)
+			assert.Equal(t, tc.service, router.Service)
+			assert.Equal(t, []string{"oauth", "security-headers"}, router.Middlewares)
+		})
+	}
+}
+
+// TestPipelineDashboardStaysBehindTheOperatorsRoute guards the dashboard's
+// reach: it is served by the monitoring dashboard host, which is routed only on
+// the operator's domain behind the sign-in gate, and the provisioned directory
+// is mounted read-only so nothing edited in a browser outlives a restart
+// (OBS-10, OBS-21, SC-006).
+func TestPipelineDashboardStaysBehindTheOperatorsRoute(t *testing.T) {
+	doc := readRoutes(t)
+	compose := readCompose(t)
+
+	t.Run("Happy path: the dashboard host is on the operator's domain behind the gate", func(t *testing.T) {
+		router, ok := doc.HTTP.Routers["grafana"]
+		require.True(t, ok)
+		assert.Contains(t, router.Rule, opsHostRule)
+		assert.Equal(t, []string{"oauth", "security-headers"}, router.Middlewares)
+	})
+
+	t.Run("Edge: every router that reaches the dashboard host carries the gate first", func(t *testing.T) {
+		reached := 0
+		for name, router := range doc.HTTP.Routers {
+			if router.Service != "grafana" {
+				continue
+			}
+			reached++
+			require.NotEmptyf(t, router.Middlewares, "router %s reaches the dashboard host and must carry the gate", name)
+			assert.Equalf(t, "oauth", router.Middlewares[0], "router %s must gate before anything else", name)
+		}
+		assert.GreaterOrEqual(t, reached, 1, "guard: at least the dashboard's own router must be checked")
+	})
+
+	t.Run("Edge: the dashboard host publishes no port of its own", func(t *testing.T) {
+		assert.Empty(t, compose.Services["grafana"].Ports)
+	})
+
+	t.Run("Happy path: the pipeline's dashboard directory is provisioned read-only", func(t *testing.T) {
+		assert.Contains(t, compose.Services["grafana"].Volumes, "./grafana/dashboards:/var/lib/grafana/dashboards:ro")
+	})
 }

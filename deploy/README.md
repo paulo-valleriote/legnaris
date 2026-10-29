@@ -19,7 +19,8 @@ ops.legnaris.com.br      → Docker/Traefik              [GitHub OAuth]
    ├─ /oauth2/callback   → GitHub OAuth callback
    ├─ /grafana           → Grafana
    ├─ /prometheus        → Prometheus
-   └─ /mongo             → Mongo Express
+   ├─ /mongo             → Mongo Express
+   └─ /rabbitmq          → RabbitMQ console
 ```
 
 Why split into three subdomains? Each surface has its own security rule: `api.`
@@ -29,8 +30,8 @@ allowlist instead of serving two kinds of traffic from one host and one route
 table.
 
 **Threat model:** the `ops.` subdomain is the only administrative surface. It is
-gated by GitHub OAuth at the Traefik edge; Grafana, Prometheus, and Mongo
-Express run on the `internal` Docker network only (not published, not on
+gated by GitHub OAuth at the Traefik edge; Grafana, Prometheus, Mongo
+Express and the RabbitMQ console run on the `internal` Docker network only (not published, not on
 `edge`), so they are reachable solely through Traefik, which enforces that
 login. Their own credentials (Grafana admin, Mongo Express basic auth) are
 defense-in-depth for a trusted internal network — not a substitute for the
@@ -271,6 +272,12 @@ without authenticating at Cloudflare first:
 | `https://ops.legnaris.com.br/grafana` | Grafana | GitHub OAuth |
 | `https://ops.legnaris.com.br/prometheus` | Prometheus UI | GitHub OAuth |
 | `https://ops.legnaris.com.br/mongo` | Mongo Express | GitHub OAuth + basic auth |
+| `https://ops.legnaris.com.br/rabbitmq/` | RabbitMQ console | GitHub OAuth + the operator's broker account |
+
+The RabbitMQ console lists the queued messages and their contents, so it shows
+the one-time codes in the clear. It is the operator's window into a stuck
+queue and nothing else: it has no host port and no other route, and the
+application's broker account cannot sign in to it (see "RabbitMQ provisioning").
 
 ## 10. Observability
 
@@ -283,6 +290,17 @@ without authenticating at Cloudflare first:
   internal network; the endpoint is not routed on the public `api.` domain.
 - **Relay metrics**: Prometheus scrapes the relay's own listener (`relay:9100`)
   for the outbox backlog and the publication outcomes by result.
+- **Worker metrics**: Prometheus scrapes the worker's own listener
+  (`worker:9101`) for the send outcomes, the dead letters and the expired
+  codes.
+- **Broker metrics**: Prometheus scrapes the broker's Prometheus plugin
+  (`rabbitmq:15692`) for the queue depth, the unacknowledged messages and the
+  consumer count, per queue. The plugin is enabled when the broker image is built
+  (`deploy/rabbitmq/Dockerfile`) and serves per-object metrics
+  (`deploy/rabbitmq/rabbitmq.conf`); neither port is published on the host.
+- **Pipeline alerts and dashboard**: Prometheus evaluates
+  `prometheus/rules.yml`; the **Email pipeline** dashboard in Grafana shows the
+  pipeline. Each alert's action is in "Pipeline alerts and runbook".
 - **Query the database**: Mongo Express at `/mongo`.
 
 ## 11. CORS (web client → API)
@@ -328,8 +346,9 @@ the API boot path.
 The relay is a separate process (`backend/cmd/relay`, shipped as `/relay` in the same
 image) that drains the durable `email_outbox` collection to RabbitMQ. It is
 optional: the API boots and serves without it and without any email or broker
-variable. Turn it on by setting `RABBITMQ_URL` (and optionally the relay knobs)
-in `.env` and bringing the `relay` service up.
+variable. Turn it on by provisioning the broker (see "RabbitMQ provisioning")
+and bringing the `relay` service up; `RABBITMQ_URL` defaults to the delivery
+vhost and only needs setting to override it.
 
 ```bash
 docker compose up -d rabbitmq relay      # start the broker and the publisher
@@ -345,10 +364,103 @@ docker compose logs -f relay             # publication outcomes
   broker plugin is required. The broker publishes no host port.
 - **Optional variables** (with the app's defaults): `EMAIL_PROVIDER` (`log`),
   `RESEND_API_KEY` (empty), `EMAIL_FROM` (empty), `EMAIL_SEND_TIMEOUT` (`10s`),
-  `RABBITMQ_URL` (empty; required by the relay), `EMAIL_RELAY_POLL_INTERVAL`
+  `RABBITMQ_URL` (the `legnaris` vhost on the stack's broker), `EMAIL_RELAY_POLL_INTERVAL`
   (`1s`), `EMAIL_RELAY_LEASE` (`30s`), `EMAIL_RELAY_BATCH` (`25`),
   `EMAIL_RELAY_CONFIRM_TIMEOUT` (`5s`), `EMAIL_RELAY_MAX_ATTEMPTS` (`5`),
   `EMAIL_OUTBOX_RETENTION` (`168h`), `EMAIL_RELAY_METRICS_ADDR` (`:9100`).
+
+### Email worker (delivery)
+
+The worker is a separate process (`backend/cmd/worker`, shipped as `/worker` in
+the same image) that takes the queued messages out of RabbitMQ and sends each
+through the configured provider. It needs no database. The API depends on
+neither the worker nor the broker, so an outage of either only delays codes.
+
+```bash
+docker compose up -d rabbitmq relay worker   # after the provisioning below
+docker compose logs -f worker                # send outcomes
+```
+
+- **Restart and waiting**: the service restarts unless stopped and starts after
+  the broker's health check passes. The distroless image has no shell or HTTP
+  probe to run a health check with, so a worker that is up but stuck shows in
+  its counters (`legnaris_email_send_total`) and not in `docker compose ps`.
+- **Variables** (all optional, defaults shown): `RABBITMQ_URL` (the delivery
+  vhost, built from `RABBITMQ_PASSWORD`), `EMAIL_PROVIDER` (`log`),
+  `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SEND_TIMEOUT` (`10s`),
+  `EMAIL_WORKER_PREFETCH` (`10`), `EMAIL_WORKER_MAX_ATTEMPTS` (`5`) and
+  `EMAIL_WORKER_METRICS_ADDR` (`:9101`). With `EMAIL_PROVIDER=resend` the key
+  and the sender are required and the worker refuses to start without them. The
+  API's required-variable list does not change.
+- **When the pipeline stalls** (codes never arrive): open the console at
+  `/rabbitmq/` and look at the queues. Messages piling up in `email.otp` with
+  no consumer mean the worker is down or cannot reach the broker
+  (`docker compose logs worker`); messages cycling through `email.retry.*` mean
+  the provider is refusing; messages in `email.dead` were abandoned and need a
+  look at their cause. The same numbers are in Prometheus
+  (`rabbitmq_queue_messages_ready`, `rabbitmq_queue_consumers`) and the worker's
+  `legnaris_email_send_total{result}`.
+
+## RabbitMQ provisioning
+
+The delivery queues live in their own vhost, `legnaris`, and the broker has two
+accounts with different powers: `legnaris` (the application's, created by the
+image from `RABBITMQ_PASSWORD`) moves codes in and out of that vhost and can
+never open the console; `operator` (the maintainer's) can open the console.
+Vhosts, accounts and permissions are broker state, not configuration, so the
+operator provisions them with the commands below. Nothing is provisioned
+silently on boot and no broker credential is committed.
+
+Run it once per broker volume, **before the relay and the worker are deployed**:
+an unprovisioned broker has no `legnaris` vhost, so neither can connect. Run it
+again whenever the broker's volume is replaced.
+
+```bash
+cd deploy
+docker compose up -d --build rabbitmq
+read -rs RABBITMQ_OPS_PASSWORD && export RABBITMQ_OPS_PASSWORD
+
+docker compose exec -e RABBITMQ_OPS_PASSWORD rabbitmq sh -ec '
+  : "${RABBITMQ_OPS_PASSWORD:?RABBITMQ_OPS_PASSWORD is required}"
+  rabbitmqctl -q --no-table-headers list_vhosts | grep -qx legnaris \
+    || rabbitmqctl add_vhost legnaris
+
+  if rabbitmqctl -q --no-table-headers list_users | cut -f1 | grep -qx operator; then
+    rabbitmqctl change_password operator "$RABBITMQ_OPS_PASSWORD"
+  else
+    rabbitmqctl add_user operator "$RABBITMQ_OPS_PASSWORD"
+  fi
+  rabbitmqctl set_user_tags operator management
+  rabbitmqctl set_permissions -p legnaris operator ".*" ".*" ".*"
+
+  rabbitmqctl set_user_tags legnaris
+  rabbitmqctl clear_permissions -p / legnaris
+  rabbitmqctl set_permissions -p legnaris legnaris ".*" ".*" ".*"
+'
+unset RABBITMQ_OPS_PASSWORD
+```
+
+- **Idempotent**: every step can be repeated. Running it again changes nothing
+  that is already right, and re-running it rotates the operator's password to
+  the one in your shell.
+- **The operator's password** is read from the environment of your shell at the
+  moment the command runs. It is never written to `.env` or the repository and
+  no service receives it. If it is unset or empty the script stops before any
+  change; the application keeps working, because it never uses that account.
+  `rabbitmqctl` receives it as an argument, so it is visible in the broker
+  container's process list while the command runs; anyone who can exec into
+  that container already controls the broker.
+- **Migrating an existing broker**: a `.env` that sets `RABBITMQ_URL` ending in
+  `/` still targets the default vhost, and the last commands remove the
+  application account's rights there. Point it at `.../legnaris` (or unset it)
+  before provisioning. Queues already declared in the default vhost are not
+  moved and can be deleted from the console once nothing reads them.
+- **What the application's account ends with**: no tag, so the console refuses
+  its login, and permissions on `legnaris` only, so it sees no other vhost. The
+  image creates that account with the administrator tag and rights on `/`; the
+  last three commands remove both.
+- **Check**: sign in at `/rabbitmq/` as `operator` (after the GitHub login);
+  the same page must refuse the `legnaris` account.
 
 ## One-time-code challenges
 
@@ -404,6 +516,109 @@ door into a session.
 
 Backup: the `legnaris-prod_mongo_data`, `..._prometheus_data`, `..._loki_data`
 volumes.
+
+## Pipeline alerts and runbook
+
+Prometheus evaluates the delivery pipeline's alert rules (`prometheus/rules.yml`)
+and the **Email pipeline** dashboard in Grafana (`/grafana`, behind the
+operator's sign-in) shows the same series; firing alerts are listed at
+`/prometheus/alerts`. Alerts clear on their own when the pipeline recovers;
+nothing has to be dismissed. Severities: `critical` (no code is being delivered
+or a code is lost), `high` (codes are late or not leaving), `medium` (the
+pipeline works but something needs a decision).
+
+Thresholds live in one block at the top of `prometheus/rules.yml` (the
+`legnaris:email_pipeline:threshold_*` recording rules): the backlog (100
+codes) and the verification failures (30 in ten minutes). Each alert's own
+patience is its `for:`; the work queue's is its one-minute lookback plus
+`for:`. Restart Prometheus after
+editing; validate first with `promtool check rules` (see the feature's
+quickstart).
+
+### EmailDeadLetterQueueHoldsMessages
+
+- **Means:** `email.dead` holds messages the worker abandoned, so each one is a code that never reached its owner.
+- **Do:** open the console at `/rabbitmq/`, read the message in `email.dead` (it shows the code in the clear, so do not share a screenshot) and find the cause in `docker compose logs worker`; fix a rejected provider key or sender, then purge the queue and let the affected people request a new code.
+- **Escalate when:** the queue keeps growing after the cause is fixed, the provider rejects the key or sender, or the cause is not understood within 30 minutes.
+
+### EmailWorkQueueHasNoConsumer
+
+- **Means:** `email.otp` has no consumer, so no code is being delivered at all.
+- **Do:** run `docker compose ps worker` and `docker compose logs worker`; start it with `docker compose up -d worker`; if it cannot connect, check that the broker is healthy and that the `legnaris` vhost is provisioned (see "RabbitMQ provisioning").
+- **Escalate when:** the worker is not consuming within 10 minutes (a code expires in `AUTH_OTP_TTL`) or the broker itself is unhealthy.
+
+### EmailOldestMessageTooOld
+
+- **Means:** `email.otp` has had ready messages for the whole of the last three minutes although a consumer is attached, so the oldest code has been waiting at least that long and codes are expiring in the queue; the alert watches that the queue drains, because the broker cannot report the head message's age for a quorum queue.
+- **Do:** open the dashboard's provider answer time, work-queue and consumers panels; a slow provider means waiting it out, a stuck worker means `docker compose restart worker`; also check `EmailProviderRefusingSends`, because a refusing provider keeps messages cycling.
+- **Escalate when:** the queue is still not draining after `AUTH_OTP_TTL` (10 minutes), because every queued code is already useless; sustained high volume can also keep the queue non-empty without being a fault, which at the allowance's volume should not happen.
+
+### EmailPublicationBacklogTooLarge
+
+- **Means:** more codes than the threshold are waiting in the outbox for the relay to publish them.
+- **Do:** check `docker compose logs relay` and that the broker accepts connections; restart the relay with `docker compose up -d relay` if it is down; the backlog is read from the relay, never from the site.
+- **Escalate when:** the backlog still grows 10 minutes after the relay is healthy, or outbox rows show `failed` in the `email_outbox` collection.
+
+### EmailPublicationFailing
+
+- **Means:** the relay has been failing or retrying publications for five minutes, so codes are not reaching the broker.
+- **Do:** check the broker's health and its disk and memory alarms in the console, then `docker compose logs relay` for the broker's answer; restore the broker first, the relay recovers by itself.
+- **Escalate when:** it lasts more than 15 minutes or `failed` outcomes appear, because those rows are parked for an operator.
+
+### EmailProviderRefusingSends
+
+- **Means:** the worker has been retrying sends for five minutes: the provider is rate-limiting, failing or unreachable, and the codes are not leaving the building.
+- **Do:** read `docker compose logs worker` for the provider's answer and check the provider's status page; a 429 may mean its own limits, which is separate from the site's daily cap (see "The provider's daily allowance"); the worker retries on its own at 30 s, 2 min and 5 min.
+- **Escalate when:** it lasts more than 30 minutes, the key or sender is rejected, or dead-lettered sends start to appear.
+
+### EmailDailyAllowanceReached
+
+- **Means:** the site is refusing code requests because the daily send cap is spent; the pipeline works and the ceiling is what stops it.
+- **Do:** confirm on the dashboard that the volume is real people and not abuse; the cap resets on its own the next day; do not raise it past the provider's limit.
+- **Escalate when:** it fires 3 days in a row, or before a public launch or a campaign: that is the trigger to buy more (see "The provider's daily allowance").
+
+### EmailVerificationFailuresClimbing
+
+- **Means:** many codes are being refused, so either delivery is broken and people retype stale codes, or somebody is guessing codes.
+- **Do:** first check that no delivery alert is firing; then read the dashboard's codes verified panel by result: `expired` points at late delivery, `invalid` and `exhausted` at guessing.
+- **Escalate when:** `invalid` stays high while delivery is healthy, which is an attack to rate-limit at the edge.
+
+### EmailPipelineSeriesMissing
+
+- **Means:** a series the other alerts read has stopped arriving, so the broker, the relay, the worker or the site is not being scraped and the pipeline is unwatched; this alert exists so a rule never goes silently inert.
+- **Do:** open `/prometheus/targets` and look at `legnaris-app`, `legnaris-rabbitmq`, `legnaris-relay` and `legnaris-worker`; start the service that is down; if the broker is up but its series are absent, see "Broker series".
+- **Escalate when:** the pipeline stays unwatched for more than 10 minutes.
+
+### The provider's daily allowance
+
+The provider's free tier allows 100 emails per day (3,000 per month), and with a code on every sign-in that is the number that decides how the product is used. The site's cap (`AUTH_OTP_DAILY_SEND_CAP`, default 80) sits below it on purpose. When the cap is spent the site queues nothing new and answers `EMAIL_UNAVAILABLE` (503) with `Retry-After`, and `EmailDailyAllowanceReached` fires; nobody's code is lost, new requests wait for the next day. A 429 from the provider itself is a different thing and shows as `EmailProviderRefusingSends`.
+
+The trigger for buying more: sustained use above 60 emails a day for 3 days in a row, a public launch, or any campaign. Then move to the provider's paid plan (50k a month) or SES, which is a configuration change (`EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`), and raise `AUTH_OTP_DAILY_SEND_CAP` to match. Never use the free tier for a load test; tests and QA use the `log` sender.
+
+### Notification channel
+
+No notification channel is configured by default. The alerts are evaluated and visible at `/prometheus/alerts` and on the dashboard, and the stack has no notification service because choosing one depends on an account the project does not own. To be told by phone or email, add an Alertmanager service (or a Grafana contact point) with the account of your choice, point `prometheus.yml` at it under `alerting.alertmanagers`, and route on the `severity` label (`critical`, `high`, `medium`). Keep its credentials in `deploy/.env`, never in the repository.
+
+### Which process owns which counter
+
+The site, the relay and the worker share one metrics package, so the site's `/metrics` also publishes the relay's and the worker's series names at zero. Every rule and panel names the job that owns the counter, so a zero from the wrong process is never read as the truth:
+
+| Series | Owner (`job`) |
+|---|---|
+| `legnaris_email_outbox_backlog`, `legnaris_email_publish_total` | `legnaris-relay` |
+| `legnaris_email_send_total`, `legnaris_email_dead_total`, `legnaris_email_expired_total`, `legnaris_email_send_duration_seconds` | `legnaris-worker` |
+| `legnaris_auth_otp_issued_total`, `legnaris_auth_otp_verify_total`, `legnaris_auth_otp_cap_blocked_total` | `legnaris-app` |
+| `rabbitmq_queue_messages_ready`, `rabbitmq_queue_consumers` | `legnaris-rabbitmq` |
+
+### Broker series
+
+The alerts read two broker series: `rabbitmq_queue_messages_ready` and `rabbitmq_queue_consumers`. They were checked against the RabbitMQ 4.4.0 source (the `rabbitmq_prometheus` collector), not against a running broker: with `prometheus.return_per_object_metrics` the `/metrics` endpoint serves them with the `queue` and `vhost` labels. The broker's head-message timestamp (`rabbitmq_detailed_queue_head_message_timestamp`) is deliberately not used: the broker computes it only for classic queues, and `email.otp` is a quorum queue, so it would never be reported. Verify the names after any broker upgrade:
+
+```bash
+docker compose exec prometheus wget -qO- http://rabbitmq:15692/metrics | grep -E '^rabbitmq_queue_(messages_ready|consumers)\{'
+```
+
+Switching the broker to per-object mode resets the queue series once, so the queue panels start fresh after the first deploy.
 
 ## 13. Gotchas (learned in testing)
 

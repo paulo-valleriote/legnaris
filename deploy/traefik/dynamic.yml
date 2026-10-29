@@ -80,6 +80,11 @@ http:
         servers:
           - url: "http://oauth2-proxy:4180"
 
+    rabbitmq:
+      loadBalancer:
+        servers:
+          - url: "http://rabbitmq:15672"
+
   routers:
     # OAuth callback on the ops domain (no oauth middleware, else login loops).
     oauth2-proxy:
@@ -103,6 +108,16 @@ http:
       rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/mongo`)'
       entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
       service: mongo-express
+      middlewares: ["oauth", "security-headers"]
+
+    # The broker's console shows queued messages, one-time codes included, in
+    # the clear: it is reachable only here, behind the sign-in gate (BRK-07,
+    # BRK-08). The broker serves it under this same prefix, so the path passes
+    # through unchanged.
+    rabbitmq:
+      rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/rabbitmq`)'
+      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      service: rabbitmq
       middlewares: ["oauth", "security-headers"]
 
     # Redirect root of ops domain to /grafana

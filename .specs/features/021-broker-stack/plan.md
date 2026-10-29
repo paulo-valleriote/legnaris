@@ -23,8 +23,8 @@ Deploy the pipeline the last three features built, and put the broker's console 
    or the worker — a broker outage delays emails and nothing else.
 2. **The console is the operator's.** The broker's console is served under its own path prefix on the
    operator's domain, behind the same sign-in gate and the same security headers as the three consoles
-   already there, and it is never published on a host port. The broker joins the edge network for
-   that route and nothing else.
+   already there, and it is never published on a host port. The broker stays on the internal network, which
+   the edge router already shares, so the route needs no wider reach.
 3. **The accounts are separated by role.** The application's account can move code in and out of the
    delivery vhost and can never open the console; the operator's account is a distinct one that can.
    The accounts and the vhost are provisioned by documented operator commands, so no broker credential
@@ -63,8 +63,8 @@ variable this feature adds must interpolate from the example file. No test needs
 broker.
 
 **Target Platform**: the deployment's Linux host, Docker Compose. The broker, the publisher and the
-worker live on the internal network; the site's edge router is the only component on the edge network
-that reaches the broker.
+worker live on the internal network; the site's edge router reaches the broker through the internal network
+and is the only component that routes to its console.
 
 **Project Type**: deployment configuration plus the checks that guard it. The Go backend is untouched.
 
