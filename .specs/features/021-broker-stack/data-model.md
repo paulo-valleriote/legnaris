@@ -15,7 +15,7 @@ the monitoring stack reads. The broker's own data (its queues, its messages) is 
 | `app` | the request-serving process | edge + internal | 80/443 (through the router) | `mongodb` |
 | `relay` | the publisher | internal | none | `mongodb`, `rabbitmq` |
 | `worker` | the delivery worker (**new**) | internal | none | `rabbitmq` |
-| `rabbitmq` | the message broker | internal + edge (**new**: the console's route) | none | — |
+| `rabbitmq` | the message broker | internal (the edge router reaches the console there) | none | — |
 | `traefik` | the edge router | edge + internal | 80/443 | `oauth2-proxy` |
 
 The `worker` is the only service this feature adds. It shares the application's image and starts on

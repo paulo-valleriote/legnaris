@@ -29,7 +29,7 @@ itself is the preceding feature (`.specs/features/020-email-worker/`).
 
 **Purpose**: confirm the change needs nothing installed and nothing new declared.
 
-- [ ] T001 [P] Confirm no dependency is added and no backend file changes: `go.mod`, `go.sum` and the `backend/` tree stay byte-identical — `go.mod`, `go.sum` (BRK-19)
+- [x] T001 [P] Confirm no dependency is added and no backend file changes: `go.mod`, `go.sum` and the `backend/` tree stay byte-identical — `go.mod`, `go.sum` (BRK-19)
 
 ---
 
@@ -38,8 +38,8 @@ itself is the preceding feature (`.specs/features/020-email-worker/`).
 **Purpose**: the broker's configuration and its derived image — the two things that make the broker
 behave differently from the stock image. The stories below all read them.
 
-- [ ] T002 [P] Add the derived image that enables the broker's Prometheus plugin at build time, with the note that explains why it is not enabled at run time — `deploy/rabbitmq/Dockerfile`, `deploy/rabbitmq/README.md` (BRK-14, R6)
-- [ ] T003 [P] Add the broker's configuration file with the console's path prefix and the metrics listener's own port, and the note that records the version it is written for — `deploy/rabbitmq/rabbitmq.conf` (BRK-07, R5)
+- [x] T002 [P] Add the derived image that enables the broker's Prometheus plugin at build time, with the note that explains why it is not enabled at run time — `deploy/rabbitmq/Dockerfile`, `deploy/rabbitmq/README.md` (BRK-14, R6)
+- [x] T003 [P] Add the broker's configuration file with the console's path prefix and the metrics listener's own port, and the note that records the version it is written for — `deploy/rabbitmq/rabbitmq.conf` (BRK-07, R5)
 
 **Checkpoint**: the broker's configuration and its image exist; the stories can begin.
 
@@ -57,14 +57,14 @@ the required-variable list is unchanged.
 
 ### Tests for User Story 1 (write first, ensure they FAIL) ⚠️
 
-- [ ] T004 [P] [US1] The worker's service: it exists, it is built from the shared image, it starts on its own entrypoint, it publishes no host port, it depends on the broker and not on the database — `deploy/compose_test.go` (BRK-01, BRK-02, BRK-03, SC-001)
-- [ ] T005 [P] [US1] The worker's environment carries the broker's address, the provider settings and the worker's own settings, and the site's environment carries neither the broker's address nor any worker setting — `deploy/compose_test.go` (BRK-04, BRK-21, SC-005)
-- [ ] T006 [P] [US1] The site depends on neither the broker nor the worker, and the stack's required-variable list is unchanged — `deploy/compose_test.go` (BRK-03, BRK-20, BRK-21, SC-005, SC-008)
+- [x] T004 [P] [US1] The worker's service: it exists, it is built from the shared image, it starts on its own entrypoint, it publishes no host port, it depends on the broker and not on the database — `deploy/compose_test.go` (BRK-01, BRK-02, BRK-03, SC-001)
+- [x] T005 [P] [US1] The worker's environment carries the broker's address, the provider settings and the worker's own settings, and the site's environment carries neither the broker's address nor any worker setting — `deploy/compose_test.go` (BRK-04, BRK-21, SC-005)
+- [x] T006 [P] [US1] The site depends on neither the broker nor the worker, and the stack's required-variable list is unchanged — `deploy/compose_test.go` (BRK-03, BRK-20, BRK-21, SC-005, SC-008)
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Add the worker service to the stack: the shared image, the worker entrypoint, the internal network, the broker's health check as its only dependency, the restart policy that brings it back after a failure, and the settings it reads — `deploy/docker-compose.yml` (BRK-01, BRK-02, BRK-03, BRK-04, BRK-20, SC-001, SC-008)
-- [ ] T008 [US1] Point the publisher's and the worker's broker address at the delivery vhost, and document the new and changed variables — `deploy/.env.example`, `deploy/docker-compose.yml` (BRK-04, R3)
+- [x] T007 [US1] Add the worker service to the stack: the shared image, the worker entrypoint, the internal network, the broker's health check as its only dependency, the restart policy that brings it back after a failure, and the settings it reads — `deploy/docker-compose.yml` (BRK-01, BRK-02, BRK-03, BRK-04, BRK-20, SC-001, SC-008)
+- [x] T008 [US1] Point the publisher's and the worker's broker address at the delivery vhost, and document the new and changed variables — `deploy/.env.example`, `deploy/docker-compose.yml` (BRK-04, R3)
 
 **Checkpoint**: the worker runs in the stack; US1 is the MVP.
 
@@ -81,14 +81,14 @@ exact.
 
 ### Tests for User Story 2 (write first, ensure they FAIL) ⚠️
 
-- [ ] T009 [P] [US2] The console's route: the operator's domain and the console's own prefix, the broker's service, the sign-in gate and the security headers in that order, and the operator's other routes unchanged — `deploy/traefik_test.go` (BRK-07, BRK-08, SC-002)
-- [ ] T010 [P] [US2] The broker's exposure and its version: no published host port, a health check declared, and a base image that names an exact 4.x version wherever the pin sits — `deploy/compose_test.go` (BRK-05, BRK-06, SC-002, SC-006)
+- [x] T009 [P] [US2] The console's route: the operator's domain and the console's own prefix, the broker's service, the sign-in gate and the security headers in that order, and the operator's other routes unchanged — `deploy/traefik_test.go` (BRK-07, BRK-08, SC-002)
+- [x] T010 [P] [US2] The broker's exposure and its version: no published host port, a health check declared, and a base image that names an exact 4.x version wherever the pin sits — `deploy/compose_test.go` (BRK-05, BRK-06, SC-002, SC-006)
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] Add the console's route to the edge configuration, with the sign-in gate and the security headers — `deploy/traefik/dynamic.yml` (BRK-07, BRK-08, SC-002)
-- [ ] T012 [US2] Pin the broker's base image to an exact 4.x version, join it to the edge network for the console's route only, mount its configuration file, build it from the derived image and keep its durable volume unchanged so the queued messages survive a broker restart — `deploy/docker-compose.yml` (BRK-05, BRK-06, BRK-14, BRK-18, R5, SC-002, SC-006)
-- [ ] T013 [US2] Document the console's address, what it shows and that it carries the queued codes — `deploy/README.md` (BRK-16, BRK-17)
+- [x] T011 [US2] Add the console's route to the edge configuration, with the sign-in gate and the security headers — `deploy/traefik/dynamic.yml` (BRK-07, BRK-08, SC-002)
+- [x] T012 [US2] Pin the broker's base image to an exact 4.x version, keep it on the internal network only (Traefik already reaches it there; see AD-024), mount its configuration file, build it from the derived image and keep its durable volume unchanged so the queued messages survive a broker restart — `deploy/docker-compose.yml` (BRK-05, BRK-06, BRK-14, BRK-18, R5, SC-002, SC-006)
+- [x] T013 [US2] Document the console's address, what it shows and that it carries the queued codes — `deploy/README.md` (BRK-16, BRK-17)
 
 **Checkpoint**: the console is the operator's and nobody else's.
 
@@ -105,13 +105,13 @@ runbook states that the pipeline waits for the provisioning.
 
 ### Tests for User Story 3 (write first, ensure they FAIL) ⚠️
 
-- [ ] T014 [P] [US3] The runbook carries the provisioning steps — the delivery vhost, the operator's account, the application's rights — and states that the pipeline waits for them and that the steps are re-runnable — `deploy/compose_test.go` (BRK-09, BRK-10, BRK-16, SC-003)
-- [ ] T015 [P] [US3] The operator's password reaches no service and is not part of the stack's required-variable list — `deploy/compose_test.go` (BRK-11, BRK-21, SC-004, SC-005)
+- [x] T014 [P] [US3] The runbook carries the provisioning steps — the delivery vhost, the operator's account, the application's rights — and states that the pipeline waits for them and that the steps are re-runnable — `deploy/compose_test.go` (BRK-09, BRK-10, BRK-16, SC-003)
+- [x] T015 [P] [US3] The operator's password reaches no service and is not part of the stack's required-variable list — `deploy/compose_test.go` (BRK-11, BRK-21, SC-004, SC-005)
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Write the provisioning section: the steps in order, the idempotency, the passwords from the environment, and the consequence of an unprovisioned broker — `deploy/README.md` (BRK-09, BRK-10, BRK-11, BRK-16, R2, SC-003, SC-004)
-- [ ] T017 [US3] Add the operator's password to the deployment's example environment as an operator-only value, with the note that it never reaches a service — `deploy/.env.example` (BRK-11, BRK-21, SC-004, SC-005)
+- [x] T016 [US3] Write the provisioning section: the steps in order, the idempotency, the passwords from the environment, and the consequence of an unprovisioned broker — `deploy/README.md` (BRK-09, BRK-10, BRK-11, BRK-16, R2, SC-003, SC-004)
+- [x] T017 [US3] Add the operator's password to the deployment's example environment as an operator-only value, with the note that it never reaches a service — `deploy/.env.example` (BRK-11, BRK-21, SC-004, SC-005)
 
 **Checkpoint**: the two roles are separated and the separation is documented.
 
@@ -127,11 +127,11 @@ targets are scraped, and that the broker's metrics port is not published.
 
 ### Tests for User Story 4 (write first, ensure they FAIL) ⚠️
 
-- [ ] T018 [P] [US4] The monitoring configuration scrapes the broker's Prometheus endpoint and the worker's listener, beside the four it already scrapes — `deploy/compose_test.go` (BRK-12, BRK-13, SC-007)
+- [x] T018 [P] [US4] The monitoring configuration scrapes the broker's Prometheus endpoint and the worker's listener, beside the four it already scrapes — `deploy/compose_test.go` (BRK-12, BRK-13, SC-007)
 
 ### Implementation for User Story 4
 
-- [ ] T019 [US4] Add the two scrape targets to the monitoring configuration — `deploy/prometheus/prometheus.yml` (BRK-13, R7, SC-007)
+- [x] T019 [US4] Add the two scrape targets to the monitoring configuration — `deploy/prometheus/prometheus.yml` (BRK-13, R7, SC-007)
 
 **Checkpoint**: the pipeline's numbers are reachable; the alerts that read them are the next feature.
 
@@ -139,8 +139,8 @@ targets are scraped, and that the broker's metrics port is not published.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T020 [P] Record the feature's decisions in the decision log — `.specs/STATE.md` (AD-024): the worker's place in the stack, the operator-command provisioning, the named vhost, the console's route, the pinned version and the build-time plugin (BRK-01, BRK-09, BRK-10)
-- [ ] T021 Run the gates and record the result: `make fmt && make lint && make vet && make lint-specs`, then `make test-race`, and the stack's interpolation gate over the base and the local override — every variable this feature adds must interpolate from `.env.example` (BRK-15, BRK-22, SC-009, SC-010)
+- [x] T020 [P] Record the feature's decisions in the decision log — `.specs/STATE.md` (AD-024): the worker's place in the stack, the operator-command provisioning, the named vhost, the console's route, the pinned version and the build-time plugin (BRK-01, BRK-09, BRK-10)
+- [x] T021 Run the gates and record the result: `make fmt && make lint && make vet && make lint-specs`, then `make test-race`, and the stack's interpolation gate over the base and the local override — every variable this feature adds must interpolate from `.env.example` (BRK-15, BRK-22, SC-009, SC-010)
 
 ---
 

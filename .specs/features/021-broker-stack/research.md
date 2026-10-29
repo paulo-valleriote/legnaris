@@ -77,7 +77,7 @@ default one carries nothing, so a mistake in a permission never exposes the deli
 
 **Decision**: the broker's console is served under its own path prefix (`/rabbitmq`) on the operator's
 domain, behind the existing OAuth forward-auth middleware and the existing security headers, and the
-broker joins the edge network for that reason alone.
+broker stays on the internal network, which the edge router already shares (AD-024).
 
 **Rationale**: the plan's decision O6. The operator's domain already carries three other consoles
 behind the same two middlewares, so the broker's console is the fourth of a known kind rather than a

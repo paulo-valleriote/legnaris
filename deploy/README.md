@@ -19,7 +19,8 @@ ops.legnaris.com.br      → Docker/Traefik              [GitHub OAuth]
    ├─ /oauth2/callback   → GitHub OAuth callback
    ├─ /grafana           → Grafana
    ├─ /prometheus        → Prometheus
-   └─ /mongo             → Mongo Express
+   ├─ /mongo             → Mongo Express
+   └─ /rabbitmq          → RabbitMQ console
 ```
 
 Why split into three subdomains? Each surface has its own security rule: `api.`
@@ -29,8 +30,8 @@ allowlist instead of serving two kinds of traffic from one host and one route
 table.
 
 **Threat model:** the `ops.` subdomain is the only administrative surface. It is
-gated by GitHub OAuth at the Traefik edge; Grafana, Prometheus, and Mongo
-Express run on the `internal` Docker network only (not published, not on
+gated by GitHub OAuth at the Traefik edge; Grafana, Prometheus, Mongo
+Express and the RabbitMQ console run on the `internal` Docker network only (not published, not on
 `edge`), so they are reachable solely through Traefik, which enforces that
 login. Their own credentials (Grafana admin, Mongo Express basic auth) are
 defense-in-depth for a trusted internal network — not a substitute for the
@@ -271,6 +272,12 @@ without authenticating at Cloudflare first:
 | `https://ops.legnaris.com.br/grafana` | Grafana | GitHub OAuth |
 | `https://ops.legnaris.com.br/prometheus` | Prometheus UI | GitHub OAuth |
 | `https://ops.legnaris.com.br/mongo` | Mongo Express | GitHub OAuth + basic auth |
+| `https://ops.legnaris.com.br/rabbitmq/` | RabbitMQ console | GitHub OAuth + the operator's broker account |
+
+The RabbitMQ console lists the queued messages and their contents, so it shows
+the one-time codes in the clear. It is the operator's window into a stuck
+queue and nothing else: it has no host port and no other route, and the
+application's broker account cannot sign in to it (see "RabbitMQ provisioning").
 
 ## 10. Observability
 
@@ -283,6 +290,13 @@ without authenticating at Cloudflare first:
   internal network; the endpoint is not routed on the public `api.` domain.
 - **Relay metrics**: Prometheus scrapes the relay's own listener (`relay:9100`)
   for the outbox backlog and the publication outcomes by result.
+- **Worker metrics**: Prometheus scrapes the worker's own listener
+  (`worker:9101`) for the send outcomes, the dead letters and the expired
+  codes.
+- **Broker metrics**: Prometheus scrapes the broker's Prometheus plugin
+  (`rabbitmq:15692`) for the queue depth, the unacknowledged messages and the
+  consumer count. The plugin is enabled when the broker image is built
+  (`deploy/rabbitmq/Dockerfile`); neither port is published on the host.
 - **Query the database**: Mongo Express at `/mongo`.
 
 ## 11. CORS (web client → API)
@@ -328,8 +342,9 @@ the API boot path.
 The relay is a separate process (`backend/cmd/relay`, shipped as `/relay` in the same
 image) that drains the durable `email_outbox` collection to RabbitMQ. It is
 optional: the API boots and serves without it and without any email or broker
-variable. Turn it on by setting `RABBITMQ_URL` (and optionally the relay knobs)
-in `.env` and bringing the `relay` service up.
+variable. Turn it on by provisioning the broker (see "RabbitMQ provisioning")
+and bringing the `relay` service up; `RABBITMQ_URL` defaults to the delivery
+vhost and only needs setting to override it.
 
 ```bash
 docker compose up -d rabbitmq relay      # start the broker and the publisher
@@ -345,10 +360,103 @@ docker compose logs -f relay             # publication outcomes
   broker plugin is required. The broker publishes no host port.
 - **Optional variables** (with the app's defaults): `EMAIL_PROVIDER` (`log`),
   `RESEND_API_KEY` (empty), `EMAIL_FROM` (empty), `EMAIL_SEND_TIMEOUT` (`10s`),
-  `RABBITMQ_URL` (empty; required by the relay), `EMAIL_RELAY_POLL_INTERVAL`
+  `RABBITMQ_URL` (the `legnaris` vhost on the stack's broker), `EMAIL_RELAY_POLL_INTERVAL`
   (`1s`), `EMAIL_RELAY_LEASE` (`30s`), `EMAIL_RELAY_BATCH` (`25`),
   `EMAIL_RELAY_CONFIRM_TIMEOUT` (`5s`), `EMAIL_RELAY_MAX_ATTEMPTS` (`5`),
   `EMAIL_OUTBOX_RETENTION` (`168h`), `EMAIL_RELAY_METRICS_ADDR` (`:9100`).
+
+### Email worker (delivery)
+
+The worker is a separate process (`backend/cmd/worker`, shipped as `/worker` in
+the same image) that takes the queued messages out of RabbitMQ and sends each
+through the configured provider. It needs no database. The API depends on
+neither the worker nor the broker, so an outage of either only delays codes.
+
+```bash
+docker compose up -d rabbitmq relay worker   # after the provisioning below
+docker compose logs -f worker                # send outcomes
+```
+
+- **Restart and waiting**: the service restarts unless stopped and starts after
+  the broker's health check passes. The distroless image has no shell or HTTP
+  probe to run a health check with, so a worker that is up but stuck shows in
+  its counters (`legnaris_email_send_total`) and not in `docker compose ps`.
+- **Variables** (all optional, defaults shown): `RABBITMQ_URL` (the delivery
+  vhost, built from `RABBITMQ_PASSWORD`), `EMAIL_PROVIDER` (`log`),
+  `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SEND_TIMEOUT` (`10s`),
+  `EMAIL_WORKER_PREFETCH` (`10`), `EMAIL_WORKER_MAX_ATTEMPTS` (`5`) and
+  `EMAIL_WORKER_METRICS_ADDR` (`:9101`). With `EMAIL_PROVIDER=resend` the key
+  and the sender are required and the worker refuses to start without them. The
+  API's required-variable list does not change.
+- **When the pipeline stalls** (codes never arrive): open the console at
+  `/rabbitmq/` and look at the queues. Messages piling up in `email.otp` with
+  no consumer mean the worker is down or cannot reach the broker
+  (`docker compose logs worker`); messages cycling through `email.retry.*` mean
+  the provider is refusing; messages in `email.dead` were abandoned and need a
+  look at their cause. The same numbers are in Prometheus
+  (`rabbitmq_queue_messages_ready`, `rabbitmq_consumers`) and the worker's
+  `legnaris_email_send_total{result}`.
+
+## RabbitMQ provisioning
+
+The delivery queues live in their own vhost, `legnaris`, and the broker has two
+accounts with different powers: `legnaris` (the application's, created by the
+image from `RABBITMQ_PASSWORD`) moves codes in and out of that vhost and can
+never open the console; `operator` (the maintainer's) can open the console.
+Vhosts, accounts and permissions are broker state, not configuration, so the
+operator provisions them with the commands below. Nothing is provisioned
+silently on boot and no broker credential is committed.
+
+Run it once per broker volume, **before the relay and the worker are deployed**:
+an unprovisioned broker has no `legnaris` vhost, so neither can connect. Run it
+again whenever the broker's volume is replaced.
+
+```bash
+cd deploy
+docker compose up -d --build rabbitmq
+read -rs RABBITMQ_OPS_PASSWORD && export RABBITMQ_OPS_PASSWORD
+
+docker compose exec -e RABBITMQ_OPS_PASSWORD rabbitmq sh -ec '
+  : "${RABBITMQ_OPS_PASSWORD:?RABBITMQ_OPS_PASSWORD is required}"
+  rabbitmqctl -q --no-table-headers list_vhosts | grep -qx legnaris \
+    || rabbitmqctl add_vhost legnaris
+
+  if rabbitmqctl -q --no-table-headers list_users | cut -f1 | grep -qx operator; then
+    rabbitmqctl change_password operator "$RABBITMQ_OPS_PASSWORD"
+  else
+    rabbitmqctl add_user operator "$RABBITMQ_OPS_PASSWORD"
+  fi
+  rabbitmqctl set_user_tags operator management
+  rabbitmqctl set_permissions -p legnaris operator ".*" ".*" ".*"
+
+  rabbitmqctl set_user_tags legnaris
+  rabbitmqctl clear_permissions -p / legnaris
+  rabbitmqctl set_permissions -p legnaris legnaris ".*" ".*" ".*"
+'
+unset RABBITMQ_OPS_PASSWORD
+```
+
+- **Idempotent**: every step can be repeated. Running it again changes nothing
+  that is already right, and re-running it rotates the operator's password to
+  the one in your shell.
+- **The operator's password** is read from the environment of your shell at the
+  moment the command runs. It is never written to `.env` or the repository and
+  no service receives it. If it is unset or empty the script stops before any
+  change; the application keeps working, because it never uses that account.
+  `rabbitmqctl` receives it as an argument, so it is visible in the broker
+  container's process list while the command runs; anyone who can exec into
+  that container already controls the broker.
+- **Migrating an existing broker**: a `.env` that sets `RABBITMQ_URL` ending in
+  `/` still targets the default vhost, and the last commands remove the
+  application account's rights there. Point it at `.../legnaris` (or unset it)
+  before provisioning. Queues already declared in the default vhost are not
+  moved and can be deleted from the console once nothing reads them.
+- **What the application's account ends with**: no tag, so the console refuses
+  its login, and permissions on `legnaris` only, so it sees no other vhost. The
+  image creates that account with the administrator tag and rights on `/`; the
+  last three commands remove both.
+- **Check**: sign in at `/rabbitmq/` as `operator` (after the GitHub login);
+  the same page must refuse the `legnaris` account.
 
 ## One-time-code challenges
 

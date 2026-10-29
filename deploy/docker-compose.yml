@@ -10,8 +10,8 @@
 # Domains:
 #   api.legnaris.com.br  -> app (public API, no auth)
 #   app.legnaris.com.br  -> web (public PWA client, no auth)
-#   ops.legnaris.com.br  -> Grafana/Prometheus/Mongo Express (GitHub OAuth)
-#     /grafana, /prometheus, /mongo, /oauth2/callback
+#   ops.legnaris.com.br  -> Grafana/Prometheus/Mongo Express/RabbitMQ console (GitHub OAuth)
+#     /grafana, /prometheus, /mongo, /rabbitmq, /oauth2/callback
 #
 # Local development (via Cloudflare Tunnel):
 #   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
@@ -204,7 +204,11 @@ services:
 
   # ---- Message broker ---------------------------------------------------------
   rabbitmq:
-    image: rabbitmq:4-management
+    # Derived image: the pinned 4.x release with the Prometheus plugin enabled
+    # at build time (BRK-06, BRK-14). The pin lives in rabbitmq/Dockerfile.
+    build:
+      context: ./rabbitmq
+    image: legnaris-rabbitmq:local
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: legnaris
@@ -213,8 +217,11 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/20-legnaris.conf:ro
     # The broker is reachable only on the internal network: it declares no
-    # published host port, so only the relay can reach it (EML-16).
+    # published host port, for the console and the metrics alike. The console
+    # is served through Traefik (which also sits on the internal network), the
+    # relay and the worker connect directly (EML-16, BRK-05, BRK-07, BRK-12).
     networks:
       - internal
     healthcheck:
@@ -237,7 +244,7 @@ services:
     environment:
       DATABASE_URI: mongodb://legnaris_app:${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}@mongodb:27017/legnaris
       DATABASE_NAME: legnaris
-      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://legnaris:${RABBITMQ_PASSWORD}@rabbitmq:5672/}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://legnaris:${RABBITMQ_PASSWORD}@rabbitmq:5672/legnaris}
       EMAIL_RELAY_POLL_INTERVAL: ${EMAIL_RELAY_POLL_INTERVAL:-1s}
       EMAIL_RELAY_LEASE: ${EMAIL_RELAY_LEASE:-30s}
       EMAIL_RELAY_BATCH: ${EMAIL_RELAY_BATCH:-25}
@@ -251,6 +258,34 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---- Email worker (delivery process) ---------------------------------------
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: legnaris-app:local
+    restart: unless-stopped
+    # The shared image carries /worker beside /app and /relay. The worker needs
+    # no database and nothing depends on it: a broker or provider outage delays
+    # codes and never reaches the site (O2, BRK-01, BRK-03, BRK-20).
+    entrypoint: ["/worker"]
+    environment:
+      # The same delivery vhost as the relay; provision it first (README,
+      # "RabbitMQ provisioning").
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://legnaris:${RABBITMQ_PASSWORD}@rabbitmq:5672/legnaris}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_SEND_TIMEOUT: ${EMAIL_SEND_TIMEOUT:-10s}
+      EMAIL_WORKER_PREFETCH: ${EMAIL_WORKER_PREFETCH:-10}
+      EMAIL_WORKER_MAX_ATTEMPTS: ${EMAIL_WORKER_MAX_ATTEMPTS:-5}
+      EMAIL_WORKER_METRICS_ADDR: ${EMAIL_WORKER_METRICS_ADDR:-:9101}
+    networks:
+      - internal
+    depends_on:
       rabbitmq:
         condition: service_healthy
 
