@@ -10,14 +10,17 @@
 # package, so the site's /metrics publishes the publisher's and the worker's
 # series names at zero. Every legnaris_* selector below names the job that owns
 # the counter. Validate with `promtool check rules`.
+#
+# The oldest message's age is not read from the broker: the work queue is a
+# quorum queue, and the broker reports a head-message timestamp only for classic
+# queues. EmailOldestMessageTooOld therefore watches for a queue that has not
+# been empty for its whole patience (the lookback plus `for:`).
 groups:
   # The tunable limits. Each is a constant vector, so an alert compares against
   # a named value an operator edits here instead of a number buried in an
   # expression. The patience of each alert is its own `for:`.
   - name: legnaris-email-pipeline-thresholds
     rules:
-      - record: legnaris:email_pipeline:threshold_oldest_message_seconds
-        expr: vector(120)
       - record: legnaris:email_pipeline:threshold_backlog_pending
         expr: vector(100)
       - record: legnaris:email_pipeline:threshold_verification_failures
@@ -47,18 +50,15 @@ groups:
 
       - alert: EmailOldestMessageTooOld
         expr: |
-          (
-            time() - (rabbitmq_detailed_queue_head_message_timestamp{job="legnaris-rabbitmq-detailed", vhost="legnaris", queue="email.otp"} > 0)
-              > on() group_left() legnaris:email_pipeline:threshold_oldest_message_seconds
-          )
+          min_over_time(rabbitmq_queue_messages_ready{job="legnaris-rabbitmq", vhost="legnaris", queue="email.otp"}[1m]) > 0
           and on(vhost, queue)
-          (rabbitmq_queue_messages_ready{job="legnaris-rabbitmq", vhost="legnaris", queue="email.otp"} > 0)
-        for: 1m
+          (rabbitmq_queue_consumers{job="legnaris-rabbitmq", vhost="legnaris", queue="email.otp"} > 0)
+        for: 2m
         labels:
           severity: high
         annotations:
-          summary: The oldest message in the work queue has waited too long
-          description: The head of email.otp has been waiting for {{ $value | humanizeDuration }}; codes are expiring in the queue.
+          summary: The work queue has not drained, so its oldest message has waited too long
+          description: email.otp has had ready messages for the whole of the last three minutes although a consumer is attached; codes are waiting and may expire.
           runbook: deploy/README.md#emailoldestmessagetooold
 
       - alert: EmailPublicationBacklogTooLarge
@@ -116,7 +116,7 @@ groups:
           absent(rabbitmq_queue_consumers{job="legnaris-rabbitmq", vhost="legnaris", queue="email.otp"})
           or absent(legnaris_email_outbox_backlog{job="legnaris-relay"})
           or absent(legnaris_email_dead_total{job="legnaris-worker"})
-          or (up{job=~"legnaris-app|legnaris-rabbitmq-detailed"} == 0)
+          or (up{job="legnaris-app"} == 0)
         for: 5m
         labels:
           severity: high

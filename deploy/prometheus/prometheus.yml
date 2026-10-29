@@ -31,19 +31,6 @@ scrape_configs:
       - targets:
           - rabbitmq:15692
 
-  # The head message's age lives in the broker's queue_metrics family, read
-  # through the narrow detailed query instead of the full per-object output.
-  - job_name: legnaris-rabbitmq-detailed
-    metrics_path: /metrics/detailed
-    params:
-      family:
-        - queue_metrics
-      vhost:
-        - legnaris
-    static_configs:
-      - targets:
-          - rabbitmq:15692
-
   - job_name: traefik
     metrics_path: /metrics
     static_configs:

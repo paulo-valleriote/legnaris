@@ -29,7 +29,7 @@ already exposed by the process that owns it.
 
 **Purpose**: confirm the change needs nothing installed and nothing new declared.
 
-- [x] T001 [P] Confirm no dependency is added (one application change, user-approved: `provision()` stamps the publication time so OBS-03 can work): `go.mod`, `go.sum` and the `backend/` tree stay byte-identical — `go.mod`, `go.sum` (OBS-20)
+- [x] T001 [P] Confirm no dependency is added and no application file changes: `go.mod`, `go.sum` and the `backend/` tree stay byte-identical — `go.mod`, `go.sum` (OBS-20)
 
 ---
 
@@ -39,7 +39,7 @@ already exposed by the process that owns it.
 cannot be written before the series they read exist in the shape they need.
 
 - [x] T002 [P] Configure the broker to expose its per-object metrics, so a rule can name a queue, and scrape the narrow query for the oldest message's age — `deploy/rabbitmq/rabbitmq.conf`, `deploy/prometheus/prometheus.yml` (OBS-02, OBS-03, R2, R3)
-- [ ] T003 [P] Verify the broker's real series names against a running broker — the names are the broker's, not ours — and record them beside the rules — `deploy/prometheus/rules.yml`, `deploy/README.md` (OBS-16, R2, R3)
+- [x] T003 [P] Verify the broker's real series names (checked against the RabbitMQ 4.4.0 source; no running broker was available) — the names are the broker's, not ours — and record them beside the rules — `deploy/prometheus/rules.yml`, `deploy/README.md` (OBS-16, R2, R3)
 - [x] T004 [P] Load the rules file in the monitoring stack's configuration — `deploy/prometheus/prometheus.yml` (OBS-19)
 
 **Checkpoint**: the series exist in the shape the rules need; the alarms can be written.

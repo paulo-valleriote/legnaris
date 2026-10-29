@@ -118,8 +118,8 @@ var pipelineAlerts = []expectedAlert{
 	},
 	{
 		name: "EmailOldestMessageTooOld", severity: "high", req: "OBS-03",
-		series: []string{"rabbitmq_detailed_queue_head_message_timestamp", "rabbitmq_queue_messages_ready"},
-		reads:  []string{workQueueSelector, `vhost="legnaris"`},
+		series: []string{"rabbitmq_queue_messages_ready", "rabbitmq_queue_consumers"},
+		reads:  []string{workQueueSelector, `vhost="legnaris"`, "min_over_time("},
 	},
 	{
 		name: "EmailPublicationBacklogTooLarge", severity: "high", req: "OBS-04",
@@ -149,7 +149,7 @@ var pipelineAlerts = []expectedAlert{
 	{
 		name: "EmailPipelineSeriesMissing", severity: "high", req: "OBS-16",
 		series: []string{"rabbitmq_queue_consumers", "legnaris_email_outbox_backlog", "legnaris_email_dead_total", "up{"},
-		reads:  []string{"absent(", `legnaris-app`, `legnaris-rabbitmq-detailed`},
+		reads:  []string{"absent(", `legnaris-app`},
 	},
 }
 
@@ -260,7 +260,6 @@ func TestAlertRuleThresholdsAreConfigurable(t *testing.T) {
 	thresholds := recordedThresholds(t)
 
 	tunable := map[string]string{
-		"EmailOldestMessageTooOld":          thresholdPrefix + "oldest_message_seconds",
 		"EmailPublicationBacklogTooLarge":   thresholdPrefix + "backlog_pending",
 		"EmailVerificationFailuresClimbing": thresholdPrefix + "verification_failures",
 	}
@@ -288,10 +287,11 @@ func TestAlertRuleThresholdsAreConfigurable(t *testing.T) {
 		}
 	})
 
-	t.Run("Edge: a quiet pipeline never satisfies the backlog or age rules", func(t *testing.T) {
+	t.Run("Edge: the work queue rule needs a consumer and a queue that stayed non-empty, so a quiet pipeline never fires it", func(t *testing.T) {
 		age := alerts["EmailOldestMessageTooOld"]
-		assert.Contains(t, age.Expr, "> 0", "an empty queue must not read as an infinitely old message")
-		assert.Contains(t, age.Expr, "and on(", "the age must be tied to a queue that is holding messages")
+		assert.Contains(t, age.Expr, "min_over_time(", "an empty queue at any point in the window must clear the rule")
+		assert.Contains(t, age.Expr, "and on(", "a missing consumer is the consumer rule's fact, not this one's")
+		assert.NotEmpty(t, age.For, "the patience is the rule's own period")
 	})
 }
 
@@ -304,9 +304,8 @@ func TestMonitoringEvaluatesTheRules(t *testing.T) {
 	var doc struct {
 		RuleFiles     []string `yaml:"rule_files"`
 		ScrapeConfigs []struct {
-			JobName       string              `yaml:"job_name"`
-			MetricsPath   string              `yaml:"metrics_path"`
-			Params        map[string][]string `yaml:"params"`
+			JobName       string `yaml:"job_name"`
+			MetricsPath   string `yaml:"metrics_path"`
 			StaticConfigs []struct {
 				Targets []string `yaml:"targets"`
 			} `yaml:"static_configs"`
@@ -323,20 +322,13 @@ func TestMonitoringEvaluatesTheRules(t *testing.T) {
 		assert.Contains(t, readCompose(t).Services["prometheus"].Volumes, rulesMountInStack)
 	})
 
-	t.Run("Happy path: the age is read through the narrow detailed query", func(t *testing.T) {
-		found := false
-		for _, job := range doc.ScrapeConfigs {
-			if job.JobName != "legnaris-rabbitmq-detailed" {
-				continue
-			}
-			found = true
-			assert.Equal(t, "/metrics/detailed", job.MetricsPath)
-			assert.Equal(t, []string{"queue_metrics"}, job.Params["family"])
-			assert.Equal(t, []string{"legnaris"}, job.Params["vhost"])
-			require.Len(t, job.StaticConfigs, 1)
-			assert.Equal(t, []string{"rabbitmq:15692"}, job.StaticConfigs[0].Targets)
+	t.Run("Edge: no rule reads the head-message timestamp, which the broker reports for classic queues only", func(t *testing.T) {
+		for name, rule := range alertsByName(t) {
+			assert.NotContainsf(t, rule.Expr, "head_message_timestamp", "alert %s: the work queue is a quorum queue", name)
 		}
-		assert.True(t, found, "the detailed scrape job must exist")
+		for _, job := range doc.ScrapeConfigs {
+			assert.NotEqual(t, "/metrics/detailed", job.MetricsPath, "the detailed scrape has nothing the alerts read")
+		}
 	})
 
 	t.Run("Happy path: the broker serves per-object metrics", func(t *testing.T) {
@@ -441,7 +433,7 @@ func TestDashboardCoversThePipeline(t *testing.T) {
 		{name: "expired count", series: "legnaris_email_expired_total", req: "OBS-11"},
 		{name: "queue depth", series: "rabbitmq_queue_messages_ready", req: "OBS-12"},
 		{name: "consumers", series: "rabbitmq_queue_consumers", req: "OBS-12"},
-		{name: "oldest message", series: "rabbitmq_detailed_queue_head_message_timestamp", req: "OBS-12"},
+		{name: "work queue not draining", series: "min_over_time(rabbitmq_queue_messages_ready", req: "OBS-12"},
 		{name: "provider answer time", series: "legnaris_email_send_duration_seconds", req: "OBS-12"},
 		{name: "daily allowance", series: "legnaris_auth_otp_cap_blocked_total", req: "OBS-12"},
 	}
@@ -570,7 +562,7 @@ func TestRunbookAnswersEveryAlarm(t *testing.T) {
 	t.Run("Edge: the broker series names are recorded with what was and was not verified", func(t *testing.T) {
 		body := entry("Broker series")
 		require.NotEmpty(t, body)
-		for _, fragment := range []string{"rabbitmq_queue_messages_ready", "rabbitmq_queue_consumers", "rabbitmq_detailed_queue_head_message_timestamp", "not been verified against a running broker"} {
+		for _, fragment := range []string{"rabbitmq_queue_messages_ready", "rabbitmq_queue_consumers", "quorum", "4.4.0"} {
 			assert.Containsf(t, body, fragment, "the broker series entry must carry %q", fragment)
 		}
 	})

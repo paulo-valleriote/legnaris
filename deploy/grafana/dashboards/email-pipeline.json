@@ -435,8 +435,8 @@
     {
       "id": 13,
       "type": "timeseries",
-      "title": "Oldest message in the work queue",
-      "description": "Reads rabbitmq_detailed_queue_head_message_timestamp (broker, queue_metrics family): how long the head of email.otp has waited.",
+      "title": "Work queue not draining",
+      "description": "Reads rabbitmq_queue_messages_ready (broker, per object): the lowest ready count of email.otp over the last minute; above zero for minutes means codes are waiting.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -454,14 +454,12 @@
             "uid": "prometheus"
           },
           "refId": "A",
-          "expr": "time() - (rabbitmq_detailed_queue_head_message_timestamp{job=\"legnaris-rabbitmq-detailed\", vhost=\"legnaris\", queue=\"email.otp\"} > 0)",
-          "legendFormat": "age"
+          "expr": "min_over_time(rabbitmq_queue_messages_ready{job=\"legnaris-rabbitmq\", vhost=\"legnaris\", queue=\"email.otp\"}[1m])",
+          "legendFormat": "min ready"
         }
       ],
       "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        },
+        "defaults": {},
         "overrides": []
       }
     }

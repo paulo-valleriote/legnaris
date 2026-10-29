@@ -528,9 +528,10 @@ or a code is lost), `high` (codes are late or not leaving), `medium` (the
 pipeline works but something needs a decision).
 
 Thresholds live in one block at the top of `prometheus/rules.yml` (the
-`legnaris:email_pipeline:threshold_*` recording rules): the oldest message's
-patience (120 s), the backlog (100 codes) and the verification failures (30 in
-ten minutes). Each alert's own patience is its `for:`. Restart Prometheus after
+`legnaris:email_pipeline:threshold_*` recording rules): the backlog (100
+codes) and the verification failures (30 in ten minutes). Each alert's own
+patience is its `for:`; the work queue's is its one-minute lookback plus
+`for:`. Restart Prometheus after
 editing; validate first with `promtool check rules` (see the feature's
 quickstart).
 
@@ -548,9 +549,9 @@ quickstart).
 
 ### EmailOldestMessageTooOld
 
-- **Means:** the head of `email.otp` has waited longer than the patience, so codes are expiring in the queue even though a consumer is attached.
-- **Do:** open the dashboard's provider answer time and consumers panels; a slow provider means waiting it out or lowering `EMAIL_WORKER_PREFETCH` pressure, a stuck worker means `docker compose restart worker`; the age counts from the last publication, so a message waiting in a retry tier arrives back in `email.otp` already as old as its tier's delay (up to 5 minutes) and is consumed within seconds, which the alert's patience absorbs.
-- **Escalate when:** the age passes `AUTH_OTP_TTL` and keeps growing, because every queued code is already useless.
+- **Means:** `email.otp` has had ready messages for the whole of the last three minutes although a consumer is attached, so the oldest code has been waiting at least that long and codes are expiring in the queue; the alert watches that the queue drains, because the broker cannot report the head message's age for a quorum queue.
+- **Do:** open the dashboard's provider answer time, work-queue and consumers panels; a slow provider means waiting it out, a stuck worker means `docker compose restart worker`; also check `EmailProviderRefusingSends`, because a refusing provider keeps messages cycling.
+- **Escalate when:** the queue is still not draining after `AUTH_OTP_TTL` (10 minutes), because every queued code is already useless; sustained high volume can also keep the queue non-empty without being a fault, which at the allowance's volume should not happen.
 
 ### EmailPublicationBacklogTooLarge
 
@@ -585,7 +586,7 @@ quickstart).
 ### EmailPipelineSeriesMissing
 
 - **Means:** a series the other alerts read has stopped arriving, so the broker, the relay, the worker or the site is not being scraped and the pipeline is unwatched; this alert exists so a rule never goes silently inert.
-- **Do:** open `/prometheus/targets` and look at `legnaris-app`, `legnaris-rabbitmq`, `legnaris-rabbitmq-detailed`, `legnaris-relay` and `legnaris-worker`; start the service that is down; if the broker is up but its series are absent, see "Broker series".
+- **Do:** open `/prometheus/targets` and look at `legnaris-app`, `legnaris-rabbitmq`, `legnaris-relay` and `legnaris-worker`; start the service that is down; if the broker is up but its series are absent, see "Broker series".
 - **Escalate when:** the pipeline stays unwatched for more than 10 minutes.
 
 ### The provider's daily allowance
@@ -608,18 +609,16 @@ The site, the relay and the worker share one metrics package, so the site's `/me
 | `legnaris_email_send_total`, `legnaris_email_dead_total`, `legnaris_email_expired_total`, `legnaris_email_send_duration_seconds` | `legnaris-worker` |
 | `legnaris_auth_otp_issued_total`, `legnaris_auth_otp_verify_total`, `legnaris_auth_otp_cap_blocked_total` | `legnaris-app` |
 | `rabbitmq_queue_messages_ready`, `rabbitmq_queue_consumers` | `legnaris-rabbitmq` |
-| `rabbitmq_detailed_queue_head_message_timestamp` | `legnaris-rabbitmq-detailed` |
 
 ### Broker series
 
-The alerts read three broker series: `rabbitmq_queue_messages_ready`, `rabbitmq_queue_consumers` and `rabbitmq_detailed_queue_head_message_timestamp`. The names are the broker's, taken from the RabbitMQ documentation for the pinned release, and have not been verified against a running broker. The broker is switched to per-object metrics (`prometheus.return_per_object_metrics`), which adds the `queue` and `vhost` labels; the head message's age comes from the narrow `/metrics/detailed?family=queue_metrics` query, and it exists only because the publisher stamps each message with its publication time. Verify the names after any broker upgrade, and the first time on a real broker:
+The alerts read two broker series: `rabbitmq_queue_messages_ready` and `rabbitmq_queue_consumers`. They were checked against the RabbitMQ 4.4.0 source (the `rabbitmq_prometheus` collector), not against a running broker: with `prometheus.return_per_object_metrics` the `/metrics` endpoint serves them with the `queue` and `vhost` labels. The broker's head-message timestamp (`rabbitmq_detailed_queue_head_message_timestamp`) is deliberately not used: the broker computes it only for classic queues, and `email.otp` is a quorum queue, so it would never be reported. Verify the names after any broker upgrade:
 
 ```bash
 docker compose exec prometheus wget -qO- http://rabbitmq:15692/metrics | grep -E '^rabbitmq_queue_(messages_ready|consumers)\{'
-docker compose exec prometheus wget -qO- 'http://rabbitmq:15692/metrics/detailed?family=queue_metrics&vhost=legnaris' | grep head_message_timestamp
 ```
 
-`email.otp` is a quorum queue, and whether the broker reports a head message timestamp for quorum queues is also unconfirmed: if that series stays absent while the queue holds messages, `EmailOldestMessageTooOld` is inert and `EmailPipelineSeriesMissing` cannot tell (an empty queue has no timestamp either), so watch the queue depth and consumers panels. If the timestamp is reported in milliseconds instead of seconds, divide it by 1000 in `EmailOldestMessageTooOld` and in the dashboard panel. Switching the broker to per-object mode resets the queue series once, so the queue panels start fresh after the first deploy.
+Switching the broker to per-object mode resets the queue series once, so the queue panels start fresh after the first deploy.
 
 ## 13. Gotchas (learned in testing)
 
