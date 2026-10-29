@@ -276,3 +276,41 @@ func TestOperatorRoutesKeepTheirGate(t *testing.T) {
 		})
 	}
 }
+
+// TestPipelineDashboardStaysBehindTheOperatorsRoute guards the dashboard's
+// reach: it is served by the monitoring dashboard host, which is routed only on
+// the operator's domain behind the sign-in gate, and the provisioned directory
+// is mounted read-only so nothing edited in a browser outlives a restart
+// (OBS-10, OBS-21, SC-006).
+func TestPipelineDashboardStaysBehindTheOperatorsRoute(t *testing.T) {
+	doc := readRoutes(t)
+	compose := readCompose(t)
+
+	t.Run("Happy path: the dashboard host is on the operator's domain behind the gate", func(t *testing.T) {
+		router, ok := doc.HTTP.Routers["grafana"]
+		require.True(t, ok)
+		assert.Contains(t, router.Rule, opsHostRule)
+		assert.Equal(t, []string{"oauth", "security-headers"}, router.Middlewares)
+	})
+
+	t.Run("Edge: every router that reaches the dashboard host carries the gate first", func(t *testing.T) {
+		reached := 0
+		for name, router := range doc.HTTP.Routers {
+			if router.Service != "grafana" {
+				continue
+			}
+			reached++
+			require.NotEmptyf(t, router.Middlewares, "router %s reaches the dashboard host and must carry the gate", name)
+			assert.Equalf(t, "oauth", router.Middlewares[0], "router %s must gate before anything else", name)
+		}
+		assert.GreaterOrEqual(t, reached, 1, "guard: at least the dashboard's own router must be checked")
+	})
+
+	t.Run("Edge: the dashboard host publishes no port of its own", func(t *testing.T) {
+		assert.Empty(t, compose.Services["grafana"].Ports)
+	})
+
+	t.Run("Happy path: the pipeline's dashboard directory is provisioned read-only", func(t *testing.T) {
+		assert.Contains(t, compose.Services["grafana"].Volumes, "./grafana/dashboards:/var/lib/grafana/dashboards:ro")
+	})
+}

@@ -2,6 +2,7 @@ package amqp
 
 import (
 	"testing"
+	"time"
 
 	"legnaris/backend/internal/email"
 
@@ -19,6 +20,19 @@ func TestProvision_Properties(t *testing.T) {
 		assert.Equal(t, "application/json", props.ContentType)
 		assert.Equal(t, amqp.Persistent, props.DeliveryMode)
 		assert.Equal(t, msg.ID, props.MessageId, "the intention identity is the broker-level message id")
+	})
+
+	t.Run("Happy path: the publication time is stamped so the broker can report the head message's age (OBS-03)", func(t *testing.T) {
+		before := time.Now().Add(-time.Second)
+		stamped := provision(msg).Timestamp
+		after := time.Now().Add(time.Second)
+
+		assert.False(t, stamped.IsZero())
+		assert.True(t, stamped.After(before) && stamped.Before(after), "the stamp must be the publication time, got %s", stamped)
+	})
+
+	t.Run("Edge: an empty message is still stamped", func(t *testing.T) {
+		assert.False(t, provision(email.Message{}).Timestamp.IsZero())
 	})
 
 	t.Run("Edge: the code is absent from every derived property", func(t *testing.T) {
