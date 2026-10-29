@@ -206,7 +206,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
       }),
     });
 
-    renderApp('/', { session });
+    renderApp('/sign-in', { session });
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),

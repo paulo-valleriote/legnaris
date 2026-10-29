@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { createAuthApi } from '../api/auth_api';
 import type { Transport } from '../api/transport';
 import { AppProviders } from '../app/providers';
@@ -27,7 +28,9 @@ function renderAuth(
 
   const view = render(
     <AppProviders session={session} sheetStore={createMemorySheetStore()}>
-      <AuthScreen restore={restore} />
+      <MemoryRouter>
+        <AuthScreen restore={restore} />
+      </MemoryRouter>
     </AppProviders>,
   );
 

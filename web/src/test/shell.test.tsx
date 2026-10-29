@@ -41,14 +41,13 @@ describe('application shell', () => {
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   });
 
-  it('Happy path: the navigation footer hosts the theme control (UIF-27)', () => {
+  it('Edge: the signed-in app is always dark, so the navigation carries no theme control', () => {
     renderApp('/');
 
     const nav = screen.getByRole('navigation', { name: 'Primary' });
-    const control = screen.getByRole('button', { name: message('theme.toggleLabel') });
 
-    expect(nav).toContainElement(control);
-    expect(nav.querySelector('.lg-nav__footer')).toContainElement(control);
+    expect(within(nav).queryByRole('button', { name: /theme/i })).not.toBeInTheDocument();
+    expect(nav.querySelector('.lg-nav__footer')).toBeInTheDocument();
   });
 
   it('Happy path: the content region shows the template catalog (WCT-01)', async () => {

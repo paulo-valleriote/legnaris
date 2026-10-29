@@ -9,6 +9,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const catalogDir = path.resolve(here, '../catalog');
 const engineDir = path.resolve(here, '../engine');
 const authDir = path.resolve(here, '../auth');
+const landingDir = path.resolve(here, '../landing');
 const sheetDir = path.resolve(here, '../sheet');
 const libraryDir = path.resolve(here, '../library');
 
@@ -168,7 +169,13 @@ describe('the parameterized copy resolution (WCS-13)', () => {
   it('Edge: no catalog entry keeps a placeholder after a resolution', () => {
     for (const key of keys) {
       expect(
-        messageWith(key, { email: 'a@b.test', minutes: 10, seconds: 42, mode: 'new account' }),
+        messageWith(key, {
+          email: 'a@b.test',
+          minutes: 10,
+          seconds: 42,
+          mode: 'new account',
+          year: 2026,
+        }),
       ).not.toMatch(/\{(\w+)\}/);
     }
   });
@@ -474,5 +481,34 @@ describe('auth copy keys and source scan (WAS-19, WAS-25, WAS-30, WAS-31)', () =
     for (const key of authSurfaceKeys) {
       expect(referenced.has(key)).toBe(true);
     }
+  });
+});
+
+describe('landing copy keys and source scan (DESIGN.md, Landing surface)', () => {
+  const landingKeys = keys.filter((key) => key.startsWith('landing.'));
+
+  it('Happy path: the landing owns a catalog of keys, each resolving to non-empty copy', () => {
+    expect(landingKeys.length).toBeGreaterThan(0);
+    for (const key of landingKeys) {
+      expect(message(key).trim()).not.toBe('');
+    }
+  });
+
+  it('Edge: every key the landing sources resolve exists, and every landing key is used', () => {
+    const known = new Set<string>(keys);
+    const referenced = new Set<string>();
+    for (const name of readdirSync(landingDir).filter((file) => /\.tsx?$/.test(file))) {
+      const text = readFileSync(path.join(landingDir, name), 'utf8');
+      for (const match of text.matchAll(/'((?:landing|auth|app|theme)\.[A-Za-z0-9]+)'/g)) {
+        expect(known.has(match[1])).toBe(true);
+        referenced.add(match[1]);
+      }
+    }
+    expect(landingKeys.filter((key) => !referenced.has(key))).toEqual([]);
+  });
+
+  it('Edge: the copyright line refuses to resolve without its year', () => {
+    expect(() => messageWith('landing.copyright', {})).toThrow();
+    expect(messageWith('landing.copyright', { year: 2026 })).toBe('© 2026 Legnaris');
   });
 });

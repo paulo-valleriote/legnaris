@@ -2,34 +2,120 @@
  * The auth-surface styles. Every value comes from the shared design tokens; no
  * literal color or pixel value appears here (WAS-31).
  *
- * The panel is a focused column on the page background, opening with the brand
- * lockup and a mode-specific title. The mode switch is one segmented track so
- * only the active mode carries the accent fill. The code surface shares the
- * panel and adds the code field's six single-digit positions, the origin line
- * that replaces the mode switch, and the swap between the two surfaces.
+ * The surface lives in the landing's world: the lava-crater photograph under its
+ * scrim on one side and a flat teal-black panel on the other (below the photograph
+ * on a narrow viewport), always dark whatever the theme, with the lava accent for
+ * the one action and the active mode (DESIGN.md, "Landing surface"). The panel is
+ * a focused column: a title, the mode switch as two underlined tabs, the fields
+ * and one primary action. The code surface shares the panel and adds the code
+ * field's six single-digit positions, the origin line that replaces the mode
+ * switch, and the swap between the two surfaces.
  */
 
-.lg-auth {
-  display: flex;
-  align-items: center;
-  align-items: safe center;
-  justify-content: center;
-  min-height: 100%;
-  padding: var(--lg-space-24);
-  background-color: var(--lg-color-bg);
+:root:has(.lg-auth) {
+  color-scheme: dark;
 }
+
+body:has(.lg-auth) {
+  background-color: var(--lg-color-stage);
+}
+
+.lg-auth {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100%;
+  background-color: var(--lg-color-stage-band);
+  color: var(--lg-color-stage-text);
+}
+
+.lg-auth ::selection {
+  background-color: var(--lg-color-stage-accent);
+  color: var(--lg-color-stage-accent-text);
+}
+
+.lg-auth :focus-visible {
+  outline-color: var(--lg-color-stage-focus);
+}
+
+/* The photograph side */
+
+.lg-auth__stage {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-start;
+  min-height: clamp(10rem, 26svh, 15rem);
+  padding: var(--lg-space-24);
+  overflow: hidden;
+  background-color: var(--lg-color-stage);
+}
+
+.lg-auth__photo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 46%;
+  animation: lg-auth-photo var(--lg-motion-600) var(--lg-ease-out) both;
+}
+
+.lg-auth__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      to top,
+      var(--lg-color-stage-band) 0%,
+      var(--lg-color-stage-scrim) 40%,
+      transparent 85%
+    ),
+    linear-gradient(to bottom, var(--lg-color-stage-scrim) 0%, transparent 45%);
+}
+
+.lg-auth__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lg-space-12);
+  color: var(--lg-color-stage-text);
+  text-decoration: none;
+}
+
+.lg-auth__mark {
+  display: inline-flex;
+  width: var(--lg-space-24);
+  height: var(--lg-space-24);
+}
+
+.lg-auth__mark .lg-brand__core {
+  fill: var(--lg-color-stage-accent);
+}
+
+.lg-auth__mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.lg-auth__wordmark {
+  font-size: var(--lg-type-18);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* The panel */
 
 .lg-auth__panel {
   display: flex;
   flex-direction: column;
   gap: var(--lg-space-24);
-  width: 100%;
-  max-width: var(--lg-size-auth-max);
-  padding: var(--lg-space-32);
-  border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-md);
-  background-color: var(--lg-color-surface);
-  box-shadow: var(--lg-shadow-1);
+  padding: var(--lg-space-24) max(var(--lg-space-24), calc((100% - var(--lg-size-auth-max)) / 2))
+    var(--lg-space-48);
+  background-color: var(--lg-color-stage-band);
   animation: lg-auth-swap var(--lg-motion-240) var(--lg-ease-standard);
 }
 
@@ -48,103 +134,79 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .lg-auth__panel {
-    animation: none;
+@keyframes lg-auth-photo {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 
-.lg-auth__brand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--lg-space-8);
-  padding-bottom: var(--lg-space-24);
-  border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
-}
-
-.lg-auth__mark {
-  display: block;
-  width: var(--lg-space-32);
-  height: var(--lg-space-32);
-  color: var(--lg-color-text);
-}
-
-.lg-auth__mark svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.lg-auth__wordmark {
-  font-size: var(--lg-type-16);
-  font-weight: var(--lg-font-weight-semibold);
-  line-height: var(--lg-line-tight);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.lg-auth__tagline {
-  font-size: var(--lg-type-12);
-  line-height: var(--lg-line-tight);
-  letter-spacing: 0.02em;
-  color: var(--lg-color-text-muted);
+@media (prefers-reduced-motion: reduce) {
+  .lg-auth__panel,
+  .lg-auth__photo {
+    animation: none;
+  }
 }
 
 .lg-auth__intro {
   display: flex;
   flex-direction: column;
-  gap: var(--lg-space-4);
+  gap: var(--lg-space-8);
 }
 
 .lg-auth__title {
   margin: 0;
-  font-size: var(--lg-type-24);
+  font-size: var(--lg-type-30);
   font-weight: var(--lg-font-weight-semibold);
-  line-height: var(--lg-line-tight);
+  line-height: var(--lg-line-display);
+  letter-spacing: var(--lg-tracking-display);
+  text-wrap: balance;
 }
 
 .lg-auth__subtitle {
   margin: 0;
-  font-size: var(--lg-type-15);
+  font-size: var(--lg-type-16);
   line-height: var(--lg-line-normal);
-  color: var(--lg-color-text-muted);
+  color: var(--lg-color-stage-text-muted);
 }
 
 .lg-auth__modes {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--lg-space-2);
-  padding: var(--lg-space-2);
-  border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-md);
-  background-color: var(--lg-color-inset);
+  border-bottom: var(--lg-size-hairline) solid var(--lg-color-stage-line);
 }
 
 .lg-auth__mode {
-  min-height: calc(var(--lg-size-control) - var(--lg-space-4));
+  min-height: var(--lg-size-control);
+  margin-bottom: calc(var(--lg-size-hairline) * -1);
   padding: 0 var(--lg-space-12);
   border: 0;
-  border-radius: var(--lg-radius-sm);
+  border-bottom: var(--lg-space-2) solid transparent;
   background-color: transparent;
-  color: var(--lg-color-text-muted);
+  color: var(--lg-color-stage-text-muted);
   font-family: inherit;
   font-size: var(--lg-type-15);
   font-weight: var(--lg-font-weight-medium);
   cursor: pointer;
   transition:
-    background-color var(--lg-motion-180) var(--lg-ease-standard),
+    border-color var(--lg-motion-180) var(--lg-ease-standard),
     color var(--lg-motion-180) var(--lg-ease-standard);
 }
 
 .lg-auth__mode:hover {
-  background-color: var(--lg-color-surface-hover);
-  color: var(--lg-color-text);
+  color: var(--lg-color-stage-text);
+}
+
+.lg-auth__mode:focus-visible {
+  outline-offset: calc(var(--lg-focus-offset) * -1);
 }
 
 .lg-auth__mode[aria-pressed='true'] {
-  background-color: var(--lg-color-accent);
-  color: var(--lg-color-accent-text);
+  border-bottom-color: var(--lg-color-stage-accent);
+  color: var(--lg-color-stage-text);
 }
 
 .lg-auth__form {
@@ -156,39 +218,53 @@
 .lg-auth__field {
   display: flex;
   flex-direction: column;
-  gap: var(--lg-space-4);
+  gap: var(--lg-space-8);
 }
 
 .lg-auth__label {
   font-size: var(--lg-type-13);
   font-weight: var(--lg-font-weight-semibold);
-  color: var(--lg-color-text);
+  color: var(--lg-color-stage-text);
 }
 
 .lg-auth__input {
-  min-height: var(--lg-size-control);
+  min-height: calc(var(--lg-size-control) + var(--lg-space-4));
   padding: 0 var(--lg-space-12);
-  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border: var(--lg-size-hairline) solid var(--lg-color-stage-line);
   border-radius: var(--lg-radius-sm);
-  background-color: var(--lg-color-bg);
-  color: var(--lg-color-text);
+  background-color: var(--lg-color-stage-raised);
+  color: var(--lg-color-stage-text);
+  caret-color: var(--lg-color-stage-accent);
   font-family: inherit;
-  font-size: var(--lg-type-15);
+  font-size: var(--lg-type-16);
   transition: border-color var(--lg-motion-180) var(--lg-ease-standard);
 }
 
 .lg-auth__input:hover {
-  border-color: var(--lg-color-border-strong);
+  border-color: var(--lg-color-stage-text-muted);
+}
+
+.lg-auth__input:focus-visible {
+  border-color: var(--lg-color-stage-focus);
+}
+
+.lg-auth__input:-webkit-autofill {
+  -webkit-text-fill-color: var(--lg-color-stage-text);
+  box-shadow: 0 0 0 100rem var(--lg-color-stage-raised) inset;
+}
+
+.lg-auth__input[aria-invalid='true'] {
+  border-color: var(--lg-color-stage-danger);
 }
 
 .lg-auth__error {
   margin: 0;
-  padding: var(--lg-space-8) var(--lg-space-12);
-  border: var(--lg-size-hairline) solid var(--lg-color-danger);
+  padding: var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-stage-danger);
   border-radius: var(--lg-radius-sm);
-  background-color: var(--lg-color-bg);
-  color: var(--lg-color-danger);
-  font-size: var(--lg-type-13);
+  color: var(--lg-color-stage-danger);
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
 }
 
 .lg-auth__footer {
@@ -196,14 +272,37 @@
 }
 
 .lg-auth__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
+  min-height: calc(var(--lg-size-control) + var(--lg-space-8));
+  padding: 0 var(--lg-space-24);
+  border: var(--lg-size-hairline) solid transparent;
+  border-radius: var(--lg-radius-md);
+  background-color: var(--lg-color-stage-accent);
+  color: var(--lg-color-stage-accent-text);
+  font-family: inherit;
+  font-size: var(--lg-type-16);
+  font-weight: var(--lg-font-weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--lg-motion-180) var(--lg-ease-standard);
+}
+
+.lg-auth__submit:hover:not(:disabled) {
+  background-color: var(--lg-color-stage-accent-hover);
+}
+
+.lg-auth__submit:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
 
 .lg-auth__origin {
   margin: 0;
   font-size: var(--lg-type-13);
   font-weight: var(--lg-font-weight-semibold);
-  color: var(--lg-color-text-muted);
+  color: var(--lg-color-stage-text-muted);
 }
 
 .lg-auth__code {
@@ -228,48 +327,40 @@
   align-items: center;
   justify-content: center;
   min-height: var(--lg-size-control);
-  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border: var(--lg-size-hairline) solid var(--lg-color-stage-line);
   border-radius: var(--lg-radius-sm);
-  background-color: var(--lg-color-bg);
+  background-color: var(--lg-color-stage-raised);
+  color: var(--lg-color-stage-accent);
   font-size: var(--lg-type-24);
+  font-weight: var(--lg-font-weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: var(--lg-line-tight);
 }
 
-.lg-auth__back {
+.lg-auth__back,
+.lg-auth__inline-action {
   align-self: flex-start;
-  padding: 0;
+  padding: var(--lg-space-8) 0;
   border: 0;
   background-color: transparent;
-  color: var(--lg-color-accent);
+  color: var(--lg-color-stage-accent);
   font-family: inherit;
-  font-size: var(--lg-type-13);
+  font-size: var(--lg-type-15);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
   cursor: pointer;
+  transition: color var(--lg-motion-180) var(--lg-ease-standard);
 }
 
-.lg-auth__back:hover {
-  color: var(--lg-color-accent-hover);
+.lg-auth__back:hover,
+.lg-auth__inline-action:hover {
+  color: var(--lg-color-stage-accent-hover);
 }
 
 .lg-auth__refusal {
   display: flex;
   flex-direction: column;
-  gap: var(--lg-space-8);
-}
-
-.lg-auth__inline-action {
-  align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background-color: transparent;
-  color: var(--lg-color-accent);
-  font-family: inherit;
-  font-size: var(--lg-type-13);
-  cursor: pointer;
-}
-
-.lg-auth__inline-action:hover {
-  color: var(--lg-color-accent-hover);
+  gap: var(--lg-space-4);
 }
 
 .lg-auth__resend {
@@ -282,11 +373,33 @@
 .lg-auth__hint {
   margin: 0;
   font-size: var(--lg-type-13);
-  color: var(--lg-color-text-muted);
+  color: var(--lg-color-stage-text-muted);
+}
+
+.lg-auth__resend-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--lg-size-control);
+  padding: 0 var(--lg-space-16);
+  border: var(--lg-size-hairline) solid var(--lg-color-stage-line);
+  border-radius: var(--lg-radius-md);
+  background-color: transparent;
+  color: var(--lg-color-stage-text);
+  font-family: inherit;
+  font-size: var(--lg-type-15);
+  font-weight: var(--lg-font-weight-semibold);
+  cursor: pointer;
+  transition: border-color var(--lg-motion-180) var(--lg-ease-standard);
+}
+
+.lg-auth__resend-action:hover {
+  border-color: var(--lg-color-stage-text);
 }
 
 .lg-auth__resend-action[aria-disabled='true'] {
-  color: var(--lg-color-text-subtle);
+  border-color: var(--lg-color-stage-line);
+  color: var(--lg-color-stage-text-muted);
   cursor: not-allowed;
 }
 
@@ -294,19 +407,19 @@
   margin: 0;
   font-size: var(--lg-type-13);
   font-variant-numeric: tabular-nums;
-  color: var(--lg-color-text-muted);
+  color: var(--lg-color-stage-text-muted);
 }
 
 .lg-auth__status {
   margin: 0;
   font-size: var(--lg-type-13);
-  color: var(--lg-color-text-muted);
+  color: var(--lg-color-stage-text-muted);
 }
 
 .lg-auth__notice {
   margin: 0;
   font-size: var(--lg-type-13);
-  color: var(--lg-color-danger);
+  color: var(--lg-color-stage-danger);
 }
 
 .lg-auth__restoring {
@@ -315,16 +428,38 @@
   color: var(--lg-color-text-muted);
 }
 
-@media (max-width: 30rem) {
-  .lg-auth {
-    padding: 0;
+/* Wider viewports: the photograph takes the left, the panel the column beside it */
+
+@media (min-width: 40rem) {
+  .lg-auth__stage {
+    padding: var(--lg-space-32) var(--lg-space-48);
   }
 
   .lg-auth__panel {
-    max-width: none;
-    padding: var(--lg-space-24);
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
+    padding-top: var(--lg-space-32);
+  }
+}
+
+@media (min-width: 56rem) {
+  .lg-auth {
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--lg-size-auth-panel));
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .lg-auth__stage {
+    min-height: 0;
+    padding: var(--lg-space-48);
+  }
+
+  .lg-auth__scrim {
+    background:
+      linear-gradient(to top, var(--lg-color-stage-band) 0%, transparent 30%),
+      linear-gradient(to bottom, var(--lg-color-stage-scrim) 0%, transparent 25%);
+  }
+
+  .lg-auth__panel {
+    justify-content: center;
+    padding-block: var(--lg-space-48);
+    border-left: var(--lg-size-hairline) solid var(--lg-color-stage-line);
   }
 }

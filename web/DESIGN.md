@@ -163,8 +163,8 @@ Rules:
   hairline divider between groups. No zebra striping.
 - **Navigation.** A persistent left region opening with a brand lockup (sigil, tracked wordmark
   and tagline); each item pairs an icon with its label and closes with a chevron, and the current
-  item is marked with the accent fill and `--lg-color-accent-text`; the footer hosts the
-  icon-and-label session control and the theme switch (two end icons over a sliding thumb).
+  item is marked with the raised layer and an accent icon; the footer hosts the icon-and-label
+  session control. There is no theme switch: the signed-in app is always dark.
 - **Dialog / overlay.** `--lg-shadow-3`, `role="dialog"`, `aria-modal`, `Esc` cancels and focus is
   trapped within. The scrim uses `--lg-color-overlay`.
 - **Feedback.** Every async action shows progress and an inline result (success or a mapped error).
@@ -183,6 +183,67 @@ Rules:
 
 ---
 
+## Landing surface
+
+The public page a visitor without a session sees on `/` is the one surface where the app's
+restraint is relaxed, because its job is to persuade, not to operate. The exceptions below apply
+to `src/landing/` and to the auth surface in `src/auth/`, which the landing's actions lead into and
+which therefore keeps the landing's world. The signed-in app shares that world through the
+semantic layer (see "Signed-in app" below) but keeps the rules above, so it takes no photograph and
+no display-scale heading.
+
+- **One photograph, in the hero and on the auth surface.** A self-hosted WebP under `public/images/` in two widths
+  (`srcset`), decorative (`alt=""`), never decoding a third-party origin. A scrim built from
+  `--lg-color-stage` and `--lg-color-stage-scrim` keeps the type legible over it; the scrim and
+  the top-to-bottom fade are the only gradients the product allows.
+- **Stage roles.** The whole page sits on the `--lg-color-stage-*` roles, declared in both themes
+  with the same values: a teal-black ground (the colour of the hero photograph's rock), an
+  alternate band for the principles and the questions, a raised layer for the example, a lava
+  orange accent sampled from the photograph's lava, and a danger tone for refusals
+  (`--lg-color-stage-danger`). The landing is therefore always dark, whatever
+  the theme, and carries no theme control. The accent is used for the primary action, the sigil's
+  core, the step numerals and the derived values of the example.
+- **Display type.** Geist 600 at `--lg-type-display-lg` (hero) and `--lg-type-display-md`
+  (section titles), `--lg-line-display` and `--lg-tracking-display`.
+- **Rhythm.** Section padding uses `--lg-space-96` and, from the wide breakpoint, `--lg-space-128`.
+  Content is capped at `--lg-size-landing-max`. Rows and questions are hairline-divided, never
+  cards; the one bounded object is the recalculating example, on `--lg-color-stage-raised`.
+- **Proof, not claims.** The example recalculates real values with invented names and formulas and
+  says so in its caption. The page carries no testimonial, statistic, price or customer claim.
+- **Motion.** One authored entrance: the photograph settles (`--lg-motion-1200`) and the hero
+  content rises (`--lg-motion-600`, `--lg-ease-out`), staggered by `--lg-motion-120` steps.
+  Changing a base value replays a short rise on the derived values. Everything is zeroed under
+  `prefers-reduced-motion` and content is visible by default.
+- **Actions.** "Start your archive" leads to `/sign-up` and "Sign in" to `/sign-in`; both are
+  links. Buttons keep `--lg-radius-md`, never a pill.
+- **Accessibility.** Landmarks are `header`, `main` and `footer`; the questions are native
+  `details` disclosures; the stage focus ring is `--lg-color-stage-focus`; the stage text pairs are
+  asserted in both themes like every other pair.
+
+---
+
+## Signed-in app
+
+While the shell is mounted, `:root:has(.lg-shell)` in `tokens.css` remaps the semantic layer onto the
+stage roles, always dark whatever the stored or system theme: page and inset are the stage ground,
+surface is the stage band (the navigation, dialogs, the sheet footer), raised and surface-hover are
+the stage raised layer, text pairs are the stage text roles, border is the stage line, and the
+accent is the lava orange with `--lg-color-stage-accent-text` on its fill. Components keep reading
+semantics, so no route, dialog or control carries its own colour for this world.
+
+- **Same ground, quieter voice.** The app is an operating surface: page titles use
+  `--lg-type-30` with `--lg-tracking-display` and `--lg-line-display`, list rows use
+  `--lg-type-24`; there is no photograph and no section-scale display type.
+- **Rows, not boxes.** Catalog and own-sheet entries are hairline-divided rows; the trailing arrow
+  and the accent mark hover and focus only.
+- **Navigation.** The current item sits on the raised layer with the accent on its icon; the
+  accent fill is reserved for actions.
+- **Browser chrome.** The shell paints `theme-color` in the stage ground, like the landing.
+- **Contrast.** The remap uses only stage pairs already asserted in `tokens.ts`, plus
+  `--lg-color-border-strong`, which carries no text.
+
+---
+
 ## Accessibility
 
 - **AA in both themes** for every declared foreground/background pair (body text 4.5:1, focus ring
@@ -193,8 +254,7 @@ Rules:
 - **Keyboard-first:** tab order follows visual order, there are no keyboard traps, and `Esc`
   dismisses the topmost dismissible surface.
 - **Native controls match the theme** through `color-scheme`.
-- **Reduced motion** is honoured, and the theme control exposes an accessible name and its pressed
-  state.
+- **Reduced motion** is honoured.
 
 ---
 
@@ -220,8 +280,14 @@ Rules:
 - **Detail / form.** A header with the record's identity, aligned labelled fields, a sticky footer
   bar anchored to the page end carrying the dirty state and the primary action, and inline
   validation.
-- **Auth.** A centred panel on the page background; the mode switch uses the accent for the active
-  mode; errors render inline, never as a toast alone.
+- **Landing.** Public `/` for visitors; see the Landing surface section. Sign-in and registration
+  live on `/sign-in` and `/sign-up`, and a signed-in person on either is sent to `/`.
+- **Auth.** The landing's world, always dark: the photograph with the brand lockup on one side
+  (a short band above the panel on a narrow viewport) and a flat panel of `--lg-size-auth-panel`
+  beside it holding the title, the mode switch, the fields and the one primary action. The mode
+  switch is two underlined tabs, and the active one carries the accent; the primary action is the
+  stage accent fill; the lockup leads back to the landing. Errors render inline in the stage
+  danger tone, never as a toast alone.
 - **Auth — the code step.** The same panel in its second state, with no route of its own: it names
   the address the code was sent to and how long the code remains valid, takes the code over one
   field, keeps the refusal against that field, and offers the resend with its countdown and one way
@@ -252,17 +318,17 @@ Rules:
 
 ## Anti-patterns
 
-| Avoid                                                                                | Instead                                                                  |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| Cards for everything                                                                 | Dividers + section headers; cards only for genuinely bounded objects     |
-| Gradients, glow, glassmorphism / backdrop blur                                       | Flat surfaces, opaque surfaces with hairline borders                     |
-| Heavy or decorative shadows                                                          | One of the three elevation steps                                         |
-| A second accent, or the accent used decoratively                                     | One accent per theme, reserved to action / active / selection            |
-| Hardcoded hex, pixel or pixel-font values in a component                             | A `--lg-*` token; add one in both themes if it is genuinely missing      |
-| Body text or an accent label that fails AA                                           | Adjust the token until the both-theme assertion passes                   |
-| Animation longer than 240 ms, or that ignores reduced motion                         | A declared duration and easing, zeroed under `prefers-reduced-motion`    |
-| Large decorative headings, hero text, pill buttons, emoji icons, "AI SaaS" aesthetic | The declared type scale and the restrained component set                 |
-| Floating action buttons, bottom bars, swipe-only actions                             | A persistent navigation and a fixed footer/toolbar action                |
-| Decorative illustrations, including empty-state art                                  | One line of plain text                                                   |
-| Icon overload or icon-only controls without an accessible name                       | Text labels; icons only for universally recognised actions, always named |
-| Placeholder rows, lorem text or demo data                                            | A designed empty state                                                   |
+| Avoid                                                                                | Instead                                                                                                 |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Cards for everything                                                                 | Dividers + section headers; cards only for genuinely bounded objects                                    |
+| Gradients, glow, glassmorphism / backdrop blur                                       | Flat surfaces, opaque surfaces with hairline borders                                                    |
+| Heavy or decorative shadows                                                          | One of the three elevation steps                                                                        |
+| A second accent, or the accent used decoratively                                     | One accent per theme, reserved to action / active / selection                                           |
+| Hardcoded hex, pixel or pixel-font values in a component                             | A `--lg-*` token; add one in both themes if it is genuinely missing                                     |
+| Body text or an accent label that fails AA                                           | Adjust the token until the both-theme assertion passes                                                  |
+| Animation longer than 240 ms, or that ignores reduced motion                         | A declared duration and easing, zeroed under `prefers-reduced-motion`                                   |
+| Large decorative headings, hero text, pill buttons, emoji icons, "AI SaaS" aesthetic | The declared type scale and the restrained component set (the landing surface alone has display titles) |
+| Floating action buttons, bottom bars, swipe-only actions                             | A persistent navigation and a fixed footer/toolbar action                                               |
+| Decorative illustrations, including empty-state art                                  | One line of plain text                                                                                  |
+| Icon overload or icon-only controls without an accessible name                       | Text labels; icons only for universally recognised actions, always named                                |
+| Placeholder rows, lorem text or demo data                                            | A designed empty state                                                                                  |

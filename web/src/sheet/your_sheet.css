@@ -8,15 +8,16 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--lg-space-16);
-  padding: var(--lg-space-12);
-  border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-sm);
-  background-color: var(--lg-color-surface);
+  padding: var(--lg-space-16) var(--lg-space-8);
+  border-top: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
 }
 
 .lg-yoursheet__name {
-  font-size: var(--lg-type-15);
+  font-size: var(--lg-type-24);
   font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  letter-spacing: var(--lg-tracking-display);
 }
 
 .lg-yoursheet__actions {

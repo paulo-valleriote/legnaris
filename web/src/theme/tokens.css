@@ -20,6 +20,8 @@
   --lg-type-20: 20px;
   --lg-type-24: 24px;
   --lg-type-30: 30px;
+  --lg-type-display-md: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
+  --lg-type-display-lg: clamp(2.75rem, 1.2rem + 6vw, 5.75rem);
 
   --lg-font-weight-regular: 400;
   --lg-font-weight-medium: 500;
@@ -28,6 +30,8 @@
 
   --lg-line-tight: 1.2;
   --lg-line-normal: 1.5;
+  --lg-line-display: 1.02;
+  --lg-tracking-display: -0.035em;
 
   --lg-space-2: 2px;
   --lg-space-4: 4px;
@@ -37,6 +41,9 @@
   --lg-space-24: 24px;
   --lg-space-32: 32px;
   --lg-space-48: 48px;
+  --lg-space-64: 64px;
+  --lg-space-96: 96px;
+  --lg-space-128: 128px;
 
   --lg-radius-sm: 4px;
   --lg-radius-md: 8px;
@@ -52,6 +59,10 @@
   --lg-size-content-max: 960px;
   --lg-size-dialog-max: 600px;
   --lg-size-auth-max: 400px;
+  --lg-size-auth-panel: 32rem;
+  --lg-size-landing-max: 1280px;
+  --lg-size-landing-hero-min: 36rem;
+  --lg-size-landing-hero-max: 62rem;
 
   --lg-focus-width: 2px;
   --lg-focus-offset: 2px;
@@ -59,8 +70,11 @@
   --lg-motion-120: 120ms;
   --lg-motion-180: 180ms;
   --lg-motion-240: 240ms;
+  --lg-motion-600: 600ms;
+  --lg-motion-1200: 1200ms;
   --lg-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --lg-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
+  --lg-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Ramp: warm parchment (light surfaces) */
   --lg-parchment-000: #ffffff;
@@ -85,6 +99,7 @@
   --lg-charcoal-500: #4a4e54;
   --lg-charcoal-400: #948d85;
   --lg-charcoal-300: #a8a29b;
+  --lg-charcoal-200: #cdc8c0;
   --lg-charcoal-100: #ece9e4;
 
   /* Ramp: amber (the single accent) */
@@ -94,6 +109,18 @@
   --lg-amber-700: #92400e;
   --lg-amber-800: #8a4a08;
   --lg-amber-ink: #201a10;
+
+  /* Ramp: teal-black and bone (landing ground, sampled from the hero photograph) */
+  --lg-teal-950: #061516;
+  --lg-teal-900: #0a1b1d;
+  --lg-teal-800: #0f2a2c;
+  --lg-bone-100: #f2ebe1;
+  --lg-bone-300: #cdc5b8;
+
+  /* Ramp: lava (the landing's accent, sampled from the hero photograph) */
+  --lg-lava-400: #ff8a52;
+  --lg-lava-500: #f26a2e;
+  --lg-lava-ink: #1c0d06;
 
   /* Ramp: danger */
   --lg-danger-400: #f87171;
@@ -136,6 +163,19 @@
   --lg-color-focus: var(--lg-amber-800);
   --lg-color-ink: var(--lg-ink-900);
 
+  --lg-color-stage: var(--lg-teal-950);
+  --lg-color-stage-band: var(--lg-teal-900);
+  --lg-color-stage-raised: var(--lg-teal-800);
+  --lg-color-stage-scrim: rgba(6, 21, 22, 0.6);
+  --lg-color-stage-text: var(--lg-bone-100);
+  --lg-color-stage-text-muted: var(--lg-bone-300);
+  --lg-color-stage-line: rgba(242, 235, 225, 0.2);
+  --lg-color-stage-accent: var(--lg-lava-500);
+  --lg-color-stage-accent-hover: var(--lg-lava-400);
+  --lg-color-stage-accent-text: var(--lg-lava-ink);
+  --lg-color-stage-focus: var(--lg-lava-400);
+  --lg-color-stage-danger: var(--lg-danger-400);
+
   --lg-shadow-1: 0 1px 2px rgba(42, 33, 24, 0.08);
   --lg-shadow-2: 0 4px 12px rgba(42, 33, 24, 0.12);
   --lg-shadow-3: 0 12px 32px rgba(42, 33, 24, 0.18);
@@ -167,6 +207,55 @@
   --lg-color-warning: var(--lg-warning-400);
   --lg-color-focus: var(--lg-amber-400);
   --lg-color-ink: var(--lg-charcoal-900);
+
+  --lg-color-stage: var(--lg-teal-950);
+  --lg-color-stage-band: var(--lg-teal-900);
+  --lg-color-stage-raised: var(--lg-teal-800);
+  --lg-color-stage-scrim: rgba(6, 21, 22, 0.6);
+  --lg-color-stage-text: var(--lg-bone-100);
+  --lg-color-stage-text-muted: var(--lg-bone-300);
+  --lg-color-stage-line: rgba(242, 235, 225, 0.2);
+  --lg-color-stage-accent: var(--lg-lava-500);
+  --lg-color-stage-accent-hover: var(--lg-lava-400);
+  --lg-color-stage-accent-text: var(--lg-lava-ink);
+  --lg-color-stage-focus: var(--lg-lava-400);
+  --lg-color-stage-danger: var(--lg-danger-400);
+
+  --lg-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --lg-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --lg-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.72);
+}
+
+/*
+ * The signed-in app lives in the landing's world: while the shell is mounted the semantic layer
+ * is remapped onto the stage roles, always dark whatever the theme. Components keep reading the
+ * semantics, so every route, dialog and control under the shell follows without its own rules.
+ */
+:root:has(.lg-shell) {
+  color-scheme: dark;
+
+  --lg-color-bg: var(--lg-color-stage);
+  --lg-color-surface: var(--lg-color-stage-band);
+  --lg-color-surface-hover: var(--lg-color-stage-raised);
+  --lg-color-raised: var(--lg-color-stage-raised);
+  --lg-color-inset: var(--lg-color-stage);
+  --lg-color-overlay: rgba(6, 21, 22, 0.72);
+  --lg-color-text: var(--lg-color-stage-text);
+  --lg-color-text-muted: var(--lg-color-stage-text-muted);
+  --lg-color-text-subtle: var(--lg-color-stage-text-muted);
+  --lg-color-border: var(--lg-color-stage-line);
+  --lg-color-border-strong: rgba(242, 235, 225, 0.38);
+  --lg-color-accent: var(--lg-color-stage-accent);
+  --lg-color-accent-hover: var(--lg-color-stage-accent-hover);
+  --lg-color-accent-text: var(--lg-color-stage-accent-text);
+  --lg-color-danger: var(--lg-color-stage-danger);
+  --lg-color-danger-hover: var(--lg-danger-500);
+  --lg-color-danger-text: var(--lg-danger-950);
+  --lg-color-info: var(--lg-info-400);
+  --lg-color-success: var(--lg-success-400);
+  --lg-color-warning: var(--lg-warning-400);
+  --lg-color-focus: var(--lg-color-stage-focus);
+  --lg-color-ink: var(--lg-color-stage);
 
   --lg-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
   --lg-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.6);

@@ -57,9 +57,7 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
       await session.logout();
     });
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('landing')).toBeInTheDocument());
     expect(session.getSnapshot()).toMatchObject({ state: 'unauthenticated', accessToken: null });
     expect(store.records()).toEqual([]);
     await expect(store.readSheet(SHEET.id)).resolves.toBeNull();
@@ -94,9 +92,7 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
     });
 
     expect(session.getSnapshot().state).toBe('unauthenticated');
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('landing')).toBeInTheDocument());
   });
 
   it('Edge: a transient refresh failure is not a boundary and leaves the cached sheet and the draft in place (WAS-05, WAS-15)', async () => {

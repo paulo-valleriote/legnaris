@@ -26,7 +26,9 @@ function criticalViolations(results: Awaited<ReturnType<AxeBuilder['analyze']>>)
 }
 
 test.describe('auth surface, signed-in shell and own-sheet accessibility (SC-010, AD-014)', () => {
-  test('the auth surface has no critical violations and names its controls', async ({ page }) => {
+  test('the landing has no critical violations, names its landmarks and leads to the auth paths', async ({
+    page,
+  }) => {
     await page.route('**/auth/refresh', (route) =>
       route.fulfill({
         status: 401,
@@ -34,6 +36,29 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility (SC-010
       }),
     );
     await page.goto('/');
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'A character sheet that does its own math.' }),
+    ).toBeVisible();
+    await expect(page.getByRole('main')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Start your archive' }).first()).toBeVisible();
+
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(criticalViolations(results)).toEqual([]);
+
+    await page.getByRole('link', { name: 'Start your archive' }).first().click();
+    await expect(page).toHaveURL(/\/sign-up$/);
+    await expect(page.getByRole('textbox', { name: 'Username' })).toBeVisible();
+  });
+
+  test('the auth surface has no critical violations and names its controls', async ({ page }) => {
+    await page.route('**/auth/refresh', (route) =>
+      route.fulfill({
+        status: 401,
+        json: { error: { code: 'UNAUTHORIZED', message: 'no cookie' } },
+      }),
+    );
+    await page.goto('/sign-in');
 
     await expect(page.getByRole('heading', { name: 'Sign in to your archive' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible();
@@ -99,7 +124,7 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility (SC-010
     );
     await page.route('**/templates', (route) => route.fulfill({ json: { data: CATALOG } }));
 
-    await page.goto('/');
+    await page.goto('/sign-in');
 
     await page.getByLabel('Email').fill('a@b.test');
     await page.getByLabel('Password').fill('secret');
