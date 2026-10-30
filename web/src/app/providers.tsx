@@ -28,10 +28,13 @@ import { createIdbSheetStore } from '../library/idb_sheet_store';
 import { clearSessionData } from '../library/session_data';
 import type { SheetStore } from '../library/sheet_store';
 import { createLazySheetStore } from '../library/sheet_store';
+import type { ViewStorage } from '../sheet/view_store';
+import { browserViewStorage } from '../sheet/view_store';
 
 const ApiClientContext = createContext<ApiClient | undefined>(undefined);
 const SheetStoreContext = createContext<SheetStore | undefined>(undefined);
 const AuthSessionContext = createContext<AuthSession | undefined>(undefined);
+const ViewStorageContext = createContext<ViewStorage | undefined>(undefined);
 
 export interface AppProvidersProps {
   readonly children: ReactNode;
@@ -47,6 +50,8 @@ export interface AppProvidersProps {
   readonly queryClient?: QueryClient;
   /** Injected local store; tests pass an in-memory double (WSC-11). */
   readonly sheetStore?: SheetStore;
+  /** Injected view-preference storage; tests pass a memory double, the app uses `localStorage`. */
+  readonly viewStorage?: ViewStorage;
 }
 
 function createDefaultQueryClient(): QueryClient {
@@ -69,6 +74,11 @@ export function useSheetStore(): SheetStore {
     throw new Error('useSheetStore must be used within <AppProviders>.');
   }
   return store;
+}
+
+/** Resolves where the per-sheet view preferences are remembered; `undefined` when nowhere. */
+export function useViewStorage(): ViewStorage | undefined {
+  return useContext(ViewStorageContext);
 }
 
 /** Resolves the session from context (R11). */
@@ -96,11 +106,13 @@ export function AppProviders({
   session,
   queryClient,
   sheetStore,
+  viewStorage,
 }: AppProvidersProps) {
   const [baseUrl] = useState(() => resolveApiConfigFromBuild().baseUrl);
   const [fallbackTransport] = useState(() => createFetchTransport(fetch));
   const [fallbackQueryClient] = useState(createDefaultQueryClient);
   const [fallbackSheetStore] = useState(() => createLazySheetStore(() => createIdbSheetStore()));
+  const [fallbackViewStorage] = useState(browserViewStorage);
   const resolvedQueryClient = queryClient ?? fallbackQueryClient;
   const resolvedSheetStore = sheetStore ?? fallbackSheetStore;
   const rawTransport = transport ?? fallbackTransport;
@@ -145,7 +157,9 @@ export function AppProviders({
     <ApiClientContext.Provider value={resolvedClient}>
       <AuthSessionContext.Provider value={resolvedSession}>
         <SheetStoreContext.Provider value={resolvedSheetStore}>
-          <QueryClientProvider client={resolvedQueryClient}>{children}</QueryClientProvider>
+          <ViewStorageContext.Provider value={viewStorage ?? fallbackViewStorage}>
+            <QueryClientProvider client={resolvedQueryClient}>{children}</QueryClientProvider>
+          </ViewStorageContext.Provider>
         </SheetStoreContext.Provider>
       </AuthSessionContext.Provider>
     </ApiClientContext.Provider>

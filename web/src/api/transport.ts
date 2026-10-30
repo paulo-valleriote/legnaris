@@ -8,7 +8,7 @@
  */
 
 /** The HTTP methods the consumed operations use. */
-export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 /** A request as the client describes it, before any platform mapping. */
 export interface HttpRequest {

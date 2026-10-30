@@ -95,11 +95,9 @@ describe('sheet form composition (ENG-24, ENG-25, ENG-26, SC-002)', () => {
     );
     expect(screen.getByRole('checkbox', { name: 'NPC' })).not.toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'House rules' })).not.toBeChecked();
-    expect(screen.getByRole('status', { name: 'Total' })).toBeInTheDocument();
-    expect(screen.getByRole('status', { name: 'Total' })).toHaveClass(
-      'lg-field__readonly--numeric',
-    );
-    expect(screen.getByRole('status', { name: 'Mystery' })).not.toHaveClass(
+    expect(screen.getByRole('group', { name: 'Total' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Total' })).toHaveClass('lg-field__readonly--numeric');
+    expect(screen.getByRole('group', { name: 'Mystery' })).not.toHaveClass(
       'lg-field__readonly--numeric',
     );
     expect(screen.getByRole('combobox', { name: 'Ability' }).parentElement).toHaveClass(
@@ -167,7 +165,7 @@ describe('sheet form table rows (ENG-04, ENG-06)', () => {
     ),
   };
 
-  it('Happy path: collapsed sections render an expand button instead of rows, and toggle reports the key (F3 progressive disclosure)', () => {
+  it('Happy path: a disclosure title reports its key and collapsed sections hide their rows without unmounting them', () => {
     const onToggle = vi.fn();
     render(
       <SheetForm
@@ -179,10 +177,16 @@ describe('sheet form table rows (ENG-04, ENG-06)', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Flags: Expand section' })).toBeInTheDocument();
+    const flags = screen.getByRole('button', { name: 'Flags' });
+    expect(flags).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'Identity' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.queryByRole('checkbox', { name: 'NPC' })).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'NPC', hidden: true })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Flags: Expand section' }));
+    fireEvent.click(flags);
     expect(onToggle).toHaveBeenCalledWith('flags');
   });
 

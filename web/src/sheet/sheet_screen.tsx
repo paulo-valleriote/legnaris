@@ -12,10 +12,16 @@
  *
  * It also guards the unsaved work (WSC-36, WSC-37): `F5` refreshes the template
  * detail and leaving the screen asks for a discard confirmation first, both
- * through one modal that never stacks.
+ * through one modal that never stacks. A pending arrangement (Arrange mode, ADR
+ * 0001) counts as unsaved work for both guards but never as unsaved values: its
+ * store is separate from the edit store. A pin toggled in pin mode (ADR 0002) is saved at once,
+ * so it is never unsaved work; while its request is in flight the screen counts as working, which
+ * holds back a leave and `F5` exactly as an Arrange commit in flight does.
  */
 
+import type { FailureKind } from '../api/errors';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import type { Sheet } from '../api/models/sheet';
@@ -26,17 +32,19 @@ import {
   exclusiveValueIsOn,
   SheetExclusiveControl,
 } from '../engine/exclusive_control';
+import { DependentReadout } from '../engine/dependent_readout';
+import { dependentsAreStale } from '../engine/dependents';
 import { SheetFieldControl } from '../engine/field_control';
 import type { SheetExclusiveGroup, SheetField } from '../engine/field_grouping';
-import { buildSections } from '../engine/field_grouping';
+import { buildSections, fieldDisplayName, lastSegment } from '../engine/field_grouping';
 import type { SheetMark } from '../engine/sheet_mark';
 import { markLabel, SheetForm } from '../engine/sheet_form';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { useApiClient, useSheetStore } from '../app/providers';
-import { templateDetailKey } from '../catalog/queries';
+import { templateDetailKey, updateSheetLayout } from '../catalog/queries';
 import { startDraftCadence } from '../library/draft_backup';
-import { discardDraft } from '../library/sheet_library';
+import { discardDraft, discardLayoutDraft } from '../library/sheet_library';
 import { registerLeaveGuard } from '../shell/leave_guard';
 import { useSheetShortcuts } from '../shell/shortcut_registry';
 import type { PreviewMarks, SheetEditState, SheetEditStore } from './sheet_edit';
@@ -48,6 +56,15 @@ import {
   isPending,
   markForPaths,
 } from './sheet_edit';
+import { ARRANGE_FRAMES, ArrangeProvider } from './arrange_frames';
+import type { LayoutState, LayoutStore } from './layout_store';
+import { createLayoutStore, drawnArrangement, isArranging, isLayoutPending } from './layout_store';
+import { footerStatus, recalculatedCount, recalculatedSummary } from './preview_summary';
+import type { RevealView } from './reveal_row';
+import { revealFirstRecalculated, revealSection, revealTop } from './reveal_row';
+import { SectionIndex } from './section_index';
+import { CollapseAllButton, PinnedEmpty, useSheetView } from './sheet_view';
+import { HelpPanel, HelpToggle } from './sheet_help';
 import type { SheetOpenResult } from './sheet_open';
 import { useSheetOpen } from './sheet_open';
 import './sheet.css';
@@ -67,6 +84,11 @@ function RetryAction({ copy, onRetry }: RetryActionProps) {
 }
 
 /** Subscribes to the whole edit state; the footer and the marks read this (WSC-12, WSC-23). */
+/** The footer error class; an offline failure is not the player's fault, so it is not danger-toned. */
+function errorClass(kind: FailureKind | undefined): string {
+  return kind === 'offline' ? 'lg-sheet__error lg-sheet__error--offline' : 'lg-sheet__error';
+}
+
 function useEditState(store: SheetEditStore): SheetEditState {
   return useSyncExternalStore(store.subscribe, store.getState);
 }
@@ -80,10 +102,12 @@ function usePreviewMark(store: SheetEditStore, paths: readonly string[]): SheetM
 interface ConnectedFieldProps {
   readonly store: SheetEditStore;
   readonly field: SheetField;
+  readonly labelId?: string;
+  readonly describedById?: string;
 }
 
 /** One editable control, subscribed to its own path so an unrelated edit never re-renders it (AD-001). */
-function ConnectedField({ store, field }: ConnectedFieldProps) {
+function ConnectedField({ store, field, labelId, describedById }: ConnectedFieldProps) {
   const subscribe = useCallback(
     (listener: () => void) => store.subscribePath(field.path, listener),
     [store, field.path],
@@ -99,7 +123,42 @@ function ConnectedField({ store, field }: ConnectedFieldProps) {
       schema={field.schema}
       value={value}
       mark={mark}
+      labelId={labelId}
+      describedBy={describedById}
       onChanged={(next) => store.setPath(field.path, next)}
+    />
+  );
+}
+
+interface ConnectedDependentProps {
+  readonly store: SheetEditStore;
+  readonly dependent: SheetField;
+  readonly source: SheetField;
+}
+
+/**
+ * One derived value beside its input. It follows the derived leaf's own path, so a Preview or a
+ * Save that merges the cascade repaints it, and it reads stale from the input's edit state and the
+ * preview marks, both coarse booleans, so only a change of that answer re-renders it.
+ */
+function ConnectedDependent({ store, dependent, source }: ConnectedDependentProps) {
+  const subscribe = useCallback(
+    (listener: () => void) => store.subscribePath(dependent.path, listener),
+    [store, dependent.path],
+  );
+  const value = useSyncExternalStore(subscribe, () =>
+    valueAtPath(store.getState().data, dependent.path),
+  );
+  const stale = useSyncExternalStore(store.subscribe, () => {
+    const state = store.getState();
+    return dependentsAreStale(state.editedPaths.has(source.path), state.previewMarks !== undefined);
+  });
+
+  return (
+    <DependentReadout
+      label={fieldDisplayName(lastSegment(dependent.path), dependent.schema)}
+      value={value}
+      stale={stale}
     />
   );
 }
@@ -151,10 +210,64 @@ function ConnectedExclusive({ store, group }: ConnectedExclusiveProps) {
 
 interface SheetFooterProps {
   readonly store: SheetEditStore;
+  readonly reveal: RevealView;
+}
+
+interface FooterStatusProps {
+  readonly pending: boolean;
+  readonly marks: PreviewMarks | undefined;
+  readonly reveal: RevealView;
+  readonly children?: ReactNode;
+}
+
+/**
+ * The footer's single status line: the unsaved state and the last Preview's cascade in one phrase,
+ * with the Jump control inline. It owns the sheet's one polite live region, which announces only the
+ * cascade; the visible phrase is hidden from assistive technology while a Preview shows, so the
+ * summary is read once. With nothing to say the line is not drawn and, with no [children] (the
+ * error slots), the status block is empty and takes no room.
+ */
+function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
+  const count = marks === undefined ? undefined : recalculatedCount(marks);
+  const summary = count === undefined ? '' : recalculatedSummary(count);
+  const status = footerStatus(pending, count);
+
+  return (
+    <>
+      <p className="lg-visually-hidden" aria-live="polite" aria-atomic="true">
+        {summary}
+      </p>
+      <div className="lg-sheet__status">
+        {status !== '' && (
+          <div className="lg-sheet__status-line">
+            <p
+              className="lg-sheet__status-text"
+              aria-hidden={count === undefined ? undefined : true}
+              data-testid="sheet-status"
+            >
+              {status}
+            </p>
+            {count !== undefined && count > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                label={message('sheet.jumpToFirst')}
+                name={message('sheet.jumpToFirstName')}
+                onClick={() => {
+                  revealFirstRecalculated(document, reveal);
+                }}
+              />
+            )}
+          </div>
+        )}
+        {children}
+      </div>
+    </>
+  );
 }
 
 /** The fixed footer: the dirty indicator, the Preview and Save actions and their inline results (WSC-12, WSC-16, WSC-17, WSC-21, WSC-25). */
-function SheetFooter({ store }: SheetFooterProps) {
+function SheetFooter({ store, reveal }: SheetFooterProps) {
   const state = useEditState(store);
   const [savedRevision, setSavedRevision] = useState<number | undefined>(undefined);
   const pending = isPending(state);
@@ -178,27 +291,30 @@ function SheetFooter({ store }: SheetFooterProps) {
 
   return (
     <footer className="lg-sheet__footer">
-      <div className="lg-sheet__status">
-        {pending && (
-          <p className="lg-sheet__dirty" data-testid="sheet-pending">
-            {message('sheet.pendingEdits')}
-          </p>
-        )}
+      <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal}>
         {state.previewError !== undefined && (
-          <p className="lg-sheet__error" role="alert" data-testid="sheet-preview-error">
+          <p
+            className={errorClass(state.previewErrorKind)}
+            role="alert"
+            data-testid="sheet-preview-error"
+          >
             {state.previewError}
           </p>
         )}
         {state.saveError !== undefined && (
-          <p className="lg-sheet__error" role="alert" data-testid="sheet-save-error">
+          <p
+            className={errorClass(state.saveErrorKind)}
+            role="alert"
+            data-testid="sheet-save-error"
+          >
             {state.saveError}
           </p>
         )}
-      </div>
+      </FooterStatus>
       <div className="lg-sheet__actions">
         <Button
           variant="secondary"
-          size="sm"
+          size="md"
           disabled={!previewable}
           loading={state.isPreviewing}
           label={state.isPreviewing ? message('sheet.previewing') : message('sheet.preview')}
@@ -208,7 +324,7 @@ function SheetFooter({ store }: SheetFooterProps) {
         />
         <Button
           variant="primary"
-          size="sm"
+          size="md"
           disabled={!savable}
           loading={state.isSaving}
           label={
@@ -224,6 +340,87 @@ function SheetFooter({ store }: SheetFooterProps) {
         />
       </div>
     </footer>
+  );
+}
+
+/** Subscribes to the arrangement state; the header, the footer and the form read this. */
+function useLayoutState(store: LayoutStore): LayoutState {
+  return useSyncExternalStore(store.subscribe, store.getState);
+}
+
+interface ArrangeFooterProps {
+  readonly store: LayoutStore;
+}
+
+/** The footer while arranging: the pending indicator, the commit failure and the Reset, Cancel and Done actions. */
+function ArrangeFooter({ store }: ArrangeFooterProps) {
+  const state = useLayoutState(store);
+  const pending = isLayoutPending(state);
+
+  return (
+    <footer className="lg-sheet__footer" aria-label={message('arrange.toolbar')}>
+      <div className="lg-sheet__status">
+        {pending && (
+          <p className="lg-sheet__dirty" data-testid="arrange-pending">
+            {message('arrange.pending')}
+          </p>
+        )}
+        {state.commitError !== undefined && (
+          <p className="lg-sheet__error" role="alert" data-testid="arrange-error">
+            {state.commitError}
+          </p>
+        )}
+      </div>
+      <div className="lg-sheet__actions">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={state.isCommitting}
+          label={message('arrange.reset')}
+          onClick={() => store.reset()}
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={state.isCommitting}
+          label={message('arrange.cancel')}
+          onClick={() => store.cancel()}
+        />
+        <Button
+          variant="primary"
+          size="sm"
+          loading={state.isCommitting}
+          label={state.isCommitting ? message('arrange.saving') : message('arrange.done')}
+          onClick={() => {
+            void store.commit();
+          }}
+        />
+      </div>
+    </footer>
+  );
+}
+
+interface ArrangeToggleProps {
+  readonly store: LayoutStore;
+  readonly buttonRef: RefObject<HTMLButtonElement | null>;
+  readonly onStart: () => void;
+}
+
+/** The sheet header's entry to Arrange mode; it is a button, so it takes part in no drag. */
+function ArrangeToggle({ store, buttonRef, onStart }: ArrangeToggleProps) {
+  const state = useLayoutState(store);
+  if (isArranging(state)) {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      className="lg-button lg-button--ghost lg-button--sm"
+      ref={buttonRef}
+      onClick={onStart}
+    >
+      {message('arrange.start')}
+    </button>
   );
 }
 
@@ -325,19 +522,80 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   const client = useApiClient();
   const storePort = useSheetStore();
   const queryClient = useQueryClient();
+  const sheetId = sheet.id;
+  const sheetData = sheet.data;
+  const [committedLayout] = useState(sheet.layout);
   const editStore = useMemo(
-    () => createSheetEditStore({ template, sheet }, { client, store: storePort }),
-    [client, storePort, sheet, template],
+    () =>
+      createSheetEditStore(
+        { template, sheet: { id: sheetId, data: sheetData } },
+        { client, store: storePort },
+      ),
+    [client, storePort, sheetId, sheetData, template],
   );
-  const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
-  const sections = buildSections(template.fields);
+  const sections = useMemo(() => buildSections(template.fields), [template]);
+  const eyebrow = template.name.trim() === '' ? message('sheet.headerTitle') : template.name;
+  const layoutStore = useMemo(
+    () =>
+      createLayoutStore(
+        { sheetId, sections, layout: committedLayout },
+        {
+          client,
+          store: storePort,
+          onCommitted: (layout) => updateSheetLayout(queryClient, sheetId, layout),
+        },
+      ),
+    [client, storePort, queryClient, sheetId, sections, committedLayout],
+  );
+  const layoutState = useLayoutState(layoutStore);
+  const arranging = isArranging(layoutState);
+  const arrangement = drawnArrangement(layoutState);
   const marks = useSyncExternalStore<PreviewMarks | undefined>(
     editStore.subscribeMarks,
     () => editStore.getState().previewMarks,
   );
+  const view = useSheetView({
+    sheetId,
+    sections,
+    arrangement,
+    arranging,
+    marks,
+  });
+  const hasCalculated = useMemo(
+    () => sections.some((section) => section.leaves.some((leaf) => !leaf.schema.isEditable)),
+    [sections],
+  );
+  const [helpOpen, setHelpOpen] = useState(() => hasCalculated && !view.state.explainerSeen);
+  const helpToggleRef = useRef<HTMLButtonElement>(null);
+  const closeHelp = useCallback(() => {
+    setHelpOpen(false);
+    view.store.markExplainerSeen();
+  }, [view.store]);
+  const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
+  const arrangeToggleRef = useRef<HTMLButtonElement>(null);
+  const arrangeHintRef = useRef<HTMLParagraphElement>(null);
+  const focusArrangeHint = useRef(false);
+  const startArranging = useCallback(() => {
+    focusArrangeHint.current = true;
+    layoutStore.enter();
+  }, [layoutStore]);
+  const wasArranging = useRef(false);
 
   const controlBuilder = useCallback(
-    (field: SheetField) => <ConnectedField store={editStore} field={field} />,
+    (field: SheetField, labelId?: string, describedById?: string) => (
+      <ConnectedField
+        store={editStore}
+        field={field}
+        labelId={labelId}
+        describedById={describedById}
+      />
+    ),
+    [editStore],
+  );
+  const dependentBuilder = useCallback(
+    (dependent: SheetField, source: SheetField) => (
+      <ConnectedDependent store={editStore} dependent={dependent} source={source} />
+    ),
     [editStore],
   );
   const exclusiveControlBuilder = useCallback(
@@ -348,27 +606,61 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     (paths: readonly string[]) => {
       const mark = markForPaths(marks, paths);
       return mark === undefined ? null : (
-        <span className="lg-field-row__mark">{markLabel(mark)}</span>
+        <span className="lg-field-row__mark" data-mark={mark}>
+          {markLabel(mark)}
+        </span>
       );
     },
     [marks],
+  );
+
+  const sectionBadgeBuilder = useCallback(
+    (rowPaths: readonly (readonly string[])[]) => {
+      const count = rowPaths.filter((paths) => markForPaths(marks, paths) !== undefined).length;
+      return count === 0 ? null : (
+        <span className="lg-field-row__mark">
+          {messageWith('engine.sectionChanged', { count })}
+        </span>
+      );
+    },
+    [marks],
+  );
+
+  const scrollToTop = useCallback(() => {
+    revealTop(document);
+  }, []);
+
+  const jumpToSection = useCallback(
+    (key: string) => {
+      revealSection(key, document, arranging ? undefined : view.reveal);
+    },
+    [arranging, view.reveal],
   );
 
   const refreshTemplate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: templateDetailKey(sheet.templateId) });
   }, [queryClient, sheet.templateId]);
 
+  const hasUnsavedWork = useCallback(
+    () => isPending(editStore.getState()) || isLayoutPending(layoutStore.getState()),
+    [editStore, layoutStore],
+  );
+
+  const isWorking = useCallback(
+    () => isBusy(editStore.getState()) || layoutStore.getState().isCommitting,
+    [editStore, layoutStore],
+  );
+
   const requestRefresh = useCallback(() => {
-    const state = editStore.getState();
-    if (isBusy(state)) {
+    if (isWorking()) {
       return;
     }
-    if (!isPending(state)) {
+    if (!hasUnsavedWork()) {
       refreshTemplate();
       return;
     }
     setConfirmation((current) => current ?? { kind: 'refresh', proceed: refreshTemplate });
-  }, [editStore, refreshTemplate]);
+  }, [hasUnsavedWork, isWorking, refreshTemplate]);
 
   const resolveConfirmation = useCallback(
     (accepted: boolean) => {
@@ -378,27 +670,26 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
         return;
       }
       editStore.discard();
+      layoutStore.cancel();
       void discardDraft(storePort, sheet.id);
+      void discardLayoutDraft(storePort, sheet.id);
       current.proceed();
     },
-    [confirmation, editStore, storePort, sheet.id],
+    [confirmation, editStore, layoutStore, storePort, sheet.id],
   );
 
   useEffect(
     () =>
       registerLeaveGuard({
-        intercepts: () => {
-          const state = editStore.getState();
-          return isPending(state) || isBusy(state);
-        },
+        intercepts: () => hasUnsavedWork() || isWorking(),
         requestLeave: (proceed) => {
-          if (isBusy(editStore.getState())) {
+          if (isWorking()) {
             return;
           }
           setConfirmation((current) => current ?? { kind: 'leave', proceed });
         },
       }),
-    [editStore],
+    [hasUnsavedWork, isWorking],
   );
 
   useEffect(() => {
@@ -410,9 +701,26 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     );
   }, [editStore, storePort, sheet.id]);
 
+  useEffect(() => {
+    void layoutStore.restore();
+  }, [layoutStore]);
+
+  useEffect(() => {
+    if (arranging && focusArrangeHint.current) {
+      focusArrangeHint.current = false;
+      arrangeHintRef.current?.focus();
+    }
+    if (!arranging && wasArranging.current) {
+      arrangeToggleRef.current?.focus();
+    }
+    wasArranging.current = arranging;
+  }, [arranging]);
+
   useSheetShortcuts({
     onSave: () => {
-      void editStore.save();
+      if (!layoutStore.getState().staged) {
+        void editStore.save();
+      }
     },
     onRefresh: requestRefresh,
   });
@@ -420,24 +728,98 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   return (
     <>
       <header className="lg-sheet__header">
-        <p className="lg-sheet__eyebrow">{message('sheet.headerTitle')}</p>
-        <h1 className="lg-sheet__title" data-testid="sheet-name">
-          {sheet.name}
-        </h1>
+        <div className="lg-sheet__heading">
+          <div className="lg-sheet__heading-text">
+            <h1 className="lg-sheet__title" data-testid="sheet-name">
+              {sheet.name}
+            </h1>
+            <p className="lg-sheet__template" data-testid="sheet-eyebrow">
+              {eyebrow}
+            </p>
+          </div>
+          {sections.length > 0 && (
+            <div className="lg-sheet__header-actions">
+              {hasCalculated && (
+                <HelpToggle
+                  open={helpOpen}
+                  buttonRef={helpToggleRef}
+                  onToggle={() => (helpOpen ? closeHelp() : setHelpOpen(true))}
+                />
+              )}
+              <ArrangeToggle
+                store={layoutStore}
+                buttonRef={arrangeToggleRef}
+                onStart={startArranging}
+              />
+            </div>
+          )}
+        </div>
+        {arranging && (
+          <p
+            className="lg-sheet__hint"
+            tabIndex={-1}
+            ref={arrangeHintRef}
+            data-testid="arrange-hint"
+          >
+            {message('arrange.hint')}
+          </p>
+        )}
+        {hasCalculated && helpOpen && (
+          <HelpPanel
+            onDismiss={() => {
+              closeHelp();
+              helpToggleRef.current?.focus();
+            }}
+          />
+        )}
       </header>
       {sections.length === 0 ? (
         <p className="lg-sheet__message" data-testid="sheet-empty-fields">
           {message('sheet.emptyFields')}
         </p>
       ) : (
-        <SheetForm
-          fields={template.fields}
-          controlBuilder={controlBuilder}
-          exclusiveControlBuilder={exclusiveControlBuilder}
-          rowMarkBuilder={rowMarkBuilder}
-        />
+        <ArrangeProvider store={layoutStore}>
+          <SectionIndex
+            sheetName={sheet.name}
+            onTop={scrollToTop}
+            sections={view.links}
+            onlyPinned={view.state.onlyPinned}
+            filterDisabled={arranging}
+            pinnedCount={arrangement.pinned.length}
+            onSetOnlyPinned={view.store.setOnlyPinned}
+            onJump={jumpToSection}
+            onEditPins={startArranging}
+            trailing={
+              sections.length > 1 && !arranging && !view.filterOn ? (
+                <CollapseAllButton view={view} sectionCount={sections.length} />
+              ) : undefined
+            }
+            epoch={arranging ? 'arrange' : 'play'}
+          />
+          {view.filterOn && arrangement.pinned.length === 0 ? (
+            <PinnedEmpty onEditPins={startArranging} />
+          ) : (
+            <SheetForm
+              fields={template.fields}
+              controlBuilder={controlBuilder}
+              exclusiveControlBuilder={exclusiveControlBuilder}
+              dependentBuilder={dependentBuilder}
+              rowMarkBuilder={rowMarkBuilder}
+              sectionBadgeBuilder={sectionBadgeBuilder}
+              collapsedSectionKeys={view.collapsible ? view.state.collapsed : undefined}
+              onToggleSection={view.collapsible ? view.store.toggle : undefined}
+              onlyPinned={view.filterOn}
+              arrangement={arrangement}
+              frames={arranging ? ARRANGE_FRAMES : undefined}
+            />
+          )}
+        </ArrangeProvider>
       )}
-      <SheetFooter store={editStore} />
+      {arranging ? (
+        <ArrangeFooter store={layoutStore} />
+      ) : (
+        <SheetFooter store={editStore} reveal={view.reveal} />
+      )}
       {confirmation !== null && (
         <SheetConfirmation
           kind={confirmation.kind}
@@ -466,7 +848,7 @@ function SheetBody({ result }: { readonly result: SheetOpenResult }) {
     case 'templateFailure':
       return <RetryAction copy={result.message} onRetry={result.retry} />;
     case 'loaded':
-      return <LoadedSheet sheet={result.sheet} template={result.template} />;
+      return <LoadedSheet key={result.sheet.id} sheet={result.sheet} template={result.template} />;
   }
 }
 

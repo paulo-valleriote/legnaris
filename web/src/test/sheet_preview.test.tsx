@@ -123,7 +123,7 @@ describe('sheet preview marks on the screen (WSC-21, WSC-23, SC-009)', () => {
     expect(await screen.findByText(message('engine.modified'))).toBeInTheDocument();
     expect(screen.getByText(message('engine.recalculated'))).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Level' })).toHaveClass(FIELD_MARKED_CLASS);
-    expect(screen.getByRole('status', { name: 'Total' })).toHaveClass(FIELD_MARKED_CLASS);
+    expect(screen.getByRole('group', { name: 'Total' })).toHaveClass(FIELD_MARKED_CLASS);
     expect(screen.getByRole('button', { name: message('sheet.save') })).toBeEnabled();
     expect(screen.getByRole('button', { name: message('sheet.preview') })).toBeDisabled();
   });

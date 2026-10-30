@@ -8,6 +8,8 @@
 
 import { PathFailure } from '../errors';
 import { drift, isPlainObject, requireString } from '../parse';
+import type { Layout } from './layout';
+import { parseOptionalLayout } from './layout';
 
 /** A stored sheet (API-10, API-11). */
 export interface Sheet {
@@ -19,6 +21,8 @@ export interface Sheet {
   readonly name: string;
   /** Dynamic nested structure, preserved verbatim (API-11). */
   readonly data: Record<string, unknown>;
+  /** The player's arrangement; absent while the Template default applies (ADR 0001). */
+  readonly layout?: Layout;
   /** ISO-8601 creation timestamp, as received. */
   readonly createdAt: string;
   /** ISO-8601 update timestamp, as received. */
@@ -37,6 +41,10 @@ function parseData(value: unknown): Record<string, unknown> {
   return value;
 }
 
+function withLayout(layout: Layout | undefined): { readonly layout?: Layout } {
+  return layout === undefined ? {} : { layout };
+}
+
 /** Parses one sheet payload into its typed model (API-10). */
 export function parseSheet(payload: unknown): Sheet {
   if (!isPlainObject(payload)) {
@@ -48,6 +56,7 @@ export function parseSheet(payload: unknown): Sheet {
     templateId: requireString(payload, 'template_id'),
     name: requireString(payload, 'name'),
     data: parseData(payload['data']),
+    ...withLayout(parseOptionalLayout(payload['layout'])),
     createdAt: requireString(payload, 'created_at'),
     updatedAt: requireString(payload, 'updated_at'),
   };

@@ -1,0 +1,277 @@
+/**
+ * The section strip: one sticky row inside the scrolling content region, the same on a
+ * phone and on a desktop. The top bar of a narrow viewport is a grid row above the content
+ * region, never over it, so the strip sticks to the region's own top edge. Tokens only.
+ */
+
+.lg-content:has(.lg-sectionbar) {
+  scroll-behavior: smooth;
+}
+
+.lg-sectionbar {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  box-sizing: border-box;
+  width: 100%;
+  background-color: var(--lg-color-surface);
+  border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-sectionbar__inner {
+  display: flex;
+  align-items: stretch;
+  gap: var(--lg-space-8);
+  box-sizing: border-box;
+  max-width: calc(var(--lg-size-content-max) + 2 * var(--lg-space-24));
+  height: var(--lg-size-control);
+  margin-inline: auto;
+  padding-inline: var(--lg-space-24);
+}
+
+.lg-sectionbar__filter {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--lg-space-8);
+  min-width: var(--lg-size-control);
+  padding: 0 var(--lg-space-12);
+  border: 0;
+  border-inline-end: var(--lg-size-hairline) solid var(--lg-color-border);
+  background-color: transparent;
+  color: var(--lg-color-text-muted);
+  font: inherit;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--lg-motion-120) var(--lg-ease-standard),
+    color var(--lg-motion-120) var(--lg-ease-standard);
+}
+
+.lg-sectionbar__filter:hover:enabled {
+  background-color: var(--lg-color-surface-hover);
+  color: var(--lg-color-text);
+}
+
+.lg-sectionbar__filter[aria-pressed='true'] {
+  background-color: var(--lg-color-raised);
+  color: var(--lg-color-text);
+}
+
+.lg-sectionbar__filter:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lg-sectionbar__filter:focus-visible,
+.lg-sectionbar__name:focus-visible,
+.lg-sectionbar__chip:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: calc(-1 * var(--lg-focus-width));
+}
+
+.lg-sectionbar__star {
+  flex: none;
+  width: var(--lg-space-16);
+  height: var(--lg-space-16);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--lg-space-2);
+}
+
+.lg-sectionbar__filter[aria-pressed='true'] .lg-sectionbar__star {
+  fill: var(--lg-color-accent);
+  stroke: var(--lg-color-accent);
+}
+
+/* The filter's name is read at every width and drawn from 40rem up; below it the star stands alone. */
+.lg-sectionbar__filter-text {
+  position: absolute;
+  width: var(--lg-size-hairline);
+  height: var(--lg-size-hairline);
+  margin: calc(-1 * var(--lg-size-hairline));
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The sheet's name keeps its identity in view once the heading has scrolled away. */
+.lg-sectionbar__name {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: var(--lg-size-control);
+  max-width: var(--lg-space-96);
+  padding: 0 var(--lg-space-8);
+  border: 0;
+  border-inline-end: var(--lg-size-hairline) solid var(--lg-color-border);
+  background-color: transparent;
+  color: var(--lg-color-text);
+  font: inherit;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--lg-motion-120) var(--lg-ease-standard);
+}
+
+.lg-sectionbar__name:hover {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-sectionbar__name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lg-sectionbar__nav {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+}
+
+.lg-sectionbar__nav::-webkit-scrollbar {
+  display: none;
+}
+
+.lg-sectionbar__list {
+  display: flex;
+  gap: var(--lg-space-4);
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lg-sectionbar__list > li {
+  display: flex;
+  flex: none;
+}
+
+.lg-sectionbar__chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lg-space-4);
+  box-sizing: border-box;
+  min-width: var(--lg-size-control);
+  height: 100%;
+  padding: 0 var(--lg-space-8);
+  border: 0;
+  background-color: transparent;
+  box-shadow: inset 0 calc(-1 * var(--lg-space-2)) 0 transparent;
+  color: var(--lg-color-text-muted);
+  font: inherit;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-medium);
+  cursor: pointer;
+  transition:
+    color var(--lg-motion-120) var(--lg-ease-standard),
+    box-shadow var(--lg-motion-120) var(--lg-ease-standard);
+}
+
+.lg-sectionbar__chip:hover {
+  color: var(--lg-color-text);
+}
+
+.lg-sectionbar__chip[aria-current='location'] {
+  color: var(--lg-color-text);
+  box-shadow: inset 0 calc(-1 * var(--lg-space-2)) 0 var(--lg-color-accent);
+}
+
+.lg-sectionbar__chip-label {
+  max-width: var(--lg-space-96);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The count of Rows the last Preview marked in a Section: the accent is for marks, and the
+   number is the pair the accent button already asserts for contrast. */
+.lg-sectionbar__dot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--lg-space-16);
+  height: var(--lg-space-16);
+  padding: 0 var(--lg-space-4);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+  font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* The outline button is shorter than the row; its hit area still spans the full row. */
+.lg-sectionbar__trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  border-inline-start: var(--lg-size-hairline) solid var(--lg-color-border);
+  padding-inline-start: var(--lg-space-8);
+}
+
+.lg-sectionbar__action {
+  position: relative;
+  flex: none;
+  align-self: center;
+  min-height: calc(var(--lg-size-control) - var(--lg-space-8));
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+
+.lg-sectionbar__action::after {
+  content: '';
+  position: absolute;
+  inset-block: calc(-1 * var(--lg-space-4));
+  inset-inline: 0;
+}
+
+/* A Section lands clear of the strip when a link brings it into view. */
+.lg-sheet [data-section-key] {
+  scroll-margin-top: calc(var(--lg-size-control) + var(--lg-space-8));
+}
+
+@media (max-width: 39.99rem) {
+  .lg-sectionbar__inner {
+    padding-inline: var(--lg-space-16);
+  }
+}
+
+@media (min-width: 40rem) {
+  .lg-sectionbar__filter-text {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .lg-sectionbar__name {
+    max-width: var(--lg-space-128);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-sectionbar__filter,
+  .lg-sectionbar__name,
+  .lg-sectionbar__chip {
+    transition: none;
+  }
+}

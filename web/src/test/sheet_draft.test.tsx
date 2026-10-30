@@ -5,7 +5,7 @@ import { createApiClient } from '../api/client';
 import type { Transport } from '../api/transport';
 import { message } from '../l10n/strings';
 import { DRAFT_CADENCE_MS } from '../library/draft_backup';
-import { createMemorySheetStore } from '../library/sheet_store';
+import { SCHEMA_VERSION, createMemorySheetStore } from '../library/sheet_store';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
 import { SHEET_ID, sheetPayload, templateDetailPayload } from './sheet_fixtures';
@@ -57,7 +57,11 @@ describe('sheet draft on the mounted screen (WSC-26, WSC-28, WSC-30)', () => {
 
   it('Edge: a corrupt stored draft leaves the sheet clean (WSC-30)', async () => {
     const sheetStore = createMemorySheetStore();
-    sheetStore.putRawDraft(SHEET_ID, { schemaVersion: 1, id: SHEET_ID, delta: 'nope' });
+    sheetStore.putRawDraft(SHEET_ID, {
+      schemaVersion: SCHEMA_VERSION,
+      id: SHEET_ID,
+      delta: 'nope',
+    });
     renderApp(SHEET_URL, { client: clientWith(loadedFake().transport), sheetStore });
 
     const level = await screen.findByRole('textbox', { name: 'Level' });

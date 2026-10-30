@@ -10,7 +10,9 @@
  */
 
 import type { ApiClient } from '../api/client';
-import { failureCopy } from '../api/error_mapper';
+import { failureCopy, failureKind } from '../api/error_mapper';
+import type { FailureKind } from '../api/errors';
+import { message } from '../l10n/strings';
 import type { Sheet } from '../api/models/sheet';
 import { valueAtPath } from '../api/models/sheet';
 import type { FieldNode, FieldSchema, TemplateDetail } from '../api/models/template';
@@ -94,6 +96,8 @@ export interface SheetEditState {
   readonly isSaving: boolean;
   /** The mapped copy of the last save failure; cleared on success (WSC-17). */
   readonly saveError: string | undefined;
+  /** The kind of the last save failure, so the screen can soften an offline one. */
+  readonly saveErrorKind?: FailureKind;
   /** Increments on every data-changing edit; the preview idempotency key. */
   readonly revision: number;
   /** The revision of the last successful preview (WSC-21, WSC-24). */
@@ -104,16 +108,18 @@ export interface SheetEditState {
   readonly isPreviewing: boolean;
   /** The mapped copy of the last preview failure; cleared on success (WSC-25). */
   readonly previewError: string | undefined;
+  /** The kind of the last preview failure, so the screen can soften an offline one. */
+  readonly previewErrorKind?: FailureKind;
   /** The save throttle window (WSC-38). */
   readonly saveWindow: RollingWindow;
   /** The preview throttle window (WSC-38). */
   readonly previewWindow: RollingWindow;
 }
 
-/** The seed of one edit store: the template's field tree and the stored sheet (WSC-12, WSC-34). */
+/** The seed of one edit store: the template's field tree and the stored sheet's identity and values (WSC-12, WSC-34). */
 export interface SheetEditSeed {
   readonly template: TemplateDetail;
-  readonly sheet: Sheet;
+  readonly sheet: Pick<Sheet, 'id' | 'data'>;
 }
 
 /** The collaborators the store reads through, injected so a suite substitutes fakes (R1). */
@@ -384,6 +390,33 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     return delta;
   };
 
+  /**
+   * Resolves the offline copy for a failed request, or `undefined` for any other
+   * failure. The pending delta is written to the local draft first, so the
+   * "kept on this device" promise holds without waiting for the backup cadence;
+   * if that write fails the copy says so instead of promising.
+   */
+  const offlineCopy = async (
+    error: unknown,
+    action: 'save' | 'preview',
+  ): Promise<string | undefined> => {
+    if (failureKind(error) !== 'offline') {
+      return undefined;
+    }
+    const delta = pendingDelta(state);
+    let kept = false;
+    try {
+      await deps.store.writeDraft(seed.sheet.id, delta);
+      kept = Object.keys(delta).length > 0;
+    } catch {
+      kept = false;
+    }
+    if (!kept) {
+      return message(`sheet.error.${action}OfflineUnkept`);
+    }
+    return message(`sheet.error.${action}Offline`);
+  };
+
   const hasKeys = (delta: Record<string, unknown>): boolean => Object.keys(delta).length > 0;
 
   return {
@@ -442,7 +475,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
 
       saveWindow.record();
       scheduleThrottle();
-      commit({ ...state, isSaving: true, saveError: undefined });
+      commit({ ...state, isSaving: true, saveError: undefined, saveErrorKind: undefined });
 
       try {
         const cascade = await deps.client.patchSheet(seed.sheet.id, delta);
@@ -453,11 +486,18 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
           defaults: mergeCascade(mergeCascade(current.defaults, delta), cascade),
           isSaving: false,
           saveError: undefined,
+          saveErrorKind: undefined,
           previewMarks: undefined,
         });
         await bestEffort(() => deps.store.deleteDraft(seed.sheet.id));
       } catch (error) {
-        commit({ ...state, isSaving: false, saveError: failureCopy(error) });
+        const copy = await offlineCopy(error, 'save');
+        commit({
+          ...state,
+          isSaving: false,
+          saveError: copy ?? failureCopy(error),
+          saveErrorKind: failureKind(error),
+        });
       }
     },
 
@@ -473,7 +513,12 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
 
       previewWindow.record();
       scheduleThrottle();
-      commit({ ...state, isPreviewing: true, previewError: undefined });
+      commit({
+        ...state,
+        isPreviewing: true,
+        previewError: undefined,
+        previewErrorKind: undefined,
+      });
 
       try {
         const cascade = await deps.client.previewSheet(seed.sheet.id, delta);
@@ -483,6 +528,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
           data: mergeCascade(current.data, cascade),
           isPreviewing: false,
           previewError: undefined,
+          previewErrorKind: undefined,
           previewedRevision,
           previewMarks: {
             modified: flattenPaths(delta),
@@ -490,7 +536,13 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
           },
         });
       } catch (error) {
-        commit({ ...state, isPreviewing: false, previewError: failureCopy(error) });
+        const copy = await offlineCopy(error, 'preview');
+        commit({
+          ...state,
+          isPreviewing: false,
+          previewError: copy ?? failureCopy(error),
+          previewErrorKind: failureKind(error),
+        });
       }
     },
 
@@ -503,7 +555,9 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         previewedRevision: undefined,
         previewMarks: undefined,
         saveError: undefined,
+        saveErrorKind: undefined,
         previewError: undefined,
+        previewErrorKind: undefined,
       });
     },
 

@@ -121,8 +121,8 @@ function NavEntry({ path, label, icon }: NavEntryProps) {
 
 /**
  * The persistent navigation region (order 1). It opens with the product lockup,
- * then lists the declared routes; it never collapses into an overlay at desktop
- * widths (UIF-24, UIF-25). The root item is labelled through the copy catalog,
+ * then lists the declared routes; it is a left column on desktop and a compact
+ * top bar on a narrow viewport, never an overlay or a hamburger (UIF-24, UIF-25). The root item is labelled through the copy catalog,
  * never a literal (WCT-29).
  *
  * The own-sheet entry renders only while a session is held (WAS-19, WAS-25); the
