@@ -28,6 +28,10 @@ type Variables struct {
 	AuthRateLimitWindow            time.Duration
 	CSPReportRateLimitAttempts     int
 	CSPReportRateLimitWindow       time.Duration
+	UserRateLimitAttempts          int
+	UserRateLimitWindow            time.Duration
+	PublicRateLimitAttempts        int
+	PublicRateLimitWindow          time.Duration
 	// TrustedProxyCIDRs is the operator's trusted proxy set. It is nil when
 	// unset or blank, which selects the documented loopback/private/link-local
 	// default; a configured value replaces the non-loopback portion (PRQ-03).
@@ -96,6 +100,12 @@ const (
 	// (POL-05, contract csp-report.contract.md).
 	defaultCSPReportRateLimitAttempts = 30
 	defaultCSPReportRateLimitWindow   = 1 * time.Minute
+	// Authenticated routes are capped per user and the remaining public probes
+	// (health, metrics) per address (LGN-30).
+	defaultUserRateLimitAttempts   = 80
+	defaultUserRateLimitWindow     = 1 * time.Minute
+	defaultPublicRateLimitAttempts = 80
+	defaultPublicRateLimitWindow   = 1 * time.Minute
 	// Email-delivery and relay defaults (EML-14).
 	defaultEmailProvider            = "log"
 	defaultEmailSendTimeout         = 10 * time.Second
@@ -196,6 +206,10 @@ func (e *Env) initVariables() Variables {
 		AuthRateLimitWindow:            e.lookupDurationEnv("AUTH_RATE_LIMIT_WINDOW", defaultAuthRateLimitWindow),
 		CSPReportRateLimitAttempts:     e.lookupIntEnv("CSP_REPORT_RATE_LIMIT_ATTEMPTS", defaultCSPReportRateLimitAttempts),
 		CSPReportRateLimitWindow:       e.lookupDurationEnv("CSP_REPORT_RATE_LIMIT_WINDOW", defaultCSPReportRateLimitWindow),
+		UserRateLimitAttempts:          e.lookupIntEnv("USER_RATE_LIMIT_ATTEMPTS", defaultUserRateLimitAttempts),
+		UserRateLimitWindow:            e.lookupDurationEnv("USER_RATE_LIMIT_WINDOW", defaultUserRateLimitWindow),
+		PublicRateLimitAttempts:        e.lookupIntEnv("PUBLIC_RATE_LIMIT_ATTEMPTS", defaultPublicRateLimitAttempts),
+		PublicRateLimitWindow:          e.lookupDurationEnv("PUBLIC_RATE_LIMIT_WINDOW", defaultPublicRateLimitWindow),
 		TrustedProxyCIDRs:              e.lookupTrustedProxyCIDRs(),
 		EmailProvider:                  e.lookupStringEnv("EMAIL_PROVIDER", defaultEmailProvider),
 		ResendAPIKey:                   e.lookupStringEnv("RESEND_API_KEY", ""),
