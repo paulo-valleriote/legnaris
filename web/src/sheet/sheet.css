@@ -11,15 +11,18 @@
 }
 
 /* The editor route fills the content region so its footer sits on the page end
-   even when the form is shorter than the viewport. */
+   even when the form is shorter than the viewport. The region's own top padding moves onto the
+   editor, so the sticky section strip sticks to the region's top edge and not below it. */
 .lg-sheet--editor {
   flex: 1;
+  padding-top: var(--lg-space-48);
   padding-bottom: 0;
 }
 
 /* The editor owns the full content width so the action bar can be full-bleed;
    every other child keeps the readable measure. */
 .lg-content:has(.lg-sheet--editor) {
+  padding-block-start: 0;
   padding-inline: 0;
 }
 
@@ -27,7 +30,8 @@
   max-width: none;
 }
 
-.lg-sheet--editor > :not(.lg-sheet__footer):not(.lg-overlay) {
+.lg-sheet--editor
+  > :not(.lg-sheet__footer):not(.lg-sectionbar):not(.lg-overlay):not(.lg-visually-hidden) {
   width: 100%;
   max-width: calc(var(--lg-size-content-max) + 2 * var(--lg-space-24));
   margin-inline: auto;
@@ -40,10 +44,69 @@
   gap: var(--lg-space-4);
 }
 
-.lg-sheet__eyebrow {
+.lg-sheet__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lg-space-8) var(--lg-space-16);
+}
+
+.lg-sheet__heading-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+  min-width: 0;
+}
+
+/* The header's actions read as one bounded group of text buttons divided by hairlines, so none of
+   them looks like the primary one: they are the same kind of thing (view and edit tools). */
+.lg-sheet__header-actions {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-md);
+}
+
+.lg-sheet__header-actions > .lg-button {
+  min-height: var(--lg-size-control);
+  border: 0;
+  border-radius: 0;
+}
+
+.lg-sheet__header-actions > .lg-button + .lg-button {
+  border-inline-start: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-sheet__pinned-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lg-space-12);
+}
+
+.lg-section__toggle .lg-field-row__mark {
+  flex: none;
+  white-space: nowrap;
+}
+
+.lg-sheet__hint {
   margin: 0;
   font-size: var(--lg-type-13);
   color: var(--lg-color-text-muted);
+}
+
+.lg-sheet__hint:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: var(--lg-focus-offset);
+}
+
+.lg-sheet__template {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+  overflow-wrap: anywhere;
 }
 
 .lg-sheet__title {
@@ -85,8 +148,34 @@
 
 .lg-sheet__status {
   display: flex;
+  flex: 1 1 100%;
   flex-direction: column;
   gap: var(--lg-space-4);
+  min-width: 0;
+}
+
+.lg-sheet__status:empty {
+  display: none;
+}
+
+/* On a phone the actions share the footer's second row equally. Preview is outlined and Save is
+   the accent fill, so the pair never reads as two of a kind. */
+.lg-sheet__actions {
+  flex: 1 1 100%;
+}
+
+.lg-sheet__actions > .lg-button {
+  flex: 1 1 0;
+}
+
+/* The global disabled button style flattens every variant to the same bordered surface, which made
+   an idle Save and Preview identical. Save keeps its accent identity, dimmed, so the pair stays
+   distinguishable when neither is available. */
+.lg-sheet__actions .lg-button--primary:disabled {
+  border-color: var(--lg-color-accent);
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+  opacity: 0.5;
 }
 
 .lg-sheet__actions {
@@ -96,19 +185,286 @@
 }
 
 .lg-field-row__mark {
-  margin-left: var(--lg-space-4);
+  padding: var(--lg-space-2) var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-pill);
   font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-regular);
+  line-height: var(--lg-line-tight);
   color: var(--lg-color-text-muted);
+}
+
+/* The one status line: the phrase and, after a Preview, the Jump control on the same row. */
+.lg-sheet__status-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lg-space-12);
+  min-width: 0;
+}
+
+.lg-sheet__status-text {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--lg-type-15);
+  font-weight: var(--lg-font-weight-medium);
+  line-height: var(--lg-line-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--lg-color-text);
+}
+
+/* Jump is a text-weight control: underlined, in the text colour, never a second button next to
+   Preview and Save. Its hit area stays well above the 24 px minimum. */
+.lg-sheet__status-line .lg-button {
+  min-height: var(--lg-space-32);
+  padding-inline: var(--lg-space-8);
+  text-decoration: underline;
+  text-underline-offset: var(--lg-space-4);
+}
+
+/* The Jump control lands a Row clear of the sticky footer and the top bar; the revealed
+   Row wears the focus ring whether or not the browser deems its focus visible. */
+.lg-sheet [data-row-key] {
+  scroll-margin-block: var(--lg-space-128);
+}
+
+.lg-sheet [data-row-key][data-revealed],
+.lg-sheet [data-row-key]:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: calc(-1 * var(--lg-focus-width));
 }
 
 .lg-sheet__dirty {
   margin: 0;
   font-size: var(--lg-type-13);
+  line-height: var(--lg-line-tight);
   color: var(--lg-color-text-muted);
 }
 
 .lg-sheet__error {
   margin: 0;
   font-size: var(--lg-type-13);
+  line-height: var(--lg-line-tight);
   color: var(--lg-color-danger);
+}
+
+.lg-sheet__error--offline {
+  color: var(--lg-color-text-muted);
+}
+
+/* Visually hidden, still announced: the polite live region for pins. */
+.lg-visually-hidden {
+  position: absolute;
+  width: var(--lg-size-hairline);
+  height: var(--lg-size-hairline);
+  margin: calc(-1 * var(--lg-size-hairline));
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Arrange mode: a Section opens with its drag handle and title; a Row is a compact
+   line, its label and the pin star, nothing else. */
+.lg-arrange-head {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-4);
+  padding-inline: var(--lg-space-4) var(--lg-space-12);
+  border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-arrange-head .lg-section__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: var(--lg-space-4);
+  border-bottom: 0;
+}
+
+.lg-arrange-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lg-space-12);
+  min-height: var(--lg-size-control);
+  padding-block: var(--lg-space-4);
+  padding-inline: var(--lg-space-16) var(--lg-space-4);
+}
+
+.lg-arrange-row__label {
+  min-width: 0;
+  font-size: var(--lg-type-15);
+  font-weight: var(--lg-font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.lg-arrange-handle,
+.lg-arrange-star {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--lg-size-control);
+  min-height: var(--lg-size-control);
+  padding: 0;
+  border: 0;
+  border-radius: var(--lg-radius-sm);
+  background: transparent;
+  color: var(--lg-color-text-muted);
+  transition:
+    background-color var(--lg-motion-120) var(--lg-ease-standard),
+    color var(--lg-motion-120) var(--lg-ease-standard);
+}
+
+.lg-arrange-handle:hover,
+.lg-arrange-star:hover {
+  background-color: var(--lg-color-surface-hover);
+  color: var(--lg-color-text);
+}
+
+.lg-arrange-handle:focus-visible,
+.lg-arrange-star:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: var(--lg-focus-offset);
+}
+
+.lg-arrange-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.lg-arrange-handle__icon {
+  width: var(--lg-space-12);
+  height: var(--lg-space-16);
+  fill: currentColor;
+}
+
+.lg-arrange-star {
+  cursor: pointer;
+}
+
+.lg-arrange-star__icon {
+  width: var(--lg-space-24);
+  height: var(--lg-space-24);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--lg-space-2);
+}
+
+.lg-arrange-star[aria-pressed='true'],
+.lg-arrange-star[aria-pressed='true']:hover {
+  color: var(--lg-color-accent);
+}
+
+.lg-arrange-star[aria-pressed='true'] .lg-arrange-star__icon {
+  fill: currentColor;
+}
+
+.lg-arrange-item {
+  position: relative;
+}
+
+.lg-arrange-item--shifting {
+  transition: transform var(--lg-motion-180) var(--lg-ease-standard);
+}
+
+.lg-arrange-item--dragging {
+  z-index: 5;
+  background-color: var(--lg-color-raised);
+  box-shadow: var(--lg-shadow-2);
+}
+
+.lg-arrange-item--dragging .lg-arrange-handle {
+  cursor: grabbing;
+}
+
+/* Below 40rem the shell is a top bar with 16 px gutters (see shell.css); the editor's own
+   gutters and the sticky footer follow. */
+@media (max-width: 39.99rem) {
+  .lg-sheet--editor {
+    padding-top: var(--lg-space-24);
+  }
+
+  .lg-sheet--editor
+    > :not(.lg-sheet__footer):not(.lg-sectionbar):not(.lg-overlay):not(.lg-visually-hidden) {
+    padding-inline: var(--lg-space-16);
+  }
+
+  .lg-sheet__footer {
+    padding-block: var(--lg-space-8);
+    padding-inline: var(--lg-space-16);
+    gap: var(--lg-space-4);
+  }
+}
+
+@media (min-width: 40rem) {
+  .lg-sheet__status {
+    flex: 1 1 0;
+  }
+
+  .lg-sheet__actions {
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+  }
+
+  .lg-sheet__actions > .lg-button {
+    flex: 0 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-arrange-handle,
+  .lg-arrange-star,
+  .lg-arrange-item--shifting {
+    transition: none;
+  }
+}
+
+/* The explainer is a quiet note on the page, not an overlay: it scrolls with the heading and the
+   sections follow it. Dismissing it is a close control at its trailing edge, not a loose button. */
+.lg-sheet__help {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lg-space-12);
+  max-width: 72ch;
+  margin-top: var(--lg-space-8);
+  padding: var(--lg-space-8) var(--lg-space-8) var(--lg-space-8) var(--lg-space-16);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-md);
+  background-color: var(--lg-color-surface);
+}
+
+.lg-sheet__help-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+  padding-block: var(--lg-space-8);
+}
+
+.lg-sheet__help-text {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-tight);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-sheet__help-dismiss {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--lg-size-control);
+  height: var(--lg-size-control);
+  padding: 0;
+}
+
+.lg-sheet__help-close {
+  width: var(--lg-space-16);
+  height: var(--lg-space-16);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--lg-space-2);
+  stroke-linecap: round;
 }

@@ -13,7 +13,7 @@
 ### Session 2026-10-16
 
 - Q: The plan's F4 tasks name only engine modules under `web/src/engine/` plus tests, but the F3 clarification said rendering the field tree "belongs to the UI-engine feature (F4)". Should F4 mount the engine on a live surface, or ship the engine with rendering tests only? → A: Engine + rendering tests only (user decision, 2026-10-16): the feature delivers the engine modules and proves each by rendering tests of the components; no screen is wired. The editable sheet screen is the sheet-cycle feature (`web/src/sheet/sheet_screen.tsx`) and the creation surface's read-only preview is wired by whatever consumer needs it, so the engine stays free of screen and edit-state concerns.
-- Q: How faithful should the web port's numeric input be to the desktop's whole-value guard? → A: Simpler finite-number guard only (user decision, 2026-10-16): the numeric input resolves the typed text to a finite number; empty input clears the field and a text that does not resolve to a finite number (`NaN`, an infinity, an overflow) leaves the stored value unchanged. The desktop's partial-token behavior (`-`/`.` kept as a value) and restore-on-blur are dropped, and a form the platform resolves to a finite number is accepted. Recorded in `ENG-12`.
+- Q: How faithful should the web port's numeric input be to the desktop's whole-value guard? → A: Simpler finite-number guard only (user decision, 2026-10-16): the numeric input resolves the typed text to a finite number; empty input clears the field and a text that does not resolve to a finite number (`NaN`, an infinity, an overflow) leaves the stored value unchanged. The desktop's partial-token behavior (`-`/`.` kept as a value) and restore-on-blur are dropped, and a form the platform resolves to a finite number is accepted. Recorded in `ENG-12`. *Amended 2026-10-30: a sign or point typed so far (`-`, `.`, `-.`) is now kept as display text, without becoming a value, so a negative number can be typed; see `ENG-12`.*
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -172,6 +172,9 @@ render a row with each mark and assert the tint and label, including a marked ro
 - **Empty numeric input**: the reported value is cleared rather than treated as `0` (ENG-12).
 - **Non-finite input** (`NaN`, `Infinity`, an overflowing exponent): the value does not change
   (ENG-12).
+- **Pending sign or point** (`-`, `.`, `-.`): kept as display text, no value reported until the
+  whole text resolves to a finite number; leaving the field restores the last reported value's
+  text (ENG-12).
 - **Unrecognized field type**: the read-only value fallback, never a fabricated editor and never a
   crash (ENG-11).
 - **Null or absent stored value**: the control shows an empty display and an edit from it reports a
@@ -238,8 +241,11 @@ render a row with each mark and assert the tint and label, including a marked ro
 - **ENG-12**: The numeric input MUST resolve the typed text to a finite number: an empty value MUST
   clear the field, and a text that does not resolve to a finite number (`NaN`, an infinity, an
   overflowing exponent) MUST leave the stored value unchanged. A form the platform resolves to a
-  finite number is accepted; the desktop's partial-token retention and restore-on-blur are not ported
-  (Clarifications, 2026-10-16).
+  finite number is accepted. A sign or point typed so far (`-`, `.`, `-.`) MUST be kept as display
+  text without reporting a value, so a negative number can be typed key by key; leaving the field with
+  only such a pending text MUST restore the text of the last reported value. The desktop's general
+  partial-token retention is not ported (Clarifications, 2026-10-16, amended 2026-10-30). A sign
+  toggle MUST be offered while the field has focus, for keyboards without a minus key.
 - **ENG-13**: A leaf MUST be interactive only when it is given a change handler; without one it MUST
   render inert, showing the value and allowing no edit.
 

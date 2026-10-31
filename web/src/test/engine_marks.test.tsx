@@ -51,7 +51,7 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
     expect(screen.queryByText(message('engine.calculated'))).not.toBeInTheDocument();
   });
 
-  it('Edge: a derived control without a mark still shows the Calculated label (ENG-10)', () => {
+  it('Edge: a derived control without a mark is still described as Calculated (ENG-10)', () => {
     render(
       <SheetFieldControl
         path="derived.total"
@@ -60,7 +60,9 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
       />,
     );
 
-    expect(screen.getByText(message('engine.calculated'))).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Total' })).toHaveAccessibleDescription(
+      message('engine.calculated'),
+    );
   });
 
   it('Edge: an editable control marked recalculated tints an empty value (ENG-22)', () => {

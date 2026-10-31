@@ -10,7 +10,10 @@ import type { AuthSession } from '../auth/auth_session';
 import { createAuthSession } from '../auth/auth_session';
 import type { MemorySheetStore, SheetStore } from '../library/sheet_store';
 import { createMemorySheetStore } from '../library/sheet_store';
+import type { ViewStorage } from '../sheet/view_store';
 import { createFakeTransport, successOutcome } from './fake_transport';
+import type { MemoryViewStorage } from './view_storage';
+import { createMemoryViewStorage } from './view_storage';
 
 const TEST_BASE_URL = 'http://api.test';
 
@@ -24,6 +27,8 @@ export interface RenderAppOptions {
   readonly queryClient?: QueryClient;
   /** The local store to mount with; a fresh in-memory double is used by default (WSC-11). */
   readonly sheetStore?: SheetStore;
+  /** Where the view preferences are remembered; a fresh in-memory double by default. */
+  readonly viewStorage?: ViewStorage;
   /** The session the gate reads; an authenticated session by default (WAS-03, WAS-08). */
   readonly session?: SessionOption | AuthSession;
   /** An auth client the default session is built over, so a suite can script the restore. */
@@ -70,6 +75,7 @@ export function renderApp(path = '/', options: RenderAppOptions = {}) {
     options.queryClient ??
     new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const sheetStore = options.sheetStore ?? createMemorySheetStore();
+  const viewStorage = options.viewStorage ?? createMemoryViewStorage();
   const session =
     typeof options.session === 'object'
       ? options.session
@@ -81,6 +87,7 @@ export function renderApp(path = '/', options: RenderAppOptions = {}) {
         client={options.client ?? defaultClient()}
         queryClient={queryClient}
         sheetStore={sheetStore}
+        viewStorage={viewStorage}
         session={session}
       >
         <AppRoutes />
@@ -92,6 +99,7 @@ export function renderApp(path = '/', options: RenderAppOptions = {}) {
     ...result,
     queryClient,
     sheetStore: sheetStore as MemorySheetStore,
+    viewStorage: viewStorage as MemoryViewStorage,
     session,
   };
 }

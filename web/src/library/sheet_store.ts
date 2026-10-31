@@ -8,11 +8,18 @@
  * database. No operation stores a credential (WSC-31).
  */
 
+import type { Layout } from '../api/models/layout';
+import { isLayout } from '../api/models/layout';
 import type { Sheet } from '../api/models/sheet';
 import { isPlainObject } from '../api/parse';
 
-/** The schema version this build writes and understands (WSC-30). */
-export const SCHEMA_VERSION = 1;
+/**
+ * The schema version this build writes and understands (WSC-30). Version 2 added the
+ * Sheet's committed `layout` to the cache record and the pending-arrangement record;
+ * version 3 dropped the per-Section Row order from that Layout. An older record reads
+ * as missing, so the local stores are rebuilt rather than migrated.
+ */
+export const SCHEMA_VERSION = 3;
 
 /**
  * Runs [operation] and swallows any failure.
@@ -42,6 +49,18 @@ export interface DraftRecord {
   readonly delta: Record<string, unknown>;
 }
 
+/** The versioned record of a sheet's pending, uncommitted arrangement; `null` stages a reset to default. */
+export interface LayoutDraftRecord {
+  readonly schemaVersion: typeof SCHEMA_VERSION;
+  readonly id: string;
+  readonly layout: Layout | null;
+}
+
+/** A pending arrangement read back from the store; `layout: null` is a staged reset to default. */
+export interface LayoutDraft {
+  readonly layout: Layout | null;
+}
+
 /** The persistence boundary every sheet/library module depends on (WSC-11, WSC-26). */
 export interface SheetStore {
   /** Reads the cached sheet for [id], or `null` (WSC-30). */
@@ -56,6 +75,12 @@ export interface SheetStore {
   writeDraft(id: string, delta: Record<string, unknown>): Promise<void>;
   /** Deletes the draft for [id], best-effort (WSC-29). */
   deleteDraft(id: string): Promise<void>;
+  /** Reads the pending arrangement for [id], or `null` when none is stored. */
+  readLayoutDraft(id: string): Promise<LayoutDraft | null>;
+  /** Writes the pending arrangement for [id]; a `null` layout stages a reset to default. */
+  writeLayoutDraft(id: string, layout: Layout | null): Promise<void>;
+  /** Deletes the pending arrangement for [id], best-effort. */
+  deleteLayoutDraft(id: string): Promise<void>;
   /** Deletes every cached sheet and every draft at a session boundary (WAS-21). */
   clearAll(): Promise<void>;
 }
@@ -69,6 +94,7 @@ function isSheet(value: unknown): value is Sheet {
     typeof value['templateId'] === 'string' &&
     typeof value['name'] === 'string' &&
     isPlainObject(value['data']) &&
+    (value['layout'] === undefined || isLayout(value['layout'])) &&
     typeof value['createdAt'] === 'string' &&
     typeof value['updatedAt'] === 'string'
   );
@@ -82,6 +108,11 @@ export function toCachedSheetRecord(sheet: Sheet): CachedSheetRecord {
 /** Wraps [delta] in the draft envelope the store writes (WSC-26). */
 export function toDraftRecord(id: string, delta: Record<string, unknown>): DraftRecord {
   return { schemaVersion: SCHEMA_VERSION, id, delta };
+}
+
+/** Wraps a pending arrangement in the envelope the store writes. */
+export function toLayoutDraftRecord(id: string, layout: Layout | null): LayoutDraftRecord {
+  return { schemaVersion: SCHEMA_VERSION, id, layout };
 }
 
 /**
@@ -134,6 +165,31 @@ export function readDraftRecord(record: unknown, id: string): Record<string, unk
 }
 
 /**
+ * Resolves a stored pending-arrangement record, or `null`.
+ *
+ * The same total rule as {@link readSheetRecord}: a missing, malformed,
+ * unsupported-version or foreign record, or one whose layout is neither `null` nor
+ * a well-formed Layout, reads as `null` — never a throw.
+ */
+export function readLayoutDraftRecord(record: unknown, id: string): LayoutDraft | null {
+  try {
+    if (!isPlainObject(record)) {
+      return null;
+    }
+    if (record['schemaVersion'] !== SCHEMA_VERSION || record['id'] !== id) {
+      return null;
+    }
+    const layout = record['layout'];
+    if (layout === null) {
+      return { layout: null };
+    }
+    return isLayout(layout) ? { layout } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Wraps an asynchronous store opening in a synchronous {@link SheetStore}.
  *
  * The `idb` adapter opens its database asynchronously while React context is
@@ -161,6 +217,10 @@ export function createLazySheetStore(open: () => Promise<SheetStore>): SheetStor
     readDraft: (id) => resolve().then((store) => store.readDraft(id)),
     writeDraft: (id, delta) => resolve().then((store) => store.writeDraft(id, delta)),
     deleteDraft: (id) => bestEffort(() => resolve().then((store) => store.deleteDraft(id))),
+    readLayoutDraft: (id) => resolve().then((store) => store.readLayoutDraft(id)),
+    writeLayoutDraft: (id, layout) => resolve().then((store) => store.writeLayoutDraft(id, layout)),
+    deleteLayoutDraft: (id) =>
+      bestEffort(() => resolve().then((store) => store.deleteLayoutDraft(id))),
     clearAll: () => bestEffort(() => resolve().then((store) => store.clearAll())),
   };
 }
@@ -171,6 +231,8 @@ export interface MemorySheetStore extends SheetStore {
   putRawSheet(id: string, record: unknown): void;
   /** Test seam: writes a raw draft record verbatim, so corruption is exercisable. */
   putRawDraft(id: string, record: unknown): void;
+  /** Test seam: writes a raw pending-arrangement record verbatim, so corruption is exercisable. */
+  putRawLayoutDraft(id: string, record: unknown): void;
   /** Every stored record, so a suite can assert nothing credential-shaped is held (WSC-31). */
   records(): unknown[];
 }
@@ -179,6 +241,7 @@ export interface MemorySheetStore extends SheetStore {
 export function createMemorySheetStore(): MemorySheetStore {
   const sheets = new Map<string, unknown>();
   const drafts = new Map<string, unknown>();
+  const layoutDrafts = new Map<string, unknown>();
 
   return {
     readSheet: (id) => Promise.resolve(readSheetRecord(sheets.get(id), id)),
@@ -199,9 +262,19 @@ export function createMemorySheetStore(): MemorySheetStore {
       drafts.delete(id);
       return Promise.resolve();
     },
+    readLayoutDraft: (id) => Promise.resolve(readLayoutDraftRecord(layoutDrafts.get(id), id)),
+    writeLayoutDraft: (id, layout) => {
+      layoutDrafts.set(id, toLayoutDraftRecord(id, layout));
+      return Promise.resolve();
+    },
+    deleteLayoutDraft: (id) => {
+      layoutDrafts.delete(id);
+      return Promise.resolve();
+    },
     clearAll: () => {
       sheets.clear();
       drafts.clear();
+      layoutDrafts.clear();
       return Promise.resolve();
     },
     putRawSheet: (id, record) => {
@@ -210,6 +283,9 @@ export function createMemorySheetStore(): MemorySheetStore {
     putRawDraft: (id, record) => {
       drafts.set(id, record);
     },
-    records: () => [...sheets.values(), ...drafts.values()],
+    putRawLayoutDraft: (id, record) => {
+      layoutDrafts.set(id, record);
+    },
+    records: () => [...sheets.values(), ...drafts.values(), ...layoutDrafts.values()],
   };
 }

@@ -107,10 +107,83 @@ export function fieldColumnAlign(schema: FieldSchema): 'left' | 'right' {
   return schema.type === 'number' ? 'right' : 'left';
 }
 
+/**
+ * The stable identity of one render row inside its section: a lone field by its
+ * dotted path, an exclusive group by its parent path and group id
+ * (`<parent>#<id>`), a table row by the path of the group that declares its
+ * columns. It depends only on the template, never on position, and matches the
+ * keys the backend validates a layout against (ADR 0001).
+ */
+export function rowKey(row: SheetRow): string {
+  switch (row.kind) {
+    case 'normal':
+      return row.field.path;
+    case 'exclusive':
+      return `${parentPath(row.group.options[0].path)}#${row.group.id}`;
+    case 'table':
+      return parentPath(row.fields[0].path);
+  }
+}
+
+/** The dotted paths of every leaf a Row draws, in order. */
+export function rowFieldPaths(row: SheetRow): string[] {
+  switch (row.kind) {
+    case 'normal':
+      return [row.field.path];
+    case 'exclusive':
+      return row.group.options.map((option) => option.path);
+    case 'table':
+      return row.fields.map((field) => field.path);
+  }
+}
+
+/** The key of the Section a Row key belongs to: its first path segment (before any `.` or `#`). */
+export function sectionKeyOfRow(key: string): string {
+  const end = key.search(/[.#]/);
+  return end < 0 ? key : key.slice(0, end);
+}
+
+/** The text a Row is called wherever it is named: its label, a group's humanized id, or a table's group label. */
+export function rowLabelText(row: SheetRow): string {
+  switch (row.kind) {
+    case 'normal':
+      return fieldDisplayName(lastSegment(row.field.path), row.field.schema);
+    case 'exclusive':
+      return groupDisplayName(row.group.id);
+    case 'table':
+      return row.label;
+  }
+}
+
+/** The column headers of a table Row joined into one comparable identity. */
+export function tableColumnsKey(row: TableRow): string {
+  return row.fields
+    .map((field) => fieldColumnName(lastSegment(field.path), field.schema))
+    .join('\u0000');
+}
+
+/**
+ * Whether a table Row must draw its own column header. A run of adjacent table Rows
+ * with the same columns shares one header on its first Row; a Row with any other
+ * neighbour (or none) starts a run of its own. Evaluated on the Rows as drawn, so a
+ * pin that changes who neighbours whom still leaves exactly one header per run.
+ */
+export function needsTableHeader(previous: SheetRow | undefined, row: TableRow): boolean {
+  if (previous === undefined || previous.kind !== 'table') {
+    return true;
+  }
+  return tableColumnsKey(previous) !== tableColumnsKey(row);
+}
+
 /** The segment after the last dot of a dotted field path (ENG-03, ENG-06). */
 export function lastSegment(path: string): string {
   const index = path.lastIndexOf('.');
   return index < 0 ? path : path.slice(index + 1);
+}
+
+function parentPath(path: string): string {
+  const index = path.lastIndexOf('.');
+  return index < 0 ? path : path.slice(0, index);
 }
 
 function flatten(prefix: string, node: FieldNode): SheetField[] {

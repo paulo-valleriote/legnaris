@@ -63,7 +63,10 @@ error (not a silent precedence) means a half-wired form fails loudly instead of 
 `type="number"`). The display text is held locally; each keystroke is resolved with `Number(text)` and
 kept only when the result is finite. Empty text reports a cleared value (`null`); text that resolves to
 `NaN`, an infinity or an overflow leaves the stored value unchanged. The desktop's partial-token
-retention and restore-on-blur are not ported (Clarifications, 2026-10-16).
+retention and restore-on-blur are not ported (Clarifications, 2026-10-16). *Amended 2026-10-30:* a sign
+or point typed so far (`-`, `.`, `-.`) is kept as display text without reporting, because rejecting
+the bare `-` made a negative number impossible to type; a blur with only that pending text restores the
+last reported value's text, and a focus-only sign toggle covers the iOS decimal pad, which has no minus.
 
 **Rationale**: `type="number"` would let the browser silently *drop* the keystrokes that do not parse,
 so the DOM value would become `""` and the guard would be unobservable — the tests could not prove "the

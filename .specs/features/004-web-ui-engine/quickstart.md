@@ -38,7 +38,8 @@ text input (ENG-07); a `bool` leaf and a `config.*` proxy leaf each render an on
 unrecognized type renders the read-only value with no editor and no throw (ENG-11); with no change
 handler the control is inert (ENG-13); a marked derived leaf drops the "Calculated" label and tints the
 control. The numeric guard is proven at the edge: `"abc"`, `"Infinity"` and `"1e999"` leave the value
-unchanged, an empty field reports a cleared value (ENG-12).
+unchanged, a pending `"-"` stays on screen without reporting, `"-3"` typed key by key reports `-3`, an
+empty field reports a cleared value (ENG-12).
 
 ---
 

@@ -104,7 +104,7 @@ describe('sheet field control', () => {
       />,
     );
 
-    expect(screen.getByRole('status', { name: 'Mystery' })).toHaveTextContent('7');
+    expect(screen.getByRole('group', { name: 'Mystery' })).toHaveTextContent('7');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByText(message('engine.calculated'))).not.toBeInTheDocument();
@@ -239,7 +239,7 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith(0);
   });
 
-  it('Happy path: a derived leaf shows the Calculated mark and its formula on hover (ENG-09, ENG-10)', () => {
+  it('Happy path: a derived leaf is described as Calculated (not drawn) and shows its formula on hover (ENG-09, ENG-10)', () => {
     render(
       <SheetFieldControl
         path="derived.total"
@@ -248,9 +248,55 @@ describe('sheet field control', () => {
       />,
     );
 
-    expect(screen.getByRole('status', { name: 'Total' })).toHaveTextContent('12');
-    expect(screen.getByText(message('engine.calculated'))).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Total' })).toHaveTextContent('12');
+    expect(screen.getByRole('group', { name: 'Total' })).toHaveAccessibleDescription(
+      message('engine.calculated'),
+    );
+    expect(screen.getByText(message('engine.calculated'))).toHaveClass('lg-field__calculated');
     expect(screen.getByTitle('str + 1')).toBeInTheDocument();
+  });
+
+  it('Edge: many derived readouts each carry their own description, none marked ones, ids never collide', () => {
+    render(
+      <>
+        <SheetFieldControl
+          path="derived.a"
+          schema={schema({ type: 'number', label: 'A', isEditable: false })}
+          value={1}
+        />
+        <SheetFieldControl
+          path="derived.b"
+          schema={schema({ type: 'number', label: 'B', isEditable: false })}
+          value={2}
+        />
+        <SheetFieldControl
+          path="derived.c"
+          schema={schema({ type: 'number', label: 'C', isEditable: false })}
+          value={3}
+          mark="recalculated"
+        />
+      </>,
+    );
+
+    const a = screen.getByRole('group', { name: 'A' });
+    const b = screen.getByRole('group', { name: 'B' });
+    expect(a).toHaveAccessibleDescription(message('engine.calculated'));
+    expect(b).toHaveAccessibleDescription(message('engine.calculated'));
+    expect(a.getAttribute('aria-describedby')).not.toBe(b.getAttribute('aria-describedby'));
+    expect(screen.getByRole('group', { name: 'C' })).not.toHaveAttribute('aria-describedby');
+    expect(screen.getAllByText(message('engine.calculated'))).toHaveLength(2);
+  });
+
+  it('Edge: an editable control is not described as calculated', () => {
+    render(
+      <SheetFieldControl
+        path="identity.level"
+        schema={schema({ type: 'number', label: 'Level', isEditable: true })}
+        value={1}
+      />,
+    );
+
+    expect(screen.queryByText(message('engine.calculated'))).not.toBeInTheDocument();
   });
 
   it('Edge: a derived leaf without a formula exposes no tooltip (ENG-10)', () => {
@@ -262,7 +308,164 @@ describe('sheet field control', () => {
       />,
     );
 
-    expect(screen.getByText(message('engine.calculated'))).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Total' })).toHaveAccessibleDescription(
+      message('engine.calculated'),
+    );
     expect(container.querySelector('[title]')).toBeNull();
+  });
+});
+
+describe('numeric input identity', () => {
+  it('Edge: two numeric inputs with equal labels get distinct ids and keep their names', () => {
+    render(
+      <>
+        <SheetFieldControl
+          path="a.score"
+          schema={schema({ label: 'Score' })}
+          value={1}
+          onChanged={vi.fn()}
+        />
+        <SheetFieldControl
+          path="b.score"
+          schema={schema({ label: 'Score' })}
+          value={2}
+          onChanged={vi.fn()}
+        />
+      </>,
+    );
+    const [first, second] = screen.getAllByRole('textbox', { name: 'Score' });
+
+    expect(first.id).not.toBe('');
+    expect(second.id).not.toBe('');
+    expect(first.id).not.toBe(second.id);
+    expect(first).toHaveValue('1');
+    expect(second).toHaveValue('2');
+  });
+});
+
+describe('empty text field placeholder', () => {
+  const textSchema = (overrides: Partial<FieldSchema> = {}) =>
+    schema({ type: 'text', label: 'Origin', ...overrides });
+
+  it.each([
+    ['Edge: a null value', null],
+    ['Edge: an undefined value', undefined],
+    ['Edge: an empty string', ''],
+  ])('%s shows the muted "Not set" placeholder over an empty field', (_name, value) => {
+    render(
+      <SheetFieldControl
+        path="identity.origin"
+        schema={textSchema()}
+        value={value}
+        onChanged={() => undefined}
+      />,
+    );
+
+    const input = screen.getByRole('textbox', { name: 'Origin' });
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('placeholder', message('engine.notSet'));
+  });
+
+  it('Edge: the placeholder is never the accessible name, so the label stays the name', () => {
+    render(
+      <SheetFieldControl
+        path="identity.origin"
+        schema={textSchema()}
+        value=""
+        onChanged={() => undefined}
+      />,
+    );
+
+    const input = screen.getByRole('textbox', { name: 'Origin' });
+    expect(input).toHaveAccessibleName('Origin');
+    expect(screen.queryByRole('textbox', { name: message('engine.notSet') })).toBeNull();
+    expect(screen.queryByText(message('engine.notSet'))).toBeNull();
+  });
+
+  it('Edge: a whitespace-only value is kept verbatim as a value, never trimmed to empty', () => {
+    const onChanged = vi.fn();
+    render(
+      <SheetFieldControl
+        path="identity.origin"
+        schema={textSchema()}
+        value="   "
+        onChanged={onChanged}
+      />,
+    );
+
+    const input = screen.getByRole('textbox', { name: 'Origin' });
+    expect(input).toHaveValue('   ');
+
+    fireEvent.change(input, { target: { value: '  ' } });
+    expect(onChanged).toHaveBeenCalledWith('  ');
+  });
+
+  it('Edge: a "string" typed leaf and an inert (read-only) text field carry the placeholder too', () => {
+    render(
+      <>
+        <SheetFieldControl
+          path="identity.alias"
+          schema={textSchema({ type: 'string', label: 'Alias' })}
+          value=""
+          onChanged={() => undefined}
+        />
+        <SheetFieldControl path="identity.title" schema={textSchema({ label: 'Title' })} value="" />
+      </>,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Alias' })).toHaveAttribute(
+      'placeholder',
+      message('engine.notSet'),
+    );
+    expect(screen.getByRole('textbox', { name: 'Title' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveAttribute(
+      'placeholder',
+      message('engine.notSet'),
+    );
+  });
+
+  it('Edge: numeric, toggle and derived controls never carry the text placeholder', () => {
+    render(
+      <>
+        <SheetFieldControl
+          path="stats.level"
+          schema={schema({ label: 'Level' })}
+          value={null}
+          onChanged={() => undefined}
+        />
+        <SheetFieldControl
+          path="stats.guarded"
+          schema={schema({ type: 'bool', label: 'Guarded' })}
+          value={false}
+          onChanged={() => undefined}
+        />
+        <SheetFieldControl
+          path="derived.total"
+          schema={schema({ label: 'Total', isEditable: false })}
+          value={null}
+        />
+      </>,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Level' })).not.toHaveAttribute('placeholder');
+    expect(screen.getByRole('checkbox', { name: 'Guarded' })).not.toHaveAttribute('placeholder');
+    expect(document.querySelectorAll('[placeholder]')).toHaveLength(0);
+  });
+
+  it('Happy path: a filled text field reports typing and keeps its label as the name', () => {
+    const onChanged = vi.fn();
+    render(
+      <SheetFieldControl
+        path="identity.origin"
+        schema={textSchema()}
+        value="Rivendell"
+        onChanged={onChanged}
+      />,
+    );
+
+    const input = screen.getByRole('textbox', { name: 'Origin' });
+    expect(input).toHaveValue('Rivendell');
+    fireEvent.change(input, { target: { value: 'Gondor' } });
+    expect(onChanged).toHaveBeenCalledWith('Gondor');
   });
 });

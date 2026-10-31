@@ -6,6 +6,8 @@
  * screen never writes a URL, unwraps a response or branches on a status.
  */
 
+import type { Layout } from './models/layout';
+import { layoutToWire, parseLayoutResponse } from './models/layout';
 import type { Sheet } from './models/sheet';
 import { parseSheet } from './models/sheet';
 import type { TemplateDetail, TemplateSummary } from './models/template';
@@ -43,6 +45,11 @@ export interface ApiClient {
   deleteSheet(id: string): Promise<void>;
   patchSheet(id: string, changeSet: Record<string, unknown>): Promise<Record<string, unknown>>;
   previewSheet(id: string, changeSet: Record<string, unknown>): Promise<Record<string, unknown>>;
+  /**
+   * Replaces the sheet's Layout in full; `null` resets it to the Template default.
+   * Resolves with the Layout as stored, or `null` after a reset. No recalculation runs.
+   */
+  setLayout(id: string, layout: Layout | null): Promise<Layout | null>;
 }
 
 function decodeHealth(data: unknown): HealthPayload {
@@ -102,6 +109,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         `/sheets/${encodeURIComponent(id)}/preview`,
         JSON.stringify({ data: changeSet }),
         decodeChangeSet,
+      ),
+    setLayout: (id, layout) =>
+      caller.call(
+        'PUT',
+        `/sheets/${encodeURIComponent(id)}/layout`,
+        JSON.stringify({ layout: layout === null ? null : layoutToWire(layout) }),
+        parseLayoutResponse,
       ),
   };
 }

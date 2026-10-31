@@ -39,6 +39,7 @@ const engineFeatureKeys: readonly MessageKey[] = [
   'engine.none',
   'engine.modified',
   'engine.recalculated',
+  'engine.notSet',
 ];
 
 /** The sheet-cycle copy the open, edit, draft and guard surfaces render (WSC-32, SC-006). */
@@ -98,6 +99,10 @@ describe('translation catalog', () => {
         'api.error.offline',
         'api.error.unknown',
         'api.error.parse',
+        'sheet.error.saveOffline',
+        'sheet.error.saveOfflineUnkept',
+        'sheet.error.previewOffline',
+        'sheet.error.previewOfflineUnkept',
       ]),
     );
   });
@@ -175,6 +180,11 @@ describe('the parameterized copy resolution (WCS-13)', () => {
           seconds: 42,
           mode: 'new account',
           year: 2026,
+          label: 'Strength',
+          position: 2,
+          count: 5,
+          max: 6,
+          name: 'Aragorn',
         }),
       ).not.toMatch(/\{(\w+)\}/);
     }

@@ -55,7 +55,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 
     expect(await screen.findByTestId('sheet-name')).toHaveTextContent('Aragorn');
-    await waitFor(() => expect(screen.getByRole('status', { name: 'Total' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('group', { name: 'Total' })).toBeInTheDocument());
 
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Aragorn');
     expect(screen.getByRole('textbox', { name: 'Level' })).toHaveValue('3');
@@ -172,7 +172,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(await screen.findByTestId('sheet-name')).toHaveTextContent('Aragorn');
   });
 
-  it('Happy path: after a successful open the store holds the sheet under schemaVersion 1 and no credential (WSC-11, WSC-31)', async () => {
+  it('Happy path: after a successful open the store holds the sheet under the current schemaVersion and no credential (WSC-11, WSC-31)', async () => {
     const fake = createFakeTransport(sheetOutcome(), templateOutcome());
     const { sheetStore } = renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 

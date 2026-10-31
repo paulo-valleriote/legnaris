@@ -18,15 +18,21 @@ export function cacheSheet(store: SheetStore, sheet: Sheet): Promise<void> {
   return bestEffort(() => store.putSheet(sheet));
 }
 
-/** Evicts a missing sheet and its draft (WSC-06, WSC-29). */
+/** Evicts a missing sheet, its draft and its pending arrangement (WSC-06, WSC-29). */
 export function evictSheet(store: SheetStore, sheetId: string): Promise<void> {
   return Promise.all([
     bestEffort(() => store.deleteSheet(sheetId)),
     bestEffort(() => store.deleteDraft(sheetId)),
+    bestEffort(() => store.deleteLayoutDraft(sheetId)),
   ]).then(() => undefined);
 }
 
 /** Discards the draft of an abandoned edit (WSC-29). */
 export function discardDraft(store: SheetStore, sheetId: string): Promise<void> {
   return bestEffort(() => store.deleteDraft(sheetId));
+}
+
+/** Discards the pending arrangement of an abandoned Arrange session. */
+export function discardLayoutDraft(store: SheetStore, sheetId: string): Promise<void> {
+  return bestEffort(() => store.deleteLayoutDraft(sheetId));
 }

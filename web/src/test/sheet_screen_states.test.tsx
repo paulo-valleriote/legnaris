@@ -39,11 +39,11 @@ describe('sheet screen states (WSC-08, WSC-10, SC-001)', () => {
     renderApp(SHEET_URL, { client: clientWith(fake.transport) });
 
     expect(await screen.findByTestId('sheet-name')).toHaveTextContent('Aragorn');
-    expect(screen.getByText(message('sheet.headerTitle'))).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-eyebrow')).toHaveTextContent('Fantasy');
     expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Aragorn');
     expect(screen.getByRole('textbox', { name: 'Level' })).toHaveValue('3');
-    expect(screen.getByRole('status', { name: 'Total' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Total' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Ability' })).toBeInTheDocument();
   });
 

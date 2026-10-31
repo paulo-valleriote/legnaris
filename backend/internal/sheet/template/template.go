@@ -32,9 +32,14 @@ type Template struct {
 	// them: the sheet renders sections in arrival order, while encoding/json
 	// would sort a map's keys alphabetically. Keys not listed — and templates
 	// with no order at all — keep the alphabetical fallback.
-	SectionOrder []string  `bson:"section_order,omitempty"`
-	CreatedAt    time.Time `bson:"created_at,omitempty"`
-	UpdatedAt    time.Time `bson:"updated_at,omitempty"`
+	SectionOrder []string `bson:"section_order,omitempty"`
+	// SuggestedPins lists Row keys the template recommends as a player's
+	// first Pins, in suggestion order. Presentation metadata only: the server
+	// never writes it into a Sheet or its Layout, a client offers it. Keys use
+	// the Layout grammar and are checked by ValidateSuggestedPins at boot.
+	SuggestedPins []string  `bson:"suggested_pins,omitempty"`
+	CreatedAt     time.Time `bson:"created_at,omitempty"`
+	UpdatedAt     time.Time `bson:"updated_at,omitempty"`
 }
 
 type FieldSchema struct {

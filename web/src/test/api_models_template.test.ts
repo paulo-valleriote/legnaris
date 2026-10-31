@@ -157,6 +157,47 @@ describe('template models', () => {
     expect(decoded.default).toBe(false);
   });
 
+  it('Happy path: suggested pins are decoded in the order the payload declares (ADR 0002)', () => {
+    const decoded = parseTemplateDetail(
+      template({ suggested_pins: ['combat.hitPoints', 'derived.armorClass', 'combat.speed'] }),
+    );
+
+    expect(decoded.suggestedPins).toEqual([
+      'combat.hitPoints',
+      'derived.armorClass',
+      'combat.speed',
+    ]);
+  });
+
+  it('Edge: omitted or null suggested pins are absent, never coerced to a list (ADR 0002)', () => {
+    expect(parseTemplateDetail(template()).suggestedPins).toBeUndefined();
+    expect(parseTemplateDetail(template({ suggested_pins: null })).suggestedPins).toBeUndefined();
+  });
+
+  it('Edge: an empty suggested-pins list is decoded as empty, not dropped (ADR 0002)', () => {
+    expect(parseTemplateDetail(template({ suggested_pins: [] })).suggestedPins).toEqual([]);
+  });
+
+  it('Edge: the catalog decodes suggested pins per entry (ADR 0002)', () => {
+    const decoded = parseTemplateCatalog([
+      template({ suggested_pins: ['stats.strength'] }),
+      template({ id: 'scifi_v1' }),
+    ]);
+
+    expect(decoded[0]?.suggestedPins).toEqual(['stats.strength']);
+    expect(decoded[1]?.suggestedPins).toBeUndefined();
+  });
+
+  it('Error: suggested pins of the wrong shape are contract drift (ADR 0002)', () => {
+    const broken: unknown[] = ['combat.hitPoints', 7, {}, true, [1], ['ok', null], [['nested']]];
+
+    for (const suggested of broken) {
+      expect(() => parseTemplateDetail(template({ suggested_pins: suggested }))).toThrow(
+        DefensiveParseFailure,
+      );
+    }
+  });
+
   it('Error: a node with neither a schema nor children is contract drift (API-08)', () => {
     expect(() =>
       parseTemplateDetail(template({ fields: { broken: { label: 'Broken' } } })),

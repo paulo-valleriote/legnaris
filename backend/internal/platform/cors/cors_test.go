@@ -72,6 +72,28 @@ func TestMiddlewarePreflightAdvertisesDelete(t *testing.T) {
 	}
 }
 
+func TestMiddlewarePreflightAdvertisesPut(t *testing.T) {
+	e := echo.New()
+	e.Use(Middleware([]string{"https://legnaris.com.br"}))
+	e.PUT("/test", func(c *echo.Context) error {
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodOptions, "/test", nil)
+	req.Header.Set(echo.HeaderOrigin, "https://legnaris.com.br")
+	req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodPut)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204 for preflight, got %d", rec.Code)
+	}
+	allowed := strings.Split(rec.Header().Get(echo.HeaderAccessControlAllowMethods), ",")
+	if !slices.Contains(allowed, http.MethodPut) {
+		t.Errorf("expected Access-Control-Allow-Methods to include PUT, got %q", rec.Header().Get(echo.HeaderAccessControlAllowMethods))
+	}
+}
+
 // advertisedAllowHeaders splits the preflight's Access-Control-Allow-Headers.
 func advertisedAllowHeaders(rec *httptest.ResponseRecorder) []string {
 	raw := rec.Header().Get(echo.HeaderAccessControlAllowHeaders)

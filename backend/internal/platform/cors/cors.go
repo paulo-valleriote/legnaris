@@ -31,6 +31,7 @@ func Middleware(origins []string) echo.MiddlewareFunc {
 			http.MethodGet,
 			http.MethodPost,
 			http.MethodPatch,
+			http.MethodPut,
 			http.MethodDelete,
 			http.MethodOptions,
 		},

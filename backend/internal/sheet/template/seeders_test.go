@@ -91,11 +91,11 @@ func TestFantasyV1_Structure(t *testing.T) {
 		}, groupKeys(fantasyV1Template.Fields))
 	})
 
-	t.Run("Happy path: sections declare their display order, sheet on top and tuning at the bottom", func(t *testing.T) {
+	t.Run("Happy path: sections declare their display order, table numbers first and tuning last", func(t *testing.T) {
 		want := []string{
-			fieldNameIdentity, fieldNameStats, fieldNameModifiers, "saves",
-			fieldNameSkills, fieldNameCombat, "attacks", fieldNameSpells,
-			"derived", fieldNameRules, fieldNameConfig,
+			fieldNameIdentity, fieldNameCombat, "derived", "attacks",
+			fieldNameStats, fieldNameModifiers, "saves", fieldNameSkills,
+			fieldNameSpells, fieldNameRules, fieldNameConfig,
 		}
 		assert.Equal(t, want, fantasyV1Template.SectionOrder)
 		assert.ElementsMatch(t, groupKeys(fantasyV1Template.Fields),

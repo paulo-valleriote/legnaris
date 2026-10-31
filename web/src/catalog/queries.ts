@@ -10,6 +10,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
+import type { Layout } from '../api/models/layout';
 import type { Sheet } from '../api/models/sheet';
 import { useApiClient } from '../app/providers';
 
@@ -35,6 +36,31 @@ export function sheetKey(id: string) {
  */
 export function seedCreatedSheet(queryClient: QueryClient, sheet: Sheet): void {
   queryClient.setQueryData(sheetKey(sheet.id), sheet);
+}
+
+/**
+ * Records the Layout the server stored on the cached sheet, so reopening the sheet
+ * shows the committed arrangement without a fetch. `null` (a reset) drops the key.
+ */
+export function updateSheetLayout(
+  queryClient: QueryClient,
+  sheetId: string,
+  layout: Layout | null,
+): void {
+  queryClient.setQueryData(sheetKey(sheetId), (current: Sheet | undefined) => {
+    if (current === undefined) {
+      return current;
+    }
+    const unarranged: Sheet = {
+      id: current.id,
+      templateId: current.templateId,
+      name: current.name,
+      data: current.data,
+      createdAt: current.createdAt,
+      updatedAt: current.updatedAt,
+    };
+    return layout === null ? unarranged : { ...unarranged, layout };
+  });
 }
 
 /**

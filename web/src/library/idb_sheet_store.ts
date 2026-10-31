@@ -1,6 +1,6 @@
 /**
  * The `idb`-backed `SheetStore` — the only module in the feature that imports
- * `idb` (R5). One database holds the two object stores, `sheets` and `drafts`,
+ * `idb` (R5). One database holds the three object stores, `sheets`, `drafts` and `layoutDrafts`,
  * each record the versioned envelope `sheet_store.ts` defines; the adapter
  * reuses the same read rules so a corrupt, unsupported-version or foreign record
  * reads as `null` exactly as the in-memory double does (WSC-30).
@@ -13,9 +13,11 @@ import type { SheetStore } from './sheet_store';
 import {
   SCHEMA_VERSION,
   readDraftRecord,
+  readLayoutDraftRecord,
   readSheetRecord,
   toCachedSheetRecord,
   toDraftRecord,
+  toLayoutDraftRecord,
 } from './sheet_store';
 
 const DATABASE_NAME = 'legnaris-sheets';
@@ -26,6 +28,7 @@ export const SHEET_DATABASE_NAME = DATABASE_NAME;
 interface SheetStoreSchema extends DBSchema {
   sheets: { key: string; value: unknown };
   drafts: { key: string; value: unknown };
+  layoutDrafts: { key: string; value: unknown };
 }
 
 async function readOrNull<T>(read: () => Promise<T | null>): Promise<T | null> {
@@ -66,6 +69,9 @@ async function openDatabase(
     if (!database.objectStoreNames.contains('drafts')) {
       database.createObjectStore('drafts');
     }
+    if (!database.objectStoreNames.contains('layoutDrafts')) {
+      database.createObjectStore('layoutDrafts');
+    }
   });
   const database = (await wrap(request)) as IDBPDatabase<SheetStoreSchema> | undefined;
   if (database === undefined) {
@@ -94,10 +100,17 @@ export async function createIdbSheetStore(factory: IDBFactory = indexedDB): Prom
       await db.put('drafts', toDraftRecord(id, delta), id);
     },
     deleteDraft: (id) => bestEffort(() => db.delete('drafts', id)),
+    readLayoutDraft: (id) =>
+      readOrNull(async () => readLayoutDraftRecord(await db.get('layoutDrafts', id), id)),
+    writeLayoutDraft: async (id, layout) => {
+      await db.put('layoutDrafts', toLayoutDraftRecord(id, layout), id);
+    },
+    deleteLayoutDraft: (id) => bestEffort(() => db.delete('layoutDrafts', id)),
     clearAll: () =>
       bestEffort(async () => {
         await db.clear('sheets');
         await db.clear('drafts');
+        await db.clear('layoutDrafts');
       }),
   };
 }

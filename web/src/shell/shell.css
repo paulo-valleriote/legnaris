@@ -93,7 +93,7 @@
   display: flex;
   align-items: center;
   gap: var(--lg-space-12);
-  min-height: var(--lg-size-row);
+  min-height: var(--lg-size-control);
   padding: var(--lg-space-8);
   border-radius: var(--lg-radius-md);
   font-size: var(--lg-type-15);
@@ -168,7 +168,7 @@
   align-items: center;
   gap: var(--lg-space-12);
   width: 100%;
-  min-height: var(--lg-size-row);
+  min-height: var(--lg-size-control);
   padding: var(--lg-space-8);
   border: 0;
   border-radius: var(--lg-radius-md);
@@ -245,6 +245,75 @@
 
 .lg-notfound__link {
   color: var(--lg-color-accent);
+}
+
+/*
+ * Below 40rem (640 px) the two-column grid cannot fit: the navigation and the content minimum
+ * alone exceed a phone. The navigation becomes a compact top bar (still exactly two regions, nav
+ * then main, never an overlay or a hamburger) and the content takes the full width on 16 px
+ * gutters. Media queries do not resolve custom properties, so the breakpoint is a relative unit
+ * (UIF-29), one hundredth of a rem under the 40rem desktop edge so 40rem itself stays desktop.
+ */
+@media (max-width: 39.99rem) {
+  .lg-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .lg-nav {
+    flex-flow: row wrap;
+    align-items: center;
+    gap: var(--lg-space-4);
+    padding: var(--lg-space-4) var(--lg-space-16);
+    border-right: 0;
+    border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
+  }
+
+  .lg-nav__brand {
+    flex: none;
+    padding: 0 var(--lg-space-8) 0 0;
+  }
+
+  .lg-nav__brand::after,
+  .lg-nav__brand-text,
+  .lg-nav__group-label,
+  .lg-nav__icon,
+  .lg-nav__chevron {
+    display: none;
+  }
+
+  .lg-nav__group {
+    flex-direction: row;
+    gap: var(--lg-space-4);
+    min-width: 0;
+  }
+
+  .lg-nav__footer {
+    flex-direction: row;
+    margin-top: 0;
+    margin-left: auto;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .lg-nav__link,
+  .lg-nav__action {
+    width: auto;
+    min-height: var(--lg-size-control);
+    padding: 0 var(--lg-space-8);
+  }
+
+  .lg-nav__label {
+    flex: none;
+  }
+
+  .lg-nav__link[aria-current='page'] {
+    box-shadow: inset 0 calc(-1 * var(--lg-space-2)) 0 var(--lg-color-accent);
+  }
+
+  .lg-content {
+    padding: var(--lg-space-24) var(--lg-space-16) 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

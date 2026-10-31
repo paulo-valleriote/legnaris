@@ -181,3 +181,64 @@ func ErrExclusiveGroupConflict(group string, keys []string) error {
 func ErrExclusiveValueType(group string, key string) error {
 	return &ExclusiveValueTypeError{Group: group, Key: key}
 }
+
+// UnknownLayoutSectionError reports a Layout that names a Section the Template
+// does not have in section_order.
+type UnknownLayoutSectionError struct {
+	Key string
+}
+
+func (e *UnknownLayoutSectionError) Error() string {
+	return fmt.Sprintf("unknown layout section '%s'", e.Key)
+}
+
+// UnknownLayoutRowError reports a pinned key that is not a Row of any Section.
+type UnknownLayoutRowError struct {
+	Key string
+}
+
+func (e *UnknownLayoutRowError) Error() string {
+	return fmt.Sprintf("unknown pinned row '%s'", e.Key)
+}
+
+// DuplicateLayoutKeyError reports a key listed twice in one Layout list. List
+// names it (section_order or pinned).
+type DuplicateLayoutKeyError struct {
+	List string
+	Key  string
+}
+
+func (e *DuplicateLayoutKeyError) Error() string {
+	return fmt.Sprintf("duplicate key '%s' in %s", e.Key, e.List)
+}
+
+// UnknownSuggestedPinError reports a suggested pin that is not a Row of any
+// Section: an unknown path, a table column, an exclusive-group member or a bare
+// Section key.
+type UnknownSuggestedPinError struct {
+	Key string
+}
+
+func (e *UnknownSuggestedPinError) Error() string {
+	return fmt.Sprintf("suggested pin '%s' is not a row of any section", e.Key)
+}
+
+// DuplicateSuggestedPinError reports a Row listed twice in suggested_pins.
+type DuplicateSuggestedPinError struct {
+	Key string
+}
+
+func (e *DuplicateSuggestedPinError) Error() string {
+	return fmt.Sprintf("duplicate suggested pin '%s'", e.Key)
+}
+
+// TooManySuggestedPinsError reports a suggested_pins list longer than the
+// strip capacity (MaxSuggestedPins).
+type TooManySuggestedPinsError struct {
+	Count int
+	Max   int
+}
+
+func (e *TooManySuggestedPinsError) Error() string {
+	return fmt.Sprintf("%d suggested pins exceed the maximum of %d", e.Count, e.Max)
+}

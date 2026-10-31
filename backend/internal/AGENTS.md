@@ -28,3 +28,10 @@
 - The `err` cause must be `nil` or a lower-layer typed error; never a bare `errors.New`
 - Export user-facing message constants (plain strings) from the service package for controller reuse
 - Translate lower-layer errors at the boundary using `errors.Is`/`errors.As`
+
+## Sheet Layout (`PUT /sheets/:id/layout`)
+
+- **Contract** — body `{"layout": {"section_order": [...], "pinned": [...]}}`; 200 `{"data":{"layout": <stored|null>}}`. `GET /sheets/:id` returns `layout` only when set. Full replacement and idempotent; absent/`null`/empty layout = reset to default (stored as none). An order equal to the Template's is stored as given. Rows are never reordered: a pinned Row rises to the top of its own Section in pin order. The old `row_order` field no longer exists and is rejected like any unknown field (400 `INVALID_JSON`)
+- **User data, not Template data** — `Sheet.Layout` is written by `Repository.UpdateLayout`, a `$set` on the `layout` field alone (no `updated_at`, no read-modify-write), so a concurrent `PATCH` of `data` is unaffected. `SetLayout` never calls the DAG or recalculates
+- **Strict on write, tolerant on read** — keys are validated by `template.ValidateLayout` against the Rows of the sheet's Template; partial lists are valid, but an unknown section, a duplicate (per list) or a pin that is no Row of any Section are 400 `INVALID_REQUEST` (translated by `translateLayoutErr`; no dedicated apperr code). Readers must ignore stale keys and fall back to Template order for missing ones
+- **CORS** — `PUT` is in the allowed methods of `platform/cors`; a new verb needs adding there or browsers block the preflight
