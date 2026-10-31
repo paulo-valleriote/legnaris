@@ -416,7 +416,7 @@ func TestDashboardCoversThePipeline(t *testing.T) {
 		assert.Equal(t, "Email pipeline", dashboard.Title)
 		entries, err := filepath.Glob(filepath.Join(dashboardsDir, "*.json"))
 		require.NoError(t, err)
-		assert.Equal(t, []string{dashboardFile}, entries, "the pipeline has one dashboard")
+		assert.Contains(t, entries, dashboardFile, "the pipeline dashboard is provisioned from the repository")
 	})
 
 	stages := []struct {

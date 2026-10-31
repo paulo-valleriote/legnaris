@@ -1,0 +1,107 @@
+# =============================================================================
+# Dev observability — Prometheus + Grafana next to `make dev`. DEV ONLY.
+#
+# Usage (repo root): make dev-observability  /  make dev-observability-down
+#
+#   - Prometheus scrapes the API and accepts k6 remote writes. The API (`app`),
+#     MongoDB and k6 live behind the `loadtest` profile (`make loadtest-dev`):
+#     everything shares one compose network, so no host port is exposed and it
+#     works the same on Linux, WSL and Docker Desktop. Rate limits are lifted.
+#   - Without the profile, Prometheus scrapes a `make dev` API through
+#     host.docker.internal:8080 (works where the container can reach the host).
+#   - Grafana is on http://localhost:3000 with anonymous admin access: there is
+#     no OAuth and no secret here, so it must never leave the developer machine.
+#   - Dashboards are the same files the production stack provisions.
+# =============================================================================
+
+name: legnaris-dev-observability
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./dev-observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./dev-observability/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  mongodb:
+    image: mongo:7.0
+    profiles: [loadtest]
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' | grep -q 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    profiles: [loadtest]
+    environment:
+      PORT: "8080"
+      APP_NAME: legnaris
+      DATABASE_URI: mongodb://mongodb:27017/
+      DATABASE_NAME: legnaris
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      JWT_SECRET: dev-only-jwt-secret-do-not-use-in-production-0123456789
+      EMAIL_CODE_SECRET: dev-only-email-code-secret-do-not-use-in-production-9876543210
+      AUTH_REQUIRE_EMAIL_VERIFICATION: "false"
+      AUTH_RATE_LIMIT_ATTEMPTS: "100000"
+      USER_RATE_LIMIT_ATTEMPTS: "1000000"
+      PUBLIC_RATE_LIMIT_ATTEMPTS: "1000000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  k6:
+    image: grafana/k6:0.57.0
+    profiles: [loadtest]
+    entrypoint: ["k6", "run", "--out", "experimental-prometheus-rw"]
+    command: ["/scripts/${SCRIPT:-patch-sheet.js}"]
+    environment:
+      BASE_URL: http://app:8080
+      RATE: ${RATE:-100}
+      DURATION: ${DURATION:-2m}
+      USERS: ${USERS:-50}
+      STAGES: ${STAGES:-100,200,400,800,1600}
+      STEP_SECONDS: ${STEP_SECONDS:-60}
+      P95_BUDGET_MS: ${P95_BUDGET_MS:-200}
+      VARIANT: ${VARIANT:-distinct}
+      CONCURRENCY: ${CONCURRENCY:-15}
+      ITERATIONS: ${ITERATIONS:-100}
+      ONBOARDING_RATE: ${ONBOARDING_RATE:-5}
+      SOAK_RATE: ${SOAK_RATE:-100}
+      SOAK_SECONDS: ${SOAK_SECONDS:-1800}
+      STRESS_STAGES: ${STRESS_STAGES:-2000,3000,4500,6000,300}
+      LOGIN_STAGES: ${LOGIN_STAGES:-5,10,20,40,80}
+      BACKGROUND_RATE: ${BACKGROUND_RATE:-200}
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_STATS: p(95),p(99),avg,max
+      K6_PROMETHEUS_RW_PUSH_INTERVAL: 5s
+    volumes:
+      - ../loadtest/k6:/scripts:ro
+    depends_on:
+      - app
+      - prometheus

@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails
+.PHONY: dev run relay worker build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
 
 ## --- Development ------------------------------------------------------------
 
@@ -57,6 +57,30 @@ fmt:            ## Format code
 
 mod-check:      ## Verify go.mod/go.sum are tidy
 	@go mod tidy -diff
+
+bench-dag:      ## Benchmark the DAG recalculation (LGN-33: p95 < 50ms at 200 fields)
+	@go test ./backend/internal/sheet/template -run 'P95' -bench 'NormalizeAndRecalculate' -benchmem
+
+loadtest:       ## k6 load test against a running API (SCRIPT=patch-sheet.js|capacity.js|concurrency.js|onboarding.js|soak.js|stress.js|auth-storm.js; BASE_URL, RATE, DURATION, USERS, STAGES, STEP_SECONDS; K6_OUT=experimental-prometheus-rw streams to dev-observability)
+	@docker run --rm -i --network host -v $(CURDIR)/loadtest/k6:/scripts:ro \
+		-e BASE_URL=$${BASE_URL:-http://localhost:8080} -e RATE -e DURATION -e USERS -e STAGES -e STEP_SECONDS -e MAX_VUS -e P95_BUDGET_MS -e VARIANT -e CONCURRENCY -e ITERATIONS -e ONBOARDING_RATE -e SOAK_RATE -e SOAK_SECONDS -e STRESS_STAGES -e LOGIN_STAGES -e BACKGROUND_RATE \
+		-e K6_PROMETHEUS_RW_SERVER_URL=$${K6_PROMETHEUS_RW_SERVER_URL:-http://localhost:9090/api/v1/write} \
+		-e K6_PROMETHEUS_RW_TREND_STATS=p\(95\),p\(99\),avg,max -e K6_PROMETHEUS_RW_PUSH_INTERVAL=5s \
+		grafana/k6:0.57.0 run $${K6_OUT:+--out $$K6_OUT} /scripts/$${SCRIPT:-patch-sheet.js}
+
+loadtest-seed:  ## Seed USERS accounts (1 sheet each) so load tests start on a populated DB; idempotent (BASE_URL, USERS)
+	@docker run --rm -i --network host -v $(CURDIR)/loadtest/k6:/scripts:ro \
+		-e BASE_URL=$${BASE_URL:-http://localhost:8080} -e USERS=$${USERS:-1000} -e ACCOUNT_PREFIX -e SEED_PARALLELISM \
+		grafana/k6:0.57.0 run /scripts/seed.js
+
+loadtest-dev:   ## EVERYTHING in one command, all in containers: DB + API + Grafana + k6 PATCH run, torn down after (SCRIPT=capacity.js|concurrency.js|onboarding.js|soak.js|stress.js|auth-storm.js; KEEP_UP=1 keeps Grafana; RATE/DURATION/USERS/STAGES)
+	@scripts/loadtest-dev.sh
+
+dev-observability: ## Prometheus + Grafana for `make dev` (Grafana: http://localhost:3000, dev only)
+	@docker compose -f deploy/docker-compose.dev-observability.yml up -d
+
+dev-observability-down: ## Stop the dev Prometheus + Grafana
+	@docker compose -f deploy/docker-compose.dev-observability.yml down
 
 mocks:          ## Generate mocks (after interface changes)
 	@go tool mockery
