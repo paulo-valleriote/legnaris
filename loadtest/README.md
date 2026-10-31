@@ -26,38 +26,43 @@ would refuse this traffic. **Only on a throwaway environment**, raise
 `AUTH_RATE_LIMIT_ATTEMPTS`, `USER_RATE_LIMIT_ATTEMPTS` and
 `PUBLIC_RATE_LIMIT_ATTEMPTS`.
 
+## One command (local, Docker only)
+
+```bash
+make loadtest-dev                           # 100 req/s for 2 min
+RATE=150 DURATION=5m USERS=1 make loadtest-dev
+KEEP_UP=1 make loadtest-dev                 # keep Grafana afterwards
+make dev-observability-down                 # stop it (after KEEP_UP=1)
+```
+
+It builds the API and runs it with MongoDB, Prometheus, Grafana and k6 as
+containers on one compose network (rate limits lifted, no host port exposed
+except Grafana/Prometheus on `127.0.0.1`), then tears everything down. Watch
+**Legnaris — Load test (k6)** at http://localhost:3000/d/legnaris-loadtest
+(no login). Needs only Docker and `make`.
+
 ## Step by step
 
-Both paths lift the rate limits, so use them on a throwaway environment only.
+### A. Against `make dev` — k6 summary in the terminal only
 
-### A. Local (`make dev`) — k6, the DAG benchmark and optional dashboards
+`make dev` runs MongoDB, the API and the web client, without Prometheus or
+Grafana.
 
-`make dev` runs MongoDB, the API and the web client only. `make
-dev-observability` adds a dev Prometheus + Grafana beside it.
-
-1. Requirements: Docker running, Go, and `make`.
-2. Terminal 1 — start the stack with the limits lifted (the API inherits the
+1. Terminal 1 — start the stack with the limits lifted (the API inherits the
    exported variables):
    ```bash
    export AUTH_RATE_LIMIT_ATTEMPTS=100000 USER_RATE_LIMIT_ATTEMPTS=1000000 PUBLIC_RATE_LIMIT_ATTEMPTS=1000000
    make dev
    ```
-   Wait for `[dev] api  http://localhost:8080`.
-3. Terminal 2 — start the dashboards (optional) and open
-   http://localhost:3000 (no login), dashboard **Legnaris — Load test (k6)**:
+2. Terminal 2 — run the test (defaults: 100 req/s, 2 minutes, 50 users):
    ```bash
-   make dev-observability
+   make loadtest      # RATE=150 DURATION=5m USERS=1 make loadtest for a hot sheet
    ```
-4. Terminal 2 — run the load test (defaults: 100 req/s, 2 minutes, 50 users):
-   ```bash
-   K6_OUT=experimental-prometheus-rw make loadtest   # omit K6_OUT for no dashboard feed
-   # tune it: RATE=150 DURATION=5m USERS=1 make loadtest   (USERS=1 = one hot sheet)
-   ```
-5. Read the k6 summary. It exits non-zero when p95 >= 200 ms, the error rate
-   is >= 0.1 % or any iteration was dropped.
-6. Run the DAG benchmark (needs no stack): `make bench-dag`.
-7. Ctrl+C in terminal 1 stops the API and removes the database; `make
-   dev-observability-down` stops Prometheus and Grafana.
+   `--network host` reaches the API on Linux; on Docker Desktop/WSL prefer
+   `make loadtest-dev`. k6 exits non-zero when p95 >= 200 ms, errors >= 0.1 %
+   or an iteration is dropped.
+3. DAG benchmark (no stack needed): `make bench-dag`.
+4. Ctrl+C in terminal 1 stops the API and removes the database.
 
 ### B. Deployed stack (`make deploy-local`) — with live dashboards
 

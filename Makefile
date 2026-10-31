@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest dev-observability dev-observability-down
+.PHONY: dev run relay worker build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest dev-observability dev-observability-down loadtest-dev
 
 ## --- Development ------------------------------------------------------------
 
@@ -67,6 +67,9 @@ loadtest:       ## k6 PATCH load test against a running API (BASE_URL, RATE, DUR
 		-e K6_PROMETHEUS_RW_SERVER_URL=$${K6_PROMETHEUS_RW_SERVER_URL:-http://localhost:9090/api/v1/write} \
 		-e K6_PROMETHEUS_RW_TREND_STATS=p\(95\),p\(99\),avg,max -e K6_PROMETHEUS_RW_PUSH_INTERVAL=5s \
 		grafana/k6:0.57.0 run $${K6_OUT:+--out $$K6_OUT --tag testid=patch-sheet} /scripts/patch-sheet.js
+
+loadtest-dev:   ## EVERYTHING in one command, all in containers: DB + API + Grafana + k6 PATCH run, torn down after (KEEP_UP=1 keeps Grafana; RATE/DURATION/USERS)
+	@scripts/loadtest-dev.sh
 
 dev-observability: ## Prometheus + Grafana for `make dev` (Grafana: http://localhost:3000, dev only)
 	@docker compose -f deploy/docker-compose.dev-observability.yml up -d

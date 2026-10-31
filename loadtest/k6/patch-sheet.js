@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import exec from 'k6/execution';
-import { check, fail } from 'k6';
+import { check, fail, sleep } from 'k6';
 import { Counter } from 'k6/metrics';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
@@ -39,11 +39,22 @@ function post(path, body, token) {
   return http.post(`${BASE_URL}${path}`, JSON.stringify(body), { headers, tags: { name: `setup ${path}` } });
 }
 
+function waitForAPI() {
+  for (let attempt = 0; attempt < 60; attempt++) {
+    if (http.get(`${BASE_URL}/health`, { tags: { name: 'setup /health' } }).status === 200) {
+      return;
+    }
+    sleep(1);
+  }
+  fail(`${BASE_URL} did not become healthy within 60s`);
+}
+
 /**
  * Every user owns exactly one sheet, so the load spreads over USERS accounts
  * each patching its own sheet, the way real traffic does.
  */
 export function setup() {
+  waitForAPI();
   const sessions = [];
   for (let i = 0; i < USERS; i++) {
     const email = `lt-${RUN_ID}-${i}@loadtest.local`;

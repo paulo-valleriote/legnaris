@@ -6,4 +6,5 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets:
+          - app:8080
           - host.docker.internal:8080
