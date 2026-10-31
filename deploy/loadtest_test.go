@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -182,8 +183,10 @@ type loadtestDashboard struct {
 	Panels     []loadtestPanel `json:"panels"`
 	Templating struct {
 		List []struct {
-			Name string `json:"name"`
-			Type string `json:"type"`
+			Name     string          `json:"name"`
+			Type     string          `json:"type"`
+			AllValue string          `json:"allValue"`
+			Query    json.RawMessage `json:"query"`
 		} `json:"list"`
 	} `json:"templating"`
 }
@@ -273,9 +276,38 @@ func TestLoadtestDashboard(t *testing.T) {
 			assert.NotContains(t, dash.panel(t, "Goroutines").exprs(), "process_cpu_seconds_total")
 		}},
 		{"Edge: leak trends are slopes over a window, not raw values, so a leak shows as a persistent positive line", func(t *testing.T) {
-			for _, title := range []string{"RSS growth (MB/h)", "Heap growth (MB/h)", "Goroutine growth (per hour)"} {
+			for _, title := range []string{"RSS growth (MiB/h)", "Heap growth (MiB/h)", "Goroutine growth (per hour)"} {
 				assert.Contains(t, dash.panel(t, title).exprs(), "deriv(", "panel %q", title)
 			}
+		}},
+		{"Edge: All operations excludes setup traffic, whose 401s and bcrypt latency would read as the run's errors and p95", func(t *testing.T) {
+			var all, query string
+			for _, variable := range dash.Templating.List {
+				if variable.Name == "name" {
+					var spec struct {
+						Query string `json:"query"`
+					}
+					require.NoError(t, json.Unmarshal(variable.Query, &spec))
+					all, query = variable.AllValue, spec.Query
+				}
+			}
+			require.NotEmpty(t, all, "guard: the operation variable has an All value")
+			assert.NotEqual(t, ".*", all, "a bare .* matches the setup series")
+			assert.True(t, regexp.MustCompile("^(?:"+all+")$").MatchString("GET /sheets/:id"))
+			assert.True(t, regexp.MustCompile("^(?:"+all+")$").MatchString("PATCH /sheets/:id cascade"))
+			for _, setup := range []string{"setup /auth/login", "setup POST /sheets", "verify GET /sheets/:id", "teardown DELETE /sheets/:id"} {
+				assert.False(t, regexp.MustCompile("^(?:"+all+")$").MatchString(setup), setup)
+			}
+			assert.Contains(t, query, "verify.*")
+		}},
+		{"Edge: each ramp step has its own p95 and error series", func(t *testing.T) {
+			assert.Contains(t, dash.panel(t, "Client p95 by step").exprs(), "by (step)")
+			assert.Contains(t, dash.panel(t, "Error rate by step").exprs(), "by (step)")
+		}},
+		{"Edge: the auth storm panel compares login with the background traffic", func(t *testing.T) {
+			exprs := dash.panel(t, "Auth storm: login vs background p95").exprs()
+			assert.Contains(t, exprs, `name="POST /auth/login"`)
+			assert.Contains(t, exprs, `group="background"`)
 		}},
 		{"Edge: soak latency drift is read from the phase tag", func(t *testing.T) {
 			assert.Contains(t, dash.panel(t, "Client p95 by phase").exprs(), "by (phase)")
@@ -370,10 +402,11 @@ func TestK6Scripts(t *testing.T) {
 			assert.Contains(t, mix, "MIX_GET")
 		}},
 		{"Edge: every step has its own abort threshold, since a run-wide aggregate hides a collapse at the top step", func(t *testing.T) {
-			capacity := read(t, "capacity.js")
-			assert.Contains(t, capacity, "abortOnFail: true")
-			assert.Contains(t, capacity, "http_req_duration{${step}}")
-			assert.Contains(t, capacity, "http_req_failed{${step}}")
+			ramp := read(t, "lib/ramp.js")
+			assert.Contains(t, ramp, "abortOnFail: true")
+			assert.Contains(t, ramp, "http_req_duration{${step}}")
+			assert.Contains(t, ramp, "http_req_failed{${step}}")
+			assert.Contains(t, read(t, "capacity.js"), "stepThresholds(STEPS")
 		}},
 		{"Edge: the p95 budget is tunable so thresholds can be tightened after the first run", func(t *testing.T) {
 			assert.Contains(t, read(t, "capacity.js"), "P95_BUDGET_MS")
@@ -440,6 +473,35 @@ func TestK6Scripts(t *testing.T) {
 				assert.Contains(t, soak, "'http_req_failed{phase:"+phase+"}': ['rate<0.001']")
 			}
 			assert.NotContains(t, soak, "    http_req_failed: ", "the run-wide rate counts setup 401s")
+		}},
+		{"Happy path: the stress run goes past the capacity ramp and ends with a recovery step", func(t *testing.T) {
+			stress := read(t, "stress.js")
+			assert.Contains(t, stress, "ramping-arrival-rate")
+			assert.Contains(t, stress, "2000,3000,4500,6000,300")
+			assert.Contains(t, stress, "abort: false")
+		}},
+		{"Edge: stress only stops on a meltdown, a breached budget is a finding, not an abort", func(t *testing.T) {
+			ramp := read(t, "lib/ramp.js")
+			assert.Contains(t, ramp, "MELTDOWN_FAILED_RATE")
+			assert.Contains(t, ramp, "abort ?")
+			assert.Contains(t, read(t, "capacity.js"), "abort: true")
+		}},
+		{"Edge: capacity and stress share the ramp and mix so their steps are comparable", func(t *testing.T) {
+			for _, script := range []string{"capacity.js", "stress.js"} {
+				content := read(t, script)
+				assert.Contains(t, content, "lib/ramp.js", script)
+				assert.Contains(t, content, "lib/mix.js", script)
+			}
+		}},
+		{"Happy path: the auth storm runs logins on top of background sheet traffic", func(t *testing.T) {
+			storm := read(t, "auth-storm.js")
+			assert.Contains(t, storm, "background")
+			assert.Contains(t, storm, "loginStorm")
+			assert.Contains(t, storm, "group:background")
+		}},
+		{"Edge: the auth storm tags every request with the login-rate step, so each step has its own background p95", func(t *testing.T) {
+			storm := read(t, "auth-storm.js")
+			assert.Equal(t, 2, strings.Count(storm, "step: currentStep(STEPS, STEP_SECONDS)"))
 		}},
 		{"Edge: setup may outlive k6's 60s default when accounts are created on the fly", func(t *testing.T) {
 			assert.Contains(t, read(t, "patch-sheet.js"), "setupTimeout")

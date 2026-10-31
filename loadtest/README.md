@@ -47,6 +47,67 @@ the API for CPU: a high `legnaris_http_in_flight_requests` with flat server
 throughput means the API is saturated, a high `VUs` count with a low in-flight
 means the generator is. Trust capacity numbers only from the `deploy` stack.
 
+### Stress (`stress.js`)
+
+The capacity ramp stops at the first breached step. `stress.js` keeps going to
+learn **how the service behaves when overloaded**: `STRESS_STAGES` defaults to
+`2000,3000,4500,6000,300`, the same mix, and the last step drops back to 300
+req/s as a **recovery** check. Nothing aborts on a breached budget (only on a
+meltdown: half the requests failing), so a red step is a finding, not a failed
+run. Dropped iterations are expected and mean the generator could not hold the
+rate.
+
+```bash
+SCRIPT=stress.js make loadtest-dev          # laptop: shares CPU with k6 and MongoDB
+SCRIPT=stress.js make loadtest              # against a running API
+```
+
+Read it by step (**Steps** row of the dashboard): does p95 climb smoothly or
+fall off a cliff, do errors or only latency appear, and does the 300 step return
+to the baseline p95? A laptop run (30 s steps, k6 + API + MongoDB on one host)
+gave p95 12 ms at 2000, 116 ms at 3000, 380 ms at 4500, 1.0 s at 6000, **0 %
+errors at every step**, and 4.5 ms back at 300: it degrades by slowing down and
+recovers fully. At the top steps k6 ran out of VUs (`dropped_iterations`), so
+those numbers measure the host as much as the API; only the `deploy` stack gives
+a figure worth quoting.
+
+### Why login and registration are expensive, and the auth storm
+
+`POST /auth/login` and `/auth/register` take ~230 ms against 2-5 ms for a sheet
+operation because each one runs **one bcrypt hash at cost 12** (`TDD.md`
+mandates cost >= 12; `AUTH_BCRYPT_COST`). bcrypt is slow on purpose: it makes
+guessing a stolen hash expensive, and each +1 of cost doubles the work. Measured
+on the 12-core development host:
+
+| cost | one hash | hashes/s, 12 cores |
+|---|---|---|
+| 10 | 57 ms | 179 |
+| 11 | 113 ms | 80 |
+| **12** | **226 ms** | **42** |
+| 13 | 458 ms | 21 |
+
+So the whole API can verify about **40 passwords per second**, against several
+thousand sheet operations per second. Two properties make it worse than it
+looks: the hash is CPU bound, so it takes CPU from every other request; and an
+unknown account also pays a full hash (`spendPasswordWork`) so the response time
+does not reveal which accounts exist, which means an attacker needs no valid
+account to burn the same CPU.
+
+`auth-storm.js` measures the consequence: it holds `BACKGROUND_RATE` (200 req/s)
+of sheet traffic and ramps logins over it (`LOGIN_STAGES`, default
+`5,10,20,40,80` per second). On the laptop run, at 20 logins/s the sheet p95
+stayed at 2.9 ms; at 60 logins/s login p95 was 4.4 s **and the sheet p95 rose to
+488 ms**: past the hash ceiling, logins starve everything else.
+
+```bash
+SCRIPT=auth-storm.js make loadtest-dev
+```
+
+Do not lower the cost to make the numbers look better. What helps is bounding
+the damage: cap concurrent hashes below the core count so overload queues logins
+instead of starving other traffic, and keep the per-address and per-account
+limiters (they are lifted in these test environments).
+
 ### Soak (`soak.js`)
 
 Holds one rate (`SOAK_RATE`, default 100 req/s) for `SOAK_SECONDS` (default

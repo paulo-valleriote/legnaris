@@ -19,14 +19,16 @@ export function authHeaders(token) {
  * postJSON posts a JSON body, authenticated when a token is given. The tag
  * defaults to a "setup" name so setup traffic stays out of the scenario series.
  */
-export function postJSON(path, body, token, name = `setup ${path}`) {
+export function postJSON(path, body, token, name = `setup ${path}`, extraTags = {}) {
   const headers = token ? authHeaders(token) : JSON_HEADERS;
-  return http.post(`${BASE_URL}${path}`, JSON.stringify(body), { headers, tags: { name } });
+  return http.post(`${BASE_URL}${path}`, JSON.stringify(body), { headers, tags: { name, ...extraTags } });
 }
 
 function post(path, body, token) {
   return postJSON(path, body, token);
 }
+
+export const LOGIN_PATH = '/auth/login';
 
 export function waitForAPI() {
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -50,8 +52,8 @@ function toSession(index, response) {
  * login authenticates the seeded account and returns its session, or null when
  * the account does not exist yet (the API answers 401 for unknown accounts).
  */
-export function login(index) {
-  const res = post('/auth/login', { email: emailFor(index), password: PASSWORD });
+export function login(index, name, extraTags) {
+  const res = postJSON(LOGIN_PATH, { email: emailFor(index), password: PASSWORD }, null, name, extraTags);
   if (res.status === 401) {
     return null;
   }
