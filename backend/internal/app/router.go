@@ -57,8 +57,8 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 
 // registerAuthRoutes mounts the auth endpoints with their per-route guards.
 // Login and registration are rate limited per address and, because the body
-// carries an account identity, per account; refresh is rate limited per address
-// only and, like logout, refuses a request from an origin outside the allowlist
+// carries an account identity, per account; refresh and logout are rate limited
+// per address only and refuse a request from an origin outside the allowlist
 // before any credential work (AUTH-13, AUTH-17, AUTH-26).
 func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, observer Observer) {
 	limiter := modules.Auth.RateLimiter
@@ -67,7 +67,7 @@ func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, o
 	group.POST("/register", modules.Auth.Controller.Register, rateLimit(limiter, observer, true))
 	group.POST("/login", modules.Auth.Controller.Login, rateLimit(limiter, observer, true))
 	group.POST("/refresh", modules.Auth.Controller.Refresh, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
-	group.POST("/logout", modules.Auth.Controller.Logout, requireAllowedOrigin(origins))
+	group.POST("/logout", modules.Auth.Controller.Logout, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
 
 	// The two unified code-step routes present a capability and no session
 	// credential, so they take the per-address limiter and no origin guard —
@@ -78,7 +78,7 @@ func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, o
 	// The identity read is the only route that needs an access credential: it
 	// answers the signed-in account and its verification state, and it reuses
 	// the one bearer parser the protected groups use (TFA-08, TFA-09).
-	group.GET("/me", modules.Auth.Controller.Me, auth.Middleware(modules.Auth.TokenManager))
+	group.GET("/me", modules.Auth.Controller.Me, auth.Middleware(modules.Auth.TokenManager), userRateLimit(modules.UserLimiter))
 }
 
 func HTTPErrorHandler(c *echo.Context, err error) {

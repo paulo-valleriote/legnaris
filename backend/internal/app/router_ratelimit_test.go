@@ -118,3 +118,60 @@ func TestRouterRateLimit_PublicProbesArePerAddress(t *testing.T) {
 	}
 
 }
+
+func TestRouterRateLimit_AuthSurfaceIsCovered(t *testing.T) {
+	t.Run("Happy path: the eleventh register from one address is 429", func(t *testing.T) {
+		h, _ := newWiringRouter(t)
+
+		for i := 1; i <= 10; i++ {
+			rec := routeRequest(t, h, http.MethodPost, "/auth/register", `{}`, "", "198.51.100.40:1")
+			require.NotEqual(t, http.StatusTooManyRequests, rec.Code, "request %d must be admitted", i)
+		}
+
+		requireRateLimited(t, routeRequest(t, h, http.MethodPost, "/auth/register", `{}`, "", "198.51.100.40:1"))
+	})
+
+	t.Run("Edge: logout is capped per address", func(t *testing.T) {
+		h, _ := newWiringRouterWithEnv(t, map[string]string{"AUTH_RATE_LIMIT_ATTEMPTS": "2"})
+
+		for i := 1; i <= 2; i++ {
+			rec := routeRequest(t, h, http.MethodPost, "/auth/logout", "", "", "198.51.100.41:1")
+			require.NotEqual(t, http.StatusTooManyRequests, rec.Code, "request %d must be admitted", i)
+		}
+
+		requireRateLimited(t, routeRequest(t, h, http.MethodPost, "/auth/logout", "", "", "198.51.100.41:1"))
+	})
+
+	t.Run("Edge: the identity read is capped per user", func(t *testing.T) {
+		h, modules := newWiringRouterWithEnv(t, map[string]string{"USER_RATE_LIMIT_ATTEMPTS": "2"})
+		access, err := modules.Auth.TokenManager.Issue("me-user")
+		require.NoError(t, err)
+
+		for i := 1; i <= 2; i++ {
+			rec := routeRequest(t, h, http.MethodGet, "/auth/me", "", access.Value, "198.51.100.42:1")
+			require.NotEqual(t, http.StatusTooManyRequests, rec.Code, "request %d must be admitted", i)
+		}
+
+		requireRateLimited(t, routeRequest(t, h, http.MethodGet, "/auth/me", "", access.Value, "198.51.100.42:1"))
+	})
+
+	t.Run("Edge: an anonymous identity read is 401, never 429", func(t *testing.T) {
+		h, _ := newWiringRouterWithEnv(t, map[string]string{"USER_RATE_LIMIT_ATTEMPTS": "1"})
+
+		for i := 0; i < 5; i++ {
+			rec := routeRequest(t, h, http.MethodGet, "/auth/me", "", "", "198.51.100.43:1")
+			require.Equal(t, http.StatusUnauthorized, rec.Code)
+		}
+	})
+}
+
+func TestRouterRateLimit_PublicProbesHaveIndependentBudgets(t *testing.T) {
+	h, _ := newWiringRouterWithEnv(t, map[string]string{"PUBLIC_RATE_LIMIT_ATTEMPTS": "1"})
+	addr := "198.51.100.50:1"
+
+	require.Equal(t, http.StatusOK, routeRequest(t, h, http.MethodGet, "/health", "", "", addr).Code)
+	requireRateLimited(t, routeRequest(t, h, http.MethodGet, "/health", "", "", addr))
+
+	assert.Equal(t, http.StatusOK, routeRequest(t, h, http.MethodGet, "/metrics", "", "", addr).Code,
+		"spending the health budget must not consume the metrics scrape")
+}

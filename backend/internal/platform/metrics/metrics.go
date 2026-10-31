@@ -262,8 +262,8 @@ func (m *Metrics) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 // Register exposes the /metrics endpoint backed by this instance's registry,
 // behind the given route middleware.
-func (m *Metrics) Register(e *echo.Echo, middleware ...echo.MiddlewareFunc) {
-	e.GET("/metrics", echo.WrapHandler(promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})), middleware...)
+func (m *Metrics) Register(e *echo.Echo, routeMiddleware ...echo.MiddlewareFunc) {
+	e.GET("/metrics", echo.WrapHandler(promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})), routeMiddleware...)
 }
 
 // Handler exposes this instance's registry as a plain http.Handler, so the
