@@ -39,10 +39,13 @@ literal (ENG-08).
 1. **Numeric input, finite guard** (ENG-12). The control draws a **text** input with
    `inputMode="decimal"` (never `type="number"`, which would hide the guard inside the browser). The
    display text is held locally. On each change: an empty value reports a cleared value (`null`); a text
-   that does not resolve to a finite number (`Number(text)` is `NaN`, an infinity, or overflows) leaves
-   the stored value unchanged; any text the platform resolves to a finite number reports that number.
-   The desktop's partial-token retention and restore-on-blur are **not** ported (Clarifications,
-   2026-10-16; [research.md `R3`](../research.md)).
+   that can never resolve to a finite number (`Number(text)` is `NaN`, an infinity, or overflows) leaves
+   the stored value and the shown text unchanged; any text the platform resolves to a finite number
+   reports that number (a negative zero reports `0`). A sign or point typed so far (`-`, `.`, `-.`) is
+   kept as display text and reports nothing; leaving the field with only such a pending text restores
+   the text of the last reported value. A sign toggle, shown while the field has focus, flips the
+   leading minus for keyboards without one. The desktop's general partial-token retention is **not**
+   ported (Clarifications, 2026-10-16, amended 2026-10-30; [research.md `R3`](../research.md)).
 2. **Toggle conversion** (ENG-08). A `bool` leaf reports `true`/`false`; a `config.*` leaf reports
    `1`/`0`. A stored value counts as on when it is `true` or a non-zero number.
 3. **Read-only value** (ENG-09). A non-editable leaf renders its value as text with no editor. Empty or

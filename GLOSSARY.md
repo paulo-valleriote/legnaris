@@ -1,0 +1,57 @@
+# Legnaris
+
+A character-sheet manager for tabletop RPGs. Generic templates describe a game system's fields and formulas; a player's sheet fills them in and derived values recalculate on their own.
+
+## Language
+
+**Template**:
+A code-defined, read-only description of a game system's fields, formulas and default presentation.
+_Avoid_: System, ruleset, schema
+
+**Sheet**:
+A player's character, built from one Template, holding the values they entered and the arrangement they chose.
+_Avoid_: Character, document
+
+**Field**:
+A single named value on a Sheet, either editable by the player or derived from other fields by a formula.
+_Avoid_: Stat, property, attribute
+
+**Derived field**:
+A Field whose value is computed from other Fields and is never typed by the player.
+_Avoid_: Computed stat, calculated field
+
+**Section**:
+A top-level block of the Sheet that groups related Rows under one label.
+_Avoid_: Group, panel, tab
+
+**Row**:
+One line inside a Section: a lone Field, a set of mutually exclusive Fields, or a labeled line of Fields in columns. The smallest unit a player can pin.
+_Avoid_: Component, item, widget
+
+**Layout**:
+The player's chosen order of Sections and which Rows are pinned. Belongs to the Sheet; the Template supplies the default.
+_Avoid_: Arrangement, view
+
+**Pin**:
+A player's mark, shown as a star, that lifts a Row to the top of its own Section, or into the Vitals strip when it is one of the first six pinned number Rows. Pinned Rows of a Section appear there in the order they were pinned. A Pin is saved the moment it is toggled, in or out of Arrange mode.
+_Avoid_: Favorite, bookmark
+
+**Vitals strip**:
+A grid of tiles directly under the Sheet heading showing the first six pinned Rows that are lone number Fields (editable or derived), in pin order. Each tile is the Row itself, edited in place, and a Row shown there is not repeated in its Section; a Section left with no Row is not drawn. Other pinned Rows, and pins past the sixth, stay at the top of their own Section. Not saved: it is derived from the Pins, and it is not drawn while arranging.
+_Avoid_: Pinned zone, dashboard, header, summary
+
+**Pinned filter**:
+An optional switch in the play view that shows only the pinned Rows, each still in its own Section. Per viewer and per Sheet, remembered in the browser (it stays as the player left it), off until first used and not part of the Layout: it is never saved to the Sheet or counted as unsaved work.
+_Avoid_: Pinned tab, pinned zone, favorites view
+
+**Suggested pin**:
+A Row a Template recommends as one of a player's first Pins, listed in the Template's `suggested_pins` in suggestion order, at most six. Template content only: the server never pins it for the player, a client offers it (`Pin suggested rows`, on tap only, while nothing is pinned and until it was used once) and the player's Pin is what gets saved.
+_Avoid_: Default pin, preset, vital
+
+**Pin mode**:
+The lightweight mode, turned on from the Vitals strip, in which every Row shows a star and each toggle is saved at once; nothing is staged and leaving it asks nothing. Never active together with Arrange mode.
+_Avoid_: Edit mode, pin editor
+
+**Arrange mode**:
+The explicit mode in which a player reorders Sections. Pins can also be toggled outside it (in Pin mode).
+_Avoid_: Edit mode, customize mode
