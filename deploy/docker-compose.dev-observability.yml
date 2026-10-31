@@ -1,0 +1,42 @@
+# =============================================================================
+# Dev observability — Prometheus + Grafana next to `make dev`. DEV ONLY.
+#
+# Usage (repo root): make dev-observability  /  make dev-observability-down
+#
+#   - Prometheus scrapes the API that `make dev` runs on the host (:8080) and
+#     accepts k6 remote writes.
+#   - Grafana is on http://localhost:3000 with anonymous admin access: there is
+#     no OAuth and no secret here, so it must never leave the developer machine.
+#   - Dashboards are the same files the production stack provisions.
+# =============================================================================
+
+name: legnaris-dev-observability
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./dev-observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./dev-observability/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus

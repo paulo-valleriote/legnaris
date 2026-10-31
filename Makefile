@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest
+.PHONY: dev run relay worker build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest dev-observability dev-observability-down
 
 ## --- Development ------------------------------------------------------------
 
@@ -61,10 +61,18 @@ mod-check:      ## Verify go.mod/go.sum are tidy
 bench-dag:      ## Benchmark the DAG recalculation (LGN-33: p95 < 50ms at 200 fields)
 	@go test ./backend/internal/sheet/template -run 'P95' -bench 'NormalizeAndRecalculate' -benchmem
 
-loadtest:       ## k6 PATCH load test against a running API (BASE_URL, RATE, DURATION, USERS; needs the API's rate limits lifted)
+loadtest:       ## k6 PATCH load test against a running API (BASE_URL, RATE, DURATION, USERS; K6_OUT=experimental-prometheus-rw streams to dev-observability)
 	@docker run --rm -i --network host -v $(CURDIR)/loadtest/k6:/scripts:ro \
 		-e BASE_URL=$${BASE_URL:-http://localhost:8080} -e RATE -e DURATION -e USERS \
-		grafana/k6:0.57.0 run /scripts/patch-sheet.js
+		-e K6_PROMETHEUS_RW_SERVER_URL=$${K6_PROMETHEUS_RW_SERVER_URL:-http://localhost:9090/api/v1/write} \
+		-e K6_PROMETHEUS_RW_TREND_STATS=p\(95\),p\(99\),avg,max -e K6_PROMETHEUS_RW_PUSH_INTERVAL=5s \
+		grafana/k6:0.57.0 run $${K6_OUT:+--out $$K6_OUT --tag testid=patch-sheet} /scripts/patch-sheet.js
+
+dev-observability: ## Prometheus + Grafana for `make dev` (Grafana: http://localhost:3000, dev only)
+	@docker compose -f deploy/docker-compose.dev-observability.yml up -d
+
+dev-observability-down: ## Stop the dev Prometheus + Grafana
+	@docker compose -f deploy/docker-compose.dev-observability.yml down
 
 mocks:          ## Generate mocks (after interface changes)
 	@go tool mockery

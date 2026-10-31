@@ -30,10 +30,10 @@ would refuse this traffic. **Only on a throwaway environment**, raise
 
 Both paths lift the rate limits, so use them on a throwaway environment only.
 
-### A. Local (`make dev`) — k6 and the DAG benchmark, no dashboards
+### A. Local (`make dev`) — k6, the DAG benchmark and optional dashboards
 
-`make dev` runs MongoDB, the API and the web client, but no Prometheus or
-Grafana, so this path prints k6's summary in the terminal.
+`make dev` runs MongoDB, the API and the web client only. `make
+dev-observability` adds a dev Prometheus + Grafana beside it.
 
 1. Requirements: Docker running, Go, and `make`.
 2. Terminal 1 — start the stack with the limits lifted (the API inherits the
@@ -43,15 +43,21 @@ Grafana, so this path prints k6's summary in the terminal.
    make dev
    ```
    Wait for `[dev] api  http://localhost:8080`.
-3. Terminal 2 — run the load test (defaults: 100 req/s, 2 minutes, 50 users):
+3. Terminal 2 — start the dashboards (optional) and open
+   http://localhost:3000 (no login), dashboard **Legnaris — Load test (k6)**:
    ```bash
-   make loadtest
+   make dev-observability
+   ```
+4. Terminal 2 — run the load test (defaults: 100 req/s, 2 minutes, 50 users):
+   ```bash
+   K6_OUT=experimental-prometheus-rw make loadtest   # omit K6_OUT for no dashboard feed
    # tune it: RATE=150 DURATION=5m USERS=1 make loadtest   (USERS=1 = one hot sheet)
    ```
-4. Read the k6 summary. It exits non-zero when p95 >= 200 ms, the error rate
+5. Read the k6 summary. It exits non-zero when p95 >= 200 ms, the error rate
    is >= 0.1 % or any iteration was dropped.
-5. Run the DAG benchmark (needs no stack): `make bench-dag`.
-6. Ctrl+C in terminal 1 stops the API and removes the database.
+6. Run the DAG benchmark (needs no stack): `make bench-dag`.
+7. Ctrl+C in terminal 1 stops the API and removes the database; `make
+   dev-observability-down` stops Prometheus and Grafana.
 
 ### B. Deployed stack (`make deploy-local`) — with live dashboards
 

@@ -14,7 +14,6 @@ import (
 
 const (
 	loadtestOverlay = "docker-compose.loadtest.yml"
-	dashboardsDir   = "grafana/dashboards"
 	k6ScriptsDir    = "../loadtest/k6"
 )
 
@@ -114,5 +113,43 @@ func TestDashboardsAreProvisionable(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestDevObservabilityStack(t *testing.T) {
+	raw, err := os.ReadFile("docker-compose.dev-observability.yml")
+	require.NoError(t, err)
+
+	var doc struct {
+		Services map[string]struct {
+			Ports   []string `yaml:"ports"`
+			Command []string `yaml:"command"`
+		} `yaml:"services"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &doc))
+
+	tests := []struct {
+		name  string
+		check func(t *testing.T)
+	}{
+		{"Happy path: prometheus accepts k6 remote writes", func(t *testing.T) {
+			assert.Contains(t, doc.Services["prometheus"].Command, "--web.enable-remote-write-receiver")
+		}},
+		{"Edge: anonymous Grafana and Prometheus bind to loopback only", func(t *testing.T) {
+			for _, name := range []string{"prometheus", "grafana"} {
+				require.NotEmpty(t, doc.Services[name].Ports, name)
+				for _, port := range doc.Services[name].Ports {
+					assert.True(t, strings.HasPrefix(port, "127.0.0.1:"), "%s port %q must not be exposed", name, port)
+				}
+			}
+		}},
+		{"Edge: the scrape target is the host API", func(t *testing.T) {
+			scrape, err := os.ReadFile("dev-observability/prometheus.yml")
+			require.NoError(t, err)
+			assert.Contains(t, string(scrape), "host.docker.internal:8080")
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, tc.check)
 	}
 }
