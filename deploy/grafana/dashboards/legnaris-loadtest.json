@@ -1772,7 +1772,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Slope of resident memory over the last 15 minutes. A flat line near zero means no leak; a positive slope that persists across a long run is one. Red line: 10 MB/h (heuristic, tune with the first soak).",
+      "description": "Slope of resident memory over the last 15 minutes. A flat line near zero means no leak; a positive slope that persists across a long run is one. Red line: 10 MiB/h (heuristic, tune with the first soak).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1859,11 +1859,11 @@
             "uid": "prometheus"
           },
           "expr": "deriv(process_resident_memory_bytes{job=\"legnaris-app\"}[15m]) * 3600 / 1048576",
-          "legendFormat": "rss MB/h",
+          "legendFormat": "rss MiB/h",
           "refId": "A"
         }
       ],
-      "title": "RSS growth (MB/h)",
+      "title": "RSS growth (MiB/h)",
       "type": "timeseries"
     },
     {
@@ -1871,7 +1871,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Slope of in-use heap over the last 15 minutes. GC makes it noisy over short windows; trust it after the first 15 minutes. Red line: 10 MB/h (heuristic).",
+      "description": "Slope of in-use heap over the last 15 minutes. GC makes it noisy over short windows; trust it after the first 15 minutes. Red line: 10 MiB/h (heuristic).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1958,11 +1958,11 @@
             "uid": "prometheus"
           },
           "expr": "deriv(go_memstats_heap_inuse_bytes{job=\"legnaris-app\"}[15m]) * 3600 / 1048576",
-          "legendFormat": "heap MB/h",
+          "legendFormat": "heap MiB/h",
           "refId": "A"
         }
       ],
-      "title": "Heap growth (MB/h)",
+      "title": "Heap growth (MiB/h)",
       "type": "timeseries"
     },
     {
@@ -2162,6 +2162,323 @@
       ],
       "title": "Client p95 by phase",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 66
+      },
+      "id": 28,
+      "panels": [],
+      "title": "Steps (ramp, stress, auth storm)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "k6 p95 of each ramp step, series per step: the first step to cross the red line is where the service stops meeting the budget.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.2
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 67
+      },
+      "id": 29,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (step) (k6_http_req_duration_p95{testid=\"$testid\",step!=\"\",name=~\"$name\"})",
+          "legendFormat": "{{step}} req/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Client p95 by step",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Failed-request ratio of each step. A stress run shows here whether overload answers with errors or only slows down.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 67
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (step) (k6_http_req_failed_rate{testid=\"$testid\",step!=\"\",name=~\"$name\"})",
+          "legendFormat": "{{step}} req/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Error rate by step",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Login is bcrypt (CPU bound). The background line is sheet traffic running during the storm: when it climbs, login is starving everything else.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.2
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 67
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(k6_http_req_duration_p95{testid=\"$testid\",name=\"POST /auth/login\",step!=\"\"})",
+          "legendFormat": "login",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(k6_http_req_duration_p95{testid=\"$testid\",group=\"background\"})",
+          "legendFormat": "background (sheet ops)",
+          "refId": "B"
+        }
+      ],
+      "title": "Auth storm: login vs background p95",
+      "type": "timeseries"
     }
   ],
   "preload": false,
@@ -2205,11 +2522,11 @@
         "label": "Operation",
         "name": "name",
         "includeAll": true,
-        "allValue": ".*",
+        "allValue": "(GET|PATCH|POST) .*",
         "multi": true,
         "options": [],
         "query": {
-          "query": "label_values(k6_http_reqs_total{testid=\"$testid\", name!~\"setup.*|teardown.*\"}, name)",
+          "query": "label_values(k6_http_reqs_total{testid=\"$testid\", name!~\"setup.*|teardown.*|verify.*\"}, name)",
           "refId": "n"
         },
         "refresh": 2,
@@ -2242,6 +2559,6 @@
   "timezone": "browser",
   "title": "Legnaris \u2014 Load test (k6)",
   "uid": "legnaris-loadtest",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }
