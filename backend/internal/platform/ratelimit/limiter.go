@@ -59,13 +59,24 @@ func (l *Limiter) Allow(key string, now time.Time) (bool, time.Duration) {
 	return true, 0
 }
 
-// dropExpired removes every key whose newest attempt left the window, so the
-// map never holds a key that has been idle for a full window. Timestamps are
-// recorded in order, so the last entry is the newest.
+// dropExpired removes every key whose newest attempt left the window and trims
+// the expired head of every key still active, so a client under the cap is
+// never refused over attempts that already aged out and the map never holds a
+// key that has been idle for a full window. Timestamps are recorded in order,
+// so the first entries are the oldest and the last is the newest.
 func (l *Limiter) dropExpired(cutoff time.Time) {
 	for key, attempts := range l.entries {
 		if len(attempts) == 0 || !attempts[len(attempts)-1].After(cutoff) {
 			delete(l.entries, key)
+			continue
+		}
+
+		expired := 0
+		for expired < len(attempts) && !attempts[expired].After(cutoff) {
+			expired++
+		}
+		if expired > 0 {
+			l.entries[key] = attempts[expired:]
 		}
 	}
 }

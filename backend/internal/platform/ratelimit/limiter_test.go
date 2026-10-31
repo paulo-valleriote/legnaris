@@ -134,3 +134,59 @@ func TestLimiter_Allow(t *testing.T) {
 		assert.Equal(t, cap, admitted, "the mutex must serialise the admission to exactly the cap")
 	})
 }
+
+func TestLimiter_ExpiredAttemptsOfActiveKey(t *testing.T) {
+	t.Run("Error: a steady client under the cap is never refused", func(t *testing.T) {
+		now := time.Unix(1_000, 0)
+		limiter := New(3, testWindow, func() time.Time { return now })
+
+		for i := 0; i < 30; i++ {
+			allowed, _ := limiter.Allow("user:steady", now)
+			require.True(t, allowed, "request %d is 1 per 30s, under 3 per minute", i+1)
+			now = now.Add(30 * time.Second)
+		}
+	})
+
+	t.Run("Edge: a burst frees up as its oldest attempts age out while newer ones remain", func(t *testing.T) {
+		now := time.Unix(1_000, 0)
+		limiter := New(3, testWindow, func() time.Time { return now })
+
+		for _, offset := range []time.Duration{0, 20 * time.Second, 40 * time.Second} {
+			allowed, _ := limiter.Allow("user:burst", now.Add(offset))
+			require.True(t, allowed)
+		}
+
+		at := now.Add(70 * time.Second)
+		allowed, _ := limiter.Allow("user:burst", at)
+		assert.True(t, allowed, "the attempt at +0s left the window, leaving room for one")
+
+		allowed, retryAfter := limiter.Allow("user:burst", at)
+		assert.False(t, allowed, "attempts at +20s, +40s and +70s fill the cap again")
+		assert.Equal(t, 10*time.Second, retryAfter, "the +20s attempt leaves the window at +80s")
+	})
+
+	t.Run("Edge: an attempt exactly at the cutoff has left the window", func(t *testing.T) {
+		now := time.Unix(1_000, 0)
+		limiter := New(1, testWindow, func() time.Time { return now })
+
+		first, _ := limiter.Allow("user:edge", now)
+		require.True(t, first)
+
+		allowed, _ := limiter.Allow("user:edge", now.Add(testWindow))
+		assert.True(t, allowed)
+	})
+
+	t.Run("Edge: memory of an active key stays bounded by the cap", func(t *testing.T) {
+		now := time.Unix(1_000, 0)
+		limiter := New(3, testWindow, func() time.Time { return now })
+
+		for i := 0; i < 100; i++ {
+			limiter.Allow("user:bounded", now)
+			now = now.Add(30 * time.Second)
+		}
+
+		limiter.mu.Lock()
+		defer limiter.mu.Unlock()
+		assert.LessOrEqual(t, len(limiter.entries["user:bounded"]), 3)
+	})
+}
