@@ -153,3 +153,160 @@ func TestDevObservabilityStack(t *testing.T) {
 		t.Run(tc.name, tc.check)
 	}
 }
+
+type loadtestPanel struct {
+	Type        string `json:"type"`
+	Title       string `json:"title"`
+	FieldConfig struct {
+		Defaults struct {
+			Unit string `json:"unit"`
+		} `json:"defaults"`
+	} `json:"fieldConfig"`
+	Options struct {
+		ReduceOptions struct {
+			Calcs []string `json:"calcs"`
+		} `json:"reduceOptions"`
+	} `json:"options"`
+	Targets []struct {
+		Expr string `json:"expr"`
+	} `json:"targets"`
+}
+
+type loadtestDashboard struct {
+	Panels     []loadtestPanel `json:"panels"`
+	Templating struct {
+		List []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"list"`
+	} `json:"templating"`
+}
+
+func readLoadtestDashboard(t *testing.T) loadtestDashboard {
+	t.Helper()
+
+	raw, err := os.ReadFile(filepath.Join(dashboardsDir, "legnaris-loadtest.json"))
+	require.NoError(t, err)
+
+	var dash loadtestDashboard
+	require.NoError(t, json.Unmarshal(raw, &dash))
+	return dash
+}
+
+func (d loadtestDashboard) panel(t *testing.T, title string) loadtestPanel {
+	t.Helper()
+
+	for _, panel := range d.Panels {
+		if panel.Title == title {
+			return panel
+		}
+	}
+	require.Failf(t, "panel not found", "no panel titled %q", title)
+	return loadtestPanel{}
+}
+
+func (p loadtestPanel) exprs() string {
+	var all []string
+	for _, target := range p.Targets {
+		all = append(all, target.Expr)
+	}
+	return strings.Join(all, "\n")
+}
+
+func TestLoadtestDashboard(t *testing.T) {
+	dash := readLoadtestDashboard(t)
+
+	tests := []struct {
+		name  string
+		check func(t *testing.T)
+	}{
+		{"Happy path: k6 latency panels are in seconds, the unit k6 reports", func(t *testing.T) {
+			checked := 0
+			for _, panel := range dash.Panels {
+				if strings.Contains(panel.exprs(), "k6_http_req_duration") {
+					assert.Equal(t, "s", panel.FieldConfig.Defaults.Unit, "panel %q", panel.Title)
+					checked++
+				}
+			}
+			assert.Positive(t, checked, "guard: at least one k6 latency panel")
+		}},
+		{"Edge: dropped iterations shows 0 instead of No data when nothing was dropped", func(t *testing.T) {
+			assert.Contains(t, dash.panel(t, "Dropped iterations").exprs(), "or vector(0)")
+		}},
+		{"Edge: checks use the Rate series k6 exports, not a non-existent counter", func(t *testing.T) {
+			exprs := dash.panel(t, "Checks passing").exprs()
+			assert.Contains(t, exprs, "k6_checks_rate")
+			assert.NotContains(t, exprs, "k6_checks_total")
+		}},
+		{"Edge: stat panels summarise the whole range, never the last (ramp-down) sample", func(t *testing.T) {
+			stats := 0
+			for _, panel := range dash.Panels {
+				if panel.Type != "stat" {
+					continue
+				}
+				stats++
+				assert.NotContains(t, panel.Options.ReduceOptions.Calcs, "lastNotNull", "panel %q", panel.Title)
+			}
+			assert.Positive(t, stats, "guard: at least one stat panel")
+		}},
+		{"Edge: server panels exclude the scrape endpoint from route metrics", func(t *testing.T) {
+			for _, title := range []string{"Throughput by status", "Server latency p50/p95/p99", "Server p95 by route"} {
+				assert.Contains(t, dash.panel(t, title).exprs(), `path!~"/metrics|unmatched"`, "panel %q", title)
+			}
+		}},
+		{"Edge: saturation is observable through the in-flight gauge", func(t *testing.T) {
+			assert.Contains(t, dash.panel(t, "In-flight requests").exprs(), "legnaris_http_in_flight_requests")
+		}},
+		{"Edge: client and server p95 share one panel so the gap is visible", func(t *testing.T) {
+			exprs := dash.panel(t, "Client p95 vs server p95").exprs()
+			assert.Contains(t, exprs, "k6_http_req_duration_p95")
+			assert.Contains(t, exprs, "legnaris_http_request_duration_seconds_bucket")
+		}},
+		{"Edge: CPU and goroutines are separate panels (different scales)", func(t *testing.T) {
+			assert.NotContains(t, dash.panel(t, "Server CPU").exprs(), "go_goroutines")
+			assert.NotContains(t, dash.panel(t, "Goroutines").exprs(), "process_cpu_seconds_total")
+		}},
+		{"Edge: the target rate is a variable, not a hard-coded 100", func(t *testing.T) {
+			assert.Contains(t, dash.panel(t, "Arrival rate vs target").exprs(), "vector($target_rate)")
+			names := map[string]string{}
+			for _, variable := range dash.Templating.List {
+				names[variable.Name] = variable.Type
+			}
+			assert.Equal(t, "textbox", names["target_rate"])
+			assert.Contains(t, names, "testid")
+			assert.Contains(t, names, "name")
+		}},
+		{"Edge: no panel keeps the old single-operation title", func(t *testing.T) {
+			for _, panel := range dash.Panels {
+				assert.NotEqual(t, "PATCH p95", panel.Title, "stale panel title from the single-operation dashboard")
+			}
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, tc.check)
+	}
+}
+
+func TestGrafanaDatasourceMatchesPrometheusRoutePrefix(t *testing.T) {
+	compose, err := os.ReadFile("docker-compose.yml")
+	require.NoError(t, err)
+	require.Contains(t, string(compose), "--web.route-prefix=/prometheus", "guard: the stack serves Prometheus under a prefix")
+
+	raw, err := os.ReadFile("grafana/provisioning/datasources/datasources.yml")
+	require.NoError(t, err)
+
+	var doc struct {
+		Datasources []struct {
+			UID string `yaml:"uid"`
+			URL string `yaml:"url"`
+		} `yaml:"datasources"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &doc))
+
+	urls := map[string]string{}
+	for _, datasource := range doc.Datasources {
+		urls[datasource.UID] = datasource.URL
+	}
+	assert.Equal(t, "http://prometheus:9090/prometheus", urls["prometheus"],
+		"without the prefix every Grafana query hits a 404 on Prometheus")
+}
