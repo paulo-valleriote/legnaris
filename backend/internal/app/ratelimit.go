@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v5"
+	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/platform/ratelimit"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
@@ -118,4 +119,38 @@ func peekEmail(r *http.Request) string {
 		return ""
 	}
 	return strings.TrimSpace(payload.Email)
+}
+
+// userRateLimit refuses a request from an authenticated user who exceeded the
+// cap for the window. It must run after auth.Middleware: a request with no
+// resolved user id is passed through so the 401 stays the auth layer's call and
+// an anonymous client never spends a user's budget (LGN-30).
+func userRateLimit(limiter *ratelimit.Limiter) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			userID, ok := auth.UserID(c)
+			if !ok {
+				return next(c)
+			}
+			if allowed, retryAfter := limiter.Allow("user:"+userID, limiter.Now()); !allowed {
+				return rateLimited(c, nil, retryAfter)
+			}
+			return next(c)
+		}
+	}
+}
+
+// publicRateLimit caps an unauthenticated probe per client address. The budget
+// is keyed by route as well, so a frequent health probe cannot starve the
+// metrics scrape behind the same address (LGN-30).
+func publicRateLimit(limiter *ratelimit.Limiter) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			key := "public:" + c.Path() + ":" + c.RealIP()
+			if allowed, retryAfter := limiter.Allow(key, limiter.Now()); !allowed {
+				return rateLimited(c, nil, retryAfter)
+			}
+			return next(c)
+		}
+	}
 }

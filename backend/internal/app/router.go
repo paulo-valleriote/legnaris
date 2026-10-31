@@ -30,9 +30,10 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	router.Use(middleware.RequestLogger())
 	router.Use(middleware.Recover())
 
-	httpMetrics.Register(router)
+	limitPublic := publicRateLimit(modules.PublicLimiter)
+	httpMetrics.Register(router, limitPublic)
 
-	health.RegisterHealthRoutes(router.Group(""))
+	health.RegisterHealthRoutes(router.Group(""), limitPublic)
 	registerAuthRoutes(router.Group("/auth"), modules, deps.Variables.CORSOrigins, httpMetrics)
 
 	// The CSP report collector is public: a violation report carries no
@@ -42,12 +43,13 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	// Every sheets and templates route sits behind the JWT middleware; only
 	// health, metrics, and the auth endpoints stay public (OWN-15…OWN-18).
 	requireAuth := auth.Middleware(modules.Auth.TokenManager)
+	limitUser := userRateLimit(modules.UserLimiter)
 
-	templatesGroup := router.Group("/templates", requireAuth)
+	templatesGroup := router.Group("/templates", requireAuth, limitUser)
 	modules.Template.Controller.RegisterRoutes(templatesGroup)
 	modules.Sheet.Controller.RegisterTemplatePreviewRoute(templatesGroup)
 
-	sheetsGroup := router.Group("/sheets", requireAuth)
+	sheetsGroup := router.Group("/sheets", requireAuth, limitUser)
 	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
 	return router

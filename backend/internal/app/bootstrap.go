@@ -41,6 +41,10 @@ type Modules struct {
 	// IPExtractor, so every c.RealIP() consumer reads the same resolution
 	// (PRQ-03, PRQ-04).
 	ClientIP func(*http.Request) string
+	// UserLimiter caps the authenticated routes per user id; PublicLimiter caps
+	// the public probes per address (LGN-30).
+	UserLimiter   *ratelimit.Limiter
+	PublicLimiter *ratelimit.Limiter
 }
 
 // authServiceConfig maps the resolved environment onto the auth service's
@@ -147,6 +151,17 @@ func NewModules(
 		time.Now,
 	)
 
+	userLimiter := ratelimit.New(
+		cfg.Variables.UserRateLimitAttempts,
+		cfg.Variables.UserRateLimitWindow,
+		time.Now,
+	)
+	publicLimiter := ratelimit.New(
+		cfg.Variables.PublicRateLimitAttempts,
+		cfg.Variables.PublicRateLimitWindow,
+		time.Now,
+	)
+
 	return &Modules{
 		Template: TemplateModule{
 			Controller: templateController,
@@ -162,6 +177,8 @@ func NewModules(
 			TokenManager: tokenManager,
 			RateLimiter:  authLimiter,
 		},
-		ClientIP: clientIPPolicy.Resolve,
+		ClientIP:      clientIPPolicy.Resolve,
+		UserLimiter:   userLimiter,
+		PublicLimiter: publicLimiter,
 	}, nil
 }

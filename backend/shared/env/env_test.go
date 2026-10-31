@@ -372,6 +372,70 @@ func TestInitVariablesRateLimitOverrides(t *testing.T) {
 	})
 }
 
+func TestInitVariablesScopedRateLimits(t *testing.T) {
+	e := newTestEnv()
+
+	tests := []struct {
+		name         string
+		attemptsKey  string
+		windowKey    string
+		attempts     func(Variables) int
+		window       func(Variables) time.Duration
+		wantAttempts int
+	}{
+		{
+			name:        "user",
+			attemptsKey: "USER_RATE_LIMIT_ATTEMPTS",
+			windowKey:   "USER_RATE_LIMIT_WINDOW",
+			attempts:    func(v Variables) int { return v.UserRateLimitAttempts },
+			window:      func(v Variables) time.Duration { return v.UserRateLimitWindow },
+		},
+		{
+			name:        "public",
+			attemptsKey: "PUBLIC_RATE_LIMIT_ATTEMPTS",
+			windowKey:   "PUBLIC_RATE_LIMIT_WINDOW",
+			attempts:    func(v Variables) int { return v.PublicRateLimitAttempts },
+			window:      func(v Variables) time.Duration { return v.PublicRateLimitWindow },
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Run("Happy path: defaults to 80 per minute", func(t *testing.T) {
+				unsetEnv(t, tc.attemptsKey)
+				unsetEnv(t, tc.windowKey)
+				vars := e.initVariables()
+				require.Equal(t, 80, tc.attempts(vars))
+				require.Equal(t, time.Minute, tc.window(vars))
+			})
+
+			t.Run("Happy path: valid values override the defaults", func(t *testing.T) {
+				t.Setenv(tc.attemptsKey, "5")
+				t.Setenv(tc.windowKey, "30s")
+				vars := e.initVariables()
+				require.Equal(t, 5, tc.attempts(vars))
+				require.Equal(t, 30*time.Second, tc.window(vars))
+			})
+
+			for _, bad := range []string{"0", "-1", "many"} {
+				t.Run("Edge: attempts "+bad+" falls back to 80", func(t *testing.T) {
+					t.Setenv(tc.attemptsKey, bad)
+					vars := e.initVariables()
+					require.Equal(t, 80, tc.attempts(vars))
+				})
+			}
+
+			for _, bad := range []string{"0s", "-5s", "not-a-duration"} {
+				t.Run("Edge: window "+bad+" falls back to 1m", func(t *testing.T) {
+					t.Setenv(tc.windowKey, bad)
+					vars := e.initVariables()
+					require.Equal(t, time.Minute, tc.window(vars))
+				})
+			}
+		})
+	}
+}
+
 func TestLookupIntEnv(t *testing.T) {
 	e := newTestEnv()
 	const def = 12
