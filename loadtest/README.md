@@ -47,6 +47,44 @@ the API for CPU: a high `legnaris_http_in_flight_requests` with flat server
 throughput means the API is saturated, a high `VUs` count with a low in-flight
 means the generator is. Trust capacity numbers only from the `deploy` stack.
 
+### Concurrent edits on one sheet (`concurrency.js`)
+
+A sheet has one editor, but that editor can fire concurrent writes (slow
+network, retries, several tabs, an event storm). `concurrency.js` runs
+`CONCURRENCY` VUs (default 15) writing to **one** sheet, each waiting for its
+answer before the next write, and re-sending ~30 % of the writes in parallel
+(`DUPLICATE_RATE`). When the storm ends, `teardown()` reads the sheet back and
+fails the run if anything was lost:
+
+- `VARIANT=distinct` (default): each VU owns a field and writes `1000·n + k`
+  for iteration `k`. The stored value of every field must be that VU's **last**
+  write; `legnaris_lost_updates` counts the ones that are not.
+- `VARIANT=same`: every VU writes `stats.strength`; the stored value must be
+  one that was actually written.
+- Both: every modifier and `derived.armorClass` is recomputed from the stored
+  inputs; a mismatch is a cascade computed from a stale read
+  (`legnaris_inconsistent_derived`).
+
+```bash
+SCRIPT=concurrency.js make loadtest-dev
+VARIANT=same SCRIPT=concurrency.js make loadtest-dev
+```
+
+**Known failing:** `VARIANT=distinct` currently reports lost writes (about 12
+of 15 fields). `PATCH /sheets/:id` reads the sheet, recomputes the whole
+document and persists `data` as a whole (`service.go` `PartialUpdate`), so a
+slower request that read an older state overwrites newer writes to *other*
+fields. The test measures and reports; the fix (a versioned/atomic update or a
+per-sheet serialisation) is a separate card.
+
+### Onboarding (`onboarding.js`)
+
+Register + create-sheet is not steady state: registration hashes a password
+(~230 ms) and creating the sheet takes ~2 ms. `onboarding.js` drives it on its
+own at `ONBOARDING_RATE` (5/s) with separate thresholds (register p95 < 1.5 s,
+create p95 < 200 ms). Every iteration creates a new account and nothing removes
+it: use a throwaway environment.
+
 ### Seeded accounts
 
 Accounts are deterministic (`lt-seed-<n>@loadtest.local`, see

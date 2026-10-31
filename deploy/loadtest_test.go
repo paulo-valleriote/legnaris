@@ -377,6 +377,37 @@ func TestK6Scripts(t *testing.T) {
 		{"Edge: the PATCH mix includes a cascading write (identity.proficiencyBonus feeds every skill and save)", func(t *testing.T) {
 			assert.Contains(t, read(t, "capacity.js"), "identity.proficiencyBonus")
 		}},
+		{"Happy path: the concurrency test fails on a lost update instead of only reporting it", func(t *testing.T) {
+			concurrency := read(t, "concurrency.js")
+			assert.Contains(t, concurrency, "legnaris_lost_updates: ['count==0']")
+			assert.Contains(t, concurrency, "legnaris_inconsistent_derived: ['count==0']")
+		}},
+		{"Edge: both concurrency variants exist and an unknown one is refused", func(t *testing.T) {
+			concurrency := read(t, "concurrency.js")
+			assert.Contains(t, concurrency, "VARIANT !== 'distinct' && VARIANT !== 'same'")
+			assert.Contains(t, concurrency, "SAME_FIELD")
+			assert.Contains(t, concurrency, "DISTINCT_FIELDS")
+		}},
+		{"Edge: the storm duplicates writes in parallel, like a retry after a timeout", func(t *testing.T) {
+			assert.Contains(t, read(t, "concurrency.js"), "http.batch")
+		}},
+		{"Edge: the storm never shares a sheet with the ramp (own accounts)", func(t *testing.T) {
+			assert.Contains(t, read(t, "concurrency.js"), "CONCURRENCY_ACCOUNT_BASE")
+		}},
+		{"Edge: derived values are recomputed from stored inputs to catch a stale cascade", func(t *testing.T) {
+			concurrency := read(t, "concurrency.js")
+			assert.Contains(t, concurrency, "derived.armorClass")
+			assert.Contains(t, concurrency, "modifiers.")
+		}},
+		{"Edge: onboarding is measured apart, register and create separately", func(t *testing.T) {
+			onboarding := read(t, "onboarding.js")
+			assert.Contains(t, onboarding, "POST /auth/register")
+			assert.Contains(t, onboarding, "POST /sheets")
+			assert.Contains(t, onboarding, "constant-arrival-rate")
+		}},
+		{"Edge: the one-sheet-per-user rule is honoured, each onboarding iteration uses a new account", func(t *testing.T) {
+			assert.Contains(t, read(t, "onboarding.js"), "iterationInTest")
+		}},
 		{"Edge: setup may outlive k6's 60s default when accounts are created on the fly", func(t *testing.T) {
 			assert.Contains(t, read(t, "patch-sheet.js"), "setupTimeout")
 		}},

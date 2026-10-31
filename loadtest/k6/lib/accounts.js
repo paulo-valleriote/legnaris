@@ -15,9 +15,17 @@ export function authHeaders(token) {
   return { ...JSON_HEADERS, Authorization: `Bearer ${token}` };
 }
 
-function post(path, body, token) {
+/**
+ * postJSON posts a JSON body, authenticated when a token is given. The tag
+ * defaults to a "setup" name so setup traffic stays out of the scenario series.
+ */
+export function postJSON(path, body, token, name = `setup ${path}`) {
   const headers = token ? authHeaders(token) : JSON_HEADERS;
-  return http.post(`${BASE_URL}${path}`, JSON.stringify(body), { headers, tags: { name: `setup ${path}` } });
+  return http.post(`${BASE_URL}${path}`, JSON.stringify(body), { headers, tags: { name } });
+}
+
+function post(path, body, token) {
+  return postJSON(path, body, token);
 }
 
 export function waitForAPI() {

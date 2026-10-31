@@ -61,9 +61,9 @@ mod-check:      ## Verify go.mod/go.sum are tidy
 bench-dag:      ## Benchmark the DAG recalculation (LGN-33: p95 < 50ms at 200 fields)
 	@go test ./backend/internal/sheet/template -run 'P95' -bench 'NormalizeAndRecalculate' -benchmem
 
-loadtest:       ## k6 load test against a running API (SCRIPT=patch-sheet.js|capacity.js; BASE_URL, RATE, DURATION, USERS, STAGES, STEP_SECONDS; K6_OUT=experimental-prometheus-rw streams to dev-observability)
+loadtest:       ## k6 load test against a running API (SCRIPT=patch-sheet.js|capacity.js|concurrency.js|onboarding.js; BASE_URL, RATE, DURATION, USERS, STAGES, STEP_SECONDS; K6_OUT=experimental-prometheus-rw streams to dev-observability)
 	@docker run --rm -i --network host -v $(CURDIR)/loadtest/k6:/scripts:ro \
-		-e BASE_URL=$${BASE_URL:-http://localhost:8080} -e RATE -e DURATION -e USERS -e STAGES -e STEP_SECONDS -e MAX_VUS -e P95_BUDGET_MS \
+		-e BASE_URL=$${BASE_URL:-http://localhost:8080} -e RATE -e DURATION -e USERS -e STAGES -e STEP_SECONDS -e MAX_VUS -e P95_BUDGET_MS -e VARIANT -e CONCURRENCY -e ITERATIONS -e ONBOARDING_RATE \
 		-e K6_PROMETHEUS_RW_SERVER_URL=$${K6_PROMETHEUS_RW_SERVER_URL:-http://localhost:9090/api/v1/write} \
 		-e K6_PROMETHEUS_RW_TREND_STATS=p\(95\),p\(99\),avg,max -e K6_PROMETHEUS_RW_PUSH_INTERVAL=5s \
 		grafana/k6:0.57.0 run $${K6_OUT:+--out $$K6_OUT} /scripts/$${SCRIPT:-patch-sheet.js}
@@ -73,7 +73,7 @@ loadtest-seed:  ## Seed USERS accounts (1 sheet each) so load tests start on a p
 		-e BASE_URL=$${BASE_URL:-http://localhost:8080} -e USERS=$${USERS:-1000} -e ACCOUNT_PREFIX -e SEED_PARALLELISM \
 		grafana/k6:0.57.0 run /scripts/seed.js
 
-loadtest-dev:   ## EVERYTHING in one command, all in containers: DB + API + Grafana + k6 PATCH run, torn down after (SCRIPT=capacity.js for the ramp; KEEP_UP=1 keeps Grafana; RATE/DURATION/USERS/STAGES)
+loadtest-dev:   ## EVERYTHING in one command, all in containers: DB + API + Grafana + k6 PATCH run, torn down after (SCRIPT=capacity.js|concurrency.js|onboarding.js; KEEP_UP=1 keeps Grafana; RATE/DURATION/USERS/STAGES)
 	@scripts/loadtest-dev.sh
 
 dev-observability: ## Prometheus + Grafana for `make dev` (Grafana: http://localhost:3000, dev only)
