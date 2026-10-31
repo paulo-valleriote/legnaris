@@ -102,8 +102,10 @@ var defaultTemplates = []Template{
 // attacks and spellcasting. Mechanics are calibrated through the `rules`
 // group (defaults reproduce the classic score-10/step-2 curve) and wired
 // through `config` 0/1 flags, so another system retunes the sheet without
-// new formulas. SectionOrder is the display order the API must emit: the
-// sheet reads on top, the tuning machinery (rules/config) at the bottom.
+// new formulas. SectionOrder is the display order the API must emit: identity
+// and the numbers read at the table (combat, derived, attacks) come first, the
+// reference lists follow and the tuning machinery (rules/config) is last.
+// SuggestedPins names the Rows a new player is offered as first Pins.
 var fantasyV1Template = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",
@@ -122,9 +124,13 @@ var fantasyV1Template = Template{
 		fieldNameRules:     {Children: rulesGroup()},
 	},
 	SectionOrder: []string{
-		fieldNameIdentity, fieldNameStats, fieldNameModifiers, "saves",
-		fieldNameSkills, fieldNameCombat, "attacks", fieldNameSpells,
-		"derived", fieldNameRules, fieldNameConfig,
+		fieldNameIdentity, fieldNameCombat, "derived", "attacks",
+		fieldNameStats, fieldNameModifiers, "saves", fieldNameSkills,
+		fieldNameSpells, fieldNameRules, fieldNameConfig,
+	},
+	SuggestedPins: []string{
+		"combat.hitPoints", "combat.hitPointsMax", "derived.armorClass",
+		"combat.initiative", "combat.speed",
 	},
 }
 

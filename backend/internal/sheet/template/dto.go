@@ -15,6 +15,10 @@ type TemplateDTO struct {
 	// SectionOrder is the template's declared display order for top-level
 	// fields. It drives MarshalJSON and never appears in the payload.
 	SectionOrder []string `json:"-"`
+	// SuggestedPins mirrors Template.SuggestedPins: a read-only list of Row
+	// keys a client may offer as first Pins. Omitted from the payload when
+	// empty.
+	SuggestedPins []string `json:"suggested_pins,omitempty"`
 }
 
 // FieldGroupDTO mirrors FieldGroup (a map of field name → node) for the API.
@@ -44,14 +48,16 @@ type FieldSchemaDTO struct {
 
 // ToDTO converts a Template to its API representation. The result shares no
 // map or slice with the template: the field tree is rebuilt level by level,
-// DependsOn is cloned (LGN-60) and SectionOrder is copied for the same reason.
+// DependsOn is cloned (LGN-60) and SectionOrder and SuggestedPins are copied for
+// the same reason.
 func (t Template) ToDTO() TemplateDTO {
 	return TemplateDTO{
-		ID:           t.ID,
-		Name:         t.Name,
-		Fields:       t.Fields.toDTO(),
-		Default:      t.Default,
-		SectionOrder: slices.Clone(t.SectionOrder),
+		ID:            t.ID,
+		Name:          t.Name,
+		Fields:        t.Fields.toDTO(),
+		Default:       t.Default,
+		SectionOrder:  slices.Clone(t.SectionOrder),
+		SuggestedPins: slices.Clone(t.SuggestedPins),
 	}
 }
 
@@ -66,12 +72,15 @@ func (d TemplateDTO) MarshalJSON() ([]byte, error) {
 		Name    string          `json:"name"`
 		Fields  json.RawMessage `json:"fields"`
 		Default bool            `json:"default"`
+		// SuggestedPins is omitted when empty so a template that suggests
+		// nothing keeps the payload it always had.
+		SuggestedPins []string `json:"suggested_pins,omitempty"`
 	}
 	fields, err := marshalFieldGroup(d.Fields, d.SectionOrder)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(payload{ID: d.ID, Name: d.Name, Fields: fields, Default: d.Default})
+	return json.Marshal(payload{ID: d.ID, Name: d.Name, Fields: fields, Default: d.Default, SuggestedPins: d.SuggestedPins})
 }
 
 // marshalFieldGroup writes one fields object with the keys of order first (in

@@ -1,6 +1,8 @@
 package template
 
 import (
+	"fmt"
+
 	"legnaris/backend/internal/engine"
 )
 
@@ -21,9 +23,13 @@ type Registry struct {
 }
 
 // BuildRegistry validates and compiles every default template into a DAG.
-// It returns an error if any template fails validation or formula compilation.
+// It returns an error if any template fails validation, formula compilation or
+// its suggested pins check, so a bad template fails boot instead of a request.
 func BuildRegistry(eng *engine.FormulaEngine) (*Registry, error) {
-	templates := DefaultTemplates()
+	return buildRegistry(eng, DefaultTemplates())
+}
+
+func buildRegistry(eng *engine.FormulaEngine, templates []Template) (*Registry, error) {
 	registry := &Registry{
 		templates: make(map[string]Template, len(templates)),
 		dags:      make(map[string]*DAG, len(templates)),
@@ -38,6 +44,10 @@ func BuildRegistry(eng *engine.FormulaEngine) (*Registry, error) {
 		dag, err := BuildDAG(stored.ID, stored.Fields, eng)
 		if err != nil {
 			return nil, err
+		}
+
+		if err := ValidateSuggestedPins(stored); err != nil {
+			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
 
 		registry.templates[stored.ID] = stored

@@ -16,6 +16,7 @@ type Repository interface {
 	FetchByID(ctx context.Context, id string) (*Sheet, error)
 	FetchByOwnerID(ctx context.Context, ownerID string) (*Sheet, error)
 	PartialUpdate(ctx context.Context, id string, dbUpdates map[string]any) error
+	UpdateLayout(ctx context.Context, id string, layout *Layout) error
 	DeleteByID(ctx context.Context, id string) error
 }
 
@@ -27,6 +28,9 @@ type RepositoryImpl struct {
 // idField is the Mongo primary-key field name, shared by the by-id filters so
 // the literal stays in one place.
 const idField = "_id"
+
+// layoutField is the Mongo field holding the sheet's Layout.
+const layoutField = "layout"
 
 // ErrSheetNotFound reports a sheet lookup that matched no document.
 // Services translate it to apperr.CodeNotFound at the layer boundary.
@@ -96,6 +100,24 @@ func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, dbUpdates
 	_, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return fmt.Errorf("error updating sheet: %w", err)
+	}
+	return nil
+}
+
+// UpdateLayout replaces the stored layout of one sheet with a $set on that
+// single field, so a concurrent write to data or any other field is neither
+// read nor overwritten. A nil layout stores null, which reads back as no
+// layout. It returns ErrSheetNotFound when no sheet matches.
+func (r *RepositoryImpl) UpdateLayout(ctx context.Context, id string, layout *Layout) error {
+	filter := bson.D{{Key: idField, Value: id}}
+	update := bson.M{"$set": bson.M{layoutField: layout}}
+
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return fmt.Errorf("error updating sheet layout: %w", err)
+	}
+	if result.MatchedCount == 0 {
+		return ErrSheetNotFound
 	}
 	return nil
 }

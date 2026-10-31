@@ -424,6 +424,65 @@ func (_c *MockService_PreviewTemplate_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// SetLayout provides a mock function with given fields: ctx, cmd
+func (_m *MockService) SetLayout(ctx context.Context, cmd sheet.SetLayoutCommand) (*sheet.Layout, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetLayout")
+	}
+
+	var r0 *sheet.Layout
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.SetLayoutCommand) (*sheet.Layout, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.SetLayoutCommand) *sheet.Layout); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*sheet.Layout)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, sheet.SetLayoutCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_SetLayout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetLayout'
+type MockService_SetLayout_Call struct {
+	*mock.Call
+}
+
+// SetLayout is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd sheet.SetLayoutCommand
+func (_e *MockService_Expecter) SetLayout(ctx interface{}, cmd interface{}) *MockService_SetLayout_Call {
+	return &MockService_SetLayout_Call{Call: _e.mock.On("SetLayout", ctx, cmd)}
+}
+
+func (_c *MockService_SetLayout_Call) Run(run func(ctx context.Context, cmd sheet.SetLayoutCommand)) *MockService_SetLayout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(sheet.SetLayoutCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_SetLayout_Call) Return(_a0 *sheet.Layout, _a1 error) *MockService_SetLayout_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_SetLayout_Call) RunAndReturn(run func(context.Context, sheet.SetLayoutCommand) (*sheet.Layout, error)) *MockService_SetLayout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockService creates a new instance of MockService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockService(t interface {

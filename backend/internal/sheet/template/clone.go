@@ -12,6 +12,7 @@ import "slices"
 func cloneTemplate(tmpl Template) Template {
 	tmpl.Fields = cloneFieldGroup(tmpl.Fields)
 	tmpl.SectionOrder = slices.Clone(tmpl.SectionOrder)
+	tmpl.SuggestedPins = slices.Clone(tmpl.SuggestedPins)
 	return tmpl
 }
 

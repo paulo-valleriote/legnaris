@@ -135,3 +135,52 @@ func TestSheetToDTO_NeverExposesOwnerID(t *testing.T) {
 	assert.NotContains(t, string(raw), "owner_id")
 	assert.NotContains(t, string(raw), src.OwnerID)
 }
+
+func TestSheetToDTO_Layout(t *testing.T) {
+	t.Run("Edge: a sheet without layout omits the key", func(t *testing.T) {
+		raw, err := json.Marshal(sheet.Sheet{ID: "x"}.ToDTO())
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), "layout")
+	})
+
+	t.Run("Edge: an empty layout object serializes as an empty object", func(t *testing.T) {
+		raw, err := json.Marshal(sheet.Sheet{ID: "x", Layout: &sheet.Layout{}}.ToDTO())
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), `"layout":{}`)
+	})
+
+	t.Run("Happy path: a set layout is returned in snake_case", func(t *testing.T) {
+		stored := sheet.Sheet{ID: "x", Layout: &sheet.Layout{
+			SectionOrder: []string{"stats"},
+			Pinned:       []string{"stats.strength"},
+		}}
+		raw, err := json.Marshal(stored.ToDTO())
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), `"layout":{"section_order":["stats"],"pinned":["stats.strength"]}`)
+	})
+
+	t.Run("Edge: the DTO layout does not alias the stored one", func(t *testing.T) {
+		stored := sheet.Sheet{Layout: &sheet.Layout{
+			SectionOrder: []string{"stats"},
+			Pinned:       []string{"stats.strength"},
+		}}
+		dto := stored.ToDTO()
+
+		dto.Layout.SectionOrder[0] = "tampered"
+		dto.Layout.Pinned[0] = "tampered"
+
+		assert.Equal(t, "stats", stored.Layout.SectionOrder[0])
+		assert.Equal(t, "stats.strength", stored.Layout.Pinned[0])
+	})
+}
+
+func TestLayout_IsEmptyAndClone(t *testing.T) {
+	var nilLayout *sheet.Layout
+	assert.True(t, nilLayout.IsEmpty())
+	assert.Nil(t, nilLayout.Clone())
+	assert.True(t, (&sheet.Layout{}).IsEmpty())
+	assert.True(t, (&sheet.Layout{SectionOrder: []string{}, Pinned: []string{}}).IsEmpty())
+	assert.False(t, (&sheet.Layout{Pinned: []string{"a"}}).IsEmpty())
+	assert.False(t, (&sheet.Layout{SectionOrder: []string{"s"}}).IsEmpty())
+	assert.Equal(t, &sheet.Layout{}, (&sheet.Layout{}).Clone())
+}

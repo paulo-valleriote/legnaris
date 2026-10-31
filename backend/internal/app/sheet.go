@@ -28,6 +28,7 @@ func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.PATCH("/:id", sc.PartialUpdate)
 	group.DELETE("/:id", sc.Delete)
 	group.POST("/:id/preview", sc.Preview)
+	group.PUT("/:id/layout", sc.SetLayout)
 }
 
 // RegisterTemplatePreviewRoute exposes the template dry-run on the templates
@@ -111,6 +112,34 @@ func (sc *SheetController) Preview(c *echo.Context) error {
 		return err
 	}
 	return response.OK(c, cascadingEffects)
+}
+
+// SetLayoutResponse is the body of PUT /sheets/:id/layout: the Layout as
+// stored, or null after a reset to default.
+type SetLayoutResponse struct {
+	Layout *sheet.Layout `json:"layout"`
+}
+
+// SetLayout fully replaces the authenticated owner's sheet Layout. It never
+// recalculates: the body is {"layout": {...}} and the answer echoes what was
+// stored.
+func (sc *SheetController) SetLayout(c *echo.Context) error {
+	var cmd sheet.SetLayoutCommand
+
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+
+	ownerID, _ := auth.UserID(c)
+	layout, err := sc.service.SetLayout(c.Request().Context(), sheet.SetLayoutCommand{
+		SheetID: c.Param("id"),
+		OwnerID: ownerID,
+		Layout:  cmd.Layout,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, SetLayoutResponse{Layout: layout})
 }
 
 // Delete removes the authenticated owner's sheet and returns 204. A foreign or

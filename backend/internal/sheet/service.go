@@ -22,6 +22,14 @@ type PartialUpdateSheetCommand struct {
 	Data    map[string]any `json:"data"`
 }
 
+// SetLayoutCommand carries the full replacement of a sheet's Layout. A nil or
+// empty Layout resets it to the Template default.
+type SetLayoutCommand struct {
+	SheetID string  `json:"-"`
+	OwnerID string  `json:"-"`
+	Layout  *Layout `json:"layout"`
+}
+
 // PreviewTemplateCommand carries the template dry-run input. TemplateID is
 // filled from the path param (json:"-" keeps a body template_id out), so the
 // body is the same {"data": <delta>} shape the sheet endpoints take.
@@ -44,6 +52,7 @@ type Service interface {
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
+	SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Layout, error)
 	Delete(ctx context.Context, cmd DeleteSheetCommand) error
 }
 
@@ -366,6 +375,45 @@ func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCo
 	return nestedCascadingEffects(cascading)
 }
 
+// SetLayout replaces the owner's sheet Layout after checking every key against
+// the Rows of the sheet's Template. It is idempotent and writes only the layout
+// field: no recalculation runs and the DAG is never consulted, because ordering
+// is not a value. An empty Layout is stored as none (reset to default); a
+// Layout identical to the Template order is stored as given.
+func (s *ServiceImpl) SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Layout, error) {
+	if err := requireOwner(cmd.OwnerID); err != nil {
+		return nil, err
+	}
+	if err := requireSheetID(cmd.SheetID); err != nil {
+		return nil, err
+	}
+
+	stored, err := s.repository.FetchByID(ctx, cmd.SheetID)
+	if err != nil {
+		return nil, translateRepoErr("fetch", err)
+	}
+	if err := checkOwnership(stored, cmd.OwnerID); err != nil {
+		return nil, err
+	}
+
+	var layout *Layout
+	if !cmd.Layout.IsEmpty() {
+		tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: stored.TemplateID})
+		if err != nil {
+			return nil, translateTemplateErr(err)
+		}
+		if err := template.ValidateLayout(*tmpl, cmd.Layout.SectionOrder, cmd.Layout.Pinned); err != nil {
+			return nil, translateLayoutErr(err)
+		}
+		layout = cmd.Layout.Clone()
+	}
+
+	if err := s.repository.UpdateLayout(ctx, cmd.SheetID, layout); err != nil {
+		return nil, translateRepoErr("update", err)
+	}
+	return layout, nil
+}
+
 // Delete removes the owner's sheet. Ownership is verified first, so a foreign
 // sheet and a missing sheet both return the repository's 404 without deleting
 // anything, and a second delete is 404 because the fetch misses (OWN-13,
@@ -408,6 +456,26 @@ func translateTemplateErr(err error) error {
 		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), nil)
 	}
 	return apperr.NewError(apperr.CodeInternal, "failed to fetch template", err)
+}
+
+// translateLayoutErr maps template layout validation errors to a 400
+// INVALID_REQUEST at the service boundary. The template layer must stay free of
+// apperr imports.
+func translateLayoutErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	var appErr *apperr.Error
+	if errors.As(err, &appErr) {
+		return err
+	}
+	var unknownSection *template.UnknownLayoutSectionError
+	var unknownRow *template.UnknownLayoutRowError
+	var duplicate *template.DuplicateLayoutKeyError
+	if errors.As(err, &unknownSection) || errors.As(err, &unknownRow) || errors.As(err, &duplicate) {
+		return apperr.NewError(apperr.CodeInvalidRequest, "invalid layout: "+err.Error(), err)
+	}
+	return apperr.NewError(apperr.CodeInternal, "failed to validate layout", err)
 }
 
 // translateRepoErr maps repository errors to typed apperr at the service

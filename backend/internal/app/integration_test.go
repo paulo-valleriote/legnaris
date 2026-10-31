@@ -178,6 +178,7 @@ func TestIntegration_ProtectedRoutesRequireJWT(t *testing.T) {
 		{http.MethodPatch, "/sheets/" + missingSheetID, `{"data":{"stats":{"dexterity":12}}}`},
 		{http.MethodDelete, "/sheets/" + missingSheetID, ""},
 		{http.MethodPost, "/sheets/" + missingSheetID + "/preview", `{"data":{"stats":{"dexterity":12}}}`},
+		{http.MethodPut, "/sheets/" + missingSheetID + "/layout", `{"layout":{}}`},
 		{http.MethodGet, "/templates", ""},
 		{http.MethodGet, "/templates/fantasy_v1", ""},
 		{http.MethodPost, "/templates/fantasy_v1/preview", `{"data":{"stats":{"dexterity":12}}}`},
@@ -251,6 +252,7 @@ func TestIntegration_TemplatesList(t *testing.T) {
 	assert.True(t, dex.Schema.IsEditable)
 	assert.Equal(t, 10.0, dex.Schema.Default)
 	assert.Empty(t, dex.Schema.Formula)
+	assert.NotEmpty(t, tmpl.SuggestedPins)
 }
 
 func TestIntegration_TemplatesFetchByID(t *testing.T) {
@@ -281,9 +283,14 @@ func TestIntegration_TemplatesFetchByID(t *testing.T) {
 	// The sections must arrive in the template's declared display order —
 	// the sheet renders them exactly as they come.
 	assert.Equal(t, []string{
-		"identity", "stats", "modifiers", "saves", "skills",
-		"combat", "attacks", "spells", "derived", "rules", "config",
+		"identity", "combat", "derived", "attacks", "stats", "modifiers",
+		"saves", "skills", "spells", "rules", "config",
 	}, templateFieldKeys(t, rec.Body.Bytes()))
+
+	assert.Equal(t, []string{
+		"combat.hitPoints", "combat.hitPointsMax", "derived.armorClass",
+		"combat.initiative", "combat.speed",
+	}, body.Data.SuggestedPins)
 }
 
 // templateFieldKeys walks the response envelope down to the `fields` object of
@@ -874,6 +881,7 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 			{http.MethodPatch, "/sheets/" + sheetID, `{"data":{"identity":{"characterName":"Hijacked"}}}`},
 			{http.MethodDelete, "/sheets/" + sheetID, ""},
 			{http.MethodPost, "/sheets/" + sheetID + "/preview", `{"data":{"stats":{"dexterity":20}}}`},
+			{http.MethodPut, "/sheets/" + sheetID + "/layout", `{"layout":{"pinned":["stats.dexterity"]}}`},
 		}
 
 		for _, op := range ops {
