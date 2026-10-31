@@ -13,6 +13,7 @@ const appErrors = new Counter('legnaris_patch_unexpected_status');
 
 export const options = {
   setupTimeout: __ENV.SETUP_TIMEOUT || '10m',
+  tags: { testid: 'patch-sheet' },
   scenarios: {
     patch_sustained: {
       executor: 'constant-arrival-rate',

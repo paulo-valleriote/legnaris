@@ -63,9 +63,15 @@ func TestLoadtestOverlay(t *testing.T) {
 			url := doc.Services["k6"].Environment["K6_PROMETHEUS_RW_SERVER_URL"]
 			assert.Equal(t, "http://prometheus:9090/prometheus/api/v1/write", url)
 		}},
-		{"Edge: the mounted script exists", func(t *testing.T) {
-			assert.Contains(t, doc.Services["k6"].Command, "/scripts/patch-sheet.js")
+		{"Edge: the script is selectable and defaults to the acceptance test", func(t *testing.T) {
+			assert.Equal(t, []string{"/scripts/${LOADTEST_SCRIPT:-patch-sheet.js}"}, doc.Services["k6"].Command)
 			assert.FileExists(t, filepath.Join(k6ScriptsDir, "patch-sheet.js"))
+			assert.FileExists(t, filepath.Join(k6ScriptsDir, "capacity.js"))
+		}},
+		{"Edge: the testid tag comes from the script, so one service runs every scenario", func(t *testing.T) {
+			raw, err := os.ReadFile(loadtestOverlay)
+			require.NoError(t, err)
+			assert.NotContains(t, string(raw), "testid=")
 		}},
 	}
 
@@ -346,6 +352,30 @@ func TestK6Scripts(t *testing.T) {
 		}},
 		{"Edge: the PATCH test no longer deletes the seeded sheets", func(t *testing.T) {
 			assert.NotContains(t, read(t, "patch-sheet.js"), "teardown")
+		}},
+		{"Happy path: the capacity test ramps the arrival rate over a weighted mix", func(t *testing.T) {
+			capacity := read(t, "capacity.js")
+			assert.Contains(t, capacity, "ramping-arrival-rate")
+			for _, operation := range []string{"GET /sheets/:id", "PATCH /sheets/:id", "PATCH /sheets/:id cascade"} {
+				assert.Contains(t, capacity, operation)
+			}
+			assert.Contains(t, capacity, "MIX_GET")
+		}},
+		{"Edge: every step has its own abort threshold, since a run-wide aggregate hides a collapse at the top step", func(t *testing.T) {
+			capacity := read(t, "capacity.js")
+			assert.Contains(t, capacity, "abortOnFail: true")
+			assert.Contains(t, capacity, "http_req_duration{${step}}")
+			assert.Contains(t, capacity, "http_req_failed{${step}}")
+		}},
+		{"Edge: the p95 budget is tunable so thresholds can be tightened after the first run", func(t *testing.T) {
+			assert.Contains(t, read(t, "capacity.js"), "P95_BUDGET_MS")
+		}},
+		{"Edge: each script tags its own testid", func(t *testing.T) {
+			assert.Contains(t, read(t, "capacity.js"), "testid: 'capacity'")
+			assert.Contains(t, read(t, "patch-sheet.js"), "testid: 'patch-sheet'")
+		}},
+		{"Edge: the PATCH mix includes a cascading write (identity.proficiencyBonus feeds every skill and save)", func(t *testing.T) {
+			assert.Contains(t, read(t, "capacity.js"), "identity.proficiencyBonus")
 		}},
 		{"Edge: setup may outlive k6's 60s default when accounts are created on the fly", func(t *testing.T) {
 			assert.Contains(t, read(t, "patch-sheet.js"), "setupTimeout")

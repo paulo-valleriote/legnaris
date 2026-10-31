@@ -21,6 +21,32 @@ allows one per user), then fires `RATE` PATCH/s for `DURATION` with a
 `constant-arrival-rate` executor. Thresholds mirror the acceptance criteria, so
 k6 exits non-zero when they fail.
 
+### Capacity ramp (`capacity.js`)
+
+`patch-sheet.js` only answers "does 100 req/s pass?". `capacity.js` answers
+"where does it break?": a `ramping-arrival-rate` run climbs through
+`STAGES` (default `100,200,400,800,1600` req/s, `STEP_SECONDS`=60 each) over a
+weighted mix: 55 % `GET /sheets/:id`, 30 % single-field `PATCH`, 15 % `PATCH`
+of four fields including `identity.proficiencyBonus`, which cascades through
+every skill and save (`MIX_GET`, `MIX_PATCH`, `MIX_CASCADE`).
+
+Every request carries a `step` tag and every step its own thresholds: the run
+aborts as soon as a step breaches **p95 > `P95_BUDGET_MS`** (200) or **> 1 %
+failures**, so **the last step that did not abort is the measured capacity**.
+Per-operation lines (GET p95 < 100 ms, PATCH p95 < 200 ms, errors < 0.1 %)
+report without aborting.
+
+```bash
+SCRIPT=capacity.js make loadtest-dev
+SCRIPT=capacity.js STAGES=50,100,200 STEP_SECONDS=30 USERS=20 make loadtest-dev
+SCRIPT=capacity.js make loadtest            # against a running API
+```
+
+On a shared host (k6, API and MongoDB on one machine) the generator competes with
+the API for CPU: a high `legnaris_http_in_flight_requests` with flat server
+throughput means the API is saturated, a high `VUs` count with a low in-flight
+means the generator is. Trust capacity numbers only from the `deploy` stack.
+
 ### Seeded accounts
 
 Accounts are deterministic (`lt-seed-<n>@loadtest.local`, see

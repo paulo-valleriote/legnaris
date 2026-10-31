@@ -78,13 +78,16 @@ services:
   k6:
     image: grafana/k6:0.57.0
     profiles: [loadtest]
-    entrypoint: ["k6", "run", "--out", "experimental-prometheus-rw", "--tag", "testid=patch-sheet"]
-    command: ["/scripts/patch-sheet.js"]
+    entrypoint: ["k6", "run", "--out", "experimental-prometheus-rw"]
+    command: ["/scripts/${SCRIPT:-patch-sheet.js}"]
     environment:
       BASE_URL: http://app:8080
       RATE: ${RATE:-100}
       DURATION: ${DURATION:-2m}
       USERS: ${USERS:-50}
+      STAGES: ${STAGES:-100,200,400,800,1600}
+      STEP_SECONDS: ${STEP_SECONDS:-60}
+      P95_BUDGET_MS: ${P95_BUDGET_MS:-200}
       K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
       K6_PROMETHEUS_RW_TREND_STATS: p(95),p(99),avg,max
       K6_PROMETHEUS_RW_PUSH_INTERVAL: 5s
