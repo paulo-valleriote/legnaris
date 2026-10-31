@@ -310,3 +310,48 @@ func TestGrafanaDatasourceMatchesPrometheusRoutePrefix(t *testing.T) {
 	assert.Equal(t, "http://prometheus:9090/prometheus", urls["prometheus"],
 		"without the prefix every Grafana query hits a 404 on Prometheus")
 }
+
+func TestK6Scripts(t *testing.T) {
+	read := func(t *testing.T, name string) string {
+		t.Helper()
+		raw, err := os.ReadFile(filepath.Join(k6ScriptsDir, name))
+		require.NoError(t, err)
+		return string(raw)
+	}
+
+	tests := []struct {
+		name  string
+		check func(t *testing.T)
+	}{
+		{"Happy path: the seed registers through the shared idempotent helper", func(t *testing.T) {
+			seed := read(t, "seed.js")
+			assert.Contains(t, seed, "ensureAccount")
+			assert.Contains(t, seed, "shared-iterations")
+		}},
+		{"Edge: accounts are idempotent, an existing account is logged into before registering", func(t *testing.T) {
+			assert.Contains(t, read(t, "lib/accounts.js"), "login(index) || register(index)")
+		}},
+		{"Edge: the API's one-sheet-per-user limit is honoured by fetching before creating", func(t *testing.T) {
+			lib := read(t, "lib/accounts.js")
+			fetch := strings.Index(lib, "GET /sheets")
+			create := strings.Index(lib, "post('/sheets'")
+			require.NotEqual(t, -1, fetch)
+			require.NotEqual(t, -1, create)
+			assert.Less(t, fetch, create)
+		}},
+		{"Edge: the PATCH test refreshes tokens, since a run outlives the access-token TTL", func(t *testing.T) {
+			patch := read(t, "patch-sheet.js")
+			assert.Contains(t, patch, "liveToken(session)")
+			assert.Contains(t, read(t, "lib/accounts.js"), "expiresAt")
+		}},
+		{"Edge: the PATCH test no longer deletes the seeded sheets", func(t *testing.T) {
+			assert.NotContains(t, read(t, "patch-sheet.js"), "teardown")
+		}},
+		{"Edge: setup may outlive k6's 60s default when accounts are created on the fly", func(t *testing.T) {
+			assert.Contains(t, read(t, "patch-sheet.js"), "setupTimeout")
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, tc.check)
+	}
+}

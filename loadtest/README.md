@@ -16,10 +16,25 @@ cascade (200 fields, 100 derived in one chain) exceeds 50 ms at p95.
 
 ## k6 PATCH test
 
-`k6/patch-sheet.js` registers `USERS` accounts (one sheet each, the API allows
-one per user), then fires `RATE` PATCH/s for `DURATION` with a
+`k6/patch-sheet.js` signs in `USERS` seeded accounts (one sheet each, the API
+allows one per user), then fires `RATE` PATCH/s for `DURATION` with a
 `constant-arrival-rate` executor. Thresholds mirror the acceptance criteria, so
 k6 exits non-zero when they fail.
+
+### Seeded accounts
+
+Accounts are deterministic (`lt-seed-<n>@loadtest.local`, see
+`k6/lib/accounts.js`) and the setup is idempotent: the first run registers an
+account and creates its sheet, every later run only logs in. For a large `USERS`
+seed once, in parallel, instead of paying for it inside the test's setup:
+
+```bash
+USERS=1000 make loadtest-seed     # against a running API (BASE_URL)
+```
+
+The access token lives 15 minutes, so the script signs in again when it is about
+to expire; a long run does not die on 401. Raise `USERS` to extend the data set;
+accounts already there are reused.
 
 The default rate limits (80 req/min per user, 10 auth attempts/min per IP)
 would refuse this traffic. **Only on a throwaway environment**, raise
