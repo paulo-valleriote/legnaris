@@ -20,6 +20,7 @@ type Metrics struct {
 	registry                 *prometheus.Registry
 	requestDuration          *prometheus.HistogramVec
 	requestsTotal            *prometheus.CounterVec
+	requestsInFlight         prometheus.Gauge
 	authLoginFailures        prometheus.Counter
 	authRefreshReuseDetected prometheus.Counter
 	authRateLimited          prometheus.Counter
@@ -38,6 +39,17 @@ type Metrics struct {
 
 const metricsNamespace = "legnaris"
 
+// requestDurationBuckets are the HTTP latency histogram bounds, in seconds.
+// prometheus.DefBuckets starts at 5ms, which collapses every healthy sub-5ms
+// request into one bucket and flattens p95/p99; these resolve 0.5ms-2.5s so
+// load tests can tell a 2ms API from a 5ms one.
+var requestDurationBuckets = []float64{
+	0.0005, 0.001, 0.002, 0.003, 0.005, 0.0075, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5,
+}
+
+// httpSubsystem is the Prometheus subsystem shared by the HTTP collectors.
+const httpSubsystem = "http"
+
 // authSubsystem is the Prometheus subsystem shared by the auth observers.
 const authSubsystem = "auth"
 
@@ -52,10 +64,10 @@ func New() *Metrics {
 	requestDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: metricsNamespace,
-			Subsystem: "http",
+			Subsystem: httpSubsystem,
 			Name:      "request_duration_seconds",
 			Help:      "HTTP request latency in seconds.",
-			Buckets:   prometheus.DefBuckets,
+			Buckets:   requestDurationBuckets,
 		},
 		[]string{"method", "path", "status"},
 	)
@@ -63,7 +75,7 @@ func New() *Metrics {
 	requestsTotal := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
-			Subsystem: "http",
+			Subsystem: httpSubsystem,
 			Name:      "requests_total",
 			Help:      "Total number of HTTP requests.",
 		},
@@ -168,7 +180,14 @@ func New() *Metrics {
 		Help:      "Requests refused because the daily email send cap was reached.",
 	})
 
-	registry.MustRegister(requestDuration, requestsTotal, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports,
+	requestsInFlight := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: httpSubsystem,
+		Name:      "in_flight_requests",
+		Help:      "Number of HTTP requests currently being served.",
+	})
+
+	registry.MustRegister(requestDuration, requestsTotal, requestsInFlight, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports,
 		emailOutboxBacklog, emailPublishTotal, emailDeadTotal,
 		emailSendTotal, emailSendDuration, emailExpiredTotal,
 		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked)
@@ -185,6 +204,7 @@ func New() *Metrics {
 		registry:                 registry,
 		requestDuration:          requestDuration,
 		requestsTotal:            requestsTotal,
+		requestsInFlight:         requestsInFlight,
 		authLoginFailures:        authLoginFailures,
 		authRefreshReuseDetected: authRefreshReuseDetected,
 		authRateLimited:          authRateLimited,
@@ -241,6 +261,8 @@ func (m *Metrics) CSPReportReported(effectiveDirective, disposition string) {
 func (m *Metrics) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		start := time.Now()
+		m.requestsInFlight.Inc()
+		defer m.requestsInFlight.Dec()
 		err := next(c)
 
 		method := c.Request().Method

@@ -7,12 +7,15 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"legnaris/backend/internal/auth"
 
 	"github.com/labstack/echo/v5"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -352,4 +355,116 @@ func TestWorkerMetrics_NoSensitiveLabels(t *testing.T) {
 func TestWorkerMetrics_UnexpectedResult(t *testing.T) {
 	m := New()
 	assert.NotPanics(t, func() { m.SendResult("") })
+}
+
+func TestMiddlewareLatencyBucketsResolveSubFiveMillisecond(t *testing.T) {
+	e := newTestRouter(t)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/test", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	body := scrapeMetrics(t, e)
+
+	tests := []struct {
+		name string
+		le   string
+	}{
+		{name: "Happy path: finest bucket is 0.5ms", le: `le="0.0005"`},
+		{name: "Edge: 1ms bucket exists", le: `le="0.001"`},
+		{name: "Edge: 3ms bucket exists", le: `le="0.003"`},
+		{name: "Edge: 2.5s upper bucket exists", le: `le="2.5"`},
+		{name: "Edge: +Inf bucket exists", le: `le="+Inf"`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Contains(t, body, "legnaris_http_request_duration_seconds_bucket{method=\"GET\",path=\"/test\",status=\"200\","+tc.le)
+		})
+	}
+}
+
+// gaugeValue reads the current value of a gauge without scraping /metrics.
+func gaugeValue(t *testing.T, g prometheus.Gauge) float64 {
+	t.Helper()
+	var out dto.Metric
+	require.NoError(t, g.Write(&out))
+	return out.GetGauge().GetValue()
+}
+
+func TestMiddlewareInFlightGauge(t *testing.T) {
+	newRouter := func(handler echo.HandlerFunc) (*echo.Echo, *Metrics) {
+		e := echo.New()
+		m := New()
+		e.Use(m.Middleware)
+		e.GET("/h", handler)
+		return e, m
+	}
+
+	t.Run("Happy path: counts a request while it is being served and releases it after", func(t *testing.T) {
+		var during float64
+		var m *Metrics
+		e, built := newRouter(func(c *echo.Context) error {
+			during = gaugeValue(t, m.requestsInFlight)
+			return c.String(http.StatusOK, "ok")
+		})
+		m = built
+
+		e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/h", nil))
+
+		assert.InDelta(t, 1, during, 0)
+		assert.InDelta(t, 0, gaugeValue(t, m.requestsInFlight), 0)
+	})
+
+	t.Run("Edge: releases the slot when the handler returns an error", func(t *testing.T) {
+		e, m := newRouter(func(c *echo.Context) error {
+			return errors.New("boom")
+		})
+
+		e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/h", nil))
+
+		assert.InDelta(t, 0, gaugeValue(t, m.requestsInFlight), 0)
+	})
+
+	t.Run("Edge: releases the slot when the handler panics", func(t *testing.T) {
+		e, m := newRouter(func(c *echo.Context) error {
+			panic("boom")
+		})
+
+		assert.Panics(t, func() {
+			e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/h", nil))
+		})
+
+		assert.InDelta(t, 0, gaugeValue(t, m.requestsInFlight), 0)
+	})
+
+	t.Run("Edge: concurrent requests are all counted, then all released", func(t *testing.T) {
+		const concurrent = 8
+		arrived := make(chan struct{}, concurrent)
+		release := make(chan struct{})
+		e, m := newRouter(func(c *echo.Context) error {
+			arrived <- struct{}{}
+			<-release
+			return c.String(http.StatusOK, "ok")
+		})
+
+		var wg sync.WaitGroup
+		for i := 0; i < concurrent; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/h", nil))
+			}()
+		}
+		for i := 0; i < concurrent; i++ {
+			<-arrived
+		}
+		assert.InDelta(t, concurrent, gaugeValue(t, m.requestsInFlight), 0)
+
+		close(release)
+		wg.Wait()
+		assert.InDelta(t, 0, gaugeValue(t, m.requestsInFlight), 0)
+	})
+
+	t.Run("Edge: gauge is exposed on /metrics at zero before any traffic", func(t *testing.T) {
+		assert.Contains(t, scrapeMetrics(t, newTestRouter(t)), "legnaris_http_in_flight_requests")
+	})
 }
