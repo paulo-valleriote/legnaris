@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails
+.PHONY: dev run relay worker build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest
 
 ## --- Development ------------------------------------------------------------
 
@@ -57,6 +57,14 @@ fmt:            ## Format code
 
 mod-check:      ## Verify go.mod/go.sum are tidy
 	@go mod tidy -diff
+
+bench-dag:      ## Benchmark the DAG recalculation (LGN-33: p95 < 50ms at 200 fields)
+	@go test ./backend/internal/sheet/template -run 'P95' -bench 'NormalizeAndRecalculate' -benchmem
+
+loadtest:       ## k6 PATCH load test against a running API (BASE_URL, RATE, DURATION, USERS; needs the API's rate limits lifted)
+	@docker run --rm -i --network host -v $(CURDIR)/loadtest/k6:/scripts:ro \
+		-e BASE_URL=$${BASE_URL:-http://localhost:8080} -e RATE -e DURATION -e USERS \
+		grafana/k6:0.57.0 run /scripts/patch-sheet.js
 
 mocks:          ## Generate mocks (after interface changes)
 	@go tool mockery

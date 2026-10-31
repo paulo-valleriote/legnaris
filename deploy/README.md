@@ -648,3 +648,14 @@ Switching the broker to per-object mode resets the queue series once, so the que
    `crossOriginResourcePolicy` header options; COOP/CORP are set through
    `customResponseHeaders`. `go test ./deploy/...` fails on any headers option
    the pinned version does not support.
+
+---
+
+## Load testing
+
+`docker-compose.loadtest.yml` is a throwaway overlay (lifted rate limits,
+Prometheus remote-write receiver, a `k6` service under the `loadtest` profile).
+Its `prometheus.command` copies the base flags: keep it in sync when the base
+changes. Never apply it to a public deployment. Usage and the provisioned
+dashboards (`Legnaris — API`, `Legnaris — Load test (k6)`) are in
+`loadtest/README.md`.

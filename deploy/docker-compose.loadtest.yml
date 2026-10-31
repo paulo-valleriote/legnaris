@@ -1,0 +1,56 @@
+# =============================================================================
+# Load-test overlay — NEVER use against a public deployment.
+#
+# Usage (from deploy/):
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml \
+#     -f docker-compose.loadtest.yml up -d --build app prometheus grafana
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml \
+#     -f docker-compose.loadtest.yml --profile loadtest run --rm k6
+#
+# Differences from the base stack:
+#   - Rate limits are lifted: the test hammers a handful of accounts from one
+#     address, which the limiters would (correctly) refuse.
+#   - Prometheus accepts remote writes so k6 streams its own metrics into the
+#     same TSDB Grafana reads, next to the app series.
+#   - k6 reaches the app directly on the internal network, bypassing Traefik
+#     and OAuth: the target is the Go service, not the edge.
+# =============================================================================
+
+services:
+  app:
+    environment:
+      AUTH_REQUIRE_EMAIL_VERIFICATION: "false"
+      AUTH_RATE_LIMIT_ATTEMPTS: "100000"
+      USER_RATE_LIMIT_ATTEMPTS: "1000000"
+      PUBLIC_RATE_LIMIT_ATTEMPTS: "1000000"
+
+  prometheus:
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=20GB
+      - --web.external-url=https://${OPS_DOMAIN}/prometheus
+      - --web.route-prefix=/prometheus
+      - --web.enable-remote-write-receiver
+
+  k6:
+    image: grafana/k6:0.57.0
+    profiles: [loadtest]
+    entrypoint: ["k6", "run", "--out", "experimental-prometheus-rw", "--tag", "testid=patch-sheet"]
+    command: ["/scripts/patch-sheet.js"]
+    environment:
+      BASE_URL: http://app:8080
+      RATE: ${LOADTEST_RATE:-100}
+      DURATION: ${LOADTEST_DURATION:-2m}
+      USERS: ${LOADTEST_USERS:-50}
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/prometheus/api/v1/write
+      K6_PROMETHEUS_RW_TREND_STATS: p(95),p(99),avg,max
+      K6_PROMETHEUS_RW_PUSH_INTERVAL: 5s
+    volumes:
+      - ../loadtest/k6:/scripts:ro
+    networks:
+      - internal
+    depends_on:
+      - app
+      - prometheus
