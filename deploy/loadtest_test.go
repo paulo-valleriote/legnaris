@@ -272,6 +272,14 @@ func TestLoadtestDashboard(t *testing.T) {
 			assert.NotContains(t, dash.panel(t, "Server CPU").exprs(), "go_goroutines")
 			assert.NotContains(t, dash.panel(t, "Goroutines").exprs(), "process_cpu_seconds_total")
 		}},
+		{"Edge: leak trends are slopes over a window, not raw values, so a leak shows as a persistent positive line", func(t *testing.T) {
+			for _, title := range []string{"RSS growth (MB/h)", "Heap growth (MB/h)", "Goroutine growth (per hour)"} {
+				assert.Contains(t, dash.panel(t, title).exprs(), "deriv(", "panel %q", title)
+			}
+		}},
+		{"Edge: soak latency drift is read from the phase tag", func(t *testing.T) {
+			assert.Contains(t, dash.panel(t, "Client p95 by phase").exprs(), "by (phase)")
+		}},
 		{"Edge: the target rate is a variable, not a hard-coded 100", func(t *testing.T) {
 			assert.Contains(t, dash.panel(t, "Arrival rate vs target").exprs(), "vector($target_rate)")
 			names := map[string]string{}
@@ -354,12 +362,12 @@ func TestK6Scripts(t *testing.T) {
 			assert.NotContains(t, read(t, "patch-sheet.js"), "teardown")
 		}},
 		{"Happy path: the capacity test ramps the arrival rate over a weighted mix", func(t *testing.T) {
-			capacity := read(t, "capacity.js")
-			assert.Contains(t, capacity, "ramping-arrival-rate")
+			assert.Contains(t, read(t, "capacity.js"), "ramping-arrival-rate")
+			mix := read(t, "lib/mix.js")
 			for _, operation := range []string{"GET /sheets/:id", "PATCH /sheets/:id", "PATCH /sheets/:id cascade"} {
-				assert.Contains(t, capacity, operation)
+				assert.Contains(t, mix, operation)
 			}
-			assert.Contains(t, capacity, "MIX_GET")
+			assert.Contains(t, mix, "MIX_GET")
 		}},
 		{"Edge: every step has its own abort threshold, since a run-wide aggregate hides a collapse at the top step", func(t *testing.T) {
 			capacity := read(t, "capacity.js")
@@ -375,7 +383,7 @@ func TestK6Scripts(t *testing.T) {
 			assert.Contains(t, read(t, "patch-sheet.js"), "testid: 'patch-sheet'")
 		}},
 		{"Edge: the PATCH mix includes a cascading write (identity.proficiencyBonus feeds every skill and save)", func(t *testing.T) {
-			assert.Contains(t, read(t, "capacity.js"), "identity.proficiencyBonus")
+			assert.Contains(t, read(t, "lib/mix.js"), "identity.proficiencyBonus")
 		}},
 		{"Happy path: the concurrency test fails on a lost update instead of only reporting it", func(t *testing.T) {
 			concurrency := read(t, "concurrency.js")
@@ -407,6 +415,31 @@ func TestK6Scripts(t *testing.T) {
 		}},
 		{"Edge: the one-sheet-per-user rule is honoured, each onboarding iteration uses a new account", func(t *testing.T) {
 			assert.Contains(t, read(t, "onboarding.js"), "iterationInTest")
+		}},
+		{"Edge: ramp and soak share one operation mix, so their numbers are comparable", func(t *testing.T) {
+			for _, script := range []string{"capacity.js", "soak.js"} {
+				assert.Contains(t, read(t, script), "lib/mix.js", script)
+			}
+		}},
+		{"Happy path: the soak holds one constant arrival rate for the configured time", func(t *testing.T) {
+			soak := read(t, "soak.js")
+			assert.Contains(t, soak, "constant-arrival-rate")
+			assert.Contains(t, soak, "SOAK_SECONDS")
+			assert.Contains(t, soak, "SOAK_RATE")
+		}},
+		{"Edge: soak latency drift is visible, the start and the end of the run are separate series", func(t *testing.T) {
+			soak := read(t, "soak.js")
+			for _, phase := range []string{"phase:start", "phase:middle", "phase:end"} {
+				assert.Contains(t, soak, phase)
+			}
+		}},
+		{"Edge: soak thresholds tolerate no drops and no failures", func(t *testing.T) {
+			soak := read(t, "soak.js")
+			assert.Contains(t, soak, "dropped_iterations: ['count==0']")
+			for _, phase := range []string{"start", "middle", "end"} {
+				assert.Contains(t, soak, "'http_req_failed{phase:"+phase+"}': ['rate<0.001']")
+			}
+			assert.NotContains(t, soak, "    http_req_failed: ", "the run-wide rate counts setup 401s")
 		}},
 		{"Edge: setup may outlive k6's 60s default when accounts are created on the fly", func(t *testing.T) {
 			assert.Contains(t, read(t, "patch-sheet.js"), "setupTimeout")

@@ -47,6 +47,26 @@ the API for CPU: a high `legnaris_http_in_flight_requests` with flat server
 throughput means the API is saturated, a high `VUs` count with a low in-flight
 means the generator is. Trust capacity numbers only from the `deploy` stack.
 
+### Soak (`soak.js`)
+
+Holds one rate (`SOAK_RATE`, default 100 req/s) for `SOAK_SECONDS` (default
+1800 = 30 min) over the same mix as the ramp. **Set `SOAK_RATE` to about half of
+the capacity the ramp measured**, on the `deploy` stack; a soak at the limit
+measures the limit, not leaks. Requests carry a `phase` tag (first 20 % =
+`start`, last 20 % = `end`), and each phase has its own p95 line, so latency
+drift shows in the summary instead of being averaged away. On a laptop run a
+short check only:
+
+```bash
+SCRIPT=soak.js SOAK_SECONDS=240 SOAK_RATE=50 make loadtest-dev   # smoke, not a soak
+SCRIPT=soak.js SOAK_RATE=<half of the ramp's capacity> make loadtest   # real soak
+```
+
+The dashboard's **Soak (leak trend)** row plots the 15-minute slope of RSS, heap
+and goroutines. A leak is a slope that stays positive for the whole run; the red
+lines (10 MB/h, 100 goroutines/h) are heuristics to tune after the first soak.
+Heap is noisy over short windows (GC), so read it after the first 15 minutes.
+
 ### Concurrent edits on one sheet (`concurrency.js`)
 
 A sheet has one editor, but that editor can fire concurrent writes (slow

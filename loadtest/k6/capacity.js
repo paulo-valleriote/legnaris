@@ -1,8 +1,8 @@
-import http from 'k6/http';
 import exec from 'k6/execution';
 import { check } from 'k6';
 import { Counter } from 'k6/metrics';
-import { BASE_URL, authHeaders, ensureAccount, liveToken, waitForAPI } from './lib/accounts.js';
+import { ensureAccount, waitForAPI } from './lib/accounts.js';
+import { CASCADE_OP, GET_OP, PATCH_OP, pickOperation, requestFor } from './lib/mix.js';
 
 const USERS = Number(__ENV.USERS || 200);
 const MAX_VUS = Number(__ENV.MAX_VUS || 1000);
@@ -10,13 +10,6 @@ const STEPS = (__ENV.STAGES || '100,200,400,800,1600').split(',').map(Number);
 const STEP_SECONDS = Number(__ENV.STEP_SECONDS || 60);
 const RAMP_SECONDS = Number(__ENV.RAMP_SECONDS || 10);
 const P95_BUDGET_MS = Number(__ENV.P95_BUDGET_MS || 200);
-const MIX_GET = Number(__ENV.MIX_GET || 55);
-const MIX_PATCH = Number(__ENV.MIX_PATCH || 30);
-const MIX_CASCADE = Number(__ENV.MIX_CASCADE || 15);
-
-const GET_OP = 'GET /sheets/:id';
-const PATCH_OP = 'PATCH /sheets/:id';
-const CASCADE_OP = 'PATCH /sheets/:id cascade';
 
 const unexpectedStatus = new Counter('legnaris_unexpected_status');
 
@@ -90,43 +83,10 @@ function currentStep() {
   return String(STEPS[index]);
 }
 
-function pickOperation() {
-  const roll = Math.random() * (MIX_GET + MIX_PATCH + MIX_CASCADE);
-  if (roll < MIX_GET) {
-    return GET_OP;
-  }
-  if (roll < MIX_GET + MIX_PATCH) {
-    return PATCH_OP;
-  }
-  return CASCADE_OP;
-}
-
-function randomScore() {
-  return 1 + Math.floor(Math.random() * 20);
-}
-
-function requestFor(operation, session) {
-  const url = `${BASE_URL}/sheets/${session.sheetId}`;
-  const headers = authHeaders(liveToken(session));
-  if (operation === GET_OP) {
-    return http.get(url, { headers, tags: { name: operation, step: currentStep() } });
-  }
-  const data =
-    operation === PATCH_OP
-      ? { 'combat.hitPoints': randomScore() }
-      : {
-          'stats.strength': randomScore(),
-          'stats.dexterity': randomScore(),
-          'stats.constitution': randomScore(),
-          'identity.proficiencyBonus': 1 + Math.floor(Math.random() * 6),
-        };
-  return http.patch(url, JSON.stringify({ data }), { headers, tags: { name: operation, step: currentStep() } });
-}
-
 export default function ({ sessions }) {
   const session = sessions[exec.scenario.iterationInTest % sessions.length];
   const operation = pickOperation();
-  const res = requestFor(operation, session);
+  const res = requestFor(operation, session, { step: currentStep() });
   const ok = check(res, { 'status is 200': (r) => r.status === 200 });
   if (!ok) {
     unexpectedStatus.add(1, { name: operation });
