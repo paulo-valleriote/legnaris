@@ -78,11 +78,10 @@ const (
 	MsgSheetConflict      = "sheet was changed by another request, try again"
 )
 
-// maxPartialUpdateAttempts bounds the read-recalculate-write cycle of PATCH.
-// Each lost compare-and-swap re-reads the sheet and recalculates the delta over
-// the new state; past this many misses the request fails with CONFLICT rather
-// than spinning under sustained contention on one sheet.
-const maxPartialUpdateAttempts = 3
+// conflictRetryAfter is the Retry-After hint sent with a PATCH that lost the
+// compare-and-swap. Retrying is the client's job, so every retry is a new HTTP
+// request and passes through the rate limiter.
+const conflictRetryAfter = time.Second
 
 // requireSheetID is the single source of truth for the sheet-ID checks
 // (LGN-86): the missing-ID message stays byte-for-byte for existing callers,
@@ -327,48 +326,46 @@ func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, ownerID s
 }
 
 // PartialUpdate recalculates the delta and persists it under a compare-and-swap
-// on the sheet version. A lost race re-reads the sheet and recalculates over the
-// state the other writer left, so two PATCHes on different fields both survive.
-// Once the attempts run out it returns CONFLICT.
+// on the sheet version. A lost race is never retried here: it returns CONFLICT
+// with a Retry-After hint and the client resends, so the retry is a new request
+// that the rate limiter accounts for.
 func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
-	for attempt := 1; attempt <= maxPartialUpdateAttempts; attempt++ {
-		result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
-		if err != nil {
-			return nil, err
-		}
-
-		dbUpdates := map[string]any{
-			"data":       result.merged,
-			"updated_at": time.Now(),
-		}
-
-		newVersion, err := s.repository.PartialUpdate(ctx, cmd.SheetID, result.version, dbUpdates)
-		if err == nil {
-			s.log.Info(ctx, "sheet patched", append(
-				patchLogFields(cmd.SheetID, cmd.RequestID, result.templateID, result.version, attempt, result.delta, result.cascade),
-				logger.Attribute{Key: "version_after", Value: strconv.FormatInt(newVersion, 10)},
-			)...)
-			return nestedCascadingEffects(result.cascade)
-		}
-		if !errors.Is(err, ErrVersionConflict) {
-			return nil, translateRepoErr("update", err)
-		}
-		s.log.Warn(ctx, "sheet patch version conflict",
-			patchLogFields(cmd.SheetID, cmd.RequestID, result.templateID, result.version, attempt, result.delta, result.cascade)...)
+	result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
+	if err != nil {
+		return nil, err
 	}
-	return nil, apperr.NewError(apperr.CodeConflict, MsgSheetConflict, ErrVersionConflict)
+
+	dbUpdates := map[string]any{
+		"data":       result.merged,
+		"updated_at": time.Now(),
+	}
+
+	newVersion, err := s.repository.PartialUpdate(ctx, cmd.SheetID, result.version, dbUpdates)
+	if err == nil {
+		s.log.Info(ctx, "sheet patched", append(
+			patchLogFields(cmd.SheetID, cmd.RequestID, result.templateID, result.version, result.delta, result.cascade),
+			logger.Attribute{Key: "version_after", Value: strconv.FormatInt(newVersion, 10)},
+		)...)
+		return nestedCascadingEffects(result.cascade)
+	}
+	if !errors.Is(err, ErrVersionConflict) {
+		return nil, translateRepoErr("update", err)
+	}
+	s.log.Warn(ctx, "sheet patch version conflict",
+		patchLogFields(cmd.SheetID, cmd.RequestID, result.templateID, result.version, result.delta, result.cascade)...)
+	return nil, apperr.NewError(apperr.CodeConflict, MsgSheetConflict, ErrVersionConflict).
+		WithRetryAfter(conflictRetryAfter)
 }
 
 // patchLogFields builds the attributes shared by every PATCH record. Values are
 // included only for numeric leaves: string values are player free text (names,
 // notes) and must never reach the log, so those leaves are identified by path.
-func patchLogFields(sheetID, requestID, templateID string, versionBefore int64, attempt int, delta, cascade map[string]any) []logger.Attribute {
+func patchLogFields(sheetID, requestID, templateID string, versionBefore int64, delta, cascade map[string]any) []logger.Attribute {
 	return []logger.Attribute{
 		{Key: "sheet_id", Value: sheetID},
 		{Key: "template_id", Value: templateID},
 		{Key: "request_id", Value: requestID},
 		{Key: "version_before", Value: strconv.FormatInt(versionBefore, 10)},
-		{Key: "attempt", Value: strconv.Itoa(attempt)},
 		{Key: "delta_paths", Value: joinSortedPaths(delta)},
 		{Key: "delta_values", Value: numericValuesOf(delta)},
 		{Key: "cascade_paths", Value: joinSortedPaths(cascade)},

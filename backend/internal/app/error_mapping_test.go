@@ -620,8 +620,8 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 }
 
 // TestErrorMapping_PatchVersionConflictReturns409: a PATCH that loses the
-// compare-and-swap on every attempt reaches the client as 409 CONFLICT, after
-// exactly the bounded number of re-reads, and a sheet deleted mid-retry is 404.
+// compare-and-swap reaches the client as 409 CONFLICT with a Retry-After header
+// after a single read and write; the retry is the client's job.
 func TestErrorMapping_PatchVersionConflictReturns409(t *testing.T) {
 	storedSheet := func(version int64) *sheet.Sheet {
 		return &sheet.Sheet{
@@ -637,32 +637,19 @@ func TestErrorMapping_PatchVersionConflictReturns409(t *testing.T) {
 	}
 	const payload = `{"data":{"stats":{"dexterity":12}}}`
 
-	t.Run("Error: three lost races return 409 CONFLICT", func(t *testing.T) {
+	t.Run("Error: a lost race returns 409 CONFLICT with Retry-After and no internal retry", func(t *testing.T) {
 		mockRepo := mocks.NewMockRepository(t)
-		for version := int64(0); version < 3; version++ {
-			mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(storedSheet(version), nil).Once()
-			mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, version, mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
-		}
+		mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(storedSheet(0), nil).Once()
+		mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, int64(0), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
 
 		h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 
 		rec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetStubID, payload)
 		require.Equal(t, http.StatusConflict, rec.Code)
+		assert.Equal(t, "1", rec.Header().Get("Retry-After"))
 
 		var body response.ErrorResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 		assert.Equal(t, "CONFLICT", body.Error.Code)
-	})
-
-	t.Run("Error: a sheet deleted after a lost race returns 404 NOT_FOUND", func(t *testing.T) {
-		mockRepo := mocks.NewMockRepository(t)
-		mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(storedSheet(0), nil).Once()
-		mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, int64(0), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
-		mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(nil, sheet.ErrSheetNotFound).Once()
-
-		h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
-
-		rec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetStubID, payload)
-		require.Equal(t, http.StatusNotFound, rec.Code)
 	})
 }

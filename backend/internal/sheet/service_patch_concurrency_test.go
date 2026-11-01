@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
@@ -128,8 +129,8 @@ func newQuietPatchLogger(t *testing.T) *logmocks.MockStructuredLogger {
 		}
 		log.On(level, args...).Maybe()
 	}
-	register("Info", "sheet patched", 10)
-	register("Warn", "sheet patch version conflict", 9)
+	register("Info", "sheet patched", 9)
+	register("Warn", "sheet patch version conflict", 8)
 	return log
 }
 
@@ -153,7 +154,7 @@ func TestService_PartialUpdate_Concurrency(t *testing.T) {
 	ctx := context.Background()
 	dag := patchDAG(t)
 
-	t.Run("Happy path: concurrent PATCHes on different fields both survive without a lost update", func(t *testing.T) {
+	t.Run("Edge: concurrent PATCHes on different fields never lose an update; the loser gets 409 and its retry succeeds", func(t *testing.T) {
 		store := newPatchStore(patchSheet(0, "Aria", 10))
 
 		var arrived sync.WaitGroup
@@ -179,21 +180,38 @@ func TestService_PartialUpdate_Concurrency(t *testing.T) {
 		}
 
 		errs := runCompetingPatches(service, nameCmd, dexterityPatch(18))
-		require.NoError(t, errs[0])
-		require.NoError(t, errs[1])
+		failed := 0
+		for _, err := range errs {
+			if err == nil {
+				continue
+			}
+			failed++
+			var appErr *apperr.Error
+			require.ErrorAs(t, err, &appErr)
+			assert.Equal(t, apperr.CodeConflict, appErr.Code)
+			assert.Equal(t, time.Second, appErr.RetryAfter)
+		}
+		require.Equal(t, 1, failed, "exactly one of the two racing PATCHes must lose the CAS")
+
+		store.mu.Lock()
+		assert.Equal(t, int64(1), store.version, "only the winner may bump the version")
+		assert.Equal(t, 2, store.writes, "the loser must not retry the write")
+		assert.Equal(t, 2, store.fetches, "the loser must not re-read the sheet")
+		store.mu.Unlock()
+
+		_, err := service.PartialUpdate(ctx, nameCmd)
+		require.NoError(t, err)
+		_, err = service.PartialUpdate(ctx, dexterityPatch(18))
+		require.NoError(t, err)
 
 		store.mu.Lock()
 		defer store.mu.Unlock()
-		assert.Equal(t, int64(2), store.version, "two successful writes must bump the version twice")
-		assert.Equal(t, map[string]any{"characterName": "Bryn"}, store.data["identity"],
-			"the name change must survive the concurrent dexterity write")
-		assert.Equal(t, map[string]any{"dexterity": 18.0}, store.data["stats"],
-			"the dexterity change must survive the concurrent name write")
-		assert.Equal(t, map[string]any{"dexterityMod": 4.0}, store.data["modifiers"],
-			"the derived modifier must match the stored dexterity")
+		assert.Equal(t, map[string]any{"characterName": "Bryn"}, store.data["identity"])
+		assert.Equal(t, map[string]any{"dexterity": 18.0}, store.data["stats"])
+		assert.Equal(t, map[string]any{"dexterityMod": 4.0}, store.data["modifiers"])
 	})
 
-	t.Run("Edge: a PATCH that loses the CAS on every attempt returns CONFLICT after exactly three writes", func(t *testing.T) {
+	t.Run("Error: a PATCH that loses the CAS returns CONFLICT after exactly one read and one write", func(t *testing.T) {
 		store := newPatchStore(patchSheet(0, "Aria", 14))
 		store.beforeWrite = func(s *patchStore, _ int) { s.version++ }
 
@@ -205,35 +223,11 @@ func TestService_PartialUpdate_Concurrency(t *testing.T) {
 		var appErr *apperr.Error
 		require.ErrorAs(t, err, &appErr)
 		assert.Equal(t, apperr.CodeConflict, appErr.Code)
+		assert.Equal(t, time.Second, appErr.RetryAfter)
 
 		store.mu.Lock()
 		defer store.mu.Unlock()
-		assert.Equal(t, 3, store.writes, "the service must stop after maxPartialUpdateAttempts writes")
-		assert.Equal(t, 3, store.fetches, "each attempt must re-read the sheet exactly once")
-	})
-
-	t.Run("Error: a conflict followed by deletion surfaces NOT FOUND and never CONFLICT", func(t *testing.T) {
-		store := newPatchStore(patchSheet(0, "Aria", 14))
-		store.beforeWrite = func(s *patchStore, attempt int) {
-			if attempt == 1 {
-				s.version++
-				s.deleted = true
-			}
-		}
-
-		service := newPatchService(t, newPatchStoreRepo(t, store), newQuietPatchLogger(t), dag)
-		cascade, err := service.PartialUpdate(ctx, dexterityPatch(18))
-
-		require.Error(t, err)
-		assert.Nil(t, cascade)
-		var appErr *apperr.Error
-		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
-		assert.NotEqual(t, apperr.CodeConflict, appErr.Code)
-		assert.Equal(t, 404, appErr.HttpStatus())
-
-		store.mu.Lock()
-		defer store.mu.Unlock()
-		assert.Equal(t, 1, store.writes, "no write may be attempted once the sheet is gone")
+		assert.Equal(t, 1, store.writes, "a lost CAS must not be retried inside the service")
+		assert.Equal(t, 1, store.fetches, "a lost CAS must not trigger another read")
 	})
 }

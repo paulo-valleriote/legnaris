@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"math"
-	"strconv"
 	"testing"
+	"time"
 
 	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/sheet"
@@ -140,7 +140,6 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 			"request_id":     patchRequestID,
 			"version_before": "3",
 			"version_after":  "4",
-			"attempt":        "1",
 			"delta_paths":    "stats.dexterity",
 			"delta_values":   "stats.dexterity=18",
 			"cascade_paths":  "modifiers.dexterityMod",
@@ -182,66 +181,11 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		}
 	})
 
-	t.Run("Edge: a lost race re-reads the sheet and recalculates over the new state", func(t *testing.T) {
+	t.Run("Error: a lost race returns 409 CONFLICT with Retry-After, without re-reading or rewriting", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		log, lines := newPatchLogger(t)
-
-		var writtenVersions []int64
-		var writtenData []map[string]any
-		record := func(_ context.Context, _ string, version int64, updates map[string]any) (int64, error) {
-			writtenVersions = append(writtenVersions, version)
-			writtenData = append(writtenData, updates["data"].(map[string]any))
-			if len(writtenVersions) == 1 {
-				return 0, sheet.ErrVersionConflict
-			}
-			return version + 1, nil
-		}
-
-		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(3, "Aria", 14), nil).Once()
-		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(4, "Bryn", 14), nil).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).RunAndReturn(record).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(4), mock.Anything).RunAndReturn(record).Once()
-
-		_, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
-		require.NoError(t, err)
-
-		assert.Equal(t, []int64{3, 4}, writtenVersions)
-		require.Len(t, writtenData, 2)
-		assert.Equal(t, map[string]any{"characterName": "Bryn"}, writtenData[1]["identity"],
-			"the retry must keep the name the concurrent writer stored")
-		assert.Equal(t, map[string]any{"dexterity": 18.0}, writtenData[1]["stats"])
-
-		require.Len(t, *lines, 2)
-		assert.Equal(t, "Warn", (*lines)[0].level)
-		assert.Equal(t, "3", (*lines)[0].attrs["version_before"])
-		assert.Equal(t, "1", (*lines)[0].attrs["attempt"])
-		assert.Equal(t, "Info", (*lines)[1].level)
-		assert.Equal(t, "4", (*lines)[1].attrs["version_before"])
-		assert.Equal(t, "5", (*lines)[1].attrs["version_after"])
-		assert.Equal(t, "2", (*lines)[1].attrs["attempt"])
-	})
-
-	t.Run("Edge: the sheet is deleted between a lost race and the retry, so the retry is a 404", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t)
-		log, _ := newPatchLogger(t)
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(3, "Aria", 14), nil).Once()
 		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
-		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
-
-		_, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
-		var appErr *apperr.Error
-		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
-		assert.Equal(t, 404, appErr.HttpStatus())
-	})
-
-	t.Run("Error: every attempt loses the race and the request is CONFLICT after three attempts", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t)
-		log, lines := newPatchLogger(t)
-		for version := int64(3); version <= 5; version++ {
-			repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(version, "Aria", 14), nil).Once()
-			repo.EXPECT().PartialUpdate(ctx, patchSheetID, version, mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
-		}
 
 		cascade, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
 		require.Error(t, err)
@@ -250,12 +194,12 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		require.ErrorAs(t, err, &appErr)
 		assert.Equal(t, apperr.CodeConflict, appErr.Code)
 		assert.Equal(t, 409, appErr.HttpStatus())
+		assert.Equal(t, time.Second, appErr.RetryAfter)
+		assert.ErrorIs(t, err, sheet.ErrVersionConflict)
 
-		require.Len(t, *lines, 3)
-		for i, line := range *lines {
-			assert.Equal(t, "Warn", line.level, "attempt %d must not log Info", i+1)
-			assert.Equal(t, strconv.Itoa(i+1), line.attrs["attempt"])
-		}
+		require.Len(t, *lines, 1)
+		assert.Equal(t, "Warn", (*lines)[0].level)
+		assert.Equal(t, "3", (*lines)[0].attrs["version_before"])
 	})
 
 	t.Run("Error: a storage failure is not retried and stays an internal error", func(t *testing.T) {
@@ -269,23 +213,6 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		require.ErrorAs(t, err, &appErr)
 		assert.Equal(t, apperr.CodeInternal, appErr.Code)
 		assert.Empty(t, *lines)
-	})
-
-	t.Run("Edge: a template with no DAG seen on a fresh read surfaces without a second write", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t)
-		log, lines := newPatchLogger(t)
-		replaced := patchSheet(4, "Aria", 14)
-		replaced.TemplateID = "gone_v1"
-		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(3, "Aria", 14), nil).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
-		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(replaced, nil).Once()
-
-		_, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
-		var appErr *apperr.Error
-		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
-		require.Len(t, *lines, 1)
-		assert.Equal(t, "Warn", (*lines)[0].level)
 	})
 }
 
