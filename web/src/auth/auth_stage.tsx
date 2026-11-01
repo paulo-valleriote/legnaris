@@ -11,9 +11,10 @@ import { message } from '../l10n/strings';
 import { BrandMark } from '../shell/brand_mark';
 import { useStageThemeColor } from '../landing/use_stage_theme_color';
 
-const PHOTO_SRCSET = ['/images/hero-lava-800.webp 800w', '/images/hero-lava-1336.webp 1336w'].join(
-  ', ',
-);
+const PHOTO_SRCSET = [
+  '/images/hero-lava-1280.webp 1280w',
+  '/images/hero-lava-1920.webp 1920w',
+].join(', ');
 
 interface AuthStageProps {
   /** Whether the lockup leads back to the landing; false while a code step is pending. */
@@ -37,11 +38,11 @@ export function AuthStage({ linked = true }: AuthStageProps) {
     <div className="lg-auth__stage">
       <img
         className="lg-auth__photo"
-        src="/images/hero-lava-1336.webp"
+        src="/images/hero-lava-1920.webp"
         srcSet={PHOTO_SRCSET}
         sizes="(min-width: 56rem) 60vw, 100vw"
-        width={1336}
-        height={1781}
+        width={1920}
+        height={1080}
         alt=""
         decoding="async"
         fetchPriority="high"

@@ -13,7 +13,7 @@ import { CascadeDemo } from './cascade_demo';
 import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
 
-const HERO_SRCSET = ['/images/hero-lava-800.webp 800w', '/images/hero-lava-1336.webp 1336w'].join(
+const HERO_SRCSET = ['/images/hero-lava-1280.webp 1280w', '/images/hero-lava-1920.webp 1920w'].join(
   ', ',
 );
 
@@ -60,11 +60,11 @@ export function LandingScreen() {
       <header className="lg-landing__hero">
         <img
           className="lg-landing__photo"
-          src="/images/hero-lava-1336.webp"
+          src="/images/hero-lava-1920.webp"
           srcSet={HERO_SRCSET}
           sizes="100vw"
-          width={1336}
-          height={1781}
+          width={1920}
+          height={1080}
           alt=""
           decoding="async"
           fetchPriority="high"
