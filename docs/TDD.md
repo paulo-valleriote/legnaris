@@ -288,7 +288,7 @@ Os clientes do produto são **nativos** (desktop Flutter + mobile futuro), sem S
 | ----- | ------- | ------------- | --------- |
 | Mudança de template default entre releases quebra fichas existentes | Alto | Média | IDs versionados imutáveis (`fantasy_v1` → `fantasy_v2`); versões antigas permanecem no catálogo enquanto houver fichas ativas |
 | Alegação de copyright apesar da abordagem genérica | Alto | Baixa | Templates default travados no código → todo conteúdo passa por code review; nomes/termos genéricos; revisão manual pré-release; política de conteúdo no repositório |
-| Concorrência em PATCH da mesma ficha (read-modify-write) | Média | Média | Atualização via `$set` atômico por chave; opcionalmente optimistic locking com campo `version` na ficha |
+| Concorrência em PATCH da mesma ficha (read-modify-write) | Média | Média | PATCH grava com compare-and-swap sobre o campo `version` da ficha: em conflito o servidor relê e recalcula o delta (até 3 tentativas) e só então responde 409 `CONFLICT`; `PUT /layout` não altera a versão |
 | Vazamento do segredo JWT / refresh tokens roubados | Alto | Baixa | Segredo em variável de ambiente; refresh opaco armazenado apenas como hash; rotation com detecção de reuso; TTL curto no access token; TLS obrigatório |
 | Vazamento do refresh token em clientes nativos | Média | Média | Refresh no corpo/header (sem cookie ambiente, sem CSRF); cliente guarda em armazenamento seguro do SO; TLS obrigatório; rotation com detecção de reuso |
 | CSRF em endpoints de auth | Baixa | Baixa | Mitigado na origem: refresh não usa cookie, então não há credencial ambiente. CORS restritivo mantido; reavaliar validação de `Origin` se um SPA for introduzido |
@@ -525,6 +525,7 @@ Manter o padrão JSON já estabelecido em `backend/shared/logger`, com campos ob
 | | Sessão em cookie + store | Revogação trivial | Estado no servidor (Redis); menos adequado a API pública | Rejeitado |
 | **Evolução de templates** | IDs versionados imutáveis (escolhido) | Fichas antigas nunca quebram; zero infraestrutura de versionamento no banco | Catálogo acumula versões (mitigado: remover versão só quando não houver fichas ativas) | ✅ Escolhido |
 | | Mutação in-place + migração de fichas | Um template só | Recalcular fichas com regras novas = bugs e perda de dados | Rejeitado |
+| **Histórico de mutações da ficha** | Event sourcing (coleção de eventos) | Replay e auditoria completos | Sem ganho de desempenho (PATCH continua uma escrita); sem necessidade de produto (undo/auditoria); segunda escrita sem transação no Mongo standalone | Rejeitado — debug via log estruturado (Loki) e campo `version` na ficha |
 
 ---
 

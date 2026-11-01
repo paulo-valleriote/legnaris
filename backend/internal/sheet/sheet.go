@@ -12,8 +12,12 @@ type Sheet struct {
 	Name       string         `bson:"name"`
 	Data       map[string]any `bson:"data"`
 	Layout     *Layout        `bson:"layout,omitempty"`
-	CreatedAt  time.Time      `bson:"created_at,omitempty"`
-	UpdatedAt  time.Time      `bson:"updated_at,omitempty"`
+	// Version counts the data writes persisted on this Sheet. A document that
+	// predates the field reads as version 0. PATCH uses it as a compare-and-swap
+	// guard, so it is never exposed to clients.
+	Version   int64     `bson:"version"`
+	CreatedAt time.Time `bson:"created_at,omitempty"`
+	UpdatedAt time.Time `bson:"updated_at,omitempty"`
 }
 
 // Layout is the player's chosen arrangement of a Sheet: the order of Sections

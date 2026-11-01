@@ -234,17 +234,17 @@ func (_c *MockRepository_FetchByOwnerID_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
-// PartialUpdate provides a mock function with given fields: ctx, id, dbUpdates
-func (_m *MockRepository) PartialUpdate(ctx context.Context, id string, dbUpdates map[string]any) error {
-	ret := _m.Called(ctx, id, dbUpdates)
+// PartialUpdate provides a mock function with given fields: ctx, id, expectedVersion, dbUpdates
+func (_m *MockRepository) PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) error {
+	ret := _m.Called(ctx, id, expectedVersion, dbUpdates)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PartialUpdate")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]any) error); ok {
-		r0 = rf(ctx, id, dbUpdates)
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64, map[string]any) error); ok {
+		r0 = rf(ctx, id, expectedVersion, dbUpdates)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -260,14 +260,15 @@ type MockRepository_PartialUpdate_Call struct {
 // PartialUpdate is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
+//   - expectedVersion int64
 //   - dbUpdates map[string]any
-func (_e *MockRepository_Expecter) PartialUpdate(ctx interface{}, id interface{}, dbUpdates interface{}) *MockRepository_PartialUpdate_Call {
-	return &MockRepository_PartialUpdate_Call{Call: _e.mock.On("PartialUpdate", ctx, id, dbUpdates)}
+func (_e *MockRepository_Expecter) PartialUpdate(ctx interface{}, id interface{}, expectedVersion interface{}, dbUpdates interface{}) *MockRepository_PartialUpdate_Call {
+	return &MockRepository_PartialUpdate_Call{Call: _e.mock.On("PartialUpdate", ctx, id, expectedVersion, dbUpdates)}
 }
 
-func (_c *MockRepository_PartialUpdate_Call) Run(run func(ctx context.Context, id string, dbUpdates map[string]any)) *MockRepository_PartialUpdate_Call {
+func (_c *MockRepository_PartialUpdate_Call) Run(run func(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any)) *MockRepository_PartialUpdate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(map[string]any))
+		run(args[0].(context.Context), args[1].(string), args[2].(int64), args[3].(map[string]any))
 	})
 	return _c
 }
@@ -277,7 +278,7 @@ func (_c *MockRepository_PartialUpdate_Call) Return(_a0 error) *MockRepository_P
 	return _c
 }
 
-func (_c *MockRepository_PartialUpdate_Call) RunAndReturn(run func(context.Context, string, map[string]any) error) *MockRepository_PartialUpdate_Call {
+func (_c *MockRepository_PartialUpdate_Call) RunAndReturn(run func(context.Context, string, int64, map[string]any) error) *MockRepository_PartialUpdate_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -6,7 +6,11 @@ import (
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
+	"legnaris/backend/shared/logger"
 	"legnaris/backend/shared/maputils"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -17,9 +21,10 @@ type CreateSheetCommand struct {
 }
 
 type PartialUpdateSheetCommand struct {
-	SheetID string         `json:"-"`
-	OwnerID string         `json:"-"`
-	Data    map[string]any `json:"data"`
+	SheetID   string         `json:"-"`
+	OwnerID   string         `json:"-"`
+	RequestID string         `json:"-"`
+	Data      map[string]any `json:"data"`
 }
 
 // SetLayoutCommand carries the full replacement of a sheet's Layout. A nil or
@@ -69,7 +74,14 @@ const (
 	MsgNestedTooDeep      = "sheet data is nested too deeply"
 	MsgOwnerNotProvided   = "authenticated user is required"
 	MsgSheetLimitReached  = "user already owns a sheet"
+	MsgSheetConflict      = "sheet was changed by another request, try again"
 )
+
+// maxPartialUpdateAttempts bounds the read-recalculate-write cycle of PATCH.
+// Each lost compare-and-swap re-reads the sheet and recalculates the delta over
+// the new state; past this many misses the request fails with CONFLICT rather
+// than spinning under sustained contention on one sheet.
+const maxPartialUpdateAttempts = 3
 
 // requireSheetID is the single source of truth for the sheet-ID checks
 // (LGN-86): the missing-ID message stays byte-for-byte for existing callers,
@@ -120,16 +132,18 @@ type ServiceImpl struct {
 	repository      Repository
 	templateService template.Service
 	provider        DAGProvider
+	log             logger.StructuredLogger
 }
 
 // NewService builds the sheet service over a DAG provider. The provider must
 // already be complete when the service starts (boot-time registry): neither the
 // service nor its callers mutate it afterwards.
-func NewService(repository Repository, templateService template.Service, provider DAGProvider) Service {
+func NewService(repository Repository, templateService template.Service, provider DAGProvider, log logger.StructuredLogger) Service {
 	return &ServiceImpl{
 		repository:      repository,
 		templateService: templateService,
 		provider:        provider,
+		log:             log,
 	}
 }
 
@@ -242,8 +256,11 @@ func (s *ServiceImpl) FetchByID(ctx context.Context, id string, ownerID string) 
 // cascading effects the DAG recomputed. Persisting callers use merged; previews
 // use cascade only.
 type recalculation struct {
-	merged  map[string]any
-	cascade map[string]any
+	templateID string
+	version    int64
+	delta      map[string]any
+	merged     map[string]any
+	cascade    map[string]any
 }
 
 // recalculate is the one recalc path PATCH and both previews share: it
@@ -299,24 +316,115 @@ func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, ownerID s
 		return nil, translateMapErr("update", err)
 	}
 
-	return &recalculation{merged: mergedData, cascade: cascadingEffects}, nil
+	return &recalculation{
+		templateID: storedSheet.TemplateID,
+		version:    storedSheet.Version,
+		delta:      normalized,
+		merged:     mergedData,
+		cascade:    cascadingEffects,
+	}, nil
 }
 
+// PartialUpdate recalculates the delta and persists it under a compare-and-swap
+// on the sheet version. A lost race re-reads the sheet and recalculates over the
+// state the other writer left, so two PATCHes on different fields both survive.
+// Once the attempts run out it returns CONFLICT.
 func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
-	result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
-	if err != nil {
-		return nil, err
-	}
+	for attempt := 1; attempt <= maxPartialUpdateAttempts; attempt++ {
+		result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
+		if err != nil {
+			return nil, err
+		}
 
-	dbUpdates := map[string]any{
-		"data":       result.merged,
-		"updated_at": time.Now(),
-	}
+		dbUpdates := map[string]any{
+			"data":       result.merged,
+			"updated_at": time.Now(),
+		}
 
-	if err := s.repository.PartialUpdate(ctx, cmd.SheetID, dbUpdates); err != nil {
-		return nil, translateRepoErr("update", err)
+		err = s.repository.PartialUpdate(ctx, cmd.SheetID, result.version, dbUpdates)
+		if err == nil {
+			s.logPatchApplied(ctx, cmd, result, attempt)
+			return nestedCascadingEffects(result.cascade)
+		}
+		if !errors.Is(err, ErrVersionConflict) {
+			return nil, translateRepoErr("update", err)
+		}
+		s.logPatchConflict(ctx, cmd, result, attempt)
 	}
-	return nestedCascadingEffects(result.cascade)
+	return nil, apperr.NewError(apperr.CodeConflict, MsgSheetConflict, ErrVersionConflict)
+}
+
+// logPatchApplied records a successful PATCH at Info. The version moved from
+// version_before to version_after, which is the value the write just stored.
+func (s *ServiceImpl) logPatchApplied(ctx context.Context, cmd PartialUpdateSheetCommand, result *recalculation, attempt int) {
+	fields := append(patchLogFields(cmd, result, attempt),
+		logger.Attribute{Key: "version_after", Value: strconv.FormatInt(result.version+1, 10)})
+	s.log.Info(ctx, "sheet patched", fields...)
+}
+
+// logPatchConflict records a lost compare-and-swap at Warn. A conflict is
+// retried, so the record shows how often concurrent writers collide in practice.
+func (s *ServiceImpl) logPatchConflict(ctx context.Context, cmd PartialUpdateSheetCommand, result *recalculation, attempt int) {
+	s.log.Warn(ctx, "sheet patch version conflict", patchLogFields(cmd, result, attempt)...)
+}
+
+// patchLogFields builds the attributes shared by every PATCH record. Values are
+// included only for numeric leaves: string values are player free text (names,
+// notes) and must never reach the log, so those leaves are identified by path.
+func patchLogFields(cmd PartialUpdateSheetCommand, result *recalculation, attempt int) []logger.Attribute {
+	return []logger.Attribute{
+		{Key: "sheet_id", Value: cmd.SheetID},
+		{Key: "template_id", Value: result.templateID},
+		{Key: "request_id", Value: cmd.RequestID},
+		{Key: "version_before", Value: strconv.FormatInt(result.version, 10)},
+		{Key: "attempt", Value: strconv.Itoa(attempt)},
+		{Key: "delta_paths", Value: joinSortedPaths(result.delta)},
+		{Key: "delta_values", Value: numericValuesOf(result.delta)},
+		{Key: "cascade_paths", Value: joinSortedPaths(result.cascade)},
+		{Key: "cascade_values", Value: numericValuesOf(result.cascade)},
+	}
+}
+
+// joinSortedPaths lists the flat path keys in sorted order, so the same write
+// always produces the same log line.
+func joinSortedPaths(flat map[string]any) string {
+	paths := make([]string, 0, len(flat))
+	for path := range flat {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return strings.Join(paths, ",")
+}
+
+// numericValuesOf renders the numeric leaves of a flat map as sorted
+// "path=value" pairs. Any non-numeric leaf is skipped, not rendered.
+func numericValuesOf(flat map[string]any) string {
+	pairs := make([]string, 0, len(flat))
+	for path, value := range flat {
+		if text, ok := numericText(value); ok {
+			pairs = append(pairs, path+"="+text)
+		}
+	}
+	sort.Strings(pairs)
+	return strings.Join(pairs, ",")
+}
+
+// numericText formats a numeric leaf for the log. The second result is false for
+// every other type, which is the signal that the value must stay out of the log.
+func numericText(value any) (string, bool) {
+	switch v := value.(type) {
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64), true
+	case float32:
+		return strconv.FormatFloat(float64(v), 'f', -1, 32), true
+	case int:
+		return strconv.FormatInt(int64(v), 10), true
+	case int32:
+		return strconv.FormatInt(int64(v), 10), true
+	case int64:
+		return strconv.FormatInt(v, 10), true
+	}
+	return "", false
 }
 
 // Preview runs the same recalculation as PartialUpdate and returns the
