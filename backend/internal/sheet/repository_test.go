@@ -2,6 +2,7 @@ package sheet_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"testing"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 const repositoryTestDatabase = "legnaris_sheet_repository_test"
@@ -20,6 +23,16 @@ const repositoryTestDatabase = "legnaris_sheet_repository_test"
 // newRepositoryTest wires the real repository over a clean MongoDB database and
 // skips when MongoDB is unavailable so unit runs stay hermetic.
 func newRepositoryTest(t *testing.T) sheet.Repository {
+	t.Helper()
+
+	repo, _ := newRepositoryTestWithDB(t)
+	return repo
+}
+
+// newRepositoryTestWithDB also returns the database handle, for the tests that
+// seed documents the repository itself would never write, such as a sheet that
+// predates the version field.
+func newRepositoryTestWithDB(t *testing.T) (sheet.Repository, *mongo.Database) {
 	t.Helper()
 
 	log := logger.NewLogger(slog.LevelError)
@@ -42,7 +55,7 @@ func newRepositoryTest(t *testing.T) sheet.Repository {
 	})
 	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
 
-	return sheet.NewRepository(mdb, log)
+	return sheet.NewRepository(mdb, log), mdb
 }
 
 func TestRepository_OwnerScopedReadsAndWrites(t *testing.T) {
@@ -183,9 +196,9 @@ func TestRepository_UpdateLayout(t *testing.T) {
 	t.Run("Edge: a data PartialUpdate keeps the layout and a layout write keeps the data", func(t *testing.T) {
 		seed(t)
 		require.NoError(t, repo.UpdateLayout(ctx, sheetID, layoutA))
-		require.NoError(t, repo.PartialUpdate(ctx, sheetID, map[string]any{
+		require.NoError(t, putErr(repo.PartialUpdate(ctx, sheetID, 0, map[string]any{
 			"data": map[string]any{"stats": map[string]any{"dexterity": 18.0}},
-		}))
+		})))
 		require.NoError(t, repo.UpdateLayout(ctx, sheetID, layoutA))
 
 		stored, err := repo.FetchByID(ctx, sheetID)
@@ -202,9 +215,9 @@ func TestRepository_UpdateLayout(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			errs <- repo.PartialUpdate(ctx, sheetID, map[string]any{
+			errs <- putErr(repo.PartialUpdate(ctx, sheetID, 0, map[string]any{
 				"data": map[string]any{"stats": map[string]any{"dexterity": 20.0}},
-			})
+			}))
 		}()
 		go func() {
 			defer wg.Done()
@@ -220,5 +233,166 @@ func TestRepository_UpdateLayout(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, layoutA, stored.Layout)
 		assert.Equal(t, map[string]any{"stats": map[string]any{"dexterity": 20.0}}, stored.Data)
+	})
+}
+
+// putErr adapts PartialUpdate's (version, error) result for call sites that only
+// check the error.
+func putErr(_ int64, err error) error {
+	return err
+}
+
+func TestRepository_PartialUpdateVersion(t *testing.T) {
+	const (
+		sheetID     = "01900000-0000-7000-8000-0000000000c1"
+		legacyID    = "01900000-0000-7000-8000-0000000000c2"
+		missingID   = "01900000-0000-7000-8000-0000000000c3"
+		raceSheetID = "01900000-0000-7000-8000-0000000000c4"
+	)
+	repo, mdb := newRepositoryTestWithDB(t)
+	ctx := context.Background()
+
+	seed := func(t *testing.T, id string) {
+		t.Helper()
+		_ = repo.DeleteByID(ctx, id)
+		require.NoError(t, repo.Create(ctx, &sheet.Sheet{
+			ID:         id,
+			TemplateID: "fantasy_v1",
+			OwnerID:    "owner-version-" + id,
+			Name:       "Version",
+			Data:       map[string]any{"stats": map[string]any{"dexterity": 14.0}},
+		}))
+	}
+	dexterityUpdate := func(value float64) map[string]any {
+		return map[string]any{"data": map[string]any{"stats": map[string]any{"dexterity": value}}}
+	}
+
+	t.Run("Happy path: a created sheet starts at version 0 and a matching write bumps it to 1", func(t *testing.T) {
+		seed(t, sheetID)
+		before, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), before.Version)
+
+		require.NoError(t, putErr(repo.PartialUpdate(ctx, sheetID, 0, dexterityUpdate(18))))
+
+		after, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), after.Version)
+		assert.Equal(t, map[string]any{"stats": map[string]any{"dexterity": 18.0}}, after.Data)
+	})
+
+	t.Run("Edge: a stale expected version is ErrVersionConflict and writes nothing", func(t *testing.T) {
+		seed(t, sheetID)
+		require.NoError(t, putErr(repo.PartialUpdate(ctx, sheetID, 0, dexterityUpdate(18))))
+
+		err := putErr(repo.PartialUpdate(ctx, sheetID, 0, dexterityUpdate(20)))
+		require.ErrorIs(t, err, sheet.ErrVersionConflict)
+
+		stored, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), stored.Version)
+		assert.Equal(t, map[string]any{"stats": map[string]any{"dexterity": 18.0}}, stored.Data)
+	})
+
+	t.Run("Edge: replaying an already-applied write with its old version conflicts", func(t *testing.T) {
+		seed(t, sheetID)
+		require.NoError(t, putErr(repo.PartialUpdate(ctx, sheetID, 0, dexterityUpdate(18))))
+		require.NoError(t, putErr(repo.PartialUpdate(ctx, sheetID, 1, dexterityUpdate(19))))
+
+		err := putErr(repo.PartialUpdate(ctx, sheetID, 1, dexterityUpdate(18)))
+		assert.ErrorIs(t, err, sheet.ErrVersionConflict)
+	})
+
+	t.Run("Edge: a future expected version conflicts", func(t *testing.T) {
+		seed(t, sheetID)
+
+		err := putErr(repo.PartialUpdate(ctx, sheetID, 5, dexterityUpdate(18)))
+		assert.ErrorIs(t, err, sheet.ErrVersionConflict)
+	})
+
+	t.Run("Edge: an unknown sheet reports ErrSheetNotFound, not a retryable conflict", func(t *testing.T) {
+		_, err := repo.PartialUpdate(ctx, missingID, 0, dexterityUpdate(18))
+		assert.ErrorIs(t, err, sheet.ErrSheetNotFound)
+		assert.NotErrorIs(t, err, sheet.ErrVersionConflict)
+	})
+
+	t.Run("Happy path: PartialUpdate returns the version it stored", func(t *testing.T) {
+		seed(t, sheetID)
+
+		version, err := repo.PartialUpdate(ctx, sheetID, 0, dexterityUpdate(18))
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), version)
+
+		version, err = repo.PartialUpdate(ctx, sheetID, 1, dexterityUpdate(19))
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), version)
+	})
+
+	t.Run("Error: a failed CAS returns version 0 with the conflict error", func(t *testing.T) {
+		seed(t, sheetID)
+
+		version, err := repo.PartialUpdate(ctx, sheetID, 7, dexterityUpdate(18))
+		require.ErrorIs(t, err, sheet.ErrVersionConflict)
+		assert.Equal(t, int64(0), version)
+	})
+
+	t.Run("Edge: a legacy sheet without a version field matches expected 0 and becomes version 1", func(t *testing.T) {
+		seed(t, legacyID)
+		_, err := mdb.Collection("sheets").UpdateOne(ctx,
+			bson.D{{Key: "_id", Value: legacyID}},
+			bson.M{"$unset": bson.M{"version": ""}})
+		require.NoError(t, err)
+
+		require.NoError(t, putErr(repo.PartialUpdate(ctx, legacyID, 0, dexterityUpdate(18))))
+
+		stored, err := repo.FetchByID(ctx, legacyID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), stored.Version)
+	})
+
+	t.Run("Edge: a layout write leaves the version alone, so a PATCH expecting it still lands", func(t *testing.T) {
+		seed(t, sheetID)
+		require.NoError(t, repo.UpdateLayout(ctx, sheetID, &sheet.Layout{Pinned: []string{"stats.dexterity"}}))
+
+		stored, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), stored.Version)
+
+		require.NoError(t, putErr(repo.PartialUpdate(ctx, sheetID, 0, dexterityUpdate(18))))
+	})
+
+	t.Run("Edge: concurrent writers with the same expected version let exactly one win", func(t *testing.T) {
+		seed(t, raceSheetID)
+
+		const writers = 8
+		var wg sync.WaitGroup
+		results := make(chan error, writers)
+		for range writers {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				results <- putErr(repo.PartialUpdate(ctx, raceSheetID, 0, dexterityUpdate(18)))
+			}()
+		}
+		wg.Wait()
+		close(results)
+
+		var wins, conflicts int
+		for err := range results {
+			switch {
+			case err == nil:
+				wins++
+			case errors.Is(err, sheet.ErrVersionConflict):
+				conflicts++
+			default:
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+		assert.Equal(t, 1, wins)
+		assert.Equal(t, writers-1, conflicts)
+
+		stored, err := repo.FetchByID(ctx, raceSheetID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), stored.Version)
 	})
 }

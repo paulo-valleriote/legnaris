@@ -88,3 +88,23 @@ describe('native fetch transport', () => {
     expect(response.body).toBe('<html>502</html>');
   });
 });
+
+describe('native fetch transport Retry-After', () => {
+  it('Happy path: surfaces the raw Retry-After header', async () => {
+    const platformFetch = vi
+      .fn()
+      .mockResolvedValue(new Response('{}', { status: 409, headers: { 'Retry-After': '1' } }));
+
+    const response = await createFetchTransport(platformFetch)(request());
+
+    expect(response.retryAfter).toBe('1');
+  });
+
+  it('Edge: omits the key entirely when the header is absent', async () => {
+    const platformFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+
+    const response = await createFetchTransport(platformFetch)(request());
+
+    expect('retryAfter' in response).toBe(false);
+  });
+});

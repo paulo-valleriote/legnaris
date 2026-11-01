@@ -103,6 +103,7 @@ export function classifyDomainFailure(failure: DomainFailure): DomainFailure {
     status: failure.status,
     code: failure.code,
     message: failure.message,
+    retryAfterMs: failure.retryAfterMs,
   });
 }
 

@@ -83,7 +83,7 @@ func NewModules(
 	templateController := NewTemplateController(templateService)
 
 	sheetRepository := sheet.NewRepository(mdb, log)
-	sheetService := sheet.NewService(sheetRepository, templateService, registry)
+	sheetService := sheet.NewService(sheetRepository, templateService, registry, log)
 	sheetController := NewSheetController(sheetService)
 
 	userRepository := user.NewRepository(mdb, log)

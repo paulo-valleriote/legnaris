@@ -15,7 +15,7 @@ type Repository interface {
 	Create(ctx context.Context, sheet *Sheet) error
 	FetchByID(ctx context.Context, id string) (*Sheet, error)
 	FetchByOwnerID(ctx context.Context, ownerID string) (*Sheet, error)
-	PartialUpdate(ctx context.Context, id string, dbUpdates map[string]any) error
+	PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error)
 	UpdateLayout(ctx context.Context, id string, layout *Layout) error
 	DeleteByID(ctx context.Context, id string) error
 }
@@ -32,6 +32,9 @@ const idField = "_id"
 // layoutField is the Mongo field holding the sheet's Layout.
 const layoutField = "layout"
 
+// versionField is the Mongo field holding the sheet's compare-and-swap version.
+const versionField = "version"
+
 // ErrSheetNotFound reports a sheet lookup that matched no document.
 // Services translate it to apperr.CodeNotFound at the layer boundary.
 var ErrSheetNotFound = errors.New("sheet not found")
@@ -40,6 +43,11 @@ var ErrSheetNotFound = errors.New("sheet not found")
 // sheets.owner_id index, meaning the owner already has a sheet. It is the
 // race-safe signal services translate to a sheet-limit conflict.
 var ErrSheetOwnerExists = errors.New("sheet owner already has a sheet")
+
+// ErrVersionConflict reports a compare-and-swap write whose expected version no
+// longer matches the stored sheet, or whose sheet was deleted in between. The
+// service re-reads the sheet and retries on it.
+var ErrVersionConflict = errors.New("sheet version conflict")
 
 func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 	return &RepositoryImpl{
@@ -93,15 +101,62 @@ func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
 	return nil
 }
 
-func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, dbUpdates map[string]any) error {
-	filter := bson.D{{Key: idField, Value: id}}
-	update := bson.M{"$set": dbUpdates}
-
-	_, err := r.collection.UpdateOne(ctx, filter, update)
-	if err != nil {
-		return fmt.Errorf("error updating sheet: %w", err)
+// PartialUpdate applies dbUpdates and increments the version, but only while the
+// stored version still equals expectedVersion. It returns the version the write
+// stored, read back from the same atomic operation, so callers log the value
+// the database holds instead of recomputing it. A document without the version
+// field matches expectedVersion 0, since that is what a pre-versioning sheet
+// reads as. It returns ErrSheetNotFound when the sheet does not exist and
+// ErrVersionConflict when it exists but its version moved.
+func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error) {
+	filter := bson.D{
+		{Key: idField, Value: id},
+		{Key: versionField, Value: versionMatcher(expectedVersion)},
 	}
-	return nil
+	update := bson.M{
+		"$set": dbUpdates,
+		"$inc": bson.M{versionField: 1},
+	}
+	opts := options.FindOneAndUpdate().
+		SetReturnDocument(options.After).
+		SetProjection(bson.M{versionField: 1})
+
+	var stored struct {
+		Version int64 `bson:"version"`
+	}
+	err := r.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&stored)
+	switch {
+	case err == nil:
+		return stored.Version, nil
+	case errors.Is(err, mongo.ErrNoDocuments):
+		return 0, r.unmatchedUpdateErr(ctx, id)
+	default:
+		return 0, fmt.Errorf("error updating sheet: %w", err)
+	}
+}
+
+// unmatchedUpdateErr explains a CAS write that matched no document. The filter
+// cannot tell a missing sheet from a stale version, so the id is counted alone:
+// a missing sheet is ErrSheetNotFound, which must not be retried as a conflict.
+func (r *RepositoryImpl) unmatchedUpdateErr(ctx context.Context, id string) error {
+	count, err := r.collection.CountDocuments(ctx, bson.D{{Key: idField, Value: id}}, options.Count().SetLimit(1))
+	if err != nil {
+		return fmt.Errorf("error checking sheet existence: %w", err)
+	}
+	if count == 0 {
+		return ErrSheetNotFound
+	}
+	return ErrVersionConflict
+}
+
+// versionMatcher builds the version filter for a CAS write. Expecting 0 also
+// matches a null or missing field, because Mongo's null equality covers absent
+// fields and that is how sheets written before versioning look.
+func versionMatcher(expectedVersion int64) any {
+	if expectedVersion == 0 {
+		return bson.M{"$in": bson.A{nil, int64(0)}}
+	}
+	return expectedVersion
 }
 
 // UpdateLayout replaces the stored layout of one sheet with a $set on that

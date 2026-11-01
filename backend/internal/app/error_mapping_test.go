@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
 	"legnaris/backend/shared/apperr"
+	"legnaris/backend/shared/logger"
 	"legnaris/backend/shared/maputils"
 	"legnaris/backend/shared/response"
 
@@ -22,6 +24,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+var testLog = logger.NewLogger(slog.LevelError)
 
 // errorTestOwnerID stands in for the authenticated user id the JWT middleware
 // would place in the context; these unit tests mount the controller directly,
@@ -48,7 +52,7 @@ func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache 
 	t.Helper()
 
 	mockTemplateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
+	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache, testLog)
 
 	e := echo.New()
 	e.HTTPErrorHandler = app.HTTPErrorHandler
@@ -470,7 +474,7 @@ func newTemplatePreviewRouter(t *testing.T, mockRepo *mocks.MockRepository, dagC
 	t.Helper()
 
 	mockTemplateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache)
+	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache, testLog)
 
 	e := echo.New()
 	e.HTTPErrorHandler = app.HTTPErrorHandler
@@ -612,5 +616,40 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 				mockRepo.AssertNotCalled(t, "FetchByID")
 			})
 		}
+	})
+}
+
+// TestErrorMapping_PatchVersionConflictReturns409: a PATCH that loses the
+// compare-and-swap reaches the client as 409 CONFLICT with a Retry-After header
+// after a single read and write; the retry is the client's job.
+func TestErrorMapping_PatchVersionConflictReturns409(t *testing.T) {
+	storedSheet := func(version int64) *sheet.Sheet {
+		return &sheet.Sheet{
+			ID:         sheetStubID,
+			TemplateID: "fantasy_v1",
+			OwnerID:    errorTestOwnerID,
+			Version:    version,
+			Data: map[string]any{
+				"stats":     map[string]any{"dexterity": 10.0},
+				"modifiers": map[string]any{"dexterityMod": 0.0},
+			},
+		}
+	}
+	const payload = `{"data":{"stats":{"dexterity":12}}}`
+
+	t.Run("Error: a lost race returns 409 CONFLICT with Retry-After and no internal retry", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+		mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(storedSheet(0), nil).Once()
+		mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, int64(0), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
+
+		h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
+
+		rec := doRequest(t, h, http.MethodPatch, "/sheets/"+sheetStubID, payload)
+		require.Equal(t, http.StatusConflict, rec.Code)
+		assert.Equal(t, "1", rec.Header().Get("Retry-After"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "CONFLICT", body.Error.Code)
 	})
 }

@@ -153,3 +153,37 @@ describe('envelope decoding', () => {
     );
   });
 });
+
+describe('envelope Retry-After hint', () => {
+  const failureWith = (retryAfter: string | undefined): DomainFailure => {
+    try {
+      decodeEnvelope({
+        ...errorOutcome('CONFLICT', 'busy', 409),
+        decode: identity,
+        ...(retryAfter === undefined ? {} : { retryAfter }),
+      });
+    } catch (error) {
+      return error as DomainFailure;
+    }
+    throw new Error('expected a failure');
+  };
+
+  it('Happy path: whole seconds become milliseconds on the failure', () => {
+    expect(failureWith('2').retryAfterMs).toBe(2000);
+  });
+
+  it.each([
+    ['absent', undefined],
+    ['empty', ''],
+    ['negative', '-1'],
+    ['fractional', '1.5'],
+    ['an HTTP date', 'Wed, 21 Oct 2026 07:28:00 GMT'],
+    ['junk', 'soon'],
+  ])('Edge: %s yields no hint', (_name, value) => {
+    expect(failureWith(value).retryAfterMs).toBeUndefined();
+  });
+
+  it('Edge: zero is a valid hint', () => {
+    expect(failureWith('0').retryAfterMs).toBe(0);
+  });
+});

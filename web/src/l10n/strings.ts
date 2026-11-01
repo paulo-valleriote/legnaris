@@ -87,6 +87,8 @@ export const messages = {
   'sheet.error.saveOffline': 'Offline. Changes are kept on this device. Save again later.',
   'sheet.error.saveOfflineUnkept':
     "Offline, and these changes could not be kept on this device. Keep this page open and save again when you're back.",
+  'sheet.error.saveConflict':
+    'This sheet is busy with another change. Wait a moment and save again.',
   'sheet.error.previewOffline': 'Offline. Changes are kept on this device. Preview again later.',
   'sheet.error.previewOfflineUnkept':
     "Offline, and these changes could not be kept on this device. Keep this page open and preview again when you're back.",

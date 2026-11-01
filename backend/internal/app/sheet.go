@@ -82,9 +82,10 @@ func (sc *SheetController) PartialUpdate(c *echo.Context) error {
 
 	ownerID, _ := auth.UserID(c)
 	cascadingEffects, err := sc.service.PartialUpdate(c.Request().Context(), sheet.PartialUpdateSheetCommand{
-		SheetID: c.Param("id"),
-		OwnerID: ownerID,
-		Data:    cmd.Data,
+		SheetID:   c.Param("id"),
+		OwnerID:   ownerID,
+		RequestID: c.Response().Header().Get(echo.HeaderXRequestID),
+		Data:      cmd.Data,
 	})
 	if err != nil {
 		return err

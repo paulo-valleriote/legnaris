@@ -34,6 +34,8 @@ export interface HttpResponse {
   readonly status: number;
   /** Raw text; an empty string means the server sent no body. */
   readonly body: string;
+  /** Raw `Retry-After` header value, when the server sent one. */
+  readonly retryAfter?: string;
 }
 
 /**
@@ -69,6 +71,11 @@ export function createFetchTransport(fetchImpl: FetchLike): Transport {
 
     const response = await fetchImpl(request.url, init);
 
-    return { status: response.status, body: await response.text() };
+    const body = await response.text();
+    const retryAfter = response.headers.get('retry-after');
+
+    return retryAfter === null
+      ? { status: response.status, body }
+      : { status: response.status, body, retryAfter };
   };
 }
