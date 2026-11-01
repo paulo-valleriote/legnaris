@@ -41,6 +41,8 @@ export interface DomainFailureInput {
   code?: unknown;
   /** Server message, when the envelope carried a string one. */
   message?: unknown;
+  /** Wait hint in milliseconds from `Retry-After`, when the server sent a valid one. */
+  retryAfterMs?: unknown;
 }
 
 /**
@@ -55,6 +57,8 @@ export class DomainFailure extends Error {
   readonly kind: FailureKind;
   readonly status: number | undefined;
   readonly code: string | undefined;
+  /** The server's wait hint in milliseconds, when it sent a valid `Retry-After`. */
+  readonly retryAfterMs: number | undefined;
 
   constructor(input: DomainFailureInput) {
     super(typeof input.message === 'string' ? input.message : '');
@@ -62,6 +66,10 @@ export class DomainFailure extends Error {
     this.kind = input.kind;
     this.status = typeof input.status === 'number' ? input.status : undefined;
     this.code = typeof input.code === 'string' ? input.code : undefined;
+    this.retryAfterMs =
+      typeof input.retryAfterMs === 'number' && input.retryAfterMs >= 0
+        ? input.retryAfterMs
+        : undefined;
   }
 }
 

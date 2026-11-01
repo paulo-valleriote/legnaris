@@ -18,6 +18,22 @@ export interface EnvelopeInput<T> {
   readonly body: string;
   /** Decodes the `data` value of a successful envelope into the operation's type. */
   readonly decode: (data: unknown) => T;
+  /** Raw `Retry-After` header value, carried onto a domain failure as a wait hint. */
+  readonly retryAfter?: string;
+}
+
+/**
+ * Parses a `Retry-After` header into milliseconds.
+ *
+ * The backend only sends whole seconds; anything else (an HTTP date, a negative
+ * or fractional value, junk) yields no hint rather than a guessed one.
+ */
+export function parseRetryAfterMs(value: string | undefined): number | undefined {
+  if (value === undefined || !/^\d+$/.test(value.trim())) {
+    return undefined;
+  }
+
+  return Number(value.trim()) * 1000;
 }
 
 function parseBody(body: string, status: number): unknown {
@@ -43,7 +59,7 @@ function decodeSuccess<T>(parsed: unknown, input: EnvelopeInput<T>): T {
   return input.decode(parsed['data']);
 }
 
-function decodeFailure(parsed: unknown, status: number): never {
+function decodeFailure(parsed: unknown, status: number, retryAfter: string | undefined): never {
   const errorBody = isPlainObject(parsed) ? parsed['error'] : undefined;
   const code = isPlainObject(errorBody) ? errorBody['code'] : undefined;
 
@@ -61,6 +77,7 @@ function decodeFailure(parsed: unknown, status: number): never {
     status,
     code,
     message: typeof message === 'string' ? message : '',
+    retryAfterMs: parseRetryAfterMs(retryAfter),
   });
 }
 
@@ -77,5 +94,5 @@ export function decodeEnvelope<T>(input: EnvelopeInput<T>): T {
     return decodeSuccess(parsed, input);
   }
 
-  return decodeFailure(parsed, input.status);
+  return decodeFailure(parsed, input.status, input.retryAfter);
 }

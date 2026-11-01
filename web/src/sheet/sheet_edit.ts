@@ -11,6 +11,8 @@
 
 import type { ApiClient } from '../api/client';
 import { failureCopy, failureKind } from '../api/error_mapper';
+import type { SaveRetryDeps } from './save_retry';
+import { isVersionConflict, withConflictRetry } from './save_retry';
 import type { FailureKind } from '../api/errors';
 import { message } from '../l10n/strings';
 import type { Sheet } from '../api/models/sheet';
@@ -130,6 +132,8 @@ export interface SheetEditDeps {
   readonly now?: () => number;
   /** The delay seam for the throttle re-evaluation; defaults to `setTimeout` (WSC-38). */
   readonly schedule?: (callback: () => void, delayMs: number) => () => void;
+  /** Sleep and jitter seams for the 409 resend of a save; default to real timers. */
+  readonly saveRetry?: SaveRetryDeps;
 }
 
 /** The edit store a sheet screen mounts and every edit suite drives directly. */
@@ -478,7 +482,10 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       commit({ ...state, isSaving: true, saveError: undefined, saveErrorKind: undefined });
 
       try {
-        const cascade = await deps.client.patchSheet(seed.sheet.id, delta);
+        const cascade = await withConflictRetry(
+          () => deps.client.patchSheet(seed.sheet.id, delta),
+          deps.saveRetry,
+        );
         const current = state;
         commit({
           ...current,
@@ -495,7 +502,9 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         commit({
           ...state,
           isSaving: false,
-          saveError: copy ?? failureCopy(error),
+          saveError:
+            copy ??
+            (isVersionConflict(error) ? message('sheet.error.saveConflict') : failureCopy(error)),
           saveErrorKind: failureKind(error),
         });
       }

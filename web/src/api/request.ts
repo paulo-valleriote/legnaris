@@ -130,7 +130,12 @@ export function createCaller(options: CallerOptions): RequestCaller {
     for (let index = 0; index < attempts; index += 1) {
       try {
         const response = await send(method, path, body, callOptions);
-        return decodeEnvelope({ status: response.status, body: response.body, decode });
+        return decodeEnvelope({
+          status: response.status,
+          body: response.body,
+          decode,
+          ...(response.retryAfter === undefined ? {} : { retryAfter: response.retryAfter }),
+        });
       } catch (error) {
         if (isReceivedFailure(error)) {
           classifyReceived(error);
@@ -167,7 +172,12 @@ export function createCaller(options: CallerOptions): RequestCaller {
     }
 
     try {
-      decodeEnvelope({ status: response.status, body: response.body, decode: () => undefined });
+      decodeEnvelope({
+        status: response.status,
+        body: response.body,
+        decode: () => undefined,
+        ...(response.retryAfter === undefined ? {} : { retryAfter: response.retryAfter }),
+      });
     } catch (error) {
       if (isReceivedFailure(error)) {
         classifyReceived(error);

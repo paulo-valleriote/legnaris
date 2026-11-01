@@ -5,7 +5,9 @@ import type { Sheet } from '../api/models/sheet';
 import { valueAtPath } from '../api/models/sheet';
 import { parseSheet } from '../api/models/sheet';
 import { parseTemplateDetail } from '../api/models/template';
+import { message } from '../l10n/strings';
 import { createMemorySheetStore } from '../library/sheet_store';
+import type { SaveRetryDeps } from '../sheet/save_retry';
 import { canSave, createSheetEditStore, isPending, type SheetEditStore } from '../sheet/sheet_edit';
 import {
   createDeferredTransport,
@@ -30,12 +32,13 @@ function sheet(overrides: Record<string, unknown> = {}): Sheet {
 function storeWith(
   transport: Parameters<typeof createApiClient>[0]['transport'],
   data?: Record<string, unknown>,
+  saveRetry?: SaveRetryDeps,
 ) {
   const client = createApiClient({ baseUrl: BASE_URL, transport });
   const sheetStore = createMemorySheetStore();
   const store = createSheetEditStore(
     { template: template(), sheet: sheet(data === undefined ? {} : { data }) },
-    { client, store: sheetStore },
+    { client, store: sheetStore, ...(saveRetry === undefined ? {} : { saveRetry }) },
   );
   return { store, sheetStore };
 }
@@ -193,6 +196,52 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(isPending(store.getState())).toBe(true);
     expect(store.getPendingDelta()).toEqual({ identity: { level: 4 } });
     expect(fake.attempts).toBe(1);
+  });
+
+  it('Happy path: a 409 on save is resent after the Retry-After wait and the second send wins', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const fake = createFakeTransport(
+      { ...errorOutcome('CONFLICT', 'busy', 409), retryAfter: '1' },
+      successOutcome({}),
+    );
+    const { store } = storeWith(fake.transport, undefined, { sleep, random: () => 0 });
+
+    store.setPath('identity.level', 4);
+    await store.save();
+
+    expect(fake.attempts).toBe(2);
+    expect(sleep).toHaveBeenCalledExactlyOnceWith(1000);
+    expect(store.getState().saveError).toBeUndefined();
+    expect(isPending(store.getState())).toBe(false);
+    expect(fake.requests[1]?.body).toBe(fake.requests[0]?.body);
+  });
+
+  it('Error: a persistent 409 stops after three sends and shows the conflict copy, keeping the edits', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const fake = createFakeTransport(errorOutcome('CONFLICT', 'busy', 409));
+    const { store } = storeWith(fake.transport, undefined, { sleep, random: () => 0 });
+
+    store.setPath('identity.level', 4);
+    await store.save();
+
+    expect(fake.attempts).toBe(3);
+    expect(store.getState().saveError).toBe(message('sheet.error.saveConflict'));
+    expect(store.getState().saveErrorKind).toBe('conflict');
+    expect(store.getState().isSaving).toBe(false);
+    expect(store.getPendingDelta()).toEqual({ identity: { level: 4 } });
+  });
+
+  it('Edge: a non-409 failure is not resent and keeps its own copy', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const fake = createFakeTransport(errorOutcome('RATE_LIMITED', 'slow down', 429));
+    const { store } = storeWith(fake.transport, undefined, { sleep, random: () => 0 });
+
+    store.setPath('identity.level', 4);
+    await store.save();
+
+    expect(fake.attempts).toBe(1);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(store.getState().saveError).toBe(failureMessage('rateLimited'));
   });
 
   it('Edge: an edit made during a save stays pending after it succeeds (WSC-16)', async () => {
