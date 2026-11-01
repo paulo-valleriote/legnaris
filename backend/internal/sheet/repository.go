@@ -15,7 +15,7 @@ type Repository interface {
 	Create(ctx context.Context, sheet *Sheet) error
 	FetchByID(ctx context.Context, id string) (*Sheet, error)
 	FetchByOwnerID(ctx context.Context, ownerID string) (*Sheet, error)
-	PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) error
+	PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error)
 	UpdateLayout(ctx context.Context, id string, layout *Layout) error
 	DeleteByID(ctx context.Context, id string) error
 }
@@ -102,10 +102,13 @@ func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
 }
 
 // PartialUpdate applies dbUpdates and increments the version, but only while the
-// stored version still equals expectedVersion. A document without the version
+// stored version still equals expectedVersion. It returns the version the write
+// stored, read back from the same atomic operation, so callers log the value
+// the database holds instead of recomputing it. A document without the version
 // field matches expectedVersion 0, since that is what a pre-versioning sheet
-// reads as. It returns ErrVersionConflict when nothing matched.
-func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) error {
+// reads as. It returns ErrSheetNotFound when the sheet does not exist and
+// ErrVersionConflict when it exists but its version moved.
+func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error) {
 	filter := bson.D{
 		{Key: idField, Value: id},
 		{Key: versionField, Value: versionMatcher(expectedVersion)},
@@ -114,15 +117,36 @@ func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, expectedV
 		"$set": dbUpdates,
 		"$inc": bson.M{versionField: 1},
 	}
+	opts := options.FindOneAndUpdate().
+		SetReturnDocument(options.After).
+		SetProjection(bson.M{versionField: 1})
 
-	result, err := r.collection.UpdateOne(ctx, filter, update)
+	var stored struct {
+		Version int64 `bson:"version"`
+	}
+	err := r.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&stored)
+	switch {
+	case err == nil:
+		return stored.Version, nil
+	case errors.Is(err, mongo.ErrNoDocuments):
+		return 0, r.unmatchedUpdateErr(ctx, id)
+	default:
+		return 0, fmt.Errorf("error updating sheet: %w", err)
+	}
+}
+
+// unmatchedUpdateErr explains a CAS write that matched no document. The filter
+// cannot tell a missing sheet from a stale version, so the id is counted alone:
+// a missing sheet is ErrSheetNotFound, which must not be retried as a conflict.
+func (r *RepositoryImpl) unmatchedUpdateErr(ctx context.Context, id string) error {
+	count, err := r.collection.CountDocuments(ctx, bson.D{{Key: idField, Value: id}}, options.Count().SetLimit(1))
 	if err != nil {
-		return fmt.Errorf("error updating sheet: %w", err)
+		return fmt.Errorf("error checking sheet existence: %w", err)
 	}
-	if result.MatchedCount == 0 {
-		return ErrVersionConflict
+	if count == 0 {
+		return ErrSheetNotFound
 	}
-	return nil
+	return ErrVersionConflict
 }
 
 // versionMatcher builds the version filter for a CAS write. Expecting 0 also

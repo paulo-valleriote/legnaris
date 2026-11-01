@@ -3,15 +3,16 @@ package sheet
 import (
 	"context"
 	"errors"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/logger"
 	"legnaris/backend/shared/maputils"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type CreateSheetCommand struct {
@@ -341,47 +342,37 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 			"updated_at": time.Now(),
 		}
 
-		err = s.repository.PartialUpdate(ctx, cmd.SheetID, result.version, dbUpdates)
+		newVersion, err := s.repository.PartialUpdate(ctx, cmd.SheetID, result.version, dbUpdates)
 		if err == nil {
-			s.logPatchApplied(ctx, cmd, result, attempt)
+			s.log.Info(ctx, "sheet patched", append(
+				patchLogFields(cmd.SheetID, cmd.RequestID, result.templateID, result.version, attempt, result.delta, result.cascade),
+				logger.Attribute{Key: "version_after", Value: strconv.FormatInt(newVersion, 10)},
+			)...)
 			return nestedCascadingEffects(result.cascade)
 		}
 		if !errors.Is(err, ErrVersionConflict) {
 			return nil, translateRepoErr("update", err)
 		}
-		s.logPatchConflict(ctx, cmd, result, attempt)
+		s.log.Warn(ctx, "sheet patch version conflict",
+			patchLogFields(cmd.SheetID, cmd.RequestID, result.templateID, result.version, attempt, result.delta, result.cascade)...)
 	}
 	return nil, apperr.NewError(apperr.CodeConflict, MsgSheetConflict, ErrVersionConflict)
-}
-
-// logPatchApplied records a successful PATCH at Info. The version moved from
-// version_before to version_after, which is the value the write just stored.
-func (s *ServiceImpl) logPatchApplied(ctx context.Context, cmd PartialUpdateSheetCommand, result *recalculation, attempt int) {
-	fields := append(patchLogFields(cmd, result, attempt),
-		logger.Attribute{Key: "version_after", Value: strconv.FormatInt(result.version+1, 10)})
-	s.log.Info(ctx, "sheet patched", fields...)
-}
-
-// logPatchConflict records a lost compare-and-swap at Warn. A conflict is
-// retried, so the record shows how often concurrent writers collide in practice.
-func (s *ServiceImpl) logPatchConflict(ctx context.Context, cmd PartialUpdateSheetCommand, result *recalculation, attempt int) {
-	s.log.Warn(ctx, "sheet patch version conflict", patchLogFields(cmd, result, attempt)...)
 }
 
 // patchLogFields builds the attributes shared by every PATCH record. Values are
 // included only for numeric leaves: string values are player free text (names,
 // notes) and must never reach the log, so those leaves are identified by path.
-func patchLogFields(cmd PartialUpdateSheetCommand, result *recalculation, attempt int) []logger.Attribute {
+func patchLogFields(sheetID, requestID, templateID string, versionBefore int64, attempt int, delta, cascade map[string]any) []logger.Attribute {
 	return []logger.Attribute{
-		{Key: "sheet_id", Value: cmd.SheetID},
-		{Key: "template_id", Value: result.templateID},
-		{Key: "request_id", Value: cmd.RequestID},
-		{Key: "version_before", Value: strconv.FormatInt(result.version, 10)},
+		{Key: "sheet_id", Value: sheetID},
+		{Key: "template_id", Value: templateID},
+		{Key: "request_id", Value: requestID},
+		{Key: "version_before", Value: strconv.FormatInt(versionBefore, 10)},
 		{Key: "attempt", Value: strconv.Itoa(attempt)},
-		{Key: "delta_paths", Value: joinSortedPaths(result.delta)},
-		{Key: "delta_values", Value: numericValuesOf(result.delta)},
-		{Key: "cascade_paths", Value: joinSortedPaths(result.cascade)},
-		{Key: "cascade_values", Value: numericValuesOf(result.cascade)},
+		{Key: "delta_paths", Value: joinSortedPaths(delta)},
+		{Key: "delta_values", Value: numericValuesOf(delta)},
+		{Key: "cascade_paths", Value: joinSortedPaths(cascade)},
+		{Key: "cascade_values", Value: numericValuesOf(cascade)},
 	}
 }
 
@@ -409,20 +400,16 @@ func numericValuesOf(flat map[string]any) string {
 	return strings.Join(pairs, ",")
 }
 
-// numericText formats a numeric leaf for the log. The second result is false for
-// every other type, which is the signal that the value must stay out of the log.
+// numericText formats a numeric leaf for the log. Only float64 and int are
+// handled: JSON decoding yields float64 and integer arithmetic in expr-lang
+// yields int. The second result is false for every other type, which keeps the
+// value out of the log.
 func numericText(value any) (string, bool) {
 	switch v := value.(type) {
 	case float64:
 		return strconv.FormatFloat(v, 'f', -1, 64), true
-	case float32:
-		return strconv.FormatFloat(float64(v), 'f', -1, 32), true
 	case int:
-		return strconv.FormatInt(int64(v), 10), true
-	case int32:
-		return strconv.FormatInt(int64(v), 10), true
-	case int64:
-		return strconv.FormatInt(v, 10), true
+		return strconv.Itoa(v), true
 	}
 	return "", false
 }

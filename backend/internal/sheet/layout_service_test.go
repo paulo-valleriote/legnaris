@@ -485,7 +485,7 @@ func TestService_PartialUpdate_DoesNotWriteOrReadLayout(t *testing.T) {
 		_, hasLayout := update["layout"]
 		_, hasData := update["data"]
 		return !hasLayout && hasData && len(update) == 2
-	})).Return(nil).Once()
+	})).Return(int64(1), nil).Once()
 
 	_, err = svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
 		SheetID: fetchSheetID,

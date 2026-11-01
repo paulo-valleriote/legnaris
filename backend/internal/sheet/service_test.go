@@ -155,7 +155,7 @@ func TestService_PartialUpdate(t *testing.T) {
 						_, hasTime := update["updated_at"].(time.Time)
 						return hasTime
 					})).
-					Return(nil).
+					Return(int64(1), nil).
 					Once()
 			},
 			expectedCascades: map[string]any{
@@ -200,7 +200,7 @@ func TestService_PartialUpdate(t *testing.T) {
 						_, hasTime := update["updated_at"].(time.Time)
 						return hasTime
 					})).
-					Return(nil).
+					Return(int64(1), nil).
 					Once()
 			},
 			expectedCascades: map[string]any{
@@ -295,7 +295,7 @@ func TestService_PartialUpdate(t *testing.T) {
 						_, hasTime := update["updated_at"].(time.Time)
 						return hasTime
 					})).
-					Return(nil).
+					Return(int64(1), nil).
 					Once()
 			},
 			expectedCascades: map[string]any{
@@ -390,7 +390,7 @@ func TestService_PartialUpdate_NoOpDeltaPersistsAndReturnsEmptyCascade(t *testin
 			_, hasTime := update["updated_at"].(time.Time)
 			return hasTime
 		})).
-		Return(nil).
+		Return(int64(1), nil).
 		Once()
 
 	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{"fantasy_v1": dag}, testLog)
@@ -555,7 +555,7 @@ func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
 						_, hasTime := update["updated_at"].(time.Time)
 						return hasTime
 					})).
-					Return(nil).
+					Return(int64(1), nil).
 					Once()
 			}
 
@@ -718,7 +718,7 @@ func TestService_Preview(t *testing.T) {
 
 		patchRepo := mocks.NewMockRepository(t)
 		patchRepo.EXPECT().FetchByID(ctx, updateSheetID).Return(storedSheet(), nil).Once()
-		patchRepo.EXPECT().PartialUpdate(ctx, updateSheetID, int64(0), mock.Anything).Return(nil).Once()
+		patchRepo.EXPECT().PartialUpdate(ctx, updateSheetID, int64(0), mock.Anything).Return(int64(1), nil).Once()
 		patchSvc := sheet.NewService(patchRepo, templatemocks.NewMockService(t), dagCache, testLog)
 
 		delta := map[string]any{"stats": map[string]any{"dexterity": 16.0}}
@@ -1901,7 +1901,7 @@ func TestService_OwnershipGuardOnRecalculation(t *testing.T) {
 
 		repo := mocks.NewMockRepository(t)
 		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(owned, nil).Once()
-		repo.EXPECT().PartialUpdate(context.Background(), updateSheetID, int64(0), mock.Anything).Return(nil).Once()
+		repo.EXPECT().PartialUpdate(context.Background(), updateSheetID, int64(0), mock.Anything).Return(int64(1), nil).Once()
 		svc := sheet.NewService(repo, templatemocks.NewMockService(t), dagCache, testLog)
 
 		cascades, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{

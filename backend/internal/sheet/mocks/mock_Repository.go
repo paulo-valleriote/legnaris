@@ -235,21 +235,31 @@ func (_c *MockRepository_FetchByOwnerID_Call) RunAndReturn(run func(context.Cont
 }
 
 // PartialUpdate provides a mock function with given fields: ctx, id, expectedVersion, dbUpdates
-func (_m *MockRepository) PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) error {
+func (_m *MockRepository) PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error) {
 	ret := _m.Called(ctx, id, expectedVersion, dbUpdates)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PartialUpdate")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, int64, map[string]any) error); ok {
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64, map[string]any) (int64, error)); ok {
+		return rf(ctx, id, expectedVersion, dbUpdates)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64, map[string]any) int64); ok {
 		r0 = rf(ctx, id, expectedVersion, dbUpdates)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(int64)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, string, int64, map[string]any) error); ok {
+		r1 = rf(ctx, id, expectedVersion, dbUpdates)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // MockRepository_PartialUpdate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PartialUpdate'
@@ -273,12 +283,12 @@ func (_c *MockRepository_PartialUpdate_Call) Run(run func(ctx context.Context, i
 	return _c
 }
 
-func (_c *MockRepository_PartialUpdate_Call) Return(_a0 error) *MockRepository_PartialUpdate_Call {
-	_c.Call.Return(_a0)
+func (_c *MockRepository_PartialUpdate_Call) Return(_a0 int64, _a1 error) *MockRepository_PartialUpdate_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockRepository_PartialUpdate_Call) RunAndReturn(run func(context.Context, string, int64, map[string]any) error) *MockRepository_PartialUpdate_Call {
+func (_c *MockRepository_PartialUpdate_Call) RunAndReturn(run func(context.Context, string, int64, map[string]any) (int64, error)) *MockRepository_PartialUpdate_Call {
 	_c.Call.Return(run)
 	return _c
 }

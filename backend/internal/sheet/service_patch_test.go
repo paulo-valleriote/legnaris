@@ -125,7 +125,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		log, lines := newPatchLogger(t)
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(3, "Aria", 14), nil).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(nil).Once()
+		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(int64(4), nil).Once()
 
 		cascade, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
 		require.NoError(t, err)
@@ -152,7 +152,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		log, lines := newPatchLogger(t)
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(0, "Aria", 14), nil).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(0), mock.Anything).Return(nil).Once()
+		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(0), mock.Anything).Return(int64(1), nil).Once()
 
 		_, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
 		require.NoError(t, err)
@@ -165,7 +165,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		log, lines := newPatchLogger(t)
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(0, "Aria", 14), nil).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(0), mock.Anything).Return(nil).Once()
+		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(0), mock.Anything).Return(int64(1), nil).Once()
 
 		_, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, sheet.PartialUpdateSheetCommand{
 			SheetID:   patchSheetID,
@@ -188,13 +188,13 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 
 		var writtenVersions []int64
 		var writtenData []map[string]any
-		record := func(_ context.Context, _ string, version int64, updates map[string]any) error {
+		record := func(_ context.Context, _ string, version int64, updates map[string]any) (int64, error) {
 			writtenVersions = append(writtenVersions, version)
 			writtenData = append(writtenData, updates["data"].(map[string]any))
 			if len(writtenVersions) == 1 {
-				return sheet.ErrVersionConflict
+				return 0, sheet.ErrVersionConflict
 			}
-			return nil
+			return version + 1, nil
 		}
 
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(3, "Aria", 14), nil).Once()
@@ -225,7 +225,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		log, _ := newPatchLogger(t)
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(3, "Aria", 14), nil).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(sheet.ErrVersionConflict).Once()
+		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
 
 		_, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
@@ -240,7 +240,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		log, lines := newPatchLogger(t)
 		for version := int64(3); version <= 5; version++ {
 			repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(version, "Aria", 14), nil).Once()
-			repo.EXPECT().PartialUpdate(ctx, patchSheetID, version, mock.Anything).Return(sheet.ErrVersionConflict).Once()
+			repo.EXPECT().PartialUpdate(ctx, patchSheetID, version, mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
 		}
 
 		cascade, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
@@ -262,7 +262,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		log, lines := newPatchLogger(t)
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(3, "Aria", 14), nil).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(errors.New("connection reset")).Once()
+		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(0, errors.New("connection reset")).Once()
 
 		_, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
 		var appErr *apperr.Error
@@ -277,7 +277,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		replaced := patchSheet(4, "Aria", 14)
 		replaced.TemplateID = "gone_v1"
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(3, "Aria", 14), nil).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(sheet.ErrVersionConflict).Once()
+		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(replaced, nil).Once()
 
 		_, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))

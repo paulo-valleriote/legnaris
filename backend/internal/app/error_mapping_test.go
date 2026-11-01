@@ -641,7 +641,7 @@ func TestErrorMapping_PatchVersionConflictReturns409(t *testing.T) {
 		mockRepo := mocks.NewMockRepository(t)
 		for version := int64(0); version < 3; version++ {
 			mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(storedSheet(version), nil).Once()
-			mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, version, mock.Anything).Return(sheet.ErrVersionConflict).Once()
+			mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, version, mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
 		}
 
 		h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
@@ -657,7 +657,7 @@ func TestErrorMapping_PatchVersionConflictReturns409(t *testing.T) {
 	t.Run("Error: a sheet deleted after a lost race returns 404 NOT_FOUND", func(t *testing.T) {
 		mockRepo := mocks.NewMockRepository(t)
 		mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(storedSheet(0), nil).Once()
-		mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, int64(0), mock.Anything).Return(sheet.ErrVersionConflict).Once()
+		mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, int64(0), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
 		mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(nil, sheet.ErrSheetNotFound).Once()
 
 		h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
