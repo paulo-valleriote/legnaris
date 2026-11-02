@@ -38,7 +38,7 @@
 
 ## Rate Limiting
 
-- **Scopes** — `/auth/*` per address (`AUTH_RATE_LIMIT_*`, 10/1m, plus per account on login/register); `/csp-report` per address (`CSP_REPORT_RATE_LIMIT_*`); `/templates`, `/sheets` and `GET /auth/me` per user id (`USER_RATE_LIMIT_*`, 80/1m, one shared budget); `/health` and `/metrics` per address and route (`PUBLIC_RATE_LIMIT_*`, 80/1m)
+- **Scopes** — `/auth/*` per address (`AUTH_RATE_LIMIT_*`, 10/1m, plus per account on login/register); `/csp-report` per address (`CSP_REPORT_RATE_LIMIT_*`); `/templates`, `/sheets` and `GET /auth/me` per user id (`USER_RATE_LIMIT_*`, 80/1m, one shared budget); `/health`, `/ready` and `/metrics` are exempt (orchestrator probes must never get 429)
 - **Refusal** — always `rateLimited`: 429 `RATE_LIMITED` with `Retry-After`. Only the auth guard feeds the `RateLimitBlocked` metric
 - **Order** — `userRateLimit` must follow `auth.Middleware`; with no resolved user id it passes through so the 401 stays the auth layer's call
 - **Route-level middleware only** — attach limiters per route, never through `router.Group("", mw)`: a middleware on an empty-prefix group registers a catch-all that turns 405 into another status

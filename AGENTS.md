@@ -19,7 +19,6 @@ make fmt                 # Format code
 | Build | `make build` |
 | Test (race) | `make test-race` |
 | Lint | `make lint` |
-| Spec/test lints | `make lint-specs` |
 | Vet | `make vet` |
 | Run local MongoDB (dev only) | `make dev-db` |
 | Deploy (production) | `make deploy-up` |
@@ -111,7 +110,7 @@ Comments are documentation, never narration. They must not substitute clear code
 
 Before opening a PR, ensure:
 
-- Run all required linters and formatters: `make fmt && make lint && make vet && make lint-specs`
+- Run all required linters and formatters: `make fmt && make lint && make vet`
 - Every behavior change ships tests covering edge cases + happy path (exceptions:
   generated/trivial changes); run them with race detector: `make test-race`
 

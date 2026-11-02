@@ -22,6 +22,14 @@ http:
         contentTypeNosniff: true
         referrerPolicy: "strict-origin-when-cross-origin"
 
+    # Per-client cap for the public liveness route. It is generous on purpose:
+    # a legitimate monitor never gets near it, so only abuse is throttled.
+    probe-rate-limit:
+      rateLimit:
+        average: 100
+        period: 1s
+        burst: 200
+
     # Document security headers for the web client origin only (POL-02 / F9-T005).
     # Dedicated instead of widening `security-headers` so the ops routers
     # (Grafana, Prometheus, Mongo Express) keep their own policy and a CSP
@@ -127,12 +135,23 @@ http:
       service: grafana
       middlewares: ["oauth", "security-headers"]
 
-    # Public API (no auth) on the api domain. /metrics is deliberately excluded:
-    # it is scraped by Prometheus directly on the internal network (app:8080).
+    # Public API (no auth) on the api domain. /metrics and /ready are
+    # deliberately excluded: Prometheus scrapes /metrics and the container
+    # healthcheck probes /ready directly on the internal network (app:8080).
+    # /ready pings the database, so it must not be reachable by anonymous clients.
     app:
-      rule: 'Host(`{{ env "API_DOMAIN" }}`) && !PathPrefix(`/metrics`)'
+      rule: 'Host(`{{ env "API_DOMAIN" }}`) && !PathPrefix(`/metrics`) && !PathPrefix(`/ready`)'
       entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
       service: app
+
+    # Liveness stays public but rate limited per client. The explicit priority
+    # makes it win over the broader `app` router.
+    app-health:
+      rule: 'Host(`{{ env "API_DOMAIN" }}`) && Path(`/health`)'
+      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      service: app
+      middlewares: ["probe-rate-limit"]
+      priority: 1000
 
     # Public web client (no auth) on its own domain; it reaches the API cross
     # origin, which the API's CORS allowlist has to accept.

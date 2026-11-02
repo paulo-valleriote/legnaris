@@ -30,6 +30,7 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeSheetLimitReached, 409},
 		{CodeRateLimited, 429},
 		{CodeEmailUnavailable, 503},
+		{CodeNotReady, 503},
 		{CodeOTPInvalid, 401},
 		{CodeInternal, 500},
 	}

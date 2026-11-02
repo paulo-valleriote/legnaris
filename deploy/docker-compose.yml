@@ -147,6 +147,14 @@ services:
       # account that never verified its address. Optional, off by default, and
       # it rewrites no account (TFA-07, TFA-12).
       AUTH_REQUIRE_EMAIL_VERIFICATION: ${AUTH_REQUIRE_EMAIL_VERIFICATION:-false}
+    # Readiness, not liveness: unhealthy while MongoDB is unreachable. The
+    # distroless image has no shell or curl, so the binary probes itself.
+    healthcheck:
+      test: ["CMD", "/app", "healthcheck", "http://127.0.0.1:8080/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - edge
       - internal

@@ -934,3 +934,24 @@ func TestMonitoringScrapesTheBrokerAndTheWorker(t *testing.T) {
 		assert.Contains(t, doc.Services["worker"].Environment["EMAIL_WORKER_METRICS_ADDR"], ":-:9101}")
 	})
 }
+
+// TestAppHealthcheckProbesReadiness guards the app container's healthcheck: the
+// distroless image has no shell or curl, so the binary probes itself, and it
+// must hit /ready (database reachable) rather than the bare liveness route.
+func TestAppHealthcheckProbesReadiness(t *testing.T) {
+	doc := readCompose(t)
+
+	app, ok := doc.Services["app"]
+	require.True(t, ok, "the stack must define an app service")
+	require.NotNil(t, app.Healthcheck, "the app must declare a healthcheck")
+
+	t.Run("Happy path: the healthcheck runs the binary against /ready on the app port", func(t *testing.T) {
+		assert.Equal(t,
+			[]string{"CMD", "/app", "healthcheck", "http://127.0.0.1:8080/ready"},
+			app.Healthcheck.Test)
+	})
+
+	t.Run("Edge: the probe URL targets the port the app listens on", func(t *testing.T) {
+		assert.Equal(t, "8080", app.Environment["PORT"])
+	})
+}

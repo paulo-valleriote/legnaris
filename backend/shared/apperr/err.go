@@ -29,6 +29,9 @@ const (
 	// CodeEmailUnavailable is the daily send cap being reached: no intention is
 	// recorded and the caller is told to retry later (OTP-13).
 	CodeEmailUnavailable Code = "EMAIL_UNAVAILABLE"
+	// CodeNotReady reports a failed readiness probe: a dependency (the
+	// database) is unreachable, so the instance must not receive traffic.
+	CodeNotReady Code = "NOT_READY"
 )
 
 type Error struct {
@@ -67,7 +70,7 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 409
 	case CodeRateLimited:
 		httpStatus = 429
-	case CodeEmailUnavailable:
+	case CodeEmailUnavailable, CodeNotReady:
 		httpStatus = 503
 	case CodeInternal:
 		httpStatus = 500

@@ -78,6 +78,6 @@ cd web && npm ci && npm run dev   # web only (API at http://localhost:8080)
 
 ## Other commands
 
-`make test`, `make test-race`, `make lint`, `make vet`, `make lint-specs`,
+`make test`, `make test-race`, `make lint`, `make vet`,
 `make fmt` — see the [`Makefile`](Makefile) and [`AGENTS.md`](AGENTS.md). The web
 client has its own [`README`](web/README.md).

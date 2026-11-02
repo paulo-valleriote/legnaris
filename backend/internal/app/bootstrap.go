@@ -8,6 +8,7 @@ import (
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/internal/platform/clientip"
+	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/ratelimit"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/template"
@@ -41,10 +42,10 @@ type Modules struct {
 	// IPExtractor, so every c.RealIP() consumer reads the same resolution
 	// (PRQ-03, PRQ-04).
 	ClientIP func(*http.Request) string
-	// UserLimiter caps the authenticated routes per user id; PublicLimiter caps
-	// the public probes per address (LGN-30).
-	UserLimiter   *ratelimit.Limiter
-	PublicLimiter *ratelimit.Limiter
+	// UserLimiter caps the authenticated routes per user id (LGN-30).
+	UserLimiter *ratelimit.Limiter
+	// Readiness backs GET /ready: the instance is ready only while it answers.
+	Readiness health.Pinger
 }
 
 // authServiceConfig maps the resolved environment onto the auth service's
@@ -156,11 +157,6 @@ func NewModules(
 		cfg.Variables.UserRateLimitWindow,
 		time.Now,
 	)
-	publicLimiter := ratelimit.New(
-		cfg.Variables.PublicRateLimitAttempts,
-		cfg.Variables.PublicRateLimitWindow,
-		time.Now,
-	)
 
 	return &Modules{
 		Template: TemplateModule{
@@ -177,8 +173,8 @@ func NewModules(
 			TokenManager: tokenManager,
 			RateLimiter:  authLimiter,
 		},
-		ClientIP:      clientIPPolicy.Resolve,
-		UserLimiter:   userLimiter,
-		PublicLimiter: publicLimiter,
+		ClientIP:    clientIPPolicy.Resolve,
+		UserLimiter: userLimiter,
+		Readiness:   database,
 	}, nil
 }

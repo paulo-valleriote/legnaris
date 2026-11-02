@@ -70,7 +70,6 @@ services:
       AUTH_REQUIRE_EMAIL_VERIFICATION: "false"
       AUTH_RATE_LIMIT_ATTEMPTS: "100000"
       USER_RATE_LIMIT_ATTEMPTS: "1000000"
-      PUBLIC_RATE_LIMIT_ATTEMPTS: "1000000"
     depends_on:
       mongodb:
         condition: service_healthy

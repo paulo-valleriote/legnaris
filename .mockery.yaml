@@ -71,3 +71,9 @@ packages:
       DeliveryHandle: {}
       Republisher: {}
       Observer: {}
+  legnaris/backend/internal/platform/health:
+    config:
+      dir: backend/internal/platform/health/mocks
+      outpkg: mocks
+    interfaces:
+      Pinger: {}
