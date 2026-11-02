@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint lint-specs fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
+.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
 
 ## --- Development ------------------------------------------------------------
 
@@ -45,12 +45,6 @@ vet:            ## Run go vet
 
 lint:           ## Run golangci-lint
 	@golangci-lint run
-
-lint-specs:     ## Run spec/test lint rules (CI parity: assertions, requirement IDs, citations)
-	@python3 scripts/test_lints.py
-	@python3 scripts/check_test_assertions.py
-	@python3 scripts/check_requirement_ids.py
-	@python3 scripts/check_validation_citations.py
 
 fmt:            ## Format code
 	@go fmt ./...

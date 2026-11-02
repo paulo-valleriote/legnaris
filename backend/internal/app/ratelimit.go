@@ -139,18 +139,3 @@ func userRateLimit(limiter *ratelimit.Limiter) echo.MiddlewareFunc {
 		}
 	}
 }
-
-// publicRateLimit caps an unauthenticated probe per client address. The budget
-// is keyed by route as well, so a frequent health probe cannot starve the
-// metrics scrape behind the same address (LGN-30).
-func publicRateLimit(limiter *ratelimit.Limiter) echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c *echo.Context) error {
-			key := "public:" + c.Path() + ":" + c.RealIP()
-			if allowed, retryAfter := limiter.Allow(key, limiter.Now()); !allowed {
-				return rateLimited(c, nil, retryAfter)
-			}
-			return next(c)
-		}
-	}
-}

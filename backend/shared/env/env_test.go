@@ -390,13 +390,6 @@ func TestInitVariablesScopedRateLimits(t *testing.T) {
 			attempts:    func(v Variables) int { return v.UserRateLimitAttempts },
 			window:      func(v Variables) time.Duration { return v.UserRateLimitWindow },
 		},
-		{
-			name:        "public",
-			attemptsKey: "PUBLIC_RATE_LIMIT_ATTEMPTS",
-			windowKey:   "PUBLIC_RATE_LIMIT_WINDOW",
-			attempts:    func(v Variables) int { return v.PublicRateLimitAttempts },
-			window:      func(v Variables) time.Duration { return v.PublicRateLimitWindow },
-		},
 	}
 
 	for _, tc := range tests {

@@ -47,7 +47,7 @@ func TestLoadtestOverlay(t *testing.T) {
 	}{
 		{"Happy path: every rate limiter is lifted on the app", func(t *testing.T) {
 			env := doc.Services["app"].Environment
-			for _, key := range []string{"AUTH_RATE_LIMIT_ATTEMPTS", "USER_RATE_LIMIT_ATTEMPTS", "PUBLIC_RATE_LIMIT_ATTEMPTS"} {
+			for _, key := range []string{"AUTH_RATE_LIMIT_ATTEMPTS", "USER_RATE_LIMIT_ATTEMPTS"} {
 				assert.NotEmpty(t, env[key], "%s must be raised or 100 req/s trips the limiter", key)
 			}
 		}},

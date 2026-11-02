@@ -30,10 +30,13 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	router.Use(middleware.RequestLogger())
 	router.Use(middleware.Recover())
 
-	limitPublic := publicRateLimit(modules.PublicLimiter)
-	httpMetrics.Register(router, limitPublic)
+	// The probes are deliberately outside every rate limiter: an orchestrator
+	// or scraper that gets a 429 would restart or evict a healthy instance.
+	httpMetrics.Register(router)
 
-	health.RegisterHealthRoutes(router.Group(""), limitPublic)
+	probes := router.Group("")
+	health.RegisterHealthRoutes(probes)
+	health.RegisterReadyRoute(probes, modules.Readiness, deps.Variables.DatabasePingTimeout)
 	registerAuthRoutes(router.Group("/auth"), modules, deps.Variables.CORSOrigins, httpMetrics)
 
 	// The CSP report collector is public: a violation report carries no

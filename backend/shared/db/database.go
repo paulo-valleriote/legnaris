@@ -57,6 +57,14 @@ func InitMongo(env env.Env) (*Database, error) {
 	}, nil
 }
 
+// Ping checks that the primary is reachable within the context deadline.
+func (db *Database) Ping(ctx context.Context) error {
+	if err := db.Client.Ping(ctx, nil); err != nil {
+		return fmt.Errorf("ping mongodb: %w", err)
+	}
+	return nil
+}
+
 func (db *Database) Close(ctx context.Context) error {
 	if err := db.Client.Disconnect(ctx); err != nil {
 		return fmt.Errorf("mongodb disconnection error: %w", err)

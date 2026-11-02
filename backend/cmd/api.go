@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/db"
@@ -15,8 +17,19 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
+const healthcheckTimeout = 3 * time.Second
+
 func main() {
 	ctx := context.Background()
+
+	if len(os.Args) == 3 && os.Args[1] == "healthcheck" {
+		if err := health.Probe(ctx, os.Args[2], healthcheckTimeout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	log := logger.NewLogger(slog.LevelInfo)
 	cfg := env.NewEnv(log)
 
