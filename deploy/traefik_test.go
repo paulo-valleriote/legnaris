@@ -314,3 +314,62 @@ func TestPipelineDashboardStaysBehindTheOperatorsRoute(t *testing.T) {
 		assert.Contains(t, compose.Services["grafana"].Volumes, "./grafana/dashboards:/var/lib/grafana/dashboards:ro")
 	})
 }
+
+const apiHostRule = "Host(`{{ env \"API_DOMAIN\" }}`)"
+
+// TestPublicProbeExposure guards which probes the public API domain reaches:
+// /ready pings the database and stays internal, /metrics stays internal, and
+// /health is public behind a per-client rate limit.
+func TestPublicProbeExposure(t *testing.T) {
+	routes := readRoutes(t)
+
+	t.Run("Happy path: the public api router excludes /metrics and /ready", func(t *testing.T) {
+		router, ok := routes.HTTP.Routers["app"]
+		require.True(t, ok)
+		assert.Equal(t, apiHostRule+" && !PathPrefix(`/metrics`) && !PathPrefix(`/ready`)", router.Rule)
+	})
+
+	t.Run("Edge: no router other than the api catch-all matches /ready", func(t *testing.T) {
+		for name, router := range routes.HTTP.Routers {
+			if name == "app" || !strings.Contains(router.Rule, "API_DOMAIN") {
+				continue
+			}
+			assert.NotContainsf(t, router.Rule, "/ready", "router %s must not expose /ready", name)
+		}
+	})
+
+	t.Run("Happy path: /health is public behind the probe rate limit", func(t *testing.T) {
+		router, ok := routes.HTTP.Routers["app-health"]
+		require.True(t, ok, "the edge must define an app-health router")
+		assert.Equal(t, apiHostRule+" && Path(`/health`)", router.Rule)
+		assert.Equal(t, "app", router.Service)
+		assert.Equal(t, []string{"probe-rate-limit"}, router.Middlewares)
+	})
+
+	t.Run("Edge: the health router outranks the api catch-all", func(t *testing.T) {
+		raw, err := os.ReadFile(dynamicFile)
+		require.NoError(t, err)
+		var doc struct {
+			HTTP struct {
+				Routers map[string]struct {
+					Priority int `yaml:"priority"`
+				} `yaml:"routers"`
+				Middlewares map[string]struct {
+					RateLimit struct {
+						Average int    `yaml:"average"`
+						Period  string `yaml:"period"`
+						Burst   int    `yaml:"burst"`
+					} `yaml:"rateLimit"`
+				} `yaml:"middlewares"`
+			} `yaml:"http"`
+		}
+		require.NoError(t, yaml.Unmarshal(raw, &doc))
+
+		assert.Greater(t, doc.HTTP.Routers["app-health"].Priority, doc.HTTP.Routers["app"].Priority)
+
+		limit := doc.HTTP.Middlewares["probe-rate-limit"].RateLimit
+		assert.Equal(t, 100, limit.Average)
+		assert.Equal(t, "1s", limit.Period)
+		assert.Equal(t, 200, limit.Burst)
+	})
+}
