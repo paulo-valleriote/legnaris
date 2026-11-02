@@ -101,8 +101,12 @@ services:
       dockerfile: Dockerfile
     image: legnaris-app:local
     restart: unless-stopped
+    # Must exceed SHUTDOWN_TIMEOUT plus the app's DATABASE_CLOSE_TIMEOUT (5s
+    # each by default) or Docker SIGKILLs the app mid-drain.
+    stop_grace_period: 15s
     environment:
       PORT: "8080"
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-5s}
       APP_NAME: legnaris
       # MONGO_APP_PASSWORD is embedded verbatim in the URI below; see
       # deploy/.env.example for the password requirements.

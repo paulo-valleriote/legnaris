@@ -19,6 +19,7 @@ type Variables struct {
 	DatabaseServerSelectionTimeout time.Duration
 	DatabaseConnectTimeout         time.Duration
 	DatabaseCloseTimeout           time.Duration
+	ShutdownTimeout                time.Duration
 	CORSOrigins                    []string
 	JWTSecret                      string
 	JWTAccessTTL                   time.Duration
@@ -88,6 +89,7 @@ const (
 	defaultDatabaseServerSelectionTimeout = 2 * time.Second
 	defaultDatabaseConnectTimeout         = 2 * time.Second
 	defaultDatabaseCloseTimeout           = 5 * time.Second
+	defaultShutdownTimeout                = 5 * time.Second
 	defaultJWTAccessTTL                   = 15 * time.Minute
 	defaultAuthRefreshTTL                 = 720 * time.Hour
 	defaultAuthBcryptCost                 = 12
@@ -193,6 +195,7 @@ func (e *Env) initVariables() Variables {
 		DatabaseServerSelectionTimeout: e.lookupDurationEnv("DATABASE_SERVER_SELECTION_TIMEOUT", defaultDatabaseServerSelectionTimeout),
 		DatabaseConnectTimeout:         e.lookupDurationEnv("DATABASE_CONNECT_TIMEOUT", defaultDatabaseConnectTimeout),
 		DatabaseCloseTimeout:           e.lookupDurationEnv("DATABASE_CLOSE_TIMEOUT", defaultDatabaseCloseTimeout),
+		ShutdownTimeout:                e.lookupDurationEnv("SHUTDOWN_TIMEOUT", defaultShutdownTimeout),
 		CORSOrigins:                    e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", defaultCORSOrigins),
 		JWTSecret:                      e.lookupRequiredStringEnv(keyJWTSecret),
 		JWTAccessTTL:                   e.lookupDurationEnv("JWT_ACCESS_TTL", defaultJWTAccessTTL),
