@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ops.legnaris.com.br: Grafana behind the GitHub OAuth gate, in the namespace
+# of the kube-prometheus-stack (an Ingress cannot reach Services in another
+# namespace). Sealed secrets `oauth2-proxy` (OAUTH2_PROXY_CLIENT_ID,
+# OAUTH2_PROXY_CLIENT_SECRET, OAUTH2_PROXY_COOKIE_SECRET, OAUTH2_PROXY_GITHUB_USER)
+# and `grafana-admin` (admin-user, admin-password) are added by
+# `scripts/k8s-seal-secrets.sh`.
+namespace: monitoring
+
+resources:
+  - oauth2-proxy.yaml
+  - ingress.yaml

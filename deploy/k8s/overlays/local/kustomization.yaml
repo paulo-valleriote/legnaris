@@ -33,7 +33,9 @@ generatorOptions:
   disableNameSuffixHash: true
 
 patches:
-  - target: {kind: Ingress, name: legnaris}
+  - target: {kind: Ingress, name: api}
     patch: |-
       - {op: replace, path: /spec/rules/0/host, value: api.legnaris.localhost}
-      - {op: replace, path: /spec/rules/1/host, value: app.legnaris.localhost}
+  - target: {kind: Ingress, name: web}
+    patch: |-
+      - {op: replace, path: /spec/rules/0/host, value: app.legnaris.localhost}

@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Secrets are NOT listed here until sealed: `scripts/k8s-seal-secrets.sh`
+# creates sealed-secrets.yaml and appends it to `resources`.
+resources:
+  - ../../base
+  - middlewares.yaml
+  - backup.yaml
+
+# Immutable CI tags. The gitops-bump workflow rewrites these newTag lines in a
+# PR after each image publish; the all-zero value is the pre-first-release
+# placeholder and must be replaced before the first sync.
+images:
+  - name: legnaris-app
+    newName: ghcr.io/paulo-valleriote/legnaris-app
+    newTag: sha-0000000000000000000000000000000000000000
+  - name: legnaris-web
+    newName: ghcr.io/paulo-valleriote/legnaris-web
+    newTag: sha-0000000000000000000000000000000000000000
+  - name: legnaris-rabbitmq
+    newName: ghcr.io/paulo-valleriote/legnaris-rabbitmq
+    newTag: sha-0000000000000000000000000000000000000000
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: env-config
+    literals:
+      - API_BASE_URL=https://api.legnaris.com.br
+      - CORS_ALLOWED_ORIGINS=https://app.legnaris.com.br
+
+patches:
+  - target: {kind: Ingress, name: api}
+    patch: |-
+      - {op: replace, path: /spec/rules/0/host, value: api.legnaris.com.br}
+      - {op: add, path: /metadata/annotations, value: {cert-manager.io/cluster-issuer: letsencrypt-prod, traefik.ingress.kubernetes.io/router.entrypoints: websecure, traefik.ingress.kubernetes.io/router.tls: "true", traefik.ingress.kubernetes.io/router.middlewares: default-security-headers@kubernetescrd}}
+      - {op: add, path: /spec/tls, value: [{hosts: [api.legnaris.com.br], secretName: api-tls}]}
+  - target: {kind: Ingress, name: web}
+    patch: |-
+      - {op: replace, path: /spec/rules/0/host, value: app.legnaris.com.br}
+      - {op: add, path: /metadata/annotations, value: {cert-manager.io/cluster-issuer: letsencrypt-prod, traefik.ingress.kubernetes.io/router.entrypoints: websecure, traefik.ingress.kubernetes.io/router.tls: "true", traefik.ingress.kubernetes.io/router.middlewares: default-web-security-headers@kubernetescrd}}
+      - {op: add, path: /spec/tls, value: [{hosts: [app.legnaris.com.br], secretName: web-tls}]}
+  - target: {kind: StatefulSet, name: mongodb}
+    patch: |-
+      - {op: replace, path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage, value: 10Gi}

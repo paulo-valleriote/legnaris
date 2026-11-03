@@ -1,8 +1,9 @@
 # Traefik is the k3s default ingress controller. Hosts are patched per overlay.
+# One Ingress per public origin so each can carry its own Traefik middlewares.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: legnaris
+  name: api
 spec:
   rules:
     - host: api.example.invalid
@@ -11,6 +12,13 @@ spec:
           - path: /
             pathType: Prefix
             backend: {service: {name: app, port: {name: http}}}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+spec:
+  rules:
     - host: app.example.invalid
       http:
         paths:

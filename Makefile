@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down k8s-observability k8s-rules k8s-loadtest k8s-keda
+.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down k8s-observability k8s-rules k8s-loadtest k8s-keda k8s-platform k8s-gitops
 
 ## --- Development ------------------------------------------------------------
 
@@ -187,3 +187,21 @@ k8s-loadtest:   ## Run a k6 script as a Job on a DISPOSABLE cluster (rate limits
 		| sed 's#/scripts/capacity.js#/scripts/$(SCRIPT)#' | kubectl apply -f -
 	kubectl rollout restart deployment/app && kubectl rollout status deployment/app
 	kubectl logs -f job/k6
+
+K8S_CERT_MANAGER_VERSION := v1.21.3
+K8S_ARGOCD_VERSION := v3.5.7
+K8S_SEALED_SECRETS_VERSION := 0.41.2
+
+k8s-platform:   ## Production cluster: cert-manager, Sealed Secrets and the Let's Encrypt ClusterIssuer (kubectl must point at the VPS)
+	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/$(K8S_CERT_MANAGER_VERSION)/cert-manager.yaml
+	kubectl -n cert-manager rollout status deployment/cert-manager-webhook --timeout=180s
+	kubectl apply -f deploy/k8s/platform/clusterissuer.yaml
+	helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets --force-update
+	helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets --version $(K8S_SEALED_SECRETS_VERSION) --namespace kube-system --wait
+
+k8s-gitops:     ## Production cluster: install Argo CD and register the legnaris applications
+	kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -n argocd --server-side -f https://raw.githubusercontent.com/argoproj/argo-cd/$(K8S_ARGOCD_VERSION)/manifests/install.yaml
+	kubectl apply --server-side --force-conflicts -f deploy/k8s/gitops/argocd-cm-patch.yaml
+	kubectl -n argocd rollout restart deployment/argocd-repo-server
+	kubectl apply -f deploy/k8s/gitops/applications.yaml

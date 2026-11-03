@@ -1,0 +1,30 @@
+# Ported from deploy/traefik/dynamic.yml (compose). Same policy, now as Traefik CRDs.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: web-security-headers
+spec:
+  headers:
+    contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.legnaris.com.br; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; report-to csp-endpoint; report-uri https://api.legnaris.com.br/csp-report"
+    customResponseHeaders:
+      Reporting-Endpoints: 'csp-endpoint="https://api.legnaris.com.br/csp-report"'
+      Cross-Origin-Opener-Policy: "same-origin"
+      Cross-Origin-Resource-Policy: "same-origin"
+    stsSeconds: 63072000
+    stsIncludeSubdomains: true
+    stsPreload: true
+    frameDeny: true
+    contentTypeNosniff: true
+    referrerPolicy: "strict-origin-when-cross-origin"
+    permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)"
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+spec:
+  headers:
+    frameDeny: true
+    browserXssFilter: true
+    contentTypeNosniff: true
+    referrerPolicy: "strict-origin-when-cross-origin"

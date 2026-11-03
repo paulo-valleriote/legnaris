@@ -1,0 +1,10 @@
+# Kustomize in Argo CD must allow the shared config files that live outside each
+# overlay (mongodb init script, rabbitmq.conf, dashboards), the same relaxation
+# `make k8s-up` uses locally.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+data:
+  kustomize.buildOptions: --load-restrictor LoadRestrictionsNone

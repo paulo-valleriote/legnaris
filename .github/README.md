@@ -11,7 +11,7 @@
 
 ## Images
 
-Published as `ghcr.io/<owner>/legnaris-app` and `ghcr.io/<owner>/legnaris-web`.
+Published as `ghcr.io/<owner>/legnaris-app`, `legnaris-web` and `legnaris-rabbitmq` (broker with the Prometheus plugin and provisioning).
 
 - **Immutable tag:** `sha-<full commit SHA>` — pin this in clusters.
 - **Version tag:** `X.Y.Z` on `vX.Y.Z` tags.
