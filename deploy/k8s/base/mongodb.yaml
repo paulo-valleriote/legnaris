@@ -29,6 +29,14 @@ spec:
               valueFrom: {secretKeyRef: {name: legnaris-secrets, key: MONGO_EXPORTER_PASSWORD}}
             - name: MONGO_VIEW_PASSWORD
               valueFrom: {secretKeyRef: {name: legnaris-secrets, key: MONGO_VIEW_PASSWORD}}
+          # First boot runs the init script on a temporary localhost-only mongod,
+          # so the port stays closed until it finishes; without this gate the
+          # liveness probe kills the container mid-initialisation and leaves the
+          # data directory without users.
+          startupProbe:
+            tcpSocket: {port: mongo}
+            periodSeconds: 5
+            failureThreshold: 90
           readinessProbe:
             exec:
               command:
@@ -36,7 +44,7 @@ spec:
                 - -c
                 - mongosh --quiet -u root -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval 'db.adminCommand("ping").ok' | grep -q 1
             periodSeconds: 10
-            timeoutSeconds: 5
+            timeoutSeconds: 10
             failureThreshold: 6
           livenessProbe:
             exec:
@@ -44,9 +52,8 @@ spec:
                 - sh
                 - -c
                 - mongosh --quiet -u root -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval 'db.adminCommand("ping").ok' | grep -q 1
-            initialDelaySeconds: 30
             periodSeconds: 10
-            timeoutSeconds: 5
+            timeoutSeconds: 10
             failureThreshold: 6
           volumeMounts:
             - {name: data, mountPath: /data/db}
