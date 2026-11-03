@@ -12,6 +12,7 @@ resources:
   - redis.yaml
   - rabbitmq.yaml
   - ingress.yaml
+  - hpa.yaml
 
 configMapGenerator:
   - name: mongodb-init

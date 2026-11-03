@@ -87,3 +87,24 @@ kubectl -n monitoring port-forward svc/kps-grafana 3000:80    # http://localhost
   sidecar from labelled ConfigMaps.
 - Loki + Alloy for logs are not installed (optional in the ticket).
 - Not validated in a cluster: checked only by rendering and schema validation.
+
+## Autoscaling and load tests (LGN-134, LGN-135)
+
+- **HPA** (`base/hpa.yaml`): the app scales on CPU (70 % of `requests.cpu`),
+  2–6 replicas, 120 s scale-down window (short for the local cluster).
+  `requests.cpu` (100m) is a starting guess: calibrate it from the k6 capacity
+  result. A custom metric (`legnaris_http_in_flight_requests`/RPS) needs
+  prometheus-adapter and is deferred until the CPU result is known.
+- **KEDA** for worker and relay: see `keda/README.md` (`make k8s-keda`).
+- **Load test:** `make k8s-loadtest SCRIPT=capacity.js` (or `auth-storm.js`, ...)
+  applies `overlays/loadtest` — **disposable cluster only**: it lifts the rate
+  limits and runs k6 as a Job pushing results to Prometheus, so the loadtest
+  dashboard can show replicas × CPU × p95. Watch scaling with
+  `kubectl get hpa app -w`.
+- **MongoDB bottleneck:** the Mongo exporter is not deployed in k8s; track the
+  `mongodb-0` pod's CPU/memory with the kube-prometheus-stack container
+  dashboards during the run and record where the p95 breaks.
+- **bcrypt:** login cost scales with CPU, so `auth-storm.js` is the run that
+  shows whether the HPA reacts fast enough; record the result here.
+
+Not validated in a cluster: only rendered and schema-checked.

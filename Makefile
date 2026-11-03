@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down k8s-observability k8s-rules
+.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down k8s-observability k8s-rules k8s-loadtest k8s-keda
 
 ## --- Development ------------------------------------------------------------
 
@@ -171,3 +171,19 @@ k8s-observability: ## Install kube-prometheus-stack, PodMonitors, alert rules an
 
 k8s-rules:      ## Regenerate the PrometheusRule from deploy/prometheus/rules.yml
 	@python3 scripts/gen_prometheusrule.py
+
+K8S_KEDA_CHART_VERSION := 2.21.0
+
+k8s-keda:       ## Install KEDA and the worker/relay ScaledObjects (needs k8s-observability)
+	helm repo add kedacore https://kedacore.github.io/charts --force-update
+	helm upgrade --install keda kedacore/keda --version $(K8S_KEDA_CHART_VERSION) \
+		--namespace keda --create-namespace -f deploy/k8s/keda/values.yaml --wait --timeout 5m
+	kubectl apply -f deploy/k8s/keda/scaledobjects.yaml
+
+SCRIPT ?= capacity.js
+k8s-loadtest:   ## Run a k6 script as a Job on a DISPOSABLE cluster (rate limits lifted): make k8s-loadtest SCRIPT=capacity.js
+	@kubectl delete job k6 --ignore-not-found
+	kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/k8s/overlays/loadtest \
+		| sed 's#/scripts/capacity.js#/scripts/$(SCRIPT)#' | kubectl apply -f -
+	kubectl rollout restart deployment/app && kubectl rollout status deployment/app
+	kubectl logs -f job/k6

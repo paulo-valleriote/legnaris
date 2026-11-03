@@ -94,3 +94,8 @@ func TestK8sPodMonitorsKeepComposeJobNames(t *testing.T) {
 		}, jobs)
 	})
 }
+
+func readYAMLString(t *testing.T, raw string, out any) {
+	t.Helper()
+	require.NoError(t, yaml.Unmarshal([]byte(raw), out))
+}
