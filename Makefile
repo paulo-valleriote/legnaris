@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down
+.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down k8s-observability k8s-rules
 
 ## --- Development ------------------------------------------------------------
 
@@ -159,3 +159,15 @@ k8s-up:         ## Create the k3d cluster, build+import images and apply the sta
 
 k8s-down:       ## Destroy the local k3d cluster and everything in it
 	@k3d cluster delete legnaris
+
+K8S_PROM_CHART_VERSION := 92.17.1
+
+k8s-observability: ## Install kube-prometheus-stack, PodMonitors, alert rules and dashboards into the k3d cluster
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
+	helm upgrade --install kps prometheus-community/kube-prometheus-stack --version $(K8S_PROM_CHART_VERSION) \
+		--namespace monitoring --create-namespace -f deploy/k8s/observability/values.yaml --wait --timeout 10m
+	kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/k8s/observability | kubectl apply -n monitoring -f -
+	@echo "Grafana: kubectl -n monitoring port-forward svc/kps-grafana 3000:80 (admin/admin)"
+
+k8s-rules:      ## Regenerate the PrometheusRule from deploy/prometheus/rules.yml
+	@python3 scripts/gen_prometheusrule.py

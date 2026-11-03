@@ -68,3 +68,22 @@ Grafana, Loki, Alloy — see LGN-133). RabbitMQ's console is not exposed.
   per-replica storage; used for databases and brokers.
 - **PVC** — a claim for persistent storage; StatefulSets create one per replica
   (`volumeClaimTemplates`) so data survives Pod restarts.
+
+## Observability (LGN-133)
+
+```bash
+make k8s-observability     # helm: kube-prometheus-stack (pinned) + PodMonitors, rules, dashboards
+kubectl -n monitoring port-forward svc/kps-grafana 3000:80    # http://localhost:3000 (admin/admin, local only)
+```
+
+- `deploy/k8s/observability/values.yaml` — Helm values (remote-write receiver on
+  for k6, selectors open so objects outside the release are picked up).
+- `podmonitors.yaml` — one PodMonitor per workload, so **every replica** is a
+  target; `job` is relabelled to the compose names so rules and dashboards work
+  unchanged.
+- `prometheusrule.yaml` — **generated** from `deploy/prometheus/rules.yml`
+  (`make k8s-rules`); a Go test fails on drift.
+- Dashboards (`deploy/grafana/dashboards/*.json`) are loaded by Grafana's
+  sidecar from labelled ConfigMaps.
+- Loki + Alloy for logs are not installed (optional in the ticket).
+- Not validated in a cluster: checked only by rendering and schema validation.
