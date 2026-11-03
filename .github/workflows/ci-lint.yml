@@ -18,6 +18,19 @@ on:
       - 'Dockerfile'
       - '.github/workflows/ci-lint.yml'
 
+  push:
+    branches: [main]
+    paths:
+      - '**/*.go'
+      - 'backend/cmd/**'
+      - 'backend/internal/**'
+      - 'backend/shared/**'
+      - 'deploy/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Dockerfile'
+      - '.github/workflows/ci-lint.yml'
+
 permissions:
   contents: read
 
