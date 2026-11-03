@@ -17,7 +17,16 @@ type Database struct {
 // ErrMissingURI reports a missing DATABASE_URI configuration at startup.
 var ErrMissingURI = errors.New("DATABASE_URI is not configured")
 
+// ErrInvalidConfig reports unusable database settings detected at startup.
+var ErrInvalidConfig = errors.New("invalid database configuration")
+
+// InitMongo connects to MongoDB and verifies reachability. It fails before
+// connecting when the environment holds an invalid pool configuration.
 func InitMongo(env env.Env) (*Database, error) {
+	if err := env.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+
 	uri := env.Variables.DatabaseURI
 	if uri == "" {
 		return nil, ErrMissingURI
@@ -30,6 +39,8 @@ func InitMongo(env env.Env) (*Database, error) {
 		SetServerSelectionTimeout(env.Variables.DatabaseServerSelectionTimeout).
 		SetServerAPIOptions(serverAPI).
 		SetConnectTimeout(env.Variables.DatabaseConnectTimeout).
+		SetMaxPoolSize(env.Variables.DatabaseMaxPoolSize).
+		SetMinPoolSize(env.Variables.DatabaseMinPoolSize).
 		SetBSONOptions(&options.BSONOptions{
 			// Decode nested BSON documents into map[string]any instead of the
 			// default bson.D. Sheet data is modeled as map[string]any and the

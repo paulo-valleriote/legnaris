@@ -809,3 +809,53 @@ func TestInitVariablesEmailRetryDelays(t *testing.T) {
 		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
 	})
 }
+
+func TestDatabasePoolSettings(t *testing.T) {
+	tests := []struct {
+		name    string
+		max     string
+		min     string
+		wantMax uint64
+		wantMin uint64
+		wantErr string
+	}{
+		{name: "Happy path: unset uses safe defaults", wantMax: 20, wantMin: 0},
+		{name: "Happy path: valid overrides are applied", max: "50", min: "5", wantMax: 50, wantMin: 5},
+		{name: "Edge: min equal to max is accepted", max: "10", min: "10", wantMax: 10, wantMin: 10},
+		{name: "Edge: min zero is accepted", max: "10", min: "0", wantMax: 10, wantMin: 0},
+		{name: "Edge: max of one is accepted", max: "1", wantMax: 1, wantMin: 0},
+		{name: "Error: max above uint32 is rejected", max: "4294967296", wantErr: "DATABASE_MAX_POOL_SIZE"},
+		{name: "Error: max zero is rejected", max: "0", wantErr: "DATABASE_MAX_POOL_SIZE"},
+		{name: "Error: negative max is rejected", max: "-1", wantErr: "DATABASE_MAX_POOL_SIZE"},
+		{name: "Error: non-numeric max is rejected", max: "many", wantErr: "DATABASE_MAX_POOL_SIZE"},
+		{name: "Error: negative min is rejected", min: "-2", wantErr: "DATABASE_MIN_POOL_SIZE"},
+		{name: "Error: non-numeric min is rejected", min: "x", wantErr: "DATABASE_MIN_POOL_SIZE"},
+		{name: "Error: min greater than max is rejected", max: "5", min: "6", wantErr: "must not exceed"},
+		{name: "Error: min above the default max is rejected", min: "21", wantErr: "must not exceed"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			unsetEnv(t, "DATABASE_MAX_POOL_SIZE")
+			unsetEnv(t, "DATABASE_MIN_POOL_SIZE")
+			if tc.max != "" {
+				t.Setenv("DATABASE_MAX_POOL_SIZE", tc.max)
+			}
+			if tc.min != "" {
+				t.Setenv("DATABASE_MIN_POOL_SIZE", tc.min)
+			}
+
+			e := newTestEnv()
+			err := e.Validate()
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.wantMax, e.Variables.DatabaseMaxPoolSize)
+			require.Equal(t, tc.wantMin, e.Variables.DatabaseMinPoolSize)
+		})
+	}
+}

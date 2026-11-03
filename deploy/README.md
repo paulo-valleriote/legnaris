@@ -327,6 +327,20 @@ docker compose down          # stop without deleting data
 docker compose down -v       # stop AND delete volumes (destroys data)
 ```
 
+### MongoDB connection pool
+
+`DATABASE_MAX_POOL_SIZE` (default `20`) and `DATABASE_MIN_POOL_SIZE` (default
+`0`) size the driver pool of each process that talks to MongoDB (`app` and
+`relay`). The driver's own default of 100 per process can saturate MongoDB once
+there are several replicas. Invalid values (zero or negative max, non-numeric,
+min greater than max) abort the boot with a clear error.
+
+Sizing rule: `(app replicas + relay replicas) × DATABASE_MAX_POOL_SIZE` must
+stay below MongoDB's connection limit (`net.maxIncomingConnections`, default
+65536 but capped by the host's file-descriptor limit), leaving headroom for the
+exporter, Mongo Express and admin shells. Example: 5 app + 1 relay at 20 →
+120 connections.
+
 ### Email canonicalization (one-shot)
 
 ```bash

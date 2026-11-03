@@ -2,6 +2,9 @@ package env
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"math"
 	"legnaris/backend/shared/logger"
 	"os"
 	"slices"
@@ -19,18 +22,23 @@ type Variables struct {
 	DatabaseServerSelectionTimeout time.Duration
 	DatabaseConnectTimeout         time.Duration
 	DatabaseCloseTimeout           time.Duration
-	ShutdownTimeout                time.Duration
-	CORSOrigins                    []string
-	JWTSecret                      string
-	JWTAccessTTL                   time.Duration
-	AuthRefreshTTL                 time.Duration
-	AuthBcryptCost                 int
-	AuthRateLimitAttempts          int
-	AuthRateLimitWindow            time.Duration
-	CSPReportRateLimitAttempts     int
-	CSPReportRateLimitWindow       time.Duration
-	UserRateLimitAttempts          int
-	UserRateLimitWindow            time.Duration
+	// DatabaseMaxPoolSize and DatabaseMinPoolSize bound the Mongo driver's
+	// connection pool per process. Unlike the lenient readers, invalid values
+	// are reported by Env.Validate so a mis-sized pool fails the boot.
+	DatabaseMaxPoolSize        uint64
+	DatabaseMinPoolSize        uint64
+	ShutdownTimeout            time.Duration
+	CORSOrigins                []string
+	JWTSecret                  string
+	JWTAccessTTL               time.Duration
+	AuthRefreshTTL             time.Duration
+	AuthBcryptCost             int
+	AuthRateLimitAttempts      int
+	AuthRateLimitWindow        time.Duration
+	CSPReportRateLimitAttempts int
+	CSPReportRateLimitWindow   time.Duration
+	UserRateLimitAttempts      int
+	UserRateLimitWindow        time.Duration
 	// TrustedProxyCIDRs is the operator's trusted proxy set. It is nil when
 	// unset or blank, which selects the documented loopback/private/link-local
 	// default; a configured value replaces the non-loopback portion (PRQ-03).
@@ -90,6 +98,8 @@ const (
 	defaultDatabaseConnectTimeout         = 2 * time.Second
 	defaultDatabaseCloseTimeout           = 5 * time.Second
 	defaultShutdownTimeout                = 5 * time.Second
+	defaultDatabaseMaxPoolSize            = 20
+	defaultDatabaseMinPoolSize            = 0
 	defaultJWTAccessTTL                   = 15 * time.Minute
 	defaultAuthRefreshTTL                 = 720 * time.Hour
 	defaultAuthBcryptCost                 = 12
@@ -174,6 +184,19 @@ var defaultCORSOrigins = []string{"http://localhost:3000", "http://localhost:517
 type Env struct {
 	Logger    logger.StructuredLogger
 	Variables Variables
+	invalid   []error
+}
+
+// Validate reports configuration that must abort startup: unusable pool sizes
+// and a minimum pool larger than the maximum. It returns nil when valid.
+func (e Env) Validate() error {
+	errs := slices.Clone(e.invalid)
+	if e.Variables.DatabaseMinPoolSize > e.Variables.DatabaseMaxPoolSize {
+		errs = append(errs, fmt.Errorf(
+			"DATABASE_MIN_POOL_SIZE (%d) must not exceed DATABASE_MAX_POOL_SIZE (%d)",
+			e.Variables.DatabaseMinPoolSize, e.Variables.DatabaseMaxPoolSize))
+	}
+	return errors.Join(errs...)
 }
 
 func NewEnv(logger logger.StructuredLogger) Env {
@@ -195,6 +218,8 @@ func (e *Env) initVariables() Variables {
 		DatabaseServerSelectionTimeout: e.lookupDurationEnv("DATABASE_SERVER_SELECTION_TIMEOUT", defaultDatabaseServerSelectionTimeout),
 		DatabaseConnectTimeout:         e.lookupDurationEnv("DATABASE_CONNECT_TIMEOUT", defaultDatabaseConnectTimeout),
 		DatabaseCloseTimeout:           e.lookupDurationEnv("DATABASE_CLOSE_TIMEOUT", defaultDatabaseCloseTimeout),
+		DatabaseMaxPoolSize:            e.lookupPoolSizeEnv("DATABASE_MAX_POOL_SIZE", defaultDatabaseMaxPoolSize, 1),
+		DatabaseMinPoolSize:            e.lookupPoolSizeEnv("DATABASE_MIN_POOL_SIZE", defaultDatabaseMinPoolSize, 0),
 		ShutdownTimeout:                e.lookupDurationEnv("SHUTDOWN_TIMEOUT", defaultShutdownTimeout),
 		CORSOrigins:                    e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", defaultCORSOrigins),
 		JWTSecret:                      e.lookupRequiredStringEnv(keyJWTSecret),
@@ -322,6 +347,23 @@ func (e *Env) lookupDurationEnv(key string, defaultValue time.Duration) time.Dur
 			logger.Attribute{Key: attrValue, Value: value},
 			logger.Attribute{Key: attrDefault, Value: defaultValue.String()},
 		)
+		return defaultValue
+	}
+	return parsed
+}
+
+// lookupPoolSizeEnv reads an unsigned integer of at least minimum. Unset or
+// empty returns the default; an unusable value is recorded for Validate and
+// the default is returned meanwhile.
+func (e *Env) lookupPoolSizeEnv(key string, defaultValue, minimum uint64) uint64 {
+	value, found := e.lookupEnv(key)
+	if !found {
+		return defaultValue
+	}
+	parsed, err := strconv.ParseUint(value, 10, 32)
+	if err != nil || parsed < minimum {
+		e.invalid = append(e.invalid, fmt.Errorf(
+			"invalid %s %q: must be an integer between %d and %d", key, value, minimum, math.MaxUint32))
 		return defaultValue
 	}
 	return parsed

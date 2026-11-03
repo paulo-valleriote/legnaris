@@ -990,3 +990,28 @@ func TestAppStopGracePeriodCoversGracefulShutdown(t *testing.T) {
 		assert.Contains(t, value, "SHUTDOWN_TIMEOUT")
 	})
 }
+
+// TestDatabasePoolConfiguration guards the Mongo pool knobs: app and relay pass
+// them through as optional interpolations with the safe defaults, and
+// .env.example documents them (LGN-126).
+func TestDatabasePoolConfiguration(t *testing.T) {
+	doc := readCompose(t)
+
+	for _, name := range []string{"app", "relay"} {
+		service, ok := doc.Services[name]
+		require.Truef(t, ok, "the stack must define a %s service", name)
+
+		t.Run("Happy path: "+name+" passes the pool sizes with safe defaults", func(t *testing.T) {
+			assert.Equal(t, "${DATABASE_MAX_POOL_SIZE:-20}", service.Environment["DATABASE_MAX_POOL_SIZE"])
+			assert.Equal(t, "${DATABASE_MIN_POOL_SIZE:-0}", service.Environment["DATABASE_MIN_POOL_SIZE"])
+		})
+	}
+
+	t.Run("Edge: .env.example documents the pool sizes as optional comments", func(t *testing.T) {
+		raw, err := os.ReadFile(envExampleFile)
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), "# DATABASE_MAX_POOL_SIZE=20")
+		assert.Contains(t, string(raw), "# DATABASE_MIN_POOL_SIZE=0")
+		assert.NotRegexp(t, `(?m)^DATABASE_M(AX|IN)_POOL_SIZE=`, string(raw))
+	})
+}
