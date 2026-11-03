@@ -3,13 +3,16 @@ package deploy_test
 import (
 	"cmp"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"legnaris/backend/shared/env"
+	"legnaris/backend/shared/logger"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,16 +33,17 @@ type composeDoc struct {
 }
 
 type composeService struct {
-	Image       string              `yaml:"image"`
-	Restart     string              `yaml:"restart"`
-	Entrypoint  []string            `yaml:"entrypoint"`
-	Networks    []string            `yaml:"networks"`
-	Volumes     []string            `yaml:"volumes"`
-	Environment map[string]string   `yaml:"environment"`
-	Build       *composeBuild       `yaml:"build"`
-	Ports       []string            `yaml:"ports"`
-	Healthcheck *composeHealthcheck `yaml:"healthcheck"`
-	DependsOn   composeDependsOn    `yaml:"depends_on"`
+	Image           string              `yaml:"image"`
+	Restart         string              `yaml:"restart"`
+	StopGracePeriod string              `yaml:"stop_grace_period"`
+	Entrypoint      []string            `yaml:"entrypoint"`
+	Networks        []string            `yaml:"networks"`
+	Volumes         []string            `yaml:"volumes"`
+	Environment     map[string]string   `yaml:"environment"`
+	Build           *composeBuild       `yaml:"build"`
+	Ports           []string            `yaml:"ports"`
+	Healthcheck     *composeHealthcheck `yaml:"healthcheck"`
+	DependsOn       composeDependsOn    `yaml:"depends_on"`
 }
 
 type composeBuild struct {
@@ -953,5 +957,36 @@ func TestAppHealthcheckProbesReadiness(t *testing.T) {
 
 	t.Run("Edge: the probe URL targets the port the app listens on", func(t *testing.T) {
 		assert.Equal(t, "8080", app.Environment["PORT"])
+	})
+}
+
+// TestAppStopGracePeriodCoversGracefulShutdown guards the shutdown budget: on
+// SIGTERM the app drains for SHUTDOWN_TIMEOUT and then closes MongoDB for up to
+// DATABASE_CLOSE_TIMEOUT, so a shorter Docker grace period would SIGKILL it
+// mid-drain.
+func TestAppStopGracePeriodCoversGracefulShutdown(t *testing.T) {
+	doc := readCompose(t)
+
+	app, ok := doc.Services["app"]
+	require.True(t, ok, "the stack must define an app service")
+
+	t.Run("Edge: the app declares an explicit stop_grace_period", func(t *testing.T) {
+		require.NotEmpty(t, app.StopGracePeriod,
+			"the Docker default of 10s leaves no margin over the shutdown budget")
+	})
+
+	t.Run("Happy path: the grace period exceeds the shutdown and database close budgets", func(t *testing.T) {
+		grace, err := time.ParseDuration(app.StopGracePeriod)
+		require.NoError(t, err)
+
+		vars := env.NewEnv(logger.NewLogger(slog.LevelError)).Variables
+		budget := vars.ShutdownTimeout + vars.DatabaseCloseTimeout
+		assert.Greater(t, grace, budget)
+	})
+
+	t.Run("Edge: SHUTDOWN_TIMEOUT is passed through with the app default", func(t *testing.T) {
+		value, present := app.Environment["SHUTDOWN_TIMEOUT"]
+		require.True(t, present)
+		assert.Contains(t, value, "SHUTDOWN_TIMEOUT")
 	})
 }

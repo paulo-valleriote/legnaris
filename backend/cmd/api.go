@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"legnaris/backend/internal/app"
@@ -15,12 +19,15 @@ import (
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
+
+	"github.com/labstack/echo/v5"
 )
 
 const healthcheckTimeout = 3 * time.Second
 
 func main() {
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	if len(os.Args) == 3 && os.Args[1] == "healthcheck" {
 		if err := health.Probe(ctx, os.Args[2], healthcheckTimeout); err != nil {
@@ -33,8 +40,14 @@ func main() {
 	log := logger.NewLogger(slog.LevelInfo)
 	cfg := env.NewEnv(log)
 
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+
 	if err := run(ctx, log, cfg); err != nil {
 		log.Error(ctx, "application terminated with error", logger.Attribute{Key: "error", Value: err.Error()})
+		stop()
 		os.Exit(1)
 	}
 }
@@ -76,9 +89,47 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 	}
 
 	router := app.NewRouter(cfg, modules, httpMetrics)
-	if err := router.Start(":" + cfg.Variables.Port); err != nil {
-		return fmt.Errorf("start server: %w", err)
+
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", ":"+cfg.Variables.Port)
+	if err != nil {
+		return fmt.Errorf("listen: %w", err)
 	}
 
+	log.Info(ctx, "http server listening", logger.Attribute{Key: "address", Value: listener.Addr().String()})
+	return serve(ctx, router, listener, cfg.Variables.ShutdownTimeout)
+}
+
+// serve runs handler on ln until ctx is cancelled, then stops accepting
+// connections and waits up to timeout for in-flight requests. When the drain
+// exceeds timeout the remaining connections are closed forcibly and an error
+// is returned so the process exits non-zero.
+func serve(ctx context.Context, handler http.Handler, ln net.Listener, timeout time.Duration) error {
+	var (
+		server      *http.Server
+		shutdownErr error
+	)
+
+	starter := echo.StartConfig{
+		Listener:        ln,
+		GracefulTimeout: timeout,
+		HideBanner:      true,
+		HidePort:        true,
+		BeforeServeFunc: func(s *http.Server) error {
+			server = s
+			return nil
+		},
+		OnShutdownError: func(err error) {
+			shutdownErr = err
+			_ = server.Close()
+		},
+	}
+
+	if err := starter.Start(ctx, handler); err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
+	if shutdownErr != nil {
+		return fmt.Errorf("graceful shutdown: %w", shutdownErr)
+	}
 	return nil
 }

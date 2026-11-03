@@ -283,6 +283,26 @@ func TestInitVariablesDefaults(t *testing.T) {
 		require.Equal(t, 5*time.Second, vars.DatabaseCloseTimeout)
 	})
 
+	t.Run("ShutdownTimeout defaults to 5s", func(t *testing.T) {
+		unsetEnv(t, "SHUTDOWN_TIMEOUT")
+		vars := e.initVariables()
+		require.Equal(t, 5*time.Second, vars.ShutdownTimeout)
+	})
+
+	t.Run("ShutdownTimeout honors a valid override", func(t *testing.T) {
+		t.Setenv("SHUTDOWN_TIMEOUT", "12s")
+		vars := e.initVariables()
+		require.Equal(t, 12*time.Second, vars.ShutdownTimeout)
+	})
+
+	t.Run("ShutdownTimeout falls back to 5s on non-positive or invalid values", func(t *testing.T) {
+		for _, raw := range []string{"0s", "-3s", "soon"} {
+			t.Setenv("SHUTDOWN_TIMEOUT", raw)
+			vars := e.initVariables()
+			require.Equalf(t, 5*time.Second, vars.ShutdownTimeout, "raw=%q", raw)
+		}
+	})
+
 	t.Run("JWTSecret is empty when unset (required)", func(t *testing.T) {
 		unsetEnv(t, "JWT_SECRET")
 		vars := e.initVariables()
