@@ -161,11 +161,12 @@ k8s-down:       ## Destroy the local k3d cluster and everything in it
 	@k3d cluster delete legnaris
 
 K8S_PROM_CHART_VERSION := 92.17.1
+K8S_PROM_EXTRA_VALUES ?=
 
 k8s-observability: ## Install kube-prometheus-stack, PodMonitors, alert rules and dashboards into the k3d cluster
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
 	helm upgrade --install kps prometheus-community/kube-prometheus-stack --version $(K8S_PROM_CHART_VERSION) \
-		--namespace monitoring --create-namespace -f deploy/k8s/observability/values.yaml --wait --timeout 10m
+		--namespace monitoring --create-namespace -f deploy/k8s/observability/values.yaml $(K8S_PROM_EXTRA_VALUES) --wait --timeout 10m
 	kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/k8s/observability | kubectl apply -n monitoring -f -
 	@echo "Grafana: kubectl -n monitoring port-forward svc/kps-grafana 3000:80 (admin/admin)"
 

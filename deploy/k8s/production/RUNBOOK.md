@@ -42,7 +42,7 @@ defaults to `log`, which sends no e-mail; production needs `resend` plus
 `RESEND_API_KEY`/`EMAIL_FROM` in the sealed secret and the ConfigMap.
 
 ```bash
-make k8s-observability   # add -f deploy/k8s/observability/values-production.yaml for production
+make k8s-observability K8S_PROM_EXTRA_VALUES='-f deploy/k8s/observability/values-production.yaml'
 make k8s-keda
 make k8s-gitops          # Argo CD + the two Applications
 ```
