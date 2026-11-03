@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+spec:
+  serviceName: rabbitmq
+  replicas: 1
+  selector:
+    matchLabels: {app: rabbitmq}
+  template:
+    metadata:
+      labels: {app: rabbitmq}
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: rabbitmq
+          # Derived image (deploy/rabbitmq): Prometheus plugin plus the
+          # provisioning of the `legnaris` vhost and accounts at start.
+          image: legnaris-rabbitmq
+          ports:
+            - {name: amqp, containerPort: 5672}
+            - {name: metrics, containerPort: 15692}
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: legnaris
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom: {secretKeyRef: {name: legnaris-secrets, key: RABBITMQ_PASSWORD}}
+            - name: RABBITMQ_OPS_PASSWORD
+              valueFrom: {secretKeyRef: {name: legnaris-secrets, key: RABBITMQ_OPS_PASSWORD}}
+          # Ready means the broker answers and the application account holds
+          # rights on the delivery vhost, so relay and worker never meet an
+          # unprovisioned broker (same check as the compose healthcheck).
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - rabbitmq-diagnostics -q ping && rabbitmqctl -q --no-table-headers list_permissions -p legnaris | cut -f1 | grep -qx legnaris
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 10
+          livenessProbe:
+            exec: {command: ["rabbitmq-diagnostics", "-q", "ping"]}
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 10
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/rabbitmq}
+            - {name: conf, mountPath: /etc/rabbitmq/conf.d/20-legnaris.conf, subPath: 20-legnaris.conf, readOnly: true}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+      volumes:
+        - name: conf
+          configMap: {name: rabbitmq-conf}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests: {storage: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+spec:
+  clusterIP: None
+  selector: {app: rabbitmq}
+  ports:
+    - {name: amqp, port: 5672}
+    - {name: metrics, port: 15692}

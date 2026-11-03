@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The config files below live beside the compose stack and are reused as-is;
+# render with `--load-restrictor LoadRestrictionsNone` (see `make k8s-up`).
+resources:
+  - app.yaml
+  - web.yaml
+  - relay.yaml
+  - worker.yaml
+  - mongodb.yaml
+  - redis.yaml
+  - rabbitmq.yaml
+  - ingress.yaml
+
+configMapGenerator:
+  - name: mongodb-init
+    files:
+      - ../../mongodb/init/01-create-users.js
+  - name: rabbitmq-conf
+    files:
+      - 20-legnaris.conf=../../rabbitmq/rabbitmq.conf

@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
+.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down
 
 ## --- Development ------------------------------------------------------------
 
@@ -136,3 +136,26 @@ net-check:      ## Diagnose container egress in the dev container (sudo)
 
 net-fix:        ## Repair stale iptables-legacy rules that block container egress (sudo)
 	@sudo scripts/dind_network.sh fix
+
+## --- Local Kubernetes (k3d) --------------------------------------------------
+
+K8S_OVERLAY := deploy/k8s/overlays/local
+K8S_RENDER = kubectl kustomize --load-restrictor LoadRestrictionsNone $(K8S_OVERLAY)
+
+k8s-up:         ## Create the k3d cluster, build+import images and apply the stack (see deploy/k8s/README.md)
+	@test -f $(K8S_OVERLAY)/secrets.env || { \
+		echo "k8s-up: generating $(K8S_OVERLAY)/secrets.env with random values" ; \
+		for k in MONGO_ROOT_PASSWORD MONGO_APP_PASSWORD MONGO_EXPORTER_PASSWORD MONGO_VIEW_PASSWORD JWT_SECRET EMAIL_CODE_SECRET RABBITMQ_PASSWORD RABBITMQ_OPS_PASSWORD ; do \
+			echo "$$k=$$(openssl rand -hex 24)" ; \
+		done > $(K8S_OVERLAY)/secrets.env ; }
+	@k3d cluster list legnaris >/dev/null 2>&1 || k3d cluster create --config $(K8S_OVERLAY)/k3d.yaml
+	docker build -t legnaris-app:local .
+	docker build -t legnaris-web:local web
+	docker build -t legnaris-rabbitmq:local deploy/rabbitmq
+	k3d image import -c legnaris legnaris-app:local legnaris-web:local legnaris-rabbitmq:local
+	$(K8S_RENDER) | kubectl apply -f -
+	kubectl rollout status deployment/app deployment/web deployment/relay deployment/worker --timeout=300s
+	@echo "API: http://api.legnaris.localhost:8080  Web: http://app.legnaris.localhost:8080"
+
+k8s-down:       ## Destroy the local k3d cluster and everything in it
+	@k3d cluster delete legnaris
