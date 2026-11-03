@@ -178,12 +178,11 @@ services:
     build:
       context: ../web
       dockerfile: Dockerfile
-      args:
-        # The browser-facing API origin. Vite inlines it into the bundle, so it
-        # is a build argument and not a runtime variable: pointing the client at
-        # another API means rebuilding this image (`up -d --build web`).
-        VITE_API_BASE_URL: ${WEB_API_BASE_URL:-https://api.legnaris.com.br}
     image: legnaris-web:local
+    environment:
+      # The browser-facing API origin, written to /config.json at container
+      # start: changing it needs a restart of this service, not a rebuild.
+      API_BASE_URL: ${WEB_API_BASE_URL:-https://api.legnaris.com.br}
     restart: unless-stopped
     # Only Traefik needs to reach it, so it never joins the internal network the
     # database and the observability stack live on.

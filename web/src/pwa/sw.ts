@@ -31,14 +31,16 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
   }
 });
 
-// Runtime caching: GET only, non-auth, safe endpoints
+// Runtime caching: GET only, non-auth, safe endpoints. /config.json is excluded so a
+// changed API address takes effect on the next load instead of after a stale hit.
 registerRoute(
   ({ request, url }) => {
     return (
       request.method === 'GET' &&
       url.pathname.startsWith('/') &&
       !url.pathname.startsWith('/auth/') &&
-      !url.pathname.includes('/csp-report')
+      !url.pathname.includes('/csp-report') &&
+      url.pathname !== '/config.json'
     );
   },
   new StaleWhileRevalidate({

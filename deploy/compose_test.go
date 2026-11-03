@@ -128,24 +128,27 @@ func TestAppServiceProvidesRequiredEnv(t *testing.T) {
 	})
 }
 
-// TestWebServiceBakesApiOrigin guards the web client's only build-time setting:
-// Vite inlines the API origin into the bundle, so a committed literal would
-// freeze every deployment to one environment's API and a browser on the web
-// domain would call the wrong host. The value must stay an environment
-// interpolation, and the service must be buildable from web/Dockerfile.
-func TestWebServiceBakesApiOrigin(t *testing.T) {
+// TestWebServiceReadsApiOriginAtRuntime guards the single-image contract: the
+// API origin reaches the web container as a runtime environment value (written
+// to /config.json at start), never as a build argument, so one image serves
+// every environment. The value must stay an interpolation, not a literal.
+func TestWebServiceReadsApiOriginAtRuntime(t *testing.T) {
 	doc := readCompose(t)
 
 	web, ok := doc.Services["web"]
 	require.True(t, ok, "the stack must define a web service")
-
 	require.NotNil(t, web.Build, "web must be built (context ../web, dockerfile Dockerfile)")
 
-	t.Run("Happy path: the API origin comes from the deployment env", func(t *testing.T) {
-		value, present := web.Build.Args["VITE_API_BASE_URL"]
-		require.True(t, present, "web.build.args must define VITE_API_BASE_URL")
+	t.Run("Happy path: the API origin comes from the deployment env at runtime", func(t *testing.T) {
+		value, present := web.Environment["API_BASE_URL"]
+		require.True(t, present, "web.environment must define API_BASE_URL")
 		require.Contains(t, value, "WEB_API_BASE_URL",
-			"VITE_API_BASE_URL must be sourced from ${WEB_API_BASE_URL...}, never a committed literal")
+			"API_BASE_URL must be sourced from ${WEB_API_BASE_URL...}, never a committed literal")
+	})
+
+	t.Run("Edge: the origin is not baked into the image at build time", func(t *testing.T) {
+		_, present := web.Build.Args["VITE_API_BASE_URL"]
+		require.False(t, present, "web.build.args must not define VITE_API_BASE_URL")
 	})
 }
 
