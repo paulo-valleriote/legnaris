@@ -18,8 +18,13 @@ Requires `docker`, `k3d`, `kubectl` and `openssl`.
   To run CI images, change the `images:` block in the overlay to
   `ghcr.io/<owner>/legnaris-app:sha-<commit>` (see `.github/README.md`).
 
-> **Status:** written without a cluster at hand — the acceptance checks below
-> have not been run yet.
+> **Status:** validated on k3d (Docker Desktop/WSL2, k3d v5.9, k3s 1.35).
+> Measured: API and web through the Ingress; register/login; killing one `app`
+> pod (267/267 requests 200); `rollout restart` under continuous requests
+> (630/630 200); OTP e-mails with 2 `relay` and 2 `worker` replicas, each message
+> delivered once; relay/worker exit within ~2 s of SIGTERM. A first-boot bug was
+> found and fixed (MongoDB liveness probe killing the init; now gated by a
+> startup probe). Not yet run: the e2e sign-in from a browser.
 
 ## Checks to run
 
@@ -86,7 +91,10 @@ kubectl -n monitoring port-forward svc/kps-grafana 3000:80    # http://localhost
 - Dashboards (`deploy/grafana/dashboards/*.json`) are loaded by Grafana's
   sidecar from labelled ConfigMaps.
 - Loki + Alloy for logs are not installed (optional in the ticket).
-- Not validated in a cluster: checked only by rendering and schema validation.
+- Validated on k3d: all replicas are targets (app 2, relay 2, worker 2,
+  rabbitmq 1), the 11 rules load `ok`, the three dashboards are imported with
+  datasource uid `prometheus`, and `EmailWorkQueueHasNoConsumer` fired ~150 s
+  after the worker was scaled to 0.
 
 ## Autoscaling and load tests (LGN-134, LGN-135)
 
@@ -107,4 +115,18 @@ kubectl -n monitoring port-forward svc/kps-grafana 3000:80    # http://localhost
 - **bcrypt:** login cost scales with CPU, so `auth-storm.js` is the run that
   shows whether the HPA reacts fast enough; record the result here.
 
-Not validated in a cluster: only rendered and schema-checked.
+### Measured (k3d, laptop, `capacity.js`, 6 replicas max, requests 100m / limit 500m)
+
+| Step (req/s) | p95 | Failures |
+|---|---|---|
+| 50 / 100 / 200 | 23 / 15 / 25 ms | 0 % |
+| 400 | 44 ms | 0 % |
+| 800 | 208 ms (budget 200) | 1.8 % (PATCH) |
+
+The HPA went from 2 to 6 replicas under the ramp (CPU 102–135 % of request at
+the cap) and back to 2 about 5 minutes after the load ended. The budget holds
+up to 400 req/s on this setup; at 800 the cap of 6 replicas was reached and the
+budget was breached, so the limit is documented here rather than hidden. k6 shares
+the host's CPU with the cluster, which lowers the figure. The non-200 answers at
+800 req/s were not broken down by status, and the Mongo bottleneck and the
+`auth-storm.js` run were not examined.

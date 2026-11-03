@@ -13,8 +13,11 @@ spec:
     name: worker
   minReplicaCount: 1
   maxReplicaCount: 6
-  pollingInterval: 15
-  cooldownPeriod: 120
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 120
   triggers:
     - type: prometheus
       metadata:
@@ -32,8 +35,11 @@ spec:
     name: relay
   minReplicaCount: 1
   maxReplicaCount: 4
-  pollingInterval: 15
-  cooldownPeriod: 120
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 120
   triggers:
     - type: prometheus
       metadata:

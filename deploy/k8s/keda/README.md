@@ -18,7 +18,8 @@ the same Deployment.
 
 - **worker:** `rabbitmq_queue_messages_ready` for `email.otp`, 20 messages per replica, 1–6.
 - **relay:** `legnaris_email_outbox_backlog` (max across replicas), 100 per replica, 1–4.
-- **Cooldown:** 120 s after the last active trigger before scaling down.
+- **Scale-down damping:** 120 s HPA stabilisation window. KEDA's `cooldownPeriod`
+  and `pollingInterval` only matter when scaling to/from zero, so they are not set.
 - **Zero replicas:** not used (min 1). `EmailWorkQueueHasNoConsumer` alerts on a
   consumer-less queue for 2 minutes; scaling to zero would hold it firing. To
   enable scale-to-zero, first change that rule to also require
@@ -27,4 +28,8 @@ the same Deployment.
   delivery and cancelling its consumer on SIGTERM so unacked messages return to
   the queue (see LGN-132 checks); verify during a scale-down.
 
-Not validated in a cluster.
+Validated on k3d: both ScaledObjects reach `Ready` and the triggers read the
+Prometheus series (`keda-hpa-worker` 0/20, `keda-hpa-relay` 0/100). Not
+exercised: scale-up under backlog — with the `log` provider the worker drains
+`email.otp` instantly, so it needs a deliberately slow provider or a paused
+worker to build a queue.
