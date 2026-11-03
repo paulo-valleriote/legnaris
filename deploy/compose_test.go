@@ -34,6 +34,7 @@ type composeDoc struct {
 
 type composeService struct {
 	Image           string              `yaml:"image"`
+	Command         []string            `yaml:"command"`
 	Restart         string              `yaml:"restart"`
 	StopGracePeriod string              `yaml:"stop_grace_period"`
 	Entrypoint      []string            `yaml:"entrypoint"`
@@ -1013,5 +1014,64 @@ func TestDatabasePoolConfiguration(t *testing.T) {
 		assert.Contains(t, string(raw), "# DATABASE_MAX_POOL_SIZE=20")
 		assert.Contains(t, string(raw), "# DATABASE_MIN_POOL_SIZE=0")
 		assert.NotRegexp(t, `(?m)^DATABASE_M(AX|IN)_POOL_SIZE=`, string(raw))
+	})
+}
+
+// TestSharedRateLimitStore guards the replica-consistent rate limit wiring:
+// Redis is internal-only and ephemeral, the app reaches it through an optional
+// REDIS_URL and never depends on it to start (the limiters fail open), and the
+// k8s guidance for TRUSTED_PROXY_CIDRS is documented (LGN-128).
+func TestSharedRateLimitStore(t *testing.T) {
+	doc := readCompose(t)
+
+	redis, ok := doc.Services["redis"]
+	require.True(t, ok, "the stack must define a redis service")
+
+	t.Run("Happy path: redis publishes no host port and joins only the internal network", func(t *testing.T) {
+		assert.Empty(t, redis.Ports)
+		assert.Equal(t, []string{"internal"}, redis.Networks)
+	})
+
+	t.Run("Happy path: redis has a healthcheck and restarts", func(t *testing.T) {
+		require.NotNil(t, redis.Healthcheck)
+		assert.NotEmpty(t, redis.Healthcheck.Test)
+		assert.Equal(t, "unless-stopped", redis.Restart)
+	})
+
+	t.Run("Edge: redis keeps no volume, the counters are ephemeral", func(t *testing.T) {
+		assert.Empty(t, redis.Volumes)
+	})
+
+	t.Run("Happy path: the app points at redis through an optional override", func(t *testing.T) {
+		app := doc.Services["app"]
+		assert.Equal(t, "${REDIS_URL-redis://redis:6379/0}", app.Environment["REDIS_URL"])
+	})
+
+	t.Run("Edge: redis never evicts live counters silently", func(t *testing.T) {
+		assert.Contains(t, redis.Command, "noeviction")
+	})
+
+	t.Run("Edge: the app does not depend on redis to start", func(t *testing.T) {
+		assert.NotContains(t, doc.Services["app"].DependsOn, "redis")
+	})
+
+	t.Run("Edge: REDIS_URL stays out of the required variables", func(t *testing.T) {
+		assert.NotContains(t, env.RequiredKeys(), "REDIS_URL")
+	})
+
+	t.Run("Happy path: the runbook documents TRUSTED_PROXY_CIDRS for Kubernetes", func(t *testing.T) {
+		raw, err := os.ReadFile("README.md")
+		require.NoError(t, err)
+		section := string(raw)
+		assert.Contains(t, section, "Kubernetes")
+		assert.Contains(t, section, "REDIS_URL")
+		assert.Regexp(t, `(?s)Kubernetes.*TRUSTED_PROXY_CIDRS`, section)
+	})
+
+	t.Run("Edge: .env.example documents REDIS_URL as optional", func(t *testing.T) {
+		raw, err := os.ReadFile(envExampleFile)
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), "# REDIS_URL=")
+		assert.NotRegexp(t, `(?m)^REDIS_URL=`, string(raw))
 	})
 }

@@ -859,3 +859,41 @@ func TestDatabasePoolSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestRedisURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		set     bool
+		want    string
+		wantErr string
+	}{
+		{name: "Edge: unset selects the in-process limiter", want: ""},
+		{name: "Edge: empty selects the in-process limiter", set: true, value: "", want: ""},
+		{name: "Happy path: redis scheme is accepted", set: true, value: "redis://redis:6379/0", want: "redis://redis:6379/0"},
+		{name: "Happy path: rediss scheme is accepted", set: true, value: "rediss://:pw@redis:6380/1", want: "rediss://:pw@redis:6380/1"},
+		{name: "Error: an unsupported scheme is rejected", set: true, value: "http://redis:6379", wantErr: "REDIS_URL"},
+		{name: "Error: a value without a scheme is rejected", set: true, value: "redis:6379", wantErr: "REDIS_URL"},
+		{name: "Error: a scheme without a host is rejected", set: true, value: "redis://", wantErr: "REDIS_URL"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			unsetEnv(t, "REDIS_URL")
+			if tc.set {
+				t.Setenv("REDIS_URL", tc.value)
+			}
+
+			e := newTestEnv()
+			err := e.Validate()
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, e.Variables.RedisURL)
+		})
+	}
+}

@@ -126,6 +126,11 @@ services:
       # the app default (loopback + private + link-local); a comma-separated
       # CIDR list replaces the non-loopback portion.
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+      # Shared rate-limit store: every replica counts attempts in this Redis, so
+      # the configured cap holds across replicas. Empty falls back to the
+      # per-process limiter (cap applies per replica). The app does not wait
+      # for Redis: an outage fails open to the per-process limiter.
+      REDIS_URL: ${REDIS_URL-redis://redis:6379/0}
       # Optional email-delivery settings. The API records send intentions but
       # never contacts the provider or the broker, so none of these is required
       # to boot; RABBITMQ_URL is deliberately absent here because the
@@ -215,6 +220,22 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+
+  # ---- Rate-limit store -------------------------------------------------------
+  # Ephemeral by design: counters live one window, so no volume and no
+  # persistence. Internal network only, never published to the host.
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "noeviction"]
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
   # ---- Message broker ---------------------------------------------------------
   rabbitmq:

@@ -2,7 +2,6 @@ package app
 
 import (
 	"strconv"
-	"time"
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/platform/cors"
@@ -41,7 +40,7 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 
 	// The CSP report collector is public: a violation report carries no
 	// credential and the browser sends it without one (POL-04).
-	registerCSPReportRoute(router, deps, httpMetrics)
+	registerCSPReportRoute(router, deps, modules.PublicLimiter, httpMetrics)
 
 	// Every sheets and templates route sits behind the JWT middleware; only
 	// health, metrics, and the auth endpoints stay public (OWN-15…OWN-18).
@@ -110,13 +109,8 @@ func HTTPErrorHandler(c *echo.Context, err error) {
 
 // registerCSPReportRoute mounts the public CSP violation collector behind its
 // own address limiter (POL-04, POL-05, A7).
-func registerCSPReportRoute(router *echo.Echo, deps env.Env, observer *metrics.Metrics) {
+func registerCSPReportRoute(router *echo.Echo, deps env.Env, limiter ratelimit.Allower, observer *metrics.Metrics) {
 	controller := NewCSPReportController(deps.Logger, observer)
-	limiter := ratelimit.New(
-		deps.Variables.CSPReportRateLimitAttempts,
-		deps.Variables.CSPReportRateLimitWindow,
-		time.Now,
-	)
 
 	router.POST("/csp-report", controller.Report, cspRateLimit(limiter))
 }

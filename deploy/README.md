@@ -188,6 +188,33 @@ Loopback stays trusted in every case, and an invalid value fails the API boot
 instead of silently trusting nothing. Only the direct peer decides whether the
 forwarding header is read; a forged chain from any other address is ignored.
 
+### Multiple replicas and Kubernetes
+
+The rate limiters count attempts in the Redis named by `REDIS_URL`
+(`redis://redis:6379/0` in the compose stack), so the configured caps
+(`AUTH_RATE_LIMIT_*`, `USER_RATE_LIMIT_*`, `CSP_REPORT_RATE_LIMIT_*`) hold across
+every replica. Without `REDIS_URL` each replica counts alone and the effective
+cap is N times the configured one. If Redis is unreachable the API keeps serving
+and falls back to that per-replica cap until it recovers (fail-open, warned in
+the log at most once a minute per limiter); see `docs/adr/0003`.
+
+On Kubernetes, `TRUSTED_PROXY_CIDRS` must cover the network the ingress
+controller connects from, or every client shares the ingress address and the
+per-IP limits become one global budget:
+
+```yaml
+env:
+  - name: REDIS_URL
+    value: redis://redis.legnaris.svc:6379/0
+  - name: TRUSTED_PROXY_CIDRS
+    value: 10.42.0.0/16   # the pod CIDR the ingress controller runs in
+```
+
+The default (loopback, RFC 1918, ULA and link-local) already covers most
+clusters; set the CIDR explicitly when the ingress source is outside those
+ranges (CGNAT `100.64.0.0/10`, a public load balancer). Only the direct peer is
+checked against the set, so a peer outside it can never choose its own key.
+
 ## 7. Deploy (production)
 
 ```bash

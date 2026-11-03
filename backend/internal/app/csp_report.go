@@ -284,7 +284,7 @@ func labelValue(value string) string {
 // Retry-After. Reports sit under their own key namespace (A7): a page emitting
 // a burst of violations must never consume the auth budget, and an auth burst
 // must never silence reporting.
-func cspRateLimit(limiter *ratelimit.Limiter) echo.MiddlewareFunc {
+func cspRateLimit(limiter ratelimit.Allower) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			if allowed, retryAfter := limiter.Allow(cspIPKey(c), limiter.Now()); !allowed {
