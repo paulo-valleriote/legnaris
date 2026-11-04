@@ -79,20 +79,14 @@ func session() *auth.Session {
 	}
 }
 
-// sessionOutcome is the service result of a legacy registration or sign-in:
-// the established session and no code step (TFA-07, TFA-12).
-func sessionOutcome() *auth.StartOutcome {
-	return &auth.StartOutcome{Session: session()}
-}
-
-// challengeOutcome is the service result of a gated registration or sign-in:
-// the started code step and no session (TFA-01, TFA-02).
-func challengeOutcome() *auth.StartOutcome {
-	return &auth.StartOutcome{Challenge: &auth.ChallengeIssued{
+// challengeOutcome is the service result of a registration: the started code
+// step and no session (TFA-01).
+func challengeOutcome() *auth.ChallengeIssued {
+	return &auth.ChallengeIssued{
 		ChallengeID: "01900000-0000-7000-8000-000000000009",
 		ExpiresIn:   600,
 		ResendAfter: 60,
-	}}
+	}
 }
 
 func assertSessionCookies(t *testing.T, rec *httptest.ResponseRecorder) {
@@ -153,22 +147,7 @@ func assertChallengeBody(t *testing.T, rec *httptest.ResponseRecorder) {
 }
 
 func TestAuthController_Register(t *testing.T) {
-	t.Run("Happy path: 201 with the session body and both cookies", func(t *testing.T) {
-		service := authmocks.NewMockService(t)
-		service.EXPECT().
-			Register(mock.Anything, auth.RegisterCommand{Email: "player@example.com", Username: "player", Password: "sup3r-secret"}).
-			Return(sessionOutcome(), nil).
-			Once()
-
-		h := newAuthRouter(t, service)
-		rec := doRequest(t, h, http.MethodPost, "/auth/register", `{"email":"player@example.com","username":"player","password":"sup3r-secret"}`)
-		require.Equal(t, http.StatusCreated, rec.Code)
-
-		assertSessionCookies(t, rec)
-		assertSessionBody(t, rec)
-	})
-
-	t.Run("Happy path: the gated registration answers 201 with the challenge and no cookie", func(t *testing.T) {
+	t.Run("Happy path: registration answers 201 with the challenge and no cookie", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		service.EXPECT().
 			Register(mock.Anything, mock.Anything).
@@ -249,7 +228,7 @@ func TestAuthController_Login(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		service.EXPECT().
 			Login(mock.Anything, auth.LoginCommand{Email: "player@example.com", Password: "sup3r-secret"}).
-			Return(sessionOutcome(), nil).
+			Return(session(), nil).
 			Once()
 
 		h := newAuthRouter(t, service)
@@ -258,20 +237,6 @@ func TestAuthController_Login(t *testing.T) {
 
 		assertSessionCookies(t, rec)
 		assertSessionBody(t, rec)
-	})
-
-	t.Run("Happy path: the gated sign-in answers 202 with the challenge and no cookie", func(t *testing.T) {
-		service := authmocks.NewMockService(t)
-		service.EXPECT().
-			Login(mock.Anything, mock.Anything).
-			Return(challengeOutcome(), nil).
-			Once()
-
-		h := newAuthRouter(t, service)
-		rec := doRequest(t, h, http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
-		require.Equal(t, http.StatusAccepted, rec.Code)
-
-		assertChallengeBody(t, rec)
 	})
 
 	t.Run("Error: invalid credentials map to 401 and set no cookie", func(t *testing.T) {
@@ -481,36 +446,30 @@ func TestAuthController_CredentialFailuresAreUniform(t *testing.T) {
 	})
 }
 
-// TestAuthController_GatedAnswersDiscloseNothing sweeps the bodies and headers
-// of the two gated answers: no six-digit code and no address may appear in
+// TestAuthController_RegisterDisclosesNothing sweeps the body and headers of
+// the registration answer: no six-digit code and no address may appear in
 // either (TFA-16, SC-001).
-func TestAuthController_GatedAnswersDiscloseNothing(t *testing.T) {
-	for _, route := range []string{"/auth/register", "/auth/login"} {
-		t.Run("Edge: "+route+" discloses neither a code nor an address", func(t *testing.T) {
-			service := authmocks.NewMockService(t)
-			service.EXPECT().
-				Register(mock.Anything, mock.Anything).
-				Return(challengeOutcome(), nil).
-				Maybe()
-			service.EXPECT().
-				Login(mock.Anything, mock.Anything).
-				Return(challengeOutcome(), nil).
-				Maybe()
+func TestAuthController_RegisterDisclosesNothing(t *testing.T) {
+	t.Run("Edge: /auth/register discloses neither a code nor an address", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Register(mock.Anything, mock.Anything).
+			Return(challengeOutcome(), nil).
+			Once()
 
-			h := newAuthRouter(t, service)
-			rec := doRequest(t, h, http.MethodPost, route, `{"email":"player@example.com","username":"player","password":"sup3r-secret"}`)
-			require.NotEqual(t, http.StatusUnauthorized, rec.Code)
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/register", `{"email":"player@example.com","username":"player","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusCreated, rec.Code)
 
-			assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), rec.Body.String())
-			assert.NotContains(t, rec.Body.String(), "player@example.com")
-			for key, values := range rec.Header() {
-				for _, value := range values {
-					assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), value, "header %s must carry no code", key)
-					assert.NotContains(t, value, "@", "header %s must carry no address", key)
-				}
+		assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), rec.Body.String())
+		assert.NotContains(t, rec.Body.String(), "player@example.com")
+		for key, values := range rec.Header() {
+			for _, value := range values {
+				assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), value, "header %s must carry no code", key)
+				assert.NotContains(t, value, "@", "header %s must carry no address", key)
 			}
-		})
-	}
+		}
+	})
 }
 
 func TestAuthController_Refresh(t *testing.T) {

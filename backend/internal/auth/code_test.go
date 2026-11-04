@@ -58,7 +58,7 @@ func TestCodeDigest_Digest(t *testing.T) {
 	})
 
 	t.Run("Edge: the purpose changes the digest", func(t *testing.T) {
-		assert.NotEqual(t, base, digest.Digest(userA, auth.PurposeLoginOTP, code))
+		assert.NotEqual(t, base, digest.Digest(userA, otherPurpose, code))
 	})
 
 	t.Run("Edge: the code changes the digest", func(t *testing.T) {
@@ -77,8 +77,8 @@ func TestCodeDigest_Equal(t *testing.T) {
 	digest, err := auth.NewCodeDigest(strings.Repeat("k", 32))
 	require.NoError(t, err)
 
-	left := digest.Digest("user", auth.PurposeLoginOTP, "123456")
-	right := digest.Digest("user", auth.PurposeLoginOTP, "123456")
+	left := digest.Digest("user", otherPurpose, "123456")
+	right := digest.Digest("user", otherPurpose, "123456")
 
 	t.Run("Happy path: identical digests are equal", func(t *testing.T) {
 		assert.True(t, digest.Equal(left, right))

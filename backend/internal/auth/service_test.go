@@ -186,8 +186,6 @@ func TestService_Register(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Challenge)
-		assert.Nil(t, outcome.Session, "registration never establishes a session")
 
 		require.NotNil(t, createdUser)
 		assert.NoError(t, idgen.Validate(createdUser.ID), "server must mint a canonical UUID v7")
@@ -316,8 +314,6 @@ func TestService_Register(t *testing.T) {
 		outcome, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: atLimit})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Challenge)
-		assert.Nil(t, outcome.Session)
 	})
 
 	t.Run("Edge: password over the 72-byte bcrypt limit is a 400, not a 500", func(t *testing.T) {
@@ -458,9 +454,7 @@ func TestService_Login(t *testing.T) {
 		outcome, err := service.Login(ctx, auth.LoginCommand{Email: "Player@Example.com", Password: testPassword})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Session)
-		assert.Nil(t, outcome.Challenge, "sign-in never starts a code step")
-		session := outcome.Session
+		session := outcome
 		assert.Equal(t, "access-token", session.AccessToken)
 		assert.Equal(t, 900, session.ExpiresIn)
 		assert.Equal(t, "raw-refresh", session.RefreshToken)
@@ -484,8 +478,7 @@ func TestService_Login(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Session)
-		assert.Equal(t, validUserID, outcome.Session.UserID)
+		assert.Equal(t, validUserID, outcome.UserID)
 	})
 
 	t.Run("Edge: dotted and +tag spellings are passed through unchanged", func(t *testing.T) {
@@ -517,9 +510,7 @@ func TestService_Login(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, first)
 		require.NotNil(t, second)
-		require.NotNil(t, first.Session)
-		require.NotNil(t, second.Session)
-		assert.NotEqual(t, first.Session.CSRFToken, second.Session.CSRFToken)
+		assert.NotEqual(t, first.CSRFToken, second.CSRFToken)
 	})
 
 	t.Run("Error: unknown email returns a generic 401 and records the failure", func(t *testing.T) {
@@ -617,7 +608,7 @@ func TestService_Login(t *testing.T) {
 	})
 }
 
-func TestService_StartOutcome(t *testing.T) {
+func TestService_RegisterChallengeOutcome(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Happy path: registration starts a verify_email challenge bound to the new account", func(t *testing.T) {
@@ -657,11 +648,9 @@ func TestService_StartOutcome(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
 
-		require.NotNil(t, outcome.Challenge)
-		assert.Nil(t, outcome.Session, "registration must not establish a session")
-		assert.NoError(t, idgen.Validate(outcome.Challenge.ChallengeID))
-		assert.Equal(t, int(testChallengePolicy.Lifetime.Seconds()), outcome.Challenge.ExpiresIn)
-		assert.Equal(t, int(testChallengePolicy.ResendCooldown.Seconds()), outcome.Challenge.ResendAfter)
+		assert.NoError(t, idgen.Validate(outcome.ChallengeID))
+		assert.Equal(t, int(testChallengePolicy.Lifetime.Seconds()), outcome.ExpiresIn)
+		assert.Equal(t, int(testChallengePolicy.ResendCooldown.Seconds()), outcome.ResendAfter)
 
 		require.NotNil(t, createdUser)
 		assert.Nil(t, createdUser.EmailVerifiedAt, "the account is created unverified")
@@ -682,8 +671,7 @@ func TestService_StartOutcome(t *testing.T) {
 
 		outcome, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
 		require.NoError(t, err)
-		require.NotNil(t, outcome.Session)
-		assert.Nil(t, outcome.Challenge)
+		require.NotNil(t, outcome)
 		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
 	})
 
@@ -1050,7 +1038,6 @@ func TestService_Clock(t *testing.T) {
 		outcome, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Challenge)
 	})
 
 	t.Run("Edge: refresh is valid one nanosecond before expiry and expired at the exact instant", func(t *testing.T) {

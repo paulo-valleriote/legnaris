@@ -23,6 +23,10 @@ import (
 // challengeTestNow is the frozen instant every challenge boundary is driven
 // from, so expiry, cool-down and the ceiling are crossed with no sleep
 // (OTP-20, SC-007).
+// otherPurpose is a second, distinct purpose for cases that need one besides
+// verify_email.
+const otherPurpose auth.Purpose = "other_purpose"
+
 var challengeTestNow = time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 
 const (
@@ -289,7 +293,7 @@ func TestIssueChallenge_SendWindow(t *testing.T) {
 		Once()
 	f.codeObs.EXPECT().SendCapBlocked().Once()
 
-	_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+	_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 
 	assertAppErr(t, err, apperr.CodeEmailUnavailable)
 }
@@ -305,7 +309,7 @@ func TestIssueChallenge_CapReached(t *testing.T) {
 	f.expectSentCount(challengeTestPolicy.DailySendCap)
 	f.codeObs.EXPECT().SendCapBlocked().Once()
 
-	issued, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+	issued, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 
 	assert.Nil(t, issued)
 	assertAppErr(t, err, apperr.CodeEmailUnavailable)
@@ -335,7 +339,7 @@ func TestIssueChallenge_CapRace(t *testing.T) {
 		Once()
 	f.codeObs.EXPECT().SendCapBlocked().Once()
 
-	_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+	_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 
 	assertAppErr(t, err, apperr.CodeEmailUnavailable)
 }
@@ -394,7 +398,7 @@ func TestIssueChallenge_StoreFailures(t *testing.T) {
 			f := newChallengeFixture(t)
 			tc.wire(f)
 
-			_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+			_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 
 			assertAppErr(t, err, apperr.CodeInternal)
 		})
@@ -405,7 +409,7 @@ func TestIssueChallenge_StoreFailures(t *testing.T) {
 		f.expectAccountCount(0)
 		f.expectSentCount(0)
 
-		_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+		_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 
 		assertAppErr(t, err, apperr.CodeInternal)
 	})
@@ -417,7 +421,7 @@ func TestIssueChallenge_StoreFailures(t *testing.T) {
 func TestVerifyChallenge_HappyPath(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
-	row := f.validRow(validUserID, auth.PurposeLoginOTP)
+	row := f.validRow(validUserID, otherPurpose)
 
 	f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).Return(row, nil).Once()
 	f.expectAccountCount(0)
@@ -461,7 +465,7 @@ func TestVerifyChallenge_UniformFailures(t *testing.T) {
 			wantResult: auth.ResultInvalid,
 			wire: func(f *challengeFixture) {
 				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
-					Return(f.validRow(validUserID, auth.PurposeLoginOTP), nil).Once()
+					Return(f.validRow(validUserID, otherPurpose), nil).Once()
 				f.expectAccountCount(0)
 			},
 		},
@@ -473,7 +477,7 @@ func TestVerifyChallenge_UniformFailures(t *testing.T) {
 			wire: func(f *challengeFixture) {
 				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
 					Return(nil, auth.ErrChallengeUnusable).Once()
-				exhausted := f.validRow(validUserID, auth.PurposeLoginOTP)
+				exhausted := f.validRow(validUserID, otherPurpose)
 				exhausted.Attempts = challengeTestPolicy.MaxAttempts
 				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(exhausted, nil).Once()
 			},
@@ -486,7 +490,7 @@ func TestVerifyChallenge_UniformFailures(t *testing.T) {
 			wire: func(f *challengeFixture) {
 				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
 					Return(nil, auth.ErrChallengeUnusable).Once()
-				expired := f.validRow(validUserID, auth.PurposeLoginOTP)
+				expired := f.validRow(validUserID, otherPurpose)
 				expired.ExpiresAt = challengeTestNow
 				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(expired, nil).Once()
 			},
@@ -508,7 +512,7 @@ func TestVerifyChallenge_UniformFailures(t *testing.T) {
 			code:       challengeTestCode,
 			wantResult: auth.ResultConsumed,
 			wire: func(f *challengeFixture) {
-				row := f.validRow(validUserID, auth.PurposeLoginOTP)
+				row := f.validRow(validUserID, otherPurpose)
 				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
 					Return(row, nil).Once()
 				f.expectAccountCount(0)
@@ -567,7 +571,7 @@ func TestVerifyChallenge_StoreFailures(t *testing.T) {
 		{
 			name: "Error: the consume claim fails",
 			wire: func(f *challengeFixture) {
-				row := f.validRow(validUserID, auth.PurposeLoginOTP)
+				row := f.validRow(validUserID, otherPurpose)
 				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
 					Return(row, nil).Once()
 				f.expectAccountCount(0)
@@ -577,7 +581,7 @@ func TestVerifyChallenge_StoreFailures(t *testing.T) {
 		{
 			name: "Error: recording the verification timestamp fails",
 			wire: func(f *challengeFixture) {
-				row := f.validRow(validUserID, auth.PurposeLoginOTP)
+				row := f.validRow(validUserID, otherPurpose)
 				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
 					Return(row, nil).Once()
 				f.expectAccountCount(0)
@@ -626,7 +630,7 @@ func TestResendChallenge_RecordsSameCode(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
 
-	row := f.validRow(validUserID, auth.PurposeLoginOTP)
+	row := f.validRow(validUserID, otherPurpose)
 	row.LastSentAt = challengeTestNow.Add(-2 * time.Minute)
 	f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Once()
 	f.expectAccountCount(0)
@@ -662,7 +666,7 @@ func TestResendChallenge_ClampsToCeiling(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
 
-	row := f.validRow(validUserID, auth.PurposeLoginOTP)
+	row := f.validRow(validUserID, otherPurpose)
 	// The challenge was created 25 minutes ago, so its absolute ceiling
 	// (created_at + 30m) is only five minutes away — inside the ten-minute
 	// lifetime, which forces the clamp.
@@ -690,7 +694,7 @@ func TestResendChallenge_InsideCooldown(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
 
-	row := f.validRow(validUserID, auth.PurposeLoginOTP)
+	row := f.validRow(validUserID, otherPurpose)
 	row.LastSentAt = challengeTestNow.Add(-time.Second)
 	f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Once()
 	f.expectAccountCount(0)
@@ -734,7 +738,7 @@ func TestResendChallenge_UniformSuppression(t *testing.T) {
 			name:      "Edge: a consumed identity records nothing",
 			challenge: validUserID,
 			wire: func(f *challengeFixture) {
-				row := f.validRow(validUserID, auth.PurposeLoginOTP)
+				row := f.validRow(validUserID, otherPurpose)
 				consumedAt := challengeTestNow
 				row.ConsumedAt = &consumedAt
 				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Once()
@@ -744,7 +748,7 @@ func TestResendChallenge_UniformSuppression(t *testing.T) {
 			name:      "Edge: an expired identity records nothing",
 			challenge: validUserID,
 			wire: func(f *challengeFixture) {
-				row := f.validRow(validUserID, auth.PurposeLoginOTP)
+				row := f.validRow(validUserID, otherPurpose)
 				row.ExpiresAt = challengeTestNow
 				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Once()
 			},
@@ -753,7 +757,7 @@ func TestResendChallenge_UniformSuppression(t *testing.T) {
 			name:      "Edge: an exhausted identity records nothing",
 			challenge: validUserID,
 			wire: func(f *challengeFixture) {
-				row := f.validRow(validUserID, auth.PurposeLoginOTP)
+				row := f.validRow(validUserID, otherPurpose)
 				row.Attempts = challengeTestPolicy.MaxAttempts
 				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Once()
 			},
@@ -780,7 +784,7 @@ func TestResendChallenge_CapReached(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
 
-	row := f.validRow(validUserID, auth.PurposeLoginOTP)
+	row := f.validRow(validUserID, otherPurpose)
 	f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Once()
 	f.expectAccountCount(0)
 	f.expectSentCount(challengeTestPolicy.DailySendCap)
@@ -799,7 +803,7 @@ func TestResendChallenge_ConcurrentPairSuppressesOne(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
 
-	row := f.validRow(validUserID, auth.PurposeLoginOTP)
+	row := f.validRow(validUserID, otherPurpose)
 	f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Twice()
 	f.repo.EXPECT().
 		CountForUserSince(mock.Anything, validUserID, challengeTestNow.Add(-challengeTestPolicy.UserWindow)).
@@ -845,7 +849,7 @@ func TestResendChallenge_StoreFailures(t *testing.T) {
 		{
 			name: "Error: the send count fails",
 			wire: func(f *challengeFixture) {
-				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, auth.PurposeLoginOTP), nil).Once()
+				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, otherPurpose), nil).Once()
 				f.expectAccountCount(0)
 				f.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, storeErr).Once()
 			},
@@ -853,7 +857,7 @@ func TestResendChallenge_StoreFailures(t *testing.T) {
 		{
 			name: "Error: the extend fails",
 			wire: func(f *challengeFixture) {
-				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, auth.PurposeLoginOTP), nil).Once()
+				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, otherPurpose), nil).Once()
 				f.expectAccountCount(0)
 				f.expectSentCount(0)
 				f.repo.EXPECT().Extend(mock.Anything, validUserID, challengeTestNow, mock.Anything, mock.Anything).Return(false, storeErr).Once()
@@ -862,7 +866,7 @@ func TestResendChallenge_StoreFailures(t *testing.T) {
 		{
 			name: "Error: the requeue fails",
 			wire: func(f *challengeFixture) {
-				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, auth.PurposeLoginOTP), nil).Once()
+				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, otherPurpose), nil).Once()
 				f.expectAccountCount(0)
 				f.expectSentCount(0)
 				f.repo.EXPECT().Extend(mock.Anything, validUserID, challengeTestNow, mock.Anything, mock.Anything).Return(true, nil).Once()
@@ -895,7 +899,7 @@ func TestChallengeAccountBound(t *testing.T) {
 		f := newChallengeFixture(t)
 		f.expectAccountCount(challengeTestPolicy.MaxPerUserWindow)
 
-		_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+		_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 
 		assertAppErr(t, err, apperr.CodeRateLimited)
 		var appErr *apperr.Error
@@ -905,7 +909,7 @@ func TestChallengeAccountBound(t *testing.T) {
 
 	t.Run("Edge: verification past the bound is refused", func(t *testing.T) {
 		f := newChallengeFixture(t)
-		row := f.validRow(validUserID, auth.PurposeLoginOTP)
+		row := f.validRow(validUserID, otherPurpose)
 		f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).Return(row, nil).Once()
 		f.expectAccountCount(challengeTestPolicy.MaxPerUserWindow)
 
@@ -917,7 +921,7 @@ func TestChallengeAccountBound(t *testing.T) {
 
 	t.Run("Edge: resend past the bound is refused without extending", func(t *testing.T) {
 		f := newChallengeFixture(t)
-		f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, auth.PurposeLoginOTP), nil).Once()
+		f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, otherPurpose), nil).Once()
 		f.expectAccountCount(challengeTestPolicy.MaxPerUserWindow)
 
 		_, err := f.service.ResendChallenge(ctx, auth.ResendChallengeCommand{ChallengeID: validUserID})
@@ -929,12 +933,12 @@ func TestChallengeAccountBound(t *testing.T) {
 		f := newChallengeFixture(t)
 		f.expectAccountCount(challengeTestPolicy.MaxPerUserWindow - 1)
 		f.expectSentCount(0)
-		f.repo.EXPECT().CloseActive(mock.Anything, validUserID, auth.PurposeLoginOTP, challengeTestNow).Return(nil).Once()
+		f.repo.EXPECT().CloseActive(mock.Anything, validUserID, otherPurpose, challengeTestNow).Return(nil).Once()
 		f.repo.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
 		f.mailer.EXPECT().Record(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-		f.codeObs.EXPECT().ChallengeIssued(auth.PurposeLoginOTP).Once()
+		f.codeObs.EXPECT().ChallengeIssued(otherPurpose).Once()
 
-		_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+		_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 
 		require.NoError(t, err)
 	})
@@ -946,7 +950,7 @@ func TestChallengeAccountBound(t *testing.T) {
 			Return(0, errors.New("store down")).
 			Once()
 
-		_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+		_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 
 		assertAppErr(t, err, apperr.CodeInternal)
 	})
@@ -972,7 +976,7 @@ func TestService_ChallengeClockIsInjected(t *testing.T) {
 		Once()
 	f.codeObs.EXPECT().SendCapBlocked().Once()
 
-	_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+	_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 
 	assertAppErr(t, err, apperr.CodeEmailUnavailable)
 }
@@ -999,12 +1003,12 @@ func TestChallengeLogsMaskTheAddress(t *testing.T) {
 			f := newChallengeFixture(t)
 			f.expectAccountCount(0)
 			f.expectSentCount(0)
-			f.repo.EXPECT().CloseActive(mock.Anything, validUserID, auth.PurposeLoginOTP, challengeTestNow).Return(nil).Once()
+			f.repo.EXPECT().CloseActive(mock.Anything, validUserID, otherPurpose, challengeTestNow).Return(nil).Once()
 			f.repo.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
 			f.mailer.EXPECT().Record(mock.Anything, mock.Anything, tc.email, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-			f.codeObs.EXPECT().ChallengeIssued(auth.PurposeLoginOTP).Once()
+			f.codeObs.EXPECT().ChallengeIssued(otherPurpose).Once()
 
-			_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: tc.email, Purpose: auth.PurposeLoginOTP})
+			_, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: tc.email, Purpose: otherPurpose})
 			require.NoError(t, err)
 
 			assert.Contains(t, f.log.text(), "to="+tc.want)
@@ -1028,15 +1032,15 @@ func TestIssueChallenge_UsesConfiguredLifetime(t *testing.T) {
 
 	f.expectAccountCount(0)
 	f.expectSentCount(0)
-	f.repo.EXPECT().CloseActive(mock.Anything, validUserID, auth.PurposeLoginOTP, challengeTestNow).Return(nil).Once()
+	f.repo.EXPECT().CloseActive(mock.Anything, validUserID, otherPurpose, challengeTestNow).Return(nil).Once()
 	f.repo.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
 	f.mailer.EXPECT().
-		Record(mock.Anything, mock.Anything, testEmail, auth.PurposeLoginOTP, challengeTestCode, 25, challengeTestNow).
+		Record(mock.Anything, mock.Anything, testEmail, otherPurpose, challengeTestCode, 25, challengeTestNow).
 		Return(nil).
 		Once()
-	f.codeObs.EXPECT().ChallengeIssued(auth.PurposeLoginOTP).Once()
+	f.codeObs.EXPECT().ChallengeIssued(otherPurpose).Once()
 
-	issued, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeLoginOTP})
+	issued, err := f.service.IssueChallenge(ctx, auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: otherPurpose})
 	require.NoError(t, err)
 	assert.Equal(t, 1500, issued.ExpiresIn, "the claimed lifetime follows the configured policy")
 	assert.NotContains(t, f.log.text(), challengeTestCode)

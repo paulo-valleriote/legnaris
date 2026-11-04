@@ -30,6 +30,10 @@ const (
 )
 
 // challengeID is a canonical UUID v7 the service mock accepts as an identity.
+// otherPurpose is a second, distinct purpose for cases that need one besides
+// verify_email.
+const otherPurpose auth.Purpose = "other_purpose"
+
 const challengeID = "01900000-0000-7000-8000-000000000001"
 
 // countingObserver records the durable bound's refusals in the existing auth
@@ -263,8 +267,8 @@ func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 		return &auth.Challenge{
 			ID:           challengeID,
 			UserID:       userID,
-			Purpose:      auth.PurposeLoginOTP,
-			CodeHash:     digest.Digest(userID, auth.PurposeLoginOTP, code),
+			Purpose:      otherPurpose,
+			CodeHash:     digest.Digest(userID, otherPurpose, code),
 			ExpiresAt:    now.Add(10 * time.Minute),
 			CeilingAt:    now.Add(30 * time.Minute),
 			Attempts:     1,

@@ -82,14 +82,14 @@ func TestEmailIntent_Record(t *testing.T) {
 			Once()
 
 		adapter := app.NewEmailIntent(repo, log)
-		require.NoError(t, adapter.Record(ctx, intentID, to, auth.PurposeLoginOTP, code, 10, now))
+		require.NoError(t, adapter.Record(ctx, intentID, to, auth.PurposeVerifyEmail, code, 10, now))
 
 		assert.Equal(t, intentID, stored.ID)
 		assert.Equal(t, to, stored.To)
-		assert.Equal(t, string(auth.PurposeLoginOTP), stored.Template)
+		assert.Equal(t, string(auth.PurposeVerifyEmail), stored.Template)
 		assert.Equal(t, code, stored.Payload.Code)
 		assert.Equal(t, 10, stored.Payload.ExpiresInMinutes)
-		assert.Equal(t, string(auth.PurposeLoginOTP), stored.Payload.Purpose)
+		assert.Equal(t, string(auth.PurposeVerifyEmail), stored.Payload.Purpose)
 		assert.Equal(t, outbox.StatusPending, stored.Status)
 		assert.Equal(t, now, stored.NextAttemptAt)
 	})
@@ -112,7 +112,7 @@ func TestEmailIntent_Record(t *testing.T) {
 		repo := outboxmocks.NewMockRepository(t) // no expectations: the store is never reached
 
 		adapter := app.NewEmailIntent(repo, &captureLogger{})
-		err := adapter.Record(ctx, "not-a-uuid", to, auth.PurposeLoginOTP, code, 10, now)
+		err := adapter.Record(ctx, "not-a-uuid", to, auth.PurposeVerifyEmail, code, 10, now)
 
 		assert.ErrorIs(t, err, outbox.ErrInvalidIntentID)
 	})
@@ -123,7 +123,7 @@ func TestEmailIntent_Record(t *testing.T) {
 		repo.EXPECT().Create(mock.Anything, mock.Anything).Return(storeErr).Once()
 
 		adapter := app.NewEmailIntent(repo, &captureLogger{})
-		err := adapter.Record(ctx, intentID, to, auth.PurposeLoginOTP, code, 10, now)
+		err := adapter.Record(ctx, intentID, to, auth.PurposeVerifyEmail, code, 10, now)
 
 		assert.ErrorIs(t, err, storeErr)
 	})
@@ -206,7 +206,7 @@ func TestEmailIntent_DisclosureSweep(t *testing.T) {
 
 	log := &captureLogger{}
 	adapter := app.NewEmailIntent(repo, log)
-	require.NoError(t, adapter.Record(ctx, "01900000-0000-7000-8000-0000000000ad", "a@b.co", auth.PurposeLoginOTP, code, 10, now))
+	require.NoError(t, adapter.Record(ctx, "01900000-0000-7000-8000-0000000000ad", "a@b.co", auth.PurposeVerifyEmail, code, 10, now))
 
 	assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), log.text())
 }

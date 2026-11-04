@@ -97,8 +97,8 @@ type ChallengeDeps struct {
 }
 
 type Service interface {
-	Register(ctx context.Context, cmd RegisterCommand) (*StartOutcome, error)
-	Login(ctx context.Context, cmd LoginCommand) (*StartOutcome, error)
+	Register(ctx context.Context, cmd RegisterCommand) (*ChallengeIssued, error)
+	Login(ctx context.Context, cmd LoginCommand) (*Session, error)
 	Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error)
 	Logout(ctx context.Context, cmd LogoutCommand) error
 	IssueChallenge(ctx context.Context, cmd IssueChallengeCommand) (*ChallengeIssued, error)
@@ -154,7 +154,7 @@ func NewService(
 // Register creates the account and starts the verify_email code step; it never
 // issues a session, because the address must be confirmed first. A duplicate
 // email still answers 409 before any code is sent (AUTH-02, TFA-01).
-func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*StartOutcome, error) {
+func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*ChallengeIssued, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgInvalidEmail, err)
@@ -209,13 +209,13 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Start
 	}
 
 	s.log.Info(ctx, "registration challenge started", logger.Attribute{Key: attrUserID, Value: newUser.ID})
-	return &StartOutcome{Challenge: issued}, nil
+	return issued, nil
 }
 
 // Login proves the password and, on success, establishes the session. Every
 // credential failure answers the one uniform outcome and starts nothing
 // (TFA-02, TFA-05).
-func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*StartOutcome, error) {
+func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*Session, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
 		// An unparseable address is indistinguishable from an unknown one, so the
@@ -245,7 +245,7 @@ func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*StartOutcom
 	}
 
 	s.log.Info(ctx, "login succeeded", logger.Attribute{Key: attrUserID, Value: stored.ID})
-	return &StartOutcome{Session: session}, nil
+	return session, nil
 }
 
 // startChallenge starts the code step a gated registration or sign-in owes. The
