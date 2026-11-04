@@ -1,0 +1,18 @@
+# Advisories with no fix reachable inside the current dependency ranges. All
+# four packages are dev-only transitive dependencies (the PWA service-worker
+# build and ESLint), never shipped to the browser. Re-evaluate at ignoreUntil.
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-02-01
+reason = "deepmerge 4.3.1 (via workbox-build, dev-only): no patched release exists"
+
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-02-01
+reason = "glob 11.1.0 (via workbox-build, dev-only): fix requires glob 14, a major upgrade the parent does not allow yet"
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-01
+reason = "minimatch 3.x/5.x/10.x (via ESLint and workbox-build, dev-only): fix requires minimatch 11, a major upgrade the parents do not allow yet"
