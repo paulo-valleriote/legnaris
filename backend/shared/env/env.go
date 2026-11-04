@@ -52,6 +52,9 @@ type Variables struct {
 	// the request-serving process starts when none of them is set and the
 	// deployment's required-variable list is unchanged. The relay — not the
 	// API — validates the broker URL it needs (EML-14, EML-15, EML-16).
+	// AppEnv names the deployment. The development sender refuses to build when
+	// it is "production" (D10). Empty keeps the non-production behavior.
+	AppEnv                   string
 	EmailProvider            string
 	ResendAPIKey             string
 	EmailFrom                string
@@ -247,6 +250,7 @@ func (e *Env) initVariables() Variables {
 		UserRateLimitWindow:            e.lookupDurationEnv("USER_RATE_LIMIT_WINDOW", defaultUserRateLimitWindow),
 		TrustedProxyCIDRs:              e.lookupTrustedProxyCIDRs(),
 		RedisURL:                       e.lookupStringEnv(keyRedisURL, ""),
+		AppEnv:                         e.lookupStringEnv("APP_ENV", ""),
 		EmailProvider:                  e.lookupStringEnv("EMAIL_PROVIDER", defaultEmailProvider),
 		ResendAPIKey:                   e.lookupStringEnv("RESEND_API_KEY", ""),
 		EmailFrom:                      e.lookupStringEnv("EMAIL_FROM", ""),

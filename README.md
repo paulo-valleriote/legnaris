@@ -17,13 +17,23 @@ make dev
 | Web   | <http://localhost:5173>                | Vite dev server with hot reload               |
 | API   | <http://localhost:8080>                | Built from `backend/cmd/api.go`               |
 | DB    | `mongodb://localhost:27017/` (no auth) | Docker container `legnaris-mongo`, always new |
+| Broker | `amqp://localhost:5672/legnaris`      | Docker container `legnaris-rabbitmq`, always new (`RABBITMQ_PORT`) |
+| Relay and worker | (no port of their own)      | Local processes; the worker uses the `dev` sender |
 
 Open <http://localhost:5173>, register and sign in. Press `Ctrl-C` to stop: the
 API, the web server and the MongoDB container are all shut down.
 
-**The database is always clean.** Every `make dev` removes any previous
-`legnaris-mongo` container and starts a fresh one without a volume, and it is
-removed again on exit. Nothing survives between runs.
+**The database and the broker are always clean.** Every `make dev` removes any
+previous `legnaris-mongo` and `legnaris-rabbitmq` containers and starts fresh
+ones without a volume; both are removed again on exit. Nothing survives between
+runs. If RabbitMQ does not answer within 60 seconds the script stops with an
+error and the container logs to check.
+
+**Sign-up codes are printed to the terminal.** `make dev` runs the email worker
+with `EMAIL_PROVIDER=dev`, which logs each message body in clear. To finish a
+registration, copy the 6-digit code from the `[worker]` lines into the web form.
+No mailbox is needed. The dev sender refuses to start when `APP_ENV=production`,
+so the code-in-logs behavior cannot reach production.
 
 ### Prerequisites
 
@@ -48,10 +58,11 @@ dev-server CSP from those values, so nothing else needs editing.
 
 ### What does not run in development
 
-Traefik, oauth2-proxy, the Cloudflare tunnel, RabbitMQ, the email relay/worker
-and the observability stack. Registration always starts the
-email-code step, so completing a sign-up needs a broker (`make relay`,
-`make worker`, see `deploy/README.md`).
+Traefik, oauth2-proxy, the Cloudflare tunnel, the real email provider (Resend)
+and the observability stack. Registration always starts the email-code step; in
+`make dev` the code is printed by the worker (see above). For the real
+delivery path, run the pieces separately (`make relay`, `make worker`, see
+`deploy/README.md`).
 
 ### Running the pieces separately
 

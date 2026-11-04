@@ -317,6 +317,9 @@ services:
       # The same delivery vhost as the relay; the broker provisions it on start
       # (README, "RabbitMQ provisioning").
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://legnaris:${RABBITMQ_PASSWORD}@rabbitmq:5672/legnaris}
+      # Production: the worker refuses the dev sender (EMAIL_PROVIDER=dev) when
+      # APP_ENV is production, so a code can never reach the logs (D10).
+      APP_ENV: production
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}

@@ -38,6 +38,18 @@ func TestNew_SelectsTheAdapter(t *testing.T) {
 		}))
 	})
 
+	t.Run("Happy path: the dev provider builds the development sender outside production", func(t *testing.T) {
+		for _, appEnv := range []string{"", "development", "staging"} {
+			cfg := testConfig()
+			cfg.Provider = factory.ProviderDev
+			cfg.AppEnv = appEnv
+
+			sender, err := factory.New(cfg)
+			require.NoError(t, err, "APP_ENV=%q", appEnv)
+			assert.IsType(t, &email.DevSender{}, sender)
+		}
+	})
+
 	t.Run("Happy path: the resend provider builds the real adapter", func(t *testing.T) {
 		cfg := testConfig()
 		cfg.Provider = factory.ProviderResend
@@ -100,6 +112,34 @@ func TestNew_ResendRequiresConfiguration(t *testing.T) {
 			require.Error(t, err)
 			assert.Nil(t, sender)
 			assert.ErrorIs(t, err, resend.ErrMissingConfiguration)
+		})
+	}
+}
+
+// TestNew_RefusesDevProviderInProduction proves the development sender, which
+// writes codes in clear, never builds when APP_ENV names production, whatever
+// the casing or padding (D10).
+func TestNew_RefusesDevProviderInProduction(t *testing.T) {
+	tests := []struct {
+		name   string
+		appEnv string
+	}{
+		{name: "Error: APP_ENV=production", appEnv: "production"},
+		{name: "Edge: APP_ENV in upper case", appEnv: "PRODUCTION"},
+		{name: "Edge: APP_ENV with surrounding spaces", appEnv: "  production "},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testConfig()
+			cfg.Provider = factory.ProviderDev
+			cfg.AppEnv = tc.appEnv
+
+			sender, err := factory.New(cfg)
+
+			require.Error(t, err)
+			assert.Nil(t, sender, "the development sender must not be built in production")
+			assert.ErrorIs(t, err, factory.ErrDevProviderInProduction)
 		})
 	}
 }

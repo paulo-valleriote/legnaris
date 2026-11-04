@@ -121,6 +121,7 @@ func senderFromConfig(cfg env.Env) (email.Sender, error) {
 	vars := cfg.Variables
 	return factory.New(factory.Config{
 		Provider: vars.EmailProvider,
+		AppEnv:   vars.AppEnv,
 		APIKey:   vars.ResendAPIKey,
 		From:     vars.EmailFrom,
 		Timeout:  vars.EmailSendTimeout,
