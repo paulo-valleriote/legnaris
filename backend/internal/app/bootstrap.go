@@ -34,6 +34,10 @@ type AuthModule struct {
 	Service      auth.Service
 	TokenManager auth.TokenManager
 	RateLimiter  ratelimit.Allower
+	// RegisterIPLimiter and RegisterEmailLimiter are the registration budgets
+	// per real address and per canonical e-mail (LGN-150).
+	RegisterIPLimiter    ratelimit.Allower
+	RegisterEmailLimiter ratelimit.Allower
 }
 
 type Modules struct {
@@ -173,6 +177,8 @@ func NewModules(
 	authLimiter := limiter("auth", cfg.Variables.AuthRateLimitAttempts, cfg.Variables.AuthRateLimitWindow)
 	userLimiter := limiter("user", cfg.Variables.UserRateLimitAttempts, cfg.Variables.UserRateLimitWindow)
 	publicLimiter := limiter("public", cfg.Variables.CSPReportRateLimitAttempts, cfg.Variables.CSPReportRateLimitWindow)
+	registerIPLimiter := limiter("register_ip", cfg.Variables.RegisterIPRateLimitAttempts, cfg.Variables.RegisterIPRateLimitWindow)
+	registerEmailLimiter := limiter("register_email", cfg.Variables.RegisterEmailRateLimitAttempts, cfg.Variables.RegisterEmailRateLimitWindow)
 
 	return &Modules{
 		Template: TemplateModule{
@@ -188,6 +194,9 @@ func NewModules(
 			Service:      authService,
 			TokenManager: tokenManager,
 			RateLimiter:  authLimiter,
+
+			RegisterIPLimiter:    registerIPLimiter,
+			RegisterEmailLimiter: registerEmailLimiter,
 		},
 		ClientIP:      clientIPPolicy.Resolve,
 		UserLimiter:   userLimiter,

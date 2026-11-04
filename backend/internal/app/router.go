@@ -58,15 +58,16 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 }
 
 // registerAuthRoutes mounts the auth endpoints with their per-route guards.
-// Login and registration are rate limited per address and, because the body
-// carries an account identity, per account; refresh and logout are rate limited
+// Login is rate limited per address and, because the body carries an account
+// identity, per account; registration has its own hourly per-address and
+// per-e-mail budgets (LGN-150); refresh and logout are rate limited
 // per address only and refuse a request from an origin outside the allowlist
 // before any credential work (AUTH-13, AUTH-17, AUTH-26).
 func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, observer Observer) {
 	limiter := modules.Auth.RateLimiter
 	challengeController := NewChallengeController(modules.Auth.Service, observer)
 
-	group.POST("/register", modules.Auth.Controller.Register, rateLimit(limiter, observer, true))
+	group.POST("/register", modules.Auth.Controller.Register, registerRateLimit(modules.Auth.RegisterIPLimiter, modules.Auth.RegisterEmailLimiter, observer))
 	group.POST("/login", modules.Auth.Controller.Login, rateLimit(limiter, observer, true))
 	group.POST("/refresh", modules.Auth.Controller.Refresh, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
 	group.POST("/logout", modules.Auth.Controller.Logout, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))

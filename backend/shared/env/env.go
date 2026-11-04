@@ -26,20 +26,24 @@ type Variables struct {
 	// DatabaseMaxPoolSize and DatabaseMinPoolSize bound the Mongo driver's
 	// connection pool per process. Unlike the lenient readers, invalid values
 	// are reported by Env.Validate so a mis-sized pool fails the boot.
-	DatabaseMaxPoolSize        uint64
-	DatabaseMinPoolSize        uint64
-	ShutdownTimeout            time.Duration
-	CORSOrigins                []string
-	JWTSecret                  string
-	JWTAccessTTL               time.Duration
-	AuthRefreshTTL             time.Duration
-	AuthBcryptCost             int
-	AuthRateLimitAttempts      int
-	AuthRateLimitWindow        time.Duration
-	CSPReportRateLimitAttempts int
-	CSPReportRateLimitWindow   time.Duration
-	UserRateLimitAttempts      int
-	UserRateLimitWindow        time.Duration
+	DatabaseMaxPoolSize            uint64
+	DatabaseMinPoolSize            uint64
+	ShutdownTimeout                time.Duration
+	CORSOrigins                    []string
+	JWTSecret                      string
+	JWTAccessTTL                   time.Duration
+	AuthRefreshTTL                 time.Duration
+	AuthBcryptCost                 int
+	AuthRateLimitAttempts          int
+	AuthRateLimitWindow            time.Duration
+	RegisterIPRateLimitAttempts    int
+	RegisterIPRateLimitWindow      time.Duration
+	RegisterEmailRateLimitAttempts int
+	RegisterEmailRateLimitWindow   time.Duration
+	CSPReportRateLimitAttempts     int
+	CSPReportRateLimitWindow       time.Duration
+	UserRateLimitAttempts          int
+	UserRateLimitWindow            time.Duration
 	// TrustedProxyCIDRs is the operator's trusted proxy set. It is nil when
 	// unset or blank, which selects the documented loopback/private/link-local
 	// default; a configured value replaces the non-loopback portion (PRQ-03).
@@ -105,6 +109,12 @@ const (
 	defaultAuthBcryptCost                 = 12
 	defaultAuthRateLimitAttempts          = 10
 	defaultAuthRateLimitWindow            = 1 * time.Minute
+	// Registration creates accounts and sends codes, so it has a stricter,
+	// hourly budget per address and per canonical e-mail than sign-in (LGN-150).
+	defaultRegisterIPRateLimitAttempts    = 5
+	defaultRegisterIPRateLimitWindow      = 1 * time.Hour
+	defaultRegisterEmailRateLimitAttempts = 3
+	defaultRegisterEmailRateLimitWindow   = 1 * time.Hour
 	// A single page can emit several CSP reports in a row, so the report cap is
 	// deliberately looser than the auth cap's 10/min while staying bounded
 	// (POL-05, contract csp-report.contract.md).
@@ -241,6 +251,10 @@ func (e *Env) initVariables() Variables {
 		AuthBcryptCost:                 e.lookupIntEnv("AUTH_BCRYPT_COST", defaultAuthBcryptCost),
 		AuthRateLimitAttempts:          e.lookupIntEnv("AUTH_RATE_LIMIT_ATTEMPTS", defaultAuthRateLimitAttempts),
 		AuthRateLimitWindow:            e.lookupDurationEnv("AUTH_RATE_LIMIT_WINDOW", defaultAuthRateLimitWindow),
+		RegisterIPRateLimitAttempts:    e.lookupIntEnv("AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS", defaultRegisterIPRateLimitAttempts),
+		RegisterIPRateLimitWindow:      e.lookupDurationEnv("AUTH_REGISTER_IP_RATE_LIMIT_WINDOW", defaultRegisterIPRateLimitWindow),
+		RegisterEmailRateLimitAttempts: e.lookupIntEnv("AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS", defaultRegisterEmailRateLimitAttempts),
+		RegisterEmailRateLimitWindow:   e.lookupDurationEnv("AUTH_REGISTER_EMAIL_RATE_LIMIT_WINDOW", defaultRegisterEmailRateLimitWindow),
 		CSPReportRateLimitAttempts:     e.lookupIntEnv("CSP_REPORT_RATE_LIMIT_ATTEMPTS", defaultCSPReportRateLimitAttempts),
 		CSPReportRateLimitWindow:       e.lookupDurationEnv("CSP_REPORT_RATE_LIMIT_WINDOW", defaultCSPReportRateLimitWindow),
 		UserRateLimitAttempts:          e.lookupIntEnv("USER_RATE_LIMIT_ATTEMPTS", defaultUserRateLimitAttempts),
