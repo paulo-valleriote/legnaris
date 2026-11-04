@@ -18,6 +18,7 @@ const statusErrorBodyLimit = 512
 type statusError struct {
 	Status int
 	Body   string
+	Header http.Header
 }
 
 func (e *statusError) Error() string {
@@ -47,5 +48,9 @@ func (t statusTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, statusErrorBodyLimit))
-	return nil, &statusError{Status: resp.StatusCode, Body: strings.TrimSpace(string(body))}
+	return nil, &statusError{
+		Status: resp.StatusCode,
+		Body:   strings.TrimSpace(string(body)),
+		Header: resp.Header.Clone(),
+	}
 }

@@ -37,3 +37,15 @@ var (
 	ErrTransient = errors.New("transient send failure")
 	ErrPermanent = errors.New("permanent send failure")
 )
+
+// ErrQuotaExhausted marks a transient failure caused by the provider's sending
+// quota (daily or monthly) being spent. It always wraps ErrTransient as well, so
+// callers that only retry keep working. A circuit breaker must not count it as a
+// provider outage: the quota resets on a known schedule (LGN-156).
+var ErrQuotaExhausted = errors.New("provider quota exhausted")
+
+// ErrRateLimited marks a transient failure caused by the provider's per-second
+// request rate being exceeded. It always wraps ErrTransient. A circuit breaker
+// must not count it as a provider outage: the rate window is seconds long
+// (LGN-156).
+var ErrRateLimited = errors.New("provider rate limited")
