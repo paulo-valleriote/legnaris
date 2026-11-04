@@ -1,0 +1,23 @@
+# Disposable e-mail domains refused at registration (LGN-151, D6).
+# One domain per line, lowercase; a listed domain also refuses its subdomains.
+# Refresh this list through the same review as any other change to auth policy.
+10minutemail.com
+dispostable.com
+emailondeck.com
+fakeinbox.com
+getnada.com
+guerrillamail.com
+guerrillamail.net
+mailinator.com
+maildrop.cc
+mailnesia.com
+mintemail.com
+mohmal.com
+sharklasers.com
+spambox.us
+temp-mail.org
+tempinbox.com
+tempmail.com
+throwawaymail.com
+trashmail.com
+yopmail.com

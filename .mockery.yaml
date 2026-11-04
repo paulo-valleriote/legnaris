@@ -43,6 +43,7 @@ packages:
       ChallengeRepository: {}
       CodeMailer: {}
       ChallengeObserver: {}
+      EmailChecker: {}
   legnaris/backend/internal/email/outbox:
     config:
       dir: backend/internal/email/outbox/mocks

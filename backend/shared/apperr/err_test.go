@@ -27,6 +27,7 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeNotFound, 404},
 		{CodeMethodNotAllowed, 405},
 		{CodeConflict, 409},
+		{CodeDisposableEmail, 400},
 		{CodeSheetLimitReached, 409},
 		{CodeRateLimited, 429},
 		{CodeEmailUnavailable, 503},

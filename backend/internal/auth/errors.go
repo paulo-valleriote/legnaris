@@ -7,6 +7,7 @@ import "errors"
 const (
 	MsgInvalidCredentials   = "invalid credentials"
 	MsgEmailAlreadyExists   = "email already registered"
+	MsgDisposableEmail      = "use a permanent email address; this one cannot receive the verification code"
 	MsgInvalidEmail         = "email is invalid"
 	MsgUsernameRequired     = "username is required"
 	MsgUsernameTooLong      = "username must be at most 50 characters"

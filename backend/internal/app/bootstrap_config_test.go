@@ -21,4 +21,16 @@ func TestAuthServiceConfig(t *testing.T) {
 		assert.Equal(t, 2*time.Hour, cfg.RefreshTTL)
 		assert.NotNil(t, cfg.Now)
 	})
+
+	t.Run("Happy path: an enabled disposable-address check installs the checker", func(t *testing.T) {
+		cfg := authServiceConfig(env.Variables{AuthDisposableEmailCheck: true}, now)
+
+		assert.NotNil(t, cfg.EmailChecker)
+	})
+
+	t.Run("Edge: a disabled disposable-address check leaves the checker nil", func(t *testing.T) {
+		cfg := authServiceConfig(env.Variables{AuthDisposableEmailCheck: false}, now)
+
+		assert.Nil(t, cfg.EmailChecker)
+	})
 }

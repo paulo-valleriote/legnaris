@@ -25,6 +25,7 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['OTP_INVALID', 'invalidCode'],
   ['EMAIL_UNAVAILABLE', 'emailUnavailable'],
   ['CONFLICT', 'conflict'],
+  ['DISPOSABLE_EMAIL', 'disposableEmail'],
 ];
 
 const fallback = [
@@ -48,6 +49,7 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   invalidCode: 'api.error.invalidCode',
   emailUnavailable: 'api.error.emailUnavailable',
   conflict: 'api.error.conflict',
+  disposableEmail: 'api.error.disposableEmail',
 };
 
 describe('backend code to failure kind', () => {
@@ -228,6 +230,20 @@ describe('the code-step refusal kinds (WCS-11, WCS-12, WCS-13)', () => {
     expect(failureMessage('invalidCode')).toBe(messages['api.error.invalidCode']);
     expect(failureMessage('emailUnavailable')).toBe(messages['api.error.emailUnavailable']);
     expect(failureMessage('conflict')).toBe(messages['api.error.conflict']);
+  });
+
+  it('Happy path: the disposable-address refusal resolves its own kind and copy (LGN-151)', () => {
+    expect(apperrKind('DISPOSABLE_EMAIL')).toBe('disposableEmail');
+    expect(failureMessage('disposableEmail')).toBe(messages['api.error.disposableEmail']);
+    expect(failureMessage('disposableEmail')).not.toBe(messages['api.error.unknown']);
+    expect(failureMessage('disposableEmail')).not.toBe(messages['api.error.conflict']);
+  });
+
+  it('Edge: the disposable-address copy names the action without echoing the address (LGN-151)', () => {
+    const copy = failureMessage('disposableEmail');
+
+    expect(copy).toMatch(/permanent email/i);
+    expect(copy).not.toMatch(/@/);
   });
 
   it('Happy path: the copy comes from the catalog, never from the server message (WCS-13)', () => {

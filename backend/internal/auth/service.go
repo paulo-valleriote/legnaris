@@ -81,6 +81,16 @@ type Config struct {
 	// Now is the single clock for timestamps written or compared here. Nil
 	// means the system clock (PRQ-16).
 	Now Clock
+	// EmailChecker refuses disposable or undeliverable domains at registration.
+	// Nil disables the check.
+	EmailChecker EmailChecker
+}
+
+// EmailChecker decides whether an address may open an account. Check returns a
+// non-nil error to refuse it; the service runs it before any write, so a refused
+// registration leaves no account behind (LGN-151, D1).
+type EmailChecker interface {
+	Check(ctx context.Context, email string) error
 }
 
 // ChallengeDeps bundles the challenge collaborators so adding them does not
@@ -158,6 +168,11 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgInvalidEmail, err)
+	}
+	if s.cfg.EmailChecker != nil {
+		if err := s.cfg.EmailChecker.Check(ctx, email); err != nil {
+			return nil, apperr.NewError(apperr.CodeDisposableEmail, MsgDisposableEmail, err)
+		}
 	}
 	username := strings.TrimSpace(cmd.Username)
 	if username == "" {

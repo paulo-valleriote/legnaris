@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/email/disposable"
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/internal/platform/clientip"
 	"legnaris/backend/internal/platform/health"
@@ -73,10 +74,14 @@ func (m *Modules) Close() error {
 // the controller — is the single place that decides whether a session or a code
 // step is issued (TFA-01, TFA-02, TFA-07).
 func authServiceConfig(vars env.Variables, now auth.Clock) auth.Config {
-	return auth.Config{
+	cfg := auth.Config{
 		RefreshTTL: vars.AuthRefreshTTL,
 		Now:        now,
 	}
+	if vars.AuthDisposableEmailCheck {
+		cfg.EmailChecker = disposable.NewChecker(nil)
+	}
+	return cfg
 }
 
 // NewModules wires every domain module. It returns an error for configuration

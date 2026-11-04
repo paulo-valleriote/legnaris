@@ -29,7 +29,8 @@ export type FailureKind =
   | 'unknown'
   | 'invalidCode'
   | 'emailUnavailable'
-  | 'conflict';
+  | 'conflict'
+  | 'disposableEmail';
 
 /** Input of a {@link DomainFailure}. */
 export interface DomainFailureInput {

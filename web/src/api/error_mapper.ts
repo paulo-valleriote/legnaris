@@ -26,6 +26,7 @@ const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   OTP_INVALID: 'invalidCode',
   EMAIL_UNAVAILABLE: 'emailUnavailable',
   CONFLICT: 'conflict',
+  DISPOSABLE_EMAIL: 'disposableEmail',
 };
 
 const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
@@ -42,6 +43,7 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
   invalidCode: 'api.error.invalidCode',
   emailUnavailable: 'api.error.emailUnavailable',
   conflict: 'api.error.conflict',
+  disposableEmail: 'api.error.disposableEmail',
 };
 
 /**

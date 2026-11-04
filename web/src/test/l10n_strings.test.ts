@@ -372,6 +372,7 @@ const authFeatureKeys: readonly MessageKey[] = [
   'api.error.invalidCode',
   'api.error.emailUnavailable',
   'api.error.conflict',
+  'api.error.disposableEmail',
 ];
 
 /** The keys the auth directory renders; the rest are owned by the shell and the sheet surface. */

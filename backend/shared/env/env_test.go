@@ -814,3 +814,42 @@ func TestRedisURL(t *testing.T) {
 		})
 	}
 }
+
+func TestInitVariablesDisposableEmailCheck(t *testing.T) {
+	tests := []struct {
+		name    string
+		appEnv  string
+		flag    string
+		setFlag bool
+		want    bool
+	}{
+		{name: "Happy path: unset flag defaults to enabled", want: true},
+		{name: "Happy path: explicit false disables outside production", flag: "false", setFlag: true, want: false},
+		{name: "Happy path: explicit true keeps it enabled", flag: "true", setFlag: true, want: true},
+		{name: "Edge: numeric zero disables outside production", flag: "0", setFlag: true, want: false},
+		{name: "Edge: empty value falls back to the default", flag: "", setFlag: true, want: true},
+		{name: "Edge: unparseable value falls back to the default", flag: "sometimes", setFlag: true, want: true},
+		{name: "Edge: false is overridden in production", appEnv: "production", flag: "false", setFlag: true, want: true},
+		{name: "Edge: unset flag is enabled in production", appEnv: "production", want: true},
+		{name: "Edge: production match is case-sensitive", appEnv: "Production", flag: "false", setFlag: true, want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			unsetEnv(t, "AUTH_DISPOSABLE_EMAIL_CHECK")
+			unsetEnv(t, "APP_ENV")
+			if tc.setFlag {
+				t.Setenv("AUTH_DISPOSABLE_EMAIL_CHECK", tc.flag)
+			}
+			if tc.appEnv != "" {
+				t.Setenv("APP_ENV", tc.appEnv)
+			}
+
+			env := newTestEnv()
+			vars := env.initVariables()
+
+			require.Equal(t, tc.want, vars.AuthDisposableEmailCheck)
+			require.Equal(t, tc.appEnv, vars.AppEnv)
+		})
+	}
+}
