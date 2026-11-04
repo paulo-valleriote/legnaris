@@ -70,9 +70,8 @@ func (m *Modules) Close() error {
 // step is issued (TFA-01, TFA-02, TFA-07).
 func authServiceConfig(vars env.Variables, now auth.Clock) auth.Config {
 	return auth.Config{
-		RefreshTTL:               vars.AuthRefreshTTL,
-		RequireEmailVerification: vars.RequireEmailVerification,
-		Now:                      now,
+		RefreshTTL: vars.AuthRefreshTTL,
+		Now:        now,
 	}
 }
 

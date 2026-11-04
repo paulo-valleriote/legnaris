@@ -223,8 +223,8 @@ func TestOTPMetrics(t *testing.T) {
 	observer := New()
 
 	observer.ChallengeIssued(auth.PurposeVerifyEmail)
-	observer.ChallengeIssued(auth.PurposeLoginOTP)
-	observer.ChallengeIssued(auth.PurposeLoginOTP)
+	observer.ChallengeIssued(auth.Purpose("other_purpose"))
+	observer.ChallengeIssued(auth.Purpose("other_purpose"))
 	observer.ChallengeVerified(auth.ResultVerified)
 	for _, result := range []string{
 		auth.ResultInvalid, auth.ResultExpired, auth.ResultConsumed,
@@ -246,7 +246,7 @@ func TestOTPMetrics(t *testing.T) {
 	t.Run("Happy path: issuance is counted per purpose", func(t *testing.T) {
 		for _, want := range []string{
 			`legnaris_auth_otp_issued_total{purpose="verify_email"} 1`,
-			`legnaris_auth_otp_issued_total{purpose="login_otp"} 2`,
+			`legnaris_auth_otp_issued_total{purpose="other_purpose"} 2`,
 		} {
 			assert.Contains(t, body, want)
 		}

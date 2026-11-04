@@ -148,7 +148,7 @@ func TestIntegration_ChallengeResend(t *testing.T) {
 	issued, err := modules.Auth.Service.IssueChallenge(ctx, auth.IssueChallengeCommand{
 		UserID:  userID,
 		Email:   email,
-		Purpose: auth.PurposeLoginOTP,
+		Purpose: otherPurpose,
 	})
 	require.NoError(t, err)
 	code := pendingCode(t, mdb)
@@ -209,7 +209,7 @@ func TestIntegration_ChallengeDailyCap(t *testing.T) {
 	issued, err := modules.Auth.Service.IssueChallenge(ctx, auth.IssueChallengeCommand{
 		UserID:  userID,
 		Email:   email,
-		Purpose: auth.PurposeLoginOTP,
+		Purpose: otherPurpose,
 	})
 	require.NoError(t, err, "one below the cap must be admitted")
 	require.Equal(t, int64(1), outboxCount(t, mdb))
@@ -260,7 +260,7 @@ func TestIntegration_ChallengeDailyCap(t *testing.T) {
 		_, err = modules.Auth.Service.IssueChallenge(ctx, auth.IssueChallengeCommand{
 			UserID:  userID,
 			Email:   email,
-			Purpose: auth.PurposeLoginOTP,
+			Purpose: otherPurpose,
 		})
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), outboxCount(t, mdb))

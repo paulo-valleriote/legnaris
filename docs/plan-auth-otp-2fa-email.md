@@ -763,10 +763,8 @@ grande e deve acompanhar a spec.
 5. **Front-end**: estados, tela de código, l10n, error mapper.
 6. **Deploy**: RabbitMQ, `cmd/relay` e `cmd/worker` como processos separados (O2),
    management UI em `ops.` com oauth (O6), env e Prometheus.
-7. **Ativação**: flag `AUTH_REQUIRE_EMAIL_VERIFICATION`; ligar para contas novas. A
-   checagem de `email_verified_at` no `Refresh` (O5) impede que sessões antigas renovem;
-   opcionalmente, limpar as famílias de refresh no deploy. Depois, endurecer o login para
-   todos.
+7. **Ativação**: sem flag, o OTP no cadastro é sempre ativo (LGN-138). Contas e sessões
+   existentes não sofrem backfill; a verificação ocorre no próximo login (D2).
 8. **Observar**: DLQ, backlog, 429 do Resend, falhas de verificação.
 
 A flag permite subir a infraestrutura desligada e evita que um deploy quebre todos os

@@ -262,7 +262,6 @@ Prometheus, Grafana, ...) through the Cloudflare Tunnel.
 
 
 Contention on a single sheet: run with `USERS=1`, so every PATCH hits the same
-sheet. The script needs `AUTH_REQUIRE_EMAIL_VERIFICATION=false` (the default),
-since it expects a session from `/auth/register`. `make loadtest` uses
+sheet. `make loadtest` uses
 `--network host` (Linux only); users registered by a run are not removed.
 Staging runs need the same limits lifted, so prefer a throwaway copy.

@@ -87,10 +87,10 @@ func TestChallengeRepository_Insert(t *testing.T) {
 	userID := mustCanonicalID(t)
 
 	t.Run("Happy path: one active row is admitted per account and purpose", func(t *testing.T) {
-		first := mustChallenge(t, userID, auth.PurposeLoginOTP, now)
+		first := mustChallenge(t, userID, otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, first))
 
-		second := mustChallenge(t, userID, auth.PurposeLoginOTP, now)
+		second := mustChallenge(t, userID, otherPurpose, now)
 		err := repo.Insert(ctx, second)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, auth.ErrChallengeActive, "a concurrent active row must be rejected")
@@ -102,8 +102,8 @@ func TestChallengeRepository_Insert(t *testing.T) {
 	})
 
 	t.Run("Happy path: a consumed row does not block a new active one", func(t *testing.T) {
-		require.NoError(t, repo.CloseActive(ctx, userID, auth.PurposeLoginOTP, now))
-		next := mustChallenge(t, userID, auth.PurposeLoginOTP, now)
+		require.NoError(t, repo.CloseActive(ctx, userID, otherPurpose, now))
+		next := mustChallenge(t, userID, otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, next))
 	})
 }
@@ -117,10 +117,10 @@ func TestChallengeRepository_CloseActive(t *testing.T) {
 	userID := mustCanonicalID(t)
 
 	t.Run("Happy path: the active row is consumed", func(t *testing.T) {
-		active := mustChallenge(t, userID, auth.PurposeLoginOTP, now)
+		active := mustChallenge(t, userID, otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, active))
 
-		require.NoError(t, repo.CloseActive(ctx, userID, auth.PurposeLoginOTP, now.Add(time.Minute)))
+		require.NoError(t, repo.CloseActive(ctx, userID, otherPurpose, now.Add(time.Minute)))
 
 		stored, err := repo.Fetch(ctx, active.ID)
 		require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestChallengeRepository_ClaimAttempt(t *testing.T) {
 	now := time.Now().UTC()
 
 	t.Run("Happy path: the attempt count increments and the post-image is returned", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, challenge))
 
 		claimed, err := repo.ClaimAttempt(ctx, challenge.ID, now, 5)
@@ -155,7 +155,7 @@ func TestChallengeRepository_ClaimAttempt(t *testing.T) {
 	})
 
 	t.Run("Edge: one below the cap is claimable, at the cap it is not", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		challenge.Attempts = 4
 		require.NoError(t, repo.Insert(ctx, challenge))
 
@@ -172,7 +172,7 @@ func TestChallengeRepository_ClaimAttempt(t *testing.T) {
 	})
 
 	t.Run("Edge: an expired row is unusable and untouched", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		challenge.ExpiresAt = now
 		require.NoError(t, repo.Insert(ctx, challenge))
 
@@ -185,7 +185,7 @@ func TestChallengeRepository_ClaimAttempt(t *testing.T) {
 	})
 
 	t.Run("Edge: a consumed row is unusable", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, challenge))
 		_, err := repo.Consume(ctx, challenge.ID, challenge.CodeHash, now)
 		require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestChallengeRepository_ClaimAttempt_Concurrency(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+	challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 	require.NoError(t, repo.Insert(ctx, challenge))
 
 	var wg sync.WaitGroup
@@ -238,7 +238,7 @@ func TestChallengeRepository_Consume(t *testing.T) {
 	now := time.Now().UTC()
 
 	t.Run("Happy path: the first consume wins and the second reports false", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, challenge))
 
 		won, err := repo.Consume(ctx, challenge.ID, challenge.CodeHash, now)
@@ -251,7 +251,7 @@ func TestChallengeRepository_Consume(t *testing.T) {
 	})
 
 	t.Run("Edge: a mismatching digest never consumes", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, challenge))
 
 		won, err := repo.Consume(ctx, challenge.ID, "other-digest", now)
@@ -260,7 +260,7 @@ func TestChallengeRepository_Consume(t *testing.T) {
 	})
 
 	t.Run("Edge: two concurrent consumes admit exactly one winner", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, challenge))
 
 		var wg sync.WaitGroup
@@ -300,7 +300,7 @@ func TestChallengeRepository_Extend(t *testing.T) {
 	cooldown := 60 * time.Second
 
 	t.Run("Happy path: an elapsed cool-down extends the deadline and the last-sent stamp", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, challenge))
 
 		later := now.Add(2 * time.Minute)
@@ -315,7 +315,7 @@ func TestChallengeRepository_Extend(t *testing.T) {
 	})
 
 	t.Run("Edge: a resend inside the cool-down is suppressed and mutates nothing", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, challenge))
 
 		// MongoDB stores instants at millisecond precision, so the cool-down
@@ -333,7 +333,7 @@ func TestChallengeRepository_Extend(t *testing.T) {
 	})
 
 	t.Run("Edge: exactly at the cool-down boundary the resend is allowed", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, challenge))
 
 		atBoundary := now.Add(cooldown)
@@ -343,7 +343,7 @@ func TestChallengeRepository_Extend(t *testing.T) {
 	})
 
 	t.Run("Edge: a consumed or expired row is never extended", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		challenge.ExpiresAt = now
 		require.NoError(t, repo.Insert(ctx, challenge))
 
@@ -380,7 +380,7 @@ func TestChallengeRepository_Fetch(t *testing.T) {
 	})
 
 	t.Run("Edge: an expired row classifies as expired for the observer", func(t *testing.T) {
-		challenge := mustChallenge(t, mustCanonicalID(t), auth.PurposeLoginOTP, now)
+		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		challenge.ExpiresAt = now
 		require.NoError(t, repo.Insert(ctx, challenge))
 
@@ -401,14 +401,14 @@ func TestChallengeRepository_CountForUserSince(t *testing.T) {
 	other := mustCanonicalID(t)
 
 	for i := 0; i < 3; i++ {
-		challenge := mustChallenge(t, userID, auth.PurposeLoginOTP, now.Add(time.Duration(i)*time.Minute))
+		challenge := mustChallenge(t, userID, otherPurpose, now.Add(time.Duration(i)*time.Minute))
 		require.NoError(t, repo.Insert(ctx, challenge))
 		// Only one row may be active per account and purpose, so each issued
 		// challenge is closed before the next is stored; the count still sees
 		// all three because it ranges over created_at (OTP-14).
-		require.NoError(t, repo.CloseActive(ctx, userID, auth.PurposeLoginOTP, now.Add(time.Duration(i)*time.Minute)))
+		require.NoError(t, repo.CloseActive(ctx, userID, otherPurpose, now.Add(time.Duration(i)*time.Minute)))
 	}
-	require.NoError(t, repo.Insert(ctx, mustChallenge(t, other, auth.PurposeLoginOTP, now)))
+	require.NoError(t, repo.Insert(ctx, mustChallenge(t, other, otherPurpose, now)))
 
 	t.Run("Happy path: every challenge at or after the window start is counted", func(t *testing.T) {
 		count, err := repo.CountForUserSince(ctx, userID, now.Add(-time.Second))

@@ -8,9 +8,8 @@ type Purpose string
 
 const (
 	// PurposeVerifyEmail marks a challenge issued for a freshly registered
-	// account; PurposeLoginOTP marks one issued for a sign-in.
+	// account.
 	PurposeVerifyEmail Purpose = "verify_email"
-	PurposeLoginOTP    Purpose = "login_otp"
 )
 
 // Challenge is the durable record of one pending code step (data-model.md §1):

@@ -12,7 +12,6 @@ import (
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/user"
-	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/response"
 
 	"github.com/stretchr/testify/assert"
@@ -79,33 +78,39 @@ func authPost(t *testing.T, h http.Handler, path string, cookies authCookies, cs
 	return serve(t, h, req)
 }
 
-// registerAuthUser signs a new account in and returns its cookies. The caller
-// passes the email so a single router can host several distinct users (each test
-// drops the collections once, then registrations accumulate within it).
+// registerAuthUser registers a new account, asserts the registration starts a
+// code step without a session, then signs in with the password and returns the
+// session cookies. The caller passes the email so a single router can host
+// several distinct users (each test drops the collections once, then
+// registrations accumulate within it).
 func registerAuthUser(t *testing.T, h http.Handler, email, username string) authCookies {
 	t.Helper()
 
 	body := fmt.Sprintf(`{"email":%q,"username":%q,"password":%q}`, email, username, authPassword)
 	rec := doRequest(t, h, http.MethodPost, "/auth/register", body)
 	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	assert.Empty(t, rec.Header().Get("Set-Cookie"), "registration sets no cookie")
 
-	session := decodeSession(t, rec)
+	loginRec := doRequest(t, h, http.MethodPost, "/auth/login",
+		fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
+	require.Equal(t, http.StatusOK, loginRec.Code, loginRec.Body.String())
+
+	session := decodeSession(t, loginRec)
 	assert.NotEmpty(t, session.AccessToken)
-	assert.NotContains(t, rec.Body.String(), "refresh_token", "the credential must never reach the body")
+	assert.NotContains(t, loginRec.Body.String(), "refresh_token", "the credential must never reach the body")
 
-	cookies := cookiesFrom(t, rec)
-	require.NotEmpty(t, cookies.refresh, "registration must set the refresh cookie")
-	require.NotEmpty(t, cookies.csrf, "registration must set the CSRF cookie")
+	cookies := cookiesFrom(t, loginRec)
+	require.NotEmpty(t, cookies.refresh, "sign-in must set the refresh cookie")
+	require.NotEmpty(t, cookies.csrf, "sign-in must set the CSRF cookie")
 	return cookies
 }
 
-// TestIntegration_GatedSignIn drives the gated journey end to end: the
-// registration answers a challenge and no session, the code the recorded
-// intention carries verifies it into the account's first session and records
-// the verification timestamp, and a sign-in starts a second code step
-// (TFA-01, TFA-04, TFA-11, TFA-13).
-func TestIntegration_GatedSignIn(t *testing.T) {
-	h, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "true"})
+// TestIntegration_RegistrationVerification drives the registration journey end
+// to end: the registration answers a challenge and no session, and the code the
+// recorded intention carries verifies it into the account's first session and
+// records the verification timestamp (TFA-01, TFA-04, TFA-11, TFA-13).
+func TestIntegration_RegistrationVerification(t *testing.T) {
+	h, mdb, _ := newIntegrationStack(t, nil)
 	ctx := context.Background()
 
 	const email = "gated-register@example.com"
@@ -113,7 +118,7 @@ func TestIntegration_GatedSignIn(t *testing.T) {
 
 	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
 	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
-	assert.Empty(t, registerRec.Header().Get("Set-Cookie"), "the gated registration sets no cookie")
+	assert.Empty(t, registerRec.Header().Get("Set-Cookie"), "the registration sets no cookie")
 	assert.NotContains(t, registerRec.Body.String(), "access_token")
 
 	var issued response.Success[auth.ChallengeIssued]
@@ -147,15 +152,11 @@ func TestIntegration_GatedSignIn(t *testing.T) {
 		assert.NotNil(t, stored.VerifiedAt, "the verification records the timestamp")
 	})
 
-	t.Run("Happy path: a sign-in starts a second code step and no session", func(t *testing.T) {
+	t.Run("Happy path: a verified account signs in with a session", func(t *testing.T) {
 		loginRec := doRequest(t, h, http.MethodPost, "/auth/login",
 			fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
-		require.Equal(t, http.StatusAccepted, loginRec.Code, loginRec.Body.String())
-		assert.Empty(t, loginRec.Header().Get("Set-Cookie"))
-
-		var loginIssued response.Success[auth.ChallengeIssued]
-		require.NoError(t, json.Unmarshal(loginRec.Body.Bytes(), &loginIssued))
-		assert.NotEqual(t, issued.Data.ChallengeID, loginIssued.Data.ChallengeID)
+		require.Equal(t, http.StatusOK, loginRec.Code, loginRec.Body.String())
+		assert.NotEmpty(t, cookiesFrom(t, loginRec).refresh)
 	})
 
 	t.Run("Error: a duplicate registration is 409 with no challenge and no send", func(t *testing.T) {
@@ -168,79 +169,39 @@ func TestIntegration_GatedSignIn(t *testing.T) {
 	})
 }
 
-// TestIntegration_RenewalGate covers the renewal gate end to end: a session
-// minted before the gate was enabled cannot renew once the gate is on — the
-// renewal is refused with no credential and the family is revoked — and the
-// same session renews normally while the gate is off (TFA-06, SC-003).
-func TestIntegration_RenewalGate(t *testing.T) {
-	// The gated stack is built first: building the legacy stack drops the
-	// collections, so this order keeps the minted session's rows alive.
-	gated, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "true"})
-	legacy, _, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "false"})
-
-	const email = "renewal-gate@example.com"
-	cookies := registerAuthUser(t, legacy, email, "renewal-gate")
-
-	t.Run("Edge: the disabled gate renews the session", func(t *testing.T) {
-		rec := authPost(t, legacy, "/auth/refresh", cookies, "")
-		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-		assert.NotEmpty(t, cookiesFrom(t, rec).refresh)
-	})
-
-	t.Run("Error: the enabled gate refuses the renewal and revokes the family", func(t *testing.T) {
-		rec := authPost(t, gated, "/auth/refresh", cookies, "")
-		require.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
-		assert.Empty(t, rec.Header().Get("Set-Cookie"))
-
-		var body response.ErrorResponse
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-		assert.Equal(t, string(apperr.CodeUnauthorized), body.Error.Code)
-		assert.Equal(t, auth.MsgInvalidRefreshToken, body.Error.Message)
-
-		count, err := mdb.Collection("refresh_tokens").
-			CountDocuments(context.Background(), bson.M{"family_id": bson.M{"$exists": true}, "revoked": false})
-		require.NoError(t, err)
-		assert.Zero(t, count, "the refused renewal leaves no live credential behind")
-	})
-}
-
 // TestIntegration_IdentityRead covers the identity read end to end: a signed-in
 // account reports its verification state, and only that field changes when the
 // address is verified (TFA-08, SC-006).
 func TestIntegration_IdentityRead(t *testing.T) {
-	// The gated stack is built first: building the legacy stack drops the
-	// collections, so this order keeps the legacy session's rows alive.
-	gated, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "true"})
-	legacy, _, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "false"})
+	h, mdb, _ := newIntegrationStack(t, nil)
 
 	const email = "identity-read@example.com"
 	registerBody := fmt.Sprintf(`{"email":%q,"username":"identity","password":%q}`, email, authPassword)
 
-	registerRec := doRequest(t, legacy, http.MethodPost, "/auth/register", registerBody)
+	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
 	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
-	legacySession := decodeSession(t, registerRec)
-	require.NotEmpty(t, legacySession.AccessToken)
-
-	before := readIdentity(t, legacy, legacySession.AccessToken)
-	assert.False(t, before.EmailVerified, "an account that never verified reports the unverified state")
-
-	// The gated sign-in starts a code step; verifying it records the timestamp.
-	loginRec := doRequest(t, gated, http.MethodPost, "/auth/login",
-		fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
-	require.Equal(t, http.StatusAccepted, loginRec.Code, loginRec.Body.String())
 
 	var issued response.Success[auth.ChallengeIssued]
-	require.NoError(t, json.Unmarshal(loginRec.Body.Bytes(), &issued))
+	require.NoError(t, json.Unmarshal(registerRec.Body.Bytes(), &issued))
 	require.NotEmpty(t, issued.Data.ChallengeID)
 
+	loginRec := doRequest(t, h, http.MethodPost, "/auth/login",
+		fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
+	require.Equal(t, http.StatusOK, loginRec.Code, loginRec.Body.String())
+	unverifiedSession := decodeSession(t, loginRec)
+	require.NotEmpty(t, unverifiedSession.AccessToken)
+
+	before := readIdentity(t, h, unverifiedSession.AccessToken)
+	assert.False(t, before.EmailVerified, "an account that never verified reports the unverified state")
+
 	code := pendingCode(t, mdb)
-	verifyRec := doRequest(t, gated, http.MethodPost, verifyRoute,
+	verifyRec := doRequest(t, h, http.MethodPost, verifyRoute,
 		`{"challenge_id":"`+issued.Data.ChallengeID+`","code":"`+code+`"}`)
 	require.Equal(t, http.StatusOK, verifyRec.Code, verifyRec.Body.String())
 	verifiedSession := decodeSession(t, verifyRec)
 	require.NotEmpty(t, verifiedSession.AccessToken)
 
-	after := readIdentity(t, gated, verifiedSession.AccessToken)
+	after := readIdentity(t, h, verifiedSession.AccessToken)
 	assert.True(t, after.EmailVerified, "a verified account reports the verified state")
 
 	assert.Equal(t, before.ID, after.ID)
@@ -264,55 +225,19 @@ func readIdentity(t *testing.T, h http.Handler, token string) user.UserDTO {
 	return body.Data
 }
 
-// TestIntegration_GateParity proves the gate changes no stored account and
-// leaves the legacy contract untouched while it is disabled: the registration
-// still answers a session with both cookies, and a gated sign-in rewrites no
-// account document (TFA-07, TFA-12, SC-004, SC-007).
-func TestIntegration_GateParity(t *testing.T) {
-	// The gated stack is built first: building the legacy stack drops the
-	// collections, so this order keeps the registered account alive.
-	gated, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "true"})
-	legacy, _, _ := newIntegrationStack(t, map[string]string{"AUTH_REQUIRE_EMAIL_VERIFICATION": "false"})
-	ctx := context.Background()
-
-	const email = "gate-parity@example.com"
-	registerBody := fmt.Sprintf(`{"email":%q,"username":"parity","password":%q}`, email, authPassword)
-
-	t.Run("Happy path: the disabled gate keeps the legacy registration contract", func(t *testing.T) {
-		registerRec := doRequest(t, legacy, http.MethodPost, "/auth/register", registerBody)
-		require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
-
-		session := decodeSession(t, registerRec)
-		require.NotEmpty(t, session.AccessToken)
-
-		cookies := cookiesFrom(t, registerRec)
-		require.NotEmpty(t, cookies.refresh, "the legacy contract sets the refresh cookie")
-		require.NotEmpty(t, cookies.csrf, "the legacy contract sets the CSRF cookie")
-		assert.NotContains(t, registerRec.Body.String(), "challenge_id",
-			"the legacy contract carries no challenge")
-	})
-
-	var before bson.M
-	require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.M{"email": email}).Decode(&before))
-	require.NotEmpty(t, before)
-
-	t.Run("Edge: the enabled gate rewrites no account", func(t *testing.T) {
-		loginRec := doRequest(t, gated, http.MethodPost, "/auth/login",
-			fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
-		require.Equal(t, http.StatusAccepted, loginRec.Code, loginRec.Body.String())
-
-		var after bson.M
-		require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.M{"email": email}).Decode(&after))
-		assert.Equal(t, before, after, "enabling the gate must not rewrite any account")
-	})
-}
-
 func TestIntegration_AuthRegister(t *testing.T) {
 	h, _ := newIntegrationRouter(t)
 
-	t.Run("Happy path: registration signs in with a session body and both cookies", func(t *testing.T) {
-		cookies := registerAuthUser(t, h, authEmail, authUsername)
-		assert.NotEqual(t, cookies.refresh, cookies.csrf)
+	t.Run("Happy path: registration answers a challenge, no session body and no cookie", func(t *testing.T) {
+		body := fmt.Sprintf(`{"email":%q,"username":%q,"password":%q}`, authEmail, authUsername, authPassword)
+		rec := doRequest(t, h, http.MethodPost, "/auth/register", body)
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+		assert.NotContains(t, rec.Body.String(), "access_token")
+
+		var issued response.Success[auth.ChallengeIssued]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &issued))
+		assert.NotEmpty(t, issued.Data.ChallengeID)
 	})
 
 	t.Run("Error: duplicate email returns 409", func(t *testing.T) {

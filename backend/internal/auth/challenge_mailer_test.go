@@ -13,7 +13,7 @@ import (
 func TestNopChallengeObserver(t *testing.T) {
 	observer := auth.NewNopChallengeObserver()
 
-	observer.ChallengeIssued(auth.PurposeLoginOTP)
+	observer.ChallengeIssued(otherPurpose)
 	observer.ChallengeVerified(auth.ResultVerified)
 	observer.ResendRequested(auth.ResendSent)
 	observer.SendCapBlocked()

@@ -29,9 +29,8 @@ func NewAuthController(service auth.Service) *AuthController {
 	}
 }
 
-// Register creates the account and answers the service's decision: with the
-// gate off it is 201 with the session body and both cookies, with the gate on
-// it is 201 with the started code step and no cookie at all (AUTH-02, TFA-01).
+// Register creates the account and answers 201 with the started code step and
+// no cookie at all (AUTH-02, TFA-01).
 func (ac *AuthController) Register(c *echo.Context) error {
 	var cmd auth.RegisterCommand
 
@@ -39,17 +38,15 @@ func (ac *AuthController) Register(c *echo.Context) error {
 		return decodeError(err)
 	}
 
-	outcome, err := ac.service.Register(c.Request().Context(), cmd)
+	issued, err := ac.service.Register(c.Request().Context(), cmd)
 	if err != nil {
 		return err
 	}
 
-	return projectStart(c, outcome, http.StatusCreated, http.StatusCreated)
+	return response.JSON(c, http.StatusCreated, issued)
 }
 
-// Login answers the service's decision: with the gate off it is 200 with the
-// session body and both cookies, with the gate on it is 202 with the started
-// code step and no cookie at all (AUTH-01, TFA-02).
+// Login answers 200 with the session body and both cookies (AUTH-01).
 func (ac *AuthController) Login(c *echo.Context) error {
 	var cmd auth.LoginCommand
 
@@ -57,29 +54,13 @@ func (ac *AuthController) Login(c *echo.Context) error {
 		return decodeError(err)
 	}
 
-	outcome, err := ac.service.Login(c.Request().Context(), cmd)
+	session, err := ac.service.Login(c.Request().Context(), cmd)
 	if err != nil {
 		return err
 	}
 
-	return projectStart(c, outcome, http.StatusOK, http.StatusAccepted)
-}
-
-// projectStart turns the service's decision into the wire answer: the session
-// half sets both cookies and the legacy body, the challenge half answers the
-// handle alone and sets no cookie. Exactly one half is ever set, so an empty
-// outcome is an internal failure rather than an empty answer (TFA-01, TFA-02,
-// SC-001).
-func projectStart(c *echo.Context, outcome *auth.StartOutcome, sessionStatus, challengeStatus int) error {
-	if outcome.Challenge != nil {
-		return response.JSON(c, challengeStatus, outcome.Challenge)
-	}
-	if outcome.Session == nil {
-		return apperr.NewError(apperr.CodeInternal, auth.MsgInternal, nil)
-	}
-
-	setSessionCookies(c, outcome.Session)
-	return response.JSON(c, sessionStatus, sessionResponse(outcome.Session))
+	setSessionCookies(c, session)
+	return response.OK(c, sessionResponse(session))
 }
 
 // Refresh consumes the refresh credential from the cookie only and rotates the

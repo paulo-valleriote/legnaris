@@ -73,22 +73,6 @@ func newAuthService(t *testing.T) (auth.Service, *authMocks) {
 // explicit time source, so timestamp assertions need no sleeping (PRQ-16).
 func newAuthServiceWithClock(t *testing.T, clock auth.Clock) (auth.Service, *authMocks) {
 	t.Helper()
-	return newAuthServiceWithGate(t, clock, false)
-}
-
-// newGatedAuthService builds the service with the rollout gate enabled, so
-// registration and sign-in answer a started code step instead of a session
-// (TFA-01, TFA-02).
-func newGatedAuthService(t *testing.T) (auth.Service, *authMocks) {
-	t.Helper()
-	return newAuthServiceWithGate(t, nil, true)
-}
-
-// newAuthServiceWithGate builds the service over the shared mock set with the
-// gate in the given state; the gate is the only difference between the legacy
-// contract and the hardened one (TFA-07, TFA-12).
-func newAuthServiceWithGate(t *testing.T, clock auth.Clock, gate bool) (auth.Service, *authMocks) {
-	t.Helper()
 
 	m := &authMocks{
 		users:         usermocks.NewMockRepository(t),
@@ -113,7 +97,7 @@ func newAuthServiceWithGate(t *testing.T, clock auth.Clock, gate bool) (auth.Ser
 		m.generator,
 		m.csrf,
 		m.observer,
-		auth.Config{RefreshTTL: testRefreshTTL, RequireEmailVerification: gate, Now: clock},
+		auth.Config{RefreshTTL: testRefreshTTL, Now: clock},
 		logger.NewLogger(slog.LevelError),
 		auth.ChallengeDeps{
 			Repository: m.challenges,
@@ -131,13 +115,13 @@ func newAuthServiceWithGate(t *testing.T, clock auth.Clock, gate bool) (auth.Ser
 // durable account bound, the daily send cap, the closing of the previous
 // challenge for the purpose, the insert of the new one and the send intention
 // (OTP-01, OTP-12, OTP-13).
-func (m *authMocks) expectChallengeIssuance(userID string, purpose auth.Purpose, email string) {
+func (m *authMocks) expectChallengeIssuance(userID any, purpose auth.Purpose, email string) {
 	m.challenges.EXPECT().CountForUserSince(mock.Anything, userID, mock.Anything).Return(0, nil).Once()
 	m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
 	m.challenges.EXPECT().CloseActive(mock.Anything, userID, purpose, mock.Anything).Return(nil).Once()
 	m.challenges.EXPECT().
 		Insert(mock.Anything, mock.MatchedBy(func(c auth.Challenge) bool {
-			return c.UserID == userID && c.Purpose == purpose
+			return (userID == mock.Anything || c.UserID == userID) && c.Purpose == purpose
 		})).
 		Return(nil).
 		Once()
@@ -145,6 +129,12 @@ func (m *authMocks) expectChallengeIssuance(userID string, purpose auth.Purpose,
 		Record(mock.Anything, mock.Anything, email, purpose, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil).
 		Once()
+}
+
+// expectRegistrationChallenge wires the writes a registration's verify_email
+// code step performs, for an account ID the service mints itself.
+func (m *authMocks) expectRegistrationChallenge(email string) {
+	m.expectChallengeIssuance(mock.Anything, auth.PurposeVerifyEmail, email)
 }
 
 // issueCSRF mints a valid, session-bound CSRF token for the given family so a
@@ -171,11 +161,10 @@ func expectedRefreshMaxAge() int {
 func TestService_Register(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("Happy path: creates the account and signs it in", func(t *testing.T) {
+	t.Run("Happy path: creates the account and starts the verify_email challenge", func(t *testing.T) {
 		service, m := newAuthService(t)
 
 		var createdUser *user.User
-		var familyID string
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
 		m.users.EXPECT().
 			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool {
@@ -188,18 +177,7 @@ func TestService_Register(t *testing.T) {
 			})).
 			Return(nil).
 			Once()
-		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access-token", ExpiresIn: 900}, nil).Once()
-		m.generator.EXPECT().Generate().Return("raw-refresh", nil).Once()
-		m.refreshTokens.EXPECT().
-			Create(mock.Anything, mock.MatchedBy(func(token *auth.RefreshToken) bool {
-				familyID = token.FamilyID
-				return token.TokenHash == auth.HashRefreshToken("raw-refresh") &&
-					token.FamilyID != "" &&
-					!token.Revoked &&
-					token.ExpiresAt.After(time.Now())
-			})).
-			Return(nil).
-			Once()
+		m.expectRegistrationChallenge(testEmail)
 
 		outcome, err := service.Register(ctx, auth.RegisterCommand{
 			Email:    "  Player@Example.com ",
@@ -208,20 +186,13 @@ func TestService_Register(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Session)
-		assert.Nil(t, outcome.Challenge, "the disabled gate keeps the legacy session")
-		session := outcome.Session
 
 		require.NotNil(t, createdUser)
 		assert.NoError(t, idgen.Validate(createdUser.ID), "server must mint a canonical UUID v7")
 		assert.Equal(t, testEmail, createdUser.Email)
-
-		assert.Equal(t, "access-token", session.AccessToken)
-		assert.Equal(t, 900, session.ExpiresIn)
-		assert.Equal(t, "raw-refresh", session.RefreshToken)
-		assert.Equal(t, expectedRefreshMaxAge(), session.RefreshMaxAge)
-		assert.Equal(t, createdUser.ID, session.UserID)
-		require.NoError(t, m.csrf.Verify(session.CSRFToken, familyID), "the CSRF token must bind to the session family")
+		assert.Nil(t, createdUser.EmailVerifiedAt, "the account is created unverified")
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 	})
 
 	t.Run("Error: duplicate email maps to conflict before any session is issued", func(t *testing.T) {
@@ -284,9 +255,7 @@ func TestService_Register(t *testing.T) {
 			})).
 			Return(nil).
 			Once()
-		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
-		m.generator.EXPECT().Generate().Return("raw", nil).Once()
-		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+		m.expectRegistrationChallenge(testEmail)
 
 		_, err := service.Register(ctx, auth.RegisterCommand{
 			Email:    "Name <Player@Example.COM>",
@@ -309,9 +278,7 @@ func TestService_Register(t *testing.T) {
 			})).
 			Return(nil).
 			Once()
-		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
-		m.generator.EXPECT().Generate().Return("raw", nil).Once()
-		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+		m.expectRegistrationChallenge("p.layer+news@example.com")
 
 		_, err := service.Register(ctx, auth.RegisterCommand{
 			Email:    "P.Layer+News@Example.com",
@@ -342,15 +309,11 @@ func TestService_Register(t *testing.T) {
 		atLimit := strings.Repeat("a", 72)
 		m.hasher.EXPECT().Hash(atLimit).Return(testHash, nil).Once()
 		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
-		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
-		m.generator.EXPECT().Generate().Return("raw", nil).Once()
-		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+		m.expectRegistrationChallenge(testEmail)
 
 		outcome, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: atLimit})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Session)
-		assert.Equal(t, "access", outcome.Session.AccessToken)
 	})
 
 	t.Run("Edge: password over the 72-byte bcrypt limit is a 400, not a 500", func(t *testing.T) {
@@ -426,15 +389,40 @@ func TestService_Register(t *testing.T) {
 		assertAppErr(t, err, apperr.CodeInternal)
 	})
 
-	t.Run("Error: session issuance failure after account creation maps to internal", func(t *testing.T) {
+	t.Run("Error: store failure while starting the challenge maps to internal and issues no session", func(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
 		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
-		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{}, errors.New("sign failed")).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.challenges.EXPECT().CloseActive(mock.Anything, mock.Anything, auth.PurposeVerifyEmail, mock.Anything).Return(nil).Once()
+		m.challenges.EXPECT().Insert(mock.Anything, mock.Anything).Return(errors.New("mongo down")).Once()
 
-		_, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
+		outcome, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
+		assert.Nil(t, outcome)
 		assertAppErr(t, err, apperr.CodeInternal)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+	})
+
+	t.Run("Error: the daily allowance refusal propagates unchanged and issues no session", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(testChallengePolicy.DailySendCap, nil).Once()
+
+		outcome, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
+		assert.Nil(t, outcome)
+		assertAppErr(t, err, apperr.CodeEmailUnavailable)
+
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgEmailUnavailable, appErr.Message)
+		assert.Positive(t, appErr.RetryAfter, "the refusal must carry a retry hint")
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
 	})
 }
 
@@ -466,9 +454,7 @@ func TestService_Login(t *testing.T) {
 		outcome, err := service.Login(ctx, auth.LoginCommand{Email: "Player@Example.com", Password: testPassword})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Session)
-		assert.Nil(t, outcome.Challenge, "the disabled gate keeps the legacy session")
-		session := outcome.Session
+		session := outcome
 		assert.Equal(t, "access-token", session.AccessToken)
 		assert.Equal(t, 900, session.ExpiresIn)
 		assert.Equal(t, "raw-refresh", session.RefreshToken)
@@ -492,8 +478,7 @@ func TestService_Login(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Session)
-		assert.Equal(t, validUserID, outcome.Session.UserID)
+		assert.Equal(t, validUserID, outcome.UserID)
 	})
 
 	t.Run("Edge: dotted and +tag spellings are passed through unchanged", func(t *testing.T) {
@@ -525,9 +510,7 @@ func TestService_Login(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, first)
 		require.NotNil(t, second)
-		require.NotNil(t, first.Session)
-		require.NotNil(t, second.Session)
-		assert.NotEqual(t, first.Session.CSRFToken, second.Session.CSRFToken)
+		assert.NotEqual(t, first.CSRFToken, second.CSRFToken)
 	})
 
 	t.Run("Error: unknown email returns a generic 401 and records the failure", func(t *testing.T) {
@@ -625,15 +608,11 @@ func TestService_Login(t *testing.T) {
 	})
 }
 
-func TestService_StartOutcome(t *testing.T) {
+func TestService_RegisterChallengeOutcome(t *testing.T) {
 	ctx := context.Background()
 
-	storedUser := func() *user.User {
-		return &user.User{ID: validUserID, Email: testEmail, Username: "player", PasswordHash: testHash}
-	}
-
-	t.Run("Happy path: a gated registration starts a verify_email challenge and issues no session", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
+	t.Run("Happy path: registration starts a verify_email challenge bound to the new account", func(t *testing.T) {
+		service, m := newAuthService(t)
 
 		var createdUser *user.User
 		createCall := m.users.EXPECT().
@@ -669,11 +648,9 @@ func TestService_StartOutcome(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
 
-		require.NotNil(t, outcome.Challenge)
-		assert.Nil(t, outcome.Session, "the gated registration must not establish a session")
-		assert.NoError(t, idgen.Validate(outcome.Challenge.ChallengeID))
-		assert.Equal(t, int(testChallengePolicy.Lifetime.Seconds()), outcome.Challenge.ExpiresIn)
-		assert.Equal(t, int(testChallengePolicy.ResendCooldown.Seconds()), outcome.Challenge.ResendAfter)
+		assert.NoError(t, idgen.Validate(outcome.ChallengeID))
+		assert.Equal(t, int(testChallengePolicy.Lifetime.Seconds()), outcome.ExpiresIn)
+		assert.Equal(t, int(testChallengePolicy.ResendCooldown.Seconds()), outcome.ResendAfter)
 
 		require.NotNil(t, createdUser)
 		assert.Nil(t, createdUser.EmailVerifiedAt, "the account is created unverified")
@@ -682,206 +659,53 @@ func TestService_StartOutcome(t *testing.T) {
 		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 	})
 
-	t.Run("Happy path: a gated sign-in starts a login_otp challenge and issues no session", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
+	t.Run("Edge: sign-in of an unverified account still returns a session and starts no challenge", func(t *testing.T) {
+		service, m := newAuthService(t)
 
-		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(storedUser(), nil).Once()
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).
+			Return(&user.User{ID: validUserID, Email: testEmail, Username: "player", PasswordHash: testHash}, nil).Once()
 		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
-		m.expectChallengeIssuance(validUserID, auth.PurposeLoginOTP, testEmail)
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 
 		outcome, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-
-		require.NotNil(t, outcome.Challenge)
-		assert.Nil(t, outcome.Session, "the gated sign-in must not establish a session")
-		assert.NoError(t, idgen.Validate(outcome.Challenge.ChallengeID))
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
-		m.generator.AssertNotCalled(t, "Generate")
-		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
-	})
-
-	t.Run("Edge: exactly one half of the outcome is ever set", func(t *testing.T) {
-		tests := []struct {
-			name      string
-			gate      bool
-			challenge bool
-			register  bool
-		}{
-			{name: "gate off, registration", gate: false, register: true},
-			{name: "gate off, sign-in", gate: false},
-			{name: "gate on, registration", gate: true, challenge: true, register: true},
-			{name: "gate on, sign-in", gate: true, challenge: true},
-		}
-
-		for _, tc := range tests {
-			t.Run(tc.name, func(t *testing.T) {
-				var service auth.Service
-				var m *authMocks
-				if tc.gate {
-					service, m = newGatedAuthService(t)
-				} else {
-					service, m = newAuthService(t)
-				}
-
-				var issued *auth.StartOutcome
-				if tc.register {
-					m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
-					m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
-					if tc.gate {
-						m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
-						m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
-						m.challenges.EXPECT().CloseActive(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-						m.challenges.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
-						m.mailer.EXPECT().Record(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-					} else {
-						m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
-						m.generator.EXPECT().Generate().Return("raw", nil).Once()
-						m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
-					}
-
-					outcome, err := service.Register(ctx, auth.RegisterCommand{
-						Email:    testEmail,
-						Username: "player",
-						Password: testPassword,
-					})
-					require.NoError(t, err)
-					issued = outcome
-				} else {
-					m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(storedUser(), nil).Once()
-					m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
-					if tc.gate {
-						m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
-						m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
-						m.challenges.EXPECT().CloseActive(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-						m.challenges.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
-						m.mailer.EXPECT().Record(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-					} else {
-						m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
-						m.generator.EXPECT().Generate().Return("raw", nil).Once()
-						m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
-					}
-
-					outcome, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
-					require.NoError(t, err)
-					issued = outcome
-				}
-
-				require.NotNil(t, issued)
-				assert.Equal(t, tc.challenge, issued.Challenge != nil,
-					"the challenge half must be set exactly when the gate is on")
-				assert.Equal(t, !tc.challenge, issued.Session != nil,
-					"the session half must be set exactly when the gate is off")
-			})
-		}
-	})
-
-	t.Run("Error: a mismatching password starts nothing", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-
-		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(storedUser(), nil).Once()
-		m.hasher.EXPECT().Compare(testHash, "wrong").Return(auth.ErrPasswordMismatch).Once()
-		m.observer.EXPECT().LoginFailure().Return().Once()
-
-		_, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: "wrong"})
-		assertAppErr(t, err, apperr.CodeUnauthorized)
-
 		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
-		m.mailer.AssertNotCalled(t, "Record", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
 	})
 
-	t.Run("Error: the unknown-address path spends the password work and starts nothing", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
+	t.Run("Edge: concurrent registrations of one address create one account and start one challenge", func(t *testing.T) {
+		service, m := newAuthService(t)
 
-		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(nil, user.ErrUserNotFound).Once()
-		m.hasher.EXPECT().DummyHash().Return(testDummyHash).Once()
-		m.hasher.EXPECT().Compare(testDummyHash, testPassword).Return(auth.ErrPasswordMismatch).Once()
-		m.observer.EXPECT().LoginFailure().Return().Once()
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Times(2)
+		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(user.ErrEmailAlreadyExists).Once()
+		m.expectRegistrationChallenge(testEmail)
 
-		_, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
-		assertAppErr(t, err, apperr.CodeUnauthorized)
-
-		m.hasher.AssertNumberOfCalls(t, "Compare", 1)
-		m.hasher.AssertCalled(t, "Compare", testDummyHash, testPassword)
-		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
-		m.mailer.AssertNotCalled(t, "Record", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-	})
-
-	t.Run("Error: the daily allowance refusal propagates unchanged and issues no session", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-
-		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(storedUser(), nil).Once()
-		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
-		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
-		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(testChallengePolicy.DailySendCap, nil).Once()
-
-		outcome, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
-		require.Error(t, err)
-		assert.Nil(t, outcome)
-
-		assertAppErr(t, err, apperr.CodeEmailUnavailable)
-		var appErr *apperr.Error
-		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, auth.MsgEmailUnavailable, appErr.Message)
-		assert.Positive(t, appErr.RetryAfter, "the refusal must carry a retry hint")
-
-		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
-	})
-
-	t.Run("Error: a store failure while starting the code step is an internal failure", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-
-		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(storedUser(), nil).Once()
-		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
-		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
-		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
-		m.challenges.EXPECT().CloseActive(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-		m.challenges.EXPECT().Insert(mock.Anything, mock.Anything).Return(errors.New("mongo down")).Once()
-
-		outcome, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
-		require.Error(t, err)
-		assert.Nil(t, outcome)
-		assertAppErr(t, err, apperr.CodeInternal)
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
-	})
-
-	t.Run("Edge: two concurrent sign-ins start two challenges and the later invalidates the earlier", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-
-		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(storedUser(), nil).Times(2)
-		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Times(2)
-		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Times(2)
-		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Times(2)
-		m.challenges.EXPECT().CloseActive(mock.Anything, validUserID, auth.PurposeLoginOTP, mock.Anything).Return(nil).Times(2)
-		m.challenges.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Times(2)
-		m.mailer.EXPECT().
-			Record(mock.Anything, mock.Anything, testEmail, auth.PurposeLoginOTP, mock.Anything, mock.Anything, mock.Anything).
-			Return(nil).
-			Times(2)
-
-		outcomes := make([]*auth.StartOutcome, 2)
 		errs := make([]error, 2)
-
 		var wg sync.WaitGroup
-		for i := range outcomes {
+		for i := range errs {
 			wg.Add(1)
 			go func(index int) {
 				defer wg.Done()
-				outcomes[index], errs[index] = service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
+				_, errs[index] = service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
 			}(i)
 		}
 		wg.Wait()
 
-		for i := range outcomes {
-			require.NoError(t, errs[i])
-			require.NotNil(t, outcomes[i])
-			require.NotNil(t, outcomes[i].Challenge)
-			assert.Nil(t, outcomes[i].Session)
+		var conflicts, successes int
+		for _, err := range errs {
+			if err == nil {
+				successes++
+				continue
+			}
+			assertAppErr(t, err, apperr.CodeConflict)
+			conflicts++
 		}
-		assert.NotEqual(t, outcomes[0].Challenge.ChallengeID, outcomes[1].Challenge.ChallengeID)
-		m.challenges.AssertNumberOfCalls(t, "CloseActive", 2)
+		assert.Equal(t, 1, successes)
+		assert.Equal(t, 1, conflicts)
+		m.challenges.AssertNumberOfCalls(t, "Insert", 1)
 	})
 }
 
@@ -1067,81 +891,24 @@ func TestService_Refresh(t *testing.T) {
 	})
 }
 
-// TestService_RefreshVerificationGate covers the renewal gate: with the gate
-// enabled, an account that never verified its address cannot renew — the
-// credential's family is revoked and nothing is issued — while a verified
-// account and a disabled gate keep rotating exactly as before (TFA-06, TFA-12,
-// SC-003).
-func TestService_RefreshVerificationGate(t *testing.T) {
+// TestService_RefreshUnverifiedAccount pins that renewal no longer consults
+// the verification state: an account without a verification timestamp rotates
+// in the same family like any other.
+func TestService_RefreshUnverifiedAccount(t *testing.T) {
 	ctx := context.Background()
 
-	activeToken := func() *auth.RefreshToken {
-		return &auth.RefreshToken{
+	t.Run("Edge: an unverified account rotates and its family is not revoked", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(&auth.RefreshToken{
 			ID:        validTokenID,
 			UserID:    validUserID,
 			FamilyID:  validFamily,
 			ExpiresAt: time.Now().Add(time.Hour),
-		}
-	}
-
-	verifiedAt := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
-	verifiedAccount := func() *user.User {
-		return &user.User{ID: validUserID, Email: testEmail, Username: "player", EmailVerifiedAt: &verifiedAt}
-	}
-	unverifiedAccount := func() *user.User {
-		return &user.User{ID: validUserID, Email: testEmail, Username: "player"}
-	}
-
-	t.Run("Error: an unverified account is refused, the family is revoked and nothing is issued", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-		csrfToken := m.issueCSRF(t, validFamily)
-
-		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Once()
-		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
-
-		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
-		assertAppErr(t, err, apperr.CodeUnauthorized)
-
-		var appErr *apperr.Error
-		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, auth.MsgInvalidRefreshToken, appErr.Message)
-
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
-		m.generator.AssertNotCalled(t, "Generate")
-		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
-		m.refreshTokens.AssertNotCalled(t, "RevokeByID", mock.Anything, mock.Anything, mock.Anything)
-	})
-
-	t.Run("Happy path: a verified account still rotates in the same family", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-		csrfToken := m.issueCSRF(t, validFamily)
-
-		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(verifiedAccount(), nil).Once()
-		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "new-access", ExpiresIn: 900}, nil).Once()
-		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
-		m.refreshTokens.EXPECT().
-			Create(mock.Anything, mock.MatchedBy(func(token *auth.RefreshToken) bool {
-				return token.UserID == validUserID && token.FamilyID == validFamily
-			})).
-			Return(nil).
-			Once()
-		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(true, nil).Once()
-
-		session, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
-		require.NoError(t, err)
-		assert.Equal(t, "new-access", session.AccessToken)
-		assert.Equal(t, validUserID, session.UserID)
-		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
-	})
-
-	t.Run("Edge: the disabled gate rotates an unverified account exactly as before", func(t *testing.T) {
-		service, m := newAuthService(t)
-		csrfToken := m.issueCSRF(t, validFamily)
-
-		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Once()
+		}, nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).
+			Return(&user.User{ID: validUserID, Email: testEmail, Username: "player"}, nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "new-access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
@@ -1151,107 +918,6 @@ func TestService_RefreshVerificationGate(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "new-access", session.AccessToken)
 		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
-	})
-
-	t.Run("Error: the second attempt after the refusal fails again and mints nothing", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-		csrfToken := m.issueCSRF(t, validFamily)
-
-		revoked := activeToken()
-		revoked.Revoked = true
-
-		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Once()
-		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
-
-		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
-		assertAppErr(t, err, apperr.CodeUnauthorized)
-
-		// The family is gone, so the credential now reads as revoked and the
-		// reuse rule decides, before the account is ever consulted.
-		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(revoked, nil).Once()
-		m.observer.EXPECT().RefreshReuseDetected().Return().Once()
-		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
-
-		_, err = service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
-		assertAppErr(t, err, apperr.CodeUnauthorized)
-
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
-		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
-	})
-
-	t.Run("Edge: a missing account keeps deciding before the gate", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-		csrfToken := m.issueCSRF(t, validFamily)
-
-		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(nil, user.ErrUserNotFound).Once()
-		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
-
-		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
-		assertAppErr(t, err, apperr.CodeUnauthorized)
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
-	})
-
-	t.Run("Edge: an expired credential keeps deciding before the gate", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-		csrfToken := m.issueCSRF(t, validFamily)
-
-		expired := activeToken()
-		expired.ExpiresAt = time.Now().Add(-time.Minute)
-
-		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(expired, nil).Once()
-
-		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
-		assertAppErr(t, err, apperr.CodeUnauthorized)
-		m.users.AssertNotCalled(t, "FetchByID", mock.Anything, mock.Anything)
-		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
-	})
-
-	t.Run("Error: a failed revocation on the refusal is an internal failure and issues nothing", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-		csrfToken := m.issueCSRF(t, validFamily)
-
-		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Once()
-		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(errors.New("mongo down")).Once()
-
-		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
-		assertAppErr(t, err, apperr.CodeInternal)
-
-		var appErr *apperr.Error
-		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, auth.MsgInternal, appErr.Message)
-
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
-		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
-	})
-
-	t.Run("Edge: two concurrent renewals of an unverified account issue zero credentials", func(t *testing.T) {
-		service, m := newGatedAuthService(t)
-		csrfToken := m.issueCSRF(t, validFamily)
-
-		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Times(2)
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(unverifiedAccount(), nil).Times(2)
-		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Times(2)
-
-		errs := make([]error, 2)
-		var wg sync.WaitGroup
-		for i := range errs {
-			wg.Add(1)
-			go func(index int) {
-				defer wg.Done()
-				_, errs[index] = service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
-			}(i)
-		}
-		wg.Wait()
-
-		for i := range errs {
-			assertAppErr(t, errs[i], apperr.CodeUnauthorized)
-		}
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
-		m.generator.AssertNotCalled(t, "Generate")
-		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 	})
 }
 
@@ -1357,7 +1023,7 @@ func TestService_Clock(t *testing.T) {
 	frozen := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 	now := frozen
 
-	t.Run("Happy path: registration stamps created_at, updated_at and expires_at from the clock", func(t *testing.T) {
+	t.Run("Happy path: registration stamps created_at and updated_at from the clock", func(t *testing.T) {
 		service, m := newAuthServiceWithClock(t, func() time.Time { return now })
 
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
@@ -1367,20 +1033,11 @@ func TestService_Clock(t *testing.T) {
 			})).
 			Return(nil).
 			Once()
-		m.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
-		m.generator.EXPECT().Generate().Return("raw-refresh", nil).Once()
-		m.refreshTokens.EXPECT().
-			Create(mock.Anything, mock.MatchedBy(func(token *auth.RefreshToken) bool {
-				return token.CreatedAt.Equal(frozen) && token.ExpiresAt.Equal(frozen.Add(testRefreshTTL))
-			})).
-			Return(nil).
-			Once()
+		m.expectRegistrationChallenge(testEmail)
 
 		outcome, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		require.NotNil(t, outcome.Session)
-		assert.Equal(t, "access", outcome.Session.AccessToken)
 	})
 
 	t.Run("Edge: refresh is valid one nanosecond before expiry and expired at the exact instant", func(t *testing.T) {

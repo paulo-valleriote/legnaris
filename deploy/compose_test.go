@@ -174,32 +174,29 @@ func TestAppServiceTrustedProxyCIDRs(t *testing.T) {
 	})
 }
 
-// TestAppServiceEmailVerificationGate guards the rollout gate's deployment
-// wiring: it is passed through to the app container, it is optional, and it
-// does not join the required-variable set (TFA-07, TFA-16).
-func TestAppServiceEmailVerificationGate(t *testing.T) {
+// TestAppServiceHasNoEmailVerificationFlag guards the removal of the rollout
+// flag: neither the app container nor the deployment template mentions it, and
+// the required-variable set is unchanged.
+func TestAppServiceHasNoEmailVerificationFlag(t *testing.T) {
 	doc := readCompose(t)
 
 	app, ok := doc.Services["app"]
 	require.True(t, ok, "the stack must define an app service")
 
-	t.Run("Happy path: the gate is an optional interpolation with a disabled default", func(t *testing.T) {
-		value, present := app.Environment["AUTH_REQUIRE_EMAIL_VERIFICATION"]
-		require.True(t, present, "app.environment must pass AUTH_REQUIRE_EMAIL_VERIFICATION through")
-		assert.Contains(t, value, "${AUTH_REQUIRE_EMAIL_VERIFICATION:-false}",
-			"the gate must be optional and default to the disabled state")
+	t.Run("Edge: the app container does not receive the removed flag", func(t *testing.T) {
+		_, present := app.Environment["AUTH_REQUIRE_EMAIL_VERIFICATION"]
+		assert.False(t, present)
+	})
+
+	t.Run("Edge: the deployment template does not document the removed flag", func(t *testing.T) {
+		raw, err := os.ReadFile(envExampleFile)
+		require.NoErrorf(t, err, "read %s", envExampleFile)
+
+		assert.NotContains(t, string(raw), "AUTH_REQUIRE_EMAIL_VERIFICATION")
 	})
 
 	t.Run("Edge: the required-variable list is unchanged", func(t *testing.T) {
 		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, env.RequiredKeys())
-	})
-
-	t.Run("Happy path: the deployment template documents the gate", func(t *testing.T) {
-		raw, err := os.ReadFile(envExampleFile)
-		require.NoErrorf(t, err, "read %s", envExampleFile)
-
-		assert.Contains(t, string(raw), "AUTH_REQUIRE_EMAIL_VERIFICATION",
-			"the gate must be documented in the deployment template")
 	})
 }
 

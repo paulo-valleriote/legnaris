@@ -21,23 +21,14 @@ in a temporary directory that the script deletes on exit.
 The files are excluded from Prettier (`.prettierignore`) so their bytes stay as
 the server sent them.
 
-## The two gate states
+## Running the capture
 
-The stack answers either a session or a code step, and the script follows the
-answer it actually received: the session family on a stack whose gate is off, the
-code-step family on a stack whose gate is on (R8). The other family's files are
-left untouched, so **one run per gate state** refreshes the whole set:
+Registration always starts the code step, so a run refreshes the code-step
+family; the session family comes from sign-in and the code verification:
 
 ```bash
-# the session family
-AUTH_REQUIRE_EMAIL_VERIFICATION=false bash web/src/api/fixtures/capture.sh
-
-# the code-step family
-AUTH_REQUIRE_EMAIL_VERIFICATION=true bash web/src/api/fixtures/capture.sh
+bash web/src/api/fixtures/capture.sh
 ```
-
-The script never assumes a gate state: registration answers `201` in both, so
-the branch reads the payload's own shape (`R1`).
 
 ### What the code-step run needs
 
@@ -53,7 +44,7 @@ the branch reads the payload's own shape (`R1`).
 A short local configuration makes the run quick:
 
 ```bash
-AUTH_REQUIRE_EMAIL_VERIFICATION=true AUTH_OTP_DAILY_SEND_CAP=5 AUTH_RATE_LIMIT_ATTEMPTS=200 make run
+AUTH_OTP_DAILY_SEND_CAP=5 AUTH_RATE_LIMIT_ATTEMPTS=200 make run
 ```
 
 ## File shape
@@ -94,8 +85,8 @@ shape and drops the credential — its `access_token` holds the
 | `error_invalid_json.json`                   | `POST /sheets` (malformed body)   | 400 `INVALID_JSON`                                                                |
 | `error_internal.json`                       | `GET /no-such-route`              | 500 `INTERNAL_ERROR` (an unmatched route surfaces through the global handler)     |
 | `error_unauthorized.json`                   | `GET /templates` (no credential)  | 401 `UNAUTHORIZED`                                                                |
-| `auth_register_challenge.json`              | `POST /auth/register` (gate on)   | 201, the started code step and no cookie                                          |
-| `auth_login_challenge.json`                 | `POST /auth/login` (gate on)      | 202, the started code step and no cookie                                          |
+| `auth_register_challenge.json`              | `POST /auth/register`    | 201, the started code step and no cookie                                          |
+| `auth_login_challenge.json`                 | `POST /auth/login`       | 202, the started code step and no cookie                                          |
 | `auth_challenge_verify.json`                | `POST /auth/challenge/verify`     | 200, the session body with a redacted token                                       |
 | `auth_challenge_resend.json`                | `POST /auth/challenge/resend`     | 202, the advertised retry window                                                  |
 | `error_otp_invalid.json`                    | `POST /auth/challenge/verify`     | 401 `OTP_INVALID` — the one uniform refusal for every wrong code                  |
