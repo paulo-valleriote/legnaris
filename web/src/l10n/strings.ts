@@ -27,6 +27,8 @@ export const messages = {
     'That code is not valid or has expired. Check the newest email, or send a new code.',
   'api.error.emailUnavailable': 'We could not send the code right now. Try again in a moment.',
   'api.error.conflict': 'That email already has an account. Sign in instead.',
+  'api.error.disposableEmail':
+    'Use a permanent email address. Disposable addresses cannot receive your code.',
 
   'auth.titleLogin': 'Sign in to your archive',
   'auth.titleRegister': 'Create your archive',

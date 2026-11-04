@@ -87,6 +87,12 @@ type Variables struct {
 	AuthOTPDailySendCap   int
 	AuthOTPUserWindow     time.Duration
 	AuthOTPUserLimit      int
+	// AppEnv names the deployment. Only "production" changes behavior: it
+	// keeps the disposable-address check on whatever the flag says (LGN-151, D7).
+	AppEnv string
+	// AuthDisposableEmailCheck gates the registration refusal of throwaway and
+	// undeliverable domains. It defaults on and is forced on in production.
+	AuthDisposableEmailCheck bool
 }
 
 const (
@@ -138,7 +144,14 @@ const (
 	defaultAuthOTPDailySendCap   = 80
 	defaultAuthOTPUserWindow     = time.Hour
 	defaultAuthOTPUserLimit      = 10
+	// The disposable-address check is on by default (D7); make dev and CI turn
+	// it off explicitly.
+	defaultDisposableEmailCheck = true
 )
+
+// appEnvProduction is the APP_ENV value that forces the disposable-address
+// check on.
+const appEnvProduction = "production"
 
 // DefaultEmailOutboxRetention is the retention window after which a published
 // send intention becomes eligible for retirement; it backs the email_outbox
@@ -163,6 +176,8 @@ const (
 	keyEmailCodeSecret   = "EMAIL_CODE_SECRET"
 	keyTrustedProxyCIDRs = "TRUSTED_PROXY_CIDRS"
 	keyRedisURL          = "REDIS_URL"
+	keyAppEnv            = "APP_ENV"
+	keyDisposableEmail   = "AUTH_DISPOSABLE_EMAIL_CHECK"
 )
 
 // RequiredKeys returns the environment variables the application cannot start
@@ -222,6 +237,12 @@ func NewEnv(logger logger.StructuredLogger) Env {
 }
 
 func (e *Env) initVariables() Variables {
+	vars := e.buildVariables()
+	vars.AuthDisposableEmailCheck = e.resolveDisposableEmailCheck(vars.AppEnv)
+	return vars
+}
+
+func (e *Env) buildVariables() Variables {
 	return Variables{
 		Port:                           e.lookupStringEnv("PORT", defaultPort),
 		AppName:                        e.lookupStringEnv("APP_NAME", defaultAppName),
@@ -273,7 +294,45 @@ func (e *Env) initVariables() Variables {
 		AuthOTPDailySendCap:            e.lookupIntEnv("AUTH_OTP_DAILY_SEND_CAP", defaultAuthOTPDailySendCap),
 		AuthOTPUserWindow:              e.lookupDurationEnv("AUTH_OTP_USER_WINDOW", defaultAuthOTPUserWindow),
 		AuthOTPUserLimit:               e.lookupIntEnv("AUTH_OTP_USER_LIMIT", defaultAuthOTPUserLimit),
+		AppEnv:                         e.lookupStringEnv(keyAppEnv, ""),
 	}
+}
+
+// resolveDisposableEmailCheck reads AUTH_DISPOSABLE_EMAIL_CHECK. In production
+// a value of false is overridden to true and logged, so the check cannot be
+// turned off there by configuration.
+func (e *Env) resolveDisposableEmailCheck(appEnv string) bool {
+	enabled := e.lookupBoolEnv(keyDisposableEmail, defaultDisposableEmailCheck)
+	if enabled || appEnv != appEnvProduction {
+		return enabled
+	}
+	e.Logger.Warn(
+		context.Background(),
+		"disposable e-mail check cannot be disabled in production; keeping it enabled",
+		logger.Attribute{Key: attrKey, Value: keyDisposableEmail},
+	)
+	return true
+}
+
+// lookupBoolEnv reads a boolean with strconv.ParseBool. Unset, empty or
+// unparseable values log a warning and return the default.
+func (e *Env) lookupBoolEnv(key string, defaultValue bool) bool {
+	value, found := e.lookupEnv(key)
+	if !found {
+		return defaultValue
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		e.Logger.Warn(
+			context.Background(),
+			"invalid boolean value for environment variable; using default",
+			logger.Attribute{Key: attrKey, Value: key},
+			logger.Attribute{Key: attrValue, Value: value},
+			logger.Attribute{Key: attrDefault, Value: strconv.FormatBool(defaultValue)},
+		)
+		return defaultValue
+	}
+	return parsed
 }
 
 // lookupEnv reads key from the environment and reports whether it was set to a

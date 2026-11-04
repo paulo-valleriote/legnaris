@@ -73,6 +73,13 @@ func newAuthService(t *testing.T) (auth.Service, *authMocks) {
 // explicit time source, so timestamp assertions need no sleeping (PRQ-16).
 func newAuthServiceWithClock(t *testing.T, clock auth.Clock) (auth.Service, *authMocks) {
 	t.Helper()
+	return newAuthServiceWithChecker(t, clock, nil)
+}
+
+// newAuthServiceWithChecker is newAuthServiceWithClock with the registration
+// email checker injected; a nil checker leaves the check disabled.
+func newAuthServiceWithChecker(t *testing.T, clock auth.Clock, checker auth.EmailChecker) (auth.Service, *authMocks) {
+	t.Helper()
 
 	m := &authMocks{
 		users:         usermocks.NewMockRepository(t),
@@ -97,7 +104,7 @@ func newAuthServiceWithClock(t *testing.T, clock auth.Clock) (auth.Service, *aut
 		m.generator,
 		m.csrf,
 		m.observer,
-		auth.Config{RefreshTTL: testRefreshTTL, Now: clock},
+		auth.Config{RefreshTTL: testRefreshTTL, Now: clock, EmailChecker: checker},
 		logger.NewLogger(slog.LevelError),
 		auth.ChallengeDeps{
 			Repository: m.challenges,

@@ -187,6 +187,23 @@ func TestAuthController_Register(t *testing.T) {
 		assert.Empty(t, rec.Header().Get("Set-Cookie"))
 	})
 
+	t.Run("Error: a disposable or undeliverable domain answers 400 DISPOSABLE_EMAIL and sets no cookie", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Register(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeDisposableEmail, auth.MsgDisposableEmail, nil)).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/register", `{"email":"player@mailinator.com","username":"player","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeDisposableEmail), body.Error.Code)
+	})
+
 	t.Run("Error: the spent daily allowance answers 503 with a retry hint and no cookie", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		service.EXPECT().

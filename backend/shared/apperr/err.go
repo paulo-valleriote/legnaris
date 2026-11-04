@@ -32,6 +32,9 @@ const (
 	// CodeNotReady reports a failed readiness probe: a dependency (the
 	// database) is unreachable, so the instance must not receive traffic.
 	CodeNotReady Code = "NOT_READY"
+	// CodeDisposableEmail refuses a registration whose domain is a throwaway
+	// provider or cannot receive mail, before any account is written (LGN-151).
+	CodeDisposableEmail Code = "DISPOSABLE_EMAIL"
 )
 
 type Error struct {
@@ -56,7 +59,7 @@ func NewError(code Code, message string, err error) *Error {
 	var httpStatus int
 	switch code {
 	case CodeInvalidJSON, CodeUnknownField, CodeInvalidRequest,
-		CodeCycleDetected, CodeInvalidDependency, CodeInvalidPath:
+		CodeCycleDetected, CodeInvalidDependency, CodeInvalidPath, CodeDisposableEmail:
 		httpStatus = 400
 	case CodeUnauthorized, CodeOTPInvalid:
 		httpStatus = 401
