@@ -1,25 +1,14 @@
 name: Lint & Race
 
+# Pull requests only: a merge to main re-runs nothing new, since the PR already
+# passed this exact tree (the repository is on a metered free plan). Allowlist,
+# not paths-ignore (the two cannot coexist on one event): this pipeline owns
+# the Go toolchain and the deploy stack only. A docs/web/spec change touches
+# neither, so it must not trigger this pipeline. `backend/cmd/**`,
+# `backend/internal/**` and `backend/shared/**` are listed beyond `**/*.go` so
+# non-Go assets they may carry (testdata, embedded files) still trigger it.
 on:
   pull_request:
-    # Allowlist, not paths-ignore (the two cannot coexist on one event): this
-    # pipeline owns the Go toolchain and the deploy stack only. A docs/web/spec
-    # change touches neither, so it must not trigger this pipeline. `backend/cmd/**`,
-    # `backend/internal/**` and `backend/shared/**` are listed beyond `**/*.go` so
-    # non-Go assets they may carry (testdata, embedded files) still trigger it.
-    paths:
-      - '**/*.go'
-      - 'backend/cmd/**'
-      - 'backend/internal/**'
-      - 'backend/shared/**'
-      - 'deploy/**'
-      - 'go.mod'
-      - 'go.sum'
-      - 'Dockerfile'
-      - '.github/workflows/ci-lint.yml'
-
-  push:
-    branches: [main]
     paths:
       - '**/*.go'
       - 'backend/cmd/**'
@@ -34,9 +23,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
-    name: golangci-lint
+    name: golangci-lint, tidy, deploy stack config
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -56,6 +49,15 @@ jobs:
       - name: go.mod is tidy
         run: go mod tidy -diff
 
+      # Interpolate the whole stack against the committed .env.example (every
+      # required variable is a non-empty placeholder), so a required var that
+      # is not wired into a service — or a malformed compose file — fails the
+      # build instead of only crashing the container at `up`.
+      - name: docker compose config (base + local override)
+        run: |
+          docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config >/dev/null
+          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml --env-file deploy/.env.example config >/dev/null
+
   race:
     name: tests (race detector)
     runs-on: ubuntu-latest
@@ -66,18 +68,3 @@ jobs:
           go-version-file: go.mod
       - name: go test -race
         run: go test -race ./...
-
-  compose:
-    name: deploy stack config
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      # Interpolate the whole stack against the committed .env.example (every
-      # required variable is a non-empty placeholder), so a required var that
-      # is not wired into a service — or a malformed compose file — fails the
-      # build instead of only crashing the container at `up`.
-      - name: docker compose config (base + local override)
-        run: |
-          docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config >/dev/null
-          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml --env-file deploy/.env.example config >/dev/null

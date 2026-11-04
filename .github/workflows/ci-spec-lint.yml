@@ -25,6 +25,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-spec-lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lints:
     name: assertions, requirement ids, citations

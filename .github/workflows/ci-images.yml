@@ -5,13 +5,19 @@ name: Images
 # pushes to main and `v*` tags publish. The commit-SHA tag is the immutable
 # reference clusters should pin; `v*` tags add a human-readable version tag.
 on:
+  # Pull requests build and scan only when something that changes the image
+  # contents or its dependency set changes (Dockerfiles, lockfiles, rabbitmq);
+  # plain source edits are covered by the Go and Web pipelines and by the
+  # publish run on main. Keeps a metered free plan from paying for three image
+  # builds on every commit.
   pull_request:
     paths:
       - 'Dockerfile'
-      - 'backend/**'
       - 'go.mod'
       - 'go.sum'
-      - 'web/**'
+      - 'web/Dockerfile'
+      - 'web/package.json'
+      - 'web/package-lock.json'
       - 'deploy/rabbitmq/**'
       - '.github/workflows/ci-images.yml'
   push:
@@ -26,6 +32,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  hardening:
+    name: web Dockerfile hardening
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: hadolint (Dockerfile best practices)
+        uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: web/Dockerfile
+          failure-threshold: warning
+      # Trivy's IaC checks over the image definition. Blocking on CRITICAL only:
+      # DS002 ("image user is root", HIGH) is an accepted property of the static
+      # nginx image, whose master must start as root to bind port 80 and drops
+      # its workers to the unprivileged `nginx` user.
+      - name: Trivy config scan (IaC)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: web
+          severity: CRITICAL
+          exit-code: '1'
+
   image:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest

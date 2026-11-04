@@ -5,28 +5,28 @@ name: Web CI
 # is allowlisted to the backend and does not trigger on web/**, so neither
 # toolchain runs for the other's changes (SEC-06).
 #
-# Every job is a required, fail-closed gate: no job sets continue-on-error and
-# none is conditionally skipped on these trigger paths (SEC-04, FND/SEC
-# contracts under .specs/features/001-web-pwa-foundation/contracts/).
+# Every job is a required, fail-closed gate: no job sets continue-on-error
+# (SEC-04, FND/SEC contracts under .specs/features/001-web-pwa-foundation/
+# contracts/). The repository is on a metered free plan, so each gate runs once
+# per change instead of twice: the fast gates (quality, sca, sast, secrets,
+# e2e) run on pull requests; the slow, docker-heavy ones (dast, lighthouse) run
+# weekly and on demand (workflow_dispatch). Dockerfile hardening lives in
+# ci-images.yml, next to the other image checks.
 #
 # Gates: quality (format, lint, typecheck, tests with coverage thresholds,
-# build), sca (osv/Trivy/npm audit/signatures), sast (Semgrep), secrets
-# (gitleaks), lockfile (lockfile-lint), hardening (hadolint + Trivy config),
-# e2e (Playwright browser suite against the committed visual baseline), dast
-# (OWASP ZAP baseline), lighthouse (LHCI), sbom (Syft) — POL-06, SC-02, SC-06,
-# F10-T003.
+# build, lockfile-lint), sca (osv-scanner/npm audit/signatures), sast (Semgrep),
+# secrets (gitleaks), e2e (Playwright browser suite against the committed visual
+# baseline), dast (OWASP ZAP baseline), lighthouse (LHCI) — POL-06, SC-02,
+# SC-06, F10-T003.
 on:
   pull_request:
     paths:
       - 'web/**'
       - '.zap/**'
       - '.github/workflows/ci-web.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'web/**'
-      - '.zap/**'
-      - '.github/workflows/ci-web.yml'
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,6 +38,7 @@ concurrency:
 jobs:
   quality:
     name: lint, typecheck, tests, build
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,9 +62,12 @@ jobs:
         run: npm run test:coverage
       - name: Production build
         run: npm run build
+      - name: lockfile-lint
+        run: npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
 
   sca:
     name: dependency scanning
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -87,29 +91,10 @@ jobs:
           chmod +x osv-scanner
       - name: osv-scanner (lockfile)
         run: ./osv-scanner scan --lockfile=web/package-lock.json
-      # Pin at or above v0.33.1: earlier trivy-action releases reference
-      # aquasecurity/setup-trivy tags that the publisher has since pruned, and the
-      # step then fails while resolving them, before any scan runs.
-      - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: fs
-          scan-ref: web
-          scanners: vuln
-          severity: CRITICAL,HIGH
-          format: sarif
-          output: trivy-web.sarif
-          exit-code: '1'
-      - name: Upload SARIF
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: sca-sarif
-          path: trivy-web.sarif
-          if-no-files-found: ignore
 
   sast:
     name: static analysis
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     # CodeQL is deferred: code scanning and the CodeQL CLI are both unavailable on
     # a private repository without GitHub Code Security, which only GitHub Team and
@@ -145,6 +130,7 @@ jobs:
 
   secrets:
     name: secret scanning
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     # gitleaks resolves the pull request's commit range through
     # GET /repos/{owner}/{repo}/pulls/{number}/commits, which the job would not
@@ -161,69 +147,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  lockfile:
-    name: lockfile integrity
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: web/.nvmrc
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: Install (frozen lockfile)
-        run: npm ci
-      - name: lockfile-lint
-        run: npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
-
   # `dependency-review` is intentionally absent: the action requires the
   # dependency graph plus GitHub Advanced Security, which this private
   # repository does not have, so the job failed on every run including `main`
   # pushes and buried the results of the gates that do run. `sca` (osv-scanner,
-  # Trivy fs, npm audit) is the blocking dependency gate (POL-06, SEC-01).
-
-  hardening:
-    name: container and Dockerfile hardening
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: hadolint (Dockerfile best practices)
-        uses: hadolint/hadolint-action@v3.5.0
-        with:
-          dockerfile: web/Dockerfile
-          failure-threshold: warning
-      # Trivy's IaC checks over the image definition. Blocking on CRITICAL only:
-      # DS002 ("image user is root", HIGH) is an accepted property of the static
-      # nginx image, whose master must start as root to bind port 80 and drops
-      # its workers to the unprivileged `nginx` user.
-      - name: Trivy config scan (IaC)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: config
-          scan-ref: web
-          severity: CRITICAL
-          exit-code: '1'
-
-  sbom:
-    name: software bill of materials
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      # Syft derives the SPDX SBOM from the client's manifest and lockfile and
-      # uploads it as a workflow artifact (POL-06 / SC-02).
-      - name: Generate the SBOM (Syft)
-        uses: anchore/sbom-action@v0
-        with:
-          path: ./web
-          format: spdx-json
-          output-file: web-sbom.spdx.json
-          artifact-name: web-sbom
+  # npm audit) is the blocking dependency gate (POL-06, SEC-01).
 
   e2e:
     name: browser end-to-end and visual parity
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -256,6 +188,7 @@ jobs:
 
   dast:
     name: dynamic analysis (ZAP baseline)
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -316,6 +249,7 @@ jobs:
 
   lighthouse:
     name: lighthouse audits
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
