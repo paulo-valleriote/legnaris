@@ -107,9 +107,10 @@ func doRequest(t *testing.T, h http.Handler, method, path, body string) *httptes
 // with; it clears the service's length checks.
 const integrationPassword = "sup3r-secret"
 
-// newAuthUser registers a fresh user and returns the session's access token plus
-// the user id parsed from its subject. Registration signs the browser in, so no
-// separate login is needed (AUTH-02).
+// newAuthUser registers a fresh user, signs in with the password and returns
+// the session's access token plus the user id parsed from its subject.
+// Registration starts a code step and issues no session, so the sign-in is
+// what yields the token.
 func newAuthUser(t *testing.T, h http.Handler, email, username string) (token string, userID string) {
 	t.Helper()
 
@@ -117,8 +118,12 @@ func newAuthUser(t *testing.T, h http.Handler, email, username string) (token st
 	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
 	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
 
+	loginRec := doRequest(t, h, http.MethodPost, "/auth/login",
+		fmt.Sprintf(`{"email":%q,"password":%q}`, email, integrationPassword))
+	require.Equal(t, http.StatusOK, loginRec.Code, loginRec.Body.String())
+
 	var session response.Success[auth.SessionResponse]
-	require.NoError(t, json.Unmarshal(registerRec.Body.Bytes(), &session))
+	require.NoError(t, json.Unmarshal(loginRec.Body.Bytes(), &session))
 	require.NotEmpty(t, session.Data.AccessToken)
 
 	return session.Data.AccessToken, jwtSubject(t, session.Data.AccessToken)
@@ -934,13 +939,13 @@ func TestIntegration_CanonicalEmail(t *testing.T) {
 	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
 	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
 
-	var session response.Success[auth.SessionResponse]
-	require.NoError(t, json.Unmarshal(registerRec.Body.Bytes(), &session))
-	registeredID := jwtSubject(t, session.Data.AccessToken)
+	var issued response.Success[auth.ChallengeIssued]
+	require.NoError(t, json.Unmarshal(registerRec.Body.Bytes(), &issued))
+	assert.NotEmpty(t, issued.Data.ChallengeID)
 
 	var stored bson.M
 	require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.D{{Key: "email", Value: canonical}}).Decode(&stored))
-	assert.Equal(t, registeredID, stored["_id"])
+	assert.NotEmpty(t, stored["_id"])
 	assert.NotContains(t, stored, "email_verified_at", "registration must not backfill a verification timestamp")
 
 	duplicateRec := doRequest(
@@ -972,7 +977,7 @@ func TestIntegration_CanonicalEmail(t *testing.T) {
 
 	var loginSession response.Success[auth.SessionResponse]
 	require.NoError(t, json.Unmarshal(loginRec.Body.Bytes(), &loginSession))
-	assert.Equal(t, registeredID, jwtSubject(t, loginSession.Data.AccessToken))
+	assert.Equal(t, stored["_id"], jwtSubject(t, loginSession.Data.AccessToken))
 
 	legacyID := "01900000-0000-7000-8000-0000000000aa"
 	_, err = mdb.Collection("users").InsertOne(ctx, bson.M{

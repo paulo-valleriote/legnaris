@@ -138,8 +138,6 @@ const (
 	defaultAuthOTPDailySendCap   = 80
 	defaultAuthOTPUserWindow     = time.Hour
 	defaultAuthOTPUserLimit      = 10
-	// The sign-in hardening gate ships dark: an unset or unusable value keeps
-	// the legacy contract (TFA-07).
 )
 
 // DefaultEmailOutboxRetention is the retention window after which a published
