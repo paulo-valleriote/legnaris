@@ -22,7 +22,7 @@ type FailureKind =
 | Code | Status | Kind | Copy key | Emitted by |
 |---|---|---|---|---|
 | `OTP_INVALID` | 401 | `invalidCode` | `api.error.invalidCode` | `POST /auth/challenge/verify` |
-| `EMAIL_UNAVAILABLE` | 503 | `emailUnavailable` | `api.error.emailUnavailable` | `POST /auth/register` (gate on), `POST /auth/challenge/resend` |
+| `EMAIL_UNAVAILABLE` | 503 | `emailUnavailable` | `api.error.emailUnavailable` | `POST /auth/register`, `POST /auth/challenge/resend` |
 | `CONFLICT` | 409 | `conflict` | `api.error.conflict` | `POST /auth/register` — duplicate address only |
 
 ## Rules

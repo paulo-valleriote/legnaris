@@ -49,9 +49,9 @@ dev-server CSP from those values, so nothing else needs editing.
 ### What does not run in development
 
 Traefik, oauth2-proxy, the Cloudflare tunnel, RabbitMQ, the email relay/worker
-and the observability stack. Sign-in works without email because
-`AUTH_REQUIRE_EMAIL_VERIFICATION` is off by default; to exercise the email-code
-flow you need a broker (`make relay`, `make worker`, see `deploy/README.md`).
+and the observability stack. Registration always starts the
+email-code step, so completing a sign-up needs a broker (`make relay`,
+`make worker`, see `deploy/README.md`).
 
 ### Running the pieces separately
 

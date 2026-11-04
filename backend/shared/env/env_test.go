@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"legnaris/backend/shared/logger"
-	loggermocks "legnaris/backend/shared/logger/mocks"
 
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -134,112 +132,10 @@ func TestLookupRequiredStringEnv(t *testing.T) {
 	})
 }
 
-// TestLookupBoolEnv covers the optional boolean reader: an absent, empty or
-// unparseable value keeps the default with a structured warning, and every
-// spelling strconv.ParseBool accepts is honoured (TFA-07, TFA-16).
-func TestLookupBoolEnv(t *testing.T) {
-	t.Run("Edge: unset falls back to default", func(t *testing.T) {
-		e := newTestEnv()
-		unsetEnv(t, "TEST_BOOL")
-		require.False(t, e.lookupBoolEnv("TEST_BOOL", false))
-		require.True(t, e.lookupBoolEnv("TEST_BOOL", true))
-	})
-
-	t.Run("Edge: empty value falls back to default", func(t *testing.T) {
-		e := newTestEnv()
-		t.Setenv("TEST_BOOL", "")
-		require.False(t, e.lookupBoolEnv("TEST_BOOL", false))
-	})
-
-	t.Run("Happy path: every accepted spelling is parsed", func(t *testing.T) {
-		e := newTestEnv()
-
-		tests := []struct {
-			value string
-			want  bool
-		}{
-			{value: "1", want: true},
-			{value: "t", want: true},
-			{value: "true", want: true},
-			{value: "TRUE", want: true},
-			{value: "True", want: true},
-			{value: "0", want: false},
-			{value: "f", want: false},
-			{value: "false", want: false},
-			{value: "FALSE", want: false},
-			{value: "False", want: false},
-		}
-
-		for _, tc := range tests {
-			t.Run(tc.value, func(t *testing.T) {
-				t.Setenv("TEST_BOOL", tc.value)
-				require.Equal(t, tc.want, e.lookupBoolEnv("TEST_BOOL", !tc.want))
-			})
-		}
-	})
-
-	t.Run("Edge: an unparseable value falls back to the default with one warning", func(t *testing.T) {
-		log := loggermocks.NewMockStructuredLogger(t)
-		log.EXPECT().
-			Warn(mock.Anything, "invalid boolean value for environment variable; using default",
-				mock.MatchedBy(func(a logger.Attribute) bool { return a.Key == "key" && a.Value == "TEST_BOOL" }),
-				mock.MatchedBy(func(a logger.Attribute) bool { return a.Key == "value" && a.Value == "maybe" }),
-				mock.MatchedBy(func(a logger.Attribute) bool { return a.Key == "default" && a.Value == "false" }),
-			).
-			Once()
-
-		e := Env{Logger: log}
-		t.Setenv("TEST_BOOL", "maybe")
-
-		require.False(t, e.lookupBoolEnv("TEST_BOOL", false))
-	})
-
-	t.Run("Edge: an invalid value never fails the boot", func(t *testing.T) {
-		log := loggermocks.NewMockStructuredLogger(t)
-		log.EXPECT().Warn(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
-
-		e := Env{Logger: log}
-		t.Setenv("TEST_BOOL", "not-a-boolean")
-
-		require.True(t, e.lookupBoolEnv("TEST_BOOL", true))
-	})
-}
-
-// TestInitVariablesEmailVerificationGate covers the rollout gate: it is
-// optional, disabled by default, absent from the required set, and an invalid
-// value keeps the gate off (TFA-07, TFA-16).
-func TestInitVariablesEmailVerificationGate(t *testing.T) {
-	t.Run("Edge: an unset gate stays disabled", func(t *testing.T) {
-		e := newTestEnv()
-		unsetEnv(t, "AUTH_REQUIRE_EMAIL_VERIFICATION")
-		require.False(t, e.initVariables().RequireEmailVerification)
-	})
-
-	t.Run("Edge: an empty gate stays disabled", func(t *testing.T) {
-		e := newTestEnv()
-		t.Setenv("AUTH_REQUIRE_EMAIL_VERIFICATION", "")
-		require.False(t, e.initVariables().RequireEmailVerification)
-	})
-
-	t.Run("Happy path: the gate can be turned on", func(t *testing.T) {
-		e := newTestEnv()
-		t.Setenv("AUTH_REQUIRE_EMAIL_VERIFICATION", "true")
-		require.True(t, e.initVariables().RequireEmailVerification)
-	})
-
-	t.Run("Happy path: the gate can be turned off explicitly", func(t *testing.T) {
-		e := newTestEnv()
-		t.Setenv("AUTH_REQUIRE_EMAIL_VERIFICATION", "false")
-		require.False(t, e.initVariables().RequireEmailVerification)
-	})
-
-	t.Run("Edge: an invalid gate value keeps the gate off", func(t *testing.T) {
-		e := newTestEnv()
-		t.Setenv("AUTH_REQUIRE_EMAIL_VERIFICATION", "maybe")
-		require.False(t, e.initVariables().RequireEmailVerification)
-	})
-
-	t.Run("Edge: the gate is not a required variable", func(t *testing.T) {
+// TestRequiredKeys pins the required-variable set: the removed email
+// verification flag never joins it.
+func TestRequiredKeys(t *testing.T) {
+	t.Run("Edge: only the three secrets are required", func(t *testing.T) {
 		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
 	})
 }

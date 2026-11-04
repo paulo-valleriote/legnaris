@@ -78,11 +78,6 @@ type SessionResponse struct {
 // The access-token TTL is a TokenManager concern, not a service one.
 type Config struct {
 	RefreshTTL time.Duration
-	// RequireEmailVerification is the rollout gate and the single decision
-	// point of the sign-in hardening: when it is enabled, Register and Login
-	// answer a started code step instead of a session, and Refresh refuses an
-	// account that never verified its address (TFA-01, TFA-02, TFA-06, TFA-07).
-	RequireEmailVerification bool
 	// Now is the single clock for timestamps written or compared here. Nil
 	// means the system clock (PRQ-16).
 	Now Clock
@@ -156,10 +151,9 @@ func NewService(
 	}
 }
 
-// Register creates the account and, on success, either signs it in exactly as
-// Login does or starts the code step that must be verified first, depending on
-// the rollout gate. A duplicate email still answers 409 before any session is
-// issued and before any code is sent (AUTH-02, TFA-01).
+// Register creates the account and starts the verify_email code step; it never
+// issues a session, because the address must be confirmed first. A duplicate
+// email still answers 409 before any code is sent (AUTH-02, TFA-01).
 func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*StartOutcome, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
@@ -209,30 +203,18 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Start
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	// The account exists and carries no verification timestamp: the code step
-	// is what records it (TFA-01, TFA-04).
-	if s.cfg.RequireEmailVerification {
-		issued, err := s.startChallenge(ctx, newUser.ID, newUser.Email, PurposeVerifyEmail)
-		if err != nil {
-			return nil, err
-		}
-		s.log.Info(ctx, "registration challenge started", logger.Attribute{Key: attrUserID, Value: newUser.ID})
-		return &StartOutcome{Challenge: issued}, nil
-	}
-
-	session, err := s.signIn(ctx, newUser.ID)
+	issued, err := s.startChallenge(ctx, newUser.ID, newUser.Email, PurposeVerifyEmail)
 	if err != nil {
 		return nil, err
 	}
 
-	s.log.Info(ctx, "user registered", logger.Attribute{Key: attrUserID, Value: newUser.ID})
-	return &StartOutcome{Session: session}, nil
+	s.log.Info(ctx, "registration challenge started", logger.Attribute{Key: attrUserID, Value: newUser.ID})
+	return &StartOutcome{Challenge: issued}, nil
 }
 
-// Login proves the password and, on success, either establishes the session
-// exactly as today or starts the code step that must be verified first,
-// depending on the rollout gate. Every credential failure answers the one
-// uniform outcome and starts nothing (TFA-02, TFA-05).
+// Login proves the password and, on success, establishes the session. Every
+// credential failure answers the one uniform outcome and starts nothing
+// (TFA-02, TFA-05).
 func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*StartOutcome, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
@@ -255,15 +237,6 @@ func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*StartOutcom
 
 	if err := s.hasher.Compare(stored.PasswordHash, cmd.Password); err != nil {
 		return nil, s.invalidCredentials(ctx, "password mismatch")
-	}
-
-	if s.cfg.RequireEmailVerification {
-		issued, err := s.startChallenge(ctx, stored.ID, stored.Email, PurposeLoginOTP)
-		if err != nil {
-			return nil, err
-		}
-		s.log.Info(ctx, "login challenge started", logger.Attribute{Key: attrUserID, Value: stored.ID})
-		return &StartOutcome{Challenge: issued}, nil
 	}
 
 	session, err := s.signIn(ctx, stored.ID)
@@ -320,11 +293,6 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 			return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, err)
 		}
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
-	}
-
-	// The renewal gate: a session minted before the rule cannot outlive it.
-	if err := s.verificationGate(ctx, account, stored.FamilyID); err != nil {
-		return nil, err
 	}
 
 	access, err := s.tokens.Issue(account.ID)
@@ -395,26 +363,6 @@ func (s *ServiceImpl) resolveCredential(ctx context.Context, cmd RefreshCommand)
 	}
 
 	return stored, nil
-}
-
-// verificationGate refuses the renewal of an account that never verified its
-// address while the rollout gate is enabled: the presented credential's family
-// is revoked and the uniform invalid-credential outcome is returned, so the
-// refusal is indistinguishable from the missing-account branch and the caller
-// recovers by signing in (TFA-06).
-func (s *ServiceImpl) verificationGate(ctx context.Context, account *user.User, familyID string) error {
-	if !s.cfg.RequireEmailVerification || account.EmailVerifiedAt != nil {
-		return nil
-	}
-
-	if revokeErr := s.refreshTokens.RevokeFamily(ctx, familyID); revokeErr != nil {
-		return apperr.NewError(apperr.CodeInternal, MsgInternal, revokeErr)
-	}
-
-	s.log.Warn(ctx, "refresh refused: the account never verified its address",
-		logger.Attribute{Key: attrUserID, Value: account.ID},
-	)
-	return apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 }
 
 // Logout revokes the resolved session's family. A missing or unknown credential
