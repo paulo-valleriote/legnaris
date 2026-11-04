@@ -245,3 +245,69 @@ func TestResolveSeparateAddresses(t *testing.T) {
 	assert.Equal(t, "203.0.113.11", second)
 	assert.NotEqual(t, first, second)
 }
+
+// TestResolveBehindKubernetesIngress covers the k8s deployment: the limiter is
+// keyed by the real client only while the ingress/pod CIDR is trusted, so
+// TRUSTED_PROXY_CIDRS must name it when the ingress is not on a private range.
+func TestResolveBehindKubernetesIngress(t *testing.T) {
+	const (
+		podCIDR       = "100.64.0.0/10"
+		ingressPeer   = "100.64.3.9:41000"
+		publicLBPeer  = "198.51.100.20:41000"
+		realClient    = "203.0.113.50"
+		spoofedClient = "192.0.2.99"
+	)
+
+	tests := []struct {
+		name       string
+		configured []string
+		remoteAddr string
+		forwarded  []string
+		want       string
+	}{
+		{
+			name:       "Happy path: the configured ingress CIDR resolves the real client",
+			configured: []string{podCIDR},
+			remoteAddr: ingressPeer,
+			forwarded:  []string{realClient},
+			want:       realClient,
+		},
+		{
+			name:       "Edge: a CGNAT ingress outside the defaults is keyed by the ingress when unconfigured",
+			configured: nil,
+			remoteAddr: ingressPeer,
+			forwarded:  []string{realClient},
+			want:       "100.64.3.9",
+		},
+		{
+			name:       "Edge: a public load balancer outside the configured set cannot choose the key",
+			configured: []string{podCIDR},
+			remoteAddr: publicLBPeer,
+			forwarded:  []string{spoofedClient},
+			want:       "198.51.100.20",
+		},
+		{
+			name:       "Edge: a client-supplied hop ahead of the ingress is not believed",
+			configured: []string{podCIDR},
+			remoteAddr: ingressPeer,
+			forwarded:  []string{spoofedClient + ", " + realClient},
+			want:       realClient,
+		},
+		{
+			name:       "Edge: multiple ingress pods in the CIDR still resolve the client",
+			configured: []string{podCIDR},
+			remoteAddr: ingressPeer,
+			forwarded:  []string{realClient + ", 100.64.7.7"},
+			want:       realClient,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			policy, err := clientip.New(tc.configured)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.want, policy.Resolve(request(t, tc.remoteAddr, tc.forwarded...)))
+		})
+	}
+}

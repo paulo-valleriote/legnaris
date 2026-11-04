@@ -29,6 +29,13 @@
 - Export user-facing message constants (plain strings) from the service package for controller reuse
 - Translate lower-layer errors at the boundary using `errors.Is`/`errors.As`
 
+## Concurrent PATCH (optimistic lock)
+
+- **Contract** — `Sheet.Version` counts data writes; `Repository.PartialUpdate` is a `FindOneAndUpdate` filtered on `_id` + expected version that `$set`s `data`/`updated_at` and `$inc`s `version`, returning the stored version. A missing field matches expected 0 (pre-versioning sheets)
+- **Conflict** — a lost race is `ErrVersionConflict`; the service does **not** retry internally and answers 409 `CONFLICT` with `Retry-After: 1`, so the client resend is a new request under the rate limiter. A missing sheet stays `ErrSheetNotFound` (404, never a conflict)
+- **Version is internal** — never exposed to clients. `UpdateLayout` does not touch it, so `PUT /layout` never conflicts with PATCH
+- **Verification** — `loadtest/k6/concurrency.js` (`VARIANT=distinct|same`) must report zero lost writes; it resends on 409
+
 ## Sheet Layout (`PUT /sheets/:id/layout`)
 
 - **Contract** — body `{"layout": {"section_order": [...], "pinned": [...]}}`; 200 `{"data":{"layout": <stored|null>}}`. `GET /sheets/:id` returns `layout` only when set. Full replacement and idempotent; absent/`null`/empty layout = reset to default (stored as none). An order equal to the Template's is stored as given. Rows are never reordered: a pinned Row rises to the top of its own Section in pin order. The old `row_order` field no longer exists and is rejected like any unknown field (400 `INVALID_JSON`)
@@ -41,4 +48,5 @@
 - **Scopes** — `/auth/*` per address (`AUTH_RATE_LIMIT_*`, 10/1m, plus per account on login/register); `/csp-report` per address (`CSP_REPORT_RATE_LIMIT_*`); `/templates`, `/sheets` and `GET /auth/me` per user id (`USER_RATE_LIMIT_*`, 80/1m, one shared budget); `/health`, `/ready` and `/metrics` are exempt (orchestrator probes must never get 429)
 - **Refusal** — always `rateLimited`: 429 `RATE_LIMITED` with `Retry-After`. Only the auth guard feeds the `RateLimitBlocked` metric
 - **Order** — `userRateLimit` must follow `auth.Middleware`; with no resolved user id it passes through so the 401 stays the auth layer's call
+- **Replicas** — guards take a `ratelimit.Allower`. `REDIS_URL` set → `ratelimit.Shared` over `RedisStore` (atomic Lua sliding window, Redis clock, namespaces `auth`/`user`/`public`); unset → in-process `Limiter` (cap per replica). A store error fails open to the per-process limiter (throttled warning, never a 5xx). Build limiters only through `newLimiter`; see `docs/adr/0003-shared-rate-limit-store.md`
 - **Route-level middleware only** — attach limiters per route, never through `router.Group("", mw)`: a middleware on an empty-prefix group registers a catch-all that turns 405 into another status

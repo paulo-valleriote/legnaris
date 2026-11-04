@@ -151,12 +151,13 @@ SCRIPT=concurrency.js make loadtest-dev
 VARIANT=same SCRIPT=concurrency.js make loadtest-dev
 ```
 
-**Known failing:** `VARIANT=distinct` currently reports lost writes (about 12
-of 15 fields). `PATCH /sheets/:id` reads the sheet, recomputes the whole
-document and persists `data` as a whole (`service.go` `PartialUpdate`), so a
-slower request that read an older state overwrites newer writes to *other*
-fields. The test measures and reports; the fix (a versioned/atomic update or a
-per-sheet serialisation) is a separate card.
+**Conflicts:** `PATCH /sheets/:id` is a compare-and-swap on the sheet
+`version`; a write that loses the race answers 409 `CONFLICT` with
+`Retry-After`, and the script resends it after a short jittered backoff
+(`BACKOFF_MIN_MS`/`BACKOFF_MAX_MS`, `MAX_RETRIES`) instead of the 1 s hint.
+`legnaris_conflicts` counts the 409s (informational); 409 is not an HTTP
+failure for this scenario. A write still refused after `MAX_RETRIES` counts as
+`legnaris_unexpected_status`.
 
 ### Onboarding (`onboarding.js`)
 

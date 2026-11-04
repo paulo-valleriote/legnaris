@@ -38,6 +38,8 @@ const ViewStorageContext = createContext<ViewStorage | undefined>(undefined);
 
 export interface AppProvidersProps {
   readonly children: ReactNode;
+  /** Base address resolved at startup (runtime config); falls back to the build value. */
+  readonly apiBaseUrl?: string;
   /** Injected client; tests build one over a fake transport. */
   readonly client?: ApiClient;
   /** Injected transport; the client is built over it when no client is given. */
@@ -100,6 +102,7 @@ export function useAuthSession(): AuthSession {
  */
 export function AppProviders({
   children,
+  apiBaseUrl,
   client,
   transport,
   authApi,
@@ -108,7 +111,7 @@ export function AppProviders({
   sheetStore,
   viewStorage,
 }: AppProvidersProps) {
-  const [baseUrl] = useState(() => resolveApiConfigFromBuild().baseUrl);
+  const [baseUrl] = useState(() => apiBaseUrl ?? resolveApiConfigFromBuild().baseUrl);
   const [fallbackTransport] = useState(() => createFetchTransport(fetch));
   const [fallbackQueryClient] = useState(createDefaultQueryClient);
   const [fallbackSheetStore] = useState(() => createLazySheetStore(() => createIdbSheetStore()));

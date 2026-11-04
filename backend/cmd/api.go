@@ -46,11 +46,14 @@ func main() {
 	}()
 
 	if err := run(ctx, log, cfg); err != nil {
-		log.Error(ctx, "application terminated with error", logger.Attribute{Key: "error", Value: err.Error()})
+		log.Error(ctx, "application terminated with error", logger.Attribute{Key: logErrorKey, Value: err.Error()})
 		stop()
 		os.Exit(1)
 	}
 }
+
+// logErrorKey is the log field carrying an error message.
+const logErrorKey = "error"
 
 func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 	database, err := db.InitMongo(cfg)
@@ -87,6 +90,12 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 	if err != nil {
 		return fmt.Errorf("build modules: %w", err)
 	}
+
+	defer func() {
+		if err := modules.Close(); err != nil {
+			log.Error(ctx, "error while closing the rate limit store", logger.Attribute{Key: logErrorKey, Value: err.Error()})
+		}
+	}()
 
 	router := app.NewRouter(cfg, modules, httpMetrics)
 

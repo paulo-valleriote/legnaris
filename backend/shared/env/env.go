@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"legnaris/backend/shared/logger"
 	"math"
+	"net/url"
 	"os"
 	"slices"
 	"strconv"
@@ -43,6 +44,10 @@ type Variables struct {
 	// unset or blank, which selects the documented loopback/private/link-local
 	// default; a configured value replaces the non-loopback portion (PRQ-03).
 	TrustedProxyCIDRs []string
+	// RedisURL selects the shared rate-limit store. Empty keeps the in-process
+	// limiter, whose effective cap is the configured value per replica; it is
+	// validated by Env.Validate so a malformed URL fails the boot (ADR 0003).
+	RedisURL string
 	// Email and broker settings are all optional with documented defaults, so
 	// the request-serving process starts when none of them is set and the
 	// deployment's required-variable list is unchanged. The relay — not the
@@ -165,6 +170,7 @@ const (
 	keyJWTSecret                    = "JWT_SECRET"
 	keyEmailCodeSecret              = "EMAIL_CODE_SECRET"
 	keyTrustedProxyCIDRs            = "TRUSTED_PROXY_CIDRS"
+	keyRedisURL                     = "REDIS_URL"
 	keyAuthRequireEmailVerification = "AUTH_REQUIRE_EMAIL_VERIFICATION"
 )
 
@@ -196,7 +202,23 @@ func (e Env) Validate() error {
 			"DATABASE_MIN_POOL_SIZE (%d) must not exceed DATABASE_MAX_POOL_SIZE (%d)",
 			e.Variables.DatabaseMinPoolSize, e.Variables.DatabaseMaxPoolSize))
 	}
+	if err := validateRedisURL(e.Variables.RedisURL); err != nil {
+		errs = append(errs, err)
+	}
 	return errors.Join(errs...)
+}
+
+// validateRedisURL accepts an empty value (in-process limiter) or a redis://
+// or rediss:// URL with a host.
+func validateRedisURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "redis" && parsed.Scheme != "rediss") || parsed.Host == "" {
+		return fmt.Errorf("%s must be a redis:// or rediss:// URL with a host", keyRedisURL)
+	}
+	return nil
 }
 
 func NewEnv(logger logger.StructuredLogger) Env {
@@ -233,6 +255,7 @@ func (e *Env) initVariables() Variables {
 		UserRateLimitAttempts:          e.lookupIntEnv("USER_RATE_LIMIT_ATTEMPTS", defaultUserRateLimitAttempts),
 		UserRateLimitWindow:            e.lookupDurationEnv("USER_RATE_LIMIT_WINDOW", defaultUserRateLimitWindow),
 		TrustedProxyCIDRs:              e.lookupTrustedProxyCIDRs(),
+		RedisURL:                       e.lookupStringEnv(keyRedisURL, ""),
 		EmailProvider:                  e.lookupStringEnv("EMAIL_PROVIDER", defaultEmailProvider),
 		ResendAPIKey:                   e.lookupStringEnv("RESEND_API_KEY", ""),
 		EmailFrom:                      e.lookupStringEnv("EMAIL_FROM", ""),

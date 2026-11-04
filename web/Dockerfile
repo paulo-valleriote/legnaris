@@ -11,16 +11,15 @@ RUN npm ci
 
 COPY . .
 
-# Vite inlines every VITE_* value into the bundle at build time, so the API
-# origin is a build argument, not a runtime environment: changing it requires
-# rebuilding this image (`docker compose up -d --build web`).
-ARG VITE_API_BASE_URL
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+# The API origin is not a build input: the runtime stage writes /config.json
+# from API_BASE_URL at container start, so one image serves every environment.
 RUN npm run build
 
 # ---- Runtime stage ----
 FROM nginx:1.29-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
+RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh
 
 # Copying the whole dist directory rather than its assets keeps the service
 # worker, the manifest, and the icons next to the shell they belong to.

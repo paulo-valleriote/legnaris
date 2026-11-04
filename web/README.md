@@ -40,11 +40,13 @@ cd deploy
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build web
 ```
 
-The browser-facing API origin is a **build argument**, because Vite inlines
-every `VITE_*` value into the bundle: `WEB_API_BASE_URL` in `deploy/.env` becomes
-`VITE_API_BASE_URL` here. Changing it (or `WEB_DOMAIN`) therefore needs
-`--build web`, not a restart. The web origin must also be listed in
-`CORS_ALLOWED_ORIGINS`, which the same file configures.
+The browser-facing API origin is a **runtime setting**: the container writes
+`/config.json` from `API_BASE_URL` at start (`docker-entrypoint.d/`), and the client
+loads it (uncached) before the first render. `WEB_API_BASE_URL` in `deploy/.env`
+becomes `API_BASE_URL`, so one image serves dev, k3d and production and changing it
+needs a restart, not `--build`. The origin must also appear in `connect-src` of the
+Traefik CSP (`deploy/traefik/dynamic.yml`) and the web origin in
+`CORS_ALLOWED_ORIGINS`.
 
 ## Scripts
 
@@ -130,9 +132,10 @@ API_BASE_URL=http://localhost:8080 npm test # also runs the live contract suite
   A capture is never hand-edited to make a test pass; a shape change is a backend contract
   change and the suite is expected to go red on it.
 
-- **Base address.** `resolveApiConfig` reads the Vite build variable `VITE_API_BASE_URL`
-  (default `https://api.legnaris.com.br`); an empty value falls back to the default, and a
-  non-`http(s)` value fails at construction. `http://` is accepted only as an explicit
+- **Base address.** `loadApiConfiguration` (`src/api/runtime_config.ts`) uses a non-blank
+  `VITE_API_BASE_URL` (dev server, e2e) or else fetches `/config.json` (`{"apiBaseUrl": ...}`);
+  a missing or blank value falls back to `https://api.legnaris.com.br`, and a non-`http(s)`
+  value, malformed JSON or a failed load stops startup with a visible message. `http://` is accepted only as an explicit
   build choice and is reported as `secure: false` on the resolved configuration.
 
 ## Auth session (`src/auth/`, `src/api/auth_api.ts`)

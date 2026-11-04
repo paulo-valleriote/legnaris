@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import exec from 'k6/execution';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 import { Counter } from 'k6/metrics';
 import { BASE_URL, authHeaders, ensureAccount, liveToken, waitForAPI } from './lib/accounts.js';
 
@@ -8,6 +8,9 @@ const VARIANT = __ENV.VARIANT || 'distinct';
 const CONCURRENCY = Number(__ENV.CONCURRENCY || 15);
 const ITERATIONS = Number(__ENV.ITERATIONS || 100);
 const DUPLICATE_RATE = Number(__ENV.DUPLICATE_RATE || 0.3);
+const MAX_RETRIES = Number(__ENV.MAX_RETRIES || 50);
+const BACKOFF_MIN_MS = Number(__ENV.BACKOFF_MIN_MS || 20);
+const BACKOFF_MAX_MS = Number(__ENV.BACKOFF_MAX_MS || 80);
 const ACCOUNT_BASE = Number(__ENV.CONCURRENCY_ACCOUNT_BASE || 1000000);
 
 const PATCH_OP = 'PATCH /sheets/:id';
@@ -28,7 +31,10 @@ const DISTINCT_FIELDS = [
 
 const lostUpdates = new Counter('legnaris_lost_updates');
 const inconsistentDerived = new Counter('legnaris_inconsistent_derived');
+const conflicts = new Counter('legnaris_conflicts');
 const unexpectedStatus = new Counter('legnaris_unexpected_status');
+
+http.setResponseCallback(http.expectedStatuses(200, 409));
 
 if (VARIANT !== 'distinct' && VARIANT !== 'same') {
   throw new Error(`VARIANT must be "distinct" or "same", got "${VARIANT}"`);
@@ -101,10 +107,29 @@ export default function ({ session }) {
       : [http.patch(url, body, params)];
 
   for (const res of responses) {
-    if (!check(res, { 'status is 200': (r) => r.status === 200 })) {
-      unexpectedStatus.add(1, { status: String(res.status) });
+    const final = retryOnConflict(res, url, body, params);
+    if (!check(final, { 'status is 200': (r) => r.status === 200 })) {
+      unexpectedStatus.add(1, { status: String(final.status) });
     }
   }
+}
+
+/**
+ * retryOnConflict resends a PATCH the API refused with 409 (a lost version
+ * race), the way a client is expected to. The wait is a short jittered backoff
+ * instead of the 1 s Retry-After hint, so a 15-writer storm on one sheet
+ * finishes in seconds; the resend is idempotent because it carries the same
+ * absolute values. Each 409 is counted, and giving up after MAX_RETRIES counts
+ * as an unexpected status.
+ */
+function retryOnConflict(first, url, body, params) {
+  let res = first;
+  for (let attempt = 0; res.status === 409 && attempt < MAX_RETRIES; attempt++) {
+    conflicts.add(1);
+    sleep((BACKOFF_MIN_MS + Math.random() * (BACKOFF_MAX_MS - BACKOFF_MIN_MS)) / 1000);
+    res = http.patch(url, body, params);
+  }
+  return res;
 }
 
 function lastWriteOf(writer) {

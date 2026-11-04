@@ -1,7 +1,9 @@
 package app
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -31,7 +33,7 @@ type AuthModule struct {
 	Controller   *AuthController
 	Service      auth.Service
 	TokenManager auth.TokenManager
-	RateLimiter  *ratelimit.Limiter
+	RateLimiter  ratelimit.Allower
 }
 
 type Modules struct {
@@ -43,9 +45,23 @@ type Modules struct {
 	// (PRQ-03, PRQ-04).
 	ClientIP func(*http.Request) string
 	// UserLimiter caps the authenticated routes per user id (LGN-30).
-	UserLimiter *ratelimit.Limiter
+	UserLimiter ratelimit.Allower
+	// PublicLimiter caps the unauthenticated CSP report collector per address.
+	PublicLimiter ratelimit.Allower
 	// Readiness backs GET /ready: the instance is ready only while it answers.
 	Readiness health.Pinger
+	// closers release resources owned by the modules (the Redis client).
+	closers []io.Closer
+}
+
+// Close releases the resources the modules opened. It is safe to call on a
+// deployment without Redis.
+func (m *Modules) Close() error {
+	var errs []error
+	for _, closer := range m.closers {
+		errs = append(errs, closer.Close())
+	}
+	return errors.Join(errs...)
 }
 
 // authServiceConfig maps the resolved environment onto the auth service's
@@ -146,17 +162,18 @@ func NewModules(
 	)
 	authController := NewAuthController(authService)
 
-	authLimiter := ratelimit.New(
-		cfg.Variables.AuthRateLimitAttempts,
-		cfg.Variables.AuthRateLimitWindow,
-		time.Now,
-	)
+	limiterClient, closers, err := newLimiterClient(cfg.Variables.RedisURL)
+	if err != nil {
+		return nil, err
+	}
+	limiter := func(namespace string, attempts int, window time.Duration) ratelimit.Allower {
+		report := storeFailureReporter(log, namespace, limiterFailureLogInterval, time.Now)
+		return newLimiter(limiterClient, namespace, attempts, window, report)
+	}
 
-	userLimiter := ratelimit.New(
-		cfg.Variables.UserRateLimitAttempts,
-		cfg.Variables.UserRateLimitWindow,
-		time.Now,
-	)
+	authLimiter := limiter("auth", cfg.Variables.AuthRateLimitAttempts, cfg.Variables.AuthRateLimitWindow)
+	userLimiter := limiter("user", cfg.Variables.UserRateLimitAttempts, cfg.Variables.UserRateLimitWindow)
+	publicLimiter := limiter("public", cfg.Variables.CSPReportRateLimitAttempts, cfg.Variables.CSPReportRateLimitWindow)
 
 	return &Modules{
 		Template: TemplateModule{
@@ -173,8 +190,10 @@ func NewModules(
 			TokenManager: tokenManager,
 			RateLimiter:  authLimiter,
 		},
-		ClientIP:    clientIPPolicy.Resolve,
-		UserLimiter: userLimiter,
-		Readiness:   database,
+		ClientIP:      clientIPPolicy.Resolve,
+		UserLimiter:   userLimiter,
+		PublicLimiter: publicLimiter,
+		Readiness:     database,
+		closers:       closers,
 	}, nil
 }

@@ -77,3 +77,9 @@ packages:
       outpkg: mocks
     interfaces:
       Pinger: {}
+  legnaris/backend/internal/platform/ratelimit:
+    config:
+      dir: backend/internal/platform/ratelimit/mocks
+      outpkg: mocks
+    interfaces:
+      Store: {}

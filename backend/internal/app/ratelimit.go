@@ -32,7 +32,7 @@ type Observer interface {
 // the window. A refusal answers 429 with a Retry-After header and never reaches
 // the handler, so no credential is verified and no token is issued (AUTH-17,
 // AUTH-18, AUTH-19).
-func rateLimit(limiter *ratelimit.Limiter, observer Observer, withAccount bool) echo.MiddlewareFunc {
+func rateLimit(limiter ratelimit.Allower, observer Observer, withAccount bool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			now := limiter.Now()
@@ -125,7 +125,7 @@ func peekEmail(r *http.Request) string {
 // cap for the window. It must run after auth.Middleware: a request with no
 // resolved user id is passed through so the 401 stays the auth layer's call and
 // an anonymous client never spends a user's budget (LGN-30).
-func userRateLimit(limiter *ratelimit.Limiter) echo.MiddlewareFunc {
+func userRateLimit(limiter ratelimit.Allower) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			userID, ok := auth.UserID(c)

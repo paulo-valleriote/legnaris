@@ -17,4 +17,8 @@ describe('PWA-01 SW contract', () => {
     expect(swSource).toContain('SKIP_WAITING');
     expect(swSource).toContain('self.skipWaiting()');
   });
+
+  it('should keep the runtime config out of the runtime cache', () => {
+    expect(swSource).toContain("url.pathname !== '/config.json'");
+  });
 });
