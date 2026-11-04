@@ -130,15 +130,37 @@ func TestRouterReady(t *testing.T) {
 }
 
 func TestRouterRateLimit_AuthSurfaceIsCovered(t *testing.T) {
-	t.Run("Happy path: the eleventh register from one address is 429", func(t *testing.T) {
+	t.Run("Happy path: the sixth register from one address within an hour is 429", func(t *testing.T) {
 		h, _ := newWiringRouter(t)
 
-		for i := 1; i <= 10; i++ {
+		for i := 1; i <= 5; i++ {
 			rec := routeRequest(t, h, http.MethodPost, "/auth/register", `{}`, "", "198.51.100.40:1")
 			require.NotEqual(t, http.StatusTooManyRequests, rec.Code, "request %d must be admitted", i)
 		}
 
 		requireRateLimited(t, routeRequest(t, h, http.MethodPost, "/auth/register", `{}`, "", "198.51.100.40:1"))
+	})
+
+	t.Run("Edge: exhausting the register budget leaves login admitted from the same address", func(t *testing.T) {
+		h, _ := newWiringRouter(t)
+
+		for i := 1; i <= 5; i++ {
+			routeRequest(t, h, http.MethodPost, "/auth/register", `{}`, "", "198.51.100.41:1")
+		}
+		requireRateLimited(t, routeRequest(t, h, http.MethodPost, "/auth/register", `{}`, "", "198.51.100.41:1"))
+
+		rec := routeRequest(t, h, http.MethodPost, "/auth/login", `{}`, "", "198.51.100.41:1")
+		assert.NotEqual(t, http.StatusTooManyRequests, rec.Code, "register and login keep separate budgets")
+	})
+
+	t.Run("Edge: AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS overrides the address cap", func(t *testing.T) {
+		h, _ := newWiringRouterWithEnv(t, map[string]string{"AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS": "2"})
+
+		for i := 1; i <= 2; i++ {
+			rec := routeRequest(t, h, http.MethodPost, "/auth/register", `{}`, "", "198.51.100.42:1")
+			require.NotEqual(t, http.StatusTooManyRequests, rec.Code, "request %d must be admitted", i)
+		}
+		requireRateLimited(t, routeRequest(t, h, http.MethodPost, "/auth/register", `{}`, "", "198.51.100.42:1"))
 	})
 
 	t.Run("Edge: logout is capped per address", func(t *testing.T) {

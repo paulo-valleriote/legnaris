@@ -54,6 +54,29 @@ func rateLimit(limiter ratelimit.Allower, observer Observer, withAccount bool) e
 	}
 }
 
+// registerRateLimit guards POST /auth/register with two independent budgets:
+// ipLimiter caps the real client address and emailLimiter caps the canonical
+// e-mail from the body (LGN-150). Both run before the handler, so a refusal
+// never depends on whether the address already has an account, and the
+// e-mail budget cannot be used to probe registrations.
+func registerRateLimit(ipLimiter, emailLimiter ratelimit.Allower, observer Observer) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if allowed, retryAfter := ipLimiter.Allow(ipKey(c), ipLimiter.Now()); !allowed {
+				return rateLimited(c, observer, retryAfter)
+			}
+
+			if email := peekEmail(c.Request()); email != "" {
+				if allowed, retryAfter := emailLimiter.Allow(accountKey(email), emailLimiter.Now()); !allowed {
+					return rateLimited(c, observer, retryAfter)
+				}
+			}
+
+			return next(c)
+		}
+	}
+}
+
 // rateLimited sets Retry-After (whole seconds, rounded up), records the block
 // when an observer is present, and returns the typed 429 (AUTH-18, AUTH-23). The
 // observer is optional so a guard whose blocks must not be counted against the
