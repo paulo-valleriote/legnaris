@@ -17,6 +17,11 @@ RUN npm run build
 
 # ---- Runtime stage ----
 FROM nginx:1.29-alpine
+
+# The base image lags behind Alpine security fixes; upgrading here keeps the
+# Trivy gate (HIGH/CRITICAL, fixed only) green without waiting for a new tag.
+RUN apk upgrade --no-cache
+
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
 RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh
