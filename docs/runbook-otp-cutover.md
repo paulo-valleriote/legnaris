@@ -45,7 +45,8 @@ against the new API for longer than the update window (step 3).
       restore was verified (`deploy/k8s/backup/restore-verify.yaml`).
 - [ ] Alerts are loaded in the cluster (`make k8s-rules` for the Kubernetes
       rule set; `deploy/prometheus/rules.yml` for compose): the pipeline
-      alerts, the captcha-trigger alert (LGN-159) and an alert on
+      alerts, the captcha-trigger alerts `EmailRegisterBurstTooLarge` and
+      `EmailCapReachedEarly` (LGN-159) and an alert on
       `legnaris_email_breaker_open == 1` (job `legnaris-worker`).
       **Open blocker:** `rules.yml` has no breaker alert today (only the
       metric exists). The cutover must not start until that rule is merged;
@@ -164,7 +165,7 @@ runbook". What to watch:
 | Provider refusing | `EmailProviderRefusingSends`, `legnaris_email_breaker_open` (worker) | breaker open > 5 min makes the API answer `deferred` |
 | Allowance | `EmailDailyAllowanceReached`, `legnaris_auth_otp_cap_blocked_total` | resends use at most 30% of the cap; new signups keep the rest |
 | Verification failures | `EmailVerificationFailuresClimbing` | late delivery or code guessing |
-| Captcha trigger (D14) | > 30 `register` 429s in 24 h, or cap reached before 12:00 UTC on 2 days of the week | turning captcha on is a manual decision |
+| Captcha trigger (D14) | `EmailRegisterBurstTooLarge` (> 30 `register` 429s in 24 h), `EmailCapReachedEarly` (cap reached before 12:00 UTC on 2 days of the week) | turning captcha on is a manual decision |
 
 Check at +1 h, +6 h, +24 h and +48 h:
 
