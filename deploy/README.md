@@ -513,6 +513,13 @@ digest, consumed at most once and never logged.
   resends may use so first sends always keep the rest), `AUTH_OTP_USER_WINDOW` (`1h`)
   and `AUTH_OTP_USER_LIMIT`
   (`10` challenges per account per window).
+- **Registration** (optional, app defaults): `AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS`
+  (`5`) and `AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS` (`3`) per
+  `..._WINDOW` (`1h`), and `AUTH_DISPOSABLE_EMAIL_CHECK` (`true`). Production
+  always keeps the disposable-domain check on, whatever the value says; a
+  `false` outside production boots with a warning. Dev (`make dev`), the CI
+  stack and the load-test overlays turn the check off and lift the register
+  limits so they do not distort tests or load.
 - **Verification failures** answer one uniform `OTP_INVALID` (401), so an
   unknown, expired, consumed, wrong or exhausted code is indistinguishable. The
   daily send cap answers `EMAIL_UNAVAILABLE` (503) with `Retry-After`, and the

@@ -331,6 +331,9 @@ func TestChallengeConfigurationIsRequiredAndDocumented(t *testing.T) {
 			"AUTH_OTP_TTL", "AUTH_OTP_CEILING", "AUTH_OTP_RESEND_COOLDOWN",
 			"AUTH_OTP_MAX_ATTEMPTS", "AUTH_OTP_DAILY_SEND_CAP", "AUTH_OTP_RESEND_CAP_RATIO",
 			"AUTH_OTP_USER_WINDOW", "AUTH_OTP_USER_LIMIT",
+			"AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS", "AUTH_REGISTER_IP_RATE_LIMIT_WINDOW",
+			"AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS", "AUTH_REGISTER_EMAIL_RATE_LIMIT_WINDOW",
+			"AUTH_DISPOSABLE_EMAIL_CHECK",
 		} {
 			value, present := app.Environment[key]
 			require.Truef(t, present, "app.environment must pass %s through", key)

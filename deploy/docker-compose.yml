@@ -154,6 +154,14 @@ services:
       AUTH_OTP_RESEND_CAP_RATIO: ${AUTH_OTP_RESEND_CAP_RATIO:-0.30}
       AUTH_OTP_USER_WINDOW: ${AUTH_OTP_USER_WINDOW:-1h}
       AUTH_OTP_USER_LIMIT: ${AUTH_OTP_USER_LIMIT:-10}
+      # Registration limits (per address, per canonical e-mail) and the
+      # disposable-domain check. The check is forced on in production by the
+      # app itself, whatever this value says (LGN-151, D7).
+      AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS: ${AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS:-5}
+      AUTH_REGISTER_IP_RATE_LIMIT_WINDOW: ${AUTH_REGISTER_IP_RATE_LIMIT_WINDOW:-1h}
+      AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS: ${AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS:-3}
+      AUTH_REGISTER_EMAIL_RATE_LIMIT_WINDOW: ${AUTH_REGISTER_EMAIL_RATE_LIMIT_WINDOW:-1h}
+      AUTH_DISPOSABLE_EMAIL_CHECK: ${AUTH_DISPOSABLE_EMAIL_CHECK:-true}
     # Readiness, not liveness: unhealthy while MongoDB is unreachable. The
     # distroless image has no shell or curl, so the binary probes itself.
     healthcheck:

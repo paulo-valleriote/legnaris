@@ -115,6 +115,18 @@ func TestK8sRateLimitsAreLiftedOnlyInTheLoadtestOverlay(t *testing.T) {
 		assert.Contains(t, read("k8s/overlays/loadtest/kustomization.yaml"), "AUTH_RATE_LIMIT_ATTEMPTS=")
 	})
 
+	t.Run("Happy path: the loadtest overlay lifts the register limits and disables the disposable check", func(t *testing.T) {
+		raw := read("k8s/overlays/loadtest/kustomization.yaml")
+		assert.Contains(t, raw, "AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS=100000")
+		assert.Contains(t, raw, "AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS=100000")
+		assert.Contains(t, raw, "AUTH_DISPOSABLE_EMAIL_CHECK=false")
+	})
+
+	t.Run("Edge: production never disables the disposable check", func(t *testing.T) {
+		assert.NotContains(t, read("k8s/overlays/production/kustomization.yaml"), "AUTH_DISPOSABLE_EMAIL_CHECK=false")
+		assert.NotContains(t, read("k8s/base/app.yaml"), "AUTH_DISPOSABLE_EMAIL_CHECK")
+	})
+
 	for _, path := range []string{"k8s/base/app.yaml", "k8s/overlays/local/kustomization.yaml"} {
 		t.Run("Edge: "+path+" leaves the default limits in place", func(t *testing.T) {
 			assert.NotContains(t, read(path), "RATE_LIMIT")
