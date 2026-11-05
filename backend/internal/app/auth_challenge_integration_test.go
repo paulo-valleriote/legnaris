@@ -79,7 +79,7 @@ func TestIntegration_ChallengeIssueVerify(t *testing.T) {
 	ctx := context.Background()
 
 	const email = "challenge-verify@example.com"
-	registerAuthUser(t, h, email, "challenge-verify")
+	registerAuthUser(t, h, mdb, email, "challenge-verify")
 	userID := userIDByEmail(t, mdb, email)
 
 	issued, err := modules.Auth.Service.IssueChallenge(ctx, auth.IssueChallengeCommand{
@@ -142,7 +142,7 @@ func TestIntegration_ChallengeResend(t *testing.T) {
 	ctx := context.Background()
 
 	const email = "challenge-resend@example.com"
-	registerAuthUser(t, h, email, "challenge-resend")
+	registerAuthUser(t, h, mdb, email, "challenge-resend")
 	userID := userIDByEmail(t, mdb, email)
 
 	issued, err := modules.Auth.Service.IssueChallenge(ctx, auth.IssueChallengeCommand{
@@ -203,7 +203,7 @@ func TestIntegration_ChallengeDailyCap(t *testing.T) {
 	ctx := context.Background()
 
 	const email = "challenge-cap@example.com"
-	registerAuthUser(t, h, email, "challenge-cap")
+	registerAuthUser(t, h, mdb, email, "challenge-cap")
 	userID := userIDByEmail(t, mdb, email)
 
 	issued, err := modules.Auth.Service.IssueChallenge(ctx, auth.IssueChallengeCommand{

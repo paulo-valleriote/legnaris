@@ -264,7 +264,7 @@ func TestAuthController_Login(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		service.EXPECT().
 			Login(mock.Anything, auth.LoginCommand{Email: "player@example.com", Password: "sup3r-secret"}).
-			Return(session(), nil).
+			Return(&auth.LoginResult{Session: session()}, nil).
 			Once()
 
 		h := newAuthRouter(t, service)
@@ -287,6 +287,61 @@ func TestAuthController_Login(t *testing.T) {
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 		assert.Empty(t, rec.Header().Get("Set-Cookie"))
 		assert.NotContains(t, rec.Body.String(), "raw-refresh")
+	})
+
+	t.Run("Happy path: an unverified account gets 202 with the challenge and no cookie or session", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Login(mock.Anything, mock.Anything).
+			Return(&auth.LoginResult{Challenge: &auth.ChallengeIssued{ChallengeID: challengeID, ExpiresIn: 600, ResendAfter: 60}}, nil).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusAccepted, rec.Code, rec.Body.String())
+		assert.Empty(t, rec.Header().Get("Set-Cookie"), "an unverified sign-in sets no cookie")
+		assert.NotContains(t, rec.Body.String(), "access_token")
+		assert.NotContains(t, rec.Body.String(), "delivery", "the login challenge carries no delivery marker")
+
+		var body response.Success[auth.ChallengeIssued]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, challengeID, body.Data.ChallengeID)
+		assert.Equal(t, 600, body.Data.ExpiresIn)
+		assert.Equal(t, 60, body.Data.ResendAfter)
+	})
+
+	t.Run("Error: a spent daily allowance maps to 503 with Retry-After and no cookie", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Login(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeEmailUnavailable, auth.MsgEmailUnavailable, nil).
+				WithRetryAfter(3*time.Hour)).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+		assert.NotEmpty(t, rec.Header().Get("Retry-After"))
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, string(apperr.CodeEmailUnavailable), body.Error.Code)
+	})
+
+	t.Run("Error: the per-account bound maps to 429 with Retry-After", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Login(mock.Anything, mock.Anything).
+			Return(nil, apperr.NewError(apperr.CodeRateLimited, auth.MsgRateLimited, nil).
+				WithRetryAfter(time.Hour)).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusTooManyRequests, rec.Code, rec.Body.String())
+		assert.NotEmpty(t, rec.Header().Get("Retry-After"))
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
 	})
 }
 
