@@ -56,7 +56,9 @@ func (ac *AuthController) Register(c *echo.Context) error {
 	return response.JSON(c, http.StatusCreated, issued)
 }
 
-// Login answers 200 with the session body and both cookies (AUTH-01).
+// Login answers 200 with the session body and both cookies for a verified
+// account (AUTH-01). An unverified account gets 202 with the started
+// verify_email challenge and no cookie or session (D2).
 func (ac *AuthController) Login(c *echo.Context) error {
 	var cmd auth.LoginCommand
 
@@ -64,13 +66,16 @@ func (ac *AuthController) Login(c *echo.Context) error {
 		return decodeError(err)
 	}
 
-	session, err := ac.service.Login(c.Request().Context(), cmd)
+	result, err := ac.service.Login(c.Request().Context(), cmd)
 	if err != nil {
 		return err
 	}
 
-	setSessionCookies(c, session)
-	return response.OK(c, sessionResponse(session))
+	if result.Challenge != nil {
+		return response.JSON(c, http.StatusAccepted, result.Challenge)
+	}
+	setSessionCookies(c, result.Session)
+	return response.OK(c, sessionResponse(result.Session))
 }
 
 // Refresh consumes the refresh credential from the cookie only and rotates the

@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 const (
@@ -78,12 +79,11 @@ func authPost(t *testing.T, h http.Handler, path string, cookies authCookies, cs
 	return serve(t, h, req)
 }
 
-// registerAuthUser registers a new account, asserts the registration starts a
-// code step without a session, then signs in with the password and returns the
-// session cookies. The caller passes the email so a single router can host
-// several distinct users (each test drops the collections once, then
-// registrations accumulate within it).
-func registerAuthUser(t *testing.T, h http.Handler, email, username string) authCookies {
+// registerAuthUser registers a new account and verifies its address with the
+// code its own challenge carries, so the call returns the cookies of the
+// account's first verified session. The caller passes the email so a single
+// router can host several distinct users.
+func registerAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, username string) authCookies {
 	t.Helper()
 
 	body := fmt.Sprintf(`{"email":%q,"username":%q,"password":%q}`, email, username, authPassword)
@@ -91,17 +91,16 @@ func registerAuthUser(t *testing.T, h http.Handler, email, username string) auth
 	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 	assert.Empty(t, rec.Header().Get("Set-Cookie"), "registration sets no cookie")
 
-	loginRec := doRequest(t, h, http.MethodPost, "/auth/login",
-		fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
-	require.Equal(t, http.StatusOK, loginRec.Code, loginRec.Body.String())
+	var issued response.Success[auth.ChallengeIssued]
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &issued))
 
-	session := decodeSession(t, loginRec)
-	assert.NotEmpty(t, session.AccessToken)
-	assert.NotContains(t, loginRec.Body.String(), "refresh_token", "the credential must never reach the body")
+	verifyRec := doRequest(t, h, http.MethodPost, verifyRoute,
+		`{"challenge_id":"`+issued.Data.ChallengeID+`","code":"`+codeForChallenge(t, mdb, issued.Data.ChallengeID)+`"}`)
+	require.Equal(t, http.StatusOK, verifyRec.Code, verifyRec.Body.String())
 
-	cookies := cookiesFrom(t, loginRec)
-	require.NotEmpty(t, cookies.refresh, "sign-in must set the refresh cookie")
-	require.NotEmpty(t, cookies.csrf, "sign-in must set the CSRF cookie")
+	cookies := cookiesFrom(t, verifyRec)
+	require.NotEmpty(t, cookies.refresh, "the verified session must set the refresh cookie")
+	require.NotEmpty(t, cookies.csrf, "the verified session must set the CSRF cookie")
 	return cookies
 }
 
@@ -169,46 +168,24 @@ func TestIntegration_RegistrationVerification(t *testing.T) {
 	})
 }
 
-// TestIntegration_IdentityRead covers the identity read end to end: a signed-in
-// account reports its verification state, and only that field changes when the
-// address is verified (TFA-08, SC-006).
+// TestIntegration_IdentityRead covers the identity read end to end: a verified
+// account reports its verified state, and the read carries the profile fields
+// the sign-in established (TFA-08, SC-006).
 func TestIntegration_IdentityRead(t *testing.T) {
 	h, mdb, _ := newIntegrationStack(t, nil)
 
 	const email = "identity-read@example.com"
-	registerBody := fmt.Sprintf(`{"email":%q,"username":"identity","password":%q}`, email, authPassword)
+	cookies := registerAuthUser(t, h, mdb, email, "identity")
 
-	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
-	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
+	rec := authPost(t, h, "/auth/refresh", cookies, "")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	session := decodeSession(t, rec)
+	require.NotEmpty(t, session.AccessToken)
 
-	var issued response.Success[auth.ChallengeIssued]
-	require.NoError(t, json.Unmarshal(registerRec.Body.Bytes(), &issued))
-	require.NotEmpty(t, issued.Data.ChallengeID)
-
-	loginRec := doRequest(t, h, http.MethodPost, "/auth/login",
-		fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
-	require.Equal(t, http.StatusOK, loginRec.Code, loginRec.Body.String())
-	unverifiedSession := decodeSession(t, loginRec)
-	require.NotEmpty(t, unverifiedSession.AccessToken)
-
-	before := readIdentity(t, h, unverifiedSession.AccessToken)
-	assert.False(t, before.EmailVerified, "an account that never verified reports the unverified state")
-
-	code := pendingCode(t, mdb)
-	verifyRec := doRequest(t, h, http.MethodPost, verifyRoute,
-		`{"challenge_id":"`+issued.Data.ChallengeID+`","code":"`+code+`"}`)
-	require.Equal(t, http.StatusOK, verifyRec.Code, verifyRec.Body.String())
-	verifiedSession := decodeSession(t, verifyRec)
-	require.NotEmpty(t, verifiedSession.AccessToken)
-
-	after := readIdentity(t, h, verifiedSession.AccessToken)
-	assert.True(t, after.EmailVerified, "a verified account reports the verified state")
-
-	assert.Equal(t, before.ID, after.ID)
-	assert.Equal(t, before.Email, after.Email)
-	assert.Equal(t, before.Username, after.Username)
-	assert.Equal(t, before.CreatedAt, after.CreatedAt)
-	assert.NotEqual(t, before.EmailVerified, after.EmailVerified, "only the verification state changes")
+	identity := readIdentity(t, h, session.AccessToken)
+	assert.True(t, identity.EmailVerified, "a verified account reports the verified state")
+	assert.Equal(t, email, identity.Email)
+	assert.Equal(t, "identity", identity.Username)
 }
 
 // readIdentity reads the signed-in account and returns the projected profile.
@@ -223,6 +200,58 @@ func readIdentity(t *testing.T, h http.Handler, token string) user.UserDTO {
 	assert.NotContains(t, rec.Body.String(), "email_verified_at", "the instant never reaches the wire")
 	assert.NotContains(t, rec.Body.String(), "password", "the hash never reaches the wire")
 	return body.Data
+}
+
+// TestIntegration_LoginUnverifiedAccount drives the sign-in of an account that
+// registered but never verified: the password earns a challenge, not a session,
+// and the code of that challenge verifies the account into its first session
+// (D2, TFA-06).
+func TestIntegration_LoginUnverifiedAccount(t *testing.T) {
+	h, mdb, _ := newIntegrationStack(t, nil)
+
+	const email = "unverified-login@example.com"
+	registerBody := fmt.Sprintf(`{"email":%q,"username":"unverified","password":%q}`, email, authPassword)
+	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
+	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
+
+	loginBody := fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword)
+	loginRec := doRequest(t, h, http.MethodPost, "/auth/login", loginBody)
+	require.Equal(t, http.StatusAccepted, loginRec.Code, loginRec.Body.String())
+	assert.Empty(t, loginRec.Header().Get("Set-Cookie"), "an unverified sign-in sets no cookie")
+	assert.NotContains(t, loginRec.Body.String(), "access_token")
+
+	var issued response.Success[auth.ChallengeIssued]
+	require.NoError(t, json.Unmarshal(loginRec.Body.Bytes(), &issued))
+	require.NotEmpty(t, issued.Data.ChallengeID)
+
+	verifyRec := doRequest(t, h, http.MethodPost, verifyRoute,
+		`{"challenge_id":"`+issued.Data.ChallengeID+`","code":"`+codeForChallenge(t, mdb, issued.Data.ChallengeID)+`"}`)
+	require.Equal(t, http.StatusOK, verifyRec.Code, verifyRec.Body.String())
+	assert.NotEmpty(t, cookiesFrom(t, verifyRec).refresh)
+
+	session := decodeSession(t, verifyRec)
+	assert.True(t, readIdentity(t, h, session.AccessToken).EmailVerified)
+}
+
+// codeForChallenge reads the clear code of the send intention the challenge
+// itself carries, so a test verifies the challenge it owns (OTP-12).
+func codeForChallenge(t *testing.T, mdb *mongo.Database, challengeID string) string {
+	t.Helper()
+
+	ctx := context.Background()
+	var challenge struct {
+		LastIntentID string `bson:"last_intent_id"`
+	}
+	require.NoError(t, mdb.Collection("auth_challenges").FindOne(ctx, bson.M{"_id": challengeID}).Decode(&challenge))
+
+	var intent struct {
+		Payload struct {
+			Code string `bson:"code"`
+		} `bson:"payload"`
+	}
+	require.NoError(t, mdb.Collection("email_outbox").FindOne(ctx, bson.M{"_id": challenge.LastIntentID}).Decode(&intent))
+	require.Regexp(t, codePattern, intent.Payload.Code)
+	return intent.Payload.Code
 }
 
 func TestIntegration_AuthRegister(t *testing.T) {
@@ -276,8 +305,8 @@ func TestIntegration_AuthRegister(t *testing.T) {
 }
 
 func TestIntegration_AuthLogin(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	registerAuthUser(t, h, authEmail, authUsername)
+	h, mdb := newIntegrationRouter(t)
+	registerAuthUser(t, h, mdb, authEmail, authUsername)
 
 	t.Run("Happy path: valid credentials set the cookies and return a parseable token", func(t *testing.T) {
 		body := fmt.Sprintf(`{"email":%q,"password":%q}`, authEmail, authPassword)
@@ -318,8 +347,8 @@ func TestIntegration_AuthLogin(t *testing.T) {
 }
 
 func TestIntegration_AuthRefreshRotation(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	cookies := registerAuthUser(t, h, authEmail, authUsername)
+	h, mdb := newIntegrationRouter(t)
+	cookies := registerAuthUser(t, h, mdb, authEmail, authUsername)
 
 	t.Run("Happy path: refresh rotates both the refresh and CSRF values", func(t *testing.T) {
 		rec := authPost(t, h, "/auth/refresh", cookies, "")
@@ -350,7 +379,7 @@ func TestIntegration_AuthRefreshRotation(t *testing.T) {
 	})
 
 	t.Run("Error: refresh with no CSRF token returns 403 and rotates nothing", func(t *testing.T) {
-		fresh := registerAuthUser(t, h, "fresh-user@example.com", "fresh-user")
+		fresh := registerAuthUser(t, h, mdb, "fresh-user@example.com", "fresh-user")
 
 		req := newRequest(http.MethodPost, "/auth/refresh", "")
 		req.Header.Set("Origin", integrationOrigin)
@@ -363,8 +392,8 @@ func TestIntegration_AuthRefreshRotation(t *testing.T) {
 }
 
 func TestIntegration_AuthLogout(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	cookies := registerAuthUser(t, h, authEmail, authUsername)
+	h, mdb := newIntegrationRouter(t)
+	cookies := registerAuthUser(t, h, mdb, authEmail, authUsername)
 
 	t.Run("Happy path: logout clears both cookies and revokes the family", func(t *testing.T) {
 		rec := authPost(t, h, "/auth/logout", cookies, "")
@@ -386,7 +415,7 @@ func TestIntegration_AuthLogout(t *testing.T) {
 	})
 
 	t.Run("Edge: logout with an already rotated credential still kills the family", func(t *testing.T) {
-		current := registerAuthUser(t, h, "rotated-user@example.com", "rotated-user")
+		current := registerAuthUser(t, h, mdb, "rotated-user@example.com", "rotated-user")
 
 		rotatedRec := authPost(t, h, "/auth/refresh", current, "")
 		require.Equal(t, http.StatusOK, rotatedRec.Code, rotatedRec.Body.String())
@@ -410,7 +439,7 @@ func TestIntegration_AuthRefreshRequiresAccount(t *testing.T) {
 
 	t.Run("Happy path: a present account refreshes and the access token names it", func(t *testing.T) {
 		const email = "present-account@example.com"
-		cookies := registerAuthUser(t, h, email, "present-account")
+		cookies := registerAuthUser(t, h, mdb, email, "present-account")
 
 		var stored struct {
 			ID string `bson:"_id"`
@@ -432,7 +461,7 @@ func TestIntegration_AuthRefreshRequiresAccount(t *testing.T) {
 
 	t.Run("Error: a deleted account is 401, sets no cookie and revokes the family", func(t *testing.T) {
 		const email = "deleted-account@example.com"
-		cookies := registerAuthUser(t, h, email, "deleted-account")
+		cookies := registerAuthUser(t, h, mdb, email, "deleted-account")
 
 		_, err := mdb.Collection("users").DeleteOne(ctx, bson.M{"email": email})
 		require.NoError(t, err)

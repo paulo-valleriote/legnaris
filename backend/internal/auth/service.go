@@ -65,6 +65,15 @@ type Session struct {
 	UserID        string
 }
 
+// LoginResult is what a password sign-in answers. A verified account receives
+// the Session; an unverified one receives a started verify_email code step and
+// no credential at all, so the session is never issued before the address is
+// proven (D2, TFA-06). Exactly one of the two fields is non-nil.
+type LoginResult struct {
+	Session   *Session
+	Challenge *ChallengeIssued
+}
+
 // SessionResponse is the login, registration and refresh body. It has no
 // refresh field, so the credential appears only in Set-Cookie (AUTH-01,
 // AUTH-02, AUTH-03, AUTH-08).
@@ -108,7 +117,7 @@ type ChallengeDeps struct {
 
 type Service interface {
 	Register(ctx context.Context, cmd RegisterCommand) (*ChallengeIssued, error)
-	Login(ctx context.Context, cmd LoginCommand) (*Session, error)
+	Login(ctx context.Context, cmd LoginCommand) (*LoginResult, error)
 	Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error)
 	Logout(ctx context.Context, cmd LogoutCommand) error
 	IssueChallenge(ctx context.Context, cmd IssueChallengeCommand) (*ChallengeIssued, error)
@@ -245,10 +254,11 @@ func (s *ServiceImpl) deferredRegistration(ctx context.Context, userID string) *
 	return &ChallengeIssued{Delivery: DeliveryDeferred}
 }
 
-// Login proves the password and, on success, establishes the session. Every
-// credential failure answers the one uniform outcome and starts nothing
-// (TFA-02, TFA-05).
-func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*Session, error) {
+// Login proves the password and then answers by the account's verification
+// state: a verified account gets a session, an unverified one starts the
+// verify_email step. Every credential failure answers the one uniform outcome
+// and starts nothing (TFA-02, TFA-05, TFA-06).
+func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*LoginResult, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
 		// An unparseable address is indistinguishable from an unknown one, so the
@@ -272,13 +282,31 @@ func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*Session, er
 		return nil, s.invalidCredentials(ctx, "password mismatch")
 	}
 
+	if stored.EmailVerifiedAt == nil {
+		return s.loginChallenge(ctx, stored)
+	}
+
 	session, err := s.signIn(ctx, stored.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	s.log.Info(ctx, "login succeeded", logger.Attribute{Key: attrUserID, Value: stored.ID})
-	return session, nil
+	return &LoginResult{Session: session}, nil
+}
+
+// loginChallenge starts the verify_email step for an account whose password
+// was proven but whose address was never verified. The daily allowance and the
+// per-account bound apply exactly as they do to registration: a refusal reaches
+// the caller as its typed error (503 EMAIL_UNAVAILABLE or 429 RATE_LIMITED).
+func (s *ServiceImpl) loginChallenge(ctx context.Context, account *user.User) (*LoginResult, error) {
+	issued, err := s.startChallenge(ctx, account.ID, account.Email, PurposeVerifyEmail)
+	if err != nil {
+		return nil, err
+	}
+
+	s.log.Info(ctx, "login challenge started", logger.Attribute{Key: attrUserID, Value: account.ID})
+	return &LoginResult{Challenge: issued}, nil
 }
 
 // startChallenge starts the code step a gated registration or sign-in owes. The
@@ -320,12 +348,15 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 	account, err := s.users.FetchByID(ctx, stored.UserID)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
-			if revokeErr := s.refreshTokens.RevokeFamily(ctx, stored.FamilyID); revokeErr != nil {
-				return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, revokeErr)
-			}
-			return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, err)
+			return nil, s.revokeRenewal(ctx, stored.FamilyID, err)
 		}
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	// An account that never verified its address holds no renewable session
+	// (D2, O5): sessions minted before verification existed are contained here.
+	if account.EmailVerifiedAt == nil {
+		return nil, s.revokeRenewal(ctx, stored.FamilyID, nil)
 	}
 
 	access, err := s.tokens.Issue(account.ID)
@@ -364,6 +395,17 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 
 	s.log.Info(ctx, "refresh rotated", logger.Attribute{Key: attrUserID, Value: account.ID})
 	return session, nil
+}
+
+// revokeRenewal ends the family of a credential whose account may not renew
+// it and answers the uniform refresh refusal. The missing-account and the
+// unverified-account paths share it, so neither is distinguishable by status or
+// body (TFA-06, TFA-10).
+func (s *ServiceImpl) revokeRenewal(ctx context.Context, familyID string, cause error) error {
+	if err := s.refreshTokens.RevokeFamily(ctx, familyID); err != nil {
+		return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	return apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, cause)
 }
 
 // resolveCredential applies the credential rules to the presented cookie

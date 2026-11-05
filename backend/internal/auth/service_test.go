@@ -161,6 +161,13 @@ func assertAppErr(t *testing.T, err error, code apperr.Code) {
 	assert.Equal(t, code, appErr.Code)
 }
 
+// verifiedAccount is an account whose address was verified, the state a
+// renewal requires (D2, O5).
+func verifiedAccount(id string) *user.User {
+	verifiedAt := time.Unix(1_700_000_000, 0)
+	return &user.User{ID: id, EmailVerifiedAt: &verifiedAt}
+}
+
 func expectedRefreshMaxAge() int {
 	return int(testRefreshTTL.Seconds())
 }
@@ -480,7 +487,8 @@ func TestService_Login(t *testing.T) {
 	ctx := context.Background()
 
 	storedUser := func() *user.User {
-		return &user.User{ID: validUserID, Email: testEmail, Username: "player", PasswordHash: testHash}
+		verifiedAt := time.Now()
+		return &user.User{ID: validUserID, Email: testEmail, Username: "player", PasswordHash: testHash, EmailVerifiedAt: &verifiedAt}
 	}
 
 	t.Run("Happy path: valid credentials issue a session", func(t *testing.T) {
@@ -504,7 +512,7 @@ func TestService_Login(t *testing.T) {
 		outcome, err := service.Login(ctx, auth.LoginCommand{Email: "Player@Example.com", Password: testPassword})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		session := outcome
+		session := outcome.Session
 		assert.Equal(t, "access-token", session.AccessToken)
 		assert.Equal(t, 900, session.ExpiresIn)
 		assert.Equal(t, "raw-refresh", session.RefreshToken)
@@ -528,7 +536,7 @@ func TestService_Login(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
-		assert.Equal(t, validUserID, outcome.UserID)
+		assert.Equal(t, validUserID, outcome.Session.UserID)
 	})
 
 	t.Run("Edge: dotted and +tag spellings are passed through unchanged", func(t *testing.T) {
@@ -560,7 +568,7 @@ func TestService_Login(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, first)
 		require.NotNil(t, second)
-		assert.NotEqual(t, first.CSRFToken, second.CSRFToken)
+		assert.NotEqual(t, first.Session.CSRFToken, second.Session.CSRFToken)
 	})
 
 	t.Run("Error: unknown email returns a generic 401 and records the failure", func(t *testing.T) {
@@ -709,22 +717,6 @@ func TestService_RegisterChallengeOutcome(t *testing.T) {
 		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 	})
 
-	t.Run("Edge: sign-in of an unverified account still returns a session and starts no challenge", func(t *testing.T) {
-		service, m := newAuthService(t)
-
-		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).
-			Return(&user.User{ID: validUserID, Email: testEmail, Username: "player", PasswordHash: testHash}, nil).Once()
-		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
-		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
-		m.generator.EXPECT().Generate().Return("raw", nil).Once()
-		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
-
-		outcome, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
-		require.NoError(t, err)
-		require.NotNil(t, outcome)
-		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
-	})
-
 	t.Run("Edge: concurrent registrations of one address create one account and start one challenge", func(t *testing.T) {
 		service, m := newAuthService(t)
 
@@ -779,7 +771,7 @@ func TestService_Refresh(t *testing.T) {
 
 		var familyID string
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, auth.HashRefreshToken("current-refresh")).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(verifiedAccount(validUserID), nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(true, nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "new-access", ExpiresIn: 900}, nil).Once()
@@ -883,7 +875,7 @@ func TestService_Refresh(t *testing.T) {
 
 		csrfToken := m.issueCSRF(t, validFamily)
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(verifiedAccount(validUserID), nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
@@ -902,7 +894,7 @@ func TestService_Refresh(t *testing.T) {
 
 		csrfToken := m.issueCSRF(t, validFamily)
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(verifiedAccount(validUserID), nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
@@ -917,7 +909,7 @@ func TestService_Refresh(t *testing.T) {
 
 		csrfToken := m.issueCSRF(t, validFamily)
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(verifiedAccount(validUserID), nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{}, errors.New("sign failed")).Once()
 
 		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
@@ -930,7 +922,7 @@ func TestService_Refresh(t *testing.T) {
 
 		csrfToken := m.issueCSRF(t, validFamily)
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(verifiedAccount(validUserID), nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(errors.New("insert failed")).Once()
@@ -947,10 +939,7 @@ func TestService_Refresh(t *testing.T) {
 func TestService_RefreshUnverifiedAccount(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("Edge: an unverified account rotates and its family is not revoked", func(t *testing.T) {
-		service, m := newAuthService(t)
-		csrfToken := m.issueCSRF(t, validFamily)
-
+	unverifiedFetch := func(m *authMocks) {
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(&auth.RefreshToken{
 			ID:        validTokenID,
 			UserID:    validUserID,
@@ -959,15 +948,177 @@ func TestService_RefreshUnverifiedAccount(t *testing.T) {
 		}, nil).Once()
 		m.users.EXPECT().FetchByID(mock.Anything, validUserID).
 			Return(&user.User{ID: validUserID, Email: testEmail, Username: "player"}, nil).Once()
-		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "new-access", ExpiresIn: 900}, nil).Once()
-		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
-		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
-		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(true, nil).Once()
+	}
+
+	t.Run("Error: an unverified account is refused 401 and its family is revoked", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+		unverifiedFetch(m)
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
 
 		session, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+		assert.Nil(t, session)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.generator.AssertNotCalled(t, "Generate")
+		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+		m.refreshTokens.AssertNotCalled(t, "RevokeByID", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: the refusal of an unverified account is the uniform refresh message", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+		unverifiedFetch(m)
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(nil).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgInvalidRefreshToken, appErr.Message)
+	})
+
+	t.Run("Error: a family revocation failure for an unverified account is internal and issues nothing", func(t *testing.T) {
+		service, m := newAuthService(t)
+		csrfToken := m.issueCSRF(t, validFamily)
+		unverifiedFetch(m)
+		m.refreshTokens.EXPECT().RevokeFamily(mock.Anything, validFamily).Return(errors.New("mongo down")).Once()
+
+		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
+		assertAppErr(t, err, apperr.CodeInternal)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+	})
+}
+
+// TestService_LoginUnverifiedAccount covers the sign-in of an account whose
+// address was never verified: the password is proven, then the verify_email
+// step starts instead of a session, bounded by the same daily and per-account
+// limits as registration (D2, TFA-06, OTP-13, OTP-14).
+func TestService_LoginUnverifiedAccount(t *testing.T) {
+	ctx := context.Background()
+
+	unverified := func() *user.User {
+		return &user.User{ID: validUserID, Email: testEmail, Username: "player", PasswordHash: testHash}
+	}
+
+	t.Run("Happy path: correct password starts a verify_email challenge and issues no session", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(unverified(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.expectChallengeIssuance(validUserID, auth.PurposeVerifyEmail, testEmail)
+
+		result, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
 		require.NoError(t, err)
-		assert.Equal(t, "new-access", session.AccessToken)
-		m.refreshTokens.AssertNotCalled(t, "RevokeFamily", mock.Anything, mock.Anything)
+		require.NotNil(t, result)
+		require.Nil(t, result.Session, "an unverified sign-in never carries a session")
+		require.NotNil(t, result.Challenge)
+		assert.NoError(t, idgen.Validate(result.Challenge.ChallengeID))
+		assert.Equal(t, int(testChallengePolicy.Lifetime.Seconds()), result.Challenge.ExpiresIn)
+		assert.Equal(t, int(testChallengePolicy.ResendCooldown.Seconds()), result.Challenge.ResendAfter)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.generator.AssertNotCalled(t, "Generate")
+		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Happy path: a verified account keeps the session and starts no challenge", func(t *testing.T) {
+		service, m := newAuthService(t)
+		verifiedAt := time.Now()
+		stored := unverified()
+		stored.EmailVerifiedAt = &verifiedAt
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(stored, nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
+		m.generator.EXPECT().Generate().Return("raw", nil).Once()
+		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+
+		result, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
+		require.NoError(t, err)
+		require.NotNil(t, result.Session)
+		assert.Nil(t, result.Challenge)
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+		m.mailer.AssertNotCalled(t, "Record", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: wrong password is the uniform 401 and starts no challenge", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(unverified(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, "wrong").Return(errors.New("mismatch")).Once()
+		m.observer.EXPECT().LoginFailure().Once()
+
+		result, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: "wrong"})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+		assert.Nil(t, result)
+		m.challenges.AssertNotCalled(t, "CountForUserSince", mock.Anything, mock.Anything, mock.Anything)
+		m.mailer.AssertNotCalled(t, "SentSince", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: unknown email is the uniform 401 and starts no challenge", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(nil, user.ErrUserNotFound).Once()
+		m.hasher.EXPECT().DummyHash().Return(testDummyHash).Once()
+		m.hasher.EXPECT().Compare(testDummyHash, testPassword).Return(errors.New("mismatch")).Once()
+		m.observer.EXPECT().LoginFailure().Once()
+
+		result, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
+		assertAppErr(t, err, apperr.CodeUnauthorized)
+		assert.Nil(t, result)
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: spent daily allowance answers 503 EMAIL_UNAVAILABLE with a retry hint and no session", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(unverified(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, validUserID, mock.Anything).Return(0, nil).Once()
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(testChallengePolicy.DailySendCap, nil).Once()
+
+		result, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
+		assertAppErr(t, err, apperr.CodeEmailUnavailable)
+		assert.Nil(t, result)
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Greater(t, appErr.RetryAfter, time.Duration(0))
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: one send below the cap still starts the challenge", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(unverified(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, validUserID, mock.Anything).Return(0, nil).Once()
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(testChallengePolicy.DailySendCap-1, nil).Once()
+		m.challenges.EXPECT().CloseActive(mock.Anything, validUserID, auth.PurposeVerifyEmail, mock.Anything).Return(nil).Once()
+		m.challenges.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
+		m.mailer.EXPECT().Record(mock.Anything, mock.Anything, testEmail, auth.PurposeVerifyEmail, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
+		result, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
+		require.NoError(t, err)
+		require.NotNil(t, result.Challenge)
+	})
+
+	t.Run("Error: the per-account bound answers 429 RATE_LIMITED and sends nothing", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(unverified(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, validUserID, mock.Anything).
+			Return(testChallengePolicy.MaxPerUserWindow, nil).Once()
+
+		result, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
+		assertAppErr(t, err, apperr.CodeRateLimited)
+		assert.Nil(t, result)
+		m.mailer.AssertNotCalled(t, "Record", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: a store failure while starting the challenge is internal and issues no session", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(unverified(), nil).Once()
+		m.hasher.EXPECT().Compare(testHash, testPassword).Return(nil).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, validUserID, mock.Anything).Return(0, errors.New("mongo down")).Once()
+
+		result, err := service.Login(ctx, auth.LoginCommand{Email: testEmail, Password: testPassword})
+		assertAppErr(t, err, apperr.CodeInternal)
+		assert.Nil(t, result)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
 	})
 }
 
@@ -1107,7 +1258,7 @@ func TestService_Clock(t *testing.T) {
 
 		now = expiresAt.Add(-time.Nanosecond)
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(active(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID}, nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(verifiedAccount(validUserID), nil).Once()
 		m.tokens.EXPECT().Issue(validUserID).Return(auth.AccessToken{Value: "access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
@@ -1230,7 +1381,7 @@ func TestService_RefreshRequiresAccount(t *testing.T) {
 		const loadedAccountID = "01900000-0000-7000-8000-0000000000aa"
 
 		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, mock.Anything).Return(activeToken(), nil).Once()
-		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: loadedAccountID}, nil).Once()
+		m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(verifiedAccount(loadedAccountID), nil).Once()
 		m.tokens.EXPECT().Issue(loadedAccountID).Return(auth.AccessToken{Value: "new-access", ExpiresIn: 900}, nil).Once()
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().
