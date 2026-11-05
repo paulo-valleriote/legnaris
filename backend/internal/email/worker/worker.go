@@ -310,7 +310,7 @@ func decode(raw []byte) (email.Message, error) {
 	if msg.Type != email.TypeOTP {
 		return email.Message{}, fmt.Errorf("%w: type %q", ErrUnusableMessage, msg.Type)
 	}
-	if strings.TrimSpace(msg.Data.Code) == "" {
+	if msg.Data.Purpose.CarriesCode() && strings.TrimSpace(msg.Data.Code) == "" {
 		return email.Message{}, fmt.Errorf("%w: no code to deliver", ErrUnusableMessage)
 	}
 	return msg, nil

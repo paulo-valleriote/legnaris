@@ -158,13 +158,26 @@ func TestIntegration_RegistrationVerification(t *testing.T) {
 		assert.NotEmpty(t, cookiesFrom(t, loginRec).refresh)
 	})
 
-	t.Run("Error: a duplicate registration is 409 with no challenge and no send", func(t *testing.T) {
+	t.Run("Edge: a registration against the verified address answers 201 and only notifies the owner, once", func(t *testing.T) {
 		before := outboxCount(t, mdb)
 
 		dupRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
-		require.Equal(t, http.StatusConflict, dupRec.Code, dupRec.Body.String())
+		require.Equal(t, http.StatusCreated, dupRec.Code, dupRec.Body.String())
 		assert.Empty(t, dupRec.Header().Get("Set-Cookie"))
-		assert.Equal(t, before, outboxCount(t, mdb), "a refused registration sends nothing")
+
+		var dup response.Success[auth.ChallengeIssued]
+		require.NoError(t, json.Unmarshal(dupRec.Body.Bytes(), &dup))
+		assert.NotEmpty(t, dup.Data.ChallengeID)
+		assert.NotEqual(t, issued.Data.ChallengeID, dup.Data.ChallengeID)
+		assert.Equal(t, before+1, outboxCount(t, mdb), "the owner gets one notice")
+
+		againRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
+		require.Equal(t, http.StatusCreated, againRec.Code, againRec.Body.String())
+		assert.Equal(t, before+1, outboxCount(t, mdb), "a repeat inside the window sends nothing more")
+
+		verifyRec := doRequest(t, h, http.MethodPost, verifyRoute,
+			`{"challenge_id":"`+dup.Data.ChallengeID+`","code":"000000"}`)
+		assert.GreaterOrEqual(t, verifyRec.Code, http.StatusBadRequest, "the decoy identity can never be redeemed")
 	})
 }
 
@@ -269,19 +282,28 @@ func TestIntegration_AuthRegister(t *testing.T) {
 		assert.NotEmpty(t, issued.Data.ChallengeID)
 	})
 
-	t.Run("Error: duplicate email returns 409", func(t *testing.T) {
+	t.Run("Edge: re-registering a pending address replaces the account and answers 201", func(t *testing.T) {
 		const dupEmail = "dup@example.com"
 
 		first := fmt.Sprintf(`{"email":%q,"username":"dup-one","password":%q}`, dupEmail, authPassword)
 		require.Equal(t, http.StatusCreated, doRequest(t, h, http.MethodPost, "/auth/register", first).Code)
 
 		second := fmt.Sprintf(`{"email":%q,"username":"dup-two","password":%q}`, dupEmail, authPassword)
+		require.Equal(t, http.StatusCreated, doRequest(t, h, http.MethodPost, "/auth/register", second).Code)
+	})
+
+	t.Run("Error: a username held by another account is 409 with the neutral message", func(t *testing.T) {
+		first := fmt.Sprintf(`{"email":%q,"username":"shared-name","password":%q}`, "owner@example.com", authPassword)
+		require.Equal(t, http.StatusCreated, doRequest(t, h, http.MethodPost, "/auth/register", first).Code)
+
+		second := fmt.Sprintf(`{"email":%q,"username":"shared-name","password":%q}`, "other@example.com", authPassword)
 		rec := doRequest(t, h, http.MethodPost, "/auth/register", second)
 		require.Equal(t, http.StatusConflict, rec.Code)
 
 		var errBody response.ErrorResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &errBody))
 		assert.Equal(t, "CONFLICT", errBody.Error.Code)
+		assert.Equal(t, auth.MsgRegistrationConflict, errBody.Error.Message)
 	})
 
 	t.Run("Error: short password returns 400", func(t *testing.T) {

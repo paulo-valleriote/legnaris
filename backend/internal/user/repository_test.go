@@ -438,3 +438,51 @@ func TestUserRepository_ReplaceUnverifiedCredentials(t *testing.T) {
 		assert.Zero(t, count, "the operation must never create a document")
 	})
 }
+
+// TestUserRepository_ClaimExistsNotice covers the pacing of "account already
+// exists" notices: one claim per window, only for a verified account.
+func TestUserRepository_ClaimExistsNotice(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
+	window := time.Hour
+
+	verified := func() *user.User {
+		u := sampleUser()
+		verifiedAt := now.Add(-24 * time.Hour)
+		u.EmailVerifiedAt = &verifiedAt
+		return u
+	}
+
+	tests := []struct {
+		name    string
+		account func() *user.User
+		claims  []time.Time
+		want    []bool
+	}{
+		{name: "Happy path: the first claim succeeds", account: verified, claims: []time.Time{now}, want: []bool{true}},
+		{name: "Edge: a second claim inside the window is throttled", account: verified, claims: []time.Time{now, now.Add(window - time.Second)}, want: []bool{true, false}},
+		{name: "Edge: a claim exactly one window later succeeds again", account: verified, claims: []time.Time{now, now.Add(window + time.Nanosecond)}, want: []bool{true, true}},
+		{name: "Edge: an unverified account is never claimed", account: sampleUser, claims: []time.Time{now}, want: []bool{false}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newUserRepository(t)
+			u := tc.account()
+			require.NoError(t, repo.Create(ctx, u))
+
+			for i, at := range tc.claims {
+				claimed, err := repo.ClaimExistsNotice(ctx, u.ID, at.Add(-window), at)
+				require.NoError(t, err)
+				assert.Equal(t, tc.want[i], claimed, "claim %d", i)
+			}
+		})
+	}
+
+	t.Run("Edge: an unknown account is not claimed", func(t *testing.T) {
+		repo := newUserRepository(t)
+
+		claimed, err := repo.ClaimExistsNotice(ctx, "01900000-0000-7000-8000-0000000000ff", now.Add(-window), now)
+		require.NoError(t, err)
+		assert.False(t, claimed)
+	})
+}

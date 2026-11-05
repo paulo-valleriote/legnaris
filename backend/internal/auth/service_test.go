@@ -209,30 +209,6 @@ func TestService_Register(t *testing.T) {
 		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 	})
 
-	t.Run("Error: duplicate email of a verified account maps to conflict before any session is issued", func(t *testing.T) {
-		service, m := newAuthService(t)
-
-		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
-		m.users.EXPECT().
-			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool { return u.Email == testEmail })).
-			Return(user.ErrEmailAlreadyExists).
-			Once()
-		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(verifiedAccount(validUserID), nil).Once()
-
-		_, err := service.Register(ctx, auth.RegisterCommand{
-			Email:    "Another Name <Player@Example.com>",
-			Username: "player",
-			Password: testPassword,
-		})
-		assertAppErr(t, err, apperr.CodeConflict)
-
-		var appErr *apperr.Error
-		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, auth.MsgRegistrationConflict, appErr.Message)
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
-		m.generator.AssertNotCalled(t, "Generate")
-	})
-
 	t.Run("Error: invalid email is rejected before hashing", func(t *testing.T) {
 		service, m := newAuthService(t)
 
@@ -761,6 +737,7 @@ func TestService_RegisterUsernameConflict(t *testing.T) {
 		service, m := newAuthService(t)
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
 		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(user.ErrUsernameAlreadyExists).Once()
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(nil, user.ErrUserNotFound).Once()
 
 		_, err := service.Register(ctx, cmd)
 		assertAppErr(t, err, apperr.CodeConflict)
@@ -783,6 +760,116 @@ func TestService_RegisterUsernameConflict(t *testing.T) {
 		assert.Contains(t, err.Error(), auth.MsgRegistrationConflict)
 		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
 	})
+}
+
+// TestService_RegisterVerifiedAddress covers a registration against an address
+// that already belongs to a verified account: it answers like a first
+// registration (a 201 shape whose challenge identity no code can redeem, or the
+// deferred answer when the allowance is spent), the owner is told by a code-free
+// notice at most once per window, and the response never reveals the address is
+// registered.
+func TestService_RegisterVerifiedAddress(t *testing.T) {
+	ctx := context.Background()
+	register := func(service auth.Service) (*auth.ChallengeIssued, error) {
+		return service.Register(ctx, auth.RegisterCommand{Email: "Player@Example.com", Username: "player", Password: testPassword})
+	}
+	setup := func(t *testing.T, createErr error) (auth.Service, *authMocks) {
+		service, m := newAuthService(t)
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(createErr).Once()
+		account := verifiedAccount(validUserID)
+		account.Email = testEmail
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(account, nil).Once()
+		return service, m
+	}
+
+	tests := []struct {
+		name      string
+		createErr error
+	}{
+		{name: "Happy path: the email index fired", createErr: user.ErrEmailAlreadyExists},
+		{name: "Edge: the username index fired for the same account", createErr: user.ErrUsernameAlreadyExists},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name+": the owner is notified once and the caller gets a 201-shaped answer", func(t *testing.T) {
+			service, m := setup(t, tc.createErr)
+			m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
+			m.users.EXPECT().ClaimExistsNotice(mock.Anything, validUserID, mock.Anything, mock.Anything).Return(true, nil).Once()
+			m.mailer.EXPECT().
+				Record(mock.Anything, mock.Anything, testEmail, auth.PurposeAccountExists, "", 10, mock.Anything).
+				Return(nil).
+				Once()
+
+			issued, err := register(service)
+			require.NoError(t, err)
+			require.NotNil(t, issued)
+			assert.NoError(t, idgen.Validate(issued.ChallengeID))
+			assert.Equal(t, int(testChallengePolicy.Lifetime.Seconds()), issued.ExpiresIn)
+			assert.Equal(t, int(testChallengePolicy.ResendCooldown.Seconds()), issued.ResendAfter)
+			assert.NotEqual(t, auth.DeliveryDeferred, issued.Delivery)
+			m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+			m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		})
+	}
+
+	t.Run("Edge: a throttled notice still answers the same and sends nothing", func(t *testing.T) {
+		service, m := setup(t, user.ErrEmailAlreadyExists)
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.users.EXPECT().ClaimExistsNotice(mock.Anything, validUserID, mock.Anything, mock.Anything).Return(false, nil).Once()
+
+		issued, err := register(service)
+		require.NoError(t, err)
+		assert.NoError(t, idgen.Validate(issued.ChallengeID))
+		m.mailer.AssertNotCalled(t, "Record", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: a spent daily allowance answers deferred like a first registration and claims nothing", func(t *testing.T) {
+		service, m := setup(t, user.ErrEmailAlreadyExists)
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(testChallengePolicy.DailySendCap, nil).Once()
+
+		issued, err := register(service)
+		require.NoError(t, err)
+		assert.Equal(t, auth.DeliveryDeferred, issued.Delivery)
+		m.users.AssertNotCalled(t, "ClaimExistsNotice", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: the cap reached while recording answers deferred", func(t *testing.T) {
+		service, m := setup(t, user.ErrEmailAlreadyExists)
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.users.EXPECT().ClaimExistsNotice(mock.Anything, validUserID, mock.Anything, mock.Anything).Return(true, nil).Once()
+		m.mailer.EXPECT().Record(mock.Anything, mock.Anything, testEmail, auth.PurposeAccountExists, "", 10, mock.Anything).Return(auth.ErrSendBudgetExhausted).Once()
+
+		issued, err := register(service)
+		require.NoError(t, err)
+		assert.Equal(t, auth.DeliveryDeferred, issued.Delivery)
+	})
+
+	failures := []struct {
+		name  string
+		setup func(m *authMocks)
+	}{
+		{name: "Error: a failing allowance check answers internal", setup: func(m *authMocks) {
+			m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, errors.New("db down")).Once()
+		}},
+		{name: "Error: a failing claim answers internal", setup: func(m *authMocks) {
+			m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
+			m.users.EXPECT().ClaimExistsNotice(mock.Anything, validUserID, mock.Anything, mock.Anything).Return(false, errors.New("db down")).Once()
+		}},
+		{name: "Error: a failing outbox write answers internal", setup: func(m *authMocks) {
+			m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
+			m.users.EXPECT().ClaimExistsNotice(mock.Anything, validUserID, mock.Anything, mock.Anything).Return(true, nil).Once()
+			m.mailer.EXPECT().Record(mock.Anything, mock.Anything, testEmail, auth.PurposeAccountExists, "", 10, mock.Anything).Return(errors.New("db down")).Once()
+		}},
+	}
+	for _, tc := range failures {
+		t.Run(tc.name, func(t *testing.T) {
+			service, m := setup(t, user.ErrEmailAlreadyExists)
+			tc.setup(m)
+
+			_, err := register(service)
+			assertAppErr(t, err, apperr.CodeInternal)
+		})
+	}
 }
 
 // TestService_RegisterReplacesUnverified covers a registration whose address
@@ -858,31 +945,19 @@ func TestService_RegisterReplacesUnverified(t *testing.T) {
 		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
 	})
 
-	t.Run("Error: a verified account keeps the conflict and is never replaced", func(t *testing.T) {
+	t.Run("Edge: a verified account is never replaced and answers like a first registration", func(t *testing.T) {
 		service, m := newAuthService(t)
 
 		duplicateCreate(m)
 		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(verifiedAccount(validUserID), nil).Once()
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.users.EXPECT().ClaimExistsNotice(mock.Anything, validUserID, mock.Anything, mock.Anything).Return(false, nil).Once()
 
 		issued, err := register(service)
-		assertAppErr(t, err, apperr.CodeConflict)
-		assert.Nil(t, issued)
+		require.NoError(t, err)
+		require.NotNil(t, issued)
 		m.users.AssertNotCalled(t, "FetchByUsername", mock.Anything, mock.Anything)
 		m.users.AssertNotCalled(t, "ReplaceUnverifiedCredentials", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
-		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
-	})
-
-	t.Run("Edge: an account verified between the read and the write stays a conflict", func(t *testing.T) {
-		service, m := newAuthService(t)
-
-		duplicateCreate(m)
-		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
-		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, user.ErrUserNotFound).Once()
-		m.users.EXPECT().ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).Return(false, nil).Once()
-
-		_, err := register(service)
-		assertAppErr(t, err, apperr.CodeConflict)
 		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
 		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
 	})

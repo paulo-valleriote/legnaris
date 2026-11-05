@@ -24,6 +24,65 @@ func (_m *MockRepository) EXPECT() *MockRepository_Expecter {
 	return &MockRepository_Expecter{mock: &_m.Mock}
 }
 
+// ClaimExistsNotice provides a mock function with given fields: ctx, id, since, at
+func (_m *MockRepository) ClaimExistsNotice(ctx context.Context, id string, since time.Time, at time.Time) (bool, error) {
+	ret := _m.Called(ctx, id, since, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClaimExistsNotice")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time, time.Time) (bool, error)); ok {
+		return rf(ctx, id, since, at)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time, time.Time) bool); ok {
+		r0 = rf(ctx, id, since, at)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, time.Time, time.Time) error); ok {
+		r1 = rf(ctx, id, since, at)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_ClaimExistsNotice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClaimExistsNotice'
+type MockRepository_ClaimExistsNotice_Call struct {
+	*mock.Call
+}
+
+// ClaimExistsNotice is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - since time.Time
+//   - at time.Time
+func (_e *MockRepository_Expecter) ClaimExistsNotice(ctx interface{}, id interface{}, since interface{}, at interface{}) *MockRepository_ClaimExistsNotice_Call {
+	return &MockRepository_ClaimExistsNotice_Call{Call: _e.mock.On("ClaimExistsNotice", ctx, id, since, at)}
+}
+
+func (_c *MockRepository_ClaimExistsNotice_Call) Run(run func(ctx context.Context, id string, since time.Time, at time.Time)) *MockRepository_ClaimExistsNotice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(time.Time), args[3].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockRepository_ClaimExistsNotice_Call) Return(_a0 bool, _a1 error) *MockRepository_ClaimExistsNotice_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_ClaimExistsNotice_Call) RunAndReturn(run func(context.Context, string, time.Time, time.Time) (bool, error)) *MockRepository_ClaimExistsNotice_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function with given fields: ctx, _a1
 func (_m *MockRepository) Create(ctx context.Context, _a1 *user.User) error {
 	ret := _m.Called(ctx, _a1)

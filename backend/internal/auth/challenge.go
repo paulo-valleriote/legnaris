@@ -10,6 +10,10 @@ const (
 	// PurposeVerifyEmail marks a challenge issued for a freshly registered
 	// account.
 	PurposeVerifyEmail Purpose = "verify_email"
+	// PurposeAccountExists is the code-free notice sent to the owner of a
+	// verified address when someone registers with it. It never backs a
+	// challenge record.
+	PurposeAccountExists Purpose = "account_exists"
 )
 
 // Challenge is the durable record of one pending code step (data-model.md §1):

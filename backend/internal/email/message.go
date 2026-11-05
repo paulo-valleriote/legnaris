@@ -17,7 +17,18 @@ const (
 	PurposeVerifyEmail Purpose = "verify_email"
 	// PurposeLoginOTP is the login one-time-code purpose.
 	PurposeLoginOTP Purpose = "login_otp"
+	// PurposeAccountExists tells the owner of a verified address that someone
+	// tried to register with it. It carries no code, so a registration attempt
+	// against an existing account answers exactly like a new one and the
+	// response never reveals which addresses are registered.
+	PurposeAccountExists Purpose = "account_exists"
 )
+
+// CarriesCode reports whether messages of the purpose deliver a code; the
+// worker refuses a code-carrying message that has none.
+func (p Purpose) CarriesCode() bool {
+	return p != PurposeAccountExists
+}
 
 // TypeOTP is the single message type this feature publishes (EML-07).
 const TypeOTP = "email.otp"

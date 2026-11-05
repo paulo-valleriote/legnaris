@@ -12,8 +12,12 @@ type User struct {
 	// The derived boolean on the DTO is the only representation of the state
 	// (TFA-08).
 	EmailVerifiedAt *time.Time `bson:"email_verified_at,omitempty" json:"email_verified_at,omitempty"`
-	CreatedAt       time.Time  `bson:"created_at" json:"created_at"`
-	UpdatedAt       time.Time  `bson:"updated_at" json:"updated_at"`
+	// ExistsNoticeAt is when the owner was last told that someone tried to
+	// register with the address; it paces those notices so a stranger cannot
+	// flood a mailbox.
+	ExistsNoticeAt *time.Time `bson:"exists_notice_at,omitempty" json:"-"`
+	CreatedAt      time.Time  `bson:"created_at" json:"created_at"`
+	UpdatedAt      time.Time  `bson:"updated_at" json:"updated_at"`
 }
 
 // UserDTO is the wire shape of a user. It deliberately has no password field:

@@ -6,7 +6,7 @@ import "errors"
 // exact wording. They are plain strings, never error causes.
 const (
 	MsgInvalidCredentials   = "invalid credentials"
-	MsgRegistrationConflict = "these details cannot be used to register"
+	MsgRegistrationConflict = "Registration failed. Check your details and try again, or sign in if you already have an account."
 	MsgDisposableEmail      = "use a permanent email address; this one cannot receive the verification code"
 	MsgInvalidEmail         = "email is invalid"
 	MsgUsernameRequired     = "username is required"

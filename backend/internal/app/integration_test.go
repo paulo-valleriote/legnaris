@@ -923,7 +923,7 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 // TestIntegration_CanonicalEmail covers the mailbox-identity journey end to end
 // (PRQ-08, PRQ-10, PRQ-15, SC-004, SC-005): a display-name registration stores
 // the bare lowercase address with no verification timestamp, another spelling of
-// the same mailbox is a 409 with one row, sign-in accepts a third spelling for
+// the same mailbox re-registers the pending account in one row, sign-in accepts a third spelling for
 // the same account, and the boot path leaves a legacy document untouched.
 func TestIntegration_CanonicalEmail(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
@@ -955,12 +955,12 @@ func TestIntegration_CanonicalEmail(t *testing.T) {
 		"/auth/register",
 		fmt.Sprintf(`{"email":%q,"username":"other","password":%q}`, "PLAYER@example.com", integrationPassword),
 	)
-	require.Equal(t, http.StatusConflict, duplicateRec.Code, duplicateRec.Body.String())
+	require.Equal(t, http.StatusCreated, duplicateRec.Code, duplicateRec.Body.String())
 
-	var duplicateBody response.ErrorResponse
+	var duplicateBody response.Success[auth.ChallengeIssued]
 	require.NoError(t, json.Unmarshal(duplicateRec.Body.Bytes(), &duplicateBody))
-	assert.Equal(t, "CONFLICT", duplicateBody.Error.Code)
-	assert.Equal(t, auth.MsgRegistrationConflict, duplicateBody.Error.Message)
+	assert.NotEmpty(t, duplicateBody.Data.ChallengeID, "a duplicate answers like a first registration")
+	assert.NotEqual(t, issued.Data.ChallengeID, duplicateBody.Data.ChallengeID)
 
 	count, err := mdb.Collection("users").CountDocuments(ctx, bson.D{})
 	require.NoError(t, err)

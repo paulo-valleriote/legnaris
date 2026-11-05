@@ -49,8 +49,8 @@ type EmbeddedRenderer struct {
 // NewRenderer parses the embedded templates for every known purpose. Parsing
 // happens once at construction so rendering stays pure (EML-11, EML-22).
 func NewRenderer() (*EmbeddedRenderer, error) {
-	renderer := &EmbeddedRenderer{templates: make(map[Purpose]templateSet, 2)}
-	for _, purpose := range []Purpose{PurposeVerifyEmail, PurposeLoginOTP} {
+	renderer := &EmbeddedRenderer{templates: make(map[Purpose]templateSet, 3)}
+	for _, purpose := range []Purpose{PurposeVerifyEmail, PurposeLoginOTP, PurposeAccountExists} {
 		set, err := parseTemplateSet(purpose)
 		if err != nil {
 			return nil, err
