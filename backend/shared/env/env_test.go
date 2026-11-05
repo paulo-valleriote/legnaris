@@ -637,6 +637,41 @@ func TestInitVariablesChallengeOverrides(t *testing.T) {
 	})
 }
 
+// TestInitVariablesResendCapRatio covers the resend share of the daily cap: a
+// fraction in (0, 1] is accepted, anything else falls back to the documented
+// 0.30 with a warning (D5).
+func TestInitVariablesResendCapRatio(t *testing.T) {
+	e := newTestEnv()
+
+	tests := []struct {
+		name  string
+		value *string
+		want  float64
+	}{
+		{name: "Happy path: an absent variable selects the documented default", value: nil, want: 0.30},
+		{name: "Happy path: a fraction inside the range is used", value: strPtr("0.5"), want: 0.5},
+		{name: "Edge: the upper bound 1 is accepted", value: strPtr("1"), want: 1},
+		{name: "Edge: zero is outside the range and falls back", value: strPtr("0"), want: 0.30},
+		{name: "Edge: a negative value falls back", value: strPtr("-0.1"), want: 0.30},
+		{name: "Edge: a value above 1 falls back", value: strPtr("1.5"), want: 0.30},
+		{name: "Edge: NaN falls back", value: strPtr("NaN"), want: 0.30},
+		{name: "Edge: a non-numeric value falls back", value: strPtr("thirty"), want: 0.30},
+		{name: "Edge: a blank value falls back", value: strPtr(""), want: 0.30},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			unsetEnv(t, "AUTH_OTP_RESEND_CAP_RATIO")
+			if tc.value != nil {
+				t.Setenv("AUTH_OTP_RESEND_CAP_RATIO", *tc.value)
+			}
+			require.Equal(t, tc.want, e.initVariables().AuthOTPResendCapRatio)
+		})
+	}
+}
+
+func strPtr(s string) *string { return &s }
+
 // TestInitVariablesWorkerSettings covers the worker's optional settings: an
 // absent, blank or malformed value selects the documented default and the
 // required list is unchanged (WKR-14, WKR-16, WKR-19, WKR-20).

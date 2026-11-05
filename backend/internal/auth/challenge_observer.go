@@ -14,6 +14,9 @@ const (
 	ResendSent       = "sent"
 	ResendSuppressed = "suppressed"
 	ResendCapped     = "capped"
+	// ResendReserved is a resend refused because the resend share of the day
+	// is spent, while the total cap still has room for first sends (D5).
+	ResendReserved = "reserved"
 )
 
 // ChallengeObserver receives the code-step signals. It is a separate seam from

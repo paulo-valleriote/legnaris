@@ -1,6 +1,9 @@
 package auth
 
-import "time"
+import (
+	"math"
+	"time"
+)
 
 // ChallengePolicy is the resolved, configuration-backed set of limits the
 // challenge service enforces. It is built once at boot and carried by the
@@ -20,6 +23,9 @@ type ChallengePolicy struct {
 	// DailySendCap is the send intentions per day before the API answers
 	// unavailable (OTP-13).
 	DailySendCap int
+	// ResendCapRatio is the share of DailySendCap that resends may consume; the
+	// rest is reserved for first sends (D5). Within (0, 1].
+	ResendCapRatio float64
 	// UserWindow and MaxPerUserWindow are the durable per-account bound on the
 	// challenge routes (OTP-14).
 	UserWindow       time.Duration
@@ -63,4 +69,12 @@ func (p ChallengePolicy) CooldownElapsed(lastSentAt, now time.Time) bool {
 func (p ChallengePolicy) DayStart(now time.Time) time.Time {
 	utc := now.UTC()
 	return time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// ResendDayCap returns the resends a day may record: the floor of DailySendCap
+// times ResendCapRatio. Because resends also count against DailySendCap, first
+// sends always keep at least DailySendCap-ResendDayCap intentions of the day,
+// so a resend storm cannot exhaust the cap for new accounts (D5).
+func (p ChallengePolicy) ResendDayCap() int {
+	return int(math.Floor(float64(p.DailySendCap) * p.ResendCapRatio))
 }

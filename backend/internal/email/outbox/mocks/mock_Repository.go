@@ -200,6 +200,64 @@ func (_c *MockRepository_Clone_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
+// CountKindSince provides a mock function with given fields: ctx, kind, since
+func (_m *MockRepository) CountKindSince(ctx context.Context, kind outbox.Kind, since time.Time) (int, error) {
+	ret := _m.Called(ctx, kind, since)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountKindSince")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, outbox.Kind, time.Time) (int, error)); ok {
+		return rf(ctx, kind, since)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, outbox.Kind, time.Time) int); ok {
+		r0 = rf(ctx, kind, since)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, outbox.Kind, time.Time) error); ok {
+		r1 = rf(ctx, kind, since)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_CountKindSince_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountKindSince'
+type MockRepository_CountKindSince_Call struct {
+	*mock.Call
+}
+
+// CountKindSince is a helper method to define mock.On call
+//   - ctx context.Context
+//   - kind outbox.Kind
+//   - since time.Time
+func (_e *MockRepository_Expecter) CountKindSince(ctx interface{}, kind interface{}, since interface{}) *MockRepository_CountKindSince_Call {
+	return &MockRepository_CountKindSince_Call{Call: _e.mock.On("CountKindSince", ctx, kind, since)}
+}
+
+func (_c *MockRepository_CountKindSince_Call) Run(run func(ctx context.Context, kind outbox.Kind, since time.Time)) *MockRepository_CountKindSince_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(outbox.Kind), args[2].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockRepository_CountKindSince_Call) Return(_a0 int, _a1 error) *MockRepository_CountKindSince_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_CountKindSince_Call) RunAndReturn(run func(context.Context, outbox.Kind, time.Time) (int, error)) *MockRepository_CountKindSince_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CountSince provides a mock function with given fields: ctx, since
 func (_m *MockRepository) CountSince(ctx context.Context, since time.Time) (int, error) {
 	ret := _m.Called(ctx, since)

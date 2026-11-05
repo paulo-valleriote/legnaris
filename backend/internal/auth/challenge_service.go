@@ -214,6 +214,9 @@ func (s *ServiceImpl) ResendChallenge(ctx context.Context, cmd ResendChallengeCo
 		}
 		return nil, err
 	}
+	if err := s.checkResendBudget(ctx, now); err != nil {
+		return nil, err
+	}
 
 	extended, err := s.challenge.Repository.Extend(ctx, cmd.ChallengeID, now, policy.ResendCooldown, policy.DeadlineWithin(row.CeilingAt, now))
 	if err != nil {
@@ -304,14 +307,37 @@ func (s *ServiceImpl) checkSendBudget(ctx context.Context, now time.Time) error 
 	return nil
 }
 
+// checkResendBudget refuses a resend once the day's resend intentions reach the
+// resend share of the cap. It runs after checkSendBudget and never affects first
+// sends, which keep the reserved share of the cap (D5, OTP-13).
+func (s *ServiceImpl) checkResendBudget(ctx context.Context, now time.Time) error {
+	policy := s.challenge.Policy
+
+	resends, err := s.challenge.Mailer.ResendsSince(ctx, policy.DayStart(now))
+	if err != nil {
+		return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	if resends < policy.ResendDayCap() {
+		return nil
+	}
+	s.challenge.Observer.ResendRequested(ResendReserved)
+	return s.emailUnavailable(now)
+}
+
 // sendBudgetExhausted is the typed unavailable outcome with a retry hint that
 // points at the next day's window; reaching the cap reveals no account state
 // (OTP-13, R6).
 func (s *ServiceImpl) sendBudgetExhausted(ctx context.Context, now time.Time) error {
-	policy := s.challenge.Policy
-
 	s.challenge.Observer.SendCapBlocked()
 	s.log.Warn(ctx, "daily email send cap reached")
+	return s.emailUnavailable(now)
+}
+
+// emailUnavailable builds the unavailable outcome that retries at the next UTC
+// day; it is shared by the total cap and the resend share, which report
+// through different observer results (D5).
+func (s *ServiceImpl) emailUnavailable(now time.Time) error {
+	policy := s.challenge.Policy
 
 	return apperr.NewError(apperr.CodeEmailUnavailable, MsgEmailUnavailable, nil).
 		WithRetryAfter(policy.DayStart(now).Add(24 * time.Hour).Sub(now))

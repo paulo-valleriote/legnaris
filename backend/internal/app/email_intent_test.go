@@ -210,3 +210,32 @@ func TestEmailIntent_DisclosureSweep(t *testing.T) {
 
 	assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), log.text())
 }
+
+// TestEmailIntent_ResendsSince proves the resend share counts only resends of
+// the window, leaving first sends to the total cap (D5, OTP-13).
+func TestEmailIntent_ResendsSince(t *testing.T) {
+	ctx := context.Background()
+	since := time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)
+
+	t.Run("Happy path: the window is forwarded with the resend kind", func(t *testing.T) {
+		repo := outboxmocks.NewMockRepository(t)
+		repo.EXPECT().CountKindSince(mock.Anything, outbox.KindResend, since).Return(4, nil).Once()
+
+		adapter := app.NewEmailIntent(repo, &captureLogger{})
+		count, err := adapter.ResendsSince(ctx, since)
+
+		require.NoError(t, err)
+		assert.Equal(t, 4, count)
+	})
+
+	t.Run("Error: a store failure is returned unwrapped", func(t *testing.T) {
+		repo := outboxmocks.NewMockRepository(t)
+		storeErr := errors.New("mongo down")
+		repo.EXPECT().CountKindSince(mock.Anything, outbox.KindResend, since).Return(0, storeErr).Once()
+
+		adapter := app.NewEmailIntent(repo, &captureLogger{})
+		_, err := adapter.ResendsSince(ctx, since)
+
+		assert.ErrorIs(t, err, storeErr)
+	})
+}

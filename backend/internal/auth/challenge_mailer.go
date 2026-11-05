@@ -22,6 +22,9 @@ type CodeMailer interface {
 	// SentSince counts the intentions recorded at or after the given instant,
 	// the daily cap's only input (OTP-13).
 	SentSince(ctx context.Context, since time.Time) (int, error)
+	// ResendsSince counts the resend intentions recorded at or after the given
+	// instant, the resend share's only input (D5).
+	ResendsSince(ctx context.Context, since time.Time) (int, error)
 }
 
 // ErrSendBudgetExhausted reports that the daily send cap has been reached, so no

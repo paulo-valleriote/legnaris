@@ -509,7 +509,9 @@ digest, consumed at most once and never logged.
   lifetime), `AUTH_OTP_CEILING` (`30m`, the absolute limit a resend can never
   pass), `AUTH_OTP_RESEND_COOLDOWN` (`60s`), `AUTH_OTP_MAX_ATTEMPTS` (`5`),
   `AUTH_OTP_DAILY_SEND_CAP` (`80`, deliberately below the provider's free-tier
-  allowance of 100), `AUTH_OTP_USER_WINDOW` (`1h`) and `AUTH_OTP_USER_LIMIT`
+  allowance of 100), `AUTH_OTP_RESEND_CAP_RATIO` (`0.30`, the share of that cap
+  resends may use so first sends always keep the rest), `AUTH_OTP_USER_WINDOW` (`1h`)
+  and `AUTH_OTP_USER_LIMIT`
   (`10` challenges per account per window).
 - **Verification failures** answer one uniform `OTP_INVALID` (401), so an
   unknown, expired, consumed, wrong or exhausted code is indistinguishable. The

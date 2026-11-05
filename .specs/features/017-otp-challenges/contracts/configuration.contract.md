@@ -20,6 +20,7 @@ optional with a documented default.
 | `AUTH_OTP_RESEND_COOLDOWN` | `60s` | no | the policy builder |
 | `AUTH_OTP_MAX_ATTEMPTS` | `5` | no | the policy builder (non-positive/invalid → default + warning) |
 | `AUTH_OTP_DAILY_SEND_CAP` | `80` | no | the policy builder; deliberately below the provider's free-tier 100 (`O4`) |
+| `AUTH_OTP_RESEND_CAP_RATIO` | `0.30` | no | the policy builder; the share of `AUTH_OTP_DAILY_SEND_CAP` resends may use, in (0, 1] (invalid → default + warning) (D5) |
 | `AUTH_OTP_USER_WINDOW` | `1h` | no | the policy builder |
 | `AUTH_OTP_USER_LIMIT` | `10` | no | the policy builder |
 

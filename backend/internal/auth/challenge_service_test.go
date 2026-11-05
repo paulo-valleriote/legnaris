@@ -43,6 +43,7 @@ var challengeTestPolicy = auth.ChallengePolicy{
 	ResendCooldown:   60 * time.Second,
 	MaxAttempts:      5,
 	DailySendCap:     3,
+	ResendCapRatio:   0.5,
 	UserWindow:       time.Hour,
 	MaxPerUserWindow: 10,
 }
@@ -205,6 +206,14 @@ func (f *challengeFixture) expectAccountCount(count int) {
 func (f *challengeFixture) expectSentCount(count int) {
 	f.mailer.EXPECT().
 		SentSince(mock.Anything, mock.Anything).
+		Return(count, nil).
+		Once()
+}
+
+// expectResendCount wires the resend share's count for the current day (D5).
+func (f *challengeFixture) expectResendCount(count int) {
+	f.mailer.EXPECT().
+		ResendsSince(mock.Anything, mock.Anything).
 		Return(count, nil).
 		Once()
 }
@@ -635,6 +644,7 @@ func TestResendChallenge_RecordsSameCode(t *testing.T) {
 	f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Once()
 	f.expectAccountCount(0)
 	f.expectSentCount(0)
+	f.expectResendCount(0)
 	f.repo.EXPECT().
 		Extend(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.ResendCooldown, challengeTestNow.Add(10*time.Minute)).
 		Return(true, nil).
@@ -677,6 +687,7 @@ func TestResendChallenge_ClampsToCeiling(t *testing.T) {
 	f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Once()
 	f.expectAccountCount(0)
 	f.expectSentCount(0)
+	f.expectResendCount(0)
 	f.repo.EXPECT().
 		Extend(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.ResendCooldown, row.CeilingAt).
 		Return(true, nil).
@@ -699,6 +710,7 @@ func TestResendChallenge_InsideCooldown(t *testing.T) {
 	f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(row, nil).Once()
 	f.expectAccountCount(0)
 	f.expectSentCount(0)
+	f.expectResendCount(0)
 	f.repo.EXPECT().
 		Extend(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.ResendCooldown, mock.Anything).
 		Return(false, nil).
@@ -810,6 +822,7 @@ func TestResendChallenge_ConcurrentPairSuppressesOne(t *testing.T) {
 		Return(0, nil).
 		Twice()
 	f.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Twice()
+	f.mailer.EXPECT().ResendsSince(mock.Anything, mock.Anything).Return(0, nil).Twice()
 	f.repo.EXPECT().
 		Extend(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.ResendCooldown, mock.Anything).
 		Return(true, nil).
@@ -860,6 +873,7 @@ func TestResendChallenge_StoreFailures(t *testing.T) {
 				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, otherPurpose), nil).Once()
 				f.expectAccountCount(0)
 				f.expectSentCount(0)
+				f.expectResendCount(0)
 				f.repo.EXPECT().Extend(mock.Anything, validUserID, challengeTestNow, mock.Anything, mock.Anything).Return(false, storeErr).Once()
 			},
 		},
@@ -869,6 +883,7 @@ func TestResendChallenge_StoreFailures(t *testing.T) {
 				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(f.validRow(validUserID, otherPurpose), nil).Once()
 				f.expectAccountCount(0)
 				f.expectSentCount(0)
+				f.expectResendCount(0)
 				f.repo.EXPECT().Extend(mock.Anything, validUserID, challengeTestNow, mock.Anything, mock.Anything).Return(true, nil).Once()
 				f.mailer.EXPECT().Requeue(mock.Anything, validFamily, challengeTestNow).Return("", storeErr).Once()
 			},

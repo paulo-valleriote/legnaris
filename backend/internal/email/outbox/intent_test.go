@@ -94,3 +94,13 @@ func TestNewIntent_GeneratesDistinctIdentities(t *testing.T) {
 
 	assert.NotEqual(t, first.ID, second.ID, "each intention must get its own identity")
 }
+
+// TestNewIntent_DefaultsToInitialKind pins that a freshly recorded intention is
+// a first send, so only resends written by Clone count against the resend share
+// (D5).
+func TestNewIntent_DefaultsToInitialKind(t *testing.T) {
+	intent, err := outbox.NewIntent("", "player@example.com", "verify_email", samplePayload(), sampleNow())
+	require.NoError(t, err)
+
+	assert.Equal(t, outbox.KindInitial, intent.Kind)
+}
