@@ -28,6 +28,12 @@ type Config struct {
 	Now func() time.Time
 	// RegisterRetryDelay overrides the registration pause; tests only.
 	RegisterRetryDelay time.Duration
+	// BreakerThreshold is the run of consecutive provider outages that opens
+	// the circuit breaker.
+	BreakerThreshold int
+	// BreakerProbeInterval is how long an open breaker waits before probing the
+	// provider with one delivery.
+	BreakerProbeInterval time.Duration
 }
 
 func (c Config) withDefaults() Config {
@@ -45,6 +51,12 @@ func (c Config) withDefaults() Config {
 	}
 	if c.RegisterRetryDelay <= 0 {
 		c.RegisterRetryDelay = RegisterRetryDelay
+	}
+	if c.BreakerThreshold <= 0 {
+		c.BreakerThreshold = DefaultBreakerThreshold
+	}
+	if c.BreakerProbeInterval <= 0 {
+		c.BreakerProbeInterval = DefaultBreakerProbeInterval
 	}
 	return c
 }

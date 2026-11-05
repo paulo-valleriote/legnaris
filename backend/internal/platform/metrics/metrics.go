@@ -31,6 +31,8 @@ type Metrics struct {
 	emailSendTotal           *prometheus.CounterVec
 	emailSendDuration        prometheus.Histogram
 	emailExpiredTotal        prometheus.Counter
+	emailBreakerOpen         prometheus.Gauge
+	emailBreakerOpened       prometheus.Counter
 	authOTPIssued            *prometheus.CounterVec
 	authOTPVerify            *prometheus.CounterVec
 	authOTPResend            *prometheus.CounterVec
@@ -149,6 +151,21 @@ func New() *Metrics {
 		Help:      "Email messages dropped because their code had expired.",
 	})
 
+	// emailBreakerOpen is 1 while the provider breaker pauses consumption and 0
+	// otherwise; emailBreakerOpened counts every opening, so an alert can fire
+	// on the gauge and a dashboard on the rate (LGN-149).
+	emailBreakerOpen := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "email_breaker_open",
+		Help:      "1 while the email provider breaker is open and consumption is paused, else 0.",
+	})
+
+	emailBreakerOpened := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Name:      "email_breaker_opened_total",
+		Help:      "Times the email provider breaker opened after consecutive outages.",
+	})
+
 	// Code-step series (OTP-16): issuance by purpose, verification outcomes,
 	// resend outcomes and cap refusals. No series carries a code, a challenge
 	// identity or an unmasked address.
@@ -190,6 +207,7 @@ func New() *Metrics {
 	registry.MustRegister(requestDuration, requestsTotal, requestsInFlight, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports,
 		emailOutboxBacklog, emailPublishTotal, emailDeadTotal,
 		emailSendTotal, emailSendDuration, emailExpiredTotal,
+		emailBreakerOpen, emailBreakerOpened,
 		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked)
 
 	// The private registry must be self-sufficient: register the standard Go
@@ -215,6 +233,8 @@ func New() *Metrics {
 		emailSendTotal:           emailSendTotal,
 		emailSendDuration:        emailSendDuration,
 		emailExpiredTotal:        emailExpiredTotal,
+		emailBreakerOpen:         emailBreakerOpen,
+		emailBreakerOpened:       emailBreakerOpened,
 		authOTPIssued:            authOTPIssued,
 		authOTPVerify:            authOTPVerify,
 		authOTPResend:            authOTPResend,
@@ -329,6 +349,19 @@ func (m *Metrics) SendDuration(d time.Duration) {
 // because its code had expired (WKR-21).
 func (m *Metrics) MessageExpired() {
 	m.emailExpiredTotal.Inc()
+}
+
+// BreakerOpened implements the worker Observer: it raises the open gauge and
+// counts the opening (LGN-149).
+func (m *Metrics) BreakerOpened() {
+	m.emailBreakerOpen.Set(1)
+	m.emailBreakerOpened.Inc()
+}
+
+// BreakerClosed implements the worker Observer: it clears the open gauge
+// (LGN-149).
+func (m *Metrics) BreakerClosed() {
+	m.emailBreakerOpen.Set(0)
 }
 
 // The remaining methods implement auth.ChallengeObserver, so the same Metrics

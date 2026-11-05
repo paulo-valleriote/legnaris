@@ -38,20 +38,23 @@ type Worker struct {
 	observer    Observer
 	config      Config
 	logger      logger.StructuredLogger
+	breaker     *breaker
 }
 
 // New builds a worker over the delivery source, the republisher, the sending
 // port and the renderer; every zero value in config is filled from its
-// documented default (WKR-14, WKR-16).
+// documented default (WKR-14, WKR-16, LGN-149).
 func New(source DeliverySource, republisher Republisher, sender email.Sender, renderer email.Renderer, observer Observer, config Config, log logger.StructuredLogger) *Worker {
+	config = config.withDefaults()
 	return &Worker{
 		source:      source,
 		republisher: republisher,
 		sender:      sender,
 		renderer:    renderer,
 		observer:    observer,
-		config:      config.withDefaults(),
+		config:      config,
 		logger:      log,
+		breaker:     newBreaker(config.BreakerThreshold, config.BreakerProbeInterval, config.Now),
 	}
 }
 
@@ -88,7 +91,8 @@ func (w *Worker) Run(ctx context.Context) error {
 
 // consume handles the stream until it ends or ctx is cancelled. A slot is taken
 // before each delivery is read, so no more than Prefetch messages are held at
-// once (WKR-16).
+// once (WKR-16). While the provider breaker is open the stream is not read at
+// all, so the broker keeps the backlog (LGN-149).
 func (w *Worker) consume(ctx, inflightCtx context.Context, stream <-chan Delivery, slots chan struct{}, inflight *sync.WaitGroup) {
 	for {
 		select {
@@ -97,12 +101,20 @@ func (w *Worker) consume(ctx, inflightCtx context.Context, stream <-chan Deliver
 		case slots <- struct{}{}:
 		}
 
+		probe, ok := w.admit(ctx)
+		if !ok {
+			<-slots
+			return
+		}
+
 		select {
 		case <-ctx.Done():
+			w.breaker.release(probe)
 			<-slots
 			return
 		case delivery, ok := <-stream:
 			if !ok {
+				w.breaker.release(probe)
 				<-slots
 				w.logger.Warn(ctx, "delivery stream ended; registering the consumer again")
 				return
@@ -111,8 +123,23 @@ func (w *Worker) consume(ctx, inflightCtx context.Context, stream <-chan Deliver
 			go func() {
 				defer inflight.Done()
 				defer func() { <-slots }()
-				w.handle(inflightCtx, delivery)
+				defer w.breaker.release(probe)
+				w.handle(inflightCtx, delivery, probe)
 			}()
+		}
+	}
+}
+
+// admit blocks until the breaker lets one delivery through. It returns the probe
+// token when the admission is a probe, and false when ctx is cancelled first.
+func (w *Worker) admit(ctx context.Context) (uint64, bool) {
+	for {
+		decision := w.breaker.admit()
+		if decision.proceed {
+			return decision.probe, true
+		}
+		if !sleep(ctx, decision.wait) {
+			return 0, false
 		}
 	}
 }
@@ -153,7 +180,7 @@ func sleep(ctx context.Context, d time.Duration) bool {
 // dead-lettered and acknowledged, expired and acknowledged without a send, or
 // left unacknowledged for redelivery. The acknowledgement is always last
 // (WKR-02).
-func (w *Worker) handle(ctx context.Context, delivery Delivery) {
+func (w *Worker) handle(ctx context.Context, delivery Delivery, probe uint64) {
 	msg, err := decode(delivery.Body)
 	if err != nil {
 		w.logger.Warn(ctx, "undecodable message dead-lettered",
@@ -192,6 +219,7 @@ func (w *Worker) handle(ctx context.Context, delivery Delivery) {
 		HTML:           rendered.HTML,
 	})
 	w.observer.SendDuration(time.Since(started))
+	w.reportBreaker(ctx, probe, classifyOutcome(err))
 
 	switch {
 	case err == nil:
@@ -201,6 +229,34 @@ func (w *Worker) handle(ctx context.Context, delivery Delivery) {
 		w.deadLetter(ctx, delivery, msg)
 	default:
 		w.retry(ctx, delivery, msg, attempt)
+	}
+}
+
+// classifyOutcome maps one send error to its breaker outcome. A transient error
+// that is not a quota or rate limit is a provider outage (5xx, timeout).
+func classifyOutcome(err error) breakerOutcome {
+	switch {
+	case err == nil:
+		return outcomeSuccess
+	case errors.Is(err, email.ErrQuotaExhausted), errors.Is(err, email.ErrRateLimited):
+		return outcomeNeutral
+	case errors.Is(err, email.ErrTransient):
+		return outcomeOutage
+	default:
+		return outcomeNeutral
+	}
+}
+
+// reportBreaker feeds one send outcome to the breaker and reports a transition.
+func (w *Worker) reportBreaker(ctx context.Context, probe uint64, outcome breakerOutcome) {
+	switch w.breaker.record(probe, outcome) {
+	case transitionOpened:
+		w.logger.Warn(ctx, "provider breaker opened; consumption paused")
+		w.observer.BreakerOpened()
+	case transitionClosed:
+		w.logger.Info(ctx, "provider breaker closed; consumption resumed")
+		w.observer.BreakerClosed()
+	case transitionNone:
 	}
 }
 
