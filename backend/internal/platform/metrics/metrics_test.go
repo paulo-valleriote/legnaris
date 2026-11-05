@@ -468,3 +468,64 @@ func TestMiddlewareInFlightGauge(t *testing.T) {
 		assert.Contains(t, scrapeMetrics(t, newTestRouter(t)), "legnaris_http_in_flight_requests")
 	})
 }
+
+// TestWorkerBreakerMetrics proves the gauge follows the breaker state and the
+// counter counts openings, not closings (LGN-149).
+func TestWorkerBreakerMetrics(t *testing.T) {
+	tests := []struct {
+		name   string
+		events []string
+		want   []string
+	}{
+		{
+			name:   "Happy path: an opening raises the gauge and counts once",
+			events: []string{"opened"},
+			want: []string{
+				"legnaris_email_breaker_open 1",
+				"legnaris_email_breaker_opened_total 1",
+			},
+		},
+		{
+			name:   "Edge: a close clears the gauge and keeps the opening count",
+			events: []string{"opened", "closed"},
+			want: []string{
+				"legnaris_email_breaker_open 0",
+				"legnaris_email_breaker_opened_total 1",
+			},
+		},
+		{
+			name:   "Edge: reopening after a close counts again",
+			events: []string{"opened", "closed", "opened"},
+			want: []string{
+				"legnaris_email_breaker_open 1",
+				"legnaris_email_breaker_opened_total 2",
+			},
+		},
+		{
+			name:   "Edge: a close without a prior opening leaves the counter at zero",
+			events: []string{"closed"},
+			want: []string{
+				"legnaris_email_breaker_open 0",
+				"legnaris_email_breaker_opened_total 0",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := New()
+			for _, event := range tc.events {
+				if event == "opened" {
+					m.BreakerOpened()
+				} else {
+					m.BreakerClosed()
+				}
+			}
+
+			body := scrapeHandler(t, m)
+			for _, want := range tc.want {
+				assert.Contains(t, body, want)
+			}
+		})
+	}
+}

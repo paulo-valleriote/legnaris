@@ -21,6 +21,70 @@ func (_m *MockObserver) EXPECT() *MockObserver_Expecter {
 	return &MockObserver_Expecter{mock: &_m.Mock}
 }
 
+// BreakerClosed provides a mock function with no fields
+func (_m *MockObserver) BreakerClosed() {
+	_m.Called()
+}
+
+// MockObserver_BreakerClosed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BreakerClosed'
+type MockObserver_BreakerClosed_Call struct {
+	*mock.Call
+}
+
+// BreakerClosed is a helper method to define mock.On call
+func (_e *MockObserver_Expecter) BreakerClosed() *MockObserver_BreakerClosed_Call {
+	return &MockObserver_BreakerClosed_Call{Call: _e.mock.On("BreakerClosed")}
+}
+
+func (_c *MockObserver_BreakerClosed_Call) Run(run func()) *MockObserver_BreakerClosed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockObserver_BreakerClosed_Call) Return() *MockObserver_BreakerClosed_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockObserver_BreakerClosed_Call) RunAndReturn(run func()) *MockObserver_BreakerClosed_Call {
+	_c.Run(run)
+	return _c
+}
+
+// BreakerOpened provides a mock function with no fields
+func (_m *MockObserver) BreakerOpened() {
+	_m.Called()
+}
+
+// MockObserver_BreakerOpened_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BreakerOpened'
+type MockObserver_BreakerOpened_Call struct {
+	*mock.Call
+}
+
+// BreakerOpened is a helper method to define mock.On call
+func (_e *MockObserver_Expecter) BreakerOpened() *MockObserver_BreakerOpened_Call {
+	return &MockObserver_BreakerOpened_Call{Call: _e.mock.On("BreakerOpened")}
+}
+
+func (_c *MockObserver_BreakerOpened_Call) Run(run func()) *MockObserver_BreakerOpened_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockObserver_BreakerOpened_Call) Return() *MockObserver_BreakerOpened_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockObserver_BreakerOpened_Call) RunAndReturn(run func()) *MockObserver_BreakerOpened_Call {
+	_c.Run(run)
+	return _c
+}
+
 // MessageDead provides a mock function with no fields
 func (_m *MockObserver) MessageDead() {
 	_m.Called()

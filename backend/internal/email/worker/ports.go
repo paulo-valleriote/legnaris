@@ -44,6 +44,11 @@ type Observer interface {
 	SendDuration(d time.Duration)
 	MessageDead()
 	MessageExpired()
+	// BreakerOpened reports that the provider breaker opened and consumption
+	// paused.
+	BreakerOpened()
+	// BreakerClosed reports that a probe succeeded and consumption resumed.
+	BreakerClosed()
 }
 
 // Delivery outcomes reported to the Observer.
