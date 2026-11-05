@@ -8,6 +8,9 @@ users from seeing a broken state.
 > **Status:** written from the repository only; nothing here has been executed
 > against production. Rehearse steps 1–3 on k3d (`make k8s-up`) first.
 
+Context: epic LGN-138 (decisions D1–D15); D13 is this cutover. "HITL card"
+is LGN-157, the human-only Resend/DNS/API-key setup.
+
 ## What changes for clients
 
 | | Old API | New API |
@@ -40,13 +43,13 @@ against the new API for longer than the update window (step 3).
       LGN-160) and CI green on the commit being released.
 - [ ] A Mongo backup from the last 24 h exists (`mongodb-backup` CronJob) and a
       restore was verified (`deploy/k8s/backup/restore-verify.yaml`).
-- [ ] Alerts exist and are loaded: the pipeline alerts in
-      `deploy/prometheus/rules.yml` (`kubectl` equivalent under
-      `deploy/k8s/observability`), the **breaker alert** on
-      `legnaris_email_breaker_open` (job `legnaris-worker`), and the captcha
-      trigger alert (LGN-159). **The repository rules file has no alert on
-      `legnaris_email_breaker_open` yet**: add it (or confirm it ships with
-      LGN-159) before the cutover, since the observation window depends on it.
+- [ ] Alerts are loaded in the cluster (`make k8s-rules` for the Kubernetes
+      rule set; `deploy/prometheus/rules.yml` for compose): the pipeline
+      alerts, the captcha-trigger alert (LGN-159) and an alert on
+      `legnaris_email_breaker_open == 1` (job `legnaris-worker`).
+      **Open blocker:** `rules.yml` has no breaker alert today (only the
+      metric exists). The cutover must not start until that rule is merged;
+      the 48 h window depends on it.
 - [ ] The previous `newTag` values for `legnaris-app` and `legnaris-web` are
       written down (rollback targets): `git log -p -- deploy/k8s/overlays/production/kustomization.yaml`.
 - [ ] Release window chosen outside peak hours; the Resend daily allowance
@@ -58,8 +61,8 @@ Broker, relay, worker and real Resend are brought up while the old API still
 serves production, so the pipeline is proven before anything depends on it.
 
 1. Sync the infra (relay, worker, RabbitMQ) with the **old** `legnaris-app`
-   tag. The old API does not publish codes for registration, so use a manual
-   probe.
+   tag. The old API does not send registration codes, so the delivery proof
+   comes from the LGN-157 test, not from a real signup.
 2. Health checks:
    ```bash
    kubectl get pods                                  # relay, worker, rabbitmq-0 Running
@@ -69,8 +72,9 @@ serves production, so the pipeline is proven before anything depends on it.
    Prometheus targets `legnaris-relay`, `legnaris-worker`, `legnaris-rabbitmq`
    are `up`; `rabbitmq_queue_consumers{queue="email.otp"} >= 1`;
    `EmailPipelineSeriesMissing` is not firing.
-3. Delivery test: enqueue a real message to an inbox the operator controls
-   (the HITL card's test procedure) and confirm it arrives from
+3. Delivery test: repeat the LGN-157 test delivery through the **deployed**
+   worker (not from a laptop) to an inbox the operator controls and confirm it
+   arrives from
    `Legnaris <no-reply@mail.legnaris.com.br>` and passes SPF/DKIM
    (message headers).
 
@@ -133,10 +137,26 @@ installed PWAs.
    web back (the API stays; the old web is then the broken half, so roll the
    API back too if the old web cannot register at all).
 
+### Known deviation: the update is not forced
+
+D13 and LGN-158 call for a forced service-worker update, but the shipped PWA
+uses `registerType: 'prompt'`, so nothing forces activation. Until a user
+accepts the notice or closes every tab, they stay on the old bundle, whose
+register screen expects a session. Decide before the cutover, and record the
+choice on LGN-158:
+
+- **Accept the gap** (no code change): the old bundle shows an error on
+  register until the user reloads; existing signed-in users are unaffected.
+  Prefer a low-traffic window.
+- **Force it**: ship a web change that activates the new worker immediately
+  (`registerType: 'autoUpdate'` or calling `applyUpdate()` on `needRefresh`),
+  as its own card and release, before step 2.
+
 ## Step 4 — 48 h observation
 
-Start the clock after step 3. Watch the **Email pipeline** dashboard and these
-alerts (see `deploy/README.md`, "Pipeline alerts and runbook"):
+Start the clock after step 3. Watch the **Email pipeline** dashboard; each
+alert's meaning and response are in `deploy/README.md`, "Pipeline alerts and
+runbook". What to watch:
 
 | Signal | Source | Concern |
 |---|---|---|
@@ -164,17 +184,20 @@ There is no flag: roll back by reverting images, in reverse order, through Git
 cluster by hand).
 
 1. **Web first** (if step 3 was reached): revert the `legnaris-web` `newTag` to
-   the previous `sha-` value. Users on the new bundle get the update notice
-   back to the old one.
+   the previous `sha-` value. Browsers already on the new bundle keep running
+   it until they reload; the next load fetches the reverted `sw.js`, which
+   installs as an update the same way. Until then the new web talks to the
+   old API, so roll the API back promptly.
 2. **API**: revert the `legnaris-app` `newTag` to the previous `sha-` value.
    Relay and worker stay up (they are harmless with the old API).
 3. Verify `/ready`, a login and an existing session; confirm the old register
    issues a session again.
 
-Data notes: accounts created while the new API ran are unverified or verified
-normal accounts; the old API treats them as ordinary accounts, so no data
-migration is needed. Outbox rows for codes that no longer matter expire with
-`EMAIL_OUTBOX_RETENTION`.
+Data notes: no data migration is needed, but accounts created while the new API
+ran and not yet verified keep `EmailVerifiedAt` empty. The old API does not
+demand a code, so those accounts can sign in without verifying while it runs;
+they are asked for a code again once the new API is redeployed. Pending codes
+in the outbox expire with `EMAIL_OUTBOX_RETENTION`.
 
 **Roll back when:** register or login is failing for most users, no code is
 delivered and the cause is not understood within 30 minutes, or the old-bundle
