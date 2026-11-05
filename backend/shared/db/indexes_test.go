@@ -99,6 +99,10 @@ func TestEnsureIndexes(t *testing.T) {
 		require.True(t, ok, "users.email unique index must exist, got %v", users)
 		assert.True(t, indexIsUnique(usersEmail))
 
+		usersUsername, ok := users["users_username_unique"]
+		require.True(t, ok, "users.username unique index must exist, got %v", users)
+		assert.True(t, indexIsUnique(usersUsername))
+
 		refresh := listIndexes(t, mdb, "refresh_tokens")
 		tokenHash, ok := refresh["refresh_tokens_token_hash_unique"]
 		require.True(t, ok, "token_hash unique index must exist, got %v", refresh)

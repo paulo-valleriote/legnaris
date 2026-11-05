@@ -750,6 +750,41 @@ func TestService_RegisterChallengeOutcome(t *testing.T) {
 	})
 }
 
+// TestService_RegisterUsernameConflict covers the durable username guard: a
+// duplicate-key rejection from the unique username index answers 409 with the
+// username message, on both a first registration and a re-registration.
+func TestService_RegisterUsernameConflict(t *testing.T) {
+	ctx := context.Background()
+	cmd := auth.RegisterCommand{Email: "Player@Example.com", Username: "player", Password: testPassword}
+
+	t.Run("Error: a first registration losing the username race answers 409", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(user.ErrUsernameAlreadyExists).Once()
+
+		_, err := service.Register(ctx, cmd)
+		assertAppErr(t, err, apperr.CodeConflict)
+		assert.Contains(t, err.Error(), auth.MsgUsernameTaken)
+	})
+
+	t.Run("Error: a replacement losing the username race answers 409 and revokes nothing", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(user.ErrEmailAlreadyExists).Once()
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(&user.User{ID: validUserID, Email: testEmail}, nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, user.ErrUserNotFound).Once()
+		m.users.EXPECT().
+			ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).
+			Return(false, user.ErrUsernameAlreadyExists).
+			Once()
+
+		_, err := service.Register(ctx, cmd)
+		assertAppErr(t, err, apperr.CodeConflict)
+		assert.Contains(t, err.Error(), auth.MsgUsernameTaken)
+		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
+	})
+}
+
 // TestService_RegisterReplacesUnverified covers a registration whose address
 // belongs to an account that never verified it: the pending account is replaced
 // in place, its sessions are revoked and a new code supersedes the old one, while

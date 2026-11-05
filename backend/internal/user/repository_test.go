@@ -120,6 +120,33 @@ func TestUserRepository(t *testing.T) {
 		require.ErrorIs(t, err, user.ErrEmailAlreadyExists)
 	})
 
+	t.Run("Error: duplicate username is rejected by the unique index with its own sentinel", func(t *testing.T) {
+		repo := newUserRepository(t)
+		require.NoError(t, repo.Create(ctx, sampleUser()))
+
+		other := sampleUser()
+		other.ID = "01900000-0000-7000-8000-000000000002"
+		other.Email = "other@example.com"
+
+		err := repo.Create(ctx, other)
+		require.ErrorIs(t, err, user.ErrUsernameAlreadyExists)
+		assert.NotErrorIs(t, err, user.ErrEmailAlreadyExists)
+	})
+
+	t.Run("Error: replacing credentials with a taken username reports the username sentinel", func(t *testing.T) {
+		repo := newUserRepository(t)
+		require.NoError(t, repo.Create(ctx, sampleUser()))
+		pending := sampleUser()
+		pending.ID = "01900000-0000-7000-8000-000000000002"
+		pending.Email = "other@example.com"
+		pending.Username = "other"
+		require.NoError(t, repo.Create(ctx, pending))
+
+		replaced, err := repo.ReplaceUnverifiedCredentials(ctx, pending.ID, "player", "new-hash", time.Now())
+		require.ErrorIs(t, err, user.ErrUsernameAlreadyExists)
+		assert.False(t, replaced)
+	})
+
 	t.Run("Error: fetch by unknown email reports not found", func(t *testing.T) {
 		repo := newUserRepository(t)
 

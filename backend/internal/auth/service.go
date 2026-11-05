@@ -222,10 +222,7 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 	}
 
 	if err := s.users.Create(ctx, newUser); err != nil {
-		if errors.Is(err, user.ErrEmailAlreadyExists) {
-			return s.reregisterUnverified(ctx, email, username, hashed)
-		}
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+		return s.registrationCreateFailed(ctx, err, email, username, hashed)
 	}
 
 	issued, err := s.startChallenge(ctx, newUser.ID, newUser.Email, PurposeVerifyEmail)
@@ -238,6 +235,20 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 
 	s.log.Info(ctx, "registration challenge started", logger.Attribute{Key: attrUserID, Value: newUser.ID})
 	return issued, nil
+}
+
+// registrationCreateFailed answers a rejected account insert: a taken username
+// is a conflict, a taken address starts the re-registration path, and anything
+// else is internal.
+func (s *ServiceImpl) registrationCreateFailed(ctx context.Context, err error, email, username, hashed string) (*ChallengeIssued, error) {
+	switch {
+	case errors.Is(err, user.ErrUsernameAlreadyExists):
+		return nil, apperr.NewError(apperr.CodeConflict, MsgUsernameTaken, err)
+	case errors.Is(err, user.ErrEmailAlreadyExists):
+		return s.reregisterUnverified(ctx, email, username, hashed)
+	default:
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
 }
 
 // reregisterUnverified answers a registration whose address already belongs to
@@ -263,6 +274,9 @@ func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username,
 	}
 
 	replaced, err := s.users.ReplaceUnverifiedCredentials(ctx, pending.ID, username, hashed, s.clock.Now())
+	if errors.Is(err, user.ErrUsernameAlreadyExists) {
+		return nil, apperr.NewError(apperr.CodeConflict, MsgUsernameTaken, err)
+	}
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
@@ -287,8 +301,8 @@ func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username,
 }
 
 // ensureUsernameFree refuses a username that another account already holds.
-// The username index is not unique, so this check guards the common path but
-// cannot exclude two replacements racing for the same name.
+// The unique username index is the durable guard; this check only spares a
+// write that would be rejected and keeps the common conflict cheap.
 func (s *ServiceImpl) ensureUsernameFree(ctx context.Context, username, ownerID string) error {
 	holder, err := s.users.FetchByUsername(ctx, username)
 	if errors.Is(err, user.ErrUserNotFound) {

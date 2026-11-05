@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -45,6 +46,24 @@ var ErrUserNotFound = errors.New("user not found")
 // Services translate it to apperr.CodeConflict at the boundary.
 var ErrEmailAlreadyExists = errors.New("email already exists")
 
+// ErrUsernameAlreadyExists reports a write rejected by the unique username
+// index. Services translate it to apperr.CodeConflict at the boundary.
+var ErrUsernameAlreadyExists = errors.New("username already exists")
+
+// UsernameUniqueIndex is the name of the unique index on users.username. The
+// repository recognizes it in a duplicate-key error to tell a taken username
+// from a taken address.
+const UsernameUniqueIndex = "users_username_unique"
+
+// translateDuplicateKey maps a duplicate-key error to the matching sentinel,
+// defaulting to the email one because the email index predates the username one.
+func translateDuplicateKey(err error) error {
+	if strings.Contains(err.Error(), UsernameUniqueIndex) {
+		return ErrUsernameAlreadyExists
+	}
+	return ErrEmailAlreadyExists
+}
+
 func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 	return &RepositoryImpl{
 		collection: db.Collection("users"),
@@ -55,7 +74,7 @@ func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 func (r *RepositoryImpl) Create(ctx context.Context, user *User) error {
 	if _, err := r.collection.InsertOne(ctx, user); err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return ErrEmailAlreadyExists
+			return translateDuplicateKey(err)
 		}
 		return fmt.Errorf("create user: %w", err)
 	}
@@ -93,6 +112,9 @@ func (r *RepositoryImpl) ReplaceUnverifiedCredentials(ctx context.Context, id, u
 		}}},
 	)
 	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return false, translateDuplicateKey(err)
+		}
 		return false, fmt.Errorf("replace unverified credentials: %w", err)
 	}
 	return result.MatchedCount == 1, nil

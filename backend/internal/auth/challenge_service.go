@@ -102,10 +102,7 @@ func (s *ServiceImpl) IssueChallenge(ctx context.Context, cmd IssueChallengeComm
 		LastIntentID: intentID,
 	}
 
-	if err := s.challenge.Repository.CloseActive(ctx, cmd.UserID, cmd.Purpose, now); err != nil {
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
-	}
-	if err := s.challenge.Repository.Insert(ctx, challenge); err != nil {
+	if err := s.replaceActiveChallenge(ctx, challenge, now); err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
@@ -122,6 +119,28 @@ func (s *ServiceImpl) IssueChallenge(ctx context.Context, cmd IssueChallengeComm
 		ExpiresIn:   int(policy.Lifetime.Seconds()),
 		ResendAfter: int(policy.ResendCooldown.Seconds()),
 	}, nil
+}
+
+// maxReplaceAttempts bounds the close-then-insert retries when a concurrent
+// issuance for the same account and purpose lands between the two steps.
+const maxReplaceAttempts = 3
+
+// replaceActiveChallenge closes the account's active challenge and inserts the
+// new one. The two steps are not atomic, so a concurrent issuance can insert
+// between them and trip the unique active-challenge index; the loser closes the
+// winner's row and inserts again, leaving exactly one active challenge.
+func (s *ServiceImpl) replaceActiveChallenge(ctx context.Context, challenge Challenge, now time.Time) error {
+	var err error
+	for attempt := 0; attempt < maxReplaceAttempts; attempt++ {
+		if err = s.challenge.Repository.CloseActive(ctx, challenge.UserID, challenge.Purpose, now); err != nil {
+			return err
+		}
+		err = s.challenge.Repository.Insert(ctx, challenge)
+		if !errors.Is(err, ErrChallengeActive) {
+			return err
+		}
+	}
+	return err
 }
 
 // VerifyChallenge consumes a challenge exactly once and establishes a session
