@@ -15,6 +15,7 @@ import (
 // instead of an anonymous auto-generated name.
 const (
 	usersEmailUniqueIndex          = "users_email_unique"
+	usersUsernameUniqueIndex       = "users_username_unique"
 	refreshTokensHashUniqueIndex   = "refresh_tokens_token_hash_unique"
 	refreshTokensFamilyIndex       = "refresh_tokens_family_id"
 	refreshTokensExpiresAtTTLIndex = "refresh_tokens_expires_at_ttl"
@@ -24,6 +25,7 @@ const (
 	emailOutboxPublishedAtTTL      = "email_outbox_published_at_ttl"
 	authChallengesActiveUnique     = "auth_challenges_active_unique"
 	authChallengesExpiresAtTTL     = "auth_challenges_expires_at_ttl"
+	emailNoticesClaimedAtTTL       = "email_notices_claimed_at_ttl"
 )
 
 // EnsureIndexes creates the indexes required by the application, retiring
@@ -49,6 +51,12 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 		Options: options.Index().SetUnique(true).SetName(usersEmailUniqueIndex),
 	}); err != nil {
 		return fmt.Errorf("create users.email index: %w", err)
+	}
+	if _, err := users.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "username", Value: 1}},
+		Options: options.Index().SetUnique(true).SetName(usersUsernameUniqueIndex),
+	}); err != nil {
+		return fmt.Errorf("create users.username index: %w", err)
 	}
 
 	refreshTokens := database.Collection("refresh_tokens")
@@ -89,6 +97,22 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 		return err
 	}
 
+	return ensureEmailNoticeIndexes(ctx, database)
+}
+
+// emailNoticeRetention outlives any configured notice window, so a claim is
+// never dropped while it can still throttle.
+const emailNoticeRetention = 7 * 24 * time.Hour
+
+// ensureEmailNoticeIndexes retires notice claims after emailNoticeRetention.
+func ensureEmailNoticeIndexes(ctx context.Context, database *mongo.Database) error {
+	notices := database.Collection("email_notices")
+	if _, err := notices.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "claimed_at", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(int32(emailNoticeRetention.Seconds())).SetName(emailNoticesClaimedAtTTL),
+	}); err != nil {
+		return fmt.Errorf("create email_notices indexes: %w", err)
+	}
 	return nil
 }
 

@@ -10,7 +10,7 @@
     "body": {
       "error": {
         "code": "CONFLICT",
-        "message": "email already registered"
+        "message": "Username is already taken."
       }
     }
   }

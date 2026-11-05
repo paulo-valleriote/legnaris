@@ -49,6 +49,36 @@ func TestRenderer_PerPurpose(t *testing.T) {
 	})
 }
 
+// TestRenderer_CodeFreeNotices proves the code-free notice renders both bodies,
+// never mention a code, and that only they are exempt from carrying one.
+func TestRenderer_CodeFreeNotices(t *testing.T) {
+	renderer := newRenderer(t)
+
+	tests := []struct {
+		purpose email.Purpose
+		phrase  string
+	}{
+		{purpose: email.PurposeAccountExists, phrase: "already exists"},
+	}
+	for _, tc := range tests {
+		t.Run("Happy path: "+string(tc.purpose), func(t *testing.T) {
+			rendered, err := renderer.Render(tc.purpose, email.Data{})
+			require.NoError(t, err)
+			assert.NotEmpty(t, rendered.Subject)
+			assert.Contains(t, rendered.Text, tc.phrase)
+			assert.Contains(t, rendered.HTML, tc.phrase)
+			assert.NotContains(t, strings.ToLower(rendered.Text), "code")
+			assert.False(t, tc.purpose.CarriesCode())
+		})
+	}
+
+	t.Run("Edge: code-carrying and unknown purposes still require a code", func(t *testing.T) {
+		assert.True(t, email.PurposeVerifyEmail.CarriesCode())
+		assert.True(t, email.PurposeLoginOTP.CarriesCode())
+		assert.True(t, email.Purpose("").CarriesCode())
+	})
+}
+
 // TestRenderer_UnknownPurpose proves an unknown purpose is a permanent failure
 // with no rendered output (EML-11).
 func TestRenderer_UnknownPurpose(t *testing.T) {

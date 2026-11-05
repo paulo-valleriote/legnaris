@@ -209,6 +209,30 @@ func TestWorker_RendersAndSends(t *testing.T) {
 	}
 }
 
+// TestWorker_SendsCodeFreeNotice proves the code-free notices are delivered
+// without a code, while the code-carrying purposes still dead-letter without one.
+func TestWorker_SendsCodeFreeNotice(t *testing.T) {
+	for _, purpose := range []email.Purpose{email.PurposeAccountExists} {
+		t.Run(fmt.Sprintf("Happy path: %s", purpose), func(t *testing.T) {
+			h := newHarness(t)
+			msg := emailtest.Message()
+			msg.Template = string(purpose)
+			msg.Data.Purpose = purpose
+			msg.Data.Code = ""
+			handle := h.queue(body(t, msg))
+			h.observer.EXPECT().SendDuration(mock.Anything).Once()
+			h.observer.EXPECT().SendResult(worker.ResultSent).Once()
+			h.expectAck(handle)
+
+			h.run()
+
+			sent := h.sender.Sent()
+			require.Len(t, sent, 1)
+			assert.NotEmpty(t, sent[0].Subject)
+		})
+	}
+}
+
 // TestWorker_RedeliveryKeepsTheIdempotencyKey proves a redelivered message is
 // sent again under the same key, so the provider de-duplicates it (WKR-08).
 func TestWorker_RedeliveryKeepsTheIdempotencyKey(t *testing.T) {

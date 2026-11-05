@@ -205,7 +205,7 @@ capture_code_step() {
     exit 1
   }
 
-  # The duplicate address: the conflict the credential form must name.
+  # The taken username: the conflict the credential form must name.
   saved_token="$TOKEN"
   TOKEN=""
   conflict_status="$(send POST /auth/register "$register_body" "$TMP_DIR/conflict.out")"

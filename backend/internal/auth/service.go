@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -93,6 +94,9 @@ type Config struct {
 	// EmailChecker refuses disposable or undeliverable domains at registration.
 	// Nil disables the check.
 	EmailChecker EmailChecker
+	// RegisterMinDuration is the floor on how long Register takes to answer, so
+	// the response time does not tell the outcomes apart. Zero disables it.
+	RegisterMinDuration time.Duration
 }
 
 // EmailChecker decides whether an address may open an account. Check returns a
@@ -111,6 +115,7 @@ type ChallengeDeps struct {
 	Generator  CodeGenerator
 	Digest     *CodeDigest
 	Mailer     CodeMailer
+	Notices    NoticeRepository
 	Observer   ChallengeObserver
 	Policy     ChallengePolicy
 }
@@ -171,9 +176,37 @@ func NewService(
 }
 
 // Register creates the account and starts the verify_email code step; it never
-// issues a session, because the address must be confirmed first. A duplicate
-// email still answers 409 before any code is sent (AUTH-02, TFA-01).
+// issues a session, because the address must be confirmed first. An address that
+// belongs to a verified account, or a username another account holds, answers
+// like a first registration and tells the address's owner by email instead, so
+// the response never reveals which addresses or usernames are taken (AUTH-02,
+// TFA-01); an address held by an unverified account is re-registered (D9).
 func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*ChallengeIssued, error) {
+	started := time.Now()
+	issued, err := s.register(ctx, cmd)
+	s.padRegistration(ctx, started)
+	return issued, err
+}
+
+// padRegistration holds the answer until Config.RegisterMinDuration has elapsed
+// since started, so a new account, a pending replacement, a verified address and
+// a taken username cost the caller the same wall time. The password hash already
+// dominates every path; the floor absorbs the few round trips that differ. It
+// returns early when the request is cancelled.
+func (s *ServiceImpl) padRegistration(ctx context.Context, started time.Time) {
+	remaining := s.cfg.RegisterMinDuration - time.Since(started)
+	if remaining <= 0 {
+		return
+	}
+	timer := time.NewTimer(remaining)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+	}
+}
+
+func (s *ServiceImpl) register(ctx context.Context, cmd RegisterCommand) (*ChallengeIssued, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgInvalidEmail, err)
@@ -221,10 +254,7 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 	}
 
 	if err := s.users.Create(ctx, newUser); err != nil {
-		if errors.Is(err, user.ErrEmailAlreadyExists) {
-			return nil, apperr.NewError(apperr.CodeConflict, MsgEmailAlreadyExists, err)
-		}
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+		return s.registrationCreateFailed(ctx, err, email, username, hashed)
 	}
 
 	issued, err := s.startChallenge(ctx, newUser.ID, newUser.Email, PurposeVerifyEmail)
@@ -237,6 +267,184 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 
 	s.log.Info(ctx, "registration challenge started", logger.Attribute{Key: attrUserID, Value: newUser.ID})
 	return issued, nil
+}
+
+// registrationCreateFailed answers a rejected account insert. Either unique
+// index can be the one that fired, and the address decides the outcome, so both
+// go through the re-registration path. Anything else is internal.
+func (s *ServiceImpl) registrationCreateFailed(ctx context.Context, err error, email, username, hashed string) (*ChallengeIssued, error) {
+	if errors.Is(err, user.ErrUsernameAlreadyExists) || errors.Is(err, user.ErrEmailAlreadyExists) {
+		return s.reregisterUnverified(ctx, email, username, hashed, err)
+	}
+	return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+}
+
+// reregisterUnverified answers a registration whose address already belongs to
+// an account that never verified it (LGN-154, D9). The pending account takes the
+// new username and password hash, its refresh tokens are revoked, and a fresh
+// verify_email code supersedes the previous one, so the answer matches a first
+// registration. A verified account is never touched (it gets a notice instead).
+// The account is replaced rather than deleted, which leaves no orphan behind if
+// the code cannot be sent.
+//
+// A username held by any other account answers the username conflict whatever
+// the address is, so that answer never depends on which addresses are registered.
+// The one exception is the pending account's own username, which it may keep.
+func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username, hashed string, createErr error) (*ChallengeIssued, error) {
+	pending, err := s.users.FetchByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, user.ErrUserNotFound) {
+			return s.freeAddressCollision(createErr)
+		}
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	usernameOwner := ""
+	if pending.EmailVerifiedAt == nil {
+		usernameOwner = pending.ID
+	}
+	free, err := s.usernameFree(ctx, username, usernameOwner)
+	if err != nil {
+		return nil, err
+	}
+	if !free {
+		return nil, usernameConflict(user.ErrUsernameAlreadyExists)
+	}
+	if pending.EmailVerifiedAt != nil {
+		return s.noticeAttempt(ctx, PurposeAccountExists, email, pending.ID)
+	}
+
+	replaced, err := s.users.ReplaceUnverifiedCredentials(ctx, pending.ID, username, hashed, s.clock.Now())
+	if errors.Is(err, user.ErrUsernameAlreadyExists) {
+		return nil, usernameConflict(err)
+	}
+	if err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	if !replaced {
+		return s.noticeAttempt(ctx, PurposeAccountExists, email, pending.ID)
+	}
+
+	if err := s.refreshTokens.RevokeAllForUser(ctx, pending.ID); err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	issued, err := s.startChallenge(ctx, pending.ID, email, PurposeVerifyEmail)
+	if err != nil {
+		if isDailyAllowanceRefusal(err) {
+			return s.deferredRegistration(ctx, pending.ID), nil
+		}
+		return nil, err
+	}
+
+	s.log.Info(ctx, "unverified registration replaced", logger.Attribute{Key: attrUserID, Value: pending.ID})
+	return issued, nil
+}
+
+// usernameFree reports whether no account other than ownerID holds the username;
+// an empty ownerID means every holder counts. The unique username index is the
+// durable guard; this check only spares a write that would be rejected.
+func (s *ServiceImpl) usernameFree(ctx context.Context, username, ownerID string) (bool, error) {
+	holder, err := s.users.FetchByUsername(ctx, username)
+	if errors.Is(err, user.ErrUserNotFound) {
+		return true, nil
+	}
+	if err != nil {
+		return false, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	return holder.ID == ownerID, nil
+}
+
+// freeAddressCollision answers an insert that was rejected although no account
+// holds the address: the username index fired, so the username is taken. An
+// address index that fired with no account to read means the account vanished
+// mid-request, which answers the neutral conflict.
+func (s *ServiceImpl) freeAddressCollision(createErr error) (*ChallengeIssued, error) {
+	if errors.Is(createErr, user.ErrUsernameAlreadyExists) {
+		return nil, usernameConflict(createErr)
+	}
+	return nil, registrationConflict(createErr)
+}
+
+// usernameConflict is the 409 for a username another account holds. It names
+// only the username, never the address, which is why it can be answered before
+// anything is known about the address.
+func usernameConflict(cause error) error {
+	return apperr.NewError(apperr.CodeConflict, MsgUsernameTaken, cause)
+}
+
+// registrationConflict is the 409 for a collision that cannot be answered as a
+// success. The cause is kept for logs; the message never says which detail
+// collided.
+func registrationConflict(cause error) error {
+	return apperr.NewError(apperr.CodeConflict, MsgRegistrationConflict, cause)
+}
+
+// noticeAttempt answers a registration that cannot create an account exactly
+// like a first registration: the same 201 shape with a challenge identity no
+// code can redeem, or the deferred answer when the daily allowance is spent. The
+// address's owner is told by email, at most once per window, so the response
+// never reveals which addresses or usernames are taken (D9). ownerID is the
+// account involved, empty when there is none, and is only logged.
+func (s *ServiceImpl) noticeAttempt(ctx context.Context, purpose Purpose, to, ownerID string) (*ChallengeIssued, error) {
+	if s.challenge.Mailer == nil || s.challenge.Notices == nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, nil)
+	}
+	decoyID, err := idgen.New()
+	if err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	notified, err := s.sendNotice(ctx, purpose, to, s.clock.Now())
+	if err != nil {
+		if isDailyAllowanceRefusal(err) {
+			return s.deferredRegistration(ctx, ownerID), nil
+		}
+		return nil, err
+	}
+	s.log.Info(ctx, "registration answered uniformly",
+		logger.Attribute{Key: attrUserID, Value: ownerID},
+		logger.Attribute{Key: attrPurpose, Value: string(purpose)},
+		logger.Attribute{Key: "notified", Value: strconv.FormatBool(notified)},
+	)
+
+	policy := s.challenge.Policy
+	return &ChallengeIssued{
+		ChallengeID: decoyID,
+		ExpiresIn:   int(policy.Lifetime.Seconds()),
+		ResendAfter: int(policy.ResendCooldown.Seconds()),
+	}, nil
+}
+
+// sendNotice queues the code-free notice when the daily allowance permits and
+// the address was not already sent the same notice within the window. It
+// reports whether a notice was queued.
+func (s *ServiceImpl) sendNotice(ctx context.Context, purpose Purpose, to string, now time.Time) (bool, error) {
+	policy := s.challenge.Policy
+	if err := s.checkSendBudget(ctx, now); err != nil {
+		return false, err
+	}
+
+	claimed, err := s.challenge.Notices.Claim(ctx, purpose, to, now.Add(-policy.UserWindow), now)
+	if err != nil {
+		return false, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	if !claimed {
+		return false, nil
+	}
+
+	intentID, err := idgen.New()
+	if err != nil {
+		return false, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	err = s.challenge.Mailer.Record(ctx, intentID, to, purpose, "", int(policy.Lifetime.Minutes()), now)
+	if errors.Is(err, ErrSendBudgetExhausted) {
+		return false, s.sendBudgetExhausted(ctx, now)
+	}
+	if err != nil {
+		return false, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	return true, nil
 }
 
 // isDailyAllowanceRefusal reports whether err is the send cap's refusal. It is

@@ -1078,3 +1078,53 @@ func TestChallengeService_ObserverDefaultsToNop(t *testing.T) {
 	)
 	require.NotNil(t, service)
 }
+
+// TestIssueChallenge_ConcurrentIssuance covers two issuances for one account
+// racing between the close and the insert: the loser retries a bounded number of
+// times and then fails closed rather than leaving two active codes.
+func TestIssueChallenge_ConcurrentIssuance(t *testing.T) {
+	ctx := context.Background()
+	cmd := auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeVerifyEmail}
+
+	tests := []struct {
+		name      string
+		conflicts int
+		wantErr   bool
+	}{
+		{name: "Happy path: no conflict inserts once", conflicts: 0},
+		{name: "Edge: one lost race is retried and succeeds", conflicts: 1},
+		{name: "Edge: the last allowed attempt still succeeds", conflicts: 2},
+		{name: "Error: persistent conflict answers internal", conflicts: 3, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newChallengeFixture(t)
+			f.expectAccountCount(0)
+			f.expectSentCount(0)
+			attempts := tc.conflicts
+			if !tc.wantErr {
+				attempts++
+			}
+			f.repo.EXPECT().CloseActive(mock.Anything, validUserID, auth.PurposeVerifyEmail, challengeTestNow).Return(nil).Times(attempts)
+			if tc.conflicts > 0 {
+				f.repo.EXPECT().Insert(mock.Anything, mock.Anything).Return(auth.ErrChallengeActive).Times(tc.conflicts)
+			}
+			if !tc.wantErr {
+				f.repo.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
+				f.mailer.EXPECT().
+					Record(mock.Anything, mock.Anything, testEmail, auth.PurposeVerifyEmail, challengeTestCode, 10, challengeTestNow).
+					Return(nil).
+					Once()
+				f.codeObs.EXPECT().ChallengeIssued(auth.PurposeVerifyEmail).Once()
+			}
+
+			issued, err := f.service.IssueChallenge(ctx, cmd)
+			if tc.wantErr {
+				assertAppErr(t, err, apperr.CodeInternal)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotEmpty(t, issued.ChallengeID)
+		})
+	}
+}

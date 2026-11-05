@@ -197,7 +197,7 @@ func TestAuthController_Register(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		service.EXPECT().
 			Register(mock.Anything, mock.Anything).
-			Return(nil, apperr.NewError(apperr.CodeConflict, auth.MsgEmailAlreadyExists, nil)).
+			Return(nil, apperr.NewError(apperr.CodeConflict, auth.MsgRegistrationConflict, nil)).
 			Once()
 
 		h := newAuthRouter(t, service)

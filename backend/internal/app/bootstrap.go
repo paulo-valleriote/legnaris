@@ -75,8 +75,9 @@ func (m *Modules) Close() error {
 // step is issued (TFA-01, TFA-02, TFA-07).
 func authServiceConfig(vars env.Variables, now auth.Clock) auth.Config {
 	cfg := auth.Config{
-		RefreshTTL: vars.AuthRefreshTTL,
-		Now:        now,
+		RefreshTTL:          vars.AuthRefreshTTL,
+		Now:                 now,
+		RegisterMinDuration: vars.AuthRegisterMinDuration,
 	}
 	if vars.AuthDisposableEmailCheck {
 		cfg.EmailChecker = disposable.NewChecker(nil)
@@ -165,6 +166,7 @@ func NewModules(
 			Generator:  auth.NewCodeGenerator(),
 			Digest:     codeDigest,
 			Mailer:     codeMailer,
+			Notices:    auth.NewNoticeRepository(mdb),
 			Observer:   challengeObserver,
 			Policy:     challengePolicy,
 		},

@@ -18,6 +18,9 @@ type RefreshTokenRepository interface {
 	// separate read-check-write window.
 	RevokeByID(ctx context.Context, id string, replacedBy string) (bool, error)
 	RevokeFamily(ctx context.Context, familyID string) error
+	// RevokeAllForUser revokes every live refresh token the account holds, across
+	// all families. It is idempotent: already-revoked tokens are left untouched.
+	RevokeAllForUser(ctx context.Context, userID string) error
 }
 
 type RefreshTokenRepositoryImpl struct {
@@ -80,6 +83,18 @@ func (r *RefreshTokenRepositoryImpl) RevokeFamily(ctx context.Context, familyID 
 	)
 	if err != nil {
 		return fmt.Errorf("revoke refresh token family: %w", err)
+	}
+	return nil
+}
+
+func (r *RefreshTokenRepositoryImpl) RevokeAllForUser(ctx context.Context, userID string) error {
+	_, err := r.collection.UpdateMany(
+		ctx,
+		bson.D{{Key: "user_id", Value: userID}, {Key: fieldRevoked, Value: false}},
+		bson.M{setOperator: bson.M{fieldRevoked: true}},
+	)
+	if err != nil {
+		return fmt.Errorf("revoke refresh tokens for user: %w", err)
 	}
 	return nil
 }
