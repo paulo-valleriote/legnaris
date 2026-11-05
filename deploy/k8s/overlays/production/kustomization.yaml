@@ -42,6 +42,24 @@ patches:
       - {op: replace, path: /spec/rules/0/host, value: app.legnaris.com.br}
       - {op: add, path: /metadata/annotations, value: {cert-manager.io/cluster-issuer: letsencrypt-prod, traefik.ingress.kubernetes.io/router.entrypoints: websecure, traefik.ingress.kubernetes.io/router.tls: "true", traefik.ingress.kubernetes.io/router.middlewares: default-web-security-headers@kubernetescrd}}
       - {op: add, path: /spec/tls, value: [{hosts: [app.legnaris.com.br], secretName: web-tls}]}
+  # Production sends e-mail through Resend. The base keeps EMAIL_PROVIDER=log so
+  # local clusters never need a Resend key. RESEND_API_KEY lives in the sealed
+  # legnaris-secrets; this patch only references it, never embeds its value.
+  - target: {kind: Deployment, name: worker}
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: worker}
+      spec:
+        template:
+          spec:
+            containers:
+              - name: worker
+                env:
+                  - {name: EMAIL_PROVIDER, value: resend}
+                  - {name: EMAIL_FROM, value: no-reply@mail.legnaris.com.br}
+                  - name: RESEND_API_KEY
+                    valueFrom: {secretKeyRef: {name: legnaris-secrets, key: RESEND_API_KEY}}
   - target: {kind: StatefulSet, name: mongodb}
     patch: |-
       - {op: replace, path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage, value: 10Gi}
