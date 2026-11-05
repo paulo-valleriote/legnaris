@@ -37,9 +37,11 @@ Create the plain env files (gitignored): `overlays/production/secrets.env`
 `sealed-*.yaml` files.
 
 Before the first sync: merge a `gitops-bump` PR (or edit `newTag` by hand) so the
-overlay points at real `sha-` tags, and decide `EMAIL_PROVIDER` — the base
-defaults to `log`, which sends no e-mail; production needs `resend` plus
-`RESEND_API_KEY`/`EMAIL_FROM` in the sealed secret and the ConfigMap.
+overlay points at real `sha-` tags. The production overlay already sets the worker
+to `EMAIL_PROVIDER=resend` with `EMAIL_FROM=no-reply@mail.legnaris.com.br`; the
+Resend API key must be in `overlays/production/secrets.env` as `RESEND_API_KEY`
+before sealing, or the worker pod stays in `CreateContainerConfigError`. The domain
+must be verified in Resend (SPF/DKIM/DMARC) before this overlay is synced.
 
 ```bash
 make k8s-observability K8S_PROM_EXTRA_VALUES='-f deploy/k8s/observability/values-production.yaml'

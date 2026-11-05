@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 const productionOverlay = "k8s/overlays/production"
@@ -142,5 +143,79 @@ func TestK8sProductionSecretsNeverCommitted(t *testing.T) {
 		for _, name := range []string{"legnaris-secrets", "backup-s3", "oauth2-proxy", "grafana-admin"} {
 			assert.Contains(t, script, name)
 		}
+	})
+}
+
+type productionKustomization struct {
+	Patches []struct {
+		Target struct {
+			Kind string `yaml:"kind"`
+			Name string `yaml:"name"`
+		} `yaml:"target"`
+		Patch string `yaml:"patch"`
+	} `yaml:"patches"`
+}
+
+type workerPatch struct {
+	Spec struct {
+		Template struct {
+			Spec struct {
+				Containers []struct {
+					Name string `yaml:"name"`
+					Env  []struct {
+						Name      string `yaml:"name"`
+						Value     string `yaml:"value"`
+						ValueFrom struct {
+							SecretKeyRef struct {
+								Name string `yaml:"name"`
+								Key  string `yaml:"key"`
+							} `yaml:"secretKeyRef"`
+						} `yaml:"valueFrom"`
+					} `yaml:"env"`
+				} `yaml:"containers"`
+			} `yaml:"spec"`
+		} `yaml:"template"`
+	} `yaml:"spec"`
+}
+
+func TestK8sProductionWorkerSendsEmailWithResend(t *testing.T) {
+	var kustomization productionKustomization
+	require.NoError(t, yaml.Unmarshal([]byte(readText(t, productionOverlay+"/kustomization.yaml")), &kustomization))
+
+	var patch string
+	for _, p := range kustomization.Patches {
+		if p.Target.Kind == "Deployment" && p.Target.Name == "worker" {
+			patch = p.Patch
+		}
+	}
+	require.NotEmpty(t, patch, "production overlay must patch the worker Deployment")
+
+	var rendered workerPatch
+	require.NoError(t, yaml.Unmarshal([]byte(patch), &rendered))
+	require.Len(t, rendered.Spec.Template.Spec.Containers, 1)
+	env := map[string]struct{ value, secretName, secretKey string }{}
+	for _, e := range rendered.Spec.Template.Spec.Containers[0].Env {
+		env[e.Name] = struct{ value, secretName, secretKey string }{
+			e.Value, e.ValueFrom.SecretKeyRef.Name, e.ValueFrom.SecretKeyRef.Key,
+		}
+	}
+
+	t.Run("Happy path: the worker selects the Resend adapter with the production sender", func(t *testing.T) {
+		assert.Equal(t, "resend", env["EMAIL_PROVIDER"].value)
+		assert.Equal(t, "no-reply@mail.legnaris.com.br", env["EMAIL_FROM"].value)
+	})
+
+	t.Run("Edge: the API key is read from the sealed secret and never embedded as a value", func(t *testing.T) {
+		key, ok := env["RESEND_API_KEY"]
+		require.True(t, ok, "RESEND_API_KEY must be defined")
+		assert.Empty(t, key.value)
+		assert.Equal(t, "legnaris-secrets", key.secretName)
+		assert.Equal(t, "RESEND_API_KEY", key.secretKey)
+	})
+
+	t.Run("Edge: the base worker keeps the log provider so local clusters need no Resend key", func(t *testing.T) {
+		raw := readText(t, "k8s/base/worker.yaml")
+		assert.Contains(t, raw, "EMAIL_PROVIDER\n              value: log")
+		assert.NotContains(t, raw, "RESEND_API_KEY")
 	})
 }
