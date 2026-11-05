@@ -106,6 +106,14 @@ func TestRun_FailsFastOnUnusableConfiguration(t *testing.T) {
 			c.Variables.EmailProvider = factory.ProviderResend
 			c.Variables.ResendAPIKey = "re_test"
 		}, wantErr: resend.ErrMissingConfiguration},
+		{name: "Error: the dev provider in production", mutate: func(c *env.Env) {
+			c.Variables.EmailProvider = factory.ProviderDev
+			c.Variables.AppEnv = "production"
+		}, wantErr: factory.ErrDevProviderInProduction},
+		{name: "Error: the dev provider with APP_ENV in another case", mutate: func(c *env.Env) {
+			c.Variables.EmailProvider = factory.ProviderDev
+			c.Variables.AppEnv = " Production "
+		}, wantErr: factory.ErrDevProviderInProduction},
 	}
 
 	for _, tc := range tests {

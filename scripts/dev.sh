@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Runs the whole development stack with one command: a clean MongoDB, the API
-# and the web client, all reachable on http://localhost:<port>. No Traefik, no
-# OAuth, no broker. The database is recreated on every run and removed on exit.
+# Runs the whole development stack with one command: a clean MongoDB, a clean
+# RabbitMQ with the email relay and worker, the API and the web client, all
+# reachable on http://localhost:<port>. No Traefik, no OAuth. The email worker
+# runs the dev sender, which logs each message body (OTP codes included) so a
+# sign-up can be completed locally. Containers are recreated on every run and
+# removed on exit.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -9,6 +12,15 @@ cd "$(dirname "$0")/.."
 readonly MONGO_CONTAINER="legnaris-mongo"
 readonly MONGO_IMAGE="mongo:7.0"
 readonly MONGO_PORT="${MONGO_PORT:-27017}"
+readonly RABBIT_CONTAINER="legnaris-rabbitmq"
+# The pinned broker release of deploy/rabbitmq/Dockerfile, so dev matches prod.
+readonly RABBIT_IMAGE="rabbitmq:4.4.0"
+readonly RABBIT_PORT="${RABBITMQ_PORT:-5672}"
+readonly RABBIT_VHOST="legnaris"
+readonly RABBIT_USER="legnaris"
+# Development-only broker password; the broker is published on localhost only.
+readonly RABBIT_PASSWORD="legnaris-dev-only"
+readonly BROKER_READY_TIMEOUT=60
 readonly API_PORT="${PORT:-8080}"
 readonly WEB_PORT="${WEB_PORT:-5173}"
 
@@ -39,7 +51,7 @@ cleanup() {
 		[ -n "$pid" ] && kill "$pid" 2>/dev/null || true
 	done
 	wait 2>/dev/null || true
-	docker rm -fv "$MONGO_CONTAINER" >/dev/null 2>&1 || true
+	docker rm -fv "$MONGO_CONTAINER" "$RABBIT_CONTAINER" >/dev/null 2>&1 || true
 	[ -n "$workdir" ] && rm -rf "$workdir"
 }
 
@@ -69,6 +81,35 @@ start_mongo() {
 	die "MongoDB did not become ready within 60s"
 }
 
+# start_broker runs a clean RabbitMQ, provisions the delivery vhost and the
+# application account, and fails with a clear message if the broker does not
+# answer within BROKER_READY_TIMEOUT seconds.
+start_broker() {
+	docker rm -fv "$RABBIT_CONTAINER" >/dev/null 2>&1 || true
+	log "starting a clean RabbitMQ on :$RABBIT_PORT"
+	docker run -d --rm --name "$RABBIT_CONTAINER" \
+		-e "RABBITMQ_DEFAULT_USER=$RABBIT_USER" \
+		-e "RABBITMQ_DEFAULT_PASS=$RABBIT_PASSWORD" \
+		-p "$RABBIT_PORT:5672" "$RABBIT_IMAGE" >/dev/null
+
+	local attempt
+	for attempt in $(seq 1 "$BROKER_READY_TIMEOUT"); do
+		if docker exec "$RABBIT_CONTAINER" rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+			provision_broker
+			return 0
+		fi
+		sleep 1
+	done
+	die "RabbitMQ did not become ready within ${BROKER_READY_TIMEOUT}s; check: docker logs $RABBIT_CONTAINER"
+}
+
+provision_broker() {
+	docker exec "$RABBIT_CONTAINER" rabbitmqctl -q await_startup >/dev/null
+	docker exec "$RABBIT_CONTAINER" rabbitmqctl -q add_vhost "$RABBIT_VHOST" >/dev/null 2>&1 || true
+	docker exec "$RABBIT_CONTAINER" rabbitmqctl -q set_permissions -p "$RABBIT_VHOST" "$RABBIT_USER" ".*" ".*" ".*" >/dev/null \
+		|| die "could not grant $RABBIT_USER its rights on the $RABBIT_VHOST vhost"
+}
+
 # prefixed runs a command with its output labelled, in the background, and
 # records the PID of the command itself (not of the labelling filter). The API
 # logs one warning per unset optional variable; they are dropped as noise.
@@ -90,6 +131,7 @@ workdir=$(mktemp -d)
 
 load_dotenv
 start_mongo
+start_broker
 
 export PORT="$API_PORT"
 export DATABASE_URI="mongodb://localhost:$MONGO_PORT/"
@@ -97,17 +139,25 @@ export CORS_ALLOWED_ORIGINS="http://localhost:$WEB_PORT"
 export JWT_SECRET="${JWT_SECRET:-$DEV_JWT_SECRET}"
 export EMAIL_CODE_SECRET="${EMAIL_CODE_SECRET:-$DEV_EMAIL_CODE_SECRET}"
 export VITE_API_BASE_URL="http://localhost:$API_PORT"
+export RABBITMQ_URL="amqp://$RABBIT_USER:$RABBIT_PASSWORD@localhost:$RABBIT_PORT/$RABBIT_VHOST"
+export EMAIL_PROVIDER=dev
+export APP_ENV=development
 
-log "building the API"
+log "building the API, the relay and the worker"
 go build -o "$workdir/api" ./backend/cmd/api.go
+go build -o "$workdir/relay" ./backend/cmd/relay
+go build -o "$workdir/worker" ./backend/cmd/worker
 
 [ -d web/node_modules ] || (log "installing web dependencies" && npm --prefix web ci)
 
 prefixed api "$workdir/api"
+prefixed relay "$workdir/relay"
+prefixed worker "$workdir/worker"
 prefixed web bash -c 'cd web && exec node_modules/.bin/vite --host localhost --port "$1" --strictPort' _ "$WEB_PORT"
 
 log "web  http://localhost:$WEB_PORT"
 log "api  http://localhost:$API_PORT"
+log "mail codes are printed by the [worker] lines (dev sender)"
 log "db   mongodb://localhost:$MONGO_PORT/ (wiped on exit; Ctrl-C to stop)"
 
 wait -n || true

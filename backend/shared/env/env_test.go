@@ -457,6 +457,11 @@ func TestInitVariablesEmailDefaults(t *testing.T) {
 		require.Equal(t, "log", vars.EmailProvider)
 	})
 
+	t.Run("Edge: APP_ENV defaults to empty, which is not production", func(t *testing.T) {
+		unsetEnv(t, "APP_ENV")
+		require.Empty(t, e.initVariables().AppEnv)
+	})
+
 	t.Run("Happy path: the provider secrets and sender are empty by default", func(t *testing.T) {
 		require.Empty(t, vars.ResendAPIKey)
 		require.Empty(t, vars.EmailFrom)
@@ -490,6 +495,7 @@ func TestInitVariablesEmailOverrides(t *testing.T) {
 	e := newTestEnv()
 
 	t.Run("Happy path: valid values override the defaults", func(t *testing.T) {
+		t.Setenv("APP_ENV", "production")
 		t.Setenv("EMAIL_PROVIDER", "resend")
 		t.Setenv("RESEND_API_KEY", "re_test")
 		t.Setenv("EMAIL_FROM", "no-reply@example.com")
@@ -503,6 +509,7 @@ func TestInitVariablesEmailOverrides(t *testing.T) {
 		vars := e.initVariables()
 
 		require.Equal(t, "resend", vars.EmailProvider)
+		require.Equal(t, "production", vars.AppEnv)
 		require.Equal(t, "re_test", vars.ResendAPIKey)
 		require.Equal(t, "no-reply@example.com", vars.EmailFrom)
 		require.Equal(t, 3*time.Second, vars.EmailSendTimeout)
