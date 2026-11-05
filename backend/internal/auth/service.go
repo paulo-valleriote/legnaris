@@ -220,11 +220,29 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 
 	issued, err := s.startChallenge(ctx, newUser.ID, newUser.Email, PurposeVerifyEmail)
 	if err != nil {
+		if isDailyAllowanceRefusal(err) {
+			return s.deferredRegistration(ctx, newUser.ID), nil
+		}
 		return nil, err
 	}
 
 	s.log.Info(ctx, "registration challenge started", logger.Attribute{Key: attrUserID, Value: newUser.ID})
 	return issued, nil
+}
+
+// isDailyAllowanceRefusal reports whether err is the send cap's refusal. It is
+// the only unavailable outcome an issuance raises during registration.
+func isDailyAllowanceRefusal(err error) bool {
+	var appErr *apperr.Error
+	return errors.As(err, &appErr) && appErr.Code == apperr.CodeEmailUnavailable
+}
+
+// deferredRegistration answers a registration whose code could not be queued:
+// the account already exists unverified, and no challenge or session is issued.
+// The next sign-in starts the verify_email step (D1, D2).
+func (s *ServiceImpl) deferredRegistration(ctx context.Context, userID string) *ChallengeIssued {
+	s.log.Info(ctx, "registration deferred by daily allowance", logger.Attribute{Key: attrUserID, Value: userID})
+	return &ChallengeIssued{Delivery: DeliveryDeferred}
 }
 
 // Login proves the password and, on success, establishes the session. Every

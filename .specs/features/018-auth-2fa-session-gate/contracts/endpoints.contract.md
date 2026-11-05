@@ -30,6 +30,16 @@ challenge routes (`017`) keep their contract byte-for-byte (`TFA-11`); the new r
 This is the existing `auth.ChallengeIssued` shape (`OTP-10`), so the client needs no second shape.
 The response sets **no** `Set-Cookie`.
 
+**Daily allowance spent — `201 Created`** (LGN-146, D1): the account is created unverified and no
+code is queued, so the answer carries no challenge, no cookie and no session:
+
+```json
+{ "data": { "delivery": "deferred" } }
+```
+
+The next sign-in of that account starts the `verify_email` step (LGN-147, D2). A store failure while
+checking the allowance is still `500`, not deferred.
+
 **Gate disabled — `201 Created`** (unchanged, `AUTH-02`): `{ "access_token", "token_type", "expires_in" }`
 plus the `__Host-` refresh cookie and the CSRF cookie.
 

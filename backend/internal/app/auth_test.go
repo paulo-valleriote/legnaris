@@ -161,6 +161,25 @@ func TestAuthController_Register(t *testing.T) {
 		assertChallengeBody(t, rec)
 	})
 
+	t.Run("Happy path: spent daily allowance answers 201 deferred with no challenge, cookie or session", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			Register(mock.Anything, mock.Anything).
+			Return(&auth.ChallengeIssued{Delivery: auth.DeliveryDeferred}, nil).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodPost, "/auth/register", `{"email":"player@example.com","username":"player","password":"sup3r-secret"}`)
+		require.Equal(t, http.StatusCreated, rec.Code)
+
+		var body map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, map[string]any{"data": map[string]any{"delivery": "deferred"}}, body)
+		assert.Nil(t, findCookie(rec, auth.RefreshCookieName))
+		assert.Nil(t, findCookie(rec, auth.CSRFCookieName))
+		assert.Empty(t, rec.Header().Get("Authorization"))
+	})
+
 	t.Run("Error: invalid body returns 400", func(t *testing.T) {
 		service := authmocks.NewMockService(t) // no expectations: the body never reaches the service
 
