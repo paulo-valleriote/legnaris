@@ -4,6 +4,9 @@
 > against a VPS or a cluster; rehearse every step on k3d first (section 3).
 > Cutover, DNS changes and real credentials are operator actions.
 
+> The OTP-registration release has its own ordered runbook:
+> [`docs/runbook-otp-cutover.md`](../../../docs/runbook-otp-cutover.md).
+
 ## 1. VPS and k3s
 
 ```bash

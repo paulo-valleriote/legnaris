@@ -520,6 +520,9 @@ digest, consumed at most once and never logged.
 
 ## Email verification at registration
 
+For the production release order, forced PWA update, rollback and the 48 h
+observation window, see [`docs/runbook-otp-cutover.md`](../docs/runbook-otp-cutover.md).
+
 Registration always answers `201` with a `verify_email` challenge: no cookie,
 no access credential, no session. The session is established only when the
 emailed code is verified, so the broker, relay and worker must be running.
