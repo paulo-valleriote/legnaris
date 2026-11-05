@@ -42,12 +42,14 @@ func newIndexesTestDatabase(t *testing.T) *mongo.Database {
 	_ = mdb.Collection("sheets").Drop(context.Background())
 	_ = mdb.Collection("email_outbox").Drop(context.Background())
 	_ = mdb.Collection("auth_challenges").Drop(context.Background())
+	_ = mdb.Collection("email_notices").Drop(context.Background())
 	t.Cleanup(func() {
 		_ = mdb.Collection("users").Drop(context.Background())
 		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
 		_ = mdb.Collection("sheets").Drop(context.Background())
 		_ = mdb.Collection("email_outbox").Drop(context.Background())
 		_ = mdb.Collection("auth_challenges").Drop(context.Background())
+		_ = mdb.Collection("email_notices").Drop(context.Background())
 	})
 
 	return mdb
@@ -219,6 +221,13 @@ func TestEnsureIndexes_AuthChallenges(t *testing.T) {
 		ttl, ok := challenges["auth_challenges_expires_at_ttl"]
 		require.True(t, ok, "the expiry TTL index must exist, got %v", challenges)
 		assert.Equal(t, int32(0), indexExpireAfterSeconds(t, ttl))
+	})
+
+	t.Run("Happy path: the notice claim TTL index retires claims after a week", func(t *testing.T) {
+		notices := listIndexes(t, mdb, "email_notices")
+		ttl, ok := notices["email_notices_claimed_at_ttl"]
+		require.True(t, ok, "the notice TTL index must exist, got %v", notices)
+		assert.Equal(t, int32(7*24*60*60), indexExpireAfterSeconds(t, ttl))
 	})
 
 	t.Run("Happy path: the outbox created_at index exists", func(t *testing.T) {

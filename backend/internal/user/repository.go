@@ -21,7 +21,6 @@ const (
 	fieldPasswordHash    = "password_hash"
 	fieldEmailVerifiedAt = "email_verified_at"
 	fieldUpdatedAt       = "updated_at"
-	fieldExistsNoticeAt  = "exists_notice_at"
 	operatorSet          = "$set"
 )
 
@@ -32,7 +31,6 @@ type Repository interface {
 	FetchByUsername(ctx context.Context, username string) (*User, error)
 	MarkEmailVerified(ctx context.Context, id string, at time.Time) error
 	ReplaceUnverifiedCredentials(ctx context.Context, id, username, passwordHash string, at time.Time) (bool, error)
-	ClaimExistsNotice(ctx context.Context, id string, since, at time.Time) (bool, error)
 }
 
 type RepositoryImpl struct {
@@ -93,30 +91,6 @@ func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*User, error
 
 func (r *RepositoryImpl) FetchByUsername(ctx context.Context, username string) (*User, error) {
 	return r.fetchOne(ctx, bson.D{{Key: fieldUsername, Value: username}})
-}
-
-// ClaimExistsNotice atomically reserves the right to send the owner of a
-// verified account an "account already exists" notice. It succeeds only when no
-// notice was claimed at or after since, so concurrent attempts yield one notice
-// per window. It reports false when the notice is throttled or the account is
-// absent or unverified.
-func (r *RepositoryImpl) ClaimExistsNotice(ctx context.Context, id string, since, at time.Time) (bool, error) {
-	result, err := r.collection.UpdateOne(
-		ctx,
-		bson.D{
-			{Key: fieldID, Value: id},
-			{Key: fieldEmailVerifiedAt, Value: bson.D{{Key: "$ne", Value: nil}}},
-			{Key: "$or", Value: bson.A{
-				bson.D{{Key: fieldExistsNoticeAt, Value: nil}},
-				bson.D{{Key: fieldExistsNoticeAt, Value: bson.D{{Key: "$lt", Value: since}}}},
-			}},
-		},
-		bson.D{{Key: operatorSet, Value: bson.D{{Key: fieldExistsNoticeAt, Value: at}}}},
-	)
-	if err != nil {
-		return false, fmt.Errorf("claim exists notice: %w", err)
-	}
-	return result.MatchedCount == 1, nil
 }
 
 // ReplaceUnverifiedCredentials swaps the username and password hash of an

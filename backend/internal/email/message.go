@@ -22,12 +22,16 @@ const (
 	// against an existing account answers exactly like a new one and the
 	// response never reveals which addresses are registered.
 	PurposeAccountExists Purpose = "account_exists"
+	// PurposeUsernameTaken tells a registrant, at the address they supplied,
+	// that the chosen username is already in use. The registration response
+	// itself stays identical to a successful one.
+	PurposeUsernameTaken Purpose = "username_taken"
 )
 
 // CarriesCode reports whether messages of the purpose deliver a code; the
 // worker refuses a code-carrying message that has none.
 func (p Purpose) CarriesCode() bool {
-	return p != PurposeAccountExists
+	return p != PurposeAccountExists && p != PurposeUsernameTaken
 }
 
 // TypeOTP is the single message type this feature publishes (EML-07).

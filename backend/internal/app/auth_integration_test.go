@@ -268,7 +268,7 @@ func codeForChallenge(t *testing.T, mdb *mongo.Database, challengeID string) str
 }
 
 func TestIntegration_AuthRegister(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
+	h, mdb := newIntegrationRouter(t)
 
 	t.Run("Happy path: registration answers a challenge, no session body and no cookie", func(t *testing.T) {
 		body := fmt.Sprintf(`{"email":%q,"username":%q,"password":%q}`, authEmail, authUsername, authPassword)
@@ -292,18 +292,24 @@ func TestIntegration_AuthRegister(t *testing.T) {
 		require.Equal(t, http.StatusCreated, doRequest(t, h, http.MethodPost, "/auth/register", second).Code)
 	})
 
-	t.Run("Error: a username held by another account is 409 with the neutral message", func(t *testing.T) {
+	t.Run("Edge: a username held by another account answers 201 and tells only the registrant", func(t *testing.T) {
 		first := fmt.Sprintf(`{"email":%q,"username":"shared-name","password":%q}`, "owner@example.com", authPassword)
 		require.Equal(t, http.StatusCreated, doRequest(t, h, http.MethodPost, "/auth/register", first).Code)
+		before := outboxCount(t, mdb)
 
 		second := fmt.Sprintf(`{"email":%q,"username":"shared-name","password":%q}`, "other@example.com", authPassword)
 		rec := doRequest(t, h, http.MethodPost, "/auth/register", second)
-		require.Equal(t, http.StatusConflict, rec.Code)
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
 
-		var errBody response.ErrorResponse
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &errBody))
-		assert.Equal(t, "CONFLICT", errBody.Error.Code)
-		assert.Equal(t, auth.MsgRegistrationConflict, errBody.Error.Message)
+		var issued response.Success[auth.ChallengeIssued]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &issued))
+		assert.NotEmpty(t, issued.Data.ChallengeID)
+		assert.Equal(t, before+1, outboxCount(t, mdb), "the registrant gets one username notice")
+
+		count, err := mdb.Collection("users").CountDocuments(context.Background(), bson.M{"email": "other@example.com"})
+		require.NoError(t, err)
+		assert.Zero(t, count, "no account is created for the colliding username")
 	})
 
 	t.Run("Error: short password returns 400", func(t *testing.T) {

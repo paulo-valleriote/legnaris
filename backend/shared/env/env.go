@@ -86,15 +86,16 @@ type Variables struct {
 	// digests codes, so an absent, blank or too-short value must fail the boot
 	// rather than silently weaken every code (F-09, OTP-18, SC-008). The
 	// challenge settings are optional with documented defaults.
-	EmailCodeSecret       string
-	AuthOTPTTL            time.Duration
-	AuthOTPCeiling        time.Duration
-	AuthOTPResendCooldown time.Duration
-	AuthOTPMaxAttempts    int
-	AuthOTPDailySendCap   int
-	AuthOTPResendCapRatio float64
-	AuthOTPUserWindow     time.Duration
-	AuthOTPUserLimit      int
+	EmailCodeSecret         string
+	AuthOTPTTL              time.Duration
+	AuthOTPCeiling          time.Duration
+	AuthOTPResendCooldown   time.Duration
+	AuthOTPMaxAttempts      int
+	AuthOTPDailySendCap     int
+	AuthOTPResendCapRatio   float64
+	AuthOTPUserWindow       time.Duration
+	AuthRegisterMinDuration time.Duration
+	AuthOTPUserLimit        int
 	// AuthDisposableEmailCheck gates the registration refusal of throwaway and
 	// undeliverable domains. It defaults on and is forced on in production.
 	AuthDisposableEmailCheck bool
@@ -148,14 +149,15 @@ const (
 	// Challenge defaults (OTP-18): the code lifetime, its absolute ceiling, the
 	// resend cooldown, the attempt cap, the daily send cap (deliberately below
 	// the provider's free-tier 100) and the durable per-account bound.
-	defaultAuthOTPTTL            = 10 * time.Minute
-	defaultAuthOTPCeiling        = 30 * time.Minute
-	defaultAuthOTPResendCooldown = 60 * time.Second
-	defaultAuthOTPMaxAttempts    = 5
-	defaultAuthOTPDailySendCap   = 80
-	defaultAuthOTPResendCapRatio = 0.30
-	defaultAuthOTPUserWindow     = time.Hour
-	defaultAuthOTPUserLimit      = 10
+	defaultAuthOTPTTL              = 10 * time.Minute
+	defaultAuthOTPCeiling          = 30 * time.Minute
+	defaultAuthOTPResendCooldown   = 60 * time.Second
+	defaultAuthOTPMaxAttempts      = 5
+	defaultAuthOTPDailySendCap     = 80
+	defaultAuthOTPResendCapRatio   = 0.30
+	defaultAuthOTPUserWindow       = time.Hour
+	defaultAuthRegisterMinDuration = 500 * time.Millisecond
+	defaultAuthOTPUserLimit        = 10
 	// The disposable-address check is on by default (D7); make dev and CI turn
 	// it off explicitly.
 	defaultDisposableEmailCheck = true
@@ -311,6 +313,7 @@ func (e *Env) buildVariables() Variables {
 		AuthOTPDailySendCap:            e.lookupIntEnv("AUTH_OTP_DAILY_SEND_CAP", defaultAuthOTPDailySendCap),
 		AuthOTPResendCapRatio:          e.lookupRatioEnv("AUTH_OTP_RESEND_CAP_RATIO", defaultAuthOTPResendCapRatio),
 		AuthOTPUserWindow:              e.lookupDurationEnv("AUTH_OTP_USER_WINDOW", defaultAuthOTPUserWindow),
+		AuthRegisterMinDuration:        e.lookupDurationEnv("AUTH_REGISTER_MIN_DURATION", defaultAuthRegisterMinDuration),
 		AuthOTPUserLimit:               e.lookupIntEnv("AUTH_OTP_USER_LIMIT", defaultAuthOTPUserLimit),
 	}
 }

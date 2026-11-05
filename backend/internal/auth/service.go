@@ -94,6 +94,9 @@ type Config struct {
 	// EmailChecker refuses disposable or undeliverable domains at registration.
 	// Nil disables the check.
 	EmailChecker EmailChecker
+	// RegisterMinDuration is the floor on how long Register takes to answer, so
+	// the response time does not tell the outcomes apart. Zero disables it.
+	RegisterMinDuration time.Duration
 }
 
 // EmailChecker decides whether an address may open an account. Check returns a
@@ -112,6 +115,7 @@ type ChallengeDeps struct {
 	Generator  CodeGenerator
 	Digest     *CodeDigest
 	Mailer     CodeMailer
+	Notices    NoticeRepository
 	Observer   ChallengeObserver
 	Policy     ChallengePolicy
 }
@@ -173,11 +177,36 @@ func NewService(
 
 // Register creates the account and starts the verify_email code step; it never
 // issues a session, because the address must be confirmed first. An address that
-// belongs to a verified account answers like a first registration, with no code
-// and a notice to its owner, so the response never reveals registered addresses
-// (AUTH-02, TFA-01); one held by an unverified account is re-registered instead
-// (D9).
+// belongs to a verified account, or a username another account holds, answers
+// like a first registration and tells the address's owner by email instead, so
+// the response never reveals which addresses or usernames are taken (AUTH-02,
+// TFA-01); an address held by an unverified account is re-registered (D9).
 func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*ChallengeIssued, error) {
+	started := time.Now()
+	issued, err := s.register(ctx, cmd)
+	s.padRegistration(ctx, started)
+	return issued, err
+}
+
+// padRegistration holds the answer until Config.RegisterMinDuration has elapsed
+// since started, so a new account, a pending replacement, a verified address and
+// a taken username cost the caller the same wall time. The password hash already
+// dominates every path; the floor absorbs the few round trips that differ. It
+// returns early when the request is cancelled.
+func (s *ServiceImpl) padRegistration(ctx context.Context, started time.Time) {
+	remaining := s.cfg.RegisterMinDuration - time.Since(started)
+	if remaining <= 0 {
+		return
+	}
+	timer := time.NewTimer(remaining)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+	}
+}
+
+func (s *ServiceImpl) register(ctx context.Context, cmd RegisterCommand) (*ChallengeIssued, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgInvalidEmail, err)
@@ -242,8 +271,8 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 
 // registrationCreateFailed answers a rejected account insert. Either unique
 // index can be the one that fired, and the address decides the outcome, so both
-// go through the re-registration path, which falls back to the conflict when the
-// address turns out to be free. Anything else is internal.
+// go through the re-registration path, which treats a free address as a taken
+// username. Anything else is internal.
 func (s *ServiceImpl) registrationCreateFailed(ctx context.Context, err error, email, username, hashed string) (*ChallengeIssued, error) {
 	if errors.Is(err, user.ErrUsernameAlreadyExists) || errors.Is(err, user.ErrEmailAlreadyExists) {
 		return s.reregisterUnverified(ctx, email, username, hashed, err)
@@ -255,33 +284,37 @@ func (s *ServiceImpl) registrationCreateFailed(ctx context.Context, err error, e
 // an account that never verified it (LGN-154, D9). The pending account takes the
 // new username and password hash, its refresh tokens are revoked, and a fresh
 // verify_email code supersedes the previous one, so the answer matches a first
-// registration. A verified account keeps the conflict. The account is replaced
+// registration. A verified account is never touched (it gets a notice instead). The account is replaced
 // rather than deleted, which leaves no orphan behind if the code cannot be sent.
 func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username, hashed string, createErr error) (*ChallengeIssued, error) {
 	pending, err := s.users.FetchByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
-			return nil, registrationConflict(createErr)
+			return s.freeAddressCollision(ctx, email, createErr)
 		}
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 	if pending.EmailVerifiedAt != nil {
-		return s.existingAccountAttempt(ctx, pending)
+		return s.noticeAttempt(ctx, PurposeAccountExists, email, pending.ID)
 	}
 
-	if err := s.ensureUsernameFree(ctx, username, pending.ID); err != nil {
+	free, err := s.usernameFree(ctx, username, pending.ID)
+	if err != nil {
 		return nil, err
+	}
+	if !free {
+		return s.noticeAttempt(ctx, PurposeUsernameTaken, email, pending.ID)
 	}
 
 	replaced, err := s.users.ReplaceUnverifiedCredentials(ctx, pending.ID, username, hashed, s.clock.Now())
 	if errors.Is(err, user.ErrUsernameAlreadyExists) {
-		return nil, registrationConflict(err)
+		return s.noticeAttempt(ctx, PurposeUsernameTaken, email, pending.ID)
 	}
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 	if !replaced {
-		return s.existingAccountAttempt(ctx, pending)
+		return s.noticeAttempt(ctx, PurposeAccountExists, email, pending.ID)
 	}
 
 	if err := s.refreshTokens.RevokeAllForUser(ctx, pending.ID); err != nil {
@@ -300,37 +333,46 @@ func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username,
 	return issued, nil
 }
 
-// ensureUsernameFree refuses a username that another account already holds.
-// The unique username index is the durable guard; this check only spares a
-// write that would be rejected and keeps the common conflict cheap.
-func (s *ServiceImpl) ensureUsernameFree(ctx context.Context, username, ownerID string) error {
+// usernameFree reports whether no account other than ownerID holds the username.
+// The unique username index is the durable guard; this check only spares a write
+// that would be rejected.
+func (s *ServiceImpl) usernameFree(ctx context.Context, username, ownerID string) (bool, error) {
 	holder, err := s.users.FetchByUsername(ctx, username)
 	if errors.Is(err, user.ErrUserNotFound) {
-		return nil
+		return true, nil
 	}
 	if err != nil {
-		return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+		return false, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
-	if holder.ID == ownerID {
-		return nil
-	}
-	return registrationConflict(nil)
+	return holder.ID == ownerID, nil
 }
 
-// registrationConflict is the 409 a username held by another account answers.
-// The cause is kept for logs; the message never says which detail collided.
+// freeAddressCollision answers an insert that was rejected although no account
+// holds the address: the username index fired, so the registrant is told at
+// their own address. An address index that fired with no account to read means
+// the account vanished mid-request, which answers the neutral conflict.
+func (s *ServiceImpl) freeAddressCollision(ctx context.Context, email string, createErr error) (*ChallengeIssued, error) {
+	if errors.Is(createErr, user.ErrUsernameAlreadyExists) {
+		return s.noticeAttempt(ctx, PurposeUsernameTaken, email, "")
+	}
+	return nil, registrationConflict(createErr)
+}
+
+// registrationConflict is the 409 for a collision that cannot be answered as a
+// success. The cause is kept for logs; the message never says which detail
+// collided.
 func registrationConflict(cause error) error {
 	return apperr.NewError(apperr.CodeConflict, MsgRegistrationConflict, cause)
 }
 
-// existingAccountAttempt answers a registration against an address that
-// already belongs to a verified account exactly like a first registration: the
-// same 201 shape with a challenge identity that no code can ever redeem, or the
-// deferred answer when the daily allowance is spent. The owner is told by email,
-// at most once per window, so the response never reveals which addresses are
-// registered (D9).
-func (s *ServiceImpl) existingAccountAttempt(ctx context.Context, account *user.User) (*ChallengeIssued, error) {
-	if s.challenge.Mailer == nil || s.challenge.Repository == nil {
+// noticeAttempt answers a registration that cannot create an account exactly
+// like a first registration: the same 201 shape with a challenge identity no
+// code can redeem, or the deferred answer when the daily allowance is spent. The
+// address's owner is told by email, at most once per window, so the response
+// never reveals which addresses or usernames are taken (D9). ownerID is the
+// account involved, empty when there is none, and is only logged.
+func (s *ServiceImpl) noticeAttempt(ctx context.Context, purpose Purpose, to, ownerID string) (*ChallengeIssued, error) {
+	if s.challenge.Mailer == nil || s.challenge.Notices == nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, nil)
 	}
 	decoyID, err := idgen.New()
@@ -338,38 +380,37 @@ func (s *ServiceImpl) existingAccountAttempt(ctx context.Context, account *user.
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	now := s.clock.Now()
-	policy := s.challenge.Policy
-	decoy := &ChallengeIssued{
-		ChallengeID: decoyID,
-		ExpiresIn:   int(policy.Lifetime.Seconds()),
-		ResendAfter: int(policy.ResendCooldown.Seconds()),
-	}
-
-	notified, err := s.notifyExistingOwner(ctx, account, now)
+	notified, err := s.sendNotice(ctx, purpose, to, s.clock.Now())
 	if err != nil {
 		if isDailyAllowanceRefusal(err) {
-			return s.deferredRegistration(ctx, account.ID), nil
+			return s.deferredRegistration(ctx, ownerID), nil
 		}
 		return nil, err
 	}
-	s.log.Info(ctx, "registration against a verified address answered uniformly",
-		logger.Attribute{Key: attrUserID, Value: account.ID},
+	s.log.Info(ctx, "registration answered uniformly",
+		logger.Attribute{Key: attrUserID, Value: ownerID},
+		logger.Attribute{Key: attrPurpose, Value: string(purpose)},
 		logger.Attribute{Key: "notified", Value: strconv.FormatBool(notified)},
 	)
-	return decoy, nil
+
+	policy := s.challenge.Policy
+	return &ChallengeIssued{
+		ChallengeID: decoyID,
+		ExpiresIn:   int(policy.Lifetime.Seconds()),
+		ResendAfter: int(policy.ResendCooldown.Seconds()),
+	}, nil
 }
 
-// notifyExistingOwner queues the "account already exists" notice when the daily
-// allowance permits and the owner was not already told within the window. It
+// sendNotice queues the code-free notice when the daily allowance permits and
+// the address was not already sent the same notice within the window. It
 // reports whether a notice was queued.
-func (s *ServiceImpl) notifyExistingOwner(ctx context.Context, account *user.User, now time.Time) (bool, error) {
+func (s *ServiceImpl) sendNotice(ctx context.Context, purpose Purpose, to string, now time.Time) (bool, error) {
 	policy := s.challenge.Policy
 	if err := s.checkSendBudget(ctx, now); err != nil {
 		return false, err
 	}
 
-	claimed, err := s.users.ClaimExistsNotice(ctx, account.ID, now.Add(-policy.UserWindow), now)
+	claimed, err := s.challenge.Notices.Claim(ctx, purpose, to, now.Add(-policy.UserWindow), now)
 	if err != nil {
 		return false, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
@@ -381,7 +422,7 @@ func (s *ServiceImpl) notifyExistingOwner(ctx context.Context, account *user.Use
 	if err != nil {
 		return false, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
-	err = s.challenge.Mailer.Record(ctx, intentID, account.Email, PurposeAccountExists, "", int(policy.Lifetime.Minutes()), now)
+	err = s.challenge.Mailer.Record(ctx, intentID, to, purpose, "", int(policy.Lifetime.Minutes()), now)
 	if errors.Is(err, ErrSendBudgetExhausted) {
 		return false, s.sendBudgetExhausted(ctx, now)
 	}

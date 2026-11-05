@@ -558,7 +558,7 @@ func TestInitVariablesChallengeDefaults(t *testing.T) {
 	for _, key := range []string{
 		"AUTH_OTP_TTL", "AUTH_OTP_CEILING", "AUTH_OTP_RESEND_COOLDOWN",
 		"AUTH_OTP_MAX_ATTEMPTS", "AUTH_OTP_DAILY_SEND_CAP",
-		"AUTH_OTP_USER_WINDOW", "AUTH_OTP_USER_LIMIT",
+		"AUTH_OTP_USER_WINDOW", "AUTH_OTP_USER_LIMIT", "AUTH_REGISTER_MIN_DURATION",
 	} {
 		unsetEnv(t, key)
 	}
@@ -570,6 +570,7 @@ func TestInitVariablesChallengeDefaults(t *testing.T) {
 		require.Equal(t, 30*time.Minute, vars.AuthOTPCeiling)
 		require.Equal(t, 60*time.Second, vars.AuthOTPResendCooldown)
 		require.Equal(t, time.Hour, vars.AuthOTPUserWindow)
+		require.Equal(t, 500*time.Millisecond, vars.AuthRegisterMinDuration)
 	})
 
 	t.Run("Happy path: the integer caps default to the documented values", func(t *testing.T) {
@@ -603,8 +604,11 @@ func TestInitVariablesChallengeOverrides(t *testing.T) {
 		t.Setenv("AUTH_OTP_DAILY_SEND_CAP", "40")
 		t.Setenv("AUTH_OTP_USER_WINDOW", "2h")
 		t.Setenv("AUTH_OTP_USER_LIMIT", "25")
+		t.Setenv("AUTH_REGISTER_MIN_DURATION", "250ms")
 
 		vars := e.initVariables()
+
+		require.Equal(t, 250*time.Millisecond, vars.AuthRegisterMinDuration)
 
 		require.Equal(t, "0123456789abcdef0123456789abcdef", vars.EmailCodeSecret)
 		require.Equal(t, 5*time.Minute, vars.AuthOTPTTL)

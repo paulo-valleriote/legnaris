@@ -14,6 +14,9 @@ const (
 	// verified address when someone registers with it. It never backs a
 	// challenge record.
 	PurposeAccountExists Purpose = "account_exists"
+	// PurposeUsernameTaken is the code-free notice sent to a registrant whose
+	// chosen username is already in use. It never backs a challenge record.
+	PurposeUsernameTaken Purpose = "username_taken"
 )
 
 // Challenge is the durable record of one pending code step (data-model.md §1):

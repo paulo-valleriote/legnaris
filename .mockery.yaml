@@ -41,6 +41,7 @@ packages:
       RefreshTokenGenerator: {}
       Observer: {}
       ChallengeRepository: {}
+      NoticeRepository: {}
       CodeMailer: {}
       ChallengeObserver: {}
       EmailChecker: {}
