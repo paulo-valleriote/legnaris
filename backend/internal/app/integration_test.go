@@ -960,7 +960,7 @@ func TestIntegration_CanonicalEmail(t *testing.T) {
 	var duplicateBody response.ErrorResponse
 	require.NoError(t, json.Unmarshal(duplicateRec.Body.Bytes(), &duplicateBody))
 	assert.Equal(t, "CONFLICT", duplicateBody.Error.Code)
-	assert.Equal(t, auth.MsgEmailAlreadyExists, duplicateBody.Error.Message)
+	assert.Equal(t, auth.MsgRegistrationConflict, duplicateBody.Error.Message)
 
 	count, err := mdb.Collection("users").CountDocuments(ctx, bson.D{})
 	require.NoError(t, err)

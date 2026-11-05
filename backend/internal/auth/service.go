@@ -243,7 +243,7 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 func (s *ServiceImpl) registrationCreateFailed(ctx context.Context, err error, email, username, hashed string) (*ChallengeIssued, error) {
 	switch {
 	case errors.Is(err, user.ErrUsernameAlreadyExists):
-		return nil, apperr.NewError(apperr.CodeConflict, MsgUsernameTaken, err)
+		return nil, apperr.NewError(apperr.CodeConflict, MsgRegistrationConflict, err)
 	case errors.Is(err, user.ErrEmailAlreadyExists):
 		return s.reregisterUnverified(ctx, email, username, hashed)
 	default:
@@ -275,7 +275,7 @@ func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username,
 
 	replaced, err := s.users.ReplaceUnverifiedCredentials(ctx, pending.ID, username, hashed, s.clock.Now())
 	if errors.Is(err, user.ErrUsernameAlreadyExists) {
-		return nil, apperr.NewError(apperr.CodeConflict, MsgUsernameTaken, err)
+		return nil, apperr.NewError(apperr.CodeConflict, MsgRegistrationConflict, err)
 	}
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
@@ -314,13 +314,13 @@ func (s *ServiceImpl) ensureUsernameFree(ctx context.Context, username, ownerID 
 	if holder.ID == ownerID {
 		return nil
 	}
-	return apperr.NewError(apperr.CodeConflict, MsgUsernameTaken, nil)
+	return apperr.NewError(apperr.CodeConflict, MsgRegistrationConflict, nil)
 }
 
 // emailAlreadyRegistered is the 409 a verified or concurrently-verified address
 // answers. The cause is kept for logs; the message stays the uniform one.
 func emailAlreadyRegistered(cause error) error {
-	return apperr.NewError(apperr.CodeConflict, MsgEmailAlreadyExists, cause)
+	return apperr.NewError(apperr.CodeConflict, MsgRegistrationConflict, cause)
 }
 
 // isDailyAllowanceRefusal reports whether err is the send cap's refusal. It is

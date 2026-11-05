@@ -228,7 +228,7 @@ func TestService_Register(t *testing.T) {
 
 		var appErr *apperr.Error
 		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, auth.MsgEmailAlreadyExists, appErr.Message)
+		assert.Equal(t, auth.MsgRegistrationConflict, appErr.Message)
 		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
 		m.generator.AssertNotCalled(t, "Generate")
 	})
@@ -764,7 +764,7 @@ func TestService_RegisterUsernameConflict(t *testing.T) {
 
 		_, err := service.Register(ctx, cmd)
 		assertAppErr(t, err, apperr.CodeConflict)
-		assert.Contains(t, err.Error(), auth.MsgUsernameTaken)
+		assert.Contains(t, err.Error(), auth.MsgRegistrationConflict)
 	})
 
 	t.Run("Error: a replacement losing the username race answers 409 and revokes nothing", func(t *testing.T) {
@@ -780,7 +780,7 @@ func TestService_RegisterUsernameConflict(t *testing.T) {
 
 		_, err := service.Register(ctx, cmd)
 		assertAppErr(t, err, apperr.CodeConflict)
-		assert.Contains(t, err.Error(), auth.MsgUsernameTaken)
+		assert.Contains(t, err.Error(), auth.MsgRegistrationConflict)
 		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
 	})
 }
@@ -852,7 +852,7 @@ func TestService_RegisterReplacesUnverified(t *testing.T) {
 		assert.Nil(t, issued)
 		var appErr *apperr.Error
 		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, auth.MsgUsernameTaken, appErr.Message)
+		assert.Equal(t, auth.MsgRegistrationConflict, appErr.Message)
 		m.users.AssertNotCalled(t, "ReplaceUnverifiedCredentials", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
 		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
