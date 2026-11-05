@@ -51,6 +51,12 @@ func TestLoadtestOverlay(t *testing.T) {
 				assert.NotEmpty(t, env[key], "%s must be raised or 100 req/s trips the limiter", key)
 			}
 		}},
+		{"Happy path: the register limits are lifted and the disposable check is off", func(t *testing.T) {
+			env := doc.Services["app"].Environment
+			assert.Equal(t, "100000", env["AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS"])
+			assert.Equal(t, "100000", env["AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS"])
+			assert.Equal(t, "false", env["AUTH_DISPOSABLE_EMAIL_CHECK"])
+		}},
 		{"Edge: prometheus keeps the base flags and accepts remote writes", func(t *testing.T) {
 			command := strings.Join(doc.Services["prometheus"].Command, " ")
 			assert.Contains(t, command, "--web.enable-remote-write-receiver")

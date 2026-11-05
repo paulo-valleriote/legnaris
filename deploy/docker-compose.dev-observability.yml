@@ -69,6 +69,9 @@ services:
       EMAIL_CODE_SECRET: dev-only-email-code-secret-do-not-use-in-production-9876543210
       AUTH_RATE_LIMIT_ATTEMPTS: "100000"
       USER_RATE_LIMIT_ATTEMPTS: "1000000"
+      AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS: "100000"
+      AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS: "100000"
+      AUTH_DISPOSABLE_EMAIL_CHECK: "false"
     depends_on:
       mongodb:
         condition: service_healthy

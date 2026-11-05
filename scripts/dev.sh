@@ -142,6 +142,11 @@ export VITE_API_BASE_URL="http://localhost:$API_PORT"
 export RABBITMQ_URL="amqp://$RABBIT_USER:$RABBIT_PASSWORD@localhost:$RABBIT_PORT/$RABBIT_VHOST"
 export EMAIL_PROVIDER=dev
 export APP_ENV=development
+# The disposable-domain check and the register limits would reject the
+# throwaway addresses and repeated sign-ups a developer makes by hand.
+export AUTH_DISPOSABLE_EMAIL_CHECK=false
+export AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS=100000
+export AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS=100000
 
 log "building the API, the relay and the worker"
 go build -o "$workdir/api" ./backend/cmd/api.go
