@@ -94,9 +94,6 @@ type Variables struct {
 	AuthOTPDailySendCap   int
 	AuthOTPUserWindow     time.Duration
 	AuthOTPUserLimit      int
-	// AppEnv names the deployment. Only "production" changes behavior: it
-	// keeps the disposable-address check on whatever the flag says (LGN-151, D7).
-	AppEnv string
 	// AuthDisposableEmailCheck gates the registration refusal of throwaway and
 	// undeliverable domains. It defaults on and is forced on in production.
 	AuthDisposableEmailCheck bool
@@ -312,7 +309,6 @@ func (e *Env) buildVariables() Variables {
 		AuthOTPDailySendCap:            e.lookupIntEnv("AUTH_OTP_DAILY_SEND_CAP", defaultAuthOTPDailySendCap),
 		AuthOTPUserWindow:              e.lookupDurationEnv("AUTH_OTP_USER_WINDOW", defaultAuthOTPUserWindow),
 		AuthOTPUserLimit:               e.lookupIntEnv("AUTH_OTP_USER_LIMIT", defaultAuthOTPUserLimit),
-		AppEnv:                         e.lookupStringEnv(keyAppEnv, ""),
 	}
 }
 
