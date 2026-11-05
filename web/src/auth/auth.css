@@ -306,14 +306,22 @@ body:has(.lg-auth) {
 }
 
 .lg-auth__code {
-  display: flex;
-  flex-direction: column;
-  gap: var(--lg-space-8);
+  position: relative;
 }
 
 .lg-auth__code-input {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.4em;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: transparent;
+  caret-color: transparent;
+  opacity: 0;
+  cursor: text;
 }
 
 .lg-auth__code-slots {
@@ -335,6 +343,20 @@ body:has(.lg-auth) {
   font-weight: var(--lg-font-weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: var(--lg-line-tight);
+  transition: border-color var(--lg-motion-180) var(--lg-ease-standard);
+}
+
+.lg-auth__code:hover .lg-auth__code-slot {
+  border-color: var(--lg-color-stage-text-muted);
+}
+
+.lg-auth__code-slot[data-active='true'] {
+  border-color: var(--lg-color-stage-focus);
+  outline: var(--lg-size-hairline) solid var(--lg-color-stage-focus);
+}
+
+.lg-auth__code-slot[data-invalid='true'] {
+  border-color: var(--lg-color-stage-danger);
 }
 
 .lg-auth__back,
