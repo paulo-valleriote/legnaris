@@ -22,6 +22,8 @@ import { useAuthSession } from '../app/providers';
 import { LANDING_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
 import { LandingScreen } from '../landing/landing_screen';
+import { Toast } from '../ui/toast';
+import '../ui/ui.css';
 import { AuthCodeScreen } from './auth_code_screen';
 import { AuthScreen } from './auth_screen';
 import './auth.css';
@@ -71,9 +73,16 @@ export function AuthGate() {
     );
   }
 
-  if (AUTH_PATHS.has(location.pathname)) {
-    return <Navigate to={LANDING_PATH} replace />;
-  }
-
-  return <Outlet />;
+  return (
+    <>
+      {snapshot.notice === 'verified' && (
+        <Toast
+          message={message('auth.verifiedToast')}
+          variant="success"
+          onDismiss={() => session.dismissNotice()}
+        />
+      )}
+      {AUTH_PATHS.has(location.pathname) ? <Navigate to={LANDING_PATH} replace /> : <Outlet />}
+    </>
+  );
 }

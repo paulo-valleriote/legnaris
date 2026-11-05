@@ -64,6 +64,14 @@ export interface RestoredForm {
   readonly username: string | null;
 }
 
+/**
+ * A one-shot notice the surface shows beside the form (D1, D8).
+ *
+ * `deferred` follows a registration whose account exists but whose code was not
+ * queued; `verified` follows a correct code and is shown once as a toast.
+ */
+export type SessionNotice = 'deferred' | 'verified';
+
 /** The immutable session snapshot a subscriber reads (R3, WCS-02). */
 export interface SessionSnapshot {
   readonly accessToken: string | null;
@@ -73,6 +81,8 @@ export interface SessionSnapshot {
   readonly pending: PendingCodeStep | null;
   /** The values the form returns with after an abandoned step (WCS-21). */
   readonly restored: RestoredForm | null;
+  /** The notice to show, or `null` when none applies. */
+  readonly notice: SessionNotice | null;
 }
 
 /** Construction options for {@link createAuthSession}. */
@@ -101,6 +111,8 @@ export interface AuthSession extends SessionDelegate {
   resendCode(): Promise<void>;
   /** Abandons the step; issues no request (WCS-06). */
   cancelCodeStep(): void;
+  /** Clears the notice once the person has seen it. */
+  dismissNotice(): void;
   logout(): Promise<void>;
 }
 
@@ -122,6 +134,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
   let pendingStep: PendingCodeStep | null = null;
   let pendingHandle: string | null = null;
   let restoredForm: RestoredForm | null = null;
+  let notice: SessionNotice | null = null;
   const listeners = new Set<() => void>();
   let snapshot: SessionSnapshot = Object.freeze({
     accessToken,
@@ -129,6 +142,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     state,
     pending: null,
     restored: null,
+    notice: null,
   });
 
   function commit(next: {
@@ -137,6 +151,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     readonly version?: number;
     readonly pending?: PendingCodeStep | null;
     readonly restored?: RestoredForm | null;
+    readonly notice?: SessionNotice | null;
   }): void {
     if (next.state !== undefined) {
       state = next.state;
@@ -153,12 +168,16 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     if (next.restored !== undefined) {
       restoredForm = next.restored;
     }
+    if (next.notice !== undefined) {
+      notice = next.notice;
+    }
     snapshot = Object.freeze({
       accessToken,
       version,
       state,
       pending: pendingStep,
       restored: restoredForm,
+      notice,
     });
     for (const listener of listeners) {
       listener();
@@ -210,7 +229,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     input: { readonly email: string; readonly username?: string },
     apply: () => Promise<SignInOutcome>,
   ): Promise<void> {
-    commit({ state: 'authenticating' });
+    commit({ state: 'authenticating', notice: null });
 
     try {
       const outcome = await apply();
@@ -223,6 +242,20 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
           state: 'authenticated',
           pending: null,
           restored: null,
+        });
+        return;
+      }
+
+      if (outcome.kind === 'deferred') {
+        // The account exists unverified and no code is in flight; the next
+        // sign-in starts the verification step (D1, D2).
+        pendingHandle = null;
+        commit({
+          state: 'unauthenticated',
+          accessToken: null,
+          pending: null,
+          restored: { origin, email: input.email, username: input.username ?? null },
+          notice: 'deferred',
         });
         return;
       }
@@ -271,6 +304,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
       state: 'authenticated',
       pending: null,
       restored: null,
+      notice: 'verified',
     });
   }
 
@@ -303,6 +337,10 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     return pending;
   }
 
+  function dismissNotice(): void {
+    commit({ notice: null });
+  }
+
   function cancelCodeStep(): void {
     // The handle and the code go; the values the person typed stay, so the
     // credential form comes back with the address and the account mode
@@ -322,7 +360,13 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
       } catch {
         // Sign-out is best-effort: a failed logout never blocks the teardown (WAS-19).
       }
-      commit({ version: version + 1, accessToken: null, state: 'unauthenticated', restored: null });
+      commit({
+        version: version + 1,
+        accessToken: null,
+        state: 'unauthenticated',
+        restored: null,
+        notice: null,
+      });
       await clearSessionData();
     })();
 
@@ -334,7 +378,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
   }
 
   async function onUnauthorized(): Promise<void> {
-    commit({ version: version + 1, accessToken: null, state: 'unauthenticated' });
+    commit({ version: version + 1, accessToken: null, state: 'unauthenticated', notice: null });
     await clearSessionData();
   }
 
@@ -356,6 +400,7 @@ export function createAuthSession(options: AuthSessionOptions): AuthSession {
     submitCode,
     resendCode,
     cancelCodeStep,
+    dismissNotice,
     logout,
   };
 }

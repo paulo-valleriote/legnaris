@@ -63,6 +63,9 @@ export const messages = {
   'auth.codeResendSent': 'We sent another code. Either code works.',
   'auth.codeBackRegister': 'Back to registration',
   'auth.codeBackLogin': 'Back to sign-in',
+  'auth.deferredNotice':
+    'Account created. Your code will be sent when email delivery is back to normal. Sign in later to confirm your email.',
+  'auth.verifiedToast': 'Email confirmed',
 
   'app.name': 'Legnaris',
   'nav.catalog': 'Catalog',
