@@ -81,14 +81,10 @@ func TestNoticeRepository_Claim(t *testing.T) {
 		assert.True(t, claimed)
 	})
 
-	t.Run("Edge: purposes and addresses are paced independently", func(t *testing.T) {
+	t.Run("Edge: addresses are paced independently", func(t *testing.T) {
 		store := newNoticeStore(t)
 		_, err := store.Claim(ctx, auth.PurposeAccountExists, address, now.Add(-window), now)
 		require.NoError(t, err)
-
-		otherPurpose, err := store.Claim(ctx, auth.PurposeUsernameTaken, address, now.Add(-window), now)
-		require.NoError(t, err)
-		assert.True(t, otherPurpose)
 
 		otherAddress, err := store.Claim(ctx, auth.PurposeAccountExists, "other@example.com", now.Add(-window), now)
 		require.NoError(t, err)

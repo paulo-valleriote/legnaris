@@ -292,20 +292,16 @@ func TestIntegration_AuthRegister(t *testing.T) {
 		require.Equal(t, http.StatusCreated, doRequest(t, h, http.MethodPost, "/auth/register", second).Code)
 	})
 
-	t.Run("Edge: a username held by another account answers 201 and tells only the registrant", func(t *testing.T) {
+	t.Run("Edge: a username held by another account answers 409 and sends nothing", func(t *testing.T) {
 		first := fmt.Sprintf(`{"email":%q,"username":"shared-name","password":%q}`, "owner@example.com", authPassword)
 		require.Equal(t, http.StatusCreated, doRequest(t, h, http.MethodPost, "/auth/register", first).Code)
 		before := outboxCount(t, mdb)
 
 		second := fmt.Sprintf(`{"email":%q,"username":"shared-name","password":%q}`, "other@example.com", authPassword)
 		rec := doRequest(t, h, http.MethodPost, "/auth/register", second)
-		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
-		assert.Empty(t, rec.Header().Get("Set-Cookie"))
-
-		var issued response.Success[auth.ChallengeIssued]
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &issued))
-		assert.NotEmpty(t, issued.Data.ChallengeID)
-		assert.Equal(t, before+1, outboxCount(t, mdb), "the registrant gets one username notice")
+		require.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
+		assert.Contains(t, rec.Body.String(), auth.MsgUsernameTaken)
+		assert.Equal(t, before, outboxCount(t, mdb), "a rejected username sends no email")
 
 		count, err := mdb.Collection("users").CountDocuments(context.Background(), bson.M{"email": "other@example.com"})
 		require.NoError(t, err)

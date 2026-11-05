@@ -91,7 +91,7 @@ shape and drops the credential — its `access_token` holds the
 | `auth_challenge_resend.json`                | `POST /auth/challenge/resend`     | 202, the advertised retry window                                                  |
 | `error_otp_invalid.json`                    | `POST /auth/challenge/verify`     | 401 `OTP_INVALID` — the one uniform refusal for every wrong code                  |
 | `error_email_unavailable.json`              | `POST /auth/register` (cap spent) | 503 `EMAIL_UNAVAILABLE`                                                           |
-| `error_conflict.json`                       | `POST /auth/register` (duplicate) | 409 `CONFLICT`                                                                    |
+| `error_conflict.json`                       | `POST /auth/register` (username taken) | 409 `CONFLICT`                                                                    |
 
 **A capture is never hand-edited to make a test pass.** A capture that stops
 matching the models is a backend contract change: the suite is expected to go red

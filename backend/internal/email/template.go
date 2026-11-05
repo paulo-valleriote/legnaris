@@ -50,7 +50,7 @@ type EmbeddedRenderer struct {
 // happens once at construction so rendering stays pure (EML-11, EML-22).
 func NewRenderer() (*EmbeddedRenderer, error) {
 	renderer := &EmbeddedRenderer{templates: make(map[Purpose]templateSet, 4)}
-	for _, purpose := range []Purpose{PurposeVerifyEmail, PurposeLoginOTP, PurposeAccountExists, PurposeUsernameTaken} {
+	for _, purpose := range []Purpose{PurposeVerifyEmail, PurposeLoginOTP, PurposeAccountExists} {
 		set, err := parseTemplateSet(purpose)
 		if err != nil {
 			return nil, err

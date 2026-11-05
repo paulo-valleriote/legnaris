@@ -271,8 +271,7 @@ func (s *ServiceImpl) register(ctx context.Context, cmd RegisterCommand) (*Chall
 
 // registrationCreateFailed answers a rejected account insert. Either unique
 // index can be the one that fired, and the address decides the outcome, so both
-// go through the re-registration path, which treats a free address as a taken
-// username. Anything else is internal.
+// go through the re-registration path. Anything else is internal.
 func (s *ServiceImpl) registrationCreateFailed(ctx context.Context, err error, email, username, hashed string) (*ChallengeIssued, error) {
 	if errors.Is(err, user.ErrUsernameAlreadyExists) || errors.Is(err, user.ErrEmailAlreadyExists) {
 		return s.reregisterUnverified(ctx, email, username, hashed, err)
@@ -284,31 +283,40 @@ func (s *ServiceImpl) registrationCreateFailed(ctx context.Context, err error, e
 // an account that never verified it (LGN-154, D9). The pending account takes the
 // new username and password hash, its refresh tokens are revoked, and a fresh
 // verify_email code supersedes the previous one, so the answer matches a first
-// registration. A verified account is never touched (it gets a notice instead). The account is replaced
-// rather than deleted, which leaves no orphan behind if the code cannot be sent.
+// registration. A verified account is never touched (it gets a notice instead).
+// The account is replaced rather than deleted, which leaves no orphan behind if
+// the code cannot be sent.
+//
+// A username held by any other account answers the username conflict whatever
+// the address is, so that answer never depends on which addresses are registered.
+// The one exception is the pending account's own username, which it may keep.
 func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username, hashed string, createErr error) (*ChallengeIssued, error) {
 	pending, err := s.users.FetchByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
-			return s.freeAddressCollision(ctx, email, createErr)
+			return s.freeAddressCollision(createErr)
 		}
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	usernameOwner := ""
+	if pending.EmailVerifiedAt == nil {
+		usernameOwner = pending.ID
+	}
+	free, err := s.usernameFree(ctx, username, usernameOwner)
+	if err != nil {
+		return nil, err
+	}
+	if !free {
+		return nil, usernameConflict(user.ErrUsernameAlreadyExists)
 	}
 	if pending.EmailVerifiedAt != nil {
 		return s.noticeAttempt(ctx, PurposeAccountExists, email, pending.ID)
 	}
 
-	free, err := s.usernameFree(ctx, username, pending.ID)
-	if err != nil {
-		return nil, err
-	}
-	if !free {
-		return s.noticeAttempt(ctx, PurposeUsernameTaken, email, pending.ID)
-	}
-
 	replaced, err := s.users.ReplaceUnverifiedCredentials(ctx, pending.ID, username, hashed, s.clock.Now())
 	if errors.Is(err, user.ErrUsernameAlreadyExists) {
-		return s.noticeAttempt(ctx, PurposeUsernameTaken, email, pending.ID)
+		return nil, usernameConflict(err)
 	}
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
@@ -333,9 +341,9 @@ func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username,
 	return issued, nil
 }
 
-// usernameFree reports whether no account other than ownerID holds the username.
-// The unique username index is the durable guard; this check only spares a write
-// that would be rejected.
+// usernameFree reports whether no account other than ownerID holds the username;
+// an empty ownerID means every holder counts. The unique username index is the
+// durable guard; this check only spares a write that would be rejected.
 func (s *ServiceImpl) usernameFree(ctx context.Context, username, ownerID string) (bool, error) {
 	holder, err := s.users.FetchByUsername(ctx, username)
 	if errors.Is(err, user.ErrUserNotFound) {
@@ -348,14 +356,21 @@ func (s *ServiceImpl) usernameFree(ctx context.Context, username, ownerID string
 }
 
 // freeAddressCollision answers an insert that was rejected although no account
-// holds the address: the username index fired, so the registrant is told at
-// their own address. An address index that fired with no account to read means
-// the account vanished mid-request, which answers the neutral conflict.
-func (s *ServiceImpl) freeAddressCollision(ctx context.Context, email string, createErr error) (*ChallengeIssued, error) {
+// holds the address: the username index fired, so the username is taken. An
+// address index that fired with no account to read means the account vanished
+// mid-request, which answers the neutral conflict.
+func (s *ServiceImpl) freeAddressCollision(createErr error) (*ChallengeIssued, error) {
 	if errors.Is(createErr, user.ErrUsernameAlreadyExists) {
-		return s.noticeAttempt(ctx, PurposeUsernameTaken, email, "")
+		return nil, usernameConflict(createErr)
 	}
 	return nil, registrationConflict(createErr)
+}
+
+// usernameConflict is the 409 for a username another account holds. It names
+// only the username, never the address, which is why it can be answered before
+// anything is known about the address.
+func usernameConflict(cause error) error {
+	return apperr.NewError(apperr.CodeConflict, MsgUsernameTaken, cause)
 }
 
 // registrationConflict is the 409 for a collision that cannot be answered as a

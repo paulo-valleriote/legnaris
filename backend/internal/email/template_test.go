@@ -49,7 +49,7 @@ func TestRenderer_PerPurpose(t *testing.T) {
 	})
 }
 
-// TestRenderer_CodeFreeNotices proves the code-free notices render both bodies,
+// TestRenderer_CodeFreeNotices proves the code-free notice renders both bodies,
 // never mention a code, and that only they are exempt from carrying one.
 func TestRenderer_CodeFreeNotices(t *testing.T) {
 	renderer := newRenderer(t)
@@ -59,7 +59,6 @@ func TestRenderer_CodeFreeNotices(t *testing.T) {
 		phrase  string
 	}{
 		{purpose: email.PurposeAccountExists, phrase: "already exists"},
-		{purpose: email.PurposeUsernameTaken, phrase: "already taken"},
 	}
 	for _, tc := range tests {
 		t.Run("Happy path: "+string(tc.purpose), func(t *testing.T) {

@@ -212,7 +212,7 @@ func TestWorker_RendersAndSends(t *testing.T) {
 // TestWorker_SendsCodeFreeNotice proves the code-free notices are delivered
 // without a code, while the code-carrying purposes still dead-letter without one.
 func TestWorker_SendsCodeFreeNotice(t *testing.T) {
-	for _, purpose := range []email.Purpose{email.PurposeAccountExists, email.PurposeUsernameTaken} {
+	for _, purpose := range []email.Purpose{email.PurposeAccountExists} {
 		t.Run(fmt.Sprintf("Happy path: %s", purpose), func(t *testing.T) {
 			h := newHarness(t)
 			msg := emailtest.Message()
