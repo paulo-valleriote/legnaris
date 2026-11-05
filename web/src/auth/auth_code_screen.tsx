@@ -37,6 +37,7 @@ export function AuthCodeScreen() {
   const [code, setCode] = useState('');
   const [refusal, setRefusal] = useState<string | undefined>(undefined);
   const [confirmation, setConfirmation] = useState<string | undefined>(undefined);
+  const [focused, setFocused] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
   const [tick, setTick] = useState(0);
@@ -183,6 +184,8 @@ export function AuthCodeScreen() {
                 autoComplete="one-time-code"
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
                 aria-describedby={describedBy}
                 aria-invalid={refusal !== undefined}
               />
@@ -192,6 +195,8 @@ export function AuthCodeScreen() {
                     key={index}
                     className="lg-auth__code-slot"
                     data-testid={`code-slot-${index}`}
+                    data-active={focused && index === Math.min(code.length, CODE_LENGTH - 1)}
+                    data-invalid={refusal !== undefined}
                   >
                     {code.charAt(index)}
                   </span>
