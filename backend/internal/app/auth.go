@@ -29,8 +29,15 @@ func NewAuthController(service auth.Service) *AuthController {
 	}
 }
 
+// registrationDeferredBody is the 201 answer when the account was created but
+// the code could not be queued. It carries no challenge, cookie or session.
+type registrationDeferredBody struct {
+	Delivery string `json:"delivery"`
+}
+
 // Register creates the account and answers 201 with the started code step and
-// no cookie at all (AUTH-02, TFA-01).
+// no cookie at all (AUTH-02, TFA-01). When the daily allowance is spent the
+// answer is 201 with delivery "deferred" and the same absence of credentials (D1).
 func (ac *AuthController) Register(c *echo.Context) error {
 	var cmd auth.RegisterCommand
 
@@ -43,6 +50,9 @@ func (ac *AuthController) Register(c *echo.Context) error {
 		return err
 	}
 
+	if issued.Delivery == auth.DeliveryDeferred {
+		return response.JSON(c, http.StatusCreated, registrationDeferredBody{Delivery: auth.DeliveryDeferred})
+	}
 	return response.JSON(c, http.StatusCreated, issued)
 }
 

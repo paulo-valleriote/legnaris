@@ -26,7 +26,15 @@ type ChallengeIssued struct {
 	ChallengeID string `json:"challenge_id"`
 	ExpiresIn   int    `json:"expires_in"`
 	ResendAfter int    `json:"resend_after"`
+	// Delivery is DeliveryDeferred when registration created the account but
+	// could not queue the code. It is not serialized here: the controller owns
+	// the body of that answer.
+	Delivery string `json:"-"`
 }
+
+// DeliveryDeferred marks a registration whose verification code was not queued
+// because the daily send allowance is spent (D1).
+const DeliveryDeferred = "deferred"
 
 // VerifyChallengeCommand carries only the challenge identity and the submitted
 // code; the purpose is resolved server-side (OTP-09).

@@ -412,24 +412,67 @@ func TestService_Register(t *testing.T) {
 		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
 	})
 
-	t.Run("Error: the daily allowance refusal propagates unchanged and issues no session", func(t *testing.T) {
+	t.Run("Happy path: spent daily allowance creates the unverified account and answers deferred with no challenge or session", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		var createdUser *user.User
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+			createdUser = u
+			return u.EmailVerifiedAt == nil
+		})).Return(nil).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(testChallengePolicy.DailySendCap, nil).Once()
+
+		outcome, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
+		require.NoError(t, err)
+		require.NotNil(t, outcome)
+		assert.Equal(t, auth.DeliveryDeferred, outcome.Delivery)
+		assert.Empty(t, outcome.ChallengeID, "no challenge is issued when the allowance is spent")
+		assert.Zero(t, outcome.ExpiresIn)
+		assert.Zero(t, outcome.ResendAfter)
+
+		require.NotNil(t, createdUser)
+		assert.Nil(t, createdUser.EmailVerifiedAt, "the account stays unverified")
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+		m.challenges.AssertNotCalled(t, "CloseActive", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		m.mailer.AssertNotCalled(t, "Record", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: the allowance spent between the check and the write also defers", func(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
 		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
-		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(testChallengePolicy.DailySendCap, nil).Once()
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.challenges.EXPECT().CloseActive(mock.Anything, mock.Anything, auth.PurposeVerifyEmail, mock.Anything).Return(nil).Once()
+		m.challenges.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
+		m.mailer.EXPECT().
+			Record(mock.Anything, mock.Anything, testEmail, auth.PurposeVerifyEmail, mock.Anything, mock.Anything, mock.Anything).
+			Return(auth.ErrSendBudgetExhausted).
+			Once()
+
+		outcome, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
+		require.NoError(t, err)
+		require.NotNil(t, outcome)
+		assert.Equal(t, auth.DeliveryDeferred, outcome.Delivery)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+	})
+
+	t.Run("Edge: a store failure while checking the allowance is not deferred", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, errors.New("mongo down")).Once()
 
 		outcome, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: testPassword})
 		assert.Nil(t, outcome)
-		assertAppErr(t, err, apperr.CodeEmailUnavailable)
-
-		var appErr *apperr.Error
-		require.ErrorAs(t, err, &appErr)
-		assert.Equal(t, auth.MsgEmailUnavailable, appErr.Message)
-		assert.Positive(t, appErr.RetryAfter, "the refusal must carry a retry hint")
-		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
-		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+		assertAppErr(t, err, apperr.CodeInternal)
 	})
 }
 
