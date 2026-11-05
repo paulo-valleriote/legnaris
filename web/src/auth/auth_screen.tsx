@@ -103,6 +103,11 @@ export function AuthScreen({ restore, initialMode = 'login' }: AuthScreenProps) 
           <p className="lg-auth__subtitle">
             {mode === 'login' ? message('auth.subtitleLogin') : message('auth.subtitleRegister')}
           </p>
+          {snapshot.notice === 'deferred' && (
+            <p className="lg-auth__notice" role="status" data-testid="auth-deferred">
+              {message('auth.deferredNotice')}
+            </p>
+          )}
         </div>
 
         <div className="lg-auth__modes" role="group" aria-label={message('auth.modeGroupLabel')}>

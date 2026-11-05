@@ -54,7 +54,11 @@ export interface ChallengeStep {
  */
 export type SignInOutcome =
   | { readonly kind: 'session'; readonly session: SessionBody }
-  | { readonly kind: 'challenge'; readonly challenge: ChallengeStep };
+  | { readonly kind: 'challenge'; readonly challenge: ChallengeStep }
+  | { readonly kind: 'deferred' };
+
+/** The delivery marker of a registration whose code could not be queued (D1). */
+const DELIVERY_DEFERRED = 'deferred';
 
 /** The answer a resend gives: the window the client counts down (WCS-08). */
 export interface ResendResult {
@@ -131,9 +135,10 @@ function decodeChallenge(data: unknown): ChallengeStep {
  * Decodes the answer of a credential operation (WCS-01, R1).
  *
  * The payload's own keys decide which answer it is: an `access_token` is a
- * session, a `challenge_id` is a code step. A payload carrying both keys or
- * neither is a drift, never a silent pick — the envelope decoder exists to keep
- * a contract change visible.
+ * session, a `challenge_id` is a code step, and a bare `delivery: "deferred"`
+ * is an account created with no code queued (D1). A payload carrying both keys,
+ * or neither without the deferred marker, is a drift, never a silent pick — the
+ * envelope decoder exists to keep a contract change visible.
  */
 export function decodeSignInOutcome(data: unknown): SignInOutcome {
   if (!isPlainObject(data)) {
@@ -142,6 +147,10 @@ export function decodeSignInOutcome(data: unknown): SignInOutcome {
 
   const carriesSession = 'access_token' in data;
   const carriesChallenge = 'challenge_id' in data;
+
+  if (!carriesSession && !carriesChallenge && data.delivery === DELIVERY_DEFERRED) {
+    return { kind: 'deferred' };
+  }
 
   if (carriesSession === carriesChallenge) {
     throw drift('the credential answer carries both a session and a challenge, or neither');
