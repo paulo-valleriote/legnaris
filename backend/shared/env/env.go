@@ -92,6 +92,7 @@ type Variables struct {
 	AuthOTPResendCooldown time.Duration
 	AuthOTPMaxAttempts    int
 	AuthOTPDailySendCap   int
+	AuthOTPResendCapRatio float64
 	AuthOTPUserWindow     time.Duration
 	AuthOTPUserLimit      int
 	// AuthDisposableEmailCheck gates the registration refusal of throwaway and
@@ -152,6 +153,7 @@ const (
 	defaultAuthOTPResendCooldown = 60 * time.Second
 	defaultAuthOTPMaxAttempts    = 5
 	defaultAuthOTPDailySendCap   = 80
+	defaultAuthOTPResendCapRatio = 0.30
 	defaultAuthOTPUserWindow     = time.Hour
 	defaultAuthOTPUserLimit      = 10
 	// The disposable-address check is on by default (D7); make dev and CI turn
@@ -307,6 +309,7 @@ func (e *Env) buildVariables() Variables {
 		AuthOTPResendCooldown:          e.lookupDurationEnv("AUTH_OTP_RESEND_COOLDOWN", defaultAuthOTPResendCooldown),
 		AuthOTPMaxAttempts:             e.lookupIntEnv("AUTH_OTP_MAX_ATTEMPTS", defaultAuthOTPMaxAttempts),
 		AuthOTPDailySendCap:            e.lookupIntEnv("AUTH_OTP_DAILY_SEND_CAP", defaultAuthOTPDailySendCap),
+		AuthOTPResendCapRatio:          e.lookupRatioEnv("AUTH_OTP_RESEND_CAP_RATIO", defaultAuthOTPResendCapRatio),
 		AuthOTPUserWindow:              e.lookupDurationEnv("AUTH_OTP_USER_WINDOW", defaultAuthOTPUserWindow),
 		AuthOTPUserLimit:               e.lookupIntEnv("AUTH_OTP_USER_LIMIT", defaultAuthOTPUserLimit),
 	}
@@ -469,6 +472,29 @@ func (e *Env) lookupRequiredStringEnv(key string) string {
 		return ""
 	}
 	return value
+}
+
+// lookupRatioEnv reads a fraction in (0, 1] from the environment. When the
+// variable is unset, empty, non-numeric, NaN or outside that range, it logs a
+// structured warning and returns the provided default.
+func (e *Env) lookupRatioEnv(key string, defaultValue float64) float64 {
+	value, found := e.lookupEnv(key)
+	if !found {
+		return defaultValue
+	}
+
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil || math.IsNaN(parsed) || parsed <= 0 || parsed > 1 {
+		e.Logger.Warn(
+			context.Background(),
+			"invalid ratio value for environment variable; using default",
+			logger.Attribute{Key: attrKey, Value: key},
+			logger.Attribute{Key: attrValue, Value: value},
+			logger.Attribute{Key: attrDefault, Value: strconv.FormatFloat(defaultValue, 'f', -1, 64)},
+		)
+		return defaultValue
+	}
+	return parsed
 }
 
 // lookupIntEnv reads a positive integer from the environment. When the variable

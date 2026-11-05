@@ -448,3 +448,44 @@ func TestRepository_CountSince(t *testing.T) {
 		assert.Contains(t, names, "email_outbox_created_at", "the created_at index must exist")
 	})
 }
+
+// TestRepository_CloneMarksResend pins that a clone is a resend and that the
+// kind-filtered count sees only resends, never first sends, and honours the
+// window (D5, OTP-13).
+func TestRepository_CloneMarksResend(t *testing.T) {
+	repo, _ := newOutboxFixture(t)
+	ctx := context.Background()
+	now := sampleNow()
+
+	first := mustIntent(t, "first@example.com", now.Add(-time.Hour))
+	require.NoError(t, repo.Create(ctx, first))
+	require.NoError(t, repo.Create(ctx, mustIntent(t, "other@example.com", now)))
+
+	cloned, err := repo.Clone(ctx, first.ID, now)
+	require.NoError(t, err)
+
+	t.Run("Happy path: the clone is a resend and the original stays initial", func(t *testing.T) {
+		assert.Equal(t, outbox.KindResend, cloned.Kind)
+		stored, err := repo.Clone(ctx, first.ID, now)
+		require.NoError(t, err)
+		assert.Equal(t, outbox.KindResend, stored.Kind)
+	})
+
+	t.Run("Happy path: only resends at or after the instant are counted", func(t *testing.T) {
+		count, err := repo.CountKindSince(ctx, outbox.KindResend, now.Add(-time.Minute))
+		require.NoError(t, err)
+		assert.Equal(t, 2, count, "the two clones made at now are counted")
+	})
+
+	t.Run("Edge: first sends are never counted as resends", func(t *testing.T) {
+		count, err := repo.CountKindSince(ctx, outbox.KindInitial, now.Add(-24*time.Hour))
+		require.NoError(t, err)
+		assert.Equal(t, 2, count, "the first send and the other initial row")
+	})
+
+	t.Run("Edge: a future window counts no resend", func(t *testing.T) {
+		count, err := repo.CountKindSince(ctx, outbox.KindResend, now.Add(time.Hour))
+		require.NoError(t, err)
+		assert.Zero(t, count)
+	})
+}

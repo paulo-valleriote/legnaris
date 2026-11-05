@@ -17,6 +17,18 @@ const (
 	StatusFailed    Status = "failed"
 )
 
+// Kind tells a first send from a resend of the same code, so the daily cap can
+// hold resends to a share of its budget (OTP-13, D5).
+type Kind string
+
+const (
+	// KindInitial is the first intention of a code. Rows written before Kind
+	// existed carry no value and are counted as initial.
+	KindInitial Kind = "initial"
+	// KindResend is an intention cloned from an earlier one by Clone.
+	KindResend Kind = "resend"
+)
+
 // Payload is the code, its lifetime and the purpose carried to the worker for
 // rendering. The code is a short-lived credential and must never reach a log
 // line or an error message (EML-13).
@@ -33,6 +45,7 @@ type Intent struct {
 	ID            string     `bson:"_id"`
 	To            string     `bson:"to"`
 	Template      string     `bson:"template"`
+	Kind          Kind       `bson:"kind"`
 	Payload       Payload    `bson:"payload"`
 	Status        Status     `bson:"status"`
 	Attempts      int        `bson:"attempts"`
@@ -72,6 +85,7 @@ func NewIntent(id, to, template string, payload Payload, now time.Time) (Intent,
 		ID:            id,
 		To:            to,
 		Template:      template,
+		Kind:          KindInitial,
 		Payload:       payload,
 		Status:        StatusPending,
 		Attempts:      0,

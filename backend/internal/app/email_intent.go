@@ -63,6 +63,12 @@ func (e *EmailIntent) Requeue(ctx context.Context, id string, now time.Time) (st
 	return cloned.ID, nil
 }
 
+// ResendsSince counts the resend intentions of the window, the input of the
+// resend share of the daily cap (D5).
+func (e *EmailIntent) ResendsSince(ctx context.Context, since time.Time) (int, error) {
+	return e.repository.CountKindSince(ctx, outbox.KindResend, since)
+}
+
 // SentSince forwards the daily-cap window to the store's count (OTP-13).
 func (e *EmailIntent) SentSince(ctx context.Context, since time.Time) (int, error) {
 	return e.repository.CountSince(ctx, since)

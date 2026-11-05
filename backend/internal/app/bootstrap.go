@@ -145,6 +145,7 @@ func NewModules(
 		ResendCooldown:   cfg.Variables.AuthOTPResendCooldown,
 		MaxAttempts:      cfg.Variables.AuthOTPMaxAttempts,
 		DailySendCap:     cfg.Variables.AuthOTPDailySendCap,
+		ResendCapRatio:   cfg.Variables.AuthOTPResendCapRatio,
 		UserWindow:       cfg.Variables.AuthOTPUserWindow,
 		MaxPerUserWindow: cfg.Variables.AuthOTPUserLimit,
 	}

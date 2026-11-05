@@ -20,6 +20,7 @@ const (
 	fieldAttempts         = "attempts"
 	fieldNextAttemptAt    = "next_attempt_at"
 	fieldCreatedAt        = "created_at"
+	fieldKind             = "kind"
 	fieldLockedUntil      = "locked_until"
 	fieldLockedBy         = "locked_by"
 	fieldPublishedAt      = "published_at"
@@ -51,6 +52,9 @@ type Repository interface {
 	// CountSince counts intentions recorded at or after since; it backs the
 	// daily send cap (OTP-13).
 	CountSince(ctx context.Context, since time.Time) (int, error)
+	// CountKindSince counts intentions of one kind recorded at or after since;
+	// it backs the resend share of the daily send cap (OTP-13, D5).
+	CountKindSince(ctx context.Context, kind Kind, since time.Time) (int, error)
 }
 
 // RepositoryImpl is the MongoDB-backed outbox store.
@@ -209,6 +213,7 @@ func (r *RepositoryImpl) Clone(ctx context.Context, id string, now time.Time) (I
 	if err != nil {
 		return Intent{}, err
 	}
+	fresh.Kind = KindResend
 	if err := r.Create(ctx, fresh); err != nil {
 		return Intent{}, err
 	}
@@ -223,6 +228,19 @@ func (r *RepositoryImpl) CountSince(ctx context.Context, since time.Time) (int, 
 	})
 	if err != nil {
 		return 0, fmt.Errorf("count intents since: %w", err)
+	}
+	return int(count), nil
+}
+
+// CountKindSince counts the intentions of one kind recorded at or after since.
+// Rows without a kind are initial, so they are never counted as resends.
+func (r *RepositoryImpl) CountKindSince(ctx context.Context, kind Kind, since time.Time) (int, error) {
+	count, err := r.collection.CountDocuments(ctx, bson.D{
+		{Key: fieldKind, Value: kind},
+		{Key: fieldCreatedAt, Value: bson.D{{Key: operandGTE, Value: since}}},
+	})
+	if err != nil {
+		return 0, fmt.Errorf("count intents of kind since: %w", err)
 	}
 	return int(count), nil
 }

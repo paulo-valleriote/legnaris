@@ -134,6 +134,63 @@ func (_c *MockCodeMailer_Requeue_Call) RunAndReturn(run func(context.Context, st
 	return _c
 }
 
+// ResendsSince provides a mock function with given fields: ctx, since
+func (_m *MockCodeMailer) ResendsSince(ctx context.Context, since time.Time) (int, error) {
+	ret := _m.Called(ctx, since)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResendsSince")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) (int, error)); ok {
+		return rf(ctx, since)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) int); ok {
+		r0 = rf(ctx, since)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = rf(ctx, since)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockCodeMailer_ResendsSince_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResendsSince'
+type MockCodeMailer_ResendsSince_Call struct {
+	*mock.Call
+}
+
+// ResendsSince is a helper method to define mock.On call
+//   - ctx context.Context
+//   - since time.Time
+func (_e *MockCodeMailer_Expecter) ResendsSince(ctx interface{}, since interface{}) *MockCodeMailer_ResendsSince_Call {
+	return &MockCodeMailer_ResendsSince_Call{Call: _e.mock.On("ResendsSince", ctx, since)}
+}
+
+func (_c *MockCodeMailer_ResendsSince_Call) Run(run func(ctx context.Context, since time.Time)) *MockCodeMailer_ResendsSince_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockCodeMailer_ResendsSince_Call) Return(_a0 int, _a1 error) *MockCodeMailer_ResendsSince_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockCodeMailer_ResendsSince_Call) RunAndReturn(run func(context.Context, time.Time) (int, error)) *MockCodeMailer_ResendsSince_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SentSince provides a mock function with given fields: ctx, since
 func (_m *MockCodeMailer) SentSince(ctx context.Context, since time.Time) (int, error) {
 	ret := _m.Called(ctx, since)

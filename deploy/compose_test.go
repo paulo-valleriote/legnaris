@@ -329,7 +329,7 @@ func TestChallengeConfigurationIsRequiredAndDocumented(t *testing.T) {
 	t.Run("Happy path: the optional challenge settings are interpolations", func(t *testing.T) {
 		for _, key := range []string{
 			"AUTH_OTP_TTL", "AUTH_OTP_CEILING", "AUTH_OTP_RESEND_COOLDOWN",
-			"AUTH_OTP_MAX_ATTEMPTS", "AUTH_OTP_DAILY_SEND_CAP",
+			"AUTH_OTP_MAX_ATTEMPTS", "AUTH_OTP_DAILY_SEND_CAP", "AUTH_OTP_RESEND_CAP_RATIO",
 			"AUTH_OTP_USER_WINDOW", "AUTH_OTP_USER_LIMIT",
 		} {
 			value, present := app.Environment[key]
