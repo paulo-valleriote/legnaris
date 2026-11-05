@@ -556,7 +556,8 @@ pipeline works but something needs a decision).
 
 Thresholds live in one block at the top of `prometheus/rules.yml` (the
 `legnaris:email_pipeline:threshold_*` recording rules): the backlog (100
-codes) and the verification failures (30 in ten minutes). Each alert's own
+codes), the verification failures (30 in ten minutes), the register refusals
+(30 in 24 hours) and the early cap days (2 in a week). Each alert's own
 patience is its `for:`; the work queue's is its one-minute lookback plus
 `for:`. Restart Prometheus after
 editing; validate first with `promtool check rules` (see the feature's
@@ -615,6 +616,18 @@ quickstart).
 - **Means:** a series the other alerts read has stopped arriving, so the broker, the relay, the worker or the site is not being scraped and the pipeline is unwatched; this alert exists so a rule never goes silently inert.
 - **Do:** open `/prometheus/targets` and look at `legnaris-app`, `legnaris-rabbitmq`, `legnaris-relay` and `legnaris-worker`; start the service that is down; if the broker is up but its series are absent, see "Broker series".
 - **Escalate when:** the pipeline stays unwatched for more than 10 minutes.
+
+### EmailRegisterBurstTooLarge
+
+- **Means:** `POST /auth/register` was refused with 429 more than 30 times in 24 hours; registration is being hammered, which is the case the captcha (Turnstile, deferred by D14) exists for.
+- **Do:** check the dashboard's register rate-limit panel and the top client IPs in the logs; if it is one source, leave the rate limit to handle it; if it spreads across many sources, decide whether to turn the captcha on (a manual switch).
+- **Escalate when:** it fires on two or more days in a week, or sign-ups from real people start failing; that is the trigger to enable the captcha.
+
+### EmailCapReachedEarly
+
+- **Means:** the daily send cap was spent before 12:00 UTC on two or more days this week, so later sign-ups of real people find the cap closed; this is the second captcha trigger (D14).
+- **Do:** confirm on the dashboard that the volume is real people and not abuse; the cap resets at 00:00 UTC on its own; do not raise it past the provider's limit.
+- **Escalate when:** it keeps firing for a second week, or the cap is hit again before noon on a day with a public campaign; then turn the captcha on, as in `EmailRegisterBurstTooLarge`.
 
 ### The provider's daily allowance
 
