@@ -151,6 +151,16 @@ var pipelineAlerts = []expectedAlert{
 		series: []string{"rabbitmq_queue_consumers", "legnaris_email_outbox_backlog", "legnaris_email_dead_total", "up{"},
 		reads:  []string{"absent(", `legnaris-app`},
 	},
+	{
+		name: "EmailRegisterBurstTooLarge", severity: "medium", req: "LGN-159",
+		series: []string{"legnaris_http_requests_total"},
+		reads:  []string{`job="legnaris-app"`, `method="POST"`, `path="/auth/register"`, `status="429"`, "[24h]"},
+	},
+	{
+		name: "EmailCapReachedEarly", severity: "medium", req: "LGN-159",
+		series: []string{"legnaris_auth_otp_cap_blocked_total"},
+		reads:  []string{`job="legnaris-app"`, "count_over_time(", "offset 12h", "[7d:1d]"},
+	},
 }
 
 // TestAlertRulesExistAndAreComplete guards the alarm set: every way the
@@ -262,6 +272,8 @@ func TestAlertRuleThresholdsAreConfigurable(t *testing.T) {
 	tunable := map[string]string{
 		"EmailPublicationBacklogTooLarge":   thresholdPrefix + "backlog_pending",
 		"EmailVerificationFailuresClimbing": thresholdPrefix + "verification_failures",
+		"EmailRegisterBurstTooLarge":        thresholdPrefix + "register_429s",
+		"EmailCapReachedEarly":              thresholdPrefix + "early_cap_days",
 	}
 
 	for alert, record := range tunable {

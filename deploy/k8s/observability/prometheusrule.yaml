@@ -12,6 +12,10 @@ spec:
       expr: vector(100)
     - record: legnaris:email_pipeline:threshold_verification_failures
       expr: vector(30)
+    - record: legnaris:email_pipeline:threshold_register_429s
+      expr: vector(30)
+    - record: legnaris:email_pipeline:threshold_early_cap_days
+      expr: vector(2)
   - name: legnaris-email-pipeline-alerts
     rules:
     - alert: EmailDeadLetterQueueHoldsMessages
@@ -102,3 +106,21 @@ spec:
         summary: A series the pipeline alerts read has stopped arriving
         description: The broker, the relay or the worker is not being scraped, so the alerts that read its series cannot fire; the pipeline is unwatched.
         runbook: deploy/README.md#emailpipelineseriesmissing
+    - alert: EmailRegisterBurstTooLarge
+      expr: sum(increase(legnaris_http_requests_total{job="legnaris-app", method="POST", path="/auth/register", status="429"}[24h])) > on() group_left() legnaris:email_pipeline:threshold_register_429s
+      for: 5m
+      labels:
+        severity: medium
+      annotations:
+        summary: The register route is refusing an unusual number of requests
+        description: '{{ $value }} register requests were refused with 429 in the last 24 hours; registration is being hammered and the captcha decision is due.'
+        runbook: deploy/README.md#emailregisterbursttoolarge
+    - alert: EmailCapReachedEarly
+      expr: count_over_time((sum(increase(legnaris_auth_otp_cap_blocked_total{job="legnaris-app"}[12h])) > 0)[7d:1d] offset 12h) >= on() group_left() legnaris:email_pipeline:threshold_early_cap_days
+      for: 15m
+      labels:
+        severity: medium
+      annotations:
+        summary: The daily send cap runs out before noon UTC on several days
+        description: The daily send cap was spent before 12:00 UTC on {{ $value }} day(s) this week; legitimate sign-ups are being starved, and the captcha decision is due.
+        runbook: deploy/README.md#emailcapreachedearly
