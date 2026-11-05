@@ -189,6 +189,65 @@ func (_c *MockRepository_FetchByID_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
+// FetchByUsername provides a mock function with given fields: ctx, username
+func (_m *MockRepository) FetchByUsername(ctx context.Context, username string) (*user.User, error) {
+	ret := _m.Called(ctx, username)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FetchByUsername")
+	}
+
+	var r0 *user.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*user.User, error)); ok {
+		return rf(ctx, username)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *user.User); ok {
+		r0 = rf(ctx, username)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*user.User)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, username)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_FetchByUsername_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FetchByUsername'
+type MockRepository_FetchByUsername_Call struct {
+	*mock.Call
+}
+
+// FetchByUsername is a helper method to define mock.On call
+//   - ctx context.Context
+//   - username string
+func (_e *MockRepository_Expecter) FetchByUsername(ctx interface{}, username interface{}) *MockRepository_FetchByUsername_Call {
+	return &MockRepository_FetchByUsername_Call{Call: _e.mock.On("FetchByUsername", ctx, username)}
+}
+
+func (_c *MockRepository_FetchByUsername_Call) Run(run func(ctx context.Context, username string)) *MockRepository_FetchByUsername_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepository_FetchByUsername_Call) Return(_a0 *user.User, _a1 error) *MockRepository_FetchByUsername_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_FetchByUsername_Call) RunAndReturn(run func(context.Context, string) (*user.User, error)) *MockRepository_FetchByUsername_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MarkEmailVerified provides a mock function with given fields: ctx, id, at
 func (_m *MockRepository) MarkEmailVerified(ctx context.Context, id string, at time.Time) error {
 	ret := _m.Called(ctx, id, at)
@@ -233,6 +292,66 @@ func (_c *MockRepository_MarkEmailVerified_Call) Return(_a0 error) *MockReposito
 }
 
 func (_c *MockRepository_MarkEmailVerified_Call) RunAndReturn(run func(context.Context, string, time.Time) error) *MockRepository_MarkEmailVerified_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReplaceUnverifiedCredentials provides a mock function with given fields: ctx, id, username, passwordHash, at
+func (_m *MockRepository) ReplaceUnverifiedCredentials(ctx context.Context, id string, username string, passwordHash string, at time.Time) (bool, error) {
+	ret := _m.Called(ctx, id, username, passwordHash, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReplaceUnverifiedCredentials")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, time.Time) (bool, error)); ok {
+		return rf(ctx, id, username, passwordHash, at)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, time.Time) bool); ok {
+		r0 = rf(ctx, id, username, passwordHash, at)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, time.Time) error); ok {
+		r1 = rf(ctx, id, username, passwordHash, at)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_ReplaceUnverifiedCredentials_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReplaceUnverifiedCredentials'
+type MockRepository_ReplaceUnverifiedCredentials_Call struct {
+	*mock.Call
+}
+
+// ReplaceUnverifiedCredentials is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - username string
+//   - passwordHash string
+//   - at time.Time
+func (_e *MockRepository_Expecter) ReplaceUnverifiedCredentials(ctx interface{}, id interface{}, username interface{}, passwordHash interface{}, at interface{}) *MockRepository_ReplaceUnverifiedCredentials_Call {
+	return &MockRepository_ReplaceUnverifiedCredentials_Call{Call: _e.mock.On("ReplaceUnverifiedCredentials", ctx, id, username, passwordHash, at)}
+}
+
+func (_c *MockRepository_ReplaceUnverifiedCredentials_Call) Run(run func(ctx context.Context, id string, username string, passwordHash string, at time.Time)) *MockRepository_ReplaceUnverifiedCredentials_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockRepository_ReplaceUnverifiedCredentials_Call) Return(_a0 bool, _a1 error) *MockRepository_ReplaceUnverifiedCredentials_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_ReplaceUnverifiedCredentials_Call) RunAndReturn(run func(context.Context, string, string, string, time.Time) (bool, error)) *MockRepository_ReplaceUnverifiedCredentials_Call {
 	_c.Call.Return(run)
 	return _c
 }

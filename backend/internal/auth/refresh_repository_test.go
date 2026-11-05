@@ -135,3 +135,48 @@ func TestRefreshTokenRepository(t *testing.T) {
 		assert.False(t, other.Revoked, "another family must be untouched")
 	})
 }
+
+func TestRefreshTokenRepository_RevokeAllForUser(t *testing.T) {
+	ctx := context.Background()
+	const otherUser = "01900000-0000-7000-8000-0000000000bb"
+
+	t.Run("Happy path: revokes every live token of the account across families", func(t *testing.T) {
+		repo := newRefreshTokenRepository(t)
+		require.NoError(t, repo.Create(ctx, sampleToken("tok-1", "hash-1", "fam-1")))
+		require.NoError(t, repo.Create(ctx, sampleToken("tok-2", "hash-2", "fam-2")))
+
+		require.NoError(t, repo.RevokeAllForUser(ctx, "01900000-0000-7000-8000-0000000000aa"))
+
+		for _, hash := range []string{"hash-1", "hash-2"} {
+			fetched, err := repo.FetchByHash(ctx, hash)
+			require.NoError(t, err)
+			assert.True(t, fetched.Revoked, "token %s must be revoked", hash)
+		}
+	})
+
+	t.Run("Edge: another account's tokens are untouched", func(t *testing.T) {
+		repo := newRefreshTokenRepository(t)
+		foreign := sampleToken("tok-3", "hash-3", "fam-3")
+		foreign.UserID = otherUser
+		require.NoError(t, repo.Create(ctx, foreign))
+
+		require.NoError(t, repo.RevokeAllForUser(ctx, "01900000-0000-7000-8000-0000000000aa"))
+
+		fetched, err := repo.FetchByHash(ctx, "hash-3")
+		require.NoError(t, err)
+		assert.False(t, fetched.Revoked)
+	})
+
+	t.Run("Edge: an account with no tokens, and a repeated call, are no-ops", func(t *testing.T) {
+		repo := newRefreshTokenRepository(t)
+		require.NoError(t, repo.RevokeAllForUser(ctx, "01900000-0000-7000-8000-0000000000cc"))
+
+		require.NoError(t, repo.Create(ctx, sampleToken("tok-1", "hash-1", "fam-1")))
+		require.NoError(t, repo.RevokeAllForUser(ctx, "01900000-0000-7000-8000-0000000000aa"))
+		require.NoError(t, repo.RevokeAllForUser(ctx, "01900000-0000-7000-8000-0000000000aa"))
+
+		fetched, err := repo.FetchByHash(ctx, "hash-1")
+		require.NoError(t, err)
+		assert.True(t, fetched.Revoked)
+	})
+}

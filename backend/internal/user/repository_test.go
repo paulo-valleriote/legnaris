@@ -337,3 +337,77 @@ func TestUserRepository_EmailMigration(t *testing.T) {
 		assert.Zero(t, count, "a missing identifier must never become an upsert")
 	})
 }
+
+// TestUserRepository_ReplaceUnverifiedCredentials covers the re-registration
+// write of LGN-154 (D9): only an account whose address was never verified takes
+// the new username and password hash, and no call ever creates a document.
+func TestUserRepository_ReplaceUnverifiedCredentials(t *testing.T) {
+	ctx := context.Background()
+	at := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
+
+	t.Run("Edge: a username no account holds is not found", func(t *testing.T) {
+		repo := newUserRepository(t)
+		require.NoError(t, repo.Create(ctx, sampleUser()))
+
+		_, err := repo.FetchByUsername(ctx, "nobody")
+		require.ErrorIs(t, err, user.ErrUserNotFound)
+	})
+
+	t.Run("Happy path: a known username is fetched", func(t *testing.T) {
+		repo := newUserRepository(t)
+		require.NoError(t, repo.Create(ctx, sampleUser()))
+
+		fetched, err := repo.FetchByUsername(ctx, "player")
+		require.NoError(t, err)
+		assert.Equal(t, sampleUser().ID, fetched.ID)
+	})
+
+	t.Run("Happy path: an unverified account takes the new username and hash, keeping its address", func(t *testing.T) {
+		repo, collection := newUserRepositoryFixture(t)
+		u := sampleUser()
+		require.NoError(t, repo.Create(ctx, u))
+
+		replaced, err := repo.ReplaceUnverifiedCredentials(ctx, u.ID, "renamed", "new-hash", at)
+		require.NoError(t, err)
+		assert.True(t, replaced)
+
+		fetched, err := repo.FetchByID(ctx, u.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "renamed", fetched.Username)
+		assert.Equal(t, "new-hash", fetched.PasswordHash)
+		assert.Equal(t, u.Email, fetched.Email, "the address is the identity and never changes here")
+		assert.Nil(t, fetched.EmailVerifiedAt, "replacing credentials does not verify the address")
+
+		var raw bson.M
+		require.NoError(t, collection.FindOne(ctx, bson.M{"_id": u.ID}).Decode(&raw))
+		assert.Equal(t, at.UTC(), rawTime(t, raw, "updated_at").UTC())
+	})
+
+	t.Run("Error: a verified account is never overwritten", func(t *testing.T) {
+		repo := newUserRepository(t)
+		u := sampleUser()
+		require.NoError(t, repo.Create(ctx, u))
+		require.NoError(t, repo.MarkEmailVerified(ctx, u.ID, at))
+
+		replaced, err := repo.ReplaceUnverifiedCredentials(ctx, u.ID, "renamed", "new-hash", at)
+		require.NoError(t, err)
+		assert.False(t, replaced)
+
+		fetched, err := repo.FetchByID(ctx, u.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "player", fetched.Username)
+		assert.Equal(t, "hash", fetched.PasswordHash)
+	})
+
+	t.Run("Edge: an unknown account is reported as not replaced and never created", func(t *testing.T) {
+		repo, collection := newUserRepositoryFixture(t)
+
+		replaced, err := repo.ReplaceUnverifiedCredentials(ctx, "01900000-0000-7000-8000-00000000dead", "renamed", "new-hash", at)
+		require.NoError(t, err)
+		assert.False(t, replaced)
+
+		count, err := collection.CountDocuments(ctx, bson.M{})
+		require.NoError(t, err)
+		assert.Zero(t, count, "the operation must never create a document")
+	})
+}

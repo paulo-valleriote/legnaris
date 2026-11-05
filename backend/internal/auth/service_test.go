@@ -209,7 +209,7 @@ func TestService_Register(t *testing.T) {
 		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 	})
 
-	t.Run("Error: duplicate email maps to conflict before any session is issued", func(t *testing.T) {
+	t.Run("Error: duplicate email of a verified account maps to conflict before any session is issued", func(t *testing.T) {
 		service, m := newAuthService(t)
 
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
@@ -217,6 +217,7 @@ func TestService_Register(t *testing.T) {
 			Create(mock.Anything, mock.MatchedBy(func(u *user.User) bool { return u.Email == testEmail })).
 			Return(user.ErrEmailAlreadyExists).
 			Once()
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(verifiedAccount(validUserID), nil).Once()
 
 		_, err := service.Register(ctx, auth.RegisterCommand{
 			Email:    "Another Name <Player@Example.com>",
@@ -717,13 +718,19 @@ func TestService_RegisterChallengeOutcome(t *testing.T) {
 		m.refreshTokens.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 	})
 
-	t.Run("Edge: concurrent registrations of one address create one account and start one challenge", func(t *testing.T) {
+	t.Run("Edge: concurrent registrations of one address both answer success, each superseding the other's code", func(t *testing.T) {
 		service, m := newAuthService(t)
 
+		pending := &user.User{ID: validUserID, Email: testEmail, Username: "player"}
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Times(2)
 		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(user.ErrEmailAlreadyExists).Once()
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pending, nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, user.ErrUserNotFound).Once()
+		m.users.EXPECT().ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).Return(true, nil).Once()
+		m.refreshTokens.EXPECT().RevokeAllForUser(mock.Anything, validUserID).Return(nil).Once()
 		m.expectRegistrationChallenge(testEmail)
+		m.expectChallengeIssuance(validUserID, auth.PurposeVerifyEmail, testEmail)
 
 		errs := make([]error, 2)
 		var wg sync.WaitGroup
@@ -736,18 +743,208 @@ func TestService_RegisterChallengeOutcome(t *testing.T) {
 		}
 		wg.Wait()
 
-		var conflicts, successes int
 		for _, err := range errs {
-			if err == nil {
-				successes++
-				continue
-			}
-			assertAppErr(t, err, apperr.CodeConflict)
-			conflicts++
+			assert.NoError(t, err)
 		}
-		assert.Equal(t, 1, successes)
-		assert.Equal(t, 1, conflicts)
-		m.challenges.AssertNumberOfCalls(t, "Insert", 1)
+		m.challenges.AssertNumberOfCalls(t, "Insert", 2)
+	})
+}
+
+// TestService_RegisterReplacesUnverified covers a registration whose address
+// belongs to an account that never verified it: the pending account is replaced
+// in place, its sessions are revoked and a new code supersedes the old one, while
+// a verified account keeps the 409 (LGN-154, D9).
+func TestService_RegisterReplacesUnverified(t *testing.T) {
+	ctx := context.Background()
+
+	pendingAccount := func() *user.User {
+		return &user.User{ID: validUserID, Email: testEmail, Username: "old-name", PasswordHash: "old-hash"}
+	}
+	// duplicateCreate makes the first insert collide with the existing address.
+	duplicateCreate := func(m *authMocks) {
+		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
+		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(user.ErrEmailAlreadyExists).Once()
+	}
+	register := func(service auth.Service) (*auth.ChallengeIssued, error) {
+		return service.Register(ctx, auth.RegisterCommand{Email: "Player@Example.com", Username: "player", Password: testPassword})
+	}
+
+	t.Run("Happy path: replaces username and password, revokes sessions and starts a fresh verify_email code", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, user.ErrUserNotFound).Once()
+		m.users.EXPECT().
+			ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).
+			Return(true, nil).
+			Once()
+		m.refreshTokens.EXPECT().RevokeAllForUser(mock.Anything, validUserID).Return(nil).Once()
+		m.expectChallengeIssuance(validUserID, auth.PurposeVerifyEmail, testEmail)
+
+		issued, err := register(service)
+		require.NoError(t, err)
+		require.NotNil(t, issued)
+		assert.NotEmpty(t, issued.ChallengeID, "the replaced account gets a fresh challenge, same shape as a first registration")
+		assert.NotEqual(t, auth.DeliveryDeferred, issued.Delivery)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
+	})
+
+	t.Run("Edge: re-submitting the pending account's own username is accepted", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(&user.User{ID: validUserID}, nil).Once()
+		m.users.EXPECT().ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).Return(true, nil).Once()
+		m.refreshTokens.EXPECT().RevokeAllForUser(mock.Anything, validUserID).Return(nil).Once()
+		m.expectChallengeIssuance(validUserID, auth.PurposeVerifyEmail, testEmail)
+
+		issued, err := register(service)
+		require.NoError(t, err)
+		assert.NotEmpty(t, issued.ChallengeID)
+	})
+
+	t.Run("Error: a username held by another account is a conflict and nothing is replaced", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(&user.User{ID: validFamily}, nil).Once()
+
+		issued, err := register(service)
+		assertAppErr(t, err, apperr.CodeConflict)
+		assert.Nil(t, issued)
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, auth.MsgUsernameTaken, appErr.Message)
+		m.users.AssertNotCalled(t, "ReplaceUnverifiedCredentials", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: a verified account keeps the conflict and is never replaced", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(verifiedAccount(validUserID), nil).Once()
+
+		issued, err := register(service)
+		assertAppErr(t, err, apperr.CodeConflict)
+		assert.Nil(t, issued)
+		m.users.AssertNotCalled(t, "FetchByUsername", mock.Anything, mock.Anything)
+		m.users.AssertNotCalled(t, "ReplaceUnverifiedCredentials", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: an account verified between the read and the write stays a conflict", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, user.ErrUserNotFound).Once()
+		m.users.EXPECT().ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).Return(false, nil).Once()
+
+		_, err := register(service)
+		assertAppErr(t, err, apperr.CodeConflict)
+		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Edge: an account removed between the insert and the read answers conflict", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(nil, user.ErrUserNotFound).Once()
+
+		_, err := register(service)
+		assertAppErr(t, err, apperr.CodeConflict)
+		m.users.AssertNotCalled(t, "ReplaceUnverifiedCredentials", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: a read failure while looking up the address is internal", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(nil, errors.New("mongo down")).Once()
+
+		_, err := register(service)
+		assertAppErr(t, err, apperr.CodeInternal)
+	})
+
+	t.Run("Error: a read failure while checking the username is internal and replaces nothing", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, errors.New("mongo down")).Once()
+
+		_, err := register(service)
+		assertAppErr(t, err, apperr.CodeInternal)
+		m.users.AssertNotCalled(t, "ReplaceUnverifiedCredentials", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: a failed credential replace is internal and revokes nothing", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, user.ErrUserNotFound).Once()
+		m.users.EXPECT().ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).Return(false, errors.New("mongo down")).Once()
+
+		_, err := register(service)
+		assertAppErr(t, err, apperr.CodeInternal)
+		m.refreshTokens.AssertNotCalled(t, "RevokeAllForUser", mock.Anything, mock.Anything)
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: a failed session revocation is internal and starts no challenge", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, user.ErrUserNotFound).Once()
+		m.users.EXPECT().ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).Return(true, nil).Once()
+		m.refreshTokens.EXPECT().RevokeAllForUser(mock.Anything, validUserID).Return(errors.New("mongo down")).Once()
+
+		_, err := register(service)
+		assertAppErr(t, err, apperr.CodeInternal)
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error: a store failure while starting the new challenge is internal", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, user.ErrUserNotFound).Once()
+		m.users.EXPECT().ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).Return(true, nil).Once()
+		m.refreshTokens.EXPECT().RevokeAllForUser(mock.Anything, validUserID).Return(nil).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, errors.New("mongo down")).Once()
+
+		issued, err := register(service)
+		assertAppErr(t, err, apperr.CodeInternal)
+		assert.Nil(t, issued)
+	})
+
+	t.Run("Edge: a spent daily allowance defers the replacement with no challenge or session", func(t *testing.T) {
+		service, m := newAuthService(t)
+
+		duplicateCreate(m)
+		m.users.EXPECT().FetchByEmail(mock.Anything, testEmail).Return(pendingAccount(), nil).Once()
+		m.users.EXPECT().FetchByUsername(mock.Anything, "player").Return(nil, user.ErrUserNotFound).Once()
+		m.users.EXPECT().ReplaceUnverifiedCredentials(mock.Anything, validUserID, "player", testHash, mock.Anything).Return(true, nil).Once()
+		m.refreshTokens.EXPECT().RevokeAllForUser(mock.Anything, validUserID).Return(nil).Once()
+		m.challenges.EXPECT().CountForUserSince(mock.Anything, mock.Anything, mock.Anything).Return(0, nil).Once()
+		m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(testChallengePolicy.DailySendCap, nil).Once()
+
+		issued, err := register(service)
+		require.NoError(t, err)
+		assert.Equal(t, auth.DeliveryDeferred, issued.Delivery)
+		assert.Empty(t, issued.ChallengeID)
+		m.challenges.AssertNotCalled(t, "Insert", mock.Anything, mock.Anything)
+		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
 	})
 }
 

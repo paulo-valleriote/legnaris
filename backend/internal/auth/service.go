@@ -171,8 +171,9 @@ func NewService(
 }
 
 // Register creates the account and starts the verify_email code step; it never
-// issues a session, because the address must be confirmed first. A duplicate
-// email still answers 409 before any code is sent (AUTH-02, TFA-01).
+// issues a session, because the address must be confirmed first. An address that
+// belongs to a verified account answers 409 before any code is sent (AUTH-02,
+// TFA-01); one held by an unverified account is re-registered instead (D9).
 func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*ChallengeIssued, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
@@ -222,7 +223,7 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 
 	if err := s.users.Create(ctx, newUser); err != nil {
 		if errors.Is(err, user.ErrEmailAlreadyExists) {
-			return nil, apperr.NewError(apperr.CodeConflict, MsgEmailAlreadyExists, err)
+			return s.reregisterUnverified(ctx, email, username, hashed)
 		}
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
@@ -237,6 +238,75 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 
 	s.log.Info(ctx, "registration challenge started", logger.Attribute{Key: attrUserID, Value: newUser.ID})
 	return issued, nil
+}
+
+// reregisterUnverified answers a registration whose address already belongs to
+// an account that never verified it (LGN-154, D9). The pending account takes the
+// new username and password hash, its refresh tokens are revoked, and a fresh
+// verify_email code supersedes the previous one, so the answer matches a first
+// registration. A verified account keeps the conflict. The account is replaced
+// rather than deleted, which leaves no orphan behind if the code cannot be sent.
+func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username, hashed string) (*ChallengeIssued, error) {
+	pending, err := s.users.FetchByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, user.ErrUserNotFound) {
+			return nil, emailAlreadyRegistered(err)
+		}
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	if pending.EmailVerifiedAt != nil {
+		return nil, emailAlreadyRegistered(user.ErrEmailAlreadyExists)
+	}
+
+	if err := s.ensureUsernameFree(ctx, username, pending.ID); err != nil {
+		return nil, err
+	}
+
+	replaced, err := s.users.ReplaceUnverifiedCredentials(ctx, pending.ID, username, hashed, s.clock.Now())
+	if err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	if !replaced {
+		return nil, emailAlreadyRegistered(user.ErrEmailAlreadyExists)
+	}
+
+	if err := s.refreshTokens.RevokeAllForUser(ctx, pending.ID); err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	issued, err := s.startChallenge(ctx, pending.ID, email, PurposeVerifyEmail)
+	if err != nil {
+		if isDailyAllowanceRefusal(err) {
+			return s.deferredRegistration(ctx, pending.ID), nil
+		}
+		return nil, err
+	}
+
+	s.log.Info(ctx, "unverified registration replaced", logger.Attribute{Key: attrUserID, Value: pending.ID})
+	return issued, nil
+}
+
+// ensureUsernameFree refuses a username that another account already holds.
+// The username index is not unique, so this check guards the common path but
+// cannot exclude two replacements racing for the same name.
+func (s *ServiceImpl) ensureUsernameFree(ctx context.Context, username, ownerID string) error {
+	holder, err := s.users.FetchByUsername(ctx, username)
+	if errors.Is(err, user.ErrUserNotFound) {
+		return nil
+	}
+	if err != nil {
+		return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	if holder.ID == ownerID {
+		return nil
+	}
+	return apperr.NewError(apperr.CodeConflict, MsgUsernameTaken, nil)
+}
+
+// emailAlreadyRegistered is the 409 a verified or concurrently-verified address
+// answers. The cause is kept for logs; the message stays the uniform one.
+func emailAlreadyRegistered(cause error) error {
+	return apperr.NewError(apperr.CodeConflict, MsgEmailAlreadyExists, cause)
 }
 
 // isDailyAllowanceRefusal reports whether err is the send cap's refusal. It is

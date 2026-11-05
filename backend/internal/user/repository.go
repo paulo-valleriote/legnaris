@@ -14,15 +14,22 @@ import (
 
 // Stored field names shared by every filter and projection in this file.
 const (
-	fieldID    = "_id"
-	fieldEmail = "email"
+	fieldID              = "_id"
+	fieldEmail           = "email"
+	fieldUsername        = "username"
+	fieldPasswordHash    = "password_hash"
+	fieldEmailVerifiedAt = "email_verified_at"
+	fieldUpdatedAt       = "updated_at"
+	operatorSet          = "$set"
 )
 
 type Repository interface {
 	Create(ctx context.Context, user *User) error
 	FetchByEmail(ctx context.Context, email string) (*User, error)
 	FetchByID(ctx context.Context, id string) (*User, error)
+	FetchByUsername(ctx context.Context, username string) (*User, error)
 	MarkEmailVerified(ctx context.Context, id string, at time.Time) error
+	ReplaceUnverifiedCredentials(ctx context.Context, id, username, passwordHash string, at time.Time) (bool, error)
 }
 
 type RepositoryImpl struct {
@@ -63,6 +70,34 @@ func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*User, error
 	return r.fetchOne(ctx, bson.D{{Key: fieldID, Value: id}})
 }
 
+func (r *RepositoryImpl) FetchByUsername(ctx context.Context, username string) (*User, error) {
+	return r.fetchOne(ctx, bson.D{{Key: fieldUsername, Value: username}})
+}
+
+// ReplaceUnverifiedCredentials swaps the username and password hash of an
+// account whose address was never verified (LGN-154, D9). The filter requires
+// email_verified_at to be absent, so a verified account is never overwritten,
+// even if it was verified after the caller read it. It reports false when no
+// unverified account matched.
+func (r *RepositoryImpl) ReplaceUnverifiedCredentials(ctx context.Context, id, username, passwordHash string, at time.Time) (bool, error) {
+	result, err := r.collection.UpdateOne(
+		ctx,
+		bson.D{
+			{Key: fieldID, Value: id},
+			{Key: fieldEmailVerifiedAt, Value: nil},
+		},
+		bson.D{{Key: operatorSet, Value: bson.D{
+			{Key: fieldUsername, Value: username},
+			{Key: fieldPasswordHash, Value: passwordHash},
+			{Key: fieldUpdatedAt, Value: at},
+		}}},
+	)
+	if err != nil {
+		return false, fmt.Errorf("replace unverified credentials: %w", err)
+	}
+	return result.MatchedCount == 1, nil
+}
+
 // MarkEmailVerified records the first verification instant for an existing
 // account. The conditional filter makes the write idempotent and keeps the first
 // value under concurrency; only email_verified_at and updated_at change, and an
@@ -72,11 +107,11 @@ func (r *RepositoryImpl) MarkEmailVerified(ctx context.Context, id string, at ti
 		ctx,
 		bson.D{
 			{Key: fieldID, Value: id},
-			{Key: "email_verified_at", Value: nil},
+			{Key: fieldEmailVerifiedAt, Value: nil},
 		},
-		bson.D{{Key: "$set", Value: bson.D{
-			{Key: "email_verified_at", Value: at},
-			{Key: "updated_at", Value: at},
+		bson.D{{Key: operatorSet, Value: bson.D{
+			{Key: fieldEmailVerifiedAt, Value: at},
+			{Key: fieldUpdatedAt, Value: at},
 		}}},
 	)
 	if err != nil {
@@ -143,9 +178,9 @@ func (r *RepositoryImpl) UpdateEmail(ctx context.Context, id string, email strin
 	result, err := r.collection.UpdateOne(
 		ctx,
 		bson.D{{Key: fieldID, Value: id}},
-		bson.D{{Key: "$set", Value: bson.D{
+		bson.D{{Key: operatorSet, Value: bson.D{
 			{Key: fieldEmail, Value: email},
-			{Key: "updated_at", Value: updatedAt},
+			{Key: fieldUpdatedAt, Value: updatedAt},
 		}}},
 	)
 	if err != nil {
