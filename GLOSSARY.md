@@ -55,3 +55,11 @@ _Avoid_: Edit mode, pin editor
 **Arrange mode**:
 The explicit mode in which a player reorders Sections. Pins can also be toggled outside it (in Pin mode).
 _Avoid_: Edit mode, customize mode
+
+**Dice expression**:
+A short roll formula made of dice (`NdM`), whole numbers and numeric Fields joined by plus or minus, such as `1d20 + stats.dexterity`. On a Section, or on a Row of a table, it can name "this Row" instead of a fixed Field (`1d20 + @`, `1d20 + @.total`), so one Section default serves every Row in it. It attaches to a Row or to a Section (inherited by that Section's Rows). A Template supplies the defaults; a player can replace one, add one where the Template gave none, or turn rolling off for a Row on their own Sheet. The most specific choice wins: the player's for the Row, then the player's "no dice" for the Section, then the Template's for the Row, then the player's expression for the Section, then the Template's for the Section; with none, the Row cannot be rolled. The shorthand `d20` means `1d20`.
+_Avoid_: Dice, die, roll formula
+
+**Roll**:
+One performance of a Dice expression: each die is thrown, the Fields it names are read at that moment, and the total is shown with each die and number that made it. Nothing about it is saved: it is not part of the Sheet and there is no Roll history in the first version.
+_Avoid_: Throw, dice result
