@@ -28,7 +28,7 @@ jobs:
           sed -i -E "s/newTag: sha-[0-9a-f]{40}/newTag: sha-${{ github.event.workflow_run.head_sha }}/" \
             deploy/k8s/overlays/production/kustomization.yaml
 
-      - uses: peter-evans/create-pull-request@v7
+      - uses: peter-evans/create-pull-request@v8
         with:
           branch: gitops/bump-images
           title: 'chore(deploy): bump production images to ${{ github.event.workflow_run.head_sha }}'
