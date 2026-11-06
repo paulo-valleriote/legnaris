@@ -119,6 +119,7 @@ Before opening a PR, ensure:
 - `backend/internal/AGENTS.md` — architecture, layering, service conventions
 - `backend/internal/sheet/template/AGENTS.md` — DAG, Template, Registry, Gotchas
 - `backend/internal/engine/AGENTS.md` — formula engine (expr-lang wrapper)
+- `backend/internal/dice/AGENTS.md` — Dice expression grammar; shared vectors in `testdata/dice/`
 - `backend/shared/apperr/AGENTS.md` — error codes, HTTP mapping, boundary translation
 - `backend/shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
 - `backend/shared/db/AGENTS.md` — MongoDB initialization

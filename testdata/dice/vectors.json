@@ -1,0 +1,1378 @@
+{
+  "version": 1,
+  "limits": {
+    "maxLength": 64,
+    "maxTerms": 8,
+    "minDice": 1,
+    "maxDice": 20,
+    "minFaces": 1,
+    "maxFaces": 1000,
+    "maxWholeNumber": 9999
+  },
+  "fields": {
+    "identity.name": "text",
+    "identity.proficiencyBonus": "number",
+    "combat.initiative": "number",
+    "combat.hitPoints": "number",
+    "combat.speed": "number",
+    "attacks.attack1.name": "text",
+    "attacks.attack1.damage": "text",
+    "attacks.attack1.bonus": "number",
+    "attacks.attack2.name": "text",
+    "attacks.attack2.damage": "text",
+    "attacks.attack2.bonus": "number",
+    "features.darkvision": "bool",
+    "stats.strength": "number",
+    "modifiers.strengthMod": "number",
+    "saves.strength": "number",
+    "stats.dexterity": "number",
+    "modifiers.dexterityMod": "number",
+    "saves.dexterity": "number",
+    "stats.constitution": "number",
+    "modifiers.constitutionMod": "number",
+    "saves.constitution": "number",
+    "stats.intelligence": "number",
+    "modifiers.intelligenceMod": "number",
+    "saves.intelligence": "number",
+    "stats.wisdom": "number",
+    "modifiers.wisdomMod": "number",
+    "saves.wisdom": "number",
+    "stats.charisma": "number",
+    "modifiers.charismaMod": "number",
+    "saves.charisma": "number",
+    "skills.acrobatics.bonus": "number",
+    "skills.acrobatics.total": "number",
+    "skills.athletics.bonus": "number",
+    "skills.athletics.total": "number",
+    "skills.perception.bonus": "number",
+    "skills.perception.total": "number"
+  },
+  "valid": [
+    {
+      "name": "single die",
+      "expr": "1d20",
+      "canonical": "1d20"
+    },
+    {
+      "name": "implicit one die",
+      "expr": "d20",
+      "canonical": "1d20"
+    },
+    {
+      "name": "explicit one die",
+      "expr": "1d20",
+      "canonical": "1d20"
+    },
+    {
+      "name": "upper-case D",
+      "expr": "1D20",
+      "canonical": "1d20"
+    },
+    {
+      "name": "upper-case D, implicit count",
+      "expr": "D20",
+      "canonical": "1d20"
+    },
+    {
+      "name": "die plus number",
+      "expr": "1d20 + 5",
+      "canonical": "1d20 + 5"
+    },
+    {
+      "name": "die minus number",
+      "expr": "1d20 - 1",
+      "canonical": "1d20 - 1"
+    },
+    {
+      "name": "no spaces",
+      "expr": "1d20+5-2",
+      "canonical": "1d20 + 5 - 2"
+    },
+    {
+      "name": "tabs as whitespace",
+      "expr": "\t1d20\t+\t5\t",
+      "canonical": "1d20 + 5"
+    },
+    {
+      "name": "many spaces",
+      "expr": "  1d20   +   5  ",
+      "canonical": "1d20 + 5"
+    },
+    {
+      "name": "leading minus",
+      "expr": "-1 + 1d4",
+      "canonical": "-1 + 1d4"
+    },
+    {
+      "name": "leading plus is dropped",
+      "expr": "+1d20",
+      "canonical": "1d20"
+    },
+    {
+      "name": "leading minus with spaces",
+      "expr": "  - 1d4",
+      "canonical": "-1d4"
+    },
+    {
+      "name": "leading zeros in numbers",
+      "expr": "1d20 + 007",
+      "canonical": "1d20 + 7"
+    },
+    {
+      "name": "leading zeros in dice count",
+      "expr": "01d20",
+      "canonical": "1d20"
+    },
+    {
+      "name": "zero is a whole number",
+      "expr": "0",
+      "canonical": "0"
+    },
+    {
+      "name": "highest whole number",
+      "expr": "9999",
+      "canonical": "9999"
+    },
+    {
+      "name": "zero plus die",
+      "expr": "1d20 + 0",
+      "canonical": "1d20 + 0"
+    },
+    {
+      "name": "smallest die",
+      "expr": "1d1",
+      "canonical": "1d1"
+    },
+    {
+      "name": "largest die",
+      "expr": "20d1000",
+      "canonical": "20d1000"
+    },
+    {
+      "name": "20 dice",
+      "expr": "20d6",
+      "canonical": "20d6"
+    },
+    {
+      "name": "several dice terms",
+      "expr": "2d6 + 1d4 - 1d8",
+      "canonical": "2d6 + 1d4 - 1d8"
+    },
+    {
+      "name": "field path",
+      "expr": "1d20 + stats.dexterity",
+      "canonical": "1d20 + stats.dexterity"
+    },
+    {
+      "name": "field path is case-sensitive",
+      "expr": "1d20 + Stats.Dexterity",
+      "canonical": "1d20 + Stats.Dexterity"
+    },
+    {
+      "name": "single-segment field",
+      "expr": "1d20 + level",
+      "canonical": "1d20 + level"
+    },
+    {
+      "name": "subtracting a field",
+      "expr": "10 - stats.strength",
+      "canonical": "10 - stats.strength"
+    },
+    {
+      "name": "this Row",
+      "expr": "1d20 + @",
+      "canonical": "1d20 + @"
+    },
+    {
+      "name": "this Row column",
+      "expr": "1d20 + @.total",
+      "canonical": "1d20 + @.total"
+    },
+    {
+      "name": "this Row column, camelCase",
+      "expr": "1d20 + @.bonusTotal",
+      "canonical": "1d20 + @.bonusTotal"
+    },
+    {
+      "name": "this Row alone",
+      "expr": "@",
+      "canonical": "@"
+    },
+    {
+      "name": "negated this Row",
+      "expr": "-@",
+      "canonical": "-@"
+    },
+    {
+      "name": "exactly 8 terms",
+      "expr": "1+1+1+1+1+1+1+1",
+      "canonical": "1 + 1 + 1 + 1 + 1 + 1 + 1 + 1"
+    },
+    {
+      "name": "exactly 8 terms with leading sign",
+      "expr": "-1-1-1-1-1-1-1-1",
+      "canonical": "-1 - 1 - 1 - 1 - 1 - 1 - 1 - 1"
+    },
+    {
+      "name": "exactly 64 characters (padded)",
+      "expr": "1d20 + 9999 + 9999 + 9999 + 9999 + 9999 + 9999 + 9999           ",
+      "canonical": "1d20 + 9999 + 9999 + 9999 + 9999 + 9999 + 9999 + 9999"
+    },
+    {
+      "name": "exactly 64 characters (one path)",
+      "expr": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "canonical": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "empty",
+      "expr": "",
+      "class": "empty"
+    },
+    {
+      "name": "one space",
+      "expr": " ",
+      "class": "empty"
+    },
+    {
+      "name": "whitespace only",
+      "expr": " \t  ",
+      "class": "empty"
+    },
+    {
+      "name": "65 characters (padded)",
+      "expr": "1d20 + 9999 + 9999 + 9999 + 9999 + 9999 + 9999 + 9999            ",
+      "class": "too_long"
+    },
+    {
+      "name": "65 characters (one path)",
+      "expr": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "class": "too_long"
+    },
+    {
+      "name": "65 characters of garbage wins over unreadable",
+      "expr": "(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((",
+      "class": "too_long"
+    },
+    {
+      "name": "9 terms",
+      "expr": "1+1+1+1+1+1+1+1+1",
+      "class": "too_many_terms"
+    },
+    {
+      "name": "9 terms with leading sign",
+      "expr": "-1-1-1-1-1-1-1-1-1",
+      "class": "too_many_terms"
+    },
+    {
+      "name": "0 dice",
+      "expr": "0d6",
+      "class": "dice_count"
+    },
+    {
+      "name": "0 dice, padded",
+      "expr": "00d6",
+      "class": "dice_count"
+    },
+    {
+      "name": "21 dice",
+      "expr": "21d6",
+      "class": "dice_count"
+    },
+    {
+      "name": "dice count beyond any integer",
+      "expr": "99999999999999999999d6",
+      "class": "dice_count"
+    },
+    {
+      "name": "0 faces",
+      "expr": "1d0",
+      "class": "dice_faces"
+    },
+    {
+      "name": "0 faces, implicit count",
+      "expr": "d0",
+      "class": "dice_faces"
+    },
+    {
+      "name": "1001 faces",
+      "expr": "1d1001",
+      "class": "dice_faces"
+    },
+    {
+      "name": "faces beyond any integer",
+      "expr": "1d99999999999999999999",
+      "class": "dice_faces"
+    },
+    {
+      "name": "10000",
+      "expr": "10000",
+      "class": "number_range"
+    },
+    {
+      "name": "10000 in a sum",
+      "expr": "1d20 + 10000",
+      "class": "number_range"
+    },
+    {
+      "name": "number beyond any integer",
+      "expr": "99999999999999999999",
+      "class": "number_range"
+    },
+    {
+      "name": "decimal",
+      "expr": "1d20 + 1.5",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "decimal without integer part",
+      "expr": ".5",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "decimal with comma",
+      "expr": "1d20 + 1,5",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "trailing operator",
+      "expr": "1d20 +",
+      "class": "missing_term"
+    },
+    {
+      "name": "trailing minus",
+      "expr": "1d20 - ",
+      "class": "missing_term"
+    },
+    {
+      "name": "double plus",
+      "expr": "1d20 ++ 1",
+      "class": "missing_term"
+    },
+    {
+      "name": "plus minus",
+      "expr": "1d20 + - 1",
+      "class": "missing_term"
+    },
+    {
+      "name": "minus minus",
+      "expr": "1d20 - - 1",
+      "class": "missing_term"
+    },
+    {
+      "name": "double leading sign",
+      "expr": "--1",
+      "class": "missing_term"
+    },
+    {
+      "name": "sign only (minus)",
+      "expr": "-",
+      "class": "missing_term"
+    },
+    {
+      "name": "sign only (plus)",
+      "expr": "+",
+      "class": "missing_term"
+    },
+    {
+      "name": "sign only with spaces",
+      "expr": "  -  ",
+      "class": "missing_term"
+    },
+    {
+      "name": "leading sign then nothing",
+      "expr": "- + 1",
+      "class": "missing_term"
+    },
+    {
+      "name": "negative dice count",
+      "expr": "1d20 + -2d6",
+      "class": "missing_term"
+    },
+    {
+      "name": "parentheses",
+      "expr": "(1d20)",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "parentheses around sum",
+      "expr": "(1d20 + 2)",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "function call",
+      "expr": "max(1d20, 2)",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "floor function",
+      "expr": "floor(@)",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "keep highest",
+      "expr": "4d6kh3",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "keep lowest",
+      "expr": "2d20kl1",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "explosion",
+      "expr": "1d6!",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "compound explosion",
+      "expr": "1d6!!",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "pool",
+      "expr": "{1d20, 1d6}",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "success count",
+      "expr": "4d6>4",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "multiplication",
+      "expr": "1d20 * 2",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "division",
+      "expr": "1d20 / 2",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "modulo",
+      "expr": "1d20 % 2",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "exponent",
+      "expr": "2^3",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "comparison",
+      "expr": "1d20 > 10",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "unknown character",
+      "expr": "1d20 # 2",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "underscore in path",
+      "expr": "1d20 + stats_dexterity",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "empty path segment",
+      "expr": "1d20 + stats..dexterity",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "trailing dot",
+      "expr": "1d20 + stats.",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "leading dot",
+      "expr": "1d20 + .total",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "path segment starting with a digit",
+      "expr": "1d20 + stats.1a",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "double at",
+      "expr": "@@",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "at with empty column",
+      "expr": "@.",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "at without dot",
+      "expr": "@total",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "at with two columns",
+      "expr": "@.a.b",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "at with digit-first column",
+      "expr": "@.1a",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "at inside a path",
+      "expr": "stats.@",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "space inside a die",
+      "expr": "1 d20",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "space after d",
+      "expr": "1d 20",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "space inside a path",
+      "expr": "stats .dexterity",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "die without faces",
+      "expr": "1d",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "non-breaking space is not whitespace",
+      "expr": "1d20\u00a0+ 5",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "newline is not whitespace",
+      "expr": "1d20 +\n5",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "non-ASCII digit",
+      "expr": "1d20 + \u0665",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "non-ASCII letter in a path",
+      "expr": "1d20 + str\u00e9ngth",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "emoji",
+      "expr": "1d20 + \ud83c\udfb2",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "40 emoji are 40 characters, not 80",
+      "expr": "\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "65 spaces are too long, not empty",
+      "expr": "                                                                 ",
+      "class": "too_long"
+    },
+    {
+      "name": "65 emoji",
+      "expr": "\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2",
+      "class": "too_long"
+    }
+  ],
+  "fit": [
+    {
+      "name": "numeric Field",
+      "expr": "1d20 + stats.dexterity",
+      "row": "combat.initiative",
+      "fits": true
+    },
+    {
+      "name": "numeric Field of another Section",
+      "expr": "1d20 + modifiers.dexterityMod",
+      "row": "stats.dexterity",
+      "fits": true
+    },
+    {
+      "name": "no references fits any Row",
+      "expr": "1d20 + 5",
+      "row": "combat.initiative",
+      "fits": true
+    },
+    {
+      "name": "no references fits an unknown Row key",
+      "expr": "1d20 + 5",
+      "row": "nowhere.at.all",
+      "fits": true
+    },
+    {
+      "name": "no references fits an empty Row key",
+      "expr": "1d20",
+      "row": "",
+      "fits": true
+    },
+    {
+      "name": "text Field",
+      "expr": "1d20 + identity.name",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "bool Field",
+      "expr": "1d20 + features.darkvision",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "missing Field",
+      "expr": "1d20 + nope.nothing",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "a group is not a Field",
+      "expr": "1d20 + skills.acrobatics",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "a Section is not a Field",
+      "expr": "1d20 + stats",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "Field paths are case-sensitive",
+      "expr": "1d20 + Stats.dexterity",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "one bad reference among good ones",
+      "expr": "1d20 + stats.dexterity + identity.name",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "this Row, lone numeric Field",
+      "expr": "1d20 + @",
+      "row": "combat.initiative",
+      "fits": true
+    },
+    {
+      "name": "this Row, lone text Field",
+      "expr": "1d20 + @",
+      "row": "identity.name",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "this Row, lone bool Field",
+      "expr": "1d20 + @",
+      "row": "features.darkvision",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "this Row, missing Field",
+      "expr": "1d20 + @",
+      "row": "stats.luck",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "this Row, table Row without a bare Field",
+      "expr": "1d20 + @",
+      "row": "skills.acrobatics",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "this Row, exclusive-group Row",
+      "expr": "1d20 + @",
+      "row": "config#armorClassAbility",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "this Row, empty Row key",
+      "expr": "1d20 + @",
+      "row": "",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "this Row column on a table Row",
+      "expr": "1d20 + @.total",
+      "row": "skills.acrobatics",
+      "fits": true
+    },
+    {
+      "name": "this Row other column on a table Row",
+      "expr": "1d20 + @.bonus",
+      "row": "attacks.attack1",
+      "fits": true
+    },
+    {
+      "name": "this Row text column",
+      "expr": "1d20 + @.name",
+      "row": "attacks.attack1",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "this Row missing column",
+      "expr": "1d20 + @.nothing",
+      "row": "attacks.attack1",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "this Row column on a lone Row",
+      "expr": "1d20 + @.total",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "this Row column with empty Row key",
+      "expr": "1d20 + @.total",
+      "row": "",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "this Row and a fixed Field",
+      "expr": "1d20 + @.total + stats.dexterity",
+      "row": "skills.acrobatics",
+      "fits": true
+    }
+  ],
+  "sections": [
+    {
+      "name": "this Row fits every lone numeric Row",
+      "expr": "1d20 + @",
+      "rows": [
+        "saves.strength",
+        "saves.dexterity",
+        "saves.constitution",
+        "saves.intelligence",
+        "saves.wisdom",
+        "saves.charisma"
+      ],
+      "fits": true
+    },
+    {
+      "name": "this Row column fits table Rows",
+      "expr": "1d20 + @.total",
+      "rows": [
+        "skills.acrobatics",
+        "skills.athletics",
+        "skills.perception"
+      ],
+      "fits": true
+    },
+    {
+      "name": "this Row column fits no lone Row",
+      "expr": "1d20 + @.total",
+      "rows": [
+        "modifiers.strengthMod",
+        "modifiers.dexterityMod",
+        "modifiers.constitutionMod",
+        "modifiers.intelligenceMod",
+        "modifiers.wisdomMod",
+        "modifiers.charismaMod"
+      ],
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "fits when at least one Row fits",
+      "expr": "1d20 + @.total",
+      "rows": [
+        "combat.initiative",
+        "skills.acrobatics"
+      ],
+      "fits": true
+    },
+    {
+      "name": "no references fits any non-empty Section",
+      "expr": "1d20",
+      "rows": [
+        "modifiers.strengthMod",
+        "modifiers.dexterityMod",
+        "modifiers.constitutionMod",
+        "modifiers.intelligenceMod",
+        "modifiers.wisdomMod",
+        "modifiers.charismaMod"
+      ],
+      "fits": true
+    },
+    {
+      "name": "a Section with no Rows fits nothing",
+      "expr": "1d20",
+      "rows": [],
+      "fits": false,
+      "class": "no_rows"
+    },
+    {
+      "name": "a bad fixed Field fits no Row",
+      "expr": "1d20 + identity.name",
+      "rows": [
+        "saves.strength",
+        "saves.dexterity",
+        "saves.constitution",
+        "saves.intelligence",
+        "saves.wisdom",
+        "saves.charisma"
+      ],
+      "fits": false,
+      "class": "non_numeric_field"
+    }
+  ],
+  "evaluate": [
+    {
+      "name": "walkthrough 1: Section default on a skill (highest face)",
+      "expr": "1d20 + @.total",
+      "row": "skills.acrobatics",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 3,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        20
+      ],
+      "total": 23,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 20,
+          "rolls": [
+            20
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "skills.acrobatics.total",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "name": "walkthrough 1: Row default on Initiative",
+      "expr": "1d20 + @",
+      "row": "combat.initiative",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 3,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        7
+      ],
+      "total": 9,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 7,
+          "rolls": [
+            7
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "combat.initiative",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "walkthrough 1: stat reads a modifier of another Section",
+      "expr": "1d20 + modifiers.dexterityMod",
+      "row": "stats.dexterity",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 3,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        1
+      ],
+      "total": 4,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 1,
+          "rolls": [
+            1
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "modifiers.dexterityMod",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "name": "walkthrough 2: player adds a flat bonus",
+      "expr": "1d20 + @.total + 2",
+      "row": "skills.acrobatics",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 3,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        20
+      ],
+      "total": 25,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 20,
+          "rolls": [
+            20
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "skills.acrobatics.total",
+          "value": 3
+        },
+        {
+          "sign": 1,
+          "label": "2",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "walkthrough 3: Section expression on a save",
+      "expr": "1d20 + @",
+      "row": "saves.wisdom",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 3,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        11
+      ],
+      "total": 13,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 11,
+          "rolls": [
+            11
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "saves.wisdom",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "walkthrough 3: attack bonus column",
+      "expr": "1d20 + @.bonus",
+      "row": "attacks.attack1",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 3,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        10
+      ],
+      "total": 15,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 10,
+          "rolls": [
+            10
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "attacks.attack1.bonus",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "name": "walkthrough 6: modifier follows the stat",
+      "expr": "1d20 + @.total",
+      "row": "skills.acrobatics",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 5,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        20
+      ],
+      "total": 25,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 20,
+          "rolls": [
+            20
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "skills.acrobatics.total",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "name": "walkthrough 6: fractions are floored",
+      "expr": "1d20 + @.total",
+      "row": "skills.acrobatics",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 7.7,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        20
+      ],
+      "total": 27,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 20,
+          "rolls": [
+            20
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "skills.acrobatics.total",
+          "value": 7
+        }
+      ]
+    },
+    {
+      "name": "walkthrough 6: negative total",
+      "expr": "1d4 - 5",
+      "row": "combat.initiative",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 3,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        1
+      ],
+      "total": -4,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d4",
+          "value": 1,
+          "rolls": [
+            1
+          ]
+        },
+        {
+          "sign": -1,
+          "label": "5",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "name": "negative fraction floors toward minus infinity",
+      "expr": "@",
+      "row": "combat.initiative",
+      "values": {
+        "combat.initiative": -1.5
+      },
+      "dice": [],
+      "total": -2,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "combat.initiative",
+          "value": -2
+        }
+      ]
+    },
+    {
+      "name": "several dice keep every roll",
+      "expr": "2d6 + 1d4",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [
+        3,
+        5,
+        2
+      ],
+      "total": 10,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "2d6",
+          "value": 8,
+          "rolls": [
+            3,
+            5
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "1d4",
+          "value": 2,
+          "rolls": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "name": "subtracted dice",
+      "expr": "10 - 2d4",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [
+        4,
+        1
+      ],
+      "total": 5,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "10",
+          "value": 10
+        },
+        {
+          "sign": -1,
+          "label": "2d4",
+          "value": 5,
+          "rolls": [
+            4,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "leading minus on a reference",
+      "expr": "-@ + 1d4",
+      "row": "combat.initiative",
+      "values": {
+        "stats.dexterity": 16,
+        "modifiers.dexterityMod": 3,
+        "stats.strength": 10,
+        "skills.acrobatics.total": 3,
+        "combat.initiative": 2,
+        "saves.wisdom": 2,
+        "attacks.attack1.bonus": 5
+      },
+      "dice": [
+        4
+      ],
+      "total": 2,
+      "parts": [
+        {
+          "sign": -1,
+          "label": "combat.initiative",
+          "value": 2
+        },
+        {
+          "sign": 1,
+          "label": "1d4",
+          "value": 4,
+          "rolls": [
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "name": "implicit one die",
+      "expr": "d20",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [
+        13
+      ],
+      "total": 13,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 13,
+          "rolls": [
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "name": "no dice at all is still a total",
+      "expr": "5",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [],
+      "total": 5,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "5",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "name": "zero value",
+      "expr": "1d6 + @",
+      "row": "combat.initiative",
+      "values": {
+        "combat.initiative": 0
+      },
+      "dice": [
+        6
+      ],
+      "total": 6,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d6",
+          "value": 6,
+          "rolls": [
+            6
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "combat.initiative",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "name": "dice are rolled in expression order",
+      "expr": "1d6 + 1d8 + 1d6",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [
+        1,
+        2,
+        3
+      ],
+      "total": 6,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d6",
+          "value": 1,
+          "rolls": [
+            1
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "1d8",
+          "value": 2,
+          "rolls": [
+            2
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "1d6",
+          "value": 3,
+          "rolls": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "name": "missing value",
+      "expr": "1d20 + @",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [
+        10
+      ],
+      "error": "no_value"
+    },
+    {
+      "name": "missing column value",
+      "expr": "1d20 + @.total",
+      "row": "skills.acrobatics",
+      "values": {},
+      "dice": [
+        10
+      ],
+      "error": "no_value"
+    }
+  ]
+}
