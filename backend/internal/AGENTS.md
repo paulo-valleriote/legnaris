@@ -9,6 +9,7 @@
 | Templates | `backend/internal/sheet/template` | DAG build, formula compile, recalculation, immutable registry |
 | Sheets | `backend/internal/sheet` | CRUD, partial update with cascading recalc |
 | Engine | `backend/internal/engine` | expr-lang wrapper (floor, max functions) |
+| Dice | `backend/internal/dice` | Dice expression grammar: parse, fit a Row, evaluate (no `apperr`, no `template` import) |
 | Platform | `backend/internal/platform` | cross-cutting middleware (cors, health, metrics) |
 | Shared | `backend/shared/*` | env, logger, db, apperr, response, json |
 
