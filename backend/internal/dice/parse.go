@@ -24,8 +24,11 @@ const (
 type Kind int
 
 const (
+	// KindDice is an NdM term, rolled when the expression is evaluated.
 	KindDice Kind = iota + 1
+	// KindNumber is a whole number literal.
 	KindNumber
+	// KindField is a reference to a numeric Field, by path or relative to the Row.
 	KindField
 )
 
