@@ -1,6 +1,9 @@
 package template
 
-import "slices"
+import (
+	"maps"
+	"slices"
+)
 
 // cloneTemplate returns a deep copy of a template: the FieldGroup tree, every
 // FieldSchema pointer and every DependsOn path are new allocations, so nothing
@@ -13,6 +16,8 @@ func cloneTemplate(tmpl Template) Template {
 	tmpl.Fields = cloneFieldGroup(tmpl.Fields)
 	tmpl.SectionOrder = slices.Clone(tmpl.SectionOrder)
 	tmpl.SuggestedPins = slices.Clone(tmpl.SuggestedPins)
+	tmpl.SectionDice = maps.Clone(tmpl.SectionDice)
+	tmpl.RowDice = maps.Clone(tmpl.RowDice)
 	return tmpl
 }
 

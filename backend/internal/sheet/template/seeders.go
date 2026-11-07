@@ -20,6 +20,8 @@ const (
 	fieldNameIdentity         = "identity"
 	fieldNameRules            = "rules"
 	fieldNameSkills           = "skills"
+	fieldNameSaves            = "saves"
+	fieldNameAttacks          = "attacks"
 	fieldNameCombat           = "combat"
 	fieldNameSpells           = "spells"
 	fieldNameProficiencyBonus = "proficiencyBonus"
@@ -106,6 +108,9 @@ var defaultTemplates = []Template{
 // and the numbers read at the table (combat, derived, attacks) come first, the
 // reference lists follow and the tuning machinery (rules/config) is last.
 // SuggestedPins names the Rows a new player is offered as first Pins.
+// SectionDice and RowDice are the default Dice expressions: the Section ones
+// use `@` so one expression serves every Row, and each ability Row rolls its
+// own modifier.
 var fantasyV1Template = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",
@@ -114,24 +119,41 @@ var fantasyV1Template = Template{
 		fieldNameIdentity:  {Children: identityGroup()},
 		fieldNameStats:     {Children: statsGroup()},
 		fieldNameModifiers: {Children: modifiersGroup()},
-		"saves":            {Children: savesGroup()},
+		fieldNameSaves:     {Children: savesGroup()},
 		fieldNameSkills:    {Children: skillsGroup()},
 		fieldNameCombat:    {Children: combatGroup()},
-		"attacks":          {Children: attacksGroup()},
+		fieldNameAttacks:   {Children: attacksGroup()},
 		fieldNameSpells:    {Children: spellsGroup()},
 		"derived":          {Children: derivedGroup()},
 		fieldNameConfig:    {Children: configGroup()},
 		fieldNameRules:     {Children: rulesGroup()},
 	},
 	SectionOrder: []string{
-		fieldNameIdentity, fieldNameCombat, "derived", "attacks",
-		fieldNameStats, fieldNameModifiers, "saves", fieldNameSkills,
+		fieldNameIdentity, fieldNameCombat, "derived", fieldNameAttacks,
+		fieldNameStats, fieldNameModifiers, fieldNameSaves, fieldNameSkills,
 		fieldNameSpells, fieldNameRules, fieldNameConfig,
 	},
 	SuggestedPins: []string{
 		"combat.hitPoints", "combat.hitPointsMax", "derived.armorClass",
 		"combat.initiative", "combat.speed",
 	},
+	SectionDice: map[string]string{
+		fieldNameSkills:  "1d20 + @.total",
+		fieldNameSaves:   "1d20 + @",
+		fieldNameAttacks: "1d20 + @.bonus",
+	},
+	RowDice: fantasyV1RowDice(),
+}
+
+// fantasyV1RowDice builds the Row defaults: initiative rolls its own value and
+// each ability Row rolls the ability's modifier.
+func fantasyV1RowDice() map[string]string {
+	rows := make(map[string]string, len(abilities)+1)
+	rows[fieldNameCombat+pathSeparator+"initiative"] = "1d20 + @"
+	for _, a := range abilities {
+		rows[fieldNameStats+pathSeparator+a.key] = fmt.Sprintf("1d20 + %s.%s", fieldNameModifiers, modKey(a.key))
+	}
+	return rows
 }
 
 // numField builds an editable numeric leaf.

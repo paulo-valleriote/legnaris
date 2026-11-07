@@ -3,6 +3,7 @@ package template
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"slices"
 )
 
@@ -19,6 +20,16 @@ type TemplateDTO struct {
 	// keys a client may offer as first Pins. Omitted from the payload when
 	// empty.
 	SuggestedPins []string `json:"suggested_pins,omitempty"`
+	// Dice mirrors the Template's SectionDice and RowDice defaults. Nil, and
+	// so omitted from the payload, when the Template has none.
+	Dice *DiceDTO `json:"dice,omitempty"`
+}
+
+// DiceDTO is the Template's Dice defaults: Dice expressions keyed by Section
+// and by Row. An empty side is omitted.
+type DiceDTO struct {
+	Section map[string]string `json:"section,omitempty"`
+	Row     map[string]string `json:"row,omitempty"`
 }
 
 // FieldGroupDTO mirrors FieldGroup (a map of field name → node) for the API.
@@ -52,6 +63,7 @@ type FieldSchemaDTO struct {
 // the same reason.
 func (t Template) ToDTO() TemplateDTO {
 	return TemplateDTO{
+		Dice:          diceToDTO(t),
 		ID:            t.ID,
 		Name:          t.Name,
 		Fields:        t.Fields.toDTO(),
@@ -59,6 +71,15 @@ func (t Template) ToDTO() TemplateDTO {
 		SectionOrder:  slices.Clone(t.SectionOrder),
 		SuggestedPins: slices.Clone(t.SuggestedPins),
 	}
+}
+
+// diceToDTO copies the Dice defaults, or returns nil when there are none so the
+// payload of a template without dice stays what it always was.
+func diceToDTO(t Template) *DiceDTO {
+	if len(t.SectionDice) == 0 && len(t.RowDice) == 0 {
+		return nil
+	}
+	return &DiceDTO{Section: maps.Clone(t.SectionDice), Row: maps.Clone(t.RowDice)}
 }
 
 // MarshalJSON emits the template with its top-level fields in SectionOrder
@@ -75,12 +96,13 @@ func (d TemplateDTO) MarshalJSON() ([]byte, error) {
 		// SuggestedPins is omitted when empty so a template that suggests
 		// nothing keeps the payload it always had.
 		SuggestedPins []string `json:"suggested_pins,omitempty"`
+		Dice          *DiceDTO `json:"dice,omitempty"`
 	}
 	fields, err := marshalFieldGroup(d.Fields, d.SectionOrder)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(payload{ID: d.ID, Name: d.Name, Fields: fields, Default: d.Default, SuggestedPins: d.SuggestedPins})
+	return json.Marshal(payload{ID: d.ID, Name: d.Name, Fields: fields, Default: d.Default, SuggestedPins: d.SuggestedPins, Dice: d.Dice})
 }
 
 // marshalFieldGroup writes one fields object with the keys of order first (in
