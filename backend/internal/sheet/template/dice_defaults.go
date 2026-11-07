@@ -93,3 +93,59 @@ func diceKind(fieldType string) dice.FieldKind {
 func sortedKeys(m map[string]string) []string {
 	return slices.Sorted(maps.Keys(m))
 }
+
+// MaxSheetDiceOverrides caps the entries a player's dice block may hold,
+// counting Section and Row overrides together (null entries included), so one
+// Sheet cannot grow without bound.
+const MaxSheetDiceOverrides = 64
+
+// ValidateSheetDice checks a player's Dice overrides against the Template the
+// Sheet was built from. It is the strict write-side twin of the tolerant read:
+// the cap is checked first, then Sections and Rows in alphabetical order so the
+// reported error is stable. A key that is not a Section (Row) →
+// UnknownDiceSectionError (UnknownDiceRowError); a non-null value the dice
+// grammar refuses, a Row override that does not fit its Row or a Section
+// override that fits none of its Rows → InvalidDiceError. A nil value means
+// "no dice" on purpose: it needs a known key but no expression. Nil or empty
+// maps are valid and never mutated.
+func ValidateSheetDice(tmpl Template, sectionDice, rowDice map[string]*string) error {
+	if count := len(sectionDice) + len(rowDice); count > MaxSheetDiceOverrides {
+		return &TooManyDiceOverridesError{Count: count, Max: MaxSheetDiceOverrides}
+	}
+	if len(sectionDice) == 0 && len(rowDice) == 0 {
+		return nil
+	}
+
+	sectionRows := make(map[string][]string)
+	rowSet := make(map[string]bool)
+	for _, section := range SectionRowKeys(tmpl) {
+		sectionRows[section.Section] = section.Rows
+		for _, row := range section.Rows {
+			rowSet[row] = true
+		}
+	}
+	schema := fieldKinds(tmpl.Fields)
+
+	for _, key := range slices.Sorted(maps.Keys(sectionDice)) {
+		rows, ok := sectionRows[key]
+		if !ok {
+			return &UnknownDiceSectionError{Key: key}
+		}
+		if expr := sectionDice[key]; expr != nil {
+			if _, err := dice.ValidateSection(schema, rows, *expr); err != nil {
+				return &InvalidDiceError{Scope: diceScopeSection, Key: key, Err: err}
+			}
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(rowDice)) {
+		if !rowSet[key] {
+			return &UnknownDiceRowError{Key: key}
+		}
+		if expr := rowDice[key]; expr != nil {
+			if _, err := dice.ValidateRow(schema, key, *expr); err != nil {
+				return &InvalidDiceError{Scope: diceScopeRow, Key: key, Err: err}
+			}
+		}
+	}
+	return nil
+}

@@ -44,6 +44,13 @@
 - **Strict on write, tolerant on read** — keys are validated by `template.ValidateLayout` against the Rows of the sheet's Template; partial lists are valid, but an unknown section, a duplicate (per list) or a pin that is no Row of any Section are 400 `INVALID_REQUEST` (translated by `translateLayoutErr`; no dedicated apperr code). Readers must ignore stale keys and fall back to Template order for missing ones
 - **CORS** — `PUT` is in the allowed methods of `platform/cors`; a new verb needs adding there or browsers block the preflight
 
+## Sheet Dice (`PUT /sheets/:id/dice`)
+
+- **Contract** — body `{"dice": {"section": {name: expr|null}, "row": {rowKey: expr|null}}}`; 200 `{"data":{"dice": <block>}}`. `GET /sheets/:id` always returns `dice`: a Sheet that never had one reads as `{"section":{},"row":{}}`. A `null` value is an explicit "no dice" and is distinct from an absent key ("use the Template"). Full replacement and idempotent; absent/`null`/empty block clears everything (stored as none). See ADR 0005
+- **User data, not Template data** — `Sheet.Dice` is written by `Repository.UpdateDice`, a `$set` on the `dice` field alone (no `updated_at`, no `version`, no read-modify-write), so it never conflicts with `PATCH` of `data` or `PUT /layout`. `SetDice` never calls the DAG or recalculates
+- **Strict on write, tolerant on read** — `template.ValidateSheetDice` checks the block against the Sheet's Template: cap of `MaxSheetDiceOverrides` (64) entries across both maps, null included; every key must be a Section (Row) key, so null entries need a known key too; every non-null expression must pass the `dice` grammar, a Row override must fit its Row and a Section override at least one Row. Failures are 400 `INVALID_REQUEST` (translated by `translateDiceErr`; no dedicated apperr code). Malformed JSON, wrong value types and unknown keys are 400 `INVALID_JSON` and trailing data after the body is 400 `UNKNOWN_FIELD`, like the layout endpoint; a missing `dice` key clears the block, like a missing `layout` key resets the layout. `GET` returns the stored block untouched: readers must ignore an override whose Row or Field the Template no longer has
+- **Ownership** — same as layout: owner and sheet id are checked before the cap and the Template, so a foreign Sheet is 404 whatever the body, and a malformed id is 400
+
 ## Rate Limiting
 
 - **Scopes** — `/auth/*` per address (`AUTH_RATE_LIMIT_*`, 10/1m, plus per account on login/register); `/csp-report` per address (`CSP_REPORT_RATE_LIMIT_*`); `/templates`, `/sheets` and `GET /auth/me` per user id (`USER_RATE_LIMIT_*`, 80/1m, one shared budget); `/health`, `/ready` and `/metrics` are exempt (orchestrator probes must never get 429)

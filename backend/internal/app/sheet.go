@@ -29,6 +29,7 @@ func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.DELETE("/:id", sc.Delete)
 	group.POST("/:id/preview", sc.Preview)
 	group.PUT("/:id/layout", sc.SetLayout)
+	group.PUT("/:id/dice", sc.SetDice)
 }
 
 // RegisterTemplatePreviewRoute exposes the template dry-run on the templates
@@ -141,6 +142,34 @@ func (sc *SheetController) SetLayout(c *echo.Context) error {
 		return err
 	}
 	return response.OK(c, SetLayoutResponse{Layout: layout})
+}
+
+// SetDiceResponse is the body of PUT /sheets/:id/dice: the block as stored,
+// with both maps present even when empty.
+type SetDiceResponse struct {
+	Dice sheet.Dice `json:"dice"`
+}
+
+// SetDice fully replaces the authenticated owner's sheet Dice block. It never
+// recalculates: the body is {"dice": {"section": {...}, "row": {...}}}, a null
+// value means "no dice", and the answer echoes what was stored.
+func (sc *SheetController) SetDice(c *echo.Context) error {
+	var cmd sheet.SetDiceCommand
+
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+
+	ownerID, _ := auth.UserID(c)
+	block, err := sc.service.SetDice(c.Request().Context(), sheet.SetDiceCommand{
+		SheetID: c.Param("id"),
+		OwnerID: ownerID,
+		Dice:    cmd.Dice,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, SetDiceResponse{Dice: block})
 }
 
 // Delete removes the authenticated owner's sheet and returns 204. A foreign or

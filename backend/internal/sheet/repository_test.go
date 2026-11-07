@@ -236,6 +236,146 @@ func TestRepository_UpdateLayout(t *testing.T) {
 	})
 }
 
+func TestRepository_UpdateDice(t *testing.T) {
+	repo := newRepositoryTest(t)
+	ctx := context.Background()
+
+	const (
+		sheetID   = "01900000-0000-7000-8000-0000000000c1"
+		missingID = "01900000-0000-7000-8000-0000000000c2"
+	)
+	seed := func(t *testing.T) {
+		t.Helper()
+		_ = repo.DeleteByID(ctx, sheetID)
+		require.NoError(t, repo.Create(ctx, &sheet.Sheet{
+			ID:         sheetID,
+			TemplateID: "fantasy_v1",
+			OwnerID:    "owner-dice",
+			Name:       "Dice",
+			Data:       map[string]any{"stats": map[string]any{"dexterity": 14.0}},
+			Layout:     &sheet.Layout{Pinned: []string{"stats.dexterity"}},
+		}))
+	}
+	diceA := &sheet.Dice{
+		Section: map[string]*string{"stats": text("1d20 + @"), "config": nil},
+		Row:     map[string]*string{"stats.dexterity": nil, "skills.stealth": text("1d20 + @.total")},
+	}
+
+	t.Run("Edge: a sheet that never had dice reads back nil", func(t *testing.T) {
+		seed(t)
+		stored, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		assert.Nil(t, stored.Dice)
+	})
+
+	t.Run("Error: an unknown sheet is ErrSheetNotFound", func(t *testing.T) {
+		err := repo.UpdateDice(ctx, missingID, diceA)
+		assert.ErrorIs(t, err, sheet.ErrSheetNotFound)
+	})
+
+	t.Run("Happy path: overrides round-trip exactly, nulls included, and no other field changes", func(t *testing.T) {
+		seed(t)
+		before, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+
+		require.NoError(t, repo.UpdateDice(ctx, sheetID, diceA))
+
+		after, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		assert.Equal(t, diceA, after.Dice)
+		value, present := after.Dice.Row["stats.dexterity"]
+		assert.True(t, present, "a null override must survive as a present key")
+		assert.Nil(t, value)
+		assert.Equal(t, before.Data, after.Data)
+		assert.Equal(t, before.Layout, after.Layout)
+		assert.Equal(t, before.Version, after.Version)
+		assert.Equal(t, before.UpdatedAt, after.UpdatedAt)
+	})
+
+	t.Run("Edge: re-putting the same block is idempotent", func(t *testing.T) {
+		seed(t)
+		require.NoError(t, repo.UpdateDice(ctx, sheetID, diceA))
+		require.NoError(t, repo.UpdateDice(ctx, sheetID, diceA))
+
+		stored, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		assert.Equal(t, diceA, stored.Dice)
+	})
+
+	t.Run("Edge: a second block replaces the first instead of merging", func(t *testing.T) {
+		seed(t)
+		require.NoError(t, repo.UpdateDice(ctx, sheetID, diceA))
+		only := &sheet.Dice{Row: map[string]*string{"stats.strength": text("2d6")}}
+		require.NoError(t, repo.UpdateDice(ctx, sheetID, only))
+
+		stored, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		assert.Equal(t, only, stored.Dice)
+	})
+
+	t.Run("Edge: a nil block clears everything", func(t *testing.T) {
+		seed(t)
+		require.NoError(t, repo.UpdateDice(ctx, sheetID, diceA))
+		require.NoError(t, repo.UpdateDice(ctx, sheetID, nil))
+
+		stored, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		assert.Nil(t, stored.Dice)
+	})
+
+	t.Run("Edge: concurrent data, layout and dice writes all land", func(t *testing.T) {
+		seed(t)
+
+		var wg sync.WaitGroup
+		errs := make(chan error, 3)
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			errs <- putErr(repo.PartialUpdate(ctx, sheetID, 0, map[string]any{
+				"data": map[string]any{"stats": map[string]any{"dexterity": 20.0}},
+			}))
+		}()
+		go func() {
+			defer wg.Done()
+			errs <- repo.UpdateLayout(ctx, sheetID, &sheet.Layout{Pinned: []string{"stats.strength"}})
+		}()
+		go func() {
+			defer wg.Done()
+			errs <- repo.UpdateDice(ctx, sheetID, diceA)
+		}()
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			require.NoError(t, err)
+		}
+
+		stored, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		assert.Equal(t, diceA, stored.Dice)
+		assert.Equal(t, &sheet.Layout{Pinned: []string{"stats.strength"}}, stored.Layout)
+		assert.Equal(t, map[string]any{"stats": map[string]any{"dexterity": 20.0}}, stored.Data)
+	})
+
+	t.Run("Edge: concurrent dice writes leave one whole valid block", func(t *testing.T) {
+		seed(t)
+		blockB := &sheet.Dice{Row: map[string]*string{"stats.strength": text("2d6")}}
+
+		var wg sync.WaitGroup
+		for _, block := range []*sheet.Dice{diceA, blockB, diceA, blockB} {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				assert.NoError(t, repo.UpdateDice(ctx, sheetID, block))
+			}()
+		}
+		wg.Wait()
+
+		stored, err := repo.FetchByID(ctx, sheetID)
+		require.NoError(t, err)
+		assert.Contains(t, []*sheet.Dice{diceA, blockB}, stored.Dice)
+	})
+}
+
 // putErr adapts PartialUpdate's (version, error) result for call sites that only
 // check the error.
 func putErr(_ int64, err error) error {

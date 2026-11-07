@@ -17,6 +17,7 @@ type Repository interface {
 	FetchByOwnerID(ctx context.Context, ownerID string) (*Sheet, error)
 	PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error)
 	UpdateLayout(ctx context.Context, id string, layout *Layout) error
+	UpdateDice(ctx context.Context, id string, dice *Dice) error
 	DeleteByID(ctx context.Context, id string) error
 }
 
@@ -31,6 +32,12 @@ const idField = "_id"
 
 // layoutField is the Mongo field holding the sheet's Layout.
 const layoutField = "layout"
+
+// setOperator is the Mongo update operator every sheet write goes through.
+const setOperator = "$set"
+
+// diceField is the Mongo field holding the sheet's Dice block.
+const diceField = "dice"
 
 // versionField is the Mongo field holding the sheet's compare-and-swap version.
 const versionField = "version"
@@ -114,8 +121,8 @@ func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, expectedV
 		{Key: versionField, Value: versionMatcher(expectedVersion)},
 	}
 	update := bson.M{
-		"$set": dbUpdates,
-		"$inc": bson.M{versionField: 1},
+		setOperator: dbUpdates,
+		"$inc":      bson.M{versionField: 1},
 	}
 	opts := options.FindOneAndUpdate().
 		SetReturnDocument(options.After).
@@ -165,11 +172,30 @@ func versionMatcher(expectedVersion int64) any {
 // layout. It returns ErrSheetNotFound when no sheet matches.
 func (r *RepositoryImpl) UpdateLayout(ctx context.Context, id string, layout *Layout) error {
 	filter := bson.D{{Key: idField, Value: id}}
-	update := bson.M{"$set": bson.M{layoutField: layout}}
+	update := bson.M{setOperator: bson.M{layoutField: layout}}
 
 	result, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return fmt.Errorf("error updating sheet layout: %w", err)
+	}
+	if result.MatchedCount == 0 {
+		return ErrSheetNotFound
+	}
+	return nil
+}
+
+// UpdateDice replaces the stored dice block of one sheet with a $set on that
+// single field, so a concurrent write to data, layout or any other field is
+// neither read nor overwritten, and neither version nor updated_at moves. A nil
+// block stores null, which reads back as no overrides. It returns
+// ErrSheetNotFound when no sheet matches.
+func (r *RepositoryImpl) UpdateDice(ctx context.Context, id string, dice *Dice) error {
+	filter := bson.D{{Key: idField, Value: id}}
+	update := bson.M{setOperator: bson.M{diceField: dice}}
+
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return fmt.Errorf("error updating sheet dice: %w", err)
 	}
 	if result.MatchedCount == 0 {
 		return ErrSheetNotFound
