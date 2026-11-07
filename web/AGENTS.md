@@ -218,6 +218,28 @@ The one exception is an offline save or preview failure: the edit store writes t
 to the draft immediately (not on the 60 s cadence) and the footer says "kept on this device" only
 when that write landed; otherwise it says the changes could not be kept (`sheet.error.*OfflineUnkept`).
 
+## Dice expressions (`src/dice/`, ADR 0005)
+
+Pure TypeScript half of the Dice grammar: no React, no network, no dependency on the API models.
+The Go package `backend/internal/dice` validates; this module parses, resolves and rolls.
+
+- `parseDice` / `canonicalForm` (`parse.ts`), `validateRow` / `validateSection` / `fitsRow`
+  (`fit.ts`, against a `DiceSchema` path → kind), `resolveDice` (`resolve.ts`, the five-step
+  precedence), `rollExpression` / `performRoll` (`roll.ts`). Operations that can be refused return a
+  `DiceResult` carrying a `DiceError` whose `class` is the vocabulary of the shared vectors; they do
+  not throw (the one exception is a random source that never yields a usable word).
+- **`testdata/dice/vectors.json` is shared with Go.** `dice_*.test.ts` assert every vector; a grammar
+  change starts in the vectors and both implementations follow. `LIMITS` and the class strings are
+  part of that contract.
+- **Resolution** reads own keys only (`Object.hasOwn`): an absent key falls through, `null` is "no
+  dice", and the chosen expression is judged against the Row (parse, then fit). A Row it does not fit
+  is not rollable with it; no later step is tried.
+- **A Roll** reads the on-screen values, `draft` before saved (a path present in the draft wins even
+  when emptied), floors with `Math.floor`, and refuses a missing, `null`, non-finite or non-numeric
+  Field as `no_value`. Dice come from `crypto.getRandomValues` through `dieFromWords`, which redraws
+  words above the largest multiple of the face count (no modulo bias). Nothing is stored.
+- User-facing copy for a `DiceError` is the UI's job (LGN-166), by `class`, through `src/l10n/`.
+
 ## Layout and Arrange mode (ADR 0001)
 
 The player's order of Sections and the pinned Rows form the sheet's `layout`
