@@ -59,6 +59,9 @@ var (
 	diceTermPattern = regexp.MustCompile(`^(\d*)[dD](\d+)$`)
 	numberPattern   = regexp.MustCompile(`^\d+$`)
 	relativePattern = regexp.MustCompile(`^@(?:\.([A-Za-z][A-Za-z0-9]*))?$`)
+	// bareWordPattern matches a whole single-segment token that is a die letter
+	// or a keep modifier without its dice, which a Field path would otherwise swallow.
+	bareWordPattern = regexp.MustCompile(`^(?:[dD]|[kK][hHlL]\d*)$`)
 	pathPattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)*$`)
 )
 
@@ -195,6 +198,10 @@ func parseTerm(token string) (Term, error) {
 	}
 	if match := relativePattern.FindStringSubmatch(token); match != nil {
 		return Term{Kind: KindField, Relative: true, Column: match[1]}, nil
+	}
+	if bareWordPattern.MatchString(token) {
+		return Term{}, newError(ClassUnreadableTerm,
+			fmt.Sprintf("cannot read %q: a die needs its faces (NdM) and keep modifiers are not supported", token))
 	}
 	if pathPattern.MatchString(token) {
 		return Term{Kind: KindField, Path: token}, nil
