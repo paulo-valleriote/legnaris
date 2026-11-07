@@ -96,9 +96,7 @@ func TestEvaluate_Edges(t *testing.T) {
 			_, err = expr.Evaluate("r", tc.values, tc.roll)
 
 			require.Error(t, err)
-			class, ok := dice.ClassOf(err)
-			require.True(t, ok)
-			assert.Equal(t, tc.class, class)
+			assert.Equal(t, string(tc.class), classOf(t, err))
 		})
 	}
 }

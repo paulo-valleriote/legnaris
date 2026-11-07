@@ -6,8 +6,11 @@ import "fmt"
 type FieldKind int
 
 const (
+	// FieldNumber is a numeric Field, the only kind a Dice expression can read.
 	FieldNumber FieldKind = iota + 1
+	// FieldText is a text Field.
 	FieldText
+	// FieldBool is a boolean Field.
 	FieldBool
 )
 
@@ -46,10 +49,11 @@ func (e Expression) FitsRow(schema Schema, rowKey string) error {
 func checkField(schema Schema, term Term, rowKey string) error {
 	path := term.fieldPath(rowKey, false)
 	label := term.fieldPath(rowKey, true)
-	if schema == nil {
-		return newError(ClassUnknownField, fmt.Sprintf("%q points at %q, which does not exist", label, path))
+	var kind FieldKind
+	ok := schema != nil
+	if ok {
+		kind, ok = schema.FieldKind(path)
 	}
-	kind, ok := schema.FieldKind(path)
 	if !ok {
 		return newError(ClassUnknownField, fmt.Sprintf("%q points at %q, which does not exist", label, path))
 	}
