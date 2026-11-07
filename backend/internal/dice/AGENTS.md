@@ -17,3 +17,4 @@
 - **Whitespace is space and tab only**, length is counted before anything else, `D` is read like `d`, field paths are case-sensitive ASCII
 - **`@` resolves against the Row key** (`@` → `<row>`, `@.total` → `<row>.total`); a table Row key such as `skills.acrobatics` is not itself a Field, so a bare `@` does not fit it, while `@.total` does
 - **Section fit is "at least one Row"**; the error returned when none fits carries the class of the first Row's problem
+- **Evaluate has two number classes**: `no_value` means a Field is absent, NaN or infinite; `overflow` means finite Fields sum past the float64 range (the total becomes infinite). Do not reuse `no_value` for the total

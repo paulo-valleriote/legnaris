@@ -34,5 +34,7 @@ a behaviour change starts here.
 
 `empty`, `too_long`, `too_many_terms`, `dice_count`, `dice_faces`, `number_range`,
 `missing_term`, `unreadable_term` (parse); `unknown_field`, `non_numeric_field`,
-`no_rows` (fit); `no_value` (evaluate). The Go package also has `no_roller`, a
+`no_rows` (fit); `no_value` and `overflow` (evaluate). `no_value` means a Field is
+absent or has no finite number to read; `overflow` means the Roll's total grows to
+infinity from finite Field values. The Go package also has `no_roller`, a
 programming error that no vector covers.

@@ -29,8 +29,8 @@ type Result struct {
 // Evaluate computes the expression for the Row keyed rowKey. Dice are thrown in
 // expression order through roll; a Field is read from values by its resolved
 // path and floored, like Template formulas do. It returns ErrNoValue for a
-// Field that is absent, NaN or infinite, and ErrNoRoller when the expression
-// has dice and roll is nil. It does not check the schema: use FitsRow for that.
+// Field that is absent, NaN or infinite, ErrOverflow when the total grows to
+// infinity, and ErrNoRoller when the expression has dice and roll is nil. It does not check the schema: use FitsRow for that.
 func (e Expression) Evaluate(rowKey string, values map[string]float64, roll Roller) (Result, error) {
 	result := Result{Parts: make([]Part, 0, len(e.terms))}
 	for _, term := range e.terms {
@@ -40,7 +40,7 @@ func (e Expression) Evaluate(rowKey string, values map[string]float64, roll Roll
 		}
 		result.Total += float64(part.Sign) * part.Value
 		if math.IsInf(result.Total, 0) {
-			return Result{}, newError(ClassNoValue, "the total is too large to compute")
+			return Result{}, ErrOverflow
 		}
 		result.Parts = append(result.Parts, part)
 	}
