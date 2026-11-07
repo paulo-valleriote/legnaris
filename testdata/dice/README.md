@@ -25,6 +25,7 @@ a behaviour change starts here.
 - Whitespace is **space and tab only**, and only around terms and operators. A non-breaking space, a newline or a space inside a term is `unreadable_term`.
 - Length is counted in Unicode characters (code points, **not** UTF-16 units: use `[...s].length` in JS) before anything else is checked: an over-long string is `too_long` even if it is also garbage or blank. A blank string of at most 64 characters is `empty`.
 - Field paths are case-sensitive, ASCII, dot-separated; each segment is `[A-Za-z][A-Za-z0-9]*`. `@` takes at most one column.
+- A whole term that is a bare `d` / `D`, or a bare keep token `kh` / `kl` (any case) optionally followed by digits (`kh1`, `KL2`, `kh01`), is `unreadable_term`, never a Field. The rule applies to the single-segment token only: `stats.kl`, `kh.total`, `@.kh1`, `khazad`, `kl2x`, `dexterity` and `d1` (a die) keep their meaning.
 - Numbers are read as ASCII digits; leading zeros are allowed (`007` is 7); arbitrarily long digit strings are range errors, not overflows.
 - Parse errors are checked term by term left to right; the term-count limit is checked after every term has been read.
 - A Roll floors each Field value (toward minus infinity) before adding it and may total below zero. Dice are thrown in expression order.

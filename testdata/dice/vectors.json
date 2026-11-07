@@ -222,6 +222,56 @@
       "name": "exactly 64 characters (one path)",
       "expr": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
       "canonical": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "name": "look-alike Field: word starting with kh",
+      "expr": "1d20 + khazad",
+      "canonical": "1d20 + khazad"
+    },
+    {
+      "name": "look-alike Field: word starting with kl and digits",
+      "expr": "1d20 + kl2x",
+      "canonical": "1d20 + kl2x"
+    },
+    {
+      "name": "look-alike Field: keep-like first segment of a path",
+      "expr": "1d20 + kh.total",
+      "canonical": "1d20 + kh.total"
+    },
+    {
+      "name": "look-alike Field: keep-like last segment of a path",
+      "expr": "1d20 + stats.kl",
+      "canonical": "1d20 + stats.kl"
+    },
+    {
+      "name": "look-alike Field: keep-like column of this Row",
+      "expr": "1d20 + @.kh1",
+      "canonical": "1d20 + @.kh1"
+    },
+    {
+      "name": "look-alike Field: word starting with d",
+      "expr": "1d20 + dexterity",
+      "canonical": "1d20 + dexterity"
+    },
+    {
+      "name": "look-alike Field: d as the last segment of a path",
+      "expr": "1d20 + stats.d",
+      "canonical": "1d20 + stats.d"
+    },
+    {
+      "name": "look-alike Field: d as the first segment of a path",
+      "expr": "1d20 + d.total",
+      "canonical": "1d20 + d.total"
+    },
+    {
+      "name": "d followed by digits is a die, not a Field",
+      "expr": "1d20 + d1",
+      "canonical": "1d20 + 1d1"
+    },
+    {
+      "name": "bare d20 is a die, not a Field",
+      "expr": "d20 - d6",
+      "canonical": "1d20 - 1d6"
     }
   ],
   "invalid": [
@@ -584,6 +634,41 @@
       "name": "65 emoji",
       "expr": "\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2\ud83c\udfb2",
       "class": "too_long"
+    },
+    {
+      "name": "bare d after a plus",
+      "expr": "1d20 + d",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "bare upper-case D after a plus",
+      "expr": "1d20 + D",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "bare d alone",
+      "expr": "d",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "bare keep highest with count after a plus",
+      "expr": "1d20 + kh1",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "bare keep lowest after a plus",
+      "expr": "1d20 + kl",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "bare keep with upper-case letters",
+      "expr": "1d20 - KL2",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "bare keep with leading zeros",
+      "expr": "1d20 + kh01",
+      "class": "unreadable_term"
     }
   ],
   "fit": [
