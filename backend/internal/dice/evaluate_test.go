@@ -85,7 +85,7 @@ func TestEvaluate_Edges(t *testing.T) {
 		{"Error: +Inf value", "@", map[string]float64{"r": math.Inf(1)}, nil, dice.ClassNoValue},
 		{"Error: -Inf value", "@", map[string]float64{"r": math.Inf(-1)}, nil, dice.ClassNoValue},
 		{"Error: nil values map", "@", nil, nil, dice.ClassNoValue},
-		{"Error: total overflows to infinity", "@ + @.other", map[string]float64{"r": math.MaxFloat64, "r.other": math.MaxFloat64}, nil, dice.ClassNoValue},
+		{"Error: total overflows to infinity", "@ + @.other", map[string]float64{"r": math.MaxFloat64, "r.other": math.MaxFloat64}, nil, dice.ClassOverflow},
 		{"Error: nil roller with dice", "1d20", nil, nil, dice.ClassNoRoller},
 	}
 	for _, tc := range tests {

@@ -272,6 +272,31 @@
       "name": "bare d20 is a die, not a Field",
       "expr": "d20 - d6",
       "canonical": "1d20 - 1d6"
+    },
+    {
+      "name": "walkthrough 1: stat reads a modifier of another Section",
+      "expr": "1d20 + modifiers.dexterityMod",
+      "canonical": "1d20 + modifiers.dexterityMod"
+    },
+    {
+      "name": "walkthrough 1: Template stat default reads a modifier",
+      "expr": "1d20 + modifiers.strengthMod",
+      "canonical": "1d20 + modifiers.strengthMod"
+    },
+    {
+      "name": "walkthrough 2: flat bonus after a table column",
+      "expr": "1d20 + @.total + 2",
+      "canonical": "1d20 + @.total + 2"
+    },
+    {
+      "name": "walkthrough 3: table column plus flat bonus",
+      "expr": "1d20 + @.total + 1",
+      "canonical": "1d20 + @.total + 1"
+    },
+    {
+      "name": "walkthrough 6: negative total expression",
+      "expr": "1d4 - 5",
+      "canonical": "1d4 - 5"
     }
   ],
   "invalid": [
@@ -844,6 +869,31 @@
       "expr": "1d20 + @.total + stats.dexterity",
       "row": "skills.acrobatics",
       "fits": true
+    },
+    {
+      "name": "walkthrough 1: Template stat default reads a modifier",
+      "expr": "1d20 + modifiers.strengthMod",
+      "row": "stats.strength",
+      "fits": true
+    },
+    {
+      "name": "walkthrough 2: flat bonus after a table column",
+      "expr": "1d20 + @.total + 2",
+      "row": "skills.acrobatics",
+      "fits": true
+    },
+    {
+      "name": "walkthrough 3: table column plus flat bonus",
+      "expr": "1d20 + @.total + 1",
+      "row": "skills.athletics",
+      "fits": true
+    },
+    {
+      "name": "walkthrough 3: table column plus flat bonus on a lone Row",
+      "expr": "1d20 + @.total + 1",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "unknown_field"
     }
   ],
   "sections": [
@@ -926,6 +976,16 @@
       ],
       "fits": false,
       "class": "non_numeric_field"
+    },
+    {
+      "name": "walkthrough 3: Skills Section with a flat bonus",
+      "expr": "1d20 + @.total + 1",
+      "rows": [
+        "skills.acrobatics",
+        "skills.athletics",
+        "skills.perception"
+      ],
+      "fits": true
     }
   ],
   "evaluate": [
@@ -1458,6 +1518,76 @@
         10
       ],
       "error": "no_value"
+    },
+    {
+      "name": "walkthrough 1: Template stat default reads a negative modifier",
+      "expr": "1d20 + modifiers.strengthMod",
+      "row": "stats.strength",
+      "values": {
+        "stats.strength": 8,
+        "modifiers.strengthMod": -1
+      },
+      "dice": [
+        13
+      ],
+      "total": 12,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 13,
+          "rolls": [
+            13
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "modifiers.strengthMod",
+          "value": -1
+        }
+      ]
+    },
+    {
+      "name": "walkthrough 3: table column plus flat bonus",
+      "expr": "1d20 + @.total + 1",
+      "row": "skills.athletics",
+      "values": {
+        "skills.athletics.total": 4
+      },
+      "dice": [
+        20
+      ],
+      "total": 25,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d20",
+          "value": 20,
+          "rolls": [
+            20
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "skills.athletics.total",
+          "value": 4
+        },
+        {
+          "sign": 1,
+          "label": "1",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "total overflows to infinity",
+      "expr": "@ + stats.dexterity",
+      "row": "combat.initiative",
+      "values": {
+        "combat.initiative": 1.7976931348623157e+308,
+        "stats.dexterity": 1.7976931348623157e+308
+      },
+      "error": "overflow"
     }
   ]
 }

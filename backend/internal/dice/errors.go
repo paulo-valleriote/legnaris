@@ -30,8 +30,10 @@ const (
 	ClassNonNumericField Class = "non_numeric_field"
 	// ClassNoRows reports that Section has no Rows to check the expression against.
 	ClassNoRows Class = "no_rows"
-	// ClassNoValue reports that Field has no finite number to read, or the total overflows.
+	// ClassNoValue reports that Field is absent or has no finite number to read.
 	ClassNoValue Class = "no_value"
+	// ClassOverflow reports that the total of a Roll grows beyond what a float64 can hold.
+	ClassOverflow Class = "overflow"
 	// ClassNoRoller reports that expression has dice but no Roller was supplied.
 	ClassNoRoller Class = "no_roller"
 )
@@ -81,6 +83,8 @@ var (
 	ErrNoRows = &Error{Class: ClassNoRows, Message: "the Section has no Rows"}
 	// ErrNoValue is returned when the Field has no number to read.
 	ErrNoValue = &Error{Class: ClassNoValue, Message: "the Field has no number to read"}
+	// ErrOverflow is returned when the total of a Roll overflows to infinity.
+	ErrOverflow = &Error{Class: ClassOverflow, Message: "the total is too large to compute"}
 	// ErrNoRoller is returned when the expression has dice but no roller was given.
 	ErrNoRoller = &Error{Class: ClassNoRoller, Message: "the expression has dice but no roller was given"}
 )
