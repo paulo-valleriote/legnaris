@@ -242,3 +242,44 @@ type TooManySuggestedPinsError struct {
 func (e *TooManySuggestedPinsError) Error() string {
 	return fmt.Sprintf("%d suggested pins exceed the maximum of %d", e.Count, e.Max)
 }
+
+// UnknownDiceSectionError reports a SectionDice key that is not a Section of
+// the Template (a Section with no Row does not count).
+type UnknownDiceSectionError struct {
+	Key string
+}
+
+// Error returns the human-readable reason.
+func (e *UnknownDiceSectionError) Error() string {
+	return fmt.Sprintf("dice section '%s' is not a section of the template", e.Key)
+}
+
+// UnknownDiceRowError reports a RowDice key that is not a Row of any Section:
+// an unknown path, a table column, an exclusive member or a bare Section key.
+type UnknownDiceRowError struct {
+	Key string
+}
+
+// Error returns the human-readable reason.
+func (e *UnknownDiceRowError) Error() string {
+	return fmt.Sprintf("dice row '%s' is not a row of any section", e.Key)
+}
+
+// InvalidDiceError reports a Template Dice default the dice grammar refuses, or
+// that cannot be rolled where it is attached. Scope is "section" or "row"; Err
+// is the *dice.Error, reachable through errors.Is/As and dice.ClassOf.
+type InvalidDiceError struct {
+	Scope string
+	Key   string
+	Err   error
+}
+
+// Error returns the human-readable reason, naming the Section or Row.
+func (e *InvalidDiceError) Error() string {
+	return fmt.Sprintf("invalid dice expression on %s '%s': %v", e.Scope, e.Key, e.Err)
+}
+
+// Unwrap returns the *dice.Error behind the refusal.
+func (e *InvalidDiceError) Unwrap() error {
+	return e.Err
+}

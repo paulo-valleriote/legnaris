@@ -37,9 +37,16 @@ type Template struct {
 	// first Pins, in suggestion order. Presentation metadata only: the server
 	// never writes it into a Sheet or its Layout, a client offers it. Keys use
 	// the Layout grammar and are checked by ValidateSuggestedPins at boot.
-	SuggestedPins []string  `bson:"suggested_pins,omitempty"`
-	CreatedAt     time.Time `bson:"created_at,omitempty"`
-	UpdatedAt     time.Time `bson:"updated_at,omitempty"`
+	SuggestedPins []string `bson:"suggested_pins,omitempty"`
+	// SectionDice maps a Section key to the Dice expression its Rows inherit
+	// by default; it may use `@` for "this Row". RowDice maps a Row key to the
+	// expression that wins over the Section's. Both are defaults a client
+	// offers: never written into a Sheet, and checked by ValidateDiceDefaults
+	// at boot.
+	SectionDice map[string]string `bson:"section_dice,omitempty"`
+	RowDice     map[string]string `bson:"row_dice,omitempty"`
+	CreatedAt   time.Time         `bson:"created_at,omitempty"`
+	UpdatedAt   time.Time         `bson:"updated_at,omitempty"`
 }
 
 type FieldSchema struct {

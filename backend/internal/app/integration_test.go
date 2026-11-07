@@ -296,6 +296,13 @@ func TestIntegration_TemplatesFetchByID(t *testing.T) {
 		"combat.hitPoints", "combat.hitPointsMax", "derived.armorClass",
 		"combat.initiative", "combat.speed",
 	}, body.Data.SuggestedPins)
+
+	require.NotNil(t, body.Data.Dice)
+	assert.Equal(t, "1d20 + @.total", body.Data.Dice.Section["skills"])
+	assert.Equal(t, "1d20 + @", body.Data.Dice.Section["saves"])
+	assert.Equal(t, "1d20 + @.bonus", body.Data.Dice.Section["attacks"])
+	assert.Equal(t, "1d20 + @", body.Data.Dice.Row["combat.initiative"])
+	assert.Equal(t, "1d20 + modifiers.dexterityMod", body.Data.Dice.Row["stats.dexterity"])
 }
 
 // templateFieldKeys walks the response envelope down to the `fields` object of

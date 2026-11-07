@@ -24,7 +24,7 @@ type Registry struct {
 
 // BuildRegistry validates and compiles every default template into a DAG.
 // It returns an error if any template fails validation, formula compilation or
-// its suggested pins check, so a bad template fails boot instead of a request.
+// its suggested pins or dice defaults check, so a bad template fails boot instead of a request.
 func BuildRegistry(eng *engine.FormulaEngine) (*Registry, error) {
 	return buildRegistry(eng, DefaultTemplates())
 }
@@ -47,6 +47,10 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template) (*Registry, 
 		}
 
 		if err := ValidateSuggestedPins(stored); err != nil {
+			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
+		}
+
+		if err := ValidateDiceDefaults(stored); err != nil {
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
 
