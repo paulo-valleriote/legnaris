@@ -36,6 +36,14 @@ type SetLayoutCommand struct {
 	Layout  *Layout `json:"layout"`
 }
 
+// SetDiceCommand carries the full replacement of a sheet's Dice block. A nil or
+// empty Dice clears every override.
+type SetDiceCommand struct {
+	SheetID string `json:"-"`
+	OwnerID string `json:"-"`
+	Dice    *Dice  `json:"dice"`
+}
+
 // PreviewTemplateCommand carries the template dry-run input. TemplateID is
 // filled from the path param (json:"-" keeps a body template_id out), so the
 // body is the same {"data": <delta>} shape the sheet endpoints take.
@@ -59,6 +67,7 @@ type Service interface {
 	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
 	SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Layout, error)
+	SetDice(ctx context.Context, cmd SetDiceCommand) (Dice, error)
 	Delete(ctx context.Context, cmd DeleteSheetCommand) error
 }
 
@@ -506,6 +515,46 @@ func (s *ServiceImpl) SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Lay
 	return layout, nil
 }
 
+// SetDice replaces the owner's sheet Dice block after checking it against the
+// Sheet's Template. It is idempotent and writes only the dice field: no
+// recalculation runs, the DAG is never consulted, and neither data nor layout
+// is touched. An empty block clears every override and is stored as none; a
+// null entry is a choice ("no dice") and is stored as given. The returned block
+// is a copy with both maps non-nil, so it never aliases the command.
+func (s *ServiceImpl) SetDice(ctx context.Context, cmd SetDiceCommand) (Dice, error) {
+	if err := requireOwner(cmd.OwnerID); err != nil {
+		return Dice{}, err
+	}
+	if err := requireSheetID(cmd.SheetID); err != nil {
+		return Dice{}, err
+	}
+
+	stored, err := s.repository.FetchByID(ctx, cmd.SheetID)
+	if err != nil {
+		return Dice{}, translateRepoErr("fetch", err)
+	}
+	if err := checkOwnership(stored, cmd.OwnerID); err != nil {
+		return Dice{}, err
+	}
+
+	var block *Dice
+	if !cmd.Dice.IsEmpty() {
+		tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: stored.TemplateID})
+		if err != nil {
+			return Dice{}, translateTemplateErr(err)
+		}
+		if err := template.ValidateSheetDice(*tmpl, cmd.Dice.Section, cmd.Dice.Row); err != nil {
+			return Dice{}, translateDiceErr(err)
+		}
+		block = cmd.Dice.Clone()
+	}
+
+	if err := s.repository.UpdateDice(ctx, cmd.SheetID, block); err != nil {
+		return Dice{}, translateRepoErr("update", err)
+	}
+	return block.Block(), nil
+}
+
 // Delete removes the owner's sheet. Ownership is verified first, so a foreign
 // sheet and a missing sheet both return the repository's 404 without deleting
 // anything, and a second delete is 404 because the fetch misses (OWN-13,
@@ -568,6 +617,27 @@ func translateLayoutErr(err error) error {
 		return apperr.NewError(apperr.CodeInvalidRequest, "invalid layout: "+err.Error(), err)
 	}
 	return apperr.NewError(apperr.CodeInternal, "failed to validate layout", err)
+}
+
+// translateDiceErr maps template dice validation errors to a 400
+// INVALID_REQUEST at the service boundary. The template layer must stay free of
+// apperr imports.
+func translateDiceErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	var appErr *apperr.Error
+	if errors.As(err, &appErr) {
+		return err
+	}
+	var unknownSection *template.UnknownDiceSectionError
+	var unknownRow *template.UnknownDiceRowError
+	var invalid *template.InvalidDiceError
+	var tooMany *template.TooManyDiceOverridesError
+	if errors.As(err, &unknownSection) || errors.As(err, &unknownRow) || errors.As(err, &invalid) || errors.As(err, &tooMany) {
+		return apperr.NewError(apperr.CodeInvalidRequest, "invalid dice: "+err.Error(), err)
+	}
+	return apperr.NewError(apperr.CodeInternal, "failed to validate dice", err)
 }
 
 // translateRepoErr maps repository errors to typed apperr at the service

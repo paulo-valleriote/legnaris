@@ -283,3 +283,15 @@ func (e *InvalidDiceError) Error() string {
 func (e *InvalidDiceError) Unwrap() error {
 	return e.Err
 }
+
+// TooManyDiceOverridesError reports a Sheet dice block with more entries than
+// MaxSheetDiceOverrides, Section and Row overrides counted together.
+type TooManyDiceOverridesError struct {
+	Count int
+	Max   int
+}
+
+// Error returns the human-readable reason.
+func (e *TooManyDiceOverridesError) Error() string {
+	return fmt.Sprintf("%d dice overrides exceed the maximum of %d", e.Count, e.Max)
+}
