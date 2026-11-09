@@ -154,6 +154,7 @@ graph LR
 | `/sheets`                   | GET    | Retorna a ficha do usuário autenticado      | Sim           | ⏳ Fase 2                    |
 | `/sheets/:id`               | GET    | Detalhe da ficha                            | Sim (owner)   | ✅ Existe hoje (público)     |
 | `/sheets/:id`               | PATCH  | Atualização parcial com recálculo           | Sim (owner)   | ✅ Existe hoje (público)     |
+| `/sheets/:id/dice`          | PUT    | Substitui o bloco `dice` da ficha (sem recálculo) | Sim (owner) | ✅ Existe hoje (público)     |
 | `/sheets/:id`               | DELETE | Remove a ficha                              | Sim (owner)   | ⏳ Fase 2                    |
 | `/sheets/:id/export`        | GET    | Exporta ficha em JSON auto-contido          | Sim (owner)   | ⏳ Fase 4                    |
 | `/sheets/import`            | POST   | Importa ficha de JSON (validação estrita)   | Sim           | ⏳ Fase 4                    |
@@ -204,6 +205,35 @@ graph LR
 // 200 OK — apenas efeitos em cascata (mapa aninhado, envelope "data")
 { "data": { "modifiers": { "dexterityMod": 3 }, "derived": { "armorClass": 13 } } }
 ```
+
+**Exemplo de contrato — expressões de dados (`dice`)**:
+
+O bloco `dice` é a escolha do jogador sobre as expressões de rolagem (ADR 0005). Ele é dado do usuário guardado na ficha; o template só fornece os padrões (`dice` no payload do template, somente leitura, omitido quando vazio). Em `section` e `row`, a chave ausente significa "usar o padrão do template" e `null` significa "sem dados" (explícito). Nenhuma rolagem é salva.
+
+```json
+// PUT /sheets/:id/dice  (owner; substitui o bloco inteiro, sem recálculo)
+{
+  "dice": {
+    "section": { "combat": "1d20 + @" },
+    "row": { "skills.acrobatics": null, "stats.dexterity": "d20 + stats.dexterity" }
+  }
+}
+
+// 200 OK — eco do que foi gravado (ambos os mapas sempre presentes, mesmo vazios)
+{
+  "data": {
+    "dice": {
+      "section": { "combat": "1d20 + @" },
+      "row": { "skills.acrobatics": null, "stats.dexterity": "d20 + stats.dexterity" }
+    }
+  }
+}
+```
+
+- `GET /sheets/:id` sempre retorna `dice` (`{"section": {}, "row": {}}` quando a ficha não tem escolhas), inclusive em fichas criadas antes da funcionalidade.
+- `PUT` é validado de forma estrita: chave de Section/Row desconhecida, gramática inválida, expressão que não encaixa na Row, ou mais de 64 entradas → **400 `INVALID_REQUEST`**. Leituras são tolerantes.
+- Chaves de Row são as mesmas de `layout.pinned`; `@` significa "esta Row".
+- Não altera `version` nem `updated_at` e não conflita com `PATCH` de `data` nem com `PUT /sheets/:id/layout`.
 
 **Exemplo de contrato — export auto-contido**:
 
