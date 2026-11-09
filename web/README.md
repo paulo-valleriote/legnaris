@@ -210,9 +210,10 @@ npm run test:e2e -- sheet.spec.ts                  # axe: zero critical violatio
 
 ## Dice expressions (`src/dice/`)
 
-Pure TypeScript parser, resolver and Roll (ADR 0005), no React and no network. Rolls use the
-browser's `crypto.getRandomValues` and are never sent to the server; the player's expression
-choices are saved with `PUT /sheets/:id/dice`. Rules and module map: [`web/AGENTS.md`](./AGENTS.md)
+Pure TypeScript parser, resolver and Roll (ADR 0005). Rolls use the browser's
+`crypto.getRandomValues` and are never sent to the server; the player's expression choices are
+saved at once with `PUT /sheets/:id/dice` through `createDiceStore` (`src/sheet/dice_store.ts`).
+The Roll UI (`dice_row.tsx`, `dice_panel.tsx`) lives in `src/sheet/`. Rules and module map: [`web/AGENTS.md`](./AGENTS.md)
 ("Dice expressions"). Shared grammar vectors: [`testdata/dice/`](../testdata/dice/).
 
 ## UI engine (`src/engine/`)
