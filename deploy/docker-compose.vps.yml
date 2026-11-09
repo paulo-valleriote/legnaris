@@ -1,0 +1,30 @@
+# =============================================================================
+# VPS override — run prebuilt, scanned images from GHCR instead of building.
+#
+# Usage (see deploy/vps/deploy.sh, which the CD workflow runs over SSH):
+#   IMAGE_TAG=sha-<40 hex> docker compose \
+#     -f docker-compose.yml -f docker-compose.vps.yml pull
+#   IMAGE_TAG=sha-<40 hex> docker compose \
+#     -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
+#
+# `!reset null` drops the base `build:` so the VPS never compiles anything.
+# IMAGE_TAG is required: an unset tag must fail the deploy, never fall back to
+# a moving tag such as `latest`.
+# =============================================================================
+
+services:
+  app:
+    build: !reset null
+    image: ghcr.io/${IMAGE_OWNER:-paulo-valleriote}/legnaris-app:${IMAGE_TAG:?IMAGE_TAG is required}
+  relay:
+    build: !reset null
+    image: ghcr.io/${IMAGE_OWNER:-paulo-valleriote}/legnaris-app:${IMAGE_TAG:?IMAGE_TAG is required}
+  worker:
+    build: !reset null
+    image: ghcr.io/${IMAGE_OWNER:-paulo-valleriote}/legnaris-app:${IMAGE_TAG:?IMAGE_TAG is required}
+  web:
+    build: !reset null
+    image: ghcr.io/${IMAGE_OWNER:-paulo-valleriote}/legnaris-web:${IMAGE_TAG:?IMAGE_TAG is required}
+  rabbitmq:
+    build: !reset null
+    image: ghcr.io/${IMAGE_OWNER:-paulo-valleriote}/legnaris-rabbitmq:${IMAGE_TAG:?IMAGE_TAG is required}

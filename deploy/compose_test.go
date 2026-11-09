@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -1077,4 +1078,75 @@ func TestSharedRateLimitStore(t *testing.T) {
 		assert.Contains(t, string(raw), "# REDIS_URL=")
 		assert.NotRegexp(t, `(?m)^REDIS_URL=`, string(raw))
 	})
+}
+
+func TestVPSOverrideRunsPrebuiltPinnedImages(t *testing.T) {
+	raw, err := os.ReadFile("docker-compose.vps.yml")
+	require.NoError(t, err)
+	text := string(raw)
+
+	var doc struct {
+		Services map[string]yaml.Node `yaml:"services"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &doc))
+
+	tests := []struct {
+		name    string
+		service string
+		image   string
+	}{
+		{"Happy path: app uses the app image", "app", "legnaris-app"},
+		{"Happy path: relay shares the app image", "relay", "legnaris-app"},
+		{"Happy path: worker shares the app image", "worker", "legnaris-app"},
+		{"Happy path: web uses the web image", "web", "legnaris-web"},
+		{"Happy path: rabbitmq uses the derived broker image", "rabbitmq", "legnaris-rabbitmq"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			node, ok := doc.Services[tc.service]
+			require.True(t, ok, "service %s missing from override", tc.service)
+
+			var svc struct {
+				Image string `yaml:"image"`
+			}
+			require.NoError(t, node.Decode(&svc))
+			assert.Contains(t, svc.Image, "ghcr.io/")
+			assert.Contains(t, svc.Image, tc.image+":${IMAGE_TAG:?")
+			assert.NotContains(t, svc.Image, "latest")
+		})
+	}
+
+	t.Run("Edge: every build section is reset", func(t *testing.T) {
+		assert.Equal(t, len(tests), strings.Count(text, "build: !reset null"))
+	})
+	t.Run("Edge: base images are exactly the ones the override replaces", func(t *testing.T) {
+		for name, svc := range readCompose(t).Services {
+			if svc.Build != nil {
+				_, covered := doc.Services[name]
+				assert.Truef(t, covered, "service %s builds locally but has no VPS image", name)
+			}
+		}
+	})
+}
+
+func TestVPSDeployScriptRejectsInvalidSHA(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"Error: no argument", nil},
+		{"Error: short sha", []string{"abc123"}},
+		{"Error: branch name", []string{"main"}},
+		{"Error: uppercase hex", []string{strings.Repeat("A", 40)}},
+		{"Error: injection attempt", []string{strings.Repeat("a", 40) + "; rm -rf /"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := exec.Command("bash", append([]string{"vps/deploy.sh"}, tc.args...)...)
+			err := cmd.Run()
+			var exitErr *exec.ExitError
+			require.ErrorAs(t, err, &exitErr)
+			assert.Equal(t, 64, exitErr.ExitCode())
+		})
+	}
 }

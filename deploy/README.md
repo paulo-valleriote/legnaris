@@ -223,6 +223,32 @@ docker compose up -d --build
 docker compose ps        # mongodb "healthy" and the rest "Up"
 ```
 
+## 7.1 Automated deploy (GitHub Actions → VPS)
+
+`ci-images.yml` publishes scanned images to GHCR tagged `sha-<commit>`; then
+`.github/workflows/cd-vps.yml` SSHes into the VPS and runs
+`deploy/vps/deploy.sh <sha>`, which checks out that commit, pulls the images via
+`docker-compose.vps.yml` (no build on the VPS), starts the stack with
+`--wait` and rolls back to the previous commit if it does not become healthy.
+Manual redeploy or rollback: run the workflow with `workflow_dispatch` and a SHA.
+
+One-time VPS setup (Ubuntu 24.04, Docker installed):
+
+```bash
+adduser --disabled-password deploy && usermod -aG docker deploy
+git clone https://github.com/paulo-valleriote/legnaris.git /opt/legnaris
+chown -R deploy: /opt/legnaris
+# as deploy: create /opt/legnaris/deploy/.env (see §6); log in to GHCR only if
+# the packages are private:  echo $PAT | docker login ghcr.io -u <user> --password-stdin
+# (PAT with read:packages)
+```
+
+Repository secrets (Settings → Environments → `production`): `VPS_HOST`,
+`VPS_USER` (`deploy`), `VPS_SSH_KEY` (private key whose public half is in
+`~deploy/.ssh/authorized_keys`), `VPS_KNOWN_HOSTS` (output of
+`ssh-keyscan -t ed25519 <host>`). Add "Required reviewers" to that environment
+for a manual approval gate. `.env` lives only on the VPS.
+
 ## 8. Run locally (via Cloudflare Tunnel)
 
 ```bash
