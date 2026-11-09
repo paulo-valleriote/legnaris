@@ -71,6 +71,10 @@ export function createArrangeStub(options: ArrangeStubOptions = {}): ArrangeStub
         putCount += 1;
         return Promise.resolve(outcome);
       }
+      if (url.endsWith(`/sheets/${SHEET_ID}/dice`)) {
+        const body = JSON.parse(request.body ?? '{}') as { dice: unknown };
+        return Promise.resolve(successOutcome({ dice: body.dice }));
+      }
       const body = JSON.parse(request.body ?? '{}') as { layout: unknown };
       return Promise.resolve(successOutcome({ layout: body.layout }));
     }

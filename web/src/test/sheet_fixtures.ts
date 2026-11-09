@@ -97,6 +97,7 @@ export const SHEET_MODEL: Sheet = {
   templateId: TEMPLATE_ID,
   name: 'Aragorn',
   data: sheetData(),
+  dice: { section: {}, row: {} },
   createdAt: '2026-10-01T21:38:54.635Z',
   updatedAt: '2026-10-02T09:00:00.000Z',
 };

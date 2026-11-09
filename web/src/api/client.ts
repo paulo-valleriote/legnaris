@@ -6,6 +6,8 @@
  * screen never writes a URL, unwraps a response or branches on a status.
  */
 
+import type { DiceBlock } from './models/dice';
+import { diceBlockToWire, parseDiceBlock } from './models/dice';
 import type { Layout } from './models/layout';
 import { layoutToWire, parseLayoutResponse } from './models/layout';
 import type { Sheet } from './models/sheet';
@@ -50,6 +52,11 @@ export interface ApiClient {
    * Resolves with the Layout as stored, or `null` after a reset. No recalculation runs.
    */
   setLayout(id: string, layout: Layout | null): Promise<Layout | null>;
+  /**
+   * Replaces the sheet's Dice block in full (ADR 0005); saved at once, never unsaved work.
+   * Resolves with the block as stored. No recalculation runs.
+   */
+  setDice(id: string, block: DiceBlock): Promise<DiceBlock>;
 }
 
 function decodeHealth(data: unknown): HealthPayload {
@@ -116,6 +123,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         `/sheets/${encodeURIComponent(id)}/layout`,
         JSON.stringify({ layout: layout === null ? null : layoutToWire(layout) }),
         parseLayoutResponse,
+      ),
+    setDice: (id, block) =>
+      caller.call(
+        'PUT',
+        `/sheets/${encodeURIComponent(id)}/dice`,
+        JSON.stringify(diceBlockToWire(block)),
+        (data) => parseDiceBlock(isPlainObject(data) ? data['dice'] : undefined),
       ),
   };
 }

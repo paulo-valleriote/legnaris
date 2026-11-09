@@ -185,6 +185,7 @@ describe('the parameterized copy resolution (WCS-13)', () => {
           count: 5,
           max: 6,
           name: 'Aragorn',
+          total: 17,
         }),
       ).not.toMatch(/\{(\w+)\}/);
     }
