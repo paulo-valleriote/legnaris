@@ -57,7 +57,7 @@ import {
   markForPaths,
 } from './sheet_edit';
 import { ARRANGE_FRAMES, ArrangeProvider } from './arrange_frames';
-import { createDiceStore, type DiceStore } from './dice_store';
+import { createDiceStore, type DiceCheck, type DiceStore } from './dice_store';
 import { DICE_FRAMES, DiceProvider, type DiceContextValue } from './dice_row';
 import {
   checkExpression,
@@ -543,30 +543,35 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   );
   const sections = useMemo(() => buildSections(template.fields), [template]);
   const diceSchema = useMemo(() => diceSchemaFromFields(template.fields), [template]);
+  const diceCheck = useCallback<DiceCheck>(
+    (target, key, expression) =>
+      target === 'row'
+        ? checkExpression(expression, diceSchema, key)
+        : checkSectionExpression(expression),
+    [diceSchema],
+  );
   const diceStore = useMemo<DiceStore>(
     () =>
       createDiceStore({
         client,
         sheetId,
         initial: sheet.dice ?? { section: {}, row: {} },
-        check: (target, key, expression) =>
-          target === 'row'
-            ? checkExpression(expression, diceSchema, key)
-            : checkSectionExpression(expression),
+        check: diceCheck,
       }),
-    [client, sheetId, sheet.dice, diceSchema],
+    [client, sheetId, sheet.dice, diceCheck],
   );
   const diceValue = useMemo<DiceContextValue>(
     () => ({
       store: diceStore,
       schema: diceSchema,
+      check: diceCheck,
       defaults: templateDiceDefaults(template.dice),
       rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
       sectionKeys: new Set(sections.map((section) => section.key)),
       savedValues: () => editStore.getState().defaults,
       draftValues: () => editStore.getPendingDelta(),
     }),
-    [diceStore, diceSchema, template, sections, editStore],
+    [diceStore, diceSchema, diceCheck, template, sections, editStore],
   );
   const eyebrow = template.name.trim() === '' ? message('sheet.headerTitle') : template.name;
   const layoutStore = useMemo(

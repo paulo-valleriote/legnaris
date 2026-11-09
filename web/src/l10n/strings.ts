@@ -115,6 +115,7 @@ export const messages = {
   'dice.useTemplate': 'Use the Template dice',
   'dice.rollShort': 'Roll',
   'dice.editShort': 'Edit',
+  'dice.editSection': 'Edit dice for the {label} section',
   'dice.dismiss': 'Dismiss roll result',
   'dice.total': 'Total',
   'dice.rolled': '{label} rolled {total}',
