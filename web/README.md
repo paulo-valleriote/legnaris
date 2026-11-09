@@ -134,7 +134,7 @@ API_BASE_URL=http://localhost:8080 npm test # also runs the live contract suite
 
 - **Base address.** `loadApiConfiguration` (`src/api/runtime_config.ts`) uses a non-blank
   `VITE_API_BASE_URL` (dev server, e2e) or else fetches `/config.json` (`{"apiBaseUrl": ...}`);
-  a missing or blank value falls back to `https://api.legnaris.com.br`, and a non-`http(s)`
+  a missing or blank value falls back to `https://api.paulovalleriote.io`, and a non-`http(s)`
   value, malformed JSON or a failed load stops startup with a visible message. `http://` is accepted only as an explicit
   build choice and is reported as `secure: false` on the resolved configuration.
 

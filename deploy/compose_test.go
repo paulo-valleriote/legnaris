@@ -815,7 +815,7 @@ func TestRunbookDocumentsTheConsole(t *testing.T) {
 	runbook := string(raw)
 
 	t.Run("Happy path: the console's address is in the access table", func(t *testing.T) {
-		assert.Contains(t, runbook, "https://ops.legnaris.com.br/rabbitmq/")
+		assert.Contains(t, runbook, "https://ops.paulovalleriote.io/rabbitmq/")
 	})
 
 	t.Run("Edge: the runbook says the console shows the queued codes in the clear", func(t *testing.T) {

@@ -5,6 +5,12 @@
 # checks read this line.
 FROM rabbitmq:4.4.0-management
 
+# Pulls in the base image's pending Ubuntu security fixes (e.g. apt
+# CVE-2026-109518), which the CI Trivy gate blocks on once a fix is published.
+RUN apt-get update \
+    && apt-get -y --no-install-recommends upgrade \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN rabbitmq-plugins enable --offline rabbitmq_prometheus
 
 COPY provision.sh /usr/local/bin/legnaris-provision

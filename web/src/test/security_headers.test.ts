@@ -34,7 +34,7 @@ describe('buildSecurityHeaders', () => {
       `report-uri ${PRODUCTION_API_ORIGIN}/csp-report`,
     );
     expect(headers['Reporting-Endpoints']).toBe(
-      'csp-endpoint="https://api.legnaris.com.br/csp-report"',
+      'csp-endpoint="https://api.paulovalleriote.io/csp-report"',
     );
     expect(headers['Strict-Transport-Security']).toBe(
       'max-age=63072000; includeSubDomains; preload',
@@ -57,7 +57,7 @@ describe('buildSecurityHeaders', () => {
   it('Edge: dev never leaves the production API in the policy', () => {
     const headers = buildSecurityHeaders('http://localhost:8080', true);
 
-    expect(headers['Content-Security-Policy']).not.toContain('legnaris.com.br');
+    expect(headers['Content-Security-Policy']).not.toContain('paulovalleriote.io');
   });
 
   it('Happy path: dev admits the React Refresh preamble by hash and inline styles, no inline script', () => {
