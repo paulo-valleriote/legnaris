@@ -239,6 +239,23 @@ The Go package `backend/internal/dice` validates; this module parses, resolves a
   Field as `no_value`. Dice come from `crypto.getRandomValues` through `dieFromWords`, which redraws
   words above the largest multiple of the face count (no modulo bias). Nothing is stored.
 - User-facing copy for a `DiceError` is the UI's job (LGN-166), by `class`, through `src/l10n/`.
+- **Validation mirrors the server.** The client refuses what `PUT /sheets/:id/dice` would refuse
+  (same limits, grammar, Row fit and 64-entry cap) so a bad expression never reaches the wire; the
+  server stays the authority and its 400 `INVALID_REQUEST` is still mapped.
+- **A dice choice is not a value.** Dice choices live in `createDiceStore` (`src/sheet/dice_store.ts`),
+  separate from `sheet_edit.ts` and the layout store. Each choice is sent with `PUT /sheets/:id/dice`
+  the moment it is made (`setDice` in `src/api/client.ts`, full replacement, no recalculation). The
+  store serializes PUTs and, on failure, reverts to the last confirmed block: a network failure shows
+  `dice.error.saveFailed`, a 400 shows `dice.error.serverRefused`. It never counts as unsaved work for
+  the leave guard or `F5`, and is not part of `Ctrl+S`.
+- **Where it shows.** A dice button (`src/sheet/dice_row.tsx`) appears only on a Row with an
+  applicable expression, or one switched off by "no dice" (on the Row or its Section). Tap rolls;
+  long-press (`LONG_PRESS_MS`, 500 ms) opens the Row's editor; the Edit button is the keyboard
+  alternative. Editing a Row creates a Row override, which wins over the Section. The Section header
+  shows the `dice.sectionNote` note and a button to edit the Section expression. Everything is hidden
+  in Arrange mode. The editor is one panel at a time (`src/sheet/dice_panel.tsx`), not a modal, and
+  closes on Escape. Rendering helpers are in `src/sheet/dice_view.ts`; wire models in
+  `src/api/models/dice.ts`. Copy lives in `src/l10n/strings.ts`.
 
 ## Layout and Arrange mode (ADR 0001)
 
