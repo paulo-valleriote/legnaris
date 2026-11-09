@@ -239,6 +239,17 @@ The Go package `backend/internal/dice` validates; this module parses, resolves a
   Field as `no_value`. Dice come from `crypto.getRandomValues` through `dieFromWords`, which redraws
   words above the largest multiple of the face count (no modulo bias). Nothing is stored.
 - User-facing copy for a `DiceError` is the UI's job (LGN-166), by `class`, through `src/l10n/`.
+- **Validation mirrors the server.** The client refuses what `PUT /sheets/:id/dice` would refuse
+  (same limits, grammar, Row fit and 64-entry cap) so a bad expression never reaches the wire; the
+  server stays the authority and its 400 `INVALID_REQUEST` is still mapped.
+- **A dice choice is not a value.** The dice edit flow is separate from `sheet_edit.ts`:
+  choices go out with `PUT /sheets/:id/dice` the moment they are made (full replacement, no
+  recalculation). They never count as unsaved work for the leave guard or `F5`, and are not part of
+  `Ctrl+S`. A failed `PUT` reverts the choice to the last stored one and shows
+  the mapped copy.
+- **Where it shows (LGN-166).** A dice button sits on each rollable Row: tap rolls, long-press (or
+  the row menu) edits the expression. A Section shows its effective expression in its header. The
+  Vitals tiles roll too. The button is hidden in Arrange mode. Copy lives in `src/l10n/`.
 
 ## Layout and Arrange mode (ADR 0001)
 

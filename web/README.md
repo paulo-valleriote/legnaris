@@ -208,6 +208,13 @@ npx vitest run src/test/draft_backup.test.ts       # cadence, restore and lifecy
 npm run test:e2e -- sheet.spec.ts                  # axe: zero critical violations on the surfaces
 ```
 
+## Dice expressions (`src/dice/`)
+
+Pure TypeScript parser, resolver and Roll (ADR 0005), no React and no network. Rolls use the
+browser's `crypto.getRandomValues` and are never sent to the server; the player's expression
+choices are saved with `PUT /sheets/:id/dice`. Rules and module map: [`web/AGENTS.md`](./AGENTS.md)
+("Dice expressions"). Shared grammar vectors: [`testdata/dice/`](../testdata/dice/).
+
 ## UI engine (`src/engine/`)
 
 The stateless rendering core, ported from the desktop UI engine: it turns a decoded
