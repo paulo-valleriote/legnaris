@@ -7,6 +7,7 @@
  * declared order and never sorts them.
  */
 
+import { parseDiceDefaults, type DiceDefaults } from './dice';
 import {
   drift,
   isPlainObject,
@@ -73,6 +74,8 @@ export interface TemplateDetail {
    * declares it, and the client offers it, never writes it on its own.
    */
   readonly suggestedPins?: readonly string[];
+  /** The Template's Dice defaults (ADR 0005); absent when the Template declares none. */
+  readonly dice?: DiceDefaults;
 }
 
 /** A catalog entry is a decoded template (API-08). */
@@ -213,6 +216,7 @@ function parseTemplate(value: unknown): TemplateDetail {
     default: requireBoolean(value, 'default'),
     fields: parseFieldGroup(value['fields']),
     suggestedPins: parseSuggestedPins(value['suggested_pins']),
+    dice: parseDiceDefaults(value['dice']),
   };
 }
 

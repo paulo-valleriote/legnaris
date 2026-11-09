@@ -9,6 +9,8 @@
 import { PathFailure } from '../errors';
 import { drift, isPlainObject, requireString } from '../parse';
 import type { Layout } from './layout';
+import type { DiceBlock } from './dice';
+import { parseDiceBlock } from './dice';
 import { parseOptionalLayout } from './layout';
 
 /** A stored sheet (API-10, API-11). */
@@ -23,6 +25,8 @@ export interface Sheet {
   readonly data: Record<string, unknown>;
   /** The player's arrangement; absent while the Template default applies (ADR 0001). */
   readonly layout?: Layout;
+  /** The player's Dice expressions; always present, empty when the Sheet has none (ADR 0005). */
+  readonly dice?: DiceBlock;
   /** ISO-8601 creation timestamp, as received. */
   readonly createdAt: string;
   /** ISO-8601 update timestamp, as received. */
@@ -57,6 +61,7 @@ export function parseSheet(payload: unknown): Sheet {
     name: requireString(payload, 'name'),
     data: parseData(payload['data']),
     ...withLayout(parseOptionalLayout(payload['layout'])),
+    dice: parseDiceBlock(payload['dice']),
     createdAt: requireString(payload, 'created_at'),
     updatedAt: requireString(payload, 'updated_at'),
   };

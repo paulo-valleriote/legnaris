@@ -36,7 +36,7 @@ import { DependentReadout } from '../engine/dependent_readout';
 import { dependentsAreStale } from '../engine/dependents';
 import { SheetFieldControl } from '../engine/field_control';
 import type { SheetExclusiveGroup, SheetField } from '../engine/field_grouping';
-import { buildSections, fieldDisplayName, lastSegment } from '../engine/field_grouping';
+import { buildSections, fieldDisplayName, lastSegment, rowKey } from '../engine/field_grouping';
 import type { SheetMark } from '../engine/sheet_mark';
 import { markLabel, SheetForm } from '../engine/sheet_form';
 import { message, messageWith } from '../l10n/strings';
@@ -57,6 +57,14 @@ import {
   markForPaths,
 } from './sheet_edit';
 import { ARRANGE_FRAMES, ArrangeProvider } from './arrange_frames';
+import { createDiceStore, type DiceStore } from './dice_store';
+import { DICE_FRAMES, DiceProvider, type DiceContextValue } from './dice_row';
+import {
+  checkExpression,
+  checkSectionExpression,
+  diceSchemaFromFields,
+  templateDiceDefaults,
+} from './dice_view';
 import type { LayoutState, LayoutStore } from './layout_store';
 import { createLayoutStore, drawnArrangement, isArranging, isLayoutPending } from './layout_store';
 import { footerStatus, recalculatedCount, recalculatedSummary } from './preview_summary';
@@ -534,6 +542,32 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [client, storePort, sheetId, sheetData, template],
   );
   const sections = useMemo(() => buildSections(template.fields), [template]);
+  const diceSchema = useMemo(() => diceSchemaFromFields(template.fields), [template]);
+  const diceStore = useMemo<DiceStore>(
+    () =>
+      createDiceStore({
+        client,
+        sheetId,
+        initial: sheet.dice ?? { section: {}, row: {} },
+        check: (target, key, expression) =>
+          target === 'row'
+            ? checkExpression(expression, diceSchema, key)
+            : checkSectionExpression(expression),
+      }),
+    [client, sheetId, sheet.dice, diceSchema],
+  );
+  const diceValue = useMemo<DiceContextValue>(
+    () => ({
+      store: diceStore,
+      schema: diceSchema,
+      defaults: templateDiceDefaults(template.dice),
+      rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
+      sectionKeys: new Set(sections.map((section) => section.key)),
+      savedValues: () => editStore.getState().defaults,
+      draftValues: () => editStore.getPendingDelta(),
+    }),
+    [diceStore, diceSchema, template, sections, editStore],
+  );
   const eyebrow = template.name.trim() === '' ? message('sheet.headerTitle') : template.name;
   const layoutStore = useMemo(
     () =>
@@ -799,19 +833,21 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
           {view.filterOn && arrangement.pinned.length === 0 ? (
             <PinnedEmpty onEditPins={startArranging} />
           ) : (
-            <SheetForm
-              fields={template.fields}
-              controlBuilder={controlBuilder}
-              exclusiveControlBuilder={exclusiveControlBuilder}
-              dependentBuilder={dependentBuilder}
-              rowMarkBuilder={rowMarkBuilder}
-              sectionBadgeBuilder={sectionBadgeBuilder}
-              collapsedSectionKeys={view.collapsible ? view.state.collapsed : undefined}
-              onToggleSection={view.collapsible ? view.store.toggle : undefined}
-              onlyPinned={view.filterOn}
-              arrangement={arrangement}
-              frames={arranging ? ARRANGE_FRAMES : undefined}
-            />
+            <DiceProvider value={diceValue}>
+              <SheetForm
+                fields={template.fields}
+                controlBuilder={controlBuilder}
+                exclusiveControlBuilder={exclusiveControlBuilder}
+                dependentBuilder={dependentBuilder}
+                rowMarkBuilder={rowMarkBuilder}
+                sectionBadgeBuilder={sectionBadgeBuilder}
+                collapsedSectionKeys={view.collapsible ? view.state.collapsed : undefined}
+                onToggleSection={view.collapsible ? view.store.toggle : undefined}
+                onlyPinned={view.filterOn}
+                arrangement={arrangement}
+                frames={arranging ? ARRANGE_FRAMES : DICE_FRAMES}
+              />
+            </DiceProvider>
           )}
         </ArrangeProvider>
       )}
