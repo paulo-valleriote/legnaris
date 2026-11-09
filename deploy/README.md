@@ -10,12 +10,12 @@ database UI (Mongo Express), with admin access protected by **GitHub OAuth**
 ## 1. Architecture and domains
 
 ```
-legnaris.com.br          → Vercel (frontend)           [untouched]
-api.legnaris.com.br      → Docker/Traefik              [public, no OAuth]
+paulovalleriote.io          → Vercel (frontend)           [untouched]
+api.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
    └─ /                  → app API (health, templates, sheets)
-app.legnaris.com.br      → Docker/Traefik              [public, no OAuth]
+app.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
    └─ /                  → web client (service `web`, nginx)
-ops.legnaris.com.br      → Docker/Traefik              [GitHub OAuth]
+ops.paulovalleriote.io      → Docker/Traefik              [GitHub OAuth]
    ├─ /oauth2/callback   → GitHub OAuth callback
    ├─ /grafana           → Grafana
    ├─ /prometheus        → Prometheus
@@ -43,16 +43,16 @@ network is already trusted.
 ## 2. Understanding each layer (no jargon)
 
 ### DNS — the "address book"
-DNS translates names (`api.legnaris.com.br`) into IPs. Inside your domain you
+DNS translates names (`api.paulovalleriote.io`) into IPs. Inside your domain you
 create **records** that point subdomains to destinations:
 
 | Record | Meaning |
 |---|---|
 | `A` | "this name → this IP" (e.g. `api` → `203.0.113.10`). |
 | `CNAME` | "this name → another name" (e.g. `api` → `tunel.cfargotunnel.com`). |
-| `@` or empty | the apex domain (`legnaris.com.br`). |
+| `@` or empty | the apex domain (`paulovalleriote.io`). |
 
-The apex `legnaris.com.br` already points to Vercel. You only **add** three new
+The apex `paulovalleriote.io` already points to Vercel. You only **add** three new
 records (`api`, `app` and `ops`) — leave what already exists untouched.
 
 ### Traefik — the "doorman" (reverse proxy)
@@ -60,9 +60,9 @@ Traefik sits in front of everything, listening on ports 80/443. It is **not**
 your web server — it decides, for each request, which service should handle it,
 based on the **Host** (requested domain) and the **path**:
 
-- Requests `api.legnaris.com.br/...` → forwards to the app.
-- Requests `app.legnaris.com.br/...` → forwards to the web client.
-- Requests `ops.legnaris.com.br/grafana` → forwards to Grafana, but first asks
+- Requests `api.paulovalleriote.io/...` → forwards to the app.
+- Requests `app.paulovalleriote.io/...` → forwards to the web client.
+- Requests `ops.paulovalleriote.io/grafana` → forwards to Grafana, but first asks
   oauth2-proxy ("is this person logged in?").
 
 It also handles **TLS/HTTPS**: it issues and renews certificates via Let's
@@ -79,7 +79,7 @@ tools inside `ops.`.
 ### OAuth (oauth2-proxy) — the login
 When someone hits an `ops.` route, Traefik asks oauth2-proxy whether there is a
 valid session cookie. If not, it redirects to GitHub; after login, GitHub
-returns to `ops.legnaris.com.br/oauth2/callback` and oauth2-proxy checks that
+returns to `ops.paulovalleriote.io/oauth2/callback` and oauth2-proxy checks that
 the user is in the allowlist (`GITHUB_USER`) before letting them through.
 
 ### Cloudflare Tunnel (local environment only)
@@ -92,7 +92,7 @@ tunnel.
 
 ## 3. Prerequisites
 
-1. **Domain** `legnaris.com.br` (registered at Registro.br, DNS managed at Cloudflare) — already exists.
+1. **Domain** `paulovalleriote.io` (registered at Registro.br, DNS managed at Cloudflare) — already exists.
 2. **GitHub OAuth App** (see §4).
 3. **DNS for the `api.` and `ops.` subdomains** (see §5).
 4. **oauth2-proxy cookie secret** (see §6).
@@ -104,8 +104,8 @@ tunnel.
 1. GitHub → Settings → Developer settings → OAuth Apps → **New OAuth App**.
 2. Fill in:
    - **Application name**: `Legnaris`.
-   - **Homepage URL**: `https://api.legnaris.com.br`.
-   - **Authorization callback URL**: `https://ops.legnaris.com.br/oauth2/callback` ⚠️ exact.
+   - **Homepage URL**: `https://api.paulovalleriote.io`.
+   - **Authorization callback URL**: `https://ops.paulovalleriote.io/oauth2/callback` ⚠️ exact.
 3. **Register application**.
 4. Copy the **Client ID** and generate the **Client secret**.
 
@@ -120,13 +120,13 @@ Registro.br — only *where* the zone is managed changes.
 ### 5.1 Migrate the zone (once)
 
 1. Create an account at **https://dash.cloudflare.com** and click **Add a site**,
-   entering `legnaris.com.br` (the Free plan is enough).
+   entering `paulovalleriote.io` (the Free plan is enough).
 2. Cloudflare **scans and imports** the current records (the Vercel apex).
    Check they came through correctly.
 3. Cloudflare shows **two nameservers** (e.g. `xxx.ns.cloudflare.com`,
    `yyy.ns.cloudflare.com`). Note them down.
 4. At **Registro.br**, replace the domain's **NS** with those two nameservers:
-   go to https://registro.br → My domains → `legnaris.com.br` →
+   go to https://registro.br → My domains → `paulovalleriote.io` →
    **DNS servers / Change NS**.
 5. Wait for propagation (minutes to a few hours). In Cloudflare the zone changes
    to **Active**.
@@ -145,7 +145,7 @@ Registro.br — only *where* the zone is managed changes.
 
 ### 5.3 Notes
 
-- **Vercel apex**: keep `legnaris.com.br` in **DNS only** (don't enable the
+- **Vercel apex**: keep `paulovalleriote.io` in **DNS only** (don't enable the
   proxy/orange cloud). Putting Cloudflare in front of Vercel causes a
   double-CDN and cache conflict; Vercel already has its own analytics.
 - **Edge analytics (optional)**: if you want Cloudflare analytics for the
@@ -255,9 +255,9 @@ for a manual approval gate. `.env` lives only on the VPS.
 # 1. once, on the host:
 cloudflared tunnel login
 cloudflared tunnel create legnaris      # writes ~/.cloudflared/<TUNNEL_UUID>.json
-cloudflared tunnel route dns legnaris api.legnaris.com.br   # creates the CNAME automatically
-cloudflared tunnel route dns legnaris app.legnaris.com.br
-cloudflared tunnel route dns legnaris ops.legnaris.com.br
+cloudflared tunnel route dns legnaris api.paulovalleriote.io   # creates the CNAME automatically
+cloudflared tunnel route dns legnaris app.paulovalleriote.io
+cloudflared tunnel route dns legnaris ops.paulovalleriote.io
 
 # 2. configure the tunnel:
 cp cloudflared/config.yml.example cloudflared/config.yml
@@ -305,7 +305,7 @@ without authenticating at Cloudflare first:
 
 1. Go to **https://one.dash.cloudflare.com** (Zero Trust) → **Access** →
    **Applications** → **Add an application** → **Self-hosted**.
-2. In *Application domain*, enter `ops.legnaris.com.br` (and `api.legnaris.com.br`
+2. In *Application domain*, enter `ops.paulovalleriote.io` (and `api.paulovalleriote.io`
    if you also want to protect the API during testing).
 3. Add an *Allow* **policy** for your email (PIN/OTP login) or via GitHub.
 4. Save. Now Cloudflare asks for your login **before** it reaches oauth2-proxy —
@@ -320,12 +320,12 @@ without authenticating at Cloudflare first:
 
 | URL | What it is | Protection |
 |---|---|---|
-| `https://app.legnaris.com.br/` | Web client (PWA) | public |
-| `https://api.legnaris.com.br/` | Public API | public |
-| `https://ops.legnaris.com.br/grafana` | Grafana | GitHub OAuth |
-| `https://ops.legnaris.com.br/prometheus` | Prometheus UI | GitHub OAuth |
-| `https://ops.legnaris.com.br/mongo` | Mongo Express | GitHub OAuth + basic auth |
-| `https://ops.legnaris.com.br/rabbitmq/` | RabbitMQ console | GitHub OAuth + the operator's broker account |
+| `https://app.paulovalleriote.io/` | Web client (PWA) | public |
+| `https://api.paulovalleriote.io/` | Public API | public |
+| `https://ops.paulovalleriote.io/grafana` | Grafana | GitHub OAuth |
+| `https://ops.paulovalleriote.io/prometheus` | Prometheus UI | GitHub OAuth |
+| `https://ops.paulovalleriote.io/mongo` | Mongo Express | GitHub OAuth + basic auth |
+| `https://ops.paulovalleriote.io/rabbitmq/` | RabbitMQ console | GitHub OAuth + the operator's broker account |
 
 The RabbitMQ console lists the queued messages and their contents, so it shows
 the one-time codes in the clear. It is the operator's window into a stuck
@@ -359,7 +359,7 @@ application's broker account cannot sign in to it (see "RabbitMQ provisioning").
 ## 11. CORS (web client → API)
 
 The app allows origins from `CORS_ALLOWED_ORIGINS` (default in `.env.example`:
-`https://app.legnaris.com.br`). Without it, the browser blocks every call from
+`https://app.paulovalleriote.io`). Without it, the browser blocks every call from
 the web client to the API. The origin must match exactly — scheme, host, and
 port — or the preflight fails.
 

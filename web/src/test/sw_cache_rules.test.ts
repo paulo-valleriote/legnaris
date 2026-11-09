@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isAuthPath, isRuntimeCacheable } from '../pwa/cache_rules';
 
 const PUBLIC_GET = {
-  url: 'https://www.api.legnaris.com.br/templates',
+  url: 'https://www.api.paulovalleriote.io/templates',
   method: 'GET',
   hasAuthorization: false,
   isNavigation: false,

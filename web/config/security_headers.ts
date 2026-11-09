@@ -1,5 +1,5 @@
 /** The production API origin the CSP and reporting endpoint name (POL-02). */
-export const PRODUCTION_API_ORIGIN = 'https://api.legnaris.com.br';
+export const PRODUCTION_API_ORIGIN = 'https://api.paulovalleriote.io';
 
 /** The API address a developer runs locally when the build configures none. */
 export const DEV_API_ORIGIN = 'http://localhost:8080';
