@@ -53,7 +53,9 @@ export interface ArrangeStubOptions {
   readonly data?: Record<string, unknown>;
   readonly template?: unknown;
   /** Answers of successive PUTs; the last repeats. Defaults to echoing the request body. */
-  readonly putOutcomes?: HttpResponse[];
+  readonly putOutcomes?: (HttpResponse | { failure: unknown })[];
+  /** The sheet's stored Dice block, as a reload would return it. */
+  readonly dice?: unknown;
 }
 
 /** A routing transport: GET sheet/template, PUT layout, PATCH values. */
@@ -69,7 +71,10 @@ export function createArrangeStub(options: ArrangeStubOptions = {}): ArrangeStub
       if (scripted !== undefined) {
         const outcome = scripted[Math.min(putCount, scripted.length - 1)];
         putCount += 1;
-        return Promise.resolve(outcome);
+        if (outcome !== undefined && 'failure' in outcome) {
+          return Promise.reject(outcome.failure);
+        }
+        return Promise.resolve(outcome as HttpResponse);
       }
       if (url.endsWith(`/sheets/${SHEET_ID}/dice`)) {
         const body = JSON.parse(request.body ?? '{}') as { dice: unknown };
@@ -82,7 +87,10 @@ export function createArrangeStub(options: ArrangeStubOptions = {}): ArrangeStub
       return Promise.resolve(successOutcome({}));
     }
     if (url.endsWith(`/sheets/${SHEET_ID}`)) {
-      const overrides = options.layout === undefined ? {} : { layout: options.layout };
+      const overrides = {
+        ...(options.layout === undefined ? {} : { layout: options.layout }),
+        ...(options.dice === undefined ? {} : { dice: options.dice }),
+      };
       return Promise.resolve(
         successOutcome(sheetPayload({ data: options.data ?? {}, ...overrides })),
       );

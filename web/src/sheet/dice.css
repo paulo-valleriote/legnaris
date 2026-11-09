@@ -84,3 +84,76 @@
   outline: var(--lg-focus-width) solid var(--lg-color-focus);
   outline-offset: var(--lg-focus-offset);
 }
+
+.lg-dice-row,
+.lg-dice-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-8);
+}
+
+.lg-dice-section__note {
+  margin: 0;
+  color: var(--lg-color-text-muted);
+  font-size: var(--lg-type-13);
+}
+
+.lg-dice-button {
+  min-block-size: var(--lg-size-control);
+  min-inline-size: var(--lg-size-control);
+  padding-inline: var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-sm);
+  background: var(--lg-color-surface);
+  color: var(--lg-color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.lg-dice-button:hover {
+  background: var(--lg-color-surface-hover);
+}
+
+.lg-dice-button:focus-visible,
+.lg-dice-editor__input:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: var(--lg-focus-offset);
+}
+
+.lg-dice-editor {
+  display: grid;
+  gap: var(--lg-space-8);
+  margin-block-start: var(--lg-space-8);
+}
+
+.lg-dice-editor__label {
+  color: var(--lg-color-text-muted);
+  font-size: var(--lg-type-13);
+}
+
+.lg-dice-editor__input {
+  min-block-size: var(--lg-size-control);
+  padding-inline: var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-sm);
+  background: var(--lg-color-inset);
+  color: var(--lg-color-text);
+  font: inherit;
+}
+
+.lg-dice-editor__input[aria-invalid='true'] {
+  border-color: var(--lg-color-danger);
+}
+
+.lg-dice-editor__error {
+  margin: 0;
+  color: var(--lg-color-danger-text);
+  font-size: var(--lg-type-13);
+}
+
+.lg-dice-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lg-space-8);
+}
