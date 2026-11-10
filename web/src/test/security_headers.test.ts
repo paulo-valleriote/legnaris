@@ -34,7 +34,7 @@ describe('buildSecurityHeaders', () => {
       `report-uri ${PRODUCTION_API_ORIGIN}/csp-report`,
     );
     expect(headers['Reporting-Endpoints']).toBe(
-      'csp-endpoint="https://api.paulovalleriote.io/csp-report"',
+      'csp-endpoint="https://api-legnaris.paulovalleriote.io/csp-report"',
     );
     expect(headers['Strict-Transport-Security']).toBe(
       'max-age=63072000; includeSubDomains; preload',

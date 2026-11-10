@@ -24,18 +24,18 @@ against the new API for longer than the update window (step 3).
 
 ## Roles and tools
 
-- Operator with `kubectl` on the VPS, access to `ops.legnaris.com.br` (Grafana,
+- Operator with `kubectl` on the VPS, access to `ops-legnaris.paulovalleriote.io` (Grafana,
   GitHub login) and the repository.
 - Production images are pinned by `newTag` in
   `deploy/k8s/overlays/production/kustomization.yaml`; the `gitops-bump`
   workflow opens the PR that rewrites them and Argo CD (`selfHeal`) applies it.
-- Prometheus alerts: `https://ops.legnaris.com.br/grafana` (**Email pipeline**
+- Prometheus alerts: `https://ops-legnaris.paulovalleriote.io/grafana` (**Email pipeline**
   dashboard) and `kubectl -n monitoring port-forward` to Prometheus
   (`/alerts`).
 
 ## Step 0 — Preconditions (abort the cutover if any fails)
 
-- [ ] LGN-157 done: `mail.legnaris.com.br` verified in Resend (SPF, DKIM,
+- [ ] LGN-157 done: `mail-legnaris.paulovalleriote.io` verified in Resend (SPF, DKIM,
       DMARC `p=none`), `RESEND_API_KEY` sealed in `legnaris-secrets`.
 - [ ] LGN-153 merged: no `AUTH_REQUIRE_EMAIL_VERIFICATION` left in env, compose,
       k8s or `.env.example`.
@@ -76,7 +76,7 @@ serves production, so the pipeline is proven before anything depends on it.
 3. Delivery test: repeat the LGN-157 test delivery through the **deployed**
    worker (not from a laptop) to an inbox the operator controls and confirm it
    arrives from
-   `Legnaris <no-reply@mail.legnaris.com.br>` and passes SPF/DKIM
+   `Legnaris <no-reply@mail-legnaris.paulovalleriote.io>` and passes SPF/DKIM
    (message headers).
 
 **Abort criteria:** worker pod in `CreateContainerConfigError`
@@ -90,7 +90,7 @@ abort = fix and repeat.
    Argo CD syncs; the rollout is `maxUnavailable: 0`, gated by `/ready`.
    ```bash
    kubectl rollout status deployment/app deployment/relay deployment/worker --timeout=300s
-   curl -fsS https://api.legnaris.com.br/ready
+   curl -fsS https://api-legnaris.paulovalleriote.io/ready
    ```
 2. Contract smoke test against production with a throwaway address you own:
    - `POST /auth/register` → 201, **no** `Set-Cookie`, body has `challenge_id`
@@ -119,7 +119,7 @@ installed PWAs.
 1. Merge the `gitops-bump` PR that moves `legnaris-web`.
    ```bash
    kubectl rollout status deployment/web --timeout=300s
-   curl -fsS https://app.legnaris.com.br/ | head
+   curl -fsS https://app-legnaris.paulovalleriote.io/ | head
    ```
 2. Verify the update path in a browser **that has the old version cached**
    (open the old app first, then deploy):
@@ -133,7 +133,7 @@ installed PWAs.
    state. Reloading must recover.
 4. `sw.js` and `index.html` must be served `Cache-Control: no-cache`
    (`web/nginx.conf` does this) so browsers can see the new worker; confirm with
-   `curl -sI https://app.legnaris.com.br/sw.js`.
+   `curl -sI https://app-legnaris.paulovalleriote.io/sw.js`.
 5. If the old-bundle failure is not recoverable by a reload, abort and roll the
    web back (the API stays; the old web is then the broken half, so roll the
    API back too if the old web cannot register at all).

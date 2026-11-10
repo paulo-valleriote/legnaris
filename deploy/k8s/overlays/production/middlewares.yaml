@@ -5,9 +5,9 @@ metadata:
   name: web-security-headers
 spec:
   headers:
-    contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.legnaris.com.br; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; report-to csp-endpoint; report-uri https://api.legnaris.com.br/csp-report"
+    contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api-legnaris.paulovalleriote.io; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; report-to csp-endpoint; report-uri https://api-legnaris.paulovalleriote.io/csp-report"
     customResponseHeaders:
-      Reporting-Endpoints: 'csp-endpoint="https://api.legnaris.com.br/csp-report"'
+      Reporting-Endpoints: 'csp-endpoint="https://api-legnaris.paulovalleriote.io/csp-report"'
       Cross-Origin-Opener-Policy: "same-origin"
       Cross-Origin-Resource-Policy: "same-origin"
     stsSeconds: 63072000

@@ -21,7 +21,7 @@ export interface ApiConfiguration {
 }
 
 /** The public API used when the build configures no base address (API-25). */
-export const DEFAULT_API_BASE_URL = 'https://api.paulovalleriote.io';
+export const DEFAULT_API_BASE_URL = 'https://api-legnaris.paulovalleriote.io';
 
 function parseBaseUrl(candidate: string): URL | undefined {
   try {

@@ -28,20 +28,20 @@ generatorOptions:
 configMapGenerator:
   - name: env-config
     literals:
-      - API_BASE_URL=https://api.legnaris.com.br
-      - CORS_ALLOWED_ORIGINS=https://app.legnaris.com.br
+      - API_BASE_URL=https://api-legnaris.paulovalleriote.io
+      - CORS_ALLOWED_ORIGINS=https://app-legnaris.paulovalleriote.io
 
 patches:
   - target: {kind: Ingress, name: api}
     patch: |-
-      - {op: replace, path: /spec/rules/0/host, value: api.legnaris.com.br}
+      - {op: replace, path: /spec/rules/0/host, value: api-legnaris.paulovalleriote.io}
       - {op: add, path: /metadata/annotations, value: {cert-manager.io/cluster-issuer: letsencrypt-prod, traefik.ingress.kubernetes.io/router.entrypoints: websecure, traefik.ingress.kubernetes.io/router.tls: "true", traefik.ingress.kubernetes.io/router.middlewares: default-security-headers@kubernetescrd}}
-      - {op: add, path: /spec/tls, value: [{hosts: [api.legnaris.com.br], secretName: api-tls}]}
+      - {op: add, path: /spec/tls, value: [{hosts: [api-legnaris.paulovalleriote.io], secretName: api-tls}]}
   - target: {kind: Ingress, name: web}
     patch: |-
-      - {op: replace, path: /spec/rules/0/host, value: app.legnaris.com.br}
+      - {op: replace, path: /spec/rules/0/host, value: app-legnaris.paulovalleriote.io}
       - {op: add, path: /metadata/annotations, value: {cert-manager.io/cluster-issuer: letsencrypt-prod, traefik.ingress.kubernetes.io/router.entrypoints: websecure, traefik.ingress.kubernetes.io/router.tls: "true", traefik.ingress.kubernetes.io/router.middlewares: default-web-security-headers@kubernetescrd}}
-      - {op: add, path: /spec/tls, value: [{hosts: [app.legnaris.com.br], secretName: web-tls}]}
+      - {op: add, path: /spec/tls, value: [{hosts: [app-legnaris.paulovalleriote.io], secretName: web-tls}]}
   # Production sends e-mail through Resend. The base keeps EMAIL_PROVIDER=log so
   # local clusters never need a Resend key. RESEND_API_KEY lives in the sealed
   # legnaris-secrets; this patch only references it, never embeds its value.
@@ -57,7 +57,7 @@ patches:
               - name: worker
                 env:
                   - {name: EMAIL_PROVIDER, value: resend}
-                  - {name: EMAIL_FROM, value: no-reply@mail.legnaris.com.br}
+                  - {name: EMAIL_FROM, value: no-reply@mail-legnaris.paulovalleriote.io}
                   - name: RESEND_API_KEY
                     valueFrom: {secretKeyRef: {name: legnaris-secrets, key: RESEND_API_KEY}}
   - target: {kind: StatefulSet, name: mongodb}

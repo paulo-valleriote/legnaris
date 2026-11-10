@@ -41,7 +41,7 @@ Create the plain env files (gitignored): `overlays/production/secrets.env`
 
 Before the first sync: merge a `gitops-bump` PR (or edit `newTag` by hand) so the
 overlay points at real `sha-` tags. The production overlay already sets the worker
-to `EMAIL_PROVIDER=resend` with `EMAIL_FROM=no-reply@mail.legnaris.com.br`; the
+to `EMAIL_PROVIDER=resend` with `EMAIL_FROM=no-reply@mail-legnaris.paulovalleriote.io`; the
 Resend API key must be in `overlays/production/secrets.env` as `RESEND_API_KEY`
 before sealing, or the worker pod stays in `CreateContainerConfigError`. The domain
 must be verified in Resend (SPF/DKIM/DMARC) before this overlay is synced.
@@ -73,8 +73,8 @@ window's length.
 3. Final dump from compose, restore into the cluster (section 3, on the VPS).
 4. Point the three DNS records at the k3s node; wait for certificates
    (`kubectl get certificate`).
-5. Verify: `https://api.legnaris.com.br/ready`, the web client, sign-in, an
-   OTP e-mail, `https://ops.legnaris.com.br/grafana` behind GitHub login.
+5. Verify: `https://api-legnaris.paulovalleriote.io/ready`, the web client, sign-in, an
+   OTP e-mail, `https://ops-legnaris.paulovalleriote.io/grafana` behind GitHub login.
 6. Keep the compose stack **stopped, not removed**, with its volumes, as the
    fallback for an agreed period.
 

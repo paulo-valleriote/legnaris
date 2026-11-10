@@ -149,7 +149,7 @@ func TestCSPReport(t *testing.T) {
 		h := newCSPHarness(30)
 
 		body := `{"csp-report":{` +
-			`"document-uri":"https://app.legnaris.com.br/sheets/1?token=secret#frag",` +
+			`"document-uri":"https://app-legnaris.paulovalleriote.io/sheets/1?token=secret#frag",` +
 			`"blocked-uri":"https://evil.example.com/track?u=1#x",` +
 			`"effective-directive":"script-src","disposition":"enforce"}}`
 
@@ -163,7 +163,7 @@ func TestCSPReport(t *testing.T) {
 		assert.Equal(t, "enforce", infos[0].attrs["disposition"])
 		assert.Equal(t, "2026-10-18T12:00:00Z", infos[0].attrs["timestamp"])
 		assert.Equal(t, "https://evil.example.com/track", infos[0].attrs["blocked_uri"])
-		assert.Equal(t, "https://app.legnaris.com.br/sheets/1", infos[0].attrs["document_uri"])
+		assert.Equal(t, "https://app-legnaris.paulovalleriote.io/sheets/1", infos[0].attrs["document_uri"])
 
 		assert.False(t, h.log.containsAny(func(entry logEntry) bool {
 			return strings.Contains(entry.attrs["blocked_uri"], "u=1") ||
@@ -178,8 +178,8 @@ func TestCSPReport(t *testing.T) {
 		h := newCSPHarness(30)
 
 		body := `[` +
-			`{"type":"csp-violation","body":{"documentURL":"https://app.legnaris.com.br/","blockedURL":"inline","effectiveDirective":"style-src","disposition":"report"}},` +
-			`{"type":"deprecation","body":{"documentURL":"https://app.legnaris.com.br/"}}` +
+			`{"type":"csp-violation","body":{"documentURL":"https://app-legnaris.paulovalleriote.io/","blockedURL":"inline","effectiveDirective":"style-src","disposition":"report"}},` +
+			`{"type":"deprecation","body":{"documentURL":"https://app-legnaris.paulovalleriote.io/"}}` +
 			`]`
 
 		rec := h.post(t, "application/reports+json", body, "10.0.0.1:1")
@@ -296,7 +296,7 @@ func TestCSPReport(t *testing.T) {
 		h := newCSPHarness(30)
 
 		rec := h.post(t, "application/csp-report",
-			`{"csp-report":{"document-uri":"https://app.legnaris.com.br/"}}`, "10.0.0.1:1")
+			`{"csp-report":{"document-uri":"https://app-legnaris.paulovalleriote.io/"}}`, "10.0.0.1:1")
 		require.Equal(t, http.StatusNoContent, rec.Code)
 
 		assert.Contains(t, h.scrape(t),
