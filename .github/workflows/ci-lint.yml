@@ -15,6 +15,7 @@ on:
       - 'backend/internal/**'
       - 'backend/shared/**'
       - 'deploy/**'
+      - 'scripts/**'
       - 'go.mod'
       - 'go.sum'
       - 'Dockerfile'
@@ -29,7 +30,7 @@ concurrency:
 
 jobs:
   lint:
-    name: golangci-lint, tidy, deploy stack config
+    name: golangci-lint, tidy, deploy stack config, shellcheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -48,6 +49,12 @@ jobs:
       # keeps go.mod/go.sum canonical (mirrored by `make mod-check`).
       - name: go.mod is tidy
         run: go mod tidy -diff
+
+      # The VPS deploy script runs as root-equivalent on the host and the dev
+      # scripts gate local work; shellcheck catches quoting and word-splitting
+      # bugs before they reach the VPS. Covers every shell file in those areas.
+      - name: shellcheck
+        run: shellcheck deploy/vps/*.sh scripts/*.sh
 
       # Interpolate the whole stack against the committed .env.example (every
       # required variable is a non-empty placeholder), so a required var that
