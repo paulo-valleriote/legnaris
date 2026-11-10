@@ -3,6 +3,7 @@ package deploy_test
 import (
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -131,12 +132,7 @@ func TestExampleEnvCoversRequiredComposeVars(t *testing.T) {
 }
 
 func hasArg(args []string, want string) bool {
-	for _, arg := range args {
-		if arg == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(args, want)
 }
 
 func readEnvExample(t *testing.T) string {
@@ -151,7 +147,7 @@ func readEnvExample(t *testing.T) string {
 // as absent.
 func parseEnvExample(raw string) map[string]string {
 	values := map[string]string{}
-	for _, line := range strings.Split(raw, "\n") {
+	for line := range strings.SplitSeq(raw, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
