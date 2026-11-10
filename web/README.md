@@ -36,14 +36,16 @@ npm run dev       # development server
 runs as the `web` service on `WEB_DOMAIN` (see `deploy/README.md`):
 
 ```bash
-cd deploy
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build web
+docker build -t legnaris-web:local web
 ```
+
+The production stack is started only by the CD workflow (see `deploy/README.md`
+§7.1); this image is a local build check.
 
 The browser-facing API origin is a **runtime setting**: the container writes
 `/config.json` from `API_BASE_URL` at start (`docker-entrypoint.d/`), and the client
 loads it (uncached) before the first render. `WEB_API_BASE_URL` in `deploy/.env`
-becomes `API_BASE_URL`, so one image serves dev, k3d and production and changing it
+becomes `API_BASE_URL`, so one image serves dev and production and changing it
 needs a restart, not `--build`. The origin must also appear in `connect-src` of the
 Traefik CSP (`deploy/traefik/dynamic.yml`) and the web origin in
 `CORS_ALLOWED_ORIGINS`.

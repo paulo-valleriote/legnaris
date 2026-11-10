@@ -85,9 +85,9 @@ the user is in the allowlist (`GITHUB_USER`) before letting them through.
 
 ## 3. Prerequisites
 
-1. **Domain** `paulovalleriote.io` (registered at Registro.br, DNS managed at Cloudflare) — already exists.
+1. **Domain** `paulovalleriote.io` — already exists.
 2. **GitHub OAuth App** (see §4).
-3. **DNS for the `api.` and `ops.` subdomains** (see §5).
+3. **DNS records** for the three subdomains (see §5).
 4. **oauth2-proxy cookie secret** (see §6).
 5. **Docker Compose >= 2.24** — `docker-compose.vps.yml` uses the `!reset`
    tag; older clients fail to parse it.
@@ -104,45 +104,19 @@ the user is in the allowlist (`GITHUB_USER`) before letting them through.
 
 > The callback requires HTTPS (GitHub only accepts `http://` for `localhost`).
 
-## 5. Migrate DNS to Cloudflare
+## 5. DNS records
 
-DNS becomes managed at **Cloudflare** (which also provides edge analytics)
-The domain stays **registered** at
-Registro.br — only *where* the zone is managed changes.
+Create three **A** records in the DNS zone of `paulovalleriote.io` (wherever it is
+managed), all pointing at the VPS IP. Leave every existing record untouched.
 
-### 5.1 Migrate the zone (once)
-
-1. Create an account at **https://dash.cloudflare.com** and click **Add a site**,
-   entering `paulovalleriote.io` (the Free plan is enough).
-2. Cloudflare **scans and imports** the current records (the Vercel apex).
-   Check they came through correctly.
-3. Cloudflare shows **two nameservers** (e.g. `xxx.ns.cloudflare.com`,
-   `yyy.ns.cloudflare.com`). Note them down.
-4. At **Registro.br**, replace the domain's **NS** with those two nameservers:
-   go to https://registro.br → My domains → `paulovalleriote.io` →
-   **DNS servers / Change NS**.
-5. Wait for propagation (minutes to a few hours). In Cloudflare the zone changes
-   to **Active**.
-
-### 5.2 Create the subdomains (in Cloudflare)
-
-**Production (VPS) — type A, leave "DNS only" (no proxy):**
 | Name | Type | Value | Proxy |
 |---|---|---|---|
-| `api-legnaris` | A | VPS IP | DNS only |
-| `legnaris` | A | VPS IP | DNS only |
-| `ops-legnaris` | A | VPS IP | DNS only |
+| `api-legnaris` | A | VPS IP | off (no CDN/proxy in front) |
+| `legnaris` | A | VPS IP | off |
+| `ops-legnaris` | A | VPS IP | off |
 
-### 5.3 Notes
-
-- **Vercel apex**: keep `paulovalleriote.io` in **DNS only** (don't enable the
-  proxy/orange cloud). Putting Cloudflare in front of Vercel causes a
-  double-CDN and cache conflict; Vercel already has its own analytics.
-- **Edge analytics (optional)**: if you want Cloudflare analytics for the
-  backend, enable the proxy (orange) on `api.`/`ops.`. In that case disable the
-  cache on `api.` and configure Traefik to trust the Cloudflare headers
-  (forwardedHeaders). The origin already uses Let's Encrypt, which works in
-  "Full (strict)" mode.
+Traefik obtains the Let's Encrypt certificates over HTTP-01, so the names must
+resolve to the VPS before the first start.
 
 ## 6. Configure `.env`
 
@@ -178,7 +152,7 @@ Loopback stays trusted in every case, and an invalid value fails the API boot
 instead of silently trusting nothing. Only the direct peer decides whether the
 forwarding header is read; a forged chain from any other address is ignored.
 
-### Multiple replicas and Kubernetes
+### Multiple replicas
 
 The rate limiters count attempts in the Redis named by `REDIS_URL`
 (`redis://redis:6379/0` in the compose stack), so the configured caps
@@ -187,23 +161,6 @@ every replica. Without `REDIS_URL` each replica counts alone and the effective
 cap is N times the configured one. If Redis is unreachable the API keeps serving
 and falls back to that per-replica cap until it recovers (fail-open, warned in
 the log at most once a minute per limiter); see `docs/adr/0003`.
-
-On Kubernetes, `TRUSTED_PROXY_CIDRS` must cover the network the ingress
-controller connects from, or every client shares the ingress address and the
-per-IP limits become one global budget:
-
-```yaml
-env:
-  - name: REDIS_URL
-    value: redis://redis.legnaris.svc:6379/0
-  - name: TRUSTED_PROXY_CIDRS
-    value: 10.42.0.0/16   # the pod CIDR the ingress controller runs in
-```
-
-The default (loopback, RFC 1918, ULA and link-local) already covers most
-clusters; set the CIDR explicitly when the ingress source is outside those
-ranges (CGNAT `100.64.0.0/10`, a public load balancer). Only the direct peer is
-checked against the set, so a peer outside it can never choose its own key.
 
 ## 7. Deploy (production)
 
@@ -634,6 +591,11 @@ Switching the broker to per-object mode resets the queue series once, so the que
    `crossOriginResourcePolicy` header options; COOP/CORP are set through
    `customResponseHeaders`. `go test ./deploy/...` fails on any headers option
    the pinned version does not support.
+6. **Accepted risk: the log collector mounts the Docker socket read-only.**
+   Alloy reads container logs through `/var/run/docker.sock`. A read-only mount
+   does not stop the Docker API from being driven through the socket, so a
+   compromise of Alloy is a compromise of the host's Docker API. The edge proxy
+   does not mount the socket. Replacing it with a socket proxy is out of scope.
 
 ---
 
