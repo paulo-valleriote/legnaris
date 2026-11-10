@@ -21,6 +21,32 @@ test.describe('installable, offline client', () => {
     expect(manifest.start_url).toBe('/');
   });
 
+  test('serves the favicon and apple-touch links with the right content type', async ({ page }) => {
+    await page.goto('/');
+    const hrefs = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLLinkElement>(
+          'link[rel="icon"], link[rel="apple-touch-icon"]',
+        ),
+      ].map((link) => ({ rel: link.rel, href: link.getAttribute('href') ?? '' })),
+    );
+    expect(hrefs.some((link) => link.href.endsWith('.svg'))).toBe(true);
+    expect(hrefs.some((link) => link.rel === 'apple-touch-icon')).toBe(true);
+
+    for (const link of hrefs) {
+      const response = await page.request.get(link.href);
+      expect(response.status(), link.href).toBe(200);
+      const contentType = response.headers()['content-type'] ?? '';
+      if (link.href.endsWith('.svg')) {
+        expect(contentType).toContain('svg');
+      } else if (link.href.endsWith('.ico')) {
+        expect(contentType).toMatch(/icon|octet-stream/);
+      } else {
+        expect(contentType).toContain('image/png');
+      }
+    }
+  });
+
   test('registers an external service worker that controls the page', async ({ page }) => {
     await page.goto('/');
 
