@@ -193,15 +193,14 @@ func assertNoLeftoverTemp(t *testing.T, dir string) {
 // bootstrapFixture is a fresh host: no deploy user, no firewall rules, no clone,
 // with every system path redirected into a temp directory.
 type bootstrapFixture struct {
-	state     string
-	logPath   string
-	env       []string
-	appDir    string
-	authKeys  string
-	dropin    string
-	autoUp    string
-	bin       string
-	sshdFails bool
+	state    string
+	logPath  string
+	env      []string
+	appDir   string
+	authKeys string
+	dropin   string
+	autoUp   string
+	bin      string
 }
 
 const testPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyOnly ci@legnaris"
