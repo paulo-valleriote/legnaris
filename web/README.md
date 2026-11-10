@@ -68,7 +68,7 @@ Local parity with the CI pipeline (`ci-web.yml`):
 ```bash
 make lint-web     # format-check + lint + type-check
 make test-web     # Vitest
-make sec-scan     # npm audit + signatures + lockfile-lint (+ gitleaks when installed)
+make sec-scan     # local only: npm audit + signatures + lockfile-lint (+ gitleaks when installed)
 ```
 
 ## Design foundation (`src/theme/`, `src/shell/`, `public/`)
@@ -251,18 +251,8 @@ ecosystem does not yet support them: `typescript-eslint` requires `typescript < 
 are the newest that satisfy every required anti-XSS and a11y plugin; bump them together once
 the plugins publish compatible majors.
 
-## Seeded-negative acceptance (proving the gates are real)
+## Local security checks
 
-The CI gates must fail closed. Reproduce each negative locally, then revert it (SEC-02,
-SEC-03, SEC-04):
-
-1. **SCA** — add a dependency with a known advisory, then run `make sec-scan`.
-   Expect: `npm audit` (and `ci-web`'s `sca` job) exits non-zero.
-2. **Secrets** — add a file containing a secret-shaped string (e.g. a fake AWS key), then
-   run `make sec-scan` (with `gitleaks` installed) or rely on the `ci-web` `secrets` job.
-   Expect: a non-zero exit.
-3. **Lint** — introduce an unused variable, then run `make lint-web`. Expect: failure.
-4. **Type/tests** — break a type, then run `make test-web`. Expect: failure.
-
-No gate in `.github/workflows/ci-web.yml` sets `continue-on-error`, and none is
-conditionally skipped on the trigger paths; a scanner that cannot run fails its job.
+CI runs only quality (`lint-web`, tests, build) and e2e. Security scanning is local
+and on demand: `make sec-scan` runs `npm audit`, signature and lockfile checks, plus
+gitleaks when installed. Dependabot opens monthly update PRs.

@@ -13,7 +13,7 @@ blob-report/
 .lighthouseci/
 lighthouse-report/
 
-# ZAP baseline workspace (ci-web.yml dast job)
+# ZAP baseline workspace (local ZAP runs)
 zap-wrk/
 
 # Editor/OS noise

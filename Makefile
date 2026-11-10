@@ -99,7 +99,7 @@ dev-db:         ## Run only MongoDB locally with the credentials from DATABASE_U
 		-d mongo:7.0
 
 ## --- Web client (React/Vite/TypeScript PWA) ---------------------------------
-## Local parity with the ci-web.yml pipeline; run after any change under web/.
+## Local parity with the ci-web.yml pipeline (sec-scan is local only); run after any change under web/.
 
 lint-web:       ## Client format-check, ESLint (anti-XSS) and type-check
 	@cd web && npm run format:check && npm run lint && npm run typecheck
@@ -107,14 +107,14 @@ lint-web:       ## Client format-check, ESLint (anti-XSS) and type-check
 test-web:       ## Client unit and rendering tests (Vitest)
 	@cd web && npm test
 
-sec-scan:       ## Client security gates: SCA, secret scan, lockfile integrity
+sec-scan:       ## Client security checks (local only): SCA, secret scan, lockfile integrity
 	@cd web && npm audit --audit-level=high
 	@cd web && npm audit signatures
 	@cd web && npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
 	@if command -v gitleaks >/dev/null 2>&1; then \
 		gitleaks detect --no-banner --redact --source . ; \
 	else \
-		echo "sec-scan: gitleaks not installed locally; CI runs it (ci-web secrets job)" ; \
+		echo "sec-scan: gitleaks not installed locally; skipping secret scan" ; \
 	fi
 
 ## --- Deploy (deploy/ stack) -------------------------------------------------

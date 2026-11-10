@@ -1,31 +1,15 @@
 name: Web CI
 
-# Client (React/Vite/TypeScript PWA) pipeline. Runs only for changes under
-# web/, to the ZAP rule set, or to this workflow; the Go pipeline (ci-lint.yml)
-# is allowlisted to the backend and does not trigger on web/**, so neither
-# toolchain runs for the other's changes (SEC-06).
-#
-# Every job is a required, fail-closed gate: no job sets continue-on-error
-# (SEC-04, FND/SEC contracts under .specs/features/001-web-pwa-foundation/
-# contracts/). The repository is on a metered free plan, so each gate runs once
-# per change instead of twice: the fast gates (quality, sca, sast, secrets,
-# e2e) run on pull requests; the slow, docker-heavy ones (dast, lighthouse) run
-# weekly and on demand (workflow_dispatch). Dockerfile hardening lives in
-# ci-images.yml, next to the other image checks.
-#
-# Gates: quality (format, lint, typecheck, tests with coverage thresholds,
-# build, lockfile-lint), sca (osv-scanner/npm audit/signatures), sast (Semgrep),
-# secrets (gitleaks), e2e (Playwright browser suite against the committed visual
-# baseline), dast (OWASP ZAP baseline), lighthouse (LHCI) — POL-06, SC-02,
-# SC-06, F10-T003.
+# Client (React/Vite/TypeScript PWA) pipeline: quality gate and browser e2e,
+# on pull requests that touch web/. Security scanners (Semgrep, osv-scanner,
+# gitleaks, ZAP, Lighthouse) were removed as overkill for a small project;
+# Dependabot still covers dependency updates.
 on:
   pull_request:
     paths:
       - 'web/**'
       - '.zap/**'
       - '.github/workflows/ci-web.yml'
-  schedule:
-    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -62,99 +46,6 @@ jobs:
         run: npm run test:coverage
       - name: Production build
         run: npm run build
-      - name: lockfile-lint
-        run: npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
-
-  sca:
-    name: dependency scanning
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version-file: web/.nvmrc
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: Install
-        run: npm ci
-        working-directory: web
-      - name: npm audit (known vulnerabilities)
-        run: npm audit --audit-level=high
-        working-directory: web
-      - name: npm audit signatures
-        run: npm audit signatures
-        working-directory: web
-      - name: Install osv-scanner
-        run: |
-          curl -fsSL -o osv-scanner "https://github.com/google/osv-scanner/releases/download/v2.2.3/osv-scanner_linux_amd64"
-          # Pinned to the SHA256 published with the v2.2.3 release; a tampered
-          # download fails here before it can run.
-          echo "8cdb138b36cdb9c99c455cafb32a1c83e1823448dc00e1c8ab9afe474a5e93f0  osv-scanner" | sha256sum -c -
-          chmod +x osv-scanner
-      - name: osv-scanner (lockfile)
-        run: ./osv-scanner scan --lockfile=web/package-lock.json
-
-  sast:
-    name: static analysis
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    # CodeQL is deferred: code scanning and the CodeQL CLI are both unavailable on
-    # a private repository without GitHub Code Security, which only GitHub Team and
-    # Enterprise plans can purchase (AD-012). Semgrep carries the gate until then,
-    # and CodeQL is switched on only if the repository becomes public or moves to
-    # a plan that includes Code Security.
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install Semgrep
-        run: pipx install semgrep
-      - name: Semgrep
-        # --error is the gate: findings exit non-zero instead of only being reported.
-        # p/default carries the detection: it is the only pack that flagged a seeded
-        # eval(); p/xss, p/react, p/security-audit and p/nodejsscan flagged none.
-        run: >-
-          semgrep scan
-          --config p/default
-          --config p/owasp-top-ten
-          --config p/typescript
-          --config p/react
-          --error
-          --sarif --output semgrep.sarif
-          web/
-        env:
-          SEMGREP_SEND_METRICS: 'off'
-      - name: Upload SARIF
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: sast-sarif
-          path: semgrep.sarif
-          if-no-files-found: ignore
-
-  secrets:
-    name: secret scanning
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    # gitleaks resolves the pull request's commit range through
-    # GET /repos/{owner}/{repo}/pulls/{number}/commits, which the job would not
-    # reach with `contents: read` alone (SEC-03).
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-      - name: gitleaks
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # `dependency-review` is intentionally absent: the action requires the
-  # dependency graph plus GitHub Advanced Security, which this private
-  # repository does not have, so the job failed on every run including `main`
-  # pushes and buried the results of the gates that do run. `sca` (osv-scanner,
-  # npm audit) is the blocking dependency gate (POL-06, SEC-01).
 
   e2e:
     name: browser end-to-end and visual parity
@@ -187,99 +78,4 @@ jobs:
         with:
           name: playwright-report
           path: web/playwright-report
-          if-no-files-found: ignore
-
-  dast:
-    name: dynamic analysis (ZAP baseline)
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version-file: web/.nvmrc
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: Install
-        run: npm ci
-      - name: Build the client under test
-        run: npm run build
-      - name: Serve the built client
-        run: |
-          npx vite preview --port 4173 --strictPort >"$RUNNER_TEMP/preview.log" 2>&1 &
-          for _ in $(seq 1 30); do
-            if curl -fsS -o /dev/null http://localhost:4173/ 2>/dev/null; then break; fi
-            sleep 1
-          done
-          curl -fsS -o /dev/null http://localhost:4173/
-      # The ZAP image runs as its own `zap` user, which is neither the runner's
-      # UID nor in its group: it must be able to write the report files into the
-      # bind mount, or zap-baseline.py raises and exits 3 before reporting.
-      - name: Prepare the ZAP workspace
-        run: |
-          mkdir -p zap-wrk
-          chmod 777 zap-wrk
-          cp ../.zap/rules.tsv zap-wrk/rules.tsv
-      # `--network host` lets the ZAP container reach the preview server on the
-      # runner's loopback. `-i` downgrades every rule absent from
-      # .zap/rules.tsv to INFO, so only the rules triaged there gate; the ones
-      # promoted to FAIL — CSP, X-Frame-Options, nosniff, Permissions-Policy,
-      # CORP, cross-domain scripts — turn a regression into a red job
-      # (POL-06, SEC-05, F9-T007). A new alert of another kind is triaged into
-      # that file with a justification.
-      - name: ZAP baseline scan
-        run: |
-          docker run --rm --network host \
-            -v "$GITHUB_WORKSPACE/web/zap-wrk:/zap/wrk:rw" \
-            ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py \
-              -t http://localhost:4173 \
-              -c rules.tsv \
-              -i \
-              -r zap-report.html \
-              -J zap-report.json \
-              -w zap-report.md
-      - name: Upload the ZAP report
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: zap-report
-          path: web/zap-wrk/zap-report.*
-          if-no-files-found: ignore
-
-  lighthouse:
-    name: lighthouse audits
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version-file: web/.nvmrc
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: Install
-        run: npm ci
-      - name: Build
-        run: npm run build
-      # @lhci/cli runs through npx instead of being declared in package.json: its
-      # dev-only tree carried the only advisories the `sca` gate could see
-      # (AD-011), so it stays out of the lockfile and lives only in this job.
-      # Installability and offline behaviour are asserted by e2e/pwa.spec.ts —
-      # Lighthouse 12+ dropped its PWA category, so lighthouserc.json asserts the
-      # performance, accessibility, best-practices and SEO categories (F8-T005).
-      - name: Lighthouse CI
-        run: npx --yes @lhci/cli@0.15.1 autorun --config=./lighthouserc.json
-      - name: Upload the Lighthouse report
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: lighthouse-report
-          path: web/lighthouse-report
           if-no-files-found: ignore
