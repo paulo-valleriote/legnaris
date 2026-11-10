@@ -32,7 +32,10 @@ done
 APP_DIR="${LEGNARIS_APP_DIR:-/opt/legnaris}"
 REPO_URL="${LEGNARIS_REPO_URL:-https://github.com/paulo-valleriote/legnaris.git}"
 AUTH_KEYS="${LEGNARIS_AUTHORIZED_KEYS:-/home/deploy/.ssh/authorized_keys}"
-SSHD_DROPIN="${LEGNARIS_SSHD_DROPIN:-/etc/ssh/sshd_config.d/99-legnaris.conf}"
+# The drop-in is named 00- because sshd keeps the first value it reads for each
+# keyword and reads the drop-ins in lexical order; 50-cloud-init.conf would win
+# over a 99- file. The effective settings are verified with sshd -T anyway.
+SSHD_DROPIN="${LEGNARIS_SSHD_DROPIN:-/etc/ssh/sshd_config.d/00-legnaris.conf}"
 AUTO_UPGRADES="${LEGNARIS_AUTO_UPGRADES:-/etc/apt/apt.conf.d/20auto-upgrades}"
 FIREWALL_PORTS=(22 80 443)
 
@@ -75,6 +78,19 @@ write_file() {
   mv -f "$tmp" "$path"
 }
 
+# own_for_deploy hands a path to the deploy user. Bootstrap runs as root, so the
+# chown is not gated on EUID; a non-root run fails loudly instead of skipping.
+own_for_deploy() {
+  act chown -R deploy:deploy "$1"
+}
+
+require_ufw() {
+  if ! command -v ufw >/dev/null 2>&1; then
+    echo "ufw is not installed; install it (apt-get install -y ufw) before bootstrap" >&2
+    exit 1
+  fi
+}
+
 ensure_deploy_user() {
   if id deploy >/dev/null 2>&1; then
     say "ok: user deploy exists"
@@ -98,9 +114,7 @@ ensure_authorized_key() {
   fi
   kept="$(grep -vF "$KEY" <<<"$existing" | sed '/^$/d' || true)"
   write_file "$AUTH_KEYS" 600 <<<"$(printf '%s\n%s' "$kept" "$restricted" | sed '/^$/d')"
-  if (( ! DRY_RUN && EUID == 0 )); then
-    chown -R deploy:deploy "$(dirname "$AUTH_KEYS")"
-  fi
+  own_for_deploy "$(dirname "$AUTH_KEYS")"
 }
 
 ensure_firewall() {
@@ -120,24 +134,50 @@ ensure_firewall() {
   fi
 }
 
-# apply_sshd writes the drop-in, validates the whole daemon config and only then
-# reloads. A failed validation restores the previous drop-in and fails the run.
+# verify_effective_sshd asks sshd for the settings it will actually use, after
+# every drop-in is merged. A file that sorts earlier can override the drop-in.
+verify_effective_sshd() {
+  local effective
+  effective="$(sshd -T 2>/dev/null || true)"
+  if grep -qx 'passwordauthentication no' <<<"$effective" &&
+    grep -qx 'permitrootlogin no' <<<"$effective"; then
+    return 0
+  fi
+  echo "effective sshd settings do not disable password and root login; another config file overrides the drop-in" >&2
+  return 1
+}
+
+# restore_dropin puts back the previous drop-in content, or removes the file
+# when there was none.
+restore_dropin() {
+  local previous="$1"
+  if [[ -n "$previous" ]]; then
+    printf '%s\n' "$previous" >"$SSHD_DROPIN"
+  else
+    rm -f "$SSHD_DROPIN"
+  fi
+}
+
+# apply_sshd writes the drop-in, validates the whole daemon config, checks the
+# effective settings and only then reloads. Any failed check restores the
+# previous drop-in and fails the run.
 apply_sshd() {
   local previous
   previous="$(cat "$SSHD_DROPIN" 2>/dev/null || true)"
   if (( DRY_RUN )); then
-    echo "[dry-run] write $SSHD_DROPIN, validate with sshd -t, reload ssh"
+    echo "[dry-run] write $SSHD_DROPIN, validate with sshd -t and sshd -T, reload ssh"
     return 0
   fi
   mkdir -p "$(dirname "$SSHD_DROPIN")"
   printf '%s\n' "$HARDENED_SSHD" >"$SSHD_DROPIN"
   if ! sshd -t; then
-    if [[ -n "$previous" ]]; then
-      printf '%s\n' "$previous" >"$SSHD_DROPIN"
-    else
-      rm -f "$SSHD_DROPIN"
-    fi
+    restore_dropin "$previous"
     echo "sshd config is invalid; the drop-in was reverted" >&2
+    return 1
+  fi
+  if ! verify_effective_sshd; then
+    restore_dropin "$previous"
+    echo "the drop-in was reverted" >&2
     return 1
   fi
   systemctl reload ssh
@@ -147,6 +187,7 @@ ensure_ssh_hardening() {
   local current
   current="$(cat "$SSHD_DROPIN" 2>/dev/null || true)"
   if [[ "$current" == "$HARDENED_SSHD" ]]; then
+    verify_effective_sshd || return 1
     say "ok: ssh hardening in place"
   elif (( KEY_LOGIN_VERIFIED )); then
     apply_sshd
@@ -171,9 +212,11 @@ ensure_clone() {
     say "ok: checkout exists at $APP_DIR"
   else
     act git clone "$REPO_URL" "$APP_DIR"
+    own_for_deploy "$APP_DIR"
   fi
 }
 
+require_ufw
 ensure_deploy_user
 ensure_authorized_key
 ensure_firewall

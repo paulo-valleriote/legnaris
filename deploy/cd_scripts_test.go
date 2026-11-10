@@ -18,23 +18,9 @@ const (
 )
 
 func TestCheckAncestryRejectsMalformedSHA(t *testing.T) {
-	tests := []struct {
-		name string
-		sha  string
-	}{
-		{name: "Edge: empty SHA", sha: ""},
-		{name: "Edge: 39-character SHA", sha: validSHA[:39]},
-		{name: "Edge: 41-character SHA", sha: validSHA + "0"},
-		{name: "Edge: uppercase hex", sha: strings.ToUpper(validSHA)},
-		{name: "Edge: shell metacharacters", sha: validSHA + ";id"},
-		{name: "Edge: a branch name is not a SHA", sha: "main"},
-	}
-
-	for _, tc := range tests {
+	for _, tc := range malformedSHACases() {
 		t.Run(tc.name, func(t *testing.T) {
-			logPath := filepath.Join(t.TempDir(), "calls.log")
-			bin := fakeBin(t, map[string]string{"git": `exit 0`})
-			env := []string{fakePATH(bin), "FAKE_LOG=" + logPath}
+			env, logPath := scriptEnv(t, map[string]string{"git": `exit 0`})
 
 			res := runScript(t, ancestryScript, env, "", tc.sha)
 
@@ -78,6 +64,28 @@ esac`,
 	}
 }
 
+func TestCheckAncestryRejectsBadBaseRef(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseRef string
+	}{
+		{name: "Edge: empty base ref", baseRef: ""},
+		{name: "Edge: base ref that looks like a git option", baseRef: "--output=/tmp/x"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			env, logPath := scriptEnv(t, map[string]string{"git": `exit 0`})
+			env = append(env, "BASE_REF="+tc.baseRef)
+
+			res := runScript(t, ancestryScript, env, "", validSHA)
+
+			assert.Equal(t, usageExit, res.code, res.output)
+			assert.Empty(t, readLog(t, logPath), "git must not run with a bad base ref")
+		})
+	}
+}
+
 func TestCheckAncestryBaseRefOverride(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "calls.log")
 	bin := fakeBin(t, map[string]string{"git": `exit 0`})
@@ -90,26 +98,40 @@ func TestCheckAncestryBaseRefOverride(t *testing.T) {
 }
 
 func TestCheckImagesRejectsMalformedSHA(t *testing.T) {
-	tests := []struct {
-		name string
-		sha  string
-	}{
-		{name: "Edge: empty SHA", sha: ""},
-		{name: "Edge: 39-character SHA", sha: validSHA[:39]},
-		{name: "Edge: uppercase hex", sha: strings.ToUpper(validSHA)},
-		{name: "Edge: injected argument", sha: validSHA + " --all"},
-	}
-
-	for _, tc := range tests {
+	for _, tc := range malformedSHACases() {
 		t.Run(tc.name, func(t *testing.T) {
-			logPath := filepath.Join(t.TempDir(), "calls.log")
-			bin := fakeBin(t, map[string]string{"docker": `exit 0`})
-			env := []string{fakePATH(bin), "FAKE_LOG=" + logPath}
+			env, logPath := scriptEnv(t, map[string]string{"docker": `exit 0`})
 
 			res := runScript(t, imagesScript, env, "", tc.sha)
 
 			assert.Equal(t, usageExit, res.code, res.output)
 			assert.Empty(t, readLog(t, logPath), "docker must not run for a malformed SHA")
+		})
+	}
+}
+
+func TestCheckImagesRejectsMalformedOwner(t *testing.T) {
+	tests := []struct {
+		name  string
+		owner string
+	}{
+		{name: "Edge: empty owner", owner: ""},
+		{name: "Edge: owner with a path separator", owner: "acme/evil"},
+		{name: "Edge: owner with a leading hyphen", owner: "-acme"},
+		{name: "Edge: owner with whitespace", owner: "ac me"},
+		{name: "Edge: owner with a dot", owner: "ac.me"},
+		{name: "Edge: owner that climbs the path", owner: "../other"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			env, logPath := scriptEnv(t, map[string]string{"docker": `exit 0`})
+			env = append(env, "IMAGE_OWNER="+tc.owner)
+
+			res := runScript(t, imagesScript, env, "", validSHA)
+
+			assert.Equal(t, usageExit, res.code, res.output)
+			assert.Empty(t, readLog(t, logPath), "docker must not run for a malformed owner")
 		})
 	}
 }
@@ -190,6 +212,8 @@ func TestProbeRejectsBadInput(t *testing.T) {
 		{name: "Error: non-numeric attempts", url: "https://example.invalid/", env: []string{"PROBE_ATTEMPTS=many"}},
 		{name: "Error: empty timeout", url: "https://example.invalid/", env: []string{"PROBE_TIMEOUT="}},
 		{name: "Error: negative interval", url: "https://example.invalid/", env: []string{"PROBE_INTERVAL=-1"}},
+		{name: "Error: non-numeric interval", url: "https://example.invalid/", env: []string{"PROBE_INTERVAL=soon"}},
+		{name: "Error: empty interval", url: "https://example.invalid/", env: []string{"PROBE_INTERVAL="}},
 	}
 
 	for _, tc := range tests {

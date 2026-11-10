@@ -2,6 +2,7 @@ package deploy_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,7 +14,7 @@ import (
 const (
 	entryScript     = "vps/ssh-entry.sh"
 	bootstrapScript = "vps/bootstrap.sh"
-	usageExit       = 64
+	deployScript    = "vps/deploy.sh"
 )
 
 // stageEntryTree copies the forced-command script into a throwaway checkout
@@ -55,12 +56,6 @@ func TestSSHEntryRefusesInvalidRequests(t *testing.T) {
 		{name: "Error: request type without a SHA", command: "deploy"},
 		{name: "Error: unknown request type", command: "shell " + sha},
 		{name: "Error: rollback is not a request type", command: "rollback " + sha},
-		{name: "Edge: 39-character SHA", command: "deploy " + sha[:39]},
-		{name: "Edge: 41-character SHA", command: "deploy " + sha + "0"},
-		{name: "Edge: uppercase hex SHA", command: "deploy " + strings.ToUpper(sha)},
-		{name: "Edge: non-hex character", command: "deploy g" + sha[1:]},
-		{name: "Edge: SHA with a command substitution", command: "deploy $(id)"},
-		{name: "Edge: SHA followed by a shell separator", command: "deploy " + sha + ";id"},
 		{name: "Edge: embedded newline smuggles a second command", command: "deploy " + sha + "\nid"},
 		{name: "Error: extra argument after the SHA", command: "deploy " + sha + " env extra"},
 		{name: "Error: env flag in the wrong case", command: "deploy " + sha + " ENV"},
@@ -74,6 +69,18 @@ func TestSSHEntryRefusesInvalidRequests(t *testing.T) {
 			assert.Equal(t, usageExit, res.code)
 			assert.Contains(t, res.output, "usage:")
 			assert.NoFileExists(t, stubOut, "deploy.sh must not run for a rejected request")
+		})
+	}
+}
+
+func TestSSHEntryRejectsMalformedSHA(t *testing.T) {
+	for _, tc := range malformedSHACases() {
+		t.Run(tc.name, func(t *testing.T) {
+			entry, _, stubOut := stageEntryTree(t)
+			res := runScript(t, entry, entryEnv("deploy "+tc.sha, stubOut), "")
+
+			assert.Equal(t, usageExit, res.code, res.output)
+			assert.NoFileExists(t, stubOut, "deploy.sh must not run for a malformed SHA")
 		})
 	}
 }
@@ -141,6 +148,21 @@ func TestSSHEntryWritesEnvironmentFromStdin(t *testing.T) {
 			wantEnv:    "",
 			wantDeploy: false,
 		},
+		{
+			name:        "Edge: a lone newline on stdin is refused and keeps the existing file",
+			stdin:       "\n",
+			preExisting: "OLD=1\n",
+			wantCode:    65,
+			wantEnv:     "OLD=1\n",
+			wantDeploy:  false,
+		},
+		{
+			name:       "Edge: whitespace-only stdin writes nothing",
+			stdin:      " \t\n\n  \n",
+			wantCode:   65,
+			wantEnv:    "",
+			wantDeploy: false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -203,6 +225,9 @@ type bootstrapFixture struct {
 	bin      string
 }
 
+// bootstrapHardenedSSHD is the drop-in content the bootstrap must produce.
+const bootstrapHardenedSSHD = "PasswordAuthentication no\nPermitRootLogin no"
+
 const testPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyOnly ci@legnaris"
 
 func newBootstrapFixture(t *testing.T) *bootstrapFixture {
@@ -213,7 +238,7 @@ func newBootstrapFixture(t *testing.T) *bootstrapFixture {
 		logPath:  filepath.Join(root, "calls.log"),
 		appDir:   filepath.Join(root, "opt", "legnaris"),
 		authKeys: filepath.Join(root, "home", "deploy", ".ssh", "authorized_keys"),
-		dropin:   filepath.Join(root, "sshd", "99-legnaris.conf"),
+		dropin:   filepath.Join(root, "sshd", "00-legnaris.conf"),
 		autoUp:   filepath.Join(root, "apt", "20auto-upgrades"),
 	}
 	require.NoError(t, os.MkdirAll(f.state, 0o755))
@@ -239,7 +264,12 @@ case "$1" in
     ;;
   --force) touch "$FAKE_STATE/ufw_active" ;;
 esac`,
-		"sshd":      `[[ -z "${FAKE_SSHD_FAILS:-}" ]]`,
+		"sshd": `
+case "$1" in
+  -t) [[ -z "${FAKE_SSHD_FAILS:-}" ]] ;;
+  -T) printf '%b\n' "${FAKE_SSHD_EFFECTIVE-passwordauthentication no\npermitrootlogin no}" ;;
+esac`,
+		"chown":     `exit 0`,
 		"systemctl": `exit 0`,
 		"dpkg":      `[[ -f "$FAKE_STATE/unattended" ]]`,
 		"apt-get":   `touch "$FAKE_STATE/unattended"`,
@@ -267,7 +297,7 @@ func (f *bootstrapFixture) run(t *testing.T, args ...string) scriptResult {
 
 // mutatingCalls lists the logged calls that change host state.
 var mutatingCalls = []string{
-	"useradd", "usermod", "ufw allow", "ufw --force enable", "apt-get", "git clone", "systemctl",
+	"useradd", "usermod", "ufw allow", "ufw --force enable", "apt-get", "git clone", "chown", "systemctl",
 }
 
 func assertNoMutations(t *testing.T, log string) {
@@ -356,6 +386,98 @@ func TestBootstrapPasswordLoginRequiresVerificationFlag(t *testing.T) {
 	assert.NotContains(t, readLog(t, f.logPath), "systemctl reload ssh")
 }
 
+func TestBootstrapFreshCloneIsOwnedByDeployUser(t *testing.T) {
+	f := newBootstrapFixture(t)
+
+	res := runScript(t, bootstrapScript, f.env, "", "--key-login-verified")
+
+	require.Equal(t, 0, res.code, res.output)
+	log := readLog(t, f.logPath)
+	assert.Contains(t, log, "chown -R deploy:deploy "+f.appDir)
+	assert.Greater(t, strings.Index(log, "chown -R deploy:deploy "+f.appDir), strings.Index(log, "git clone"),
+		"ownership must be handed over after the clone exists")
+}
+
+func TestBootstrapFailsWithoutUfw(t *testing.T) {
+	if _, err := exec.LookPath("ufw"); err == nil {
+		t.Skip("host has ufw on PATH; the missing-binary case cannot be simulated")
+	}
+	f := newBootstrapFixture(t)
+	require.NoError(t, os.Remove(filepath.Join(f.bin, "ufw")))
+
+	res := runScript(t, bootstrapScript, f.env, "", "--key-login-verified")
+
+	assert.Equal(t, 1, res.code, res.output)
+	assert.Contains(t, res.output, "ufw is not installed")
+	assertNoMutations(t, readLog(t, f.logPath))
+	assert.NoFileExists(t, f.dropin)
+}
+
+func TestBootstrapVerifiesEffectiveSSHDSettings(t *testing.T) {
+	tests := []struct {
+		name           string
+		effective      string
+		preExisting    bool
+		wantCode       int
+		wantReload     bool
+		wantDropinGone bool
+	}{
+		{
+			name:       "Happy path: effective settings disable password and root login",
+			effective:  "passwordauthentication no\npermitrootlogin no",
+			wantCode:   0,
+			wantReload: true,
+		},
+		{
+			name:           "Error: an earlier file re-enables password login, drop-in is reverted",
+			effective:      "passwordauthentication yes\npermitrootlogin no",
+			wantCode:       1,
+			wantDropinGone: true,
+		},
+		{
+			name:           "Error: an earlier file re-enables root login, drop-in is reverted",
+			effective:      "passwordauthentication no\npermitrootlogin yes",
+			wantCode:       1,
+			wantDropinGone: true,
+		},
+		{
+			name:           "Edge: effective output that omits the settings fails closed",
+			effective:      "",
+			wantCode:       1,
+			wantDropinGone: true,
+		},
+		{
+			name:        "Error: drop-in already present but shadowed fails loudly on rerun",
+			effective:   "passwordauthentication yes\npermitrootlogin no",
+			preExisting: true,
+			wantCode:    1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newBootstrapFixture(t)
+			f.env = append(f.env, "FAKE_SSHD_EFFECTIVE="+tc.effective)
+			if tc.preExisting {
+				require.NoError(t, os.MkdirAll(filepath.Dir(f.dropin), 0o755))
+				require.NoError(t, os.WriteFile(f.dropin, []byte(bootstrapHardenedSSHD+"\n"), 0o644))
+			}
+
+			res := runScript(t, bootstrapScript, f.env, "", "--key-login-verified")
+
+			assert.Equal(t, tc.wantCode, res.code, res.output)
+			log := readLog(t, f.logPath)
+			assert.Equal(t, tc.wantReload, strings.Contains(log, "systemctl reload ssh"))
+			if tc.wantCode != 0 {
+				assert.Contains(t, res.output, "effective sshd settings")
+			}
+			if tc.wantDropinGone {
+				assert.NoFileExists(t, f.dropin)
+			}
+		})
+	}
+}
+
 func TestBootstrapRollsBackWhenSSHDConfigIsInvalid(t *testing.T) {
 	f := newBootstrapFixture(t)
 	f.env = append(f.env, "FAKE_SSHD_FAILS=1")
@@ -436,4 +558,217 @@ func removeEnv(env []string, prefix string) []string {
 		}
 	}
 	return out
+}
+
+const (
+	newSHA = "1111111111111111111111111111111111111111"
+	oldSHA = "2222222222222222222222222222222222222222"
+)
+
+// deployFakes records git and docker calls. Each FAKE_FAIL_* variable selects
+// one failure: a git command containing FAKE_FAIL_GIT, or a compose subcommand
+// FAKE_FAIL_SUB run for the image tag FAKE_FAIL_TAG. FAKE_ANCESTOR is the exit
+// status of merge-base, and FAKE_FETCH_MAIN_FAIL fails fetching origin main.
+var deployFakes = map[string]string{
+	"git": `
+if [[ -n "${FAKE_FAIL_GIT:-}" && "$*" == *"$FAKE_FAIL_GIT"* ]]; then exit 1; fi
+if [[ "$1" == fetch && " $* " == *" origin main "* && -n "${FAKE_FETCH_MAIN_FAIL:-}" ]]; then exit 1; fi
+if [[ "$1" == merge-base ]]; then exit "${FAKE_ANCESTOR:-0}"; fi`,
+	"docker": `
+for sub in pull up; do
+  [[ " $* " == *" $sub "* ]] || continue
+  printf '%s %s\n' "${IMAGE_TAG:-none}" "$sub" >>"$FAKE_LOG"
+  if [[ -n "${FAKE_FAIL_TAG:-}" && "${IMAGE_TAG:-}" == "$FAKE_FAIL_TAG" && "$sub" == "${FAKE_FAIL_SUB:-}" ]]; then exit 1; fi
+done
+exit 0`,
+}
+
+// stageDeployTree copies deploy.sh into a throwaway checkout layout. withGit
+// creates an empty .git directory so the ancestry check on main is active.
+func stageDeployTree(t *testing.T, withGit bool) (script, root string) {
+	t.Helper()
+	root = t.TempDir()
+	vps := filepath.Join(root, "deploy", "vps")
+	require.NoError(t, os.MkdirAll(vps, 0o755))
+	src, err := os.ReadFile(deployScript)
+	require.NoError(t, err)
+	script = filepath.Join(vps, "deploy.sh")
+	require.NoError(t, os.WriteFile(script, src, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "deploy", "docker-compose.yml"), nil, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "deploy", "docker-compose.vps.yml"), nil, 0o644))
+	if withGit {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0o755))
+	}
+	return script, root
+}
+
+// composeActions returns the logged compose calls as "<tag> <subcommand>".
+func composeActions(log string) []string {
+	var out []string
+	for _, line := range strings.Split(strings.TrimSpace(log), "\n") {
+		if strings.HasPrefix(line, "sha-") || strings.HasPrefix(line, "none ") {
+			out = append(out, strings.TrimPrefix(line, "none "))
+		}
+	}
+	return out
+}
+
+func readFileOrEmpty(t *testing.T, path string) string {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return ""
+	}
+	require.NoError(t, err)
+	return strings.TrimSpace(string(raw))
+}
+
+func TestDeployReleaseFailuresStopBeforeUp(t *testing.T) {
+	tests := []struct {
+		name       string
+		prev       string
+		env        []string
+		wantCode   int
+		wantCalls  []string
+		wantState  string
+		wantOutput string
+	}{
+		{
+			name:      "Happy path: new commit is pulled, started and recorded",
+			prev:      oldSHA,
+			wantCode:  0,
+			wantCalls: []string{"sha-" + newSHA + " pull", "sha-" + newSHA + " up"},
+			wantState: newSHA,
+		},
+		{
+			name:       "Error: fetch fails, up is not run and the previous commit is restored",
+			prev:       oldSHA,
+			env:        []string{"FAKE_FAIL_GIT=fetch --depth 1 origin " + newSHA},
+			wantCode:   1,
+			wantCalls:  []string{"sha-" + oldSHA + " pull", "sha-" + oldSHA + " up"},
+			wantState:  oldSHA,
+			wantOutput: "rolling back",
+		},
+		{
+			name:       "Error: checkout fails, up is not run and the previous commit is restored",
+			prev:       oldSHA,
+			env:        []string{"FAKE_FAIL_GIT=checkout --detach " + newSHA},
+			wantCode:   1,
+			wantCalls:  []string{"sha-" + oldSHA + " pull", "sha-" + oldSHA + " up"},
+			wantState:  oldSHA,
+			wantOutput: "rolling back",
+		},
+		{
+			name:      "Error: image pull fails, up is not run for the new commit",
+			prev:      oldSHA,
+			env:       []string{"FAKE_FAIL_TAG=sha-" + newSHA, "FAKE_FAIL_SUB=pull"},
+			wantCode:  1,
+			wantCalls: []string{"sha-" + newSHA + " pull", "sha-" + oldSHA + " pull", "sha-" + oldSHA + " up"},
+			wantState: oldSHA,
+		},
+		{
+			name:      "Error: new stack never becomes healthy, previous commit is restored",
+			prev:      oldSHA,
+			env:       []string{"FAKE_FAIL_TAG=sha-" + newSHA, "FAKE_FAIL_SUB=up"},
+			wantCode:  1,
+			wantCalls: []string{"sha-" + newSHA + " pull", "sha-" + newSHA + " up", "sha-" + oldSHA + " pull", "sha-" + oldSHA + " up"},
+			wantState: oldSHA,
+		},
+		{
+			name:      "Edge: failure with no previous deploy recorded has nothing to roll back to",
+			prev:      "",
+			env:       []string{"FAKE_FAIL_GIT=fetch --depth 1 origin " + newSHA},
+			wantCode:  1,
+			wantCalls: nil,
+			wantState: "",
+		},
+		{
+			name:       "Edge: rollback target fails too and the run reports it",
+			prev:       oldSHA,
+			env:        []string{"FAKE_FAIL_GIT=fetch --depth 1 origin " + newSHA, "FAKE_FAIL_TAG=sha-" + oldSHA, "FAKE_FAIL_SUB=pull"},
+			wantCode:   1,
+			wantCalls:  []string{"sha-" + oldSHA + " pull"},
+			wantState:  oldSHA,
+			wantOutput: "rollback also failed",
+		},
+		{
+			name:      "Edge: redeploying the recorded commit does not roll back to itself",
+			prev:      newSHA,
+			env:       []string{"FAKE_FAIL_GIT=fetch --depth 1 origin " + newSHA},
+			wantCode:  1,
+			wantCalls: nil,
+			wantState: newSHA,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			script, root := stageDeployTree(t, false)
+			stateFile := filepath.Join(root, "deploy", ".deployed_sha")
+			if tc.prev != "" {
+				require.NoError(t, os.WriteFile(stateFile, []byte(tc.prev+"\n"), 0o644))
+			}
+			env, logPath := scriptEnv(t, deployFakes)
+			env = append(env, tc.env...)
+
+			res := runScript(t, script, env, "", newSHA)
+
+			assert.Equal(t, tc.wantCode, res.code, res.output)
+			assert.Equal(t, tc.wantCalls, composeActions(readLog(t, logPath)))
+			if tc.wantOutput != "" {
+				assert.Contains(t, res.output, tc.wantOutput)
+			}
+			assert.Equal(t, tc.wantState, readFileOrEmpty(t, stateFile))
+		})
+	}
+}
+
+func TestDeployRefusesCommitOutsideMain(t *testing.T) {
+	tests := []struct {
+		name       string
+		env        []string
+		wantCode   int
+		wantOutput string
+	}{
+		{
+			name:       "Error: commit is not an ancestor of origin/main",
+			env:        []string{"FAKE_ANCESTOR=1"},
+			wantCode:   66,
+			wantOutput: "is not an ancestor of origin/main",
+		},
+		{
+			name:       "Error: origin/main cannot be fetched, so the check fails closed",
+			env:        []string{"FAKE_FETCH_MAIN_FAIL=1"},
+			wantCode:   1,
+			wantOutput: "could not fetch origin/main",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			script, root := stageDeployTree(t, true)
+			env, logPath := scriptEnv(t, deployFakes)
+			env = append(env, tc.env...)
+
+			res := runScript(t, script, env, "", newSHA)
+
+			assert.Equal(t, tc.wantCode, res.code, res.output)
+			assert.Contains(t, res.output, tc.wantOutput)
+			assert.Empty(t, composeActions(readLog(t, logPath)), "nothing may be pulled or started")
+			assert.NoFileExists(t, filepath.Join(root, "deploy", ".deployed_sha"))
+		})
+	}
+}
+
+func TestDeployChecksAncestryBeforeRelease(t *testing.T) {
+	script, _ := stageDeployTree(t, true)
+	env, logPath := scriptEnv(t, deployFakes)
+
+	res := runScript(t, script, env, "", newSHA)
+
+	require.Equal(t, 0, res.code, res.output)
+	log := readLog(t, logPath)
+	assert.Contains(t, log, "git fetch --quiet origin main")
+	assert.Contains(t, log, "git merge-base --is-ancestor "+newSHA+" origin/main")
+	assert.Equal(t, []string{"sha-" + newSHA + " pull", "sha-" + newSHA + " up"}, composeActions(log))
 }

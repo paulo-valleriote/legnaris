@@ -10,7 +10,11 @@ if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
   exit 64
 fi
 
-BASE="${BASE_REF:-origin/main}"
+BASE="${BASE_REF-origin/main}"
+if [[ -z "$BASE" || "$BASE" == -* ]]; then
+  echo "usage: BASE_REF must be a non-empty ref that does not start with '-'" >&2
+  exit 64
+fi
 if git merge-base --is-ancestor "$SHA" "$BASE"; then
   echo "$SHA is on $BASE"
   exit 0
