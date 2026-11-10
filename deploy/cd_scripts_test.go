@@ -279,6 +279,10 @@ func TestCheckEnvKeysMatchesExample(t *testing.T) {
 MONGO_PASSWORD=change-me
 export-free=ignored
 API_URL=https://example.invalid
+# Optional: prose mentioning NOT_A_KEY without an assignment is ignored.
+# OPTIONAL_KEY=value
+#LOOSE_OPTIONAL=1
+# lower_case=ignored
 `
 	tests := []struct {
 		name     string
@@ -307,6 +311,28 @@ API_URL=https://example.invalid
 			stdin:    "MONGO_PASSWORD=real\nAPI_URL=x\nSTRAY=1\n",
 			wantCode: 1,
 			wantOut:  "unknown in production env: STRAY",
+		},
+		{
+			name:     "Happy path: keys documented only as comments are allowed",
+			stdin:    "MONGO_PASSWORD=real\nAPI_URL=x\nOPTIONAL_KEY=1\nLOOSE_OPTIONAL=2\n",
+			wantCode: 0,
+		},
+		{
+			name:     "Edge: optional keys are not required",
+			stdin:    "MONGO_PASSWORD=real\nAPI_URL=x\n",
+			wantCode: 0,
+		},
+		{
+			name:     "Error: a lower-case comment assignment does not widen the allowed set",
+			stdin:    "MONGO_PASSWORD=real\nAPI_URL=x\nlower_case=1\n",
+			wantCode: 1,
+			wantOut:  "unknown in production env: lower_case",
+		},
+		{
+			name:     "Error: a word from prose is still unknown",
+			stdin:    "MONGO_PASSWORD=real\nAPI_URL=x\nNOT_A_KEY=1\n",
+			wantCode: 1,
+			wantOut:  "unknown in production env: NOT_A_KEY",
 		},
 		{
 			name:     "Edge: a commented-out key counts as missing",
