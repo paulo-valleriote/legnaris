@@ -1063,13 +1063,18 @@ func TestSharedRateLimitStore(t *testing.T) {
 		assert.NotContains(t, env.RequiredKeys(), "REDIS_URL")
 	})
 
-	t.Run("Happy path: the runbook documents TRUSTED_PROXY_CIDRS for Kubernetes", func(t *testing.T) {
+	t.Run("Happy path: the runbook documents REDIS_URL for replicas and TRUSTED_PROXY_CIDRS", func(t *testing.T) {
 		raw, err := os.ReadFile("README.md")
 		require.NoError(t, err)
 		section := string(raw)
-		assert.Contains(t, section, "Kubernetes")
 		assert.Contains(t, section, "REDIS_URL")
-		assert.Regexp(t, `(?s)Kubernetes.*TRUSTED_PROXY_CIDRS`, section)
+		assert.Contains(t, section, "TRUSTED_PROXY_CIDRS")
+	})
+
+	t.Run("Edge: the runbook carries no Kubernetes guidance after the k8s stack was removed", func(t *testing.T) {
+		raw, err := os.ReadFile("README.md")
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), "Kubernetes")
 	})
 
 	t.Run("Edge: .env.example documents REDIS_URL as optional", func(t *testing.T) {
