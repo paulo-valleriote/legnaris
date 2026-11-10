@@ -172,28 +172,64 @@ docker compose ps        # mongodb "healthy" and the rest "Up"
 
 ## 7.1 Automated deploy (GitHub Actions → VPS)
 
-`ci-images.yml` publishes scanned images to GHCR tagged `sha-<commit>`; then
-`.github/workflows/cd-vps.yml` SSHes into the VPS and runs
-`deploy/vps/deploy.sh <sha>`, which checks out that commit, pulls the images via
-`docker-compose.vps.yml` (no build on the VPS), starts the stack with
-`--wait` and rolls back to the previous commit if it does not become healthy.
-Manual redeploy or rollback: run the workflow with `workflow_dispatch` and a SHA.
+`ci-images.yml` publishes scanned images to GHCR tagged `sha-<commit>`. Then
+`.github/workflows/cd-vps.yml` deploys that commit and stops before the VPS is
+touched if any check fails:
 
-One-time VPS setup (Ubuntu 24.04, Docker installed):
+1. The SHA must be an ancestor of `main` (`deploy/cd/check-ancestry.sh`), so a
+   manual redeploy cannot reach production with an unreviewed commit.
+2. The `app`, `web` and `rabbitmq` images for the SHA must exist in GHCR
+   (`deploy/cd/check-images.sh`). The packages are public, so the VPS needs no
+   registry login.
+3. The `PRODUCTION_ENV` secret must have the same keys as `deploy/.env.example`
+   (`deploy/cd/check-env-keys.sh`). Missing or unknown keys fail the run.
+4. The job runs `deploy <sha> env` over SSH with the file on stdin. The CI key
+   is locked on the VPS by `restrict,command=` to `deploy/vps/ssh-entry.sh`,
+   which accepts only that request shape (a 40-hex SHA, optionally followed by
+   `env`). With `env` it writes `deploy/.env` atomically at mode 600, then
+   `deploy/vps/deploy.sh` checks out the commit, pulls the images
+   (`docker-compose.vps.yml`, no build on the VPS) and starts the stack with
+   `--wait`. A failed start rolls back to the previous commit.
+5. `deploy/cd/probe.sh` checks `https://api-legnaris.paulovalleriote.io/health`
+   and the web root, with bounded retries, so a green run means the site answers.
 
-```bash
-adduser --disabled-password deploy && usermod -aG docker deploy
-git clone https://github.com/paulo-valleriote/legnaris.git /opt/legnaris
-chown -R deploy: /opt/legnaris
-# as deploy: create /opt/legnaris/deploy/.env (see §6); log in to GHCR only if
-# the packages are private:  echo $PAT | docker login ghcr.io -u <user> --password-stdin
-# (PAT with read:packages)
-```
+Manual redeploy or rollback: run the workflow with `workflow_dispatch` and a SHA
+that is on `main`. Rotating a production value: edit the `PRODUCTION_ENV` secret
+and run the deploy for the current SHA.
 
 Repository secrets (Settings → Environments → `production`): `VPS_HOST`,
-`VPS_USER` (`deploy`), `VPS_SSH_KEY` (private key whose public half is in
-`~deploy/.ssh/authorized_keys`), `VPS_KNOWN_HOSTS` (output of
-`ssh-keyscan -t ed25519 <host>`). `.env` lives only on the VPS.
+`VPS_USER` (`deploy`), `VPS_SSH_KEY` (private key of the CI key pair),
+`VPS_KNOWN_HOSTS` (output of `ssh-keyscan -t ed25519 <host>`) and
+`PRODUCTION_ENV` (the whole `deploy/.env`). The `production` environment has no
+manual approval gate by design.
+
+### VPS bootstrap (already-running host)
+
+`deploy/vps/bootstrap.sh` brings an existing VPS to this baseline. It is
+idempotent: each step checks the current state first, and it never recreates the
+deploy user, the clone, volumes or containers. Run it as root from the checkout
+on the host, passing the CI public key:
+
+```bash
+sudo DEPLOY_PUBLIC_KEY='ssh-ed25519 AAAA... ci@legnaris' /opt/legnaris/deploy/vps/bootstrap.sh --dry-run
+sudo DEPLOY_PUBLIC_KEY='ssh-ed25519 AAAA... ci@legnaris' /opt/legnaris/deploy/vps/bootstrap.sh
+```
+
+Without `--key-login-verified` the script leaves password login enabled. Rerun it
+with that flag only after logging in with the key from a second session; it then
+disables password and root SSH login, validating the daemon config before the
+reload. The firewall allows SSH, HTTP and HTTPS before it is enabled, and
+automatic security updates are turned on.
+
+### Manual operator steps (not automated)
+
+- Branch protection on `main`: require a pull request and forbid force-pushes
+  (Settings → Branches, or the branch protection API).
+- Revoke the old registry PAT and run `docker logout ghcr.io` on the VPS.
+- Delete the leftover wizard environment file from the deploy user's home once
+  its values are in `PRODUCTION_ENV`.
+- Set owner-only permissions (`chmod 600`) on every local `.env` file.
+- Rotate other secrets only if a value was pasted into chat, a ticket or a log.
 
 ## 8. Run locally
 
