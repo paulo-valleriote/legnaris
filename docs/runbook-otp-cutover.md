@@ -119,7 +119,7 @@ installed PWAs.
 1. Merge the `gitops-bump` PR that moves `legnaris-web`.
    ```bash
    kubectl rollout status deployment/web --timeout=300s
-   curl -fsS https://app-legnaris.paulovalleriote.io/ | head
+   curl -fsS https://legnaris.paulovalleriote.io/ | head
    ```
 2. Verify the update path in a browser **that has the old version cached**
    (open the old app first, then deploy):
@@ -133,7 +133,7 @@ installed PWAs.
    state. Reloading must recover.
 4. `sw.js` and `index.html` must be served `Cache-Control: no-cache`
    (`web/nginx.conf` does this) so browsers can see the new worker; confirm with
-   `curl -sI https://app-legnaris.paulovalleriote.io/sw.js`.
+   `curl -sI https://legnaris.paulovalleriote.io/sw.js`.
 5. If the old-bundle failure is not recoverable by a reload, abort and roll the
    web back (the API stays; the old web is then the broken half, so roll the
    API back too if the old web cannot register at all).

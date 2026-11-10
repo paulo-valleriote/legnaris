@@ -220,17 +220,17 @@ trap 'rm -f "$WORK_ENV"' EXIT
 
 banner "Legnaris: point the VPS env at the {api,app,ops}-legnaris hosts"
 
-stage "DNS (Hostinger): api-legnaris, app-legnaris and ops-legnaris"
+stage "DNS (Hostinger): api-legnaris, legnaris and ops-legnaris"
 say "Three A records pointing at $VPS_HOST (if the zone is on Cloudflare, keep the proxy OFF)."
 open_url "https://hpanel.hostinger.com/domains"
 step "Domains → paulovalleriote.io → DNS records → add:"
 step "  A  api-legnaris  →  $VPS_HOST"
-step "  A  app-legnaris  →  $VPS_HOST"
+step "  A  legnaris  →  $VPS_HOST"
 step "  A  ops-legnaris  →  $VPS_HOST"
 pause "Records saved? Press Enter to check propagation."
-for h in api app ops; do
-  got=$(getent hosts "$h-$SUFFIX" | awk '{print $1}' | head -n1 || true)
-  if [[ "$got" == "$VPS_HOST" ]]; then say "✓ $h-$SUFFIX → $got"; else warn "$h-$SUFFIX resolves to '${got:-nothing}' (not yet $VPS_HOST); Let's Encrypt fails until it does"; fi
+for h in "api-$SUFFIX" "$SUFFIX" "ops-$SUFFIX"; do
+  got=$(getent hosts "$h" | awk '{print $1}' | head -n1 || true)
+  if [[ "$got" == "$VPS_HOST" ]]; then say "✓ $h → $got"; else warn "$h resolves to '${got:-nothing}' (not yet $VPS_HOST); Let's Encrypt fails until it does"; fi
 done
 
 stage "Fetch the current deploy/.env from the VPS"
@@ -241,10 +241,10 @@ say "Fetched $(grep -c '=' "$WORK_ENV") variables. Secrets are kept as they are.
 
 stage "Rewrite the domain variables"
 write_env API_DOMAIN "api-$SUFFIX"
-write_env WEB_DOMAIN "app-$SUFFIX"
+write_env WEB_DOMAIN "$SUFFIX"
 write_env OPS_DOMAIN "ops-$SUFFIX"
 write_env WEB_API_BASE_URL "https://api-$SUFFIX"
-write_env CORS_ALLOWED_ORIGINS "https://app-$SUFFIX"
+write_env CORS_ALLOWED_ORIGINS "https://$SUFFIX"
 current_from=$(_existing EMAIL_FROM || true)
 if [[ "$current_from" == *@mail.legnaris.com.br ]]; then
   ask EMAIL_FROM "EMAIL_FROM (currently $current_from):"
@@ -268,7 +268,7 @@ if [[ -n "$REPO" ]] && confirm "Re-run the Deploy VPS workflow for the latest ma
 else
   note "Containers pick up the new env on the next Deploy VPS run (merge to main or Actions → Run workflow)."
 fi
-for u in "https://api-$SUFFIX/" "https://app-$SUFFIX/" "https://ops-$SUFFIX/grafana"; do
+for u in "https://api-$SUFFIX/" "https://$SUFFIX/" "https://ops-$SUFFIX/grafana"; do
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$u" || true)
   say "$u → HTTP ${code:-fail}"
 done

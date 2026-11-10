@@ -272,19 +272,19 @@ set_secret VPS_SSH_KEY "$(cat "$DEPLOY_KEY")"
 set_secret VPS_KNOWN_HOSTS "$(grep -E "^${VPS_HOST} " <<<"$VPS_KNOWN_HOSTS" || printf '%s' "$VPS_KNOWN_HOSTS")"
 note "Optional manual approval gate: https://github.com/${REPO}/settings/environments → production → Required reviewers."
 
-stage "DNS (Hostinger): api, app and ops"
+stage "DNS (Hostinger): api-legnaris, legnaris and ops-legnaris"
 say "Three A records pointing at $VPS_HOST (if the zone is on Cloudflare, keep the proxy OFF)."
 open_url "https://hpanel.hostinger.com/domains"
 step "Domains → paulovalleriote.io → DNS / Nameservers → DNS records → add three records:"
 step "  A  api-legnaris  →  $VPS_HOST "
-step "  A  app-legnaris  →  $VPS_HOST "
+step "  A  legnaris  →  $VPS_HOST "
 step "  A  ops-legnaris  →  $VPS_HOST "
 ask ACME_EMAIL "Email for Let's Encrypt expiry notices:"
 write_env ACME_EMAIL "$ACME_EMAIL"
 pause "Records saved? Press Enter to check propagation."
-for h in api app ops; do
-  got=$(getent hosts "$h-legnaris.paulovalleriote.io" | awk '{print $1}' | head -n1 || true)
-  if [[ "$got" == "$VPS_HOST" ]]; then say "✓ $h-legnaris.paulovalleriote.io → $got"; else warn "$h-legnaris.paulovalleriote.io resolves to '${got:-nothing}' (not yet $VPS_HOST); it can take a few minutes"; fi
+for h in api-legnaris.paulovalleriote.io legnaris.paulovalleriote.io ops-legnaris.paulovalleriote.io; do
+  got=$(getent hosts "$h" | awk '{print $1}' | head -n1 || true)
+  if [[ "$got" == "$VPS_HOST" ]]; then say "✓ $h → $got"; else warn "$h resolves to '${got:-nothing}' (not yet $VPS_HOST); it can take a few minutes"; fi
 done
 
 stage "GitHub OAuth App (protects ops-legnaris.paulovalleriote.io)"
@@ -313,10 +313,10 @@ done
 write_env ME_CONFIG_BASICAUTH_USERNAME admin
 write_env GRAFANA_ADMIN_USER admin
 write_env API_DOMAIN api-legnaris.paulovalleriote.io
-write_env WEB_DOMAIN app-legnaris.paulovalleriote.io
+write_env WEB_DOMAIN legnaris.paulovalleriote.io
 write_env OPS_DOMAIN ops-legnaris.paulovalleriote.io
 write_env WEB_API_BASE_URL https://api-legnaris.paulovalleriote.io
-write_env CORS_ALLOWED_ORIGINS https://app-legnaris.paulovalleriote.io
+write_env CORS_ALLOWED_ORIGINS https://legnaris.paulovalleriote.io
 write_env IMAGE_OWNER "$OWNER_LC"
 say ""
 say "Sign-in codes are emailed. With EMAIL_PROVIDER=log nothing is delivered, so real users need Resend."
@@ -370,7 +370,7 @@ step "If you chose public packages, make them public as soon as 'Images' publish
 pause "Press Enter when 'Deploy VPS' is green."
 
 stage "Verify"
-for u in "https://api-legnaris.paulovalleriote.io/" "https://app-legnaris.paulovalleriote.io/" "https://ops-legnaris.paulovalleriote.io/grafana"; do
+for u in "https://api-legnaris.paulovalleriote.io/" "https://legnaris.paulovalleriote.io/" "https://ops-legnaris.paulovalleriote.io/grafana"; do
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$u" || true)
   say "$u → HTTP ${code:-fail}"
 done

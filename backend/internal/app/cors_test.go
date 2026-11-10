@@ -19,7 +19,7 @@ import (
 
 // webOrigin mirrors the deployment's WEB_DOMAIN (deploy/.env.example), the one
 // origin the browser client calls the API from.
-const webOrigin = "https://app-legnaris.paulovalleriote.io"
+const webOrigin = "https://legnaris.paulovalleriote.io"
 
 func newAuthRouterWithCORS(t *testing.T, service *authmocks.MockService) http.Handler {
 	t.Helper()

@@ -9,7 +9,7 @@
 #
 # Domains:
 #   api-legnaris.paulovalleriote.io  -> app (public API, no auth)
-#   app-legnaris.paulovalleriote.io  -> web (public PWA client, no auth)
+#   legnaris.paulovalleriote.io  -> web (public PWA client, no auth)
 #   ops-legnaris.paulovalleriote.io  -> Grafana/Prometheus/Mongo Express/RabbitMQ console (GitHub OAuth)
 #     /grafana, /prometheus, /mongo, /rabbitmq, /oauth2/callback
 #

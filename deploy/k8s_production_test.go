@@ -49,7 +49,7 @@ func TestK8sProductionServesOverTLSWithBrowserPolicy(t *testing.T) {
 	middlewares := readText(t, productionOverlay+"/middlewares.yaml")
 
 	t.Run("Happy path: api and app hosts get Let's Encrypt certificates", func(t *testing.T) {
-		for _, host := range []string{"api-legnaris.paulovalleriote.io", "app-legnaris.paulovalleriote.io"} {
+		for _, host := range []string{"api-legnaris.paulovalleriote.io", "legnaris.paulovalleriote.io"} {
 			assert.Contains(t, kustomization, host)
 		}
 		assert.Contains(t, kustomization, "cert-manager.io/cluster-issuer: letsencrypt-prod")
@@ -64,7 +64,7 @@ func TestK8sProductionServesOverTLSWithBrowserPolicy(t *testing.T) {
 	t.Run("Edge: the CSP allows the configured API origin, which is also the web client's API", func(t *testing.T) {
 		assert.Contains(t, middlewares, "connect-src 'self' https://api-legnaris.paulovalleriote.io")
 		assert.Contains(t, kustomization, "API_BASE_URL=https://api-legnaris.paulovalleriote.io")
-		assert.Contains(t, kustomization, "CORS_ALLOWED_ORIGINS=https://app-legnaris.paulovalleriote.io")
+		assert.Contains(t, kustomization, "CORS_ALLOWED_ORIGINS=https://legnaris.paulovalleriote.io")
 	})
 
 	t.Run("Edge: the ClusterIssuer targets the production ACME endpoint", func(t *testing.T) {
