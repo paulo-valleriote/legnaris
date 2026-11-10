@@ -201,12 +201,13 @@ finish() {
 run_wizard() {
 
 TOTAL_STAGES=5
-LOCAL_ENV="${LOCAL_ENV:-$HOME/.legnaris-vps.env}"
+LOCAL_ENV="${LOCAL_ENV:-.env}"
+[[ -f "$LOCAL_ENV" ]] || LOCAL_ENV="$HOME/.legnaris-vps.env"
 DEPLOY_KEY="$HOME/.ssh/legnaris_deploy"
 SUFFIX="legnaris.paulovalleriote.io"
 SSH_OPTS=(-o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
 
-[[ -f "$LOCAL_ENV" ]] || { warn "$LOCAL_ENV not found: run scripts/vps-setup-wizard.sh first"; exit 1; }
+[[ -f "$LOCAL_ENV" ]] || { warn "$LOCAL_ENV not found: run scripts/vps-setup-wizard.sh first, or pass LOCAL_ENV=path"; exit 1; }
 [[ -f "$DEPLOY_KEY" ]] || { warn "$DEPLOY_KEY not found: run scripts/vps-setup-wizard.sh first"; exit 1; }
 VPS_HOST=$(grep -E '^VPS_HOST=' "$LOCAL_ENV" | tail -n1 | cut -d= -f2- | tr -d "'")
 [[ -n "$VPS_HOST" ]] || { warn "VPS_HOST missing in $LOCAL_ENV"; exit 1; }
