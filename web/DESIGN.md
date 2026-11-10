@@ -252,7 +252,11 @@ semantics, so no route, dialog or control carries its own colour for this world.
   and the accent mark hover and focus only.
 - **Navigation.** The current item sits on the raised layer with the accent on its icon; the
   accent fill is reserved for actions.
-- **Browser chrome.** The shell paints `theme-color` in the stage ground, like the landing.
+- **Browser chrome.** The shell paints `theme-color` in the stage ground, like the landing. The web
+  manifest's `theme_color` and `background_color` and both `<meta name="theme-color">` entries carry
+  that same stage ground (`--lg-color-stage`, teal-950 `#061516`). The BrandMark core takes
+  `--lg-color-stage-brand` (brand orange `#F2692A`, the app icon's frame), which is asserted at 3:1 on the
+  stage ground and the stage band.
 - **Contrast.** The remap uses only stage pairs already asserted in `tokens.ts`, plus
   `--lg-color-border-strong`, which carries no text.
 

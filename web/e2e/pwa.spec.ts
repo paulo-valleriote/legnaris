@@ -21,7 +21,9 @@ test.describe('installable, offline client', () => {
     expect(manifest.start_url).toBe('/');
   });
 
-  test('serves the favicon and apple-touch links with the right content type', async ({ page }) => {
+  test('Happy path: serves the favicon and apple-touch links with the right content type', async ({
+    page,
+  }) => {
     await page.goto('/');
     const hrefs = await page.evaluate(() =>
       [

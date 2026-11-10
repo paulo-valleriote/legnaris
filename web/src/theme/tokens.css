@@ -122,6 +122,9 @@
   --lg-lava-500: #f26a2e;
   --lg-lava-ink: #1c0d06;
 
+  /* Ramp: brand orange (the mark's accent core and the app icon's frame, #F2692A) */
+  --lg-brand-orange-500: #f2692a;
+
   /* Ramp: danger */
   --lg-danger-400: #f87171;
   --lg-danger-500: #fca5a5;
@@ -164,6 +167,7 @@
   --lg-color-ink: var(--lg-ink-900);
 
   --lg-color-stage: var(--lg-teal-950);
+  --lg-color-stage-brand: var(--lg-brand-orange-500);
   --lg-color-stage-band: var(--lg-teal-900);
   --lg-color-stage-raised: var(--lg-teal-800);
   --lg-color-stage-scrim: rgba(6, 21, 22, 0.6);
@@ -209,6 +213,7 @@
   --lg-color-ink: var(--lg-charcoal-900);
 
   --lg-color-stage: var(--lg-teal-950);
+  --lg-color-stage-brand: var(--lg-brand-orange-500);
   --lg-color-stage-band: var(--lg-teal-900);
   --lg-color-stage-raised: var(--lg-teal-800);
   --lg-color-stage-scrim: rgba(6, 21, 22, 0.6);

@@ -136,6 +136,18 @@ const pairSpecs: readonly PairSpec[] = [
     minRatio: 4.5,
   },
   {
+    description: 'brand mark accent on the stage ground',
+    foregroundVar: '--lg-color-stage-brand',
+    backgroundVar: '--lg-color-stage',
+    minRatio: 3,
+  },
+  {
+    description: 'brand mark accent on the stage band',
+    foregroundVar: '--lg-color-stage-brand',
+    backgroundVar: '--lg-color-stage-band',
+    minRatio: 3,
+  },
+  {
     description: 'stage focus ring on the stage ground',
     foregroundVar: '--lg-color-stage-focus',
     backgroundVar: '--lg-color-stage',
@@ -277,6 +289,9 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-size-landing-hero-min', 'landing hero minimum height'],
     ['--lg-size-landing-hero-max', 'landing hero maximum height'],
   ]),
+  ...group('primitive', 'color', [
+    ['--lg-brand-orange-500', 'brand orange ramp: the mark accent and the app icon frame'],
+  ]),
   ...group('primitive', 'focus', [
     ['--lg-focus-width', 'focus ring outline width'],
     ['--lg-focus-offset', 'focus ring offset'],
@@ -315,6 +330,7 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-color-focus', 'focus ring'],
     ['--lg-color-ink', 'ink surface (toasts)'],
     ['--lg-color-stage', 'landing teal-black ground, identical in both themes'],
+    ['--lg-color-stage-brand', 'brand orange on the stage ground: the BrandMark accent core'],
     ['--lg-color-stage-band', 'landing alternate band on the dark ground'],
     ['--lg-color-stage-raised', 'landing raised layer on the dark ground'],
     ['--lg-color-stage-scrim', 'landing scrim over the hero photograph'],
