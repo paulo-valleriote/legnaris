@@ -22,7 +22,6 @@ make fmt                 # Format code
 | Vet | `make vet` |
 | Run local MongoDB (dev only) | `make dev-db` |
 | Deploy (production) | `make deploy-up` |
-| Deploy (local tunnel) | `make deploy-local` |
 | Stop deploy | `make deploy-down` |
 
 ## Environment

@@ -58,7 +58,7 @@ dev-server CSP from those values, so nothing else needs editing.
 
 ### What does not run in development
 
-Traefik, oauth2-proxy, the Cloudflare tunnel, the real email provider (Resend)
+Traefik, oauth2-proxy, the real email provider (Resend)
 and the observability stack. Registration always starts the email-code step; in
 `make dev` the code is printed by the worker (see above). For the real
 delivery path, run the pieces separately (`make relay`, `make worker`, see

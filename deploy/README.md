@@ -10,7 +10,6 @@ database UI (Mongo Express), with admin access protected by **GitHub OAuth**
 ## 1. Architecture and domains
 
 ```
-paulovalleriote.io          → Vercel (frontend)           [untouched]
 api-legnaris.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
    └─ /                  → app API (health, templates, sheets)
 legnaris.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
@@ -49,7 +48,7 @@ create **records** that point subdomains to destinations:
 | Record | Meaning |
 |---|---|
 | `A` | "this name → this IP" (e.g. `api` → `203.0.113.10`). |
-| `CNAME` | "this name → another name" (e.g. `api` → `tunel.cfargotunnel.com`). |
+| `CNAME` | "this name → another name" (e.g. `www` → `example.com`). |
 | `@` or empty | the apex domain (`paulovalleriote.io`). |
 
 The apex `paulovalleriote.io` already points to Vercel. You only **add** three new
@@ -82,12 +81,6 @@ valid session cookie. If not, it redirects to GitHub; after login, GitHub
 returns to `ops-legnaris.paulovalleriote.io/oauth2/callback` and oauth2-proxy checks that
 the user is in the allowlist (`GITHUB_USER`) before letting them through.
 
-### Cloudflare Tunnel (local environment only)
-To test locally without opening ports or having a VPS, `cloudflared` creates a
-"tunnel" that publishes your local Docker stack on a public HTTPS URL.
-Cloudflare terminates TLS; the local Traefik speaks plain HTTP behind the
-tunnel.
-
 ---
 
 ## 3. Prerequisites
@@ -96,8 +89,8 @@ tunnel.
 2. **GitHub OAuth App** (see §4).
 3. **DNS for the `api.` and `ops.` subdomains** (see §5).
 4. **oauth2-proxy cookie secret** (see §6).
-5. **Docker Compose >= 2.24** — the local override uses the `!override`
-   tag (see §8); older clients fail to parse `docker-compose.local.yml`.
+5. **Docker Compose >= 2.24** — `docker-compose.vps.yml` uses the `!reset`
+   tag; older clients fail to parse it.
 
 ## 4. Create the GitHub OAuth App
 
@@ -113,8 +106,8 @@ tunnel.
 
 ## 5. Migrate DNS to Cloudflare
 
-DNS becomes managed at **Cloudflare** (which also provides edge analytics and
-native Cloudflare Tunnel integration). The domain stays **registered** at
+DNS becomes managed at **Cloudflare** (which also provides edge analytics)
+The domain stays **registered** at
 Registro.br — only *where* the zone is managed changes.
 
 ### 5.1 Migrate the zone (once)
@@ -136,12 +129,9 @@ Registro.br — only *where* the zone is managed changes.
 **Production (VPS) — type A, leave "DNS only" (no proxy):**
 | Name | Type | Value | Proxy |
 |---|---|---|---|
-| `api` | A | VPS IP | DNS only |
-| `app` | A | VPS IP | DNS only |
-| `ops` | A | VPS IP | DNS only |
-
-**Local (Cloudflare Tunnel):** don't create them by hand — use
-`cloudflared tunnel route dns` (see §8), which creates the CNAMEs automatically.
+| `api-legnaris` | A | VPS IP | DNS only |
+| `legnaris` | A | VPS IP | DNS only |
+| `ops-legnaris` | A | VPS IP | DNS only |
 
 ### 5.3 Notes
 
@@ -249,72 +239,11 @@ Repository secrets (Settings → Environments → `production`): `VPS_HOST`,
 `ssh-keyscan -t ed25519 <host>`). Add "Required reviewers" to that environment
 for a manual approval gate. `.env` lives only on the VPS.
 
-## 8. Run locally (via Cloudflare Tunnel)
+## 8. Run locally
 
-```bash
-# 1. once, on the host:
-cloudflared tunnel login
-cloudflared tunnel create legnaris      # writes ~/.cloudflared/<TUNNEL_UUID>.json
-cloudflared tunnel route dns legnaris api-legnaris.paulovalleriote.io   # creates the CNAME automatically
-cloudflared tunnel route dns legnaris legnaris.paulovalleriote.io
-cloudflared tunnel route dns legnaris ops-legnaris.paulovalleriote.io
-
-# 2. configure the tunnel:
-cp cloudflared/config.yml.example cloudflared/config.yml
-# edit and replace <TUNNEL_UUID> with the value from `cloudflared tunnel list`
-cloudflared tunnel --config cloudflared/config.yml ingress validate
-
-# 2b. the cloudflared container runs as uid 65532 and reads ~/.cloudflared
-#     through a read-only bind mount, so the directory must be traversable and
-#     the credentials file readable by that uid:
-chmod 755 ~/.cloudflared
-chmod 644 ~/.cloudflared/<TUNNEL_UUID>.json
-
-# 3. bring it up with the local override:
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
-```
-
-If the tunnel already exists and its credentials are not on this host, fetch them
-instead of creating a second tunnel: `cloudflared tunnel token --cred-file
-~/.cloudflared/<TUNNEL_UUID>.json legnaris`.
-
-What the local override changes (vs production):
-- Traefik uses the shared `traefik.yml` with plain HTTP and **no** Let's Encrypt
-  (the production-only TLS flags are dropped; Cloudflare terminates TLS).
-- oauth2-proxy sets `OAUTH2_PROXY_COOKIE_SECURE=false` (the origin is HTTP
-  behind the tunnel).
-- Adds the `cloudflared` service that publishes `api.`, `app.` and `ops.`.
-
-The `web` service is built by this same command: its bundle is compiled with
-`WEB_API_BASE_URL`, so pointing the client at a different API (or serving it on
-a different `WEB_DOMAIN`) needs `docker compose up -d --build web`, not a
-restart. `CORS_ALLOWED_ORIGINS` must list `WEB_DOMAIN` — the two are configured
-together in `deploy/.env`.
-
-**Quick alternative (random URLs, just to check it boots):**
-```bash
-docker run --rm --network legnaris-prod_edge cloudflare/cloudflared:2026.9.1 \
-  tunnel --no-autoupdate --url http://traefik:80
-```
-
-### Extra security for the local tunnel: Cloudflare Access (Zero Trust)
-
-The tunnel makes `api.`/`ops.` reachable from the internet. For local testing,
-add an authentication layer **before** your machine — so nothing reaches it
-without authenticating at Cloudflare first:
-
-1. Go to **https://one.dash.cloudflare.com** (Zero Trust) → **Access** →
-   **Applications** → **Add an application** → **Self-hosted**.
-2. In *Application domain*, enter `ops-legnaris.paulovalleriote.io` (and `api-legnaris.paulovalleriote.io`
-   if you also want to protect the API during testing).
-3. Add an *Allow* **policy** for your email (PIN/OTP login) or via GitHub.
-4. Save. Now Cloudflare asks for your login **before** it reaches oauth2-proxy —
-   two barriers in sequence.
-
-> This protects access *to your local service*. It does not replace the `ops.`
-> OAuth (which authorizes by allowlist) — it is an extra layer, specific to the
-> local environment. In production (VPS), Access is optional. When not testing,
-> shut the tunnel down (`docker compose down`).
+Use `make dev` (MongoDB + API + web, no TLS or edge proxy). The Compose stack
+is production-only: it needs real DNS and Let's Encrypt, and the CD workflow
+deploys it (§7).
 
 ## 9. Access
 
@@ -363,7 +292,7 @@ The app allows origins from `CORS_ALLOWED_ORIGINS` (default in `.env.example`:
 the web client to the API. The origin must match exactly — scheme, host, and
 port — or the preflight fails.
 
-`make deploy-up` / `make deploy-local` strip the local-development variables the
+`make deploy-up` strips the local-development variables the
 root `Makefile` exports for `make run`, so this file's values win. A shell
 variable outranks a compose environment file: a leaked empty
 `CORS_ALLOWED_ORIGINS` would fall through to the compose default
@@ -697,27 +626,7 @@ Switching the broker to per-object mode resets the queue series once, so the que
 3. **Traefik `/metrics`** needs `metrics.prometheus.entryPoint: metrics`.
 4. **The OAuth callback** lives on `ops.` (not `api.`), because that's where the
    login happens.
-5. **`~/.cloudflared` must stay world-readable-ish**: the `cloudflared` image runs
-   as uid 65532 and reaches the mount as that user, so a `700` directory (what
-   `cloudflared tunnel login` creates) makes the container fail with a
-   credentials error. It also has no shell, so the failure shows up as the
-   tunnel container restarting, not as a readable error inside it.
-
-6. **A stale iptables backend can black-hole container egress** (Docker-in-Docker
-   dev container only, never production). When a daemon restart switches the
-   iptables backend, the abandoned one keeps its rules in the kernel: a
-   `FORWARD policy DROP` chain that only knows the default bridge, so every
-   packet leaving `legnaris-prod_edge`/`_internal` is dropped. The Docker
-   embedded resolver (`127.0.0.11`) still answers container names but forwards
-   external lookups as the container IP, so the symptoms look like a DNS or
-   application bug: `cloudflared` never registers an edge connection
-   (`lookup _v2-origintunneld._tcp.argotunnel.com ... i/o timeout`), so
-   `app.`/`api.`/`ops.` stop answering, and `app` crash-loops with a Mongo
-   `server selection error` — while the host itself has working internet.
-   Diagnose and repair with `sudo make net-check` then `sudo make net-fix`
-   (the repair backs up the removed rules and verifies a real container lookup;
-   `cloudflared` and `app` recover on their own once egress is back).
-7. **One unsupported key in `traefik/dynamic.yml` disables every route**: the
+5. **One unsupported key in `traefik/dynamic.yml` disables every route**: the
    file provider rejects the whole configuration (`field not found, node: ...`
    in `docker logs traefik`), so all routers vanish and requests get a plain 404
    with no CORS headers — which the browser reports as a CORS error on login or
