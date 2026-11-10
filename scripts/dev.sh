@@ -44,6 +44,7 @@ require() {
 	command -v "$1" >/dev/null 2>&1 || die "'$1' is required but not installed"
 }
 
+# shellcheck disable=SC2329 # invoked through the EXIT trap
 cleanup() {
 	trap - EXIT
 	log "shutting down"
@@ -71,8 +72,7 @@ start_mongo() {
 	log "starting a clean MongoDB on :$MONGO_PORT"
 	docker run -d --rm --name "$MONGO_CONTAINER" -p "$MONGO_PORT:27017" "$MONGO_IMAGE" >/dev/null
 
-	local attempt
-	for attempt in $(seq 1 60); do
+	for _ in $(seq 1 60); do
 		if docker exec "$MONGO_CONTAINER" mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; then
 			return 0
 		fi
@@ -92,8 +92,7 @@ start_broker() {
 		-e "RABBITMQ_DEFAULT_PASS=$RABBIT_PASSWORD" \
 		-p "$RABBIT_PORT:5672" "$RABBIT_IMAGE" >/dev/null
 
-	local attempt
-	for attempt in $(seq 1 "$BROKER_READY_TIMEOUT"); do
+	for _ in $(seq 1 "$BROKER_READY_TIMEOUT"); do
 		if docker exec "$RABBIT_CONTAINER" rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
 			provision_broker
 			return 0
@@ -158,6 +157,7 @@ go build -o "$workdir/worker" ./backend/cmd/worker
 prefixed api "$workdir/api"
 prefixed relay "$workdir/relay"
 prefixed worker "$workdir/worker"
+# shellcheck disable=SC2016 # $1 is expanded by the inner bash, not here
 prefixed web bash -c 'cd web && exec node_modules/.bin/vite --host localhost --port "$1" --strictPort' _ "$WEB_PORT"
 
 log "web  http://localhost:$WEB_PORT"
