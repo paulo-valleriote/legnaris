@@ -286,6 +286,7 @@ if [[ "$1" == "clone" ]]; then mkdir -p "$3/.git"; fi`,
 		"LEGNARIS_SSHD_DROPIN=" + f.dropin,
 		"LEGNARIS_AUTO_UPGRADES=" + f.autoUp,
 		"DEPLOY_PUBLIC_KEY=" + testPublicKey,
+		"LEGNARIS_CI_KEY_FILE=" + filepath.Join(t.TempDir(), "missing.pub"),
 	}
 	return f
 }
@@ -523,6 +524,47 @@ func TestBootstrapRejectsBadInput(t *testing.T) {
 			assert.Equal(t, usageExit, res.code, res.output)
 			assertNoMutations(t, readLog(t, f.logPath))
 			assert.NoFileExists(t, f.authKeys)
+		})
+	}
+}
+
+func TestBootstrapKeyFile(t *testing.T) {
+	const otherKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOTHERKEYOTHERKEYOTHERKEYOTHERKEYOTHERKEY0 other@ci"
+	tests := []struct {
+		name     string
+		content  string
+		useEnv   bool
+		wantCode int
+		wantKey  string
+	}{
+		{name: "Happy path: key comes from the file when the variable is unset", content: testPublicKey + "\n", wantCode: 0, wantKey: testPublicKey},
+		{name: "Edge: the variable overrides the file", content: otherKey + "\n", useEnv: true, wantCode: 0, wantKey: testPublicKey},
+		{name: "Error: file with a second line is rejected", content: testPublicKey + "\nssh-ed25519 AAAA attacker\n", wantCode: usageExit},
+		{name: "Error: empty file is rejected", content: "", wantCode: usageExit},
+		{name: "Error: file that is not a key is rejected", content: "not a key\n", wantCode: usageExit},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newBootstrapFixture(t)
+			keyFile := filepath.Join(t.TempDir(), "ci_key.pub")
+			require.NoError(t, os.WriteFile(keyFile, []byte(tc.content), 0o644))
+			f.env = replaceEnv(f.env, "LEGNARIS_CI_KEY_FILE=", "LEGNARIS_CI_KEY_FILE="+keyFile)
+			if !tc.useEnv {
+				f.env = removeEnv(f.env, "DEPLOY_PUBLIC_KEY=")
+			}
+
+			res := f.run(t)
+
+			assert.Equal(t, tc.wantCode, res.code, res.output)
+			if tc.wantCode != 0 {
+				assert.NoFileExists(t, f.authKeys)
+				return
+			}
+			got, err := os.ReadFile(f.authKeys)
+			require.NoError(t, err)
+			assert.Contains(t, string(got), tc.wantKey)
+			assert.NotContains(t, string(got), "OTHERKEY")
 		})
 	}
 }
