@@ -4,7 +4,7 @@
 |----------|---------|---------|
 | `ci-lint.yml` | PR (Go/deploy paths) | golangci-lint, `go mod tidy`, race tests, compose config, shellcheck on deploy and scripts shell files |
 | `ci-web.yml` | PR (`web/**`) | Client quality (format, lint, typecheck, tests, build) and Playwright e2e |
-| `ci-images.yml` | PR (build), push to `main`, `v*` tags (publish) | Builds and publishes images to GHCR |
+| `ci-images.yml` | push to `main`, `v*` tags | Builds and publishes images to GHCR |
 | `cd-vps.yml` | After `Images` completes on `main`, or manual dispatch with a SHA | Deploys one commit to the VPS over SSH (`deploy/vps/deploy.sh`) |
 
 The spec lint scripts under `scripts/` (`check_*.py`) no longer run in CI. `opencode-review.yml` stays in `workflows-disabled/`.
