@@ -1,8 +1,12 @@
 name: Deploy VPS
 
 # After the Images workflow publishes from main, deploy that exact commit to the
-# VPS over SSH. The `production` environment can require a manual approval in
-# the repository settings; delete that rule to deploy fully automatically.
+# VPS over SSH. Before anything reaches the host the SHA must be on main, its
+# three images must exist in GHCR, and the production environment file must
+# have the same keys as the documented example. The CI key on the VPS is a
+# forced command that accepts only `deploy <sha>` (optionally with `env` and the
+# file on stdin), so a leaked key cannot open a shell. Afterwards the public
+# endpoints are probed, so a green run means users can reach the site.
 on:
   workflow_run:
     workflows: [Images]
@@ -11,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: Full commit SHA to deploy (images must already be published)
+        description: Full commit SHA to deploy (must be on main and already published)
         required: true
 
 permissions:
@@ -29,8 +33,24 @@ jobs:
     env:
       SHA: ${{ github.event.inputs.sha || github.event.workflow_run.head_sha }}
     steps:
-      - name: Validate SHA
-        run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]]'
+      # Full history so the ancestry check can see main.
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify the commit is on main
+        run: deploy/cd/check-ancestry.sh "$SHA"
+
+      - name: Verify the images are published
+        run: deploy/cd/check-images.sh "$SHA"
+
+      - name: Verify the production env keys match the example
+        env:
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+        run: printf '%s\n' "$PRODUCTION_ENV" | deploy/cd/check-env-keys.sh deploy/.env.example
 
       - name: Configure SSH
         env:
@@ -42,9 +62,21 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
 
-      - name: Deploy
+      # The environment file travels on stdin, never in the command line, so it
+      # does not appear in process listings or in the job log.
+      - name: Deploy over the restricted channel
         env:
           TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
         run: |
-          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$TARGET" "cd /opt/legnaris && git fetch --depth 1 origin $SHA && git checkout --detach $SHA && deploy/vps/deploy.sh $SHA"
+          printf '%s\n' "$PRODUCTION_ENV" | ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$TARGET" "deploy $SHA env"
+
+      - name: Probe the public endpoints
+        env:
+          PROBE_ATTEMPTS: '12'
+          PROBE_INTERVAL: '10'
+          PROBE_TIMEOUT: '10'
+        run: |
+          deploy/cd/probe.sh https://api-legnaris.paulovalleriote.io/health
+          deploy/cd/probe.sh https://legnaris.paulovalleriote.io/

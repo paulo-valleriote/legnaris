@@ -34,7 +34,7 @@ jobs:
     name: assertions, requirement ids, citations
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Rule 3 diffs the PR against its base to decide which citations it
           # owns (a validation.md the change touches is checked in full).
