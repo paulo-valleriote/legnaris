@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down  lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down k8s-observability k8s-rules k8s-loadtest k8s-keda k8s-platform k8s-gitops
+.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
 
 ## --- Development ------------------------------------------------------------
 
@@ -124,74 +124,3 @@ deploy-up:      ## Start the production stack
 
 deploy-down:    ## Stop the production stack
 	@env $(COMPOSE_ENV_UNSET) docker compose -f deploy/docker-compose.yml down
-
-
-## --- Local Kubernetes (k3d) --------------------------------------------------
-
-K8S_OVERLAY := deploy/k8s/overlays/local
-K8S_RENDER = kubectl kustomize --load-restrictor LoadRestrictionsNone $(K8S_OVERLAY)
-
-k8s-up:         ## Create the k3d cluster, build+import images and apply the stack (see deploy/k8s/README.md)
-	@test -f $(K8S_OVERLAY)/secrets.env || { \
-		echo "k8s-up: generating $(K8S_OVERLAY)/secrets.env with random values" ; \
-		for k in MONGO_ROOT_PASSWORD MONGO_APP_PASSWORD MONGO_EXPORTER_PASSWORD MONGO_VIEW_PASSWORD JWT_SECRET EMAIL_CODE_SECRET RABBITMQ_PASSWORD RABBITMQ_OPS_PASSWORD ; do \
-			echo "$$k=$$(openssl rand -hex 24)" ; \
-		done > $(K8S_OVERLAY)/secrets.env ; }
-	@k3d cluster list legnaris >/dev/null 2>&1 || k3d cluster create --config $(K8S_OVERLAY)/k3d.yaml
-	docker build -t legnaris-app:local .
-	docker build -t legnaris-web:local web
-	docker build -t legnaris-rabbitmq:local deploy/rabbitmq
-	k3d image import -c legnaris legnaris-app:local legnaris-web:local legnaris-rabbitmq:local
-	$(K8S_RENDER) | kubectl apply -f -
-	kubectl rollout status deployment/app deployment/web deployment/relay deployment/worker --timeout=300s
-	@echo "API: http://api.legnaris.localhost:8080  Web: http://app.legnaris.localhost:8080"
-
-k8s-down:       ## Destroy the local k3d cluster and everything in it
-	@k3d cluster delete legnaris
-
-K8S_PROM_CHART_VERSION := 92.17.1
-K8S_PROM_EXTRA_VALUES ?=
-
-k8s-observability: ## Install kube-prometheus-stack, PodMonitors, alert rules and dashboards into the k3d cluster
-	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
-	helm upgrade --install kps prometheus-community/kube-prometheus-stack --version $(K8S_PROM_CHART_VERSION) \
-		--namespace monitoring --create-namespace -f deploy/k8s/observability/values.yaml $(K8S_PROM_EXTRA_VALUES) --wait --timeout 10m
-	kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/k8s/observability | kubectl apply -n monitoring -f -
-	@echo "Grafana: kubectl -n monitoring port-forward svc/kps-grafana 3000:80 (admin/admin)"
-
-k8s-rules:      ## Regenerate the PrometheusRule from deploy/prometheus/rules.yml
-	@python3 scripts/gen_prometheusrule.py
-
-K8S_KEDA_CHART_VERSION := 2.21.0
-
-k8s-keda:       ## Install KEDA and the worker/relay ScaledObjects (needs k8s-observability)
-	helm repo add kedacore https://kedacore.github.io/charts --force-update
-	helm upgrade --install keda kedacore/keda --version $(K8S_KEDA_CHART_VERSION) \
-		--namespace keda --create-namespace -f deploy/k8s/keda/values.yaml --wait --timeout 5m
-	kubectl apply -f deploy/k8s/keda/scaledobjects.yaml
-
-SCRIPT ?= capacity.js
-k8s-loadtest:   ## Run a k6 script as a Job on a DISPOSABLE cluster (rate limits lifted): make k8s-loadtest SCRIPT=capacity.js
-	@kubectl delete job k6 --ignore-not-found
-	kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/k8s/overlays/loadtest \
-		| sed 's#/scripts/capacity.js#/scripts/$(SCRIPT)#' | kubectl apply -f -
-	kubectl rollout restart deployment/app && kubectl rollout status deployment/app
-	kubectl logs -f job/k6
-
-K8S_CERT_MANAGER_VERSION := v1.21.3
-K8S_ARGOCD_VERSION := v3.5.7
-K8S_SEALED_SECRETS_VERSION := 0.41.2
-
-k8s-platform:   ## Production cluster: cert-manager, Sealed Secrets and the Let's Encrypt ClusterIssuer (kubectl must point at the VPS)
-	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/$(K8S_CERT_MANAGER_VERSION)/cert-manager.yaml
-	kubectl -n cert-manager rollout status deployment/cert-manager-webhook --timeout=180s
-	kubectl apply -f deploy/k8s/platform/clusterissuer.yaml
-	helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets --force-update
-	helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets --version $(K8S_SEALED_SECRETS_VERSION) --namespace kube-system --wait
-
-k8s-gitops:     ## Production cluster: install Argo CD and register the legnaris applications
-	kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-	kubectl apply -n argocd --server-side -f https://raw.githubusercontent.com/argoproj/argo-cd/$(K8S_ARGOCD_VERSION)/manifests/install.yaml
-	kubectl apply --server-side --force-conflicts -f deploy/k8s/gitops/argocd-cm-patch.yaml
-	kubectl -n argocd rollout restart deployment/argocd-repo-server
-	kubectl apply -f deploy/k8s/gitops/applications.yaml
