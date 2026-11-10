@@ -89,10 +89,6 @@ body:has(.lg-auth) {
   height: var(--lg-space-24);
 }
 
-.lg-auth__mark .lg-brand__core {
-  fill: var(--lg-color-stage-accent);
-}
-
 .lg-auth__mark svg {
   display: block;
   width: 100%;

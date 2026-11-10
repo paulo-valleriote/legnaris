@@ -101,10 +101,6 @@ body:has(.lg-landing) {
   height: var(--lg-space-24);
 }
 
-.lg-landing__mark .lg-brand__core {
-  fill: var(--lg-color-stage-accent);
-}
-
 .lg-landing__mark svg {
   display: block;
   width: 100%;
