@@ -13,8 +13,8 @@
 #   ops-legnaris.paulovalleriote.io  -> Grafana/Prometheus/Mongo Express/RabbitMQ console (GitHub OAuth)
 #     /grafana, /prometheus, /mongo, /rabbitmq, /oauth2/callback
 #
-# Local development (via Cloudflare Tunnel):
-#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+# Production deploys run prebuilt images via docker-compose.vps.yml (see
+# vps/deploy.sh); local development uses `make dev`.
 # =============================================================================
 
 name: legnaris-prod

@@ -1,11 +1,7 @@
 # =============================================================================
 # Load-test overlay — NEVER use against a public deployment.
 #
-# Usage (from deploy/):
-#   docker compose -f docker-compose.yml -f docker-compose.local.yml \
-#     -f docker-compose.loadtest.yml up -d --build app prometheus grafana
-#   docker compose -f docker-compose.yml -f docker-compose.local.yml \
-#     -f docker-compose.loadtest.yml --profile loadtest run --rm k6
+# Usage: `make loadtest-dev` (see scripts/loadtest-dev.sh and loadtest/README.md).
 #
 # Differences from the base stack:
 #   - Rate limits are lifted: the test hammers a handful of accounts from one

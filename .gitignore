@@ -47,3 +47,6 @@ deploy/k8s/overlays/local/secrets.env
 # Production secret sources (sealed by scripts/k8s-seal-secrets.sh)
 deploy/k8s/overlays/production/*.env
 deploy/k8s/overlays/production-ops/*.env
+
+# Claude Code agent worktrees
+.claude/worktrees/

@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down deploy-local net-check net-fix lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down k8s-observability k8s-rules k8s-loadtest k8s-keda k8s-platform k8s-gitops
+.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down  lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev k8s-up k8s-down k8s-observability k8s-rules k8s-loadtest k8s-keda k8s-platform k8s-gitops
 
 ## --- Development ------------------------------------------------------------
 
@@ -125,17 +125,6 @@ deploy-up:      ## Start the production stack
 deploy-down:    ## Stop the production stack
 	@env $(COMPOSE_ENV_UNSET) docker compose -f deploy/docker-compose.yml down
 
-deploy-local:   ## Start the stack locally via Cloudflare Tunnel
-	@env $(COMPOSE_ENV_UNSET) docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml up -d --build
-
-# Host networking of the Docker-in-Docker dev container, not the stack: a stale
-# iptables backend can silently drop egress from the compose bridges, which
-# takes the tunnel down (see deploy/README.md §13). Both targets need root.
-net-check:      ## Diagnose container egress in the dev container (sudo)
-	@sudo scripts/dind_network.sh check
-
-net-fix:        ## Repair stale iptables-legacy rules that block container egress (sudo)
-	@sudo scripts/dind_network.sh fix
 
 ## --- Local Kubernetes (k3d) --------------------------------------------------
 

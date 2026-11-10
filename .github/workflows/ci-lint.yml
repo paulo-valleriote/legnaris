@@ -53,10 +53,10 @@ jobs:
       # required variable is a non-empty placeholder), so a required var that
       # is not wired into a service — or a malformed compose file — fails the
       # build instead of only crashing the container at `up`.
-      - name: docker compose config (base + local override)
+      - name: docker compose config
         run: |
           docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config >/dev/null
-          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml --env-file deploy/.env.example config >/dev/null
+          IMAGE_TAG=sha-0000000000000000000000000000000000000000 docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.vps.yml --env-file deploy/.env.example config >/dev/null
 
   race:
     name: tests (race detector)
