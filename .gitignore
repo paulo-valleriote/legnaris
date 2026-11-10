@@ -43,3 +43,6 @@ node_modules/
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# CI public key, created on the VPS and read by deploy/vps/bootstrap.sh
+deploy/vps/ci_key.pub

@@ -5,7 +5,8 @@
 # current state first and acts only when it differs, so a second run changes
 # nothing. It never recreates the deploy user, the clone, volumes or containers.
 #
-# Required: DEPLOY_PUBLIC_KEY, one ssh-ed25519 or ssh-rsa public key line. It is
+# The CI public key (one ssh-ed25519 or ssh-rsa line) comes from
+# DEPLOY_PUBLIC_KEY when set, otherwise from deploy/vps/ci_key.pub (gitignored, created on the host). It is
 # installed behind the forced command in deploy/vps/ssh-entry.sh.
 #
 # Password and root SSH login are disabled only with --key-login-verified, which
@@ -39,10 +40,15 @@ SSHD_DROPIN="${LEGNARIS_SSHD_DROPIN:-/etc/ssh/sshd_config.d/00-legnaris.conf}"
 AUTO_UPGRADES="${LEGNARIS_AUTO_UPGRADES:-/etc/apt/apt.conf.d/20auto-upgrades}"
 FIREWALL_PORTS=(22 80 443)
 
+CI_KEY_FILE="${LEGNARIS_CI_KEY_FILE:-$(dirname "${BASH_SOURCE[0]}")/ci_key.pub}"
+
 KEY_PATTERN='^ssh-(ed25519|rsa) [A-Za-z0-9+/=]+( [[:print:]]+)?$'
 KEY="${DEPLOY_PUBLIC_KEY-}"
+if [[ -z "${DEPLOY_PUBLIC_KEY+x}" && -r "$CI_KEY_FILE" ]]; then
+  KEY="$(<"$CI_KEY_FILE")"
+fi
 if [[ ! "$KEY" =~ $KEY_PATTERN ]]; then
-  echo "DEPLOY_PUBLIC_KEY must be a single ssh public key line" >&2
+  echo "DEPLOY_PUBLIC_KEY (or $CI_KEY_FILE) must be a single ssh public key line" >&2
   exit 64
 fi
 

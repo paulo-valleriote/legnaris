@@ -208,11 +208,14 @@ manual approval gate by design.
 `deploy/vps/bootstrap.sh` brings an existing VPS to this baseline. It is
 idempotent: each step checks the current state first, and it never recreates the
 deploy user, the clone, volumes or containers. Run it as root from the checkout
-on the host, passing the CI public key:
+on the host. The CI public key is read from `deploy/vps/ci_key.pub` on the host (gitignored:
+create it once with the public half of the `VPS_SSH_KEY` pair); `DEPLOY_PUBLIC_KEY`
+overrides it when set:
 
 ```bash
-sudo DEPLOY_PUBLIC_KEY='ssh-ed25519 AAAA... ci@legnaris' /opt/legnaris/deploy/vps/bootstrap.sh --dry-run
-sudo DEPLOY_PUBLIC_KEY='ssh-ed25519 AAAA... ci@legnaris' /opt/legnaris/deploy/vps/bootstrap.sh
+cd /opt/legnaris && git pull
+sudo /opt/legnaris/deploy/vps/bootstrap.sh --dry-run
+sudo /opt/legnaris/deploy/vps/bootstrap.sh
 ```
 
 Without `--key-login-verified` the script leaves password login enabled. Rerun it
