@@ -193,8 +193,7 @@ chown -R deploy: /opt/legnaris
 Repository secrets (Settings → Environments → `production`): `VPS_HOST`,
 `VPS_USER` (`deploy`), `VPS_SSH_KEY` (private key whose public half is in
 `~deploy/.ssh/authorized_keys`), `VPS_KNOWN_HOSTS` (output of
-`ssh-keyscan -t ed25519 <host>`). Add "Required reviewers" to that environment
-for a manual approval gate. `.env` lives only on the VPS.
+`ssh-keyscan -t ed25519 <host>`). `.env` lives only on the VPS.
 
 ## 8. Run locally
 
