@@ -23,13 +23,34 @@ compose() {
     -f "$ROOT/deploy/docker-compose.yml" -f "$ROOT/deploy/docker-compose.vps.yml" "${@:2}"
 }
 
+# release must use explicit "|| return 1": a function called from an `if`
+# condition runs with errexit disabled, so a bare failing command would be
+# ignored and `up` would start a stack that was never fetched or pulled.
 release() {
   local sha="$1"
-  git fetch --depth 1 origin "$sha"
-  git checkout --detach "$sha"
-  compose "$sha" pull
-  compose "$sha" up -d --remove-orphans --wait --wait-timeout 180
+  git fetch --depth 1 origin "$sha" || return 1
+  git checkout --detach "$sha" || return 1
+  compose "$sha" pull || return 1
+  compose "$sha" up -d --remove-orphans --wait --wait-timeout 180 || return 1
 }
+
+# ensure_on_main refuses a commit that is not reachable from origin/main. It is
+# skipped when no repository is present, and fails closed when main cannot be
+# fetched, so an unreviewed commit never reaches the stack.
+ensure_on_main() {
+  local sha="$1"
+  [[ -d "$ROOT/.git" ]] || return 0
+  if ! git fetch --quiet origin main; then
+    echo "could not fetch origin/main" >&2
+    return 1
+  fi
+  if ! git merge-base --is-ancestor "$sha" origin/main; then
+    echo "$SHA is not an ancestor of origin/main" >&2
+    return 66
+  fi
+}
+
+ensure_on_main "$SHA" || exit "$?"
 
 if release "$SHA"; then
   echo "$SHA" >"$STATE"

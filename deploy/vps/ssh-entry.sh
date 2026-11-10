@@ -37,7 +37,7 @@ write_env() {
   tmp="$(mktemp "$DEPLOY_DIR/.env.XXXXXX")"
   trap 'rm -f "$tmp"' EXIT
   cat >"$tmp"
-  if [[ ! -s "$tmp" ]]; then
+  if ! grep -q '[^[:space:]]' "$tmp"; then
     echo "refusing to replace .env with empty input" >&2
     exit 65
   fi

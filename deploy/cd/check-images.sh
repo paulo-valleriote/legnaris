@@ -10,7 +10,11 @@ if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
   exit 64
 fi
 
-OWNER="${IMAGE_OWNER:-paulo-valleriote}"
+OWNER="${IMAGE_OWNER-paulo-valleriote}"
+if [[ ! "$OWNER" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$ ]]; then
+  echo "usage: IMAGE_OWNER must be a GitHub owner name" >&2
+  exit 64
+fi
 missing=()
 for name in app web rabbitmq; do
   image="ghcr.io/${OWNER}/legnaris-${name}:sha-${SHA}"
