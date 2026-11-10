@@ -11,11 +11,11 @@ database UI (Mongo Express), with admin access protected by **GitHub OAuth**
 
 ```
 paulovalleriote.io          → Vercel (frontend)           [untouched]
-api.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
+api-legnaris.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
    └─ /                  → app API (health, templates, sheets)
-app.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
+app-legnaris.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
    └─ /                  → web client (service `web`, nginx)
-ops.paulovalleriote.io      → Docker/Traefik              [GitHub OAuth]
+ops-legnaris.paulovalleriote.io      → Docker/Traefik              [GitHub OAuth]
    ├─ /oauth2/callback   → GitHub OAuth callback
    ├─ /grafana           → Grafana
    ├─ /prometheus        → Prometheus
@@ -43,7 +43,7 @@ network is already trusted.
 ## 2. Understanding each layer (no jargon)
 
 ### DNS — the "address book"
-DNS translates names (`api.paulovalleriote.io`) into IPs. Inside your domain you
+DNS translates names (`api-legnaris.paulovalleriote.io`) into IPs. Inside your domain you
 create **records** that point subdomains to destinations:
 
 | Record | Meaning |
@@ -60,9 +60,9 @@ Traefik sits in front of everything, listening on ports 80/443. It is **not**
 your web server — it decides, for each request, which service should handle it,
 based on the **Host** (requested domain) and the **path**:
 
-- Requests `api.paulovalleriote.io/...` → forwards to the app.
-- Requests `app.paulovalleriote.io/...` → forwards to the web client.
-- Requests `ops.paulovalleriote.io/grafana` → forwards to Grafana, but first asks
+- Requests `api-legnaris.paulovalleriote.io/...` → forwards to the app.
+- Requests `app-legnaris.paulovalleriote.io/...` → forwards to the web client.
+- Requests `ops-legnaris.paulovalleriote.io/grafana` → forwards to Grafana, but first asks
   oauth2-proxy ("is this person logged in?").
 
 It also handles **TLS/HTTPS**: it issues and renews certificates via Let's
@@ -79,7 +79,7 @@ tools inside `ops.`.
 ### OAuth (oauth2-proxy) — the login
 When someone hits an `ops.` route, Traefik asks oauth2-proxy whether there is a
 valid session cookie. If not, it redirects to GitHub; after login, GitHub
-returns to `ops.paulovalleriote.io/oauth2/callback` and oauth2-proxy checks that
+returns to `ops-legnaris.paulovalleriote.io/oauth2/callback` and oauth2-proxy checks that
 the user is in the allowlist (`GITHUB_USER`) before letting them through.
 
 ### Cloudflare Tunnel (local environment only)
@@ -104,8 +104,8 @@ tunnel.
 1. GitHub → Settings → Developer settings → OAuth Apps → **New OAuth App**.
 2. Fill in:
    - **Application name**: `Legnaris`.
-   - **Homepage URL**: `https://api.paulovalleriote.io`.
-   - **Authorization callback URL**: `https://ops.paulovalleriote.io/oauth2/callback` ⚠️ exact.
+   - **Homepage URL**: `https://api-legnaris.paulovalleriote.io`.
+   - **Authorization callback URL**: `https://ops-legnaris.paulovalleriote.io/oauth2/callback` ⚠️ exact.
 3. **Register application**.
 4. Copy the **Client ID** and generate the **Client secret**.
 
@@ -255,9 +255,9 @@ for a manual approval gate. `.env` lives only on the VPS.
 # 1. once, on the host:
 cloudflared tunnel login
 cloudflared tunnel create legnaris      # writes ~/.cloudflared/<TUNNEL_UUID>.json
-cloudflared tunnel route dns legnaris api.paulovalleriote.io   # creates the CNAME automatically
-cloudflared tunnel route dns legnaris app.paulovalleriote.io
-cloudflared tunnel route dns legnaris ops.paulovalleriote.io
+cloudflared tunnel route dns legnaris api-legnaris.paulovalleriote.io   # creates the CNAME automatically
+cloudflared tunnel route dns legnaris app-legnaris.paulovalleriote.io
+cloudflared tunnel route dns legnaris ops-legnaris.paulovalleriote.io
 
 # 2. configure the tunnel:
 cp cloudflared/config.yml.example cloudflared/config.yml
@@ -305,7 +305,7 @@ without authenticating at Cloudflare first:
 
 1. Go to **https://one.dash.cloudflare.com** (Zero Trust) → **Access** →
    **Applications** → **Add an application** → **Self-hosted**.
-2. In *Application domain*, enter `ops.paulovalleriote.io` (and `api.paulovalleriote.io`
+2. In *Application domain*, enter `ops-legnaris.paulovalleriote.io` (and `api-legnaris.paulovalleriote.io`
    if you also want to protect the API during testing).
 3. Add an *Allow* **policy** for your email (PIN/OTP login) or via GitHub.
 4. Save. Now Cloudflare asks for your login **before** it reaches oauth2-proxy —
@@ -320,12 +320,12 @@ without authenticating at Cloudflare first:
 
 | URL | What it is | Protection |
 |---|---|---|
-| `https://app.paulovalleriote.io/` | Web client (PWA) | public |
-| `https://api.paulovalleriote.io/` | Public API | public |
-| `https://ops.paulovalleriote.io/grafana` | Grafana | GitHub OAuth |
-| `https://ops.paulovalleriote.io/prometheus` | Prometheus UI | GitHub OAuth |
-| `https://ops.paulovalleriote.io/mongo` | Mongo Express | GitHub OAuth + basic auth |
-| `https://ops.paulovalleriote.io/rabbitmq/` | RabbitMQ console | GitHub OAuth + the operator's broker account |
+| `https://app-legnaris.paulovalleriote.io/` | Web client (PWA) | public |
+| `https://api-legnaris.paulovalleriote.io/` | Public API | public |
+| `https://ops-legnaris.paulovalleriote.io/grafana` | Grafana | GitHub OAuth |
+| `https://ops-legnaris.paulovalleriote.io/prometheus` | Prometheus UI | GitHub OAuth |
+| `https://ops-legnaris.paulovalleriote.io/mongo` | Mongo Express | GitHub OAuth + basic auth |
+| `https://ops-legnaris.paulovalleriote.io/rabbitmq/` | RabbitMQ console | GitHub OAuth + the operator's broker account |
 
 The RabbitMQ console lists the queued messages and their contents, so it shows
 the one-time codes in the clear. It is the operator's window into a stuck
@@ -359,7 +359,7 @@ application's broker account cannot sign in to it (see "RabbitMQ provisioning").
 ## 11. CORS (web client → API)
 
 The app allows origins from `CORS_ALLOWED_ORIGINS` (default in `.env.example`:
-`https://app.paulovalleriote.io`). Without it, the browser blocks every call from
+`https://app-legnaris.paulovalleriote.io`). Without it, the browser blocks every call from
 the web client to the API. The origin must match exactly — scheme, host, and
 port — or the preflight fails.
 

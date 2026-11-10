@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const allowedOrigin = "https://app.legnaris.com.br"
+const allowedOrigin = "https://app-legnaris.paulovalleriote.io"
 
 // newOriginRouter mounts the origin guard on the two cookie-authenticated routes
 // and an unguarded bearer route, mirroring router.go's scoping (AUTH-26).
@@ -83,7 +83,7 @@ func TestRequireAllowedOrigin(t *testing.T) {
 			name:     "Happy path: an Origin match is case-insensitive",
 			method:   http.MethodPost,
 			path:     "/auth/refresh",
-			origin:   "HTTPS://APP.LEGNARIS.COM.BR",
+			origin:   "HTTPS://APP-LEGNARIS.PAULOVALLERIOTE.IO",
 			wantCode: http.StatusOK,
 		},
 		{

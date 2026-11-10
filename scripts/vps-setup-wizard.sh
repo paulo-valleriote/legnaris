@@ -276,22 +276,22 @@ stage "DNS (Hostinger): api, app and ops"
 say "Three A records pointing at $VPS_HOST (if the zone is on Cloudflare, keep the proxy OFF)."
 open_url "https://hpanel.hostinger.com/domains"
 step "Domains → paulovalleriote.io → DNS / Nameservers → DNS records → add three records:"
-step "  A  api  →  $VPS_HOST "
-step "  A  app  →  $VPS_HOST "
-step "  A  ops  →  $VPS_HOST "
+step "  A  api-legnaris  →  $VPS_HOST "
+step "  A  app-legnaris  →  $VPS_HOST "
+step "  A  ops-legnaris  →  $VPS_HOST "
 ask ACME_EMAIL "Email for Let's Encrypt expiry notices:"
 write_env ACME_EMAIL "$ACME_EMAIL"
 pause "Records saved? Press Enter to check propagation."
 for h in api app ops; do
-  got=$(getent hosts "$h.paulovalleriote.io" | awk '{print $1}' | head -n1 || true)
-  if [[ "$got" == "$VPS_HOST" ]]; then say "✓ $h.paulovalleriote.io → $got"; else warn "$h.paulovalleriote.io resolves to '${got:-nothing}' (not yet $VPS_HOST); it can take a few minutes"; fi
+  got=$(getent hosts "$h-legnaris.paulovalleriote.io" | awk '{print $1}' | head -n1 || true)
+  if [[ "$got" == "$VPS_HOST" ]]; then say "✓ $h-legnaris.paulovalleriote.io → $got"; else warn "$h-legnaris.paulovalleriote.io resolves to '${got:-nothing}' (not yet $VPS_HOST); it can take a few minutes"; fi
 done
 
-stage "GitHub OAuth App (protects ops.paulovalleriote.io)"
+stage "GitHub OAuth App (protects ops-legnaris.paulovalleriote.io)"
 open_url "https://github.com/settings/applications/new"
 step "Application name: Legnaris"
-step "Homepage URL: https://api.paulovalleriote.io"
-step "Authorization callback URL: https://ops.paulovalleriote.io/oauth2/callback  (exact)"
+step "Homepage URL: https://api-legnaris.paulovalleriote.io"
+step "Authorization callback URL: https://ops-legnaris.paulovalleriote.io/oauth2/callback  (exact)"
 step "Click 'Register application', then 'Generate a new client secret'."
 ask GITHUB_CLIENT_ID "Client ID:"
 ask_secret GITHUB_CLIENT_SECRET "Client secret:"
@@ -312,11 +312,11 @@ for k in MONGO_ROOT_PASSWORD MONGO_APP_PASSWORD MONGO_EXPORTER_PASSWORD MONGO_VI
 done
 write_env ME_CONFIG_BASICAUTH_USERNAME admin
 write_env GRAFANA_ADMIN_USER admin
-write_env API_DOMAIN api.paulovalleriote.io
-write_env WEB_DOMAIN app.paulovalleriote.io
-write_env OPS_DOMAIN ops.paulovalleriote.io
-write_env WEB_API_BASE_URL https://api.paulovalleriote.io
-write_env CORS_ALLOWED_ORIGINS https://app.paulovalleriote.io
+write_env API_DOMAIN api-legnaris.paulovalleriote.io
+write_env WEB_DOMAIN app-legnaris.paulovalleriote.io
+write_env OPS_DOMAIN ops-legnaris.paulovalleriote.io
+write_env WEB_API_BASE_URL https://api-legnaris.paulovalleriote.io
+write_env CORS_ALLOWED_ORIGINS https://app-legnaris.paulovalleriote.io
 write_env IMAGE_OWNER "$OWNER_LC"
 say ""
 say "Sign-in codes are emailed. With EMAIL_PROVIDER=log nothing is delivered, so real users need Resend."
@@ -370,7 +370,7 @@ step "If you chose public packages, make them public as soon as 'Images' publish
 pause "Press Enter when 'Deploy VPS' is green."
 
 stage "Verify"
-for u in "https://api.paulovalleriote.io/" "https://app.paulovalleriote.io/" "https://ops.paulovalleriote.io/grafana"; do
+for u in "https://api-legnaris.paulovalleriote.io/" "https://app-legnaris.paulovalleriote.io/" "https://ops-legnaris.paulovalleriote.io/grafana"; do
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$u" || true)
   say "$u → HTTP ${code:-fail}"
 done

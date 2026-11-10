@@ -9,10 +9,10 @@ metadata:
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   tls:
-    - hosts: [ops.legnaris.com.br]
+    - hosts: [ops-legnaris.paulovalleriote.io]
       secretName: ops-tls
   rules:
-    - host: ops.legnaris.com.br
+    - host: ops-legnaris.paulovalleriote.io
       http:
         paths:
           - path: /oauth2
@@ -29,10 +29,10 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: monitoring-oauth@kubernetescrd,default-security-headers@kubernetescrd
 spec:
   tls:
-    - hosts: [ops.legnaris.com.br]
+    - hosts: [ops-legnaris.paulovalleriote.io]
       secretName: ops-tls
   rules:
-    - host: ops.legnaris.com.br
+    - host: ops-legnaris.paulovalleriote.io
       http:
         paths:
           - path: /grafana
