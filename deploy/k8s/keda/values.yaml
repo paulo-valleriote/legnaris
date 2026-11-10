@@ -1,9 +1,0 @@
-# KEDA operator values for the local cluster (LGN-135). Chart version is pinned
-# in the Makefile (K8S_KEDA_CHART_VERSION).
-resources:
-  operator:
-    requests: {cpu: 50m, memory: 100Mi}
-    limits: {memory: 300Mi}
-  metricServer:
-    requests: {cpu: 50m, memory: 100Mi}
-    limits: {memory: 300Mi}

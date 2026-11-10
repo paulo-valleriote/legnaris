@@ -1,6 +1,6 @@
 # 0004 — GitOps with Argo CD and Sealed Secrets
 
-Status: accepted (LGN-137)
+Status: superseded (024). The Kubernetes/GitOps stack was removed; production runs on the Hostinger VPS through the CD workflow and `deploy/vps/deploy.sh`. Kept for the record of the decision.
 
 ## Decision
 
