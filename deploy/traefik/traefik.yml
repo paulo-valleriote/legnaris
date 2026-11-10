@@ -1,9 +1,7 @@
-# Static Traefik config, shared by production and local development.
-#
-# Production adds TLS (the `websecure` entrypoint, the HTTP->HTTPS redirect, and
-# the Let's Encrypt resolver) through CLI flags in docker-compose.yml, so those
-# settings live in one place and the local override (Cloudflare Tunnel) can use
-# this same file with plain HTTP on the `web` entrypoint only.
+# Static Traefik config for the LOCAL stack only (docker-compose.local.yml, plain
+# HTTP behind Cloudflare Tunnel). Production configures Traefik entirely by CLI
+# flags in docker-compose.yml, because Traefik ignores CLI flags whenever a
+# config file is given. Keep the non-TLS settings here in sync with those flags.
 
 global:
   sendAnonymousUsage: false
