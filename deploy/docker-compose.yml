@@ -38,9 +38,9 @@ services:
     restart: unless-stopped
     # Traefik reads ONE static source: a --configFile makes it ignore every CLI
     # flag, which silently dropped the `websecure` entrypoint and the ACME
-    # resolver. Production therefore configures everything by flags (so
-    # ${ACME_EMAIL} can be interpolated); the local override uses traefik.yml,
-    # which must mirror the non-TLS flags below.
+    # resolver. Everything is therefore configured by flags (so ${ACME_EMAIL}
+    # can be interpolated). Routing comes from the file provider only; the
+    # Docker socket is deliberately not mounted.
     command:
       - --global.sendAnonymousUsage=false
       - --entrypoints.web.address=:80
@@ -65,12 +65,10 @@ services:
       API_DOMAIN: ${API_DOMAIN}
       WEB_DOMAIN: ${WEB_DOMAIN}
       OPS_DOMAIN: ${OPS_DOMAIN}
-      TRAEFIK_ENTRYPOINT: websecure
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
       - letsencrypt:/letsencrypt
     networks:
