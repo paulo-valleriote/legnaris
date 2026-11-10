@@ -13,7 +13,7 @@ database UI (Mongo Express), with admin access protected by **GitHub OAuth**
 paulovalleriote.io          → Vercel (frontend)           [untouched]
 api-legnaris.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
    └─ /                  → app API (health, templates, sheets)
-app-legnaris.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
+legnaris.paulovalleriote.io      → Docker/Traefik              [public, no OAuth]
    └─ /                  → web client (service `web`, nginx)
 ops-legnaris.paulovalleriote.io      → Docker/Traefik              [GitHub OAuth]
    ├─ /oauth2/callback   → GitHub OAuth callback
@@ -61,7 +61,7 @@ your web server — it decides, for each request, which service should handle it
 based on the **Host** (requested domain) and the **path**:
 
 - Requests `api-legnaris.paulovalleriote.io/...` → forwards to the app.
-- Requests `app-legnaris.paulovalleriote.io/...` → forwards to the web client.
+- Requests `legnaris.paulovalleriote.io/...` → forwards to the web client.
 - Requests `ops-legnaris.paulovalleriote.io/grafana` → forwards to Grafana, but first asks
   oauth2-proxy ("is this person logged in?").
 
@@ -256,7 +256,7 @@ for a manual approval gate. `.env` lives only on the VPS.
 cloudflared tunnel login
 cloudflared tunnel create legnaris      # writes ~/.cloudflared/<TUNNEL_UUID>.json
 cloudflared tunnel route dns legnaris api-legnaris.paulovalleriote.io   # creates the CNAME automatically
-cloudflared tunnel route dns legnaris app-legnaris.paulovalleriote.io
+cloudflared tunnel route dns legnaris legnaris.paulovalleriote.io
 cloudflared tunnel route dns legnaris ops-legnaris.paulovalleriote.io
 
 # 2. configure the tunnel:
@@ -320,7 +320,7 @@ without authenticating at Cloudflare first:
 
 | URL | What it is | Protection |
 |---|---|---|
-| `https://app-legnaris.paulovalleriote.io/` | Web client (PWA) | public |
+| `https://legnaris.paulovalleriote.io/` | Web client (PWA) | public |
 | `https://api-legnaris.paulovalleriote.io/` | Public API | public |
 | `https://ops-legnaris.paulovalleriote.io/grafana` | Grafana | GitHub OAuth |
 | `https://ops-legnaris.paulovalleriote.io/prometheus` | Prometheus UI | GitHub OAuth |
@@ -359,7 +359,7 @@ application's broker account cannot sign in to it (see "RabbitMQ provisioning").
 ## 11. CORS (web client → API)
 
 The app allows origins from `CORS_ALLOWED_ORIGINS` (default in `.env.example`:
-`https://app-legnaris.paulovalleriote.io`). Without it, the browser blocks every call from
+`https://legnaris.paulovalleriote.io`). Without it, the browser blocks every call from
 the web client to the API. The origin must match exactly — scheme, host, and
 port — or the preflight fails.
 
