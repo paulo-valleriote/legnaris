@@ -36,10 +36,24 @@ services:
   traefik:
     image: traefik:v3.3
     restart: unless-stopped
+    # Traefik reads ONE static source: a --configFile makes it ignore every CLI
+    # flag, which silently dropped the `websecure` entrypoint and the ACME
+    # resolver. Production therefore configures everything by flags (so
+    # ${ACME_EMAIL} can be interpolated); the local override uses traefik.yml,
+    # which must mirror the non-TLS flags below.
     command:
-      - --configFile=/etc/traefik/traefik.yml
-      # TLS is production-only: the shared traefik.yml defines the plain-HTTP
-      # `web` and internal `metrics` entrypoints; these flags add HTTPS.
+      - --global.sendAnonymousUsage=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.metrics.address=:8082
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --metrics.prometheus.entryPoint=metrics
+      - --metrics.prometheus.addEntryPointsLabels=true
+      - --metrics.prometheus.addServicesLabels=true
+      - --log.level=INFO
+      - --log.format=json
+      - --accesslog=true
+      - --accesslog.format=json
       - --entrypoints.web.http.redirections.entryPoint.to=websecure
       - --entrypoints.web.http.redirections.entryPoint.scheme=https
       - --entrypoints.websecure.address=:443
@@ -57,7 +71,6 @@ services:
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
       - letsencrypt:/letsencrypt
     networks:

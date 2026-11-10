@@ -1150,3 +1150,28 @@ func TestVPSDeployScriptRejectsInvalidSHA(t *testing.T) {
 		})
 	}
 }
+
+func TestProductionTraefikIsConfiguredOnlyByFlags(t *testing.T) {
+	traefik := readCompose(t).Services["traefik"]
+
+	t.Run("Error: a config file would make Traefik ignore every flag", func(t *testing.T) {
+		for _, arg := range traefik.Command {
+			assert.NotContains(t, arg, "--configFile")
+		}
+		for _, v := range traefik.Volumes {
+			assert.NotContains(t, v, "traefik.yml")
+		}
+	})
+	t.Run("Happy path: TLS entrypoint, resolver and redirect are flags", func(t *testing.T) {
+		for _, want := range []string{
+			"--entrypoints.web.address=:80",
+			"--entrypoints.metrics.address=:8082",
+			"--entrypoints.websecure.address=:443",
+			"--entrypoints.websecure.http.tls.certResolver=letsencrypt",
+			"--entrypoints.web.http.redirections.entryPoint.to=websecure",
+			"--providers.file.directory=/etc/traefik/dynamic",
+		} {
+			assert.Contains(t, traefik.Command, want)
+		}
+	})
+}
