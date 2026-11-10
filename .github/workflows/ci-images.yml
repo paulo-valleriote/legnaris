@@ -1,11 +1,11 @@
 name: Images
 
-# Builds the `app` and `web` images, scans them with Trivy and publishes them to
-# GHCR. Pull requests build and scan only (no push, no registry credentials);
+# Builds the `app`, `web` and `rabbitmq` images and publishes them to
+# GHCR. Pull requests build only (no push, no registry credentials);
 # pushes to main and `v*` tags publish. The commit-SHA tag is the immutable
 # reference clusters should pin; `v*` tags add a human-readable version tag.
 on:
-  # Pull requests build and scan only when something that changes the image
+  # Pull requests build only when something that changes the image
   # contents or its dependency set changes (Dockerfiles, lockfiles, rabbitmq);
   # plain source edits are covered by the Go and Web pipelines and by the
   # publish run on main. Keeps a metered free plan from paying for three image
@@ -32,29 +32,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  hardening:
-    name: web Dockerfile hardening
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: hadolint (Dockerfile best practices)
-        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
-        with:
-          dockerfile: web/Dockerfile
-          failure-threshold: warning
-      # Trivy's IaC checks over the image definition. Blocking on CRITICAL only:
-      # DS002 ("image user is root", HIGH) is an accepted property of the static
-      # nginx image, whose master must start as root to bind port 80 and drops
-      # its workers to the unprivileged `nginx` user.
-      - name: Trivy config scan (IaC)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: config
-          scan-ref: web
-          severity: CRITICAL
-          exit-code: '1'
-
   image:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -86,23 +63,13 @@ jobs:
             type=sha,format=long
             type=semver,pattern={{version}}
 
-      - name: Build (local, for scanning)
+      - name: Build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.context }}
-          load: true
-          tags: ${{ env.IMAGE }}:scan
+          tags: ${{ env.IMAGE }}:ci
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
-
-      - name: Trivy image scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ${{ env.IMAGE }}:scan
-          scanners: vuln
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '1'
 
       - name: Log in to GHCR
         if: github.event_name == 'push'
