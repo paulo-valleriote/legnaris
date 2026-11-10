@@ -3,7 +3,8 @@
 #   {{ env "API_DOMAIN" }}        public API hostname
 #   {{ env "WEB_DOMAIN" }}        public web client hostname
 #   {{ env "OPS_DOMAIN" }}        observability + OAuth hostname
-#   {{ env "TRAEFIK_ENTRYPOINT" }}  "websecure" (prod) or "web" (local tunnel)
+# Every router uses the `websecure` entrypoint (TLS); the file provider is the
+# only provider, so no Docker socket is needed.
 
 http:
   middlewares:
@@ -97,24 +98,24 @@ http:
     # OAuth callback on the ops domain (no oauth middleware, else login loops).
     oauth2-proxy:
       rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/oauth2`)'
-      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      entryPoints: ['websecure']
       service: oauth2-proxy
 
     grafana:
       rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/grafana`)'
-      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      entryPoints: ['websecure']
       service: grafana
       middlewares: ["oauth", "security-headers"]
 
     prometheus:
       rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/prometheus`)'
-      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      entryPoints: ['websecure']
       service: prometheus
       middlewares: ["oauth", "security-headers"]
 
     mongo-express:
       rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/mongo`)'
-      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      entryPoints: ['websecure']
       service: mongo-express
       middlewares: ["oauth", "security-headers"]
 
@@ -124,14 +125,14 @@ http:
     # through unchanged.
     rabbitmq:
       rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/rabbitmq`)'
-      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      entryPoints: ['websecure']
       service: rabbitmq
       middlewares: ["oauth", "security-headers"]
 
     # Redirect root of ops domain to /grafana
     ops-home:
       rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/`)'
-      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      entryPoints: ['websecure']
       service: grafana
       middlewares: ["oauth", "security-headers"]
 
@@ -141,14 +142,14 @@ http:
     # /ready pings the database, so it must not be reachable by anonymous clients.
     app:
       rule: 'Host(`{{ env "API_DOMAIN" }}`) && !PathPrefix(`/metrics`) && !PathPrefix(`/ready`)'
-      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      entryPoints: ['websecure']
       service: app
 
     # Liveness stays public but rate limited per client. The explicit priority
     # makes it win over the broader `app` router.
     app-health:
       rule: 'Host(`{{ env "API_DOMAIN" }}`) && Path(`/health`)'
-      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      entryPoints: ['websecure']
       service: app
       middlewares: ["probe-rate-limit"]
       priority: 1000
@@ -157,6 +158,6 @@ http:
     # origin, which the API's CORS allowlist has to accept.
     web:
       rule: 'Host(`{{ env "WEB_DOMAIN" }}`)'
-      entryPoints: ['{{ env "TRAEFIK_ENTRYPOINT" }}']
+      entryPoints: ['websecure']
       service: web
       middlewares: ["web-security-headers"]
