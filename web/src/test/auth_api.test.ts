@@ -115,6 +115,42 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     expect(fake.lastRequest?.credentials).toBe('include');
   });
 
+  it('Happy path: a cross-host page with no readable CSRF cookie bootstraps the token before refresh', async () => {
+    const fake = createFakeTransport(
+      successOutcome({ csrf_token: 'boot-token' }),
+      successOutcome(SESSION_BODY),
+    );
+
+    await authWith(fake, () => undefined).refresh();
+
+    expect(fake.requests.map((request) => `${request.method} ${request.url}`)).toEqual([
+      'GET http://api.test/auth/csrf',
+      'POST http://api.test/auth/refresh',
+    ]);
+    expect(fake.requests[0]?.credentials).toBe('include');
+    expect(fake.lastRequest?.headers?.['X-CSRF-Token']).toBe('boot-token');
+  });
+
+  it('Edge: a readable CSRF cookie skips the bootstrap request', async () => {
+    const fake = createFakeTransport(successOutcome(SESSION_BODY));
+
+    await authWith(fake, () => 'cookie-token').refresh();
+
+    expect(fake.requests).toHaveLength(1);
+  });
+
+  it('Edge: a failed bootstrap still attempts refresh without a header', async () => {
+    const fake = createFakeTransport(
+      errorOutcome('UNAUTHORIZED', 'no cookie', 401),
+      errorOutcome('UNAUTHORIZED', 'no cookie', 401),
+    );
+
+    await expect(authWith(fake, () => undefined).refresh()).rejects.toMatchObject({
+      kind: 'unauthorized',
+    });
+    expect(fake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
+  });
+
   it('Happy path: refresh echoes the CSRF cookie when present (WAS-18)', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
 

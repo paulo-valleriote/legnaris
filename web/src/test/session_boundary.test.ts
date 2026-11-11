@@ -36,7 +36,7 @@ function sessionOver(
   state: 'restoring' | 'authenticated' = 'authenticated',
 ) {
   return createAuthSession({
-    authApi: createAuthApi({ baseUrl: BASE_URL, transport, readCsrfToken: () => undefined }),
+    authApi: createAuthApi({ baseUrl: BASE_URL, transport, readCsrfToken: () => 'csrf-token' }),
     clearSessionData: clear,
     initialState: state,
     initialAccessToken: state === 'authenticated' ? 'access-1' : null,

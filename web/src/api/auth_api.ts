@@ -119,6 +119,14 @@ function decodeSession(data: unknown): SessionBody {
   };
 }
 
+function decodeCsrf(data: unknown): string {
+  if (!isPlainObject(data)) {
+    throw drift('csrf payload is not an object');
+  }
+
+  return requireString(data, 'csrf_token');
+}
+
 function decodeChallenge(data: unknown): ChallengeStep {
   if (!isPlainObject(data)) {
     throw drift('challenge payload is not an object');
@@ -174,9 +182,26 @@ export function createAuthApi(options: AuthApiOptions): AuthApi {
   const { readCsrfToken } = options;
   const caller = createCaller(options);
 
-  const csrfHeaders = (): Readonly<Record<string, string>> => {
+  const bootstrapCsrf = async (): Promise<string | undefined> => {
+    try {
+      return await caller.call('GET', '/auth/csrf', undefined, decodeCsrf, {
+        credentials: 'include',
+      });
+    } catch {
+      return undefined;
+    }
+  };
+
+  const toHeaders = (token: string | undefined): Readonly<Record<string, string>> =>
+    token === undefined ? {} : { 'X-CSRF-Token': token };
+
+  const withCsrf = <T>(
+    send: (headers: Readonly<Record<string, string>>) => Promise<T>,
+  ): Promise<T> => {
     const token = readCsrfToken();
-    return token === undefined ? {} : { 'X-CSRF-Token': token };
+    return token === undefined
+      ? bootstrapCsrf().then((boot) => send(toHeaders(boot)))
+      : send(toHeaders(token));
   };
 
   return {
@@ -197,15 +222,19 @@ export function createAuthApi(options: AuthApiOptions): AuthApi {
         { credentials: 'include' },
       ),
     refresh: () =>
-      caller.call('POST', '/auth/refresh', undefined, decodeSession, {
-        credentials: 'include',
-        headers: csrfHeaders(),
-      }),
+      withCsrf((headers) =>
+        caller.call('POST', '/auth/refresh', undefined, decodeSession, {
+          credentials: 'include',
+          headers,
+        }),
+      ),
     logout: () =>
-      caller.callNoContent('POST', '/auth/logout', undefined, {
-        credentials: 'include',
-        headers: csrfHeaders(),
-      }),
+      withCsrf((headers) =>
+        caller.callNoContent('POST', '/auth/logout', undefined, {
+          credentials: 'include',
+          headers,
+        }),
+      ),
     verifyChallenge: (input) =>
       caller.call(
         'POST',

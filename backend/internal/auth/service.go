@@ -125,6 +125,7 @@ type Service interface {
 	Login(ctx context.Context, cmd LoginCommand) (*LoginResult, error)
 	Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error)
 	Logout(ctx context.Context, cmd LogoutCommand) error
+	IssueCSRF(ctx context.Context, refreshToken string) (string, error)
 	IssueChallenge(ctx context.Context, cmd IssueChallengeCommand) (*ChallengeIssued, error)
 	VerifyChallenge(ctx context.Context, cmd VerifyChallengeCommand) (*Session, error)
 	ResendChallenge(ctx context.Context, cmd ResendChallengeCommand) (*ResendResult, error)
@@ -674,6 +675,34 @@ func (s *ServiceImpl) Logout(ctx context.Context, cmd LogoutCommand) error {
 	}
 	s.log.Info(ctx, "logout succeeded")
 	return nil
+}
+
+// IssueCSRF hands a page that cannot read the host-only CSRF cookie (the web
+// app and the API live on different hosts) the CSRF token bound to the family of
+// its live refresh credential. It owes no CSRF check itself: the HTTP layer
+// restricts it to allowlisted origins, whose responses other origins cannot
+// read, which is what keeps the token secret from a cross-site page.
+func (s *ServiceImpl) IssueCSRF(ctx context.Context, refreshToken string) (string, error) {
+	if refreshToken == "" {
+		return "", apperr.NewError(apperr.CodeUnauthorized, MsgRefreshTokenRequired, nil)
+	}
+
+	stored, err := s.refreshTokens.FetchByHash(ctx, HashRefreshToken(refreshToken))
+	if err != nil {
+		if errors.Is(err, ErrRefreshTokenNotFound) {
+			return "", apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, err)
+		}
+		return "", apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	if stored.Revoked || !s.clock.Now().Before(stored.ExpiresAt) {
+		return "", apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
+	}
+
+	token, err := s.csrf.Issue(stored.FamilyID)
+	if err != nil {
+		return "", apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	return token, nil
 }
 
 // signIn mints a brand-new session for a user: a fresh family of refresh

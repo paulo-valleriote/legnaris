@@ -70,6 +70,7 @@ func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, o
 	group.POST("/register", modules.Auth.Controller.Register, registerRateLimit(modules.Auth.RegisterIPLimiter, modules.Auth.RegisterEmailLimiter, observer))
 	group.POST("/login", modules.Auth.Controller.Login, rateLimit(limiter, observer, true))
 	group.POST("/refresh", modules.Auth.Controller.Refresh, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
+	group.GET("/csrf", modules.Auth.Controller.CSRF, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
 	group.POST("/logout", modules.Auth.Controller.Logout, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
 
 	// The two unified code-step routes present a capability and no session
