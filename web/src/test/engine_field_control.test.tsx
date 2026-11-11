@@ -104,7 +104,7 @@ describe('sheet field control', () => {
       />,
     );
 
-    expect(screen.getByRole('group', { name: 'Mystery' })).toHaveTextContent('7');
+    expect(screen.getByRole('group', { name: /^Mystery(:| |$)/ })).toHaveTextContent('7');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByText(message('engine.calculated'))).not.toBeInTheDocument();
@@ -248,8 +248,8 @@ describe('sheet field control', () => {
       />,
     );
 
-    expect(screen.getByRole('group', { name: 'Total' })).toHaveTextContent('12');
-    expect(screen.getByRole('group', { name: 'Total' })).toHaveAccessibleDescription(
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toHaveTextContent('12');
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toHaveAccessibleDescription(
       message('engine.calculated'),
     );
     expect(screen.getByText(message('engine.calculated'))).toHaveClass('lg-field__calculated');
@@ -278,12 +278,14 @@ describe('sheet field control', () => {
       </>,
     );
 
-    const a = screen.getByRole('group', { name: 'A' });
-    const b = screen.getByRole('group', { name: 'B' });
+    const a = screen.getByRole('group', { name: /^A(:| |$)/ });
+    const b = screen.getByRole('group', { name: /^B(:| |$)/ });
     expect(a).toHaveAccessibleDescription(message('engine.calculated'));
     expect(b).toHaveAccessibleDescription(message('engine.calculated'));
     expect(a.getAttribute('aria-describedby')).not.toBe(b.getAttribute('aria-describedby'));
-    expect(screen.getByRole('group', { name: 'C' })).not.toHaveAttribute('aria-describedby');
+    expect(screen.getByRole('group', { name: /^C(:| |$)/ })).not.toHaveAttribute(
+      'aria-describedby',
+    );
     expect(screen.getAllByText(message('engine.calculated'))).toHaveLength(2);
   });
 
@@ -308,7 +310,7 @@ describe('sheet field control', () => {
       />,
     );
 
-    expect(screen.getByRole('group', { name: 'Total' })).toHaveAccessibleDescription(
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toHaveAccessibleDescription(
       message('engine.calculated'),
     );
     expect(container.querySelector('[title]')).toBeNull();

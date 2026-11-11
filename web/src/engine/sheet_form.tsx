@@ -168,10 +168,23 @@ export interface SheetFormProps {
    * caller counts what it marks. Orthogonal to the control source.
    */
   readonly sectionBadgeBuilder?: (rowPaths: readonly (readonly string[])[]) => ReactNode;
+  /**
+   * Optional inline actions of a Row (such as Roll and Dice): drawn on the Row's own line, after
+   * the control (after the label in a table Row, whose cells take the line below on a phone), so
+   * a Row never grows a button line of its own.
+   */
+  readonly rowActionsBuilder?: (row: RowActionsInfo) => ReactNode;
   /** The resolved arrangement to draw; absent draws the Template order with nothing pinned. */
   readonly arrangement?: Arrangement;
   /** Replacement frames for the root, Sections and Rows. */
   readonly frames?: SheetFormFrames;
+}
+
+/** What a Row's inline actions are built from. */
+export interface RowActionsInfo {
+  readonly rowKey: string;
+  readonly sectionKey: string;
+  readonly label: string;
 }
 
 /** The copy a row shows for its preview mark (ENG-22). */
@@ -195,6 +208,7 @@ export function SheetForm({
   onToggleSection,
   onlyPinned = false,
   sectionBadgeBuilder,
+  rowActionsBuilder,
   arrangement,
   frames,
 }: SheetFormProps) {
@@ -297,7 +311,7 @@ export function SheetForm({
       fieldColumnAlign(schema) === 'right' ? ' lg-field-table__cell--number' : ''
     }`;
 
-  const renderNormalRow = (row: NormalRow, pinned: boolean): ReactNode => {
+  const renderNormalRow = (row: NormalRow, pinned: boolean, actions: ReactNode): ReactNode => {
     const field = row.field;
     const labelId = labelIdFor(field.path);
     const dependents = dependentsBeside(field);
@@ -315,6 +329,7 @@ export function SheetForm({
         <span className="lg-field-row__control">
           {renderControl(field, labelId, describedById)}
         </span>
+        {actions}
         {describedById !== undefined && (
           <DependentList
             id={describedById}
@@ -327,7 +342,11 @@ export function SheetForm({
     );
   };
 
-  const renderExclusiveRow = (row: ExclusiveRow, pinned: boolean): ReactNode => {
+  const renderExclusiveRow = (
+    row: ExclusiveRow,
+    pinned: boolean,
+    actions: ReactNode,
+  ): ReactNode => {
     const group = row.group;
     const selectedPath = activeOption(group);
     return (
@@ -346,6 +365,7 @@ export function SheetForm({
             exclusiveControlBuilder(group, selectedPath, undefined)
           )}
         </span>
+        {actions}
       </>
     );
   };
@@ -363,7 +383,12 @@ export function SheetForm({
     </div>
   );
 
-  const renderTableRow = (row: TableRow, withHeader: boolean, pinned: boolean): ReactNode => (
+  const renderTableRow = (
+    row: TableRow,
+    withHeader: boolean,
+    pinned: boolean,
+    actions: ReactNode,
+  ): ReactNode => (
     <>
       {withHeader && renderTableHeader(row)}
       <span className="lg-field-table__lead">
@@ -372,6 +397,7 @@ export function SheetForm({
           row.fields.map((field) => field.path),
           pinned,
         )}
+        {actions}
       </span>
       <span className="lg-field-table__cells">
         {row.fields.map((field) => (
@@ -394,12 +420,17 @@ export function SheetForm({
   const renderRow = (arranged: ArrangedRow, previous: SheetRow | undefined): ReactNode => {
     const row = arranged.row;
     let content: ReactNode;
+    const actions = rowActionsBuilder?.({
+      rowKey: arranged.key,
+      sectionKey: arranged.sectionKey,
+      label: rowLabelText(row),
+    });
     if (row.kind === 'table') {
-      content = renderTableRow(row, needsTableHeader(previous, row), arranged.pinned);
+      content = renderTableRow(row, needsTableHeader(previous, row), arranged.pinned, actions);
     } else if (row.kind === 'exclusive') {
-      content = renderExclusiveRow(row, arranged.pinned);
+      content = renderExclusiveRow(row, arranged.pinned, actions);
     } else {
-      content = renderNormalRow(row, arranged.pinned);
+      content = renderNormalRow(row, arranged.pinned, actions);
     }
     return (
       <RowFrame

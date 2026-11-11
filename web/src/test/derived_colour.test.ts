@@ -48,7 +48,7 @@ describe('derived values are neutral text, never the accent (brief A11)', () => 
 
     expect(colourOf(derived)).toBe('var(--lg-color-text)');
     expect(derived.body).toMatch(/font-weight:\s*var\(--lg-font-weight-bold\)/);
-    expect(derived.body).toMatch(/background-color:\s*var\(--lg-color-bg\)/);
+    expect(derived.body).toMatch(/background-color:\s*var\(--lg-color-inset\)/);
     expect(derived.body).toMatch(/border-color:\s*transparent/);
   });
 

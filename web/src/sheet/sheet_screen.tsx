@@ -39,6 +39,7 @@ import type { SheetExclusiveGroup, SheetField } from '../engine/field_grouping';
 import { buildSections, fieldDisplayName, lastSegment, rowKey } from '../engine/field_grouping';
 import type { SheetMark } from '../engine/sheet_mark';
 import { markLabel, SheetForm } from '../engine/sheet_form';
+import type { RowActionsInfo } from '../engine/sheet_form';
 import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { useApiClient, useSheetStore } from '../app/providers';
@@ -54,11 +55,12 @@ import {
   createSheetEditStore,
   isBusy,
   isPending,
+  pendingCount,
   markForPaths,
 } from './sheet_edit';
 import { ARRANGE_FRAMES, ArrangeProvider } from './arrange_frames';
 import { createDiceStore, type DiceCheck, type DiceStore } from './dice_store';
-import { DICE_FRAMES, DiceProvider, type DiceContextValue } from './dice_row';
+import { DICE_FRAMES, DiceProvider, DiceRowActions, type DiceContextValue } from './dice_row';
 import {
   checkExpression,
   checkSectionExpression,
@@ -279,6 +281,7 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
   const state = useEditState(store);
   const [savedRevision, setSavedRevision] = useState<number | undefined>(undefined);
   const pending = isPending(state);
+  const changes = pendingCount(state);
   const savable = canSave(state);
   const previewable = canPreview(state);
   const showSaved =
@@ -297,8 +300,19 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
     }
   }, [store]);
 
+  const quiet =
+    !pending &&
+    state.previewMarks === undefined &&
+    state.previewError === undefined &&
+    state.saveError === undefined &&
+    !state.isSaving &&
+    !state.isPreviewing &&
+    !showSaved;
+
   return (
-    <footer className="lg-sheet__footer">
+    <footer
+      className={`lg-sheet__footer ${quiet ? 'lg-sheet__footer--clean' : 'lg-sheet__footer--dirty'}`}
+    >
       <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal}>
         {state.previewError !== undefined && (
           <p
@@ -320,6 +334,13 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
         )}
       </FooterStatus>
       <div className="lg-sheet__actions">
+        {changes > 0 && (
+          <span className="lg-sheet__count" data-testid="sheet-change-count">
+            {changes === 1
+              ? message('sheet.changeCountOne')
+              : messageWith('sheet.changeCount', { count: changes })}
+          </span>
+        )}
         <Button
           variant="secondary"
           size="md"
@@ -653,6 +674,8 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [marks],
   );
 
+  const renderDiceActions = useCallback((info: RowActionsInfo) => <DiceRowActions {...info} />, []);
+
   const sectionBadgeBuilder = useCallback(
     (rowPaths: readonly (readonly string[])[]) => {
       const count = rowPaths.filter((paths) => markForPaths(marks, paths) !== undefined).length;
@@ -845,6 +868,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
                 exclusiveControlBuilder={exclusiveControlBuilder}
                 dependentBuilder={dependentBuilder}
                 rowMarkBuilder={rowMarkBuilder}
+                rowActionsBuilder={arranging ? undefined : renderDiceActions}
                 sectionBadgeBuilder={sectionBadgeBuilder}
                 collapsedSectionKeys={view.collapsible ? view.state.collapsed : undefined}
                 onToggleSection={view.collapsible ? view.store.toggle : undefined}

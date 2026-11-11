@@ -18,6 +18,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NEXT_PARAM, sanitizeNextPath, signInPathFor } from './next_path';
 import { useAuthSession } from '../app/providers';
 import { LANDING_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
@@ -44,9 +45,13 @@ export function AuthGate() {
 
   useEffect(() => {
     if (snapshot.state === 'unauthenticated' && !PUBLIC_PATHS.has(location.pathname)) {
-      navigate(SIGN_IN_PATH, { replace: true });
+      navigate(signInPathFor(`${location.pathname}${location.search}${location.hash}`), {
+        replace: true,
+      });
     }
-  }, [snapshot.state, location.pathname, navigate]);
+  }, [snapshot.state, location.pathname, location.search, location.hash, navigate]);
+
+  const next = sanitizeNextPath(new URLSearchParams(location.search).get(NEXT_PARAM));
 
   if (snapshot.state === 'restoring') {
     return (
@@ -69,6 +74,7 @@ export function AuthGate() {
       <AuthScreen
         restore={snapshot.restored}
         initialMode={location.pathname === SIGN_UP_PATH ? 'register' : 'login'}
+        next={next}
       />
     );
   }
@@ -82,7 +88,11 @@ export function AuthGate() {
           onDismiss={() => session.dismissNotice()}
         />
       )}
-      {AUTH_PATHS.has(location.pathname) ? <Navigate to={LANDING_PATH} replace /> : <Outlet />}
+      {AUTH_PATHS.has(location.pathname) ? (
+        <Navigate to={next ?? LANDING_PATH} replace />
+      ) : (
+        <Outlet />
+      )}
     </>
   );
 }

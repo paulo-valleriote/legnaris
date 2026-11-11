@@ -164,6 +164,17 @@ export interface SheetEditStore {
   dispose(): void;
 }
 
+/** How many edited paths currently differ from their reference: the "N changes" the footer counts. */
+export function pendingCount(state: SheetEditState): number {
+  let count = 0;
+  for (const path of state.editedPaths) {
+    if (!Object.is(readPath(state.data, path), readPath(state.defaults, path))) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 /** True when any edited path's current value differs from its reference (WSC-13). */
 export function isPending(state: SheetEditState): boolean {
   for (const path of state.editedPaths) {

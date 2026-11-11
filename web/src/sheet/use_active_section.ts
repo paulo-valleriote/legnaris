@@ -2,7 +2,7 @@
  * Scrollspy for the section strip: which Section the person is reading.
  *
  * It observes the drawn Sections with an `IntersectionObserver` whose top root margin is the
- * strip's own height, so a Section is a candidate once it is below the strip. Of the candidates
+ * strip's own height (the root is the viewport, because the document scrolls), so a Section is a candidate once it is below the strip. Of the candidates
  * the last one whose top has reached the strip wins, or the first when none has. At the end of
  * the scroll the last Section wins, because a short last Section can never reach the top. A jump
  * pins the chosen Section until the smooth scroll settles. Without an `IntersectionObserver`
@@ -12,8 +12,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
-/** The scrolling region the strip lives in; falls back to the viewport when there is none. */
+/** The region that used to scroll the sheet; it counts as the scroller only while it still does. */
 const SCROLLER_SELECTOR = '.lg-content';
+
+const SCROLLING_OVERFLOW = /^(auto|scroll|overlay)$/;
 
 /** The ancestor that holds the drawn Sections. */
 const SHEET_SELECTOR = '.lg-sheet';
@@ -45,6 +47,19 @@ function sectionElements(sheet: Element, keys: readonly string[]): Map<string, E
     }
   }
   return found;
+}
+
+/**
+ * The element that scrolls the strip's Sections: the content region only while its own overflow
+ * makes it a scroll container, otherwise `null`, which stands for the viewport (the document
+ * scrolls). Observing a region that does not scroll would leave the scrollspy blind.
+ */
+export function findScroller(strip: Element): Element | null {
+  const region = strip.closest(SCROLLER_SELECTOR);
+  if (region === null) {
+    return null;
+  }
+  return SCROLLING_OVERFLOW.test(getComputedStyle(region).overflowY) ? region : null;
 }
 
 function atScrollEnd(scroller: Element | null): boolean {
@@ -84,7 +99,7 @@ export function useActiveSection(
       return;
     }
     const sheet = strip.closest(SHEET_SELECTOR);
-    const scroller = strip.closest(SCROLLER_SELECTOR);
+    const scroller = findScroller(strip);
     if (sheet === null) {
       setActiveKey(undefined);
       return;

@@ -83,7 +83,7 @@ function props(overrides: Partial<IndexProps> = {}): IndexProps {
 function mount(overrides: Partial<IndexProps> = {}) {
   const merged = props(overrides);
   const view = render(
-    <div className="lg-content">
+    <div className="lg-content" style={{ overflowY: 'auto' }}>
       <div className="lg-sheet">
         <SectionIndex {...merged} />
         {merged.sections.map((section) => (
@@ -352,7 +352,7 @@ describe('the scrollspy', () => {
     const first = latest();
 
     rerender(
-      <div className="lg-content">
+      <div className="lg-content" style={{ overflowY: 'auto' }}>
         <div className="lg-sheet">
           <SectionIndex {...merged} sections={[LINKS[0], LINKS[1]]} />
           <section data-section-key="identity" />
@@ -455,7 +455,7 @@ describe('the pinned filter toggle', () => {
     );
     const onSet = vi.fn();
     render(
-      <div className="lg-content">
+      <div className="lg-content" style={{ overflowY: 'auto' }}>
         <div className="lg-sheet">
           <ArrangeProvider store={store}>
             <SectionIndex {...props({ pinnedCount: 6, onSetOnlyPinned: onSet })} />

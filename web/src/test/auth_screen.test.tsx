@@ -70,7 +70,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     const duplicate = createDeferredTransport();
     const { unmount } = renderAuth(duplicate.transport);
 
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.click(screen.getByRole('tab', { name: message('auth.modeRegister') }));
     await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
     await user.type(screen.getByLabelText(message('auth.usernameLabel')), 'aragorn');
     await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
@@ -86,7 +86,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
 
     const other = createDeferredTransport();
     renderAuth(other.transport);
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.click(screen.getByRole('tab', { name: message('auth.modeRegister') }));
     await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
     await user.type(screen.getByLabelText(message('auth.usernameLabel')), 'aragorn');
     await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
@@ -123,7 +123,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     fake.resolve(errorOutcome('UNAUTHORIZED', 'bad credentials', 401));
     await waitFor(() => expect(screen.getByTestId('auth-error')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.click(screen.getByRole('tab', { name: message('auth.modeRegister') }));
 
     expect(screen.queryByTestId('auth-error')).not.toBeInTheDocument();
     expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
@@ -154,7 +154,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toBeInTheDocument();
     expect(screen.queryByLabelText(message('auth.usernameLabel'))).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.click(screen.getByRole('tab', { name: message('auth.modeRegister') }));
 
     expect(screen.getByLabelText(message('auth.usernameLabel'))).toBeInTheDocument();
   });
@@ -166,7 +166,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(message('auth.titleLogin'));
     expect(screen.getByText(message('auth.subtitleLogin'))).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.click(screen.getByRole('tab', { name: message('auth.modeRegister') }));
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       message('auth.titleRegister'),
@@ -175,16 +175,18 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByText(message('auth.subtitleRegister'))).toBeInTheDocument();
   });
 
-  it('Happy path: the mode switch names its group and marks exactly one mode as pressed (WAS-09)', () => {
+  it('Happy path: the mode switch names its group and marks exactly one mode as selected (WAS-09)', () => {
     renderAuth(createDeferredTransport().transport);
 
-    expect(screen.getByRole('group', { name: message('auth.modeGroupLabel') })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('auth.modeLogin') })).toHaveAttribute(
-      'aria-pressed',
+    expect(
+      screen.getByRole('tablist', { name: message('auth.modeGroupLabel') }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: message('auth.modeLogin') })).toHaveAttribute(
+      'aria-selected',
       'true',
     );
-    expect(screen.getByRole('button', { name: message('auth.modeRegister') })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('tab', { name: message('auth.modeRegister') })).toHaveAttribute(
+      'aria-selected',
       'false',
     );
   });
@@ -219,8 +221,8 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
     expect(screen.getByLabelText(message('auth.usernameLabel'))).toHaveValue('aragorn');
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('');
-    expect(screen.getByRole('button', { name: message('auth.modeRegister') })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('tab', { name: message('auth.modeRegister') })).toHaveAttribute(
+      'aria-selected',
       'true',
     );
     expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveFocus();
@@ -231,7 +233,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     const duplicate = createDeferredTransport();
     renderAuth(duplicate.transport);
 
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.click(screen.getByRole('tab', { name: message('auth.modeRegister') }));
     await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
     await user.type(screen.getByLabelText(message('auth.usernameLabel')), 'aragorn');
     await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
@@ -249,7 +251,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     const duplicate = createDeferredTransport();
     renderAuth(duplicate.transport);
 
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.click(screen.getByRole('tab', { name: message('auth.modeRegister') }));
     await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
     await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
     await user.click(screen.getByRole('button', { name: message('auth.submitRegister') }));
@@ -258,8 +260,8 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     await waitFor(() => expect(screen.getByTestId('auth-conflict-action')).toBeInTheDocument());
     await user.click(screen.getByTestId('auth-conflict-action'));
 
-    expect(screen.getByRole('button', { name: message('auth.modeLogin') })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('tab', { name: message('auth.modeLogin') })).toHaveAttribute(
+      'aria-selected',
       'true',
     );
     expect(screen.queryByLabelText(message('auth.usernameLabel'))).not.toBeInTheDocument();

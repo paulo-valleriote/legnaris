@@ -33,8 +33,8 @@ describe('derived readout names', () => {
   it('Happy path: a lone derived readout is named by the visible row label and carries no aria-label', () => {
     render(<SheetForm fields={tree({ total: derivedLeaf('Total') })} data={{}} />);
 
-    const readout = screen.getByRole('group', { name: 'Total' });
-    const labelId = readout.getAttribute('aria-labelledby');
+    const readout = screen.getByRole('group', { name: /^Total(:| |$)/ });
+    const labelId = readout.getAttribute('aria-labelledby')?.split(' ')[0];
     expect(labelId).toBeTruthy();
     const target = document.getElementById(labelId ?? '');
     expect(target).not.toBeNull();
@@ -44,7 +44,7 @@ describe('derived readout names', () => {
     expect(readout).toHaveAccessibleName('Total');
   });
 
-  it('Edge: the name is not duplicated by the value, the caption or a preview mark', () => {
+  it('Edge: the name is the label and the value, never the formula, the caption or a preview mark', () => {
     render(
       <SheetForm
         fields={tree({ total: derivedLeaf('Total') })}
@@ -58,7 +58,8 @@ describe('derived readout names', () => {
     );
 
     const readout = screen.getByRole('group');
-    expect(readout).toHaveAccessibleName('Total');
+    expect(readout).toHaveAccessibleName('Total 9');
+    expect(readout).not.toHaveAccessibleName(expect.stringContaining('a + 1'));
     expect(screen.getAllByText('Total')).toHaveLength(1);
     expect(readout.closest('[data-row-key]')?.querySelector('.lg-field-row__mark')).not.toBeNull();
   });
@@ -82,9 +83,8 @@ describe('derived readout names', () => {
     expect(new Set(ids).size).toBe(3);
     for (const readout of container.querySelectorAll('[role="group"][aria-labelledby]')) {
       const row = readout.closest('[data-row-key]');
-      expect(
-        row?.querySelector(`[id="${readout.getAttribute('aria-labelledby') ?? ''}"]`),
-      ).not.toBeNull();
+      const labelId = readout.getAttribute('aria-labelledby')?.split(' ')[0] ?? '';
+      expect(row?.querySelector(`[id="${labelId}"]`)).not.toBeNull();
     }
   });
 
@@ -97,26 +97,26 @@ describe('derived readout names', () => {
       </>,
     );
 
-    const readouts = screen.getAllByRole('group', { name: 'Total' });
+    const readouts = screen.getAllByRole('group', { name: /^Total(:| |$)/ });
     expect(readouts).toHaveLength(2);
     expect(readouts[0]?.getAttribute('aria-labelledby')).not.toBe(
       readouts[1]?.getAttribute('aria-labelledby'),
     );
     for (const readout of readouts) {
-      expect(
-        readout
-          .closest('[data-row-key]')
-          ?.contains(document.getElementById(readout.getAttribute('aria-labelledby') ?? '')),
-      ).toBe(true);
+      const labelId = readout.getAttribute('aria-labelledby')?.split(' ')[0] ?? '';
+      expect(readout.closest('[data-row-key]')?.contains(document.getElementById(labelId))).toBe(
+        true,
+      );
     }
   });
 
   it('Edge: a key with whitespace still yields an id without whitespace that resolves', () => {
     render(<SheetForm fields={tree({ 'bonus total': derivedLeaf('Bonus total') })} data={{}} />);
 
-    const readout = screen.getByRole('group', { name: 'Bonus total' });
-    const id = readout.getAttribute('aria-labelledby') ?? '';
+    const readout = screen.getByRole('group', { name: /^Bonus total(:| |$)/ });
+    const [id = '', valueId = ''] = (readout.getAttribute('aria-labelledby') ?? '').split(' ');
     expect(id).not.toMatch(/\s/);
+    expect(valueId).not.toBe('');
     expect(document.getElementById(id)).toHaveTextContent('Bonus total');
   });
 
@@ -131,7 +131,7 @@ describe('derived readout names', () => {
     expect(cell).not.toBeNull();
     expect(cell).toHaveAttribute('aria-label', 'Total');
     expect(cell).not.toHaveAttribute('aria-labelledby');
-    expect(screen.getByRole('group', { name: 'Total' })).toBe(cell);
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toBe(cell);
   });
 
   it('Edge: builder mode hands the label id to a lone row and none to a table cell', () => {
@@ -175,7 +175,7 @@ describe('derived readout names', () => {
     );
 
     const readout = screen.getByRole('group');
-    expect(readout).toHaveAttribute('aria-labelledby', 'missing-label');
+    expect(readout.getAttribute('aria-labelledby')?.split(' ')[0]).toBe('missing-label');
     expect(readout).not.toHaveAttribute('aria-label');
   });
 });

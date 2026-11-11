@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { useAuthSession } from '../app/providers';
 import { applyUpdate, dismissUpdate, getSnapshot, subscribe } from './register_sw';
 import './update_prompt.css';
 
@@ -41,13 +42,19 @@ export function UpdatePromptView({
   );
 }
 
-/** Wires the presentational notice to the service-worker registration store. */
+/**
+ * Wires the presentational notice to the service-worker registration store. The offline-ready
+ * notice waits for a session so it never competes with sign-in.
+ */
 export function UpdatePrompt() {
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const session = useAuthSession();
+  const auth = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const signedIn = auth.state === 'authenticated';
   return (
     <UpdatePromptView
       needRefresh={state.needRefresh}
-      offlineReady={state.offlineReady}
+      offlineReady={state.offlineReady && signedIn}
       onUpdate={applyUpdate}
       onDismiss={dismissUpdate}
     />

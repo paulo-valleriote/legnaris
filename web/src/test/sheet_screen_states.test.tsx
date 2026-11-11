@@ -43,7 +43,7 @@ describe('sheet screen states (WSC-08, WSC-10, SC-001)', () => {
     expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Aragorn');
     expect(screen.getByRole('textbox', { name: 'Level' })).toHaveValue('3');
-    expect(screen.getByRole('group', { name: 'Total' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Ability' })).toBeInTheDocument();
   });
 

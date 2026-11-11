@@ -1,12 +1,8 @@
 /**
- * The section strip: one sticky row inside the scrolling content region, the same on a
+ * The section strip: one sticky row at the top of the page (the document scrolls), the same on a
  * phone and on a desktop. The top bar of a narrow viewport is a grid row above the content
  * region, never over it, so the strip sticks to the region's own top edge. Tokens only.
  */
-
-.lg-content:has(.lg-sectionbar) {
-  scroll-behavior: smooth;
-}
 
 .lg-sectionbar {
   position: sticky;
@@ -274,4 +270,24 @@
   .lg-sectionbar__chip {
     transition: none;
   }
+}
+
+/* A fade at an edge of the row says more links lie past it; it shows only while links are hidden
+   there. Only the mask's alpha matters, so the colour stops are the surface token. */
+.lg-sectionbar__nav[data-edge-start] {
+  mask-image: linear-gradient(to right, transparent, var(--lg-color-surface) var(--lg-space-24));
+}
+
+.lg-sectionbar__nav[data-edge-end] {
+  mask-image: linear-gradient(to left, transparent, var(--lg-color-surface) var(--lg-space-24));
+}
+
+.lg-sectionbar__nav[data-edge-start][data-edge-end] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    var(--lg-color-surface) var(--lg-space-24),
+    var(--lg-color-surface) calc(100% - var(--lg-space-24)),
+    transparent
+  );
 }
