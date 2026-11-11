@@ -79,7 +79,7 @@ func buildRowKeys(prefix string, root FieldNode) []string {
 			rows = append(rows, path)
 			return
 		}
-		for _, key := range orderedKeys(node.Children, nil) {
+		for _, key := range orderedKeys(node.Children, node.Order) {
 			walk(path+pathSeparator+key, node.Children[key])
 		}
 	}

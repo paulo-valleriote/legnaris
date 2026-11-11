@@ -45,6 +45,7 @@ func cloneFieldNode(node FieldNode) FieldNode {
 	cloned.Children = cloneFieldGroup(node.Children)
 	cloned.Label = node.Label
 	cloned.Columns = slices.Clone(node.Columns)
+	cloned.Order = slices.Clone(node.Order)
 	return cloned
 }
 
