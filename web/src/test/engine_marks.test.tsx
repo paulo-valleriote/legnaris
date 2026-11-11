@@ -60,7 +60,7 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
       />,
     );
 
-    expect(screen.getByRole('group', { name: 'Total' })).toHaveAccessibleDescription(
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toHaveAccessibleDescription(
       message('engine.calculated'),
     );
   });

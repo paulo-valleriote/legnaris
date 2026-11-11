@@ -56,7 +56,7 @@ describe('revealTop', () => {
   it('Happy path: the scrolling region goes to its start', () => {
     const scrollTo = vi.fn();
     Element.prototype.scrollTo = scrollTo as unknown as typeof Element.prototype.scrollTo;
-    render(<div className="lg-content" />);
+    render(<div className="lg-content" style={{ overflowY: 'auto' }} />);
 
     revealTop(document);
 

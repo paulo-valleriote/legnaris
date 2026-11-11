@@ -95,9 +95,11 @@ describe('sheet form composition (ENG-24, ENG-25, ENG-26, SC-002)', () => {
     );
     expect(screen.getByRole('checkbox', { name: 'NPC' })).not.toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'House rules' })).not.toBeChecked();
-    expect(screen.getByRole('group', { name: 'Total' })).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Total' })).toHaveClass('lg-field__readonly--numeric');
-    expect(screen.getByRole('group', { name: 'Mystery' })).not.toHaveClass(
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toHaveClass(
+      'lg-field__readonly--numeric',
+    );
+    expect(screen.getByRole('group', { name: /^Mystery(:| |$)/ })).not.toHaveClass(
       'lg-field__readonly--numeric',
     );
     expect(screen.getByRole('combobox', { name: 'Ability' }).parentElement).toHaveClass(

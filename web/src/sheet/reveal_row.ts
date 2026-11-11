@@ -128,7 +128,7 @@ export function revealSection(
   return true;
 }
 
-/** The scrolling region the sheet lives in; the window scrolls when the sheet is mounted outside it. */
+/** The region that scrolled the sheet before the document did; the window scrolls unless it is a scroll container. */
 const SCROLL_REGION_SELECTOR = '.lg-content';
 
 /**
@@ -138,7 +138,9 @@ const SCROLL_REGION_SELECTOR = '.lg-content';
 export function revealTop(root: ParentNode = document): void {
   const behavior = prefersReducedMotion() ? 'auto' : 'smooth';
   const region = root.querySelector<HTMLElement>(SCROLL_REGION_SELECTOR);
-  if (region !== null && typeof region.scrollTo === 'function') {
+  const regionScrolls =
+    region !== null && /^(auto|scroll)$/.test(getComputedStyle(region).overflowY);
+  if (region !== null && regionScrolls && typeof region.scrollTo === 'function') {
     region.scrollTo({ top: 0, behavior });
     return;
   }

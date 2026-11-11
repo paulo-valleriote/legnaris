@@ -55,7 +55,9 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 
     expect(await screen.findByTestId('sheet-name')).toHaveTextContent('Aragorn');
-    await waitFor(() => expect(screen.getByRole('group', { name: 'Total' })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toBeInTheDocument(),
+    );
 
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Aragorn');
     expect(screen.getByRole('textbox', { name: 'Level' })).toHaveValue('3');

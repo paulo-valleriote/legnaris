@@ -31,7 +31,7 @@ describe('markup in data renders as text (ENG-29, SC-005)', () => {
       />,
     );
 
-    expect(screen.getByRole('group', { name: 'Name' })).toHaveTextContent(MARKUP);
+    expect(screen.getByRole('group', { name: /^Name/ })).toHaveTextContent(MARKUP);
     expect(container.querySelectorAll('script')).toHaveLength(0);
   });
 

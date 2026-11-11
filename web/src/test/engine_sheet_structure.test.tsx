@@ -219,7 +219,7 @@ describe('editable fields and derived fields look different', () => {
   it('Happy path: a derived field is a readout, an editable field is an input', () => {
     const { container } = render(<SheetForm fields={FIELDS} data={DATA} onChanged={vi.fn()} />);
 
-    const total = screen.getByRole('group', { name: 'Total' });
+    const total = screen.getByRole('group', { name: /^Total(:| |$)/ });
     expect(total).toHaveClass('lg-field__readonly--derived', 'lg-field__readonly--numeric');
     expect(total).not.toHaveClass('lg-field');
     expect(screen.queryByRole('textbox', { name: 'Total' })).not.toBeInTheDocument();
@@ -274,7 +274,7 @@ describe('editable fields and derived fields look different', () => {
     };
     render(<SheetForm fields={fields} data={{ misc: { mystery: 7 } }} onChanged={vi.fn()} />);
 
-    expect(screen.getByRole('group', { name: 'Mystery' })).not.toHaveClass(
+    expect(screen.getByRole('group', { name: /^Mystery(:| |$)/ })).not.toHaveClass(
       'lg-field__readonly--derived',
     );
   });

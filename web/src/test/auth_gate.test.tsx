@@ -42,7 +42,7 @@ function restoringSession(
   clear: () => Promise<void> = () => Promise.resolve(),
 ) {
   return createAuthSession({
-    authApi: createAuthApi({ baseUrl: BASE_URL, transport, readCsrfToken: () => undefined }),
+    authApi: createAuthApi({ baseUrl: BASE_URL, transport, readCsrfToken: () => 'csrf-token' }),
     clearSessionData: clear,
   });
 }
@@ -99,7 +99,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     expect(screen.queryByRole('navigation', { name: 'Primary' })).not.toBeInTheDocument();
   });
 
-  it('Edge: a deep link while signed out shows the sign-in form and after sign-in lands on the catalog (WAS-24)', async () => {
+  it('Edge: a deep link while signed out carries the destination and after sign-in returns to the sheet (WAS-24)', async () => {
     const user = userEvent.setup();
     const sessionTransport = createDeferredTransport();
     const session = restoringSession(sessionTransport.transport);
@@ -120,8 +120,42 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     sessionTransport.resolve(successOutcome(SESSION_BODY));
     catalog.resolve(successOutcome([]));
 
+    await waitFor(() => expect(screen.getByTestId('sheet-screen')).toBeInTheDocument());
+    expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
+  });
+
+  it('Edge: a hostile next parameter is ignored and sign-in lands on the catalog', async () => {
+    const user = userEvent.setup();
+    const sessionTransport = createDeferredTransport();
+    const session = restoringSession(sessionTransport.transport);
+    const catalog = createDeferredTransport();
+
+    renderApp('/sign-in?next=%2F%2Fevil.com', { session, client: clientWith(catalog.transport) });
+    sessionTransport.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
+    );
+    expect(screen.getByText(message('auth.subtitleLogin'))).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
+    await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
+    sessionTransport.resolve(successOutcome(SESSION_BODY));
+    catalog.resolve(successOutcome([]));
+
     await waitFor(() => expect(screen.getByTestId('catalog')).toBeInTheDocument());
-    expect(screen.queryByTestId('sheet-screen')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: a sheet destination changes the sign-in subtitle', async () => {
+    const sessionTransport = createDeferredTransport();
+    const session = restoringSession(sessionTransport.transport);
+
+    renderApp('/sheets/abc', { session });
+    sessionTransport.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
+
+    await waitFor(() =>
+      expect(screen.getByText(message('auth.subtitleLoginSheet'))).toBeInTheDocument(),
+    );
   });
 
   it('Edge: a session answer never shows the code surface (WCS-01)', async () => {
@@ -198,7 +232,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
       authApi: createAuthApi({
         baseUrl: BASE_URL,
         transport: fake.transport,
-        readCsrfToken: () => undefined,
+        readCsrfToken: () => 'csrf-token',
       }),
     });
 
@@ -208,7 +242,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
       expect(screen.getByRole('button', { name: message('auth.submitLogin') })).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole('button', { name: message('auth.modeRegister') }));
+    await user.click(screen.getByRole('tab', { name: message('auth.modeRegister') }));
     await user.type(screen.getByLabelText(message('auth.emailLabel')), 'a@b.test');
     await user.type(screen.getByLabelText(message('auth.usernameLabel')), 'aragorn');
     await user.type(screen.getByLabelText(message('auth.passwordLabel')), 'secret');
@@ -226,8 +260,8 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
     expect(screen.getByLabelText(message('auth.usernameLabel'))).toHaveValue('aragorn');
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('');
-    expect(screen.getByRole('button', { name: message('auth.modeRegister') })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('tab', { name: message('auth.modeRegister') })).toHaveAttribute(
+      'aria-selected',
       'true',
     );
     expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveFocus();

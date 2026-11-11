@@ -16,12 +16,13 @@
  */
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 import { failureCopy, failureKind } from '../api/error_mapper';
 import type { FailureKind } from '../api/errors';
 import { useAuthSession } from '../app/providers';
 import { message } from '../l10n/strings';
 import type { RestoredForm } from './auth_session';
+import { isSheetPath } from './next_path';
 import { AuthStage } from './auth_stage';
 import './auth.css';
 
@@ -33,10 +34,23 @@ interface AuthScreenProps {
   readonly restore?: RestoredForm | null;
   /** The mode the surface opens in when no abandoned code step dictates one. */
   readonly initialMode?: AuthMode;
+  /** The sanitised destination to return to after sign-in, when one was carried. */
+  readonly next?: string | null;
+}
+
+const MODES: readonly { readonly mode: AuthMode }[] = [{ mode: 'login' }, { mode: 'register' }];
+
+function subtitle(mode: AuthMode, next: string | null): string {
+  if (isSheetPath(next)) {
+    return mode === 'login'
+      ? message('auth.subtitleLoginSheet')
+      : message('auth.subtitleRegisterSheet');
+  }
+  return mode === 'login' ? message('auth.subtitleLogin') : message('auth.subtitleRegister');
 }
 
 /** The single sign-in / registration surface (WAS-09). */
-export function AuthScreen({ restore, initialMode = 'login' }: AuthScreenProps) {
+export function AuthScreen({ restore, initialMode = 'login', next = null }: AuthScreenProps) {
   const session = useAuthSession();
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [mode, setMode] = useState<AuthMode>(restore?.origin ?? initialMode);
@@ -46,6 +60,7 @@ export function AuthScreen({ restore, initialMode = 'login' }: AuthScreenProps) 
   const [error, setError] = useState<
     { readonly copy: string; readonly kind: FailureKind } | undefined
   >(undefined);
+  const [showPassword, setShowPassword] = useState(false);
   const [passwordFocus, setPasswordFocus] = useState(0);
   const busy = snapshot.state === 'authenticating';
   const emailRef = useRef<HTMLInputElement>(null);
@@ -74,6 +89,23 @@ export function AuthScreen({ restore, initialMode = 'login' }: AuthScreenProps) 
     setPasswordFocus((value) => value + 1);
   };
 
+  const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    const current = MODES.findIndex((tab) => tab.mode === mode);
+    let target = (current + (event.key === 'ArrowRight' ? 1 : -1) + MODES.length) % MODES.length;
+    if (event.key === 'Home') {
+      target = 0;
+    } else if (event.key === 'End') {
+      target = MODES.length - 1;
+    }
+    const nextMode = MODES[target].mode;
+    switchMode(nextMode);
+    document.getElementById(`auth-tab-${nextMode}`)?.focus();
+  };
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -100,9 +132,7 @@ export function AuthScreen({ restore, initialMode = 'login' }: AuthScreenProps) 
           <h1 className="lg-auth__title" id="auth-title">
             {mode === 'login' ? message('auth.titleLogin') : message('auth.titleRegister')}
           </h1>
-          <p className="lg-auth__subtitle">
-            {mode === 'login' ? message('auth.subtitleLogin') : message('auth.subtitleRegister')}
-          </p>
+          <p className="lg-auth__subtitle">{subtitle(mode, next)}</p>
           {snapshot.notice === 'deferred' && (
             <p className="lg-auth__notice" role="status" data-testid="auth-deferred">
               {message('auth.deferredNotice')}
@@ -110,101 +140,114 @@ export function AuthScreen({ restore, initialMode = 'login' }: AuthScreenProps) 
           )}
         </div>
 
-        <div className="lg-auth__modes" role="group" aria-label={message('auth.modeGroupLabel')}>
-          <button
-            type="button"
-            className="lg-auth__mode"
-            aria-pressed={mode === 'login'}
-            onClick={() => switchMode('login')}
-          >
-            {message('auth.modeLogin')}
-          </button>
-          <button
-            type="button"
-            className="lg-auth__mode"
-            aria-pressed={mode === 'register'}
-            onClick={() => switchMode('register')}
-          >
-            {message('auth.modeRegister')}
-          </button>
+        <div className="lg-auth__modes" role="tablist" aria-label={message('auth.modeGroupLabel')}>
+          {MODES.map((tab) => (
+            <button
+              key={tab.mode}
+              type="button"
+              role="tab"
+              id={`auth-tab-${tab.mode}`}
+              className="lg-auth__mode"
+              aria-selected={mode === tab.mode}
+              aria-controls="auth-tabpanel"
+              onKeyDown={onTabKeyDown}
+              tabIndex={mode === tab.mode ? 0 : -1}
+              onClick={() => switchMode(tab.mode)}
+            >
+              {tab.mode === 'login' ? message('auth.modeLogin') : message('auth.modeRegister')}
+            </button>
+          ))}
         </div>
 
-        <form className="lg-auth__form" onSubmit={submit}>
-          <div className="lg-auth__field">
-            <label className="lg-auth__label" htmlFor="auth-email">
-              {message('auth.emailLabel')}
-            </label>
-            <input
-              id="auth-email"
-              ref={emailRef}
-              className="lg-auth__input"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
-
-          {mode === 'register' && (
+        <div role="tabpanel" id="auth-tabpanel" aria-labelledby={`auth-tab-${mode}`}>
+          <form className="lg-auth__form" onSubmit={submit}>
             <div className="lg-auth__field">
-              <label className="lg-auth__label" htmlFor="auth-username">
-                {message('auth.usernameLabel')}
+              <label className="lg-auth__label" htmlFor="auth-email">
+                {message('auth.emailLabel')}
               </label>
               <input
-                id="auth-username"
+                id="auth-email"
+                ref={emailRef}
                 className="lg-auth__input"
-                type="text"
-                autoComplete="username"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
               />
             </div>
-          )}
 
-          <div className="lg-auth__field">
-            <label className="lg-auth__label" htmlFor="auth-password">
-              {message('auth.passwordLabel')}
-            </label>
-            <input
-              id="auth-password"
-              ref={passwordRef}
-              className="lg-auth__input"
-              type="password"
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </div>
+            {mode === 'register' && (
+              <div className="lg-auth__field">
+                <label className="lg-auth__label" htmlFor="auth-username">
+                  {message('auth.usernameLabel')}
+                </label>
+                <input
+                  id="auth-username"
+                  className="lg-auth__input"
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                />
+              </div>
+            )}
 
-          {error !== undefined && (
-            <div className="lg-auth__refusal">
-              <p
-                className="lg-auth__error"
-                role="alert"
-                aria-live="polite"
-                data-testid="auth-error"
-              >
-                {error.copy}
-              </p>
-              {error.kind === 'conflict' && (
+            <div className="lg-auth__field">
+              <label className="lg-auth__label" htmlFor="auth-password">
+                {message('auth.passwordLabel')}
+              </label>
+              <div className="lg-auth__secret">
+                <input
+                  id="auth-password"
+                  ref={passwordRef}
+                  className="lg-auth__input"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
                 <button
                   type="button"
-                  className="lg-auth__inline-action"
-                  data-testid="auth-conflict-action"
-                  onClick={switchToSignIn}
+                  className="lg-auth__reveal"
+                  aria-pressed={showPassword}
+                  aria-controls="auth-password"
+                  onClick={() => setShowPassword((value) => !value)}
                 >
-                  {message('auth.conflictSignIn')}
+                  {showPassword ? message('auth.hidePassword') : message('auth.showPassword')}
                 </button>
-              )}
+              </div>
             </div>
-          )}
 
-          <footer className="lg-auth__footer">
-            <button type="submit" className="lg-auth__submit" disabled={busy} aria-busy={busy}>
-              {mode === 'login' ? message('auth.submitLogin') : message('auth.submitRegister')}
-            </button>
-          </footer>
-        </form>
+            {error !== undefined && (
+              <div className="lg-auth__refusal">
+                <p
+                  className="lg-auth__error"
+                  role="alert"
+                  aria-live="polite"
+                  data-testid="auth-error"
+                >
+                  {error.copy}
+                </p>
+                {error.kind === 'conflict' && (
+                  <button
+                    type="button"
+                    className="lg-auth__inline-action"
+                    data-testid="auth-conflict-action"
+                    onClick={switchToSignIn}
+                  >
+                    {message('auth.conflictSignIn')}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <footer className="lg-auth__footer">
+              <button type="submit" className="lg-auth__submit" disabled={busy} aria-busy={busy}>
+                {mode === 'login' ? message('auth.submitLogin') : message('auth.submitRegister')}
+              </button>
+            </footer>
+          </form>
+        </div>
       </section>
     </div>
   );

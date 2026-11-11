@@ -156,8 +156,10 @@ interface ReadOnlyValueProps {
  * every derived value announce on its own change, and a Preview recalculates dozens at once. The
  * sheet footer owns the single polite announcement of that cascade. `aria-label` is only valid on
  * an element with a role, which is why the span carries `group` rather than staying generic. In a
- * lone Row the group is named by the Row's own visible label (`aria-labelledby`), so the name has
- * one source; a table cell, which has no Row label of its own, keeps `aria-label`.
+ * lone Row the group is named by the Row's own visible label followed by its value
+ * (`aria-labelledby` over the label and the value), so the name reads "Armor class 10"; a table
+ * cell, which has no Row label of its own, keeps `aria-label` ("Total: 10"). The formula is never
+ * part of the name: it stays a `title` tooltip on the group.
  *
  * The word "Calculated" is not drawn: the recessed readout carries the derived meaning and the sheet
  * explains it once, so a table of readouts does not repeat it on every Row. The word stays as a
@@ -167,18 +169,28 @@ function ReadOnlyValue({ label, labelId, schema, value, calculated, marked }: Re
   const numeric = schema.type === 'number';
   const derived = !schema.isEditable;
   const descriptionId = useId();
+  const valueId = useId();
+  const shown = formatFieldValue(value);
+  const formula =
+    derived && schema.formula !== undefined && schema.formula !== '' ? schema.formula : undefined;
   return (
     <span
       className={`lg-field__readonly${derived ? ' lg-field__readonly--derived' : ''}${
         numeric ? ' lg-field__readonly--numeric' : ''
       }${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}
       role="group"
-      aria-label={labelId === undefined ? label : undefined}
-      aria-labelledby={labelId}
+      aria-label={labelId === undefined ? (shown === '' ? label : `${label}: ${shown}`) : undefined}
+      aria-labelledby={labelId === undefined ? undefined : `${labelId} ${valueId}`}
       aria-describedby={calculated ? descriptionId : undefined}
+      title={formula}
     >
-      <span className="lg-field__value" title={schema.formula}>
-        {formatFieldValue(value)}
+      {derived && (
+        <span className="lg-field__fx" aria-hidden="true">
+          {message('engine.derivedMark')}
+        </span>
+      )}
+      <span className="lg-field__value" id={valueId}>
+        {shown}
       </span>
       {calculated && (
         <span className="lg-field__calculated" id={descriptionId}>

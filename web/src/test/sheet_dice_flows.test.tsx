@@ -43,10 +43,23 @@ afterEach(() => {
 });
 
 describe('sheet dice: Section header', () => {
-  it('Happy path: every Section header carries the note that a Section choice does not replace Template Rows', async () => {
+  it('Edge: no Section header repeats the note; it is drawn once, in the open Section editor', async () => {
+    const { user } = await open();
+
+    expect(notes().length).toBe(0);
+
+    await user.click(sectionEditButton('Alpha') as HTMLElement);
+
+    expect(notes().length).toBe(1);
+  });
+
+  it('Edge: the Section button reads Dice… and still names its Section', async () => {
     await open();
 
-    expect(notes().length).toBe(3);
+    const button = sectionEditButton('Alpha') as HTMLElement;
+
+    expect(button).toHaveTextContent('Dice…');
+    expect(button).toHaveAccessibleName('Dice for the Alpha section');
   });
 
   it('Edge: the Section note and its editor are not drawn while arranging', async () => {

@@ -73,14 +73,23 @@
 }
 
 .lg-button:focus-visible {
-  outline: var(--lg-size-hairline) solid var(--lg-color-focus);
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
   outline-offset: var(--lg-focus-offset);
 }
 
 .lg-button:disabled,
 .lg-button[aria-disabled='true'] {
-  opacity: 0.5;
+  border-color: var(--lg-color-border);
+  background: var(--lg-color-surface);
+  color: var(--lg-color-text-muted);
+  opacity: 0.6;
   cursor: not-allowed;
+}
+
+.lg-button--ghost:disabled,
+.lg-button--ghost[aria-disabled='true'] {
+  background: transparent;
+  border-color: transparent;
 }
 
 /* Field & checkbox (US2) */

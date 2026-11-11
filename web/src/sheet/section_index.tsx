@@ -57,18 +57,41 @@ export interface SectionIndexProps {
 }
 
 /**
- * Scrolls only the strip's own row, never an ancestor, so the active link comes into view
- * without cancelling the smooth page scroll a jump has just started.
+ * Scrolls only the strip's own row, never an ancestor, so the active link comes to the centre of
+ * the row without cancelling the smooth page scroll a jump has just started. A link already
+ * centred moves nothing.
  */
-function revealInline(nav: HTMLElement, chip: HTMLElement): void {
+export function centerInline(nav: HTMLElement, chip: HTMLElement): void {
   const navBox = nav.getBoundingClientRect();
   const chipBox = chip.getBoundingClientRect();
-  if (chipBox.left < navBox.left) {
-    nav.scrollLeft -= navBox.left - chipBox.left;
-  } else if (chipBox.right > navBox.right) {
-    nav.scrollLeft += chipBox.right - navBox.right;
+  const offset = chipBox.left + chipBox.width / 2 - (navBox.left + navBox.width / 2);
+  if (offset !== 0) {
+    nav.scrollLeft += offset;
   }
 }
+
+/** Which edges of the strip's row hide links: a fade at an edge says there is more past it. */
+export interface HiddenEdges {
+  readonly start: boolean;
+  readonly end: boolean;
+}
+
+/** Reads the hidden edges of a horizontally scrolling row; a row that fits hides none. */
+export function hiddenEdges(
+  nav: Pick<HTMLElement, 'scrollLeft' | 'scrollWidth' | 'clientWidth'>,
+): HiddenEdges {
+  const rest = nav.scrollWidth - nav.clientWidth;
+  if (rest <= EDGE_TOLERANCE) {
+    return { start: false, end: false };
+  }
+  return {
+    start: nav.scrollLeft > EDGE_TOLERANCE,
+    end: nav.scrollLeft < rest - EDGE_TOLERANCE,
+  };
+}
+
+/** How far from an edge still counts as at it, in device pixels. */
+const EDGE_TOLERANCE = 2;
 
 function nextIndex(key: string, index: number, count: number): number | undefined {
   switch (key) {
@@ -103,6 +126,7 @@ export function SectionIndex({
   const navRef = useRef<HTMLElement>(null);
   const chipRefs = useRef(new Map<string, HTMLButtonElement>());
   const [rovingKey, setRovingKey] = useState<string | null>(null);
+  const [edges, setEdges] = useState<HiddenEdges>({ start: false, end: false });
   const announce = useAnnounce();
   const keys = sections.map((section) => section.key);
   const { activeKey, pin } = useActiveSection(keys, stripRef, epoch);
@@ -116,9 +140,30 @@ export function SectionIndex({
     }
     const chip = chipRefs.current.get(activeKey);
     if (navRef.current !== null && chip !== undefined) {
-      revealInline(navRef.current, chip);
+      centerInline(navRef.current, chip);
     }
   }, [activeKey]);
+
+  const sectionCount = sections.length;
+  useEffect(() => {
+    const nav = navRef.current;
+    if (nav === null) {
+      return;
+    }
+    const update = (): void => {
+      setEdges((previous) => {
+        const next = hiddenEdges(nav);
+        return previous.start === next.start && previous.end === next.end ? previous : next;
+      });
+    };
+    update();
+    nav.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      nav.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [sectionCount]);
 
   const jump = useCallback(
     (key: string) => {
@@ -176,6 +221,8 @@ export function SectionIndex({
           <nav
             ref={navRef}
             className="lg-sectionbar__nav"
+            data-edge-start={edges.start ? '' : undefined}
+            data-edge-end={edges.end ? '' : undefined}
             aria-label={message('sheet.sections')}
             onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {

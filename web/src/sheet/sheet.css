@@ -154,6 +154,27 @@
   min-width: 0;
 }
 
+.lg-sheet__footer--clean {
+  position: static;
+  background-color: transparent;
+  border-top-color: transparent;
+}
+
+.lg-sheet__footer--dirty {
+  box-shadow: var(--lg-shadow-2);
+}
+
+.lg-sheet__count {
+  flex: none;
+  padding: var(--lg-space-2) var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-accent);
+  border-radius: var(--lg-radius-pill);
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--lg-color-text);
+}
+
 .lg-sheet__status:empty {
   display: none;
 }
@@ -166,16 +187,6 @@
 
 .lg-sheet__actions > .lg-button {
   flex: 1 1 0;
-}
-
-/* The global disabled button style flattens every variant to the same bordered surface, which made
-   an idle Save and Preview identical. Save keeps its accent identity, dimmed, so the pair stays
-   distinguishable when neither is available. */
-.lg-sheet__actions .lg-button--primary:disabled {
-  border-color: var(--lg-color-accent);
-  background-color: var(--lg-color-accent);
-  color: var(--lg-color-accent-text);
-  opacity: 0.5;
 }
 
 .lg-sheet__actions {

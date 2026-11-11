@@ -304,7 +304,7 @@
 }
 
 .lg-field-table__cell {
-  flex: 1 1 0;
+  flex: 2 1 0;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -313,6 +313,7 @@
 }
 
 .lg-field-table__cell--number {
+  flex: 1 1 0;
   justify-content: flex-end;
 }
 
@@ -351,6 +352,10 @@
 }
 
 input.lg-field {
+  text-align: left;
+}
+
+input.lg-field--numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -433,7 +438,7 @@ input.lg-field {
 
 .lg-field__sign:focus-visible,
 .lg-field__step:focus-visible {
-  outline: var(--lg-size-hairline) solid var(--lg-color-focus);
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
   outline-offset: var(--lg-focus-offset);
 }
 
@@ -593,9 +598,20 @@ input.lg-field {
   width: 100%;
   justify-content: flex-end;
   border-color: transparent;
-  background-color: var(--lg-color-bg);
+  background-color: var(--lg-color-inset);
   color: var(--lg-color-text);
   font-weight: var(--lg-font-weight-bold);
+}
+
+/* The mark that says "worked out for you": a small muted glyph before the value, so a derived
+   readout is told apart from an editable field by more than a border. */
+.lg-field__fx {
+  flex: none;
+  margin-inline-end: auto;
+  font-size: var(--lg-type-13);
+  font-style: italic;
+  font-weight: var(--lg-font-weight-regular);
+  color: var(--lg-color-text-muted);
 }
 
 .lg-field__mark {

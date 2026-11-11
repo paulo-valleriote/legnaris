@@ -1,8 +1,8 @@
 /**
  * The Dice controls of the sheet (ADR 0005, LGN-166): on a Row, a Roll button
- * (a long press on it opens the editor) and an Edit button; on a Section header,
- * a note that a Section choice does not replace the Template's Rows, and an
- * Edit button for the Section expression. One Roll panel and one open editor at
+ * (a long press on it opens the editor) and an Edit button, inline on the Row's line; on a
+ * Section, a Dice button for the Section expression, whose editor carries the note that a Section
+ * choice does not replace the Template's Rows. One Roll panel and one open editor at
  * a time. Arrange mode replaces these frames with its own, so none of these
  * controls is drawn while arranging.
  */
@@ -24,7 +24,12 @@ import type { DiceResult } from '../dice/errors';
 import type { DiceSchema } from '../dice/fit';
 import type { DiceDefaults, Resolution } from '../dice/resolve';
 import { message, messageWith } from '../l10n/strings';
-import type { RowFrameProps, SectionFrameProps, SheetFormFrames } from '../engine/sheet_form';
+import type {
+  RowActionsInfo,
+  RowFrameProps,
+  SectionFrameProps,
+  SheetFormFrames,
+} from '../engine/sheet_form';
 import type { DiceCheck, DiceStore, DiceTarget } from './dice_store';
 import { diceErrorMessageKey, resolveRowForSheet } from './dice_view';
 import { DicePanel } from './dice_panel';
@@ -173,6 +178,9 @@ function DiceEditor({ target, keyName, label, current, onClose }: DiceEditorProp
         submit();
       }}
     >
+      {target === 'section' && (
+        <p className="lg-dice-editor__note">{message('dice.sectionNote')}</p>
+      )}
       <label className="lg-dice-editor__label" htmlFor={inputId}>
         {messageWith('dice.editLabel', { label })}
       </label>
@@ -229,22 +237,10 @@ function rowOffersEdit(resolution: Resolution): boolean {
   );
 }
 
-/** The Row frame that adds the Dice controls beside a Row's content; the default chrome is kept. */
-export function DiceRowFrame({
-  rowKey,
-  kind,
-  label,
-  sectionKey,
-  className,
-  children,
-}: RowFrameProps) {
+function useRowResolution(rowKey: string, sectionKey: string): Resolution {
   const dice = useDiceContext();
   const block = useDiceBlock(dice.store);
-  const { editing, setEditing, sendRoll } = useContext(DiceSessionContext);
-  const editButton = useRef<HTMLButtonElement>(null);
-  const pressTimer = useRef<number | undefined>(undefined);
-  const longPressed = useRef(false);
-  const resolution: Resolution = resolveRowForSheet({
+  return resolveRowForSheet({
     rowKey,
     sectionKey,
     schema: dice.schema,
@@ -253,6 +249,20 @@ export function DiceRowFrame({
     sectionKeys: dice.sectionKeys,
     block,
   });
+}
+
+const EDIT_BUTTON_ATTRIBUTE = 'data-dice-edit';
+
+/**
+ * A Row's inline Dice actions, for the engine's `rowActionsBuilder`: the Roll button (a long press
+ * on it opens the editor) and the Edit button, side by side on the Row's own line.
+ */
+export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
+  const dice = useDiceContext();
+  const { editing, setEditing, sendRoll } = useContext(DiceSessionContext);
+  const pressTimer = useRef<number | undefined>(undefined);
+  const longPressed = useRef(false);
+  const resolution = useRowResolution(rowKey, sectionKey);
   const editKey = `row:${rowKey}`;
   const isEditing = editing === editKey;
   const showEdit = rowOffersEdit(resolution);
@@ -278,14 +288,12 @@ export function DiceRowFrame({
     });
   };
 
-  const close = () => {
-    setEditing(null);
-    editButton.current?.focus();
-  };
+  if (!resolution.rollable && !showEdit) {
+    return null;
+  }
 
   return (
-    <div className={className} data-row-key={rowKey} data-row-kind={kind}>
-      {children}
+    <span className="lg-dice-actions">
       {resolution.rollable && (
         <button
           type="button"
@@ -316,7 +324,7 @@ export function DiceRowFrame({
       )}
       {showEdit && (
         <button
-          ref={editButton}
+          {...{ [EDIT_BUTTON_ATTRIBUTE]: editKey }}
           type="button"
           className="lg-dice-button"
           aria-label={messageWith('dice.edit', { label })}
@@ -326,6 +334,34 @@ export function DiceRowFrame({
           {message('dice.editShort')}
         </button>
       )}
+    </span>
+  );
+}
+
+/** The Row frame that adds the Dice editor under a Row's content; the default chrome is kept. */
+export function DiceRowFrame({
+  rowKey,
+  kind,
+  label,
+  sectionKey,
+  className,
+  children,
+}: RowFrameProps) {
+  const { editing, setEditing } = useContext(DiceSessionContext);
+  const frame = useRef<HTMLDivElement>(null);
+  const resolution = useRowResolution(rowKey, sectionKey);
+  const editKey = `row:${rowKey}`;
+  const isEditing = editing === editKey;
+  const showEdit = rowOffersEdit(resolution);
+
+  const close = () => {
+    setEditing(null);
+    frame.current?.querySelector<HTMLElement>(`[${EDIT_BUTTON_ATTRIBUTE}]`)?.focus();
+  };
+
+  return (
+    <div ref={frame} className={className} data-row-key={rowKey} data-row-kind={kind}>
+      {children}
       {showEdit && isEditing && (
         <DiceEditor
           key={editKey}
@@ -371,7 +407,6 @@ export function DiceSectionFrame({
     <section className={className} data-section-key={sectionKey}>
       {title}
       <div className="lg-dice-section">
-        <p className="lg-dice-section__note">{message('dice.sectionNote')}</p>
         <button
           ref={editButton}
           type="button"
@@ -380,7 +415,7 @@ export function DiceSectionFrame({
           aria-expanded={isEditing}
           onClick={() => setEditing(isEditing ? null : editKey)}
         >
-          {message('dice.editShort')}
+          {message('dice.sectionButton')}
         </button>
       </div>
       {isEditing && (

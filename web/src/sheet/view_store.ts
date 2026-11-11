@@ -188,17 +188,30 @@ export interface ViewStore {
   reveal(key: string): void;
 }
 
+/**
+ * The Sections that hold the Template's own configuration (its rules and its on/off switches)
+ * rather than the character: they start collapsed, as one "Template settings" area, until the
+ * person opens them.
+ */
+export const TEMPLATE_SETTINGS_KEYS: readonly string[] = ['rules', 'config'];
+
+/** The view of a sheet nothing is remembered for: the settings Sections collapsed, the rest open. */
+export function initialView(sectionKeys: readonly string[]): ViewState {
+  const collapsed = TEMPLATE_SETTINGS_KEYS.filter((key) => sectionKeys.includes(key));
+  return collapsed.length === 0 ? DEFAULT_VIEW : { ...DEFAULT_VIEW, collapsed };
+}
+
 function readRemembered(seed: ViewStoreSeed): ViewState {
   if (seed.storage === undefined) {
-    return DEFAULT_VIEW;
+    return initialView(seed.sectionKeys);
   }
   try {
-    return parseViewRecord(
-      seed.storage.getItem(viewStorageKey(seed.sheetId)),
-      new Set(seed.sectionKeys),
-    );
+    const raw = seed.storage.getItem(viewStorageKey(seed.sheetId));
+    return raw === null
+      ? initialView(seed.sectionKeys)
+      : parseViewRecord(raw, new Set(seed.sectionKeys));
   } catch {
-    return DEFAULT_VIEW;
+    return initialView(seed.sectionKeys);
   }
 }
 

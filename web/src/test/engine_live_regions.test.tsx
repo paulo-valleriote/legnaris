@@ -55,7 +55,7 @@ describe('derived value live regions', () => {
       <SheetFieldControl path="derived.total" schema={derivedSchema()} value={value} />,
     );
 
-    const readout = screen.getByRole('group', { name: 'Total' });
+    const readout = screen.getByRole('group', { name: /^Total(:| |$)/ });
     expect(readout.tagName).toBe('SPAN');
     expect(readout).toHaveClass('lg-field__readonly--derived');
     expect(liveRegionsIn(container)).toHaveLength(0);
@@ -69,18 +69,18 @@ describe('derived value live regions', () => {
     const long = 'y'.repeat(400);
     render(<SheetFieldControl path="derived.total" schema={derivedSchema()} value={long} />);
 
-    expect(screen.getByRole('group', { name: 'Total' })).toHaveTextContent(long);
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toHaveTextContent(long);
   });
 
   it('Edge: a changing derived value stays silent and keeps one element', () => {
     const { container, rerender } = render(
       <SheetFieldControl path="derived.total" schema={derivedSchema()} value={1} />,
     );
-    const before = screen.getByRole('group', { name: 'Total' });
+    const before = screen.getByRole('group', { name: /^Total(:| |$)/ });
 
     rerender(<SheetFieldControl path="derived.total" schema={derivedSchema()} value={2} />);
 
-    expect(screen.getByRole('group', { name: 'Total' })).toBe(before);
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toBe(before);
     expect(before).toHaveTextContent('2');
     expect(liveRegionsIn(container)).toHaveLength(0);
   });
@@ -99,8 +99,8 @@ describe('derived value live regions', () => {
     );
 
     expect(screen.getByRole('textbox', { name: 'Base' })).toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Base' })).not.toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Total' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /^Base(:| |$)/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /^Total(:| |$)/ })).toBeInTheDocument();
   });
 
   it('Edge: a marked derived value is non-live and drops the Calculated caption', () => {
@@ -113,7 +113,7 @@ describe('derived value live regions', () => {
       />,
     );
 
-    const readout = screen.getByRole('group', { name: 'Total' });
+    const readout = screen.getByRole('group', { name: /^Total(:| |$)/ });
     expect(readout).toHaveClass('lg-field--marked');
     expect(screen.queryByText('Calculated')).not.toBeInTheDocument();
     expect(liveRegionsIn(container)).toHaveLength(0);
@@ -128,7 +128,7 @@ describe('derived value live regions', () => {
       />,
     );
 
-    expect(screen.getByRole('group', { name: 'Mystery' })).toHaveTextContent('7');
+    expect(screen.getByRole('group', { name: /^Mystery(:| |$)/ })).toHaveTextContent('7');
     expect(liveRegionsIn(container)).toHaveLength(0);
   });
 
@@ -181,8 +181,8 @@ describe('full fantasy_v1 render', () => {
         continue;
       }
       expect(readout).not.toHaveAttribute('aria-label');
-      expect(readout.getAttribute('aria-labelledby')).toBe(rowLabel.id);
-      expect(readout).toHaveAccessibleName(rowLabel.textContent ?? '');
+      expect(readout.getAttribute('aria-labelledby')?.split(' ')[0]).toBe(rowLabel.id);
+      expect(readout).toHaveAccessibleName(expect.stringContaining(rowLabel.textContent ?? ''));
       namedByRowLabel += 1;
     }
     expect(namedByRowLabel).toBeGreaterThan(0);

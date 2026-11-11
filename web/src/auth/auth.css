@@ -111,6 +111,7 @@ body:has(.lg-auth) {
   gap: var(--lg-space-24);
   padding: var(--lg-space-24) max(var(--lg-space-24), calc((100% - var(--lg-size-auth-max)) / 2))
     var(--lg-space-48);
+  justify-content: center;
   background-color: var(--lg-color-stage-band);
   animation: lg-auth-swap var(--lg-motion-240) var(--lg-ease-standard);
 }
@@ -200,9 +201,44 @@ body:has(.lg-auth) {
   outline-offset: calc(var(--lg-focus-offset) * -1);
 }
 
-.lg-auth__mode[aria-pressed='true'] {
+.lg-auth__mode[aria-selected='true'] {
   border-bottom-color: var(--lg-color-stage-accent);
   color: var(--lg-color-stage-text);
+}
+
+.lg-auth__secret {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.lg-auth__secret .lg-auth__input {
+  padding-right: calc(var(--lg-size-control) * 2);
+}
+
+.lg-auth__reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  min-width: var(--lg-size-control);
+  padding: 0 var(--lg-space-12);
+  border: 0;
+  border-radius: var(--lg-radius-sm);
+  background-color: transparent;
+  color: var(--lg-color-stage-text-muted);
+  font-family: inherit;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-medium);
+  cursor: pointer;
+}
+
+.lg-auth__reveal:hover {
+  color: var(--lg-color-stage-text);
+}
+
+.lg-auth__reveal:focus-visible {
+  outline-offset: calc(var(--lg-focus-offset) * -1);
 }
 
 .lg-auth__form {

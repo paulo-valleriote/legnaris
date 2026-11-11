@@ -93,10 +93,43 @@
   gap: var(--lg-space-8);
 }
 
-.lg-dice-section__note {
+.lg-dice-section {
+  justify-content: flex-end;
+  padding-inline: var(--lg-space-16);
+}
+
+.lg-dice-editor__note {
   margin: 0;
   color: var(--lg-color-text-muted);
   font-size: var(--lg-type-13);
+}
+
+/* Roll and Edit share the Row's own line: compact, never a line of their own. */
+.lg-dice-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--lg-space-4);
+  margin-inline-start: auto;
+}
+
+.lg-field-row > .lg-dice-actions {
+  margin-inline-start: 0;
+}
+
+.lg-dice-actions .lg-dice-button {
+  padding-inline: var(--lg-space-8);
+  font-size: var(--lg-type-13);
+}
+
+/* An open editor takes the whole line under the Row's content. */
+.lg-row:has(> .lg-dice-editor) {
+  flex-wrap: wrap;
+}
+
+.lg-row > .lg-dice-editor {
+  flex: 1 1 100%;
+  grid-column: 1 / -1;
 }
 
 .lg-dice-button {
