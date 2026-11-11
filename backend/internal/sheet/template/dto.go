@@ -42,6 +42,29 @@ type FieldNodeDTO struct {
 	Children FieldGroupDTO   `json:"children,omitempty"`
 	Label    string          `json:"label,omitempty"`
 	Columns  []string        `json:"columns,omitempty"`
+	// Order is the node's declared child order. It drives MarshalJSON and never
+	// appears in the payload.
+	Order []string `json:"-"`
+}
+
+// MarshalJSON emits the node with its children in Order, so the declared
+// display order survives serialization at every depth.
+func (n FieldNodeDTO) MarshalJSON() ([]byte, error) {
+	type payload struct {
+		Schema   *FieldSchemaDTO `json:"schema,omitempty"`
+		Children json.RawMessage `json:"children,omitempty"`
+		Label    string          `json:"label,omitempty"`
+		Columns  []string        `json:"columns,omitempty"`
+	}
+	out := payload{Schema: n.Schema, Label: n.Label, Columns: n.Columns}
+	if len(n.Children) > 0 {
+		children, err := marshalFieldGroup(n.Children, n.Order)
+		if err != nil {
+			return nil, err
+		}
+		out.Children = children
+	}
+	return json.Marshal(out)
 }
 
 // FieldSchemaDTO mirrors FieldSchema for the API.
@@ -107,7 +130,7 @@ func (d TemplateDTO) MarshalJSON() ([]byte, error) {
 
 // marshalFieldGroup writes one fields object with the keys of order first (in
 // that sequence, deduplicated) and every remaining key alphabetically after
-// them. Nested objects marshal as plain maps, so they stay alphabetical.
+// them. Nested groups apply their own Order through FieldNodeDTO.MarshalJSON.
 func marshalFieldGroup(group FieldGroupDTO, order []string) (json.RawMessage, error) {
 	keys := make([]string, 0, len(group))
 	emitted := make(map[string]bool, len(group))
@@ -166,6 +189,7 @@ func (n FieldNode) toDTO() FieldNodeDTO {
 		Children: n.Children.toDTO(),
 		Label:    n.Label,
 		Columns:  slices.Clone(n.Columns),
+		Order:    slices.Clone(n.Order),
 	}
 }
 

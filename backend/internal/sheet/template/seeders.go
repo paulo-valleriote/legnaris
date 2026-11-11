@@ -35,6 +35,10 @@ const (
 	fieldNameBonus            = "bonus"
 	fieldNameExpended         = "expended"
 	fieldNameRemaining        = "remaining"
+	fieldNameName             = "name"
+	fieldNameACUsesDex        = "acUsesDex"
+	fieldNameACUsesCon        = "acUsesCon"
+	fieldNameDamage           = "damage"
 
 	// exclusiveGroupArmorClassAbility is the shared group id for the armor-class
 	// ability proxies: config.acUsesDex and config.acUsesCon are mutually
@@ -116,17 +120,17 @@ var fantasyV1Template = Template{
 	Name:    "Fantasy Template",
 	Default: true,
 	Fields: FieldGroup{
-		fieldNameIdentity:  {Children: identityGroup()},
-		fieldNameStats:     {Children: statsGroup()},
-		fieldNameModifiers: {Children: modifiersGroup()},
-		fieldNameSaves:     {Children: savesGroup()},
-		fieldNameSkills:    {Children: skillsGroup()},
-		fieldNameCombat:    {Children: combatGroup()},
-		fieldNameAttacks:   {Children: attacksGroup()},
-		fieldNameSpells:    {Children: spellsGroup()},
-		"derived":          {Children: derivedGroup()},
-		fieldNameConfig:    {Children: configGroup()},
-		fieldNameRules:     {Children: rulesGroup()},
+		fieldNameIdentity:  {Children: identityGroup(), Order: identityOrder},
+		fieldNameStats:     {Children: statsGroup(), Order: abilityKeys(identityKey)},
+		fieldNameModifiers: {Children: modifiersGroup(), Order: abilityKeys(modKey)},
+		fieldNameSaves:     {Children: savesGroup(), Order: abilityKeys(identityKey)},
+		fieldNameSkills:    {Children: skillsGroup(), Order: skillKeys()},
+		fieldNameCombat:    {Children: combatGroup(), Order: combatOrder},
+		fieldNameAttacks:   {Children: attacksGroup(), Order: numberedKeys("attack", 4)},
+		fieldNameSpells:    {Children: spellsGroup(), Order: spellsOrder()},
+		"derived":          {Children: derivedGroup(), Order: derivedOrder},
+		fieldNameConfig:    {Children: configGroup(), Order: configOrder()},
+		fieldNameRules:     {Children: rulesGroup(), Order: rulesOrder},
 	},
 	SectionOrder: []string{
 		fieldNameIdentity, fieldNameCombat, "derived", fieldNameAttacks,
@@ -154,6 +158,57 @@ func fantasyV1RowDice() map[string]string {
 		rows[fieldNameStats+pathSeparator+a.key] = fmt.Sprintf("1d20 + %s.%s", fieldNameModifiers, modKey(a.key))
 	}
 	return rows
+}
+
+var (
+	identityOrder = []string{"characterName", "playerName", "ancestry", "origin", "level", "xp", fieldNameProficiencyBonus}
+	combatOrder   = []string{fieldNameBaseArmorClass, "initiative", "speed", "hitPoints", "hitPointsMax", "hitPointsTemp"}
+	derivedOrder  = []string{"armorClass", "passiveAwareness"}
+	rulesOrder    = []string{fieldNameModifierBase, fieldNameModifierStep, fieldNamePassiveBase, fieldNameSpellSaveBase}
+)
+
+func identityKey(key string) string { return key }
+
+// abilityKeys lists one key per ability in the conventional order (STR, DEX,
+// CON, INT, WIS, CHA), each derived from the ability key by keyOf.
+func abilityKeys(keyOf func(string) string) []string {
+	keys := make([]string, 0, len(abilities))
+	for _, a := range abilities {
+		keys = append(keys, keyOf(a.key))
+	}
+	return keys
+}
+
+func skillKeys() []string {
+	keys := make([]string, 0, len(skills))
+	for _, s := range skills {
+		keys = append(keys, s.key)
+	}
+	return keys
+}
+
+func numberedKeys(prefix string, count int) []string {
+	keys := make([]string, 0, count)
+	for i := 1; i <= count; i++ {
+		keys = append(keys, fmt.Sprintf("%s%d", prefix, i))
+	}
+	return keys
+}
+
+func spellsOrder() []string {
+	return append([]string{"attackBonus", "saveDC", "atWill", "list"}, numberedKeys("slot", 9)...)
+}
+
+// configOrder lists the armor class proxies, then each ability's save and
+// spellcasting flags, then the skill proficiencies.
+func configOrder() []string {
+	keys := []string{fieldNameACUsesDex, fieldNameACUsesCon}
+	keys = append(keys, abilityKeys(saveProfKey)...)
+	keys = append(keys, abilityKeys(spellUsesKey)...)
+	for _, s := range skills {
+		keys = append(keys, skillProfKey(s.key))
+	}
+	return keys
 }
 
 // numField builds an editable numeric leaf.
@@ -289,6 +344,7 @@ func skillsGroup() FieldGroup {
 				fieldNameTotal: total,
 			},
 			Columns: []string{fieldNameBonus, fieldNameTotal},
+			Order:   []string{fieldNameBonus, fieldNameTotal},
 		}
 	}
 	return group
@@ -315,9 +371,9 @@ func derivedGroup() FieldGroup {
 				fieldNameModifiers, fieldNameConfig),
 			[]string{fieldNameCombat, fieldNameBaseArmorClass},
 			[]string{fieldNameModifiers, fieldNameDexterityMod},
-			[]string{fieldNameConfig, "acUsesDex"},
+			[]string{fieldNameConfig, fieldNameACUsesDex},
 			[]string{fieldNameModifiers, "constitutionMod"},
-			[]string{fieldNameConfig, "acUsesCon"},
+			[]string{fieldNameConfig, fieldNameACUsesCon},
 		),
 		"passiveAwareness": calcField(
 			"Passive awareness",
@@ -341,12 +397,13 @@ func attacksGroup() FieldGroup {
 		damage.Schema.ColumnLabel = "Damage"
 		group[fmt.Sprintf("attack%d", i)] = FieldNode{
 			Children: FieldGroup{
-				"name":         name,
-				fieldNameBonus: bonus,
-				"damage":       damage,
+				fieldNameName:   name,
+				fieldNameBonus:  bonus,
+				fieldNameDamage: damage,
 			},
 			Label:   fmt.Sprintf("Attack %d", i),
-			Columns: []string{"name", "damage", fieldNameBonus},
+			Columns: []string{fieldNameName, fieldNameDamage, fieldNameBonus},
+			Order:   []string{fieldNameName, fieldNameDamage, fieldNameBonus},
 		}
 	}
 	return group
@@ -399,6 +456,7 @@ func spellsGroup() FieldGroup {
 			},
 			Label:   fmt.Sprintf("Level %d", level),
 			Columns: []string{fieldNameTotal, fieldNameExpended, fieldNameRemaining},
+			Order:   []string{fieldNameTotal, fieldNameExpended, fieldNameRemaining},
 		}
 	}
 	return group
@@ -413,8 +471,8 @@ func configGroup() FieldGroup {
 	acUsesCon.Schema.OptionLabel = "Constitution"
 
 	group := FieldGroup{
-		"acUsesDex": acUsesDex,
-		"acUsesCon": acUsesCon,
+		fieldNameACUsesDex: acUsesDex,
+		fieldNameACUsesCon: acUsesCon,
 	}
 	for _, a := range abilities {
 		group[saveProfKey(a.key)] = numField(a.label+" save proficiency", 0)

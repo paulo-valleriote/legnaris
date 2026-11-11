@@ -13,6 +13,9 @@ type FieldNode struct {
 	// Columns lists the child keys rendered as ONE table row, in column
 	// order. Empty renders the children as stacked rows (the default).
 	Columns []string `bson:"columns,omitempty"`
+	// Order lists child keys in the display order the API must emit. Keys it
+	// omits follow alphabetically; keys it names that do not exist are ignored.
+	Order []string `bson:"order,omitempty"`
 }
 
 func (n *FieldNode) IsLeaf() bool {
