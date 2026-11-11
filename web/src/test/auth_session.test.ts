@@ -28,7 +28,7 @@ function authApiWith(fake: { readonly transport: Transport }) {
   return createAuthApi({
     baseUrl: BASE_URL,
     transport: fake.transport,
-    readCsrfToken: () => undefined,
+    readCsrfToken: () => 'csrf-token',
   });
 }
 

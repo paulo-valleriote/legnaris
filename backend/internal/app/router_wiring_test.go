@@ -98,6 +98,8 @@ func TestRouterWiring_AuthRouteInventory(t *testing.T) {
 		http.MethodPost + " /auth/login",
 		http.MethodPost + " /auth/refresh",
 		http.MethodPost + " /auth/logout",
+		// The CSRF bootstrap lets a cross-host page obtain its session-bound token.
+		http.MethodGet + " /auth/csrf",
 		// Stage 3 adds exactly these two routes; no other route may appear.
 		http.MethodPost + " /auth/challenge/verify",
 		http.MethodPost + " /auth/challenge/resend",

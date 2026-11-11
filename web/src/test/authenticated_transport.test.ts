@@ -191,7 +191,7 @@ describe('authenticated transport (WAS-11 … WAS-17)', () => {
       authApi: createAuthApi({
         baseUrl: BASE_URL,
         transport: authFake.transport,
-        readCsrfToken: () => undefined,
+        readCsrfToken: () => 'csrf-token',
       }),
       initialState: 'authenticated',
       initialAccessToken: 'access-1',

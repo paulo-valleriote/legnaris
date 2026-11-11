@@ -1803,3 +1803,58 @@ func TestService_RefreshRequiresAccount(t *testing.T) {
 		assert.Equal(t, "new-access", session.AccessToken)
 	})
 }
+
+func TestService_IssueCSRF(t *testing.T) {
+	ctx := context.Background()
+
+	stored := func(mutate func(*auth.RefreshToken)) *auth.RefreshToken {
+		token := &auth.RefreshToken{
+			ID:        validTokenID,
+			TokenHash: auth.HashRefreshToken("current-refresh"),
+			UserID:    validUserID,
+			FamilyID:  validFamily,
+			ExpiresAt: time.Now().Add(time.Hour),
+		}
+		if mutate != nil {
+			mutate(token)
+		}
+		return token
+	}
+
+	tests := []struct {
+		name     string
+		refresh  string
+		fetched  *auth.RefreshToken
+		fetchErr error
+		wantCode apperr.Code
+	}{
+		{name: "Error: empty credential is 401 without a lookup", refresh: "", wantCode: apperr.CodeUnauthorized},
+		{name: "Error: unknown credential is 401", refresh: "unknown", fetchErr: auth.ErrRefreshTokenNotFound, wantCode: apperr.CodeUnauthorized},
+		{name: "Error: store failure is 500", refresh: "current-refresh", fetchErr: errors.New("boom"), wantCode: apperr.CodeInternal},
+		{name: "Error: revoked credential is 401", refresh: "current-refresh", fetched: stored(func(t *auth.RefreshToken) { t.Revoked = true }), wantCode: apperr.CodeUnauthorized},
+		{name: "Edge: expired credential is 401", refresh: "current-refresh", fetched: stored(func(t *auth.RefreshToken) { t.ExpiresAt = time.Now().Add(-time.Second) }), wantCode: apperr.CodeUnauthorized},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			service, m := newAuthService(t)
+			if tc.refresh != "" {
+				m.refreshTokens.EXPECT().FetchByHash(mock.Anything, auth.HashRefreshToken(tc.refresh)).Return(tc.fetched, tc.fetchErr).Once()
+			}
+
+			token, err := service.IssueCSRF(ctx, tc.refresh)
+			assertAppErr(t, err, tc.wantCode)
+			assert.Empty(t, token)
+		})
+	}
+
+	t.Run("Happy path: issues a token bound to the credential family that Refresh accepts", func(t *testing.T) {
+		service, m := newAuthService(t)
+		m.refreshTokens.EXPECT().FetchByHash(mock.Anything, auth.HashRefreshToken("current-refresh")).Return(stored(nil), nil).Once()
+
+		token, err := service.IssueCSRF(ctx, "current-refresh")
+		require.NoError(t, err)
+		require.NoError(t, m.csrf.Verify(token, validFamily))
+		assert.Error(t, m.csrf.Verify(token, "01900000-0000-7000-8000-0000000000ff"))
+	})
+}

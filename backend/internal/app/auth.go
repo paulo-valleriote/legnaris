@@ -94,6 +94,23 @@ func (ac *AuthController) Refresh(c *echo.Context) error {
 	return response.OK(c, sessionResponse(session))
 }
 
+// CSRFTokenBody is the body of GET /auth/csrf.
+type CSRFTokenBody struct {
+	CSRFToken string `json:"csrf_token"`
+}
+
+// CSRF answers the CSRF token bound to the session named by the refresh cookie.
+// The __Host- CSRF cookie is invisible to a page served from another host, so
+// the page asks for the token here before a refresh or logout (AUTH-09).
+func (ac *AuthController) CSRF(c *echo.Context) error {
+	token, err := ac.service.IssueCSRF(c.Request().Context(), refreshCookieValue(c))
+	if err != nil {
+		return err
+	}
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return response.OK(c, CSRFTokenBody{CSRFToken: token})
+}
+
 // Logout revokes the session's family and clears both cookies, answering 204
 // (AUTH-04). With no cookie, logout is a 204 no-op that sets nothing (AUTH-06).
 func (ac *AuthController) Logout(c *echo.Context) error {

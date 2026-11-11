@@ -52,6 +52,7 @@ func newAuthRouter(t *testing.T, service *authmocks.MockService) http.Handler {
 	group.POST("/register", controller.Register)
 	group.POST("/login", controller.Login)
 	group.POST("/refresh", controller.Refresh)
+	group.GET("/csrf", controller.CSRF)
 	group.POST("/logout", controller.Logout)
 	return e
 }
@@ -791,5 +792,35 @@ func TestAuthController_RefreshAccountFailures(t *testing.T) {
 		assert.Equal(t, string(apperr.CodeInternal), body.Error.Code)
 		assert.Equal(t, auth.MsgInternal, body.Error.Message)
 		assert.NotContains(t, rec.Body.String(), "access_token")
+	})
+}
+
+func TestAuthController_CSRF(t *testing.T) {
+	t.Run("Happy path: reads the cookie and returns the token uncached", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().IssueCSRF(mock.Anything, "cookie-refresh").Return("csrf-token", nil).Once()
+
+		h := newAuthRouter(t, service)
+		req := newRequest(http.MethodGet, "/auth/csrf", "")
+		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: "cookie-refresh"})
+
+		rec := serve(t, h, req)
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), `"csrf_token":"csrf-token"`)
+		assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
+		assert.Empty(t, rec.Header().Get("Set-Cookie"))
+	})
+
+	t.Run("Error: no cookie is 401", func(t *testing.T) {
+		service := authmocks.NewMockService(t)
+		service.EXPECT().
+			IssueCSRF(mock.Anything, "").
+			Return("", apperr.NewError(apperr.CodeUnauthorized, auth.MsgRefreshTokenRequired, nil)).
+			Once()
+
+		h := newAuthRouter(t, service)
+		rec := doRequest(t, h, http.MethodGet, "/auth/csrf", "")
+		assert.Equal(t, http.StatusUnauthorized, rec.Code)
+		assert.NotContains(t, rec.Body.String(), "csrf_token")
 	})
 }

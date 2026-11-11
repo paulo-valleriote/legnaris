@@ -26,6 +26,7 @@ func newOriginRouter() *echo.Echo {
 
 	e.POST("/auth/refresh", reached, guard)
 	e.POST("/auth/logout", reached, guard)
+	e.GET("/auth/csrf", reached, guard)
 	e.GET("/sheets", reached)
 	return e
 }
@@ -50,6 +51,26 @@ func TestRequireAllowedOrigin(t *testing.T) {
 			method:   http.MethodPost,
 			path:     "/auth/logout",
 			wantCode: http.StatusForbidden,
+		},
+		{
+			name:     "Error: csrf bootstrap with no Origin is 403",
+			method:   http.MethodGet,
+			path:     "/auth/csrf",
+			wantCode: http.StatusForbidden,
+		},
+		{
+			name:     "Error: csrf bootstrap from an unlisted Origin is 403",
+			method:   http.MethodGet,
+			path:     "/auth/csrf",
+			origin:   "https://evil.example.com",
+			wantCode: http.StatusForbidden,
+		},
+		{
+			name:     "Happy path: csrf bootstrap from the allowed Origin reaches the handler",
+			method:   http.MethodGet,
+			path:     "/auth/csrf",
+			origin:   allowedOrigin,
+			wantCode: http.StatusOK,
 		},
 		{
 			name:     "Error: an unlisted Origin is 403",

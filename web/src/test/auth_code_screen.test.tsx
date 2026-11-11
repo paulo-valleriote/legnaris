@@ -45,7 +45,7 @@ async function renderCodeSurface(
     authApi: createAuthApi({
       baseUrl: BASE_URL,
       transport: fake.transport,
-      readCsrfToken: () => undefined,
+      readCsrfToken: () => 'csrf-token',
     }),
   });
 
@@ -98,7 +98,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
       authApi: createAuthApi({
         baseUrl: BASE_URL,
         transport: deferred.transport,
-        readCsrfToken: () => undefined,
+        readCsrfToken: () => 'csrf-token',
       }),
     });
 
@@ -202,7 +202,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
       authApi: createAuthApi({
         baseUrl: BASE_URL,
         transport: fake.transport,
-        readCsrfToken: () => undefined,
+        readCsrfToken: () => 'csrf-token',
       }),
     });
 
