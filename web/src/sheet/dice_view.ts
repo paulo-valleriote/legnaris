@@ -1,13 +1,19 @@
 /**
  * The sheet's view of Dice expressions (ADR 0005): the Field schema the grammar
- * is judged against, the client-side check that mirrors the server's PUT, the
- * pruning of overrides the Template no longer supports, and the copy of each
- * refusal class. Pure; the network and the React tree live elsewhere.
+ * is judged against, the client-side check that mirrors the server's
+ * validation of a saved Dice block (ADR 0006), the pruning of overrides the
+ * Template no longer supports, and the copy of each refusal class. Pure; the network and the React tree live elsewhere.
  */
 
 import type { DiceError, DiceErrorClass } from '../dice/errors';
-import { parseDice, type Expression } from '../dice/parse';
-import { schemaFromKinds, validateRow, type DiceSchema, type FieldKind } from '../dice/fit';
+import type { Expression } from '../dice/parse';
+import {
+  schemaFromKinds,
+  validateRow,
+  validateSection,
+  type DiceSchema,
+  type FieldKind,
+} from '../dice/fit';
 import {
   resolveDice,
   type DiceChoices,
@@ -16,6 +22,7 @@ import {
 } from '../dice/resolve';
 import type { DiceBlock, DiceDefaults as TemplateDiceDefaults } from '../api/models/dice';
 import type { FieldNode } from '../api/models/template';
+import { buildSections, rowKey } from '../engine/field_grouping';
 import type { MessageKey } from '../l10n/strings';
 
 function kindOf(type: string): FieldKind {
@@ -58,41 +65,68 @@ export function checkExpression(
   return validated.ok ? undefined : validated.error;
 }
 
-/** Whether [text] parses at all, independent of any Row (used for Section expressions). */
-export function checkSectionExpression(text: string): DiceError | undefined {
-  const parsed = parseDice(text);
-  return parsed.ok ? undefined : parsed.error;
+/**
+ * Why [text] cannot be a Section expression over [rows], or `undefined` when it
+ * fits at least one of them: the same rule the server applies on save, so a
+ * Section the client accepts is never refused there.
+ */
+export function checkSectionExpression(
+  text: string,
+  schema: DiceSchema,
+  rows: readonly string[],
+): DiceError | undefined {
+  const validated = validateSection(schema, rows, text);
+  return validated.ok ? undefined : validated.error;
+}
+
+/** The Row keys of each Section of the Template, keyed by Section. */
+export function diceSectionRows(
+  fields: Readonly<Record<string, FieldNode>>,
+): ReadonlyMap<string, readonly string[]> {
+  return new Map(
+    buildSections({ ...fields }).map((section) => [section.key, section.rows.map(rowKey)]),
+  );
 }
 
 export interface PruneContext {
   readonly rowKeys: ReadonlySet<string>;
-  readonly sectionKeys: ReadonlySet<string>;
+  readonly sectionRows: ReadonlyMap<string, readonly string[]>;
   readonly schema: DiceSchema;
 }
 
 function keepEntries(
   record: Readonly<Record<string, string | null>>,
-  keep: (key: string, expression: string) => boolean,
+  isKnown: (key: string) => boolean,
+  fits: (key: string, expression: string) => boolean,
 ): Record<string, string | null> {
   return Object.fromEntries(
-    Object.entries(record).filter(([key, expression]) =>
-      expression === null ? true : keep(key, expression),
+    Object.entries(record).filter(
+      ([key, expression]) => isKnown(key) && (expression === null || fits(key, expression)),
     ),
   );
 }
 
 /**
- * Drops the overrides the server may still hold but the Template no longer
- * supports: a key naming no Row or Section, or a Row expression that no longer
- * fits. An explicit "no dice" (`null`) is a choice and always survives.
- * Dropping one falls the Row back to the Template default, never breaks the Sheet.
+ * Drops the overrides the Template no longer supports, by the rules the server
+ * enforces on save: a key naming no Row or Section, a Row expression that no
+ * longer fits its Row, or a Section expression that fits none of its Rows. An
+ * explicit "no dice" (`null`) is a choice and survives when its key is known.
+ * Dropping one falls the Row back to the Template default, never breaks the
+ * Sheet, and keeps a stale entry out of the next save.
  */
-export function pruneStaleChoices(choices: DiceChoices, context: PruneContext): DiceChoices {
+export function pruneStaleChoices(choices: DiceChoices, context: PruneContext): DiceBlock {
+  const { rowKeys, sectionRows, schema } = context;
   return {
-    row: keepEntries(choices.row ?? {}, (key, expression) => {
-      return context.rowKeys.has(key) && validateRow(context.schema, key, expression).ok;
-    }),
-    section: keepEntries(choices.section ?? {}, (key) => context.sectionKeys.has(key)),
+    row: keepEntries(
+      choices.row ?? {},
+      (key) => rowKeys.has(key),
+      (key, expression) => validateRow(schema, key, expression).ok,
+    ),
+    section: keepEntries(
+      choices.section ?? {},
+      (key) => sectionRows.has(key),
+      (key, expression) => validateSection(schema, sectionRows.get(key) ?? [], expression).ok,
+    ),
   };
 }
 
@@ -124,7 +158,7 @@ export interface RowResolveInput {
   readonly sectionKey: string;
   readonly schema: DiceSchema;
   readonly rowKeys: ReadonlySet<string>;
-  readonly sectionKeys: ReadonlySet<string>;
+  readonly sectionRows: ReadonlyMap<string, readonly string[]>;
   readonly defaults: ResolveDiceDefaults;
   readonly block: DiceBlock;
 }
@@ -137,7 +171,7 @@ export interface RowResolveInput {
 export function resolveRowForSheet(input: RowResolveInput): Resolution {
   const choices = pruneStaleChoices(input.block, {
     rowKeys: input.rowKeys,
-    sectionKeys: input.sectionKeys,
+    sectionRows: input.sectionRows,
     schema: input.schema,
   });
   return resolveDice({

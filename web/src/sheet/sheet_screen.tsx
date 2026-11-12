@@ -73,6 +73,7 @@ import { FLOATING_FLOOR_ATTRIBUTE } from './dice_panel';
 import {
   checkExpression,
   checkSectionExpression,
+  diceSectionRows,
   diceSchemaFromFields,
   templateDiceDefaults,
 } from './dice_view';
@@ -602,12 +603,13 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   );
   const hasSettings = mainSections.length < sections.length;
   const diceSchema = useMemo(() => diceSchemaFromFields(template.fields), [template]);
+  const diceSectionRowKeys = useMemo(() => diceSectionRows(template.fields), [template]);
   const diceCheck = useCallback<DiceCheck>(
     (target, key, expression) =>
       target === 'row'
         ? checkExpression(expression, diceSchema, key)
-        : checkSectionExpression(expression),
-    [diceSchema],
+        : checkSectionExpression(expression, diceSchema, diceSectionRowKeys.get(key) ?? []),
+    [diceSchema, diceSectionRowKeys],
   );
   const diceStore = useMemo<DiceStore>(
     () => createDiceStore({ edit: editStore, check: diceCheck }),
@@ -621,11 +623,11 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       check: diceCheck,
       defaults: templateDiceDefaults(template.dice),
       rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
-      sectionKeys: new Set(sections.map((section) => section.key)),
+      sectionRows: diceSectionRowKeys,
       savedValues: () => editStore.getState().defaults,
       draftValues: () => editStore.getPendingDelta(),
     }),
-    [diceStore, diceSchema, diceCheck, template, sections, editStore],
+    [diceStore, diceSchema, diceSectionRowKeys, diceCheck, template, sections, editStore],
   );
   const eyebrow = template.name.trim() === '' ? message('sheet.headerTitle') : template.name;
   const layoutStore = useMemo(

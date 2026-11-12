@@ -48,7 +48,7 @@ export interface DiceContextValue {
   readonly defaults: DiceDefaults;
   readonly check: DiceCheck;
   readonly rowKeys: ReadonlySet<string>;
-  readonly sectionKeys: ReadonlySet<string>;
+  readonly sectionRows: ReadonlyMap<string, readonly string[]>;
   /** The saved values a Roll reads when nothing is unsaved. */
   readonly savedValues: () => Record<string, unknown>;
   /** The unsaved edits, which win over the saved values in a Roll. */
@@ -310,7 +310,7 @@ function useRowResolution(rowKey: string, sectionKey: string): Resolution {
     schema: dice.schema,
     defaults: dice.defaults,
     rowKeys: dice.rowKeys,
-    sectionKeys: dice.sectionKeys,
+    sectionRows: dice.sectionRows,
     block,
   });
 }
