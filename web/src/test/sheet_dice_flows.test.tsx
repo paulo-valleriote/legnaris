@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
@@ -33,8 +33,14 @@ const editButton = (label: string) =>
   screen.queryByRole('button', { name: messageWith('dice.edit', { label }) });
 const sectionEditButton = (label: string) =>
   screen.queryByRole('button', { name: messageWith('dice.editSection', { label }) });
-const expressionField = (label: string) =>
-  screen.getByRole('textbox', { name: messageWith('dice.editLabel', { label }) });
+const editorDialog = (label: string) =>
+  screen.queryByRole('dialog', { name: messageWith('dice.edit', { label }) }) ??
+  screen.queryByRole('dialog', { name: messageWith('dice.editSection', { label }) });
+const expressionField = (label: string) => {
+  const dialog = editorDialog(label);
+  if (dialog === null) throw new Error(`no dice editor is open for ${label}`);
+  return within(dialog).getByRole('textbox', { name: message('dice.expressionLabel') });
+};
 const panels = () => document.querySelectorAll('.lg-dice-panel');
 const notes = () => screen.queryAllByText(message('dice.sectionNote'));
 
@@ -53,12 +59,13 @@ describe('sheet dice: Section header', () => {
     expect(notes().length).toBe(1);
   });
 
-  it('Edge: the Section button reads Dice… and still names its Section', async () => {
+  it('Edge: the Section button reads Dice, opens a dialog and still names its Section', async () => {
     await open();
 
     const button = sectionEditButton('Alpha') as HTMLElement;
 
-    expect(button).toHaveTextContent('Dice…');
+    expect(button).toHaveTextContent(message('dice.sectionButton'));
+    expect(button?.getAttribute('aria-haspopup')).toBe('dialog');
     expect(button).toHaveAccessibleName('Dice for the Alpha section');
   });
 
@@ -107,9 +114,7 @@ describe('sheet dice: long-press on the Roll button', () => {
     fireEvent.click(button);
 
     expect(panels().length).toBe(1);
-    expect(
-      screen.queryByRole('textbox', { name: messageWith('dice.editLabel', { label: 'One' }) }),
-    ).toBeNull();
+    expect(editorDialog('One')).toBeNull();
   });
 });
 
@@ -215,9 +220,7 @@ describe('sheet dice: keyboard', () => {
 
     await user.keyboard('{Escape}');
 
-    expect(
-      screen.queryByRole('textbox', { name: messageWith('dice.editLabel', { label: 'One' }) }),
-    ).toBeNull();
+    expect(editorDialog('One')).toBeNull();
     expect(document.activeElement).toBe(editButton('One'));
   });
 });

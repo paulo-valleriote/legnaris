@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
@@ -32,8 +32,14 @@ const rollButton = (label: string) =>
   screen.queryByRole('button', { name: messageWith('dice.roll', { label }) });
 const editButton = (label: string) =>
   screen.queryByRole('button', { name: messageWith('dice.edit', { label }) });
-const expressionField = (label: string) =>
-  screen.getByRole('textbox', { name: messageWith('dice.editLabel', { label }) });
+const editorDialog = (label: string) =>
+  screen.queryByRole('dialog', { name: messageWith('dice.edit', { label }) }) ??
+  screen.queryByRole('dialog', { name: messageWith('dice.editSection', { label }) });
+const expressionField = (label: string) => {
+  const dialog = editorDialog(label);
+  if (dialog === null) throw new Error(`no dice editor is open for ${label}`);
+  return within(dialog).getByRole('textbox', { name: message('dice.expressionLabel') });
+};
 const panels = () => document.querySelectorAll('.lg-dice-panel');
 
 afterEach(() => {
@@ -46,10 +52,9 @@ describe('sheet dice: rolling a Row', () => {
 
     await user.click(rollButton('One') as HTMLElement);
 
-    const total = await screen.findByText(message('dice.total'));
-    const value = Number(
-      total.parentElement?.querySelector('.lg-dice-panel__total-value')?.textContent,
-    );
+    await waitFor(() => expect(panels().length).toBe(1));
+    const value = Number(document.querySelector('.lg-dice-panel__total-value')?.textContent);
+    expect(document.querySelector('.lg-dice-panel__total-label')?.textContent).toBe('One');
     expect(value).toBeGreaterThanOrEqual(4);
     expect(value).toBeLessThanOrEqual(23);
     expect(panels().length).toBe(1);

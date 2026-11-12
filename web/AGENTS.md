@@ -251,10 +251,15 @@ The Go package `backend/internal/dice` validates; this module parses, resolves a
 - **Where it shows.** A dice button (`src/sheet/dice_row.tsx`) appears only on a Row with an
   applicable expression, or one switched off by "no dice" (on the Row or its Section). Tap rolls;
   long-press (`LONG_PRESS_MS`, 500 ms) opens the Row's editor; the Edit button is the keyboard
-  alternative. Editing a Row creates a Row override, which wins over the Section. The Section header
-  shows the `dice.sectionNote` note and a button to edit the Section expression. Everything is hidden
-  in Arrange mode. The editor is one panel at a time (`src/sheet/dice_panel.tsx`), not a modal, and
-  closes on Escape. Rendering helpers are in `src/sheet/dice_view.ts`; wire models in
+  alternative. Roll and Edit sit at the trailing edge of the Row's label in every Row kind (lone,
+  exclusive, table), right before the value. Editing a Row creates a Row override, which wins over the
+  Section. The Section's `Dice` button sits at the trailing edge of its title row. Everything is hidden
+  in Arrange mode. The editor is the shared `Dialog` (one at a time, Escape closes it and focus
+  returns to the button that opened it); the Section editor carries the `dice.sectionNote` note. The
+  Roll result (`src/sheet/dice_panel.tsx`) is a non-modal polite status that floats at the bottom of
+  the viewport, above the element marked `data-floating-floor` (the sheet footer). The provider
+  portals both to `document.body`, so neither reflows the sheet nor inherits a Row's container
+  query containment. Rendering helpers are in `src/sheet/dice_view.ts`; wire models in
   `src/api/models/dice.ts`. Copy lives in `src/l10n/strings.ts`.
 
 ## Layout and Arrange mode (ADR 0001)

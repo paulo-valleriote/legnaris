@@ -1,10 +1,12 @@
 /**
  * The Dice controls of the sheet (ADR 0005, LGN-166): on a Row, a Roll button
- * (a long press on it opens the editor) and an Edit button, inline on the Row's line; on a
- * Section, a Dice button for the Section expression, whose editor carries the note that a Section
- * choice does not replace the Template's Rows. One Roll panel and one open editor at
- * a time. Arrange mode replaces these frames with its own, so none of these
- * controls is drawn while arranging.
+ * (a long press on it opens the editor) and an Edit button, at the trailing edge of the Row's
+ * label next to its value; on a Section, a Dice button in the title row for the Section
+ * expression, whose editor carries the note that a Section choice does not replace the
+ * Template's Rows. The editor is one dialog and the Roll result one floating panel, both owned
+ * by the provider and portalled to the document body, so neither reflows the sheet nor inherits
+ * the sheet's column rules or a Row's containment. Arrange mode replaces these frames with its
+ * own, so none of these controls is drawn while arranging.
  */
 
 import {
@@ -18,18 +20,15 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import type { DiceBlock } from '../api/models/dice';
 import { performRoll, type RollResult } from '../dice/roll';
 import type { DiceResult } from '../dice/errors';
 import type { DiceSchema } from '../dice/fit';
 import type { DiceDefaults, Resolution } from '../dice/resolve';
 import { message, messageWith } from '../l10n/strings';
-import type {
-  RowActionsInfo,
-  RowFrameProps,
-  SectionFrameProps,
-  SheetFormFrames,
-} from '../engine/sheet_form';
+import type { RowActionsInfo, SectionFrameProps, SheetFormFrames } from '../engine/sheet_form';
+import { Dialog } from '../ui/dialog';
 import type { DiceCheck, DiceStore, DiceTarget } from './dice_store';
 import { diceErrorMessageKey, resolveRowForSheet } from './dice_view';
 import { DicePanel } from './dice_panel';
@@ -74,20 +73,35 @@ interface RollSession {
   readonly outcome: DiceResult<RollResult>;
 }
 
+/** What the one open editor edits: a Row override or a Section expression. */
+interface EditRequest {
+  readonly target: DiceTarget;
+  readonly keyName: string;
+  readonly label: string;
+  readonly current: string;
+}
+
 interface DiceSession {
   /** The open editor as `row:<key>` or `section:<key>`; at most one is open. */
   readonly editing: string | null;
-  readonly setEditing: (editKey: string | null) => void;
+  readonly openEditor: (request: EditRequest) => void;
   readonly sendRoll: (session: RollSession) => void;
 }
 
 const DiceSessionContext = createContext<DiceSession>({
   editing: null,
-  setEditing: () => undefined,
+  openEditor: () => undefined,
   sendRoll: () => undefined,
 });
 
-/** Owns the single Roll panel and the single open editor; a new Roll replaces the old panel. */
+function editKeyOf(target: DiceTarget, keyName: string): string {
+  return `${target}:${keyName}`;
+}
+
+/**
+ * Owns the single Roll panel and the single open editor; a new Roll replaces the old panel and
+ * a new Roll gets a fresh panel key, so the same Row rolled twice is announced twice.
+ */
 export function DiceProvider({
   value,
   children,
@@ -95,26 +109,58 @@ export function DiceProvider({
   readonly value: DiceContextValue;
   readonly children: ReactNode;
 }) {
-  const [roll, setRoll] = useState<RollSession | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
+  const [roll, setRoll] = useState<(RollSession & { readonly id: number }) | null>(null);
+  const [request, setRequest] = useState<EditRequest | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const rollCount = useRef(0);
   const dismiss = useCallback(() => setRoll(null), []);
+  const sendRoll = useCallback((next: RollSession) => {
+    rollCount.current += 1;
+    setRoll({ ...next, id: rollCount.current });
+  }, []);
+  const openEditor = useCallback((next: EditRequest) => {
+    returnFocus.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setRoll(null);
+    setRequest(next);
+  }, []);
+  const closeEditor = useCallback(() => {
+    setRequest(null);
+    returnFocus.current?.focus();
+    returnFocus.current = null;
+  }, []);
+  const editing = request === null ? null : editKeyOf(request.target, request.keyName);
   const session = useMemo<DiceSession>(
-    () => ({ editing, setEditing, sendRoll: setRoll }),
-    [editing],
+    () => ({ editing, openEditor, sendRoll }),
+    [editing, openEditor, sendRoll],
   );
 
   return (
     <DiceContext.Provider value={value}>
       <DiceSessionContext.Provider value={session}>
         {children}
-        {roll !== null && (
-          <DicePanel
-            key={roll.rowKey}
-            label={roll.label}
-            outcome={roll.outcome}
-            onDismiss={dismiss}
-          />
-        )}
+        {request !== null &&
+          createPortal(
+            <DiceEditor
+              key={editing}
+              target={request.target}
+              keyName={request.keyName}
+              label={request.label}
+              current={request.current}
+              onClose={closeEditor}
+            />,
+            document.body,
+          )}
+        {roll !== null &&
+          createPortal(
+            <DicePanel
+              key={roll.id}
+              label={roll.label}
+              outcome={roll.outcome}
+              onDismiss={dismiss}
+            />,
+            document.body,
+          )}
       </DiceSessionContext.Provider>
     </DiceContext.Provider>
   );
@@ -170,61 +216,78 @@ function DiceEditor({ target, keyName, label, current, onClose }: DiceEditorProp
     save(expression);
   };
 
+  const title =
+    target === 'section'
+      ? messageWith('dice.editSection', { label })
+      : messageWith('dice.edit', { label });
+
   return (
-    <form
-      className="lg-dice-editor"
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
-      {target === 'section' && (
-        <p className="lg-dice-editor__note">{message('dice.sectionNote')}</p>
-      )}
-      <label className="lg-dice-editor__label" htmlFor={inputId}>
-        {messageWith('dice.editLabel', { label })}
-      </label>
-      <input
-        ref={input}
-        id={inputId}
-        className="lg-dice-editor__input"
-        type="text"
-        value={text}
-        autoComplete="off"
-        spellCheck={false}
-        aria-invalid={errorText !== undefined}
-        aria-describedby={errorText !== undefined ? errorId : undefined}
-        onChange={(event) => {
-          setText(event.target.value);
-          setErrorText(undefined);
+    <Dialog open title={title} onClose={onClose}>
+      <form
+        className="lg-dice-editor"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
         }}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            event.stopPropagation();
-            onClose();
-          }
-        }}
-      />
-      {errorText !== undefined && (
-        <p id={errorId} className="lg-dice-editor__error" role="alert">
-          {errorText}
-        </p>
-      )}
-      <div className="lg-dice-editor__actions">
-        <button type="submit" className="lg-dice-button">
-          {message('dice.save')}
-        </button>
-        <button type="button" className="lg-dice-button" onClick={() => save(null)}>
-          {message('dice.noDice')}
-        </button>
-        <button type="button" className="lg-dice-button" onClick={() => save(undefined)}>
-          {message('dice.useTemplate')}
-        </button>
-        <button type="button" className="lg-dice-button" onClick={onClose}>
-          {message('dice.cancel')}
-        </button>
-      </div>
-    </form>
+      >
+        {target === 'section' && (
+          <p className="lg-dice-editor__note">{message('dice.sectionNote')}</p>
+        )}
+        <label className="lg-dice-editor__label" htmlFor={inputId}>
+          {message('dice.expressionLabel')}
+        </label>
+        <input
+          ref={input}
+          id={inputId}
+          className="lg-dice-editor__input"
+          type="text"
+          value={text}
+          placeholder={message('dice.expressionHint')}
+          autoComplete="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          aria-invalid={errorText !== undefined}
+          aria-describedby={errorText !== undefined ? errorId : undefined}
+          onChange={(event) => {
+            setText(event.target.value);
+            setErrorText(undefined);
+          }}
+        />
+        {errorText !== undefined && (
+          <p id={errorId} className="lg-dice-editor__error" role="alert">
+            {errorText}
+          </p>
+        )}
+        <div className="lg-dice-editor__alternatives">
+          <button
+            type="button"
+            className="lg-button lg-button--ghost lg-button--sm"
+            onClick={() => save(undefined)}
+          >
+            {message('dice.useTemplate')}
+          </button>
+          <button
+            type="button"
+            className="lg-button lg-button--ghost lg-button--sm"
+            onClick={() => save(null)}
+          >
+            {message('dice.noDice')}
+          </button>
+        </div>
+        <div className="lg-dice-editor__actions">
+          <button
+            type="button"
+            className="lg-button lg-button--secondary lg-button--md"
+            onClick={onClose}
+          >
+            {message('dice.cancel')}
+          </button>
+          <button type="submit" className="lg-button lg-button--primary lg-button--md">
+            {message('dice.save')}
+          </button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -251,21 +314,20 @@ function useRowResolution(rowKey: string, sectionKey: string): Resolution {
   });
 }
 
-const EDIT_BUTTON_ATTRIBUTE = 'data-dice-edit';
-
 /**
  * A Row's inline Dice actions, for the engine's `rowActionsBuilder`: the Roll button (a long press
  * on it opens the editor) and the Edit button, side by side on the Row's own line.
  */
 export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
   const dice = useDiceContext();
-  const { editing, setEditing, sendRoll } = useContext(DiceSessionContext);
+  const { editing, openEditor, sendRoll } = useContext(DiceSessionContext);
   const pressTimer = useRef<number | undefined>(undefined);
   const longPressed = useRef(false);
   const resolution = useRowResolution(rowKey, sectionKey);
-  const editKey = `row:${rowKey}`;
-  const isEditing = editing === editKey;
+  const isEditing = editing === editKeyOf('row', rowKey);
   const showEdit = rowOffersEdit(resolution);
+  const edit = () =>
+    openEditor({ target: 'row', keyName: rowKey, label, current: resolution.expression ?? '' });
 
   const cancelPress = () => {
     if (pressTimer.current !== undefined) {
@@ -305,7 +367,7 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
             pressTimer.current = window.setTimeout(() => {
               pressTimer.current = undefined;
               longPressed.current = true;
-              setEditing(editKey);
+              edit();
             }, LONG_PRESS_MS);
           }}
           onPointerUp={cancelPress}
@@ -324,55 +386,17 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
       )}
       {showEdit && (
         <button
-          {...{ [EDIT_BUTTON_ATTRIBUTE]: editKey }}
           type="button"
           className="lg-dice-button"
           aria-label={messageWith('dice.edit', { label })}
+          aria-haspopup="dialog"
           aria-expanded={isEditing}
-          onClick={() => setEditing(isEditing ? null : editKey)}
+          onClick={edit}
         >
           {message('dice.editShort')}
         </button>
       )}
     </span>
-  );
-}
-
-/** The Row frame that adds the Dice editor under a Row's content; the default chrome is kept. */
-export function DiceRowFrame({
-  rowKey,
-  kind,
-  label,
-  sectionKey,
-  className,
-  children,
-}: RowFrameProps) {
-  const { editing, setEditing } = useContext(DiceSessionContext);
-  const frame = useRef<HTMLDivElement>(null);
-  const resolution = useRowResolution(rowKey, sectionKey);
-  const editKey = `row:${rowKey}`;
-  const isEditing = editing === editKey;
-  const showEdit = rowOffersEdit(resolution);
-
-  const close = () => {
-    setEditing(null);
-    frame.current?.querySelector<HTMLElement>(`[${EDIT_BUTTON_ATTRIBUTE}]`)?.focus();
-  };
-
-  return (
-    <div ref={frame} className={className} data-row-key={rowKey} data-row-kind={kind}>
-      {children}
-      {showEdit && isEditing && (
-        <DiceEditor
-          key={editKey}
-          target="row"
-          keyName={rowKey}
-          label={label}
-          current={resolution.expression ?? ''}
-          onClose={close}
-        />
-      )}
-    </div>
   );
 }
 
@@ -383,7 +407,10 @@ function sectionExpression(block: DiceBlock, defaults: DiceDefaults, sectionKey:
   return defaults.sectionDice?.[sectionKey] ?? '';
 }
 
-/** The Section frame: the default chrome plus the note on what a Section choice means, and its expression editor. */
+/**
+ * The Section frame: the default chrome with the Section's Dice button at the trailing edge of
+ * its title row, so the button costs no line of its own.
+ */
 export function DiceSectionFrame({
   sectionKey,
   label,
@@ -393,45 +420,48 @@ export function DiceSectionFrame({
 }: SectionFrameProps) {
   const dice = useDiceContext();
   const block = useDiceBlock(dice.store);
-  const { editing, setEditing } = useContext(DiceSessionContext);
-  const editButton = useRef<HTMLButtonElement>(null);
-  const editKey = `section:${sectionKey}`;
-  const isEditing = editing === editKey;
-
-  const close = () => {
-    setEditing(null);
-    editButton.current?.focus();
-  };
+  const { editing, openEditor } = useContext(DiceSessionContext);
+  const isEditing = editing === editKeyOf('section', sectionKey);
 
   return (
     <section className={className} data-section-key={sectionKey}>
-      {title}
       <div className="lg-dice-section">
+        {title}
         <button
-          ref={editButton}
           type="button"
-          className="lg-dice-button"
+          className="lg-dice-button lg-dice-section__button"
           aria-label={messageWith('dice.editSection', { label })}
+          aria-haspopup="dialog"
           aria-expanded={isEditing}
-          onClick={() => setEditing(isEditing ? null : editKey)}
+          onClick={() =>
+            openEditor({
+              target: 'section',
+              keyName: sectionKey,
+              label,
+              current: sectionExpression(block, dice.defaults, sectionKey),
+            })
+          }
         >
-          {message('dice.sectionButton')}
+          <DiceIcon />
+          <span>{message('dice.sectionButton')}</span>
         </button>
       </div>
-      {isEditing && (
-        <DiceEditor
-          key={editKey}
-          target="section"
-          keyName={sectionKey}
-          label={label}
-          current={sectionExpression(block, dice.defaults, sectionKey)}
-          onClose={close}
-        />
-      )}
       {children}
     </section>
   );
 }
 
-/** The frames the sheet uses outside Arrange mode: the Dice Section and Row frames. */
-export const DICE_FRAMES: SheetFormFrames = { Section: DiceSectionFrame, Row: DiceRowFrame };
+/** A six-sided die, drawn on `currentColor`, beside the Section button's text. */
+function DiceIcon() {
+  return (
+    <svg className="lg-dice-section__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
+      <circle cx="8.5" cy="8.5" r="1.4" />
+      <circle cx="15.5" cy="15.5" r="1.4" />
+      <circle cx="12" cy="12" r="1.4" />
+    </svg>
+  );
+}
+
+/** The frames the sheet uses outside Arrange mode: the Dice Section frame. */
+export const DICE_FRAMES: SheetFormFrames = { Section: DiceSectionFrame };

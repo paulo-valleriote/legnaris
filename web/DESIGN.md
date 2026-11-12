@@ -505,8 +505,17 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   back to the credential form.
 - **States (loading / empty / error / not found).** Each is designed: a short line of plain text
   and, where there is an action, one control. No illustration, no demo data.
-- **Overlays.** Creation flows, destructive confirmations and blocking errors use the one dialog
-  pattern; everything else stays inline.
+- **Overlays.** Creation flows, destructive confirmations, blocking errors and the dice expression
+  editor use the one dialog pattern; everything else stays inline.
+- **Dice.** A Row's `Roll` and `Edit` are small outline buttons at the trailing edge of its label, in
+  every Row kind, so they always sit right before the value; a label beside them keeps whole words.
+  A Section's `Dice` button (a drawn die and the word) shares the title row's trailing edge and costs
+  no line. The editor is the dialog: title, the Section note when editing a Section, the
+  `Expression` field, the two quiet ghost alternatives (`Use the Template dice`, `No dice`), then a
+  hairline and the commit pair (`Keep current dice` secondary, `Save dice` primary). The Roll result
+  floats at the bottom of the viewport above the sticky footer (`--lg-shadow-2`, raised, a short
+  rise-in zeroed under reduced motion), names the rolled Row beside its total and lists every die
+  and number; it never traps focus and closes on its × or Escape.
 
 ---
 
