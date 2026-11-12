@@ -120,8 +120,8 @@ describe('sheet dice: rolling a Row', () => {
   });
 });
 
-describe('sheet dice: editing a Row expression', () => {
-  it('Happy path: a valid edit is saved at once through PUT /dice and never as a PATCH', async () => {
+describe('sheet dice: editing a Row expression (ADR 0006)', () => {
+  it('Happy path: a valid edit becomes pending and goes out with Save as one PATCH, never a PUT', async () => {
     const { stub, user } = await open();
 
     await user.click(editButton('One') as HTMLElement);
@@ -129,15 +129,43 @@ describe('sheet dice: editing a Row expression', () => {
     await user.clear(field);
     await user.type(field, '1d4+alpha.two{Enter}');
 
-    await waitFor(() =>
-      expect(stub.puts().some((request) => request.url.endsWith('/dice'))).toBe(true),
-    );
-    const put = stub.puts().find((request) => request.url.endsWith('/dice'));
-    expect(put?.body).toContain('"alpha.one":"1d4+alpha.two"');
-    expect(stub.patches().length).toBe(0);
+    expect(stub.patches()).toHaveLength(0);
+    expect(screen.getByTestId('sheet-status')).toHaveTextContent(message('sheet.pendingEdits'));
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+
+    await waitFor(() => expect(stub.patches()).toHaveLength(1));
+    expect(JSON.parse(stub.patches()[0]?.body ?? '{}')).toEqual({
+      dice: { section: {}, row: { 'alpha.one': '1d4+alpha.two' } },
+    });
+    expect(stub.puts()).toHaveLength(0);
+    await waitFor(() => expect(screen.queryByTestId('sheet-status')).toBeNull());
   });
 
-  it('Error: an invalid expression is refused inline with no request made', async () => {
+  it('Edge: a pending choice marks its Row "Modified" until it is saved', async () => {
+    const { user } = await open();
+    const row = () => document.querySelector('[data-row-key="alpha.one"]') as HTMLElement;
+    expect(within(row()).queryByText(message('engine.modified'))).toBeNull();
+
+    await user.click(editButton('One') as HTMLElement);
+    await user.clear(expressionField('One'));
+    await user.type(expressionField('One'), '1d4{Enter}');
+
+    expect(within(row()).getByText(message('engine.modified'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+    await waitFor(() => expect(within(row()).queryByText(message('engine.modified'))).toBeNull());
+  });
+
+  it('Edge: a Roll uses the pending expression before it is saved', async () => {
+    const { user } = await open();
+
+    await user.click(editButton('One') as HTMLElement);
+    await user.clear(expressionField('One'));
+    await user.type(expressionField('One'), '1d4{Enter}');
+
+    expect(rollButton('One')?.textContent).toContain('d4');
+  });
+
+  it('Error: an invalid expression is refused inline, nothing is pending and no request is made', async () => {
     const { stub, user } = await open();
 
     await user.click(editButton('One') as HTMLElement);
@@ -145,33 +173,36 @@ describe('sheet dice: editing a Row expression', () => {
     await user.type(expressionField('One'), '1d{Enter}');
 
     expect(await screen.findByRole('alert')).toBeTruthy();
-    expect(stub.puts().filter((request) => request.url.endsWith('/dice')).length).toBe(0);
+    expect(screen.queryByTestId('sheet-status')).toBeNull();
+    expect(stub.patches()).toHaveLength(0);
   });
 
-  it('Error: a 400 from the server is shown and the previous expression is restored', async () => {
+  it('Error: a 400 on Save shows the footer error and keeps the choice pending', async () => {
     const { stub, user } = await open({
-      putOutcomes: [errorOutcome('INVALID_REQUEST', 'bad', 400)],
+      patchOutcomes: [errorOutcome('INVALID_REQUEST', 'bad', 400)],
     });
 
     await user.click(editButton('One') as HTMLElement);
     await user.clear(expressionField('One'));
     await user.type(expressionField('One'), '1d4{Enter}');
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
 
-    expect((await screen.findByRole('alert')).textContent).toBe(
-      message('dice.error.serverRefused'),
+    expect(await screen.findByTestId('sheet-save-error')).toHaveTextContent(
+      message('api.error.invalidEdit'),
     );
-    expect(stub.puts().length).toBe(1);
-    expect(rollButton('One')).not.toBeNull();
+    expect(stub.patches()).toHaveLength(1);
+    expect(screen.getByTestId('sheet-status')).toHaveTextContent(message('sheet.pendingEdits'));
+    expect(rollButton('One')?.textContent).toContain('d4');
   });
 
-  it('Edge: a saved dice edit never shows the unsaved-changes status', async () => {
+  it('Edge: Ctrl+S saves a dice-only change', async () => {
     const { stub, user } = await open();
 
     await user.click(editButton('One') as HTMLElement);
     await user.clear(expressionField('One'));
     await user.type(expressionField('One'), '1d4{Enter}');
+    await user.keyboard('{Control>}s{/Control}');
 
-    await waitFor(() => expect(stub.puts().length).toBe(1));
-    expect(screen.queryByText(message('sheet.pendingEdits'))).toBeNull();
+    await waitFor(() => expect(stub.patches()).toHaveLength(1));
   });
 });

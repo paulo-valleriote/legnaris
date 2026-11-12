@@ -71,7 +71,7 @@ export function parseDiceDefaults(payload: unknown): DiceDefaults | undefined {
   };
 }
 
-/** The wire shape of a dice block: exactly the body `PUT /sheets/:id/dice` takes. */
+/** The wire shape of a dice block: the `dice` member of the `PATCH /sheets/:id` body (ADR 0006). */
 export function diceBlockToWire(block: DiceBlock): {
   readonly dice: { readonly section: DiceOverrides; readonly row: DiceOverrides };
 } {

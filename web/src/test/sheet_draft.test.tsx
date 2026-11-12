@@ -85,7 +85,7 @@ describe('sheet draft on the mounted screen (WSC-26, WSC-28, WSC-30)', () => {
     tick?.();
 
     await waitFor(async () => {
-      expect(await sheetStore.readDraft(SHEET_ID)).toEqual({ identity: { level: 4 } });
+      expect(await sheetStore.readDraft(SHEET_ID)).toEqual({ delta: { identity: { level: 4 } } });
     });
   });
 

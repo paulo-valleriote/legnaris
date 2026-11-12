@@ -97,16 +97,22 @@ describe('sheet dice: Section header', () => {
     expect(notes().length).toBe(0);
   });
 
-  it('Happy path: a Section expression is saved at once through PUT /dice under the section key', async () => {
+  it('Happy path: a Section expression is pending, marks its title "Modified" and is saved under the section key', async () => {
     const { stub, user } = await open();
+    const title = () => document.querySelector('[data-section-key="alpha"] .lg-dice-section');
 
     await user.click(sectionEditButton('Alpha') as HTMLElement);
     const field = expressionField('Alpha');
     await user.clear(field);
     await user.type(field, '1d6{Enter}');
 
-    await waitFor(() => expect(stub.puts().length).toBe(1));
-    expect(stub.puts()[0]?.body).toBe('{"dice":{"section":{"alpha":"1d6"},"row":{}}}');
+    expect(stub.patches()).toHaveLength(0);
+    expect(title()?.textContent).toContain(message('engine.modified'));
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+
+    await waitFor(() => expect(stub.patches()).toHaveLength(1));
+    expect(stub.patches()[0]?.body).toBe('{"dice":{"section":{"alpha":"1d6"},"row":{}}}');
+    await waitFor(() => expect(title()?.textContent).not.toContain(message('engine.modified')));
   });
 });
 
@@ -198,16 +204,44 @@ describe('sheet dice: rolling with unsaved values', () => {
 });
 
 describe('sheet dice: network failure', () => {
-  it('Error: a PUT that never reaches the server reverts, shows the save error and marks nothing unsaved', async () => {
-    const { user } = await open({ putOutcomes: [{ failure: new Error('offline') }] });
+  it('Error: a Save that never reaches the server keeps the choice pending and on the device', async () => {
+    const { user } = await open({ patchOutcomes: [{ failure: new TypeError('Failed to fetch') }] });
 
     await user.click(editButton('One') as HTMLElement);
     await user.clear(expressionField('One'));
     await user.type(expressionField('One'), '1d4{Enter}');
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
 
-    expect((await screen.findByRole('alert')).textContent).toBe(message('dice.error.saveFailed'));
-    expect(rollButton('One')).not.toBeNull();
-    expect(screen.queryByText(message('sheet.pendingEdits'))).toBeNull();
+    expect(await screen.findByTestId('sheet-save-error')).toHaveTextContent(
+      message('sheet.error.saveOffline'),
+    );
+    expect(rollButton('One')?.textContent).toContain('d4');
+    expect(screen.getByTestId('sheet-status')).toHaveTextContent(message('sheet.pendingEdits'));
+  });
+});
+
+describe('sheet dice: a pending choice and Arrange mode', () => {
+  it('Edge: a pending choice survives an Arrange commit and is still saved with the sheet', async () => {
+    const { stub, user } = await open();
+    await user.click(editButton('One') as HTMLElement);
+    await user.clear(expressionField('One'));
+    await user.type(expressionField('One'), '1d4{Enter}');
+
+    await user.click(screen.getByRole('button', { name: message('arrange.start') }));
+    const row = document.querySelector('[data-row-key="alpha.one"]') as HTMLElement;
+    await user.click(within(row).getByRole('button', { name: /^Pin / }));
+    await user.click(screen.getByRole('button', { name: message('arrange.done') }));
+    await waitFor(() => expect(stub.puts()).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: message('arrange.start') })).toBeInTheDocument(),
+    );
+
+    expect(screen.getByTestId('sheet-status')).toHaveTextContent(message('sheet.pendingEdits'));
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+    await waitFor(() => expect(stub.patches()).toHaveLength(1));
+    expect(JSON.parse(stub.patches()[0]?.body ?? '{}')).toEqual({
+      dice: { section: {}, row: { 'alpha.one': '1d4' } },
+    });
   });
 });
 
@@ -217,17 +251,15 @@ describe('sheet dice: persistence across reload', () => {
     await first.user.click(editButton('One') as HTMLElement);
     await first.user.clear(expressionField('One'));
     await first.user.type(expressionField('One'), '1d4+alpha.two{Enter}');
-    await waitFor(() => expect(first.stub.puts().length).toBe(1));
-    const saved = JSON.parse(first.stub.puts()[0]?.body ?? '{}') as { dice: unknown };
+    await first.user.click(screen.getByRole('button', { name: message('sheet.save') }));
+    await waitFor(() => expect(first.stub.patches()).toHaveLength(1));
+    const saved = JSON.parse(first.stub.patches()[0]?.body ?? '{}') as { dice: unknown };
     cleanup();
 
     const second = await open({ dice: saved.dice });
     await second.user.click(editButton('One') as HTMLElement);
 
-    expect(
-      expressionField('One').getAttribute('value') ??
-        (expressionField('One') as HTMLInputElement).value,
-    ).toBe('1d4+alpha.two');
+    expect((expressionField('One') as HTMLInputElement).value).toBe('1d4+alpha.two');
   });
 });
 

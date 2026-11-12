@@ -76,7 +76,9 @@ describe('offline save and preview keep the work on the device', () => {
 
     expect(store.getState().saveError).toBe(message('sheet.error.saveOffline'));
     expect(store.getState().saveErrorKind).toBe('offline');
-    await expect(sheetStore.readDraft(sheetId)).resolves.toEqual({ identity: { level: 4 } });
+    await expect(sheetStore.readDraft(sheetId)).resolves.toEqual({
+      delta: { identity: { level: 4 } },
+    });
   });
 
   it('Happy path: an offline preview writes the draft and offers to preview again', async () => {
@@ -86,6 +88,8 @@ describe('offline save and preview keep the work on the device', () => {
     await store.preview();
 
     expect(store.getState().previewError).toBe(message('sheet.error.previewOffline'));
-    await expect(sheetStore.readDraft(sheetId)).resolves.toEqual({ identity: { level: 4 } });
+    await expect(sheetStore.readDraft(sheetId)).resolves.toEqual({
+      delta: { identity: { level: 4 } },
+    });
   });
 });

@@ -293,54 +293,6 @@ func (_c *MockRepository_PartialUpdate_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
-// UpdateDice provides a mock function with given fields: ctx, id, dice
-func (_m *MockRepository) UpdateDice(ctx context.Context, id string, dice *sheet.Dice) error {
-	ret := _m.Called(ctx, id, dice)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateDice")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *sheet.Dice) error); ok {
-		r0 = rf(ctx, id, dice)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockRepository_UpdateDice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateDice'
-type MockRepository_UpdateDice_Call struct {
-	*mock.Call
-}
-
-// UpdateDice is a helper method to define mock.On call
-//   - ctx context.Context
-//   - id string
-//   - dice *sheet.Dice
-func (_e *MockRepository_Expecter) UpdateDice(ctx interface{}, id interface{}, dice interface{}) *MockRepository_UpdateDice_Call {
-	return &MockRepository_UpdateDice_Call{Call: _e.mock.On("UpdateDice", ctx, id, dice)}
-}
-
-func (_c *MockRepository_UpdateDice_Call) Run(run func(ctx context.Context, id string, dice *sheet.Dice)) *MockRepository_UpdateDice_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(*sheet.Dice))
-	})
-	return _c
-}
-
-func (_c *MockRepository_UpdateDice_Call) Return(_a0 error) *MockRepository_UpdateDice_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockRepository_UpdateDice_Call) RunAndReturn(run func(context.Context, string, *sheet.Dice) error) *MockRepository_UpdateDice_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // UpdateLayout provides a mock function with given fields: ctx, id, layout
 func (_m *MockRepository) UpdateLayout(ctx context.Context, id string, layout *sheet.Layout) error {
 	ret := _m.Called(ctx, id, layout)

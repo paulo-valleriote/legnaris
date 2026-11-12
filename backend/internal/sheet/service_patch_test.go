@@ -107,7 +107,7 @@ func newPatchLogger(t *testing.T) (*logmocks.MockStructuredLogger, *[]loggedLine
 			*lines = append(*lines, loggedLine{level: level, msg: msg, attrs: attrs})
 		})
 	}
-	register("Info", "sheet patched", 10)
+	register("Info", "sheet patched", 11)
 	register("Warn", "sheet patch version conflict", 9)
 	return log, lines
 }
@@ -140,6 +140,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 			"request_id":     patchRequestID,
 			"version_before": "3",
 			"version_after":  "4",
+			"dice_replaced":  "false",
 			"delta_paths":    "stats.dexterity",
 			"delta_values":   "stats.dexterity=18",
 			"cascade_paths":  "modifiers.dexterityMod",

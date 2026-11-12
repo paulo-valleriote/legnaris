@@ -58,6 +58,7 @@ export function updateSheetLayout(
       data: current.data,
       createdAt: current.createdAt,
       updatedAt: current.updatedAt,
+      ...(current.dice === undefined ? {} : { dice: current.dice }),
     };
     return layout === null ? unarranged : { ...unarranged, layout };
   });

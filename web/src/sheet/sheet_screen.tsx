@@ -14,7 +14,8 @@
  * detail and leaving the screen asks for a discard confirmation first, both
  * through one modal that never stacks. A pending arrangement (Arrange mode, ADR
  * 0001) counts as unsaved work for both guards but never as unsaved values: its
- * store is separate from the edit store. A pin toggled in pin mode (ADR 0002) is saved at once,
+ * store is separate from the edit store. A Dice choice (ADR 0006) is unsaved work held by the
+ * edit store: it marks its Row or Section "Modified", enables Save and is sent with it. A pin toggled in pin mode (ADR 0002) is saved at once,
  * so it is never unsaved work; while its request is in flight the screen counts as working, which
  * holds back a leave and `F5` exactly as an Arrange commit in flight does.
  */
@@ -49,7 +50,7 @@ import { startDraftCadence } from '../library/draft_backup';
 import { discardDraft, discardLayoutDraft } from '../library/sheet_library';
 import { registerLeaveGuard } from '../shell/leave_guard';
 import { useSheetShortcuts } from '../shell/shortcut_registry';
-import type { PreviewMarks, SheetEditState, SheetEditStore } from './sheet_edit';
+import type { PendingDiceKeys, PreviewMarks, SheetEditState, SheetEditStore } from './sheet_edit';
 import {
   canPreview,
   canSave,
@@ -61,7 +62,13 @@ import {
 } from './sheet_edit';
 import { ARRANGE_FRAMES, ArrangeProvider } from './arrange_frames';
 import { createDiceStore, type DiceCheck, type DiceStore } from './dice_store';
-import { DICE_FRAMES, DiceProvider, DiceRowActions, type DiceContextValue } from './dice_row';
+import {
+  DICE_FRAMES,
+  DiceProvider,
+  DiceRowActions,
+  usePendingDiceKeys,
+  type DiceContextValue,
+} from './dice_row';
 import { FLOATING_FLOOR_ATTRIBUTE } from './dice_panel';
 import {
   checkExpression,
@@ -104,6 +111,19 @@ function errorClass(kind: FailureKind | undefined): string {
 
 function useEditState(store: SheetEditStore): SheetEditState {
   return useSyncExternalStore(store.subscribe, store.getState);
+}
+
+/**
+ * The mark a Row shows: its preview mark, else "modified" while its own Dice choice is unsaved
+ * (ADR 0006), so a Row edited both ways still shows one mark.
+ */
+function rowMark(
+  marks: PreviewMarks | undefined,
+  pendingDice: PendingDiceKeys,
+  paths: readonly string[],
+  key: string,
+): SheetMark | undefined {
+  return markForPaths(marks, paths) ?? (pendingDice.row.has(key) ? 'modified' : undefined);
 }
 
 /** Subscribes to the preview marks, resolving the mark [paths] carry (WSC-23). */
@@ -557,14 +577,15 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   const queryClient = useQueryClient();
   const sheetId = sheet.id;
   const sheetData = sheet.data;
+  const sheetDice = sheet.dice;
   const [committedLayout] = useState(sheet.layout);
   const editStore = useMemo(
     () =>
       createSheetEditStore(
-        { template, sheet: { id: sheetId, data: sheetData } },
+        { template, sheet: { id: sheetId, data: sheetData, dice: sheetDice } },
         { client, store: storePort },
       ),
-    [client, storePort, sheetId, sheetData, template],
+    [client, storePort, sheetId, sheetData, sheetDice, template],
   );
   const sections = useMemo(() => buildSections(template.fields), [template]);
   const mainSections = useMemo(
@@ -589,15 +610,10 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [diceSchema],
   );
   const diceStore = useMemo<DiceStore>(
-    () =>
-      createDiceStore({
-        client,
-        sheetId,
-        initial: sheet.dice ?? { section: {}, row: {} },
-        check: diceCheck,
-      }),
-    [client, sheetId, sheet.dice, diceCheck],
+    () => createDiceStore({ edit: editStore, check: diceCheck }),
+    [editStore, diceCheck],
   );
+  const pendingDice = usePendingDiceKeys(diceStore);
   const diceValue = useMemo<DiceContextValue>(
     () => ({
       store: diceStore,
@@ -680,29 +696,31 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [editStore],
   );
   const rowMarkBuilder = useCallback(
-    (paths: readonly string[]) => {
-      const mark = markForPaths(marks, paths);
+    (paths: readonly string[], key: string) => {
+      const mark = rowMark(marks, pendingDice, paths, key);
       return mark === undefined ? null : (
         <span className="lg-field-row__mark" data-mark={mark}>
           {markLabel(mark)}
         </span>
       );
     },
-    [marks],
+    [marks, pendingDice],
   );
 
   const renderDiceActions = useCallback((info: RowActionsInfo) => <DiceRowActions {...info} />, []);
 
   const sectionBadgeBuilder = useCallback(
-    (rowPaths: readonly (readonly string[])[]) => {
-      const count = rowPaths.filter((paths) => markForPaths(marks, paths) !== undefined).length;
+    (rowPaths: readonly (readonly string[])[], rowKeys: readonly string[]) => {
+      const count = rowPaths.filter(
+        (paths, index) => rowMark(marks, pendingDice, paths, rowKeys[index] ?? '') !== undefined,
+      ).length;
       return count === 0 ? null : (
         <span className="lg-field-row__mark">
           {messageWith('engine.sectionChanged', { count })}
         </span>
       );
     },
-    [marks],
+    [marks, pendingDice],
   );
 
   const scrollToTop = useCallback(() => {
@@ -775,7 +793,11 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     void editStore.restore();
     return startDraftCadence(storePort, () =>
       isPending(editStore.getState())
-        ? { sheetId: sheet.id, delta: editStore.getPendingDelta() }
+        ? {
+            sheetId: sheet.id,
+            delta: editStore.getPendingDelta(),
+            dice: editStore.getPendingDice(),
+          }
         : null,
     );
   }, [editStore, storePort, sheet.id]);

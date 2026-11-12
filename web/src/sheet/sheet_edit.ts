@@ -3,6 +3,9 @@
  *
  * It holds the seeded values, the set of edited paths, the save/preview
  * lifecycle and the preview marks, and issues exactly the `PATCH` a save sends.
+ * It also holds the sheet's Dice block (ADR 0006): a choice is pending work like
+ * an edited value, is sent whole with the next save and never through a preview,
+ * which recalculates values only.
  * Every write produces a fresh data tree, the pending delta is rebuilt through
  * the F4 engine's `setPathValue`, and the seed and merge come from F4's
  * `seedFromSheet`/`mergeCascade` — the store defines no second draft, seed or
@@ -10,6 +13,7 @@
  */
 
 import type { ApiClient } from '../api/client';
+import type { DiceBlock, DiceOverrides } from '../api/models/dice';
 import { failureCopy, failureKind } from '../api/error_mapper';
 import type { SaveRetryDeps } from './save_retry';
 import { isVersionConflict, withConflictRetry } from './save_retry';
@@ -19,10 +23,10 @@ import type { Sheet } from '../api/models/sheet';
 import { valueAtPath } from '../api/models/sheet';
 import type { FieldNode, FieldSchema, TemplateDetail } from '../api/models/template';
 import { isPlainObject } from '../api/parse';
-import { buildSections } from '../engine/field_grouping';
+import { buildSections, rowKey } from '../engine/field_grouping';
 import { mergeCascade, seedFromSheet, setPathValue } from '../engine/sheet_defaults';
 import type { SheetMark } from '../engine/sheet_mark';
-import type { SheetStore } from '../library/sheet_store';
+import type { SheetDraft, SheetStore } from '../library/sheet_store';
 import { bestEffort } from '../library/sheet_store';
 
 /** The path sets the last successful preview published (WSC-23). */
@@ -104,6 +108,10 @@ export interface SheetEditState {
   readonly revision: number;
   /** The revision of the last successful preview (WSC-21, WSC-24). */
   readonly previewedRevision: number | undefined;
+  /** The Dice block the last save stored, or the one the sheet opened with (ADR 0006). */
+  readonly savedDice: DiceBlock;
+  /** The Dice block as the player has it now; pending while it differs from {@link savedDice}. */
+  readonly dice: DiceBlock;
   /** The last preview's path sets; absent before a preview, after a save, after an edit (WSC-23, WSC-24). */
   readonly previewMarks: PreviewMarks | undefined;
   /** A preview request is in flight (WSC-21). */
@@ -121,7 +129,7 @@ export interface SheetEditState {
 /** The seed of one edit store: the template's field tree and the stored sheet's identity and values (WSC-12, WSC-34). */
 export interface SheetEditSeed {
   readonly template: TemplateDetail;
-  readonly sheet: Pick<Sheet, 'id' | 'data'>;
+  readonly sheet: Pick<Sheet, 'id' | 'data' | 'dice'>;
 }
 
 /** The collaborators the store reads through, injected so a suite substitutes fakes (R1). */
@@ -142,6 +150,8 @@ export interface SheetEditStore {
   getState(): SheetEditState;
   /** The pending editable delta a save/preview sends and the draft cadence backs up (WSC-14). */
   getPendingDelta(): Record<string, unknown>;
+  /** The whole Dice block while it differs from the saved one, else `undefined` (ADR 0006). */
+  getPendingDice(): DiceBlock | undefined;
   /** Coarse subscription, for the screen's own signals (footer, marks). */
   subscribe(listener: () => void): () => void;
   /** The per-path subscription a field control uses (AD-001, WSC-34). */
@@ -152,11 +162,19 @@ export interface SheetEditStore {
   setPath(path: string, value: unknown): void;
   /** Writes one exclusive group's selection in one emission (WSC-15). */
   setExclusive(selected: string | null, siblings: readonly string[]): void;
-  /** Sends one delta `PATCH` when `canSave` holds (WSC-14, WSC-16 … WSC-19). */
+  /**
+   * Records a Dice choice for one Row or Section key (ADR 0006): a string replaces, `null` is
+   * "no dice", `undefined` removes the override. It is pending until the next save.
+   */
+  setDice(target: DiceTarget, key: string, expression: string | null | undefined): void;
+  /** Sends one `PATCH` with the delta and any pending Dice block when `canSave` holds (WSC-14, WSC-16 … WSC-19). */
   save(): Promise<void>;
   /** Sends one delta dry-run when `canPreview` holds (WSC-21 … WSC-25). */
   preview(): Promise<void>;
-  /** Overlays the stored draft on the seed, marking only its editable leaves pending (WSC-28). */
+  /**
+   * Overlays the stored draft on the seed, marking only its editable leaves pending (WSC-28), and
+   * restores its Dice block, keeping only the keys the Template still has.
+   */
   restore(): Promise<void>;
   /** Discards every in-memory edit, re-seeding the display from the baseline (WSC-36, WSC-37). */
   discard(): void;
@@ -164,8 +182,40 @@ export interface SheetEditStore {
   dispose(): void;
 }
 
-/** How many edited paths currently differ from their reference: the "N changes" the footer counts. */
-export function pendingCount(state: SheetEditState): number {
+/** Which half of the Dice block a choice belongs to. */
+export type DiceTarget = 'row' | 'section';
+
+/** The Row and Section keys whose Dice choice differs from the saved block. */
+export interface PendingDiceKeys {
+  readonly row: ReadonlySet<string>;
+  readonly section: ReadonlySet<string>;
+}
+
+function differingKeys(current: DiceOverrides, saved: DiceOverrides): Set<string> {
+  const keys = new Set<string>();
+  for (const key of new Set([...Object.keys(current), ...Object.keys(saved)])) {
+    if (Object.hasOwn(current, key) !== Object.hasOwn(saved, key) || current[key] !== saved[key]) {
+      keys.add(key);
+    }
+  }
+  return keys;
+}
+
+/** The keys whose Dice choice is pending: changed, added or removed against the saved block. */
+export function pendingDiceKeys(state: SheetEditState): PendingDiceKeys {
+  return {
+    row: differingKeys(state.dice.row, state.savedDice.row),
+    section: differingKeys(state.dice.section, state.savedDice.section),
+  };
+}
+
+/** True when the Dice block differs from the saved one; a choice set back to its saved value is not pending. */
+export function isDicePending(state: SheetEditState): boolean {
+  const keys = pendingDiceKeys(state);
+  return keys.row.size > 0 || keys.section.size > 0;
+}
+
+function valuesPendingCount(state: SheetEditState): number {
   let count = 0;
   for (const path of state.editedPaths) {
     if (!Object.is(readPath(state.data, path), readPath(state.defaults, path))) {
@@ -176,13 +226,19 @@ export function pendingCount(state: SheetEditState): number {
 }
 
 /** True when any edited path's current value differs from its reference (WSC-13). */
+export function areValuesPending(state: SheetEditState): boolean {
+  return valuesPendingCount(state) > 0;
+}
+
+/** How many values and Dice choices currently differ from their reference: the "N changes" the footer counts. */
+export function pendingCount(state: SheetEditState): number {
+  const keys = pendingDiceKeys(state);
+  return valuesPendingCount(state) + keys.row.size + keys.section.size;
+}
+
+/** True when any value or Dice choice differs from its reference (WSC-13, ADR 0006). */
 export function isPending(state: SheetEditState): boolean {
-  for (const path of state.editedPaths) {
-    if (!Object.is(readPath(state.data, path), readPath(state.defaults, path))) {
-      return true;
-    }
-  }
-  return false;
+  return areValuesPending(state) || isDicePending(state);
 }
 
 /** True while a save or a preview is in flight; both actions block together (WSC-18, WSC-21). */
@@ -195,10 +251,14 @@ export function canSave(state: SheetEditState): boolean {
   return isPending(state) && !isBusy(state) && !state.saveWindow.isBlocked();
 }
 
-/** True when a preview may start: pending, a new edit since the last preview, not busy, its window free (WSC-21, WSC-24, WSC-38). */
+/**
+ * True when a preview may start: values pending, a new edit since the last preview, not busy, its
+ * window free (WSC-21, WSC-24, WSC-38). A Dice choice alone recalculates nothing, so it never
+ * enables a preview.
+ */
 export function canPreview(state: SheetEditState): boolean {
   return (
-    isPending(state) &&
+    areValuesPending(state) &&
     state.previewedRevision !== state.revision &&
     !isBusy(state) &&
     !state.previewWindow.isBlocked()
@@ -239,6 +299,37 @@ export function editableLeafPaths(fields: Record<string, FieldNode>): Map<string
     }
   }
   return paths;
+}
+
+const EMPTY_DICE: DiceBlock = { section: {}, row: {} };
+
+function withDiceEntry(
+  overrides: DiceOverrides,
+  key: string,
+  expression: string | null | undefined,
+): DiceOverrides {
+  const next: Record<string, string | null> = { ...overrides };
+  if (expression === undefined) {
+    delete next[key];
+  } else {
+    next[key] = expression;
+  }
+  return next;
+}
+
+function sameDiceEntry(
+  overrides: DiceOverrides,
+  key: string,
+  expression: string | null | undefined,
+): boolean {
+  if (expression === undefined) {
+    return !Object.hasOwn(overrides, key);
+  }
+  return Object.hasOwn(overrides, key) && overrides[key] === expression;
+}
+
+function onlyKeys(overrides: DiceOverrides, known: ReadonlySet<string>): DiceOverrides {
+  return Object.fromEntries(Object.entries(overrides).filter(([key]) => known.has(key)));
 }
 
 /** Reads a dotted path defensively; a malformed path yields `undefined` rather than raising. */
@@ -296,6 +387,10 @@ function defaultSchedule(callback: () => void, delayMs: number): () => void {
  */
 export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): SheetEditStore {
   const editable = editableLeafPaths(seed.template.fields);
+  const templateSections = buildSections(seed.template.fields);
+  const knownSectionKeys = new Set(templateSections.map((section) => section.key));
+  const knownRowKeys = new Set(templateSections.flatMap((section) => section.rows.map(rowKey)));
+  const seededDice = seed.sheet.dice ?? EMPTY_DICE;
   const seeded = seedFromSheet(seed.template.fields, seed.sheet.data);
   const clock = deps.now ?? Date.now;
   const schedule = deps.schedule ?? defaultSchedule;
@@ -306,6 +401,8 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     defaults: seeded,
     data: seeded,
     editedPaths: new Set<string>(),
+    savedDice: seededDice,
+    dice: seededDice,
     isSaving: false,
     saveError: undefined,
     revision: 0,
@@ -392,6 +489,9 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     });
   };
 
+  const pendingDice = (current: SheetEditState): DiceBlock | undefined =>
+    isDicePending(current) ? current.dice : undefined;
+
   const pendingDelta = (current: SheetEditState): Record<string, unknown> => {
     const delta: Record<string, unknown> = {};
     for (const path of current.editedPaths) {
@@ -419,10 +519,11 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       return undefined;
     }
     const delta = pendingDelta(state);
+    const dice = pendingDice(state);
     let kept = false;
     try {
-      await deps.store.writeDraft(seed.sheet.id, delta);
-      kept = Object.keys(delta).length > 0;
+      await deps.store.writeDraft(seed.sheet.id, delta, dice);
+      kept = Object.keys(delta).length > 0 || dice !== undefined;
     } catch {
       kept = false;
     }
@@ -437,6 +538,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
   return {
     getState: () => state,
     getPendingDelta: () => pendingDelta(state),
+    getPendingDice: () => pendingDice(state),
 
     subscribe: (listener) => {
       listeners.add(listener);
@@ -479,12 +581,25 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       applyWrites(writes);
     },
 
+    setDice: (target, key, expression) => {
+      const current = target === 'row' ? state.dice.row : state.dice.section;
+      if (sameDiceEntry(current, key, expression)) {
+        return;
+      }
+      const next = withDiceEntry(current, key, expression);
+      commit({
+        ...state,
+        dice: target === 'row' ? { ...state.dice, row: next } : { ...state.dice, section: next },
+      });
+    },
+
     save: async () => {
       if (!canSave(state)) {
         return;
       }
       const delta = pendingDelta(state);
-      if (!hasKeys(delta)) {
+      const dice = pendingDice(state);
+      if (!hasKeys(delta) && dice === undefined) {
         return;
       }
 
@@ -494,7 +609,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
 
       try {
         const cascade = await withConflictRetry(
-          () => deps.client.patchSheet(seed.sheet.id, delta),
+          () => deps.client.patchSheet(seed.sheet.id, delta, dice),
           deps.saveRetry,
         );
         const current = state;
@@ -502,6 +617,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
           ...current,
           data: mergeCascade(current.data, cascade),
           defaults: mergeCascade(mergeCascade(current.defaults, delta), cascade),
+          savedDice: dice ?? current.savedDice,
           isSaving: false,
           saveError: undefined,
           saveErrorKind: undefined,
@@ -571,6 +687,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         ...state,
         data: cloneTree(state.defaults) as Record<string, unknown>,
         editedPaths: new Set<string>(),
+        dice: state.savedDice,
         revision: state.revision + 1,
         previewedRevision: undefined,
         previewMarks: undefined,
@@ -582,7 +699,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     },
 
     restore: async () => {
-      let draft: Record<string, unknown> | null;
+      let draft: SheetDraft | null;
       try {
         draft = await deps.store.readDraft(seed.sheet.id);
       } catch {
@@ -593,13 +710,22 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       }
 
       const writes = new Map<string, unknown>();
-      for (const path of flattenPaths(draft)) {
+      for (const path of flattenPaths(draft.delta)) {
         if (editable.has(path)) {
-          writes.set(path, readPath(draft, path));
+          writes.set(path, readPath(draft.delta, path));
         }
       }
       if (writes.size > 0) {
         applyWrites(writes);
+      }
+      if (draft.dice !== undefined) {
+        commit({
+          ...state,
+          dice: {
+            section: onlyKeys(draft.dice.section, knownSectionKeys),
+            row: onlyKeys(draft.dice.row, knownRowKeys),
+          },
+        });
       }
     },
 

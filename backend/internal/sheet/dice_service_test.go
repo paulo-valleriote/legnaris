@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheettest"
@@ -19,13 +20,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestService_SetDice(t *testing.T) {
+// diceOnlyUpdate matches the repository write of a save that carried only a
+// Dice block: the block as want, an updated_at, and no data key.
+func diceOnlyUpdate(want *sheet.Dice) any {
+	return mock.MatchedBy(func(updates map[string]any) bool {
+		stored, ok := updates["dice"].(*sheet.Dice)
+		_, hasData := updates["data"]
+		_, hasUpdatedAt := updates["updated_at"]
+		return ok && !hasData && hasUpdatedAt && len(updates) == 2 && assert.ObjectsAreEqual(want, stored)
+	})
+}
+
+func diceSave(dice *sheet.Dice) sheet.PartialUpdateSheetCommand {
+	return sheet.PartialUpdateSheetCommand{SheetID: fetchSheetID, OwnerID: ownerUserID, Dice: dice}
+}
+
+func TestService_PartialUpdate_Dice(t *testing.T) {
 	tmpl := layoutTemplate()
 	full := &sheet.Dice{
 		Section: map[string]*string{"stats": text("1d20 + @"), "config": nil},
 		Row:     map[string]*string{"skills.acrobatics": text("1d20 + @.total"), "stats.strength": nil},
 	}
-	emptyBlock := sheet.Dice{Section: map[string]*string{}, Row: map[string]*string{}}
 
 	tests := []struct {
 		name         string
@@ -40,7 +55,6 @@ func TestService_SetDice(t *testing.T) {
 		wantTemplate bool
 		wantUpdate   bool
 		wantStored   *sheet.Dice
-		want         sheet.Dice
 		wantCode     apperr.Code
 		wantMessage  string
 		wantStatus   int
@@ -203,6 +217,21 @@ func TestService_SetDice(t *testing.T) {
 			wantStatus:   404,
 		},
 		{
+			name:         "Error: a lost compare-and-swap is 409 and the block is not retried",
+			ownerID:      ownerUserID,
+			sheetID:      fetchSheetID,
+			dice:         full,
+			stored:       layoutStoredSheet(ownerUserID),
+			updateErr:    sheet.ErrVersionConflict,
+			wantFetch:    true,
+			wantTemplate: true,
+			wantUpdate:   true,
+			wantStored:   full,
+			wantCode:     apperr.CodeConflict,
+			wantMessage:  sheet.MsgSheetConflict,
+			wantStatus:   409,
+		},
+		{
 			name:         "Error: repository failure on write is internal",
 			ownerID:      ownerUserID,
 			sheetID:      fetchSheetID,
@@ -218,24 +247,22 @@ func TestService_SetDice(t *testing.T) {
 			wantStatus:   500,
 		},
 		{
-			name:       "Edge: nil block clears without consulting the template",
-			ownerID:    ownerUserID,
-			sheetID:    fetchSheetID,
-			dice:       nil,
-			stored:     layoutStoredSheet(ownerUserID),
-			wantFetch:  true,
-			wantUpdate: true,
-			want:       emptyBlock,
+			name:        "Error: neither data nor dice is 400 before the repository",
+			ownerID:     ownerUserID,
+			sheetID:     fetchSheetID,
+			dice:        nil,
+			wantCode:    apperr.CodeInvalidRequest,
+			wantMessage: sheet.MsgNothingToUpdate,
+			wantStatus:  400,
 		},
 		{
-			name:       "Edge: empty block object clears",
+			name:       "Edge: empty block object clears without consulting the template",
 			ownerID:    ownerUserID,
 			sheetID:    fetchSheetID,
 			dice:       &sheet.Dice{},
 			stored:     layoutStoredSheet(ownerUserID),
 			wantFetch:  true,
 			wantUpdate: true,
-			want:       emptyBlock,
 		},
 		{
 			name:       "Edge: block of empty maps clears",
@@ -245,7 +272,6 @@ func TestService_SetDice(t *testing.T) {
 			stored:     layoutStoredSheet(ownerUserID),
 			wantFetch:  true,
 			wantUpdate: true,
-			want:       emptyBlock,
 		},
 		{
 			name:         "Edge: only null entries is a real block, stored as given",
@@ -257,7 +283,6 @@ func TestService_SetDice(t *testing.T) {
 			wantTemplate: true,
 			wantUpdate:   true,
 			wantStored:   &sheet.Dice{Section: map[string]*string{"stats": nil}},
-			want:         sheet.Dice{Section: map[string]*string{"stats": nil}, Row: map[string]*string{}},
 		},
 		{
 			name:         "Edge: a sheet with an existing block is fully replaced",
@@ -269,7 +294,6 @@ func TestService_SetDice(t *testing.T) {
 			wantTemplate: true,
 			wantUpdate:   true,
 			wantStored:   &sheet.Dice{Row: map[string]*string{"baseArmorClass": text("1d20 + @")}},
-			want:         sheet.Dice{Section: map[string]*string{}, Row: map[string]*string{"baseArmorClass": text("1d20 + @")}},
 		},
 		{
 			name:         "Happy path: full block is validated and stored",
@@ -281,7 +305,6 @@ func TestService_SetDice(t *testing.T) {
 			wantTemplate: true,
 			wantUpdate:   true,
 			wantStored:   full,
-			want:         *full,
 		},
 	}
 
@@ -308,10 +331,11 @@ func TestService_SetDice(t *testing.T) {
 				}
 			}
 			if tc.wantUpdate {
-				repo.EXPECT().UpdateDice(mock.Anything, tc.sheetID, tc.wantStored).Return(tc.updateErr).Once()
+				repo.EXPECT().PartialUpdate(mock.Anything, tc.sheetID, int64(0), diceOnlyUpdate(tc.wantStored)).
+					Return(int64(1), tc.updateErr).Once()
 			}
 
-			got, err := svc.SetDice(context.Background(), sheet.SetDiceCommand{
+			got, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
 				SheetID: tc.sheetID,
 				OwnerID: tc.ownerID,
 				Dice:    tc.dice,
@@ -327,17 +351,108 @@ func TestService_SetDice(t *testing.T) {
 				var appErr *apperr.Error
 				require.ErrorAs(t, err, &appErr)
 				assert.Equal(t, tc.wantStatus, appErr.HttpStatus())
-				assert.Equal(t, sheet.Dice{}, got)
+				assert.Nil(t, got)
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tc.want, got)
+			assert.Equal(t, map[string]any{}, got, "a dice-only save recalculates nothing")
 		})
 	}
 }
 
-func TestService_SetDice_RejectsMoreThan64EntriesAfterOwnership(t *testing.T) {
+// layoutDAGService builds a service whose DAG matches layoutTemplate, so a save
+// can carry data and dice together.
+func layoutDAGService(t *testing.T, repo sheet.Repository, templateSvc template.Service) sheet.Service {
+	t.Helper()
+	tmpl := layoutTemplate()
+	dag, err := template.BuildDAG(layoutTemplateID, tmpl.Fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+	return sheet.NewService(repo, templateSvc, sheettest.DAGMap{layoutTemplateID: dag}, testLog)
+}
+
+func TestService_PartialUpdate_DataAndDiceTogether(t *testing.T) {
+	tmpl := layoutTemplate()
+	dexterity := map[string]any{"stats": map[string]any{"dexterity": 16.0}}
+	block := &sheet.Dice{Row: map[string]*string{"stats.strength": text("1d20 + @")}}
+
+	t.Run("Error: an invalid block refuses the whole save and writes no data", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		templateSvc := templatemocks.NewMockService(t)
+		svc := layoutDAGService(t, repo, templateSvc)
+		repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Once()
+		templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Once()
+
+		got, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+			SheetID: fetchSheetID,
+			OwnerID: ownerUserID,
+			Data:    dexterity,
+			Dice:    &sheet.Dice{Row: map[string]*string{"stats.ghost": nil}},
+		})
+
+		code, _ := layoutErrCode(t, err)
+		assert.Equal(t, apperr.CodeInvalidRequest, code)
+		assert.Nil(t, got)
+	})
+
+	t.Run("Error: an invalid data delta refuses the whole save before the template is read", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		svc := layoutDAGService(t, repo, templatemocks.NewMockService(t))
+		repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Once()
+
+		_, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+			SheetID: fetchSheetID,
+			OwnerID: ownerUserID,
+			Data:    map[string]any{"stats": map[string]any{"ghost": 1.0}},
+			Dice:    block,
+		})
+
+		code, _ := layoutErrCode(t, err)
+		assert.Equal(t, apperr.CodeUnknownField, code)
+	})
+
+	t.Run("Edge: a data-only save leaves the stored block untouched", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		svc := layoutDAGService(t, repo, templatemocks.NewMockService(t))
+		repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Once()
+		repo.EXPECT().PartialUpdate(mock.Anything, fetchSheetID, int64(0), mock.MatchedBy(func(updates map[string]any) bool {
+			_, hasDice := updates["dice"]
+			_, hasData := updates["data"]
+			return !hasDice && hasData
+		})).Return(int64(1), nil).Once()
+
+		_, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+			SheetID: fetchSheetID, OwnerID: ownerUserID, Data: dexterity,
+		})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("Happy path: data and dice land in one write and the cascade comes back", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		templateSvc := templatemocks.NewMockService(t)
+		svc := layoutDAGService(t, repo, templateSvc)
+		stored := layoutStoredSheet(ownerUserID)
+		stored.Version = 7
+		repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(stored, nil).Once()
+		templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Once()
+		repo.EXPECT().PartialUpdate(mock.Anything, fetchSheetID, int64(7), mock.MatchedBy(func(updates map[string]any) bool {
+			data, _ := updates["data"].(map[string]any)
+			stats, _ := data["stats"].(map[string]any)
+			dice, _ := updates["dice"].(*sheet.Dice)
+			return stats["dexterity"] == 16.0 && assert.ObjectsAreEqual(block, dice)
+		})).Return(int64(8), nil).Once()
+
+		got, err := svc.PartialUpdate(context.Background(), sheet.PartialUpdateSheetCommand{
+			SheetID: fetchSheetID, OwnerID: ownerUserID, Data: dexterity, Dice: block,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"modifiers": map[string]any{"dexterityMod": 3.0}}, got)
+	})
+}
+
+func TestService_PartialUpdate_DiceRejectsMoreThan64EntriesAfterOwnership(t *testing.T) {
 	tooMany := &sheet.Dice{Section: map[string]*string{}, Row: map[string]*string{}}
 	for i := range 33 {
 		tooMany.Section[fmt.Sprintf("s%d", i)] = nil
@@ -354,7 +469,7 @@ func TestService_SetDice_RejectsMoreThan64EntriesAfterOwnership(t *testing.T) {
 		repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Once()
 		templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Once()
 
-		_, err := svc.SetDice(context.Background(), sheet.SetDiceCommand{SheetID: fetchSheetID, OwnerID: ownerUserID, Dice: tooMany})
+		_, err := svc.PartialUpdate(context.Background(), diceSave(tooMany))
 
 		code, message := layoutErrCode(t, err)
 		assert.Equal(t, apperr.CodeInvalidRequest, code)
@@ -366,100 +481,55 @@ func TestService_SetDice_RejectsMoreThan64EntriesAfterOwnership(t *testing.T) {
 		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog)
 		repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet("someone-else"), nil).Once()
 
-		_, err := svc.SetDice(context.Background(), sheet.SetDiceCommand{SheetID: fetchSheetID, OwnerID: ownerUserID, Dice: tooMany})
+		_, err := svc.PartialUpdate(context.Background(), diceSave(tooMany))
 
 		code, _ := layoutErrCode(t, err)
 		assert.Equal(t, apperr.CodeNotFound, code)
 	})
 }
 
-func TestService_SetDice_ReturnedBlockDoesNotAliasTheCommand(t *testing.T) {
+func TestService_PartialUpdate_StoredDiceDoesNotAliasTheCommand(t *testing.T) {
 	tmpl := layoutTemplate()
 	repo := mocks.NewMockRepository(t)
 	templateSvc := templatemocks.NewMockService(t)
 	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
 	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Once()
 	templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Once()
-	repo.EXPECT().UpdateDice(mock.Anything, fetchSheetID, mock.Anything).Return(nil).Once()
+	var stored *sheet.Dice
+	repo.EXPECT().PartialUpdate(mock.Anything, fetchSheetID, int64(0), mock.Anything).
+		Run(func(_ context.Context, _ string, _ int64, updates map[string]any) {
+			stored = updates["dice"].(*sheet.Dice)
+		}).
+		Return(int64(1), nil).Once()
 
 	cmdDice := &sheet.Dice{Row: map[string]*string{"stats.strength": text("1d20")}}
-	got, err := svc.SetDice(context.Background(), sheet.SetDiceCommand{SheetID: fetchSheetID, OwnerID: ownerUserID, Dice: cmdDice})
+	_, err := svc.PartialUpdate(context.Background(), diceSave(cmdDice))
 	require.NoError(t, err)
 
 	*cmdDice.Row["stats.strength"] = "mutated"
 	cmdDice.Row["stats.dexterity"] = nil
-	assert.Equal(t, map[string]*string{"stats.strength": text("1d20")}, got.Row)
+	assert.Equal(t, map[string]*string{"stats.strength": text("1d20")}, stored.Row)
 }
 
-func TestService_SetDice_IsIdempotent(t *testing.T) {
-	tmpl := layoutTemplate()
-	repo := mocks.NewMockRepository(t)
-	templateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
-
-	block := &sheet.Dice{Section: map[string]*string{"stats": nil}, Row: map[string]*string{"stats.strength": text("2d6")}}
-	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Twice()
-	templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Twice()
-	repo.EXPECT().UpdateDice(mock.Anything, fetchSheetID, block).Return(nil).Twice()
-
-	cmd := sheet.SetDiceCommand{SheetID: fetchSheetID, OwnerID: ownerUserID, Dice: block}
-	first, err := svc.SetDice(context.Background(), cmd)
-	require.NoError(t, err)
-	second, err := svc.SetDice(context.Background(), cmd)
-	require.NoError(t, err)
-	assert.Equal(t, first, second)
-}
-
-func TestService_SetDice_TouchesNeitherDataNorLayout(t *testing.T) {
-	tmpl := layoutTemplate()
-	stored := layoutStoredSheet(ownerUserID)
-	stored.Layout = &sheet.Layout{Pinned: []string{"stats.strength"}}
-	dataBefore := fmt.Sprint(stored.Data)
-
-	repo := mocks.NewMockRepository(t)
-	templateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
-	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(stored, nil).Once()
-	templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Once()
-	repo.EXPECT().UpdateDice(mock.Anything, fetchSheetID, mock.Anything).Return(nil).Once()
-
-	_, err := svc.SetDice(context.Background(), sheet.SetDiceCommand{
-		SheetID: fetchSheetID,
-		OwnerID: ownerUserID,
-		Dice:    &sheet.Dice{Row: map[string]*string{"stats.strength": text("1d20")}},
-	})
-
-	require.NoError(t, err)
-	assert.Equal(t, dataBefore, fmt.Sprint(stored.Data))
-	assert.Equal(t, &sheet.Layout{Pinned: []string{"stats.strength"}}, stored.Layout)
-}
-
-func TestService_SetDice_ConcurrentCallsEachReturnTheirOwnValidBlock(t *testing.T) {
+func TestService_PartialUpdate_ConcurrentDiceSavesEachWriteTheirOwnValidBlock(t *testing.T) {
 	tmpl := layoutTemplate()
 	repo := mocks.NewMockRepository(t)
 	templateSvc := templatemocks.NewMockService(t)
 	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
 	const callers = 16
+	shared := &sheet.Dice{Section: map[string]*string{"stats": text("1d20 + @")}, Row: map[string]*string{"stats.strength": nil}}
 	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Times(callers)
 	templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Times(callers)
-	repo.EXPECT().UpdateDice(mock.Anything, fetchSheetID, mock.Anything).Return(nil).Times(callers)
+	repo.EXPECT().PartialUpdate(mock.Anything, fetchSheetID, int64(0), diceOnlyUpdate(shared)).Return(int64(1), nil).Times(callers)
 
-	shared := &sheet.Dice{Section: map[string]*string{"stats": text("1d20 + @")}, Row: map[string]*string{"stats.strength": nil}}
 	var wg sync.WaitGroup
-	results := make(chan sheet.Dice, callers)
 	for range callers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			got, err := svc.SetDice(context.Background(), sheet.SetDiceCommand{SheetID: fetchSheetID, OwnerID: ownerUserID, Dice: shared})
+			_, err := svc.PartialUpdate(context.Background(), diceSave(shared))
 			assert.NoError(t, err)
-			results <- got
 		}()
 	}
 	wg.Wait()
-	close(results)
-
-	for got := range results {
-		assert.Equal(t, *shared, got)
-	}
 }

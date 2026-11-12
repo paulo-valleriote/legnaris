@@ -2,12 +2,15 @@
  * The local persistence port for the sheet cycle (WSC-11, WSC-26 … WSC-31).
  *
  * Two versioned records live behind one typed boundary: the offline cache of a
- * loaded or created sheet and the unsaved draft of a sheet's pending delta. The
+ * loaded or created sheet and the unsaved draft of a sheet's pending delta and
+ * pending Dice block (ADR 0006). The
  * app builds the `idb`-backed adapter and every suite injects the in-memory
  * double, so the versioning and corruption rules are testable without a
  * database. No operation stores a credential (WSC-31).
  */
 
+import type { DiceBlock } from '../api/models/dice';
+import { parseDiceBlock } from '../api/models/dice';
 import type { Layout } from '../api/models/layout';
 import { isLayout } from '../api/models/layout';
 import type { Sheet } from '../api/models/sheet';
@@ -42,11 +45,22 @@ export interface CachedSheetRecord {
   readonly sheet: Sheet;
 }
 
-/** The versioned draft record of one sheet's pending editable delta (WSC-26). */
+/**
+ * The versioned draft record of one sheet's pending editable delta (WSC-26) and,
+ * when one is pending, its full Dice block (ADR 0006). A record written before
+ * the block existed has no `dice` and stays valid.
+ */
 export interface DraftRecord {
   readonly schemaVersion: typeof SCHEMA_VERSION;
   readonly id: string;
   readonly delta: Record<string, unknown>;
+  readonly dice?: DiceBlock;
+}
+
+/** A draft read back from the store: the pending delta and, when one was pending, the Dice block. */
+export interface SheetDraft {
+  readonly delta: Record<string, unknown>;
+  readonly dice?: DiceBlock;
 }
 
 /** The versioned record of a sheet's pending, uncommitted arrangement; `null` stages a reset to default. */
@@ -69,10 +83,10 @@ export interface SheetStore {
   putSheet(sheet: Sheet): Promise<void>;
   /** Deletes the cached sheet for [id], best-effort (WSC-06). */
   deleteSheet(id: string): Promise<void>;
-  /** Reads the draft delta for [id], or `null` (WSC-30). */
-  readDraft(id: string): Promise<Record<string, unknown> | null>;
+  /** Reads the draft for [id], or `null` (WSC-30). */
+  readDraft(id: string): Promise<SheetDraft | null>;
   /** Writes the pending editable delta for [id] (WSC-26). */
-  writeDraft(id: string, delta: Record<string, unknown>): Promise<void>;
+  writeDraft(id: string, delta: Record<string, unknown>, dice?: DiceBlock): Promise<void>;
   /** Deletes the draft for [id], best-effort (WSC-29). */
   deleteDraft(id: string): Promise<void>;
   /** Reads the pending arrangement for [id], or `null` when none is stored. */
@@ -105,9 +119,15 @@ export function toCachedSheetRecord(sheet: Sheet): CachedSheetRecord {
   return { schemaVersion: SCHEMA_VERSION, id: sheet.id, sheet };
 }
 
-/** Wraps [delta] in the draft envelope the store writes (WSC-26). */
-export function toDraftRecord(id: string, delta: Record<string, unknown>): DraftRecord {
-  return { schemaVersion: SCHEMA_VERSION, id, delta };
+/** Wraps [delta] and an optional pending Dice block in the draft envelope the store writes (WSC-26). */
+export function toDraftRecord(
+  id: string,
+  delta: Record<string, unknown>,
+  dice?: DiceBlock,
+): DraftRecord {
+  return dice === undefined
+    ? { schemaVersion: SCHEMA_VERSION, id, delta }
+    : { schemaVersion: SCHEMA_VERSION, id, delta, dice };
 }
 
 /** Wraps a pending arrangement in the envelope the store writes. */
@@ -141,12 +161,13 @@ export function readSheetRecord(record: unknown, id: string): Sheet | null {
 }
 
 /**
- * Resolves a stored draft record to its delta, or `null`.
+ * Resolves a stored draft record to its delta and Dice block, or `null`.
  *
  * The same total rule as {@link readSheetRecord}: a missing, malformed,
- * unsupported-version or foreign record reads as `null` (WSC-30).
+ * unsupported-version or foreign record reads as `null` (WSC-30). A `dice` that
+ * is not an object is dropped and the delta still restores.
  */
-export function readDraftRecord(record: unknown, id: string): Record<string, unknown> | null {
+export function readDraftRecord(record: unknown, id: string): SheetDraft | null {
   try {
     if (!isPlainObject(record)) {
       return null;
@@ -158,7 +179,11 @@ export function readDraftRecord(record: unknown, id: string): Record<string, unk
       return null;
     }
     const delta = record['delta'];
-    return isPlainObject(delta) ? delta : null;
+    if (!isPlainObject(delta)) {
+      return null;
+    }
+    const dice = record['dice'];
+    return isPlainObject(dice) ? { delta, dice: parseDiceBlock(dice) } : { delta };
   } catch {
     return null;
   }
@@ -215,7 +240,7 @@ export function createLazySheetStore(open: () => Promise<SheetStore>): SheetStor
     putSheet: (sheet) => resolve().then((store) => store.putSheet(sheet)),
     deleteSheet: (id) => bestEffort(() => resolve().then((store) => store.deleteSheet(id))),
     readDraft: (id) => resolve().then((store) => store.readDraft(id)),
-    writeDraft: (id, delta) => resolve().then((store) => store.writeDraft(id, delta)),
+    writeDraft: (id, delta, dice) => resolve().then((store) => store.writeDraft(id, delta, dice)),
     deleteDraft: (id) => bestEffort(() => resolve().then((store) => store.deleteDraft(id))),
     readLayoutDraft: (id) => resolve().then((store) => store.readLayoutDraft(id)),
     writeLayoutDraft: (id, layout) => resolve().then((store) => store.writeLayoutDraft(id, layout)),
@@ -254,8 +279,8 @@ export function createMemorySheetStore(): MemorySheetStore {
       return Promise.resolve();
     },
     readDraft: (id) => Promise.resolve(readDraftRecord(drafts.get(id), id)),
-    writeDraft: (id, delta) => {
-      drafts.set(id, toDraftRecord(id, delta));
+    writeDraft: (id, delta, dice) => {
+      drafts.set(id, toDraftRecord(id, delta, dice));
       return Promise.resolve();
     },
     deleteDraft: (id) => {

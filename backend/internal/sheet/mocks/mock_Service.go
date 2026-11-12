@@ -424,63 +424,6 @@ func (_c *MockService_PreviewTemplate_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
-// SetDice provides a mock function with given fields: ctx, cmd
-func (_m *MockService) SetDice(ctx context.Context, cmd sheet.SetDiceCommand) (sheet.Dice, error) {
-	ret := _m.Called(ctx, cmd)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SetDice")
-	}
-
-	var r0 sheet.Dice
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, sheet.SetDiceCommand) (sheet.Dice, error)); ok {
-		return rf(ctx, cmd)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, sheet.SetDiceCommand) sheet.Dice); ok {
-		r0 = rf(ctx, cmd)
-	} else {
-		r0 = ret.Get(0).(sheet.Dice)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, sheet.SetDiceCommand) error); ok {
-		r1 = rf(ctx, cmd)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockService_SetDice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetDice'
-type MockService_SetDice_Call struct {
-	*mock.Call
-}
-
-// SetDice is a helper method to define mock.On call
-//   - ctx context.Context
-//   - cmd sheet.SetDiceCommand
-func (_e *MockService_Expecter) SetDice(ctx interface{}, cmd interface{}) *MockService_SetDice_Call {
-	return &MockService_SetDice_Call{Call: _e.mock.On("SetDice", ctx, cmd)}
-}
-
-func (_c *MockService_SetDice_Call) Run(run func(ctx context.Context, cmd sheet.SetDiceCommand)) *MockService_SetDice_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(sheet.SetDiceCommand))
-	})
-	return _c
-}
-
-func (_c *MockService_SetDice_Call) Return(_a0 sheet.Dice, _a1 error) *MockService_SetDice_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockService_SetDice_Call) RunAndReturn(run func(context.Context, sheet.SetDiceCommand) (sheet.Dice, error)) *MockService_SetDice_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // SetLayout provides a mock function with given fields: ctx, cmd
 func (_m *MockService) SetLayout(ctx context.Context, cmd sheet.SetLayoutCommand) (*sheet.Layout, error) {
 	ret := _m.Called(ctx, cmd)

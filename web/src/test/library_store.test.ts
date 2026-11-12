@@ -110,7 +110,53 @@ describe('sheet store: draft envelope (WSC-26, WSC-30, WSC-31)', () => {
 
     await store.writeDraft(SHEET.id, { stats: { dexterity: 18 } });
 
-    await expect(store.readDraft(SHEET.id)).resolves.toEqual({ stats: { dexterity: 18 } });
+    await expect(store.readDraft(SHEET.id)).resolves.toEqual({
+      delta: { stats: { dexterity: 18 } },
+    });
+  });
+
+  it('Happy path: a pending Dice block round-trips with the delta, null entries included (ADR 0006)', async () => {
+    const store = createMemorySheetStore();
+    const dice = { section: { stats: null }, row: { 'stats.dexterity': '1d20 + @' } };
+
+    await store.writeDraft(SHEET.id, {}, dice);
+
+    await expect(store.readDraft(SHEET.id)).resolves.toEqual({ delta: {}, dice });
+  });
+
+  it('Edge: a draft without a Dice block stores no dice key, and a record from before dice stays valid', async () => {
+    const store = createMemorySheetStore();
+
+    await store.writeDraft(SHEET.id, { a: 1 });
+    expect(store.records()).toContainEqual({
+      schemaVersion: SCHEMA_VERSION,
+      id: SHEET.id,
+      delta: { a: 1 },
+    });
+    await expect(store.readDraft(SHEET.id)).resolves.toEqual({ delta: { a: 1 } });
+  });
+
+  it('Edge: a malformed dice field is dropped and the delta still restores', async () => {
+    const store = createMemorySheetStore();
+
+    store.putRawDraft(SHEET.id, {
+      schemaVersion: SCHEMA_VERSION,
+      id: SHEET.id,
+      delta: { a: 1 },
+      dice: 'nope',
+    });
+    await expect(store.readDraft(SHEET.id)).resolves.toEqual({ delta: { a: 1 } });
+
+    store.putRawDraft(SHEET.id, {
+      schemaVersion: SCHEMA_VERSION,
+      id: SHEET.id,
+      delta: { a: 1 },
+      dice: { row: { ok: '1d4', bad: 7 } },
+    });
+    await expect(store.readDraft(SHEET.id)).resolves.toEqual({
+      delta: { a: 1 },
+      dice: { section: {}, row: { ok: '1d4' } },
+    });
   });
 
   it('Edge: deleteDraft on a missing key resolves without throwing, and removes a present one', async () => {
@@ -181,7 +227,9 @@ describe('sheet store: idb adapter under fake-indexeddb (WSC-11, WSC-30)', () =>
     await store.writeDraft(SHEET.id, { stats: { dexterity: 18 } });
 
     await expect(store.readSheet(SHEET.id)).resolves.toEqual(SHEET);
-    await expect(store.readDraft(SHEET.id)).resolves.toEqual({ stats: { dexterity: 18 } });
+    await expect(store.readDraft(SHEET.id)).resolves.toEqual({
+      delta: { stats: { dexterity: 18 } },
+    });
   });
 
   it('Edge: reads a corrupt record, an unsupported version and a foreign id as null', async () => {
@@ -349,7 +397,7 @@ describe('sheet store: lazy wrapper', () => {
     await lazy.writeLayoutDraft(SHEET.id, LAYOUT);
 
     await expect(lazy.readSheet(SHEET.id)).resolves.toEqual(SHEET);
-    await expect(lazy.readDraft(SHEET.id)).resolves.toEqual({ a: 1 });
+    await expect(lazy.readDraft(SHEET.id)).resolves.toEqual({ delta: { a: 1 } });
     await expect(lazy.readLayoutDraft(SHEET.id)).resolves.toEqual({ layout: LAYOUT });
 
     await lazy.deleteLayoutDraft(SHEET.id);

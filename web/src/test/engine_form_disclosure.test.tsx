@@ -141,7 +141,7 @@ describe('a Section title as a disclosure control', () => {
     expect(screen.getByRole('button', { name: 'Alpha' })).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('Edge: the changed badge shows only while collapsed and receives each drawn Row paths', () => {
+  it('Edge: the changed badge shows only while collapsed and receives each drawn Row paths and key', () => {
     const badge = vi.fn((paths: readonly (readonly string[])[]) => (
       <span data-testid="badge">{paths.length}</span>
     ));
@@ -160,11 +160,10 @@ describe('a Section title as a disclosure control', () => {
     expect(screen.getByRole('button', { name: /Beta/ })).toContainElement(
       screen.getByTestId('badge'),
     );
-    expect(badge).toHaveBeenCalledWith([
-      ['beta.note'],
-      ['beta.stats.str', 'beta.stats.dex'],
-      ['beta.pickA', 'beta.pickB'],
-    ]);
+    expect(badge).toHaveBeenCalledWith(
+      [['beta.note'], ['beta.stats.str', 'beta.stats.dex'], ['beta.pickA', 'beta.pickB']],
+      ['beta.note', 'beta.stats', expect.stringMatching(/^beta#/)],
+    );
 
     rerender(
       <SheetForm

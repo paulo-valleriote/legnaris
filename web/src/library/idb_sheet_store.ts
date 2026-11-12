@@ -96,8 +96,8 @@ export async function createIdbSheetStore(factory: IDBFactory = indexedDB): Prom
     },
     deleteSheet: (id) => bestEffort(() => db.delete('sheets', id)),
     readDraft: (id) => readOrNull(async () => readDraftRecord(await db.get('drafts', id), id)),
-    writeDraft: async (id, delta) => {
-      await db.put('drafts', toDraftRecord(id, delta), id);
+    writeDraft: async (id, delta, dice) => {
+      await db.put('drafts', toDraftRecord(id, delta, dice), id);
     },
     deleteDraft: (id) => bestEffort(() => db.delete('drafts', id)),
     readLayoutDraft: (id) =>

@@ -129,7 +129,7 @@ func newQuietPatchLogger(t *testing.T) *logmocks.MockStructuredLogger {
 		}
 		log.On(level, args...).Maybe()
 	}
-	register("Info", "sheet patched", 9)
+	register("Info", "sheet patched", 10)
 	register("Warn", "sheet patch version conflict", 8)
 	return log
 }
