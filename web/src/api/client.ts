@@ -7,7 +7,7 @@
  */
 
 import type { DiceBlock } from './models/dice';
-import { diceBlockToWire, parseDiceBlock } from './models/dice';
+import { diceBlockToWire } from './models/dice';
 import type { Layout } from './models/layout';
 import { layoutToWire, parseLayoutResponse } from './models/layout';
 import type { Sheet } from './models/sheet';
@@ -45,18 +45,22 @@ export interface ApiClient {
   getMySheet(): Promise<Sheet>;
   /** Deletes one sheet by identifier; a `204` carries no body (WAS-28). */
   deleteSheet(id: string): Promise<void>;
-  patchSheet(id: string, changeSet: Record<string, unknown>): Promise<Record<string, unknown>>;
+  /**
+   * Saves the sheet (ADR 0006): the data delta and, when given, the full Dice block, in one
+   * request. An empty delta is left out of a save that carries a block, so the server skips
+   * the recalculation. Resolves with the cascade.
+   */
+  patchSheet(
+    id: string,
+    changeSet: Record<string, unknown>,
+    dice?: DiceBlock,
+  ): Promise<Record<string, unknown>>;
   previewSheet(id: string, changeSet: Record<string, unknown>): Promise<Record<string, unknown>>;
   /**
    * Replaces the sheet's Layout in full; `null` resets it to the Template default.
    * Resolves with the Layout as stored, or `null` after a reset. No recalculation runs.
    */
   setLayout(id: string, layout: Layout | null): Promise<Layout | null>;
-  /**
-   * Replaces the sheet's Dice block in full (ADR 0005); saved at once, never unsaved work.
-   * Resolves with the block as stored. No recalculation runs.
-   */
-  setDice(id: string, block: DiceBlock): Promise<DiceBlock>;
 }
 
 function decodeHealth(data: unknown): HealthPayload {
@@ -65,6 +69,15 @@ function decodeHealth(data: unknown): HealthPayload {
   }
 
   return { status: data['status'] };
+}
+
+function saveBody(changeSet: Record<string, unknown>, dice: DiceBlock | undefined): object {
+  if (dice === undefined) {
+    return { data: changeSet };
+  }
+  return Object.keys(changeSet).length === 0
+    ? diceBlockToWire(dice)
+    : { data: changeSet, ...diceBlockToWire(dice) };
 }
 
 function decodeChangeSet(data: unknown): Record<string, unknown> {
@@ -103,11 +116,11 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     getMySheet: () => caller.call('GET', '/sheets', undefined, parseSheet),
     deleteSheet: (id) =>
       caller.callNoContent('DELETE', `/sheets/${encodeURIComponent(id)}`, undefined),
-    patchSheet: (id, changeSet) =>
+    patchSheet: (id, changeSet, dice) =>
       caller.call(
         'PATCH',
         `/sheets/${encodeURIComponent(id)}`,
-        JSON.stringify({ data: changeSet }),
+        JSON.stringify(saveBody(changeSet, dice)),
         decodeChangeSet,
       ),
     previewSheet: (id, changeSet) =>
@@ -123,13 +136,6 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         `/sheets/${encodeURIComponent(id)}/layout`,
         JSON.stringify({ layout: layout === null ? null : layoutToWire(layout) }),
         parseLayoutResponse,
-      ),
-    setDice: (id, block) =>
-      caller.call(
-        'PUT',
-        `/sheets/${encodeURIComponent(id)}/dice`,
-        JSON.stringify(diceBlockToWire(block)),
-        (data) => parseDiceBlock(isPlainObject(data) ? data['dice'] : undefined),
       ),
   };
 }

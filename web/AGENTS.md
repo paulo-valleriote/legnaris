@@ -239,15 +239,20 @@ The Go package `backend/internal/dice` validates; this module parses, resolves a
   Field as `no_value`. Dice come from `crypto.getRandomValues` through `dieFromWords`, which redraws
   words above the largest multiple of the face count (no modulo bias). Nothing is stored.
 - User-facing copy for a `DiceError` is the UI's job (LGN-166), by `class`, through `src/l10n/`.
-- **Validation mirrors the server.** The client refuses what `PUT /sheets/:id/dice` would refuse
+- **Validation mirrors the server.** The client refuses what the `dice` block of `PATCH /sheets/:id` would refuse
   (same limits, grammar, Row fit and 64-entry cap) so a bad expression never reaches the wire; the
   server stays the authority and its 400 `INVALID_REQUEST` is still mapped.
-- **A dice choice is not a value.** Dice choices live in `createDiceStore` (`src/sheet/dice_store.ts`),
-  separate from `sheet_edit.ts` and the layout store. Each choice is sent with `PUT /sheets/:id/dice`
-  the moment it is made (`setDice` in `src/api/client.ts`, full replacement, no recalculation). The
-  store serializes PUTs and, on failure, reverts to the last confirmed block: a network failure shows
-  `dice.error.saveFailed`, a 400 shows `dice.error.serverRefused`. It never counts as unsaved work for
-  the leave guard or `F5`, and is not part of `Ctrl+S`.
+- **A dice choice is pending work (ADR 0006).** The edit store (`sheet_edit.ts`) holds the saved and
+  the current block; `createDiceStore` (`src/sheet/dice_store.ts`) is the face the Dice controls use
+  over it: it runs the local check and, when accepted, records the choice with `setDice`. Nothing is
+  sent until Save (or `Ctrl+S`), which issues one `PATCH` carrying the delta and the whole block
+  (`patchSheet(id, delta, dice)`; an empty delta is left out). A choice counts for `isPending`,
+  `pendingCount`, the leave guard, `F5`, discard and the draft (`writeDraft(id, delta, dice)`; restore
+  drops keys the Template no longer has); setting it back to its saved value clears it. It never
+  enables Preview (`canPreview` reads values only) and never resets the preview marks. A failed save
+  keeps it pending and shows the footer error. A pending Row is marked "Modified" through
+  `rowMarkBuilder(paths, rowKey)` (the preview mark wins when both apply); a pending Section choice
+  draws the same mark in the Section's title row.
 - **Where it shows.** A dice button (`src/sheet/dice_row.tsx`) appears only on a Row with an
   applicable expression, or one switched off by "no dice" (on the Row or its Section). Tap rolls;
   long-press (`LONG_PRESS_MS`, 500 ms) opens the Row's editor; the Edit button is the keyboard
@@ -275,8 +280,8 @@ no recalculation). Only the lists that deviate from the Template are sent.
   A failed `PUT` keeps the staging, shows the mapped copy and `Done` retries.
 - **A layout is not a value.** The layout store never touches `sheet_edit.ts`: arranging never marks
   the sheet as having unsaved values, `Ctrl+S` saves nothing while arranging, and no value save or
-  preview carries a layout. `LoadedSheet` keys the edit store on the sheet's id and values only, so
-  committing a layout (which updates the cached sheet) never rebuilds it.
+  preview carries a layout. `LoadedSheet` keys the edit store on the sheet's id, values and Dice block
+  only, so committing a layout (which updates the cached sheet and keeps its `dice`) never rebuilds it.
 - **One guard, one modal.** A pending arrangement (and an in-flight commit) counts as unsaved work
   for the leave guard and for `F5`; both open the screen's single confirmation modal, and
   confirming discards the staging, its backup and any value edits.

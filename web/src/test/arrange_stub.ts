@@ -56,12 +56,26 @@ export interface ArrangeStubOptions {
   readonly putOutcomes?: (HttpResponse | { failure: unknown })[];
   /** The sheet's stored Dice block, as a reload would return it. */
   readonly dice?: unknown;
+  /** Answers of successive PATCHes; the last repeats. Defaults to an empty cascade. */
+  readonly patchOutcomes?: (HttpResponse | { failure: unknown })[];
+}
+
+function scriptedAnswer(
+  scripted: readonly (HttpResponse | { failure: unknown })[],
+  index: number,
+): Promise<HttpResponse> {
+  const outcome = scripted[Math.min(index, scripted.length - 1)];
+  if (outcome !== undefined && 'failure' in outcome) {
+    return Promise.reject(outcome.failure);
+  }
+  return Promise.resolve(outcome as HttpResponse);
 }
 
 /** A routing transport: GET sheet/template, PUT layout, PATCH values. */
 export function createArrangeStub(options: ArrangeStubOptions = {}): ArrangeStub {
   const requests: HttpRequest[] = [];
   let putCount = 0;
+  let patchCount = 0;
 
   const transport: Transport = (request) => {
     requests.push(request);
@@ -69,21 +83,17 @@ export function createArrangeStub(options: ArrangeStubOptions = {}): ArrangeStub
     if (request.method === 'PUT') {
       const scripted = options.putOutcomes;
       if (scripted !== undefined) {
-        const outcome = scripted[Math.min(putCount, scripted.length - 1)];
         putCount += 1;
-        if (outcome !== undefined && 'failure' in outcome) {
-          return Promise.reject(outcome.failure);
-        }
-        return Promise.resolve(outcome as HttpResponse);
-      }
-      if (url.endsWith(`/sheets/${SHEET_ID}/dice`)) {
-        const body = JSON.parse(request.body ?? '{}') as { dice: unknown };
-        return Promise.resolve(successOutcome({ dice: body.dice }));
+        return scriptedAnswer(scripted, putCount - 1);
       }
       const body = JSON.parse(request.body ?? '{}') as { layout: unknown };
       return Promise.resolve(successOutcome({ layout: body.layout }));
     }
     if (request.method === 'PATCH') {
+      if (options.patchOutcomes !== undefined) {
+        patchCount += 1;
+        return scriptedAnswer(options.patchOutcomes, patchCount - 1);
+      }
       return Promise.resolve(successOutcome({}));
     }
     if (url.endsWith(`/sheets/${SHEET_ID}`)) {

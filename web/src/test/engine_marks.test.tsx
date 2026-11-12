@@ -107,7 +107,7 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
     expect(screen.getAllByText(message('engine.modified'))).toHaveLength(2);
   });
 
-  it('Happy path: rowMarkBuilder receives the single leaf path and every exclusive member path (ENG-23)', () => {
+  it('Happy path: rowMarkBuilder receives the single leaf path and every exclusive member path, with the Row key (ENG-23)', () => {
     const rowMarkBuilder = vi.fn(() => <span />);
 
     render(
@@ -119,7 +119,7 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
       />,
     );
 
-    expect(rowMarkBuilder).toHaveBeenCalledWith(['core.strength']);
-    expect(rowMarkBuilder).toHaveBeenCalledWith(['core.stealth', 'core.athletics']);
+    expect(rowMarkBuilder).toHaveBeenCalledWith(['core.strength'], 'core.strength');
+    expect(rowMarkBuilder).toHaveBeenCalledWith(['core.stealth', 'core.athletics'], 'core#ability');
   });
 });

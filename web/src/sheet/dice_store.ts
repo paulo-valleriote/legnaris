@@ -1,168 +1,82 @@
 /**
- * The Dice edit store (ADR 0005): a row or Section expression is saved the
- * moment it is set, through the full-block `PUT /sheets/:id/dice`, and never
- * counts as unsaved work. A change shows at once; when the save fails the
- * last confirmed block comes back and a message says why.
- *
- * Saves run one at a time, each sending the block as it stands when its turn
- * comes, so rapid edits never race each other. A failure drops the edits queued
- * behind it: they were built on a block the server refused, so the confirmed
- * block is the only honest state to return to.
+ * The Dice store (ADR 0005, ADR 0006): the face the Dice controls read and write, over the
+ * sheet's edit store. A choice is checked against the local grammar and fit first and, when
+ * accepted, becomes pending work in the edit store, like an edited value: it is sent with the
+ * next save, reverted by a discard and backed up with the draft. Nothing here reaches the
+ * network.
  */
 
-import type { ApiClient } from '../api/client';
-import { DomainFailure } from '../api/errors';
-import type { DiceBlock, DiceOverrides } from '../api/models/dice';
+import type { DiceBlock } from '../api/models/dice';
 import type { DiceError } from '../dice/errors';
-import type { MessageKey } from '../l10n/strings';
+import type { DiceTarget, PendingDiceKeys, SheetEditStore } from './sheet_edit';
+import { pendingDiceKeys } from './sheet_edit';
 
-export type DiceTarget = 'row' | 'section';
+export type { DiceTarget };
 
-/** Judges an expression before it is saved; `undefined` accepts it. */
+/** Judges an expression before it is accepted; `undefined` accepts it. */
 export type DiceCheck = (
   target: DiceTarget,
   key: string,
   expression: string,
 ) => DiceError | undefined;
 
-/** `ok` means the change passed the local check and was applied; the save itself is reported in the state. */
+/** `ok` means the change passed the local check and is now pending. */
 export type DiceChange = { readonly ok: true } | { readonly ok: false; readonly error: DiceError };
 
-export interface DiceStoreState {
-  readonly block: DiceBlock;
-  readonly saving: boolean;
-  /** The copy key of the last failed save, cleared by the next successful one. */
-  readonly errorKey: MessageKey | undefined;
-}
-
 export interface DiceStoreOptions {
-  readonly client: Pick<ApiClient, 'setDice'>;
-  readonly sheetId: string;
-  readonly initial: DiceBlock;
+  readonly edit: Pick<SheetEditStore, 'getState' | 'subscribe' | 'setDice'>;
   readonly check?: DiceCheck;
 }
 
 export interface DiceStore {
-  getState(): DiceStoreState;
+  /** The Dice block as the player has it now, pending choices included. */
+  getBlock(): DiceBlock;
+  /** The Row and Section keys whose choice is not saved yet. */
+  getPendingKeys(): PendingDiceKeys;
   subscribe(listener: () => void): () => void;
   /** Sets a Row expression; `null` is "no dice", `undefined` removes the override (Template default). */
-  setRow(key: string, expression: string | null | undefined): Promise<DiceChange>;
+  setRow(key: string, expression: string | null | undefined): DiceChange;
   /** Sets a Section expression with the same meaning as {@link DiceStore.setRow}. */
-  setSection(key: string, expression: string | null | undefined): Promise<DiceChange>;
+  setSection(key: string, expression: string | null | undefined): DiceChange;
 }
 
 const OK: DiceChange = { ok: true };
 
-function failureKey(error: unknown): MessageKey {
-  if (error instanceof DomainFailure && error.kind === 'invalidEdit') {
-    return 'dice.error.serverRefused';
-  }
-  return 'dice.error.saveFailed';
-}
-
-function withEntry(
-  overrides: DiceOverrides,
-  key: string,
-  expression: string | null | undefined,
-): DiceOverrides {
-  const next: Record<string, string | null> = { ...overrides };
-  if (expression === undefined) {
-    delete next[key];
-  } else {
-    next[key] = expression;
-  }
-  return next;
-}
-
-function isUnchanged(
-  overrides: DiceOverrides,
-  key: string,
-  expression: string | null | undefined,
-): boolean {
-  if (expression === undefined) {
-    return !Object.hasOwn(overrides, key);
-  }
-  return Object.hasOwn(overrides, key) && overrides[key] === expression;
-}
-
-/** Builds the Dice store over one sheet's block; the client is the only way it reaches the network. */
+/** Builds the Dice store over one sheet's edit store. */
 export function createDiceStore(options: DiceStoreOptions): DiceStore {
   const check: DiceCheck = options.check ?? (() => undefined);
-  const listeners = new Set<() => void>();
-  let confirmed = options.initial;
-  let block = options.initial;
-  let queued = 0;
-  let generation = 0;
-  let errorKey: MessageKey | undefined;
-  let queue: Promise<void> = Promise.resolve();
-  let snapshot: DiceStoreState = { block, saving: false, errorKey };
-
-  function publish(): void {
-    snapshot = { block, saving: queued > 0, errorKey };
-    listeners.forEach((listener) => listener());
-  }
-
-  function succeed(stored: DiceBlock): void {
-    confirmed = stored;
-    errorKey = undefined;
-    queued -= 1;
-    if (queued === 0) {
-      block = stored;
-    }
-    publish();
-  }
-
-  function fail(error: unknown): void {
-    generation += 1;
-    queued = 0;
-    block = confirmed;
-    errorKey = failureKey(error);
-    publish();
-  }
-
-  function enqueue(): Promise<DiceChange> {
-    const job = generation;
-    queued += 1;
-    publish();
-    queue = queue.then(() => {
-      if (job !== generation) {
-        return undefined;
-      }
-      return options.client.setDice(options.sheetId, block).then(succeed, fail);
-    });
-    return queue.then(() => OK);
-  }
+  const { edit } = options;
+  let keysFor: DiceBlock | undefined;
+  let keysAgainst: DiceBlock | undefined;
+  let keys: PendingDiceKeys = { row: new Set(), section: new Set() };
 
   function apply(
     target: DiceTarget,
     key: string,
     expression: string | null | undefined,
-  ): Promise<DiceChange> {
-    const current = target === 'row' ? block.row : block.section;
-    if (isUnchanged(current, key, expression)) {
-      return Promise.resolve(OK);
-    }
+  ): DiceChange {
     if (typeof expression === 'string') {
       const error = check(target, key, expression);
       if (error !== undefined) {
-        return Promise.resolve({ ok: false, error });
+        return { ok: false, error };
       }
     }
-    block =
-      target === 'row'
-        ? { ...block, row: withEntry(block.row, key, expression) }
-        : { ...block, section: withEntry(block.section, key, expression) };
-    return enqueue();
+    edit.setDice(target, key, expression);
+    return OK;
   }
 
   return {
-    getState: () => snapshot,
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
+    getBlock: () => edit.getState().dice,
+    getPendingKeys: () => {
+      const state = edit.getState();
+      if (keysFor !== state.dice || keysAgainst !== state.savedDice) {
+        keysFor = state.dice;
+        keysAgainst = state.savedDice;
+        keys = pendingDiceKeys(state);
+      }
+      return keys;
     },
+    subscribe: (listener) => edit.subscribe(listener),
     setRow: (key, expression) => apply('row', key, expression),
     setSection: (key, expression) => apply('section', key, expression),
   };

@@ -1,202 +1,374 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createApiClient } from '../api/client';
-import type { HttpRequest, HttpResponse } from '../api/transport';
 import type { DiceBlock } from '../api/models/dice';
+import { parseSheet } from '../api/models/sheet';
+import { parseTemplateDetail } from '../api/models/template';
 import type { DiceError } from '../dice/errors';
-import { createDiceStore, type DiceStore } from '../sheet/dice_store';
-import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
+import { message } from '../l10n/strings';
+import { createMemorySheetStore } from '../library/sheet_store';
+import { createDiceStore, type DiceCheck } from '../sheet/dice_store';
+import {
+  canPreview,
+  canSave,
+  createSheetEditStore,
+  isDicePending,
+  isPending,
+  pendingCount,
+} from '../sheet/sheet_edit';
+import {
+  createDeferredTransport,
+  createFakeTransport,
+  errorOutcome,
+  successOutcome,
+} from './fake_transport';
+import { SHEET_ID, sheetPayload, templateDetailPayload } from './sheet_fixtures';
 
-const baseUrl = 'https://api.example.test';
-const SHEET = '01a0f967-f42b-710e-851f-8f293a634921';
+const BASE_URL = 'http://api.test';
 const EMPTY: DiceBlock = { section: {}, row: {} };
+const NO_SLEEP = { sleep: () => Promise.resolve(), random: () => 0 };
 
-function storeWith(
-  transport: ReturnType<typeof createFakeTransport>['transport'],
-  initial: DiceBlock = EMPTY,
-  check: (target: string, key: string, expression: string) => DiceError | undefined = () =>
-    undefined,
-): DiceStore {
-  const client = createApiClient({ baseUrl, transport });
-  return createDiceStore({ client, sheetId: SHEET, initial, check });
-}
-
-/** A transport whose attempts wait for the test to settle each one in order. */
-function gatedTransport() {
-  const requests: HttpRequest[] = [];
-  const settlers: Array<(outcome: HttpResponse | { failure: unknown }) => void> = [];
-  const transport = (request: HttpRequest): Promise<HttpResponse> => {
-    requests.push(request);
-    return new Promise<HttpResponse>((resolve, reject) => {
-      settlers.push((outcome) => {
-        if ('failure' in outcome) {
-          reject(outcome.failure);
-          return;
-        }
-        resolve(outcome);
-      });
-    });
-  };
-  return {
-    requests,
-    settle(index: number, outcome: HttpResponse | { failure: unknown }) {
-      settlers[index]?.(outcome);
+function setup(
+  transport: Parameters<typeof createApiClient>[0]['transport'],
+  dice: DiceBlock = EMPTY,
+  check?: DiceCheck,
+) {
+  const client = createApiClient({ baseUrl: BASE_URL, transport });
+  const sheetStore = createMemorySheetStore();
+  const edit = createSheetEditStore(
+    {
+      template: parseTemplateDetail(templateDetailPayload()),
+      sheet: parseSheet(sheetPayload({ dice })),
     },
-    transport,
-  };
+    { client, store: sheetStore, saveRetry: NO_SLEEP },
+  );
+  const dicer = createDiceStore({ edit, ...(check === undefined ? {} : { check }) });
+  return { edit, dice: dicer, sheetStore };
 }
 
-const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+function bodyOf(request: { body?: string | undefined } | undefined): unknown {
+  return JSON.parse(request?.body ?? 'null');
+}
 
-describe('dice store: saving a change', () => {
-  it('Happy path: a row expression is sent at once as the full block and the stored block is kept', async () => {
-    const fake = createFakeTransport(
-      successOutcome({ dice: { section: {}, row: { 'attrs.init': '1d20' } } }),
-    );
-    const store = storeWith(fake.transport);
+describe('dice store: a choice is pending work (ADR 0006)', () => {
+  it('Happy path: a Row expression is applied at once, pends, and sends nothing', () => {
+    const fake = createFakeTransport(successOutcome({}));
+    const { edit, dice } = setup(fake.transport);
 
-    const outcome = await store.setRow('attrs.init', '1d20');
+    const outcome = dice.setRow('identity.level', '1d20 + @');
 
     expect(outcome).toEqual({ ok: true });
-    expect(fake.lastRequest?.method).toBe('PUT');
-    expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets/${SHEET}/dice`);
-    expect(fake.lastRequest?.body).toBe('{"dice":{"section":{},"row":{"attrs.init":"1d20"}}}');
-    expect(store.getState().block.row).toEqual({ 'attrs.init': '1d20' });
-    expect(store.getState().saving).toBe(false);
-    expect(store.getState().errorKey).toBeUndefined();
+    expect(dice.getBlock()).toEqual({ section: {}, row: { 'identity.level': '1d20 + @' } });
+    expect(isPending(edit.getState())).toBe(true);
+    expect(isDicePending(edit.getState())).toBe(true);
+    expect(canSave(edit.getState())).toBe(true);
+    expect(pendingCount(edit.getState())).toBe(1);
+    expect(dice.getPendingKeys().row).toEqual(new Set(['identity.level']));
+    expect(fake.attempts).toBe(0);
   });
 
-  it('Happy path: subscribers are told when the state changes', async () => {
-    const fake = createFakeTransport(successOutcome({ dice: { section: {}, row: { a: '1d4' } } }));
-    const store = storeWith(fake.transport);
-    let notified = 0;
-    store.subscribe(() => {
-      notified += 1;
+  it('Happy path: subscribers are told when a choice changes', () => {
+    const { dice } = setup(createFakeTransport(successOutcome({})).transport);
+    const listener = vi.fn();
+    dice.subscribe(listener);
+
+    dice.setSection('identity', '1d20');
+
+    expect(listener).toHaveBeenCalled();
+  });
+
+  it('Edge: setting the value already saved changes nothing and notifies nobody', () => {
+    const { edit, dice } = setup(createFakeTransport(successOutcome({})).transport, {
+      section: {},
+      row: { 'identity.level': '1d20' },
+    });
+    const listener = vi.fn();
+    dice.subscribe(listener);
+
+    expect(dice.setRow('identity.level', '1d20')).toEqual({ ok: true });
+
+    expect(listener).not.toHaveBeenCalled();
+    expect(isPending(edit.getState())).toBe(false);
+  });
+
+  it('Edge: a choice set back to its saved value is no longer pending', () => {
+    const { edit, dice } = setup(createFakeTransport(successOutcome({})).transport, {
+      section: { identity: '1d20' },
+      row: {},
     });
 
-    await store.setRow('a', '1d4');
+    dice.setSection('identity', '2d6');
+    dice.setSection('identity', '1d20');
 
-    expect(notified).toBeGreaterThan(0);
+    expect(isPending(edit.getState())).toBe(false);
+    expect(dice.getPendingKeys().section.size).toBe(0);
+    expect(edit.getPendingDice()).toBeUndefined();
   });
 
-  it('Edge: setting the value already stored sends nothing and succeeds', async () => {
-    const fake = createFakeTransport(successOutcome({ dice: EMPTY }));
-    const store = storeWith(fake.transport, { section: {}, row: { a: '1d4' } });
+  it('Edge: undefined removes the override, and a removal is pending until saved', () => {
+    const { edit, dice } = setup(createFakeTransport(successOutcome({})).transport, {
+      section: {},
+      row: { 'identity.level': '1d20' },
+    });
 
-    await expect(store.setRow('a', '1d4')).resolves.toEqual({ ok: true });
-    expect(fake.attempts).toBe(0);
+    dice.setRow('identity.level', undefined);
+
+    expect(dice.getBlock().row).toEqual({});
+    expect(dice.getPendingKeys().row).toEqual(new Set(['identity.level']));
+    expect(isPending(edit.getState())).toBe(true);
   });
 
-  it('Edge: undefined removes the override so the Template default applies again', async () => {
-    const fake = createFakeTransport(successOutcome({ dice: EMPTY }));
-    const store = storeWith(fake.transport, { section: {}, row: { a: '1d4' } });
+  it('Edge: null is an explicit "no dice", distinct from an absent override', () => {
+    const { dice } = setup(createFakeTransport(successOutcome({})).transport);
 
-    await store.setRow('a', undefined);
+    dice.setSection('ability', null);
 
-    expect(fake.lastRequest?.body).toBe('{"dice":{"section":{},"row":{}}}');
-    expect(store.getState().block.row).toEqual({});
+    expect(dice.getBlock().section).toEqual({ ability: null });
+    expect(dice.getPendingKeys().section).toEqual(new Set(['ability']));
   });
 
-  it('Edge: null is an explicit "no dice" and is sent as null', async () => {
-    const fake = createFakeTransport(
-      successOutcome({ dice: { section: { attrs: null }, row: {} } }),
-    );
-    const store = storeWith(fake.transport);
-
-    await store.setSection('attrs', null);
-
-    expect(fake.lastRequest?.body).toBe('{"dice":{"section":{"attrs":null},"row":{}}}');
-  });
-});
-
-describe('dice store: refusing before any request', () => {
-  it('Edge: an expression the client check rejects is refused inline, no request is made, the value is unchanged', async () => {
-    const fake = createFakeTransport(successOutcome({ dice: EMPTY }));
+  it('Edge: an expression the local check rejects is refused and changes nothing', () => {
     const refusal: DiceError = { class: 'unreadable_term', message: 'bad' };
-    const store = storeWith(fake.transport, EMPTY, () => refusal);
-
-    const outcome = await store.setRow('attrs.init', '1d20 + 1.5');
-
-    expect(outcome).toEqual({ ok: false, error: refusal });
-    expect(fake.attempts).toBe(0);
-    expect(store.getState().block).toEqual(EMPTY);
-  });
-});
-
-describe('dice store: failures revert', () => {
-  it('Error: a 400 from the server restores the previous block and says why, without an unsaved flag', async () => {
-    const fake = createFakeTransport(errorOutcome('INVALID_REQUEST', 'bad', 400));
-    const store = storeWith(fake.transport, { section: {}, row: { a: '1d4' } });
-
-    const outcome = await store.setRow('a', '2d6');
-
-    expect(outcome).toEqual({ ok: true });
-    expect(store.getState().block.row).toEqual({ a: '1d4' });
-    expect(store.getState().errorKey).toBe('dice.error.serverRefused');
-    expect(store.getState().saving).toBe(false);
-  });
-
-  it('Error: a network failure restores the previous block and shows the save error', async () => {
-    const fake = createFakeTransport({ failure: new Error('offline') });
-    const store = storeWith(fake.transport, { section: {}, row: { a: '1d4' } });
-
-    await store.setRow('a', '2d6');
-
-    expect(store.getState().block.row).toEqual({ a: '1d4' });
-    expect(store.getState().errorKey).toBe('dice.error.saveFailed');
-  });
-
-  it('Edge: a later successful save clears the error', async () => {
-    const fake = createFakeTransport(
-      errorOutcome('INVALID_REQUEST', 'bad', 400),
-      successOutcome({ dice: { section: {}, row: { a: '2d6' } } }),
+    const { edit, dice } = setup(
+      createFakeTransport(successOutcome({})).transport,
+      EMPTY,
+      () => refusal,
     );
-    const store = storeWith(fake.transport);
 
-    await store.setRow('a', '2d6');
-    expect(store.getState().errorKey).toBe('dice.error.serverRefused');
+    expect(dice.setRow('identity.level', 'banana')).toEqual({ ok: false, error: refusal });
+    expect(dice.getBlock()).toEqual(EMPTY);
+    expect(isPending(edit.getState())).toBe(false);
+  });
 
-    await store.setRow('a', '2d6');
-    expect(store.getState().errorKey).toBeUndefined();
-    expect(store.getState().block.row).toEqual({ a: '2d6' });
+  it('Edge: the check never judges a null or a removal', () => {
+    const check = vi.fn(() => undefined);
+    const { dice } = setup(createFakeTransport(successOutcome({})).transport, EMPTY, check);
+
+    dice.setRow('identity.level', null);
+    dice.setRow('identity.level', undefined);
+
+    expect(check).not.toHaveBeenCalled();
+  });
+
+  it('Edge: a Dice choice alone never enables a Preview, which recalculates values only', () => {
+    const { edit, dice } = setup(createFakeTransport(successOutcome({})).transport);
+
+    dice.setRow('identity.level', '1d20');
+
+    expect(canPreview(edit.getState())).toBe(false);
+  });
+
+  it('Edge: a Dice choice keeps the preview marks of an earlier Preview', async () => {
+    const fake = createFakeTransport(successOutcome({ derived: { total: 5 } }));
+    const { edit, dice } = setup(fake.transport);
+    edit.setPath('identity.level', 4);
+    await edit.preview();
+    const marks = edit.getState().previewMarks;
+
+    dice.setRow('identity.level', '1d20');
+
+    expect(marks).toBeDefined();
+    expect(edit.getState().previewMarks).toBe(marks);
+  });
+
+  it('Edge: the pending keys snapshot is stable between changes, so a subscriber does not loop', () => {
+    const { dice } = setup(createFakeTransport(successOutcome({})).transport);
+    dice.setRow('identity.level', '1d20');
+
+    expect(dice.getPendingKeys()).toBe(dice.getPendingKeys());
   });
 });
 
-describe('dice store: rapid edits', () => {
-  it('Edge: a second toggle while the first is in flight is queued, and the last request carries the final value', async () => {
-    const gate = gatedTransport();
-    const store = storeWith(gate.transport);
+describe('dice store: saved with the sheet (ADR 0006)', () => {
+  it('Happy path: a dice-only save sends one PATCH carrying the whole block and no data', async () => {
+    const fake = createFakeTransport(successOutcome({}));
+    const { edit, dice } = setup(fake.transport, { section: { ability: null }, row: {} });
+    dice.setRow('identity.level', '1d20 + @');
 
-    const first = store.setRow('a', '1d4');
-    const second = store.setRow('a', '1d6');
-    await flush();
-    expect(gate.requests.length).toBe(1);
+    await edit.save();
 
-    gate.settle(0, successOutcome({ dice: { section: {}, row: { a: '1d6' } } }));
-    await first;
-    await flush();
-    expect(gate.requests.length).toBe(2);
-    expect(gate.requests[1]?.body).toBe('{"dice":{"section":{},"row":{"a":"1d6"}}}');
-
-    gate.settle(1, successOutcome({ dice: { section: {}, row: { a: '1d6' } } }));
-    await second;
-    expect(store.getState().block.row).toEqual({ a: '1d6' });
-    expect(store.getState().saving).toBe(false);
+    expect(fake.attempts).toBe(1);
+    expect(fake.lastRequest?.method).toBe('PATCH');
+    expect(bodyOf(fake.lastRequest)).toEqual({
+      dice: { section: { ability: null }, row: { 'identity.level': '1d20 + @' } },
+    });
+    expect(isPending(edit.getState())).toBe(false);
+    expect(edit.getState().savedDice).toEqual({
+      section: { ability: null },
+      row: { 'identity.level': '1d20 + @' },
+    });
   });
 
-  it('Edge: when an in-flight save fails, the queued edits are dropped and the confirmed block is restored', async () => {
-    const gate = gatedTransport();
-    const store = storeWith(gate.transport, { section: {}, row: { a: '1d4' } });
+  it('Happy path: values and dice go out in the same PATCH', async () => {
+    const fake = createFakeTransport(successOutcome({ derived: { total: 5 } }));
+    const { edit, dice } = setup(fake.transport);
+    edit.setPath('identity.level', 4);
+    dice.setSection('identity', '1d20');
 
-    const first = store.setRow('a', '1d6');
-    const second = store.setRow('b', '1d8');
-    await flush();
-    gate.settle(0, { failure: new Error('offline') });
-    await Promise.all([first, second]);
-    await flush();
+    await edit.save();
 
-    expect(gate.requests.length).toBe(1);
-    expect(store.getState().block).toEqual({ section: {}, row: { a: '1d4' } });
-    expect(store.getState().errorKey).toBe('dice.error.saveFailed');
-    expect(store.getState().saving).toBe(false);
+    expect(fake.attempts).toBe(1);
+    expect(bodyOf(fake.lastRequest)).toEqual({
+      data: { identity: { level: 4 } },
+      dice: { section: { identity: '1d20' }, row: {} },
+    });
+    expect(edit.getState().data).toMatchObject({ derived: { total: 5 } });
+    expect(isPending(edit.getState())).toBe(false);
+  });
+
+  it('Edge: a value-only save carries no dice key', async () => {
+    const fake = createFakeTransport(successOutcome({}));
+    const { edit } = setup(fake.transport, { section: { identity: '1d20' }, row: {} });
+    edit.setPath('identity.level', 4);
+
+    await edit.save();
+
+    expect(bodyOf(fake.lastRequest)).toEqual({ data: { identity: { level: 4 } } });
+  });
+
+  it('Edge: clearing every override sends an empty block, which the server stores as none', async () => {
+    const fake = createFakeTransport(successOutcome({}));
+    const { edit, dice } = setup(fake.transport, { section: {}, row: { 'identity.level': '1d4' } });
+    dice.setRow('identity.level', undefined);
+
+    await edit.save();
+
+    expect(bodyOf(fake.lastRequest)).toEqual({ dice: { section: {}, row: {} } });
+  });
+
+  it('Error: a refused save keeps the choice pending and shows the mapped copy, with no rollback', async () => {
+    const fake = createFakeTransport(errorOutcome('INVALID_REQUEST', 'invalid dice', 400));
+    const { edit, dice } = setup(fake.transport);
+    dice.setRow('identity.level', '1d20');
+
+    await edit.save();
+
+    expect(edit.getState().saveError).toBe(message('api.error.invalidEdit'));
+    expect(dice.getBlock().row).toEqual({ 'identity.level': '1d20' });
+    expect(isPending(edit.getState())).toBe(true);
+    expect(fake.attempts).toBe(1);
+  });
+
+  it('Error: a persistent 409 stops after three sends and keeps the choice pending', async () => {
+    const fake = createFakeTransport(errorOutcome('CONFLICT', 'conflict', 409));
+    const { edit, dice } = setup(fake.transport);
+    dice.setRow('identity.level', '1d20');
+
+    await edit.save();
+
+    expect(fake.attempts).toBe(3);
+    expect(edit.getState().saveError).toBe(message('sheet.error.saveConflict'));
+    expect(isDicePending(edit.getState())).toBe(true);
+  });
+
+  it('Edge: a choice made while a save is in flight stays pending after it succeeds', async () => {
+    const deferred = createDeferredTransport();
+    const { edit, dice } = setup(deferred.transport);
+    dice.setRow('identity.level', '1d20');
+
+    const saving = edit.save();
+    dice.setRow('identity.level', '2d6');
+    deferred.resolve(successOutcome({}));
+    await saving;
+
+    expect(edit.getState().savedDice.row).toEqual({ 'identity.level': '1d20' });
+    expect(dice.getPendingKeys().row).toEqual(new Set(['identity.level']));
+    expect(isPending(edit.getState())).toBe(true);
+  });
+
+  it('Edge: the pending keys follow the new saved block after a save', async () => {
+    const { edit, dice } = setup(createFakeTransport(successOutcome({})).transport);
+    dice.setRow('identity.level', '1d20');
+    expect(dice.getPendingKeys().row.size).toBe(1);
+
+    await edit.save();
+
+    expect(dice.getPendingKeys().row.size).toBe(0);
+  });
+
+  it('Happy path: discard returns the block to the saved one', () => {
+    const { edit, dice } = setup(createFakeTransport(successOutcome({})).transport, {
+      section: {},
+      row: { 'identity.level': '1d4' },
+    });
+    dice.setRow('identity.level', '1d20');
+    dice.setSection('ability', null);
+
+    edit.discard();
+
+    expect(dice.getBlock()).toEqual({ section: {}, row: { 'identity.level': '1d4' } });
+    expect(isPending(edit.getState())).toBe(false);
+  });
+});
+
+describe('dice store: the draft (ADR 0006)', () => {
+  it('Happy path: restore brings back a pending block from the draft', async () => {
+    const { edit, dice, sheetStore } = setup(createFakeTransport(successOutcome({})).transport);
+    await sheetStore.writeDraft(SHEET_ID, {}, { section: { identity: '1d20' }, row: {} });
+
+    await edit.restore();
+
+    expect(dice.getBlock()).toEqual({ section: { identity: '1d20' }, row: {} });
+    expect(isPending(edit.getState())).toBe(true);
+  });
+
+  it('Edge: restore drops draft keys the Template no longer has', async () => {
+    const { edit, dice, sheetStore } = setup(createFakeTransport(successOutcome({})).transport);
+    await sheetStore.writeDraft(
+      SHEET_ID,
+      {},
+      {
+        section: { identity: '1d20', retired: '1d4' },
+        row: { 'identity.level': null, 'identity.gone': '1d6', 'ability#ability': '1d8' },
+      },
+    );
+
+    await edit.restore();
+
+    expect(dice.getBlock()).toEqual({
+      section: { identity: '1d20' },
+      row: { 'identity.level': null, 'ability#ability': '1d8' },
+    });
+  });
+
+  it('Edge: a draft written before dice existed restores its values and leaves the block alone', async () => {
+    const saved: DiceBlock = { section: { identity: '1d20' }, row: {} };
+    const { edit, dice, sheetStore } = setup(
+      createFakeTransport(successOutcome({})).transport,
+      saved,
+    );
+    sheetStore.putRawDraft(SHEET_ID, {
+      schemaVersion: 3,
+      id: SHEET_ID,
+      delta: { identity: { level: 9 } },
+    });
+
+    await edit.restore();
+
+    expect(dice.getBlock()).toEqual(saved);
+    expect(edit.getPendingDelta()).toEqual({ identity: { level: 9 } });
+  });
+
+  it('Edge: an offline save keeps a dice-only change on the device and says so', async () => {
+    const fake = createFakeTransport({ failure: new TypeError('Failed to fetch') });
+    const { edit, dice, sheetStore } = setup(fake.transport);
+    dice.setRow('identity.level', '1d20');
+
+    await edit.save();
+
+    expect(edit.getState().saveError).toBe(message('sheet.error.saveOffline'));
+    expect(await sheetStore.readDraft(SHEET_ID)).toEqual({
+      delta: {},
+      dice: { section: {}, row: { 'identity.level': '1d20' } },
+    });
+  });
+
+  it('Happy path: a successful save deletes the draft', async () => {
+    const { edit, dice, sheetStore } = setup(createFakeTransport(successOutcome({})).transport);
+    dice.setRow('identity.level', '1d20');
+    await sheetStore.writeDraft(SHEET_ID, {}, edit.getPendingDice());
+
+    await edit.save();
+
+    expect(await sheetStore.readDraft(SHEET_ID)).toBeNull();
   });
 });

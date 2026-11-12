@@ -184,7 +184,7 @@ func TestIntegration_ProtectedRoutesRequireJWT(t *testing.T) {
 		{http.MethodDelete, "/sheets/" + missingSheetID, ""},
 		{http.MethodPost, "/sheets/" + missingSheetID + "/preview", `{"data":{"stats":{"dexterity":12}}}`},
 		{http.MethodPut, "/sheets/" + missingSheetID + "/layout", `{"layout":{}}`},
-		{http.MethodPut, "/sheets/" + missingSheetID + "/dice", `{"dice":{}}`},
+		{http.MethodPatch, "/sheets/" + missingSheetID, `{"dice":{}}`},
 		{http.MethodGet, "/templates", ""},
 		{http.MethodGet, "/templates/fantasy_v1", ""},
 		{http.MethodPost, "/templates/fantasy_v1/preview", `{"data":{"stats":{"dexterity":12}}}`},
@@ -895,7 +895,7 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 			{http.MethodDelete, "/sheets/" + sheetID, ""},
 			{http.MethodPost, "/sheets/" + sheetID + "/preview", `{"data":{"stats":{"dexterity":20}}}`},
 			{http.MethodPut, "/sheets/" + sheetID + "/layout", `{"layout":{"pinned":["stats.dexterity"]}}`},
-			{http.MethodPut, "/sheets/" + sheetID + "/dice", `{"dice":{"row":{"stats.dexterity":null}}}`},
+			{http.MethodPatch, "/sheets/" + sheetID, `{"dice":{"row":{"stats.dexterity":null}}}`},
 		}
 
 		for _, op := range ops {

@@ -149,8 +149,11 @@ export interface SheetFormProps {
    * draws the stored values on its own, never stale. See {@link dependentsOf} for which inputs have any.
    */
   readonly dependentBuilder?: (dependent: SheetField, source: SheetField) => ReactNode;
-  /** Optional per-row preview mark source; orthogonal to the control source (ENG-23). */
-  readonly rowMarkBuilder?: (paths: readonly string[]) => ReactNode;
+  /**
+   * Optional per-row mark source; orthogonal to the control source (ENG-23). It receives the
+   * Row's field paths and its stable `rowKey`, so a mark can follow either.
+   */
+  readonly rowMarkBuilder?: (paths: readonly string[], rowKey: string) => ReactNode;
   /** Sections whose keys are collapsed; the caller owns the collapse state (F3 progressive disclosure). */
   readonly collapsedSectionKeys?: readonly string[];
   /**
@@ -167,7 +170,10 @@ export interface SheetFormProps {
    * Optional badge for a Section title, given the field paths of each of its drawn Rows; the
    * caller counts what it marks. Orthogonal to the control source.
    */
-  readonly sectionBadgeBuilder?: (rowPaths: readonly (readonly string[])[]) => ReactNode;
+  readonly sectionBadgeBuilder?: (
+    rowPaths: readonly (readonly string[])[],
+    rowKeys: readonly string[],
+  ) => ReactNode;
   /**
    * Optional inline actions of a Row (such as Roll and Dice): drawn at the trailing edge of the
    * Row's label in every Row kind, right before the value, so they sit in the same place in a lone
@@ -233,6 +239,7 @@ export function SheetForm({
   const rowLabel = (
     text: string,
     paths: readonly string[],
+    key: string,
     pinned: boolean,
     id?: string,
   ): ReactNode => (
@@ -246,7 +253,7 @@ export function SheetForm({
           <span className="lg-pin-mark__text">{message('engine.pinned')}</span>
         </span>
       )}
-      {rowMarkBuilder?.(paths)}
+      {rowMarkBuilder?.(paths, key)}
     </>
   );
 
@@ -311,7 +318,12 @@ export function SheetForm({
       fieldColumnAlign(schema) === 'right' ? ' lg-field-table__cell--number' : ''
     }`;
 
-  const renderNormalRow = (row: NormalRow, pinned: boolean, actions: ReactNode): ReactNode => {
+  const renderNormalRow = (
+    row: NormalRow,
+    key: string,
+    pinned: boolean,
+    actions: ReactNode,
+  ): ReactNode => {
     const field = row.field;
     const labelId = labelIdFor(field.path);
     const dependents = dependentsBeside(field);
@@ -322,6 +334,7 @@ export function SheetForm({
           {rowLabel(
             fieldDisplayName(lastSegment(field.path), field.schema),
             [field.path],
+            key,
             pinned,
             labelId,
           )}
@@ -344,6 +357,7 @@ export function SheetForm({
 
   const renderExclusiveRow = (
     row: ExclusiveRow,
+    key: string,
     pinned: boolean,
     actions: ReactNode,
   ): ReactNode => {
@@ -355,6 +369,7 @@ export function SheetForm({
           {rowLabel(
             groupDisplayName(group.id),
             group.options.map((option) => option.path),
+            key,
             pinned,
           )}
           {actions}
@@ -385,6 +400,7 @@ export function SheetForm({
 
   const renderTableRow = (
     row: TableRow,
+    key: string,
     withHeader: boolean,
     pinned: boolean,
     actions: ReactNode,
@@ -395,6 +411,7 @@ export function SheetForm({
         {rowLabel(
           row.label,
           row.fields.map((field) => field.path),
+          key,
           pinned,
         )}
         {actions}
@@ -426,11 +443,17 @@ export function SheetForm({
       label: rowLabelText(row),
     });
     if (row.kind === 'table') {
-      content = renderTableRow(row, needsTableHeader(previous, row), arranged.pinned, actions);
+      content = renderTableRow(
+        row,
+        arranged.key,
+        needsTableHeader(previous, row),
+        arranged.pinned,
+        actions,
+      );
     } else if (row.kind === 'exclusive') {
-      content = renderExclusiveRow(row, arranged.pinned, actions);
+      content = renderExclusiveRow(row, arranged.key, arranged.pinned, actions);
     } else {
-      content = renderNormalRow(row, arranged.pinned, actions);
+      content = renderNormalRow(row, arranged.key, arranged.pinned, actions);
     }
     return (
       <RowFrame
@@ -476,7 +499,11 @@ export function SheetForm({
           onClick={() => onToggleSection(section.key)}
         >
           <span className="lg-section__toggle-label">{section.label}</span>
-          {collapsed && sectionBadgeBuilder?.(rows.map((entry) => rowFieldPaths(entry.row)))}
+          {collapsed &&
+            sectionBadgeBuilder?.(
+              rows.map((entry) => rowFieldPaths(entry.row)),
+              rows.map((entry) => entry.key),
+            )}
           <SectionChevron className="lg-section__chevron" />
         </button>
       </h2>

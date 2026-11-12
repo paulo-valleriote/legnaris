@@ -28,7 +28,7 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 	var created response.Success[sheet.SheetDTO]
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
 	sheetID := created.Data.ID
-	path := "/sheets/" + sheetID + "/dice"
+	path := "/sheets/" + sheetID
 
 	fetch := func(t *testing.T) response.Success[sheet.SheetDTO] {
 		t.Helper()
@@ -37,6 +37,12 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 		var got response.Success[sheet.SheetDTO]
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 		return got
+	}
+	storedVersion := func(t *testing.T) int64 {
+		t.Helper()
+		var stored sheet.Sheet
+		require.NoError(t, mdb.Collection("sheets").FindOne(ctx, bson.D{{Key: "_id", Value: sheetID}}).Decode(&stored))
+		return stored.Version
 	}
 	emptyBlock := sheet.Dice{Section: map[string]*string{}, Row: map[string]*string{}}
 	errorCode := func(t *testing.T, rec interface{ Bytes() []byte }) string {
@@ -60,24 +66,24 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 	})
 
 	t.Run("Error: no token is 401", func(t *testing.T) {
-		rec := doAuthRequest(t, h, "", http.MethodPut, path, body)
+		rec := doAuthRequest(t, h, "", http.MethodPatch, path, body)
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)
 	})
 
 	t.Run("Error: another user gets the same 404 and nothing is stored", func(t *testing.T) {
-		rec := doAuthRequest(t, h, otherToken, http.MethodPut, path, body)
+		rec := doAuthRequest(t, h, otherToken, http.MethodPatch, path, body)
 		require.Equal(t, http.StatusNotFound, rec.Code)
 		assert.Equal(t, "NOT_FOUND", errorCode(t, rec.Body))
 		assert.Equal(t, emptyBlock, fetch(t).Data.Dice)
 	})
 
 	t.Run("Error: a nonexistent sheet is 404", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPut, "/sheets/"+missingSheetID+"/dice", body)
+		rec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+missingSheetID, body)
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
 	t.Run("Error: a malformed sheet id is 400", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPut, "/sheets/not-a-uuid/dice", body)
+		rec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/not-a-uuid", body)
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
@@ -97,33 +103,47 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 	}
 	for _, tc := range invalid {
 		t.Run("Error: "+tc.name+" is 400 and nothing is stored", func(t *testing.T) {
-			rec := doAuthRequest(t, h, token, http.MethodPut, path, tc.body)
+			rec := doAuthRequest(t, h, token, http.MethodPatch, path, tc.body)
 			require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 			assert.Equal(t, tc.code, errorCode(t, rec.Body))
 			assert.Equal(t, emptyBlock, fetch(t).Data.Dice)
 		})
 	}
 
-	t.Run("Happy path: PUT stores the block, null included, and GET returns it", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPut, path, body)
+	t.Run("Error: the retired PUT dice route is gone and stores nothing", func(t *testing.T) {
+		rec := doAuthRequest(t, h, token, http.MethodPut, path+"/dice", body)
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+		assert.Equal(t, emptyBlock, fetch(t).Data.Dice)
+	})
+
+	t.Run("Error: data and an invalid block in one PATCH write neither", func(t *testing.T) {
+		before := fetch(t)
+		versionBefore := storedVersion(t)
+		rec := doAuthRequest(t, h, token, http.MethodPatch, path,
+			`{"data":{"stats":{"dexterity":18}},"dice":{"row":{"stats.ghost":null}}}`)
+		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+		after := fetch(t)
+		assert.Equal(t, before.Data.Data, after.Data.Data)
+		assert.Equal(t, versionBefore, storedVersion(t))
+		assert.Equal(t, emptyBlock, after.Data.Dice)
+	})
+
+	t.Run("Happy path: a dice-only PATCH stores the block, null included, answers an empty cascade and GET returns it", func(t *testing.T) {
+		rec := doAuthRequest(t, h, token, http.MethodPatch, path, body)
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-		var put response.Success[struct {
-			Dice sheet.Dice `json:"dice"`
-		}]
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &put))
-		assert.Equal(t, want, put.Data.Dice)
+		assert.JSONEq(t, `{"data":{}}`, rec.Body.String())
 
 		assert.Equal(t, want, fetch(t).Data.Dice)
 	})
 
-	t.Run("Edge: re-putting the same block is idempotent", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPut, path, body)
+	t.Run("Edge: re-saving the same block is idempotent", func(t *testing.T) {
+		rec := doAuthRequest(t, h, token, http.MethodPatch, path, body)
 		require.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, want, fetch(t).Data.Dice)
 	})
 
-	t.Run("Edge: a PUT is a full replacement, omitted keys are removed", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPut, path, `{"dice":{"row":{"stats.strength":"1d20"}}}`)
+	t.Run("Edge: a dice block is a full replacement, omitted keys are removed", func(t *testing.T) {
+		rec := doAuthRequest(t, h, token, http.MethodPatch, path, `{"dice":{"row":{"stats.strength":"1d20"}}}`)
 		require.Equal(t, http.StatusOK, rec.Code)
 
 		assert.Equal(t, sheet.Dice{
@@ -132,21 +152,37 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 		}, fetch(t).Data.Dice)
 	})
 
-	t.Run("Edge: PUT keeps data, layout and updated_at, and a PATCH of data keeps the dice", func(t *testing.T) {
+	t.Run("Edge: a dice-only PATCH keeps data and layout and moves the version, and a data-only PATCH keeps the dice", func(t *testing.T) {
 		require.Equal(t, http.StatusOK, doAuthRequest(t, h, token, http.MethodPut, "/sheets/"+sheetID+"/layout", `{"layout":{"pinned":["stats.dexterity"]}}`).Code)
-		require.Equal(t, http.StatusOK, doAuthRequest(t, h, token, http.MethodPut, path, body).Code)
+		require.Equal(t, http.StatusOK, doAuthRequest(t, h, token, http.MethodPatch, path, body).Code)
 		before := fetch(t)
 
-		patch := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":16}}}`)
+		patch := doAuthRequest(t, h, token, http.MethodPatch, path, `{"data":{"stats":{"dexterity":16}}}`)
 		require.Equal(t, http.StatusOK, patch.Code)
 		afterPatch := fetch(t)
+		versionAfterPatch := storedVersion(t)
 		assert.Equal(t, want, afterPatch.Data.Dice)
 
-		require.Equal(t, http.StatusOK, doAuthRequest(t, h, token, http.MethodPut, path, body).Code)
-		afterPut := fetch(t)
-		assert.Equal(t, afterPatch.Data.Data, afterPut.Data.Data, "a dice write must not change values or derived fields")
-		assert.Equal(t, afterPatch.Data.UpdatedAt, afterPut.Data.UpdatedAt)
-		assert.Equal(t, before.Data.Layout, afterPut.Data.Layout)
+		require.Equal(t, http.StatusOK, doAuthRequest(t, h, token, http.MethodPatch, path, body).Code)
+		afterDice := fetch(t)
+		assert.Equal(t, afterPatch.Data.Data, afterDice.Data.Data, "a dice write must not change values or derived fields")
+		assert.Equal(t, versionAfterPatch+1, storedVersion(t))
+		assert.Equal(t, before.Data.Layout, afterDice.Data.Layout)
+	})
+
+	t.Run("Happy path: data and dice in one PATCH land together and the cascade comes back", func(t *testing.T) {
+		rec := doAuthRequest(t, h, token, http.MethodPatch, path,
+			`{"data":{"stats":{"dexterity":18}},"dice":{"row":{"stats.strength":"1d20 + @"}}}`)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		assert.Contains(t, rec.Body.String(), `"dexterityMod":4`)
+
+		got := fetch(t)
+		assert.Equal(t, sheet.Dice{
+			Section: map[string]*string{},
+			Row:     map[string]*string{"stats.strength": diceText("1d20 + @")},
+		}, got.Data.Dice)
+		stats, _ := got.Data.Data["stats"].(map[string]any)
+		assert.Equal(t, 18.0, stats["dexterity"])
 	})
 
 	t.Run("Edge: a stale override for a row the template no longer has is returned on GET, not an error", func(t *testing.T) {
@@ -172,7 +208,7 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 		assert.Equal(t, emptyBlock, fetch(t).Data.Dice)
 	})
 
-	t.Run("Edge: concurrent PUTs leave one whole valid block", func(t *testing.T) {
+	t.Run("Edge: concurrent dice saves leave one whole valid block", func(t *testing.T) {
 		bodies := []string{body, `{"dice":{"row":{"stats.strength":"1d20"}}}`}
 		candidates := []sheet.Dice{
 			want,
@@ -184,7 +220,7 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				rec := doAuthRequest(t, h, token, http.MethodPut, path, bodies[i%2])
+				rec := doAuthRequest(t, h, token, http.MethodPatch, path, bodies[i%2])
 				assert.Equal(t, http.StatusOK, rec.Code)
 			}()
 		}
@@ -194,11 +230,11 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 	})
 
 	t.Run("Edge: an empty block clears everything and the stored field reads back as none", func(t *testing.T) {
-		require.Equal(t, http.StatusOK, doAuthRequest(t, h, token, http.MethodPut, path, body).Code)
+		require.Equal(t, http.StatusOK, doAuthRequest(t, h, token, http.MethodPatch, path, body).Code)
 
-		rec := doAuthRequest(t, h, token, http.MethodPut, path, `{"dice":{}}`)
+		rec := doAuthRequest(t, h, token, http.MethodPatch, path, `{"dice":{}}`)
 		require.Equal(t, http.StatusOK, rec.Code)
-		assert.JSONEq(t, `{"data":{"dice":{"section":{},"row":{}}}}`, rec.Body.String())
+		assert.JSONEq(t, `{"data":{}}`, rec.Body.String())
 		assert.Equal(t, emptyBlock, fetch(t).Data.Dice)
 
 		var stored sheet.Sheet
@@ -207,16 +243,16 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 	})
 
 	t.Run("Edge: 64 entries are accepted and 65 are refused", func(t *testing.T) {
-		rec64 := doAuthRequest(t, h, token, http.MethodPut, path, nullDiceBody(t, 64))
+		rec64 := doAuthRequest(t, h, token, http.MethodPatch, path, nullDiceBody(t, 64))
 		assert.Equal(t, http.StatusOK, rec64.Code, rec64.Body.String())
 
-		rec65 := doAuthRequest(t, h, token, http.MethodPut, path, nullDiceBody(t, 65))
+		rec65 := doAuthRequest(t, h, token, http.MethodPatch, path, nullDiceBody(t, 65))
 		require.Equal(t, http.StatusBadRequest, rec65.Code)
 		assert.Equal(t, "INVALID_REQUEST", errorCode(t, rec65.Body))
 	})
 }
 
-// nullDiceBody builds a PUT body of n "no dice" entries over real fantasy_v1
+// nullDiceBody builds a PATCH body of n "no dice" entries over real fantasy_v1
 // keys: every Section first, then Rows, so the keys are valid and only the cap
 // can refuse it.
 func nullDiceBody(t *testing.T, n int) string {
@@ -244,7 +280,7 @@ func nullDiceBody(t *testing.T, n int) string {
 	}
 	require.Equal(t, n, len(block.Section)+len(block.Row), "fantasy_v1 must have enough Rows for the cap test")
 
-	raw, err := json.Marshal(sheet.SetDiceCommand{Dice: &block})
+	raw, err := json.Marshal(sheet.PartialUpdateSheetCommand{Dice: &block})
 	require.NoError(t, err)
 	return string(raw)
 }

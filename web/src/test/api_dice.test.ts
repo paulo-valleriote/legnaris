@@ -22,42 +22,54 @@ const sheetPayload = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-describe('setDice', () => {
-  it('Happy path: PUTs {"dice": block} to the dice path and decodes the stored block', async () => {
-    const fake = createFakeTransport(
-      successOutcome({ dice: { section: { attrs: '1d20' }, row: { 'attrs.init': '2d6' } } }),
+describe('patchSheet with a Dice block (ADR 0006)', () => {
+  it('Happy path: PATCHes the delta and the block together and decodes the cascade', async () => {
+    const fake = createFakeTransport(successOutcome({ attrs: { mod: 2 } }));
+
+    const cascade = await clientWith(fake).patchSheet(
+      SHEET,
+      { attrs: { str: 14 } },
+      { section: { attrs: '1d20' }, row: { 'attrs.init': '2d6' } },
     );
 
-    const stored = await clientWith(fake).setDice(SHEET, {
-      section: { attrs: '1d20' },
-      row: { 'attrs.init': '2d6' },
-    });
-
-    expect(stored).toEqual({ section: { attrs: '1d20' }, row: { 'attrs.init': '2d6' } });
+    expect(cascade).toEqual({ attrs: { mod: 2 } });
     expect(fake.attempts).toBe(1);
-    expect(fake.lastRequest?.method).toBe('PUT');
-    expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets/${SHEET}/dice`);
+    expect(fake.lastRequest?.method).toBe('PATCH');
+    expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets/${SHEET}`);
     expect(fake.lastRequest?.credentials).toBe('omit');
     expect(fake.lastRequest?.body).toBe(
-      '{"dice":{"section":{"attrs":"1d20"},"row":{"attrs.init":"2d6"}}}',
+      '{"data":{"attrs":{"str":14}},"dice":{"section":{"attrs":"1d20"},"row":{"attrs.init":"2d6"}}}',
     );
   });
 
-  it('Edge: a null entry travels as an explicit "no dice" and is kept in the stored block', async () => {
-    const fake = createFakeTransport(
-      successOutcome({ dice: { section: { attrs: null }, row: {} } }),
-    );
+  it('Edge: a save of only a block leaves the empty delta out, so the server skips the recalculation', async () => {
+    const fake = createFakeTransport(successOutcome({}));
 
-    const stored = await clientWith(fake).setDice(SHEET, { section: { attrs: null }, row: {} });
+    await clientWith(fake).patchSheet(SHEET, {}, { section: {}, row: { 'attrs.init': '2d6' } });
 
-    expect(stored.section).toEqual({ attrs: null });
+    expect(fake.lastRequest?.body).toBe('{"dice":{"section":{},"row":{"attrs.init":"2d6"}}}');
+  });
+
+  it('Edge: without a block the body is the delta alone, never a dice key', async () => {
+    const fake = createFakeTransport(successOutcome({}));
+
+    await clientWith(fake).patchSheet(SHEET, { attrs: { str: 14 } });
+
+    expect(fake.lastRequest?.body).toBe('{"data":{"attrs":{"str":14}}}');
+  });
+
+  it('Edge: a null entry travels as an explicit "no dice"', async () => {
+    const fake = createFakeTransport(successOutcome({}));
+
+    await clientWith(fake).patchSheet(SHEET, {}, { section: { attrs: null }, row: {} });
+
     expect(fake.lastRequest?.body).toBe('{"dice":{"section":{"attrs":null},"row":{}}}');
   });
 
-  it('Edge: an empty block is sent as two empty maps, never omitted', async () => {
-    const fake = createFakeTransport(successOutcome({ dice: { section: {}, row: {} } }));
+  it('Edge: an empty block is sent as two empty maps, never omitted, so it clears every override', async () => {
+    const fake = createFakeTransport(successOutcome({}));
 
-    await clientWith(fake).setDice(SHEET, { section: {}, row: {} });
+    await clientWith(fake).patchSheet(SHEET, {}, { section: {}, row: {} });
 
     expect(fake.lastRequest?.body).toBe('{"dice":{"section":{},"row":{}}}');
   });
@@ -66,7 +78,7 @@ describe('setDice', () => {
     const fake = createFakeTransport(errorOutcome('INVALID_REQUEST', 'bad grammar', 400));
 
     const failure = await clientWith(fake)
-      .setDice(SHEET, { section: {}, row: { 'attrs.init': 'd' } })
+      .patchSheet(SHEET, {}, { section: {}, row: { 'attrs.init': 'd' } })
       .catch((error: unknown) => error);
 
     expect(failure).toBeInstanceOf(DomainFailure);
@@ -77,8 +89,14 @@ describe('setDice', () => {
   it('Edge: a write never repeats after a transport failure', async () => {
     const fake = createFakeTransport({ failure: new Error('offline') });
 
-    await expect(clientWith(fake).setDice(SHEET, { section: {}, row: {} })).rejects.toBeDefined();
+    await expect(
+      clientWith(fake).patchSheet(SHEET, {}, { section: {}, row: {} }),
+    ).rejects.toBeDefined();
     expect(fake.attempts).toBe(1);
+  });
+
+  it('Edge: the client has no separate dice write any more', () => {
+    expect('setDice' in clientWith(createFakeTransport(successOutcome({})))).toBe(false);
   });
 });
 

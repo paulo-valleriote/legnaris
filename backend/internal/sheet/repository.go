@@ -17,7 +17,6 @@ type Repository interface {
 	FetchByOwnerID(ctx context.Context, ownerID string) (*Sheet, error)
 	PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error)
 	UpdateLayout(ctx context.Context, id string, layout *Layout) error
-	UpdateDice(ctx context.Context, id string, dice *Dice) error
 	DeleteByID(ctx context.Context, id string) error
 }
 
@@ -177,25 +176,6 @@ func (r *RepositoryImpl) UpdateLayout(ctx context.Context, id string, layout *La
 	result, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return fmt.Errorf("error updating sheet layout: %w", err)
-	}
-	if result.MatchedCount == 0 {
-		return ErrSheetNotFound
-	}
-	return nil
-}
-
-// UpdateDice replaces the stored dice block of one sheet with a $set on that
-// single field, so a concurrent write to data, layout or any other field is
-// neither read nor overwritten, and neither version nor updated_at moves. A nil
-// block stores null, which reads back as no overrides. It returns
-// ErrSheetNotFound when no sheet matches.
-func (r *RepositoryImpl) UpdateDice(ctx context.Context, id string, dice *Dice) error {
-	filter := bson.D{{Key: idField, Value: id}}
-	update := bson.M{setOperator: bson.M{diceField: dice}}
-
-	result, err := r.collection.UpdateOne(ctx, filter, update)
-	if err != nil {
-		return fmt.Errorf("error updating sheet dice: %w", err)
 	}
 	if result.MatchedCount == 0 {
 		return ErrSheetNotFound

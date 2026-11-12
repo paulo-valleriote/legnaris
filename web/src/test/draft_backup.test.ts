@@ -80,6 +80,22 @@ describe('draft cadence (WSC-26, WSC-27, R6)', () => {
     expect(sheetStore.records()).toHaveLength(0);
   });
 
+  it('Happy path: a tick with only a pending Dice block writes it with an empty delta (ADR 0006)', async () => {
+    const sheetStore = createMemorySheetStore();
+    const scheduler = manualScheduler();
+    const dice = { section: {}, row: { 'identity.level': '1d20' } };
+    startDraftCadence(
+      sheetStore,
+      () => ({ sheetId: SHEET_ID, delta: {}, dice }),
+      scheduler.scheduler,
+    );
+
+    scheduler.tick();
+    await Promise.resolve();
+
+    expect(await sheetStore.readDraft(SHEET_ID)).toEqual({ delta: {}, dice });
+  });
+
   it('Happy path: a pending tick writes the current delta at the 60-second cadence (WSC-26)', () => {
     const sheetStore = createMemorySheetStore();
     const scheduler = manualScheduler();

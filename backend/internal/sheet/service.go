@@ -21,11 +21,16 @@ type CreateSheetCommand struct {
 	OwnerID    string `json:"-"`
 }
 
+// PartialUpdateSheetCommand carries one sheet save: an optional data delta and
+// an optional full replacement of the Dice block. A nil Dice leaves the stored
+// block untouched; a non-nil empty Dice clears every override. At least one of
+// the two must be present. Preview reads Data only.
 type PartialUpdateSheetCommand struct {
 	SheetID   string         `json:"-"`
 	OwnerID   string         `json:"-"`
 	RequestID string         `json:"-"`
 	Data      map[string]any `json:"data"`
+	Dice      *Dice          `json:"dice"`
 }
 
 // SetLayoutCommand carries the full replacement of a sheet's Layout. A nil or
@@ -34,14 +39,6 @@ type SetLayoutCommand struct {
 	SheetID string  `json:"-"`
 	OwnerID string  `json:"-"`
 	Layout  *Layout `json:"layout"`
-}
-
-// SetDiceCommand carries the full replacement of a sheet's Dice block. A nil or
-// empty Dice clears every override.
-type SetDiceCommand struct {
-	SheetID string `json:"-"`
-	OwnerID string `json:"-"`
-	Dice    *Dice  `json:"dice"`
 }
 
 // PreviewTemplateCommand carries the template dry-run input. TemplateID is
@@ -67,7 +64,6 @@ type Service interface {
 	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
 	SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Layout, error)
-	SetDice(ctx context.Context, cmd SetDiceCommand) (Dice, error)
 	Delete(ctx context.Context, cmd DeleteSheetCommand) error
 }
 
@@ -85,6 +81,7 @@ const (
 	MsgOwnerNotProvided   = "authenticated user is required"
 	MsgSheetLimitReached  = "user already owns a sheet"
 	MsgSheetConflict      = "sheet was changed by another request, try again"
+	MsgNothingToUpdate    = "sheet update carries neither data nor dice"
 )
 
 // conflictRetryAfter is the Retry-After hint sent with a PATCH that lost the
@@ -278,19 +275,8 @@ type recalculation struct {
 // stored data. It performs no repository write, so a preview can call it
 // without side effects.
 func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, ownerID string, data map[string]any) (*recalculation, error) {
-	if err := requireOwner(ownerID); err != nil {
-		return nil, err
-	}
-	if err := requireSheetID(sheetID); err != nil {
-		return nil, err
-	}
-
-	storedSheet, err := s.repository.FetchByID(ctx, sheetID)
+	storedSheet, err := s.fetchOwned(ctx, sheetID, ownerID)
 	if err != nil {
-		return nil, translateRepoErr("fetch", err)
-	}
-
-	if err := checkOwnership(storedSheet, ownerID); err != nil {
 		return nil, err
 	}
 
@@ -334,25 +320,56 @@ func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, ownerID s
 	}, nil
 }
 
-// PartialUpdate recalculates the delta and persists it under a compare-and-swap
-// on the sheet version. A lost race is never retried here: it returns CONFLICT
-// with a Retry-After hint and the client resends, so the retry is a new request
-// that the rate limiter accounts for.
+// fetchOwned requires the owner and the sheet ID, fetches the sheet and checks
+// ownership, so every read-then-write path rejects the same inputs the same way.
+func (s *ServiceImpl) fetchOwned(ctx context.Context, sheetID string, ownerID string) (*Sheet, error) {
+	if err := requireOwner(ownerID); err != nil {
+		return nil, err
+	}
+	if err := requireSheetID(sheetID); err != nil {
+		return nil, err
+	}
+
+	storedSheet, err := s.repository.FetchByID(ctx, sheetID)
+	if err != nil {
+		return nil, translateRepoErr("fetch", err)
+	}
+	if err := checkOwnership(storedSheet, ownerID); err != nil {
+		return nil, err
+	}
+	return storedSheet, nil
+}
+
+// PartialUpdate saves the delta and the Dice block together under one
+// compare-and-swap on the sheet version (ADR 0006), so a refused block never
+// leaves a half-written save behind. A data delta is recalculated; a save that
+// carries only dice skips the DAG and returns an empty cascade. A lost race is
+// never retried here: it returns CONFLICT with a Retry-After hint and the
+// client resends, so the retry is a new request that the rate limiter accounts
+// for.
 func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
-	result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
+	result, err := s.prepareSave(ctx, cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	dbUpdates := map[string]any{
-		"data":       result.merged,
-		"updated_at": time.Now(),
+	dbUpdates := map[string]any{"updated_at": time.Now()}
+	if len(cmd.Data) > 0 {
+		dbUpdates["data"] = result.merged
+	}
+	if cmd.Dice != nil {
+		block, err := s.validatedDice(ctx, result.templateID, cmd.Dice)
+		if err != nil {
+			return nil, err
+		}
+		dbUpdates[diceField] = block
 	}
 
 	newVersion, err := s.repository.PartialUpdate(ctx, cmd.SheetID, result.version, dbUpdates)
 	if err == nil {
 		s.log.Info(ctx, "sheet patched", append(
 			patchLogFields(cmd.SheetID, cmd.RequestID, result.templateID, result.version, result.delta, result.cascade),
+			logger.Attribute{Key: "dice_replaced", Value: strconv.FormatBool(cmd.Dice != nil)},
 			logger.Attribute{Key: "version_after", Value: strconv.FormatInt(newVersion, 10)},
 		)...)
 		return nestedCascadingEffects(result.cascade)
@@ -364,6 +381,35 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		patchLogFields(cmd.SheetID, cmd.RequestID, result.templateID, result.version, result.delta, result.cascade)...)
 	return nil, apperr.NewError(apperr.CodeConflict, MsgSheetConflict, ErrVersionConflict).
 		WithRetryAfter(conflictRetryAfter)
+}
+
+// prepareSave resolves what a save writes: the recalculation of a data delta,
+// or, for a dice-only save, the stored sheet's version with an empty delta and
+// cascade so the DAG is never consulted. A save carrying neither is refused
+// after the owner and ID checks and before any repository access.
+func (s *ServiceImpl) prepareSave(ctx context.Context, cmd PartialUpdateSheetCommand) (*recalculation, error) {
+	if len(cmd.Data) > 0 {
+		return s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
+	}
+	if err := requireOwner(cmd.OwnerID); err != nil {
+		return nil, err
+	}
+	if err := requireSheetID(cmd.SheetID); err != nil {
+		return nil, err
+	}
+	if cmd.Dice == nil {
+		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgNothingToUpdate, nil)
+	}
+	storedSheet, err := s.fetchOwned(ctx, cmd.SheetID, cmd.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	return &recalculation{
+		templateID: storedSheet.TemplateID,
+		version:    storedSheet.Version,
+		delta:      map[string]any{},
+		cascade:    map[string]any{},
+	}, nil
 }
 
 // patchLogFields builds the attributes shared by every PATCH record. Values are
@@ -515,44 +561,22 @@ func (s *ServiceImpl) SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Lay
 	return layout, nil
 }
 
-// SetDice replaces the owner's sheet Dice block after checking it against the
-// Sheet's Template. It is idempotent and writes only the dice field: no
-// recalculation runs, the DAG is never consulted, and neither data nor layout
-// is touched. An empty block clears every override and is stored as none; a
-// null entry is a choice ("no dice") and is stored as given. The returned block
-// is a copy with both maps non-nil, so it never aliases the command.
-func (s *ServiceImpl) SetDice(ctx context.Context, cmd SetDiceCommand) (Dice, error) {
-	if err := requireOwner(cmd.OwnerID); err != nil {
-		return Dice{}, err
+// validatedDice checks a Dice block against the sheet's Template and returns
+// what to store. An empty block clears every override and is stored as none,
+// without consulting the Template; a null entry is a choice ("no dice") and is
+// stored as given. The returned block is a copy, so it never aliases the command.
+func (s *ServiceImpl) validatedDice(ctx context.Context, templateID string, dice *Dice) (*Dice, error) {
+	if dice.IsEmpty() {
+		return nil, nil
 	}
-	if err := requireSheetID(cmd.SheetID); err != nil {
-		return Dice{}, err
-	}
-
-	stored, err := s.repository.FetchByID(ctx, cmd.SheetID)
+	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: templateID})
 	if err != nil {
-		return Dice{}, translateRepoErr("fetch", err)
+		return nil, translateTemplateErr(err)
 	}
-	if err := checkOwnership(stored, cmd.OwnerID); err != nil {
-		return Dice{}, err
+	if err := template.ValidateSheetDice(*tmpl, dice.Section, dice.Row); err != nil {
+		return nil, translateDiceErr(err)
 	}
-
-	var block *Dice
-	if !cmd.Dice.IsEmpty() {
-		tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: stored.TemplateID})
-		if err != nil {
-			return Dice{}, translateTemplateErr(err)
-		}
-		if err := template.ValidateSheetDice(*tmpl, cmd.Dice.Section, cmd.Dice.Row); err != nil {
-			return Dice{}, translateDiceErr(err)
-		}
-		block = cmd.Dice.Clone()
-	}
-
-	if err := s.repository.UpdateDice(ctx, cmd.SheetID, block); err != nil {
-		return Dice{}, translateRepoErr("update", err)
-	}
-	return block.Block(), nil
+	return dice.Clone(), nil
 }
 
 // Delete removes the owner's sheet. Ownership is verified first, so a foreign

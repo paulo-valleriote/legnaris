@@ -3,7 +3,8 @@
  * dice it throws (a long press on it opens the editor) and a quieter pencil Edit button, at the
  * trailing edge of the Row's label next to its value; on a Section, a die icon button in the
  * title row for the Section expression, whose editor carries the note that a Section choice does not replace the
- * Template's Rows. The editor is one dialog and the Roll result one floating panel, both owned
+ * Template's Rows. A choice is pending work until the sheet is saved (ADR 0006): the Section title
+ * shows the "Modified" mark while its own choice is unsaved. The editor is one dialog and the Roll result one floating panel, both owned
  * by the provider and portalled to the document body, so neither reflows the sheet nor inherits
  * the sheet's column rules or a Row's containment. Arrange mode replaces these frames with its
  * own, so none of these controls is drawn while arranging.
@@ -28,8 +29,10 @@ import type { DiceSchema } from '../dice/fit';
 import type { DiceDefaults, Resolution } from '../dice/resolve';
 import { message, messageWith } from '../l10n/strings';
 import type { RowActionsInfo, SectionFrameProps, SheetFormFrames } from '../engine/sheet_form';
+import { markLabel } from '../engine/sheet_form';
 import { Dialog } from '../ui/dialog';
 import type { DiceCheck, DiceStore, DiceTarget } from './dice_store';
+import type { PendingDiceKeys } from './sheet_edit';
 import { diceErrorMessageKey, diceSummary, resolveRowForSheet } from './dice_view';
 import { DicePanel } from './dice_panel';
 import { DieIcon, dieShapeFor } from './die_icon';
@@ -62,10 +65,14 @@ function useDiceContext(): DiceContextValue {
   return value;
 }
 
-/** The current Dice block of the sheet, re-rendered on every save. */
+/** The current Dice block of the sheet, pending choices included, re-rendered on every change. */
 export function useDiceBlock(store: DiceStore): DiceBlock {
-  const state = useSyncExternalStore(store.subscribe, store.getState);
-  return state.block;
+  return useSyncExternalStore(store.subscribe, store.getBlock);
+}
+
+/** The Row and Section keys whose Dice choice is not saved yet (ADR 0006). */
+export function usePendingDiceKeys(store: DiceStore): PendingDiceKeys {
+  return useSyncExternalStore(store.subscribe, store.getPendingKeys);
 }
 
 interface RollSession {
@@ -192,18 +199,11 @@ function DiceEditor({ target, keyName, label, current, onClose }: DiceEditorProp
       target === 'row'
         ? dice.store.setRow(keyName, expression)
         : dice.store.setSection(keyName, expression);
-    void change.then((outcome) => {
-      if (!outcome.ok) {
-        setErrorText(message(diceErrorMessageKey(outcome.error.class)));
-        return;
-      }
-      const state = dice.store.getState();
-      if (state.errorKey !== undefined) {
-        setErrorText(message(state.errorKey));
-        return;
-      }
-      onClose();
-    });
+    if (!change.ok) {
+      setErrorText(message(diceErrorMessageKey(change.error.class)));
+      return;
+    }
+    onClose();
   };
 
   const submit = () => {
@@ -431,6 +431,7 @@ export function DiceSectionFrame({
 }: SectionFrameProps) {
   const dice = useDiceContext();
   const block = useDiceBlock(dice.store);
+  const pending = usePendingDiceKeys(dice.store).section.has(sectionKey);
   const { editing, openEditor } = useContext(DiceSessionContext);
   const isEditing = editing === editKeyOf('section', sectionKey);
 
@@ -441,6 +442,11 @@ export function DiceSectionFrame({
     <section className={className} data-section-key={sectionKey}>
       <div className="lg-dice-section">
         {title}
+        {pending && (
+          <span className="lg-field-row__mark" data-mark="modified">
+            {markLabel('modified')}
+          </span>
+        )}
         <button
           type="button"
           className="lg-dice-button lg-dice-button--icon lg-dice-section__button"

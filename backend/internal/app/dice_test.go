@@ -18,8 +18,8 @@ import (
 
 func diceText(s string) *string { return &s }
 
-func TestErrorMapping_SetDice(t *testing.T) {
-	path := "/sheets/" + sheetStubID + "/dice"
+func TestErrorMapping_PatchDice(t *testing.T) {
+	path := "/sheets/" + sheetStubID
 	validBody := `{"dice":{"section":{"stats":"1d20 + @","config":null},"row":{"stats.strength":null,"config#armorClassAbility":"2d6"}}}`
 	validDice := &sheet.Dice{
 		Section: map[string]*string{"stats": diceText("1d20 + @"), "config": nil},
@@ -49,117 +49,119 @@ func TestErrorMapping_SetDice(t *testing.T) {
 		wantBody    string
 	}{
 		{
-			name: "Error: malformed JSON is 400 INVALID_JSON", method: http.MethodPut, path: path, body: `{"dice":`,
+			name: "Error: malformed JSON is 400 INVALID_JSON", method: http.MethodPatch, path: path, body: `{"dice":`,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON", wantMessage: "request body contains invalid JSON",
 		},
 		{
-			name: "Error: empty body is 400 INVALID_JSON", method: http.MethodPut, path: path, body: ``,
+			name: "Error: empty body is 400 INVALID_JSON", method: http.MethodPatch, path: path, body: ``,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON", wantMessage: "request body contains invalid JSON",
 		},
 		{
-			name: "Error: a number where an expression belongs is 400 INVALID_JSON", method: http.MethodPut, path: path,
+			name: "Error: a number where an expression belongs is 400 INVALID_JSON", method: http.MethodPatch, path: path,
 			body:       `{"dice":{"row":{"stats.strength":20}}}`,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON", wantMessage: "request body contains invalid JSON",
 		},
 		{
-			name: "Error: an array where a map belongs is 400 INVALID_JSON", method: http.MethodPut, path: path,
+			name: "Error: an array where a map belongs is 400 INVALID_JSON", method: http.MethodPatch, path: path,
 			body:       `{"dice":{"section":["stats"]}}`,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON", wantMessage: "request body contains invalid JSON",
 		},
 		{
-			name: "Error: unknown key inside dice is 400 INVALID_JSON", method: http.MethodPut, path: path,
+			name: "Error: unknown key inside dice is 400 INVALID_JSON", method: http.MethodPatch, path: path,
 			body:       `{"dice":{"rows":{}}}`,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON", wantMessage: "request body contains invalid JSON",
 		},
 		{
-			name: "Error: unknown top-level field is 400 INVALID_JSON", method: http.MethodPut, path: path,
-			body:       `{"dice":{},"data":{}}`,
+			name: "Error: unknown top-level field is 400 INVALID_JSON", method: http.MethodPatch, path: path,
+			body:       `{"dice":{},"layout":{}}`,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON", wantMessage: "request body contains invalid JSON",
 		},
 		{
-			name: "Error: malformed sheet id is 400 and never reaches the repository", method: http.MethodPut,
-			path: "/sheets/not-a-uuid/dice", body: validBody,
+			name: "Error: malformed sheet id is 400 and never reaches the repository", method: http.MethodPatch,
+			path: "/sheets/not-a-uuid", body: validBody,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST", wantMessage: sheet.MsgSheetIDInvalid,
 		},
 		{
-			name: "Error: missing sheet is 404", method: http.MethodPut, path: path, body: validBody,
+			name: "Error: missing sheet is 404", method: http.MethodPatch, path: path, body: validBody,
 			fetchErr: sheet.ErrSheetNotFound, wantFetch: true,
 			wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND", wantMessage: "sheet not found",
 		},
 		{
-			name: "Error: foreign sheet is the same 404 as a missing one", method: http.MethodPut, path: path, body: validBody,
+			name: "Error: foreign sheet is the same 404 as a missing one", method: http.MethodPatch, path: path, body: validBody,
 			stored: layoutRouteSheet("someone-else"), wantFetch: true,
 			wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND", wantMessage: "sheet not found",
 		},
 		{
-			name: "Error: unknown section is 400 INVALID_REQUEST", method: http.MethodPut, path: path,
+			name: "Error: unknown section is 400 INVALID_REQUEST", method: http.MethodPatch, path: path,
 			body:   `{"dice":{"section":{"ghost":null}}}`,
 			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST",
 			wantMessage: "invalid dice: dice section 'ghost' is not a section of the template",
 		},
 		{
-			name: "Error: unknown row is 400 INVALID_REQUEST", method: http.MethodPut, path: path,
+			name: "Error: unknown row is 400 INVALID_REQUEST", method: http.MethodPatch, path: path,
 			body:   `{"dice":{"row":{"stats.charisma":"1d20"}}}`,
 			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST",
 			wantMessage: "invalid dice: dice row 'stats.charisma' is not a row of any section",
 		},
 		{
-			name: "Error: invalid expression is 400 INVALID_REQUEST", method: http.MethodPut, path: path,
+			name: "Error: invalid expression is 400 INVALID_REQUEST", method: http.MethodPatch, path: path,
 			body:   `{"dice":{"row":{"stats.strength":"banana"}}}`,
 			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST",
 		},
 		{
-			name: "Error: row override that does not fit is 400 INVALID_REQUEST", method: http.MethodPut, path: path,
+			name: "Error: row override that does not fit is 400 INVALID_REQUEST", method: http.MethodPatch, path: path,
 			body:   `{"dice":{"row":{"config#armorClassAbility":"1d20 + stats.ghost"}}}`,
 			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST",
 		},
 		{
-			name: "Error: section override fitting no row is 400 INVALID_REQUEST", method: http.MethodPut, path: path,
+			name: "Error: section override fitting no row is 400 INVALID_REQUEST", method: http.MethodPatch, path: path,
 			body:   `{"dice":{"section":{"stats":"1d20 + @.total"}}}`,
 			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST",
 		},
 		{
-			name: "Error: 65 entries is 400 INVALID_REQUEST", method: http.MethodPut, path: path, body: tooMany,
+			name: "Error: 65 entries is 400 INVALID_REQUEST", method: http.MethodPatch, path: path, body: tooMany,
 			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true,
 			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST",
 			wantMessage: "invalid dice: 65 dice overrides exceed the maximum of 64",
 		},
 		{
-			name: "Error: PATCH on the dice path is 405", method: http.MethodPatch, path: path, body: validBody,
-			wantStatus: http.StatusMethodNotAllowed, wantCode: "METHOD_NOT_ALLOWED", wantMessage: "method not allowed",
+			name: "Error: the retired PUT dice route is gone", method: http.MethodPut, path: path + "/dice", body: validBody,
+			wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND",
 		},
 		{
-			name: "Edge: absent dice clears and answers an empty block", method: http.MethodPut, path: path, body: `{}`,
+			name: "Error: an empty body object carries nothing to save", method: http.MethodPatch, path: path, body: `{}`,
+			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST", wantMessage: sheet.MsgNothingToUpdate,
+		},
+		{
+			name: "Error: null dice and no data carries nothing to save", method: http.MethodPatch, path: path, body: `{"dice":null}`,
+			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST", wantMessage: sheet.MsgNothingToUpdate,
+		},
+		{
+			name: "Error: empty data and no dice carries nothing to save", method: http.MethodPatch, path: path, body: `{"data":{}}`,
+			wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST", wantMessage: sheet.MsgNothingToUpdate,
+		},
+		{
+			name: "Edge: empty dice object clears and answers an empty cascade", method: http.MethodPatch, path: path, body: `{"dice":{}}`,
 			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true, wantUpdate: true,
-			wantStatus: http.StatusOK, wantBody: `{"data":{"dice":{"section":{},"row":{}}}}`,
+			wantStatus: http.StatusOK, wantBody: `{"data":{}}`,
 		},
 		{
-			name: "Edge: null dice clears", method: http.MethodPut, path: path, body: `{"dice":null}`,
-			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true, wantUpdate: true,
-			wantStatus: http.StatusOK, wantBody: `{"data":{"dice":{"section":{},"row":{}}}}`,
-		},
-		{
-			name: "Edge: empty dice object clears", method: http.MethodPut, path: path, body: `{"dice":{}}`,
-			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true, wantUpdate: true,
-			wantStatus: http.StatusOK, wantBody: `{"data":{"dice":{"section":{},"row":{}}}}`,
-		},
-		{
-			name: "Edge: dice of null maps clears", method: http.MethodPut, path: path,
+			name: "Edge: dice of null maps clears", method: http.MethodPatch, path: path,
 			body:   `{"dice":{"section":null,"row":null}}`,
 			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true, wantUpdate: true,
-			wantStatus: http.StatusOK, wantBody: `{"data":{"dice":{"section":{},"row":{}}}}`,
+			wantStatus: http.StatusOK, wantBody: `{"data":{}}`,
 		},
 		{
-			name: "Happy path: valid block keeps null distinct from absent and is echoed", method: http.MethodPut, path: path,
+			name: "Happy path: valid block keeps null distinct from absent and is stored", method: http.MethodPatch, path: path,
 			body:   validBody,
 			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true, wantUpdate: true, wantStored: validDice,
 			wantStatus: http.StatusOK,
-			wantBody:   `{"data":{"dice":{"section":{"stats":"1d20 + @","config":null},"row":{"stats.strength":null,"config#armorClassAbility":"2d6"}}}}`,
+			wantBody:   `{"data":{}}`,
 		},
 	}
 
@@ -184,7 +186,13 @@ func TestErrorMapping_SetDice(t *testing.T) {
 					Once()
 			}
 			if tc.wantUpdate {
-				mockRepo.EXPECT().UpdateDice(mock.Anything, sheetStubID, tc.wantStored).Return(nil).Once()
+				mockRepo.EXPECT().
+					PartialUpdate(mock.Anything, sheetStubID, tc.stored.Version, mock.MatchedBy(func(updates map[string]any) bool {
+						stored, ok := updates["dice"].(*sheet.Dice)
+						return ok && assert.ObjectsAreEqual(tc.wantStored, stored)
+					})).
+					Return(tc.stored.Version+1, nil).
+					Once()
 			}
 
 			rec := doRequest(t, h, tc.method, tc.path, tc.body)

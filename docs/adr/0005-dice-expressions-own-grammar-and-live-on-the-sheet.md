@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted, amended in part by ADR 0006
 ---
 
 # Dice expressions use their own grammar and the player's choices live on the Sheet
