@@ -14,7 +14,6 @@ import { message } from '../l10n/strings';
 import { centerInline, hiddenEdges, SectionIndex } from '../sheet/section_index';
 import { createSheetEditStore, pendingCount } from '../sheet/sheet_edit';
 import { findScroller } from '../sheet/use_active_section';
-import { createViewStore, initialView, TEMPLATE_SETTINGS_KEYS } from '../sheet/view_store';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
 import { SHEET_ID, sheetPayload, templateDetailPayload } from './sheet_fixtures';
@@ -298,57 +297,6 @@ describe('section strip overflow affordance', () => {
 
     expect(strip).toContain('.lg-sectionbar__nav[data-edge-start]');
     expect(strip).toContain('.lg-sectionbar__nav[data-edge-end]');
-  });
-});
-
-describe('template settings start collapsed', () => {
-  const KEYS = ['identity', 'stats', 'rules', 'config'];
-
-  it('Edge: a sheet with no remembered view collapses the settings Sections only', () => {
-    expect(initialView(KEYS).collapsed).toEqual(['rules', 'config']);
-    expect(TEMPLATE_SETTINGS_KEYS).toEqual(['rules', 'config']);
-  });
-
-  it('Edge: a template without settings Sections starts with everything open', () => {
-    expect(initialView(['identity', 'stats']).collapsed).toEqual([]);
-    expect(initialView([]).collapsed).toEqual([]);
-  });
-
-  it('Edge: a store with no storage still starts with the settings collapsed', () => {
-    const store = createViewStore({ sheetId: 's', sectionKeys: KEYS, storage: undefined });
-
-    expect(store.getState().collapsed).toEqual(['rules', 'config']);
-  });
-
-  it('Edge: a remembered view wins, including one that opened the settings', () => {
-    const storage = {
-      getItem: () =>
-        JSON.stringify({ v: 1, collapsed: [], onlyPinned: false, explainerSeen: true }),
-      setItem: () => undefined,
-    };
-    const store = createViewStore({ sheetId: 's', sectionKeys: KEYS, storage });
-
-    expect(store.getState().collapsed).toEqual([]);
-  });
-
-  it('Edge: a store whose storage throws falls back to the initial view', () => {
-    const storage = {
-      getItem: () => {
-        throw new Error('blocked');
-      },
-      setItem: () => undefined,
-    };
-    const store = createViewStore({ sheetId: 's', sectionKeys: KEYS, storage });
-
-    expect(store.getState().collapsed).toEqual(['rules', 'config']);
-  });
-
-  it('Happy path: opening a settings Section is remembered and expands it', () => {
-    const store = createViewStore({ sheetId: 's', sectionKeys: KEYS, storage: undefined });
-
-    store.toggle('rules');
-
-    expect(store.getState().collapsed).toEqual(['config']);
   });
 });
 

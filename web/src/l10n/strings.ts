@@ -171,6 +171,8 @@ export const messages = {
   'sheet.backToTop': '{name}, back to top',
   'sheet.sectionLink': 'Go to {label}',
   'sheet.sectionLinkChanged': 'Go to {label}, {count} changed',
+  'sheet.templateSettings': 'Template settings',
+  'sheet.templateSettingsHint': 'Rules and switches of this template',
   'sheet.collapseAll': 'Collapse all',
   'sheet.expandAll': 'Expand all',
   'sheet.refreshTitle': 'Discard unsaved changes?',

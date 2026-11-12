@@ -160,6 +160,7 @@ describe('collapsing Sections', () => {
       collapsed: ['alpha'],
       onlyPinned: false,
       explainerSeen: false,
+      settingsOpen: false,
     });
     first.unmount();
 

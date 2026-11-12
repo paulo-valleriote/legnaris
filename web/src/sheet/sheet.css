@@ -479,3 +479,89 @@
   stroke-width: var(--lg-space-2);
   stroke-linecap: round;
 }
+
+/* The Template settings area: a quiet disclosure at the page end, visually subordinate to the
+   character's Sections so configuration never reads as character data. */
+.lg-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-12);
+  min-width: 0;
+  margin-block-start: var(--lg-space-16);
+  padding-block-start: var(--lg-space-16);
+  border-top: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-settings__title {
+  margin: 0;
+  font-size: var(--lg-type-16);
+  font-weight: var(--lg-font-weight-semibold);
+}
+
+.lg-settings__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-8);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--lg-size-control);
+  padding: var(--lg-space-8) var(--lg-space-16);
+  border: 0;
+  border-radius: var(--lg-radius-lg);
+  background-color: transparent;
+  color: var(--lg-color-text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lg-settings__toggle:hover {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-settings__toggle:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: calc(-1 * var(--lg-focus-width));
+}
+
+.lg-settings__label {
+  color: var(--lg-color-text);
+}
+
+.lg-settings__hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-regular);
+  overflow-wrap: anywhere;
+}
+
+.lg-settings__chevron {
+  flex: none;
+  width: var(--lg-space-16);
+  height: var(--lg-space-16);
+  stroke: currentColor;
+  stroke-width: var(--lg-space-2);
+  transition: transform var(--lg-motion-120) var(--lg-ease-standard);
+}
+
+.lg-settings--closed .lg-settings__chevron {
+  transform: rotate(-90deg);
+}
+
+.lg-settings__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-16);
+  min-width: 0;
+}
+
+.lg-settings__body[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-settings__chevron {
+    transition: none;
+  }
+}

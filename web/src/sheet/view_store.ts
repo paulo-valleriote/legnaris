@@ -32,6 +32,8 @@ export interface ViewState {
   readonly onlyPinned: boolean;
   /** True once the player dismissed the sheet explainer; it then never opens by itself again. */
   readonly explainerSeen: boolean;
+  /** True while the "Template settings" area is open; it starts closed and is remembered. */
+  readonly settingsOpen: boolean;
 }
 
 /** The browser's `localStorage`, or `undefined` where it is missing or refuses access. */
@@ -48,6 +50,7 @@ export const DEFAULT_VIEW: ViewState = {
   collapsed: [],
   onlyPinned: false,
   explainerSeen: false,
+  settingsOpen: false,
 };
 
 /** The storage key of [sheetId]'s view record. */
@@ -92,6 +95,7 @@ export function parseViewRecord(raw: string | null, known: ReadonlySet<string>):
     collapsed?: unknown;
     onlyPinned?: unknown;
     explainerSeen?: unknown;
+    settingsOpen?: unknown;
   };
   if (record.v !== VIEW_RECORD_VERSION) {
     return DEFAULT_VIEW;
@@ -102,6 +106,7 @@ export function parseViewRecord(raw: string | null, known: ReadonlySet<string>):
       : [],
     onlyPinned: record.onlyPinned === true,
     explainerSeen: record.explainerSeen === true,
+    settingsOpen: record.settingsOpen === true,
   };
 }
 
@@ -120,6 +125,7 @@ export function serializeViewRecord(state: ViewState): string {
     collapsed: state.collapsed,
     onlyPinned: state.onlyPinned,
     explainerSeen: state.explainerSeen,
+    settingsOpen: state.settingsOpen,
   });
 }
 
@@ -157,9 +163,18 @@ export function withExplainerSeen(state: ViewState): ViewState {
   return state.explainerSeen ? state : { ...state, explainerSeen: true };
 }
 
+/** Opens the settings area when closed and closes it when open. */
+export function toggleSettings(state: ViewState): ViewState {
+  return { ...state, settingsOpen: !state.settingsOpen };
+}
+
 /** The view that makes [key] visible: the filter off and the Section expanded. */
 export function revealSectionView(state: ViewState, key: string): ViewState {
-  return expandSection(withOnlyPinned(state, false), key);
+  const shown = withOnlyPinned(state, false);
+  if (TEMPLATE_SETTINGS_KEYS.includes(key)) {
+    return shown.settingsOpen ? shown : { ...shown, settingsOpen: true };
+  }
+  return expandSection(shown, key);
 }
 
 /** What a view store is built from: the sheet, its Sections and where it remembers. */
@@ -183,42 +198,51 @@ export interface ViewStore {
   setOnlyPinned(onlyPinned: boolean): void;
   /** Remembers that the explainer was dismissed. */
   markExplainerSeen(): void;
-  /** Remembers that the suggested pins were taken. */
+  /** Opens or closes the "Template settings" area. */
+  toggleSettings(): void;
   /** Turns the filter off and expands [key] when it names a Section; an unknown key only turns the filter off. */
   reveal(key: string): void;
 }
 
 /**
  * The Sections that hold the Template's own configuration (its rules and its on/off switches)
- * rather than the character: they start collapsed, as one "Template settings" area, until the
- * person opens them.
+ * rather than the character. The sheet draws them together in one "Template settings" area,
+ * closed until the person opens it, and never as Sections of their own.
  */
 export const TEMPLATE_SETTINGS_KEYS: readonly string[] = ['rules', 'config'];
 
-/** The view of a sheet nothing is remembered for: the settings Sections collapsed, the rest open. */
-export function initialView(sectionKeys: readonly string[]): ViewState {
-  const collapsed = TEMPLATE_SETTINGS_KEYS.filter((key) => sectionKeys.includes(key));
-  return collapsed.length === 0 ? DEFAULT_VIEW : { ...DEFAULT_VIEW, collapsed };
+/** True when [key] names a Section that belongs to the Template settings area. */
+export function isTemplateSettingsKey(key: string): boolean {
+  return TEMPLATE_SETTINGS_KEYS.includes(key);
+}
+
+/** The Sections of [sectionKeys] that are character data, in their order. */
+export function mainSectionKeys(sectionKeys: readonly string[]): string[] {
+  return sectionKeys.filter((key) => !isTemplateSettingsKey(key));
+}
+
+/** The view of a sheet nothing is remembered for: everything open and the settings area closed. */
+export function initialView(): ViewState {
+  return DEFAULT_VIEW;
 }
 
 function readRemembered(seed: ViewStoreSeed): ViewState {
   if (seed.storage === undefined) {
-    return initialView(seed.sectionKeys);
+    return initialView();
   }
   try {
     const raw = seed.storage.getItem(viewStorageKey(seed.sheetId));
-    return raw === null
-      ? initialView(seed.sectionKeys)
-      : parseViewRecord(raw, new Set(seed.sectionKeys));
+    return raw === null ? initialView() : parseViewRecord(raw, new Set(seed.sectionKeys));
   } catch {
-    return initialView(seed.sectionKeys);
+    return initialView();
   }
 }
 
 /** Builds the store for [seed], reading the remembered view once. */
 export function createViewStore(seed: ViewStoreSeed): ViewStore {
-  const known = new Set(seed.sectionKeys);
-  let state: ViewState = readRemembered(seed);
+  const mainKeys = mainSectionKeys(seed.sectionKeys);
+  const known = new Set(mainKeys);
+  let state: ViewState = readRemembered({ ...seed, sectionKeys: mainKeys });
   const listeners = new Set<() => void>();
 
   const remember = (): void => {
@@ -256,7 +280,7 @@ export function createViewStore(seed: ViewStoreSeed): ViewStore {
     },
     collapseAll: () => {
       if (!state.onlyPinned) {
-        publish(collapseSections(state, seed.sectionKeys));
+        publish(collapseSections(state, mainKeys));
       }
     },
     expandAll: () => {
@@ -270,8 +294,15 @@ export function createViewStore(seed: ViewStoreSeed): ViewStore {
     markExplainerSeen: () => {
       publish(withExplainerSeen(state));
     },
+    toggleSettings: () => {
+      publish(toggleSettings(state));
+    },
     reveal: (key) => {
-      publish(known.has(key) ? revealSectionView(state, key) : withOnlyPinned(state, false));
+      publish(
+        known.has(key) || isTemplateSettingsKey(key)
+          ? revealSectionView(state, key)
+          : withOnlyPinned(state, false),
+      );
     },
   };
 }
