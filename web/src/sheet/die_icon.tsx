@@ -1,5 +1,5 @@
 /**
- * The die icons of the Dice controls: one silhouette per common polyhedral die, drawn on the
+ * The die icons of the Dice controls: one bare outline per common polyhedral die, drawn on the
  * same 24-unit grid and stroke as the rest of the Dice icon set so they read as one family.
  * Any die without its own silhouette, and any control that names no die, falls back to the d20.
  */
@@ -40,49 +40,17 @@ export function dieShapeFor(expression: Expression | undefined): DieShape {
 function DieOutline({ shape }: { readonly shape: DieShape }) {
   switch (shape) {
     case 'd4':
-      return (
-        <>
-          <path d="M12 3.5 21 19.5H3z" />
-          <path d="M12 3.5v16" />
-        </>
-      );
+      return <path d="M12 3.5 21 19.5H3z" />;
     case 'd6':
-      return (
-        <>
-          <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
-          <circle cx="8.5" cy="8.5" r="1.4" />
-          <circle cx="12" cy="12" r="1.4" />
-          <circle cx="15.5" cy="15.5" r="1.4" />
-        </>
-      );
+      return <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />;
     case 'd8':
-      return (
-        <>
-          <path d="M12 2.5 21 12l-9 9.5L3 12z" />
-          <path d="M3 12h18" />
-        </>
-      );
+      return <path d="M12 2.5 21 12l-9 9.5L3 12z" />;
     case 'd10':
-      return (
-        <>
-          <path d="M12 2.5 21 10.5l-9 11-9-11z" />
-          <path d="M3 10.5 12 14l9-3.5M12 14v7.5" />
-        </>
-      );
+      return <path d="M12 2.5 20.5 8.5 12 21.5 3.5 8.5z" />;
     case 'd12':
-      return (
-        <>
-          <path d="M12 3 21 9.6l-3.4 10.6H6.4L3 9.6z" />
-          <path d="M12 8.2 15.8 11l-1.45 4.5h-4.7L8.2 11z" />
-        </>
-      );
+      return <path d="M12 3 21 9.6l-3.4 10.6H6.4L3 9.6z" />;
     case 'd20':
-      return (
-        <>
-          <path d="M12 2.5 20.2 7.25v9.5L12 21.5l-8.2-4.75v-9.5z" />
-          <path d="M12 7.5 16.3 15H7.7z" />
-        </>
-      );
+      return <path d="M12 2.5 20.2 7.25v9.5L12 21.5l-8.2-4.75v-9.5z" />;
   }
 }
 

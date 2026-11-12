@@ -234,11 +234,6 @@
   stroke-linejoin: round;
 }
 
-.lg-dice-icon circle {
-  fill: currentColor;
-  stroke: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .lg-dice-button {
     transition: none;
