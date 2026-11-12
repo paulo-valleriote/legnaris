@@ -11,14 +11,17 @@ describe('PWA-01 SW contract', () => {
     expect(swSource).not.toContain('localStorage');
   });
 
-  it('should activate the waiting worker when the update notice asks for it', () => {
-    // `registerType: 'prompt'` never activates on its own: the page's
-    // `messageSkipWaiting()` only lands if the worker answers this message.
-    expect(swSource).toContain('SKIP_WAITING');
-    expect(swSource).toContain('self.skipWaiting()');
+  it('Edge: never activates a waiting worker mid-session', () => {
+    expect(swSource).not.toContain('skipWaiting');
   });
 
-  it('should keep the runtime config out of the runtime cache', () => {
-    expect(swSource).toContain("url.pathname !== '/config.json'");
+  it('Edge: routes runtime caching through the shared same-origin rule', () => {
+    expect(swSource).toContain('isRuntimeCacheable(');
+    expect(swSource).toContain('self.location.origin');
+  });
+
+  it('Edge: deletes the legacy runtime cache that held API responses on activation', () => {
+    expect(swSource).toContain('LEGACY_RUNTIME_CACHE_NAMES');
+    expect(swSource).toContain('caches.delete');
   });
 });

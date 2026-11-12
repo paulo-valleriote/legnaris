@@ -23,7 +23,7 @@ body:has(.lg-auth) {
 .lg-auth {
   display: grid;
   grid-template-rows: auto 1fr;
-  min-height: 100%;
+  min-height: 100dvh;
   background-color: var(--lg-color-stage-band);
   color: var(--lg-color-stage-text);
 }

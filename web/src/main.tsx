@@ -4,7 +4,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from './app/router';
 import { AppProviders } from './app/providers';
 import { loadApiConfiguration } from './api/runtime_config';
-import { UpdatePrompt } from './pwa/update_prompt';
 import { registerServiceWorker } from './pwa/register_sw';
 import { installTrustedTypesPolicy } from './pwa/trusted_types';
 import './theme/tokens.css';
@@ -39,7 +38,6 @@ async function start(): Promise<void> {
       <BrowserRouter>
         <AppProviders apiBaseUrl={config.baseUrl}>
           <AppRoutes />
-          <UpdatePrompt />
         </AppProviders>
       </BrowserRouter>
     </StrictMode>,

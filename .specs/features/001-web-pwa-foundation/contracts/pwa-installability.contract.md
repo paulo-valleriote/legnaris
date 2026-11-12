@@ -22,13 +22,13 @@ recorded with the release.
 
 ## Offline shell (FND-07, FND-09)
 
-| Request class | Behaviour |
-|---|---|
-| Navigation (any declared route) | serve the cached shell when the network is unavailable; the app then renders the route or the not-found state |
-| Build assets (HTML, entry chunks, CSS, icons) | precached at install time |
-| Public GET application data | from the next feature onward: runtime cache with an explicit strategy; never cache authenticated responses |
-| `/auth/*` and any request carrying an authorization header | never cached, never served from cache |
-| Storage | no credentials and no authenticated response payload stored in Cache Storage or IndexedDB |
+| Request class                                              | Behaviour                                                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Navigation (any declared route)                            | serve the cached shell when the network is unavailable; the app then renders the route or the not-found state |
+| Build assets (HTML, entry chunks, CSS, icons)              | precached at install time                                                                                     |
+| Public GET application data                                | from the next feature onward: runtime cache with an explicit strategy; never cache authenticated responses    |
+| `/auth/*` and any request carrying an authorization header | never cached, never served from cache                                                                         |
+| Storage                                                    | no credentials and no authenticated response payload stored in Cache Storage or IndexedDB                     |
 
 On `activate`, caches whose name lacks the current version identity are deleted, so a release
 cannot leave mixed assets behind.
@@ -45,9 +45,10 @@ cannot leave mixed assets behind.
 
 1. A newly built shell installs the new worker but does **not** activate it while a session is open
    (`skipWaiting: false`).
-2. The client detects the waiting worker and shows a non-blocking notice offering to update.
-3. Only when the visitor accepts does the client activate the new worker and reload.
-4. Declining leaves the current version running, fully functional.
+2. No notice is shown: the waiting worker activates once every window of the old version closes,
+   so the next launch runs the new version silently.
+3. Runtime caching covers same-origin static assets only; API responses are caller-scoped by
+   cookie and are never cached, so a deleted or edited sheet is never served stale.
 
 ## Content-policy preconditions (FND-10)
 
@@ -58,13 +59,13 @@ cannot leave mixed assets behind.
 
 ## Verification
 
-| Check | Method |
-|---|---|
-| Manifest fields and icon sizes | automated manifest assertion |
-| Installability audit | Lighthouse CI (Chromium) |
-| Offline boot | E2E: load once, disable network, reload, assert the shell |
-| Deep link | E2E per declared route, cold load |
-| Unknown route | E2E asserting the not-found state |
-| Cache exclusions | unit test over the worker's route rules (`/auth/*`, authorization header) |
-| Version handover | E2E asserting the notice appears and the reload happens only on accept |
-| No inline/third-party assets | HTML/build-output assertion |
+| Check                          | Method                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------- |
+| Manifest fields and icon sizes | automated manifest assertion                                              |
+| Installability audit           | Lighthouse CI (Chromium)                                                  |
+| Offline boot                   | E2E: load once, disable network, reload, assert the shell                 |
+| Deep link                      | E2E per declared route, cold load                                         |
+| Unknown route                  | E2E asserting the not-found state                                         |
+| Cache exclusions               | unit test over the worker's route rules (`/auth/*`, authorization header) |
+| Version handover               | E2E asserting the notice appears and the reload happens only on accept    |
+| No inline/third-party assets   | HTML/build-output assertion                                               |
