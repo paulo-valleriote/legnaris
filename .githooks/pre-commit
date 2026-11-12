@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Formats the staged Go and web files and re-stages them, so the CI format
+# gates rarely fail. Formatting only: lint and tests stay in CI and `make`, to
+# keep the hook fast enough that nobody reaches for --no-verify. Enabled by
+# `make setup`. Partially staged files are formatted whole and re-staged whole.
+set -euo pipefail
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+mapfile -d '' go_files < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.go')
+if ((${#go_files[@]})); then
+  gofmt -w "${go_files[@]}"
+  git add -- "${go_files[@]}"
+fi
+
+mapfile -d '' web_files < <(git diff --cached --name-only --diff-filter=ACMR -z -- 'web/')
+if ((${#web_files[@]})); then
+  if [[ ! -x web/node_modules/.bin/prettier ]]; then
+    echo "pre-commit: web/node_modules is missing; run 'npm ci' in web/ (skipping Prettier)" >&2
+    exit 0
+  fi
+  relative=("${web_files[@]#web/}")
+  (cd web && node_modules/.bin/prettier --write --ignore-unknown --log-level warn -- "${relative[@]}")
+  git add -- "${web_files[@]}"
+fi

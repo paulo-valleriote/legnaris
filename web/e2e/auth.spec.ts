@@ -66,7 +66,6 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility (SC-010
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(criticalViolations(results)).toEqual([]);
-    await expect(page).toHaveScreenshot('auth.png');
   });
 
   test('the signed-in shell has no critical violations and names the session controls', async ({

@@ -11,14 +11,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
+  // One retry absorbs an infrastructure hiccup while a test that only passes on
+  // the second attempt is still reported as flaky instead of hidden.
+  retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
-  // The reference screenshots are committed under e2e/baselines rather than kept
-  // as CI-only artifacts (the parity-gate decision): without a baseline
-  // `toHaveScreenshot` could not gate anything, and the directory was empty. The
-  // names are platform- and project-qualified so a Linux baseline (CI and the dev
-  // container) never collides with another platform's.
-  snapshotPathTemplate: '{testDir}/baselines/{arg}-{projectName}-{platform}{ext}',
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',

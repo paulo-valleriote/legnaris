@@ -1,0 +1,218 @@
+name: CI
+
+# One pipeline for every pull request. The `changes` job decides which suites
+# the diff needs, so a docs-only PR spends no minutes on Go or the browser (the
+# repository is on a metered free plan). Branch protection requires only the
+# final `gate` job: it always runs, so a required check never hangs as
+# "pending" when a path filter skips a suite, and it fails when any suite that
+# did run failed or was cancelled. A merge to main re-runs nothing new, since
+# the PR already passed this exact tree.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: detect changed areas
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      web: ${{ steps.filter.outputs.web }}
+      images: ${{ steps.filter.outputs.images }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          # `backend/**` is listed beyond `**/*.go` so non-Go assets it carries
+          # (testdata, embedded files) still trigger the Go suites.
+          filters: |
+            go:
+              - '**/*.go'
+              - 'backend/**'
+              - 'testdata/**'
+              - 'deploy/**'
+              - 'scripts/**'
+              - '.githooks/**'
+              - 'go.mod'
+              - 'go.sum'
+              - '.golangci.yml'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'web/**'
+              - '.github/workflows/ci.yml'
+            images:
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'web/Dockerfile'
+              - 'web/.dockerignore'
+              - 'deploy/rabbitmq/**'
+              - 'go.mod'
+              - 'go.sum'
+              - '.github/workflows/ci.yml'
+
+  go-lint:
+    name: golangci-lint, tidy, deploy stack config, shellcheck
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.13
+          args: --new=false
+
+      # A dependency added as `// indirect` while a source imports it directly
+      # stays harmless at build time but drifts from `go mod tidy`; this gate
+      # keeps go.mod/go.sum canonical (mirrored by `make mod-check`).
+      - name: go.mod is tidy
+        run: go mod tidy -diff
+
+      # The VPS deploy script runs as root-equivalent on the host and the dev
+      # scripts and hooks gate local work; shellcheck catches quoting and
+      # word-splitting bugs before they reach the VPS.
+      - name: shellcheck
+        run: shellcheck deploy/vps/*.sh deploy/cd/*.sh scripts/*.sh .githooks/pre-commit
+
+      # Interpolate the whole stack against the committed .env.example (every
+      # required variable is a non-empty placeholder), so a required var that
+      # is not wired into a service, or a malformed compose file, fails the
+      # build instead of only crashing the container at `up`.
+      - name: docker compose config
+        run: |
+          docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config >/dev/null
+          IMAGE_TAG=sha-0000000000000000000000000000000000000000 docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.vps.yml --env-file deploy/.env.example config >/dev/null
+
+  go-race:
+    name: Go tests (race detector)
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: go test -race
+        run: go test -race ./...
+
+  web-quality:
+    name: web format, lint, typecheck, tests, build
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Format check
+        run: npm run format:check
+      - name: Lint (ESLint incl. anti-XSS rules)
+        run: npm run lint
+      - name: Type-check
+        run: npm run typecheck
+      - name: Unit and rendering tests (coverage thresholds gate a regression)
+        run: npm run test:coverage
+      - name: Production build
+        run: npm run build
+
+  web-e2e:
+    name: web browser end-to-end
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Install the Chromium engine
+        run: npx playwright install --with-deps chromium
+      # The Playwright webServer builds the client and serves the preview; the
+      # specs cover accessibility (axe), PWA installability/offline, document
+      # security headers, responsive layout and the auth flows.
+      - name: Run the browser suite
+        run: npm run test:e2e
+      - name: Upload the Playwright report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          if-no-files-found: ignore
+
+  # Builds without pushing, so a broken Dockerfile fails the PR instead of the
+  # `Images` run on main after the merge.
+  images-build:
+    name: image build (${{ matrix.name }})
+    needs: changes
+    if: needs.changes.outputs.images == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: app
+            context: .
+          - name: web
+            context: web
+          - name: rabbitmq
+            context: deploy/rabbitmq
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+
+  gate:
+    name: gate
+    needs: [changes, go-lint, go-race, web-quality, web-e2e, images-build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every required suite passed or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "a suite ended as '$result'"; exit 1 ;;
+            esac
+          done
