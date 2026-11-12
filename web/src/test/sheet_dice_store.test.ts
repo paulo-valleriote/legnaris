@@ -300,6 +300,32 @@ describe('dice store: saved with the sheet (ADR 0006)', () => {
   });
 });
 
+describe('dice store: a saved block the Template outgrew (ADR 0006)', () => {
+  const stale: DiceBlock = {
+    section: { identity: '1d20+identity.removed', retired: null },
+    row: { 'identity.level': '1d20+identity.removed', 'ability#ability': '1d8' },
+  };
+
+  it('Edge: stale saved entries are dropped on load and count as no pending work', () => {
+    const { edit, dice } = setup(createFakeTransport(successOutcome({})).transport, stale);
+
+    expect(dice.getBlock()).toEqual({ section: {}, row: { 'ability#ability': '1d8' } });
+    expect(isPending(edit.getState())).toBe(false);
+  });
+
+  it('Happy path: the next dice save sends the block without the stale entries', async () => {
+    const fake = createFakeTransport(successOutcome({}));
+    const { edit, dice } = setup(fake.transport, stale);
+    dice.setSection('ability', '1d6');
+
+    await edit.save();
+
+    expect(bodyOf(fake.lastRequest)).toEqual({
+      dice: { section: { ability: '1d6' }, row: { 'ability#ability': '1d8' } },
+    });
+  });
+});
+
 describe('dice store: the draft (ADR 0006)', () => {
   it('Happy path: restore brings back a pending block from the draft', async () => {
     const { edit, dice, sheetStore } = setup(createFakeTransport(successOutcome({})).transport);
@@ -328,6 +354,43 @@ describe('dice store: the draft (ADR 0006)', () => {
       section: { identity: '1d20' },
       row: { 'identity.level': null, 'ability#ability': '1d8' },
     });
+  });
+
+  it('Edge: restore drops draft expressions that no longer fit, so the next Save is not refused', async () => {
+    const fake = createFakeTransport(successOutcome({}));
+    const { edit, dice, sheetStore } = setup(fake.transport);
+    await sheetStore.writeDraft(
+      SHEET_ID,
+      {},
+      {
+        section: { identity: '1d20+identity.removed', ability: '1d6' },
+        row: { 'identity.level': '1d20+identity.removed', 'ability#ability': '1d8' },
+      },
+    );
+
+    await edit.restore();
+    await edit.save();
+
+    expect(dice.getBlock()).toEqual({
+      section: { ability: '1d6' },
+      row: { 'ability#ability': '1d8' },
+    });
+    expect(bodyOf(fake.lastRequest)).toEqual({
+      dice: { section: { ability: '1d6' }, row: { 'ability#ability': '1d8' } },
+    });
+  });
+
+  it('Edge: a draft whose every expression is stale restores no pending dice', async () => {
+    const { edit, sheetStore } = setup(createFakeTransport(successOutcome({})).transport);
+    await sheetStore.writeDraft(
+      SHEET_ID,
+      {},
+      { section: {}, row: { 'identity.level': '1d20+identity.removed' } },
+    );
+
+    await edit.restore();
+
+    expect(isDicePending(edit.getState())).toBe(false);
   });
 
   it('Edge: a draft written before dice existed restores its values and leaves the block alone', async () => {
