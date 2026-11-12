@@ -32,6 +32,7 @@ import { Dialog } from '../ui/dialog';
 import type { DiceCheck, DiceStore, DiceTarget } from './dice_store';
 import { diceErrorMessageKey, diceSummary, resolveRowForSheet } from './dice_view';
 import { DicePanel } from './dice_panel';
+import { DieIcon, dieShapeFor } from './die_icon';
 import './dice.css';
 
 /** How long a press on the Roll button must last to open the editor instead of rolling. */
@@ -388,7 +389,7 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
             roll();
           }}
         >
-          <DieIcon />
+          <DieIcon shape={dieShapeFor(resolution.parsed)} />
           <span className="lg-dice-button__text">{summary ?? message('dice.rollShort')}</span>
         </button>
       )}
@@ -460,23 +461,7 @@ export function DiceSectionFrame({
   );
 }
 
-/**
- * A six-sided die drawn on `currentColor`; `off` strikes it through for a Row whose dice the
- * player turned off. The icons share one 24-unit grid and stroke so they read as one set.
- */
-function DieIcon({ off = false }: { readonly off?: boolean }) {
-  return (
-    <svg className="lg-dice-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
-      <circle cx="8.5" cy="8.5" r="1.4" />
-      <circle cx="12" cy="12" r="1.4" />
-      <circle cx="15.5" cy="15.5" r="1.4" />
-      {off && <path d="M3 21 21 3" />}
-    </svg>
-  );
-}
-
-/** A pencil drawn on the same grid as {@link DieIcon}: the Row's edit-dice action. */
+/** A pencil drawn on the same grid as the die icons: the Row's edit-dice action. */
 function PencilIcon() {
   return (
     <svg className="lg-dice-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
