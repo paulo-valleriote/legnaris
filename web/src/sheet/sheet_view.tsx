@@ -9,7 +9,9 @@
  * state is left untouched, so leaving the mode returns to exactly what the person left.
  */
 
-import { useMemo, useSyncExternalStore } from 'react';
+import { useId, useMemo, useSyncExternalStore } from 'react';
+import type { ReactNode } from 'react';
+import { SectionChevron } from '../engine/section_chevron';
 import { flushSync } from 'react-dom';
 import { arrangementView } from '../engine/layout';
 import type { Arrangement } from '../engine/layout';
@@ -131,6 +133,44 @@ export function PinnedEmpty({ onEditPins }: PinnedEmptyProps) {
       >
         {message('sheet.editPins')}
       </button>
+    </div>
+  );
+}
+
+interface TemplateSettingsAreaProps {
+  readonly open: boolean;
+  readonly onToggle: () => void;
+  readonly children: ReactNode;
+}
+
+/**
+ * The one disclosure at the end of the sheet that holds the Template's own settings (its rules
+ * and switches). Closed until the person opens it; its content stays mounted so edits inside
+ * survive closing it.
+ */
+export function TemplateSettingsArea({ open, onToggle, children }: TemplateSettingsAreaProps) {
+  const bodyId = useId();
+  return (
+    <div
+      className={open ? 'lg-settings' : 'lg-settings lg-settings--closed'}
+      data-testid="template-settings"
+    >
+      <h2 className="lg-settings__title">
+        <button
+          type="button"
+          className="lg-settings__toggle"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={onToggle}
+        >
+          <span className="lg-settings__label">{message('sheet.templateSettings')}</span>
+          <span className="lg-settings__hint">{message('sheet.templateSettingsHint')}</span>
+          <SectionChevron className="lg-settings__chevron" />
+        </button>
+      </h2>
+      <div className="lg-settings__body" id={bodyId} hidden={!open}>
+        {children}
+      </div>
     </div>
   );
 }

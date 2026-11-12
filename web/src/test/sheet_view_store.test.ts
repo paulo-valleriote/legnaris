@@ -118,6 +118,7 @@ describe('the pure view operations', () => {
       collapsed: [],
       onlyPinned: false,
       explainerSeen: false,
+      settingsOpen: false,
     });
   });
 
@@ -134,6 +135,7 @@ describe('the view store', () => {
       collapsed: [],
       onlyPinned: false,
       explainerSeen: false,
+      settingsOpen: false,
     });
   });
 
@@ -163,6 +165,7 @@ describe('the view store', () => {
       collapsed: ['identity'],
       onlyPinned: false,
       explainerSeen: false,
+      settingsOpen: false,
     });
     expect(storage.records.has(viewStorageKey('sheet-2'))).toBe(false);
   });
@@ -217,6 +220,7 @@ describe('the view store', () => {
       collapsed: [],
       onlyPinned: true,
       explainerSeen: false,
+      settingsOpen: false,
     });
     const reopened = createViewStore({ sheetId: SHEET, sectionKeys: KEYS, storage });
     expect(reopened.getState().onlyPinned).toBe(true);
@@ -269,6 +273,7 @@ describe('the view store', () => {
       collapsed: [],
       onlyPinned: false,
       explainerSeen: false,
+      settingsOpen: false,
     });
   });
 
@@ -349,6 +354,7 @@ describe('parseViewRecord', () => {
         collapsed: ['identity'],
         onlyPinned: false,
         explainerSeen: false,
+        settingsOpen: false,
       },
     },
     {
@@ -358,17 +364,18 @@ describe('parseViewRecord', () => {
         collapsed: ['skills'],
         onlyPinned: false,
         explainerSeen: false,
+        settingsOpen: false,
       },
     },
     {
       name: 'Edge: a bad collapsed list keeps a valid filter',
       raw: JSON.stringify({ v: 1, collapsed: 'x', onlyPinned: true }),
-      expected: { collapsed: [], onlyPinned: true, explainerSeen: false },
+      expected: { collapsed: [], onlyPinned: true, explainerSeen: false, settingsOpen: false },
     },
     {
       name: 'Edge: stale Sections are dropped, the filter stays',
       raw: JSON.stringify({ v: 1, collapsed: ['gone'], onlyPinned: true }),
-      expected: { collapsed: [], onlyPinned: true, explainerSeen: false },
+      expected: { collapsed: [], onlyPinned: true, explainerSeen: false, settingsOpen: false },
     },
     {
       name: 'Happy path: a full record round-trips',
@@ -376,11 +383,13 @@ describe('parseViewRecord', () => {
         collapsed: ['abilities'],
         onlyPinned: true,
         explainerSeen: false,
+        settingsOpen: false,
       }),
       expected: {
         collapsed: ['abilities'],
         onlyPinned: true,
         explainerSeen: false,
+        settingsOpen: false,
       },
     },
   ];

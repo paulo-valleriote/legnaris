@@ -36,6 +36,7 @@ import { DependentReadout } from '../engine/dependent_readout';
 import { dependentsAreStale } from '../engine/dependents';
 import { SheetFieldControl } from '../engine/field_control';
 import type { SheetExclusiveGroup, SheetField } from '../engine/field_grouping';
+import type { FieldNode } from '../api/models/template';
 import { buildSections, fieldDisplayName, lastSegment, rowKey } from '../engine/field_grouping';
 import type { SheetMark } from '../engine/sheet_mark';
 import { markLabel, SheetForm } from '../engine/sheet_form';
@@ -73,7 +74,8 @@ import { footerStatus, recalculatedCount, recalculatedSummary } from './preview_
 import type { RevealView } from './reveal_row';
 import { revealFirstRecalculated, revealSection, revealTop } from './reveal_row';
 import { SectionIndex } from './section_index';
-import { CollapseAllButton, PinnedEmpty, useSheetView } from './sheet_view';
+import { CollapseAllButton, PinnedEmpty, TemplateSettingsArea, useSheetView } from './sheet_view';
+import { isTemplateSettingsKey } from './view_store';
 import { HelpPanel, HelpToggle } from './sheet_help';
 import type { SheetOpenResult } from './sheet_open';
 import { useSheetOpen } from './sheet_open';
@@ -563,6 +565,19 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [client, storePort, sheetId, sheetData, template],
   );
   const sections = useMemo(() => buildSections(template.fields), [template]);
+  const mainSections = useMemo(
+    () => sections.filter((section) => !isTemplateSettingsKey(section.key)),
+    [sections],
+  );
+  const mainFields = useMemo(
+    () => fieldsWhere(template.fields, (key) => !isTemplateSettingsKey(key)),
+    [template],
+  );
+  const settingsFields = useMemo(
+    () => fieldsWhere(template.fields, isTemplateSettingsKey),
+    [template],
+  );
+  const hasSettings = mainSections.length < sections.length;
   const diceSchema = useMemo(() => diceSchemaFromFields(template.fields), [template]);
   const diceCheck = useCallback<DiceCheck>(
     (target, key, expression) =>
@@ -598,14 +613,14 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   const layoutStore = useMemo(
     () =>
       createLayoutStore(
-        { sheetId, sections, layout: committedLayout },
+        { sheetId, sections: mainSections, layout: committedLayout },
         {
           client,
           store: storePort,
           onCommitted: (layout) => updateSheetLayout(queryClient, sheetId, layout),
         },
       ),
-    [client, storePort, queryClient, sheetId, sections, committedLayout],
+    [client, storePort, queryClient, sheetId, mainSections, committedLayout],
   );
   const layoutState = useLayoutState(layoutStore);
   const arranging = isArranging(layoutState);
@@ -616,7 +631,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   );
   const view = useSheetView({
     sheetId,
-    sections,
+    sections: mainSections,
     arrangement,
     arranging,
     marks,
@@ -852,8 +867,8 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
             onJump={jumpToSection}
             onEditPins={startArranging}
             trailing={
-              sections.length > 1 && !arranging && !view.filterOn ? (
-                <CollapseAllButton view={view} sectionCount={sections.length} />
+              mainSections.length > 1 && !arranging && !view.filterOn ? (
+                <CollapseAllButton view={view} sectionCount={mainSections.length} />
               ) : undefined
             }
             epoch={arranging ? 'arrange' : 'play'}
@@ -862,20 +877,39 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
             <PinnedEmpty onEditPins={startArranging} />
           ) : (
             <DiceProvider value={diceValue}>
-              <SheetForm
-                fields={template.fields}
-                controlBuilder={controlBuilder}
-                exclusiveControlBuilder={exclusiveControlBuilder}
-                dependentBuilder={dependentBuilder}
-                rowMarkBuilder={rowMarkBuilder}
-                rowActionsBuilder={arranging ? undefined : renderDiceActions}
-                sectionBadgeBuilder={sectionBadgeBuilder}
-                collapsedSectionKeys={view.collapsible ? view.state.collapsed : undefined}
-                onToggleSection={view.collapsible ? view.store.toggle : undefined}
-                onlyPinned={view.filterOn}
-                arrangement={arrangement}
-                frames={arranging ? ARRANGE_FRAMES : DICE_FRAMES}
-              />
+              {mainSections.length > 0 && (
+                <SheetForm
+                  fields={mainFields}
+                  controlBuilder={controlBuilder}
+                  exclusiveControlBuilder={exclusiveControlBuilder}
+                  dependentBuilder={dependentBuilder}
+                  rowMarkBuilder={rowMarkBuilder}
+                  rowActionsBuilder={arranging ? undefined : renderDiceActions}
+                  sectionBadgeBuilder={sectionBadgeBuilder}
+                  collapsedSectionKeys={view.collapsible ? view.state.collapsed : undefined}
+                  onToggleSection={view.collapsible ? view.store.toggle : undefined}
+                  onlyPinned={view.filterOn}
+                  arrangement={arrangement}
+                  frames={arranging ? ARRANGE_FRAMES : DICE_FRAMES}
+                />
+              )}
+              {hasSettings && !arranging && !view.filterOn && (
+                <TemplateSettingsArea
+                  open={view.state.settingsOpen}
+                  onToggle={view.store.toggleSettings}
+                >
+                  <SheetForm
+                    fields={settingsFields}
+                    controlBuilder={controlBuilder}
+                    exclusiveControlBuilder={exclusiveControlBuilder}
+                    dependentBuilder={dependentBuilder}
+                    rowMarkBuilder={rowMarkBuilder}
+                    rowActionsBuilder={renderDiceActions}
+                    sectionBadgeBuilder={sectionBadgeBuilder}
+                    frames={DICE_FRAMES}
+                  />
+                </TemplateSettingsArea>
+              )}
             </DiceProvider>
           )}
         </ArrangeProvider>
@@ -894,6 +928,13 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       )}
     </>
   );
+}
+
+function fieldsWhere(
+  fields: Record<string, FieldNode>,
+  keep: (key: string) => boolean,
+): Record<string, FieldNode> {
+  return Object.fromEntries(Object.entries(fields).filter(([key]) => keep(key)));
 }
 
 function SheetBody({ result }: { readonly result: SheetOpenResult }) {
