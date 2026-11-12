@@ -253,7 +253,7 @@ The Go package `backend/internal/dice` validates; this module parses, resolves a
   long-press (`LONG_PRESS_MS`, 500 ms) opens the Row's editor; the Edit button is the keyboard
   alternative. Roll and Edit sit at the trailing edge of the Row's label in every Row kind (lone,
   exclusive, table), right before the value. Editing a Row creates a Row override, which wins over the
-  Section. The Section's `Dice` button sits at the trailing edge of its title row. Everything is hidden
+  Section. The Roll button names the dice it throws (`diceSummary`), Edit is a pencil icon (a struck die on a Row whose dice are off), and the Section's die icon button sits at the trailing edge of its title row. Everything is hidden
   in Arrange mode. The editor is the shared `Dialog` (one at a time, Escape closes it and focus
   returns to the button that opened it); the Section editor carries the `dice.sectionNote` note. The
   Roll result (`src/sheet/dice_panel.tsx`) is a non-modal polite status that floats at the bottom of

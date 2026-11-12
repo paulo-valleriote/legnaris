@@ -317,3 +317,75 @@ test.describe('the footer after a Preview', () => {
     });
   }
 });
+
+const dieField = (label: string) => ({
+  schema: { type: 'number', label, is_editable: true, default: 0 },
+});
+
+const DICE_DETAIL = {
+  ...DETAIL,
+  dice: {
+    section: {},
+    row: {
+      'combat.initiative': '1d20+combat.initiative',
+      'combat.damage': '2d6+1d4+3',
+      'combat.speed': '1d20',
+    },
+  },
+  fields: {
+    combat: {
+      label: 'Combat',
+      children: {
+        armor: dieField('Base armor class'),
+        initiative: dieField('Initiative'),
+        damage: dieField('Damage'),
+        constitution: dieField('Constitution'),
+        speed: dieField('Speed'),
+      },
+    },
+  },
+};
+
+const DICE_SHEET = {
+  ...SHEET,
+  data: { combat: { armor: 10, initiative: 2, damage: 0, constitution: 14, speed: 30 } },
+  dice: { section: {}, row: { 'combat.speed': null } },
+};
+
+test.describe('dice controls keep the value column on one guide', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+    await page.route('**/templates/*', (route) => route.fulfill({ json: { data: DICE_DETAIL } }));
+    await page.route('**/templates', (route) => route.fulfill({ json: { data: CATALOG } }));
+    await page.route('**/sheets/*', (route) =>
+      route.request().resourceType() === 'document'
+        ? route.fallback()
+        : route.fulfill({ json: { data: DICE_SHEET } }),
+    );
+  });
+
+  for (const viewport of [
+    { name: '320 px', width: 320, height: 700 },
+    { name: '390 px', width: 390, height: 844 },
+    { name: '1280 px', width: 1280, height: 800 },
+  ]) {
+    test(`every Row's value starts on the same guide at ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto(`/sheets/${SHEET_ID}`);
+      await expect(page.getByRole('button', { name: /^Roll Damage/ })).toBeVisible();
+
+      const starts = await page
+        .locator('[data-row-key^="combat."] .lg-field-row__control')
+        .evaluateAll((controls) => controls.map((control) => control.getBoundingClientRect().left));
+
+      expect(starts).toHaveLength(5);
+      for (const start of starts) {
+        expect(Math.abs(start - starts[0]!)).toBeLessThanOrEqual(1);
+      }
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBe(0);
+    });
+  }
+});

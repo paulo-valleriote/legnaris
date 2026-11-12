@@ -183,6 +183,7 @@ describe('the parameterized copy resolution (WCS-13)', () => {
           label: 'Strength',
           position: 2,
           count: 5,
+          dice: 'd20',
           max: 6,
           name: 'Aragorn',
           total: 17,

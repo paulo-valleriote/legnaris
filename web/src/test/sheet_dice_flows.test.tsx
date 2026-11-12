@@ -5,6 +5,7 @@ import { createApiClient } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
 import { LONG_PRESS_MS } from '../sheet/dice_row';
 import { renderApp } from './render';
+import { rollName } from './dice_names';
 import { arrangeTemplatePayload, createArrangeStub } from './arrange_stub';
 import { SHEET_ID } from './sheet_fixtures';
 
@@ -27,8 +28,7 @@ async function open(options: Parameters<typeof createArrangeStub>[0] = {}) {
   return { stub, user };
 }
 
-const rollButton = (label: string) =>
-  screen.queryByRole('button', { name: messageWith('dice.roll', { label }) });
+const rollButton = (label: string) => screen.queryByRole('button', { name: rollName(label) });
 const editButton = (label: string) =>
   screen.queryByRole('button', { name: messageWith('dice.edit', { label }) });
 const sectionEditButton = (label: string) =>
@@ -59,14 +59,34 @@ describe('sheet dice: Section header', () => {
     expect(notes().length).toBe(1);
   });
 
-  it('Edge: the Section button reads Dice, opens a dialog and still names its Section', async () => {
+  it('Edge: the Section button is a die icon with no visible text that still names its Section', async () => {
     await open();
 
     const button = sectionEditButton('Alpha') as HTMLElement;
 
-    expect(button).toHaveTextContent(message('dice.sectionButton'));
-    expect(button?.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(button.textContent).toBe('');
+    expect(button.querySelector('svg')).not.toBeNull();
+    expect(button.getAttribute('aria-haspopup')).toBe('dialog');
     expect(button).toHaveAccessibleName('Dice for the Alpha section');
+    expect(button.getAttribute('title')).toBe('Dice for the Alpha section');
+  });
+
+  it('Edge: a Section with no expression of its own draws its button quiet', async () => {
+    await open();
+
+    expect(sectionEditButton('Alpha')?.hasAttribute('data-dice-set')).toBe(false);
+  });
+
+  it('Edge: a Section "no dice" counts as no expression and stays quiet', async () => {
+    await open({ dice: { section: { alpha: null }, row: {} } });
+
+    expect(sectionEditButton('Alpha')?.hasAttribute('data-dice-set')).toBe(false);
+  });
+
+  it('Happy path: a Section with a player expression marks its button as set', async () => {
+    await open({ dice: { section: { alpha: '1d6' }, row: {} } });
+
+    expect(sectionEditButton('Alpha')?.hasAttribute('data-dice-set')).toBe(true);
   });
 
   it('Edge: the Section note and its editor are not drawn while arranging', async () => {
@@ -124,6 +144,18 @@ describe('sheet dice: "no dice" has a way back', () => {
 
     expect(rollButton('One')).toBeNull();
     expect(editButton('One')).not.toBeNull();
+  });
+
+  it('Edge: the Edit button of a turned-off Row draws the struck die, not the pencil', async () => {
+    await open({ dice: { section: {}, row: { 'alpha.one': null } } });
+
+    expect(editButton('One')?.hasAttribute('data-dice-off')).toBe(true);
+  });
+
+  it('Edge: the Edit button of a rollable Row is not marked as off', async () => {
+    await open();
+
+    expect(editButton('One')?.hasAttribute('data-dice-off')).toBe(false);
   });
 
   it('Edge: a Row silenced by a "no dice" Section keeps its Edit button so the Row can be set again', async () => {

@@ -6,7 +6,9 @@ import {
   diceSchemaFromFields,
   pruneStaleChoices,
   diceErrorMessageKey,
+  diceSummary,
 } from '../sheet/dice_view';
+import { parseDice, type Expression } from '../dice/parse';
 import { messages } from '../l10n/strings';
 import type { DiceErrorClass } from '../dice/errors';
 
@@ -161,4 +163,46 @@ describe('diceErrorMessageKey', () => {
     expect(diceErrorMessageKey('no_value')).not.toBe(diceErrorMessageKey('unknown_field'));
     expect(diceErrorMessageKey('non_numeric_field')).not.toBe(diceErrorMessageKey('no_value'));
   });
+});
+
+function parsed(text: string): Expression {
+  const result = parseDice(text);
+  if (!result.ok) {
+    throw new Error(`fixture "${text}" does not parse: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+describe('diceSummary', () => {
+  const tests: { name: string; expression: string; want: string | undefined }[] = [
+    {
+      name: 'Edge: an expression with no dice has no summary',
+      expression: '3+attrs.dex',
+      want: undefined,
+    },
+    { name: 'Edge: a count of one is left implicit', expression: '1d20', want: 'd20' },
+    { name: 'Edge: an implicit count stays implicit', expression: 'd8', want: 'd8' },
+    {
+      name: 'Edge: numbers and Field references are left out',
+      expression: '1d20+attrs.dex+2',
+      want: 'd20',
+    },
+    { name: 'Edge: a leading negative die keeps its sign', expression: '-1d4+5', want: '-d4' },
+    { name: 'Edge: a later negative die keeps its sign', expression: '2d6-1d4', want: '2d6-d4' },
+    {
+      name: 'Edge: past two dice terms the rest collapse into an ellipsis',
+      expression: '1d20+1d6+1d4',
+      want: 'd20+d6+…',
+    },
+    {
+      name: 'Happy path: two dice terms are both named',
+      expression: '2d6+1d8+attrs.dex',
+      want: '2d6+d8',
+    },
+  ];
+  for (const tc of tests) {
+    it(tc.name, () => {
+      expect(diceSummary(parsed(tc.expression))).toBe(tc.want);
+    });
+  }
 });

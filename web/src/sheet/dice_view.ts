@@ -6,7 +6,7 @@
  */
 
 import type { DiceError, DiceErrorClass } from '../dice/errors';
-import { parseDice } from '../dice/parse';
+import { parseDice, type Expression } from '../dice/parse';
 import { schemaFromKinds, validateRow, type DiceSchema, type FieldKind } from '../dice/fit';
 import {
   resolveDice,
@@ -152,4 +152,26 @@ export function resolveRowForSheet(input: RowResolveInput): Resolution {
 /** Adapts the Template's dice defaults to the resolver's shape. */
 export function templateDiceDefaults(dice: TemplateDiceDefaults | undefined): ResolveDiceDefaults {
   return { sectionDice: dice?.section, rowDice: dice?.row };
+}
+
+/** The most dice terms a summary names before it stops listing them. */
+const SUMMARY_MAX_DICE = 2;
+
+/**
+ * The dice an expression throws, as the Roll button shows them (`d20`, `2d6+d4`): every die term
+ * in order with its sign, a count of 1 left implicit, numbers and Field references omitted since
+ * the result panel lists them. A third die term and beyond collapse into `+…`. `undefined` when
+ * the expression throws no dice, so the button falls back to its plain word.
+ */
+export function diceSummary(expression: Expression): string | undefined {
+  const dice = expression.terms.filter((term) => term.kind === 'dice');
+  if (dice.length === 0) {
+    return undefined;
+  }
+  const named = dice.slice(0, SUMMARY_MAX_DICE).map((term, index) => {
+    const sign = term.sign === -1 ? '-' : index === 0 ? '' : '+';
+    const count = term.count === 1 ? '' : String(term.count);
+    return `${sign}${count}d${term.faces}`;
+  });
+  return dice.length > SUMMARY_MAX_DICE ? `${named.join('')}+…` : named.join('');
 }
