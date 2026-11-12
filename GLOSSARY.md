@@ -9,8 +9,28 @@ A code-defined, read-only description of a game system's fields, formulas and de
 _Avoid_: System, ruleset, schema
 
 **Sheet**:
-A player's character, built from one Template, holding the values they entered and the arrangement they chose.
+A character, NPC or monster built from one Template, holding the values entered and the arrangement chosen. Its Sheet kind says which of the three it is.
 _Avoid_: Character, document
+
+**Sheet kind**:
+What a Sheet represents: a player's character, an NPC or a monster. Every kind uses the same Template, Fields and formulas; the kind changes who uses it and how, never how its values are computed. An NPC or monster belongs to the Game Master who made it; it can be linked to a Campaign and reused in others.
+_Avoid_: Sheet type, category
+
+**Plan**:
+A user's subscription level. It sets that user's limits, such as how many Sheets of each Sheet kind they may own; every user has one, starting on the free Plan. A Plan belongs to one user and never extends to the other members of their Campaigns.
+_Avoid_: Tier, subscription, package
+
+**Campaign**:
+A shared space where one or more Game Masters run a game with Players. Membership and role are per Campaign: the same person can be a Game Master in one and a Player in another.
+_Avoid_: Group, party, table
+
+**Game Master**:
+A Campaign member who runs the game. Shortened to GM.
+_Avoid_: Master, DM, narrator
+
+**Player**:
+A Campaign member who plays a character in it.
+_Avoid_: Member, user
 
 **Field**:
 A single named value on a Sheet, either editable by the player or derived from other fields by a formula.
