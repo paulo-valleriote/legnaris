@@ -13,7 +13,9 @@ export function Dialog({ open, title, description, onClose, children }: DialogPr
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open || !panelRef.current) return;
-    panelRef.current.focus();
+    if (!panelRef.current.contains(document.activeElement)) {
+      panelRef.current.focus();
+    }
     const trap = focusTrap(panelRef.current);
     const onEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();

@@ -169,9 +169,9 @@ export interface SheetFormProps {
    */
   readonly sectionBadgeBuilder?: (rowPaths: readonly (readonly string[])[]) => ReactNode;
   /**
-   * Optional inline actions of a Row (such as Roll and Dice): drawn on the Row's own line, after
-   * the control (after the label in a table Row, whose cells take the line below on a phone), so
-   * a Row never grows a button line of its own.
+   * Optional inline actions of a Row (such as Roll and Dice): drawn at the trailing edge of the
+   * Row's label in every Row kind, right before the value, so they sit in the same place in a lone
+   * Row and a table Row and a Row never grows a button line of its own.
    */
   readonly rowActionsBuilder?: (row: RowActionsInfo) => ReactNode;
   /** The resolved arrangement to draw; absent draws the Template order with nothing pinned. */
@@ -325,11 +325,11 @@ export function SheetForm({
             pinned,
             labelId,
           )}
+          {actions}
         </span>
         <span className="lg-field-row__control">
           {renderControl(field, labelId, describedById)}
         </span>
-        {actions}
         {describedById !== undefined && (
           <DependentList
             id={describedById}
@@ -357,6 +357,7 @@ export function SheetForm({
             group.options.map((option) => option.path),
             pinned,
           )}
+          {actions}
         </span>
         <span className="lg-field-row__control">
           {exclusiveControlBuilder === undefined ? (
@@ -365,7 +366,6 @@ export function SheetForm({
             exclusiveControlBuilder(group, selectedPath, undefined)
           )}
         </span>
-        {actions}
       </>
     );
   };

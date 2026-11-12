@@ -21,7 +21,7 @@ describe('DicePanel', () => {
   it('Happy path: shows the total and every die and number that made it', () => {
     render(<DicePanel label="Initiative" outcome={rolled} onDismiss={() => {}} />);
 
-    expect(screen.getByText(message('dice.total'))).toBeTruthy();
+    expect(screen.getByText('Initiative')).toBeTruthy();
     expect(screen.getByText('14')).toBeTruthy();
     expect(screen.getByText('1d20')).toBeTruthy();
     expect(screen.getByText('attrs.dex')).toBeTruthy();
@@ -40,7 +40,7 @@ describe('DicePanel', () => {
     render(<DicePanel label="Initiative" outcome={missing} onDismiss={() => {}} />);
 
     expect(screen.getByText(message('dice.error.noValue'))).toBeTruthy();
-    expect(screen.queryByText(message('dice.total'))).toBeNull();
+    expect(document.querySelector('.lg-dice-panel__total-value')).toBeNull();
   });
 
   it('Edge: the panel is not a modal dialog and does not block the sheet', () => {

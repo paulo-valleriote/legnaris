@@ -62,6 +62,7 @@ import {
 import { ARRANGE_FRAMES, ArrangeProvider } from './arrange_frames';
 import { createDiceStore, type DiceCheck, type DiceStore } from './dice_store';
 import { DICE_FRAMES, DiceProvider, DiceRowActions, type DiceContextValue } from './dice_row';
+import { FLOATING_FLOOR_ATTRIBUTE } from './dice_panel';
 import {
   checkExpression,
   checkSectionExpression,
@@ -314,6 +315,7 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
   return (
     <footer
       className={`lg-sheet__footer ${quiet ? 'lg-sheet__footer--clean' : 'lg-sheet__footer--dirty'}`}
+      {...{ [FLOATING_FLOOR_ATTRIBUTE]: '' }}
     >
       <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal}>
         {state.previewError !== undefined && (
