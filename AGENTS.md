@@ -3,6 +3,7 @@
 ## Quick Start
 
 ```bash
+make setup               # Enable the pre-commit hook (formats staged Go and web files)
 make dev                 # Clean MongoDB + API + web, one command (see README.md)
 go run ./backend/cmd/api.go  # Run API alone (MongoDB required; no Mongo yet? `make dev-db`)
 go test ./...            # Run tests
@@ -14,6 +15,7 @@ make fmt                 # Format code
 
 | Task | Command |
 |------|---------|
+| Enable git hooks (once per clone) | `make setup` |
 | Run everything locally (clean DB + API + web) | `make dev` |
 | Run server | `make run` |
 | Build | `make build` |

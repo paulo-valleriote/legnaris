@@ -15,9 +15,12 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
+.PHONY: setup dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
 
 ## --- Development ------------------------------------------------------------
+
+setup:          ## Enable the versioned git hooks (pre-commit formats staged Go and web files)
+	@git config core.hooksPath .githooks
 
 dev:            ## Run a clean MongoDB, the API and the web client with one command (http://localhost:5173)
 	@scripts/dev.sh

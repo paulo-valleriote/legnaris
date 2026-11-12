@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { PRODUCTION_API_ORIGIN } from '../config/security_headers';
 
 // POL-02 / F9-T010: the document headers the origin must deliver. In production
 // Traefik emits them (`deploy/traefik/dynamic.yml` `web-security-headers`); the
@@ -8,11 +9,16 @@ import { expect, test } from '@playwright/test';
 // response (D3).
 test.use({ serviceWorkers: 'block' });
 
+/** literal matches the exact text, so the origin stays sourced from the config. */
+function literal(text: string): RegExp {
+  return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+}
+
 const REQUIRED_HEADERS: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
   ['content-security-policy', /default-src 'self'/],
   ['content-security-policy', /frame-ancestors 'none'/],
   ['content-security-policy', /require-trusted-types-for 'script'/],
-  ['reporting-endpoints', /csp-endpoint="https:\/\/api\.legnaris\.com\.br\/csp-report"/],
+  ['reporting-endpoints', literal(`csp-endpoint="${PRODUCTION_API_ORIGIN}/csp-report"`)],
   ['strict-transport-security', /max-age=63072000/],
   ['x-frame-options', /^DENY$/],
   ['x-content-type-options', /^nosniff$/],
