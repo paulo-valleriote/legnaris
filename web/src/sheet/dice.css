@@ -117,7 +117,7 @@
   display: flex;
   align-items: center;
   gap: var(--lg-space-8);
-  padding-inline-end: var(--lg-space-12);
+  padding-inline-end: var(--lg-space-4);
   border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
 }
 
@@ -137,26 +137,13 @@
 }
 
 .lg-dice-section__button {
-  display: inline-flex;
   flex: none;
-  align-items: center;
-  gap: var(--lg-space-4);
-  padding-inline: var(--lg-space-8);
-  font-size: var(--lg-type-13);
-  white-space: nowrap;
 }
 
-.lg-dice-section__icon {
-  inline-size: var(--lg-space-16);
-  block-size: var(--lg-space-16);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: var(--lg-space-2);
-}
-
-.lg-dice-section__icon circle {
-  fill: currentColor;
-  stroke: none;
+/* A Section with no dice of its own keeps the button findable but quiet; one with an expression
+   (the player's or the Template's) draws it at full text colour. */
+.lg-dice-section__button:not([data-dice-set]) {
+  color: var(--lg-color-text-muted);
 }
 
 .lg-dice-editor__note {
@@ -172,29 +159,94 @@
   flex: none;
   align-items: center;
   align-self: center;
-  gap: var(--lg-space-4);
+  gap: var(--lg-space-2);
   margin-inline-start: auto;
 }
 
-.lg-dice-actions .lg-dice-button {
-  padding-inline: var(--lg-space-8);
-  font-size: var(--lg-type-13);
-}
-
 .lg-dice-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lg-space-4);
   min-block-size: var(--lg-size-control);
   min-inline-size: var(--lg-size-control);
-  padding-inline: var(--lg-space-12);
-  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
-  border-radius: var(--lg-radius-sm);
-  background: var(--lg-color-surface);
-  color: var(--lg-color-text);
+  padding-inline: var(--lg-space-8);
+  border: var(--lg-size-hairline) solid transparent;
+  border-radius: var(--lg-radius-md);
+  background: transparent;
+  color: var(--lg-color-text-muted);
   font: inherit;
+  font-size: var(--lg-type-13);
   cursor: pointer;
+  transition:
+    background-color var(--lg-motion-120) var(--lg-ease-out),
+    color var(--lg-motion-120) var(--lg-ease-out),
+    transform var(--lg-motion-120) var(--lg-ease-out);
 }
 
 .lg-dice-button:hover {
   background: var(--lg-color-surface-hover);
+  color: var(--lg-color-text);
+}
+
+.lg-dice-button--icon {
+  padding-inline: 0;
+}
+
+/* Roll is the action of the table: the one raised, outlined control of the Row, naming the dice
+   it throws in tabular figures. Edit and the Section button stay ghost icons beside it. */
+.lg-dice-button--roll {
+  padding-inline: var(--lg-space-8) var(--lg-space-12);
+  border-color: var(--lg-color-border-strong);
+  background: var(--lg-color-raised);
+  color: var(--lg-color-text);
+  font-weight: var(--lg-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.lg-dice-button--roll:hover {
+  border-color: var(--lg-color-accent);
+  background: var(--lg-color-raised);
+}
+
+.lg-dice-button--roll:active {
+  border-color: var(--lg-color-accent);
+  background: var(--lg-color-surface-hover);
+  transform: scale(0.96);
+}
+
+.lg-dice-button--roll .lg-dice-icon {
+  color: var(--lg-color-accent);
+}
+
+.lg-dice-icon {
+  flex: none;
+  inline-size: calc(var(--lg-space-16) + var(--lg-space-4));
+  block-size: calc(var(--lg-space-16) + var(--lg-space-4));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--lg-space-2);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lg-dice-icon circle {
+  fill: currentColor;
+  stroke: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-dice-button {
+    transition: none;
+  }
+
+  .lg-dice-button--roll:active {
+    transform: none;
+  }
 }
 
 .lg-dice-button:focus-visible,
@@ -277,4 +329,29 @@
 
 .lg-field-row__label:has(> .lg-dice-actions) > .lg-field-row__label-text {
   overflow-wrap: normal;
+}
+
+/* On a narrow Row the actions would widen the label's whole-word minimum and push the value
+   column inward, off the guide the other Rows share. There they drop under the label text, inside
+   the label column, and may wrap between themselves, so the label's minimum stays its longest word
+   or its widest button. The Roll drops its die to fit; the outline and the dice it names still
+   mark it as the action of the table. */
+@media (max-width: 40rem) {
+  .lg-field-row__label:has(> .lg-dice-actions) {
+    flex-wrap: wrap;
+  }
+
+  .lg-field-row__label > .lg-dice-actions {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    margin-inline-start: 0;
+  }
+
+  .lg-dice-button--roll {
+    padding-inline: var(--lg-space-8);
+  }
+
+  .lg-dice-button--roll .lg-dice-icon {
+    display: none;
+  }
 }

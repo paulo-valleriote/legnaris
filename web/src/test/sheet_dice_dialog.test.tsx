@@ -9,6 +9,7 @@ import { DicePanel, FLOATING_FLOOR_ATTRIBUTE, floorOffset } from '../sheet/dice_
 import { Dialog } from '../ui/dialog';
 import { focusTrap } from '../ui/focus_trap';
 import { renderApp } from './render';
+import { rollName } from './dice_names';
 import { arrangeTemplatePayload, createArrangeStub } from './arrange_stub';
 import { SHEET_ID } from './sheet_fixtures';
 
@@ -30,8 +31,7 @@ async function open() {
   return { user };
 }
 
-const rollButton = (label: string) =>
-  screen.getByRole('button', { name: messageWith('dice.roll', { label }) });
+const rollButton = (label: string) => screen.getByRole('button', { name: rollName(label) });
 const editButton = (label: string) =>
   screen.getByRole('button', { name: messageWith('dice.edit', { label }) });
 const panels = () => document.querySelectorAll('.lg-dice-panel');

@@ -507,10 +507,19 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   and, where there is an action, one control. No illustration, no demo data.
 - **Overlays.** Creation flows, destructive confirmations, blocking errors and the dice expression
   editor use the one dialog pattern; everything else stays inline.
-- **Dice.** A Row's `Roll` and `Edit` are small outline buttons at the trailing edge of its label, in
-  every Row kind, so they always sit right before the value; a label beside them keeps whole words.
-  A Section's `Dice` button (a drawn die and the word) shares the title row's trailing edge and costs
-  no line. The editor is the dialog: title, the Section note when editing a Section, the
+- **Dice.** A Row's dice controls sit at the trailing edge of its label, in every Row kind, so they
+  always sit right before the value; a label beside them keeps whole words. Roll is the action of the
+  table and the only outlined control: raised fill, `--lg-color-border-strong` hairline (accent on
+  hover and press), `--lg-radius-md`, an accent drawn die and the dice it throws in semibold tabular
+  figures (`d20`, `2d6+d4`; numbers and Fields are left to the result panel; the word `Roll` when it
+  throws none). Its accessible name is the Row plus those dice (`Roll Initiative, d20`); a press scales
+  it down slightly, zeroed under reduced motion. Edit is a ghost pencil icon on a `--lg-size-control`
+  target, muted until hovered; on a Row whose dice are off it draws a struck-through die instead, the
+  way back. A Section's dice button is the same ghost die icon at the title row's trailing edge,
+  costing no line: muted while the Section has no expression of its own, text colour once it has one.
+  Icon-only buttons carry their full name as `aria-label` and `title`. Below `40rem` the Row's
+  controls drop under the label text, inside the label column, and the Roll drops its die, so a
+  Row with dice keeps its value on the same guide as every other Row. The editor is the dialog: title, the Section note when editing a Section, the
   `Expression` field, the two quiet ghost alternatives (`Use the Template dice`, `No dice`), then a
   hairline and the commit pair (`Keep current dice` secondary, `Save dice` primary). The Roll result
   floats at the bottom of the viewport above the sticky footer (`--lg-shadow-2`, raised, a short

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
 import { renderApp } from './render';
+import { rollName } from './dice_names';
 import { arrangeTemplatePayload, createArrangeStub } from './arrange_stub';
 import { errorOutcome } from './fake_transport';
 import { SHEET_ID } from './sheet_fixtures';
@@ -28,8 +29,7 @@ async function open(options: Parameters<typeof createArrangeStub>[0] = {}) {
   return { stub, user };
 }
 
-const rollButton = (label: string) =>
-  screen.queryByRole('button', { name: messageWith('dice.roll', { label }) });
+const rollButton = (label: string) => screen.queryByRole('button', { name: rollName(label) });
 const editButton = (label: string) =>
   screen.queryByRole('button', { name: messageWith('dice.edit', { label }) });
 const editorDialog = (label: string) =>
@@ -59,6 +59,24 @@ describe('sheet dice: rolling a Row', () => {
     expect(value).toBeLessThanOrEqual(23);
     expect(panels().length).toBe(1);
     expect(panels()[0]?.textContent).toContain('alpha.two');
+  });
+
+  it('Happy path: the Roll button shows the dice it throws and names them after the Row', async () => {
+    await open();
+
+    const button = rollButton('One') as HTMLElement;
+
+    expect(button.textContent).toBe('d20');
+    expect(button).toHaveAccessibleName('Roll One, d20');
+  });
+
+  it('Edge: a Roll that throws no dice shows the plain word and the plain name', async () => {
+    await open({ dice: { section: {}, row: { 'alpha.one': 'alpha.two+3' } } });
+
+    const button = rollButton('One') as HTMLElement;
+
+    expect(button.textContent).toBe(message('dice.rollShort'));
+    expect(button).toHaveAccessibleName(messageWith('dice.roll', { label: 'One' }));
   });
 
   it('Edge: a Row with no applicable expression shows no Roll or Edit button', async () => {

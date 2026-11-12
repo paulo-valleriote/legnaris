@@ -1,8 +1,8 @@
 /**
- * The Dice controls of the sheet (ADR 0005, LGN-166): on a Row, a Roll button
- * (a long press on it opens the editor) and an Edit button, at the trailing edge of the Row's
- * label next to its value; on a Section, a Dice button in the title row for the Section
- * expression, whose editor carries the note that a Section choice does not replace the
+ * The Dice controls of the sheet (ADR 0005, LGN-166): on a Row, a Roll button that names the
+ * dice it throws (a long press on it opens the editor) and a quieter pencil Edit button, at the
+ * trailing edge of the Row's label next to its value; on a Section, a die icon button in the
+ * title row for the Section expression, whose editor carries the note that a Section choice does not replace the
  * Template's Rows. The editor is one dialog and the Roll result one floating panel, both owned
  * by the provider and portalled to the document body, so neither reflows the sheet nor inherits
  * the sheet's column rules or a Row's containment. Arrange mode replaces these frames with its
@@ -30,7 +30,7 @@ import { message, messageWith } from '../l10n/strings';
 import type { RowActionsInfo, SectionFrameProps, SheetFormFrames } from '../engine/sheet_form';
 import { Dialog } from '../ui/dialog';
 import type { DiceCheck, DiceStore, DiceTarget } from './dice_store';
-import { diceErrorMessageKey, resolveRowForSheet } from './dice_view';
+import { diceErrorMessageKey, diceSummary, resolveRowForSheet } from './dice_view';
 import { DicePanel } from './dice_panel';
 import './dice.css';
 
@@ -354,13 +354,20 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
     return null;
   }
 
+  const summary = resolution.rollable ? diceSummary(resolution.parsed) : undefined;
+  const editName = messageWith('dice.edit', { label });
+
   return (
     <span className="lg-dice-actions">
       {resolution.rollable && (
         <button
           type="button"
           className="lg-dice-button lg-dice-button--roll"
-          aria-label={messageWith('dice.roll', { label })}
+          aria-label={
+            summary === undefined
+              ? messageWith('dice.roll', { label })
+              : messageWith('dice.rollWith', { label, dice: summary })
+          }
           onPointerDown={() => {
             longPressed.current = false;
             cancelPress();
@@ -381,19 +388,22 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
             roll();
           }}
         >
-          {message('dice.rollShort')}
+          <DieIcon />
+          <span className="lg-dice-button__text">{summary ?? message('dice.rollShort')}</span>
         </button>
       )}
       {showEdit && (
         <button
           type="button"
-          className="lg-dice-button"
-          aria-label={messageWith('dice.edit', { label })}
+          className="lg-dice-button lg-dice-button--icon"
+          aria-label={editName}
+          title={editName}
           aria-haspopup="dialog"
           aria-expanded={isEditing}
+          data-dice-off={resolution.rollable ? undefined : ''}
           onClick={edit}
         >
-          {message('dice.editShort')}
+          {resolution.rollable ? <PencilIcon /> : <DieIcon off />}
         </button>
       )}
     </span>
@@ -423,27 +433,26 @@ export function DiceSectionFrame({
   const { editing, openEditor } = useContext(DiceSessionContext);
   const isEditing = editing === editKeyOf('section', sectionKey);
 
+  const expression = sectionExpression(block, dice.defaults, sectionKey);
+  const name = messageWith('dice.editSection', { label });
+
   return (
     <section className={className} data-section-key={sectionKey}>
       <div className="lg-dice-section">
         {title}
         <button
           type="button"
-          className="lg-dice-button lg-dice-section__button"
-          aria-label={messageWith('dice.editSection', { label })}
+          className="lg-dice-button lg-dice-button--icon lg-dice-section__button"
+          aria-label={name}
+          title={name}
           aria-haspopup="dialog"
           aria-expanded={isEditing}
+          data-dice-set={expression === '' ? undefined : ''}
           onClick={() =>
-            openEditor({
-              target: 'section',
-              keyName: sectionKey,
-              label,
-              current: sectionExpression(block, dice.defaults, sectionKey),
-            })
+            openEditor({ target: 'section', keyName: sectionKey, label, current: expression })
           }
         >
-          <DiceIcon />
-          <span>{message('dice.sectionButton')}</span>
+          <DieIcon />
         </button>
       </div>
       {children}
@@ -451,14 +460,28 @@ export function DiceSectionFrame({
   );
 }
 
-/** A six-sided die, drawn on `currentColor`, beside the Section button's text. */
-function DiceIcon() {
+/**
+ * A six-sided die drawn on `currentColor`; `off` strikes it through for a Row whose dice the
+ * player turned off. The icons share one 24-unit grid and stroke so they read as one set.
+ */
+function DieIcon({ off = false }: { readonly off?: boolean }) {
   return (
-    <svg className="lg-dice-section__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <svg className="lg-dice-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
       <circle cx="8.5" cy="8.5" r="1.4" />
-      <circle cx="15.5" cy="15.5" r="1.4" />
       <circle cx="12" cy="12" r="1.4" />
+      <circle cx="15.5" cy="15.5" r="1.4" />
+      {off && <path d="M3 21 21 3" />}
+    </svg>
+  );
+}
+
+/** A pencil drawn on the same grid as {@link DieIcon}: the Row's edit-dice action. */
+function PencilIcon() {
+  return (
+    <svg className="lg-dice-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M15.5 4.5 19.5 8.5 9 19H5v-4z" />
+      <path d="M13 7l4 4" />
     </svg>
   );
 }
