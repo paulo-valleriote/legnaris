@@ -21,6 +21,22 @@ type CreateSheetCommand struct {
 	OwnerID    string `json:"-"`
 }
 
+// sheetRef names one sheet as seen by one owner: the pair every read-then-write
+// path checks and fetches by.
+type sheetRef struct {
+	id      string
+	ownerID string
+}
+
+// validate rejects a missing owner before a malformed sheet ID, the order every
+// sheet path reports them in.
+func (r sheetRef) validate() error {
+	if err := requireOwner(r.ownerID); err != nil {
+		return err
+	}
+	return requireSheetID(r.id)
+}
+
 // PartialUpdateSheetCommand carries one sheet save: an optional data delta and
 // an optional full replacement of the Dice block. A nil Dice leaves the stored
 // block untouched; a non-nil empty Dice clears every override. At least one of
@@ -31,6 +47,16 @@ type PartialUpdateSheetCommand struct {
 	RequestID string         `json:"-"`
 	Data      map[string]any `json:"data"`
 	Dice      *Dice          `json:"dice"`
+}
+
+func (c PartialUpdateSheetCommand) ref() sheetRef {
+	return sheetRef{id: c.SheetID, ownerID: c.OwnerID}
+}
+
+// hasDelta reports whether the save carries data to recalculate and write; a
+// save without one is dice-only.
+func (c PartialUpdateSheetCommand) hasDelta() bool {
+	return len(c.Data) > 0
 }
 
 // SetLayoutCommand carries the full replacement of a sheet's Layout. A nil or
@@ -257,11 +283,12 @@ func (s *ServiceImpl) FetchByID(ctx context.Context, id string, ownerID string) 
 	return sheet, nil
 }
 
-// recalculation is the result of evaluating a delta against a stored sheet
-// without persisting it: the merged data a write would store and the flat
-// cascading effects the DAG recomputed. Persisting callers use merged; previews
-// use cascade only.
-type recalculation struct {
+// preparedSave is what a save would write, resolved against the stored sheet
+// without persisting it: the version the compare-and-swap expects, the merged
+// data a write would store and the flat cascading effects the DAG recomputed.
+// A dice-only save carries an empty delta and cascade and no merged data.
+// Persisting callers use merged; previews use cascade only.
+type preparedSave struct {
 	templateID string
 	version    int64
 	delta      map[string]any
@@ -274,8 +301,8 @@ type recalculation struct {
 // delta, normalizes and recalculates it, then deep-merges the result over the
 // stored data. It performs no repository write, so a preview can call it
 // without side effects.
-func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, ownerID string, data map[string]any) (*recalculation, error) {
-	storedSheet, err := s.fetchOwned(ctx, sheetID, ownerID)
+func (s *ServiceImpl) recalculate(ctx context.Context, ref sheetRef, data map[string]any) (*preparedSave, error) {
+	storedSheet, err := s.fetchOwned(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +338,7 @@ func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, ownerID s
 		return nil, translateMapErr("update", err)
 	}
 
-	return &recalculation{
+	return &preparedSave{
 		templateID: storedSheet.TemplateID,
 		version:    storedSheet.Version,
 		delta:      normalized,
@@ -322,19 +349,16 @@ func (s *ServiceImpl) recalculate(ctx context.Context, sheetID string, ownerID s
 
 // fetchOwned requires the owner and the sheet ID, fetches the sheet and checks
 // ownership, so every read-then-write path rejects the same inputs the same way.
-func (s *ServiceImpl) fetchOwned(ctx context.Context, sheetID string, ownerID string) (*Sheet, error) {
-	if err := requireOwner(ownerID); err != nil {
-		return nil, err
-	}
-	if err := requireSheetID(sheetID); err != nil {
+func (s *ServiceImpl) fetchOwned(ctx context.Context, ref sheetRef) (*Sheet, error) {
+	if err := ref.validate(); err != nil {
 		return nil, err
 	}
 
-	storedSheet, err := s.repository.FetchByID(ctx, sheetID)
+	storedSheet, err := s.repository.FetchByID(ctx, ref.id)
 	if err != nil {
 		return nil, translateRepoErr("fetch", err)
 	}
-	if err := checkOwnership(storedSheet, ownerID); err != nil {
+	if err := checkOwnership(storedSheet, ref.ownerID); err != nil {
 		return nil, err
 	}
 	return storedSheet, nil
@@ -354,7 +378,7 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	}
 
 	dbUpdates := map[string]any{"updated_at": time.Now()}
-	if len(cmd.Data) > 0 {
+	if cmd.hasDelta() {
 		dbUpdates["data"] = result.merged
 	}
 	if cmd.Dice != nil {
@@ -387,24 +411,21 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 // or, for a dice-only save, the stored sheet's version with an empty delta and
 // cascade so the DAG is never consulted. A save carrying neither is refused
 // after the owner and ID checks and before any repository access.
-func (s *ServiceImpl) prepareSave(ctx context.Context, cmd PartialUpdateSheetCommand) (*recalculation, error) {
-	if len(cmd.Data) > 0 {
-		return s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
+func (s *ServiceImpl) prepareSave(ctx context.Context, cmd PartialUpdateSheetCommand) (*preparedSave, error) {
+	if cmd.hasDelta() {
+		return s.recalculate(ctx, cmd.ref(), cmd.Data)
 	}
-	if err := requireOwner(cmd.OwnerID); err != nil {
-		return nil, err
-	}
-	if err := requireSheetID(cmd.SheetID); err != nil {
+	if err := cmd.ref().validate(); err != nil {
 		return nil, err
 	}
 	if cmd.Dice == nil {
 		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgNothingToUpdate, nil)
 	}
-	storedSheet, err := s.fetchOwned(ctx, cmd.SheetID, cmd.OwnerID)
+	storedSheet, err := s.fetchOwned(ctx, cmd.ref())
 	if err != nil {
 		return nil, err
 	}
-	return &recalculation{
+	return &preparedSave{
 		templateID: storedSheet.TemplateID,
 		version:    storedSheet.Version,
 		delta:      map[string]any{},
@@ -471,7 +492,7 @@ func numericText(value any) (string, bool) {
 // matches an equivalent PATCH while the stored sheet and updated_at stay
 // untouched. Repeated calls against an unchanged sheet return the same map.
 func (s *ServiceImpl) Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error) {
-	result, err := s.recalculate(ctx, cmd.SheetID, cmd.OwnerID, cmd.Data)
+	result, err := s.recalculate(ctx, cmd.ref(), cmd.Data)
 	if err != nil {
 		return nil, err
 	}

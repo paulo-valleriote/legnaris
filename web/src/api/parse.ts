@@ -14,6 +14,11 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** True when [record] has at least one own key. */
+export function hasEntries(record: Record<string, unknown>): boolean {
+  return Object.keys(record).length > 0;
+}
+
 /** Builds the defensive parse failure a caller throws when a payload drifts. */
 export function drift(reason: string): DefensiveParseFailure {
   return new DefensiveParseFailure({ reason });

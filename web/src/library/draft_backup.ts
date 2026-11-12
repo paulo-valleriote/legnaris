@@ -12,7 +12,7 @@
 
 import type { DiceBlock } from '../api/models/dice';
 import type { SheetStore } from './sheet_store';
-import { bestEffort } from './sheet_store';
+import { bestEffort, hasPendingWork } from './sheet_store';
 
 /** The default backup cadence, matching the desktop draft interval (AD-008). */
 export const DRAFT_CADENCE_MS = 60_000;
@@ -35,10 +35,6 @@ const defaultScheduler: CadenceScheduler = (tick, intervalMs) => {
   };
 };
 
-function hasEntries(delta: Record<string, unknown>): boolean {
-  return Object.keys(delta).length > 0;
-}
-
 /**
  * Starts the periodic draft backup and returns the function that stops it
  * (WSC-26, WSC-27).
@@ -54,7 +50,7 @@ export function startDraftCadence(
 ): () => void {
   return scheduler(() => {
     const pending = readDelta();
-    if (pending === null || (!hasEntries(pending.delta) && pending.dice === undefined)) {
+    if (pending === null || !hasPendingWork(pending)) {
       return;
     }
     void bestEffort(() => store.writeDraft(pending.sheetId, pending.delta, pending.dice));

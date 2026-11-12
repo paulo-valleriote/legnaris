@@ -14,7 +14,7 @@ import { parseDiceBlock } from '../api/models/dice';
 import type { Layout } from '../api/models/layout';
 import { isLayout } from '../api/models/layout';
 import type { Sheet } from '../api/models/sheet';
-import { isPlainObject } from '../api/parse';
+import { hasEntries, isPlainObject } from '../api/parse';
 
 /**
  * The schema version this build writes and understands (WSC-30). Version 2 added the
@@ -61,6 +61,14 @@ export interface DraftRecord {
 export interface SheetDraft {
   readonly delta: Record<string, unknown>;
   readonly dice?: DiceBlock;
+}
+
+/**
+ * True when [draft] holds work worth saving or backing up: a non-empty delta or a
+ * pending Dice block (ADR 0006).
+ */
+export function hasPendingWork(draft: SheetDraft): boolean {
+  return hasEntries(draft.delta) || draft.dice !== undefined;
 }
 
 /** The versioned record of a sheet's pending, uncommitted arrangement; `null` stages a reset to default. */
