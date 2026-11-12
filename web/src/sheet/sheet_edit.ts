@@ -22,12 +22,12 @@ import { message } from '../l10n/strings';
 import type { Sheet } from '../api/models/sheet';
 import { valueAtPath } from '../api/models/sheet';
 import type { FieldNode, FieldSchema, TemplateDetail } from '../api/models/template';
-import { isPlainObject } from '../api/parse';
+import { hasEntries, isPlainObject } from '../api/parse';
 import { buildSections, rowKey } from '../engine/field_grouping';
 import { mergeCascade, seedFromSheet, setPathValue } from '../engine/sheet_defaults';
 import type { SheetMark } from '../engine/sheet_mark';
 import type { SheetDraft, SheetStore } from '../library/sheet_store';
-import { bestEffort } from '../library/sheet_store';
+import { bestEffort, hasPendingWork } from '../library/sheet_store';
 
 /** The path sets the last successful preview published (WSC-23). */
 export interface PreviewMarks {
@@ -523,7 +523,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     let kept = false;
     try {
       await deps.store.writeDraft(seed.sheet.id, delta, dice);
-      kept = Object.keys(delta).length > 0 || dice !== undefined;
+      kept = hasPendingWork({ delta, dice });
     } catch {
       kept = false;
     }
@@ -532,8 +532,6 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     }
     return message(`sheet.error.${action}Offline`);
   };
-
-  const hasKeys = (delta: Record<string, unknown>): boolean => Object.keys(delta).length > 0;
 
   return {
     getState: () => state,
@@ -599,7 +597,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       }
       const delta = pendingDelta(state);
       const dice = pendingDice(state);
-      if (!hasKeys(delta) && dice === undefined) {
+      if (!hasPendingWork({ delta, dice })) {
         return;
       }
 
@@ -642,7 +640,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         return;
       }
       const delta = pendingDelta(state);
-      if (!hasKeys(delta)) {
+      if (!hasEntries(delta)) {
         return;
       }
       const previewedRevision = state.revision;

@@ -14,7 +14,7 @@ import type { Sheet } from './models/sheet';
 import { parseSheet } from './models/sheet';
 import type { TemplateDetail, TemplateSummary } from './models/template';
 import { parseTemplateCatalog, parseTemplateDetail } from './models/template';
-import { drift, isPlainObject } from './parse';
+import { drift, hasEntries, isPlainObject } from './parse';
 import type { CallerOptions } from './request';
 import { createCaller, DEFAULT_REQUEST_TIMEOUT_MS, DEFAULT_RETRY_DELAY_MS } from './request';
 
@@ -75,9 +75,9 @@ function saveBody(changeSet: Record<string, unknown>, dice: DiceBlock | undefine
   if (dice === undefined) {
     return { data: changeSet };
   }
-  return Object.keys(changeSet).length === 0
-    ? diceBlockToWire(dice)
-    : { data: changeSet, ...diceBlockToWire(dice) };
+  return hasEntries(changeSet)
+    ? { data: changeSet, ...diceBlockToWire(dice) }
+    : diceBlockToWire(dice);
 }
 
 function decodeChangeSet(data: unknown): Record<string, unknown> {
