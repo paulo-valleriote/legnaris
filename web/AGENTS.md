@@ -247,8 +247,11 @@ The Go package `backend/internal/dice` validates; this module parses, resolves a
   over it: it runs the local check and, when accepted, records the choice with `setDice`. Nothing is
   sent until Save (or `Ctrl+S`), which issues one `PATCH` carrying the delta and the whole block
   (`patchSheet(id, delta, dice)`; an empty delta is left out). A choice counts for `isPending`,
-  `pendingCount`, the leave guard, `F5`, discard and the draft (`writeDraft(id, delta, dice)`; restore
-  drops keys the Template no longer has); setting it back to its saved value clears it. It never
+  `pendingCount`, the leave guard, `F5`, discard and the draft (`writeDraft(id, delta, dice)`);
+  setting it back to its saved value clears it. Both the saved block and a restored draft go through
+  `pruneStaleChoices` (`src/sheet/dice_view.ts`), which mirrors the server's save rules (unknown key,
+  Row expression that no longer fits, Section expression that fits none of its Rows), so a stale entry
+  never reaches the `PATCH`; the Section check while typing uses the same rule. It never
   enables Preview (`canPreview` reads values only) and never resets the preview marks. A failed save
   keeps it pending and shows the footer error. A pending Row is marked "Modified" through
   `rowMarkBuilder(paths, rowKey)` (the preview mark wins when both apply); a pending Section choice

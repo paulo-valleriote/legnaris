@@ -16,7 +16,7 @@ const schema = diceSchemaFromFields({
 });
 
 const rowKeys = new Set(['attrs.init']);
-const sectionKeys = new Set(['attrs']);
+const sectionRows = new Map([['attrs', ['attrs.init']]]);
 const templateDefaults = templateDiceDefaults({
   section: { attrs: '1d6' },
   row: { 'attrs.init': '1d20+attrs.dex' },
@@ -28,7 +28,7 @@ function resolve(block: DiceBlock) {
     sectionKey: 'attrs',
     schema,
     rowKeys,
-    sectionKeys,
+    sectionRows,
     defaults: templateDefaults,
     block,
   });
@@ -77,7 +77,7 @@ describe('resolveRowForSheet', () => {
       sectionKey: 'attrs',
       schema,
       rowKeys,
-      sectionKeys,
+      sectionRows,
       defaults: templateDiceDefaults(undefined),
       block: { section: {}, row: {} },
     });

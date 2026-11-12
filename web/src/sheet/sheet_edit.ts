@@ -23,7 +23,13 @@ import type { Sheet } from '../api/models/sheet';
 import { valueAtPath } from '../api/models/sheet';
 import type { FieldNode, FieldSchema, TemplateDetail } from '../api/models/template';
 import { hasEntries, isPlainObject } from '../api/parse';
-import { buildSections, rowKey } from '../engine/field_grouping';
+import { buildSections } from '../engine/field_grouping';
+import {
+  diceSchemaFromFields,
+  diceSectionRows,
+  pruneStaleChoices,
+  type PruneContext,
+} from './dice_view';
 import { mergeCascade, seedFromSheet, setPathValue } from '../engine/sheet_defaults';
 import type { SheetMark } from '../engine/sheet_mark';
 import type { SheetDraft, SheetStore } from '../library/sheet_store';
@@ -173,7 +179,8 @@ export interface SheetEditStore {
   preview(): Promise<void>;
   /**
    * Overlays the stored draft on the seed, marking only its editable leaves pending (WSC-28), and
-   * restores its Dice block, keeping only the keys the Template still has.
+   * restores its Dice block pruned by the rules the server saves under, so a draft written against
+   * an older Template can never make every Save fail.
    */
   restore(): Promise<void>;
   /** Discards every in-memory edit, re-seeding the display from the baseline (WSC-36, WSC-37). */
@@ -328,10 +335,6 @@ function sameDiceEntry(
   return Object.hasOwn(overrides, key) && overrides[key] === expression;
 }
 
-function onlyKeys(overrides: DiceOverrides, known: ReadonlySet<string>): DiceOverrides {
-  return Object.fromEntries(Object.entries(overrides).filter(([key]) => known.has(key)));
-}
-
 /** Reads a dotted path defensively; a malformed path yields `undefined` rather than raising. */
 function readPath(data: Record<string, unknown>, path: string): unknown {
   try {
@@ -387,10 +390,13 @@ function defaultSchedule(callback: () => void, delayMs: number): () => void {
  */
 export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): SheetEditStore {
   const editable = editableLeafPaths(seed.template.fields);
-  const templateSections = buildSections(seed.template.fields);
-  const knownSectionKeys = new Set(templateSections.map((section) => section.key));
-  const knownRowKeys = new Set(templateSections.flatMap((section) => section.rows.map(rowKey)));
-  const seededDice = seed.sheet.dice ?? EMPTY_DICE;
+  const sectionRows = diceSectionRows(seed.template.fields);
+  const diceRules: PruneContext = {
+    rowKeys: new Set([...sectionRows.values()].flat()),
+    sectionRows,
+    schema: diceSchemaFromFields(seed.template.fields),
+  };
+  const seededDice = pruneStaleChoices(seed.sheet.dice ?? EMPTY_DICE, diceRules);
   const seeded = seedFromSheet(seed.template.fields, seed.sheet.data);
   const clock = deps.now ?? Date.now;
   const schedule = deps.schedule ?? defaultSchedule;
@@ -719,10 +725,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       if (draft.dice !== undefined) {
         commit({
           ...state,
-          dice: {
-            section: onlyKeys(draft.dice.section, knownSectionKeys),
-            row: onlyKeys(draft.dice.row, knownRowKeys),
-          },
+          dice: pruneStaleChoices(draft.dice, diceRules),
         });
       }
     },

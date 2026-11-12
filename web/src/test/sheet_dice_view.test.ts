@@ -3,7 +3,9 @@ import type { FieldNode } from '../api/models/template';
 import type { FieldSchema } from '../api/models/template';
 import {
   checkExpression,
+  checkSectionExpression,
   diceSchemaFromFields,
+  diceSectionRows,
   pruneStaleChoices,
   diceErrorMessageKey,
   diceSummary,
@@ -87,12 +89,12 @@ describe('checkExpression', () => {
 
 describe('pruneStaleChoices', () => {
   const rowKeys = new Set(['attrs.init']);
-  const sectionKeys = new Set(['attrs']);
+  const sectionRows = new Map([['attrs', ['attrs.init']]]);
 
   it('Happy path: a current override is kept as stored', () => {
     const pruned = pruneStaleChoices(
       { row: { 'attrs.init': '1d20+attrs.dex' }, section: { attrs: '1d6' } },
-      { rowKeys, sectionKeys, schema },
+      { rowKeys, sectionRows, schema },
     );
 
     expect(pruned).toEqual({ row: { 'attrs.init': '1d20+attrs.dex' }, section: { attrs: '1d6' } });
@@ -101,7 +103,7 @@ describe('pruneStaleChoices', () => {
   it('Edge: an override for a Row or Section the Template no longer has is ignored', () => {
     const pruned = pruneStaleChoices(
       { row: { 'attrs.gone': '1d4' }, section: { gone: '1d4' } },
-      { rowKeys, sectionKeys, schema },
+      { rowKeys, sectionRows, schema },
     );
 
     expect(pruned).toEqual({ row: {}, section: {} });
@@ -110,7 +112,7 @@ describe('pruneStaleChoices', () => {
   it('Edge: an override whose Field was removed no longer fits and is ignored', () => {
     const pruned = pruneStaleChoices(
       { row: { 'attrs.init': '1d20+attrs.removed' }, section: {} },
-      { rowKeys, sectionKeys, schema },
+      { rowKeys, sectionRows, schema },
     );
 
     expect(pruned.row).toEqual({});
@@ -119,14 +121,50 @@ describe('pruneStaleChoices', () => {
   it('Edge: an explicit "no dice" is a choice and survives pruning', () => {
     const pruned = pruneStaleChoices(
       { row: { 'attrs.init': null }, section: { attrs: null } },
-      { rowKeys, sectionKeys, schema },
+      { rowKeys, sectionRows, schema },
     );
 
     expect(pruned).toEqual({ row: { 'attrs.init': null }, section: { attrs: null } });
   });
 
+  it('Edge: a Section expression that fits none of its Rows is ignored (ADR 0006)', () => {
+    const pruned = pruneStaleChoices(
+      { row: {}, section: { attrs: '1d20+attrs.removed' } },
+      { rowKeys, sectionRows, schema },
+    );
+
+    expect(pruned.section).toEqual({});
+  });
+
+  it('Edge: a Section whose Rows are all gone keeps no expression', () => {
+    const pruned = pruneStaleChoices(
+      { row: {}, section: { attrs: '1d6' } },
+      { rowKeys, sectionRows: new Map([['attrs', []]]), schema },
+    );
+
+    expect(pruned.section).toEqual({});
+  });
+
+  it('Edge: an explicit "no dice" for a Row or Section the Template no longer has is ignored', () => {
+    const pruned = pruneStaleChoices(
+      { row: { 'attrs.gone': null }, section: { gone: null } },
+      { rowKeys, sectionRows, schema },
+    );
+
+    expect(pruned).toEqual({ row: {}, section: {} });
+  });
+
+  it('Edge: an unparseable expression is ignored, the rest of the block kept', () => {
+    const pruned = pruneStaleChoices(
+      { row: { 'attrs.init': '1d20++' }, section: { attrs: '1d6' } },
+      { rowKeys, sectionRows, schema },
+    );
+
+    expect(pruned).toEqual({ row: {}, section: { attrs: '1d6' } });
+  });
+
   it('Edge: an empty block prunes to an empty block', () => {
-    expect(pruneStaleChoices({ row: {}, section: {} }, { rowKeys, sectionKeys, schema })).toEqual({
+    expect(pruneStaleChoices({ row: {}, section: {} }, { rowKeys, sectionRows, schema })).toEqual({
       row: {},
       section: {},
     });
@@ -205,4 +243,41 @@ describe('diceSummary', () => {
       expect(diceSummary(parsed(tc.expression))).toBe(tc.want);
     });
   }
+});
+
+describe('checkSectionExpression', () => {
+  const rows = ['attrs.dex', 'attrs.init'];
+
+  it.each<[string, string, readonly string[], DiceErrorClass | undefined]>([
+    ['Edge: an unparseable expression is refused', '1d20++', rows, 'missing_term'],
+    ['Edge: a Section with no Rows fits nothing', '1d6', [], 'no_rows'],
+    [
+      'Error: a Field reference no Row can resolve is refused',
+      '1d20+attrs.removed',
+      rows,
+      'unknown_field',
+    ],
+    ['Error: a non-numeric Field is refused', '1d20+attrs.name', rows, 'non_numeric_field'],
+    ['Happy path: a plain expression fits', '1d6', rows, undefined],
+    [
+      'Happy path: "@" fits when at least one Row is numeric',
+      '1d20+@',
+      ['attrs.name', 'attrs.init'],
+      undefined,
+    ],
+  ])('%s', (_name, text, sectionRowKeys, expected) => {
+    expect(checkSectionExpression(text, schema, sectionRowKeys)?.class).toBe(expected);
+  });
+});
+
+describe('diceSectionRows', () => {
+  it('Edge: no fields yields no Sections', () => {
+    expect(diceSectionRows({}).size).toBe(0);
+  });
+
+  it('Happy path: each Section lists the keys of its Rows', () => {
+    const rows = diceSectionRows(fields).get('attrs');
+
+    expect(rows).toEqual(expect.arrayContaining(['attrs.dex', 'attrs.init']));
+  });
 });
