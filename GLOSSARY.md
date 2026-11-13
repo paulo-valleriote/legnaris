@@ -25,8 +25,24 @@ A shared space where one or more Game Masters run a game with Players. Membershi
 _Avoid_: Group, party, table
 
 **Game Master**:
-A Campaign member who runs the game. Shortened to GM.
+A Campaign member who runs the game. Shortened to GM. Reads the Players' character Sheets in that Campaign but never edits them, and has no character of their own there.
 _Avoid_: Master, DM, narrator
+
+**Owner**:
+The one Game Master of a Campaign who created it or received it by transfer. Only the Owner deletes the Campaign, transfers ownership and promotes, demotes or removes GMs. A flag on a GM, not a third role.
+_Avoid_: Admin, creator, host
+
+**Invite code**:
+The single shareable code (or `/join/<code>` link) that lets someone join a Campaign as a Player. It never expires; any GM can rotate it, which invalidates the previous one.
+_Avoid_: Invite link, token, key
+
+**Campaign password**:
+An optional secret a GM sets on a Campaign so that joining needs the Invite code and the password. Changing or clearing it removes no member.
+_Avoid_: PIN, passphrase
+
+**Deleting**:
+The state a Campaign enters when its Owner deletes it, while its Sheets are unlinked in the background. A deleting Campaign is invisible to everyone and is removed once no Sheet is linked to it.
+_Avoid_: Archived, soft-deleted, trashed
 
 **Player**:
 A Campaign member who plays a character in it.
