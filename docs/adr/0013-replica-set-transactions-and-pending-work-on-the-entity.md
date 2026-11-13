@@ -38,6 +38,7 @@ ADRs 0009 to 0012 were designed on a standalone MongoDB, which has no multi-docu
   - A refund is `refund_state` (`requested`, `refunded`, `canceled`, `failed`) on the subscription.
 - **One sweeper:**
   - It runs in the relay every 5 minutes, with 5-minute leases, over `billing_events`, `event_outbox`, Campaigns and users in `deleting`, and refunds in `requested`.
+  - Queues are registered in one table, each with its own interval. Generation jobs (ADR 0007) are a queue with a 10-second interval, because a user waits on the screen; they never get a loop of their own.
   - After the attempt cap an item becomes `dead` and needs manual action.
   - Metrics are `oldest_pending_seconds{queue}` and `failed_total{queue}`. Alerts fire when the oldest pending item passes 1 hour or when anything fails.
   - The daily reconciliation stays as a safety net.
