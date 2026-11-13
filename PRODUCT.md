@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Tabletop RPG players, primarily at the table during a live session: reading and editing their character sheet quickly, often on a phone. Players outside session time (building and levelling a character) are served by the same surfaces but are not the design priority. Game masters and multi-player "table" modes are out of scope for V1.
+Tabletop RPG players, primarily at the table during a live session: reading and editing their character sheet quickly, often on a phone. Players outside session time (building and levelling a character) are served by the same surfaces but are not the design priority. Game Masters are secondary users: in a Campaign they read their Players' sheets (read-only, refreshed about once a minute) to run the game, but the design priority stays the player at the table.
 
 ## Product Purpose
 

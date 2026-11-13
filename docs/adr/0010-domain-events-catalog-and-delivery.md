@@ -76,6 +76,7 @@ Legnaris publishes domain events to RabbitMQ so that asynchronous consumers can 
 
   - One `sheet.updated` per successful save, including layout and dice writes (`changed_keys: ["layout"]`). `changed_keys` lists top-level Sheet data keys plus `layout`, `dice` or `name`. Layout writes do not bump `sheet_version`.
   - Campaign, NPC and Monster events come later. Each one is added to this catalog, with its schema and tier, by the card that introduces the aggregate.
+  - **Campaign events** are defined in ADR 0011 (LGN-179): six best-effort `campaign.*` facts plus `campaign.deletion_requested`, which is guaranteed because the asynchronous deletion depends on it.
 
 ## Consequences
 
