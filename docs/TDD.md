@@ -550,7 +550,7 @@ Manter o padrão JSON já estabelecido em `backend/shared/logger`, com campos ob
 | | Sessão em cookie + store | Revogação trivial | Estado no servidor (Redis); menos adequado a API pública | Rejeitado |
 | **Evolução de templates** | IDs versionados imutáveis (escolhido) | Fichas antigas nunca quebram; zero infraestrutura de versionamento no banco | Catálogo acumula versões (mitigado: remover versão só quando não houver fichas ativas) | ✅ Escolhido |
 | | Mutação in-place + migração de fichas | Um template só | Recalcular fichas com regras novas = bugs e perda de dados | Rejeitado |
-| **Histórico de mutações da ficha** | Event sourcing (coleção de eventos) | Replay e auditoria completos | Sem ganho de desempenho (PATCH continua uma escrita); sem necessidade de produto (undo/auditoria); segunda escrita sem transação no Mongo standalone | Rejeitado — debug via log estruturado (Loki) e campo `version` na ficha |
+| **Histórico de mutações da ficha** | Event sourcing (coleção de eventos) | Replay e auditoria completos | Sem ganho de desempenho (PATCH continua uma escrita); sem necessidade de produto (undo/auditoria); apagar dados pessoais (LGPD) num log imutável exige crypto-shredding. Com o replica set da ADR 0013 a falta de transação deixou de ser motivo | Rejeitado — debug via log estruturado (Loki) e campo `version` na ficha |
 
 ---
 

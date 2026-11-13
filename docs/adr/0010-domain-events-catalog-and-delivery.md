@@ -4,6 +4,8 @@ status: accepted
 
 # Domain events are ID-only facts on a topic exchange, best-effort unless a consumer cannot afford to lose them
 
+> Amended by [ADR 0013](0013-replica-set-transactions-and-pending-work-on-the-entity.md): guaranteed events are written in the same transaction as the entity, the envelope gains `aggregate.version`, `legnaris.events` gets an alternate exchange, and the publisher drains on shutdown.
+
 Legnaris publishes domain events to RabbitMQ so that asynchronous consumers can react to facts without the API calling them. The first consumers are analytics (LGN-188), email, and the cleanup after account deletion (LGN-190). An event reports a fact that already happened. It can trigger an effect for the user, such as an email, but no domain rule depends on it arriving: state always lives in MongoDB (for example `users.plan`, ADR 0009). Payloads carry IDs, changed keys and metadata, never Sheet values or PII. Most events are published best-effort from the API. The few that a consumer cannot afford to lose go through the `event_outbox` introduced in ADR 0009. Decided in LGN-173.
 
 ## Considered Options
