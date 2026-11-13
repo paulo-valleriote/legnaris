@@ -4,6 +4,8 @@ status: accepted
 
 # Campaigns have one Owner among their GMs, join by code, give GMs read-only access, and are deleted asynchronously
 
+> Amended by [ADR 0013](0013-replica-set-transactions-and-pending-work-on-the-entity.md): deletion is pending work on the Campaign driven by the sweeper (`campaign.deletion_requested` is removed), and every Campaign-scoped transaction increments `campaign.version`.
+
 A Campaign is a shared space where Game Masters run a game with Players. It fixes one Template. People join with an invite code, optionally protected by a password, and always join as Players. GMs read their Players' Sheets but never write them, refreshed by polling every minute. A Campaign is deleted asynchronously: it enters a `deleting` state while a guaranteed event unlinks every Sheet, and it is removed when the last one is unlinked. Decided in LGN-179, on top of the Plans from LGN-174 and the event catalog from ADR 0010.
 
 ## Considered Options

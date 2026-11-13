@@ -4,6 +4,8 @@ status: accepted
 
 # Subscriptions are driven by provider webhooks through an inbox
 
+> Amended by [ADR 0013](0013-replica-set-transactions-and-pending-work-on-the-entity.md): the billing consumer is serialized per user, guaranteed events use a transactional outbox, refunds follow `refund_state`, and one sweeper replaces the daily-only requeue.
+
 A user's Plan comes from our own `subscriptions` collection. Only provider webhooks, processed through an idempotent inbox, change it. Stripe is the MVP provider and sits behind a `billing.Provider` interface: nothing in the domain or in MongoDB uses Stripe vocabulary except the `provider` value and opaque IDs. The paid Plan is card only and costs USD 6.99 per month. BRL (R$ 29.90) comes later. Decided in LGN-178, on top of the Plans and limits from LGN-174.
 
 ## Considered Options

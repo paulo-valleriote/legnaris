@@ -4,6 +4,8 @@ status: accepted
 
 # NPC and Monster Sheets are shared by reference across Campaigns, hidden from Players until a GM reveals them
 
+> Amended by [ADR 0013](0013-replica-set-transactions-and-pending-work-on-the-entity.md): link creation and the GM-exit cascade run in the Campaign transaction, and polling authorizes before evaluating `If-None-Match`.
+
 An NPC or Monster Sheet belongs to the user who made it and lives on its own, with no Campaign. Its owner can link it to any Campaign where they are a GM, and to several at once: every Campaign sees the same Sheet, so an edit shows up everywhere. Each link is a document of its own that carries whether Players can see the Sheet in that Campaign. NPCs and Monsters use the Campaign's Template in full, with no simplified form. Decided in LGN-180, on top of the Campaign model (ADR 0011), the Plans (LGN-174) and the event catalog (ADR 0010).
 
 ## Considered Options
