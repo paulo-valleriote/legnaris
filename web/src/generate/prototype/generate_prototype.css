@@ -1,0 +1,139 @@
+/* PROTOTYPE (LGN-177) — throwaway, never merged. */
+.proto-gen {
+  display: grid;
+  gap: var(--lg-space-24);
+  padding: var(--lg-space-24) var(--lg-space-16) var(--lg-space-128);
+  max-width: 48rem;
+  margin: 0 auto;
+  color: var(--lg-color-text);
+}
+.proto-gen__eyebrow {
+  margin: 0;
+  color: var(--lg-color-text-muted);
+}
+.proto-gen__title {
+  margin: var(--lg-space-4) 0 0;
+}
+.proto-gen__panel,
+.proto-gen__accept {
+  display: grid;
+  gap: var(--lg-space-16);
+  padding: var(--lg-space-24);
+  background: var(--lg-color-surface);
+  border: 1px solid var(--lg-color-border);
+  border-radius: var(--lg-radius-md);
+}
+.proto-gen__preview {
+  display: grid;
+  gap: var(--lg-space-24);
+}
+.proto-gen__textarea {
+  resize: vertical;
+  min-height: 8rem;
+  font: inherit;
+}
+.proto-gen__counter {
+  justify-self: end;
+  color: var(--lg-color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.proto-gen__counter.is-over {
+  color: var(--lg-color-danger-text);
+}
+.proto-gen__hint,
+.proto-gen__quota {
+  margin: 0;
+  color: var(--lg-color-text-muted);
+}
+.proto-gen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-12);
+}
+.proto-gen__line {
+  margin: 0;
+  display: flex;
+  gap: var(--lg-space-12);
+  align-items: baseline;
+}
+.proto-gen__pulse {
+  flex: none;
+  width: var(--lg-space-8);
+  height: var(--lg-space-8);
+  border-radius: var(--lg-radius-pill);
+  background: var(--lg-color-accent);
+  animation: proto-pulse 1.2s ease-in-out infinite alternate;
+}
+@keyframes proto-pulse {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .proto-gen__pulse {
+    animation: none;
+  }
+}
+.proto-gen__notice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--lg-space-12);
+  padding: var(--lg-space-12) var(--lg-space-16);
+  border: 1px solid var(--lg-color-accent);
+  border-radius: var(--lg-radius-md);
+  background: var(--lg-color-surface);
+}
+.proto-gen__list {
+  margin: 0 0 var(--lg-space-12);
+  padding-left: var(--lg-space-24);
+  display: grid;
+  gap: var(--lg-space-8);
+}
+.proto-gen__price {
+  margin: 0 0 var(--lg-space-12);
+  font-weight: var(--lg-font-weight-semibold);
+}
+
+/* Dev-only scenario bar: deliberately off-design so it never reads as part of the UI. */
+.proto-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: calc(100vw - 24px);
+  font:
+    12px/1.4 ui-monospace,
+    monospace;
+  color: #fff;
+  background: #c2185b;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
+}
+.proto-bar__row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+}
+.proto-bar__row button {
+  font: inherit;
+  color: inherit;
+  background: rgb(255 255 255 / 0.15);
+  border: 0;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.proto-bar__state {
+  margin: 0;
+  padding: 10px;
+  max-height: 40vh;
+  overflow: auto;
+  border-bottom: 1px solid rgb(255 255 255 / 0.3);
+}

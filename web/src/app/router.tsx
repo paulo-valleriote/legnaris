@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AuthGate } from '../auth/auth_gate';
+import { GeneratePrototype } from '../generate/prototype/generate_prototype';
 import { CatalogScreen } from '../catalog/catalog_screen';
 import { AppShell } from '../shell/app_shell';
 import { NotFound } from '../shell/not_found';
@@ -24,6 +25,7 @@ const SCREENS: Record<string, ReactElement> = {
 export function AppRoutes() {
   return (
     <Routes>
+      {import.meta.env.DEV && <Route path="/prototype/generate" element={<GeneratePrototype />} />}
       <Route element={<AuthGate />}>
         <Route element={<AppShell />}>
           {DECLARED_ROUTES.map((route) => (

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "proto:generate": "vite --open /prototype/generate",
     "build": "tsc --noEmit -p tsconfig.build.json && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
