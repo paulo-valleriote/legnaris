@@ -71,6 +71,148 @@ An NPC or Monster Sheet belongs to the user who made it and lives on its own, wi
 
 ## Diagrams
 
+### Data model
+
+```mermaid
+erDiagram
+  USER ||--o{ SHEET : owns
+  USER ||--o{ CAMPAIGN_MEMBER : "is"
+  CAMPAIGN ||--o{ CAMPAIGN_MEMBER : has
+  CAMPAIGN ||--o{ CAMPAIGN_SHEET_LINK : shows
+  SHEET ||--o{ CAMPAIGN_SHEET_LINK : "linked by (npc, monster)"
+  CAMPAIGN |o--o{ SHEET : "campaign_id (character only)"
+  SHEET {
+    uuid id
+    uuid owner_id
+    string kind "character | npc | monster, immutable"
+    string template_id
+    uuid campaign_id "character only, ADR 0011"
+  }
+  CAMPAIGN {
+    uuid id
+    string template_id "fixed at creation"
+    string status "active | deleting"
+  }
+  CAMPAIGN_MEMBER {
+    uuid user_id
+    string role "gm | player"
+    bool owner
+  }
+  CAMPAIGN_SHEET_LINK {
+    uuid id
+    uuid campaign_id "unique with sheet_id"
+    uuid sheet_id
+    uuid owner_id
+    bool revealed "false on link"
+    datetime linked_at
+  }
+```
+
+### Link validation
+
+```mermaid
+flowchart TD
+  A["POST /campaigns/{id}/sheets"] --> B{"Campaign active and caller is a member?"}
+  B -- no --> E1["CAMPAIGN_NOT_FOUND 404"]
+  B -- yes --> C{"Caller is a GM?"}
+  C -- no --> E2["CAMPAIGN_FORBIDDEN 403"]
+  C -- yes --> D{"Sheet exists and caller owns it?"}
+  D -- no --> E3["NOT_FOUND 404"]
+  D -- yes --> F{"kind is npc or monster?"}
+  F -- no --> E4["SHEET_KIND_MISMATCH 422"]
+  F -- yes --> G{"Template matches the Campaign?"}
+  G -- no --> E5["TEMPLATE_MISMATCH 422"]
+  G -- yes --> H["Upsert link on (campaign_id, sheet_id)"]
+  H --> I{"Re-read Campaign: deleting?"}
+  I -- yes --> J["Delete link, CAMPAIGN_NOT_FOUND 404"]
+  I -- no --> K["200 link; emit campaign.sheet_linked if new"]
+```
+
+### Read access to a linked NPC or Monster
+
+```mermaid
+flowchart TD
+  A["GET /campaigns/{id}/sheets/{sheet_id}"] --> B{"Campaign active and caller is a member?"}
+  B -- no --> E1["CAMPAIGN_NOT_FOUND 404"]
+  B -- yes --> C{"Link exists and Sheet exists?"}
+  C -- no --> E2["NOT_FOUND 404"]
+  C -- yes --> D{"Caller role"}
+  D -- "GM, owner" --> R1["Read and edit"]
+  D -- "GM, not owner" --> R2["Read-only"]
+  D -- Player --> F{"revealed?"}
+  F -- yes --> R2
+  F -- no --> E2
+```
+
+### Link lifecycle
+
+```mermaid
+stateDiagram-v2
+  [*] --> Hidden: owner links
+  Hidden --> Revealed: any GM reveals
+  Revealed --> Hidden: any GM hides
+  Hidden --> [*]: owner unlinks / owner_left / sheet_deleted / Campaign deleted / orphan reconciled
+  Revealed --> [*]: owner unlinks / owner_left / sheet_deleted / Campaign deleted / orphan reconciled
+```
+
+### Owner stops being a GM
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor O as Campaign Owner
+  participant A as API
+  participant M as Campaign members
+  participant L as campaign_sheet_links
+  O->>A: demote, remove, or the GM leaves
+  A->>M: update role or remove member
+  A->>L: delete where campaign_id = id and owner_id = gm
+  A-->>A: emit campaign.sheet_unlinked (reason owner_left) per link
+  A-->>O: 200
+  Note over L: the GM's Sheets stay in their library
+```
+
+### Campaign deletion with links
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant OB as event_outbox
+  participant R as relay consumer
+  participant S as sheets
+  participant L as campaign_sheet_links
+  participant C as campaigns
+  OB->>R: campaign.deletion_requested
+  loop until none left
+    R->>S: unset campaign_id in batch (characters)
+  end
+  loop until none left
+    R->>L: delete links in batch where campaign_id = id
+  end
+  R->>C: delete campaign
+  R-->>R: emit campaign.deleted (no campaign.sheet_unlinked)
+```
+
+### Duplicate
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as Owner
+  participant A as API
+  participant P as Plan limits
+  participant S as sheets
+  U->>A: POST /sheets/{id}/duplicate
+  A->>S: load Sheet, caller must own it
+  A->>P: per-kind count below limit?
+  alt over the limit
+    A-->>U: PLAN_LIMIT_REACHED 403
+  else
+    A->>S: insert copy of values, Layout, Pins and dice, same kind and Template, name plus (copy)
+    A-->>U: 201 new Sheet, no links
+  end
+```
+
 ### Link and reveal
 
 ```mermaid
