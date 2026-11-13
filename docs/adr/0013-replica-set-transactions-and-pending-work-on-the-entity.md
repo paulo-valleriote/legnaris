@@ -17,13 +17,13 @@ ADRs 0009 to 0012 were designed on a standalone MongoDB, which has no multi-docu
 ## Decisions
 
 - **Replica set:**
-  - Every MongoDB service in every Compose stack (production, development, load test, observability) and the integration tests runs as replica set `rs0`, with a keyfile. A one-shot `mongodb-bootstrap` service runs `rs.initiate()` and creates the users idempotently, because the official image's first-run init scripts cannot create users when `--replSet` and `--keyFile` are set.
-  - The connection string names the replica set and enables retryable writes. `InitMongo` refuses a `DATABASE_URI` without `replicaSet` (`ErrMissingReplicaSet`), so a standalone URI fails at startup instead of on the first transaction.
+  - Every MongoDB service in every Compose stack (production, development, load test, observability) and the integration tests runs as replica set `rs0`, with a keyfile. The init script runs `rs.initiate()` idempotently.
+  - The connection string names the replica set and enables retryable writes.
   - Transactions use `w: majority`. Reads that decide authorization, or that a compensation depends on, go to the primary.
   - Moving to three members on separate hosts is a configuration change (`rs.add()`), never a code change.
 - **Transactions:**
-  - One helper in the shared db package runs a function through the driver's `WithTransaction`, which re-runs the function on `TransientTransactionError` and retries only the commit step on `UnknownTransactionCommitResult` (the function is not re-run for it, so it must have no side effects outside the database). The helper caps one call at 10 seconds. A function error that arrives after that deadline is no longer retried, even if it carries a transient label, because the driver's own retry loop ignores the context deadline and could run for 120 seconds. Nothing opens a session by hand.
-  - Repositories accept the session-bound context. The helper returns `db` errors (`ErrTransactionAborted` wraps the function's own error, `ErrTransactionFailed` covers start and commit failures), and services match them with `errors.Is` and translate them to `apperr`.
+  - One helper in the shared db package runs a function through the driver's `WithTransaction`, which retries `TransientTransactionError` and `UnknownTransactionCommitResult`. Nothing opens a session by hand.
+  - Repositories accept the session-bound context. The helper returns `db` errors, and services translate them to `apperr`.
 - **Write-skew rule:**
   - MongoDB transactions are snapshot isolated. Two transactions conflict only when both write the same document, so a transaction that reads a member and writes a link does not conflict with one that demotes that member.
   - **Every Campaign-scoped transaction increments `campaign.version`.** This covers join, leave, promote, demote, remove, link, unlink, reveal, hide and the deletion steps. Two concurrent decisions about one Campaign then conflict, and the driver retries the loser against the new state.
@@ -38,7 +38,6 @@ ADRs 0009 to 0012 were designed on a standalone MongoDB, which has no multi-docu
   - A refund is `refund_state` (`requested`, `refunded`, `canceled`, `failed`) on the subscription.
 - **One sweeper:**
   - It runs in the relay every 5 minutes, with 5-minute leases, over `billing_events`, `event_outbox`, Campaigns and users in `deleting`, and refunds in `requested`.
-  - Queues are registered in one table, each with its own interval. Generation jobs (ADR 0007) are a queue with a 10-second interval, because a user waits on the screen; they never get a loop of their own.
   - After the attempt cap an item becomes `dead` and needs manual action.
   - Metrics are `oldest_pending_seconds{queue}` and `failed_total{queue}`. Alerts fire when the oldest pending item passes 1 hour or when anything fails.
   - The daily reconciliation stays as a safety net.
