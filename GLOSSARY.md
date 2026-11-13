@@ -13,7 +13,7 @@ A character, NPC or monster built from one Template, holding the values entered 
 _Avoid_: Character, document
 
 **Sheet kind**:
-What a Sheet represents: a player's character, an NPC or a monster. Every kind uses the same Template, Fields and formulas; the kind changes who uses it and how, never how its values are computed. An NPC or monster belongs to the Game Master who made it; it can be linked to a Campaign and reused in others.
+What a Sheet represents: a player's character, an NPC or a monster. Every kind uses the same Template, Fields and formulas; the kind changes who uses it and how, never how its values are computed. The kind is set at creation and never changes. An NPC or monster belongs to the user who made it, exists without any Campaign, and can be linked to every Campaign where its owner is a Game Master; every Campaign sees the same Sheet.
 _Avoid_: Sheet type, category
 
 **Plan**:
@@ -44,8 +44,12 @@ _Avoid_: PIN, passphrase
 The state a Campaign enters when its Owner deletes it, while its Sheets are unlinked in the background. A deleting Campaign is invisible to everyone and is removed once no Sheet is linked to it.
 _Avoid_: Archived, soft-deleted, trashed
 
+**Reveal**:
+A Game Master making a linked NPC or monster visible, read-only, to the Players of one Campaign. Per Campaign and per whole Sheet; a new link starts hidden and any Game Master can reveal or hide it.
+_Avoid_: Share, publish, show
+
 **Player**:
-A Campaign member who plays a character in it.
+A Campaign member who plays a character in it, and reads the NPCs and monsters revealed there.
 _Avoid_: Member, user
 
 **Field**:
