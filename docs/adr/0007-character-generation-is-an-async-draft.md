@@ -4,7 +4,7 @@ status: accepted
 
 # Character generation is an async draft the player accepts
 
-A player generates a character Sheet from a short concept text. `POST /generations` stores a `generation` document, publishes a job to RabbitMQ and answers `202 {id}`. A worker asks the LLM for values that fit a strict JSON Schema derived from the Template, validates them and stores them on the same document. The client polls `GET /generations/{id}` and shows a preview. The player can edit values locally, and nothing becomes a Sheet until `POST /generations/{id}/accept`. The LLM only supplies values for existing editable leaves. It never writes formulas or keys, and its output is treated as untrusted data. Gateway and model come from LGN-170 and LGN-174: OpenCode with DeepSeek Flash, never the DeepSeek first-party API.
+A player generates a character Sheet from a short concept text. `POST /generations` stores a `generation` document, publishes a job to RabbitMQ and answers `202 {id}`. A worker asks the LLM for values that fit a strict JSON Schema derived from the Template, validates them and stores them on the same document. The client polls `GET /generations/{id}` and shows a preview. The player can edit values locally, and nothing becomes a Sheet until `POST /generations/{id}/accept`. The LLM only supplies values for existing editable leaves. It never writes formulas or keys, and its output is treated as untrusted data. Gateway and model come from LGN-170 and LGN-174: OpenCode with `deepseek-v4.1-flash` (paid; see ADR 0008), never the DeepSeek first-party API.
 
 ## Considered Options
 
