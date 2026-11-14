@@ -25,7 +25,10 @@ import (
 	eventsamqp "legnaris/backend/internal/events/amqp"
 	eventsoutbox "legnaris/backend/internal/events/outbox"
 	eventsrelay "legnaris/backend/internal/events/relay"
+	"legnaris/backend/internal/generation"
+	generationamqp "legnaris/backend/internal/generation/amqp"
 	"legnaris/backend/internal/platform/metrics"
+	"legnaris/backend/internal/quota"
 	"legnaris/backend/internal/sweeper"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/env"
@@ -52,16 +55,25 @@ type eventBrokerClient interface {
 	Close() error
 }
 
+// generationBrokerClient is the broker adapter the generation republish sweep
+// publishes through.
+type generationBrokerClient interface {
+	generation.Publisher
+	Close() error
+}
+
 // dependencies are the process's wiring seams, overridable in tests so the
 // startup logic is exercised without Mongo or a broker (EML-15).
 type dependencies struct {
-	openDatabase       func(cfg env.Env) (databaseHandle, error)
-	ensureIndexes      func(ctx context.Context, cfg env.Env, database databaseHandle) error
-	newRepository      func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (outbox.Repository, error)
-	dialBroker         func(cfg env.Env) (brokerClient, error)
-	dialEventBroker    func(cfg env.Env) (eventBrokerClient, error)
-	newEventRepository func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (eventsoutbox.Repository, error)
-	serveMetrics       func(addr string, handler http.Handler) (func(ctx context.Context) error, error)
+	dialGenerationBroker   func(cfg env.Env) (generationBrokerClient, error)
+	newGenerationRepublish func(cfg env.Env, database databaseHandle, publisher generation.Publisher) (generation.RepublishDeps, error)
+	openDatabase           func(cfg env.Env) (databaseHandle, error)
+	ensureIndexes          func(ctx context.Context, cfg env.Env, database databaseHandle) error
+	newRepository          func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (outbox.Repository, error)
+	dialBroker             func(cfg env.Env) (brokerClient, error)
+	dialEventBroker        func(cfg env.Env) (eventBrokerClient, error)
+	newEventRepository     func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (eventsoutbox.Repository, error)
+	serveMetrics           func(addr string, handler http.Handler) (func(ctx context.Context) error, error)
 }
 
 func main() {
@@ -140,7 +152,17 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	if err != nil {
 		return err
 	}
-	queues, err := sweepQueues(cfg, eventRepository, eventBroker)
+	generationBroker, err := deps.dialGenerationBroker(cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = generationBroker.Close() }()
+
+	generationDeps, err := deps.newGenerationRepublish(cfg, database, generationBroker)
+	if err != nil {
+		return err
+	}
+	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps)
 	if err != nil {
 		return err
 	}
@@ -161,10 +183,15 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 // eventsOutboxInterval is how often the sweeper claims the event outbox.
 const eventsOutboxInterval = 5 * time.Minute
 
+// generationRepublishAttemptCap is how many publish attempts a queued generation
+// gets before the sweep gives up on it and refunds the quota (LGN-186).
+const generationRepublishAttemptCap = 5
+
 // sweepQueues is the sweeper's queue table: one entry per queue, and the only
 // place a queue is registered (ADR 0013). The event outbox shares the email
-// relay's batch, confirm timeout and attempt cap.
-func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher) ([]sweeper.Queue, error) {
+// relay's batch, confirm timeout and attempt cap. The generation republish runs
+// every 10 s, because a player waits on the screen (LGN-186).
+func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps) ([]sweeper.Queue, error) {
 	vars := cfg.Variables
 	eventQueue, err := eventsrelay.NewQueue(eventRepository, eventBroker, eventsrelay.Config{
 		Interval:       eventsOutboxInterval,
@@ -175,7 +202,11 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
-	return []sweeper.Queue{eventQueue}, nil
+	generationQueue, err := generation.NewRepublishQueue(generationDeps, generationRepublishAttemptCap, vars.EmailRelayBatch)
+	if err != nil {
+		return nil, err
+	}
+	return []sweeper.Queue{eventQueue, generationQueue}, nil
 }
 
 // validateBrokerURL rejects an absent or unusable broker URL with the typed
@@ -282,5 +313,25 @@ func defaultDependencies() dependencies {
 			return eventsoutbox.NewRepository(mongo.Client.Database(cfg.Variables.DatabaseName), log), nil
 		},
 		serveMetrics: serveMetrics,
+		dialGenerationBroker: func(cfg env.Env) (generationBrokerClient, error) {
+			return generationamqp.New(generationamqp.Config{
+				URL:            cfg.Variables.RabbitMQURL,
+				ConfirmTimeout: cfg.Variables.EmailRelayConfirmTimeout,
+			}), nil
+		},
+		newGenerationRepublish: func(cfg env.Env, database databaseHandle, publisher generation.Publisher) (generation.RepublishDeps, error) {
+			mongo, ok := database.(*db.Database)
+			if !ok {
+				return generation.RepublishDeps{}, fmt.Errorf("unexpected database handle type %T", database)
+			}
+			mdb := mongo.Client.Database(cfg.Variables.DatabaseName)
+			return generation.RepublishDeps{
+				Store:     generation.NewMongoStore(mdb),
+				Publisher: publisher,
+				Quota:     quota.NewService(quota.NewMongoStore(mdb), nil),
+				Tx:        db.NewTransactor(mongo.Client, nil),
+				Now:       time.Now,
+			}, nil
+		},
 	}
 }

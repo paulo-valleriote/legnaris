@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"legnaris/backend/internal/auth"
@@ -45,18 +46,131 @@ type planView struct {
 	Plan        string               `json:"plan"`
 	Trial       *planTrialView       `json:"trial,omitempty"`
 	Generations *planGenerationsView `json:"generations,omitempty"`
+	// Sheets is the per-kind Sheet usage against the Plan's allowance. It is
+	// present only when the controller was built WithSheetUsage (LGN-183).
+	Sheets map[string]planSheetView `json:"sheets,omitempty"`
+	// LLMConsentRequired tells the client to show the consent disclosure before a
+	// generation. A Free account with no allowance left is never asked (ADR 0008).
+	LLMConsentRequired bool `json:"llm_consent_required"`
+	// ActiveGenerationID is the caller's queued or running generation, or null.
+	ActiveGenerationID *string `json:"active_generation_id"`
 }
 
-// PlanController serves the caller's generation allowance.
+// ConsentChecker reports whether the caller holds a current LLM consent. It is
+// the consent gate of POST /generations; a missing consent is
+// LLM_CONSENT_REQUIRED.
+type ConsentChecker interface {
+	Gate(ctx context.Context, userID string) error
+}
+
+// ActiveGenerationReader reports the caller's queued or running generation.
+type ActiveGenerationReader interface {
+	ActiveGenerationID(ctx context.Context, userID string) (string, bool, error)
+}
+
+// planSheetView is the usage of one Sheet kind: how many are held and the
+// allowance the Plan grants.
+type planSheetView struct {
+	Used  int `json:"used"`
+	Limit int `json:"limit"`
+}
+
+// PlanOption configures the optional parts of the plan view.
+type PlanOption func(*PlanController)
+
+// WithSheetUsage adds the caller's per-kind Sheet usage to GET /me/plan, read
+// from the sheet service that enforces the same allowance on creation (LGN-183).
+func WithSheetUsage(sheets sheet.Service) PlanOption {
+	return func(pc *PlanController) {
+		pc.sheets = sheets
+	}
+}
+
+// WithGenerationStatus adds the consent prompt and the active generation to
+// GET /me/plan (LGN-186).
+func WithGenerationStatus(consent ConsentChecker, active ActiveGenerationReader) PlanOption {
+	return func(pc *PlanController) {
+		pc.consent = consent
+		pc.active = active
+	}
+}
+
+// PlanController serves the caller's Plan, its generation allowance and, when
+// configured, its Sheet usage per kind and its generation status.
 type PlanController struct {
 	quota    *quota.Service
 	resolver PlanResolver
+	sheets   sheet.Service
+	consent  ConsentChecker
+	active   ActiveGenerationReader
 }
 
 // NewPlanController returns a controller that reads allowance from quota and
-// decides the Plan with resolver.
-func NewPlanController(allowance *quota.Service, resolver PlanResolver) *PlanController {
-	return &PlanController{quota: allowance, resolver: resolver}
+// decides the Plan with resolver. Options add the Sheet usage.
+func NewPlanController(allowance *quota.Service, resolver PlanResolver, opts ...PlanOption) *PlanController {
+	pc := &PlanController{quota: allowance, resolver: resolver}
+	for _, opt := range opts {
+		opt(pc)
+	}
+	return pc
+}
+
+// respond writes the view, adding the Sheet usage and the generation status when
+// the controller has them. canGenerate is whether the caller has allowance left:
+// only an account that can generate is asked for consent.
+func (pc *PlanController) respond(c *echo.Context, userID string, view planView, canGenerate bool) error {
+	ctx := c.Request().Context()
+	if pc.sheets != nil {
+		usage, err := pc.sheets.PlanUsage(ctx, userID)
+		if err != nil {
+			return err
+		}
+		view.Sheets = sheetUsageView(usage)
+	}
+	if pc.consent != nil && pc.active != nil {
+		if err := pc.fillGenerationStatus(ctx, userID, canGenerate, &view); err != nil {
+			return err
+		}
+	}
+	return response.OK(c, view)
+}
+
+// fillGenerationStatus reads the consent prompt and the active generation. A
+// consent refusal from the gate is the answer "required", never an error.
+func (pc *PlanController) fillGenerationStatus(ctx context.Context, userID string, canGenerate bool, view *planView) error {
+	if canGenerate {
+		err := pc.consent.Gate(ctx, userID)
+		switch {
+		case err == nil:
+		case isConsentRequired(err):
+			view.LLMConsentRequired = true
+		default:
+			return apperr.NewError(apperr.CodeInternal, MsgPlanUnavailable, err)
+		}
+	}
+	id, active, err := pc.active.ActiveGenerationID(ctx, userID)
+	if err != nil {
+		return apperr.NewError(apperr.CodeInternal, MsgPlanUnavailable, err)
+	}
+	if active {
+		view.ActiveGenerationID = &id
+	}
+	return nil
+}
+
+// isConsentRequired reports whether err is the LLM_CONSENT_REQUIRED refusal.
+func isConsentRequired(err error) bool {
+	var appErr *apperr.Error
+	return errors.As(err, &appErr) && appErr.Code == apperr.CodeLLMConsentRequired
+}
+
+// sheetUsageView maps the service's per-kind usage onto the wire shape.
+func sheetUsageView(usage sheet.PlanUsage) map[string]planSheetView {
+	views := make(map[string]planSheetView, len(usage.Kinds))
+	for _, status := range usage.Kinds {
+		views[string(status.Kind)] = planSheetView{Used: status.Used, Limit: status.Limit}
+	}
+	return views
 }
 
 // RegisterRoutes mounts GET /plan on group, which the router guards with the
@@ -92,7 +206,7 @@ func (pc *PlanController) freeView(c *echo.Context, userID string) error {
 	return response.OK(c, planView{
 		Plan:  "free",
 		Trial: &planTrialView{Used: status.Used, Remaining: status.Remaining},
-	})
+	}, status.Remaining > 0)
 }
 
 func (pc *PlanController) paidView(c *echo.Context, userID string) error {
@@ -107,5 +221,5 @@ func (pc *PlanController) paidView(c *echo.Context, userID string) error {
 			Remaining: status.Remaining,
 			ResetsAt:  status.ResetsAt,
 		},
-	})
+	}, true)
 }

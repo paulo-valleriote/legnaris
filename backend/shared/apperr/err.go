@@ -41,6 +41,15 @@ const (
 	// CodeQuotaExceeded refuses a generation past the paid daily quota. It
 	// carries a Retry-After hint up to the next UTC midnight (ADR 0009).
 	CodeQuotaExceeded Code = "QUOTA_EXCEEDED"
+	// CodeGenerationInProgress refuses a second generation while the player has
+	// one queued or running (ADR 0007, LGN-186).
+	CodeGenerationInProgress Code = "GENERATION_IN_PROGRESS"
+	// CodeProviderUnavailable answers 503 while generation is switched off by
+	// the kill-switch, so no request reaches the gateway (ADR 0007, LGN-186).
+	CodeProviderUnavailable Code = "PROVIDER_UNAVAILABLE"
+	// CodeGenerationCapReached answers 503 once the global daily job cap is spent,
+	// with a Retry-After up to the next UTC midnight (LGN-186).
+	CodeGenerationCapReached Code = "GENERATION_CAP_REACHED"
 )
 
 type Error struct {
@@ -87,11 +96,11 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 404
 	case CodeMethodNotAllowed:
 		httpStatus = 405
-	case CodeConflict, CodeSheetLimitReached:
+	case CodeConflict, CodeSheetLimitReached, CodeGenerationInProgress:
 		httpStatus = 409
 	case CodeRateLimited, CodeQuotaExceeded:
 		httpStatus = 429
-	case CodeEmailUnavailable, CodeNotReady:
+	case CodeEmailUnavailable, CodeNotReady, CodeProviderUnavailable, CodeGenerationCapReached:
 		httpStatus = 503
 	case CodeInternal:
 		httpStatus = 500

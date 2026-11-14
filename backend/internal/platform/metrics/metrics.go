@@ -41,6 +41,9 @@ type Metrics struct {
 	authOTPCapBlocked        prometheus.Counter
 	sweeperOldestPending     *prometheus.GaugeVec
 	sweeperFailed            *prometheus.CounterVec
+	generationCapUsed        prometheus.Gauge
+	generationCapLimit       prometheus.Gauge
+	generationCapUsedRatio   prometheus.Gauge
 }
 
 const metricsNamespace = "legnaris"
@@ -238,12 +241,31 @@ func New() *Metrics {
 		Help:      "Total number of failed handler attempts of a sweeper queue.",
 	}, []string{queueLabel})
 
+	// The global generation cap is exported as a used/limit pair and as the
+	// ratio the 80% alert (LGN-226) reads. Values are the last observed reservation.
+	generationCapUsed := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "generation_cap_used",
+		Help:      "Generation jobs accepted today (UTC) against the global daily cap, as last observed.",
+	})
+	generationCapLimit := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "generation_cap_limit",
+		Help:      "Global daily cap of generation jobs (GENERATION_DAILY_CAP).",
+	})
+	generationCapUsedRatio := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "generation_cap_used_ratio",
+		Help:      "Share of the global daily generation cap in use, from 0 to 1; the 80% alert fires above 0.8.",
+	})
+
 	registry.MustRegister(requestDuration, requestsTotal, requestsInFlight, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports, eventsDropped,
 		emailOutboxBacklog, emailPublishTotal, emailDeadTotal,
 		emailSendTotal, emailSendDuration, emailExpiredTotal,
 		emailBreakerOpen, emailBreakerOpened,
 		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked,
-		sweeperOldestPending, sweeperFailed)
+		sweeperOldestPending, sweeperFailed,
+		generationCapUsed, generationCapLimit, generationCapUsedRatio)
 
 	// The private registry must be self-sufficient: register the standard Go
 	// and process collectors so the deployment's own resource metrics (goroutines,
@@ -277,6 +299,9 @@ func New() *Metrics {
 		authOTPCapBlocked:        authOTPCapBlocked,
 		sweeperOldestPending:     sweeperOldestPending,
 		sweeperFailed:            sweeperFailed,
+		generationCapUsed:        generationCapUsed,
+		generationCapLimit:       generationCapLimit,
+		generationCapUsedRatio:   generationCapUsedRatio,
 	}
 }
 
@@ -448,4 +473,17 @@ func (m *Metrics) OldestPending(queue string, age time.Duration) {
 // Failed counts one failed handler attempt of a sweeper queue.
 func (m *Metrics) Failed(queue string) {
 	m.sweeperFailed.WithLabelValues(queue).Inc()
+}
+
+// GenerationCapUsage records the global daily generation cap as last observed:
+// the jobs accepted today, the limit and their ratio. A limit of zero reports a
+// ratio of zero, so an off cap never reads as full.
+func (m *Metrics) GenerationCapUsage(used, limit int) {
+	m.generationCapUsed.Set(float64(used))
+	m.generationCapLimit.Set(float64(limit))
+	ratio := 0.0
+	if limit > 0 {
+		ratio = float64(used) / float64(limit)
+	}
+	m.generationCapUsedRatio.Set(ratio)
 }

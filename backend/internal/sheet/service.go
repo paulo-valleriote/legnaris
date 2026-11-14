@@ -88,6 +88,7 @@ type Service interface {
 	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
 	FetchMySheet(ctx context.Context, ownerID string) (*Sheet, error)
 	FetchByID(ctx context.Context, id string, ownerID string) (*Sheet, error)
+	CreateWithValues(ctx context.Context, cmd CreateWithValuesCommand, afterInsert AfterInsertHook) (*Sheet, error)
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
@@ -208,50 +209,15 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		return nil, err
 	}
 
-	// FetchTemplate before the DAG lookup: it owns the template-ID checks
-	// (missing, malformed slug), so POST /sheets fails exactly like
-	// GET /templates/:id instead of collapsing every bad ID into a 404 (LGN-86).
-	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: cmd.TemplateID})
+	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID)
 	if err != nil {
-		return nil, translateTemplateErr(err)
+		return nil, err
 	}
-	if !tmpl.AcceptsKind(kind) {
-		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateKindRefused, nil)
-	}
-
-	dag, exists := s.provider.DAG(cmd.TemplateID)
-	if !exists {
-		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
-	}
-
-	if !s.planLimitsEnabled() {
-		return nil, apperr.NewError(apperr.CodeInternal, MsgLimitsNotConfigured, nil)
-	}
-	current, err := s.plans.PlanOf(ctx, cmd.OwnerID)
+	initialData, err := s.seedInitialData(base)
 	if err != nil {
-		return nil, apperr.NewError(apperr.CodeInternal, "failed to resolve plan", err)
+		return nil, err
 	}
-	limit := current.SheetLimit(kind)
-
-	initialData := buildNestedAllFields(tmpl.Fields)
-
-	// Flatten the initial data into dot-notation keys so the DAG can match
-	// leaf keys during recalc (the DAG walks leaf keys, not top-level groups).
-	flatInitial, err := maputils.FlattenPathKeys(initialData)
-	if err != nil {
-		return nil, translateMapErr("create", err)
-	}
-
-	derivedEffects, err := dag.Recalculate(map[string]any{}, flatInitial)
-	if err != nil {
-		return nil, translateDAGErr(err)
-	}
-
-	// Apply the flat derived effects back as a nested map (same strategy as
-	// PartialUpdate), instead of maps.Copy which would leak flat keys.
-	if err := maputils.ApplyUpdates(initialData, derivedEffects); err != nil {
-		return nil, translateMapErr("create", err)
-	}
+	limit := base.limit
 
 	sheetID, err := idgen.New()
 	if err != nil {
@@ -279,7 +245,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	if err != nil {
 		return nil, translateCreateErr(err, kind, limit)
 	}
-	s.publishSheetEvent(eventSheetCreated, cmd.OwnerID, sheetID, newSheet.Version, map[string]any{"template_id": cmd.TemplateID})
+	s.publishSheetEvent(eventSheetCreated, cmd.OwnerID, sheetID, newSheet.Version, map[string]any{detailTemplateIDKey: cmd.TemplateID})
 	return &newSheet, nil
 }
 

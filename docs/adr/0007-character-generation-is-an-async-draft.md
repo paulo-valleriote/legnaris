@@ -16,10 +16,14 @@ A player generates a character Sheet from a short concept text. `POST /generatio
 ## Decisions
 
 - **Input:** `{template_id, kind, concept}`. In the MVP, `kind` must be `character`. `concept` is 10–1000 characters, and generated text follows its language.
-- **Gates before the quota is reserved, in order:**
-  1. A read-only check of the Sheet limit for the kind (LGN-183) → `SHEET_LIMIT_REACHED` 409.
-  2. At most one `queued`/`running` generation per user → `GENERATION_IN_PROGRESS` 409.
-  3. Quota reservation (LGN-182).
+- **Gates on `POST /generations`, in order (LGN-186):**
+  0. Kill-switch `GENERATION_ENABLED=false` → `PROVIDER_UNAVAILABLE` 503, nothing reserved.
+  1. Request shape, then the consent gate (ADR 0008) → `LLM_CONSENT_REQUIRED` 403.
+  2. A read-only check of the Sheet limit for the kind (LGN-183) → `SHEET_LIMIT_REACHED` 409.
+  3. At most one `queued`/`running` generation per user → `GENERATION_IN_PROGRESS` 409. The sparse unique index on `active_user_id` is the race guard behind the read.
+  4. Global daily job cap (`GENERATION_DAILY_CAP`, UTC day) → `GENERATION_CAP_REACHED` 503 with `Retry-After`.
+  5. Quota reservation (LGN-182): the trial for Free, the daily counter for paid. The cap, the quota and the `queued` insert share one transaction.
+  - The publish follows the commit. A failed publish still answers 202, and the republish sweep recovers the job.
 - **Output schema:**
   - It is nested like the Template's groups, with `additionalProperties: false`, and covers only the leaves marked `Generatable` (so `rules.*` is excluded).
   - Each `ExclusiveGroup` becomes one enum property, which code expands back into its 0/1 flags.

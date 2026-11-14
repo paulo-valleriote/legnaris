@@ -141,6 +141,66 @@ func (_c *MockService_Create_Call) RunAndReturn(run func(context.Context, sheet.
 	return _c
 }
 
+// CreateWithValues provides a mock function with given fields: ctx, cmd, afterInsert
+func (_m *MockService) CreateWithValues(ctx context.Context, cmd sheet.CreateWithValuesCommand, afterInsert sheet.AfterInsertHook) (*sheet.Sheet, error) {
+	ret := _m.Called(ctx, cmd, afterInsert)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateWithValues")
+	}
+
+	var r0 *sheet.Sheet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.CreateWithValuesCommand, sheet.AfterInsertHook) (*sheet.Sheet, error)); ok {
+		return rf(ctx, cmd, afterInsert)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.CreateWithValuesCommand, sheet.AfterInsertHook) *sheet.Sheet); ok {
+		r0 = rf(ctx, cmd, afterInsert)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*sheet.Sheet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, sheet.CreateWithValuesCommand, sheet.AfterInsertHook) error); ok {
+		r1 = rf(ctx, cmd, afterInsert)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_CreateWithValues_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateWithValues'
+type MockService_CreateWithValues_Call struct {
+	*mock.Call
+}
+
+// CreateWithValues is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd sheet.CreateWithValuesCommand
+//   - afterInsert sheet.AfterInsertHook
+func (_e *MockService_Expecter) CreateWithValues(ctx interface{}, cmd interface{}, afterInsert interface{}) *MockService_CreateWithValues_Call {
+	return &MockService_CreateWithValues_Call{Call: _e.mock.On("CreateWithValues", ctx, cmd, afterInsert)}
+}
+
+func (_c *MockService_CreateWithValues_Call) Run(run func(ctx context.Context, cmd sheet.CreateWithValuesCommand, afterInsert sheet.AfterInsertHook)) *MockService_CreateWithValues_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(sheet.CreateWithValuesCommand), args[2].(sheet.AfterInsertHook))
+	})
+	return _c
+}
+
+func (_c *MockService_CreateWithValues_Call) Return(_a0 *sheet.Sheet, _a1 error) *MockService_CreateWithValues_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_CreateWithValues_Call) RunAndReturn(run func(context.Context, sheet.CreateWithValuesCommand, sheet.AfterInsertHook) (*sheet.Sheet, error)) *MockService_CreateWithValues_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Delete provides a mock function with given fields: ctx, cmd
 func (_m *MockService) Delete(ctx context.Context, cmd sheet.DeleteSheetCommand) error {
 	ret := _m.Called(ctx, cmd)

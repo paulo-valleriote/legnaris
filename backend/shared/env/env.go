@@ -107,6 +107,19 @@ type Variables struct {
 	LLMAPIKey   string
 	LLMModel    string
 	LLMTimeout  time.Duration
+	// GenerationEnabled is the kill-switch of character generation (LGN-186).
+	// When false, POST /generations answers 503 before anything is reserved.
+	GenerationEnabled bool
+	// GenerationDailyCap caps the generation jobs accepted per UTC day across
+	// every player (LGN-186). Zero refuses every job.
+	GenerationDailyCap int
+	// GenerationCreateRateLimitAttempts and GenerationReadRateLimitAttempts are
+	// the per-user budgets of POST and GET /generations, each in its own
+	// limiter namespace (LGN-186).
+	GenerationCreateRateLimitAttempts int
+	GenerationCreateRateLimitWindow   time.Duration
+	GenerationReadRateLimitAttempts   int
+	GenerationReadRateLimitWindow     time.Duration
 }
 
 const (
@@ -175,6 +188,14 @@ const (
 	defaultLLMBaseURL  = "https://openrouter.ai/api/v1"
 	defaultLLMModel    = "deepseek/deepseek-v4.1-flash"
 	defaultLLMTimeout  = 60 * time.Second
+
+	// Generation defaults (LGN-186): the kill-switch is off until the deploy
+	// sets it, and the global cap is a conservative first budget.
+	defaultGenerationEnabled         = false
+	defaultGenerationDailyCap        = 200
+	defaultGenerationCreateAttempts  = 5
+	defaultGenerationReadAttempts    = 30
+	defaultGenerationRateLimitWindow = 1 * time.Minute
 )
 
 // appEnvProduction is the APP_ENV value that forces the disposable-address
@@ -242,6 +263,9 @@ func (e Env) Validate() error {
 	if err := validateLLMModel(e.Variables.LLMModel); err != nil {
 		errs = append(errs, err)
 	}
+	if e.Variables.GenerationDailyCap < 0 {
+		errs = append(errs, errors.New("GENERATION_DAILY_CAP must not be negative"))
+	}
 	return errors.Join(errs...)
 }
 
@@ -284,68 +308,74 @@ func (e *Env) initVariables() Variables {
 
 func (e *Env) buildVariables() Variables {
 	return Variables{
-		Port:                           e.lookupStringEnv("PORT", defaultPort),
-		AppName:                        e.lookupStringEnv("APP_NAME", defaultAppName),
-		DatabaseURI:                    e.lookupRequiredStringEnv(keyDatabaseURI),
-		DatabaseName:                   e.lookupStringEnv("DATABASE_NAME", defaultDatabaseName),
-		DatabasePingTimeout:            e.lookupDurationEnv("DATABASE_PING_TIMEOUT", defaultDatabasePingTimeout),
-		DatabaseServerSelectionTimeout: e.lookupDurationEnv("DATABASE_SERVER_SELECTION_TIMEOUT", defaultDatabaseServerSelectionTimeout),
-		DatabaseConnectTimeout:         e.lookupDurationEnv("DATABASE_CONNECT_TIMEOUT", defaultDatabaseConnectTimeout),
-		DatabaseCloseTimeout:           e.lookupDurationEnv("DATABASE_CLOSE_TIMEOUT", defaultDatabaseCloseTimeout),
-		DatabaseMaxPoolSize:            e.lookupPoolSizeEnv("DATABASE_MAX_POOL_SIZE", defaultDatabaseMaxPoolSize, 1),
-		DatabaseMinPoolSize:            e.lookupPoolSizeEnv("DATABASE_MIN_POOL_SIZE", defaultDatabaseMinPoolSize, 0),
-		ShutdownTimeout:                e.lookupDurationEnv("SHUTDOWN_TIMEOUT", defaultShutdownTimeout),
-		CORSOrigins:                    e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", defaultCORSOrigins),
-		JWTSecret:                      e.lookupRequiredStringEnv(keyJWTSecret),
-		JWTAccessTTL:                   e.lookupDurationEnv("JWT_ACCESS_TTL", defaultJWTAccessTTL),
-		AuthRefreshTTL:                 e.lookupDurationEnv("AUTH_REFRESH_TTL", defaultAuthRefreshTTL),
-		AuthBcryptCost:                 e.lookupIntEnv("AUTH_BCRYPT_COST", defaultAuthBcryptCost),
-		AuthRateLimitAttempts:          e.lookupIntEnv("AUTH_RATE_LIMIT_ATTEMPTS", defaultAuthRateLimitAttempts),
-		AuthRateLimitWindow:            e.lookupDurationEnv("AUTH_RATE_LIMIT_WINDOW", defaultAuthRateLimitWindow),
-		RegisterIPRateLimitAttempts:    e.lookupIntEnv("AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS", defaultRegisterIPRateLimitAttempts),
-		RegisterIPRateLimitWindow:      e.lookupDurationEnv("AUTH_REGISTER_IP_RATE_LIMIT_WINDOW", defaultRegisterIPRateLimitWindow),
-		RegisterEmailRateLimitAttempts: e.lookupIntEnv("AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS", defaultRegisterEmailRateLimitAttempts),
-		RegisterEmailRateLimitWindow:   e.lookupDurationEnv("AUTH_REGISTER_EMAIL_RATE_LIMIT_WINDOW", defaultRegisterEmailRateLimitWindow),
-		CSPReportRateLimitAttempts:     e.lookupIntEnv("CSP_REPORT_RATE_LIMIT_ATTEMPTS", defaultCSPReportRateLimitAttempts),
-		CSPReportRateLimitWindow:       e.lookupDurationEnv("CSP_REPORT_RATE_LIMIT_WINDOW", defaultCSPReportRateLimitWindow),
-		UserRateLimitAttempts:          e.lookupIntEnv("USER_RATE_LIMIT_ATTEMPTS", defaultUserRateLimitAttempts),
-		UserRateLimitWindow:            e.lookupDurationEnv("USER_RATE_LIMIT_WINDOW", defaultUserRateLimitWindow),
-		TrustedProxyCIDRs:              e.lookupTrustedProxyCIDRs(),
-		RedisURL:                       e.lookupStringEnv(keyRedisURL, ""),
-		AppEnv:                         e.lookupStringEnv(keyAppEnv, ""),
-		EmailProvider:                  e.lookupStringEnv("EMAIL_PROVIDER", defaultEmailProvider),
-		ResendAPIKey:                   e.lookupStringEnv("RESEND_API_KEY", ""),
-		EmailFrom:                      e.lookupStringEnv("EMAIL_FROM", ""),
-		EmailSendTimeout:               e.lookupDurationEnv("EMAIL_SEND_TIMEOUT", defaultEmailSendTimeout),
-		RabbitMQURL:                    e.lookupStringEnv("RABBITMQ_URL", ""),
-		EmailRelayPollInterval:         e.lookupDurationEnv("EMAIL_RELAY_POLL_INTERVAL", defaultEmailRelayPollInterval),
-		EmailRelayLease:                e.lookupDurationEnv("EMAIL_RELAY_LEASE", defaultEmailRelayLease),
-		EmailRelayBatch:                e.lookupIntEnv("EMAIL_RELAY_BATCH", defaultEmailRelayBatch),
-		EmailRelayConfirmTimeout:       e.lookupDurationEnv("EMAIL_RELAY_CONFIRM_TIMEOUT", defaultEmailRelayConfirmTimeout),
-		EmailRelayMaxAttempts:          e.lookupIntEnv("EMAIL_RELAY_MAX_ATTEMPTS", defaultEmailRelayMaxAttempts),
-		EmailOutboxRetention:           e.lookupDurationEnv("EMAIL_OUTBOX_RETENTION", DefaultEmailOutboxRetention),
-		EmailRelayMetricsAddr:          e.lookupStringEnv("EMAIL_RELAY_METRICS_ADDR", defaultEmailRelayMetricsAddr),
-		EmailRetryDelayFirst:           e.lookupDurationEnv("EMAIL_RETRY_DELAY_FIRST", 0),
-		EmailRetryDelaySecond:          e.lookupDurationEnv("EMAIL_RETRY_DELAY_SECOND", 0),
-		EmailRetryDelayLater:           e.lookupDurationEnv("EMAIL_RETRY_DELAY_LATER", 0),
-		EmailWorkerPrefetch:            e.lookupIntEnv("EMAIL_WORKER_PREFETCH", defaultEmailWorkerPrefetch),
-		EmailWorkerMaxAttempts:         e.lookupIntEnv("EMAIL_WORKER_MAX_ATTEMPTS", defaultEmailWorkerMaxAttempts),
-		EmailWorkerMetricsAddr:         e.lookupStringEnv("EMAIL_WORKER_METRICS_ADDR", defaultEmailWorkerMetricsAddr),
-		EmailCodeSecret:                e.lookupRequiredStringEnv(keyEmailCodeSecret),
-		AuthOTPTTL:                     e.lookupDurationEnv("AUTH_OTP_TTL", defaultAuthOTPTTL),
-		AuthOTPCeiling:                 e.lookupDurationEnv("AUTH_OTP_CEILING", defaultAuthOTPCeiling),
-		AuthOTPResendCooldown:          e.lookupDurationEnv("AUTH_OTP_RESEND_COOLDOWN", defaultAuthOTPResendCooldown),
-		AuthOTPMaxAttempts:             e.lookupIntEnv("AUTH_OTP_MAX_ATTEMPTS", defaultAuthOTPMaxAttempts),
-		AuthOTPDailySendCap:            e.lookupIntEnv("AUTH_OTP_DAILY_SEND_CAP", defaultAuthOTPDailySendCap),
-		AuthOTPResendCapRatio:          e.lookupRatioEnv("AUTH_OTP_RESEND_CAP_RATIO", defaultAuthOTPResendCapRatio),
-		AuthOTPUserWindow:              e.lookupDurationEnv("AUTH_OTP_USER_WINDOW", defaultAuthOTPUserWindow),
-		AuthRegisterMinDuration:        e.lookupDurationEnv("AUTH_REGISTER_MIN_DURATION", defaultAuthRegisterMinDuration),
-		AuthOTPUserLimit:               e.lookupIntEnv("AUTH_OTP_USER_LIMIT", defaultAuthOTPUserLimit),
-		LLMProvider:                    e.lookupStringEnv("LLM_PROVIDER", defaultLLMProvider),
-		LLMBaseURL:                     e.lookupStringEnv("LLM_BASE_URL", defaultLLMBaseURL),
-		LLMAPIKey:                      e.lookupStringEnv("LLM_API_KEY", ""),
-		LLMModel:                       e.lookupStringEnv("LLM_MODEL", defaultLLMModel),
-		LLMTimeout:                     e.lookupDurationEnv("LLM_TIMEOUT", defaultLLMTimeout),
+		Port:                              e.lookupStringEnv("PORT", defaultPort),
+		AppName:                           e.lookupStringEnv("APP_NAME", defaultAppName),
+		DatabaseURI:                       e.lookupRequiredStringEnv(keyDatabaseURI),
+		DatabaseName:                      e.lookupStringEnv("DATABASE_NAME", defaultDatabaseName),
+		DatabasePingTimeout:               e.lookupDurationEnv("DATABASE_PING_TIMEOUT", defaultDatabasePingTimeout),
+		DatabaseServerSelectionTimeout:    e.lookupDurationEnv("DATABASE_SERVER_SELECTION_TIMEOUT", defaultDatabaseServerSelectionTimeout),
+		DatabaseConnectTimeout:            e.lookupDurationEnv("DATABASE_CONNECT_TIMEOUT", defaultDatabaseConnectTimeout),
+		DatabaseCloseTimeout:              e.lookupDurationEnv("DATABASE_CLOSE_TIMEOUT", defaultDatabaseCloseTimeout),
+		DatabaseMaxPoolSize:               e.lookupPoolSizeEnv("DATABASE_MAX_POOL_SIZE", defaultDatabaseMaxPoolSize, 1),
+		DatabaseMinPoolSize:               e.lookupPoolSizeEnv("DATABASE_MIN_POOL_SIZE", defaultDatabaseMinPoolSize, 0),
+		ShutdownTimeout:                   e.lookupDurationEnv("SHUTDOWN_TIMEOUT", defaultShutdownTimeout),
+		CORSOrigins:                       e.lookupStringSliceEnv("CORS_ALLOWED_ORIGINS", defaultCORSOrigins),
+		JWTSecret:                         e.lookupRequiredStringEnv(keyJWTSecret),
+		JWTAccessTTL:                      e.lookupDurationEnv("JWT_ACCESS_TTL", defaultJWTAccessTTL),
+		AuthRefreshTTL:                    e.lookupDurationEnv("AUTH_REFRESH_TTL", defaultAuthRefreshTTL),
+		AuthBcryptCost:                    e.lookupIntEnv("AUTH_BCRYPT_COST", defaultAuthBcryptCost),
+		AuthRateLimitAttempts:             e.lookupIntEnv("AUTH_RATE_LIMIT_ATTEMPTS", defaultAuthRateLimitAttempts),
+		AuthRateLimitWindow:               e.lookupDurationEnv("AUTH_RATE_LIMIT_WINDOW", defaultAuthRateLimitWindow),
+		RegisterIPRateLimitAttempts:       e.lookupIntEnv("AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS", defaultRegisterIPRateLimitAttempts),
+		RegisterIPRateLimitWindow:         e.lookupDurationEnv("AUTH_REGISTER_IP_RATE_LIMIT_WINDOW", defaultRegisterIPRateLimitWindow),
+		RegisterEmailRateLimitAttempts:    e.lookupIntEnv("AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS", defaultRegisterEmailRateLimitAttempts),
+		RegisterEmailRateLimitWindow:      e.lookupDurationEnv("AUTH_REGISTER_EMAIL_RATE_LIMIT_WINDOW", defaultRegisterEmailRateLimitWindow),
+		CSPReportRateLimitAttempts:        e.lookupIntEnv("CSP_REPORT_RATE_LIMIT_ATTEMPTS", defaultCSPReportRateLimitAttempts),
+		CSPReportRateLimitWindow:          e.lookupDurationEnv("CSP_REPORT_RATE_LIMIT_WINDOW", defaultCSPReportRateLimitWindow),
+		UserRateLimitAttempts:             e.lookupIntEnv("USER_RATE_LIMIT_ATTEMPTS", defaultUserRateLimitAttempts),
+		UserRateLimitWindow:               e.lookupDurationEnv("USER_RATE_LIMIT_WINDOW", defaultUserRateLimitWindow),
+		TrustedProxyCIDRs:                 e.lookupTrustedProxyCIDRs(),
+		RedisURL:                          e.lookupStringEnv(keyRedisURL, ""),
+		AppEnv:                            e.lookupStringEnv(keyAppEnv, ""),
+		EmailProvider:                     e.lookupStringEnv("EMAIL_PROVIDER", defaultEmailProvider),
+		ResendAPIKey:                      e.lookupStringEnv("RESEND_API_KEY", ""),
+		EmailFrom:                         e.lookupStringEnv("EMAIL_FROM", ""),
+		EmailSendTimeout:                  e.lookupDurationEnv("EMAIL_SEND_TIMEOUT", defaultEmailSendTimeout),
+		RabbitMQURL:                       e.lookupStringEnv("RABBITMQ_URL", ""),
+		EmailRelayPollInterval:            e.lookupDurationEnv("EMAIL_RELAY_POLL_INTERVAL", defaultEmailRelayPollInterval),
+		EmailRelayLease:                   e.lookupDurationEnv("EMAIL_RELAY_LEASE", defaultEmailRelayLease),
+		EmailRelayBatch:                   e.lookupIntEnv("EMAIL_RELAY_BATCH", defaultEmailRelayBatch),
+		EmailRelayConfirmTimeout:          e.lookupDurationEnv("EMAIL_RELAY_CONFIRM_TIMEOUT", defaultEmailRelayConfirmTimeout),
+		EmailRelayMaxAttempts:             e.lookupIntEnv("EMAIL_RELAY_MAX_ATTEMPTS", defaultEmailRelayMaxAttempts),
+		EmailOutboxRetention:              e.lookupDurationEnv("EMAIL_OUTBOX_RETENTION", DefaultEmailOutboxRetention),
+		EmailRelayMetricsAddr:             e.lookupStringEnv("EMAIL_RELAY_METRICS_ADDR", defaultEmailRelayMetricsAddr),
+		EmailRetryDelayFirst:              e.lookupDurationEnv("EMAIL_RETRY_DELAY_FIRST", 0),
+		EmailRetryDelaySecond:             e.lookupDurationEnv("EMAIL_RETRY_DELAY_SECOND", 0),
+		EmailRetryDelayLater:              e.lookupDurationEnv("EMAIL_RETRY_DELAY_LATER", 0),
+		EmailWorkerPrefetch:               e.lookupIntEnv("EMAIL_WORKER_PREFETCH", defaultEmailWorkerPrefetch),
+		EmailWorkerMaxAttempts:            e.lookupIntEnv("EMAIL_WORKER_MAX_ATTEMPTS", defaultEmailWorkerMaxAttempts),
+		EmailWorkerMetricsAddr:            e.lookupStringEnv("EMAIL_WORKER_METRICS_ADDR", defaultEmailWorkerMetricsAddr),
+		EmailCodeSecret:                   e.lookupRequiredStringEnv(keyEmailCodeSecret),
+		AuthOTPTTL:                        e.lookupDurationEnv("AUTH_OTP_TTL", defaultAuthOTPTTL),
+		AuthOTPCeiling:                    e.lookupDurationEnv("AUTH_OTP_CEILING", defaultAuthOTPCeiling),
+		AuthOTPResendCooldown:             e.lookupDurationEnv("AUTH_OTP_RESEND_COOLDOWN", defaultAuthOTPResendCooldown),
+		AuthOTPMaxAttempts:                e.lookupIntEnv("AUTH_OTP_MAX_ATTEMPTS", defaultAuthOTPMaxAttempts),
+		AuthOTPDailySendCap:               e.lookupIntEnv("AUTH_OTP_DAILY_SEND_CAP", defaultAuthOTPDailySendCap),
+		AuthOTPResendCapRatio:             e.lookupRatioEnv("AUTH_OTP_RESEND_CAP_RATIO", defaultAuthOTPResendCapRatio),
+		AuthOTPUserWindow:                 e.lookupDurationEnv("AUTH_OTP_USER_WINDOW", defaultAuthOTPUserWindow),
+		AuthRegisterMinDuration:           e.lookupDurationEnv("AUTH_REGISTER_MIN_DURATION", defaultAuthRegisterMinDuration),
+		AuthOTPUserLimit:                  e.lookupIntEnv("AUTH_OTP_USER_LIMIT", defaultAuthOTPUserLimit),
+		LLMProvider:                       e.lookupStringEnv("LLM_PROVIDER", defaultLLMProvider),
+		LLMBaseURL:                        e.lookupStringEnv("LLM_BASE_URL", defaultLLMBaseURL),
+		LLMAPIKey:                         e.lookupStringEnv("LLM_API_KEY", ""),
+		LLMModel:                          e.lookupStringEnv("LLM_MODEL", defaultLLMModel),
+		LLMTimeout:                        e.lookupDurationEnv("LLM_TIMEOUT", defaultLLMTimeout),
+		GenerationEnabled:                 e.lookupBoolEnv("GENERATION_ENABLED", defaultGenerationEnabled),
+		GenerationDailyCap:                e.lookupIntEnv("GENERATION_DAILY_CAP", defaultGenerationDailyCap),
+		GenerationCreateRateLimitAttempts: e.lookupIntEnv("GENERATION_CREATE_RATE_LIMIT_ATTEMPTS", defaultGenerationCreateAttempts),
+		GenerationCreateRateLimitWindow:   e.lookupDurationEnv("GENERATION_CREATE_RATE_LIMIT_WINDOW", defaultGenerationRateLimitWindow),
+		GenerationReadRateLimitAttempts:   e.lookupIntEnv("GENERATION_READ_RATE_LIMIT_ATTEMPTS", defaultGenerationReadAttempts),
+		GenerationReadRateLimitWindow:     e.lookupDurationEnv("GENERATION_READ_RATE_LIMIT_WINDOW", defaultGenerationRateLimitWindow),
 	}
 }
 

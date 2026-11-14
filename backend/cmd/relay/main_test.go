@@ -13,6 +13,7 @@ import (
 	outboxmocks "legnaris/backend/internal/email/outbox/mocks"
 	eventsoutbox "legnaris/backend/internal/events/outbox"
 	eventsoutboxmocks "legnaris/backend/internal/events/outbox/mocks"
+	"legnaris/backend/internal/generation"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
 
@@ -160,6 +161,14 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 			return eventRepository, nil
 		},
 		serveMetrics: noopServeMetrics,
+		dialGenerationBroker: func(env.Env) (generationBrokerClient, error) {
+			return &fakeGenerationBroker{}, nil
+		},
+		newGenerationRepublish: func(_ env.Env, _ databaseHandle, publisher generation.Publisher) (generation.RepublishDeps, error) {
+			deps := idleGenerationDeps(t)
+			deps.Publisher = publisher
+			return deps, nil
+		},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

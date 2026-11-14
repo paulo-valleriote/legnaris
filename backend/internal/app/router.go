@@ -54,6 +54,13 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	sheetsGroup := router.Group("/sheets", requireAuth, limitUser)
 	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
+	// Generation routes carry their own per-route budgets (LGN-186), so the
+	// shared user limiter is not stacked on them.
+	generationGroup := router.Group("/generations", requireAuth)
+	modules.Generation.Controller.RegisterRoutes(generationGroup, modules.Generation.CreateLimiter, modules.Generation.ReadLimiter)
+
+	llmConsentGroup := router.Group("/me/llm-consent", requireAuth, limitUser)
+	modules.LLMConsent.Controller.RegisterRoutes(llmConsentGroup)
 	meGroup := router.Group("/me", requireAuth, limitUser)
 	modules.Plan.RegisterRoutes(meGroup)
 
