@@ -1,6 +1,7 @@
 package json_test
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -47,4 +48,40 @@ func TestDecodeBytes(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+func TestDecodeBytesUseNumber(t *testing.T) {
+	tests := []struct {
+		name       string
+		body       []byte
+		wantNumber json.Number
+		wantErr    error
+	}{
+		{name: "Happy path: a number is kept as json.Number", body: []byte(`{"n":1e400}`), wantNumber: "1e400"},
+		{name: "Edge: an integer beyond float64 precision keeps its digits", body: []byte(`{"n":9007199254740993}`), wantNumber: "9007199254740993"},
+		{name: "Error: trailing data is reported as ErrTrailingData", body: []byte(`{"n":1} {"n":2}`), wantErr: sharedjson.ErrTrailingData},
+		{name: "Error: the body over the bound is ErrBodyTooLarge", body: []byte(`{"n":"` + strings.Repeat("a", sharedjson.MaxBodySize) + `"}`), wantErr: sharedjson.ErrBodyTooLarge},
+		{name: "Error: malformed JSON is ErrInvalidJSON", body: []byte(`{"n":`), wantErr: sharedjson.ErrInvalidJSON},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var got map[string]any
+			err := sharedjson.DecodeBytesUseNumber(tc.body, &got)
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantNumber, got["n"])
+		})
+	}
+}
+
+func TestDecodeBytes_TrailingDataIsInvalidJSON(t *testing.T) {
+	var got sample
+	err := sharedjson.DecodeBytes([]byte(`{"name":"a"} x`), &got)
+	require.ErrorIs(t, err, sharedjson.ErrInvalidJSON)
+	require.ErrorIs(t, err, sharedjson.ErrTrailingData)
 }

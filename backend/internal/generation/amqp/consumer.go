@@ -2,7 +2,6 @@ package amqp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -10,6 +9,7 @@ import (
 
 	"legnaris/backend/internal/generation"
 	"legnaris/backend/shared/idgen"
+	sharedjson "legnaris/backend/shared/json"
 	"legnaris/backend/shared/logger"
 
 	amqp091 "github.com/rabbitmq/amqp091-go"
@@ -158,7 +158,7 @@ func processDelivery(ctx context.Context, body []byte, ack Acknowledger, handle 
 // message never reaches the worker.
 func decodeMessage(body []byte) (generation.Message, error) {
 	var msg generation.Message
-	if err := json.Unmarshal(body, &msg); err != nil {
+	if err := sharedjson.DecodeBytes(body, &msg); err != nil {
 		return generation.Message{}, fmt.Errorf("decode job message: %w", err)
 	}
 	if err := idgen.Validate(msg.ID); err != nil {

@@ -1,11 +1,9 @@
 package generation
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"math"
 	"slices"
@@ -13,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"legnaris/backend/internal/sheet/template"
+	sharedjson "legnaris/backend/shared/json"
 )
 
 // ErrInvalidOutput is the sentinel of a model output the Template rejects. Every
@@ -47,20 +46,28 @@ func (e *OutputError) Unwrap() error {
 // json.Number, so Expand can reject a number that does not fit a float64 instead of
 // letting the decoder round it.
 func ParseOutput(raw json.RawMessage) (map[string]any, error) {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
 	var value any
-	if err := dec.Decode(&value); err != nil {
-		return nil, &OutputError{Problems: []string{"output is not valid JSON"}}
-	}
-	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
-		return nil, &OutputError{Problems: []string{"output has data after the JSON object"}}
+	if err := sharedjson.DecodeBytesUseNumber(raw, &value); err != nil {
+		return nil, &OutputError{Problems: []string{outputParseProblem(err)}}
 	}
 	object, ok := value.(map[string]any)
 	if !ok {
 		return nil, &OutputError{Problems: []string{"output must be a JSON object"}}
 	}
 	return object, nil
+}
+
+// outputParseProblem names why a model output did not decode, in the words fed
+// back to the model on a retry.
+func outputParseProblem(err error) string {
+	switch {
+	case errors.Is(err, sharedjson.ErrBodyTooLarge):
+		return "output exceeds the size bound"
+	case errors.Is(err, sharedjson.ErrTrailingData):
+		return "output has data after the JSON object"
+	default:
+		return "output is not valid JSON"
+	}
 }
 
 // Expand checks output against the Template and returns the nested leaf values it
