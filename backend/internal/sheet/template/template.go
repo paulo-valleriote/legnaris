@@ -83,6 +83,17 @@ type FieldSchema struct {
 	// ColumnLabel is the short label used when this leaf is rendered as a
 	// table column. Empty falls back to Label, then to the humanized key.
 	ColumnLabel string `bson:"column_label,omitempty"`
+	// Generatable marks an editable leaf the LLM may fill during character
+	// generation. It is only meaningful on editable leaves (see
+	// ValidateGenerationMetadata).
+	Generatable bool `bson:"generatable,omitempty"`
+	// Min and Max bound a number leaf's generated value. Nil means unbounded
+	// on that side; a pointer keeps an explicit 0 distinct from "no bound".
+	Min *float64 `bson:"min,omitempty"`
+	Max *float64 `bson:"max,omitempty"`
+	// MaxLength bounds a text leaf's generated length in characters. Nil means
+	// no bound; a set value must be greater than zero.
+	MaxLength *int `bson:"max_length,omitempty"`
 }
 
 // SeedValue returns the value a new sheet starts with for this schema:

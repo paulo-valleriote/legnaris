@@ -40,6 +40,9 @@ func cloneFieldNode(node FieldNode) FieldNode {
 	if node.Schema != nil {
 		schema := *node.Schema
 		schema.DependsOn = cloneDependsOn(node.Schema.DependsOn)
+		schema.Min = clonePtr(node.Schema.Min)
+		schema.Max = clonePtr(node.Schema.Max)
+		schema.MaxLength = clonePtr(node.Schema.MaxLength)
 		cloned.Schema = &schema
 	}
 	cloned.Children = cloneFieldGroup(node.Children)
@@ -47,6 +50,16 @@ func cloneFieldNode(node FieldNode) FieldNode {
 	cloned.Columns = slices.Clone(node.Columns)
 	cloned.Order = slices.Clone(node.Order)
 	return cloned
+}
+
+// clonePtr returns a pointer to a copy of *p, or nil when p is nil, so optional
+// scalar metadata is never shared between two templates or DTOs.
+func clonePtr[T any](p *T) *T {
+	if p == nil {
+		return nil
+	}
+	v := *p
+	return &v
 }
 
 // cloneDependsOn copies the dependency paths, including their segments.

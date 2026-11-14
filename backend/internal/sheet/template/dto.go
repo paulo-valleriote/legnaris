@@ -78,6 +78,10 @@ type FieldSchemaDTO struct {
 	ExclusiveGroup string     `json:"exclusive_group,omitempty"`
 	OptionLabel    string     `json:"option_label,omitempty"`
 	ColumnLabel    string     `json:"column_label,omitempty"`
+	Generatable    bool       `json:"generatable,omitempty"`
+	Min            *float64   `json:"min,omitempty"`
+	Max            *float64   `json:"max,omitempty"`
+	MaxLength      *int       `json:"max_length,omitempty"`
 }
 
 // ToDTO converts a Template to its API representation. The result shares no
@@ -212,5 +216,9 @@ func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 		ExclusiveGroup: s.ExclusiveGroup,
 		OptionLabel:    s.OptionLabel,
 		ColumnLabel:    s.ColumnLabel,
+		Generatable:    s.Generatable,
+		Min:            clonePtr(s.Min),
+		Max:            clonePtr(s.Max),
+		MaxLength:      clonePtr(s.MaxLength),
 	}
 }

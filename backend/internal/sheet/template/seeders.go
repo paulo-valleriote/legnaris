@@ -235,6 +235,22 @@ func textField(label string) FieldNode {
 	}}
 }
 
+// generatableNumber marks an editable number leaf as generated within [lo, hi].
+func generatableNumber(node FieldNode, lo, hi float64) FieldNode {
+	node.Schema.Generatable = true
+	node.Schema.Min = &lo
+	node.Schema.Max = &hi
+	return node
+}
+
+// generatableText marks an editable text leaf as generated up to maxLength
+// characters.
+func generatableText(node FieldNode, maxLength int) FieldNode {
+	node.Schema.Generatable = true
+	node.Schema.MaxLength = &maxLength
+	return node
+}
+
 // calcField builds a derived (computed, non-editable) numeric leaf.
 // deps is the exact set of leaves the formula reads: the DAG builds the
 // cascade from it, and seeders_test pins it against the formula.
@@ -271,20 +287,20 @@ func spellUsesKey(ability string) string { return "spellUses" + upperFirst(abili
 
 func identityGroup() FieldGroup {
 	return FieldGroup{
-		"characterName":    textField("Character name"),
-		"playerName":       textField("Player name"),
-		"ancestry":         textField("Ancestry"),
-		"origin":           textField("Origin"),
-		"level":            numField("Level", 1),
-		"xp":               numField("Experience points", 0),
-		"proficiencyBonus": numField("Proficiency bonus", 2),
+		"characterName":    generatableText(textField("Character name"), 60),
+		"playerName":       generatableText(textField("Player name"), 60),
+		"ancestry":         generatableText(textField("Ancestry"), 40),
+		"origin":           generatableText(textField("Origin"), 40),
+		"level":            generatableNumber(numField("Level", 1), 1, 20),
+		"xp":               generatableNumber(numField("Experience points", 0), 0, 355000),
+		"proficiencyBonus": generatableNumber(numField("Proficiency bonus", 2), 2, 6),
 	}
 }
 
 func statsGroup() FieldGroup {
 	group := make(FieldGroup, len(abilities))
 	for _, a := range abilities {
-		group[a.key] = numField(a.label, 10)
+		group[a.key] = generatableNumber(numField(a.label, 10), 3, 20)
 	}
 	return group
 }
@@ -326,7 +342,7 @@ func savesGroup() FieldGroup {
 func skillsGroup() FieldGroup {
 	group := make(FieldGroup, len(skills))
 	for _, s := range skills {
-		bonus := numField(s.label+" bonus", 0)
+		bonus := generatableNumber(numField(s.label+" bonus", 0), -10, 20)
 		bonus.Schema.ColumnLabel = "Bonus"
 		total := calcField(
 			s.label+" total",
@@ -355,12 +371,12 @@ func skillsGroup() FieldGroup {
 
 func combatGroup() FieldGroup {
 	return FieldGroup{
-		"baseArmorClass": numField("Base armor class", 10),
-		"initiative":     numField("Initiative", 0),
-		"speed":          numField("Speed", 30),
-		"hitPointsMax":   numField("Hit points (maximum)", 10),
-		"hitPoints":      numField("Current hit points", 10),
-		"hitPointsTemp":  numField("Temporary hit points", 0),
+		"baseArmorClass": generatableNumber(numField("Base armor class", 10), 1, 30),
+		"initiative":     generatableNumber(numField("Initiative", 0), -5, 20),
+		"speed":          generatableNumber(numField("Speed", 30), 0, 120),
+		"hitPointsMax":   generatableNumber(numField("Hit points (maximum)", 10), 1, 500),
+		"hitPoints":      generatableNumber(numField("Current hit points", 10), 0, 500),
+		"hitPointsTemp":  generatableNumber(numField("Temporary hit points", 0), 0, 100),
 	}
 }
 
@@ -392,11 +408,11 @@ func derivedGroup() FieldGroup {
 func attacksGroup() FieldGroup {
 	group := FieldGroup{}
 	for i := 1; i <= 4; i++ {
-		name := textField(fmt.Sprintf("Attack %d name", i))
+		name := generatableText(textField(fmt.Sprintf("Attack %d name", i)), 40)
 		name.Schema.ColumnLabel = "Name"
-		bonus := numField(fmt.Sprintf("Attack %d bonus", i), 0)
+		bonus := generatableNumber(numField(fmt.Sprintf("Attack %d bonus", i), 0), -5, 20)
 		bonus.Schema.ColumnLabel = "Bonus"
-		damage := textField(fmt.Sprintf("Attack %d damage", i))
+		damage := generatableText(textField(fmt.Sprintf("Attack %d damage", i)), 60)
 		damage.Schema.ColumnLabel = "Damage"
 		group[fmt.Sprintf("attack%d", i)] = FieldNode{
 			Children: FieldGroup{
@@ -435,14 +451,14 @@ func spellsGroup() FieldGroup {
 			[]string{fieldNameRules, fieldNameSpellSaveBase},
 			[]string{fieldNameSpells, fieldNameSpellAttackBonus},
 		),
-		"atWill": textField("At-will spells"),
-		"list":   textField("Spell list"),
+		"atWill": generatableText(textField("At-will spells"), 200),
+		"list":   generatableText(textField("Spell list"), 2000),
 	}
 	for level := 1; level <= 9; level++ {
 		key := fmt.Sprintf("slot%d", level)
-		total := numField(fmt.Sprintf("Level %d total", level), 0)
+		total := generatableNumber(numField(fmt.Sprintf("Level %d total", level), 0), 0, 10)
 		total.Schema.ColumnLabel = "Total"
-		expended := numField(fmt.Sprintf("Level %d expended", level), 0)
+		expended := generatableNumber(numField(fmt.Sprintf("Level %d expended", level), 0), 0, 10)
 		expended.Schema.ColumnLabel = "Expended"
 		remaining := calcField(
 			fmt.Sprintf("Level %d remaining", level),
@@ -466,10 +482,10 @@ func spellsGroup() FieldGroup {
 }
 
 func configGroup() FieldGroup {
-	acUsesDex := numField("Armor class uses dexterity", 1)
+	acUsesDex := generatableNumber(numField("Armor class uses dexterity", 1), 0, 1)
 	acUsesDex.Schema.ExclusiveGroup = exclusiveGroupArmorClassAbility
 	acUsesDex.Schema.OptionLabel = "Dexterity"
-	acUsesCon := numField("Armor class uses constitution", 0)
+	acUsesCon := generatableNumber(numField("Armor class uses constitution", 0), 0, 1)
 	acUsesCon.Schema.ExclusiveGroup = exclusiveGroupArmorClassAbility
 	acUsesCon.Schema.OptionLabel = "Constitution"
 
@@ -478,14 +494,14 @@ func configGroup() FieldGroup {
 		fieldNameACUsesCon: acUsesCon,
 	}
 	for _, a := range abilities {
-		group[saveProfKey(a.key)] = numField(a.label+" save proficiency", 0)
-		spellUses := numField("Spellcasting uses "+strings.ToLower(a.label), 0)
+		group[saveProfKey(a.key)] = generatableNumber(numField(a.label+" save proficiency", 0), 0, 1)
+		spellUses := generatableNumber(numField("Spellcasting uses "+strings.ToLower(a.label), 0), 0, 1)
 		spellUses.Schema.ExclusiveGroup = exclusiveGroupSpellcastingAbility
 		spellUses.Schema.OptionLabel = a.label
 		group[spellUsesKey(a.key)] = spellUses
 	}
 	for _, s := range skills {
-		group[skillProfKey(s.key)] = numField(s.label+" proficiency", 0)
+		group[skillProfKey(s.key)] = generatableNumber(numField(s.label+" proficiency", 0), 0, 1)
 	}
 	return group
 }
