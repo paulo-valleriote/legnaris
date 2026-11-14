@@ -183,6 +183,28 @@ func TestCSPReportReportedIncrementsCounter(t *testing.T) {
 	}
 }
 
+// TestEventDroppedCountsByTypeAndReason pins legnaris_events_dropped_total, the
+// best-effort domain event drop counter labelled by type and reason (ADR 0010).
+func TestEventDroppedCountsByTypeAndReason(t *testing.T) {
+	e := echo.New()
+	m := New()
+	m.Register(e)
+
+	m.EventDropped("sheet.updated", "buffer_full")
+	m.EventDropped("sheet.updated", "buffer_full")
+	m.EventDropped("sheet.deleted", "shutdown")
+
+	body := scrapeMetrics(t, e)
+	for _, want := range []string{
+		`legnaris_events_dropped_total{reason="buffer_full",type="sheet.updated"} 2`,
+		`legnaris_events_dropped_total{reason="shutdown",type="sheet.deleted"} 1`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in /metrics output, got:\n%s", want, body)
+		}
+	}
+}
+
 // TestEmailMetrics pins the relay-facing series: the pending-backlog gauge, the
 // publication outcomes by result, and the dead-letter counter, all served by the
 // standalone Handler for a process with no Echo server (EML-23).

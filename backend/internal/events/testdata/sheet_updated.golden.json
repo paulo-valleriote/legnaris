@@ -1,0 +1,16 @@
+{
+  "id": "0190a5f0-0000-7000-8000-000000000001",
+  "type": "sheet.updated",
+  "version": 1,
+  "occurred_at": "2026-11-13T12:00:00Z",
+  "actor_id": "0190a5f0-0000-7000-8000-000000000002",
+  "aggregate": {
+    "type": "sheet",
+    "id": "0190a5f0-0000-7000-8000-000000000003",
+    "version": 42
+  },
+  "data": {
+    "changed_keys": ["hp", "dice"],
+    "sheet_version": 42
+  }
+}
