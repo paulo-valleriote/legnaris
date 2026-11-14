@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/logger"
@@ -38,7 +39,12 @@ const DeliveryDeferred = "deferred"
 
 // VerifyChallengeCommand carries only the challenge identity and the submitted
 // code; the purpose is resolved server-side (OTP-09).
-type VerifyChallengeCommand struct{ ChallengeID, Code string }
+type VerifyChallengeCommand struct {
+	ChallengeID, Code string
+	// ClientIP is the resolved client address the verification came from. It
+	// is handed to the first-verification hook and never stored here.
+	ClientIP string
+}
 
 // ResendChallengeCommand carries only the challenge identity (OTP-11).
 type ResendChallengeCommand struct{ ChallengeID string }
@@ -180,6 +186,8 @@ func (s *ServiceImpl) VerifyChallenge(ctx context.Context, cmd VerifyChallengeCo
 		return nil, s.invalidCode(ResultConsumed)
 	}
 
+	pending := s.unverifiedAccount(ctx, claimed.UserID)
+
 	// The timestamp is recorded before the session is minted, so a session is
 	// only ever issued for a verified account (R12, OTP-07).
 	if err := s.users.MarkEmailVerified(ctx, claimed.UserID, now); err != nil {
@@ -190,6 +198,10 @@ func (s *ServiceImpl) VerifyChallenge(ctx context.Context, cmd VerifyChallengeCo
 			logger.Attribute{Key: "error", Value: err.Error()},
 		)
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	if pending != nil {
+		s.challenge.EmailVerifier.EmailVerified(ctx, pending.ID, pending.Email, cmd.ClientIP)
 	}
 
 	session, err := s.signIn(ctx, claimed.UserID)
@@ -203,6 +215,28 @@ func (s *ServiceImpl) VerifyChallenge(ctx context.Context, cmd VerifyChallengeCo
 		logger.Attribute{Key: attrPurpose, Value: string(claimed.Purpose)},
 	)
 	return session, nil
+}
+
+// unverifiedAccount returns the account whose first verification the hook must
+// hear about. It returns nil when no hook is configured, the account is already
+// verified, or the read fails: a read failure is logged and never fails the
+// verification, and the account then receives no hook call.
+func (s *ServiceImpl) unverifiedAccount(ctx context.Context, userID string) *user.User {
+	if s.challenge.EmailVerifier == nil {
+		return nil
+	}
+	account, err := s.users.FetchByID(ctx, userID)
+	if err != nil {
+		s.log.Error(ctx, "load account for email verification hook failed",
+			logger.Attribute{Key: attrUserID, Value: userID},
+			logger.Attribute{Key: "error", Value: err.Error()},
+		)
+		return nil
+	}
+	if account == nil || account.EmailVerifiedAt != nil {
+		return nil
+	}
+	return account
 }
 
 // ResendChallenge answers a repeat request for a challenge's code. It is

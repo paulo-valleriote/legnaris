@@ -54,6 +54,7 @@ func (cc *ChallengeController) Verify(c *echo.Context) error {
 	session, err := cc.service.VerifyChallenge(c.Request().Context(), auth.VerifyChallengeCommand{
 		ChallengeID: request.ChallengeID,
 		Code:        request.Code,
+		ClientIP:    c.RealIP(),
 	})
 	if err != nil {
 		return cc.observe(err)

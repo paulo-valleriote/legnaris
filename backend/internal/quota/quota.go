@@ -55,6 +55,7 @@ const MsgInvalidDay = "quota day is not a UTC date"
 // reservation method reports false instead of an error when the counter is at
 // its limit, so the service decides the apperr code.
 type Store interface {
+	GrantTrial(ctx context.Context, userID string, allowance int) error
 	ReserveTrial(ctx context.Context, userID string) (bool, error)
 	RefundTrial(ctx context.Context, userID string) error
 	ReserveDaily(ctx context.Context, userID, dayUTC string, expiresAt time.Time) (bool, error)
@@ -76,6 +77,30 @@ func NewService(store Store, now func() time.Time) *Service {
 		now = time.Now
 	}
 	return &Service{store: store, now: now}
+}
+
+// TrialGranter writes the generation_trial row that carries the Free allowance
+// for a newly verified account. It satisfies the trial gate's granter port.
+type TrialGranter struct {
+	store Store
+}
+
+// NewTrialGranter returns a TrialGranter over store.
+func NewTrialGranter(store Store) *TrialGranter {
+	return &TrialGranter{store: store}
+}
+
+// Grant creates the account's trial row with TrialAllowance. It is idempotent
+// and never resets an existing row's used count. It returns the typed
+// validation error for a malformed user id before any storage call.
+func (g *TrialGranter) Grant(ctx context.Context, userID string) error {
+	if err := validateUserID(userID); err != nil {
+		return err
+	}
+	if err := g.store.GrantTrial(ctx, userID, TrialAllowance); err != nil {
+		return apperr.NewError(apperr.CodeInternal, MsgQuotaUnavailable, fmt.Errorf("grant trial: %w", err))
+	}
+	return nil
 }
 
 // ReserveTrial takes one unit of the lifetime Free allowance. It returns

@@ -75,7 +75,7 @@ func (cc *CSPReportController) Report(c *echo.Context) error {
 	payload, err := io.ReadAll(body)
 	if err != nil {
 		cc.log.Error(ctx, "csp report body rejected",
-			logger.Attribute{Key: "error", Value: err.Error()},
+			logger.Attribute{Key: logErrorKey, Value: err.Error()},
 		)
 		return c.NoContent(http.StatusNoContent)
 	}
@@ -84,7 +84,7 @@ func (cc *CSPReportController) Report(c *echo.Context) error {
 	reports, err := decodeCSPReports(mediaType, payload, cc.now())
 	if err != nil {
 		cc.log.Error(ctx, "csp report decode failed",
-			logger.Attribute{Key: "error", Value: err.Error()},
+			logger.Attribute{Key: logErrorKey, Value: err.Error()},
 		)
 		return c.NoContent(http.StatusNoContent)
 	}

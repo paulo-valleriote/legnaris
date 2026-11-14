@@ -139,6 +139,54 @@ func (_c *MockStore_FetchTrial_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
+// GrantTrial provides a mock function with given fields: ctx, userID, allowance
+func (_m *MockStore) GrantTrial(ctx context.Context, userID string, allowance int) error {
+	ret := _m.Called(ctx, userID, allowance)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GrantTrial")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) error); ok {
+		r0 = rf(ctx, userID, allowance)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockStore_GrantTrial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GrantTrial'
+type MockStore_GrantTrial_Call struct {
+	*mock.Call
+}
+
+// GrantTrial is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - allowance int
+func (_e *MockStore_Expecter) GrantTrial(ctx interface{}, userID interface{}, allowance interface{}) *MockStore_GrantTrial_Call {
+	return &MockStore_GrantTrial_Call{Call: _e.mock.On("GrantTrial", ctx, userID, allowance)}
+}
+
+func (_c *MockStore_GrantTrial_Call) Run(run func(ctx context.Context, userID string, allowance int)) *MockStore_GrantTrial_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockStore_GrantTrial_Call) Return(_a0 error) *MockStore_GrantTrial_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockStore_GrantTrial_Call) RunAndReturn(run func(context.Context, string, int) error) *MockStore_GrantTrial_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RefundDaily provides a mock function with given fields: ctx, userID, dayUTC
 func (_m *MockStore) RefundDaily(ctx context.Context, userID string, dayUTC string) error {
 	ret := _m.Called(ctx, userID, dayUTC)

@@ -74,7 +74,9 @@ func TestChallengeController_Verify(t *testing.T) {
 	t.Run("Happy path: 200 with the session body and both cookies", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		service.EXPECT().
-			VerifyChallenge(mock.Anything, auth.VerifyChallengeCommand{ChallengeID: challengeID, Code: "042917"}).
+			VerifyChallenge(mock.Anything, mock.MatchedBy(func(cmd auth.VerifyChallengeCommand) bool {
+				return cmd.ChallengeID == challengeID && cmd.Code == "042917"
+			})).
 			Return(session(), nil).
 			Once()
 

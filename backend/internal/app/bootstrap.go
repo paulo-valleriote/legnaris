@@ -20,6 +20,7 @@ import (
 	"legnaris/backend/internal/quota"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/template"
+	"legnaris/backend/internal/trial"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/env"
@@ -241,6 +242,24 @@ func NewModules(
 		MaxPerUserWindow: cfg.Variables.AuthOTPUserLimit,
 	}
 
+	quotaStore := quota.NewMongoStore(mdb)
+
+	limiterClient, closers, err := newLimiterClient(cfg.Variables.RedisURL)
+	if err != nil {
+		return nil, err
+	}
+	limiter := func(namespace string, attempts int, window time.Duration) ratelimit.Allower {
+		report := storeFailureReporter(log, namespace, limiterFailureLogInterval, time.Now)
+		return newLimiter(limiterClient, namespace, attempts, window, report)
+	}
+
+	emailVerifier := newTrialVerifier(
+		quota.NewTrialGranter(quotaStore),
+		disposable.NewChecker(nil),
+		limiter("trial_ip", trial.MaxAccountsPerIP, trial.IPWindow),
+		log,
+	)
+
 	authService := auth.NewService(
 		userRepository,
 		refreshTokenRepository,
@@ -252,42 +271,21 @@ func NewModules(
 		authServiceConfig(cfg.Variables, now),
 		log,
 		auth.ChallengeDeps{
-			Repository: challengeRepository,
-			Generator:  auth.NewCodeGenerator(),
-			Digest:     codeDigest,
-			Mailer:     codeMailer,
-			Notices:    auth.NewNoticeRepository(mdb),
-			Observer:   challengeObserver,
-			Policy:     challengePolicy,
+			Repository:    challengeRepository,
+			Generator:     auth.NewCodeGenerator(),
+			Digest:        codeDigest,
+			Mailer:        codeMailer,
+			Notices:       auth.NewNoticeRepository(mdb),
+			Observer:      challengeObserver,
+			Policy:        challengePolicy,
+			EmailVerifier: emailVerifier,
 		},
 		publisher,
 	)
 	authController := NewAuthController(authService)
 
-	quotaService := quota.NewService(quota.NewMongoStore(mdb), nil)
-	generationService := newGenerationService(cfg, options, generation.Deps{
-		Store:     generation.NewMongoStore(mdb),
-		Consent:   llmConsentService,
-		Sheets:    sheetService,
-		Plans:     user.NewPlanSource(userRepository),
-		Templates: templateService,
-		Quota:     quotaService,
-		Tx:        db.NewTransactor(database.Client, nil),
-		Logger:    log,
-	})
-	planController := NewPlanController(quotaService, FreePlanResolver,
-		WithSheetUsage(sheetService),
-		WithGenerationStatus(llmConsentService, generationService),
-	)
-
-	limiterClient, closers, err := newLimiterClient(cfg.Variables.RedisURL)
-	if err != nil {
-		return nil, err
-	}
-	limiter := func(namespace string, attempts int, window time.Duration) ratelimit.Allower {
-		report := storeFailureReporter(log, namespace, limiterFailureLogInterval, time.Now)
-		return newLimiter(limiterClient, namespace, attempts, window, report)
-	}
+	quotaService := quota.NewService(quotaStore, nil)
+	planController := NewPlanController(quotaService, FreePlanResolver)
 
 	authLimiter := limiter("auth", cfg.Variables.AuthRateLimitAttempts, cfg.Variables.AuthRateLimitWindow)
 	userLimiter := limiter("user", cfg.Variables.UserRateLimitAttempts, cfg.Variables.UserRateLimitWindow)

@@ -119,6 +119,16 @@ type ChallengeDeps struct {
 	Notices    NoticeRepository
 	Observer   ChallengeObserver
 	Policy     ChallengePolicy
+	// EmailVerifier is told about each account's first email verification. Nil
+	// disables the hook.
+	EmailVerifier EmailVerifier
+}
+
+// EmailVerifier reacts to an account's first email verification, after the
+// verification instant is recorded. The implementation owns its failures:
+// verification never fails because of them, so the method reports nothing.
+type EmailVerifier interface {
+	EmailVerified(ctx context.Context, userID, email, clientIP string)
 }
 
 type Service interface {
