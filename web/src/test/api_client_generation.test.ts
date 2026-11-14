@@ -142,11 +142,11 @@ describe('api client generation operations', () => {
   it('Happy path: grantLlmConsent puts the disclosure version and accepts a 204 (LGN-196)', async () => {
     const { fake, client } = clientWith({ status: 204, body: '' });
 
-    await client.grantLlmConsent('1');
+    await client.grantLlmConsent('2');
 
     expect(fake.lastRequest?.method).toBe('PUT');
     expect(fake.lastRequest?.url).toBe(`${baseUrl}/me/llm-consent`);
-    expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual({ version: '1' });
+    expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual({ version: '2' });
   });
 
   it('Edge: a write is never repeated on a transport failure (API-33)', async () => {

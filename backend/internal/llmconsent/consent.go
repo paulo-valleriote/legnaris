@@ -15,7 +15,7 @@ import (
 // Version is the consent disclosure version the backend accepts. Bump it
 // whenever the disclosure changes (provider, model, region, retention or the
 // revocation path), and update llm-consent.json in the same change.
-const Version = "1"
+const Version = "2"
 
 const (
 	// MsgConsentRequired is the client-facing reason for LLM_CONSENT_REQUIRED.
