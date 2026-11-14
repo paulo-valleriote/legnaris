@@ -43,9 +43,34 @@ type ConsentStore interface {
 	Clear(ctx context.Context, userID string) error
 }
 
-// GenerationStore deletes the generation documents owned by a user.
+// Quota reservation kinds carried by an OpenGeneration. They match the kinds the
+// generation package records on a document.
+const (
+	ReservationTrial = "trial"
+	ReservationDaily = "daily"
+)
+
+// OpenGeneration is the part of a queued or running generation that a revoke
+// needs: the document to refund and the allowance it reserved.
+type OpenGeneration struct {
+	ID              string
+	UserID          string
+	ReservationKind string
+	DayUTC          string
+}
+
+// GenerationStore reads and deletes the generation documents owned by a user.
 type GenerationStore interface {
+	// ListOpenByUserID returns the user's queued and running generations, the
+	// only ones whose quota is still reserved.
+	ListOpenByUserID(ctx context.Context, userID string) ([]OpenGeneration, error)
 	DeleteByUserID(ctx context.Context, userID string) (int64, error)
+}
+
+// QuotaRefunder returns the quota unit an open generation reserved. The
+// generation package implements it, so this package does not import it.
+type QuotaRefunder interface {
+	RefundOpen(ctx context.Context, open OpenGeneration) error
 }
 
 // Transactor runs fn in one transaction. *db.Transactor satisfies it.
@@ -75,13 +100,14 @@ func CheckConsent(record Record) error {
 type service struct {
 	consents    ConsentStore
 	generations GenerationStore
+	refunder    QuotaRefunder
 	tx          Transactor
 	now         func() time.Time
 }
 
 // NewService builds the consent service. now supplies the consent timestamp.
-func NewService(consents ConsentStore, generations GenerationStore, tx Transactor, now func() time.Time) Service {
-	return &service{consents: consents, generations: generations, tx: tx, now: now}
+func NewService(consents ConsentStore, generations GenerationStore, refunder QuotaRefunder, tx Transactor, now func() time.Time) Service {
+	return &service{consents: consents, generations: generations, refunder: refunder, tx: tx, now: now}
 }
 
 // Grant records consent at the current version. A repeated grant at the same
@@ -97,12 +123,16 @@ func (s *service) Grant(ctx context.Context, userID, version string) error {
 	return nil
 }
 
-// Revoke clears the consent and deletes the user's generation documents in one
-// transaction, so a crash never leaves a cleared consent with data still held.
+// Revoke clears the consent, refunds the quota of the user's queued and running
+// generations and deletes their generation documents in one transaction, so a
+// crash never leaves a cleared consent with data still held or allowance lost.
 // Revoking without a consent is a no-op.
 func (s *service) Revoke(ctx context.Context, userID string) error {
 	err := s.tx.WithTransaction(ctx, func(txCtx context.Context) error {
 		if err := s.consents.Clear(txCtx, userID); err != nil {
+			return err
+		}
+		if err := s.refundOpen(txCtx, userID); err != nil {
 			return err
 		}
 		_, err := s.generations.DeleteByUserID(txCtx, userID)
@@ -110,6 +140,21 @@ func (s *service) Revoke(ctx context.Context, userID string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("revoke llm consent: %w", err)
+	}
+	return nil
+}
+
+// refundOpen returns the quota of every open generation of userID, so deleting
+// the document does not take the allowance with it.
+func (s *service) refundOpen(ctx context.Context, userID string) error {
+	open, err := s.generations.ListOpenByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	for _, generation := range open {
+		if err := s.refunder.RefundOpen(ctx, generation); err != nil {
+			return fmt.Errorf("refund generation %s: %w", generation.ID, err)
+		}
 	}
 	return nil
 }

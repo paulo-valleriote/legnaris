@@ -190,17 +190,99 @@ func TestGenerationStore_DeleteByUserID(t *testing.T) {
 	}
 }
 
+func TestGenerationStore_ListOpenByUserID(t *testing.T) {
+	tests := []struct {
+		name     string
+		seedDocs []bson.M
+		userID   string
+		want     []llmconsent.OpenGeneration
+	}{
+		{name: "Edge: absent collection lists nothing", seedDocs: nil, userID: "user-1", want: []llmconsent.OpenGeneration{}},
+		{name: "Edge: empty user id matches no generation", seedDocs: []bson.M{{"_id": "gen-1", "user_id": "user-1", "status": "queued"}}, userID: "", want: []llmconsent.OpenGeneration{}},
+		{
+			name: "Edge: terminal generations are not open",
+			seedDocs: []bson.M{
+				{"_id": "gen-1", "user_id": "user-1", "status": "succeeded", "quota": bson.M{"kind": "trial"}},
+				{"_id": "gen-2", "user_id": "user-1", "status": "accepted", "quota": bson.M{"kind": "trial"}},
+				{"_id": "gen-3", "user_id": "user-1", "status": "failed", "quota": bson.M{"kind": "daily", "day_utc": "2026-11-13"}},
+			},
+			userID: "user-1",
+			want:   []llmconsent.OpenGeneration{},
+		},
+		{
+			name: "Edge: other users' open generations are kept out",
+			seedDocs: []bson.M{
+				{"_id": "gen-1", "user_id": "user-2", "status": "running", "quota": bson.M{"kind": "trial"}},
+			},
+			userID: "user-1",
+			want:   []llmconsent.OpenGeneration{},
+		},
+		{
+			name: "Happy path: queued and running generations carry their reservation",
+			seedDocs: []bson.M{
+				{"_id": "gen-1", "user_id": "user-1", "status": "queued", "quota": bson.M{"kind": "trial"}},
+				{"_id": "gen-2", "user_id": "user-1", "status": "running", "quota": bson.M{"kind": "daily", "day_utc": "2026-11-14"}},
+				{"_id": "gen-3", "user_id": "user-1", "status": "succeeded", "quota": bson.M{"kind": "trial"}},
+			},
+			userID: "user-1",
+			want: []llmconsent.OpenGeneration{
+				{ID: "gen-1", UserID: "user-1", ReservationKind: "trial"},
+				{ID: "gen-2", UserID: "user-1", ReservationKind: "daily", DayUTC: "2026-11-14"},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mdb := dbtest.Database(t)
+			generations := mdb.Collection("generations")
+			for _, doc := range tc.seedDocs {
+				_, err := generations.InsertOne(context.Background(), doc)
+				require.NoError(t, err)
+			}
+			store := llmconsent.NewGenerationStore(mdb)
+
+			open, err := store.ListOpenByUserID(context.Background(), tc.userID)
+			require.NoError(t, err)
+			assert.ElementsMatch(t, tc.want, open)
+		})
+	}
+}
+
+// recordingRefunder is a QuotaRefunder that records each refund. The replica set
+// test uses it because the quota store is outside this package.
+type recordingRefunder struct {
+	refunded []string
+}
+
+func (r *recordingRefunder) RefundOpen(_ context.Context, open llmconsent.OpenGeneration) error {
+	r.refunded = append(r.refunded, open.ID)
+	return nil
+}
+
 // TestService_RevokeAgainstReplicaSet runs the real transactor, consent store
 // and generation store, so revocation is checked against MongoDB, not mocks.
 func TestService_RevokeAgainstReplicaSet(t *testing.T) {
 	tests := []struct {
-		name        string
-		granted     bool
-		generations int
-		wantLeft    int64
+		name         string
+		granted      bool
+		generations  []bson.M
+		wantLeft     int64
+		wantRefunded int
 	}{
-		{name: "Edge: revoke without consent or generations is a no-op", granted: false, generations: 0, wantLeft: 0},
-		{name: "Happy path: revoke clears consent and removes generations", granted: true, generations: 2, wantLeft: 0},
+		{name: "Edge: revoke without consent or generations is a no-op", granted: false, wantLeft: 0, wantRefunded: 0},
+		{
+			name: "Edge: terminal generations are deleted without a refund", granted: true,
+			generations: []bson.M{{"_id": "gen-1", "user_id": "user-1", "status": "accepted"}}, wantLeft: 0, wantRefunded: 0,
+		},
+		{
+			name: "Happy path: revoke refunds open generations, clears consent and removes generations", granted: true,
+			generations: []bson.M{
+				{"_id": "gen-1", "user_id": "user-1", "status": "queued", "quota": bson.M{"kind": "trial"}},
+				{"_id": "gen-2", "user_id": "user-1", "status": "running", "quota": bson.M{"kind": "daily", "day_utc": "2026-11-14"}},
+			},
+			wantLeft: 0, wantRefunded: 2,
+		},
 	}
 
 	for _, tc := range tests {
@@ -212,14 +294,16 @@ func TestService_RevokeAgainstReplicaSet(t *testing.T) {
 				require.NoError(t, llmconsent.NewConsentStore(mdb).Grant(ctx, "user-1", llmconsent.Version, time.Now()))
 			}
 			generations := mdb.Collection("generations")
-			for range tc.generations {
-				_, err := generations.InsertOne(ctx, bson.M{"user_id": "user-1"})
+			for _, doc := range tc.generations {
+				_, err := generations.InsertOne(ctx, doc)
 				require.NoError(t, err)
 			}
 
+			refunder := &recordingRefunder{}
 			svc := llmconsent.NewService(
 				llmconsent.NewConsentStore(mdb),
 				llmconsent.NewGenerationStore(mdb),
+				refunder,
 				db.NewTransactor(mdb.Client(), nil),
 				time.Now,
 			)
@@ -229,6 +313,7 @@ func TestService_RevokeAgainstReplicaSet(t *testing.T) {
 			left, err := generations.CountDocuments(ctx, bson.M{})
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantLeft, left)
+			assert.Len(t, refunder.refunded, tc.wantRefunded, "each open generation is refunded once")
 
 			err = svc.Gate(ctx, "user-1")
 			require.Error(t, err, "revoked consent must close the gate")

@@ -45,6 +45,7 @@ packages:
     interfaces:
       ConsentStore: {}
       GenerationStore: {}
+      QuotaRefunder: {}
       Transactor: {}
       Service: {}
   legnaris/backend/internal/auth:

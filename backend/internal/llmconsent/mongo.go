@@ -16,6 +16,7 @@ const (
 	idField               = "_id"
 	generationsCollection = "generations"
 	generationOwnerField  = "user_id"
+	generationStatusField = "status"
 	consentAtField        = "llm_consent_at"
 	consentVersionField   = "llm_consent_version"
 )
@@ -92,6 +93,42 @@ type mongoGenerationStore struct {
 // collection holds no documents, so the delete reports zero and no error.
 func NewGenerationStore(mdb *mongo.Database) GenerationStore {
 	return &mongoGenerationStore{generations: mdb.Collection(generationsCollection)}
+}
+
+// openStatuses are the generation statuses whose quota is still reserved: a
+// queued or running job has not reached a terminal state yet.
+var openStatuses = []string{"queued", "running"}
+
+type openGenerationDocument struct {
+	ID    string `bson:"_id"`
+	Quota struct {
+		Kind   string `bson:"kind"`
+		DayUTC string `bson:"day_utc"`
+	} `bson:"quota"`
+}
+
+// ListOpenByUserID returns the queued and running generations of userID with
+// the quota reservation each one holds. An absent collection holds none.
+func (s *mongoGenerationStore) ListOpenByUserID(ctx context.Context, userID string) ([]OpenGeneration, error) {
+	filter := bson.M{generationOwnerField: userID, generationStatusField: bson.M{"$in": openStatuses}}
+	cursor, err := s.generations.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("find open generations: %w", err)
+	}
+	var docs []openGenerationDocument
+	if err := cursor.All(ctx, &docs); err != nil {
+		return nil, fmt.Errorf("decode open generations: %w", err)
+	}
+	open := make([]OpenGeneration, 0, len(docs))
+	for _, doc := range docs {
+		open = append(open, OpenGeneration{
+			ID:              doc.ID,
+			UserID:          userID,
+			ReservationKind: doc.Quota.Kind,
+			DayUTC:          doc.Quota.DayUTC,
+		})
+	}
+	return open, nil
 }
 
 // DeleteByUserID removes every generation document owned by userID and returns

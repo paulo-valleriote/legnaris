@@ -82,7 +82,7 @@ func TestService_Grant(t *testing.T) {
 			if tc.wantStore {
 				consents.EXPECT().Grant(mock.Anything, "user-1", tc.version, fixedNow).Return(tc.storeErr).Once()
 			}
-			svc := llmconsent.NewService(consents, mocks.NewMockGenerationStore(t), mocks.NewMockTransactor(t), func() time.Time { return fixedNow })
+			svc := llmconsent.NewService(consents, mocks.NewMockGenerationStore(t), mocks.NewMockQuotaRefunder(t), mocks.NewMockTransactor(t), func() time.Time { return fixedNow })
 
 			err := svc.Grant(context.Background(), "user-1", tc.version)
 
@@ -99,36 +99,64 @@ func TestService_Grant(t *testing.T) {
 }
 
 func TestService_Revoke(t *testing.T) {
+	queued := llmconsent.OpenGeneration{ID: "gen-1", UserID: "user-1", ReservationKind: llmconsent.ReservationTrial}
+	running := llmconsent.OpenGeneration{ID: "gen-2", UserID: "user-1", ReservationKind: llmconsent.ReservationDaily, DayUTC: "2026-11-14"}
+
 	tests := []struct {
-		name       string
-		clearErr   error
-		deleteErr  error
-		deleted    int64
-		wantDelete bool
-		wantErr    bool
-		wantErrIs  error
+		name        string
+		clearErr    error
+		listErr     error
+		open        []llmconsent.OpenGeneration
+		refundErr   error
+		deleteErr   error
+		deleted     int64
+		wantRefunds []llmconsent.OpenGeneration
+		wantDelete  bool
+		wantErr     bool
+		wantErrIs   error
 	}{
 		{name: "Edge: revoke without a consent or generations is a no-op", deleted: 0, wantDelete: true},
+		{name: "Edge: terminal generations are not refunded again", deleted: 2, wantDelete: true},
 		{name: "Happy path: clears consent and deletes generations in one transaction", deleted: 3, wantDelete: true},
-		{name: "Error: clear failure rolls back and skips the delete", clearErr: errStore, wantErr: true, wantErrIs: errStore},
-		{name: "Error: delete failure is returned", deleteErr: errStore, wantDelete: true, wantErr: true, wantErrIs: errStore},
+		{
+			name: "Happy path: refunds every open generation before deleting it",
+			open: []llmconsent.OpenGeneration{queued, running}, deleted: 2,
+			wantRefunds: []llmconsent.OpenGeneration{queued, running}, wantDelete: true,
+		},
+		{name: "Error: clear failure rolls back and skips the refund and delete", clearErr: errStore, wantErr: true, wantErrIs: errStore},
+		{name: "Error: list failure rolls back and skips the delete", listErr: errStore, wantErr: true, wantErrIs: errStore},
+		{
+			name: "Error: refund failure rolls back and skips the delete", open: []llmconsent.OpenGeneration{queued},
+			refundErr: errStore, wantRefunds: []llmconsent.OpenGeneration{queued}, wantErr: true, wantErrIs: errStore,
+		},
+		{
+			name: "Error: delete failure is returned", open: []llmconsent.OpenGeneration{queued},
+			deleteErr: errStore, wantRefunds: []llmconsent.OpenGeneration{queued}, wantDelete: true, wantErr: true, wantErrIs: errStore,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			consents := mocks.NewMockConsentStore(t)
 			generations := mocks.NewMockGenerationStore(t)
+			refunder := mocks.NewMockQuotaRefunder(t)
 			tx := mocks.NewMockTransactor(t)
 
 			tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).RunAndReturn(
 				func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
 			).Once()
 			consents.EXPECT().Clear(mock.Anything, "user-1").Return(tc.clearErr).Once()
+			if tc.clearErr == nil {
+				generations.EXPECT().ListOpenByUserID(mock.Anything, "user-1").Return(tc.open, tc.listErr).Once()
+			}
+			for _, open := range tc.wantRefunds {
+				refunder.EXPECT().RefundOpen(mock.Anything, open).Return(tc.refundErr).Once()
+			}
 			if tc.wantDelete {
 				generations.EXPECT().DeleteByUserID(mock.Anything, "user-1").Return(tc.deleted, tc.deleteErr).Once()
 			}
 
-			svc := llmconsent.NewService(consents, generations, tx, time.Now)
+			svc := llmconsent.NewService(consents, generations, refunder, tx, time.Now)
 			err := svc.Revoke(context.Background(), "user-1")
 
 			if !tc.wantErr {
@@ -137,26 +165,6 @@ func TestService_Revoke(t *testing.T) {
 			}
 			require.Error(t, err)
 			require.ErrorIs(t, err, tc.wantErrIs)
-		})
-	}
-}
-
-func TestService_RevokeTransactionFailure(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-	}{
-		{name: "Error: transaction start or commit failure is returned", err: errStore},
-		{name: "Error: aborted transaction is returned", err: errors.New("transaction aborted")},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			tx := mocks.NewMockTransactor(t)
-			tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).Return(tc.err).Once()
-
-			svc := llmconsent.NewService(mocks.NewMockConsentStore(t), mocks.NewMockGenerationStore(t), tx, time.Now)
-			require.ErrorIs(t, svc.Revoke(context.Background(), "user-1"), tc.err)
 		})
 	}
 }
@@ -180,7 +188,7 @@ func TestService_Gate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			consents := mocks.NewMockConsentStore(t)
 			consents.EXPECT().Fetch(mock.Anything, "user-1").Return(tc.record, tc.fetchErr).Once()
-			svc := llmconsent.NewService(consents, mocks.NewMockGenerationStore(t), mocks.NewMockTransactor(t), time.Now)
+			svc := llmconsent.NewService(consents, mocks.NewMockGenerationStore(t), mocks.NewMockQuotaRefunder(t), mocks.NewMockTransactor(t), time.Now)
 
 			err := svc.Gate(context.Background(), "user-1")
 

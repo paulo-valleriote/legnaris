@@ -62,7 +62,7 @@ func (r reapStore) fail(ctx context.Context, id string, now time.Time) error {
 		if !failed {
 			return nil
 		}
-		return refund(txCtx, r.deps.Quota, doc)
+		return RefundQuota(txCtx, r.deps.Quota, doc)
 	})
 }
 
