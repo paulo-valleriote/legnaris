@@ -290,10 +290,11 @@ func bootstrapEnv(overrides ...string) []string {
 }
 
 // fakeMongoshBody routes each mongosh call by its arguments, so the test sees the call
-// order without a server. A probe is any call authenticated as root without a file.
+// order without a server. A probe is the call that authenticates and quits; a user
+// script is the call that authenticates and loads a file.
 const fakeMongoshBody = `case "$*" in
-  *"-u root"*"--file"*) [ "$FAKE_USERS" != fail ] ;;
-  *"-u root"*) [ "$FAKE_ROOT" = exists ] ;;
+  *"load("*) [ "$FAKE_USERS" != fail ] ;;
+  *"quit("*) [ "$FAKE_ROOT" = exists ] ;;
   *createUser*) [ "$FAKE_CREATE" != fail ] ;;
   *00-replset*) [ "$FAKE_REPLSET" != fail ] ;;
 esac`
@@ -416,6 +417,10 @@ func TestBootstrapScriptOrdersReplicaSetRootAndUsers(t *testing.T) {
 			}
 			res, calls := runBootstrap(t, env, tc.args...)
 			require.Equal(t, tc.wantCode, res.code, res.output)
+			for _, call := range calls {
+				assert.NotContains(t, call, "dev-only-pw", "the root password must never reach mongosh argv")
+				assert.NotContains(t, call, " -p ", "mongosh must not receive a password flag")
+			}
 			if tc.wantCode == 1 && tc.wantCalls == nil {
 				assert.Empty(t, calls, "a failing precondition must not reach mongosh")
 				return
@@ -431,11 +436,11 @@ func callKinds(calls []string, replset, users string) []string {
 	kinds := make([]string, 0, len(calls))
 	for _, call := range calls {
 		switch {
-		case strings.Contains(call, replset) && !strings.Contains(call, "-u root"):
+		case strings.Contains(call, "--file "+replset):
 			kinds = append(kinds, "replset:"+replset)
-		case strings.Contains(call, "-u root") && strings.Contains(call, "--file "+users):
+		case strings.Contains(call, "load("):
 			kinds = append(kinds, "users:"+users)
-		case strings.Contains(call, "-u root"):
+		case strings.Contains(call, "quit("):
 			kinds = append(kinds, "probe")
 		case strings.Contains(call, "createUser"):
 			kinds = append(kinds, "create-root")

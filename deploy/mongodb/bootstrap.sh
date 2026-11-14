@@ -16,6 +16,9 @@
 # scripts after the first must check for existing users themselves. A root user
 # with a different password makes the createUser fail loudly, never silently.
 #
+# The root password reaches mongosh only through its environment, never through
+# argv, so it cannot be read from the process list.
+#
 # usage: bootstrap.sh <replset.js> [<script.js>...]
 # env:   MONGO_INITDB_ROOT_USERNAME, MONGO_INITDB_ROOT_PASSWORD (required),
 #        MONGO_RS_MEMBER (the address the member is reached at), MONGO_PORT (27017)
@@ -24,19 +27,20 @@ set -eu
 replset="${1:?usage: bootstrap.sh <replset.js> [<script.js>...]}"
 shift
 admin="mongodb://localhost:${MONGO_PORT:-27017}/admin"
-user="${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME is required}"
-pass="${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD is required}"
+: "${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME is required}"
+: "${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD is required}"
+
+authenticate='db.getSiblingDB("admin").auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD)'
 
 mongosh --quiet "$admin" --file "$replset" >/dev/null
 
-if ! mongosh --quiet "$admin" -u "$user" -p "$pass" --authenticationDatabase admin \
-	--eval '1' >/dev/null 2>&1; then
+if ! mongosh --quiet "$admin" --eval "quit($authenticate ? 0 : 1)" >/dev/null 2>&1; then
 	mongosh --quiet "$admin" --eval \
 		'db.getSiblingDB("admin").createUser({user: process.env.MONGO_INITDB_ROOT_USERNAME, pwd: process.env.MONGO_INITDB_ROOT_PASSWORD, roles: ["root"]})' \
 		>/dev/null
 fi
 
 for script in "$@"; do
-	mongosh --quiet "$admin" -u "$user" -p "$pass" --authenticationDatabase admin \
-		--file "$script" >/dev/null
+	BOOTSTRAP_SCRIPT="$script" mongosh --quiet "$admin" \
+		--eval "$authenticate; load(process.env.BOOTSTRAP_SCRIPT)" >/dev/null
 done
