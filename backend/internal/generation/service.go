@@ -251,6 +251,9 @@ func (s *Service) Accept(ctx context.Context, cmd AcceptCommand) (AcceptResult, 
 	if strings.TrimSpace(cmd.SheetName) == "" {
 		return AcceptResult{}, apperr.NewError(apperr.CodeInvalidRequest, MsgNameRequired, nil)
 	}
+	if len(cmd.Values) == 0 {
+		return AcceptResult{}, apperr.NewError(apperr.CodeInvalidRequest, MsgValuesRequired, nil)
+	}
 	doc, err := s.deps.Store.FindOwned(ctx, cmd.UserID, cmd.ID)
 	if err != nil {
 		return AcceptResult{}, translateFindErr(err)

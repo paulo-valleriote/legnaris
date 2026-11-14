@@ -238,6 +238,7 @@ func TestAccept(t *testing.T) {
 	const jobID = "0190a1b2-0000-7000-8000-0000000000aa"
 	const sheetID = "0190a1b2-0000-7000-8000-0000000000bb"
 	const otherSheetID = "0190a1b2-0000-7000-8000-0000000000cc"
+	heroValues := map[string]any{"name": "Hero"}
 
 	succeeded := generation.Document{ID: jobID, UserID: userID, TemplateID: templateID, Status: generation.StatusSucceeded}
 	accepted := generation.Document{ID: jobID, UserID: userID, Status: generation.StatusAccepted, SheetID: sheetID}
@@ -254,19 +255,21 @@ func TestAccept(t *testing.T) {
 		wantCode   apperr.Code
 		wantStatus int
 	}{
-		{name: "Error: a malformed id is refused", cmd: generation.AcceptCommand{UserID: userID, ID: "x", SheetName: "Hero"}, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
+		{name: "Error: a malformed id is refused", cmd: generation.AcceptCommand{UserID: userID, ID: "x", SheetName: "Hero", Values: heroValues}, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
 		{name: "Error: a blank sheet name is refused", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "   "}, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
-		{name: "Error: a foreign or expired generation is 404", cmd: generation.AcceptCommand{UserID: otherUser, ID: jobID, SheetName: "Hero"}, storedErr: generation.ErrNotFound, wantCode: apperr.CodeNotFound, wantStatus: 404},
-		{name: "Error: a queued generation cannot be accepted", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, stored: &generation.Document{ID: jobID, Status: generation.StatusQueued}, wantCode: apperr.CodeConflict, wantStatus: 409},
-		{name: "Error: a running generation cannot be accepted", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, stored: &generation.Document{ID: jobID, Status: generation.StatusRunning}, wantCode: apperr.CodeConflict, wantStatus: 409},
-		{name: "Error: a failed generation cannot be accepted", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, stored: &generation.Document{ID: jobID, Status: generation.StatusFailed}, wantCode: apperr.CodeConflict, wantStatus: 409},
-		{name: "Error: the Sheet limit refuses the accept with 409", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, stored: &succeeded,
+		{name: "Error: missing values are refused before the generation is read", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
+		{name: "Error: empty values are refused before the generation is read", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: map[string]any{}}, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
+		{name: "Error: a foreign or expired generation is 404", cmd: generation.AcceptCommand{UserID: otherUser, ID: jobID, SheetName: "Hero", Values: heroValues}, storedErr: generation.ErrNotFound, wantCode: apperr.CodeNotFound, wantStatus: 404},
+		{name: "Error: a queued generation cannot be accepted", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &generation.Document{ID: jobID, Status: generation.StatusQueued}, wantCode: apperr.CodeConflict, wantStatus: 409},
+		{name: "Error: a running generation cannot be accepted", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &generation.Document{ID: jobID, Status: generation.StatusRunning}, wantCode: apperr.CodeConflict, wantStatus: 409},
+		{name: "Error: a failed generation cannot be accepted", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &generation.Document{ID: jobID, Status: generation.StatusFailed}, wantCode: apperr.CodeConflict, wantStatus: 409},
+		{name: "Error: the Sheet limit refuses the accept with 409", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &succeeded,
 			sheetErr: apperr.NewError(apperr.CodeSheetLimitReached, sheet.MsgSheetLimitReached, nil), wantCode: apperr.CodeSheetLimitReached, wantStatus: 409},
-		{name: "Error: a value the DAG refuses is a 400", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, stored: &succeeded,
+		{name: "Error: a value the DAG refuses is a 400", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &succeeded,
 			sheetErr: apperr.NewError(apperr.CodeUnknownField, "field does not exist", nil), wantCode: apperr.CodeUnknownField, wantStatus: 400},
-		{name: "Happy path: a succeeded generation becomes a Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, stored: &succeeded, wantCreate: true, wantSheet: sheetID},
-		{name: "Edge: a repeat accept answers the same Sheet with no new creation", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, stored: &accepted, wantSheet: sheetID},
-		{name: "Edge: a lost accept race answers the winner's Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, stored: &succeeded, race: true, wantSheet: otherSheetID},
+		{name: "Happy path: a succeeded generation becomes a Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &succeeded, wantCreate: true, wantSheet: sheetID},
+		{name: "Edge: a repeat accept answers the same Sheet with no new creation", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &accepted, wantSheet: sheetID},
+		{name: "Edge: a lost accept race answers the winner's Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &succeeded, race: true, wantSheet: otherSheetID},
 	}
 
 	for _, tc := range tests {
