@@ -16,10 +16,15 @@ import (
 	"syscall"
 	"time"
 
+	"errors"
+
 	"legnaris/backend/internal/email"
 	"legnaris/backend/internal/email/amqp"
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/internal/email/relay"
+	eventsamqp "legnaris/backend/internal/events/amqp"
+	eventsoutbox "legnaris/backend/internal/events/outbox"
+	eventsrelay "legnaris/backend/internal/events/relay"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/env"
@@ -40,14 +45,22 @@ type databaseHandle interface {
 	Close(ctx context.Context) error
 }
 
+// eventBrokerClient is the broker adapter the event relay publishes through.
+type eventBrokerClient interface {
+	eventsrelay.Publisher
+	Close() error
+}
+
 // dependencies are the process's wiring seams, overridable in tests so the
 // startup logic is exercised without Mongo or a broker (EML-15).
 type dependencies struct {
-	openDatabase  func(cfg env.Env) (databaseHandle, error)
-	ensureIndexes func(ctx context.Context, cfg env.Env, database databaseHandle) error
-	newRepository func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (outbox.Repository, error)
-	dialBroker    func(cfg env.Env) (brokerClient, error)
-	serveMetrics  func(addr string, handler http.Handler) (func(ctx context.Context) error, error)
+	openDatabase       func(cfg env.Env) (databaseHandle, error)
+	ensureIndexes      func(ctx context.Context, cfg env.Env, database databaseHandle) error
+	newRepository      func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (outbox.Repository, error)
+	dialBroker         func(cfg env.Env) (brokerClient, error)
+	dialEventBroker    func(cfg env.Env) (eventBrokerClient, error)
+	newEventRepository func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (eventsoutbox.Repository, error)
+	serveMetrics       func(addr string, handler http.Handler) (func(ctx context.Context) error, error)
 }
 
 func main() {
@@ -116,8 +129,39 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 		_ = shutdown(shutdownCtx)
 	}()
 
+	eventBroker, err := deps.dialEventBroker(cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = eventBroker.Close() }()
+
+	eventRepository, err := deps.newEventRepository(cfg, database, cfg.Logger)
+	if err != nil {
+		return err
+	}
+	eventRelay := eventsrelay.New(eventRepository, eventBroker, eventsRelayConfig(cfg), cfg.Logger)
+
+	eventsDone := make(chan error, 1)
+	go func() { eventsDone <- eventRelay.Run(ctx) }()
+
 	publisher := relay.New(repository, broker, relayMetrics, relayConfig(cfg), cfg.Logger)
-	return publisher.Run(ctx)
+	emailErr := publisher.Run(ctx)
+	eventsErr := <-eventsDone
+	return errors.Join(emailErr, eventsErr)
+}
+
+// eventsRelayConfig maps the shared relay settings onto the event relay. Both
+// relays read the same configuration, so one lease and attempt policy applies.
+func eventsRelayConfig(cfg env.Env) eventsrelay.Config {
+	vars := cfg.Variables
+	return eventsrelay.Config{
+		PollInterval:   vars.EmailRelayPollInterval,
+		Lease:          vars.EmailRelayLease,
+		Batch:          vars.EmailRelayBatch,
+		ConfirmTimeout: vars.EmailRelayConfirmTimeout,
+		MaxAttempts:    vars.EmailRelayMaxAttempts,
+		ClaimerID:      relayClaimerID(),
+	}
 }
 
 // validateBrokerURL rejects an absent or unusable broker URL with the typed
@@ -209,6 +253,19 @@ func defaultDependencies() dependencies {
 				return nil, err
 			}
 			return broker, nil
+		},
+		dialEventBroker: func(cfg env.Env) (eventBrokerClient, error) {
+			return eventsamqp.NewRelayBroker(eventsamqp.RelayBrokerConfig{
+				URL:            cfg.Variables.RabbitMQURL,
+				ConfirmTimeout: cfg.Variables.EmailRelayConfirmTimeout,
+			}), nil
+		},
+		newEventRepository: func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (eventsoutbox.Repository, error) {
+			mongo, ok := database.(*db.Database)
+			if !ok {
+				return nil, fmt.Errorf("unexpected database handle type %T", database)
+			}
+			return eventsoutbox.NewRepository(mongo.Client.Database(cfg.Variables.DatabaseName), log), nil
 		},
 		serveMetrics: serveMetrics,
 	}

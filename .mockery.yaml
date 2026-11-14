@@ -75,6 +75,18 @@ packages:
     interfaces:
       Publisher: {}
       Observer: {}
+  legnaris/backend/internal/events/outbox:
+    config:
+      dir: backend/internal/events/outbox/mocks
+      outpkg: mocks
+    interfaces:
+      Repository: {}
+  legnaris/backend/internal/events/relay:
+    config:
+      dir: backend/internal/events/relay/mocks
+      outpkg: mocks
+    interfaces:
+      Publisher: {}
   legnaris/backend/internal/email:
     config:
       dir: backend/internal/email/mocks

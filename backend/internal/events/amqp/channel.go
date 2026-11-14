@@ -2,6 +2,7 @@ package amqp
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	amqp091 "github.com/rabbitmq/amqp091-go"
@@ -50,6 +51,35 @@ func (c liveConnection) Channel() (channel, error) {
 // Close closes the live connection.
 func (c liveConnection) Close() error {
 	return c.conn.Close()
+}
+
+// openConfirmedChannel dials url, opens a channel with publisher confirms enabled
+// and declares the event topology. Every failure closes what it opened, so a
+// half-open connection is never returned.
+func openConfirmedChannel(dial dialer, url string) (connection, channel, error) {
+	conn, err := dial(url)
+	if err != nil {
+		return nil, nil, fmt.Errorf("dial broker: %w", err)
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		_ = conn.Close()
+		return nil, nil, fmt.Errorf("open channel: %w", err)
+	}
+
+	if err := ch.Confirm(false); err != nil {
+		_ = ch.Close()
+		_ = conn.Close()
+		return nil, nil, fmt.Errorf("enable publisher confirms: %w", err)
+	}
+
+	if err := declareTopology(ch); err != nil {
+		_ = ch.Close()
+		_ = conn.Close()
+		return nil, nil, err
+	}
+	return conn, ch, nil
 }
 
 // dialAMQP is the production dialer. It enables no automatic recovery: the

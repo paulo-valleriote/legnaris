@@ -237,9 +237,11 @@ func TestRelayIsASeparateService(t *testing.T) {
 		assert.True(t, present, "the relay must wait for the broker")
 	})
 
-	t.Run("Edge: the API does not depend on the broker", func(t *testing.T) {
-		_, present := app.DependsOn["rabbitmq"]
-		assert.False(t, present, "the API must start without the broker")
+	t.Run("Edge: the API waits only for the broker to start, never for it to be healthy", func(t *testing.T) {
+		condition, present := app.DependsOn["rabbitmq"]
+		require.True(t, present, "the API publishes best-effort events and declares the broker")
+		assert.Equal(t, map[string]any{"condition": "service_started"}, condition,
+			"service_healthy would stop the API from booting while the broker is down")
 	})
 
 	t.Run("Happy path: the relay publishes no host port", func(t *testing.T) {
@@ -266,9 +268,10 @@ func TestEmailConfigurationIsOptional(t *testing.T) {
 		}
 	})
 
-	t.Run("Edge: the API never receives the broker URL", func(t *testing.T) {
-		_, present := app.Environment["RABBITMQ_URL"]
-		assert.False(t, present, "the request-serving process must never read RABBITMQ_URL")
+	t.Run("Happy path: the API receives the broker URL the relay uses, for best-effort events", func(t *testing.T) {
+		value, present := app.Environment["RABBITMQ_URL"]
+		require.True(t, present, "app.environment must pass RABBITMQ_URL to the event publisher")
+		assert.Equal(t, relay.Environment["RABBITMQ_URL"], value)
 	})
 
 	t.Run("Happy path: the relay receives the broker and relay settings", func(t *testing.T) {
@@ -369,7 +372,6 @@ var workerSettings = []string{
 // brokerOnlySettings are the worker settings the app never receives; the
 // provider settings stay shared because the app already carries them.
 var brokerOnlySettings = []string{
-	"RABBITMQ_URL",
 	"EMAIL_WORKER_PREFETCH",
 	"EMAIL_WORKER_MAX_ATTEMPTS",
 	"EMAIL_WORKER_METRICS_ADDR",
@@ -433,10 +435,8 @@ func TestWorkerIsASeparateService(t *testing.T) {
 		assert.False(t, present, "the worker needs no store; a dependency it does not need is a failure mode")
 	})
 
-	t.Run("Edge: the site depends on neither the broker nor the worker", func(t *testing.T) {
-		_, onBroker := app.DependsOn["rabbitmq"]
+	t.Run("Edge: the site does not depend on the worker", func(t *testing.T) {
 		_, onWorker := app.DependsOn["worker"]
-		assert.False(t, onBroker, "the site must start without the broker")
 		assert.False(t, onWorker, "the site must start without the worker")
 	})
 
@@ -468,15 +468,18 @@ func TestWorkerEnvironmentIsSeparatedFromTheApp(t *testing.T) {
 		}
 	})
 
-	t.Run("Edge: the app receives neither the broker address nor a worker knob", func(t *testing.T) {
+	t.Run("Edge: the app receives no worker knob", func(t *testing.T) {
 		for _, key := range brokerOnlySettings {
 			_, present := app.Environment[key]
 			assert.Falsef(t, present, "app.environment must not carry %s", key)
 		}
 	})
 
-	t.Run("Edge: no app value points at the broker", func(t *testing.T) {
+	t.Run("Edge: the only app value that names the broker is the event publisher's URL", func(t *testing.T) {
 		for key, value := range app.Environment {
+			if key == "RABBITMQ_URL" {
+				continue
+			}
 			assert.NotContainsf(t, value, "rabbitmq", "app.environment[%s] must not name the broker", key)
 		}
 	})
@@ -966,6 +969,11 @@ func TestAppHealthcheckProbesReadiness(t *testing.T) {
 	})
 }
 
+// eventDrainBudget mirrors eventsamqp.DefaultDrainTimeout, the SIGTERM budget the
+// API spends draining its event buffer. The deploy package cannot import the
+// internal package, so the value is pinned here and must change with it.
+const eventDrainBudget = 5 * time.Second
+
 // TestAppStopGracePeriodCoversGracefulShutdown guards the shutdown budget: on
 // SIGTERM the app drains for SHUTDOWN_TIMEOUT and then closes MongoDB for up to
 // DATABASE_CLOSE_TIMEOUT, so a shorter Docker grace period would SIGKILL it
@@ -981,13 +989,19 @@ func TestAppStopGracePeriodCoversGracefulShutdown(t *testing.T) {
 			"the Docker default of 10s leaves no margin over the shutdown budget")
 	})
 
-	t.Run("Happy path: the grace period exceeds the shutdown and database close budgets", func(t *testing.T) {
+	t.Run("Happy path: the grace period exceeds the HTTP, database and event drain budgets", func(t *testing.T) {
 		grace, err := time.ParseDuration(app.StopGracePeriod)
 		require.NoError(t, err)
 
 		vars := env.NewEnv(logger.NewLogger(slog.LevelError)).Variables
-		budget := vars.ShutdownTimeout + vars.DatabaseCloseTimeout
-		assert.Greater(t, grace, budget)
+		budget := vars.ShutdownTimeout + vars.DatabaseCloseTimeout + eventDrainBudget
+		assert.Greater(t, grace, budget, "the three drains run in sequence and Docker kills the app at the grace period")
+	})
+
+	t.Run("Edge: the grace period is the 20s the three sequential drains need", func(t *testing.T) {
+		grace, err := time.ParseDuration(app.StopGracePeriod)
+		require.NoError(t, err)
+		assert.Equal(t, 20*time.Second, grace)
 	})
 
 	t.Run("Edge: SHUTDOWN_TIMEOUT is passed through with the app default", func(t *testing.T) {
