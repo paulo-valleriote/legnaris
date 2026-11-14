@@ -31,6 +31,15 @@ packages:
     interfaces:
       Repository: {}
       EmailMigrationStore: {}
+  legnaris/backend/internal/llmconsent:
+    config:
+      dir: backend/internal/llmconsent/mocks
+      outpkg: mocks
+    interfaces:
+      ConsentStore: {}
+      GenerationStore: {}
+      Transactor: {}
+      Service: {}
   legnaris/backend/internal/auth:
     config:
       dir: backend/internal/auth/mocks

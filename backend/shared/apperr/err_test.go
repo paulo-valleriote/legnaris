@@ -34,6 +34,8 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeNotReady, 503},
 		{CodeOTPInvalid, 401},
 		{CodeInternal, 500},
+		{CodeValidation, 400},
+		{CodeLLMConsentRequired, 403},
 	}
 
 	for _, tc := range tests {
