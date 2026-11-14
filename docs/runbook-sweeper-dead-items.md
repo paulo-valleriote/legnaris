@@ -113,6 +113,19 @@ Never requeue an item whose root cause is still unfixed: it returns to dead afte
 - **Discard:** never discard. The account's Sheets and generations stay stored until
   the removal runs, and the user asked for them to go. Fix the cause and requeue.
 
+> **Known gap (F1a review, follow-up card needed): personal data outside the cascade.**
+> The F1a deletion cascade covers the user document, Sheets, generations, LLM consent
+> and the trial. It does not erase the e-mail address and related personal data kept
+> in these collections, which keep the address after the account is removed:
+>
+> - `email_outbox`: the `to` field of every message sent to the account.
+> - challenge rows (the sign-in and verification challenges of the account).
+> - notice rows (the account notices).
+>
+> The gap is deliberate for F1a, which scoped the cascade to the items above. Do not
+> expand the cascade as an ad-hoc fix. Track it as a follow-up card that defines the
+> retention or erasure rule for each collection (see ADR 0008, "Known gap").
+
 ## Queue entry template
 
 Copy this block for each new queue (for example `generation`, `users deleting`,
