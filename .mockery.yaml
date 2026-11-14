@@ -115,6 +115,12 @@ packages:
       DeliveryHandle: {}
       Republisher: {}
       Observer: {}
+  legnaris/backend/internal/generation/amqp:
+    config:
+      dir: backend/internal/generation/amqp/mocks
+      outpkg: mocks
+    interfaces:
+      Acknowledger: {}
   legnaris/backend/internal/platform/health:
     config:
       dir: backend/internal/platform/health/mocks
@@ -139,6 +145,9 @@ packages:
       SheetService: {}
       PlanSource: {}
       TemplateSource: {}
+      JobStore: {}
+      LeaseStore: {}
+      Catalog: {}
       Quota: {}
       Transactor: {}
       CapObserver: {}

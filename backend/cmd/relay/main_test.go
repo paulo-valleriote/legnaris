@@ -169,6 +169,9 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 			deps.Publisher = publisher
 			return deps, nil
 		},
+		newGenerationReap: func(env.Env, databaseHandle) (generation.ReapDeps, error) {
+			return idleReapDeps(t), nil
+		},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

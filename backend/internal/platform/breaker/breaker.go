@@ -1,4 +1,7 @@
-package worker
+// Package breaker is the circuit breaker shared by the workers that call an external
+// provider. It pauses or fails fast while a provider is down and probes it again after
+// an interval, so one failing dependency never holds the other consumers hostage.
+package breaker
 
 import (
 	"sync"
@@ -33,42 +36,42 @@ const (
 	breakerHalfOpen
 )
 
-// breakerOutcome is the classification of one provider send for the breaker.
-type breakerOutcome int
+// Outcome is the classification of one provider send for the breaker.
+type Outcome int
 
 const (
-	// outcomeSuccess is a send the provider accepted.
-	outcomeSuccess breakerOutcome = iota
-	// outcomeOutage is a failure that counts toward opening the breaker: a 5xx
+	// OutcomeSuccess is a send the provider accepted.
+	OutcomeSuccess Outcome = iota
+	// OutcomeOutage is a failure that counts toward opening the breaker: a 5xx
 	// or a timeout. Quota and rate limits never count (LGN-156).
-	outcomeOutage
-	// outcomeNeutral is any other result. It proves nothing about the provider
+	OutcomeOutage
+	// OutcomeNeutral is any other result. It proves nothing about the provider
 	// being down, so it neither opens nor closes the breaker.
-	outcomeNeutral
+	OutcomeNeutral
 )
 
-// breakerTransition reports a change of breaker state caused by one outcome.
-type breakerTransition int
+// Transition reports a change of breaker state caused by one outcome.
+type Transition int
 
 const (
-	transitionNone breakerTransition = iota
-	transitionOpened
-	transitionClosed
+	TransitionNone Transition = iota
+	TransitionOpened
+	TransitionClosed
 )
 
-// admission is the breaker's answer to a worker that wants to take a delivery.
-// When proceed is false, the worker waits wait before asking again. A probe
-// admission carries the probe token that its outcome must present.
-type admission struct {
-	proceed bool
-	probe   uint64
-	wait    time.Duration
+// Admission is the breaker's answer to a worker that wants to take a delivery.
+// When Proceed is false, the worker waits wait before asking again. A probe
+// Admission carries the probe token that its outcome must present.
+type Admission struct {
+	Proceed bool
+	Probe   uint64
+	Wait    time.Duration
 }
 
-// breaker is the circuit breaker that pauses consumption while the provider is
+// Breaker is the circuit breaker that pauses consumption while the provider is
 // failing. It is safe for concurrent use; the clock is injected so the probe
 // schedule is testable without sleeping.
-type breaker struct {
+type Breaker struct {
 	mu            sync.Mutex
 	threshold     int
 	probeInterval time.Duration
@@ -81,36 +84,38 @@ type breaker struct {
 	activeProbe uint64
 }
 
-func newBreaker(threshold int, probeInterval time.Duration, now func() time.Time) *breaker {
-	return &breaker{threshold: threshold, probeInterval: probeInterval, now: now}
+// New returns a Breaker that opens after threshold consecutive outages and admits a
+// probe once probeInterval has passed since it opened.
+func New(threshold int, probeInterval time.Duration, now func() time.Time) *Breaker {
+	return &Breaker{threshold: threshold, probeInterval: probeInterval, now: now}
 }
 
-// admit decides whether a worker may take one delivery now.
-func (b *breaker) admit() admission {
+// Admit decides whether a worker may take one delivery now.
+func (b *Breaker) Admit() Admission {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	switch b.state {
 	case breakerClosed:
-		return admission{proceed: true}
+		return Admission{Proceed: true}
 	case breakerHalfOpen:
-		return admission{wait: breakerPollInterval}
+		return Admission{Wait: breakerPollInterval}
 	}
 
 	elapsed := b.now().Sub(b.openedAt)
 	if elapsed < b.probeInterval {
-		return admission{wait: b.probeInterval - elapsed}
+		return Admission{Wait: b.probeInterval - elapsed}
 	}
 	b.state = breakerHalfOpen
 	b.probeSeq++
 	b.activeProbe = b.probeSeq
-	return admission{proceed: true, probe: b.probeSeq}
+	return Admission{Proceed: true, Probe: b.probeSeq}
 }
 
-// record applies the outcome of one send. Only the probe's outcome can change an
+// Record applies the outcome of one send. Only the probe's outcome can change an
 // open or half-open breaker; a delivery admitted before the breaker opened
 // reports into the void.
-func (b *breaker) record(probe uint64, outcome breakerOutcome) breakerTransition {
+func (b *Breaker) Record(probe uint64, outcome Outcome) Transition {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -118,38 +123,38 @@ func (b *breaker) record(probe uint64, outcome breakerOutcome) breakerTransition
 		return b.recordProbe(probe, outcome)
 	}
 	if b.state != breakerClosed {
-		return transitionNone
+		return TransitionNone
 	}
 	switch outcome {
-	case outcomeSuccess:
+	case OutcomeSuccess:
 		b.failures = 0
-	case outcomeOutage:
+	case OutcomeOutage:
 		b.failures++
 		if b.failures >= b.threshold {
 			b.open()
-			return transitionOpened
+			return TransitionOpened
 		}
 	}
-	return transitionNone
+	return TransitionNone
 }
 
-func (b *breaker) recordProbe(probe uint64, outcome breakerOutcome) breakerTransition {
+func (b *Breaker) recordProbe(probe uint64, outcome Outcome) Transition {
 	if b.state != breakerHalfOpen || probe != b.activeProbe {
-		return transitionNone
+		return TransitionNone
 	}
-	if outcome == outcomeSuccess {
+	if outcome == OutcomeSuccess {
 		b.state = breakerClosed
 		b.failures = 0
-		return transitionClosed
+		return TransitionClosed
 	}
 	b.open()
-	return transitionNone
+	return TransitionNone
 }
 
-// release gives up a probe that never reached the provider, so the next probe
+// Release gives up a probe that never reached the provider, so the next probe
 // can be admitted after another interval. It is a no-op for a probe already
 // settled by record, and for the zero token of an ordinary delivery.
-func (b *breaker) release(probe uint64) {
+func (b *Breaker) Release(probe uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -158,7 +163,7 @@ func (b *breaker) release(probe uint64) {
 	}
 }
 
-func (b *breaker) open() {
+func (b *Breaker) open() {
 	b.state = breakerOpen
 	b.openedAt = b.now()
 }

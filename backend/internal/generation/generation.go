@@ -40,9 +40,28 @@ const (
 	ReservationDaily = "daily"
 )
 
-// ErrorCodePublishFailed is the error_code of a job the publish sweeper gave up
-// on. The worker writes its own codes, such as provider_unavailable.
-const ErrorCodePublishFailed = "publish_failed"
+// Error codes stored in error_code of a failed generation. The API and the client
+// see only these strings, never a provider message.
+const (
+	// ErrorCodePublishFailed is the code of a job the publish sweeper gave up on:
+	// it never reached the broker.
+	ErrorCodePublishFailed = "publish_failed"
+	// ErrorCodeProviderUnavailable is the code of a job the gateway could not serve
+	// under the data policy, or that failed fast while the provider breaker is open.
+	ErrorCodeProviderUnavailable = "provider_unavailable"
+	// ErrorCodeProviderFailed is the code of a job that hit a permanent gateway
+	// failure or exhausted its transport retries.
+	ErrorCodeProviderFailed = "provider_failed"
+	// ErrorCodeInvalidOutput is the code of a job whose model output still failed
+	// validation after every schema retry.
+	ErrorCodeInvalidOutput = "invalid_output"
+	// ErrorCodeTemplateUnavailable is the code of a job whose Template cannot be
+	// loaded or cannot produce an output schema.
+	ErrorCodeTemplateUnavailable = "template_unavailable"
+	// ErrorCodeLeaseExpired is the code of a job whose worker stopped holding the
+	// lease before it wrote a terminal state.
+	ErrorCodeLeaseExpired = "lease_expired"
+)
 
 // Lifetime and length bounds of a generation (ADR 0007, LGN-186).
 const (
@@ -54,6 +73,26 @@ const (
 	// RepublishAge is how old a queued document must be before the sweeper
 	// republishes it, so a publish that is still in flight is not duplicated.
 	RepublishAge = 10 * time.Second
+)
+
+// Worker bounds (ADR 0007, LGN-230). A claim holds a job for LeaseDuration; the
+// job's whole run, including retries, must fit inside that lease.
+const (
+	// LeaseDuration is how long a worker holds a running job before the lease
+	// reaper may fail it.
+	LeaseDuration = 90 * time.Second
+	// MaxSchemaRetries is how many times the model is asked again after an output
+	// fails validation. The retries are free: they consume no quota.
+	MaxSchemaRetries = 2
+	// TransportRetries is how many times a transient gateway failure is retried
+	// in-process before the job fails.
+	TransportRetries = 1
+	// TransportBackoff is the pause before a transport retry.
+	TransportBackoff = 500 * time.Millisecond
+	// MaxOutputTokens bounds one completion.
+	MaxOutputTokens = 6000
+	// ReapInterval is how often the lease reaper looks for expired running jobs.
+	ReapInterval = 10 * time.Second
 )
 
 // Reservation records the quota unit a generation took: the trial lifetime
@@ -82,6 +121,7 @@ type Document struct {
 	LeaseUntil        *time.Time     `bson:"lease_until,omitempty"`
 	PublishLeaseUntil *time.Time     `bson:"publish_lease_until,omitempty"`
 	PublishAttempts   int            `bson:"publish_attempts"`
+	ReapAttempts      int            `bson:"reap_attempts"`
 	Values            map[string]any `bson:"values,omitempty"`
 	ErrorCode         string         `bson:"error_code,omitempty"`
 	SheetID           string         `bson:"sheet_id,omitempty"`

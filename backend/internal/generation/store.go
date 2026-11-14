@@ -33,6 +33,7 @@ const (
 	operatorUnset     = "$unset"
 	operatorInc       = "$inc"
 	operatorSetOnIns  = "$setOnInsert"
+	operatorLte       = "$lte"
 )
 
 // capRow is the stored shape of one day's global cap counter; its _id is the UTC day.
@@ -174,10 +175,10 @@ func (s *MongoStore) ClaimUnpublished(ctx context.Context, claimer string, now t
 func (s *MongoStore) claimOne(ctx context.Context, now, leaseUntil time.Time) (Document, bool, error) {
 	filter := bson.D{
 		{Key: fieldStatus, Value: StatusQueued},
-		{Key: fieldCreatedAt, Value: bson.D{{Key: "$lte", Value: now.Add(-RepublishAge)}}},
+		{Key: fieldCreatedAt, Value: bson.D{{Key: operatorLte, Value: now.Add(-RepublishAge)}}},
 		{Key: "$or", Value: bson.A{
 			bson.D{{Key: fieldPublishLease, Value: bson.D{{Key: "$exists", Value: false}}}},
-			bson.D{{Key: fieldPublishLease, Value: bson.D{{Key: "$lte", Value: now}}}},
+			bson.D{{Key: fieldPublishLease, Value: bson.D{{Key: operatorLte, Value: now}}}},
 		}},
 	}
 	update := bson.D{{Key: operatorSet, Value: bson.D{{Key: fieldPublishLease, Value: leaseUntil}}}}
