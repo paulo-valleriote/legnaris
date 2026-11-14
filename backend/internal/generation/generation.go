@@ -159,6 +159,7 @@ const (
 	MsgIDInvalid        = "generation id must be a canonical UUID v7"
 	MsgNotFound         = "generation not found"
 	MsgNameRequired     = "sheet name is required"
+	MsgValuesRequired   = "sheet values are required"
 	MsgNotAcceptable    = "generation is not ready to accept"
 	MsgInProgress       = "a generation is already in progress"
 	MsgCapReached       = "the daily generation capacity is reached; try again tomorrow"

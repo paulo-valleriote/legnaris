@@ -291,11 +291,12 @@ func TestGenerationController_Accept(t *testing.T) {
 		wantCode   string
 		wantSheet  string
 	}{
-		{name: "Happy path: the first accept is 201 with the new sheet id", body: `{"sheet_name":"Brom","values":{}}`, result: generation.AcceptResult{SheetID: sheetID, Created: true}, wantStatus: http.StatusCreated, wantSheet: sheetID},
+		{name: "Happy path: the first accept is 201 with the new sheet id", body: `{"sheet_name":"Brom","values":{"name":"Brom"}}`, result: generation.AcceptResult{SheetID: sheetID, Created: true}, wantStatus: http.StatusCreated, wantSheet: sheetID},
 		{name: "Edge: a repeat accept is 200 with the same sheet id", body: `{"sheet_name":"Brom"}`, result: generation.AcceptResult{SheetID: sheetID}, wantStatus: http.StatusOK, wantSheet: sheetID},
-		{name: "Error: a generation that is not ready is 409", body: `{"sheet_name":"Brom"}`, err: apperr.NewError(apperr.CodeConflict, generation.MsgNotAcceptable, nil), wantStatus: http.StatusConflict, wantCode: string(apperr.CodeConflict)},
-		{name: "Error: the Sheet limit refuses the accept with 409", body: `{"sheet_name":"Brom"}`, err: apperr.NewError(apperr.CodeSheetLimitReached, "sheet limit reached for this kind", nil), wantStatus: http.StatusConflict, wantCode: string(apperr.CodeSheetLimitReached)},
+		{name: "Error: a generation that is not ready is 409", body: `{"sheet_name":"Brom","values":{"name":"Brom"}}`, err: apperr.NewError(apperr.CodeConflict, generation.MsgNotAcceptable, nil), wantStatus: http.StatusConflict, wantCode: string(apperr.CodeConflict)},
+		{name: "Error: the Sheet limit refuses the accept with 409", body: `{"sheet_name":"Brom","values":{"name":"Brom"}}`, err: apperr.NewError(apperr.CodeSheetLimitReached, "sheet limit reached for this kind", nil), wantStatus: http.StatusConflict, wantCode: string(apperr.CodeSheetLimitReached)},
 		{name: "Error: malformed JSON is 400", body: `{"sheet_name":`, wantStatus: http.StatusBadRequest, wantCode: string(apperr.CodeInvalidJSON)},
+		{name: "Error: missing values is 400", body: `{"sheet_name":"Brom"}`, err: apperr.NewError(apperr.CodeInvalidRequest, generation.MsgValuesRequired, nil), wantStatus: http.StatusBadRequest, wantCode: string(apperr.CodeInvalidRequest)},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
