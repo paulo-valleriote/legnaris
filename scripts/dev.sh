@@ -91,8 +91,8 @@ start_mongo() {
 
 	for _ in $(seq 1 60); do
 		if docker exec "$MONGO_CONTAINER" mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; then
-			docker exec -e "MONGO_INITDB_ROOT_USERNAME=$MONGO_ROOT_USER" \
-				-e "MONGO_INITDB_ROOT_PASSWORD=$MONGO_ROOT_PASSWORD" \
+			MONGO_INITDB_ROOT_USERNAME="$MONGO_ROOT_USER" MONGO_INITDB_ROOT_PASSWORD="$MONGO_ROOT_PASSWORD" \
+				docker exec -e MONGO_INITDB_ROOT_USERNAME -e MONGO_INITDB_ROOT_PASSWORD \
 				-e "MONGO_RS_MEMBER=localhost:$MONGO_PORT" \
 				"$MONGO_CONTAINER" sh /provision/bootstrap.sh /provision/init/00-replset.js >/dev/null \
 				|| die "could not bootstrap the rs0 replica set"
