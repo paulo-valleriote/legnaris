@@ -45,8 +45,10 @@ const (
 	// OutcomeOutage is a failure that counts toward opening the breaker: a 5xx
 	// or a timeout. Quota and rate limits never count (LGN-156).
 	OutcomeOutage
-	// OutcomeNeutral is any other result. It proves nothing about the provider
-	// being down, so it neither opens nor closes the breaker.
+	// OutcomeNeutral is any other result. Outside a probe it neither counts toward
+	// opening a closed breaker nor resets the outage run. As a probe outcome it
+	// is not a recovery: the provider has not proven itself healthy, so the
+	// breaker reopens and the next probe waits a full probe interval.
 	OutcomeNeutral
 )
 
@@ -112,9 +114,11 @@ func (b *Breaker) Admit() Admission {
 	return Admission{Proceed: true, Probe: b.probeSeq}
 }
 
-// Record applies the outcome of one send. Only the probe's outcome can change an
-// open or half-open breaker; a delivery admitted before the breaker opened
-// reports into the void.
+// Record applies the outcome of one send and reports the resulting transition.
+// A probe token routes the outcome to the half-open probe: only OutcomeSuccess
+// closes the breaker, while any other outcome reopens it. A zero token is an
+// ordinary delivery: it can only open a closed breaker, through consecutive
+// outages, and a delivery admitted before the breaker opened reports into the void.
 func (b *Breaker) Record(probe uint64, outcome Outcome) Transition {
 	b.mu.Lock()
 	defer b.mu.Unlock()
