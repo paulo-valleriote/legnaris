@@ -15,12 +15,3 @@ func TransactionOptions() *options.TransactionOptionsBuilder {
 		SetWriteConcern(writeconcern.Majority()).
 		SetReadPreference(readpref.Primary())
 }
-
-// PrimaryReadPreference returns the read preference for reads outside a
-// transaction that decide authorization or a compensation. A secondary may lag
-// behind the last committed write, so those reads must target the primary.
-// WithTransaction does not use it: transactions take their read preference from
-// TransactionOptions.
-func PrimaryReadPreference() *readpref.ReadPref {
-	return readpref.Primary()
-}
