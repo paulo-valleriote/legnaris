@@ -109,7 +109,17 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
+      # The Mongo suites and the transaction helper need a replica set with a
+      # keyfile, which a `services:` container cannot express, so the job starts
+      # the same rs0 that `make dev-db` runs locally. Without DATABASE_URI those
+      # suites skip silently, hiding regressions.
+      - name: Start MongoDB replica set rs0
+        env:
+          DATABASE_URI: mongodb://root:legnaris-ci-only@localhost:27017/?replicaSet=rs0&retryWrites=true&authSource=admin
+        run: make dev-db
       - name: go test -race
+        env:
+          DATABASE_URI: mongodb://root:legnaris-ci-only@localhost:27017/?replicaSet=rs0&retryWrites=true&authSource=admin
         run: go test -race ./...
 
   web-quality:
