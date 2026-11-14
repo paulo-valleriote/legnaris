@@ -52,6 +52,7 @@ Character generation (ADR 0007) sends a player's concept text to a third-party g
   - Account deletion also removes `generation` documents.
   - Data export does not include them, because they last at most 24 h.
   - The privacy policy must list OpenRouter (and the provider it routes to) as processors and the transfer of the concept abroad.
+  - **Known gap (F1a review, follow-up card needed):** account deletion does not erase personal data outside its F1a cascade. `email_outbox` keeps the `to` address of the account's messages, and the challenge and notice rows keep the account's personal data. The F1a scope excludes them on purpose; the follow-up card must set the retention or erasure rule for each collection. Operational note: `docs/runbook-sweeper-dead-items.md`, `users_deleting`.
 - Changing the gateway or model is a privacy change, not just a configuration change: bump the consent version and update the disclosure text.
 - Tests:
   - Consent gate ordering and the 403 code.
