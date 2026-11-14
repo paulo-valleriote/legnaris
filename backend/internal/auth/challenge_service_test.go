@@ -10,6 +10,7 @@ import (
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/auth/mocks"
+	"legnaris/backend/internal/events"
 	usermocks "legnaris/backend/internal/user/mocks"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
@@ -164,7 +165,7 @@ func newChallengeFixtureWith(t *testing.T, generator auth.CodeGenerator, policy 
 			Mailer:     f.mailer,
 			Observer:   f.codeObs,
 			Policy:     policy,
-		},
+		}, events.NoOp{},
 	)
 	return f
 }
@@ -1074,7 +1075,7 @@ func TestChallengeService_ObserverDefaultsToNop(t *testing.T) {
 		mocks.NewMockObserver(t),
 		auth.Config{RefreshTTL: testRefreshTTL, Now: func() time.Time { return challengeTestNow }},
 		logger.NewLogger(slog.LevelError),
-		auth.ChallengeDeps{},
+		auth.ChallengeDeps{}, events.NoOp{},
 	)
 	require.NotNil(t, service)
 }

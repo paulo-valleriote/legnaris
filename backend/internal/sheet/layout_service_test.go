@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheettest"
@@ -348,7 +349,7 @@ func TestService_SetLayout(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := mocks.NewMockRepository(t)
 			templateSvc := templatemocks.NewMockService(t)
-			svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
+			svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog, events.NoOp{})
 
 			if tc.wantFetch {
 				call := repo.EXPECT().FetchByID(mock.Anything, tc.sheetID)
@@ -398,7 +399,7 @@ func TestService_SetLayout_ReturnedLayoutDoesNotAliasTheCommand(t *testing.T) {
 	tmpl := layoutTemplate()
 	repo := mocks.NewMockRepository(t)
 	templateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
+	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog, events.NoOp{})
 
 	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Once()
 	templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Once()
@@ -416,7 +417,7 @@ func TestService_SetLayout_IsIdempotent(t *testing.T) {
 	tmpl := layoutTemplate()
 	repo := mocks.NewMockRepository(t)
 	templateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
+	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog, events.NoOp{})
 
 	layout := &sheet.Layout{SectionOrder: []string{"config"}, Pinned: []string{"stats.strength"}}
 	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Twice()
@@ -446,7 +447,7 @@ func TestService_SetLayout_LeavesRecalculationUntouched(t *testing.T) {
 
 	repo := mocks.NewMockRepository(t)
 	templateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{layoutTemplateID: dag}, testLog)
+	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{layoutTemplateID: dag}, testLog, events.NoOp{})
 
 	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(stored, nil).Once()
 	templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Once()
@@ -478,7 +479,7 @@ func TestService_PartialUpdate_DoesNotWriteOrReadLayout(t *testing.T) {
 	stored.Layout = &sheet.Layout{Pinned: []string{"stats.strength"}}
 
 	repo := mocks.NewMockRepository(t)
-	svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{layoutTemplateID: dag}, testLog)
+	svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{layoutTemplateID: dag}, testLog, events.NoOp{})
 
 	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(stored, nil).Once()
 	repo.EXPECT().PartialUpdate(mock.Anything, fetchSheetID, int64(0), mock.MatchedBy(func(update map[string]any) bool {

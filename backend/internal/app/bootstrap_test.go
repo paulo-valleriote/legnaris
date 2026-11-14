@@ -11,6 +11,7 @@ import (
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/env"
@@ -59,7 +60,7 @@ func buildModules(t *testing.T, secret string, secretPresent bool) (*app.Modules
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	return app.NewModules(&db.Database{Client: client}, registry, cfg, auth.NewNopObserver(), auth.NewNopChallengeObserver())
+	return app.NewModules(&db.Database{Client: client}, registry, cfg, auth.NewNopObserver(), auth.NewNopChallengeObserver(), events.NoOp{})
 }
 
 // TestNewModules_EmailCodeSecret pins the one required setting this feature

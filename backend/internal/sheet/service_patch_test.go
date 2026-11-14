@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheettest"
@@ -114,7 +115,7 @@ func newPatchLogger(t *testing.T) (*logmocks.MockStructuredLogger, *[]loggedLine
 
 func newPatchService(t *testing.T, repo sheet.Repository, log logger.StructuredLogger, dag *template.DAG) sheet.Service {
 	t.Helper()
-	return sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{patchTemplateID: dag}, log)
+	return sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{patchTemplateID: dag}, log, events.NoOp{})
 }
 
 func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {

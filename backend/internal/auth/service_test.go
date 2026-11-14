@@ -11,6 +11,7 @@ import (
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/auth/mocks"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/user"
 	usermocks "legnaris/backend/internal/user/mocks"
 	"legnaris/backend/shared/apperr"
@@ -81,6 +82,13 @@ func newAuthServiceWithClock(t *testing.T, clock auth.Clock) (auth.Service, *aut
 // email checker injected; a nil checker leaves the check disabled.
 func newAuthServiceWithChecker(t *testing.T, clock auth.Clock, checker auth.EmailChecker) (auth.Service, *authMocks) {
 	t.Helper()
+	return newAuthServiceWithPublisher(t, clock, checker, events.NoOp{})
+}
+
+// newAuthServiceWithPublisher is newAuthServiceWithChecker with the domain event
+// publisher injected, so a test can assert what the service emits.
+func newAuthServiceWithPublisher(t *testing.T, clock auth.Clock, checker auth.EmailChecker, publisher events.Publisher) (auth.Service, *authMocks) {
+	t.Helper()
 
 	m := &authMocks{
 		users:         usermocks.NewMockRepository(t),
@@ -116,7 +124,7 @@ func newAuthServiceWithChecker(t *testing.T, clock auth.Clock, checker auth.Emai
 			Notices:    m.notices,
 			Observer:   auth.NewNopChallengeObserver(),
 			Policy:     testChallengePolicy,
-		},
+		}, publisher,
 	)
 	return service, m
 }
@@ -843,7 +851,7 @@ func TestService_RegisterMinDuration(t *testing.T) {
 			m.users, m.refreshTokens, m.hasher, m.tokens, m.generator, m.csrf, m.observer,
 			auth.Config{RefreshTTL: testRefreshTTL, RegisterMinDuration: floor},
 			logger.NewLogger(slog.LevelError),
-			auth.ChallengeDeps{Repository: m.challenges, Mailer: m.mailer, Notices: m.notices, Policy: testChallengePolicy, Digest: nil, Generator: auth.NewCodeGenerator()},
+			auth.ChallengeDeps{Repository: m.challenges, Mailer: m.mailer, Notices: m.notices, Policy: testChallengePolicy, Digest: nil, Generator: auth.NewCodeGenerator()}, events.NoOp{},
 		), m
 	}
 	cmd := auth.RegisterCommand{Email: "Player@Example.com", Username: "player", Password: testPassword}

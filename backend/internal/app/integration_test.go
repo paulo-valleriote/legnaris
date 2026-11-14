@@ -15,6 +15,7 @@ import (
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/template"
@@ -87,7 +88,7 @@ func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
 
-	modules, err := app.NewModules(database, registry, env, auth.NewNopObserver(), auth.NewNopChallengeObserver())
+	modules, err := app.NewModules(database, registry, env, auth.NewNopObserver(), auth.NewNopChallengeObserver(), events.NoOp{})
 	require.NoError(t, err)
 
 	return app.NewRouter(env, modules, metrics.New()), mdb, modules
