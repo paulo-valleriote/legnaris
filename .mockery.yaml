@@ -102,10 +102,9 @@ packages:
       outpkg: mocks
     interfaces:
       Store: {}
-  legnaris/backend/internal/trial:
+  legnaris/backend/internal/llm:
     config:
-      dir: backend/internal/trial/mocks
+      dir: backend/internal/llm/mocks
       outpkg: mocks
     interfaces:
-      Granter: {}
-      DomainChecker: {}
+      Client: {}
