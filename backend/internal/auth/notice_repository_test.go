@@ -24,7 +24,9 @@ func newNoticeStore(t *testing.T) auth.NoticeRepository {
 }
 
 // TestNoticeRepository_Claim covers the pacing of code-free notices: one claim
-// per purpose and address per window, even under concurrency.
+// per purpose and address per window, even under concurrency. The window
+// boundary is a whole millisecond past the window, because BSON stores
+// milliseconds and a sub-millisecond boundary cannot be expressed in the store.
 func TestNoticeRepository_Claim(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
@@ -55,7 +57,6 @@ func TestNoticeRepository_Claim(t *testing.T) {
 		_, err := store.Claim(ctx, auth.PurposeAccountExists, address, now.Add(-window), now)
 		require.NoError(t, err)
 
-		// BSON stores milliseconds, so the boundary must be a whole millisecond past the window.
 		at := now.Add(window + time.Millisecond)
 		claimed, err := store.Claim(ctx, auth.PurposeAccountExists, address, at.Add(-window), at)
 		require.NoError(t, err)

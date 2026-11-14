@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 
@@ -220,11 +221,7 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				rec := doAuthRequest(t, h, token, http.MethodPatch, path, bodies[i%2])
-				// A lost compare-and-swap answers 409 and the client resends (ADR 0006).
-				for attempt := 0; rec.Code == http.StatusConflict && attempt < 100; attempt++ {
-					rec = doAuthRequest(t, h, token, http.MethodPatch, path, bodies[i%2])
-				}
+				rec := patchUntilApplied(t, h, token, path, bodies[i%2])
 				assert.Equal(t, http.StatusOK, rec.Code)
 			}()
 		}
@@ -287,4 +284,16 @@ func nullDiceBody(t *testing.T, n int) string {
 	raw, err := json.Marshal(sheet.PartialUpdateSheetCommand{Dice: &block})
 	require.NoError(t, err)
 	return string(raw)
+}
+
+// patchUntilApplied resends a PATCH for as long as the server answers 409, the
+// lost compare-and-swap that ADR 0006 tells the client to retry. It stops after
+// 100 resends and returns the last response.
+func patchUntilApplied(t *testing.T, h http.Handler, token, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := doAuthRequest(t, h, token, http.MethodPatch, path, body)
+	for attempt := 0; rec.Code == http.StatusConflict && attempt < 100; attempt++ {
+		rec = doAuthRequest(t, h, token, http.MethodPatch, path, body)
+	}
+	return rec
 }
