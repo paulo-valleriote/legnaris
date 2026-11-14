@@ -3,6 +3,7 @@ package db_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -130,143 +131,169 @@ func TestTransactor_Timeout(t *testing.T) {
 }
 
 func TestTransactor_Step(t *testing.T) {
-	t.Run("Edge: a nil transactor is a no-op", func(t *testing.T) {
-		var tx *db.Transactor
-		assert.NoError(t, tx.Step(context.Background(), db.StepAfterEntityWrite))
-	})
+	type ctxKey struct{}
+	hookErr := errors.New("injected crash")
+	wantMarker := "marker"
 
-	t.Run("Edge: a transactor without a hook is a no-op in production", func(t *testing.T) {
-		tx := db.NewTransactor(nil, nil)
-		for _, step := range []db.Step{db.StepAfterEntityWrite, db.StepAfterOutboxInsert, db.StepAfterProviderRead} {
-			assert.NoError(t, tx.Step(context.Background(), step), string(step))
+	assertingHook := func(ctx context.Context, step db.Step) error {
+		if step != db.StepAfterOutboxInsert {
+			return fmt.Errorf("hook got step %q", step)
 		}
-	})
+		if ctx.Value(ctxKey{}) != wantMarker {
+			return errors.New("hook did not receive the caller's context")
+		}
+		return nil
+	}
 
-	t.Run("Happy path: the hook receives the named step and the caller's context", func(t *testing.T) {
-		type ctxKey struct{}
-		ctx := context.WithValue(context.Background(), ctxKey{}, "marker")
+	tests := []struct {
+		name    string
+		tx      *db.Transactor
+		step    db.Step
+		wantErr error
+	}{
+		{name: "Edge: a nil transactor is a no-op", tx: nil, step: db.StepAfterEntityWrite},
+		{name: "Edge: a transactor without a hook is a no-op for entity writes", tx: db.NewTransactor(nil, nil), step: db.StepAfterEntityWrite},
+		{name: "Edge: a transactor without a hook is a no-op for outbox inserts", tx: db.NewTransactor(nil, nil), step: db.StepAfterOutboxInsert},
+		{name: "Edge: a transactor without a hook is a no-op for provider reads", tx: db.NewTransactor(nil, nil), step: db.StepAfterProviderRead},
+		{name: "Happy path: the hook receives the named step and the caller's context", tx: db.NewTransactor(nil, assertingHook), step: db.StepAfterOutboxInsert},
+		{
+			name:    "Error: a hook error is returned wrapped and matchable",
+			tx:      db.NewTransactor(nil, func(context.Context, db.Step) error { return hookErr }),
+			step:    db.StepAfterProviderRead,
+			wantErr: hookErr,
+		},
+	}
 
-		var gotStep db.Step
-		var gotMarker any
-		tx := db.NewTransactor(nil, func(ctx context.Context, step db.Step) error {
-			gotStep = step
-			gotMarker = ctx.Value(ctxKey{})
-			return nil
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), ctxKey{}, wantMarker)
+
+			err := tc.tx.Step(ctx, tc.step)
+
+			if tc.wantErr == nil {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorIs(t, err, tc.wantErr)
 		})
-
-		require.NoError(t, tx.Step(ctx, db.StepAfterOutboxInsert))
-		assert.Equal(t, db.StepAfterOutboxInsert, gotStep)
-		assert.Equal(t, "marker", gotMarker)
-	})
-
-	t.Run("Error: a hook error is returned wrapped and matchable", func(t *testing.T) {
-		hookErr := errors.New("injected crash")
-		tx := db.NewTransactor(nil, func(context.Context, db.Step) error { return hookErr })
-
-		err := tx.Step(context.Background(), db.StepAfterProviderRead)
-		assert.ErrorIs(t, err, hookErr)
-	})
+	}
 }
 
 func TestTransactor_ReplicaSet(t *testing.T) {
 	type entity struct {
 		ID string `bson:"_id"`
 	}
+	crash := errors.New("injected crash")
+	errNotBound := errors.New("callback context is not session-bound")
 
-	countDocs := func(t *testing.T, mdb *mongo.Database, collection string) int64 {
-		t.Helper()
-		n, err := mdb.Collection(collection).CountDocuments(context.Background(), bson.D{})
-		require.NoError(t, err)
-		return n
+	insertEntity := func(ctx context.Context, mdb *mongo.Database) error {
+		_, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"})
+		return err
+	}
+	insertOutbox := func(ctx context.Context, mdb *mongo.Database) error {
+		_, err := mdb.Collection("outbox").InsertOne(ctx, entity{ID: "o1"})
+		return err
+	}
+	crashAfterOutbox := func(_ context.Context, step db.Step) error {
+		if step == db.StepAfterOutboxInsert {
+			return crash
+		}
+		return nil
+	}
+	noopHook := func(context.Context, db.Step) error { return nil }
+
+	tests := []struct {
+		name         string
+		hook         db.StepHook
+		run          func(ctx context.Context, mdb *mongo.Database, tx *db.Transactor) error
+		wantErrs     []error
+		wantEntities int64
+		wantOutbox   int64
+	}{
+		{
+			name: "Happy path: both writes commit together",
+			run: func(ctx context.Context, mdb *mongo.Database, _ *db.Transactor) error {
+				if err := insertEntity(ctx, mdb); err != nil {
+					return err
+				}
+				return insertOutbox(ctx, mdb)
+			},
+			wantEntities: 1,
+			wantOutbox:   1,
+		},
+		{
+			name: "Edge: the callback receives a session-bound context",
+			run: func(ctx context.Context, _ *mongo.Database, _ *db.Transactor) error {
+				if mongo.SessionFromContext(ctx) == nil {
+					return errNotBound
+				}
+				return nil
+			},
+		},
+		{
+			name: "Error: a callback error rolls back earlier writes and keeps its identity",
+			run: func(ctx context.Context, mdb *mongo.Database, _ *db.Transactor) error {
+				if err := insertEntity(ctx, mdb); err != nil {
+					return err
+				}
+				return errCallbackFailed
+			},
+			wantErrs: []error{db.ErrTransactionAborted, errCallbackFailed},
+		},
+		{
+			name: "Error: a crash injected after the outbox insert leaves neither write",
+			hook: crashAfterOutbox,
+			run: func(ctx context.Context, mdb *mongo.Database, tx *db.Transactor) error {
+				if err := insertEntity(ctx, mdb); err != nil {
+					return err
+				}
+				if err := insertOutbox(ctx, mdb); err != nil {
+					return err
+				}
+				return tx.Step(ctx, db.StepAfterOutboxInsert)
+			},
+			wantErrs: []error{db.ErrTransactionAborted, crash},
+		},
+		{
+			name: "Edge: a hook that returns nil lets the transaction commit",
+			hook: noopHook,
+			run: func(ctx context.Context, mdb *mongo.Database, tx *db.Transactor) error {
+				if err := insertEntity(ctx, mdb); err != nil {
+					return err
+				}
+				return tx.Step(ctx, db.StepAfterEntityWrite)
+			},
+			wantEntities: 1,
+		},
 	}
 
-	t.Run("Happy path: both writes commit together", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		client := mdb.Client()
-		tx := db.NewTransactor(client, nil)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mdb := dbtest.Database(t)
+			tx := db.NewTransactor(mdb.Client(), tc.hook)
 
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
-				return err
+			err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
+				return tc.run(ctx, mdb, tx)
+			})
+
+			if len(tc.wantErrs) == 0 {
+				require.NoError(t, err)
 			}
-			_, err := mdb.Collection("outbox").InsertOne(ctx, entity{ID: "o1"})
-			return err
-		})
-		require.NoError(t, err)
-		assert.Equal(t, int64(1), countDocs(t, mdb, "entities"))
-		assert.Equal(t, int64(1), countDocs(t, mdb, "outbox"))
-	})
-
-	t.Run("Edge: the callback receives a session-bound context", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		client := mdb.Client()
-		tx := db.NewTransactor(client, nil)
-
-		var bound bool
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			bound = mongo.SessionFromContext(ctx) != nil
-			return nil
-		})
-		require.NoError(t, err)
-		assert.True(t, bound)
-	})
-
-	t.Run("Error: a callback error rolls back earlier writes and keeps its identity", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		client := mdb.Client()
-		tx := db.NewTransactor(client, nil)
-
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
-				return err
+			for _, want := range tc.wantErrs {
+				assert.ErrorIs(t, err, want)
 			}
-			return errCallbackFailed
+			assert.Equal(t, tc.wantEntities, countDocs(t, mdb, "entities"))
+			assert.Equal(t, tc.wantOutbox, countDocs(t, mdb, "outbox"))
 		})
-		assert.ErrorIs(t, err, db.ErrTransactionAborted)
-		assert.ErrorIs(t, err, errCallbackFailed)
-		assert.Equal(t, int64(0), countDocs(t, mdb, "entities"))
-	})
+	}
+}
 
-	t.Run("Error: a crash injected after the outbox insert leaves neither write", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		client := mdb.Client()
-		crash := errors.New("injected crash")
-		tx := db.NewTransactor(client, func(_ context.Context, step db.Step) error {
-			if step == db.StepAfterOutboxInsert {
-				return crash
-			}
-			return nil
-		})
-
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
-				return err
-			}
-			if _, err := mdb.Collection("outbox").InsertOne(ctx, entity{ID: "o1"}); err != nil {
-				return err
-			}
-			return tx.Step(ctx, db.StepAfterOutboxInsert)
-		})
-		assert.ErrorIs(t, err, db.ErrTransactionAborted)
-		assert.ErrorIs(t, err, crash)
-		assert.Equal(t, int64(0), countDocs(t, mdb, "entities"))
-		assert.Equal(t, int64(0), countDocs(t, mdb, "outbox"))
-	})
-
-	t.Run("Edge: a hook that returns nil lets the transaction commit", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		client := mdb.Client()
-		tx := db.NewTransactor(client, func(context.Context, db.Step) error { return nil })
-
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
-				return err
-			}
-			return tx.Step(ctx, db.StepAfterEntityWrite)
-		})
-		require.NoError(t, err)
-		assert.Equal(t, int64(1), countDocs(t, mdb, "entities"))
-	})
+// countDocs returns the number of documents in a collection.
+func countDocs(t *testing.T, mdb *mongo.Database, collection string) int64 {
+	t.Helper()
+	n, err := mdb.Collection(collection).CountDocuments(context.Background(), bson.D{})
+	require.NoError(t, err)
+	return n
 }
 
 // labeledError returns a server error carrying one of the driver's retry labels,
@@ -301,133 +328,130 @@ func TestTransactor_Retry(t *testing.T) {
 	type entity struct {
 		ID string `bson:"_id"`
 	}
+	const transient = "TransientTransactionError"
+	const unknownCommit = "UnknownTransactionCommitResult"
 
-	countEntities := func(t *testing.T, mdb *mongo.Database) int64 {
-		t.Helper()
-		n, err := mdb.Collection("entities").CountDocuments(context.Background(), bson.D{})
-		require.NoError(t, err)
-		return n
+	insertEntity := func(ctx context.Context, mdb *mongo.Database) error {
+		_, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"})
+		return err
+	}
+	commitFailure := func(code int, label string) bson.D {
+		return bson.D{
+			{Key: "failCommands", Value: bson.A{"commitTransaction"}},
+			{Key: "errorCode", Value: code},
+			{Key: "errorLabels", Value: bson.A{label}},
+		}
 	}
 
-	t.Run("Happy path: a callback error with TransientTransactionError re-runs the callback and commits the retry", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		tx := db.NewTransactor(mdb.Client(), nil)
+	tests := []struct {
+		name         string
+		timeout      time.Duration
+		failPoint    bson.D
+		run          func(ctx context.Context, mdb *mongo.Database, attempt int) error
+		wantErr      error
+		wantAttempts int
+		wantEntities int64
+	}{
+		{
+			name: "Happy path: a callback error with TransientTransactionError re-runs the callback and commits the retry",
+			run: func(ctx context.Context, mdb *mongo.Database, attempt int) error {
+				if err := insertEntity(ctx, mdb); err != nil {
+					return err
+				}
+				if attempt == 1 {
+					return labeledError(transient)
+				}
+				return nil
+			},
+			wantAttempts: 2,
+			wantEntities: 1,
+		},
+		{
+			name: "Edge: a live context keeps the TransientTransactionError label through the retry guard",
+			run: func(_ context.Context, _ *mongo.Database, attempt int) error {
+				if attempt < 3 {
+					return labeledError(transient)
+				}
+				return nil
+			},
+			wantAttempts: 3,
+		},
+		{
+			name: "Error: a callback error with UnknownTransactionCommitResult is not re-run as a callback error",
+			run: func(context.Context, *mongo.Database, int) error {
+				return labeledError(unknownCommit)
+			},
+			wantErr:      db.ErrTransactionAborted,
+			wantAttempts: 1,
+		},
+		{
+			name:    "Edge: a labeled callback error after the deadline is not retried",
+			timeout: 300 * time.Millisecond,
+			run: func(ctx context.Context, _ *mongo.Database, _ int) error {
+				<-ctx.Done()
+				return labeledError(transient)
+			},
+			wantErr:      db.ErrTransactionAborted,
+			wantAttempts: 1,
+		},
+		{
+			name:    "Edge: a labeled error inside the deadline is retried until the callback succeeds",
+			timeout: 5 * time.Second,
+			run: func(ctx context.Context, _ *mongo.Database, attempt int) error {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				if attempt == 1 {
+					return labeledError(transient)
+				}
+				return nil
+			},
+			wantAttempts: 2,
+		},
+		{
+			name:      "Edge: a commit that fails with TransientTransactionError re-runs the callback",
+			failPoint: commitFailure(112, transient),
+			run: func(ctx context.Context, mdb *mongo.Database, _ int) error {
+				return insertEntity(ctx, mdb)
+			},
+			wantAttempts: 2,
+			wantEntities: 1,
+		},
+		{
+			name:      "Edge: a commit that fails with UnknownTransactionCommitResult is retried at commit without re-running the callback",
+			failPoint: commitFailure(251, unknownCommit),
+			run: func(ctx context.Context, mdb *mongo.Database, _ int) error {
+				return insertEntity(ctx, mdb)
+			},
+			wantAttempts: 1,
+			wantEntities: 1,
+		},
+	}
 
-		attempts := 0
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			attempts++
-			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
-				return err
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mdb := dbtest.Database(t)
+			if tc.failPoint != nil {
+				configureFailPoint(t, mdb, tc.failPoint)
 			}
-			if attempts == 1 {
-				return labeledError("TransientTransactionError")
+			tx := db.NewTransactor(mdb.Client(), nil)
+			if tc.timeout > 0 {
+				tx = tx.WithTimeout(tc.timeout)
 			}
-			return nil
-		})
-		require.NoError(t, err)
-		assert.Equal(t, 2, attempts, "the labeled first attempt must be re-run once")
-		assert.Equal(t, int64(1), countEntities(t, mdb), "the aborted first attempt must leave no write behind")
-	})
 
-	t.Run("Edge: a live context keeps the TransientTransactionError label through the retry guard", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		tx := db.NewTransactor(mdb.Client(), nil)
+			attempts := 0
+			err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
+				attempts++
+				return tc.run(ctx, mdb, attempts)
+			})
 
-		attempts := 0
-		err := tx.WithTransaction(context.Background(), func(context.Context) error {
-			attempts++
-			if attempts < 3 {
-				return labeledError("TransientTransactionError")
+			if tc.wantErr == nil {
+				require.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, tc.wantErr)
 			}
-			return nil
+			assert.Equal(t, tc.wantAttempts, attempts)
+			assert.Equal(t, tc.wantEntities, countDocs(t, mdb, "entities"))
 		})
-		require.NoError(t, err)
-		assert.Equal(t, 3, attempts)
-	})
-
-	t.Run("Error: a callback error with UnknownTransactionCommitResult is not re-run as a callback error", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		tx := db.NewTransactor(mdb.Client(), nil)
-
-		attempts := 0
-		err := tx.WithTransaction(context.Background(), func(context.Context) error {
-			attempts++
-			return labeledError("UnknownTransactionCommitResult")
-		})
-		assert.ErrorIs(t, err, db.ErrTransactionAborted)
-		assert.Equal(t, 1, attempts, "only TransientTransactionError re-runs the callback")
-	})
-
-	t.Run("Edge: a labeled callback error after the deadline is not retried", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		tx := db.NewTransactor(mdb.Client(), nil).WithTimeout(300 * time.Millisecond)
-
-		attempts := 0
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			attempts++
-			<-ctx.Done()
-			return labeledError("TransientTransactionError")
-		})
-		assert.ErrorIs(t, err, db.ErrTransactionAborted)
-		assert.Equal(t, 1, attempts, "the unlabeled guard must stop the driver from re-running a dead callback")
-	})
-
-	t.Run("Edge: a labeled error inside the deadline is retried until the callback succeeds", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		tx := db.NewTransactor(mdb.Client(), nil).WithTimeout(5 * time.Second)
-
-		attempts := 0
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			attempts++
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			if attempts == 1 {
-				return labeledError("TransientTransactionError")
-			}
-			return nil
-		})
-		require.NoError(t, err)
-		assert.Equal(t, 2, attempts)
-	})
-
-	t.Run("Edge: a commit that fails with TransientTransactionError re-runs the callback", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		configureFailPoint(t, mdb, bson.D{
-			{Key: "failCommands", Value: bson.A{"commitTransaction"}},
-			{Key: "errorCode", Value: 112},
-			{Key: "errorLabels", Value: bson.A{"TransientTransactionError"}},
-		})
-		tx := db.NewTransactor(mdb.Client(), nil)
-
-		attempts := 0
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			attempts++
-			_, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"})
-			return err
-		})
-		require.NoError(t, err)
-		assert.Equal(t, 2, attempts)
-		assert.Equal(t, int64(1), countEntities(t, mdb))
-	})
-
-	t.Run("Edge: a commit that fails with UnknownTransactionCommitResult is retried at commit without re-running the callback", func(t *testing.T) {
-		mdb := dbtest.Database(t)
-		configureFailPoint(t, mdb, bson.D{
-			{Key: "failCommands", Value: bson.A{"commitTransaction"}},
-			{Key: "errorCode", Value: 251},
-			{Key: "errorLabels", Value: bson.A{"UnknownTransactionCommitResult"}},
-		})
-		tx := db.NewTransactor(mdb.Client(), nil)
-
-		attempts := 0
-		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
-			attempts++
-			_, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"})
-			return err
-		})
-		require.NoError(t, err)
-		assert.Equal(t, 1, attempts)
-		assert.Equal(t, int64(1), countEntities(t, mdb))
-	})
+	}
 }
