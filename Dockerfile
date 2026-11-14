@@ -10,6 +10,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app ./backend/cmd/api.go \
     && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /canonicalize-emails ./backend/cmd/canonicalize-emails \
+    && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /migrate-sheet-kinds ./backend/cmd/migrate-sheet-kinds \
     && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /relay ./backend/cmd/relay \
     && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /worker ./backend/cmd/worker
 
@@ -17,6 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app ./backe
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /app /app
 COPY --from=build /canonicalize-emails /canonicalize-emails
+COPY --from=build /migrate-sheet-kinds /migrate-sheet-kinds
 COPY --from=build /relay /relay
 COPY --from=build /worker /worker
 
