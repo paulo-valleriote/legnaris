@@ -44,18 +44,7 @@ func InitMongo(env env.Env) (*Database, error) {
 		return nil, ErrMissingURI
 	}
 
-	clientOptions := newClientOptions(env.Variables)
-	if err := clientOptions.Validate(); err != nil {
-		return nil, fmt.Errorf("%w: DATABASE_URI is not a valid MongoDB URI", ErrInvalidConfig)
-	}
-	if clientOptions.ReplicaSet == nil || *clientOptions.ReplicaSet == "" {
-		return nil, ErrMissingReplicaSet
-	}
-	if !hasCredentials(clientOptions) {
-		return nil, ErrMissingCredentials
-	}
-
-	client, err := mongo.Connect(clientOptions)
+	client, err := mongo.Connect(newClientOptions(env.Variables))
 	if err != nil {
 		return nil, fmt.Errorf("connect to mongodb: %w", err)
 	}
@@ -75,10 +64,6 @@ func InitMongo(env env.Env) (*Database, error) {
 	}, nil
 }
 
-func hasCredentials(opts *options.ClientOptions) bool {
-	return opts.Auth != nil && opts.Auth.Username != "" && opts.Auth.Password != ""
-}
-
 // newClientOptions builds the driver options for the configured URI. Retryable
 // writes are forced on after the URI is applied so a URI cannot turn them off:
 // the driver retries a write once on a transient network or failover error,
@@ -94,14 +79,12 @@ func newClientOptions(vars env.Variables) *options.ClientOptions {
 		SetConnectTimeout(vars.DatabaseConnectTimeout).
 		SetMaxPoolSize(vars.DatabaseMaxPoolSize).
 		SetMinPoolSize(vars.DatabaseMinPoolSize).
-		SetBSONOptions(documentBSONOptions())
-}
-
-// documentBSONOptions decodes nested BSON documents into map[string]any instead
-// of the default bson.D. Sheet data is modeled as map[string]any and the
-// DAG/engine helpers assert on that type.
-func documentBSONOptions() *options.BSONOptions {
-	return &options.BSONOptions{DefaultDocumentMap: true}
+		SetBSONOptions(&options.BSONOptions{
+			// Decode nested BSON documents into map[string]any instead of the
+			// default bson.D. Sheet data is modeled as map[string]any and the
+			// DAG/engine helpers assert on that type.
+			DefaultDocumentMap: true,
+		})
 }
 
 // Ping checks that the primary is reachable within the context deadline.
