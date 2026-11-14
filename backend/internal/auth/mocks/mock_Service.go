@@ -24,17 +24,17 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
-// DeleteAccount provides a mock function with given fields: ctx, userID
-func (_m *MockService) DeleteAccount(ctx context.Context, userID string) error {
-	ret := _m.Called(ctx, userID)
+// DeleteAccount provides a mock function with given fields: ctx, cmd
+func (_m *MockService) DeleteAccount(ctx context.Context, cmd auth.DeleteAccountCommand) error {
+	ret := _m.Called(ctx, cmd)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAccount")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, userID)
+	if rf, ok := ret.Get(0).(func(context.Context, auth.DeleteAccountCommand) error); ok {
+		r0 = rf(ctx, cmd)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -49,14 +49,14 @@ type MockService_DeleteAccount_Call struct {
 
 // DeleteAccount is a helper method to define mock.On call
 //   - ctx context.Context
-//   - userID string
-func (_e *MockService_Expecter) DeleteAccount(ctx interface{}, userID interface{}) *MockService_DeleteAccount_Call {
-	return &MockService_DeleteAccount_Call{Call: _e.mock.On("DeleteAccount", ctx, userID)}
+//   - cmd auth.DeleteAccountCommand
+func (_e *MockService_Expecter) DeleteAccount(ctx interface{}, cmd interface{}) *MockService_DeleteAccount_Call {
+	return &MockService_DeleteAccount_Call{Call: _e.mock.On("DeleteAccount", ctx, cmd)}
 }
 
-func (_c *MockService_DeleteAccount_Call) Run(run func(ctx context.Context, userID string)) *MockService_DeleteAccount_Call {
+func (_c *MockService_DeleteAccount_Call) Run(run func(ctx context.Context, cmd auth.DeleteAccountCommand)) *MockService_DeleteAccount_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(auth.DeleteAccountCommand))
 	})
 	return _c
 }
@@ -66,7 +66,7 @@ func (_c *MockService_DeleteAccount_Call) Return(_a0 error) *MockService_DeleteA
 	return _c
 }
 
-func (_c *MockService_DeleteAccount_Call) RunAndReturn(run func(context.Context, string) error) *MockService_DeleteAccount_Call {
+func (_c *MockService_DeleteAccount_Call) RunAndReturn(run func(context.Context, auth.DeleteAccountCommand) error) *MockService_DeleteAccount_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -513,6 +513,65 @@ func (_c *MockService_Register_Call) Return(_a0 *auth.ChallengeIssued, _a1 error
 }
 
 func (_c *MockService_Register_Call) RunAndReturn(run func(context.Context, auth.RegisterCommand) (*auth.ChallengeIssued, error)) *MockService_Register_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RequestAccountDeletion provides a mock function with given fields: ctx, userID
+func (_m *MockService) RequestAccountDeletion(ctx context.Context, userID string) (*auth.ChallengeIssued, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RequestAccountDeletion")
+	}
+
+	var r0 *auth.ChallengeIssued
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*auth.ChallengeIssued, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *auth.ChallengeIssued); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*auth.ChallengeIssued)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_RequestAccountDeletion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RequestAccountDeletion'
+type MockService_RequestAccountDeletion_Call struct {
+	*mock.Call
+}
+
+// RequestAccountDeletion is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockService_Expecter) RequestAccountDeletion(ctx interface{}, userID interface{}) *MockService_RequestAccountDeletion_Call {
+	return &MockService_RequestAccountDeletion_Call{Call: _e.mock.On("RequestAccountDeletion", ctx, userID)}
+}
+
+func (_c *MockService_RequestAccountDeletion_Call) Run(run func(ctx context.Context, userID string)) *MockService_RequestAccountDeletion_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_RequestAccountDeletion_Call) Return(_a0 *auth.ChallengeIssued, _a1 error) *MockService_RequestAccountDeletion_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_RequestAccountDeletion_Call) RunAndReturn(run func(context.Context, string) (*auth.ChallengeIssued, error)) *MockService_RequestAccountDeletion_Call {
 	_c.Call.Return(run)
 	return _c
 }

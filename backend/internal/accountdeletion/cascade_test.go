@@ -24,14 +24,17 @@ import (
 )
 
 const (
-	victimID = "01900000-0000-7000-8000-000000000001"
-	otherID  = "01900000-0000-7000-8000-000000000002"
+	victimID    = "01900000-0000-7000-8000-000000000001"
+	otherID     = "01900000-0000-7000-8000-000000000002"
+	victimEmail = "pii@example.com"
+	otherEmail  = "other@example.com"
 )
 
 var deleteAt = time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 
-// seedAccount writes one row in every collection the cascade owns for userID.
-func seedAccount(t *testing.T, mdb *mongo.Database, userID string) {
+// seedAccount writes one row in every collection the cascade owns for userID,
+// including the rows keyed by the account's address rather than its identifier.
+func seedAccount(t *testing.T, mdb *mongo.Database, userID, email string) {
 	t.Helper()
 	ctx := context.Background()
 	seeds := map[string]bson.D{
@@ -40,12 +43,26 @@ func seedAccount(t *testing.T, mdb *mongo.Database, userID string) {
 		"generations":         {{Key: "user_id", Value: userID}, {Key: "status", Value: "running"}},
 		quota.TrialCollection: {{Key: "_id", Value: userID}, {Key: "allowance", Value: 3}, {Key: "used", Value: 1}},
 		quota.UsageCollection: {{Key: "user_id", Value: userID}, {Key: "day_utc", Value: "2026-11-14"}, {Key: "count", Value: 1}},
-		"users":               {{Key: "_id", Value: userID}, {Key: "email", Value: "pii@example.com"}, {Key: "username", Value: "hero"}},
+		"auth_challenges":     {{Key: "_id", Value: userID + "-challenge"}, {Key: "user_id", Value: userID}, {Key: "purpose", Value: "verify_email"}},
+		"email_outbox":        {{Key: "_id", Value: userID + "-intent"}, {Key: "to", Value: email}, {Key: "template", Value: "verify_email"}},
+		"email_notices":       {{Key: "_id", Value: "account_exists:" + email}, {Key: "claimed_at", Value: deleteAt}},
+		"users":               {{Key: "_id", Value: userID}, {Key: "email", Value: email}, {Key: "username", Value: "hero"}},
 	}
 	for collection, doc := range seeds {
 		_, err := mdb.Collection(collection).InsertOne(ctx, doc)
 		require.NoError(t, err, collection)
 	}
+}
+
+// countAddressRows counts the e-mail outbox and notice rows that still name email.
+func countAddressRows(t *testing.T, mdb *mongo.Database, email string) (outbox, notices int64) {
+	t.Helper()
+	ctx := context.Background()
+	outbox, err := mdb.Collection("email_outbox").CountDocuments(ctx, bson.D{{Key: "to", Value: email}})
+	require.NoError(t, err)
+	notices, err = mdb.Collection("email_notices").CountDocuments(ctx, bson.D{{Key: "_id", Value: "account_exists:" + email}})
+	require.NoError(t, err)
+	return outbox, notices
 }
 
 // countOwned counts the rows of collection that belong to userID, by the given field.
@@ -93,10 +110,10 @@ func TestCascade_Remove(t *testing.T) {
 		check func(t *testing.T, mdb *mongo.Database)
 	}{
 		{
-			name: "Happy path: the account's Sheets, counts, generations, quota rows and record are removed, the other account is kept",
+			name: "Happy path: the account's Sheets, counts, generations, quota rows, challenges, e-mail rows and record are removed, the other account is kept",
 			setup: func(t *testing.T, mdb *mongo.Database) {
-				seedAccount(t, mdb, victimID)
-				seedAccount(t, mdb, otherID)
+				seedAccount(t, mdb, victimID, victimEmail)
+				seedAccount(t, mdb, otherID, otherEmail)
 			},
 			check: func(t *testing.T, mdb *mongo.Database) {
 				assert.Zero(t, countOwned(t, mdb, "sheets", "owner_id", victimID))
@@ -104,20 +121,52 @@ func TestCascade_Remove(t *testing.T) {
 				assert.Zero(t, countOwned(t, mdb, "generations", "user_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, quota.TrialCollection, "_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, quota.UsageCollection, "user_id", victimID))
+				assert.Zero(t, countOwned(t, mdb, "auth_challenges", "user_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, "users", "_id", victimID))
+				outbox, notices := countAddressRows(t, mdb, victimEmail)
+				assert.Zero(t, outbox, "the e-mail outbox must forget the address")
+				assert.Zero(t, notices, "the notice claims must forget the address")
 
 				assert.Equal(t, int64(1), countOwned(t, mdb, "sheets", "owner_id", otherID))
+				assert.Equal(t, int64(1), countOwned(t, mdb, "auth_challenges", "user_id", otherID))
 				assert.Equal(t, int64(1), countOwned(t, mdb, "users", "_id", otherID))
+				outbox, notices = countAddressRows(t, mdb, otherEmail)
+				assert.Equal(t, int64(1), outbox)
+				assert.Equal(t, int64(1), notices)
 			},
 		},
 		{
-			name: "Edge: an account with no owned rows is still removed and tombstoned",
+			name: "Edge: an address that is a prefix of another account's address removes only its own rows",
+			setup: func(t *testing.T, mdb *mongo.Database) {
+				seedAccount(t, mdb, victimID, "a.b@example.com")
+				seedAccount(t, mdb, otherID, "xa.b@example.com")
+				_, err := mdb.Collection("email_notices").InsertOne(context.Background(),
+					bson.D{{Key: "_id", Value: "account_exists:a-b@example.com"}, {Key: "claimed_at", Value: deleteAt}})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, mdb *mongo.Database) {
+				outbox, notices := countAddressRows(t, mdb, "a.b@example.com")
+				assert.Zero(t, outbox)
+				assert.Zero(t, notices)
+				outbox, notices = countAddressRows(t, mdb, "xa.b@example.com")
+				assert.Equal(t, int64(1), outbox)
+				assert.Equal(t, int64(1), notices)
+				_, notices = countAddressRows(t, mdb, "a-b@example.com")
+				assert.Equal(t, int64(1), notices, "the dot must not match any character")
+			},
+		},
+		{
+			name: "Edge: an account with no owned rows and no address is still removed and tombstoned",
 			setup: func(t *testing.T, mdb *mongo.Database) {
 				_, err := mdb.Collection("users").InsertOne(context.Background(), bson.D{{Key: "_id", Value: victimID}})
+				require.NoError(t, err)
+				_, err = mdb.Collection("email_outbox").InsertOne(context.Background(), bson.D{{Key: "to", Value: ""}})
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, mdb *mongo.Database) {
 				assert.Zero(t, countOwned(t, mdb, "users", "_id", victimID))
+				outbox, _ := countAddressRows(t, mdb, "")
+				assert.Equal(t, int64(1), outbox, "an empty address must match no outbox row")
 			},
 		},
 	}
@@ -162,7 +211,7 @@ func TestCascade_Remove_Edges(t *testing.T) {
 		{
 			name: "Edge: a repeat after a committed removal writes no second event and changes no tombstone",
 			run: func(t *testing.T, mdb *mongo.Database, cascade *accountdeletion.Cascade) {
-				seedAccount(t, mdb, victimID)
+				seedAccount(t, mdb, victimID, victimEmail)
 				require.NoError(t, cascade.Remove(context.Background(), victimID))
 				require.NoError(t, cascade.Remove(context.Background(), victimID))
 
@@ -207,7 +256,7 @@ func TestCascade_Remove_Error(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			mdb := dbtest.Database(t)
-			seedAccount(t, mdb, victimID)
+			seedAccount(t, mdb, victimID, victimEmail)
 
 			outboxRepo := outboxmocks.NewMockRepository(t)
 			outboxRepo.EXPECT().Insert(mock.Anything, mock.Anything).Return(tc.failure).Once()

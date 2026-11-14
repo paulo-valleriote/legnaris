@@ -137,9 +137,14 @@ func TestRouterWiring_ActiveGateGuardsProtectedRoutes(t *testing.T) {
 		})
 	}
 
-	t.Run("Happy path: the deletion request is not behind the gate", func(t *testing.T) {
-		rec := doAuthRequest(t, h, access.Value, http.MethodDelete, "/auth/me", "")
-		assert.NotEqual(t, http.StatusForbidden, rec.Code, "a repeat deletion request must stay idempotent")
+	t.Run("Error: the deletion code request is behind the gate", func(t *testing.T) {
+		rec := doAuthRequest(t, h, access.Value, http.MethodPost, "/auth/me/deletion", "")
+		assert.Equal(t, http.StatusForbidden, rec.Code, "a deleting account must not receive another code")
+	})
+
+	t.Run("Happy path: the deletion confirmation is not behind the gate", func(t *testing.T) {
+		rec := doAuthRequest(t, h, access.Value, http.MethodDelete, "/auth/me", `{"challenge_id":"x","code":"1"}`)
+		assert.NotEqual(t, http.StatusForbidden, rec.Code, "a repeat deletion confirmation must stay idempotent")
 	})
 }
 
@@ -160,6 +165,8 @@ func TestRouterWiring_AuthRouteInventory(t *testing.T) {
 	assert.ElementsMatch(t, []string{
 		http.MethodPost + " /auth/register",
 		http.MethodPost + " /auth/login",
+		// Account deletion is a two-step code flow (LGN-190).
+		http.MethodPost + " /auth/me/deletion",
 		http.MethodDelete + " /auth/me",
 		http.MethodPost + " /auth/refresh",
 		http.MethodPost + " /auth/logout",

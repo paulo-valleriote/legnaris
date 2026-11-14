@@ -150,22 +150,62 @@ func (ac *AuthController) Me(c *echo.Context) error {
 	return response.OK(c, profile)
 }
 
-// DeleteAccount starts the account deletion. It answers 202 with the deleting
-// status; the sweeper removes the data. A repeated request gets the same answer.
+// RequestAccountDeletion sends the deletion confirmation code to the account's
+// address and answers 202 with the challenge identity and windows, exactly like
+// the other code steps. The code is presented to DeleteAccount (LGN-190).
+func (ac *AuthController) RequestAccountDeletion(c *echo.Context) error {
+	userID, ok := auth.UserID(c)
+	if !ok {
+		return apperr.NewError(apperr.CodeUnauthorized, auth.MsgAuthorizationRequired, nil)
+	}
+
+	issued, err := ac.service.RequestAccountDeletion(c.Request().Context(), userID)
+	if err != nil {
+		return err
+	}
+
+	return response.JSON(c, http.StatusAccepted, issued)
+}
+
+// deleteAccountRequest is the body of DELETE /auth/me: the deletion challenge
+// and the code that reached the account's address.
+type deleteAccountRequest struct {
+	ChallengeID string `json:"challenge_id"`
+	Code        string `json:"code"`
+}
+
+// DeleteAccount starts the account deletion once the confirmation code is
+// accepted. It answers 202 with the deleting status; the sweeper removes the
+// data. A wrong or foreign code is the uniform 401 of every code step.
 func (ac *AuthController) DeleteAccount(c *echo.Context) error {
 	userID, ok := auth.UserID(c)
 	if !ok {
 		return apperr.NewError(apperr.CodeUnauthorized, auth.MsgAuthorizationRequired, nil)
 	}
 
-	if err := ac.service.DeleteAccount(c.Request().Context(), userID); err != nil {
+	var request deleteAccountRequest
+	if err := json.Decode(c, &request); err != nil {
+		return decodeError(err)
+	}
+	if request.ChallengeID == "" {
+		return apperr.NewError(apperr.CodeInvalidRequest, auth.MsgChallengeIDRequired, nil)
+	}
+	if request.Code == "" {
+		return apperr.NewError(apperr.CodeInvalidRequest, auth.MsgCodeRequired, nil)
+	}
+
+	if err := ac.service.DeleteAccount(c.Request().Context(), auth.DeleteAccountCommand{
+		UserID:      userID,
+		ChallengeID: request.ChallengeID,
+		Code:        request.Code,
+	}); err != nil {
 		return err
 	}
 
 	return response.JSON(c, http.StatusAccepted, accountDeletionDTO{Status: user.StatusDeleting})
 }
 
-// accountDeletionDTO is the body of the 202 answer to DELETE /me.
+// accountDeletionDTO is the body of the 202 answer to DELETE /auth/me.
 type accountDeletionDTO struct {
 	Status string `json:"status"`
 }

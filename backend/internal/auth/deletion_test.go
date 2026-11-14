@@ -15,31 +15,24 @@ import (
 	"legnaris/backend/shared/apperr"
 )
 
-// TestService_DeleteAccount covers the deletion request: it marks the account once,
-// repeats are a no-op, and an unknown or malformed identity never reaches the store.
-func TestService_DeleteAccount(t *testing.T) {
+// TestService_RequestAccountDeletion covers the first deletion step: an active
+// account gets a delete_account code at its own address, a deleting or unknown
+// account gets none, and a malformed identity never reaches the store.
+func TestService_RequestAccountDeletion(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
 		name     string
 		userID   string
-		repeat   bool
 		setup    func(m *authMocks)
 		wantCode apperr.Code
 	}{
 		{
-			name:   "Happy path: an active account is marked deleting",
+			name:   "Happy path: an active account receives the deletion code at its address",
 			userID: validUserID,
 			setup: func(m *authMocks) {
-				m.users.EXPECT().MarkDeleting(mock.Anything, validUserID, mock.Anything).Return(nil).Once()
-			},
-		},
-		{
-			name:   "Edge: a repeated request for a deleting account is still accepted",
-			userID: validUserID,
-			repeat: true,
-			setup: func(m *authMocks) {
-				m.users.EXPECT().MarkDeleting(mock.Anything, validUserID, mock.Anything).Return(nil).Twice()
+				m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID, Email: testEmail}, nil).Once()
+				m.expectChallengeIssuance(validUserID, auth.PurposeDeleteAccount, testEmail)
 			},
 		},
 		{
@@ -49,10 +42,18 @@ func TestService_DeleteAccount(t *testing.T) {
 			wantCode: apperr.CodeUnauthorized,
 		},
 		{
+			name:   "Error: a deleting account gets no second code",
+			userID: validUserID,
+			setup: func(m *authMocks) {
+				m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(&user.User{ID: validUserID, Email: testEmail, Status: user.StatusDeleting}, nil).Once()
+			},
+			wantCode: apperr.CodeForbidden,
+		},
+		{
 			name:   "Error: an unknown account is unauthorized",
 			userID: validUserID,
 			setup: func(m *authMocks) {
-				m.users.EXPECT().MarkDeleting(mock.Anything, validUserID, mock.Anything).Return(user.ErrUserNotFound).Once()
+				m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(nil, user.ErrUserNotFound).Once()
 			},
 			wantCode: apperr.CodeUnauthorized,
 		},
@@ -60,7 +61,7 @@ func TestService_DeleteAccount(t *testing.T) {
 			name:   "Error: a store failure is internal",
 			userID: validUserID,
 			setup: func(m *authMocks) {
-				m.users.EXPECT().MarkDeleting(mock.Anything, validUserID, mock.Anything).Return(errors.New("mongo down")).Once()
+				m.users.EXPECT().FetchByID(mock.Anything, validUserID).Return(nil, errors.New("mongo down")).Once()
 			},
 			wantCode: apperr.CodeInternal,
 		},
@@ -70,18 +71,164 @@ func TestService_DeleteAccount(t *testing.T) {
 			service, m := newAuthService(t)
 			tc.setup(m)
 
-			err := service.DeleteAccount(ctx, tc.userID)
-			if tc.repeat {
-				require.NoError(t, err)
-				err = service.DeleteAccount(ctx, tc.userID)
-			}
+			issued, err := service.RequestAccountDeletion(ctx, tc.userID)
 			if tc.wantCode == "" {
 				require.NoError(t, err)
+				require.NotNil(t, issued)
+				assert.NotEmpty(t, issued.ChallengeID)
 				return
 			}
 			assertAppErr(t, err, tc.wantCode)
 		})
 	}
+}
+
+// TestService_DeleteAccount covers the confirmation step: only a delete_account
+// code of the signed-in account marks it deleting; a foreign, wrong-purpose,
+// wrong or spent code is the uniform code failure and leaves the row unconsumed.
+func TestService_DeleteAccount(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name       string
+		cmd        auth.DeleteAccountCommand
+		wire       func(f *challengeFixture)
+		wantCode   apperr.Code
+		wantResult string
+	}{
+		{
+			name: "Happy path: the account's deletion code marks it deleting",
+			cmd:  auth.DeleteAccountCommand{UserID: validUserID, ChallengeID: validUserID, Code: challengeTestCode},
+			wire: func(f *challengeFixture) {
+				row := f.validRow(validUserID, auth.PurposeDeleteAccount)
+				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).Return(row, nil).Once()
+				f.expectAccountCount(0)
+				f.repo.EXPECT().Consume(mock.Anything, validUserID, row.CodeHash, challengeTestNow).Return(true, nil).Once()
+				f.users.EXPECT().MarkDeleting(mock.Anything, validUserID, challengeTestNow).Return(nil).Once()
+			},
+			wantResult: auth.ResultVerified,
+		},
+		{
+			name: "Edge: a verify_email code of the same account is refused and not consumed",
+			cmd:  auth.DeleteAccountCommand{UserID: validUserID, ChallengeID: validUserID, Code: challengeTestCode},
+			wire: func(f *challengeFixture) {
+				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
+					Return(f.validRow(validUserID, auth.PurposeVerifyEmail), nil).Once()
+				f.expectAccountCount(0)
+			},
+			wantCode:   apperr.CodeOTPInvalid,
+			wantResult: auth.ResultInvalid,
+		},
+		{
+			name: "Edge: another account's deletion code is refused and not consumed",
+			cmd:  auth.DeleteAccountCommand{UserID: freshIdentityID, ChallengeID: validUserID, Code: challengeTestCode},
+			wire: func(f *challengeFixture) {
+				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
+					Return(f.validRow(validUserID, auth.PurposeDeleteAccount), nil).Once()
+				f.expectAccountCount(0)
+			},
+			wantCode:   apperr.CodeOTPInvalid,
+			wantResult: auth.ResultInvalid,
+		},
+		{
+			name: "Edge: a wrong code is refused and the account stays active",
+			cmd:  auth.DeleteAccountCommand{UserID: validUserID, ChallengeID: validUserID, Code: "000000"},
+			wire: func(f *challengeFixture) {
+				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
+					Return(f.validRow(validUserID, auth.PurposeDeleteAccount), nil).Once()
+				f.expectAccountCount(0)
+			},
+			wantCode:   apperr.CodeOTPInvalid,
+			wantResult: auth.ResultInvalid,
+		},
+		{
+			name: "Edge: a spent code is refused",
+			cmd:  auth.DeleteAccountCommand{UserID: validUserID, ChallengeID: validUserID, Code: challengeTestCode},
+			wire: func(f *challengeFixture) {
+				row := f.validRow(validUserID, auth.PurposeDeleteAccount)
+				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).Return(row, nil).Once()
+				f.expectAccountCount(0)
+				f.repo.EXPECT().Consume(mock.Anything, validUserID, row.CodeHash, challengeTestNow).Return(false, nil).Once()
+			},
+			wantCode:   apperr.CodeOTPInvalid,
+			wantResult: auth.ResultConsumed,
+		},
+		{
+			name: "Edge: an unknown challenge is refused as unknown",
+			cmd:  auth.DeleteAccountCommand{UserID: validUserID, ChallengeID: validUserID, Code: challengeTestCode},
+			wire: func(f *challengeFixture) {
+				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
+					Return(nil, auth.ErrChallengeUnusable).Once()
+				f.repo.EXPECT().Fetch(mock.Anything, validUserID).Return(nil, auth.ErrChallengeNotFound).Once()
+			},
+			wantCode:   apperr.CodeOTPInvalid,
+			wantResult: auth.ResultUnknown,
+		},
+		{
+			name:     "Edge: a malformed account identity is refused before the store",
+			cmd:      auth.DeleteAccountCommand{UserID: "not-a-uuid", ChallengeID: validUserID, Code: challengeTestCode},
+			wire:     func(f *challengeFixture) {},
+			wantCode: apperr.CodeUnauthorized,
+		},
+		{
+			name: "Error: an account removed after the code was sent is unauthorized",
+			cmd:  auth.DeleteAccountCommand{UserID: validUserID, ChallengeID: validUserID, Code: challengeTestCode},
+			wire: func(f *challengeFixture) {
+				row := f.validRow(validUserID, auth.PurposeDeleteAccount)
+				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).Return(row, nil).Once()
+				f.expectAccountCount(0)
+				f.repo.EXPECT().Consume(mock.Anything, validUserID, row.CodeHash, challengeTestNow).Return(true, nil).Once()
+				f.users.EXPECT().MarkDeleting(mock.Anything, validUserID, challengeTestNow).Return(user.ErrUserNotFound).Once()
+			},
+			wantCode: apperr.CodeUnauthorized,
+		},
+		{
+			name: "Error: a store failure is internal",
+			cmd:  auth.DeleteAccountCommand{UserID: validUserID, ChallengeID: validUserID, Code: challengeTestCode},
+			wire: func(f *challengeFixture) {
+				row := f.validRow(validUserID, auth.PurposeDeleteAccount)
+				f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).Return(row, nil).Once()
+				f.expectAccountCount(0)
+				f.repo.EXPECT().Consume(mock.Anything, validUserID, row.CodeHash, challengeTestNow).Return(true, nil).Once()
+				f.users.EXPECT().MarkDeleting(mock.Anything, validUserID, challengeTestNow).Return(errors.New("mongo down")).Once()
+			},
+			wantCode: apperr.CodeInternal,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newChallengeFixture(t)
+			tc.wire(f)
+			if tc.wantResult != "" {
+				f.codeObs.EXPECT().ChallengeVerified(tc.wantResult).Once()
+			}
+
+			err := f.service.DeleteAccount(ctx, tc.cmd)
+			if tc.wantCode == "" {
+				require.NoError(t, err)
+				assert.NotContains(t, f.log.text(), challengeTestCode)
+				return
+			}
+			assertAppErr(t, err, tc.wantCode)
+		})
+	}
+}
+
+// TestVerifyChallenge_RefusesDeletionCode pins that a deletion code never signs
+// in: the sign-in verification refuses a delete_account row without consuming it.
+func TestVerifyChallenge_RefusesDeletionCode(t *testing.T) {
+	ctx := context.Background()
+	f := newChallengeFixture(t)
+
+	f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).
+		Return(f.validRow(validUserID, auth.PurposeDeleteAccount), nil).Once()
+	f.expectAccountCount(0)
+	f.codeObs.EXPECT().ChallengeVerified(auth.ResultInvalid).Once()
+
+	session, err := f.service.VerifyChallenge(ctx, auth.VerifyChallengeCommand{ChallengeID: validUserID, Code: challengeTestCode})
+
+	assert.Nil(t, session)
+	assertAppErr(t, err, apperr.CodeOTPInvalid)
 }
 
 // TestService_EnsureActive covers the gate every authenticated route runs: an active

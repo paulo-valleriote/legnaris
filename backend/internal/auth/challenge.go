@@ -14,6 +14,9 @@ const (
 	// verified address when someone registers with it. It never backs a
 	// challenge record.
 	PurposeAccountExists Purpose = "account_exists"
+	// PurposeDeleteAccount is the confirmation step an account owner completes
+	// before the account is deleted. It never establishes a session (LGN-190).
+	PurposeDeleteAccount Purpose = "delete_account"
 )
 
 // Challenge is the durable record of one pending code step (data-model.md §1):

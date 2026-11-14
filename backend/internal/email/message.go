@@ -22,6 +22,9 @@ const (
 	// against an existing account answers exactly like a new one and the
 	// response never reveals which addresses are registered.
 	PurposeAccountExists Purpose = "account_exists"
+	// PurposeDeleteAccount is the confirmation code an account owner must enter
+	// before the account is deleted (LGN-190).
+	PurposeDeleteAccount Purpose = "delete_account"
 )
 
 // CarriesCode reports whether messages of the purpose deliver a code; the

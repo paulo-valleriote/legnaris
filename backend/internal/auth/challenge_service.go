@@ -152,39 +152,17 @@ func (s *ServiceImpl) replaceActiveChallenge(ctx context.Context, challenge Chal
 // VerifyChallenge consumes a challenge exactly once and establishes a session
 // exactly as sign-in does, recording the account's verification timestamp when
 // it was absent. Every failure answers the one uniform typed outcome, so no
-// case is distinguishable by status, body or timing class (OTP-04…OTP-08).
+// case is distinguishable by status, body or timing class (OTP-04…OTP-08). A
+// deletion challenge is refused here: its code confirms a deletion and never
+// signs in (LGN-190).
 func (s *ServiceImpl) VerifyChallenge(ctx context.Context, cmd VerifyChallengeCommand) (*Session, error) {
-	if err := idgen.Validate(cmd.ChallengeID); err != nil {
-		return nil, s.invalidCode(ResultUnknown)
-	}
-
-	now := s.clock.Now()
-	policy := s.challenge.Policy
-
-	claimed, err := s.challenge.Repository.ClaimAttempt(ctx, cmd.ChallengeID, now, policy.MaxAttempts)
+	claimed, err := s.consumeChallenge(ctx, cmd.ChallengeID, cmd.Code, func(row *Challenge) bool {
+		return row.Purpose != PurposeDeleteAccount
+	})
 	if err != nil {
-		if errors.Is(err, ErrChallengeUnusable) {
-			return nil, s.classifyFailure(ctx, cmd.ChallengeID, now)
-		}
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
-	}
-
-	if err := s.checkAccountBound(ctx, claimed.UserID, now); err != nil {
 		return nil, err
 	}
-
-	digest := s.challenge.Digest.Digest(claimed.UserID, claimed.Purpose, cmd.Code)
-	if !s.challenge.Digest.Equal(digest, claimed.CodeHash) {
-		return nil, s.invalidCode(ResultInvalid)
-	}
-
-	consumed, err := s.challenge.Repository.Consume(ctx, cmd.ChallengeID, digest, now)
-	if err != nil {
-		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
-	}
-	if !consumed {
-		return nil, s.invalidCode(ResultConsumed)
-	}
+	now := s.clock.Now()
 
 	pending := s.unverifiedAccount(ctx, claimed.UserID)
 
@@ -215,6 +193,50 @@ func (s *ServiceImpl) VerifyChallenge(ctx context.Context, cmd VerifyChallengeCo
 		logger.Attribute{Key: attrPurpose, Value: string(claimed.Purpose)},
 	)
 	return session, nil
+}
+
+// consumeChallenge claims one attempt on the challenge, checks that the stored
+// row satisfies accepts, compares the code against the stored digest and
+// consumes the row exactly once. Every failure is the one uniform typed outcome
+// (OTP-04…OTP-08). The accepts check runs before the comparison, so a code of
+// the wrong purpose or account is refused without being spent on the row.
+func (s *ServiceImpl) consumeChallenge(ctx context.Context, challengeID, code string, accepts func(*Challenge) bool) (*Challenge, error) {
+	if err := idgen.Validate(challengeID); err != nil {
+		return nil, s.invalidCode(ResultUnknown)
+	}
+
+	now := s.clock.Now()
+	policy := s.challenge.Policy
+
+	claimed, err := s.challenge.Repository.ClaimAttempt(ctx, challengeID, now, policy.MaxAttempts)
+	if err != nil {
+		if errors.Is(err, ErrChallengeUnusable) {
+			return nil, s.classifyFailure(ctx, challengeID, now)
+		}
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+
+	if err := s.checkAccountBound(ctx, claimed.UserID, now); err != nil {
+		return nil, err
+	}
+
+	if !accepts(claimed) {
+		return nil, s.invalidCode(ResultInvalid)
+	}
+
+	digest := s.challenge.Digest.Digest(claimed.UserID, claimed.Purpose, code)
+	if !s.challenge.Digest.Equal(digest, claimed.CodeHash) {
+		return nil, s.invalidCode(ResultInvalid)
+	}
+
+	consumed, err := s.challenge.Repository.Consume(ctx, challengeID, digest, now)
+	if err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
+	}
+	if !consumed {
+		return nil, s.invalidCode(ResultConsumed)
+	}
+	return claimed, nil
 }
 
 // unverifiedAccount returns the account whose first verification the hook must
