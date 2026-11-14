@@ -105,7 +105,9 @@ start_mongo() {
 
 # start_broker runs a clean RabbitMQ, provisions the delivery vhost and the
 # application account, and fails with a clear message if the broker does not
-# answer within BROKER_READY_TIMEOUT seconds.
+# answer within BROKER_READY_TIMEOUT seconds. Every exec runs as the broker's own
+# user: a root exec during boot creates /var/lib/rabbitmq/.erlang.cookie owned by
+# root, the broker cannot read it and exits.
 start_broker() {
 	docker rm -fv "$RABBIT_CONTAINER" >/dev/null 2>&1 || true
 	log "starting a clean RabbitMQ on :$RABBIT_PORT"
@@ -115,7 +117,7 @@ start_broker() {
 		-p "$RABBIT_PORT:5672" "$RABBIT_IMAGE" >/dev/null
 
 	for _ in $(seq 1 "$BROKER_READY_TIMEOUT"); do
-		if docker exec "$RABBIT_CONTAINER" rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+		if docker exec -u rabbitmq "$RABBIT_CONTAINER" rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
 			provision_broker
 			return 0
 		fi
@@ -125,9 +127,9 @@ start_broker() {
 }
 
 provision_broker() {
-	docker exec "$RABBIT_CONTAINER" rabbitmqctl -q await_startup >/dev/null
-	docker exec "$RABBIT_CONTAINER" rabbitmqctl -q add_vhost "$RABBIT_VHOST" >/dev/null 2>&1 || true
-	docker exec "$RABBIT_CONTAINER" rabbitmqctl -q set_permissions -p "$RABBIT_VHOST" "$RABBIT_USER" ".*" ".*" ".*" >/dev/null \
+	docker exec -u rabbitmq "$RABBIT_CONTAINER" rabbitmqctl -q await_startup >/dev/null
+	docker exec -u rabbitmq "$RABBIT_CONTAINER" rabbitmqctl -q add_vhost "$RABBIT_VHOST" >/dev/null 2>&1 || true
+	docker exec -u rabbitmq "$RABBIT_CONTAINER" rabbitmqctl -q set_permissions -p "$RABBIT_VHOST" "$RABBIT_USER" ".*" ".*" ".*" >/dev/null \
 		|| die "could not grant $RABBIT_USER its rights on the $RABBIT_VHOST vhost"
 }
 
