@@ -4,7 +4,7 @@ status: accepted
 
 # Character generation is an async draft the player accepts
 
-A player generates a character Sheet from a short concept text. `POST /generations` stores a `generation` document, publishes a job to RabbitMQ and answers `202 {id}`. A worker asks the LLM for values that fit a strict JSON Schema derived from the Template, validates them and stores them on the same document. The client polls `GET /generations/{id}` and shows a preview. The player can edit values locally, and nothing becomes a Sheet until `POST /generations/{id}/accept`. The LLM only supplies values for existing editable leaves. It never writes formulas or keys, and its output is treated as untrusted data. Gateway and model come from LGN-170 and LGN-174: OpenCode with `deepseek-v4.1-flash` (paid; see ADR 0008), never the DeepSeek first-party API.
+A player generates a character Sheet from a short concept text. `POST /generations` stores a `generation` document, publishes a job to RabbitMQ and answers `202 {id}`. A worker asks the LLM for values that fit a strict JSON Schema derived from the Template, validates them and stores them on the same document. The client polls `GET /generations/{id}` and shows a preview. The player can edit values locally, and nothing becomes a Sheet until `POST /generations/{id}/accept`. The LLM only supplies values for existing editable leaves. It never writes formulas or keys, and its output is treated as untrusted data. Gateway and model come from LGN-170: OpenRouter with DeepSeek V4.1 Flash (`deepseek/deepseek-v4.1-flash`, paid; see ADR 0008), never the DeepSeek first-party API, directly or as an OpenRouter provider.
 
 ## Considered Options
 
@@ -42,9 +42,9 @@ A player generates a character Sheet from a short concept text. `POST /generatio
   - Regenerate is a new `POST /generations` and consumes 1 from the quota.
   - `POST /generations/{id}/accept {sheet_name, values}` validates `values` through the normal DAG path, the same one PATCH uses (not the generation ranges). It then reserves the Sheet slot with LGN-183's conditional `$inc` (409 if another create won the race) and creates the Sheet through `sheet.Service.CreateWithValues`. A second accept returns 200 with the same `sheet_id`.
 - **Boundaries:**
-  - `llm.Client` (port, in `internal/llm`) with the OpenCode adapter (`internal/llm/opencode`, OpenAI-compatible HTTP), and `generation.Publisher`. Both are injected through constructors and mocked with mockery.
+  - `llm.Client` (port, in `internal/llm`) with the OpenRouter adapter (`internal/llm/openrouter`, OpenAI-compatible HTTP). Every request carries the provider routing of ADR 0008, and `generation.Publisher`. Both are injected through constructors and mocked with mockery.
   - Prompt and schema builders are pure functions in the `generation` package.
-  - Config: `LLM_PROVIDER` (default `opencode`), `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT`.
+  - Config: `LLM_PROVIDER` (default `openrouter`), `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT`.
 - **Prompt:**
   - The system prompt is fixed, in English, and describes the Template's labels and options.
   - The concept goes in the user message, delimited and declared to be a description, not instructions. The defense against prompt injection is the strict schema plus validation.
