@@ -3,14 +3,14 @@
  * concept, then wait, then review and accept. A route rather than a dialog, so the
  * player can leave during the wait and review the result full-screen.
  *
- * The rules (bounds, wait decision, allowance) live in `generation_flow.ts`; the
- * consent disclosure in `llm_consent.ts`. This module owns the screen state and the
- * server calls only.
+ * The rules (bounds, wait decision, throttle, name prefill, allowance) live in
+ * `generation_flow.ts`; the consent disclosure in `llm_consent.ts`. This module owns
+ * the screen state and the server calls only.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { failureCopy, generationErrorKind } from '../api/error_mapper';
 import { DomainFailure } from '../api/errors';
 import type { Generation } from '../api/models/generation';
@@ -19,7 +19,7 @@ import { PLAN_QUERY_KEY, usePlanUsage, useTemplateDetail } from '../catalog/quer
 import { setPathValue } from '../engine/sheet_defaults';
 import { SheetForm } from '../engine/sheet_form';
 import { message, messageWith } from '../l10n/strings';
-import { requestLeave, registerLeaveGuard } from '../shell/leave_guard';
+import { registerLeaveGuard, requestLeave } from '../shell/leave_guard';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 import {
@@ -27,20 +27,32 @@ import {
   conceptLength,
   conceptState,
   decideWait,
+  isLastGeneration,
+  mergeCascade,
+  previewDelay,
+  suggestedSheetName,
   trialAllowance,
 } from './generation_flow';
 import type { Allowance } from './generation_flow';
 import { CONSENT_VERSION, consentDisclosure } from './llm_consent';
 import type { ConsentDisclosure } from './llm_consent';
 
-/** Preview state: the generated values, the player's edits and the Sheet name being typed. */
+/** The review step: the generated values, the player's edits and the Sheet name. */
 interface PreviewState {
   readonly generationId: string;
+  /** The values shown: the generated ones, merged with the recalculated figures, edits on top. */
   readonly values: Record<string, unknown>;
+  /** Only the paths the player changed, as sent to the template preview. */
+  readonly edits: Record<string, unknown>;
+  /** Bumped on every edit; a preview answers only the revision it was sent for. */
+  readonly revision: number;
+  /** The name the player typed; ignored until `nameTouched`. */
   readonly sheetName: string;
+  readonly nameTouched: boolean;
   readonly dirty: boolean;
   readonly accepting: boolean;
   readonly acceptError: string | undefined;
+  readonly previewError: string | undefined;
 }
 
 /** The single situation the screen renders (one step at a time). */
@@ -53,11 +65,7 @@ type Step =
   | { readonly kind: 'error'; readonly copy: string }
   | ({ readonly kind: 'preview' } & PreviewState);
 
-/**
- * The step a settled generation leads to. A succeeded generation with values is
- * reviewed; a failure (or a success with no values, which the backend never sends)
- * carries its error code into the copy.
- */
+/** The step a settled generation leads to: reviewed when it has values, a failure otherwise. */
 function stepForGeneration(generation: Generation): Step {
   if (generation.status === 'accepted') {
     return { kind: 'alreadyAccepted' };
@@ -70,11 +78,45 @@ function stepForGeneration(generation: Generation): Step {
     kind: 'preview',
     generationId: generation.id,
     values: structuredClone(generation.values),
+    edits: {},
+    revision: 0,
     sheetName: '',
+    nameTouched: false,
     dirty: false,
     accepting: false,
     acceptError: undefined,
+    previewError: undefined,
   };
+}
+
+/** Reads a handed-over generation identifier from the route state, when there is one. */
+function generationIdFromState(state: unknown): string | undefined {
+  if (typeof state !== 'object' || state === null || !('generationId' in state)) {
+    return undefined;
+  }
+  const id = state.generationId;
+  return typeof id === 'string' && id !== '' ? id : undefined;
+}
+
+/** Rebuilds the flat edited paths into the nested delta the template preview expects. */
+function deltaOf(edits: Record<string, unknown>): Record<string, unknown> {
+  const delta: Record<string, unknown> = {};
+  for (const [path, value] of Object.entries(edits)) {
+    setPathValue(delta, path, value);
+  }
+  return delta;
+}
+
+/** Applies the player's edits over the values, so an edit is never reverted by a recalculation. */
+function applyEdits(
+  values: Record<string, unknown>,
+  edits: Record<string, unknown>,
+): Record<string, unknown> {
+  const next = structuredClone(values);
+  for (const [path, value] of Object.entries(edits)) {
+    setPathValue(next, path, value);
+  }
+  return next;
 }
 
 /** The consent dialog: the disclosure, the policy link when it is a secure address, and the two actions. */
@@ -144,13 +186,19 @@ function quotaCopy(allowance: Allowance | undefined): string | undefined {
 /** The screen. Reads the template, the plan and the one active step. */
 export function GenerateScreen() {
   const { templateId = '' } = useParams();
+  const location = useLocation();
   const client = useApiClient();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const plan = usePlanUsage();
   const template = useTemplateDetail(templateId);
 
-  const [step, setStep] = useState<Step>({ kind: 'concept' });
+  const [step, setStep] = useState<Step>(() => {
+    const handedOver = generationIdFromState(location.state);
+    return handedOver === undefined
+      ? { kind: 'concept' }
+      : { kind: 'waiting', generationId: handedOver, startedAt: Date.now() };
+  });
   const [concept, setConcept] = useState('');
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
@@ -158,9 +206,13 @@ export function GenerateScreen() {
   const [consentBusy, setConsentBusy] = useState(false);
   const [consentError, setConsentError] = useState<string | undefined>(undefined);
   const [leaveProceed, setLeaveProceed] = useState<(() => void) | undefined>(undefined);
+  const [lastConfirmOpen, setLastConfirmOpen] = useState(false);
 
   const dirtyRef = useRef(false);
   dirtyRef.current = step.kind === 'preview' && step.dirty;
+  const latestRef = useRef<Step>(step);
+  latestRef.current = step;
+  const lastPreviewAt = useRef<number | undefined>(undefined);
 
   useEffect(
     () =>
@@ -213,6 +265,47 @@ export function GenerateScreen() {
     };
   }, [client, waitingId, waitingStart]);
 
+  const previewRevision = step.kind === 'preview' ? step.revision : 0;
+
+  useEffect(() => {
+    if (previewRevision === 0) {
+      return undefined;
+    }
+    const timer = setTimeout(
+      () => {
+        const current = latestRef.current;
+        if (current.kind !== 'preview') {
+          return;
+        }
+        const sentRevision = current.revision;
+        const delta = deltaOf(current.edits);
+        lastPreviewAt.current = Date.now();
+        const isCurrent = (state: Step) =>
+          state.kind === 'preview' && state.revision === sentRevision;
+        client.previewTemplate(templateId, delta).then(
+          (cascade) =>
+            setStep((state) =>
+              isCurrent(state) && state.kind === 'preview'
+                ? {
+                    ...state,
+                    values: applyEdits(mergeCascade(state.values, cascade), state.edits),
+                    previewError: undefined,
+                  }
+                : state,
+            ),
+          () =>
+            setStep((state) =>
+              isCurrent(state) && state.kind === 'preview'
+                ? { ...state, previewError: message('generate.previewFailed') }
+                : state,
+            ),
+        );
+      },
+      previewDelay(lastPreviewAt.current, Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [client, templateId, previewRevision]);
+
   function startWaiting(generationId: string) {
     setStep({ kind: 'waiting', generationId, startedAt: Date.now() });
   }
@@ -246,6 +339,7 @@ export function GenerateScreen() {
         concept: concept.trim(),
       });
       setSubmitting(false);
+      void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
       startWaiting(generationId);
     } catch (error: unknown) {
       setSubmitting(false);
@@ -286,12 +380,17 @@ export function GenerateScreen() {
     updatePreview((current) => {
       const values = structuredClone(current.values);
       setPathValue(values, path, value);
-      return { ...current, values, dirty: true };
+      return {
+        ...current,
+        values,
+        edits: { ...current.edits, [path]: value },
+        revision: current.revision + 1,
+        dirty: true,
+      };
     });
   }
 
-  async function onAccept(preview: PreviewState) {
-    const name = preview.sheetName.trim();
+  async function onAccept(preview: PreviewState, name: string) {
     if (name === '') {
       return;
     }
@@ -312,8 +411,21 @@ export function GenerateScreen() {
     }
   }
 
+  function toConcept() {
+    setStep({ kind: 'concept' });
+  }
+
   function onRegenerate() {
-    requestLeave(() => setStep({ kind: 'concept' }));
+    if (allowance !== undefined && isLastGeneration(allowance)) {
+      setLastConfirmOpen(true);
+      return;
+    }
+    requestLeave(toConcept);
+  }
+
+  function confirmLastRegenerate() {
+    setLastConfirmOpen(false);
+    requestLeave(toConcept);
   }
 
   const allowance = plan.data === undefined ? undefined : trialAllowance(plan.data);
@@ -391,11 +503,7 @@ export function GenerateScreen() {
       {step.kind === 'failed' && (
         <section role="alert">
           <p>{step.copy}</p>
-          <Button
-            variant="primary"
-            label={message('sheet.retry')}
-            onClick={() => setStep({ kind: 'concept' })}
-          />
+          <Button variant="primary" label={message('sheet.retry')} onClick={toConcept} />
         </section>
       )}
       {step.kind === 'alreadyAccepted' && (
@@ -419,38 +527,17 @@ export function GenerateScreen() {
         </section>
       )}
       {step.kind === 'preview' && (
-        <section aria-label={message('generate.previewTitle')}>
-          <h2>{message('generate.previewTitle')}</h2>
-          <label htmlFor="generate-sheet-name">{message('sheet.nameLabel')}</label>
-          <input
-            id="generate-sheet-name"
-            value={step.sheetName}
-            onChange={(event) =>
-              updatePreview((current) => ({ ...current, sheetName: event.target.value }))
-            }
-            aria-required="true"
-          />
-          {template.data !== undefined && (
-            <SheetForm fields={template.data.fields} data={step.values} onChanged={onEdit} />
-          )}
-          {step.acceptError !== undefined && <p role="alert">{step.acceptError}</p>}
-          <Button
-            variant="primary"
-            label={step.accepting ? message('generate.accepting') : message('generate.accept')}
-            disabled={step.sheetName.trim() === '' || step.accepting}
-            loading={step.accepting}
-            onClick={() => void onAccept(step)}
-          />
-          <Button
-            variant="secondary"
-            label={
-              allowance?.kind === 'trial'
-                ? messageWith('generate.regenerate', { remaining: allowance.remaining })
-                : message('generate.regenerateNone')
-            }
-            onClick={onRegenerate}
-          />
-        </section>
+        <ReviewSection
+          preview={step}
+          fields={template.data?.fields}
+          allowance={allowance}
+          onEdit={onEdit}
+          onName={(name) =>
+            updatePreview((current) => ({ ...current, sheetName: name, nameTouched: true }))
+          }
+          onAccept={(name) => void onAccept(step, name)}
+          onRegenerate={onRegenerate}
+        />
       )}
       <ConsentDialog
         open={consentOpen}
@@ -463,6 +550,23 @@ export function GenerateScreen() {
           setConsentError(undefined);
         }}
       />
+      <Dialog
+        open={lastConfirmOpen}
+        title={message('generate.lastTitle')}
+        onClose={() => setLastConfirmOpen(false)}
+      >
+        <p>{message('generate.lastBody')}</p>
+        <Button
+          variant="secondary"
+          label={message('generate.lastKeep')}
+          onClick={() => setLastConfirmOpen(false)}
+        />
+        <Button
+          variant="primary"
+          label={message('generate.lastConfirm')}
+          onClick={confirmLastRegenerate}
+        />
+      </Dialog>
       <Dialog
         open={leaveProceed !== undefined}
         title={message('generate.leaveTitle')}
@@ -485,5 +589,64 @@ export function GenerateScreen() {
         />
       </Dialog>
     </main>
+  );
+}
+
+/** The review step: the Sheet name, the editable values and the accept and regenerate actions. */
+function ReviewSection({
+  preview,
+  fields,
+  allowance,
+  onEdit,
+  onName,
+  onAccept,
+  onRegenerate,
+}: {
+  readonly preview: PreviewState;
+  readonly fields: Parameters<typeof SheetForm>[0]['fields'] | undefined;
+  readonly allowance: Allowance | undefined;
+  readonly onEdit: (path: string, value: unknown) => void;
+  readonly onName: (name: string) => void;
+  readonly onAccept: (name: string) => void;
+  readonly onRegenerate: () => void;
+}) {
+  const suggested = suggestedSheetName(fields ?? {}, preview.values);
+  const name = preview.nameTouched ? preview.sheetName : suggested;
+  const trimmed = name.trim();
+  const remaining = allowance?.kind === 'trial' ? allowance.remaining : undefined;
+
+  return (
+    <section aria-label={message('generate.previewTitle')}>
+      <h2>{message('generate.previewTitle')}</h2>
+      <label htmlFor="generate-sheet-name">{message('sheet.nameLabel')}</label>
+      <input
+        id="generate-sheet-name"
+        value={name}
+        onChange={(event) => onName(event.target.value)}
+        aria-required="true"
+      />
+      {fields !== undefined && (
+        <SheetForm fields={fields} data={preview.values} onChanged={onEdit} />
+      )}
+      {preview.previewError !== undefined && <p role="status">{preview.previewError}</p>}
+      {preview.acceptError !== undefined && <p role="alert">{preview.acceptError}</p>}
+      <Button
+        variant="primary"
+        label={preview.accepting ? message('generate.accepting') : message('generate.accept')}
+        disabled={trimmed === '' || preview.accepting}
+        loading={preview.accepting}
+        onClick={() => onAccept(trimmed)}
+      />
+      <Button
+        variant="secondary"
+        label={
+          remaining === undefined
+            ? message('generate.regenerateNone')
+            : messageWith('generate.regenerate', { remaining })
+        }
+        disabled={remaining === 0}
+        onClick={onRegenerate}
+      />
+    </section>
   );
 }

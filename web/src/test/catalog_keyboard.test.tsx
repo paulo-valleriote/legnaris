@@ -5,7 +5,7 @@ import { createApiClient } from '../api/client';
 import type { Transport } from '../api/transport';
 import type { TemplateSummary } from '../api/models/template';
 import { message } from '../l10n/strings';
-import { createFakeTransport, successOutcome } from './fake_transport';
+import { createFakeTransport, successOutcome, withPlanUsage } from './fake_transport';
 import { renderApp } from './render';
 
 const BASE_URL = 'http://api.test';
@@ -17,8 +17,9 @@ const CATALOG: readonly TemplateSummary[] = [
 
 const ENTRY_NAME = /Dungeons & Dragons 5e/;
 
+/** The catalog also reads GET /me/plan for the resume notice; that read is answered before the counted transport. */
 function clientWith(transport: Transport) {
-  return createApiClient({ baseUrl: BASE_URL, transport });
+  return createApiClient({ baseUrl: BASE_URL, transport: withPlanUsage(transport) });
 }
 
 function detailEnvelope() {

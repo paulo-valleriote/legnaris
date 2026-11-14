@@ -15,6 +15,7 @@ import type { TemplateSummary } from '../api/models/template';
 import { message } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { CreateSheetDialog } from './create_sheet_dialog';
+import { ResumeNotice } from './resume_notice';
 import { useCatalog } from './queries';
 import './catalog.css';
 
@@ -139,6 +140,7 @@ export function CatalogScreen() {
       <h1 className="lg-catalog__title" id="catalog-title">
         {message('catalog.title')}
       </h1>
+      <ResumeNotice />
       <CatalogBody phase={phase} onRetry={handleRetry} onOpen={handleOpen} />
       {openTemplateId !== undefined && (
         <CreateSheetDialog templateId={openTemplateId} onClose={handleClose} />
