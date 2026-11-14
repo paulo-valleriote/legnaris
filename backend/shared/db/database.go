@@ -25,9 +25,15 @@ var ErrInvalidConfig = errors.New("invalid database configuration")
 // only on the first transaction. It wraps ErrInvalidConfig.
 var ErrMissingReplicaSet = fmt.Errorf("%w: DATABASE_URI must name the replica set with replicaSet=<name>", ErrInvalidConfig)
 
+// ErrMissingCredentials reports a DATABASE_URI without a username and password.
+// A credential-less URI would pass the ping and fail only on the first write,
+// so it is rejected at startup. The message never echoes the URI. It wraps
+// ErrInvalidConfig.
+var ErrMissingCredentials = fmt.Errorf("%w: DATABASE_URI must carry a username and password", ErrInvalidConfig)
+
 // InitMongo connects to MongoDB and verifies reachability. It fails before
 // connecting when the environment holds an invalid pool configuration or a URI
-// that does not name a replica set.
+// that does not name a replica set or carry credentials.
 func InitMongo(env env.Env) (*Database, error) {
 	if err := env.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
@@ -39,8 +45,14 @@ func InitMongo(env env.Env) (*Database, error) {
 	}
 
 	clientOptions := newClientOptions(env.Variables)
+	if err := clientOptions.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: DATABASE_URI is not a valid MongoDB URI", ErrInvalidConfig)
+	}
 	if clientOptions.ReplicaSet == nil || *clientOptions.ReplicaSet == "" {
 		return nil, ErrMissingReplicaSet
+	}
+	if !hasCredentials(clientOptions) {
+		return nil, ErrMissingCredentials
 	}
 
 	client, err := mongo.Connect(clientOptions)
@@ -61,6 +73,10 @@ func InitMongo(env env.Env) (*Database, error) {
 	return &Database{
 		Client: client,
 	}, nil
+}
+
+func hasCredentials(opts *options.ClientOptions) bool {
+	return opts.Auth != nil && opts.Auth.Username != "" && opts.Auth.Password != ""
 }
 
 // newClientOptions builds the driver options for the configured URI. Retryable
