@@ -99,6 +99,14 @@ type Variables struct {
 	// AuthDisposableEmailCheck gates the registration refusal of throwaway and
 	// undeliverable domains. It defaults on and is forced on in production.
 	AuthDisposableEmailCheck bool
+	// LLM settings select the character-generation gateway (ADR 0008). They are
+	// optional at boot: LLMAPIKey is checked by the adapter when it is built, and
+	// Validate refuses a :free model.
+	LLMProvider string
+	LLMBaseURL  string
+	LLMAPIKey   string
+	LLMModel    string
+	LLMTimeout  time.Duration
 }
 
 const (
@@ -161,6 +169,12 @@ const (
 	// The disposable-address check is on by default (D7); make dev and CI turn
 	// it off explicitly.
 	defaultDisposableEmailCheck = true
+	// LLM defaults (ADR 0008): OpenRouter is the only gateway and the model is the
+	// paid DeepSeek V4.1 Flash. The timeout bounds one generation call.
+	defaultLLMProvider = "openrouter"
+	defaultLLMBaseURL  = "https://openrouter.ai/api/v1"
+	defaultLLMModel    = "deepseek/deepseek-v4.1-flash"
+	defaultLLMTimeout  = 60 * time.Second
 )
 
 // appEnvProduction is the APP_ENV value that forces the disposable-address
@@ -225,7 +239,19 @@ func (e Env) Validate() error {
 	if err := validateRedisURL(e.Variables.RedisURL); err != nil {
 		errs = append(errs, err)
 	}
+	if err := validateLLMModel(e.Variables.LLMModel); err != nil {
+		errs = append(errs, err)
+	}
 	return errors.Join(errs...)
+}
+
+// validateLLMModel refuses a :free model variant: free endpoints may retain or
+// train on prompts (ADR 0008). The same rule is enforced by the LLM adapter.
+func validateLLMModel(model string) error {
+	if strings.HasSuffix(model, ":free") {
+		return errors.New("LLM_MODEL must not be a :free model variant (ADR 0008)")
+	}
+	return nil
 }
 
 // validateRedisURL accepts an empty value (in-process limiter) or a redis://
@@ -315,6 +341,11 @@ func (e *Env) buildVariables() Variables {
 		AuthOTPUserWindow:              e.lookupDurationEnv("AUTH_OTP_USER_WINDOW", defaultAuthOTPUserWindow),
 		AuthRegisterMinDuration:        e.lookupDurationEnv("AUTH_REGISTER_MIN_DURATION", defaultAuthRegisterMinDuration),
 		AuthOTPUserLimit:               e.lookupIntEnv("AUTH_OTP_USER_LIMIT", defaultAuthOTPUserLimit),
+		LLMProvider:                    e.lookupStringEnv("LLM_PROVIDER", defaultLLMProvider),
+		LLMBaseURL:                     e.lookupStringEnv("LLM_BASE_URL", defaultLLMBaseURL),
+		LLMAPIKey:                      e.lookupStringEnv("LLM_API_KEY", ""),
+		LLMModel:                       e.lookupStringEnv("LLM_MODEL", defaultLLMModel),
+		LLMTimeout:                     e.lookupDurationEnv("LLM_TIMEOUT", defaultLLMTimeout),
 	}
 }
 
