@@ -77,25 +77,15 @@ load_dotenv() {
 # the same first-run path as production.
 start_mongo() {
 	docker rm -fv "$MONGO_CONTAINER" >/dev/null 2>&1 || true
-	docker volume rm -f "$MONGO_KEYFILE_VOLUME" >/dev/null 2>&1 || true
-	docker volume create "$MONGO_KEYFILE_VOLUME" >/dev/null
-	docker run --rm --entrypoint sh -v "$MONGO_KEYFILE_VOLUME:/etc/mongo-keyfile" \
-		-v "$PWD/deploy/mongodb:/provision:ro" "$MONGO_IMAGE" \
-		/provision/keyfile.sh /etc/mongo-keyfile >/dev/null || die "could not provision the MongoDB keyfile"
-
-	log "starting a clean MongoDB replica set on :$MONGO_PORT"
-	docker run -d --rm --name "$MONGO_CONTAINER" -p "$MONGO_PORT:27017" \
-		-v "$MONGO_KEYFILE_VOLUME:/etc/mongo-keyfile:ro" \
-		-v "$PWD/deploy/mongodb:/provision:ro" \
-		"$MONGO_IMAGE" --replSet rs0 --keyFile /etc/mongo-keyfile/keyfile >/dev/null
+	log "starting a clean MongoDB on :$MONGO_PORT"
+	docker run -d --rm --name "$MONGO_CONTAINER" -p "$MONGO_PORT:$MONGO_PORT" "$MONGO_IMAGE" \
+		--replSet rs0 --port "$MONGO_PORT" >/dev/null
 
 	for _ in $(seq 1 60); do
-		if docker exec "$MONGO_CONTAINER" mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; then
-			MONGO_INITDB_ROOT_USERNAME="$MONGO_ROOT_USER" MONGO_INITDB_ROOT_PASSWORD="$MONGO_ROOT_PASSWORD" \
-				docker exec -e MONGO_INITDB_ROOT_USERNAME -e MONGO_INITDB_ROOT_PASSWORD \
-				-e "MONGO_RS_MEMBER=localhost:$MONGO_PORT" \
-				"$MONGO_CONTAINER" sh /provision/bootstrap.sh /provision/init/00-replset.js >/dev/null \
-				|| die "could not bootstrap the rs0 replica set"
+		if docker exec "$MONGO_CONTAINER" mongosh --quiet --port "$MONGO_PORT" --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; then
+			docker exec -i -e "MONGO_RS_MEMBER=localhost:$MONGO_PORT" "$MONGO_CONTAINER" \
+				mongosh --quiet --port "$MONGO_PORT" <deploy/mongodb/init/00-replset.js >/dev/null \
+				|| die "could not initiate the rs0 replica set"
 			return 0
 		fi
 		sleep 1

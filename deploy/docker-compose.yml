@@ -214,15 +214,24 @@ services:
       start_period: 5s
 
   # ---- Database -------------------------------------------------------------
-  # Single-member replica set rs0 (ADR 0013). The keyfile turns on authorization,
-  # so mongod starts with no users; mongodb-bootstrap sets up the set and the
-  # users on every start.
+  # Single-member replica set rs0 (ADR 0013). The keyfile also turns on
+  # authorization, so the set and the users are both set up on first run.
   mongodb:
     image: mongo:7.0
     restart: unless-stopped
     command: ["--replSet", "rs0", "--keyFile", "/etc/mongo-keyfile/keyfile"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      # Exposed to the init script in /docker-entrypoint-initdb.d.
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+      MONGO_EXPORTER_PASSWORD: ${MONGO_EXPORTER_PASSWORD}
+      MONGO_VIEW_PASSWORD: ${MONGO_VIEW_PASSWORD}
+      # The address the member is reached at inside the internal network.
+      MONGO_RS_MEMBER: mongodb:27017
     volumes:
       - mongo_data:/data/db
+      - ./mongodb/init:/docker-entrypoint-initdb.d:ro
       - mongo_keyfile:/etc/mongo-keyfile:ro
     depends_on:
       mongodb-keyfile:
