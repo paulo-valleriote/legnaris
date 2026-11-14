@@ -45,9 +45,16 @@ services:
     depends_on:
       - prometheus
 
+  # Replica set without a keyfile: the load-test app connects without
+  # credentials, and a keyfile would turn on authorization.
   mongodb:
     image: mongo:7.0
     profiles: [loadtest]
+    command: ["--replSet", "rs0"]
+    environment:
+      MONGO_RS_MEMBER: mongodb:27017
+    volumes:
+      - ./mongodb/init/00-replset.js:/docker-entrypoint-initdb.d/00-replset.js:ro
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' | grep -q 1"]
       interval: 3s

@@ -70,10 +70,14 @@ load_dotenv() {
 start_mongo() {
 	docker rm -fv "$MONGO_CONTAINER" >/dev/null 2>&1 || true
 	log "starting a clean MongoDB on :$MONGO_PORT"
-	docker run -d --rm --name "$MONGO_CONTAINER" -p "$MONGO_PORT:27017" "$MONGO_IMAGE" >/dev/null
+	docker run -d --rm --name "$MONGO_CONTAINER" -p "$MONGO_PORT:$MONGO_PORT" "$MONGO_IMAGE" \
+		--replSet rs0 --port "$MONGO_PORT" >/dev/null
 
 	for _ in $(seq 1 60); do
-		if docker exec "$MONGO_CONTAINER" mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; then
+		if docker exec "$MONGO_CONTAINER" mongosh --quiet --port "$MONGO_PORT" --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; then
+			docker exec -i -e "MONGO_RS_MEMBER=localhost:$MONGO_PORT" "$MONGO_CONTAINER" \
+				mongosh --quiet --port "$MONGO_PORT" <deploy/mongodb/init/00-replset.js >/dev/null \
+				|| die "could not initiate the rs0 replica set"
 			return 0
 		fi
 		sleep 1
