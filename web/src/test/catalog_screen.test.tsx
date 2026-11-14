@@ -5,7 +5,12 @@ import type { Transport } from '../api/transport';
 import type { TemplateSummary } from '../api/models/template';
 import { failureMessage, parseFailureMessage } from '../api/error_mapper';
 import { message } from '../l10n/strings';
-import { createDeferredTransport, errorOutcome, successOutcome } from './fake_transport';
+import {
+  createDeferredTransport,
+  errorOutcome,
+  successOutcome,
+  withPlanUsage,
+} from './fake_transport';
 import { renderApp } from './render';
 
 const BASE_URL = 'http://api.test';
@@ -15,8 +20,9 @@ const TWO_TEMPLATES: readonly TemplateSummary[] = [
   { id: 'pbta', name: 'Powered by the Apocalypse', default: false, fields: {} },
 ];
 
+/** The catalog also reads GET /me/plan for the resume notice, so that read is answered apart from the catalog's. */
 function clientWith(transport: Transport) {
-  return createApiClient({ baseUrl: BASE_URL, transport });
+  return createApiClient({ baseUrl: BASE_URL, transport: withPlanUsage(transport) });
 }
 
 describe('catalog screen (WCT-03 … WCT-10)', () => {

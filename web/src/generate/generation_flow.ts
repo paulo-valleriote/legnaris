@@ -7,6 +7,118 @@
  */
 
 import type { Generation } from '../api/models/generation';
+import type { FieldNode } from '../api/models/template';
+
+/** The shortest gap between two derived-value previews, in milliseconds (LGN-196). */
+export const PREVIEW_THROTTLE_MS = 1_000;
+
+/** The field path a generated character name is read from; the fantasy template names it so. */
+export const NAME_LEAF_PATH = 'identity.characterName';
+
+/** Keys a merge never writes, so a crafted cascade cannot reach the prototype chain. */
+const UNSAFE_KEYS: ReadonlySet<string> = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * How long to wait before the next derived-value preview may be sent.
+ *
+ * Zero when none was sent yet or a full window has passed; otherwise the rest of
+ * the window. A clock that went backwards waits the full window, never longer.
+ */
+export function previewDelay(lastSentAt: number | undefined, now: number): number {
+  if (lastSentAt === undefined) {
+    return 0;
+  }
+  const elapsed = now - lastSentAt;
+  if (elapsed < 0) {
+    return PREVIEW_THROTTLE_MS;
+  }
+  return Math.max(0, PREVIEW_THROTTLE_MS - elapsed);
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Merges the recalculated cascade over the values, returning a new object.
+ *
+ * Only the paths the cascade names change; nested objects merge key by key, and
+ * arrays or scalars replace. Unsafe keys are dropped, and a non-object cascade
+ * changes nothing.
+ */
+export function mergeCascade(
+  values: Record<string, unknown>,
+  cascade: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!isPlainRecord(cascade)) {
+    return values;
+  }
+  const merged: Record<string, unknown> = { ...values };
+  for (const key of Object.keys(cascade)) {
+    if (UNSAFE_KEYS.has(key)) {
+      continue;
+    }
+    const incoming = cascade[key];
+    const current = merged[key];
+    merged[key] =
+      isPlainRecord(incoming) && isPlainRecord(current)
+        ? mergeCascade(current, incoming)
+        : incoming;
+  }
+  return merged;
+}
+
+/**
+ * The Sheet name to prefill from the generated character name, or an empty string.
+ *
+ * Read only when the template declares the name leaf and the generated value is a
+ * non-blank string; anything else leaves the name for the player to type.
+ */
+export function suggestedSheetName(
+  fields: Readonly<Record<string, FieldNode>>,
+  values: Record<string, unknown>,
+): string {
+  const segments = NAME_LEAF_PATH.split('.');
+  if (!hasLeafAt(fields, segments)) {
+    return '';
+  }
+  const value = readAt(values, segments);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function hasLeafAt(
+  fields: Readonly<Record<string, FieldNode>>,
+  segments: readonly string[],
+): boolean {
+  let level: Readonly<Record<string, FieldNode>> | undefined = fields;
+  for (let index = 0; index < segments.length; index += 1) {
+    const node: FieldNode | undefined = level?.[segments[index] ?? ''];
+    if (node === undefined) {
+      return false;
+    }
+    if (index === segments.length - 1) {
+      return node.kind === 'leaf';
+    }
+    level = node.kind === 'group' ? node.children : undefined;
+  }
+  return false;
+}
+
+function readAt(values: Record<string, unknown>, segments: readonly string[]): unknown {
+  let current: unknown = values;
+  for (const segment of segments) {
+    if (!isPlainRecord(current)) {
+      return undefined;
+    }
+    current = current[segment];
+  }
+  return current;
+}
+
+/** Whether one generation remains, so the next regenerate spends the last one (LGN-196). */
+export function isLastGeneration(allowance: Allowance): boolean {
+  return allowance.kind === 'trial' && allowance.remaining === 1;
+}
 
 /** The shortest concept the server accepts, in characters (LGN-177). */
 export const CONCEPT_MIN_LENGTH = 10;

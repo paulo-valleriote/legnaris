@@ -33,6 +33,8 @@ export interface RenderAppOptions {
   readonly session?: SessionOption | AuthSession;
   /** An auth client the default session is built over, so a suite can script the restore. */
   readonly authApi?: AuthApi;
+  /** Navigation state the first entry carries, such as a resume handed over by the catalog. */
+  readonly routeState?: unknown;
 }
 
 /** A client whose catalog resolves with no entries, so a plain render stays meaningful. */
@@ -82,7 +84,7 @@ export function renderApp(path = '/', options: RenderAppOptions = {}) {
       : seedSession(options.session ?? 'authenticated', options.authApi ?? unusedAuthApi());
 
   const result = render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={[{ pathname: path, state: options.routeState }]}>
       <AppProviders
         client={options.client ?? defaultClient()}
         queryClient={queryClient}

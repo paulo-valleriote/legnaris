@@ -73,6 +73,12 @@ export const messages = {
   'generate.accepting': 'Saving…',
   'generate.regenerate': 'Regenerate ({remaining} left)',
   'generate.regenerateNone': 'Regenerate',
+  'generate.previewFailed': 'The figures could not be recalculated. Your edits are kept.',
+  'generate.lastTitle': 'Use your last free generation?',
+  'generate.lastBody':
+    'Regenerating uses your last free generation. You will have none left after it.',
+  'generate.lastConfirm': 'Use my last one',
+  'generate.lastKeep': 'Keep this character',
   'generate.leaveTitle': 'Leave without saving?',
   'generate.leaveBody': 'Your changes will be lost.',
   'generate.leaveStay': 'Stay',
