@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/quota"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/response"
@@ -54,13 +55,18 @@ type planView struct {
 	LLMConsentRequired bool `json:"llm_consent_required"`
 	// ActiveGenerationID is the caller's queued or running generation, or null.
 	ActiveGenerationID *string `json:"active_generation_id"`
+	// LLMConsentAt and LLMConsentVersion are the stored consent, both null when
+	// the player never consented or has withdrawn it (LGN-195).
+	LLMConsentAt      *time.Time `json:"llm_consent_at"`
+	LLMConsentVersion *string    `json:"llm_consent_version"`
 }
 
-// ConsentChecker reports whether the caller holds a current LLM consent. It is
+// ConsentChecker reports whether the caller holds a current LLM consent. Gate is
 // the consent gate of POST /generations; a missing consent is
-// LLM_CONSENT_REQUIRED.
+// LLM_CONSENT_REQUIRED. Status is the stored record shown on the account screen.
 type ConsentChecker interface {
 	Gate(ctx context.Context, userID string) error
+	Status(ctx context.Context, userID string) (llmconsent.Record, error)
 }
 
 // ActiveGenerationReader reports the caller's queued or running generation.
@@ -135,9 +141,19 @@ func (pc *PlanController) respond(c *echo.Context, userID string, view planView,
 	return response.OK(c, view)
 }
 
-// fillGenerationStatus reads the consent prompt and the active generation. A
-// consent refusal from the gate is the answer "required", never an error.
+// fillGenerationStatus reads the stored consent, the consent prompt and the active
+// generation. A consent refusal from the gate is the answer "required", never an
+// error.
 func (pc *PlanController) fillGenerationStatus(ctx context.Context, userID string, canGenerate bool, view *planView) error {
+	record, err := pc.consent.Status(ctx, userID)
+	if err != nil {
+		return apperr.NewError(apperr.CodeInternal, MsgPlanUnavailable, err)
+	}
+	if record.At != nil {
+		view.LLMConsentAt = record.At
+		view.LLMConsentVersion = &record.Version
+	}
+
 	if canGenerate {
 		err := pc.consent.Gate(ctx, userID)
 		switch {

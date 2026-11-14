@@ -9,6 +9,7 @@ import (
 
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/quota"
 	"legnaris/backend/internal/quota/mocks"
 	"legnaris/backend/shared/apperr"
@@ -19,12 +20,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeConsent answers the consent gate from a fixed outcome.
+// fakeConsent answers the consent gate and the stored-consent read from fixed outcomes.
 type fakeConsent struct {
-	err error
+	err       error
+	record    llmconsent.Record
+	statusErr error
 }
 
 func (f fakeConsent) Gate(context.Context, string) error { return f.err }
+
+func (f fakeConsent) Status(context.Context, string) (llmconsent.Record, error) {
+	return f.record, f.statusErr
+}
 
 // fakeActive answers the active-generation lookup from a fixed outcome.
 type fakeActive struct {
@@ -170,4 +177,77 @@ func TestPlanController_GenerationStatusAbsentWithoutOption(t *testing.T) {
 	body := planBody(t, rec)
 	assert.Equal(t, false, body["llm_consent_required"], "the field is always present")
 	assert.Nil(t, body["active_generation_id"], "the field is always present, null when idle")
+}
+
+// TestPlanController_ConsentRecord pins the stored consent the account screen shows
+// (LGN-195): the date and version are null unless a consent is held, and a consent
+// at an outdated version is still reported as stored.
+func TestPlanController_ConsentRecord(t *testing.T) {
+	consentedAt := time.Date(2026, 11, 1, 12, 30, 0, 0, time.UTC)
+	storeErr := errors.New("store down")
+	tests := []struct {
+		name        string
+		consent     fakeConsent
+		wantAt      *time.Time
+		wantVersion any
+		wantStatus  int
+	}{
+		{
+			name:        "Happy path: a current consent reports its date and version",
+			consent:     fakeConsent{record: llmconsent.Record{At: &consentedAt, Version: "1"}},
+			wantAt:      &consentedAt,
+			wantVersion: "1",
+			wantStatus:  http.StatusOK,
+		},
+		{
+			name:        "Edge: an outdated consent is reported as stored, not as current",
+			consent:     fakeConsent{record: llmconsent.Record{At: &consentedAt, Version: "0"}, err: consentMissing},
+			wantAt:      &consentedAt,
+			wantVersion: "0",
+			wantStatus:  http.StatusOK,
+		},
+		{
+			name:        "Edge: a player who never consented has null date and version",
+			consent:     fakeConsent{err: consentMissing},
+			wantVersion: nil,
+			wantStatus:  http.StatusOK,
+		},
+		{
+			name:        "Edge: a withdrawn consent has null date and version",
+			consent:     fakeConsent{record: llmconsent.Record{Version: "1"}, err: consentMissing},
+			wantVersion: nil,
+			wantStatus:  http.StatusOK,
+		},
+		{
+			name:       "Error: a consent read that fails is a 500, never a guessed answer",
+			consent:    fakeConsent{statusErr: storeErr},
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := mocks.NewMockStore(t)
+			store.EXPECT().FetchTrial(mock.Anything, planUserID).
+				Return(quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 0}, nil).Maybe()
+
+			rec := getPlan(t, planGenerationEngine(t, store, false, tc.consent, fakeActive{}))
+			require.Equal(t, tc.wantStatus, rec.Code)
+			if tc.wantStatus != http.StatusOK {
+				return
+			}
+
+			body := planBody(t, rec)
+			assert.Equal(t, tc.wantVersion, body["llm_consent_version"])
+			if tc.wantAt == nil {
+				assert.Nil(t, body["llm_consent_at"])
+				return
+			}
+			raw, ok := body["llm_consent_at"].(string)
+			require.True(t, ok, "llm_consent_at must be a timestamp string")
+			parsed, err := time.Parse(time.RFC3339Nano, raw)
+			require.NoError(t, err)
+			assert.True(t, tc.wantAt.Equal(parsed), "consent date must round-trip: got %s", raw)
+		})
+	}
 }

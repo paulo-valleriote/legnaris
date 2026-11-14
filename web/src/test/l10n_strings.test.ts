@@ -189,6 +189,9 @@ describe('the parameterized copy resolution (WCS-13)', () => {
           total: 17,
           used: 1,
           limit: 2,
+          plan: 'free',
+          date: '1 Nov 2026',
+          version: '1',
         }),
       ).not.toMatch(/\{(\w+)\}/);
     }

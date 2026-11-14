@@ -59,6 +59,7 @@ type Service interface {
 	Grant(ctx context.Context, userID, version string) error
 	Revoke(ctx context.Context, userID string) error
 	Gate(ctx context.Context, userID string) error
+	Status(ctx context.Context, userID string) (Record, error)
 }
 
 // CheckConsent returns LLM_CONSENT_REQUIRED unless the record holds a consent
@@ -121,6 +122,17 @@ func (s *service) Gate(ctx context.Context, userID string) error {
 		return translateUserErr(err)
 	}
 	return CheckConsent(record)
+}
+
+// Status returns the stored consent record as it is, whether or not it is
+// current, so the account screen can show when and at which version the player
+// consented. The generation gate stays the authority on whether consent counts.
+func (s *service) Status(ctx context.Context, userID string) (Record, error) {
+	record, err := s.consents.Fetch(ctx, userID)
+	if err != nil {
+		return Record{}, translateUserErr(err)
+	}
+	return record, nil
 }
 
 func translateUserErr(err error) error {

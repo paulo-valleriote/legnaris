@@ -34,5 +34,6 @@ export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
     deepLink: true,
     notFound: false,
   },
+  { path: '/account', label: 'Account', audience: 'session', deepLink: true, notFound: false },
   { path: NOT_FOUND_PATH, label: 'Not found', audience: 'session', deepLink: true, notFound: true },
 ];

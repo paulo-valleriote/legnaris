@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import { AccountScreen } from '../account/account_screen';
 import { AuthGate } from '../auth/auth_gate';
 import { CatalogScreen } from '../catalog/catalog_screen';
 import { AppShell } from '../shell/app_shell';
@@ -13,6 +14,7 @@ const SCREENS: Record<string, ReactElement> = {
   '/': <CatalogScreen />,
   '/sheets/:id': <SheetScreen />,
   '/your-sheet': <YourSheetScreen />,
+  '/account': <AccountScreen />,
   [NOT_FOUND_PATH]: <NotFound />,
 };
 

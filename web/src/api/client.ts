@@ -67,6 +67,11 @@ export interface ApiClient {
    * Resolves with the Layout as stored, or `null` after a reset. No recalculation runs.
    */
   setLayout(id: string, layout: Layout | null): Promise<Layout | null>;
+  /**
+   * Withdraws the caller's LLM consent and deletes the generation data the server holds for
+   * them (ADR 0008). A `204` carries no body; a failure is never repeated.
+   */
+  revokeLlmConsent(): Promise<void>;
 }
 
 function decodeHealth(data: unknown): HealthPayload {
@@ -148,5 +153,6 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         JSON.stringify({ layout: layout === null ? null : layoutToWire(layout) }),
         parseLayoutResponse,
       ),
+    revokeLlmConsent: () => caller.callNoContent('DELETE', '/me/llm-consent', undefined),
   };
 }

@@ -10,6 +10,8 @@ import { leaveIsGuarded, requestLeave } from './leave_guard';
 const CATALOG_PATH = '/';
 /** The route the session-only own-sheet item targets. */
 const OWN_SHEET_PATH = '/your-sheet';
+/** The route the session-only account item targets (LGN-195). */
+const ACCOUNT_PATH = '/account';
 
 /** A stack of layers, the template-catalog affordance. */
 function CatalogIcon() {
@@ -44,6 +46,23 @@ function SheetIcon() {
       <path d="M14 3v5h5" />
       <path d="M9 13h6" />
       <path d="M9 17h4" />
+    </svg>
+  );
+}
+
+/** A head and shoulders, the account affordance. */
+function AccountIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
     </svg>
   );
 }
@@ -160,6 +179,9 @@ export function LeftNav() {
         <NavEntry path={CATALOG_PATH} label={message('nav.catalog')} icon={<CatalogIcon />} />
         {snapshot.state === 'authenticated' && (
           <NavEntry path={OWN_SHEET_PATH} label={message('nav.ownSheet')} icon={<SheetIcon />} />
+        )}
+        {snapshot.state === 'authenticated' && (
+          <NavEntry path={ACCOUNT_PATH} label={message('nav.account')} icon={<AccountIcon />} />
         )}
       </div>
 
