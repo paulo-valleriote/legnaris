@@ -90,16 +90,29 @@ migrate-emails: ## Repair legacy email addresses (dry run; ARGS="-apply" writes)
 # `make test-race` connect with. A URI without credentials (see .env.example)
 # starts an unauthenticated MongoDB; credentials are used verbatim — do not
 # percent-encode them.
-dev-db:         ## Run only MongoDB locally with the credentials from DATABASE_URI; stop with: docker stop legnaris-mongo
+dev-db:         ## Run only MongoDB locally as replica set rs0, with the credentials from DATABASE_URI; stop with: docker stop legnaris-mongo
 	@creds=$$(printf '%s' '$(DATABASE_URI)' | sed -nE 's#^mongodb://([^/@]+)@.*#\1#p'); \
+	auth=""; mongod_args=""; \
 	if [ -n "$$creds" ]; then \
-		set -- -e "MONGO_INITDB_ROOT_USERNAME=$${creds%%:*}" -e "MONGO_INITDB_ROOT_PASSWORD=$${creds#*:}"; \
+		docker volume create legnaris-mongo-keyfile >/dev/null && \
+		docker run --rm --entrypoint sh -v legnaris-mongo-keyfile:/etc/mongo-keyfile \
+			-v "$(CURDIR)/deploy/mongodb/keyfile.sh:/provision/keyfile.sh:ro" \
+			mongo:7.0 /provision/keyfile.sh /etc/mongo-keyfile || exit 1; \
+		set -- -e "MONGO_INITDB_ROOT_USERNAME=$${creds%%:*}" -e "MONGO_INITDB_ROOT_PASSWORD=$${creds#*:}" \
+			-v legnaris-mongo-keyfile:/etc/mongo-keyfile:ro; \
+		mongod_args="--keyFile /etc/mongo-keyfile/keyfile"; \
+		auth="-u $${creds%%:*} -p $${creds#*:} --authenticationDatabase admin"; \
 	else \
 		set --; \
 	fi; \
 	docker run --rm --name legnaris-mongo "$$@" \
 		-p 27017:27017 \
-		-d mongo:7.0
+		-d mongo:7.0 --replSet rs0 $$mongod_args >/dev/null && \
+	i=0; until docker exec legnaris-mongo mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; do \
+		i=$$((i+1)); [ $$i -lt 60 ] || { echo "MongoDB did not become ready within 60s" >&2; exit 1; }; sleep 1; \
+	done && \
+	docker exec -i -e MONGO_RS_MEMBER=localhost:27017 legnaris-mongo mongosh --quiet $$auth \
+		<deploy/mongodb/init/00-replset.js >/dev/null
 
 ## --- Web client (React/Vite/TypeScript PWA) ---------------------------------
 ## Local parity with the ci-web.yml pipeline (sec-scan is local only); run after any change under web/.
