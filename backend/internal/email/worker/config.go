@@ -1,6 +1,10 @@
 package worker
 
-import "time"
+import (
+	"time"
+
+	"legnaris/backend/internal/platform/breaker"
+)
 
 // Default worker settings; Config fills any zero value from them (WKR-14,
 // WKR-16).
@@ -53,10 +57,10 @@ func (c Config) withDefaults() Config {
 		c.RegisterRetryDelay = RegisterRetryDelay
 	}
 	if c.BreakerThreshold <= 0 {
-		c.BreakerThreshold = DefaultBreakerThreshold
+		c.BreakerThreshold = breaker.DefaultBreakerThreshold
 	}
 	if c.BreakerProbeInterval <= 0 {
-		c.BreakerProbeInterval = DefaultBreakerProbeInterval
+		c.BreakerProbeInterval = breaker.DefaultBreakerProbeInterval
 	}
 	return c
 }

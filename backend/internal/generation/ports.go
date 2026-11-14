@@ -95,3 +95,35 @@ type Transactor interface {
 type CapObserver interface {
 	GenerationCapUsage(used, limit int)
 }
+
+// JobStore is the persistence port of the worker. ClaimQueued, Complete and
+// FailRunning each move one document through a single transition and report false
+// when the document was not in the state the transition needs, so a duplicate
+// delivery or a removed document is a no-op.
+type JobStore interface {
+	// ClaimQueued moves a queued document to running under a lease until now+lease.
+	ClaimQueued(ctx context.Context, id string, now time.Time, lease time.Duration) (Document, bool, error)
+	// Complete stores the validated values of a running document and marks it succeeded.
+	Complete(ctx context.Context, id string, values map[string]any) (bool, error)
+	// FailRunning marks a running document failed with code and returns it as it was.
+	FailRunning(ctx context.Context, id, code string) (Document, bool, error)
+}
+
+// LeaseStore is the persistence port of the lease reaper over running documents.
+type LeaseStore interface {
+	// ClaimExpired leases up to limit running documents whose worker lease has ended.
+	ClaimExpired(ctx context.Context, now time.Time, lease time.Duration, limit int) ([]Document, error)
+	// RescheduleExpired makes a document due for the reaper again at nextAt.
+	RescheduleExpired(ctx context.Context, id string, nextAt time.Time) error
+	// FailExpired fails a running document whose lease ended at or before now.
+	FailExpired(ctx context.Context, id string, now time.Time, code string) (Document, bool, error)
+	// OldestRunning returns the creation time of the oldest running document.
+	OldestRunning(ctx context.Context) (time.Time, bool, error)
+}
+
+// Catalog resolves a code-defined Template and its rules by ID. *template.Registry
+// satisfies it.
+type Catalog interface {
+	FetchByID(id string) (*template.Template, bool)
+	DAG(id string) (*template.DAG, bool)
+}

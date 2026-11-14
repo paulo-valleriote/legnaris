@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/email"
+	"legnaris/backend/internal/platform/breaker"
 	"legnaris/backend/shared/idgen"
 	sharedjson "legnaris/backend/shared/json"
 	"legnaris/backend/shared/logger"
@@ -38,7 +39,7 @@ type Worker struct {
 	observer    Observer
 	config      Config
 	logger      logger.StructuredLogger
-	breaker     *breaker
+	breaker     *breaker.Breaker
 }
 
 // New builds a worker over the delivery source, the republisher, the sending
@@ -54,7 +55,7 @@ func New(source DeliverySource, republisher Republisher, sender email.Sender, re
 		observer:    observer,
 		config:      config,
 		logger:      log,
-		breaker:     newBreaker(config.BreakerThreshold, config.BreakerProbeInterval, config.Now),
+		breaker:     breaker.New(config.BreakerThreshold, config.BreakerProbeInterval, config.Now),
 	}
 }
 
@@ -109,12 +110,12 @@ func (w *Worker) consume(ctx, inflightCtx context.Context, stream <-chan Deliver
 
 		select {
 		case <-ctx.Done():
-			w.breaker.release(probe)
+			w.breaker.Release(probe)
 			<-slots
 			return
 		case delivery, ok := <-stream:
 			if !ok {
-				w.breaker.release(probe)
+				w.breaker.Release(probe)
 				<-slots
 				w.logger.Warn(ctx, "delivery stream ended; registering the consumer again")
 				return
@@ -123,7 +124,7 @@ func (w *Worker) consume(ctx, inflightCtx context.Context, stream <-chan Deliver
 			go func() {
 				defer inflight.Done()
 				defer func() { <-slots }()
-				defer w.breaker.release(probe)
+				defer w.breaker.Release(probe)
 				w.handle(inflightCtx, delivery, probe)
 			}()
 		}
@@ -134,11 +135,11 @@ func (w *Worker) consume(ctx, inflightCtx context.Context, stream <-chan Deliver
 // token when the admission is a probe, and false when ctx is cancelled first.
 func (w *Worker) admit(ctx context.Context) (uint64, bool) {
 	for {
-		decision := w.breaker.admit()
-		if decision.proceed {
-			return decision.probe, true
+		decision := w.breaker.Admit()
+		if decision.Proceed {
+			return decision.Probe, true
 		}
-		if !sleep(ctx, decision.wait) {
+		if !sleep(ctx, decision.Wait) {
 			return 0, false
 		}
 	}
@@ -234,29 +235,29 @@ func (w *Worker) handle(ctx context.Context, delivery Delivery, probe uint64) {
 
 // classifyOutcome maps one send error to its breaker outcome. A transient error
 // that is not a quota or rate limit is a provider outage (5xx, timeout).
-func classifyOutcome(err error) breakerOutcome {
+func classifyOutcome(err error) breaker.Outcome {
 	switch {
 	case err == nil:
-		return outcomeSuccess
+		return breaker.OutcomeSuccess
 	case errors.Is(err, email.ErrQuotaExhausted), errors.Is(err, email.ErrRateLimited):
-		return outcomeNeutral
+		return breaker.OutcomeNeutral
 	case errors.Is(err, email.ErrTransient):
-		return outcomeOutage
+		return breaker.OutcomeOutage
 	default:
-		return outcomeNeutral
+		return breaker.OutcomeNeutral
 	}
 }
 
 // reportBreaker feeds one send outcome to the breaker and reports a transition.
-func (w *Worker) reportBreaker(ctx context.Context, probe uint64, outcome breakerOutcome) {
-	switch w.breaker.record(probe, outcome) {
-	case transitionOpened:
+func (w *Worker) reportBreaker(ctx context.Context, probe uint64, outcome breaker.Outcome) {
+	switch w.breaker.Record(probe, outcome) {
+	case breaker.TransitionOpened:
 		w.logger.Warn(ctx, "provider breaker opened; consumption paused")
 		w.observer.BreakerOpened()
-	case transitionClosed:
+	case breaker.TransitionClosed:
 		w.logger.Info(ctx, "provider breaker closed; consumption resumed")
 		w.observer.BreakerClosed()
-	case transitionNone:
+	case breaker.TransitionNone:
 	}
 }
 

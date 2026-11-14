@@ -1,7 +1,8 @@
-// Command worker is the email delivery process. It consumes the queued OTP
-// messages from RabbitMQ, renders and sends each through the configured
-// provider, retries transient failures through the broker's delay tiers and
-// parks the ones that can never succeed. It is a separate binary, so a broker or
+// Command worker is the background process. It delivers the queued OTP messages
+// from RabbitMQ, renders and sends each through the configured provider, retries
+// transient failures through the broker's delay tiers and parks the ones that can
+// never succeed. When GENERATION_ENABLED is set it also consumes character
+// generation jobs (LGN-230), in the same process. It is a separate binary, so a broker or
 // provider outage never reaches the HTTP API, and it needs no database: the
 // code's lifetime travels on the message (O2, WKR-01, WKR-19).
 package main
@@ -46,6 +47,9 @@ type dependencies struct {
 	newSender    func(cfg env.Env) (email.Sender, error)
 	dialBroker   func(cfg env.Env) (brokerClient, error)
 	serveMetrics func(addr string, handler http.Handler) (func(ctx context.Context) error, error)
+	// newGeneration builds the generation consumer. It is called only when
+	// GENERATION_ENABLED is set, and its failure stops the process before consuming.
+	newGeneration func(cfg env.Env) (generationRunner, func(), error)
 }
 
 func main() {
@@ -75,6 +79,16 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 		return err
 	}
 
+	var generation generationRunner
+	if cfg.Variables.GenerationEnabled {
+		runner, cleanup, err := deps.newGeneration(cfg)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+		generation = runner
+	}
+
 	renderer, err := email.NewRenderer()
 	if err != nil {
 		return fmt.Errorf("build email renderer: %w", err)
@@ -102,7 +116,10 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	}()
 
 	delivery := worker.New(broker, broker, sender, renderer, workerMetrics, workerConfig(cfg), cfg.Logger)
-	return delivery.Run(ctx)
+	if generation == nil {
+		return delivery.Run(ctx)
+	}
+	return runConcurrently(ctx, delivery.Run, generation.Run)
 }
 
 // workerConfig maps the optional configuration onto the worker's knobs; every
@@ -166,6 +183,7 @@ func defaultDependencies() dependencies {
 			}
 			return broker, nil
 		},
-		serveMetrics: serveMetrics,
+		serveMetrics:  serveMetrics,
+		newGeneration: buildGeneration,
 	}
 }

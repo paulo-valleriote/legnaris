@@ -45,6 +45,20 @@ func idleGenerationDeps(t *testing.T) generation.RepublishDeps {
 	}
 }
 
+// idleReapDeps returns lease reaper dependencies whose store holds no expired job,
+// so a sweep pass touches no quota and no transaction.
+func idleReapDeps(t *testing.T) generation.ReapDeps {
+	t.Helper()
+	store := generationmocks.NewMockLeaseStore(t)
+	store.EXPECT().ClaimExpired(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	store.EXPECT().OldestRunning(mock.Anything).Return(time.Time{}, false, nil).Maybe()
+	return generation.ReapDeps{
+		Store: store,
+		Quota: generationmocks.NewMockQuota(t),
+		Tx:    generationmocks.NewMockTransactor(t),
+	}
+}
+
 // TestSweepQueues_RegistersGenerationRepublish pins that the generation queue is
 // registered next to the event outbox, every 10 s, under the generation name.
 func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
@@ -54,14 +68,14 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 		wantErr   bool
 		wantNames []string
 	}{
-		{name: "Happy path: both queues are registered with the generation queue at 10 s", batch: 25, wantNames: []string{"event_outbox", "generation"}},
+		{name: "Happy path: the event outbox, the generation republish and the lease reaper are registered at 10 s", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease"}},
 		{name: "Error: a zero batch refuses the generation queue", batch: 0, wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := testEnv()
 			cfg.Variables.EmailRelayBatch = tc.batch
-			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t))
+			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t), idleReapDeps(t))
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -72,8 +86,9 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 				names = append(names, q.Name)
 			}
 			assert.Equal(t, tc.wantNames, names)
-			assert.Equal(t, generation.RepublishInterval, queues[len(queues)-1].Interval)
-			assert.Equal(t, 10*time.Second, queues[len(queues)-1].Interval)
+			assert.Equal(t, generation.RepublishInterval, queues[1].Interval)
+			assert.Equal(t, generation.ReapInterval, queues[2].Interval)
+			assert.Equal(t, 10*time.Second, queues[2].Interval)
 		})
 	}
 }
@@ -102,6 +117,9 @@ func relayDepsForCancelledRun(t *testing.T, generationBroker *fakeGenerationBrok
 		deps := idleGenerationDeps(t)
 		deps.Publisher = publisher
 		return deps, nil
+	}
+	deps.newGenerationReap = func(env.Env, databaseHandle) (generation.ReapDeps, error) {
+		return idleReapDeps(t), nil
 	}
 	return deps
 }
