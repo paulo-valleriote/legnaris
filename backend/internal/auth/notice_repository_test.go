@@ -2,42 +2,22 @@ package auth_test
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/shared/db"
-	"legnaris/backend/shared/env"
-	"legnaris/backend/shared/logger"
+	"legnaris/backend/shared/db/dbtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const noticeTestDatabase = "legnaris_auth_notices_test"
-
 func newNoticeStore(t *testing.T) auth.NoticeRepository {
 	t.Helper()
 
-	log := logger.NewLogger(slog.LevelError)
-	cfg := env.NewEnv(log)
-
-	database, err := db.InitMongo(cfg)
-	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
-	}
-	t.Cleanup(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
-		defer cancel()
-		_ = database.Close(closeCtx)
-	})
-
-	mdb := database.Client.Database(noticeTestDatabase)
-	collection := mdb.Collection(auth.EmailNoticesCollection)
-	_ = collection.Drop(context.Background())
-	t.Cleanup(func() { _ = collection.Drop(context.Background()) })
+	mdb := dbtest.Database(t)
 
 	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
 	return auth.NewNoticeRepository(mdb)
@@ -47,7 +27,7 @@ func newNoticeStore(t *testing.T) auth.NoticeRepository {
 // per purpose and address per window, even under concurrency.
 func TestNoticeRepository_Claim(t *testing.T) {
 	ctx := context.Background()
-	now := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	window := time.Hour
 	const address = "player@example.com"
 
@@ -75,7 +55,8 @@ func TestNoticeRepository_Claim(t *testing.T) {
 		_, err := store.Claim(ctx, auth.PurposeAccountExists, address, now.Add(-window), now)
 		require.NoError(t, err)
 
-		at := now.Add(window + time.Nanosecond)
+		// BSON stores milliseconds, so the boundary must be a whole millisecond past the window.
+		at := now.Add(window + time.Millisecond)
 		claimed, err := store.Claim(ctx, auth.PurposeAccountExists, address, at.Add(-window), at)
 		require.NoError(t, err)
 		assert.True(t, claimed)

@@ -19,6 +19,7 @@ import (
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/db"
+	"legnaris/backend/shared/db/dbtest"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
 	"legnaris/backend/shared/maputils"
@@ -29,8 +30,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
-
-const testDatabaseName = "legnaris"
 
 // newIntegrationRouter boots the real HTTP stack (in-memory template registry +
 // MongoDB) in-process. It skips the test when MongoDB is unavailable.
@@ -50,42 +49,33 @@ func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *
 	t.Setenv("JWT_SECRET", "integration-test-secret")
 	t.Setenv("AUTH_BCRYPT_COST", "12")
 	t.Setenv("EMAIL_CODE_SECRET", "integration-test-code-secret-0123456789")
+	// The disposable-address check resolves the domain's MX records over the
+	// network, which makes the suite depend on DNS. Suites that need the check
+	// set it back through extra.
+	t.Setenv("AUTH_DISPOSABLE_EMAIL_CHECK", "false")
+	// One suite shares a single in-process limiter across its subtests, so the
+	// production budgets would throttle the journeys themselves. Rate limits have
+	// their own suites, which pass the limit they assert through extra.
+	t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "100000")
+	t.Setenv("AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS", "100000")
+	t.Setenv("AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS", "100000")
+	t.Setenv("USER_RATE_LIMIT_ATTEMPTS", "100000")
 	for key, value := range extra {
 		t.Setenv(key, value)
 	}
 
+	// The modules read DATABASE_NAME, so the isolated name is set before the
+	// environment is built. The fixture drops that database at cleanup.
+	client := dbtest.Client(t)
+	databaseName := dbtest.NewDatabaseName(t)
+	t.Setenv("DATABASE_NAME", databaseName)
+
 	log := logger.NewLogger(slog.LevelError)
 	env := env.NewEnv(log)
 
-	database, err := db.InitMongo(env)
-	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
-	}
-	t.Cleanup(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), env.Variables.DatabaseCloseTimeout)
-		defer cancel()
-		_ = database.Close(closeCtx)
-	})
-
+	database := &db.Database{Client: client}
+	mdb := dbtest.Adopt(t, client, databaseName)
 	ctx := context.Background()
-	mdb := database.Client.Database(testDatabaseName)
-
-	// Clean slate so assertions are deterministic. The "template" collection is
-	// dropped in case a pre-migration boot created it.
-	_ = mdb.Collection("template").Drop(ctx)
-	_ = mdb.Collection("sheets").Drop(ctx)
-	_ = mdb.Collection("users").Drop(ctx)
-	_ = mdb.Collection("refresh_tokens").Drop(ctx)
-	_ = mdb.Collection("email_outbox").Drop(ctx)
-	_ = mdb.Collection("auth_challenges").Drop(ctx)
-	t.Cleanup(func() {
-		_ = mdb.Collection("sheets").Drop(context.Background())
-		_ = mdb.Collection("template").Drop(context.Background())
-		_ = mdb.Collection("users").Drop(context.Background())
-		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
-		_ = mdb.Collection("email_outbox").Drop(context.Background())
-		_ = mdb.Collection("auth_challenges").Drop(context.Background())
-	})
 
 	require.NoError(t, db.EnsureIndexes(ctx, mdb))
 
@@ -111,15 +101,13 @@ const integrationPassword = "sup3r-secret"
 // the session's access token plus the user id parsed from its subject.
 // Registration starts a code step and issues no session, so the sign-in is
 // what yields the token.
-func newAuthUser(t *testing.T, h http.Handler, email, username string) (token string, userID string) {
+func newAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, username string) (token string, userID string) {
 	t.Helper()
 
-	registerBody := fmt.Sprintf(`{"email":%q,"username":%q,"password":%q}`, email, username, integrationPassword)
-	registerRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
-	require.Equal(t, http.StatusCreated, registerRec.Code, registerRec.Body.String())
+	registerAuthUser(t, h, mdb, email, username)
 
 	loginRec := doRequest(t, h, http.MethodPost, "/auth/login",
-		fmt.Sprintf(`{"email":%q,"password":%q}`, email, integrationPassword))
+		fmt.Sprintf(`{"email":%q,"password":%q}`, email, authPassword))
 	require.Equal(t, http.StatusOK, loginRec.Code, loginRec.Body.String())
 
 	var session response.Success[auth.SessionResponse]
@@ -212,7 +200,7 @@ func TestIntegration_ProtectedRoutesRequireJWT(t *testing.T) {
 		require.Equal(t, http.StatusOK, mrec.Code)
 
 		// register/login stay public: a fresh user can sign in with no token.
-		token, _ := newAuthUser(t, h, "public@example.com", "public")
+		token, _ := newAuthUser(t, h, mdb, "public@example.com", "public")
 		require.NotEmpty(t, token)
 	})
 
@@ -226,15 +214,15 @@ func TestIntegration_ProtectedRoutesRequireJWT(t *testing.T) {
 	})
 
 	t.Run("Happy path: a valid token reaches the normal handler", func(t *testing.T) {
-		token, _ := newAuthUser(t, h, "valid@example.com", "valid")
+		token, _ := newAuthUser(t, h, mdb, "valid@example.com", "valid")
 		rec := doAuthRequest(t, h, token, http.MethodGet, "/templates", "")
 		require.Equal(t, http.StatusOK, rec.Code)
 	})
 }
 
 func TestIntegration_TemplatesList(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "templates-list@example.com", "templates-list")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "templates-list@example.com", "templates-list")
 
 	rec := doAuthRequest(t, h, token, http.MethodGet, "/templates", "")
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -262,8 +250,8 @@ func TestIntegration_TemplatesList(t *testing.T) {
 }
 
 func TestIntegration_TemplatesFetchByID(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "templates-fetch@example.com", "templates-fetch")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "templates-fetch@example.com", "templates-fetch")
 
 	rec := doAuthRequest(t, h, token, http.MethodGet, "/templates/fantasy_v1", "")
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -362,8 +350,8 @@ func templateFieldKeys(t *testing.T, raw []byte) []string {
 }
 
 func TestIntegration_TemplatesFetchByID_NotFound(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "templates-404@example.com", "templates-404")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "templates-404@example.com", "templates-404")
 
 	rec := doAuthRequest(t, h, token, http.MethodGet, "/templates/unknown", "")
 	require.Equal(t, http.StatusNotFound, rec.Code)
@@ -383,8 +371,8 @@ func TestIntegration_BootDoesNotCreateTemplateCollection(t *testing.T) {
 }
 
 func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "sheets-cfp@example.com", "sheets-cfp")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "sheets-cfp@example.com", "sheets-cfp")
 
 	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Test Sheet"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
@@ -459,8 +447,8 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 // through the DAG, config flags wire proficiency into a save, and a text
 // field stores exactly what the client sends.
 func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "sheets-calib@example.com", "sheets-calib")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "sheets-calib@example.com", "sheets-calib")
 
 	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Calibration"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
@@ -529,8 +517,8 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 // member on zeroes its sibling and recomputes the derived value, and a PATCH
 // that turns both on is rejected with 400 INVALID_REQUEST.
 func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "sheets-exclusive@example.com", "sheets-exclusive")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "sheets-exclusive@example.com", "sheets-exclusive")
 
 	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Exclusive"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
@@ -587,8 +575,8 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 // PATCH whose data nests deeper than maputils.MaxNestingDepth is rejected with
 // 400 INVALID_REQUEST instead of driving the recursive flatten off a cliff.
 func TestIntegration_Sheets_NestingDepthLimit(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "sheets-depth@example.com", "sheets-depth")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "sheets-depth@example.com", "sheets-depth")
 
 	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Deep"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
@@ -616,8 +604,8 @@ func TestIntegration_Sheets_NestingDepthLimit(t *testing.T) {
 // delta returns the same cascade an equivalent PATCH returns, and the preview
 // leaves the stored sheet untouched (no persistence).
 func TestIntegration_Sheets_Preview(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "sheets-preview@example.com", "sheets-preview")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "sheets-preview@example.com", "sheets-preview")
 
 	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Preview"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
@@ -665,8 +653,8 @@ func TestIntegration_Sheets_Preview(t *testing.T) {
 // end over the real registry: a valid delta returns the cascade seeded from the
 // template, a malformed id is 400 and an unknown slug is 404.
 func TestIntegration_Templates_Preview(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "templates-preview@example.com", "templates-preview")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "templates-preview@example.com", "templates-preview")
 
 	previewRec := doAuthRequest(t, h, token, http.MethodPost, "/templates/fantasy_v1/preview", `{"data":{"stats":{"dexterity":16}}}`)
 	require.Equal(t, http.StatusOK, previewRec.Code)
@@ -700,11 +688,11 @@ func TestIntegration_Templates_Preview(t *testing.T) {
 // produces through HTTPErrorHandler (LGN-48): domain errors must never fall
 // through as 500 INTERNAL_ERROR.
 func TestIntegration_ErrorStatusMapping(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
+	h, mdb := newIntegrationRouter(t)
 
 	// A token for the read-only subtests; the create subtests mint their own so
 	// the one-sheet rule never turns a first create into a 409.
-	token, _ := newAuthUser(t, h, "err-map@example.com", "err-map")
+	token, _ := newAuthUser(t, h, mdb, "err-map@example.com", "err-map")
 
 	assertErrorBody := func(t *testing.T, rec *httptest.ResponseRecorder, status int, code string) {
 		t.Helper()
@@ -762,7 +750,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	})
 
 	t.Run("PATCH with unknown field returns 400 UNKNOWN_FIELD", func(t *testing.T) {
-		ownerToken, _ := newAuthUser(t, h, "err-map-unknown@example.com", "err-map-unknown")
+		ownerToken, _ := newAuthUser(t, h, mdb, "err-map-unknown@example.com", "err-map-unknown")
 		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Err Map"}`)
 		require.Equal(t, http.StatusCreated, createRec.Code)
 		var created response.Success[sheet.SheetDTO]
@@ -773,7 +761,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	})
 
 	t.Run("PATCH on non-editable field returns 400 INVALID_REQUEST", func(t *testing.T) {
-		ownerToken, _ := newAuthUser(t, h, "err-map-nonedit@example.com", "err-map-nonedit")
+		ownerToken, _ := newAuthUser(t, h, mdb, "err-map-nonedit@example.com", "err-map-nonedit")
 		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Err Map 2"}`)
 		require.Equal(t, http.StatusCreated, createRec.Code)
 		var created response.Success[sheet.SheetDTO]
@@ -806,8 +794,8 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 // ErrSheetNotFound. This guards the middleware ordering the metrics status
 // label depends on.
 func TestIntegration_MetricsRecordsErrorStatus(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "metrics-status@example.com", "metrics-status")
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "metrics-status@example.com", "metrics-status")
 
 	rec := doAuthRequest(t, h, token, http.MethodGet, "/sheets/"+missingSheetID, "")
 	require.Equal(t, http.StatusNotFound, rec.Code)
@@ -831,8 +819,8 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	ctx := context.Background()
 
-	tokenA, userA := newAuthUser(t, h, "owner-a@example.com", "owner-a")
-	tokenB, userB := newAuthUser(t, h, "owner-b@example.com", "owner-b")
+	tokenA, userA := newAuthUser(t, h, mdb, "owner-a@example.com", "owner-a")
+	tokenB, userB := newAuthUser(t, h, mdb, "owner-b@example.com", "owner-b")
 	require.NotEqual(t, userA, userB)
 
 	// A creates their one sheet.
@@ -956,6 +944,10 @@ func TestIntegration_CanonicalEmail(t *testing.T) {
 	require.NoError(t, mdb.Collection("users").FindOne(ctx, bson.D{{Key: "email", Value: canonical}}).Decode(&stored))
 	assert.NotEmpty(t, stored["_id"])
 	assert.NotContains(t, stored, "email_verified_at", "registration must not backfill a verification timestamp")
+
+	verifyRec := doRequest(t, h, http.MethodPost, verifyRoute,
+		`{"challenge_id":"`+issued.Data.ChallengeID+`","code":"`+codeForChallenge(t, mdb, issued.Data.ChallengeID)+`"}`)
+	require.Equal(t, http.StatusOK, verifyRec.Code, verifyRec.Body.String())
 
 	duplicateRec := doRequest(
 		t,

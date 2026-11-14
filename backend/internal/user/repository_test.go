@@ -8,7 +8,7 @@ import (
 
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/db"
-	"legnaris/backend/shared/env"
+	"legnaris/backend/shared/db/dbtest"
 	"legnaris/backend/shared/logger"
 
 	"github.com/stretchr/testify/assert"
@@ -16,8 +16,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
-
-const repositoryTestDatabase = "legnaris_user_repo_test"
 
 func newUserRepository(t *testing.T) user.Repository {
 	t.Helper()
@@ -47,24 +45,7 @@ func newEmailMigrationFixture(t *testing.T) (user.EmailMigrationStore, *mongo.Co
 func newUserRepositoryDatabase(t *testing.T) *mongo.Database {
 	t.Helper()
 
-	log := logger.NewLogger(slog.LevelError)
-	cfg := env.NewEnv(log)
-
-	database, err := db.InitMongo(cfg)
-	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
-	}
-	t.Cleanup(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
-		defer cancel()
-		_ = database.Close(closeCtx)
-	})
-
-	mdb := database.Client.Database(repositoryTestDatabase)
-	_ = mdb.Collection("users").Drop(context.Background())
-	t.Cleanup(func() {
-		_ = mdb.Collection("users").Drop(context.Background())
-	})
+	mdb := dbtest.Database(t)
 
 	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
 	return mdb
@@ -302,6 +283,7 @@ func TestUserRepository_EmailMigration(t *testing.T) {
 		first := sampleUser()
 		second := sampleUser()
 		second.ID = "01900000-0000-7000-8000-000000000002"
+		second.Username = "second-player"
 		second.Email = "Second@Example.COM"
 		_, err := collection.InsertOne(ctx, first)
 		require.NoError(t, err)

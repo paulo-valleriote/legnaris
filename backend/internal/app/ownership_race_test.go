@@ -22,7 +22,7 @@ import (
 // 201 and one 409 SHEET_LIMIT_REACHED, and exactly one document is persisted.
 func TestIntegration_Sheets_ConcurrentCreateRace(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
-	token, userID := newAuthUser(t, h, "race@example.com", "race")
+	token, userID := newAuthUser(t, h, mdb, "race@example.com", "race")
 
 	const attempts = 2
 	body := `{"template_id":"fantasy_v1","sheet_name":"Race"}`

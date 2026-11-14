@@ -13,8 +13,9 @@ import (
 // working with an Authorization header, never require a cookie, and are not
 // touched by the origin or the rate-limit guard that protect the auth routes.
 func TestIntegration_CookieScope(t *testing.T) {
-	h, _ := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, "cookie-scope@example.com", "cookie-scope")
+	// A small auth budget lets the exhausted-limiter edge trip in a few requests.
+	h, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_RATE_LIMIT_ATTEMPTS": "10"})
+	token, _ := newAuthUser(t, h, mdb, "cookie-scope@example.com", "cookie-scope")
 
 	t.Run("Happy path: bearer routes work without a cookie and without an Origin", func(t *testing.T) {
 		for _, path := range []string{"/templates", "/templates/fantasy_v1"} {

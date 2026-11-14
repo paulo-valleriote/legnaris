@@ -2,13 +2,11 @@ package db_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 	"time"
 
 	"legnaris/backend/shared/db"
-	"legnaris/backend/shared/env"
-	"legnaris/backend/shared/logger"
+	"legnaris/backend/shared/db/dbtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,43 +14,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-const indexesTestDatabase = "legnaris_indexes_test"
-
-// newIndexesTestDatabase connects to MongoDB and gives the test a clean
-// database. It skips when MongoDB is unavailable so unit runs stay hermetic.
+// newIndexesTestDatabase gives the test an isolated replica set database. It
+// skips when no replica set is available.
 func newIndexesTestDatabase(t *testing.T) *mongo.Database {
 	t.Helper()
-
-	log := logger.NewLogger(slog.LevelError)
-	cfg := env.NewEnv(log)
-
-	database, err := db.InitMongo(cfg)
-	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
-	}
-	t.Cleanup(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
-		defer cancel()
-		_ = database.Close(closeCtx)
-	})
-
-	mdb := database.Client.Database(indexesTestDatabase)
-	_ = mdb.Collection("users").Drop(context.Background())
-	_ = mdb.Collection("refresh_tokens").Drop(context.Background())
-	_ = mdb.Collection("sheets").Drop(context.Background())
-	_ = mdb.Collection("email_outbox").Drop(context.Background())
-	_ = mdb.Collection("auth_challenges").Drop(context.Background())
-	_ = mdb.Collection("email_notices").Drop(context.Background())
-	t.Cleanup(func() {
-		_ = mdb.Collection("users").Drop(context.Background())
-		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
-		_ = mdb.Collection("sheets").Drop(context.Background())
-		_ = mdb.Collection("email_outbox").Drop(context.Background())
-		_ = mdb.Collection("auth_challenges").Drop(context.Background())
-		_ = mdb.Collection("email_notices").Drop(context.Background())
-	})
-
-	return mdb
+	return dbtest.Database(t)
 }
 
 // listIndexes reads a collection's indexes once into a name-keyed map. A cursor
