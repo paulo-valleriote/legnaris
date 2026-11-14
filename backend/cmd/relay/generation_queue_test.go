@@ -5,12 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"legnaris/backend/internal/accountdeletion"
 	"legnaris/backend/internal/email/outbox"
 	outboxmocks "legnaris/backend/internal/email/outbox/mocks"
 	eventsoutbox "legnaris/backend/internal/events/outbox"
 	eventsoutboxmocks "legnaris/backend/internal/events/outbox/mocks"
 	"legnaris/backend/internal/generation"
 	generationmocks "legnaris/backend/internal/generation/mocks"
+	usermocks "legnaris/backend/internal/user/mocks"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
 
@@ -45,6 +47,16 @@ func idleGenerationDeps(t *testing.T) generation.RepublishDeps {
 	}
 }
 
+// idleDeletionDeps returns deleting-accounts dependencies whose store has no
+// deleting account, so a sweep pass runs no cascade and no transaction.
+func idleDeletionDeps(t *testing.T) accountdeletion.Deps {
+	t.Helper()
+	store := usermocks.NewMockDeletionStore(t)
+	store.EXPECT().ClaimDeleting(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	store.EXPECT().OldestDeleting(mock.Anything).Return(time.Time{}, false, nil).Maybe()
+	return accountdeletion.Deps{Store: store}
+}
+
 // idleReapDeps returns lease reaper dependencies whose store holds no expired job,
 // so a sweep pass touches no quota and no transaction.
 func idleReapDeps(t *testing.T) generation.ReapDeps {
@@ -68,14 +80,14 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 		wantErr   bool
 		wantNames []string
 	}{
-		{name: "Happy path: the event outbox, the generation republish and the lease reaper are registered at 10 s", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease"}},
+		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting"}},
 		{name: "Error: a zero batch refuses the generation queue", batch: 0, wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := testEnv()
 			cfg.Variables.EmailRelayBatch = tc.batch
-			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t), idleReapDeps(t))
+			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t), idleReapDeps(t), idleDeletionDeps(t))
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -150,5 +162,8 @@ func idleRelayDeps(t *testing.T) dependencies {
 			return eventRepository, nil
 		},
 		serveMetrics: noopServeMetrics,
+		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository) (accountdeletion.Deps, error) {
+			return idleDeletionDeps(t), nil
+		},
 	}
 }

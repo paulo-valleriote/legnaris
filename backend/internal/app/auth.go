@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/json"
 	"legnaris/backend/shared/response"
@@ -147,6 +148,26 @@ func (ac *AuthController) Me(c *echo.Context) error {
 	}
 
 	return response.OK(c, profile)
+}
+
+// DeleteAccount starts the account deletion. It answers 202 with the deleting
+// status; the sweeper removes the data. A repeated request gets the same answer.
+func (ac *AuthController) DeleteAccount(c *echo.Context) error {
+	userID, ok := auth.UserID(c)
+	if !ok {
+		return apperr.NewError(apperr.CodeUnauthorized, auth.MsgAuthorizationRequired, nil)
+	}
+
+	if err := ac.service.DeleteAccount(c.Request().Context(), userID); err != nil {
+		return err
+	}
+
+	return response.JSON(c, http.StatusAccepted, accountDeletionDTO{Status: user.StatusDeleting})
+}
+
+// accountDeletionDTO is the body of the 202 answer to DELETE /me.
+type accountDeletionDTO struct {
+	Status string `json:"status"`
 }
 
 // setSessionCookies writes the refresh credential and the CSRF token as the two

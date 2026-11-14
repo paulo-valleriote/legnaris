@@ -141,6 +141,8 @@ type Service interface {
 	VerifyChallenge(ctx context.Context, cmd VerifyChallengeCommand) (*Session, error)
 	ResendChallenge(ctx context.Context, cmd ResendChallengeCommand) (*ResendResult, error)
 	Profile(ctx context.Context, userID string) (*user.UserDTO, error)
+	DeleteAccount(ctx context.Context, userID string) error
+	EnsureActive(ctx context.Context, userID string) error
 }
 
 type ServiceImpl struct {
@@ -509,6 +511,10 @@ func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*LoginResult
 		return nil, s.invalidCredentials(ctx, "password mismatch")
 	}
 
+	if stored.IsDeleting() {
+		return nil, s.invalidCredentials(ctx, "account deleting")
+	}
+
 	if stored.EmailVerifiedAt == nil {
 		return s.loginChallenge(ctx, stored)
 	}
@@ -583,6 +589,11 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 	// An account that never verified its address holds no renewable session
 	// (D2, O5): sessions minted before verification existed are contained here.
 	if account.EmailVerifiedAt == nil {
+		return nil, s.revokeRenewal(ctx, stored.FamilyID, nil)
+	}
+
+	// A deleting account renews nothing: its family is revoked like an unverified one.
+	if account.IsDeleting() {
 		return nil, s.revokeRenewal(ctx, stored.FamilyID, nil)
 	}
 

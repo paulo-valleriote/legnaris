@@ -17,6 +17,20 @@ type User struct {
 	Plan      string    `bson:"plan,omitempty" json:"-"`
 	CreatedAt time.Time `bson:"created_at" json:"created_at"`
 	UpdatedAt time.Time `bson:"updated_at" json:"updated_at"`
+	// Status is empty for an active account. The deletion fields below are
+	// written only by the account deletion flow (LGN-190).
+	Status              string     `bson:"status,omitempty" json:"-"`
+	DeletingAt          *time.Time `bson:"deleting_at,omitempty" json:"-"`
+	DeletionAttempts    int        `bson:"deletion_attempts,omitempty" json:"-"`
+	DeletionNextAttempt *time.Time `bson:"deletion_next_attempt_at,omitempty" json:"-"`
+	DeletionLockedUntil *time.Time `bson:"deletion_locked_until,omitempty" json:"-"`
+	DeletionLastError   string     `bson:"deletion_last_error,omitempty" json:"-"`
+}
+
+// IsDeleting reports whether the account is being deleted or its deletion gave
+// up. Either state blocks every authenticated operation and every sign-in.
+func (u *User) IsDeleting() bool {
+	return u.Status == StatusDeleting || u.Status == StatusDeletionDead
 }
 
 // UserDTO is the wire shape of a user. It deliberately has no password field:

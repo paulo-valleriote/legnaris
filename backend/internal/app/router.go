@@ -45,26 +45,38 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	// Every sheets and templates route sits behind the JWT middleware; only
 	// health, metrics, and the auth endpoints stay public (OWN-15…OWN-18).
 	requireAuth := auth.Middleware(modules.Auth.TokenManager)
+	// requireActive refuses an account being deleted on every request (LGN-190).
+	// It runs after requireAuth, so the id it reads is the verified token's.
+	requireActive := auth.RejectDeleting(modules.activeAccounts())
 	limitUser := userRateLimit(modules.UserLimiter)
 
-	templatesGroup := router.Group("/templates", requireAuth, limitUser)
+	templatesGroup := router.Group("/templates", requireAuth, requireActive, limitUser)
 	modules.Template.Controller.RegisterRoutes(templatesGroup)
 	modules.Sheet.Controller.RegisterTemplatePreviewRoute(templatesGroup)
 
-	sheetsGroup := router.Group("/sheets", requireAuth, limitUser)
+	sheetsGroup := router.Group("/sheets", requireAuth, requireActive, limitUser)
 	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
 	// Generation routes carry their own per-route budgets (LGN-186), so the
 	// shared user limiter is not stacked on them.
-	generationGroup := router.Group("/generations", requireAuth)
+	generationGroup := router.Group("/generations", requireAuth, requireActive)
 	modules.Generation.Controller.RegisterRoutes(generationGroup, modules.Generation.CreateLimiter, modules.Generation.ReadLimiter)
 
-	llmConsentGroup := router.Group("/me/llm-consent", requireAuth, limitUser)
+	llmConsentGroup := router.Group("/me/llm-consent", requireAuth, requireActive, limitUser)
 	modules.LLMConsent.Controller.RegisterRoutes(llmConsentGroup)
-	meGroup := router.Group("/me", requireAuth, limitUser)
+	meGroup := router.Group("/me", requireAuth, requireActive, limitUser)
 	modules.Plan.RegisterRoutes(meGroup)
 
 	return router
+}
+
+// activeAccounts returns the checker the active gate runs: the configured one,
+// or the auth service when none is set.
+func (m *Modules) activeAccounts() auth.ActiveAccountChecker {
+	if m.ActiveAccounts != nil {
+		return m.ActiveAccounts
+	}
+	return m.Auth.Service
 }
 
 // registerAuthRoutes mounts the auth endpoints with their per-route guards.
@@ -93,6 +105,10 @@ func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, o
 	// answers the signed-in account and its verification state, and it reuses
 	// the one bearer parser the protected groups use (TFA-08, TFA-09).
 	group.GET("/me", modules.Auth.Controller.Me, auth.Middleware(modules.Auth.TokenManager), userRateLimit(modules.UserLimiter))
+
+	// The deletion request is idempotent for an account already deleting, so it
+	// skips the active gate that refuses every other authenticated route (LGN-190).
+	group.DELETE("/me", modules.Auth.Controller.DeleteAccount, auth.Middleware(modules.Auth.TokenManager), userRateLimit(modules.UserLimiter))
 }
 
 func HTTPErrorHandler(c *echo.Context, err error) {

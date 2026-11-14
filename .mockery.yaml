@@ -37,6 +37,7 @@ packages:
     interfaces:
       Repository: {}
       EmailMigrationStore: {}
+      DeletionStore: {}
   legnaris/backend/internal/llmconsent:
     config:
       dir: backend/internal/llmconsent/mocks

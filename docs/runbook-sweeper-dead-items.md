@@ -78,6 +78,41 @@ Never requeue an item whose root cause is still unfixed: it returns to dead afte
 - **Discard:** a dead event that no consumer needs can be deleted, but record the
   `event_type`, `aggregate_id` and `created_at` in the incident note first.
 
+## Queue: `users_deleting`
+
+- **Collection:** `users` (database `DATABASE_NAME`), the accounts with `status: "deleting"`.
+- **Interval and lease:** the sweeper claims it every minute with a 5-minute lease.
+- **Dead state:** `status: "deletion_dead"`, set after `EMAIL_RELAY_MAX_ATTEMPTS` failed
+  attempts. A dead account stays blocked (403 on every authenticated route), so the
+  user cannot use the account while its deletion is stuck.
+- **Find:**
+
+  ```js
+  db.users.find(
+    { status: "deletion_dead" },
+    { deleting_at: 1, deletion_attempts: 1, deletion_last_error: 1 }
+  ).sort({ deleting_at: 1 })
+  ```
+
+- **Triage:** `deletion_last_error` names the failing step of the removal. The removal
+  runs in one transaction, so check the MongoDB replica set first (primary elected,
+  transactions allowed, LGN-207). A `user.deleted` outbox write failure points at the
+  `event_outbox` collection and the relay.
+- **Requeue:** after the cause is fixed, return the accounts to the queue. A failed
+  attempt rolls back, so the removal starts again from the same state:
+
+  ```js
+  db.users.updateMany(
+    { _id: { $in: [ "<id>" ] }, status: "deletion_dead" },
+    { $set: { status: "deleting", deletion_attempts: 0, deletion_next_attempt_at: null, deletion_locked_until: null } }
+  )
+  ```
+
+  Repeating it is safe: an account already removed has no record, so the removal
+  writes nothing and emits no second `user.deleted`.
+- **Discard:** never discard. The account's Sheets and generations stay stored until
+  the removal runs, and the user asked for them to go. Fix the cause and requeue.
+
 ## Queue entry template
 
 Copy this block for each new queue (for example `generation`, `users deleting`,

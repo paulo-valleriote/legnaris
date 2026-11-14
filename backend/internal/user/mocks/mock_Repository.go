@@ -248,6 +248,54 @@ func (_c *MockRepository_FetchByUsername_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// MarkDeleting provides a mock function with given fields: ctx, id, at
+func (_m *MockRepository) MarkDeleting(ctx context.Context, id string, at time.Time) error {
+	ret := _m.Called(ctx, id, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MarkDeleting")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) error); ok {
+		r0 = rf(ctx, id, at)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockRepository_MarkDeleting_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MarkDeleting'
+type MockRepository_MarkDeleting_Call struct {
+	*mock.Call
+}
+
+// MarkDeleting is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - at time.Time
+func (_e *MockRepository_Expecter) MarkDeleting(ctx interface{}, id interface{}, at interface{}) *MockRepository_MarkDeleting_Call {
+	return &MockRepository_MarkDeleting_Call{Call: _e.mock.On("MarkDeleting", ctx, id, at)}
+}
+
+func (_c *MockRepository_MarkDeleting_Call) Run(run func(ctx context.Context, id string, at time.Time)) *MockRepository_MarkDeleting_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockRepository_MarkDeleting_Call) Return(_a0 error) *MockRepository_MarkDeleting_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRepository_MarkDeleting_Call) RunAndReturn(run func(context.Context, string, time.Time) error) *MockRepository_MarkDeleting_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MarkEmailVerified provides a mock function with given fields: ctx, id, at
 func (_m *MockRepository) MarkEmailVerified(ctx context.Context, id string, at time.Time) error {
 	ret := _m.Called(ctx, id, at)

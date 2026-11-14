@@ -18,6 +18,7 @@ import (
 
 	"errors"
 
+	"legnaris/backend/internal/accountdeletion"
 	"legnaris/backend/internal/email"
 	"legnaris/backend/internal/email/amqp"
 	"legnaris/backend/internal/email/outbox"
@@ -30,6 +31,7 @@ import (
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/quota"
 	"legnaris/backend/internal/sweeper"
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
@@ -68,6 +70,7 @@ type dependencies struct {
 	dialGenerationBroker   func(cfg env.Env) (generationBrokerClient, error)
 	newGenerationRepublish func(cfg env.Env, database databaseHandle, publisher generation.Publisher) (generation.RepublishDeps, error)
 	newGenerationReap      func(cfg env.Env, database databaseHandle) (generation.ReapDeps, error)
+	newAccountDeletion     func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (accountdeletion.Deps, error)
 	openDatabase           func(cfg env.Env) (databaseHandle, error)
 	ensureIndexes          func(ctx context.Context, cfg env.Env, database databaseHandle) error
 	newRepository          func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (outbox.Repository, error)
@@ -159,19 +162,7 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	}
 	defer func() { _ = generationBroker.Close() }()
 
-	generationDeps, err := deps.newGenerationRepublish(cfg, database, generationBroker)
-	if err != nil {
-		return err
-	}
-	reapDeps, err := deps.newGenerationReap(cfg, database)
-	if err != nil {
-		return err
-	}
-	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps)
-	if err != nil {
-		return err
-	}
-	sweep, err := sweeper.New(queues, relayClaimerID(), relayMetrics, cfg.Logger)
+	sweep, err := newSweeper(cfg, deps, database, eventRepository, eventBroker, generationBroker, relayMetrics)
 	if err != nil {
 		return err
 	}
@@ -185,6 +176,28 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	return errors.Join(emailErr, sweepErr)
 }
 
+// newSweeper wires every sweeper queue from the opened collaborators and builds the
+// sweeper that drives them (ADR 0013). It only constructs: run starts it.
+func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationBroker generation.Publisher, observer sweeper.Observer) (*sweeper.Sweeper, error) {
+	generationDeps, err := deps.newGenerationRepublish(cfg, database, generationBroker)
+	if err != nil {
+		return nil, err
+	}
+	reapDeps, err := deps.newGenerationReap(cfg, database)
+	if err != nil {
+		return nil, err
+	}
+	deletionDeps, err := deps.newAccountDeletion(cfg, database, eventRepository)
+	if err != nil {
+		return nil, err
+	}
+	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps, deletionDeps)
+	if err != nil {
+		return nil, err
+	}
+	return sweeper.New(queues, relayClaimerID(), observer, cfg.Logger)
+}
+
 // eventsOutboxInterval is how often the sweeper claims the event outbox.
 const eventsOutboxInterval = 5 * time.Minute
 
@@ -196,8 +209,9 @@ const generationRepublishAttemptCap = 5
 // place a queue is registered (ADR 0013). The event outbox shares the email
 // relay's batch, confirm timeout and attempt cap. The generation republish and the
 // generation lease reaper run every 10 s, because a player waits on the screen
-// (LGN-186, LGN-230).
-func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps) ([]sweeper.Queue, error) {
+// (LGN-186, LGN-230). The deleting-accounts queue removes an account and its data
+// in one transaction, and writes its user.deleted event to the same outbox (LGN-190).
+func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps) ([]sweeper.Queue, error) {
 	vars := cfg.Variables
 	eventQueue, err := eventsrelay.NewQueue(eventRepository, eventBroker, eventsrelay.Config{
 		Interval:       eventsOutboxInterval,
@@ -216,7 +230,11 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
-	return []sweeper.Queue{eventQueue, generationQueue, reapQueue}, nil
+	deletionQueue, err := accountdeletion.NewQueue(deletionDeps, vars.EmailRelayMaxAttempts, vars.EmailRelayBatch)
+	if err != nil {
+		return nil, err
+	}
+	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue}, nil
 }
 
 // validateBrokerURL rejects an absent or unusable broker URL with the typed
@@ -341,6 +359,18 @@ func defaultDependencies() dependencies {
 				Quota:     quota.NewService(quota.NewMongoStore(mdb), nil),
 				Tx:        db.NewTransactor(mongo.Client, nil),
 				Now:       time.Now,
+			}, nil
+		},
+		newAccountDeletion: func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (accountdeletion.Deps, error) {
+			mongo, ok := database.(*db.Database)
+			if !ok {
+				return accountdeletion.Deps{}, fmt.Errorf("unexpected database handle type %T", database)
+			}
+			mdb := mongo.Client.Database(cfg.Variables.DatabaseName)
+			return accountdeletion.Deps{
+				Store:   user.NewDeletionStore(mdb, cfg.Logger),
+				Cascade: accountdeletion.NewCascade(mdb, outboxRepo, time.Now),
+				Tx:      db.NewTransactor(mongo.Client, nil),
 			}, nil
 		},
 		newGenerationReap: func(cfg env.Env, database databaseHandle) (generation.ReapDeps, error) {

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"legnaris/backend/internal/accountdeletion"
 	"legnaris/backend/internal/email"
 	"legnaris/backend/internal/email/amqp"
 	"legnaris/backend/internal/email/outbox"
@@ -171,6 +172,9 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 		},
 		newGenerationReap: func(env.Env, databaseHandle) (generation.ReapDeps, error) {
 			return idleReapDeps(t), nil
+		},
+		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository) (accountdeletion.Deps, error) {
+			return idleDeletionDeps(t), nil
 		},
 	}
 
