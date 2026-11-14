@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // ErrNoClient reports a Transactor built without a MongoDB client.
@@ -97,20 +98,17 @@ func (t *Transactor) WithTransaction(ctx context.Context, fn func(ctx context.Co
 	ctx, cancel := context.WithTimeout(ctx, t.effectiveTimeout())
 	defer cancel()
 
-	session, err := t.client.StartSession()
-	if err != nil {
-		return fmt.Errorf("%w: start session: %w", ErrTransactionFailed, err)
-	}
-	defer session.EndSession(ctx)
-
 	var callbackErr error
-	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (any, error) {
-		callbackErr = fn(sessCtx)
-		if callbackErr != nil && sessCtx.Err() != nil {
-			return nil, unlabeledError{callbackErr.Error()}
-		}
-		return nil, callbackErr
-	}, TransactionOptions())
+	err := t.client.UseSessionWithOptions(ctx, options.Session(), func(sessionCtx context.Context) error {
+		_, txErr := mongo.SessionFromContext(sessionCtx).WithTransaction(sessionCtx, func(txCtx context.Context) (any, error) {
+			callbackErr = fn(txCtx)
+			if callbackErr != nil && txCtx.Err() != nil {
+				return nil, unlabeledError{callbackErr.Error()}
+			}
+			return nil, callbackErr
+		}, TransactionOptions())
+		return txErr
+	})
 
 	if callbackErr != nil {
 		return fmt.Errorf("%w: %w", ErrTransactionAborted, callbackErr)
