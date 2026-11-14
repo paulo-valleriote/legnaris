@@ -21,9 +21,9 @@ const (
 	StatusPending Status = "pending"
 	// StatusPublished marks an entry the broker confirmed. It is terminal.
 	StatusPublished Status = "published"
-	// StatusFailed marks an entry that reached the attempt cap. It is terminal
+	// StatusDead marks an entry that reached the attempt cap. It is terminal
 	// and surfaces for operator attention.
-	StatusFailed Status = "failed"
+	StatusDead Status = "dead"
 )
 
 // ErrInvalidEntry reports an entry that cannot be stored: an identity that is

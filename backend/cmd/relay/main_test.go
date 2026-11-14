@@ -134,6 +134,7 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 	repository.EXPECT().Backlog(mock.Anything).Return(0, nil).Once()
 
 	eventRepository := eventsoutboxmocks.NewMockRepository(t)
+	eventRepository.EXPECT().OldestPending(mock.Anything).Return(time.Time{}, false, nil).Once()
 	eventRepository.EXPECT().Claim(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, nil).Once()
 
