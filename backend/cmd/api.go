@@ -14,6 +14,7 @@ import (
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/engine"
 	eventsamqp "legnaris/backend/internal/events/amqp"
+	generationamqp "legnaris/backend/internal/generation/amqp"
 	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/sheet/template"
@@ -99,7 +100,17 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 		eventPublisher.Shutdown(drainCtx)
 	}()
 
-	modules, err := app.NewModules(database, registry, cfg, httpMetrics, httpMetrics, eventPublisher)
+	generationPublisher := generationamqp.New(generationamqp.Config{URL: cfg.Variables.RabbitMQURL})
+	defer func() {
+		if err := generationPublisher.Close(); err != nil {
+			log.Error(ctx, "error while closing the generation publisher", logger.Attribute{Key: logErrorKey, Value: err.Error()})
+		}
+	}()
+
+	modules, err := app.NewModules(database, registry, cfg, httpMetrics, httpMetrics, eventPublisher,
+		app.WithGenerationPublisher(generationPublisher),
+		app.WithGenerationObserver(httpMetrics),
+	)
 	if err != nil {
 		return fmt.Errorf("build modules: %w", err)
 	}

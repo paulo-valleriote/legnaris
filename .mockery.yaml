@@ -126,6 +126,21 @@ packages:
       outpkg: mocks
     interfaces:
       Store: {}
+  legnaris/backend/internal/generation:
+    config:
+      dir: backend/internal/generation/mocks
+      outpkg: mocks
+    interfaces:
+      Store: {}
+      PublishStore: {}
+      Publisher: {}
+      ConsentGate: {}
+      SheetService: {}
+      PlanSource: {}
+      TemplateSource: {}
+      Quota: {}
+      Transactor: {}
+      CapObserver: {}
   legnaris/backend/internal/llm:
     config:
       dir: backend/internal/llm/mocks

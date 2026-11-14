@@ -1,0 +1,136 @@
+package main
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"legnaris/backend/internal/email/outbox"
+	outboxmocks "legnaris/backend/internal/email/outbox/mocks"
+	eventsoutbox "legnaris/backend/internal/events/outbox"
+	eventsoutboxmocks "legnaris/backend/internal/events/outbox/mocks"
+	"legnaris/backend/internal/generation"
+	generationmocks "legnaris/backend/internal/generation/mocks"
+	"legnaris/backend/shared/env"
+	"legnaris/backend/shared/logger"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+)
+
+// fakeGenerationBroker stands in for the generation publisher: it confirms every
+// job and records whether it was closed.
+type fakeGenerationBroker struct {
+	closed bool
+}
+
+func (b *fakeGenerationBroker) Publish(context.Context, generation.Message) error { return nil }
+func (b *fakeGenerationBroker) Close() error                                      { b.closed = true; return nil }
+
+// idleGenerationDeps returns republish dependencies whose store has nothing due, so
+// a sweep pass touches no quota and no transaction.
+func idleGenerationDeps(t *testing.T) generation.RepublishDeps {
+	t.Helper()
+	store := generationmocks.NewMockPublishStore(t)
+	store.EXPECT().ClaimUnpublished(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, nil).Maybe()
+	store.EXPECT().OldestQueued(mock.Anything).Return(time.Time{}, false, nil).Maybe()
+	return generation.RepublishDeps{
+		Store:     store,
+		Publisher: &fakeGenerationBroker{},
+		Quota:     generationmocks.NewMockQuota(t),
+		Tx:        generationmocks.NewMockTransactor(t),
+		Now:       time.Now,
+	}
+}
+
+// TestSweepQueues_RegistersGenerationRepublish pins that the generation queue is
+// registered next to the event outbox, every 10 s, under the generation name.
+func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
+	tests := []struct {
+		name      string
+		batch     int
+		wantErr   bool
+		wantNames []string
+	}{
+		{name: "Happy path: both queues are registered with the generation queue at 10 s", batch: 25, wantNames: []string{"event_outbox", "generation"}},
+		{name: "Error: a zero batch refuses the generation queue", batch: 0, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testEnv()
+			cfg.Variables.EmailRelayBatch = tc.batch
+			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t))
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			var names []string
+			for _, q := range queues {
+				names = append(names, q.Name)
+			}
+			assert.Equal(t, tc.wantNames, names)
+			assert.Equal(t, generation.RepublishInterval, queues[len(queues)-1].Interval)
+			assert.Equal(t, 10*time.Second, queues[len(queues)-1].Interval)
+		})
+	}
+}
+
+// TestRun_ClosesGenerationBroker pins that the generation publisher is closed on
+// shutdown, like the other brokers.
+func TestRun_ClosesGenerationBroker(t *testing.T) {
+	cfg := testEnv()
+	generationBroker := &fakeGenerationBroker{}
+
+	deps := relayDepsForCancelledRun(t, generationBroker)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	require.NoError(t, run(ctx, cfg, deps))
+	assert.True(t, generationBroker.closed, "the generation broker must be closed on shutdown")
+}
+
+// relayDepsForCancelledRun builds the dependencies of a relay run that ends at once,
+// with every store idle and the generation broker supplied by the caller.
+func relayDepsForCancelledRun(t *testing.T, generationBroker *fakeGenerationBroker) dependencies {
+	t.Helper()
+	deps := idleRelayDeps(t)
+	deps.dialGenerationBroker = func(env.Env) (generationBrokerClient, error) { return generationBroker, nil }
+	deps.newGenerationRepublish = func(_ env.Env, _ databaseHandle, publisher generation.Publisher) (generation.RepublishDeps, error) {
+		deps := idleGenerationDeps(t)
+		deps.Publisher = publisher
+		return deps, nil
+	}
+	return deps
+}
+
+// idleRelayDeps returns relay dependencies whose stores hold nothing, so a run
+// that starts with a cancelled context drains at once.
+func idleRelayDeps(t *testing.T) dependencies {
+	t.Helper()
+	repository := outboxmocks.NewMockRepository(t)
+	repository.EXPECT().Claim(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, nil).Maybe()
+	repository.EXPECT().Backlog(mock.Anything).Return(0, nil).Maybe()
+
+	eventRepository := eventsoutboxmocks.NewMockRepository(t)
+	eventRepository.EXPECT().OldestPending(mock.Anything).Return(time.Time{}, false, nil).Maybe()
+	eventRepository.EXPECT().Claim(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, nil).Maybe()
+
+	return dependencies{
+		openDatabase:  func(env.Env) (databaseHandle, error) { return &fakeDatabase{}, nil },
+		ensureIndexes: func(context.Context, env.Env, databaseHandle) error { return nil },
+		newRepository: func(env.Env, databaseHandle, logger.StructuredLogger) (outbox.Repository, error) {
+			return repository, nil
+		},
+		dialBroker:      func(env.Env) (brokerClient, error) { return &fakeBroker{}, nil },
+		dialEventBroker: func(env.Env) (eventBrokerClient, error) { return &fakeEventBroker{}, nil },
+		newEventRepository: func(env.Env, databaseHandle, logger.StructuredLogger) (eventsoutbox.Repository, error) {
+			return eventRepository, nil
+		},
+		serveMetrics: noopServeMetrics,
+	}
+}

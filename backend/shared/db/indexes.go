@@ -29,9 +29,15 @@ const (
 	emailNoticesClaimedAtTTL       = "email_notices_claimed_at_ttl"
 	generationUsageUserDayUnique   = "generation_usage_user_day_unique"
 	generationUsageExpiresAtTTL    = "generation_usage_expires_at_ttl"
+	generationsActiveUserUnique    = "generations_active_user_id_unique"
+	generationsExpiresAtTTL        = "generations_expires_at_ttl"
+	generationsStatusCreatedAt     = "generations_status_created_at"
+	generationCapExpiresAtTTL      = "generation_cap_expires_at_ttl"
 	// expiresAtField is the TTL field shared by every collection that retires
 	// rows by expiry.
 	expiresAtField = "expires_at"
+	// statusField is the document field holding a job or outbox state.
+	statusField = "status"
 )
 
 // EnsureIndexes creates the indexes required by the application, retiring
@@ -123,7 +129,46 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 		return err
 	}
 
-	return ensureGenerationUsageIndexes(ctx, database)
+	if err := ensureGenerationUsageIndexes(ctx, database); err != nil {
+		return err
+	}
+	return ensureGenerationIndexes(ctx, database)
+}
+
+// ensureGenerationIndexes creates the job collection's indexes. The sparse
+// unique key on active_user_id is the race guard of "one queued or running
+// generation per user": the field exists only while a job is in progress, so a
+// second insert for the same player fails with a duplicate key. The TTL retires
+// a generation 24 h after creation (ADR 0008). The status index serves the
+// publish sweeper, and the cap collection's TTL retires counters a day after
+// their day closes.
+func ensureGenerationIndexes(ctx context.Context, database *mongo.Database) error {
+	generations := database.Collection("generations")
+	if _, err := generations.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "active_user_id", Value: 1}},
+			Options: options.Index().SetUnique(true).SetSparse(true).SetName(generationsActiveUserUnique),
+		},
+		{
+			Keys:    bson.D{{Key: expiresAtField, Value: 1}},
+			Options: options.Index().SetExpireAfterSeconds(0).SetName(generationsExpiresAtTTL),
+		},
+		{
+			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: "created_at", Value: 1}},
+			Options: options.Index().SetName(generationsStatusCreatedAt),
+		},
+	}); err != nil {
+		return fmt.Errorf("create generations indexes: %w", err)
+	}
+
+	capCounters := database.Collection("generation_cap")
+	if _, err := capCounters.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: expiresAtField, Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(0).SetName(generationCapExpiresAtTTL),
+	}); err != nil {
+		return fmt.Errorf("create generation_cap indexes: %w", err)
+	}
+	return nil
 }
 
 // ensureGenerationUsageIndexes creates the daily quota counter's unique key and

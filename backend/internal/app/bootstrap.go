@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"legnaris/backend/internal/email/disposable"
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/internal/events"
+	"legnaris/backend/internal/generation"
+	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/platform/clientip"
 	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/ratelimit"
@@ -37,6 +40,58 @@ type LLMConsentModule struct {
 	Service    llmconsent.Service
 }
 
+// GenerationModule is the character generation flow: the routes and the service
+// that gates, queues and accepts generations, with the per-user budgets of its
+// two route groups (LGN-186).
+type GenerationModule struct {
+	Controller    *GenerationController
+	Service       *generation.Service
+	CreateLimiter ratelimit.Allower
+	ReadLimiter   ratelimit.Allower
+}
+
+// moduleOptions carries the collaborators that only the process knows, such as the
+// broker connection and the metrics registry.
+type moduleOptions struct {
+	generationPublisher generation.Publisher
+	capObserver         generation.CapObserver
+}
+
+// ModuleOption configures the optional collaborators of NewModules.
+type ModuleOption func(*moduleOptions)
+
+// WithGenerationPublisher supplies the broker port that publishes generation jobs.
+// Without it the jobs are not published on request, and the republish sweep is the
+// only path that delivers them.
+func WithGenerationPublisher(publisher generation.Publisher) ModuleOption {
+	return func(o *moduleOptions) {
+		o.generationPublisher = publisher
+	}
+}
+
+// WithGenerationObserver supplies the sink of the global daily cap metric.
+func WithGenerationObserver(observer generation.CapObserver) ModuleOption {
+	return func(o *moduleOptions) {
+		o.capObserver = observer
+	}
+}
+
+// unconfiguredPublisher refuses every publish, so a process built without a broker
+// keeps answering 202 and leaves the job to the republish sweep.
+type unconfiguredPublisher struct{}
+
+// ErrPublisherNotConfigured reports a publish attempted without a broker port.
+var ErrPublisherNotConfigured = errors.New("generation publisher is not configured")
+
+func (unconfiguredPublisher) Publish(context.Context, generation.Message) error {
+	return ErrPublisherNotConfigured
+}
+
+// noopCapObserver discards the cap metric when the process supplies none.
+type noopCapObserver struct{}
+
+func (noopCapObserver) GenerationCapUsage(int, int) {}
+
 type AuthModule struct {
 	Controller   *AuthController
 	Service      auth.Service
@@ -49,10 +104,13 @@ type AuthModule struct {
 }
 
 type Modules struct {
-	Template TemplateModule
-	Sheet    SheetModule
-	Auth     AuthModule
-	// Plan serves GET /me/plan, the caller's generation allowance (ADR 0009).
+	Template   TemplateModule
+	Sheet      SheetModule
+	LLMConsent LLMConsentModule
+	Auth       AuthModule
+	Generation GenerationModule
+	// Plan serves GET /me/plan: the caller's generation allowance (ADR 0009) and
+	// per-kind Sheet usage (LGN-183).
 	Plan *PlanController
 	// ClientIP is the boot-time address resolver installed as the router's
 	// IPExtractor, so every c.RealIP() consumer reads the same resolution
@@ -104,7 +162,12 @@ func NewModules(
 	observer auth.Observer,
 	challengeObserver auth.ChallengeObserver,
 	publisher events.Publisher,
+	opts ...ModuleOption,
 ) (*Modules, error) {
+	var options moduleOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 	log := cfg.Logger
 	mdb := database.Client.Database(cfg.Variables.DatabaseName)
 
@@ -202,7 +265,20 @@ func NewModules(
 	authController := NewAuthController(authService)
 
 	quotaService := quota.NewService(quota.NewMongoStore(mdb), nil)
-	planController := NewPlanController(quotaService, FreePlanResolver)
+	generationService := newGenerationService(cfg, options, generation.Deps{
+		Store:     generation.NewMongoStore(mdb),
+		Consent:   llmConsentService,
+		Sheets:    sheetService,
+		Plans:     user.NewPlanSource(userRepository),
+		Templates: templateService,
+		Quota:     quotaService,
+		Tx:        db.NewTransactor(database.Client, nil),
+		Logger:    log,
+	})
+	planController := NewPlanController(quotaService, FreePlanResolver,
+		WithSheetUsage(sheetService),
+		WithGenerationStatus(llmConsentService, generationService),
+	)
 
 	limiterClient, closers, err := newLimiterClient(cfg.Variables.RedisURL)
 	if err != nil {
@@ -215,6 +291,8 @@ func NewModules(
 
 	authLimiter := limiter("auth", cfg.Variables.AuthRateLimitAttempts, cfg.Variables.AuthRateLimitWindow)
 	userLimiter := limiter("user", cfg.Variables.UserRateLimitAttempts, cfg.Variables.UserRateLimitWindow)
+	generationCreateLimiter := limiter("generation_create", cfg.Variables.GenerationCreateRateLimitAttempts, cfg.Variables.GenerationCreateRateLimitWindow)
+	generationReadLimiter := limiter("generation_read", cfg.Variables.GenerationReadRateLimitAttempts, cfg.Variables.GenerationReadRateLimitWindow)
 	publicLimiter := limiter("public", cfg.Variables.CSPReportRateLimitAttempts, cfg.Variables.CSPReportRateLimitWindow)
 	registerIPLimiter := limiter("register_ip", cfg.Variables.RegisterIPRateLimitAttempts, cfg.Variables.RegisterIPRateLimitWindow)
 	registerEmailLimiter := limiter("register_email", cfg.Variables.RegisterEmailRateLimitAttempts, cfg.Variables.RegisterEmailRateLimitWindow)
@@ -241,6 +319,12 @@ func NewModules(
 			RegisterIPLimiter:    registerIPLimiter,
 			RegisterEmailLimiter: registerEmailLimiter,
 		},
+		Generation: GenerationModule{
+			Controller:    NewGenerationController(generationService),
+			Service:       generationService,
+			CreateLimiter: generationCreateLimiter,
+			ReadLimiter:   generationReadLimiter,
+		},
 		Plan:          planController,
 		ClientIP:      clientIPPolicy.Resolve,
 		UserLimiter:   userLimiter,
@@ -248,4 +332,21 @@ func NewModules(
 		Readiness:     database,
 		closers:       closers,
 	}, nil
+}
+
+// newGenerationService builds the generation service from the process
+// configuration and the module collaborators.
+func newGenerationService(cfg env.Env, options moduleOptions, deps generation.Deps) *generation.Service {
+	deps.Publisher = options.generationPublisher
+	if deps.Publisher == nil {
+		deps.Publisher = unconfiguredPublisher{}
+	}
+	deps.Observer = options.capObserver
+	if deps.Observer == nil {
+		deps.Observer = noopCapObserver{}
+	}
+	return generation.NewService(generation.Config{
+		Enabled:  cfg.Variables.GenerationEnabled,
+		DailyCap: cfg.Variables.GenerationDailyCap,
+	}, deps, time.Now)
 }
