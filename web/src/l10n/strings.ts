@@ -81,6 +81,28 @@ export const messages = {
   'nav.logout': 'Sign out',
   'nav.sectionWorkspace': 'Workspace',
   'nav.tagline': 'Character archive',
+  'nav.account': 'Account',
+
+  'account.title': 'Your account',
+  'account.loading': 'Loading your account',
+  'account.retry': 'Reload the plan',
+  'account.planHeading': 'Plan',
+  'account.planFree': 'Free',
+  'account.planPaid': 'Paid',
+  'account.planOther': 'Plan {plan}',
+  'account.consentHeading': 'LLM consent',
+  'account.consentGiven': 'Given on {date}',
+  'account.consentVersion': 'Disclosure version {version}',
+  'account.consentNone':
+    'No consent recorded. Character generation asks before it sends any concept text.',
+  'account.revoke': 'Revoke consent',
+  'account.revokeTitle': 'Revoke LLM consent?',
+  'account.revokeMessage':
+    'Generations that are queued or running are deleted, along with the generation data Legnaris still holds for you. Sheets you already saved are not deleted.',
+  'account.revokeKeep': 'Keep consent',
+  'account.revokeConfirm': 'Yes, revoke consent',
+  'account.revoked':
+    'Consent revoked. Character generation will ask you again before it sends anything.',
 
   'catalog.title': 'Templates',
   'catalog.loading': 'Loading templates',

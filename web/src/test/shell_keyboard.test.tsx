@@ -44,9 +44,9 @@ describe('shell keyboard access', () => {
     const user = userEvent.setup();
     renderApp('/unknown');
 
-    // The navigation offers the catalog link, the own-sheet link and the footer's
-    // sign-out control (WAS-19) ahead of the content link.
-    for (let step = 0; step < 4; step += 1) {
+    // The navigation offers the catalog link, the own-sheet link, the account link
+    // and the footer's sign-out control (WAS-19) ahead of the content link.
+    for (let step = 0; step < 5; step += 1) {
       await user.tab();
     }
 

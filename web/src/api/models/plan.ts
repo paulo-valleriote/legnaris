@@ -3,7 +3,7 @@
  * kind against the allowance the plan grants (LGN-183).
  */
 
-import { drift, isPlainObject, requireNumber, requireString } from '../parse';
+import { drift, isPlainObject, optionalString, requireNumber, requireString } from '../parse';
 
 /** The Sheet kinds the backend knows, in the order it reports them. */
 export const SHEET_KINDS = ['character', 'npc', 'monster'] as const;
@@ -23,6 +23,13 @@ export interface PlanUsage {
   readonly plan: string;
   /** Usage per kind; a kind the payload omits has no entry. */
   readonly sheets: Readonly<Partial<Record<SheetKind, SheetUsage>>>;
+  /**
+   * When the owner last granted LLM consent, as the server wrote it (RFC 3339), or
+   * `null` when none is held or it was withdrawn (LGN-195).
+   */
+  readonly consentAt: string | null;
+  /** The disclosure version the stored consent was given at, or `null` with no consent. */
+  readonly consentVersion: string | null;
 }
 
 function decodeSheetUsage(value: unknown, kind: string): SheetUsage {
@@ -53,7 +60,27 @@ export function parsePlanUsage(data: unknown): PlanUsage {
     }
   }
 
-  return { plan: requireString(data, 'plan'), sheets };
+  return {
+    plan: requireString(data, 'plan'),
+    sheets,
+    consentAt: decodeConsentAt(data),
+    consentVersion: optionalString(data, 'llm_consent_version') ?? null,
+  };
+}
+
+/**
+ * Reads the stored consent date. An absent or null key is no consent; a value that
+ * is not a parseable timestamp is drift, never shown as a date.
+ */
+function decodeConsentAt(data: Record<string, unknown>): string | null {
+  const at = optionalString(data, 'llm_consent_at');
+  if (at === undefined) {
+    return null;
+  }
+  if (Number.isNaN(Date.parse(at))) {
+    throw drift('plan consent date is not a timestamp');
+  }
+  return at;
 }
 
 /** Whether the owner can create no further Sheet of kind, by the usage read. */
