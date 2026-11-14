@@ -20,8 +20,8 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	ctx := context.Background()
 
-	token, _ := newAuthUser(t, h, "dice-owner@example.com", "dice-owner")
-	otherToken, _ := newAuthUser(t, h, "dice-other@example.com", "dice-other")
+	token, _ := newAuthUser(t, h, mdb, "dice-owner@example.com", "dice-owner")
+	otherToken, _ := newAuthUser(t, h, mdb, "dice-other@example.com", "dice-other")
 
 	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Dice"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code, createRec.Body.String())
@@ -221,6 +221,10 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				rec := doAuthRequest(t, h, token, http.MethodPatch, path, bodies[i%2])
+				// A lost compare-and-swap answers 409 and the client resends (ADR 0006).
+				for attempt := 0; rec.Code == http.StatusConflict && attempt < 100; attempt++ {
+					rec = doAuthRequest(t, h, token, http.MethodPatch, path, bodies[i%2])
+				}
 				assert.Equal(t, http.StatusOK, rec.Code)
 			}()
 		}

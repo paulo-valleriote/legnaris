@@ -2,42 +2,21 @@ package auth_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 	"time"
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/shared/db"
-	"legnaris/backend/shared/env"
-	"legnaris/backend/shared/logger"
+	"legnaris/backend/shared/db/dbtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const refreshRepositoryTestDatabase = "legnaris_auth_repo_test"
-
 func newRefreshTokenRepository(t *testing.T) auth.RefreshTokenRepository {
 	t.Helper()
 
-	log := logger.NewLogger(slog.LevelError)
-	cfg := env.NewEnv(log)
-
-	database, err := db.InitMongo(cfg)
-	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
-	}
-	t.Cleanup(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
-		defer cancel()
-		_ = database.Close(closeCtx)
-	})
-
-	mdb := database.Client.Database(refreshRepositoryTestDatabase)
-	_ = mdb.Collection("refresh_tokens").Drop(context.Background())
-	t.Cleanup(func() {
-		_ = mdb.Collection("refresh_tokens").Drop(context.Background())
-	})
+	mdb := dbtest.Database(t)
 
 	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
 	return auth.NewRefreshTokenRepository(mdb)

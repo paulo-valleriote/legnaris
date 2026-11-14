@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -44,17 +45,38 @@ const (
 // enclosing transaction. Production code passes a nil hook.
 type StepHook func(ctx context.Context, step Step) error
 
+// DefaultTransactionTimeout caps one WithTransaction call, retries included.
+// The driver's own retry loop runs for up to 120 seconds and ignores the
+// caller's deadline while server selection is failing, so the cap must come
+// from here.
+const DefaultTransactionTimeout = 10 * time.Second
+
 // Transactor runs multi-document writes inside a MongoDB transaction on a
 // replica set.
 type Transactor struct {
-	client *mongo.Client
-	hook   StepHook
+	client  *mongo.Client
+	hook    StepHook
+	timeout time.Duration
 }
 
 // NewTransactor returns a Transactor bound to client. A nil hook disables step
-// interruption, which is the production configuration.
+// interruption, which is the production configuration. Transactions are capped
+// at DefaultTransactionTimeout.
 func NewTransactor(client *mongo.Client, hook StepHook) *Transactor {
-	return &Transactor{client: client, hook: hook}
+	return &Transactor{client: client, hook: hook, timeout: DefaultTransactionTimeout}
+}
+
+// WithTimeout returns a copy of t that caps each WithTransaction call at d. A
+// non-positive d keeps DefaultTransactionTimeout.
+func (t *Transactor) WithTimeout(d time.Duration) *Transactor {
+	if t == nil {
+		return nil
+	}
+	copied := *t
+	if d > 0 {
+		copied.timeout = d
+	}
+	return &copied
 }
 
 // WithTransaction runs fn inside a transaction and commits when fn returns nil.
@@ -70,6 +92,9 @@ func (t *Transactor) WithTransaction(ctx context.Context, fn func(ctx context.Co
 		return ErrNilCallback
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, t.effectiveTimeout())
+	defer cancel()
+
 	session, err := t.client.StartSession()
 	if err != nil {
 		return fmt.Errorf("%w: start session: %w", ErrTransactionFailed, err)
@@ -79,6 +104,9 @@ func (t *Transactor) WithTransaction(ctx context.Context, fn func(ctx context.Co
 	var callbackErr error
 	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (any, error) {
 		callbackErr = fn(sessCtx)
+		if callbackErr != nil && sessCtx.Err() != nil {
+			return nil, opaqueError{callbackErr.Error()}
+		}
 		return nil, callbackErr
 	}, transactionOptions())
 
@@ -89,6 +117,23 @@ func (t *Transactor) WithTransaction(ctx context.Context, fn func(ctx context.Co
 		return fmt.Errorf("%w: %w", ErrTransactionFailed, err)
 	}
 	return nil
+}
+
+// opaqueError carries the text of a callback error that ended past the
+// transaction deadline. The driver retries an error only when it carries a
+// transient label, and the label of a server-selection failure would otherwise
+// re-run the callback until the driver's own 120-second loop gives up.
+type opaqueError struct{ message string }
+
+func (e opaqueError) Error() string { return e.message }
+
+// effectiveTimeout returns the configured cap, falling back to the default for
+// a Transactor built as a zero value.
+func (t *Transactor) effectiveTimeout() time.Duration {
+	if t.timeout > 0 {
+		return t.timeout
+	}
+	return DefaultTransactionTimeout
 }
 
 // Step invokes the hook for step. It is a no-op when the Transactor has no hook.

@@ -10,7 +10,7 @@ import (
 
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/shared/db"
-	"legnaris/backend/shared/env"
+	"legnaris/backend/shared/db/dbtest"
 	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/logger"
 
@@ -19,8 +19,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
-
-const repositoryTestDatabase = "legnaris_email_outbox_test"
 
 // outboxTestRetention is a retention window distinct from the default so the
 // suite proves the configured window reaches the TTL index (EML-17).
@@ -32,24 +30,7 @@ const outboxTestRetention = 24 * time.Hour
 func newOutboxFixture(t *testing.T) (outbox.Repository, *mongo.Collection) {
 	t.Helper()
 
-	log := logger.NewLogger(slog.LevelError)
-	cfg := env.NewEnv(log)
-
-	database, err := db.InitMongo(cfg)
-	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
-	}
-	t.Cleanup(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
-		defer cancel()
-		_ = database.Close(closeCtx)
-	})
-
-	mdb := database.Client.Database(repositoryTestDatabase)
-	_ = mdb.Collection("email_outbox").Drop(context.Background())
-	t.Cleanup(func() {
-		_ = mdb.Collection("email_outbox").Drop(context.Background())
-	})
+	mdb := dbtest.Database(t)
 
 	require.NoError(t, db.EnsureIndexesWithRetention(context.Background(), mdb, outboxTestRetention))
 	return outbox.NewRepository(mdb, logger.NewLogger(slog.LevelError)), mdb.Collection("email_outbox")

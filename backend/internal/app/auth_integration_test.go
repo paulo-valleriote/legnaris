@@ -101,6 +101,10 @@ func registerAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, 
 	cookies := cookiesFrom(t, verifyRec)
 	require.NotEmpty(t, cookies.refresh, "the verified session must set the refresh cookie")
 	require.NotEmpty(t, cookies.csrf, "the verified session must set the CSRF cookie")
+	// The registration's own notice is setup noise: tests that count outbox rows
+	// must see only the intentions they trigger.
+	_, err := mdb.Collection("email_outbox").DeleteMany(context.Background(), bson.D{})
+	require.NoError(t, err)
 	return cookies
 }
 
@@ -161,7 +165,9 @@ func TestIntegration_RegistrationVerification(t *testing.T) {
 	t.Run("Edge: a registration against the verified address answers 201 and only notifies the owner, once", func(t *testing.T) {
 		before := outboxCount(t, mdb)
 
-		dupRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
+		// The username is public and checked first, so the duplicate uses a fresh one.
+		dupRec := doRequest(t, h, http.MethodPost, "/auth/register",
+			fmt.Sprintf(`{"email":%q,"username":"second-name","password":%q}`, email, authPassword))
 		require.Equal(t, http.StatusCreated, dupRec.Code, dupRec.Body.String())
 		assert.Empty(t, dupRec.Header().Get("Set-Cookie"))
 
@@ -171,7 +177,8 @@ func TestIntegration_RegistrationVerification(t *testing.T) {
 		assert.NotEqual(t, issued.Data.ChallengeID, dup.Data.ChallengeID)
 		assert.Equal(t, before+1, outboxCount(t, mdb), "the owner gets one notice")
 
-		againRec := doRequest(t, h, http.MethodPost, "/auth/register", registerBody)
+		againRec := doRequest(t, h, http.MethodPost, "/auth/register",
+			fmt.Sprintf(`{"email":%q,"username":"second-name","password":%q}`, email, authPassword))
 		require.Equal(t, http.StatusCreated, againRec.Code, againRec.Body.String())
 		assert.Equal(t, before+1, outboxCount(t, mdb), "a repeat inside the window sends nothing more")
 

@@ -2,16 +2,14 @@ package auth_test
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/shared/db"
-	"legnaris/backend/shared/env"
+	"legnaris/backend/shared/db/dbtest"
 	"legnaris/backend/shared/idgen"
-	"legnaris/backend/shared/logger"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,31 +17,13 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-const challengeTestDatabase = "legnaris_auth_challenges_test"
-
-// newChallengeStore connects to MongoDB, gives the test a clean
-// auth_challenges collection with the production indexes, and self-skips when
-// MongoDB is unavailable so the unit run stays hermetic (OTP-01).
+// newChallengeStore gives the test an isolated database with the production
+// indexes. It skips when no replica set is available (OTP-01).
 func newChallengeStore(t *testing.T) (auth.ChallengeRepository, *mongo.Collection) {
 	t.Helper()
 
-	log := logger.NewLogger(slog.LevelError)
-	cfg := env.NewEnv(log)
-
-	database, err := db.InitMongo(cfg)
-	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
-	}
-	t.Cleanup(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
-		defer cancel()
-		_ = database.Close(closeCtx)
-	})
-
-	mdb := database.Client.Database(challengeTestDatabase)
+	mdb := dbtest.Database(t)
 	collection := mdb.Collection("auth_challenges")
-	_ = collection.Drop(context.Background())
-	t.Cleanup(func() { _ = collection.Drop(context.Background()) })
 
 	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
 	return auth.NewChallengeRepository(mdb), collection

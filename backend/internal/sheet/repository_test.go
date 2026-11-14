@@ -9,7 +9,7 @@ import (
 
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/shared/db"
-	"legnaris/backend/shared/env"
+	"legnaris/backend/shared/db/dbtest"
 	"legnaris/backend/shared/logger"
 
 	"github.com/stretchr/testify/assert"
@@ -18,10 +18,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-const repositoryTestDatabase = "legnaris_sheet_repository_test"
-
-// newRepositoryTest wires the real repository over a clean MongoDB database and
-// skips when MongoDB is unavailable so unit runs stay hermetic.
+// newRepositoryTest wires the real repository over an isolated MongoDB database and
+// skips when no replica set is available.
 func newRepositoryTest(t *testing.T) sheet.Repository {
 	t.Helper()
 
@@ -36,23 +34,7 @@ func newRepositoryTestWithDB(t *testing.T) (sheet.Repository, *mongo.Database) {
 	t.Helper()
 
 	log := logger.NewLogger(slog.LevelError)
-	cfg := env.NewEnv(log)
-
-	database, err := db.InitMongo(cfg)
-	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
-	}
-	t.Cleanup(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
-		defer cancel()
-		_ = database.Close(closeCtx)
-	})
-
-	mdb := database.Client.Database(repositoryTestDatabase)
-	_ = mdb.Collection("sheets").Drop(context.Background())
-	t.Cleanup(func() {
-		_ = mdb.Collection("sheets").Drop(context.Background())
-	})
+	mdb := dbtest.Database(t)
 	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
 
 	return sheet.NewRepository(mdb, log), mdb
