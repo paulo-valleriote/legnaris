@@ -1,13 +1,13 @@
 <!--
   Privacy policy update: LLM character generation (LGN-228, ADR 0008).
   Location: docs/legal/privacy-policy.en.md (English). Portuguese: docs/legal/privacy-policy.pt-BR.md.
-  The consent disclosure shown in the app is docs/legal/llm-consent.json (version "1"), which must stay consistent with this text.
+  The consent disclosure shown in the app is docs/legal/llm-consent.json (version "2"), which must stay consistent with this text.
   Status: DRAFT, pending legal review. Every [SQUARE_BRACKETS] token is a placeholder that legal must fill in; no legal entity name or address is invented here.
 -->
 
 # Privacy policy: AI character generation
 
-Last updated: [DATE]. Policy version: 1.
+Last updated: [DATE]. Policy version: 2.
 
 This section supplements the Legnaris Privacy Policy [MAIN_PRIVACY_POLICY_URL]. It describes how the optional AI character generation feature handles your personal data.
 
@@ -21,21 +21,21 @@ When you ask Legnaris to generate a character, the concept text you type is sent
 
 ## 3. Processors
 
-To run the feature we use two processors:
+To run the feature we use the following processors:
 
 - **OpenRouter**, a model gateway that receives your request and routes it. Legal entity: [OPENROUTER_LEGAL_NAME], [OPENROUTER_COUNTRY].
-- **[SERVING_PROVIDER]**, the provider that runs the DeepSeek V4.1 Flash model that OpenRouter selects for your request. Legal entity: [SERVING_PROVIDER_LEGAL_NAME], [SERVING_PROVIDER_COUNTRY].
+- **Model providers**, the companies that run the DeepSeek V4.1 Flash model that OpenRouter selects for your request. The provider is chosen per request and may be the DeepSeek API or another company, located in different countries, including China. OpenRouter publishes the list of providers and their locations.
 
-Requests are configured so that OpenRouter only routes to providers with zero data retention and no training on your data, and never to the first-party DeepSeek API. Legal review must confirm these terms with the processors' current data processing agreements.
+Requests use OpenRouter's default routing, with fallbacks between providers. Routing is not restricted by data retention, so a provider that serves your request may keep prompts and outputs, or use them for training, under its own terms. Legnaris does not control those terms. You can read them in OpenRouter's documentation and on each provider's website.
 
 ## 4. International transfer
 
-Processing happens outside Brazil, in [PROCESSING_COUNTRIES]. This is an international transfer of personal data under article 33 of the Brazilian General Data Protection Law (LGPD). We rely on your specific and separate consent, which you give in the app before your first generation, as the legal basis for this transfer. We do not start a transfer without that consent.
+Processing happens outside Brazil, which may include China, depending on the provider that serves your request. This is an international transfer of personal data under article 33 of the Brazilian General Data Protection Law (LGPD). We rely on your specific and separate consent, which you give in the app before your first generation, as the legal basis for this transfer. We do not start a transfer without that consent.
 
 ## 5. Retention
 
 - **In Legnaris:** the concept and the generated output are kept for up to 24 hours and then deleted automatically.
-- **At the processors:** the processors are configured not to retain prompts or outputs and not to use them for training. [RETENTION_AT_PROCESSORS_CONFIRMED_BY_LEGAL]
+- **At the processors:** OpenRouter and the model providers keep or use prompts and outputs under their own terms, which may include retention and use for training. Legnaris does not control those terms.
 - **On your Sheet:** generated content that you keep on your own Sheet stays there until you delete it.
 
 Your data export does not include the generation data, because it is deleted within 24 hours.

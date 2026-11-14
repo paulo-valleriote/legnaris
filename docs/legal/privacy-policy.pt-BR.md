@@ -1,13 +1,13 @@
 <!--
   Atualização da política de privacidade: geração de personagem com LLM (LGN-228, ADR 0008).
   Local: docs/legal/privacy-policy.pt-BR.md (português). Inglês: docs/legal/privacy-policy.en.md.
-  O texto de consentimento exibido no app é docs/legal/llm-consent.json (versão "1"), que deve permanecer consistente com este texto.
+  O texto de consentimento exibido no app é docs/legal/llm-consent.json (versão "2"), que deve permanecer consistente com este texto.
   Status: RASCUNHO, pendente de revisão jurídica. Cada token [COLCHETES] é um placeholder que o jurídico deve preencher; nenhum nome de pessoa jurídica ou endereço foi inventado aqui.
 -->
 
 # Política de privacidade: geração de personagem com IA
 
-Última atualização: [DATA]. Versão da política: 1.
+Última atualização: [DATA]. Versão da política: 2.
 
 Esta seção complementa a Política de Privacidade da Legnaris [URL_POLITICA_PRINCIPAL]. Ela descreve como o recurso opcional de geração de personagem com IA trata seus dados pessoais.
 
@@ -21,21 +21,21 @@ Quando você pede à Legnaris para gerar um personagem, o texto do conceito que 
 
 ## 3. Operadores
 
-Para executar o recurso, usamos dois operadores:
+Para executar o recurso, usamos os seguintes operadores:
 
 - **OpenRouter**, um gateway de modelos que recebe sua requisição e a encaminha. Pessoa jurídica: [NOME_JURIDICO_OPENROUTER], [PAIS_OPENROUTER].
-- **[SERVING_PROVIDER]**, o provedor que executa o modelo DeepSeek V4.1 Flash, selecionado pela OpenRouter para a sua requisição. Pessoa jurídica: [NOME_JURIDICO_SERVING_PROVIDER], [PAIS_SERVING_PROVIDER].
+- **Provedores do modelo**, as empresas que executam o modelo DeepSeek V4.1 Flash, selecionadas pela OpenRouter para cada requisição. O provedor pode ser a API da DeepSeek ou outra empresa, localizada em países diferentes, inclusive na China. A OpenRouter publica a lista de provedores e suas localizações.
 
-As requisições são configuradas para que a OpenRouter encaminhe somente a provedores com retenção zero de dados e sem uso dos seus dados para treinamento, e nunca à API própria da DeepSeek. A revisão jurídica deve confirmar esses termos com os contratos de tratamento de dados vigentes dos operadores.
+As requisições usam o roteamento padrão da OpenRouter, com alternativas entre provedores. O roteamento não é restrito por retenção de dados; portanto, um provedor que atenda a sua requisição pode reter prompts e resultados, ou usá-los em treinamento, conforme os termos próprios dele. A Legnaris não controla esses termos. Você pode consultá-los na documentação da OpenRouter e no site de cada provedor.
 
 ## 4. Transferência internacional
 
-O tratamento ocorre fora do Brasil, em [PAISES_DE_PROCESSAMENTO]. Trata-se de transferência internacional de dados pessoais nos termos do art. 33 da Lei Geral de Proteção de Dados (LGPD). Usamos como base legal o seu consentimento específico e destacado, dado no app antes da sua primeira geração. Não iniciamos nenhuma transferência sem esse consentimento.
+O tratamento ocorre fora do Brasil, o que pode incluir a China, conforme o provedor que atende a sua requisição. Trata-se de transferência internacional de dados pessoais nos termos do art. 33 da Lei Geral de Proteção de Dados (LGPD). Usamos como base legal o seu consentimento específico e destacado, dado no app antes da sua primeira geração. Não iniciamos nenhuma transferência sem esse consentimento.
 
 ## 5. Retenção
 
 - **Na Legnaris:** o conceito e o resultado gerado são mantidos por até 24 horas e depois apagados automaticamente.
-- **Nos operadores:** os operadores estão configurados para não reter prompts nem resultados e para não usá-los em treinamento. [RETENCAO_NOS_OPERADORES_CONFIRMADA_PELO_JURIDICO]
+- **Nos operadores:** a OpenRouter e os provedores do modelo retêm ou usam prompts e resultados conforme os termos próprios deles, o que pode incluir retenção e uso para treinamento. A Legnaris não controla esses termos.
 - **Na sua Ficha:** o conteúdo gerado que você mantém na sua própria Ficha permanece lá até você apagá-lo.
 
 Sua exportação de dados não inclui os dados de geração, pois eles são apagados em até 24 horas.

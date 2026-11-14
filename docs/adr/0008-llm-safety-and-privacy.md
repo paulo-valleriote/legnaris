@@ -4,7 +4,7 @@ status: accepted
 
 # LLM generation runs only with versioned consent and a paid, pinned model
 
-Character generation (ADR 0007) sends a player's concept text to a third-party gateway (OpenRouter) that routes it to a DeepSeek model served by a zero-data-retention provider. Before any concept leaves Legnaris, the player must give explicit, versioned consent, and that consent is the first gate on `POST /generations`. Every request pins the paid DeepSeek V4.1 Flash model and provider routing that forbids retention and training. Concept and output stay inside the 24 h `generation` document and never reach logs. Generated content lives only on the player's own Sheet. Decided in LGN-176.
+Character generation (ADR 0007) sends a player's concept text to a third-party gateway (OpenRouter) that routes it to a DeepSeek model. The serving provider is chosen per request by OpenRouter and may be the DeepSeek first-party API or another company, which may process outside Brazil, including in China. Before any concept leaves Legnaris, the player must give explicit, versioned consent, and that consent is the first gate on `POST /generations`. Every request pins the paid DeepSeek V4.1 Flash model and uses OpenRouter's default routing with fallbacks. Concept and output stay inside the 24 h `generation` document and never reach logs. Generated content lives only on the player's own Sheet. Decided in LGN-176. Strict zero-data-retention routing was dropped on 2026-11-14 (see Decisions, Provider).
 
 ## Considered Options
 
@@ -13,6 +13,7 @@ Character generation (ADR 0007) sends a player's concept text to a third-party g
 - **OpenCode as the primary gateway (briefly chosen in LGN-174):** it does not name the upstream DeepSeek host or give a retention period, and offers no per-request routing control. It is not used, not even as a fallback.
 - **Output denylist filter for copyrighted names:** it produces false positives, someone has to maintain the list, and the output only ever lands on a private Sheet.
 - **A dedicated moderation API call on the concept:** it adds a vendor, latency and cost. Quota (Free = 0), rate limits and model refusals already bound abuse.
+- **Strict zero-data-retention routing (`zdr: true`, `data_collection: "deny"`, `ignore: ["DeepSeek"]`):** the original decision. It was dropped on 2026-11-14 (see Decisions, Provider).
 
 ## Decisions
 
@@ -21,17 +22,18 @@ Character generation (ADR 0007) sends a player's concept text to a third-party g
   - The current version is a constant in code. Bump it whenever the disclosure changes, for example a new provider, model, region or retention period.
   - `POST /generations` runs these gates in order: consent → Sheet limit → generation in progress → quota. A missing or outdated consent returns `LLM_CONSENT_REQUIRED` 403.
   - `PUT /me/llm-consent {version}` records consent idempotently. A `version` other than the current one returns `VALIDATION` 400.
-  - The disclosure names OpenRouter as the gateway, DeepSeek V4.1 Flash as the model, that the serving provider is a zero-data-retention provider outside China, 24 h retention in Legnaris, and that the concept is sent to the provider.
+  - The disclosure names OpenRouter as the gateway and DeepSeek V4.1 Flash as the model. It states that the concept is sent to OpenRouter and to the provider it routes to, which may be the DeepSeek API or another company and may process outside Brazil, including in China. It states that provider retention and training follow each provider's own terms, the 24 h retention in Legnaris, and how to revoke.
   - Revocation (LGPD art. 8 §5): `DELETE /me/llm-consent` clears both fields and deletes the user's `generation` documents. It uses the same cascade as account deletion.
 - **Client:**
   - A modal shows the disclosure the first time the player taps Generate, and again after a version bump.
   - Free users see the Plan upsell instead and are never asked for consent.
 - **Provider:**
   - `LLM_MODEL` is pinned to `deepseek/deepseek-v4.1-flash`, the paid model.
-  - Config validation fails at boot when the model ID ends in `:free`.
-  - Every request sends the OpenRouter `provider` object: `zdr: true`, `data_collection: "deny"`, `require_parameters: true`, `allow_fallbacks: true`, and `ignore: ["DeepSeek"]`, so the concept never reaches the DeepSeek first-party API (its terms allow training and it stores data in the PRC).
+  - Config validation fails at boot when the model ID ends in `:free`. This rule stays.
+  - Every request sends the OpenRouter `provider` object with `require_parameters: true` and `allow_fallbacks: true`. It sends no `zdr`, `data_collection` or `ignore` field.
   - OpenRouter prompt logging stays disabled on the account.
-  - Known gap: ZDR eligibility of the DeepSeek V4.1 Flash endpoints on OpenRouter is not confirmed. When no eligible provider exists, the request fails instead of falling back to a non-ZDR one; the job ends `failed` with `provider_unavailable` and the quota is refunded. Re-check this whenever the gateway or model changes.
+  - **Routing decision (2026-11-14, product):** strict ZDR routing was dropped. The concept is free text that the player chooses to send. It is not sensitive personal data, and the consent discloses that it may reach the DeepSeek first-party API or another provider, including one that processes in China. Retention and training are governed by each provider's own terms. Because of this, a `DeepSeek` ignore rule and a ZDR filter are no longer part of the design.
+  - When no endpoint can serve a request, the request still fails instead of silently falling back to anything else. The job ends `failed` with `provider_unavailable` and the quota is refunded.
 - **Copyright:**
   - The fixed system prompt forbids names, characters and settings from published works.
   - There is no output filter.
@@ -51,23 +53,22 @@ Character generation (ADR 0007) sends a player's concept text to a third-party g
 - LGPD:
   - Account deletion also removes `generation` documents.
   - Data export does not include them, because they last at most 24 h.
-  - The privacy policy must list OpenRouter (and the provider it routes to) as processors and the transfer of the concept abroad.
+  - The privacy policy must list OpenRouter and the model providers it may route to as processors, and the transfer of the concept abroad.
   - **Known gap (F1a review, follow-up card needed):** account deletion does not erase personal data outside its F1a cascade. `email_outbox` keeps the `to` address of the account's messages, and the challenge and notice rows keep the account's personal data. The F1a scope excludes them on purpose; the follow-up card must set the retention or erasure rule for each collection. Operational note: `docs/runbook-sweeper-dead-items.md`, `users_deleting`.
-- Changing the gateway or model is a privacy change, not just a configuration change: bump the consent version and update the disclosure text.
+- Changing the gateway, model or routing is a privacy change, not just a configuration change: bump the consent version and update the disclosure text.
 - Tests:
   - Consent gate ordering and the 403 code.
   - Version mismatch on `PUT` returns 400.
   - Revocation cascade.
   - Boot rejects `:free` models.
-  - Every adapter request carries the pinned `provider` object (`httptest`).
+  - Every adapter request carries the default `provider` object (`httptest`), with no `zdr`, `data_collection` or `ignore` field.
   - The adapter does not leak error bodies (`httptest`).
   - The conditional terminal write is a no-op on a missing document.
 
-## Spike note: ZDR endpoint check for `deepseek/deepseek-v4.1-flash` (LGN-227)
+## Spike note: endpoint check for `deepseek/deepseek-v4.1-flash` (LGN-227, resolved)
 
-- **Checked on:** 2026-11-14, using only public OpenRouter listings (`GET /api/v1/models/deepseek/deepseek-v4.1-flash/endpoints` and `GET /api/v1/endpoints/zdr`). No API key was used and no completion was run.
+- **Checked on:** 2026-11-14, first with public OpenRouter listings (`GET /api/v1/models/deepseek/deepseek-v4.1-flash/endpoints` and `GET /api/v1/endpoints/zdr`), then with one live completion.
 - **Slug:** `deepseek/deepseek-v4.1-flash` exists. A dated variant, `deepseek/deepseek-v4.1-flash-1017`, is also listed. It is not the pinned slug, and this note does not cover it.
-- **Outcome: eligible.** The ZDR listing returns 32 healthy endpoints for the exact slug, served by 23 providers: BaseTen, Cohere, CoreWeave, Crusoe, DeepInfra, DigitalOcean, Fireworks, Google, InferenceNet, Makora, Mancer 2, Modal, Morph, Novita, OpenInference, Parasail, Reka, Relace, River, SiliconFlow, Together, Venice, Wafer.
-- **`ignore: ["DeepSeek"]`:** no first-party DeepSeek endpoint appears in the ZDR list, so the ignore rule does not remove any eligible endpoint.
-- **Not verified here:** `data_collection: "deny"` is not a field in the public endpoint listing, so it is not checked endpoint by endpoint. The ZDR list is the public signal that the endpoint does not retain or train on prompts. The real per-request filter (`zdr: true`, `data_collection: "deny"`, `ignore: ["DeepSeek"]`) must still be confirmed with one live completion once the key is available to LGN-185.
-- **Impact:** the model and gateway decision above stands. The known gap in this ADR is closed on the public-listing evidence, and it stays open until the live completion check runs.
+- **Public listing:** the ZDR listing returned 32 healthy endpoints for the exact slug, served by 23 providers. No first-party DeepSeek endpoint was in that list.
+- **Live completion (resolved):** one completion with default routing (no `zdr`, no `data_collection`, no `ignore`) succeeded. OpenRouter served it through the DeepSeek provider on model `deepseek/deepseek-v4.1-flash`.
+- **Outcome:** the endpoint exists and serves the pinned model. Strict ZDR routing was not kept; see Decisions, Provider (2026-11-14). The `:free` ban and the model pin stand.

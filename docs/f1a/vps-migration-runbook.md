@@ -9,8 +9,10 @@ steps 1 to 4 before merging.
 
 1. Back up MongoDB (`mongodump` of the Legnaris database) and note the current
    `deploy/.deployed_sha` on the VPS for rollback.
-2. OpenRouter dashboard: set a spending limit, turn prompt logging off and fix
-   the workspace guardrail so the ZDR endpoint is allowed (LGN-227).
+2. OpenRouter dashboard: set a spending limit, turn prompt logging off, and
+   check that no workspace guardrail blocks the endpoints of
+   `deepseek/deepseek-v4.1-flash`. Requests use default routing with fallbacks,
+   so no ZDR allowance or DeepSeek ignore rule is needed (ADR 0008, LGN-227).
 3. Add to the VPS `.env` (the CD env-key check lists the required keys):
    `LLM_API_KEY`, `LLM_MODEL` (never a `:free` variant),
    `GENERATION_ENABLED=false`, `GENERATION_DAILY_CAP=200`. Keep generation off
