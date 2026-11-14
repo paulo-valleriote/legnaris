@@ -241,6 +241,27 @@ describe('generate flow (LGN-196)', () => {
     ).toBeInTheDocument();
   });
 
+  it('Error: a failed plan refresh after GENERATION_IN_PROGRESS shows the mapped error, not an unhandled rejection', async () => {
+    let planReads = 0;
+    renderGenerate({
+      'POST /generations': fail('GENERATION_IN_PROGRESS', 409),
+      'GET /me/plan': () => {
+        planReads += 1;
+        return planReads === 1 ? ok(planWith()) : fail('INTERNAL_ERROR', 500);
+      },
+    });
+    const user = userEvent.setup();
+    await screen.findByLabelText('Describe your character');
+    fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
+
+    await user.click(generateButton());
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toBeInTheDocument();
+    expect(alert).not.toHaveTextContent('This character is still being generated');
+    expect(screen.getByLabelText('Describe your character')).toBeInTheDocument();
+  });
+
   it('Edge: a waiting generation can be left and resumed from the concept step', async () => {
     renderGenerate({
       'GET /me/plan': ok(planWith({ active_generation_id: GENERATION_ID })),

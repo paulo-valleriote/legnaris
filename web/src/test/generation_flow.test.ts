@@ -8,6 +8,7 @@ import {
   conceptState,
   decideWait,
   trialAllowance,
+  trimConcept,
 } from '../generate/generation_flow';
 
 function generationWith(status: GenerationStatus, errorCode?: string): Generation {
@@ -50,6 +51,46 @@ describe('conceptState (LGN-196 concept bounds 10-1000)', () => {
   it('Edge: the bounds are exactly the published constants', () => {
     expect(CONCEPT_MIN_LENGTH).toBe(10);
     expect(CONCEPT_MAX_LENGTH).toBe(1000);
+  });
+
+  // The server trims with Go's strings.TrimSpace (unicode.IsSpace), so the client
+  // must trim the same set: U+0085 and U+3000 are trimmed, U+FEFF is not.
+  const goSpaceCases = [
+    {
+      name: 'Edge: U+0085 (NEL) is trimmed as Go trims it',
+      text: '\u0085' + 'a'.repeat(10),
+      length: 10,
+    },
+    { name: 'Edge: U+00A0 (NBSP) is trimmed', text: ' ' + 'a'.repeat(10) + ' ', length: 10 },
+    {
+      name: 'Edge: U+3000 (ideographic space) is trimmed',
+      text: '　' + 'a'.repeat(10),
+      length: 10,
+    },
+    {
+      name: 'Edge: U+FEFF (BOM) is not trimmed, as on the server',
+      text: '﻿' + 'a'.repeat(10),
+      length: 11,
+    },
+    {
+      name: 'Edge: U+200B (zero-width space) is not trimmed',
+      text: '​' + 'a'.repeat(10),
+      length: 11,
+    },
+    { name: 'Edge: U+2028 (line separator) is trimmed', text: 'a'.repeat(10) + ' ', length: 10 },
+  ];
+
+  for (const tc of goSpaceCases) {
+    it(tc.name, () => {
+      expect(conceptLength(tc.text)).toBe(tc.length);
+    });
+  }
+});
+
+describe('trimConcept (server strings.TrimSpace parity)', () => {
+  it('Edge: the trimmed concept drops exactly the characters Go trims', () => {
+    expect(trimConcept('\u0085 hero 　')).toBe('hero');
+    expect(trimConcept('﻿hero')).toBe('﻿hero');
   });
 });
 

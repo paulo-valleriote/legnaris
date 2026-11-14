@@ -136,11 +136,43 @@ export const WAIT_LIMIT_MS = 120_000;
 export type ConceptState = 'tooShort' | 'ok' | 'tooLong';
 
 /**
+ * The code points Go's unicode.IsSpace accepts. The server trims the concept with
+ * strings.TrimSpace, which uses this set, so the client must not use String#trim:
+ * that trims U+FEFF and keeps U+0085, the opposite of the server.
+ */
+const GO_SPACE_CODE_POINTS = new Set([
+  0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x20, 0x85, 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000,
+]);
+
+function isGoSpace(char: string): boolean {
+  const codePoint = char.codePointAt(0) ?? 0;
+  return GO_SPACE_CODE_POINTS.has(codePoint) || (codePoint >= 0x2000 && codePoint <= 0x200a);
+}
+
+/**
+ * Removes the leading and trailing characters the server trims, with the same
+ * set as Go's strings.TrimSpace, so the concept sent and the concept counted match
+ * what the server stores.
+ */
+export function trimConcept(text: string): string {
+  const chars = Array.from(text);
+  let start = 0;
+  let end = chars.length;
+  while (start < end && isGoSpace(chars[start])) {
+    start += 1;
+  }
+  while (end > start && isGoSpace(chars[end - 1])) {
+    end -= 1;
+  }
+  return chars.slice(start, end).join('');
+}
+
+/**
  * Counts the concept's characters by code point, so an emoji counts once.
  * Leading and trailing whitespace is not part of the concept.
  */
 export function conceptLength(text: string): number {
-  return Array.from(text.trim()).length;
+  return Array.from(trimConcept(text)).length;
 }
 
 /** Classifies the concept against the 10-1000 bounds. */
