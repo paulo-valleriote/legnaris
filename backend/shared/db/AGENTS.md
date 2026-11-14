@@ -41,8 +41,8 @@
   matchable with `errors.Is`), `ErrTransactionFailed` (the transaction could not
   start or commit).
 - `TransactionOptions()` is the only transaction option set: `w:majority` and
-  the primary. `PrimaryReadPreference()` is for reads outside a transaction that
-  decide authorization or a compensation.
+  the primary. Reads outside a transaction that decide authorization or a
+  compensation must request `readpref.Primary()` themselves.
 
 ## Step hook
 

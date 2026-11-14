@@ -65,8 +65,8 @@ var integrationEnv = map[string]string{
 func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *mongo.Database, *app.Modules) {
 	t.Helper()
 
-	for _, env := range []map[string]string{integrationEnv, extra} {
-		for key, value := range env {
+	for _, overrides := range []map[string]string{integrationEnv, extra} {
+		for key, value := range overrides {
 			t.Setenv(key, value)
 		}
 	}

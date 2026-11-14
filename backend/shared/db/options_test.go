@@ -34,15 +34,3 @@ func TestTransactionOptions(t *testing.T) {
 		})
 	}
 }
-
-func TestPrimaryReadPreference(t *testing.T) {
-	t.Run("Happy path: authoritative reads target the primary", func(t *testing.T) {
-		assert.Equal(t, readpref.PrimaryMode, db.PrimaryReadPreference().Mode())
-	})
-
-	t.Run("Edge: repeated calls return a primary preference each time", func(t *testing.T) {
-		for range 3 {
-			assert.Equal(t, readpref.PrimaryMode, db.PrimaryReadPreference().Mode())
-		}
-	})
-}
