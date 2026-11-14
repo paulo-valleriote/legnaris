@@ -20,8 +20,14 @@ var ErrMissingURI = errors.New("DATABASE_URI is not configured")
 // ErrInvalidConfig reports unusable database settings detected at startup.
 var ErrInvalidConfig = errors.New("invalid database configuration")
 
+// ErrMissingReplicaSet reports a DATABASE_URI without a replicaSet parameter.
+// Transactions need a replica set, and a URI without one would otherwise fail
+// only on the first transaction. It wraps ErrInvalidConfig.
+var ErrMissingReplicaSet = fmt.Errorf("%w: DATABASE_URI must name the replica set with replicaSet=<name>", ErrInvalidConfig)
+
 // InitMongo connects to MongoDB and verifies reachability. It fails before
-// connecting when the environment holds an invalid pool configuration.
+// connecting when the environment holds an invalid pool configuration or a URI
+// that does not name a replica set.
 func InitMongo(env env.Env) (*Database, error) {
 	if err := env.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
@@ -32,7 +38,12 @@ func InitMongo(env env.Env) (*Database, error) {
 		return nil, ErrMissingURI
 	}
 
-	client, err := mongo.Connect(newClientOptions(env.Variables))
+	clientOptions := newClientOptions(env.Variables)
+	if clientOptions.ReplicaSet == nil || *clientOptions.ReplicaSet == "" {
+		return nil, ErrMissingReplicaSet
+	}
+
+	client, err := mongo.Connect(clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("connect to mongodb: %w", err)
 	}
