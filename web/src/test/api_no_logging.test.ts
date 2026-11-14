@@ -99,7 +99,7 @@ describe('credential hygiene (API-29)', () => {
     await health.health();
     await list.listTemplates();
     await detail.getTemplate('fantasy_v1');
-    await create.createSheet({ templateId: 'fantasy_v1', sheetName: 'Aragorn' });
+    await create.createSheet({ templateId: 'fantasy_v1', kind: 'character', sheetName: 'Aragorn' });
     await retrieve.getSheet('sheet-1');
     await update.patchSheet('sheet-1', { stats: { dexterity: 12 } });
 

@@ -67,6 +67,7 @@ describe('api client operations', () => {
     const fake = createFakeTransport(successOutcome(sheetPayload, 201));
     const payload = await clientWith(fake).createSheet({
       templateId: 'fantasy_v1',
+      kind: 'character',
       sheetName: 'Aragorn',
     });
 
@@ -75,10 +76,11 @@ describe('api client operations', () => {
     expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets`);
     expect(fake.lastRequest?.headers).toEqual({ 'content-type': 'application/json' });
     expect(fake.lastRequest?.body).toBe(
-      JSON.stringify({ template_id: 'fantasy_v1', sheet_name: 'Aragorn' }),
+      JSON.stringify({ template_id: 'fantasy_v1', kind: 'character', sheet_name: 'Aragorn' }),
     );
     expect(Object.keys(JSON.parse(fake.lastRequest?.body ?? '{}'))).toEqual([
       'template_id',
+      'kind',
       'sheet_name',
     ]);
   });
@@ -195,7 +197,7 @@ describe('api client operations', () => {
     await health.health();
     await list.listTemplates();
     await detail.getTemplate('fantasy_v1');
-    await create.createSheet({ templateId: 'fantasy_v1', sheetName: 'Aragorn' });
+    await create.createSheet({ templateId: 'fantasy_v1', kind: 'character', sheetName: 'Aragorn' });
     await get.getSheet('sheet-1');
     await patch.patchSheet('sheet-1', { stats: { dexterity: 12 } });
     await preview.previewSheet('sheet-1', { stats: { dexterity: 12 } });

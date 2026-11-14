@@ -165,7 +165,7 @@ func TestRouterWiring_RequireAuthGuardsProtectedRoutes(t *testing.T) {
 		path   string
 		body   string
 	}{
-		{name: "Edge: POST /sheets without token", method: http.MethodPost, path: "/sheets", body: `{"template_id":"fantasy_v1","sheet_name":"x"}`},
+		{name: "Edge: POST /sheets without token", method: http.MethodPost, path: "/sheets", body: `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x"}`},
 		{name: "Edge: GET /sheets without token", method: http.MethodGet, path: "/sheets"},
 		{name: "Edge: GET /sheets/:id without token", method: http.MethodGet, path: "/sheets/" + missingSheetID},
 		{name: "Edge: PATCH /sheets/:id without token", method: http.MethodPatch, path: "/sheets/" + missingSheetID, body: `{"data":{"stats":{"dexterity":12}}}`},

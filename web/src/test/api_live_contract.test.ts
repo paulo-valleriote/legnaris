@@ -79,6 +79,7 @@ live('live backend contract', () => {
     client = createApiClient({ baseUrl, transport: transportWithCredential(token) });
     created = await client.createSheet({
       templateId: 'fantasy_v1',
+      kind: 'character',
       sheetName: `Live ${Date.now()}`,
     });
   });

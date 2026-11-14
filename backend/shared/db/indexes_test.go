@@ -84,9 +84,14 @@ func TestEnsureIndexes(t *testing.T) {
 		assert.Equal(t, int32(0), indexExpireAfterSeconds(t, ttl), "TTL index must expire at expires_at")
 
 		sheets := listIndexes(t, mdb, "sheets")
-		ownerID, ok := sheets["sheets_owner_id_unique"]
-		require.True(t, ok, "sheets.owner_id unique index must exist, got %v", sheets)
-		assert.True(t, indexIsUnique(ownerID), "sheets.owner_id index must be unique")
+		ownerKind, ok := sheets["sheets_owner_id_kind"]
+		require.True(t, ok, "sheets (owner_id, kind) index must exist, got %v", sheets)
+		assert.False(t, indexIsUnique(ownerKind), "one owner may hold several kinds, so the index is not unique")
+
+		counters := listIndexes(t, mdb, "sheet_counts")
+		counterKey, ok := counters["sheet_counts_owner_id_kind_unique"]
+		require.True(t, ok, "sheet_counts (owner_id, kind) unique index must exist, got %v", counters)
+		assert.True(t, indexIsUnique(counterKey), "one counter per owner and kind")
 	})
 
 	t.Run("Edge: calling twice is idempotent", func(t *testing.T) {
@@ -122,14 +127,23 @@ func TestEnsureIndexes(t *testing.T) {
 		assert.True(t, mongo.IsDuplicateKeyError(err), "duplicate token hash must be a duplicate key error")
 	})
 
-	t.Run("Edge: unique sheets.owner_id index rejects a second sheet for the owner", func(t *testing.T) {
+	t.Run("Edge: a second sheet of another kind for the owner is allowed", func(t *testing.T) {
 		sheets := mdb.Collection("sheets")
-		_, err := sheets.InsertOne(ctx, bson.M{"_id": "sheet-1", "owner_id": "owner-1"})
+		_, err := sheets.InsertOne(ctx, bson.M{"_id": "sheet-1", "owner_id": "owner-1", "kind": "character"})
 		require.NoError(t, err)
 
-		_, err = sheets.InsertOne(ctx, bson.M{"_id": "sheet-2", "owner_id": "owner-1"})
+		_, err = sheets.InsertOne(ctx, bson.M{"_id": "sheet-2", "owner_id": "owner-1", "kind": "npc"})
+		require.NoError(t, err)
+	})
+
+	t.Run("Edge: unique sheet_counts index rejects a second counter for the owner and kind", func(t *testing.T) {
+		counters := mdb.Collection("sheet_counts")
+		_, err := counters.InsertOne(ctx, bson.M{"owner_id": "owner-2", "kind": "npc", "count": 0})
+		require.NoError(t, err)
+
+		_, err = counters.InsertOne(ctx, bson.M{"owner_id": "owner-2", "kind": "npc", "count": 0})
 		require.Error(t, err)
-		assert.True(t, mongo.IsDuplicateKeyError(err), "a second sheet for the owner must be a duplicate key error")
+		assert.True(t, mongo.IsDuplicateKeyError(err), "a second counter for the owner and kind must be a duplicate key error")
 	})
 }
 

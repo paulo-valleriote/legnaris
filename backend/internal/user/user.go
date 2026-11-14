@@ -12,8 +12,11 @@ type User struct {
 	// The derived boolean on the DTO is the only representation of the state
 	// (TFA-08).
 	EmailVerifiedAt *time.Time `bson:"email_verified_at,omitempty" json:"email_verified_at,omitempty"`
-	CreatedAt       time.Time  `bson:"created_at" json:"created_at"`
-	UpdatedAt       time.Time  `bson:"updated_at" json:"updated_at"`
+	// Plan is the stored subscription plan identifier. A missing value reads as
+	// the Free plan (see plan.Lookup) and is never written by F1a.
+	Plan      string    `bson:"plan,omitempty" json:"-"`
+	CreatedAt time.Time `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time `bson:"updated_at" json:"updated_at"`
 }
 
 // UserDTO is the wire shape of a user. It deliberately has no password field:

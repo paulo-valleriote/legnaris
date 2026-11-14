@@ -170,7 +170,7 @@ func TestIntegration_ProtectedRoutesRequireJWT(t *testing.T) {
 		path   string
 		body   string
 	}{
-		{http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"x"}`},
+		{http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x"}`},
 		{http.MethodGet, "/sheets", ""},
 		{http.MethodGet, "/sheets/" + missingSheetID, ""},
 		{http.MethodPatch, "/sheets/" + missingSheetID, `{"data":{"stats":{"dexterity":12}}}`},
@@ -379,7 +379,7 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "sheets-cfp@example.com", "sheets-cfp")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Test Sheet"}`)
+	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Test Sheet"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
 
 	var created response.Success[sheet.SheetDTO]
@@ -455,7 +455,7 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "sheets-calib@example.com", "sheets-calib")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Calibration"}`)
+	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Calibration"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
 
 	var created response.Success[sheet.SheetDTO]
@@ -525,7 +525,7 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "sheets-exclusive@example.com", "sheets-exclusive")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Exclusive"}`)
+	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Exclusive"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
 
 	var created response.Success[sheet.SheetDTO]
@@ -583,7 +583,7 @@ func TestIntegration_Sheets_NestingDepthLimit(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "sheets-depth@example.com", "sheets-depth")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Deep"}`)
+	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Deep"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
 
 	var created response.Success[sheet.SheetDTO]
@@ -612,7 +612,7 @@ func TestIntegration_Sheets_Preview(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "sheets-preview@example.com", "sheets-preview")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Preview"}`)
+	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Preview"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code)
 
 	var created response.Success[sheet.SheetDTO]
@@ -736,7 +736,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	})
 
 	t.Run("POST /sheets with malformed template_id returns 400 INVALID_REQUEST", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"Fantasy-V1","sheet_name":"x"}`)
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"Fantasy-V1","kind":"character","sheet_name":"x"}`)
 		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_REQUEST")
 
 		var body response.ErrorResponse
@@ -745,7 +745,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	})
 
 	t.Run("POST /sheets with unknown template returns 404", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"unknown_template","sheet_name":"x"}`)
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"unknown_template","kind":"character","sheet_name":"x"}`)
 		assertErrorBody(t, rec, http.StatusNotFound, "NOT_FOUND")
 	})
 
@@ -756,7 +756,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 
 	t.Run("PATCH with unknown field returns 400 UNKNOWN_FIELD", func(t *testing.T) {
 		ownerToken, _ := newAuthUser(t, h, mdb, "err-map-unknown@example.com", "err-map-unknown")
-		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Err Map"}`)
+		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Err Map"}`)
 		require.Equal(t, http.StatusCreated, createRec.Code)
 		var created response.Success[sheet.SheetDTO]
 		require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
@@ -767,7 +767,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 
 	t.Run("PATCH on non-editable field returns 400 INVALID_REQUEST", func(t *testing.T) {
 		ownerToken, _ := newAuthUser(t, h, mdb, "err-map-nonedit@example.com", "err-map-nonedit")
-		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Err Map 2"}`)
+		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Err Map 2"}`)
 		require.Equal(t, http.StatusCreated, createRec.Code)
 		var created response.Success[sheet.SheetDTO]
 		require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
@@ -782,12 +782,12 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	})
 
 	t.Run("POST with unknown field in body returns 400 INVALID_JSON", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"x","bogus":1}`)
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x","bogus":1}`)
 		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_JSON")
 	})
 
 	t.Run("POST with trailing JSON returns 400 UNKNOWN_FIELD", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"x"} {}`)
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x"} {}`)
 		assertErrorBody(t, rec, http.StatusBadRequest, "UNKNOWN_FIELD")
 	})
 }
@@ -829,7 +829,7 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 	require.NotEqual(t, userA, userB)
 
 	// A creates their one sheet.
-	createRec := doAuthRequest(t, h, tokenA, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"A sheet"}`)
+	createRec := doAuthRequest(t, h, tokenA, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"A sheet"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code, createRec.Body.String())
 
 	var created response.Success[sheet.SheetDTO]
@@ -865,7 +865,7 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 	})
 
 	t.Run("Error: a second create for the same owner is 409 SHEET_LIMIT_REACHED", func(t *testing.T) {
-		rec := doAuthRequest(t, h, tokenA, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Second"}`)
+		rec := doAuthRequest(t, h, tokenA, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Second"}`)
 		require.Equal(t, http.StatusConflict, rec.Code)
 
 		var body response.ErrorResponse

@@ -105,3 +105,30 @@ export function createDeferredTransport(): DeferredTransport {
     },
   };
 }
+
+/** The plan usage of a free owner with no Sheets, the default the suites serve. */
+export const FREE_PLAN_USAGE = {
+  plan: 'free',
+  sheets: {
+    character: { used: 0, limit: 1 },
+    npc: { used: 0, limit: 2 },
+    monster: { used: 0, limit: 2 },
+  },
+};
+
+/**
+ * Answers `GET /me/plan` locally with `plan`, so the suites that script their
+ * outcomes in order (and the ones that hold requests in flight) never see the
+ * usage read the creation surface issues beside the template detail.
+ */
+export function withPlanUsage(
+  inner: Transport,
+  plan: HttpResponse = successOutcome(FREE_PLAN_USAGE),
+): Transport {
+  return (request) => {
+    if (request.url.endsWith('/me/plan')) {
+      return Promise.resolve(plan);
+    }
+    return inner(request);
+  };
+}

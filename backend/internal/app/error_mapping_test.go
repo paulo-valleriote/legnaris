@@ -9,6 +9,7 @@ import (
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheettest"
@@ -123,10 +124,10 @@ func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 	h, mockTemplateSvc := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 	mockTemplateSvc.EXPECT().
 		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
-		Return(&template.Template{ID: "unknown_template", Name: "Unknown"}, nil).
+		Return(&template.Template{ID: "unknown_template", Name: "Unknown", Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).
 		Once()
 
-	rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","sheet_name":"x"}`)
+	rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","kind":"character","sheet_name":"x"}`)
 	require.Equal(t, http.StatusNotFound, rec.Code)
 
 	var body response.ErrorResponse
@@ -204,12 +205,12 @@ func TestErrorMapping_InvalidBodyReturns400(t *testing.T) {
 		},
 		{
 			name:     "unknown field in body returns 400 INVALID_JSON",
-			payload:  `{"template_id":"fantasy_v1","sheet_name":"x","bogus":1}`,
+			payload:  `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x","bogus":1}`,
 			wantCode: "INVALID_JSON",
 		},
 		{
 			name:     "trailing JSON returns 400 UNKNOWN_FIELD",
-			payload:  `{"template_id":"fantasy_v1","sheet_name":"x"} {}`,
+			payload:  `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x"} {}`,
 			wantCode: "UNKNOWN_FIELD",
 		},
 	}

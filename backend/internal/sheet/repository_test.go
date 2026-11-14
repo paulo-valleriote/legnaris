@@ -70,18 +70,6 @@ func TestRepository_OwnerScopedReadsAndWrites(t *testing.T) {
 		assert.ErrorIs(t, err, sheet.ErrSheetNotFound)
 	})
 
-	t.Run("Error: a second sheet for the same owner maps to ErrSheetOwnerExists", func(t *testing.T) {
-		duplicate := &sheet.Sheet{
-			ID:         "01900000-0000-7000-8000-0000000000a2",
-			TemplateID: "fantasy_v1",
-			OwnerID:    "owner-a",
-			Name:       "Second",
-			Data:       map[string]any{},
-		}
-		err := repo.Create(ctx, duplicate)
-		assert.ErrorIs(t, err, sheet.ErrSheetOwnerExists)
-	})
-
 	t.Run("Happy path: delete removes the owner's sheet and the second delete misses", func(t *testing.T) {
 		require.NoError(t, repo.DeleteByID(ctx, "01900000-0000-7000-8000-0000000000a1"))
 

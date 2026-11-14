@@ -271,7 +271,7 @@ template_detail_request='{"method":"GET","path":"/templates/fantasy_v1"}'
 status="$(send GET /templates/fantasy_v1 '' "$TMP_DIR/template_detail.out")"
 write_response template_detail template_detail "$template_detail_request" "$status" "$TMP_DIR/template_detail.out"
 
-create_body="$(jq -nc '{template_id: "fantasy_v1", sheet_name: "Capture Hero"}')"
+create_body="$(jq -nc '{template_id: "fantasy_v1", kind: "character", sheet_name: "Capture Hero"}')"
 create_request="$(jq -nc --argjson body "$create_body" '{method: "POST", path: "/sheets", body: $body}')"
 write_request sheet_create_request sheet_create "$create_request"
 status="$(send POST /sheets "$create_body" "$TMP_DIR/sheet_create.out")"

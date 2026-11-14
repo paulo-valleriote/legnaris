@@ -27,6 +27,7 @@ const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   EMAIL_UNAVAILABLE: 'emailUnavailable',
   CONFLICT: 'conflict',
   DISPOSABLE_EMAIL: 'disposableEmail',
+  SHEET_LIMIT_REACHED: 'sheetLimitReached',
 };
 
 const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
@@ -44,6 +45,7 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
   emailUnavailable: 'api.error.emailUnavailable',
   conflict: 'api.error.conflict',
   disposableEmail: 'api.error.disposableEmail',
+  sheetLimitReached: 'api.error.sheetLimitReached',
 };
 
 /**

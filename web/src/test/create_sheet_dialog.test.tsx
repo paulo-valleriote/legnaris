@@ -12,6 +12,7 @@ import {
   createFakeTransport,
   errorOutcome,
   successOutcome,
+  withPlanUsage,
 } from './fake_transport';
 import { renderApp } from './render';
 
@@ -38,7 +39,7 @@ async function openSurface(user: UserEvent) {
     successOutcome(CATALOG),
     detailEnvelope('Dungeons & Dragons 5e'),
   );
-  renderApp('/', { client: clientWith(fake.transport) });
+  renderApp('/', { client: clientWith(withPlanUsage(fake.transport)) });
   await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
   await screen.findByTestId('detail-name');
   return fake;
@@ -58,7 +59,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
   it('Edge: while the detail is in flight it shows the loading copy and no previously opened detail (WCT-13)', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(deferred.transport) });
+    renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
 
     deferred.resolve(successOutcome(CATALOG));
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
@@ -73,7 +74,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
   it('Edge: a previously opened template is not shown when a new detail is in flight (WCT-13)', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(deferred.transport) });
+    renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
 
     deferred.resolve(successOutcome(CATALOG));
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
@@ -91,7 +92,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
   it('Edge: an empty template name renders as empty text without throwing (WCT-14)', async () => {
     const fake = createFakeTransport(successOutcome(CATALOG), detailEnvelope(''));
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(fake.transport) });
+    renderApp('/', { client: clientWith(withPlanUsage(fake.transport)) });
 
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
 
@@ -103,7 +104,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
   it('Edge: a failure shows the mapped copy inline and keeps the surface open (WCT-15)', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(deferred.transport) });
+    renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
 
     deferred.resolve(successOutcome(CATALOG));
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
@@ -119,7 +120,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
   it('Edge: a missing template shows the missing-template copy inline without closing or crashing (WCT-17)', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(deferred.transport) });
+    renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
 
     deferred.resolve(successOutcome(CATALOG));
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
@@ -132,7 +133,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
   it('Edge: a malformed payload shows the parse-failure copy inline and never a half-filled detail (WCT-18)', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(deferred.transport) });
+    renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
 
     deferred.resolve(successOutcome(CATALOG));
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
@@ -150,7 +151,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
       detailEnvelope('Dungeons & Dragons 5e'),
     );
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(fake.transport) });
+    renderApp('/', { client: clientWith(withPlanUsage(fake.transport)) });
 
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
     await waitFor(() =>
@@ -167,7 +168,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
   it('Edge: reopening the same template issues exactly one further request and starts at loading (WCT-21)', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(deferred.transport) });
+    renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
 
     deferred.resolve(successOutcome(CATALOG));
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
@@ -194,7 +195,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
       detailEnvelope('Powered by the Apocalypse', 'pbta'),
     );
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(fake.transport) });
+    renderApp('/', { client: clientWith(withPlanUsage(fake.transport)) });
 
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
     await screen.findByTestId('detail-name');

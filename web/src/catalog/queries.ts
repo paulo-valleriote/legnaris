@@ -22,6 +22,26 @@ export function templateDetailKey(id: string) {
   return ['template', id] as const;
 }
 
+/** The plan usage's query key; the creation surface refreshes it after a create (LGN-183). */
+export const PLAN_QUERY_KEY = ['me', 'plan'] as const;
+
+/**
+ * The caller's plan and per-kind usage. It is read fresh on every mount, since
+ * the allowance changes with each Sheet created or deleted, and it never retries:
+ * the creation gate on the server stays the authority.
+ */
+export function usePlanUsage() {
+  const client = useApiClient();
+
+  return useQuery({
+    queryKey: PLAN_QUERY_KEY,
+    queryFn: () => client.getMyPlan(),
+    staleTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
 /** The sheet's query key for one identifier; the creation flow seeds it (WSC-02). */
 export function sheetKey(id: string) {
   return ['sheet', id] as const;

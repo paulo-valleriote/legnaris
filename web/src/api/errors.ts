@@ -30,7 +30,8 @@ export type FailureKind =
   | 'invalidCode'
   | 'emailUnavailable'
   | 'conflict'
-  | 'disposableEmail';
+  | 'disposableEmail'
+  | 'sheetLimitReached';
 
 /** Input of a {@link DomainFailure}. */
 export interface DomainFailureInput {

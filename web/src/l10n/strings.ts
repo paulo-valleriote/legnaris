@@ -29,6 +29,10 @@ export const messages = {
   'api.error.conflict': 'That email already has an account. Sign in instead.',
   'api.error.disposableEmail':
     'Use a permanent email address. Disposable addresses cannot receive your code.',
+  'api.error.sheetLimitReached':
+    'Your plan has no room for another sheet of this kind. Remove one to make space.',
+  'sheet.usage': 'Sheets of this kind: {used}/{limit}',
+  'sheet.limitReached': 'You have reached the limit for this kind on your plan.',
 
   'auth.titleLogin': 'Sign in to your archive',
   'auth.titleRegister': 'Create your archive',

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
@@ -17,6 +18,7 @@ import (
 
 type CreateSheetCommand struct {
 	TemplateID string `json:"template_id"`
+	Kind       string `json:"kind"`
 	SheetName  string `json:"sheet_name"`
 	OwnerID    string `json:"-"`
 }
@@ -91,6 +93,8 @@ type Service interface {
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
 	SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Layout, error)
 	Delete(ctx context.Context, cmd DeleteSheetCommand) error
+	CheckSheetLimit(ctx context.Context, ownerID string, kind plan.SheetKind) (LimitStatus, error)
+	PlanUsage(ctx context.Context, ownerID string) (PlanUsage, error)
 }
 
 // User-facing messages for the errors this service builds itself. They are
@@ -105,7 +109,7 @@ const (
 	MsgFieldDoesNotExist  = "field does not exist: "
 	MsgNestedTooDeep      = "sheet data is nested too deeply"
 	MsgOwnerNotProvided   = "authenticated user is required"
-	MsgSheetLimitReached  = "user already owns a sheet"
+	MsgSheetLimitReached  = "sheet limit reached for this kind"
 	MsgSheetConflict      = "sheet was changed by another request, try again"
 	MsgNothingToUpdate    = "sheet update carries neither data nor dice"
 )
@@ -164,19 +168,26 @@ type ServiceImpl struct {
 	repository      Repository
 	templateService template.Service
 	provider        DAGProvider
+	plans           PlanSource
+	tx              TransactionRunner
 	log             logger.StructuredLogger
 }
 
 // NewService builds the sheet service over a DAG provider. The provider must
 // already be complete when the service starts (boot-time registry): neither the
-// service nor its callers mutate it afterwards.
-func NewService(repository Repository, templateService template.Service, provider DAGProvider, log logger.StructuredLogger) Service {
-	return &ServiceImpl{
+// service nor its callers mutate it afterwards. Plan limits are optional
+// collaborators; see WithPlanLimits.
+func NewService(repository Repository, templateService template.Service, provider DAGProvider, log logger.StructuredLogger, opts ...ServiceOption) Service {
+	svc := &ServiceImpl{
 		repository:      repository,
 		templateService: templateService,
 		provider:        provider,
 		log:             log,
 	}
+	for _, opt := range opts {
+		opt(svc)
+	}
+	return svc
 }
 
 func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error) {
@@ -186,6 +197,13 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgOwnerNotProvided, nil)
 	}
 
+	// The kind is checked before any read so a malformed request never reaches
+	// the database.
+	kind, err := requireKind(cmd.Kind)
+	if err != nil {
+		return nil, err
+	}
+
 	// FetchTemplate before the DAG lookup: it owns the template-ID checks
 	// (missing, malformed slug), so POST /sheets fails exactly like
 	// GET /templates/:id instead of collapsing every bad ID into a 404 (LGN-86).
@@ -193,20 +211,23 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	if err != nil {
 		return nil, translateTemplateErr(err)
 	}
+	if !tmpl.AcceptsKind(kind) {
+		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateKindRefused, nil)
+	}
 
 	dag, exists := s.provider.DAG(cmd.TemplateID)
 	if !exists {
 		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
 	}
 
-	// Best-effort pre-check for a friendly 409 on the common path. The unique
-	// sheets.owner_id index remains the authoritative guard: only the insert
-	// closes the concurrent-create race (OWN-03, OWN-04).
-	if _, err := s.repository.FetchByOwnerID(ctx, cmd.OwnerID); err == nil {
-		return nil, apperr.NewError(apperr.CodeSheetLimitReached, MsgSheetLimitReached, nil)
-	} else if !errors.Is(err, ErrSheetNotFound) {
-		return nil, translateRepoErr("create", err)
+	if !s.planLimitsEnabled() {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgLimitsNotConfigured, nil)
 	}
+	current, err := s.plans.PlanOf(ctx, cmd.OwnerID)
+	if err != nil {
+		return nil, apperr.NewError(apperr.CodeInternal, "failed to resolve plan", err)
+	}
+	limit := current.SheetLimit(kind)
 
 	initialData := buildNestedAllFields(tmpl.Fields)
 
@@ -237,15 +258,34 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		ID:         sheetID,
 		TemplateID: cmd.TemplateID,
 		OwnerID:    cmd.OwnerID,
+		Kind:       kind,
 		Name:       cmd.SheetName,
 		Data:       initialData,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
-	if err := s.repository.Create(ctx, &newSheet); err != nil {
-		return nil, translateRepoErr("create", err)
+	// The counter and the insert share one transaction: a refused reservation
+	// writes no Sheet, and a failed insert rolls the counter back with it.
+	err = s.tx.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.repository.ReserveSlot(txCtx, cmd.OwnerID, kind, limit); err != nil {
+			return err
+		}
+		return s.repository.Create(txCtx, &newSheet)
+	})
+	if err != nil {
+		return nil, translateCreateErr(err, kind, limit)
 	}
 	return &newSheet, nil
+}
+
+// translateCreateErr maps the outcome of the create transaction. A refused slot
+// becomes SHEET_LIMIT_REACHED with the kind and allowance; everything else is a
+// generic create failure.
+func translateCreateErr(err error, kind plan.SheetKind, limit int) error {
+	if errors.Is(err, ErrSheetLimitReached) {
+		return sheetLimitError(kind, limit, err)
+	}
+	return translateRepoErr("create", err)
 }
 
 // FetchMySheet returns the single sheet owned by ownerID, or 404 NOT_FOUND when
@@ -620,7 +660,22 @@ func (s *ServiceImpl) Delete(ctx context.Context, cmd DeleteSheetCommand) error 
 		return err
 	}
 
-	if err := s.repository.DeleteByID(ctx, cmd.SheetID); err != nil {
+	if !s.planLimitsEnabled() {
+		if err := s.repository.DeleteByID(ctx, cmd.SheetID); err != nil {
+			return translateRepoErr("delete", err)
+		}
+		return nil
+	}
+
+	// The delete and the counter release share one transaction, so a Sheet is
+	// never gone while its slot is still held.
+	err = s.tx.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.repository.DeleteByID(txCtx, cmd.SheetID); err != nil {
+			return err
+		}
+		return s.repository.ReleaseSlot(txCtx, cmd.OwnerID, stored.Kind)
+	})
+	if err != nil {
 		return translateRepoErr("delete", err)
 	}
 	return nil
@@ -697,9 +752,6 @@ func translateRepoErr(op string, err error) error {
 	}
 	if errors.Is(err, ErrSheetNotFound) {
 		return apperr.NewError(apperr.CodeNotFound, "sheet not found", err)
-	}
-	if errors.Is(err, ErrSheetOwnerExists) {
-		return apperr.NewError(apperr.CodeSheetLimitReached, MsgSheetLimitReached, err)
 	}
 	return apperr.NewError(apperr.CodeInternal, "failed to "+op+" sheet", err)
 }

@@ -6,6 +6,7 @@
     "path": "/sheets",
     "body": {
       "template_id": "fantasy_v1",
+      "kind": "character",
       "sheet_name": "Capture Hero"
     }
   }
