@@ -1,15 +1,32 @@
 package app
 
 import (
+	"context"
 	"net/http"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/generation"
 	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/json"
 
 	"github.com/labstack/echo/v5"
 )
+
+// generationQuotaRefunder returns the quota of an open generation through the
+// generation package's refund rule, so a revoke refunds exactly as a failure does.
+type generationQuotaRefunder struct {
+	quota generation.Quota
+}
+
+// RefundOpen implements llmconsent.QuotaRefunder.
+func (r generationQuotaRefunder) RefundOpen(ctx context.Context, open llmconsent.OpenGeneration) error {
+	return generation.RefundQuota(ctx, r.quota, generation.Document{
+		ID:     open.ID,
+		UserID: open.UserID,
+		Quota:  generation.Reservation{Kind: open.ReservationKind, DayUTC: open.DayUTC},
+	})
+}
 
 // LLMConsentController serves PUT and DELETE /me/llm-consent (ADR 0008).
 type LLMConsentController struct {

@@ -62,7 +62,7 @@ func (r republishStore) MarkDead(ctx context.Context, id string, _ time.Time, _ 
 		if !failed {
 			return nil
 		}
-		return refund(txCtx, r.deps.Quota, doc)
+		return RefundQuota(txCtx, r.deps.Quota, doc)
 	})
 }
 
@@ -72,8 +72,8 @@ func (r republishStore) OldestPending(ctx context.Context) (time.Time, bool, err
 	return r.deps.Store.OldestQueued(ctx)
 }
 
-// refund returns the quota unit a generation took, to the allowance it came from.
-func refund(ctx context.Context, quota Quota, doc Document) error {
+// RefundQuota returns the quota unit a generation took, to the allowance it came from.
+func RefundQuota(ctx context.Context, quota Quota, doc Document) error {
 	switch doc.Quota.Kind {
 	case ReservationDaily:
 		return quota.RefundDaily(ctx, doc.UserID, doc.Quota.DayUTC)

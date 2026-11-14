@@ -186,17 +186,6 @@ func NewModules(
 	templateService := template.NewService(registry)
 	templateController := NewTemplateController(templateService)
 
-	sheetRepository := sheet.NewRepository(mdb, log)
-	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher)
-	sheetController := NewSheetController(sheetService)
-
-	llmConsentService := llmconsent.NewService(
-		llmconsent.NewConsentStore(mdb),
-		llmconsent.NewGenerationStore(mdb),
-		db.NewTransactor(database.Client, nil),
-		time.Now,
-	)
-
 	userRepository := user.NewRepository(mdb, log)
 
 	// Sheet limits read the owner's plan from the user store and reserve their
@@ -289,7 +278,27 @@ func NewModules(
 	authController := NewAuthController(authService)
 
 	quotaService := quota.NewService(quotaStore, nil)
-	planController := NewPlanController(quotaService, FreePlanResolver)
+	llmConsentService := llmconsent.NewService(
+		llmconsent.NewConsentStore(mdb),
+		llmconsent.NewGenerationStore(mdb),
+		generationQuotaRefunder{quota: quotaService},
+		db.NewTransactor(database.Client, nil),
+		time.Now,
+	)
+	generationService := newGenerationService(cfg, options, generation.Deps{
+		Store:     generation.NewMongoStore(mdb),
+		Consent:   llmConsentService,
+		Sheets:    sheetService,
+		Plans:     user.NewPlanSource(userRepository),
+		Templates: templateService,
+		Quota:     quotaService,
+		Tx:        db.NewTransactor(database.Client, nil),
+		Logger:    log,
+	})
+	planController := NewPlanController(quotaService, FreePlanResolver,
+		WithSheetUsage(sheetService),
+		WithGenerationStatus(llmConsentService, generationService),
+	)
 
 	authLimiter := limiter("auth", cfg.Variables.AuthRateLimitAttempts, cfg.Variables.AuthRateLimitWindow)
 	userLimiter := limiter("user", cfg.Variables.UserRateLimitAttempts, cfg.Variables.UserRateLimitWindow)

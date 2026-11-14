@@ -277,7 +277,7 @@ func (w *Worker) fail(ctx context.Context, doc Document, code string, claimedAt 
 		if !settled {
 			return nil
 		}
-		return refund(txCtx, w.quota, before)
+		return RefundQuota(txCtx, w.quota, before)
 	})
 	if err != nil {
 		return fmt.Errorf("fail generation %s: %w", doc.ID, err)
