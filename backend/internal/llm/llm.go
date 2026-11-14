@@ -19,8 +19,8 @@ var ErrTransient = errors.New("llm transient failure")
 // responses other than 429, and malformed gateway responses.
 var ErrPermanent = errors.New("llm permanent failure")
 
-// ErrProviderUnavailable reports that the gateway has no endpoint that satisfies
-// the request's data policy. It wraps ErrTransient, because the condition can
+// ErrProviderUnavailable reports that the gateway has no endpoint that can serve
+// the request. It wraps ErrTransient, because the condition can
 // clear, and it is kept distinct so the job can fail with provider_unavailable.
 var ErrProviderUnavailable = fmt.Errorf("%w: no eligible provider", ErrTransient)
 
