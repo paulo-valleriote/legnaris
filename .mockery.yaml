@@ -24,6 +24,12 @@ packages:
       outpkg: mocks
     interfaces:
       Service: {}
+  legnaris/backend/internal/quota:
+    config:
+      dir: backend/internal/quota/mocks
+      outpkg: mocks
+    interfaces:
+      Store: {}
   legnaris/backend/internal/user:
     config:
       dir: backend/internal/user/mocks
