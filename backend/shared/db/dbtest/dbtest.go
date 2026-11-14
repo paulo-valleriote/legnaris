@@ -1,6 +1,7 @@
 // Package dbtest gives integration tests a MongoDB replica set connected through
-// DATABASE_URI and an isolated database per test. Tests self-skip when no
-// replica set is reachable, so unit runs stay hermetic.
+// DATABASE_URI and an isolated database per test. Tests skip only when
+// DATABASE_URI is unset, so unit runs stay hermetic; a configured but broken
+// MongoDB fails the test instead of passing silently.
 package dbtest
 
 import (
@@ -8,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -19,6 +21,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// databaseURIKey is the environment variable that opts a run into integration tests.
+const databaseURIKey = "DATABASE_URI"
+
 // databaseNamePrefix marks test databases so leftovers are easy to spot.
 const databaseNamePrefix = "legnaris_test_"
 
@@ -26,16 +31,21 @@ const databaseNamePrefix = "legnaris_test_"
 const dropTimeout = 10 * time.Second
 
 // Client returns a client connected to the replica set named by DATABASE_URI.
-// It skips the test when MongoDB is unreachable or runs standalone, because
-// transactions and the integration suites need a replica set. The client is
-// disconnected at cleanup.
+// It skips the test only when DATABASE_URI is unset. When it is set, an
+// unreachable, standalone or misconfigured MongoDB fails the test, because
+// transactions and the integration suites need a replica set and a skip would
+// let CI pass without them. The client is disconnected at cleanup.
 func Client(t testing.TB) *mongo.Client {
 	t.Helper()
+
+	if os.Getenv(databaseURIKey) == "" {
+		t.Skip("DATABASE_URI is not set — skipping integration test")
+	}
 
 	cfg := env.NewEnv(logger.NewLogger(slog.LevelError))
 	database, err := db.InitMongo(cfg)
 	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
+		t.Fatalf("DATABASE_URI is set but mongo is unusable: %v", err)
 	}
 	t.Cleanup(func() {
 		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
@@ -48,10 +58,10 @@ func Client(t testing.TB) *mongo.Client {
 		RunCommand(context.Background(), bson.D{{Key: "hello", Value: 1}}).
 		Decode(&hello)
 	if err != nil {
-		t.Skipf("mongo hello failed — skipping integration test: %v", err)
+		t.Fatalf("mongo hello failed: %v", err)
 	}
 	if _, ok := hello["setName"]; !ok {
-		t.Skip("mongodb is not a replica set member — skipping integration test")
+		t.Fatal("mongodb is not a replica set member")
 	}
 	return database.Client
 }
