@@ -94,7 +94,7 @@ Adds the 80% global cap alert and outbox metrics to the alert set in the card.
 
 ### LGN-190: account deletion MVP slice
 
-Marks the user `deleting` in a transaction. The `users deleting` sweeper queue removes Sheets, generations, consent and trial, then writes a tombstone and inserts `user.deleted` into the outbox in the same transaction.
+Two-step request: `POST /auth/me/deletion` sends a one-time code to the account's address, and `DELETE /auth/me {challenge_id, code}` marks the user `deleting` in a transaction. A code of another purpose or account is the uniform code failure and is not consumed. The `users deleting` sweeper queue removes Sheets, generations, consent, trial, the account's challenges and the e-mail rows keyed by its address, then writes a tombstone and inserts `user.deleted` into the outbox in the same transaction.
 
 ## Track B
 

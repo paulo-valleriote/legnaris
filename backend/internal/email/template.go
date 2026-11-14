@@ -41,7 +41,7 @@ type templateSet struct {
 	html    *htmltemplate.Template
 }
 
-// EmbeddedRenderer renders the six embedded per-purpose templates.
+// EmbeddedRenderer renders the embedded per-purpose templates.
 type EmbeddedRenderer struct {
 	templates map[Purpose]templateSet
 }
@@ -50,7 +50,7 @@ type EmbeddedRenderer struct {
 // happens once at construction so rendering stays pure (EML-11, EML-22).
 func NewRenderer() (*EmbeddedRenderer, error) {
 	renderer := &EmbeddedRenderer{templates: make(map[Purpose]templateSet, 4)}
-	for _, purpose := range []Purpose{PurposeVerifyEmail, PurposeLoginOTP, PurposeAccountExists} {
+	for _, purpose := range []Purpose{PurposeVerifyEmail, PurposeLoginOTP, PurposeAccountExists, PurposeDeleteAccount} {
 		set, err := parseTemplateSet(purpose)
 		if err != nil {
 			return nil, err

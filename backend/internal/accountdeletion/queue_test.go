@@ -141,7 +141,7 @@ func TestQueue_Failures(t *testing.T) {
 func TestQueue_RemovesDeletingAccount(t *testing.T) {
 	mdb := dbtest.Database(t)
 	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
-	seedAccount(t, mdb, victimID)
+	seedAccount(t, mdb, victimID, victimEmail)
 	_, err := mdb.Collection("users").UpdateOne(context.Background(),
 		bson.D{{Key: "_id", Value: victimID}},
 		bson.D{{Key: "$set", Value: bson.D{{Key: "status", Value: user.StatusDeleting}, {Key: "deleting_at", Value: deleteAt}}}})

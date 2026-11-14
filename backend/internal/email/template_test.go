@@ -26,7 +26,7 @@ func TestRenderer_PerPurpose(t *testing.T) {
 	data := email.Data{Code: code, ExpiresInMinutes: 10}
 
 	subjects := make(map[email.Purpose]string)
-	for _, purpose := range []email.Purpose{email.PurposeVerifyEmail, email.PurposeLoginOTP} {
+	for _, purpose := range []email.Purpose{email.PurposeVerifyEmail, email.PurposeLoginOTP, email.PurposeDeleteAccount} {
 		rendered, err := renderer.Render(purpose, data)
 		require.NoError(t, err)
 		subjects[purpose] = rendered.Subject
@@ -46,6 +46,15 @@ func TestRenderer_PerPurpose(t *testing.T) {
 
 	t.Run("Edge: each purpose renders its own subject", func(t *testing.T) {
 		assert.NotEqual(t, subjects[email.PurposeVerifyEmail], subjects[email.PurposeLoginOTP])
+		assert.NotEqual(t, subjects[email.PurposeLoginOTP], subjects[email.PurposeDeleteAccount])
+	})
+
+	t.Run("Edge: the deletion code names the consequence and the ignore notice", func(t *testing.T) {
+		rendered, err := renderer.Render(email.PurposeDeleteAccount, data)
+		require.NoError(t, err)
+		assert.Contains(t, rendered.Text, "deletes your account")
+		assert.Contains(t, rendered.HTML, "deletes your account")
+		assert.Contains(t, rendered.Text, "ignore this email")
 	})
 }
 
@@ -75,6 +84,7 @@ func TestRenderer_CodeFreeNotices(t *testing.T) {
 	t.Run("Edge: code-carrying and unknown purposes still require a code", func(t *testing.T) {
 		assert.True(t, email.PurposeVerifyEmail.CarriesCode())
 		assert.True(t, email.PurposeLoginOTP.CarriesCode())
+		assert.True(t, email.PurposeDeleteAccount.CarriesCode())
 		assert.True(t, email.Purpose("").CarriesCode())
 	})
 }

@@ -141,7 +141,8 @@ type Service interface {
 	VerifyChallenge(ctx context.Context, cmd VerifyChallengeCommand) (*Session, error)
 	ResendChallenge(ctx context.Context, cmd ResendChallengeCommand) (*ResendResult, error)
 	Profile(ctx context.Context, userID string) (*user.UserDTO, error)
-	DeleteAccount(ctx context.Context, userID string) error
+	RequestAccountDeletion(ctx context.Context, userID string) (*ChallengeIssued, error)
+	DeleteAccount(ctx context.Context, cmd DeleteAccountCommand) error
 	EnsureActive(ctx context.Context, userID string) error
 }
 

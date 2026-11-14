@@ -106,8 +106,11 @@ func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, o
 	// the one bearer parser the protected groups use (TFA-08, TFA-09).
 	group.GET("/me", modules.Auth.Controller.Me, auth.Middleware(modules.Auth.TokenManager), userRateLimit(modules.UserLimiter))
 
-	// The deletion request is idempotent for an account already deleting, so it
-	// skips the active gate that refuses every other authenticated route (LGN-190).
+	// Deletion is a two-step code flow (LGN-190): the request sends the code to
+	// the account's address and runs behind the active gate, so a deleting account
+	// cannot ask for another code; the confirmation presents the code and skips
+	// the gate, so a repeat for an already deleting account stays idempotent.
+	group.POST("/me/deletion", modules.Auth.Controller.RequestAccountDeletion, auth.Middleware(modules.Auth.TokenManager), auth.RejectDeleting(modules.activeAccounts()), userRateLimit(modules.UserLimiter))
 	group.DELETE("/me", modules.Auth.Controller.DeleteAccount, auth.Middleware(modules.Auth.TokenManager), userRateLimit(modules.UserLimiter))
 }
 

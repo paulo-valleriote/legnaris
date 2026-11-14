@@ -1,13 +1,16 @@
 // Package accountdeletion removes an account and its data (LGN-190, ADR 0013).
 // The request only marks the user as deleting; the sweeper queue users_deleting
-// then removes the Sheets, generations, consent and quota rows, writes a
-// tombstone and the user.deleted event, and deletes the user record, all in one
-// transaction. A failed run leaves the account unchanged, so a retry is safe.
+// then removes the Sheets, generations, consent and quota rows, the account's
+// challenges and the e-mail rows that carry its address, writes a tombstone and
+// the user.deleted event, and deletes the user record, all in one transaction.
+// A failed run leaves the account unchanged, so a retry is safe.
 package accountdeletion
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -29,9 +32,14 @@ const (
 	generationsCollection = "generations"
 	usersCollection       = "users"
 	tombstonesCollection  = "user_tombstones"
+	challengesCollection  = "auth_challenges"
+	emailOutboxCollection = "email_outbox"
+	noticesCollection     = "email_notices"
 	ownerIDField          = "owner_id"
 	userIDField           = "user_id"
 	idField               = "_id"
+	emailField            = "email"
+	toField               = "to"
 	deletedAtField        = "deleted_at"
 )
 
@@ -61,8 +69,9 @@ func NewCascade(database *mongo.Database, outboxRepo outbox.Repository, now func
 	return &Cascade{database: database, outbox: outboxRepo, now: now}
 }
 
-// Remove deletes everything owned by userID and the user record, then records the
-// tombstone and the user.deleted event. An account whose record is already gone was
+// Remove deletes everything owned by userID and the user record, then the
+// challenges and the e-mail rows that carry the account's address, and records
+// the tombstone and the user.deleted event. An account whose record is already gone was
 // removed by an earlier committed run, so Remove then returns without a second
 // event. Callers run it in one transaction, which makes a failed run leave nothing behind.
 func (c *Cascade) Remove(ctx context.Context, userID string) error {
@@ -81,12 +90,19 @@ func (c *Cascade) Remove(ctx context.Context, userID string) error {
 		}
 	}
 
-	removed, err := c.deleteUser(ctx, userID)
+	account, removed, err := c.deleteUser(ctx, userID)
 	if err != nil {
 		return err
 	}
-	if removed == 0 {
+	if !removed {
 		return nil
+	}
+
+	if err := c.deleteOwned(ctx, challengesCollection, userIDField, userID); err != nil {
+		return err
+	}
+	if err := c.deleteAddressRows(ctx, account.Email); err != nil {
+		return err
 	}
 
 	now := c.now()
@@ -127,10 +143,40 @@ func (c *Cascade) insertUserDeleted(ctx context.Context, userID string, at time.
 	return c.outbox.Insert(ctx, entry)
 }
 
-func (c *Cascade) deleteUser(ctx context.Context, userID string) (int64, error) {
-	result, err := c.database.Collection(usersCollection).DeleteOne(ctx, bson.D{{Key: idField, Value: userID}})
-	if err != nil {
-		return 0, fmt.Errorf("delete account record: %w", err)
+// accountRecord is the part of the user document the cascade needs after the
+// record is gone: the address the e-mail rows are keyed by.
+type accountRecord struct {
+	Email string `bson:"email"`
+}
+
+// deleteUser removes the user record and returns it, so the address rows can be
+// erased after the record is gone. It reports false when no record existed.
+func (c *Cascade) deleteUser(ctx context.Context, userID string) (accountRecord, bool, error) {
+	var account accountRecord
+	err := c.database.Collection(usersCollection).FindOneAndDelete(ctx, bson.D{{Key: idField, Value: userID}}).Decode(&account)
+	if err == nil {
+		return account, true, nil
 	}
-	return result.DeletedCount, nil
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return accountRecord{}, false, nil
+	}
+	return accountRecord{}, false, fmt.Errorf("delete account record: %w", err)
+}
+
+// deleteAddressRows erases the rows keyed by the account's address rather than
+// its identifier: the e-mail outbox messages sent to it and the notice claims,
+// whose identity is "<purpose>:<address>". An account without an address has
+// no such rows.
+func (c *Cascade) deleteAddressRows(ctx context.Context, email string) error {
+	if email == "" {
+		return nil
+	}
+	if _, err := c.database.Collection(emailOutboxCollection).DeleteMany(ctx, bson.D{{Key: toField, Value: email}}); err != nil {
+		return fmt.Errorf("delete %s for account: %w", emailOutboxCollection, err)
+	}
+	suffix := bson.D{{Key: "$regex", Value: ":" + regexp.QuoteMeta(email) + "$"}}
+	if _, err := c.database.Collection(noticesCollection).DeleteMany(ctx, bson.D{{Key: idField, Value: suffix}}); err != nil {
+		return fmt.Errorf("delete %s for account: %w", noticesCollection, err)
+	}
+	return nil
 }
