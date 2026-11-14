@@ -1,7 +1,7 @@
-// Runs once, on first volume initialization, before the user scripts, and also
-// when run by hand against a running member (scripts/dev.sh, make dev-db). It
-// initiates the single-member replica set rs0 and waits for that member to become
-// PRIMARY, so transactions have a primary to write to (ADR 0013).
+// Initiates the single-member replica set rs0 and waits for that member to become
+// PRIMARY, so transactions have a primary to write to (ADR 0013). bootstrap.sh runs
+// it first, unauthenticated, over the localhost exception; it runs before any user
+// exists and never after the root user is created.
 //
 // Idempotent: a member that already reports the set name is left as it is.
 // MONGO_RS_MEMBER is the host:port the member is reached at. The replica-set
