@@ -57,7 +57,6 @@ func TestNoticeRepository_Claim(t *testing.T) {
 		_, err := store.Claim(ctx, auth.PurposeAccountExists, address, now.Add(-window), now)
 		require.NoError(t, err)
 
-		// BSON stores milliseconds, so the boundary must be a whole millisecond past the window.
 		at := now.Add(window + time.Millisecond)
 		claimed, err := store.Claim(ctx, auth.PurposeAccountExists, address, at.Add(-window), at)
 		require.NoError(t, err)

@@ -7,9 +7,6 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
-	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
-	"go.mongodb.org/mongo-driver/v2/mongo/writeconcern"
 )
 
 // ErrNoClient reports a Transactor built without a MongoDB client.
@@ -79,11 +76,16 @@ func (t *Transactor) WithTimeout(d time.Duration) *Transactor {
 	return &copied
 }
 
-// WithTransaction runs fn inside a transaction and commits when fn returns nil.
-// fn receives a session-bound context; every repository call inside fn must use
-// it, or the write falls outside the transaction. The driver re-runs fn on
-// TransientTransactionError and UnknownTransactionCommitResult, so fn must not
-// have side effects outside the database.
+// WithTransaction runs fn inside a transaction, using TransactionOptions, and
+// commits when fn returns nil. fn receives a session-bound context; every
+// repository call inside fn must use it, or the write falls outside the
+// transaction.
+//
+// The driver re-runs fn when fn, or a write inside it, returns an error carrying
+// the TransientTransactionError label, for up to DefaultTransactionTimeout. A
+// commit that fails with UnknownTransactionCommitResult is retried by the driver
+// at the commit step only; fn is not re-run for it. fn must therefore have no
+// side effects outside the database.
 func (t *Transactor) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
 	if t == nil || t.client == nil {
 		return ErrNoClient
@@ -105,10 +107,10 @@ func (t *Transactor) WithTransaction(ctx context.Context, fn func(ctx context.Co
 	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (any, error) {
 		callbackErr = fn(sessCtx)
 		if callbackErr != nil && sessCtx.Err() != nil {
-			return nil, opaqueError{callbackErr.Error()}
+			return nil, unlabeledError{callbackErr.Error()}
 		}
 		return nil, callbackErr
-	}, transactionOptions())
+	}, TransactionOptions())
 
 	if callbackErr != nil {
 		return fmt.Errorf("%w: %w", ErrTransactionAborted, callbackErr)
@@ -119,13 +121,15 @@ func (t *Transactor) WithTransaction(ctx context.Context, fn func(ctx context.Co
 	return nil
 }
 
-// opaqueError carries the text of a callback error that ended past the
+// unlabeledError carries the text of a callback error that ended after the
 // transaction deadline. The driver retries an error only when it carries a
 // transient label, and the label of a server-selection failure would otherwise
-// re-run the callback until the driver's own 120-second loop gives up.
-type opaqueError struct{ message string }
+// re-run the callback until the driver's own 120-second loop gives up. A
+// callback error seen while the context is still live keeps its labels, so the
+// driver can retry it.
+type unlabeledError struct{ message string }
 
-func (e opaqueError) Error() string { return e.message }
+func (e unlabeledError) Error() string { return e.message }
 
 // effectiveTimeout returns the configured cap, falling back to the default for
 // a Transactor built as a zero value.
@@ -145,12 +149,4 @@ func (t *Transactor) Step(ctx context.Context, step Step) error {
 		return fmt.Errorf("step %s: %w", step, err)
 	}
 	return nil
-}
-
-// transactionOptions writes with majority acknowledgement, as ADR 0013 requires,
-// and reads from the primary so authorization decisions see the latest state.
-func transactionOptions() *options.TransactionOptionsBuilder {
-	return options.Transaction().
-		SetWriteConcern(writeconcern.Majority()).
-		SetReadPreference(readpref.Primary())
 }

@@ -91,7 +91,7 @@ migrate-emails: ## Repair legacy email addresses (dry run; ARGS="-apply" writes)
 # not percent-encode them. The keyfile volume persists between runs; the data does not.
 dev-db:         ## Run only MongoDB locally as replica set rs0 with the root credentials from DATABASE_URI; stop with: docker stop legnaris-mongo
 	@creds=$$(printf '%s' '$(DATABASE_URI)' | sed -nE 's#^mongodb://([^/@]+)@.*#\1#p'); \
-	[ -n "$$creds" ] || { echo "DATABASE_URI must carry the root credentials, e.g. mongodb://root:legnaris-dev-only@localhost:27017/ (see .env.example)" >&2; exit 1; }; \
+	[ -n "$$creds" ] || { echo "DATABASE_URI must carry the root credentials, e.g. mongodb://root:legnaris-dev-only@localhost:27017/?replicaSet=rs0&retryWrites=true&authSource=admin (see .env.example)" >&2; exit 1; }; \
 	docker volume create legnaris-mongo-keyfile >/dev/null && \
 	docker run --rm --entrypoint sh -v legnaris-mongo-keyfile:/etc/mongo-keyfile \
 		-v "$(CURDIR)/deploy/mongodb:/provision:ro" \

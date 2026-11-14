@@ -103,8 +103,6 @@ func registerAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, 
 	cookies := cookiesFrom(t, verifyRec)
 	require.NotEmpty(t, cookies.refresh, "the verified session must set the refresh cookie")
 	require.NotEmpty(t, cookies.csrf, "the verified session must set the CSRF cookie")
-	// The registration's own notice is setup noise: tests that count outbox rows
-	// must see only the intentions they trigger.
 	_, err := mdb.Collection("email_outbox").DeleteMany(context.Background(), bson.D{})
 	require.NoError(t, err)
 	return cookies
@@ -169,7 +167,6 @@ func TestIntegration_RegistrationVerification(t *testing.T) {
 	t.Run("Edge: a registration against the verified address answers 201 and only notifies the owner, once", func(t *testing.T) {
 		before := outboxCount(t, mdb)
 
-		// The username is public and checked first, so the duplicate uses a fresh one.
 		dupRec := doRequest(t, h, http.MethodPost, "/auth/register",
 			fmt.Sprintf(`{"email":%q,"username":"second-name","password":%q}`, email, authPassword))
 		require.Equal(t, http.StatusCreated, dupRec.Code, dupRec.Body.String())
