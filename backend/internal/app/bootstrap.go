@@ -186,7 +186,9 @@ func NewModules(
 	templateService := template.NewService(registry)
 	templateController := NewTemplateController(templateService)
 
-	userRepository := user.NewRepository(mdb, log)
+	// The account is read once per request: the active gate, the plan and the LLM
+	// consent all read the same document, so the wrapper memoizes it per request.
+	userRepository := user.NewCachedRepository(user.NewRepository(mdb, log))
 
 	// Sheet limits read the owner's plan from the user store and reserve their
 	// slot inside a transaction with the Sheet write (LGN-183, ADR 0013).
@@ -279,7 +281,7 @@ func NewModules(
 
 	quotaService := quota.NewService(quotaStore, nil)
 	llmConsentService := llmconsent.NewService(
-		llmconsent.NewConsentStore(mdb),
+		llmconsent.NewAccountConsentStore(userRepository, llmconsent.NewConsentStore(mdb)),
 		llmconsent.NewGenerationStore(mdb),
 		generationQuotaRefunder{quota: quotaService},
 		db.NewTransactor(database.Client, nil),

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"legnaris/backend/shared/apperr"
+	"legnaris/backend/shared/requestcache"
 
 	"github.com/labstack/echo/v5"
 )
@@ -54,6 +55,7 @@ func RejectDeleting(checker ActiveAccountChecker) echo.MiddlewareFunc {
 			if !ok {
 				return apperr.NewError(apperr.CodeUnauthorized, MsgAuthorizationRequired, nil)
 			}
+			c.SetRequest(c.Request().WithContext(requestcache.WithScope(c.Request().Context())))
 			if err := checker.EnsureActive(c.Request().Context(), userID); err != nil {
 				return err
 			}
