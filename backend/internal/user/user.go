@@ -14,9 +14,14 @@ type User struct {
 	EmailVerifiedAt *time.Time `bson:"email_verified_at,omitempty" json:"email_verified_at,omitempty"`
 	// Plan is the stored subscription plan identifier. A missing value reads as
 	// the Free plan (see plan.Lookup) and is never written by F1a.
-	Plan      string    `bson:"plan,omitempty" json:"-"`
-	CreatedAt time.Time `bson:"created_at" json:"created_at"`
-	UpdatedAt time.Time `bson:"updated_at" json:"updated_at"`
+	Plan string `bson:"plan,omitempty" json:"-"`
+	// LLMConsentAt and LLMConsentVersion are the LLM consent fields of the account
+	// (ADR 0008). They are written by the consent flow and read here, so a request
+	// reads the account document once for both the gate and the consent.
+	LLMConsentAt      *time.Time `bson:"llm_consent_at,omitempty" json:"-"`
+	LLMConsentVersion string     `bson:"llm_consent_version,omitempty" json:"-"`
+	CreatedAt         time.Time  `bson:"created_at" json:"created_at"`
+	UpdatedAt         time.Time  `bson:"updated_at" json:"updated_at"`
 	// Status is empty for an active account. The deletion fields below are
 	// written only by the account deletion flow (LGN-190).
 	Status              string     `bson:"status,omitempty" json:"-"`
