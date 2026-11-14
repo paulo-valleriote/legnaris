@@ -32,23 +32,7 @@ func InitMongo(env env.Env) (*Database, error) {
 		return nil, ErrMissingURI
 	}
 
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-
-	opts := options.Client().
-		ApplyURI(uri).
-		SetServerSelectionTimeout(env.Variables.DatabaseServerSelectionTimeout).
-		SetServerAPIOptions(serverAPI).
-		SetConnectTimeout(env.Variables.DatabaseConnectTimeout).
-		SetMaxPoolSize(env.Variables.DatabaseMaxPoolSize).
-		SetMinPoolSize(env.Variables.DatabaseMinPoolSize).
-		SetBSONOptions(&options.BSONOptions{
-			// Decode nested BSON documents into map[string]any instead of the
-			// default bson.D. Sheet data is modeled as map[string]any and the
-			// DAG/engine helpers assert on that type.
-			DefaultDocumentMap: true,
-		})
-
-	client, err := mongo.Connect(opts)
+	client, err := mongo.Connect(newClientOptions(env.Variables))
 	if err != nil {
 		return nil, fmt.Errorf("connect to mongodb: %w", err)
 	}
@@ -66,6 +50,29 @@ func InitMongo(env env.Env) (*Database, error) {
 	return &Database{
 		Client: client,
 	}, nil
+}
+
+// newClientOptions builds the driver options for the configured URI. Retryable
+// writes are forced on after the URI is applied so a URI cannot turn them off:
+// the driver retries a write once on a transient network or failover error,
+// which the replica set relies on.
+func newClientOptions(vars env.Variables) *options.ClientOptions {
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
+
+	return options.Client().
+		ApplyURI(vars.DatabaseURI).
+		SetRetryWrites(true).
+		SetServerSelectionTimeout(vars.DatabaseServerSelectionTimeout).
+		SetServerAPIOptions(serverAPI).
+		SetConnectTimeout(vars.DatabaseConnectTimeout).
+		SetMaxPoolSize(vars.DatabaseMaxPoolSize).
+		SetMinPoolSize(vars.DatabaseMinPoolSize).
+		SetBSONOptions(&options.BSONOptions{
+			// Decode nested BSON documents into map[string]any instead of the
+			// default bson.D. Sheet data is modeled as map[string]any and the
+			// DAG/engine helpers assert on that type.
+			DefaultDocumentMap: true,
+		})
 }
 
 // Ping checks that the primary is reachable within the context deadline.
