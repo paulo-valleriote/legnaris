@@ -255,3 +255,36 @@ func TestEnsureIndexes_AuthChallenges(t *testing.T) {
 		require.NoError(t, err, "a consumed row must not block a new active one")
 	})
 }
+
+// TestEnsureIndexes_GenerationUsage pins the daily quota counter's indexes: one
+// row per user and UTC day, and a TTL that retires past days (ADR 0009). The
+// unique key is what makes the day-opening upsert race-safe.
+func TestEnsureIndexes_GenerationUsage(t *testing.T) {
+	mdb := newIndexesTestDatabase(t)
+	ctx := context.Background()
+	require.NoError(t, db.EnsureIndexes(ctx, mdb))
+
+	usage := listIndexes(t, mdb, "generation_usage")
+
+	t.Run("Happy path: the user and day index is unique", func(t *testing.T) {
+		idx, ok := usage["generation_usage_user_day_unique"]
+		require.True(t, ok, "the user and day unique index must exist, got %v", usage)
+		assert.True(t, indexIsUnique(idx))
+	})
+
+	t.Run("Happy path: the expiry TTL index has expireAfterSeconds 0", func(t *testing.T) {
+		ttl, ok := usage["generation_usage_expires_at_ttl"]
+		require.True(t, ok, "the expiry TTL index must exist, got %v", usage)
+		assert.Equal(t, int32(0), indexExpireAfterSeconds(t, ttl))
+	})
+
+	t.Run("Edge: a second counter row for the same user and day is rejected", func(t *testing.T) {
+		coll := mdb.Collection("generation_usage")
+		_, err := coll.InsertOne(ctx, bson.M{"user_id": "u-1", "day_utc": "2026-11-14", "count": 1})
+		require.NoError(t, err)
+
+		_, err = coll.InsertOne(ctx, bson.M{"user_id": "u-1", "day_utc": "2026-11-14", "count": 1})
+		require.Error(t, err)
+		assert.True(t, mongo.IsDuplicateKeyError(err))
+	})
+}

@@ -14,6 +14,7 @@ import (
 	"legnaris/backend/internal/platform/clientip"
 	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/ratelimit"
+	"legnaris/backend/internal/quota"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/internal/user"
@@ -48,10 +49,11 @@ type AuthModule struct {
 }
 
 type Modules struct {
-	Template   TemplateModule
-	Sheet      SheetModule
-	LLMConsent LLMConsentModule
-	Auth       AuthModule
+	Template TemplateModule
+	Sheet    SheetModule
+	Auth     AuthModule
+	// Plan serves GET /me/plan, the caller's generation allowance (ADR 0009).
+	Plan *PlanController
 	// ClientIP is the boot-time address resolver installed as the router's
 	// IPExtractor, so every c.RealIP() consumer reads the same resolution
 	// (PRQ-03, PRQ-04).
@@ -199,6 +201,9 @@ func NewModules(
 	)
 	authController := NewAuthController(authService)
 
+	quotaService := quota.NewService(quota.NewMongoStore(mdb), nil)
+	planController := NewPlanController(quotaService, FreePlanResolver)
+
 	limiterClient, closers, err := newLimiterClient(cfg.Variables.RedisURL)
 	if err != nil {
 		return nil, err
@@ -236,6 +241,7 @@ func NewModules(
 			RegisterIPLimiter:    registerIPLimiter,
 			RegisterEmailLimiter: registerEmailLimiter,
 		},
+		Plan:          planController,
 		ClientIP:      clientIPPolicy.Resolve,
 		UserLimiter:   userLimiter,
 		PublicLimiter: publicLimiter,

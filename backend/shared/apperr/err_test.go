@@ -24,6 +24,8 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeInvalidPath, 400},
 		{CodeUnauthorized, 401},
 		{CodeForbidden, 403},
+		{CodePlanUpgradeRequired, 403},
+		{CodeQuotaExceeded, 429},
 		{CodeNotFound, 404},
 		{CodeMethodNotAllowed, 405},
 		{CodeConflict, 409},

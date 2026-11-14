@@ -27,8 +27,11 @@ const (
 	authChallengesActiveUnique     = "auth_challenges_active_unique"
 	authChallengesExpiresAtTTL     = "auth_challenges_expires_at_ttl"
 	emailNoticesClaimedAtTTL       = "email_notices_claimed_at_ttl"
-	eventOutboxStatusNextAttempt   = "event_outbox_status_next_attempt"
-	eventOutboxPublishedAtTTL      = "event_outbox_published_at_ttl"
+	generationUsageUserDayUnique   = "generation_usage_user_day_unique"
+	generationUsageExpiresAtTTL    = "generation_usage_expires_at_ttl"
+	// expiresAtField is the TTL field shared by every collection that retires
+	// rows by expiry.
+	expiresAtField = "expires_at"
 )
 
 // EnsureIndexes creates the indexes required by the application, retiring
@@ -72,7 +75,7 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 			Options: options.Index().SetName(refreshTokensFamilyIndex),
 		},
 		{
-			Keys:    bson.D{{Key: "expires_at", Value: 1}},
+			Keys:    bson.D{{Key: expiresAtField, Value: 1}},
 			Options: options.Index().SetExpireAfterSeconds(0).SetName(refreshTokensExpiresAtTTLIndex),
 		},
 	}); err != nil {
@@ -116,7 +119,31 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 		return err
 	}
 
-	return ensureEmailNoticeIndexes(ctx, database)
+	if err := ensureEmailNoticeIndexes(ctx, database); err != nil {
+		return err
+	}
+
+	return ensureGenerationUsageIndexes(ctx, database)
+}
+
+// ensureGenerationUsageIndexes creates the daily quota counter's unique key and
+// its TTL. The unique key on (user_id, day_utc) makes the day-opening upsert
+// race-safe; the TTL retires counter rows once their day is long past.
+func ensureGenerationUsageIndexes(ctx context.Context, database *mongo.Database) error {
+	usage := database.Collection("generation_usage")
+	if _, err := usage.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "user_id", Value: 1}, {Key: "day_utc", Value: 1}},
+			Options: options.Index().SetUnique(true).SetName(generationUsageUserDayUnique),
+		},
+		{
+			Keys:    bson.D{{Key: expiresAtField, Value: 1}},
+			Options: options.Index().SetExpireAfterSeconds(0).SetName(generationUsageExpiresAtTTL),
+		},
+	}); err != nil {
+		return fmt.Errorf("create generation_usage indexes: %w", err)
+	}
+	return nil
 }
 
 // ensureEventOutboxIndexes creates the claim index for event_outbox and the TTL
@@ -171,7 +198,7 @@ func ensureAuthChallengeIndexes(ctx context.Context, database *mongo.Database) e
 				SetName(authChallengesActiveUnique),
 		},
 		{
-			Keys:    bson.D{{Key: "expires_at", Value: 1}},
+			Keys:    bson.D{{Key: expiresAtField, Value: 1}},
 			Options: options.Index().SetExpireAfterSeconds(0).SetName(authChallengesExpiresAtTTL),
 		},
 	}); err != nil {

@@ -54,8 +54,8 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	sheetsGroup := router.Group("/sheets", requireAuth, limitUser)
 	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
-	llmConsentGroup := router.Group("/me/llm-consent", requireAuth, limitUser)
-	modules.LLMConsent.Controller.RegisterRoutes(llmConsentGroup)
+	meGroup := router.Group("/me", requireAuth, limitUser)
+	modules.Plan.RegisterRoutes(meGroup)
 
 	return router
 }
