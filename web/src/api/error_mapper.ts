@@ -28,6 +28,26 @@ const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   CONFLICT: 'conflict',
   DISPOSABLE_EMAIL: 'disposableEmail',
   SHEET_LIMIT_REACHED: 'sheetLimitReached',
+  GENERATION_IN_PROGRESS: 'generationInProgress',
+  PLAN_UPGRADE_REQUIRED: 'planUpgradeRequired',
+  QUOTA_EXCEEDED: 'quotaExceeded',
+  LLM_CONSENT_REQUIRED: 'llmConsentRequired',
+  PROVIDER_UNAVAILABLE: 'providerUnavailable',
+  GENERATION_CAP_REACHED: 'generationCapReached',
+};
+
+/**
+ * The failure codes a generation can settle on (LGN-230). Every one is a terminal
+ * failure whose quota was refunded, so they share one copy family; the provider
+ * outage keeps its own kind because the copy says "try later".
+ */
+const KIND_BY_GENERATION_ERROR: Readonly<Record<string, FailureKind>> = {
+  provider_unavailable: 'providerUnavailable',
+  provider_failed: 'generationFailed',
+  invalid_output: 'generationFailed',
+  template_unavailable: 'generationFailed',
+  lease_expired: 'generationFailed',
+  publish_failed: 'generationFailed',
 };
 
 const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
@@ -46,6 +66,14 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
   conflict: 'api.error.conflict',
   disposableEmail: 'api.error.disposableEmail',
   sheetLimitReached: 'api.error.sheetLimitReached',
+  generationInProgress: 'api.error.generationInProgress',
+  planUpgradeRequired: 'api.error.planUpgradeRequired',
+  quotaExceeded: 'api.error.quotaExceeded',
+  llmConsentRequired: 'api.error.llmConsentRequired',
+  providerUnavailable: 'api.error.providerUnavailable',
+  generationCapReached: 'api.error.generationCapReached',
+  generationFailed: 'api.error.generationFailed',
+  generationTimeout: 'api.error.generationTimeout',
 };
 
 /**
@@ -57,6 +85,17 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
  */
 export function apperrKind(code: string): FailureKind {
   return KIND_BY_CODE[code] ?? 'unknown';
+}
+
+/**
+ * Maps a generation's own `error_code` to its failure kind (LGN-230). An unknown
+ * code is `generationFailed`: the generation failed, and the copy never names it.
+ */
+export function generationErrorKind(errorCode: string | undefined): FailureKind {
+  if (errorCode === undefined) {
+    return 'generationFailed';
+  }
+  return KIND_BY_GENERATION_ERROR[errorCode] ?? 'generationFailed';
 }
 
 /** Resolves the copy for a failure kind from the translation catalog (API-23). */

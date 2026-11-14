@@ -31,7 +31,15 @@ export type FailureKind =
   | 'emailUnavailable'
   | 'conflict'
   | 'disposableEmail'
-  | 'sheetLimitReached';
+  | 'sheetLimitReached'
+  | 'generationInProgress'
+  | 'planUpgradeRequired'
+  | 'quotaExceeded'
+  | 'llmConsentRequired'
+  | 'providerUnavailable'
+  | 'generationCapReached'
+  | 'generationFailed'
+  | 'generationTimeout';
 
 /** Input of a {@link DomainFailure}. */
 export interface DomainFailureInput {

@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AccountScreen } from '../account/account_screen';
 import { AuthGate } from '../auth/auth_gate';
 import { CatalogScreen } from '../catalog/catalog_screen';
+import { GenerateScreen } from '../generate/generate_screen';
 import { AppShell } from '../shell/app_shell';
 import { NotFound } from '../shell/not_found';
 import { SheetScreen } from '../sheet/sheet_screen';
@@ -15,6 +16,7 @@ const SCREENS: Record<string, ReactElement> = {
   '/sheets/:id': <SheetScreen />,
   '/your-sheet': <YourSheetScreen />,
   '/account': <AccountScreen />,
+  '/generate/:templateId': <GenerateScreen />,
   [NOT_FOUND_PATH]: <NotFound />,
 };
 

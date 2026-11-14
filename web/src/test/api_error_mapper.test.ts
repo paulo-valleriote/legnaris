@@ -47,6 +47,14 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   conflict: 'api.error.conflict',
   disposableEmail: 'api.error.disposableEmail',
   sheetLimitReached: 'api.error.sheetLimitReached',
+  generationInProgress: 'api.error.generationInProgress',
+  planUpgradeRequired: 'api.error.planUpgradeRequired',
+  quotaExceeded: 'api.error.quotaExceeded',
+  llmConsentRequired: 'api.error.llmConsentRequired',
+  providerUnavailable: 'api.error.providerUnavailable',
+  generationCapReached: 'api.error.generationCapReached',
+  generationFailed: 'api.error.generationFailed',
+  generationTimeout: 'api.error.generationTimeout',
 };
 
 describe('backend code to failure kind', () => {
