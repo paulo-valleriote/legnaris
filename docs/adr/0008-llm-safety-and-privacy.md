@@ -61,3 +61,12 @@ Character generation (ADR 0007) sends a player's concept text to a third-party g
   - Every adapter request carries the pinned `provider` object (`httptest`).
   - The adapter does not leak error bodies (`httptest`).
   - The conditional terminal write is a no-op on a missing document.
+
+## Spike note: ZDR endpoint check for `deepseek/deepseek-v4.1-flash` (LGN-227)
+
+- **Checked on:** 2026-11-14, using only public OpenRouter listings (`GET /api/v1/models/deepseek/deepseek-v4.1-flash/endpoints` and `GET /api/v1/endpoints/zdr`). No API key was used and no completion was run.
+- **Slug:** `deepseek/deepseek-v4.1-flash` exists. A dated variant, `deepseek/deepseek-v4.1-flash-1017`, is also listed. It is not the pinned slug, and this note does not cover it.
+- **Outcome: eligible.** The ZDR listing returns 32 healthy endpoints for the exact slug, served by 23 providers: BaseTen, Cohere, CoreWeave, Crusoe, DeepInfra, DigitalOcean, Fireworks, Google, InferenceNet, Makora, Mancer 2, Modal, Morph, Novita, OpenInference, Parasail, Reka, Relace, River, SiliconFlow, Together, Venice, Wafer.
+- **`ignore: ["DeepSeek"]`:** no first-party DeepSeek endpoint appears in the ZDR list, so the ignore rule does not remove any eligible endpoint.
+- **Not verified here:** `data_collection: "deny"` is not a field in the public endpoint listing, so it is not checked endpoint by endpoint. The ZDR list is the public signal that the endpoint does not retain or train on prompts. The real per-request filter (`zdr: true`, `data_collection: "deny"`, `ignore: ["DeepSeek"]`) must still be confirmed with one live completion once the key is available to LGN-185.
+- **Impact:** the model and gateway decision above stands. The known gap in this ADR is closed on the public-listing evidence, and it stays open until the live completion check runs.
