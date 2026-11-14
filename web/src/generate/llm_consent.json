@@ -1,0 +1,74 @@
+{
+  "_about": "Single source of the LLM consent disclosure (LGN-228, ADR 0008). Location: docs/legal/llm-consent.json. Consumers: the backend consent constant (LGN-194) must read the same `version` and the web consent modal (LGN-196) renders `locales.<lang>`. The backend embeds the file through //go:embed only from inside its own package, so LGN-194 must copy or generate it there and add a test that the two versions match. Bump `version` (a string) whenever the disclosure changes: provider, model, region, retention or revocation path. Tokens in [SQUARE_BRACKETS] are placeholders for legal review and must be replaced before go-live. Status: DRAFT, pending legal review.",
+  "version": "1",
+  "locales": {
+    "en": {
+      "title": "Send your concept to an AI model?",
+      "intro": "Character generation sends the concept text you type to an AI model hosted outside Brazil. Please read this before you continue.",
+      "points": [
+        {
+          "heading": "What is sent",
+          "body": "The concept text you enter for a generation, together with the fixed instructions Legnaris adds to every request."
+        },
+        {
+          "heading": "Who receives it",
+          "body": "OpenRouter, which routes the request to [SERVING_PROVIDER], the provider that runs the DeepSeek V4.1 Flash model. OpenRouter and [SERVING_PROVIDER] act as our processors. The first-party DeepSeek API is not used."
+        },
+        {
+          "heading": "Where it is processed",
+          "body": "Outside Brazil, in [PROCESSING_COUNTRIES]. This is a transfer of personal data abroad under LGPD art. 33, and this consent is the basis for it."
+        },
+        {
+          "heading": "How long it is kept",
+          "body": "Legnaris keeps the concept and the generated output for up to 24 hours and then deletes them. The provider is set to route only to providers that do not store prompts or outputs and do not use them for training."
+        },
+        {
+          "heading": "Where the result goes",
+          "body": "The generated content is saved only to your own Sheet. Review it before you use it, because AI output can be inaccurate."
+        },
+        {
+          "heading": "How to revoke",
+          "body": "You can withdraw consent at any time in [REVOKE_SCREEN_PATH] or through [REVOKE_API_PATH]. Withdrawing deletes the generation data Legnaris still holds for you. Content already on your Sheet is not deleted by withdrawing; you can remove it from the Sheet."
+        }
+      ],
+      "details_link_text": "Read the privacy policy",
+      "details_url": "[PRIVACY_POLICY_URL]",
+      "accept_label": "I agree",
+      "decline_label": "Not now"
+    },
+    "pt-BR": {
+      "title": "Enviar seu conceito para um modelo de IA?",
+      "intro": "A geração de personagem envia o texto do conceito que você digita para um modelo de IA hospedado fora do Brasil. Leia com atenção antes de continuar.",
+      "points": [
+        {
+          "heading": "O que é enviado",
+          "body": "O texto do conceito que você informa para a geração, junto com as instruções fixas que a Legnaris acrescenta a cada requisição."
+        },
+        {
+          "heading": "Quem recebe",
+          "body": "A OpenRouter, que encaminha a requisição para [SERVING_PROVIDER], o provedor que executa o modelo DeepSeek V4.1 Flash. A OpenRouter e o [SERVING_PROVIDER] atuam como operadores de dados em nosso nome. A API própria da DeepSeek não é utilizada."
+        },
+        {
+          "heading": "Onde é processado",
+          "body": "Fora do Brasil, em [PROCESSING_COUNTRIES]. Trata-se de transferência internacional de dados pessoais nos termos do art. 33 da LGPD, e este consentimento é a base para essa transferência."
+        },
+        {
+          "heading": "Por quanto tempo é mantido",
+          "body": "A Legnaris mantém o conceito e o resultado gerado por até 24 horas e depois os apaga. O provedor está configurado para encaminhar apenas a provedores que não armazenam prompts ou resultados e não os usam para treinamento."
+        },
+        {
+          "heading": "Para onde vai o resultado",
+          "body": "O conteúdo gerado é salvo somente na sua própria Ficha. Revise-o antes de usar, pois a saída de IA pode conter imprecisões."
+        },
+        {
+          "heading": "Como revogar",
+          "body": "Você pode retirar o consentimento a qualquer momento em [REVOKE_SCREEN_PATH] ou pela API em [REVOKE_API_PATH]. A retirada apaga os dados de geração que a Legnaris ainda mantém sobre você. O conteúdo já presente na sua Ficha não é apagado pela retirada; você pode removê-lo na própria Ficha."
+        }
+      ],
+      "details_link_text": "Leia a política de privacidade",
+      "details_url": "[PRIVACY_POLICY_URL]",
+      "accept_label": "Concordo",
+      "decline_label": "Agora não"
+    }
+  }
+}

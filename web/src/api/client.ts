@@ -6,6 +6,12 @@
  * screen never writes a URL, unwraps a response or branches on a status.
  */
 
+import type { AcceptedGeneration, Generation } from './models/generation';
+import {
+  parseAcceptedGeneration,
+  parseCreatedGenerationId,
+  parseGeneration,
+} from './models/generation';
 import type { DiceBlock } from './models/dice';
 import { diceBlockToWire } from './models/dice';
 import type { Layout } from './models/layout';
@@ -72,6 +78,32 @@ export interface ApiClient {
    * them (ADR 0008). A `204` carries no body; a failure is never repeated.
    */
   revokeLlmConsent(): Promise<void>;
+  /** Records the caller's consent to the disclosure `version` (ADR 0008, LGN-194). A `204`. */
+  grantLlmConsent(version: string): Promise<void>;
+  /** Queues a character generation (LGN-186); resolves with the generation identifier (202). */
+  createGeneration(input: CreateGenerationInput): Promise<string>;
+  /** Reads one of the caller's generations; a foreign or expired id is `NOT_FOUND`. */
+  getGeneration(id: string): Promise<Generation>;
+  /** Turns a succeeded generation into a Sheet; repeating it returns the same Sheet (201, then 200). */
+  acceptGeneration(id: string, input: AcceptGenerationInput): Promise<AcceptedGeneration>;
+  /** The template-seeded dry run: the derived values for a data delta, nothing stored (LGN-196). */
+  previewTemplate(
+    templateId: string,
+    changeSet: Record<string, unknown>,
+  ): Promise<Record<string, unknown>>;
+}
+
+/** The generation request (LGN-186). Only the character kind exists in F1a. */
+export interface CreateGenerationInput {
+  readonly templateId: string;
+  readonly kind: 'character';
+  readonly concept: string;
+}
+
+/** The accept request: the Sheet name and the values the player kept (LGN-186). */
+export interface AcceptGenerationInput {
+  readonly sheetName: string;
+  readonly values: Record<string, unknown>;
 }
 
 function decodeHealth(data: unknown): HealthPayload {
@@ -154,5 +186,34 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         parseLayoutResponse,
       ),
     revokeLlmConsent: () => caller.callNoContent('DELETE', '/me/llm-consent', undefined),
+    grantLlmConsent: (version) =>
+      caller.callNoContent('PUT', '/me/llm-consent', JSON.stringify({ version })),
+    createGeneration: (input) =>
+      caller.call(
+        'POST',
+        '/generations',
+        JSON.stringify({
+          template_id: input.templateId,
+          kind: input.kind,
+          concept: input.concept,
+        }),
+        parseCreatedGenerationId,
+      ),
+    getGeneration: (id) =>
+      caller.call('GET', `/generations/${encodeURIComponent(id)}`, undefined, parseGeneration),
+    acceptGeneration: (id, input) =>
+      caller.call(
+        'POST',
+        `/generations/${encodeURIComponent(id)}/accept`,
+        JSON.stringify({ sheet_name: input.sheetName, values: input.values }),
+        parseAcceptedGeneration,
+      ),
+    previewTemplate: (templateId, changeSet) =>
+      caller.call(
+        'POST',
+        `/templates/${encodeURIComponent(templateId)}/preview`,
+        JSON.stringify({ data: changeSet }),
+        decodeChangeSet,
+      ),
   };
 }

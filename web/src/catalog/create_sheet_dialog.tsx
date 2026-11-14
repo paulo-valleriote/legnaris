@@ -225,6 +225,16 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
         <div className="lg-dialog__actions">
           <button
             type="button"
+            className="lg-button lg-button--secondary"
+            onClick={() => {
+              onClose();
+              navigate(`/generate/${encodeURIComponent(templateId)}`);
+            }}
+          >
+            {message('generate.entry')}
+          </button>
+          <button
+            type="button"
             className="lg-button lg-button--primary"
             disabled={!canSubmit || isSubmitting}
             aria-busy={isSubmitting}
