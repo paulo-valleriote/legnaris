@@ -96,3 +96,10 @@ packages:
       outpkg: mocks
     interfaces:
       Store: {}
+  legnaris/backend/internal/trial:
+    config:
+      dir: backend/internal/trial/mocks
+      outpkg: mocks
+    interfaces:
+      Granter: {}
+      DomainChecker: {}
