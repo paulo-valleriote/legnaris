@@ -32,6 +32,7 @@ import {
   previewDelay,
   suggestedSheetName,
   trialAllowance,
+  trimConcept,
 } from './generation_flow';
 import type { Allowance } from './generation_flow';
 import { CONSENT_VERSION, consentDisclosure } from './llm_consent';
@@ -316,11 +317,17 @@ export function GenerateScreen() {
       return;
     }
     if (error instanceof DomainFailure && error.kind === 'generationInProgress') {
-      const refreshed = await queryClient.fetchQuery({
-        queryKey: PLAN_QUERY_KEY,
-        queryFn: () => client.getMyPlan(),
-        staleTime: 0,
-      });
+      let refreshed;
+      try {
+        refreshed = await queryClient.fetchQuery({
+          queryKey: PLAN_QUERY_KEY,
+          queryFn: () => client.getMyPlan(),
+          staleTime: 0,
+        });
+      } catch (refreshError: unknown) {
+        setSubmitError(failureCopy(refreshError));
+        return;
+      }
       if (refreshed.activeGenerationId !== null) {
         startWaiting(refreshed.activeGenerationId);
         return;
@@ -336,7 +343,7 @@ export function GenerateScreen() {
       const generationId = await client.createGeneration({
         templateId,
         kind: 'character',
-        concept: concept.trim(),
+        concept: trimConcept(concept),
       });
       setSubmitting(false);
       void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
