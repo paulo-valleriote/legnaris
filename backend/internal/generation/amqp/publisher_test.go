@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -39,6 +40,7 @@ type fakeChannel struct {
 	bindings    []string
 	published   []publishCall
 	confirm     confirmation
+	scripted    []confirmation
 	publishErr  error
 	returns     chan amqp091.Return
 	confirmErr  error
@@ -93,7 +95,27 @@ func (f *fakeChannel) PublishWithDeferredConfirmWithContext(_ context.Context, e
 		return nil, f.publishErr
 	}
 	f.published = append(f.published, publishCall{exchange: exchange, key: key, mandatory: mandatory, msg: msg})
+	if len(f.scripted) > 0 {
+		next := f.scripted[0]
+		f.scripted = f.scripted[1:]
+		return next, nil
+	}
 	return f.confirm, nil
+}
+
+// gatedConfirm stays pending until release is closed, then acknowledges. It lets a
+// test hold one publish in its confirm wait while others run.
+type gatedConfirm struct {
+	release chan struct{}
+}
+
+func (g gatedConfirm) WaitContext(ctx context.Context) (bool, error) {
+	select {
+	case <-g.release:
+		return true, nil
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
 }
 
 func (f *fakeChannel) Close() error {
@@ -328,6 +350,112 @@ func TestNew_DefaultsConfirmTimeout(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.want, New(tc.cfg).confirmTimeout)
+		})
+	}
+}
+
+// TestPublisher_PublishDoesNotHoldLockDuringConfirm pins that a publish waiting for
+// its confirm does not block another publish: the second job reaches the broker and
+// is confirmed while the first confirm is still pending.
+func TestPublisher_PublishDoesNotHoldLockDuringConfirm(t *testing.T) {
+	const (
+		jobA        = "0190a1b2-c3d4-7e5f-8a9b-000000000001"
+		jobB        = "0190a1b2-c3d4-7e5f-8a9b-000000000002"
+		overlapWait = 2 * time.Second
+	)
+
+	release := make(chan struct{})
+	ch := newFakeChannel()
+	ch.scripted = []confirmation{gatedConfirm{release: release}, fakeConfirm{acked: true}}
+	dial, dials := dialScript(t, &fakeConnection{ch: ch})
+	pub := newTestPublisher(dial, 5*time.Second)
+
+	first := make(chan error, 1)
+	go func() {
+		first <- pub.Publish(context.Background(), generation.Message{ID: jobA, Kind: "character"})
+	}()
+	require.Eventually(t, func() bool {
+		ch.mu.Lock()
+		defer ch.mu.Unlock()
+		return len(ch.published) == 1
+	}, overlapWait, time.Millisecond, "the first job must reach the broker before the second is published")
+
+	second := make(chan error, 1)
+	go func() {
+		second <- pub.Publish(context.Background(), generation.Message{ID: jobB, Kind: "character"})
+	}()
+	select {
+	case err := <-second:
+		require.NoError(t, err)
+	case <-time.After(overlapWait):
+		close(release)
+		t.Fatal("the second publish waited behind the first confirm")
+	}
+
+	close(release)
+	require.NoError(t, <-first)
+	assert.Equal(t, 1, *dials, "overlapping publishes share one connection")
+}
+
+// TestPublisher_ConcurrentPublishes pins that many publishes share one connection
+// and each one is refused only for its own returned job.
+func TestPublisher_ConcurrentPublishes(t *testing.T) {
+	const jobBase = "0190a1b2-c3d4-7e5f-8a9b-0000000000"
+
+	jobsOf := func(n int) []string {
+		ids := make([]string, n)
+		for i := range ids {
+			ids[i] = fmt.Sprintf("%s%02d", jobBase, i)
+		}
+		return ids
+	}
+
+	tests := []struct {
+		name        string
+		jobs        []string
+		returned    []string
+		wantRefused []string
+	}{
+		{name: "Edge: many concurrent publishes are each confirmed on one connection", jobs: jobsOf(20)},
+		{name: "Edge: a return for one job refuses only that job", jobs: jobsOf(2), returned: []string{jobsOf(2)[1]}, wantRefused: []string{jobsOf(2)[1]}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ch := newFakeChannel()
+			if len(tc.returned) > 0 {
+				ch.returns = make(chan amqp091.Return, len(tc.returned))
+				for _, id := range tc.returned {
+					ch.returns <- amqp091.Return{MessageId: id}
+				}
+			}
+			dial, dials := dialScript(t, &fakeConnection{ch: ch})
+			pub := newTestPublisher(dial, 5*time.Second)
+
+			errs := make([]error, len(tc.jobs))
+			var wg sync.WaitGroup
+			for i, id := range tc.jobs {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					errs[i] = pub.Publish(context.Background(), generation.Message{ID: id, Kind: "character"})
+				}()
+			}
+			wg.Wait()
+
+			refused := map[string]bool{}
+			for _, id := range tc.wantRefused {
+				refused[id] = true
+			}
+			for i, id := range tc.jobs {
+				if refused[id] {
+					assert.ErrorIs(t, errs[i], ErrPublishRefused, "job %s", id)
+					continue
+				}
+				assert.NoError(t, errs[i], "job %s", id)
+			}
+			assert.Equal(t, 1, *dials)
+			assert.Len(t, ch.published, len(tc.jobs))
 		})
 	}
 }

@@ -63,6 +63,10 @@ type Config struct {
 }
 
 // Publisher publishes generation jobs and implements generation.Publisher.
+//
+// mu guards only the shared connection and channel. A publish takes them under mu,
+// then publishes and waits for its own confirm without holding it, so concurrent
+// jobs are in flight on the broker together.
 type Publisher struct {
 	url            string
 	confirmTimeout time.Duration
@@ -71,7 +75,45 @@ type Publisher struct {
 	mu      sync.Mutex
 	conn    connection
 	ch      channel
+	returns *unroutable
+}
+
+// unroutable records the ids of the messages the broker returned on one channel.
+// Every publish on the channel shares the return stream, so the returns are
+// drained into one set under a lock and each publish takes its own id from it.
+type unroutable struct {
 	returns chan amqp091.Return
+
+	mu  sync.Mutex
+	ids map[string]struct{}
+}
+
+// newUnroutable starts collecting the returns of a channel delivered on returns.
+func newUnroutable(returns chan amqp091.Return) *unroutable {
+	return &unroutable{returns: returns, ids: map[string]struct{}{}}
+}
+
+// take reports whether the broker returned the message named by messageID, and
+// forgets that id. It drains the returns already delivered, without blocking.
+func (u *unroutable) take(messageID string) bool {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.drainLocked()
+	_, returned := u.ids[messageID]
+	delete(u.ids, messageID)
+	return returned
+}
+
+// drainLocked moves the delivered returns into the set without blocking.
+func (u *unroutable) drainLocked() {
+	for {
+		select {
+		case r := <-u.returns:
+			u.ids[r.MessageId] = struct{}{}
+		default:
+			return
+		}
+	}
 }
 
 // New returns a publisher that connects on first use.
@@ -92,10 +134,7 @@ func (p *Publisher) Publish(ctx context.Context, msg generation.Message) error {
 		return fmt.Errorf("encode generation job: %w", err)
 	}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	ch, err := p.channelLocked()
+	ch, returns, err := p.acquire()
 	if err != nil {
 		return err
 	}
@@ -106,80 +145,87 @@ func (p *Publisher) Publish(ctx context.Context, msg generation.Message) error {
 		Body:         body,
 	})
 	if err != nil {
-		p.resetLocked()
+		p.reset(ch)
 		return fmt.Errorf("publish generation job: %w", err)
 	}
-	return p.awaitConfirmLocked(ctx, pending, msg.ID)
+	return p.awaitConfirm(ctx, ch, returns, pending, msg.ID)
 }
 
-// awaitConfirmLocked waits for the confirm of one publish and checks for a return
-// that names the same job.
-func (p *Publisher) awaitConfirmLocked(ctx context.Context, pending confirmation, messageID string) error {
+// acquire returns the shared channel, dialling and declaring the topology when
+// there is none. It is the only step that holds mu.
+func (p *Publisher) acquire() (channel, *unroutable, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.ch == nil {
+		if err := p.dialLocked(); err != nil {
+			return nil, nil, err
+		}
+	}
+	return p.ch, p.returns, nil
+}
+
+// awaitConfirm waits for the confirm of one publish without holding mu. A return
+// for the job turns an acknowledged publish into a refusal. A confirm that fails
+// drops the channel it was published on, unless another publish already did.
+func (p *Publisher) awaitConfirm(ctx context.Context, ch channel, returns *unroutable, pending confirmation, messageID string) error {
 	confirmCtx, cancel := context.WithTimeout(ctx, p.confirmTimeout)
 	defer cancel()
 
 	acked, err := pending.WaitContext(confirmCtx)
 	if err != nil {
-		p.resetLocked()
+		p.reset(ch)
 		return fmt.Errorf("%w: confirm wait: %v", ErrPublishRefused, err)
 	}
+	returned := returns.take(messageID)
 	if !acked {
 		return fmt.Errorf("%w: nacked", ErrPublishRefused)
 	}
-	if p.returnedLocked(messageID) {
+	if returned {
 		return fmt.Errorf("%w: unroutable", ErrPublishRefused)
 	}
 	return nil
 }
 
-// returnedLocked reports whether the broker returned the message named by id. It
-// drains the returns already delivered, without blocking.
-func (p *Publisher) returnedLocked(messageID string) bool {
-	returned := false
-	for {
-		select {
-		case r := <-p.returns:
-			if r.MessageId == messageID {
-				returned = true
-			}
-		default:
-			return returned
-		}
-	}
-}
-
-// channelLocked returns the open channel, dialling and declaring the topology when
-// there is none.
-func (p *Publisher) channelLocked() (channel, error) {
-	if p.ch != nil {
-		return p.ch, nil
-	}
+// dialLocked opens the connection and channel, declares the topology and enables
+// confirms. The caller holds mu.
+func (p *Publisher) dialLocked() error {
 	conn, err := p.dial(p.url)
 	if err != nil {
-		return nil, fmt.Errorf("dial broker: %w", err)
+		return fmt.Errorf("dial broker: %w", err)
 	}
 	ch, err := conn.Channel()
 	if err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("open channel: %w", err)
+		return fmt.Errorf("open channel: %w", err)
 	}
 	if err := declareTopology(ch); err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
-		return nil, err
+		return err
 	}
 	if err := ch.Confirm(false); err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
-		return nil, fmt.Errorf("enable publisher confirms: %w", err)
+		return fmt.Errorf("enable publisher confirms: %w", err)
 	}
 	p.conn = conn
 	p.ch = ch
-	p.returns = ch.NotifyReturn(make(chan amqp091.Return, 1))
-	return ch, nil
+	p.returns = newUnroutable(ch.NotifyReturn(make(chan amqp091.Return, 1)))
+	return nil
 }
 
-// resetLocked drops the connection after a failure, so the next publish redials.
+// reset drops the channel a failed publish used, so the next publish redials. A
+// channel another publish already replaced is left alone.
+func (p *Publisher) reset(failed channel) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.ch == nil || p.ch != failed {
+		return
+	}
+	p.resetLocked()
+}
+
+// resetLocked closes the connection and channel and forgets them. The caller holds mu.
 func (p *Publisher) resetLocked() {
 	if p.ch != nil {
 		_ = p.ch.Close()
@@ -197,10 +243,10 @@ func (p *Publisher) resetLocked() {
 func (p *Publisher) DeclareTopology() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if _, err := p.channelLocked(); err != nil {
-		return err
+	if p.ch != nil {
+		return nil
 	}
-	return nil
+	return p.dialLocked()
 }
 
 // Close releases the connection. A publisher that never connected closes cleanly.
