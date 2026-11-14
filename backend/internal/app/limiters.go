@@ -13,8 +13,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// limiterErrorKey is the log field carrying a store failure.
-const limiterErrorKey = "error"
+// logErrorKey is the log field carrying a failure reason.
+const logErrorKey = "error"
 
 // limiterFailureLogInterval spaces the store-outage warnings of one limiter.
 const limiterFailureLogInterval = time.Minute
@@ -65,7 +65,7 @@ func storeFailureReporter(log logger.StructuredLogger, namespace string, interva
 		last = at
 		log.Warn(context.Background(), "rate limit store unavailable; falling back to the per-pod limiter",
 			logger.Attribute{Key: "limiter", Value: namespace},
-			logger.Attribute{Key: limiterErrorKey, Value: err.Error()},
+			logger.Attribute{Key: logErrorKey, Value: err.Error()},
 		)
 	}
 }

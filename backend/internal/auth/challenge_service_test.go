@@ -128,6 +128,13 @@ func newChallengeFixtureWithGenerator(t *testing.T, generator auth.CodeGenerator
 
 func newChallengeFixtureWith(t *testing.T, generator auth.CodeGenerator, policy auth.ChallengePolicy) *challengeFixture {
 	t.Helper()
+	return newChallengeFixtureWithVerifier(t, generator, policy, nil)
+}
+
+// newChallengeFixtureWithVerifier is newChallengeFixtureWith with the first
+// verification hook wired. A nil verifier leaves the hook disabled.
+func newChallengeFixtureWithVerifier(t *testing.T, generator auth.CodeGenerator, policy auth.ChallengePolicy, verifier auth.EmailVerifier) *challengeFixture {
+	t.Helper()
 
 	digest, err := auth.NewCodeDigest(strings.Repeat("k", 32))
 	require.NoError(t, err)
@@ -159,12 +166,13 @@ func newChallengeFixtureWith(t *testing.T, generator auth.CodeGenerator, policy 
 		auth.Config{RefreshTTL: testRefreshTTL, Now: f.clock},
 		f.log,
 		auth.ChallengeDeps{
-			Repository: f.repo,
-			Generator:  f.generator,
-			Digest:     f.digest,
-			Mailer:     f.mailer,
-			Observer:   f.codeObs,
-			Policy:     policy,
+			Repository:    f.repo,
+			Generator:     f.generator,
+			Digest:        f.digest,
+			Mailer:        f.mailer,
+			Observer:      f.codeObs,
+			Policy:        policy,
+			EmailVerifier: verifier,
 		}, events.NoOp{},
 	)
 	return f

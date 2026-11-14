@@ -80,6 +80,23 @@ func (s *MongoStore) ReserveTrial(ctx context.Context, userID string) (bool, err
 	return res.MatchedCount == 1, nil
 }
 
+// GrantTrial creates the account's trial row with allowance when none exists.
+// The upsert sets allowance and used only on insert, so an existing row keeps
+// both values. A duplicate-key error from a concurrent grant means the row now
+// exists, which is the state the caller asked for.
+func (s *MongoStore) GrantTrial(ctx context.Context, userID string, allowance int) error {
+	filter := bson.D{{Key: fieldID, Value: userID}}
+	grant := bson.D{{Key: operatorSet, Value: bson.D{
+		{Key: fieldAllowance, Value: allowance},
+		{Key: fieldUsed, Value: 0},
+	}}}
+	_, err := s.trials.UpdateOne(ctx, filter, grant, options.UpdateOne().SetUpsert(true))
+	if err != nil && !mongo.IsDuplicateKeyError(err) {
+		return fmt.Errorf("grant trial: %w", err)
+	}
+	return nil
+}
+
 // RefundTrial decrements used, and only while it is positive, so a refund never
 // makes the counter negative.
 func (s *MongoStore) RefundTrial(ctx context.Context, userID string) error {
