@@ -14,6 +14,7 @@ import (
 // touched by the origin or the rate-limit guard that protect the auth routes.
 // The auth budget is 10 so the exhausted-limiter edge trips in a few requests.
 func TestIntegration_CookieScope(t *testing.T) {
+	// A small auth budget lets the exhausted-limiter edge trip in a few requests.
 	h, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_RATE_LIMIT_ATTEMPTS": "10"})
 	token, _ := newAuthUser(t, h, mdb, "cookie-scope@example.com", "cookie-scope")
 

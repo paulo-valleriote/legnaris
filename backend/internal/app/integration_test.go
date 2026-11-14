@@ -65,12 +65,26 @@ var integrationEnv = map[string]string{
 func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *mongo.Database, *app.Modules) {
 	t.Helper()
 
-	for _, overrides := range []map[string]string{integrationEnv, extra} {
-		for key, value := range overrides {
-			t.Setenv(key, value)
-		}
+	t.Setenv("JWT_SECRET", "integration-test-secret")
+	t.Setenv("AUTH_BCRYPT_COST", "12")
+	t.Setenv("EMAIL_CODE_SECRET", "integration-test-code-secret-0123456789")
+	// The disposable-address check resolves the domain's MX records over the
+	// network, which makes the suite depend on DNS. Suites that need the check
+	// set it back through extra.
+	t.Setenv("AUTH_DISPOSABLE_EMAIL_CHECK", "false")
+	// One suite shares a single in-process limiter across its subtests, so the
+	// production budgets would throttle the journeys themselves. Rate limits have
+	// their own suites, which pass the limit they assert through extra.
+	t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "100000")
+	t.Setenv("AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS", "100000")
+	t.Setenv("AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS", "100000")
+	t.Setenv("USER_RATE_LIMIT_ATTEMPTS", "100000")
+	for key, value := range extra {
+		t.Setenv(key, value)
 	}
 
+	// The modules read DATABASE_NAME, so the isolated name is set before the
+	// environment is built. The fixture drops that database at cleanup.
 	client := dbtest.Client(t)
 	databaseName := dbtest.NewDatabaseName(t)
 	t.Setenv("DATABASE_NAME", databaseName)

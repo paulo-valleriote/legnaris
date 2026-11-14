@@ -3,13 +3,11 @@ package db_test
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"testing"
 	"time"
 
 	"legnaris/backend/shared/db"
-	"legnaris/backend/shared/env"
-	"legnaris/backend/shared/logger"
+	"legnaris/backend/shared/db/dbtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,8 +15,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
-
-const transactionTestDatabase = "legnaris_transaction_test"
 
 var errCallbackFailed = errors.New("callback failed")
 
@@ -30,36 +26,6 @@ func newUnreachableClient(t *testing.T) *mongo.Client {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = client.Disconnect(context.Background()) })
 	return client
-}
-
-// newReplicaSetClient returns a client connected to a replica set member. It
-// skips when MongoDB is unavailable or runs standalone, because transactions
-// need a replica set. T0.4 replaces this guard with the shared fixture.
-func newReplicaSetClient(t *testing.T) *mongo.Client {
-	t.Helper()
-
-	cfg := env.NewEnv(logger.NewLogger(slog.LevelError))
-	database, err := db.InitMongo(cfg)
-	if err != nil {
-		t.Skipf("mongo unavailable — skipping integration test: %v", err)
-	}
-	t.Cleanup(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.Variables.DatabaseCloseTimeout)
-		defer cancel()
-		_ = database.Close(closeCtx)
-	})
-
-	var hello bson.M
-	err = database.Client.Database("admin").
-		RunCommand(context.Background(), bson.D{{Key: "hello", Value: 1}}).
-		Decode(&hello)
-	require.NoError(t, err)
-	if _, ok := hello["setName"]; !ok {
-		t.Skip("mongodb is not a replica set member — skipping transaction integration test")
-	}
-
-	require.NoError(t, database.Client.Database(transactionTestDatabase).Drop(context.Background()))
-	return database.Client
 }
 
 func TestTransactor_WithTransaction(t *testing.T) {
@@ -96,6 +62,42 @@ func TestTransactor_WithTransaction(t *testing.T) {
 		err := tx.WithTransaction(ctx, func(context.Context) error { return nil })
 		assert.ErrorIs(t, err, db.ErrTransactionFailed)
 		assert.Less(t, time.Since(start), time.Second)
+	})
+}
+
+func TestTransactor_Timeout(t *testing.T) {
+	outageClient := func(t *testing.T) *mongo.Client {
+		t.Helper()
+		client, err := mongo.Connect(options.Client().ApplyURI("mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=30000"))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = client.Disconnect(context.Background()) })
+		return client
+	}
+
+	t.Run("Edge: a server outage returns within the transaction timeout", func(t *testing.T) {
+		client := outageClient(t)
+		tx := db.NewTransactor(client, nil).WithTimeout(200 * time.Millisecond)
+
+		start := time.Now()
+		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
+			_, insertErr := client.Database("outage").Collection("entities").InsertOne(ctx, bson.D{{Key: "_id", Value: "e1"}})
+			return insertErr
+		})
+		elapsed := time.Since(start)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, db.ErrTransactionAborted)
+		assert.Less(t, elapsed, 5*time.Second)
+	})
+
+	t.Run("Edge: a nil transactor stays nil when given a timeout", func(t *testing.T) {
+		var tx *db.Transactor
+		assert.Nil(t, tx.WithTimeout(time.Second))
+	})
+
+	t.Run("Edge: a non-positive timeout keeps the default cap", func(t *testing.T) {
+		tx := db.NewTransactor(newUnreachableClient(t), nil).WithTimeout(0)
+		assert.NoError(t, tx.WithTransaction(context.Background(), func(context.Context) error { return nil }))
 	})
 }
 
@@ -143,17 +145,17 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 		ID string `bson:"_id"`
 	}
 
-	countDocs := func(t *testing.T, client *mongo.Client, collection string) int64 {
+	countDocs := func(t *testing.T, mdb *mongo.Database, collection string) int64 {
 		t.Helper()
-		n, err := client.Database(transactionTestDatabase).Collection(collection).CountDocuments(context.Background(), bson.D{})
+		n, err := mdb.Collection(collection).CountDocuments(context.Background(), bson.D{})
 		require.NoError(t, err)
 		return n
 	}
 
 	t.Run("Happy path: both writes commit together", func(t *testing.T) {
-		client := newReplicaSetClient(t)
+		mdb := dbtest.Database(t)
+		client := mdb.Client()
 		tx := db.NewTransactor(client, nil)
-		mdb := client.Database(transactionTestDatabase)
 
 		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
 			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
@@ -163,12 +165,13 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 			return err
 		})
 		require.NoError(t, err)
-		assert.Equal(t, int64(1), countDocs(t, client, "entities"))
-		assert.Equal(t, int64(1), countDocs(t, client, "outbox"))
+		assert.Equal(t, int64(1), countDocs(t, mdb, "entities"))
+		assert.Equal(t, int64(1), countDocs(t, mdb, "outbox"))
 	})
 
 	t.Run("Edge: the callback receives a session-bound context", func(t *testing.T) {
-		client := newReplicaSetClient(t)
+		mdb := dbtest.Database(t)
+		client := mdb.Client()
 		tx := db.NewTransactor(client, nil)
 
 		var bound bool
@@ -181,9 +184,9 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 	})
 
 	t.Run("Error: a callback error rolls back earlier writes and keeps its identity", func(t *testing.T) {
-		client := newReplicaSetClient(t)
+		mdb := dbtest.Database(t)
+		client := mdb.Client()
 		tx := db.NewTransactor(client, nil)
-		mdb := client.Database(transactionTestDatabase)
 
 		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
 			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
@@ -193,11 +196,12 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 		})
 		assert.ErrorIs(t, err, db.ErrTransactionAborted)
 		assert.ErrorIs(t, err, errCallbackFailed)
-		assert.Equal(t, int64(0), countDocs(t, client, "entities"))
+		assert.Equal(t, int64(0), countDocs(t, mdb, "entities"))
 	})
 
 	t.Run("Error: a crash injected after the outbox insert leaves neither write", func(t *testing.T) {
-		client := newReplicaSetClient(t)
+		mdb := dbtest.Database(t)
+		client := mdb.Client()
 		crash := errors.New("injected crash")
 		tx := db.NewTransactor(client, func(_ context.Context, step db.Step) error {
 			if step == db.StepAfterOutboxInsert {
@@ -205,7 +209,6 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 			}
 			return nil
 		})
-		mdb := client.Database(transactionTestDatabase)
 
 		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
 			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
@@ -218,14 +221,14 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 		})
 		assert.ErrorIs(t, err, db.ErrTransactionAborted)
 		assert.ErrorIs(t, err, crash)
-		assert.Equal(t, int64(0), countDocs(t, client, "entities"))
-		assert.Equal(t, int64(0), countDocs(t, client, "outbox"))
+		assert.Equal(t, int64(0), countDocs(t, mdb, "entities"))
+		assert.Equal(t, int64(0), countDocs(t, mdb, "outbox"))
 	})
 
 	t.Run("Edge: a hook that returns nil lets the transaction commit", func(t *testing.T) {
-		client := newReplicaSetClient(t)
+		mdb := dbtest.Database(t)
+		client := mdb.Client()
 		tx := db.NewTransactor(client, func(context.Context, db.Step) error { return nil })
-		mdb := client.Database(transactionTestDatabase)
 
 		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
 			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
@@ -234,6 +237,6 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 			return tx.Step(ctx, db.StepAfterEntityWrite)
 		})
 		require.NoError(t, err)
-		assert.Equal(t, int64(1), countDocs(t, client, "entities"))
+		assert.Equal(t, int64(1), countDocs(t, mdb, "entities"))
 	})
 }
