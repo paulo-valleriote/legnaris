@@ -429,6 +429,7 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - ./prometheus/rules-f1a.yml:/etc/prometheus/rules-f1a.yml:ro
       - prometheus_data:/prometheus
     networks:
       - internal

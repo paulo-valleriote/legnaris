@@ -11,12 +11,20 @@ written from the template at the end.
 
 ## When this runbook applies
 
-The alerts that point here live in the observability stack (track B, LGN-226):
+The alerts that point here are defined in `deploy/prometheus/rules-f1a.yml`
+(LGN-226):
 
-- `legnaris_sweeper_failed_total{queue}` increased: an attempt failed. A single
-  transient failure is normal; a rising rate is not.
-- `legnaris_sweeper_oldest_pending_seconds{queue} > 3600`: the oldest pending
-  item has waited more than 1 hour, so the queue is stalled or starved.
+- `LegnarisSweeperHandlerFailing` (`legnaris_sweeper_failed_total{queue}`
+  increased): an attempt failed. A single transient failure is normal; a rising
+  rate is not.
+- `LegnarisSweeperOldestPendingTooOld` (`legnaris_sweeper_oldest_pending_seconds{queue}`
+  above 3600): the oldest pending item has waited more than 1 hour, so the queue
+  is stalled or starved.
+- `LegnarisEventsUnroutedNotEmpty` (`events.unrouted` depth above zero): see the
+  `event_outbox` entry below for the triage.
+- `LegnarisGenerationCapAt80Percent`: the global daily generation cap is above
+  80%. It is not a dead-item alert; its description covers the staleness after
+  UTC midnight.
 
 Start with the queue named by the alert label `queue`.
 

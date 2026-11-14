@@ -1,0 +1,77 @@
+# Alert rules for the F1a go-live gate (LGN-226, ADR 0013): the sweeper's queues,
+# the unrouted domain events and the global daily generation cap.
+#
+# Each alert links the dead-item procedure in docs/runbook-sweeper-dead-items.md.
+# The facts come from counters the processes already expose; no notification
+# service is part of the stack (the email rules say the same).
+#
+# Series ownership: the sweeper runs in the relay, so its series are read with
+# job="legnaris-relay". The generation cap gauges are set by the API, so they
+# are read with job="legnaris-app". events.unrouted is a broker queue, read from
+# the broker's per-object series on the delivery vhost. The broker's Prometheus
+# plugin is enabled by deploy/rabbitmq/Dockerfile and served on port 15692.
+#
+# The cap alert divides used by limit instead of reading
+# legnaris_generation_cap_used_ratio: the ratio gauge is refreshed only when a
+# reservation is attempted, so it can be stale. used and limit are set together
+# on the same observation, and the division is recomputed on every scrape. Both
+# gauges also keep the last observed value after UTC midnight until the first
+# reservation of the new day, so the cap alert can stay firing for a short while
+# after the day rolls over.
+groups:
+  # The tunable limits, as constant vectors an operator edits in one place.
+  - name: legnaris-f1a-thresholds
+    rules:
+      - record: legnaris:f1a:threshold_oldest_pending_seconds
+        expr: vector(3600)
+      - record: legnaris:f1a:threshold_generation_cap_ratio
+        expr: vector(0.8)
+
+  - name: legnaris-f1a-alerts
+    rules:
+      - alert: LegnarisSweeperOldestPendingTooOld
+        expr: |
+          max by (queue) (legnaris_sweeper_oldest_pending_seconds{job="legnaris-relay"})
+          > on() group_left() legnaris:f1a:threshold_oldest_pending_seconds
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: A sweeper queue has an item pending for over an hour
+          description: "The oldest pending item of queue {{ $labels.queue }} has waited {{ $value }} seconds. The queue is stalled or starved; see the dead-item runbook."
+          runbook: docs/runbook-sweeper-dead-items.md
+
+      - alert: LegnarisSweeperHandlerFailing
+        expr: sum by (queue) (increase(legnaris_sweeper_failed_total{job="legnaris-relay"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: medium
+        annotations:
+          summary: A sweeper handler attempt failed
+          description: "Queue {{ $labels.queue }} recorded a failed attempt in the last five minutes. One transient failure is normal; a rising rate means the dependency is down or the item is poisoned."
+          runbook: docs/runbook-sweeper-dead-items.md
+
+      - alert: LegnarisEventsUnroutedNotEmpty
+        expr: max(rabbitmq_queue_messages_ready{job="legnaris-rabbitmq", vhost="legnaris", queue="events.unrouted"}) > 0
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: Domain events reached no consumer
+          description: "events.unrouted holds {{ $value }} event(s) that no bound queue received. Check the bindings of legnaris.events; the dead-item runbook covers requeueing."
+          runbook: docs/runbook-sweeper-dead-items.md
+
+      - alert: LegnarisGenerationCapAt80Percent
+        expr: |
+          (
+            legnaris_generation_cap_used{job="legnaris-app"}
+            / legnaris_generation_cap_limit{job="legnaris-app"}
+          ) > on() group_left() legnaris:f1a:threshold_generation_cap_ratio
+          and legnaris_generation_cap_limit{job="legnaris-app"} > 0
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: The global daily generation cap is above 80 percent
+          description: "The daily generation jobs are at or above 80 percent of the global cap. The value is set on each reservation attempt and can be stale after UTC midnight until the first generation of the day; confirm with the cap gauges before acting. Raise GENERATION_DAILY_CAP only after checking spend."
+          runbook: docs/runbook-sweeper-dead-items.md

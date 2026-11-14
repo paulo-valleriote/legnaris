@@ -5,6 +5,8 @@ global:
 # The delivery pipeline's alert rules and their tunable thresholds (OBS-19).
 rule_files:
   - /etc/prometheus/rules.yml
+  # The F1a gate's sweeper, unrouted-event and generation-cap alerts (LGN-226).
+  - /etc/prometheus/rules-f1a.yml
 
 scrape_configs:
   - job_name: legnaris-app
