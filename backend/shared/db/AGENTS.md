@@ -15,6 +15,9 @@
   (`.env.example`, `scripts/dev.sh`, `deploy/docker-compose*.yml`).
 - `InitMongo` rejects a URI without `replicaSet` with `ErrMissingReplicaSet`
   (wraps `ErrInvalidConfig`), so a standalone URI fails at startup.
+- `InitMongo` also rejects a URI without username and password
+  (`ErrMissingCredentials`, wraps `ErrInvalidConfig`) and a malformed URI. Errors
+  never echo the URI, so credentials cannot leak into logs.
 - `newClientOptions` forces `retryWrites` on after the URI is applied, so a URI
   cannot turn it off.
 
@@ -51,8 +54,9 @@
 
 ## dbtest
 
-- `dbtest.Client(t)` connects through `DATABASE_URI` and skips the test when
-  MongoDB is unreachable or runs standalone. `dbtest.Database(t)` adds an isolated
+- `dbtest.Client(t)` connects through `DATABASE_URI` and skips the test only
+  when `DATABASE_URI` is unset; when it is set, an unreachable or standalone
+  MongoDB fails the test. `dbtest.Database(t)` adds an isolated
   database with a unique name, dropped at cleanup before the client disconnects.
 - `dbtest.Adopt` registers cleanup for a database whose name must be known before
   the environment is built (`DATABASE_NAME` for the application modules).
