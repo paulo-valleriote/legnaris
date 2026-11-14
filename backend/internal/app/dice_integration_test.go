@@ -221,11 +221,7 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				rec := doAuthRequest(t, h, token, http.MethodPatch, path, bodies[i%2])
-				// A lost compare-and-swap answers 409 and the client resends (ADR 0006).
-				for attempt := 0; rec.Code == http.StatusConflict && attempt < 100; attempt++ {
-					rec = doAuthRequest(t, h, token, http.MethodPatch, path, bodies[i%2])
-				}
+				rec := patchUntilApplied(t, h, token, path, bodies[i%2])
 				assert.Equal(t, http.StatusOK, rec.Code)
 			}()
 		}

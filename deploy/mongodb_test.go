@@ -467,7 +467,7 @@ func TestDevEntrypointsUseTheKeyfileAndCredentials(t *testing.T) {
 			want: []string{
 				"--replSet rs0 --keyFile /etc/mongo-keyfile/keyfile",
 				"sh /provision/bootstrap.sh /provision/init/00-replset.js",
-				`DATABASE_URI="mongodb://$MONGO_ROOT_USER:$MONGO_ROOT_PASSWORD@localhost:$MONGO_PORT/"`,
+				`DATABASE_URI="mongodb://$MONGO_ROOT_USER:$MONGO_ROOT_PASSWORD@localhost:$MONGO_PORT/?replicaSet=rs0&retryWrites=true&authSource=admin"`,
 			},
 		},
 		{
@@ -486,7 +486,7 @@ func TestDevEntrypointsUseTheKeyfileAndCredentials(t *testing.T) {
 		{
 			name: "Edge: the example DATABASE_URI carries credentials, so make dev-db and the app agree",
 			file: "../.env.example",
-			want: []string{"DATABASE_URI=mongodb://root:legnaris-dev-only@localhost:27017/"},
+			want: []string{"DATABASE_URI=mongodb://root:legnaris-dev-only@localhost:27017/?replicaSet=rs0&retryWrites=true&authSource=admin"},
 		},
 	}
 
@@ -498,6 +498,88 @@ func TestDevEntrypointsUseTheKeyfileAndCredentials(t *testing.T) {
 			}
 		})
 	}
+}
+
+// replicaSetURIPattern matches a MongoDB URI whose query names the replica set, enables
+// retryable writes and states the database that authenticates the user. The pattern
+// anchors at the end, so the options must be last in the URI.
+var replicaSetURIPattern = `\?replicaSet=rs0&retryWrites=true&authSource=(admin|legnaris)$`
+
+// composeMongoURIs returns every MongoDB URI a Compose file hands to a service: the
+// DATABASE_URI and ME_CONFIG_MONGODB_URL environment entries and the --mongodb.uri flag.
+func composeMongoURIs(doc composeDoc) map[string]string {
+	uris := make(map[string]string)
+	for name, svc := range doc.Services {
+		for key, value := range svc.Environment {
+			if key == "DATABASE_URI" || key == "ME_CONFIG_MONGODB_URL" {
+				uris[name+"."+key] = value
+			}
+		}
+		for _, arg := range svc.Command {
+			if uri, ok := strings.CutPrefix(arg, "--mongodb.uri="); ok {
+				uris[name+".--mongodb.uri"] = uri
+			}
+		}
+	}
+	return uris
+}
+
+// TestShippedMongoURIsNameTheReplicaSetAndRetryableWrites guards ADR 0013 at the
+// connection string: a URI without replicaSet=rs0 makes the driver run as a standalone
+// client, and one without retryWrites loses the driver's single retry on a failover.
+func TestShippedMongoURIsNameTheReplicaSetAndRetryableWrites(t *testing.T) {
+	t.Run("Happy path: every Compose URI names rs0, enables retryWrites and sets authSource", func(t *testing.T) {
+		for _, stack := range mongoStacks {
+			doc, _ := readComposeAt(t, stack.file)
+			uris := composeMongoURIs(doc)
+			require.NotEmptyf(t, uris, "%s must hand a MongoDB URI to at least one service", stack.file)
+			for key, uri := range uris {
+				assert.Regexpf(t, replicaSetURIPattern, uri, "%s %s must end with replicaSet=rs0, retryWrites and authSource", stack.file, key)
+			}
+		}
+	})
+
+	t.Run("Happy path: the production stack hands the URI to the app, relay, exporter and Mongo Express", func(t *testing.T) {
+		doc, _ := readComposeAt(t, "docker-compose.yml")
+		uris := composeMongoURIs(doc)
+		for _, key := range []string{"app.DATABASE_URI", "relay.DATABASE_URI", "mongodb-exporter.--mongodb.uri", "mongo-express.ME_CONFIG_MONGODB_URL"} {
+			assert.Contains(t, uris, key)
+		}
+	})
+
+	flat := []struct {
+		name string
+		file string
+		want string
+	}{
+		{
+			name: "Happy path: .env.example names rs0 for the local root URI",
+			file: "../.env.example",
+			want: "DATABASE_URI=mongodb://root:legnaris-dev-only@localhost:27017/?replicaSet=rs0&retryWrites=true&authSource=admin",
+		},
+		{
+			name: "Happy path: dev.sh exports a URI that names rs0",
+			file: "../scripts/dev.sh",
+			want: `export DATABASE_URI="mongodb://$MONGO_ROOT_USER:$MONGO_ROOT_PASSWORD@localhost:$MONGO_PORT/?replicaSet=rs0&retryWrites=true&authSource=admin"`,
+		},
+		{
+			name: "Edge: make dev-db tells the developer the URI shape with rs0 and retryWrites",
+			file: "../Makefile",
+			want: "e.g. mongodb://root:legnaris-dev-only@localhost:27017/?replicaSet=rs0&retryWrites=true&authSource=admin",
+		},
+	}
+	for _, tc := range flat {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Contains(t, readFile(t, tc.file), tc.want)
+		})
+	}
+
+	t.Run("Error: the runbook no longer reports the replica-set URI as a gap", func(t *testing.T) {
+		runbook := readFile(t, "../docs/runbook-mongo-replica-set-rollout.md")
+		assert.NotContains(t, runbook, "was not in the branch")
+		assert.NotContains(t, runbook, "carry no `replicaSet` option")
+		assert.Contains(t, runbook, "replicaSet=rs0&retryWrites=true")
+	})
 }
 
 // TestKeyfileScriptProvisionsOnce runs the real provisioning script. The owner is

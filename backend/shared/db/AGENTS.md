@@ -13,11 +13,6 @@
 - `DATABASE_URI` must name the replica set and enable retryable writes:
   `?replicaSet=rs0&retryWrites=true&authSource=<db>`. Every shipped URI does
   (`.env.example`, `scripts/dev.sh`, `deploy/docker-compose*.yml`).
-- `InitMongo` rejects a URI without `replicaSet` with `ErrMissingReplicaSet`
-  (wraps `ErrInvalidConfig`), so a standalone URI fails at startup.
-- `InitMongo` also rejects a URI without username and password
-  (`ErrMissingCredentials`, wraps `ErrInvalidConfig`) and a malformed URI. Errors
-  never echo the URI, so credentials cannot leak into logs.
 - `newClientOptions` forces `retryWrites` on after the URI is applied, so a URI
   cannot turn it off.
 
@@ -41,8 +36,8 @@
   matchable with `errors.Is`), `ErrTransactionFailed` (the transaction could not
   start or commit).
 - `TransactionOptions()` is the only transaction option set: `w:majority` and
-  the primary. Reads outside a transaction that decide authorization or a
-  compensation must request `readpref.Primary()` themselves.
+  the primary. `PrimaryReadPreference()` is for reads outside a transaction that
+  decide authorization or a compensation.
 
 ## Step hook
 
@@ -54,9 +49,8 @@
 
 ## dbtest
 
-- `dbtest.Client(t)` connects through `DATABASE_URI` and skips the test only
-  when `DATABASE_URI` is unset; when it is set, an unreachable or standalone
-  MongoDB fails the test. `dbtest.Database(t)` adds an isolated
+- `dbtest.Client(t)` connects through `DATABASE_URI` and skips the test when
+  MongoDB is unreachable or runs standalone. `dbtest.Database(t)` adds an isolated
   database with a unique name, dropped at cleanup before the client disconnects.
 - `dbtest.Adopt` registers cleanup for a database whose name must be known before
   the environment is built (`DATABASE_NAME` for the application modules).
