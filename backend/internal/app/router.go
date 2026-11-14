@@ -54,6 +54,9 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	sheetsGroup := router.Group("/sheets", requireAuth, limitUser)
 	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
+	meGroup := router.Group("/me", requireAuth, limitUser)
+	modules.Plan.Controller.RegisterRoutes(meGroup)
+
 	return router
 }
 
@@ -105,6 +108,7 @@ func HTTPErrorHandler(c *echo.Context, err error) {
 		Error: response.ErrorBody{
 			Code:    string(appErr.Code),
 			Message: appErr.Message,
+			Details: appErr.Details,
 		},
 	})
 }

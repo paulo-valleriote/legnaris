@@ -1,6 +1,17 @@
 package template
 
-import "time"
+import (
+	"slices"
+	"time"
+
+	"legnaris/backend/internal/plan"
+)
+
+// AcceptsKind reports whether the Template declares kind, the check a Sheet
+// creation runs before any write.
+func (t *Template) AcceptsKind(kind plan.SheetKind) bool {
+	return kind != "" && slices.Contains(t.Kinds, kind)
+}
 
 type FieldGroup map[string]FieldNode
 
@@ -48,8 +59,11 @@ type Template struct {
 	// at boot.
 	SectionDice map[string]string `bson:"section_dice,omitempty"`
 	RowDice     map[string]string `bson:"row_dice,omitempty"`
-	CreatedAt   time.Time         `bson:"created_at,omitempty"`
-	UpdatedAt   time.Time         `bson:"updated_at,omitempty"`
+	// Kinds lists the Sheet kinds this Template can create. A Template that
+	// declares none accepts no kind, so a new Template must opt in explicitly.
+	Kinds     []plan.SheetKind `bson:"kinds,omitempty"`
+	CreatedAt time.Time        `bson:"created_at,omitempty"`
+	UpdatedAt time.Time        `bson:"updated_at,omitempty"`
 }
 
 type FieldSchema struct {

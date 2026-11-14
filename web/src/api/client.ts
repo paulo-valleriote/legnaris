@@ -10,6 +10,8 @@ import type { DiceBlock } from './models/dice';
 import { diceBlockToWire } from './models/dice';
 import type { Layout } from './models/layout';
 import { layoutToWire, parseLayoutResponse } from './models/layout';
+import type { PlanUsage, SheetKind } from './models/plan';
+import { parsePlanUsage } from './models/plan';
 import type { Sheet } from './models/sheet';
 import { parseSheet } from './models/sheet';
 import type { TemplateDetail, TemplateSummary } from './models/template';
@@ -28,6 +30,8 @@ export interface HealthPayload {
 /** The sheet-creation input (API-05). */
 export interface CreateSheetInput {
   readonly templateId: string;
+  /** The Sheet kind; the plan's allowance is counted per kind (LGN-183). */
+  readonly kind: SheetKind;
   readonly sheetName: string;
 }
 
@@ -40,6 +44,8 @@ export interface ApiClient {
   listTemplates(): Promise<TemplateSummary[]>;
   getTemplate(id: string): Promise<TemplateDetail>;
   createSheet(input: CreateSheetInput): Promise<Sheet>;
+  /** Reads the caller's plan and the Sheets held per kind against its allowance (LGN-183). */
+  getMyPlan(): Promise<PlanUsage>;
   getSheet(id: string): Promise<Sheet>;
   /** Reads the signed-in caller's single owner-scoped sheet (WAS-25). */
   getMySheet(): Promise<Sheet>;
@@ -108,9 +114,14 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       caller.call(
         'POST',
         '/sheets',
-        JSON.stringify({ template_id: input.templateId, sheet_name: input.sheetName }),
+        JSON.stringify({
+          template_id: input.templateId,
+          kind: input.kind,
+          sheet_name: input.sheetName,
+        }),
         parseSheet,
       ),
+    getMyPlan: () => caller.call('GET', '/me/plan', undefined, parsePlanUsage),
     getSheet: (id) =>
       caller.call('GET', `/sheets/${encodeURIComponent(id)}`, undefined, parseSheet),
     getMySheet: () => caller.call('GET', '/sheets', undefined, parseSheet),

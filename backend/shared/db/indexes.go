@@ -19,7 +19,8 @@ const (
 	refreshTokensHashUniqueIndex   = "refresh_tokens_token_hash_unique"
 	refreshTokensFamilyIndex       = "refresh_tokens_family_id"
 	refreshTokensExpiresAtTTLIndex = "refresh_tokens_expires_at_ttl"
-	sheetsOwnerIDUniqueIndex       = "sheets_owner_id_unique"
+	sheetsOwnerKindIndex           = "sheets_owner_id_kind"
+	sheetCountsUniqueIndex         = "sheet_counts_owner_id_kind_unique"
 	emailOutboxStatusNextAttempt   = "email_outbox_status_next_attempt"
 	emailOutboxCreatedAt           = "email_outbox_created_at"
 	emailOutboxPublishedAtTTL      = "email_outbox_published_at_ttl"
@@ -33,9 +34,8 @@ const (
 // runs at boot, before the server accepts traffic, and is safe to call
 // repeatedly: MongoDB treats an identical createIndex as a no-op. The TTL index
 // has expireAfterSeconds=0, so documents are removed as soon as expires_at
-// passes. The unique index on sheets.owner_id is the durable
-// one-sheet-per-user invariant: it rejects a second sheet for an owner even
-// under concurrent creates that both pass the service's pre-check.
+// passes. The unique index on sheet_counts (owner_id, kind) keeps one counter per
+// owner and kind, which the Sheet limit reads inside its transaction.
 func EnsureIndexes(ctx context.Context, database *mongo.Database) error {
 	return EnsureIndexesWithRetention(ctx, database, env.DefaultEmailOutboxRetention)
 }
@@ -77,12 +77,25 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 		return fmt.Errorf("create refresh_tokens indexes: %w", err)
 	}
 
+	// The per-kind limit is enforced by sheet_counts, so sheets only needs a
+	// lookup index. The unique owner index it replaces is dropped by the kind
+	// migration (LGN-183).
 	sheets := database.Collection("sheets")
 	if _, err := sheets.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "owner_id", Value: 1}},
-		Options: options.Index().SetUnique(true).SetName(sheetsOwnerIDUniqueIndex),
+		Keys:    bson.D{{Key: "owner_id", Value: 1}, {Key: "kind", Value: 1}},
+		Options: options.Index().SetName(sheetsOwnerKindIndex),
 	}); err != nil {
-		return fmt.Errorf("create sheets.owner_id index: %w", err)
+		return fmt.Errorf("create sheets.owner_id_kind index: %w", err)
+	}
+
+	// One counter per owner and kind. Its uniqueness is what keeps the upsert in
+	// the reservation from creating a second row.
+	counters := database.Collection("sheet_counts")
+	if _, err := counters.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "owner_id", Value: 1}, {Key: "kind", Value: 1}},
+		Options: options.Index().SetUnique(true).SetName(sheetCountsUniqueIndex),
+	}); err != nil {
+		return fmt.Errorf("create sheet_counts index: %w", err)
 	}
 
 	// The outbox queue index backs the claim query (status + eligibility); the

@@ -30,6 +30,11 @@ type SheetModule struct {
 	Service    sheet.Service
 }
 
+// PlanModule serves GET /me/plan: the owner's plan and per-kind Sheet usage.
+type PlanModule struct {
+	Controller *PlanController
+}
+
 type AuthModule struct {
 	Controller   *AuthController
 	Service      auth.Service
@@ -44,6 +49,7 @@ type AuthModule struct {
 type Modules struct {
 	Template TemplateModule
 	Sheet    SheetModule
+	Plan     PlanModule
 	Auth     AuthModule
 	// ClientIP is the boot-time address resolver installed as the router's
 	// IPExtractor, so every c.RealIP() consumer reads the same resolution
@@ -108,11 +114,17 @@ func NewModules(
 	templateService := template.NewService(registry)
 	templateController := NewTemplateController(templateService)
 
-	sheetRepository := sheet.NewRepository(mdb, log)
-	sheetService := sheet.NewService(sheetRepository, templateService, registry, log)
-	sheetController := NewSheetController(sheetService)
-
 	userRepository := user.NewRepository(mdb, log)
+
+	// Sheet limits read the owner's plan from the user store and reserve their
+	// slot inside a transaction with the Sheet write (LGN-183, ADR 0013).
+	sheetRepository := sheet.NewRepository(mdb, log)
+	sheetService := sheet.NewService(sheetRepository, templateService, registry, log,
+		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
+	)
+	sheetController := NewSheetController(sheetService)
+	planController := NewPlanController(sheetService)
+
 	refreshTokenRepository := auth.NewRefreshTokenRepository(mdb)
 
 	hasher, err := auth.NewPasswordHasher(cfg.Variables.AuthBcryptCost)
@@ -196,6 +208,9 @@ func NewModules(
 		Sheet: SheetModule{
 			Controller: sheetController,
 			Service:    sheetService,
+		},
+		Plan: PlanModule{
+			Controller: planController,
 		},
 		Auth: AuthModule{
 			Controller:   authController,

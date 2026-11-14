@@ -24,7 +24,7 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 	token, _ := newAuthUser(t, h, mdb, "dice-owner@example.com", "dice-owner")
 	otherToken, _ := newAuthUser(t, h, mdb, "dice-other@example.com", "dice-other")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Dice"}`)
+	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Dice"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code, createRec.Body.String())
 	var created response.Success[sheet.SheetDTO]
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))

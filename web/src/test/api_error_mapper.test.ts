@@ -26,14 +26,10 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['EMAIL_UNAVAILABLE', 'emailUnavailable'],
   ['CONFLICT', 'conflict'],
   ['DISPOSABLE_EMAIL', 'disposableEmail'],
+  ['SHEET_LIMIT_REACHED', 'sheetLimitReached'],
 ];
 
-const fallback = [
-  'CYCLE_DETECTED',
-  'INVALID_DEPENDENCY',
-  'INVALID_PATH',
-  'SHEET_LIMIT_REACHED',
-] as const;
+const fallback = ['CYCLE_DETECTED', 'INVALID_DEPENDENCY', 'INVALID_PATH'] as const;
 
 const keyByKind: Record<FailureKind, MessageKey> = {
   clientFault: 'api.error.clientFault',
@@ -50,6 +46,7 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   emailUnavailable: 'api.error.emailUnavailable',
   conflict: 'api.error.conflict',
   disposableEmail: 'api.error.disposableEmail',
+  sheetLimitReached: 'api.error.sheetLimitReached',
 };
 
 describe('backend code to failure kind', () => {
@@ -80,13 +77,13 @@ describe('classifying a domain failure', () => {
       new DomainFailure({
         kind: 'unknown',
         status: 409,
-        code: 'SHEET_LIMIT_REACHED',
+        code: 'CYCLE_DETECTED',
         message: 'already exists',
       }),
     );
 
     expect(classified.kind).toBe('unknown');
-    expect(classified.code).toBe('SHEET_LIMIT_REACHED');
+    expect(classified.code).toBe('CYCLE_DETECTED');
     expect(classified.message).toBe('already exists');
   });
 

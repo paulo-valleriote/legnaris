@@ -25,7 +25,7 @@ func TestIntegration_Sheets_ConcurrentCreateRace(t *testing.T) {
 	token, userID := newAuthUser(t, h, mdb, "race@example.com", "race")
 
 	const attempts = 2
-	body := `{"template_id":"fantasy_v1","sheet_name":"Race"}`
+	body := `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Race"}`
 	recorders := make([]*httptest.ResponseRecorder, attempts)
 
 	var wg sync.WaitGroup

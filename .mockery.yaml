@@ -16,6 +16,8 @@ packages:
     interfaces:
       Repository: {}
       Service: {}
+      PlanSource: {}
+      TransactionRunner: {}
   legnaris/backend/internal/sheet/template:
     config:
       dir: backend/internal/sheet/template/mocks

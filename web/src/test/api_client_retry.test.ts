@@ -77,7 +77,7 @@ describe('bounded attempts', () => {
     const recorder = recordingSleep();
 
     const failure = await clientWith(fake.transport, recorder.sleep)
-      .createSheet({ templateId: 'fantasy_v1', sheetName: 'Aragorn' })
+      .createSheet({ templateId: 'fantasy_v1', kind: 'character', sheetName: 'Aragorn' })
       .catch((error: unknown) => error);
 
     expect(failure).toMatchObject({ kind: 'offline' });

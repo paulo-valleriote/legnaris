@@ -212,6 +212,7 @@ describe('pinned contract captures', () => {
     const fake = createFakeTransport(respond(sheetCreate));
     const decoded = await createApiClient({ baseUrl, transport: fake.transport }).createSheet({
       templateId: 'fantasy_v1',
+      kind: 'character',
       sheetName: 'Capture Hero',
     });
 
@@ -221,7 +222,11 @@ describe('pinned contract captures', () => {
     expect(decoded.data['modifiers']).toBeDefined();
 
     expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual(requestBodyOf(sheetCreateRequest));
-    expect(Object.keys(requestBodyOf(sheetCreateRequest))).toEqual(['template_id', 'sheet_name']);
+    expect(Object.keys(requestBodyOf(sheetCreateRequest))).toEqual([
+      'template_id',
+      'kind',
+      'sheet_name',
+    ]);
   });
 
   it('Happy path: the retrieval capture decodes the stored sheet at the captured path (API-34, API-35)', async () => {

@@ -15,8 +15,12 @@ import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import { failureCopy } from '../api/error_mapper';
 import type { TemplateDetail } from '../api/models/template';
 import { useApiClient } from '../app/providers';
-import { message } from '../l10n/strings';
-import { seedCreatedSheet, useTemplateDetail } from './queries';
+import { isSheetLimitReached } from '../api/models/plan';
+import { message, messageWith } from '../l10n/strings';
+import { PLAN_QUERY_KEY, seedCreatedSheet, usePlanUsage, useTemplateDetail } from './queries';
+
+/** The Sheet kind this surface creates; the plan's allowance is read for it (LGN-183). */
+const CREATED_KIND = 'character';
 
 /** The single situation the surface's detail area renders (WCT-12 … WCT-18). */
 type DetailRenderPhase =
@@ -86,6 +90,14 @@ function DetailBody({ phase, templateId, onRetry }: DetailBodyProps) {
   }
 }
 
+/** The tooltip explaining why the primary action is disabled. */
+function disabledReason(hasName: boolean, limitReached: boolean): string {
+  if (limitReached) {
+    return message('sheet.limitReached');
+  }
+  return hasName ? '' : message('sheet.nameRequired');
+}
+
 export interface CreateSheetDialogProps {
   readonly templateId: string;
   readonly onClose: () => void;
@@ -93,6 +105,7 @@ export interface CreateSheetDialogProps {
 
 export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProps) {
   const query = useTemplateDetail(templateId);
+  const plan = usePlanUsage();
   const client = useApiClient();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -102,7 +115,10 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   const inputRef = useRef<HTMLInputElement>(null);
   const phase = resolveDetailPhase(query);
   const trimmedName = sheetName.trim();
-  const canSubmit = trimmedName !== '';
+  const hasName = trimmedName !== '';
+  const limitReached = isSheetLimitReached(plan.data, CREATED_KIND);
+  const characterUsage = plan.data?.sheets[CREATED_KIND];
+  const canSubmit = hasName && !limitReached;
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -125,14 +141,16 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
     setIsSubmitting(true);
     setSubmitError(undefined);
     void client
-      .createSheet({ templateId, sheetName: trimmedName })
+      .createSheet({ templateId, kind: CREATED_KIND, sheetName: trimmedName })
       .then((sheet) => {
         seedCreatedSheet(queryClient, sheet);
+        void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
         navigate(`/sheets/${encodeURIComponent(sheet.id)}`);
       })
       .catch((error: unknown) => {
         setSubmitError(describeFailure(error));
         setIsSubmitting(false);
+        void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
       });
   }, [canSubmit, isSubmitting, client, templateId, trimmedName, queryClient, navigate]);
 
@@ -177,12 +195,25 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
             type="text"
             value={sheetName}
             placeholder={message('sheet.namePlaceholder')}
-            aria-describedby={canSubmit ? undefined : 'sheet-name-required'}
+            aria-describedby={hasName ? undefined : 'sheet-name-required'}
             onChange={(event) => setSheetName(event.target.value)}
           />
-          {!canSubmit && (
+          {!hasName && (
             <p className="lg-dialog__note" id="sheet-name-required">
               {message('sheet.nameRequired')}
+            </p>
+          )}
+          {characterUsage !== undefined && (
+            <p className="lg-dialog__note" data-testid="sheet-usage">
+              {messageWith('sheet.usage', {
+                used: characterUsage.used,
+                limit: characterUsage.limit,
+              })}
+            </p>
+          )}
+          {limitReached && (
+            <p className="lg-dialog__note" role="status" data-testid="sheet-limit-reached">
+              {message('sheet.limitReached')}
             </p>
           )}
         </div>
@@ -197,7 +228,7 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
             className="lg-button lg-button--primary"
             disabled={!canSubmit || isSubmitting}
             aria-busy={isSubmitting}
-            title={canSubmit ? undefined : message('sheet.nameRequired')}
+            title={canSubmit ? undefined : disabledReason(hasName, limitReached)}
             onClick={handleCreate}
           >
             {isSubmitting ? message('sheet.creating') : message('sheet.create')}

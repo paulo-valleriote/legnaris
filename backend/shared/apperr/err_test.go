@@ -63,3 +63,26 @@ func TestWithRetryAfter(t *testing.T) {
 	assert.Equal(t, 503, hinted.HttpStatus())
 	assert.Equal(t, CodeEmailUnavailable, hinted.Code)
 }
+
+// TestWithDetails covers the client-facing context: a fresh error has none, a
+// nil map clears them and the setter returns the same error.
+func TestWithDetails(t *testing.T) {
+	tests := []struct {
+		name    string
+		details map[string]any
+		want    map[string]any
+	}{
+		{name: "Happy path: details are attached", details: map[string]any{"kind": "npc", "limit": 2}, want: map[string]any{"kind": "npc", "limit": 2}},
+		{name: "Edge: nil map leaves no details", details: nil, want: nil},
+		{name: "Edge: empty map is kept as given", details: map[string]any{}, want: map[string]any{}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			appErr := NewError(CodeSheetLimitReached, "limit", nil)
+			assert.Nil(t, appErr.Details, "a fresh error carries no details")
+			got := appErr.WithDetails(tc.details)
+			assert.Same(t, appErr, got, "the setter returns the same error")
+			assert.Equal(t, tc.want, got.Details)
+		})
+	}
+}

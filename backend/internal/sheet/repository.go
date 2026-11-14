@@ -8,6 +8,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/shared/logger"
 )
 
@@ -18,12 +20,41 @@ type Repository interface {
 	PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error)
 	UpdateLayout(ctx context.Context, id string, layout *Layout) error
 	DeleteByID(ctx context.Context, id string) error
+	// ReserveSlot increments the owner's counter for kind while it is below
+	// limit, and returns ErrSheetLimitReached otherwise. It must run inside the
+	// transaction that inserts the Sheet.
+	ReserveSlot(ctx context.Context, ownerID string, kind plan.SheetKind, limit int) error
+	// ReleaseSlot decrements the owner's counter for kind, never below zero. It
+	// must run inside the transaction that deletes the Sheet.
+	ReleaseSlot(ctx context.Context, ownerID string, kind plan.SheetKind) error
+	// CountOf reads the owner's counter for kind from the primary. A missing
+	// counter reads as zero.
+	CountOf(ctx context.Context, ownerID string, kind plan.SheetKind) (int, error)
 }
 
 type RepositoryImpl struct {
 	collection *mongo.Collection
+	counts     *mongo.Collection
 	logger     logger.StructuredLogger
 }
+
+// countsCollection holds one counter per owner and kind. The limit is enforced
+// by a conditional $inc on this collection inside the Sheet transaction.
+const countsCollection = "sheet_counts"
+
+// countField is the Mongo field holding a counter value.
+const countField = "count"
+
+// ownerIDField and kindField are the Mongo fields that identify a counter, and
+// incOperator is the Mongo operator that moves it.
+const (
+	ownerIDField = "owner_id"
+	kindField    = "kind"
+	incOperator  = "$inc"
+)
+
+// detailKindKey is the apperr details key that names the refused Sheet kind.
+const detailKindKey = "kind"
 
 // idField is the Mongo primary-key field name, shared by the by-id filters so
 // the literal stays in one place.
@@ -45,11 +76,6 @@ const versionField = "version"
 // Services translate it to apperr.CodeNotFound at the layer boundary.
 var ErrSheetNotFound = errors.New("sheet not found")
 
-// ErrSheetOwnerExists reports a create that collided with the unique
-// sheets.owner_id index, meaning the owner already has a sheet. It is the
-// race-safe signal services translate to a sheet-limit conflict.
-var ErrSheetOwnerExists = errors.New("sheet owner already has a sheet")
-
 // ErrVersionConflict reports a compare-and-swap write whose expected version no
 // longer matches the stored sheet, or whose sheet was deleted in between. The
 // service re-reads the sheet and retries on it.
@@ -58,7 +84,64 @@ var ErrVersionConflict = errors.New("sheet version conflict")
 func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 	return &RepositoryImpl{
 		collection: db.Collection("sheets"),
+		counts:     db.Collection(countsCollection, options.Collection().SetReadPreference(readpref.Primary())),
 		logger:     log,
+	}
+}
+
+// ReserveSlot opens the counter for owner and kind, then increments it only while
+// it is below limit. The two statements are separate because an upsert whose
+// filter carries the limit would collide with the unique index once the counter
+// is full, which inside a transaction aborts it instead of refusing the write.
+func (r *RepositoryImpl) ReserveSlot(ctx context.Context, ownerID string, kind plan.SheetKind, limit int) error {
+	key := countKey(ownerID, kind)
+	open := bson.D{{Key: "$setOnInsert", Value: bson.D{{Key: countField, Value: 0}}}}
+	if _, err := r.counts.UpdateOne(ctx, key, open, options.UpdateOne().SetUpsert(true)); err != nil {
+		return fmt.Errorf("error opening sheet counter: %w", err)
+	}
+
+	below := append(key, bson.E{Key: countField, Value: bson.D{{Key: "$lt", Value: limit}}})
+	result, err := r.counts.UpdateOne(ctx, below, bson.D{{Key: incOperator, Value: bson.D{{Key: countField, Value: 1}}}})
+	if err != nil {
+		return fmt.Errorf("error reserving sheet slot: %w", err)
+	}
+	if result.MatchedCount == 0 {
+		return ErrSheetLimitReached
+	}
+	return nil
+}
+
+// ReleaseSlot decrements the counter, and the $gt filter stops it going negative
+// when a counter was never built for an old Sheet.
+func (r *RepositoryImpl) ReleaseSlot(ctx context.Context, ownerID string, kind plan.SheetKind) error {
+	positive := append(countKey(ownerID, kind), bson.E{Key: countField, Value: bson.D{{Key: "$gt", Value: 0}}})
+	if _, err := r.counts.UpdateOne(ctx, positive, bson.D{{Key: incOperator, Value: bson.D{{Key: countField, Value: -1}}}}); err != nil {
+		return fmt.Errorf("error releasing sheet slot: %w", err)
+	}
+	return nil
+}
+
+// CountOf reads the counter from the primary, since the value decides whether a
+// creation is allowed.
+func (r *RepositoryImpl) CountOf(ctx context.Context, ownerID string, kind plan.SheetKind) (int, error) {
+	var doc struct {
+		Count int `bson:"count"`
+	}
+	err := r.counts.FindOne(ctx, countKey(ownerID, kind)).Decode(&doc)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("error counting sheets: %w", err)
+	}
+	return doc.Count, nil
+}
+
+// countKey is the filter that identifies one owner's counter for one kind.
+func countKey(ownerID string, kind plan.SheetKind) bson.D {
+	return bson.D{
+		{Key: ownerIDField, Value: ownerID},
+		{Key: kindField, Value: string(kind)},
 	}
 }
 
@@ -81,7 +164,7 @@ func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*Sheet, erro
 func (r *RepositoryImpl) FetchByOwnerID(ctx context.Context, ownerID string) (*Sheet, error) {
 	var result Sheet
 
-	filter := bson.D{{Key: "owner_id", Value: ownerID}}
+	filter := bson.D{{Key: ownerIDField, Value: ownerID}}
 	if err := r.collection.FindOne(ctx, filter).Decode(&result); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrSheetNotFound
@@ -95,12 +178,6 @@ func (r *RepositoryImpl) FetchByOwnerID(ctx context.Context, ownerID string) (*S
 func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
 	result, err := r.collection.InsertOne(ctx, sheet)
 	if err != nil {
-		// The sheets.owner_id unique index is the one-sheet-per-user guard, so a
-		// duplicate-key insert means the owner already has a sheet. Surfacing it
-		// as a typed error lets the service answer 409 instead of a raw 500.
-		if mongo.IsDuplicateKeyError(err) {
-			return ErrSheetOwnerExists
-		}
 		return fmt.Errorf("error creating sheet: %w", err)
 	}
 	r.logger.Info(ctx, "sheet created", logger.Attribute{Key: "sheet_id", Value: result.InsertedID.(string)})

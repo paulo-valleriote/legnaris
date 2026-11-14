@@ -45,6 +45,17 @@ type Error struct {
 	// RetryAfter is the optional hint the HTTP boundary renders as the
 	// Retry-After header; a non-positive value means no header.
 	RetryAfter time.Duration
+	// Details carries machine-readable context for the client, such as the
+	// kind and limit of a refused creation. It is rendered as the body's
+	// details object and is omitted when empty.
+	Details map[string]any
+}
+
+// WithDetails attaches client-facing context to the error and returns the same
+// error so a producer can set it inline. A nil map means no details.
+func (e *Error) WithDetails(details map[string]any) *Error {
+	e.Details = details
+	return e
 }
 
 // WithRetryAfter attaches the wait hint a rate-limited or unavailable response

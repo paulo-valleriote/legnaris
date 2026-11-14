@@ -24,7 +24,7 @@ func TestIntegration_CookieScope(t *testing.T) {
 			assert.Empty(t, rec.Header().Get("Set-Cookie"), "a bearer route must not set a session cookie")
 		}
 
-		createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"Scope"}`)
+		createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Scope"}`)
 		require.Equal(t, http.StatusCreated, createRec.Code, createRec.Body.String())
 	})
 

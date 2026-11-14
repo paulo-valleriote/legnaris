@@ -12,6 +12,7 @@ import {
   createFakeTransport,
   errorOutcome,
   successOutcome,
+  withPlanUsage,
 } from './fake_transport';
 import { renderApp } from './render';
 import { SHEET_ID, TEMPLATE_ID, sheetPayload, templateDetailPayload } from './sheet_fixtures';
@@ -51,7 +52,10 @@ async function openSurface(user: UserEvent) {
     successOutcome(CATALOG),
     successOutcome(templateDetailPayload()),
   );
-  renderApp('/', { client: clientWith(fake.transport), queryClient: appQueryClient() });
+  renderApp('/', {
+    client: clientWith(withPlanUsage(fake.transport)),
+    queryClient: appQueryClient(),
+  });
   await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
   await screen.findByTestId('detail-name');
   return fake;
@@ -71,7 +75,10 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
   it('Edge: while the request is in flight the action is disabled, the surface shows progress and a repeat activation issues no second request (WSC-03)', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(deferred.transport), queryClient: appQueryClient() });
+    renderApp('/', {
+      client: clientWith(withPlanUsage(deferred.transport)),
+      queryClient: appQueryClient(),
+    });
 
     deferred.resolve(successOutcome(CATALOG));
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
@@ -104,7 +111,10 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
       errorOutcome('INTERNAL_ERROR', 'boom', 500),
     );
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(fake.transport), queryClient: appQueryClient() });
+    renderApp('/', {
+      client: clientWith(withPlanUsage(fake.transport)),
+      queryClient: appQueryClient(),
+    });
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
     await screen.findByTestId('detail-name');
 
@@ -125,7 +135,10 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
       successOutcome(templateDetailPayload()),
     );
     const user = userEvent.setup();
-    renderApp('/', { client: clientWith(fake.transport), queryClient: appQueryClient() });
+    renderApp('/', {
+      client: clientWith(withPlanUsage(fake.transport)),
+      queryClient: appQueryClient(),
+    });
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
     await screen.findByTestId('detail-name');
 
@@ -139,6 +152,7 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
     expect(posts[0].url).toBe(`${BASE_URL}/sheets`);
     expect(JSON.parse(posts[0].body ?? '')).toEqual({
       template_id: TEMPLATE_ID,
+      kind: 'character',
       sheet_name: 'Aragorn',
     });
     expect(

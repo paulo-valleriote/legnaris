@@ -3,6 +3,8 @@ package template
 import (
 	"fmt"
 	"strings"
+
+	"legnaris/backend/internal/plan"
 )
 
 const (
@@ -119,6 +121,7 @@ var fantasyV1Template = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",
 	Default: true,
+	Kinds:   []plan.SheetKind{plan.KindCharacter},
 	Fields: FieldGroup{
 		fieldNameIdentity:  {Children: identityGroup(), Order: identityOrder},
 		fieldNameStats:     {Children: statsGroup(), Order: abilityKeys(identityKey)},
