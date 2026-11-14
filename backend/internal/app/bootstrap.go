@@ -10,6 +10,7 @@ import (
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/email/disposable"
 	"legnaris/backend/internal/email/outbox"
+	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/platform/clientip"
 	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/ratelimit"
@@ -30,9 +31,9 @@ type SheetModule struct {
 	Service    sheet.Service
 }
 
-// PlanModule serves GET /me/plan: the owner's plan and per-kind Sheet usage.
-type PlanModule struct {
-	Controller *PlanController
+type LLMConsentModule struct {
+	Controller *LLMConsentController
+	Service    llmconsent.Service
 }
 
 type AuthModule struct {
@@ -47,10 +48,10 @@ type AuthModule struct {
 }
 
 type Modules struct {
-	Template TemplateModule
-	Sheet    SheetModule
-	Plan     PlanModule
-	Auth     AuthModule
+	Template   TemplateModule
+	Sheet      SheetModule
+	LLMConsent LLMConsentModule
+	Auth       AuthModule
 	// ClientIP is the boot-time address resolver installed as the router's
 	// IPExtractor, so every c.RealIP() consumer reads the same resolution
 	// (PRQ-03, PRQ-04).
@@ -113,6 +114,17 @@ func NewModules(
 
 	templateService := template.NewService(registry)
 	templateController := NewTemplateController(templateService)
+
+	sheetRepository := sheet.NewRepository(mdb, log)
+	sheetService := sheet.NewService(sheetRepository, templateService, registry, log)
+	sheetController := NewSheetController(sheetService)
+
+	llmConsentService := llmconsent.NewService(
+		llmconsent.NewConsentStore(mdb),
+		llmconsent.NewGenerationStore(mdb),
+		db.NewTransactor(database.Client, nil),
+		time.Now,
+	)
 
 	userRepository := user.NewRepository(mdb, log)
 
@@ -209,8 +221,9 @@ func NewModules(
 			Controller: sheetController,
 			Service:    sheetService,
 		},
-		Plan: PlanModule{
-			Controller: planController,
+		LLMConsent: LLMConsentModule{
+			Controller: NewLLMConsentController(llmConsentService),
+			Service:    llmConsentService,
 		},
 		Auth: AuthModule{
 			Controller:   authController,
