@@ -10,7 +10,7 @@ import (
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/email/disposable"
 	"legnaris/backend/internal/email/outbox"
-	"legnaris/backend/internal/llmconsent"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/platform/clientip"
 	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/ratelimit"
@@ -101,6 +101,7 @@ func NewModules(
 	cfg env.Env,
 	observer auth.Observer,
 	challengeObserver auth.ChallengeObserver,
+	publisher events.Publisher,
 ) (*Modules, error) {
 	log := cfg.Logger
 	mdb := database.Client.Database(cfg.Variables.DatabaseName)
@@ -116,7 +117,7 @@ func NewModules(
 	templateController := NewTemplateController(templateService)
 
 	sheetRepository := sheet.NewRepository(mdb, log)
-	sheetService := sheet.NewService(sheetRepository, templateService, registry, log)
+	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher)
 	sheetController := NewSheetController(sheetService)
 
 	llmConsentService := llmconsent.NewService(
@@ -194,6 +195,7 @@ func NewModules(
 			Observer:   challengeObserver,
 			Policy:     challengePolicy,
 		},
+		publisher,
 	)
 	authController := NewAuthController(authService)
 

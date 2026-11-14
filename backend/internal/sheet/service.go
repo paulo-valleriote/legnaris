@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"legnaris/backend/internal/plan"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
@@ -171,18 +171,22 @@ type ServiceImpl struct {
 	plans           PlanSource
 	tx              TransactionRunner
 	log             logger.StructuredLogger
+	publisher       events.Publisher
 }
 
 // NewService builds the sheet service over a DAG provider. The provider must
 // already be complete when the service starts (boot-time registry): neither the
-// service nor its callers mutate it afterwards. Plan limits are optional
-// collaborators; see WithPlanLimits.
-func NewService(repository Repository, templateService template.Service, provider DAGProvider, log logger.StructuredLogger, opts ...ServiceOption) Service {
-	svc := &ServiceImpl{
+// service nor its callers mutate it afterwards.
+func NewService(repository Repository, templateService template.Service, provider DAGProvider, log logger.StructuredLogger, publisher events.Publisher) Service {
+	if publisher == nil {
+		publisher = events.NoOp{}
+	}
+	return &ServiceImpl{
 		repository:      repository,
 		templateService: templateService,
 		provider:        provider,
 		log:             log,
+		publisher:       publisher,
 	}
 	for _, opt := range opts {
 		opt(svc)
@@ -275,6 +279,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	if err != nil {
 		return nil, translateCreateErr(err, kind, limit)
 	}
+	s.publishSheetEvent(eventSheetCreated, cmd.OwnerID, sheetID, newSheet.Version, map[string]any{"template_id": cmd.TemplateID})
 	return &newSheet, nil
 }
 
@@ -436,6 +441,7 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 			logger.Attribute{Key: "dice_replaced", Value: strconv.FormatBool(cmd.Dice != nil)},
 			logger.Attribute{Key: "version_after", Value: strconv.FormatInt(newVersion, 10)},
 		)...)
+		s.publishSheetUpdated(cmd.OwnerID, cmd.SheetID, changedKeysOf(cmd), newVersion)
 		return nestedCascadingEffects(result.cascade)
 	}
 	if !errors.Is(err, ErrVersionConflict) {
@@ -619,6 +625,7 @@ func (s *ServiceImpl) SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Lay
 	if err := s.repository.UpdateLayout(ctx, cmd.SheetID, layout); err != nil {
 		return nil, translateRepoErr("update", err)
 	}
+	s.publishSheetUpdated(cmd.OwnerID, cmd.SheetID, []string{layoutChangedKey}, stored.Version)
 	return layout, nil
 }
 
@@ -678,6 +685,7 @@ func (s *ServiceImpl) Delete(ctx context.Context, cmd DeleteSheetCommand) error 
 	if err != nil {
 		return translateRepoErr("delete", err)
 	}
+	s.publishSheetEvent(eventSheetDeleted, cmd.OwnerID, cmd.SheetID, stored.Version, map[string]any{})
 	return nil
 }
 

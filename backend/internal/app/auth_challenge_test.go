@@ -13,6 +13,7 @@ import (
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
 	authmocks "legnaris/backend/internal/auth/mocks"
+	"legnaris/backend/internal/events"
 	usermocks "legnaris/backend/internal/user/mocks"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/response"
@@ -415,7 +416,7 @@ func newChallengeServiceFixture(t *testing.T, now time.Time, log *captureLogger)
 				UserWindow:       time.Hour,
 				MaxPerUserWindow: 10,
 			},
-		},
+		}, events.NoOp{},
 	)
 	return service, repo
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
@@ -144,6 +145,7 @@ type ServiceImpl struct {
 	cfg           Config
 	clock         Clock
 	challenge     ChallengeDeps
+	publisher     events.Publisher
 }
 
 func NewService(
@@ -157,11 +159,16 @@ func NewService(
 	cfg Config,
 	log logger.StructuredLogger,
 	challenge ChallengeDeps,
+	publisher events.Publisher,
 ) Service {
 	if challenge.Observer == nil {
 		challenge.Observer = NewNopChallengeObserver()
 	}
+	if publisher == nil {
+		publisher = events.NoOp{}
+	}
 	return &ServiceImpl{
+		publisher:     publisher,
 		users:         users,
 		refreshTokens: refreshTokens,
 		hasher:        hasher,
@@ -257,6 +264,7 @@ func (s *ServiceImpl) register(ctx context.Context, cmd RegisterCommand) (*Chall
 	if err := s.users.Create(ctx, newUser); err != nil {
 		return s.registrationCreateFailed(ctx, err, email, username, hashed)
 	}
+	s.publisher.Publish(userRegisteredEvent(newUser.ID))
 
 	issued, err := s.startChallenge(ctx, newUser.ID, newUser.Email, PurposeVerifyEmail)
 	if err != nil {

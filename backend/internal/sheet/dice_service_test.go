@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheettest"
@@ -312,7 +313,7 @@ func TestService_PartialUpdate_Dice(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := mocks.NewMockRepository(t)
 			templateSvc := templatemocks.NewMockService(t)
-			svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
+			svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog, events.NoOp{})
 
 			if tc.wantFetch {
 				call := repo.EXPECT().FetchByID(mock.Anything, tc.sheetID)
@@ -368,7 +369,7 @@ func layoutDAGService(t *testing.T, repo sheet.Repository, templateSvc template.
 	tmpl := layoutTemplate()
 	dag, err := template.BuildDAG(layoutTemplateID, tmpl.Fields, engine.NewFormulaEngine())
 	require.NoError(t, err)
-	return sheet.NewService(repo, templateSvc, sheettest.DAGMap{layoutTemplateID: dag}, testLog)
+	return sheet.NewService(repo, templateSvc, sheettest.DAGMap{layoutTemplateID: dag}, testLog, events.NoOp{})
 }
 
 func TestService_PartialUpdate_DataAndDiceTogether(t *testing.T) {
@@ -465,7 +466,7 @@ func TestService_PartialUpdate_DiceRejectsMoreThan64EntriesAfterOwnership(t *tes
 	t.Run("Error: 65 entries is a 400 and nothing is written", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		templateSvc := templatemocks.NewMockService(t)
-		svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
+		svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog, events.NoOp{})
 		repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Once()
 		templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Once()
 
@@ -478,7 +479,7 @@ func TestService_PartialUpdate_DiceRejectsMoreThan64EntriesAfterOwnership(t *tes
 
 	t.Run("Error: a foreign sheet stays 404 even with 65 entries", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
-		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog)
+		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{})
 		repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet("someone-else"), nil).Once()
 
 		_, err := svc.PartialUpdate(context.Background(), diceSave(tooMany))
@@ -492,7 +493,7 @@ func TestService_PartialUpdate_StoredDiceDoesNotAliasTheCommand(t *testing.T) {
 	tmpl := layoutTemplate()
 	repo := mocks.NewMockRepository(t)
 	templateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
+	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog, events.NoOp{})
 	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Once()
 	templateSvc.EXPECT().FetchTemplate(mock.Anything, mock.Anything).Return(&tmpl, nil).Once()
 	var stored *sheet.Dice
@@ -515,7 +516,7 @@ func TestService_PartialUpdate_ConcurrentDiceSavesEachWriteTheirOwnValidBlock(t 
 	tmpl := layoutTemplate()
 	repo := mocks.NewMockRepository(t)
 	templateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog)
+	svc := sheet.NewService(repo, templateSvc, sheettest.DAGMap{}, testLog, events.NoOp{})
 	const callers = 16
 	shared := &sheet.Dice{Section: map[string]*string{"stats": text("1d20 + @")}, Row: map[string]*string{"stats.strength": nil}}
 	repo.EXPECT().FetchByID(mock.Anything, fetchSheetID).Return(layoutStoredSheet(ownerUserID), nil).Times(callers)

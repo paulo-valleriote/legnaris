@@ -9,7 +9,7 @@ import (
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/engine"
-	"legnaris/backend/internal/plan"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheettest"
@@ -53,7 +53,7 @@ func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache 
 	t.Helper()
 
 	mockTemplateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache, testLog)
+	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache, testLog, events.NoOp{})
 
 	e := echo.New()
 	e.HTTPErrorHandler = app.HTTPErrorHandler
@@ -475,7 +475,7 @@ func newTemplatePreviewRouter(t *testing.T, mockRepo *mocks.MockRepository, dagC
 	t.Helper()
 
 	mockTemplateSvc := templatemocks.NewMockService(t)
-	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache, testLog)
+	svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache, testLog, events.NoOp{})
 
 	e := echo.New()
 	e.HTTPErrorHandler = app.HTTPErrorHandler

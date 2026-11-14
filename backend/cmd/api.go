@@ -99,7 +99,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 		eventPublisher.Shutdown(drainCtx)
 	}()
 
-	modules, err := app.NewModules(database, registry, cfg, httpMetrics, httpMetrics)
+	modules, err := app.NewModules(database, registry, cfg, httpMetrics, httpMetrics, eventPublisher)
 	if err != nil {
 		return fmt.Errorf("build modules: %w", err)
 	}
