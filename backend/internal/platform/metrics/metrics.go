@@ -25,6 +25,7 @@ type Metrics struct {
 	authRefreshReuseDetected prometheus.Counter
 	authRateLimited          prometheus.Counter
 	cspReports               *prometheus.CounterVec
+	eventsDropped            *prometheus.CounterVec
 	emailOutboxBacklog       prometheus.Gauge
 	emailPublishTotal        *prometheus.CounterVec
 	emailDeadTotal           prometheus.Counter
@@ -110,6 +111,14 @@ func New() *Metrics {
 		Name:      "csp_reports_total",
 		Help:      "Total number of collected CSP violation reports.",
 	}, []string{"effective_directive", "disposition"})
+
+	// eventsDropped counts domain events the best-effort publisher could not
+	// deliver. The type set is the code-defined catalog and reason is a closed set.
+	eventsDropped := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Name:      "events_dropped_total",
+		Help:      "Total number of domain events dropped by the best-effort publisher.",
+	}, []string{"type", "reason"})
 
 	// Email-delivery series consumed by the relay: the pending backlog gauge,
 	// the publication outcomes by result, and a dead-letter counter reserved
@@ -204,7 +213,7 @@ func New() *Metrics {
 		Help:      "Number of HTTP requests currently being served.",
 	})
 
-	registry.MustRegister(requestDuration, requestsTotal, requestsInFlight, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports,
+	registry.MustRegister(requestDuration, requestsTotal, requestsInFlight, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports, eventsDropped,
 		emailOutboxBacklog, emailPublishTotal, emailDeadTotal,
 		emailSendTotal, emailSendDuration, emailExpiredTotal,
 		emailBreakerOpen, emailBreakerOpened,
@@ -227,6 +236,7 @@ func New() *Metrics {
 		authRefreshReuseDetected: authRefreshReuseDetected,
 		authRateLimited:          authRateLimited,
 		cspReports:               cspReports,
+		eventsDropped:            eventsDropped,
 		emailOutboxBacklog:       emailOutboxBacklog,
 		emailPublishTotal:        emailPublishTotal,
 		emailDeadTotal:           emailDeadTotal,
@@ -268,6 +278,12 @@ func (m *Metrics) RateLimitBlocked() {
 // (POL-05, A6).
 func (m *Metrics) CSPReportReported(effectiveDirective, disposition string) {
 	m.cspReports.WithLabelValues(effectiveDirective, disposition).Inc()
+}
+
+// EventDropped counts a domain event the best-effort publisher dropped, labelled
+// by its catalog type and the drop reason (ADR 0010, ADR 0013).
+func (m *Metrics) EventDropped(eventType, reason string) {
+	m.eventsDropped.WithLabelValues(eventType, reason).Inc()
 }
 
 // Middleware records request count and latency per route and status code.

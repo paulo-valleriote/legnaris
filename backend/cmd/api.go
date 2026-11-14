@@ -13,6 +13,7 @@ import (
 
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/engine"
+	eventsamqp "legnaris/backend/internal/events/amqp"
 	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/sheet/template"
@@ -85,6 +86,18 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 	}
 
 	httpMetrics := metrics.New()
+
+	eventPublisher := eventsamqp.New(eventsamqp.Config{
+		URL:           cfg.Variables.RabbitMQURL,
+		Recorder:      httpMetrics,
+		Logger:        log,
+		RetryInterval: eventsamqp.DefaultRetryInterval,
+	})
+	defer func() {
+		drainCtx, cancel := context.WithTimeout(context.Background(), eventsamqp.DefaultDrainTimeout)
+		defer cancel()
+		eventPublisher.Shutdown(drainCtx)
+	}()
 
 	modules, err := app.NewModules(database, registry, cfg, httpMetrics, httpMetrics)
 	if err != nil {
