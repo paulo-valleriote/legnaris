@@ -19,7 +19,7 @@ LGN-181: nothing that writes more than one document may ship before it passes.
 | Volumes | `mongo_data`, `./mongodb/init` on `docker-entrypoint-initdb.d` | `mongo_data`, `mongo_keyfile`, `./mongodb` on `/provision` |
 | One-shots | none | `mongodb-keyfile` (writes the keyfile), `mongodb-bootstrap` (`deploy/mongodb/bootstrap.sh`) |
 | Services that read Mongo | start after `mongodb` healthy | also wait for `mongodb-bootstrap` to complete |
-| App URI (`app`, `relay`) | `mongodb://legnaris_app:…@mongodb:27017/legnaris` | same until T0.2 lands; T0.2 adds `replicaSet=rs0` and retryable writes (see Preconditions) |
+| App URI (`app`, `relay`) | `mongodb://legnaris_app:…@mongodb:27017/legnaris?replicaSet=rs0&retryWrites=true&authSource=legnaris` | the URI names the set and enables retryable writes (T0.2) |
 
 Users, passwords and data are not changed by the conversion. The bootstrap is
 designed to leave existing users alone (see "Known risks").
@@ -51,11 +51,11 @@ dc() {  # usage: IMAGE_TAG=sha-<sha> dc <compose args>; same files deploy/vps/de
       to `main` and CI images exist for the release commit (`sha-<40 hex>` in GHCR).
       `deploy.sh` refuses any commit that is not an ancestor of `origin/main`.
 - [ ] T0.1 (Compose, keyfile, bootstrap) and T0.2 (connection string) are on that
-      commit. Confirm T0.2 in the release commit's `deploy/docker-compose.yml` and
-      `backend/shared/db`: `DATABASE_URI` names `replicaSet=rs0` and enables
-      `retryWrites`. **At the time this runbook was written T0.2 was not in the
-      branch** (the `DATABASE_URI` values carry no `replicaSet` option), so the
-      exit gate cannot pass until it is.
+      commit. Confirm T0.2 in the release commit's `deploy/docker-compose.yml`:
+      the `DATABASE_URI` of `app` and `relay` ends with
+      `?replicaSet=rs0&retryWrites=true&authSource=legnaris`, and the exporter and
+      Mongo Express URIs name `replicaSet=rs0` too. `deploy/mongodb_test.go`
+      (`TestShippedMongoURIsNameTheReplicaSetAndRetryableWrites`) asserts this.
 - [ ] T0.4 (replica-set test fixture) merged; `make test-race` green on the release commit.
 - [ ] Maintenance window outside peak hours. The API, relay and worker are
       stopped during step 2 (expected downtime: a few minutes).
@@ -410,9 +410,10 @@ bootstrap on a standalone volume that already holds data and users.
    after a conversion that was not finished (before step 2.4), `deploy.sh`
    redeploys `PREVIOUS_SHA` on the converted volume, which is the untested
    revert above. Finish or abort step 2 by hand before any deploy.
-9. **Connection config is not in the repository yet.** Until T0.2 lands, the app
-   and relay URIs carry no `replicaSet` option. The driver's behavior for
-   transactions against a single member addressed without `replicaSet` is not
-   established here; the exit gate (3.7 and the app check) is what proves it.
+9. **Connection config is verified only on fresh volumes.** Every shipped URI names
+   `replicaSet=rs0` and enables `retryWrites`, and the member is advertised as
+   `mongodb:27017`, the address those URIs use. Whether the production member
+   accepts the same URIs on the converted volume is proven only by the exit gate
+   (3.7 and the app check).
 10. **Downtime.** The stop in Step 1 and the start in Step 2 take the API down
     for the duration; the web client shows errors until `/ready` answers again.

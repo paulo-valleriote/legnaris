@@ -67,12 +67,14 @@ func newClientOptions(vars env.Variables) *options.ClientOptions {
 		SetConnectTimeout(vars.DatabaseConnectTimeout).
 		SetMaxPoolSize(vars.DatabaseMaxPoolSize).
 		SetMinPoolSize(vars.DatabaseMinPoolSize).
-		SetBSONOptions(&options.BSONOptions{
-			// Decode nested BSON documents into map[string]any instead of the
-			// default bson.D. Sheet data is modeled as map[string]any and the
-			// DAG/engine helpers assert on that type.
-			DefaultDocumentMap: true,
-		})
+		SetBSONOptions(documentBSONOptions())
+}
+
+// documentBSONOptions decodes nested BSON documents into map[string]any instead
+// of the default bson.D. Sheet data is modeled as map[string]any and the
+// DAG/engine helpers assert on that type.
+func documentBSONOptions() *options.BSONOptions {
+	return &options.BSONOptions{DefaultDocumentMap: true}
 }
 
 // Ping checks that the primary is reachable within the context deadline.

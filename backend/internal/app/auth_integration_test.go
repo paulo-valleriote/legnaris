@@ -82,7 +82,9 @@ func authPost(t *testing.T, h http.Handler, path string, cookies authCookies, cs
 // registerAuthUser registers a new account and verifies its address with the
 // code its own challenge carries, so the call returns the cookies of the
 // account's first verified session. The caller passes the email so a single
-// router can host several distinct users.
+// router can host several distinct users. The registration's own notice is
+// setup noise: the outbox is cleared afterwards, so tests that count outbox rows
+// see only the intentions they trigger.
 func registerAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, username string) authCookies {
 	t.Helper()
 
@@ -101,8 +103,6 @@ func registerAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, 
 	cookies := cookiesFrom(t, verifyRec)
 	require.NotEmpty(t, cookies.refresh, "the verified session must set the refresh cookie")
 	require.NotEmpty(t, cookies.csrf, "the verified session must set the CSRF cookie")
-	// The registration's own notice is setup noise: tests that count outbox rows
-	// must see only the intentions they trigger.
 	_, err := mdb.Collection("email_outbox").DeleteMany(context.Background(), bson.D{})
 	require.NoError(t, err)
 	return cookies
@@ -111,7 +111,9 @@ func registerAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, 
 // TestIntegration_RegistrationVerification drives the registration journey end
 // to end: the registration answers a challenge and no session, and the code the
 // recorded intention carries verifies it into the account's first session and
-// records the verification timestamp (TFA-01, TFA-04, TFA-11, TFA-13).
+// records the verification timestamp (TFA-01, TFA-04, TFA-11, TFA-13). The
+// duplicate-address registration in it uses a fresh username, because the
+// username is public and checked before the address.
 func TestIntegration_RegistrationVerification(t *testing.T) {
 	h, mdb, _ := newIntegrationStack(t, nil)
 	ctx := context.Background()
@@ -165,7 +167,6 @@ func TestIntegration_RegistrationVerification(t *testing.T) {
 	t.Run("Edge: a registration against the verified address answers 201 and only notifies the owner, once", func(t *testing.T) {
 		before := outboxCount(t, mdb)
 
-		// The username is public and checked first, so the duplicate uses a fresh one.
 		dupRec := doRequest(t, h, http.MethodPost, "/auth/register",
 			fmt.Sprintf(`{"email":%q,"username":"second-name","password":%q}`, email, authPassword))
 		require.Equal(t, http.StatusCreated, dupRec.Code, dupRec.Body.String())

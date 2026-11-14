@@ -122,7 +122,7 @@ services:
       APP_NAME: legnaris
       # MONGO_APP_PASSWORD is embedded verbatim in the URI below; see
       # deploy/.env.example for the password requirements.
-      DATABASE_URI: mongodb://legnaris_app:${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}@mongodb:27017/legnaris
+      DATABASE_URI: mongodb://legnaris_app:${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}@mongodb:27017/legnaris?replicaSet=rs0&retryWrites=true&authSource=legnaris
       DATABASE_NAME: legnaris
       DATABASE_MAX_POOL_SIZE: ${DATABASE_MAX_POOL_SIZE:-20}
       DATABASE_MIN_POOL_SIZE: ${DATABASE_MIN_POOL_SIZE:-0}
@@ -327,7 +327,7 @@ services:
     # process with its own lifecycle (O2, EML-16).
     entrypoint: ["/relay"]
     environment:
-      DATABASE_URI: mongodb://legnaris_app:${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}@mongodb:27017/legnaris
+      DATABASE_URI: mongodb://legnaris_app:${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}@mongodb:27017/legnaris?replicaSet=rs0&retryWrites=true&authSource=legnaris
       DATABASE_NAME: legnaris
       DATABASE_MAX_POOL_SIZE: ${DATABASE_MAX_POOL_SIZE:-20}
       DATABASE_MIN_POOL_SIZE: ${DATABASE_MIN_POOL_SIZE:-0}
@@ -396,7 +396,7 @@ services:
     image: percona/mongodb_exporter:0.40.0
     restart: unless-stopped
     command:
-      - --mongodb.uri=mongodb://legnaris_exporter:${MONGO_EXPORTER_PASSWORD}@mongodb:27017/admin
+      - --mongodb.uri=mongodb://legnaris_exporter:${MONGO_EXPORTER_PASSWORD}@mongodb:27017/admin?replicaSet=rs0&retryWrites=true&authSource=admin
     networks:
       - internal
     depends_on:
@@ -473,7 +473,7 @@ services:
     image: mongo-express:1.0.2
     restart: unless-stopped
     environment:
-      ME_CONFIG_MONGODB_URL: mongodb://legnaris_view:${MONGO_VIEW_PASSWORD}@mongodb:27017/legnaris
+      ME_CONFIG_MONGODB_URL: mongodb://legnaris_view:${MONGO_VIEW_PASSWORD}@mongodb:27017/legnaris?replicaSet=rs0&retryWrites=true&authSource=legnaris
       ME_CONFIG_SITE_BASEURL: /mongo
       # Edge OAuth is the primary gate; basic auth adds defense in depth.
       ME_CONFIG_BASICAUTH: "true"

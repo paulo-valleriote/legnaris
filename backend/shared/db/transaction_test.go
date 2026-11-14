@@ -240,3 +240,166 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 		assert.Equal(t, int64(1), countDocs(t, mdb, "entities"))
 	})
 }
+
+// labeledError returns a server error carrying one of the driver's retry labels,
+// the shape the server gives a write that must be retried.
+func labeledError(label string) error {
+	return mongo.CommandError{Code: 112, Name: "WriteConflict", Message: "injected", Labels: []string{label}}
+}
+
+// configureFailPoint arms a failCommand failpoint on the replica set and disarms it
+// at cleanup. It skips the test when the server refuses failpoints, which is the
+// case for mongod started without enableTestCommands, such as the dev stack.
+func configureFailPoint(t *testing.T, mdb *mongo.Database, data bson.D) {
+	t.Helper()
+	admin := mdb.Client().Database("admin")
+	arm := bson.D{
+		{Key: "configureFailPoint", Value: "failCommand"},
+		{Key: "mode", Value: bson.D{{Key: "times", Value: 1}}},
+		{Key: "data", Value: data},
+	}
+	if err := admin.RunCommand(context.Background(), arm).Err(); err != nil {
+		t.Skipf("server refuses failCommand failpoints (needs enableTestCommands): %v", err)
+	}
+	t.Cleanup(func() {
+		_ = admin.RunCommand(context.Background(), bson.D{
+			{Key: "configureFailPoint", Value: "failCommand"},
+			{Key: "mode", Value: "off"},
+		}).Err()
+	})
+}
+
+func TestTransactor_Retry(t *testing.T) {
+	type entity struct {
+		ID string `bson:"_id"`
+	}
+
+	countEntities := func(t *testing.T, mdb *mongo.Database) int64 {
+		t.Helper()
+		n, err := mdb.Collection("entities").CountDocuments(context.Background(), bson.D{})
+		require.NoError(t, err)
+		return n
+	}
+
+	t.Run("Happy path: a callback error with TransientTransactionError re-runs the callback and commits the retry", func(t *testing.T) {
+		mdb := dbtest.Database(t)
+		tx := db.NewTransactor(mdb.Client(), nil)
+
+		attempts := 0
+		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
+			attempts++
+			if _, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"}); err != nil {
+				return err
+			}
+			if attempts == 1 {
+				return labeledError("TransientTransactionError")
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 2, attempts, "the labeled first attempt must be re-run once")
+		assert.Equal(t, int64(1), countEntities(t, mdb), "the aborted first attempt must leave no write behind")
+	})
+
+	t.Run("Edge: a live context keeps the TransientTransactionError label through the retry guard", func(t *testing.T) {
+		mdb := dbtest.Database(t)
+		tx := db.NewTransactor(mdb.Client(), nil)
+
+		attempts := 0
+		err := tx.WithTransaction(context.Background(), func(context.Context) error {
+			attempts++
+			if attempts < 3 {
+				return labeledError("TransientTransactionError")
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 3, attempts)
+	})
+
+	t.Run("Error: a callback error with UnknownTransactionCommitResult is not re-run as a callback error", func(t *testing.T) {
+		mdb := dbtest.Database(t)
+		tx := db.NewTransactor(mdb.Client(), nil)
+
+		attempts := 0
+		err := tx.WithTransaction(context.Background(), func(context.Context) error {
+			attempts++
+			return labeledError("UnknownTransactionCommitResult")
+		})
+		assert.ErrorIs(t, err, db.ErrTransactionAborted)
+		assert.Equal(t, 1, attempts, "only TransientTransactionError re-runs the callback")
+	})
+
+	t.Run("Edge: a labeled callback error after the deadline is not retried", func(t *testing.T) {
+		mdb := dbtest.Database(t)
+		tx := db.NewTransactor(mdb.Client(), nil).WithTimeout(300 * time.Millisecond)
+
+		attempts := 0
+		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
+			attempts++
+			<-ctx.Done()
+			return labeledError("TransientTransactionError")
+		})
+		assert.ErrorIs(t, err, db.ErrTransactionAborted)
+		assert.Equal(t, 1, attempts, "the unlabeled guard must stop the driver from re-running a dead callback")
+	})
+
+	t.Run("Edge: a labeled error inside the deadline is retried until the callback succeeds", func(t *testing.T) {
+		mdb := dbtest.Database(t)
+		tx := db.NewTransactor(mdb.Client(), nil).WithTimeout(5 * time.Second)
+
+		attempts := 0
+		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
+			attempts++
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if attempts == 1 {
+				return labeledError("TransientTransactionError")
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 2, attempts)
+	})
+
+	t.Run("Edge: a commit that fails with TransientTransactionError re-runs the callback", func(t *testing.T) {
+		mdb := dbtest.Database(t)
+		configureFailPoint(t, mdb, bson.D{
+			{Key: "failCommands", Value: bson.A{"commitTransaction"}},
+			{Key: "errorCode", Value: 112},
+			{Key: "errorLabels", Value: bson.A{"TransientTransactionError"}},
+		})
+		tx := db.NewTransactor(mdb.Client(), nil)
+
+		attempts := 0
+		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
+			attempts++
+			_, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"})
+			return err
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 2, attempts)
+		assert.Equal(t, int64(1), countEntities(t, mdb))
+	})
+
+	t.Run("Edge: a commit that fails with UnknownTransactionCommitResult is retried at commit without re-running the callback", func(t *testing.T) {
+		mdb := dbtest.Database(t)
+		configureFailPoint(t, mdb, bson.D{
+			{Key: "failCommands", Value: bson.A{"commitTransaction"}},
+			{Key: "errorCode", Value: 251},
+			{Key: "errorLabels", Value: bson.A{"UnknownTransactionCommitResult"}},
+		})
+		tx := db.NewTransactor(mdb.Client(), nil)
+
+		attempts := 0
+		err := tx.WithTransaction(context.Background(), func(ctx context.Context) error {
+			attempts++
+			_, err := mdb.Collection("entities").InsertOne(ctx, entity{ID: "e1"})
+			return err
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 1, attempts)
+		assert.Equal(t, int64(1), countEntities(t, mdb))
+	})
+}

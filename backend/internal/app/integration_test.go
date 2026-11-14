@@ -40,32 +40,37 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	return handler, mdb
 }
 
+// integrationEnv is the environment every integration suite runs with. The
+// disposable-address check resolves MX records over DNS, so it is off here, and
+// the rate limits are raised so the production budgets never throttle the
+// journeys themselves. Suites that assert a limit or the check pass it through
+// the extra map of newIntegrationStack.
+var integrationEnv = map[string]string{
+	"JWT_SECRET":                              "integration-test-secret",
+	"AUTH_BCRYPT_COST":                        "12",
+	"EMAIL_CODE_SECRET":                       "integration-test-code-secret-0123456789",
+	"AUTH_DISPOSABLE_EMAIL_CHECK":             "false",
+	"AUTH_RATE_LIMIT_ATTEMPTS":                "100000",
+	"AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS":    "100000",
+	"AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS": "100000",
+	"USER_RATE_LIMIT_ATTEMPTS":                "100000",
+}
+
 // newIntegrationStack is newIntegrationRouter with the wired modules exposed
 // and optional environment overrides, so a suite can drive the service directly
-// and shrink a configured bound without touching the production defaults.
+// and shrink a configured bound without touching the production defaults. It
+// applies integrationEnv, then extra, then an isolated DATABASE_NAME: the modules
+// read that name when the environment is built, and the fixture drops the
+// database at cleanup.
 func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *mongo.Database, *app.Modules) {
 	t.Helper()
 
-	t.Setenv("JWT_SECRET", "integration-test-secret")
-	t.Setenv("AUTH_BCRYPT_COST", "12")
-	t.Setenv("EMAIL_CODE_SECRET", "integration-test-code-secret-0123456789")
-	// The disposable-address check resolves the domain's MX records over the
-	// network, which makes the suite depend on DNS. Suites that need the check
-	// set it back through extra.
-	t.Setenv("AUTH_DISPOSABLE_EMAIL_CHECK", "false")
-	// One suite shares a single in-process limiter across its subtests, so the
-	// production budgets would throttle the journeys themselves. Rate limits have
-	// their own suites, which pass the limit they assert through extra.
-	t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "100000")
-	t.Setenv("AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS", "100000")
-	t.Setenv("AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS", "100000")
-	t.Setenv("USER_RATE_LIMIT_ATTEMPTS", "100000")
-	for key, value := range extra {
-		t.Setenv(key, value)
+	for _, env := range []map[string]string{integrationEnv, extra} {
+		for key, value := range env {
+			t.Setenv(key, value)
+		}
 	}
 
-	// The modules read DATABASE_NAME, so the isolated name is set before the
-	// environment is built. The fixture drops that database at cleanup.
 	client := dbtest.Client(t)
 	databaseName := dbtest.NewDatabaseName(t)
 	t.Setenv("DATABASE_NAME", databaseName)

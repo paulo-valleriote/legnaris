@@ -155,7 +155,7 @@ start_mongo
 start_broker
 
 export PORT="$API_PORT"
-export DATABASE_URI="mongodb://$MONGO_ROOT_USER:$MONGO_ROOT_PASSWORD@localhost:$MONGO_PORT/"
+export DATABASE_URI="mongodb://$MONGO_ROOT_USER:$MONGO_ROOT_PASSWORD@localhost:$MONGO_PORT/?replicaSet=rs0&retryWrites=true&authSource=admin"
 export CORS_ALLOWED_ORIGINS="http://localhost:$WEB_PORT"
 export JWT_SECRET="${JWT_SECRET:-$DEV_JWT_SECRET}"
 export EMAIL_CODE_SECRET="${EMAIL_CODE_SECRET:-$DEV_EMAIL_CODE_SECRET}"
@@ -185,7 +185,7 @@ prefixed web bash -c 'cd web && exec node_modules/.bin/vite --host localhost --p
 log "web  http://localhost:$WEB_PORT"
 log "api  http://localhost:$API_PORT"
 log "mail codes are printed by the [worker] lines (dev sender)"
-log "db   mongodb://localhost:$MONGO_PORT/ replica set rs0, authenticated (wiped on exit; Ctrl-C to stop)"
+log "db   mongodb://localhost:$MONGO_PORT/ replica set rs0, authenticated, retryable writes (wiped on exit; Ctrl-C to stop)"
 
 wait -n || true
 die "a process exited; stopping the stack"
