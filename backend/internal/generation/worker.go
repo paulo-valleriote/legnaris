@@ -186,7 +186,6 @@ func (w *Worker) call(ctx context.Context, req llm.Request) (llm.Response, strin
 			return resp, ""
 		}
 		w.report(ctx, probe, classifyLLM(err))
-		probe = 0
 
 		switch {
 		case errors.Is(err, llm.ErrProviderUnavailable):
