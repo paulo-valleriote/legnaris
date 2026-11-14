@@ -134,8 +134,10 @@ openssl rand -base64 48                  # use as JWT_SECRET
 openssl rand -base64 48                  # use as EMAIL_CODE_SECRET (distinct!)
 ```
 
-MongoDB is created with least-privileged users (provisioned by
-`mongodb/init/01-create-users.js` on first boot): `legnaris_app` (read/write),
+MongoDB runs as replica set `rs0` with a keyfile, so authorization is on. The
+`mongodb-bootstrap` one-shot initiates the set, creates the root user and then
+provisions the least-privileged users (`mongodb/init/01-create-users.js`) on every
+start, idempotently: `legnaris_app` (read/write),
 `legnaris_exporter` (server metrics), and `legnaris_view` (read-only, used by
 Mongo Express). Services never connect as `root`.
 

@@ -188,6 +188,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      mongodb-bootstrap:
+        condition: service_completed_successfully
 
   # ---- Web client -------------------------------------------------------------
   web:
@@ -212,38 +214,52 @@ services:
       start_period: 5s
 
   # ---- Database -------------------------------------------------------------
-  # Single-member replica set rs0 (ADR 0013). The keyfile also turns on
-  # authorization, so the set and the users are both set up on first run.
+  # Single-member replica set rs0 (ADR 0013). The keyfile turns on authorization,
+  # so mongod starts with no users; mongodb-bootstrap sets up the set and the
+  # users on every start.
   mongodb:
     image: mongo:7.0
     restart: unless-stopped
     command: ["--replSet", "rs0", "--keyFile", "/etc/mongo-keyfile/keyfile"]
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-      # Exposed to the init script in /docker-entrypoint-initdb.d.
-      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
-      MONGO_EXPORTER_PASSWORD: ${MONGO_EXPORTER_PASSWORD}
-      MONGO_VIEW_PASSWORD: ${MONGO_VIEW_PASSWORD}
-      # The address the member is reached at inside the internal network.
-      MONGO_RS_MEMBER: mongodb:27017
     volumes:
       - mongo_data:/data/db
-      - ./mongodb/init:/docker-entrypoint-initdb.d:ro
       - mongo_keyfile:/etc/mongo-keyfile:ro
     depends_on:
       mongodb-keyfile:
         condition: service_completed_successfully
     networks:
       - internal
+    # Unauthenticated ping: the server answers it before any user exists, so the
+    # bootstrap can wait on it.
     healthcheck:
-      test:
-        - CMD-SHELL
-        - mongosh --quiet -u root -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval 'db.adminCommand("ping").ok' | grep -q 1
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' | grep -q 1"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 20s
+
+  # One-shot: initiates rs0, creates the root user, then the application users
+  # (deploy/mongodb/bootstrap.sh). It shares the member's network namespace, so its
+  # connection is a localhost connection, the only way to act before the first
+  # user exists. Every service that reads the database waits for it to finish.
+  mongodb-bootstrap:
+    image: mongo:7.0
+    restart: "no"
+    network_mode: "service:mongodb"
+    command: ["sh", "/provision/bootstrap.sh", "/provision/init/00-replset.js", "/provision/init/01-create-users.js"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+      MONGO_EXPORTER_PASSWORD: ${MONGO_EXPORTER_PASSWORD}
+      MONGO_VIEW_PASSWORD: ${MONGO_VIEW_PASSWORD}
+      # The address the member is reached at inside the internal network.
+      MONGO_RS_MEMBER: mongodb:27017
+    volumes:
+      - ./mongodb:/provision:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
 
   # ---- Rate-limit store -------------------------------------------------------
   # Ephemeral by design: counters live one window, so no volume and no
@@ -329,6 +345,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      mongodb-bootstrap:
+        condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
 
@@ -384,6 +402,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      mongodb-bootstrap:
+        condition: service_completed_successfully
 
   # ---- Observability ----------------------------------------------------------
   prometheus:
@@ -464,3 +484,5 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      mongodb-bootstrap:
+        condition: service_completed_successfully

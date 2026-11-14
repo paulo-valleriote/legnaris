@@ -12,6 +12,10 @@ cd "$(dirname "$0")/.."
 readonly MONGO_CONTAINER="legnaris-mongo"
 readonly MONGO_IMAGE="mongo:7.0"
 readonly MONGO_PORT="${MONGO_PORT:-27017}"
+readonly MONGO_KEYFILE_VOLUME="legnaris-dev-mongo-keyfile"
+# Development-only root account; the database is published on localhost only.
+readonly MONGO_ROOT_USER="root"
+readonly MONGO_ROOT_PASSWORD="legnaris-dev-only"
 readonly RABBIT_CONTAINER="legnaris-rabbitmq"
 # The pinned broker release of deploy/rabbitmq/Dockerfile, so dev matches prod.
 readonly RABBIT_IMAGE="rabbitmq:4.4.0"
@@ -53,6 +57,7 @@ cleanup() {
 	done
 	wait 2>/dev/null || true
 	docker rm -fv "$MONGO_CONTAINER" "$RABBIT_CONTAINER" >/dev/null 2>&1 || true
+	docker volume rm -f "$MONGO_KEYFILE_VOLUME" >/dev/null 2>&1 || true
 	[ -n "$workdir" ] && rm -rf "$workdir"
 }
 
@@ -67,17 +72,30 @@ load_dotenv() {
 	done
 }
 
+# start_mongo runs a clean replica set rs0 with a keyfile, which turns authorization
+# on, then bootstraps it with the development root account (deploy/mongodb/bootstrap.sh),
+# the same first-run path as production.
 start_mongo() {
 	docker rm -fv "$MONGO_CONTAINER" >/dev/null 2>&1 || true
-	log "starting a clean MongoDB on :$MONGO_PORT"
-	docker run -d --rm --name "$MONGO_CONTAINER" -p "$MONGO_PORT:$MONGO_PORT" "$MONGO_IMAGE" \
-		--replSet rs0 --port "$MONGO_PORT" >/dev/null
+	docker volume rm -f "$MONGO_KEYFILE_VOLUME" >/dev/null 2>&1 || true
+	docker volume create "$MONGO_KEYFILE_VOLUME" >/dev/null
+	docker run --rm --entrypoint sh -v "$MONGO_KEYFILE_VOLUME:/etc/mongo-keyfile" \
+		-v "$PWD/deploy/mongodb:/provision:ro" "$MONGO_IMAGE" \
+		/provision/keyfile.sh /etc/mongo-keyfile >/dev/null || die "could not provision the MongoDB keyfile"
+
+	log "starting a clean MongoDB replica set on :$MONGO_PORT"
+	docker run -d --rm --name "$MONGO_CONTAINER" -p "$MONGO_PORT:27017" \
+		-v "$MONGO_KEYFILE_VOLUME:/etc/mongo-keyfile:ro" \
+		-v "$PWD/deploy/mongodb:/provision:ro" \
+		"$MONGO_IMAGE" --replSet rs0 --keyFile /etc/mongo-keyfile/keyfile >/dev/null
 
 	for _ in $(seq 1 60); do
-		if docker exec "$MONGO_CONTAINER" mongosh --quiet --port "$MONGO_PORT" --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; then
-			docker exec -i -e "MONGO_RS_MEMBER=localhost:$MONGO_PORT" "$MONGO_CONTAINER" \
-				mongosh --quiet --port "$MONGO_PORT" <deploy/mongodb/init/00-replset.js >/dev/null \
-				|| die "could not initiate the rs0 replica set"
+		if docker exec "$MONGO_CONTAINER" mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; then
+			docker exec -e "MONGO_INITDB_ROOT_USERNAME=$MONGO_ROOT_USER" \
+				-e "MONGO_INITDB_ROOT_PASSWORD=$MONGO_ROOT_PASSWORD" \
+				-e "MONGO_RS_MEMBER=localhost:$MONGO_PORT" \
+				"$MONGO_CONTAINER" sh /provision/bootstrap.sh /provision/init/00-replset.js >/dev/null \
+				|| die "could not bootstrap the rs0 replica set"
 			return 0
 		fi
 		sleep 1
@@ -137,7 +155,7 @@ start_mongo
 start_broker
 
 export PORT="$API_PORT"
-export DATABASE_URI="mongodb://localhost:$MONGO_PORT/"
+export DATABASE_URI="mongodb://$MONGO_ROOT_USER:$MONGO_ROOT_PASSWORD@localhost:$MONGO_PORT/"
 export CORS_ALLOWED_ORIGINS="http://localhost:$WEB_PORT"
 export JWT_SECRET="${JWT_SECRET:-$DEV_JWT_SECRET}"
 export EMAIL_CODE_SECRET="${EMAIL_CODE_SECRET:-$DEV_EMAIL_CODE_SECRET}"
@@ -167,7 +185,7 @@ prefixed web bash -c 'cd web && exec node_modules/.bin/vite --host localhost --p
 log "web  http://localhost:$WEB_PORT"
 log "api  http://localhost:$API_PORT"
 log "mail codes are printed by the [worker] lines (dev sender)"
-log "db   mongodb://localhost:$MONGO_PORT/ (wiped on exit; Ctrl-C to stop)"
+log "db   mongodb://localhost:$MONGO_PORT/ replica set rs0, authenticated (wiped on exit; Ctrl-C to stop)"
 
 wait -n || true
 die "a process exited; stopping the stack"

@@ -45,21 +45,51 @@ services:
     depends_on:
       - prometheus
 
-  # Replica set without a keyfile: the load-test app connects without
-  # credentials, and a keyfile would turn on authorization.
+  # Replica set rs0 with a keyfile, as in production (ADR 0013). The keyfile turns
+  # on authorization, so the load-test app connects as the development-only root
+  # user. The password is public and nothing is published to the host.
+  mongodb-keyfile:
+    image: mongo:7.0
+    profiles: [loadtest]
+    restart: "no"
+    entrypoint: ["sh", "/provision/keyfile.sh", "/etc/mongo-keyfile"]
+    volumes:
+      - ./mongodb/keyfile.sh:/provision/keyfile.sh:ro
+      - mongo_keyfile:/etc/mongo-keyfile
+
   mongodb:
     image: mongo:7.0
     profiles: [loadtest]
-    command: ["--replSet", "rs0"]
-    environment:
-      MONGO_RS_MEMBER: mongodb:27017
+    command: ["--replSet", "rs0", "--keyFile", "/etc/mongo-keyfile/keyfile"]
     volumes:
-      - ./mongodb/init/00-replset.js:/docker-entrypoint-initdb.d/00-replset.js:ro
+      - mongo_keyfile:/etc/mongo-keyfile:ro
+    depends_on:
+      mongodb-keyfile:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' | grep -q 1"]
       interval: 3s
       timeout: 5s
       retries: 20
+
+  # One-shot: initiates rs0 and creates the development root user (bootstrap.sh).
+  # It shares the member's network namespace, so its connection is a localhost
+  # connection, the only way to act before the first user exists.
+  mongodb-bootstrap:
+    image: mongo:7.0
+    profiles: [loadtest]
+    restart: "no"
+    network_mode: "service:mongodb"
+    command: ["sh", "/provision/bootstrap.sh", "/provision/init/00-replset.js"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${LOADTEST_MONGO_PASSWORD:-legnaris-dev-only}
+      MONGO_RS_MEMBER: mongodb:27017
+    volumes:
+      - ./mongodb:/provision:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
 
   app:
     build:
@@ -69,7 +99,7 @@ services:
     environment:
       PORT: "8080"
       APP_NAME: legnaris
-      DATABASE_URI: mongodb://mongodb:27017/
+      DATABASE_URI: mongodb://root:${LOADTEST_MONGO_PASSWORD:-legnaris-dev-only}@mongodb:27017/
       DATABASE_NAME: legnaris
       CORS_ALLOWED_ORIGINS: http://localhost:5173
       JWT_SECRET: dev-only-jwt-secret-do-not-use-in-production-0123456789
@@ -82,6 +112,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      mongodb-bootstrap:
+        condition: service_completed_successfully
 
   k6:
     image: grafana/k6:0.57.0
@@ -113,3 +145,6 @@ services:
     depends_on:
       - app
       - prometheus
+
+volumes:
+  mongo_keyfile:
