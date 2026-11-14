@@ -7,6 +7,7 @@ import (
 
 	"legnaris/backend/internal/generation"
 	"legnaris/backend/internal/sheet/template"
+	sharedjson "legnaris/backend/shared/json"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -169,6 +170,7 @@ func TestParseOutput(t *testing.T) {
 		{name: "Error: a scalar is not an object", raw: `"text"`, wantErr: true},
 		{name: "Error: data after the object is refused", raw: `{"a": 1} {"b": 2}`, wantErr: true},
 		{name: "Error: trailing garbage is refused", raw: `{"a": 1} x`, wantErr: true},
+		{name: "Error: an output over the size bound is refused", raw: `{"a":"` + strings.Repeat("a", sharedjson.MaxBodySize) + `"}`, wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

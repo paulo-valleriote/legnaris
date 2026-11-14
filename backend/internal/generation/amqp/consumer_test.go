@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
 	"legnaris/backend/internal/generation"
 	"legnaris/backend/internal/generation/amqp/mocks"
+	sharedjson "legnaris/backend/shared/json"
 	"legnaris/backend/shared/logger"
 
 	"github.com/stretchr/testify/assert"
@@ -53,6 +55,9 @@ func TestDecodeMessage(t *testing.T) {
 		{name: "Error: a missing identifier is refused", body: `{"kind":"character"}`, wantErr: true},
 		{name: "Error: an identifier that is not a UUID is refused", body: `{"generation_id":"abc","kind":"character"}`, wantErr: true},
 		{name: "Edge: an upper-case identifier is refused because ids are canonical", body: `{"generation_id":"0190A1B2-0000-7000-8000-0000000000A1","kind":"character"}`, wantErr: true},
+		{name: "Edge: an unknown field from a newer producer is tolerated", body: `{"generation_id":"` + jobID + `","kind":"character","extra":1}`, wantID: jobID},
+		{name: "Error: trailing data after the message is refused", body: `{"generation_id":"` + jobID + `","kind":"character"} {}`, wantErr: true},
+		{name: "Error: a body over the size bound is refused", body: `{"generation_id":"` + jobID + `","kind":"character","pad":"` + strings.Repeat("a", sharedjson.MaxBodySize) + `"}`, wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
