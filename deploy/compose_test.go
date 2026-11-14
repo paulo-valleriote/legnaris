@@ -40,6 +40,7 @@ type composeService struct {
 	StopGracePeriod string              `yaml:"stop_grace_period"`
 	Entrypoint      []string            `yaml:"entrypoint"`
 	Networks        []string            `yaml:"networks"`
+	NetworkMode     string              `yaml:"network_mode"`
 	Volumes         []string            `yaml:"volumes"`
 	Environment     map[string]string   `yaml:"environment"`
 	Build           *composeBuild       `yaml:"build"`

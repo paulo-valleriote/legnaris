@@ -85,34 +85,26 @@ mocks:          ## Generate mocks (after interface changes)
 migrate-emails: ## Repair legacy email addresses (dry run; ARGS="-apply" writes)
 	@go run ./backend/cmd/canonicalize-emails $(ARGS)
 
-# dev-db derives MongoDB's root credentials from DATABASE_URI (exported from
-# .env above), so the container can never diverge from what the app and
-# `make test-race` connect with. A URI without credentials (see .env.example)
-# starts an unauthenticated MongoDB; credentials are used verbatim — do not
-# percent-encode them.
-dev-db:         ## Run only MongoDB locally as replica set rs0, with the credentials from DATABASE_URI; stop with: docker stop legnaris-mongo
+# dev-db starts a clean MongoDB replica set rs0 with a keyfile, so authorization is
+# on and DATABASE_URI must carry the root credentials: the app, `make run` and
+# `make test-race` connect with the same ones. Credentials are used verbatim, do
+# not percent-encode them. The keyfile volume persists between runs; the data does not.
+dev-db:         ## Run only MongoDB locally as replica set rs0 with the root credentials from DATABASE_URI; stop with: docker stop legnaris-mongo
 	@creds=$$(printf '%s' '$(DATABASE_URI)' | sed -nE 's#^mongodb://([^/@]+)@.*#\1#p'); \
-	auth=""; mongod_args=""; \
-	if [ -n "$$creds" ]; then \
-		docker volume create legnaris-mongo-keyfile >/dev/null && \
-		docker run --rm --entrypoint sh -v legnaris-mongo-keyfile:/etc/mongo-keyfile \
-			-v "$(CURDIR)/deploy/mongodb/keyfile.sh:/provision/keyfile.sh:ro" \
-			mongo:7.0 /provision/keyfile.sh /etc/mongo-keyfile || exit 1; \
-		set -- -e "MONGO_INITDB_ROOT_USERNAME=$${creds%%:*}" -e "MONGO_INITDB_ROOT_PASSWORD=$${creds#*:}" \
-			-v legnaris-mongo-keyfile:/etc/mongo-keyfile:ro; \
-		mongod_args="--keyFile /etc/mongo-keyfile/keyfile"; \
-		auth="-u $${creds%%:*} -p $${creds#*:} --authenticationDatabase admin"; \
-	else \
-		set --; \
-	fi; \
-	docker run --rm --name legnaris-mongo "$$@" \
-		-p 27017:27017 \
-		-d mongo:7.0 --replSet rs0 $$mongod_args >/dev/null && \
+	[ -n "$$creds" ] || { echo "DATABASE_URI must carry the root credentials, e.g. mongodb://root:legnaris-dev-only@localhost:27017/ (see .env.example)" >&2; exit 1; }; \
+	docker volume create legnaris-mongo-keyfile >/dev/null && \
+	docker run --rm --entrypoint sh -v legnaris-mongo-keyfile:/etc/mongo-keyfile \
+		-v "$(CURDIR)/deploy/mongodb:/provision:ro" \
+		mongo:7.0 /provision/keyfile.sh /etc/mongo-keyfile && \
+	docker run --rm --name legnaris-mongo -p 27017:27017 \
+		-v legnaris-mongo-keyfile:/etc/mongo-keyfile:ro \
+		-v "$(CURDIR)/deploy/mongodb:/provision:ro" \
+		-d mongo:7.0 --replSet rs0 --keyFile /etc/mongo-keyfile/keyfile >/dev/null && \
 	i=0; until docker exec legnaris-mongo mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; do \
 		i=$$((i+1)); [ $$i -lt 60 ] || { echo "MongoDB did not become ready within 60s" >&2; exit 1; }; sleep 1; \
 	done && \
-	docker exec -i -e MONGO_RS_MEMBER=localhost:27017 legnaris-mongo mongosh --quiet $$auth \
-		<deploy/mongodb/init/00-replset.js >/dev/null
+	docker exec -e "MONGO_INITDB_ROOT_USERNAME=$${creds%%:*}" -e "MONGO_INITDB_ROOT_PASSWORD=$${creds#*:}" \
+		-e MONGO_RS_MEMBER=localhost:27017 legnaris-mongo sh /provision/bootstrap.sh /provision/init/00-replset.js >/dev/null
 
 ## --- Web client (React/Vite/TypeScript PWA) ---------------------------------
 ## Local parity with the ci-web.yml pipeline (sec-scan is local only); run after any change under web/.
