@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"strings"
 
 	"legnaris/backend/shared/apperr"
@@ -33,6 +34,29 @@ func Middleware(tokens TokenManager) echo.MiddlewareFunc {
 			}
 
 			c.Set(UserIDContextKey, userID)
+			return next(c)
+		}
+	}
+}
+
+// ActiveAccountChecker reports whether an authenticated account may still act. It
+// returns a typed error when the account is unknown or being deleted.
+type ActiveAccountChecker interface {
+	EnsureActive(ctx context.Context, userID string) error
+}
+
+// RejectDeleting refuses an authenticated request whose account is being deleted
+// (LGN-190). It must be installed after Middleware, which sets the user id.
+func RejectDeleting(checker ActiveAccountChecker) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			userID, ok := UserID(c)
+			if !ok {
+				return apperr.NewError(apperr.CodeUnauthorized, MsgAuthorizationRequired, nil)
+			}
+			if err := checker.EnsureActive(c.Request().Context(), userID); err != nil {
+				return err
+			}
 			return next(c)
 		}
 	}

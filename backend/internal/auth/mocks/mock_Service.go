@@ -24,6 +24,100 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// DeleteAccount provides a mock function with given fields: ctx, userID
+func (_m *MockService) DeleteAccount(ctx context.Context, userID string) error {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteAccount")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockService_DeleteAccount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteAccount'
+type MockService_DeleteAccount_Call struct {
+	*mock.Call
+}
+
+// DeleteAccount is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockService_Expecter) DeleteAccount(ctx interface{}, userID interface{}) *MockService_DeleteAccount_Call {
+	return &MockService_DeleteAccount_Call{Call: _e.mock.On("DeleteAccount", ctx, userID)}
+}
+
+func (_c *MockService_DeleteAccount_Call) Run(run func(ctx context.Context, userID string)) *MockService_DeleteAccount_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_DeleteAccount_Call) Return(_a0 error) *MockService_DeleteAccount_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockService_DeleteAccount_Call) RunAndReturn(run func(context.Context, string) error) *MockService_DeleteAccount_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// EnsureActive provides a mock function with given fields: ctx, userID
+func (_m *MockService) EnsureActive(ctx context.Context, userID string) error {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EnsureActive")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockService_EnsureActive_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnsureActive'
+type MockService_EnsureActive_Call struct {
+	*mock.Call
+}
+
+// EnsureActive is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockService_Expecter) EnsureActive(ctx interface{}, userID interface{}) *MockService_EnsureActive_Call {
+	return &MockService_EnsureActive_Call{Call: _e.mock.On("EnsureActive", ctx, userID)}
+}
+
+func (_c *MockService_EnsureActive_Call) Run(run func(ctx context.Context, userID string)) *MockService_EnsureActive_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_EnsureActive_Call) Return(_a0 error) *MockService_EnsureActive_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockService_EnsureActive_Call) RunAndReturn(run func(context.Context, string) error) *MockService_EnsureActive_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IssueCSRF provides a mock function with given fields: ctx, refreshToken
 func (_m *MockService) IssueCSRF(ctx context.Context, refreshToken string) (string, error) {
 	ret := _m.Called(ctx, refreshToken)

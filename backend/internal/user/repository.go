@@ -30,6 +30,10 @@ type Repository interface {
 	FetchByID(ctx context.Context, id string) (*User, error)
 	FetchByUsername(ctx context.Context, username string) (*User, error)
 	MarkEmailVerified(ctx context.Context, id string, at time.Time) error
+	// MarkDeleting moves an active account to the deleting status. It is
+	// idempotent: an account already deleting keeps its original deleting_at, and
+	// an unknown account reports ErrUserNotFound.
+	MarkDeleting(ctx context.Context, id string, at time.Time) error
 	ReplaceUnverifiedCredentials(ctx context.Context, id, username, passwordHash string, at time.Time) (bool, error)
 }
 
@@ -151,6 +155,38 @@ func (r *RepositoryImpl) MarkEmailVerified(ctx context.Context, id string, at ti
 			return ErrUserNotFound
 		}
 		return fmt.Errorf("mark email verified: %w", err)
+	}
+	return nil
+}
+
+// MarkDeleting records the deletion request for an account. The filter only
+// matches an account without a deletion status, so repeating the request keeps the
+// first deleting_at; a dead account stays dead, and the sweeper drives it from there.
+func (r *RepositoryImpl) MarkDeleting(ctx context.Context, id string, at time.Time) error {
+	result, err := r.collection.UpdateOne(
+		ctx,
+		bson.D{
+			{Key: fieldID, Value: id},
+			{Key: fieldStatus, Value: bson.D{{Key: "$in", Value: bson.A{nil, ""}}}},
+		},
+		bson.D{{Key: operatorSet, Value: bson.D{
+			{Key: fieldStatus, Value: StatusDeleting},
+			{Key: fieldDeletingAt, Value: at},
+			{Key: fieldUpdatedAt, Value: at},
+		}}},
+	)
+	if err != nil {
+		return fmt.Errorf("mark account deleting: %w", err)
+	}
+	if result.MatchedCount == 1 {
+		return nil
+	}
+
+	if _, err := r.FetchByID(ctx, id); err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("mark account deleting: %w", err)
 	}
 	return nil
 }

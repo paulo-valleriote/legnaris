@@ -11,10 +11,12 @@ import (
 
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
+	authmocks "legnaris/backend/internal/auth/mocks"
 	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/sheet/template"
+	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
@@ -22,6 +24,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -50,6 +53,14 @@ func newWiringRouterWithEnv(t *testing.T, extra map[string]string) (http.Handler
 // registered route inventory in addition to driving requests.
 func newWiringEcho(t *testing.T, extra map[string]string) (*echo.Echo, *app.Modules) {
 	t.Helper()
+	return newWiringEchoWithChecker(t, extra, nil)
+}
+
+// newWiringEchoWithChecker is newWiringEcho with an explicit active-account checker.
+// A nil checker answers every account as active, because the wiring suite has no
+// database to load an account from; the gate itself is covered by TestActiveGate.
+func newWiringEchoWithChecker(t *testing.T, extra map[string]string, checker auth.ActiveAccountChecker) (*echo.Echo, *app.Modules) {
+	t.Helper()
 
 	t.Setenv("JWT_SECRET", "wiring-test-secret")
 	t.Setenv("AUTH_BCRYPT_COST", "12")
@@ -77,7 +88,59 @@ func newWiringEcho(t *testing.T, extra map[string]string) (*echo.Echo, *app.Modu
 	modules, err := app.NewModules(&db.Database{Client: client}, registry, env, auth.NewNopObserver(), auth.NewNopChallengeObserver(), events.NoOp{})
 	require.NoError(t, err)
 
+	if checker == nil {
+		checker = activeAccountsStub(t)
+	}
+	modules.ActiveAccounts = checker
 	return app.NewRouter(env, modules, metrics.New()), modules
+}
+
+// activeAccountsStub answers every account as active, so the DB-less wiring suite
+// reaches the handlers behind the gate.
+func activeAccountsStub(t *testing.T) auth.ActiveAccountChecker {
+	t.Helper()
+	checker := authmocks.NewMockService(t)
+	checker.EXPECT().EnsureActive(mock.Anything, mock.Anything).Return(nil).Maybe()
+	return checker
+}
+
+// TestRouterWiring_ActiveGateGuardsProtectedRoutes pins that every authenticated
+// group runs the active gate: a deleting account is forbidden on each of them,
+// while the deletion request itself is not gated (LGN-190).
+func TestRouterWiring_ActiveGateGuardsProtectedRoutes(t *testing.T) {
+	deleting := apperr.NewError(apperr.CodeForbidden, auth.MsgAccountDeleting, nil)
+	checker := authmocks.NewMockService(t)
+	checker.EXPECT().EnsureActive(mock.Anything, mock.Anything).Return(deleting).Maybe()
+
+	h, modules := newWiringEchoWithChecker(t, nil, checker)
+	access, err := modules.Auth.TokenManager.Issue("deleting-user")
+	require.NoError(t, err)
+
+	protected := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/sheets"},
+		{http.MethodGet, "/templates"},
+		{http.MethodPost, "/generations"},
+		{http.MethodGet, "/me/plan"},
+		{http.MethodPut, "/me/llm-consent"},
+	}
+	for _, tc := range protected {
+		t.Run("Error: "+tc.method+" "+tc.path+" is forbidden for a deleting account", func(t *testing.T) {
+			rec := doAuthRequest(t, h, access.Value, tc.method, tc.path, "")
+			require.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+
+			var body response.ErrorResponse
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, "FORBIDDEN", body.Error.Code)
+		})
+	}
+
+	t.Run("Happy path: the deletion request is not behind the gate", func(t *testing.T) {
+		rec := doAuthRequest(t, h, access.Value, http.MethodDelete, "/auth/me", "")
+		assert.NotEqual(t, http.StatusForbidden, rec.Code, "a repeat deletion request must stay idempotent")
+	})
 }
 
 // TestRouterWiring_AuthRouteInventory guards the auth HTTP surface: the four
@@ -97,6 +160,7 @@ func TestRouterWiring_AuthRouteInventory(t *testing.T) {
 	assert.ElementsMatch(t, []string{
 		http.MethodPost + " /auth/register",
 		http.MethodPost + " /auth/login",
+		http.MethodDelete + " /auth/me",
 		http.MethodPost + " /auth/refresh",
 		http.MethodPost + " /auth/logout",
 		// The CSRF bootstrap lets a cross-host page obtain its session-bound token.

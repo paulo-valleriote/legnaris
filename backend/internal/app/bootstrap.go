@@ -117,6 +117,10 @@ type Modules struct {
 	// IPExtractor, so every c.RealIP() consumer reads the same resolution
 	// (PRQ-03, PRQ-04).
 	ClientIP func(*http.Request) string
+	// ActiveAccounts gates every authenticated route on the account not being
+	// deleted (LGN-190). Nil means the auth service answers the check; a test
+	// that has no database sets a checker of its own before building the router.
+	ActiveAccounts auth.ActiveAccountChecker
 	// UserLimiter caps the authenticated routes per user id (LGN-30).
 	UserLimiter ratelimit.Allower
 	// PublicLimiter caps the unauthenticated CSP report collector per address.
