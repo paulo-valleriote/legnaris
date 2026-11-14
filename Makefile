@@ -90,7 +90,7 @@ migrate-emails: ## Repair legacy email addresses (dry run; ARGS="-apply" writes)
 # `make test-race` connect with the same ones. Credentials are used verbatim, do
 # not percent-encode them. The keyfile volume persists between runs; the data does not.
 dev-db:         ## Run only MongoDB locally as replica set rs0 with the root credentials from DATABASE_URI; stop with: docker stop legnaris-mongo
-	@creds=$$(printf '%s' '$(DATABASE_URI)' | sed -nE 's#^mongodb://([^/@]+)@.*#\1#p'); \
+	@creds=$$(printf '%s' "$$DATABASE_URI" | sed -nE 's#^mongodb://([^/@]+)@.*#\1#p'); \
 	[ -n "$$creds" ] || { echo "DATABASE_URI must carry the root credentials, e.g. mongodb://root:legnaris-dev-only@localhost:27017/?replicaSet=rs0&retryWrites=true&authSource=admin (see .env.example)" >&2; exit 1; }; \
 	docker volume create legnaris-mongo-keyfile >/dev/null && \
 	docker run --rm --entrypoint sh -v legnaris-mongo-keyfile:/etc/mongo-keyfile \
@@ -103,7 +103,8 @@ dev-db:         ## Run only MongoDB locally as replica set rs0 with the root cre
 	i=0; until docker exec legnaris-mongo mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1; do \
 		i=$$((i+1)); [ $$i -lt 60 ] || { echo "MongoDB did not become ready within 60s" >&2; exit 1; }; sleep 1; \
 	done && \
-	docker exec -e "MONGO_INITDB_ROOT_USERNAME=$${creds%%:*}" -e "MONGO_INITDB_ROOT_PASSWORD=$${creds#*:}" \
+	MONGO_INITDB_ROOT_USERNAME="$${creds%%:*}" MONGO_INITDB_ROOT_PASSWORD="$${creds#*:}" \
+		docker exec -e MONGO_INITDB_ROOT_USERNAME -e MONGO_INITDB_ROOT_PASSWORD \
 		-e MONGO_RS_MEMBER=localhost:27017 legnaris-mongo sh /provision/bootstrap.sh /provision/init/00-replset.js >/dev/null
 
 ## --- Web client (React/Vite/TypeScript PWA) ---------------------------------
