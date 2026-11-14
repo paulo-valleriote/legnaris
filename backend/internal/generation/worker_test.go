@@ -326,6 +326,19 @@ func TestWorkerProcess_Transport(t *testing.T) {
 		require.NoError(t, f.worker.Process(context.Background(), secondID))
 	})
 
+	t.Run("Error: a transient failure that opens the breaker is not retried", func(t *testing.T) {
+		f := newWorkerFixture(t, 1)
+		f.expectTemplate(t)
+		f.expectClaim(trialReservation)
+		// The single outage opens a breaker of threshold one, so the transport
+		// retry must be refused by the breaker and the gateway is called once.
+		f.generateReturns("", llm.ErrTransient)
+		f.expectTerminalTx(generation.ErrorCodeProviderUnavailable, true, trialReservation)
+		f.expectTrialRefund()
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
+	})
+
 	t.Run("Edge: a permanent failure never opens the breaker", func(t *testing.T) {
 		f := newWorkerFixture(t, 1)
 		f.expectTemplate(t)
