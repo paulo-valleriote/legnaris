@@ -175,11 +175,10 @@ func (w *Worker) resolve(templateID string) (*template.Template, *template.DAG, 
 // breaker is open, retries a transient failure once, and never retries a
 // no-eligible-provider or permanent failure.
 func (w *Worker) call(ctx context.Context, req llm.Request) (llm.Response, string) {
-	admission := w.breaker.Admit()
-	if !admission.Proceed {
+	probe, admitted := w.admit()
+	if !admitted {
 		return llm.Response{}, ErrorCodeProviderUnavailable
 	}
-	probe := admission.Probe
 	for transport := 0; ; transport++ {
 		resp, err := w.client.Generate(ctx, req)
 		if err == nil {
@@ -196,10 +195,23 @@ func (w *Worker) call(ctx context.Context, req llm.Request) (llm.Response, strin
 			if !pause(ctx, w.backoff) {
 				return llm.Response{}, ErrorCodeProviderFailed
 			}
+			// The retry is a new send, so it is admitted again: a failure just
+			// reported may have opened the breaker, and the retry must not reach
+			// a provider the breaker has taken out of service.
+			if probe, admitted = w.admit(); !admitted {
+				return llm.Response{}, ErrorCodeProviderUnavailable
+			}
 		default:
 			return llm.Response{}, ErrorCodeProviderFailed
 		}
 	}
+}
+
+// admit asks the breaker for one send and returns the probe token of that send.
+// A send is admitted only when the breaker proceeds; a probe token is non-zero.
+func (w *Worker) admit() (uint64, bool) {
+	admission := w.breaker.Admit()
+	return admission.Probe, admission.Proceed
 }
 
 // report feeds one outcome to the breaker and logs the breaker transitions.
