@@ -13,6 +13,8 @@
 - `DATABASE_URI` must name the replica set and enable retryable writes:
   `?replicaSet=rs0&retryWrites=true&authSource=<db>`. Every shipped URI does
   (`.env.example`, `scripts/dev.sh`, `deploy/docker-compose*.yml`).
+- `InitMongo` rejects a URI without `replicaSet` with `ErrMissingReplicaSet`
+  (wraps `ErrInvalidConfig`), so a standalone URI fails at startup.
 - `newClientOptions` forces `retryWrites` on after the URI is applied, so a URI
   cannot turn it off.
 
