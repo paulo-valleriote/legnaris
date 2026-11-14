@@ -1,192 +1,109 @@
-// Package relay publishes guaranteed domain events from the event outbox. It
-// claims a batch with a lease, publishes each entry through the Publisher port
-// with confirms, marks it published on success and applies a bounded backoff on
-// failure. It never writes Mongo directly; all state moves through the outbox
-// port (ADR 0010, ADR 0013).
+// Package relay registers the event outbox as a sweeper queue (ADR 0010, ADR
+// 0013). The queue claims pending entries under a lease, publishes each through
+// the Publisher port with broker confirms and marks it published. The sweeper
+// owns the failure path: it reschedules an entry whose publish failed and marks
+// it dead at the attempt cap. The relay never writes Mongo directly; every state
+// change goes through the outbox port.
 package relay
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"legnaris/backend/internal/events/outbox"
+	"legnaris/backend/internal/sweeper"
 	"legnaris/backend/shared/idgen"
-	"legnaris/backend/shared/logger"
 )
 
-const attrError = "error"
+// QueueName is the sweeper queue name of the event outbox, the label of its
+// metrics.
+const QueueName = "event_outbox"
 
 // Publisher publishes one encoded entry to the broker and returns nil only when
 // the broker confirmed it. Any other outcome is a transient failure, and the
-// relay reschedules the entry.
+// sweeper reschedules the entry.
 type Publisher interface {
 	Publish(ctx context.Context, entry outbox.Entry) error
 }
 
-// Default relay settings, applied by Config when a field is zero.
-const (
-	DefaultPollInterval   = time.Second
-	DefaultLease          = 30 * time.Second
-	DefaultBatch          = 25
-	DefaultConfirmTimeout = 5 * time.Second
-	DefaultMaxAttempts    = 5
-)
-
-// DefaultBackoff is the increasing delay schedule between publish attempts. The
-// last entry repeats once the schedule runs out.
-var DefaultBackoff = []time.Duration{
-	5 * time.Second,
-	15 * time.Second,
-	time.Minute,
-	5 * time.Minute,
-}
-
-// Config tunes the relay. A zero field takes its default in withDefaults.
+// Config is the registration of the event outbox queue. Every field is required;
+// NewQueue rejects a zero value.
 type Config struct {
-	PollInterval   time.Duration
-	Lease          time.Duration
+	Interval       time.Duration
 	Batch          int
 	ConfirmTimeout time.Duration
-	MaxAttempts    int
-	Backoff        []time.Duration
-	Now            func() time.Time
-	ClaimerID      string
+	AttemptCap     int
 }
 
-func (c Config) withDefaults() Config {
-	if c.PollInterval <= 0 {
-		c.PollInterval = DefaultPollInterval
+// NewQueue builds the event outbox queue over the outbox store and the broker
+// publisher. A nil dependency or a zero config field is sweeper.ErrInvalidQueue.
+func NewQueue(repository outbox.Repository, publisher Publisher, cfg Config) (sweeper.Queue, error) {
+	if repository == nil || publisher == nil {
+		return sweeper.Queue{}, fmt.Errorf("%w: %s: nil repository or publisher", sweeper.ErrInvalidQueue, QueueName)
 	}
-	if c.Lease <= 0 {
-		c.Lease = DefaultLease
+	if cfg.ConfirmTimeout <= 0 {
+		return sweeper.Queue{}, fmt.Errorf("%w: %s: confirm timeout must be positive", sweeper.ErrInvalidQueue, QueueName)
 	}
-	if c.Batch <= 0 {
-		c.Batch = DefaultBatch
-	}
-	if c.ConfirmTimeout <= 0 {
-		c.ConfirmTimeout = DefaultConfirmTimeout
-	}
-	if c.MaxAttempts <= 0 {
-		c.MaxAttempts = DefaultMaxAttempts
-	}
-	if len(c.Backoff) == 0 {
-		c.Backoff = DefaultBackoff
-	}
-	if c.Now == nil {
-		c.Now = time.Now
-	}
-	return c
+
+	return sweeper.NewQueue(sweeper.QueueSpec[outbox.Entry]{
+		Name:       QueueName,
+		Interval:   cfg.Interval,
+		AttemptCap: cfg.AttemptCap,
+		Batch:      cfg.Batch,
+		Store:      store{repository: repository},
+		Handle:     handler(publisher, repository, cfg.ConfirmTimeout),
+	})
 }
 
-// Relay polls the event outbox and moves guaranteed events to the broker.
-type Relay struct {
+// handler publishes one claimed entry and marks it published once the broker
+// confirmed it. A non-canonical identity is permanent and never reaches the
+// broker. If the mark fails after a confirmed publish, the entry is retried and
+// republished; consumers deduplicate by the envelope identity.
+func handler(publisher Publisher, repository outbox.Repository, confirmTimeout time.Duration) sweeper.Handler[outbox.Entry] {
+	return func(ctx context.Context, job sweeper.Job[outbox.Entry], now time.Time) error {
+		if err := idgen.Validate(job.ID); err != nil {
+			return fmt.Errorf("%w: invalid identity: %v", sweeper.ErrPermanent, err)
+		}
+		if err := publish(ctx, publisher, job.Payload, confirmTimeout); err != nil {
+			return err
+		}
+		return repository.MarkPublished(ctx, job.ID, now)
+	}
+}
+
+func publish(ctx context.Context, publisher Publisher, entry outbox.Entry, confirmTimeout time.Duration) error {
+	publishCtx, cancel := context.WithTimeout(ctx, confirmTimeout)
+	defer cancel()
+	return publisher.Publish(publishCtx, entry)
+}
+
+// store adapts the event outbox repository to the sweeper store port. Dead is the
+// outbox's terminal failed state, stored as status dead.
+type store struct {
 	repository outbox.Repository
-	publisher  Publisher
-	config     Config
-	logger     logger.StructuredLogger
 }
 
-// New builds a relay over the outbox store and the broker publisher.
-func New(repository outbox.Repository, publisher Publisher, config Config, log logger.StructuredLogger) *Relay {
-	return &Relay{repository: repository, publisher: publisher, config: config, logger: log}
-}
-
-// Run runs one pass, then waits PollInterval, until ctx is cancelled. It
-// finishes the in-flight batch before returning nil.
-func (r *Relay) Run(ctx context.Context) error {
-	config := r.config.withDefaults()
-	for {
-		r.pass(ctx, config)
-		if ctx.Err() != nil {
-			return nil
-		}
-
-		timer := time.NewTimer(config.PollInterval)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return nil
-		case <-timer.C:
-		}
-	}
-}
-
-// RunOnce claims and processes a single batch. It is the deterministic seam the
-// tests drive.
-func (r *Relay) RunOnce(ctx context.Context) {
-	r.pass(ctx, r.config.withDefaults())
-}
-
-func (r *Relay) pass(ctx context.Context, config Config) {
-	entries, err := r.repository.Claim(ctx, config.ClaimerID, config.Now(), config.Lease, config.Batch)
+func (s store) Claim(ctx context.Context, claimer string, now time.Time, lease time.Duration, limit int) ([]sweeper.Job[outbox.Entry], error) {
+	entries, err := s.repository.Claim(ctx, claimer, now, lease, limit)
 	if err != nil {
-		r.logger.Error(ctx, "events relay claim failed", logger.Attribute{Key: attrError, Value: err.Error()})
-		return
+		return nil, err
 	}
+	jobs := make([]sweeper.Job[outbox.Entry], 0, len(entries))
 	for _, entry := range entries {
-		r.publish(ctx, config, entry)
+		jobs = append(jobs, sweeper.Job[outbox.Entry]{ID: entry.ID, Attempts: entry.Attempts, Payload: entry})
 	}
+	return jobs, nil
 }
 
-// publish moves one claimed entry. A non-canonical identity is terminal without
-// a broker call. A confirmed publish marks the entry published; any other
-// outcome backs off or fails the entry at the attempt cap.
-func (r *Relay) publish(ctx context.Context, config Config, entry outbox.Entry) {
-	now := config.Now()
-	if err := idgen.Validate(entry.ID); err != nil {
-		r.markTerminal(ctx, entry.ID, now, "invalid identity")
-		return
-	}
-
-	publishCtx, cancel := context.WithTimeout(ctx, config.ConfirmTimeout)
-	err := r.publisher.Publish(publishCtx, entry)
-	cancel()
-	if err != nil {
-		r.backOffOrFail(ctx, config, entry, err.Error(), now)
-		return
-	}
-
-	if err := r.repository.MarkPublished(ctx, entry.ID, now); err != nil {
-		r.logger.Error(ctx, "events relay mark published failed",
-			logger.Attribute{Key: "id", Value: entry.ID},
-			logger.Attribute{Key: attrError, Value: err.Error()})
-	}
+func (s store) Reschedule(ctx context.Context, id string, now, nextAt time.Time, reason string) error {
+	return s.repository.Reschedule(ctx, id, now, nextAt, reason)
 }
 
-func (r *Relay) backOffOrFail(ctx context.Context, config Config, entry outbox.Entry, reason string, now time.Time) {
-	if entry.Attempts+1 >= config.MaxAttempts {
-		r.markTerminal(ctx, entry.ID, now, reason)
-		return
-	}
-
-	nextAt := now.Add(backoff(config.Backoff, entry.Attempts+1))
-	if err := r.repository.Reschedule(ctx, entry.ID, now, nextAt, reason); err != nil {
-		r.logger.Error(ctx, "events relay reschedule failed",
-			logger.Attribute{Key: "id", Value: entry.ID},
-			logger.Attribute{Key: attrError, Value: err.Error()})
-	}
+func (s store) MarkDead(ctx context.Context, id string, now time.Time, reason string) error {
+	return s.repository.MarkTerminal(ctx, id, now, reason)
 }
 
-func (r *Relay) markTerminal(ctx context.Context, id string, now time.Time, reason string) {
-	if err := r.repository.MarkTerminal(ctx, id, now, reason); err != nil {
-		r.logger.Error(ctx, "events relay mark terminal failed",
-			logger.Attribute{Key: "id", Value: id},
-			logger.Attribute{Key: attrError, Value: err.Error()})
-	}
-}
-
-// backoff returns the delay for the given attempt number, repeating the last
-// tier once the schedule runs out.
-func backoff(schedule []time.Duration, attempt int) time.Duration {
-	if len(schedule) == 0 {
-		return 0
-	}
-	index := attempt - 1
-	if index < 0 {
-		index = 0
-	}
-	if index >= len(schedule) {
-		index = len(schedule) - 1
-	}
-	return schedule[index]
+func (s store) OldestPending(ctx context.Context) (time.Time, bool, error) {
+	return s.repository.OldestPending(ctx)
 }

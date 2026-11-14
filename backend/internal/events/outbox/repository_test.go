@@ -11,6 +11,8 @@ import (
 	"legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/events/relay"
 	relaymocks "legnaris/backend/internal/events/relay/mocks"
+	"legnaris/backend/internal/sweeper"
+	sweepermocks "legnaris/backend/internal/sweeper/mocks"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/db/dbtest"
 	"legnaris/backend/shared/idgen"
@@ -250,7 +252,7 @@ func TestRepositoryTransitions(t *testing.T) {
 
 		require.NoError(t, repo.MarkTerminal(ctx, entry.ID, now, "attempt cap"))
 
-		assert.Equal(t, outbox.StatusFailed, readEntry(t, mdb, entry.ID).Status)
+		assert.Equal(t, outbox.StatusDead, readEntry(t, mdb, entry.ID).Status)
 		claimed, err := repo.Claim(ctx, "relay-a", now.Add(24*time.Hour), time.Minute, 10)
 		require.NoError(t, err)
 		assert.Empty(t, claimed)
@@ -272,6 +274,68 @@ func TestRepositoryTransitions(t *testing.T) {
 
 		assert.NoError(t, repo.MarkPublished(ctx, unknown, now))
 	})
+}
+
+// TestRepositoryOldestPending covers the age probe behind the oldest_pending gauge.
+func TestRepositoryOldestPending(t *testing.T) {
+	now := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
+
+	t.Run("Edge: an empty outbox reports no pending entry", func(t *testing.T) {
+		_, repo := newOutboxFixture(t)
+
+		_, pending, err := repo.OldestPending(context.Background())
+		require.NoError(t, err)
+		assert.False(t, pending)
+	})
+
+	t.Run("Happy path: the oldest pending entry by creation time is reported", func(t *testing.T) {
+		mdb, repo := newOutboxFixture(t)
+		ctx := context.Background()
+		older := newEntryFor(t, now.Add(-time.Hour))
+		newer := newEntryFor(t, now)
+		require.NoError(t, repo.Insert(ctx, newer))
+		require.NoError(t, repo.Insert(ctx, older))
+
+		created, pending, err := repo.OldestPending(ctx)
+		require.NoError(t, err)
+		require.True(t, pending)
+		assert.True(t, created.Equal(older.CreatedAt))
+
+		require.NoError(t, repo.MarkPublished(ctx, older.ID, now))
+		created, pending, err = repo.OldestPending(ctx)
+		require.NoError(t, err)
+		require.True(t, pending)
+		assert.True(t, created.Equal(newer.CreatedAt), "a published entry leaves the probe")
+		assert.Equal(t, outbox.StatusPublished, readEntry(t, mdb, older.ID).Status)
+	})
+
+	t.Run("Edge: a dead entry is not pending and leaves the probe", func(t *testing.T) {
+		_, repo := newOutboxFixture(t)
+		ctx := context.Background()
+		entry := newEntryFor(t, now)
+		require.NoError(t, repo.Insert(ctx, entry))
+		require.NoError(t, repo.MarkTerminal(ctx, entry.ID, now, "attempt cap"))
+
+		_, pending, err := repo.OldestPending(ctx)
+		require.NoError(t, err)
+		assert.False(t, pending)
+	})
+}
+
+// runPass runs one sweeper pass over the event outbox at now, with a fresh
+// sweeper so every pass is due.
+func runPass(t *testing.T, repo outbox.Repository, publisher relay.Publisher, observer sweeper.Observer, now time.Time) {
+	t.Helper()
+	queue, err := relay.NewQueue(repo, publisher, relay.Config{
+		Interval:       time.Minute,
+		Batch:          10,
+		ConfirmTimeout: time.Second,
+		AttemptCap:     5,
+	})
+	require.NoError(t, err)
+	sw, err := sweeper.New([]sweeper.Queue{queue}, "relay-test", observer, logger.NewLogger(slog.LevelError))
+	require.NoError(t, err)
+	require.NoError(t, sw.RunOnce(context.Background(), now))
 }
 
 // TestRepositoryTransactions covers the outbox insert inside the entity
@@ -391,13 +455,14 @@ func TestRepositoryTransactions(t *testing.T) {
 		publisher := relaymocks.NewMockPublisher(t)
 		publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(errCrash).Once()
 		publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(nil).Once()
+		observer := sweepermocks.NewMockObserver(t)
+		observer.EXPECT().OldestPending(relay.QueueName, mock.Anything).Maybe()
+		observer.EXPECT().Failed(relay.QueueName).Once()
 
-		failing := relay.New(repo, publisher, relay.Config{Now: func() time.Time { return now }, ClaimerID: "relay-test", MaxAttempts: 5}, logger.NewLogger(slog.LevelError))
-		failing.RunOnce(ctx)
+		runPass(t, repo, publisher, observer, now)
 		assert.Equal(t, outbox.StatusPending, readEntry(t, mdb, entry.ID).Status, "a failed publish reschedules, it does not publish")
 
-		recovered := relay.New(repo, publisher, relay.Config{Now: func() time.Time { return now.Add(time.Hour) }, ClaimerID: "relay-test", MaxAttempts: 5}, logger.NewLogger(slog.LevelError))
-		recovered.RunOnce(ctx)
+		runPass(t, repo, publisher, observer, now.Add(time.Hour))
 		assert.Equal(t, outbox.StatusPublished, readEntry(t, mdb, entry.ID).Status)
 	})
 }

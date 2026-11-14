@@ -230,6 +230,69 @@ func (_c *MockRepository_MarkTerminal_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// OldestPending provides a mock function with given fields: ctx
+func (_m *MockRepository) OldestPending(ctx context.Context) (time.Time, bool, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for OldestPending")
+	}
+
+	var r0 time.Time
+	var r1 bool
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (time.Time, bool, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) time.Time); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(time.Time)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) bool); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// MockRepository_OldestPending_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OldestPending'
+type MockRepository_OldestPending_Call struct {
+	*mock.Call
+}
+
+// OldestPending is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockRepository_Expecter) OldestPending(ctx interface{}) *MockRepository_OldestPending_Call {
+	return &MockRepository_OldestPending_Call{Call: _e.mock.On("OldestPending", ctx)}
+}
+
+func (_c *MockRepository_OldestPending_Call) Run(run func(ctx context.Context)) *MockRepository_OldestPending_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockRepository_OldestPending_Call) Return(_a0 time.Time, _a1 bool, _a2 error) *MockRepository_OldestPending_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *MockRepository_OldestPending_Call) RunAndReturn(run func(context.Context) (time.Time, bool, error)) *MockRepository_OldestPending_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Reschedule provides a mock function with given fields: ctx, id, now, nextAt, lastError
 func (_m *MockRepository) Reschedule(ctx context.Context, id string, now time.Time, nextAt time.Time, lastError string) error {
 	ret := _m.Called(ctx, id, now, nextAt, lastError)

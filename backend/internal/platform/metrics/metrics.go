@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/sweeper"
 
 	"github.com/labstack/echo/v5"
 	"github.com/prometheus/client_golang/prometheus"
@@ -38,9 +39,17 @@ type Metrics struct {
 	authOTPVerify            *prometheus.CounterVec
 	authOTPResend            *prometheus.CounterVec
 	authOTPCapBlocked        prometheus.Counter
+	sweeperOldestPending     *prometheus.GaugeVec
+	sweeperFailed            *prometheus.CounterVec
 }
 
 const metricsNamespace = "legnaris"
+
+// sweeperSubsystem is the Prometheus subsystem of the generic sweeper queues.
+const sweeperSubsystem = "sweeper"
+
+// queueLabel is the label that partitions the sweeper series by queue.
+const queueLabel = "queue"
 
 // requestDurationBuckets are the HTTP latency histogram bounds, in seconds.
 // prometheus.DefBuckets starts at 5ms, which collapses every healthy sub-5ms
@@ -213,11 +222,28 @@ func New() *Metrics {
 		Help:      "Number of HTTP requests currently being served.",
 	})
 
+	// The sweeper series are labelled by queue only. Alerts fire when the oldest
+	// pending item passes 1 hour or when failed_total increases (ADR 0013).
+	sweeperOldestPending := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: sweeperSubsystem,
+		Name:      "oldest_pending_seconds",
+		Help:      "Age in seconds of the oldest pending item of a sweeper queue; 0 when none is pending.",
+	}, []string{queueLabel})
+
+	sweeperFailed := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: sweeperSubsystem,
+		Name:      "failed_total",
+		Help:      "Total number of failed handler attempts of a sweeper queue.",
+	}, []string{queueLabel})
+
 	registry.MustRegister(requestDuration, requestsTotal, requestsInFlight, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports, eventsDropped,
 		emailOutboxBacklog, emailPublishTotal, emailDeadTotal,
 		emailSendTotal, emailSendDuration, emailExpiredTotal,
 		emailBreakerOpen, emailBreakerOpened,
-		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked)
+		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked,
+		sweeperOldestPending, sweeperFailed)
 
 	// The private registry must be self-sufficient: register the standard Go
 	// and process collectors so the deployment's own resource metrics (goroutines,
@@ -249,6 +275,8 @@ func New() *Metrics {
 		authOTPVerify:            authOTPVerify,
 		authOTPResend:            authOTPResend,
 		authOTPCapBlocked:        authOTPCapBlocked,
+		sweeperOldestPending:     sweeperOldestPending,
+		sweeperFailed:            sweeperFailed,
 	}
 }
 
@@ -404,4 +432,20 @@ func (m *Metrics) ResendRequested(result string) {
 // reached (OTP-13).
 func (m *Metrics) SendCapBlocked() {
 	m.authOTPCapBlocked.Inc()
+}
+
+// The sweeper methods implement sweeper.Observer (ADR 0013), so the relay wires
+// the same Metrics instance as the queue observer.
+
+var _ sweeper.Observer = (*Metrics)(nil)
+
+// OldestPending sets the age gauge of a sweeper queue; zero means nothing is
+// pending.
+func (m *Metrics) OldestPending(queue string, age time.Duration) {
+	m.sweeperOldestPending.WithLabelValues(queue).Set(age.Seconds())
+}
+
+// Failed counts one failed handler attempt of a sweeper queue.
+func (m *Metrics) Failed(queue string) {
+	m.sweeperFailed.WithLabelValues(queue).Inc()
 }

@@ -87,6 +87,12 @@ packages:
       outpkg: mocks
     interfaces:
       Publisher: {}
+  legnaris/backend/internal/sweeper:
+    config:
+      dir: backend/internal/sweeper/mocks
+      outpkg: mocks
+    interfaces:
+      Observer: {}
   legnaris/backend/internal/email:
     config:
       dir: backend/internal/email/mocks

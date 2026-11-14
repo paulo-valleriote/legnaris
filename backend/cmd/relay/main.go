@@ -26,6 +26,7 @@ import (
 	eventsoutbox "legnaris/backend/internal/events/outbox"
 	eventsrelay "legnaris/backend/internal/events/relay"
 	"legnaris/backend/internal/platform/metrics"
+	"legnaris/backend/internal/sweeper"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
@@ -139,29 +140,42 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	if err != nil {
 		return err
 	}
-	eventRelay := eventsrelay.New(eventRepository, eventBroker, eventsRelayConfig(cfg), cfg.Logger)
+	queues, err := sweepQueues(cfg, eventRepository, eventBroker)
+	if err != nil {
+		return err
+	}
+	sweep, err := sweeper.New(queues, relayClaimerID(), relayMetrics, cfg.Logger)
+	if err != nil {
+		return err
+	}
 
-	eventsDone := make(chan error, 1)
-	go func() { eventsDone <- eventRelay.Run(ctx) }()
+	sweepDone := make(chan error, 1)
+	go func() { sweepDone <- sweep.Run(ctx) }()
 
 	publisher := relay.New(repository, broker, relayMetrics, relayConfig(cfg), cfg.Logger)
 	emailErr := publisher.Run(ctx)
-	eventsErr := <-eventsDone
-	return errors.Join(emailErr, eventsErr)
+	sweepErr := <-sweepDone
+	return errors.Join(emailErr, sweepErr)
 }
 
-// eventsRelayConfig maps the shared relay settings onto the event relay. Both
-// relays read the same configuration, so one lease and attempt policy applies.
-func eventsRelayConfig(cfg env.Env) eventsrelay.Config {
+// eventsOutboxInterval is how often the sweeper claims the event outbox.
+const eventsOutboxInterval = 5 * time.Minute
+
+// sweepQueues is the sweeper's queue table: one entry per queue, and the only
+// place a queue is registered (ADR 0013). The event outbox shares the email
+// relay's batch, confirm timeout and attempt cap.
+func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher) ([]sweeper.Queue, error) {
 	vars := cfg.Variables
-	return eventsrelay.Config{
-		PollInterval:   vars.EmailRelayPollInterval,
-		Lease:          vars.EmailRelayLease,
+	eventQueue, err := eventsrelay.NewQueue(eventRepository, eventBroker, eventsrelay.Config{
+		Interval:       eventsOutboxInterval,
 		Batch:          vars.EmailRelayBatch,
 		ConfirmTimeout: vars.EmailRelayConfirmTimeout,
-		MaxAttempts:    vars.EmailRelayMaxAttempts,
-		ClaimerID:      relayClaimerID(),
+		AttemptCap:     vars.EmailRelayMaxAttempts,
+	})
+	if err != nil {
+		return nil, err
 	}
+	return []sweeper.Queue{eventQueue}, nil
 }
 
 // validateBrokerURL rejects an absent or unusable broker URL with the typed

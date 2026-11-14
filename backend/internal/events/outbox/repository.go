@@ -23,6 +23,7 @@ const (
 	fieldLockedBy         = "locked_by"
 	fieldPublishedAt      = "published_at"
 	fieldLastError        = "last_error"
+	fieldCreatedAt        = "created_at"
 	operandSet            = "$set"
 	operandInc            = "$inc"
 	operandLTE            = "$lte"
@@ -45,6 +46,9 @@ type Repository interface {
 	Reschedule(ctx context.Context, id string, now, nextAt time.Time, lastError string) error
 	// MarkTerminal fails the entry so it is never claimed again.
 	MarkTerminal(ctx context.Context, id string, now time.Time, lastError string) error
+	// OldestPending returns the creation time of the oldest pending entry. The
+	// bool is false when no entry is pending.
+	OldestPending(ctx context.Context) (time.Time, bool, error)
 }
 
 // RepositoryImpl is the MongoDB-backed event outbox store.
@@ -155,7 +159,7 @@ func (r *RepositoryImpl) MarkTerminal(ctx context.Context, id string, now time.T
 	if _, err := r.collection.UpdateOne(ctx,
 		bson.D{{Key: fieldID, Value: id}},
 		bson.D{{Key: operandSet, Value: bson.D{
-			{Key: fieldStatus, Value: StatusFailed},
+			{Key: fieldStatus, Value: StatusDead},
 			{Key: fieldLockedUntil, Value: nil},
 			{Key: fieldLockedBy, Value: ""},
 			{Key: fieldLastError, Value: lastError},
@@ -164,6 +168,26 @@ func (r *RepositoryImpl) MarkTerminal(ctx context.Context, id string, now time.T
 		return fmt.Errorf("mark event outbox entry terminal: %w", err)
 	}
 	return nil
+}
+
+// OldestPending returns the creation time of the oldest pending entry, the signal
+// behind the oldest_pending_seconds gauge. It reads one document, the first in
+// creation order among the pending ones.
+func (r *RepositoryImpl) OldestPending(ctx context.Context) (time.Time, bool, error) {
+	var entry Entry
+	err := r.collection.FindOne(ctx,
+		bson.D{{Key: fieldStatus, Value: StatusPending}},
+		options.FindOne().
+			SetSort(bson.D{{Key: fieldCreatedAt, Value: 1}}).
+			SetProjection(bson.D{{Key: fieldCreatedAt, Value: 1}}),
+	).Decode(&entry)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("find oldest pending event outbox entry: %w", err)
+	}
+	return entry.CreatedAt, true, nil
 }
 
 // validateID screens an identity before it is used in a filter.
