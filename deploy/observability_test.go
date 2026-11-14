@@ -327,7 +327,7 @@ func TestMonitoringEvaluatesTheRules(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal(raw, &doc))
 
 	t.Run("Happy path: the stack loads the rules file", func(t *testing.T) {
-		assert.Equal(t, []string{"/etc/prometheus/rules.yml"}, doc.RuleFiles)
+		assert.Equal(t, []string{"/etc/prometheus/rules.yml", "/etc/prometheus/rules-f1a.yml"}, doc.RuleFiles)
 	})
 
 	t.Run("Happy path: the rules file is mounted read-only into the stack", func(t *testing.T) {

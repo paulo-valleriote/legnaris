@@ -1,0 +1,210 @@
+{
+  "uid": "f1a-generation",
+  "title": "Character generation and sweeper",
+  "description": "Sweeper backlog age and failures per queue, unrouted domain events, dropped events by reason and the global daily generation cap. Every panel names the series it reads.",
+  "tags": [
+    "legnaris",
+    "f1a"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 40,
+  "version": 1,
+  "editable": false,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Sweeper oldest pending (max over queues)",
+      "description": "Reads legnaris_sweeper_oldest_pending_seconds from the relay: the age in seconds of the oldest pending item of the worst sweeper queue. Above 3600 the alert LegnarisSweeperOldestPendingTooOld fires.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "max(legnaris_sweeper_oldest_pending_seconds{job=\"legnaris-relay\"}) or vector(0)",
+          "legendFormat": "oldest"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Sweeper failed attempts per queue",
+      "description": "Reads legnaris_sweeper_failed_total from the relay: failed handler attempts per queue over five-minute windows. Any increase fires LegnarisSweeperHandlerFailing; a rising rate points to the dead-item runbook.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 18,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (queue) (increase(legnaris_sweeper_failed_total{job=\"legnaris-relay\"}[5m]))",
+          "legendFormat": "{{queue}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "events.unrouted depth",
+      "description": "Reads rabbitmq_queue_messages_ready for the events.unrouted queue on the legnaris vhost: domain events no bound queue received. Above zero fires LegnarisEventsUnroutedNotEmpty.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "max(rabbitmq_queue_messages_ready{job=\"legnaris-rabbitmq\", vhost=\"legnaris\", queue=\"events.unrouted\"}) or vector(0)",
+          "legendFormat": "unrouted"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Dropped domain events by reason",
+      "description": "Reads legnaris_events_dropped_total from the API and the relay: domain events the best-effort publisher dropped, by type and reason, including shutdown. A panel only; it does not page.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (type, reason) (increase(legnaris_events_dropped_total{job=~\"legnaris-app|legnaris-relay\"}[15m]))",
+          "legendFormat": "{{type}} {{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Generation jobs per day versus the cap",
+      "description": "Reads legnaris_generation_cap_used and legnaris_generation_cap_limit from the API: jobs accepted today in UTC against the global daily cap. Both are set on each reservation attempt, so the line can hold yesterday's value after UTC midnight until the first generation of the day.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "legnaris_generation_cap_used{job=\"legnaris-app\"}",
+          "legendFormat": "used"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "B",
+          "expr": "legnaris_generation_cap_limit{job=\"legnaris-app\"}",
+          "legendFormat": "limit"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Generation cap share (used / limit)",
+      "description": "Reads legnaris_generation_cap_used and legnaris_generation_cap_limit from the API: the share of the daily cap in use, computed here rather than read from the ratio gauge, which only refreshes on reservation. The 80 percent alert is LegnarisGenerationCapAt80Percent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "(legnaris_generation_cap_used{job=\"legnaris-app\"} / legnaris_generation_cap_limit{job=\"legnaris-app\"}) and legnaris_generation_cap_limit{job=\"legnaris-app\"} > 0",
+          "legendFormat": "share"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    }
+  ]
+}
