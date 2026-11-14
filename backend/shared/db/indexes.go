@@ -27,6 +27,8 @@ const (
 	authChallengesActiveUnique     = "auth_challenges_active_unique"
 	authChallengesExpiresAtTTL     = "auth_challenges_expires_at_ttl"
 	emailNoticesClaimedAtTTL       = "email_notices_claimed_at_ttl"
+	eventOutboxStatusNextAttempt   = "event_outbox_status_next_attempt"
+	eventOutboxPublishedAtTTL      = "event_outbox_published_at_ttl"
 )
 
 // EnsureIndexes creates the indexes required by the application, retiring
@@ -106,11 +108,35 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 		return err
 	}
 
+	if err := ensureEventOutboxIndexes(ctx, database, retention); err != nil {
+		return err
+	}
+
 	if err := ensureAuthChallengeIndexes(ctx, database); err != nil {
 		return err
 	}
 
 	return ensureEmailNoticeIndexes(ctx, database)
+}
+
+// ensureEventOutboxIndexes creates the claim index for event_outbox and the TTL
+// that retires published rows after the retention window. Pending and failed
+// rows keep published_at null, which the TTL never matches (ADR 0013).
+func ensureEventOutboxIndexes(ctx context.Context, database *mongo.Database, retention time.Duration) error {
+	outbox := database.Collection("event_outbox")
+	if _, err := outbox.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "status", Value: 1}, {Key: "next_attempt_at", Value: 1}},
+			Options: options.Index().SetName(eventOutboxStatusNextAttempt),
+		},
+		{
+			Keys:    bson.D{{Key: "published_at", Value: 1}},
+			Options: options.Index().SetExpireAfterSeconds(int32(retention.Seconds())).SetName(eventOutboxPublishedAtTTL),
+		},
+	}); err != nil {
+		return fmt.Errorf("create event_outbox indexes: %w", err)
+	}
+	return nil
 }
 
 // emailNoticeRetention outlives any configured notice window, so a claim is

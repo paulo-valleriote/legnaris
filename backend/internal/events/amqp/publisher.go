@@ -8,7 +8,6 @@ package amqp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -233,26 +232,8 @@ func (p *Publisher) open() error {
 		return errURLNotSet
 	}
 
-	conn, err := p.dial(p.url)
+	conn, ch, err := openConfirmedChannel(p.dial, p.url)
 	if err != nil {
-		return fmt.Errorf("dial broker: %w", err)
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		_ = conn.Close()
-		return fmt.Errorf("open channel: %w", err)
-	}
-
-	if err := ch.Confirm(false); err != nil {
-		_ = ch.Close()
-		_ = conn.Close()
-		return fmt.Errorf("enable publisher confirms: %w", err)
-	}
-
-	if err := declareTopology(ch); err != nil {
-		_ = ch.Close()
-		_ = conn.Close()
 		return err
 	}
 

@@ -11,6 +11,8 @@ import (
 	"legnaris/backend/internal/email/amqp"
 	"legnaris/backend/internal/email/outbox"
 	outboxmocks "legnaris/backend/internal/email/outbox/mocks"
+	eventsoutbox "legnaris/backend/internal/events/outbox"
+	eventsoutboxmocks "legnaris/backend/internal/events/outbox/mocks"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
 
@@ -27,6 +29,15 @@ type fakeBroker struct {
 func (b *fakeBroker) Publish(context.Context, email.Message) error { return nil }
 func (b *fakeBroker) DeclareTopology() error                       { b.declared = true; return nil }
 func (b *fakeBroker) Close() error                                 { b.closed = true; return nil }
+
+// fakeEventBroker stands in for the event relay's broker: it confirms every
+// entry and records whether it was closed.
+type fakeEventBroker struct {
+	closed bool
+}
+
+func (b *fakeEventBroker) Publish(context.Context, eventsoutbox.Entry) error { return nil }
+func (b *fakeEventBroker) Close() error                                      { b.closed = true; return nil }
 
 type fakeDatabase struct {
 	closed bool
@@ -122,7 +133,12 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 		Return(nil, nil).Once()
 	repository.EXPECT().Backlog(mock.Anything).Return(0, nil).Once()
 
+	eventRepository := eventsoutboxmocks.NewMockRepository(t)
+	eventRepository.EXPECT().Claim(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, nil).Once()
+
 	broker := &fakeBroker{}
+	eventBroker := &fakeEventBroker{}
 	database := &fakeDatabase{}
 	indexesEnsured := false
 
@@ -135,7 +151,13 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 		newRepository: func(env.Env, databaseHandle, logger.StructuredLogger) (outbox.Repository, error) {
 			return repository, nil
 		},
-		dialBroker:   func(env.Env) (brokerClient, error) { return broker, nil },
+		dialBroker: func(env.Env) (brokerClient, error) { return broker, nil },
+		dialEventBroker: func(env.Env) (eventBrokerClient, error) {
+			return eventBroker, nil
+		},
+		newEventRepository: func(env.Env, databaseHandle, logger.StructuredLogger) (eventsoutbox.Repository, error) {
+			return eventRepository, nil
+		},
 		serveMetrics: noopServeMetrics,
 	}
 
@@ -147,5 +169,6 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 	assert.True(t, indexesEnsured, "the relay must ensure the outbox indexes")
 	assert.True(t, broker.declared, "the topology must be declared before publishing")
 	assert.True(t, broker.closed, "the broker must be closed on shutdown")
+	assert.True(t, eventBroker.closed, "the event broker must be closed on shutdown")
 	assert.True(t, database.closed, "the database must be closed on shutdown")
 }
