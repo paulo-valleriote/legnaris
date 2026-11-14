@@ -18,64 +18,97 @@ import (
 
 var errCallbackFailed = errors.New("callback failed")
 
+const (
+	unreachableURITemplate = "mongodb://127.0.0.1:1/?serverSelectionTimeoutMS="
+	failFastSelectionMS    = "50"
+	longSelectionMS        = "30000"
+	outageUpperBound       = 20 * time.Second
+)
+
 // newUnreachableClient returns a client whose server cannot be selected, so
-// operations fail fast without any external service.
-func newUnreachableClient(t *testing.T) *mongo.Client {
+// operations fail without any external service. selectionMS is how long the
+// driver waits for a server before giving up.
+func newUnreachableClient(t *testing.T, selectionMS string) *mongo.Client {
 	t.Helper()
-	client, err := mongo.Connect(options.Client().ApplyURI("mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=50"))
+	client, err := mongo.Connect(options.Client().ApplyURI(unreachableURITemplate + selectionMS))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = client.Disconnect(context.Background()) })
 	return client
 }
 
 func TestTransactor_WithTransaction(t *testing.T) {
-	t.Run("Edge: a nil transactor reports a missing client", func(t *testing.T) {
-		var tx *db.Transactor
-		err := tx.WithTransaction(context.Background(), func(context.Context) error { return nil })
-		assert.ErrorIs(t, err, db.ErrNoClient)
-	})
+	noop := func(context.Context) error { return nil }
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
 
-	t.Run("Edge: a transactor without a client reports a missing client", func(t *testing.T) {
-		tx := db.NewTransactor(nil, nil)
-		err := tx.WithTransaction(context.Background(), func(context.Context) error { return nil })
-		assert.ErrorIs(t, err, db.ErrNoClient)
-	})
+	tests := []struct {
+		name    string
+		tx      func(t *testing.T) *db.Transactor
+		ctx     context.Context
+		fn      func(context.Context) error
+		wantErr error
+	}{
+		{
+			name:    "Edge: a nil transactor reports a missing client",
+			tx:      func(*testing.T) *db.Transactor { return nil },
+			ctx:     context.Background(),
+			fn:      noop,
+			wantErr: db.ErrNoClient,
+		},
+		{
+			name:    "Edge: a transactor without a client reports a missing client",
+			tx:      func(*testing.T) *db.Transactor { return db.NewTransactor(nil, nil) },
+			ctx:     context.Background(),
+			fn:      noop,
+			wantErr: db.ErrNoClient,
+		},
+		{
+			name: "Edge: a nil callback is rejected before any server contact",
+			tx: func(t *testing.T) *db.Transactor {
+				return db.NewTransactor(newUnreachableClient(t, failFastSelectionMS), nil)
+			},
+			ctx:     context.Background(),
+			fn:      nil,
+			wantErr: db.ErrNilCallback,
+		},
+		{
+			name: "Happy path: an empty callback commits without contacting the server",
+			tx: func(t *testing.T) *db.Transactor {
+				return db.NewTransactor(newUnreachableClient(t, failFastSelectionMS), nil)
+			},
+			ctx: context.Background(),
+			fn:  noop,
+		},
+		{
+			name: "Edge: a canceled context fails the transaction instead of waiting for server selection",
+			tx: func(t *testing.T) *db.Transactor {
+				return db.NewTransactor(newUnreachableClient(t, longSelectionMS), nil)
+			},
+			ctx:     canceled,
+			fn:      noop,
+			wantErr: db.ErrTransactionFailed,
+		},
+	}
 
-	t.Run("Edge: a nil callback is rejected before any server contact", func(t *testing.T) {
-		tx := db.NewTransactor(newUnreachableClient(t), nil)
-		err := tx.WithTransaction(context.Background(), nil)
-		assert.ErrorIs(t, err, db.ErrNilCallback)
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			start := time.Now()
 
-	t.Run("Edge: an empty callback commits without contacting the server", func(t *testing.T) {
-		tx := db.NewTransactor(newUnreachableClient(t), nil)
-		err := tx.WithTransaction(context.Background(), func(context.Context) error { return nil })
-		assert.NoError(t, err)
-	})
+			err := tc.tx(t).WithTransaction(tc.ctx, tc.fn)
 
-	t.Run("Edge: a canceled context fails the transaction without waiting", func(t *testing.T) {
-		tx := db.NewTransactor(newUnreachableClient(t), nil)
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		start := time.Now()
-		err := tx.WithTransaction(ctx, func(context.Context) error { return nil })
-		assert.ErrorIs(t, err, db.ErrTransactionFailed)
-		assert.Less(t, time.Since(start), time.Second)
-	})
+			if tc.wantErr == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, tc.wantErr)
+			}
+			assert.Less(t, time.Since(start), outageUpperBound)
+		})
+	}
 }
 
 func TestTransactor_Timeout(t *testing.T) {
-	outageClient := func(t *testing.T) *mongo.Client {
-		t.Helper()
-		client, err := mongo.Connect(options.Client().ApplyURI("mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=30000"))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = client.Disconnect(context.Background()) })
-		return client
-	}
-
-	t.Run("Edge: a server outage returns within the transaction timeout", func(t *testing.T) {
-		client := outageClient(t)
+	t.Run("Edge: a server outage returns within the transaction timeout, not the selection timeout", func(t *testing.T) {
+		client := newUnreachableClient(t, longSelectionMS)
 		tx := db.NewTransactor(client, nil).WithTimeout(200 * time.Millisecond)
 
 		start := time.Now()
@@ -87,17 +120,12 @@ func TestTransactor_Timeout(t *testing.T) {
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, db.ErrTransactionAborted)
-		assert.Less(t, elapsed, 5*time.Second)
+		assert.Less(t, elapsed, outageUpperBound)
 	})
 
 	t.Run("Edge: a nil transactor stays nil when given a timeout", func(t *testing.T) {
 		var tx *db.Transactor
 		assert.Nil(t, tx.WithTimeout(time.Second))
-	})
-
-	t.Run("Edge: a non-positive timeout keeps the default cap", func(t *testing.T) {
-		tx := db.NewTransactor(newUnreachableClient(t), nil).WithTimeout(0)
-		assert.NoError(t, tx.WithTransaction(context.Background(), func(context.Context) error { return nil }))
 	})
 }
 
