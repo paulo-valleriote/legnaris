@@ -124,9 +124,9 @@ func TestGenerateStatusClassification(t *testing.T) {
 		{name: "Error: 401 is permanent", status: http.StatusUnauthorized, body: `{}`, wantErr: llm.ErrPermanent},
 		{name: "Error: 422 is permanent", status: http.StatusUnprocessableEntity, body: `{}`, wantErr: llm.ErrPermanent},
 		{
-			name:    "Error: 404 with no eligible ZDR provider maps to provider unavailable",
+			name:    "Error: 404 with no eligible endpoint maps to provider unavailable",
 			status:  http.StatusNotFound,
-			body:    `{"error":{"message":"No endpoints found matching your data policy (Zero data retention)"}}`,
+			body:    `{"error":{"message":"No endpoints found for the requested model."}}`,
 			wantErr: llm.ErrProviderUnavailable,
 		},
 		{
@@ -302,7 +302,7 @@ func TestGenerateHappyPathRequestShape(t *testing.T) {
 	}, schema["schema"])
 }
 
-func TestGenerateHappyPathPinsProviderRouting(t *testing.T) {
+func TestGenerateHappyPathSendsDefaultProviderRouting(t *testing.T) {
 	var gotBody map[string]any
 	client := newClient(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
@@ -313,11 +313,8 @@ func TestGenerateHappyPathPinsProviderRouting(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, map[string]any{
-		"zdr":                true,
-		"data_collection":    "deny",
 		"require_parameters": true,
 		"allow_fallbacks":    true,
-		"ignore":             []any{"DeepSeek"},
 	}, gotBody["provider"])
 }
 

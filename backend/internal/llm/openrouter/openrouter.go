@@ -1,7 +1,8 @@
 // Package openrouter implements llm.Client over the OpenRouter chat completions
-// API. Every request pins zero-data-retention routing and forbids the DeepSeek
-// first-party endpoint (ADR 0008), so a prompt is never sent to a provider that
-// retains or trains on it.
+// API. Requests use OpenRouter's default routing with fallbacks enabled, so any
+// provider that serves the pinned model may handle a prompt, including the
+// DeepSeek first-party API. The player consents to that routing through the
+// versioned disclosure (ADR 0008). Free model variants are still refused.
 package openrouter
 
 import (
@@ -40,7 +41,7 @@ var (
 	ErrMissingLogger  = errors.New("openrouter: logger is required")
 )
 
-// Gateway routing phrases that mean no endpoint satisfies the data policy. They
+// Gateway routing phrases that mean no endpoint can serve the request. They
 // are matched against the error body only to classify the failure; the body is
 // never returned or logged.
 const (
@@ -165,7 +166,7 @@ func statusError(status int, raw []byte) error {
 }
 
 // isNoEligibleProvider reports whether the gateway refused the request because no
-// endpoint satisfies the pinned data policy.
+// endpoint can serve it.
 func isNoEligibleProvider(raw []byte) bool {
 	var body struct {
 		Error struct {
@@ -238,7 +239,8 @@ func (c *Client) parse(ctx context.Context, raw []byte, latency time.Duration) (
 }
 
 // buildRequest maps an llm.Request onto the OpenRouter body. The provider object
-// is the ZDR routing from ADR 0008 and is sent on every request.
+// only asks OpenRouter to honor the structured-output parameters and to fall back
+// between endpoints.
 func (c *Client) buildRequest(req llm.Request) chatRequest {
 	messages := make([]message, 0, 2)
 	if req.System != "" {
@@ -259,11 +261,8 @@ func (c *Client) buildRequest(req llm.Request) chatRequest {
 			},
 		},
 		Provider: providerRouting{
-			ZDR:               true,
-			DataCollection:    "deny",
 			RequireParameters: true,
 			AllowFallbacks:    true,
-			Ignore:            []string{"DeepSeek"},
 		},
 	}
 }
@@ -293,11 +292,8 @@ type jsonSchema struct {
 }
 
 type providerRouting struct {
-	ZDR               bool     `json:"zdr"`
-	DataCollection    string   `json:"data_collection"`
-	RequireParameters bool     `json:"require_parameters"`
-	AllowFallbacks    bool     `json:"allow_fallbacks"`
-	Ignore            []string `json:"ignore"`
+	RequireParameters bool `json:"require_parameters"`
+	AllowFallbacks    bool `json:"allow_fallbacks"`
 }
 
 type chatResponse struct {

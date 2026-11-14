@@ -17,7 +17,7 @@ import (
 )
 
 // TestGatewayRealCompletion sends one prompt through the live OpenRouter
-// gateway with the pinned ZDR routing. It self-skips when LLM_API_KEY is unset,
+// gateway with the default provider routing. It self-skips when LLM_API_KEY is unset,
 // so CI and unit runs never spend credits or need network access.
 func TestGatewayRealCompletion(t *testing.T) {
 	apiKey := os.Getenv("LLM_API_KEY")
