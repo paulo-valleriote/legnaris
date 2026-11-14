@@ -70,7 +70,8 @@ func TestService_Grant(t *testing.T) {
 	}{
 		{name: "Edge: empty version is a validation error", version: "", wantCode: apperr.CodeValidation},
 		{name: "Edge: outdated version is a validation error", version: "0", wantCode: apperr.CodeValidation},
-		{name: "Edge: future version is a validation error", version: "2", wantCode: apperr.CodeValidation},
+		{name: "Edge: future version is a validation error", version: "3", wantCode: apperr.CodeValidation},
+		{name: "Edge: retired version 1 is a validation error", version: "1", wantCode: apperr.CodeValidation},
 		{name: "Error: missing user is not found", version: llmconsent.Version, storeErr: llmconsent.ErrUserNotFound, wantStore: true, wantCode: apperr.CodeNotFound},
 		{name: "Error: store failure is not an apperr", version: llmconsent.Version, storeErr: errStore, wantStore: true},
 		{name: "Happy path: current version is recorded", version: llmconsent.Version, wantStore: true},

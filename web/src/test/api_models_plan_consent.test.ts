@@ -12,11 +12,11 @@ describe('plan consent fields (LGN-195)', () => {
     const usage = parsePlanUsage({
       ...BASE,
       llm_consent_at: '2026-11-01T12:30:00Z',
-      llm_consent_version: '1',
+      llm_consent_version: '2',
     });
 
     expect(usage.consentAt).toBe('2026-11-01T12:30:00Z');
-    expect(usage.consentVersion).toBe('1');
+    expect(usage.consentVersion).toBe('2');
   });
 
   it('Edge: a payload without the consent keys reads as no consent recorded', () => {
@@ -48,8 +48,8 @@ describe('plan consent fields (LGN-195)', () => {
   });
 
   it.each([
-    { name: 'a consent date that is not a timestamp', at: 'yesterday', version: '1' },
-    { name: 'a consent date that is a number', at: 1_700_000_000, version: '1' },
+    { name: 'a consent date that is not a timestamp', at: 'yesterday', version: '2' },
+    { name: 'a consent date that is a number', at: 1_700_000_000, version: '2' },
     { name: 'a consent version that is a number', at: '2026-11-01T12:30:00Z', version: 1 },
   ])('Error: $name is a defensive parse failure', ({ at, version }) => {
     expect(() =>

@@ -21,7 +21,7 @@ const NO_CONSENT_PLAN = {
 const CONSENTED_PLAN = {
   ...NO_CONSENT_PLAN,
   llm_consent_at: '2026-11-01T12:00:00Z',
-  llm_consent_version: '1',
+  llm_consent_version: '2',
 };
 
 const NO_CONTENT: HttpResponse = { status: 204, body: '' };
@@ -75,7 +75,7 @@ describe('account screen plan and consent (LGN-195)', () => {
     expect(await screen.findByText(message('account.planFree'))).toBeInTheDocument();
     const consent = screen.getByTestId('account-consent');
     expect(consent).toHaveTextContent(/2026/);
-    expect(consent).toHaveTextContent(messageWith('account.consentVersion', { version: '1' }));
+    expect(consent).toHaveTextContent(messageWith('account.consentVersion', { version: '2' }));
     expect(screen.getByRole('button', { name: message('account.revoke') })).toBeEnabled();
   });
 

@@ -1,10 +1,10 @@
 {
-  "_about": "Single source of the LLM consent disclosure (LGN-228, ADR 0008). Location: docs/legal/llm-consent.json. Consumers: the backend consent constant (LGN-194) must read the same `version` and the web consent modal (LGN-196) renders `locales.<lang>`. The backend embeds the file through //go:embed only from inside its own package, so LGN-194 must copy or generate it there and add a test that the two versions match. Bump `version` (a string) whenever the disclosure changes: provider, model, region, retention or revocation path. Tokens in [SQUARE_BRACKETS] are placeholders for legal review and must be replaced before go-live. Status: DRAFT, pending legal review.",
-  "version": "1",
+  "_about": "Single source of the LLM consent disclosure (LGN-228, ADR 0008). Location: docs/legal/llm-consent.json. Consumers: the backend consent constant (backend/internal/llmconsent/consent.go) must read the same `version`, and the web consent modal renders `locales.<lang>`. The backend embeds the file through //go:embed only from inside its own package, so the copy in backend/internal/llmconsent/llm-consent.json and web/src/generate/llm_consent.json must stay byte-identical to this file. Bump `version` (a string) whenever the disclosure changes: provider, model, region, retention or revocation path. Tokens in [SQUARE_BRACKETS] are placeholders for legal review and must be replaced before go-live. Status: DRAFT, pending legal review.",
+  "version": "2",
   "locales": {
     "en": {
       "title": "Send your concept to an AI model?",
-      "intro": "Character generation sends the concept text you type to an AI model hosted outside Brazil. Please read this before you continue.",
+      "intro": "Character generation sends the concept text you type to an AI model through OpenRouter. The model may run outside Brazil, including in China. Please read this before you continue.",
       "points": [
         {
           "heading": "What is sent",
@@ -12,15 +12,15 @@
         },
         {
           "heading": "Who receives it",
-          "body": "OpenRouter, which routes the request to [SERVING_PROVIDER], the provider that runs the DeepSeek V4.1 Flash model. OpenRouter and [SERVING_PROVIDER] act as our processors. The first-party DeepSeek API is not used."
+          "body": "OpenRouter, which routes the request to a provider that runs the DeepSeek V4.1 Flash model. That provider may be the DeepSeek API or another company. OpenRouter and the provider receive the request to run it. How they keep and use data, including for training, is governed by their own terms."
         },
         {
           "heading": "Where it is processed",
-          "body": "Outside Brazil, in [PROCESSING_COUNTRIES]. This is a transfer of personal data abroad under LGPD art. 33, and this consent is the basis for it."
+          "body": "Outside Brazil, which may include China, depending on the provider that serves your request. This is a transfer of personal data abroad under LGPD art. 33, and this consent is the basis for it."
         },
         {
           "heading": "How long it is kept",
-          "body": "Legnaris keeps the concept and the generated output for up to 24 hours and then deletes them. The provider is set to route only to providers that do not store prompts or outputs and do not use them for training."
+          "body": "Legnaris keeps the concept and the generated output for up to 24 hours and then deletes them. Retention at OpenRouter and at the model provider follows their own terms, which Legnaris does not control."
         },
         {
           "heading": "Where the result goes",
@@ -38,7 +38,7 @@
     },
     "pt-BR": {
       "title": "Enviar seu conceito para um modelo de IA?",
-      "intro": "A geração de personagem envia o texto do conceito que você digita para um modelo de IA hospedado fora do Brasil. Leia com atenção antes de continuar.",
+      "intro": "A geração de personagem envia o texto do conceito que você digita para um modelo de IA, por meio da OpenRouter. O modelo pode ser executado fora do Brasil, inclusive na China. Leia com atenção antes de continuar.",
       "points": [
         {
           "heading": "O que é enviado",
@@ -46,15 +46,15 @@
         },
         {
           "heading": "Quem recebe",
-          "body": "A OpenRouter, que encaminha a requisição para [SERVING_PROVIDER], o provedor que executa o modelo DeepSeek V4.1 Flash. A OpenRouter e o [SERVING_PROVIDER] atuam como operadores de dados em nosso nome. A API própria da DeepSeek não é utilizada."
+          "body": "A OpenRouter, que encaminha a requisição a um provedor que executa o modelo DeepSeek V4.1 Flash. Esse provedor pode ser a API da DeepSeek ou outra empresa. A OpenRouter e o provedor recebem a requisição para executá-la. Como eles guardam e usam os dados, inclusive para treinamento, é regido pelos termos próprios de cada um."
         },
         {
           "heading": "Onde é processado",
-          "body": "Fora do Brasil, em [PROCESSING_COUNTRIES]. Trata-se de transferência internacional de dados pessoais nos termos do art. 33 da LGPD, e este consentimento é a base para essa transferência."
+          "body": "Fora do Brasil, o que pode incluir a China, conforme o provedor que atende a sua requisição. Trata-se de transferência internacional de dados pessoais nos termos do art. 33 da LGPD, e este consentimento é a base para essa transferência."
         },
         {
           "heading": "Por quanto tempo é mantido",
-          "body": "A Legnaris mantém o conceito e o resultado gerado por até 24 horas e depois os apaga. O provedor está configurado para encaminhar apenas a provedores que não armazenam prompts ou resultados e não os usam para treinamento."
+          "body": "A Legnaris mantém o conceito e o resultado gerado por até 24 horas e depois os apaga. A retenção na OpenRouter e no provedor do modelo segue os termos próprios deles, que a Legnaris não controla."
         },
         {
           "heading": "Para onde vai o resultado",
