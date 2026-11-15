@@ -21,6 +21,9 @@ export const LANDING_PATH = '/';
 export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';
 
+/** The public privacy policy; readable without a session (LGN-234). */
+export const PRIVACY_PATH = '/privacy';
+
 /** The single fallback route; renders the designed not-found state (FND-08). */
 export const NOT_FOUND_PATH = '*';
 
@@ -39,6 +42,13 @@ export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
     path: '/generate/:templateId',
     label: 'Generate',
     audience: 'session',
+    deepLink: true,
+    notFound: false,
+  },
+  {
+    path: PRIVACY_PATH,
+    label: 'Privacy policy',
+    audience: 'public',
     deepLink: true,
     notFound: false,
   },

@@ -65,3 +65,11 @@
   font-size: var(--lg-type-15);
   color: var(--lg-color-danger);
 }
+
+.lg-account__footer {
+  font-size: var(--lg-type-13);
+}
+
+.lg-account__link {
+  color: var(--lg-color-accent);
+}
