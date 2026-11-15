@@ -164,7 +164,10 @@ describe('regenerate and the last generation (LGN-196)', () => {
   });
 
   it('Edge: on the last generation, regenerate asks first and keeps the review until confirmed', async () => {
-    const { user } = await reachReview({}, { trial: { used: 2, remaining: 1 } });
+    const { user } = await reachReview(
+      {},
+      { trial: { used: 2, remaining: 1 }, last_free_generation: true },
+    );
 
     await user.click(screen.getByRole('button', { name: 'Regenerate (1 left)' }));
 
@@ -177,8 +180,20 @@ describe('regenerate and the last generation (LGN-196)', () => {
     expect(screen.getByRole('heading', { name: 'Review your character' })).toBeInTheDocument();
   });
 
-  it('Happy path: confirming the last generation returns to the concept', async () => {
+  it('Edge: the count alone never asks; only the server flag does', async () => {
     const { user } = await reachReview({}, { trial: { used: 2, remaining: 1 } });
+
+    await user.click(screen.getByRole('button', { name: 'Regenerate (1 left)' }));
+
+    expect(await screen.findByLabelText('Describe your character')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('Happy path: confirming the last generation returns to the concept', async () => {
+    const { user } = await reachReview(
+      {},
+      { trial: { used: 2, remaining: 1 }, last_free_generation: true },
+    );
     await user.click(screen.getByRole('button', { name: 'Regenerate (1 left)' }));
 
     await user.click(await screen.findByRole('button', { name: 'Use my last one' }));
@@ -196,7 +211,7 @@ describe('regenerate and the last generation (LGN-196)', () => {
         return ok(
           planWith(
             plansRead === 1
-              ? { trial: { used: 2, remaining: 1 } }
+              ? { trial: { used: 2, remaining: 1 }, last_free_generation: true }
               : { trial: { used: 3, remaining: 0 } },
           ),
         );

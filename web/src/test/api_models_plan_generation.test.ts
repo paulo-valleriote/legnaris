@@ -13,10 +13,12 @@ describe('parsePlanUsage generation fields (LGN-196)', () => {
       ...freePlan,
       trial: { used: 1, remaining: 2 },
       llm_consent_required: true,
+      last_free_generation: true,
       active_generation_id: 'gen-1',
     });
 
     expect(plan.trialRemaining).toBe(2);
+    expect(plan.lastFreeGeneration).toBe(true);
     expect(plan.llmConsentRequired).toBe(true);
     expect(plan.activeGenerationId).toBe('gen-1');
   });
@@ -26,7 +28,14 @@ describe('parsePlanUsage generation fields (LGN-196)', () => {
 
     expect(plan.trialRemaining).toBeUndefined();
     expect(plan.llmConsentRequired).toBe(false);
+    expect(plan.lastFreeGeneration).toBe(false);
     expect(plan.activeGenerationId).toBeNull();
+  });
+
+  it('Edge: a non-boolean last free generation flag is drift', () => {
+    expect(() => parsePlanUsage({ ...freePlan, last_free_generation: 1 })).toThrow(
+      DefensiveParseFailure,
+    );
   });
 
   it('Edge: a null active generation is no active generation', () => {

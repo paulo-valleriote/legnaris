@@ -115,9 +115,14 @@ function readAt(values: Record<string, unknown>, segments: readonly string[]): u
   return current;
 }
 
-/** Whether one generation remains, so the next regenerate spends the last one (LGN-196). */
-export function isLastGeneration(allowance: Allowance): boolean {
-  return allowance.kind === 'trial' && allowance.remaining === 1;
+/**
+ * Whether the next regenerate spends the last free generation (LGN-196). The
+ * server decides; a plan not yet read never asks.
+ */
+export function isLastGeneration(
+  plan: { readonly lastFreeGeneration: boolean } | undefined,
+): boolean {
+  return plan?.lastFreeGeneration === true;
 }
 
 /** The shortest concept the server accepts, in characters (LGN-177). */

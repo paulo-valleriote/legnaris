@@ -53,6 +53,10 @@ type planView struct {
 	// LLMConsentRequired tells the client to show the consent disclosure before a
 	// generation. A Free account with no allowance left is never asked (ADR 0008).
 	LLMConsentRequired bool `json:"llm_consent_required"`
+	// LastFreeGeneration tells the client that the next generation spends the
+	// Free account's last trial allowance, so it can ask before regenerating
+	// (LGN-196). The rule lives here so every client applies the same one.
+	LastFreeGeneration bool `json:"last_free_generation"`
 	// ActiveGenerationID is the caller's queued or running generation, or null.
 	ActiveGenerationID *string `json:"active_generation_id"`
 	// LLMConsentAt and LLMConsentVersion are the stored consent, both null when
@@ -219,9 +223,10 @@ func (pc *PlanController) freeView(c *echo.Context, userID string) error {
 	if err != nil {
 		return err
 	}
-	return response.OK(c, planView{
-		Plan:  "free",
-		Trial: &planTrialView{Used: status.Used, Remaining: status.Remaining},
+	return pc.respond(c, userID, planView{
+		Plan:               "free",
+		Trial:              &planTrialView{Used: status.Used, Remaining: status.Remaining},
+		LastFreeGeneration: status.Remaining == 1,
 	}, status.Remaining > 0)
 }
 

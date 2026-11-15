@@ -34,6 +34,8 @@ export interface PlanUsage {
   readonly trialRemaining: number | undefined;
   /** Whether generation is gated on consent the owner has not given at the current version. */
   readonly llmConsentRequired: boolean;
+  /** Whether the next generation spends the Free trial's last allowance, as the server decides (LGN-196). */
+  readonly lastFreeGeneration: boolean;
   /** The generation the owner may resume (queued, running or succeeded and not accepted), or `null`. */
   readonly activeGenerationId: string | null;
 }
@@ -73,6 +75,7 @@ export function parsePlanUsage(data: unknown): PlanUsage {
     consentVersion: optionalString(data, 'llm_consent_version') ?? null,
     trialRemaining: decodeTrialRemaining(data),
     llmConsentRequired: decodeFlag(data, 'llm_consent_required'),
+    lastFreeGeneration: decodeFlag(data, 'last_free_generation'),
     activeGenerationId: optionalString(data, 'active_generation_id') ?? null,
   };
 }
