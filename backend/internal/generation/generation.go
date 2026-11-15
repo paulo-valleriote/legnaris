@@ -139,7 +139,10 @@ type View struct {
 	TemplateID string
 	Values     map[string]any
 	ErrorCode  string
-	CreatedAt  time.Time
+	// SuggestedName is the Sheet name derived from the generated values; nil when
+	// there is none to offer. Only a succeeded job can carry one.
+	SuggestedName *string
+	CreatedAt     time.Time
 }
 
 // Message is the job published to the generation queue. It carries identifiers

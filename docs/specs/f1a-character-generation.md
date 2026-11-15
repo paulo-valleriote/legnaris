@@ -82,6 +82,8 @@ Contract in the card. Exposes the per-queue metrics that LGN-226 alerts on.
 
 Gate order on `POST /generations`: kill-switch, consent, Sheet limit, generation in progress, global daily cap, quota. Errors: `LLM_CONSENT_REQUIRED` 403, `SHEET_LIMIT_REACHED` 409, `GENERATION_IN_PROGRESS` 409, 503 when the kill-switch is on or the cap is reached, `QUOTA_EXCEEDED` 429, `PLAN_UPGRADE_REQUIRED` 403. The cap is an atomic counter per UTC day and exposes a metric for the 80% alert.
 
+`GET /generations/{id}` answers `{id, status, kind, template_id, values?, error_code?, suggested_name, created_at}`. `values` is present once the job succeeded, `error_code` once it failed. `suggested_name` is always present: the Sheet name the server derives from the generated values, or `null` when it cannot. The derivation is the Template's `name_leaf` (`identity.characterName` for `fantasy_v1`, checked as a text leaf at boot): the string at that path, trimmed; an absent leaf, a non-string value, a blank string, a Template without `name_leaf`, or any status other than `succeeded` yields `null`. The client prefills the Sheet name from it and leaves the field empty on `null`; no client reads the template leaf itself. An explicit `name` field on the Sheet document is out of scope.
+
 ### LGN-230: generation worker
 
 Claims jobs with a lease, validates the output as untrusted data and refunds the quota on every terminal failure in the same transaction as the terminal state.

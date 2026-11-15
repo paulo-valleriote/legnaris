@@ -10,6 +10,7 @@ import (
 	"legnaris/backend/internal/generation"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/apperr"
 
 	"github.com/stretchr/testify/assert"
@@ -219,6 +220,10 @@ func TestFetch(t *testing.T) {
 			if tc.stored != nil {
 				doc, err := tc.stored()
 				f.store.EXPECT().FindOwned(mock.Anything, userID, tc.id).Return(doc, err)
+				if err == nil && doc.Status == generation.StatusSucceeded {
+					f.templates.EXPECT().FetchTemplate(mock.Anything, mock.Anything).
+						Return(&template.Template{ID: doc.TemplateID, NameLeaf: "identity.characterName"}, nil)
+				}
 			}
 
 			view, err := f.svc.Fetch(context.Background(), userID, tc.id)

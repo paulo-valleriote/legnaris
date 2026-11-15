@@ -30,7 +30,6 @@ import {
   isLastGeneration,
   mergeCascade,
   previewDelay,
-  suggestedSheetName,
   trialAllowance,
   trimConcept,
 } from './generation_flow';
@@ -47,6 +46,8 @@ interface PreviewState {
   readonly edits: Record<string, unknown>;
   /** Bumped on every edit; a preview answers only the revision it was sent for. */
   readonly revision: number;
+  /** The server's suggested Sheet name, or empty when it offered none. */
+  readonly suggestedName: string;
   /** The name the player typed; ignored until `nameTouched`. */
   readonly sheetName: string;
   readonly nameTouched: boolean;
@@ -81,6 +82,7 @@ function stepForGeneration(generation: Generation): Step {
     values: structuredClone(generation.values),
     edits: {},
     revision: 0,
+    suggestedName: generation.suggestedName ?? '',
     sheetName: '',
     nameTouched: false,
     dirty: false,
@@ -617,8 +619,7 @@ function ReviewSection({
   readonly onAccept: (name: string) => void;
   readonly onRegenerate: () => void;
 }) {
-  const suggested = suggestedSheetName(fields ?? {}, preview.values);
-  const name = preview.nameTouched ? preview.sheetName : suggested;
+  const name = preview.nameTouched ? preview.sheetName : preview.suggestedName;
   const trimmed = name.trim();
   const remaining = allowance?.kind === 'trial' ? allowance.remaining : undefined;
 

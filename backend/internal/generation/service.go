@@ -227,7 +227,31 @@ func (s *Service) Fetch(ctx context.Context, userID, id string) (View, error) {
 	if err != nil {
 		return View{}, translateFindErr(err)
 	}
-	return viewOf(doc), nil
+	view := viewOf(doc)
+	view.SuggestedName = s.suggestedName(ctx, doc)
+	return view, nil
+}
+
+// suggestedName derives the Sheet name of a succeeded generation from its
+// Template's naming leaf. It is nil for any other status, when the Template
+// names no Sheet or its leaf is blank, and when the Template cannot be read: a
+// missing suggestion never fails the read, so the client leaves the name blank.
+func (s *Service) suggestedName(ctx context.Context, doc Document) *string {
+	if doc.Status != StatusSucceeded {
+		return nil
+	}
+	tmpl, err := s.deps.Templates.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: doc.TemplateID})
+	if err != nil {
+		s.deps.Logger.Warn(ctx, "generation name suggestion skipped; template unreadable",
+			logger.Attribute{Key: "generation_id", Value: doc.ID},
+			logger.Attribute{Key: "error", Value: err.Error()})
+		return nil
+	}
+	name := tmpl.SuggestName(doc.Values)
+	if name == "" {
+		return nil
+	}
+	return &name
 }
 
 // ActiveGenerationID reports the player's queued or running generation, for the

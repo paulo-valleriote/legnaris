@@ -7,13 +7,9 @@
  */
 
 import type { Generation } from '../api/models/generation';
-import type { FieldNode } from '../api/models/template';
 
 /** The shortest gap between two derived-value previews, in milliseconds (LGN-196). */
 export const PREVIEW_THROTTLE_MS = 1_000;
-
-/** The field path a generated character name is read from; the fantasy template names it so. */
-export const NAME_LEAF_PATH = 'identity.characterName';
 
 /** Keys a merge never writes, so a crafted cascade cannot reach the prototype chain. */
 const UNSAFE_KEYS: ReadonlySet<string> = new Set(['__proto__', 'constructor', 'prototype']);
@@ -66,53 +62,6 @@ export function mergeCascade(
         : incoming;
   }
   return merged;
-}
-
-/**
- * The Sheet name to prefill from the generated character name, or an empty string.
- *
- * Read only when the template declares the name leaf and the generated value is a
- * non-blank string; anything else leaves the name for the player to type.
- */
-export function suggestedSheetName(
-  fields: Readonly<Record<string, FieldNode>>,
-  values: Record<string, unknown>,
-): string {
-  const segments = NAME_LEAF_PATH.split('.');
-  if (!hasLeafAt(fields, segments)) {
-    return '';
-  }
-  const value = readAt(values, segments);
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function hasLeafAt(
-  fields: Readonly<Record<string, FieldNode>>,
-  segments: readonly string[],
-): boolean {
-  let level: Readonly<Record<string, FieldNode>> | undefined = fields;
-  for (let index = 0; index < segments.length; index += 1) {
-    const node: FieldNode | undefined = level?.[segments[index] ?? ''];
-    if (node === undefined) {
-      return false;
-    }
-    if (index === segments.length - 1) {
-      return node.kind === 'leaf';
-    }
-    level = node.kind === 'group' ? node.children : undefined;
-  }
-  return false;
-}
-
-function readAt(values: Record<string, unknown>, segments: readonly string[]): unknown {
-  let current: unknown = values;
-  for (const segment of segments) {
-    if (!isPlainRecord(current)) {
-      return undefined;
-    }
-    current = current[segment];
-  }
-  return current;
 }
 
 /**

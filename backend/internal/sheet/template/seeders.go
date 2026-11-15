@@ -144,6 +144,7 @@ var fantasyV1Template = Template{
 		"combat.hitPoints", "combat.hitPointsMax", "derived.armorClass",
 		"combat.initiative", "combat.speed",
 	},
+	NameLeaf: "identity.characterName",
 	SectionDice: map[string]string{
 		fieldNameSkills:  "1d20 + @.total",
 		fieldNameSaves:   "1d20 + @",

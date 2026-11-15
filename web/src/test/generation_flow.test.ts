@@ -19,6 +19,7 @@ function generationWith(status: GenerationStatus, errorCode?: string): Generatio
     templateId: 'fantasy_v1',
     values: undefined,
     errorCode,
+    suggestedName: undefined,
   };
 }
 

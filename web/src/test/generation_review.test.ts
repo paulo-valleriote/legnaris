@@ -1,17 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { FieldNode } from '../api/models/template';
 import {
   PREVIEW_THROTTLE_MS,
   isLastGeneration,
   mergeCascade,
   previewDelay,
-  suggestedSheetName,
 } from '../generate/generation_flow';
-
-const leaf = (label: string): FieldNode => ({
-  kind: 'leaf',
-  schema: { type: 'text', label, isEditable: true, defaultValue: 0 },
-});
 
 describe('previewDelay (LGN-196 throttled derived values)', () => {
   const tests = [
@@ -85,38 +78,6 @@ describe('mergeCascade (LGN-196 recalculated values)', () => {
 
   it('Edge: a non-object cascade leaves the values as they were', () => {
     expect(mergeCascade({ a: 1 }, null as unknown as Record<string, unknown>)).toEqual({ a: 1 });
-  });
-});
-
-describe('suggestedSheetName (LGN-196 Sheet name prefill)', () => {
-  const fields = {
-    identity: { kind: 'group', children: { characterName: leaf('Character name') } },
-  } as unknown as Record<string, FieldNode>;
-
-  it('Happy path: prefills from the character name leaf when the template has it', () => {
-    expect(suggestedSheetName(fields, { identity: { characterName: 'Aragorn' } })).toBe('Aragorn');
-  });
-
-  it('Edge: surrounding whitespace is trimmed', () => {
-    expect(suggestedSheetName(fields, { identity: { characterName: '  Aragorn  ' } })).toBe(
-      'Aragorn',
-    );
-  });
-
-  it('Edge: an empty generated name prefills nothing', () => {
-    expect(suggestedSheetName(fields, { identity: { characterName: '   ' } })).toBe('');
-  });
-
-  it('Edge: a template without the leaf prefills nothing', () => {
-    expect(suggestedSheetName({}, { identity: { characterName: 'Aragorn' } })).toBe('');
-  });
-
-  it('Edge: a non-text value is never used as a name', () => {
-    expect(suggestedSheetName(fields, { identity: { characterName: 7 } })).toBe('');
-  });
-
-  it('Edge: a missing identity group in the values prefills nothing', () => {
-    expect(suggestedSheetName(fields, {})).toBe('');
   });
 });
 

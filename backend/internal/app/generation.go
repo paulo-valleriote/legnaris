@@ -85,7 +85,9 @@ type generationView struct {
 	TemplateID string         `json:"template_id"`
 	Values     map[string]any `json:"values,omitempty"`
 	ErrorCode  string         `json:"error_code,omitempty"`
-	CreatedAt  time.Time      `json:"created_at"`
+	// SuggestedName is always present: a name, or null when there is none to offer.
+	SuggestedName *string   `json:"suggested_name"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // Get answers the player's own generation. A foreign or expired id is 404.
@@ -99,13 +101,14 @@ func (gc *GenerationController) Get(c *echo.Context) error {
 		return err
 	}
 	return response.OK(c, generationView{
-		ID:         view.ID,
-		Status:     string(view.Status),
-		Kind:       view.Kind,
-		TemplateID: view.TemplateID,
-		Values:     view.Values,
-		ErrorCode:  view.ErrorCode,
-		CreatedAt:  view.CreatedAt,
+		ID:            view.ID,
+		Status:        string(view.Status),
+		Kind:          view.Kind,
+		TemplateID:    view.TemplateID,
+		Values:        view.Values,
+		ErrorCode:     view.ErrorCode,
+		SuggestedName: view.SuggestedName,
+		CreatedAt:     view.CreatedAt,
 	})
 }
 

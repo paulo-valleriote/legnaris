@@ -52,6 +52,10 @@ type Template struct {
 	// never writes it into a Sheet or its Layout, a client offers it. Keys use
 	// the Layout grammar and are checked by ValidateSuggestedPins at boot.
 	SuggestedPins []string `bson:"suggested_pins,omitempty"`
+	// NameLeaf is the dotted path of the text leaf that names the Sheet a
+	// generation creates (`identity.characterName`). Empty means the Template
+	// names no Sheet. SuggestName reads it; ValidateNameLeaf checks it at boot.
+	NameLeaf string `bson:"name_leaf,omitempty"`
 	// SectionDice maps a Section key to the Dice expression its Rows inherit
 	// by default; it may use `@` for "this Row". RowDice maps a Row key to the
 	// expression that wins over the Section's. Both are defaults a client
