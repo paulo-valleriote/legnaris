@@ -139,6 +139,7 @@ export const messages = {
   'nav.account': 'Account',
 
   'account.title': 'Your account',
+  'account.privacyLink': 'Privacy policy',
   'account.loading': 'Loading your account',
   'account.retry': 'Reload the plan',
   'account.planHeading': 'Plan',

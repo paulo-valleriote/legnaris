@@ -12,9 +12,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { failureCopy } from '../api/error_mapper';
 import type { PlanUsage } from '../api/models/plan';
 import { useApiClient } from '../app/providers';
+import { PRIVACY_PATH } from '../app/routes';
 import { PLAN_QUERY_KEY, usePlanUsage } from '../catalog/queries';
 import { message, messageWith } from '../l10n/strings';
 import './account.css';
@@ -246,6 +248,12 @@ export function AccountScreen() {
           <ConsentSection usage={plan.data} />
         </>
       )}
+
+      <footer className="lg-account__footer">
+        <Link className="lg-account__link" to={PRIVACY_PATH}>
+          {message('account.privacyLink')}
+        </Link>
+      </footer>
     </section>
   );
 }
