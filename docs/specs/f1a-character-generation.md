@@ -106,6 +106,11 @@ Starts after LGN-194 and LGN-228.
 
 Starts after LGN-182, LGN-186, LGN-230, LGN-194 and LGN-228. No checkout in F1a.
 
+`GET /me/plan` carries `last_free_generation`: true when the next generation
+spends the Free account's last trial allowance. The server decides, so every
+client shows the same "last free generation" confirmation before a regenerate; a
+client never derives it from `trial.remaining`.
+
 ## Deploy checklist
 
 - Spending limit set in the OpenRouter dashboard.

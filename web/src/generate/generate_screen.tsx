@@ -423,7 +423,7 @@ export function GenerateScreen() {
   }
 
   function onRegenerate() {
-    if (allowance !== undefined && isLastGeneration(allowance)) {
+    if (isLastGeneration(plan.data)) {
       setLastConfirmOpen(true);
       return;
     }

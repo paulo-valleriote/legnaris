@@ -121,19 +121,15 @@ describe('suggestedSheetName (LGN-196 Sheet name prefill)', () => {
 });
 
 describe('isLastGeneration (LGN-196 last-one confirmation)', () => {
-  it('Happy path: one generation left means the next regenerate uses the last one', () => {
-    expect(isLastGeneration({ kind: 'trial', remaining: 1 })).toBe(true);
+  it('Happy path: the server flag means the next regenerate uses the last one', () => {
+    expect(isLastGeneration({ lastFreeGeneration: true })).toBe(true);
   });
 
-  it('Edge: several left is not the last one', () => {
-    expect(isLastGeneration({ kind: 'trial', remaining: 2 })).toBe(false);
+  it('Edge: a plan without the flag is not the last one', () => {
+    expect(isLastGeneration({ lastFreeGeneration: false })).toBe(false);
   });
 
-  it('Edge: none left is not a last one to confirm, it is refused', () => {
-    expect(isLastGeneration({ kind: 'trial', remaining: 0 })).toBe(false);
-  });
-
-  it('Edge: an unknown allowance never asks for confirmation', () => {
-    expect(isLastGeneration({ kind: 'unknown' })).toBe(false);
+  it('Edge: a plan not yet read never asks for confirmation', () => {
+    expect(isLastGeneration(undefined)).toBe(false);
   });
 });
