@@ -48,10 +48,16 @@ func (b *fakeBroker) Consume(ctx context.Context) (<-chan worker.Delivery, error
 func (b *fakeBroker) DeclareTopology() error { b.declared.Store(true); return b.declareErr }
 func (b *fakeBroker) Close() error           { b.closed = true; return nil }
 
+// testEnv builds a worker configuration that does not depend on the host
+// environment: env.NewEnv reads the process variables, so a developer .env with
+// a Resend key would otherwise turn the "resend without a key" case into a
+// valid configuration and the process would wait for traffic forever.
 func testEnv() env.Env {
 	cfg := env.NewEnv(logger.NewLogger(slog.LevelError))
 	cfg.Variables.RabbitMQURL = "amqp://guest:guest@localhost:5672/"
 	cfg.Variables.EmailProvider = factory.ProviderLog
+	cfg.Variables.ResendAPIKey = ""
+	cfg.Variables.EmailFrom = ""
 	return cfg
 }
 
