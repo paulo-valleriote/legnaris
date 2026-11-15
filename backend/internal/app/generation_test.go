@@ -226,17 +226,27 @@ func TestGenerationController_Get(t *testing.T) {
 		wantCode   string
 		wantValues bool
 		wantError  string
+		wantName   any
 	}{
 		{
-			name:       "Happy path: a succeeded generation exposes its values",
-			view:       generation.View{ID: id, Status: generation.StatusSucceeded, Kind: "character", TemplateID: "fantasy_v1", Values: map[string]any{"name": "Brom"}},
+			name:       "Happy path: a succeeded generation exposes its values and suggested name",
+			view:       generation.View{ID: id, Status: generation.StatusSucceeded, Kind: "character", TemplateID: "fantasy_v1", Values: map[string]any{"name": "Brom"}, SuggestedName: ptrString("Brom")},
 			wantStatus: http.StatusOK,
 			wantValues: true,
+			wantName:   "Brom",
 		},
 		{
-			name:       "Edge: a queued generation carries no values key",
+			name:       "Edge: a succeeded generation without a name suggests null",
+			view:       generation.View{ID: id, Status: generation.StatusSucceeded, Kind: "character", TemplateID: "fantasy_v1", Values: map[string]any{"name": ""}},
+			wantStatus: http.StatusOK,
+			wantValues: true,
+			wantName:   nil,
+		},
+		{
+			name:       "Edge: a queued generation carries no values key and a null suggested name",
 			view:       generation.View{ID: id, Status: generation.StatusQueued, Kind: "character"},
 			wantStatus: http.StatusOK,
+			wantName:   nil,
 		},
 		{
 			name:       "Edge: a failed generation carries its error code",
@@ -269,6 +279,9 @@ func TestGenerationController_Get(t *testing.T) {
 			assert.Equal(t, id, data["id"])
 			_, hasValues := data["values"]
 			assert.Equal(t, tc.wantValues, hasValues)
+			nameValue, hasName := data["suggested_name"]
+			assert.True(t, hasName, "suggested_name is always present")
+			assert.Equal(t, tc.wantName, nameValue)
 			if tc.wantError != "" {
 				assert.Equal(t, tc.wantError, data["error_code"])
 			} else {
@@ -325,4 +338,8 @@ func TestGenerationController_UnauthenticatedGetRejected(t *testing.T) {
 	}}
 	rec := doJSON(t, generationEngine(svc, "", unlimited(), unlimited()), http.MethodGet, "/generations/0196e4f2-0000-7000-8000-0000000000aa", "")
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func ptrString(s string) *string {
+	return &s
 }

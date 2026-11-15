@@ -27,6 +27,7 @@ const SUCCEEDED = {
   kind: 'character',
   template_id: TEMPLATE_ID,
   values: { identity: { characterName: 'Aragorn', level: 3 } },
+  suggested_name: 'Aragorn',
   created_at: '2026-11-14T10:00:00Z',
 };
 
@@ -54,19 +55,34 @@ async function reachReview(
   return { user, fake };
 }
 
-describe('review step name prefill (LGN-196)', () => {
-  it('Happy path: the Sheet name is prefilled from the generated character name', async () => {
+describe('review step name prefill (LGN-196, LGN-233)', () => {
+  it('Happy path: the Sheet name is prefilled from the server suggested name', async () => {
     await reachReview();
 
     expect(screen.getByLabelText('Sheet name')).toHaveValue('Aragorn');
   });
 
-  it('Edge: a generated name that is blank leaves the Sheet name empty and required', async () => {
+  it('Edge: an absent suggested name leaves the Sheet name empty and required', async () => {
+    const withoutSuggestion = { ...SUCCEEDED, suggested_name: undefined };
     await reachReview({
-      [`GET /generations/${GENERATION_ID}`]: ok({
-        ...SUCCEEDED,
-        values: { identity: { characterName: '   ', level: 3 } },
-      }),
+      [`GET /generations/${GENERATION_ID}`]: ok(JSON.parse(JSON.stringify(withoutSuggestion))),
+    });
+
+    expect(screen.getByLabelText('Sheet name')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Save to my sheets' })).toBeDisabled();
+  });
+
+  it('Edge: a null suggested name leaves the Sheet name empty, never a placeholder', async () => {
+    await reachReview({
+      [`GET /generations/${GENERATION_ID}`]: ok({ ...SUCCEEDED, suggested_name: null }),
+    });
+
+    expect(screen.getByLabelText('Sheet name')).toHaveValue('');
+  });
+
+  it('Edge: a blank suggested name leaves the Sheet name empty and required', async () => {
+    await reachReview({
+      [`GET /generations/${GENERATION_ID}`]: ok({ ...SUCCEEDED, suggested_name: '   ' }),
     });
 
     expect(screen.getByLabelText('Sheet name')).toHaveValue('');

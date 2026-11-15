@@ -28,6 +28,8 @@ export interface Generation {
   readonly values: Record<string, unknown> | undefined;
   /** The generation's failure code (such as `invalid_output`); `undefined` unless it failed. */
   readonly errorCode: string | undefined;
+  /** The Sheet name the server derived from the values; `undefined` when there is none to offer. */
+  readonly suggestedName: string | undefined;
 }
 
 /** The accept answer: the Sheet the generation became (201 first, 200 on a repeat). */
@@ -50,6 +52,15 @@ function decodeValues(source: Record<string, unknown>): Record<string, unknown> 
   return values;
 }
 
+/** A blank or absent suggestion is `undefined`: the name field then stays empty. */
+function decodeSuggestedName(source: Record<string, unknown>): string | undefined {
+  const name = optionalString(source, 'suggested_name');
+  if (name === undefined || name.trim() === '') {
+    return undefined;
+  }
+  return name;
+}
+
 /** Decodes a generation payload; a status the client does not know is drift. */
 export function parseGeneration(data: unknown): Generation {
   if (!isPlainObject(data)) {
@@ -67,6 +78,7 @@ export function parseGeneration(data: unknown): Generation {
     templateId: requireString(data, 'template_id'),
     values: decodeValues(data),
     errorCode: optionalString(data, 'error_code'),
+    suggestedName: decodeSuggestedName(data),
   };
 }
 
