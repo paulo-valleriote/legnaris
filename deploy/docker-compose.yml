@@ -157,6 +157,15 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:-}
       EMAIL_SEND_TIMEOUT: ${EMAIL_SEND_TIMEOUT:-10s}
       EMAIL_OUTBOX_RETENTION: ${EMAIL_OUTBOX_RETENTION:-168h}
+      # Character generation gates (ADR 0007, LGN-186). The API only reserves
+      # jobs and enforces the kill-switch, the daily cap and the rate limits;
+      # the LLM credentials live in the worker, which runs the jobs.
+      GENERATION_ENABLED: ${GENERATION_ENABLED:-false}
+      GENERATION_DAILY_CAP: ${GENERATION_DAILY_CAP:-200}
+      GENERATION_CREATE_RATE_LIMIT_ATTEMPTS: ${GENERATION_CREATE_RATE_LIMIT_ATTEMPTS:-5}
+      GENERATION_CREATE_RATE_LIMIT_WINDOW: ${GENERATION_CREATE_RATE_LIMIT_WINDOW:-1m}
+      GENERATION_READ_RATE_LIMIT_ATTEMPTS: ${GENERATION_READ_RATE_LIMIT_ATTEMPTS:-30}
+      GENERATION_READ_RATE_LIMIT_WINDOW: ${GENERATION_READ_RATE_LIMIT_WINDOW:-1m}
       # The OTP digest key is required: the API itself digests codes, so an
       # absent or too-short value must fail the boot rather than weaken every
       # code. It must differ from JWT_SECRET (F-09, OTP-18, SC-008).
@@ -366,14 +375,30 @@ services:
       dockerfile: Dockerfile
     image: legnaris-app:local
     restart: unless-stopped
-    # The shared image carries /worker beside /app and /relay. The worker needs
-    # no database and nothing depends on it: a broker or provider outage delays
-    # codes and never reaches the site (O2, BRK-01, BRK-03, BRK-20).
+    # The shared image carries /worker beside /app and /relay. Nothing depends
+    # on the worker: a broker or provider outage delays codes and generations
+    # and never reaches the site (O2, BRK-01, BRK-03, BRK-20). Email delivery
+    # needs no database; the generation consumer (LGN-230) opens Mongo only
+    # when GENERATION_ENABLED is true.
     entrypoint: ["/worker"]
     environment:
       # The same delivery vhost as the relay; the broker provisions it on start
       # (README, "RabbitMQ provisioning").
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://legnaris:${RABBITMQ_PASSWORD}@rabbitmq:5672/legnaris}
+      # Generation jobs write the result to Mongo and call the LLM gateway.
+      # LLM_API_KEY is the OpenRouter key; it reaches only this process. No
+      # depends_on for Mongo: e-mail delivery must keep running when the store
+      # is down, and the consumer reconnects on its own.
+      DATABASE_URI: mongodb://legnaris_app:${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}@mongodb:27017/legnaris?replicaSet=rs0&retryWrites=true&authSource=legnaris
+      DATABASE_NAME: legnaris
+      DATABASE_MAX_POOL_SIZE: ${DATABASE_MAX_POOL_SIZE:-20}
+      DATABASE_MIN_POOL_SIZE: ${DATABASE_MIN_POOL_SIZE:-0}
+      GENERATION_ENABLED: ${GENERATION_ENABLED:-false}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openrouter}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-deepseek/deepseek-v4.1-flash}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-60s}
       # Production: the worker refuses the dev sender (EMAIL_PROVIDER=dev) when
       # APP_ENV is production, so a code can never reach the logs (D10).
       APP_ENV: production

@@ -484,8 +484,8 @@ func TestWorkerEnvironmentIsSeparatedFromTheApp(t *testing.T) {
 		}
 	})
 
-	t.Run("Edge: the worker receives no database setting and no operator credential", func(t *testing.T) {
-		for _, key := range []string{"DATABASE_URI", "DATABASE_NAME", "JWT_SECRET", "EMAIL_CODE_SECRET", "RABBITMQ_OPS_PASSWORD"} {
+	t.Run("Edge: the worker receives no operator credential", func(t *testing.T) {
+		for _, key := range []string{"JWT_SECRET", "EMAIL_CODE_SECRET", "RABBITMQ_OPS_PASSWORD"} {
 			_, present := worker.Environment[key]
 			assert.Falsef(t, present, "worker.environment must not carry %s", key)
 		}
@@ -499,6 +499,87 @@ func TestWorkerEnvironmentIsSeparatedFromTheApp(t *testing.T) {
 
 	t.Run("Edge: the required-variable list is unchanged", func(t *testing.T) {
 		assert.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, env.RequiredKeys())
+	})
+}
+
+// TestGenerationConfigurationReachesEachProcess guards the F1a split (ADR
+// 0007, LGN-186, LGN-230): the API carries the gates it enforces, the worker
+// carries the gates it honours plus the store and the LLM credentials, and the
+// OpenRouter key never reaches the request-serving process.
+func TestGenerationConfigurationReachesEachProcess(t *testing.T) {
+	doc := readCompose(t)
+	app := doc.Services["app"]
+	worker := doc.Services["worker"]
+	require.NotNil(t, app.Environment)
+	require.NotNil(t, worker.Environment)
+
+	appGates := []string{
+		"GENERATION_ENABLED", "GENERATION_DAILY_CAP",
+		"GENERATION_CREATE_RATE_LIMIT_ATTEMPTS", "GENERATION_CREATE_RATE_LIMIT_WINDOW",
+		"GENERATION_READ_RATE_LIMIT_ATTEMPTS", "GENERATION_READ_RATE_LIMIT_WINDOW",
+	}
+	workerSettings := []string{
+		"GENERATION_ENABLED", "DATABASE_URI", "DATABASE_NAME",
+		"LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT",
+	}
+	llmOnly := []string{"LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT"}
+
+	t.Run("Happy path: the app receives every generation gate as an interpolation", func(t *testing.T) {
+		for _, key := range appGates {
+			value, present := app.Environment[key]
+			require.Truef(t, present, "app.environment must pass %s", key)
+			assert.Containsf(t, value, "${"+key, "app.environment[%s] must be sourced from the deployment env", key)
+		}
+	})
+
+	t.Run("Happy path: the worker receives the kill-switch, the store and the LLM settings", func(t *testing.T) {
+		for _, key := range workerSettings {
+			value, present := worker.Environment[key]
+			require.Truef(t, present, "worker.environment must pass %s", key)
+			if key == "DATABASE_NAME" {
+				assert.Equal(t, app.Environment[key], value)
+				continue
+			}
+			assert.Containsf(t, value, "${", "worker.environment[%s] must be an interpolation", key)
+		}
+	})
+
+	t.Run("Edge: the kill-switch defaults to off in both processes", func(t *testing.T) {
+		assert.Equal(t, "${GENERATION_ENABLED:-false}", app.Environment["GENERATION_ENABLED"])
+		assert.Equal(t, "${GENERATION_ENABLED:-false}", worker.Environment["GENERATION_ENABLED"])
+	})
+
+	t.Run("Edge: the worker's store URI is the app's, replica set included", func(t *testing.T) {
+		assert.Equal(t, app.Environment["DATABASE_URI"], worker.Environment["DATABASE_URI"])
+		assert.Contains(t, worker.Environment["DATABASE_URI"], "replicaSet=rs0")
+	})
+
+	t.Run("Edge: the LLM credentials never reach the app", func(t *testing.T) {
+		for _, key := range llmOnly {
+			_, present := app.Environment[key]
+			assert.Falsef(t, present, "app.environment must not carry %s", key)
+		}
+	})
+
+	t.Run("Edge: the API key has no committed default and the model default is not a free variant", func(t *testing.T) {
+		assert.Equal(t, "${LLM_API_KEY:-}", worker.Environment["LLM_API_KEY"])
+		assert.NotContains(t, worker.Environment["LLM_MODEL"], ":free")
+	})
+
+	t.Run("Edge: the worker still does not wait for the store", func(t *testing.T) {
+		_, present := worker.DependsOn["mongodb"]
+		assert.False(t, present, "e-mail delivery must keep running while Mongo is down")
+	})
+
+	t.Run("Happy path: .env.example documents the kill-switch and the key as active, the rest as optional", func(t *testing.T) {
+		raw, err := os.ReadFile(envExampleFile)
+		require.NoError(t, err)
+		example := string(raw)
+		assert.Contains(t, example, "\nGENERATION_ENABLED=false\n")
+		assert.Contains(t, example, "\nLLM_API_KEY=replace_me\n")
+		for _, key := range []string{"GENERATION_DAILY_CAP", "LLM_MODEL", "LLM_TIMEOUT", "GENERATION_CREATE_RATE_LIMIT_ATTEMPTS"} {
+			assert.Containsf(t, example, "\n# "+key+"=", "%s must be documented as optional", key)
+		}
 	})
 }
 
