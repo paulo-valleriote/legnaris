@@ -1,19 +1,19 @@
 <!--
   Atualização da política de privacidade: geração de personagem com LLM (LGN-228, ADR 0008).
   Local: docs/legal/privacy-policy.pt-BR.md (português). Inglês: docs/legal/privacy-policy.en.md.
-  O texto de consentimento exibido no app é docs/legal/llm-consent.json (versão "2"), que deve permanecer consistente com este texto.
-  Status: RASCUNHO, pendente de revisão jurídica. Cada token [COLCHETES] é um placeholder que o jurídico deve preencher; nenhum nome de pessoa jurídica ou endereço foi inventado aqui.
+  O texto de consentimento exibido no app é docs/legal/llm-consent.json (versão "3"), que deve permanecer consistente com este texto.
+  Status: FINAL (versão 3, 15/11/2026). Todos os placeholders foram preenchidos.
 -->
 
 # Política de privacidade: geração de personagem com IA
 
-Última atualização: [DATA]. Versão da política: 2.
+Última atualização: 15/11/2026. Versão da política: 3.
 
-Esta seção complementa a Política de Privacidade da Legnaris [URL_POLITICA_PRINCIPAL]. Ela descreve como o recurso opcional de geração de personagem com IA trata seus dados pessoais.
+Esta seção complementa a Política de Privacidade da Legnaris (https://legnaris.paulovalleriote.io/privacy). Ela descreve como o recurso opcional de geração de personagem com IA trata seus dados pessoais.
 
 ## 1. Controlador
 
-O controlador dos seus dados pessoais é [NOME_JURIDICO_CONTROLADOR], [ENDERECO_CONTROLADOR], [CNPJ_OU_EQUIVALENTE].
+O controlador dos seus dados pessoais é Paulo Valleriote, pessoa física, que pode ser contatado em paulovalleriotedev@gmail.com.
 
 ## 2. O que o recurso trata
 
@@ -23,7 +23,7 @@ Quando você pede à Legnaris para gerar um personagem, o texto do conceito que 
 
 Para executar o recurso, usamos os seguintes operadores:
 
-- **OpenRouter**, um gateway de modelos que recebe sua requisição e a encaminha. Pessoa jurídica: [NOME_JURIDICO_OPENROUTER], [PAIS_OPENROUTER].
+- **OpenRouter**, um gateway de modelos que recebe sua requisição e a encaminha. Pessoa jurídica: OpenRouter, Inc., Estados Unidos.
 - **Provedores do modelo**, as empresas que executam o modelo DeepSeek V4.1 Flash, selecionadas pela OpenRouter para cada requisição. O provedor pode ser a API da DeepSeek ou outra empresa, localizada em países diferentes, inclusive na China. A OpenRouter publica a lista de provedores e suas localizações.
 
 As requisições usam o roteamento padrão da OpenRouter, com alternativas entre provedores. O roteamento não é restrito por retenção de dados; portanto, um provedor que atenda a sua requisição pode reter prompts e resultados, ou usá-los em treinamento, conforme os termos próprios dele. A Legnaris não controla esses termos. Você pode consultá-los na documentação da OpenRouter e no site de cada provedor.
@@ -42,7 +42,7 @@ Sua exportação de dados não inclui os dados de geração, pois eles são apag
 
 ## 6. Revogação do consentimento
 
-Você pode retirar seu consentimento para o tratamento por IA a qualquer momento, em [CAMINHO_TELA_REVOGACAO] ou pela API em [CAMINHO_API_REVOGACAO]. A retirada:
+Você pode retirar seu consentimento para o tratamento por IA a qualquer momento, na tela Conta (/account) ou pela API em DELETE /me/llm-consent. A retirada:
 
 - apaga os dados de geração que a Legnaris ainda mantém sobre você, e
 - interrompe qualquer nova transferência do seu conceito aos operadores.
@@ -51,11 +51,11 @@ A retirada não apaga o conteúdo já presente na sua Ficha. Você pode apagar e
 
 ## 7. Seus direitos
 
-Pela LGPD, você pode solicitar a confirmação do tratamento, acesso, correção, anonimização, portabilidade, eliminação, informação sobre as entidades com as quais compartilhamos seus dados e informação sobre a possibilidade de não fornecer consentimento e sobre as consequências dessa negativa. Envie suas solicitações para [EMAIL_CONTATO_PRIVACIDADE].
+Pela LGPD, você pode solicitar a confirmação do tratamento, acesso, correção, anonimização, portabilidade, eliminação, informação sobre as entidades com as quais compartilhamos seus dados e informação sobre a possibilidade de não fornecer consentimento e sobre as consequências dessa negativa. Envie suas solicitações para paulovalleriotedev@gmail.com.
 
 ## 8. Contato do encarregado de dados
 
-[NOME_OU_FUNCAO_DO_ENCARREGADO], [EMAIL_DO_ENCARREGADO].
+Fundador da Legnaris (encarregado de proteção de dados), paulovalleriotedev@gmail.com.
 
 ## 9. Alterações
 
