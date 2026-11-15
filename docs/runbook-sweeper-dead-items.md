@@ -56,7 +56,9 @@ Never requeue an item whose root cause is still unfixed: it returns to dead afte
 ## Queue: `event_outbox`
 
 - **Collection:** `event_outbox` (database `DATABASE_NAME`).
-- **Interval and lease:** the sweeper claims it every 5 minutes with a 5-minute lease.
+- **Interval and lease:** the sweeper claims it every 30 seconds with a 5-minute lease.
+  The interval is also the retry step, so a broker outage longer than
+  `EMAIL_RELAY_MAX_ATTEMPTS` × 30 s sends entries to dead.
 - **Dead state:** `status: "dead"`, set after `EMAIL_RELAY_MAX_ATTEMPTS` failed
   publishes. A non-canonical `_id` is dead at once.
 - **Find:**

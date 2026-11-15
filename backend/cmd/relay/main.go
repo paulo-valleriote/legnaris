@@ -198,8 +198,11 @@ func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRe
 	return sweeper.New(queues, relayClaimerID(), observer, cfg.Logger)
 }
 
-// eventsOutboxInterval is how often the sweeper claims the event outbox.
-const eventsOutboxInterval = 5 * time.Minute
+// eventsOutboxInterval is how often the sweeper claims the event outbox. It is
+// also the retry step, so a short interval burns the shared attempt cap fast when
+// the broker is down: 30 s keeps user.deleted (LGN-190) under half a minute and
+// still tolerates about EMAIL_RELAY_MAX_ATTEMPTS * 30 s of broker outage.
+const eventsOutboxInterval = 30 * time.Second
 
 // generationRepublishAttemptCap is how many publish attempts a queued generation
 // gets before the sweep gives up on it and refunds the quota (LGN-186).
