@@ -98,6 +98,7 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 				names = append(names, q.Name)
 			}
 			assert.Equal(t, tc.wantNames, names)
+			assert.Equal(t, 30*time.Second, queues[0].Interval)
 			assert.Equal(t, generation.RepublishInterval, queues[1].Interval)
 			assert.Equal(t, generation.ReapInterval, queues[2].Interval)
 			assert.Equal(t, 10*time.Second, queues[2].Interval)
