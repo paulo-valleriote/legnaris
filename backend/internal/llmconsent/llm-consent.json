@@ -1,6 +1,6 @@
 {
-  "_about": "Single source of the LLM consent disclosure (LGN-228, ADR 0008). Location: docs/legal/llm-consent.json. Consumers: the backend consent constant (backend/internal/llmconsent/consent.go) must read the same `version`, and the web consent modal renders `locales.<lang>`. The backend embeds the file through //go:embed only from inside its own package, so the copy in backend/internal/llmconsent/llm-consent.json and web/src/generate/llm_consent.json must stay byte-identical to this file. Bump `version` (a string) whenever the disclosure changes: provider, model, region, retention or revocation path. Tokens in [SQUARE_BRACKETS] are placeholders for legal review and must be replaced before go-live. Status: DRAFT, pending legal review.",
-  "version": "2",
+  "_about": "Single source of the LLM consent disclosure (LGN-228, ADR 0008). Location: docs/legal/llm-consent.json. Consumers: the backend consent constant (backend/internal/llmconsent/consent.go) must read the same `version`, and the web consent modal renders `locales.<lang>`. The backend embeds the file through //go:embed only from inside its own package, so the copy in backend/internal/llmconsent/llm-consent.json and web/src/generate/llm_consent.json must stay byte-identical to this file. Bump `version` (a string) whenever the disclosure changes: provider, model, region, retention or revocation path. Status: FINAL (version 3, 2026-11-15); all placeholders filled (LGN-228).",
+  "version": "3",
   "locales": {
     "en": {
       "title": "Send your concept to an AI model?",
@@ -28,11 +28,11 @@
         },
         {
           "heading": "How to revoke",
-          "body": "You can withdraw consent at any time in [REVOKE_SCREEN_PATH] or through [REVOKE_API_PATH]. Withdrawing deletes the generation data Legnaris still holds for you. Content already on your Sheet is not deleted by withdrawing; you can remove it from the Sheet."
+          "body": "You can withdraw consent at any time in the Account screen (/account) or through DELETE /me/llm-consent. Withdrawing deletes the generation data Legnaris still holds for you. Content already on your Sheet is not deleted by withdrawing; you can remove it from the Sheet."
         }
       ],
       "details_link_text": "Read the privacy policy",
-      "details_url": "[PRIVACY_POLICY_URL]",
+      "details_url": "https://legnaris.paulovalleriote.io/privacy",
       "accept_label": "I agree",
       "decline_label": "Not now"
     },
@@ -62,11 +62,11 @@
         },
         {
           "heading": "Como revogar",
-          "body": "Você pode retirar o consentimento a qualquer momento em [REVOKE_SCREEN_PATH] ou pela API em [REVOKE_API_PATH]. A retirada apaga os dados de geração que a Legnaris ainda mantém sobre você. O conteúdo já presente na sua Ficha não é apagado pela retirada; você pode removê-lo na própria Ficha."
+          "body": "Você pode retirar o consentimento a qualquer momento na tela Conta (/account) ou pela API em DELETE /me/llm-consent. A retirada apaga os dados de geração que a Legnaris ainda mantém sobre você. O conteúdo já presente na sua Ficha não é apagado pela retirada; você pode removê-lo na própria Ficha."
         }
       ],
       "details_link_text": "Leia a política de privacidade",
-      "details_url": "[PRIVACY_POLICY_URL]",
+      "details_url": "https://legnaris.paulovalleriote.io/privacy",
       "accept_label": "Concordo",
       "decline_label": "Agora não"
     }
