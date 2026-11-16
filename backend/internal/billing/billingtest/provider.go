@@ -23,6 +23,10 @@ type Provider struct {
 	Unavailable      bool
 	subscriptions    map[string]billing.ProviderSubscription
 	reads            int
+	refundKeys       []string
+	cancelKeys       []string
+	RefundErr        error
+	CancelErr        error
 }
 
 func NewProvider() *Provider {
@@ -107,6 +111,38 @@ func (p *Provider) Reads() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.reads
+}
+
+func (p *Provider) RefundLatest(_ context.Context, req billing.RefundRequest) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.RefundErr != nil {
+		return p.RefundErr
+	}
+	p.refundKeys = append(p.refundKeys, req.IdempotencyKey)
+	return nil
+}
+
+func (p *Provider) CancelNow(_ context.Context, req billing.CancelRequest) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.CancelErr != nil {
+		return p.CancelErr
+	}
+	p.cancelKeys = append(p.cancelKeys, req.IdempotencyKey)
+	return nil
+}
+
+func (p *Provider) RefundKeys() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]string(nil), p.refundKeys...)
+}
+
+func (p *Provider) CancelKeys() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]string(nil), p.cancelKeys...)
 }
 
 func (p *Provider) ParseWebhook(payload []byte, signature string) (billing.Notification, error) {
