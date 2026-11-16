@@ -104,6 +104,32 @@ func TestMongoStore_RefundRules(t *testing.T) {
 		assert.True(t, ok)
 	})
 
+	t.Run("Happy path: a failed refund is requested again on the same subscription with a fresh attempt budget", func(t *testing.T) {
+		store := newStoreDB(t)
+		row := newPendingRow(t, userID)
+		require.NoError(t, store.InsertPending(ctx, row))
+		activateRow(t, store, row, billing.StatusActive)
+		ok, err := store.RequestRefund(ctx, row.ID, fixedNow)
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.NoError(t, store.FailRefund(ctx, row.ID, "permanent"))
+
+		later := fixedNow.Add(time.Hour)
+		ok, err = store.RequestRefund(ctx, row.ID, later)
+		require.NoError(t, err)
+		require.True(t, ok)
+
+		got, found, err := store.FindLive(ctx, userID)
+		require.NoError(t, err)
+		require.True(t, found)
+		assert.Equal(t, billing.RefundRequested, got.RefundState)
+		assert.False(t, got.RefundDead)
+		assert.Zero(t, got.RefundAttempts)
+		assert.Empty(t, got.RefundLastError)
+		require.NotNil(t, got.RefundUsedAt)
+		assert.True(t, got.RefundUsedAt.Equal(later))
+	})
+
 	t.Run("Concurrency: simultaneous requests on one subscription produce exactly one requested refund", func(t *testing.T) {
 		store := newStoreDB(t)
 		row := newPendingRow(t, userID)

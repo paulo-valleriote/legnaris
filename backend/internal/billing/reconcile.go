@@ -91,11 +91,11 @@ func (r *Reconciler) reconcileOne(ctx context.Context, sub Subscription, now tim
 	}
 	defer func() { _ = r.deps.Ledger.ReleaseUser(ctx, sub.UserID, r.deps.Claimer) }()
 
+	readAt := r.deps.Now()
 	snap, err := r.deps.Provider.GetSubscription(ctx, sub.ProviderSubID)
 	if err != nil {
-		return Corrections{}, fmt.Errorf("read subscription: %w", err)
+		return Corrections{}, fmt.Errorf("read subscription: %w", providerFailure(err))
 	}
-	readAt := r.deps.Now()
 
 	var corr Corrections
 	err = r.deps.Tx.WithTransaction(ctx, func(txCtx context.Context) error {
