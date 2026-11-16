@@ -16,6 +16,8 @@ const (
 	defaultTimeout = 15 * time.Second
 	metadataUserID = "user_id"
 	cardPayment    = "card"
+
+	checkoutIntegrationIdentifier = "hosted_web_0001"
 )
 
 var ErrMissingConfiguration = errors.New("stripe secret key is not configured")
@@ -77,6 +79,22 @@ func (p *Provider) CreateCheckoutSession(ctx context.Context, req billing.Checko
 			metadataUserID:    req.UserID,
 			"subscription_id": req.SubscriptionID,
 		},
+		UIMode:                   stripesdk.String(string(stripesdk.CheckoutSessionUIModeHostedPage)),
+		BillingAddressCollection: stripesdk.String(string(stripesdk.CheckoutSessionBillingAddressCollectionAuto)),
+		PhoneNumberCollection: &stripesdk.CheckoutSessionCreatePhoneNumberCollectionParams{
+			Enabled: stripesdk.Bool(false),
+		},
+		AutomaticTax: &stripesdk.CheckoutSessionCreateAutomaticTaxParams{
+			Enabled: stripesdk.Bool(false),
+		},
+		AllowPromotionCodes:     stripesdk.Bool(false),
+		PaymentMethodCollection: stripesdk.String(string(stripesdk.CheckoutSessionPaymentMethodCollectionAlways)),
+		SubmitType:              stripesdk.String(string(stripesdk.CheckoutSessionSubmitTypeAuto)),
+		SavedPaymentMethodOptions: &stripesdk.CheckoutSessionCreateSavedPaymentMethodOptionsParams{
+			PaymentMethodSave: stripesdk.String(string(stripesdk.CheckoutSessionSavedPaymentMethodOptionsPaymentMethodSaveEnabled)),
+		},
+		IntegrationIdentifier: stripesdk.String(checkoutIntegrationIdentifier),
+		OriginContext:         stripesdk.String(string(stripesdk.CheckoutSessionOriginContextWeb)),
 	}
 	params.SetIdempotencyKey(req.IdempotencyKey)
 

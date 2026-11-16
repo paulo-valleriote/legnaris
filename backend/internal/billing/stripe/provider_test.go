@@ -140,6 +140,30 @@ func TestProvider_CreateCheckoutSession(t *testing.T) {
 		assert.Equal(t, "u-1", rec.form["metadata[user_id]"])
 	})
 
+	t.Run("Happy path: sends the hosted page settings chosen in Checkout Studio", func(t *testing.T) {
+		rec := &captured{}
+		p, _ := newTestProvider(t, respondWith(rec, 200, `{"id":"cs_1","object":"checkout.session"}`))
+
+		_, err := p.CreateCheckoutSession(context.Background(), billing.CheckoutRequest{IdempotencyKey: "checkout:s-1"})
+		require.NoError(t, err)
+
+		want := map[string]string{
+			"ui_mode":                                           "hosted_page",
+			"billing_address_collection":                        "auto",
+			"phone_number_collection[enabled]":                  "false",
+			"automatic_tax[enabled]":                            "false",
+			"allow_promotion_codes":                             "false",
+			"payment_method_collection":                         "always",
+			"submit_type":                                       "auto",
+			"saved_payment_method_options[payment_method_save]": "enabled",
+			"integration_identifier":                            "hosted_web_0001",
+			"origin_context":                                    "web",
+		}
+		for field, value := range want {
+			assert.Equal(t, value, rec.form[field], field)
+		}
+	})
+
 	t.Run("Error: a 402 from Stripe is a rejection", func(t *testing.T) {
 		p, _ := newTestProvider(t, respondWith(&captured{}, 402,
 			`{"error":{"type":"card_error","message":"declined"}}`))
