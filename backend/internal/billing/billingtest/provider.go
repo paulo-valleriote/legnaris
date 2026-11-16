@@ -17,6 +17,8 @@ type Provider struct {
 	sessions         map[string]billing.CheckoutSession
 	customersCreated int
 	sessionsCreated  int
+	portalsCreated   int
+	cancelsScheduled []string
 	Unavailable      bool
 }
 
