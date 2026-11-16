@@ -360,3 +360,29 @@ func TestTemplateDTO_MarshalJSON_Edge_OrderFallbacks(t *testing.T) {
 		})
 	}
 }
+
+func TestTemplateDTO_MarshalJSON_PayloadKeys(t *testing.T) {
+	tests := []struct {
+		name string
+		tmpl Template
+		want []string
+	}{
+		{name: "Edge: zero template emits only the base keys", tmpl: Template{}, want: []string{"default", "fields", "id", "name"}},
+		{name: "Happy path: fantasy_v1 emits base keys and dice, no suggested_pins", tmpl: fantasyV1Template, want: []string{"default", "dice", "fields", "id", "name"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := json.Marshal(tc.tmpl.ToDTO())
+			require.NoError(t, err)
+
+			var payload map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(raw, &payload))
+			keys := make([]string, 0, len(payload))
+			for key := range payload {
+				keys = append(keys, key)
+			}
+			assert.ElementsMatch(t, tc.want, keys)
+			assert.NotContains(t, payload, "suggested_pins")
+		})
+	}
+}

@@ -39,7 +39,6 @@ export interface TemplateDetail {
   readonly name: string;
   readonly fields: Record<string, FieldNode>;
   readonly default: boolean;
-  readonly suggestedPins?: readonly string[];
   readonly dice?: DiceDefaults;
 }
 
@@ -68,25 +67,6 @@ function parseDependsOn(value: unknown): readonly (readonly string[])[] | undefi
     }
     return segments;
   });
-}
-
-function parseSuggestedPins(value: unknown): readonly string[] | undefined {
-  if (value === undefined || value === null) {
-    return undefined;
-  }
-
-  if (!Array.isArray(value)) {
-    throw drift('template "suggested_pins" is not a list');
-  }
-
-  const keys: string[] = [];
-  for (const key of value) {
-    if (typeof key !== 'string') {
-      throw drift('template "suggested_pins" holds a non-string entry');
-    }
-    keys.push(key);
-  }
-  return keys;
 }
 
 function parseFieldSchema(value: unknown): FieldSchema {
@@ -173,7 +153,6 @@ function parseTemplate(value: unknown): TemplateDetail {
     name: requireString(value, 'name'),
     default: requireBoolean(value, 'default'),
     fields: parseFieldGroup(value['fields']),
-    suggestedPins: parseSuggestedPins(value['suggested_pins']),
     dice: parseDiceDefaults(value['dice']),
   };
 }
