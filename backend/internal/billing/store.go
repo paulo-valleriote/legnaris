@@ -14,20 +14,29 @@ const (
 	subscriptionsCollection = "subscriptions"
 	fieldStatus             = "status"
 	fieldUserID             = "user_id"
+	fieldID                 = "_id"
 )
 
 type MongoStore struct {
 	subscriptions *mongo.Collection
+	events        *mongo.Collection
+	locks         *mongo.Collection
+	users         *mongo.Collection
 }
 
 func NewMongoStore(database *mongo.Database) *MongoStore {
-	return &MongoStore{subscriptions: database.Collection(subscriptionsCollection)}
+	return &MongoStore{
+		subscriptions: database.Collection(subscriptionsCollection),
+		events:        database.Collection(EventsCollection),
+		locks:         database.Collection(UserLocksCollection),
+		users:         database.Collection(usersCollection),
+	}
 }
 
 func liveFilter(userID string) bson.D {
 	return bson.D{
 		{Key: fieldUserID, Value: userID},
-		{Key: fieldStatus, Value: bson.D{{Key: "$in", Value: bson.A{StatusPending, StatusActive}}}},
+		{Key: fieldStatus, Value: bson.D{{Key: "$in", Value: liveStatuses()}}},
 	}
 }
 

@@ -56,6 +56,7 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 
 	billingGroup := router.Group("/billing", requireAuth, requireActive, limitUser)
 	modules.Billing.Controller.RegisterRoutes(billingGroup)
+	router.POST("/billing/webhook", modules.Billing.Webhook.Receive)
 
 	return router
 }

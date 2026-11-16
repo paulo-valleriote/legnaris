@@ -14,6 +14,8 @@ import (
 	"errors"
 
 	"legnaris/backend/internal/accountdeletion"
+	"legnaris/backend/internal/billing"
+	billingstripe "legnaris/backend/internal/billing/stripe"
 	"legnaris/backend/internal/email"
 	"legnaris/backend/internal/email/amqp"
 	"legnaris/backend/internal/email/outbox"
@@ -57,6 +59,7 @@ type dependencies struct {
 	newGenerationRepublish func(cfg env.Env, database databaseHandle, publisher generation.Publisher) (generation.RepublishDeps, error)
 	newGenerationReap      func(cfg env.Env, database databaseHandle) (generation.ReapDeps, error)
 	newAccountDeletion     func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (accountdeletion.Deps, error)
+	newBilling             func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error)
 	openDatabase           func(cfg env.Env) (databaseHandle, error)
 	ensureIndexes          func(ctx context.Context, cfg env.Env, database databaseHandle) error
 	newRepository          func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (outbox.Repository, error)
@@ -165,7 +168,11 @@ func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRe
 	if err != nil {
 		return nil, err
 	}
-	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps, deletionDeps)
+	billingDeps, err := deps.newBilling(cfg, database, eventRepository)
+	if err != nil {
+		return nil, err
+	}
+	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps, deletionDeps, billingDeps)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +183,7 @@ const eventsOutboxInterval = 30 * time.Second
 
 const generationRepublishAttemptCap = 5
 
-func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps) ([]sweeper.Queue, error) {
+func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps, billingDeps billing.ConsumerDeps) ([]sweeper.Queue, error) {
 	vars := cfg.Variables
 	eventQueue, err := eventsrelay.NewQueue(eventRepository, eventBroker, eventsrelay.Config{
 		Interval:       eventsOutboxInterval,
@@ -199,7 +206,11 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
-	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue}, nil
+	billingQueue, err := billing.NewConsumerQueue(billingDeps, vars.EmailRelayMaxAttempts, vars.EmailRelayBatch)
+	if err != nil {
+		return nil, err
+	}
+	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue, billingQueue}, nil
 }
 
 func validateBrokerURL(raw string) error {
@@ -329,6 +340,20 @@ func defaultDependencies() dependencies {
 				Tx:      db.NewTransactor(mongo.Client, nil),
 			}, nil
 		},
+		newBilling: func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error) {
+			mongo, ok := database.(*db.Database)
+			if !ok {
+				return billing.ConsumerDeps{}, fmt.Errorf("unexpected database handle type %T", database)
+			}
+			mdb := mongo.Client.Database(cfg.Variables.DatabaseName)
+			return billing.ConsumerDeps{
+				Provider: newRelayBillingProvider(cfg.Variables),
+				Ledger:   billing.NewMongoStore(mdb),
+				Tx:       db.NewTransactor(mongo.Client, nil),
+				Outbox:   outboxRepo,
+				Now:      time.Now,
+			}, nil
+		},
 		newGenerationReap: func(cfg env.Env, database databaseHandle) (generation.ReapDeps, error) {
 			mongo, ok := database.(*db.Database)
 			if !ok {
@@ -342,4 +367,15 @@ func defaultDependencies() dependencies {
 			}, nil
 		},
 	}
+}
+
+func newRelayBillingProvider(vars env.Variables) billing.Provider {
+	if vars.StripeSecretKey == "" {
+		return billing.UnconfiguredProvider{}
+	}
+	provider, err := billingstripe.New(billingstripe.Config{SecretKey: vars.StripeSecretKey, WebhookSecret: vars.StripeWebhookSecret})
+	if err != nil {
+		return billing.UnconfiguredProvider{}
+	}
+	return provider
 }
