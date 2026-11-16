@@ -10,6 +10,7 @@ import (
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/events"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheettest"

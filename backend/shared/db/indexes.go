@@ -27,6 +27,8 @@ const (
 	authChallengesActiveUnique     = "auth_challenges_active_unique"
 	authChallengesExpiresAtTTL     = "auth_challenges_expires_at_ttl"
 	emailNoticesClaimedAtTTL       = "email_notices_claimed_at_ttl"
+	eventOutboxStatusNextAttempt   = "event_outbox_status_next_attempt"
+	eventOutboxPublishedAtTTL      = "event_outbox_published_at_ttl"
 	generationUsageUserDayUnique   = "generation_usage_user_day_unique"
 	generationUsageExpiresAtTTL    = "generation_usage_expires_at_ttl"
 	generationsActiveUserUnique    = "generations_active_user_id_unique"

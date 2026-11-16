@@ -193,11 +193,10 @@ func NewModules(
 	// Sheet limits read the owner's plan from the user store and reserve their
 	// slot inside a transaction with the Sheet write (LGN-183, ADR 0013).
 	sheetRepository := sheet.NewRepository(mdb, log)
-	sheetService := sheet.NewService(sheetRepository, templateService, registry, log,
+	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher,
 		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
 	)
 	sheetController := NewSheetController(sheetService)
-	planController := NewPlanController(sheetService)
 
 	refreshTokenRepository := auth.NewRefreshTokenRepository(mdb)
 

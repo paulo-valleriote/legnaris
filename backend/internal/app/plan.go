@@ -8,6 +8,7 @@ import (
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/quota"
+	"legnaris/backend/internal/sheet"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/response"
 
@@ -235,7 +236,7 @@ func (pc *PlanController) paidView(c *echo.Context, userID string) error {
 	if err != nil {
 		return err
 	}
-	return response.OK(c, planView{
+	return pc.respond(c, userID, planView{
 		Plan: "paid",
 		Generations: &planGenerationsView{
 			Used:      status.Used,

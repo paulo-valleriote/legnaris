@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
@@ -77,7 +78,7 @@ func planFor(t *testing.T, owner string, p plan.Plan) *mocks.MockPlanSource {
 // newLimitedService builds the sheet service with plan limits wired, the way
 // production does.
 func newLimitedService(repo sheet.Repository, tmpl *templatemocks.MockService, dags sheettest.DAGMap, plans sheet.PlanSource, tx sheet.TransactionRunner) sheet.Service {
-	return sheet.NewService(repo, tmpl, dags, logger.NewLogger(slog.LevelError), sheet.WithPlanLimits(plans, tx))
+	return sheet.NewService(repo, tmpl, dags, logger.NewLogger(slog.LevelError), events.NoOp{}, sheet.WithPlanLimits(plans, tx))
 }
 
 func TestService_CreateKindValidation(t *testing.T) {
@@ -195,7 +196,7 @@ func TestService_CreateInsertFailureIsNotALimit(t *testing.T) {
 
 func TestService_CreateWithoutPlanLimitsRefuses(t *testing.T) {
 	repo := mocks.NewMockRepository(t) // no expectations: must never be called
-	svc := sheet.NewService(repo, limitTemplateService(t, plan.KindCharacter), limitDAG(t), logger.NewLogger(slog.LevelError))
+	svc := sheet.NewService(repo, limitTemplateService(t, plan.KindCharacter), limitDAG(t), logger.NewLogger(slog.LevelError), events.NoOp{})
 
 	created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
 		TemplateID: limitTemplateID, Kind: string(plan.KindCharacter), SheetName: "x", OwnerID: ownerUserID,
