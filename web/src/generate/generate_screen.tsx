@@ -8,6 +8,7 @@ import { useApiClient } from '../app/providers';
 import { PLAN_QUERY_KEY, usePlanUsage, useTemplateDetail } from '../catalog/queries';
 import { setPathValue } from '../engine/sheet_defaults';
 import { SheetForm } from '../engine/sheet_form';
+import { PrivacyDialog } from '../legal/privacy_dialog';
 import { message, messageWith } from '../l10n/strings';
 import { registerLeaveGuard, requestLeave } from '../shell/leave_guard';
 import { Button } from '../ui/button';
@@ -116,37 +117,45 @@ function ConsentDialog({
   readonly onAccept: () => void;
   readonly onDecline: () => void;
 }) {
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+
   return (
-    <Dialog open={open} title={disclosure.title} onClose={onDecline}>
-      <p>{disclosure.intro}</p>
-      <dl>
-        {disclosure.points.map((point) => (
-          <div key={point.heading}>
-            <dt>{point.heading}</dt>
-            <dd>{point.body}</dd>
-          </div>
-        ))}
-      </dl>
-      {disclosure.detailsUrl.startsWith('https://') && (
-        <a href={disclosure.detailsUrl} rel="noopener noreferrer" target="_blank">
+    <>
+      <Dialog open={open} title={disclosure.title} onClose={onDecline}>
+        <p>{disclosure.intro}</p>
+        <dl>
+          {disclosure.points.map((point) => (
+            <div key={point.heading}>
+              <dt>{point.heading}</dt>
+              <dd>{point.body}</dd>
+            </div>
+          ))}
+        </dl>
+        <button
+          type="button"
+          className="lg-button lg-button--ghost"
+          aria-haspopup="dialog"
+          onClick={() => setPrivacyOpen(true)}
+        >
           {disclosure.detailsLinkText}
-        </a>
-      )}
-      {error !== undefined && <p role="alert">{error}</p>}
-      <div>
-        <Button
-          variant="secondary"
-          label={message('generate.consentDecline')}
-          onClick={onDecline}
-        />
-        <Button
-          variant="primary"
-          label={disclosure.acceptLabel}
-          loading={busy}
-          onClick={onAccept}
-        />
-      </div>
-    </Dialog>
+        </button>
+        {error !== undefined && <p role="alert">{error}</p>}
+        <div>
+          <Button
+            variant="secondary"
+            label={message('generate.consentDecline')}
+            onClick={onDecline}
+          />
+          <Button
+            variant="primary"
+            label={disclosure.acceptLabel}
+            loading={busy}
+            onClick={onAccept}
+          />
+        </div>
+      </Dialog>
+      {open && privacyOpen ? <PrivacyDialog onClose={() => setPrivacyOpen(false)} /> : null}
+    </>
   );
 }
 
@@ -524,17 +533,19 @@ export function GenerateScreen() {
           onRegenerate={onRegenerate}
         />
       )}
-      <ConsentDialog
-        open={consentOpen}
-        disclosure={consentDisclosure()}
-        busy={consentBusy}
-        error={consentError}
-        onAccept={() => void onAcceptConsent()}
-        onDecline={() => {
-          setConsentOpen(false);
-          setConsentError(undefined);
-        }}
-      />
+      {consentOpen && (
+        <ConsentDialog
+          open={consentOpen}
+          disclosure={consentDisclosure()}
+          busy={consentBusy}
+          error={consentError}
+          onAccept={() => void onAcceptConsent()}
+          onDecline={() => {
+            setConsentOpen(false);
+            setConsentError(undefined);
+          }}
+        />
+      )}
       <Dialog
         open={lastConfirmOpen}
         title={message('generate.lastTitle')}
