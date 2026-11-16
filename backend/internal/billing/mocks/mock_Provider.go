@@ -22,6 +22,53 @@ func (_m *MockProvider) EXPECT() *MockProvider_Expecter {
 	return &MockProvider_Expecter{mock: &_m.Mock}
 }
 
+// CancelAtPeriodEnd provides a mock function with given fields: ctx, req
+func (_m *MockProvider) CancelAtPeriodEnd(ctx context.Context, req billing.CancelRequest) error {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CancelAtPeriodEnd")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, billing.CancelRequest) error); ok {
+		r0 = rf(ctx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockProvider_CancelAtPeriodEnd_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CancelAtPeriodEnd'
+type MockProvider_CancelAtPeriodEnd_Call struct {
+	*mock.Call
+}
+
+// CancelAtPeriodEnd is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req billing.CancelRequest
+func (_e *MockProvider_Expecter) CancelAtPeriodEnd(ctx interface{}, req interface{}) *MockProvider_CancelAtPeriodEnd_Call {
+	return &MockProvider_CancelAtPeriodEnd_Call{Call: _e.mock.On("CancelAtPeriodEnd", ctx, req)}
+}
+
+func (_c *MockProvider_CancelAtPeriodEnd_Call) Run(run func(ctx context.Context, req billing.CancelRequest)) *MockProvider_CancelAtPeriodEnd_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(billing.CancelRequest))
+	})
+	return _c
+}
+
+func (_c *MockProvider_CancelAtPeriodEnd_Call) Return(_a0 error) *MockProvider_CancelAtPeriodEnd_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockProvider_CancelAtPeriodEnd_Call) RunAndReturn(run func(context.Context, billing.CancelRequest) error) *MockProvider_CancelAtPeriodEnd_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateCheckoutSession provides a mock function with given fields: ctx, req
 func (_m *MockProvider) CreateCheckoutSession(ctx context.Context, req billing.CheckoutRequest) (billing.CheckoutSession, error) {
 	ret := _m.Called(ctx, req)
@@ -136,27 +183,27 @@ func (_c *MockProvider_CreateCustomer_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
-// GetSubscription provides a mock function with given fields: ctx, providerSubscriptionID
-func (_m *MockProvider) GetSubscription(ctx context.Context, providerSubscriptionID string) (billing.ProviderSubscription, error) {
-	ret := _m.Called(ctx, providerSubscriptionID)
+// CreatePortalSession provides a mock function with given fields: ctx, req
+func (_m *MockProvider) CreatePortalSession(ctx context.Context, req billing.PortalRequest) (billing.PortalSession, error) {
+	ret := _m.Called(ctx, req)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetSubscription")
+		panic("no return value specified for CreatePortalSession")
 	}
 
-	var r0 billing.ProviderSubscription
+	var r0 billing.PortalSession
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (billing.ProviderSubscription, error)); ok {
-		return rf(ctx, providerSubscriptionID)
+	if rf, ok := ret.Get(0).(func(context.Context, billing.PortalRequest) (billing.PortalSession, error)); ok {
+		return rf(ctx, req)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) billing.ProviderSubscription); ok {
-		r0 = rf(ctx, providerSubscriptionID)
+	if rf, ok := ret.Get(0).(func(context.Context, billing.PortalRequest) billing.PortalSession); ok {
+		r0 = rf(ctx, req)
 	} else {
-		r0 = ret.Get(0).(billing.ProviderSubscription)
+		r0 = ret.Get(0).(billing.PortalSession)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, providerSubscriptionID)
+	if rf, ok := ret.Get(1).(func(context.Context, billing.PortalRequest) error); ok {
+		r1 = rf(ctx, req)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -164,88 +211,31 @@ func (_m *MockProvider) GetSubscription(ctx context.Context, providerSubscriptio
 	return r0, r1
 }
 
-// MockProvider_GetSubscription_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSubscription'
-type MockProvider_GetSubscription_Call struct {
+// MockProvider_CreatePortalSession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePortalSession'
+type MockProvider_CreatePortalSession_Call struct {
 	*mock.Call
 }
 
-// GetSubscription is a helper method to define mock.On call
+// CreatePortalSession is a helper method to define mock.On call
 //   - ctx context.Context
-//   - providerSubscriptionID string
-func (_e *MockProvider_Expecter) GetSubscription(ctx interface{}, providerSubscriptionID interface{}) *MockProvider_GetSubscription_Call {
-	return &MockProvider_GetSubscription_Call{Call: _e.mock.On("GetSubscription", ctx, providerSubscriptionID)}
+//   - req billing.PortalRequest
+func (_e *MockProvider_Expecter) CreatePortalSession(ctx interface{}, req interface{}) *MockProvider_CreatePortalSession_Call {
+	return &MockProvider_CreatePortalSession_Call{Call: _e.mock.On("CreatePortalSession", ctx, req)}
 }
 
-func (_c *MockProvider_GetSubscription_Call) Run(run func(ctx context.Context, providerSubscriptionID string)) *MockProvider_GetSubscription_Call {
+func (_c *MockProvider_CreatePortalSession_Call) Run(run func(ctx context.Context, req billing.PortalRequest)) *MockProvider_CreatePortalSession_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(billing.PortalRequest))
 	})
 	return _c
 }
 
-func (_c *MockProvider_GetSubscription_Call) Return(_a0 billing.ProviderSubscription, _a1 error) *MockProvider_GetSubscription_Call {
+func (_c *MockProvider_CreatePortalSession_Call) Return(_a0 billing.PortalSession, _a1 error) *MockProvider_CreatePortalSession_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockProvider_GetSubscription_Call) RunAndReturn(run func(context.Context, string) (billing.ProviderSubscription, error)) *MockProvider_GetSubscription_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// ParseWebhook provides a mock function with given fields: payload, signature
-func (_m *MockProvider) ParseWebhook(payload []byte, signature string) (billing.Notification, error) {
-	ret := _m.Called(payload, signature)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ParseWebhook")
-	}
-
-	var r0 billing.Notification
-	var r1 error
-	if rf, ok := ret.Get(0).(func([]byte, string) (billing.Notification, error)); ok {
-		return rf(payload, signature)
-	}
-	if rf, ok := ret.Get(0).(func([]byte, string) billing.Notification); ok {
-		r0 = rf(payload, signature)
-	} else {
-		r0 = ret.Get(0).(billing.Notification)
-	}
-
-	if rf, ok := ret.Get(1).(func([]byte, string) error); ok {
-		r1 = rf(payload, signature)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockProvider_ParseWebhook_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseWebhook'
-type MockProvider_ParseWebhook_Call struct {
-	*mock.Call
-}
-
-// ParseWebhook is a helper method to define mock.On call
-//   - payload []byte
-//   - signature string
-func (_e *MockProvider_Expecter) ParseWebhook(payload interface{}, signature interface{}) *MockProvider_ParseWebhook_Call {
-	return &MockProvider_ParseWebhook_Call{Call: _e.mock.On("ParseWebhook", payload, signature)}
-}
-
-func (_c *MockProvider_ParseWebhook_Call) Run(run func(payload []byte, signature string)) *MockProvider_ParseWebhook_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]byte), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockProvider_ParseWebhook_Call) Return(_a0 billing.Notification, _a1 error) *MockProvider_ParseWebhook_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockProvider_ParseWebhook_Call) RunAndReturn(run func([]byte, string) (billing.Notification, error)) *MockProvider_ParseWebhook_Call {
+func (_c *MockProvider_CreatePortalSession_Call) RunAndReturn(run func(context.Context, billing.PortalRequest) (billing.PortalSession, error)) *MockProvider_CreatePortalSession_Call {
 	_c.Call.Return(run)
 	return _c
 }
