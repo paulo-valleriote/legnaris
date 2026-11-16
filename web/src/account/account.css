@@ -1,9 +1,3 @@
-/**
- * The account destination layout: hairline-divided rows of label and value, with
- * the one destructive action. Every value comes from the shared design tokens; no
- * literal colour or pixel value appears here (LGN-195).
- */
-
 .lg-account {
   display: flex;
   flex-direction: column;
@@ -33,25 +27,56 @@
   gap: var(--lg-space-8);
 }
 
-.lg-account__row {
+.lg-account__rows {
   display: flex;
   flex-direction: column;
-  gap: var(--lg-space-8);
-  padding: var(--lg-space-16) var(--lg-space-8);
+  border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-account__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--lg-space-8) var(--lg-space-24);
+  padding: var(--lg-space-24) 0;
   border-top: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+@media (min-width: 40rem) {
+  .lg-account__row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+    align-items: baseline;
+  }
 }
 
 .lg-account__label {
   margin: 0;
-  font-size: var(--lg-type-13);
-  font-weight: var(--lg-font-weight-semibold);
+  font-size: var(--lg-type-15);
+  font-weight: var(--lg-font-weight-medium);
+  line-height: var(--lg-line-normal);
   color: var(--lg-color-text-muted);
+}
+
+.lg-account__content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lg-space-12);
+  min-width: 0;
 }
 
 .lg-account__value {
   margin: 0;
+  max-width: 65ch;
   font-size: var(--lg-type-16);
+  line-height: var(--lg-line-normal);
   color: var(--lg-color-text);
+  text-wrap: pretty;
+}
+
+.lg-account__value--lead {
+  font-size: var(--lg-type-20);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
 }
 
 .lg-account__notice {
@@ -64,12 +89,4 @@
   margin: 0;
   font-size: var(--lg-type-15);
   color: var(--lg-color-danger);
-}
-
-.lg-account__footer {
-  font-size: var(--lg-type-13);
-}
-
-.lg-account__link {
-  color: var(--lg-color-accent);
 }

@@ -5,8 +5,16 @@ import { policyLocale, policyMarkdown } from './privacy_policy';
 import type { PolicyLocale } from './privacy_policy';
 import './privacy.css';
 
+type HeadingTag = 'h1' | 'h2' | 'h3';
+
 interface PrivacyScreenProps {
   readonly locale?: PolicyLocale;
+}
+
+interface PrivacyArticleProps {
+  readonly blocks: readonly MarkdownBlock[];
+  readonly headingLevelOffset?: 0 | 1;
+  readonly className?: string;
 }
 
 function renderToken(token: InlineToken, key: number): ReactNode {
@@ -27,9 +35,17 @@ function renderInline(text: string): ReactNode[] {
   return tokenizeInline(text).map(renderToken);
 }
 
-function renderBlock(block: MarkdownBlock, index: number): ReactNode {
+function headingTag(level: 1 | 2, offset: 0 | 1): HeadingTag {
+  const shifted = level + offset;
+  if (shifted === 1) {
+    return 'h1';
+  }
+  return shifted === 2 ? 'h2' : 'h3';
+}
+
+function renderBlock(block: MarkdownBlock, index: number, offset: 0 | 1): ReactNode {
   if (block.kind === 'heading') {
-    const Heading = block.level === 1 ? 'h1' : 'h2';
+    const Heading = headingTag(block.level, offset);
     return <Heading key={index}>{renderInline(block.text)}</Heading>;
   }
   if (block.kind === 'list') {
@@ -44,17 +60,26 @@ function renderBlock(block: MarkdownBlock, index: number): ReactNode {
   return <p key={index}>{renderInline(block.text)}</p>;
 }
 
-function currentLocale(): PolicyLocale {
+export function currentPolicyLocale(): PolicyLocale {
   return policyLocale(globalThis.navigator?.languages ?? []);
 }
 
+export function PrivacyArticle({ blocks, headingLevelOffset = 0, className }: PrivacyArticleProps) {
+  const classes = className === undefined ? 'lg-privacy__body' : `lg-privacy__body ${className}`;
+  return (
+    <article className={classes}>
+      {blocks.map((block, index) => renderBlock(block, index, headingLevelOffset))}
+    </article>
+  );
+}
+
 export function PrivacyScreen({ locale }: PrivacyScreenProps = {}) {
-  const resolved = locale ?? currentLocale();
+  const resolved = locale ?? currentPolicyLocale();
   const blocks = parseMarkdown(policyMarkdown(resolved));
 
   return (
     <main className="lg-privacy" lang={resolved}>
-      <article className="lg-privacy__body">{blocks.map(renderBlock)}</article>
+      <PrivacyArticle blocks={blocks} />
     </main>
   );
 }
