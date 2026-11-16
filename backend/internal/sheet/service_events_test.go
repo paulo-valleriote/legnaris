@@ -8,6 +8,7 @@ import (
 	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/events"
 	eventsmocks "legnaris/backend/internal/events/mocks"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheettest"
@@ -70,16 +71,17 @@ func TestService_Create_EmitsSheetCreated(t *testing.T) {
 			got := captureEvents(pub)
 
 			tmplSvc.EXPECT().FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: eventsCreateTemplateID}).
-				Return(&template.Template{ID: eventsCreateTemplateID, Fields: fields}, nil).Once()
-			if tc.ownerHasSheet {
-				repo.EXPECT().FetchByOwnerID(ctx, ownerUserID).Return(&sheet.Sheet{ID: updateSheetID}, nil).Once()
-			} else {
-				repo.EXPECT().FetchByOwnerID(ctx, ownerUserID).Return(nil, sheet.ErrSheetNotFound).Once()
-				repo.EXPECT().Create(ctx, mock.Anything).Return(tc.createErr).Once()
+				Return(&template.Template{ID: eventsCreateTemplateID, Fields: fields, Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).Once()
+			switch {
+			case tc.ownerHasSheet:
+				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindCharacter, 1).Return(sheet.ErrSheetLimitReached).Once()
+			default:
+				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindCharacter, 1).Return(nil).Once()
+				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(tc.createErr).Once()
 			}
 
-			svc := sheet.NewService(repo, tmplSvc, sheettest.DAGMap{eventsCreateTemplateID: dag}, testLog, pub)
-			created, err := svc.Create(ctx, sheet.CreateSheetCommand{TemplateID: eventsCreateTemplateID, OwnerID: ownerUserID})
+			svc := sheet.NewService(repo, tmplSvc, sheettest.DAGMap{eventsCreateTemplateID: dag}, testLog, pub, limitOpts(t))
+			created, err := svc.Create(ctx, sheet.CreateSheetCommand{TemplateID: eventsCreateTemplateID, Kind: string(plan.KindCharacter), OwnerID: ownerUserID})
 			if tc.wantEvents == 0 {
 				require.Error(t, err)
 				assert.Empty(t, *got)
@@ -258,10 +260,13 @@ func TestService_Delete_EmitsSheetDeleted(t *testing.T) {
 
 			repo.EXPECT().FetchByID(ctx, updateSheetID).Return(owned, nil).Once()
 			if tc.wantEvents == 1 || tc.deleteErr != nil {
-				repo.EXPECT().DeleteByID(ctx, updateSheetID).Return(tc.deleteErr).Once()
+				repo.EXPECT().DeleteByID(mock.Anything, updateSheetID).Return(tc.deleteErr).Once()
+			}
+			if tc.wantEvents == 1 {
+				repo.EXPECT().ReleaseSlot(mock.Anything, ownerUserID, plan.SheetKind("")).Return(nil).Once()
 			}
 
-			svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, pub)
+			svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, pub, limitOpts(t))
 			err := svc.Delete(ctx, sheet.DeleteSheetCommand{SheetID: updateSheetID, OwnerID: tc.ownerID})
 			if tc.wantEvents == 0 {
 				require.Error(t, err)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/events"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
@@ -177,12 +178,13 @@ type ServiceImpl struct {
 
 // NewService builds the sheet service over a DAG provider. The provider must
 // already be complete when the service starts (boot-time registry): neither the
-// service nor its callers mutate it afterwards.
-func NewService(repository Repository, templateService template.Service, provider DAGProvider, log logger.StructuredLogger, publisher events.Publisher) Service {
+// service nor its callers mutate it afterwards. A nil publisher falls back to
+// events.NoOp. Plan limits are optional collaborators; see WithPlanLimits.
+func NewService(repository Repository, templateService template.Service, provider DAGProvider, log logger.StructuredLogger, publisher events.Publisher, opts ...ServiceOption) Service {
 	if publisher == nil {
 		publisher = events.NoOp{}
 	}
-	return &ServiceImpl{
+	svc := &ServiceImpl{
 		repository:      repository,
 		templateService: templateService,
 		provider:        provider,

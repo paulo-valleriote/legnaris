@@ -35,6 +35,12 @@ const (
 	// CodeDisposableEmail refuses a registration whose domain is a throwaway
 	// provider or cannot receive mail, before any account is written (LGN-151).
 	CodeDisposableEmail Code = "DISPOSABLE_EMAIL"
+	// CodeValidation refuses a request whose value fails a versioned contract,
+	// such as an LLM consent version other than the current one (LGN-194).
+	CodeValidation Code = "VALIDATION"
+	// CodeLLMConsentRequired refuses a generation until the player has given
+	// consent to the current LLM disclosure (ADR 0008, LGN-194).
+	CodeLLMConsentRequired Code = "LLM_CONSENT_REQUIRED"
 	// CodePlanUpgradeRequired refuses a generation once the Free lifetime trial
 	// is spent or was never granted; the fix is a paid Plan (ADR 0009).
 	CodePlanUpgradeRequired Code = "PLAN_UPGRADE_REQUIRED"
@@ -90,7 +96,7 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 400
 	case CodeUnauthorized, CodeOTPInvalid:
 		httpStatus = 401
-	case CodeForbidden, CodePlanUpgradeRequired:
+	case CodeForbidden, CodeLLMConsentRequired, CodePlanUpgradeRequired:
 		httpStatus = 403
 	case CodeNotFound:
 		httpStatus = 404
