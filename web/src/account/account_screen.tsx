@@ -6,22 +6,13 @@ import type { PlanUsage } from '../api/models/plan';
 import { useApiClient } from '../app/providers';
 import { PRIVACY_PATH } from '../app/routes';
 import { PLAN_QUERY_KEY, usePlanUsage } from '../catalog/queries';
+import { planName } from '../plans/plan_view';
 import { message, messageWith } from '../l10n/strings';
 import './account.css';
 import '../catalog/catalog.css';
 
 function formatConsentDate(consentAt: string): string {
   return new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(consentAt));
-}
-
-function planName(plan: string): string {
-  if (plan === 'free') {
-    return message('account.planFree');
-  }
-  if (plan === 'paid') {
-    return message('account.planPaid');
-  }
-  return messageWith('account.planOther', { plan });
 }
 
 interface RevokeDialogProps {

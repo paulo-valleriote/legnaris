@@ -1,0 +1,27 @@
+/**
+ * The payment-issue notice above the signed-in content: one line of plain text and
+ * one link, drawn with the shared tokens only (LGN-215).
+ */
+
+.lg-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lg-space-8) var(--lg-space-16);
+  margin-bottom: var(--lg-space-24);
+  padding: var(--lg-space-12) var(--lg-space-16);
+  border-left: var(--lg-size-hairline) solid var(--lg-color-warning);
+  background: var(--lg-color-surface);
+}
+
+.lg-banner__text {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text);
+}
+
+.lg-banner__link {
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-accent);
+}

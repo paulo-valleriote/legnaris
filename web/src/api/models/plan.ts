@@ -4,6 +4,23 @@ export const SHEET_KINDS = ['character', 'npc', 'monster'] as const;
 
 export type SheetKind = (typeof SHEET_KINDS)[number];
 
+export const SUBSCRIPTION_STATUSES = ['pending', 'active', 'past_due', 'canceled'] as const;
+
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+export const REFUND_STATES = ['requested', 'refunded', 'canceled', 'failed'] as const;
+
+export type RefundState = (typeof REFUND_STATES)[number];
+
+export interface BillingStatus {
+  readonly subscriptionStatus: SubscriptionStatus | null;
+  readonly currentPeriodEnd: string | null;
+  readonly cancelAtPeriodEnd: boolean;
+  readonly paymentIssue: boolean;
+  readonly refundEligible: boolean;
+  readonly refundState: RefundState | null;
+}
+
 export interface SheetUsage {
   readonly used: number;
   readonly limit: number;
@@ -18,6 +35,7 @@ export interface PlanUsage {
   readonly llmConsentRequired: boolean;
   readonly lastFreeGeneration: boolean;
   readonly activeGenerationId: string | null;
+  readonly billing: BillingStatus;
 }
 
 function decodeSheetUsage(value: unknown, kind: string): SheetUsage {
@@ -53,7 +71,45 @@ export function parsePlanUsage(data: unknown): PlanUsage {
     llmConsentRequired: decodeFlag(data, 'llm_consent_required'),
     lastFreeGeneration: decodeFlag(data, 'last_free_generation'),
     activeGenerationId: optionalString(data, 'active_generation_id') ?? null,
+    billing: decodeBilling(data),
   };
+}
+
+function decodeBilling(data: Record<string, unknown>): BillingStatus {
+  return {
+    subscriptionStatus: decodeEnum(data, 'subscription_status', SUBSCRIPTION_STATUSES),
+    currentPeriodEnd: decodePeriodEnd(data),
+    cancelAtPeriodEnd: decodeFlag(data, 'cancel_at_period_end'),
+    paymentIssue: decodeFlag(data, 'payment_issue'),
+    refundEligible: decodeFlag(data, 'refund_eligible'),
+    refundState: decodeEnum(data, 'refund_state', REFUND_STATES),
+  };
+}
+
+function decodeEnum<const T extends string>(
+  data: Record<string, unknown>,
+  key: string,
+  allowed: readonly T[],
+): T | null {
+  const value = data[key];
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) {
+    throw drift(`plan field "${key}" is not a known value`);
+  }
+  return value as T;
+}
+
+function decodePeriodEnd(data: Record<string, unknown>): string | null {
+  const end = optionalString(data, 'current_period_end');
+  if (end === undefined) {
+    return null;
+  }
+  if (Number.isNaN(Date.parse(end))) {
+    throw drift('plan period end is not a timestamp');
+  }
+  return end;
 }
 
 function decodeTrialRemaining(data: Record<string, unknown>): number | undefined {
