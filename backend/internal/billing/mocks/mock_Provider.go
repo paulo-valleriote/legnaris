@@ -22,6 +22,53 @@ func (_m *MockProvider) EXPECT() *MockProvider_Expecter {
 	return &MockProvider_Expecter{mock: &_m.Mock}
 }
 
+// CancelAtPeriodEnd provides a mock function with given fields: ctx, req
+func (_m *MockProvider) CancelAtPeriodEnd(ctx context.Context, req billing.CancelRequest) error {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CancelAtPeriodEnd")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, billing.CancelRequest) error); ok {
+		r0 = rf(ctx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockProvider_CancelAtPeriodEnd_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CancelAtPeriodEnd'
+type MockProvider_CancelAtPeriodEnd_Call struct {
+	*mock.Call
+}
+
+// CancelAtPeriodEnd is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req billing.CancelRequest
+func (_e *MockProvider_Expecter) CancelAtPeriodEnd(ctx interface{}, req interface{}) *MockProvider_CancelAtPeriodEnd_Call {
+	return &MockProvider_CancelAtPeriodEnd_Call{Call: _e.mock.On("CancelAtPeriodEnd", ctx, req)}
+}
+
+func (_c *MockProvider_CancelAtPeriodEnd_Call) Run(run func(ctx context.Context, req billing.CancelRequest)) *MockProvider_CancelAtPeriodEnd_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(billing.CancelRequest))
+	})
+	return _c
+}
+
+func (_c *MockProvider_CancelAtPeriodEnd_Call) Return(_a0 error) *MockProvider_CancelAtPeriodEnd_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockProvider_CancelAtPeriodEnd_Call) RunAndReturn(run func(context.Context, billing.CancelRequest) error) *MockProvider_CancelAtPeriodEnd_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateCheckoutSession provides a mock function with given fields: ctx, req
 func (_m *MockProvider) CreateCheckoutSession(ctx context.Context, req billing.CheckoutRequest) (billing.CheckoutSession, error) {
 	ret := _m.Called(ctx, req)
@@ -132,6 +179,63 @@ func (_c *MockProvider_CreateCustomer_Call) Return(_a0 billing.Customer, _a1 err
 }
 
 func (_c *MockProvider_CreateCustomer_Call) RunAndReturn(run func(context.Context, billing.CustomerRequest) (billing.Customer, error)) *MockProvider_CreateCustomer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreatePortalSession provides a mock function with given fields: ctx, req
+func (_m *MockProvider) CreatePortalSession(ctx context.Context, req billing.PortalRequest) (billing.PortalSession, error) {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreatePortalSession")
+	}
+
+	var r0 billing.PortalSession
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, billing.PortalRequest) (billing.PortalSession, error)); ok {
+		return rf(ctx, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, billing.PortalRequest) billing.PortalSession); ok {
+		r0 = rf(ctx, req)
+	} else {
+		r0 = ret.Get(0).(billing.PortalSession)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, billing.PortalRequest) error); ok {
+		r1 = rf(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockProvider_CreatePortalSession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePortalSession'
+type MockProvider_CreatePortalSession_Call struct {
+	*mock.Call
+}
+
+// CreatePortalSession is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req billing.PortalRequest
+func (_e *MockProvider_Expecter) CreatePortalSession(ctx interface{}, req interface{}) *MockProvider_CreatePortalSession_Call {
+	return &MockProvider_CreatePortalSession_Call{Call: _e.mock.On("CreatePortalSession", ctx, req)}
+}
+
+func (_c *MockProvider_CreatePortalSession_Call) Run(run func(ctx context.Context, req billing.PortalRequest)) *MockProvider_CreatePortalSession_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(billing.PortalRequest))
+	})
+	return _c
+}
+
+func (_c *MockProvider_CreatePortalSession_Call) Return(_a0 billing.PortalSession, _a1 error) *MockProvider_CreatePortalSession_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockProvider_CreatePortalSession_Call) RunAndReturn(run func(context.Context, billing.PortalRequest) (billing.PortalSession, error)) *MockProvider_CreatePortalSession_Call {
 	_c.Call.Return(run)
 	return _c
 }
