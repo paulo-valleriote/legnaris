@@ -29,8 +29,6 @@ const (
 	patchRequestID  = "req-patch-1"
 )
 
-// patchDAG is a small template with one text leaf, one editable number and one
-// derived number, so a PATCH exercises a cascade and a string the log must hide.
 func patchDAG(t *testing.T) *template.DAG {
 	t.Helper()
 	fields := template.FieldGroup{
@@ -54,8 +52,6 @@ func patchDAG(t *testing.T) *template.DAG {
 	return dag
 }
 
-// patchSheet is the stored state a PATCH reads: the given version, name and
-// dexterity, with the derived modifier already consistent with dexterity.
 func patchSheet(version int64, name string, dexterity float64) *sheet.Sheet {
 	return &sheet.Sheet{
 		ID:         patchSheetID,
@@ -79,16 +75,12 @@ func dexterityPatch(value float64) sheet.PartialUpdateSheetCommand {
 	}
 }
 
-// loggedLine is one structured record the service emitted, keyed by attribute.
 type loggedLine struct {
 	level string
 	msg   string
 	attrs map[string]string
 }
 
-// newPatchLogger returns a strict logger mock that accepts only the two PATCH
-// records with their exact attribute counts. Any other log call fails the test.
-// Each accepted call is appended to the returned slice.
 func newPatchLogger(t *testing.T) (*logmocks.MockStructuredLogger, *[]loggedLine) {
 	t.Helper()
 	log := logmocks.NewMockStructuredLogger(t)

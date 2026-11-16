@@ -71,8 +71,6 @@ func TestTokenManager(t *testing.T) {
 	})
 }
 
-// TestTokenManager_Clock proves issuance and validation read the injected clock
-// so expiry boundaries are crossed without sleeping (PRQ-16, SC-007).
 func TestTokenManager_Clock(t *testing.T) {
 	const secret = "test-secret"
 	const ttl = 15 * time.Minute

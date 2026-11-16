@@ -1,8 +1,3 @@
-// Command relay is the email publication process. It polls the durable outbox,
-// claims a batch with a lease, publishes each intention to RabbitMQ with
-// publisher confirms, and applies a bounded backoff on failure. It is a
-// separate binary, so a broker outage can never reach the HTTP API and the API
-// never depends on the broker to start (O2, EML-05, EML-15, EML-16).
 package main
 
 import (
@@ -37,35 +32,26 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// brokerClient is the broker adapter the relay runs against: it publishes
-// through the relay Publisher port, declares the topology before the first
-// publish, and can be closed.
 type brokerClient interface {
 	Publish(ctx context.Context, msg email.Message) error
 	DeclareTopology() error
 	Close() error
 }
 
-// databaseHandle is the open database the relay closes on shutdown.
 type databaseHandle interface {
 	Close(ctx context.Context) error
 }
 
-// eventBrokerClient is the broker adapter the event relay publishes through.
 type eventBrokerClient interface {
 	eventsrelay.Publisher
 	Close() error
 }
 
-// generationBrokerClient is the broker adapter the generation republish sweep
-// publishes through.
 type generationBrokerClient interface {
 	generation.Publisher
 	Close() error
 }
 
-// dependencies are the process's wiring seams, overridable in tests so the
-// startup logic is exercised without Mongo or a broker (EML-15).
 type dependencies struct {
 	dialGenerationBroker   func(cfg env.Env) (generationBrokerClient, error)
 	newGenerationRepublish func(cfg env.Env, database databaseHandle, publisher generation.Publisher) (generation.RepublishDeps, error)
@@ -93,14 +79,9 @@ func main() {
 	}
 }
 
-// run validates the broker settings, opens the database and the broker, declares
-// the topology, serves the metrics listener and runs the publication loop until
-// ctx is cancelled (EML-05, EML-15, EML-16).
 func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	vars := cfg.Variables
 
-	// The broker is validated here, by the one process that needs it: a blank or
-	// unusable URL fails fast before anything is opened or polled (EML-15).
 	if err := validateBrokerURL(vars.RabbitMQURL); err != nil {
 		return err
 	}
@@ -111,9 +92,6 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	}
 	defer closeDatabase(cfg, database, cfg.Logger)
 
-	// The relay is self-sufficient: it ensures the outbox indexes itself, so a
-	// relay started before (or without) the API still has the claim index and
-	// the retention TTL (EML-17).
 	if err := deps.ensureIndexes(ctx, cfg, database); err != nil {
 		return fmt.Errorf("ensure indexes: %w", err)
 	}
@@ -124,8 +102,6 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	}
 	defer func() { _ = broker.Close() }()
 
-	// The topology exists before the first publish; a declaration failure stops
-	// startup (EML-06).
 	if err := broker.DeclareTopology(); err != nil {
 		return err
 	}
@@ -176,8 +152,6 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	return errors.Join(emailErr, sweepErr)
 }
 
-// newSweeper wires every sweeper queue from the opened collaborators and builds the
-// sweeper that drives them (ADR 0013). It only constructs: run starts it.
 func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationBroker generation.Publisher, observer sweeper.Observer) (*sweeper.Sweeper, error) {
 	generationDeps, err := deps.newGenerationRepublish(cfg, database, generationBroker)
 	if err != nil {
@@ -198,22 +172,10 @@ func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRe
 	return sweeper.New(queues, relayClaimerID(), observer, cfg.Logger)
 }
 
-// eventsOutboxInterval is how often the sweeper claims the event outbox. It is
-// also the retry step, so a short interval burns the shared attempt cap fast when
-// the broker is down: 30 s keeps user.deleted (LGN-190) under half a minute and
-// still tolerates about EMAIL_RELAY_MAX_ATTEMPTS * 30 s of broker outage.
 const eventsOutboxInterval = 30 * time.Second
 
-// generationRepublishAttemptCap is how many publish attempts a queued generation
-// gets before the sweep gives up on it and refunds the quota (LGN-186).
 const generationRepublishAttemptCap = 5
 
-// sweepQueues is the sweeper's queue table: one entry per queue, and the only
-// place a queue is registered (ADR 0013). The event outbox shares the email
-// relay's batch, confirm timeout and attempt cap. The generation republish and the
-// generation lease reaper run every 10 s, because a player waits on the screen
-// (LGN-186, LGN-230). The deleting-accounts queue removes an account and its data
-// in one transaction, and writes its user.deleted event to the same outbox (LGN-190).
 func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps) ([]sweeper.Queue, error) {
 	vars := cfg.Variables
 	eventQueue, err := eventsrelay.NewQueue(eventRepository, eventBroker, eventsrelay.Config{
@@ -240,14 +202,10 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue}, nil
 }
 
-// validateBrokerURL rejects an absent or unusable broker URL with the typed
-// startup error, so the relay never begins polling without a broker (EML-15).
 func validateBrokerURL(raw string) error {
 	return amqp.ValidateURL(raw)
 }
 
-// relayConfig maps the optional configuration onto the relay's knobs; every
-// value has a documented default (EML-04, EML-05).
 func relayConfig(cfg env.Env) relay.Config {
 	vars := cfg.Variables
 	return relay.Config{
@@ -260,8 +218,6 @@ func relayConfig(cfg env.Env) relay.Config {
 	}
 }
 
-// relayClaimerID identifies this relay instance in a claim's lease, so an
-// operator can tell which process held a row (EML-03).
 func relayClaimerID() string {
 	host, err := os.Hostname()
 	if err != nil {
@@ -278,8 +234,6 @@ func closeDatabase(cfg env.Env, database databaseHandle, log logger.StructuredLo
 	}
 }
 
-// serveMetrics starts a plain http server on addr for the relay's metrics
-// listener; it returns the shutdown function (EML-16, EML-23).
 func serveMetrics(addr string, handler http.Handler) (func(ctx context.Context) error, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -295,7 +249,6 @@ func serveMetrics(addr string, handler http.Handler) (func(ctx context.Context) 
 	return server.Shutdown, nil
 }
 
-// defaultDependencies wires the real Mongo, RabbitMQ and metrics listener.
 func defaultDependencies() dependencies {
 	return dependencies{
 		openDatabase: func(cfg env.Env) (databaseHandle, error) {

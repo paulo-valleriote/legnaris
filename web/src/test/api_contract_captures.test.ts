@@ -44,7 +44,6 @@ const fixtureNames = [
   'error_conflict',
 ] as const;
 
-/** The placeholder a capture carries in place of a credential (API-35). */
 const REDACTED_TOKEN = 'redacted-access-token';
 
 function loadCapture(name: string): Capture {
@@ -147,8 +146,6 @@ describe('pinned contract captures', () => {
     for (const name of fixtureNames) {
       const raw = readFileSync(path.join(fixturesDir, `${name}.json`), 'utf8');
 
-      // A capture may carry the shape of a credential — its key and the
-      // redacted placeholder — but never a credential value (API-35, WCS-14).
       expect(raw).not.toMatch(/"access_token"\s*:\s*"(?!redacted-access-token)/);
       expect(raw).not.toMatch(/"refresh_token"\s*:\s*"[^"]+"/);
       expect(raw).not.toMatch(/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/);

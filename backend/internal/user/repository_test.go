@@ -24,8 +24,6 @@ func newUserRepository(t *testing.T) user.Repository {
 	return repo
 }
 
-// newUserRepositoryFixture also exposes the users collection so a test can
-// assert the persisted document shape, not only the mapped struct.
 func newUserRepositoryFixture(t *testing.T) (user.Repository, *mongo.Collection) {
 	t.Helper()
 
@@ -33,8 +31,6 @@ func newUserRepositoryFixture(t *testing.T) (user.Repository, *mongo.Collection)
 	return user.NewRepository(mdb, logger.NewLogger(slog.LevelError)), mdb.Collection("users")
 }
 
-// newEmailMigrationFixture exposes the operator seam over the same isolated
-// database, so the migration tests can inspect persisted documents.
 func newEmailMigrationFixture(t *testing.T) (user.EmailMigrationStore, *mongo.Collection) {
 	t.Helper()
 
@@ -62,9 +58,6 @@ func sampleUser() *user.User {
 	}
 }
 
-// rawTime reads a stored date field from a raw document. Decoding into bson.M
-// keeps MongoDB dates as bson.DateTime, so assertions compare the instant, not
-// the Go representation.
 func rawTime(t *testing.T, raw bson.M, field string) time.Time {
 	t.Helper()
 	stored, ok := raw[field].(interface{ Time() time.Time })
@@ -143,9 +136,6 @@ func TestUserRepository(t *testing.T) {
 	})
 }
 
-// TestUserRepository_MarkEmailVerified covers the store-only verification
-// operation: one conditional write, first timestamp wins, unknown account is
-// not created (PRQ-13, PRQ-14).
 func TestUserRepository_MarkEmailVerified(t *testing.T) {
 	ctx := context.Background()
 
@@ -255,9 +245,6 @@ func TestUserRepository_MarkEmailVerified(t *testing.T) {
 	})
 }
 
-// TestUserRepository_EmailMigration covers the operator seam: the listing reads
-// every row's identifier and address, and the update touches only email and
-// updated_at without creating a document (PRQ-11).
 func TestUserRepository_EmailMigration(t *testing.T) {
 	ctx := context.Background()
 	migratedAt := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
@@ -347,9 +334,6 @@ func TestUserRepository_EmailMigration(t *testing.T) {
 	})
 }
 
-// TestUserRepository_ReplaceUnverifiedCredentials covers the re-registration
-// write of LGN-154 (D9): only an account whose address was never verified takes
-// the new username and password hash, and no call ever creates a document.
 func TestUserRepository_ReplaceUnverifiedCredentials(t *testing.T) {
 	ctx := context.Background()
 	at := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)

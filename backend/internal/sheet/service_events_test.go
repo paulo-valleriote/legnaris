@@ -23,8 +23,6 @@ import (
 
 const eventsCreateTemplateID = "events_test_v1"
 
-// captureEvents accepts any number of Publish calls and records them. A test
-// that expects nothing to be emitted asserts the recorded slice is empty.
 func captureEvents(pub *eventsmocks.MockPublisher) *[]events.Event {
 	got := &[]events.Event{}
 	pub.EXPECT().Publish(mock.Anything).Run(func(ev events.Event) {

@@ -27,8 +27,6 @@ import (
 
 const entityCollection = "entities_under_test"
 
-// newOutboxFixture gives the test an isolated replica set database with the
-// production indexes. It self-skips when no replica set is available.
 func newOutboxFixture(t *testing.T) (*mongo.Database, outbox.Repository) {
 	t.Helper()
 
@@ -55,7 +53,6 @@ func countEntries(t *testing.T, mdb *mongo.Database) int64 {
 	return count
 }
 
-// TestRepositoryInsert covers writing a pending entry.
 func TestRepositoryInsert(t *testing.T) {
 	mdb, repo := newOutboxFixture(t)
 	ctx := context.Background()
@@ -106,7 +103,6 @@ func TestRepositoryInsert(t *testing.T) {
 	})
 }
 
-// TestRepositoryClaim covers the lease: eligibility, exclusivity and expiry.
 func TestRepositoryClaim(t *testing.T) {
 	now := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 	lease := 30 * time.Second
@@ -192,7 +188,6 @@ func TestRepositoryClaim(t *testing.T) {
 	})
 }
 
-// TestRepositoryTransitions covers the state moves the relay makes.
 func TestRepositoryTransitions(t *testing.T) {
 	now := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 
@@ -276,7 +271,6 @@ func TestRepositoryTransitions(t *testing.T) {
 	})
 }
 
-// TestRepositoryOldestPending covers the age probe behind the oldest_pending gauge.
 func TestRepositoryOldestPending(t *testing.T) {
 	now := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 
@@ -322,8 +316,6 @@ func TestRepositoryOldestPending(t *testing.T) {
 	})
 }
 
-// runPass runs one sweeper pass over the event outbox at now, with a fresh
-// sweeper so every pass is due.
 func runPass(t *testing.T, repo outbox.Repository, publisher relay.Publisher, observer sweeper.Observer, now time.Time) {
 	t.Helper()
 	queue, err := relay.NewQueue(repo, publisher, relay.Config{
@@ -338,14 +330,10 @@ func runPass(t *testing.T, repo outbox.Repository, publisher relay.Publisher, ob
 	require.NoError(t, sw.RunOnce(context.Background(), now))
 }
 
-// TestRepositoryTransactions covers the outbox insert inside the entity
-// transaction, including the crash points the step hook injects (ADR 0013).
 func TestRepositoryTransactions(t *testing.T) {
 	now := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 	errCrash := errors.New("injected crash")
 
-	// writeEntityAndEntry runs the production shape: the entity write, the step,
-	// the outbox insert, and the second step, all inside one transaction.
 	writeEntityAndEntry := func(
 		ctx context.Context,
 		transactor *db.Transactor,

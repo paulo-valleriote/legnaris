@@ -32,8 +32,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// newIntegrationRouter boots the real HTTP stack (in-memory template registry +
-// MongoDB) in-process. It skips the test when MongoDB is unavailable.
 func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	t.Helper()
 
@@ -41,11 +39,6 @@ func newIntegrationRouter(t *testing.T) (http.Handler, *mongo.Database) {
 	return handler, mdb
 }
 
-// integrationEnv is the environment every integration suite runs with. The
-// disposable-address check resolves MX records over DNS, so it is off here, and
-// the rate limits are raised so the production budgets never throttle the
-// journeys themselves. Suites that assert a limit or the check pass it through
-// the extra map of newIntegrationStack.
 var integrationEnv = map[string]string{
 	"JWT_SECRET":                              "integration-test-secret",
 	"AUTH_BCRYPT_COST":                        "12",
@@ -57,12 +50,6 @@ var integrationEnv = map[string]string{
 	"USER_RATE_LIMIT_ATTEMPTS":                "100000",
 }
 
-// newIntegrationStack is newIntegrationRouter with the wired modules exposed
-// and optional environment overrides, so a suite can drive the service directly
-// and shrink a configured bound without touching the production defaults. It
-// applies integrationEnv, then extra, then an isolated DATABASE_NAME: the modules
-// read that name when the environment is built, and the fixture drops the
-// database at cleanup.
 func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *mongo.Database, *app.Modules) {
 	t.Helper()
 
@@ -99,14 +86,8 @@ func doRequest(t *testing.T, h http.Handler, method, path, body string) *httptes
 	return doAuthRequest(t, h, "", method, path, body)
 }
 
-// integrationPassword is the shared password every integration user registers
-// with; it clears the service's length checks.
 const integrationPassword = "sup3r-secret"
 
-// newAuthUser registers a fresh user, signs in with the password and returns
-// the session's access token plus the user id parsed from its subject.
-// Registration starts a code step and issues no session, so the sign-in is
-// what yields the token.
 func newAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, username string) (token string, userID string) {
 	t.Helper()
 
@@ -123,8 +104,6 @@ func newAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, usern
 	return session.Data.AccessToken, jwtSubject(t, session.Data.AccessToken)
 }
 
-// jwtSubject decodes the `sub` claim from an access token's payload without
-// re-verifying the signature; the server just issued the token.
 func jwtSubject(t *testing.T, token string) string {
 	t.Helper()
 
@@ -141,8 +120,6 @@ func jwtSubject(t *testing.T, token string) string {
 	return claims.Subject
 }
 
-// doAuthRequest issues a request with the bearer token attached (empty token
-// leaves the header off, for the unauthenticated cases).
 func doAuthRequest(t *testing.T, h http.Handler, token, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -159,10 +136,6 @@ func doAuthRequest(t *testing.T, h http.Handler, token, method, path, body strin
 	return rec
 }
 
-// TestIntegration_ProtectedRoutesRequireJWT covers OWN-15…OWN-18: every /sheets*
-// and /templates* route rejects a tokenless request with 401 UNAUTHORIZED and
-// never reaches a handler, while health, metrics, and the auth endpoints stay
-// public and a valid token reaches the normal handler.
 func TestIntegration_ProtectedRoutesRequireJWT(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 
@@ -193,7 +166,6 @@ func TestIntegration_ProtectedRoutesRequireJWT(t *testing.T) {
 		assert.Equal(t, "UNAUTHORIZED", body.Error.Code)
 	}
 
-	// The unauthorized calls must not have written anything.
 	count, err := mdb.Collection("sheets").CountDocuments(context.Background(), bson.D{})
 	require.NoError(t, err)
 	assert.Zero(t, count, "no sheet may be created without a token")
@@ -205,7 +177,6 @@ func TestIntegration_ProtectedRoutesRequireJWT(t *testing.T) {
 		mrec := doRequest(t, h, http.MethodGet, "/metrics", "")
 		require.Equal(t, http.StatusOK, mrec.Code)
 
-		// register/login stay public: a fresh user can sign in with no token.
 		token, _ := newAuthUser(t, h, mdb, "public@example.com", "public")
 		require.NotEmpty(t, token)
 	})
@@ -280,8 +251,6 @@ func TestIntegration_TemplatesFetchByID(t *testing.T) {
 		{"rules", "modifierStep"},
 	}, dexMod.Schema.DependsOn)
 
-	// The sections must arrive in the template's declared display order —
-	// the sheet renders them exactly as they come.
 	assert.Equal(t, []string{
 		"identity", "combat", "derived", "attacks", "stats", "modifiers",
 		"saves", "skills", "spells", "rules", "config",
@@ -300,9 +269,6 @@ func TestIntegration_TemplatesFetchByID(t *testing.T) {
 	assert.Equal(t, "1d20 + modifiers.dexterityMod", body.Data.Dice.Row["stats.dexterity"])
 }
 
-// templateFieldKeys walks the response envelope down to the `fields` object of
-// the template payload and returns its keys in arrival order — json.Unmarshal
-// would flatten the object into a map and sort away the display-order contract.
 func templateFieldKeys(t *testing.T, raw []byte) []string {
 	t.Helper()
 
@@ -396,18 +362,15 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	assert.Equal(t, 10.0, stats["dexterity"])
 	assert.Equal(t, 10.0, stats["constitution"])
 
-	// Derived fields must be computed on create (not left at their 0 default)
 	derived, ok := created.Data.Data["derived"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, 10.0, derived["armorClass"])
 	assert.Equal(t, 10.0, derived["passiveAwareness"])
 
-	// Text leaves seed as an empty string, never at the numeric default.
 	identity, ok := created.Data.Data["identity"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "", identity["characterName"])
 
-	// Skill totals compute on create: default dex 10 (+0) and no proficiency.
 	skillsData, ok := created.Data.Data["skills"].(map[string]any)
 	require.True(t, ok)
 	stealth, ok := skillsData["stealth"].(map[string]any)
@@ -422,7 +385,6 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	assert.Equal(t, sheetID, fetched.Data.ID)
 	assert.Equal(t, "fantasy_v1", fetched.Data.TemplateID)
 
-	// Derived fields must still be correct right after fetching
 	fetchedDerived, ok := fetched.Data.Data["derived"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, 10.0, fetchedDerived["armorClass"])
@@ -448,10 +410,6 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	assert.Equal(t, 3.0, patchedStealth["total"])
 }
 
-// TestIntegration_Sheets_CalibrationAndTextUpdates covers the fantasy_v1
-// mechanics end to end: the rules group retunes every dependent value
-// through the DAG, config flags wire proficiency into a save, and a text
-// field stores exactly what the client sends.
 func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "sheets-calib@example.com", "sheets-calib")
@@ -463,8 +421,6 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
 	sheetID := created.Data.ID
 
-	// Raising the modifier base to 12 turns every default score of 10 from
-	// +0 into -1, cascading through saves, skills and derived values.
 	rulesRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"rules":{"modifierBase":12}}}`)
 	require.Equal(t, http.StatusOK, rulesRec.Code)
 
@@ -490,7 +446,6 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	assert.Equal(t, 9.0, derived["armorClass"])
 	assert.Equal(t, 9.0, derived["passiveAwareness"])
 
-	// Arming the dexterity save proficiency adds the +2 bonus on top.
 	flagRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"saveDexterityProf":1}}}`)
 	require.Equal(t, http.StatusOK, flagRec.Code)
 
@@ -500,7 +455,6 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 1.0, flagSaves["dexterity"])
 
-	// A text edit changes nothing derivable and persists verbatim.
 	textRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"identity":{"characterName":"Aldric"}}}`)
 	require.Equal(t, http.StatusOK, textRec.Code)
 
@@ -518,10 +472,6 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	assert.Equal(t, 12.0, fetchedRules["modifierBase"])
 }
 
-// TestIntegration_Sheets_ExclusiveOptions covers the mutually exclusive
-// armor-class pair end to end (EXC-04, EXC-05, EXC-07): a PATCH that turns one
-// member on zeroes its sibling and recomputes the derived value, and a PATCH
-// that turns both on is rejected with 400 INVALID_REQUEST.
 func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "sheets-exclusive@example.com", "sheets-exclusive")
@@ -533,13 +483,9 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
 	sheetID := created.Data.ID
 
-	// Distinct modifiers make the armor-class recompute observably tied to the
-	// active exclusive member.
 	statsRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":14,"constitution":12}}}`)
 	require.Equal(t, http.StatusOK, statsRec.Code)
 
-	// The payload turns constitution on; normalization must zero the dexterity
-	// sibling (default on) in the same request.
 	conRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesCon":1}}}`)
 	require.Equal(t, http.StatusOK, conRec.Code)
 
@@ -559,7 +505,6 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	assert.Equal(t, 0.0, config["acUsesDex"], "the dexterity sibling must be stored as zero")
 	assert.Equal(t, 1.0, config["acUsesCon"])
 
-	// Turning both members on in one payload is ambiguous intent: reject it.
 	bothRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesDex":1,"acUsesCon":1}}}`)
 	require.Equal(t, http.StatusBadRequest, bothRec.Code)
 
@@ -567,8 +512,6 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	require.NoError(t, json.Unmarshal(bothRec.Body.Bytes(), &body))
 	assert.Equal(t, "INVALID_REQUEST", body.Error.Code)
 
-	// A non-numeric member is not a 0/1 proxy: reject it instead of treating it
-	// as "off" and letting the payload bypass the at-most-one rule.
 	nonNumericRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesDex":"1"}}}`)
 	require.Equal(t, http.StatusBadRequest, nonNumericRec.Code)
 
@@ -577,9 +520,6 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	assert.Equal(t, "INVALID_REQUEST", nonNumericBody.Error.Code)
 }
 
-// TestIntegration_Sheets_NestingDepthLimit covers the DoS guard end to end: a
-// PATCH whose data nests deeper than maputils.MaxNestingDepth is rejected with
-// 400 INVALID_REQUEST instead of driving the recursive flatten off a cliff.
 func TestIntegration_Sheets_NestingDepthLimit(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "sheets-depth@example.com", "sheets-depth")
@@ -606,9 +546,6 @@ func TestIntegration_Sheets_NestingDepthLimit(t *testing.T) {
 	assert.Equal(t, "INVALID_REQUEST", deepBody.Error.Code)
 }
 
-// TestIntegration_Sheets_Preview covers the dry-run route end to end: a valid
-// delta returns the same cascade an equivalent PATCH returns, and the preview
-// leaves the stored sheet untouched (no persistence).
 func TestIntegration_Sheets_Preview(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "sheets-preview@example.com", "sheets-preview")
@@ -633,7 +570,6 @@ func TestIntegration_Sheets_Preview(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 13.0, previewDerived["armorClass"])
 
-	// Preview must not persist: the stored sheet still holds the original value.
 	fetchedRec := doAuthRequest(t, h, token, http.MethodGet, "/sheets/"+sheetID, "")
 	require.Equal(t, http.StatusOK, fetchedRec.Code)
 
@@ -646,7 +582,6 @@ func TestIntegration_Sheets_Preview(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 10.0, fetchedDerived["armorClass"])
 
-	// The equivalent PATCH returns the same cascade, proving the shared path.
 	patchRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":16}}}`)
 	require.Equal(t, http.StatusOK, patchRec.Code)
 
@@ -655,9 +590,6 @@ func TestIntegration_Sheets_Preview(t *testing.T) {
 	assert.Equal(t, patched.Data, previewed.Data)
 }
 
-// TestIntegration_Templates_Preview covers the template dry-run route end to
-// end over the real registry: a valid delta returns the cascade seeded from the
-// template, a malformed id is 400 and an unknown slug is 404.
 func TestIntegration_Templates_Preview(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "templates-preview@example.com", "templates-preview")
@@ -690,14 +622,9 @@ func TestIntegration_Templates_Preview(t *testing.T) {
 	assert.Equal(t, "NOT_FOUND", unknownBody.Error.Code)
 }
 
-// TestIntegration_ErrorStatusMapping covers the HTTP status each typed error
-// produces through HTTPErrorHandler (LGN-48): domain errors must never fall
-// through as 500 INTERNAL_ERROR.
 func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 
-	// A token for the read-only subtests; the create subtests mint their own so
-	// the one-sheet rule never turns a first create into a 409.
 	token, _ := newAuthUser(t, h, mdb, "err-map@example.com", "err-map")
 
 	assertErrorBody := func(t *testing.T, rec *httptest.ResponseRecorder, status int, code string) {
@@ -793,12 +720,6 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 	})
 }
 
-// TestIntegration_MetricsRecordsErrorStatus pins the metric status label for
-// erroring routes end-to-end. The RequestLogger (HandleError=true) commits the
-// mapped 404 before the metrics middleware resumes, so /metrics must show
-// status="404" (not 200 or a bare 500) for GET /sheets/:id that returns
-// ErrSheetNotFound. This guards the middleware ordering the metrics status
-// label depends on.
 func TestIntegration_MetricsRecordsErrorStatus(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "metrics-status@example.com", "metrics-status")
@@ -816,11 +737,6 @@ func TestIntegration_MetricsRecordsErrorStatus(t *testing.T) {
 	)
 }
 
-// TestIntegration_Sheets_Ownership covers the owner-scoped surface end to end
-// (OWN-05…OWN-14, OWN-23): creation binds the sheet to its owner, GET /sheets
-// returns only the caller's sheet (404 when none), a second create is 409, and
-// every operation on another user's sheet is the same 404 as a missing one and
-// mutates nothing, while the owner's delete returns 204 and flips to 404.
 func TestIntegration_Sheets_Ownership(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	ctx := context.Background()
@@ -829,7 +745,6 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 	tokenB, userB := newAuthUser(t, h, mdb, "owner-b@example.com", "owner-b")
 	require.NotEqual(t, userA, userB)
 
-	// A creates their one sheet.
 	createRec := doAuthRequest(t, h, tokenA, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"A sheet"}`)
 	require.Equal(t, http.StatusCreated, createRec.Code, createRec.Body.String())
 
@@ -838,11 +753,9 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 	sheetID := created.Data.ID
 	require.NotEmpty(t, sheetID)
 
-	// The owner id is never exposed on the wire.
 	assert.NotContains(t, createRec.Body.String(), "owner_id")
 	assert.NotContains(t, createRec.Body.String(), userA)
 
-	// Baseline the stored data so foreign mutation can be detected.
 	var storedBefore sheet.Sheet
 	require.NoError(t, mdb.Collection("sheets").
 		FindOne(ctx, bson.D{{Key: "_id", Value: sheetID}}).
@@ -923,11 +836,6 @@ func TestIntegration_Sheets_Ownership(t *testing.T) {
 	})
 }
 
-// TestIntegration_CanonicalEmail covers the mailbox-identity journey end to end
-// (PRQ-08, PRQ-10, PRQ-15, SC-004, SC-005): a display-name registration stores
-// the bare lowercase address with no verification timestamp, another spelling of
-// the same mailbox re-registers the pending account in one row, sign-in accepts a third spelling for
-// the same account, and the boot path leaves a legacy document untouched.
 func TestIntegration_CanonicalEmail(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	ctx := context.Background()

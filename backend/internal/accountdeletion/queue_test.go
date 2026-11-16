@@ -23,8 +23,6 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// stubTransactor runs the function, or refuses with err when set, so the queue's
-// failure paths run without a database.
 type stubTransactor struct {
 	err   error
 	calls int
@@ -38,7 +36,6 @@ func (s *stubTransactor) WithTransaction(ctx context.Context, fn func(ctx contex
 	return fn(ctx)
 }
 
-// newQueueRunner builds the sweeper over the one queue, so a test drives a single pass.
 func newQueueRunner(t *testing.T, deps accountdeletion.Deps, attemptCap int) *sweeper.Sweeper {
 	t.Helper()
 	queue, err := accountdeletion.NewQueue(deps, attemptCap, 10)
@@ -48,8 +45,6 @@ func newQueueRunner(t *testing.T, deps accountdeletion.Deps, attemptCap int) *sw
 	return runner
 }
 
-// TestNewQueue covers the queue table entry: the name and interval it registers,
-// and the configurations the sweeper refuses.
 func TestNewQueue(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -76,9 +71,6 @@ func TestNewQueue(t *testing.T) {
 	}
 }
 
-// TestQueue_Failures covers an attempt that fails: the account is rescheduled with
-// the reason and one more attempt, or marked dead at the attempt cap, and an empty
-// queue starts no transaction at all.
 func TestQueue_Failures(t *testing.T) {
 	const victim = "01900000-0000-7000-8000-000000000001"
 	failure := errors.New("cascade refused")
@@ -135,9 +127,6 @@ func TestQueue_Failures(t *testing.T) {
 	}
 }
 
-// TestQueue_RemovesDeletingAccount is the happy path against MongoDB: a deleting
-// account is claimed, its data is removed in one transaction, and the tombstone and
-// event are written.
 func TestQueue_RemovesDeletingAccount(t *testing.T) {
 	mdb := dbtest.Database(t)
 	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))

@@ -20,9 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newTestRouter builds an Echo instance with a Metrics instance registered
-// (exposing /metrics) and its middleware applied, plus a single /test route —
-// mirroring how backend/internal/app/router.go wires the middleware.
 func newTestRouter(t *testing.T) *echo.Echo {
 	t.Helper()
 	e := echo.New()
@@ -35,7 +32,6 @@ func newTestRouter(t *testing.T) *echo.Echo {
 	return e
 }
 
-// scrapeMetrics GETs /metrics, asserts a 200, and returns the response body.
 func scrapeMetrics(t *testing.T, e *echo.Echo) string {
 	t.Helper()
 	mreq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
@@ -50,7 +46,6 @@ func scrapeMetrics(t *testing.T, e *echo.Echo) string {
 func TestMiddlewareRecordsMetrics(t *testing.T) {
 	e := newTestRouter(t)
 
-	// Exercise the middleware so the metrics gain at least one observation.
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -72,7 +67,6 @@ func TestMiddlewareRecordsMetrics(t *testing.T) {
 func TestMiddlewareNormalizesUnmatchedPath(t *testing.T) {
 	e := newTestRouter(t)
 
-	// Request an unmatched route so the path label falls back to "unmatched".
 	req := httptest.NewRequest(http.MethodGet, "/does-not-exist", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -85,9 +79,6 @@ func TestMiddlewareNormalizesUnmatchedPath(t *testing.T) {
 	}
 }
 
-// TestNewRegistersRuntimeCollectors asserts the private registry also exposes
-// the standard Go/process collectors, so the deployment's own resource metrics
-// are present without depending on the process-global default registry.
 func TestNewRegistersRuntimeCollectors(t *testing.T) {
 	e := newTestRouter(t)
 
@@ -102,12 +93,6 @@ func TestNewRegistersRuntimeCollectors(t *testing.T) {
 	}
 }
 
-// TestMiddlewareRecordsStatusAfterErrorHandling reproduces the app's real
-// middleware order (backend/internal/app/router.go): an error-handling middleware runs
-// *inner* to the metrics middleware and invokes the HTTPErrorHandler, which
-// commits the mapped status before the metrics middleware resumes. The status
-// label must reflect the handler's real status (404 here), not the
-// pre-handler 200 or a bare 500 — this guards the ordering the label depends on.
 func TestMiddlewareRecordsStatusAfterErrorHandling(t *testing.T) {
 	e := echo.New()
 	e.HTTPErrorHandler = func(c *echo.Context, err error) {
@@ -116,8 +101,6 @@ func TestMiddlewareRecordsStatusAfterErrorHandling(t *testing.T) {
 	m := New()
 	m.Register(e)
 	e.Use(m.Middleware)
-	// Mirror the RequestLogger (HandleError=true) that commits the error
-	// response before the metrics middleware records the status.
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			err := next(c)
@@ -145,8 +128,6 @@ func TestMiddlewareRecordsStatusAfterErrorHandling(t *testing.T) {
 	}
 }
 
-// TestRateLimitBlockedIncrementsCounter pins the counter the rate-limit guard
-// increments on every refused request (AUTH-20).
 func TestRateLimitBlockedIncrementsCounter(t *testing.T) {
 	e := echo.New()
 	m := New()
@@ -161,8 +142,6 @@ func TestRateLimitBlockedIncrementsCounter(t *testing.T) {
 	}
 }
 
-// TestCSPReportReportedIncrementsCounter pins the CSP violation counter and its
-// labels (POL-05, A6).
 func TestCSPReportReportedIncrementsCounter(t *testing.T) {
 	e := echo.New()
 	m := New()
@@ -183,8 +162,6 @@ func TestCSPReportReportedIncrementsCounter(t *testing.T) {
 	}
 }
 
-// TestEventDroppedCountsByTypeAndReason pins legnaris_events_dropped_total, the
-// best-effort domain event drop counter labelled by type and reason (ADR 0010).
 func TestEventDroppedCountsByTypeAndReason(t *testing.T) {
 	e := echo.New()
 	m := New()
@@ -205,9 +182,6 @@ func TestEventDroppedCountsByTypeAndReason(t *testing.T) {
 	}
 }
 
-// TestEmailMetrics pins the relay-facing series: the pending-backlog gauge, the
-// publication outcomes by result, and the dead-letter counter, all served by the
-// standalone Handler for a process with no Echo server (EML-23).
 func TestEmailMetrics(t *testing.T) {
 	m := New()
 
@@ -238,9 +212,6 @@ func TestEmailMetrics(t *testing.T) {
 	}
 }
 
-// TestOTPMetrics pins the code-step series and their exact label sets, and
-// proves the type satisfies the challenge observer without any series carrying
-// a code, a challenge identity or an unmasked address (OTP-15, OTP-16).
 func TestOTPMetrics(t *testing.T) {
 	observer := New()
 
@@ -294,8 +265,6 @@ func TestOTPMetrics(t *testing.T) {
 	})
 
 	t.Run("Edge: no OTP series carries a code or an unmasked address", func(t *testing.T) {
-		// Scan only the code-step series; the Go/process collectors legitimately
-		// expose runtime numbers.
 		var otpLines []string
 		for _, line := range strings.Split(body, "\n") {
 			if strings.Contains(line, "legnaris_auth_otp") {
@@ -318,9 +287,6 @@ func scrapeHandler(t *testing.T, m *Metrics) string {
 	return rec.Body.String()
 }
 
-// TestWorkerMetrics pins the delivery series: every outcome is counted under
-// its own label, the duration histogram observes, and the dead-letter and
-// expired counters move on their own (WKR-21).
 func TestWorkerMetrics(t *testing.T) {
 	m := New()
 
@@ -347,8 +313,6 @@ func TestWorkerMetrics(t *testing.T) {
 	}
 }
 
-// TestWorkerMetrics_NoSensitiveLabels proves no worker series carries a code or
-// an address: the only label is the outcome (WKR-21, WKR-22).
 func TestWorkerMetrics_NoSensitiveLabels(t *testing.T) {
 	m := New()
 	m.SendResult("sent")
@@ -372,8 +336,6 @@ func TestWorkerMetrics_NoSensitiveLabels(t *testing.T) {
 	}
 }
 
-// TestWorkerMetrics_UnexpectedResult proves an unknown outcome still lands in
-// its own series rather than panicking: the caller owns the vocabulary.
 func TestWorkerMetrics_UnexpectedResult(t *testing.T) {
 	m := New()
 	assert.NotPanics(t, func() { m.SendResult("") })
@@ -404,7 +366,6 @@ func TestMiddlewareLatencyBucketsResolveSubFiveMillisecond(t *testing.T) {
 	}
 }
 
-// gaugeValue reads the current value of a gauge without scraping /metrics.
 func gaugeValue(t *testing.T, g prometheus.Gauge) float64 {
 	t.Helper()
 	var out dto.Metric
@@ -491,8 +452,6 @@ func TestMiddlewareInFlightGauge(t *testing.T) {
 	})
 }
 
-// TestWorkerBreakerMetrics proves the gauge follows the breaker state and the
-// counter counts openings, not closings (LGN-149).
 func TestWorkerBreakerMetrics(t *testing.T) {
 	tests := []struct {
 		name   string

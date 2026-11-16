@@ -11,7 +11,6 @@ import (
 
 const testProbeInterval = 60 * time.Second
 
-// fakeClock is a manually advanced clock for the breaker's probe schedule.
 type fakeClock struct {
 	mu  sync.Mutex
 	now time.Time
@@ -33,8 +32,6 @@ func (c *fakeClock) Advance(d time.Duration) {
 	c.now = c.now.Add(d)
 }
 
-// openBreaker feeds the breaker outages until it opens, and returns the
-// transition of the last outage.
 func openBreaker(t *testing.T, b *Breaker, threshold int) Transition {
 	t.Helper()
 	var last Transition

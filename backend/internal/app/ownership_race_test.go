@@ -16,10 +16,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-// TestIntegration_Sheets_ConcurrentCreateRace proves the unique sheets.owner_id
-// index, not the service pre-check, is the one-sheet guard (OWN-04): two
-// concurrent creates for the same owner against real Mongo produce exactly one
-// 201 and one 409 SHEET_LIMIT_REACHED, and exactly one document is persisted.
 func TestIntegration_Sheets_ConcurrentCreateRace(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, userID := newAuthUser(t, h, mdb, "race@example.com", "race")
@@ -35,8 +31,6 @@ func TestIntegration_Sheets_ConcurrentCreateRace(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 
-			// The recorders slice is indexed per goroutine, so no two goroutines
-			// write the same slot (race-free under -race).
 			req := httptest.NewRequest(http.MethodPost, "/sheets", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Authorization", "Bearer "+token)

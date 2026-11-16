@@ -20,7 +20,6 @@ const TWO_TEMPLATES: readonly TemplateSummary[] = [
   { id: 'pbta', name: 'Powered by the Apocalypse', default: false, fields: {} },
 ];
 
-/** The catalog also reads GET /me/plan for the resume notice, so that read is answered apart from the catalog's. */
 function clientWith(transport: Transport) {
   return createApiClient({ baseUrl: BASE_URL, transport: withPlanUsage(transport) });
 }

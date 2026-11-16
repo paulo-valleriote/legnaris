@@ -11,9 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// request builds the request shape the resolver consumes: the direct peer is the
-// socket address the server sees, and the values are the forwarding chain in
-// request order.
 func request(t *testing.T, remoteAddr string, forwarded ...string) *http.Request {
 	t.Helper()
 
@@ -33,9 +30,6 @@ func newDefaultPolicy(t *testing.T) *clientip.Policy {
 	return policy
 }
 
-// TestPolicy covers the trust matrix: the default set, a configured set that
-// replaces the non-loopback portion, the configured-empty fail-closed case and
-// an invalid entry (PRQ-03).
 func TestPolicy(t *testing.T) {
 	t.Run("Happy path: the default trusts loopback, private and link-local networks", func(t *testing.T) {
 		policy := newDefaultPolicy(t)
@@ -101,8 +95,6 @@ func TestPolicy(t *testing.T) {
 	})
 }
 
-// TestResolve is the normative resolution matrix: trusted peer, untrusted peer,
-// absent/malformed chains, multiple headers, ports and IPv6 (PRQ-01, PRQ-02).
 func TestResolve(t *testing.T) {
 	policy := newDefaultPolicy(t)
 
@@ -233,8 +225,6 @@ func TestResolve(t *testing.T) {
 	}
 }
 
-// TestResolveSeparateAddresses proves two clients behind one proxy resolve to
-// two distinct values, which is what makes their limits independent (SC-001).
 func TestResolveSeparateAddresses(t *testing.T) {
 	policy := newDefaultPolicy(t)
 
@@ -246,9 +236,6 @@ func TestResolveSeparateAddresses(t *testing.T) {
 	assert.NotEqual(t, first, second)
 }
 
-// TestResolveBehindKubernetesIngress covers the k8s deployment: the limiter is
-// keyed by the real client only while the ingress/pod CIDR is trusted, so
-// TRUSTED_PROXY_CIDRS must name it when the ingress is not on a private range.
 func TestResolveBehindKubernetesIngress(t *testing.T) {
 	const (
 		podCIDR       = "100.64.0.0/10"

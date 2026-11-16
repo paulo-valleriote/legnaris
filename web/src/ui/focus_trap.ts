@@ -6,11 +6,6 @@ function focusablesIn(container: HTMLElement): HTMLElement[] {
   );
 }
 
-/**
- * focusTrap keeps Tab inside `container`: Tab on the last focusable wraps to the first and
- * Shift+Tab on the first wraps to the last, while Tab between them keeps the browser's own
- * order. The focusables are read on every key, so content that changes while open is covered.
- */
 export function focusTrap(container: HTMLElement) {
   const move = (dir: 'forward' | 'backward'): boolean => {
     const focusables = focusablesIn(container);

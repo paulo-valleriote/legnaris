@@ -1,8 +1,3 @@
-// Package amqp is the best-effort RabbitMQ adapter for domain events (ADR 0010,
-// ADR 0013). Publish never blocks and never fails the caller: events go into a
-// bounded buffer drained by one worker goroutine that publishes with confirms.
-// Anything that cannot be delivered is dropped, logged and counted in
-// legnaris_events_dropped_total.
 package amqp
 
 import (
@@ -20,43 +15,27 @@ import (
 	amqp091 "github.com/rabbitmq/amqp091-go"
 )
 
-// Defaults applied when the matching Config field is zero.
 const (
 	DefaultBuffer         = 1024
 	DefaultConfirmTimeout = 5 * time.Second
-	// DefaultRetryInterval is the production reconnect cadence. A zero
-	// Config.RetryInterval means every event may retry the connection.
-	DefaultRetryInterval = 5 * time.Second
-	// DefaultDrainTimeout is the SIGTERM budget for delivering the buffer
-	// before the rest is counted as dropped with reason shutdown (ADR 0013).
-	DefaultDrainTimeout = 5 * time.Second
+	DefaultRetryInterval  = 5 * time.Second
+	DefaultDrainTimeout   = 5 * time.Second
 )
 
-// errURLNotSet reports an empty broker URL. The publisher still starts and
-// drops every event as broker_unavailable, so the API serves without RabbitMQ.
 var errURLNotSet = errors.New("RABBITMQ_URL is not set")
 
-// Config configures the publisher.
 type Config struct {
-	// URL is the AMQP URI of the broker.
-	URL string
-	// Recorder counts dropped events. Nil discards the counts.
-	Recorder events.DropRecorder
-	// Logger records drops and connection failures. Nil logs at warn level.
-	Logger logger.StructuredLogger
-	// Buffer bounds the events waiting for the worker; zero uses DefaultBuffer.
-	Buffer int
-	// ConfirmTimeout bounds each publish's confirmation wait; zero uses DefaultConfirmTimeout.
+	URL            string
+	Recorder       events.DropRecorder
+	Logger         logger.StructuredLogger
+	Buffer         int
 	ConfirmTimeout time.Duration
-	// RetryInterval is the minimum gap between connection attempts while the
-	// broker is down. Zero retries on every event.
-	RetryInterval time.Duration
+	RetryInterval  time.Duration
 
 	dial dialer
 	now  func() time.Time
 }
 
-// job is one encoded event waiting for the worker.
 type job struct {
 	eventType string
 	id        string
@@ -64,8 +43,6 @@ type job struct {
 	at        time.Time
 }
 
-// Publisher is the best-effort events.Publisher adapter. Create it with New and
-// stop it with Shutdown.
 type Publisher struct {
 	url            string
 	dial           dialer
@@ -78,23 +55,18 @@ type Publisher struct {
 	jobs chan job
 	done chan struct{}
 
-	// mu guards closed and the close of jobs: Publish holds it for reading
-	// while it offers a job, Shutdown holds it for writing to close the buffer.
 	mu     sync.RWMutex
 	closed bool
 
 	closeOnce sync.Once
 	abandon   atomic.Bool
 
-	// The fields below belong to the worker goroutine only.
 	conn        connection
 	ch          channel
 	confirms    chan amqp091.Confirmation
 	lastAttempt time.Time
 }
 
-// New starts the worker and returns a Publisher. It does not dial: the broker
-// is contacted on the first event, so the API starts while RabbitMQ is down.
 func New(cfg Config) *Publisher {
 	p := &Publisher{
 		url:            cfg.URL,
@@ -131,8 +103,6 @@ func New(cfg Config) *Publisher {
 	return p
 }
 
-// Publish encodes ev and offers it to the worker without waiting. It never
-// blocks: a full buffer or a closed publisher drops the event and counts it.
 func (p *Publisher) Publish(ev events.Event) {
 	id, err := idgen.New()
 	if err != nil {
@@ -161,10 +131,6 @@ func (p *Publisher) Publish(ev events.Event) {
 	}
 }
 
-// Shutdown stops accepting events and waits for the worker to deliver what is
-// buffered. When ctx expires first, the worker stops publishing and every
-// remaining event is counted with reason shutdown. Shutdown is safe to call
-// more than once.
 func (p *Publisher) Shutdown(ctx context.Context) {
 	p.closeOnce.Do(func() {
 		p.mu.Lock()
@@ -181,7 +147,6 @@ func (p *Publisher) Shutdown(ctx context.Context) {
 	}
 }
 
-// run drains the buffer until it is closed, then releases the connection.
 func (p *Publisher) run() {
 	defer close(p.done)
 	defer p.reset()
@@ -195,7 +160,6 @@ func (p *Publisher) run() {
 	}
 }
 
-// deliver publishes one job or drops it with the reason that prevented it.
 func (p *Publisher) deliver(j job) {
 	if !p.ensureConnected() {
 		p.drop(j.eventType, events.ReasonBrokerUnavailable)
@@ -206,8 +170,6 @@ func (p *Publisher) deliver(j job) {
 	}
 }
 
-// ensureConnected reports whether a usable channel exists, dialing at most once
-// per retry interval while the broker is down.
 func (p *Publisher) ensureConnected() bool {
 	if p.ch != nil {
 		return true
@@ -225,8 +187,6 @@ func (p *Publisher) ensureConnected() bool {
 	return true
 }
 
-// open dials the broker, enables confirms and declares the topology. On any
-// failure it closes what it opened, so a half-open connection is never kept.
 func (p *Publisher) open() error {
 	if p.url == "" {
 		return errURLNotSet
@@ -243,9 +203,6 @@ func (p *Publisher) open() error {
 	return nil
 }
 
-// send publishes one job and waits for its confirmation. It returns the drop
-// reason, or the empty string when the broker acked the message. A transport
-// failure or a missing confirm resets the channel so the next job reconnects.
 func (p *Publisher) send(j job) string {
 	ctx, cancel := context.WithTimeout(context.Background(), p.confirmTimeout)
 	defer cancel()
@@ -279,8 +236,6 @@ func (p *Publisher) send(j job) string {
 	}
 }
 
-// reset closes the worker's connection and channel. It is safe to call when
-// nothing is open.
 func (p *Publisher) reset() {
 	if p.ch != nil {
 		_ = p.ch.Close()
@@ -293,7 +248,6 @@ func (p *Publisher) reset() {
 	p.confirms = nil
 }
 
-// drop counts a dropped event and logs it at warn level.
 func (p *Publisher) drop(eventType, reason string) {
 	p.recorder.EventDropped(eventType, reason)
 	p.logger.Warn(
@@ -304,7 +258,6 @@ func (p *Publisher) drop(eventType, reason string) {
 	)
 }
 
-// discardRecorder is the Recorder used when none is configured.
 type discardRecorder struct{}
 
 func (discardRecorder) EventDropped(string, string) {}

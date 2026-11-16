@@ -1,114 +1,56 @@
-// Package generation is the API half of character generation (ADR 0007, LGN-186).
-// POST /generations gates a request in a fixed order, reserves the global cap and
-// the player's quota and inserts a queued generation document in one transaction,
-// then publishes a job for the worker. The worker (LGN-230) owns the transitions
-// after queued; this package owns queued creation, reads, accept and the republish
-// sweep that recovers jobs whose publish failed.
-//
-// Concept and output live only in the generation document, for at most 24 h, and
-// are never logged (ADR 0008).
 package generation
 
 import (
 	"time"
 )
 
-// Status is the lifecycle state of a generation document (ADR 0007).
 type Status string
 
 const (
-	// StatusQueued is a job waiting for a worker claim. It is the only state the
-	// publish sweeper republishes.
-	StatusQueued Status = "queued"
-	// StatusRunning is a job a worker claimed under a lease.
-	StatusRunning Status = "running"
-	// StatusSucceeded is a job whose values passed validation and await accept.
+	StatusQueued    Status = "queued"
+	StatusRunning   Status = "running"
 	StatusSucceeded Status = "succeeded"
-	// StatusFailed is a job that ended without values; the quota was refunded.
-	StatusFailed Status = "failed"
-	// StatusAccepted is a succeeded job whose values became a Sheet.
-	StatusAccepted Status = "accepted"
+	StatusFailed    Status = "failed"
+	StatusAccepted  Status = "accepted"
 )
 
-// KindCharacter is the only generation kind the MVP accepts.
 const KindCharacter = "character"
 
-// Quota reservation kinds recorded on a document, so a refund returns the unit to
-// the allowance that was taken.
 const (
 	ReservationTrial = "trial"
 	ReservationDaily = "daily"
 )
 
-// Error codes stored in error_code of a failed generation. The API and the client
-// see only these strings, never a provider message.
 const (
-	// ErrorCodePublishFailed is the code of a job the publish sweeper gave up on:
-	// it never reached the broker.
-	ErrorCodePublishFailed = "publish_failed"
-	// ErrorCodeProviderUnavailable is the code of a job the gateway could not serve
-	// under the data policy, or that failed fast while the provider breaker is open.
+	ErrorCodePublishFailed       = "publish_failed"
 	ErrorCodeProviderUnavailable = "provider_unavailable"
-	// ErrorCodeProviderFailed is the code of a job that hit a permanent gateway
-	// failure or exhausted its transport retries.
-	ErrorCodeProviderFailed = "provider_failed"
-	// ErrorCodeInvalidOutput is the code of a job whose model output still failed
-	// validation after every schema retry.
-	ErrorCodeInvalidOutput = "invalid_output"
-	// ErrorCodeTemplateUnavailable is the code of a job whose Template cannot be
-	// loaded or cannot produce an output schema.
+	ErrorCodeProviderFailed      = "provider_failed"
+	ErrorCodeInvalidOutput       = "invalid_output"
 	ErrorCodeTemplateUnavailable = "template_unavailable"
-	// ErrorCodeLeaseExpired is the code of a job whose worker stopped holding the
-	// lease before it wrote a terminal state.
-	ErrorCodeLeaseExpired = "lease_expired"
+	ErrorCodeLeaseExpired        = "lease_expired"
 )
 
-// Lifetime and length bounds of a generation (ADR 0007, LGN-186).
 const (
-	// Retention is how long a generation document lives before the TTL removes it.
-	Retention = 24 * time.Hour
-	// MinConceptLength and MaxConceptLength bound the concept in characters.
+	Retention        = 24 * time.Hour
 	MinConceptLength = 10
 	MaxConceptLength = 1000
-	// RepublishAge is how old a queued document must be before the sweeper
-	// republishes it, so a publish that is still in flight is not duplicated.
-	RepublishAge = 10 * time.Second
+	RepublishAge     = 10 * time.Second
 )
 
-// Worker bounds (ADR 0007, LGN-230). A claim holds a job for LeaseDuration; the
-// job's whole run, including retries, must fit inside that lease.
 const (
-	// LeaseDuration is how long a worker holds a running job before the lease
-	// reaper may fail it.
-	LeaseDuration = 90 * time.Second
-	// MaxSchemaRetries is how many times the model is asked again after an output
-	// fails validation. The retries are free: they consume no quota.
+	LeaseDuration    = 90 * time.Second
 	MaxSchemaRetries = 2
-	// TransportRetries is how many times a transient gateway failure is retried
-	// in-process before the job fails.
 	TransportRetries = 1
-	// TransportBackoff is the pause before a transport retry.
 	TransportBackoff = 500 * time.Millisecond
-	// MaxOutputTokens bounds one completion.
-	MaxOutputTokens = 6000
-	// ReapInterval is how often the lease reaper looks for expired running jobs.
-	ReapInterval = 10 * time.Second
+	MaxOutputTokens  = 6000
+	ReapInterval     = 10 * time.Second
 )
 
-// Reservation records the quota unit a generation took: the trial lifetime
-// allowance or the paid counter of one UTC day.
 type Reservation struct {
 	Kind   string `bson:"kind"`
 	DayUTC string `bson:"day_utc,omitempty"`
 }
 
-// Document is the stored shape of a generation. The fields the worker claims with
-// are status, lease_until and attempts; the publish sweeper uses its own pair,
-// publish_lease_until and publish_attempts, so the two never fight over a counter.
-//
-// active_user_id is set only while the job is queued or running. Its sparse unique
-// index is the race guard of "one in progress per player"; the terminal transition
-// (worker or sweeper) must unset it.
 type Document struct {
 	ID                string         `bson:"_id"`
 	UserID            string         `bson:"user_id"`
@@ -130,29 +72,22 @@ type Document struct {
 	ExpiresAt         time.Time      `bson:"expires_at"`
 }
 
-// View is what GET /generations/{id} answers. Values is present only once the job
-// has succeeded, and ErrorCode only once it has failed.
 type View struct {
-	ID         string
-	Status     Status
-	Kind       string
-	TemplateID string
-	Values     map[string]any
-	ErrorCode  string
-	// SuggestedName is the Sheet name derived from the generated values; nil when
-	// there is none to offer. Only a succeeded job can carry one.
+	ID            string
+	Status        Status
+	Kind          string
+	TemplateID    string
+	Values        map[string]any
+	ErrorCode     string
 	SuggestedName *string
 	CreatedAt     time.Time
 }
 
-// Message is the job published to the generation queue. It carries identifiers
-// only: the worker loads the concept from the document it names.
 type Message struct {
 	ID   string `json:"generation_id"`
 	Kind string `json:"kind"`
 }
 
-// Client-facing messages. They are plain strings, never error causes.
 const (
 	MsgDisabled         = "character generation is currently unavailable"
 	MsgUnavailable      = "generation is unavailable"

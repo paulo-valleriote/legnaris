@@ -25,8 +25,6 @@ func testOutbound() email.Outbound {
 	}
 }
 
-// requestCapture records the request the adapter made, guarded so the server
-// goroutine and the test goroutine never race.
 type requestCapture struct {
 	mu             sync.Mutex
 	idempotencyKey string
@@ -68,8 +66,6 @@ func newTestSender(t *testing.T, handler http.HandlerFunc, timeout time.Duration
 	return sender
 }
 
-// TestSender_Success proves a 2xx provider response is a success and that the
-// intention identity is sent as the idempotency key (EML-09).
 func TestSender_Success(t *testing.T) {
 	capture := &requestCapture{}
 	sender := newTestSender(t, func(w http.ResponseWriter, r *http.Request) {
@@ -99,8 +95,6 @@ func TestSender_Success(t *testing.T) {
 	})
 }
 
-// TestSender_Classification proves every provider outcome maps to the right
-// sentinel (EML-12).
 func TestSender_Classification(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -145,8 +139,6 @@ func TestSender_Classification(t *testing.T) {
 	}
 }
 
-// TestSender_NetworkError proves a transport failure is transient, so the
-// pipeline retries rather than dropping a recoverable send (EML-12).
 func TestSender_NetworkError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	url := server.URL
@@ -160,8 +152,6 @@ func TestSender_NetworkError(t *testing.T) {
 	assert.ErrorIs(t, err, email.ErrTransient)
 }
 
-// TestNew_RejectsMissingConfiguration proves the adapter refuses to build
-// without a key or a From address (EML-12).
 func TestNew_RejectsMissingConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string

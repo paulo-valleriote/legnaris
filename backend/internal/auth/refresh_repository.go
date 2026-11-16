@@ -12,14 +12,8 @@ import (
 type RefreshTokenRepository interface {
 	Create(ctx context.Context, token *RefreshToken) error
 	FetchByHash(ctx context.Context, tokenHash string) (*RefreshToken, error)
-	// RevokeByID atomically revokes a non-revoked token, pointing it at its
-	// replacement. It reports false when the token was already revoked (or
-	// gone), which is how rotation detects a concurrent reuse without a
-	// separate read-check-write window.
 	RevokeByID(ctx context.Context, id string, replacedBy string) (bool, error)
 	RevokeFamily(ctx context.Context, familyID string) error
-	// RevokeAllForUser revokes every live refresh token the account holds, across
-	// all families. It is idempotent: already-revoked tokens are left untouched.
 	RevokeAllForUser(ctx context.Context, userID string) error
 }
 
@@ -27,7 +21,6 @@ type RefreshTokenRepositoryImpl struct {
 	collection *mongo.Collection
 }
 
-// ErrRefreshTokenNotFound reports a lookup that matched no refresh token.
 var ErrRefreshTokenNotFound = errors.New("refresh token not found")
 
 const (

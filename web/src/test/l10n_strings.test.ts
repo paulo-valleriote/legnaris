@@ -15,7 +15,6 @@ const libraryDir = path.resolve(here, '../library');
 
 const keys = Object.keys(messages) as MessageKey[];
 
-/** The catalog and creation-surface copy F3 introduces (WCT-26, WCT-29). */
 const catalogFeatureKeys: readonly MessageKey[] = [
   'nav.catalog',
   'catalog.title',
@@ -33,7 +32,6 @@ const catalogFeatureKeys: readonly MessageKey[] = [
   'sheet.retry',
 ];
 
-/** The widget-level copy the UI engine renders (ENG-27, SC-003). */
 const engineFeatureKeys: readonly MessageKey[] = [
   'engine.calculated',
   'engine.none',
@@ -42,7 +40,6 @@ const engineFeatureKeys: readonly MessageKey[] = [
   'engine.notSet',
 ];
 
-/** The sheet-cycle copy the open, edit, draft and guard surfaces render (WSC-32, SC-006). */
 const sheetCycleKeys: readonly MessageKey[] = [
   'sheet.headerTitle',
   'sheet.openLoading',
@@ -216,7 +213,6 @@ describe('catalog copy source scan (WCT-26, SC-003, SC-004)', () => {
     for (const file of sources) {
       const text = readFileSync(file, 'utf8');
 
-      // Failure copy is resolved through the mapper, never by naming a key here.
       expect(text).not.toContain('api.error.');
 
       for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
@@ -225,7 +221,6 @@ describe('catalog copy source scan (WCT-26, SC-003, SC-004)', () => {
       }
     }
 
-    // Removing a referenced key must turn this suite red rather than pass vacuously.
     expect(referenced).toBeGreaterThan(0);
   });
 });
@@ -247,7 +242,6 @@ describe('engine copy source scan (ENG-27, SC-003, SC-004)', () => {
     for (const file of sources) {
       const text = readFileSync(file, 'utf8');
 
-      // Copy is resolved through message(), never by naming a failure key here.
       expect(text).not.toContain('api.error.');
 
       for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
@@ -256,15 +250,12 @@ describe('engine copy source scan (ENG-27, SC-003, SC-004)', () => {
       }
     }
 
-    // Every engine key the catalog declares must be rendered somewhere, so
-    // dropping a reference turns this suite red rather than pass vacuously.
     for (const key of engineFeatureKeys) {
       expect(referenced.has(key)).toBe(true);
     }
   });
 });
 
-/** The keys the sheet cycle renders in `sheet/` (the F3 dialog owns `sheet.creating`). */
 const sheetSurfaceKeys: readonly MessageKey[] = [
   'sheet.headerTitle',
   'sheet.openLoading',
@@ -310,7 +301,6 @@ describe('sheet-cycle copy source scan (WSC-32, SC-006)', () => {
     for (const file of sources) {
       const text = readFileSync(file, 'utf8');
 
-      // Copy is resolved through message(), never by naming a failure key here.
       expect(text).not.toContain('api.error.');
 
       for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
@@ -319,16 +309,12 @@ describe('sheet-cycle copy source scan (WSC-32, SC-006)', () => {
       }
     }
 
-    // Every sheet surface key the catalog declares must be rendered somewhere in
-    // the cycle, so dropping a reference turns this suite red rather than pass
-    // vacuously (SC-006).
     for (const key of sheetSurfaceKeys) {
       expect(referenced.has(key)).toBe(true);
     }
   });
 });
 
-/** The auth surface and session copy the feature introduces (WAS-19, WAS-25, WAS-30, WAS-31). */
 const authFeatureKeys: readonly MessageKey[] = [
   'auth.titleLogin',
   'auth.titleRegister',
@@ -383,7 +369,6 @@ const authFeatureKeys: readonly MessageKey[] = [
   'api.error.disposableEmail',
 ];
 
-/** The keys the auth directory renders; the rest are owned by the shell and the sheet surface. */
 const authSurfaceKeys: readonly MessageKey[] = [
   'auth.titleLogin',
   'auth.titleRegister',
@@ -427,7 +412,6 @@ function authSources(): string[] {
 
 const uiDir = path.resolve(here, '../ui');
 
-/** The primitives-layer chrome copy (UIP-24, SC-004). */
 const uiFeatureKeys: readonly MessageKey[] = ['ui.dismiss'];
 
 describe('primitives-layer copy source scan (UIP-05, SC-004)', () => {
@@ -435,7 +419,7 @@ describe('primitives-layer copy source scan (UIP-05, SC-004)', () => {
     const sources = readdirSync(uiDir)
       .filter((n) => n.endsWith('.ts') || n.endsWith('.tsx'))
       .map((n) => path.join(uiDir, n));
-    if (sources.length === 0) return; // layer not yet built
+    if (sources.length === 0) return;
     const knownKeys = new Set<string>(keys);
     const referenced = new Set<string>();
     for (const file of sources) {
@@ -486,7 +470,6 @@ describe('auth copy keys and source scan (WAS-19, WAS-25, WAS-30, WAS-31)', () =
     for (const file of sources) {
       const text = readFileSync(file, 'utf8');
 
-      // Failure copy is resolved through the mapper, never by naming a key here.
       expect(text).not.toContain('api.error.');
 
       for (const match of text.matchAll(/message(?:With)?\(\s*'([^']+)'\s*[,)]/g)) {
@@ -495,8 +478,6 @@ describe('auth copy keys and source scan (WAS-19, WAS-25, WAS-30, WAS-31)', () =
       }
     }
 
-    // Every auth-surface key the catalog declares must be rendered somewhere in
-    // the directory, so dropping a reference turns this suite red (WAS-31).
     for (const key of authSurfaceKeys) {
       expect(referenced.has(key)).toBe(true);
     }

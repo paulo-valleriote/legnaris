@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeGeneration is a generation consumer that runs until its context ends and
-// records that it started and stopped.
 type fakeGeneration struct {
 	started chan struct{}
 	stopped chan struct{}
@@ -33,8 +31,6 @@ func (g *fakeGeneration) Run(ctx context.Context) error {
 	return nil
 }
 
-// generationEnv returns the worker configuration with generation switched on and an
-// LLM key present, so only the wiring under test decides the outcome.
 func generationEnv() env.Env {
 	cfg := testEnv()
 	cfg.Variables.GenerationEnabled = true
@@ -42,8 +38,6 @@ func generationEnv() env.Env {
 	return cfg
 }
 
-// TestRun_GenerationOffNeverBuildsTheConsumer pins that the kill-switch keeps the
-// generation path dormant: the builder is not called and the email worker runs alone.
 func TestRun_GenerationOffNeverBuildsTheConsumer(t *testing.T) {
 	p := &probe{}
 	broker := newFakeBroker(t)
@@ -61,8 +55,6 @@ func TestRun_GenerationOffNeverBuildsTheConsumer(t *testing.T) {
 	assert.False(t, built)
 }
 
-// TestRun_GenerationBuildFailureStopsBeforeConsuming pins the fail-fast boot: a
-// generation that cannot be built stops the process before the broker is dialed.
 func TestRun_GenerationBuildFailureStopsBeforeConsuming(t *testing.T) {
 	p := &probe{}
 	deps := p.deps(newFakeBroker(t), nil)
@@ -75,8 +67,6 @@ func TestRun_GenerationBuildFailureStopsBeforeConsuming(t *testing.T) {
 	assert.False(t, p.dialed, "the broker must not be dialed when generation cannot start")
 }
 
-// TestRun_GenerationRunsBesideEmailAndCleansUp pins that both consumers run in the
-// same process, stop together on shutdown, and that the generation cleanup runs.
 func TestRun_GenerationRunsBesideEmailAndCleansUp(t *testing.T) {
 	p := &probe{}
 	broker := newFakeBroker(t)
@@ -106,8 +96,6 @@ func TestRun_GenerationRunsBesideEmailAndCleansUp(t *testing.T) {
 	assert.True(t, broker.closed)
 }
 
-// TestBuildGeneration covers the boot checks of the generation wiring. The LLM
-// configuration is checked before the database, so the first cases never reach Mongo.
 func TestBuildGeneration(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -135,7 +123,6 @@ func TestBuildGeneration(t *testing.T) {
 	}
 }
 
-// TestRunConcurrently covers the join of the runners' outcomes.
 func TestRunConcurrently(t *testing.T) {
 	boom := errors.New("boom")
 	tests := []struct {

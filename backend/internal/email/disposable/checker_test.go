@@ -13,8 +13,6 @@ import (
 	"legnaris/backend/internal/email/disposable"
 )
 
-// fakeLookup answers every MX lookup with the same outcome and records how
-// many lookups ran, so tests can assert the blocklist short-circuits DNS.
 type fakeLookup struct {
 	records []*net.MX
 	err     error

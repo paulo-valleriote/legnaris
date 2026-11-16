@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newRelayEntry builds a valid outbox entry for the broker tests.
 func newRelayEntry(t *testing.T, eventType string) outbox.Entry {
 	t.Helper()
 	ev := sampleEvent(eventType)
@@ -22,7 +21,6 @@ func newRelayEntry(t *testing.T, eventType string) outbox.Entry {
 	return entry
 }
 
-// TestRelayBrokerPublish covers the synchronous publish with confirms.
 func TestRelayBrokerPublish(t *testing.T) {
 	t.Run("Happy path: an acked entry is published to the events exchange with its identity", func(t *testing.T) {
 		ch := newFakeChannel(confirmAck)
@@ -137,7 +135,6 @@ func TestRelayBrokerPublish(t *testing.T) {
 	})
 }
 
-// TestRelayBrokerClose covers releasing the connection.
 func TestRelayBrokerClose(t *testing.T) {
 	t.Run("Edge: closing a broker that never connected is safe", func(t *testing.T) {
 		broker := NewRelayBroker(RelayBrokerConfig{URL: "amqp://x"})

@@ -30,12 +30,6 @@ const CHALLENGE_BODY = {
 
 const SESSION_BODY = { access_token: 'access-1', token_type: 'Bearer', expires_in: 900 };
 
-/**
- * Renders the code surface over a session that already holds a pending step.
- *
- * The session is driven into the pending state through the real credential
- * operation, so the surface reads a step the server actually answered.
- */
 async function renderCodeSurface(
   outcomes: FakeOutcome[] = [successOutcome(CHALLENGE_BODY)],
   email = 'a@b.test',

@@ -22,7 +22,6 @@ var (
 	_ worker.Republisher    = (*Broker)(nil)
 )
 
-// recordingAcknowledger captures how a broker delivery is settled.
 type recordingAcknowledger struct {
 	acked    []uint64
 	nacked   []uint64
@@ -45,7 +44,6 @@ func (r *recordingAcknowledger) Reject(tag uint64, _ bool) error {
 	return nil
 }
 
-// newConsumingBroker builds a broker whose consumer gets a channel of its own.
 func newConsumingBroker(t *testing.T, cfg Config) (*Broker, *fakeChannel, *fakeChannel, *fakeConnection) {
 	t.Helper()
 
@@ -77,9 +75,6 @@ func receive(t *testing.T, stream <-chan worker.Delivery) (worker.Delivery, bool
 	}
 }
 
-// TestBroker_ConsumeRegistersTheConsumer pins how the consumer is registered:
-// on a channel of its own, prefetch first, manual acknowledgement (WKR-02,
-// WKR-16).
 func TestBroker_ConsumeRegistersTheConsumer(t *testing.T) {
 	t.Run("Happy path: the work queue is consumed with manual acknowledgement", func(t *testing.T) {
 		broker, publisher, consumer, _ := newConsumingBroker(t, Config{Prefetch: 7})
@@ -119,8 +114,6 @@ func TestBroker_ConsumeRegistersTheConsumer(t *testing.T) {
 	})
 }
 
-// TestBroker_ConsumeFailures proves every registration failure is the typed
-// broker error and leaves no channel open (WKR-17).
 func TestBroker_ConsumeFailures(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -146,9 +139,6 @@ func TestBroker_ConsumeFailures(t *testing.T) {
 	}
 }
 
-// TestBroker_ConsumeStream proves deliveries reach the worker with their body,
-// that the handle acknowledges and never rejects, and that the stream ends when
-// the broker ends it (WKR-02, WKR-17).
 func TestBroker_ConsumeStream(t *testing.T) {
 	t.Run("Happy path: a delivery is handed over and acknowledged once", func(t *testing.T) {
 		broker, _, consumer, _ := newConsumingBroker(t, Config{})
@@ -233,9 +223,6 @@ func TestBroker_ConsumeStream(t *testing.T) {
 	})
 }
 
-// TestBroker_PublishTo pins the destination mapping and the publish guarantees:
-// each destination reaches its exchange and routing key, the publish is
-// mandatory, persistent and confirmed (WKR-09, WKR-11, WKR-13).
 func TestBroker_PublishTo(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -268,8 +255,6 @@ func TestBroker_PublishTo(t *testing.T) {
 	}
 }
 
-// TestBroker_PublishToFailures proves every unconfirmed outcome is a failure,
-// and an unknown destination publishes nothing (WKR-13).
 func TestBroker_PublishToFailures(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -314,8 +299,6 @@ func TestBroker_PublishToFailures(t *testing.T) {
 	}
 }
 
-// TestBroker_PublishBodyTo proves an undecodable body is parked byte for byte,
-// under a fresh canonical identity, with the same guarantees (WKR-04, WKR-13).
 func TestBroker_PublishBodyTo(t *testing.T) {
 	t.Run("Happy path: the body is published unchanged to the dead-letter route", func(t *testing.T) {
 		fake := &fakeChannel{}

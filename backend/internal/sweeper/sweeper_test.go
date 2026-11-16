@@ -23,8 +23,6 @@ var (
 	errStore   = errors.New("store unavailable")
 )
 
-// fakeStore is an in-memory Store. It hands out the seeded jobs on the next
-// Claim and records every transition, so the tests read the outcome directly.
 type fakeStore struct {
 	jobs          []sweeper.Job[string]
 	claimErr      error
@@ -80,7 +78,6 @@ func testLogger() logger.StructuredLogger {
 	return logger.NewLogger(slog.LevelError)
 }
 
-// validSpec is a queue spec that passes validation; tests override one field.
 func validSpec(store sweeper.Store[string], handle sweeper.Handler[string]) sweeper.QueueSpec[string] {
 	return sweeper.QueueSpec[string]{
 		Name:       "q",
@@ -96,7 +93,6 @@ func okHandler(context.Context, sweeper.Job[string], time.Time) error { return n
 
 func failHandler(context.Context, sweeper.Job[string], time.Time) error { return errHandler }
 
-// TestNewQueue covers queue validation: every field that the table relies on.
 func TestNewQueue(t *testing.T) {
 	store := &fakeStore{}
 
@@ -132,7 +128,6 @@ func TestNewQueue(t *testing.T) {
 	}
 }
 
-// TestNew covers the queue table: it needs queues, unique names and an observer.
 func TestNew(t *testing.T) {
 	store := &fakeStore{}
 	obs := sweepermocks.NewMockObserver(t)
@@ -175,7 +170,6 @@ func mustQueue(t *testing.T, spec sweeper.QueueSpec[string]) sweeper.Queue {
 	return queue
 }
 
-// TestRunOnceHandling covers what one attempt does with its outcome.
 func TestRunOnceHandling(t *testing.T) {
 	t.Run("Happy path: a completed item gets no transition and the claim uses the lease and batch", func(t *testing.T) {
 		store := &fakeStore{jobs: []sweeper.Job[string]{{ID: "a", Payload: "x"}}}
@@ -320,7 +314,6 @@ func TestRunOnceHandling(t *testing.T) {
 	})
 }
 
-// TestRunOnceErrors covers the store failures a pass reports.
 func TestRunOnceErrors(t *testing.T) {
 	t.Run("Error: a claim failure is returned and runs no handler", func(t *testing.T) {
 		store := &fakeStore{claimErr: errStore}
@@ -370,8 +363,6 @@ func TestRunOnceErrors(t *testing.T) {
 	})
 }
 
-// TestRunOnceDue covers the per-queue interval: a queue runs when its interval has
-// elapsed, exactly at the boundary included, and never more often.
 func TestRunOnceDue(t *testing.T) {
 	type step struct {
 		offset  time.Duration
@@ -435,8 +426,6 @@ func TestRunOnceDue(t *testing.T) {
 	}
 }
 
-// TestRunCancelledContext proves Run finishes its first pass and returns nil on a
-// cancelled context, without waiting for an interval.
 func TestRunCancelledContext(t *testing.T) {
 	t.Run("Happy path: a cancelled context runs one pass and returns nil", func(t *testing.T) {
 		store := &fakeStore{}

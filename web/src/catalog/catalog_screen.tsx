@@ -1,12 +1,3 @@
-/**
- * The template catalog screen (WCT-01, WCT-03 … WCT-10, WCT-26, WCT-28).
- *
- * It resolves exactly one render phase from the catalog query and renders it, and
- * it owns the creation surface's open state: activating an entry records the
- * identifier and the triggering element, and closing returns focus to it without
- * touching the catalog's cache or navigating.
- */
-
 import { useCallback, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { DefensiveParseFailure, DomainFailure } from '../api/errors';
@@ -19,7 +10,6 @@ import { ResumeNotice } from './resume_notice';
 import { useCatalog } from './queries';
 import './catalog.css';
 
-/** The single situation the catalog renders; exactly one is active (SC-001). */
 type CatalogRenderPhase =
   | { readonly kind: 'loading' }
   | { readonly kind: 'loaded'; readonly entries: readonly TemplateSummary[] }
@@ -27,7 +17,6 @@ type CatalogRenderPhase =
   | { readonly kind: 'error'; readonly copy: string }
   | { readonly kind: 'parseError'; readonly copy: string };
 
-/** A trailing arrow that marks an entry as opening something. */
 function OpenIcon() {
   return (
     <svg

@@ -23,8 +23,6 @@ func testConfig() factory.Config {
 	}
 }
 
-// TestNew_SelectsTheAdapter proves the configuration selects the adapter the
-// caller expects (EML-08).
 func TestNew_SelectsTheAdapter(t *testing.T) {
 	t.Run("Happy path: the log provider builds the development sender", func(t *testing.T) {
 		sender, err := factory.New(testConfig())
@@ -62,8 +60,6 @@ func TestNew_SelectsTheAdapter(t *testing.T) {
 	})
 }
 
-// TestNew_RejectsUnknownProvider proves a provider string that selects no
-// adapter is a typed build error, never a silent fallback (EML-08, EML-19).
 func TestNew_RejectsUnknownProvider(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -88,8 +84,6 @@ func TestNew_RejectsUnknownProvider(t *testing.T) {
 	}
 }
 
-// TestNew_ResendRequiresConfiguration proves the Resend branch surfaces the
-// adapter's own build error for an empty key or From (EML-12).
 func TestNew_ResendRequiresConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -116,9 +110,6 @@ func TestNew_ResendRequiresConfiguration(t *testing.T) {
 	}
 }
 
-// TestNew_RefusesDevProviderInProduction proves the development sender, which
-// writes codes in clear, never builds when APP_ENV names production, whatever
-// the casing or padding (D10).
 func TestNew_RefusesDevProviderInProduction(t *testing.T) {
 	tests := []struct {
 		name   string

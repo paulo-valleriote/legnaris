@@ -17,7 +17,6 @@ describe('shared layer governance (UIP-01, UIP-02, UIP-03)', () => {
     const files = uiSourceFiles();
     for (const f of files) {
       const text = readFileSync(f, 'utf8');
-      // The layer must not reference feature directories.
       const importLines = text.split('\n').filter((line) => line.includes('import'));
       for (const line of importLines) {
         expect(line).not.toMatch(/\.\.(\/shell|\/catalog|\/engine|\/auth|\/sheet|\/library)\//);

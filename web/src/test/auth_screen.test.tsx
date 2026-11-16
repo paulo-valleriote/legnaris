@@ -16,7 +16,6 @@ const BASE_URL = 'http://api.test';
 
 const SESSION_BODY = { access_token: 'access-1', token_type: 'Bearer', expires_in: 900 };
 
-/** Renders the auth surface over a session built on the injected transport. */
 function renderAuth(
   transport: Transport,
   readCsrfToken: () => string | undefined = () => undefined,

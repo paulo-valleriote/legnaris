@@ -21,8 +21,6 @@ const (
 	bootstrapReadyTimeout = 60 * time.Second
 )
 
-// dockerRun runs the docker CLI with extra environment entries and returns its
-// combined output. Secrets travel through env, never through argv.
 func dockerRun(t *testing.T, env []string, args ...string) (string, error) {
 	t.Helper()
 	cmd := exec.Command("docker", args...)
@@ -31,7 +29,6 @@ func dockerRun(t *testing.T, env []string, args ...string) (string, error) {
 	return string(out), err
 }
 
-// requireDocker skips the test when no Docker daemon or the Mongo image is available.
 func requireDocker(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("docker"); err != nil {
@@ -42,7 +39,6 @@ func requireDocker(t *testing.T) {
 	}
 }
 
-// startBootstrapMember starts a keyfile-protected rs0 member and returns its name.
 func startBootstrapMember(t *testing.T) string {
 	t.Helper()
 	suffix := make([]byte, 4)
@@ -72,7 +68,6 @@ func startBootstrapMember(t *testing.T) string {
 	return name
 }
 
-// waitForMongo blocks until mongod answers a ping, which works before any user exists.
 func waitForMongo(t *testing.T, name string) {
 	t.Helper()
 	deadline := time.Now().Add(bootstrapReadyTimeout)
@@ -85,8 +80,6 @@ func waitForMongo(t *testing.T, name string) {
 	t.Fatalf("mongod in %s did not become ready within %s", name, bootstrapReadyTimeout)
 }
 
-// bootstrapMember runs bootstrap.sh inside the member with the root credentials taken
-// from the environment, as every real stack does.
 func bootstrapMember(t *testing.T, name string) (string, error) {
 	t.Helper()
 	return dockerRun(t, []string{
@@ -103,7 +96,6 @@ func bootstrapMember(t *testing.T, name string) (string, error) {
 		"/provision/init/00-replset.js", "/provision/init/01-create-users.js")
 }
 
-// memberState reports the replica-set health, the root login and the users that exist.
 func memberState(t *testing.T, name string) string {
 	t.Helper()
 	const probe = `db.getSiblingDB("admin").auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD);` +
@@ -118,9 +110,6 @@ func memberState(t *testing.T, name string) string {
 	return strings.TrimSpace(out)
 }
 
-// TestBootstrapAgainstRealReplicaSet runs bootstrap.sh against a real keyfile-protected
-// member: first run, a rerun on the initialized set, and a rerun after a container
-// restart. The LGN-207 acceptance requires none of them to fail or change the state.
 func TestBootstrapAgainstRealReplicaSet(t *testing.T) {
 	requireDocker(t)
 	name := startBootstrapMember(t)

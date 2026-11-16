@@ -1,17 +1,3 @@
-/**
- * The in-memory edit store for one open sheet (WSC-12 … WSC-20, WSC-34).
- *
- * It holds the seeded values, the set of edited paths, the save/preview
- * lifecycle and the preview marks, and issues exactly the `PATCH` a save sends.
- * It also holds the sheet's Dice block (ADR 0006): a choice is pending work like
- * an edited value, is sent whole with the next save and never through a preview,
- * which recalculates values only.
- * Every write produces a fresh data tree, the pending delta is rebuilt through
- * the F4 engine's `setPathValue`, and the seed and merge come from F4's
- * `seedFromSheet`/`mergeCascade` — the store defines no second draft, seed or
- * merge. It owns no React state and binds no listener.
- */
-
 import type { ApiClient } from '../api/client';
 import type { DiceBlock, DiceOverrides } from '../api/models/dice';
 import { failureCopy, failureKind } from '../api/error_mapper';
@@ -35,37 +21,21 @@ import type { SheetMark } from '../engine/sheet_mark';
 import type { SheetDraft, SheetStore } from '../library/sheet_store';
 import { bestEffort, hasPendingWork } from '../library/sheet_store';
 
-/** The path sets the last successful preview published (WSC-23). */
 export interface PreviewMarks {
-  /** The flattened paths of the previewed delta — the rows the person changed. */
   readonly modified: ReadonlySet<string>;
-  /** The flattened paths of the cascade — the derived rows the server recomputed. */
   readonly recalculated: ReadonlySet<string>;
 }
 
-/** The per-action request cap inside one window (WSC-38, SC-011). */
 export const THROTTLE_MAX = 3;
 
-/** The rolling window length, in milliseconds (WSC-38). */
 export const THROTTLE_WINDOW_MS = 60_000;
 
-/**
- * The per-action rolling request window (WSC-38, SC-011).
- *
- * A pure, injectable-clock helper: it records the timestamps of the attempts
- * still inside the window, reports whether the cap is reached, and reports when
- * the oldest attempt leaves so an action re-enables without waiting.
- */
 export interface RollingWindow {
-  /** Records one attempt at the current instant and drops the timestamps that left the window. */
   record(): void;
-  /** True while the window holds [THROTTLE_MAX] attempts. */
   isBlocked(): boolean;
-  /** The earliest instant a blocked window frees. */
   nextFreeAt(): number;
 }
 
-/** Builds a rolling window over the injected [now] clock (WSC-38). */
 export function createRollingWindow(
   now: () => number,
   max: number = THROTTLE_MAX,
@@ -96,103 +66,57 @@ export function createRollingWindow(
   };
 }
 
-/** The immutable snapshot of one open sheet's edit state (WSC-12 … WSC-25). */
 export interface SheetEditState {
-  /** The reference values a save advances and `isPending` compares against (WSC-16). */
   readonly defaults: Record<string, unknown>;
-  /** The current values; every write replaces the tree rather than mutating it. */
   readonly data: Record<string, unknown>;
-  /** Every dotted path written at least once since the seed (WSC-12). */
   readonly editedPaths: ReadonlySet<string>;
-  /** A save `PATCH` is in flight (WSC-18). */
   readonly isSaving: boolean;
-  /** The mapped copy of the last save failure; cleared on success (WSC-17). */
   readonly saveError: string | undefined;
-  /** The kind of the last save failure, so the screen can soften an offline one. */
   readonly saveErrorKind?: FailureKind;
-  /** Increments on every data-changing edit; the preview idempotency key. */
   readonly revision: number;
-  /** The revision of the last successful preview (WSC-21, WSC-24). */
   readonly previewedRevision: number | undefined;
-  /** The Dice block the last save stored, or the one the sheet opened with (ADR 0006). */
   readonly savedDice: DiceBlock;
-  /** The Dice block as the player has it now; pending while it differs from {@link savedDice}. */
   readonly dice: DiceBlock;
-  /** The last preview's path sets; absent before a preview, after a save, after an edit (WSC-23, WSC-24). */
   readonly previewMarks: PreviewMarks | undefined;
-  /** A preview request is in flight (WSC-21). */
   readonly isPreviewing: boolean;
-  /** The mapped copy of the last preview failure; cleared on success (WSC-25). */
   readonly previewError: string | undefined;
-  /** The kind of the last preview failure, so the screen can soften an offline one. */
   readonly previewErrorKind?: FailureKind;
-  /** The save throttle window (WSC-38). */
   readonly saveWindow: RollingWindow;
-  /** The preview throttle window (WSC-38). */
   readonly previewWindow: RollingWindow;
 }
 
-/** The seed of one edit store: the template's field tree and the stored sheet's identity and values (WSC-12, WSC-34). */
 export interface SheetEditSeed {
   readonly template: TemplateDetail;
   readonly sheet: Pick<Sheet, 'id' | 'data' | 'dice'>;
 }
 
-/** The collaborators the store reads through, injected so a suite substitutes fakes (R1). */
 export interface SheetEditDeps {
   readonly client: ApiClient;
   readonly store: SheetStore;
-  /** The clock the throttle windows read; defaults to `Date.now` (WSC-38, R7). */
   readonly now?: () => number;
-  /** The delay seam for the throttle re-evaluation; defaults to `setTimeout` (WSC-38). */
   readonly schedule?: (callback: () => void, delayMs: number) => () => void;
-  /** Sleep and jitter seams for the 409 resend of a save; default to real timers. */
   readonly saveRetry?: SaveRetryDeps;
 }
 
-/** The edit store a sheet screen mounts and every edit suite drives directly. */
 export interface SheetEditStore {
-  /** The current immutable snapshot. */
   getState(): SheetEditState;
-  /** The pending editable delta a save/preview sends and the draft cadence backs up (WSC-14). */
   getPendingDelta(): Record<string, unknown>;
-  /** The whole Dice block while it differs from the saved one, else `undefined` (ADR 0006). */
   getPendingDice(): DiceBlock | undefined;
-  /** Coarse subscription, for the screen's own signals (footer, marks). */
   subscribe(listener: () => void): () => void;
-  /** The per-path subscription a field control uses (AD-001, WSC-34). */
   subscribePath(path: string, listener: () => void): () => void;
-  /** A subscription that fires when the preview marks change (WSC-23). */
   subscribeMarks(listener: () => void): () => void;
-  /** Records an edit of one editable leaf (WSC-12). */
   setPath(path: string, value: unknown): void;
-  /** Writes one exclusive group's selection in one emission (WSC-15). */
   setExclusive(selected: string | null, siblings: readonly string[]): void;
-  /**
-   * Records a Dice choice for one Row or Section key (ADR 0006): a string replaces, `null` is
-   * "no dice", `undefined` removes the override. It is pending until the next save.
-   */
   setDice(target: DiceTarget, key: string, expression: string | null | undefined): void;
-  /** Sends one `PATCH` with the delta and any pending Dice block when `canSave` holds (WSC-14, WSC-16 … WSC-19). */
   save(): Promise<void>;
-  /** Sends one delta dry-run when `canPreview` holds (WSC-21 … WSC-25). */
   preview(): Promise<void>;
-  /**
-   * Overlays the stored draft on the seed, marking only its editable leaves pending (WSC-28), and
-   * restores its Dice block pruned by the rules the server saves under, so a draft written against
-   * an older Template can never make every Save fail.
-   */
   restore(): Promise<void>;
-  /** Discards every in-memory edit, re-seeding the display from the baseline (WSC-36, WSC-37). */
   discard(): void;
-  /** Releases the throttle timer; the screen calls it on unmount (WSC-38). */
   dispose(): void;
 }
 
-/** Which half of the Dice block a choice belongs to. */
 export type DiceTarget = 'row' | 'section';
 
-/** The Row and Section keys whose Dice choice differs from the saved block. */
 export interface PendingDiceKeys {
   readonly row: ReadonlySet<string>;
   readonly section: ReadonlySet<string>;
@@ -208,7 +132,6 @@ function differingKeys(current: DiceOverrides, saved: DiceOverrides): Set<string
   return keys;
 }
 
-/** The keys whose Dice choice is pending: changed, added or removed against the saved block. */
 export function pendingDiceKeys(state: SheetEditState): PendingDiceKeys {
   return {
     row: differingKeys(state.dice.row, state.savedDice.row),
@@ -216,7 +139,6 @@ export function pendingDiceKeys(state: SheetEditState): PendingDiceKeys {
   };
 }
 
-/** True when the Dice block differs from the saved one; a choice set back to its saved value is not pending. */
 export function isDicePending(state: SheetEditState): boolean {
   const keys = pendingDiceKeys(state);
   return keys.row.size > 0 || keys.section.size > 0;
@@ -232,37 +154,27 @@ function valuesPendingCount(state: SheetEditState): number {
   return count;
 }
 
-/** True when any edited path's current value differs from its reference (WSC-13). */
 export function areValuesPending(state: SheetEditState): boolean {
   return valuesPendingCount(state) > 0;
 }
 
-/** How many values and Dice choices currently differ from their reference: the "N changes" the footer counts. */
 export function pendingCount(state: SheetEditState): number {
   const keys = pendingDiceKeys(state);
   return valuesPendingCount(state) + keys.row.size + keys.section.size;
 }
 
-/** True when any value or Dice choice differs from its reference (WSC-13, ADR 0006). */
 export function isPending(state: SheetEditState): boolean {
   return areValuesPending(state) || isDicePending(state);
 }
 
-/** True while a save or a preview is in flight; both actions block together (WSC-18, WSC-21). */
 export function isBusy(state: SheetEditState): boolean {
   return state.isSaving || state.isPreviewing;
 }
 
-/** True when a save may start: pending, not busy, its window free (WSC-19, WSC-38). */
 export function canSave(state: SheetEditState): boolean {
   return isPending(state) && !isBusy(state) && !state.saveWindow.isBlocked();
 }
 
-/**
- * True when a preview may start: values pending, a new edit since the last preview, not busy, its
- * window free (WSC-21, WSC-24, WSC-38). A Dice choice alone recalculates nothing, so it never
- * enables a preview.
- */
 export function canPreview(state: SheetEditState): boolean {
   return (
     areValuesPending(state) &&
@@ -272,13 +184,6 @@ export function canPreview(state: SheetEditState): boolean {
   );
 }
 
-/**
- * Resolves the mark a row shows from a preview's path sets (WSC-23).
- *
- * A row with any modified path is "modified"; otherwise a row with any
- * recalculated path is "recalculated"; a row the preview never touched carries
- * no mark.
- */
 export function markForPaths(
   marks: PreviewMarks | undefined,
   paths: readonly string[],
@@ -295,7 +200,6 @@ export function markForPaths(
   return undefined;
 }
 
-/** The editable leaf paths of a field tree, keyed by their dotted path (WSC-14). */
 export function editableLeafPaths(fields: Record<string, FieldNode>): Map<string, FieldSchema> {
   const paths = new Map<string, FieldSchema>();
   for (const section of buildSections(fields)) {
@@ -335,7 +239,6 @@ function sameDiceEntry(
   return Object.hasOwn(overrides, key) && overrides[key] === expression;
 }
 
-/** Reads a dotted path defensively; a malformed path yields `undefined` rather than raising. */
 function readPath(data: Record<string, unknown>, path: string): unknown {
   try {
     return valueAtPath(data, path);
@@ -344,7 +247,6 @@ function readPath(data: Record<string, unknown>, path: string): unknown {
   }
 }
 
-/** Deep-copies a JSON tree so a write never mutates an earlier snapshot (copy-on-write). */
 function cloneTree(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(cloneTree);
@@ -359,7 +261,6 @@ function cloneTree(value: unknown): unknown {
   return value;
 }
 
-/** Flattens a nested object into its dotted leaf paths, for the preview marks (WSC-23). */
 function flattenPaths(value: Record<string, unknown>, prefix = ''): Set<string> {
   const paths = new Set<string>();
   for (const [key, child] of Object.entries(value)) {
@@ -375,19 +276,11 @@ function flattenPaths(value: Record<string, unknown>, prefix = ''): Set<string> 
   return paths;
 }
 
-/** The default throttle delay: a cancellable `setTimeout` (WSC-38). */
 function defaultSchedule(callback: () => void, delayMs: number): () => void {
   const timer = setTimeout(callback, delayMs);
   return () => clearTimeout(timer);
 }
 
-/**
- * Builds the edit store for one open sheet (WSC-12 … WSC-19, WSC-34).
- *
- * The seed overlays the stored sheet on the template's schema defaults and
- * records the template's editable leaves; a later draft overlay and preview land
- * on the same store.
- */
 export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): SheetEditStore {
   const editable = editableLeafPaths(seed.template.fields);
   const sectionRows = diceSectionRows(seed.template.fields);
@@ -511,12 +404,6 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     return delta;
   };
 
-  /**
-   * Resolves the offline copy for a failed request, or `undefined` for any other
-   * failure. The pending delta is written to the local draft first, so the
-   * "kept on this device" promise holds without waiting for the backup cadence;
-   * if that write fails the copy says so instead of promising.
-   */
   const offlineCopy = async (
     error: unknown,
     action: 'save' | 'preview',

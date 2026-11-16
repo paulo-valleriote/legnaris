@@ -1,9 +1,3 @@
-/**
- * The public landing page a visitor without a session sees on `/`: a photographic hero, the
- * product's principles, a live recalculation example, the order of play, plain answers and a
- * closing call to action. It owns no state beyond the example and never touches the API.
- */
-
 import { Link } from 'react-router-dom';
 import { SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
@@ -51,7 +45,6 @@ function Chevron() {
   );
 }
 
-/** The landing page for visitors without a session. */
 export function LandingScreen() {
   useStageThemeColor();
 

@@ -6,19 +6,10 @@ import (
 	"time"
 )
 
-// storeTimeout bounds one store round-trip so a hung Redis degrades to the
-// local fallback instead of stalling the request path.
 const storeTimeout = 250 * time.Millisecond
 
-// StoreBackoff is how long a limiter bypasses a failed store, so an outage costs
-// one timeout per backoff instead of one per request.
 const StoreBackoff = 2 * time.Second
 
-// Shared decides through a Store common to every replica, so the configured cap
-// holds across the whole deployment. When the store cannot answer it fails
-// open to a per-process Limiter: availability wins over strictness, and the
-// effective cap degrades to the documented N-times approximation until the
-// store recovers (ADR 0003).
 type Shared struct {
 	store     Store
 	fallback  *Limiter
@@ -31,8 +22,6 @@ type Shared struct {
 	skipUntil time.Time
 }
 
-// NewShared builds a store-backed limiter. onFailure, when non-nil, is told
-// about every store error so the caller can log or count the degradation.
 func NewShared(store Store, max int, window time.Duration, now func() time.Time, onFailure func(error)) *Shared {
 	if now == nil {
 		now = time.Now
@@ -47,14 +36,10 @@ func NewShared(store Store, max int, window time.Duration, now func() time.Time,
 	}
 }
 
-// Now returns the limiter's clock reading.
 func (s *Shared) Now() time.Time {
 	return s.now()
 }
 
-// Allow records an attempt for key in the shared store; on a store error it
-// answers from the local fallback instead. A non-positive cap refuses without
-// touching the store, matching Limiter.
 func (s *Shared) Allow(key string, now time.Time) (bool, time.Duration) {
 	if s.max <= 0 {
 		return false, s.window

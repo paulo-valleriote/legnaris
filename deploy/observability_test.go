@@ -55,7 +55,6 @@ func readRules(t *testing.T) rulesDoc {
 	return doc
 }
 
-// allRules flattens every rule of the file, in order.
 func allRules(t *testing.T) []ruleSpec {
 	t.Helper()
 
@@ -66,7 +65,6 @@ func allRules(t *testing.T) []ruleSpec {
 	return rules
 }
 
-// alertsByName returns every alert rule keyed by name and fails on a duplicate.
 func alertsByName(t *testing.T) map[string]ruleSpec {
 	t.Helper()
 
@@ -82,7 +80,6 @@ func alertsByName(t *testing.T) map[string]ruleSpec {
 	return alerts
 }
 
-// recordedThresholds returns the recording rules that carry the tunable limits.
 func recordedThresholds(t *testing.T) map[string]ruleSpec {
 	t.Helper()
 
@@ -95,8 +92,6 @@ func recordedThresholds(t *testing.T) map[string]ruleSpec {
 	return thresholds
 }
 
-// expectedAlert is the contract of one alarm: its severity and the fragments
-// its expression must carry to be reading the right fact from the right process.
 type expectedAlert struct {
 	name     string
 	severity string
@@ -163,10 +158,6 @@ var pipelineAlerts = []expectedAlert{
 	},
 }
 
-// TestAlertRulesExistAndAreComplete guards the alarm set: every way the
-// pipeline stalls has its own named rule, and every rule carries a severity, a
-// patience period and the words that say what broke (OBS-01…OBS-08, OBS-17,
-// SC-001, SC-002).
 func TestAlertRulesExistAndAreComplete(t *testing.T) {
 	alerts := alertsByName(t)
 
@@ -218,10 +209,6 @@ func TestAlertRulesExistAndAreComplete(t *testing.T) {
 	})
 }
 
-// TestAlertRulesNameTheirSeries guards each expression: it names the series
-// that carry the fact, the queue it is about and the process that owns the
-// counter, so the site's zero is never read for the publisher's truth (OBS-16,
-// SC-003).
 func TestAlertRulesNameTheirSeries(t *testing.T) {
 	alerts := alertsByName(t)
 
@@ -261,10 +248,6 @@ func TestAlertRulesNameTheirSeries(t *testing.T) {
 	})
 }
 
-// TestAlertRuleThresholdsAreConfigurable guards the tunable limits: the age
-// patience, the backlog and the failure count live in one recorded block an
-// operator edits, and no expression hides a number of its own (OBS-03, OBS-04,
-// SC-003).
 func TestAlertRuleThresholdsAreConfigurable(t *testing.T) {
 	alerts := alertsByName(t)
 	thresholds := recordedThresholds(t)
@@ -307,9 +290,6 @@ func TestAlertRuleThresholdsAreConfigurable(t *testing.T) {
 	})
 }
 
-// TestMonitoringEvaluatesTheRules guards the wiring: the stack loads the rules
-// file, mounts it, and the broker exposes the per-object series the queue rules
-// name (OBS-02, OBS-03, OBS-09, OBS-19).
 func TestMonitoringEvaluatesTheRules(t *testing.T) {
 	raw, err := os.ReadFile(prometheusFile)
 	require.NoError(t, err)
@@ -357,9 +337,6 @@ func TestMonitoringEvaluatesTheRules(t *testing.T) {
 	})
 }
 
-// TestAlertRulesPassThePrometheusValidator runs the stack's own validator when
-// it is installed, so an expression that cannot parse fails the build rather
-// than the night (OBS-19, SC-007).
 func TestAlertRulesPassThePrometheusValidator(t *testing.T) {
 	promtool, err := exec.LookPath("promtool")
 	if err != nil {
@@ -370,8 +347,6 @@ func TestAlertRulesPassThePrometheusValidator(t *testing.T) {
 	assert.NoErrorf(t, err, "promtool rejected the rules:\n%s", out)
 }
 
-// TestObservabilityFilesCarryNoCredential guards the rules and the dashboard:
-// neither names a secret, a token or a key (OBS-21, SC-006).
 func TestObservabilityFilesCarryNoCredential(t *testing.T) {
 	for _, file := range []string{rulesFile, dashboardFile} {
 		t.Run("Edge: "+file+" carries no credential", func(t *testing.T) {
@@ -417,9 +392,6 @@ func readDashboard(t *testing.T) dashboardDoc {
 
 var seriesName = regexp.MustCompile(`\b(legnaris_[a-z_]+|rabbitmq_[a-z_]+|ALERTS)\b`)
 
-// TestDashboardCoversThePipeline guards the dashboard: one provisioned document
-// that tells every stage of the pipeline and whose every panel names the series
-// it reads (OBS-10, OBS-11, OBS-12, OBS-15, SC-005).
 func TestDashboardCoversThePipeline(t *testing.T) {
 	dashboard := readDashboard(t)
 
@@ -498,10 +470,6 @@ func TestDashboardCoversThePipeline(t *testing.T) {
 	})
 }
 
-// TestRunbookAnswersEveryAlarm guards the runbook: one entry per rule saying
-// what it means, what to do and when to escalate, plus the provider's
-// allowance, the notification channel and the counter ownership (OBS-13,
-// OBS-14, OBS-16, OBS-18, SC-004, SC-008).
 func TestRunbookAnswersEveryAlarm(t *testing.T) {
 	section := runbookSection(t, runbookHeading)
 	alerts := alertsByName(t)

@@ -2,28 +2,14 @@ package auth
 
 import "time"
 
-// Purpose is the server-side reason a challenge was issued. It is resolved from
-// the stored record and never accepted from the client (OTP-01, OTP-09).
 type Purpose string
 
 const (
-	// PurposeVerifyEmail marks a challenge issued for a freshly registered
-	// account.
-	PurposeVerifyEmail Purpose = "verify_email"
-	// PurposeAccountExists is the code-free notice sent to the owner of a
-	// verified address when someone registers with it. It never backs a
-	// challenge record.
+	PurposeVerifyEmail   Purpose = "verify_email"
 	PurposeAccountExists Purpose = "account_exists"
-	// PurposeDeleteAccount is the confirmation step an account owner completes
-	// before the account is deleted. It never establishes a session (LGN-190).
 	PurposeDeleteAccount Purpose = "delete_account"
 )
 
-// Challenge is the durable record of one pending code step (data-model.md §1):
-// the account it belongs to, the code's keyed digest, the movable deadline, the
-// absolute ceiling, the consumed marker, the attempt count and the identity of
-// the send intention that carries the code. At most one record is active per
-// account and purpose.
 type Challenge struct {
 	ID           string     `bson:"_id"`
 	UserID       string     `bson:"user_id"`
@@ -38,11 +24,6 @@ type Challenge struct {
 	LastIntentID string     `bson:"last_intent_id"`
 }
 
-// Usable reports whether the challenge can still be consumed at now: it must be
-// unconsumed, its deadline must be in the future (exactly at the expiry instant
-// it is already expired), and its attempt count must be below maxAttempts
-// (OTP-04, OTP-05, OTP-06). Expiry is decided against the injected clock, never
-// by the record's absence.
 func (c Challenge) Usable(now time.Time, maxAttempts int) bool {
 	if c.ConsumedAt != nil {
 		return false
@@ -53,10 +34,6 @@ func (c Challenge) Usable(now time.Time, maxAttempts int) bool {
 	return c.Attempts < maxAttempts
 }
 
-// FailureResult classifies why a stored challenge is not usable, for metrics and
-// logs only: it never changes the HTTP response, which is uniform for every
-// failure (OTP-08, OTP-16). A usable challenge answers ResultInvalid rather than
-// being reported as one of the diagnostic states.
 func (c Challenge) FailureResult(now time.Time, maxAttempts int) string {
 	switch {
 	case c.ConsumedAt != nil:

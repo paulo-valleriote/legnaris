@@ -14,26 +14,14 @@ type Database struct {
 	Client *mongo.Client
 }
 
-// ErrMissingURI reports a missing DATABASE_URI configuration at startup.
 var ErrMissingURI = errors.New("DATABASE_URI is not configured")
 
-// ErrInvalidConfig reports unusable database settings detected at startup.
 var ErrInvalidConfig = errors.New("invalid database configuration")
 
-// ErrMissingReplicaSet reports a DATABASE_URI without a replicaSet parameter.
-// Transactions need a replica set, and a URI without one would otherwise fail
-// only on the first transaction. It wraps ErrInvalidConfig.
 var ErrMissingReplicaSet = fmt.Errorf("%w: DATABASE_URI must name the replica set with replicaSet=<name>", ErrInvalidConfig)
 
-// ErrMissingCredentials reports a DATABASE_URI without a username and password.
-// A credential-less URI would pass the ping and fail only on the first write,
-// so it is rejected at startup. The message never echoes the URI. It wraps
-// ErrInvalidConfig.
 var ErrMissingCredentials = fmt.Errorf("%w: DATABASE_URI must carry a username and password", ErrInvalidConfig)
 
-// InitMongo connects to MongoDB and verifies reachability. It fails before
-// connecting when the environment holds an invalid pool configuration or a URI
-// that does not name a replica set or carry credentials.
 func InitMongo(env env.Env) (*Database, error) {
 	if err := env.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
@@ -79,10 +67,6 @@ func hasCredentials(opts *options.ClientOptions) bool {
 	return opts.Auth != nil && opts.Auth.Username != "" && opts.Auth.Password != ""
 }
 
-// newClientOptions builds the driver options for the configured URI. Retryable
-// writes are forced on after the URI is applied so a URI cannot turn them off:
-// the driver retries a write once on a transient network or failover error,
-// which the replica set relies on.
 func newClientOptions(vars env.Variables) *options.ClientOptions {
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 
@@ -97,14 +81,10 @@ func newClientOptions(vars env.Variables) *options.ClientOptions {
 		SetBSONOptions(documentBSONOptions())
 }
 
-// documentBSONOptions decodes nested BSON documents into map[string]any instead
-// of the default bson.D. Sheet data is modeled as map[string]any and the
-// DAG/engine helpers assert on that type.
 func documentBSONOptions() *options.BSONOptions {
 	return &options.BSONOptions{DefaultDocumentMap: true}
 }
 
-// Ping checks that the primary is reachable within the context deadline.
 func (db *Database) Ping(ctx context.Context) error {
 	if err := db.Client.Ping(ctx, nil); err != nil {
 		return fmt.Errorf("ping mongodb: %w", err)

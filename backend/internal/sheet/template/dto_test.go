@@ -9,16 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// dtoLeaf returns the API leaf used as the tamper target: a stable derived
-// catalog leaf (derived.armorClass) carrying a non-empty DependsOn list.
 func dtoLeaf(dto TemplateDTO) *FieldSchemaDTO {
 	return dto.Fields["derived"].Children["armorClass"].Schema
 }
 
-// TestTemplateToDTO_DoesNotAliasFields covers the LGN-60 finding that the
-// template DTO shared its dependency paths with the registered template:
-// rewriting a response payload rewrote the template every later request is
-// served from.
 func TestTemplateToDTO_DoesNotAliasFields(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -84,8 +78,6 @@ func TestTemplateToDTO_DoesNotAliasFields(t *testing.T) {
 	}
 }
 
-// TestTemplateToDTO_HappyPath_KeepsDependencyContents pins the other half of
-// the contract: cloning the paths must not drop, reorder or alter them.
 func TestTemplateToDTO_HappyPath_KeepsDependencyContents(t *testing.T) {
 	original := fantasyV1Template.Fields["derived"].Children["armorClass"].Schema
 	require.NotEmpty(t, original.DependsOn)
@@ -104,8 +96,6 @@ func TestTemplateToDTO_HappyPath_KeepsDependencyContents(t *testing.T) {
 	assert.Equal(t, fantasyV1Template.Default, dto.Default)
 }
 
-// TestTemplateToDTO_Edge_NilDependsOn documents that an empty dependency list
-// stays absent from the JSON payload instead of showing up as [].
 func TestTemplateToDTO_Edge_NilDependsOn(t *testing.T) {
 	schema := &FieldSchema{Type: fieldTypeNumber, IsEditable: true}
 
@@ -115,10 +105,6 @@ func TestTemplateToDTO_Edge_NilDependsOn(t *testing.T) {
 	assert.Nil(t, dto.DependsOn)
 }
 
-// TestFieldSchemaDTO_MarshalJSON_ExclusiveGroup pins the contract metadata key
-// (EXC-01/EXC-02): a declared group is serialized verbatim, an empty group is
-// omitted so every untagged leaf stays byte-identical to the pre-LGN-105
-// payload.
 func TestFieldSchemaDTO_MarshalJSON_ExclusiveGroup(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -151,9 +137,6 @@ func TestFieldSchemaDTO_MarshalJSON_ExclusiveGroup(t *testing.T) {
 	}
 }
 
-// TestFieldSchemaToDTO_CopiesExclusiveGroup pins the copy half of the contract
-// (EXC-01): toDTO carries the group into a fresh schema, so a caller that
-// mutates the DTO never reaches the registered template.
 func TestFieldSchemaToDTO_CopiesExclusiveGroup(t *testing.T) {
 	source := &FieldSchema{
 		Type:           fieldTypeNumber,
@@ -170,10 +153,6 @@ func TestFieldSchemaToDTO_CopiesExclusiveGroup(t *testing.T) {
 		"mutating the DTO changed the source schema")
 }
 
-// TestFieldSchemaDTO_MarshalJSON_OptionLabel pins the option-label metadata
-// (EXC-23/EXC-24): a declared label is serialized verbatim, while an absent or
-// empty label omits the key so every untagged leaf stays byte-identical to the
-// pre-LGN-105 payload.
 func TestFieldSchemaDTO_MarshalJSON_OptionLabel(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -206,9 +185,6 @@ func TestFieldSchemaDTO_MarshalJSON_OptionLabel(t *testing.T) {
 	}
 }
 
-// TestFieldSchemaToDTO_CopiesOptionLabel pins the copy half of the option-label
-// contract (EXC-23): toDTO carries the label into a fresh schema, so a caller
-// that mutates the DTO never reaches the registered template.
 func TestFieldSchemaToDTO_CopiesOptionLabel(t *testing.T) {
 	source := &FieldSchema{
 		Type:        fieldTypeNumber,
@@ -225,9 +201,6 @@ func TestFieldSchemaToDTO_CopiesOptionLabel(t *testing.T) {
 		"mutating the DTO changed the source schema")
 }
 
-// TestFieldSchemaToDTO_CopiesColumnLabel pins the copy half of the table-column
-// contract: toDTO carries the short column label into a fresh schema, so a
-// caller that mutates the DTO never reaches the registered template.
 func TestFieldSchemaToDTO_CopiesColumnLabel(t *testing.T) {
 	source := &FieldSchema{
 		Type:        fieldTypeNumber,
@@ -244,9 +217,6 @@ func TestFieldSchemaToDTO_CopiesColumnLabel(t *testing.T) {
 		"mutating the DTO changed the source schema")
 }
 
-// TestFieldNodeToDTO_CopiesTableMetadata pins the group half of the table
-// contract: a group node's label travels verbatim and its column list is
-// cloned, so mutating the response never rewrites the registered template.
 func TestFieldNodeToDTO_CopiesTableMetadata(t *testing.T) {
 	source := FieldNode{
 		Children: FieldGroup{
@@ -266,9 +236,6 @@ func TestFieldNodeToDTO_CopiesTableMetadata(t *testing.T) {
 		"mutating the DTO Columns changed the source node")
 }
 
-// TestFieldNodeDTO_MarshalJSON_TableMetadata pins the wire shape: the optional
-// group keys are emitted only when declared, so groups without table metadata
-// stay byte-identical to the pre-redesign payload.
 func TestFieldNodeDTO_MarshalJSON_TableMetadata(t *testing.T) {
 	tests := []struct {
 		name string
@@ -301,8 +268,6 @@ func TestFieldNodeDTO_MarshalJSON_TableMetadata(t *testing.T) {
 	}
 }
 
-// TestTemplateToDTO_Edge_NilSchema covers group nodes, whose API shape is a
-// children map with no schema at all.
 func TestTemplateToDTO_Edge_NilSchema(t *testing.T) {
 	node := FieldNode{Children: FieldGroup{"dexterity": {Schema: &FieldSchema{Type: fieldTypeNumber}}}}
 
@@ -312,9 +277,6 @@ func TestTemplateToDTO_Edge_NilSchema(t *testing.T) {
 	assert.Contains(t, dto.Children, "dexterity")
 }
 
-// topLevelFieldKeys reads the `fields` object of a marshaled TemplateDTO and
-// returns its keys in emission order — json.Unmarshal would flatten the object
-// into a map and lose exactly what this contract is about.
 func topLevelFieldKeys(t *testing.T, raw []byte) []string {
 	t.Helper()
 
@@ -352,12 +314,6 @@ func topLevelFieldKeys(t *testing.T, raw []byte) []string {
 	return nil
 }
 
-// TestTemplateDTO_MarshalJSON_SectionOrder pins the display-order contract:
-// the top-level keys of `fields` must arrive in the template's declared
-// SectionOrder, because the sheet renders sections exactly as they arrive and
-// encoding/json would otherwise sort them alphabetically (identity would land
-// in the middle and config in the middle too, instead of sheet-first,
-// machinery-last).
 func TestTemplateDTO_MarshalJSON_SectionOrder(t *testing.T) {
 	raw, err := json.Marshal(fantasyV1Template.ToDTO())
 	require.NoError(t, err)
@@ -365,10 +321,6 @@ func TestTemplateDTO_MarshalJSON_SectionOrder(t *testing.T) {
 	assert.Equal(t, fantasyV1Template.SectionOrder, topLevelFieldKeys(t, raw))
 }
 
-// TestTemplateDTO_MarshalJSON_Edge_OrderFallbacks documents the safety nets:
-// a DTO with no order keeps the alphabetical output encoding/json always
-// produced, ghost entries in the order are skipped, duplicates are emitted
-// once, and unlisted keys still show up after the declared ones.
 func TestTemplateDTO_MarshalJSON_Edge_OrderFallbacks(t *testing.T) {
 	tests := []struct {
 		name  string

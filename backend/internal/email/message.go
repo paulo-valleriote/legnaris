@@ -1,68 +1,32 @@
-// Package email owns the provider-agnostic email domain shared by the relay
-// (which publishes a send intention) and the worker (which renders it and calls
-// a provider): the published message contract, the sending port, the
-// embedded templates and the development sender. It imports only the standard
-// library and backend/shared/*, so it can be exercised with plain values and no
-// services.
 package email
 
 import "time"
 
-// Purpose selects the embedded template that renders a message; one template
-// exists per purpose (EML-11).
 type Purpose string
 
 const (
-	// PurposeVerifyEmail is the email-address verification purpose.
-	PurposeVerifyEmail Purpose = "verify_email"
-	// PurposeLoginOTP is the login one-time-code purpose.
-	PurposeLoginOTP Purpose = "login_otp"
-	// PurposeAccountExists tells the owner of a verified address that someone
-	// tried to register with it. It carries no code, so a registration attempt
-	// against an existing account answers exactly like a new one and the
-	// response never reveals which addresses are registered.
+	PurposeVerifyEmail   Purpose = "verify_email"
+	PurposeLoginOTP      Purpose = "login_otp"
 	PurposeAccountExists Purpose = "account_exists"
-	// PurposeDeleteAccount is the confirmation code an account owner must enter
-	// before the account is deleted (LGN-190).
 	PurposeDeleteAccount Purpose = "delete_account"
 )
 
-// CarriesCode reports whether messages of the purpose deliver a code; the
-// worker refuses a code-carrying message that has none.
 func (p Purpose) CarriesCode() bool {
 	return p != PurposeAccountExists
 }
 
-// TypeOTP is the single message type this feature publishes (EML-07).
 const TypeOTP = "email.otp"
 
-// Message is the one wire shape handed to the broker. The relay encodes an
-// intention into it, the broker adapter publishes it, and the worker decodes it
-// with shared/json.DecodeBytes, which tolerates unknown fields so the contract
-// may only grow; the golden file in testdata pins the shape so the three cannot
-// drift (EML-07, EML-18, EML-22, WKR-04).
 type Message struct {
-	// ID is the intention's canonical UUID v7 and also the provider
-	// idempotency key (EML-18).
-	ID string `json:"id"`
-	// Type is TypeOTP for this feature.
-	Type string `json:"type"`
-	To   string `json:"to"`
-	// Template is the purpose that selected the template (EML-11).
-	Template string `json:"template"`
-	// Data carries the code, its lifetime and the purpose.
-	Data Data `json:"data"`
-	// CreatedAt is the wire timestamp, always RFC 3339 UTC.
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
+	To        string    `json:"to"`
+	Template  string    `json:"template"`
+	Data      Data      `json:"data"`
 	CreatedAt time.Time `json:"created_at"`
-	// Attempt is the send attempt: the relay publishes 0 and the worker bumps
-	// it on a send retry. The outbox's own attempts counter counts publish
-	// retries and never appears on the wire.
-	Attempt int `json:"attempt"`
+	Attempt   int       `json:"attempt"`
 }
 
-// Data is the message payload rendered by a template. The code is a
-// short-lived credential: it must never reach a log line, an error message or
-// a subject (EML-13).
 type Data struct {
 	Code             string  `json:"code"`
 	ExpiresInMinutes int     `json:"expires_in_minutes"`

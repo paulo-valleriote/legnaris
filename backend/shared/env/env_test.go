@@ -132,8 +132,6 @@ func TestLookupRequiredStringEnv(t *testing.T) {
 	})
 }
 
-// TestRequiredKeys pins the required-variable set: the removed email
-// verification flag never joins it.
 func TestRequiredKeys(t *testing.T) {
 	t.Run("Edge: only the three secrets are required", func(t *testing.T) {
 		require.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, RequiredKeys())
@@ -236,9 +234,6 @@ func TestInitVariablesDefaults(t *testing.T) {
 	})
 }
 
-// TestInitVariablesRateLimitOverrides covers the override path and the
-// invalid-value fallback for the rate-limit pair: an absent or unusable value
-// keeps the documented default rather than a magic zero (AUTH-20, AUTH-24).
 func TestInitVariablesRateLimitOverrides(t *testing.T) {
 	e := newTestEnv()
 
@@ -396,9 +391,6 @@ func TestLookupIntEnv(t *testing.T) {
 	}
 }
 
-// TestTrustedProxyCIDRs covers the optional proxy set: unset and blank select
-// the documented default (nil), a configured list is trimmed, and the
-// configured-empty value stays distinct from "unset" (PRQ-03, PRQ-18).
 func TestTrustedProxyCIDRs(t *testing.T) {
 	e := newTestEnv()
 
@@ -436,9 +428,6 @@ func TestTrustedProxyCIDRs(t *testing.T) {
 	})
 }
 
-// TestInitVariablesEmailDefaults covers the optional email and broker surface:
-// an absent value selects the documented default and the required set is
-// unchanged, so the API still boots with none of them set (EML-14).
 func TestInitVariablesEmailDefaults(t *testing.T) {
 	e := newTestEnv()
 
@@ -488,9 +477,6 @@ func TestInitVariablesEmailDefaults(t *testing.T) {
 	})
 }
 
-// TestInitVariablesEmailOverrides covers the override and fallback paths for the
-// new variables: valid values are parsed and a blank or unusable one keeps the
-// default rather than a magic zero (EML-14).
 func TestInitVariablesEmailOverrides(t *testing.T) {
 	e := newTestEnv()
 
@@ -548,10 +534,6 @@ func TestInitVariablesEmailOverrides(t *testing.T) {
 	})
 }
 
-// TestInitVariablesChallengeDefaults covers the optional challenge surface: an
-// absent value selects the documented default and the required set gains only
-// the digest secret, so the API boots with none of the optional settings set
-// (OTP-18).
 func TestInitVariablesChallengeDefaults(t *testing.T) {
 	e := newTestEnv()
 
@@ -589,9 +571,6 @@ func TestInitVariablesChallengeDefaults(t *testing.T) {
 	})
 }
 
-// TestInitVariablesChallengeOverrides covers the override and fallback paths:
-// valid values are parsed and a blank or unusable one keeps the default rather
-// than a magic zero (OTP-18).
 func TestInitVariablesChallengeOverrides(t *testing.T) {
 	e := newTestEnv()
 
@@ -641,9 +620,6 @@ func TestInitVariablesChallengeOverrides(t *testing.T) {
 	})
 }
 
-// TestInitVariablesResendCapRatio covers the resend share of the daily cap: a
-// fraction in (0, 1] is accepted, anything else falls back to the documented
-// 0.30 with a warning (D5).
 func TestInitVariablesResendCapRatio(t *testing.T) {
 	e := newTestEnv()
 
@@ -676,9 +652,6 @@ func TestInitVariablesResendCapRatio(t *testing.T) {
 
 func strPtr(s string) *string { return &s }
 
-// TestInitVariablesWorkerSettings covers the worker's optional settings: an
-// absent, blank or malformed value selects the documented default and the
-// required list is unchanged (WKR-14, WKR-16, WKR-19, WKR-20).
 func TestInitVariablesWorkerSettings(t *testing.T) {
 	e := newTestEnv()
 
@@ -726,9 +699,6 @@ func TestInitVariablesWorkerSettings(t *testing.T) {
 	})
 }
 
-// TestInitVariablesEmailRetryDelays proves the retry tiers are optional: an
-// absent, blank, malformed or non-positive value reads as zero, which the
-// broker resolves to the tier's default (WKR-14).
 func TestInitVariablesEmailRetryDelays(t *testing.T) {
 	e := newTestEnv()
 	keys := []string{"EMAIL_RETRY_DELAY_FIRST", "EMAIL_RETRY_DELAY_SECOND", "EMAIL_RETRY_DELAY_LATER"}

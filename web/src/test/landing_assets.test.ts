@@ -3,11 +3,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-/**
- * The landing photograph ships self-hosted, in sizes a phone does not have to over-download:
- * every address the page's `srcset` names must exist under `public/`, stay on the app's own
- * origin and stay light enough for a hero image.
- */
 const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(here, '../../public');
 const screenSource = readFileSync(path.resolve(here, '../landing/landing_screen.tsx'), 'utf8');

@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNextUTCBoundaries proves the quota reset instants land on UTC boundaries,
-// including year and leap-day rollovers (LGN-156).
 func TestNextUTCBoundaries(t *testing.T) {
 	sp := time.FixedZone("UTC-3", -3*60*60)
 
@@ -64,8 +62,6 @@ func TestNextUTCBoundaries(t *testing.T) {
 	}
 }
 
-// TestQuotaGate proves the local ceiling opens and closes on the right instants
-// and that a later block is never shortened by an earlier one (LGN-156).
 func TestQuotaGate(t *testing.T) {
 	base := time.Date(2026, time.March, 10, 12, 0, 0, 0, time.UTC)
 
@@ -163,9 +159,6 @@ func TestQuotaGate(t *testing.T) {
 	})
 }
 
-// quotaServer answers every request with the given status, body and headers
-// and counts the provider calls, so the tests can prove the local gate spares
-// the provider.
 type quotaServer struct {
 	mu        sync.Mutex
 	hits      int
@@ -202,8 +195,6 @@ func (q *quotaServer) callCount() int {
 	return q.hits
 }
 
-// TestSender_QuotaAndRateLimit proves each provider 429 and 5xx class maps to
-// the right sentinel and that a spent quota closes the local gate (LGN-156).
 func TestSender_QuotaAndRateLimit(t *testing.T) {
 	const dailyBody = `{"statusCode":429,"name":"daily_quota_exceeded","message":"quota"}`
 	const monthlyBody = `{"statusCode":429,"name":"monthly_quota_exceeded","message":"quota"}`
@@ -340,8 +331,6 @@ func TestSender_QuotaAndRateLimit(t *testing.T) {
 	}
 }
 
-// TestSender_ExhaustedGateSkipsProvider proves that once a quota is spent, later
-// sends fail without reaching the provider until the reset instant (LGN-156).
 func TestSender_ExhaustedGateSkipsProvider(t *testing.T) {
 	const dailyBody = `{"statusCode":429,"name":"daily_quota_exceeded"}`
 
@@ -371,8 +360,6 @@ func TestSender_ExhaustedGateSkipsProvider(t *testing.T) {
 	})
 }
 
-// TestSender_RetryAfterHonorsContext proves an in-place Retry-After wait stops
-// when the caller's context ends, instead of holding the send (LGN-156).
 func TestSender_RetryAfterHonorsContext(t *testing.T) {
 	provider := &quotaServer{responses: []quotaResponse{
 		{status: http.StatusTooManyRequests, body: `{"name":"rate_limit_exceeded"}`, headers: map[string]string{"Retry-After": "2"}},

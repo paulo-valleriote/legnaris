@@ -25,7 +25,6 @@ function expression(expr: string): Expression {
   return parsed.value;
 }
 
-/** A roller that replays fixed results and records how many it handed out. */
 function fixedRoller(results: readonly number[]): Roller & { readonly used: () => number } {
   let next = 0;
   const roller: Roller = () => {

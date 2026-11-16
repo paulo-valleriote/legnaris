@@ -10,9 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCanonicalEmail is the normative rule table: parse, drop the display name,
-// trim, lowercase and cap the canonical value, preserving dots and +tags
-// (PRQ-08, SC-004).
 func TestCanonicalEmail(t *testing.T) {
 	valid := []struct {
 		name string
@@ -63,8 +60,6 @@ func TestCanonicalEmail(t *testing.T) {
 	}
 }
 
-// TestCanonicalEmailIsPure proves the rule has no hidden state: the same input
-// always yields the same output.
 func TestCanonicalEmailIsPure(t *testing.T) {
 	const input = "  Player@Example.COM  "
 

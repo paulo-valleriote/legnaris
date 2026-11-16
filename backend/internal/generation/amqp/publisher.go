@@ -1,8 +1,3 @@
-// Package amqp is the RabbitMQ adapter of the generation queue. It declares the
-// generation topology idempotently and publishes each job with publisher confirms
-// and mandatory routing, so a nil return means the broker routed the job. The
-// connection is opened on first use and dropped on any failure, so an API that
-// starts without a broker keeps answering and the next publish redials (ADR 0007).
 package amqp
 
 import (
@@ -18,21 +13,13 @@ import (
 	amqp091 "github.com/rabbitmq/amqp091-go"
 )
 
-// Broker entity names and routing of the generation topology (ADR 0007).
 const (
-	// ExchangeGeneration is the topic exchange jobs are published to.
 	ExchangeGeneration = "generation"
-	// QueueRequests is the quorum queue the worker consumes. Its rejected jobs
-	// dead-letter to ExchangeDead.
-	QueueRequests = "generation.requests"
-	// ExchangeDead is the dead-letter exchange of QueueRequests.
-	ExchangeDead = "generation.dead"
-	// QueueDead holds the jobs dead-lettered for operator attention.
-	QueueDead = "generation.dead"
-	// KeyDead is the routing key that binds QueueDead to ExchangeDead.
-	KeyDead = "generation.dead"
-	// bindingPattern matches every kind's requested routing key.
-	bindingPattern = "generation.*.requested"
+	QueueRequests      = "generation.requests"
+	ExchangeDead       = "generation.dead"
+	QueueDead          = "generation.dead"
+	KeyDead            = "generation.dead"
+	bindingPattern     = "generation.*.requested"
 
 	argQueueType      = "x-queue-type"
 	argDeadLetterExch = "x-dead-letter-exchange"
@@ -40,33 +27,19 @@ const (
 	queueTypeQuorum   = "quorum"
 )
 
-// DefaultConfirmTimeout bounds the wait for a publisher confirm when the config
-// leaves it zero, so a stalled broker never holds a request open.
 const DefaultConfirmTimeout = 5 * time.Second
 
-// ErrPublishRefused reports a job the broker did not accept: a nack, an unroutable
-// message or a confirm that did not arrive in time.
 var ErrPublishRefused = errors.New("broker refused the generation job")
 
-// RoutingKey returns the routing key of a job kind.
 func RoutingKey(kind string) string {
 	return "generation." + kind + ".requested"
 }
 
-// Config configures the publisher.
 type Config struct {
-	// URL is the AMQP URI of the broker.
-	URL string
-	// ConfirmTimeout bounds each publish's confirmation wait. Zero uses
-	// DefaultConfirmTimeout.
+	URL            string
 	ConfirmTimeout time.Duration
 }
 
-// Publisher publishes generation jobs and implements generation.Publisher.
-//
-// mu guards only the shared connection and channel. A publish takes them under mu,
-// then publishes and waits for its own confirm without holding it, so concurrent
-// jobs are in flight on the broker together.
 type Publisher struct {
 	url            string
 	confirmTimeout time.Duration
@@ -78,9 +51,6 @@ type Publisher struct {
 	returns *unroutable
 }
 
-// unroutable records the ids of the messages the broker returned on one channel.
-// Every publish on the channel shares the return stream, so the returns are
-// drained into one set under a lock and each publish takes its own id from it.
 type unroutable struct {
 	returns chan amqp091.Return
 
@@ -88,13 +58,10 @@ type unroutable struct {
 	ids map[string]struct{}
 }
 
-// newUnroutable starts collecting the returns of a channel delivered on returns.
 func newUnroutable(returns chan amqp091.Return) *unroutable {
 	return &unroutable{returns: returns, ids: map[string]struct{}{}}
 }
 
-// take reports whether the broker returned the message named by messageID, and
-// forgets that id. It drains the returns already delivered, without blocking.
 func (u *unroutable) take(messageID string) bool {
 	u.mu.Lock()
 	defer u.mu.Unlock()
@@ -104,7 +71,6 @@ func (u *unroutable) take(messageID string) bool {
 	return returned
 }
 
-// drainLocked moves the delivered returns into the set without blocking.
 func (u *unroutable) drainLocked() {
 	for {
 		select {
@@ -116,7 +82,6 @@ func (u *unroutable) drainLocked() {
 	}
 }
 
-// New returns a publisher that connects on first use.
 func New(cfg Config) *Publisher {
 	timeout := cfg.ConfirmTimeout
 	if timeout <= 0 {
@@ -125,9 +90,6 @@ func New(cfg Config) *Publisher {
 	return &Publisher{url: cfg.URL, confirmTimeout: timeout, dial: defaultDialer}
 }
 
-// Publish encodes the message, publishes it persistently and mandatorily, and waits
-// for the broker's confirm. Only identifiers are encoded: the concept never leaves
-// the database through the broker.
 func (p *Publisher) Publish(ctx context.Context, msg generation.Message) error {
 	body, err := json.Marshal(msg)
 	if err != nil {
@@ -151,8 +113,6 @@ func (p *Publisher) Publish(ctx context.Context, msg generation.Message) error {
 	return p.awaitConfirm(ctx, ch, returns, pending, msg.ID)
 }
 
-// acquire returns the shared channel, dialling and declaring the topology when
-// there is none. It is the only step that holds mu.
 func (p *Publisher) acquire() (channel, *unroutable, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -164,9 +124,6 @@ func (p *Publisher) acquire() (channel, *unroutable, error) {
 	return p.ch, p.returns, nil
 }
 
-// awaitConfirm waits for the confirm of one publish without holding mu. A return
-// for the job turns an acknowledged publish into a refusal. A confirm that fails
-// drops the channel it was published on, unless another publish already did.
 func (p *Publisher) awaitConfirm(ctx context.Context, ch channel, returns *unroutable, pending confirmation, messageID string) error {
 	confirmCtx, cancel := context.WithTimeout(ctx, p.confirmTimeout)
 	defer cancel()
@@ -186,8 +143,6 @@ func (p *Publisher) awaitConfirm(ctx context.Context, ch channel, returns *unrou
 	return nil
 }
 
-// dialLocked opens the connection and channel, declares the topology and enables
-// confirms. The caller holds mu.
 func (p *Publisher) dialLocked() error {
 	conn, err := p.dial(p.url)
 	if err != nil {
@@ -214,8 +169,6 @@ func (p *Publisher) dialLocked() error {
 	return nil
 }
 
-// reset drops the channel a failed publish used, so the next publish redials. A
-// channel another publish already replaced is left alone.
 func (p *Publisher) reset(failed channel) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -225,7 +178,6 @@ func (p *Publisher) reset(failed channel) {
 	p.resetLocked()
 }
 
-// resetLocked closes the connection and channel and forgets them. The caller holds mu.
 func (p *Publisher) resetLocked() {
 	if p.ch != nil {
 		_ = p.ch.Close()
@@ -238,8 +190,6 @@ func (p *Publisher) resetLocked() {
 	p.returns = nil
 }
 
-// DeclareTopology opens the broker connection and declares the topology, so a
-// process can fail fast when the broker is unusable.
 func (p *Publisher) DeclareTopology() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -249,7 +199,6 @@ func (p *Publisher) DeclareTopology() error {
 	return p.dialLocked()
 }
 
-// Close releases the connection. A publisher that never connected closes cleanly.
 func (p *Publisher) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -261,8 +210,6 @@ func (p *Publisher) Close() error {
 	return err
 }
 
-// declareTopology declares the exchanges, queues and bindings. Every declaration is
-// idempotent on the broker, so each connection may run it.
 func declareTopology(ch channel) error {
 	if err := ch.ExchangeDeclare(ExchangeGeneration, "topic", true, false, false, false, nil); err != nil {
 		return fmt.Errorf("declare exchange %s: %w", ExchangeGeneration, err)

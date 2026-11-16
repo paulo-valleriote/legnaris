@@ -11,9 +11,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Broker entity names, routing keys and queue arguments. They are code
-// constants so the declared topology is one source of truth and the deployment
-// needs no broker plugin or version-specific extension (EML-06).
 const (
 	exchangeMain  = "legnaris.email"
 	exchangeRetry = "legnaris.email.retry"
@@ -30,12 +27,9 @@ const (
 	routingKey5m   = "5m"
 	routingKeyDead = "email.dead"
 
-	// workQueueMaxLength caps the main queue; the queue-depth alert fires at
-	// 80% of it (8000 ready messages).
 	workQueueMaxLength = 10000
 )
 
-// AMQP argument and property keys shared by the topology specification.
 const (
 	argQueueType          = "x-queue-type"
 	argMaxLength          = "x-max-length"
@@ -48,7 +42,6 @@ const (
 	overflowReject  = "reject-publish"
 )
 
-// exchangeSpec is one declared exchange.
 type exchangeSpec struct {
 	Name       string
 	Kind       string
@@ -58,13 +51,11 @@ type exchangeSpec struct {
 	Args       amqp.Table
 }
 
-// bindingSpec is one queue binding.
 type bindingSpec struct {
 	Exchange   string
 	RoutingKey string
 }
 
-// queueSpec is one declared queue and its bindings.
 type queueSpec struct {
 	Name       string
 	Durable    bool
@@ -74,16 +65,11 @@ type queueSpec struct {
 	Bindings   []bindingSpec
 }
 
-// topology is the declarative description of the email broker topology.
 type topology struct {
 	Exchanges []exchangeSpec
 	Queues    []queueSpec
 }
 
-// emailTopology returns the entities data-model.md §4 fixes: a direct main
-// exchange, a quorum work queue that dead-letters to the retry exchange, three
-// delay-tier retry queues that dead-letter back, and a dead-letter queue. All
-// are durable and declared idempotently before the first publish (EML-06).
 func emailTopology(delays RetryDelays) topology {
 	return topology{
 		Exchanges: []exchangeSpec{
@@ -135,7 +121,6 @@ func emailTopology(delays RetryDelays) topology {
 	}
 }
 
-// quorumArgs returns a copy of args with the quorum queue type set.
 func quorumArgs(args amqp.Table) amqp.Table {
 	if args == nil {
 		args = amqp.Table{}
@@ -144,9 +129,6 @@ func quorumArgs(args amqp.Table) amqp.Table {
 	return args
 }
 
-// workQueueArgs returns the main work queue's arguments: a bounded length that
-// rejects rather than drops on overflow, and a dead-letter route to the first
-// retry tier (EML-06).
 func workQueueArgs() amqp.Table {
 	return amqp.Table{
 		argMaxLength:          int32(workQueueMaxLength),
@@ -156,8 +138,6 @@ func workQueueArgs() amqp.Table {
 	}
 }
 
-// retryTierArgs returns one delay tier's arguments: a message TTL that routes
-// back to the main exchange when it expires (EML-06).
 func retryTierArgs(delay time.Duration) amqp.Table {
 	return amqp.Table{
 		argMessageTTL:         int32(delay.Milliseconds()),
@@ -166,9 +146,6 @@ func retryTierArgs(delay time.Duration) amqp.Table {
 	}
 }
 
-// declare declares every exchange, queue and binding idempotently. A repeated
-// identical declaration is a no-op, so the topology is safe to declare on every
-// startup (EML-06).
 func (t topology) declare(ch channel) error {
 	for _, exchange := range t.Exchanges {
 		if err := ch.ExchangeDeclare(exchange.Name, exchange.Kind, exchange.Durable, exchange.AutoDelete, exchange.Internal, false, exchange.Args); err != nil {
@@ -189,13 +166,8 @@ func (t topology) declare(ch channel) error {
 	return nil
 }
 
-// ErrUnknownDestination reports a destination outside the domain's closed
-// vocabulary; nothing is published (WKR-09).
 var ErrUnknownDestination = errors.New("unknown email destination")
 
-// route maps a destination to the exchange and routing key that reach its
-// queue. It is the only place a routing key is chosen for the worker (WKR-09,
-// WKR-11).
 func route(destination email.Destination) (exchange, key string, err error) {
 	switch destination {
 	case email.DestinationRetry30s:
@@ -211,28 +183,20 @@ func route(destination email.Destination) (exchange, key string, err error) {
 	}
 }
 
-// Default retry delays: the 30 second, 2 minute and 5 minute tiers of WKR-14.
 const (
 	DefaultRetryDelayFirst  = 30 * time.Second
 	DefaultRetryDelaySecond = 2 * time.Minute
 	DefaultRetryDelayLater  = 5 * time.Minute
 )
 
-// ErrInvalidRetryDelay reports a retry delay the broker cannot use as a queue
-// message TTL.
 var ErrInvalidRetryDelay = errors.New("email: invalid retry delay")
 
-// RetryDelays are the delay tiers of the retry queues; a zero value selects
-// the tier's default. Every process that declares the topology must use the
-// same values: the broker refuses to redeclare a queue with a different TTL.
 type RetryDelays struct {
 	First  time.Duration
 	Second time.Duration
 	Later  time.Duration
 }
 
-// resolve fills zero tiers with their defaults and rejects a delay outside
-// the broker's 32-bit millisecond TTL range (WKR-14).
 func (d RetryDelays) resolve() (RetryDelays, error) {
 	resolved := RetryDelays{
 		First:  orDefault(d.First, DefaultRetryDelayFirst),

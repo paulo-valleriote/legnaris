@@ -4,9 +4,6 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { buildSecurityHeaders, resolveDevApiOrigin } from './config/security_headers.ts';
 
-// `appType: 'spa'` makes both the dev and preview servers fall back to
-// `index.html` for unknown paths, so a cold deep link resolves before the
-// service worker exists (FND-08).
 export default defineConfig(({ mode }) => ({
   appType: 'spa',
   server: {
@@ -42,9 +39,6 @@ export default defineConfig(({ mode }) => ({
       reporter: ['text', 'json-summary'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/vite-env.d.ts', 'src/pwa/sw.ts'],
-      // Floors just under the current suite so a real regression breaks the run
-      // while ordinary churn does not (F10-T003 / SC-06). Raise them as coverage
-      // grows; never lower them to make a change pass.
       thresholds: {
         statements: 89.5,
         branches: 86,

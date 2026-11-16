@@ -1,8 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { seedSession } from './auth_seed';
 
-// The service worker is irrelevant to the shell assertions; blocking it keeps
-// its lifecycle out of the layout under test.
 test.use({ serviceWorkers: 'block' });
 
 test.describe('application shell', () => {

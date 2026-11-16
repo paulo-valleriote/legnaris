@@ -3,12 +3,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-/**
- * The self-hosted asset contract: the font and its license are committed and served
- * same-origin, the `@font-face` declares the variable axis and swap behaviour, and nothing
- * in the theme sources or the document head reaches a third-party origin (UIF-14, UIF-15,
- * UIF-16, SC-005).
- */
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(here, '../..');
 const themeDir = path.resolve(here, '../theme');
@@ -23,17 +17,14 @@ const fontsCss = () => read('src/theme/fonts.css');
 const tokensCss = () => read('src/theme/tokens.css');
 const indexHtml = () => read('index.html');
 
-/** Every `@font-face` block body in a stylesheet. */
 function fontFaceBlocks(css: string): string[] {
   return [...css.matchAll(/@font-face\s*\{([\s\S]*?)\}/g)].map((match) => match[1]);
 }
 
-/** An asset address that leaves the app's own origin. */
 function isThirdPartyUrl(url: string): boolean {
   return /^(?:https?:)?\/\//i.test(url.trim().replace(/^['"]|['"]$/g, ''));
 }
 
-/** Every third-party font address a stylesheet would request. */
 function thirdPartyFontUrls(css: string): string[] {
   const urls: string[] = [];
   for (const block of fontFaceBlocks(css)) {
@@ -46,7 +37,6 @@ function thirdPartyFontUrls(css: string): string[] {
   return urls;
 }
 
-/** Whether a font directory carries an open-font license beside the artifact. */
 function hasCommittedLicense(dir: string): boolean {
   if (!existsSync(dir)) {
     return false;
@@ -54,7 +44,6 @@ function hasCommittedLicense(dir: string): boolean {
   return readdirSync(dir).some((name) => /license/i.test(name));
 }
 
-/** Every stylesheet the theme directory ships. */
 function themeFiles(): string[] {
   if (!existsSync(themeDir)) {
     return [];

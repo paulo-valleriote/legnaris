@@ -1,24 +1,12 @@
-/**
- * The LLM consent disclosure shown before a generation (ADR 0008, LGN-196).
- *
- * The text is copied verbatim from `docs/legal/llm-consent.json` into this folder
- * because the web Docker build only sees `web/`; the sync suite keeps the copy equal
- * to the source whenever the source is present. The disclosure is data, so it is
- * shown as text and never parsed as markup.
- */
-
 import raw from './llm_consent.json';
 import { drift } from '../api/parse';
 
-/** One heading and body pair of the disclosure. */
 export interface ConsentPoint {
   readonly heading: string;
   readonly body: string;
 }
 
-/** The disclosure a person reads before consenting. */
 export interface ConsentDisclosure {
-  /** The disclosure version the consent is recorded against (`PUT /me/llm-consent`). */
   readonly version: string;
   readonly title: string;
   readonly intro: string;
@@ -72,10 +60,8 @@ function decodeDisclosure(data: RawDisclosure): ConsentDisclosure {
 
 const disclosure = decodeDisclosure(source);
 
-/** The consent version the backend records (LGN-194); it must match the disclosure. */
 export const CONSENT_VERSION: string = disclosure.version;
 
-/** Returns the English disclosure. A malformed copy throws at load, never on screen. */
 export function consentDisclosure(): ConsentDisclosure {
   return disclosure;
 }

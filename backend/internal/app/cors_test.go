@@ -17,8 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// webOrigin mirrors the deployment's WEB_DOMAIN (deploy/.env.example), the one
-// origin the browser client calls the API from.
 const webOrigin = "https://legnaris.paulovalleriote.io"
 
 func newAuthRouterWithCORS(t *testing.T, service *authmocks.MockService) http.Handler {
@@ -37,7 +35,6 @@ func newAuthRouterWithCORS(t *testing.T, service *authmocks.MockService) http.Ha
 	return e
 }
 
-// advertisedHeaders splits the Access-Control-Allow-Headers response header.
 func advertisedHeaders(rec *httptest.ResponseRecorder) []string {
 	raw := rec.Header().Get(echo.HeaderAccessControlAllowHeaders)
 	if raw == "" {
@@ -52,7 +49,7 @@ func advertisedHeaders(rec *httptest.ResponseRecorder) []string {
 
 func TestCORSPreflight(t *testing.T) {
 	t.Run("Happy path: the allowlisted origin is echoed with credentials and X-CSRF-Token", func(t *testing.T) {
-		service := authmocks.NewMockService(t) // a preflight never reaches the service
+		service := authmocks.NewMockService(t)
 		h := newAuthRouterWithCORS(t, service)
 
 		req := newRequest(http.MethodOptions, "/auth/refresh", "")

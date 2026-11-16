@@ -19,9 +19,6 @@ func samplePayload() outbox.Payload {
 	return outbox.Payload{Code: "042917", ExpiresInMinutes: 10, Purpose: "login_otp"}
 }
 
-// TestNewIntent_GeneratesIdentity pins the created row's invariants: a
-// canonical UUID v7 identity and a pending, immediately eligible, unleased row
-// (EML-01, EML-18).
 func TestNewIntent_GeneratesIdentity(t *testing.T) {
 	now := sampleNow()
 	intent, err := outbox.NewIntent("", "player@example.com", "login_otp", samplePayload(), now)
@@ -50,8 +47,6 @@ func TestNewIntent_GeneratesIdentity(t *testing.T) {
 	})
 }
 
-// TestNewIntent_AcceptsSuppliedIdentity proves a caller-supplied canonical
-// identity is honoured as the provider idempotency key (EML-18).
 func TestNewIntent_AcceptsSuppliedIdentity(t *testing.T) {
 	const id = "018f4a1e-5c6b-7d8e-9f01-23456789abcd"
 
@@ -60,8 +55,6 @@ func TestNewIntent_AcceptsSuppliedIdentity(t *testing.T) {
 	assert.Equal(t, id, intent.ID)
 }
 
-// TestNewIntent_RejectsNonCanonicalIdentity: a supplied identity that is not
-// exactly what backend/shared/idgen.New produces is rejected, never stored (EML-18).
 func TestNewIntent_RejectsNonCanonicalIdentity(t *testing.T) {
 	tests := []struct {
 		name string
@@ -84,8 +77,6 @@ func TestNewIntent_RejectsNonCanonicalIdentity(t *testing.T) {
 	}
 }
 
-// TestNewIntent_GeneratesDistinctIdentities guards against a constant identity
-// masquerading as generated (EML-18).
 func TestNewIntent_GeneratesDistinctIdentities(t *testing.T) {
 	first, err := outbox.NewIntent("", "a@example.com", "login_otp", samplePayload(), sampleNow())
 	require.NoError(t, err)
@@ -95,9 +86,6 @@ func TestNewIntent_GeneratesDistinctIdentities(t *testing.T) {
 	assert.NotEqual(t, first.ID, second.ID, "each intention must get its own identity")
 }
 
-// TestNewIntent_DefaultsToInitialKind pins that a freshly recorded intention is
-// a first send, so only resends written by Clone count against the resend share
-// (D5).
 func TestNewIntent_DefaultsToInitialKind(t *testing.T) {
 	intent, err := outbox.NewIntent("", "player@example.com", "verify_email", samplePayload(), sampleNow())
 	require.NoError(t, err)

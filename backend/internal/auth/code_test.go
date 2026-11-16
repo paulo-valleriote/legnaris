@@ -11,12 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// codePattern is the only shape a code may take: six decimal digits, leading
-// zeros preserved as string characters (OTP-02).
 var codePattern = regexp.MustCompile(`^\d{6}$`)
 
-// TestCodeGenerator_Generate proves the generator never drifts from the
-// six-digit shape and reaches a leading-zero value (OTP-02).
 func TestCodeGenerator_Generate(t *testing.T) {
 	gen := auth.NewCodeGenerator()
 
@@ -34,8 +30,6 @@ func TestCodeGenerator_Generate(t *testing.T) {
 	})
 }
 
-// TestCodeDigest_Digest pins the identity-and-purpose binding and the
-// determinism of the keyed digest (OTP-03).
 func TestCodeDigest_Digest(t *testing.T) {
 	digest, err := auth.NewCodeDigest(strings.Repeat("k", 32))
 	require.NoError(t, err)
@@ -71,8 +65,6 @@ func TestCodeDigest_Digest(t *testing.T) {
 	})
 }
 
-// TestCodeDigest_Equal pins the constant-time comparison's observable contract
-// (OTP-03).
 func TestCodeDigest_Equal(t *testing.T) {
 	digest, err := auth.NewCodeDigest(strings.Repeat("k", 32))
 	require.NoError(t, err)
@@ -98,8 +90,6 @@ func TestCodeDigest_Equal(t *testing.T) {
 	})
 }
 
-// TestNewCodeDigest pins the secret-strength boundary: absent, blank and 31
-// bytes are rejected, 32 bytes are accepted (OTP-18, SC-008).
 func TestNewCodeDigest(t *testing.T) {
 	tests := []struct {
 		name    string

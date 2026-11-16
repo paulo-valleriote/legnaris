@@ -36,7 +36,6 @@ function planWith(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** A transport that answers by `METHOD /path` and records every request. */
 function routed(routes: Record<string, Responder>) {
   const requests: HttpRequest[] = [];
   const transport: Transport = (request) => {

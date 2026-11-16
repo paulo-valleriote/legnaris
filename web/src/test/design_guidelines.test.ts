@@ -3,14 +3,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-/**
- * The guidelines contract: `web/DESIGN.md` is the sole written source of the visual rules, and
- * `web/AGENTS.md` keeps only development, security and architecture rules and defers to it
- * (UIF-33, SC-006).
- *
- * `src/theme/` is the sanctioned literal-value exception, so it is never scanned here either;
- * this suite governs the two documents, not the token source.
- */
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(here, '../..');
 const designPath = path.resolve(webRoot, 'DESIGN.md');
@@ -20,7 +12,6 @@ function read(file: string): string {
   return existsSync(file) ? readFileSync(file, 'utf8') : '';
 }
 
-/** The sections the design document must carry (UIF-33). */
 const MANDATORY_SECTIONS = [
   'Principles',
   'Token architecture',
@@ -41,7 +32,6 @@ function sectionHeadings(markdown: string): string[] {
   return [...markdown.matchAll(/^##\s+(.+?)\s*$/gm)].map((match) => match[1].toLowerCase());
 }
 
-/** The mandatory sections a document is missing. */
 function missingSections(markdown: string, sections: readonly string[]): string[] {
   const headings = sectionHeadings(markdown);
   return sections.filter(
@@ -53,7 +43,6 @@ function missingSections(markdown: string, sections: readonly string[]): string[
   );
 }
 
-/** Table rows that restate a token's literal value — a visual rule in the wrong document. */
 function restatedTokenRows(markdown: string): string[] {
   return markdown
     .split('\n')

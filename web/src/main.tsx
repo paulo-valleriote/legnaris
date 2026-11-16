@@ -9,8 +9,6 @@ import { installTrustedTypesPolicy } from './pwa/trusted_types';
 import './theme/tokens.css';
 import './theme/base.css';
 
-// Trusted Types default policy (F9-T005 / SEC-02, SEC-06): closes DOM-based XSS
-// sinks. No inline HTML assignment without a TrustedHTML object after this point.
 installTrustedTypesPolicy();
 
 const container = document.getElementById('root');

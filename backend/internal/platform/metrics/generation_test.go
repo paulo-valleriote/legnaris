@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestGenerationCapMetrics pins the series the 80% global cap alert reads:
-// the used and limit pair plus the ratio, all unlabelled gauges.
 func TestGenerationCapMetrics(t *testing.T) {
 	tests := []struct {
 		name  string

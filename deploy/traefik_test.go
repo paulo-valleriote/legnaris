@@ -13,12 +13,6 @@ import (
 
 const dynamicFile = "traefik/dynamic.yml"
 
-// supportedHeaderOptions is the set of `headers` middleware options accepted by
-// the Traefik release pinned in docker-compose.yml (v3.3). Traefik validates the
-// dynamic file as a whole, so one unsupported key makes it discard the entire
-// configuration: every router disappears, the edge answers 404 without CORS
-// headers, and the browser reports the failure as a CORS error. Keep this list
-// in sync when bumping the Traefik image.
 var supportedHeaderOptions = []string{
 	"accessControlAllowCredentials",
 	"accessControlAllowHeaders",
@@ -74,10 +68,6 @@ func readDynamic(t *testing.T) dynamicDoc {
 	return doc
 }
 
-// TestTraefikHeadersMiddlewareOptions guards the regression that took the whole
-// stack down: `crossOriginOpenerPolicy` is not a Traefik v3.3 header option, so
-// the file provider rejected the configuration and every public route returned
-// 404, which the browser surfaced as a CORS failure on login and registration.
 func TestTraefikHeadersMiddlewareOptions(t *testing.T) {
 	doc := readDynamic(t)
 	require.NotEmpty(t, doc.HTTP.Middlewares, "dynamic.yml must define middlewares")
@@ -107,9 +97,6 @@ func TestTraefikHeadersMiddlewareOptions(t *testing.T) {
 	})
 }
 
-// TestWebSecurityHeadersKeepContract pins the headers the web client contract
-// requires (headers.contract.md), including the two that moved to
-// customResponseHeaders.
 func TestWebSecurityHeadersKeepContract(t *testing.T) {
 	doc := readDynamic(t)
 	middleware, ok := doc.HTTP.Middlewares["web-security-headers"]
@@ -151,8 +138,6 @@ func TestWebSecurityHeadersKeepContract(t *testing.T) {
 	})
 }
 
-// TestSupportedHeaderOptionsHasNoDuplicates keeps the allowlist trustworthy:
-// a duplicated entry would hide a misspelled option during review.
 func TestSupportedHeaderOptionsHasNoDuplicates(t *testing.T) {
 	seen := make(map[string]struct{}, len(supportedHeaderOptions))
 	for _, option := range supportedHeaderOptions {
@@ -196,9 +181,6 @@ func readRoutes(t *testing.T) dynamicRoutes {
 
 const opsHostRule = "Host(`{{ env \"OPS_DOMAIN\" }}`)"
 
-// TestBrokerConsoleRouteIsTheOperators guards the console's route: the
-// operator's domain, its own path prefix, the broker's console, and the
-// sign-in gate and security headers in that order (BRK-07, BRK-08, SC-002).
 func TestBrokerConsoleRouteIsTheOperators(t *testing.T) {
 	doc := readRoutes(t)
 
@@ -236,9 +218,6 @@ func TestBrokerConsoleRouteIsTheOperators(t *testing.T) {
 	})
 }
 
-// TestOperatorRoutesKeepTheirGate guards every route on the operator's domain:
-// all but the OAuth callback carry the sign-in gate, and the three consoles
-// already there are unchanged (BRK-08, SC-009).
 func TestOperatorRoutesKeepTheirGate(t *testing.T) {
 	doc := readRoutes(t)
 
@@ -277,11 +256,6 @@ func TestOperatorRoutesKeepTheirGate(t *testing.T) {
 	}
 }
 
-// TestPipelineDashboardStaysBehindTheOperatorsRoute guards the dashboard's
-// reach: it is served by the monitoring dashboard host, which is routed only on
-// the operator's domain behind the sign-in gate, and the provisioned directory
-// is mounted read-only so nothing edited in a browser outlives a restart
-// (OBS-10, OBS-21, SC-006).
 func TestPipelineDashboardStaysBehindTheOperatorsRoute(t *testing.T) {
 	doc := readRoutes(t)
 	compose := readCompose(t)
@@ -317,9 +291,6 @@ func TestPipelineDashboardStaysBehindTheOperatorsRoute(t *testing.T) {
 
 const apiHostRule = "Host(`{{ env \"API_DOMAIN\" }}`)"
 
-// TestPublicProbeExposure guards which probes the public API domain reaches:
-// /ready pings the database and stays internal, /metrics stays internal, and
-// /health is public behind a per-client rate limit.
 func TestPublicProbeExposure(t *testing.T) {
 	routes := readRoutes(t)
 

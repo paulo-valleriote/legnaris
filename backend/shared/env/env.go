@@ -15,107 +15,71 @@ import (
 )
 
 type Variables struct {
-	Port                           string
-	AppName                        string
-	DatabaseURI                    string
-	DatabaseName                   string
-	DatabasePingTimeout            time.Duration
-	DatabaseServerSelectionTimeout time.Duration
-	DatabaseConnectTimeout         time.Duration
-	DatabaseCloseTimeout           time.Duration
-	// DatabaseMaxPoolSize and DatabaseMinPoolSize bound the Mongo driver's
-	// connection pool per process. Unlike the lenient readers, invalid values
-	// are reported by Env.Validate so a mis-sized pool fails the boot.
-	DatabaseMaxPoolSize            uint64
-	DatabaseMinPoolSize            uint64
-	ShutdownTimeout                time.Duration
-	CORSOrigins                    []string
-	JWTSecret                      string
-	JWTAccessTTL                   time.Duration
-	AuthRefreshTTL                 time.Duration
-	AuthBcryptCost                 int
-	AuthRateLimitAttempts          int
-	AuthRateLimitWindow            time.Duration
-	RegisterIPRateLimitAttempts    int
-	RegisterIPRateLimitWindow      time.Duration
-	RegisterEmailRateLimitAttempts int
-	RegisterEmailRateLimitWindow   time.Duration
-	CSPReportRateLimitAttempts     int
-	CSPReportRateLimitWindow       time.Duration
-	UserRateLimitAttempts          int
-	UserRateLimitWindow            time.Duration
-	// TrustedProxyCIDRs is the operator's trusted proxy set. It is nil when
-	// unset or blank, which selects the documented loopback/private/link-local
-	// default; a configured value replaces the non-loopback portion (PRQ-03).
-	TrustedProxyCIDRs []string
-	// RedisURL selects the shared rate-limit store. Empty keeps the in-process
-	// limiter, whose effective cap is the configured value per replica; it is
-	// validated by Env.Validate so a malformed URL fails the boot (ADR 0003).
-	RedisURL string
-	// Email and broker settings are all optional with documented defaults, so
-	// the request-serving process starts when none of them is set and the
-	// deployment's required-variable list is unchanged. The relay — not the
-	// API — validates the broker URL it needs (EML-14, EML-15, EML-16).
-	// AppEnv names the deployment. The development sender refuses to build when
-	// it is "production" (D10). Empty keeps the non-production behavior.
-	AppEnv                   string
-	EmailProvider            string
-	ResendAPIKey             string
-	EmailFrom                string
-	EmailSendTimeout         time.Duration
-	RabbitMQURL              string
-	EmailRelayPollInterval   time.Duration
-	EmailRelayLease          time.Duration
-	EmailRelayBatch          int
-	EmailRelayConfirmTimeout time.Duration
-	EmailRelayMaxAttempts    int
-	EmailOutboxRetention     time.Duration
-	EmailRelayMetricsAddr    string
-	// The worker's settings are optional too: the worker validates the broker
-	// and the provider itself, so the required list stays unchanged (WKR-14,
-	// WKR-16, WKR-19, WKR-20).
-	// The retry delay tiers are shared by every process that declares the
-	// topology; zero selects the tier's default (WKR-14).
-	EmailRetryDelayFirst   time.Duration
-	EmailRetryDelaySecond  time.Duration
-	EmailRetryDelayLater   time.Duration
-	EmailWorkerPrefetch    int
-	EmailWorkerMaxAttempts int
-	EmailWorkerMetricsAddr string
-	// EmailCodeSecret keys the OTP digest and is required: the API itself
-	// digests codes, so an absent, blank or too-short value must fail the boot
-	// rather than silently weaken every code (F-09, OTP-18, SC-008). The
-	// challenge settings are optional with documented defaults.
-	EmailCodeSecret         string
-	AuthOTPTTL              time.Duration
-	AuthOTPCeiling          time.Duration
-	AuthOTPResendCooldown   time.Duration
-	AuthOTPMaxAttempts      int
-	AuthOTPDailySendCap     int
-	AuthOTPResendCapRatio   float64
-	AuthOTPUserWindow       time.Duration
-	AuthRegisterMinDuration time.Duration
-	AuthOTPUserLimit        int
-	// AuthDisposableEmailCheck gates the registration refusal of throwaway and
-	// undeliverable domains. It defaults on and is forced on in production.
-	AuthDisposableEmailCheck bool
-	// LLM settings select the character-generation gateway (ADR 0008). They are
-	// optional at boot: LLMAPIKey is checked by the adapter when it is built, and
-	// Validate refuses a :free model.
-	LLMProvider string
-	LLMBaseURL  string
-	LLMAPIKey   string
-	LLMModel    string
-	LLMTimeout  time.Duration
-	// GenerationEnabled is the kill-switch of character generation (LGN-186).
-	// When false, POST /generations answers 503 before anything is reserved.
-	GenerationEnabled bool
-	// GenerationDailyCap caps the generation jobs accepted per UTC day across
-	// every player (LGN-186). Zero refuses every job.
-	GenerationDailyCap int
-	// GenerationCreateRateLimitAttempts and GenerationReadRateLimitAttempts are
-	// the per-user budgets of POST and GET /generations, each in its own
-	// limiter namespace (LGN-186).
+	Port                              string
+	AppName                           string
+	DatabaseURI                       string
+	DatabaseName                      string
+	DatabasePingTimeout               time.Duration
+	DatabaseServerSelectionTimeout    time.Duration
+	DatabaseConnectTimeout            time.Duration
+	DatabaseCloseTimeout              time.Duration
+	DatabaseMaxPoolSize               uint64
+	DatabaseMinPoolSize               uint64
+	ShutdownTimeout                   time.Duration
+	CORSOrigins                       []string
+	JWTSecret                         string
+	JWTAccessTTL                      time.Duration
+	AuthRefreshTTL                    time.Duration
+	AuthBcryptCost                    int
+	AuthRateLimitAttempts             int
+	AuthRateLimitWindow               time.Duration
+	RegisterIPRateLimitAttempts       int
+	RegisterIPRateLimitWindow         time.Duration
+	RegisterEmailRateLimitAttempts    int
+	RegisterEmailRateLimitWindow      time.Duration
+	CSPReportRateLimitAttempts        int
+	CSPReportRateLimitWindow          time.Duration
+	UserRateLimitAttempts             int
+	UserRateLimitWindow               time.Duration
+	TrustedProxyCIDRs                 []string
+	RedisURL                          string
+	AppEnv                            string
+	EmailProvider                     string
+	ResendAPIKey                      string
+	EmailFrom                         string
+	EmailSendTimeout                  time.Duration
+	RabbitMQURL                       string
+	EmailRelayPollInterval            time.Duration
+	EmailRelayLease                   time.Duration
+	EmailRelayBatch                   int
+	EmailRelayConfirmTimeout          time.Duration
+	EmailRelayMaxAttempts             int
+	EmailOutboxRetention              time.Duration
+	EmailRelayMetricsAddr             string
+	EmailRetryDelayFirst              time.Duration
+	EmailRetryDelaySecond             time.Duration
+	EmailRetryDelayLater              time.Duration
+	EmailWorkerPrefetch               int
+	EmailWorkerMaxAttempts            int
+	EmailWorkerMetricsAddr            string
+	EmailCodeSecret                   string
+	AuthOTPTTL                        time.Duration
+	AuthOTPCeiling                    time.Duration
+	AuthOTPResendCooldown             time.Duration
+	AuthOTPMaxAttempts                int
+	AuthOTPDailySendCap               int
+	AuthOTPResendCapRatio             float64
+	AuthOTPUserWindow                 time.Duration
+	AuthRegisterMinDuration           time.Duration
+	AuthOTPUserLimit                  int
+	AuthDisposableEmailCheck          bool
+	LLMProvider                       string
+	LLMBaseURL                        string
+	LLMAPIKey                         string
+	LLMModel                          string
+	LLMTimeout                        time.Duration
+	GenerationEnabled                 bool
+	GenerationDailyCap                int
 	GenerationCreateRateLimitAttempts int
 	GenerationCreateRateLimitWindow   time.Duration
 	GenerationReadRateLimitAttempts   int
@@ -138,38 +102,26 @@ const (
 	defaultAuthBcryptCost                 = 12
 	defaultAuthRateLimitAttempts          = 10
 	defaultAuthRateLimitWindow            = 1 * time.Minute
-	// Registration creates accounts and sends codes, so it has a stricter,
-	// hourly budget per address and per canonical e-mail than sign-in (LGN-150).
 	defaultRegisterIPRateLimitAttempts    = 5
 	defaultRegisterIPRateLimitWindow      = 1 * time.Hour
 	defaultRegisterEmailRateLimitAttempts = 3
 	defaultRegisterEmailRateLimitWindow   = 1 * time.Hour
-	// A single page can emit several CSP reports in a row, so the report cap is
-	// deliberately looser than the auth cap's 10/min while staying bounded
-	// (POL-05, contract csp-report.contract.md).
-	defaultCSPReportRateLimitAttempts = 30
-	defaultCSPReportRateLimitWindow   = 1 * time.Minute
-	// Authenticated routes are capped per user and the remaining public probes
-	// (health, metrics) per address (LGN-30).
-	defaultUserRateLimitAttempts = 80
-	defaultUserRateLimitWindow   = 1 * time.Minute
-	// Email-delivery and relay defaults (EML-14).
-	defaultEmailProvider            = "log"
-	defaultEmailSendTimeout         = 10 * time.Second
-	defaultEmailRelayPollInterval   = 1 * time.Second
-	defaultEmailRelayLease          = 30 * time.Second
-	defaultEmailRelayBatch          = 25
-	defaultEmailRelayConfirmTimeout = 5 * time.Second
-	defaultEmailRelayMaxAttempts    = 5
-	defaultEmailRelayMetricsAddr    = ":9100"
+	defaultCSPReportRateLimitAttempts     = 30
+	defaultCSPReportRateLimitWindow       = 1 * time.Minute
+	defaultUserRateLimitAttempts          = 80
+	defaultUserRateLimitWindow            = 1 * time.Minute
+	defaultEmailProvider                  = "log"
+	defaultEmailSendTimeout               = 10 * time.Second
+	defaultEmailRelayPollInterval         = 1 * time.Second
+	defaultEmailRelayLease                = 30 * time.Second
+	defaultEmailRelayBatch                = 25
+	defaultEmailRelayConfirmTimeout       = 5 * time.Second
+	defaultEmailRelayMaxAttempts          = 5
+	defaultEmailRelayMetricsAddr          = ":9100"
 
-	// Email-worker defaults (WKR-14, WKR-16, WKR-20).
-	defaultEmailWorkerPrefetch    = 10
-	defaultEmailWorkerMaxAttempts = 5
-	defaultEmailWorkerMetricsAddr = ":9101"
-	// Challenge defaults (OTP-18): the code lifetime, its absolute ceiling, the
-	// resend cooldown, the attempt cap, the daily send cap (deliberately below
-	// the provider's free-tier 100) and the durable per-account bound.
+	defaultEmailWorkerPrefetch     = 10
+	defaultEmailWorkerMaxAttempts  = 5
+	defaultEmailWorkerMetricsAddr  = ":9101"
 	defaultAuthOTPTTL              = 10 * time.Minute
 	defaultAuthOTPCeiling          = 30 * time.Minute
 	defaultAuthOTPResendCooldown   = 60 * time.Second
@@ -179,18 +131,12 @@ const (
 	defaultAuthOTPUserWindow       = time.Hour
 	defaultAuthRegisterMinDuration = 500 * time.Millisecond
 	defaultAuthOTPUserLimit        = 10
-	// The disposable-address check is on by default (D7); make dev and CI turn
-	// it off explicitly.
-	defaultDisposableEmailCheck = true
-	// LLM defaults (ADR 0008): OpenRouter is the only gateway and the model is the
-	// paid DeepSeek V4.1 Flash. The timeout bounds one generation call.
-	defaultLLMProvider = "openrouter"
-	defaultLLMBaseURL  = "https://openrouter.ai/api/v1"
-	defaultLLMModel    = "deepseek/deepseek-v4.1-flash"
-	defaultLLMTimeout  = 60 * time.Second
+	defaultDisposableEmailCheck    = true
+	defaultLLMProvider             = "openrouter"
+	defaultLLMBaseURL              = "https://openrouter.ai/api/v1"
+	defaultLLMModel                = "deepseek/deepseek-v4.1-flash"
+	defaultLLMTimeout              = 60 * time.Second
 
-	// Generation defaults (LGN-186): the kill-switch is off until the deploy
-	// sets it, and the global cap is a conservative first budget.
 	defaultGenerationEnabled         = false
 	defaultGenerationDailyCap        = 200
 	defaultGenerationCreateAttempts  = 5
@@ -198,27 +144,17 @@ const (
 	defaultGenerationRateLimitWindow = 1 * time.Minute
 )
 
-// appEnvProduction is the APP_ENV value that forces the disposable-address
-// check on.
 const appEnvProduction = "production"
 
-// DefaultEmailOutboxRetention is the retention window after which a published
-// send intention becomes eligible for retirement; it backs the email_outbox
-// published_at TTL index (EML-17). It is exported so backend/shared/db's index
-// declaration and this variable's default share one source of truth.
 const DefaultEmailOutboxRetention = 168 * time.Hour
 
 const attrKey = "key"
 
-// Structured-log field keys shared by the readers that report an unusable
-// value: the raw value and the default that replaced it.
 const (
 	attrValue   = "value"
 	attrDefault = "default"
 )
 
-// Environment variables the application cannot start without. Kept as
-// constants so RequiredKeys and initVariables share one source of truth.
 const (
 	keyDatabaseURI       = "DATABASE_URI"
 	keyJWTSecret         = "JWT_SECRET"
@@ -229,17 +165,10 @@ const (
 	keyDisposableEmail   = "AUTH_DISPOSABLE_EMAIL_CHECK"
 )
 
-// RequiredKeys returns the environment variables the application cannot start
-// without. Deployment configuration (e.g. deploy/docker-compose.yml) must
-// provide every one of them; exposing the set here lets that be validated
-// against this single source of truth instead of drifting silently.
 func RequiredKeys() []string {
 	return []string{keyDatabaseURI, keyJWTSecret, keyEmailCodeSecret}
 }
 
-// defaultCORSOrigins are the allowed origins during local development. Set
-// CORS_ALLOWED_ORIGINS (comma-separated) to override, e.g. with the production
-// frontend origin.
 var defaultCORSOrigins = []string{"http://localhost:3000", "http://localhost:5173"}
 
 type Env struct {
@@ -248,8 +177,6 @@ type Env struct {
 	invalid   []error
 }
 
-// Validate reports configuration that must abort startup: unusable pool sizes
-// and a minimum pool larger than the maximum. It returns nil when valid.
 func (e Env) Validate() error {
 	errs := slices.Clone(e.invalid)
 	if e.Variables.DatabaseMinPoolSize > e.Variables.DatabaseMaxPoolSize {
@@ -269,8 +196,6 @@ func (e Env) Validate() error {
 	return errors.Join(errs...)
 }
 
-// validateLLMModel refuses a :free model variant: free endpoints may retain or
-// train on prompts (ADR 0008). The same rule is enforced by the LLM adapter.
 func validateLLMModel(model string) error {
 	if strings.HasSuffix(model, ":free") {
 		return errors.New("LLM_MODEL must not be a :free model variant (ADR 0008)")
@@ -278,8 +203,6 @@ func validateLLMModel(model string) error {
 	return nil
 }
 
-// validateRedisURL accepts an empty value (in-process limiter) or a redis://
-// or rediss:// URL with a host.
 func validateRedisURL(raw string) error {
 	if raw == "" {
 		return nil
@@ -379,9 +302,6 @@ func (e *Env) buildVariables() Variables {
 	}
 }
 
-// resolveDisposableEmailCheck reads AUTH_DISPOSABLE_EMAIL_CHECK. In production
-// a value of false is overridden to true and logged, so the check cannot be
-// turned off there by configuration.
 func (e *Env) resolveDisposableEmailCheck(appEnv string) bool {
 	enabled := e.lookupBoolEnv(keyDisposableEmail, defaultDisposableEmailCheck)
 	if enabled || appEnv != appEnvProduction {
@@ -395,8 +315,6 @@ func (e *Env) resolveDisposableEmailCheck(appEnv string) bool {
 	return true
 }
 
-// lookupBoolEnv reads a boolean with strconv.ParseBool. Unset, empty or
-// unparseable values log a warning and return the default.
 func (e *Env) lookupBoolEnv(key string, defaultValue bool) bool {
 	value, found := e.lookupEnv(key)
 	if !found {
@@ -416,8 +334,6 @@ func (e *Env) lookupBoolEnv(key string, defaultValue bool) bool {
 	return parsed
 }
 
-// lookupEnv reads key from the environment and reports whether it was set to a
-// non-empty value. When absent, it logs a structured warning and returns false.
 func (e *Env) lookupEnv(key string) (string, bool) {
 	value, found := os.LookupEnv(key)
 	if !found || value == "" {
@@ -439,10 +355,6 @@ func (e *Env) lookupStringEnv(key string, defaultValue string) string {
 	return value
 }
 
-// lookupStringSliceEnv reads a comma-separated env var into a slice, trimming
-// whitespace, dropping empty entries, and normalizing trailing slashes so
-// origins match at runtime. The fallback default is cloned so callers never
-// alias package-level state.
 func (e *Env) lookupStringSliceEnv(key string, defaultValue []string) []string {
 	value, found := e.lookupEnv(key)
 	if !found {
@@ -460,11 +372,6 @@ func (e *Env) lookupStringSliceEnv(key string, defaultValue []string) []string {
 	return result
 }
 
-// lookupTrustedProxyCIDRs reads the optional trusted proxy set. It preserves the
-// distinction the resolver needs: unset and blank mean "use the documented
-// default" (nil), while a configured value such as "," means "trust exactly what
-// I listed" (empty, non-nil). CIDRs are not validated here; an invalid entry is
-// a boot error when the policy is built (PRQ-03, PRQ-18).
 func (e *Env) lookupTrustedProxyCIDRs() []string {
 	value, found := os.LookupEnv(keyTrustedProxyCIDRs)
 	if !found || value == "" {
@@ -481,10 +388,6 @@ func (e *Env) lookupTrustedProxyCIDRs() []string {
 	return result
 }
 
-// lookupDurationEnv reads a duration from the environment using Go's
-// time.ParseDuration format (e.g. "2s", "500ms", "1m30s"). When the variable
-// is unset, empty, invalid, or parses to a non-positive duration, it logs a
-// structured warning and returns the provided default.
 func (e *Env) lookupDurationEnv(key string, defaultValue time.Duration) time.Duration {
 	value, found := e.lookupEnv(key)
 	if !found {
@@ -505,9 +408,6 @@ func (e *Env) lookupDurationEnv(key string, defaultValue time.Duration) time.Dur
 	return parsed
 }
 
-// lookupPoolSizeEnv reads an unsigned integer of at least minimum. Unset or
-// empty returns the default; an unusable value is recorded for Validate and
-// the default is returned meanwhile.
 func (e *Env) lookupPoolSizeEnv(key string, defaultValue, minimum uint64) uint64 {
 	value, found := e.lookupEnv(key)
 	if !found {
@@ -522,9 +422,6 @@ func (e *Env) lookupPoolSizeEnv(key string, defaultValue, minimum uint64) uint64
 	return parsed
 }
 
-// lookupRequiredStringEnv reads a required string from the environment. When
-// the variable is unset or empty, it logs a structured warning and returns an
-// empty string (the caller must handle the empty case).
 func (e *Env) lookupRequiredStringEnv(key string) string {
 	value, found := e.lookupEnv(key)
 	if !found {
@@ -538,9 +435,6 @@ func (e *Env) lookupRequiredStringEnv(key string) string {
 	return value
 }
 
-// lookupRatioEnv reads a fraction in (0, 1] from the environment. When the
-// variable is unset, empty, non-numeric, NaN or outside that range, it logs a
-// structured warning and returns the provided default.
 func (e *Env) lookupRatioEnv(key string, defaultValue float64) float64 {
 	value, found := e.lookupEnv(key)
 	if !found {
@@ -561,9 +455,6 @@ func (e *Env) lookupRatioEnv(key string, defaultValue float64) float64 {
 	return parsed
 }
 
-// lookupIntEnv reads a positive integer from the environment. When the variable
-// is unset, empty, non-numeric, or not positive, it logs a structured warning
-// and returns the provided default.
 func (e *Env) lookupIntEnv(key string, defaultValue int) int {
 	value, found := e.lookupEnv(key)
 	if !found {

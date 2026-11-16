@@ -1,8 +1,3 @@
-/**
- * The post-sign-in destination carried in the `next` query parameter. It is attacker-controllable
- * input, so only a same-origin relative path is ever accepted (open-redirect guard).
- */
-
 import { LANDING_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
 
 export const NEXT_PARAM = 'next';
@@ -20,11 +15,6 @@ function decodedOnce(value: string): string | null {
   }
 }
 
-/**
- * Returns `raw` when it is a same-origin relative path that starts with a single `/`, and `null`
- * otherwise (empty, scheme-relative, absolute, backslash or control characters, encoded variants of
- * those, or a path back into the auth surface).
- */
 export function sanitizeNextPath(raw: string | null | undefined): string | null {
   if (raw === null || raw === undefined || raw === '') {
     return null;
@@ -45,7 +35,6 @@ export function sanitizeNextPath(raw: string | null | undefined): string | null 
   return raw;
 }
 
-/** The sign-in location that returns to `target` afterwards; plain sign-in when `target` is unsafe or the landing. */
 export function signInPathFor(target: string): string {
   const safe = sanitizeNextPath(target);
   if (safe === null || safe === LANDING_PATH) {
@@ -54,7 +43,6 @@ export function signInPathFor(target: string): string {
   return `${SIGN_IN_PATH}?${NEXT_PARAM}=${encodeURIComponent(safe)}`;
 }
 
-/** Whether `next` points at a sheet (`/sheets/…`). */
 export function isSheetPath(next: string | null): boolean {
   return next !== null && /^\/sheets\/[^/?#]+/.test(next);
 }

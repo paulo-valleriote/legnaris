@@ -26,9 +26,6 @@ import (
 
 var testLog = logger.NewLogger(slog.LevelError)
 
-// Canonical UUID v7 fixtures: sheet IDs now pass idgen.Validate at the
-// service boundary (LGN-86), so any test that must reach the repository needs
-// an ID in the exact shape New produces.
 const (
 	fetchSheetID     = "01900000-0000-7000-8000-000000000001"
 	missingSheetID   = "01900000-0000-7000-8000-000000000404"
@@ -224,9 +221,6 @@ func TestService_PartialUpdate(t *testing.T) {
 			expectedErr: "field does not exist",
 		},
 		{
-			// The DAG accepts a group prefix, an update payload must not:
-			// applying it would replace the whole group with the scalar and
-			// drop its siblings.
 			name: "Error: group key is not a writable field",
 			updates: map[string]any{
 				"stats": 12.0,
@@ -334,11 +328,6 @@ func TestService_PartialUpdate(t *testing.T) {
 	}
 }
 
-// TestService_PartialUpdate_NoOpDeltaPersistsAndReturnsEmptyCascade locks the
-// split the shared recalculation helper introduces: a delta that leaves every
-// value unchanged returns an empty cascade, but PATCH must still persist the
-// merged data and advance updated_at. A wrong refactor that skipped persistence
-// when the cascade is empty would pass the cascade assertion and fail here.
 func TestService_PartialUpdate_NoOpDeltaPersistsAndReturnsEmptyCascade(t *testing.T) {
 	fields := template.FieldGroup{
 		"stats": {Children: template.FieldGroup{
@@ -407,10 +396,6 @@ func TestService_PartialUpdate_NoOpDeltaPersistsAndReturnsEmptyCascade(t *testin
 	assert.Equal(t, map[string]any{}, cascades)
 }
 
-// TestService_PartialUpdate_ExclusiveGroups covers the PATCH contract for
-// mutually exclusive options (EXC-04, EXC-05, EXC-07): turning one member on
-// zeroes its sibling and recomputes the dependent derived value; turning a
-// member off leaves the sibling alone; two members on is a 400.
 func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 	fields := template.FieldGroup{
@@ -455,8 +440,6 @@ func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
 
 	sheetID := updateSheetID
 
-	// storedWith builds a sheet with dexMod 2 / conMod 1 and the given flag
-	// pair; armorClass must match the pair (10 + 2*dex + 1*con).
 	storedWith := func(acUsesDex, acUsesCon, armorClass float64) *sheet.Sheet {
 		return &sheet.Sheet{
 			ID:         sheetID,
@@ -486,7 +469,6 @@ func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
 		expectedCascades map[string]any
 	}{
 		{
-			// Spec Independent Test: stored acUsesCon=1, PATCH acUsesDex=1.
 			name:   "Happy path: turning dexterity on zeroes the constitution sibling and recomputes armor class",
 			stored: storedWith(0, 1, 11),
 			updates: map[string]any{
@@ -588,10 +570,6 @@ func TestService_PartialUpdate_ExclusiveGroups(t *testing.T) {
 	}
 }
 
-// TestService_PartialUpdate_NestingDepthLimit pins the DoS guard at the service
-// boundary: a payload nested deeper than maputils.MaxNestingDepth is rejected
-// with 400 before the repository is touched, so the recursive flatten never
-// walks an unbounded structure.
 func TestService_PartialUpdate_NestingDepthLimit(t *testing.T) {
 	dag, err := template.BuildDAG("fantasy_v1", template.FieldGroup{
 		"stats": {Children: template.FieldGroup{
@@ -636,10 +614,6 @@ func TestService_PartialUpdate_NestingDepthLimit(t *testing.T) {
 	assert.Contains(t, appErr.Message, "nested too deeply")
 }
 
-// TestService_Preview pins the stateless dry-run (DRY-01…DRY-12): it returns
-// the same cascade as an equivalent PATCH, never writes, is idempotent, returns
-// an empty map for an empty delta, and maps every reject path to the same typed
-// error PATCH produces.
 func TestService_Preview(t *testing.T) {
 	fields := template.FieldGroup{
 		"stats": {Children: template.FieldGroup{
@@ -780,7 +754,7 @@ func TestService_Preview(t *testing.T) {
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
-				mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+				mockRepo := mocks.NewMockRepository(t)
 				svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache, testLog, events.NoOp{}, limitOpts(t))
 
 				cascades, err := svc.Preview(ctx, sheet.PartialUpdateSheetCommand{
@@ -906,10 +880,6 @@ func TestService_Preview(t *testing.T) {
 	})
 }
 
-// TestService_PreviewTemplate pins the template dry-run (DRY-13…DRY-17): a
-// valid delta returns the cascade computed over the template's seeded fields,
-// the seed matches what Create stores, missing/malformed ids are 400, an
-// unknown slug is 404, and unknown/derived keys map like the sheet preview.
 func TestService_PreviewTemplate(t *testing.T) {
 	fields := template.FieldGroup{
 		"stats": {Children: template.FieldGroup{
@@ -947,7 +917,7 @@ func TestService_PreviewTemplate(t *testing.T) {
 			FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
 			Return(tmpl, nil).
 			Once()
-		mockRepo := mocks.NewMockRepository(t) // no expectations: the template preview never touches the repository
+		mockRepo := mocks.NewMockRepository(t)
 
 		svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache, testLog, events.NoOp{}, limitOpts(t))
 
@@ -1049,7 +1019,7 @@ func TestService_PreviewTemplate(t *testing.T) {
 					FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: tc.id}).
 					Return(nil, tc.fetchErr).
 					Once()
-				mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+				mockRepo := mocks.NewMockRepository(t)
 
 				svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache, testLog, events.NoOp{}, limitOpts(t))
 
@@ -1098,7 +1068,7 @@ func TestService_PreviewTemplate(t *testing.T) {
 					FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
 					Return(tmpl, nil).
 					Once()
-				mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+				mockRepo := mocks.NewMockRepository(t)
 
 				svc := sheet.NewService(mockRepo, mockTemplateSvc, dagCache, testLog, events.NoOp{}, limitOpts(t))
 
@@ -1219,17 +1189,10 @@ func TestService_Create(t *testing.T) {
 	s, err := svc.Create(context.Background(), cmd)
 	require.NoError(t, err)
 	assert.NotEmpty(t, s.ID)
-	// Round-trip: what Create mints must satisfy the validation every entry
-	// point applies before the repository (LGN-86).
 	require.NoError(t, idgen.Validate(s.ID))
 	assert.Equal(t, "test", s.TemplateID)
 }
 
-// TestService_Create_SeedsTypedValues pins the type-aware seeding contract:
-// a text leaf must reach the repository as an empty string (never the
-// float64 default, which would store a number where the client expects
-// text), number leaves keep their defaults, and derived leaves arrive
-// computed by the Recalculate call Create runs over the seed.
 func TestService_Create_SeedsTypedValues(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 	fields := template.FieldGroup{
@@ -1296,11 +1259,6 @@ func TestService_Create_SeedsTypedValues(t *testing.T) {
 	assert.Equal(t, "test", s.TemplateID)
 }
 
-// TestService_Create_TemplateIDErrors: Create consults FetchTemplate first so
-// the template-ID checks own both entry points (LGN-86 follow-up) — an empty
-// or malformed template_id must surface as 400 INVALID_REQUEST through the
-// service boundary instead of the 404 "template not found" the DAG lookup used
-// to return, and the repository must never be reached.
 func TestService_Create_TemplateIDErrors(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1324,7 +1282,7 @@ func TestService_Create_TemplateIDErrors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+			mockRepo := mocks.NewMockRepository(t)
 
 			mockTemplateSvc := templatemocks.NewMockService(t)
 			mockTemplateSvc.EXPECT().
@@ -1353,10 +1311,6 @@ func TestService_Create_TemplateIDErrors(t *testing.T) {
 	}
 }
 
-// TestService_PartialUpdate_InvalidStoredData locks the consolidated
-// maputils behavior at the service boundary: when a stored sheet holds a
-// scalar where a nested map is expected, the typed maputils.ErrNotMap must
-// surface as a 400 apperr instead of the 500 INTERNAL_ERROR fallback.
 func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 	fields := template.FieldGroup{
@@ -1413,11 +1367,6 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 	assert.Equal(t, 400, appErr.HttpStatus())
 }
 
-// TestService_FetchByID pins the ID and ownership checks to the service
-// (LGN-66, LGN-86, OWN-10, OWN-11, OWN-24): controllers forward the path param
-// and the authenticated owner, so an empty ID is 400, a non-UUID is 400 before
-// the repository, a missing sheet is 404, and a sheet owned by another user or
-// by nobody (legacy row) is the same 404.
 func TestService_FetchByID(t *testing.T) {
 	storedSheet := &sheet.Sheet{
 		ID:         fetchSheetID,
@@ -1432,7 +1381,7 @@ func TestService_FetchByID(t *testing.T) {
 	tests := []struct {
 		name       string
 		id         string
-		ownerID    string // empty means the default ownerUserID
+		ownerID    string
 		repoSheet  *sheet.Sheet
 		repoErr    error
 		callRepo   bool
@@ -1586,8 +1535,6 @@ func TestService_FetchByID(t *testing.T) {
 	}
 }
 
-// TestService_FetchMySheet pins the owner-scoped read (OWN-07, OWN-08): the
-// owner's sheet is returned, and an owner with no sheet is a 404 NOT_FOUND.
 func TestService_FetchMySheet(t *testing.T) {
 	mine := &sheet.Sheet{ID: fetchSheetID, TemplateID: "fantasy_v1", OwnerID: ownerUserID}
 
@@ -1620,7 +1567,7 @@ func TestService_FetchMySheet(t *testing.T) {
 	})
 
 	t.Run("Error: a missing owner is 401 before the repository", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		repo := mocks.NewMockRepository(t)
 		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
 
 		got, err := svc.FetchMySheet(context.Background(), "")
@@ -1634,11 +1581,8 @@ func TestService_FetchMySheet(t *testing.T) {
 	})
 }
 
-// TestService_PartialUpdate_MissingSheetID: PartialUpdate used to skip the ID
-// check its FetchByID does, so an empty ID fell through to the repository and
-// surfaced as 404 "sheet not found" instead of 400 (LGN-66).
 func TestService_PartialUpdate_MissingSheetID(t *testing.T) {
-	mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+	mockRepo := mocks.NewMockRepository(t)
 
 	svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
 
@@ -1658,9 +1602,6 @@ func TestService_PartialUpdate_MissingSheetID(t *testing.T) {
 	assert.Equal(t, "sheet id not provided", appErr.Message)
 }
 
-// TestService_PartialUpdate_MalformedSheetID: a non-UUID sheet ID must fail
-// with 400 INVALID_REQUEST before the repository on partial update too
-// (LGN-86) — FetchByID is not the only entry point taking a sheet ID.
 func TestService_PartialUpdate_MalformedSheetID(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1674,7 +1615,7 @@ func TestService_PartialUpdate_MalformedSheetID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+			mockRepo := mocks.NewMockRepository(t)
 
 			svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
 
@@ -1696,11 +1637,6 @@ func TestService_PartialUpdate_MalformedSheetID(t *testing.T) {
 	}
 }
 
-// TestService_OwnershipGuardOnRecalculation pins the ownership check inside
-// recalculate, which PATCH and both previews share (OWN-10, OWN-11, OWN-12,
-// OWN-14, OWN-21, OWN-24): a foreign or legacy (no owner) sheet is the same 404
-// as a missing sheet and triggers no write or recomputation, a missing owner is
-// a 401 before the repository, and the owner's own delta still recalculates.
 func TestService_OwnershipGuardOnRecalculation(t *testing.T) {
 	fields := template.FieldGroup{
 		"stats": {Children: template.FieldGroup{
@@ -1774,7 +1710,7 @@ func TestService_OwnershipGuardOnRecalculation(t *testing.T) {
 	})
 
 	t.Run("Error: a missing owner is 401 before the repository on PATCH and preview", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		repo := mocks.NewMockRepository(t)
 		svc := sheet.NewService(repo, templatemocks.NewMockService(t), dagCache, testLog, events.NoOp{}, limitOpts(t))
 
 		for _, err := range []error{
@@ -1819,10 +1755,6 @@ func TestService_OwnershipGuardOnRecalculation(t *testing.T) {
 	})
 }
 
-// TestService_Delete pins the owner-guarded delete (OWN-13, OWN-23): the
-// owner's sheet is removed, while a foreign sheet, a legacy sheet with no
-// owner, a missing sheet and a malformed id delete nothing, and a missing owner
-// is a 401 before the repository.
 func TestService_Delete(t *testing.T) {
 	owned := &sheet.Sheet{ID: updateSheetID, TemplateID: "fantasy_v1", OwnerID: ownerUserID}
 
@@ -1885,7 +1817,7 @@ func TestService_Delete(t *testing.T) {
 	})
 
 	t.Run("Error: a malformed id is a 400 before the repository", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		repo := mocks.NewMockRepository(t)
 		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
 
 		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: "not-a-uuid", OwnerID: ownerUserID})
@@ -1897,7 +1829,7 @@ func TestService_Delete(t *testing.T) {
 	})
 
 	t.Run("Error: a missing owner is a 401 before the repository", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t) // no expectations: must never be called
+		repo := mocks.NewMockRepository(t)
 		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
 
 		err := svc.Delete(context.Background(), sheet.DeleteSheetCommand{SheetID: updateSheetID})

@@ -16,28 +16,17 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// ErrNotFound reports a generation that is missing or belongs to another player.
-// Both answer 404, so existence never leaks.
 var ErrNotFound = errors.New("generation not found")
 
-// ErrActiveExists reports an insert refused because the player already has a
-// queued or running generation.
 var ErrActiveExists = errors.New("generation already in progress")
 
-// errNotAcceptable aborts an accept whose document left the succeeded state
-// between the read and the write, for example to a concurrent accept.
 var errNotAcceptable = errors.New("generation is not succeeded")
 
-// Config is the static configuration of the generation flow.
 type Config struct {
-	// Enabled is the kill-switch: when false, no request reserves anything.
-	Enabled bool
-	// DailyCap is the global number of jobs accepted per UTC day.
+	Enabled  bool
 	DailyCap int
 }
 
-// Deps are the collaborators of the service, each behind a port so the gate order
-// is unit-tested on mocks.
 type Deps struct {
 	Store     Store
 	Publisher Publisher
@@ -51,7 +40,6 @@ type Deps struct {
 	Logger    logger.StructuredLogger
 }
 
-// CreateCommand is POST /generations after the path and body are decoded.
 type CreateCommand struct {
 	UserID     string
 	TemplateID string
@@ -59,7 +47,6 @@ type CreateCommand struct {
 	Concept    string
 }
 
-// AcceptCommand is POST /generations/{id}/accept.
 type AcceptCommand struct {
 	UserID    string
 	ID        string
@@ -67,21 +54,17 @@ type AcceptCommand struct {
 	Values    map[string]any
 }
 
-// AcceptResult reports the Sheet a generation became. Created is false when the
-// generation was already accepted, so the caller answers 200 instead of 201.
 type AcceptResult struct {
 	SheetID string
 	Created bool
 }
 
-// Service is the generation use case behind the /generations routes and the plan view.
 type Service struct {
 	cfg  Config
 	deps Deps
 	now  func() time.Time
 }
 
-// NewService builds the generation service. A nil now uses the wall clock.
 func NewService(cfg Config, deps Deps, now func() time.Time) *Service {
 	if now == nil {
 		now = time.Now
@@ -89,11 +72,6 @@ func NewService(cfg Config, deps Deps, now func() time.Time) *Service {
 	return &Service{cfg: cfg, deps: deps, now: now}
 }
 
-// Create runs the gates of POST /generations in order and, when all pass, inserts
-// the queued document with its cap and quota reservations in one transaction and
-// publishes the job. The gates are: kill-switch, request shape, consent, Sheet
-// limit (read-only), one job in progress, global daily cap, quota. A publish
-// failure does not fail the request; the sweeper republishes the document.
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (string, error) {
 	if !s.cfg.Enabled {
 		return "", apperr.NewError(apperr.CodeProviderUnavailable, MsgDisabled, nil)
@@ -143,8 +121,6 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (string, error)
 	return id, nil
 }
 
-// reserveAndInsert takes the global cap and the player's quota and inserts the
-// document, all in one transaction, so a refused unit leaves no trace.
 func (s *Service) reserveAndInsert(ctx context.Context, doc *Document, paid bool) error {
 	limit := s.cfg.DailyCap
 	var observedUsed *int
@@ -170,12 +146,8 @@ func (s *Service) reserveAndInsert(ctx context.Context, doc *Document, paid bool
 	return translateInsertErr(err)
 }
 
-// quotaRetention keeps a day's cap counter one more day, like the quota counter,
-// so a request that straddles midnight still lands on its own day.
 const quotaRetention = 48 * time.Hour
 
-// reserveQuota takes the unit the player's plan draws from and records it on the
-// document, so a later refund returns it to the same allowance.
 func (s *Service) reserveQuota(ctx context.Context, doc *Document, paid bool) error {
 	if paid {
 		day, err := s.deps.Quota.ReserveDaily(ctx, doc.UserID)
@@ -192,8 +164,6 @@ func (s *Service) reserveQuota(ctx context.Context, doc *Document, paid bool) er
 	return nil
 }
 
-// translateInsertErr maps the transaction outcome. An in-progress collision
-// becomes GENERATION_IN_PROGRESS; an apperr raised by a gate passes through.
 func translateInsertErr(err error) error {
 	if err == nil {
 		return nil
@@ -208,8 +178,6 @@ func translateInsertErr(err error) error {
 	return apperr.NewError(apperr.CodeInternal, MsgUnavailable, err)
 }
 
-// publish sends the job after the commit. A failure is logged with the id only,
-// never the concept, and the republish sweep recovers the job.
 func (s *Service) publish(ctx context.Context, msg Message) {
 	if err := s.deps.Publisher.Publish(ctx, msg); err != nil {
 		s.deps.Logger.Warn(ctx, "generation publish failed; the sweeper will republish",
@@ -218,7 +186,6 @@ func (s *Service) publish(ctx context.Context, msg Message) {
 	}
 }
 
-// Fetch answers GET /generations/{id} for the player, or ErrNotFound-mapped 404.
 func (s *Service) Fetch(ctx context.Context, userID, id string) (View, error) {
 	if err := validateID(id); err != nil {
 		return View{}, err
@@ -232,10 +199,6 @@ func (s *Service) Fetch(ctx context.Context, userID, id string) (View, error) {
 	return view, nil
 }
 
-// suggestedName derives the Sheet name of a succeeded generation from its
-// Template's naming leaf. It is nil for any other status, when the Template
-// names no Sheet or its leaf is blank, and when the Template cannot be read: a
-// missing suggestion never fails the read, so the client leaves the name blank.
 func (s *Service) suggestedName(ctx context.Context, doc Document) *string {
 	if doc.Status != StatusSucceeded {
 		return nil
@@ -254,8 +217,6 @@ func (s *Service) suggestedName(ctx context.Context, doc Document) *string {
 	return &name
 }
 
-// ActiveGenerationID reports the player's queued or running generation, for the
-// plan view.
 func (s *Service) ActiveGenerationID(ctx context.Context, userID string) (string, bool, error) {
 	id, ok, err := s.deps.Store.ActiveByUser(ctx, userID)
 	if err != nil {
@@ -264,10 +225,6 @@ func (s *Service) ActiveGenerationID(ctx context.Context, userID string) (string
 	return id, ok, nil
 }
 
-// Accept turns a succeeded generation into a Sheet. The values are validated
-// through the normal DAG path and the Sheet slot is reserved in the same
-// transaction that marks the generation accepted. A repeat accept answers the
-// same Sheet with Created false.
 func (s *Service) Accept(ctx context.Context, cmd AcceptCommand) (AcceptResult, error) {
 	if err := validateID(cmd.ID); err != nil {
 		return AcceptResult{}, err
@@ -305,8 +262,6 @@ func (s *Service) Accept(ctx context.Context, cmd AcceptCommand) (AcceptResult, 
 	return AcceptResult{SheetID: created.ID, Created: true}, nil
 }
 
-// markAccepted is the hook that runs inside the Sheet transaction. The conditional
-// write means only one accept can win, and a loser rolls back its own Sheet.
 func (s *Service) markAccepted(userID, id string) sheet.AfterInsertHook {
 	return func(txCtx context.Context, created *sheet.Sheet) error {
 		ok, err := s.deps.Store.MarkAccepted(txCtx, userID, id, created.ID)
@@ -320,9 +275,6 @@ func (s *Service) markAccepted(userID, id string) sheet.AfterInsertHook {
 	}
 }
 
-// resolveLostAccept answers a request that lost the accept race: when the winner
-// already accepted the generation, the loser gets the winner's Sheet, which keeps
-// accept idempotent under concurrency.
 func (s *Service) resolveLostAccept(ctx context.Context, cmd AcceptCommand) (AcceptResult, error) {
 	doc, err := s.deps.Store.FindOwned(ctx, cmd.UserID, cmd.ID)
 	if err != nil {
@@ -334,8 +286,6 @@ func (s *Service) resolveLostAccept(ctx context.Context, cmd AcceptCommand) (Acc
 	return AcceptResult{}, apperr.NewError(apperr.CodeConflict, MsgNotAcceptable, nil)
 }
 
-// translateAcceptErr passes an apperr from the sheet service through and wraps any
-// other failure as an internal error.
 func translateAcceptErr(err error) error {
 	var appErr *apperr.Error
 	if errors.As(err, &appErr) {
@@ -344,8 +294,6 @@ func translateAcceptErr(err error) error {
 	return apperr.NewError(apperr.CodeInternal, MsgUnavailable, err)
 }
 
-// requireTemplate checks the template id and that it accepts characters, with the
-// same validation as the template read.
 func (s *Service) requireTemplate(ctx context.Context, templateID string) error {
 	tmpl, err := s.deps.Templates.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: templateID})
 	if err != nil {
@@ -361,7 +309,6 @@ func (s *Service) requireTemplate(ctx context.Context, templateID string) error 
 	return nil
 }
 
-// requireSheetRoom is the read-only Sheet limit check: it never reserves a slot.
 func (s *Service) requireSheetRoom(ctx context.Context, userID string) error {
 	status, err := s.deps.Sheets.CheckSheetLimit(ctx, userID, plan.KindCharacter)
 	if err != nil {
@@ -374,8 +321,6 @@ func (s *Service) requireSheetRoom(ctx context.Context, userID string) error {
 	return nil
 }
 
-// requireNoJobInProgress refuses a second job while one is queued or running. The
-// sparse unique index still guards the race that the read cannot see.
 func (s *Service) requireNoJobInProgress(ctx context.Context, userID string) error {
 	_, active, err := s.deps.Store.ActiveByUser(ctx, userID)
 	if err != nil {
@@ -387,7 +332,6 @@ func (s *Service) requireNoJobInProgress(ctx context.Context, userID string) err
 	return nil
 }
 
-// validateCreate checks the request shape before any gate reads or reserves.
 func validateCreate(cmd CreateCommand) error {
 	if cmd.UserID == "" {
 		return apperr.NewError(apperr.CodeUnauthorized, MsgOwnerNotProvided, nil)
@@ -402,7 +346,6 @@ func validateCreate(cmd CreateCommand) error {
 	return nil
 }
 
-// validateID rejects a malformed generation id before any read.
 func validateID(id string) error {
 	if err := idgen.Validate(id); err != nil {
 		return apperr.NewError(apperr.CodeInvalidRequest, MsgIDInvalid, err)
@@ -410,7 +353,6 @@ func validateID(id string) error {
 	return nil
 }
 
-// translateFindErr maps a missing or foreign document to 404.
 func translateFindErr(err error) error {
 	if errors.Is(err, ErrNotFound) {
 		return apperr.NewError(apperr.CodeNotFound, MsgNotFound, err)
@@ -418,8 +360,6 @@ func translateFindErr(err error) error {
 	return apperr.NewError(apperr.CodeInternal, MsgUnavailable, err)
 }
 
-// viewOf maps the stored document to the read model, exposing values only once
-// the job succeeded.
 func viewOf(doc Document) View {
 	view := View{
 		ID:         doc.ID,
@@ -437,19 +377,15 @@ func viewOf(doc Document) View {
 	return view
 }
 
-// dayKey is the UTC day a cap or quota counter is keyed by.
 func dayKey(t time.Time) string {
 	return dayStart(t).Format("2006-01-02")
 }
 
-// dayStart returns the UTC midnight that opens t's day.
 func dayStart(t time.Time) time.Time {
 	y, m, d := t.UTC().Date()
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }
 
-// untilNextDay is the Retry-After of a refused cap: the wait to the next UTC
-// midnight, when the counter starts over.
 func untilNextDay(t time.Time) time.Duration {
 	return dayStart(t).Add(24 * time.Hour).Sub(t.UTC())
 }

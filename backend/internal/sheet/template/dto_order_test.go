@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// jsonKeyOrder returns the keys of the JSON object at the given path in
-// document order, which a map decode would lose.
 func jsonKeyOrder(t *testing.T, raw []byte, path ...string) []string {
 	t.Helper()
 	for _, key := range path {

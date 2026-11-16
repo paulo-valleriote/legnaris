@@ -11,9 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// tamperData rewrites a payload the way a caller holding the DTO would: one new
-// top-level key plus a write into every nested group. It returns how many writes
-// actually landed, so a test can tell a real mutation from a no-op.
 func tamperData(data map[string]any) int {
 	if data == nil {
 		return 0
@@ -29,9 +26,6 @@ func tamperData(data map[string]any) int {
 	return writes
 }
 
-// TestSheetToDTO_DoesNotAliasData covers the LGN-60 finding that ToDTO handed
-// out the Sheet's own map: mutating the response payload rewrote stored state,
-// and mutating the stored sheet rewrote an already-built response.
 func TestSheetToDTO_DoesNotAliasData(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -84,8 +78,6 @@ func TestSheetToDTO_DoesNotAliasData(t *testing.T) {
 	}
 }
 
-// TestSheetToDTO_Edge_NilData keeps the JSON contract stable: a sheet without
-// data must serialize as null, not as an empty object.
 func TestSheetToDTO_Edge_NilData(t *testing.T) {
 	src := sheet.Sheet{ID: "sheet-1"}
 
@@ -116,10 +108,6 @@ func TestSheetToDTO_HappyPath_CarriesOverEveryField(t *testing.T) {
 	assert.Equal(t, src.Data, dto.Data)
 }
 
-// TestSheetToDTO_NeverExposesOwnerID locks the API contract that the owner is
-// server-side only (OWN-01): a sheet carrying an owner must serialize with no
-// owner key and no trace of the owner id, so a client can never read or forge
-// possession from the wire.
 func TestSheetToDTO_NeverExposesOwnerID(t *testing.T) {
 	src := sheet.Sheet{
 		ID:         "sheet-1",

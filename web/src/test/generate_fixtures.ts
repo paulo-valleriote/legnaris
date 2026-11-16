@@ -10,7 +10,6 @@ export const GENERATION_ID = 'gen-1';
 export const ROUTE = `/generate/${TEMPLATE_ID}`;
 export const VALID_CONCEPT = 'A wandering ranger of the north';
 
-/** A scripted answer for one `METHOD /path`: a fixed response or a function of the request. */
 export type Responder = HttpResponse | ((request: HttpRequest) => HttpResponse);
 
 export function ok(data: unknown, status = 200): HttpResponse {
@@ -36,7 +35,6 @@ export function planWith(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** A transport that answers by `METHOD /path` and records every request. */
 export function routed(routes: Record<string, Responder>) {
   const requests: HttpRequest[] = [];
   const transport: Transport = (request) => {

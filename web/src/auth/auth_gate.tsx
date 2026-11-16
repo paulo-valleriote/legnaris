@@ -1,21 +1,3 @@
-/**
- * The auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24, R8, WCS-02, WCS-21).
- *
- * It runs the one cold-start restore on mount, renders the minimal restoring
- * state until that restore settles, renders the landing on `/` and `AuthScreen`
- * on every other path whenever no session is held (the catalog, the sheet and
- * the "Your sheet" destination never mount), and renders the route tree when
- * authenticated. A deep link visited without a session is not resumed: as soon
- * as the session settles unauthenticated, the location moves to the sign-in
- * path, and once signed in the auth paths hand over to `/`, so the next session
- * starts on the catalog.
- *
- * A pending code step replaces the credential form in place, on the same URL
- * and with no declared route (R5). The session keeps the values the abandoned
- * step started with, so the form comes back with the address and the account
- * mode the person typed and with an empty password (WCS-21).
- */
-
 import { useEffect, useSyncExternalStore } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { NEXT_PARAM, sanitizeNextPath, signInPathFor } from './next_path';
@@ -32,7 +14,6 @@ import './auth.css';
 const AUTH_PATHS: ReadonlySet<string> = new Set([SIGN_IN_PATH, SIGN_UP_PATH]);
 const PUBLIC_PATHS: ReadonlySet<string> = new Set([LANDING_PATH, SIGN_IN_PATH, SIGN_UP_PATH]);
 
-/** The gate that decides what the whole client renders (R8). */
 export function AuthGate() {
   const session = useAuthSession();
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);

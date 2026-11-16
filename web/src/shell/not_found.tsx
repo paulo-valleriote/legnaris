@@ -1,10 +1,5 @@
 import { Link } from 'react-router-dom';
 
-/**
- * The designed not-found state for undeclared paths (FND-08). It is rendered
- * inside the shell, so an unknown route never produces a blank page or the
- * host's 404.
- */
 export function NotFound() {
   return (
     <section className="lg-empty" aria-labelledby="not-found-title" data-testid="not-found">

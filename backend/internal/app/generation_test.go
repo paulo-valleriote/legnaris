@@ -23,8 +23,6 @@ import (
 
 const genUserID = "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e0f"
 
-// fakeGenerationService answers each use case from a function field, so a test
-// sets only the outcome it needs and a call it did not expect fails loudly.
 type fakeGenerationService struct {
 	create func(cmd generation.CreateCommand) (string, error)
 	fetch  func(userID, id string) (generation.View, error)
@@ -43,8 +41,6 @@ func (f fakeGenerationService) Accept(_ context.Context, cmd generation.AcceptCo
 	return f.accept(cmd)
 }
 
-// generationEngine mounts the generation routes behind the error handler the router
-// uses. A non-empty userID stands in for the auth middleware.
 func generationEngine(svc app.GenerationService, userID string, create, read ratelimit.Allower) *echo.Echo {
 	e := echo.New()
 	e.HTTPErrorHandler = app.HTTPErrorHandler
@@ -60,7 +56,6 @@ func generationEngine(svc app.GenerationService, userID string, create, read rat
 	return e
 }
 
-// unlimited returns a limiter that never refuses a request in a test.
 func unlimited() ratelimit.Allower {
 	return ratelimit.New(1000, time.Minute, time.Now)
 }
@@ -74,7 +69,6 @@ func doJSON(t *testing.T, e *echo.Echo, method, path, body string) *httptest.Res
 	return rec
 }
 
-// dataOf decodes the success envelope.
 func dataOf(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 	t.Helper()
 	var envelope struct {
@@ -84,7 +78,6 @@ func dataOf(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 	return envelope.Data
 }
 
-// errorCodeOf decodes the error envelope's code.
 func errorCodeOf(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
 	var envelope struct {
@@ -184,8 +177,6 @@ func TestGenerationController_Create(t *testing.T) {
 	}
 }
 
-// TestGenerationController_CreateCapCarriesRetryAfter pins that a refused global cap
-// advertises when the counter resets, so the client can show a countdown.
 func TestGenerationController_CreateCapCarriesRetryAfter(t *testing.T) {
 	svc := fakeGenerationService{create: func(generation.CreateCommand) (string, error) {
 		return "", apperr.NewError(apperr.CodeGenerationCapReached, generation.MsgCapReached, nil).WithRetryAfter(90 * time.Second)
@@ -197,8 +188,6 @@ func TestGenerationController_CreateCapCarriesRetryAfter(t *testing.T) {
 	assert.Equal(t, string(apperr.CodeGenerationCapReached), errorCodeOf(t, rec))
 }
 
-// TestGenerationController_CreateRateLimit pins the POST budget: the request past
-// the per-user budget is refused with 429 before the service runs.
 func TestGenerationController_CreateRateLimit(t *testing.T) {
 	calls := 0
 	svc := fakeGenerationService{create: func(generation.CreateCommand) (string, error) {
@@ -330,8 +319,6 @@ func TestGenerationController_Accept(t *testing.T) {
 	}
 }
 
-// TestGenerationController_UnauthenticatedGetRejected pins that a read without a user
-// never reaches the service.
 func TestGenerationController_UnauthenticatedGetRejected(t *testing.T) {
 	svc := fakeGenerationService{fetch: func(string, string) (generation.View, error) {
 		return generation.View{}, errors.New("must not be called")

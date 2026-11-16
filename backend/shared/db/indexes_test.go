@@ -14,15 +14,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// newIndexesTestDatabase gives the test an isolated replica set database. It
-// skips when no replica set is available.
 func newIndexesTestDatabase(t *testing.T) *mongo.Database {
 	t.Helper()
 	return dbtest.Database(t)
 }
 
-// listIndexes reads a collection's indexes once into a name-keyed map. A cursor
-// can only be consumed once, so every assertion reads from this map.
 func listIndexes(t *testing.T, mdb *mongo.Database, collection string) map[string]bson.M {
 	t.Helper()
 
@@ -147,9 +143,6 @@ func TestEnsureIndexes(t *testing.T) {
 	})
 }
 
-// TestEnsureIndexesWithRetention proves the configured retention window reaches
-// the outbox TTL index and that changing it reconciles the existing index
-// instead of failing the boot (EML-17).
 func TestEnsureIndexesWithRetention(t *testing.T) {
 	mdb := newIndexesTestDatabase(t)
 	ctx := context.Background()
@@ -178,10 +171,6 @@ func TestEnsureIndexesWithRetention(t *testing.T) {
 	})
 }
 
-// TestEnsureIndexes_AuthChallenges pins the challenge collection's indexes and
-// the one-active invariant the unique partial index enforces: a second active
-// row for one account and purpose is rejected while a consumed one is admitted
-// (OTP-01, OTP-06, OTP-13).
 func TestEnsureIndexes_AuthChallenges(t *testing.T) {
 	mdb := newIndexesTestDatabase(t)
 	ctx := context.Background()
@@ -256,9 +245,6 @@ func TestEnsureIndexes_AuthChallenges(t *testing.T) {
 	})
 }
 
-// TestEnsureIndexes_GenerationUsage pins the daily quota counter's indexes: one
-// row per user and UTC day, and a TTL that retires past days (ADR 0009). The
-// unique key is what makes the day-opening upsert race-safe.
 func TestEnsureIndexes_GenerationUsage(t *testing.T) {
 	mdb := newIndexesTestDatabase(t)
 	ctx := context.Background()

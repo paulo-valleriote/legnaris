@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// testPolicy is a representative configuration: lifetime 10m, ceiling 30m,
-// cooldown 60s, cap 5 attempts (data-model.md §3).
 func testPolicy() auth.ChallengePolicy {
 	return auth.ChallengePolicy{
 		Lifetime:         10 * time.Minute,
@@ -23,8 +21,6 @@ func testPolicy() auth.ChallengePolicy {
 	}
 }
 
-// TestChallengePolicy_Deadline pins the clamped deadline: now+lifetime, never
-// past the absolute ceiling (OTP-10).
 func TestChallengePolicy_Deadline(t *testing.T) {
 	policy := testPolicy()
 	createdAt := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
@@ -45,9 +41,6 @@ func TestChallengePolicy_Deadline(t *testing.T) {
 	})
 }
 
-// TestChallengePolicy_CooldownElapsed pins the cooldown boundary: suppressed one
-// nanosecond before it ends, allowed exactly at the boundary, with no sleep
-// (OTP-10, OTP-20).
 func TestChallengePolicy_CooldownElapsed(t *testing.T) {
 	policy := testPolicy()
 	lastSent := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
@@ -70,8 +63,6 @@ func TestChallengePolicy_CooldownElapsed(t *testing.T) {
 	}
 }
 
-// TestChallengePolicy_DeadlineWithin pins the resend deadline: now plus the
-// lifetime, clamped to the stored absolute ceiling (OTP-10).
 func TestChallengePolicy_DeadlineWithin(t *testing.T) {
 	policy := testPolicy()
 	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
@@ -105,8 +96,6 @@ func TestChallengePolicy_DeadlineWithin(t *testing.T) {
 	}
 }
 
-// TestChallengePolicy_DayStart pins the daily-cap window origin: the UTC
-// midnight of the given instant, regardless of the input's location (OTP-13).
 func TestChallengePolicy_DayStart(t *testing.T) {
 	policy := testPolicy()
 
@@ -117,7 +106,7 @@ func TestChallengePolicy_DayStart(t *testing.T) {
 
 	t.Run("Edge: a non-UTC instant resolves to its own UTC midnight", func(t *testing.T) {
 		loc := time.FixedZone("UTC+2", 2*60*60)
-		now := time.Date(2026, 10, 21, 1, 0, 0, 0, loc) // 2026-10-20T23:00Z
+		now := time.Date(2026, 10, 21, 1, 0, 0, 0, loc)
 		assert.Equal(t, time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC), policy.DayStart(now))
 	})
 }

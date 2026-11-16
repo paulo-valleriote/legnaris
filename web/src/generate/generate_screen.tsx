@@ -1,13 +1,3 @@
-/**
- * The character generation route `/generate/:templateId` (LGN-196, LGN-177 Resolution):
- * concept, then wait, then review and accept. A route rather than a dialog, so the
- * player can leave during the wait and review the result full-screen.
- *
- * The rules (bounds, wait decision, throttle, name prefill, allowance) live in
- * `generation_flow.ts`; the consent disclosure in `llm_consent.ts`. This module owns
- * the screen state and the server calls only.
- */
-
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -37,18 +27,12 @@ import type { Allowance } from './generation_flow';
 import { CONSENT_VERSION, consentDisclosure } from './llm_consent';
 import type { ConsentDisclosure } from './llm_consent';
 
-/** The review step: the generated values, the player's edits and the Sheet name. */
 interface PreviewState {
   readonly generationId: string;
-  /** The values shown: the generated ones, merged with the recalculated figures, edits on top. */
   readonly values: Record<string, unknown>;
-  /** Only the paths the player changed, as sent to the template preview. */
   readonly edits: Record<string, unknown>;
-  /** Bumped on every edit; a preview answers only the revision it was sent for. */
   readonly revision: number;
-  /** The server's suggested Sheet name, or empty when it offered none. */
   readonly suggestedName: string;
-  /** The name the player typed; ignored until `nameTouched`. */
   readonly sheetName: string;
   readonly nameTouched: boolean;
   readonly dirty: boolean;
@@ -57,7 +41,6 @@ interface PreviewState {
   readonly previewError: string | undefined;
 }
 
-/** The single situation the screen renders (one step at a time). */
 type Step =
   | { readonly kind: 'concept' }
   | { readonly kind: 'waiting'; readonly generationId: string; readonly startedAt: number }
@@ -67,7 +50,6 @@ type Step =
   | { readonly kind: 'error'; readonly copy: string }
   | ({ readonly kind: 'preview' } & PreviewState);
 
-/** The step a settled generation leads to: reviewed when it has values, a failure otherwise. */
 function stepForGeneration(generation: Generation): Step {
   if (generation.status === 'accepted') {
     return { kind: 'alreadyAccepted' };
@@ -92,7 +74,6 @@ function stepForGeneration(generation: Generation): Step {
   };
 }
 
-/** Reads a handed-over generation identifier from the route state, when there is one. */
 function generationIdFromState(state: unknown): string | undefined {
   if (typeof state !== 'object' || state === null || !('generationId' in state)) {
     return undefined;
@@ -101,7 +82,6 @@ function generationIdFromState(state: unknown): string | undefined {
   return typeof id === 'string' && id !== '' ? id : undefined;
 }
 
-/** Rebuilds the flat edited paths into the nested delta the template preview expects. */
 function deltaOf(edits: Record<string, unknown>): Record<string, unknown> {
   const delta: Record<string, unknown> = {};
   for (const [path, value] of Object.entries(edits)) {
@@ -110,7 +90,6 @@ function deltaOf(edits: Record<string, unknown>): Record<string, unknown> {
   return delta;
 }
 
-/** Applies the player's edits over the values, so an edit is never reverted by a recalculation. */
 function applyEdits(
   values: Record<string, unknown>,
   edits: Record<string, unknown>,
@@ -122,7 +101,6 @@ function applyEdits(
   return next;
 }
 
-/** The consent dialog: the disclosure, the policy link when it is a secure address, and the two actions. */
 function ConsentDialog({
   open,
   disclosure,
@@ -172,7 +150,6 @@ function ConsentDialog({
   );
 }
 
-/** The quota line under the concept: the trial count, unknown, or none left. */
 function quotaCopy(allowance: Allowance | undefined): string | undefined {
   if (allowance === undefined) {
     return undefined;
@@ -186,7 +163,6 @@ function quotaCopy(allowance: Allowance | undefined): string | undefined {
   return messageWith('generate.quotaTrial', { remaining: allowance.remaining });
 }
 
-/** The screen. Reads the template, the plan and the one active step. */
 export function GenerateScreen() {
   const { templateId = '' } = useParams();
   const location = useLocation();
@@ -601,7 +577,6 @@ export function GenerateScreen() {
   );
 }
 
-/** The review step: the Sheet name, the editable values and the accept and regenerate actions. */
 function ReviewSection({
   preview,
   fields,

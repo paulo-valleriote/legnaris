@@ -38,19 +38,16 @@ function notify(): void {
   }
 }
 
-/** Updates the simulated viewport width and notifies every media-query listener. */
 export function setViewportWidth(width: number): void {
   viewportWidth = width;
   notify();
 }
 
-/** Updates the simulated system color-scheme preference and notifies every listener. */
 export function setPrefersDark(value: boolean): void {
   prefersDark = value;
   notify();
 }
 
-/** Installs a deterministic `window.matchMedia` for jsdom (which has none). */
 export function installMatchMedia(): void {
   viewportWidth = 1280;
   prefersDark = false;

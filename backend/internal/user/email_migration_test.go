@@ -20,8 +20,6 @@ const (
 	migrationIDTwo = "01900000-0000-7000-8000-000000000102"
 )
 
-// TestPlanEmailCanonicalization is the normative planner table: it turns stored
-// rows into validated intent without touching the store (PRQ-11, SC-008).
 func TestPlanEmailCanonicalization(t *testing.T) {
 	t.Run("Happy path: already canonical rows plan nothing", func(t *testing.T) {
 		plan := user.PlanEmailCanonicalization([]user.EmailIdentity{
@@ -106,9 +104,6 @@ func TestPlanEmailCanonicalization(t *testing.T) {
 	})
 }
 
-// TestEmailMigrationPlanApply proves the write gate: nothing is written for a
-// blocked plan, a dry run never writes, and an apply sets only the address plus
-// the supplied timestamp, one row at a time (PRQ-11, SC-008).
 func TestEmailMigrationPlanApply(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)

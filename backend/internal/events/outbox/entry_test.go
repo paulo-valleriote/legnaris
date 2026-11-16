@@ -31,7 +31,6 @@ func newUUID(t *testing.T) string {
 	return id
 }
 
-// TestNewEntry covers how a guaranteed event becomes a pending outbox entry.
 func TestNewEntry(t *testing.T) {
 	now := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 	aggregateID := newUUID(t)
@@ -118,8 +117,6 @@ func TestNewEntry(t *testing.T) {
 	}
 }
 
-// TestNewEntryBodyIsJSON guards that the stored body is a decodable JSON
-// document, the form the broker publishes unchanged.
 func TestNewEntryBodyIsJSON(t *testing.T) {
 	entry, err := outbox.NewEntry(sampleEvent(t, "user.deleted", newUUID(t)), time.Now())
 	require.NoError(t, err)

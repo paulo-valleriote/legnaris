@@ -12,8 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// indexKeyNames returns the field names of an index in declared order. The
-// order is part of the contract: the claim query relies on status leading.
 func indexKeyNames(t *testing.T, mdb *mongo.Database, collection, name string) []string {
 	t.Helper()
 
@@ -35,8 +33,6 @@ func indexKeyNames(t *testing.T, mdb *mongo.Database, collection, name string) [
 	return nil
 }
 
-// TestEnsureIndexes_EventOutbox covers the event_outbox indexes: the claim index
-// and the published-row TTL that follows the configured retention window.
 func TestEnsureIndexes_EventOutbox(t *testing.T) {
 	mdb := newIndexesTestDatabase(t)
 	ctx := context.Background()

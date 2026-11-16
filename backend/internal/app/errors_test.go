@@ -12,10 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestTemplateError covers the translation the template controller relies on
-// (LGN-66, LGN-86): the missing-ID and malformed-ID sentinels become 400
-// apperrs, while anything else — including an apperr the service already
-// built — passes through untouched so its status survives to the HTTP layer.
 func TestTemplateError(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -61,9 +57,6 @@ func TestTemplateError(t *testing.T) {
 	}
 }
 
-// TestTemplateError_Passthrough keeps the translator honest: it must not wrap
-// errors it does not own, or a service's apperr would lose its code and status
-// (and an unrelated error would be re-reported as a 400).
 func TestTemplateError_Passthrough(t *testing.T) {
 	notFound := apperr.NewError(apperr.CodeNotFound, "template not found", nil)
 

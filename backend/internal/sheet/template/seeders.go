@@ -12,9 +12,6 @@ const (
 	fieldTypeText   = "text"
 	fieldTypeBool   = "bool"
 
-	// Group and leaf keys referenced by generated formulas or DependsOn
-	// paths. Keys used only as section names stay inline literals in the
-	// field tree below.
 	fieldNameStats            = "stats"
 	fieldNameModifiers        = "modifiers"
 	fieldNameDexterityMod     = "dexterityMod"
@@ -42,19 +39,10 @@ const (
 	fieldNameACUsesCon        = "acUsesCon"
 	fieldNameDamage           = "damage"
 
-	// exclusiveGroupArmorClassAbility is the shared group id for the armor-class
-	// ability proxies: config.acUsesDex and config.acUsesCon are mutually
-	// exclusive (at most one is non-zero), so the API advertises them as one
-	// choice and the DAG normalizes them together.
 	exclusiveGroupArmorClassAbility = "armorClassAbility"
 
-	// exclusiveGroupSpellcastingAbility is the shared group id for the six
-	// config.spellUses<Ability> proxies: spellcasting uses exactly one ability
-	// (at most one flag is non-zero), so the API advertises them as one choice
-	// and the DAG normalizes them together.
 	exclusiveGroupSpellcastingAbility = "spellcastingAbility"
 
-	// Ability keys shared by stats, modifiers, saves and the skill list.
 	abilityStrength     = "strength"
 	abilityDexterity    = "dexterity"
 	abilityConstitution = "constitution"
@@ -63,8 +51,6 @@ const (
 	abilityCharisma     = "charisma"
 )
 
-// abilities is the set of base scores shared by stats, modifiers, saves and
-// the spellcasting formulas; every generated key and label comes from here.
 var abilities = []struct{ key, label string }{
 	{abilityStrength, "Strength"},
 	{abilityDexterity, "Dexterity"},
@@ -74,9 +60,6 @@ var abilities = []struct{ key, label string }{
 	{abilityCharisma, "Charisma"},
 }
 
-// skills is the generic skill catalog: each entry names the ability its
-// total formula reads. Names are plain RPG vocabulary, deliberately free of
-// any particular system's skill list.
 var skills = []struct{ key, label, ability string }{
 	{"athletics", "Athletics", abilityStrength},
 	{"acrobatics", "Acrobatics", abilityDexterity},
@@ -92,31 +75,10 @@ var skills = []struct{ key, label, ability string }{
 	{"craft", "Craft", abilityIntelligence},
 }
 
-// defaultTemplates is the in-memory catalog of code-defined default templates.
-// Each entry is validated and compiled into a DAG once at boot (see Registry).
-// Templates are immutable by ID: rule changes ship as new versioned IDs
-// (e.g. fantasy_v2), never by mutating an existing entry.
-// This variable is unexported; callers use DefaultTemplates() to get a copy.
 var defaultTemplates = []Template{
 	fantasyV1Template,
 }
 
-// fantasyV1Template defines the fantasy_v1 default template. It lives in code only
-// and is served from the in-memory Registry (no MongoDB seed or template
-// collection anymore).
-// The tree is a complete, system-agnostic fantasy character sheet: identity
-// (four free-text fields plus level, XP and proficiency bonus), the six base
-// scores with modifiers, saves and a generic skill list, combat numbers,
-// attacks and spellcasting. Mechanics are calibrated through the `rules`
-// group (defaults reproduce the classic score-10/step-2 curve) and wired
-// through `config` 0/1 flags, so another system retunes the sheet without
-// new formulas. SectionOrder is the display order the API must emit: identity
-// and the numbers read at the table (combat, derived, attacks) come first, the
-// reference lists follow and the tuning machinery (rules/config) is last.
-// SuggestedPins names the Rows a new player is offered as first Pins.
-// SectionDice and RowDice are the default Dice expressions: the Section ones
-// use `@` so one expression serves every Row, and each ability Row rolls its
-// own modifier.
 var fantasyV1Template = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",
@@ -153,8 +115,6 @@ var fantasyV1Template = Template{
 	RowDice: fantasyV1RowDice(),
 }
 
-// fantasyV1RowDice builds the Row defaults: initiative rolls its own value and
-// each ability Row rolls the ability's modifier.
 func fantasyV1RowDice() map[string]string {
 	rows := make(map[string]string, len(abilities)+1)
 	rows[fieldNameCombat+pathSeparator+"initiative"] = "1d20 + @"
@@ -173,8 +133,6 @@ var (
 
 func identityKey(key string) string { return key }
 
-// abilityKeys lists one key per ability in the conventional order (STR, DEX,
-// CON, INT, WIS, CHA), each derived from the ability key by keyOf.
 func abilityKeys(keyOf func(string) string) []string {
 	keys := make([]string, 0, len(abilities))
 	for _, a := range abilities {
@@ -203,8 +161,6 @@ func spellsOrder() []string {
 	return append([]string{"attackBonus", "saveDC", "atWill", "list"}, numberedKeys("slot", 9)...)
 }
 
-// configOrder lists the armor class proxies, then each ability's save and
-// spellcasting flags, then the skill proficiencies.
 func configOrder() []string {
 	keys := []string{fieldNameACUsesDex, fieldNameACUsesCon}
 	keys = append(keys, abilityKeys(saveProfKey)...)
@@ -215,7 +171,6 @@ func configOrder() []string {
 	return keys
 }
 
-// numField builds an editable numeric leaf.
 func numField(label string, def float64) FieldNode {
 	return FieldNode{Schema: &FieldSchema{
 		Type:       fieldTypeNumber,
@@ -225,9 +180,6 @@ func numField(label string, def float64) FieldNode {
 	}}
 }
 
-// textField builds an editable text leaf. Its sheet value is seeded as an
-// empty string by SeedValue: Default stays a float64 because the API
-// contract emits a numeric `default` (the desktop client decodes it as num).
 func textField(label string) FieldNode {
 	return FieldNode{Schema: &FieldSchema{
 		Type:       fieldTypeText,
@@ -236,7 +188,6 @@ func textField(label string) FieldNode {
 	}}
 }
 
-// generatableNumber marks an editable number leaf as generated within [lo, hi].
 func generatableNumber(node FieldNode, lo, hi float64) FieldNode {
 	node.Schema.Generatable = true
 	node.Schema.Min = &lo
@@ -244,17 +195,12 @@ func generatableNumber(node FieldNode, lo, hi float64) FieldNode {
 	return node
 }
 
-// generatableText marks an editable text leaf as generated up to maxLength
-// characters.
 func generatableText(node FieldNode, maxLength int) FieldNode {
 	node.Schema.Generatable = true
 	node.Schema.MaxLength = &maxLength
 	return node
 }
 
-// calcField builds a derived (computed, non-editable) numeric leaf.
-// deps is the exact set of leaves the formula reads: the DAG builds the
-// cascade from it, and seeders_test pins it against the formula.
 func calcField(label, formula string, deps ...[]string) FieldNode {
 	return FieldNode{Schema: &FieldSchema{
 		Type:       fieldTypeNumber,
@@ -265,8 +211,6 @@ func calcField(label, formula string, deps ...[]string) FieldNode {
 	}}
 }
 
-// upperFirst uppercases the first byte of an ASCII key segment, turning a
-// field key into the CamelCase suffix of a generated key (strength → Strength).
 func upperFirst(s string) string {
 	if s == "" {
 		return s
@@ -274,16 +218,12 @@ func upperFirst(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
-// modKey is the modifier leaf key of an ability (strength → strengthMod).
 func modKey(ability string) string { return ability + "Mod" }
 
-// saveProfKey is the config flag arming a save proficiency.
 func saveProfKey(ability string) string { return "save" + upperFirst(ability) + "Prof" }
 
-// skillProfKey is the config flag arming a skill proficiency.
 func skillProfKey(skill string) string { return "skill" + upperFirst(skill) + "Prof" }
 
-// spellUsesKey is the config flag pointing spellcasting at an ability.
 func spellUsesKey(ability string) string { return "spellUses" + upperFirst(ability) }
 
 func identityGroup() FieldGroup {
@@ -507,10 +447,6 @@ func configGroup() FieldGroup {
 	return group
 }
 
-// rulesGroup holds the tuning numbers every generated mechanic reads.
-// The defaults reproduce the classic D&D-like curve (modifier = (score-10)/2,
-// passive base 10, spell save base 8); another system changes these values
-// instead of the formulas.
 func rulesGroup() FieldGroup {
 	return FieldGroup{
 		"modifierBase":  numField("Ability modifier base", 10),
@@ -520,8 +456,6 @@ func rulesGroup() FieldGroup {
 	}
 }
 
-// DefaultTemplates returns a deep copy of the default template catalog.
-// Callers can mutate the returned slice without affecting the package state.
 func DefaultTemplates() []Template {
 	result := make([]Template, len(defaultTemplates))
 	for i, tmpl := range defaultTemplates {

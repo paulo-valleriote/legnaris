@@ -5,7 +5,6 @@ import { message } from '../l10n/strings';
 import { MIGHT_MAX, MIGHT_MIN } from '../landing/cascade';
 import { renderApp } from './render';
 
-/** Mounts the app as a visitor and waits for the cold-start restore to settle signed out. */
 async function visit(path: string) {
   const view = renderApp(path, { session: 'unauthenticated' });
   await waitFor(() => expect(screen.queryByTestId('auth-restoring')).not.toBeInTheDocument());

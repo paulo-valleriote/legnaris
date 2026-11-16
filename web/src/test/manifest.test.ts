@@ -19,8 +19,6 @@ const manifest = JSON.parse(
   icons: { src: string; sizes: string; type: string; purpose: string }[];
 };
 
-// The shell paints the browser chrome in the stage ground (DESIGN.md, "Browser chrome"), so the
-// manifest colours resolve from the same token rather than a copied hex.
 const stageGround = resolveThemeTokenValues('dark').get('--lg-color-stage');
 
 describe('web app manifest (FND-06)', () => {

@@ -25,13 +25,9 @@ const (
 	authUsername = "player"
 	authPassword = "sup3r-secret"
 
-	// integrationOrigin is the frontend origin in the default allowlist; the
-	// origin guard on refresh/logout requires it (AUTH-13).
 	integrationOrigin = "http://localhost:5173"
 )
 
-// authCookies carries the two cookies a session response sets, so a test can
-// replay them on the next cookie-authenticated call.
 type authCookies struct {
 	refresh string
 	csrf    string
@@ -60,8 +56,6 @@ func decodeSession(t *testing.T, rec *httptest.ResponseRecorder) auth.SessionRes
 	return body.Data
 }
 
-// authPost drives a cookie-authenticated route with the allowlisted origin and
-// the given cookies, echoing csrf (falling back to the cookie's value).
 func authPost(t *testing.T, h http.Handler, path string, cookies authCookies, csrf string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -79,12 +73,6 @@ func authPost(t *testing.T, h http.Handler, path string, cookies authCookies, cs
 	return serve(t, h, req)
 }
 
-// registerAuthUser registers a new account and verifies its address with the
-// code its own challenge carries, so the call returns the cookies of the
-// account's first verified session. The caller passes the email so a single
-// router can host several distinct users. The registration's own notice is
-// setup noise: the outbox is cleared afterwards, so tests that count outbox rows
-// see only the intentions they trigger.
 func registerAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, username string) authCookies {
 	t.Helper()
 
@@ -108,12 +96,6 @@ func registerAuthUser(t *testing.T, h http.Handler, mdb *mongo.Database, email, 
 	return cookies
 }
 
-// TestIntegration_RegistrationVerification drives the registration journey end
-// to end: the registration answers a challenge and no session, and the code the
-// recorded intention carries verifies it into the account's first session and
-// records the verification timestamp (TFA-01, TFA-04, TFA-11, TFA-13). The
-// duplicate-address registration in it uses a fresh username, because the
-// username is public and checked before the address.
 func TestIntegration_RegistrationVerification(t *testing.T) {
 	h, mdb, _ := newIntegrationStack(t, nil)
 	ctx := context.Background()
@@ -189,9 +171,6 @@ func TestIntegration_RegistrationVerification(t *testing.T) {
 	})
 }
 
-// TestIntegration_IdentityRead covers the identity read end to end: a verified
-// account reports its verified state, and the read carries the profile fields
-// the sign-in established (TFA-08, SC-006).
 func TestIntegration_IdentityRead(t *testing.T) {
 	h, mdb, _ := newIntegrationStack(t, nil)
 
@@ -209,7 +188,6 @@ func TestIntegration_IdentityRead(t *testing.T) {
 	assert.Equal(t, "identity", identity.Username)
 }
 
-// readIdentity reads the signed-in account and returns the projected profile.
 func readIdentity(t *testing.T, h http.Handler, token string) user.UserDTO {
 	t.Helper()
 
@@ -223,10 +201,6 @@ func readIdentity(t *testing.T, h http.Handler, token string) user.UserDTO {
 	return body.Data
 }
 
-// TestIntegration_LoginUnverifiedAccount drives the sign-in of an account that
-// registered but never verified: the password earns a challenge, not a session,
-// and the code of that challenge verifies the account into its first session
-// (D2, TFA-06).
 func TestIntegration_LoginUnverifiedAccount(t *testing.T) {
 	h, mdb, _ := newIntegrationStack(t, nil)
 
@@ -254,8 +228,6 @@ func TestIntegration_LoginUnverifiedAccount(t *testing.T) {
 	assert.True(t, readIdentity(t, h, session.AccessToken).EmailVerified)
 }
 
-// codeForChallenge reads the clear code of the send intention the challenge
-// itself carries, so a test verifies the challenge it owns (OTP-12).
 func codeForChallenge(t *testing.T, mdb *mongo.Database, challengeID string) string {
 	t.Helper()
 
@@ -399,7 +371,6 @@ func TestIntegration_AuthRefreshRotation(t *testing.T) {
 			reuse := authPost(t, h, "/auth/refresh", cookies, "")
 			require.Equal(t, http.StatusUnauthorized, reuse.Code)
 
-			// The family is gone, so the successor minted by the rotation is dead too.
 			afterReuse := authPost(t, h, "/auth/refresh", rotated, "")
 			require.Equal(t, http.StatusUnauthorized, afterReuse.Code)
 		})
@@ -461,10 +432,6 @@ func TestIntegration_AuthLogout(t *testing.T) {
 	})
 }
 
-// TestIntegration_AuthRefreshRequiresAccount proves renewal resolves the account
-// end to end: a deleted account answers 401 with no cookie and a dead family,
-// while a present account yields a token naming that account (PRQ-05, PRQ-06,
-// SC-003).
 func TestIntegration_AuthRefreshRequiresAccount(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	ctx := context.Background()

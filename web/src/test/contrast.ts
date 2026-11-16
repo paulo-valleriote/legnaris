@@ -1,5 +1,3 @@
-/** WCAG 2 relative-luminance contrast helpers used by the token tests. */
-
 function channel(value: number): number {
   const normalized = value / 255;
   return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;

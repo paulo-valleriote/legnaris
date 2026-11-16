@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeConfirm answers a deferred confirm with a fixed outcome.
 type fakeConfirm struct {
 	acked bool
 	err   error
@@ -31,8 +30,6 @@ func (f fakeConfirm) WaitContext(ctx context.Context) (bool, error) {
 	return f.acked, f.err
 }
 
-// fakeChannel records declarations and publishes and answers each publish from
-// its script.
 type fakeChannel struct {
 	mu          sync.Mutex
 	exchanges   []string
@@ -103,8 +100,6 @@ func (f *fakeChannel) PublishWithDeferredConfirmWithContext(_ context.Context, e
 	return f.confirm, nil
 }
 
-// gatedConfirm stays pending until release is closed, then acknowledges. It lets a
-// test hold one publish in its confirm wait while others run.
 type gatedConfirm struct {
 	release chan struct{}
 }
@@ -123,7 +118,6 @@ func (f *fakeChannel) Close() error {
 	return nil
 }
 
-// fakeConnection hands out one channel and counts how often it is dialled.
 type fakeConnection struct {
 	ch     *fakeChannel
 	closed bool
@@ -142,7 +136,6 @@ func (c *fakeConnection) Close() error {
 	return nil
 }
 
-// dialScript returns a dialer that yields the connections in order, one per dial.
 func dialScript(t *testing.T, conns ...*fakeConnection) (dialer, *int) {
 	t.Helper()
 	dials := 0
@@ -354,9 +347,6 @@ func TestNew_DefaultsConfirmTimeout(t *testing.T) {
 	}
 }
 
-// TestPublisher_PublishDoesNotHoldLockDuringConfirm pins that a publish waiting for
-// its confirm does not block another publish: the second job reaches the broker and
-// is confirmed while the first confirm is still pending.
 func TestPublisher_PublishDoesNotHoldLockDuringConfirm(t *testing.T) {
 	const (
 		jobA        = "0190a1b2-c3d4-7e5f-8a9b-000000000001"
@@ -397,8 +387,6 @@ func TestPublisher_PublishDoesNotHoldLockDuringConfirm(t *testing.T) {
 	assert.Equal(t, 1, *dials, "overlapping publishes share one connection")
 }
 
-// TestPublisher_ConcurrentPublishes pins that many publishes share one connection
-// and each one is refused only for its own returned job.
 func TestPublisher_ConcurrentPublishes(t *testing.T) {
 	const jobBase = "0190a1b2-c3d4-7e5f-8a9b-0000000000"
 
@@ -460,8 +448,6 @@ func TestPublisher_ConcurrentPublishes(t *testing.T) {
 	}
 }
 
-// TestPublisher_RedialsAfterFailure pins the recovery path: a failed publish drops
-// the connection, so the next publish dials again and is routed on the new channel.
 func TestPublisher_RedialsAfterFailure(t *testing.T) {
 	const jobID = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
 

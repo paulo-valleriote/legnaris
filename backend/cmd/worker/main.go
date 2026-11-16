@@ -1,10 +1,3 @@
-// Command worker is the background process. It delivers the queued OTP messages
-// from RabbitMQ, renders and sends each through the configured provider, retries
-// transient failures through the broker's delay tiers and parks the ones that can
-// never succeed. When GENERATION_ENABLED is set it also consumes character
-// generation jobs (LGN-230), in the same process. It is a separate binary, so a broker or
-// provider outage never reaches the HTTP API, and it needs no database: the
-// code's lifetime travels on the message (O2, WKR-01, WKR-19).
 package main
 
 import (
@@ -27,13 +20,8 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// drainMargin is added to the send timeout to size the wait for in-flight
-// messages on stop, so a send that is about to time out can still finish.
 const drainMargin = 5 * time.Second
 
-// brokerClient is the broker adapter the worker runs against: it is the
-// delivery source and the republisher, declares the topology before the first
-// delivery, and can be closed.
 type brokerClient interface {
 	worker.DeliverySource
 	worker.Republisher
@@ -41,14 +29,10 @@ type brokerClient interface {
 	Close() error
 }
 
-// dependencies are the process's wiring seams, overridable in tests so the
-// startup logic is exercised without a broker or a provider (WKR-19, WKR-27).
 type dependencies struct {
-	newSender    func(cfg env.Env) (email.Sender, error)
-	dialBroker   func(cfg env.Env) (brokerClient, error)
-	serveMetrics func(addr string, handler http.Handler) (func(ctx context.Context) error, error)
-	// newGeneration builds the generation consumer. It is called only when
-	// GENERATION_ENABLED is set, and its failure stops the process before consuming.
+	newSender     func(cfg env.Env) (email.Sender, error)
+	dialBroker    func(cfg env.Env) (brokerClient, error)
+	serveMetrics  func(addr string, handler http.Handler) (func(ctx context.Context) error, error)
 	newGeneration func(cfg env.Env) (generationRunner, func(), error)
 }
 
@@ -65,10 +49,6 @@ func main() {
 	}
 }
 
-// run validates the broker and provider settings, opens the broker, declares the
-// topology, serves the metrics listener and consumes until ctx is cancelled.
-// Everything that can fail does so before the first delivery is taken
-// (WKR-01, WKR-18, WKR-19, WKR-20).
 func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	if err := amqp.ValidateURL(cfg.Variables.RabbitMQURL); err != nil {
 		return err
@@ -122,8 +102,6 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	return runConcurrently(ctx, delivery.Run, generation.Run)
 }
 
-// workerConfig maps the optional configuration onto the worker's knobs; every
-// value has a documented default (WKR-14, WKR-16).
 func workerConfig(cfg env.Env) worker.Config {
 	vars := cfg.Variables
 	return worker.Config{
@@ -133,7 +111,6 @@ func workerConfig(cfg env.Env) worker.Config {
 	}
 }
 
-// senderFromConfig builds the sending port the provider setting selects.
 func senderFromConfig(cfg env.Env) (email.Sender, error) {
 	vars := cfg.Variables
 	return factory.New(factory.Config{
@@ -146,8 +123,6 @@ func senderFromConfig(cfg env.Env) (email.Sender, error) {
 	})
 }
 
-// serveMetrics starts a plain http server on addr for the worker's own metrics
-// listener and returns its shutdown function (WKR-20).
 func serveMetrics(addr string, handler http.Handler) (func(ctx context.Context) error, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -163,8 +138,6 @@ func serveMetrics(addr string, handler http.Handler) (func(ctx context.Context) 
 	return server.Shutdown, nil
 }
 
-// defaultDependencies wires the real RabbitMQ broker, provider and metrics
-// listener.
 func defaultDependencies() dependencies {
 	return dependencies{
 		newSender: senderFromConfig,

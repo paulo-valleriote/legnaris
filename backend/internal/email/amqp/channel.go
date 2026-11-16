@@ -1,9 +1,3 @@
-// Package amqp is the RabbitMQ adapter: it declares the broker topology
-// idempotently and publishes the message contract with publisher confirms and
-// mandatory routing. The broker specifics sit behind a small channel seam (an
-// interface plus an injectable dial function) so the publish, nack, timeout,
-// unroutable and blocked paths are unit-tested without a broker (EML-06,
-// EML-07, EML-19).
 package amqp
 
 import (
@@ -12,13 +6,10 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// confirmation is the subset of the deferred publisher confirm the adapter
-// waits on, so a fake can drive ack/nack/timeout without a broker.
 type confirmation interface {
 	WaitContext(ctx context.Context) (bool, error)
 }
 
-// channel is the subset of the AMQP channel operations the adapter uses.
 type channel interface {
 	ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error
 	QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error)
@@ -32,7 +23,6 @@ type channel interface {
 	Close() error
 }
 
-// connection is the subset of the AMQP connection operations the adapter uses.
 type connection interface {
 	Channel() (channel, error)
 	NotifyStateChange(recv chan *amqp.StateChanged)
@@ -40,8 +30,6 @@ type connection interface {
 	Close() error
 }
 
-// amqpChannel adapts a live *amqp.Channel to the seam, narrowing the deferred
-// confirmation to the confirmation interface (Go has no covariant returns).
 type amqpChannel struct {
 	ch *amqp.Channel
 }
@@ -90,7 +78,6 @@ func (c *amqpChannel) Close() error {
 	return c.ch.Close()
 }
 
-// amqpConnection adapts a live *amqp.Connection to the connection seam.
 type amqpConnection struct {
 	conn *amqp.Connection
 }
@@ -115,12 +102,8 @@ func (c *amqpConnection) Close() error {
 	return c.conn.Close()
 }
 
-// dialer opens a connection to the broker. It is a function value so a test can
-// substitute a fake connection with no broker running (EML-07).
 type dialer func(url string, cfg amqp.Config) (connection, error)
 
-// defaultDialer opens a real connection with automatic reconnection and
-// topology recovery enabled (EML-06).
 func defaultDialer(url string, cfg amqp.Config) (connection, error) {
 	conn, err := amqp.DialConfig(url, cfg)
 	if err != nil {

@@ -17,10 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// jobID is a canonical UUID v7, the only identifier a job message may carry.
 const jobID = "0190a1b2-0000-7000-8000-0000000000a1"
 
-// TestNewConsumer covers the defaults of the consumer configuration.
 func TestNewConsumer(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -41,7 +39,6 @@ func TestNewConsumer(t *testing.T) {
 	}
 }
 
-// TestDecodeMessage covers the boundary check of an incoming job message.
 func TestDecodeMessage(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -73,7 +70,6 @@ func TestDecodeMessage(t *testing.T) {
 	}
 }
 
-// TestProcessDelivery covers the acknowledgement policy of one delivery.
 func TestProcessDelivery(t *testing.T) {
 	log := logger.NewLogger(slog.LevelError)
 	validBody := []byte(`{"generation_id":"` + jobID + `","kind":"character"}`)

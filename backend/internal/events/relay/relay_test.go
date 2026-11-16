@@ -49,7 +49,6 @@ func testConfig() relay.Config {
 	}
 }
 
-// runQueue registers the event queue and runs one pass at now.
 func runQueue(t *testing.T, repo outbox.Repository, pub relay.Publisher, obs sweeper.Observer, cfg relay.Config) error {
 	t.Helper()
 	queue, err := relay.NewQueue(repo, pub, cfg)
@@ -59,14 +58,11 @@ func runQueue(t *testing.T, repo outbox.Repository, pub relay.Publisher, obs swe
 	return sw.RunOnce(context.Background(), fixedNow)
 }
 
-// expectPass sets the calls every pass makes on the store: the oldest-pending
-// probe, which reports an empty outbox unless a test overrides it.
 func expectPass(repo *outboxmocks.MockRepository, obs *sweepermocks.MockObserver) {
 	repo.EXPECT().OldestPending(mock.Anything).Return(time.Time{}, false, nil).Once()
 	obs.EXPECT().OldestPending(relay.QueueName, time.Duration(0)).Once()
 }
 
-// TestNewQueue covers the registration of the event outbox queue.
 func TestNewQueue(t *testing.T) {
 	repo := outboxmocks.NewMockRepository(t)
 	pub := relaymocks.NewMockPublisher(t)
@@ -104,7 +100,6 @@ func TestNewQueue(t *testing.T) {
 	}
 }
 
-// TestQueuePublish covers the publish path of the event outbox queue.
 func TestQueuePublish(t *testing.T) {
 	t.Run("Happy path: a confirmed entry is marked published at the pass time", func(t *testing.T) {
 		repo := outboxmocks.NewMockRepository(t)
@@ -204,7 +199,6 @@ func TestQueuePublish(t *testing.T) {
 	})
 }
 
-// TestQueueFailures covers the failure path the sweeper drives for the queue.
 func TestQueueFailures(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -243,7 +237,6 @@ func TestQueueFailures(t *testing.T) {
 	}
 }
 
-// TestQueueStoreErrors covers the store failures the queue surfaces to the pass.
 func TestQueueStoreErrors(t *testing.T) {
 	t.Run("Error: a claim failure is returned and nothing is published", func(t *testing.T) {
 		repo := outboxmocks.NewMockRepository(t)
@@ -287,8 +280,6 @@ func TestQueueStoreErrors(t *testing.T) {
 	})
 }
 
-// TestQueueOldestPending proves the queue reports the age of the oldest pending
-// entry, which feeds the oldest_pending_seconds gauge.
 func TestQueueOldestPending(t *testing.T) {
 	tests := []struct {
 		name    string

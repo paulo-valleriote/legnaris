@@ -11,41 +11,22 @@ import (
 	"legnaris/backend/internal/plan"
 )
 
-// legacySheetKind is what every Sheet created before kinds existed becomes.
 const legacySheetKind = plan.KindCharacter
 
-// sheetsOwnerIDUniqueIndex is the one-sheet-per-user index that the kinds
-// model replaces. The migration drops it.
 const sheetsOwnerIDUniqueIndex = "sheets_owner_id_unique"
 
-// sheetsOwnerKindIndex serves the per-owner, per-kind lookups and the counter
-// rebuild. It is not unique: an owner may hold several Sheets of different kinds.
 const sheetsOwnerKindIndex = "sheets_owner_id_kind"
 
-// mongoCodeIndexNotFound and mongoCodeNamespaceNotFound are the server codes for
-// dropping an index that is already gone or on a collection that does not exist.
 const (
 	mongoCodeIndexNotFound     = 27
 	mongoCodeNamespaceNotFound = 26
 )
 
-// MigrationReport counts what one run of MigrateKinds touched. Every figure is
-// the state after the run, so a second run reports the same numbers.
 type MigrationReport struct {
-	// BackfilledSheets is the number of Sheets whose kind was set in this run.
 	BackfilledSheets int64
-	// Counters is the number of owner-and-kind counters written.
-	Counters int
+	Counters         int
 }
 
-// MigrateKinds brings a database created before kinds to the kinds model. It
-// sets kind to character on every Sheet that lacks one, rebuilds the per-owner
-// counters from the Sheets themselves, and replaces the one-sheet-per-user index
-// with the (owner_id, kind) index. Running it again changes nothing.
-//
-// The counters are rebuilt from a snapshot, so run it while no Sheet is being
-// created or deleted: stop the API, or deploy after the migration. Creations
-// that race the rebuild can leave a counter behind the real count.
 func MigrateKinds(ctx context.Context, database *mongo.Database) (MigrationReport, error) {
 	sheets := database.Collection("sheets")
 
@@ -71,14 +52,12 @@ func MigrateKinds(ctx context.Context, database *mongo.Database) (MigrationRepor
 	return MigrationReport{BackfilledSheets: backfilled.ModifiedCount, Counters: len(groups)}, nil
 }
 
-// ownerKindGroup is one aggregated row: how many Sheets an owner holds of a kind.
 type ownerKindGroup struct {
 	OwnerID string
 	Kind    plan.SheetKind
 	Count   int64
 }
 
-// countSheetsByOwnerAndKind aggregates the Sheets by owner and kind.
 func countSheetsByOwnerAndKind(ctx context.Context, sheets *mongo.Collection) ([]ownerKindGroup, error) {
 	pipeline := mongo.Pipeline{
 		{{Key: "$group", Value: bson.D{
@@ -112,8 +91,6 @@ func countSheetsByOwnerAndKind(ctx context.Context, sheets *mongo.Collection) ([
 	return groups, nil
 }
 
-// rebuildCounters sets each counter to its aggregated value and removes counters
-// with no Sheet behind them. Setting, not incrementing, keeps a re-run exact.
 func rebuildCounters(ctx context.Context, counters *mongo.Collection, groups []ownerKindGroup) error {
 	keep := make(bson.A, 0, len(groups))
 	for _, group := range groups {
@@ -139,9 +116,6 @@ func rebuildCounters(ctx context.Context, counters *mongo.Collection, groups []o
 	return nil
 }
 
-// swapOwnerIndex drops the unique owner index and ensures the (owner_id, kind)
-// index. A missing old index is the state after a previous run, so it is not an
-// error.
 func swapOwnerIndex(ctx context.Context, sheets *mongo.Collection) error {
 	if err := sheets.Indexes().DropOne(ctx, sheetsOwnerIDUniqueIndex); err != nil && !isMissingIndexErr(err) {
 		return fmt.Errorf("drop %s: %w", sheetsOwnerIDUniqueIndex, err)
@@ -155,7 +129,6 @@ func swapOwnerIndex(ctx context.Context, sheets *mongo.Collection) error {
 	return nil
 }
 
-// isMissingIndexErr reports a drop of an index or collection that is not there.
 func isMissingIndexErr(err error) bool {
 	var cmdErr mongo.CommandError
 	if !errors.As(err, &cmdErr) {

@@ -230,8 +230,6 @@ func TestProbeRejectsBadInput(t *testing.T) {
 	}
 }
 
-// curlFake fails its first FAKE_FAILS calls and succeeds afterwards, counting
-// calls in FAKE_COUNT.
 const curlFake = `
 n=$(cat "$FAKE_COUNT" 2>/dev/null || echo 0)
 n=$((n + 1))

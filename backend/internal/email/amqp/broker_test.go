@@ -17,8 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// exchangeRecord, queueRecord and bindingRecord capture what the adapter asked
-// the channel to declare, so the topology can be asserted without a broker.
 type exchangeRecord struct {
 	name       string
 	kind       string
@@ -42,7 +40,6 @@ type bindingRecord struct {
 	key      string
 }
 
-// fakeConfirmation drives the publisher-confirm outcome.
 type fakeConfirmation struct {
 	acked bool
 	err   error
@@ -56,8 +53,6 @@ func (f *fakeConfirmation) WaitContext(ctx context.Context) (bool, error) {
 	return f.acked, f.err
 }
 
-// fakeChannel implements the channel seam, recording declarations and
-// publishings and driving confirm/nack/return/transport outcomes (EML-07).
 type fakeChannel struct {
 	confirmed  bool
 	closed     bool
@@ -180,13 +175,10 @@ func (f *fakeChannel) Close() error {
 	return nil
 }
 
-// fakeConnection implements the connection seam over one fake channel.
 type fakeConnection struct {
 	channel *fakeChannel
 	closed  bool
 
-	// consumers are handed out, in order, after the first channel, so the
-	// publisher and the consumer get channels of their own.
 	consumers  []*fakeChannel
 	opened     int
 	channelErr error
@@ -240,8 +232,6 @@ func testMessage() email.Message {
 	}
 }
 
-// TestDial_RejectsBlankURL proves a blank broker URL fails fast at startup
-// (EML-15).
 func TestDial_RejectsBlankURL(t *testing.T) {
 	tests := []struct {
 		name string
@@ -260,8 +250,6 @@ func TestDial_RejectsBlankURL(t *testing.T) {
 	}
 }
 
-// TestDial_UnreachableBrokerFailsFast proves a dial failure is a typed startup
-// error, not a publish-time surprise (EML-15, EML-19).
 func TestDial_UnreachableBrokerFailsFast(t *testing.T) {
 	dial := func(_ string, _ amqp.Config) (connection, error) {
 		return nil, errors.New("connection refused")
@@ -272,9 +260,6 @@ func TestDial_UnreachableBrokerFailsFast(t *testing.T) {
 	assert.ErrorIs(t, err, ErrBrokerUnavailable)
 }
 
-// TestBroker_PublishConfirmed proves a confirmed publish carries the contract
-// properties and is published mandatorily to the main exchange (EML-02,
-// EML-07).
 func TestBroker_PublishConfirmed(t *testing.T) {
 	fake := &fakeChannel{}
 	broker, _ := newFakeBroker(t, fake, Config{})
@@ -306,9 +291,6 @@ func TestBroker_PublishConfirmed(t *testing.T) {
 	})
 }
 
-// TestBroker_PublishTransient proves every unconfirmed outcome is classified
-// transient, so the relay reschedules instead of marking the row published
-// (EML-07, EML-19).
 func TestBroker_PublishTransient(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -358,8 +340,6 @@ func TestBroker_PublishTransient(t *testing.T) {
 	}
 }
 
-// TestBroker_DeclareTopology proves the topology is declared through the seam
-// and a declaration failure is surfaced (EML-06).
 func TestBroker_DeclareTopology(t *testing.T) {
 	t.Run("Happy path: the topology declares without error", func(t *testing.T) {
 		fake := &fakeChannel{}
@@ -378,9 +358,6 @@ func TestBroker_DeclareTopology(t *testing.T) {
 	})
 }
 
-// TestBroker_DeclareTopology_RetryDelays proves the delay tiers follow the
-// configured delays, fall back to the documented defaults, and an unusable
-// delay is refused before anything is declared (WKR-14).
 func TestBroker_DeclareTopology_RetryDelays(t *testing.T) {
 	ttlOf := func(t *testing.T, fake *fakeChannel, name string) any {
 		t.Helper()
@@ -427,8 +404,6 @@ func TestBroker_DeclareTopology_RetryDelays(t *testing.T) {
 	}
 }
 
-// TestBroker_Close proves Close closes the channel and connection and stops the
-// supervisor, so no goroutine leaks (EML-05).
 func TestBroker_Close(t *testing.T) {
 	fake := &fakeChannel{}
 	conn := &fakeConnection{channel: fake}
@@ -447,8 +422,6 @@ func TestBroker_Close(t *testing.T) {
 	})
 }
 
-// TestValidateURL pins the startup validation shared by the relay and the
-// worker (EML-15, WKR-19).
 func TestValidateURL(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -12,9 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// postLogin drives the real router's login route with an explicit direct peer
-// and forwarding chain. The unreachable store answers 500 when the request
-// passes the guard, so 429 alone identifies a refused request.
 func postLogin(t *testing.T, h http.Handler, email, remoteAddr string, forwarded ...string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -46,10 +43,6 @@ func requireLimited(t *testing.T, rec *httptest.ResponseRecorder) {
 	assert.NotEmpty(t, rec.Header().Get(echo.HeaderRetryAfter))
 }
 
-// TestClientIP_RateLimitKeyedByResolvedAddress proves the router installs the
-// address policy: two clients behind one trusted proxy are limited
-// independently, and an untrusted peer cannot choose its own key (PRQ-01,
-// PRQ-02, PRQ-04, SC-001, SC-002).
 func TestClientIP_RateLimitKeyedByResolvedAddress(t *testing.T) {
 	const trustedPeer = "10.0.0.1:1234"
 

@@ -17,9 +17,6 @@ import (
 
 var errTransient = fmt.Errorf("%w: provider timeout", email.ErrTransient)
 
-// TestWorker_RetryLadder pins the delay tier chosen from the message's own
-// attempt count, and that the republished message changes nothing but the count
-// (WKR-09, WKR-14, WKR-15, SC-003).
 func TestWorker_RetryLadder(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -59,8 +56,6 @@ func TestWorker_RetryLadder(t *testing.T) {
 	}
 }
 
-// TestWorker_RetryClassification proves any failure that is not permanent is
-// retried: an unclassified provider error must not lose the code.
 func TestWorker_RetryClassification(t *testing.T) {
 	tests := []struct {
 		name string
@@ -85,10 +80,6 @@ func TestWorker_RetryClassification(t *testing.T) {
 	}
 }
 
-// TestWorker_TerminalPaths proves the permanent failure, the exhausted cap and
-// a count already at the cap each reach the dead-letter route, acknowledged and
-// counted, with no second send; and that expiry is decided first (WKR-11,
-// WKR-12, SC-003).
 func TestWorker_TerminalPaths(t *testing.T) {
 	created := emailtest.Message().CreatedAt
 
@@ -141,9 +132,6 @@ func TestWorker_TerminalPaths(t *testing.T) {
 	}
 }
 
-// TestWorker_UnconfirmedPublishLeavesTheOriginal proves a republish or a
-// dead-letter publish the broker did not confirm leaves the original
-// unacknowledged and uncounted, so the broker redelivers it (WKR-13, SC-001).
 func TestWorker_UnconfirmedPublishLeavesTheOriginal(t *testing.T) {
 	unconfirmed := fmt.Errorf("%w: broker nacked", email.ErrTransient)
 
@@ -181,9 +169,6 @@ func TestWorker_UnconfirmedPublishLeavesTheOriginal(t *testing.T) {
 	})
 }
 
-// TestWorker_AckFailureIsNotFatal proves a failed acknowledgement is logged and
-// does not stop the worker: the broker redelivers and the provider de-duplicates
-// (WKR-08).
 func TestWorker_AckFailureIsNotFatal(t *testing.T) {
 	h := newHarness(t)
 	handle := h.queue(body(t, emailtest.Message()))

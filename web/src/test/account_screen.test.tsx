@@ -26,7 +26,6 @@ const CONSENTED_PLAN = {
 
 const NO_CONTENT: HttpResponse = { status: 204, body: '' };
 
-/** A transport that serves the plan read from a queue and the revoke from a scripted responder. */
 function scriptedTransport(options: {
   plans: Array<HttpResponse | Promise<HttpResponse>>;
   revoke?: () => Promise<HttpResponse>;

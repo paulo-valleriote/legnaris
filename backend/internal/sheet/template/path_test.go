@@ -251,8 +251,6 @@ func TestPath_Set(t *testing.T) {
 	}
 }
 
-// DeepCopyForTest is a test helper that mimics maputils.DeepCopy
-// without importing maputils (to avoid import cycle in tests).
 func DeepCopyForTest(src map[string]any) map[string]any {
 	if src == nil {
 		return nil

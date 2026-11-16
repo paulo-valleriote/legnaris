@@ -31,10 +31,6 @@ func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.PUT("/:id/layout", sc.SetLayout)
 }
 
-// RegisterTemplatePreviewRoute exposes the template dry-run on the templates
-// group. The operation lives on the sheet service because it shares the
-// recalculation path, but it is grouped with the other /templates routes for
-// the client.
 func (sc *SheetController) RegisterTemplatePreviewRoute(group *echo.Group) {
 	group.POST("/:id/preview", sc.PreviewTemplate)
 }
@@ -94,9 +90,6 @@ func (sc *SheetController) PartialUpdate(c *echo.Context) error {
 	return response.OK(c, cascadingEffects)
 }
 
-// Preview is the stateless dry-run of PartialUpdate: same body, same cascade,
-// same typed errors, no persistence. It exists so a client can show computed
-// values before committing.
 func (sc *SheetController) Preview(c *echo.Context) error {
 	var cmd sheet.PartialUpdateSheetCommand
 
@@ -116,15 +109,10 @@ func (sc *SheetController) Preview(c *echo.Context) error {
 	return response.OK(c, cascadingEffects)
 }
 
-// SetLayoutResponse is the body of PUT /sheets/:id/layout: the Layout as
-// stored, or null after a reset to default.
 type SetLayoutResponse struct {
 	Layout *sheet.Layout `json:"layout"`
 }
 
-// SetLayout fully replaces the authenticated owner's sheet Layout. It never
-// recalculates: the body is {"layout": {...}} and the answer echoes what was
-// stored.
 func (sc *SheetController) SetLayout(c *echo.Context) error {
 	var cmd sheet.SetLayoutCommand
 
@@ -144,9 +132,6 @@ func (sc *SheetController) SetLayout(c *echo.Context) error {
 	return response.OK(c, SetLayoutResponse{Layout: layout})
 }
 
-// Delete removes the authenticated owner's sheet and returns 204. A foreign or
-// already-deleted sheet surfaces as 404 from the service, so a repeat delete is
-// not a silent success.
 func (sc *SheetController) Delete(c *echo.Context) error {
 	ownerID, _ := auth.UserID(c)
 
@@ -159,9 +144,6 @@ func (sc *SheetController) Delete(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// PreviewTemplate is the template-seeded dry-run: it decodes the data delta,
-// takes the template id from the path and returns the cascade with no stored
-// sheet and no persistence.
 func (sc *SheetController) PreviewTemplate(c *echo.Context) error {
 	var cmd sheet.PreviewTemplateCommand
 

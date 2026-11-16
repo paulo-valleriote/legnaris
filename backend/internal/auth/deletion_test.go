@@ -15,9 +15,6 @@ import (
 	"legnaris/backend/shared/apperr"
 )
 
-// TestService_RequestAccountDeletion covers the first deletion step: an active
-// account gets a delete_account code at its own address, a deleting or unknown
-// account gets none, and a malformed identity never reaches the store.
 func TestService_RequestAccountDeletion(t *testing.T) {
 	ctx := context.Background()
 
@@ -83,9 +80,6 @@ func TestService_RequestAccountDeletion(t *testing.T) {
 	}
 }
 
-// TestService_DeleteAccount covers the confirmation step: only a delete_account
-// code of the signed-in account marks it deleting; a foreign, wrong-purpose,
-// wrong or spent code is the uniform code failure and leaves the row unconsumed.
 func TestService_DeleteAccount(t *testing.T) {
 	ctx := context.Background()
 
@@ -214,8 +208,6 @@ func TestService_DeleteAccount(t *testing.T) {
 	}
 }
 
-// TestVerifyChallenge_RefusesDeletionCode pins that a deletion code never signs
-// in: the sign-in verification refuses a delete_account row without consuming it.
 func TestVerifyChallenge_RefusesDeletionCode(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -231,8 +223,6 @@ func TestVerifyChallenge_RefusesDeletionCode(t *testing.T) {
 	assertAppErr(t, err, apperr.CodeOTPInvalid)
 }
 
-// TestService_EnsureActive covers the gate every authenticated route runs: an active
-// account passes, a deleting or dead one is forbidden, an unknown one is unauthorized.
 func TestService_EnsureActive(t *testing.T) {
 	ctx := context.Background()
 
@@ -291,9 +281,6 @@ func TestService_EnsureActive(t *testing.T) {
 	}
 }
 
-// TestService_DeletingAccountSignsIn pins that a deleting account can neither sign
-// in nor renew a session: a correct password is refused like a wrong one, and a
-// renewal revokes the family.
 func TestService_DeletingAccountSignsIn(t *testing.T) {
 	ctx := context.Background()
 	deleting := func() *user.User {

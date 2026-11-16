@@ -29,13 +29,8 @@ import (
 
 var testLog = logger.NewLogger(slog.LevelError)
 
-// errorTestOwnerID stands in for the authenticated user id the JWT middleware
-// would place in the context; these unit tests mount the controller directly,
-// so the harness injects it.
 const errorTestOwnerID = "01900000-0000-7000-8000-0000000000aa"
 
-// withOwner simulates auth.Middleware for tests that mount a controller group
-// directly: it stamps the authenticated owner id the handlers read.
 func withOwner(userID string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -45,11 +40,6 @@ func withOwner(userID string) echo.MiddlewareFunc {
 	}
 }
 
-// newSheetErrorRouter wires the real SheetController + HTTPErrorHandler over a
-// real sheet.Service backed by a mocked repository, so the full translation
-// chain (repository/DAG typed errors → apperr → HTTP status) is exercised
-// without MongoDB. The template-service mock is returned so tests whose flow
-// reaches FetchTemplate (Create asks it first, LGN-86) can set expectations.
 func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache sheettest.DAGMap) (http.Handler, *templatemocks.MockService) {
 	t.Helper()
 
@@ -85,18 +75,11 @@ func newErrorTestDAG(t *testing.T) sheettest.DAGMap {
 	return sheettest.DAGMap{"fantasy_v1": dag}
 }
 
-// Canonical UUID v7 fixtures (LGN-86): the sheet endpoints reject anything
-// that is not a canonical UUID v7 before the repository, so tests exercising
-// the repository need IDs in the exact shape idgen.New produces.
 const (
 	sheetStubID    = "01900000-0000-7000-8000-000000000001"
 	missingSheetID = "01900000-0000-7000-8000-000000000404"
 )
 
-// TestErrorMapping_SheetNotExistsReturns404 covers the card's headline case:
-// GET /sheets/:id for a missing sheet must respond 404, not 500 (the
-// repository's ErrSheetNotFound sentinel is translated by the service). The
-// ID is well-formed but unknown — format validation must let it through.
 func TestErrorMapping_SheetNotExistsReturns404(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t)
 	mockRepo.EXPECT().
@@ -115,12 +98,8 @@ func TestErrorMapping_SheetNotExistsReturns404(t *testing.T) {
 	assert.Equal(t, "sheet not found", body.Error.Message)
 }
 
-// TestErrorMapping_UnknownTemplateReturns404: POST with a template that has no
-// DAG in the registry must respond 404 (the service must not reach the repo).
-// FetchTemplate runs first (LGN-86) and the well-formed unknown slug passes
-// its checks, so the mock hands a template over and the DAG lookup misses.
 func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
-	mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+	mockRepo := mocks.NewMockRepository(t)
 
 	h, mockTemplateSvc := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 	mockTemplateSvc.EXPECT().
@@ -137,8 +116,6 @@ func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 	assert.Equal(t, "template not found", body.Error.Message)
 }
 
-// TestErrorMapping_PatchFieldErrors: unknown field → 400 UNKNOWN_FIELD,
-// non-editable field → 400 INVALID_REQUEST.
 func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 	storedSheet := func() *sheet.Sheet {
 		return &sheet.Sheet{
@@ -190,9 +167,6 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 	}
 }
 
-// TestErrorMapping_InvalidBodyReturns400: malformed JSON and unknown body
-// fields are translated by the controller (decodeError) to 400 codes without
-// reaching the service.
 func TestErrorMapping_InvalidBodyReturns400(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -218,7 +192,7 @@ func TestErrorMapping_InvalidBodyReturns400(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+			mockRepo := mocks.NewMockRepository(t)
 
 			h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 
@@ -232,9 +206,6 @@ func TestErrorMapping_InvalidBodyReturns400(t *testing.T) {
 	}
 }
 
-// TestErrorMapping_MalformedSheetIDReturns400: a junk path param must surface
-// as 400 INVALID_REQUEST through the HTTP boundary on both sheet entry
-// points, and the repository must never see it (LGN-86).
 func TestErrorMapping_MalformedSheetIDReturns400(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -257,7 +228,7 @@ func TestErrorMapping_MalformedSheetIDReturns400(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+			mockRepo := mocks.NewMockRepository(t)
 
 			h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 
@@ -272,9 +243,6 @@ func TestErrorMapping_MalformedSheetIDReturns400(t *testing.T) {
 	}
 }
 
-// newPreviewErrorDAG builds the DAG the preview route tests share: a base field,
-// a derived leaf and an exclusive group, so every reject path PATCH maps can be
-// exercised over HTTP.
 func newPreviewErrorDAG(t *testing.T) sheettest.DAGMap {
 	t.Helper()
 
@@ -301,10 +269,6 @@ func newPreviewErrorDAG(t *testing.T) sheettest.DAGMap {
 	return sheettest.DAGMap{"fantasy_v1": dag}
 }
 
-// TestErrorMapping_PreviewSheet pins POST /sheets/:id/preview end to end over
-// the HTTP boundary: the cascade envelope on 200, no persistence, and the exact
-// status codes PATCH maps for a malformed id, a missing sheet, an unknown field,
-// a derived field, an exclusive conflict, over-deep nesting and a bad body.
 func TestErrorMapping_PreviewSheet(t *testing.T) {
 	storedSheet := func() *sheet.Sheet {
 		return &sheet.Sheet{
@@ -346,7 +310,7 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 	})
 
 	t.Run("Error: malformed sheet id returns 400 INVALID_REQUEST", func(t *testing.T) {
-		mockRepo := mocks.NewMockRepository(t) // no expectations: must never be called
+		mockRepo := mocks.NewMockRepository(t)
 
 		h, _ := newSheetErrorRouter(t, mockRepo, newPreviewErrorDAG(t))
 
@@ -375,7 +339,7 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 	})
 
 	t.Run("Error: invalid body returns 400 INVALID_JSON", func(t *testing.T) {
-		mockRepo := mocks.NewMockRepository(t) // no expectations: the body never reaches the service
+		mockRepo := mocks.NewMockRepository(t)
 
 		h, _ := newSheetErrorRouter(t, mockRepo, newPreviewErrorDAG(t))
 
@@ -444,8 +408,6 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 	})
 }
 
-// newTemplatePreviewDAG builds the template and DAG the template preview route
-// tests share: a base field and one derived leaf.
 func newTemplatePreviewDAG(t *testing.T) (sheettest.DAGMap, *template.Template) {
 	t.Helper()
 
@@ -468,10 +430,6 @@ func newTemplatePreviewDAG(t *testing.T) (sheettest.DAGMap, *template.Template) 
 	return sheettest.DAGMap{"test": dag}, &template.Template{ID: "test", Name: "Test Template", Fields: fields}
 }
 
-// newTemplatePreviewRouter wires the sheet controller's /templates preview route
-// over a real sheet service backed by a mocked repository, so the full
-// translation chain is exercised without MongoDB. The template-service mock is
-// returned so the tests own its expectations.
 func newTemplatePreviewRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache sheettest.DAGMap) (http.Handler, *templatemocks.MockService) {
 	t.Helper()
 
@@ -484,16 +442,11 @@ func newTemplatePreviewRouter(t *testing.T, mockRepo *mocks.MockRepository, dagC
 	return e, mockTemplateSvc
 }
 
-// TestErrorMapping_PreviewTemplate pins POST /templates/:id/preview over the
-// HTTP boundary: the cascade envelope on 200 with no stored sheet, 400 for a
-// missing or malformed template id, 404 for an unknown slug, and the same DAG
-// codes the sheet preview maps. A body template_id is rejected: the id comes
-// from the path only.
 func TestErrorMapping_PreviewTemplate(t *testing.T) {
 	dagCache, tmpl := newTemplatePreviewDAG(t)
 
 	t.Run("Happy path: 200 with the cascade and no stored sheet", func(t *testing.T) {
-		mockRepo := mocks.NewMockRepository(t) // no expectations: the template preview never touches the repository
+		mockRepo := mocks.NewMockRepository(t)
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
@@ -621,9 +574,6 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 	})
 }
 
-// TestErrorMapping_PatchVersionConflictReturns409: a PATCH that loses the
-// compare-and-swap reaches the client as 409 CONFLICT with a Retry-After header
-// after a single read and write; the retry is the client's job.
 func TestErrorMapping_PatchVersionConflictReturns409(t *testing.T) {
 	storedSheet := func(version int64) *sheet.Sheet {
 		return &sheet.Sheet{

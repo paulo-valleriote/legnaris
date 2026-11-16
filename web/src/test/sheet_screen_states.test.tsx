@@ -176,7 +176,6 @@ describe('sheet footer, save and Ctrl+S (WSC-12, WSC-14, WSC-16, WSC-17, WSC-19,
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-/** The feature's source directories whose files must own no DOM-injection sink (WSC-35). */
 function featureSources(): string[] {
   return ['../sheet', '../library'].flatMap((relative) => {
     const dir = path.resolve(here, relative);

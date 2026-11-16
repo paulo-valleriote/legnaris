@@ -18,19 +18,12 @@ import (
 	"legnaris/backend/shared/env"
 )
 
-// generationShutdownTimeout bounds the Mongo close after the consumer has stopped.
 const generationShutdownTimeout = 5 * time.Second
 
-// generationRunner consumes generation jobs until its context ends.
 type generationRunner interface {
 	Run(ctx context.Context) error
 }
 
-// buildGeneration wires the generation consumer of the worker: the LLM client the
-// configuration selects, the Mongo store and quota of the job, the Template rules
-// and the provider breaker. It fails at boot, before any job is taken, when the LLM
-// configuration is unusable, such as a missing LLM_API_KEY (ADR 0008). The returned
-// cleanup closes the Mongo connection.
 func buildGeneration(cfg env.Env) (generationRunner, func(), error) {
 	vars := cfg.Variables
 	client, err := llmfactory.New(llmfactory.Config{
@@ -84,8 +77,6 @@ func buildGeneration(cfg env.Env) (generationRunner, func(), error) {
 	return consumer, cleanup, nil
 }
 
-// runConcurrently runs every runner on its own goroutine and waits for all of
-// them. The joined error carries every runner's failure.
 func runConcurrently(ctx context.Context, runners ...func(context.Context) error) error {
 	var wg sync.WaitGroup
 	errs := make([]error, len(runners))

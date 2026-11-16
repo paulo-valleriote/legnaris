@@ -8,9 +8,6 @@ const svg = readFileSync(publicFile('/icons/favicon.svg'), 'utf8');
 const brandOrange = resolveThemeTokenValues('dark').get('--lg-color-stage-brand');
 const pointSets = [...svg.matchAll(/points="([^"]+)"/g)].map((match) => match[1]);
 
-// The favicon draws its frame as a solid brand-orange diamond instead of BrandMark's stroked
-// outline, because a favicon has no surrounding text colour to inherit. Only the L and the core
-// are shared, so those two point sets must match BrandMark exactly.
 describe('favicon.svg geometry', () => {
   it('Happy path: the L and the accent core use the same points as BrandMark', () => {
     expect(pointSets).toContain(BRAND_GLYPH_POINTS);

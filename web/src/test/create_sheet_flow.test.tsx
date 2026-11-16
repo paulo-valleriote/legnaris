@@ -27,7 +27,6 @@ function clientWith(transport: Transport) {
   return createApiClient({ baseUrl: BASE_URL, transport });
 }
 
-/** A query client with the production cache lifetime, so a seeded sheet survives the navigation. */
 function appQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
@@ -40,13 +39,8 @@ function templateRequests(requests: readonly HttpRequest[]) {
   return requests.filter((request) => request.url.endsWith(`/templates/${TEMPLATE_ID}`));
 }
 
-/**
- * The sheet screen issues its own template read once the creation POST settles — a separate async
- * chain from the dialog's — so under load it lands later than `waitFor`'s default window.
- */
 const SHEET_NAVIGATION_TIMEOUT = 5000;
 
-/** Opens the catalog and its creation surface for the synthetic template. */
 async function openSurface(user: UserEvent) {
   const fake = createFakeTransport(
     successOutcome(CATALOG),

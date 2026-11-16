@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// accountReadKey is the memo key the gate and the handler share in these tests.
 type accountReadKey struct{}
 
 func TestRejectDeleting(t *testing.T) {
@@ -84,8 +83,6 @@ func TestRejectDeleting(t *testing.T) {
 	}
 }
 
-// errOr returns primary when it is set and fallback otherwise, so a gate stub can
-// return either its read result or a configured refusal.
 func errOr(primary, fallback error) error {
 	if primary != nil {
 		return primary

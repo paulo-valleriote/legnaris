@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestAuthServiceConfig pins the wiring of the resolved environment onto the
-// auth service's configuration.
 func TestAuthServiceConfig(t *testing.T) {
 	now := auth.Clock(func() time.Time { return time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC) })
 

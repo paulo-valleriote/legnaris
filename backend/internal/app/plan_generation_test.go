@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeConsent answers the consent gate and the stored-consent read from fixed outcomes.
 type fakeConsent struct {
 	err       error
 	record    llmconsent.Record
@@ -33,7 +32,6 @@ func (f fakeConsent) Status(context.Context, string) (llmconsent.Record, error) 
 	return f.record, f.statusErr
 }
 
-// fakeActive answers the active-generation lookup from a fixed outcome.
 type fakeActive struct {
 	id     string
 	active bool
@@ -44,10 +42,8 @@ func (f fakeActive) ActiveGenerationID(context.Context, string) (string, bool, e
 	return f.id, f.active, f.err
 }
 
-// consentMissing is the refusal the gate returns when no current consent exists.
 var consentMissing = apperr.NewError(apperr.CodeLLMConsentRequired, "llm consent is required", nil)
 
-// planGenerationEngine mounts the plan controller with the generation status on.
 func planGenerationEngine(t *testing.T, store *mocks.MockStore, paid bool, consent app.ConsentChecker, active app.ActiveGenerationReader) *echo.Echo {
 	t.Helper()
 	svc := quota.NewService(store, func() time.Time { return planNow })
@@ -65,9 +61,6 @@ func planGenerationEngine(t *testing.T, store *mocks.MockStore, paid bool, conse
 	return e
 }
 
-// TestPlanController_GenerationStatus pins the additive LGN-186 fields: the consent
-// prompt is asked only of an account that can generate, and the active generation
-// is null unless one is queued or running.
 func TestPlanController_GenerationStatus(t *testing.T) {
 	const jobID = "0196e4f2-0000-7000-8000-0000000000aa"
 	tests := []struct {
@@ -163,9 +156,6 @@ func TestPlanController_GenerationStatus(t *testing.T) {
 	}
 }
 
-// TestPlanController_GenerationStatusAbsentWithoutOption pins that the fields are
-// only computed when the controller is wired for them, so the older plan view keeps
-// its shape for every other caller.
 func TestPlanController_GenerationStatusAbsentWithoutOption(t *testing.T) {
 	store := mocks.NewMockStore(t)
 	store.EXPECT().FetchTrial(mock.Anything, planUserID).
@@ -179,9 +169,6 @@ func TestPlanController_GenerationStatusAbsentWithoutOption(t *testing.T) {
 	assert.Nil(t, body["active_generation_id"], "the field is always present, null when idle")
 }
 
-// TestPlanController_ConsentRecord pins the stored consent the account screen shows
-// (LGN-195): the date and version are null unless a consent is held, and a consent
-// at an outdated version is still reported as stored.
 func TestPlanController_ConsentRecord(t *testing.T) {
 	consentedAt := time.Date(2026, 11, 1, 12, 30, 0, 0, time.UTC)
 	storeErr := errors.New("store down")

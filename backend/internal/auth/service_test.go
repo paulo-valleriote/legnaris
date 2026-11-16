@@ -24,16 +24,12 @@ import (
 )
 
 const (
-	validUserID  = "01900000-0000-7000-8000-000000000001"
-	validFamily  = "01900000-0000-7000-8000-000000000002"
-	validTokenID = "01900000-0000-7000-8000-000000000003"
-	testEmail    = "player@example.com"
-	testPassword = "sup3r-secret"
-	testHash     = "bcrypt-hash"
-	// testDummyHash is the digest the mocked hasher hands out for the
-	// unknown-address path. The mock never parses it; it proves the service
-	// compares against the hasher's own digest and not against a digest
-	// pinned to a fixed cost (TFA-05).
+	validUserID   = "01900000-0000-7000-8000-000000000001"
+	validFamily   = "01900000-0000-7000-8000-000000000002"
+	validTokenID  = "01900000-0000-7000-8000-000000000003"
+	testEmail     = "player@example.com"
+	testPassword  = "sup3r-secret"
+	testHash      = "bcrypt-hash"
 	testDummyHash = "$2a$12$0Zk6vB0z0nM8pQ3fS6tUu1mB7xJ4kQ2wR8dH5nL0cV3yA1eT9gG"
 
 	testCSRFSecret = "test-secret"
@@ -53,9 +49,6 @@ type authMocks struct {
 	notices       *mocks.MockNoticeRepository
 }
 
-// testChallengePolicy is the small, deterministic policy the gated cases run
-// against: a three-send day and a ten-challenge account window make both
-// bounds reachable without a wait (OTP-18).
 var testChallengePolicy = auth.ChallengePolicy{
 	Lifetime:         10 * time.Minute,
 	Ceiling:          30 * time.Minute,
@@ -71,22 +64,16 @@ func newAuthService(t *testing.T) (auth.Service, *authMocks) {
 	return newAuthServiceWithClock(t, nil)
 }
 
-// newAuthServiceWithClock builds the service over the shared mock set with an
-// explicit time source, so timestamp assertions need no sleeping (PRQ-16).
 func newAuthServiceWithClock(t *testing.T, clock auth.Clock) (auth.Service, *authMocks) {
 	t.Helper()
 	return newAuthServiceWithChecker(t, clock, nil)
 }
 
-// newAuthServiceWithChecker is newAuthServiceWithClock with the registration
-// email checker injected; a nil checker leaves the check disabled.
 func newAuthServiceWithChecker(t *testing.T, clock auth.Clock, checker auth.EmailChecker) (auth.Service, *authMocks) {
 	t.Helper()
 	return newAuthServiceWithPublisher(t, clock, checker, events.NoOp{})
 }
 
-// newAuthServiceWithPublisher is newAuthServiceWithChecker with the domain event
-// publisher injected, so a test can assert what the service emits.
 func newAuthServiceWithPublisher(t *testing.T, clock auth.Clock, checker auth.EmailChecker, publisher events.Publisher) (auth.Service, *authMocks) {
 	t.Helper()
 
@@ -129,10 +116,6 @@ func newAuthServiceWithPublisher(t *testing.T, clock auth.Clock, checker auth.Em
 	return service, m
 }
 
-// expectChallengeIssuance wires the writes a started code step performs: the
-// durable account bound, the daily send cap, the closing of the previous
-// challenge for the purpose, the insert of the new one and the send intention
-// (OTP-01, OTP-12, OTP-13).
 func (m *authMocks) expectChallengeIssuance(userID any, purpose auth.Purpose, email string) {
 	m.challenges.EXPECT().CountForUserSince(mock.Anything, userID, mock.Anything).Return(0, nil).Once()
 	m.mailer.EXPECT().SentSince(mock.Anything, mock.Anything).Return(0, nil).Once()
@@ -149,14 +132,10 @@ func (m *authMocks) expectChallengeIssuance(userID any, purpose auth.Purpose, em
 		Once()
 }
 
-// expectRegistrationChallenge wires the writes a registration's verify_email
-// code step performs, for an account ID the service mints itself.
 func (m *authMocks) expectRegistrationChallenge(email string) {
 	m.expectChallengeIssuance(mock.Anything, auth.PurposeVerifyEmail, email)
 }
 
-// issueCSRF mints a valid, session-bound CSRF token for the given family so a
-// refresh/logout test can present the value the cookie would carry.
 func (m *authMocks) issueCSRF(t *testing.T, familyID string) string {
 	t.Helper()
 	token, err := m.csrf.Issue(familyID)
@@ -172,8 +151,6 @@ func assertAppErr(t *testing.T, err error, code apperr.Code) {
 	assert.Equal(t, code, appErr.Code)
 }
 
-// verifiedAccount is an account whose address was verified, the state a
-// renewal requires (D2, O5).
 func verifiedAccount(id string) *user.User {
 	verifiedAt := time.Unix(1_700_000_000, 0)
 	return &user.User{ID: id, EmailVerifiedAt: &verifiedAt}
@@ -334,8 +311,6 @@ func TestService_Register(t *testing.T) {
 	t.Run("Edge: password with non-ASCII at 8 runes but over 72 bytes is rejected", func(t *testing.T) {
 		service, m := newAuthService(t)
 
-		// 19 emoji = 19 runes = 76 bytes (each emoji is 4 bytes)
-		// This tests that byte length (not rune count) is used for the 72-byte max check.
 		overLimitBytes := strings.Repeat("😀", 19)
 		_, err := service.Register(ctx, auth.RegisterCommand{Email: testEmail, Username: "player", Password: overLimitBytes})
 		assertAppErr(t, err, apperr.CodeInvalidRequest)
@@ -737,9 +712,6 @@ func TestService_RegisterChallengeOutcome(t *testing.T) {
 	})
 }
 
-// TestService_RegisterUsernameTaken covers a username another account holds: the
-// answer is the username conflict whatever the address is, so it never depends on
-// which addresses are registered, and it sends nothing.
 func TestService_RegisterUsernameTaken(t *testing.T) {
 	ctx := context.Background()
 	cmd := auth.RegisterCommand{Email: "Player@Example.com", Username: "player", Password: testPassword}
@@ -840,9 +812,6 @@ func TestService_RegisterUsernameTaken(t *testing.T) {
 	})
 }
 
-// TestService_RegisterMinDuration proves every outcome waits for the configured
-// floor, so response time does not tell the outcomes apart, and that a cancelled
-// request is not held.
 func TestService_RegisterMinDuration(t *testing.T) {
 	const floor = 80 * time.Millisecond
 	newService := func(t *testing.T) (auth.Service, *authMocks) {
@@ -894,12 +863,6 @@ func TestService_RegisterMinDuration(t *testing.T) {
 	})
 }
 
-// TestService_RegisterVerifiedAddress covers a registration against an address
-// that already belongs to a verified account: it answers like a first
-// registration (a 201 shape whose challenge identity no code can redeem, or the
-// deferred answer when the allowance is spent), the owner is told by a code-free
-// notice at most once per window, and the response never reveals the address is
-// registered.
 func TestService_RegisterVerifiedAddress(t *testing.T) {
 	ctx := context.Background()
 	register := func(service auth.Service) (*auth.ChallengeIssued, error) {
@@ -996,17 +959,12 @@ func TestService_RegisterVerifiedAddress(t *testing.T) {
 	}
 }
 
-// TestService_RegisterReplacesUnverified covers a registration whose address
-// belongs to an account that never verified it: the pending account is replaced
-// in place, its sessions are revoked and a new code supersedes the old one, while
-// a verified account keeps the 409 (LGN-154, D9).
 func TestService_RegisterReplacesUnverified(t *testing.T) {
 	ctx := context.Background()
 
 	pendingAccount := func() *user.User {
 		return &user.User{ID: validUserID, Email: testEmail, Username: "old-name", PasswordHash: "old-hash"}
 	}
-	// duplicateCreate makes the first insert collide with the existing address.
 	duplicateCreate := func(m *authMocks) {
 		m.hasher.EXPECT().Hash(testPassword).Return(testHash, nil).Once()
 		m.users.EXPECT().Create(mock.Anything, mock.Anything).Return(user.ErrEmailAlreadyExists).Once()
@@ -1293,8 +1251,6 @@ func TestService_Refresh(t *testing.T) {
 		m.generator.EXPECT().Generate().Return("new-refresh", nil).Once()
 		m.refreshTokens.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 		m.refreshTokens.EXPECT().RevokeByID(mock.Anything, validTokenID, mock.Anything).Return(false, nil).Once()
-		// New behavior: do NOT call RefreshReuseDetected or RevokeFamily.
-		// The successor token we created remains valid for the other client.
 
 		_, err := service.Refresh(ctx, auth.RefreshCommand{RefreshToken: "current-refresh", CSRFToken: csrfToken})
 		assertAppErr(t, err, apperr.CodeUnauthorized)
@@ -1346,9 +1302,6 @@ func TestService_Refresh(t *testing.T) {
 	})
 }
 
-// TestService_RefreshUnverifiedAccount pins that renewal no longer consults
-// the verification state: an account without a verification timestamp rotates
-// in the same family like any other.
 func TestService_RefreshUnverifiedAccount(t *testing.T) {
 	ctx := context.Background()
 
@@ -1402,10 +1355,6 @@ func TestService_RefreshUnverifiedAccount(t *testing.T) {
 	})
 }
 
-// TestService_LoginUnverifiedAccount covers the sign-in of an account whose
-// address was never verified: the password is proven, then the verify_email
-// step starts instead of a session, bounded by the same daily and per-account
-// limits as registration (D2, TFA-06, OTP-13, OTP-14).
 func TestService_LoginUnverifiedAccount(t *testing.T) {
 	ctx := context.Background()
 
@@ -1628,9 +1577,6 @@ func TestService_Logout(t *testing.T) {
 	})
 }
 
-// TestService_Clock pins the auth timestamps to the injected clock: registration
-// writes exact instants and the refresh expiry boundary is crossed without
-// sleeping (PRQ-16, SC-007).
 func TestService_Clock(t *testing.T) {
 	ctx := context.Background()
 
@@ -1690,10 +1636,6 @@ func TestService_Clock(t *testing.T) {
 	})
 }
 
-// TestService_RefreshRequiresAccount covers the account lookup that renewal now
-// performs after the existing credential rules and before issuing anything: a
-// missing account revokes the family and answers 401, a store failure answers
-// 500, and a success names the loaded account (PRQ-05, PRQ-06, PRQ-07).
 func TestService_RefreshRequiresAccount(t *testing.T) {
 	ctx := context.Background()
 

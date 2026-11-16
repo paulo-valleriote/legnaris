@@ -41,7 +41,6 @@ function succeededRoutes(
   };
 }
 
-/** Submits the concept and waits until the review step is on screen. */
 async function reachReview(
   routes: Record<string, ReturnType<typeof ok> | ReturnType<typeof fail>> = {},
   plan: Record<string, unknown> = {},

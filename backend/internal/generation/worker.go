@@ -13,12 +13,8 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// settleTimeout bounds the terminal write. It runs on a context detached from the
-// job, so a shutdown does not leave a finished job running.
 const settleTimeout = 10 * time.Second
 
-// Log attribute keys. The worker logs identifiers, states and counters only: never
-// the concept or the output (ADR 0007, ADR 0008).
 const (
 	attrGenerationID = "generation_id"
 	attrStatus       = "status"
@@ -27,7 +23,6 @@ const (
 	attrErrorCode    = "error_code"
 )
 
-// WorkerDeps are the collaborators of the generation worker.
 type WorkerDeps struct {
 	Jobs    JobStore
 	Catalog Catalog
@@ -39,8 +34,6 @@ type WorkerDeps struct {
 	Logger  logger.StructuredLogger
 }
 
-// Worker runs one claimed generation job. It is safe for concurrent use: each Process
-// call owns its job, and the breaker and the stores are shared.
 type Worker struct {
 	jobs    JobStore
 	catalog Catalog
@@ -53,8 +46,6 @@ type Worker struct {
 	logger  logger.StructuredLogger
 }
 
-// NewWorker validates deps and builds the worker. A missing collaborator is a boot
-// error, so the consumer never starts without one.
 func NewWorker(deps WorkerDeps) (*Worker, error) {
 	switch {
 	case deps.Jobs == nil:
@@ -89,10 +80,6 @@ func NewWorker(deps WorkerDeps) (*Worker, error) {
 	}, nil
 }
 
-// Process runs the job named by id from claim to terminal state. It returns nil when
-// the message is settled: the job completed, failed, or was skipped because it was
-// not queued (duplicate delivery, removed document). It returns an error only when
-// the store fails, and the consumer then leaves the message unacknowledged.
 func (w *Worker) Process(ctx context.Context, id string) error {
 	claimedAt := w.now()
 	doc, claimed, err := w.jobs.ClaimQueued(ctx, id, claimedAt, LeaseDuration)
@@ -117,8 +104,6 @@ func (w *Worker) Process(ctx context.Context, id string) error {
 	return w.fail(settleCtx, doc, code, claimedAt)
 }
 
-// generate asks the model for values until they validate, or returns the error code
-// that ends the job. Schema retries feed the rejection back and cost nothing.
 func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, string) {
 	tmpl, dag, code := w.resolve(doc.TemplateID)
 	if code != "" {
@@ -158,7 +143,6 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 	return nil, ErrorCodeInvalidOutput
 }
 
-// resolve loads the Template and its rules, or returns the code of the failure.
 func (w *Worker) resolve(templateID string) (*template.Template, *template.DAG, string) {
 	tmpl, ok := w.catalog.FetchByID(templateID)
 	if !ok {
@@ -171,9 +155,6 @@ func (w *Worker) resolve(templateID string) (*template.Template, *template.DAG, 
 	return tmpl, dag, ""
 }
 
-// call performs one completion under the provider breaker. It fails fast while the
-// breaker is open, retries a transient failure once, and never retries a
-// no-eligible-provider or permanent failure.
 func (w *Worker) call(ctx context.Context, req llm.Request) (llm.Response, string) {
 	probe, admitted := w.admit()
 	if !admitted {
@@ -194,9 +175,6 @@ func (w *Worker) call(ctx context.Context, req llm.Request) (llm.Response, strin
 			if !pause(ctx, w.backoff) {
 				return llm.Response{}, ErrorCodeProviderFailed
 			}
-			// The retry is a new send, so it is admitted again: a failure just
-			// reported may have opened the breaker, and the retry must not reach
-			// a provider the breaker has taken out of service.
 			if probe, admitted = w.admit(); !admitted {
 				return llm.Response{}, ErrorCodeProviderUnavailable
 			}
@@ -206,14 +184,11 @@ func (w *Worker) call(ctx context.Context, req llm.Request) (llm.Response, strin
 	}
 }
 
-// admit asks the breaker for one send and returns the probe token of that send.
-// A send is admitted only when the breaker proceeds; a probe token is non-zero.
 func (w *Worker) admit() (uint64, bool) {
 	admission := w.breaker.Admit()
 	return admission.Probe, admission.Proceed
 }
 
-// report feeds one outcome to the breaker and logs the breaker transitions.
 func (w *Worker) report(ctx context.Context, probe uint64, outcome breaker.Outcome) {
 	switch w.breaker.Record(probe, outcome) {
 	case breaker.TransitionOpened:
@@ -224,9 +199,6 @@ func (w *Worker) report(ctx context.Context, probe uint64, outcome breaker.Outco
 	}
 }
 
-// classifyLLM maps one gateway error to its breaker outcome. A gateway that is
-// down, or has no eligible provider, counts toward opening the breaker; a permanent
-// failure proves nothing about the provider.
 func classifyLLM(err error) breaker.Outcome {
 	if errors.Is(err, llm.ErrTransient) || errors.Is(err, llm.ErrProviderUnavailable) {
 		return breaker.OutcomeOutage
@@ -234,9 +206,6 @@ func classifyLLM(err error) breaker.Outcome {
 	return breaker.OutcomeNeutral
 }
 
-// parseAndAssemble runs the validation pipeline of one output: strict parse, type
-// and key checks with the exclusive expansion, then the seeded Template with the
-// values applied through the DAG.
 func parseAndAssemble(tmpl *template.Template, dag *template.DAG, raw []byte) (map[string]any, error) {
 	object, err := ParseOutput(raw)
 	if err != nil {
@@ -253,7 +222,6 @@ func parseAndAssemble(tmpl *template.Template, dag *template.DAG, raw []byte) (m
 	return values, nil
 }
 
-// problemsOf returns the problems to feed back for a rejected output.
 func problemsOf(err error) []string {
 	var outErr *OutputError
 	if errors.As(err, &outErr) && len(outErr.Problems) > 0 {
@@ -262,7 +230,6 @@ func problemsOf(err error) []string {
 	return []string{"output does not match the schema"}
 }
 
-// succeed stores the validated values and logs the completion.
 func (w *Worker) succeed(ctx context.Context, doc Document, values map[string]any, claimedAt time.Time) error {
 	landed, err := w.jobs.Complete(ctx, doc.ID, values)
 	if err != nil {
@@ -277,8 +244,6 @@ func (w *Worker) succeed(ctx context.Context, doc Document, values map[string]an
 	return nil
 }
 
-// fail moves the job to failed and refunds its quota in the same transaction, so a
-// failed job never keeps its allowance (ADR 0007).
 func (w *Worker) fail(ctx context.Context, doc Document, code string, claimedAt time.Time) error {
 	err := w.tx.WithTransaction(ctx, func(txCtx context.Context) error {
 		before, settled, err := w.jobs.FailRunning(txCtx, doc.ID, code)
@@ -297,8 +262,6 @@ func (w *Worker) fail(ctx context.Context, doc Document, code string, claimedAt 
 	return nil
 }
 
-// attrs builds the metadata every terminal log carries: identifiers, state, attempt
-// count and latency. Neither the concept nor the output is ever included.
 func (w *Worker) attrs(doc Document, status Status, claimedAt time.Time, code string) []logger.Attribute {
 	attrs := []logger.Attribute{
 		{Key: attrGenerationID, Value: doc.ID},
@@ -312,7 +275,6 @@ func (w *Worker) attrs(doc Document, status Status, claimedAt time.Time, code st
 	return attrs
 }
 
-// pause waits d or until ctx ends. It reports whether the full pause elapsed.
 func pause(ctx context.Context, d time.Duration) bool {
 	timer := time.NewTimer(d)
 	defer timer.Stop()

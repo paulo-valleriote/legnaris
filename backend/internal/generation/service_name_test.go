@@ -13,9 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFetchSuggestedName covers how GET /generations/{id} derives suggested_name:
-// only a succeeded job with a usable naming leaf yields a name, and every other
-// case answers null without failing the read.
 func TestFetchSuggestedName(t *testing.T) {
 	const jobID = "0190a1b2-0000-7000-8000-0000000000aa"
 	namedTemplate := &template.Template{ID: "fantasy_v1", NameLeaf: "identity.characterName"}

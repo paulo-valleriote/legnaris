@@ -17,7 +17,6 @@ const CATALOG: readonly TemplateSummary[] = [
 
 const ENTRY_NAME = /Dungeons & Dragons 5e/;
 
-/** The catalog also reads GET /me/plan for the resume notice; that read is answered before the counted transport. */
 function clientWith(transport: Transport) {
   return createApiClient({ baseUrl: BASE_URL, transport: withPlanUsage(transport) });
 }
@@ -26,7 +25,6 @@ function detailEnvelope() {
   return successOutcome({ id: 'dnd5e', name: 'Dungeons & Dragons 5e', default: true, fields: {} });
 }
 
-/** Renders the catalog, opens the surface from the first entry and waits for focus. */
 async function openSurface() {
   const fake = createFakeTransport(successOutcome(CATALOG), detailEnvelope());
   const user = userEvent.setup();

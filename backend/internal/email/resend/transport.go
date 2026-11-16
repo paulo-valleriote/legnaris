@@ -7,14 +7,8 @@ import (
 	"strings"
 )
 
-// statusErrorBodyLimit caps how much of a failing provider response is retained
-// for classification and diagnostics.
 const statusErrorBodyLimit = 512
 
-// statusError reports a non-2xx provider response the transport observed before
-// the SDK's own error handling, preserving the status the SDK collapses into a
-// plain message. It is what lets the adapter classify permanent vs retryable
-// (EML-12).
 type statusError struct {
 	Status int
 	Body   string
@@ -25,9 +19,6 @@ func (e *statusError) Error() string {
 	return fmt.Sprintf("resend responded with status %d: %s", e.Status, e.Body)
 }
 
-// statusTransport wraps the SDK's HTTP transport and turns any non-2xx response
-// into a typed statusError. A 2xx response is returned untouched so the SDK can
-// decode it; a failing body is drained, truncated and closed (EML-12).
 type statusTransport struct {
 	base http.RoundTripper
 }

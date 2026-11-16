@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestProvision_Properties pins the derived broker properties and proves the
-// code never leaks into them (EML-07, EML-13).
 func TestProvision_Properties(t *testing.T) {
 	msg := testMessage()
 	props := provision(msg)

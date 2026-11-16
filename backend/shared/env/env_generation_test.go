@@ -24,8 +24,6 @@ func unsetGenerationEnv(t *testing.T) {
 	}
 }
 
-// TestInitVariablesGenerationDefaults pins the fail-closed defaults: generation is
-// off until the deploy switches it on (LGN-186).
 func TestInitVariablesGenerationDefaults(t *testing.T) {
 	unsetGenerationEnv(t)
 	t.Setenv("DATABASE_URI", "mongodb://localhost")
@@ -87,8 +85,6 @@ func TestInitVariablesGenerationInvalidValuesUseDefaults(t *testing.T) {
 	}
 }
 
-// TestValidateGenerationDailyCap pins the boundary of the cap: zero is a valid
-// off-switch for jobs, a negative cap is a boot error.
 func TestValidateGenerationDailyCap(t *testing.T) {
 	tests := []struct {
 		name    string

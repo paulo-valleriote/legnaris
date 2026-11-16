@@ -21,9 +21,6 @@ const (
 	jobC = "0190a1b2-0000-7000-8000-0000000000c3"
 )
 
-// newStore returns a store over a fresh replica-set database with every index
-// created, so the unique and TTL indexes behave as in production. It self-skips
-// without DATABASE_URI.
 func newStore(t *testing.T) (*generation.MongoStore, *mongo.Database) {
 	t.Helper()
 	mdb := dbtest.Database(t)
@@ -31,7 +28,6 @@ func newStore(t *testing.T) (*generation.MongoStore, *mongo.Database) {
 	return generation.NewMongoStore(mdb), mdb
 }
 
-// queuedDoc builds a queued document for the player created at created.
 func queuedDoc(id, user string, created time.Time) generation.Document {
 	return generation.Document{
 		ID: id, UserID: user, TemplateID: templateID, Kind: "character", Concept: validText,
@@ -41,7 +37,6 @@ func queuedDoc(id, user string, created time.Time) generation.Document {
 	}
 }
 
-// TestMongoStore_Insert pins the one-in-progress rule the sparse unique index enforces.
 func TestMongoStore_Insert(t *testing.T) {
 	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 	tests := []struct {
@@ -95,7 +90,6 @@ func TestMongoStore_Insert(t *testing.T) {
 	}
 }
 
-// TestMongoStore_FindOwned covers the owner check and the missing document.
 func TestMongoStore_FindOwned(t *testing.T) {
 	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 	tests := []struct {
@@ -125,7 +119,6 @@ func TestMongoStore_FindOwned(t *testing.T) {
 	}
 }
 
-// TestMongoStore_MarkAccepted pins that only one accept wins a succeeded document.
 func TestMongoStore_MarkAccepted(t *testing.T) {
 	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 	tests := []struct {
@@ -160,8 +153,6 @@ func TestMongoStore_MarkAccepted(t *testing.T) {
 	}
 }
 
-// TestMongoStore_ReserveCap pins the global daily cap boundary: the limit-th job is
-// accepted and the next is refused, with the count still reported.
 func TestMongoStore_ReserveCap(t *testing.T) {
 	expires := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
 	tests := []struct {
@@ -187,9 +178,6 @@ func TestMongoStore_ReserveCap(t *testing.T) {
 	}
 }
 
-// TestMongoStore_ClaimUnpublished pins the republish claim: a job younger than the
-// republish age is left alone, a lease holds off other sweepers, and an expired
-// lease is claimed again.
 func TestMongoStore_ClaimUnpublished(t *testing.T) {
 	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 	tests := []struct {
@@ -225,8 +213,6 @@ func TestMongoStore_ClaimUnpublished(t *testing.T) {
 	}
 }
 
-// TestMongoStore_ReschedulePublishAndFail covers the attempt counter and the
-// terminal move that releases the in-progress slot.
 func TestMongoStore_ReschedulePublishAndFail(t *testing.T) {
 	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 	s, mdb := newStore(t)
@@ -254,7 +240,6 @@ func TestMongoStore_ReschedulePublishAndFail(t *testing.T) {
 	assert.False(t, again, "a failed job is not failed twice")
 }
 
-// TestMongoStore_OldestQueued reports the backlog age of queued jobs only.
 func TestMongoStore_OldestQueued(t *testing.T) {
 	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 	tests := []struct {

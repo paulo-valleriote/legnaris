@@ -1,16 +1,3 @@
-/**
- * The Arrange-mode and pin-mode chrome (ADR 0001, ADR 0002): the structural frames the engine
- * renders Sections and Rows through.
- *
- * While the player arranges, only Sections move, by dragging a focusable handle on the Section
- * header (`@dnd-kit`: pointer, touch and keyboard — Space lifts, the arrows move, Space drops,
- * Escape cancels), and a live region announces every drag and every pin. A Row is drawn compact —
- * its label and a star toggle that pins it to the top of its Section — so no value is edited by
- * accident. Nothing is saved until Done.
- *
- * Outside Arrange mode no handle, no star and no drag listener exists.
- */
-
 import type { ReactNode } from 'react';
 import { createContext, useContext, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Announcements, DragEndEvent, UniqueIdentifier } from '@dnd-kit/core';
@@ -50,10 +37,6 @@ interface ArrangeApi {
 const ArrangeContext = createContext<ArrangeApi | undefined>(undefined);
 const AnnounceContext = createContext<(text: string) => void>(() => undefined);
 
-/**
- * The sheet's one polite announcer: speaks [text] through the same live region as the pins, so
- * the page never carries a second persistent live region. A no-op outside {@link ArrangeProvider}.
- */
 export function useAnnounce(): (text: string) => void {
   return useContext(AnnounceContext);
 }
@@ -81,7 +64,6 @@ function readReducedMotion(): boolean {
   return typeof window.matchMedia === 'function' && window.matchMedia(REDUCED_MOTION_QUERY).matches;
 }
 
-/** True while the person asks for reduced motion; re-evaluated live. */
 export function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, readReducedMotion, () => false);
 }
@@ -91,7 +73,6 @@ interface ArrangeProviderProps {
   readonly children: ReactNode;
 }
 
-/** Feeds the arrange frames from [store] and renders the polite live region that announces pins and drags. */
 export function ArrangeProvider({ store, children }: ArrangeProviderProps) {
   const [announcement, setAnnouncement] = useState('');
   const reducedMotion = usePrefersReducedMotion();
@@ -297,7 +278,6 @@ function ArrangeRow({ rowKey, kind, label, pinned }: RowFrameProps) {
   );
 }
 
-/** The frames SheetForm renders through while Arrange mode is on. */
 export const ARRANGE_FRAMES: SheetFormFrames = {
   Root: ArrangeRoot,
   Section: ArrangeSection,

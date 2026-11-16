@@ -1,10 +1,3 @@
-/**
- * The public privacy policy (LGN-234). It renders outside the auth gate, so a
- * visitor without a session can read it. The locale comes from the browser's
- * preferred languages unless a caller names one; every block is React text or a
- * link, never HTML.
- */
-
 import type { ReactNode } from 'react';
 import { parseMarkdown, tokenizeInline } from './privacy_markdown';
 import type { InlineToken, MarkdownBlock } from './privacy_markdown';
@@ -13,7 +6,6 @@ import type { PolicyLocale } from './privacy_policy';
 import './privacy.css';
 
 interface PrivacyScreenProps {
-  /** The locale to render; the browser's preferred language when omitted. */
   readonly locale?: PolicyLocale;
 }
 
@@ -56,7 +48,6 @@ function currentLocale(): PolicyLocale {
   return policyLocale(globalThis.navigator?.languages ?? []);
 }
 
-/** The privacy policy page: the policy text for one locale, with no session required. */
 export function PrivacyScreen({ locale }: PrivacyScreenProps = {}) {
   const resolved = locale ?? currentLocale();
   const blocks = parseMarkdown(policyMarkdown(resolved));

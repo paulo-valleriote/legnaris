@@ -1,19 +1,10 @@
-/**
- * The API base address resolved at runtime, so a single web image serves every
- * environment: the container writes `/config.json` from its environment at
- * start and the client reads it before the first render.
- */
-
 import { type ApiConfiguration, resolveApiConfig } from './config';
 import { ConfigurationFailure } from './errors';
 
-/** Where the container publishes the runtime configuration. */
 export const RUNTIME_CONFIG_PATH = '/config.json';
 
-/** Dependencies of {@link loadApiConfiguration}, injectable for tests. */
 export interface LoadApiConfigurationOptions {
   readonly fetcher: typeof fetch;
-  /** The `VITE_API_BASE_URL` build value; when non-blank it wins and nothing is fetched. */
   readonly buildValue: string | undefined;
 }
 
@@ -52,12 +43,6 @@ function readApiBaseUrl(document: unknown): string | undefined {
   return value;
 }
 
-/**
- * Resolves the API configuration: a non-blank build value (dev server, e2e)
- * wins; otherwise `/config.json` is fetched uncached. A blank or missing
- * `apiBaseUrl` falls back to the secure default; anything else invalid raises a
- * {@link ConfigurationFailure} before the app renders.
- */
 export async function loadApiConfiguration(
   options: LoadApiConfigurationOptions,
 ): Promise<ApiConfiguration> {

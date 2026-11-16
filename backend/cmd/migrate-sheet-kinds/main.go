@@ -1,7 +1,3 @@
-// Command migrate-sheet-kinds moves a database created before Sheet kinds to the
-// kinds model: legacy Sheets become characters, the per-owner counters are
-// rebuilt and the one-sheet-per-user index is replaced (LGN-183). It is a
-// one-shot operator tool; the API boot path never imports it.
 package main
 
 import (
@@ -36,7 +32,6 @@ func main() {
 	}))
 }
 
-// closeDatabase releases the connection, logging a failure instead of hiding it.
 func closeDatabase(ctx context.Context, log logger.StructuredLogger, database *db.Database, timeout time.Duration) {
 	closeCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -45,8 +40,6 @@ func closeDatabase(ctx context.Context, log logger.StructuredLogger, database *d
 	}
 }
 
-// run executes the migration and prints the report. It returns the process exit
-// code, so the command body stays testable without a database.
 func run(ctx context.Context, out io.Writer, migrate func(context.Context) (sheet.MigrationReport, error)) int {
 	report, err := migrate(ctx)
 	if err != nil {
@@ -58,8 +51,6 @@ func run(ctx context.Context, out io.Writer, migrate func(context.Context) (shee
 	return 0
 }
 
-// printLine writes one report line. A failed write to stdout cannot change the
-// outcome of an already-decided run, so the error is deliberately ignored.
 func printLine(out io.Writer, format string, args ...any) {
 	_, _ = fmt.Fprintf(out, format, args...)
 }

@@ -45,8 +45,6 @@ func TestLimiter_Allow(t *testing.T) {
 		assert.Positive(t, retryAfter)
 		assert.LessOrEqual(t, retryAfter, testWindow)
 
-		// The refused attempt is not recorded, so the window still frees when the
-		// oldest admitted attempt ages out.
 		later := now.Add(30 * time.Second)
 		refused, retryAfterLater := limiter.Allow("ip:1", later)
 		assert.False(t, refused)

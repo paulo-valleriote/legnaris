@@ -155,7 +155,6 @@ func (c *fakeConn) Channel() (channel, error) {
 
 func (c *fakeConn) Close() error { return nil }
 
-// fakeDialer hands out connections in order; each call pops the next result.
 type fakeDialer struct {
 	mu      sync.Mutex
 	results []dialResult

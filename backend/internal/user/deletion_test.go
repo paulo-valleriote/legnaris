@@ -25,16 +25,12 @@ var (
 	laterAt  = markedAt.Add(time.Hour)
 )
 
-// seedUser inserts a raw users document with the given status fields, so a test
-// starts from a precise account state.
 func seedUser(t *testing.T, mdb *mongo.Database, doc bson.D) {
 	t.Helper()
 	_, err := mdb.Collection("users").InsertOne(context.Background(), withIdentity(doc))
 	require.NoError(t, err)
 }
 
-// withIdentity fills the unique e-mail and username the users indexes require, so
-// two seeded accounts never collide on a null value.
 func withIdentity(doc bson.D) bson.D {
 	id := doc[0].Value.(string)
 	if !hasKey(doc, "email") {
@@ -59,7 +55,6 @@ func deletionStore(mdb *mongo.Database) user.DeletionStore {
 	return user.NewDeletionStore(mdb, logger.NewLogger(slog.LevelError))
 }
 
-// TestUser_IsDeleting pins which statuses block the account.
 func TestUser_IsDeleting(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -79,8 +74,6 @@ func TestUser_IsDeleting(t *testing.T) {
 	}
 }
 
-// TestUserRepository_MarkDeleting covers the deletion request: it marks an active
-// account once, keeps the first instant on a repeat, and never revives a dead one.
 func TestUserRepository_MarkDeleting(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -148,8 +141,6 @@ func TestUserRepository_MarkDeleting(t *testing.T) {
 	}
 }
 
-// TestDeletionStore_ClaimDeleting covers the lease: only deleting accounts are
-// claimed, a live lease or a future retry blocks the claim, and the limit holds.
 func TestDeletionStore_ClaimDeleting(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -226,7 +217,6 @@ func TestDeletionStore_ClaimDeleting(t *testing.T) {
 	}
 }
 
-// TestDeletionStore_Transitions covers reschedule, dead and the oldest-pending read.
 func TestDeletionStore_Transitions(t *testing.T) {
 	t.Run("Happy path: a reschedule counts the attempt and releases the lease", func(t *testing.T) {
 		mdb := newUserRepositoryDatabase(t)

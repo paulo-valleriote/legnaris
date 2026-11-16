@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAssemble covers building the stored Sheet data from validated values.
 func TestAssemble(t *testing.T) {
 	tmpl := fixtureTemplate()
 	dag := fixtureDAG(t, tmpl)

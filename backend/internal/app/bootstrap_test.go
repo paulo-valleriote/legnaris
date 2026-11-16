@@ -23,10 +23,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// buildModules builds the production module graph over a mongo client that
-// never reaches a server, so the boot-time configuration checks are observable
-// with no database. secretPresent controls whether EMAIL_CODE_SECRET is set at
-// all, so the absent case is distinct from the blank one.
 func buildModules(t *testing.T, secret string, secretPresent bool) (*app.Modules, error) {
 	t.Helper()
 
@@ -63,9 +59,6 @@ func buildModules(t *testing.T, secret string, secretPresent bool) (*app.Modules
 	return app.NewModules(&db.Database{Client: client}, registry, cfg, auth.NewNopObserver(), auth.NewNopChallengeObserver(), events.NoOp{})
 }
 
-// TestNewModules_EmailCodeSecret pins the one required setting this feature
-// adds: an absent, blank or too-short digest secret fails the boot with the
-// typed sentinel, while a valid one starts (OTP-18, SC-008).
 func TestNewModules_EmailCodeSecret(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -96,8 +89,6 @@ func TestNewModules_EmailCodeSecret(t *testing.T) {
 	})
 }
 
-// TestNewModules_RequiredKeys pins the deployment contract: the removed email
-// verification flag does not enter the required-variable set.
 func TestNewModules_RequiredKeys(t *testing.T) {
 	assert.Equal(t, []string{"DATABASE_URI", "JWT_SECRET", "EMAIL_CODE_SECRET"}, env.RequiredKeys())
 }

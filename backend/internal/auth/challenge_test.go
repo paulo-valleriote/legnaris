@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestChallenge_Usable pins the usability predicate on a fixed clock, so the
-// expiry boundary is crossed with no sleep (OTP-04…OTP-06, OTP-20).
 func TestChallenge_Usable(t *testing.T) {
 	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 	consumedAt := now.Add(-time.Minute)
@@ -70,8 +68,6 @@ func TestChallenge_Usable(t *testing.T) {
 	}
 }
 
-// TestChallenge_FailureResult pins the internal classification that reaches only
-// metrics and logs, never the uniform response (OTP-08, OTP-16).
 func TestChallenge_FailureResult(t *testing.T) {
 	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 	consumedAt := now.Add(-time.Minute)

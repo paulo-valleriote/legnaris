@@ -249,8 +249,6 @@ func TestGenerationStore_ListOpenByUserID(t *testing.T) {
 	}
 }
 
-// recordingRefunder is a QuotaRefunder that records each refund. The replica set
-// test uses it because the quota store is outside this package.
 type recordingRefunder struct {
 	refunded []string
 }
@@ -260,8 +258,6 @@ func (r *recordingRefunder) RefundOpen(_ context.Context, open llmconsent.OpenGe
 	return nil
 }
 
-// TestService_RevokeAgainstReplicaSet runs the real transactor, consent store
-// and generation store, so revocation is checked against MongoDB, not mocks.
 func TestService_RevokeAgainstReplicaSet(t *testing.T) {
 	tests := []struct {
 		name         string

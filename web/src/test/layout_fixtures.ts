@@ -17,10 +17,6 @@ function group(
   return { kind: 'group', children, ...metadata };
 }
 
-/**
- * Three Sections with every Row kind: `alpha` holds three lone fields, `beta` a lone
- * field, a table Row and an exclusive Row, `gamma` one lone field.
- */
 export const ARRANGE_FIELDS: Record<string, FieldNode> = {
   alpha: group(
     {
@@ -45,12 +41,10 @@ export const ARRANGE_FIELDS: Record<string, FieldNode> = {
   gamma: group({ solo: leaf({ label: 'Solo' }) }, { label: 'Gamma' }),
 };
 
-/** The Sections derived from {@link ARRANGE_FIELDS}. */
 export function arrangeSections(): SheetSection[] {
   return buildSections(ARRANGE_FIELDS);
 }
 
-/** The Template-order Row keys of {@link ARRANGE_FIELDS}, per Section. */
 export const ARRANGE_ROW_KEYS = {
   alpha: ['alpha.one', 'alpha.two', 'alpha.three'],
   beta: ['beta.note', 'beta.stats', 'beta#pick'],

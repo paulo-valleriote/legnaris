@@ -1,19 +1,3 @@
-/**
- * The section strip: the one sticky row at the top of the sheet's scroll region that
- * holds the pinned filter, the sheet's name and the links to the Sections.
- *
- * Its leading slot keeps the sheet's identity in view once the heading has scrolled away: a star
- * toggle for the pinned filter (its name, "Pinned only", is drawn from 40rem up and read to
- * assistive technology at every width) and a compact chip with the sheet's name that scrolls back
- * to the top. A link whose Section holds Rows marked by the last Preview carries a count dot.
- *
- * The links are plain buttons in a `nav` with a roving tab index: the whole row is one
- * tab stop, the arrow keys, Home and End move between links, and Enter or Space jumps.
- * It is not a tab list, because the links move the reader and never swap a panel. The
- * link of the Section being read carries `aria-current="location"`. With one Section
- * there are no links; with none the strip is not drawn at all.
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { PinStar } from '../engine/pin_star';
@@ -22,45 +6,26 @@ import { useAnnounce } from './arrange_frames';
 import { useActiveSection } from './use_active_section';
 import './section_index.css';
 
-/** One link of the strip: a Section in the order it is drawn. */
 export interface SectionLink {
   readonly key: string;
   readonly label: string;
-  /** How many of the Section's drawn Rows carry a preview mark; absent or zero draws no dot. */
   readonly changed?: number;
 }
 
-/** The props of {@link SectionIndex}. */
 export interface SectionIndexProps {
-  /** The sheet's name, shown as the chip that scrolls back to the top; empty draws no chip. */
   readonly sheetName: string;
-  /** Scrolls the sheet back to its heading. */
   readonly onTop: () => void;
-  /** The Sections the strip links to, in drawn order; empty draws no links. */
   readonly sections: readonly SectionLink[];
-  /** True while only pinned Rows are shown. */
   readonly onlyPinned: boolean;
-  /** True while the filter cannot be used (Arrange mode); it then reads as off. */
   readonly filterDisabled: boolean;
-  /** How many Rows are pinned, announced when the filter turns on. */
   readonly pinnedCount: number;
-  /** Turns the filter on or off. */
   readonly onSetOnlyPinned: (onlyPinned: boolean) => void;
-  /** Goes to a Section: scrolls it under the strip, opens it and focuses its title. */
   readonly onJump: (key: string) => void;
-  /** Enters Arrange mode to edit pins; offered while the filter is on and something is pinned. */
   readonly onEditPins: () => void;
-  /** An extra control drawn at the trailing edge of the strip, such as collapsing every Section. */
   readonly trailing?: ReactNode;
-  /** Changes whenever the drawn Section elements are replaced, so the scrollspy rebuilds. */
   readonly epoch: string;
 }
 
-/**
- * Scrolls only the strip's own row, never an ancestor, so the active link comes to the centre of
- * the row without cancelling the smooth page scroll a jump has just started. A link already
- * centred moves nothing.
- */
 export function centerInline(nav: HTMLElement, chip: HTMLElement): void {
   const navBox = nav.getBoundingClientRect();
   const chipBox = chip.getBoundingClientRect();
@@ -70,13 +35,11 @@ export function centerInline(nav: HTMLElement, chip: HTMLElement): void {
   }
 }
 
-/** Which edges of the strip's row hide links: a fade at an edge says there is more past it. */
 export interface HiddenEdges {
   readonly start: boolean;
   readonly end: boolean;
 }
 
-/** Reads the hidden edges of a horizontally scrolling row; a row that fits hides none. */
 export function hiddenEdges(
   nav: Pick<HTMLElement, 'scrollLeft' | 'scrollWidth' | 'clientWidth'>,
 ): HiddenEdges {
@@ -90,7 +53,6 @@ export function hiddenEdges(
   };
 }
 
-/** How far from an edge still counts as at it, in device pixels. */
 const EDGE_TOLERANCE = 2;
 
 function nextIndex(key: string, index: number, count: number): number | undefined {
@@ -108,7 +70,6 @@ function nextIndex(key: string, index: number, count: number): number | undefine
   }
 }
 
-/** The sticky strip above the sheet body. */
 export function SectionIndex({
   sheetName,
   onTop,

@@ -12,60 +12,37 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// Challenge command and result shapes (contracts/endpoints.contract.md).
 type IssueChallengeCommand struct {
-	// UserID is resolved by the caller after its credentials were verified;
-	// it is never derived from an address alone (OTP-09).
 	UserID  string
 	Email   string
 	Purpose Purpose
 }
 
-// ChallengeIssued is the issuance result: the identity the client carries back,
-// the claimed lifetime and the resend window (OTP-10).
 type ChallengeIssued struct {
 	ChallengeID string `json:"challenge_id"`
 	ExpiresIn   int    `json:"expires_in"`
 	ResendAfter int    `json:"resend_after"`
-	// Delivery is DeliveryDeferred when registration created the account but
-	// could not queue the code. It is not serialized here: the controller owns
-	// the body of that answer.
-	Delivery string `json:"-"`
+	Delivery    string `json:"-"`
 }
 
-// DeliveryDeferred marks a registration whose verification code was not queued
-// because the daily send allowance is spent (D1).
 const DeliveryDeferred = "deferred"
 
-// VerifyChallengeCommand carries only the challenge identity and the submitted
-// code; the purpose is resolved server-side (OTP-09).
 type VerifyChallengeCommand struct {
 	ChallengeID, Code string
-	// ClientIP is the resolved client address the verification came from. It
-	// is handed to the first-verification hook and never stored here.
-	ClientIP string
+	ClientIP          string
 }
 
-// ResendChallengeCommand carries only the challenge identity (OTP-11).
 type ResendChallengeCommand struct{ ChallengeID string }
 
-// ResendResult is the uniform resend answer: the retry window the client needs
-// to render its countdown (OTP-10).
 type ResendResult struct {
 	ResendAfter int `json:"resend_after"`
 }
 
-// Structured-log field keys shared by the challenge paths (OTP-15).
 const (
 	attrChallengeID = "challenge_id"
 	attrPurpose     = "purpose"
 )
 
-// IssueChallenge mints a challenge for an account whose credentials were
-// already verified: it enforces the daily send cap, generates the code and its
-// keyed digest, closes any previous active challenge, inserts the new record
-// and records the send intention last, so a crash between the two writes never
-// loses the code (OTP-01, OTP-02, OTP-12, OTP-13).
 func (s *ServiceImpl) IssueChallenge(ctx context.Context, cmd IssueChallengeCommand) (*ChallengeIssued, error) {
 	if err := idgen.Validate(cmd.UserID); err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
@@ -127,14 +104,8 @@ func (s *ServiceImpl) IssueChallenge(ctx context.Context, cmd IssueChallengeComm
 	}, nil
 }
 
-// maxReplaceAttempts bounds the close-then-insert retries when a concurrent
-// issuance for the same account and purpose lands between the two steps.
 const maxReplaceAttempts = 3
 
-// replaceActiveChallenge closes the account's active challenge and inserts the
-// new one. The two steps are not atomic, so a concurrent issuance can insert
-// between them and trip the unique active-challenge index; the loser closes the
-// winner's row and inserts again, leaving exactly one active challenge.
 func (s *ServiceImpl) replaceActiveChallenge(ctx context.Context, challenge Challenge, now time.Time) error {
 	var err error
 	for attempt := 0; attempt < maxReplaceAttempts; attempt++ {
@@ -149,12 +120,6 @@ func (s *ServiceImpl) replaceActiveChallenge(ctx context.Context, challenge Chal
 	return err
 }
 
-// VerifyChallenge consumes a challenge exactly once and establishes a session
-// exactly as sign-in does, recording the account's verification timestamp when
-// it was absent. Every failure answers the one uniform typed outcome, so no
-// case is distinguishable by status, body or timing class (OTP-04…OTP-08). A
-// deletion challenge is refused here: its code confirms a deletion and never
-// signs in (LGN-190).
 func (s *ServiceImpl) VerifyChallenge(ctx context.Context, cmd VerifyChallengeCommand) (*Session, error) {
 	claimed, err := s.consumeChallenge(ctx, cmd.ChallengeID, cmd.Code, func(row *Challenge) bool {
 		return row.Purpose != PurposeDeleteAccount
@@ -166,8 +131,6 @@ func (s *ServiceImpl) VerifyChallenge(ctx context.Context, cmd VerifyChallengeCo
 
 	pending := s.unverifiedAccount(ctx, claimed.UserID)
 
-	// The timestamp is recorded before the session is minted, so a session is
-	// only ever issued for a verified account (R12, OTP-07).
 	if err := s.users.MarkEmailVerified(ctx, claimed.UserID, now); err != nil {
 		s.log.Error(ctx, "mark email verified failed",
 			logger.Attribute{Key: attrUserID, Value: claimed.UserID},
@@ -195,11 +158,6 @@ func (s *ServiceImpl) VerifyChallenge(ctx context.Context, cmd VerifyChallengeCo
 	return session, nil
 }
 
-// consumeChallenge claims one attempt on the challenge, checks that the stored
-// row satisfies accepts, compares the code against the stored digest and
-// consumes the row exactly once. Every failure is the one uniform typed outcome
-// (OTP-04…OTP-08). The accepts check runs before the comparison, so a code of
-// the wrong purpose or account is refused without being spent on the row.
 func (s *ServiceImpl) consumeChallenge(ctx context.Context, challengeID, code string, accepts func(*Challenge) bool) (*Challenge, error) {
 	if err := idgen.Validate(challengeID); err != nil {
 		return nil, s.invalidCode(ResultUnknown)
@@ -239,10 +197,6 @@ func (s *ServiceImpl) consumeChallenge(ctx context.Context, challengeID, code st
 	return claimed, nil
 }
 
-// unverifiedAccount returns the account whose first verification the hook must
-// hear about. It returns nil when no hook is configured, the account is already
-// verified, or the read fails: a read failure is logged and never fails the
-// verification, and the account then receives no hook call.
 func (s *ServiceImpl) unverifiedAccount(ctx context.Context, userID string) *user.User {
 	if s.challenge.EmailVerifier == nil {
 		return nil
@@ -261,12 +215,6 @@ func (s *ServiceImpl) unverifiedAccount(ctx context.Context, userID string) *use
 	return account
 }
 
-// ResendChallenge answers a repeat request for a challenge's code. It is
-// idempotent for the client: it answers the accepted outcome whether or not it
-// recorded a new send, never rotates the code, never changes the identity and
-// never moves the deadline past the challenge's absolute ceiling. An unknown,
-// malformed, consumed or expired identity answers identically and changes
-// nothing (OTP-10, OTP-11).
 func (s *ServiceImpl) ResendChallenge(ctx context.Context, cmd ResendChallengeCommand) (*ResendResult, error) {
 	policy := s.challenge.Policy
 	now := s.clock.Now()
@@ -326,26 +274,16 @@ func (s *ServiceImpl) ResendChallenge(ctx context.Context, cmd ResendChallengeCo
 	return &ResendResult{ResendAfter: int(policy.ResendCooldown.Seconds())}, nil
 }
 
-// suppressedResend is the uniform resend answer for a case that recorded no
-// send: the same status and the same body as an accepted resend, so no case is
-// distinguishable (OTP-11). Nothing is logged per suppression, because the
-// identity is attacker-controlled (R10).
 func (s *ServiceImpl) suppressedResend(policy ChallengePolicy) *ResendResult {
 	s.challenge.Observer.ResendRequested(ResendSuppressed)
 	return &ResendResult{ResendAfter: int(policy.ResendCooldown.Seconds())}
 }
 
-// invalidCode is the single producer of the uniform verification failure: one
-// code, one message, one status for every case, with the classification
-// exported only to the observer (OTP-08, OTP-16).
 func (s *ServiceImpl) invalidCode(result string) error {
 	s.challenge.Observer.ChallengeVerified(result)
 	return apperr.NewError(apperr.CodeOTPInvalid, MsgOTPInvalid, nil)
 }
 
-// classifyFailure reads the stored row to label why a verification could not
-// proceed, for metrics and logs only; the response is the uniform failure
-// whichever label is produced (R4, OTP-16).
 func (s *ServiceImpl) classifyFailure(ctx context.Context, id string, now time.Time) error {
 	row, err := s.challenge.Repository.Fetch(ctx, id)
 	if err != nil {
@@ -357,11 +295,6 @@ func (s *ServiceImpl) classifyFailure(ctx context.Context, id string, now time.T
 	return s.invalidCode(row.FailureResult(now, s.challenge.Policy.MaxAttempts))
 }
 
-// checkAccountBound refuses the request once the account's challenges recorded
-// inside the configured window have reached the documented cap. The count is a
-// store fact, so a restart or a second instance cannot reset the budget, and
-// the refusal is the existing rate-limit outcome with a retry hint (F-07,
-// OTP-14).
 func (s *ServiceImpl) checkAccountBound(ctx context.Context, userID string, now time.Time) error {
 	policy := s.challenge.Policy
 
@@ -375,8 +308,6 @@ func (s *ServiceImpl) checkAccountBound(ctx context.Context, userID string, now 
 	return nil
 }
 
-// checkSendBudget refuses a new send once the day's recorded intentions have
-// reached the configured cap, before any intention is written (OTP-13).
 func (s *ServiceImpl) checkSendBudget(ctx context.Context, now time.Time) error {
 	policy := s.challenge.Policy
 
@@ -390,9 +321,6 @@ func (s *ServiceImpl) checkSendBudget(ctx context.Context, now time.Time) error 
 	return nil
 }
 
-// checkResendBudget refuses a resend once the day's resend intentions reach the
-// resend share of the cap. It runs after checkSendBudget and never affects first
-// sends, which keep the reserved share of the cap (D5, OTP-13).
 func (s *ServiceImpl) checkResendBudget(ctx context.Context, now time.Time) error {
 	policy := s.challenge.Policy
 
@@ -407,18 +335,12 @@ func (s *ServiceImpl) checkResendBudget(ctx context.Context, now time.Time) erro
 	return s.emailUnavailable(now)
 }
 
-// sendBudgetExhausted is the typed unavailable outcome with a retry hint that
-// points at the next day's window; reaching the cap reveals no account state
-// (OTP-13, R6).
 func (s *ServiceImpl) sendBudgetExhausted(ctx context.Context, now time.Time) error {
 	s.challenge.Observer.SendCapBlocked()
 	s.log.Warn(ctx, "daily email send cap reached")
 	return s.emailUnavailable(now)
 }
 
-// emailUnavailable builds the unavailable outcome that retries at the next UTC
-// day; it is shared by the total cap and the resend share, which report
-// through different observer results (D5).
 func (s *ServiceImpl) emailUnavailable(now time.Time) error {
 	policy := s.challenge.Policy
 
@@ -426,8 +348,6 @@ func (s *ServiceImpl) emailUnavailable(now time.Time) error {
 		WithRetryAfter(policy.DayStart(now).Add(24 * time.Hour).Sub(now))
 }
 
-// recordChallengeIssued records issuance and logs it by identity and purpose
-// with the recipient masked; the code never appears (OTP-15, OTP-16).
 func (s *ServiceImpl) recordChallengeIssued(ctx context.Context, purpose Purpose, challengeID, email string) {
 	s.challenge.Observer.ChallengeIssued(purpose)
 	s.log.Info(ctx, "challenge issued",
@@ -437,10 +357,6 @@ func (s *ServiceImpl) recordChallengeIssued(ctx context.Context, purpose Purpose
 	)
 }
 
-// maskEmail masks a recipient address for logging as the first local-part
-// character plus the domain (for example a***@example.com); an address without
-// a usable local part or domain becomes *** (OTP-15). It mirrors the email
-// domain's rule for the same value.
 func maskEmail(address string) string {
 	at := strings.LastIndex(address, "@")
 	if at <= 0 || at == len(address)-1 {

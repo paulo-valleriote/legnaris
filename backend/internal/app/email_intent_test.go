@@ -19,8 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// captureLogger records every structured line so a suite can assert the code
-// and the unmasked recipient never reach a log (OTP-15).
 type captureLogger struct{ lines []string }
 
 func (l *captureLogger) append(msg string, args []logger.Attribute) {
@@ -56,9 +54,6 @@ func (l *captureLogger) With(string, string) logger.StructuredLogger { return l 
 
 func (l *captureLogger) text() string { return strings.Join(l.lines, "\n") }
 
-// TestEmailIntent_Record proves the adapter maps the challenge's send intent
-// onto the message contract exactly, never logs the code, and masks the
-// recipient (OTP-10, OTP-12, OTP-15).
 func TestEmailIntent_Record(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
@@ -109,7 +104,7 @@ func TestEmailIntent_Record(t *testing.T) {
 	})
 
 	t.Run("Error: a non-canonical identity is rejected before the store", func(t *testing.T) {
-		repo := outboxmocks.NewMockRepository(t) // no expectations: the store is never reached
+		repo := outboxmocks.NewMockRepository(t)
 
 		adapter := app.NewEmailIntent(repo, &captureLogger{})
 		err := adapter.Record(ctx, "not-a-uuid", to, auth.PurposeVerifyEmail, code, 10, now)
@@ -129,8 +124,6 @@ func TestEmailIntent_Record(t *testing.T) {
 	})
 }
 
-// TestEmailIntent_Requeue proves a resend records a new intention and returns
-// its fresh identity, never the original one (OTP-10).
 func TestEmailIntent_Requeue(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
@@ -165,8 +158,6 @@ func TestEmailIntent_Requeue(t *testing.T) {
 	})
 }
 
-// TestEmailIntent_SentSince proves the daily-cap window reaches the store
-// unchanged (OTP-13).
 func TestEmailIntent_SentSince(t *testing.T) {
 	ctx := context.Background()
 	since := time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)
@@ -194,8 +185,6 @@ func TestEmailIntent_SentSince(t *testing.T) {
 	})
 }
 
-// TestEmailIntent_DisclosureSweep asserts a six-digit code never appears in any
-// line the adapter writes, whatever the outcome (OTP-15).
 func TestEmailIntent_DisclosureSweep(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
@@ -211,8 +200,6 @@ func TestEmailIntent_DisclosureSweep(t *testing.T) {
 	assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), log.text())
 }
 
-// TestEmailIntent_ResendsSince proves the resend share counts only resends of
-// the window, leaving first sends to the total cap (D5, OTP-13).
 func TestEmailIntent_ResendsSince(t *testing.T) {
 	ctx := context.Background()
 	since := time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)

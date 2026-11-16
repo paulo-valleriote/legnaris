@@ -13,10 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestService_FetchTemplate pins the ID validation to the service (LGN-66,
-// LGN-86): the controller forwards the path param as-is, so a missing ID and a
-// malformed one are rejected here — as typed errors the boundary translates to
-// 400 — instead of being re-checked by every caller.
 func TestService_FetchTemplate(t *testing.T) {
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)
@@ -87,8 +83,6 @@ func TestService_FetchTemplate(t *testing.T) {
 			if tc.wantSentin != nil {
 				assert.ErrorIs(t, err, tc.wantSentin)
 
-				// backend/shared/apperr is for services and controllers: the template
-				// layer must hand the boundary a typed error it translates.
 				var appErr *apperr.Error
 				assert.False(t, errors.As(err, &appErr), "typed ID error must not be returned as apperr from the template layer")
 				return

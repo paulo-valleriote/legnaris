@@ -20,13 +20,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// outboxTestRetention is a retention window distinct from the default so the
-// suite proves the configured window reaches the TTL index (EML-17).
 const outboxTestRetention = 24 * time.Hour
 
-// newOutboxFixture connects to MongoDB, gives the test a clean email_outbox
-// collection with the production indexes, and self-skips when MongoDB is
-// unavailable so the unit run stays hermetic (EML-20).
 func newOutboxFixture(t *testing.T) (outbox.Repository, *mongo.Collection) {
 	t.Helper()
 
@@ -44,8 +39,6 @@ func mustIntent(t *testing.T, to string, now time.Time) outbox.Intent {
 	return intent
 }
 
-// TestRepository_Create writes the intention durably before any acceptance is
-// reported and never publishes (EML-01).
 func TestRepository_Create(t *testing.T) {
 	repo, collection := newOutboxFixture(t)
 	ctx := context.Background()
@@ -80,8 +73,6 @@ func TestRepository_Create(t *testing.T) {
 	})
 }
 
-// TestRepository_Claim_Concurrency proves two publishers polling in the same
-// window never share a row (EML-03, SC-002).
 func TestRepository_Claim_Concurrency(t *testing.T) {
 	repo, _ := newOutboxFixture(t)
 	ctx := context.Background()
@@ -133,9 +124,6 @@ func TestRepository_Claim_Concurrency(t *testing.T) {
 	})
 }
 
-// TestRepository_Claim_Lease covers the lease semantics a crash depends on: a
-// live lease hides a row and an expired lease makes it eligible again
-// (EML-03, SC-001).
 func TestRepository_Claim_Lease(t *testing.T) {
 	repo, _ := newOutboxFixture(t)
 	ctx := context.Background()
@@ -168,8 +156,6 @@ func TestRepository_Claim_Lease(t *testing.T) {
 	})
 }
 
-// TestRepository_Reschedule proves a failed publication increments the attempt
-// count and defers eligibility, without ever losing the row (EML-04).
 func TestRepository_Reschedule(t *testing.T) {
 	repo, collection := newOutboxFixture(t)
 	ctx := context.Background()
@@ -211,8 +197,6 @@ func TestRepository_Reschedule(t *testing.T) {
 	})
 }
 
-// TestRepository_MarkPublished proves a published row is terminal and hides
-// from future claims (EML-02).
 func TestRepository_MarkPublished(t *testing.T) {
 	repo, collection := newOutboxFixture(t)
 	ctx := context.Background()
@@ -243,8 +227,6 @@ func TestRepository_MarkPublished(t *testing.T) {
 	})
 }
 
-// TestRepository_MarkTerminal proves a failed row is surfaced and never
-// republished (EML-04).
 func TestRepository_MarkTerminal(t *testing.T) {
 	repo, collection := newOutboxFixture(t)
 	ctx := context.Background()
@@ -274,7 +256,6 @@ func TestRepository_MarkTerminal(t *testing.T) {
 	})
 }
 
-// TestRepository_Backlog counts pending rows only (EML-23).
 func TestRepository_Backlog(t *testing.T) {
 	repo, _ := newOutboxFixture(t)
 	ctx := context.Background()
@@ -304,8 +285,6 @@ func TestRepository_Backlog(t *testing.T) {
 	})
 }
 
-// TestRepository_Indexes pins the idempotently created indexes the claim query
-// and the retention janitor depend on (EML-17).
 func TestRepository_Indexes(t *testing.T) {
 	_, collection := newOutboxFixture(t)
 
@@ -337,9 +316,6 @@ func TestRepository_Indexes(t *testing.T) {
 	})
 }
 
-// TestRepository_Clone proves a resend re-records the same payload under a fresh
-// identity — what keeps the provider's idempotency key from suppressing the
-// second send — and leaves the original row untouched (OTP-10, EML-18).
 func TestRepository_Clone(t *testing.T) {
 	repo, collection := newOutboxFixture(t)
 	ctx := context.Background()
@@ -384,8 +360,6 @@ func TestRepository_Clone(t *testing.T) {
 	})
 }
 
-// TestRepository_CountSince proves the daily-cap count honours the window: only
-// rows recorded at or after the instant are counted (OTP-13).
 func TestRepository_CountSince(t *testing.T) {
 	repo, collection := newOutboxFixture(t)
 	ctx := context.Background()
@@ -430,9 +404,6 @@ func TestRepository_CountSince(t *testing.T) {
 	})
 }
 
-// TestRepository_CloneMarksResend pins that a clone is a resend and that the
-// kind-filtered count sees only resends, never first sends, and honours the
-// window (D5, OTP-13).
 func TestRepository_CloneMarksResend(t *testing.T) {
 	repo, _ := newOutboxFixture(t)
 	ctx := context.Background()

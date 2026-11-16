@@ -13,8 +13,6 @@ func f64(v float64) *float64 { return &v }
 
 func intPtr(v int) *int { return &v }
 
-// genLeaf builds an editable leaf (number unless the schema says otherwise),
-// the common base for generation cases.
 func genLeaf(schema FieldSchema) FieldNode {
 	if schema.Type == "" {
 		schema.Type = fieldTypeNumber
@@ -146,8 +144,6 @@ func TestValidateGenerationMetadata(t *testing.T) {
 	}
 }
 
-// TestValidateGenerationMetadata_ErrorNamesField checks that the boot error
-// points at the offending leaf, so a bad template is easy to locate.
 func TestValidateGenerationMetadata_ErrorNamesField(t *testing.T) {
 	tmpl := genTemplate(FieldGroup{"stats": {Children: FieldGroup{
 		"strength": genLeaf(FieldSchema{Generatable: true, Min: f64(9), Max: f64(3)}),
@@ -159,8 +155,6 @@ func TestValidateGenerationMetadata_ErrorNamesField(t *testing.T) {
 	assert.Contains(t, err.Error(), "stats.strength")
 }
 
-// TestValidateGenerationMetadata_Deterministic checks that when several leaves
-// are invalid the reported one is stable across runs (sorted walk, not map order).
 func TestValidateGenerationMetadata_Deterministic(t *testing.T) {
 	tmpl := genTemplate(FieldGroup{
 		"alpha": genLeaf(FieldSchema{Generatable: true, Min: f64(2), Max: f64(1)}),
@@ -174,8 +168,6 @@ func TestValidateGenerationMetadata_Deterministic(t *testing.T) {
 	}
 }
 
-// TestBuildRegistry_RejectsBadGenerationMetadata checks that invalid generation
-// metadata stops boot instead of surfacing at request time.
 func TestBuildRegistry_RejectsBadGenerationMetadata(t *testing.T) {
 	bad := genTemplate(FieldGroup{"level": genLeaf(FieldSchema{Generatable: true, Min: f64(5), Max: f64(1)})})
 	bad.Name = "bad"

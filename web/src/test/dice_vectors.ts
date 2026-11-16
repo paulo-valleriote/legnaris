@@ -47,13 +47,8 @@ export interface DiceVectors {
   }[];
 }
 
-/** The vectors shared with the Go package (`testdata/dice/vectors.json`); both sides must pass every one. */
 export const diceVectors = vectorsJson as unknown as DiceVectors;
 
-/**
- * Turns the flat `values` of a vector (dotted path → number) into the nested tree
- * the sheet holds on screen.
- */
 export function nestValues(flat: Readonly<Record<string, number>>): Record<string, unknown> {
   const tree: Record<string, unknown> = {};
   for (const [path, value] of Object.entries(flat)) {

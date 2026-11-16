@@ -28,7 +28,6 @@ const (
 	fixedNow   = "2026-11-14T10:00:00Z"
 )
 
-// fixture bundles the mocks and the service under test.
 type fixture struct {
 	store     *mocks.MockStore
 	publisher *mocks.MockPublisher
@@ -42,8 +41,6 @@ type fixture struct {
 	svc       *generation.Service
 }
 
-// newFixture wires every mock with no expectations. A test that reaches a
-// collaborator it did not expect fails, which is how gate order is asserted.
 func newFixture(t *testing.T, cfg generation.Config) fixture {
 	t.Helper()
 	now, err := time.Parse(time.RFC3339, fixedNow)
@@ -74,14 +71,11 @@ func newFixture(t *testing.T, cfg generation.Config) fixture {
 	return f
 }
 
-// runInline makes the transaction mock run its callback in place, as production does
-// inside one transaction.
 func (f fixture) runInline() {
 	f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 		RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Maybe()
 }
 
-// allowTemplate serves the test template with the character kind.
 func (f fixture) allowTemplate(kinds ...plan.SheetKind) {
 	f.templates.EXPECT().FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: templateID}).
 		Return(&template.Template{ID: templateID, Name: "Fantasy", Kinds: kinds}, nil).Maybe()
@@ -91,7 +85,6 @@ func defaultCfg() generation.Config {
 	return generation.Config{Enabled: true, DailyCap: 10}
 }
 
-// appErrorOf asserts err is an apperr and returns it.
 func appErrorOf(t *testing.T, err error) *apperr.Error {
 	t.Helper()
 	require.Error(t, err)
@@ -100,7 +93,6 @@ func appErrorOf(t *testing.T, err error) *apperr.Error {
 	return appErr
 }
 
-// requireCode asserts err is an apperr with the code and HTTP status.
 func requireCode(t *testing.T, err error, code apperr.Code, status int) {
 	t.Helper()
 	appErr := appErrorOf(t, err)

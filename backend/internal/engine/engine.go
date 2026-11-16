@@ -49,9 +49,6 @@ func (fe *FormulaEngine) Evaluate(program *vm.Program, env map[string]any) (any,
 	return result, nil
 }
 
-// coerceFloat64 normalizes any Go numeric type to float64 so that floor/max
-// handle int, int32, int64, float32, etc. consistently regardless of whether
-// values arrive via JSON (float64) or Mongo BSON (int32/int64).
 func coerceFloat64(v any) (float64, error) {
 	switch n := v.(type) {
 	case float64:

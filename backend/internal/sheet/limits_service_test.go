@@ -22,19 +22,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// limitTemplateID is the template the limit tests create Sheets from. It accepts
-// only characters, so kind refusals are exercised too.
 const limitTemplateID = "limit_test"
 
-// limitFields is a minimal Template tree: one editable number, enough for a
-// creation to run the DAG.
 var limitFields = template.FieldGroup{
 	"stats": {Children: template.FieldGroup{
 		"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 	}},
 }
 
-// limitDAG is the compiled DAG the limit tests serve from the in-memory registry.
 func limitDAG(t *testing.T) sheettest.DAGMap {
 	t.Helper()
 	dag, err := template.BuildDAG(limitTemplateID, limitFields, engine.NewFormulaEngine())
@@ -42,7 +37,6 @@ func limitDAG(t *testing.T) sheettest.DAGMap {
 	return sheettest.DAGMap{limitTemplateID: dag}
 }
 
-// limitTemplateService serves the limit template with the given kinds declared.
 func limitTemplateService(t *testing.T, kinds ...plan.SheetKind) *templatemocks.MockService {
 	t.Helper()
 	svc := templatemocks.NewMockService(t)
@@ -53,8 +47,6 @@ func limitTemplateService(t *testing.T, kinds ...plan.SheetKind) *templatemocks.
 	return svc
 }
 
-// runInline makes the transaction mock run its callback in place, so the
-// repository expectations see the same calls production makes inside a transaction.
 func runInline(t *testing.T) *mocks.MockTransactionRunner {
 	t.Helper()
 	tx := mocks.NewMockTransactionRunner(t)
@@ -67,7 +59,6 @@ func runInline(t *testing.T) *mocks.MockTransactionRunner {
 	return tx
 }
 
-// planFor serves the owner's plan from the plan source mock.
 func planFor(t *testing.T, owner string, p plan.Plan) *mocks.MockPlanSource {
 	t.Helper()
 	plans := mocks.NewMockPlanSource(t)
@@ -75,8 +66,6 @@ func planFor(t *testing.T, owner string, p plan.Plan) *mocks.MockPlanSource {
 	return plans
 }
 
-// newLimitedService builds the sheet service with plan limits wired, the way
-// production does.
 func newLimitedService(repo sheet.Repository, tmpl *templatemocks.MockService, dags sheettest.DAGMap, plans sheet.PlanSource, tx sheet.TransactionRunner) sheet.Service {
 	return sheet.NewService(repo, tmpl, dags, logger.NewLogger(slog.LevelError), events.NoOp{}, sheet.WithPlanLimits(plans, tx))
 }
@@ -92,7 +81,7 @@ func TestService_CreateKindValidation(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := mocks.NewMockRepository(t) // no expectations: nothing is read or written
+			repo := mocks.NewMockRepository(t)
 			svc := newLimitedService(repo, templatemocks.NewMockService(t), limitDAG(t), mocks.NewMockPlanSource(t), mocks.NewMockTransactionRunner(t))
 
 			created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
@@ -195,7 +184,7 @@ func TestService_CreateInsertFailureIsNotALimit(t *testing.T) {
 }
 
 func TestService_CreateWithoutPlanLimitsRefuses(t *testing.T) {
-	repo := mocks.NewMockRepository(t) // no expectations: must never be called
+	repo := mocks.NewMockRepository(t)
 	svc := sheet.NewService(repo, limitTemplateService(t, plan.KindCharacter), limitDAG(t), logger.NewLogger(slog.LevelError), events.NoOp{})
 
 	created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
@@ -343,8 +332,6 @@ func TestService_PlanUsage(t *testing.T) {
 	}
 }
 
-// limitOpts wires a Free owner's plan and an inline transaction, the defaults
-// the creation tests share.
 func limitOpts(t *testing.T) sheet.ServiceOption {
 	t.Helper()
 	return sheet.WithPlanLimits(planFor(t, ownerUserID, plan.Free), runInline(t))

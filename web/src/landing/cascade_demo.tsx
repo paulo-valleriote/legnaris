@@ -3,7 +3,6 @@ import { message } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 import { MIGHT_MAX, MIGHT_MIN, MIGHT_DEFAULT, deriveCascade, formatSigned } from './cascade';
 
-/** A minus or plus drawn as a stroke, so the glyph is identical in every font. */
 function StepIcon({ plus }: { readonly plus: boolean }) {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
@@ -20,7 +19,6 @@ interface DerivedRowProps {
   readonly depth: number;
 }
 
-/** The caption under the example: the plain disclaimer, or a remark when a bound is reached. */
 function noteKey(might: number): MessageKey {
   if (might >= MIGHT_MAX) {
     return 'landing.demoNoteMax';
@@ -31,10 +29,6 @@ function noteKey(might: number): MessageKey {
   return 'landing.demoNote';
 }
 
-/**
- * One derived value. The value and its heat line are re-keyed on change, so only a row whose
- * value actually changed lights up, and `depth` staggers the rows to follow the dependency order.
- */
 function DerivedRow({ label, formula, value, depth }: DerivedRowProps) {
   return (
     <div className={`lg-landing__demo-row lg-landing__demo-row--depth-${depth}`}>
@@ -52,10 +46,6 @@ function DerivedRow({ label, formula, value, depth }: DerivedRowProps) {
   );
 }
 
-/**
- * The landing's proof of the product's mechanism: one editable base score and three values that
- * follow it, so a visitor sees a derived value recalculate before ever signing up.
- */
 export function CascadeDemo() {
   const [might, setMight] = useState(MIGHT_DEFAULT);
   const derived = deriveCascade(might);

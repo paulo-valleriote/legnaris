@@ -14,9 +14,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// Metrics bundles the HTTP request collectors with a dedicated registry. Each
-// instance owns its own *prometheus.Registry so packages never write into (or
-// collide on) the process-global default registry.
 type Metrics struct {
 	registry                 *prometheus.Registry
 	requestDuration          *prometheus.HistogramVec
@@ -48,31 +45,20 @@ type Metrics struct {
 
 const metricsNamespace = "legnaris"
 
-// sweeperSubsystem is the Prometheus subsystem of the generic sweeper queues.
 const sweeperSubsystem = "sweeper"
 
-// queueLabel is the label that partitions the sweeper series by queue.
 const queueLabel = "queue"
 
-// requestDurationBuckets are the HTTP latency histogram bounds, in seconds.
-// prometheus.DefBuckets starts at 5ms, which collapses every healthy sub-5ms
-// request into one bucket and flattens p95/p99; these resolve 0.5ms-2.5s so
-// load tests can tell a 2ms API from a 5ms one.
 var requestDurationBuckets = []float64{
 	0.0005, 0.001, 0.002, 0.003, 0.005, 0.0075, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5,
 }
 
-// httpSubsystem is the Prometheus subsystem shared by the HTTP collectors.
 const httpSubsystem = "http"
 
-// authSubsystem is the Prometheus subsystem shared by the auth observers.
 const authSubsystem = "auth"
 
-// resultLabel is the label carried by every outcome-partitioned counter.
 const resultLabel = "result"
 
-// New builds a Metrics instance with its own registry and collectors. No
-// worker series ever carries the recipient or the code as a label (WKR-21).
 func New() *Metrics {
 	registry := prometheus.NewRegistry()
 
@@ -124,17 +110,12 @@ func New() *Metrics {
 		Help:      "Total number of collected CSP violation reports.",
 	}, []string{"effective_directive", "disposition"})
 
-	// eventsDropped counts domain events the best-effort publisher could not
-	// deliver. The type set is the code-defined catalog and reason is a closed set.
 	eventsDropped := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
 		Name:      "events_dropped_total",
 		Help:      "Total number of domain events dropped by the best-effort publisher.",
 	}, []string{"type", "reason"})
 
-	// Email-delivery series consumed by the relay: the pending backlog gauge,
-	// the publication outcomes by result, and a dead-letter counter reserved
-	// for the worker (EML-23).
 	emailOutboxBacklog := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "email_outbox_backlog",
@@ -172,9 +153,6 @@ func New() *Metrics {
 		Help:      "Email messages dropped because their code had expired.",
 	})
 
-	// emailBreakerOpen is 1 while the provider breaker pauses consumption and 0
-	// otherwise; emailBreakerOpened counts every opening, so an alert can fire
-	// on the gauge and a dashboard on the rate (LGN-149).
 	emailBreakerOpen := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "email_breaker_open",
@@ -187,9 +165,6 @@ func New() *Metrics {
 		Help:      "Times the email provider breaker opened after consecutive outages.",
 	})
 
-	// Code-step series (OTP-16): issuance by purpose, verification outcomes,
-	// resend outcomes and cap refusals. No series carries a code, a challenge
-	// identity or an unmasked address.
 	authOTPIssued := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
 		Subsystem: authSubsystem,
@@ -225,8 +200,6 @@ func New() *Metrics {
 		Help:      "Number of HTTP requests currently being served.",
 	})
 
-	// The sweeper series are labelled by queue only. Alerts fire when the oldest
-	// pending item passes 1 hour or when failed_total increases (ADR 0013).
 	sweeperOldestPending := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Subsystem: sweeperSubsystem,
@@ -241,8 +214,6 @@ func New() *Metrics {
 		Help:      "Total number of failed handler attempts of a sweeper queue.",
 	}, []string{queueLabel})
 
-	// The global generation cap is exported as a used/limit pair and as the
-	// ratio the 80% alert (LGN-226) reads. Values are the last observed reservation.
 	generationCapUsed := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "generation_cap_used",
@@ -267,9 +238,6 @@ func New() *Metrics {
 		sweeperOldestPending, sweeperFailed,
 		generationCapUsed, generationCapLimit, generationCapUsedRatio)
 
-	// The private registry must be self-sufficient: register the standard Go
-	// and process collectors so the deployment's own resource metrics (goroutines,
-	// heap, CPU, RSS) are exposed alongside the HTTP series.
 	registry.MustRegister(
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
@@ -305,48 +273,28 @@ func New() *Metrics {
 	}
 }
 
-// Metrics implements both auth observers (auth.Observer and
-// auth.ChallengeObserver), so one instance is wired as both at bootstrap.
 var _ auth.ChallengeObserver = (*Metrics)(nil)
 
-// LoginFailure implements auth.Observer: it counts a rejected credential check.
 func (m *Metrics) LoginFailure() {
 	m.authLoginFailures.Inc()
 }
 
-// RefreshReuseDetected implements auth.Observer: it counts a rotated refresh
-// token being presented again, which revokes the whole family.
 func (m *Metrics) RefreshReuseDetected() {
 	m.authRefreshReuseDetected.Inc()
 }
 
-// RateLimitBlocked implements app.Observer: it counts a request refused by the
-// auth rate limiter (AUTH-20).
 func (m *Metrics) RateLimitBlocked() {
 	m.authRateLimited.Inc()
 }
 
-// CSPReportReported implements app.CSPReportObserver: it counts a collected CSP
-// violation report, labelled by the violated directive and the disposition
-// (POL-05, A6).
 func (m *Metrics) CSPReportReported(effectiveDirective, disposition string) {
 	m.cspReports.WithLabelValues(effectiveDirective, disposition).Inc()
 }
 
-// EventDropped counts a domain event the best-effort publisher dropped, labelled
-// by its catalog type and the drop reason (ADR 0010, ADR 0013).
 func (m *Metrics) EventDropped(eventType, reason string) {
 	m.eventsDropped.WithLabelValues(eventType, reason).Inc()
 }
 
-// Middleware records request count and latency per route and status code.
-//
-// The status label is resolved from the committed response after next(c)
-// returns. The app registers the echo RequestLogger (HandleError=true) *inner*
-// to this middleware, so the global HTTPErrorHandler commits the final 4xx/5xx
-// before this middleware resumes and records it — keep this middleware outer
-// to any error-handling middleware, otherwise a status is read before the
-// error handler maps it (a bare `errors.New` would fall back to 500).
 func (m *Metrics) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		start := time.Now()
@@ -357,8 +305,6 @@ func (m *Metrics) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 		method := c.Request().Method
 		path := c.Path()
 		if path == "" {
-			// Unmatched routes report an empty template; collapse them into a
-			// single label instead of an opaque empty series.
 			path = "unmatched"
 		}
 		_, statusCode := echo.ResolveResponseStatus(c.Response(), err)
@@ -371,113 +317,73 @@ func (m *Metrics) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-// Register exposes the /metrics endpoint backed by this instance's registry,
-// behind the given route middleware.
 func (m *Metrics) Register(e *echo.Echo, routeMiddleware ...echo.MiddlewareFunc) {
 	e.GET("/metrics", echo.WrapHandler(promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})), routeMiddleware...)
 }
 
-// Handler exposes this instance's registry as a plain http.Handler, so the
-// relay — a separate process with no Echo server — can serve its own metrics
-// listener from the same namespace (EML-23).
 func (m *Metrics) Handler() http.Handler {
 	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
 }
 
-// PublishResult implements the relay Observer: it counts one publication
-// outcome by result ("published", "retried", "failed") (EML-23).
 func (m *Metrics) PublishResult(result string) {
 	m.emailPublishTotal.WithLabelValues(result).Inc()
 }
 
-// BacklogPending implements the relay Observer: it sets the pending-backlog
-// gauge so a stalled pipeline can be alerted on (EML-23).
 func (m *Metrics) BacklogPending(pending int) {
 	m.emailOutboxBacklog.Set(float64(pending))
 }
 
-// MessageDead counts a message dead-lettered for operator attention (EML-23,
-// WKR-21).
 func (m *Metrics) MessageDead() {
 	m.emailDeadTotal.Inc()
 }
 
-// SendResult implements the worker Observer: it counts one delivery outcome
-// by result ("sent", "retried", "dead_lettered", "expired") (WKR-21).
 func (m *Metrics) SendResult(result string) {
 	m.emailSendTotal.WithLabelValues(result).Inc()
 }
 
-// SendDuration implements the worker Observer: it observes how long one
-// provider send took (WKR-21).
 func (m *Metrics) SendDuration(d time.Duration) {
 	m.emailSendDuration.Observe(d.Seconds())
 }
 
-// MessageExpired implements the worker Observer: it counts a message dropped
-// because its code had expired (WKR-21).
 func (m *Metrics) MessageExpired() {
 	m.emailExpiredTotal.Inc()
 }
 
-// BreakerOpened implements the worker Observer: it raises the open gauge and
-// counts the opening (LGN-149).
 func (m *Metrics) BreakerOpened() {
 	m.emailBreakerOpen.Set(1)
 	m.emailBreakerOpened.Inc()
 }
 
-// BreakerClosed implements the worker Observer: it clears the open gauge
-// (LGN-149).
 func (m *Metrics) BreakerClosed() {
 	m.emailBreakerOpen.Set(0)
 }
 
-// The remaining methods implement auth.ChallengeObserver, so the same Metrics
-// instance is the code-step observer wired at bootstrap (OTP-16).
-
-// ChallengeIssued counts a challenge issued for a purpose.
 func (m *Metrics) ChallengeIssued(purpose auth.Purpose) {
 	m.authOTPIssued.WithLabelValues(string(purpose)).Inc()
 }
 
-// ChallengeVerified counts a verification outcome by its classification. The
-// classification never reaches the client, which always sees the uniform
-// failure (OTP-08, OTP-16).
 func (m *Metrics) ChallengeVerified(result string) {
 	m.authOTPVerify.WithLabelValues(result).Inc()
 }
 
-// ResendRequested counts a resend outcome (sent, suppressed, capped).
 func (m *Metrics) ResendRequested(result string) {
 	m.authOTPResend.WithLabelValues(result).Inc()
 }
 
-// SendCapBlocked counts a request refused because the daily send cap was
-// reached (OTP-13).
 func (m *Metrics) SendCapBlocked() {
 	m.authOTPCapBlocked.Inc()
 }
 
-// The sweeper methods implement sweeper.Observer (ADR 0013), so the relay wires
-// the same Metrics instance as the queue observer.
-
 var _ sweeper.Observer = (*Metrics)(nil)
 
-// OldestPending sets the age gauge of a sweeper queue; zero means nothing is
-// pending.
 func (m *Metrics) OldestPending(queue string, age time.Duration) {
 	m.sweeperOldestPending.WithLabelValues(queue).Set(age.Seconds())
 }
 
-// Failed counts one failed handler attempt of a sweeper queue.
 func (m *Metrics) Failed(queue string) {
 	m.sweeperFailed.WithLabelValues(queue).Inc()
 }
 
-// GenerationCapUsage records the global daily generation cap as last observed:
-// the jobs accepted today, the limit and their ratio. A limit of zero reports a
-// ratio of zero, so an off cap never reads as full.
 func (m *Metrics) GenerationCapUsage(used, limit int) {
 	m.generationCapUsed.Set(float64(used))
 	m.generationCapLimit.Set(float64(limit))

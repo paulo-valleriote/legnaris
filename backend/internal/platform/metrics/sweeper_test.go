@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestSweeperMetrics pins the per-queue series the sweeper alerts on:
-// oldest_pending_seconds{queue} as a gauge and failed_total{queue} as a counter.
 func TestSweeperMetrics(t *testing.T) {
 	tests := []struct {
 		name  string

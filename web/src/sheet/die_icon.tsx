@@ -1,18 +1,9 @@
-/**
- * The die icons of the Dice controls: one bare outline per common polyhedral die, drawn on the
- * same 24-unit grid and stroke as the rest of the Dice icon set so they read as one family.
- * Any die without its own silhouette, and any control that names no die, falls back to the d20.
- */
-
 import type { Expression } from '../dice/parse';
 
-/** The silhouettes the icon set draws. */
 export type DieShape = 'd4' | 'd6' | 'd8' | 'd10' | 'd12' | 'd20';
 
-/** The shape drawn when no die is known or the die has no silhouette of its own. */
 export const DEFAULT_DIE_SHAPE: DieShape = 'd20';
 
-/** A d100 is rolled as a pair of d10s at the table, so it borrows the d10 silhouette. */
 const SHAPE_BY_FACES: ReadonlyMap<number, DieShape> = new Map([
   [4, 'd4'],
   [6, 'd6'],
@@ -23,15 +14,10 @@ const SHAPE_BY_FACES: ReadonlyMap<number, DieShape> = new Map([
   [20, 'd20'],
 ]);
 
-/** The silhouette for a die with [faces] sides, or the d20 for an uncommon die. */
 export function dieShapeForFaces(faces: number): DieShape {
   return SHAPE_BY_FACES.get(faces) ?? DEFAULT_DIE_SHAPE;
 }
 
-/**
- * The silhouette for an expression: its leading die, since that is the die the player reads
- * first in the button's summary; an expression with no dice draws the default.
- */
 export function dieShapeFor(expression: Expression | undefined): DieShape {
   const leading = expression?.terms.find((term) => term.kind === 'dice');
   return leading === undefined ? DEFAULT_DIE_SHAPE : dieShapeForFaces(leading.faces);
@@ -54,10 +40,6 @@ function DieOutline({ shape }: { readonly shape: DieShape }) {
   }
 }
 
-/**
- * A die drawn on `currentColor` in the silhouette of [shape]; `off` strikes it through for a
- * Row whose dice the player turned off.
- */
 export function DieIcon({
   shape = DEFAULT_DIE_SHAPE,
   off = false,

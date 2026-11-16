@@ -8,7 +8,6 @@ test.describe('theme preference', () => {
 
   test('the stored theme is applied before the interface paints', async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem('lg.theme', 'dark'));
-    // Block the app bundle: only the same-origin head script can have set the theme.
     await page.route('**/assets/*.js', (route) => route.abort());
 
     await page.goto('/', { waitUntil: 'commit' });

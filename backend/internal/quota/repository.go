@@ -11,15 +11,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// Collection names. The storage shapes follow ADR 0009's data model.
 const (
-	// TrialCollection holds one row per account that was granted a trial.
 	TrialCollection = "generation_trial"
-	// UsageCollection holds one counter row per account and UTC day.
 	UsageCollection = "generation_usage"
 )
 
-// Stored field names shared by every filter and update in this file.
 const (
 	fieldID        = "_id"
 	fieldUsed      = "used"
@@ -32,17 +28,12 @@ const (
 	operatorSet    = "$setOnInsert"
 )
 
-// TrialRow is the stored shape of a generation_trial document. The row exists
-// only when the account was granted an allowance: LGN-229 inserts it with
-// Allowance set to TrialAllowance, and an account without a row has none. Used
-// counts lifetime generations and never goes past Allowance.
 type TrialRow struct {
 	UserID    string `bson:"_id"`
 	Allowance int    `bson:"allowance"`
 	Used      int    `bson:"used"`
 }
 
-// usageRow is the stored shape of a generation_usage document.
 type usageRow struct {
 	UserID    string    `bson:"user_id"`
 	DayUTC    string    `bson:"day_utc"`
@@ -50,15 +41,11 @@ type usageRow struct {
 	ExpiresAt time.Time `bson:"expires_at"`
 }
 
-// MongoStore implements Store over the generation_trial and generation_usage
-// collections. Every method takes the context it is given, so inside a
-// transaction the writes join it.
 type MongoStore struct {
 	trials *mongo.Collection
 	usage  *mongo.Collection
 }
 
-// NewMongoStore returns a Store backed by the quota collections of db.
 func NewMongoStore(db *mongo.Database) *MongoStore {
 	return &MongoStore{
 		trials: db.Collection(TrialCollection),
@@ -66,8 +53,6 @@ func NewMongoStore(db *mongo.Database) *MongoStore {
 	}
 }
 
-// ReserveTrial increments used only while it is below allowance. A missing row
-// matches nothing, so an account without an allowance is refused.
 func (s *MongoStore) ReserveTrial(ctx context.Context, userID string) (bool, error) {
 	filter := bson.D{
 		{Key: fieldID, Value: userID},
@@ -80,10 +65,6 @@ func (s *MongoStore) ReserveTrial(ctx context.Context, userID string) (bool, err
 	return res.MatchedCount == 1, nil
 }
 
-// GrantTrial creates the account's trial row with allowance when none exists.
-// The upsert sets allowance and used only on insert, so an existing row keeps
-// both values. A duplicate-key error from a concurrent grant means the row now
-// exists, which is the state the caller asked for.
 func (s *MongoStore) GrantTrial(ctx context.Context, userID string, allowance int) error {
 	filter := bson.D{{Key: fieldID, Value: userID}}
 	grant := bson.D{{Key: operatorSet, Value: bson.D{
@@ -97,8 +78,6 @@ func (s *MongoStore) GrantTrial(ctx context.Context, userID string, allowance in
 	return nil
 }
 
-// RefundTrial decrements used, and only while it is positive, so a refund never
-// makes the counter negative.
 func (s *MongoStore) RefundTrial(ctx context.Context, userID string) error {
 	filter := bson.D{
 		{Key: fieldID, Value: userID},
@@ -110,10 +89,6 @@ func (s *MongoStore) RefundTrial(ctx context.Context, userID string) error {
 	return nil
 }
 
-// ReserveDaily opens the day's row when it is missing, then increments count
-// only while it is below PaidDailyLimit. Opening is an upsert on the unique
-// (user_id, day_utc) key, so two requests that open the same day converge on
-// one row. It returns false when the day is full.
 func (s *MongoStore) ReserveDaily(ctx context.Context, userID, dayUTC string, expiresAt time.Time) (bool, error) {
 	key := bson.D{{Key: fieldUserID, Value: userID}, {Key: fieldDayUTC, Value: dayUTC}}
 	open := bson.D{{Key: operatorSet, Value: bson.D{
@@ -133,7 +108,6 @@ func (s *MongoStore) ReserveDaily(ctx context.Context, userID, dayUTC string, ex
 	return res.MatchedCount == 1, nil
 }
 
-// RefundDaily decrements the counter of dayUTC, only while it is positive.
 func (s *MongoStore) RefundDaily(ctx context.Context, userID, dayUTC string) error {
 	filter := bson.D{
 		{Key: fieldUserID, Value: userID},
@@ -146,8 +120,6 @@ func (s *MongoStore) RefundDaily(ctx context.Context, userID, dayUTC string) err
 	return nil
 }
 
-// FetchTrial returns the account's trial row. A missing row is the zero value,
-// which reads as no allowance.
 func (s *MongoStore) FetchTrial(ctx context.Context, userID string) (TrialRow, error) {
 	var row TrialRow
 	err := s.trials.FindOne(ctx, bson.D{{Key: fieldID, Value: userID}}).Decode(&row)
@@ -160,7 +132,6 @@ func (s *MongoStore) FetchTrial(ctx context.Context, userID string) (TrialRow, e
 	return row, nil
 }
 
-// FetchDaily returns the day's count. A missing row counts as zero.
 func (s *MongoStore) FetchDaily(ctx context.Context, userID, dayUTC string) (int, error) {
 	filter := bson.D{{Key: fieldUserID, Value: userID}, {Key: fieldDayUTC, Value: dayUTC}}
 	var row usageRow

@@ -24,8 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Identifiers and texts of the worker fixtures. The concept and the names in the
-// outputs carry a marker, so a log leak is easy to spot.
 const (
 	jobID         = "0190a1b2-0000-7000-8000-0000000000a1"
 	secretConcept = "SECRET-CONCEPT a scout who walks the northern road"
@@ -34,7 +32,6 @@ const (
 	extraKeyJSON  = `{"identity":{"name":"A","title":"B"},"stats":{"strength":"floor(1)","dexterity":1,"hero":false},"config":{"armorClassAbility":"acUsesDex"},"rules":{}}`
 )
 
-// workerFixture bundles the doubles of one worker under test.
 type workerFixture struct {
 	jobs    *mocks.MockJobStore
 	catalog *mocks.MockCatalog
@@ -45,8 +42,6 @@ type workerFixture struct {
 	worker  *generation.Worker
 }
 
-// newWorkerFixture builds a worker over mocks, with a breaker that opens after
-// threshold outages and a fixed clock.
 func newWorkerFixture(t *testing.T, threshold int) workerFixture {
 	t.Helper()
 	f := workerFixture{
@@ -73,7 +68,6 @@ func newWorkerFixture(t *testing.T, threshold int) workerFixture {
 	return f
 }
 
-// expectTemplate makes the catalog serve the fixture Template and its rules.
 func (f workerFixture) expectTemplate(t *testing.T) {
 	t.Helper()
 	tmpl := fixtureTemplate()
@@ -82,7 +76,6 @@ func (f workerFixture) expectTemplate(t *testing.T) {
 	f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Maybe()
 }
 
-// expectClaim makes the store hand out the queued job with the given reservation.
 func (f workerFixture) expectClaim(reservation generation.Reservation) {
 	doc := generation.Document{
 		ID: jobID, UserID: userID, TemplateID: fixtureID, Kind: "character",
@@ -92,8 +85,6 @@ func (f workerFixture) expectClaim(reservation generation.Reservation) {
 		Return(doc, true, nil).Once()
 }
 
-// expectTerminalTx runs the transaction body and expects the failure to settle with
-// code, returning the document the store reports as it was before the move.
 func (f workerFixture) expectTerminalTx(code string, settled bool, reservation generation.Reservation) {
 	f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 		RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
@@ -101,26 +92,21 @@ func (f workerFixture) expectTerminalTx(code string, settled bool, reservation g
 	f.jobs.EXPECT().FailRunning(mock.Anything, jobID, code).Return(before, settled, nil).Once()
 }
 
-// expectTrialRefund expects the trial allowance to come back once.
 func (f workerFixture) expectTrialRefund() {
 	f.quota.EXPECT().RefundTrial(mock.Anything, userID).Return(nil).Once()
 }
 
-// completeWith expects the validated values to be stored.
 func (f workerFixture) completeWith(landed bool) {
 	f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.Anything).Return(landed, nil).Once()
 }
 
-// generateReturns makes one gateway call answer with out, or fail with err.
 func (f workerFixture) generateReturns(out string, err error) {
 	f.client.EXPECT().Generate(mock.Anything, mock.Anything).
 		Return(llm.Response{Output: json.RawMessage(out)}, err).Once()
 }
 
-// trialReservation is the lifetime allowance a Free player's job holds.
 var trialReservation = generation.Reservation{Kind: generation.ReservationTrial}
 
-// TestWorkerProcess_Happy covers the job that completes with validated values.
 func TestWorkerProcess_Happy(t *testing.T) {
 	t.Run("Happy path: queued, running, succeeded with validated values and no refund", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
@@ -152,7 +138,6 @@ func TestWorkerProcess_Happy(t *testing.T) {
 	})
 }
 
-// TestWorkerProcess_Edge covers duplicate deliveries, removed documents and store errors.
 func TestWorkerProcess_Edge(t *testing.T) {
 	t.Run("Edge: a duplicate delivery is a no-op that calls nothing", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
@@ -214,7 +199,6 @@ func TestWorkerProcess_Edge(t *testing.T) {
 	})
 }
 
-// TestWorkerProcess_SchemaRetries covers the free retries that feed the rejection back.
 func TestWorkerProcess_SchemaRetries(t *testing.T) {
 	t.Run("Happy path: a rejected output is retried with its problems and then succeeds", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
@@ -265,7 +249,6 @@ func TestWorkerProcess_SchemaRetries(t *testing.T) {
 	})
 }
 
-// TestWorkerProcess_Transport covers gateway failures, the transport retry and the breaker.
 func TestWorkerProcess_Transport(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -305,14 +288,12 @@ func TestWorkerProcess_Transport(t *testing.T) {
 		f := newWorkerFixture(t, 1)
 		f.expectTemplate(t)
 
-		// The first job's no-eligible-provider answer opens a breaker of threshold one.
 		f.expectClaim(trialReservation)
 		f.generateReturns("", llm.ErrProviderUnavailable)
 		f.expectTerminalTx(generation.ErrorCodeProviderUnavailable, true, trialReservation)
 		f.expectTrialRefund()
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 
-		// The second job never reaches the gateway.
 		secondID := "0190a1b2-0000-7000-8000-0000000000a2"
 		f.jobs.EXPECT().ClaimQueued(mock.Anything, secondID, mock.Anything, generation.LeaseDuration).
 			Return(generation.Document{ID: secondID, UserID: userID, TemplateID: fixtureID,
@@ -330,8 +311,6 @@ func TestWorkerProcess_Transport(t *testing.T) {
 		f := newWorkerFixture(t, 1)
 		f.expectTemplate(t)
 		f.expectClaim(trialReservation)
-		// The single outage opens a breaker of threshold one, so the transport
-		// retry must be refused by the breaker and the gateway is called once.
 		f.generateReturns("", llm.ErrTransient)
 		f.expectTerminalTx(generation.ErrorCodeProviderUnavailable, true, trialReservation)
 		f.expectTrialRefund()
@@ -355,7 +334,6 @@ func TestWorkerProcess_Transport(t *testing.T) {
 	})
 }
 
-// TestWorkerProcess_Refunds covers the refund of each reservation kind on failure.
 func TestWorkerProcess_Refunds(t *testing.T) {
 	day := "2026-11-14"
 	t.Run("Happy path: a failed paid job refunds its daily unit for its own day", func(t *testing.T) {
@@ -398,7 +376,6 @@ func TestWorkerProcess_Refunds(t *testing.T) {
 	})
 }
 
-// TestWorkerProcess_Template covers a job whose Template cannot be served.
 func TestWorkerProcess_Template(t *testing.T) {
 	t.Run("Error: a missing template fails the job as template_unavailable without calling the gateway", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
@@ -436,8 +413,6 @@ func TestWorkerProcess_Template(t *testing.T) {
 	})
 }
 
-// TestWorkerProcess_LogsNeverCarryContent proves the concept and the output stay out
-// of the logs, on both the success and the failure path.
 func TestWorkerProcess_LogsNeverCarryContent(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -450,7 +425,6 @@ func TestWorkerProcess_LogsNeverCarryContent(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// The logger binds stdout when it is built, so the fixture is built inside the capture.
 			logs := captureStdout(t, func() {
 				f := newWorkerFixture(t, 5)
 				f.expectTemplate(t)
@@ -480,8 +454,6 @@ func TestWorkerProcess_LogsNeverCarryContent(t *testing.T) {
 	}
 }
 
-// captureStdout runs fn and returns what it wrote to standard output. The logger
-// writes to stdout, so the test swaps the file for a pipe for the duration.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 	reader, writer, err := os.Pipe()
@@ -501,7 +473,6 @@ func captureStdout(t *testing.T, fn func()) string {
 	return <-done
 }
 
-// TestNewWorker covers the boot checks of the worker's collaborators.
 func TestNewWorker(t *testing.T) {
 	base := func(t *testing.T) generation.WorkerDeps {
 		f := newWorkerFixture(t, 5)

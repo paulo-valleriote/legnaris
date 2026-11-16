@@ -6,9 +6,6 @@ import (
 	"legnaris/backend/internal/email"
 )
 
-// Message builds a representative published-message value. It is built over
-// email.Message only, never an outbox.Intent, so a suite using it stays inside
-// the sending side (EML-05).
 func Message() email.Message {
 	return email.Message{
 		ID:       "018f4a1e-5c6b-7d8e-9f01-23456789abcd",
@@ -25,7 +22,6 @@ func Message() email.Message {
 	}
 }
 
-// Outbound builds a representative rendered message ready to hand to a Sender.
 func Outbound() email.Outbound {
 	return email.Outbound{
 		IdempotencyKey: "018f4a1e-5c6b-7d8e-9f01-23456789abcd",

@@ -1,11 +1,3 @@
-/**
- * Trusted Types default-policy contract (SEC-02, SEC-06).
- *
- * jsdom ships no `trustedTypes`, so the policy installation is exercised
- * against a stub: the boot path must register the `default` policy when the
- * platform supports it, and must leave a browser without support untouched.
- */
-
 import { describe, expect, it, vi } from 'vitest';
 import { installTrustedTypesPolicy } from '../pwa/trusted_types';
 

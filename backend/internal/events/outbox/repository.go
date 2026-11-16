@@ -30,40 +30,24 @@ const (
 	operandOr             = "$or"
 )
 
-// Repository is the event outbox store. Insert must run inside the transaction
-// that changes the entity: pass the session-bound context given by
-// db.Transactor.WithTransaction. The other methods belong to the relay.
 type Repository interface {
-	// Insert stores a pending entry. Called with a session-bound context it joins
-	// that transaction, so a rolled-back entity write leaves no entry behind.
 	Insert(ctx context.Context, entry Entry) error
-	// Claim leases up to limit eligible entries for claimer until now+lease.
 	Claim(ctx context.Context, claimer string, now time.Time, lease time.Duration, limit int) ([]Entry, error)
-	// MarkPublished sets the terminal published state.
 	MarkPublished(ctx context.Context, id string, at time.Time) error
-	// Reschedule returns the entry to pending with a later eligibility and one
-	// more attempt.
 	Reschedule(ctx context.Context, id string, now, nextAt time.Time, lastError string) error
-	// MarkTerminal fails the entry so it is never claimed again.
 	MarkTerminal(ctx context.Context, id string, now time.Time, lastError string) error
-	// OldestPending returns the creation time of the oldest pending entry. The
-	// bool is false when no entry is pending.
 	OldestPending(ctx context.Context) (time.Time, bool, error)
 }
 
-// RepositoryImpl is the MongoDB-backed event outbox store.
 type RepositoryImpl struct {
 	collection *mongo.Collection
 	logger     logger.StructuredLogger
 }
 
-// NewRepository builds the event outbox store over the application database.
 func NewRepository(database *mongo.Database, log logger.StructuredLogger) Repository {
 	return &RepositoryImpl{collection: database.Collection(eventOutboxCollection), logger: log}
 }
 
-// Insert validates the entry and writes it. The write uses ctx, so a
-// session-bound context places it in the caller's transaction.
 func (r *RepositoryImpl) Insert(ctx context.Context, entry Entry) error {
 	if err := entry.validate(); err != nil {
 		return err
@@ -74,9 +58,6 @@ func (r *RepositoryImpl) Insert(ctx context.Context, entry Entry) error {
 	return nil
 }
 
-// Claim leases up to limit eligible entries, one conditional findOneAndUpdate
-// per entry, so concurrent relays never share an entry and a stopped relay's
-// lease expires. A claim does not change status or attempts.
 func (r *RepositoryImpl) Claim(ctx context.Context, claimer string, now time.Time, lease time.Duration, limit int) ([]Entry, error) {
 	if limit <= 0 {
 		return nil, nil
@@ -107,8 +88,6 @@ func (r *RepositoryImpl) Claim(ctx context.Context, claimer string, now time.Tim
 	return claimed, nil
 }
 
-// MarkPublished sets the published state and clears the lease. Repeating it on
-// an already published entry rewrites the same values.
 func (r *RepositoryImpl) MarkPublished(ctx context.Context, id string, at time.Time) error {
 	if err := validateID(id); err != nil {
 		return err
@@ -127,8 +106,6 @@ func (r *RepositoryImpl) MarkPublished(ctx context.Context, id string, at time.T
 	return nil
 }
 
-// Reschedule returns the entry to pending, clears the lease, records the error
-// and increments attempts.
 func (r *RepositoryImpl) Reschedule(ctx context.Context, id string, now, nextAt time.Time, lastError string) error {
 	if err := validateID(id); err != nil {
 		return err
@@ -151,7 +128,6 @@ func (r *RepositoryImpl) Reschedule(ctx context.Context, id string, now, nextAt 
 	return nil
 }
 
-// MarkTerminal sets the failed state, clears the lease and records the error.
 func (r *RepositoryImpl) MarkTerminal(ctx context.Context, id string, now time.Time, lastError string) error {
 	if err := validateID(id); err != nil {
 		return err
@@ -170,9 +146,6 @@ func (r *RepositoryImpl) MarkTerminal(ctx context.Context, id string, now time.T
 	return nil
 }
 
-// OldestPending returns the creation time of the oldest pending entry, the signal
-// behind the oldest_pending_seconds gauge. It reads one document, the first in
-// creation order among the pending ones.
 func (r *RepositoryImpl) OldestPending(ctx context.Context) (time.Time, bool, error) {
 	var entry Entry
 	err := r.collection.FindOne(ctx,
@@ -190,7 +163,6 @@ func (r *RepositoryImpl) OldestPending(ctx context.Context) (time.Time, bool, er
 	return entry.CreatedAt, true, nil
 }
 
-// validateID screens an identity before it is used in a filter.
 func validateID(id string) error {
 	if err := idgen.Validate(id); err != nil {
 		return fmt.Errorf("%w: identity: %v", ErrInvalidEntry, err)
@@ -198,8 +170,6 @@ func validateID(id string) error {
 	return nil
 }
 
-// claimFilter selects a pending entry whose eligibility has arrived and whose
-// lease is absent or expired.
 func claimFilter(now time.Time) bson.D {
 	return bson.D{
 		{Key: fieldStatus, Value: StatusPending},

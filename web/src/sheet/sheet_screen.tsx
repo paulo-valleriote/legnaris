@@ -1,25 +1,3 @@
-/**
- * The sheet screen (WSC-05 … WSC-25, WSC-32, WSC-35 … WSC-39): reads the `:id`
- * route parameter, resolves the open situation and renders it. A loaded sheet
- * shows its name, mounts the F4 engine in builder mode over an edit store, and
- * renders a footer with the dirty indicator, the Preview and Save actions and
- * their inline results; the loading, missing, retryable and template situations
- * each render their own mapped copy.
- *
- * The screen owns the per-field subscription through the engine's builder seams
- * (AD-001): a control reads its own path from the store and reports an edit back,
- * and the preview marks reach the rows through the engine's mark seam.
- *
- * It also guards the unsaved work (WSC-36, WSC-37): `F5` refreshes the template
- * detail and leaving the screen asks for a discard confirmation first, both
- * through one modal that never stacks. A pending arrangement (Arrange mode, ADR
- * 0001) counts as unsaved work for both guards but never as unsaved values: its
- * store is separate from the edit store. A Dice choice (ADR 0006) is unsaved work held by the
- * edit store: it marks its Row or Section "Modified", enables Save and is sent with it. A pin toggled in pin mode (ADR 0002) is saved at once,
- * so it is never unsaved work; while its request is in flight the screen counts as working, which
- * holds back a leave and `F5` exactly as an Arrange commit in flight does.
- */
-
 import type { FailureKind } from '../api/errors';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode, RefObject } from 'react';
@@ -104,8 +82,6 @@ function RetryAction({ copy, onRetry }: RetryActionProps) {
   );
 }
 
-/** Subscribes to the whole edit state; the footer and the marks read this (WSC-12, WSC-23). */
-/** The footer error class; an offline failure is not the player's fault, so it is not danger-toned. */
 function errorClass(kind: FailureKind | undefined): string {
   return kind === 'offline' ? 'lg-sheet__error lg-sheet__error--offline' : 'lg-sheet__error';
 }
@@ -114,10 +90,6 @@ function useEditState(store: SheetEditStore): SheetEditState {
   return useSyncExternalStore(store.subscribe, store.getState);
 }
 
-/**
- * The mark a Row shows: its preview mark, else "modified" while its own Dice choice is unsaved
- * (ADR 0006), so a Row edited both ways still shows one mark.
- */
 function rowMark(
   marks: PreviewMarks | undefined,
   pendingDice: PendingDiceKeys,
@@ -127,7 +99,6 @@ function rowMark(
   return markForPaths(marks, paths) ?? (pendingDice.row.has(key) ? 'modified' : undefined);
 }
 
-/** Subscribes to the preview marks, resolving the mark [paths] carry (WSC-23). */
 function usePreviewMark(store: SheetEditStore, paths: readonly string[]): SheetMark | undefined {
   const subscribe = useCallback((listener: () => void) => store.subscribeMarks(listener), [store]);
   return useSyncExternalStore(subscribe, () => markForPaths(store.getState().previewMarks, paths));
@@ -140,7 +111,6 @@ interface ConnectedFieldProps {
   readonly describedById?: string;
 }
 
-/** One editable control, subscribed to its own path so an unrelated edit never re-renders it (AD-001). */
 function ConnectedField({ store, field, labelId, describedById }: ConnectedFieldProps) {
   const subscribe = useCallback(
     (listener: () => void) => store.subscribePath(field.path, listener),
@@ -170,11 +140,6 @@ interface ConnectedDependentProps {
   readonly source: SheetField;
 }
 
-/**
- * One derived value beside its input. It follows the derived leaf's own path, so a Preview or a
- * Save that merges the cascade repaints it, and it reads stale from the input's edit state and the
- * preview marks, both coarse booleans, so only a change of that answer re-renders it.
- */
 function ConnectedDependent({ store, dependent, source }: ConnectedDependentProps) {
   const subscribe = useCallback(
     (listener: () => void) => store.subscribePath(dependent.path, listener),
@@ -202,7 +167,6 @@ interface ConnectedExclusiveProps {
   readonly group: SheetExclusiveGroup;
 }
 
-/** One exclusive group, subscribed to each member's path so a selection repaints it (WSC-15). */
 function ConnectedExclusive({ store, group }: ConnectedExclusiveProps) {
   const paths = group.options.map((option) => option.path);
   const pathsKey = paths.join('\u0000');
@@ -254,13 +218,6 @@ interface FooterStatusProps {
   readonly children?: ReactNode;
 }
 
-/**
- * The footer's single status line: the unsaved state and the last Preview's cascade in one phrase,
- * with the Jump control inline. It owns the sheet's one polite live region, which announces only the
- * cascade; the visible phrase is hidden from assistive technology while a Preview shows, so the
- * summary is read once. With nothing to say the line is not drawn and, with no [children] (the
- * error slots), the status block is empty and takes no room.
- */
 function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
   const count = marks === undefined ? undefined : recalculatedCount(marks);
   const summary = count === undefined ? '' : recalculatedSummary(count);
@@ -300,7 +257,6 @@ function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
   );
 }
 
-/** The fixed footer: the dirty indicator, the Preview and Save actions and their inline results (WSC-12, WSC-16, WSC-17, WSC-21, WSC-25). */
 function SheetFooter({ store, reveal }: SheetFooterProps) {
   const state = useEditState(store);
   const [savedRevision, setSavedRevision] = useState<number | undefined>(undefined);
@@ -397,7 +353,6 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
   );
 }
 
-/** Subscribes to the arrangement state; the header, the footer and the form read this. */
 function useLayoutState(store: LayoutStore): LayoutState {
   return useSyncExternalStore(store.subscribe, store.getState);
 }
@@ -406,7 +361,6 @@ interface ArrangeFooterProps {
   readonly store: LayoutStore;
 }
 
-/** The footer while arranging: the pending indicator, the commit failure and the Reset, Cancel and Done actions. */
 function ArrangeFooter({ store }: ArrangeFooterProps) {
   const state = useLayoutState(store);
   const pending = isLayoutPending(state);
@@ -460,7 +414,6 @@ interface ArrangeToggleProps {
   readonly onStart: () => void;
 }
 
-/** The sheet header's entry to Arrange mode; it is a button, so it takes part in no drag. */
 function ArrangeToggle({ store, buttonRef, onStart }: ArrangeToggleProps) {
   const state = useLayoutState(store);
   if (isArranging(state)) {
@@ -478,10 +431,8 @@ function ArrangeToggle({ store, buttonRef, onStart }: ArrangeToggleProps) {
   );
 }
 
-/** The one pending discard the guards can open: a template refresh or a leave (WSC-36, WSC-37). */
 interface PendingConfirmation {
   readonly kind: 'refresh' | 'leave';
-  /** Runs once the person confirms the discard. */
   readonly proceed: () => void;
 }
 
@@ -491,12 +442,6 @@ interface SheetConfirmationProps {
   readonly onConfirm: () => void;
 }
 
-/**
- * The one modal both guards open (WSC-36, WSC-37, WSC-39): a labelled, modal
- * dialog whose safe Cancel action carries focus, whose destructive action is a
- * real button (never a confirm-by-Enter default), and where Escape and the
- * overlay barrier both cancel (keeping the edits).
- */
 function SheetConfirmation({ kind, onCancel, onConfirm }: SheetConfirmationProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const copy =

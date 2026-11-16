@@ -36,7 +36,6 @@ function clientWith(transport: Transport) {
   return createApiClient({ baseUrl: BASE_URL, transport });
 }
 
-/** A session restoring over the injected auth transport, the way the gate mounts one. */
 function restoringSession(
   transport: Transport,
   clear: () => Promise<void> = () => Promise.resolve(),

@@ -10,7 +10,6 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** The body of the `location <selector> { ... }` block, or null when the config has none. */
 function locationBlock(selector: string): string | null {
   const match = new RegExp(`location\\s+${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`).exec(conf);
   return match ? match[1] : null;

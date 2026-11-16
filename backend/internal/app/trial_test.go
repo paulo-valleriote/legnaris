@@ -64,8 +64,6 @@ func TestTrialDomainCheckerIsDisposable(t *testing.T) {
 	}
 }
 
-// newTestTrialVerifier wires the verifier over mocked ports and the production
-// per-IP budget, so the cap is the one the app ships with.
 func newTestTrialVerifier(t *testing.T, granter trial.Granter, checker auth.EmailChecker) auth.EmailVerifier {
 	t.Helper()
 	ips := ratelimit.New(trial.MaxAccountsPerIP, trial.IPWindow, time.Now)

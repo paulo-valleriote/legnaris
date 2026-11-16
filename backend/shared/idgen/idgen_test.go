@@ -10,9 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNew pins the generation contract: New emits a canonical lowercase UUID
-// v7 that Validate accepts — the round-trip every server-generated ID goes
-// through (LGN-86).
 func TestNew(t *testing.T) {
 	id, err := idgen.New()
 
@@ -26,9 +23,6 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, uuid.RFC4122, parsed.Variant())
 }
 
-// TestNew_StrictlyIncreasing: the first 8 bytes carry time+sequence, so
-// consecutive IDs must sort in creation order — the property listings and
-// pagination will rely on to sort by _id.
 func TestNew_StrictlyIncreasing(t *testing.T) {
 	const count = 1000
 

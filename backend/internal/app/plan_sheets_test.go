@@ -21,8 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// sheetUsageEngine mounts the plan controller with the Sheet usage read from
-// svc, behind the same error handler the router uses.
 func sheetUsageEngine(t *testing.T, store *quotamocks.MockStore, svc sheet.Service) *echo.Echo {
 	t.Helper()
 	allowance := quota.NewService(store, func() time.Time { return planNow })
@@ -40,9 +38,6 @@ func sheetUsageEngine(t *testing.T, store *quotamocks.MockStore, svc sheet.Servi
 	return e
 }
 
-// TestPlanController_SheetUsage pins the per-kind Sheet usage on GET /me/plan:
-// present only when the controller is wired WithSheetUsage, and a failed read
-// is never answered with a partial plan.
 func TestPlanController_SheetUsage(t *testing.T) {
 	tests := []struct {
 		name       string

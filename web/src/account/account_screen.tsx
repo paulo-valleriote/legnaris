@@ -1,15 +1,3 @@
-/**
- * The account destination (LGN-195): the caller's Plan and stored LLM consent
- * (ADR 0008), with the one destructive action that withdraws the consent.
- *
- * The plan is read through the shared plan query, so the state renders as one
- * of loading, the mapped failure with a single Retry, or the two rows. Revoking
- * is guarded by one confirmation dialog stating the consequence: its safe action
- * carries focus, Escape and the overlay barrier cancel, and the destructive action
- * is a real button, disabled while its request is in flight so a double submit
- * sends one `DELETE`.
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -22,12 +10,10 @@ import { message, messageWith } from '../l10n/strings';
 import './account.css';
 import '../catalog/catalog.css';
 
-/** Formats a stored consent timestamp as a calendar date for the account rows. */
 function formatConsentDate(consentAt: string): string {
   return new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(consentAt));
 }
 
-/** The plan's display name; a plan the client does not name is shown as its identifier. */
 function planName(plan: string): string {
   if (plan === 'free') {
     return message('account.planFree');
@@ -45,11 +31,6 @@ interface RevokeDialogProps {
   readonly onConfirm: () => void;
 }
 
-/**
- * The one revoke confirmation (LGN-195): a labelled, modal dialog that names the
- * consequence. Cancel is focused on open; Escape and the scrim cancel unless a
- * request is in flight.
- */
 function RevokeDialog({ pending, failure, onCancel, onConfirm }: RevokeDialogProps) {
   const keepRef = useRef<HTMLButtonElement>(null);
 
@@ -128,11 +109,6 @@ interface ConsentSectionProps {
   readonly usage: PlanUsage;
 }
 
-/**
- * The stored consent: its date and disclosure version, or the designed "none"
- * line with no revoke action. Revoking refreshes the plan so the row settles on
- * the server's answer, and the confirmation names the result once it lands.
- */
 function ConsentSection({ usage }: ConsentSectionProps) {
   const client = useApiClient();
   const queryClient = useQueryClient();
@@ -207,10 +183,6 @@ function ConsentSection({ usage }: ConsentSectionProps) {
   );
 }
 
-/**
- * The account screen (LGN-195): loading, the mapped failure with a single Retry,
- * or the Plan and consent rows.
- */
 export function AccountScreen() {
   const plan = usePlanUsage();
 

@@ -1,11 +1,3 @@
-/**
- * The Roll result panel (ADR 0005, LGN-166): the total and every die and number
- * that made it, or the explicit reason the Roll could not happen. It floats at the
- * bottom of the viewport, above the sheet's sticky footer, so a Roll is seen wherever
- * the Row sits on the page. It is a non-modal status region: it never traps focus,
- * never sets `aria-modal`, and it closes on its dismiss button or on Escape.
- */
-
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { DiceResult } from '../dice/errors';
 import type { RollResult } from '../dice/roll';
@@ -14,9 +6,7 @@ import { diceErrorMessageKey } from './dice_view';
 import './dice.css';
 
 export interface DicePanelProps {
-  /** The name of the Row or Section that was rolled; read aloud with the total. */
   readonly label: string;
-  /** The outcome of the Roll: the result, or the refusal that stopped it. */
   readonly outcome: DiceResult<RollResult>;
   readonly onDismiss: () => void;
 }
@@ -38,10 +28,8 @@ function Breakdown({ result }: { readonly result: RollResult }) {
   );
 }
 
-/** Marks the element the floating panel must stay above (the sheet's sticky footer). */
 export const FLOATING_FLOOR_ATTRIBUTE = 'data-floating-floor';
 
-/** How far the floor element covers the bottom of the viewport, in CSS pixels; 0 when it does not. */
 export function floorOffset(viewportHeight: number, floorTop: number | undefined): number {
   if (floorTop === undefined || !Number.isFinite(floorTop)) return 0;
   return Math.max(0, Math.min(viewportHeight, viewportHeight - floorTop));
@@ -64,7 +52,6 @@ function useFloatAboveFloor(panel: React.RefObject<HTMLDivElement | null>) {
   }, [panel]);
 }
 
-/** Renders the Roll outcome; Escape anywhere on the page dismisses it. */
 export function DicePanel({ label, outcome, onDismiss }: DicePanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   useFloatAboveFloor(panel);

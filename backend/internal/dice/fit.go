@@ -2,38 +2,25 @@ package dice
 
 import "fmt"
 
-// FieldKind is the type of a Template Field as far as a Dice expression cares.
 type FieldKind int
 
 const (
-	// FieldNumber is a numeric Field, the only kind a Dice expression can read.
 	FieldNumber FieldKind = iota + 1
-	// FieldText is a text Field.
 	FieldText
-	// FieldBool is a boolean Field.
 	FieldBool
 )
 
-// Schema answers what a Field path is. It reports false for a path that is not
-// a Field (a missing path, a group, a Section or a Row key that is not a leaf).
 type Schema interface {
 	FieldKind(path string) (FieldKind, bool)
 }
 
-// MapSchema is a Schema backed by a map of dotted Field path to kind.
 type MapSchema map[string]FieldKind
 
-// FieldKind implements Schema.
 func (m MapSchema) FieldKind(path string) (FieldKind, bool) {
 	kind, ok := m[path]
 	return kind, ok
 }
 
-// FitsRow reports whether the expression can be rolled for the Row keyed
-// rowKey: every Field it names must exist and be numeric, where `@` and
-// `@.<column>` resolve against rowKey. It returns nil when it fits, otherwise
-// the first problem as an *Error of class unknown_field or non_numeric_field.
-// An expression that names no Field fits any Row key.
 func (e Expression) FitsRow(schema Schema, rowKey string) error {
 	for _, term := range e.terms {
 		if term.Kind != KindField {
@@ -63,8 +50,6 @@ func checkField(schema Schema, term Term, rowKey string) error {
 	return nil
 }
 
-// ValidateRow parses expr and checks that it fits the Row keyed rowKey. It is
-// the check a Row-level Dice expression must pass before it is stored.
 func ValidateRow(schema Schema, rowKey, expr string) (Expression, error) {
 	parsed, err := Parse(expr)
 	if err != nil {
@@ -76,10 +61,6 @@ func ValidateRow(schema Schema, rowKey, expr string) (Expression, error) {
 	return parsed, nil
 }
 
-// ValidateSection parses expr and checks that it fits at least one of the
-// Section's Rows, since a Section expression is inherited by every Row but
-// only has to be rollable on some. A Section with no Rows fits nothing; when no
-// Row fits, the error carries the class of the first Row's problem.
 func ValidateSection(schema Schema, rowKeys []string, expr string) (Expression, error) {
 	parsed, err := Parse(expr)
 	if err != nil {

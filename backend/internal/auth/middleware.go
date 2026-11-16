@@ -10,7 +10,6 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// UserIDContextKey is where the middleware stores the authenticated user id.
 const UserIDContextKey = "user_id"
 
 const (
@@ -18,9 +17,6 @@ const (
 	MsgAuthorizationInvalid  = "authorization token is invalid"
 )
 
-// Middleware authenticates requests from the Authorization: Bearer header and
-// exposes the user id through UserID. It is applied to protected route groups in
-// Phase 2 (ownership); Phase 1 only ships and tests it.
 func Middleware(tokens TokenManager) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -40,14 +36,10 @@ func Middleware(tokens TokenManager) echo.MiddlewareFunc {
 	}
 }
 
-// ActiveAccountChecker reports whether an authenticated account may still act. It
-// returns a typed error when the account is unknown or being deleted.
 type ActiveAccountChecker interface {
 	EnsureActive(ctx context.Context, userID string) error
 }
 
-// RejectDeleting refuses an authenticated request whose account is being deleted
-// (LGN-190). It must be installed after Middleware, which sets the user id.
 func RejectDeleting(checker ActiveAccountChecker) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -64,14 +56,11 @@ func RejectDeleting(checker ActiveAccountChecker) echo.MiddlewareFunc {
 	}
 }
 
-// UserID returns the authenticated user id set by Middleware.
 func UserID(c *echo.Context) (string, bool) {
 	userID, ok := c.Get(UserIDContextKey).(string)
 	return userID, ok
 }
 
-// bearerToken extracts the token from an Authorization header, matching the
-// scheme case-insensitively and requiring a non-empty value.
 func bearerToken(header string) (string, bool) {
 	const prefix = "Bearer "
 	if len(header) <= len(prefix) || !strings.EqualFold(header[:len(prefix)], prefix) {
