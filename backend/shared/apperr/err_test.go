@@ -25,6 +25,7 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeQuotaExceeded, 429},
 		{CodeNotFound, 404},
 		{CodeNoSubscription, 404},
+		{CodeRefundNotEligible, 409},
 		{CodeMethodNotAllowed, 405},
 		{CodeConflict, 409},
 		{CodeDisposableEmail, 400},

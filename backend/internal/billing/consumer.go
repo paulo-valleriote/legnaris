@@ -131,6 +131,10 @@ func (c *Consumer) upsertSubscription(ctx context.Context, userID string, snap P
 	target.CurrentPeriodEnd = &period
 	target.CancelAtPeriodEnd = snap.CancelAtPeriodEnd
 	target.ProviderSyncedAt = &synced
+	if target.FirstPaidAt == nil && snap.Status == StatusActive {
+		paidAt := readAt
+		target.FirstPaidAt = &paidAt
+	}
 	target.UpdatedAt = now
 
 	if !found {

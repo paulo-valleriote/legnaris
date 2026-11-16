@@ -10,14 +10,17 @@ type Summary struct {
 	CurrentPeriodEnd  *time.Time
 	CancelAtPeriodEnd bool
 	PaymentIssue      bool
+	RefundEligible    bool
+	RefundState       RefundState
 }
 
 type StatusReader struct {
 	ledger Ledger
+	now    func() time.Time
 }
 
 func NewStatusReader(ledger Ledger) *StatusReader {
-	return &StatusReader{ledger: ledger}
+	return &StatusReader{ledger: ledger, now: time.Now}
 }
 
 func (r *StatusReader) Summary(ctx context.Context, userID string) (Summary, error) {
@@ -39,7 +42,18 @@ func (r *StatusReader) Summary(ctx context.Context, userID string) (Summary, err
 		CurrentPeriodEnd:  chosen.CurrentPeriodEnd,
 		CancelAtPeriodEnd: chosen.CancelAtPeriodEnd,
 		PaymentIssue:      chosen.Status == StatusPastDue,
+		RefundEligible:    refundAvailable(subs, chosen, r.now()),
+		RefundState:       chosen.RefundState,
 	}, nil
+}
+
+func refundAvailable(subs []Subscription, chosen Subscription, now time.Time) bool {
+	for _, sub := range subs {
+		if sub.RefundUsedAt != nil {
+			return false
+		}
+	}
+	return RefundOpen(chosen, now)
 }
 
 func relevance(sub Subscription) int {

@@ -61,6 +61,8 @@ type planView struct {
 	CurrentPeriodEnd   *time.Time               `json:"current_period_end,omitempty"`
 	CancelAtPeriodEnd  *bool                    `json:"cancel_at_period_end,omitempty"`
 	PaymentIssue       *bool                    `json:"payment_issue,omitempty"`
+	RefundEligible     *bool                    `json:"refund_eligible,omitempty"`
+	RefundState        *string                  `json:"refund_state,omitempty"`
 }
 
 type BillingSummarizer interface {
@@ -78,6 +80,12 @@ func applyBillingSummary(view *planView, summary billing.Summary) {
 	view.CurrentPeriodEnd = summary.CurrentPeriodEnd
 	view.CancelAtPeriodEnd = &cancelAtEnd
 	view.PaymentIssue = &issue
+	refundEligible := summary.RefundEligible
+	view.RefundEligible = &refundEligible
+	if summary.RefundState != "" {
+		state := string(summary.RefundState)
+		view.RefundState = &state
+	}
 }
 
 type ConsentChecker interface {

@@ -242,6 +242,64 @@ func (_c *MockStore_InsertPending_Call) RunAndReturn(run func(context.Context, b
 	return _c
 }
 
+// RequestRefund provides a mock function with given fields: ctx, id, now
+func (_m *MockStore) RequestRefund(ctx context.Context, id string, now time.Time) (bool, error) {
+	ret := _m.Called(ctx, id, now)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RequestRefund")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) (bool, error)); ok {
+		return rf(ctx, id, now)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) bool); ok {
+		r0 = rf(ctx, id, now)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, time.Time) error); ok {
+		r1 = rf(ctx, id, now)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_RequestRefund_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RequestRefund'
+type MockStore_RequestRefund_Call struct {
+	*mock.Call
+}
+
+// RequestRefund is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - now time.Time
+func (_e *MockStore_Expecter) RequestRefund(ctx interface{}, id interface{}, now interface{}) *MockStore_RequestRefund_Call {
+	return &MockStore_RequestRefund_Call{Call: _e.mock.On("RequestRefund", ctx, id, now)}
+}
+
+func (_c *MockStore_RequestRefund_Call) Run(run func(ctx context.Context, id string, now time.Time)) *MockStore_RequestRefund_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockStore_RequestRefund_Call) Return(_a0 bool, _a1 error) *MockStore_RequestRefund_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_RequestRefund_Call) RunAndReturn(run func(context.Context, string, time.Time) (bool, error)) *MockStore_RequestRefund_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockStore creates a new instance of MockStore. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockStore(t interface {

@@ -16,6 +16,9 @@ const (
 	fieldUserID             = "user_id"
 	fieldUpdatedAt          = "updated_at"
 	fieldID                 = "_id"
+	operatorIn              = "$in"
+	operatorLte             = "$lte"
+	operatorExists          = "$exists"
 )
 
 type MongoStore struct {

@@ -37,6 +37,7 @@ const (
 	CodeBillingUnavailable   Code = "BILLING_UNAVAILABLE"
 	CodeInvalidSignature     Code = "INVALID_SIGNATURE"
 	CodeNoSubscription       Code = "NO_SUBSCRIPTION"
+	CodeRefundNotEligible    Code = "REFUND_NOT_ELIGIBLE"
 )
 
 type Error struct {
@@ -73,7 +74,7 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 404
 	case CodeMethodNotAllowed:
 		httpStatus = 405
-	case CodeConflict, CodeSheetLimitReached, CodeGenerationInProgress, CodeAlreadySubscribed:
+	case CodeConflict, CodeSheetLimitReached, CodeGenerationInProgress, CodeAlreadySubscribed, CodeRefundNotEligible:
 		httpStatus = 409
 	case CodeRateLimited, CodeQuotaExceeded:
 		httpStatus = 429

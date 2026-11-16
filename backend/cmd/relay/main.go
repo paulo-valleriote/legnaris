@@ -231,7 +231,11 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
-	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue, billingQueue}, nil
+	refundQueue, err := billing.NewRefundQueue(billing.RefundDeps{Provider: billingDeps.Provider, Ledger: billingDeps.Ledger}, vars.EmailRelayMaxAttempts, vars.EmailRelayBatch)
+	if err != nil {
+		return nil, err
+	}
+	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue, billingQueue, refundQueue}, nil
 }
 
 func validateBrokerURL(raw string) error {

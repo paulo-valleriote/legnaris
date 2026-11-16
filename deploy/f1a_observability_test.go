@@ -39,6 +39,11 @@ var f1aAlerts = []f1aAlert{
 		reads:  []string{`job="legnaris-relay"`, "max by (queue)", f1aOldestThreshold},
 	},
 	{
+		name: "LegnarisRefundRequestedTooOld", severity: "high",
+		series: []string{"legnaris_sweeper_oldest_pending_seconds"},
+		reads:  []string{`job="legnaris-relay"`, `queue="billing_refunds"`, f1aOldestThreshold},
+	},
+	{
 		name: "LegnarisSweeperHandlerFailing", severity: "medium",
 		series: []string{"legnaris_sweeper_failed_total"},
 		reads:  []string{`job="legnaris-relay"`, "increase(", "by (queue)"},
