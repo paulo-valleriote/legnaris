@@ -1,9 +1,3 @@
-/**
- * The Plans destination: a title, hairline-divided rows of Plan name, price and
- * action, and the refund block. Every value comes from the shared design tokens;
- * no literal colour or pixel value appears here (LGN-215).
- */
-
 .lg-plans {
   display: flex;
   flex-direction: column;
@@ -20,8 +14,7 @@
   text-wrap: balance;
 }
 
-.lg-plans__message,
-.lg-plans__current {
+.lg-plans__message {
   margin: 0;
   font-size: var(--lg-type-15);
   color: var(--lg-color-text-muted);
@@ -34,39 +27,152 @@
   gap: var(--lg-space-8);
 }
 
-.lg-plans__row,
-.lg-plans__refund {
+.lg-plans__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--lg-space-16);
+}
+
+@media (min-width: 60rem) {
+  .lg-plans__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--lg-space-24);
+  }
+}
+
+.lg-plans__plan {
   display: flex;
   flex-direction: column;
+  gap: var(--lg-space-12);
+  padding: var(--lg-space-24);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-lg);
+  background-color: var(--lg-color-surface);
+  box-shadow: var(--lg-shadow-1);
+}
+
+.lg-plans__plan--current {
+  border-color: var(--lg-color-accent);
+}
+
+.lg-plans__plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--lg-space-8);
-  padding: var(--lg-space-16) var(--lg-space-8);
-  border-top: var(--lg-size-hairline) solid var(--lg-color-border);
+  min-width: 0;
 }
 
 .lg-plans__label {
   margin: 0;
-  font-size: var(--lg-type-16);
+  font-size: var(--lg-type-20);
   font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  letter-spacing: var(--lg-tracking-display);
   color: var(--lg-color-text);
 }
 
-.lg-plans__value {
+.lg-plans__badge {
+  flex: none;
   margin: 0;
-  font-size: var(--lg-type-16);
+  padding: var(--lg-space-2) var(--lg-space-8);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+  font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  white-space: nowrap;
+}
+
+.lg-plans__badge--standalone {
+  align-self: flex-start;
+}
+
+.lg-plans__pricing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+}
+
+.lg-plans__price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--lg-space-4) var(--lg-space-8);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.lg-plans__price-amount {
+  font-size: var(--lg-type-24);
+  font-weight: var(--lg-font-weight-bold);
+  line-height: var(--lg-line-tight);
+  letter-spacing: var(--lg-tracking-display);
   color: var(--lg-color-text);
+}
+
+.lg-plans__price-period {
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-plans__price-note {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
 }
 
 .lg-plans__text,
 .lg-plans__notice {
   margin: 0;
+  max-width: 48ch;
   font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
   color: var(--lg-color-text-muted);
+  text-wrap: pretty;
+}
+
+.lg-plans__notice {
+  font-size: var(--lg-type-13);
 }
 
 .lg-plans__error {
   margin: 0;
   font-size: var(--lg-type-15);
   color: var(--lg-color-danger);
+}
+
+.lg-plans__plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lg-space-8);
+  margin-top: auto;
+  padding-top: var(--lg-space-8);
+}
+
+@media (max-width: 39.99rem) {
+  .lg-plans__plan-actions > .lg-button {
+    flex: 1 1 100%;
+  }
+}
+
+.lg-plans__refund {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lg-space-12);
+  padding-top: var(--lg-space-16);
+  border-top: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-plans__refund-title {
+  margin: 0;
+  font-size: var(--lg-type-18);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  color: var(--lg-color-text);
 }
 
 .lg-plans__actions {

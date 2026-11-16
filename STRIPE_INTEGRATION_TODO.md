@@ -17,7 +17,7 @@ No placeholders in code. The values the session needs come from the environment,
 | mode | code: `subscription` | Already correct. The paid Plan is recurring. |
 | success_url | `BILLING_SUCCESS_URL` | The web page the user returns to after paying, e.g. `https://<app-domain>/plans?checkout=success`. |
 | cancel_url | `BILLING_CANCEL_URL` | The web page the user returns to after leaving Checkout, e.g. `https://<app-domain>/plans`. |
-| line_items[].price | `STRIPE_PRICE_ID_USD` | The id of the recurring USD 6.99/month Price (`price_...`) from https://dashboard.stripe.com/prices. |
+| line_items[].price | `STRIPE_PRICE_ID_USD` | The id of the recurring USD 6.79/month Price (`price_...`) from https://dashboard.stripe.com/prices. |
 | API key | `STRIPE_SECRET_KEY` | `sk_test_...` in test mode. In production, use a restricted key kept in the secret manager (sealed secrets, ADR 0004). |
 | Webhook secret | `STRIPE_WEBHOOK_SECRET` | The signing secret of the endpoint that points to `POST /billing/webhook`. |
 
@@ -55,7 +55,7 @@ Removing any of these would break checkout idempotency and webhook processing.
 
 ## Setup
 
-1. In the Dashboard, create the Product and its recurring monthly Price of USD 6.99. Put the Price id in `STRIPE_PRICE_ID_USD`. The Product name and description are what the hosted page shows.
+1. In the Dashboard, create the Product and its recurring monthly Price of USD 6.79. Put the Price id in `STRIPE_PRICE_ID_USD`. The Product name and description are what the hosted page shows.
 2. Create a webhook endpoint for `https://<api-domain>/billing/webhook`. Subscribe it to `checkout.session.completed` and `customer.subscription.*`, then copy its signing secret.
 3. In the Customer portal settings, enable cancellation. `POST /billing/portal` relies on it.
 4. Run locally with `make dev`, export the variables above, and forward webhooks with `stripe listen --forward-to localhost:<PORT>/billing/webhook`.

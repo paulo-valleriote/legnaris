@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { failureCopy, generationErrorKind } from '../api/error_mapper';
 import { DomainFailure } from '../api/errors';
 import type { Generation } from '../api/models/generation';
 import { useApiClient } from '../app/providers';
+import { PLANS_PATH } from '../app/routes';
 import { PLAN_QUERY_KEY, usePlanUsage, useTemplateDetail } from '../catalog/queries';
 import { setPathValue } from '../engine/sheet_defaults';
 import { SheetForm } from '../engine/sheet_form';
@@ -27,6 +28,7 @@ import {
 import type { Allowance } from './generation_flow';
 import { CONSENT_VERSION, consentDisclosure } from './llm_consent';
 import type { ConsentDisclosure } from './llm_consent';
+import './generate.css';
 
 interface PreviewState {
   readonly generationId: string;
@@ -122,36 +124,42 @@ function ConsentDialog({
   return (
     <>
       <Dialog open={open} title={disclosure.title} onClose={onDecline}>
-        <p>{disclosure.intro}</p>
-        <dl>
-          {disclosure.points.map((point) => (
-            <div key={point.heading}>
-              <dt>{point.heading}</dt>
-              <dd>{point.body}</dd>
-            </div>
-          ))}
-        </dl>
-        <button
-          type="button"
-          className="lg-button lg-button--ghost"
-          aria-haspopup="dialog"
-          onClick={() => setPrivacyOpen(true)}
-        >
-          {disclosure.detailsLinkText}
-        </button>
-        {error !== undefined && <p role="alert">{error}</p>}
-        <div>
-          <Button
-            variant="secondary"
-            label={message('generate.consentDecline')}
-            onClick={onDecline}
-          />
-          <Button
-            variant="primary"
-            label={disclosure.acceptLabel}
-            loading={busy}
-            onClick={onAccept}
-          />
+        <div className="lg-generate__consent">
+          <p className="lg-generate__consent-intro">{disclosure.intro}</p>
+          <dl className="lg-generate__consent-points">
+            {disclosure.points.map((point) => (
+              <div className="lg-generate__consent-point" key={point.heading}>
+                <dt>{point.heading}</dt>
+                <dd>{point.body}</dd>
+              </div>
+            ))}
+          </dl>
+          <button
+            type="button"
+            className="lg-button lg-button--ghost"
+            aria-haspopup="dialog"
+            onClick={() => setPrivacyOpen(true)}
+          >
+            {disclosure.detailsLinkText}
+          </button>
+          {error !== undefined && (
+            <p role="alert" className="lg-generate__error">
+              {error}
+            </p>
+          )}
+          <div className="lg-generate__actions">
+            <Button
+              variant="secondary"
+              label={message('generate.consentDecline')}
+              onClick={onDecline}
+            />
+            <Button
+              variant="primary"
+              label={disclosure.acceptLabel}
+              loading={busy}
+              onClick={onAccept}
+            />
+          </div>
         </div>
       </Dialog>
       {open && privacyOpen ? <PrivacyDialog onClose={() => setPrivacyOpen(false)} /> : null}
@@ -428,15 +436,22 @@ export function GenerateScreen() {
   const canSubmit = state === 'ok' && !submitting;
   const noAllowance = allowance?.kind === 'trial' && allowance.remaining === 0;
   const activeId = plan.data?.activeGenerationId ?? null;
+  const quota = quotaCopy(allowance);
+  const counterTone =
+    state === 'tooLong'
+      ? ' lg-generate__counter--danger'
+      : state === 'tooShort' && length > 0
+        ? ' lg-generate__counter--warning'
+        : '';
 
   return (
     <main className="lg-generate">
-      <h1>{message('generate.title')}</h1>
+      <h1 className="lg-generate__title">{message('generate.title')}</h1>
       {step.kind === 'concept' && (
-        <section aria-label={message('generate.title')}>
+        <section className="lg-generate__step" aria-label={message('generate.title')}>
           {activeId !== null && (
-            <div role="status">
-              <p>{message('generate.resumeNotice')}</p>
+            <div role="status" className="lg-generate__notice">
+              <p className="lg-generate__notice-text">{message('generate.resumeNotice')}</p>
               <Button
                 variant="secondary"
                 label={message('generate.resumeOpen')}
@@ -444,80 +459,125 @@ export function GenerateScreen() {
               />
             </div>
           )}
-          <label htmlFor="generate-concept">{message('generate.conceptLabel')}</label>
-          <textarea
-            id="generate-concept"
-            value={concept}
-            onChange={(event) => setConcept(event.target.value)}
-            aria-describedby="generate-concept-hint"
-          />
-          <p id="generate-concept-hint">{message('generate.conceptExample')}</p>
-          <p>{message('generate.languageNote')}</p>
-          <p>
-            {messageWith('generate.counter', { count: length })}
-            {state === 'tooShort' && length > 0 && ` ${message('generate.tooShort')}`}
-            {state === 'tooLong' && ` ${message('generate.tooLong')}`}
-          </p>
-          {quotaCopy(allowance) !== undefined && <p>{quotaCopy(allowance)}</p>}
-          {submitError !== undefined && <p role="alert">{submitError}</p>}
-          <Button
-            variant="primary"
-            label={submitting ? message('generate.submitting') : message('generate.submit')}
-            disabled={!canSubmit || noAllowance}
-            loading={submitting}
-            onClick={onGenerate}
-          />
+          <div className="lg-generate__field">
+            <label className="lg-generate__label" htmlFor="generate-concept">
+              {message('generate.conceptLabel')}
+            </label>
+            <textarea
+              id="generate-concept"
+              className="lg-generate__textarea"
+              rows={6}
+              value={concept}
+              onChange={(event) => setConcept(event.target.value)}
+              aria-describedby="generate-concept-hint generate-concept-language generate-concept-count"
+              aria-invalid={state === 'tooLong' ? true : undefined}
+            />
+            <div className="lg-generate__meta">
+              <div className="lg-generate__helpers">
+                <p id="generate-concept-hint" className="lg-generate__helper">
+                  {message('generate.conceptExample')}
+                </p>
+                <p id="generate-concept-language" className="lg-generate__helper">
+                  {message('generate.languageNote')}
+                </p>
+              </div>
+              <p
+                id="generate-concept-count"
+                className={`lg-generate__counter${counterTone}`}
+                data-testid="generate-concept-count"
+              >
+                {messageWith('generate.counter', { count: length })}
+                {state === 'tooShort' && length > 0 && ` ${message('generate.tooShort')}`}
+                {state === 'tooLong' && ` ${message('generate.tooLong')}`}
+              </p>
+            </div>
+          </div>
+          {quota !== undefined &&
+            (noAllowance ? (
+              <div className="lg-generate__notice lg-generate__notice--empty">
+                <p className="lg-generate__notice-text">{quota}</p>
+                <Link className="lg-generate__quota-link" to={PLANS_PATH}>
+                  {message('generate.quotaAction')}
+                </Link>
+              </div>
+            ) : (
+              <p className="lg-generate__quota">{quota}</p>
+            ))}
+          {submitError !== undefined && (
+            <p role="alert" className="lg-generate__error">
+              {submitError}
+            </p>
+          )}
+          <div className="lg-generate__actions">
+            <Button
+              variant="primary"
+              label={submitting ? message('generate.submitting') : message('generate.submit')}
+              disabled={!canSubmit || noAllowance}
+              loading={submitting}
+              onClick={onGenerate}
+            />
+          </div>
         </section>
       )}
       {step.kind === 'waiting' && (
-        <section role="status">
-          <p>{message('generate.waiting')}</p>
-          <Button
-            variant="ghost"
-            label={message('generate.backToCatalog')}
-            onClick={() => navigate('/')}
-          />
+        <section role="status" className="lg-generate__state">
+          <p className="lg-generate__state-text">{message('generate.waiting')}</p>
+          <div className="lg-generate__actions">
+            <Button
+              variant="ghost"
+              label={message('generate.backToCatalog')}
+              onClick={() => navigate('/')}
+            />
+          </div>
         </section>
       )}
       {step.kind === 'timedOut' && (
-        <section role="status">
-          <p>{message('generate.timedOut')}</p>
-          <Button
-            variant="secondary"
-            label={message('generate.keepWaiting')}
-            onClick={() => startWaiting(step.generationId)}
-          />
-          <Button
-            variant="ghost"
-            label={message('generate.backToCatalog')}
-            onClick={() => navigate('/')}
-          />
+        <section role="status" className="lg-generate__state">
+          <p className="lg-generate__state-text">{message('generate.timedOut')}</p>
+          <div className="lg-generate__actions">
+            <Button
+              variant="secondary"
+              label={message('generate.keepWaiting')}
+              onClick={() => startWaiting(step.generationId)}
+            />
+            <Button
+              variant="ghost"
+              label={message('generate.backToCatalog')}
+              onClick={() => navigate('/')}
+            />
+          </div>
         </section>
       )}
       {step.kind === 'failed' && (
-        <section role="alert">
-          <p>{step.copy}</p>
-          <Button variant="primary" label={message('sheet.retry')} onClick={toConcept} />
+        <section role="alert" className="lg-generate__state lg-generate__state--danger">
+          <p className="lg-generate__state-text">{step.copy}</p>
+          <div className="lg-generate__actions">
+            <Button variant="primary" label={message('sheet.retry')} onClick={toConcept} />
+          </div>
         </section>
       )}
       {step.kind === 'alreadyAccepted' && (
-        <section role="status">
-          <p>{message('generate.alreadySaved')}</p>
-          <Button
-            variant="ghost"
-            label={message('generate.backToCatalog')}
-            onClick={() => navigate('/')}
-          />
+        <section role="status" className="lg-generate__state">
+          <p className="lg-generate__state-text">{message('generate.alreadySaved')}</p>
+          <div className="lg-generate__actions">
+            <Button
+              variant="ghost"
+              label={message('generate.backToCatalog')}
+              onClick={() => navigate('/')}
+            />
+          </div>
         </section>
       )}
       {step.kind === 'error' && (
-        <section role="alert">
-          <p>{step.copy}</p>
-          <Button
-            variant="ghost"
-            label={message('generate.backToCatalog')}
-            onClick={() => navigate('/')}
-          />
+        <section role="alert" className="lg-generate__state lg-generate__state--danger">
+          <p className="lg-generate__state-text">{step.copy}</p>
+          <div className="lg-generate__actions">
+            <Button
+              variant="ghost"
+              label={message('generate.backToCatalog')}
+              onClick={() => navigate('/')}
+            />
+          </div>
         </section>
       )}
       {step.kind === 'preview' && (
@@ -551,38 +611,46 @@ export function GenerateScreen() {
         title={message('generate.lastTitle')}
         onClose={() => setLastConfirmOpen(false)}
       >
-        <p>{message('generate.lastBody')}</p>
-        <Button
-          variant="secondary"
-          label={message('generate.lastKeep')}
-          onClick={() => setLastConfirmOpen(false)}
-        />
-        <Button
-          variant="primary"
-          label={message('generate.lastConfirm')}
-          onClick={confirmLastRegenerate}
-        />
+        <div className="lg-generate__dialog">
+          <p className="lg-generate__dialog-text">{message('generate.lastBody')}</p>
+          <div className="lg-generate__actions">
+            <Button
+              variant="secondary"
+              label={message('generate.lastKeep')}
+              onClick={() => setLastConfirmOpen(false)}
+            />
+            <Button
+              variant="primary"
+              label={message('generate.lastConfirm')}
+              onClick={confirmLastRegenerate}
+            />
+          </div>
+        </div>
       </Dialog>
       <Dialog
         open={leaveProceed !== undefined}
         title={message('generate.leaveTitle')}
         onClose={() => setLeaveProceed(undefined)}
       >
-        <p>{message('generate.leaveBody')}</p>
-        <Button
-          variant="primary"
-          label={message('generate.leaveStay')}
-          onClick={() => setLeaveProceed(undefined)}
-        />
-        <Button
-          variant="danger"
-          label={message('generate.leaveConfirm')}
-          onClick={() => {
-            const proceed = leaveProceed;
-            setLeaveProceed(undefined);
-            proceed?.();
-          }}
-        />
+        <div className="lg-generate__dialog">
+          <p className="lg-generate__dialog-text">{message('generate.leaveBody')}</p>
+          <div className="lg-generate__actions">
+            <Button
+              variant="primary"
+              label={message('generate.leaveStay')}
+              onClick={() => setLeaveProceed(undefined)}
+            />
+            <Button
+              variant="danger"
+              label={message('generate.leaveConfirm')}
+              onClick={() => {
+                const proceed = leaveProceed;
+                setLeaveProceed(undefined);
+                proceed?.();
+              }}
+            />
+          </div>
+        </div>
       </Dialog>
     </main>
   );
@@ -610,37 +678,52 @@ function ReviewSection({
   const remaining = allowance?.kind === 'trial' ? allowance.remaining : undefined;
 
   return (
-    <section aria-label={message('generate.previewTitle')}>
-      <h2>{message('generate.previewTitle')}</h2>
-      <label htmlFor="generate-sheet-name">{message('sheet.nameLabel')}</label>
-      <input
-        id="generate-sheet-name"
-        value={name}
-        onChange={(event) => onName(event.target.value)}
-        aria-required="true"
-      />
+    <section className="lg-generate__review" aria-label={message('generate.previewTitle')}>
+      <h2 className="lg-generate__subtitle">{message('generate.previewTitle')}</h2>
+      <div className="lg-generate__field">
+        <label className="lg-generate__label" htmlFor="generate-sheet-name">
+          {message('sheet.nameLabel')}
+        </label>
+        <input
+          id="generate-sheet-name"
+          className="lg-generate__input"
+          value={name}
+          onChange={(event) => onName(event.target.value)}
+          aria-required="true"
+        />
+      </div>
       {fields !== undefined && (
         <SheetForm fields={fields} data={preview.values} onChanged={onEdit} />
       )}
-      {preview.previewError !== undefined && <p role="status">{preview.previewError}</p>}
-      {preview.acceptError !== undefined && <p role="alert">{preview.acceptError}</p>}
-      <Button
-        variant="primary"
-        label={preview.accepting ? message('generate.accepting') : message('generate.accept')}
-        disabled={trimmed === '' || preview.accepting}
-        loading={preview.accepting}
-        onClick={() => onAccept(trimmed)}
-      />
-      <Button
-        variant="secondary"
-        label={
-          remaining === undefined
-            ? message('generate.regenerateNone')
-            : messageWith('generate.regenerate', { remaining })
-        }
-        disabled={remaining === 0}
-        onClick={onRegenerate}
-      />
+      {preview.previewError !== undefined && (
+        <p role="status" className="lg-generate__note">
+          {preview.previewError}
+        </p>
+      )}
+      {preview.acceptError !== undefined && (
+        <p role="alert" className="lg-generate__error">
+          {preview.acceptError}
+        </p>
+      )}
+      <div className="lg-generate__actions">
+        <Button
+          variant="primary"
+          label={preview.accepting ? message('generate.accepting') : message('generate.accept')}
+          disabled={trimmed === '' || preview.accepting}
+          loading={preview.accepting}
+          onClick={() => onAccept(trimmed)}
+        />
+        <Button
+          variant="secondary"
+          label={
+            remaining === undefined
+              ? message('generate.regenerateNone')
+              : messageWith('generate.regenerate', { remaining })
+          }
+          disabled={remaining === 0}
+          onClick={onRegenerate}
+        />
+      </div>
     </section>
   );
 }
