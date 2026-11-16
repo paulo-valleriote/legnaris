@@ -37,10 +37,10 @@ const (
 	subscriptionsUserIDField       = "user_id"
 	subscriptionsProviderSubField  = "provider_subscription_id"
 	subscriptionsProviderSubUnique = "subscriptions_provider_subscription_unique"
-	subscriptionsRefundUsedUnique  = "subscriptions_refund_used_unique"
 	billingEventsProviderUnique    = "billing_events_provider_event_unique"
 	billingEventsStatusNextAttempt = "billing_events_status_next_attempt"
 	billingEventsExpiresAtTTL      = "billing_events_expires_at_ttl"
+	subscriptionsExpiresAtTTL      = "subscriptions_expires_at_ttl"
 	billingEventsNextAttemptField  = "next_attempt_at"
 	expiresAtField                 = "expires_at"
 	statusField                    = "status"
@@ -138,11 +138,10 @@ func ensureBillingIndexes(ctx context.Context, database *mongo.Database) error {
 		return fmt.Errorf("create subscriptions indexes: %w", err)
 	}
 	if _, err := subscriptions.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: subscriptionsUserIDField, Value: 1}},
-		Options: options.Index().SetUnique(true).SetName(subscriptionsRefundUsedUnique).
-			SetPartialFilterExpression(bson.D{{Key: "refund_used_at", Value: bson.D{{Key: "$exists", Value: true}}}}),
+		Keys:    bson.D{{Key: expiresAtField, Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(0).SetName(subscriptionsExpiresAtTTL),
 	}); err != nil {
-		return fmt.Errorf("create subscriptions refund index: %w", err)
+		return fmt.Errorf("create subscriptions expiry index: %w", err)
 	}
 	if _, err := subscriptions.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: subscriptionsProviderSubField, Value: 1}},
