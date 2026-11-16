@@ -116,6 +116,94 @@ describe('account screen plan and consent (LGN-195)', () => {
   });
 });
 
+describe('account sheet usage (LGN-234)', () => {
+  it('Happy path: the plan row shows the sheet usage the API returned', async () => {
+    const scripted = scriptedTransport({ plans: [successOutcome(NO_CONSENT_PLAN)] });
+    renderApp('/account', { client: clientWith(scripted.transport) });
+
+    const usage = await screen.findByTestId('account-usage');
+    expect(within(usage).getByText(message('account.usageCharacter'))).toBeInTheDocument();
+    expect(
+      within(usage).getByText(messageWith('account.usageCount', { used: 0, limit: 1 })),
+    ).toHaveClass('lg-account__usage-count');
+    expect(within(usage).getByText('0 of 1')).toBeInTheDocument();
+  });
+
+  it('Happy path: the kinds render in SHEET_KINDS order whatever the JSON key order', async () => {
+    const scripted = scriptedTransport({
+      plans: [
+        successOutcome({
+          ...NO_CONSENT_PLAN,
+          sheets: {
+            monster: { used: 1, limit: 2 },
+            character: { used: 0, limit: 1 },
+            npc: { used: 2, limit: 2 },
+          },
+        }),
+      ],
+    });
+    renderApp('/account', { client: clientWith(scripted.transport) });
+
+    const usage = await screen.findByTestId('account-usage');
+    const labels = Array.from(usage.querySelectorAll('dt')).map((node) => node.textContent);
+    expect(labels).toEqual([
+      message('account.usageCharacter'),
+      message('account.usageNpc'),
+      message('account.usageMonster'),
+    ]);
+    const counts = Array.from(usage.querySelectorAll('dd')).map((node) => node.textContent);
+    expect(counts).toEqual([
+      messageWith('account.usageCount', { used: 0, limit: 1 }),
+      messageWith('account.usageCount', { used: 2, limit: 2 }),
+      messageWith('account.usageCount', { used: 1, limit: 2 }),
+    ]);
+  });
+
+  it('Edge: an empty sheets object renders no usage list', async () => {
+    const scripted = scriptedTransport({
+      plans: [successOutcome({ ...NO_CONSENT_PLAN, sheets: {} })],
+    });
+    renderApp('/account', { client: clientWith(scripted.transport) });
+
+    expect(await screen.findByTestId('account-plan')).toBeInTheDocument();
+    expect(screen.queryByTestId('account-usage')).toBeNull();
+  });
+
+  it('Edge: usage at the limit carries the full modifier without another colour', async () => {
+    const scripted = scriptedTransport({
+      plans: [
+        successOutcome({
+          ...NO_CONSENT_PLAN,
+          sheets: { character: { used: 1, limit: 1 } },
+        }),
+      ],
+    });
+    renderApp('/account', { client: clientWith(scripted.transport) });
+
+    const usage = await screen.findByTestId('account-usage');
+    expect(
+      within(usage).getByText(messageWith('account.usageCount', { used: 1, limit: 1 })),
+    ).toHaveClass('lg-account__usage-count--full');
+  });
+
+  it('Edge: a large count renders verbatim', async () => {
+    const scripted = scriptedTransport({
+      plans: [
+        successOutcome({
+          ...NO_CONSENT_PLAN,
+          sheets: { monster: { used: 120, limit: 500 } },
+        }),
+      ],
+    });
+    renderApp('/account', { client: clientWith(scripted.transport) });
+
+    const usage = await screen.findByTestId('account-usage');
+    expect(
+      within(usage).getByText(messageWith('account.usageCount', { used: 120, limit: 500 })),
+    ).toHaveTextContent('120 of 500');
+  });
+});
+
 describe('revoke LLM consent (LGN-195)', () => {
   it('Happy path: confirming revokes once, then the state updates to no consent', async () => {
     const scripted = scriptedTransport({
