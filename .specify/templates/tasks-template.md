@@ -157,6 +157,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
+- [ ] TXXX Record delivered deviations in `docs/web-delivered-deviations.md`; promote to `web/AGENTS.md` only a decision that still binds future work
 
 ---
 
