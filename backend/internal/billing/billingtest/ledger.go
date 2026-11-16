@@ -146,7 +146,7 @@ func (l *Ledger) ResolveUser(_ context.Context, providerSubscriptionID, provider
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for _, sub := range l.st.subs {
-		if providerSubscriptionID != "" && sub.ProviderSubscriptionID == providerSubscriptionID {
+		if providerSubscriptionID != "" && sub.ProviderSubID == providerSubscriptionID {
 			return sub.UserID, true, nil
 		}
 		if providerCustomerID != "" && sub.ProviderCustomerID == providerCustomerID {
@@ -288,13 +288,13 @@ func (l *Ledger) FindTarget(_ context.Context, userID, providerSubscriptionID st
 	defer l.mu.Unlock()
 	if providerSubscriptionID != "" {
 		for _, sub := range l.st.subs {
-			if sub.UserID == userID && sub.ProviderSubscriptionID == providerSubscriptionID {
+			if sub.UserID == userID && sub.ProviderSubID == providerSubscriptionID {
 				return sub, true, nil
 			}
 		}
 	}
 	for _, sub := range l.st.subs {
-		if sub.UserID == userID && sub.ProviderSubscriptionID == "" && liveStatus(sub.Status) {
+		if sub.UserID == userID && sub.ProviderSubID == "" && liveStatus(sub.Status) {
 			return sub, true, nil
 		}
 	}

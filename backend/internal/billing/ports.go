@@ -56,11 +56,25 @@ type Notification struct {
 	ProviderCustomerID     string
 }
 
+type PortalRequest struct {
+	CustomerID string
+}
+
+type PortalSession struct {
+	URL string
+}
+
+type CancelRequest struct {
+	ProviderSubscriptionID string
+}
+
 type Provider interface {
 	CreateCustomer(ctx context.Context, req CustomerRequest) (Customer, error)
 	CreateCheckoutSession(ctx context.Context, req CheckoutRequest) (CheckoutSession, error)
 	GetSubscription(ctx context.Context, providerSubscriptionID string) (ProviderSubscription, error)
 	ParseWebhook(payload []byte, signature string) (Notification, error)
+	CreatePortalSession(ctx context.Context, req PortalRequest) (PortalSession, error)
+	CancelAtPeriodEnd(ctx context.Context, req CancelRequest) error
 }
 
 type UnconfiguredProvider struct{}
@@ -79,4 +93,12 @@ func (UnconfiguredProvider) GetSubscription(context.Context, string) (ProviderSu
 
 func (UnconfiguredProvider) ParseWebhook([]byte, string) (Notification, error) {
 	return Notification{}, ErrProviderUnavailable
+}
+
+func (UnconfiguredProvider) CreatePortalSession(context.Context, PortalRequest) (PortalSession, error) {
+	return PortalSession{}, ErrProviderUnavailable
+}
+
+func (UnconfiguredProvider) CancelAtPeriodEnd(context.Context, CancelRequest) error {
+	return ErrProviderUnavailable
 }
