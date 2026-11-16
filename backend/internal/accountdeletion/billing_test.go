@@ -23,6 +23,7 @@ const (
 	billingOtherSub  = "01900000-0000-7000-8000-0000000000b2"
 	billingVictimEv  = "01900000-0000-7000-8000-0000000000e1"
 	billingOtherEv   = "01900000-0000-7000-8000-0000000000e2"
+	billingLateEv    = "01900000-0000-7000-8000-0000000000e3"
 )
 
 func seedBilling(t *testing.T, mdb *mongo.Database, userID, subID, eventID string) {
@@ -170,7 +171,7 @@ func TestBillingEventsOfDeletedAccountAreIgnored(t *testing.T) {
 			readsBefore := provider.Reads()
 
 			ev := billing.Event{
-				ID:                     billingVictimEv,
+				ID:                     billingLateEv,
 				Provider:               billing.ProviderStripe,
 				ProviderEventID:        "evt_late",
 				Kind:                   billing.KindSubscriptionChanged,
@@ -179,7 +180,9 @@ func TestBillingEventsOfDeletedAccountAreIgnored(t *testing.T) {
 				Status:                 billing.EventReceived,
 				ReceivedAt:             deleteAt,
 				NextAttemptAt:          deleteAt,
+				ExpiresAt:              deleteAt.Add(time.Hour),
 			}
+			require.NoError(t, ledger.InsertEvent(ctx, ev))
 			consumer := billing.NewConsumer(billing.ConsumerDeps{Provider: provider, Ledger: ledger, Tx: tx, Outbox: outboxRepo, Now: func() time.Time { return deleteAt }})
 			err := consumer.Handle(ctx, sweeper.Job[billing.Event]{ID: ev.ID, Payload: ev}, deleteAt)
 			require.NoError(t, err)
