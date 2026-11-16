@@ -267,6 +267,7 @@ func NewModules(
 	billingInbox := billing.NewInbox(billingProvider, billingStore, time.Now)
 	planController := NewPlanController(quotaService, PlanResolverFromSource(user.NewPlanSource(userRepository)),
 		WithSheetUsage(sheetService),
+		WithBillingSummary(billing.NewStatusReader(billingStore)),
 		WithGenerationStatus(llmConsentService, generationService),
 	)
 
