@@ -31,6 +31,11 @@ export const messages = {
   'api.error.generationFailed': "We couldn't generate it. Your generation was refunded. Try again.",
   'api.error.generationTimeout':
     'This is taking longer than usual. You can keep waiting or come back later.',
+  'api.error.alreadySubscribed': 'You already have the paid Plan.',
+  'api.error.billingUnavailable': 'Billing is unavailable right now. Try again in a moment.',
+  'api.error.noSubscription': 'You have no subscription to manage yet.',
+  'api.error.refundNotEligible':
+    'This refund is no longer available. A refund covers your first payment, within 7 days, once per account.',
   'generate.entry': 'Generate with AI',
   'generate.title': 'Generate a character',
   'generate.conceptLabel': 'Describe your character',
@@ -145,6 +150,38 @@ export const messages = {
     'Generations that are queued or running are deleted, along with the generation data Legnaris still holds for you. Sheets you already saved are not deleted.',
   'account.revokeKeep': 'Keep consent',
   'account.revokeConfirm': 'Yes, revoke consent',
+  'nav.plans': 'Plans',
+
+  'plans.title': 'Plans and billing',
+  'plans.loading': 'Loading your plan',
+  'plans.retry': 'Try loading the plan again',
+  'plans.current': 'Current plan: {plan}',
+  'plans.freeDescription': 'The Free Plan keeps your sheets. Upgrade at any time.',
+  'plans.paidPrice': 'USD 6.99 per month. Card payment only.',
+  'plans.paidDescription': 'Your payment is taken by our payment provider on a secure page.',
+  'plans.subscribe': 'Subscribe for USD 6.99 per month',
+  'plans.subscribing': 'Opening the secure checkout…',
+  'plans.manage': 'Manage subscription',
+  'plans.managing': 'Opening the billing page…',
+  'plans.neverSubscribed': 'You have not subscribed yet.',
+  'plans.periodEnd': 'Current period ends on {date}.',
+  'plans.cancelAtPeriodEnd': 'Your subscription ends at the end of this period.',
+  'plans.refundHeading': 'Refund',
+  'plans.refundNote': 'You can ask for a refund of your first payment within 7 days of it.',
+  'plans.refundAction': 'Request a refund',
+  'plans.refundTitle': 'Request a refund?',
+  'plans.refundMessage':
+    'Your paid Plan ends right away and your first payment is refunded. This can be done once per account.',
+  'plans.refundKeep': 'Keep my Plan',
+  'plans.refundConfirm': 'Yes, request the refund',
+  'plans.refundRequested': 'Your refund is in progress. Your paid Plan ends once it completes.',
+  'plans.refundCompleted': 'Your refund is complete.',
+  'plans.refundFailed': 'The refund could not be completed. Your right to a refund is back.',
+
+  'banner.paymentIssue':
+    'Your last payment did not go through, so your account is on the Free Plan until it does.',
+  'banner.paymentAction': 'Review billing',
+
   'account.revoked':
     'Consent revoked. Character generation will ask you again before it sends anything.',
 

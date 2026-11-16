@@ -13,6 +13,8 @@ export const LANDING_PATH = '/';
 export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';
 
+export const PLANS_PATH = '/plans';
+
 export const PRIVACY_PATH = '/privacy';
 
 export const NOT_FOUND_PATH = '*';
@@ -28,6 +30,7 @@ export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
     notFound: false,
   },
   { path: '/account', label: 'Account', audience: 'session', deepLink: true, notFound: false },
+  { path: PLANS_PATH, label: 'Plans', audience: 'session', deepLink: true, notFound: false },
   {
     path: '/generate/:templateId',
     label: 'Generate',

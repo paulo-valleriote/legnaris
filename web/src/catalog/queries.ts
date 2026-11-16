@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import type { Layout } from '../api/models/layout';
+import type { PlanUsage } from '../api/models/plan';
 import type { Sheet } from '../api/models/sheet';
 import { useApiClient } from '../app/providers';
 
@@ -12,7 +13,7 @@ export function templateDetailKey(id: string) {
 
 export const PLAN_QUERY_KEY = ['me', 'plan'] as const;
 
-export function usePlanUsage() {
+export function usePlanUsage(options: { refetchInterval?: PlanRefetchInterval } = {}) {
   const client = useApiClient();
 
   return useQuery({
@@ -21,6 +22,21 @@ export function usePlanUsage() {
     staleTime: 0,
     retry: false,
     refetchOnWindowFocus: false,
+    ...(options.refetchInterval === undefined ? {} : { refetchInterval: options.refetchInterval }),
+  });
+}
+
+export type PlanRefetchInterval = (query: {
+  state: { data: PlanUsage | undefined };
+}) => number | false;
+
+export function useCachedPlanUsage() {
+  const client = useApiClient();
+
+  return useQuery({
+    queryKey: PLAN_QUERY_KEY,
+    queryFn: () => client.getMyPlan(),
+    enabled: false,
   });
 }
 
