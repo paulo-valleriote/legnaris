@@ -15,17 +15,6 @@ const (
 	latestOnly  = 1
 )
 
-func (p *Provider) CancelNow(ctx context.Context, req billing.CancelRequest) error {
-	params := &stripesdk.SubscriptionCancelParams{}
-	if req.IdempotencyKey != "" {
-		params.SetIdempotencyKey(req.IdempotencyKey)
-	}
-	if _, err := p.client.V1Subscriptions.Cancel(ctx, req.ProviderSubscriptionID, params); err != nil {
-		return mapError(err)
-	}
-	return nil
-}
-
 func (p *Provider) RefundLatest(ctx context.Context, req billing.RefundRequest) error {
 	paymentIntent, err := p.latestPaymentIntent(ctx, req.ProviderSubscriptionID)
 	if err != nil {

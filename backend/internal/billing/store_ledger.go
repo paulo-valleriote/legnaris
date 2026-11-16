@@ -269,7 +269,7 @@ func (s *MongoStore) FindTarget(ctx context.Context, userID, providerSubscriptio
 	var sub Subscription
 	err := s.subscriptions.FindOne(ctx, bson.D{
 		{Key: fieldUserID, Value: userID},
-		{Key: fieldProviderSubID, Value: bson.D{{Key: "$exists", Value: false}}},
+		{Key: fieldProviderSubID, Value: bson.D{{Key: operatorExists, Value: false}}},
 		{Key: fieldStatus, Value: bson.D{{Key: operatorIn, Value: liveStatuses()}}},
 	}).Decode(&sub)
 	if errors.Is(err, mongo.ErrNoDocuments) {
@@ -324,7 +324,7 @@ func (s *MongoStore) AcquireUser(ctx context.Context, userID, claimer string, no
 func (s *MongoStore) LiveSubscriptions(ctx context.Context) ([]Subscription, error) {
 	cursor, err := s.subscriptions.Find(ctx,
 		bson.D{
-			{Key: fieldProviderSubID, Value: bson.D{{Key: "$exists", Value: true}, {Key: "$ne", Value: ""}}},
+			{Key: fieldProviderSubID, Value: bson.D{{Key: operatorExists, Value: true}, {Key: "$ne", Value: ""}}},
 			{Key: fieldStatus, Value: bson.D{{Key: operatorInLedger, Value: liveStatuses()}}},
 		},
 		options.Find().SetSort(bson.D{{Key: fieldID, Value: 1}}),

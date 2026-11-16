@@ -69,6 +69,7 @@ func newRefundRig(t *testing.T, state billing.RefundState) *refundRig {
 		UpdatedAt:          refundClock,
 	}
 	ledger.SeedSubscription(sub)
+	provider.SetSubscription(billing.ProviderSubscription{ID: refundProviderSub, CustomerID: consumerCustomer, Status: billing.StatusActive})
 	return &refundRig{ledger: ledger, provider: provider, obs: &refundObserver{}, sub: sub}
 }
 

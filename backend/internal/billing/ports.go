@@ -66,8 +66,13 @@ type PortalSession struct {
 }
 
 type CancelRequest struct {
-	IdempotencyKey         string
 	ProviderSubscriptionID string
+	IdempotencyKey         string
+}
+
+type RefundRequest struct {
+	ProviderSubscriptionID string
+	IdempotencyKey         string
 }
 
 type ScrubRequest struct {
@@ -83,6 +88,7 @@ type Provider interface {
 	CreatePortalSession(ctx context.Context, req PortalRequest) (PortalSession, error)
 	CancelAtPeriodEnd(ctx context.Context, req CancelRequest) error
 	CancelNow(ctx context.Context, req CancelRequest) error
+	RefundLatest(ctx context.Context, req RefundRequest) error
 	ScrubCustomer(ctx context.Context, req ScrubRequest) error
 }
 
@@ -113,6 +119,10 @@ func (UnconfiguredProvider) CancelAtPeriodEnd(context.Context, CancelRequest) er
 }
 
 func (UnconfiguredProvider) CancelNow(context.Context, CancelRequest) error {
+	return ErrProviderUnavailable
+}
+
+func (UnconfiguredProvider) RefundLatest(context.Context, RefundRequest) error {
 	return ErrProviderUnavailable
 }
 

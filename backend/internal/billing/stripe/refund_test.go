@@ -86,28 +86,3 @@ func TestProvider_RefundLatest(t *testing.T) {
 		require.ErrorIs(t, err, billing.ErrProviderRejected)
 	})
 }
-
-func TestProvider_CancelNow(t *testing.T) {
-	t.Run("Happy path: cancels the subscription immediately with the idempotency key", func(t *testing.T) {
-		rec := &captured{}
-		p, _ := newTestProvider(t, respondWith(rec, 200, cancelSubscriptionBody))
-
-		err := p.CancelNow(context.Background(), billing.CancelRequest{ProviderSubscriptionID: "sub_1", IdempotencyKey: "cancel:loc_1"})
-		require.NoError(t, err)
-		assert.Equal(t, "DELETE", rec.method)
-		assert.Equal(t, "/v1/subscriptions/sub_1", rec.path)
-		assert.Equal(t, "cancel:loc_1", rec.idemKey)
-	})
-
-	t.Run("Error: a 404 for an unknown subscription is a rejection", func(t *testing.T) {
-		p, _ := newTestProvider(t, respondWith(&captured{}, 404, `{"error":{"type":"invalid_request_error","message":"no such subscription"}}`))
-		err := p.CancelNow(context.Background(), billing.CancelRequest{ProviderSubscriptionID: "sub_missing", IdempotencyKey: "cancel:loc_1"})
-		require.ErrorIs(t, err, billing.ErrProviderRejected)
-	})
-
-	t.Run("Error: a 503 is unavailable", func(t *testing.T) {
-		p, _ := newTestProvider(t, respondWith(&captured{}, 503, `{"error":{"type":"api_error","message":"down"}}`))
-		err := p.CancelNow(context.Background(), billing.CancelRequest{ProviderSubscriptionID: "sub_1", IdempotencyKey: "cancel:loc_1"})
-		require.ErrorIs(t, err, billing.ErrProviderUnavailable)
-	})
-}
