@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import type { KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { message } from '../l10n/strings';
 import { focusTrap } from '../ui/focus_trap';
 import { parseMarkdown } from './privacy_markdown';
@@ -43,25 +45,28 @@ export function PrivacyDialog({ onClose, locale }: PrivacyDialogProps) {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     (scrollRef.current ?? panel).focus();
     const trap = focusTrap(panel);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
       trap.release();
       opener?.focus();
     };
-  }, [onClose]);
+  }, []);
 
-  return (
+  const closeFromEscape = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation();
+    onClose();
+  };
+
+  return createPortal(
     <div
       className="lg-overlay"
       role="presentation"
       data-testid="privacy-dialog-overlay"
+      onKeyDown={closeFromEscape}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -114,6 +119,7 @@ export function PrivacyDialog({ onClose, locale }: PrivacyDialogProps) {
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

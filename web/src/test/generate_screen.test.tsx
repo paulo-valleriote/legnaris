@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient } from '@tanstack/react-query';
 import { createApiClient } from '../api/client';
 import type { HttpRequest, HttpResponse, Transport } from '../api/transport';
+import { parseMarkdown } from '../legal/privacy_markdown';
+import { policyMarkdown } from '../legal/privacy_policy';
+import { message } from '../l10n/strings';
 import { renderApp } from './render';
 import { TEMPLATE_ID, templateDetailPayload } from './sheet_fixtures';
 
@@ -344,5 +347,71 @@ describe('generate consent (ADR 0008, LGN-196)', () => {
     expect(
       await screen.findByRole('dialog', { name: 'Send your concept to an AI model?' }),
     ).toBeInTheDocument();
+  });
+});
+
+function policyTitle(): string {
+  const [first] = parseMarkdown(policyMarkdown('en'));
+  if (first?.kind !== 'heading') {
+    throw new Error('the English policy must open with a heading');
+  }
+  return first.text;
+}
+
+function consentDetailsButton() {
+  return screen.getByRole('button', { name: 'Read the privacy policy' });
+}
+
+async function openConsentDisclosure() {
+  const user = userEvent.setup();
+  renderGenerate({ 'GET /me/plan': ok(planWith({ llm_consent_required: true })) });
+  await screen.findByLabelText('Describe your character');
+  fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
+  await user.click(generateButton());
+  const consent = await screen.findByRole('dialog', {
+    name: 'Send your concept to an AI model?',
+  });
+  return { user, consent };
+}
+
+describe('generate consent privacy modal (LGN-234)', () => {
+  it('Happy path: the details button opens the policy over the consent dialog', async () => {
+    const { user, consent } = await openConsentDisclosure();
+
+    await user.click(consentDetailsButton());
+
+    const privacy = screen.getByRole('dialog', { name: policyTitle() });
+    expect(privacy).toHaveAttribute('aria-modal', 'true');
+    expect(consent).toBeInTheDocument();
+    expect(screen.getByTestId('privacy-dialog-body')).toHaveFocus();
+  });
+
+  it('Edge: Escape closes only the privacy modal, returning focus to the opener', async () => {
+    const { user, consent } = await openConsentDisclosure();
+    await user.click(consentDetailsButton());
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog', { name: policyTitle() })).not.toBeInTheDocument();
+    expect(consent).toBeInTheDocument();
+    expect(consentDetailsButton()).toHaveFocus();
+  });
+
+  it('Edge: the close button dismisses only the privacy modal', async () => {
+    const { user, consent } = await openConsentDisclosure();
+    await user.click(consentDetailsButton());
+
+    await user.click(screen.getByRole('button', { name: message('privacy.close') }));
+
+    expect(screen.queryByRole('dialog', { name: policyTitle() })).not.toBeInTheDocument();
+    expect(consent).toBeInTheDocument();
+    expect(consentDetailsButton()).toHaveFocus();
+  });
+
+  it('Edge: the consent dialog has no external link that opens a new tab', async () => {
+    const { consent } = await openConsentDisclosure();
+
+    expect(within(consent).queryAllByRole('link')).toHaveLength(0);
+    expect(consent.querySelector('a[target="_blank"]')).toBeNull();
   });
 });
