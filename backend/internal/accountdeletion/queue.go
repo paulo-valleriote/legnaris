@@ -12,10 +12,15 @@ const QueueName = "users_deleting"
 
 const Interval = time.Minute
 
+type BillingSettler interface {
+	Settle(ctx context.Context, userID string) error
+}
+
 type Deps struct {
 	Store   user.DeletionStore
 	Cascade *Cascade
 	Tx      Transactor
+	Billing BillingSettler
 }
 
 type store struct {
@@ -55,6 +60,9 @@ func NewQueue(deps Deps, attemptCap, batch int) (sweeper.Queue, error) {
 		Batch:      batch,
 		Store:      s,
 		Handle: func(ctx context.Context, job sweeper.Job[user.User], _ time.Time) error {
+			if err := deps.Billing.Settle(ctx, job.ID); err != nil {
+				return err
+			}
 			return deps.Tx.WithTransaction(ctx, func(txCtx context.Context) error {
 				return deps.Cascade.Remove(txCtx, job.ID)
 			})
