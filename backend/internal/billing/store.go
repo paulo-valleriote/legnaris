@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	subscriptionsCollection = "subscriptions"
+	SubscriptionsCollection = "subscriptions"
 	fieldStatus             = "status"
 	fieldUserID             = "user_id"
 	fieldUpdatedAt          = "updated_at"
@@ -27,7 +27,7 @@ type MongoStore struct {
 
 func NewMongoStore(database *mongo.Database) *MongoStore {
 	return &MongoStore{
-		subscriptions: database.Collection(subscriptionsCollection),
+		subscriptions: database.Collection(SubscriptionsCollection),
 		events:        database.Collection(EventsCollection),
 		locks:         database.Collection(UserLocksCollection),
 		users:         database.Collection(usersCollection),

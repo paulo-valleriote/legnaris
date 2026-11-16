@@ -167,6 +167,12 @@ packages:
     interfaces:
       Granter: {}
       DomainChecker: {}
+  legnaris/backend/internal/accountdeletion:
+    config:
+      dir: backend/internal/accountdeletion/mocks
+      outpkg: mocks
+    interfaces:
+      BillingSettler: {}
   legnaris/backend/internal/billing:
     config:
       dir: backend/internal/billing/mocks

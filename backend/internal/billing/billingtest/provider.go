@@ -23,6 +23,8 @@ type Provider struct {
 	Unavailable      bool
 	subscriptions    map[string]billing.ProviderSubscription
 	reads            int
+	cancels          []billing.CancelRequest
+	scrubs           []billing.ScrubRequest
 }
 
 func NewProvider() *Provider {
@@ -118,4 +120,42 @@ func (p *Provider) ParseWebhook(payload []byte, signature string) (billing.Notif
 		return billing.Notification{}, fmt.Errorf("%w: %w", billing.ErrProviderRejected, err)
 	}
 	return n, nil
+}
+
+func (p *Provider) CancelNow(_ context.Context, req billing.CancelRequest) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.Unavailable {
+		return billing.ErrProviderUnavailable
+	}
+	sub, ok := p.subscriptions[req.ProviderSubscriptionID]
+	if !ok {
+		return fmt.Errorf("subscription %s: %w", req.ProviderSubscriptionID, billing.ErrProviderRejected)
+	}
+	sub.Status = billing.StatusCanceled
+	p.subscriptions[req.ProviderSubscriptionID] = sub
+	p.cancels = append(p.cancels, req)
+	return nil
+}
+
+func (p *Provider) ScrubCustomer(_ context.Context, req billing.ScrubRequest) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.Unavailable {
+		return billing.ErrProviderUnavailable
+	}
+	p.scrubs = append(p.scrubs, req)
+	return nil
+}
+
+func (p *Provider) Cancels() []billing.CancelRequest {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]billing.CancelRequest(nil), p.cancels...)
+}
+
+func (p *Provider) Scrubs() []billing.ScrubRequest {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]billing.ScrubRequest(nil), p.scrubs...)
 }

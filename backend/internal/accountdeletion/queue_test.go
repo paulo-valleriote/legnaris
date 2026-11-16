@@ -13,6 +13,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"legnaris/backend/internal/accountdeletion"
+	accountdeletionmocks "legnaris/backend/internal/accountdeletion/mocks"
+	"legnaris/backend/internal/billing"
+	"legnaris/backend/internal/billing/billingtest"
 	"legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/sweeper"
@@ -58,7 +61,7 @@ func TestNewQueue(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			deps := accountdeletion.Deps{Store: usermocks.NewMockDeletionStore(t), Tx: &stubTransactor{}}
+			deps := accountdeletion.Deps{Store: usermocks.NewMockDeletionStore(t), Tx: &stubTransactor{}, Billing: accountdeletionmocks.NewMockBillingSettler(t)}
 			queue, err := accountdeletion.NewQueue(deps, tc.attemptCap, tc.batch)
 			if tc.wantErr {
 				require.ErrorIs(t, err, sweeper.ErrInvalidQueue)
@@ -74,11 +77,14 @@ func TestNewQueue(t *testing.T) {
 func TestQueue_Failures(t *testing.T) {
 	const victim = "01900000-0000-7000-8000-000000000001"
 	failure := errors.New("cascade refused")
+	settleFailure := errors.New("provider unavailable")
 
 	tests := []struct {
 		name           string
 		attemptCap     int
 		claim          []user.User
+		settleErr      error
+		wantSettle     int
 		wantTx         int
 		wantReschedule bool
 		wantDead       bool
@@ -87,6 +93,7 @@ func TestQueue_Failures(t *testing.T) {
 			name:           "Error: a failed attempt reschedules the account under the cap",
 			attemptCap:     5,
 			claim:          []user.User{{ID: victim, DeletionAttempts: 1}},
+			wantSettle:     1,
 			wantTx:         1,
 			wantReschedule: true,
 		},
@@ -94,11 +101,21 @@ func TestQueue_Failures(t *testing.T) {
 			name:       "Error: the attempt that reaches the cap marks the account dead",
 			attemptCap: 3,
 			claim:      []user.User{{ID: victim, DeletionAttempts: 2}},
+			wantSettle: 1,
 			wantTx:     1,
 			wantDead:   true,
 		},
 		{
-			name:       "Edge: an empty queue starts no transaction",
+			name:           "Error: a provider failure while settling billing reschedules before the cascade starts",
+			attemptCap:     5,
+			claim:          []user.User{{ID: victim, DeletionAttempts: 1}},
+			settleErr:      settleFailure,
+			wantSettle:     1,
+			wantTx:         0,
+			wantReschedule: true,
+		},
+		{
+			name:       "Edge: an empty queue starts no transaction and settles nothing",
 			attemptCap: 5,
 			claim:      nil,
 			wantTx:     0,
@@ -119,8 +136,13 @@ func TestQueue_Failures(t *testing.T) {
 				store.EXPECT().MarkDeletionDead(mock.Anything, victim, mock.Anything).Return(nil).Once()
 			}
 
+			settler := accountdeletionmocks.NewMockBillingSettler(t)
+			if tc.wantSettle > 0 {
+				settler.EXPECT().Settle(mock.Anything, victim).Return(tc.settleErr).Times(tc.wantSettle)
+			}
+
 			tx := &stubTransactor{err: failure}
-			runner := newQueueRunner(t, accountdeletion.Deps{Store: store, Tx: tx}, tc.attemptCap)
+			runner := newQueueRunner(t, accountdeletion.Deps{Store: store, Tx: tx, Billing: settler}, tc.attemptCap)
 			require.NoError(t, runner.RunOnce(context.Background(), time.Now()))
 			assert.Equal(t, tc.wantTx, tx.calls)
 		})
@@ -140,6 +162,7 @@ func TestQueue_RemovesDeletingAccount(t *testing.T) {
 		Store:   user.NewDeletionStore(mdb, logger.NewLogger(slog.LevelError)),
 		Cascade: newCascade(mdb, outbox.NewRepository(mdb, logger.NewLogger(slog.LevelError))),
 		Tx:      db.NewTransactor(mdb.Client(), nil),
+		Billing: billing.NewDeletion(billing.DeletionDeps{Provider: billingtest.NewProvider(), Ledger: billing.NewMongoStore(mdb)}),
 	}
 	runner := newQueueRunner(t, deps, 5)
 	require.NoError(t, runner.RunOnce(context.Background(), time.Now()))
