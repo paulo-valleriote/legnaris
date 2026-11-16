@@ -39,9 +39,23 @@ type CheckoutSession struct {
 	ExpiresAt time.Time
 }
 
+type PortalRequest struct {
+	CustomerID string
+}
+
+type PortalSession struct {
+	URL string
+}
+
+type CancelRequest struct {
+	ProviderSubscriptionID string
+}
+
 type Provider interface {
 	CreateCustomer(ctx context.Context, req CustomerRequest) (Customer, error)
 	CreateCheckoutSession(ctx context.Context, req CheckoutRequest) (CheckoutSession, error)
+	CreatePortalSession(ctx context.Context, req PortalRequest) (PortalSession, error)
+	CancelAtPeriodEnd(ctx context.Context, req CancelRequest) error
 }
 
 type UnconfiguredProvider struct{}
@@ -52,4 +66,12 @@ func (UnconfiguredProvider) CreateCustomer(context.Context, CustomerRequest) (Cu
 
 func (UnconfiguredProvider) CreateCheckoutSession(context.Context, CheckoutRequest) (CheckoutSession, error) {
 	return CheckoutSession{}, ErrProviderUnavailable
+}
+
+func (UnconfiguredProvider) CreatePortalSession(context.Context, PortalRequest) (PortalSession, error) {
+	return PortalSession{}, ErrProviderUnavailable
+}
+
+func (UnconfiguredProvider) CancelAtPeriodEnd(context.Context, CancelRequest) error {
+	return ErrProviderUnavailable
 }

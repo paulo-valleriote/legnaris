@@ -35,6 +35,7 @@ const (
 	CodeGenerationCapReached Code = "GENERATION_CAP_REACHED"
 	CodeAlreadySubscribed    Code = "ALREADY_SUBSCRIBED"
 	CodeBillingUnavailable   Code = "BILLING_UNAVAILABLE"
+	CodeNoSubscription       Code = "NO_SUBSCRIPTION"
 )
 
 type Error struct {
@@ -67,7 +68,7 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 401
 	case CodeForbidden, CodeLLMConsentRequired, CodePlanUpgradeRequired:
 		httpStatus = 403
-	case CodeNotFound:
+	case CodeNotFound, CodeNoSubscription:
 		httpStatus = 404
 	case CodeMethodNotAllowed:
 		httpStatus = 405

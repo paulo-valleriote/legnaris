@@ -19,6 +19,7 @@ type Subscription struct {
 	PlanID             string    `bson:"plan_id"`
 	Provider           string    `bson:"provider"`
 	ProviderCustomerID string    `bson:"provider_customer_id,omitempty"`
+	ProviderSubID      string    `bson:"provider_subscription_id,omitempty"`
 	Status             Status    `bson:"status"`
 	CheckoutURL        string    `bson:"checkout_url,omitempty"`
 	CheckoutExpiresAt  time.Time `bson:"checkout_expires_at"`
