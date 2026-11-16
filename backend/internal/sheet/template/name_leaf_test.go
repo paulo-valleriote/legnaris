@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// nameLeafFixture returns a Template whose identity group holds a text naming
-// leaf and a number leaf, with nameLeaf as its declared NameLeaf.
 func nameLeafFixture(nameLeaf string) Template {
 	return Template{
 		ID:       "naming",
@@ -24,7 +22,6 @@ func nameLeafFixture(nameLeaf string) Template {
 	}
 }
 
-// TestSuggestName covers the derivation of the Sheet name from generated values.
 func TestSuggestName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -54,7 +51,6 @@ func TestSuggestName(t *testing.T) {
 	}
 }
 
-// TestValidateNameLeaf covers the boot check that a declared NameLeaf is a text leaf.
 func TestValidateNameLeaf(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -82,7 +78,6 @@ func TestValidateNameLeaf(t *testing.T) {
 	}
 }
 
-// TestFantasyV1_NameLeaf pins the fantasy template's naming leaf and that it boots.
 func TestFantasyV1_NameLeaf(t *testing.T) {
 	var fantasy Template
 	for _, tmpl := range DefaultTemplates() {
@@ -96,8 +91,6 @@ func TestFantasyV1_NameLeaf(t *testing.T) {
 	assert.Equal(t, "Aragorn", fantasy.SuggestName(map[string]any{"identity": map[string]any{"characterName": "Aragorn"}}))
 }
 
-// TestBuildRegistry_RejectsBrokenNameLeaf checks that a template whose naming leaf
-// no longer resolves stops the registry from booting.
 func TestBuildRegistry_RejectsBrokenNameLeaf(t *testing.T) {
 	tests := []struct {
 		name     string

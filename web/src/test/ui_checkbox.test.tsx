@@ -8,7 +8,6 @@ describe('checkbox primitive (UIP-16, UIP-17)', () => {
     expect(screen.getByLabelText('Agree')).toBeInTheDocument();
   });
   it('Edge: non-boolean value not coerced', () => {
-    // Primitive takes boolean only; caller adapts proxy.
     render(<Checkbox label="A" checked={false} />);
     expect((screen.getByLabelText('A') as HTMLInputElement).checked).toBe(false);
   });

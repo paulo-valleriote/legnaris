@@ -17,18 +17,10 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// defaultConfirmTimeout bounds the publisher-confirm wait when the caller does
-// not set one, so a stalled broker can never pin the relay loop (EML-07).
 const defaultConfirmTimeout = 5 * time.Second
 
-// ErrBrokerUnavailable reports an absent, unusable or unreachable broker
-// configuration at startup. Effect: the relay fails fast and never polls
-// (EML-15).
 var ErrBrokerUnavailable = errors.New("message broker is unavailable")
 
-// ValidateURL rejects an absent or unusable broker URL with the typed startup
-// error, so a process that needs the broker never begins work without one
-// (EML-15, WKR-19).
 func ValidateURL(raw string) error {
 	if strings.TrimSpace(raw) == "" {
 		return fmt.Errorf("%w: RABBITMQ_URL is not set", ErrBrokerUnavailable)
@@ -41,21 +33,13 @@ func ValidateURL(raw string) error {
 	return nil
 }
 
-// Config configures a broker connection.
 type Config struct {
-	// ConfirmTimeout bounds each publish's confirmation wait.
 	ConfirmTimeout time.Duration
-	// Prefetch bounds the unacknowledged deliveries the consumer holds; zero
-	// leaves the broker's default (WKR-16).
-	Prefetch int
-	// RetryDelays sets the retry tiers declared with the topology; zero tiers
-	// use their defaults (WKR-14).
-	RetryDelays RetryDelays
-	// Logger records state changes and blocking notifications.
-	Logger logger.StructuredLogger
+	Prefetch       int
+	RetryDelays    RetryDelays
+	Logger         logger.StructuredLogger
 }
 
-// Broker is a RabbitMQ connection with a publisher-confirm channel.
 type Broker struct {
 	conn           connection
 	ch             channel
@@ -65,8 +49,6 @@ type Broker struct {
 	prefetch       int
 	retryDelays    RetryDelays
 
-	// publishMu serializes publishes: the worker publishes from concurrent
-	// handlers and the confirm bookkeeping below is per channel.
 	publishMu sync.Mutex
 
 	consumerMu  sync.Mutex
@@ -82,14 +64,10 @@ type Broker struct {
 	wg        sync.WaitGroup
 }
 
-// Dial opens a real broker connection with automatic reconnection and topology
-// recovery enabled (EML-06).
 func Dial(url string, cfg Config) (*Broker, error) {
 	return dialWith(defaultDialer, url, cfg)
 }
 
-// dialWith is the testable seam: a fake dialer supplies a fake connection so
-// the publish and declaration paths need no broker (EML-07).
 func dialWith(dial dialer, url string, cfg Config) (*Broker, error) {
 	if strings.TrimSpace(url) == "" {
 		return nil, fmt.Errorf("%w: RABBITMQ_URL is not set", ErrBrokerUnavailable)
@@ -138,8 +116,6 @@ func dialWith(dial dialer, url string, cfg Config) (*Broker, error) {
 	return broker, nil
 }
 
-// DeclareTopology declares the email topology idempotently, before the first
-// publish; a declaration failure stops startup (EML-06).
 func (b *Broker) DeclareTopology() error {
 	delays, err := b.retryDelays.resolve()
 	if err != nil {
@@ -151,12 +127,6 @@ func (b *Broker) DeclareTopology() error {
 	return nil
 }
 
-// Publish encodes the message and publishes it mandatorily and persistently
-// to the work queue, then waits for the publisher confirm. It reports nil only
-// when the broker accepted the message for routing: a nack, a confirm timeout, a
-// transport error, a blocked connection or a recorded basic.return are
-// transient, so the relay reschedules instead of marking the row published
-// (EML-02, EML-07).
 func (b *Broker) Publish(ctx context.Context, msg email.Message) error {
 	body, err := json.Marshal(msg)
 	if err != nil {
@@ -168,8 +138,6 @@ func (b *Broker) Publish(ctx context.Context, msg email.Message) error {
 	return b.publish(ctx, exchangeMain, routingKeyOTP, props)
 }
 
-// PublishTo publishes the message to a destination the domain names, with the
-// same guarantees as Publish (WKR-09, WKR-11, WKR-13).
 func (b *Broker) PublishTo(ctx context.Context, destination email.Destination, msg email.Message) error {
 	exchange, key, err := route(destination)
 	if err != nil {
@@ -186,8 +154,6 @@ func (b *Broker) PublishTo(ctx context.Context, destination email.Destination, m
 	return b.publish(ctx, exchange, key, props)
 }
 
-// PublishBodyTo publishes a body that could not be decoded, unchanged, under a
-// fresh identity so an unroutable publish is still detected (WKR-04).
 func (b *Broker) PublishBodyTo(ctx context.Context, destination email.Destination, body []byte) error {
 	exchange, key, err := route(destination)
 	if err != nil {
@@ -235,7 +201,6 @@ func (b *Broker) publish(ctx context.Context, exchange, key string, props amqp.P
 	return nil
 }
 
-// Close stops the supervisor and closes the channel and connection.
 func (b *Broker) Close() error {
 	b.closeOnce.Do(func() { close(b.done) })
 	b.wg.Wait()
@@ -250,9 +215,6 @@ func (b *Broker) Close() error {
 	return nil
 }
 
-// supervise drains the connection state and blocking notifications, so the
-// library's goroutines do not leak and the relay can log a broker outage
-// instead of exiting (EML-06).
 func (b *Broker) supervise(stateChanges <-chan *amqp.StateChanged, blocked <-chan amqp.Blocking) {
 	defer b.wg.Done()
 
@@ -281,7 +243,6 @@ func (b *Broker) supervise(stateChanges <-chan *amqp.StateChanged, blocked <-cha
 	}
 }
 
-// drainReturns records every currently available basic.return without blocking.
 func (b *Broker) drainReturns() {
 	for {
 		select {
@@ -302,8 +263,6 @@ func (b *Broker) recordReturn(messageID string) {
 	b.mu.Unlock()
 }
 
-// takeReturned reports whether a basic.return was recorded for the identity and
-// clears it.
 func (b *Broker) takeReturned(messageID string) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()

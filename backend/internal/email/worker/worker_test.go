@@ -19,9 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWorker_DeadLettersUnusableMessages pins the decode-and-validate matrix:
-// every message that can never be delivered is dead-lettered as it arrived,
-// acknowledged, counted, and never sent (WKR-04, WKR-05, WKR-07).
 func TestWorker_DeadLettersUnusableMessages(t *testing.T) {
 	valid := emailtest.Message()
 
@@ -112,8 +109,6 @@ func TestWorker_DeadLettersUnusableMessages(t *testing.T) {
 	}
 }
 
-// TestWorker_ToleratesUnknownFields proves a newer publisher's message is not
-// dead-lettered during a rolling deploy (WKR-04).
 func TestWorker_ToleratesUnknownFields(t *testing.T) {
 	h := newHarness(t)
 	handle := h.queue(bodyWith(t, emailtest.Message(), func(o map[string]any) { o["priority"] = "high" }))
@@ -126,9 +121,6 @@ func TestWorker_ToleratesUnknownFields(t *testing.T) {
 	assert.Equal(t, 1, h.sender.Count())
 }
 
-// TestWorker_ExpiryDecision pins the deadline against the injected clock: the
-// message is dropped, not sent, once now reaches CreatedAt + lifetime (WKR-03,
-// WKR-07, SC-002).
 func TestWorker_ExpiryDecision(t *testing.T) {
 	created := emailtest.Message().CreatedAt
 
@@ -179,9 +171,6 @@ func TestWorker_ExpiryDecision(t *testing.T) {
 	}
 }
 
-// TestWorker_RendersAndSends proves the rendered subject, both bodies and the
-// identity as the idempotency key reach the sending port, and that the
-// acknowledgement comes last (WKR-02, WKR-06, WKR-08, SC-004).
 func TestWorker_RendersAndSends(t *testing.T) {
 	for _, purpose := range []email.Purpose{email.PurposeLoginOTP, email.PurposeVerifyEmail} {
 		t.Run(fmt.Sprintf("Happy path: %s", purpose), func(t *testing.T) {
@@ -209,8 +198,6 @@ func TestWorker_RendersAndSends(t *testing.T) {
 	}
 }
 
-// TestWorker_SendsCodeFreeNotice proves the code-free notices are delivered
-// without a code, while the code-carrying purposes still dead-letter without one.
 func TestWorker_SendsCodeFreeNotice(t *testing.T) {
 	for _, purpose := range []email.Purpose{email.PurposeAccountExists} {
 		t.Run(fmt.Sprintf("Happy path: %s", purpose), func(t *testing.T) {
@@ -233,8 +220,6 @@ func TestWorker_SendsCodeFreeNotice(t *testing.T) {
 	}
 }
 
-// TestWorker_RedeliveryKeepsTheIdempotencyKey proves a redelivered message is
-// sent again under the same key, so the provider de-duplicates it (WKR-08).
 func TestWorker_RedeliveryKeepsTheIdempotencyKey(t *testing.T) {
 	h := newHarness(t)
 	payload := body(t, emailtest.Message())
@@ -252,9 +237,6 @@ func TestWorker_RedeliveryKeepsTheIdempotencyKey(t *testing.T) {
 	assert.Equal(t, sent[0].IdempotencyKey, sent[1].IdempotencyKey)
 }
 
-// TestWorker_TwoConsumersDeliverEachMessageOnce runs two workers over one
-// delivery stream and asserts each message is sent exactly once (WKR-08,
-// WKR-16).
 func TestWorker_TwoConsumersDeliverEachMessageOnce(t *testing.T) {
 	const total = 20
 
@@ -313,9 +295,6 @@ func TestWorker_TwoConsumersDeliverEachMessageOnce(t *testing.T) {
 	assert.Equal(t, total, sender.Count(), "each message is sent exactly once")
 }
 
-// TestWorker_Logs proves a message is identified by its identity and purpose,
-// the recipient is masked, and the code appears in no log line (WKR-06,
-// WKR-21, WKR-22, SC-005).
 func TestWorker_Logs(t *testing.T) {
 	failures := []struct {
 		name string
@@ -351,8 +330,6 @@ func TestWorker_Logs(t *testing.T) {
 	}
 }
 
-// TestWorker_LogsNeverCarryAnUndecodableBody proves a body that could not be
-// decoded is described by its size only: it may still hold a code.
 func TestWorker_LogsNeverCarryAnUndecodableBody(t *testing.T) {
 	h := newHarness(t)
 	payload := []byte(`{"data":{"code":"042917"`)
@@ -367,9 +344,6 @@ func TestWorker_LogsNeverCarryAnUndecodableBody(t *testing.T) {
 	assert.NotContains(t, h.log.text(), secretCode)
 }
 
-// TestWorker_ExpiryIsDecidedBeforeTheTemplate proves an expired message with a
-// purpose that selects no template is dropped as expired, never dead-lettered
-// (WKR-03, WKR-12).
 func TestWorker_ExpiryIsDecidedBeforeTheTemplate(t *testing.T) {
 	h := newHarness(t, func(c *worker.Config) {
 		c.Now = func() time.Time { return emailtest.Message().CreatedAt.Add(time.Hour) }

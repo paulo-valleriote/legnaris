@@ -26,7 +26,6 @@ interface ManualClock {
   advance(ms: number): void;
 }
 
-/** A hand-driven clock so the rolling window's boundaries are exercised exactly (WSC-38). */
 function manualClock(): ManualClock {
   let current = 0;
   const timers: Array<{ at: number; callback: () => void }> = [];

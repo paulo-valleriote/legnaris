@@ -13,7 +13,6 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// Stored field names shared by every filter and projection in this file.
 const (
 	fieldID              = "_id"
 	fieldEmail           = "email"
@@ -30,9 +29,6 @@ type Repository interface {
 	FetchByID(ctx context.Context, id string) (*User, error)
 	FetchByUsername(ctx context.Context, username string) (*User, error)
 	MarkEmailVerified(ctx context.Context, id string, at time.Time) error
-	// MarkDeleting moves an active account to the deleting status. It is
-	// idempotent: an account already deleting keeps its original deleting_at, and
-	// an unknown account reports ErrUserNotFound.
 	MarkDeleting(ctx context.Context, id string, at time.Time) error
 	ReplaceUnverifiedCredentials(ctx context.Context, id, username, passwordHash string, at time.Time) (bool, error)
 }
@@ -42,25 +38,14 @@ type RepositoryImpl struct {
 	logger     logger.StructuredLogger
 }
 
-// ErrUserNotFound reports a lookup that matched no user document. Services
-// translate it to apperr.CodeNotFound (or a generic 401) at the boundary.
 var ErrUserNotFound = errors.New("user not found")
 
-// ErrEmailAlreadyExists reports a create rejected by the unique email index.
-// Services translate it to apperr.CodeConflict at the boundary.
 var ErrEmailAlreadyExists = errors.New("email already exists")
 
-// ErrUsernameAlreadyExists reports a write rejected by the unique username
-// index. Services translate it to apperr.CodeConflict at the boundary.
 var ErrUsernameAlreadyExists = errors.New("username already exists")
 
-// UsernameUniqueIndex is the name of the unique index on users.username. The
-// repository recognizes it in a duplicate-key error to tell a taken username
-// from a taken address.
 const UsernameUniqueIndex = "users_username_unique"
 
-// translateDuplicateKey maps a duplicate-key error to the matching sentinel,
-// defaulting to the email one because the email index predates the username one.
 func translateDuplicateKey(err error) error {
 	if strings.Contains(err.Error(), UsernameUniqueIndex) {
 		return ErrUsernameAlreadyExists
@@ -97,11 +82,6 @@ func (r *RepositoryImpl) FetchByUsername(ctx context.Context, username string) (
 	return r.fetchOne(ctx, bson.D{{Key: fieldUsername, Value: username}})
 }
 
-// ReplaceUnverifiedCredentials swaps the username and password hash of an
-// account whose address was never verified (LGN-154, D9). The filter requires
-// email_verified_at to be absent, so a verified account is never overwritten,
-// even if it was verified after the caller read it. It reports false when no
-// unverified account matched.
 func (r *RepositoryImpl) ReplaceUnverifiedCredentials(ctx context.Context, id, username, passwordHash string, at time.Time) (bool, error) {
 	result, err := r.collection.UpdateOne(
 		ctx,
@@ -124,10 +104,6 @@ func (r *RepositoryImpl) ReplaceUnverifiedCredentials(ctx context.Context, id, u
 	return result.MatchedCount == 1, nil
 }
 
-// MarkEmailVerified records the first verification instant for an existing
-// account. The conditional filter makes the write idempotent and keeps the first
-// value under concurrency; only email_verified_at and updated_at change, and an
-// unknown account is never created (PRQ-13).
 func (r *RepositoryImpl) MarkEmailVerified(ctx context.Context, id string, at time.Time) error {
 	result, err := r.collection.UpdateOne(
 		ctx,
@@ -147,9 +123,6 @@ func (r *RepositoryImpl) MarkEmailVerified(ctx context.Context, id string, at ti
 		return nil
 	}
 
-	// Nothing matched: either the account is already verified (the field is
-	// non-nil) or it does not exist. A read distinguishes the two without
-	// creating anything.
 	if _, err := r.FetchByID(ctx, id); err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			return ErrUserNotFound
@@ -159,9 +132,6 @@ func (r *RepositoryImpl) MarkEmailVerified(ctx context.Context, id string, at ti
 	return nil
 }
 
-// MarkDeleting records the deletion request for an account. The filter only
-// matches an account without a deletion status, so repeating the request keeps the
-// first deleting_at; a dead account stays dead, and the sweeper drives it from there.
 func (r *RepositoryImpl) MarkDeleting(ctx context.Context, id string, at time.Time) error {
 	result, err := r.collection.UpdateOne(
 		ctx,
@@ -202,9 +172,6 @@ func (r *RepositoryImpl) fetchOne(ctx context.Context, filter bson.D) (*User, er
 	return &result, nil
 }
 
-// ListEmailIdentities reads every account's identifier and stored address,
-// projecting nothing else, so the migration never loads credential material
-// (PRQ-11).
 func (r *RepositoryImpl) ListEmailIdentities(ctx context.Context) ([]EmailIdentity, error) {
 	cursor, err := r.collection.Find(ctx, bson.D{}, options.Find().SetProjection(bson.D{
 		{Key: fieldID, Value: 1},
@@ -229,9 +196,6 @@ func (r *RepositoryImpl) ListEmailIdentities(ctx context.Context) ([]EmailIdenti
 	return identities, nil
 }
 
-// UpdateEmail rewrites one row's stored address and updated_at, matching by
-// identifier so no other field changes and no document is ever created
-// (PRQ-11).
 func (r *RepositoryImpl) UpdateEmail(ctx context.Context, id string, email string, updatedAt time.Time) error {
 	result, err := r.collection.UpdateOne(
 		ctx,
@@ -250,8 +214,6 @@ func (r *RepositoryImpl) UpdateEmail(ctx context.Context, id string, email strin
 	return nil
 }
 
-// NewEmailMigrationStore exposes the migration seam without widening the
-// Repository contract consumed by the API (PRQ-11).
 func NewEmailMigrationStore(db *mongo.Database, log logger.StructuredLogger) EmailMigrationStore {
 	return &RepositoryImpl{
 		collection: db.Collection("users"),

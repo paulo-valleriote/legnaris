@@ -1,12 +1,3 @@
-/**
- * The creation surface for one template (WCT-11 … WCT-25, WCT-27, WSC-01 … WSC-04).
- *
- * An accessible overlay over the catalog: it loads the template's detail inline,
- * carries the sheet-name field with its trim/required validation, and issues one
- * `POST /sheets` on the primary action, seeding the created sheet and navigating
- * to it (WSC-01, WSC-02).
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,10 +10,8 @@ import { isSheetLimitReached } from '../api/models/plan';
 import { message, messageWith } from '../l10n/strings';
 import { PLAN_QUERY_KEY, seedCreatedSheet, usePlanUsage, useTemplateDetail } from './queries';
 
-/** The Sheet kind this surface creates; the plan's allowance is read for it (LGN-183). */
 const CREATED_KIND = 'character';
 
-/** The single situation the surface's detail area renders (WCT-12 … WCT-18). */
 type DetailRenderPhase =
   | { readonly kind: 'loading' }
   | { readonly kind: 'loaded'; readonly name: string }
@@ -90,7 +79,6 @@ function DetailBody({ phase, templateId, onRetry }: DetailBodyProps) {
   }
 }
 
-/** The tooltip explaining why the primary action is disabled. */
 function disabledReason(hasName: boolean, limitReached: boolean): string {
   if (limitReached) {
     return message('sheet.limitReached');

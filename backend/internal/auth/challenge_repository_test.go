@@ -17,8 +17,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// newChallengeStore gives the test an isolated database with the production
-// indexes. It skips when no replica set is available (OTP-01).
 func newChallengeStore(t *testing.T) (auth.ChallengeRepository, *mongo.Collection) {
 	t.Helper()
 
@@ -29,7 +27,6 @@ func newChallengeStore(t *testing.T) (auth.ChallengeRepository, *mongo.Collectio
 	return auth.NewChallengeRepository(mdb), collection
 }
 
-// mustCanonicalID mints a canonical identity the store accepts.
 func mustCanonicalID(t *testing.T) string {
 	t.Helper()
 
@@ -38,8 +35,6 @@ func mustCanonicalID(t *testing.T) string {
 	return id
 }
 
-// mustChallenge builds a representative active challenge for the account and
-// purpose, with a deadline one hour out.
 func mustChallenge(t *testing.T, userID string, purpose auth.Purpose, now time.Time) auth.Challenge {
 	t.Helper()
 
@@ -57,9 +52,6 @@ func mustChallenge(t *testing.T, userID string, purpose auth.Purpose, now time.T
 	}
 }
 
-// TestChallengeRepository_Insert pins the store-enforced one-active invariant:
-// a second active row for one account and purpose is rejected, while a consumed
-// row does not block a new one (OTP-01).
 func TestChallengeRepository_Insert(t *testing.T) {
 	repo, _ := newChallengeStore(t)
 	ctx := context.Background()
@@ -88,8 +80,6 @@ func TestChallengeRepository_Insert(t *testing.T) {
 	})
 }
 
-// TestChallengeRepository_CloseActive proves the previous active challenge is
-// invalidated without touching an already-consumed row (OTP-01).
 func TestChallengeRepository_CloseActive(t *testing.T) {
 	repo, _ := newChallengeStore(t)
 	ctx := context.Background()
@@ -113,9 +103,6 @@ func TestChallengeRepository_CloseActive(t *testing.T) {
 	})
 }
 
-// TestChallengeRepository_ClaimAttempt pins the durable attempt count and the
-// unusable cases: consumed, expired, at-cap and unknown rows are all refused
-// with ErrChallengeUnusable and left untouched (OTP-04, OTP-05, OTP-06).
 func TestChallengeRepository_ClaimAttempt(t *testing.T) {
 	repo, collection := newChallengeStore(t)
 	ctx := context.Background()
@@ -180,9 +167,6 @@ func TestChallengeRepository_ClaimAttempt(t *testing.T) {
 	})
 }
 
-// TestChallengeRepository_ClaimAttempt_Concurrency proves two racing claims
-// both succeed against one usable row (the consumption claim, not the attempt
-// claim, is the exclusive one) (OTP-04).
 func TestChallengeRepository_ClaimAttempt_Concurrency(t *testing.T) {
 	repo, _ := newChallengeStore(t)
 	ctx := context.Background()
@@ -209,9 +193,6 @@ func TestChallengeRepository_ClaimAttempt_Concurrency(t *testing.T) {
 	}
 }
 
-// TestChallengeRepository_Consume proves consumption is a single-document
-// atomic claim: exactly one of two racing correct codes wins and a second call
-// reports false (OTP-04).
 func TestChallengeRepository_Consume(t *testing.T) {
 	repo, _ := newChallengeStore(t)
 	ctx := context.Background()
@@ -270,9 +251,6 @@ func TestChallengeRepository_Consume(t *testing.T) {
 	})
 }
 
-// TestChallengeRepository_Extend proves the resend stamp: it is suppressed
-// inside the cool-down, clamps to the ceiling, and never moves an unusable row
-// (OTP-10).
 func TestChallengeRepository_Extend(t *testing.T) {
 	repo, _ := newChallengeStore(t)
 	ctx := context.Background()
@@ -298,9 +276,6 @@ func TestChallengeRepository_Extend(t *testing.T) {
 		challenge := mustChallenge(t, mustCanonicalID(t), otherPurpose, now)
 		require.NoError(t, repo.Insert(ctx, challenge))
 
-		// MongoDB stores instants at millisecond precision, so the cool-down
-		// boundary here uses a one-second margin; the exact-nanosecond boundary
-		// is pinned by the policy unit test, which touches no database.
 		inside := now.Add(cooldown - time.Second)
 		extended, err := repo.Extend(ctx, challenge.ID, inside, cooldown, inside.Add(10*time.Minute))
 		require.NoError(t, err)
@@ -333,9 +308,6 @@ func TestChallengeRepository_Extend(t *testing.T) {
 	})
 }
 
-// TestChallengeRepository_Fetch pins the read-only classification inputs: an
-// unknown identity is a typed not-found and a stored row round-trips its state
-// (OTP-06, OTP-16).
 func TestChallengeRepository_Fetch(t *testing.T) {
 	repo, _ := newChallengeStore(t)
 	ctx := context.Background()
@@ -371,8 +343,6 @@ func TestChallengeRepository_Fetch(t *testing.T) {
 	})
 }
 
-// TestChallengeRepository_CountForUserSince pins the window count that backs
-// the durable per-account bound (OTP-14).
 func TestChallengeRepository_CountForUserSince(t *testing.T) {
 	repo, _ := newChallengeStore(t)
 	ctx := context.Background()
@@ -383,9 +353,6 @@ func TestChallengeRepository_CountForUserSince(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		challenge := mustChallenge(t, userID, otherPurpose, now.Add(time.Duration(i)*time.Minute))
 		require.NoError(t, repo.Insert(ctx, challenge))
-		// Only one row may be active per account and purpose, so each issued
-		// challenge is closed before the next is stored; the count still sees
-		// all three because it ranges over created_at (OTP-14).
 		require.NoError(t, repo.CloseActive(ctx, userID, otherPurpose, now.Add(time.Duration(i)*time.Minute)))
 	}
 	require.NoError(t, repo.Insert(ctx, mustChallenge(t, other, otherPurpose, now)))

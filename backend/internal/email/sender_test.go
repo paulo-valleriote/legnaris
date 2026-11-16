@@ -11,14 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// senderFunc adapts a function to the Sender port so the contract can be
-// exercised without an adapter (EML-08).
 type senderFunc func(ctx context.Context, m email.Outbound) error
 
 func (f senderFunc) Send(ctx context.Context, m email.Outbound) error { return f(ctx, m) }
 
-// TestSenderClassification pins the two distinct sentinels a caller decides
-// between with errors.Is (EML-12).
 func TestSenderClassification(t *testing.T) {
 	t.Run("Happy path: the sentinels are distinct", func(t *testing.T) {
 		assert.NotErrorIs(t, email.ErrTransient, email.ErrPermanent)
@@ -44,8 +40,6 @@ func TestSenderClassification(t *testing.T) {
 	})
 }
 
-// TestSenderPort proves the port carries the rendered message and its stable
-// idempotency key to the adapter (EML-08, EML-09).
 func TestSenderPort(t *testing.T) {
 	var captured email.Outbound
 	var sender email.Sender = senderFunc(func(_ context.Context, m email.Outbound) error {

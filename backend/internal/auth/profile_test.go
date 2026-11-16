@@ -15,10 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestService_Profile covers the identity read: it reports the account's
-// identifier, canonical address, display name and the derived verification
-// state, never the stored instant, and it answers the uniform unauthorized
-// outcome for an account that no longer exists (TFA-08, TFA-09, TFA-10).
 func TestService_Profile(t *testing.T) {
 	ctx := context.Background()
 

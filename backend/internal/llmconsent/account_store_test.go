@@ -81,8 +81,6 @@ func TestAccountConsentStore_Writes(t *testing.T) {
 	}
 }
 
-// TestAccountConsentStore_ReadsAfterWriteSeeTheChange pins that a grant or a revoke
-// forgets the account memo, so a read later in the same request sees the change.
 func TestAccountConsentStore_ReadsAfterWriteSeeTheChange(t *testing.T) {
 	at := fixedNow.Add(-time.Hour)
 

@@ -57,12 +57,6 @@ func TestPasswordHasher(t *testing.T) {
 	})
 }
 
-// TestPasswordHasherDummyHash pins the digest the unknown-address sign-in
-// compares against: it must be a bcrypt hash at the hasher's own work factor,
-// so both credential failures cost the same work whatever AUTH_BCRYPT_COST is.
-// bcrypt spends the rounds encoded in the digest it is given, so a digest
-// pinned to a fixed cost would re-open the account-existence oracle the
-// comparison exists to close (TFA-05).
 func TestPasswordHasherDummyHash(t *testing.T) {
 	t.Run("Happy path: the dummy hash carries the configured cost", func(t *testing.T) {
 		hasher, err := auth.NewPasswordHasher(12)

@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestService_Status pins the stored record the account screen reads: it is
-// returned as stored, current or not, and a failed read never reports a consent.
 func TestService_Status(t *testing.T) {
 	tests := []struct {
 		name     string

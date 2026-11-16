@@ -1,14 +1,7 @@
 package template
 
-// MaxSuggestedPins is the capacity of the client's vitals strip; a template
-// may not suggest more Rows than the strip can show.
 const MaxSuggestedPins = 6
 
-// ValidateSuggestedPins checks the template's suggested pins against the Rows
-// it actually has. Unlike a player's Layout, the list is template content
-// reviewed in code, so it is strict: every key must be a Row of some Section
-// (same grammar as Layout pins), appear once, and the list may not exceed
-// MaxSuggestedPins. An empty or absent list is valid.
 func ValidateSuggestedPins(tmpl Template) error {
 	if len(tmpl.SuggestedPins) > MaxSuggestedPins {
 		return &TooManySuggestedPinsError{Count: len(tmpl.SuggestedPins), Max: MaxSuggestedPins}

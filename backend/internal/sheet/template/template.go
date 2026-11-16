@@ -7,8 +7,6 @@ import (
 	"legnaris/backend/internal/plan"
 )
 
-// AcceptsKind reports whether the Template declares kind, the check a Sheet
-// creation runs before any write.
 func (t *Template) AcceptsKind(kind plan.SheetKind) bool {
 	return kind != "" && slices.Contains(t.Kinds, kind)
 }
@@ -18,15 +16,9 @@ type FieldGroup map[string]FieldNode
 type FieldNode struct {
 	Schema   *FieldSchema `bson:"schema"`
 	Children FieldGroup   `bson:"children"`
-	// Label is the display name of a group node (table row header or section).
-	// Empty falls back to the humanized key, e.g. slot1 -> "Level 1".
-	Label string `bson:"label,omitempty"`
-	// Columns lists the child keys rendered as ONE table row, in column
-	// order. Empty renders the children as stacked rows (the default).
-	Columns []string `bson:"columns,omitempty"`
-	// Order lists child keys in the display order the API must emit. Keys it
-	// omits follow alphabetically; keys it names that do not exist are ignored.
-	Order []string `bson:"order,omitempty"`
+	Label    string       `bson:"label,omitempty"`
+	Columns  []string     `bson:"columns,omitempty"`
+	Order    []string     `bson:"order,omitempty"`
 }
 
 func (n *FieldNode) IsLeaf() bool {
@@ -38,73 +30,36 @@ func (n *FieldNode) IsGroup() bool {
 }
 
 type Template struct {
-	ID      string     `bson:"_id,omitempty"`
-	Name    string     `bson:"name"`
-	Fields  FieldGroup `bson:"fields"`
-	Default bool       `bson:"default"`
-	// SectionOrder lists top-level field keys in the order the API must emit
-	// them: the sheet renders sections in arrival order, while encoding/json
-	// would sort a map's keys alphabetically. Keys not listed — and templates
-	// with no order at all — keep the alphabetical fallback.
-	SectionOrder []string `bson:"section_order,omitempty"`
-	// SuggestedPins lists Row keys the template recommends as a player's
-	// first Pins, in suggestion order. Presentation metadata only: the server
-	// never writes it into a Sheet or its Layout, a client offers it. Keys use
-	// the Layout grammar and are checked by ValidateSuggestedPins at boot.
-	SuggestedPins []string `bson:"suggested_pins,omitempty"`
-	// NameLeaf is the dotted path of the text leaf that names the Sheet a
-	// generation creates (`identity.characterName`). Empty means the Template
-	// names no Sheet. SuggestName reads it; ValidateNameLeaf checks it at boot.
-	NameLeaf string `bson:"name_leaf,omitempty"`
-	// SectionDice maps a Section key to the Dice expression its Rows inherit
-	// by default; it may use `@` for "this Row". RowDice maps a Row key to the
-	// expression that wins over the Section's. Both are defaults a client
-	// offers: never written into a Sheet, and checked by ValidateDiceDefaults
-	// at boot.
-	SectionDice map[string]string `bson:"section_dice,omitempty"`
-	RowDice     map[string]string `bson:"row_dice,omitempty"`
-	// Kinds lists the Sheet kinds this Template can create. A Template that
-	// declares none accepts no kind, so a new Template must opt in explicitly.
-	Kinds     []plan.SheetKind `bson:"kinds,omitempty"`
-	CreatedAt time.Time        `bson:"created_at,omitempty"`
-	UpdatedAt time.Time        `bson:"updated_at,omitempty"`
+	ID            string            `bson:"_id,omitempty"`
+	Name          string            `bson:"name"`
+	Fields        FieldGroup        `bson:"fields"`
+	Default       bool              `bson:"default"`
+	SectionOrder  []string          `bson:"section_order,omitempty"`
+	SuggestedPins []string          `bson:"suggested_pins,omitempty"`
+	NameLeaf      string            `bson:"name_leaf,omitempty"`
+	SectionDice   map[string]string `bson:"section_dice,omitempty"`
+	RowDice       map[string]string `bson:"row_dice,omitempty"`
+	Kinds         []plan.SheetKind  `bson:"kinds,omitempty"`
+	CreatedAt     time.Time         `bson:"created_at,omitempty"`
+	UpdatedAt     time.Time         `bson:"updated_at,omitempty"`
 }
 
 type FieldSchema struct {
-	Type       string     `bson:"type"`
-	Label      string     `bson:"label"`
-	Formula    string     `bson:"formula"`
-	DependsOn  [][]string `bson:"depends_on"`
-	IsEditable bool       `bson:"is_editable"`
-	Default    float64    `bson:"default"`
-	// ExclusiveGroup names the mutually exclusive set this leaf belongs to.
-	// Leaves sharing a non-empty group under the same parent may have at most
-	// one non-zero value. Empty means "independent".
-	ExclusiveGroup string `bson:"exclusive_group,omitempty"`
-	// OptionLabel is the short label used when this leaf is shown as an option
-	// of its exclusive group (e.g. "Dexterity"). Empty falls back to Label.
-	OptionLabel string `bson:"option_label,omitempty"`
-	// ColumnLabel is the short label used when this leaf is rendered as a
-	// table column. Empty falls back to Label, then to the humanized key.
-	ColumnLabel string `bson:"column_label,omitempty"`
-	// Generatable marks an editable leaf the LLM may fill during character
-	// generation. It is only meaningful on editable leaves (see
-	// ValidateGenerationMetadata).
-	Generatable bool `bson:"generatable,omitempty"`
-	// Min and Max bound a number leaf's generated value. Nil means unbounded
-	// on that side; a pointer keeps an explicit 0 distinct from "no bound".
-	Min *float64 `bson:"min,omitempty"`
-	Max *float64 `bson:"max,omitempty"`
-	// MaxLength bounds a text leaf's generated length in characters. Nil means
-	// no bound; a set value must be greater than zero.
-	MaxLength *int `bson:"max_length,omitempty"`
+	Type           string     `bson:"type"`
+	Label          string     `bson:"label"`
+	Formula        string     `bson:"formula"`
+	DependsOn      [][]string `bson:"depends_on"`
+	IsEditable     bool       `bson:"is_editable"`
+	Default        float64    `bson:"default"`
+	ExclusiveGroup string     `bson:"exclusive_group,omitempty"`
+	OptionLabel    string     `bson:"option_label,omitempty"`
+	ColumnLabel    string     `bson:"column_label,omitempty"`
+	Generatable    bool       `bson:"generatable,omitempty"`
+	Min            *float64   `bson:"min,omitempty"`
+	Max            *float64   `bson:"max,omitempty"`
+	MaxLength      *int       `bson:"max_length,omitempty"`
 }
 
-// SeedValue returns the value a new sheet starts with for this schema:
-// text fields start empty, booleans start false, and every other type starts
-// at the numeric Default. The split is type-driven because Default is a
-// float64 in the API contract — the JSON `default` key never carries a
-// string or bool (clients decode it as a number).
 func (s *FieldSchema) SeedValue() any {
 	switch s.Type {
 	case fieldTypeText:

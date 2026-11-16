@@ -12,15 +12,6 @@ const (
 	diceScopeRow     = "row"
 )
 
-// ValidateDiceDefaults checks the template's Dice defaults against the Sections
-// and Rows it actually has. Like SuggestedPins it is template content reviewed
-// in code, so it is strict and meant to run at boot: a key that is not a
-// Section (or Row) → UnknownDiceSectionError (UnknownDiceRowError), an
-// expression the dice grammar refuses, a Row default that does not fit its Row
-// (an `@` that is not a numeric Field) or a Section default that fits none of
-// its Rows → InvalidDiceError wrapping the *dice.Error. Sections are checked
-// before Rows and keys in alphabetical order, so the error reported for a given
-// template is stable. Nil or empty maps are valid.
 func ValidateDiceDefaults(tmpl Template) error {
 	if len(tmpl.SectionDice) == 0 && len(tmpl.RowDice) == 0 {
 		return nil
@@ -56,8 +47,6 @@ func ValidateDiceDefaults(tmpl Template) error {
 	return nil
 }
 
-// fieldKinds lists every leaf of the tree by dotted path, which is how a Dice
-// expression names a Field.
 func fieldKinds(group FieldGroup) dice.MapSchema {
 	kinds := make(dice.MapSchema)
 	var walk func(path string, node FieldNode)
@@ -76,9 +65,6 @@ func fieldKinds(group FieldGroup) dice.MapSchema {
 	return kinds
 }
 
-// diceKind maps a Field type to the kind the dice package reasons about. Only
-// an explicit number is numeric: a type added later must opt in here rather
-// than slip through the boot check as something a Row can roll.
 func diceKind(fieldType string) dice.FieldKind {
 	switch fieldType {
 	case fieldTypeNumber:
@@ -94,20 +80,8 @@ func sortedKeys(m map[string]string) []string {
 	return slices.Sorted(maps.Keys(m))
 }
 
-// MaxSheetDiceOverrides caps the entries a player's dice block may hold,
-// counting Section and Row overrides together (null entries included), so one
-// Sheet cannot grow without bound.
 const MaxSheetDiceOverrides = 64
 
-// ValidateSheetDice checks a player's Dice overrides against the Template the
-// Sheet was built from. It is the strict write-side twin of the tolerant read:
-// the cap is checked first, then Sections and Rows in alphabetical order so the
-// reported error is stable. A key that is not a Section (Row) →
-// UnknownDiceSectionError (UnknownDiceRowError); a non-null value the dice
-// grammar refuses, a Row override that does not fit its Row or a Section
-// override that fits none of its Rows → InvalidDiceError. A nil value means
-// "no dice" on purpose: it needs a known key but no expression. Nil or empty
-// maps are valid and never mutated.
 func ValidateSheetDice(tmpl Template, sectionDice, rowDice map[string]*string) error {
 	if count := len(sectionDice) + len(rowDice); count > MaxSheetDiceOverrides {
 		return &TooManyDiceOverridesError{Count: count, Max: MaxSheetDiceOverrides}

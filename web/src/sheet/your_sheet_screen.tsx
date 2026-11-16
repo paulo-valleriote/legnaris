@@ -1,14 +1,3 @@
-/**
- * The "Your sheet" destination (WAS-25 … WAS-29, R10).
- *
- * It resolves the signed-in person's single owner-scoped sheet through the
- * controller and renders exactly one situation: loading, the designed empty
- * line, the sheet with an Open action, or the mapped failure with a
- * single-request Retry. Deleting is guarded by one confirmation dialog that
- * states the exact consequence; its safe action carries focus, Escape and the
- * overlay barrier both cancel, and only confirm issues the `DELETE`.
- */
-
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Sheet } from '../api/models/sheet';
@@ -24,11 +13,6 @@ interface DeleteDialogProps {
   readonly onConfirm: () => void;
 }
 
-/**
- * The one delete confirmation (WAS-28): a labelled, modal dialog stating the
- * exact consequence, with the safe Cancel action focused, Escape and the overlay
- * barrier cancelling, and the destructive action a real button.
- */
 function DeleteDialog({ onCancel, onConfirm }: DeleteDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
 
@@ -169,7 +153,6 @@ function YourSheetBody({ controller, snapshot, onOpen }: YourSheetBodyProps) {
   }
 }
 
-/** The session-only destination for the signed-in person's own sheet (WAS-25). */
 export function YourSheetScreen() {
   const client = useApiClient();
   const store = useSheetStore();

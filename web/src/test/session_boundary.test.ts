@@ -123,8 +123,8 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
   it('Edge: a pending code step is never read as a session, and the cold-start refresh keeps its behaviour (WCS-01, WAS-03)', async () => {
     const store = createMemorySheetStore();
     const fake = createFakeTransport(
-      successOutcome(SESSION_BODY), // the cold-start refresh: the cookie of an earlier session
-      successOutcome(CHALLENGE_BODY, 202), // the credential operation answers with a code step
+      successOutcome(SESSION_BODY),
+      successOutcome(CHALLENGE_BODY, 202),
     );
     const session = sessionOver(fake.transport, () => clearSessionData(store), 'restoring');
 

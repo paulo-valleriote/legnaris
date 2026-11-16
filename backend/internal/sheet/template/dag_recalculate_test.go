@@ -167,7 +167,6 @@ func TestWalkTopological(t *testing.T) {
 		return dag
 	}
 
-	// chainDAG: stats.str → mod.str → derived.dmg
 	chainDAG := func() *DAG {
 		return buildDAG(FieldGroup{
 			"stats": {Children: FieldGroup{
@@ -190,7 +189,6 @@ func TestWalkTopological(t *testing.T) {
 		})
 	}
 
-	// leafOnlyDAG: single editable field, no derived nodes
 	leafOnlyDAG := func() *DAG {
 		return buildDAG(FieldGroup{
 			"stats": {Children: FieldGroup{
@@ -199,7 +197,6 @@ func TestWalkTopological(t *testing.T) {
 		})
 	}
 
-	// errorDAG: derived node with runtime type error formula
 	errorDAG := func() *DAG {
 		return buildDAG(FieldGroup{
 			"input": {Schema: &FieldSchema{Type: "string", IsEditable: true}},

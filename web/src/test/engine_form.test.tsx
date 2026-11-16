@@ -18,7 +18,6 @@ function group(
   return { kind: 'group', children, ...metadata };
 }
 
-/** A synthetic template exercising every field type plus one exclusive group (SC-002). */
 const FIELDS: Record<string, FieldNode> = {
   identity: group(
     {

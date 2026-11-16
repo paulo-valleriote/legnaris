@@ -17,13 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// noopObserver satisfies sweeper.Observer without recording anything.
 type noopObserver struct{}
 
 func (noopObserver) OldestPending(string, time.Duration) {}
 func (noopObserver) Failed(string)                       {}
 
-// republishFixture wires the republish queue to mocks.
 type republishFixture struct {
 	store     *mocks.MockPublishStore
 	publisher *mocks.MockPublisher
@@ -41,7 +39,6 @@ func newRepublishFixture(t *testing.T) republishFixture {
 	}
 }
 
-// sweepOnce builds the queue over the fixture and runs one sweeper pass at now.
 func (f republishFixture) sweepOnce(t *testing.T, attemptCap int, now time.Time) error {
 	t.Helper()
 	queue, err := generation.NewRepublishQueue(generation.RepublishDeps{
@@ -57,7 +54,6 @@ func (f republishFixture) sweepOnce(t *testing.T, attemptCap int, now time.Time)
 	return sw.RunOnce(context.Background(), now)
 }
 
-// runInlineTx makes the transaction mock run its callback in place.
 func (f republishFixture) runInlineTx() {
 	f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 		RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Maybe()
@@ -93,8 +89,6 @@ func TestRepublishQueue_Definition(t *testing.T) {
 	}
 }
 
-// TestRepublishQueue_Sweep drives one pass over one due document and pins what the
-// sweeper does with the publish outcome.
 func TestRepublishQueue_Sweep(t *testing.T) {
 	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 	const jobID = "0190a1b2-0000-7000-8000-0000000000aa"
@@ -151,8 +145,6 @@ func TestRepublishQueue_Sweep(t *testing.T) {
 	}
 }
 
-// TestRepublishQueue_GiveUpWithoutQueuedDocumentRefundsNothing pins the race where
-// the worker moved the job first: the sweeper must not refund a job it did not fail.
 func TestRepublishQueue_GiveUpWithoutQueuedDocumentRefundsNothing(t *testing.T) {
 	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 	const jobID = "0190a1b2-0000-7000-8000-0000000000aa"
@@ -169,8 +161,6 @@ func TestRepublishQueue_GiveUpWithoutQueuedDocumentRefundsNothing(t *testing.T) 
 	require.NoError(t, f.sweepOnce(t, 5, now))
 }
 
-// TestRepublishQueue_RefundFailureAbortsGiveUp pins the rule that a failed refund
-// keeps the job queued: the transaction rolls back and the job is retried.
 func TestRepublishQueue_RefundFailureAbortsGiveUp(t *testing.T) {
 	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 	const jobID = "0190a1b2-0000-7000-8000-0000000000aa"
@@ -186,8 +176,6 @@ func TestRepublishQueue_RefundFailureAbortsGiveUp(t *testing.T) {
 	require.NoError(t, f.sweepOnce(t, 5, now))
 }
 
-// TestRepublishStore_Refund covers a give-up whose reservation kind is unknown: the
-// transaction fails and no refund is guessed at, so the quota is never mis-credited.
 func TestRepublishStore_Refund(t *testing.T) {
 	const jobID = "0190a1b2-0000-7000-8000-0000000000aa"
 	tests := []struct {

@@ -41,9 +41,6 @@ type LLMConsentModule struct {
 	Service    llmconsent.Service
 }
 
-// GenerationModule is the character generation flow: the routes and the service
-// that gates, queues and accepts generations, with the per-user budgets of its
-// two route groups (LGN-186).
 type GenerationModule struct {
 	Controller    *GenerationController
 	Service       *generation.Service
@@ -51,88 +48,61 @@ type GenerationModule struct {
 	ReadLimiter   ratelimit.Allower
 }
 
-// moduleOptions carries the collaborators that only the process knows, such as the
-// broker connection and the metrics registry.
 type moduleOptions struct {
 	generationPublisher generation.Publisher
 	capObserver         generation.CapObserver
 }
 
-// ModuleOption configures the optional collaborators of NewModules.
 type ModuleOption func(*moduleOptions)
 
-// WithGenerationPublisher supplies the broker port that publishes generation jobs.
-// Without it the jobs are not published on request, and the republish sweep is the
-// only path that delivers them.
 func WithGenerationPublisher(publisher generation.Publisher) ModuleOption {
 	return func(o *moduleOptions) {
 		o.generationPublisher = publisher
 	}
 }
 
-// WithGenerationObserver supplies the sink of the global daily cap metric.
 func WithGenerationObserver(observer generation.CapObserver) ModuleOption {
 	return func(o *moduleOptions) {
 		o.capObserver = observer
 	}
 }
 
-// unconfiguredPublisher refuses every publish, so a process built without a broker
-// keeps answering 202 and leaves the job to the republish sweep.
 type unconfiguredPublisher struct{}
 
-// ErrPublisherNotConfigured reports a publish attempted without a broker port.
 var ErrPublisherNotConfigured = errors.New("generation publisher is not configured")
 
 func (unconfiguredPublisher) Publish(context.Context, generation.Message) error {
 	return ErrPublisherNotConfigured
 }
 
-// noopCapObserver discards the cap metric when the process supplies none.
 type noopCapObserver struct{}
 
 func (noopCapObserver) GenerationCapUsage(int, int) {}
 
 type AuthModule struct {
-	Controller   *AuthController
-	Service      auth.Service
-	TokenManager auth.TokenManager
-	RateLimiter  ratelimit.Allower
-	// RegisterIPLimiter and RegisterEmailLimiter are the registration budgets
-	// per real address and per canonical e-mail (LGN-150).
+	Controller           *AuthController
+	Service              auth.Service
+	TokenManager         auth.TokenManager
+	RateLimiter          ratelimit.Allower
 	RegisterIPLimiter    ratelimit.Allower
 	RegisterEmailLimiter ratelimit.Allower
 }
 
 type Modules struct {
-	Template   TemplateModule
-	Sheet      SheetModule
-	LLMConsent LLMConsentModule
-	Auth       AuthModule
-	Generation GenerationModule
-	// Plan serves GET /me/plan: the caller's generation allowance (ADR 0009) and
-	// per-kind Sheet usage (LGN-183).
-	Plan *PlanController
-	// ClientIP is the boot-time address resolver installed as the router's
-	// IPExtractor, so every c.RealIP() consumer reads the same resolution
-	// (PRQ-03, PRQ-04).
-	ClientIP func(*http.Request) string
-	// ActiveAccounts gates every authenticated route on the account not being
-	// deleted (LGN-190). Nil means the auth service answers the check; a test
-	// that has no database sets a checker of its own before building the router.
+	Template       TemplateModule
+	Sheet          SheetModule
+	LLMConsent     LLMConsentModule
+	Auth           AuthModule
+	Generation     GenerationModule
+	Plan           *PlanController
+	ClientIP       func(*http.Request) string
 	ActiveAccounts auth.ActiveAccountChecker
-	// UserLimiter caps the authenticated routes per user id (LGN-30).
-	UserLimiter ratelimit.Allower
-	// PublicLimiter caps the unauthenticated CSP report collector per address.
-	PublicLimiter ratelimit.Allower
-	// Readiness backs GET /ready: the instance is ready only while it answers.
-	Readiness health.Pinger
-	// closers release resources owned by the modules (the Redis client).
-	closers []io.Closer
+	UserLimiter    ratelimit.Allower
+	PublicLimiter  ratelimit.Allower
+	Readiness      health.Pinger
+	closers        []io.Closer
 }
 
-// Close releases the resources the modules opened. It is safe to call on a
-// deployment without Redis.
 func (m *Modules) Close() error {
 	var errs []error
 	for _, closer := range m.closers {
@@ -141,10 +111,6 @@ func (m *Modules) Close() error {
 	return errors.Join(errs...)
 }
 
-// authServiceConfig maps the resolved environment onto the auth service's
-// configuration. The rollout gate is carried here, so the service — and not
-// the controller — is the single place that decides whether a session or a code
-// step is issued (TFA-01, TFA-02, TFA-07).
 func authServiceConfig(vars env.Variables, now auth.Clock) auth.Config {
 	cfg := auth.Config{
 		RefreshTTL:          vars.AuthRefreshTTL,
@@ -157,9 +123,6 @@ func authServiceConfig(vars env.Variables, now auth.Clock) auth.Config {
 	return cfg
 }
 
-// NewModules wires every domain module. It returns an error for configuration
-// that must fail fast at boot (JWT secret, bcrypt cost, the code-digest secret)
-// instead of producing a half-usable server.
 func NewModules(
 	database *db.Database,
 	registry *template.Registry,
@@ -176,8 +139,6 @@ func NewModules(
 	log := cfg.Logger
 	mdb := database.Client.Database(cfg.Variables.DatabaseName)
 
-	// The trust boundary is configuration; an invalid CIDR must stop the boot
-	// instead of silently trusting the wrong network (PRQ-03).
 	clientIPPolicy, err := clientip.New(cfg.Variables.TrustedProxyCIDRs)
 	if err != nil {
 		return nil, fmt.Errorf("build client IP policy: %w", err)
@@ -186,12 +147,8 @@ func NewModules(
 	templateService := template.NewService(registry)
 	templateController := NewTemplateController(templateService)
 
-	// The account is read once per request: the active gate, the plan and the LLM
-	// consent all read the same document, so the wrapper memoizes it per request.
 	userRepository := user.NewCachedRepository(user.NewRepository(mdb, log))
 
-	// Sheet limits read the owner's plan from the user store and reserve their
-	// slot inside a transaction with the Sheet write (LGN-183, ADR 0013).
 	sheetRepository := sheet.NewRepository(mdb, log)
 	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher,
 		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
@@ -205,8 +162,6 @@ func NewModules(
 		return nil, fmt.Errorf("build password hasher: %w", err)
 	}
 
-	// One clock for every auth timestamp, so expiry boundaries are testable
-	// without sleeping (PRQ-16).
 	now := auth.Clock(time.Now)
 
 	tokenManager, err := auth.NewTokenManager(cfg.Variables.JWTSecret, cfg.Variables.JWTAccessTTL, now)
@@ -216,8 +171,6 @@ func NewModules(
 
 	csrfManager := auth.NewCSRFTokenManager([]byte(cfg.Variables.JWTSecret))
 
-	// The code-digest secret is required and validated here, so the process
-	// never starts hashing codes with a weak or absent key (F-09, OTP-18).
 	codeDigest, err := auth.NewCodeDigest(cfg.Variables.EmailCodeSecret)
 	if err != nil {
 		return nil, fmt.Errorf("build code digest: %w", err)
@@ -346,8 +299,6 @@ func NewModules(
 	}, nil
 }
 
-// newGenerationService builds the generation service from the process
-// configuration and the module collaborators.
 func newGenerationService(cfg env.Env, options moduleOptions, deps generation.Deps) *generation.Service {
 	deps.Publisher = options.generationPublisher
 	if deps.Publisher == nil {

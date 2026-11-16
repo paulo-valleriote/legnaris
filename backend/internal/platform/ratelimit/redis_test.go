@@ -14,9 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newRedisClient returns a client for the test Redis. REDIS_TEST_URL selects a
-// real server (skipping when it is unreachable); otherwise an in-process
-// miniredis, which runs the same Lua script, keeps the suite hermetic.
 func newRedisClient(t *testing.T) *redis.Client {
 	t.Helper()
 

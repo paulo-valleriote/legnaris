@@ -15,16 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// validUserID is a canonical lowercase UUID v7, the only shape idgen accepts.
 const validUserID = "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e0f"
 
-// errStoreFailure is the infrastructure error every store method can return.
 var errStoreFailure = errors.New("connection reset")
 
 type txKey struct{}
 
-// sessionCtx stands in for the context the transaction helper hands to its
-// callback, so tests can prove the service passes it to the store unchanged.
 func sessionCtx() context.Context {
 	return context.WithValue(context.Background(), txKey{}, "session")
 }
@@ -41,14 +37,11 @@ func newService(t *testing.T, now time.Time) (*quota.Service, *mocks.MockStore) 
 	return quota.NewService(store, func() time.Time { return now }), store
 }
 
-// requireAppErr asserts err is a typed apperr with the given code.
 func requireAppErr(t *testing.T, err error, code apperr.Code) {
 	t.Helper()
 	_ = appErrOf(t, err, code)
 }
 
-// appErrOf asserts err is a typed apperr with the given code and returns it,
-// so a test can also check the HTTP status or the Retry-After hint.
 func appErrOf(t *testing.T, err error, code apperr.Code) *apperr.Error {
 	t.Helper()
 	require.Error(t, err)
@@ -58,7 +51,6 @@ func appErrOf(t *testing.T, err error, code apperr.Code) *apperr.Error {
 	return appErr
 }
 
-// invalidUserIDs lists identifiers that must be refused before any storage call.
 var invalidUserIDs = []struct {
 	name string
 	id   string

@@ -18,12 +18,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// errNoAllowance aborts a transaction whose reservation was refused, so the
-// caller can tell a refused reservation from a committed one.
 var errNoAllowance = errors.New("reservation refused")
 
-// newMongoStore returns a store on an isolated replica-set database with the
-// quota indexes in place. It skips when DATABASE_URI is unset.
 func newMongoStore(t *testing.T) (*quota.MongoStore, *mongo.Database) {
 	t.Helper()
 	mdb := dbtest.Database(t)
@@ -31,7 +27,6 @@ func newMongoStore(t *testing.T) (*quota.MongoStore, *mongo.Database) {
 	return quota.NewMongoStore(mdb), mdb
 }
 
-// seedTrial inserts the row LGN-229 writes when it grants an allowance.
 func seedTrial(t *testing.T, mdb *mongo.Database, userID string, allowance, used int) {
 	t.Helper()
 	_, err := mdb.Collection(quota.TrialCollection).InsertOne(context.Background(),
@@ -39,7 +34,6 @@ func seedTrial(t *testing.T, mdb *mongo.Database, userID string, allowance, used
 	require.NoError(t, err)
 }
 
-// trialUsed reads the stored used counter directly, bypassing the store under test.
 func trialUsed(t *testing.T, mdb *mongo.Database, userID string) int {
 	t.Helper()
 	var row quota.TrialRow
@@ -47,8 +41,6 @@ func trialUsed(t *testing.T, mdb *mongo.Database, userID string) int {
 	return row.Used
 }
 
-// countDailyRows counts the usage rows for a user, so a test can prove that a
-// refused or refunded reservation created no stray row.
 func countDailyRows(t *testing.T, mdb *mongo.Database, userID string) int64 {
 	t.Helper()
 	n, err := mdb.Collection(quota.UsageCollection).CountDocuments(context.Background(), bson.D{{Key: "user_id", Value: userID}})
@@ -56,8 +48,6 @@ func countDailyRows(t *testing.T, mdb *mongo.Database, userID string) int64 {
 	return n
 }
 
-// seedDaily fills one day's counter to count by reserving it, so the limit is
-// reached through the same path production uses.
 func seedDaily(t *testing.T, store *quota.MongoStore, userID, day string, count int) {
 	t.Helper()
 	for range count {
@@ -352,9 +342,6 @@ func TestMongoStoreFetch(t *testing.T) {
 	})
 }
 
-// TestMongoStoreInTransaction proves the store joins the transaction helper's
-// session: a rolled-back callback leaves no counter change, and concurrent
-// transactions cannot exceed the allowance.
 func TestMongoStoreInTransaction(t *testing.T) {
 	ctx := context.Background()
 

@@ -6,14 +6,10 @@ import { message } from '../l10n/strings';
 import { BrandMark } from './brand_mark';
 import { leaveIsGuarded, requestLeave } from './leave_guard';
 
-/** The route the root navigation item targets. */
 const CATALOG_PATH = '/';
-/** The route the session-only own-sheet item targets. */
 const OWN_SHEET_PATH = '/your-sheet';
-/** The route the session-only account item targets (LGN-195). */
 const ACCOUNT_PATH = '/account';
 
-/** A stack of layers, the template-catalog affordance. */
 function CatalogIcon() {
   return (
     <svg
@@ -31,7 +27,6 @@ function CatalogIcon() {
   );
 }
 
-/** A page with written rows, the character-sheet affordance. */
 function SheetIcon() {
   return (
     <svg
@@ -50,7 +45,6 @@ function SheetIcon() {
   );
 }
 
-/** A head and shoulders, the account affordance. */
 function AccountIcon() {
   return (
     <svg
@@ -67,7 +61,6 @@ function AccountIcon() {
   );
 }
 
-/** A doorway arrow, the session-ending affordance. */
 function SignOutIcon() {
   return (
     <svg
@@ -85,7 +78,6 @@ function SignOutIcon() {
   );
 }
 
-/** A trailing arrow that reads as "goes somewhere". */
 function ChevronIcon() {
   return (
     <svg
@@ -107,11 +99,6 @@ interface NavEntryProps {
   readonly icon: ReactNode;
 }
 
-/**
- * One navigation item. A click is routed through the leave registry (WSC-37): a
- * surface with unsaved work asks its guard to confirm before the navigation runs,
- * while any other click navigates through the link untouched.
- */
 function NavEntry({ path, label, icon }: NavEntryProps) {
   const navigate = useNavigate();
 
@@ -138,17 +125,6 @@ function NavEntry({ path, label, icon }: NavEntryProps) {
   );
 }
 
-/**
- * The persistent navigation region (order 1). It opens with the product lockup,
- * then lists the declared routes; it is a left column on desktop and a compact
- * top bar on a narrow viewport, never an overlay or a hamburger (UIF-24, UIF-25). The root item is labelled through the copy catalog,
- * never a literal (WCT-29).
- *
- * The own-sheet entry renders only while a session is held (WAS-19, WAS-25); the
- * footer hosts the sign-out control, disabled while its teardown is in flight
- * (WAS-23). The signed-in app is always dark, so the navigation carries no theme
- * control.
- */
 export function LeftNav() {
   const session = useAuthSession();
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);

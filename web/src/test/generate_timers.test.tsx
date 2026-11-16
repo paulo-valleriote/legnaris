@@ -14,7 +14,6 @@ import { TEMPLATE_ID } from './sheet_fixtures';
 
 const TIMEOUT_COPY = 'This is taking longer than usual.';
 
-/** Lets pending promises and the fake clock settle for `ms` milliseconds. */
 async function advance(ms: number) {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(ms);
@@ -32,7 +31,6 @@ function generation(status: string, values?: Record<string, unknown>) {
   });
 }
 
-/** Renders the concept, submits it, and returns the clock reading at submission. */
 async function submit(routes: Parameters<typeof renderGenerate>[0]) {
   const fake = renderGenerate(routes);
   await advance(0);

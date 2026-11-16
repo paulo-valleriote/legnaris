@@ -12,8 +12,6 @@ import {
 } from '../dice';
 import { diceVectors } from './dice_vectors';
 
-/** The six walkthroughs of the LGN-161 prototype, replayed through resolution and Roll with every die at its highest face. */
-
 const schema = schemaFromKinds(diceVectors.fields);
 
 const template: DiceDefaults = {
@@ -34,7 +32,6 @@ interface Sheet {
   acrobaticsBonus: number;
 }
 
-/** The slice of the sheet the walkthroughs read, derived the way the Template formulas do. */
 function sheetOf({ dexterity, acrobaticsBonus }: Sheet): Record<string, unknown> {
   const modifier = (score: number) => Math.floor((score - 10) / 2);
   return {

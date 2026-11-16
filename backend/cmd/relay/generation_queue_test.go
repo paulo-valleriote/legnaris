@@ -21,8 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeGenerationBroker stands in for the generation publisher: it confirms every
-// job and records whether it was closed.
 type fakeGenerationBroker struct {
 	closed bool
 }
@@ -30,8 +28,6 @@ type fakeGenerationBroker struct {
 func (b *fakeGenerationBroker) Publish(context.Context, generation.Message) error { return nil }
 func (b *fakeGenerationBroker) Close() error                                      { b.closed = true; return nil }
 
-// idleGenerationDeps returns republish dependencies whose store has nothing due, so
-// a sweep pass touches no quota and no transaction.
 func idleGenerationDeps(t *testing.T) generation.RepublishDeps {
 	t.Helper()
 	store := generationmocks.NewMockPublishStore(t)
@@ -47,8 +43,6 @@ func idleGenerationDeps(t *testing.T) generation.RepublishDeps {
 	}
 }
 
-// idleDeletionDeps returns deleting-accounts dependencies whose store has no
-// deleting account, so a sweep pass runs no cascade and no transaction.
 func idleDeletionDeps(t *testing.T) accountdeletion.Deps {
 	t.Helper()
 	store := usermocks.NewMockDeletionStore(t)
@@ -57,8 +51,6 @@ func idleDeletionDeps(t *testing.T) accountdeletion.Deps {
 	return accountdeletion.Deps{Store: store}
 }
 
-// idleReapDeps returns lease reaper dependencies whose store holds no expired job,
-// so a sweep pass touches no quota and no transaction.
 func idleReapDeps(t *testing.T) generation.ReapDeps {
 	t.Helper()
 	store := generationmocks.NewMockLeaseStore(t)
@@ -71,8 +63,6 @@ func idleReapDeps(t *testing.T) generation.ReapDeps {
 	}
 }
 
-// TestSweepQueues_RegistersGenerationRepublish pins that the generation queue is
-// registered next to the event outbox, every 10 s, under the generation name.
 func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -106,8 +96,6 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 	}
 }
 
-// TestRun_ClosesGenerationBroker pins that the generation publisher is closed on
-// shutdown, like the other brokers.
 func TestRun_ClosesGenerationBroker(t *testing.T) {
 	cfg := testEnv()
 	generationBroker := &fakeGenerationBroker{}
@@ -120,8 +108,6 @@ func TestRun_ClosesGenerationBroker(t *testing.T) {
 	assert.True(t, generationBroker.closed, "the generation broker must be closed on shutdown")
 }
 
-// relayDepsForCancelledRun builds the dependencies of a relay run that ends at once,
-// with every store idle and the generation broker supplied by the caller.
 func relayDepsForCancelledRun(t *testing.T, generationBroker *fakeGenerationBroker) dependencies {
 	t.Helper()
 	deps := idleRelayDeps(t)
@@ -137,8 +123,6 @@ func relayDepsForCancelledRun(t *testing.T, generationBroker *fakeGenerationBrok
 	return deps
 }
 
-// idleRelayDeps returns relay dependencies whose stores hold nothing, so a run
-// that starts with a cancelled context drains at once.
 func idleRelayDeps(t *testing.T) dependencies {
 	t.Helper()
 	repository := outboxmocks.NewMockRepository(t)

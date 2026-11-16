@@ -64,8 +64,6 @@ func TestMiddlewarePreflightAdvertisesDelete(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("expected status 204 for preflight, got %d", rec.Code)
 	}
-	// The browser only lets through methods listed here, so a DELETE missing
-	// from Access-Control-Allow-Methods would never reach the API.
 	allowed := strings.Split(rec.Header().Get(echo.HeaderAccessControlAllowMethods), ",")
 	if !slices.Contains(allowed, http.MethodDelete) {
 		t.Errorf("expected Access-Control-Allow-Methods to include DELETE, got %q", rec.Header().Get(echo.HeaderAccessControlAllowMethods))
@@ -94,7 +92,6 @@ func TestMiddlewarePreflightAdvertisesPut(t *testing.T) {
 	}
 }
 
-// advertisedAllowHeaders splits the preflight's Access-Control-Allow-Headers.
 func advertisedAllowHeaders(rec *httptest.ResponseRecorder) []string {
 	raw := rec.Header().Get(echo.HeaderAccessControlAllowHeaders)
 	if raw == "" {

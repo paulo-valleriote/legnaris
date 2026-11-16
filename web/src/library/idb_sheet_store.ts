@@ -1,11 +1,3 @@
-/**
- * The `idb`-backed `SheetStore` — the only module in the feature that imports
- * `idb` (R5). One database holds the three object stores, `sheets`, `drafts` and `layoutDrafts`,
- * each record the versioned envelope `sheet_store.ts` defines; the adapter
- * reuses the same read rules so a corrupt, unsupported-version or foreign record
- * reads as `null` exactly as the in-memory double does (WSC-30).
- */
-
 import type { DBSchema, IDBPDatabase } from 'idb';
 import { wrap } from 'idb';
 import type { Sheet } from '../api/models/sheet';
@@ -22,7 +14,6 @@ import {
 
 const DATABASE_NAME = 'legnaris-sheets';
 
-/** The database name the adapter opens; exported so an adapter suite can seed raw records. */
 export const SHEET_DATABASE_NAME = DATABASE_NAME;
 
 interface SheetStoreSchema extends DBSchema {
@@ -42,19 +33,9 @@ async function readOrNull<T>(read: () => Promise<T | null>): Promise<T | null> {
 async function bestEffort(write: () => Promise<unknown>): Promise<void> {
   try {
     await write();
-  } catch {
-    // A failing delete or backup never blocks the flow that triggered it.
-  }
+  } catch {}
 }
 
-/**
- * Opens the database through [factory] and upgrades it to {@link SCHEMA_VERSION}.
- *
- * `idb`'s `openDB` reads the global `indexedDB` and cannot take an injected
- * factory, so the opening is driven here: the raw request carries the
- * `upgradeneeded` listener and `idb`'s `wrap` yields the same typed database the
- * `openDB` helper would (R5).
- */
 async function openDatabase(
   factory: IDBFactory,
   name: string,
@@ -80,12 +61,6 @@ async function openDatabase(
   return database;
 }
 
-/**
- * Opens the database and returns the `idb` adapter (WSC-11, WSC-30).
- *
- * The factory is injected so the adapter is exercised under `fake-indexeddb`
- * (jsdom ships no IndexedDB); the app passes the browser's `indexedDB`.
- */
 export async function createIdbSheetStore(factory: IDBFactory = indexedDB): Promise<SheetStore> {
   const db = await openDatabase(factory, DATABASE_NAME, SCHEMA_VERSION);
 

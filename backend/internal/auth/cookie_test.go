@@ -11,9 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The cookie contract is fixed: the names carry the __Host- prefix and the
-// attribute set can never be relaxed, so every field and the rendered header
-// are both pinned (AUTH-01, AUTH-09, AUTH-24).
 func TestRefreshCookie(t *testing.T) {
 	t.Run("Happy path: the set builder carries the full attribute set", func(t *testing.T) {
 		cookie := auth.RefreshCookie("raw-refresh-credential", 720)

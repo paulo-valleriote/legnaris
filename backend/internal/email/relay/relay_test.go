@@ -51,8 +51,6 @@ func newRelay(t *testing.T, repo outbox.Repository, publisher relay.Publisher, o
 	return relay.New(repo, publisher, observer, relayConfig(), logger.NewLogger(slog.LevelError))
 }
 
-// TestRelay_PublishConfirmed proves a confirmed publish marks the row published
-// and is reported as published (EML-02, EML-23).
 func TestRelay_PublishConfirmed(t *testing.T) {
 	intent := relayIntent(t, 0)
 
@@ -73,8 +71,6 @@ func TestRelay_PublishConfirmed(t *testing.T) {
 	newRelay(t, repo, publisher, observer).RunOnce(context.Background())
 }
 
-// TestRelay_TransientReschedules proves a transient publish failure reschedules
-// with the first backoff tier and is reported as retried (EML-04, EML-23).
 func TestRelay_TransientReschedules(t *testing.T) {
 	intent := relayIntent(t, 0)
 
@@ -95,8 +91,6 @@ func TestRelay_TransientReschedules(t *testing.T) {
 	newRelay(t, repo, publisher, observer).RunOnce(context.Background())
 }
 
-// TestRelay_SecondFailureUsesSecondTier proves the backoff schedule advances
-// with the attempt count (EML-04).
 func TestRelay_SecondFailureUsesSecondTier(t *testing.T) {
 	intent := relayIntent(t, 1)
 
@@ -116,10 +110,8 @@ func TestRelay_SecondFailureUsesSecondTier(t *testing.T) {
 	newRelay(t, repo, publisher, observer).RunOnce(context.Background())
 }
 
-// TestRelay_AttemptCapMarksTerminal proves reaching the publication-attempt cap
-// fails the row instead of rescheduling it (EML-04).
 func TestRelay_AttemptCapMarksTerminal(t *testing.T) {
-	intent := relayIntent(t, 2) // MaxAttempts is 3, so the next failure is the third.
+	intent := relayIntent(t, 2)
 
 	repo := outboxmocks.NewMockRepository(t)
 	publisher := relaymocks.NewMockPublisher(t)
@@ -136,8 +128,6 @@ func TestRelay_AttemptCapMarksTerminal(t *testing.T) {
 	newRelay(t, repo, publisher, observer).RunOnce(context.Background())
 }
 
-// TestRelay_InvalidIdentityMarksTerminal proves a non-canonical identity is
-// failed without ever being published (EML-18, EML-19).
 func TestRelay_InvalidIdentityMarksTerminal(t *testing.T) {
 	intent := relayIntent(t, 0)
 	intent.ID = "not-a-uuid"
@@ -158,9 +148,6 @@ func TestRelay_InvalidIdentityMarksTerminal(t *testing.T) {
 	publisher.AssertNotCalled(t, "Publish", mock.Anything, mock.Anything)
 }
 
-// TestRelay_CrashBetweenPublishAndMark proves the same identity is republished
-// after a crash between publish and mark and converges to published; the
-// duplicate is harmless because the identity is stable (EML-03, EML-18, SC-001).
 func TestRelay_CrashBetweenPublishAndMark(t *testing.T) {
 	intent := relayIntent(t, 0)
 
@@ -186,9 +173,6 @@ func TestRelay_CrashBetweenPublishAndMark(t *testing.T) {
 	relayUnderTest.RunOnce(context.Background())
 }
 
-// TestRelay_TwoRelaysNoDoublePublish models the atomic claim: the shared store
-// gives the row to exactly one relay, so the identity is published once
-// (EML-03, SC-002).
 func TestRelay_TwoRelaysNoDoublePublish(t *testing.T) {
 	intent := relayIntent(t, 0)
 
@@ -216,8 +200,6 @@ func TestRelay_TwoRelaysNoDoublePublish(t *testing.T) {
 	publisher.AssertNumberOfCalls(t, "Publish", 1)
 }
 
-// TestRelay_EmptyOutbox proves an empty outbox is a no-op, not an error
-// (EML-05).
 func TestRelay_EmptyOutbox(t *testing.T) {
 	repo := outboxmocks.NewMockRepository(t)
 	publisher := relaymocks.NewMockPublisher(t)
@@ -233,8 +215,6 @@ func TestRelay_EmptyOutbox(t *testing.T) {
 	publisher.AssertNotCalled(t, "Publish", mock.Anything, mock.Anything)
 }
 
-// TestRelay_CancelledContextDrainsBatch proves Run finishes the in-flight batch
-// and returns once the context is cancelled (EML-05).
 func TestRelay_CancelledContextDrainsBatch(t *testing.T) {
 	intent := relayIntent(t, 0)
 
@@ -256,8 +236,6 @@ func TestRelay_CancelledContextDrainsBatch(t *testing.T) {
 	require.NoError(t, newRelay(t, repo, publisher, observer).Run(ctx))
 }
 
-// TestRelay_ConfigDefaults proves a partial configuration is filled from the
-// documented defaults before the store is queried (EML-04, EML-05).
 func TestRelay_ConfigDefaults(t *testing.T) {
 	repo := outboxmocks.NewMockRepository(t)
 	publisher := relaymocks.NewMockPublisher(t)

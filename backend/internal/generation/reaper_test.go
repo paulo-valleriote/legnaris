@@ -17,11 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// reapNow is the clock the reaper tests share.
 var reapNow = time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 
-// reapDeps builds the reaper's collaborators over mocks, with the transaction body
-// run inline.
 func reapDeps(t *testing.T) (generation.ReapDeps, *mocks.MockLeaseStore, *mocks.MockQuota) {
 	t.Helper()
 	store := mocks.NewMockLeaseStore(t)
@@ -33,7 +30,6 @@ func reapDeps(t *testing.T) (generation.ReapDeps, *mocks.MockLeaseStore, *mocks.
 	return generation.ReapDeps{Store: store, Quota: quota, Tx: tx}, store, quota
 }
 
-// TestNewReapQueue covers the sweeper registration of the lease reaper.
 func TestNewReapQueue(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -60,7 +56,6 @@ func TestNewReapQueue(t *testing.T) {
 	}
 }
 
-// TestReapQueue_Run drives the queue through one sweep and checks each outcome.
 func TestReapQueue_Run(t *testing.T) {
 	expired := generation.Document{ID: jobID, UserID: userID, Status: generation.StatusRunning,
 		ReapAttempts: 2, Quota: generation.Reservation{Kind: generation.ReservationTrial}}
@@ -110,7 +105,6 @@ func TestReapQueue_Run(t *testing.T) {
 	})
 }
 
-// runQueueOnce runs one sweep of a single queue through the sweeper table.
 func runQueueOnce(t *testing.T, queue sweeper.Queue, now time.Time) {
 	t.Helper()
 	sw, err := sweeper.New([]sweeper.Queue{queue}, "test-claimer", noopObserver{}, logger.NewLogger(slog.LevelError))
@@ -118,7 +112,6 @@ func runQueueOnce(t *testing.T, queue sweeper.Queue, now time.Time) {
 	require.NoError(t, sw.RunOnce(context.Background(), now))
 }
 
-// TestReapStore covers the sweeper store the reaper queue is built on.
 func TestReapStore(t *testing.T) {
 	t.Run("Happy path: claimed documents carry their reap attempts into the job", func(t *testing.T) {
 		deps, store, _ := reapDeps(t)

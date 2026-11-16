@@ -30,12 +30,10 @@ type mongoConsentStore struct {
 	users *mongo.Collection
 }
 
-// NewConsentStore reads and writes the consent fields of the users collection.
 func NewConsentStore(mdb *mongo.Database) ConsentStore {
 	return &mongoConsentStore{users: mdb.Collection(usersCollection)}
 }
 
-// Fetch returns the stored consent, or ErrUserNotFound when the user is absent.
 func (s *mongoConsentStore) Fetch(ctx context.Context, userID string) (Record, error) {
 	var doc consentDocument
 	opts := options.FindOne().SetProjection(bson.M{consentAtField: 1, consentVersionField: 1})
@@ -49,8 +47,6 @@ func (s *mongoConsentStore) Fetch(ctx context.Context, userID string) (Record, e
 	return Record(doc), nil
 }
 
-// Grant sets the consent fields unless the user already holds this version.
-// A missing user is ErrUserNotFound; an already-granted version is a no-op.
 func (s *mongoConsentStore) Grant(ctx context.Context, userID, version string, at time.Time) error {
 	filter := bson.M{idField: userID, consentVersionField: bson.M{"$ne": version}}
 	update := bson.M{"$set": bson.M{consentAtField: at, consentVersionField: version}}
@@ -64,8 +60,6 @@ func (s *mongoConsentStore) Grant(ctx context.Context, userID, version string, a
 	return s.requireUser(ctx, userID)
 }
 
-// Clear unsets both consent fields. A missing user or an absent consent is a
-// no-op.
 func (s *mongoConsentStore) Clear(ctx context.Context, userID string) error {
 	update := bson.M{"$unset": bson.M{consentAtField: "", consentVersionField: ""}}
 	if _, err := s.users.UpdateOne(ctx, bson.M{idField: userID}, update); err != nil {
@@ -89,14 +83,10 @@ type mongoGenerationStore struct {
 	generations *mongo.Collection
 }
 
-// NewGenerationStore deletes generation documents by owner. An absent
-// collection holds no documents, so the delete reports zero and no error.
 func NewGenerationStore(mdb *mongo.Database) GenerationStore {
 	return &mongoGenerationStore{generations: mdb.Collection(generationsCollection)}
 }
 
-// openStatuses are the generation statuses whose quota is still reserved: a
-// queued or running job has not reached a terminal state yet.
 var openStatuses = []string{"queued", "running"}
 
 type openGenerationDocument struct {
@@ -107,8 +97,6 @@ type openGenerationDocument struct {
 	} `bson:"quota"`
 }
 
-// ListOpenByUserID returns the queued and running generations of userID with
-// the quota reservation each one holds. An absent collection holds none.
 func (s *mongoGenerationStore) ListOpenByUserID(ctx context.Context, userID string) ([]OpenGeneration, error) {
 	filter := bson.M{generationOwnerField: userID, generationStatusField: bson.M{"$in": openStatuses}}
 	cursor, err := s.generations.Find(ctx, filter)
@@ -131,8 +119,6 @@ func (s *mongoGenerationStore) ListOpenByUserID(ctx context.Context, userID stri
 	return open, nil
 }
 
-// DeleteByUserID removes every generation document owned by userID and returns
-// how many it removed.
 func (s *mongoGenerationStore) DeleteByUserID(ctx context.Context, userID string) (int64, error) {
 	res, err := s.generations.DeleteMany(ctx, bson.M{generationOwnerField: userID})
 	if err != nil {

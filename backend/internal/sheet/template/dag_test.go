@@ -13,9 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// topologicalOrderOf reads the DAG evaluation order under the read lock,
-// mirroring the exported accessor removed in LGN-55 without bypassing the
-// locking contract (never read guarded state without holding mu).
 func topologicalOrderOf(d *DAG) []string {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -196,9 +193,6 @@ func TestRecalculate(t *testing.T) {
 			expectedCascades: map[string]any{},
 		},
 		{
-			// LGN-59: Updating an editable field with the same value
-			// (even via type coercion, e.g., int 10 vs float64 10.0)
-			// must not trigger cascading recalculation.
 			name: "LGN-59: Editable node unchanged (int vs float64) prevents cascade",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
@@ -206,13 +200,11 @@ func TestRecalculate(t *testing.T) {
 				"derived": map[string]any{"dmg": 5.0},
 			},
 			updates: map[string]any{
-				"stats.str": int(10), // int(10) == float64(10.0) → no real change
+				"stats.str": int(10),
 			},
 			expectedCascades: map[string]any{},
 		},
 		{
-			// LGN-59: Float rounding — updating with a value that differs
-			// only by floating-point rounding should not cascade.
 			name: "LGN-59: Editable node unchanged (float epsilon) prevents cascade",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
@@ -220,13 +212,11 @@ func TestRecalculate(t *testing.T) {
 				"derived": map[string]any{"dmg": 5.0},
 			},
 			updates: map[string]any{
-				"stats.str": 10.0 + 1e-10, // within epsilon → no real change
+				"stats.str": 10.0 + 1e-10,
 			},
 			expectedCascades: map[string]any{},
 		},
 		{
-			// LGN-59: Updating an editable field with a value that differs
-			// by MORE than epsilon MUST trigger cascading recalculation.
 			name: "LGN-59: Editable node changed (exceeds epsilon) triggers cascade",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
@@ -234,16 +224,14 @@ func TestRecalculate(t *testing.T) {
 				"derived": map[string]any{"dmg": 5.0},
 			},
 			updates: map[string]any{
-				"stats.str": 16.0, // large change → real change, mod.str becomes 3, dmg becomes 8
+				"stats.str": 16.0,
 			},
 			expectedCascades: map[string]any{
-				"mod.str":     3.0, // floor((16 - 10) / 2) = 3
-				"derived.dmg": 8.0, // 3 + 5 = 8
+				"mod.str":     3.0,
+				"derived.dmg": 8.0,
 			},
 		},
 		{
-			// LGN-59: A group-level update key ("stats") is expanded to its
-			// leaf path keys, so it cascades exactly like the leaf key does.
 			name: "LGN-59: Group-level update expands to leaf keys and cascades",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
@@ -259,8 +247,6 @@ func TestRecalculate(t *testing.T) {
 			},
 		},
 		{
-			// LGN-59: A group-level update whose leaves are unchanged must
-			// not start a cascade either.
 			name: "LGN-59: Group-level update without real change is a no-op",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
@@ -273,8 +259,6 @@ func TestRecalculate(t *testing.T) {
 			expectedCascades: map[string]any{},
 		},
 		{
-			// LGN-59: The epsilon check runs on the expanded leaves, so a
-			// group-level key still suppresses a rounding-only difference.
 			name: "LGN-59: Group-level update within epsilon is a no-op",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
@@ -557,7 +541,6 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				// Returns a DependencyError instead of a compilation error
 				var depErr *DependencyError
 				require.ErrorAs(t, err, &depErr)
 				assert.Equal(t, "derived", depErr.TargetNode)
@@ -571,7 +554,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				"derived": {Schema: &FieldSchema{
 					Type: "number", IsEditable: false,
 					Formula:   "base * 2",
-					DependsOn: [][]string{{"base"}, {"base"}}, // Duplicate
+					DependsOn: [][]string{{"base"}, {"base"}},
 				}},
 			},
 			assertErr: func(t *testing.T, err error) {
@@ -582,24 +565,20 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				require.True(t, ok)
 				assert.Equal(t, "base * 2", node.FormulaString)
 				assert.True(t, node.IsDerived())
-				assert.Len(t, dag.GetChildren("base"), 2) // Current behavior: 2 entries
+				assert.Len(t, dag.GetChildren("base"), 2)
 			},
 		},
 		{
 			name:   "Template with 0 fields (empty FieldGroup)",
 			fields: FieldGroup{},
 			assertErr: func(t *testing.T, err error) {
-				require.NoError(t, err) // Current behavior
+				require.NoError(t, err)
 			},
 			assertDag: func(t *testing.T, dag *DAG) {
 				assert.Empty(t, topologicalOrderOf(dag))
 			},
 		},
 		{
-			// LGN-41 / LGN-52: before field-name validation these names built
-			// fine, but "stats.str.dex" and "stats.str_dex" are distinct DAG
-			// nodes that collapse into the same engine key "stats_str_dex" —
-			// one value silently overwriting the other in the expr-lang env.
 			name: "LGN-41/LGN-52: names with dots or underscores are rejected",
 			fields: FieldGroup{
 				"stats": {Children: FieldGroup{
@@ -609,7 +588,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 				"mod": {Children: FieldGroup{
 					"str_dex": {Schema: &FieldSchema{
 						Type: "number", IsEditable: false,
-						Formula:   "stats_str_dex + 1", // References stats.str_dex (underscore)
+						Formula:   "stats_str_dex + 1",
 						DependsOn: [][]string{{"stats", "str_dex"}},
 					}},
 				}},
@@ -635,30 +614,18 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 	}
 }
 
-// TestBuildDAG_FieldNameValidation covers the key-collision fix of LGN-52
-// (tracked as LGN-41 in dag_test.go): field names may not contain '.' or '_',
-// otherwise Path.String() (DAG map keys) and Path.EngineKey() (expr-lang
-// variables) stop being injective and two distinct fields collapse into a
-// single key.
 func TestBuildDAG_FieldNameValidation(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 	leaf := &FieldSchema{Type: "number", IsEditable: true}
 
-	// Document the raw collisions the validation prevents:
-	// two distinct paths, the same key.
-	assert.Equal(t, Path{"a_b", "c"}.EngineKey(), Path{"a", "b_c"}.EngineKey()) // "a_b_c"
-	assert.Equal(t, Path{"a.b", "c"}.String(), Path{"a", "b", "c"}.String())    // "a.b.c"
+	assert.Equal(t, Path{"a_b", "c"}.EngineKey(), Path{"a", "b_c"}.EngineKey())
+	assert.Equal(t, Path{"a.b", "c"}.String(), Path{"a", "b", "c"}.String())
 
 	tests := []struct {
-		name string
-		// fields is the template field tree under test.
-		fields FieldGroup
-		// wantField is the full path expected in the FieldNameError.
-		// Empty means "don't assert the field" (e.g. the empty-name case).
+		name      string
+		fields    FieldGroup
 		wantField string
-		// wantNode, when set, flips the case to the success path: the DAG
-		// must build and contain this node.
-		wantNode string
+		wantNode  string
 	}{
 		{
 			name:      "dot in group name is rejected",
@@ -671,9 +638,6 @@ func TestBuildDAG_FieldNameValidation(t *testing.T) {
 			wantField: "stats.dexterity_mod",
 		},
 		{
-			// Before LGN-52 this built successfully, but both paths engine-key
-			// to "a_b_c": ToEngineEnv collapsed them into one entry whose value
-			// depended on Go's map iteration order.
 			name: "collision a_b.c vs a.b_c is rejected",
 			fields: FieldGroup{
 				"a_b": {Children: FieldGroup{"c": {Schema: leaf}}},
@@ -681,9 +645,6 @@ func TestBuildDAG_FieldNameValidation(t *testing.T) {
 			},
 		},
 		{
-			// Both paths string-key to "a.b.c": the second node would shadow
-			// the first in d.nodes, and ApplyUpdates would split the key and
-			// write to the wrong nesting level.
 			name: "collision a.b.c vs a.b.c is rejected",
 			fields: FieldGroup{
 				"a.b": {Children: FieldGroup{"c": {Schema: leaf}}},
@@ -732,7 +693,6 @@ func TestBuildDAG_FieldNameValidation(t *testing.T) {
 func TestRecalculate_EdgeCases(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
-	// Base DAG for most tests
 	baseFields := FieldGroup{
 		"stats": {Children: FieldGroup{
 			"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -862,8 +822,6 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			// LGN-59: Updating a new editable field not present in originalData
-			// (found == false) should propagate as a change.
 			name: "LGN-59: New editable field (found==false) propagates",
 			dag:  baseDag,
 			originalData: map[string]any{
@@ -871,19 +829,16 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 				"mod":   map[string]any{"str": 0.0},
 			},
 			updates: map[string]any{
-				"stats.dex": 14.0, // new field not in originalData
+				"stats.dex": 14.0,
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.NoError(t, err)
 			},
 			assertResult: func(t *testing.T, result map[string]any) {
-				assert.Equal(t, float64(2.0), result["mod.dex"]) // floor((14-10)/2) = 2
+				assert.Equal(t, float64(2.0), result["mod.dex"])
 			},
 		},
 		{
-			// LGN-59: Equal update (within epsilon) must suppress formula
-			// evaluation entirely — formula should not run, no errors from it.
-			// Uses a formula that would error (division by zero) if evaluated.
 			name: "LGN-59: Equal update suppresses formula evaluation (div by zero)",
 			dag: func() *DAG {
 				fields := FieldGroup{
@@ -891,7 +846,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 					"output": {Schema: &FieldSchema{
 						Type:       "number",
 						IsEditable: false,
-						Formula:    "10 / (input - 10)", // +Inf/error when input = 10
+						Formula:    "10 / (input - 10)",
 						DependsOn:  [][]string{{"input"}},
 					}},
 				}
@@ -900,16 +855,16 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			}(),
 			originalData: map[string]any{
 				"input":  10.0,
-				"output": math.Inf(1), // previous result was +Inf
+				"output": math.Inf(1),
 			},
 			updates: map[string]any{
-				"input": 10.0 + 1e-10, // within epsilon → filtered out, formula not evaluated
+				"input": 10.0 + 1e-10,
 			},
 			assertErr: func(t *testing.T, err error) {
-				require.NoError(t, err) // no error because formula not evaluated
+				require.NoError(t, err)
 			},
 			assertResult: func(t *testing.T, result map[string]any) {
-				assert.Empty(t, result) // no cascade because update was filtered
+				assert.Empty(t, result)
 			},
 		},
 	}
@@ -926,8 +881,6 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 	}
 }
 
-// TestRecalculate_DerivedFieldUpdate tests behavior when client sends update for a computed field.
-// Current behavior: the update is applied, then recalculation overwrites it with the formula result.
 func TestRecalculate_DerivedFieldUpdate(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
@@ -956,37 +909,31 @@ func TestRecalculate_DerivedFieldUpdate(t *testing.T) {
 	dag, err := BuildDAG("test", fields, formulaEngine)
 	require.NoError(t, err)
 
-	// User tries to set derived.dmg directly (should be recomputed)
 	originalData := map[string]any{
 		"stats":   map[string]any{"str": 16.0},
 		"mod":     map[string]any{"str": 3.0},
-		"derived": map[string]any{"dmg": 8.0}, // correct value
+		"derived": map[string]any{"dmg": 8.0},
 	}
 	updates := map[string]any{
-		"derived.dmg": 999.0, // malicious/incorrect client value
+		"derived.dmg": 999.0,
 	}
 
 	cascadingEffects, err := dag.Recalculate(originalData, updates)
 	require.NoError(t, err)
 
-	// Formula should win: derived.dmg = mod_str(3) + 5 = 8
 	assert.Equal(t, float64(8.0), cascadingEffects["derived.dmg"])
 	assert.Equal(t, float64(8.0), cascadingEffects["derived.dmg"])
 }
 
-// TestRecalculate_RuntimeFormulaError tests handling of formula evaluation edge cases.
-// The expr-lang engine returns +Inf/-Inf for division by zero rather than erroring.
-// Type mismatches (e.g., string + number) will return an error from Evaluate.
 func TestRecalculate_RuntimeFormulaError(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
-	// Test 1: Division by zero returns +Inf (not an error in expr-lang)
 	fieldsDivZero := FieldGroup{
 		"input": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
 		"output": {Schema: &FieldSchema{
 			Type:       "number",
 			IsEditable: false,
-			Formula:    "10 / (input - 10)", // +Inf when input = 10
+			Formula:    "10 / (input - 10)",
 			DependsOn:  [][]string{{"input"}},
 		}},
 	}
@@ -998,31 +945,26 @@ func TestRecalculate_RuntimeFormulaError(t *testing.T) {
 		"input":  5.0,
 		"output": 0.0,
 	}
-	// Update input to 10.0 to trigger division by zero (+Inf)
-	// Note: this update differs from the original, so it passes the LGN-59 filter
 	updates := map[string]any{"input": 10.0}
 
 	cascadingEffects, err := dag.Recalculate(originalData, updates)
 	require.NoError(t, err)
-	// +Inf != 0, so it propagates as a change
 	require.Contains(t, cascadingEffects, "output")
 	assert.True(t, math.IsInf(cascadingEffects["output"].(float64), 1), "expected +Inf")
 
-	// Test 2: Valid computation after
 	originalData2 := map[string]any{"input": 10.0, "output": math.Inf(1)}
-	updates2 := map[string]any{"input": 20.0} // 10 / (20 - 10) = 1.0
+	updates2 := map[string]any{"input": 20.0}
 
 	cascadingEffects2, err := dag.Recalculate(originalData2, updates2)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1.0), cascadingEffects2["output"])
 
-	// Test 3: Type mismatch error (string + number) - expr-lang returns error
 	fieldsTypeErr := FieldGroup{
 		"input": {Schema: &FieldSchema{Type: "string", IsEditable: true}},
 		"output": {Schema: &FieldSchema{
 			Type:       "number",
 			IsEditable: false,
-			Formula:    "input + 10", // string + number = type error
+			Formula:    "input + 10",
 			DependsOn:  [][]string{{"input"}},
 		}},
 	}
@@ -1036,11 +978,10 @@ func TestRecalculate_RuntimeFormulaError(t *testing.T) {
 	cascadingEffects3, err := dag2.Recalculate(originalData3, updates3)
 
 	require.Error(t, err, "Type mismatch during formula evaluation should return error to caller")
-	assert.ErrorContains(t, err, "invalid operation") // expr-lang error message
+	assert.ErrorContains(t, err, "invalid operation")
 	assert.Empty(t, cascadingEffects3)
 }
 
-// TestTopologicalSort_CycleDetection verifies that cycle detection returns the correct nodes.
 func TestTopologicalSort_CycleDetection(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
@@ -1095,13 +1036,12 @@ func TestTopologicalSort_CycleDetection(t *testing.T) {
 	}
 }
 
-// TestDetectCycle verifies the standalone cycle-detection helper directly.
 func TestDetectCycle(t *testing.T) {
 	tests := []struct {
 		name   string
 		nodes  map[string]*Node
 		adj    map[string][]string
-		expect []string // nil means no cycle
+		expect []string
 	}{
 		{
 			name:   "acyclic graph returns nil",
@@ -1139,8 +1079,6 @@ func TestDetectCycle(t *testing.T) {
 	}
 }
 
-// TestTopologicalSort_PrefixIntoCycle verifies that a cycle reached through a
-// non-cycle prefix reports only the cycle nodes (no prefix leakage).
 func TestTopologicalSort_PrefixIntoCycle(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 	fields := FieldGroup{
@@ -1170,8 +1108,6 @@ func TestTopologicalSort_PrefixIntoCycle(t *testing.T) {
 	assert.Contains(t, cycleErr.Nodes, "b")
 }
 
-// TestKahnTopoSort verifies that a valid DAG produces a topological order
-// where every dependency precedes its dependent.
 func TestKahnTopoSort(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 	fields := FieldGroup{
@@ -1199,7 +1135,6 @@ func TestKahnTopoSort(t *testing.T) {
 	assert.Less(t, pos["b"], pos["c"], "b must precede c")
 }
 
-// TestBuildDAG_InvalidDependency verifies that DependsOn referencing non-existent paths returns error.
 func TestBuildDAG_InvalidDependency(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
@@ -1248,7 +1183,6 @@ func TestBuildDAG_InvalidDependency(t *testing.T) {
 	}
 }
 
-// TestRecalculate_UnknownField verifies that updates with unknown fields return error.
 func TestRecalculate_UnknownField(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
@@ -1277,7 +1211,6 @@ func TestRecalculate_UnknownField(t *testing.T) {
 	assert.Equal(t, "unknown", fieldErr.Key)
 }
 
-// TestMapUtilsSet_ErrorCases verifies Set error handling.
 func TestMapUtilsSet_ErrorCases(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1317,7 +1250,6 @@ func TestMapUtilsSet_ErrorCases(t *testing.T) {
 	}
 }
 
-// TestPathSet_ErrorCases verifies Path.Set returns errors.
 func TestPathSet_ErrorCases(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1368,7 +1300,6 @@ func TestPathSet_ErrorCases(t *testing.T) {
 	}
 }
 
-// TestApplyUpdates_ErrorCases verifies ApplyUpdates returns errors.
 func TestApplyUpdates_ErrorCases(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1408,9 +1339,6 @@ func TestApplyUpdates_ErrorCases(t *testing.T) {
 	}
 }
 
-// TestBuildDAG_ExclusiveGroups pins the index build rules (EXC-08): only
-// editable leaves join a group, a group with fewer than two editable members is
-// dropped, and members are sorted for deterministic errors.
 func TestBuildDAG_ExclusiveGroups(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
@@ -1440,10 +1368,6 @@ func TestBuildDAG_ExclusiveGroups(t *testing.T) {
 	assert.NotContains(t, groups, "derivedOnly", "a group with no editable member is dropped")
 }
 
-// TestNormalizeExclusiveUpdates covers the update-time collapse (EXC-04,
-// EXC-05, EXC-06, EXC-08): one non-zero member zeroes the absent siblings, two
-// non-zero members conflict, and an untouched payload is returned as the same
-// map without allocation.
 func TestNormalizeExclusiveUpdates(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
@@ -1574,10 +1498,6 @@ func TestNormalizeExclusiveUpdates(t *testing.T) {
 	}
 }
 
-// TestNormalizeExclusiveUpdates_ConflictGroupIsDeterministic pins the group
-// visit order: a payload that turns on two members of two different groups
-// always reports the alphabetically first group, instead of whichever entry
-// Go's randomized map iteration reached first.
 func TestNormalizeExclusiveUpdates_ConflictGroupIsDeterministic(t *testing.T) {
 	fields := FieldGroup{
 		"config": {Children: FieldGroup{
@@ -1598,8 +1518,6 @@ func TestNormalizeExclusiveUpdates_ConflictGroupIsDeterministic(t *testing.T) {
 		"config.alphaB": 1.0,
 	}
 
-	// Repeated runs give map iteration a fresh seed each time, so a single
-	// assertion would only catch the regression probabilistically.
 	for i := range 20 {
 		got, err := dag.NormalizeExclusiveUpdates(updates)
 		require.Error(t, err, "run %d", i)
@@ -1612,10 +1530,6 @@ func TestNormalizeExclusiveUpdates_ConflictGroupIsDeterministic(t *testing.T) {
 	}
 }
 
-// TestNormalizeAndRecalculate pins the PATCH entry point that validates,
-// normalizes and recalculates under a single read-lock acquisition (T3): the
-// normalized map zeroes the exclusive sibling, the cascading effects reflect
-// the active member, and every typed error still bubbles through it.
 func TestNormalizeAndRecalculate(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 	fields := FieldGroup{

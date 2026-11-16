@@ -13,13 +13,10 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// generationQuotaRefunder returns the quota of an open generation through the
-// generation package's refund rule, so a revoke refunds exactly as a failure does.
 type generationQuotaRefunder struct {
 	quota generation.Quota
 }
 
-// RefundOpen implements llmconsent.QuotaRefunder.
 func (r generationQuotaRefunder) RefundOpen(ctx context.Context, open llmconsent.OpenGeneration) error {
 	return generation.RefundQuota(ctx, r.quota, generation.Document{
 		ID:     open.ID,
@@ -28,18 +25,14 @@ func (r generationQuotaRefunder) RefundOpen(ctx context.Context, open llmconsent
 	})
 }
 
-// LLMConsentController serves PUT and DELETE /me/llm-consent (ADR 0008).
 type LLMConsentController struct {
 	service llmconsent.Service
 }
 
-// NewLLMConsentController builds the consent controller over the service.
 func NewLLMConsentController(service llmconsent.Service) *LLMConsentController {
 	return &LLMConsentController{service: service}
 }
 
-// RegisterRoutes mounts the consent routes on a group that already carries the
-// auth and user rate-limit guards.
 func (lc *LLMConsentController) RegisterRoutes(group *echo.Group) {
 	group.PUT("", lc.Grant)
 	group.DELETE("", lc.Revoke)
@@ -49,7 +42,6 @@ type llmConsentRequest struct {
 	Version string `json:"version"`
 }
 
-// Grant records the player's consent to the disclosure version in the body.
 func (lc *LLMConsentController) Grant(c *echo.Context) error {
 	userID, ok := auth.UserID(c)
 	if !ok {
@@ -67,8 +59,6 @@ func (lc *LLMConsentController) Grant(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// Revoke withdraws the consent and deletes the generation data the service
-// holds for the player.
 func (lc *LLMConsentController) Revoke(c *echo.Context) error {
 	userID, ok := auth.UserID(c)
 	if !ok {

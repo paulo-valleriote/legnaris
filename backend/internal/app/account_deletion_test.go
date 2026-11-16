@@ -29,9 +29,6 @@ const (
 
 var deletionBody = `{"challenge_id":"` + deletionChallengeID + `","code":"` + deletionCode + `"}`
 
-// newAccountDeletionRouter mounts the two deletion routes as the production router
-// does: the request behind the bearer middleware and the active gate, the
-// confirmation behind the bearer middleware only, so a repeat stays idempotent.
 func newAccountDeletionRouter(t *testing.T, service auth.Service, tokens auth.TokenManager) http.Handler {
 	t.Helper()
 	e := echo.New()
@@ -42,8 +39,6 @@ func newAccountDeletionRouter(t *testing.T, service auth.Service, tokens auth.To
 	return e
 }
 
-// newGatedRouter mounts a protected route the way the router does: bearer
-// middleware, then the active gate.
 func newGatedRouter(t *testing.T, service auth.Service, tokens auth.TokenManager) http.Handler {
 	t.Helper()
 	e := echo.New()
@@ -64,9 +59,6 @@ func errorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 	return body.Error.Code
 }
 
-// TestRequestAccountDeletionController covers POST /auth/me/deletion: 202 with the
-// challenge for an active account, 403 for a deleting one, and the refusals
-// without a credential or for an unknown account.
 func TestRequestAccountDeletionController(t *testing.T) {
 	tokens, err := auth.NewTokenManager("deletion-test-secret", 15*time.Minute, time.Now)
 	require.NoError(t, err)
@@ -148,9 +140,6 @@ func TestRequestAccountDeletionController(t *testing.T) {
 	}
 }
 
-// TestAccountDeletionController covers DELETE /auth/me: 202 with the deleting
-// status once the code is accepted, the body checks, the uniform code refusal,
-// the refusal without a usable credential and the typed error of a store failure.
 func TestAccountDeletionController(t *testing.T) {
 	tokens, err := auth.NewTokenManager("deletion-test-secret", 15*time.Minute, time.Now)
 	require.NoError(t, err)
@@ -292,8 +281,6 @@ func TestAccountDeletionController(t *testing.T) {
 	}
 }
 
-// TestActiveGate covers the gate on a protected route: an active account reaches the
-// handler, a deleting or dead one is forbidden, and a missing credential stays unauthorized.
 func TestActiveGate(t *testing.T) {
 	tokens, err := auth.NewTokenManager("gate-test-secret", 15*time.Minute, time.Now)
 	require.NoError(t, err)

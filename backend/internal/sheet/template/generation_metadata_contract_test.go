@@ -9,9 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFieldSchemaDTO_MarshalJSON_GenerationMetadata pins the snake_case wire
-// contract of the generation metadata: set keys are emitted, unset keys are
-// omitted so every pre-LGN-184 leaf keeps its payload byte for byte.
 func TestFieldSchemaDTO_MarshalJSON_GenerationMetadata(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -51,9 +48,6 @@ func TestFieldSchemaDTO_MarshalJSON_GenerationMetadata(t *testing.T) {
 	}
 }
 
-// TestGenerationMetadata_CopiesDoNotAlias checks that the pointer fields are
-// not shared between the registry, its clones and the DTO, the same guarantee
-// DependsOn already has (LGN-60).
 func TestGenerationMetadata_CopiesDoNotAlias(t *testing.T) {
 	original := Template{Fields: FieldGroup{"stats": {Children: FieldGroup{
 		"strength": genLeaf(FieldSchema{Generatable: true, Min: f64(3), Max: f64(20), Type: fieldTypeNumber}),
@@ -87,10 +81,6 @@ func TestGenerationMetadata_CopiesDoNotAlias(t *testing.T) {
 	assert.Equal(t, 40, *name.MaxLength)
 }
 
-// TestFantasyV1_GenerationMetadata pins the generation contract of the default
-// template: every editable leaf outside rules.* is generatable with a bounded
-// range or length, and nothing else is. Derived leaves and the rules tuning
-// numbers stay out of the LLM output schema.
 func TestFantasyV1_GenerationMetadata(t *testing.T) {
 	schemas, paths := collectLeaves(fantasyV1Template.Fields)
 	require.NotEmpty(t, schemas)
@@ -125,8 +115,6 @@ func TestFantasyV1_GenerationMetadata(t *testing.T) {
 	require.NoError(t, ValidateGenerationMetadata(fantasyV1Template))
 }
 
-// TestFantasyV1_GenerationMetadataPayload checks the served contract: the
-// fantasy_v1 DTO exposes the generation metadata under the documented keys.
 func TestFantasyV1_GenerationMetadataPayload(t *testing.T) {
 	raw, err := json.Marshal(fantasyV1Template.ToDTO())
 	require.NoError(t, err)

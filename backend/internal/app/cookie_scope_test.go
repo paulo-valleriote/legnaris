@@ -9,10 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegration_CookieScope pins AUTH-26 / SC-008: the bearer routes keep
-// working with an Authorization header, never require a cookie, and are not
-// touched by the origin or the rate-limit guard that protect the auth routes.
-// The auth budget is 10 so the exhausted-limiter edge trips in a few requests.
 func TestIntegration_CookieScope(t *testing.T) {
 	h, mdb, _ := newIntegrationStack(t, map[string]string{"AUTH_RATE_LIMIT_ATTEMPTS": "10"})
 	token, _ := newAuthUser(t, h, mdb, "cookie-scope@example.com", "cookie-scope")
@@ -40,8 +36,6 @@ func TestIntegration_CookieScope(t *testing.T) {
 		}
 		require.True(t, exhausted, "repeated logins must eventually be rate limited")
 
-		// The bearer routes are not limited by the auth guard, so the access
-		// token still works with no Origin and no cookie.
 		rec := doAuthRequest(t, h, token, http.MethodGet, "/templates", "")
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	})

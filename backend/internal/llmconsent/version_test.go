@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestVersionMatchesDisclosure keeps the Go constant in step with the consent
-// text the web client renders (LGN-228, ADR 0008).
 func TestVersionMatchesDisclosure(t *testing.T) {
 	_, thisFile, _, ok := runtime.Caller(0)
 	require.True(t, ok)

@@ -18,8 +18,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// newRepositoryTest wires the real repository over an isolated MongoDB database and
-// skips when no replica set is available.
 func newRepositoryTest(t *testing.T) sheet.Repository {
 	t.Helper()
 
@@ -27,9 +25,6 @@ func newRepositoryTest(t *testing.T) sheet.Repository {
 	return repo
 }
 
-// newRepositoryTestWithDB also returns the database handle, for the tests that
-// seed documents the repository itself would never write, such as a sheet that
-// predates the version field.
 func newRepositoryTestWithDB(t *testing.T) (sheet.Repository, *mongo.Database) {
 	t.Helper()
 

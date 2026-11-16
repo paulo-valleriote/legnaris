@@ -6,10 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestFieldSchema_SeedValue covers the type-driven seeding contract the
-// sheet service uses on Create: text must start empty (Default is a
-// float64 and cannot express a string), booleans start false, and every
-// other type starts at its numeric default.
 func TestFieldSchema_SeedValue(t *testing.T) {
 	tests := []struct {
 		name   string

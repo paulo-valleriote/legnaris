@@ -25,8 +25,6 @@ const (
 	f1aMetricsSource   = "../backend/internal/platform/metrics/metrics.go"
 )
 
-// f1aAlert is the contract of one F1a alarm: its severity and the fragments its
-// expression must carry to read the right series from the right process.
 type f1aAlert struct {
 	name     string
 	severity string
@@ -95,9 +93,6 @@ func f1aAlertsByName(t *testing.T) map[string]ruleSpec {
 	return alerts
 }
 
-// TestF1aAlertRulesExistAndAreComplete guards the F1a alarm set: each alarm of
-// LGN-226 is declared once, carries a severity, a patience, what broke and the
-// shared runbook for dead sweeper items.
 func TestF1aAlertRulesExistAndAreComplete(t *testing.T) {
 	alerts := f1aAlertsByName(t)
 
@@ -139,9 +134,6 @@ func TestF1aAlertRulesExistAndAreComplete(t *testing.T) {
 	})
 }
 
-// TestF1aAlertRulesNameTheirSeriesAndProcess guards each expression against
-// reading a counter the wrong way: every legnaris series names its job and the
-// queue or cause it is about.
 func TestF1aAlertRulesNameTheirSeriesAndProcess(t *testing.T) {
 	alerts := f1aAlertsByName(t)
 
@@ -179,8 +171,6 @@ func TestF1aAlertRulesNameTheirSeriesAndProcess(t *testing.T) {
 	})
 }
 
-// TestF1aAlertThresholdsAreConfigurable guards the tunable limits: the age and
-// the cap ratio live in one recorded block, and no comparison hides a number.
 func TestF1aAlertThresholdsAreConfigurable(t *testing.T) {
 	alerts := f1aAlertsByName(t)
 
@@ -212,8 +202,6 @@ func TestF1aAlertThresholdsAreConfigurable(t *testing.T) {
 	})
 }
 
-// TestF1aSweeperMetricsExistInSource guards the names the rules and the
-// dashboard read against the collectors the binaries really register.
 func TestF1aSweeperMetricsExistInSource(t *testing.T) {
 	raw, err := os.ReadFile(f1aMetricsSource)
 	require.NoError(t, err)
@@ -242,9 +230,6 @@ func TestF1aSweeperMetricsExistInSource(t *testing.T) {
 	})
 }
 
-// TestF1aScrapeCarriesTheSweeperAndTheBroker guards the scrape path: the relay's
-// listener is the only place the sweeper series are served, and the broker's
-// plugin port is the one that carries events.unrouted depth.
 func TestF1aScrapeCarriesTheSweeperAndTheBroker(t *testing.T) {
 	jobs := scrapeTargets(t)
 
@@ -263,8 +248,6 @@ func TestF1aScrapeCarriesTheSweeperAndTheBroker(t *testing.T) {
 	})
 }
 
-// TestF1aRulesAreLoadedAndMounted guards the wiring: the stack evaluates the
-// F1a rules file beside the email rules, and mounts it read-only.
 func TestF1aRulesAreLoadedAndMounted(t *testing.T) {
 	raw, err := os.ReadFile(prometheusFile)
 	require.NoError(t, err)
@@ -310,9 +293,6 @@ func readF1aDashboard(t *testing.T) f1aDashboardDoc {
 	return doc
 }
 
-// TestF1aDashboardCoversTheSweeperAndCap guards the dashboard: one provisioned
-// document with a panel per series the LGN-226 card lists, each naming the
-// series it reads.
 func TestF1aDashboardCoversTheSweeperAndCap(t *testing.T) {
 	dashboard := readF1aDashboard(t)
 

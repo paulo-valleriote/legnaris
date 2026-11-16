@@ -16,10 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegration_PublishConsumeAcknowledge drives a real broker end to end:
-// it declares the topology, publishes a message, consumes it and acknowledges
-// it. It self-skips without RABBITMQ_URL, so no unit run needs a broker
-// (WKR-27, SC-009).
 func TestIntegration_PublishConsumeAcknowledge(t *testing.T) {
 	url := os.Getenv("RABBITMQ_URL")
 	if url == "" {

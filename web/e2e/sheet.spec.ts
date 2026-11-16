@@ -2,8 +2,6 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { seedSession } from './auth_seed';
 
-// The service worker is irrelevant to the accessibility measurement and would
-// sit between the page and the intercepted API requests.
 test.use({ serviceWorkers: 'block' });
 
 const TEMPLATE_ID = 'fantasy_v1';
@@ -73,8 +71,6 @@ test.describe('sheet accessibility (WSC-39, SC-010, AD-014)', () => {
     await page.route('**/templates/*', (route) => route.fulfill({ json: { data: DETAIL } }));
     await page.route('**/templates', (route) => route.fulfill({ json: { data: CATALOG } }));
     await page.route('**/sheets/*/preview', (route) => route.fulfill({ json: { data: {} } }));
-    // The deep link `/sheets/:id` is also a document navigation; only the JSON
-    // request is intercepted, so the document still resolves to the SPA shell.
     await page.route('**/sheets/*', (route) =>
       route.request().resourceType() === 'document'
         ? route.fallback()

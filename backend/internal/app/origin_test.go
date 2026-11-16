@@ -15,8 +15,6 @@ import (
 
 const allowedOrigin = "https://legnaris.paulovalleriote.io"
 
-// newOriginRouter mounts the origin guard on the two cookie-authenticated routes
-// and an unguarded bearer route, mirroring router.go's scoping (AUTH-26).
 func newOriginRouter() *echo.Echo {
 	e := echo.New()
 	e.HTTPErrorHandler = HTTPErrorHandler

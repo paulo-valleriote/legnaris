@@ -13,14 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// validOutput is a model output that satisfies the fixture Template.
 const validOutput = `{
 	"identity": {"name": "Aria", "title": "Scout"},
 	"stats": {"strength": 12, "dexterity": 15, "hero": true},
 	"config": {"armorClassAbility": "acUsesCon"}
 }`
 
-// parseFixture decodes raw into a map the way the worker does before Expand.
 func parseFixture(t *testing.T, raw string) map[string]any {
 	t.Helper()
 	obj, err := generation.ParseOutput(json.RawMessage(raw))
@@ -28,7 +26,6 @@ func parseFixture(t *testing.T, raw string) map[string]any {
 	return obj
 }
 
-// TestOutputSchema pins the shape the model is asked to fill.
 func TestOutputSchema(t *testing.T) {
 	ok := func(schema json.RawMessage) map[string]any {
 		var root map[string]any
@@ -101,7 +98,6 @@ func TestOutputSchema(t *testing.T) {
 	}
 }
 
-// mustSchema returns the fixture schema or fails the test.
 func mustSchema(t *testing.T, tmpl *template.Template) json.RawMessage {
 	t.Helper()
 	raw, err := generation.OutputSchema(tmpl)
@@ -109,7 +105,6 @@ func mustSchema(t *testing.T, tmpl *template.Template) json.RawMessage {
 	return raw
 }
 
-// TestSystemPromptAndUserPrompt pins the prompt the model reads.
 func TestSystemPromptAndUserPrompt(t *testing.T) {
 	t.Run("Happy path: the system prompt lists generatable fields, bounds and options only", func(t *testing.T) {
 		prompt, err := generation.SystemPrompt(fixtureTemplate())
@@ -154,7 +149,6 @@ func TestSystemPromptAndUserPrompt(t *testing.T) {
 	})
 }
 
-// TestParseOutput covers the strict decode of one output.
 func TestParseOutput(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -194,7 +188,6 @@ func TestParseOutput(t *testing.T) {
 	})
 }
 
-// TestExpand covers the validation of one parsed output against the Template.
 func TestExpand(t *testing.T) {
 	t.Run("Happy path: values are typed and the exclusive group becomes 0/1 flags", func(t *testing.T) {
 		values, err := generation.Expand(fixtureTemplate(), parseFixture(t, validOutput))
@@ -319,7 +312,6 @@ func TestExpand(t *testing.T) {
 	})
 }
 
-// TestOutputErrorMessage covers the error text used in logs.
 func TestOutputErrorMessage(t *testing.T) {
 	t.Run("Edge: an error without problems still names the sentinel", func(t *testing.T) {
 		err := &generation.OutputError{}

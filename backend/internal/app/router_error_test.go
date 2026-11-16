@@ -15,9 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newErrorHandlerApp mounts a single route over the production HTTPErrorHandler,
-// so a handler can return an arbitrary error and the boundary translation is
-// observable without routing or middleware in the way.
 func newErrorHandlerApp(h echo.HandlerFunc) http.Handler {
 	e := echo.New()
 	e.HTTPErrorHandler = app.HTTPErrorHandler
@@ -25,11 +22,6 @@ func newErrorHandlerApp(h echo.HandlerFunc) http.Handler {
 	return e
 }
 
-// TestHTTPErrorHandler_RoutingErrors covers LGN-48 at the router boundary: Echo
-// reports an unmatched route and a known path reached with the wrong method as
-// typed HTTP-status errors rather than apperr, so untranslated they answered the
-// 500 fallback. These requests take the real router, because the status comes
-// from route resolution, not from a handler.
 func TestHTTPErrorHandler_RoutingErrors(t *testing.T) {
 	h, _ := newWiringRouter(t)
 
@@ -105,11 +97,6 @@ func TestHTTPErrorHandler_RoutingErrors(t *testing.T) {
 	}
 }
 
-// TestHTTPErrorHandler_Translations pins how asAppErr classifies a handler
-// error: an apperr keeps its own status, a status-coded error is translated to
-// the matching apperr code, and everything else stays on the 500 safety net
-// (mirroring apperr's TestHttpStatus_UnmappedCodeFallsBackTo500) so an
-// unmapped status is never silently promoted to a client error.
 func TestHTTPErrorHandler_Translations(t *testing.T) {
 	tests := []struct {
 		name        string

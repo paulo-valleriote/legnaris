@@ -3,12 +3,6 @@ import { useStageThemeColor } from '../landing/use_stage_theme_color';
 import { LeftNav } from './left_nav';
 import './shell.css';
 
-/**
- * The application shell: navigation then content, exactly two regions on every
- * route (UIF-24). The navigation stays visible as the viewport narrows; below
- * 40rem it is a top bar above the content and the content takes the full width
- * (UIF-25); there is no contextual panel.
- */
 export function AppShell() {
   useStageThemeColor();
 

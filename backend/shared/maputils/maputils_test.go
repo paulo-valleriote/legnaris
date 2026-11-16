@@ -392,8 +392,6 @@ func TestApplyUpdates(t *testing.T) {
 			wantErr:    ErrNotMap,
 		},
 		{
-			// Parity with the former sheet/service splitPathKey: an empty key
-			// must error instead of silently dropping the update.
 			name:       "Empty key - returns ErrEmptyPath",
 			nested:     map[string]any{"a": 1.0},
 			updates:    map[string]any{"": 2.0},
@@ -401,7 +399,6 @@ func TestApplyUpdates(t *testing.T) {
 			wantErr:    ErrEmptyPath,
 		},
 		{
-			// Trailing separators keep their empty segment, matching splitPath.
 			name:       "Trailing dot key keeps empty segment",
 			nested:     map[string]any{},
 			updates:    map[string]any{"a.": 1.0},
@@ -409,8 +406,6 @@ func TestApplyUpdates(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			// Parity with the former sheet/service splitPathKey on multibyte
-			// keys: splitting must not break rune sequences.
 			name:       "Multibyte segments split on dots",
 			nested:     map[string]any{},
 			updates:    map[string]any{"action.mod": 2.0},
@@ -558,10 +553,7 @@ func TestFlattenPathKeys(t *testing.T) {
 	}
 }
 
-// TestFlattenPathKeys_MaxDepth pins the DoS guard: a map nested deeper than
-// MaxNestingDepth is rejected before the recursive walk can exhaust the stack.
 func TestFlattenPathKeys_MaxDepth(t *testing.T) {
-	// nestedAt builds a chain of depth map levels ending in one scalar leaf.
 	nestedAt := func(depth int) map[string]any {
 		root := map[string]any{}
 		current := root

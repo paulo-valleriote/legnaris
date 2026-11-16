@@ -14,17 +14,10 @@ import (
 
 const dockerSocketPath = "/var/run/docker.sock"
 
-// requiredComposeVarPattern matches ${VAR}, ${VAR:?message} and ${VAR?message}
-// (compose requires them) and captures the name. ${VAR:-default} and ${VAR-default}
-// are optional and deliberately not matched.
 var requiredComposeVarPattern = regexp.MustCompile(`\$\{([A-Z][A-Z0-9_]*)(:\?[^}]*|\?[^}]*)?\}`)
 
-// commentedEnvPattern matches an example line documented only as a comment.
 var commentedEnvPattern = regexp.MustCompile(`(?m)^#\s*([A-Z][A-Z0-9_]*)=`)
 
-// TestEdgeProxyRunsWithoutDockerSocket guards the hardening that keeps a
-// compromised proxy from driving the Docker API: Traefik routes only from the
-// file provider, so the socket volume must never come back.
 func TestEdgeProxyRunsWithoutDockerSocket(t *testing.T) {
 	traefik := readCompose(t).Services["traefik"]
 	require.NotEmpty(t, traefik.Image, "guard: the traefik service must exist")
@@ -48,8 +41,6 @@ func TestEdgeProxyRunsWithoutDockerSocket(t *testing.T) {
 	})
 }
 
-// TestDynamicRoutesUseSecureEntrypoint guards routing without entrypoint
-// indirection: every router must enter through the TLS entrypoint literally.
 func TestDynamicRoutesUseSecureEntrypoint(t *testing.T) {
 	raw, err := os.ReadFile(dynamicFile)
 	require.NoErrorf(t, err, "read %s", dynamicFile)
@@ -76,9 +67,6 @@ func TestDynamicRoutesUseSecureEntrypoint(t *testing.T) {
 	})
 }
 
-// TestOAuthAllowlistGatesEmailDomain guards the ops gate: the wildcard e-mail
-// domain lets any GitHub account through, so it may only be set where a GitHub
-// user allowlist is set alongside it.
 func TestOAuthAllowlistGatesEmailDomain(t *testing.T) {
 	services := readCompose(t).Services
 
@@ -99,9 +87,6 @@ func TestOAuthAllowlistGatesEmailDomain(t *testing.T) {
 	})
 }
 
-// TestExampleEnvCoversRequiredComposeVars guards the deploy template: every
-// variable the compose stack requires must have a non-empty placeholder in
-// .env.example, otherwise CI's interpolation and the operator's copy diverge.
 func TestExampleEnvCoversRequiredComposeVars(t *testing.T) {
 	composeRaw, err := os.ReadFile(composeFile)
 	require.NoErrorf(t, err, "read %s", composeFile)
@@ -142,9 +127,6 @@ func readEnvExample(t *testing.T) string {
 	return string(raw)
 }
 
-// parseEnvExample returns the active KEY=value pairs of an env file. Comment
-// lines are skipped, so an optional setting documented only as a comment reads
-// as absent.
 func parseEnvExample(raw string) map[string]string {
 	values := map[string]string{}
 	for line := range strings.SplitSeq(raw, "\n") {

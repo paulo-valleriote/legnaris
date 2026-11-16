@@ -25,10 +25,6 @@ type Logger struct {
 	log *slog.Logger
 }
 
-// NewLogger creates a new structured logger writing JSON to stdout.
-// Note: this function does NOT call slog.SetDefault — the caller owns the
-// logger instance and must pass it explicitly. If you need the default
-// slog logger, call slog.SetDefault explicitly at boot.
 func NewLogger(level slog.Level) Logger {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level:       level,
@@ -68,15 +64,9 @@ func (l Logger) With(key string, value string) StructuredLogger {
 	}
 }
 
-// redactedKeys is an immutable list of sensitive keys.
-// A "_" prefix/suffix marks an exact match; otherwise Contains is used.
 var redactedKeys = []string{
 	"password", "token", "_cookie", "cookie_", "api_key", "_hash", "hash_",
 	"document_number", "cpf", "cnpj", "email", "user_email",
-	// The two browser auth cookies carry the refresh credential and the CSRF
-	// token; naming them keeps a record keyed by either one out of the logs
-	// (AUTH-25, SC-006). They are literal strings because shared must not
-	// import backend/internal/auth.
 	"__host-legnaris_refresh", "__host-legnaris_csrf",
 }
 

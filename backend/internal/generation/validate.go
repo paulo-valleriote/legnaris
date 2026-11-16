@@ -14,22 +14,14 @@ import (
 	sharedjson "legnaris/backend/shared/json"
 )
 
-// ErrInvalidOutput is the sentinel of a model output the Template rejects. Every
-// rejection is an *OutputError, which carries the problems to feed back.
 var ErrInvalidOutput = errors.New("generation: model output is invalid")
 
-// maxProblems caps the problems one OutputError carries, so a retry prompt stays
-// short whatever the model produced.
 const maxProblems = 10
 
-// OutputError reports every problem found in one model output. Each problem names
-// a field and the rule it broke, never the value the model produced, so the list
-// is safe to feed back to the model and to keep out of the logs.
 type OutputError struct {
 	Problems []string
 }
 
-// Error describes the rejection by its first problem and the count.
 func (e *OutputError) Error() string {
 	if len(e.Problems) == 0 {
 		return ErrInvalidOutput.Error()
@@ -37,14 +29,10 @@ func (e *OutputError) Error() string {
 	return fmt.Sprintf("%s: %s (%d problems)", ErrInvalidOutput, e.Problems[0], len(e.Problems))
 }
 
-// Unwrap lets errors.Is match ErrInvalidOutput.
 func (e *OutputError) Unwrap() error {
 	return ErrInvalidOutput
 }
 
-// ParseOutput decodes raw as exactly one JSON object. Numbers are kept as
-// json.Number, so Expand can reject a number that does not fit a float64 instead of
-// letting the decoder round it.
 func ParseOutput(raw json.RawMessage) (map[string]any, error) {
 	var value any
 	if err := sharedjson.DecodeBytesUseNumber(raw, &value); err != nil {
@@ -57,8 +45,6 @@ func ParseOutput(raw json.RawMessage) (map[string]any, error) {
 	return object, nil
 }
 
-// outputParseProblem names why a model output did not decode, in the words fed
-// back to the model on a retry.
 func outputParseProblem(err error) string {
 	switch {
 	case errors.Is(err, sharedjson.ErrBodyTooLarge):
@@ -70,11 +56,6 @@ func outputParseProblem(err error) string {
 	}
 }
 
-// Expand checks output against the Template and returns the nested leaf values it
-// sets: each generated number, text or flag, and the 0/1 flags of every exclusive
-// group, where the chosen member is 1 and its siblings are 0. Unknown keys, missing
-// keys, wrong types, out-of-range numbers and over-long texts are all reported in
-// one *OutputError.
 func Expand(tmpl *template.Template, output map[string]any) (map[string]any, error) {
 	if tmpl == nil {
 		return nil, ErrNoTemplate
@@ -87,12 +68,10 @@ func Expand(tmpl *template.Template, output map[string]any) (map[string]any, err
 	return values, nil
 }
 
-// checker collects the problems of one output.
 type checker struct {
 	problems []string
 }
 
-// add records one problem as "path: rule", stopping after maxProblems.
 func (c *checker) add(path, rule string) {
 	if len(c.problems) >= maxProblems {
 		return
@@ -100,7 +79,6 @@ func (c *checker) add(path, rule string) {
 	c.problems = append(c.problems, path+": "+rule)
 }
 
-// group checks one object against one FieldGroup and returns the values it sets.
 func (c *checker) group(fields template.FieldGroup, data map[string]any, prefix string) map[string]any {
 	lv := levelOf(fields)
 	c.rejectUnknown(lv, data, prefix)
@@ -124,8 +102,6 @@ func (c *checker) group(fields template.FieldGroup, data map[string]any, prefix 
 	return values
 }
 
-// rejectUnknown reports every key of data that the level does not declare. Keys of
-// the level's members are checked as the exclusive group they belong to.
 func (c *checker) rejectUnknown(lv level, data map[string]any, prefix string) {
 	allowed := map[string]bool{}
 	for name := range lv.leaves {
@@ -144,8 +120,6 @@ func (c *checker) rejectUnknown(lv level, data map[string]any, prefix string) {
 	}
 }
 
-// leaf checks one generated value against its schema and returns it converted to
-// the stored type.
 func (c *checker) leaf(path string, schema *template.FieldSchema, raw any) (any, bool) {
 	switch schema.Type {
 	case fieldTypeNumber:
@@ -164,7 +138,6 @@ func (c *checker) leaf(path string, schema *template.FieldSchema, raw any) (any,
 	}
 }
 
-// number checks a JSON number against its finite float64 range and its bounds.
 func (c *checker) number(path string, schema *template.FieldSchema, raw any) (any, bool) {
 	num, ok := raw.(json.Number)
 	if !ok {
@@ -187,7 +160,6 @@ func (c *checker) number(path string, schema *template.FieldSchema, raw any) (an
 	return value, true
 }
 
-// text checks a JSON string against its length bound, counted in characters.
 func (c *checker) text(path string, schema *template.FieldSchema, raw any) (any, bool) {
 	value, ok := raw.(string)
 	if !ok {
@@ -201,7 +173,6 @@ func (c *checker) text(path string, schema *template.FieldSchema, raw any) (any,
 	return value, true
 }
 
-// child checks a nested object and stores its values under name.
 func (c *checker) child(name string, fields template.FieldGroup, data map[string]any, prefix string, values map[string]any) {
 	path := join(prefix, name)
 	raw, present := data[name]
@@ -217,9 +188,6 @@ func (c *checker) child(name string, fields template.FieldGroup, data map[string
 	values[name] = c.group(fields, object, path)
 }
 
-// exclusive checks the option picked for one exclusive group and sets the 0/1 flag
-// of every member of the group, generatable or not, so the group keeps at most one
-// active member.
 func (c *checker) exclusive(name string, lv level, data map[string]any, prefix string, values map[string]any) {
 	path := join(prefix, name)
 	members := lv.members[name]

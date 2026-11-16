@@ -12,9 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegration_SheetLimits drives the Free allowance over HTTP: the first
-// character is created, the second is refused with the kind and limit, an NPC
-// still fits its own allowance, and GET /me/plan reports the same figures.
 func TestIntegration_SheetLimits(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	token, _ := newAuthUser(t, h, mdb, "limits@example.com", "limits-user")

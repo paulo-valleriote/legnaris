@@ -11,7 +11,6 @@ const ONE_TEMPLATE: readonly TemplateSummary[] = [
   { id: 'dnd5e', name: 'Dungeons & Dragons 5e', default: true, fields: {} },
 ];
 
-/** Calls the client from context and reports the template names it decoded. */
 function CatalogProbe({ onResult }: { onResult: (names: readonly string[]) => void }) {
   const client = useApiClient();
 

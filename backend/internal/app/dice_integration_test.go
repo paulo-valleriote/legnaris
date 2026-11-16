@@ -253,9 +253,6 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 	})
 }
 
-// nullDiceBody builds a PATCH body of n "no dice" entries over real fantasy_v1
-// keys: every Section first, then Rows, so the keys are valid and only the cap
-// can refuse it.
 func nullDiceBody(t *testing.T, n int) string {
 	t.Helper()
 
@@ -286,9 +283,6 @@ func nullDiceBody(t *testing.T, n int) string {
 	return string(raw)
 }
 
-// patchUntilApplied resends a PATCH for as long as the server answers 409, the
-// lost compare-and-swap that ADR 0006 tells the client to retry. It stops after
-// 100 resends and returns the last response.
 func patchUntilApplied(t *testing.T, h http.Handler, token, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := doAuthRequest(t, h, token, http.MethodPatch, path, body)

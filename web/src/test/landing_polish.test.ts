@@ -3,10 +3,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-/**
- * The landing sits outside the app shell, so the shell's reduced-motion clamp never reaches it
- * and the page, always dark, must keep native controls and the canvas dark in the light theme.
- */
 const here = path.dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(path.resolve(here, '../landing/landing.css'), 'utf8');
 

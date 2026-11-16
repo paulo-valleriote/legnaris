@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRecorder proves the recording double records sends and surfaces the
-// injected sentinel, so no suite needs the real provider (EML-10).
 func TestRecorder(t *testing.T) {
 	t.Run("Happy path: records the outbound and returns nil", func(t *testing.T) {
 		recorder := emailtest.NewRecorder()
@@ -65,8 +63,6 @@ func TestRecorder(t *testing.T) {
 	})
 }
 
-// TestRecorder_Concurrent proves the recorder is safe under concurrent sends
-// (the race detector must stay clean).
 func TestRecorder_Concurrent(t *testing.T) {
 	recorder := emailtest.NewRecorder()
 
@@ -84,8 +80,6 @@ func TestRecorder_Concurrent(t *testing.T) {
 	assert.Equal(t, goroutines, recorder.Count())
 }
 
-// TestRecorder_UnrelatedErrorIsNotASentinel guards against a sentinel sneaking
-// in from an unrelated error.
 func TestRecorder_UnrelatedErrorIsNotASentinel(t *testing.T) {
 	recorder := emailtest.NewRecorder()
 	recorder.SetFailure(errors.New("boom"))

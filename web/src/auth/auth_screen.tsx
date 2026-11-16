@@ -1,20 +1,3 @@
-/**
- * The auth surface (WAS-07, WAS-09, WAS-10, R9, WCS-21, WCS-22).
- *
- * One place offers sign-in and registration through a mode switch, opening with
- * a mode-specific title beside the landing's photograph, so the surface carries
- * the same identity as the page that led to it. The single primary action submits through the session,
- * is disabled and shows progress while a submit is in flight, and the password
- * is a hidden-content control. A failed submit keeps the typed values and
- * renders the mapped failure copy resolved from the catalog — never the server
- * message, so the copy never reveals whether an email exists (WAS-10). Switching
- * mode clears a stale error but keeps the values.
- *
- * A form that comes back from an abandoned code step returns with the address
- * and the account mode the step started with and with an empty password
- * (WCS-21); the password never was part of the pending step.
- */
-
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { failureCopy, failureKind } from '../api/error_mapper';
@@ -32,9 +15,7 @@ export type { RestoredForm };
 
 interface AuthScreenProps {
   readonly restore?: RestoredForm | null;
-  /** The mode the surface opens in when no abandoned code step dictates one. */
   readonly initialMode?: AuthMode;
-  /** The sanitised destination to return to after sign-in, when one was carried. */
   readonly next?: string | null;
 }
 
@@ -49,7 +30,6 @@ function subtitle(mode: AuthMode, next: string | null): string {
   return mode === 'login' ? message('auth.subtitleLogin') : message('auth.subtitleRegister');
 }
 
-/** The single sign-in / registration surface (WAS-09). */
 export function AuthScreen({ restore, initialMode = 'login', next = null }: AuthScreenProps) {
   const session = useAuthSession();
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);

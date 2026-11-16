@@ -153,8 +153,6 @@ func TestCSRFTokenManager_Issue(t *testing.T) {
 	})
 }
 
-// Verify must not leak which family was expected through a distinct error
-// value: every failure is the same sentinel (AUTH-10, AUTH-11).
 func TestCSRFTokenManager_Verify_FailuresAreIndistinguishable(t *testing.T) {
 	manager := newCSRFManager(t)
 

@@ -20,10 +20,6 @@ const (
 	benchP95Fraction = 0.95
 )
 
-// buildChainDAG builds a template of benchFieldCount fields: benchEditable
-// editable leaves e000.. and an equally long derived chain d000.. where d000
-// reads e000 and every other dNNN reads its predecessor. Updating e000 is the
-// worst case for a cascade: it recomputes the whole chain.
 func buildChainDAG(tb testing.TB) (*DAG, map[string]any) {
 	tb.Helper()
 
@@ -97,8 +93,6 @@ func BenchmarkNormalizeAndRecalculate_FantasyV1(b *testing.B) {
 	}
 }
 
-// seedGroup mirrors the sheet seeding Create performs: every leaf starts at its
-// SeedValue, nested groups stay nested.
 func seedGroup(group FieldGroup) map[string]any {
 	out := make(map[string]any, len(group))
 	for key, node := range group {
@@ -111,8 +105,6 @@ func seedGroup(group FieldGroup) map[string]any {
 	return out
 }
 
-// TestRecalculateChain200_P95UnderBudget pins the LGN-33 acceptance criterion:
-// the p95 of a worst-case cascade over a 200-field template stays under 50ms.
 func TestRecalculateChain200_P95UnderBudget(t *testing.T) {
 	dag, sheet := buildChainDAG(t)
 

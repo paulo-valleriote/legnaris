@@ -23,9 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestErrorMapping_CreateSheetLimitCarriesDetails pins the wire contract of a
-// refused creation: 409 SHEET_LIMIT_REACHED with the kind and the allowance, and
-// a malformed kind is a 400 before any write.
 func TestErrorMapping_CreateSheetLimitCarriesDetails(t *testing.T) {
 	tests := []struct {
 		name        string

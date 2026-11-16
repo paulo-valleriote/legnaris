@@ -12,9 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// TestEnsureIndexes_Generations pins the generation job collection: a sparse unique
-// key on active_user_id is the one-in-progress guard, and TTLs retire documents at
-// expires_at (ADR 0007, ADR 0008).
 func TestEnsureIndexes_Generations(t *testing.T) {
 	mdb := newIndexesTestDatabase(t)
 	ctx := context.Background()

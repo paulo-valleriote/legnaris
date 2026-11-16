@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newCountsTest wires the repository and a transactor over an isolated replica
-// set. The transactor is what runs ReserveSlot and ReleaseSlot in production.
 func newCountsTest(t *testing.T) (sheet.Repository, *db.Transactor) {
 	t.Helper()
 
@@ -23,8 +21,6 @@ func newCountsTest(t *testing.T) (sheet.Repository, *db.Transactor) {
 	return repo, db.NewTransactor(mdb.Client(), nil)
 }
 
-// reserve runs one reservation inside its own transaction, the way the service
-// calls it.
 func reserve(ctx context.Context, tx *db.Transactor, repo sheet.Repository, owner string, kind plan.SheetKind, limit int) error {
 	return tx.WithTransaction(ctx, func(txCtx context.Context) error {
 		return repo.ReserveSlot(txCtx, owner, kind, limit)

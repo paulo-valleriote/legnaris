@@ -1,8 +1,3 @@
-// Package worker owns the delivery policy of the email pipeline: it decodes a
-// queued message, decides from the message's own deadline whether the code is
-// still worth sending, renders and sends it, retries transient failures through
-// the broker's delay tiers and parks the ones that can never succeed. It needs
-// no database: the code's lifetime travels on the message (WKR-01, WKR-03).
 package worker
 
 import (
@@ -30,7 +25,6 @@ const (
 	attrSize    = "size"
 )
 
-// Worker consumes deliveries and applies the delivery policy to each one.
 type Worker struct {
 	source      DeliverySource
 	republisher Republisher
@@ -42,9 +36,6 @@ type Worker struct {
 	breaker     *breaker.Breaker
 }
 
-// New builds a worker over the delivery source, the republisher, the sending
-// port and the renderer; every zero value in config is filled from its
-// documented default (WKR-14, WKR-16, LGN-149).
 func New(source DeliverySource, republisher Republisher, sender email.Sender, renderer email.Renderer, observer Observer, config Config, log logger.StructuredLogger) *Worker {
 	config = config.withDefaults()
 	return &Worker{
@@ -59,11 +50,6 @@ func New(source DeliverySource, republisher Republisher, sender email.Sender, re
 	}
 }
 
-// Run consumes until ctx is cancelled. When the delivery stream ends it
-// registers the consumer again instead of failing, so a broker outage is
-// logged rather than fatal (WKR-17). On stop it takes no new message, waits for
-// the messages in flight for DrainTimeout and leaves the unfinished ones
-// unacknowledged for the broker to redeliver (WKR-18).
 func (w *Worker) Run(ctx context.Context) error {
 	inflightCtx, cancelInflight := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancelInflight()
@@ -90,10 +76,6 @@ func (w *Worker) Run(ctx context.Context) error {
 	return nil
 }
 
-// consume handles the stream until it ends or ctx is cancelled. A slot is taken
-// before each delivery is read, so no more than Prefetch messages are held at
-// once (WKR-16). While the provider breaker is open the stream is not read at
-// all, so the broker keeps the backlog (LGN-149).
 func (w *Worker) consume(ctx, inflightCtx context.Context, stream <-chan Delivery, slots chan struct{}, inflight *sync.WaitGroup) {
 	for {
 		select {
@@ -131,8 +113,6 @@ func (w *Worker) consume(ctx, inflightCtx context.Context, stream <-chan Deliver
 	}
 }
 
-// admit blocks until the breaker lets one delivery through. It returns the probe
-// token when the admission is a probe, and false when ctx is cancelled first.
 func (w *Worker) admit(ctx context.Context) (uint64, bool) {
 	for {
 		decision := w.breaker.Admit()
@@ -145,8 +125,6 @@ func (w *Worker) admit(ctx context.Context) (uint64, bool) {
 	}
 }
 
-// drain waits for the in-flight messages for DrainTimeout, then cancels what is
-// left: an unfinished message stays unacknowledged (WKR-18).
 func (w *Worker) drain(cancelInflight context.CancelFunc, inflight *sync.WaitGroup) {
 	finished := make(chan struct{})
 	go func() {
@@ -177,10 +155,6 @@ func sleep(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-// handle takes one delivery to exactly one outcome: sent and acknowledged,
-// dead-lettered and acknowledged, expired and acknowledged without a send, or
-// left unacknowledged for redelivery. The acknowledgement is always last
-// (WKR-02).
 func (w *Worker) handle(ctx context.Context, delivery Delivery, probe uint64) {
 	msg, err := decode(delivery.Body)
 	if err != nil {
@@ -233,8 +207,6 @@ func (w *Worker) handle(ctx context.Context, delivery Delivery, probe uint64) {
 	}
 }
 
-// classifyOutcome maps one send error to its breaker outcome. A transient error
-// that is not a quota or rate limit is a provider outage (5xx, timeout).
 func classifyOutcome(err error) breaker.Outcome {
 	switch {
 	case err == nil:
@@ -248,7 +220,6 @@ func classifyOutcome(err error) breaker.Outcome {
 	}
 }
 
-// reportBreaker feeds one send outcome to the breaker and reports a transition.
 func (w *Worker) reportBreaker(ctx context.Context, probe uint64, outcome breaker.Outcome) {
 	switch w.breaker.Record(probe, outcome) {
 	case breaker.TransitionOpened:
@@ -281,12 +252,8 @@ func (w *Worker) acknowledge(ctx context.Context, delivery Delivery, msg email.M
 	}
 }
 
-// maxLifetimeMinutes is the largest lifetime whose duration still fits in a
-// time.Duration; anything above it never expires within a representable time.
 const maxLifetimeMinutes int64 = math.MaxInt64 / int64(time.Minute)
 
-// expired reports whether the message's own deadline has passed. A zero or
-// negative lifetime has always passed (WKR-07).
 func (w *Worker) expired(msg email.Message) bool {
 	if msg.Data.ExpiresInMinutes <= 0 {
 		return true
@@ -298,8 +265,6 @@ func (w *Worker) expired(msg email.Message) bool {
 	return !w.config.Now().Before(deadline)
 }
 
-// decode turns a body into a validated message. Every failure wraps
-// ErrUnusableMessage: nothing about the message can change on a retry (WKR-04).
 func decode(raw []byte) (email.Message, error) {
 	var msg email.Message
 	if err := sharedjson.DecodeBytes(raw, &msg); err != nil {
@@ -324,8 +289,6 @@ func classifyRender(err error) error {
 	return fmt.Errorf("%w: render failed", ErrUnusableMessage)
 }
 
-// describe identifies a message in a log line by its identity and purpose, with
-// the recipient masked. The code is never an attribute (WKR-06, WKR-22).
 func describe(msg email.Message) []logger.Attribute {
 	return []logger.Attribute{
 		{Key: attrID, Value: msg.ID},

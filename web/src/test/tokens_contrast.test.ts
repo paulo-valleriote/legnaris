@@ -21,7 +21,6 @@ const semanticTokenNames = designTokens
   .filter((token) => token.layer === 'semantic')
   .map((token) => token.name);
 
-/** The semantic tokens a theme actually declares. */
 function declaredSemantics(theme: ThemeName): Set<string> {
   const declared = readThemeTokenNames(theme);
   return new Set(semanticTokenNames.filter((name) => declared.has(name)));

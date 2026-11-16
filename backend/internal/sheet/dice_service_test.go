@@ -21,8 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// diceOnlyUpdate matches the repository write of a save that carried only a
-// Dice block: the block as want, an updated_at, and no data key.
 func diceOnlyUpdate(want *sheet.Dice) any {
 	return mock.MatchedBy(func(updates map[string]any) bool {
 		stored, ok := updates["dice"].(*sheet.Dice)
@@ -362,8 +360,6 @@ func TestService_PartialUpdate_Dice(t *testing.T) {
 	}
 }
 
-// layoutDAGService builds a service whose DAG matches layoutTemplate, so a save
-// can carry data and dice together.
 func layoutDAGService(t *testing.T, repo sheet.Repository, templateSvc template.Service) sheet.Service {
 	t.Helper()
 	tmpl := layoutTemplate()

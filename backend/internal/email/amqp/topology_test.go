@@ -20,10 +20,6 @@ func queueByName(t *testing.T, name string) queueSpec {
 	return queueSpec{}
 }
 
-// TestEmailTopology_Queues pins the declared queue arguments: every queue is a
-// durable quorum queue, the work queue rejects on overflow and dead-letters to
-// the first retry tier, and each retry tier carries its TTL back to the main
-// exchange (EML-06).
 func TestEmailTopology_Queues(t *testing.T) {
 	t.Run("Happy path: the work queue is bounded quorum with a retry dead-letter", func(t *testing.T) {
 		queue := queueByName(t, queueWork)
@@ -61,8 +57,6 @@ func TestEmailTopology_Queues(t *testing.T) {
 	})
 }
 
-// TestEmailTopology_Declare proves the declaration reaches the seam with the
-// exchanged set and bindings the topology describes, idempotently (EML-06).
 func TestEmailTopology_Declare(t *testing.T) {
 	fake := &fakeChannel{}
 	require.NoError(t, emailTopology(defaultRetryDelays).declare(fake))
@@ -91,9 +85,6 @@ func TestEmailTopology_Declare(t *testing.T) {
 	})
 }
 
-// TestRoute_MatchesTheDeclaredTopology proves every destination reaches a queue
-// the topology declares and binds, so a routing key spelled in route can never
-// drift from the declared bindings (WKR-09, WKR-11).
 func TestRoute_MatchesTheDeclaredTopology(t *testing.T) {
 	tests := []struct {
 		name        string

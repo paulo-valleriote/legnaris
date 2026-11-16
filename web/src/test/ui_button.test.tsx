@@ -28,7 +28,6 @@ describe('action primitive (UIP-07…UIP-10, SC-001)', () => {
     };
     render(<Button disabled label="No" onClick={handler} />);
     render(<Button loading label="Busy" onClick={handler} />);
-    // Activation handled by browser; assertion is the disabled/loading state is announced.
     expect(screen.getAllByRole('button')).toHaveLength(2);
   });
 

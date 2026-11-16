@@ -20,15 +20,8 @@ type Repository interface {
 	PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error)
 	UpdateLayout(ctx context.Context, id string, layout *Layout) error
 	DeleteByID(ctx context.Context, id string) error
-	// ReserveSlot increments the owner's counter for kind while it is below
-	// limit, and returns ErrSheetLimitReached otherwise. It must run inside the
-	// transaction that inserts the Sheet.
 	ReserveSlot(ctx context.Context, ownerID string, kind plan.SheetKind, limit int) error
-	// ReleaseSlot decrements the owner's counter for kind, never below zero. It
-	// must run inside the transaction that deletes the Sheet.
 	ReleaseSlot(ctx context.Context, ownerID string, kind plan.SheetKind) error
-	// CountOf reads the owner's counter for kind from the primary. A missing
-	// counter reads as zero.
 	CountOf(ctx context.Context, ownerID string, kind plan.SheetKind) (int, error)
 }
 
@@ -38,47 +31,30 @@ type RepositoryImpl struct {
 	logger     logger.StructuredLogger
 }
 
-// countsCollection holds one counter per owner and kind. The limit is enforced
-// by a conditional $inc on this collection inside the Sheet transaction.
 const countsCollection = "sheet_counts"
 
-// countField is the Mongo field holding a counter value.
 const countField = "count"
 
-// ownerIDField and kindField are the Mongo fields that identify a counter, and
-// incOperator is the Mongo operator that moves it.
 const (
 	ownerIDField = "owner_id"
 	kindField    = "kind"
 	incOperator  = "$inc"
 )
 
-// detailKindKey is the apperr details key that names the refused Sheet kind.
 const detailKindKey = "kind"
 
-// idField is the Mongo primary-key field name, shared by the by-id filters so
-// the literal stays in one place.
 const idField = "_id"
 
-// layoutField is the Mongo field holding the sheet's Layout.
 const layoutField = "layout"
 
-// setOperator is the Mongo update operator every sheet write goes through.
 const setOperator = "$set"
 
-// diceField is the Mongo field holding the sheet's Dice block.
 const diceField = "dice"
 
-// versionField is the Mongo field holding the sheet's compare-and-swap version.
 const versionField = "version"
 
-// ErrSheetNotFound reports a sheet lookup that matched no document.
-// Services translate it to apperr.CodeNotFound at the layer boundary.
 var ErrSheetNotFound = errors.New("sheet not found")
 
-// ErrVersionConflict reports a compare-and-swap write whose expected version no
-// longer matches the stored sheet, or whose sheet was deleted in between. The
-// service re-reads the sheet and retries on it.
 var ErrVersionConflict = errors.New("sheet version conflict")
 
 func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
@@ -89,10 +65,6 @@ func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 	}
 }
 
-// ReserveSlot opens the counter for owner and kind, then increments it only while
-// it is below limit. The two statements are separate because an upsert whose
-// filter carries the limit would collide with the unique index once the counter
-// is full, which inside a transaction aborts it instead of refusing the write.
 func (r *RepositoryImpl) ReserveSlot(ctx context.Context, ownerID string, kind plan.SheetKind, limit int) error {
 	key := countKey(ownerID, kind)
 	open := bson.D{{Key: "$setOnInsert", Value: bson.D{{Key: countField, Value: 0}}}}
@@ -111,8 +83,6 @@ func (r *RepositoryImpl) ReserveSlot(ctx context.Context, ownerID string, kind p
 	return nil
 }
 
-// ReleaseSlot decrements the counter, and the $gt filter stops it going negative
-// when a counter was never built for an old Sheet.
 func (r *RepositoryImpl) ReleaseSlot(ctx context.Context, ownerID string, kind plan.SheetKind) error {
 	positive := append(countKey(ownerID, kind), bson.E{Key: countField, Value: bson.D{{Key: "$gt", Value: 0}}})
 	if _, err := r.counts.UpdateOne(ctx, positive, bson.D{{Key: incOperator, Value: bson.D{{Key: countField, Value: -1}}}}); err != nil {
@@ -121,8 +91,6 @@ func (r *RepositoryImpl) ReleaseSlot(ctx context.Context, ownerID string, kind p
 	return nil
 }
 
-// CountOf reads the counter from the primary, since the value decides whether a
-// creation is allowed.
 func (r *RepositoryImpl) CountOf(ctx context.Context, ownerID string, kind plan.SheetKind) (int, error) {
 	var doc struct {
 		Count int `bson:"count"`
@@ -137,7 +105,6 @@ func (r *RepositoryImpl) CountOf(ctx context.Context, ownerID string, kind plan.
 	return doc.Count, nil
 }
 
-// countKey is the filter that identifies one owner's counter for one kind.
 func countKey(ownerID string, kind plan.SheetKind) bson.D {
 	return bson.D{
 		{Key: ownerIDField, Value: ownerID},
@@ -184,13 +151,6 @@ func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
 	return nil
 }
 
-// PartialUpdate applies dbUpdates and increments the version, but only while the
-// stored version still equals expectedVersion. It returns the version the write
-// stored, read back from the same atomic operation, so callers log the value
-// the database holds instead of recomputing it. A document without the version
-// field matches expectedVersion 0, since that is what a pre-versioning sheet
-// reads as. It returns ErrSheetNotFound when the sheet does not exist and
-// ErrVersionConflict when it exists but its version moved.
 func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error) {
 	filter := bson.D{
 		{Key: idField, Value: id},
@@ -218,9 +178,6 @@ func (r *RepositoryImpl) PartialUpdate(ctx context.Context, id string, expectedV
 	}
 }
 
-// unmatchedUpdateErr explains a CAS write that matched no document. The filter
-// cannot tell a missing sheet from a stale version, so the id is counted alone:
-// a missing sheet is ErrSheetNotFound, which must not be retried as a conflict.
 func (r *RepositoryImpl) unmatchedUpdateErr(ctx context.Context, id string) error {
 	count, err := r.collection.CountDocuments(ctx, bson.D{{Key: idField, Value: id}}, options.Count().SetLimit(1))
 	if err != nil {
@@ -232,9 +189,6 @@ func (r *RepositoryImpl) unmatchedUpdateErr(ctx context.Context, id string) erro
 	return ErrVersionConflict
 }
 
-// versionMatcher builds the version filter for a CAS write. Expecting 0 also
-// matches a null or missing field, because Mongo's null equality covers absent
-// fields and that is how sheets written before versioning look.
 func versionMatcher(expectedVersion int64) any {
 	if expectedVersion == 0 {
 		return bson.M{"$in": bson.A{nil, int64(0)}}
@@ -242,10 +196,6 @@ func versionMatcher(expectedVersion int64) any {
 	return expectedVersion
 }
 
-// UpdateLayout replaces the stored layout of one sheet with a $set on that
-// single field, so a concurrent write to data or any other field is neither
-// read nor overwritten. A nil layout stores null, which reads back as no
-// layout. It returns ErrSheetNotFound when no sheet matches.
 func (r *RepositoryImpl) UpdateLayout(ctx context.Context, id string, layout *Layout) error {
 	filter := bson.D{{Key: idField, Value: id}}
 	update := bson.M{setOperator: bson.M{layoutField: layout}}

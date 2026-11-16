@@ -21,9 +21,6 @@ const (
 	verifiedClientIP = "203.0.113.7"
 )
 
-// expectVerifyPath wires a successful consumption up to the point where the
-// account's verification is recorded, so each case only varies the account read
-// and the write that follows it.
 func expectVerifyPath(f *challengeFixture) {
 	row := f.validRow(validUserID, otherPurpose)
 	f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).Return(row, nil).Once()
@@ -35,10 +32,6 @@ func verifyCommand() auth.VerifyChallengeCommand {
 	return auth.VerifyChallengeCommand{ChallengeID: validUserID, Code: challengeTestCode, ClientIP: verifiedClientIP}
 }
 
-// TestVerifyChallenge_EmailVerifiedHook pins when the first-verification hook
-// runs: once, for the account that became verified, with the client address the
-// command carried. A hook failure or an already-verified account never changes
-// the verification outcome (trial allowance, LGN-229).
 func TestVerifyChallenge_EmailVerifiedHook(t *testing.T) {
 	ctx := context.Background()
 
@@ -113,7 +106,6 @@ func TestVerifyChallenge_EmailVerifiedHook(t *testing.T) {
 	})
 }
 
-// requireServiceError asserts err is a typed apperr with the given code.
 func requireServiceError(t *testing.T, err error, code apperr.Code) {
 	t.Helper()
 	require.Error(t, err)

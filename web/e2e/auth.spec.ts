@@ -2,9 +2,6 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { seedSession } from './auth_seed';
 
-// The service worker is irrelevant to the accessibility measurement and would
-// sit between the page and the intercepted API requests; its offline-ready
-// notice would also race the screenshot of the auth surface.
 test.use({ serviceWorkers: 'block' });
 
 const TEMPLATE_ID = 'fantasy_v1';

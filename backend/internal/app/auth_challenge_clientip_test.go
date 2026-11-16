@@ -15,9 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestChallengeController_VerifyCarriesClientIP pins that the verify command
-// carries the address the router resolved, which the trial gate keys on, and
-// that an unresolved address reaches the service as-is for the gate to refuse.
 func TestChallengeController_VerifyCarriesClientIP(t *testing.T) {
 	tests := []struct {
 		name     string

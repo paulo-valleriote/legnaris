@@ -26,8 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeBroker is the broker the worker runs against: mockery doubles for the
-// republisher, a feedable delivery stream and flags for the lifecycle.
 type fakeBroker struct {
 	*mocks.MockRepublisher
 	stream     chan worker.Delivery
@@ -48,10 +46,6 @@ func (b *fakeBroker) Consume(ctx context.Context) (<-chan worker.Delivery, error
 func (b *fakeBroker) DeclareTopology() error { b.declared.Store(true); return b.declareErr }
 func (b *fakeBroker) Close() error           { b.closed = true; return nil }
 
-// testEnv builds a worker configuration that does not depend on the host
-// environment: env.NewEnv reads the process variables, so a developer .env with
-// a Resend key would otherwise turn the "resend without a key" case into a
-// valid configuration and the process would wait for traffic forever.
 func testEnv() env.Env {
 	cfg := env.NewEnv(logger.NewLogger(slog.LevelError))
 	cfg.Variables.RabbitMQURL = "amqp://guest:guest@localhost:5672/"
@@ -61,7 +55,6 @@ func testEnv() env.Env {
 	return cfg
 }
 
-// probe records which dependencies the process touched.
 type probe struct {
 	senderBuilt bool
 	dialed      bool
@@ -89,9 +82,6 @@ func (p *probe) deps(broker *fakeBroker, sender email.Sender) dependencies {
 	}
 }
 
-// TestRun_FailsFastOnUnusableConfiguration proves a configuration that cannot
-// work stops the process with a typed error before it dials the broker or
-// consumes anything (WKR-19).
 func TestRun_FailsFastOnUnusableConfiguration(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -140,8 +130,6 @@ func TestRun_FailsFastOnUnusableConfiguration(t *testing.T) {
 	}
 }
 
-// TestRun_FailsBeforeConsuming proves a topology or listener failure stops the
-// process and releases what was opened (WKR-19).
 func TestRun_FailsBeforeConsuming(t *testing.T) {
 	t.Run("Error: the broker cannot be dialed", func(t *testing.T) {
 		p := &probe{}
@@ -181,9 +169,6 @@ func TestRun_FailsBeforeConsuming(t *testing.T) {
 	})
 }
 
-// TestRun_DeliversAndStopsGracefully drives a message through the real wiring
-// and proves a stop releases the broker and the listener (WKR-01, WKR-18,
-// SC-008).
 func TestRun_DeliversAndStopsGracefully(t *testing.T) {
 	cfg := testEnv()
 	p := &probe{}
@@ -220,7 +205,6 @@ func TestRun_DeliversAndStopsGracefully(t *testing.T) {
 	assert.Equal(t, id, sender.Sent()[0].IdempotencyKey)
 }
 
-// TestRun_StopWithoutTraffic proves an idle worker stops cleanly.
 func TestRun_StopWithoutTraffic(t *testing.T) {
 	p := &probe{}
 	broker := newFakeBroker(t)

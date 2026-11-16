@@ -7,48 +7,31 @@ import (
 	"slices"
 )
 
-// TemplateDTO is the API representation of a Template, serialized in snake_case.
 type TemplateDTO struct {
-	ID      string        `json:"id"`
-	Name    string        `json:"name"`
-	Fields  FieldGroupDTO `json:"fields"`
-	Default bool          `json:"default"`
-	// SectionOrder is the template's declared display order for top-level
-	// fields. It drives MarshalJSON and never appears in the payload.
-	SectionOrder []string `json:"-"`
-	// SuggestedPins mirrors Template.SuggestedPins: a read-only list of Row
-	// keys a client may offer as first Pins. Omitted from the payload when
-	// empty.
-	SuggestedPins []string `json:"suggested_pins,omitempty"`
-	// Dice mirrors the Template's SectionDice and RowDice defaults. Nil, and
-	// so omitted from the payload, when the Template has none.
-	Dice *DiceDTO `json:"dice,omitempty"`
+	ID            string        `json:"id"`
+	Name          string        `json:"name"`
+	Fields        FieldGroupDTO `json:"fields"`
+	Default       bool          `json:"default"`
+	SectionOrder  []string      `json:"-"`
+	SuggestedPins []string      `json:"suggested_pins,omitempty"`
+	Dice          *DiceDTO      `json:"dice,omitempty"`
 }
 
-// DiceDTO is the Template's Dice defaults: Dice expressions keyed by Section
-// and by Row. An empty side is omitted.
 type DiceDTO struct {
 	Section map[string]string `json:"section,omitempty"`
 	Row     map[string]string `json:"row,omitempty"`
 }
 
-// FieldGroupDTO mirrors FieldGroup (a map of field name → node) for the API.
 type FieldGroupDTO map[string]FieldNodeDTO
 
-// FieldNodeDTO mirrors FieldNode. A leaf node exposes only "schema"; a group
-// node exposes only "children" (plus the optional table metadata).
 type FieldNodeDTO struct {
 	Schema   *FieldSchemaDTO `json:"schema,omitempty"`
 	Children FieldGroupDTO   `json:"children,omitempty"`
 	Label    string          `json:"label,omitempty"`
 	Columns  []string        `json:"columns,omitempty"`
-	// Order is the node's declared child order. It drives MarshalJSON and never
-	// appears in the payload.
-	Order []string `json:"-"`
+	Order    []string        `json:"-"`
 }
 
-// MarshalJSON emits the node with its children in Order, so the declared
-// display order survives serialization at every depth.
 func (n FieldNodeDTO) MarshalJSON() ([]byte, error) {
 	type payload struct {
 		Schema   *FieldSchemaDTO `json:"schema,omitempty"`
@@ -67,7 +50,6 @@ func (n FieldNodeDTO) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// FieldSchemaDTO mirrors FieldSchema for the API.
 type FieldSchemaDTO struct {
 	Type           string     `json:"type"`
 	Label          string     `json:"label"`
@@ -84,10 +66,6 @@ type FieldSchemaDTO struct {
 	MaxLength      *int       `json:"max_length,omitempty"`
 }
 
-// ToDTO converts a Template to its API representation. The result shares no
-// map or slice with the template: the field tree is rebuilt level by level,
-// DependsOn is cloned (LGN-60) and SectionOrder and SuggestedPins are copied for
-// the same reason.
 func (t Template) ToDTO() TemplateDTO {
 	return TemplateDTO{
 		Dice:          diceToDTO(t),
@@ -100,8 +78,6 @@ func (t Template) ToDTO() TemplateDTO {
 	}
 }
 
-// diceToDTO copies the Dice defaults, or returns nil when there are none so the
-// payload of a template without dice stays what it always was.
 func diceToDTO(t Template) *DiceDTO {
 	if len(t.SectionDice) == 0 && len(t.RowDice) == 0 {
 		return nil
@@ -109,21 +85,14 @@ func diceToDTO(t Template) *DiceDTO {
 	return &DiceDTO{Section: maps.Clone(t.SectionDice), Row: maps.Clone(t.RowDice)}
 }
 
-// MarshalJSON emits the template with its top-level fields in SectionOrder
-// instead of the alphabetical order encoding/json forces on maps: the sheet
-// renders sections exactly as they arrive (identity and stats first, the
-// tuning machinery last). A listed key missing from the map is skipped, and
-// keys not listed — or a DTO with no order at all — fall back to alphabetical.
 func (d TemplateDTO) MarshalJSON() ([]byte, error) {
 	type payload struct {
-		ID      string          `json:"id"`
-		Name    string          `json:"name"`
-		Fields  json.RawMessage `json:"fields"`
-		Default bool            `json:"default"`
-		// SuggestedPins is omitted when empty so a template that suggests
-		// nothing keeps the payload it always had.
-		SuggestedPins []string `json:"suggested_pins,omitempty"`
-		Dice          *DiceDTO `json:"dice,omitempty"`
+		ID            string          `json:"id"`
+		Name          string          `json:"name"`
+		Fields        json.RawMessage `json:"fields"`
+		Default       bool            `json:"default"`
+		SuggestedPins []string        `json:"suggested_pins,omitempty"`
+		Dice          *DiceDTO        `json:"dice,omitempty"`
 	}
 	fields, err := marshalFieldGroup(d.Fields, d.SectionOrder)
 	if err != nil {
@@ -132,9 +101,6 @@ func (d TemplateDTO) MarshalJSON() ([]byte, error) {
 	return json.Marshal(payload{ID: d.ID, Name: d.Name, Fields: fields, Default: d.Default, SuggestedPins: d.SuggestedPins, Dice: d.Dice})
 }
 
-// marshalFieldGroup writes one fields object with the keys of order first (in
-// that sequence, deduplicated) and every remaining key alphabetically after
-// them. Nested groups apply their own Order through FieldNodeDTO.MarshalJSON.
 func marshalFieldGroup(group FieldGroupDTO, order []string) (json.RawMessage, error) {
 	keys := make([]string, 0, len(group))
 	emitted := make(map[string]bool, len(group))
@@ -197,10 +163,6 @@ func (n FieldNode) toDTO() FieldNodeDTO {
 	}
 }
 
-// toDTO converts a FieldSchema to its API representation, cloning DependsOn:
-// the DTO escapes the package while the schema behind it belongs to a
-// registered template (LGN-60). Every other field is an immutable scalar or a
-// string, and the struct itself is a fresh value.
 func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 	if s == nil {
 		return nil

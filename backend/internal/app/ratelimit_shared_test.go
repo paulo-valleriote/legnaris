@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// replica is one API pod: its own router and limiters over a shared Redis.
 type replica struct {
 	echo *echo.Echo
 }

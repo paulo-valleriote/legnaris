@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// goldenPath is the pinned wire contract (EML-22). The suite reads the real
-// file, so an accidental change to the contract fails here.
 const goldenPath = "testdata/message.golden.json"
 
 func readGolden(t *testing.T) []byte {
@@ -26,7 +24,6 @@ func readGolden(t *testing.T) []byte {
 	return raw
 }
 
-// goldenMessage reconstructs the representative message the golden file pins.
 func goldenMessage() email.Message {
 	return email.Message{
 		ID:       "018f4a1e-5c6b-7d8e-9f01-23456789abcd",
@@ -43,8 +40,6 @@ func goldenMessage() email.Message {
 	}
 }
 
-// TestMessage_GoldenFile pins the published contract: the encoded message must
-// equal the committed golden file exactly (EML-07, EML-22).
 func TestMessage_GoldenFile(t *testing.T) {
 	encoded, err := json.Marshal(goldenMessage())
 	require.NoError(t, err)
@@ -53,8 +48,6 @@ func TestMessage_GoldenFile(t *testing.T) {
 		"the encoded message must match the pinned contract")
 }
 
-// TestMessage_DecodesGolden proves the golden file is a valid message and that
-// every field round-trips through the contract type.
 func TestMessage_DecodesGolden(t *testing.T) {
 	var decoded email.Message
 	require.NoError(t, json.Unmarshal(readGolden(t), &decoded))
@@ -69,8 +62,6 @@ func TestMessage_DecodesGolden(t *testing.T) {
 	})
 }
 
-// TestMessage_CreatedAtRFC3339 guards the wire timestamp format: the broker
-// consumer parses it as RFC 3339 UTC, so the encoding must not drift.
 func TestMessage_CreatedAtRFC3339(t *testing.T) {
 	encoded, err := json.Marshal(goldenMessage())
 	require.NoError(t, err)
@@ -83,9 +74,6 @@ func TestMessage_CreatedAtRFC3339(t *testing.T) {
 	assert.Equal(t, "2026-10-20T12:00:00Z", createdAt)
 }
 
-// TestMessage_GoldenDecodesThroughTheConsumerDecoder proves the shape the worker
-// decodes is the shape the publisher pins, and that a newer publisher's extra
-// field does not break it (WKR-04).
 func TestMessage_GoldenDecodesThroughTheConsumerDecoder(t *testing.T) {
 	t.Run("Happy path: the golden file decodes into the pinned message", func(t *testing.T) {
 		var got email.Message

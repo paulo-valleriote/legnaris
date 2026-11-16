@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// errHookRefused is the error an after-insert hook returns in the failure cases.
 var errHookRefused = errors.New("hook refused")
 
 func TestService_CreateWithValues(t *testing.T) {

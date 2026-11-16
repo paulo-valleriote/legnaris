@@ -17,8 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// patchStore is an in-memory stand-in for the stored sheet. All fields are
-// guarded by mu, so one store can be shared by concurrent PATCH calls.
 type patchStore struct {
 	mu      sync.Mutex
 	version int64
@@ -27,12 +25,8 @@ type patchStore struct {
 	fetches int
 	writes  int
 
-	// beforeWrite runs under mu before each CAS check. It simulates a competing
-	// writer (bumping the version) or a deletion landing before the write.
 	beforeWrite func(s *patchStore, attempt int)
-	// fetchGate runs after the snapshot is taken and mu is released, so a test
-	// can hold several readers at the same stale version.
-	fetchGate func(fetchNo int)
+	fetchGate   func(fetchNo int)
 }
 
 func newPatchStore(sheetState *sheet.Sheet) *patchStore {
@@ -85,8 +79,6 @@ func (s *patchStore) compareAndSwap(expected int64, updates map[string]any) (int
 	return s.version, nil
 }
 
-// deepCopyPatchData copies nested maps so the store and the snapshots handed to
-// the service never alias each other.
 func deepCopyPatchData(src map[string]any) map[string]any {
 	dst := make(map[string]any, len(src))
 	for key, value := range src {
@@ -99,8 +91,6 @@ func deepCopyPatchData(src map[string]any) map[string]any {
 	return dst
 }
 
-// newPatchStoreRepo wires a mock repository to the store. Expectations have no
-// call limits; tests assert call counts through the store's counters.
 func newPatchStoreRepo(t *testing.T, store *patchStore) *mocks.MockRepository {
 	t.Helper()
 	repo := mocks.NewMockRepository(t)
@@ -115,10 +105,6 @@ func newPatchStoreRepo(t *testing.T, store *patchStore) *mocks.MockRepository {
 	return repo
 }
 
-// newQuietPatchLogger accepts the two PATCH records with their attribute counts
-// but does not record them. The strict mock's Run callbacks are not guarded by
-// testify, so the recording logger from newPatchLogger cannot be shared by
-// concurrent PATCH calls.
 func newQuietPatchLogger(t *testing.T) *logmocks.MockStructuredLogger {
 	t.Helper()
 	log := logmocks.NewMockStructuredLogger(t)
@@ -134,8 +120,6 @@ func newQuietPatchLogger(t *testing.T) *logmocks.MockStructuredLogger {
 	return log
 }
 
-// runCompetingPatches runs one PATCH per command in its own goroutine and
-// returns each error in command order.
 func runCompetingPatches(service sheet.Service, cmds ...sheet.PartialUpdateSheetCommand) []error {
 	errs := make([]error, len(cmds))
 	var wg sync.WaitGroup

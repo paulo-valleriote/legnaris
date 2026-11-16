@@ -21,7 +21,6 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-/** The auth sources, `.ts` and `.tsx`, so a component is inspected too (WAS-32). */
 function authSourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const full = path.join(dir, entry);

@@ -54,8 +54,6 @@ describe('conceptState (LGN-196 concept bounds 10-1000)', () => {
     expect(CONCEPT_MAX_LENGTH).toBe(1000);
   });
 
-  // The server trims with Go's strings.TrimSpace (unicode.IsSpace), so the client
-  // must trim the same set: U+0085 and U+3000 are trimmed, U+FEFF is not.
   const goSpaceCases = [
     {
       name: 'Edge: U+0085 (NEL) is trimmed as Go trims it',

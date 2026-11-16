@@ -9,10 +9,8 @@ import { renderApp } from './render';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const srcDir = path.resolve(here, '..');
 
-/** The removed panel's names, which no source outside the tests may reference (UIF-26). */
 const REMOVED_PANEL_NAMES = ['right_panel', '.lg-panel', '--lg-size-panel-', 'SHELL_NARROW_QUERY'];
 
-/** Every client source outside the test directory. */
 function sourceFiles(dir: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

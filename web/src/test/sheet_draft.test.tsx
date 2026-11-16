@@ -25,7 +25,6 @@ function loadedFake() {
   );
 }
 
-/** The slice of a `vi.spyOn` result this suite reads, so the calls stay strongly typed. */
 interface IntervalSpy {
   readonly mock: {
     readonly calls: ReadonlyArray<readonly unknown[]>;
@@ -33,7 +32,6 @@ interface IntervalSpy {
   };
 }
 
-/** Finds the cadence's `setInterval` call among every interval the tree schedules. */
 function cadenceCall(spy: IntervalSpy) {
   const index = spy.mock.calls.findIndex((call) => call[1] === DRAFT_CADENCE_MS);
   return { index, tick: spy.mock.calls[index]?.[0] as (() => void) | undefined };

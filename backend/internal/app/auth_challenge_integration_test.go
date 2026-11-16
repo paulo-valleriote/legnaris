@@ -18,10 +18,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// codePattern matches the only shape a code may take.
 var codePattern = regexp.MustCompile(`^\d{6}$`)
 
-// userIDByEmail resolves the seeded account's canonical identity.
 func userIDByEmail(t *testing.T, mdb *mongo.Database, email string) string {
 	t.Helper()
 
@@ -33,9 +31,6 @@ func userIDByEmail(t *testing.T, mdb *mongo.Database, email string) string {
 	return stored.ID
 }
 
-// pendingCode reads the code from the store's recorded send intention: it is
-// the only durable home of the clear value, so this is how a test learns it
-// (OTP-12).
 func pendingCode(t *testing.T, mdb *mongo.Database) string {
 	t.Helper()
 
@@ -70,10 +65,6 @@ func challengeExpiry(t *testing.T, mdb *mongo.Database, challengeID string) time
 	return stored.ExpiresAt
 }
 
-// TestIntegration_ChallengeIssueVerify drives the first P1 journey end to end:
-// issue, verify with the code the intention carries, observe the session and the
-// account's verification timestamp, then replay and see the uniform failure
-// (OTP-02, OTP-04, OTP-07, OTP-08, OTP-12).
 func TestIntegration_ChallengeIssueVerify(t *testing.T) {
 	h, mdb, modules := newIntegrationStack(t, nil)
 	ctx := context.Background()
@@ -134,9 +125,6 @@ func TestIntegration_ChallengeIssueVerify(t *testing.T) {
 	})
 }
 
-// TestIntegration_ChallengeResend drives the second P1 journey: a resend keeps
-// the code valid, records exactly one extra intention, and a resend on the
-// consumed challenge changes nothing (OTP-10, OTP-11).
 func TestIntegration_ChallengeResend(t *testing.T) {
 	h, mdb, modules := newIntegrationStack(t, nil)
 	ctx := context.Background()
@@ -155,14 +143,10 @@ func TestIntegration_ChallengeResend(t *testing.T) {
 	require.Equal(t, int64(1), outboxCount(t, mdb))
 
 	t.Run("Happy path: a suppressed and an accepted resend answer identically", func(t *testing.T) {
-		// The first resend is inside the just-started cool-down: it is answered
-		// but records nothing (OTP-10).
 		suppressed := doRequest(t, h, http.MethodPost, resendRoute, `{"challenge_id":"`+issued.ChallengeID+`"}`)
 		require.Equal(t, http.StatusAccepted, suppressed.Code, suppressed.Body.String())
 		assert.Equal(t, int64(1), outboxCount(t, mdb), "a suppressed resend records no intention")
 
-		// Backdate the last-sent instant to simulate the cool-down having
-		// elapsed, so the next resend records a new intention.
 		_, err := mdb.Collection("auth_challenges").UpdateOne(ctx,
 			bson.M{"_id": issued.ChallengeID},
 			bson.M{"$set": bson.M{"last_sent_at": time.Now().UTC().Add(-2 * time.Minute)}},
@@ -195,9 +179,6 @@ func TestIntegration_ChallengeResend(t *testing.T) {
 	})
 }
 
-// TestIntegration_ChallengeDailyCap drives the cap end to end: reaching it
-// refuses issuance and resend with the typed unavailable outcome, writes no
-// intention and never moves a deadline (OTP-13, SC-004).
 func TestIntegration_ChallengeDailyCap(t *testing.T) {
 	h, mdb, modules := newIntegrationStack(t, map[string]string{"AUTH_OTP_DAILY_SEND_CAP": "2"})
 	ctx := context.Background()
@@ -214,7 +195,6 @@ func TestIntegration_ChallengeDailyCap(t *testing.T) {
 	require.NoError(t, err, "one below the cap must be admitted")
 	require.Equal(t, int64(1), outboxCount(t, mdb))
 
-	// Seed one more intention to reach the configured cap of two.
 	now := time.Now().UTC()
 	_, err = mdb.Collection("email_outbox").InsertOne(ctx, bson.M{
 		"_id":             "seed-intention-at-cap",

@@ -18,7 +18,6 @@ interface ManualScheduler {
   stopped(): boolean;
 }
 
-/** A hand-driven ticker so the cadence is exercised without waiting a real minute (R6). */
 function manualScheduler(): ManualScheduler {
   let callback: (() => void) | undefined;
   let interval: number | undefined;

@@ -1,15 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { PRODUCTION_API_ORIGIN } from '../config/security_headers';
 
-// POL-02 / F9-T010: the document headers the origin must deliver. In production
-// Traefik emits them (`deploy/traefik/dynamic.yml` `web-security-headers`); the
-// dev and preview servers mirror the same list from `vite.config.ts`, so this
-// gate fails the moment the policy disappears from either origin. It replaced
-// the vacuous `src/test/headers.spec.ts`, which asserted nothing about a
-// response (D3).
 test.use({ serviceWorkers: 'block' });
 
-/** literal matches the exact text, so the origin stays sourced from the config. */
 function literal(text: string): RegExp {
   return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 }

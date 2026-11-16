@@ -50,6 +50,7 @@ export default tseslint.config(
           message: 'dangerouslySetInnerHTML is forbidden (FND-10).',
         },
       ],
+      'no-empty': ['error', { allowEmptyCatch: true }],
       '@typescript-eslint/consistent-type-imports': 'error',
       'security/detect-eval-with-expression': 'error',
       'security/detect-non-literal-fs-filename': 'off',

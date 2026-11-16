@@ -1,10 +1,3 @@
-/**
- * A dependency-free reader for the Markdown subset the privacy policy uses:
- * `#` and `##` headings, paragraphs, `-` bullet lists, `**bold**` and bare
- * `https` URLs in parentheses. It produces plain data; the screen turns that
- * data into elements, so no markup from the source ever reaches the DOM as HTML.
- */
-
 export type MarkdownBlock =
   | { readonly kind: 'heading'; readonly level: 1 | 2; readonly text: string }
   | { readonly kind: 'paragraph'; readonly text: string }
@@ -19,10 +12,6 @@ const HEADING = /^(#{1,2})\s+(.*)$/;
 const BULLET = /^-\s+(.*)$/;
 const INLINE = /\*\*([^*]+?)\*\*|\((https?:\/\/[^\s()]+)\)/g;
 
-/**
- * parseMarkdown splits the source into blocks. Consecutive text lines join into one
- * paragraph, a blank line ends a block, and a bullet line starts or extends a list.
- */
 export function parseMarkdown(source: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   let paragraph: string[] = [];
@@ -67,10 +56,6 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
   return blocks;
 }
 
-/**
- * tokenizeInline splits one line of text into literal text, bold runs and links.
- * An unclosed `**` and a non-http parenthesised value stay literal text.
- */
 export function tokenizeInline(text: string): InlineToken[] {
   const tokens: InlineToken[] = [];
   let cursor = 0;

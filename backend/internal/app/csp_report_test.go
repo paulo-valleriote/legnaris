@@ -18,16 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// logEntry is one captured structured log line, flattened so a test can assert
-// a field by name.
 type logEntry struct {
 	level string
 	msg   string
 	attrs map[string]string
 }
 
-// recordingLogger captures every structured entry so a test can prove the
-// report was logged with sanitised URLs (A4, A5).
 type recordingLogger struct {
 	mu      sync.Mutex
 	entries []logEntry
@@ -66,7 +62,6 @@ func (l *recordingLogger) Fatal(_ context.Context, msg string, args ...logger.At
 
 func (l *recordingLogger) With(string, string) logger.StructuredLogger { return l }
 
-// byLevel returns the captured entries at one level, in order.
 func (l *recordingLogger) byLevel(level string) []logEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -80,8 +75,6 @@ func (l *recordingLogger) byLevel(level string) []logEntry {
 	return entries
 }
 
-// containsAny reports whether any captured entry (at any level) carries a value
-// matching the predicate, so a test can prove a raw secret never reached a log.
 func (l *recordingLogger) containsAny(match func(logEntry) bool) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -94,8 +87,6 @@ func (l *recordingLogger) containsAny(match func(logEntry) bool) bool {
 	return false
 }
 
-// cspHarness mounts the report collector with a real metrics registry and a
-// frozen clock, mirroring the production wiring in NewRouter.
 type cspHarness struct {
 	echo *echo.Echo
 	log  *recordingLogger
@@ -132,7 +123,6 @@ func (h *cspHarness) post(t *testing.T, contentType, body, remoteAddr string) *h
 	return rec
 }
 
-// scrape returns the exposed metrics so a test can assert the counter series.
 func (h *cspHarness) scrape(t *testing.T) string {
 	t.Helper()
 
@@ -327,8 +317,6 @@ func TestCSPReport(t *testing.T) {
 		assert.Equal(t, "60", rec.Header().Get(echo.HeaderRetryAfter))
 		assert.Len(t, h.log.byLevel("info"), 1, "a refused report never reaches the collector")
 
-		// The block is not counted against the auth rate-limit metric, which stays
-		// at its zero value (AUTH-20).
 		assert.Contains(t, h.scrape(t), "legnaris_auth_rate_limited_total 0")
 	})
 

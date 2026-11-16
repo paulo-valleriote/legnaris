@@ -10,15 +10,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// AccessToken is an issued JWT and its remaining lifetime in seconds, ready to
-// be serialized as the access_token/expires_in pair.
 type AccessToken struct {
 	Value     string
 	ExpiresIn int
 }
 
-// TokenManager issues and validates access tokens. It is an interface so the
-// auth service and middleware can be tested with a deterministic fake.
 type TokenManager interface {
 	Issue(userID string) (AccessToken, error)
 	Parse(token string) (userID string, err error)
@@ -30,9 +26,6 @@ type jwtTokenManager struct {
 	clock  Clock
 }
 
-// NewTokenManager builds the HS256 token manager. An empty secret is a startup
-// error: a service that cannot sign tokens must not boot. A nil clock defaults
-// to the system clock (PRQ-16).
 func NewTokenManager(secret string, ttl time.Duration, clock Clock) (TokenManager, error) {
 	if secret == "" {
 		return nil, ErrEmptyJWTSecret
@@ -70,11 +63,7 @@ func (m *jwtTokenManager) Parse(token string) (string, error) {
 		token,
 		claims,
 		func(*jwt.Token) (any, error) { return m.secret, nil },
-		// Pin the algorithm: never trust the alg header, which rules out the
-		// "alg: none" and HS/RS confusion attacks.
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
-		// Validate expiry against the injected clock so issuance and parsing
-		// agree in tests and production (PRQ-16).
 		jwt.WithTimeFunc(m.clock.Now),
 	)
 	if err != nil {

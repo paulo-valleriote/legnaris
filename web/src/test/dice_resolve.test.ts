@@ -12,7 +12,6 @@ const schema = schemaFromKinds(diceVectors.fields);
 
 const ABILITIES = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
 
-/** The slice of `fantasy_v1` the prototype walks through. */
 const template: DiceDefaults = Object.freeze({
   sectionDice: Object.freeze({
     skills: '1d20 + @.total',

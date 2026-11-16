@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// scriptedSender answers each send with the next scripted result and succeeds
-// once the script is exhausted.
 type scriptedSender struct {
 	mu      sync.Mutex
 	results []error
@@ -36,8 +34,6 @@ func (s *scriptedSender) Send(context.Context, email.Outbound) error {
 	return next
 }
 
-// breakerRun starts the worker in the background and returns the stop function
-// that cancels it and waits for it to finish.
 func breakerRun(t *testing.T, w *worker.Worker) func() {
 	t.Helper()
 
@@ -56,9 +52,6 @@ func breakerRun(t *testing.T, w *worker.Worker) func() {
 	}
 }
 
-// breakerWorker builds a worker over one stream the test keeps open, with a real
-// clock and a breaker that opens on the first outage. It returns the doubles the
-// suites observe.
 func breakerWorker(t *testing.T, sender email.Sender, probeInterval time.Duration, stream chan worker.Delivery) (*worker.Worker, *mocks.MockRepublisher, *mocks.MockObserver) {
 	t.Helper()
 
@@ -79,8 +72,6 @@ func breakerWorker(t *testing.T, sender email.Sender, probeInterval time.Duratio
 	return w, republisher, observer
 }
 
-// freshBody encodes a message created now, so the expiry decision on the real
-// clock never drops it.
 func freshBody(t *testing.T) []byte {
 	t.Helper()
 	msg := emailtest.Message()

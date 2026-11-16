@@ -10,16 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// formulaIdentRe matches the identifiers of an expr-lang formula: field
-// engine keys (path segments joined by '_') and function names.
 var formulaIdentRe = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
 
-// engineFunctions are the identifiers formulaIdentRe must not treat as
-// field references.
 var engineFunctions = map[string]bool{"floor": true, "max": true}
 
-// groupKeys returns the field names of a group in a stable form for set
-// comparisons (map iteration order is random).
 func groupKeys(group FieldGroup) []string {
 	keys := make([]string, 0, len(group))
 	for key := range group {
@@ -28,16 +22,11 @@ func groupKeys(group FieldGroup) []string {
 	return keys
 }
 
-// TestFantasyV1_FormulaReferencesMatchDependsOn pins the two halves of the
-// dependency contract BuildDAG cannot check: a formula may only read leaves
-// its DependsOn declares — an undeclared read evaluates against a stale
-// environment value instead of cascading — and DependsOn must not declare
-// leaves the formula never reads, which would cascade work for nothing.
 func TestFantasyV1_FormulaReferencesMatchDependsOn(t *testing.T) {
 	schemas, paths := collectLeaves(fantasyV1Template.Fields)
 	require.NotEmpty(t, schemas)
 
-	validEngineKeys := make(map[string]string, len(paths)) // engine key → path key
+	validEngineKeys := make(map[string]string, len(paths))
 	for _, path := range paths {
 		validEngineKeys[path.EngineKey()] = path.String()
 	}
@@ -80,9 +69,6 @@ func TestFantasyV1_FormulaReferencesMatchDependsOn(t *testing.T) {
 	}
 }
 
-// TestFantasyV1_Structure pins the sheet layout: every section exists, the
-// generated groups carry exactly their expected keys, and defaults/roles
-// match the design (scores at 10, flags at 0/1, derived fields computed).
 func TestFantasyV1_Structure(t *testing.T) {
 	t.Run("Happy path: every section of the sheet exists", func(t *testing.T) {
 		assert.ElementsMatch(t, []string{
@@ -215,9 +201,6 @@ func TestFantasyV1_Structure(t *testing.T) {
 			assert.Empty(t, schema.Formula)
 		}
 
-		// EXC-03/EXC-18: the armor-class pair and the six spellcasting flags
-		// declare their shared groups; the save and skill proficiencies stay
-		// independent flags.
 		wantGroups := map[string]string{
 			"acUsesDex": exclusiveGroupArmorClassAbility,
 			"acUsesCon": exclusiveGroupArmorClassAbility,
@@ -230,9 +213,6 @@ func TestFantasyV1_Structure(t *testing.T) {
 				"config.%s exclusive group", name)
 		}
 
-		// EXC-25: the exclusive members carry a short option label; every
-		// other config flag falls back to its schema label (empty option
-		// label), so the check also pins the emptiness elsewhere.
 		wantLabels := map[string]string{
 			"acUsesDex": "Dexterity",
 			"acUsesCon": "Constitution",
@@ -326,9 +306,6 @@ func TestFantasyV1_Structure(t *testing.T) {
 	})
 }
 
-// TestFantasyV1_TableMetadata pins the table layout declared by the seeders:
-// skills, attacks and spell slots render as tables, each naming its row header
-// and its columns in reading order, with a short column label per leaf.
 func TestFantasyV1_TableMetadata(t *testing.T) {
 	t.Run("Happy path: every skill is a bonus/total table row", func(t *testing.T) {
 		skillGroup := fantasyV1Template.Fields[fieldNameSkills].Children
@@ -408,10 +385,6 @@ func TestFantasyV1_TableMetadata(t *testing.T) {
 	})
 }
 
-// TestFantasyV1_LeafContracts walks every leaf once and enforces the
-// per-leaf invariants the API and the desktop renderer rely on: a humanized
-// English label, a supported type, and a clear role (derived with a formula
-// and dependencies, or editable without one).
 func TestFantasyV1_LeafContracts(t *testing.T) {
 	schemas, paths := collectLeaves(fantasyV1Template.Fields)
 	require.Equal(t, 130, len(schemas), "the sheet must stay complete")
@@ -441,10 +414,6 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 		}
 	}
 
-	// EXC-01/02/03/18: across the whole tree, exclusive_group is declared on
-	// exactly two groups — the armor-class pair and the six spellcasting
-	// flags. An extra tag anywhere else would render an unrelated leaf as a
-	// choice and is caught here, not just inside config.
 	grouped := map[string]string{}
 	for i, schema := range schemas {
 		if schema.ExclusiveGroup == "" {
@@ -462,9 +431,6 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 	assert.Equal(t, wantGrouped, grouped,
 		"exclusive_group must cover exactly the armor-class pair and the six spellcasting flags")
 
-	// EXC-25: option_label covers exactly the leaves of the two exclusive
-	// groups — the armor-class pair and the six spellcasting flags — each
-	// naming its ability; every other leaf falls back to Label (empty).
 	labeled := map[string]string{}
 	for i, schema := range schemas {
 		if schema.OptionLabel == "" {
@@ -482,10 +448,6 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 	assert.Equal(t, wantLabeled, labeled,
 		"option_label must cover exactly the armor-class pair and the six spellcasting flags")
 
-	// column_label covers exactly the leaves of the three tables — the two
-	// skills columns, the three attack columns and the three spell-slot
-	// columns — each naming its short header; every other leaf falls back to
-	// Label/humanized key (empty).
 	columned := map[string]string{}
 	for i, schema := range schemas {
 		if schema.ColumnLabel == "" {

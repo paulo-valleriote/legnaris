@@ -1,13 +1,3 @@
-/**
- * Opening one sheet by URL identifier (WSC-05 … WSC-11).
- *
- * The hook resolves the load situation of the sheet named by the route and, once
- * the sheet is known, its template detail. It issues the one `GET /sheets/:id`
- * (and one `GET /templates/:id`) through the F2 client, reuses a fresh seeded
- * entry so a created sheet is never fetched twice (WSC-02), caches a loaded sheet
- * locally and evicts a missing one best-effort. It owns no edit state.
- */
-
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Sheet } from '../api/models/sheet';
@@ -19,10 +9,8 @@ import { sheetKey, templateDetailKey } from '../catalog/queries';
 import { message } from '../l10n/strings';
 import { cacheSheet, evictSheet } from '../library/sheet_library';
 
-/** The sheet cache key the creation flow seeds (WSC-02). */
 export const SHEET_QUERY_KEY = sheetKey;
 
-/** The load situation of one sheet, exactly one active (WSC-05 … WSC-10). */
 export type SheetOpenResult =
   | { readonly kind: 'loading' }
   | { readonly kind: 'loaded'; readonly sheet: Sheet; readonly template: TemplateDetail }
@@ -35,15 +23,6 @@ function describeFailure(error: unknown): string {
   return failureCopy(error);
 }
 
-/**
- * Resolves the sheet's situation and, on success, its template's detail
- * (WSC-05 … WSC-10).
- *
- * A mount issues exactly one sheet request; a `NOT_FOUND` yields the missing
- * situation with no Retry and evicts the sheet and its draft, while any other
- * failure (an undecodable payload included) yields a mapped message with a Retry
- * that re-requests exactly once.
- */
 export function useSheetOpen(sheetId: string): SheetOpenResult {
   const client = useApiClient();
   const store = useSheetStore();

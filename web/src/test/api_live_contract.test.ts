@@ -7,9 +7,6 @@ import type { Sheet } from '../api/models/sheet';
 import { createFetchTransport } from '../api/transport';
 import type { Transport } from '../api/transport';
 
-// The live suite is switchable at run time (unlike the build-time base address):
-// with no API_BASE_URL it steps aside and the default run stays green (API-37);
-// with one it must exercise the real service and never skip silently (API-39).
 const configuredBaseUrl = process.env['API_BASE_URL'];
 
 function liveRunDecision(configured: string | undefined): 'run' | 'skip' {

@@ -19,14 +19,12 @@ const (
 	cliIDTwo = "01900000-0000-7000-8000-000000000202"
 )
 
-// updateCall records one write the command asked the store to perform.
 type updateCall struct {
 	id        string
 	email     string
 	updatedAt time.Time
 }
 
-// fakeStore is the in-memory EmailMigrationStore the command body runs against.
 type fakeStore struct {
 	rows      []user.EmailIdentity
 	listErr   error
@@ -57,8 +55,6 @@ func runCLI(t *testing.T, args []string, store user.EmailMigrationStore) (int, s
 	return code, stdout.String()
 }
 
-// TestRun covers the documented report and exit codes of the operator command
-// (PRQ-11, SC-008).
 func TestRun(t *testing.T) {
 	t.Run("Happy path: the default is a dry run that writes nothing", func(t *testing.T) {
 		store := &fakeStore{rows: []user.EmailIdentity{

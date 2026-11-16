@@ -10,26 +10,17 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// EmailIntent adapts the challenge domain's CodeMailer port onto the email
-// outbox delivered by the email feature, so backend/internal/auth never imports the
-// email domain (R8, OTP-12). The request-serving process only writes a durable
-// intention: it never contacts the provider or the broker.
 type EmailIntent struct {
 	repository outbox.Repository
 	logger     logger.StructuredLogger
 }
 
-// The adapter must satisfy the consumer-declared port.
 var _ auth.CodeMailer = (*EmailIntent)(nil)
 
-// NewEmailIntent builds the code-mailer adapter over the outbox store.
 func NewEmailIntent(repository outbox.Repository, log logger.StructuredLogger) *EmailIntent {
 	return &EmailIntent{repository: repository, logger: log}
 }
 
-// Record writes one pending intention carrying the code, its lifetime and the
-// purpose. The recipient is masked in the log line and the code is never logged
-// (OTP-12, OTP-15).
 func (e *EmailIntent) Record(ctx context.Context, id, to string, purpose auth.Purpose, code string, expiresInMinutes int, now time.Time) error {
 	intent, err := outbox.NewIntent(id, to, string(purpose), outbox.Payload{
 		Code:             code,
@@ -52,9 +43,6 @@ func (e *EmailIntent) Record(ctx context.Context, id, to string, purpose auth.Pu
 	return nil
 }
 
-// Requeue records a resend: it clones the identified intention into a new row
-// with a fresh identity and returns that identity, so the code is re-sent
-// without being rotated (OTP-10).
 func (e *EmailIntent) Requeue(ctx context.Context, id string, now time.Time) (string, error) {
 	cloned, err := e.repository.Clone(ctx, id, now)
 	if err != nil {
@@ -63,13 +51,10 @@ func (e *EmailIntent) Requeue(ctx context.Context, id string, now time.Time) (st
 	return cloned.ID, nil
 }
 
-// ResendsSince counts the resend intentions of the window, the input of the
-// resend share of the daily cap (D5).
 func (e *EmailIntent) ResendsSince(ctx context.Context, since time.Time) (int, error) {
 	return e.repository.CountKindSince(ctx, outbox.KindResend, since)
 }
 
-// SentSince forwards the daily-cap window to the store's count (OTP-13).
 func (e *EmailIntent) SentSince(ctx context.Context, since time.Time) (int, error) {
 	return e.repository.CountSince(ctx, since)
 }

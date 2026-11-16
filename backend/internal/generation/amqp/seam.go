@@ -6,13 +6,10 @@ import (
 	amqp091 "github.com/rabbitmq/amqp091-go"
 )
 
-// confirmation is the part of a deferred publisher confirm the publisher waits on,
-// so a fake can drive ack, nack and timeout without a broker.
 type confirmation interface {
 	WaitContext(ctx context.Context) (bool, error)
 }
 
-// channel is the subset of the AMQP channel the publisher uses.
 type channel interface {
 	ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp091.Table) error
 	QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp091.Table) (amqp091.Queue, error)
@@ -23,16 +20,13 @@ type channel interface {
 	Close() error
 }
 
-// connection is the subset of the AMQP connection the publisher uses.
 type connection interface {
 	Channel() (channel, error)
 	Close() error
 }
 
-// dialer opens a connection to the broker URL.
 type dialer func(url string) (connection, error)
 
-// defaultDialer dials a real broker.
 func defaultDialer(url string) (connection, error) {
 	conn, err := amqp091.Dial(url)
 	if err != nil {
@@ -41,7 +35,6 @@ func defaultDialer(url string) (connection, error) {
 	return amqpConnection{conn: conn}, nil
 }
 
-// amqpConnection adapts a live *amqp091.Connection to the connection seam.
 type amqpConnection struct {
 	conn *amqp091.Connection
 }
@@ -58,8 +51,6 @@ func (c amqpConnection) Close() error {
 	return c.conn.Close()
 }
 
-// amqpChannel adapts a live *amqp091.Channel, narrowing the deferred confirmation
-// to the confirmation interface because Go has no covariant returns.
 type amqpChannel struct {
 	ch *amqp091.Channel
 }

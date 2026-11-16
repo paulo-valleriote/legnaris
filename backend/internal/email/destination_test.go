@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestDestination_Names pins the closed vocabulary: the names are domain words
-// and never broker routing keys (WKR-09, WKR-11, WKR-12).
 func TestDestination_Names(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -30,7 +28,6 @@ func TestDestination_Names(t *testing.T) {
 	}
 }
 
-// TestDestination_Valid proves the vocabulary is closed.
 func TestDestination_Valid(t *testing.T) {
 	tests := []struct {
 		name        string

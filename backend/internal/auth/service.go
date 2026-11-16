@@ -15,20 +15,14 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// minPasswordLength is the shortest accepted password in bytes.
-// bcrypt.GenerateFromPassword rejects anything over 72 bytes.
 const minPasswordLength = 8
 
-// maxPasswordLength is the longest accepted password in bytes.
 const maxPasswordLength = 72
 
-// Username validation constants.
 const maxUsernameLength = 50
 
-// usernameRegex allows alphanumeric, underscore, hyphen. No leading/trailing spaces (trimmed before check).
 var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
-// attrUserID is the structured-log field carrying the authenticated user id.
 const attrUserID = "user_id"
 
 type RegisterCommand struct {
@@ -42,9 +36,6 @@ type LoginCommand struct {
 	Password string `json:"password"`
 }
 
-// RefreshCommand and LogoutCommand carry the refresh credential read from the
-// __Host-legnaris_refresh cookie and the CSRF token read from the X-CSRF-Token
-// header. Neither has a JSON body by design (AUTH-05, AUTH-09).
 type RefreshCommand struct {
 	RefreshToken string
 	CSRFToken    string
@@ -55,9 +46,6 @@ type LogoutCommand struct {
 	CSRFToken    string
 }
 
-// Session is the material Register, Login and Refresh hand to the controller.
-// Only the controller decides what becomes a cookie and what becomes a body
-// (AUTH-01, AUTH-02, AUTH-03). RefreshToken and CSRFToken never reach a body.
 type Session struct {
 	AccessToken   string
 	ExpiresIn     int
@@ -67,66 +55,39 @@ type Session struct {
 	UserID        string
 }
 
-// LoginResult is what a password sign-in answers. A verified account receives
-// the Session; an unverified one receives a started verify_email code step and
-// no credential at all, so the session is never issued before the address is
-// proven (D2, TFA-06). Exactly one of the two fields is non-nil.
 type LoginResult struct {
 	Session   *Session
 	Challenge *ChallengeIssued
 }
 
-// SessionResponse is the login, registration and refresh body. It has no
-// refresh field, so the credential appears only in Set-Cookie (AUTH-01,
-// AUTH-02, AUTH-03, AUTH-08).
 type SessionResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
 	ExpiresIn   int    `json:"expires_in"`
 }
 
-// Config carries the refresh-token lifetime resolved from the environment.
-// The access-token TTL is a TokenManager concern, not a service one.
 type Config struct {
-	RefreshTTL time.Duration
-	// Now is the single clock for timestamps written or compared here. Nil
-	// means the system clock (PRQ-16).
-	Now Clock
-	// EmailChecker refuses disposable or undeliverable domains at registration.
-	// Nil disables the check.
-	EmailChecker EmailChecker
-	// RegisterMinDuration is the floor on how long Register takes to answer, so
-	// the response time does not tell the outcomes apart. Zero disables it.
+	RefreshTTL          time.Duration
+	Now                 Clock
+	EmailChecker        EmailChecker
 	RegisterMinDuration time.Duration
 }
 
-// EmailChecker decides whether an address may open an account. Check returns a
-// non-nil error to refuse it; the service runs it before any write, so a refused
-// registration leaves no account behind (LGN-151, D1).
 type EmailChecker interface {
 	Check(ctx context.Context, email string) error
 }
 
-// ChallengeDeps bundles the challenge collaborators so adding them does not
-// grow NewService's parameter list without bound (T017). The service owns the
-// policy; the store, the code toolkit, the mailer port and the observer are
-// injected.
 type ChallengeDeps struct {
-	Repository ChallengeRepository
-	Generator  CodeGenerator
-	Digest     *CodeDigest
-	Mailer     CodeMailer
-	Notices    NoticeRepository
-	Observer   ChallengeObserver
-	Policy     ChallengePolicy
-	// EmailVerifier is told about each account's first email verification. Nil
-	// disables the hook.
+	Repository    ChallengeRepository
+	Generator     CodeGenerator
+	Digest        *CodeDigest
+	Mailer        CodeMailer
+	Notices       NoticeRepository
+	Observer      ChallengeObserver
+	Policy        ChallengePolicy
 	EmailVerifier EmailVerifier
 }
 
-// EmailVerifier reacts to an account's first email verification, after the
-// verification instant is recorded. The implementation owns its failures:
-// verification never fails because of them, so the method reports nothing.
 type EmailVerifier interface {
 	EmailVerified(ctx context.Context, userID, email, clientIP string)
 }
@@ -196,12 +157,6 @@ func NewService(
 	}
 }
 
-// Register creates the account and starts the verify_email code step; it never
-// issues a session, because the address must be confirmed first. An address that
-// belongs to a verified account, or a username another account holds, answers
-// like a first registration and tells the address's owner by email instead, so
-// the response never reveals which addresses or usernames are taken (AUTH-02,
-// TFA-01); an address held by an unverified account is re-registered (D9).
 func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*ChallengeIssued, error) {
 	started := time.Now()
 	issued, err := s.register(ctx, cmd)
@@ -209,11 +164,6 @@ func (s *ServiceImpl) Register(ctx context.Context, cmd RegisterCommand) (*Chall
 	return issued, err
 }
 
-// padRegistration holds the answer until Config.RegisterMinDuration has elapsed
-// since started, so a new account, a pending replacement, a verified address and
-// a taken username cost the caller the same wall time. The password hash already
-// dominates every path; the floor absorbs the few round trips that differ. It
-// returns early when the request is cancelled.
 func (s *ServiceImpl) padRegistration(ctx context.Context, started time.Time) {
 	remaining := s.cfg.RegisterMinDuration - time.Since(started)
 	if remaining <= 0 {
@@ -291,9 +241,6 @@ func (s *ServiceImpl) register(ctx context.Context, cmd RegisterCommand) (*Chall
 	return issued, nil
 }
 
-// registrationCreateFailed answers a rejected account insert. Either unique
-// index can be the one that fired, and the address decides the outcome, so both
-// go through the re-registration path. Anything else is internal.
 func (s *ServiceImpl) registrationCreateFailed(ctx context.Context, err error, email, username, hashed string) (*ChallengeIssued, error) {
 	if errors.Is(err, user.ErrUsernameAlreadyExists) || errors.Is(err, user.ErrEmailAlreadyExists) {
 		return s.reregisterUnverified(ctx, email, username, hashed, err)
@@ -301,17 +248,6 @@ func (s *ServiceImpl) registrationCreateFailed(ctx context.Context, err error, e
 	return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 }
 
-// reregisterUnverified answers a registration whose address already belongs to
-// an account that never verified it (LGN-154, D9). The pending account takes the
-// new username and password hash, its refresh tokens are revoked, and a fresh
-// verify_email code supersedes the previous one, so the answer matches a first
-// registration. A verified account is never touched (it gets a notice instead).
-// The account is replaced rather than deleted, which leaves no orphan behind if
-// the code cannot be sent.
-//
-// A username held by any other account answers the username conflict whatever
-// the address is, so that answer never depends on which addresses are registered.
-// The one exception is the pending account's own username, which it may keep.
 func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username, hashed string, createErr error) (*ChallengeIssued, error) {
 	pending, err := s.users.FetchByEmail(ctx, email)
 	if err != nil {
@@ -363,9 +299,6 @@ func (s *ServiceImpl) reregisterUnverified(ctx context.Context, email, username,
 	return issued, nil
 }
 
-// usernameFree reports whether no account other than ownerID holds the username;
-// an empty ownerID means every holder counts. The unique username index is the
-// durable guard; this check only spares a write that would be rejected.
 func (s *ServiceImpl) usernameFree(ctx context.Context, username, ownerID string) (bool, error) {
 	holder, err := s.users.FetchByUsername(ctx, username)
 	if errors.Is(err, user.ErrUserNotFound) {
@@ -377,10 +310,6 @@ func (s *ServiceImpl) usernameFree(ctx context.Context, username, ownerID string
 	return holder.ID == ownerID, nil
 }
 
-// freeAddressCollision answers an insert that was rejected although no account
-// holds the address: the username index fired, so the username is taken. An
-// address index that fired with no account to read means the account vanished
-// mid-request, which answers the neutral conflict.
 func (s *ServiceImpl) freeAddressCollision(createErr error) (*ChallengeIssued, error) {
 	if errors.Is(createErr, user.ErrUsernameAlreadyExists) {
 		return nil, usernameConflict(createErr)
@@ -388,26 +317,14 @@ func (s *ServiceImpl) freeAddressCollision(createErr error) (*ChallengeIssued, e
 	return nil, registrationConflict(createErr)
 }
 
-// usernameConflict is the 409 for a username another account holds. It names
-// only the username, never the address, which is why it can be answered before
-// anything is known about the address.
 func usernameConflict(cause error) error {
 	return apperr.NewError(apperr.CodeConflict, MsgUsernameTaken, cause)
 }
 
-// registrationConflict is the 409 for a collision that cannot be answered as a
-// success. The cause is kept for logs; the message never says which detail
-// collided.
 func registrationConflict(cause error) error {
 	return apperr.NewError(apperr.CodeConflict, MsgRegistrationConflict, cause)
 }
 
-// noticeAttempt answers a registration that cannot create an account exactly
-// like a first registration: the same 201 shape with a challenge identity no
-// code can redeem, or the deferred answer when the daily allowance is spent. The
-// address's owner is told by email, at most once per window, so the response
-// never reveals which addresses or usernames are taken (D9). ownerID is the
-// account involved, empty when there is none, and is only logged.
 func (s *ServiceImpl) noticeAttempt(ctx context.Context, purpose Purpose, to, ownerID string) (*ChallengeIssued, error) {
 	if s.challenge.Mailer == nil || s.challenge.Notices == nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, nil)
@@ -438,9 +355,6 @@ func (s *ServiceImpl) noticeAttempt(ctx context.Context, purpose Purpose, to, ow
 	}, nil
 }
 
-// sendNotice queues the code-free notice when the daily allowance permits and
-// the address was not already sent the same notice within the window. It
-// reports whether a notice was queued.
 func (s *ServiceImpl) sendNotice(ctx context.Context, purpose Purpose, to string, now time.Time) (bool, error) {
 	policy := s.challenge.Policy
 	if err := s.checkSendBudget(ctx, now); err != nil {
@@ -469,32 +383,19 @@ func (s *ServiceImpl) sendNotice(ctx context.Context, purpose Purpose, to string
 	return true, nil
 }
 
-// isDailyAllowanceRefusal reports whether err is the send cap's refusal. It is
-// the only unavailable outcome an issuance raises during registration.
 func isDailyAllowanceRefusal(err error) bool {
 	var appErr *apperr.Error
 	return errors.As(err, &appErr) && appErr.Code == apperr.CodeEmailUnavailable
 }
 
-// deferredRegistration answers a registration whose code could not be queued:
-// the account already exists unverified, and no challenge or session is issued.
-// The next sign-in starts the verify_email step (D1, D2).
 func (s *ServiceImpl) deferredRegistration(ctx context.Context, userID string) *ChallengeIssued {
 	s.log.Info(ctx, "registration deferred by daily allowance", logger.Attribute{Key: attrUserID, Value: userID})
 	return &ChallengeIssued{Delivery: DeliveryDeferred}
 }
 
-// Login proves the password and then answers by the account's verification
-// state: a verified account gets a session, an unverified one starts the
-// verify_email step. Every credential failure answers the one uniform outcome
-// and starts nothing (TFA-02, TFA-05, TFA-06).
 func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*LoginResult, error) {
 	email, err := user.CanonicalEmail(cmd.Email)
 	if err != nil {
-		// An unparseable address is indistinguishable from an unknown one, so the
-		// response never reveals whether an account could have existed (PRQ-09,
-		// PRQ-10, PRQ-17). The password work is still spent, so the timing
-		// class is the same as the known-account path (TFA-05).
 		s.spendPasswordWork(cmd.Password)
 		return nil, s.invalidCredentials(ctx, "unparseable email")
 	}
@@ -529,10 +430,6 @@ func (s *ServiceImpl) Login(ctx context.Context, cmd LoginCommand) (*LoginResult
 	return &LoginResult{Session: session}, nil
 }
 
-// loginChallenge starts the verify_email step for an account whose password
-// was proven but whose address was never verified. The daily allowance and the
-// per-account bound apply exactly as they do to registration: a refusal reaches
-// the caller as its typed error (503 EMAIL_UNAVAILABLE or 429 RATE_LIMITED).
 func (s *ServiceImpl) loginChallenge(ctx context.Context, account *user.User) (*LoginResult, error) {
 	issued, err := s.startChallenge(ctx, account.ID, account.Email, PurposeVerifyEmail)
 	if err != nil {
@@ -543,9 +440,6 @@ func (s *ServiceImpl) loginChallenge(ctx context.Context, account *user.User) (*
 	return &LoginResult{Challenge: issued}, nil
 }
 
-// startChallenge starts the code step a gated registration or sign-in owes. The
-// purpose is bound here, from the operation that reached this point, and is
-// never read from a command the client controls (TFA-03).
 func (s *ServiceImpl) startChallenge(ctx context.Context, userID, email string, purpose Purpose) (*ChallengeIssued, error) {
 	if s.challenge.Repository == nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, nil)
@@ -557,28 +451,16 @@ func (s *ServiceImpl) startChallenge(ctx context.Context, userID, email string, 
 	})
 }
 
-// spendPasswordWork performs the password comparison the unknown-account path
-// owes, so the response time of a sign-in for an address that does not exist
-// falls into the same class as the one for an address whose password is wrong.
-// The comparison runs against the hasher's dummy hash — a bcrypt digest at the
-// configured work factor that no account stores — and its result is discarded
-// (TFA-05, R5).
 func (s *ServiceImpl) spendPasswordWork(password string) {
 	_ = s.hasher.Compare(s.hasher.DummyHash(), password)
 }
 
-// Refresh consumes the presented cookie credential, verifies the CSRF token
-// against the resolved family before any mutation, and rotates both the refresh
-// and CSRF values together (AUTH-03, AUTH-10, AUTH-11, AUTH-12).
 func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session, error) {
 	stored, err := s.resolveCredential(ctx, cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	// Renewal must not survive the account it names: load it after the existing
-	// credential rules and before the first issuance, so a missing account can
-	// never receive a credential (PRQ-05, PRQ-06).
 	account, err := s.users.FetchByID(ctx, stored.UserID)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
@@ -587,13 +469,10 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 
-	// An account that never verified its address holds no renewable session
-	// (D2, O5): sessions minted before verification existed are contained here.
 	if account.EmailVerifiedAt == nil {
 		return nil, s.revokeRenewal(ctx, stored.FamilyID, nil)
 	}
 
-	// A deleting account renews nothing: its family is revoked like an unverified one.
 	if account.IsDeleting() {
 		return nil, s.revokeRenewal(ctx, stored.FamilyID, nil)
 	}
@@ -608,21 +487,11 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 		return nil, err
 	}
 
-	// Atomically claim the rotation. If another request already rotated this token,
-	// the claim fails (MatchedCount=0). In that case, we do NOT revoke the family
-	// (which would invalidate the valid successor created by the other request).
-	// Instead, we return an error indicating the token was already rotated.
-	// The client that lost the race will need to re-authenticate, but the other
-	// client's valid tokens remain intact.
 	claimed, err := s.refreshTokens.RevokeByID(ctx, stored.ID, issued.id)
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 	}
 	if !claimed {
-		// Concurrent rotation: another request already rotated this token.
-		// The successor token we created is valid and in the family.
-		// Do NOT revoke the family — that would invalidate the other client's tokens.
-		// Return an error; the client must re-authenticate (their refresh token is now revoked).
 		s.log.Info(ctx, "refresh concurrent rotation detected", logger.Attribute{Key: attrUserID, Value: account.ID})
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, nil)
 	}
@@ -636,10 +505,6 @@ func (s *ServiceImpl) Refresh(ctx context.Context, cmd RefreshCommand) (*Session
 	return session, nil
 }
 
-// revokeRenewal ends the family of a credential whose account may not renew
-// it and answers the uniform refresh refusal. The missing-account and the
-// unverified-account paths share it, so neither is distinguishable by status or
-// body (TFA-06, TFA-10).
 func (s *ServiceImpl) revokeRenewal(ctx context.Context, familyID string, cause error) error {
 	if err := s.refreshTokens.RevokeFamily(ctx, familyID); err != nil {
 		return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
@@ -647,11 +512,6 @@ func (s *ServiceImpl) revokeRenewal(ctx context.Context, familyID string, cause 
 	return apperr.NewError(apperr.CodeUnauthorized, MsgInvalidRefreshToken, cause)
 }
 
-// resolveCredential applies the credential rules to the presented cookie
-// credential, in the order they decide: the credential must be present, known,
-// carry a valid CSRF token for its family, not be revoked and not be expired.
-// An unknown credential is refused before the CSRF token is even looked at
-// (AUTH-03, AUTH-10, AUTH-11, AUTH-12).
 func (s *ServiceImpl) resolveCredential(ctx context.Context, cmd RefreshCommand) (*RefreshToken, error) {
 	if cmd.RefreshToken == "" {
 		return nil, apperr.NewError(apperr.CodeUnauthorized, MsgRefreshTokenRequired, nil)
@@ -679,9 +539,6 @@ func (s *ServiceImpl) resolveCredential(ctx context.Context, cmd RefreshCommand)
 	return stored, nil
 }
 
-// Logout revokes the resolved session's family. A missing or unknown credential
-// is an idempotent no-op and owes no CSRF check; a resolved session must present
-// a valid CSRF token (AUTH-04, AUTH-06, AUTH-10).
 func (s *ServiceImpl) Logout(ctx context.Context, cmd LogoutCommand) error {
 	if cmd.RefreshToken == "" {
 		return nil
@@ -689,7 +546,6 @@ func (s *ServiceImpl) Logout(ctx context.Context, cmd LogoutCommand) error {
 
 	stored, err := s.refreshTokens.FetchByHash(ctx, HashRefreshToken(cmd.RefreshToken))
 	if err != nil {
-		// Logout is idempotent: an unknown token has no session left to end.
 		if errors.Is(err, ErrRefreshTokenNotFound) {
 			return nil
 		}
@@ -707,11 +563,6 @@ func (s *ServiceImpl) Logout(ctx context.Context, cmd LogoutCommand) error {
 	return nil
 }
 
-// IssueCSRF hands a page that cannot read the host-only CSRF cookie (the web
-// app and the API live on different hosts) the CSRF token bound to the family of
-// its live refresh credential. It owes no CSRF check itself: the HTTP layer
-// restricts it to allowlisted origins, whose responses other origins cannot
-// read, which is what keeps the token secret from a cross-site page.
 func (s *ServiceImpl) IssueCSRF(ctx context.Context, refreshToken string) (string, error) {
 	if refreshToken == "" {
 		return "", apperr.NewError(apperr.CodeUnauthorized, MsgRefreshTokenRequired, nil)
@@ -735,9 +586,6 @@ func (s *ServiceImpl) IssueCSRF(ctx context.Context, refreshToken string) (strin
 	return token, nil
 }
 
-// signIn mints a brand-new session for a user: a fresh family of refresh
-// credentials plus the CSRF token bound to it. It is the shared tail of
-// Register and Login.
 func (s *ServiceImpl) signIn(ctx context.Context, userID string) (*Session, error) {
 	access, err := s.tokens.Issue(userID)
 	if err != nil {
@@ -752,8 +600,6 @@ func (s *ServiceImpl) signIn(ctx context.Context, userID string) (*Session, erro
 	return s.newSession(ctx, userID, issued.raw, issued.familyID, access)
 }
 
-// newSession binds a freshly minted CSRF token to the session's family so the
-// controller can set the refresh and CSRF cookies together (AUTH-09, AUTH-12).
 func (s *ServiceImpl) newSession(ctx context.Context, userID, rawRefresh, familyID string, access AccessToken) (*Session, error) {
 	csrfToken, err := s.csrf.Issue(familyID)
 	if err != nil {
@@ -770,18 +616,12 @@ func (s *ServiceImpl) newSession(ctx context.Context, userID, rawRefresh, family
 	}, nil
 }
 
-// issuedRefresh is the persisted credential plus the material the caller needs:
-// the raw value for the cookie, the family for the CSRF binding, and the row id
-// that rotation points the predecessor's replaced_by at.
 type issuedRefresh struct {
 	raw      string
 	id       string
 	familyID string
 }
 
-// issueRefreshToken persists a refresh token for the given family, minting a
-// new family when familyID is empty. It returns the raw token — only its hash
-// is persisted — the family id and the new token's id.
 func (s *ServiceImpl) issueRefreshToken(ctx context.Context, userID string, familyID string) (issuedRefresh, error) {
 	if familyID == "" {
 		generated, err := idgen.New()

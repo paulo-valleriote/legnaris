@@ -1,8 +1,3 @@
-// Package openrouter implements llm.Client over the OpenRouter chat completions
-// API. Requests use OpenRouter's default routing with fallbacks enabled, so any
-// provider that serves the pinned model may handle a prompt, including the
-// DeepSeek first-party API. The player consents to that routing through the
-// versioned disclosure (ADR 0008). Free model variants are still refused.
 package openrouter
 
 import (
@@ -23,15 +18,11 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// DefaultBaseURL and DefaultModel are the gateway and the paid model the
-// configuration falls back to (ADR 0008).
 const (
 	DefaultBaseURL = "https://openrouter.ai/api/v1"
 	DefaultModel   = "deepseek/deepseek-v4.1-flash"
 )
 
-// Construction errors. They are plain sentinels because they surface at boot,
-// never as an HTTP response.
 var (
 	ErrMissingAPIKey  = errors.New("openrouter: API key is required")
 	ErrMissingModel   = errors.New("openrouter: model is required")
@@ -41,15 +32,11 @@ var (
 	ErrMissingLogger  = errors.New("openrouter: logger is required")
 )
 
-// Gateway routing phrases that mean no endpoint can serve the request. They
-// are matched against the error body only to classify the failure; the body is
-// never returned or logged.
 const (
 	noEndpointsPhrase = "no endpoints found"
 	noProvidersPhrase = "no allowed providers"
 )
 
-// Config selects the endpoint, credentials and model for one Client.
 type Config struct {
 	BaseURL string
 	APIKey  string
@@ -58,7 +45,6 @@ type Config struct {
 	Logger  logger.StructuredLogger
 }
 
-// Client is the OpenRouter adapter for llm.Client. It is safe for concurrent use.
 type Client struct {
 	endpoint string
 	apiKey   string
@@ -69,8 +55,6 @@ type Client struct {
 
 var _ llm.Client = (*Client)(nil)
 
-// New validates cfg and builds the adapter. Every misconfiguration fails here,
-// at construction, so the process never boots with a gateway it cannot reach.
 func New(cfg Config) (*Client, error) {
 	endpoint, err := chatCompletionsURL(cfg.BaseURL)
 	if err != nil {
@@ -97,8 +81,6 @@ func New(cfg Config) (*Client, error) {
 	}, nil
 }
 
-// chatCompletionsURL joins the base URL and the chat completions path, tolerating
-// a trailing slash on the base.
 func chatCompletionsURL(base string) (string, error) {
 	parsed, err := url.Parse(base)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
@@ -107,9 +89,6 @@ func chatCompletionsURL(base string) (string, error) {
 	return strings.TrimSuffix(base, "/") + "/chat/completions", nil
 }
 
-// Generate sends one structured-output completion. Failures wrap llm.ErrTransient,
-// llm.ErrPermanent or llm.ErrProviderUnavailable, and none of them carries the
-// gateway response body.
 func (c *Client) Generate(ctx context.Context, req llm.Request) (llm.Response, error) {
 	if err := req.Validate(); err != nil {
 		return llm.Response{}, err
@@ -131,7 +110,6 @@ func (c *Client) Generate(ctx context.Context, req llm.Request) (llm.Response, e
 	return c.parse(ctx, raw, latency)
 }
 
-// post performs the HTTP call and returns the status and the bounded body.
 func (c *Client) post(ctx context.Context, payload []byte) (int, []byte, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(payload))
 	if err != nil {
@@ -153,8 +131,6 @@ func (c *Client) post(ctx context.Context, payload []byte) (int, []byte, error) 
 	return resp.StatusCode, raw, nil
 }
 
-// statusError classifies a non-2xx response. The body is inspected only for the
-// no-eligible-provider phrases and never placed in the returned error.
 func statusError(status int, raw []byte) error {
 	if isNoEligibleProvider(raw) {
 		return fmt.Errorf("%w: status %d", llm.ErrProviderUnavailable, status)
@@ -165,8 +141,6 @@ func statusError(status int, raw []byte) error {
 	return fmt.Errorf("%w: status %d", llm.ErrPermanent, status)
 }
 
-// isNoEligibleProvider reports whether the gateway refused the request because no
-// endpoint can serve it.
 func isNoEligibleProvider(raw []byte) bool {
 	var body struct {
 		Error struct {
@@ -180,8 +154,6 @@ func isNoEligibleProvider(raw []byte) bool {
 	return strings.Contains(message, noEndpointsPhrase) || strings.Contains(message, noProvidersPhrase)
 }
 
-// failure logs the failed call with its status and error class, then returns
-// err unchanged. Only metadata is logged, never the prompt or the response body.
 func (c *Client) failure(ctx context.Context, status int, latency time.Duration, err error) error {
 	c.logger.Warn(ctx, "llm generation failed",
 		logger.Attribute{Key: "model", Value: c.model},
@@ -192,7 +164,6 @@ func (c *Client) failure(ctx context.Context, status int, latency time.Duration,
 	return err
 }
 
-// errorClass names the sentinel an error wraps, for logs only.
 func errorClass(err error) string {
 	switch {
 	case errors.Is(err, llm.ErrProviderUnavailable):
@@ -204,8 +175,6 @@ func errorClass(err error) string {
 	}
 }
 
-// parse extracts the structured output and token usage from a successful response.
-// The output must itself be valid JSON, because it is what the caller validates.
 func (c *Client) parse(ctx context.Context, raw []byte, latency time.Duration) (llm.Response, error) {
 	var body chatResponse
 	if err := sharedjson.DecodeBytes(raw, &body); err != nil {
@@ -238,9 +207,6 @@ func (c *Client) parse(ctx context.Context, raw []byte, latency time.Duration) (
 	return llm.Response{Output: json.RawMessage(content), Usage: usage}, nil
 }
 
-// buildRequest maps an llm.Request onto the OpenRouter body. The provider object
-// only asks OpenRouter to honor the structured-output parameters and to fall back
-// between endpoints.
 func (c *Client) buildRequest(req llm.Request) chatRequest {
 	messages := make([]message, 0, 2)
 	if req.System != "" {

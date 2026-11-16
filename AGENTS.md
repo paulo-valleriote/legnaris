@@ -75,37 +75,19 @@ Every test suite must cover, in this order of priority:
 
 ## Comments
 
-Comments are documentation, never narration. They must not substitute clear code.
+No comments in source code (Go, TS/TSX). Names, small functions, and tests carry the
+intent; Git history and Jira carry the rationale. This covers doc comments, package
+headers, "why" notes, TODO/FIXME, and commented-out code.
 
-**Language**
+**Allowed (functional directives only)**
 
-- Always English — every comment (and identifier, log message, and user-facing
-  string) must be written in English, never in Portuguese or any other language.
+- Go: `//go:*` (`//go:embed`, `//go:generate`, `//go:build`), `//nolint`, and the
+  `// Code generated ... DO NOT EDIT.` header of generated code.
+- TS/TSX: `/// <reference ... />`, `@ts-expect-error`, `eslint-disable*` (without a
+  `-- reason` suffix), `prettier-ignore`.
 
-**Allowed**
-
-- Doc comments on exported identifiers: functions, methods, types, interfaces,
-  and package-level constants/variables (Go doc-comment style, starting with the
-  identifier name: `// coerceFloat64 normalizes ...`).
-- Comments explaining **why**: constraints, trade-offs, gotchas, and non-obvious
-  decisions that the code cannot express by itself.
-- Package headers (e.g. `doc.go`).
-
-**Not allowed**
-
-- Comments inside function bodies — no line-by-line narration. Refactor instead:
-  better names, smaller functions, early returns.
-- Commented-out code — delete it; Git history keeps it.
-
-**TODO / FIXME**
-
-- Create a Jira card for the pending work first.
-- Only if a card is not possible (e.g. trivial or blocked), leave a `// TODO(owner):`
-  comment with a one-line rationale.
-
-**Exempt**
-
-- Generated code (mockery) and directives (`//go:generate`, `//nolint`, build tags).
+Generated code (mockery) is exempt. An intentionally empty `catch {}` needs no comment
+(ESLint `no-empty` allows empty catch blocks).
 
 ## PR Checklist
 

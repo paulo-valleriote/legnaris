@@ -18,8 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// gateSender blocks every Send until released or its context ends, and tracks
-// how many sends overlap.
 type gateSender struct {
 	release chan struct{}
 	started chan struct{}
@@ -75,8 +73,6 @@ func waitFor(t *testing.T, ch <-chan struct{}) {
 	}
 }
 
-// TestWorker_RegistersAgainWhenTheStreamEnds proves the end of the stream is
-// "register and continue", not a failure (WKR-17, SC-007).
 func TestWorker_RegistersAgainWhenTheStreamEnds(t *testing.T) {
 	h := newHarness(t)
 	payload := body(t, emailtest.Message())
@@ -116,8 +112,6 @@ func TestWorker_RegistersAgainWhenTheStreamEnds(t *testing.T) {
 	assert.GreaterOrEqual(t, calls.Load(), int32(2))
 }
 
-// TestWorker_RetriesFailedRegistration proves a refused registration is logged
-// and retried until it succeeds, never fatal (WKR-17).
 func TestWorker_RetriesFailedRegistration(t *testing.T) {
 	h := newHarness(t)
 
@@ -145,8 +139,6 @@ func TestWorker_RetriesFailedRegistration(t *testing.T) {
 	assert.Contains(t, h.log.text(), "consumer registration failed")
 }
 
-// TestWorker_StopsDuringRegistrationBackoff proves the stop signal ends the
-// wait between registration attempts.
 func TestWorker_StopsDuringRegistrationBackoff(t *testing.T) {
 	h := newHarness(t, func(c *worker.Config) { c.RegisterRetryDelay = time.Hour })
 
@@ -177,9 +169,6 @@ func TestWorker_StopsDuringRegistrationBackoff(t *testing.T) {
 	}
 }
 
-// TestWorker_GracefulStopFinishesTheMessageInFlight proves a stop takes no new
-// message but lets the one in flight finish and be acknowledged (WKR-18,
-// SC-008).
 func TestWorker_GracefulStopFinishesTheMessageInFlight(t *testing.T) {
 	h := newHarness(t)
 	sender := newGateSender()
@@ -208,9 +197,6 @@ func TestWorker_GracefulStopFinishesTheMessageInFlight(t *testing.T) {
 	require.NoError(t, <-done)
 }
 
-// TestWorker_StopLeavesAnUnfinishedMessageUnacknowledged proves a send that does
-// not finish within the drain budget is abandoned and left with the broker
-// (WKR-18, SC-008).
 func TestWorker_StopLeavesAnUnfinishedMessageUnacknowledged(t *testing.T) {
 	h := newHarness(t, func(c *worker.Config) { c.DrainTimeout = 50 * time.Millisecond })
 	sender := newGateSender()
@@ -236,8 +222,6 @@ func TestWorker_StopLeavesAnUnfinishedMessageUnacknowledged(t *testing.T) {
 	}
 }
 
-// TestWorker_PrefetchBoundsTheMessagesInFlight proves no more messages than the
-// prefetch are handled at once (WKR-16).
 func TestWorker_PrefetchBoundsTheMessagesInFlight(t *testing.T) {
 	const prefetch, total = 2, 6
 

@@ -22,8 +22,6 @@ func attributeValue(attributes []logger.Attribute, key string) string {
 	return ""
 }
 
-// TestLogSender proves the development sender makes no provider call, records a
-// masked recipient, and never logs the code (EML-10, EML-13).
 func TestLogSender(t *testing.T) {
 	log := loggermocks.NewMockStructuredLogger(t)
 
@@ -64,8 +62,6 @@ func TestLogSender(t *testing.T) {
 	})
 }
 
-// TestMaskRecipient pins the masking contract, including the malformed cases
-// (EML-13).
 func TestMaskRecipient(t *testing.T) {
 	tests := []struct {
 		name string

@@ -36,7 +36,6 @@ const sectionKeys = () =>
     (e) => e.dataset.sectionKey,
   );
 
-/** jsdom has no layout: stack rows 100 apart and Sections 1000 apart so dnd-kit can measure. */
 function stubLayout() {
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     const rows = Array.from(document.querySelectorAll('[data-row-key]'));

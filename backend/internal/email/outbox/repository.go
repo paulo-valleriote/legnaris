@@ -12,7 +12,6 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// Stored field names shared by every filter and update in this file.
 const (
 	emailOutboxCollection = "email_outbox"
 	fieldID               = "_id"
@@ -32,12 +31,8 @@ const (
 	operandOr             = "$or"
 )
 
-// ErrIntentNotFound reports a Clone targeting an identity the store does not
-// hold — for example one the retention window already retired.
 var ErrIntentNotFound = errors.New("intent not found")
 
-// Repository is the durable-intention contract consumed by the relay; the
-// API-side caller will use Create (EML-01, EML-03, EML-04, EML-17).
 type Repository interface {
 	Create(ctx context.Context, intent Intent) error
 	Claim(ctx context.Context, claimer string, now time.Time, lease time.Duration, limit int) ([]Intent, error)
@@ -45,25 +40,16 @@ type Repository interface {
 	Reschedule(ctx context.Context, id string, now, nextAt time.Time, lastError string) error
 	MarkTerminal(ctx context.Context, id string, now time.Time, lastError string) error
 	Backlog(ctx context.Context) (int, error)
-	// Clone creates a new pending intention from an existing one's recipient,
-	// template and payload, with a fresh canonical identity, attempts = 0 and
-	// next_attempt_at = now. An unknown identity is ErrIntentNotFound (OTP-10).
 	Clone(ctx context.Context, id string, now time.Time) (Intent, error)
-	// CountSince counts intentions recorded at or after since; it backs the
-	// daily send cap (OTP-13).
 	CountSince(ctx context.Context, since time.Time) (int, error)
-	// CountKindSince counts intentions of one kind recorded at or after since;
-	// it backs the resend share of the daily send cap (OTP-13, D5).
 	CountKindSince(ctx context.Context, kind Kind, since time.Time) (int, error)
 }
 
-// RepositoryImpl is the MongoDB-backed outbox store.
 type RepositoryImpl struct {
 	collection *mongo.Collection
 	logger     logger.StructuredLogger
 }
 
-// NewRepository builds the outbox store over the application database.
 func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 	return &RepositoryImpl{
 		collection: db.Collection(emailOutboxCollection),
@@ -71,8 +57,6 @@ func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 	}
 }
 
-// Create writes one document and never publishes; the request-serving caller
-// returns only after it succeeds (EML-01).
 func (r *RepositoryImpl) Create(ctx context.Context, intent Intent) error {
 	if err := validateIntentID(intent.ID); err != nil {
 		return err
@@ -83,10 +67,6 @@ func (r *RepositoryImpl) Create(ctx context.Context, intent Intent) error {
 	return nil
 }
 
-// Claim leases up to limit eligible rows with one conditional findOneAndUpdate
-// per row, so concurrent publishers never share a row and a stopped publisher's
-// lease expires (EML-03). It does not change status or attempts: a claim is not
-// a failed publication.
 func (r *RepositoryImpl) Claim(ctx context.Context, claimer string, now time.Time, lease time.Duration, limit int) ([]Intent, error) {
 	if limit <= 0 {
 		return nil, nil
@@ -117,8 +97,6 @@ func (r *RepositoryImpl) Claim(ctx context.Context, claimer string, now time.Tim
 	return claimed, nil
 }
 
-// MarkPublished sets the terminal published state and is the only writer of
-// published_at; the write is idempotent by identity (EML-02).
 func (r *RepositoryImpl) MarkPublished(ctx context.Context, id string, at time.Time) error {
 	if err := validateIntentID(id); err != nil {
 		return err
@@ -137,8 +115,6 @@ func (r *RepositoryImpl) MarkPublished(ctx context.Context, id string, at time.T
 	return nil
 }
 
-// Reschedule returns the row to pending with an incremented attempt count and a
-// later eligibility, so a failed publication is retried with backoff (EML-04).
 func (r *RepositoryImpl) Reschedule(ctx context.Context, id string, now, nextAt time.Time, lastError string) error {
 	if err := validateIntentID(id); err != nil {
 		return err
@@ -161,8 +137,6 @@ func (r *RepositoryImpl) Reschedule(ctx context.Context, id string, now, nextAt 
 	return nil
 }
 
-// MarkTerminal fails the row so it is surfaced for operator attention and never
-// claimed again (EML-04).
 func (r *RepositoryImpl) MarkTerminal(ctx context.Context, id string, now time.Time, lastError string) error {
 	if err := validateIntentID(id); err != nil {
 		return err
@@ -181,8 +155,6 @@ func (r *RepositoryImpl) MarkTerminal(ctx context.Context, id string, now time.T
 	return nil
 }
 
-// Backlog counts the pending intentions so a stalled pipeline can be alerted on
-// (EML-23).
 func (r *RepositoryImpl) Backlog(ctx context.Context) (int, error) {
 	count, err := r.collection.CountDocuments(ctx, bson.D{{Key: fieldStatus, Value: StatusPending}})
 	if err != nil {
@@ -191,11 +163,6 @@ func (r *RepositoryImpl) Backlog(ctx context.Context) (int, error) {
 	return int(count), nil
 }
 
-// Clone records a resend: it reads the identified intention and writes a new
-// pending row with a fresh canonical identity, the same recipient, template and
-// payload, attempts = 0 and next_attempt_at = now. The fresh identity is what
-// keeps the provider's idempotency key from suppressing the second send
-// (R3, EML-18, OTP-10).
 func (r *RepositoryImpl) Clone(ctx context.Context, id string, now time.Time) (Intent, error) {
 	if err := validateIntentID(id); err != nil {
 		return Intent{}, err
@@ -220,8 +187,6 @@ func (r *RepositoryImpl) Clone(ctx context.Context, id string, now time.Time) (I
 	return fresh, nil
 }
 
-// CountSince counts every intention recorded at or after since, the daily
-// send-cap's only input; the {created_at: 1} index backs it (OTP-13).
 func (r *RepositoryImpl) CountSince(ctx context.Context, since time.Time) (int, error) {
 	count, err := r.collection.CountDocuments(ctx, bson.D{
 		{Key: fieldCreatedAt, Value: bson.D{{Key: operandGTE, Value: since}}},
@@ -232,8 +197,6 @@ func (r *RepositoryImpl) CountSince(ctx context.Context, since time.Time) (int, 
 	return int(count), nil
 }
 
-// CountKindSince counts the intentions of one kind recorded at or after since.
-// Rows without a kind are initial, so they are never counted as resends.
 func (r *RepositoryImpl) CountKindSince(ctx context.Context, kind Kind, since time.Time) (int, error) {
 	count, err := r.collection.CountDocuments(ctx, bson.D{
 		{Key: fieldKind, Value: kind},
@@ -245,8 +208,6 @@ func (r *RepositoryImpl) CountKindSince(ctx context.Context, kind Kind, since ti
 	return int(count), nil
 }
 
-// claimFilter selects a pending row whose eligibility has arrived and whose
-// lease is absent or expired (EML-03).
 func claimFilter(now time.Time) bson.D {
 	return bson.D{
 		{Key: fieldStatus, Value: StatusPending},

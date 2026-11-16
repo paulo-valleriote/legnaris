@@ -33,7 +33,6 @@ function detailEnvelope(name: string, id = 'dnd5e') {
   return successOutcome({ id, name, default: true, fields: {} });
 }
 
-/** Opens the creation surface from the catalog and waits for the detail to settle. */
 async function openSurface(user: UserEvent) {
   const fake = createFakeTransport(
     successOutcome(CATALOG),

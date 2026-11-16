@@ -5,13 +5,6 @@ import (
 	"slices"
 )
 
-// cloneTemplate returns a deep copy of a template: the FieldGroup tree, every
-// FieldSchema pointer and every DependsOn path are new allocations, so nothing
-// in the result aliases the original.
-//
-// The registry clones on ingest (BuildRegistry, from the DefaultTemplates()
-// catalog) and on egress (List, FetchByID), which keeps the registered
-// templates frozen after boot no matter who mutates what (LGN-54).
 func cloneTemplate(tmpl Template) Template {
 	tmpl.Fields = cloneFieldGroup(tmpl.Fields)
 	tmpl.SectionOrder = slices.Clone(tmpl.SectionOrder)
@@ -21,7 +14,6 @@ func cloneTemplate(tmpl Template) Template {
 	return tmpl
 }
 
-// cloneFieldGroup deep-copies a field group, preserving a nil group as nil.
 func cloneFieldGroup(group FieldGroup) FieldGroup {
 	if group == nil {
 		return nil
@@ -33,8 +25,6 @@ func cloneFieldGroup(group FieldGroup) FieldGroup {
 	return cloned
 }
 
-// cloneFieldNode deep-copies a single node: leaf schemas get a fresh
-// FieldSchema, groups get a fresh children map plus a cloned column list.
 func cloneFieldNode(node FieldNode) FieldNode {
 	var cloned FieldNode
 	if node.Schema != nil {
@@ -52,8 +42,6 @@ func cloneFieldNode(node FieldNode) FieldNode {
 	return cloned
 }
 
-// clonePtr returns a pointer to a copy of *p, or nil when p is nil, so optional
-// scalar metadata is never shared between two templates or DTOs.
 func clonePtr[T any](p *T) *T {
 	if p == nil {
 		return nil
@@ -62,7 +50,6 @@ func clonePtr[T any](p *T) *T {
 	return &v
 }
 
-// cloneDependsOn copies the dependency paths, including their segments.
 func cloneDependsOn(dependsOn [][]string) [][]string {
 	if dependsOn == nil {
 		return nil

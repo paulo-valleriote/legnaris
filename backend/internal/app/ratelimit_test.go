@@ -16,15 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// countingObserver records how many requests the guard refused (AUTH-20).
 type countingObserver struct {
 	blocks int
 }
 
 func (o *countingObserver) RateLimitBlocked() { o.blocks++ }
 
-// rateLimitHarness is a router whose auth routes sit behind the guard and whose
-// handler counts invocations, so a test can prove no credential work happened.
 type rateLimitHarness struct {
 	echo    *echo.Echo
 	calls   *int
@@ -68,8 +65,6 @@ func loginBody(email string) string {
 	return string(payload)
 }
 
-// TestAccountKey proves the rate-limit key uses the shared canonical rule, so
-// every spelling of one mailbox shares one bucket (PRQ-09).
 func TestAccountKey(t *testing.T) {
 	t.Run("Happy path: equivalent spellings share one key", func(t *testing.T) {
 		for _, email := range []string{
@@ -191,8 +186,6 @@ func TestRateLimit(t *testing.T) {
 		require.Equal(t, http.StatusOK, harness.post(t, "/refresh", "", "10.0.0.1:1").Code)
 		assertRateLimited(t, harness.post(t, "/refresh", "", "10.0.0.1:1"))
 
-		// A different address is admitted even though the body says nothing about
-		// an account; the IP key frees with the address (AUTH-17).
 		require.Equal(t, http.StatusOK, harness.post(t, "/refresh", "", "10.0.0.9:1").Code)
 		assert.Equal(t, 2, *harness.calls)
 	})

@@ -9,9 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestValidateUpdateKeys covers the update contract the sheet service enforces
-// before Recalculate (LGN-66): a writable leaf key passes, and every other key
-// comes back as the typed error the service boundary turns into an apperr code.
 func TestValidateUpdateKeys(t *testing.T) {
 	dag := buildImmutabilityTestDAG(t, "lgn66")
 
@@ -37,9 +34,6 @@ func TestValidateUpdateKeys(t *testing.T) {
 			wantMsg:     "unknown field 'stats.unknown' in update",
 		},
 		{
-			// A group prefix is a valid key for Recalculate but never for an
-			// update payload: applying it would replace the whole group with
-			// the scalar and drop its siblings.
 			name:        "Error: group prefix is not a writable field",
 			updates:     map[string]any{"stats": 12.0},
 			wantUnknown: "stats",
@@ -78,17 +72,11 @@ func TestValidateUpdateKeys(t *testing.T) {
 	}
 }
 
-// TestValidateUpdateKeys_NilDAG mirrors Recalculate's guard: a missing graph
-// is an internal invariant violation, not a caller mistake to panic on.
 func TestValidateUpdateKeys_NilDAG(t *testing.T) {
 	var dag *DAG
 	require.ErrorIs(t, dag.ValidateUpdateKeys(map[string]any{"stats.str": 16.0}), ErrNilDAG)
 }
 
-// TestValidateUpdateKeys_ConcurrentWithRecalculate proves the new entry point
-// reads under its own single read lock: running it against Recalculate in
-// parallel must neither race nor deadlock against a queued writer (LGN-54
-// discipline, exercised under the race detector by make test-race).
 func TestValidateUpdateKeys_ConcurrentWithRecalculate(t *testing.T) {
 	dag := buildImmutabilityTestDAG(t, "lgn66")
 

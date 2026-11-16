@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDevSender proves the development sender logs the code in clear, keeps
-// the recipient readable, and makes no provider call (EML-10, D10).
 func TestDevSender(t *testing.T) {
 	tests := []struct {
 		name     string

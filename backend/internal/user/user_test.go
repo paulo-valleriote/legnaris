@@ -11,9 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestUser_VerificationTimestamp guards the store-only field: a zero-value or
-// freshly registered account carries no timestamp, and the wire DTO never
-// exposes one (PRQ-12, PRQ-14, PRQ-15).
 func TestUser_VerificationTimestamp(t *testing.T) {
 	createdAt := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 
@@ -63,9 +60,6 @@ func TestUser_VerificationTimestamp(t *testing.T) {
 	})
 }
 
-// TestUser_VerificationProjection covers the derived verification state on the
-// wire shape: the boolean follows the stored instant, the instant itself never
-// reaches the wire and the hash is never serialized (TFA-08, TFA-09).
 func TestUser_VerificationProjection(t *testing.T) {
 	createdAt := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 

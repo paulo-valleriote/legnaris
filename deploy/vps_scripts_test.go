@@ -17,9 +17,6 @@ const (
 	deployScript    = "vps/deploy.sh"
 )
 
-// stageEntryTree copies the forced-command script into a throwaway checkout
-// layout (deploy/vps/) next to a stub deploy.sh that records its arguments, so
-// the test observes whether the entry script reaches the deploy step.
 func stageEntryTree(t *testing.T) (entry, deployDir, stubOut string) {
 	t.Helper()
 	root := t.TempDir()
@@ -212,8 +209,6 @@ func assertNoLeftoverTemp(t *testing.T, dir string) {
 	assert.Empty(t, matches, "temporary env files must not survive a run")
 }
 
-// bootstrapFixture is a fresh host: no deploy user, no firewall rules, no clone,
-// with every system path redirected into a temp directory.
 type bootstrapFixture struct {
 	state    string
 	logPath  string
@@ -225,7 +220,6 @@ type bootstrapFixture struct {
 	bin      string
 }
 
-// bootstrapHardenedSSHD is the drop-in content the bootstrap must produce.
 const bootstrapHardenedSSHD = "PasswordAuthentication no\nPermitRootLogin no"
 
 const testPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyOnly ci@legnaris"
@@ -296,7 +290,6 @@ func (f *bootstrapFixture) run(t *testing.T, args ...string) scriptResult {
 	return runScript(t, bootstrapScript, f.env, "", args...)
 }
 
-// mutatingCalls lists the logged calls that change host state.
 var mutatingCalls = []string{
 	"useradd", "usermod", "ufw allow", "ufw --force enable", "apt-get", "git clone", "chown", "systemctl",
 }
@@ -607,10 +600,6 @@ const (
 	oldSHA = "2222222222222222222222222222222222222222"
 )
 
-// deployFakes records git and docker calls. Each FAKE_FAIL_* variable selects
-// one failure: a git command containing FAKE_FAIL_GIT, or a compose subcommand
-// FAKE_FAIL_SUB run for the image tag FAKE_FAIL_TAG. FAKE_ANCESTOR is the exit
-// status of merge-base, and FAKE_FETCH_MAIN_FAIL fails fetching origin main.
 var deployFakes = map[string]string{
 	"git": `
 if [[ -n "${FAKE_FAIL_GIT:-}" && "$*" == *"$FAKE_FAIL_GIT"* ]]; then exit 1; fi
@@ -625,8 +614,6 @@ done
 exit 0`,
 }
 
-// stageDeployTree copies deploy.sh into a throwaway checkout layout. withGit
-// creates an empty .git directory so the ancestry check on main is active.
 func stageDeployTree(t *testing.T, withGit bool) (script, root string) {
 	t.Helper()
 	root = t.TempDir()
@@ -644,7 +631,6 @@ func stageDeployTree(t *testing.T, withGit bool) (script, root string) {
 	return script, root
 }
 
-// composeActions returns the logged compose calls as "<tag> <subcommand>".
 func composeActions(log string) []string {
 	var out []string
 	for _, line := range strings.Split(strings.TrimSpace(log), "\n") {

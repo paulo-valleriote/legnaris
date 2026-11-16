@@ -15,11 +15,8 @@ import (
 
 var updateGolden = flag.Bool("update", false, "rewrite the verify_email golden files from the current render")
 
-// verifyEmailData is the representative payload the verify_email golden files pin.
 var verifyEmailData = email.Data{Code: "042917", ExpiresInMinutes: 10}
 
-// assertGolden compares got with the golden file at name, or rewrites it when
-// the suite runs with -update.
 func assertGolden(t *testing.T, name, got string) {
 	t.Helper()
 
@@ -32,8 +29,6 @@ func assertGolden(t *testing.T, name, got string) {
 	assert.Equal(t, string(want), got, "render drifted from %s; run go test -update to accept", path)
 }
 
-// TestVerifyEmail_Golden pins the verify_email text and HTML bodies so copy
-// changes are deliberate (LGN-160).
 func TestVerifyEmail_Golden(t *testing.T) {
 	rendered, err := newRenderer(t).Render(email.PurposeVerifyEmail, verifyEmailData)
 	require.NoError(t, err)
@@ -51,8 +46,6 @@ func TestVerifyEmail_Golden(t *testing.T) {
 	})
 }
 
-// TestVerifyEmail_Content proves the verify_email body carries the code, the
-// 10 minute lifetime and the ignore notice, and never a clickable link (LGN-160).
 func TestVerifyEmail_Content(t *testing.T) {
 	renderer := newRenderer(t)
 
@@ -81,8 +74,6 @@ func TestVerifyEmail_Content(t *testing.T) {
 	}
 }
 
-// TestVerifyEmail_HTMLSpecialCharacters proves a code with HTML-significant
-// characters cannot break out of the HTML body (LGN-160).
 func TestVerifyEmail_HTMLSpecialCharacters(t *testing.T) {
 	renderer := newRenderer(t)
 

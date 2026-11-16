@@ -1,15 +1,3 @@
-/**
- * Typed English copy catalog — the only place a user-facing string lives in the
- * client (API-23).
- *
- * Every key is a plain string in the single V1 locale. Components and the API
- * client resolve copy through `message()` rather than embedding literals, so a
- * later localization feature replaces this module without touching call sites.
- * The copy that carries a value — the address, the remaining time, the account
- * mode — resolves through `messageWith()`, so the sentence and the value stay
- * in the catalog together (WCS-13).
- */
-
 export const messages = {
   'api.error.clientFault':
     'The app sent a request the server could not read. Reload and try again.',
@@ -371,26 +359,14 @@ export const messages = {
   'ui.dismiss': 'Dismiss',
 } as const;
 
-/** A key of the English catalog. */
 export type MessageKey = keyof typeof messages;
 
-/** The values a parameterized catalog entry resolves (WCS-13). */
 export type MessageValues = Readonly<Record<string, string | number>>;
 
-/** Resolves the copy for [key] from the English catalog (API-23). */
 export function message(key: MessageKey): string {
   return messages[key];
 }
 
-/**
- * Resolves a catalog entry that carries values (WCS-13).
- *
- * The catalog owns the sentence; the caller hands over the values it holds —
- * the address, the remaining time, the account mode — so no surface
- * concatenates copy with a value the catalog did not resolve. A placeholder
- * without a value is a programming error and raises rather than rendering a
- * half-resolved sentence.
- */
 export function messageWith(key: MessageKey, values: MessageValues): string {
   return messages[key].replace(/\{(\w+)\}/g, (_match, name: string) => {
     const value = values[name];

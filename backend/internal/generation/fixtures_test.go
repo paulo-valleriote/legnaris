@@ -9,17 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fixtureID is the template id of the fixture Template.
 const fixtureID = "fixture_v1"
 
-// ptr returns a pointer to v, for the optional bounds of a FieldSchema.
 func ptr[T any](v T) *T {
 	return &v
 }
 
-// fixtureTemplate returns a small Template that covers every generation rule: nested
-// groups, a text, a number with bounds, a bool, a derived leaf, a non-generatable
-// editable leaf, a group with no generatable leaf, and an exclusive group.
 func fixtureTemplate() *template.Template {
 	return &template.Template{
 		ID:   fixtureID,
@@ -74,7 +69,6 @@ func fixtureTemplate() *template.Template {
 	}
 }
 
-// fixtureDAG compiles the fixture Template's rules.
 func fixtureDAG(t testing.TB, tmpl *template.Template) *template.DAG {
 	t.Helper()
 	dag, err := template.BuildDAG(tmpl.ID, tmpl.Fields, engine.NewFormulaEngine())

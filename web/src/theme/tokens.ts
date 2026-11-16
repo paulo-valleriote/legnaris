@@ -1,21 +1,10 @@
-/**
- * Typed mirror of `tokens.css`. Tests read the CSS file and assert that these
- * declarations stay in sync, so the visual contract has a single source of
- * truth (UIF-01, UIF-02, UIF-28, UIF-31).
- */
-
-/** The two declared themes; the closed set (`UIF-17`, `UIF-19`, `UIF-22`). */
 export type ThemeName = 'light' | 'dark';
 
 export interface ContrastPair {
   readonly description: string;
-  /** The theme the pair is measured in (`R9`). */
   readonly theme: ThemeName;
-  /** CSS custom property holding the foreground color. */
   readonly foregroundVar: string;
-  /** CSS custom property holding the background the foreground sits on. */
   readonly backgroundVar: string;
-  /** Minimum WCAG 2 contrast ratio the pair must meet. */
   readonly minRatio: number;
 }
 
@@ -185,19 +174,12 @@ const pairSpecs: readonly PairSpec[] = [
   },
 ];
 
-/**
- * Every color token used as a foreground on a background declares its pair here, once per
- * theme; `tokens_contrast.test.ts` asserts each pair meets `minRatio` in its own theme
- * (UIF-28, UIF-31).
- */
 export const contrastPairs: readonly ContrastPair[] = (['light', 'dark'] as const).flatMap(
   (theme) => pairSpecs.map((spec) => ({ ...spec, theme })),
 );
 
-/** The layer a design token belongs to (data-model.md §1). */
 export type TokenLayer = 'primitive' | 'semantic' | 'component';
 
-/** Category of a design token; a closed set (data-model.md). */
 export type TokenCategory =
   | 'type'
   | 'weight'
@@ -212,7 +194,6 @@ export type TokenCategory =
   | 'focus';
 
 export interface DesignToken {
-  /** CSS custom property name, e.g. `--lg-space-8`. */
   readonly name: string;
   readonly layer: TokenLayer;
   readonly category: TokenCategory;

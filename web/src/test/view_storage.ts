@@ -1,11 +1,9 @@
 import type { ViewStorage } from '../sheet/view_store';
 
-/** An in-memory {@link ViewStorage} whose records a suite can read and seed. */
 export interface MemoryViewStorage extends ViewStorage {
   readonly records: Map<string, string>;
 }
 
-/** Builds a storage double; [seed] preloads records, and a throwing flag makes every call refuse. */
 export function createMemoryViewStorage(
   seed: Record<string, string> = {},
   options: { readonly throws?: boolean } = {},

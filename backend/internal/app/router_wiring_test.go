@@ -30,18 +30,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// newWiringRouter builds the production router over a mongo client that never
-// reaches a server: mongo.Connect seeds the topology without dialing, so the
-// JWT wiring is observable with no database. This is the route-wiring guard
-// that runs in CI, where the integration suite self-skips without a database.
 func newWiringRouter(t *testing.T) (http.Handler, *app.Modules) {
 	t.Helper()
 	return newWiringRouterWithEnv(t, nil)
 }
 
-// newWiringRouterWithEnv is newWiringRouter with extra environment overrides,
-// so a route-level suite can shrink the rate-limit cap without touching the
-// production defaults.
 func newWiringRouterWithEnv(t *testing.T, extra map[string]string) (http.Handler, *app.Modules) {
 	t.Helper()
 
@@ -49,16 +42,11 @@ func newWiringRouterWithEnv(t *testing.T, extra map[string]string) (http.Handler
 	return router, modules
 }
 
-// newWiringEcho exposes the concrete router, so a guard can inspect the
-// registered route inventory in addition to driving requests.
 func newWiringEcho(t *testing.T, extra map[string]string) (*echo.Echo, *app.Modules) {
 	t.Helper()
 	return newWiringEchoWithChecker(t, extra, nil)
 }
 
-// newWiringEchoWithChecker is newWiringEcho with an explicit active-account checker.
-// A nil checker answers every account as active, because the wiring suite has no
-// database to load an account from; the gate itself is covered by TestActiveGate.
 func newWiringEchoWithChecker(t *testing.T, extra map[string]string, checker auth.ActiveAccountChecker) (*echo.Echo, *app.Modules) {
 	t.Helper()
 
@@ -72,8 +60,6 @@ func newWiringEchoWithChecker(t *testing.T, extra map[string]string, checker aut
 	log := logger.NewLogger(slog.LevelError)
 	env := env.NewEnv(log)
 
-	// Port 1 refuses instantly; the short server-selection timeout only comes
-	// into play for a request that wrongly reaches a database-backed handler.
 	client, err := mongo.Connect(options.Client().ApplyURI("mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=50"))
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -95,8 +81,6 @@ func newWiringEchoWithChecker(t *testing.T, extra map[string]string, checker aut
 	return app.NewRouter(env, modules, metrics.New()), modules
 }
 
-// activeAccountsStub answers every account as active, so the DB-less wiring suite
-// reaches the handlers behind the gate.
 func activeAccountsStub(t *testing.T) auth.ActiveAccountChecker {
 	t.Helper()
 	checker := authmocks.NewMockService(t)
@@ -104,9 +88,6 @@ func activeAccountsStub(t *testing.T) auth.ActiveAccountChecker {
 	return checker
 }
 
-// TestRouterWiring_ActiveGateGuardsProtectedRoutes pins that every authenticated
-// group runs the active gate: a deleting account is forbidden on each of them,
-// while the deletion request itself is not gated (LGN-190).
 func TestRouterWiring_ActiveGateGuardsProtectedRoutes(t *testing.T) {
 	deleting := apperr.NewError(apperr.CodeForbidden, auth.MsgAccountDeleting, nil)
 	checker := authmocks.NewMockService(t)
@@ -148,10 +129,6 @@ func TestRouterWiring_ActiveGateGuardsProtectedRoutes(t *testing.T) {
 	})
 }
 
-// TestRouterWiring_AuthRouteInventory guards the auth HTTP surface: the four
-// session routes, the two unified code-step routes, whose purpose is resolved
-// server-side and never accepted from the client (OTP-09, OTP-19), and the
-// identity read (TFA-09).
 func TestRouterWiring_AuthRouteInventory(t *testing.T) {
 	router, _ := newWiringEcho(t, nil)
 
@@ -165,17 +142,13 @@ func TestRouterWiring_AuthRouteInventory(t *testing.T) {
 	assert.ElementsMatch(t, []string{
 		http.MethodPost + " /auth/register",
 		http.MethodPost + " /auth/login",
-		// Account deletion is a two-step code flow (LGN-190).
 		http.MethodPost + " /auth/me/deletion",
 		http.MethodDelete + " /auth/me",
 		http.MethodPost + " /auth/refresh",
 		http.MethodPost + " /auth/logout",
-		// The CSRF bootstrap lets a cross-host page obtain its session-bound token.
 		http.MethodGet + " /auth/csrf",
-		// Stage 3 adds exactly these two routes; no other route may appear.
 		http.MethodPost + " /auth/challenge/verify",
 		http.MethodPost + " /auth/challenge/resend",
-		// The identity read is the only read of the signed-in account.
 		http.MethodGet + " /auth/me",
 	}, got, "the auth surface must be exactly the session routes plus the two challenge routes plus the identity read")
 
@@ -185,9 +158,6 @@ func TestRouterWiring_AuthRouteInventory(t *testing.T) {
 	}
 }
 
-// TestRouterWiring_MeRequiresBearer pins the identity read's guard: without a
-// credential it is 401 with no account data, and with one it reaches the
-// handler (TFA-09).
 func TestRouterWiring_MeRequiresBearer(t *testing.T) {
 	h, modules := newWiringRouter(t)
 
@@ -210,10 +180,6 @@ func TestRouterWiring_MeRequiresBearer(t *testing.T) {
 		access, err := modules.Auth.TokenManager.Issue("01900000-0000-7000-8000-000000000001")
 		require.NoError(t, err)
 
-		// The wiring router's database never answers, so the read reaches the
-		// handler and fails in the store: the guard let the request through,
-		// and the store failure is the typed 500 — never a 404 and never a
-		// guard refusal (TFA-09, TFA-10).
 		rec := doAuthRequest(t, h, access.Value, http.MethodGet, "/auth/me", "")
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 
@@ -224,10 +190,6 @@ func TestRouterWiring_MeRequiresBearer(t *testing.T) {
 	})
 }
 
-// TestRouterWiring_RequireAuthGuardsProtectedRoutes covers OWN-15…OWN-18
-// without a database: every /sheets* and /templates* route rejects a tokenless
-// request with 401 UNAUTHORIZED, health/metrics/auth stay public, and a valid
-// token reaches the normal handler.
 func TestRouterWiring_RequireAuthGuardsProtectedRoutes(t *testing.T) {
 	h, modules := newWiringRouter(t)
 
@@ -283,12 +245,9 @@ func TestRouterWiring_RequireAuthGuardsProtectedRoutes(t *testing.T) {
 		mrec := doRequest(t, h, http.MethodGet, "/metrics", "")
 		require.Equal(t, http.StatusOK, mrec.Code)
 
-		// An invalid email stops register at service validation, before any
-		// database access, so a 400 here proves the route is not JWT-gated.
 		rrec := doRequest(t, h, http.MethodPost, "/auth/register", `{}`)
 		require.Equal(t, http.StatusBadRequest, rrec.Code, "register must stay public")
 
-		// The CSP report collector is public and always answers 204 (POL-04).
 		crec := doRequest(t, h, http.MethodPost, "/csp-report",
 			`{"csp-report":{"effective-directive":"script-src","disposition":"enforce"}}`)
 		require.Equal(t, http.StatusNoContent, crec.Code, "csp-report must stay public")

@@ -18,8 +18,6 @@ import (
 
 const registerTestWindow = time.Hour
 
-// registerHarness routes POST /register through registerRateLimit and counts
-// the handler calls, so a test can prove a refused request did no account work.
 type registerHarness struct {
 	echo     *echo.Echo
 	calls    *int
@@ -53,17 +51,14 @@ func (h *registerHarness) post(t *testing.T, body, remoteAddr string) *httptest.
 	return rec
 }
 
-// registerBody builds a registration payload; only the e-mail matters to the guard.
 func registerBody(email string) string {
 	return `{"email":"` + email + `","username":"player","password":"sup3r-secret"}`
 }
 
-// clockedLimiter builds an in-process limiter driven by a shared test clock.
 func clockedLimiter(max int, now *time.Time) ratelimit.Allower {
 	return ratelimit.New(max, registerTestWindow, func() time.Time { return *now })
 }
 
-// failingStore stands in for an unreachable Redis: every decision errors out.
 type failingStore struct{}
 
 func (failingStore) Hit(context.Context, string, int, time.Duration) (bool, time.Duration, error) {
@@ -209,7 +204,6 @@ func TestRegisterRateLimit_EmailBudget(t *testing.T) {
 		require.Equal(t, http.StatusCreated, h.post(t, registerBody("a@example.com"), "198.51.100.7:1").Code)
 		require.Equal(t, http.StatusTooManyRequests, h.post(t, registerBody("b@example.com"), "198.51.100.7:1").Code)
 
-		// Only the IP refused the second attempt, so the mailbox still has one slot.
 		assert.Equal(t, http.StatusCreated, h.post(t, registerBody("b@example.com"), "198.51.100.8:1").Code)
 	})
 }

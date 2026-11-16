@@ -54,7 +54,6 @@ func main() {
 	}
 }
 
-// logErrorKey is the log field carrying an error message.
 const logErrorKey = "error"
 
 func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
@@ -133,10 +132,6 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 	return serve(ctx, router, listener, cfg.Variables.ShutdownTimeout)
 }
 
-// serve runs handler on ln until ctx is cancelled, then stops accepting
-// connections and waits up to timeout for in-flight requests. When the drain
-// exceeds timeout the remaining connections are closed forcibly and an error
-// is returned so the process exits non-zero.
 func serve(ctx context.Context, handler http.Handler, ln net.Listener, timeout time.Duration) error {
 	var (
 		server      *http.Server

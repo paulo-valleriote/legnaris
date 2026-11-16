@@ -38,9 +38,6 @@ func serve(t *testing.T, h http.Handler, req *http.Request) *httptest.ResponseRe
 	return rec
 }
 
-// newAuthRouter mounts the four auth handlers without the guards: guard
-// behaviour is proven white-box in origin_test.go and ratelimit_test.go, so the
-// controller test isolates the cookie transport and the session body.
 func newAuthRouter(t *testing.T, service *authmocks.MockService) http.Handler {
 	t.Helper()
 
@@ -57,7 +54,6 @@ func newAuthRouter(t *testing.T, service *authmocks.MockService) http.Handler {
 	return e
 }
 
-// findCookie returns the named Set-Cookie from a response, or nil.
 func findCookie(rec *httptest.ResponseRecorder, name string) *http.Cookie {
 	for _, cookie := range rec.Result().Cookies() {
 		if cookie.Name == name {
@@ -67,8 +63,6 @@ func findCookie(rec *httptest.ResponseRecorder, name string) *http.Cookie {
 	return nil
 }
 
-// session is a representative service result carrying a credential and a CSRF
-// token the controller must move to cookies, never to the body.
 func session() *auth.Session {
 	return &auth.Session{
 		AccessToken:   "access-token",
@@ -80,8 +74,6 @@ func session() *auth.Session {
 	}
 }
 
-// challengeOutcome is the service result of a registration: the started code
-// step and no session (TFA-01).
 func challengeOutcome() *auth.ChallengeIssued {
 	return &auth.ChallengeIssued{
 		ChallengeID: "01900000-0000-7000-8000-000000000009",
@@ -128,9 +120,6 @@ func assertSessionBody(t *testing.T, rec *httptest.ResponseRecorder) {
 	assert.NotContains(t, raw, "csrf-token", "the CSRF token travels only in the cookie")
 }
 
-// assertChallengeBody pins the gated answer: the challenge handle, its
-// lifetime and the resend window, with no credential of any kind in the body
-// and no cookie in the headers (TFA-01, TFA-02, SC-001).
 func assertChallengeBody(t *testing.T, rec *httptest.ResponseRecorder) {
 	t.Helper()
 
@@ -182,7 +171,7 @@ func TestAuthController_Register(t *testing.T) {
 	})
 
 	t.Run("Error: invalid body returns 400", func(t *testing.T) {
-		service := authmocks.NewMockService(t) // no expectations: the body never reaches the service
+		service := authmocks.NewMockService(t)
 
 		h := newAuthRouter(t, service)
 		rec := doRequest(t, h, http.MethodPost, "/auth/register", `{"email":`)
@@ -346,8 +335,6 @@ func TestAuthController_Login(t *testing.T) {
 	})
 }
 
-// newMeRouter mounts the identity read behind the bearer middleware, so the
-// route's guard is exercised with the production parser.
 func newMeRouter(t *testing.T, service auth.Service, tokens auth.TokenManager) http.Handler {
 	t.Helper()
 
@@ -360,9 +347,6 @@ func newMeRouter(t *testing.T, service auth.Service, tokens auth.TokenManager) h
 	return e
 }
 
-// TestAuthController_Me covers the identity read: the four reported fields and
-// the derived verification state, the uniform unauthorized outcome without a
-// usable credential, and the store failure (TFA-08, TFA-09, TFA-10).
 func TestAuthController_Me(t *testing.T) {
 	tokens, err := auth.NewTokenManager("me-test-secret", 15*time.Minute, time.Now)
 	require.NoError(t, err)
@@ -427,7 +411,7 @@ func TestAuthController_Me(t *testing.T) {
 	})
 
 	t.Run("Error: no credential is 401 with no account data", func(t *testing.T) {
-		service := authmocks.NewMockService(t) // no expectations: the service is never reached
+		service := authmocks.NewMockService(t)
 
 		h := newMeRouter(t, service, tokens)
 		rec := serve(t, h, newRequest(http.MethodGet, "/auth/me", ""))
@@ -492,9 +476,6 @@ func TestAuthController_Me(t *testing.T) {
 	})
 }
 
-// TestAuthController_CredentialFailuresAreUniform pins the one uniform
-// credential failure: the four ways a sign-in can fail answer the same status
-// and the same body, so no caller can tell them apart (TFA-05, SC-002).
 func TestAuthController_CredentialFailuresAreUniform(t *testing.T) {
 	failures := []struct {
 		name string
@@ -538,9 +519,6 @@ func TestAuthController_CredentialFailuresAreUniform(t *testing.T) {
 	})
 }
 
-// TestAuthController_RegisterDisclosesNothing sweeps the body and headers of
-// the registration answer: no six-digit code and no address may appear in
-// either (TFA-16, SC-001).
 func TestAuthController_RegisterDisclosesNothing(t *testing.T) {
 	t.Run("Edge: /auth/register discloses neither a code nor an address", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
@@ -667,7 +645,6 @@ func TestAuthController_Logout(t *testing.T) {
 		clearedRefresh := findCookie(rec, auth.RefreshCookieName)
 		require.NotNil(t, clearedRefresh)
 		assert.Empty(t, clearedRefresh.Value)
-		// Max-Age=0 round-trips to MaxAge=-1 through http.ReadSetCookies.
 		assert.Equal(t, -1, clearedRefresh.MaxAge)
 		assert.True(t, clearedRefresh.HttpOnly)
 		assert.Contains(t, rec.Header().Values("Set-Cookie")[0], "Max-Age=0")
@@ -724,10 +701,6 @@ func TestAuthController_Logout(t *testing.T) {
 	})
 }
 
-// TestAuthController_RefreshAccountFailures pins the HTTP mapping of the new
-// renewal failures: a missing account is 401 with no cookie, a store failure is
-// 500 with no cookie, and neither changes the response body shape (PRQ-07,
-// PRQ-14, PRQ-17).
 func TestAuthController_RefreshAccountFailures(t *testing.T) {
 	refreshRequest := func(t *testing.T, h http.Handler) *httptest.ResponseRecorder {
 		t.Helper()
@@ -757,8 +730,6 @@ func TestAuthController_RefreshAccountFailures(t *testing.T) {
 	})
 
 	t.Run("Error: the renewal of an unverified account is the same 401 and sets no cookie", func(t *testing.T) {
-		// The refusal for an account that never verified is deliberately
-		// indistinguishable from the missing-account one (TFA-06, TFA-10).
 		service := authmocks.NewMockService(t)
 		service.EXPECT().
 			Refresh(mock.Anything, mock.Anything).

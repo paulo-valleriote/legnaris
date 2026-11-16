@@ -26,9 +26,6 @@ const (
 	outageUpperBound       = 20 * time.Second
 )
 
-// newUnreachableClient returns a client whose server cannot be selected, so
-// operations fail without any external service. selectionMS is how long the
-// driver waits for a server before giving up.
 func newUnreachableClient(t *testing.T, selectionMS string) *mongo.Client {
 	t.Helper()
 	client, err := mongo.Connect(options.Client().ApplyURI(unreachableURITemplate + selectionMS))
@@ -288,7 +285,6 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 	}
 }
 
-// countDocs returns the number of documents in a collection.
 func countDocs(t *testing.T, mdb *mongo.Database, collection string) int64 {
 	t.Helper()
 	n, err := mdb.Collection(collection).CountDocuments(context.Background(), bson.D{})
@@ -296,15 +292,10 @@ func countDocs(t *testing.T, mdb *mongo.Database, collection string) int64 {
 	return n
 }
 
-// labeledError returns a server error carrying one of the driver's retry labels,
-// the shape the server gives a write that must be retried.
 func labeledError(label string) error {
 	return mongo.CommandError{Code: 112, Name: "WriteConflict", Message: "injected", Labels: []string{label}}
 }
 
-// configureFailPoint arms a failCommand failpoint on the replica set and disarms it
-// at cleanup. It skips the test when the server refuses failpoints, which is the
-// case for mongod started without enableTestCommands, such as the dev stack.
 func configureFailPoint(t *testing.T, mdb *mongo.Database, data bson.D) {
 	t.Helper()
 	admin := mdb.Client().Database("admin")

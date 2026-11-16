@@ -1,12 +1,9 @@
 import type { ThemeName } from './tokens';
 
-/** The only persisted theme key; the value is `light` or `dark` (UIF-19). */
 export const THEME_STORAGE_KEY = 'lg.theme';
 
-/** The dark color-scheme query the system preference is read from (UIF-17). */
 export const DARK_SCHEME_QUERY = '(prefers-color-scheme: dark)';
 
-/** The theme resolved when the system offers no color-scheme signal (UIF-17). */
 export const DEFAULT_THEME: ThemeName = 'light';
 
 export interface ThemeStorage {
@@ -17,7 +14,6 @@ export interface ThemeStorage {
 export interface ThemeStoreDeps {
   readonly storage: ThemeStorage;
   readonly matchMedia: (query: string) => MediaQueryList;
-  /** The element whose `data-theme` carries the resolved theme. */
   readonly root: HTMLElement;
 }
 
@@ -44,9 +40,7 @@ function readStoredTheme(storage: ThemeStorage): ThemeName | null {
 function writeStoredTheme(storage: ThemeStorage, theme: ThemeName): void {
   try {
     storage.setItem(THEME_STORAGE_KEY, theme);
-  } catch {
-    // A storage that refuses the write must not surface an error (UIF-21).
-  }
+  } catch {}
 }
 
 function openMediaQuery(matchMedia: ThemeStoreDeps['matchMedia']): MediaQueryList | null {
@@ -60,18 +54,9 @@ function openMediaQuery(matchMedia: ThemeStoreDeps['matchMedia']): MediaQueryLis
 function watchSystemChange(media: MediaQueryList, handler: () => void): void {
   try {
     media.addEventListener('change', handler);
-  } catch {
-    // A reader with no event seam is read once, not watched.
-  }
+  } catch {}
 }
 
-/**
- * Builds the theme store over injected seams (UIF-17, UIF-19, UIF-23). An explicit stored
- * choice wins from then on; with nothing stored the resolved theme follows the system
- * preference and keeps following it. A storage or reader that throws is swallowed, so the
- * interface never sees a theme error (UIF-21), and an unknown stored value is ignored in
- * favour of the system preference (UIF-22).
- */
 export function createThemeStore(deps: ThemeStoreDeps): ThemeStore {
   const listeners = new Set<() => void>();
   const media = openMediaQuery(deps.matchMedia);

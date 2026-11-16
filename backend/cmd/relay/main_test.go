@@ -32,8 +32,6 @@ func (b *fakeBroker) Publish(context.Context, email.Message) error { return nil 
 func (b *fakeBroker) DeclareTopology() error                       { b.declared = true; return nil }
 func (b *fakeBroker) Close() error                                 { b.closed = true; return nil }
 
-// fakeEventBroker stands in for the event relay's broker: it confirms every
-// entry and records whether it was closed.
 type fakeEventBroker struct {
 	closed bool
 }
@@ -60,9 +58,6 @@ func testEnv() env.Env {
 	return cfg
 }
 
-// TestRun_FailsFastOnBadBrokerURL proves a blank or unusable broker URL stops the
-// relay with the typed error before the database is opened or anything is polled
-// (EML-15, EML-19).
 func TestRun_FailsFastOnBadBrokerURL(t *testing.T) {
 	tests := []struct {
 		name string
@@ -113,8 +108,6 @@ func TestRun_FailsFastOnBadBrokerURL(t *testing.T) {
 	}
 }
 
-// TestValidateBrokerURL_AcceptsValidURLs guards against over-rejecting a valid
-// AMQP URI (EML-15).
 func TestValidateBrokerURL_AcceptsValidURLs(t *testing.T) {
 	for _, raw := range []string{
 		"amqp://guest:guest@rabbitmq:5672/",
@@ -124,9 +117,6 @@ func TestValidateBrokerURL_AcceptsValidURLs(t *testing.T) {
 	}
 }
 
-// TestRun_CancelledContextDrainsAndReturns proves a cancelled context lets the
-// in-flight batch finish and returns nil, closing the broker and database
-// (EML-05).
 func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 	cfg := testEnv()
 

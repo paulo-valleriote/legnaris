@@ -1,15 +1,3 @@
-/**
- * The Dice controls of the sheet (ADR 0005, LGN-166): on a Row, a Roll button that names the
- * dice it throws (a long press on it opens the editor) and a quieter pencil Edit button, at the
- * trailing edge of the Row's label next to its value; on a Section, a die icon button in the
- * title row for the Section expression, whose editor carries the note that a Section choice does not replace the
- * Template's Rows. A choice is pending work until the sheet is saved (ADR 0006): the Section title
- * shows the "Modified" mark while its own choice is unsaved. The editor is one dialog and the Roll result one floating panel, both owned
- * by the provider and portalled to the document body, so neither reflows the sheet nor inherits
- * the sheet's column rules or a Row's containment. Arrange mode replaces these frames with its
- * own, so none of these controls is drawn while arranging.
- */
-
 import {
   createContext,
   useCallback,
@@ -38,10 +26,8 @@ import { DicePanel } from './dice_panel';
 import { DieIcon, dieShapeFor } from './die_icon';
 import './dice.css';
 
-/** How long a press on the Roll button must last to open the editor instead of rolling. */
 export const LONG_PRESS_MS = 500;
 
-/** What the Dice controls of one sheet read and write. */
 export interface DiceContextValue {
   readonly store: DiceStore;
   readonly schema: DiceSchema;
@@ -49,9 +35,7 @@ export interface DiceContextValue {
   readonly check: DiceCheck;
   readonly rowKeys: ReadonlySet<string>;
   readonly sectionRows: ReadonlyMap<string, readonly string[]>;
-  /** The saved values a Roll reads when nothing is unsaved. */
   readonly savedValues: () => Record<string, unknown>;
-  /** The unsaved edits, which win over the saved values in a Roll. */
   readonly draftValues: () => Record<string, unknown>;
 }
 
@@ -65,12 +49,10 @@ function useDiceContext(): DiceContextValue {
   return value;
 }
 
-/** The current Dice block of the sheet, pending choices included, re-rendered on every change. */
 export function useDiceBlock(store: DiceStore): DiceBlock {
   return useSyncExternalStore(store.subscribe, store.getBlock);
 }
 
-/** The Row and Section keys whose Dice choice is not saved yet (ADR 0006). */
 export function usePendingDiceKeys(store: DiceStore): PendingDiceKeys {
   return useSyncExternalStore(store.subscribe, store.getPendingKeys);
 }
@@ -81,7 +63,6 @@ interface RollSession {
   readonly outcome: DiceResult<RollResult>;
 }
 
-/** What the one open editor edits: a Row override or a Section expression. */
 interface EditRequest {
   readonly target: DiceTarget;
   readonly keyName: string;
@@ -90,7 +71,6 @@ interface EditRequest {
 }
 
 interface DiceSession {
-  /** The open editor as `row:<key>` or `section:<key>`; at most one is open. */
   readonly editing: string | null;
   readonly openEditor: (request: EditRequest) => void;
   readonly sendRoll: (session: RollSession) => void;
@@ -106,10 +86,6 @@ function editKeyOf(target: DiceTarget, keyName: string): string {
   return `${target}:${keyName}`;
 }
 
-/**
- * Owns the single Roll panel and the single open editor; a new Roll replaces the old panel and
- * a new Roll gets a fresh panel key, so the same Row rolled twice is announced twice.
- */
 export function DiceProvider({
   value,
   children,
@@ -292,7 +268,6 @@ function DiceEditor({ target, keyName, label, current, onClose }: DiceEditorProp
   );
 }
 
-/** Whether a Row shows the Edit button: a rollable Row, or one the player turned off (the way back). */
 function rowOffersEdit(resolution: Resolution): boolean {
   return (
     resolution.rollable ||
@@ -315,10 +290,6 @@ function useRowResolution(rowKey: string, sectionKey: string): Resolution {
   });
 }
 
-/**
- * A Row's inline Dice actions, for the engine's `rowActionsBuilder`: the Roll button (a long press
- * on it opens the editor) and the Edit button, side by side on the Row's own line.
- */
 export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
   const dice = useDiceContext();
   const { editing, openEditor, sendRoll } = useContext(DiceSessionContext);
@@ -418,10 +389,6 @@ function sectionExpression(block: DiceBlock, defaults: DiceDefaults, sectionKey:
   return defaults.sectionDice?.[sectionKey] ?? '';
 }
 
-/**
- * The Section frame: the default chrome with the Section's Dice button at the trailing edge of
- * its title row, so the button costs no line of its own.
- */
 export function DiceSectionFrame({
   sectionKey,
   label,
@@ -467,7 +434,6 @@ export function DiceSectionFrame({
   );
 }
 
-/** A pencil drawn on the same grid as the die icons: the Row's edit-dice action. */
 function PencilIcon() {
   return (
     <svg className="lg-dice-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -477,5 +443,4 @@ function PencilIcon() {
   );
 }
 
-/** The frames the sheet uses outside Arrange mode: the Dice Section frame. */
 export const DICE_FRAMES: SheetFormFrames = { Section: DiceSectionFrame };

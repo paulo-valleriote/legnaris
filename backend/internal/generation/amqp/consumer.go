@@ -15,38 +15,26 @@ import (
 	amqp091 "github.com/rabbitmq/amqp091-go"
 )
 
-// attrError is the log key of a failure reason.
 const attrError = "error"
 
-// DefaultPrefetch bounds the unacknowledged jobs one consumer holds (LGN-230).
 const DefaultPrefetch = 4
 
-// DefaultRetryDelay is the pause before a reconnect or a requeue after a failed job.
 const DefaultRetryDelay = 5 * time.Second
 
-// Handler runs one job. A nil return acknowledges the message; an error requeues it.
 type Handler func(ctx context.Context, msg generation.Message) error
 
-// ConsumerConfig configures the generation consumer.
 type ConsumerConfig struct {
-	// URL is the AMQP URI of the broker.
-	URL string
-	// Prefetch bounds the unacknowledged jobs. Zero uses DefaultPrefetch.
-	Prefetch int
-	// RetryDelay is the pause before a reconnect or a requeue. Zero uses DefaultRetryDelay.
+	URL        string
+	Prefetch   int
 	RetryDelay time.Duration
 }
 
-// Acknowledger settles one delivery. amqp091.Delivery satisfies it.
 type Acknowledger interface {
 	Ack(multiple bool) error
 	Nack(multiple, requeue bool) error
 	Reject(requeue bool) error
 }
 
-// Consumer consumes generation jobs from the requests queue with manual
-// acknowledgement. It implements the worker loop of ADR 0007: a job is acknowledged
-// only after its terminal state is written.
 type Consumer struct {
 	url        string
 	prefetch   int
@@ -55,8 +43,6 @@ type Consumer struct {
 	logger     logger.StructuredLogger
 }
 
-// NewConsumer builds a consumer that dials on Run. Zero config values take their
-// defaults.
 func NewConsumer(cfg ConsumerConfig, handler Handler, log logger.StructuredLogger) *Consumer {
 	prefetch := cfg.Prefetch
 	if prefetch <= 0 {
@@ -69,9 +55,6 @@ func NewConsumer(cfg ConsumerConfig, handler Handler, log logger.StructuredLogge
 	return &Consumer{url: cfg.URL, prefetch: prefetch, retryDelay: retryDelay, handler: handler, logger: log}
 }
 
-// Run consumes until ctx is cancelled. A lost connection or channel is logged and
-// the consumer dials again after the retry delay, so a broker restart does not stop
-// the worker.
 func (c *Consumer) Run(ctx context.Context) error {
 	for ctx.Err() == nil {
 		err := c.session(ctx)
@@ -87,8 +70,6 @@ func (c *Consumer) Run(ctx context.Context) error {
 	return nil
 }
 
-// session dials, declares the topology and consumes until the stream ends or ctx is
-// cancelled. In-flight jobs finish before the session returns.
 func (c *Consumer) session(ctx context.Context) error {
 	conn, err := amqp091.Dial(c.url)
 	if err != nil {
@@ -132,10 +113,6 @@ func (c *Consumer) session(ctx context.Context) error {
 	}
 }
 
-// processDelivery decodes one message and settles it. A message that cannot be
-// decoded or names no valid job is rejected without requeue, so it dead-letters for
-// an operator. A job that fails is requeued after the retry delay. Only a completed
-// job is acknowledged.
 func processDelivery(ctx context.Context, body []byte, ack Acknowledger, handle Handler, retryDelay time.Duration, log logger.StructuredLogger) {
 	msg, err := decodeMessage(body)
 	if err != nil {
@@ -154,8 +131,6 @@ func processDelivery(ctx context.Context, body []byte, ack Acknowledger, handle 
 	_ = ack.Ack(false)
 }
 
-// decodeMessage parses a job message and checks its identifier, so a malformed
-// message never reaches the worker.
 func decodeMessage(body []byte) (generation.Message, error) {
 	var msg generation.Message
 	if err := sharedjson.DecodeBytes(body, &msg); err != nil {
@@ -167,7 +142,6 @@ func decodeMessage(body []byte) (generation.Message, error) {
 	return msg, nil
 }
 
-// pause waits d or until ctx ends. It reports whether the full pause elapsed.
 func pause(ctx context.Context, d time.Duration) bool {
 	timer := time.NewTimer(d)
 	defer timer.Stop()

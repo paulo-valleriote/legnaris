@@ -14,8 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// seedLegacySheet inserts a Sheet the way the pre-kinds code wrote it: no kind
-// field at all.
 func seedLegacySheet(t *testing.T, mdb *mongo.Database, id, owner string) {
 	t.Helper()
 	_, err := mdb.Collection("sheets").InsertOne(context.Background(), bson.D{
@@ -28,8 +26,6 @@ func seedLegacySheet(t *testing.T, mdb *mongo.Database, id, owner string) {
 	require.NoError(t, err)
 }
 
-// restoreLegacyOwnerIndex recreates the unique owner index the old code built,
-// so the migration has something to drop.
 func restoreLegacyOwnerIndex(t *testing.T, mdb *mongo.Database) {
 	t.Helper()
 	_, err := mdb.Collection("sheets").Indexes().CreateOne(context.Background(), mongo.IndexModel{

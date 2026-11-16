@@ -24,27 +24,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// challengeRoute is the request path a verify/resend test drives.
 const (
 	verifyRoute = "/auth/challenge/verify"
 	resendRoute = "/auth/challenge/resend"
 )
 
-// challengeID is a canonical UUID v7 the service mock accepts as an identity.
-// otherPurpose is a second, distinct purpose for cases that need one besides
-// verify_email.
 const otherPurpose auth.Purpose = "other_purpose"
 
 const challengeID = "01900000-0000-7000-8000-000000000001"
 
-// countingObserver records the durable bound's refusals in the existing auth
-// metric (OTP-14).
 type countingObserver struct{ blocked int }
 
 func (o *countingObserver) RateLimitBlocked() { o.blocked++ }
 
-// newChallengeRouter mounts the two challenge handlers without the guards, so
-// the controller test isolates the status mapping and the cookie transport.
 func newChallengeRouter(t *testing.T, service auth.Service, observer app.Observer) *echo.Echo {
 	t.Helper()
 
@@ -66,10 +58,6 @@ func decodeErrorBody(t *testing.T, rec *httptest.ResponseRecorder) response.Erro
 	return body
 }
 
-// TestChallengeController_Verify pins the verify endpoint: 200 with the session
-// body and both cookies on success, the uniform 401 for every service failure,
-// 400 for a malformed body and 500 for a store failure (OTP-07, OTP-08,
-// OTP-17).
 func TestChallengeController_Verify(t *testing.T) {
 	t.Run("Happy path: 200 with the session body and both cookies", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
@@ -107,7 +95,7 @@ func TestChallengeController_Verify(t *testing.T) {
 	})
 
 	t.Run("Error: a malformed body, unknown field or missing field is 400", func(t *testing.T) {
-		service := authmocks.NewMockService(t) // no expectation: the service is never reached
+		service := authmocks.NewMockService(t)
 
 		tests := []struct {
 			name string
@@ -115,8 +103,6 @@ func TestChallengeController_Verify(t *testing.T) {
 			code apperr.Code
 		}{
 			{name: "invalid JSON", body: `{"challenge_id":`, code: apperr.CodeInvalidJSON},
-			// The decoder rejects an undeclared field as invalid JSON; a
-			// trailing second value is what yields UNKNOWN_FIELD.
 			{name: "unknown field", body: `{"challenge_id":"` + challengeID + `","code":"042917","purpose":"login_otp"}`, code: apperr.CodeInvalidJSON},
 			{name: "trailing value", body: `{"challenge_id":"` + challengeID + `","code":"042917"}{"extra":1}`, code: apperr.CodeUnknownField},
 			{name: "missing code", body: `{"challenge_id":"` + challengeID + `"}`, code: apperr.CodeInvalidRequest},
@@ -147,9 +133,6 @@ func TestChallengeController_Verify(t *testing.T) {
 	})
 }
 
-// TestChallengeController_Resend pins the resend endpoint: the accepted 202
-// with the retry window for every outcome, 400 for a malformed body and the
-// typed 503 with a retry hint at the daily cap (OTP-10, OTP-11, OTP-13).
 func TestChallengeController_Resend(t *testing.T) {
 	t.Run("Happy path: 202 with the retry window", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
@@ -204,8 +187,6 @@ func TestChallengeController_Resend(t *testing.T) {
 	})
 }
 
-// TestChallengeController_Bounds pins the durable per-account refusal: a 429
-// with a retry hint, recorded in the existing auth metric (OTP-14).
 func TestChallengeController_Bounds(t *testing.T) {
 	t.Run("Edge: the account bound answers 429 with a retry hint and a metric", func(t *testing.T) {
 		service := authmocks.NewMockService(t)
@@ -227,18 +208,11 @@ func TestChallengeController_Bounds(t *testing.T) {
 	})
 }
 
-// TestChallengeEndpoints_AddressLimiter proves both routes sit behind the
-// per-address limiter: once its budget is spent, the request is refused 429
-// with a retry hint before any handler work (OTP-14, OTP-19).
 func TestChallengeEndpoints_AddressLimiter(t *testing.T) {
 	for _, route := range []string{verifyRoute, resendRoute} {
 		t.Run("Edge: "+route+" is refused after the address budget", func(t *testing.T) {
-			// A fresh router per route, so the shared per-address budget is
-			// spent by this route's own first request.
 			h, _ := newWiringRouterWithEnv(t, map[string]string{"AUTH_RATE_LIMIT_ATTEMPTS": "1"})
 
-			// The first request passes the limiter and fails body validation
-			// (400) before any database access.
 			first := doRequest(t, h, http.MethodPost, route, `{"challenge_id":`)
 			require.Equal(t, http.StatusBadRequest, first.Code, first.Body.String())
 
@@ -250,11 +224,6 @@ func TestChallengeEndpoints_AddressLimiter(t *testing.T) {
 	}
 }
 
-// TestChallengeEndpoints_DisclosureSweep drives every verification failure
-// through the real service and asserts the six answers are byte-identical, that
-// no six-digit code or unmasked address appears in any response body or header,
-// and that the service's log lines carry no code (OTP-08, OTP-15, SC-002,
-// SC-003).
 func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 	const (
@@ -383,9 +352,6 @@ func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 	})
 }
 
-// newChallengeServiceFixture wires the real challenge service over the mockery
-// mocks with a frozen clock, so a route test can drive the genuine failure
-// classifications without a database.
 func newChallengeServiceFixture(t *testing.T, now time.Time, log *captureLogger) (auth.Service, *authmocks.MockChallengeRepository) {
 	t.Helper()
 

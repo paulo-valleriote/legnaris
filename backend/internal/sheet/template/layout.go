@@ -12,25 +12,11 @@ const (
 	layoutListPinned       = "pinned"
 )
 
-// SectionRows is one Section of a Template with the keys of its Rows in the
-// Template's default order.
 type SectionRows struct {
 	Section string
 	Rows    []string
 }
 
-// SectionRowKeys lists the Template's Sections in default display order, each
-// with the keys of its Rows.
-//
-// It mirrors the web client's buildRows, because a Row key is only meaningful
-// if both sides derive the same set from the same Template: a lone leaf is
-// keyed by its dotted path, a group declaring Columns that resolve to at least
-// one leaf is one table Row keyed by the group path, and the leaves sharing a
-// non-empty exclusive group collapse into one Row keyed
-// "<parentPath>#<exclusive_group>" at the first member's position — unless the
-// group has a single member, which stays a lone leaf. Children are walked
-// alphabetically, as the API serializes them. A Section with no leaf is
-// omitted.
 func SectionRowKeys(tmpl Template) []SectionRows {
 	sections := make([]SectionRows, 0, len(tmpl.Fields))
 	for _, key := range orderedKeys(tmpl.Fields, tmpl.SectionOrder) {
@@ -132,11 +118,6 @@ func orderedKeys(group FieldGroup, order []string) []string {
 	return append(keys, rest...)
 }
 
-// ValidateLayout checks a player's Layout, given as its two ordered lists,
-// against the Rows the Template actually has. Lists may be partial (missing
-// keys fall back to Template order on read), but every key present must be
-// known and appear once per list: an unknown Section, a Pin that is no Row of
-// any Section, or a duplicate returns a typed error.
 func ValidateLayout(tmpl Template, sectionOrder []string, pinned []string) error {
 	sections := make(map[string]bool)
 	rows := make(map[string]bool)

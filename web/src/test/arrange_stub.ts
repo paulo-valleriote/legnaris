@@ -8,7 +8,6 @@ function leaf(label: string, extra: Record<string, unknown> = {}) {
   };
 }
 
-/** The wire template the Arrange suites open: Alpha(One, Two, Three), Beta(Note, Stats table, Pick), Gamma(Solo). */
 export function arrangeTemplatePayload(labels: Partial<Record<'alpha' | 'one', string>> = {}) {
   return {
     id: TEMPLATE_ID,
@@ -52,11 +51,8 @@ export interface ArrangeStubOptions {
   readonly layout?: unknown;
   readonly data?: Record<string, unknown>;
   readonly template?: unknown;
-  /** Answers of successive PUTs; the last repeats. Defaults to echoing the request body. */
   readonly putOutcomes?: (HttpResponse | { failure: unknown })[];
-  /** The sheet's stored Dice block, as a reload would return it. */
   readonly dice?: unknown;
-  /** Answers of successive PATCHes; the last repeats. Defaults to an empty cascade. */
   readonly patchOutcomes?: (HttpResponse | { failure: unknown })[];
 }
 
@@ -71,7 +67,6 @@ function scriptedAnswer(
   return Promise.resolve(outcome as HttpResponse);
 }
 
-/** A routing transport: GET sheet/template, PUT layout, PATCH values. */
 export function createArrangeStub(options: ArrangeStubOptions = {}): ArrangeStub {
   const requests: HttpRequest[] = [];
   let putCount = 0;

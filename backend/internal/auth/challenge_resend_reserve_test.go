@@ -14,9 +14,6 @@ import (
 	"legnaris/backend/shared/apperr"
 )
 
-// TestChallengePolicy_ResendDayCap pins the resend share of the daily cap: the
-// floor of the cap times the ratio, so resends never take the first sends'
-// reserved part (D5).
 func TestChallengePolicy_ResendDayCap(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -40,10 +37,6 @@ func TestChallengePolicy_ResendDayCap(t *testing.T) {
 	}
 }
 
-// TestResendChallenge_ResendShare pins the resend share on the resend path:
-// a resend is refused once the day's resends reach the share even while the
-// total cap has room, with its own observer result, and a count failure is
-// internal (D5, OTP-13, OTP-17).
 func TestResendChallenge_ResendShare(t *testing.T) {
 	ctx := context.Background()
 	storeErr := errors.New("store down")
@@ -107,9 +100,6 @@ func TestResendChallenge_ResendShare(t *testing.T) {
 	}
 }
 
-// TestResendChallenge_ResendShareBelowLimitProceeds pins the boundary one below
-// the share: a resend that leaves the share at its last free slot is accepted
-// and recorded (D5).
 func TestResendChallenge_ResendShareBelowLimitProceeds(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -134,9 +124,6 @@ func TestResendChallenge_ResendShareBelowLimitProceeds(t *testing.T) {
 	assert.Equal(t, 60, result.ResendAfter)
 }
 
-// TestIssueChallenge_IgnoresResendShare pins that first sends never consult the
-// resend share: with every resend slot spent, issuance still records its send
-// because the reserved part of the cap is theirs (D5).
 func TestIssueChallenge_IgnoresResendShare(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -154,8 +141,6 @@ func TestIssueChallenge_IgnoresResendShare(t *testing.T) {
 	require.NotNil(t, issued)
 }
 
-// nextDayRetry is the retry hint a refusal at now carries: the time left until
-// the next UTC midnight.
 func nextDayRetry(now time.Time) time.Duration {
 	utc := now.UTC()
 	nextMidnight := time.Date(utc.Year(), utc.Month(), utc.Day()+1, 0, 0, 0, 0, time.UTC)

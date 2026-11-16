@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// gatesPass wires every gate of Create to succeed for userID.
 func gatesPass(f fixture) {
 	f.allowTemplate(plan.KindCharacter)
 	f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
@@ -27,7 +26,6 @@ func gatesPass(f fixture) {
 	f.store.EXPECT().ActiveByUser(mock.Anything, userID).Return("", false, nil)
 }
 
-// TestCreate_Happy covers the length boundaries and the reservation each plan takes.
 func TestCreate_Happy(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -111,8 +109,6 @@ func TestCreate_Happy(t *testing.T) {
 	}
 }
 
-// TestCreate_PublishFailureStillAccepts pins that a broker outage never fails the
-// request: the id is returned and the sweeper republishes the queued document.
 func TestCreate_PublishFailureStillAccepts(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -142,8 +138,6 @@ func TestCreate_PublishFailureStillAccepts(t *testing.T) {
 	}
 }
 
-// TestCreate_CapBoundary pins the last accepted job of the day: a count that reaches
-// the limit is still accepted, and the next reservation is refused.
 func TestCreate_CapBoundary(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -180,7 +174,6 @@ func TestCreate_CapBoundary(t *testing.T) {
 	}
 }
 
-// TestFetch covers ownership, the values gate and the error code.
 func TestFetch(t *testing.T) {
 	const jobID = "0190a1b2-0000-7000-8000-0000000000aa"
 	values := map[string]any{"stats": map[string]any{"dexterity": 12}}
@@ -238,7 +231,6 @@ func TestFetch(t *testing.T) {
 	}
 }
 
-// TestAccept covers the state machine, the idempotent repeat and the lost race.
 func TestAccept(t *testing.T) {
 	const jobID = "0190a1b2-0000-7000-8000-0000000000aa"
 	const sheetID = "0190a1b2-0000-7000-8000-0000000000bb"
@@ -324,7 +316,6 @@ func TestAccept(t *testing.T) {
 	}
 }
 
-// TestActiveGenerationID passes the in-progress lookup through.
 func TestActiveGenerationID(t *testing.T) {
 	const jobID = "0190a1b2-0000-7000-8000-0000000000aa"
 	tests := []struct {
@@ -355,7 +346,6 @@ func TestActiveGenerationID(t *testing.T) {
 	}
 }
 
-// stringOf repeats one rune n times.
 func stringOf(r rune, n int) string {
 	out := make([]rune, n)
 	for i := range out {

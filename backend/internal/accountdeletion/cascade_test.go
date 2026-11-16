@@ -32,8 +32,6 @@ const (
 
 var deleteAt = time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 
-// seedAccount writes one row in every collection the cascade owns for userID,
-// including the rows keyed by the account's address rather than its identifier.
 func seedAccount(t *testing.T, mdb *mongo.Database, userID, email string) {
 	t.Helper()
 	ctx := context.Background()
@@ -54,7 +52,6 @@ func seedAccount(t *testing.T, mdb *mongo.Database, userID, email string) {
 	}
 }
 
-// countAddressRows counts the e-mail outbox and notice rows that still name email.
 func countAddressRows(t *testing.T, mdb *mongo.Database, email string) (outbox, notices int64) {
 	t.Helper()
 	ctx := context.Background()
@@ -65,7 +62,6 @@ func countAddressRows(t *testing.T, mdb *mongo.Database, email string) (outbox, 
 	return outbox, notices
 }
 
-// countOwned counts the rows of collection that belong to userID, by the given field.
 func countOwned(t *testing.T, mdb *mongo.Database, collection, field, userID string) int64 {
 	t.Helper()
 	n, err := mdb.Collection(collection).CountDocuments(context.Background(), bson.D{{Key: field, Value: userID}})
@@ -81,7 +77,6 @@ func newOutboxRepo(mdb *mongo.Database) outbox.Repository {
 	return outbox.NewRepository(mdb, logger.NewLogger(slog.LevelError))
 }
 
-// userDeletedEntries returns the user.deleted rows of the event outbox for userID.
 func userDeletedEntries(t *testing.T, mdb *mongo.Database, userID string) []outbox.Entry {
 	t.Helper()
 	cursor, err := mdb.Collection("event_outbox").Find(context.Background(),
@@ -101,8 +96,6 @@ func userDeletedEntries(t *testing.T, mdb *mongo.Database, userID string) []outb
 	return matching
 }
 
-// TestCascade_Remove covers the account removal: the owned rows and the user record
-// go, the tombstone and the event are written, and nothing else is touched.
 func TestCascade_Remove(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -201,8 +194,6 @@ func TestCascade_Remove(t *testing.T) {
 	}
 }
 
-// TestCascade_Remove_Edges covers the cases that must not double-write or fail:
-// a repeat run, an unknown account and a missing record.
 func TestCascade_Remove_Edges(t *testing.T) {
 	tests := []struct {
 		name string
@@ -242,9 +233,6 @@ func TestCascade_Remove_Edges(t *testing.T) {
 	}
 }
 
-// TestCascade_Remove_Error pins that a failure while the event is written reaches
-// the caller, and that under the transactor the whole removal rolls back, so the
-// account stays intact and a later run can finish it.
 func TestCascade_Remove_Error(t *testing.T) {
 	tests := []struct {
 		name    string

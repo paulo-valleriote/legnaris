@@ -14,13 +14,10 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// jobStart is the claim time of the job store tests.
 var jobStart = time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 
-// otherUserID is a second player, for tests that hold two in-progress jobs.
 const otherUserID = "0190a1b2-0000-7000-8000-000000000002"
 
-// readRaw returns the stored document of id as written, for field-level assertions.
 func readRaw(t *testing.T, mdb *mongo.Database, id string) bson.M {
 	t.Helper()
 	var raw bson.M
@@ -28,14 +25,11 @@ func readRaw(t *testing.T, mdb *mongo.Database, id string) bson.M {
 	return raw
 }
 
-// runningDoc stores a running document claimed at jobStart with the given lease end.
 func runningDoc(t *testing.T, s *generation.MongoStore, mdb *mongo.Database, id string, leaseUntil time.Time) {
 	t.Helper()
 	runningDocFor(t, s, id, userID, leaseUntil)
 }
 
-// runningDocFor is runningDoc for a given player. Each player has one in-progress
-// job at a time, so a second running job needs a second player.
 func runningDocFor(t *testing.T, s *generation.MongoStore, id, user string, leaseUntil time.Time) {
 	t.Helper()
 	doc := queuedDoc(id, user, jobStart)
@@ -44,7 +38,6 @@ func runningDocFor(t *testing.T, s *generation.MongoStore, id, user string, leas
 	require.NoError(t, err)
 }
 
-// TestMongoStore_ClaimQueued pins the queued-to-running transition and its idempotency.
 func TestMongoStore_ClaimQueued(t *testing.T) {
 	t.Run("Happy path: a queued job becomes running under a lease and counts one attempt", func(t *testing.T) {
 		s, mdb := newStore(t)
@@ -99,7 +92,6 @@ func TestMongoStore_ClaimQueued(t *testing.T) {
 	}
 }
 
-// TestMongoStore_Complete pins the running-to-succeeded write that only a live job may make.
 func TestMongoStore_Complete(t *testing.T) {
 	values := map[string]any{"identity": map[string]any{"name": "Aria"}}
 
@@ -165,7 +157,6 @@ func TestMongoStore_Complete(t *testing.T) {
 	}
 }
 
-// TestMongoStore_FailRunning pins the running-to-failed write and what it returns for a refund.
 func TestMongoStore_FailRunning(t *testing.T) {
 	t.Run("Happy path: a running job fails, releases the slot and returns its prior state", func(t *testing.T) {
 		s, mdb := newStore(t)
@@ -214,7 +205,6 @@ func TestMongoStore_FailRunning(t *testing.T) {
 	}
 }
 
-// TestMongoStore_FailExpired pins the reap of a running job whose lease ended.
 func TestMongoStore_FailExpired(t *testing.T) {
 	t.Run("Happy path: a job whose lease ended at or before now is failed as lease_expired", func(t *testing.T) {
 		s, mdb := newStore(t)
@@ -269,7 +259,6 @@ func TestMongoStore_FailExpired(t *testing.T) {
 	}
 }
 
-// TestMongoStore_ClaimExpired pins the reaper's lease over expired running jobs.
 func TestMongoStore_ClaimExpired(t *testing.T) {
 	t.Run("Happy path: only the expired running jobs are claimed", func(t *testing.T) {
 		s, mdb := newStore(t)
@@ -342,7 +331,6 @@ func TestMongoStore_ClaimExpired(t *testing.T) {
 	}
 }
 
-// TestMongoStore_RescheduleExpired pins the retry bookkeeping of the reaper.
 func TestMongoStore_RescheduleExpired(t *testing.T) {
 	t.Run("Happy path: a rescheduled job counts one reap attempt and is due at nextAt", func(t *testing.T) {
 		s, mdb := newStore(t)
@@ -361,7 +349,6 @@ func TestMongoStore_RescheduleExpired(t *testing.T) {
 	})
 }
 
-// TestMongoStore_OldestRunning covers the backlog age of running jobs.
 func TestMongoStore_OldestRunning(t *testing.T) {
 	t.Run("Edge: no running job reports none", func(t *testing.T) {
 		s, _ := newStore(t)

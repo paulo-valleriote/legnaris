@@ -18,8 +18,6 @@ func newRenderer(t *testing.T) email.Renderer {
 	return renderer
 }
 
-// TestRenderer_PerPurpose proves every known purpose renders a code-free
-// subject and both bodies carrying the code and its lifetime (EML-11, EML-13).
 func TestRenderer_PerPurpose(t *testing.T) {
 	renderer := newRenderer(t)
 	const code = "042917"
@@ -58,8 +56,6 @@ func TestRenderer_PerPurpose(t *testing.T) {
 	})
 }
 
-// TestRenderer_CodeFreeNotices proves the code-free notice renders both bodies,
-// never mention a code, and that only they are exempt from carrying one.
 func TestRenderer_CodeFreeNotices(t *testing.T) {
 	renderer := newRenderer(t)
 
@@ -89,8 +85,6 @@ func TestRenderer_CodeFreeNotices(t *testing.T) {
 	})
 }
 
-// TestRenderer_UnknownPurpose proves an unknown purpose is a permanent failure
-// with no rendered output (EML-11).
 func TestRenderer_UnknownPurpose(t *testing.T) {
 	renderer := newRenderer(t)
 
@@ -113,9 +107,6 @@ func TestRenderer_UnknownPurpose(t *testing.T) {
 	}
 }
 
-// TestRenderer_HTMLEscaping proves HTML-significant characters are escaped in
-// the HTML body and left verbatim in text: the code is numeric today, but the
-// escaping is the contract (EML-11).
 func TestRenderer_HTMLEscaping(t *testing.T) {
 	renderer := newRenderer(t)
 	data := email.Data{Code: "<b>&", ExpiresInMinutes: 5}
@@ -133,8 +124,6 @@ func TestRenderer_HTMLEscaping(t *testing.T) {
 	})
 }
 
-// TestRenderer_Deterministic proves rendering is pure: the same inputs produce
-// the same three strings (EML-11).
 func TestRenderer_Deterministic(t *testing.T) {
 	renderer := newRenderer(t)
 	data := email.Data{Code: "042917", ExpiresInMinutes: 10}
@@ -147,8 +136,6 @@ func TestRenderer_Deterministic(t *testing.T) {
 	assert.Equal(t, first, second)
 }
 
-// TestRenderer_LeadingZero proves a leading-zero code is rendered verbatim
-// rather than coerced to a number (EML-11).
 func TestRenderer_LeadingZero(t *testing.T) {
 	renderer := newRenderer(t)
 

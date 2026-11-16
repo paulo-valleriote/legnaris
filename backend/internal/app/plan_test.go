@@ -24,8 +24,6 @@ const planUserID = "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e0f"
 
 var planNow = time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
 
-// planEngine mounts the plan controller behind the same error handler the
-// router uses. A non-empty userID stands in for the auth middleware.
 func planEngine(t *testing.T, store *mocks.MockStore, resolver app.PlanResolver, userID string) *echo.Echo {
 	t.Helper()
 	svc := quota.NewService(store, func() time.Time { return planNow })
@@ -52,8 +50,6 @@ func getPlan(t *testing.T, e *echo.Echo) *httptest.ResponseRecorder {
 	return rec
 }
 
-// planBody decodes the data envelope into a generic map, so tests can assert
-// which keys are absent as well as which are present.
 func planBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 	t.Helper()
 	var envelope struct {

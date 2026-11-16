@@ -1,7 +1,3 @@
-/**
- * The star glyph shared by the pin toggle (Arrange mode) and the pinned mark beside a Row's
- * label. Drawn on `currentColor`; the caller decides outline or fill through CSS.
- */
 export function PinStar({ className }: { readonly className: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">

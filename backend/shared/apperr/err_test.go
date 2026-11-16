@@ -8,9 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestNewError_StatusMapping covers the HTTP status mapping of every apperr
-// code — new codes MUST be added here (and to NewError's switch) so they never
-// silently fall back to 500.
 func TestNewError_StatusMapping(t *testing.T) {
 	tests := []struct {
 		code   Code
@@ -51,16 +48,11 @@ func TestNewError_StatusMapping(t *testing.T) {
 	}
 }
 
-// TestHttpStatus_UnmappedCodeFallsBackTo500 documents the safety net for
-// codes without an explicit mapping in NewError.
 func TestHttpStatus_UnmappedCodeFallsBackTo500(t *testing.T) {
 	err := &Error{Code: "SOMETHING_NEW", Message: "unmapped"}
 	assert.Equal(t, 500, err.HttpStatus())
 }
 
-// TestWithRetryAfter pins the wait hint the HTTP boundary renders as
-// Retry-After: a fresh error carries none, and the setter returns the same
-// error so a producer can chain it (OTP-13, OTP-14).
 func TestWithRetryAfter(t *testing.T) {
 	plain := NewError(CodeRateLimited, "slow down", nil)
 	assert.Zero(t, plain.RetryAfter, "an error without a hint advertises none")
@@ -71,8 +63,6 @@ func TestWithRetryAfter(t *testing.T) {
 	assert.Equal(t, CodeEmailUnavailable, hinted.Code)
 }
 
-// TestWithDetails covers the client-facing context: a fresh error has none, a
-// nil map clears them and the setter returns the same error.
 func TestWithDetails(t *testing.T) {
 	tests := []struct {
 		name    string

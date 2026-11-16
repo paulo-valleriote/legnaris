@@ -20,9 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newLLMConsentHandler mounts the consent routes behind a stub that sets the
-// user id the way auth.Middleware does, or leaves it unset when withUser is
-// false (the unauthenticated case the real middleware would have refused).
 func newLLMConsentHandler(t *testing.T, service llmconsent.Service, withUser bool) http.Handler {
 	t.Helper()
 
@@ -120,13 +117,10 @@ func TestLLMConsentController_Revoke(t *testing.T) {
 	}
 }
 
-// assertErr is an unexpected store failure that carries no apperr code.
 type assertErr struct{}
 
 func (assertErr) Error() string { return "store unavailable" }
 
-// TestRouterWiring_LLMConsentRequiresBearer pins the consent routes behind the
-// access guard: without a credential neither verb reaches the handler.
 func TestRouterWiring_LLMConsentRequiresBearer(t *testing.T) {
 	h, _ := newWiringRouter(t)
 

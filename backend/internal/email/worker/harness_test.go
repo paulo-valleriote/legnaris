@@ -21,8 +21,6 @@ import (
 
 const secretCode = "042917"
 
-// captureLogger records every structured line so a suite can assert the code
-// and the unmasked recipient never reach a log (WKR-06, WKR-22).
 type captureLogger struct {
 	mu    sync.Mutex
 	lines []string
@@ -66,7 +64,6 @@ func (l *captureLogger) text() string {
 	return strings.Join(l.lines, "\n")
 }
 
-// events records the order of the side effects one delivery performs.
 type events struct {
 	mu   sync.Mutex
 	list []string
@@ -84,8 +81,6 @@ func (e *events) all() []string {
 	return append([]string(nil), e.list...)
 }
 
-// orderedSender is a Sender that records "send" in the shared event list and
-// then delegates to a Recorder.
 type orderedSender struct {
 	events *events
 	inner  *emailtest.Recorder
@@ -96,8 +91,6 @@ func (s *orderedSender) Send(ctx context.Context, m email.Outbound) error {
 	return s.inner.Send(ctx, m)
 }
 
-// harness wires a worker over mockery doubles, a recording sender, the real
-// renderer and a fixed clock, and drives it through the delivery stream.
 type harness struct {
 	t           *testing.T
 	events      *events
@@ -138,21 +131,16 @@ func (h *harness) build(source worker.DeliverySource) *worker.Worker {
 	return worker.New(source, h.republisher, sender, renderer, h.observer, h.config, h.log)
 }
 
-// queue adds one delivery and returns its handle so the caller can state
-// whether it is acknowledged. The acknowledgement is recorded as an event.
 func (h *harness) queue(body []byte) *mocks.MockDeliveryHandle {
 	handle := mocks.NewMockDeliveryHandle(h.t)
 	h.queued = append(h.queued, worker.Delivery{Body: body, Handle: handle})
 	return handle
 }
 
-// expectAck states that the delivery is acknowledged exactly once.
 func (h *harness) expectAck(handle *mocks.MockDeliveryHandle) {
 	handle.EXPECT().Ack().Run(func() { h.events.add("ack") }).Return(nil).Once()
 }
 
-// run delivers every queued message through one stream, then stops the worker
-// once the stream is drained and waits for it to finish.
 func (h *harness) run() {
 	h.t.Helper()
 
@@ -202,7 +190,6 @@ func (h *harness) run() {
 	}
 }
 
-// body encodes a message as the publisher would.
 func body(t *testing.T, msg email.Message) []byte {
 	t.Helper()
 
@@ -211,8 +198,6 @@ func body(t *testing.T, msg email.Message) []byte {
 	return encoded
 }
 
-// bodyWith encodes a message and lets the caller rewrite the generic JSON
-// object, to produce shapes the typed struct cannot express.
 func bodyWith(t *testing.T, msg email.Message, rewrite func(map[string]any)) []byte {
 	t.Helper()
 

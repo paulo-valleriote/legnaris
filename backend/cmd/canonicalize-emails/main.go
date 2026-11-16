@@ -1,6 +1,3 @@
-// Command canonicalize-emails repairs legacy user documents whose stored address
-// is not in canonical form. It is a one-shot operator tool: the API boot path
-// never imports it (PRQ-11).
 package main
 
 import (
@@ -21,15 +18,11 @@ import (
 
 const usageLine = "usage: canonicalize-emails [-apply]"
 
-// printLine writes one report line. A failure to write stdout cannot change the
-// outcome of an already-decided run, so the write error is deliberately ignored.
 func printLine(out io.Writer, format string, args ...any) {
 	_, _ = fmt.Fprintf(out, format, args...)
 }
 
 func main() {
-	// Usage is resolved before any configuration or connection, so `-h` and a
-	// bad flag answer with the documented usage instead of a database error.
 	apply, ok := parseArgs(os.Args[1:], os.Stdout)
 	if !ok {
 		os.Exit(2)
@@ -56,9 +49,6 @@ func main() {
 	os.Exit(execute(ctx, apply, os.Stdout, store))
 }
 
-// run is the testable command body: it parses the flags, prints the documented
-// report and returns the process exit code. A dry run is the default, so an
-// accidental invocation writes nothing (PRQ-11, SC-008).
 func run(ctx context.Context, args []string, stdout io.Writer, store user.EmailMigrationStore) int {
 	apply, ok := parseArgs(args, stdout)
 	if !ok {
@@ -67,8 +57,6 @@ func run(ctx context.Context, args []string, stdout io.Writer, store user.EmailM
 	return execute(ctx, apply, stdout, store)
 }
 
-// parseArgs resolves the only flag and the no-argument contract. A usage error
-// prints the usage line and reports ok=false.
 func parseArgs(args []string, stdout io.Writer) (bool, bool) {
 	flags := flag.NewFlagSet("canonicalize-emails", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -85,8 +73,6 @@ func parseArgs(args []string, stdout io.Writer) (bool, bool) {
 	return *apply, true
 }
 
-// execute reads the stored identities, prints the report and performs the
-// validated plan. A blocked plan and any store failure return exit code 1.
 func execute(ctx context.Context, apply bool, stdout io.Writer, store user.EmailMigrationStore) int {
 	rows, err := store.ListEmailIdentities(ctx)
 	if err != nil {

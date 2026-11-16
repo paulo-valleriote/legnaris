@@ -1,48 +1,33 @@
-/**
- * Section derivation for the schema-driven sheet renderer (ENG-01 … ENG-06):
- * one section per top-level field key, with every leaf beneath it flattened
- * into dotted paths and grouped into render rows — stacked leaves, exclusive
- * groups, or table rows declared by the template. Pure derivation: no widgets,
- * no state, no per-system literals.
- */
-
 import type { FieldNode, FieldSchema } from '../api/models/template';
 
-/** One leaf of a section: its dotted path and the schema that decides how it renders (ENG-02, ENG-24). */
 export interface SheetField {
   readonly path: string;
   readonly schema: FieldSchema;
 }
 
-/** One mutually exclusive set inside a section: the group id plus its member leaves in API order (ENG-05, ENG-14). */
 export interface SheetExclusiveGroup {
   readonly id: string;
   readonly options: readonly SheetField[];
 }
 
-/** One render line carrying a single untagged leaf (ENG-02). */
 export interface NormalRow {
   readonly kind: 'normal';
   readonly field: SheetField;
 }
 
-/** One render line carrying every member of a mutually exclusive group (ENG-05, ENG-14). */
 export interface ExclusiveRow {
   readonly kind: 'exclusive';
   readonly group: SheetExclusiveGroup;
 }
 
-/** One render line carrying a group label and one leaf per declared column, in declared order (ENG-04). */
 export interface TableRow {
   readonly kind: 'table';
   readonly fields: readonly SheetField[];
   readonly label: string;
 }
 
-/** One render line of a section; exactly one kind is active (ENG-02, ENG-04, ENG-05). */
 export type SheetRow = NormalRow | ExclusiveRow | TableRow;
 
-/** One top-level key rendered as a block (ENG-01, ENG-02). */
 export interface SheetSection {
   readonly key: string;
   readonly label: string;
@@ -50,11 +35,6 @@ export interface SheetSection {
   readonly rows: readonly SheetRow[];
 }
 
-/**
- * Derives the sections of a field tree: one per top-level key, in the order the
- * service returned the keys (ENG-01). A group with no leaf is omitted; a
- * top-level leaf becomes its own single-field section (ENG-02).
- */
 export function buildSections(fields: Record<string, FieldNode>): SheetSection[] {
   const sections: SheetSection[] = [];
   for (const [key, node] of Object.entries(fields)) {
@@ -75,7 +55,6 @@ export function buildSections(fields: Record<string, FieldNode>): SheetSection[]
   return sections;
 }
 
-/** The display name of a field: the schema label when non-empty, else a humanized key (ENG-03). */
 export function fieldDisplayName(key: string, schema?: FieldSchema): string {
   const label = schema?.label.trim();
   if (label !== undefined && label !== '') {
@@ -84,7 +63,6 @@ export function fieldDisplayName(key: string, schema?: FieldSchema): string {
   return humanize(key);
 }
 
-/** The display name of a group or section: its declared label when non-empty, else a humanized key (ENG-03). */
 export function groupDisplayName(key: string, label?: string): string {
   const trimmed = label?.trim();
   if (trimmed !== undefined && trimmed !== '') {
@@ -93,7 +71,6 @@ export function groupDisplayName(key: string, label?: string): string {
   return humanize(key);
 }
 
-/** The short header of a leaf rendered as a table column (ENG-06). */
 export function fieldColumnName(key: string, schema: FieldSchema): string {
   const column = schema.columnLabel?.trim();
   if (column !== undefined && column !== '') {
@@ -102,18 +79,10 @@ export function fieldColumnName(key: string, schema: FieldSchema): string {
   return fieldDisplayName(key, schema);
 }
 
-/** The alignment of a table cell: a numeric column right, every other column left (ENG-06). */
 export function fieldColumnAlign(schema: FieldSchema): 'left' | 'right' {
   return schema.type === 'number' ? 'right' : 'left';
 }
 
-/**
- * The stable identity of one render row inside its section: a lone field by its
- * dotted path, an exclusive group by its parent path and group id
- * (`<parent>#<id>`), a table row by the path of the group that declares its
- * columns. It depends only on the template, never on position, and matches the
- * keys the backend validates a layout against (ADR 0001).
- */
 export function rowKey(row: SheetRow): string {
   switch (row.kind) {
     case 'normal':
@@ -125,7 +94,6 @@ export function rowKey(row: SheetRow): string {
   }
 }
 
-/** The dotted paths of every leaf a Row draws, in order. */
 export function rowFieldPaths(row: SheetRow): string[] {
   switch (row.kind) {
     case 'normal':
@@ -137,13 +105,11 @@ export function rowFieldPaths(row: SheetRow): string[] {
   }
 }
 
-/** The key of the Section a Row key belongs to: its first path segment (before any `.` or `#`). */
 export function sectionKeyOfRow(key: string): string {
   const end = key.search(/[.#]/);
   return end < 0 ? key : key.slice(0, end);
 }
 
-/** The text a Row is called wherever it is named: its label, a group's humanized id, or a table's group label. */
 export function rowLabelText(row: SheetRow): string {
   switch (row.kind) {
     case 'normal':
@@ -155,19 +121,12 @@ export function rowLabelText(row: SheetRow): string {
   }
 }
 
-/** The column headers of a table Row joined into one comparable identity. */
 export function tableColumnsKey(row: TableRow): string {
   return row.fields
     .map((field) => fieldColumnName(lastSegment(field.path), field.schema))
     .join('\u0000');
 }
 
-/**
- * Whether a table Row must draw its own column header. A run of adjacent table Rows
- * with the same columns shares one header on its first Row; a Row with any other
- * neighbour (or none) starts a run of its own. Evaluated on the Rows as drawn, so a
- * pin that changes who neighbours whom still leaves exactly one header per run.
- */
 export function needsTableHeader(previous: SheetRow | undefined, row: TableRow): boolean {
   if (previous === undefined || previous.kind !== 'table') {
     return true;
@@ -175,7 +134,6 @@ export function needsTableHeader(previous: SheetRow | undefined, row: TableRow):
   return tableColumnsKey(previous) !== tableColumnsKey(row);
 }
 
-/** The segment after the last dot of a dotted field path (ENG-03, ENG-06). */
 export function lastSegment(path: string): string {
   const index = path.lastIndexOf('.');
   return index < 0 ? path : path.slice(index + 1);
@@ -195,13 +153,6 @@ function flatten(prefix: string, node: FieldNode): SheetField[] {
   );
 }
 
-/**
- * Collapses one section's tree into render rows: a leaf child is a normal row,
- * a declared-column group is one table row (unknown/absent columns skipped, a
- * stacked fallback when none resolves), and every non-adjacent leaf sharing a
- * non-empty exclusive id collapses into one row at the first member's position
- * — a single-member group is not collapsed (ENG-02, ENG-04, ENG-05).
- */
 function buildRows(prefix: string, root: FieldNode): SheetRow[] {
   const rows: SheetRow[] = [];
   const groupRowIndex = new Map<string, number>();

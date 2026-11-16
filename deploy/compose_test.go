@@ -20,15 +20,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// composeFile is the base stack definition. The local override only tweaks
-// entrypoints/ports and never removes the app's environment, so validating the
-// base is sufficient.
 const composeFile = "docker-compose.yml"
 
-// envExampleFile is the deployment template the operator copies into deploy/.env.
 const envExampleFile = ".env.example"
 
-// composeDoc is the minimal shape needed to inspect service environments.
 type composeDoc struct {
 	Services map[string]composeService `yaml:"services"`
 }
@@ -59,8 +54,6 @@ type composeHealthcheck struct {
 	Test []string `yaml:"test"`
 }
 
-// composeDependsOn accepts both the short (sequence) and long (mapping)
-// depends_on forms, so every service's dependencies can be inspected.
 type composeDependsOn map[string]any
 
 func (d *composeDependsOn) UnmarshalYAML(value *yaml.Node) error {
@@ -98,11 +91,6 @@ func readCompose(t *testing.T) composeDoc {
 	return doc
 }
 
-// TestAppServiceProvidesRequiredEnv guards the regression that took the stack
-// down: the backend started requiring JWT_SECRET at boot, but the compose app
-// service never passed it, so the container crash-looped on
-// "JWT secret is not configured". The check is anchored to env.RequiredKeys,
-// the same set the application enforces at startup.
 func TestAppServiceProvidesRequiredEnv(t *testing.T) {
 	doc := readCompose(t)
 
@@ -130,10 +118,6 @@ func TestAppServiceProvidesRequiredEnv(t *testing.T) {
 	})
 }
 
-// TestWebServiceReadsApiOriginAtRuntime guards the single-image contract: the
-// API origin reaches the web container as a runtime environment value (written
-// to /config.json at start), never as a build argument, so one image serves
-// every environment. The value must stay an interpolation, not a literal.
 func TestWebServiceReadsApiOriginAtRuntime(t *testing.T) {
 	doc := readCompose(t)
 
@@ -154,10 +138,6 @@ func TestWebServiceReadsApiOriginAtRuntime(t *testing.T) {
 	})
 }
 
-// TestAppServiceTrustedProxyCIDRs guards the optional proxy-set pass-through:
-// the operator can narrow or widen the trust boundary from the deployment env,
-// and leaving it unset keeps the app's documented default. The required-variable
-// contract is deliberately unchanged (PRQ-03, PRQ-18).
 func TestAppServiceTrustedProxyCIDRs(t *testing.T) {
 	doc := readCompose(t)
 
@@ -176,9 +156,6 @@ func TestAppServiceTrustedProxyCIDRs(t *testing.T) {
 	})
 }
 
-// TestAppServiceHasNoEmailVerificationFlag guards the removal of the rollout
-// flag: neither the app container nor the deployment template mentions it, and
-// the required-variable set is unchanged.
 func TestAppServiceHasNoEmailVerificationFlag(t *testing.T) {
 	doc := readCompose(t)
 
@@ -202,9 +179,6 @@ func TestAppServiceHasNoEmailVerificationFlag(t *testing.T) {
 	})
 }
 
-// TestRabbitMQServiceIsInternalOnly guards the broker's exposure: it is a
-// separate service reachable only on the internal network, with no published
-// host port and a healthcheck (EML-16, SC-007).
 func TestRabbitMQServiceIsInternalOnly(t *testing.T) {
 	doc := readCompose(t)
 
@@ -221,9 +195,6 @@ func TestRabbitMQServiceIsInternalOnly(t *testing.T) {
 	})
 }
 
-// TestRelayIsASeparateService guards the relay topology: it is a separate
-// service reachable only internally, the only one that depends on the broker,
-// while the API never depends on the broker to start (EML-16).
 func TestRelayIsASeparateService(t *testing.T) {
 	doc := readCompose(t)
 
@@ -249,9 +220,6 @@ func TestRelayIsASeparateService(t *testing.T) {
 	})
 }
 
-// TestEmailConfigurationIsOptional guards the configuration surface: every new
-// email/broker setting is an optional interpolation, the API never receives the
-// broker URL, and the required-variable list is unchanged (EML-14, EML-16).
 func TestEmailConfigurationIsOptional(t *testing.T) {
 	doc := readCompose(t)
 
@@ -287,10 +255,6 @@ func TestEmailConfigurationIsOptional(t *testing.T) {
 	})
 }
 
-// TestRabbitMQPasswordIsRequired guards the broker credential: a forgotten
-// RABBITMQ_PASSWORD must fail `docker compose config` (and therefore `up`)
-// instead of starting the broker with an empty password, and .env.example must
-// carry the placeholder the CI compose gate interpolates (EML-16).
 func TestRabbitMQPasswordIsRequired(t *testing.T) {
 	doc := readCompose(t)
 
@@ -314,10 +278,6 @@ func TestRabbitMQPasswordIsRequired(t *testing.T) {
 	})
 }
 
-// TestChallengeConfigurationIsRequiredAndDocumented guards the code-step
-// settings: the digest secret is a required interpolation the CI compose gate
-// can satisfy from .env.example, and every optional setting is passed through
-// as an interpolation with the app's documented default (OTP-18, SC-008).
 func TestChallengeConfigurationIsRequiredAndDocumented(t *testing.T) {
 	doc := readCompose(t)
 
@@ -356,8 +316,6 @@ func TestChallengeConfigurationIsRequiredAndDocumented(t *testing.T) {
 	})
 }
 
-// workerSettings are the variables the delivery worker reads (BRK-04); the
-// request-serving process must receive none of the broker or worker ones.
 var workerSettings = []string{
 	"RABBITMQ_URL",
 	"EMAIL_PROVIDER",
@@ -369,8 +327,6 @@ var workerSettings = []string{
 	"EMAIL_WORKER_METRICS_ADDR",
 }
 
-// brokerOnlySettings are the worker settings the app never receives; the
-// provider settings stay shared because the app already carries them.
 var brokerOnlySettings = []string{
 	"EMAIL_WORKER_PREFETCH",
 	"EMAIL_WORKER_MAX_ATTEMPTS",
@@ -394,10 +350,6 @@ const (
 
 var exactBrokerImage = regexp.MustCompile(`^rabbitmq:4\.\d+\.\d+-management(-alpine)?$`)
 
-// TestWorkerIsASeparateService guards the worker's place in the stack: its own
-// service on the shared image, started on its own entrypoint, restarted on
-// failure, internal only, waiting for the broker and never for the database
-// (BRK-01, BRK-02, BRK-03, BRK-20, SC-001).
 func TestWorkerIsASeparateService(t *testing.T) {
 	doc := readCompose(t)
 
@@ -448,10 +400,6 @@ func TestWorkerIsASeparateService(t *testing.T) {
 	})
 }
 
-// TestWorkerEnvironmentIsSeparatedFromTheApp guards the configuration split:
-// the worker carries the broker address, the provider settings and its own
-// knobs; the request-serving process carries the broker's and the worker's
-// settings never, and the required list stays as it was (BRK-04, BRK-21, SC-005).
 func TestWorkerEnvironmentIsSeparatedFromTheApp(t *testing.T) {
 	doc := readCompose(t)
 
@@ -502,10 +450,6 @@ func TestWorkerEnvironmentIsSeparatedFromTheApp(t *testing.T) {
 	})
 }
 
-// TestGenerationConfigurationReachesEachProcess guards the F1a split (ADR
-// 0007, LGN-186, LGN-230): the API carries the gates it enforces, the worker
-// carries the gates it honours plus the store and the LLM credentials, and the
-// OpenRouter key never reaches the request-serving process.
 func TestGenerationConfigurationReachesEachProcess(t *testing.T) {
 	doc := readCompose(t)
 	app := doc.Services["app"]
@@ -583,9 +527,6 @@ func TestGenerationConfigurationReachesEachProcess(t *testing.T) {
 	})
 }
 
-// TestBrokerBasePinIsExact guards the broker's version across both places the
-// pin may sit: it must name an exact 4.x release, never a floating tag
-// (BRK-06, SC-006).
 func TestBrokerBasePinIsExact(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -608,8 +549,6 @@ func TestBrokerBasePinIsExact(t *testing.T) {
 	}
 }
 
-// brokerBaseImage returns the image the broker really runs on: the derived
-// image's base when the service builds one, the service's own tag otherwise.
 func brokerBaseImage(t *testing.T, service composeService) string {
 	t.Helper()
 
@@ -629,12 +568,6 @@ func brokerBaseImage(t *testing.T, service composeService) string {
 	return ""
 }
 
-// TestBrokerServiceShape guards the broker's exposure, version and durability:
-// internal only, health-checked, pinned, building the derived image and keeping
-// its volume. It joins no network beyond the internal one because the edge
-// router already reaches the internal network, and every extra network widens
-// who can talk to a broker that holds the codes in the clear (BRK-05, BRK-06,
-// BRK-07, BRK-12, BRK-14, BRK-18, SC-002).
 func TestBrokerServiceShape(t *testing.T) {
 	doc := readCompose(t)
 
@@ -689,9 +622,6 @@ func TestBrokerServiceShape(t *testing.T) {
 	})
 }
 
-// TestDerivedBrokerImageEnablesMetricsAtBuild guards the build-time enablement:
-// the plugin is on before the broker ever starts, using the broker's own
-// documented command and a plugin the pinned version ships (BRK-14).
 func TestDerivedBrokerImageEnablesMetricsAtBuild(t *testing.T) {
 	raw, err := os.ReadFile(brokerDockerfile)
 	require.NoErrorf(t, err, "read %s", brokerDockerfile)
@@ -725,9 +655,6 @@ func TestDerivedBrokerImageEnablesMetricsAtBuild(t *testing.T) {
 	})
 }
 
-// TestBrokerConfigurationServesConsoleUnderItsPrefix guards the broker's
-// configuration: the console lives under the prefix the edge route matches and
-// the metrics listener has its own port (BRK-07, BRK-12).
 func TestBrokerConfigurationServesConsoleUnderItsPrefix(t *testing.T) {
 	raw, err := os.ReadFile(brokerConfigFile)
 	require.NoErrorf(t, err, "read %s", brokerConfigFile)
@@ -747,8 +674,6 @@ func TestBrokerConfigurationServesConsoleUnderItsPrefix(t *testing.T) {
 	})
 }
 
-// runbookSection returns the runbook text from heading to the next heading of
-// the same level, so the provisioning checks read the section and nothing else.
 func runbookSection(t *testing.T, heading string) string {
 	t.Helper()
 
@@ -765,11 +690,6 @@ func runbookSection(t *testing.T, heading string) string {
 	return section
 }
 
-// TestProvisioningScriptConfiguresTheBroker guards the script the broker runs
-// beside itself: the steps are there, in the contract's order, the operator's
-// password comes from the environment, and the application's account ends with
-// no console right and the health check's signal as the last step (BRK-09,
-// BRK-10, BRK-11, SC-003).
 func TestProvisioningScriptConfiguresTheBroker(t *testing.T) {
 	raw, err := os.ReadFile(provisionScript)
 	require.NoErrorf(t, err, "read %s", provisionScript)
@@ -833,9 +753,6 @@ func TestProvisioningScriptConfiguresTheBroker(t *testing.T) {
 	})
 }
 
-// TestEntrypointProvisionsBesideTheBroker guards the wrapper: the broker keeps
-// the image's own entrypoint, a failed provisioning stops it so the restart
-// policy retries, and a stop signal reaches the broker (BRK-09).
 func TestEntrypointProvisionsBesideTheBroker(t *testing.T) {
 	raw, err := os.ReadFile(entrypointScript)
 	require.NoErrorf(t, err, "read %s", entrypointScript)
@@ -858,9 +775,6 @@ func TestEntrypointProvisionsBesideTheBroker(t *testing.T) {
 	})
 }
 
-// TestRunbookCarriesTheBrokerProvisioning guards the operator's runbook: it
-// says the broker provisions itself, what the operator sets, and what the
-// application's account ends with (BRK-09, BRK-10, BRK-11, BRK-16, SC-003).
 func TestRunbookCarriesTheBrokerProvisioning(t *testing.T) {
 	section := runbookSection(t, "## RabbitMQ provisioning")
 	lower := strings.ToLower(section)
@@ -891,9 +805,6 @@ func TestRunbookCarriesTheBrokerProvisioning(t *testing.T) {
 	})
 }
 
-// TestRunbookDocumentsTheConsole guards the console's documentation: where it
-// is, what it shows and how the pipeline is inspected when it stalls (BRK-16,
-// BRK-17).
 func TestRunbookDocumentsTheConsole(t *testing.T) {
 	raw, err := os.ReadFile(runbookFile)
 	require.NoErrorf(t, err, "read %s", runbookFile)
@@ -914,12 +825,8 @@ func TestRunbookDocumentsTheConsole(t *testing.T) {
 	})
 }
 
-// credentialInURL matches a broker or database address with an inline password.
 var credentialInURL = regexp.MustCompile(`(?:amqps?|mongodb)://[^:/\s@]+:([^@\s]+)@`)
 
-// TestNoBrokerCredentialIsCommitted guards the repository's deploy tree: the
-// operator's password reaches no service, is not an interpolation of the stack
-// and no address carries a literal password (BRK-11, BRK-21, SC-004, SC-005).
 func TestNoBrokerCredentialIsCommitted(t *testing.T) {
 	t.Run("Edge: the operator's password appears in the stack only as the broker's optional interpolation", func(t *testing.T) {
 		raw, err := os.ReadFile(composeFile)
@@ -970,7 +877,6 @@ type prometheusDoc struct {
 	} `yaml:"scrape_configs"`
 }
 
-// scrapeTargets maps every job to its targets.
 func scrapeTargets(t *testing.T) map[string][]string {
 	t.Helper()
 
@@ -988,10 +894,6 @@ func scrapeTargets(t *testing.T) map[string][]string {
 	return jobs
 }
 
-// TestMonitoringScrapesTheBrokerAndTheWorker guards the monitoring targets:
-// the broker's metrics and the worker's are scraped beside the existing ones,
-// each on the internal network at a service that publishes no host port
-// (BRK-12, BRK-13, SC-007).
 func TestMonitoringScrapesTheBrokerAndTheWorker(t *testing.T) {
 	jobs := scrapeTargets(t)
 	doc := readCompose(t)
@@ -1029,9 +931,6 @@ func TestMonitoringScrapesTheBrokerAndTheWorker(t *testing.T) {
 	})
 }
 
-// TestAppHealthcheckProbesReadiness guards the app container's healthcheck: the
-// distroless image has no shell or curl, so the binary probes itself, and it
-// must hit /ready (database reachable) rather than the bare liveness route.
 func TestAppHealthcheckProbesReadiness(t *testing.T) {
 	doc := readCompose(t)
 
@@ -1050,15 +949,8 @@ func TestAppHealthcheckProbesReadiness(t *testing.T) {
 	})
 }
 
-// eventDrainBudget mirrors eventsamqp.DefaultDrainTimeout, the SIGTERM budget the
-// API spends draining its event buffer. The deploy package cannot import the
-// internal package, so the value is pinned here and must change with it.
 const eventDrainBudget = 5 * time.Second
 
-// TestAppStopGracePeriodCoversGracefulShutdown guards the shutdown budget: on
-// SIGTERM the app drains for SHUTDOWN_TIMEOUT and then closes MongoDB for up to
-// DATABASE_CLOSE_TIMEOUT, so a shorter Docker grace period would SIGKILL it
-// mid-drain.
 func TestAppStopGracePeriodCoversGracefulShutdown(t *testing.T) {
 	doc := readCompose(t)
 
@@ -1092,9 +984,6 @@ func TestAppStopGracePeriodCoversGracefulShutdown(t *testing.T) {
 	})
 }
 
-// TestDatabasePoolConfiguration guards the Mongo pool knobs: app and relay pass
-// them through as optional interpolations with the safe defaults, and
-// .env.example documents them (LGN-126).
 func TestDatabasePoolConfiguration(t *testing.T) {
 	doc := readCompose(t)
 
@@ -1117,10 +1006,6 @@ func TestDatabasePoolConfiguration(t *testing.T) {
 	})
 }
 
-// TestSharedRateLimitStore guards the replica-consistent rate limit wiring:
-// Redis is internal-only and ephemeral, the app reaches it through an optional
-// REDIS_URL and never depends on it to start (the limiters fail open), and the
-// k8s guidance for TRUSTED_PROXY_CIDRS is documented (LGN-128).
 func TestSharedRateLimitStore(t *testing.T) {
 	doc := readCompose(t)
 

@@ -8,8 +8,6 @@ import (
 	"legnaris/backend/shared/logger"
 )
 
-// tierFor maps the attempts already made to the delay tier the next try waits
-// in: 30 seconds, then 2 minutes, then 5 minutes for every later one (WKR-09).
 func tierFor(attempt int) email.Destination {
 	switch {
 	case attempt <= 0:
@@ -21,10 +19,6 @@ func tierFor(attempt int) email.Destination {
 	}
 }
 
-// retry republishes the message to its delay tier with the attempt count
-// incremented and nothing else changed, and acknowledges the original only after
-// the broker confirmed the republish. An unconfirmed republish leaves the
-// original unacknowledged (WKR-10, WKR-13, WKR-15).
 func (w *Worker) retry(ctx context.Context, delivery Delivery, msg email.Message, attempt int) {
 	next := msg
 	next.Attempt = attempt + 1
@@ -39,8 +33,6 @@ func (w *Worker) retry(ctx context.Context, delivery Delivery, msg email.Message
 	w.acknowledge(ctx, delivery, msg)
 }
 
-// deadLetter parks a decoded message on the dead-letter route and acknowledges
-// it after the confirm (WKR-11, WKR-12).
 func (w *Worker) deadLetter(ctx context.Context, delivery Delivery, msg email.Message) {
 	if err := w.republisher.PublishTo(ctx, email.DestinationDeadLetter, msg); err != nil {
 		w.leaveUnacknowledged(ctx, msg, "dead-letter publish", err)
@@ -52,7 +44,6 @@ func (w *Worker) deadLetter(ctx context.Context, delivery Delivery, msg email.Me
 	w.acknowledge(ctx, delivery, msg)
 }
 
-// deadLetterBody parks a body that could not be decoded, unchanged.
 func (w *Worker) deadLetterBody(ctx context.Context, delivery Delivery) {
 	if err := w.republisher.PublishBodyTo(ctx, email.DestinationDeadLetter, delivery.Body); err != nil {
 		w.logger.Error(ctx, "dead-letter publish not confirmed; the broker will redeliver",

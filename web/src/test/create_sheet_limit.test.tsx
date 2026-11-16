@@ -40,7 +40,6 @@ function clientWith(transport: Transport) {
   return createApiClient({ baseUrl: BASE_URL, transport });
 }
 
-/** Opens the surface for the template and waits for its detail to settle. */
 async function openSurface(transport: Transport) {
   const user = userEvent.setup();
   renderApp('/', { client: clientWith(transport) });

@@ -1,17 +1,3 @@
-/**
- * Composition of the sheet body (ENG-24, ENG-25, ENG-26): renders the sections
- * and rows derived from a template's field tree. It takes exactly one control
- * source — data plus a change handler, or the injected per-field control
- * builders — and surfaces two optional seams so a caller can own the per-field
- * value subscription and the per-row preview marks without the engine holding
- * any state.
- *
- * The body follows an optional resolved {@link Arrangement}: Sections are drawn in
- * arranged order and each pinned Row rises to the top of its own Section. Arrange-mode
- * chrome (the Section drag handle, the Row pin star) is not known here: a caller
- * replaces the structural frames — root, section, row — through {@link SheetFormFrames}.
- */
-
 import { useId } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import type { FieldNode, FieldSchema } from '../api/models/template';
@@ -47,40 +33,30 @@ import { SectionChevron } from './section_chevron';
 import type { SheetMark } from './sheet_mark';
 import './engine.css';
 
-/** Props of the frame that wraps the whole body; the default draws only its children. */
 export interface RootFrameProps {
-  /** The Section keys in display order. */
   readonly sectionKeys: readonly string[];
   readonly children: ReactNode;
 }
 
-/** Props of the frame that is one Section; the default draws `<section>` with the title then the rows. */
 export interface SectionFrameProps {
   readonly sectionKey: string;
   readonly label: string;
   readonly className: string;
-  /** True when the Section's Rows are folded away (they stay mounted, hidden). */
   readonly collapsed: boolean;
-  /** The Section heading element. */
   readonly title: ReactNode;
-  /** The Section's Rows, inside their `.lg-section__rows` container. */
   readonly children: ReactNode;
 }
 
-/** Props of the frame that is one Row; the default draws the keyed `.lg-row` wrapper around the content. */
 export interface RowFrameProps {
   readonly rowKey: string;
   readonly kind: SheetRow['kind'];
   readonly label: string;
   readonly sectionKey: string;
-  /** True when the Row is pinned and therefore drawn at the top of its Section. */
   readonly pinned: boolean;
   readonly className: string;
-  /** The Row's label, controls and any table header. */
   readonly children: ReactNode;
 }
 
-/** The structural frames a caller may replace to add chrome around Sections and Rows. */
 export interface SheetFormFrames {
   readonly Root?: ComponentType<RootFrameProps>;
   readonly Section?: ComponentType<SectionFrameProps>;
@@ -120,88 +96,43 @@ function DefaultRow({ rowKey: key, kind, className, children }: RowFrameProps) {
 }
 
 export interface SheetFormProps {
-  /** The template's decoded field tree; the sections are derived from it (ENG-01). */
   readonly fields: Record<string, FieldNode>;
-  /** The current values, resolved by dotted path; absent in builder mode (ENG-24). */
   readonly data?: Record<string, unknown>;
-  /** Reports an edit as `(path, value)`; absent renders the controls inert (ENG-13, ENG-24). */
   readonly onChanged?: (path: string, value: unknown) => void;
-  /**
-   * Per-leaf control source; given together with `exclusiveControlBuilder` (ENG-25, ENG-26).
-   * `labelId` is the id of the visible Row label when the leaf is a lone Row, absent for a table
-   * cell; a control may name itself by it. `describedById` is the id of the derived values drawn
-   * beside the input, when there are any; the control points `aria-describedby` at it.
-   */
   readonly controlBuilder?: (
     field: SheetField,
     labelId?: string,
     describedById?: string,
   ) => ReactNode;
-  /** Per-exclusive-row control source; given together with `controlBuilder` (ENG-25, ENG-26). */
   readonly exclusiveControlBuilder?: (
     group: SheetExclusiveGroup,
     selectedPath: string | undefined,
     onSelect: ((signal: string) => void) | undefined,
   ) => ReactNode;
-  /**
-   * Draws one derived value beside the editable number that drives it (A12). Giving it turns the
-   * feature on in builder mode: the caller owns the value subscription and the stale look. Data mode
-   * draws the stored values on its own, never stale. See {@link dependentsOf} for which inputs have any.
-   */
   readonly dependentBuilder?: (dependent: SheetField, source: SheetField) => ReactNode;
-  /**
-   * Optional per-row mark source; orthogonal to the control source (ENG-23). It receives the
-   * Row's field paths and its stable `rowKey`, so a mark can follow either.
-   */
   readonly rowMarkBuilder?: (paths: readonly string[], rowKey: string) => ReactNode;
-  /** Sections whose keys are collapsed; the caller owns the collapse state (F3 progressive disclosure). */
   readonly collapsedSectionKeys?: readonly string[];
-  /**
-   * Reports a Section toggle. Giving it turns each Section title into a disclosure control;
-   * without it, or while {@link SheetFormProps.onlyPinned} is on, the title is plain text.
-   */
   readonly onToggleSection?: (key: string) => void;
-  /**
-   * Draws only the pinned Rows, each Section that has any as its normal card and the rest
-   * omitted. A filter over the arrangement, never a separate zone: Rows keep their own Section.
-   */
   readonly onlyPinned?: boolean;
-  /**
-   * Optional badge for a Section title, given the field paths of each of its drawn Rows; the
-   * caller counts what it marks. Orthogonal to the control source.
-   */
   readonly sectionBadgeBuilder?: (
     rowPaths: readonly (readonly string[])[],
     rowKeys: readonly string[],
   ) => ReactNode;
-  /**
-   * Optional inline actions of a Row (such as Roll and Dice): drawn at the trailing edge of the
-   * Row's label in every Row kind, right before the value, so they sit in the same place in a lone
-   * Row and a table Row and a Row never grows a button line of its own.
-   */
   readonly rowActionsBuilder?: (row: RowActionsInfo) => ReactNode;
-  /** The resolved arrangement to draw; absent draws the Template order with nothing pinned. */
   readonly arrangement?: Arrangement;
-  /** Replacement frames for the root, Sections and Rows. */
   readonly frames?: SheetFormFrames;
 }
 
-/** What a Row's inline actions are built from. */
 export interface RowActionsInfo {
   readonly rowKey: string;
   readonly sectionKey: string;
   readonly label: string;
 }
 
-/** The copy a row shows for its preview mark (ENG-22). */
 export function markLabel(mark: SheetMark): string {
   return mark === 'modified' ? message('engine.modified') : message('engine.recalculated');
 }
 
-/**
- * Renders the whole sheet body from a template field tree and exactly one
- * control source; any other combination is a construction error (ENG-25).
- */
 export function SheetForm({
   fields,
   data,

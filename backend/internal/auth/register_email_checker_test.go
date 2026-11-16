@@ -14,7 +14,6 @@ import (
 	"legnaris/backend/shared/apperr"
 )
 
-// errEmailRefused stands in for the disposable checker's refusal cause.
 var errEmailRefused = errors.New("e-mail domain cannot receive mail")
 
 func TestService_RegisterEmailChecker(t *testing.T) {
@@ -60,7 +59,6 @@ func TestService_RegisterEmailChecker(t *testing.T) {
 		checker.EXPECT().Check(mock.Anything, testEmail).Return(errEmailRefused).Once()
 		service, _ := newAuthServiceWithChecker(t, nil, checker)
 
-		// No hasher, user, challenge or mailer expectation: any write fails the test.
 		outcome, err := service.Register(ctx, auth.RegisterCommand{
 			Email:    testEmail,
 			Username: "player",

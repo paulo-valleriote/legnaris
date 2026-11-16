@@ -18,9 +18,6 @@ import (
 func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *echo.Echo {
 	router := echo.New()
 	router.HTTPErrorHandler = HTTPErrorHandler
-	// Installed before any route or middleware so every c.RealIP() consumer —
-	// today the auth and CSP limiters — reads the resolved client, not the
-	// proxy's shared address (PRQ-04).
 	router.IPExtractor = modules.ClientIP
 
 	router.Use(middleware.RequestID())
@@ -29,8 +26,6 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	router.Use(middleware.RequestLogger())
 	router.Use(middleware.Recover())
 
-	// The probes are deliberately outside every rate limiter: an orchestrator
-	// or scraper that gets a 429 would restart or evict a healthy instance.
 	httpMetrics.Register(router)
 
 	probes := router.Group("")
@@ -38,15 +33,9 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	health.RegisterReadyRoute(probes, modules.Readiness, deps.Variables.DatabasePingTimeout)
 	registerAuthRoutes(router.Group("/auth"), modules, deps.Variables.CORSOrigins, httpMetrics)
 
-	// The CSP report collector is public: a violation report carries no
-	// credential and the browser sends it without one (POL-04).
 	registerCSPReportRoute(router, deps, modules.PublicLimiter, httpMetrics)
 
-	// Every sheets and templates route sits behind the JWT middleware; only
-	// health, metrics, and the auth endpoints stay public (OWN-15…OWN-18).
 	requireAuth := auth.Middleware(modules.Auth.TokenManager)
-	// requireActive refuses an account being deleted on every request (LGN-190).
-	// It runs after requireAuth, so the id it reads is the verified token's.
 	requireActive := auth.RejectDeleting(modules.activeAccounts())
 	limitUser := userRateLimit(modules.UserLimiter)
 
@@ -57,8 +46,6 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	sheetsGroup := router.Group("/sheets", requireAuth, requireActive, limitUser)
 	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
-	// Generation routes carry their own per-route budgets (LGN-186), so the
-	// shared user limiter is not stacked on them.
 	generationGroup := router.Group("/generations", requireAuth, requireActive)
 	modules.Generation.Controller.RegisterRoutes(generationGroup, modules.Generation.CreateLimiter, modules.Generation.ReadLimiter)
 
@@ -70,8 +57,6 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	return router
 }
 
-// activeAccounts returns the checker the active gate runs: the configured one,
-// or the auth service when none is set.
 func (m *Modules) activeAccounts() auth.ActiveAccountChecker {
 	if m.ActiveAccounts != nil {
 		return m.ActiveAccounts
@@ -79,12 +64,6 @@ func (m *Modules) activeAccounts() auth.ActiveAccountChecker {
 	return m.Auth.Service
 }
 
-// registerAuthRoutes mounts the auth endpoints with their per-route guards.
-// Login is rate limited per address and, because the body carries an account
-// identity, per account; registration has its own hourly per-address and
-// per-e-mail budgets (LGN-150); refresh and logout are rate limited
-// per address only and refuse a request from an origin outside the allowlist
-// before any credential work (AUTH-13, AUTH-17, AUTH-26).
 func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, observer Observer) {
 	limiter := modules.Auth.RateLimiter
 	challengeController := NewChallengeController(modules.Auth.Service, observer)
@@ -95,37 +74,22 @@ func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, o
 	group.GET("/csrf", modules.Auth.Controller.CSRF, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
 	group.POST("/logout", modules.Auth.Controller.Logout, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
 
-	// The two unified code-step routes present a capability and no session
-	// credential, so they take the per-address limiter and no origin guard —
-	// exactly like sign-in and registration (OTP-19, R13).
 	group.POST("/challenge/verify", challengeController.Verify, rateLimit(limiter, observer, false))
 	group.POST("/challenge/resend", challengeController.Resend, rateLimit(limiter, observer, false))
 
-	// The identity read is the only route that needs an access credential: it
-	// answers the signed-in account and its verification state, and it reuses
-	// the one bearer parser the protected groups use (TFA-08, TFA-09).
 	group.GET("/me", modules.Auth.Controller.Me, auth.Middleware(modules.Auth.TokenManager), userRateLimit(modules.UserLimiter))
 
-	// Deletion is a two-step code flow (LGN-190): the request sends the code to
-	// the account's address and runs behind the active gate, so a deleting account
-	// cannot ask for another code; the confirmation presents the code and skips
-	// the gate, so a repeat for an already deleting account stays idempotent.
 	group.POST("/me/deletion", modules.Auth.Controller.RequestAccountDeletion, auth.Middleware(modules.Auth.TokenManager), auth.RejectDeleting(modules.activeAccounts()), userRateLimit(modules.UserLimiter))
 	group.DELETE("/me", modules.Auth.Controller.DeleteAccount, auth.Middleware(modules.Auth.TokenManager), userRateLimit(modules.UserLimiter))
 }
 
 func HTTPErrorHandler(c *echo.Context, err error) {
-	// The RequestLogger middleware (HandleError=true) already invoked the global
-	// error handler; Echo's ServeHTTP calls it again for the bubbled-up error.
-	// If the response is already committed, do nothing to avoid a double write.
 	if r, _ := echo.UnwrapResponse(c.Response()); r != nil && r.Committed {
 		return
 	}
 
 	appErr := asAppErr(err)
 
-	// A refused request that carries a wait hint advertises it, so the client
-	// can render a countdown (OTP-13, OTP-14).
 	if appErr.RetryAfter > 0 {
 		c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(retryAfterSeconds(appErr.RetryAfter)))
 	}
@@ -139,8 +103,6 @@ func HTTPErrorHandler(c *echo.Context, err error) {
 	})
 }
 
-// registerCSPReportRoute mounts the public CSP violation collector behind its
-// own address limiter (POL-04, POL-05, A7).
 func registerCSPReportRoute(router *echo.Echo, deps env.Env, limiter ratelimit.Allower, observer *metrics.Metrics) {
 	controller := NewCSPReportController(deps.Logger, observer)
 

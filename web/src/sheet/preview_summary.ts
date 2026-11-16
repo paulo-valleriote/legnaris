@@ -1,8 +1,3 @@
-/**
- * The words and the count behind the footer's preview summary: how many derived
- * values the last Preview recalculated.
- */
-
 import { rowFieldPaths } from '../engine/field_grouping';
 import type { ArrangedSection } from '../engine/layout';
 import { message, messageWith } from '../l10n/strings';
@@ -10,10 +5,6 @@ import type { MessageKey } from '../l10n/strings';
 import type { PreviewMarks } from './sheet_edit';
 import { markForPaths } from './sheet_edit';
 
-/**
- * How many values the preview recalculated: the cascade's paths, minus any the
- * person edited themselves (those are already marked as modified).
- */
 export function recalculatedCount(marks: PreviewMarks): number {
   let count = 0;
   for (const path of marks.recalculated) {
@@ -24,7 +15,6 @@ export function recalculatedCount(marks: PreviewMarks): number {
   return count;
 }
 
-/** The summary sentence for [count] recalculated values, singular, plural or none. */
 export function recalculatedSummary(count: number): string {
   const key: MessageKey =
     count === 0
@@ -35,10 +25,6 @@ export function recalculatedSummary(count: number): string {
   return messageWith(key, { count });
 }
 
-/**
- * The footer's one status line: the unsaved state and the last Preview's cascade merged into a
- * single phrase. [count] is `undefined` when no Preview is showing. Nothing to say gives `''`.
- */
 export function footerStatus(pending: boolean, count: number | undefined): string {
   if (count === undefined) {
     return pending ? message('sheet.pendingEdits') : '';
@@ -51,10 +37,6 @@ export function footerStatus(pending: boolean, count: number | undefined): strin
     : messageWith('sheet.statusUnsavedCount', { count });
 }
 
-/**
- * How many drawn Rows of each Section carry a preview mark, keyed by Section key. Only Sections with
- * at least one marked Row appear.
- */
 export function markedRowCounts(
   view: readonly ArrangedSection[],
   marks: PreviewMarks | undefined,

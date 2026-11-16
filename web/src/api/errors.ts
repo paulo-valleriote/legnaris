@@ -1,21 +1,3 @@
-/**
- * The client's failure taxonomy (API-03, API-04, API-14, API-24, API-27).
- *
- * Four distinct shapes, because the interface must tell four different things
- * apart: the server refused us (domain failure), we cannot read the server
- * (defensive parse failure), the caller addressed a value with a malformed path
- * (path failure), and the build resolved an unusable base address
- * (configuration failure).
- */
-
-/**
- * UI-facing class of a failure; a screen branches on this instead of parsing a
- * response (API-15 … API-21).
- *
- * The three auth kinds name the refusals the code step introduced: a refused
- * code, a send the server could not make and an address that already has an
- * account (WCS-11).
- */
 export type FailureKind =
   | 'clientFault'
   | 'invalidEdit'
@@ -41,33 +23,18 @@ export type FailureKind =
   | 'generationFailed'
   | 'generationTimeout';
 
-/** Input of a {@link DomainFailure}. */
 export interface DomainFailureInput {
-  /** The interface-facing classification (API-15 … API-21). */
   kind: FailureKind;
-  /** HTTP status, when a response was received. */
   status?: unknown;
-  /** Raw backend code (e.g. `NOT_FOUND`), when the envelope carried one. */
   code?: unknown;
-  /** Server message, when the envelope carried a string one. */
   message?: unknown;
-  /** Wait hint in milliseconds from `Retry-After`, when the server sent a valid one. */
   retryAfterMs?: unknown;
 }
 
-/**
- * A failed call the server answered, or a transport failure with its attempts
- * exhausted (API-03, API-20, API-24).
- *
- * Carries the status, the raw code and the server message so later logging never
- * repeats the call. Non-string values from a drifted payload are dropped rather
- * than coerced: a coerced `code` would classify wrongly and hide the drift.
- */
 export class DomainFailure extends Error {
   readonly kind: FailureKind;
   readonly status: number | undefined;
   readonly code: string | undefined;
-  /** The server's wait hint in milliseconds, when it sent a valid `Retry-After`. */
   readonly retryAfterMs: number | undefined;
 
   constructor(input: DomainFailureInput) {
@@ -83,21 +50,11 @@ export class DomainFailure extends Error {
   }
 }
 
-/** Input of a {@link DefensiveParseFailure}. */
 export interface DefensiveParseFailureInput {
-  /** What failed to match — an empty body, invalid JSON, a missing key, a drifted field. */
   reason: string;
-  /** HTTP status, when a response was received. */
   status?: number;
 }
 
-/**
- * A response that does not match the envelope or the expected model shape
- * (API-04, API-22, API-35).
- *
- * Deliberately not a {@link DomainFailure}: contract drift must stay
- * distinguishable from a refusal the server actually sent.
- */
 export class DefensiveParseFailure extends Error {
   readonly reason: string;
   readonly status: number | undefined;
@@ -110,12 +67,6 @@ export class DefensiveParseFailure extends Error {
   }
 }
 
-/**
- * A malformed dotted path — empty, or carrying an empty segment (API-14).
- *
- * Raised only for a malformed path; a path that points at nothing yields no
- * value instead, because absent data is legitimate and a malformed path is a bug.
- */
 export class PathFailure extends Error {
   readonly path: string;
 
@@ -126,12 +77,6 @@ export class PathFailure extends Error {
   }
 }
 
-/**
- * A base address the client cannot use (API-27).
- *
- * Raised at construction, before any request is emitted, so an unusable address
- * never becomes a failed call.
- */
 export class ConfigurationFailure extends Error {
   constructor(message: string) {
     super(message);

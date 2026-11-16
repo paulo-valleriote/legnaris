@@ -1,10 +1,3 @@
-/**
- * The catalog's resume notice (LGN-196): a generated character is waiting for the
- * player. The active generation comes from `GET /me/plan`, never from device storage,
- * so the notice survives a reload and a second device. Its template is read from the
- * generation, so "Open" lands on the right route with the generation handed over.
- */
-
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useApiClient } from '../app/providers';
@@ -12,7 +5,6 @@ import { usePlanUsage } from './queries';
 import { message } from '../l10n/strings';
 import { Button } from '../ui/button';
 
-/** Renders the notice when the plan names an active generation; nothing otherwise. */
 export function ResumeNotice() {
   const client = useApiClient();
   const navigate = useNavigate();

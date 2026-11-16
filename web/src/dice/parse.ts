@@ -1,16 +1,5 @@
-/**
- * Parser of the Dice expression grammar (ADR 0005): dice (`NdM`, `dM` is `1dM`),
- * whole numbers and numeric Field paths (or `@` / `@.<column>` for the Row being
- * rolled) joined by `+` and `-`, with an optional leading sign. Mirrors
- * `backend/internal/dice/parse.go`; both read `testdata/dice/vectors.json`.
- *
- * Parse checks syntax and limits only. Whether a referenced Field exists and is
- * numeric is decided by `fit.ts`.
- */
-
 import { refuse, succeed, type DiceResult } from './errors';
 
-/** Limits of the grammar, pinned by the shared vectors. */
 export const LIMITS = {
   maxLength: 64,
   maxTerms: 8,
@@ -34,7 +23,6 @@ export interface NumberTerm {
   readonly value: number;
 }
 
-/** A Field reference: a fixed dotted `path`, or `relative` to the Row being rolled (`column` is `''` for a bare `@`). */
 export type FieldTerm =
   | {
       readonly kind: 'field';
@@ -51,7 +39,6 @@ export type FieldTerm =
 
 export type Term = DiceTerm | NumberTerm | FieldTerm;
 
-/** A parsed, immutable Dice expression. */
 export interface Expression {
   readonly terms: readonly Term[];
 }
@@ -59,12 +46,10 @@ export interface Expression {
 const DICE_TERM = /^(\d*)[dD](\d+)$/;
 const NUMBER_TERM = /^\d+$/;
 const RELATIVE_TERM = /^@(?:\.([A-Za-z][A-Za-z0-9]*))?$/;
-/** A lone `d` or keep modifier (`kh1`, `KL`) without its dice, which a Field path would otherwise swallow. */
 const BARE_WORD_TERM = /^(?:[dD]|[kK][hHlL]\d*)$/;
 const PATH_TERM = /^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)*$/;
 const OPERATOR = /[+-]/;
 
-/** Space and tab are the only whitespace of the grammar; JS `trim()` would also eat NBSP and newlines. */
 function trimBlanks(text: string): string {
   let start = 0;
   let end = text.length;
@@ -77,7 +62,6 @@ function trimBlanks(text: string): string {
   return text.slice(start, end);
 }
 
-/** Splits on `+`/`-` keeping the operators: operands sit at even indexes (trimmed, maybe empty), operators at odd ones. */
 function splitOperators(expr: string): string[] {
   const pieces: string[] = [];
   let start = 0;
@@ -93,7 +77,6 @@ function splitOperators(expr: string): string[] {
 
 const signOf = (operator: string): 1 | -1 => (operator === '-' ? -1 : 1);
 
-/** Reads ASCII digits, reporting `null` once the value passes [limit] so a long digit string never overflows. */
 function boundedInt(digits: string, limit: number): number | null {
   let value = 0;
   for (const digit of digits) {
@@ -164,11 +147,6 @@ function parseTerm(token: string, sign: 1 | -1): DiceResult<Term> {
   );
 }
 
-/**
- * Parses [expr]. The length is counted in code points before anything else, so an
- * over-long string is `too_long` even if it is also garbage or blank; terms are
- * checked left to right and the term count last. Never throws.
- */
 export function parseDice(expr: string): DiceResult<Expression> {
   if (typeof expr !== 'string') {
     return refuse('empty', 'a Dice expression is text');
@@ -213,7 +191,6 @@ export function parseDice(expr: string): DiceResult<Expression> {
   return succeed({ terms });
 }
 
-/** The text of one term as it is written: `1d20`, `7`, `stats.strength`, `@.total`. */
 export function termLabel(term: Term): string {
   switch (term.kind) {
     case 'dice':
@@ -228,10 +205,6 @@ export function termLabel(term: Term): string {
   }
 }
 
-/**
- * The canonical text: single spaces around operators, lower-case `d`, explicit
- * dice count, no leading zeros and no leading `+`.
- */
 export function canonicalForm(expression: Expression): string {
   return expression.terms
     .map((term, index) => {

@@ -12,43 +12,29 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// replicaSetInitScript initiates rs0; bootstrap.sh runs it first, unauthenticated.
 const replicaSetInitScript = "mongodb/init/00-replset.js"
 
-// usersInitScript provisions the application users; bootstrap.sh runs it as root.
 const usersInitScript = "mongodb/init/01-create-users.js"
 
-// mongoBootstrapScript brings a started member to its first-run state; every stack runs it.
 const mongoBootstrapScript = "mongodb/bootstrap.sh"
 
-// keyfileScript provisions the replica-set keyfile before mongod starts.
 const keyfileScript = "mongodb/keyfile.sh"
 
-// mongoKeyfileArg and mongoKeyfileVolume are the keyfile path inside mongod and the
-// read-only mount that carries it, shared by every stack.
 const (
 	mongoKeyfileArg    = "/etc/mongo-keyfile/keyfile"
 	mongoKeyfileVolume = "mongo_keyfile:/etc/mongo-keyfile:ro"
 )
 
-// credentialedDatabaseURI matches a MongoDB URI on the internal network that carries
-// a username and password, the only form a keyfile-enabled member accepts.
 var credentialedDatabaseURI = `^mongodb://[^:/@\s]+:[^@]+@mongodb:27017/`
 
-// mongoStack is a Compose stack that runs MongoDB as replica set rs0 with a keyfile.
 type mongoStack struct {
-	name string
-	file string
-	// member is the address the member is reached at, which the replica-set config must name.
-	member string
-	// usersScript reports whether bootstrap.sh provisions the application users.
+	name        string
+	file        string
+	member      string
 	usersScript bool
-	// dependents are the services that read the database and wait for the bootstrap.
-	dependents []string
+	dependents  []string
 }
 
-// mongoStacks lists every Compose stack that runs MongoDB (ADR 0013). Each one gets
-// the same keyfile and bootstrap rules; the dev scripts are checked separately.
 var mongoStacks = []mongoStack{
 	{
 		name:        "production",
@@ -65,8 +51,6 @@ var mongoStacks = []mongoStack{
 	},
 }
 
-// readComposeAt parses a Compose file in the deploy directory, including the
-// top-level volumes that composeDoc does not model.
 func readComposeAt(t *testing.T, path string) (composeDoc, map[string]any) {
 	t.Helper()
 
@@ -81,8 +65,6 @@ func readComposeAt(t *testing.T, path string) (composeDoc, map[string]any) {
 	return doc.composeDoc, doc.Volumes
 }
 
-// hasVolume reports whether a service mounts the given "source:target[:mode]"
-// entry verbatim.
 func hasVolume(volumes []string, entry string) bool {
 	for _, v := range volumes {
 		if v == entry {
@@ -92,7 +74,6 @@ func hasVolume(volumes []string, entry string) bool {
 	return false
 }
 
-// hasFlagPair reports whether args carries flag immediately followed by value.
 func hasFlagPair(args []string, flag, value string) bool {
 	for i := 0; i+1 < len(args); i++ {
 		if args[i] == flag && args[i+1] == value {
@@ -102,9 +83,6 @@ func hasFlagPair(args []string, flag, value string) bool {
 	return false
 }
 
-// TestEveryMongoStackRunsAReplicaSetWithAKeyfile guards ADR 0013 for every stack: mongod
-// runs rs0 with a keyfile, starts without root credentials, and waits for a keyfile
-// one-shot. Authorization is on everywhere, so no stack may run unauthenticated.
 func TestEveryMongoStackRunsAReplicaSetWithAKeyfile(t *testing.T) {
 	for _, stack := range mongoStacks {
 		t.Run(stack.name, func(t *testing.T) {
@@ -163,9 +141,6 @@ func TestEveryMongoStackRunsAReplicaSetWithAKeyfile(t *testing.T) {
 	}
 }
 
-// TestEveryMongoStackBootstrapsAfterTheMemberStarts guards the first-run order: the
-// one-shot runs in the member's network namespace (a localhost connection), initiates
-// rs0 before anything else, and gates every service that reads the database.
 func TestEveryMongoStackBootstrapsAfterTheMemberStarts(t *testing.T) {
 	for _, stack := range mongoStacks {
 		t.Run(stack.name, func(t *testing.T) {
@@ -222,7 +197,6 @@ func TestEveryMongoStackBootstrapsAfterTheMemberStarts(t *testing.T) {
 	}
 }
 
-// commandRunsScript reports whether a one-shot's command passes the given script path.
 func commandRunsScript(command []string, script string) bool {
 	for _, arg := range command {
 		if arg == script {
@@ -232,8 +206,6 @@ func commandRunsScript(command []string, script string) bool {
 	return false
 }
 
-// TestReplicaSetInitScriptIsIdempotent guards the replica-set script: it reads the set
-// state before it initiates, and it fails loudly when no primary emerges.
 func TestReplicaSetInitScriptIsIdempotent(t *testing.T) {
 	script := readFile(t, replicaSetInitScript)
 
@@ -250,8 +222,6 @@ func TestReplicaSetInitScriptIsIdempotent(t *testing.T) {
 	})
 }
 
-// TestUsersInitScriptIsIdempotent guards the user script, which bootstrap.sh runs on
-// every start: a user that exists must be left untouched, never recreated or rotated.
 func TestUsersInitScriptIsIdempotent(t *testing.T) {
 	script := readFile(t, usersInitScript)
 
@@ -265,10 +235,6 @@ func TestUsersInitScriptIsIdempotent(t *testing.T) {
 	})
 }
 
-// bootstrapEnv returns the environment bootstrap.sh runs with. The fake mongosh reads
-// the FAKE_* switches: FAKE_ROOT=exists makes the root login succeed, FAKE_CREATE=fail
-// makes createUser fail, FAKE_REPLSET=fail makes the replica-set script fail and
-// FAKE_USERS=fail makes the authenticated user script fail. Overrides replace keys.
 func bootstrapEnv(overrides ...string) []string {
 	defaults := map[string]string{
 		"MONGO_INITDB_ROOT_USERNAME": "root",
@@ -289,9 +255,6 @@ func bootstrapEnv(overrides ...string) []string {
 	return env
 }
 
-// fakeMongoshBody routes each mongosh call by its arguments, so the test sees the call
-// order without a server. A probe is the call that authenticates and quits; a user
-// script is the call that authenticates and loads a file.
 const fakeMongoshBody = `case "$*" in
   *"load("*) [ "$FAKE_USERS" != fail ] ;;
   *"quit("*) [ "$FAKE_ROOT" = exists ] ;;
@@ -299,8 +262,6 @@ const fakeMongoshBody = `case "$*" in
   *00-replset*) [ "$FAKE_REPLSET" != fail ] ;;
 esac`
 
-// runBootstrap runs bootstrap.sh with the fake mongosh and returns the result and the
-// recorded mongosh invocations, one per entry.
 func runBootstrap(t *testing.T, env []string, args ...string) (scriptResult, []string) {
 	t.Helper()
 	scriptEnvironment, logPath := scriptEnv(t, map[string]string{"mongosh": fakeMongoshBody})
@@ -308,7 +269,6 @@ func runBootstrap(t *testing.T, env []string, args ...string) (scriptResult, []s
 	return res, logLines(readLog(t, logPath))
 }
 
-// logLines splits the fake command log into one entry per invocation.
 func logLines(log string) []string {
 	trimmed := strings.TrimSpace(log)
 	if trimmed == "" {
@@ -317,10 +277,6 @@ func logLines(log string) []string {
 	return strings.Split(trimmed, "\n")
 }
 
-// TestBootstrapScriptOrdersReplicaSetRootAndUsers runs the real bootstrap.sh against a
-// fake mongosh. It covers the first run, the restart and the failure paths, asserting
-// that the replica set comes first, the root user is created only when the root login
-// fails, and the user scripts run only after the root login works.
 func TestBootstrapScriptOrdersReplicaSetRootAndUsers(t *testing.T) {
 	const replset = "/provision/init/00-replset.js"
 	const users = "/provision/init/01-create-users.js"
@@ -430,8 +386,6 @@ func TestBootstrapScriptOrdersReplicaSetRootAndUsers(t *testing.T) {
 	}
 }
 
-// callKinds reduces each recorded mongosh invocation to the step it performed, so the
-// assertions read the order rather than the full connection arguments.
 func callKinds(calls []string, replset, users string) []string {
 	kinds := make([]string, 0, len(calls))
 	for _, call := range calls {
@@ -449,7 +403,6 @@ func callKinds(calls []string, replset, users string) []string {
 	return kinds
 }
 
-// normalizeCalls returns a nil slice for an empty list so expected and actual compare equal.
 func normalizeCalls(calls []string) []string {
 	if len(calls) == 0 {
 		return nil
@@ -457,9 +410,6 @@ func normalizeCalls(calls []string) []string {
 	return calls
 }
 
-// TestDevEntrypointsUseTheKeyfileAndCredentials guards the scripts that start MongoDB
-// outside Compose: dev.sh and `make dev-db` must run rs0 with the keyfile, bootstrap
-// it, and never accept a URI without credentials.
 func TestDevEntrypointsUseTheKeyfileAndCredentials(t *testing.T) {
 	tests := []struct {
 		name string
@@ -505,13 +455,8 @@ func TestDevEntrypointsUseTheKeyfileAndCredentials(t *testing.T) {
 	}
 }
 
-// replicaSetURIPattern matches a MongoDB URI whose query names the replica set, enables
-// retryable writes and states the database that authenticates the user. The pattern
-// anchors at the end, so the options must be last in the URI.
 var replicaSetURIPattern = `\?replicaSet=rs0&retryWrites=true&authSource=(admin|legnaris)$`
 
-// composeMongoURIs returns every MongoDB URI a Compose file hands to a service: the
-// DATABASE_URI and ME_CONFIG_MONGODB_URL environment entries and the --mongodb.uri flag.
 func composeMongoURIs(doc composeDoc) map[string]string {
 	uris := make(map[string]string)
 	for name, svc := range doc.Services {
@@ -529,9 +474,6 @@ func composeMongoURIs(doc composeDoc) map[string]string {
 	return uris
 }
 
-// TestShippedMongoURIsNameTheReplicaSetAndRetryableWrites guards ADR 0013 at the
-// connection string: a URI without replicaSet=rs0 makes the driver run as a standalone
-// client, and one without retryWrites loses the driver's single retry on a failover.
 func TestShippedMongoURIsNameTheReplicaSetAndRetryableWrites(t *testing.T) {
 	t.Run("Happy path: every Compose URI names rs0, enables retryWrites and sets authSource", func(t *testing.T) {
 		for _, stack := range mongoStacks {
@@ -587,8 +529,6 @@ func TestShippedMongoURIsNameTheReplicaSetAndRetryableWrites(t *testing.T) {
 	})
 }
 
-// TestKeyfileScriptProvisionsOnce runs the real provisioning script. The owner is
-// the current user so the test runs without root; the production default is 999.
 func TestKeyfileScriptProvisionsOnce(t *testing.T) {
 	owner := currentOwner(t)
 
@@ -632,19 +572,15 @@ func TestKeyfileScriptProvisionsOnce(t *testing.T) {
 	})
 }
 
-// currentOwner returns the "uid:gid" of the test process, the owner the script
-// assigns when KEYFILE_OWNER is set.
 func currentOwner(t *testing.T) string {
 	t.Helper()
 	return fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
 }
 
-// keyfileEnv runs the script with an explicit owner and the host PATH.
 func keyfileEnv(owner string) []string {
 	return []string{"PATH=" + os.Getenv("PATH"), "KEYFILE_OWNER=" + owner}
 }
 
-// readFile returns a file's contents as a string.
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	raw, err := os.ReadFile(path)

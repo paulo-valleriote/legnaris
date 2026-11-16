@@ -1,10 +1,3 @@
-/**
- * The photographic side of the auth surface: the landing's lava crater under the same scrim, with
- * the brand lockup on top. It is decorative and carries no state; the form panel beside it
- * (below it on a narrow viewport) is the surface's one task. While a code step is pending the
- * lockup is plain text, because the step has no other place to go.
- */
-
 import { Link } from 'react-router-dom';
 import { LANDING_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
@@ -17,11 +10,9 @@ const PHOTO_SRCSET = [
 ].join(', ');
 
 interface AuthStageProps {
-  /** Whether the lockup leads back to the landing; false while a code step is pending. */
   readonly linked?: boolean;
 }
 
-/** The photograph, its scrim and the brand lockup of the auth surface. */
 export function AuthStage({ linked = true }: AuthStageProps) {
   useStageThemeColor();
 

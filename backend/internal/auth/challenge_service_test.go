@@ -21,11 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// challengeTestNow is the frozen instant every challenge boundary is driven
-// from, so expiry, cool-down and the ceiling are crossed with no sleep
-// (OTP-20, SC-007).
-// otherPurpose is a second, distinct purpose for cases that need one besides
-// verify_email.
 const otherPurpose auth.Purpose = "other_purpose"
 
 var challengeTestNow = time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
@@ -35,9 +30,6 @@ const (
 	freshIdentityID   = "01900000-0000-7000-8000-000000000009"
 )
 
-// challengeTestPolicy is a small, deterministic policy: a three-send day and a
-// ten-challenge account window make both bounds reachable in a unit test
-// (data-model.md §3).
 var challengeTestPolicy = auth.ChallengePolicy{
 	Lifetime:         10 * time.Minute,
 	Ceiling:          30 * time.Minute,
@@ -49,19 +41,14 @@ var challengeTestPolicy = auth.ChallengePolicy{
 	MaxPerUserWindow: 10,
 }
 
-// fixedCodeGenerator returns one deterministic code, so assertions can compute
-// the expected digest (OTP-02).
 type fixedCodeGenerator struct{ code string }
 
 func (g fixedCodeGenerator) Generate() (string, error) { return g.code, nil }
 
-// failingCodeGenerator models an entropy-source failure (OTP-17).
 type failingCodeGenerator struct{ err error }
 
 func (g failingCodeGenerator) Generate() (string, error) { return "", g.err }
 
-// captureLog records the service's structured lines so a suite can assert the
-// code never reaches one (OTP-15).
 type captureLog struct{ lines []string }
 
 func (l *captureLog) append(msg string, args []logger.Attribute) {
@@ -114,8 +101,6 @@ type challengeFixture struct {
 	now       time.Time
 }
 
-// newChallengeFixture builds the service over the mockery mocks with a frozen
-// clock and a deterministic code generator.
 func newChallengeFixture(t *testing.T) *challengeFixture {
 	t.Helper()
 	return newChallengeFixtureWith(t, fixedCodeGenerator{code: challengeTestCode}, challengeTestPolicy)
@@ -131,8 +116,6 @@ func newChallengeFixtureWith(t *testing.T, generator auth.CodeGenerator, policy 
 	return newChallengeFixtureWithVerifier(t, generator, policy, nil)
 }
 
-// newChallengeFixtureWithVerifier is newChallengeFixtureWith with the first
-// verification hook wired. A nil verifier leaves the hook disabled.
 func newChallengeFixtureWithVerifier(t *testing.T, generator auth.CodeGenerator, policy auth.ChallengePolicy, verifier auth.EmailVerifier) *challengeFixture {
 	t.Helper()
 
@@ -180,12 +163,10 @@ func newChallengeFixtureWithVerifier(t *testing.T, generator auth.CodeGenerator,
 
 func (f *challengeFixture) clock() time.Time { return f.now }
 
-// digestFor computes the digest the service must store for a code.
 func (f *challengeFixture) digestFor(userID string, purpose auth.Purpose, code string) string {
 	return f.digest.Digest(userID, purpose, code)
 }
 
-// validRow builds a usable stored challenge for the account and purpose.
 func (f *challengeFixture) validRow(userID string, purpose auth.Purpose) *auth.Challenge {
 	return &auth.Challenge{
 		ID:           validUserID,
@@ -201,8 +182,6 @@ func (f *challengeFixture) validRow(userID string, purpose auth.Purpose) *auth.C
 	}
 }
 
-// expectAccountCount wires the durable per-account bound's window count
-// (OTP-14).
 func (f *challengeFixture) expectAccountCount(count int) {
 	f.repo.EXPECT().
 		CountForUserSince(mock.Anything, validUserID, f.now.Add(-challengeTestPolicy.UserWindow)).
@@ -210,8 +189,6 @@ func (f *challengeFixture) expectAccountCount(count int) {
 		Once()
 }
 
-// expectSentCount wires the daily send cap's count for the current day
-// (OTP-13). The precise window origin is pinned by its own test.
 func (f *challengeFixture) expectSentCount(count int) {
 	f.mailer.EXPECT().
 		SentSince(mock.Anything, mock.Anything).
@@ -219,7 +196,6 @@ func (f *challengeFixture) expectSentCount(count int) {
 		Once()
 }
 
-// expectResendCount wires the resend share's count for the current day (D5).
 func (f *challengeFixture) expectResendCount(count int) {
 	f.mailer.EXPECT().
 		ResendsSince(mock.Anything, mock.Anything).
@@ -227,18 +203,12 @@ func (f *challengeFixture) expectResendCount(count int) {
 		Once()
 }
 
-// expectSignIn wires the session-issuance expectations the verification tail
-// shares with the existing sign-in path.
 func (f *challengeFixture) expectSignIn() {
 	f.tokens.EXPECT().Issue(mock.Anything).Return(auth.AccessToken{Value: "access-token", ExpiresIn: 900}, nil).Once()
 	f.gen.EXPECT().Generate().Return("raw-refresh", nil).Once()
 	f.refresh.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 }
 
-// TestIssueChallenge_PersistsBeforeSending pins the issuance order and shape:
-// the challenge is inserted before the send intention is recorded, the identity
-// is canonical, and the digest — never the code — is stored (OTP-01, OTP-02,
-// OTP-12).
 func TestIssueChallenge_PersistsBeforeSending(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -298,8 +268,6 @@ func TestIssueChallenge_PersistsBeforeSending(t *testing.T) {
 	})
 }
 
-// TestIssueChallenge_SendWindow pins the exact day origin the cap counts from
-// (OTP-13).
 func TestIssueChallenge_SendWindow(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -316,9 +284,6 @@ func TestIssueChallenge_SendWindow(t *testing.T) {
 	assertAppErr(t, err, apperr.CodeEmailUnavailable)
 }
 
-// TestIssueChallenge_CapReached pins the daily send cap: no challenge is
-// written, no intention is recorded, and the answer is the typed unavailable
-// outcome with a retry hint (OTP-13, SC-004).
 func TestIssueChallenge_CapReached(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -340,9 +305,6 @@ func TestIssueChallenge_CapReached(t *testing.T) {
 	assert.NotContains(t, err.Error(), testEmail, "the refusal reveals no account state")
 }
 
-// TestIssueChallenge_CapRace pins the cap being reached between the check and
-// the intention write: the record path's sentinel still answers unavailable
-// (OTP-13).
 func TestIssueChallenge_CapRace(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -362,8 +324,6 @@ func TestIssueChallenge_CapRace(t *testing.T) {
 	assertAppErr(t, err, apperr.CodeEmailUnavailable)
 }
 
-// TestIssueChallenge_StoreFailures pins that every store failure is an internal
-// failure and never a code failure (OTP-17).
 func TestIssueChallenge_StoreFailures(t *testing.T) {
 	ctx := context.Background()
 	storeErr := errors.New("store down")
@@ -433,9 +393,6 @@ func TestIssueChallenge_StoreFailures(t *testing.T) {
 	})
 }
 
-// TestVerifyChallenge_HappyPath pins the successful consumption: the attempt is
-// claimed, the digest is compared, the row is consumed, the account's
-// verification timestamp is recorded and a session is issued (OTP-04, OTP-07).
 func TestVerifyChallenge_HappyPath(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -463,9 +420,6 @@ func TestVerifyChallenge_HappyPath(t *testing.T) {
 	})
 }
 
-// TestVerifyChallenge_UniformFailures drives every failure kind and asserts one
-// identical typed outcome, with only the observer's classification differing
-// (OTP-04, OTP-05, OTP-06, OTP-08, SC-002).
 func TestVerifyChallenge_UniformFailures(t *testing.T) {
 	ctx := context.Background()
 
@@ -561,8 +515,6 @@ func TestVerifyChallenge_UniformFailures(t *testing.T) {
 	}
 }
 
-// TestVerifyChallenge_StoreFailures pins that a store failure is never reported
-// as an invalid code (OTP-17).
 func TestVerifyChallenge_StoreFailures(t *testing.T) {
 	ctx := context.Background()
 	storeErr := errors.New("store down")
@@ -622,14 +574,10 @@ func TestVerifyChallenge_StoreFailures(t *testing.T) {
 	}
 }
 
-// TestVerifyChallenge_BindsAccountAndPurpose proves a digest issued for another
-// account or purpose cannot be verified here (OTP-03).
 func TestVerifyChallenge_BindsAccountAndPurpose(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
 
-	// The stored digest binds verify_email, so the same code presented against
-	// a row of that purpose but a digest computed for another account fails.
 	row := f.validRow(validUserID, auth.PurposeVerifyEmail)
 	row.CodeHash = f.digestFor(freshIdentityID, auth.PurposeVerifyEmail, challengeTestCode)
 	f.repo.EXPECT().ClaimAttempt(mock.Anything, validUserID, challengeTestNow, challengeTestPolicy.MaxAttempts).Return(row, nil).Once()
@@ -641,9 +589,6 @@ func TestVerifyChallenge_BindsAccountAndPurpose(t *testing.T) {
 	assertAppErr(t, err, apperr.CodeOTPInvalid)
 }
 
-// TestResendChallenge_RecordsSameCode pins the resend: the code is not rotated,
-// the identity is unchanged, the deadline moves and a new intention carries the
-// same payload (OTP-10, SC-005).
 func TestResendChallenge_RecordsSameCode(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -670,25 +615,16 @@ func TestResendChallenge_RecordsSameCode(t *testing.T) {
 	})
 
 	t.Run("Edge: the code and the challenge identity are unchanged", func(t *testing.T) {
-		// A resend re-records the stored intention (same payload, fresh row)
-		// and never consumes or rotates the challenge.
 		assert.Contains(t, f.log.text(), "challenge resent")
 		assert.NotContains(t, f.log.text(), challengeTestCode)
 	})
 }
 
-// TestResendChallenge_ClampsToCeiling pins the deadline never passing the
-// challenge's stored absolute ceiling, no matter how late the resend is: an old
-// challenge whose ceiling falls inside the configured lifetime clamps to it
-// (OTP-10).
 func TestResendChallenge_ClampsToCeiling(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
 
 	row := f.validRow(validUserID, otherPurpose)
-	// The challenge was created 25 minutes ago, so its absolute ceiling
-	// (created_at + 30m) is only five minutes away — inside the ten-minute
-	// lifetime, which forces the clamp.
 	row.CreatedAt = challengeTestNow.Add(-25 * time.Minute)
 	row.CeilingAt = row.CreatedAt.Add(challengeTestPolicy.Ceiling)
 	row.ExpiresAt = row.CeilingAt
@@ -708,8 +644,6 @@ func TestResendChallenge_ClampsToCeiling(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestResendChallenge_InsideCooldown pins the cool-down suppression: the client
-// hears the same accepted answer and no intention is recorded (OTP-10, SC-005).
 func TestResendChallenge_InsideCooldown(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -732,9 +666,6 @@ func TestResendChallenge_InsideCooldown(t *testing.T) {
 	assert.Equal(t, 60, result.ResendAfter, "the retry window is still reported")
 }
 
-// TestResendChallenge_UniformSuppression pins that an unknown, malformed,
-// consumed, expired or exhausted identity answers exactly like a suppressed
-// resend and records nothing (OTP-11).
 func TestResendChallenge_UniformSuppression(t *testing.T) {
 	ctx := context.Background()
 
@@ -799,8 +730,6 @@ func TestResendChallenge_UniformSuppression(t *testing.T) {
 	}
 }
 
-// TestResendChallenge_CapReached pins the unavailable outcome and that the
-// deadline never moves once the cap refuses (OTP-13).
 func TestResendChallenge_CapReached(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -818,8 +747,6 @@ func TestResendChallenge_CapReached(t *testing.T) {
 	assertAppErr(t, err, apperr.CodeEmailUnavailable)
 }
 
-// TestResendChallenge_ConcurrentPairSuppressesOne pins that two racing resends
-// record exactly one send: the loser's Extend reports false (OTP-10).
 func TestResendChallenge_ConcurrentPairSuppressesOne(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
@@ -852,8 +779,6 @@ func TestResendChallenge_ConcurrentPairSuppressesOne(t *testing.T) {
 	assert.Equal(t, first.ResendAfter, second.ResendAfter, "both answers are indistinguishable")
 }
 
-// TestResendChallenge_StoreFailures pins the internal failure mapping on the
-// resend path (OTP-17).
 func TestResendChallenge_StoreFailures(t *testing.T) {
 	ctx := context.Background()
 	storeErr := errors.New("store down")
@@ -912,10 +837,6 @@ func TestResendChallenge_StoreFailures(t *testing.T) {
 	}
 }
 
-// TestChallengeAccountBound pins the durable per-account bound on all three
-// paths: past the configured window the answer is the typed rate-limit outcome
-// with a retry hint before any further work, and a store failure is internal
-// (OTP-14).
 func TestChallengeAccountBound(t *testing.T) {
 	ctx := context.Background()
 
@@ -980,14 +901,9 @@ func TestChallengeAccountBound(t *testing.T) {
 	})
 }
 
-// TestService_ChallengeClockIsInjected pins that the challenge path reads the
-// injected clock for both the account window and the daily-cap origin, so no
-// boundary needs a sleep (OTP-20, SC-007).
 func TestService_ChallengeClockIsInjected(t *testing.T) {
 	ctx := context.Background()
 	f := newChallengeFixture(t)
-	// Step the clock to a different UTC day, so a window derived from the real
-	// system clock could not match the expectation below.
 	f.now = challengeTestNow.Add(72 * time.Hour)
 
 	f.repo.EXPECT().
@@ -1005,9 +921,6 @@ func TestService_ChallengeClockIsInjected(t *testing.T) {
 	assertAppErr(t, err, apperr.CodeEmailUnavailable)
 }
 
-// TestChallengeLogsMaskTheAddress rules the disclosure helper: the first
-// local-part character, three asterisks and the domain, with *** for anything
-// unusable (OTP-15).
 func TestChallengeLogsMaskTheAddress(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1043,10 +956,6 @@ func TestChallengeLogsMaskTheAddress(t *testing.T) {
 	}
 }
 
-// TestIssueChallenge_UsesConfiguredLifetime pins the copy rule behind the send
-// intent contract: the recorded payload's expires_in_minutes is the configured
-// lifetime, not a hardcoded constant, and the code never reaches a log line
-// (OTP-15, R11).
 func TestIssueChallenge_UsesConfiguredLifetime(t *testing.T) {
 	ctx := context.Background()
 
@@ -1070,8 +979,6 @@ func TestIssueChallenge_UsesConfiguredLifetime(t *testing.T) {
 	assert.NotContains(t, f.log.text(), challengeTestCode)
 }
 
-// TestChallengeService_ObserverDefaultsToNop pins that a service built without
-// a challenge observer still runs, so an unwired caller stays correct.
 func TestChallengeService_ObserverDefaultsToNop(t *testing.T) {
 	service := auth.NewService(
 		usermocks.NewMockRepository(t),
@@ -1088,9 +995,6 @@ func TestChallengeService_ObserverDefaultsToNop(t *testing.T) {
 	require.NotNil(t, service)
 }
 
-// TestIssueChallenge_ConcurrentIssuance covers two issuances for one account
-// racing between the close and the insert: the loser retries a bounded number of
-// times and then fails closed rather than leaving two active codes.
 func TestIssueChallenge_ConcurrentIssuance(t *testing.T) {
 	ctx := context.Background()
 	cmd := auth.IssueChallengeCommand{UserID: validUserID, Email: testEmail, Purpose: auth.PurposeVerifyEmail}
