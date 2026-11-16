@@ -35,7 +35,7 @@ const (
 	CodeGenerationCapReached Code = "GENERATION_CAP_REACHED"
 	CodeAlreadySubscribed    Code = "ALREADY_SUBSCRIBED"
 	CodeBillingUnavailable   Code = "BILLING_UNAVAILABLE"
-	CodeInvalidSignature     Code = "INVALID_SIGNATURE"
+	CodeNoSubscription       Code = "NO_SUBSCRIPTION"
 )
 
 type Error struct {
@@ -60,7 +60,7 @@ func (e *Error) WithRetryAfter(retryAfter time.Duration) *Error {
 func NewError(code Code, message string, err error) *Error {
 	var httpStatus int
 	switch code {
-	case CodeInvalidJSON, CodeUnknownField, CodeInvalidRequest, CodeInvalidSignature,
+	case CodeInvalidJSON, CodeUnknownField, CodeInvalidRequest,
 		CodeCycleDetected, CodeInvalidDependency, CodeInvalidPath, CodeDisposableEmail,
 		CodeValidation:
 		httpStatus = 400
@@ -68,7 +68,7 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 401
 	case CodeForbidden, CodeLLMConsentRequired, CodePlanUpgradeRequired:
 		httpStatus = 403
-	case CodeNotFound:
+	case CodeNotFound, CodeNoSubscription:
 		httpStatus = 404
 	case CodeMethodNotAllowed:
 		httpStatus = 405
