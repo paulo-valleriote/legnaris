@@ -1,4 +1,4 @@
-# AGENTS.md — Legnaris Backend
+# AGENTS.md — Legnaris
 
 ## Quick Start
 
@@ -106,5 +106,4 @@ Before opening a PR, ensure:
 - `backend/shared/apperr/AGENTS.md` — error codes, HTTP mapping, boundary translation
 - `backend/shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
 - `backend/shared/db/AGENTS.md` — MongoDB initialization
-- `web/AGENTS.md` — React PWA client: visual rules, tokens, security rules, interaction patterns
-- `web/AGENTS.md` — PWA React/TS rules; desktop deprecated and removed (F10)
+- `web/AGENTS.md` — React PWA client: security, API client, engine, sheet cycle, dependencies (visual rules live in `web/DESIGN.md`)

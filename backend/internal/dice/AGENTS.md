@@ -7,7 +7,7 @@
 
 ## Conventions
 
-- Declare own typed errors (`*dice.Error`, one `Class` per reason, `errors.Is` against the `Err*` sentinels) — **do NOT import `apperr`**; the later boundary ticket translates classes (strict `PUT` → 400 `INVALID_REQUEST`)
+- Declare own typed errors (`*dice.Error`, one `Class` per reason, `errors.Is` against the `Err*` sentinels) — **do NOT import `apperr`**; the sheet service translates classes at the boundary (`translateDiceErr` → 400 `INVALID_REQUEST`)
 - No dependency on `template`: the Field schema comes in through the `Schema` interface, and a Section's Rows as plain `[]string` keys (from `template.SectionRowKeys`)
 
 ## Gotchas
