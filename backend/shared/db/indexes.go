@@ -40,6 +40,7 @@ const (
 	billingEventsProviderUnique    = "billing_events_provider_event_unique"
 	billingEventsStatusNextAttempt = "billing_events_status_next_attempt"
 	billingEventsExpiresAtTTL      = "billing_events_expires_at_ttl"
+	billingEventsNextAttemptField  = "next_attempt_at"
 	expiresAtField                 = "expires_at"
 	statusField                    = "status"
 )
@@ -150,7 +151,7 @@ func ensureBillingIndexes(ctx context.Context, database *mongo.Database) error {
 			Options: options.Index().SetUnique(true).SetName(billingEventsProviderUnique),
 		},
 		{
-			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: "next_attempt_at", Value: 1}},
+			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: billingEventsNextAttemptField, Value: 1}},
 			Options: options.Index().SetName(billingEventsStatusNextAttempt),
 		},
 		{
@@ -212,7 +213,7 @@ func ensureGenerationUsageIndexes(ctx context.Context, database *mongo.Database)
 func ensureEventOutboxIndexes(ctx context.Context, database *mongo.Database, retention time.Duration) error {
 	outbox := database.Collection("event_outbox")
 	if _, err := outbox.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "status", Value: 1}, {Key: "next_attempt_at", Value: 1}},
+		Keys:    bson.D{{Key: "status", Value: 1}, {Key: billingEventsNextAttemptField, Value: 1}},
 		Options: options.Index().SetName(eventOutboxStatusNextAttempt),
 	}); err != nil {
 		return fmt.Errorf("create event_outbox index: %w", err)
@@ -260,7 +261,7 @@ func ensureAuthChallengeIndexes(ctx context.Context, database *mongo.Database) e
 func ensureEmailOutboxIndexes(ctx context.Context, database *mongo.Database, retention time.Duration) error {
 	emailOutbox := database.Collection("email_outbox")
 	if _, err := emailOutbox.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "status", Value: 1}, {Key: "next_attempt_at", Value: 1}},
+		Keys:    bson.D{{Key: "status", Value: 1}, {Key: billingEventsNextAttemptField, Value: 1}},
 		Options: options.Index().SetName(emailOutboxStatusNextAttempt),
 	}); err != nil {
 		return fmt.Errorf("create email_outbox index: %w", err)

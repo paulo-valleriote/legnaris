@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/quota"
@@ -56,6 +57,27 @@ type planView struct {
 	ActiveGenerationID *string                  `json:"active_generation_id"`
 	LLMConsentAt       *time.Time               `json:"llm_consent_at"`
 	LLMConsentVersion  *string                  `json:"llm_consent_version"`
+	SubscriptionStatus *string                  `json:"subscription_status,omitempty"`
+	CurrentPeriodEnd   *time.Time               `json:"current_period_end,omitempty"`
+	CancelAtPeriodEnd  *bool                    `json:"cancel_at_period_end,omitempty"`
+	PaymentIssue       *bool                    `json:"payment_issue,omitempty"`
+}
+
+type BillingSummarizer interface {
+	Summary(ctx context.Context, userID string) (billing.Summary, error)
+}
+
+func applyBillingSummary(view *planView, summary billing.Summary) {
+	if summary.Status == "" {
+		return
+	}
+	status := string(summary.Status)
+	cancelAtEnd := summary.CancelAtPeriodEnd
+	issue := summary.PaymentIssue
+	view.SubscriptionStatus = &status
+	view.CurrentPeriodEnd = summary.CurrentPeriodEnd
+	view.CancelAtPeriodEnd = &cancelAtEnd
+	view.PaymentIssue = &issue
 }
 
 type ConsentChecker interface {
@@ -80,6 +102,12 @@ func WithSheetUsage(sheets sheet.Service) PlanOption {
 	}
 }
 
+func WithBillingSummary(summarizer BillingSummarizer) PlanOption {
+	return func(pc *PlanController) {
+		pc.billing = summarizer
+	}
+}
+
 func WithGenerationStatus(consent ConsentChecker, active ActiveGenerationReader) PlanOption {
 	return func(pc *PlanController) {
 		pc.consent = consent
@@ -93,6 +121,7 @@ type PlanController struct {
 	sheets   sheet.Service
 	consent  ConsentChecker
 	active   ActiveGenerationReader
+	billing  BillingSummarizer
 }
 
 func NewPlanController(allowance *quota.Service, resolver PlanResolver, opts ...PlanOption) *PlanController {
@@ -105,6 +134,13 @@ func NewPlanController(allowance *quota.Service, resolver PlanResolver, opts ...
 
 func (pc *PlanController) respond(c *echo.Context, userID string, view planView, canGenerate bool) error {
 	ctx := c.Request().Context()
+	if pc.billing != nil {
+		summary, err := pc.billing.Summary(ctx, userID)
+		if err != nil {
+			return apperr.NewError(apperr.CodeInternal, MsgPlanUnavailable, err)
+		}
+		applyBillingSummary(&view, summary)
+	}
 	if pc.sheets != nil {
 		usage, err := pc.sheets.PlanUsage(ctx, userID)
 		if err != nil {

@@ -296,7 +296,7 @@ func (s *MongoStore) ApplySubscription(ctx context.Context, sub Subscription, re
 			{Key: "current_period_end", Value: sub.CurrentPeriodEnd},
 			{Key: "cancel_at_period_end", Value: sub.CancelAtPeriodEnd},
 			{Key: fieldProviderSyncedAt, Value: sub.ProviderSyncedAt},
-			{Key: "updated_at", Value: sub.UpdatedAt},
+			{Key: fieldUpdatedAt, Value: sub.UpdatedAt},
 		}}},
 	)
 	if err != nil {

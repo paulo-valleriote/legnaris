@@ -14,6 +14,7 @@ const (
 	subscriptionsCollection = "subscriptions"
 	fieldStatus             = "status"
 	fieldUserID             = "user_id"
+	fieldUpdatedAt          = "updated_at"
 	fieldID                 = "_id"
 )
 
@@ -65,7 +66,7 @@ func (s *MongoStore) InsertPending(ctx context.Context, sub Subscription) error 
 func (s *MongoStore) Cancel(ctx context.Context, id string) error {
 	_, err := s.subscriptions.UpdateOne(ctx,
 		bson.D{{Key: "_id", Value: id}, {Key: fieldStatus, Value: StatusPending}},
-		bson.D{{Key: "$set", Value: bson.D{{Key: fieldStatus, Value: StatusCanceled}, {Key: "updated_at", Value: time.Now().UTC()}}}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: fieldStatus, Value: StatusCanceled}, {Key: fieldUpdatedAt, Value: time.Now().UTC()}}}},
 	)
 	if err != nil {
 		return fmt.Errorf("cancel pending subscription: %w", err)
@@ -80,7 +81,7 @@ func (s *MongoStore) AttachCheckout(ctx context.Context, id, customerID, url str
 			{Key: "provider_customer_id", Value: customerID},
 			{Key: "checkout_url", Value: url},
 			{Key: "checkout_expires_at", Value: expiresAt},
-			{Key: "updated_at", Value: time.Now().UTC()},
+			{Key: fieldUpdatedAt, Value: time.Now().UTC()},
 		}}},
 	)
 	if err != nil {
