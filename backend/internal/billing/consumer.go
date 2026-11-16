@@ -2,7 +2,6 @@ package billing
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -51,14 +50,11 @@ func (c *Consumer) Handle(ctx context.Context, job sweeper.Job[Event], now time.
 		return c.deps.Ledger.MarkEventProcessed(ctx, ev.ID, ReasonIgnored, now)
 	}
 
+	readAt := c.deps.Now()
 	snap, err := c.deps.Provider.GetSubscription(ctx, ev.ProviderSubscriptionID)
 	if err != nil {
-		if errors.Is(err, ErrProviderRejected) {
-			return fmt.Errorf("%w: %w", sweeper.ErrPermanent, err)
-		}
-		return fmt.Errorf("read subscription: %w", err)
+		return fmt.Errorf("read subscription: %w", providerFailure(err))
 	}
-	readAt := c.deps.Now()
 
 	return c.deps.Tx.WithTransaction(ctx, func(txCtx context.Context) error {
 		if err := c.deps.Tx.Step(txCtx, db.StepAfterProviderRead); err != nil {
@@ -132,7 +128,7 @@ func (c *Consumer) upsertSubscription(ctx context.Context, userID string, snap P
 	target.CancelAtPeriodEnd = snap.CancelAtPeriodEnd
 	target.ProviderSyncedAt = &synced
 	if target.FirstPaidAt == nil && snap.Status == StatusActive {
-		paidAt := readAt
+		paidAt := firstPaymentAt(snap, readAt)
 		target.FirstPaidAt = &paidAt
 	}
 	target.UpdatedAt = now
@@ -148,6 +144,13 @@ func (c *Consumer) upsertSubscription(ctx context.Context, userID string, snap P
 		return false, fmt.Errorf("apply subscription: %w", err)
 	}
 	return applied && subscriptionDiffers(before, target), nil
+}
+
+func firstPaymentAt(snap ProviderSubscription, readAt time.Time) time.Time {
+	if snap.StartedAt.IsZero() {
+		return readAt
+	}
+	return snap.StartedAt
 }
 
 func subscriptionDiffers(before, after Subscription) bool {

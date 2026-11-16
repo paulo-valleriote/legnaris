@@ -81,6 +81,24 @@ func TestProvider_GetSubscription(t *testing.T) {
 		assert.Equal(t, billing.StatusActive, got.Status)
 	})
 
+	t.Run("Happy path: the subscription start date is the provider's first payment time", func(t *testing.T) {
+		p, _ := newTestProvider(t, respondWith(&captured{}, http.StatusOK,
+			`{"id":"sub_started","object":"subscription","status":"active","customer":"cus_x","start_date":1780000000}`))
+
+		got, err := p.GetSubscription(t.Context(), "sub_started")
+		require.NoError(t, err)
+		assert.True(t, got.StartedAt.Equal(time.Unix(1780000000, 0).UTC()))
+	})
+
+	t.Run("Edge: a subscription without a start date has no provider start time", func(t *testing.T) {
+		p, _ := newTestProvider(t, respondWith(&captured{}, http.StatusOK,
+			`{"id":"sub_unstarted","object":"subscription","status":"active","customer":"cus_x"}`))
+
+		got, err := p.GetSubscription(t.Context(), "sub_unstarted")
+		require.NoError(t, err)
+		assert.True(t, got.StartedAt.IsZero())
+	})
+
 	t.Run("Error: a 404 from the provider is rejected", func(t *testing.T) {
 		p, _ := newTestProvider(t, respondWith(&captured{}, http.StatusNotFound,
 			`{"error":{"type":"invalid_request_error","message":"No such subscription"}}`))

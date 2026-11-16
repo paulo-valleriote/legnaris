@@ -27,15 +27,20 @@ func (s *MongoStore) RequestRefund(ctx context.Context, id string, now time.Time
 		bson.D{
 			{Key: fieldID, Value: id},
 			{Key: fieldStatus, Value: StatusActive},
-			{Key: fieldRefundState, Value: bson.D{{Key: "$exists", Value: false}}},
+			{Key: fieldRefundState, Value: bson.D{{Key: operatorIn, Value: bson.A{nil, RefundFailed}}}},
 		},
-		bson.D{{Key: operatorSetLedger, Value: bson.D{
-			{Key: fieldRefundState, Value: RefundRequested},
-			{Key: fieldRefundRequestedAt, Value: now},
-			{Key: fieldRefundUsedAt, Value: now},
-			{Key: fieldRefundNextAttempt, Value: now},
-			{Key: fieldUpdatedAt, Value: now},
-		}}},
+		bson.D{
+			{Key: operatorSetLedger, Value: bson.D{
+				{Key: fieldRefundState, Value: RefundRequested},
+				{Key: fieldRefundRequestedAt, Value: now},
+				{Key: fieldRefundUsedAt, Value: now},
+				{Key: fieldRefundNextAttempt, Value: now},
+				{Key: fieldRefundAttempts, Value: 0},
+				{Key: fieldRefundDead, Value: false},
+				{Key: fieldUpdatedAt, Value: now},
+			}},
+			{Key: operatorUnsetLedger, Value: bson.D{{Key: fieldRefundLastError, Value: ""}}},
+		},
 	)
 	if mongo.IsDuplicateKeyError(err) {
 		return false, ErrRefundAlreadyUsed

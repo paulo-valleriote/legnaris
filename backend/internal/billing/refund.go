@@ -39,8 +39,12 @@ const (
 	RefundFailed    RefundState = "failed"
 )
 
+func refundStateFree(state RefundState) bool {
+	return state == "" || state == RefundFailed
+}
+
 func RefundOpen(sub Subscription, now time.Time) bool {
-	return sub.Status == StatusActive && sub.RefundState == "" && sub.RefundUsedAt == nil &&
+	return sub.Status == StatusActive && refundStateFree(sub.RefundState) && sub.RefundUsedAt == nil &&
 		sub.FirstPaidAt != nil && now.Before(sub.FirstPaidAt.Add(RefundWindow))
 }
 
@@ -48,7 +52,7 @@ func refundDenial(sub Subscription, now time.Time) string {
 	switch {
 	case sub.Status != StatusActive || sub.FirstPaidAt == nil:
 		return ReasonNotSubscribed
-	case sub.RefundState != "" || sub.RefundUsedAt != nil:
+	case !refundStateFree(sub.RefundState) || sub.RefundUsedAt != nil:
 		return ReasonAlreadyUsed
 	case !now.Before(sub.FirstPaidAt.Add(RefundWindow)):
 		return ReasonWindowExpired

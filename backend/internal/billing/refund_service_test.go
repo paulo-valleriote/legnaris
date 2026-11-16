@@ -33,6 +33,12 @@ func activeSub(firstPaid *time.Time) billing.Subscription {
 	}
 }
 
+func failedSub(firstPaid *time.Time) billing.Subscription {
+	s := activeSub(firstPaid)
+	s.RefundState = billing.RefundFailed
+	return s
+}
+
 func TestService_Refund(t *testing.T) {
 	type tc struct {
 		name       string
@@ -82,6 +88,37 @@ func TestService_Refund(t *testing.T) {
 			name:  "Edge: no live subscription is not eligible",
 			found: false, skipWrite: true,
 			wantCode: apperr.CodeRefundNotEligible, wantReason: billing.ReasonNotSubscribed, wantStatus: 409,
+		},
+		{
+			name: "Happy path: a failed refund returns the right, so an in-window subscription can request it again",
+			live: failedSub(paidAt(time.Hour)), found: true, requestOK: true, wantWrite: true,
+		},
+		{
+			name: "Edge: a failed refund one nanosecond before the 7-day boundary can still be requested",
+			live: failedSub(paidAt(billing.RefundWindow - time.Nanosecond)), found: true, requestOK: true, wantWrite: true,
+		},
+		{
+			name: "Edge: a failed refund exactly 7 days after the first payment is outside the window",
+			live: failedSub(paidAt(billing.RefundWindow)), found: true, skipWrite: true,
+			wantCode: apperr.CodeRefundNotEligible, wantReason: billing.ReasonWindowExpired, wantStatus: 409,
+		},
+		{
+			name: "Edge: a refund already refunded by the provider is already used",
+			live: func() billing.Subscription {
+				s := activeSub(paidAt(time.Hour))
+				s.RefundState = billing.RefundRefunded
+				return s
+			}(), found: true, skipWrite: true,
+			wantCode: apperr.CodeRefundNotEligible, wantReason: billing.ReasonAlreadyUsed, wantStatus: 409,
+		},
+		{
+			name: "Edge: a canceled refund stays used and is not requested again",
+			live: func() billing.Subscription {
+				s := activeSub(paidAt(time.Hour))
+				s.RefundState = billing.RefundCanceled
+				return s
+			}(), found: true, skipWrite: true,
+			wantCode: apperr.CodeRefundNotEligible, wantReason: billing.ReasonAlreadyUsed, wantStatus: 409,
 		},
 		{
 			name: "Edge: a repeated request while the refund is in progress is already used",
@@ -164,7 +201,11 @@ func TestService_Refund(t *testing.T) {
 		assert.False(t, billing.RefundOpen(activeSub(paidAt(8*24*time.Hour)), refundClock))
 	})
 
-	t.Run("Edge: a subscription whose refund failed no longer has the right open", func(t *testing.T) {
-		assert.False(t, billing.RefundOpen(billing.Subscription{Status: billing.StatusActive, FirstPaidAt: paidAt(time.Hour), RefundState: billing.RefundFailed}, refundClock))
+	t.Run("Happy path: a subscription whose refund failed has the right open again inside the window", func(t *testing.T) {
+		assert.True(t, billing.RefundOpen(failedSub(paidAt(time.Hour)), refundClock))
+	})
+
+	t.Run("Edge: a subscription whose refund failed after the window has no right open", func(t *testing.T) {
+		assert.False(t, billing.RefundOpen(failedSub(paidAt(billing.RefundWindow)), refundClock))
 	})
 }
