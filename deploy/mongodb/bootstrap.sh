@@ -11,6 +11,10 @@
 # one-shot Compose service shares the member's network namespace, and dev stacks
 # use docker exec.
 #
+# A volume that already holds users (a standalone converted to rs0) has no
+# localhost exception, so when the root credentials authenticate the replica-set
+# script runs as root instead; that is the path every restart takes as well.
+#
 # Idempotent: rs.initiate runs only while the member does not report rs0, the root
 # user is created only when the root credentials do not authenticate, and the
 # scripts after the first must check for existing users themselves. A root user
@@ -32,15 +36,26 @@ admin="mongodb://localhost:${MONGO_PORT:-27017}/admin"
 
 authenticate='db.getSiblingDB("admin").auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD)'
 
-mongosh --quiet "$admin" --file "$replset" >/dev/null
+root_authenticates() {
+	mongosh --quiet "$admin" --eval "quit($authenticate ? 0 : 1)" >/dev/null 2>&1
+}
 
-if ! mongosh --quiet "$admin" --eval "quit($authenticate ? 0 : 1)" >/dev/null 2>&1; then
-	mongosh --quiet "$admin" --eval \
-		'db.getSiblingDB("admin").createUser({user: process.env.MONGO_INITDB_ROOT_USERNAME, pwd: process.env.MONGO_INITDB_ROOT_PASSWORD, roles: ["root"]})' \
-		>/dev/null
+run_as_root() {
+	BOOTSTRAP_SCRIPT="$1" mongosh --quiet "$admin" \
+		--eval "$authenticate; load(process.env.BOOTSTRAP_SCRIPT)" >/dev/null
+}
+
+if root_authenticates; then
+	run_as_root "$replset"
+else
+	mongosh --quiet "$admin" --file "$replset" >/dev/null
+	if ! root_authenticates; then
+		mongosh --quiet "$admin" --eval \
+			'db.getSiblingDB("admin").createUser({user: process.env.MONGO_INITDB_ROOT_USERNAME, pwd: process.env.MONGO_INITDB_ROOT_PASSWORD, roles: ["root"]})' \
+			>/dev/null
+	fi
 fi
 
 for script in "$@"; do
-	BOOTSTRAP_SCRIPT="$script" mongosh --quiet "$admin" \
-		--eval "$authenticate; load(process.env.BOOTSTRAP_SCRIPT)" >/dev/null
+	run_as_root "$script"
 done
