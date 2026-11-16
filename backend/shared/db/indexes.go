@@ -33,6 +33,8 @@ const (
 	generationsExpiresAtTTL        = "generations_expires_at_ttl"
 	generationsStatusCreatedAt     = "generations_status_created_at"
 	generationCapExpiresAtTTL      = "generation_cap_expires_at_ttl"
+	subscriptionsUserLiveUnique    = "subscriptions_user_live_unique"
+	subscriptionsUserIDField       = "user_id"
 	expiresAtField                 = "expires_at"
 	statusField                    = "status"
 )
@@ -109,7 +111,25 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 	if err := ensureGenerationUsageIndexes(ctx, database); err != nil {
 		return err
 	}
-	return ensureGenerationIndexes(ctx, database)
+	if err := ensureGenerationIndexes(ctx, database); err != nil {
+		return err
+	}
+	return ensureBillingIndexes(ctx, database)
+}
+
+func ensureBillingIndexes(ctx context.Context, database *mongo.Database) error {
+	subscriptions := database.Collection("subscriptions")
+	if _, err := subscriptions.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: subscriptionsUserIDField, Value: 1}},
+		Options: options.Index().SetUnique(true).SetName(subscriptionsUserLiveUnique).
+			SetPartialFilterExpression(bson.D{{Key: "$or", Value: bson.A{
+				bson.D{{Key: statusField, Value: "pending"}},
+				bson.D{{Key: statusField, Value: "active"}},
+			}}}),
+	}); err != nil {
+		return fmt.Errorf("create subscriptions indexes: %w", err)
+	}
+	return nil
 }
 
 func ensureGenerationIndexes(ctx context.Context, database *mongo.Database) error {

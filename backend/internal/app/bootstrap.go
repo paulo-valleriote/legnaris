@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/billing"
+	billingstripe "legnaris/backend/internal/billing/stripe"
 	"legnaris/backend/internal/email/disposable"
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/internal/events"
@@ -34,6 +36,11 @@ type TemplateModule struct {
 type SheetModule struct {
 	Controller *SheetController
 	Service    sheet.Service
+}
+
+type BillingModule struct {
+	Controller *BillingController
+	Service    *billing.Service
 }
 
 type LLMConsentModule struct {
@@ -94,6 +101,7 @@ type Modules struct {
 	LLMConsent     LLMConsentModule
 	Auth           AuthModule
 	Generation     GenerationModule
+	Billing        BillingModule
 	Plan           *PlanController
 	ClientIP       func(*http.Request) string
 	ActiveAccounts auth.ActiveAccountChecker
@@ -249,6 +257,10 @@ func NewModules(
 		Tx:        db.NewTransactor(database.Client, nil),
 		Logger:    log,
 	})
+	billingService, err := newBillingService(cfg.Variables, billing.NewMongoStore(mdb))
+	if err != nil {
+		return nil, fmt.Errorf("build billing service: %w", err)
+	}
 	planController := NewPlanController(quotaService, FreePlanResolver,
 		WithSheetUsage(sheetService),
 		WithGenerationStatus(llmConsentService, generationService),
@@ -290,6 +302,10 @@ func NewModules(
 			CreateLimiter: generationCreateLimiter,
 			ReadLimiter:   generationReadLimiter,
 		},
+		Billing: BillingModule{
+			Controller: NewBillingController(billingService),
+			Service:    billingService,
+		},
 		Plan:          planController,
 		ClientIP:      clientIPPolicy.Resolve,
 		UserLimiter:   userLimiter,
@@ -297,6 +313,23 @@ func NewModules(
 		Readiness:     database,
 		closers:       closers,
 	}, nil
+}
+
+func newBillingService(vars env.Variables, store billing.Store) (*billing.Service, error) {
+	var provider billing.Provider = billing.UnconfiguredProvider{}
+	if vars.StripeSecretKey != "" && vars.StripePriceIDUSD != "" {
+		stripeProvider, err := billingstripe.New(billingstripe.Config{SecretKey: vars.StripeSecretKey})
+		if err != nil {
+			return nil, err
+		}
+		provider = stripeProvider
+	}
+	return billing.NewService(store, provider, billing.Config{
+		PriceID:    vars.StripePriceIDUSD,
+		SuccessURL: vars.BillingSuccessURL,
+		CancelURL:  vars.BillingCancelURL,
+		Now:        time.Now,
+	}), nil
 }
 
 func newGenerationService(cfg env.Env, options moduleOptions, deps generation.Deps) *generation.Service {
