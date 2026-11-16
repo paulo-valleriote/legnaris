@@ -12,7 +12,7 @@ func (l *Ledger) RequestRefund(_ context.Context, id string, now time.Time) (boo
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	sub, ok := l.st.subs[id]
-	if !ok || sub.Status != billing.StatusActive || sub.RefundState != "" {
+	if !ok || sub.Status != billing.StatusActive || (sub.RefundState != "" && sub.RefundState != billing.RefundFailed) {
 		return false, nil
 	}
 	for _, other := range l.st.subs {
@@ -24,6 +24,9 @@ func (l *Ledger) RequestRefund(_ context.Context, id string, now time.Time) (boo
 	sub.RefundRequestedAt = &now
 	sub.RefundUsedAt = &now
 	sub.RefundNextAttempt = now
+	sub.RefundAttempts = 0
+	sub.RefundDead = false
+	sub.RefundLastError = ""
 	sub.UpdatedAt = now
 	l.st.subs[id] = sub
 	return true, nil
