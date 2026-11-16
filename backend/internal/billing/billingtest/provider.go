@@ -23,6 +23,9 @@ type Provider struct {
 	Unavailable      bool
 	subscriptions    map[string]billing.ProviderSubscription
 	reads            int
+	refundKeys       []string
+	RefundErr        error
+	CancelErr        error
 	cancels          []billing.CancelRequest
 	scrubs           []billing.ScrubRequest
 }
@@ -111,6 +114,32 @@ func (p *Provider) Reads() int {
 	return p.reads
 }
 
+func (p *Provider) RefundLatest(_ context.Context, req billing.RefundRequest) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.RefundErr != nil {
+		return p.RefundErr
+	}
+	p.refundKeys = append(p.refundKeys, req.IdempotencyKey)
+	return nil
+}
+
+func (p *Provider) RefundKeys() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]string(nil), p.refundKeys...)
+}
+
+func (p *Provider) CancelKeys() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	keys := make([]string, 0, len(p.cancels))
+	for _, c := range p.cancels {
+		keys = append(keys, c.IdempotencyKey)
+	}
+	return keys
+}
+
 func (p *Provider) ParseWebhook(payload []byte, signature string) (billing.Notification, error) {
 	if signature != ValidSignature {
 		return billing.Notification{}, billing.ErrInvalidSignature
@@ -127,6 +156,9 @@ func (p *Provider) CancelNow(_ context.Context, req billing.CancelRequest) error
 	defer p.mu.Unlock()
 	if p.Unavailable {
 		return billing.ErrProviderUnavailable
+	}
+	if p.CancelErr != nil {
+		return p.CancelErr
 	}
 	sub, ok := p.subscriptions[req.ProviderSubscriptionID]
 	if !ok {
