@@ -1,7 +1,8 @@
 // Initiates the single-member replica set rs0 and waits for that member to become
 // PRIMARY, so transactions have a primary to write to (ADR 0013). bootstrap.sh runs
-// it first, unauthenticated, over the localhost exception; it runs before any user
-// exists and never after the root user is created.
+// it first: as root when the root credentials authenticate (a restart, or a
+// standalone volume converted to rs0), otherwise unauthenticated over the localhost
+// exception, before any user exists.
 //
 // Idempotent: a member that already reports the set name is left as it is.
 // MONGO_RS_MEMBER is the host:port the member is reached at. The replica-set

@@ -142,10 +142,10 @@ and stop. Nothing has changed on the data.
 
 ## Step 2 — Convert the standalone to rs0 (data kept)
 
-The bootstrap one-shot cannot do this on its own on existing data (see
-"Known risks", item 2). The conversion is therefore done in two parts: the
-member is restarted with `--replSet` and the keyfile, then the set is initiated
-by hand as the root user, which the bootstrap then finds already initiated.
+Since the bootstrap runs `00-replset.js` as root whenever the root login works,
+`deploy.sh` alone can convert the volume (see "Known risks", item 2). The steps
+below still convert it by hand first, so each stage can be checked before the
+API comes back; the bootstrap then finds the set already initiated.
 
 1. Check out the release commit and create the keyfile volume. `mongodb-keyfile`
    is the only one-shot this starts; it writes `legnaris-prod_mongo_keyfile`
@@ -369,23 +369,22 @@ Record the outcome on LGN-207 T0.6. F1 cards may start only after this gate pass
 
 ## Known risks
 
-These are the points where the bootstrap design has **not** been tested against
-existing data. The bootstrap was tested only on fresh volumes:
-`deploy/mongodb_test.go` runs `bootstrap.sh` against a fake `mongosh`, and the
-fresh-volume path is the only path covered. Nothing in the repository runs the
-bootstrap on a standalone volume that already holds data and users.
+These are the points where the conversion depends on the production data.
+`deploy/mongodb_test.go` runs `bootstrap.sh` against a fake `mongosh`, and
+`deploy/mongodb_bootstrap_integration_test.go` runs it against a real `mongo:7.0`,
+on a fresh volume and on a standalone volume with users converted to rs0.
 
-1. **Untested on existing data.** The conversion relies on the reasoning below,
-   not on a test. Rehearse steps 2 to 4 on a copy before production.
-2. **`00-replset.js` runs unauthenticated, and `rs.initiate` may need
-   authentication once users exist.** The bootstrap runs the replica-set script
-   first, through the localhost exception. That exception is intended for a
-   volume with no users; with the users from the standalone present, the
-   initiate is expected to be refused. The script uses `set -eu`, so the
-   one-shot would fail, and `mongodb-bootstrap` never completes, so `app`,
-   `relay`, `mongodb-exporter` and `mongo-express` never start. The workaround
-   is step 2.3 (initiate as root first). The bootstrap then skips the initiate,
-   because `db.hello().setName` already reports `rs0`.
+1. **Tested on a synthetic standalone only.** The production volume may hold
+   state the test does not. Rehearse steps 2 to 4 on a copy before production.
+2. **`rs.initiate` needs authentication once users exist.** The localhost
+   exception closes as soon as the volume holds a user, so an unauthenticated
+   initiate on the converted standalone is refused. This happened on the first
+   CD deploy of the rs0 release: `mongodb-bootstrap` exited 1 and `deploy.sh`
+   rolled back before the set was initiated. `bootstrap.sh` now probes the root
+   login first and, when it works, runs `00-replset.js` as root; only a volume
+   with no users takes the unauthenticated path.
+   `TestBootstrapConvertsAStandaloneWithUsers` covers the conversion against a
+   real `mongo:7.0`.
 3. **Root password mismatch fails loudly, as designed.** If `MONGO_ROOT_PASSWORD`
    in `.env` differs from the first-init value, the root login fails and
    `bootstrap.sh` tries `createUser` without authentication, which fails with

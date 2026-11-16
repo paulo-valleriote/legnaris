@@ -256,7 +256,12 @@ func bootstrapEnv(overrides ...string) []string {
 }
 
 const fakeMongoshBody = `case "$*" in
-  *"load("*) [ "$FAKE_USERS" != fail ] ;;
+  *"load("*)
+    printf 'loaded %s\n' "$BOOTSTRAP_SCRIPT" >>"$FAKE_LOG"
+    case "$BOOTSTRAP_SCRIPT" in
+      *00-replset*) [ "$FAKE_REPLSET" != fail ] ;;
+      *) [ "$FAKE_USERS" != fail ] ;;
+    esac ;;
   *"quit("*) [ "$FAKE_ROOT" = exists ] ;;
   *createUser*) [ "$FAKE_CREATE" != fail ] ;;
   *00-replset*) [ "$FAKE_REPLSET" != fail ] ;;
@@ -289,10 +294,11 @@ func TestBootstrapScriptOrdersReplicaSetRootAndUsers(t *testing.T) {
 		wantCalls []string
 	}{
 		{
-			name:     "Happy path: first run initiates rs0, creates root, then runs the user scripts as root",
+			name:     "Happy path: first run initiates rs0 over the localhost exception, creates root, then runs the user scripts as root",
 			args:     []string{replset, users},
 			wantCode: 0,
 			wantCalls: []string{
+				"probe",
 				"replset:" + replset,
 				"probe",
 				"create-root",
@@ -300,14 +306,24 @@ func TestBootstrapScriptOrdersReplicaSetRootAndUsers(t *testing.T) {
 			},
 		},
 		{
-			name:     "Edge: a restart with root already present creates no root user",
+			name:     "Edge: with root already present (restart or converted standalone) rs0 is initiated as root and no root user is created",
 			env:      bootstrapEnv("FAKE_ROOT=exists"),
 			args:     []string{replset, users},
 			wantCode: 0,
 			wantCalls: []string{
-				"replset:" + replset,
 				"probe",
+				"replset-as-root:" + replset,
 				"users:" + users,
+			},
+		},
+		{
+			name:     "Error: a replica-set script failing as root stops before any user script",
+			env:      bootstrapEnv("FAKE_ROOT=exists", "FAKE_REPLSET=fail"),
+			args:     []string{replset, users},
+			wantCode: 1,
+			wantCalls: []string{
+				"probe",
+				"replset-as-root:" + replset,
 			},
 		},
 		{
@@ -315,6 +331,7 @@ func TestBootstrapScriptOrdersReplicaSetRootAndUsers(t *testing.T) {
 			args:     []string{replset},
 			wantCode: 0,
 			wantCalls: []string{
+				"probe",
 				"replset:" + replset,
 				"probe",
 				"create-root",
@@ -337,6 +354,7 @@ func TestBootstrapScriptOrdersReplicaSetRootAndUsers(t *testing.T) {
 			args:     []string{replset, users},
 			wantCode: 1,
 			wantCalls: []string{
+				"probe",
 				"replset:" + replset,
 			},
 		},
@@ -346,6 +364,7 @@ func TestBootstrapScriptOrdersReplicaSetRootAndUsers(t *testing.T) {
 			args:     []string{replset, users},
 			wantCode: 1,
 			wantCalls: []string{
+				"probe",
 				"replset:" + replset,
 				"probe",
 				"create-root",
@@ -357,6 +376,7 @@ func TestBootstrapScriptOrdersReplicaSetRootAndUsers(t *testing.T) {
 			args:     []string{replset, users},
 			wantCode: 1,
 			wantCalls: []string{
+				"probe",
 				"replset:" + replset,
 				"probe",
 				"create-root",
@@ -392,7 +412,9 @@ func callKinds(calls []string, replset, users string) []string {
 		switch {
 		case strings.Contains(call, "--file "+replset):
 			kinds = append(kinds, "replset:"+replset)
-		case strings.Contains(call, "load("):
+		case call == "loaded "+replset:
+			kinds = append(kinds, "replset-as-root:"+replset)
+		case call == "loaded "+users:
 			kinds = append(kinds, "users:"+users)
 		case strings.Contains(call, "quit("):
 			kinds = append(kinds, "probe")

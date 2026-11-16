@@ -148,3 +148,86 @@ func TestBootstrapAgainstRealReplicaSet(t *testing.T) {
 		assert.Equal(t, want, memberState(t, name))
 	})
 }
+
+func startStandaloneThenConvert(t *testing.T) string {
+	t.Helper()
+	suffix := make([]byte, 4)
+	_, err := rand.Read(suffix)
+	require.NoError(t, err)
+	name := "legnaris-bootstrap-it-" + hex.EncodeToString(suffix)
+	standalone := name + "-standalone"
+	keyfile := name + "-keyfile"
+	data := name + "-data"
+	provision, err := filepath.Abs("mongodb")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_, _ = dockerRun(t, nil, "rm", "-fv", name, standalone)
+		_, _ = dockerRun(t, nil, "volume", "rm", "-f", keyfile, data)
+	})
+
+	out, err := dockerRun(t, nil, "volume", "create", data)
+	require.NoError(t, err, out)
+	out, err = dockerRun(t, []string{
+		"MONGO_INITDB_ROOT_USERNAME=" + bootstrapTestUser,
+		"MONGO_INITDB_ROOT_PASSWORD=" + bootstrapTestPassword,
+		"MONGO_APP_PASSWORD=app-it-pw",
+		"MONGO_EXPORTER_PASSWORD=exporter-it-pw",
+		"MONGO_VIEW_PASSWORD=view-it-pw",
+	}, "run", "-d", "--name", standalone,
+		"-e", "MONGO_INITDB_ROOT_USERNAME", "-e", "MONGO_INITDB_ROOT_PASSWORD",
+		"-e", "MONGO_APP_PASSWORD", "-e", "MONGO_EXPORTER_PASSWORD", "-e", "MONGO_VIEW_PASSWORD",
+		"-v", data+":/data/db",
+		"-v", provision+"/init/01-create-users.js:/docker-entrypoint-initdb.d/01-create-users.js:ro",
+		bootstrapTestImage)
+	require.NoError(t, err, out)
+	waitForStandaloneUsers(t, standalone)
+	out, err = dockerRun(t, nil, "rm", "-f", standalone)
+	require.NoError(t, err, out)
+
+	out, err = dockerRun(t, nil, "volume", "create", keyfile)
+	require.NoError(t, err, out)
+	out, err = dockerRun(t, nil, "run", "--rm", "--entrypoint", "sh",
+		"-v", keyfile+":/etc/mongo-keyfile", "-v", provision+":/provision:ro",
+		bootstrapTestImage, "/provision/keyfile.sh", "/etc/mongo-keyfile")
+	require.NoError(t, err, out)
+	out, err = dockerRun(t, nil, "run", "-d", "--name", name,
+		"-v", data+":/data/db",
+		"-v", keyfile+":/etc/mongo-keyfile:ro", "-v", provision+":/provision:ro",
+		bootstrapTestImage, "--replSet", "rs0", "--keyFile", "/etc/mongo-keyfile/keyfile")
+	require.NoError(t, err, out)
+	waitForMongo(t, name)
+	return name
+}
+
+func waitForStandaloneUsers(t *testing.T, name string) {
+	t.Helper()
+	probe := `db.getSiblingDB("admin").auth("` + bootstrapTestUser + `", "` + bootstrapTestPassword + `");` +
+		`quit(db.getSiblingDB("legnaris").getUser("legnaris_app") === null ? 1 : 0)`
+	deadline := time.Now().Add(bootstrapReadyTimeout)
+	for time.Now().Before(deadline) {
+		if _, err := dockerRun(t, nil, "exec", name, "mongosh", "--quiet", "--eval", probe); err == nil {
+			return
+		}
+		time.Sleep(time.Second)
+	}
+	t.Fatalf("standalone %s did not create its users within %s", name, bootstrapReadyTimeout)
+}
+
+func TestBootstrapConvertsAStandaloneWithUsers(t *testing.T) {
+	requireDocker(t)
+	name := startStandaloneThenConvert(t)
+	const want = "set=rs0 ok=1 users=legnaris_app,legnaris_view"
+
+	t.Run("Edge: the localhost exception is closed, so rs0 is initiated as root and the users are kept", func(t *testing.T) {
+		out, err := bootstrapMember(t, name)
+		require.NoError(t, err, out)
+		assert.Equal(t, want, memberState(t, name))
+	})
+
+	t.Run("Edge: bootstrapping the converted member again succeeds and changes nothing", func(t *testing.T) {
+		out, err := bootstrapMember(t, name)
+		require.NoError(t, err, out)
+		assert.Equal(t, want, memberState(t, name))
+	})
+}
