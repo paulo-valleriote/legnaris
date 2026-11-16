@@ -166,7 +166,10 @@ func (l *Ledger) ClaimEvents(_ context.Context, claimer string, now time.Time, l
 		}
 	}
 	slices.SortFunc(due, func(a, b billing.Event) int {
-		return a.ReceivedAt.Compare(b.ReceivedAt)
+		if c := a.ReceivedAt.Compare(b.ReceivedAt); c != 0 {
+			return c
+		}
+		return strings.Compare(a.ID, b.ID)
 	})
 	var claimed []billing.Event
 	seen := map[string]bool{}
@@ -337,6 +340,51 @@ func (l *Ledger) InsertSubscription(_ context.Context, sub billing.Subscription)
 	}
 	l.st.subs[sub.ID] = sub
 	return nil
+}
+
+func (l *Ledger) AcquireUser(_ context.Context, userID, claimer string, now time.Time, lease time.Duration) (bool, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if held, ok := l.st.locks[userID]; ok && held.lockedThru.After(now) {
+		return false, nil
+	}
+	l.st.locks[userID] = lockState{claimer: claimer, lockedThru: now.Add(lease)}
+	return true, nil
+}
+
+func (l *Ledger) LiveSubscriptions(context.Context) ([]billing.Subscription, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	var out []billing.Subscription
+	for _, sub := range l.st.subs {
+		if sub.ProviderSubID != "" && liveStatus(sub.Status) {
+			out = append(out, sub)
+		}
+	}
+	slices.SortFunc(out, func(a, b billing.Subscription) int { return strings.Compare(a.ID, b.ID) })
+	return out, nil
+}
+
+func (l *Ledger) RequeueEvents(_ context.Context, now, stuckBefore time.Time) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	requeued := 0
+	for id, ev := range l.st.events {
+		switch {
+		case ev.Status == billing.EventFailed:
+			ev.Status = billing.EventReceived
+			ev.Attempts = 0
+			ev.NextAttemptAt = now
+			requeued++
+		case ev.Status == billing.EventReceived && ev.ReceivedAt.Before(stuckBefore) && ev.NextAttemptAt.After(now):
+			ev.NextAttemptAt = now
+			requeued++
+		default:
+			continue
+		}
+		l.st.events[id] = ev
+	}
+	return requeued, nil
 }
 
 type Outbox struct{ ledger *Ledger }

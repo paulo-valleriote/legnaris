@@ -149,10 +149,31 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	sweepDone := make(chan error, 1)
 	go func() { sweepDone <- sweep.Run(ctx) }()
 
+	reconciler, err := newReconciler(cfg, deps, database, eventRepository, relayMetrics)
+	if err != nil {
+		return err
+	}
+	reconcileDone := make(chan error, 1)
+	go func() { reconcileDone <- reconciler.Run(ctx) }()
+
 	publisher := relay.New(repository, broker, relayMetrics, relayConfig(cfg), cfg.Logger)
 	emailErr := publisher.Run(ctx)
 	sweepErr := <-sweepDone
-	return errors.Join(emailErr, sweepErr)
+	reconcileErr := <-reconcileDone
+	return errors.Join(emailErr, sweepErr, reconcileErr)
+}
+
+func newReconciler(cfg env.Env, deps dependencies, database databaseHandle, eventRepository eventsoutbox.Repository, observer billing.ReconcileObserver) (*billing.Reconciler, error) {
+	billingDeps, err := deps.newBilling(cfg, database, eventRepository)
+	if err != nil {
+		return nil, err
+	}
+	return billing.NewReconciler(billing.ReconcileDeps{
+		ConsumerDeps: billingDeps,
+		Claimer:      relayClaimerID() + "-reconcile",
+		Observer:     observer,
+		Log:          cfg.Logger,
+	}), nil
 }
 
 func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationBroker generation.Publisher, observer sweeper.Observer) (*sweeper.Sweeper, error) {

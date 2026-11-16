@@ -11,13 +11,11 @@ import (
 )
 
 const (
-	SubscriptionsCollection = "subscriptions"
+	subscriptionsCollection = "subscriptions"
 	fieldStatus             = "status"
 	fieldUserID             = "user_id"
 	fieldUpdatedAt          = "updated_at"
 	fieldID                 = "_id"
-	operatorIn              = "$in"
-	operatorLte             = "$lte"
 )
 
 type MongoStore struct {
@@ -29,7 +27,7 @@ type MongoStore struct {
 
 func NewMongoStore(database *mongo.Database) *MongoStore {
 	return &MongoStore{
-		subscriptions: database.Collection(SubscriptionsCollection),
+		subscriptions: database.Collection(subscriptionsCollection),
 		events:        database.Collection(EventsCollection),
 		locks:         database.Collection(UserLocksCollection),
 		users:         database.Collection(usersCollection),
@@ -39,7 +37,7 @@ func NewMongoStore(database *mongo.Database) *MongoStore {
 func liveFilter(userID string) bson.D {
 	return bson.D{
 		{Key: fieldUserID, Value: userID},
-		{Key: fieldStatus, Value: bson.D{{Key: operatorIn, Value: liveStatuses()}}},
+		{Key: fieldStatus, Value: bson.D{{Key: operatorInLedger, Value: liveStatuses()}}},
 	}
 }
 
