@@ -69,6 +69,53 @@ func (_c *MockProvider_CancelAtPeriodEnd_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// CancelNow provides a mock function with given fields: ctx, req
+func (_m *MockProvider) CancelNow(ctx context.Context, req billing.CancelRequest) error {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CancelNow")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, billing.CancelRequest) error); ok {
+		r0 = rf(ctx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockProvider_CancelNow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CancelNow'
+type MockProvider_CancelNow_Call struct {
+	*mock.Call
+}
+
+// CancelNow is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req billing.CancelRequest
+func (_e *MockProvider_Expecter) CancelNow(ctx interface{}, req interface{}) *MockProvider_CancelNow_Call {
+	return &MockProvider_CancelNow_Call{Call: _e.mock.On("CancelNow", ctx, req)}
+}
+
+func (_c *MockProvider_CancelNow_Call) Run(run func(ctx context.Context, req billing.CancelRequest)) *MockProvider_CancelNow_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(billing.CancelRequest))
+	})
+	return _c
+}
+
+func (_c *MockProvider_CancelNow_Call) Return(_a0 error) *MockProvider_CancelNow_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockProvider_CancelNow_Call) RunAndReturn(run func(context.Context, billing.CancelRequest) error) *MockProvider_CancelNow_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateCheckoutSession provides a mock function with given fields: ctx, req
 func (_m *MockProvider) CreateCheckoutSession(ctx context.Context, req billing.CheckoutRequest) (billing.CheckoutSession, error) {
 	ret := _m.Called(ctx, req)
@@ -350,6 +397,53 @@ func (_c *MockProvider_ParseWebhook_Call) Return(_a0 billing.Notification, _a1 e
 }
 
 func (_c *MockProvider_ParseWebhook_Call) RunAndReturn(run func([]byte, string) (billing.Notification, error)) *MockProvider_ParseWebhook_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RefundLatest provides a mock function with given fields: ctx, req
+func (_m *MockProvider) RefundLatest(ctx context.Context, req billing.RefundRequest) error {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RefundLatest")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, billing.RefundRequest) error); ok {
+		r0 = rf(ctx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockProvider_RefundLatest_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RefundLatest'
+type MockProvider_RefundLatest_Call struct {
+	*mock.Call
+}
+
+// RefundLatest is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req billing.RefundRequest
+func (_e *MockProvider_Expecter) RefundLatest(ctx interface{}, req interface{}) *MockProvider_RefundLatest_Call {
+	return &MockProvider_RefundLatest_Call{Call: _e.mock.On("RefundLatest", ctx, req)}
+}
+
+func (_c *MockProvider_RefundLatest_Call) Run(run func(ctx context.Context, req billing.RefundRequest)) *MockProvider_RefundLatest_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(billing.RefundRequest))
+	})
+	return _c
+}
+
+func (_c *MockProvider_RefundLatest_Call) Return(_a0 error) *MockProvider_RefundLatest_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockProvider_RefundLatest_Call) RunAndReturn(run func(context.Context, billing.RefundRequest) error) *MockProvider_RefundLatest_Call {
 	_c.Call.Return(run)
 	return _c
 }

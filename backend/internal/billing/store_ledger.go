@@ -78,7 +78,7 @@ func (s *MongoStore) ClaimEvents(ctx context.Context, claimer string, now time.T
 	cursor, err := s.events.Find(ctx,
 		bson.D{
 			{Key: fieldEventStatus, Value: statusReceivedLedgerString},
-			{Key: fieldEventNextAttempt, Value: bson.D{{Key: "$lte", Value: now}}},
+			{Key: fieldEventNextAttempt, Value: bson.D{{Key: operatorLte, Value: now}}},
 		},
 		options.Find().SetSort(bson.D{{Key: fieldEventReceivedAt, Value: 1}}).SetLimit(int64(limit*candidateScanFactor)),
 	)
@@ -117,7 +117,7 @@ func (s *MongoStore) acquireUser(ctx context.Context, userID, claimer string, no
 		{Key: fieldID, Value: userID},
 		{Key: "$or", Value: bson.A{
 			bson.D{{Key: fieldLockedUntil, Value: nil}},
-			bson.D{{Key: fieldLockedUntil, Value: bson.D{{Key: "$lte", Value: now}}}},
+			bson.D{{Key: fieldLockedUntil, Value: bson.D{{Key: operatorLte, Value: now}}}},
 		}},
 	}
 	update := bson.D{{Key: operatorSetLedger, Value: bson.D{
@@ -269,7 +269,7 @@ func (s *MongoStore) FindTarget(ctx context.Context, userID, providerSubscriptio
 	err := s.subscriptions.FindOne(ctx, bson.D{
 		{Key: fieldUserID, Value: userID},
 		{Key: fieldProviderSubID, Value: bson.D{{Key: "$exists", Value: false}}},
-		{Key: fieldStatus, Value: bson.D{{Key: "$in", Value: liveStatuses()}}},
+		{Key: fieldStatus, Value: bson.D{{Key: operatorIn, Value: liveStatuses()}}},
 	}).Decode(&sub)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		return Subscription{}, false, nil
@@ -296,6 +296,7 @@ func (s *MongoStore) ApplySubscription(ctx context.Context, sub Subscription, re
 			{Key: "current_period_end", Value: sub.CurrentPeriodEnd},
 			{Key: "cancel_at_period_end", Value: sub.CancelAtPeriodEnd},
 			{Key: fieldProviderSyncedAt, Value: sub.ProviderSyncedAt},
+			{Key: fieldFirstPaidAt, Value: sub.FirstPaidAt},
 			{Key: fieldUpdatedAt, Value: sub.UpdatedAt},
 		}}},
 	)

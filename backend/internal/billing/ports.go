@@ -66,6 +66,12 @@ type PortalSession struct {
 
 type CancelRequest struct {
 	ProviderSubscriptionID string
+	IdempotencyKey         string
+}
+
+type RefundRequest struct {
+	ProviderSubscriptionID string
+	IdempotencyKey         string
 }
 
 type Provider interface {
@@ -75,6 +81,8 @@ type Provider interface {
 	ParseWebhook(payload []byte, signature string) (Notification, error)
 	CreatePortalSession(ctx context.Context, req PortalRequest) (PortalSession, error)
 	CancelAtPeriodEnd(ctx context.Context, req CancelRequest) error
+	CancelNow(ctx context.Context, req CancelRequest) error
+	RefundLatest(ctx context.Context, req RefundRequest) error
 }
 
 type UnconfiguredProvider struct{}
@@ -100,5 +108,13 @@ func (UnconfiguredProvider) CreatePortalSession(context.Context, PortalRequest) 
 }
 
 func (UnconfiguredProvider) CancelAtPeriodEnd(context.Context, CancelRequest) error {
+	return ErrProviderUnavailable
+}
+
+func (UnconfiguredProvider) CancelNow(context.Context, CancelRequest) error {
+	return ErrProviderUnavailable
+}
+
+func (UnconfiguredProvider) RefundLatest(context.Context, RefundRequest) error {
 	return ErrProviderUnavailable
 }

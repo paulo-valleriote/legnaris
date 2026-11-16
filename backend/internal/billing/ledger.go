@@ -70,6 +70,7 @@ type Outbox interface {
 }
 
 type Ledger interface {
+	RefundLedger
 	InsertEvent(ctx context.Context, ev Event) error
 	ResolveUser(ctx context.Context, providerSubscriptionID, providerCustomerID string) (string, bool, error)
 	ClaimEvents(ctx context.Context, claimer string, now time.Time, lease time.Duration, limit int) ([]Event, error)

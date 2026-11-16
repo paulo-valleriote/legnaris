@@ -72,7 +72,7 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 		wantErr   bool
 		wantNames []string
 	}{
-		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts and the billing consumer are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting", "billing_events"}},
+		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts and the billing consumer are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting", "billing_events", "billing_refunds"}},
 		{name: "Error: a zero batch refuses the generation queue", batch: 0, wantErr: true},
 	}
 	for _, tc := range tests {

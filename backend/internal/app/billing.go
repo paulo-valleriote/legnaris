@@ -30,6 +30,7 @@ func (c *BillingController) RegisterRoutes(group *echo.Group) {
 	group.POST("/checkout", c.Checkout)
 	group.POST("/portal", c.Portal)
 	group.POST("/cancel", c.Cancel)
+	group.POST("/refund", c.Refund)
 }
 
 func (c *BillingController) Checkout(ec *echo.Context) error {
