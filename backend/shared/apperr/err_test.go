@@ -40,6 +40,7 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeGenerationCapReached, 503},
 		{CodeAlreadySubscribed, 409},
 		{CodeBillingUnavailable, 503},
+		{CodeInvalidSignature, 400},
 	}
 
 	for _, tc := range tests {

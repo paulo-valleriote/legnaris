@@ -2,6 +2,7 @@ package billingtest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -18,6 +19,8 @@ type Provider struct {
 	customersCreated int
 	sessionsCreated  int
 	Unavailable      bool
+	subscriptions    map[string]billing.ProviderSubscription
+	reads            int
 }
 
 func NewProvider() *Provider {
@@ -71,4 +74,46 @@ func (p *Provider) SessionsCreated() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.sessionsCreated
+}
+
+const ValidSignature = "valid-signature"
+
+func (p *Provider) SetSubscription(sub billing.ProviderSubscription) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.subscriptions == nil {
+		p.subscriptions = make(map[string]billing.ProviderSubscription)
+	}
+	p.subscriptions[sub.ID] = sub
+}
+
+func (p *Provider) GetSubscription(_ context.Context, id string) (billing.ProviderSubscription, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.Unavailable {
+		return billing.ProviderSubscription{}, billing.ErrProviderUnavailable
+	}
+	p.reads++
+	sub, ok := p.subscriptions[id]
+	if !ok {
+		return billing.ProviderSubscription{}, fmt.Errorf("subscription %s: %w", id, billing.ErrProviderRejected)
+	}
+	return sub, nil
+}
+
+func (p *Provider) Reads() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.reads
+}
+
+func (p *Provider) ParseWebhook(payload []byte, signature string) (billing.Notification, error) {
+	if signature != ValidSignature {
+		return billing.Notification{}, billing.ErrInvalidSignature
+	}
+	var n billing.Notification
+	if err := json.Unmarshal(payload, &n); err != nil {
+		return billing.Notification{}, fmt.Errorf("%w: %w", billing.ErrProviderRejected, err)
+	}
+	return n, nil
 }
