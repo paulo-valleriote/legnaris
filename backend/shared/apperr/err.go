@@ -33,6 +33,8 @@ const (
 	CodeGenerationInProgress Code = "GENERATION_IN_PROGRESS"
 	CodeProviderUnavailable  Code = "PROVIDER_UNAVAILABLE"
 	CodeGenerationCapReached Code = "GENERATION_CAP_REACHED"
+	CodeAlreadySubscribed    Code = "ALREADY_SUBSCRIBED"
+	CodeBillingUnavailable   Code = "BILLING_UNAVAILABLE"
 )
 
 type Error struct {
@@ -69,11 +71,11 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 404
 	case CodeMethodNotAllowed:
 		httpStatus = 405
-	case CodeConflict, CodeSheetLimitReached, CodeGenerationInProgress:
+	case CodeConflict, CodeSheetLimitReached, CodeGenerationInProgress, CodeAlreadySubscribed:
 		httpStatus = 409
 	case CodeRateLimited, CodeQuotaExceeded:
 		httpStatus = 429
-	case CodeEmailUnavailable, CodeNotReady, CodeProviderUnavailable, CodeGenerationCapReached:
+	case CodeEmailUnavailable, CodeNotReady, CodeProviderUnavailable, CodeGenerationCapReached, CodeBillingUnavailable:
 		httpStatus = 503
 	case CodeInternal:
 		httpStatus = 500

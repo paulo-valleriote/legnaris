@@ -14,6 +14,7 @@ require (
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/resend/resend-go/v4 v4.9.0
 	github.com/stretchr/testify v1.12.1
+	github.com/stripe/stripe-go/v87 v87.1.0
 	go.mongodb.org/mongo-driver/v2 v2.9.1
 	golang.org/x/crypto v0.55.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -40,6 +41,7 @@ require (
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect

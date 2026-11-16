@@ -167,3 +167,10 @@ packages:
     interfaces:
       Granter: {}
       DomainChecker: {}
+  legnaris/backend/internal/billing:
+    config:
+      dir: backend/internal/billing/mocks
+      outpkg: mocks
+    interfaces:
+      Provider: {}
+      Store: {}

@@ -54,6 +54,9 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	meGroup := router.Group("/me", requireAuth, requireActive, limitUser)
 	modules.Plan.RegisterRoutes(meGroup)
 
+	billingGroup := router.Group("/billing", requireAuth, requireActive, limitUser)
+	modules.Billing.Controller.RegisterRoutes(billingGroup)
+
 	return router
 }
 
