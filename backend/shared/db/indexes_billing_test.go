@@ -25,6 +25,12 @@ func TestEnsureIndexes_Subscriptions(t *testing.T) {
 		assert.True(t, indexIsUnique(idx))
 	})
 
+	t.Run("Happy path: subscriptions expire through a TTL index on expires_at", func(t *testing.T) {
+		idx, ok := subs["subscriptions_expires_at_ttl"]
+		require.True(t, ok, "the retention TTL index must exist, got %v", subs)
+		assert.Equal(t, int32(0), indexExpireAfterSeconds(t, idx))
+	})
+
 	coll := mdb.Collection("subscriptions")
 	insert := func(id, status string) error {
 		_, err := coll.InsertOne(ctx, bson.M{"_id": id, "user_id": "u-1", "status": status})

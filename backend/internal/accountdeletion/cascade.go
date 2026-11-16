@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/quota"
@@ -32,6 +33,7 @@ const (
 	emailField            = "email"
 	toField               = "to"
 	deletedAtField        = "deleted_at"
+	expiresAtField        = "expires_at"
 )
 
 type Tombstone struct {
@@ -85,6 +87,9 @@ func (c *Cascade) Remove(ctx context.Context, userID string) error {
 	}
 
 	now := c.now()
+	if err := c.retireBilling(ctx, userID, now); err != nil {
+		return err
+	}
 	if err := c.writeTombstone(ctx, userID, now); err != nil {
 		return err
 	}
@@ -94,6 +99,25 @@ func (c *Cascade) Remove(ctx context.Context, userID string) error {
 func (c *Cascade) deleteOwned(ctx context.Context, collection, field, userID string) error {
 	if _, err := c.database.Collection(collection).DeleteMany(ctx, bson.D{{Key: field, Value: userID}}); err != nil {
 		return fmt.Errorf("delete %s for account: %w", collection, err)
+	}
+	return nil
+}
+
+func (c *Cascade) retireBilling(ctx context.Context, userID string, at time.Time) error {
+	if _, err := c.database.Collection(billing.EventsCollection).DeleteMany(ctx, bson.D{{Key: userIDField, Value: userID}}); err != nil {
+		return fmt.Errorf("delete %s for account: %w", billing.EventsCollection, err)
+	}
+	if _, err := c.database.Collection(billing.UserLocksCollection).DeleteOne(ctx, bson.D{{Key: idField, Value: userID}}); err != nil {
+		return fmt.Errorf("delete %s for account: %w", billing.UserLocksCollection, err)
+	}
+	_, err := c.database.Collection(billing.SubscriptionsCollection).UpdateMany(ctx,
+		bson.D{{Key: userIDField, Value: userID}},
+		bson.D{{Key: "$set", Value: bson.D{
+			{Key: "status", Value: billing.StatusCanceled},
+			{Key: expiresAtField, Value: billing.RetentionUntil(at)},
+		}}})
+	if err != nil {
+		return fmt.Errorf("retain %s for account: %w", billing.SubscriptionsCollection, err)
 	}
 	return nil
 }

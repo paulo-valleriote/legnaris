@@ -401,16 +401,16 @@ func (_c *MockProvider_ParseWebhook_Call) RunAndReturn(run func([]byte, string) 
 	return _c
 }
 
-// RefundLatest provides a mock function with given fields: ctx, req
-func (_m *MockProvider) RefundLatest(ctx context.Context, req billing.RefundRequest) error {
+// ScrubCustomer provides a mock function with given fields: ctx, req
+func (_m *MockProvider) ScrubCustomer(ctx context.Context, req billing.ScrubRequest) error {
 	ret := _m.Called(ctx, req)
 
 	if len(ret) == 0 {
-		panic("no return value specified for RefundLatest")
+		panic("no return value specified for ScrubCustomer")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, billing.RefundRequest) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, billing.ScrubRequest) error); ok {
 		r0 = rf(ctx, req)
 	} else {
 		r0 = ret.Error(0)
@@ -419,31 +419,31 @@ func (_m *MockProvider) RefundLatest(ctx context.Context, req billing.RefundRequ
 	return r0
 }
 
-// MockProvider_RefundLatest_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RefundLatest'
-type MockProvider_RefundLatest_Call struct {
+// MockProvider_ScrubCustomer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ScrubCustomer'
+type MockProvider_ScrubCustomer_Call struct {
 	*mock.Call
 }
 
-// RefundLatest is a helper method to define mock.On call
+// ScrubCustomer is a helper method to define mock.On call
 //   - ctx context.Context
-//   - req billing.RefundRequest
-func (_e *MockProvider_Expecter) RefundLatest(ctx interface{}, req interface{}) *MockProvider_RefundLatest_Call {
-	return &MockProvider_RefundLatest_Call{Call: _e.mock.On("RefundLatest", ctx, req)}
+//   - req billing.ScrubRequest
+func (_e *MockProvider_Expecter) ScrubCustomer(ctx interface{}, req interface{}) *MockProvider_ScrubCustomer_Call {
+	return &MockProvider_ScrubCustomer_Call{Call: _e.mock.On("ScrubCustomer", ctx, req)}
 }
 
-func (_c *MockProvider_RefundLatest_Call) Run(run func(ctx context.Context, req billing.RefundRequest)) *MockProvider_RefundLatest_Call {
+func (_c *MockProvider_ScrubCustomer_Call) Run(run func(ctx context.Context, req billing.ScrubRequest)) *MockProvider_ScrubCustomer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(billing.RefundRequest))
+		run(args[0].(context.Context), args[1].(billing.ScrubRequest))
 	})
 	return _c
 }
 
-func (_c *MockProvider_RefundLatest_Call) Return(_a0 error) *MockProvider_RefundLatest_Call {
+func (_c *MockProvider_ScrubCustomer_Call) Return(_a0 error) *MockProvider_ScrubCustomer_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *MockProvider_RefundLatest_Call) RunAndReturn(run func(context.Context, billing.RefundRequest) error) *MockProvider_RefundLatest_Call {
+func (_c *MockProvider_ScrubCustomer_Call) RunAndReturn(run func(context.Context, billing.ScrubRequest) error) *MockProvider_ScrubCustomer_Call {
 	_c.Call.Return(run)
 	return _c
 }
