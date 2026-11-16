@@ -19,7 +19,7 @@ function RefundSection({ usage, onRequest }: { usage: PlanUsage; onRequest: () =
 
   return (
     <section className="lg-plans__refund" aria-labelledby="plans-refund-heading">
-      <h2 className="lg-plans__label" id="plans-refund-heading">
+      <h2 className="lg-plans__refund-title" id="plans-refund-heading">
         {message('plans.refundHeading')}
       </h2>
       {refundState === 'requested' ? (
@@ -56,6 +56,7 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
   const queryClient = useQueryClient();
   const [refundOpen, setRefundOpen] = useState(false);
 
+  const isFree = usage.plan === 'free';
   const isPaid = usage.plan === 'paid';
   const hasSubscription = usage.billing.subscriptionStatus !== null;
 
@@ -101,75 +102,111 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
   };
 
   const opening = checkout.isPending || checkout.isSuccess;
+  const showActions = !isPaid || hasSubscription;
+
+  const currentBadge = (
+    <p className="lg-plans__badge" data-testid="plans-current">
+      {messageWith('plans.current', { plan: planName(usage.plan) })}
+    </p>
+  );
 
   return (
     <>
-      <p className="lg-plans__current" data-testid="plans-current">
-        {messageWith('plans.current', { plan: planName(usage.plan) })}
-      </p>
+      {isFree || isPaid ? null : (
+        <p className="lg-plans__badge lg-plans__badge--standalone" data-testid="plans-current">
+          {messageWith('plans.current', { plan: planName(usage.plan) })}
+        </p>
+      )}
 
-      <div className="lg-plans__row">
-        <h2 className="lg-plans__label">{planName('free')}</h2>
-        <p className="lg-plans__text">{message('plans.freeDescription')}</p>
-      </div>
+      <div className="lg-plans__grid">
+        <article
+          className={`lg-plans__plan${isFree ? ' lg-plans__plan--current' : ''}`}
+          aria-labelledby="plans-free-heading"
+        >
+          <header className="lg-plans__plan-head">
+            <h2 className="lg-plans__label" id="plans-free-heading">
+              {planName('free')}
+            </h2>
+            {isFree ? currentBadge : null}
+          </header>
+          <p className="lg-plans__text">{message('plans.freeDescription')}</p>
+        </article>
 
-      <div className="lg-plans__row">
-        <h2 className="lg-plans__label">{planName('paid')}</h2>
-        <p className="lg-plans__value">{message('plans.paidPrice')}</p>
-        <p className="lg-plans__text">{message('plans.paidDescription')}</p>
-        {usage.billing.cancelAtPeriodEnd ? (
-          <p className="lg-plans__notice">{message('plans.cancelAtPeriodEnd')}</p>
-        ) : null}
-        {usage.billing.currentPeriodEnd === null ? null : (
-          <p className="lg-plans__notice">
-            {messageWith('plans.periodEnd', {
-              date: new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
-                new Date(usage.billing.currentPeriodEnd),
-              ),
-            })}
-          </p>
-        )}
+        <article
+          className={`lg-plans__plan${isPaid ? ' lg-plans__plan--current' : ''}`}
+          aria-labelledby="plans-paid-heading"
+        >
+          <header className="lg-plans__plan-head">
+            <h2 className="lg-plans__label" id="plans-paid-heading">
+              {planName('paid')}
+            </h2>
+            {isPaid ? currentBadge : null}
+          </header>
 
-        {isPaid ? null : (
-          <div>
-            <button
-              type="button"
-              className="lg-button lg-button--primary"
-              disabled={opening}
-              aria-busy={opening}
-              onClick={() => checkout.mutate()}
-            >
-              {opening ? message('plans.subscribing') : message('plans.subscribe')}
-            </button>
+          <div className="lg-plans__pricing">
+            <p className="lg-plans__price">
+              <span className="lg-plans__price-amount">{message('plans.priceAmount')}</span>
+              <span className="lg-plans__price-period">{message('plans.pricePeriod')}</span>
+            </p>
+            <p className="lg-plans__price-note">{message('plans.priceNote')}</p>
           </div>
-        )}
-        {isPaid || hasSubscription ? null : (
-          <p className="lg-plans__notice">{message('plans.neverSubscribed')}</p>
-        )}
-        {checkout.isError ? (
-          <p className="lg-plans__error" role="alert">
-            {failureCopy(checkout.error)}
-          </p>
-        ) : null}
 
-        {hasSubscription ? (
-          <div>
-            <button
-              type="button"
-              className="lg-button"
-              disabled={portal.isPending}
-              aria-busy={portal.isPending}
-              onClick={() => portal.mutate()}
-            >
-              {portal.isPending ? message('plans.managing') : message('plans.manage')}
-            </button>
-          </div>
-        ) : null}
-        {portal.isError ? (
-          <p className="lg-plans__error" role="alert">
-            {failureCopy(portal.error)}
-          </p>
-        ) : null}
+          <p className="lg-plans__text">{message('plans.paidDescription')}</p>
+
+          {usage.billing.cancelAtPeriodEnd ? (
+            <p className="lg-plans__notice">{message('plans.cancelAtPeriodEnd')}</p>
+          ) : null}
+          {usage.billing.currentPeriodEnd === null ? null : (
+            <p className="lg-plans__notice">
+              {messageWith('plans.periodEnd', {
+                date: new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
+                  new Date(usage.billing.currentPeriodEnd),
+                ),
+              })}
+            </p>
+          )}
+          {isPaid || hasSubscription ? null : (
+            <p className="lg-plans__notice">{message('plans.neverSubscribed')}</p>
+          )}
+
+          {showActions ? (
+            <div className="lg-plans__plan-actions">
+              {isPaid ? null : (
+                <button
+                  type="button"
+                  className="lg-button lg-button--primary"
+                  disabled={opening}
+                  aria-busy={opening}
+                  onClick={() => checkout.mutate()}
+                >
+                  {opening ? message('plans.subscribing') : message('plans.subscribe')}
+                </button>
+              )}
+              {hasSubscription ? (
+                <button
+                  type="button"
+                  className="lg-button"
+                  disabled={portal.isPending}
+                  aria-busy={portal.isPending}
+                  onClick={() => portal.mutate()}
+                >
+                  {portal.isPending ? message('plans.managing') : message('plans.manage')}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {checkout.isError ? (
+            <p className="lg-plans__error" role="alert">
+              {failureCopy(checkout.error)}
+            </p>
+          ) : null}
+          {portal.isError ? (
+            <p className="lg-plans__error" role="alert">
+              {failureCopy(portal.error)}
+            </p>
+          ) : null}
+        </article>
       </div>
 
       <RefundSection usage={usage} onRequest={() => setRefundOpen(true)} />

@@ -121,6 +121,37 @@ describe('generate concept step (LGN-196, LGN-177)', () => {
 
     expect(await screen.findByText('3 of 3 free generations left')).toBeInTheDocument();
   });
+
+  it('Edge: no free generations left links to the plans route', async () => {
+    renderGenerate({
+      'GET /me/plan': ok(planWith({ trial: { used: 3, remaining: 0 } })),
+    });
+
+    const link = await screen.findByRole('link', { name: 'See plans' });
+    expect(link).toHaveAttribute('href', '/plans');
+  });
+
+  it('Happy path: the concept field is described by its example, language note and counter', async () => {
+    renderGenerate({});
+
+    const field = await screen.findByLabelText('Describe your character');
+    expect(field).toHaveAttribute(
+      'aria-describedby',
+      'generate-concept-hint generate-concept-language generate-concept-count',
+    );
+    expect(screen.getByText(/A soft-spoken ranger/)).toBeInTheDocument();
+    expect(screen.getByText(/follows the language of your concept/)).toBeInTheDocument();
+  });
+
+  it('Edge: a concept over the limit marks the field invalid', async () => {
+    renderGenerate({});
+    await screen.findByLabelText('Describe your character');
+
+    fireEvent.change(conceptField(), { target: { value: 'a'.repeat(1001) } });
+
+    expect(conceptField()).toHaveAttribute('aria-invalid', 'true');
+    expect(generateButton()).toBeDisabled();
+  });
 });
 
 describe('generate flow (LGN-196)', () => {
