@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { failureCopy } from '../api/error_mapper';
 import type { PlanUsage } from '../api/models/plan';
 import { useApiClient } from '../app/providers';
-import { PRIVACY_PATH } from '../app/routes';
 import { PLAN_QUERY_KEY, usePlanUsage } from '../catalog/queries';
+import { PrivacyDialog } from '../legal/privacy_dialog';
 import { planName } from '../plans/plan_view';
 import { message, messageWith } from '../l10n/strings';
 import './account.css';
@@ -131,14 +130,16 @@ function ConsentSection({ usage }: ConsentSectionProps) {
     return (
       <div className="lg-account__row">
         <h2 className="lg-account__label">{message('account.consentHeading')}</h2>
-        <p className="lg-account__value" data-testid="account-consent-none">
-          {message('account.consentNone')}
-        </p>
-        {revoked ? (
-          <p className="lg-account__notice" role="status">
-            {message('account.revoked')}
+        <div className="lg-account__content">
+          <p className="lg-account__value" data-testid="account-consent-none">
+            {message('account.consentNone')}
           </p>
-        ) : null}
+          {revoked ? (
+            <p className="lg-account__notice" role="status">
+              {message('account.revoked')}
+            </p>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -146,22 +147,22 @@ function ConsentSection({ usage }: ConsentSectionProps) {
   return (
     <div className="lg-account__row">
       <h2 className="lg-account__label">{message('account.consentHeading')}</h2>
-      <p className="lg-account__value" data-testid="account-consent">
-        {messageWith('account.consentGiven', { date: formatConsentDate(usage.consentAt) })}
-        {usage.consentVersion === null
-          ? null
-          : ` · ${messageWith('account.consentVersion', { version: usage.consentVersion })}`}
-      </p>
-      <div>
+      <div className="lg-account__content">
+        <p className="lg-account__value" data-testid="account-consent">
+          {messageWith('account.consentGiven', { date: formatConsentDate(usage.consentAt) })}
+          {usage.consentVersion === null
+            ? null
+            : ` · ${messageWith('account.consentVersion', { version: usage.consentVersion })}`}
+        </p>
         <button type="button" className="lg-button lg-button--danger" onClick={openDialog}>
           {message('account.revoke')}
         </button>
+        {revoked ? (
+          <p className="lg-account__notice" role="status">
+            {message('account.revoked')}
+          </p>
+        ) : null}
       </div>
-      {revoked ? (
-        <p className="lg-account__notice" role="status">
-          {message('account.revoked')}
-        </p>
-      ) : null}
       {dialogOpen ? (
         <RevokeDialog
           pending={revoke.isPending}
@@ -170,6 +171,29 @@ function ConsentSection({ usage }: ConsentSectionProps) {
           onConfirm={() => revoke.mutate()}
         />
       ) : null}
+    </div>
+  );
+}
+
+function PrivacySection() {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+
+  return (
+    <div className="lg-account__row">
+      <h2 className="lg-account__label">{message('account.privacyHeading')}</h2>
+      <div className="lg-account__content">
+        <button
+          type="button"
+          className="lg-button"
+          aria-haspopup="dialog"
+          data-testid="account-privacy-open"
+          onClick={() => setOpen(true)}
+        >
+          {message('account.privacyOpen')}
+        </button>
+      </div>
+      {open ? <PrivacyDialog onClose={close} /> : null}
     </div>
   );
 }
@@ -200,23 +224,22 @@ export function AccountScreen() {
         </div>
       ) : null}
 
-      {plan.data === undefined ? null : (
-        <>
-          <div className="lg-account__row">
-            <h2 className="lg-account__label">{message('account.planHeading')}</h2>
-            <p className="lg-account__value" data-testid="account-plan">
-              {planName(plan.data.plan)}
-            </p>
-          </div>
-          <ConsentSection usage={plan.data} />
-        </>
-      )}
-
-      <footer className="lg-account__footer">
-        <Link className="lg-account__link" to={PRIVACY_PATH}>
-          {message('account.privacyLink')}
-        </Link>
-      </footer>
+      <div className="lg-account__rows">
+        {plan.data === undefined ? null : (
+          <>
+            <div className="lg-account__row">
+              <h2 className="lg-account__label">{message('account.planHeading')}</h2>
+              <div className="lg-account__content">
+                <p className="lg-account__value lg-account__value--lead" data-testid="account-plan">
+                  {planName(plan.data.plan)}
+                </p>
+              </div>
+            </div>
+            <ConsentSection usage={plan.data} />
+          </>
+        )}
+        <PrivacySection />
+      </div>
     </section>
   );
 }

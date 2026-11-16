@@ -40,3 +40,96 @@
   color: var(--lg-color-accent);
   overflow-wrap: anywhere;
 }
+
+.lg-dialog.lg-privacy-dialog {
+  gap: 0;
+  width: min(100%, var(--lg-size-dialog-max));
+  padding: 0;
+  overflow: hidden;
+}
+
+.lg-dialog__header.lg-privacy-dialog__header {
+  align-items: flex-start;
+  padding: var(--lg-space-16) var(--lg-space-12) var(--lg-space-16) var(--lg-space-24);
+  border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-dialog__title.lg-privacy-dialog__title {
+  padding-top: var(--lg-space-8);
+  font-size: var(--lg-type-20);
+  text-wrap: balance;
+}
+
+.lg-button.lg-privacy-dialog__close {
+  flex: none;
+  width: var(--lg-size-control);
+  height: var(--lg-size-control);
+  padding: 0;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-button.lg-privacy-dialog__close:hover {
+  color: var(--lg-color-text);
+}
+
+.lg-privacy-dialog__close-icon {
+  width: var(--lg-space-16);
+  height: var(--lg-space-16);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--lg-space-2);
+  stroke-linecap: round;
+}
+
+.lg-privacy-dialog__scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--lg-space-16) var(--lg-space-24) var(--lg-space-32);
+  scrollbar-color: var(--lg-color-border-strong) transparent;
+}
+
+.lg-privacy-dialog__scroll:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: calc(var(--lg-focus-width) * -1);
+}
+
+.lg-privacy__body.lg-privacy-dialog__body {
+  gap: var(--lg-space-12);
+  max-width: none;
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text);
+}
+
+.lg-privacy__body.lg-privacy-dialog__body h3 {
+  margin: var(--lg-space-16) 0 0;
+  font-size: var(--lg-type-16);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  color: var(--lg-color-text);
+}
+
+.lg-privacy-dialog__body p,
+.lg-privacy-dialog__body ul {
+  margin: 0;
+}
+
+.lg-privacy-dialog__body strong {
+  font-weight: var(--lg-font-weight-semibold);
+  color: var(--lg-color-text);
+}
+
+.lg-privacy-dialog__body a {
+  text-underline-offset: var(--lg-space-2);
+}
+
+@media (max-width: 39.99rem) {
+  .lg-dialog__header.lg-privacy-dialog__header {
+    padding: var(--lg-space-8) var(--lg-space-4) var(--lg-space-8) var(--lg-space-16);
+  }
+
+  .lg-privacy-dialog__scroll {
+    padding: var(--lg-space-12) var(--lg-space-16) var(--lg-space-24);
+  }
+}
