@@ -9,6 +9,7 @@ type User struct {
 	PasswordHash        string     `bson:"password_hash" json:"-"`
 	EmailVerifiedAt     *time.Time `bson:"email_verified_at,omitempty" json:"email_verified_at,omitempty"`
 	Plan                string     `bson:"plan,omitempty" json:"-"`
+	PlanVersion         int64      `bson:"plan_version,omitempty" json:"-"`
 	LLMConsentAt        *time.Time `bson:"llm_consent_at,omitempty" json:"-"`
 	LLMConsentVersion   string     `bson:"llm_consent_version,omitempty" json:"-"`
 	CreatedAt           time.Time  `bson:"created_at" json:"created_at"`
