@@ -31,6 +31,7 @@ const (
 	operatorSetLedger          = "$set"
 	operatorIncLedger          = "$inc"
 	operatorUnsetLedger        = "$unset"
+	operatorInLedger           = "$in"
 	statusReceivedLedgerString = string(EventReceived)
 )
 
@@ -313,4 +314,52 @@ func (s *MongoStore) InsertSubscription(ctx context.Context, sub Subscription) e
 		return fmt.Errorf("insert subscription: %w", err)
 	}
 	return nil
+}
+
+func (s *MongoStore) AcquireUser(ctx context.Context, userID, claimer string, now time.Time, lease time.Duration) (bool, error) {
+	return s.acquireUser(ctx, userID, claimer, now, now.Add(lease))
+}
+
+func (s *MongoStore) LiveSubscriptions(ctx context.Context) ([]Subscription, error) {
+	cursor, err := s.subscriptions.Find(ctx,
+		bson.D{
+			{Key: fieldProviderSubID, Value: bson.D{{Key: "$exists", Value: true}, {Key: "$ne", Value: ""}}},
+			{Key: fieldStatus, Value: bson.D{{Key: operatorInLedger, Value: liveStatuses()}}},
+		},
+		options.Find().SetSort(bson.D{{Key: fieldID, Value: 1}}),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("load live subscriptions: %w", err)
+	}
+	var subs []Subscription
+	if err := cursor.All(ctx, &subs); err != nil {
+		return nil, fmt.Errorf("decode live subscriptions: %w", err)
+	}
+	return subs, nil
+}
+
+func (s *MongoStore) RequeueEvents(ctx context.Context, now, stuckBefore time.Time) (int, error) {
+	failed, err := s.events.UpdateMany(ctx,
+		bson.D{{Key: fieldEventStatus, Value: EventFailed}},
+		bson.D{{Key: operatorSetLedger, Value: bson.D{
+			{Key: fieldEventStatus, Value: EventReceived},
+			{Key: fieldEventNextAttempt, Value: now},
+			{Key: fieldAttempts, Value: 0},
+		}}},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("requeue failed billing events: %w", err)
+	}
+	stuck, err := s.events.UpdateMany(ctx,
+		bson.D{
+			{Key: fieldEventStatus, Value: statusReceivedLedgerString},
+			{Key: fieldEventReceivedAt, Value: bson.D{{Key: "$lt", Value: stuckBefore}}},
+			{Key: fieldEventNextAttempt, Value: bson.D{{Key: "$gt", Value: now}}},
+		},
+		bson.D{{Key: operatorSetLedger, Value: bson.D{{Key: fieldEventNextAttempt, Value: now}}}},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("pull stuck billing events forward: %w", err)
+	}
+	return int(failed.ModifiedCount + stuck.ModifiedCount), nil
 }

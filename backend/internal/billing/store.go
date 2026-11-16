@@ -37,7 +37,7 @@ func NewMongoStore(database *mongo.Database) *MongoStore {
 func liveFilter(userID string) bson.D {
 	return bson.D{
 		{Key: fieldUserID, Value: userID},
-		{Key: fieldStatus, Value: bson.D{{Key: "$in", Value: liveStatuses()}}},
+		{Key: fieldStatus, Value: bson.D{{Key: operatorInLedger, Value: liveStatuses()}}},
 	}
 }
 
