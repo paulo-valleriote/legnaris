@@ -44,7 +44,7 @@ describe('shell keyboard access', () => {
     const user = userEvent.setup();
     renderApp('/unknown');
 
-    for (let step = 0; step < 5; step += 1) {
+    for (let step = 0; step < 6; step += 1) {
       await user.tab();
     }
 

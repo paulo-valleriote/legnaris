@@ -9,13 +9,15 @@ import { NotFound } from '../shell/not_found';
 import { SheetScreen } from '../sheet/sheet_screen';
 import { YourSheetScreen } from '../sheet/your_sheet_screen';
 import { PrivacyScreen } from '../legal/privacy_screen';
-import { DECLARED_ROUTES, NOT_FOUND_PATH, PRIVACY_PATH } from './routes';
+import { PlansScreen } from '../plans/plans_screen';
+import { DECLARED_ROUTES, NOT_FOUND_PATH, PLANS_PATH, PRIVACY_PATH } from './routes';
 
 const SCREENS: Record<string, ReactElement> = {
   '/': <CatalogScreen />,
   '/sheets/:id': <SheetScreen />,
   '/your-sheet': <YourSheetScreen />,
   '/account': <AccountScreen />,
+  [PLANS_PATH]: <PlansScreen />,
   '/generate/:templateId': <GenerateScreen />,
   [PRIVACY_PATH]: <PrivacyScreen />,
   [NOT_FOUND_PATH]: <NotFound />,

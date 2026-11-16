@@ -4,6 +4,7 @@ import {
   parseCreatedGenerationId,
   parseGeneration,
 } from './models/generation';
+import { BILLING_PATHS, parseRedirectUrl } from './models/billing';
 import type { DiceBlock } from './models/dice';
 import { diceBlockToWire } from './models/dice';
 import type { Layout } from './models/layout';
@@ -38,6 +39,9 @@ export interface ApiClient {
   getTemplate(id: string): Promise<TemplateDetail>;
   createSheet(input: CreateSheetInput): Promise<Sheet>;
   getMyPlan(): Promise<PlanUsage>;
+  createCheckout(): Promise<string>;
+  openPortal(): Promise<string>;
+  requestRefund(): Promise<void>;
   getSheet(id: string): Promise<Sheet>;
   getMySheet(): Promise<Sheet>;
   deleteSheet(id: string): Promise<void>;
@@ -115,6 +119,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         parseSheet,
       ),
     getMyPlan: () => caller.call('GET', '/me/plan', undefined, parsePlanUsage),
+    createCheckout: () => caller.call('POST', BILLING_PATHS.checkout, undefined, parseRedirectUrl),
+    openPortal: () => caller.call('POST', BILLING_PATHS.portal, undefined, parseRedirectUrl),
+    requestRefund: () => caller.callNoContent('POST', BILLING_PATHS.refund, undefined),
     getSheet: (id) =>
       caller.call('GET', `/sheets/${encodeURIComponent(id)}`, undefined, parseSheet),
     getMySheet: () => caller.call('GET', '/sheets', undefined, parseSheet),
