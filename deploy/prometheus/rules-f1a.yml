@@ -41,6 +41,18 @@ groups:
           description: "The oldest pending item of queue {{ $labels.queue }} has waited {{ $value }} seconds. The queue is stalled or starved; see the dead-item runbook."
           runbook: docs/runbook-sweeper-dead-items.md
 
+      - alert: LegnarisRefundRequestedTooOld
+        expr: |
+          max(legnaris_sweeper_oldest_pending_seconds{job="legnaris-relay", queue="billing_refunds"})
+          > on() group_left() legnaris:f1a:threshold_oldest_pending_seconds
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: A paid refund stayed requested for over an hour
+          description: "The oldest refund request has waited {{ $value }} seconds in the billing_refunds queue without reaching the provider. The customer has the refund in progress; check the provider and the sweeper, then the dead-item runbook."
+          runbook: docs/runbook-sweeper-dead-items.md
+
       - alert: LegnarisSweeperHandlerFailing
         expr: sum by (queue) (increase(legnaris_sweeper_failed_total{job="legnaris-relay"}[5m])) > 0
         for: 1m
