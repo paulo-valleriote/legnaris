@@ -79,6 +79,36 @@
   line-height: var(--lg-line-tight);
 }
 
+.lg-account__usage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+  margin: 0;
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
+}
+
+.lg-account__usage-entry {
+  display: flex;
+  gap: var(--lg-space-8);
+}
+
+.lg-account__usage-entry dt {
+  margin: 0;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-account__usage-count {
+  margin: 0;
+  color: var(--lg-color-text);
+  font-weight: var(--lg-font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.lg-account__usage-count--full {
+  font-weight: var(--lg-font-weight-semibold);
+}
+
 .lg-account__notice {
   margin: 0;
   font-size: var(--lg-type-15);

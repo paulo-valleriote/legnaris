@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { failureCopy } from '../api/error_mapper';
-import type { PlanUsage } from '../api/models/plan';
+import { SHEET_KINDS, type PlanUsage, type SheetKind } from '../api/models/plan';
 import { useApiClient } from '../app/providers';
 import { PLAN_QUERY_KEY, usePlanUsage } from '../catalog/queries';
 import { PrivacyDialog } from '../legal/privacy_dialog';
 import { planName } from '../plans/plan_view';
-import { message, messageWith } from '../l10n/strings';
+import { message, messageWith, type MessageKey } from '../l10n/strings';
 import './account.css';
 import '../catalog/catalog.css';
+
+const USAGE_LABELS: Readonly<Record<SheetKind, MessageKey>> = {
+  character: 'account.usageCharacter',
+  npc: 'account.usageNpc',
+  monster: 'account.usageMonster',
+};
 
 function formatConsentDate(consentAt: string): string {
   return new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(consentAt));
@@ -198,6 +204,36 @@ function PrivacySection() {
   );
 }
 
+function SheetUsage({ usage }: { readonly usage: PlanUsage }) {
+  const entries = SHEET_KINDS.flatMap((kind) => {
+    const entry = usage.sheets[kind];
+    return entry === undefined ? [] : [{ kind, entry }];
+  });
+
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return (
+    <dl className="lg-account__usage" data-testid="account-usage">
+      {entries.map(({ kind, entry }) => (
+        <div className="lg-account__usage-entry" key={kind}>
+          <dt>{message(USAGE_LABELS[kind])}</dt>
+          <dd
+            className={
+              entry.used >= entry.limit
+                ? 'lg-account__usage-count lg-account__usage-count--full'
+                : 'lg-account__usage-count'
+            }
+          >
+            {messageWith('account.usageCount', { used: entry.used, limit: entry.limit })}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function AccountScreen() {
   const plan = usePlanUsage();
 
@@ -233,6 +269,7 @@ export function AccountScreen() {
                 <p className="lg-account__value lg-account__value--lead" data-testid="account-plan">
                   {planName(plan.data.plan)}
                 </p>
+                <SheetUsage usage={plan.data} />
               </div>
             </div>
             <ConsentSection usage={plan.data} />
