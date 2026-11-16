@@ -17,7 +17,7 @@
 
 ## Layering Rules
 
-- **app** → calls domain service packages (`sheet`, `auth`, `user`, `generation`, `plan`, `quota`, …), never repositories
+- **app** → controllers call domain service packages (`sheet`, `auth`, `user`, `generation`, `plan`, `quota`, …); `bootstrap.go` is the composition root that builds repositories, and `EmailIntent` (`email_intent.go`) writes to the outbox repository directly
 - **sheet** service → calls **template** (DAG/Registry) and **repository**
 - **template** → calls **engine** for formula evaluation
 - **engine**, **repository**, **backend/shared/*** → no upward imports
