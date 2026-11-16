@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { PrivacyScreen } from '../legal/privacy_screen';
 
-const EN_HEADING = 'Privacy policy: AI character generation';
-const PT_HEADING = 'Política de privacidade: geração de personagem com IA';
+const EN_HEADING = 'Privacy policy';
+const PT_HEADING = 'Política de privacidade';
 
 describe('privacy screen (LGN-234)', () => {
   it('Happy path: the English locale renders its heading as the page h1', () => {
@@ -51,8 +51,8 @@ describe('privacy screen (LGN-234)', () => {
   it('Happy path: bare URLs become links to their address', () => {
     render(<PrivacyScreen locale="en" />);
 
-    const link = screen.getByRole('link', { name: 'https://legnaris.paulovalleriote.io/privacy' });
-    expect(link).toHaveAttribute('href', 'https://legnaris.paulovalleriote.io/privacy');
+    const link = screen.getByRole('link', { name: 'https://stripe.com/privacy' });
+    expect(link).toHaveAttribute('href', 'https://stripe.com/privacy');
   });
 
   it('Edge: no link is produced for a script URL', () => {
