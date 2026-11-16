@@ -35,6 +35,11 @@ const (
 	generationCapExpiresAtTTL      = "generation_cap_expires_at_ttl"
 	subscriptionsUserLiveUnique    = "subscriptions_user_live_unique"
 	subscriptionsUserIDField       = "user_id"
+	subscriptionsProviderSubField  = "provider_subscription_id"
+	subscriptionsProviderSubUnique = "subscriptions_provider_subscription_unique"
+	billingEventsProviderUnique    = "billing_events_provider_event_unique"
+	billingEventsStatusNextAttempt = "billing_events_status_next_attempt"
+	billingEventsExpiresAtTTL      = "billing_events_expires_at_ttl"
 	expiresAtField                 = "expires_at"
 	statusField                    = "status"
 )
@@ -125,9 +130,35 @@ func ensureBillingIndexes(ctx context.Context, database *mongo.Database) error {
 			SetPartialFilterExpression(bson.D{{Key: "$or", Value: bson.A{
 				bson.D{{Key: statusField, Value: "pending"}},
 				bson.D{{Key: statusField, Value: "active"}},
+				bson.D{{Key: statusField, Value: "past_due"}},
 			}}}),
 	}); err != nil {
 		return fmt.Errorf("create subscriptions indexes: %w", err)
+	}
+	if _, err := subscriptions.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: subscriptionsProviderSubField, Value: 1}},
+		Options: options.Index().SetUnique(true).SetName(subscriptionsProviderSubUnique).
+			SetPartialFilterExpression(bson.D{{Key: subscriptionsProviderSubField, Value: bson.D{{Key: "$exists", Value: true}}}}),
+	}); err != nil {
+		return fmt.Errorf("create subscriptions provider id index: %w", err)
+	}
+
+	events := database.Collection("billing_events")
+	if _, err := events.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "provider", Value: 1}, {Key: "provider_event_id", Value: 1}},
+			Options: options.Index().SetUnique(true).SetName(billingEventsProviderUnique),
+		},
+		{
+			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: "next_attempt_at", Value: 1}},
+			Options: options.Index().SetName(billingEventsStatusNextAttempt),
+		},
+		{
+			Keys:    bson.D{{Key: expiresAtField, Value: 1}},
+			Options: options.Index().SetExpireAfterSeconds(0).SetName(billingEventsExpiresAtTTL),
+		},
+	}); err != nil {
+		return fmt.Errorf("create billing_events indexes: %w", err)
 	}
 	return nil
 }

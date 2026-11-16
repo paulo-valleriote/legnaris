@@ -41,6 +41,7 @@ type SheetModule struct {
 type BillingModule struct {
 	Controller *BillingController
 	Service    *billing.Service
+	Webhook    *BillingWebhookController
 }
 
 type LLMConsentModule struct {
@@ -257,11 +258,14 @@ func NewModules(
 		Tx:        db.NewTransactor(database.Client, nil),
 		Logger:    log,
 	})
-	billingService, err := newBillingService(cfg.Variables, billing.NewMongoStore(mdb))
+	billingProvider, err := newBillingProvider(cfg.Variables)
 	if err != nil {
-		return nil, fmt.Errorf("build billing service: %w", err)
+		return nil, fmt.Errorf("build billing provider: %w", err)
 	}
-	planController := NewPlanController(quotaService, FreePlanResolver,
+	billingStore := billing.NewMongoStore(mdb)
+	billingService := newBillingService(billingProvider, billingStore, cfg.Variables)
+	billingInbox := billing.NewInbox(billingProvider, billingStore, time.Now)
+	planController := NewPlanController(quotaService, PlanResolverFromSource(user.NewPlanSource(userRepository)),
 		WithSheetUsage(sheetService),
 		WithGenerationStatus(llmConsentService, generationService),
 	)
@@ -305,6 +309,7 @@ func NewModules(
 		Billing: BillingModule{
 			Controller: NewBillingController(billingService),
 			Service:    billingService,
+			Webhook:    NewBillingWebhookController(billingInbox),
 		},
 		Plan:          planController,
 		ClientIP:      clientIPPolicy.Resolve,
@@ -315,21 +320,23 @@ func NewModules(
 	}, nil
 }
 
-func newBillingService(vars env.Variables, store billing.Store) (*billing.Service, error) {
-	var provider billing.Provider = billing.UnconfiguredProvider{}
-	if vars.StripeSecretKey != "" && vars.StripePriceIDUSD != "" {
-		stripeProvider, err := billingstripe.New(billingstripe.Config{SecretKey: vars.StripeSecretKey})
-		if err != nil {
-			return nil, err
-		}
-		provider = stripeProvider
+func newBillingProvider(vars env.Variables) (billing.Provider, error) {
+	if vars.StripeSecretKey == "" || vars.StripePriceIDUSD == "" {
+		return billing.UnconfiguredProvider{}, nil
 	}
+	return billingstripe.New(billingstripe.Config{
+		SecretKey:     vars.StripeSecretKey,
+		WebhookSecret: vars.StripeWebhookSecret,
+	})
+}
+
+func newBillingService(provider billing.Provider, store billing.Store, vars env.Variables) *billing.Service {
 	return billing.NewService(store, provider, billing.Config{
 		PriceID:    vars.StripePriceIDUSD,
 		SuccessURL: vars.BillingSuccessURL,
 		CancelURL:  vars.BillingCancelURL,
 		Now:        time.Now,
-	}), nil
+	})
 }
 
 func newGenerationService(cfg env.Env, options moduleOptions, deps generation.Deps) *generation.Service {

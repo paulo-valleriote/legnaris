@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"legnaris/backend/internal/accountdeletion"
+	"legnaris/backend/internal/billing"
+	"legnaris/backend/internal/billing/billingtest"
 	"legnaris/backend/internal/email/outbox"
 	outboxmocks "legnaris/backend/internal/email/outbox/mocks"
 	eventsoutbox "legnaris/backend/internal/events/outbox"
@@ -70,14 +72,14 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 		wantErr   bool
 		wantNames []string
 	}{
-		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting"}},
+		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts and the billing consumer are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting", "billing_events"}},
 		{name: "Error: a zero batch refuses the generation queue", batch: 0, wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := testEnv()
 			cfg.Variables.EmailRelayBatch = tc.batch
-			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t), idleReapDeps(t), idleDeletionDeps(t))
+			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t), idleReapDeps(t), idleDeletionDeps(t), idleBillingDeps())
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -150,5 +152,19 @@ func idleRelayDeps(t *testing.T) dependencies {
 		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository) (accountdeletion.Deps, error) {
 			return idleDeletionDeps(t), nil
 		},
+		newBilling: func(env.Env, databaseHandle, eventsoutbox.Repository) (billing.ConsumerDeps, error) {
+			return idleBillingDeps(), nil
+		},
+	}
+}
+
+func idleBillingDeps() billing.ConsumerDeps {
+	ledger := billingtest.NewLedger()
+	return billing.ConsumerDeps{
+		Provider: billingtest.NewProvider(),
+		Ledger:   ledger,
+		Tx:       billingtest.NewTransactor(ledger, nil),
+		Outbox:   ledger.Outbox(),
+		Now:      time.Now,
 	}
 }

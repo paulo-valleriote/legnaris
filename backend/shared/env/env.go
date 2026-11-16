@@ -47,6 +47,7 @@ type Variables struct {
 	EmailProvider                     string
 	ResendAPIKey                      string
 	StripeSecretKey                   string
+	StripeWebhookSecret               string
 	StripePriceIDUSD                  string
 	BillingSuccessURL                 string
 	BillingCancelURL                  string
@@ -267,6 +268,7 @@ func (e *Env) buildVariables() Variables {
 		EmailProvider:                     e.lookupStringEnv("EMAIL_PROVIDER", defaultEmailProvider),
 		ResendAPIKey:                      e.lookupStringEnv("RESEND_API_KEY", ""),
 		StripeSecretKey:                   e.lookupStringEnv("STRIPE_SECRET_KEY", ""),
+		StripeWebhookSecret:               e.lookupStringEnv("STRIPE_WEBHOOK_SECRET", ""),
 		StripePriceIDUSD:                  e.lookupStringEnv("STRIPE_PRICE_ID_USD", ""),
 		BillingSuccessURL:                 e.lookupStringEnv("BILLING_SUCCESS_URL", ""),
 		BillingCancelURL:                  e.lookupStringEnv("BILLING_CANCEL_URL", ""),

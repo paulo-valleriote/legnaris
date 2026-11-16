@@ -21,13 +21,15 @@ const (
 var ErrMissingConfiguration = errors.New("stripe secret key is not configured")
 
 type Config struct {
-	SecretKey string
-	BaseURL   string
-	Timeout   time.Duration
+	SecretKey     string
+	WebhookSecret string
+	BaseURL       string
+	Timeout       time.Duration
 }
 
 type Provider struct {
-	client *stripesdk.Client
+	client        *stripesdk.Client
+	webhookSecret string
 }
 
 func New(cfg Config) (*Provider, error) {
@@ -43,7 +45,7 @@ func New(cfg Config) (*Provider, error) {
 		backendCfg.URL = stripesdk.String(cfg.BaseURL)
 	}
 	client := stripesdk.NewClient(cfg.SecretKey, stripesdk.WithBackends(stripesdk.NewBackendsWithConfig(backendCfg)))
-	return &Provider{client: client}, nil
+	return &Provider{client: client, webhookSecret: cfg.WebhookSecret}, nil
 }
 
 func (p *Provider) CreateCustomer(ctx context.Context, req billing.CustomerRequest) (billing.Customer, error) {

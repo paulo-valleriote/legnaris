@@ -228,8 +228,11 @@ func (l *Ledger) MarkEventProcessed(_ context.Context, id, reason string, at tim
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	ev, ok := l.st.events[id]
-	if !ok || ev.Status != billing.EventReceived {
-		return fmt.Errorf("event %s is not received", id)
+	if !ok {
+		return fmt.Errorf("event %s not found", id)
+	}
+	if ev.Status == billing.EventProcessed {
+		return nil
 	}
 	ev.Status = billing.EventProcessed
 	ev.Reason = reason
