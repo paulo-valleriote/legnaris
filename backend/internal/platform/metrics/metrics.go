@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/sweeper"
 
 	"github.com/labstack/echo/v5"
@@ -41,6 +42,7 @@ type Metrics struct {
 	generationCapUsed        prometheus.Gauge
 	generationCapLimit       prometheus.Gauge
 	generationCapUsedRatio   prometheus.Gauge
+	billingCorrections       *prometheus.CounterVec
 }
 
 const metricsNamespace = "legnaris"
@@ -48,6 +50,10 @@ const metricsNamespace = "legnaris"
 const sweeperSubsystem = "sweeper"
 
 const queueLabel = "queue"
+
+const billingSubsystem = "billing"
+
+const kindLabel = "kind"
 
 var requestDurationBuckets = []float64{
 	0.0005, 0.001, 0.002, 0.003, 0.005, 0.0075, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5,
@@ -230,13 +236,21 @@ func New() *Metrics {
 		Help:      "Share of the global daily generation cap in use, from 0 to 1; the 80% alert fires above 0.8.",
 	})
 
+	billingCorrections := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: billingSubsystem,
+		Name:      "reconcile_corrections_total",
+		Help:      "Drift corrected by the daily billing reconciliation, by kind (subscription, plan, event).",
+	}, []string{kindLabel})
+
 	registry.MustRegister(requestDuration, requestsTotal, requestsInFlight, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports, eventsDropped,
 		emailOutboxBacklog, emailPublishTotal, emailDeadTotal,
 		emailSendTotal, emailSendDuration, emailExpiredTotal,
 		emailBreakerOpen, emailBreakerOpened,
 		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked,
 		sweeperOldestPending, sweeperFailed,
-		generationCapUsed, generationCapLimit, generationCapUsedRatio)
+		generationCapUsed, generationCapLimit, generationCapUsedRatio,
+		billingCorrections)
 
 	registry.MustRegister(
 		collectors.NewGoCollector(),
@@ -270,6 +284,7 @@ func New() *Metrics {
 		generationCapUsed:        generationCapUsed,
 		generationCapLimit:       generationCapLimit,
 		generationCapUsedRatio:   generationCapUsedRatio,
+		billingCorrections:       billingCorrections,
 	}
 }
 
@@ -382,6 +397,15 @@ func (m *Metrics) OldestPending(queue string, age time.Duration) {
 
 func (m *Metrics) Failed(queue string) {
 	m.sweeperFailed.WithLabelValues(queue).Inc()
+}
+
+var _ billing.ReconcileObserver = (*Metrics)(nil)
+
+func (m *Metrics) Corrected(kind string, count int) {
+	if count <= 0 {
+		return
+	}
+	m.billingCorrections.WithLabelValues(kind).Add(float64(count))
 }
 
 func (m *Metrics) GenerationCapUsage(used, limit int) {

@@ -64,42 +64,55 @@ func (c *Consumer) Handle(ctx context.Context, job sweeper.Job[Event], now time.
 		if err := c.deps.Tx.Step(txCtx, db.StepAfterProviderRead); err != nil {
 			return err
 		}
-		return c.apply(txCtx, ev, snap, readAt, now)
+		written, _, err := c.writeSnapshot(txCtx, ev.UserID, snap, readAt, now)
+		if err != nil {
+			return err
+		}
+		if !written {
+			return c.deps.Ledger.MarkEventProcessed(txCtx, ev.ID, ReasonIgnored, now)
+		}
+		return c.deps.Ledger.MarkEventProcessed(txCtx, ev.ID, "", now)
 	})
 }
 
-func (c *Consumer) apply(ctx context.Context, ev Event, snap ProviderSubscription, readAt, now time.Time) error {
-	account, err := c.deps.Ledger.AccountPlan(ctx, ev.UserID)
-	if err != nil {
-		return fmt.Errorf("load account: %w", err)
-	}
-	if !account.Exists || account.Deleting {
-		return c.deps.Ledger.MarkEventProcessed(ctx, ev.ID, ReasonIgnored, now)
-	}
-
-	if err := c.upsertSubscription(ctx, ev.UserID, snap, readAt, now); err != nil {
-		return err
-	}
-	if err := c.deps.Tx.Step(ctx, db.StepAfterEntityWrite); err != nil {
-		return err
-	}
-
-	if err := c.syncPlan(ctx, ev.UserID, account, now); err != nil {
-		return err
-	}
-	return c.deps.Ledger.MarkEventProcessed(ctx, ev.ID, "", now)
+type Corrections struct {
+	Subscription bool
+	Plan         bool
 }
 
-func (c *Consumer) upsertSubscription(ctx context.Context, userID string, snap ProviderSubscription, readAt, now time.Time) error {
+func (c *Consumer) writeSnapshot(ctx context.Context, userID string, snap ProviderSubscription, readAt, now time.Time) (bool, Corrections, error) {
+	account, err := c.deps.Ledger.AccountPlan(ctx, userID)
+	if err != nil {
+		return false, Corrections{}, fmt.Errorf("load account: %w", err)
+	}
+	if !account.Exists || account.Deleting {
+		return false, Corrections{}, nil
+	}
+
+	subChanged, err := c.upsertSubscription(ctx, userID, snap, readAt, now)
+	if err != nil {
+		return false, Corrections{}, err
+	}
+	if err := c.deps.Tx.Step(ctx, db.StepAfterEntityWrite); err != nil {
+		return false, Corrections{}, err
+	}
+
+	planChanged, err := c.syncPlan(ctx, userID, account, now)
+	if err != nil {
+		return false, Corrections{}, err
+	}
+	return true, Corrections{Subscription: subChanged, Plan: planChanged}, nil
+}
+
+func (c *Consumer) upsertSubscription(ctx context.Context, userID string, snap ProviderSubscription, readAt, now time.Time) (bool, error) {
 	target, found, err := c.deps.Ledger.FindTarget(ctx, userID, snap.ID)
 	if err != nil {
-		return fmt.Errorf("find subscription: %w", err)
+		return false, fmt.Errorf("find subscription: %w", err)
 	}
-	synced := readAt
 	if !found {
 		id, err := idgen.New()
 		if err != nil {
-			return fmt.Errorf("new subscription id: %w", err)
+			return false, fmt.Errorf("new subscription id: %w", err)
 		}
 		target = Subscription{
 			ID:        id,
@@ -109,10 +122,12 @@ func (c *Consumer) upsertSubscription(ctx context.Context, userID string, snap P
 			CreatedAt: now,
 		}
 	}
+	before := target
+	synced := readAt
+	period := snap.CurrentPeriodEnd
 	target.ProviderSubID = snap.ID
 	target.ProviderCustomerID = snap.CustomerID
 	target.Status = snap.Status
-	period := snap.CurrentPeriodEnd
 	target.CurrentPeriodEnd = &period
 	target.CancelAtPeriodEnd = snap.CancelAtPeriodEnd
 	target.ProviderSyncedAt = &synced
@@ -120,20 +135,36 @@ func (c *Consumer) upsertSubscription(ctx context.Context, userID string, snap P
 
 	if !found {
 		if err := c.deps.Ledger.InsertSubscription(ctx, target); err != nil {
-			return fmt.Errorf("insert subscription: %w", err)
+			return false, fmt.Errorf("insert subscription: %w", err)
 		}
-		return nil
+		return true, nil
 	}
-	if _, err := c.deps.Ledger.ApplySubscription(ctx, target, readAt); err != nil {
-		return fmt.Errorf("apply subscription: %w", err)
+	applied, err := c.deps.Ledger.ApplySubscription(ctx, target, readAt)
+	if err != nil {
+		return false, fmt.Errorf("apply subscription: %w", err)
 	}
-	return nil
+	return applied && subscriptionDiffers(before, target), nil
 }
 
-func (c *Consumer) syncPlan(ctx context.Context, userID string, account AccountPlan, now time.Time) error {
+func subscriptionDiffers(before, after Subscription) bool {
+	return before.ProviderSubID != after.ProviderSubID ||
+		before.ProviderCustomerID != after.ProviderCustomerID ||
+		before.Status != after.Status ||
+		before.CancelAtPeriodEnd != after.CancelAtPeriodEnd ||
+		!sameInstant(before.CurrentPeriodEnd, after.CurrentPeriodEnd)
+}
+
+func sameInstant(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
+}
+
+func (c *Consumer) syncPlan(ctx context.Context, userID string, account AccountPlan, now time.Time) (bool, error) {
 	subs, err := c.deps.Ledger.SubscriptionsOf(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("load subscriptions: %w", err)
+		return false, fmt.Errorf("load subscriptions: %w", err)
 	}
 	derived := DerivePlanID(subs)
 	current := account.Plan
@@ -141,12 +172,12 @@ func (c *Consumer) syncPlan(ctx context.Context, userID string, account AccountP
 		current = plan.IDFree
 	}
 	if derived == current {
-		return nil
+		return false, nil
 	}
 
 	version, err := c.deps.Ledger.SetPlan(ctx, userID, derived)
 	if err != nil {
-		return fmt.Errorf("set plan: %w", err)
+		return false, fmt.Errorf("set plan: %w", err)
 	}
 	entry, err := outbox.NewEntry(events.Event{
 		Type:             PlanChangedEvent,
@@ -156,10 +187,13 @@ func (c *Consumer) syncPlan(ctx context.Context, userID string, account AccountP
 		Data:             map[string]string{"from": current, "to": derived},
 	}, now)
 	if err != nil {
-		return fmt.Errorf("plan changed entry: %w", err)
+		return false, fmt.Errorf("plan changed entry: %w", err)
 	}
 	if err := c.deps.Outbox.Insert(ctx, entry); err != nil {
-		return fmt.Errorf("insert plan changed: %w", err)
+		return false, fmt.Errorf("insert plan changed: %w", err)
 	}
-	return c.deps.Tx.Step(ctx, db.StepAfterOutboxInsert)
+	if err := c.deps.Tx.Step(ctx, db.StepAfterOutboxInsert); err != nil {
+		return false, err
+	}
+	return true, nil
 }
