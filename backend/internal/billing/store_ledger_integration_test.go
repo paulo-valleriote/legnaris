@@ -34,7 +34,7 @@ func ledgerDB(t *testing.T) (*mongo.Client, *mongo.Database) {
 
 func seedAccount(t *testing.T, mdb *mongo.Database, userID string) {
 	t.Helper()
-	_, err := mdb.Collection("users").InsertOne(context.Background(), bson.D{{Key: "_id", Value: userID}, {Key: "email", Value: userID + "@example.test"}})
+	_, err := mdb.Collection("users").InsertOne(context.Background(), bson.D{{Key: "_id", Value: userID}, {Key: "email", Value: userID + "@example.test"}, {Key: "username", Value: "user_" + userID}})
 	require.NoError(t, err)
 }
 
