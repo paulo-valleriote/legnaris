@@ -1,6 +1,8 @@
 package app
 
 import (
+	"io"
+	"net/http"
 	"time"
 
 	"legnaris/backend/internal/auth"
@@ -40,4 +42,30 @@ func (c *BillingController) Checkout(ec *echo.Context) error {
 		return err
 	}
 	return response.OK(ec, checkoutView{URL: out.URL, ExpiresAt: out.ExpiresAt})
+}
+
+const (
+	billingSignatureHeader = "Stripe-Signature"
+	billingWebhookMaxBody  = 64 * 1024
+)
+
+type BillingWebhookController struct {
+	inbox *billing.Inbox
+}
+
+func NewBillingWebhookController(inbox *billing.Inbox) *BillingWebhookController {
+	return &BillingWebhookController{inbox: inbox}
+}
+
+func (c *BillingWebhookController) Receive(ec *echo.Context) error {
+	body := http.MaxBytesReader(ec.Response(), ec.Request().Body, billingWebhookMaxBody)
+	defer func() { _ = body.Close() }()
+	payload, err := io.ReadAll(body)
+	if err != nil {
+		return apperr.NewError(apperr.CodeInvalidRequest, billing.MsgInvalidWebhook, err)
+	}
+	if err := c.inbox.Receive(ec.Request().Context(), payload, ec.Request().Header.Get(billingSignatureHeader)); err != nil {
+		return err
+	}
+	return ec.NoContent(http.StatusOK)
 }

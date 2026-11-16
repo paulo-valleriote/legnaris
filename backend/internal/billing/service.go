@@ -70,7 +70,7 @@ func (s *Service) checkoutOnce(ctx context.Context, userID string) (Checkout, bo
 
 	sub := live
 	switch {
-	case found && live.Status == StatusActive:
+	case found && (live.Status == StatusActive || live.Status == StatusPastDue):
 		return Checkout{}, false, apperr.NewError(apperr.CodeAlreadySubscribed, MsgAlreadySubscribed, nil)
 	case found && live.CheckoutURL != "" && live.CheckoutExpiresAt.After(now):
 		return Checkout{URL: live.CheckoutURL, ExpiresAt: live.CheckoutExpiresAt}, true, nil

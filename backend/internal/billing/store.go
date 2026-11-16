@@ -14,20 +14,30 @@ const (
 	subscriptionsCollection = "subscriptions"
 	fieldStatus             = "status"
 	fieldUserID             = "user_id"
+	fieldUpdatedAt          = "updated_at"
+	fieldID                 = "_id"
 )
 
 type MongoStore struct {
 	subscriptions *mongo.Collection
+	events        *mongo.Collection
+	locks         *mongo.Collection
+	users         *mongo.Collection
 }
 
 func NewMongoStore(database *mongo.Database) *MongoStore {
-	return &MongoStore{subscriptions: database.Collection(subscriptionsCollection)}
+	return &MongoStore{
+		subscriptions: database.Collection(subscriptionsCollection),
+		events:        database.Collection(EventsCollection),
+		locks:         database.Collection(UserLocksCollection),
+		users:         database.Collection(usersCollection),
+	}
 }
 
 func liveFilter(userID string) bson.D {
 	return bson.D{
 		{Key: fieldUserID, Value: userID},
-		{Key: fieldStatus, Value: bson.D{{Key: "$in", Value: bson.A{StatusPending, StatusActive}}}},
+		{Key: fieldStatus, Value: bson.D{{Key: "$in", Value: liveStatuses()}}},
 	}
 }
 
@@ -56,7 +66,7 @@ func (s *MongoStore) InsertPending(ctx context.Context, sub Subscription) error 
 func (s *MongoStore) Cancel(ctx context.Context, id string) error {
 	_, err := s.subscriptions.UpdateOne(ctx,
 		bson.D{{Key: "_id", Value: id}, {Key: fieldStatus, Value: StatusPending}},
-		bson.D{{Key: "$set", Value: bson.D{{Key: fieldStatus, Value: StatusCanceled}, {Key: "updated_at", Value: time.Now().UTC()}}}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: fieldStatus, Value: StatusCanceled}, {Key: fieldUpdatedAt, Value: time.Now().UTC()}}}},
 	)
 	if err != nil {
 		return fmt.Errorf("cancel pending subscription: %w", err)
@@ -71,7 +81,7 @@ func (s *MongoStore) AttachCheckout(ctx context.Context, id, customerID, url str
 			{Key: "provider_customer_id", Value: customerID},
 			{Key: "checkout_url", Value: url},
 			{Key: "checkout_expires_at", Value: expiresAt},
-			{Key: "updated_at", Value: time.Now().UTC()},
+			{Key: fieldUpdatedAt, Value: time.Now().UTC()},
 		}}},
 	)
 	if err != nil {

@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"legnaris/backend/internal/billing"
+	"legnaris/backend/internal/billing/billingtest"
 	"log/slog"
 	"net/http"
 	"testing"
@@ -135,6 +137,7 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 	database := &fakeDatabase{}
 	indexesEnsured := false
 
+	billingBuilt := false
 	deps := dependencies{
 		openDatabase: func(env.Env) (databaseHandle, error) { return database, nil },
 		ensureIndexes: func(context.Context, env.Env, databaseHandle) error {
@@ -166,6 +169,17 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository) (accountdeletion.Deps, error) {
 			return idleDeletionDeps(t), nil
 		},
+		newBilling: func(_ env.Env, _ databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error) {
+			billingBuilt = true
+			ledger := billingtest.NewLedger()
+			return billing.ConsumerDeps{
+				Provider: billingtest.NewProvider(),
+				Ledger:   ledger,
+				Tx:       billingtest.NewTransactor(ledger, nil),
+				Outbox:   outboxRepo,
+				Now:      time.Now,
+			}, nil
+		},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -174,6 +188,7 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 	require.NoError(t, run(ctx, cfg, deps))
 
 	assert.True(t, indexesEnsured, "the relay must ensure the outbox indexes")
+	assert.True(t, billingBuilt, "the relay must register the billing consumer queue")
 	assert.True(t, broker.declared, "the topology must be declared before publishing")
 	assert.True(t, broker.closed, "the broker must be closed on shutdown")
 	assert.True(t, eventBroker.closed, "the event broker must be closed on shutdown")
