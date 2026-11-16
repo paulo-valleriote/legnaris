@@ -223,7 +223,6 @@ func TestIntegration_TemplatesList(t *testing.T) {
 	assert.True(t, dex.Schema.IsEditable)
 	assert.Equal(t, 10.0, dex.Schema.Default)
 	assert.Empty(t, dex.Schema.Formula)
-	assert.NotEmpty(t, tmpl.SuggestedPins)
 }
 
 func TestIntegration_TemplatesFetchByID(t *testing.T) {
@@ -256,10 +255,9 @@ func TestIntegration_TemplatesFetchByID(t *testing.T) {
 		"saves", "skills", "spells", "rules", "config",
 	}, templateFieldKeys(t, rec.Body.Bytes()))
 
-	assert.Equal(t, []string{
-		"combat.hitPoints", "combat.hitPointsMax", "derived.armorClass",
-		"combat.initiative", "combat.speed",
-	}, body.Data.SuggestedPins)
+	var raw map[string]map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &raw))
+	assert.NotContains(t, raw["data"], "suggested_pins")
 
 	require.NotNil(t, body.Data.Dice)
 	assert.Equal(t, "1d20 + @.total", body.Data.Dice.Section["skills"])

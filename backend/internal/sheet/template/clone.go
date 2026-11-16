@@ -8,7 +8,6 @@ import (
 func cloneTemplate(tmpl Template) Template {
 	tmpl.Fields = cloneFieldGroup(tmpl.Fields)
 	tmpl.SectionOrder = slices.Clone(tmpl.SectionOrder)
-	tmpl.SuggestedPins = slices.Clone(tmpl.SuggestedPins)
 	tmpl.SectionDice = maps.Clone(tmpl.SectionDice)
 	tmpl.RowDice = maps.Clone(tmpl.RowDice)
 	return tmpl

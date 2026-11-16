@@ -102,10 +102,6 @@ var fantasyV1Template = Template{
 		fieldNameStats, fieldNameModifiers, fieldNameSaves, fieldNameSkills,
 		fieldNameSpells, fieldNameRules, fieldNameConfig,
 	},
-	SuggestedPins: []string{
-		"combat.hitPoints", "combat.hitPointsMax", "derived.armorClass",
-		"combat.initiative", "combat.speed",
-	},
 	NameLeaf: "identity.characterName",
 	SectionDice: map[string]string{
 		fieldNameSkills:  "1d20 + @.total",

@@ -158,31 +158,6 @@ func (e *DuplicateLayoutKeyError) Error() string {
 	return fmt.Sprintf("duplicate key '%s' in %s", e.Key, e.List)
 }
 
-type UnknownSuggestedPinError struct {
-	Key string
-}
-
-func (e *UnknownSuggestedPinError) Error() string {
-	return fmt.Sprintf("suggested pin '%s' is not a row of any section", e.Key)
-}
-
-type DuplicateSuggestedPinError struct {
-	Key string
-}
-
-func (e *DuplicateSuggestedPinError) Error() string {
-	return fmt.Sprintf("duplicate suggested pin '%s'", e.Key)
-}
-
-type TooManySuggestedPinsError struct {
-	Count int
-	Max   int
-}
-
-func (e *TooManySuggestedPinsError) Error() string {
-	return fmt.Sprintf("%d suggested pins exceed the maximum of %d", e.Count, e.Max)
-}
-
 type UnknownDiceSectionError struct {
 	Key string
 }

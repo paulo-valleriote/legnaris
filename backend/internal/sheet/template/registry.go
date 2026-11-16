@@ -31,10 +31,6 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template) (*Registry, 
 			return nil, err
 		}
 
-		if err := ValidateSuggestedPins(stored); err != nil {
-			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
-		}
-
 		if err := ValidateDiceDefaults(stored); err != nil {
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
