@@ -74,6 +74,11 @@ type RefundRequest struct {
 	IdempotencyKey         string
 }
 
+type ScrubRequest struct {
+	IdempotencyKey string
+	CustomerID     string
+}
+
 type Provider interface {
 	CreateCustomer(ctx context.Context, req CustomerRequest) (Customer, error)
 	CreateCheckoutSession(ctx context.Context, req CheckoutRequest) (CheckoutSession, error)
@@ -83,6 +88,7 @@ type Provider interface {
 	CancelAtPeriodEnd(ctx context.Context, req CancelRequest) error
 	CancelNow(ctx context.Context, req CancelRequest) error
 	RefundLatest(ctx context.Context, req RefundRequest) error
+	ScrubCustomer(ctx context.Context, req ScrubRequest) error
 }
 
 type UnconfiguredProvider struct{}
@@ -116,5 +122,9 @@ func (UnconfiguredProvider) CancelNow(context.Context, CancelRequest) error {
 }
 
 func (UnconfiguredProvider) RefundLatest(context.Context, RefundRequest) error {
+	return ErrProviderUnavailable
+}
+
+func (UnconfiguredProvider) ScrubCustomer(context.Context, ScrubRequest) error {
 	return ErrProviderUnavailable
 }

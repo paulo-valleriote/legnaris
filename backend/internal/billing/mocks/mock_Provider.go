@@ -448,6 +448,53 @@ func (_c *MockProvider_RefundLatest_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
+// ScrubCustomer provides a mock function with given fields: ctx, req
+func (_m *MockProvider) ScrubCustomer(ctx context.Context, req billing.ScrubRequest) error {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ScrubCustomer")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, billing.ScrubRequest) error); ok {
+		r0 = rf(ctx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockProvider_ScrubCustomer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ScrubCustomer'
+type MockProvider_ScrubCustomer_Call struct {
+	*mock.Call
+}
+
+// ScrubCustomer is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req billing.ScrubRequest
+func (_e *MockProvider_Expecter) ScrubCustomer(ctx interface{}, req interface{}) *MockProvider_ScrubCustomer_Call {
+	return &MockProvider_ScrubCustomer_Call{Call: _e.mock.On("ScrubCustomer", ctx, req)}
+}
+
+func (_c *MockProvider_ScrubCustomer_Call) Run(run func(ctx context.Context, req billing.ScrubRequest)) *MockProvider_ScrubCustomer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(billing.ScrubRequest))
+	})
+	return _c
+}
+
+func (_c *MockProvider_ScrubCustomer_Call) Return(_a0 error) *MockProvider_ScrubCustomer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockProvider_ScrubCustomer_Call) RunAndReturn(run func(context.Context, billing.ScrubRequest) error) *MockProvider_ScrubCustomer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockProvider creates a new instance of MockProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockProvider(t interface {

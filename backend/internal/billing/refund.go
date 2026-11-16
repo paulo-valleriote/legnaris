@@ -172,10 +172,3 @@ func (h refundHandler) Handle(ctx context.Context, job sweeper.Job[Subscription]
 	}
 	return nil
 }
-
-func providerFailure(err error) error {
-	if errors.Is(err, ErrProviderRejected) {
-		return fmt.Errorf("%w: %w", sweeper.ErrPermanent, err)
-	}
-	return fmt.Errorf("provider refund step: %w", err)
-}
