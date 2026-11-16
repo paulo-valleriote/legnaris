@@ -23,6 +23,10 @@ const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   LLM_CONSENT_REQUIRED: 'llmConsentRequired',
   PROVIDER_UNAVAILABLE: 'providerUnavailable',
   GENERATION_CAP_REACHED: 'generationCapReached',
+  ALREADY_SUBSCRIBED: 'alreadySubscribed',
+  BILLING_UNAVAILABLE: 'billingUnavailable',
+  NO_SUBSCRIPTION: 'noSubscription',
+  REFUND_NOT_ELIGIBLE: 'refundNotEligible',
 };
 
 const KIND_BY_GENERATION_ERROR: Readonly<Record<string, FailureKind>> = {
@@ -58,6 +62,10 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
   generationCapReached: 'api.error.generationCapReached',
   generationFailed: 'api.error.generationFailed',
   generationTimeout: 'api.error.generationTimeout',
+  alreadySubscribed: 'api.error.alreadySubscribed',
+  billingUnavailable: 'api.error.billingUnavailable',
+  noSubscription: 'api.error.noSubscription',
+  refundNotEligible: 'api.error.refundNotEligible',
 };
 
 export function apperrKind(code: string): FailureKind {

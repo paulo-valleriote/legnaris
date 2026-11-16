@@ -27,6 +27,10 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['CONFLICT', 'conflict'],
   ['DISPOSABLE_EMAIL', 'disposableEmail'],
   ['SHEET_LIMIT_REACHED', 'sheetLimitReached'],
+  ['ALREADY_SUBSCRIBED', 'alreadySubscribed'],
+  ['BILLING_UNAVAILABLE', 'billingUnavailable'],
+  ['NO_SUBSCRIPTION', 'noSubscription'],
+  ['REFUND_NOT_ELIGIBLE', 'refundNotEligible'],
 ];
 
 const fallback = ['CYCLE_DETECTED', 'INVALID_DEPENDENCY', 'INVALID_PATH'] as const;
@@ -55,6 +59,10 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   generationCapReached: 'api.error.generationCapReached',
   generationFailed: 'api.error.generationFailed',
   generationTimeout: 'api.error.generationTimeout',
+  alreadySubscribed: 'api.error.alreadySubscribed',
+  billingUnavailable: 'api.error.billingUnavailable',
+  noSubscription: 'api.error.noSubscription',
+  refundNotEligible: 'api.error.refundNotEligible',
 };
 
 describe('backend code to failure kind', () => {

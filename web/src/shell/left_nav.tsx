@@ -2,6 +2,7 @@ import { useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../app/providers';
+import { PLANS_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
 import { BrandMark } from './brand_mark';
 import { leaveIsGuarded, requestLeave } from './leave_guard';
@@ -9,6 +10,23 @@ import { leaveIsGuarded, requestLeave } from './leave_guard';
 const CATALOG_PATH = '/';
 const OWN_SHEET_PATH = '/your-sheet';
 const ACCOUNT_PATH = '/account';
+
+function PlansIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="6" width="18" height="13" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M7 15h4" />
+    </svg>
+  );
+}
 
 function CatalogIcon() {
   return (
@@ -155,6 +173,9 @@ export function LeftNav() {
         <NavEntry path={CATALOG_PATH} label={message('nav.catalog')} icon={<CatalogIcon />} />
         {snapshot.state === 'authenticated' && (
           <NavEntry path={OWN_SHEET_PATH} label={message('nav.ownSheet')} icon={<SheetIcon />} />
+        )}
+        {snapshot.state === 'authenticated' && (
+          <NavEntry path={PLANS_PATH} label={message('nav.plans')} icon={<PlansIcon />} />
         )}
         {snapshot.state === 'authenticated' && (
           <NavEntry path={ACCOUNT_PATH} label={message('nav.account')} icon={<AccountIcon />} />

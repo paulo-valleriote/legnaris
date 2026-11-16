@@ -21,7 +21,11 @@ export type FailureKind =
   | 'providerUnavailable'
   | 'generationCapReached'
   | 'generationFailed'
-  | 'generationTimeout';
+  | 'generationTimeout'
+  | 'alreadySubscribed'
+  | 'billingUnavailable'
+  | 'noSubscription'
+  | 'refundNotEligible';
 
 export interface DomainFailureInput {
   kind: FailureKind;
