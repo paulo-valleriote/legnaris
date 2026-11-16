@@ -27,7 +27,7 @@ func (s *MongoStore) RequestRefund(ctx context.Context, id string, now time.Time
 		bson.D{
 			{Key: fieldID, Value: id},
 			{Key: fieldStatus, Value: StatusActive},
-			{Key: fieldRefundState, Value: bson.D{{Key: "$exists", Value: false}}},
+			{Key: fieldRefundState, Value: bson.D{{Key: operatorExists, Value: false}}},
 		},
 		bson.D{{Key: operatorSetLedger, Value: bson.D{
 			{Key: fieldRefundState, Value: RefundRequested},

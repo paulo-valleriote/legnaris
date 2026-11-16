@@ -18,6 +18,7 @@ const (
 	fieldID                 = "_id"
 	operatorIn              = "$in"
 	operatorLte             = "$lte"
+	operatorExists          = "$exists"
 )
 
 type MongoStore struct {
@@ -39,7 +40,7 @@ func NewMongoStore(database *mongo.Database) *MongoStore {
 func liveFilter(userID string) bson.D {
 	return bson.D{
 		{Key: fieldUserID, Value: userID},
-		{Key: fieldStatus, Value: bson.D{{Key: operatorIn, Value: liveStatuses()}}},
+		{Key: fieldStatus, Value: bson.D{{Key: operatorInLedger, Value: liveStatuses()}}},
 	}
 }
 

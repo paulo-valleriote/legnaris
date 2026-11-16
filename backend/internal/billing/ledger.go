@@ -85,4 +85,7 @@ type Ledger interface {
 	FindTarget(ctx context.Context, userID, providerSubscriptionID string) (Subscription, bool, error)
 	ApplySubscription(ctx context.Context, sub Subscription, readAt time.Time) (bool, error)
 	InsertSubscription(ctx context.Context, sub Subscription) error
+	AcquireUser(ctx context.Context, userID, claimer string, now time.Time, lease time.Duration) (bool, error)
+	LiveSubscriptions(ctx context.Context) ([]Subscription, error)
+	RequeueEvents(ctx context.Context, now, stuckBefore time.Time) (int, error)
 }
