@@ -1,0 +1,78 @@
+/**
+ * The Plans destination: a title, hairline-divided rows of Plan name, price and
+ * action, and the refund block. Every value comes from the shared design tokens;
+ * no literal colour or pixel value appears here (LGN-215).
+ */
+
+.lg-plans {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-32);
+  padding-bottom: var(--lg-space-48);
+}
+
+.lg-plans__title {
+  margin: 0;
+  font-size: var(--lg-type-30);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-display);
+  letter-spacing: var(--lg-tracking-display);
+  text-wrap: balance;
+}
+
+.lg-plans__message,
+.lg-plans__current {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-plans__failure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lg-space-8);
+}
+
+.lg-plans__row,
+.lg-plans__refund {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+  padding: var(--lg-space-16) var(--lg-space-8);
+  border-top: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-plans__label {
+  margin: 0;
+  font-size: var(--lg-type-16);
+  font-weight: var(--lg-font-weight-semibold);
+  color: var(--lg-color-text);
+}
+
+.lg-plans__value {
+  margin: 0;
+  font-size: var(--lg-type-16);
+  color: var(--lg-color-text);
+}
+
+.lg-plans__text,
+.lg-plans__notice {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-plans__error {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-danger);
+}
+
+.lg-plans__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--lg-space-8);
+  margin-top: var(--lg-space-16);
+}
