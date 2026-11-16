@@ -7,8 +7,10 @@ import (
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/llmconsent"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/quota"
 	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/response"
 
@@ -21,6 +23,16 @@ type PlanResolver func(ctx context.Context, userID string) (bool, error)
 
 func FreePlanResolver(context.Context, string) (bool, error) {
 	return false, nil
+}
+
+func PlanResolverFromSource(source user.PlanSource) PlanResolver {
+	return func(ctx context.Context, userID string) (bool, error) {
+		resolved, err := source.PlanOf(ctx, userID)
+		if err != nil {
+			return false, err
+		}
+		return resolved.ID == plan.IDPaid, nil
+	}
 }
 
 type planTrialView struct {
