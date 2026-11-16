@@ -338,6 +338,10 @@ func defaultDependencies() dependencies {
 				Store:   user.NewDeletionStore(mdb, cfg.Logger),
 				Cascade: accountdeletion.NewCascade(mdb, outboxRepo, time.Now),
 				Tx:      db.NewTransactor(mongo.Client, nil),
+				Billing: billing.NewDeletion(billing.DeletionDeps{
+					Provider: newRelayBillingProvider(cfg.Variables),
+					Ledger:   billing.NewMongoStore(mdb),
+				}),
 			}, nil
 		},
 		newBilling: func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error) {
