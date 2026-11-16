@@ -46,6 +46,10 @@ type Variables struct {
 	AppEnv                            string
 	EmailProvider                     string
 	ResendAPIKey                      string
+	StripeSecretKey                   string
+	StripePriceIDUSD                  string
+	BillingSuccessURL                 string
+	BillingCancelURL                  string
 	EmailFrom                         string
 	EmailSendTimeout                  time.Duration
 	RabbitMQURL                       string
@@ -262,6 +266,10 @@ func (e *Env) buildVariables() Variables {
 		AppEnv:                            e.lookupStringEnv(keyAppEnv, ""),
 		EmailProvider:                     e.lookupStringEnv("EMAIL_PROVIDER", defaultEmailProvider),
 		ResendAPIKey:                      e.lookupStringEnv("RESEND_API_KEY", ""),
+		StripeSecretKey:                   e.lookupStringEnv("STRIPE_SECRET_KEY", ""),
+		StripePriceIDUSD:                  e.lookupStringEnv("STRIPE_PRICE_ID_USD", ""),
+		BillingSuccessURL:                 e.lookupStringEnv("BILLING_SUCCESS_URL", ""),
+		BillingCancelURL:                  e.lookupStringEnv("BILLING_CANCEL_URL", ""),
 		EmailFrom:                         e.lookupStringEnv("EMAIL_FROM", ""),
 		EmailSendTimeout:                  e.lookupDurationEnv("EMAIL_SEND_TIMEOUT", defaultEmailSendTimeout),
 		RabbitMQURL:                       e.lookupStringEnv("RABBITMQ_URL", ""),

@@ -38,6 +38,8 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeGenerationInProgress, 409},
 		{CodeProviderUnavailable, 503},
 		{CodeGenerationCapReached, 503},
+		{CodeAlreadySubscribed, 409},
+		{CodeBillingUnavailable, 503},
 	}
 
 	for _, tc := range tests {
