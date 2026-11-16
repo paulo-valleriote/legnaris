@@ -2,12 +2,12 @@ package billingtest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
 	"legnaris/backend/internal/billing"
+	sharedjson "legnaris/backend/shared/json"
 )
 
 const sessionLifetime = 24 * time.Hour
@@ -145,7 +145,7 @@ func (p *Provider) ParseWebhook(payload []byte, signature string) (billing.Notif
 		return billing.Notification{}, billing.ErrInvalidSignature
 	}
 	var n billing.Notification
-	if err := json.Unmarshal(payload, &n); err != nil {
+	if err := sharedjson.DecodeBytes(payload, &n); err != nil {
 		return billing.Notification{}, fmt.Errorf("%w: %w", billing.ErrProviderRejected, err)
 	}
 	return n, nil

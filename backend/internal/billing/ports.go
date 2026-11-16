@@ -44,6 +44,7 @@ type ProviderSubscription struct {
 	ID                string
 	CustomerID        string
 	Status            Status
+	StartedAt         time.Time
 	CurrentPeriodEnd  time.Time
 	CancelAtPeriodEnd bool
 }

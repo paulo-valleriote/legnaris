@@ -1,10 +1,10 @@
 package stripe
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"legnaris/backend/internal/billing"
+	sharedjson "legnaris/backend/shared/json"
 
 	stripesdk "github.com/stripe/stripe-go/v87"
 	"github.com/stripe/stripe-go/v87/webhook"
@@ -40,40 +40,35 @@ func (p *Provider) ParseWebhook(payload []byte, signature string) (billing.Notif
 
 func parseCheckout(event stripesdk.Event, ignored billing.Notification) (billing.Notification, error) {
 	var session stripesdk.CheckoutSession
-	if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
+	if err := sharedjson.DecodeBytes(event.Data.Raw, &session); err != nil {
 		return billing.Notification{}, fmt.Errorf("%w: decode checkout session: %w", billing.ErrProviderRejected, err)
 	}
 	if string(session.Mode) != checkoutModeSubscription || session.Subscription == nil {
 		return ignored, nil
 	}
-	n := billing.Notification{
-		ID:                     event.ID,
-		Kind:                   billing.KindSubscriptionChanged,
-		UserID:                 session.Metadata[subscriptionMetadataUserKey],
-		ProviderSubscriptionID: session.Subscription.ID,
-	}
-	if session.Customer != nil {
-		n.ProviderCustomerID = session.Customer.ID
-	}
-	return n, nil
+	return subscriptionNotification(event.ID, session.Metadata, session.Subscription.ID, session.Customer), nil
 }
 
 func parseSubscription(event stripesdk.Event, ignored billing.Notification) (billing.Notification, error) {
 	var sub stripesdk.Subscription
-	if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
+	if err := sharedjson.DecodeBytes(event.Data.Raw, &sub); err != nil {
 		return billing.Notification{}, fmt.Errorf("%w: decode subscription: %w", billing.ErrProviderRejected, err)
 	}
 	if sub.ID == "" {
 		return ignored, nil
 	}
+	return subscriptionNotification(event.ID, sub.Metadata, sub.ID, sub.Customer), nil
+}
+
+func subscriptionNotification(eventID string, metadata map[string]string, subscriptionID string, customer *stripesdk.Customer) billing.Notification {
 	n := billing.Notification{
-		ID:                     event.ID,
+		ID:                     eventID,
 		Kind:                   billing.KindSubscriptionChanged,
-		UserID:                 sub.Metadata[subscriptionMetadataUserKey],
-		ProviderSubscriptionID: sub.ID,
+		UserID:                 metadata[subscriptionMetadataUserKey],
+		ProviderSubscriptionID: subscriptionID,
 	}
-	if sub.Customer != nil {
-		n.ProviderCustomerID = sub.Customer.ID
+	if customer != nil {
+		n.ProviderCustomerID = customer.ID
 	}
-	return n, nil
+	return n
 }

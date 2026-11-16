@@ -27,6 +27,9 @@ func (p *Provider) GetSubscription(ctx context.Context, providerSubscriptionID s
 	if sub.Customer != nil {
 		out.CustomerID = sub.Customer.ID
 	}
+	if sub.StartDate > 0 {
+		out.StartedAt = time.Unix(sub.StartDate, 0).UTC()
+	}
 	if sub.Items != nil && len(sub.Items.Data) > 0 && sub.Items.Data[0] != nil {
 		out.CurrentPeriodEnd = time.Unix(sub.Items.Data[0].CurrentPeriodEnd, 0).UTC()
 	}
