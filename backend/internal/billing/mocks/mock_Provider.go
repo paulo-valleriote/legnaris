@@ -136,6 +136,120 @@ func (_c *MockProvider_CreateCustomer_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// GetSubscription provides a mock function with given fields: ctx, providerSubscriptionID
+func (_m *MockProvider) GetSubscription(ctx context.Context, providerSubscriptionID string) (billing.ProviderSubscription, error) {
+	ret := _m.Called(ctx, providerSubscriptionID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSubscription")
+	}
+
+	var r0 billing.ProviderSubscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (billing.ProviderSubscription, error)); ok {
+		return rf(ctx, providerSubscriptionID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) billing.ProviderSubscription); ok {
+		r0 = rf(ctx, providerSubscriptionID)
+	} else {
+		r0 = ret.Get(0).(billing.ProviderSubscription)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, providerSubscriptionID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockProvider_GetSubscription_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSubscription'
+type MockProvider_GetSubscription_Call struct {
+	*mock.Call
+}
+
+// GetSubscription is a helper method to define mock.On call
+//   - ctx context.Context
+//   - providerSubscriptionID string
+func (_e *MockProvider_Expecter) GetSubscription(ctx interface{}, providerSubscriptionID interface{}) *MockProvider_GetSubscription_Call {
+	return &MockProvider_GetSubscription_Call{Call: _e.mock.On("GetSubscription", ctx, providerSubscriptionID)}
+}
+
+func (_c *MockProvider_GetSubscription_Call) Run(run func(ctx context.Context, providerSubscriptionID string)) *MockProvider_GetSubscription_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockProvider_GetSubscription_Call) Return(_a0 billing.ProviderSubscription, _a1 error) *MockProvider_GetSubscription_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockProvider_GetSubscription_Call) RunAndReturn(run func(context.Context, string) (billing.ProviderSubscription, error)) *MockProvider_GetSubscription_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ParseWebhook provides a mock function with given fields: payload, signature
+func (_m *MockProvider) ParseWebhook(payload []byte, signature string) (billing.Notification, error) {
+	ret := _m.Called(payload, signature)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseWebhook")
+	}
+
+	var r0 billing.Notification
+	var r1 error
+	if rf, ok := ret.Get(0).(func([]byte, string) (billing.Notification, error)); ok {
+		return rf(payload, signature)
+	}
+	if rf, ok := ret.Get(0).(func([]byte, string) billing.Notification); ok {
+		r0 = rf(payload, signature)
+	} else {
+		r0 = ret.Get(0).(billing.Notification)
+	}
+
+	if rf, ok := ret.Get(1).(func([]byte, string) error); ok {
+		r1 = rf(payload, signature)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockProvider_ParseWebhook_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseWebhook'
+type MockProvider_ParseWebhook_Call struct {
+	*mock.Call
+}
+
+// ParseWebhook is a helper method to define mock.On call
+//   - payload []byte
+//   - signature string
+func (_e *MockProvider_Expecter) ParseWebhook(payload interface{}, signature interface{}) *MockProvider_ParseWebhook_Call {
+	return &MockProvider_ParseWebhook_Call{Call: _e.mock.On("ParseWebhook", payload, signature)}
+}
+
+func (_c *MockProvider_ParseWebhook_Call) Run(run func(payload []byte, signature string)) *MockProvider_ParseWebhook_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]byte), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockProvider_ParseWebhook_Call) Return(_a0 billing.Notification, _a1 error) *MockProvider_ParseWebhook_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockProvider_ParseWebhook_Call) RunAndReturn(run func([]byte, string) (billing.Notification, error)) *MockProvider_ParseWebhook_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockProvider creates a new instance of MockProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockProvider(t interface {
