@@ -45,6 +45,14 @@ func seedAccount(t *testing.T, mdb *mongo.Database, userID, email string) {
 		"email_outbox":        {{Key: "_id", Value: userID + "-intent"}, {Key: "to", Value: email}, {Key: "template", Value: "verify_email"}},
 		"email_notices":       {{Key: "_id", Value: "account_exists:" + email}, {Key: "claimed_at", Value: deleteAt}},
 		"users":               {{Key: "_id", Value: userID}, {Key: "email", Value: email}, {Key: "username", Value: "hero"}},
+		"campaign_sheet_links": {
+			{Key: "_id", Value: userID + "-link"},
+			{Key: "campaign_id", Value: userID + "-campaign"},
+			{Key: "sheet_id", Value: userID + "-sheet"},
+			{Key: "owner_id", Value: userID},
+			{Key: "revealed", Value: false},
+			{Key: "linked_at", Value: deleteAt},
+		},
 	}
 	for collection, doc := range seeds {
 		_, err := mdb.Collection(collection).InsertOne(ctx, doc)
@@ -115,6 +123,7 @@ func TestCascade_Remove(t *testing.T) {
 				assert.Zero(t, countOwned(t, mdb, quota.TrialCollection, "_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, quota.UsageCollection, "user_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, "auth_challenges", "user_id", victimID))
+				assert.Zero(t, countOwned(t, mdb, "campaign_sheet_links", "owner_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, "users", "_id", victimID))
 				outbox, notices := countAddressRows(t, mdb, victimEmail)
 				assert.Zero(t, outbox, "the e-mail outbox must forget the address")
@@ -122,6 +131,7 @@ func TestCascade_Remove(t *testing.T) {
 
 				assert.Equal(t, int64(1), countOwned(t, mdb, "sheets", "owner_id", otherID))
 				assert.Equal(t, int64(1), countOwned(t, mdb, "auth_challenges", "user_id", otherID))
+				assert.Equal(t, int64(1), countOwned(t, mdb, "campaign_sheet_links", "owner_id", otherID))
 				assert.Equal(t, int64(1), countOwned(t, mdb, "users", "_id", otherID))
 				outbox, notices = countAddressRows(t, mdb, otherEmail)
 				assert.Equal(t, int64(1), outbox)
@@ -258,6 +268,7 @@ func TestCascade_Remove_Error(t *testing.T) {
 			assert.ErrorIs(t, err, tc.failure)
 
 			assert.Equal(t, int64(1), countOwned(t, mdb, "sheets", "owner_id", victimID), "a rolled-back removal keeps the Sheets")
+			assert.Equal(t, int64(1), countOwned(t, mdb, "campaign_sheet_links", "owner_id", victimID), "a rolled-back removal keeps the links")
 			assert.Equal(t, int64(1), countOwned(t, mdb, "users", "_id", victimID), "a rolled-back removal keeps the record")
 			n, err := mdb.Collection("user_tombstones").CountDocuments(context.Background(), bson.D{{Key: "_id", Value: victimID}})
 			require.NoError(t, err)

@@ -30,6 +30,7 @@ type OwnershipReleaser interface {
 type DeletionDeps struct {
 	Store     DeletionStore
 	Links     SheetLinks
+	NpcLinks  NpcSheetLinks
 	Orphans   OrphanLinks
 	Tx        TransactionRunner
 	Publisher events.Publisher
@@ -174,6 +175,14 @@ func (d DeletionDeps) runBatch(ctx context.Context, campaignID string) (batchOut
 			outcome = outcomeUnlinked
 			return nil
 		}
+		deleted, err := d.NpcLinks.DeleteByCampaignIDBatch(txCtx, campaignID, DeletionUnlinkCampaignBatch)
+		if err != nil {
+			return err
+		}
+		if deleted > 0 {
+			outcome = outcomeUnlinked
+			return nil
+		}
 		removed, err := d.Store.RemoveDeleting(txCtx, campaignID)
 		if err != nil {
 			return err
@@ -228,7 +237,7 @@ func (s deletionQueueStore) OldestPending(ctx context.Context) (time.Time, bool,
 }
 
 func NewDeletionQueue(deps DeletionDeps, attemptCap, batch int) (sweeper.Queue, error) {
-	if deps.Store == nil || deps.Links == nil || deps.Tx == nil {
+	if deps.Store == nil || deps.Links == nil || deps.NpcLinks == nil || deps.Tx == nil {
 		return sweeper.Queue{}, apperr.NewError(apperr.CodeInternal, "campaign deletion dependencies are required", nil)
 	}
 	if deps.Publisher == nil {

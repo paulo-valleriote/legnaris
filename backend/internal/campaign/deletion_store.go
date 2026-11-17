@@ -41,6 +41,10 @@ type SheetLinks interface {
 	UnlinkCampaignBatch(ctx context.Context, campaignID string, limit int) (int64, error)
 }
 
+type NpcSheetLinks interface {
+	DeleteByCampaignIDBatch(ctx context.Context, campaignID string, limit int) (int64, error)
+}
+
 type MongoDeletionStore struct {
 	campaigns *mongo.Collection
 }

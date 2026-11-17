@@ -23,9 +23,11 @@ type deletionFixture struct {
 	repo      campaign.Repository
 	store     *campaign.MongoDeletionStore
 	links     campaign.SheetLinks
+	npcLinks  *campaign.MongoLinkStore
 	tx        *db.Transactor
 	campaigns *mongo.Collection
 	sheets    *mongo.Collection
+	npc       *mongo.Collection
 }
 
 func newDeletionFixture(t *testing.T) deletionFixture {
@@ -40,9 +42,11 @@ func newDeletionFixture(t *testing.T) deletionFixture {
 		repo:      campaign.NewRepository(mdb),
 		store:     campaign.NewDeletionStore(mdb),
 		links:     sheet.NewRepository(mdb, nil),
+		npcLinks:  campaign.NewLinkStore(mdb),
 		tx:        db.NewTransactor(client, nil),
 		campaigns: mdb.Collection("campaigns"),
 		sheets:    mdb.Collection("sheets"),
+		npc:       mdb.Collection("campaign_sheet_links"),
 	}
 }
 
@@ -61,6 +65,28 @@ func (f deletionFixture) insertSheet(t *testing.T, campaignID string) string {
 	_, err := f.sheets.InsertOne(f.ctx, bson.D{{Key: "_id", Value: id}, {Key: "campaign_id", Value: campaignID}})
 	require.NoError(t, err)
 	return id
+}
+
+func (f deletionFixture) insertLink(t *testing.T, campaignID, sheetID, ownerID string) string {
+	t.Helper()
+	id := campaigntest.NewID(t)
+	_, err := f.npc.InsertOne(f.ctx, bson.D{
+		{Key: "_id", Value: id},
+		{Key: "campaign_id", Value: campaignID},
+		{Key: "sheet_id", Value: sheetID},
+		{Key: "owner_id", Value: ownerID},
+		{Key: "revealed", Value: false},
+		{Key: "linked_at", Value: campaigntest.Now()},
+	})
+	require.NoError(t, err)
+	return id
+}
+
+func (f deletionFixture) linkCount(t *testing.T) int64 {
+	t.Helper()
+	n, err := f.npc.CountDocuments(f.ctx, bson.D{})
+	require.NoError(t, err)
+	return n
 }
 
 func (f deletionFixture) storedCampaign(t *testing.T, id string) bson.M {
@@ -272,11 +298,16 @@ func TestDeletionDeps_EndToEndRemovesCampaignAndUnlinksSheets(t *testing.T) {
 	c := f.insertDeleting(t, now)
 	sheetA := f.insertSheet(t, c.ID)
 	sheetB := f.insertSheet(t, c.ID)
+	npcSheet := campaigntest.NewID(t)
+	f.insertLink(t, c.ID, npcSheet, campaigntest.NewID(t))
+	foreignCampaign := campaigntest.NewID(t)
+	foreignLink := f.insertLink(t, foreignCampaign, campaigntest.NewID(t), campaigntest.NewID(t))
 	pub := &recordingPublisher{}
 
 	deps := campaign.DeletionDeps{
 		Store:     f.store,
 		Links:     f.links,
+		NpcLinks:  f.npcLinks,
 		Tx:        f.tx,
 		Publisher: pub,
 		Now:       campaigntest.Now,
@@ -285,17 +316,46 @@ func TestDeletionDeps_EndToEndRemovesCampaignAndUnlinksSheets(t *testing.T) {
 
 	count, err := f.campaigns.CountDocuments(f.ctx, bson.D{{Key: "_id", Value: c.ID}})
 	require.NoError(t, err)
-	assert.Zero(t, count, "the campaign is removed once no sheet points at it")
+	assert.Zero(t, count, "the campaign is removed once no sheet and no link points at it")
 	for _, id := range []string{sheetA, sheetB} {
 		var doc bson.M
 		require.NoError(t, f.sheets.FindOne(f.ctx, bson.D{{Key: "_id", Value: id}}).Decode(&doc))
 		assert.Nil(t, doc["campaign_id"], "every linked sheet is unlinked")
 	}
+	assert.Equal(t, int64(1), f.linkCount(t), "only the link of another campaign survives")
+	var surviving bson.M
+	require.NoError(t, f.npc.FindOne(f.ctx, bson.D{{Key: "_id", Value: foreignLink}}).Decode(&surviving))
+	assert.Equal(t, foreignCampaign, surviving["campaign_id"])
 	require.Len(t, pub.events, 1)
 	assert.Equal(t, campaign.EventDeleted, pub.events[0].Type)
 
 	require.NoError(t, deps.Handle(f.ctx, c), "a redelivered handle after removal is a no-op")
 	assert.Len(t, pub.events, 1, "campaign.deleted is announced once")
+	assert.Equal(t, int64(1), f.linkCount(t), "a repeated deletion removes nothing more")
+}
+
+func TestDeletionDeps_DeletingLinksEmitsNoUnlinkEvent(t *testing.T) {
+	f := newDeletionFixture(t)
+	c := f.insertDeleting(t, campaigntest.Now())
+	f.insertSheet(t, c.ID)
+	f.insertLink(t, c.ID, campaigntest.NewID(t), campaigntest.NewID(t))
+	pub := &recordingPublisher{}
+	deps := campaign.DeletionDeps{
+		Store:     f.store,
+		Links:     f.links,
+		NpcLinks:  f.npcLinks,
+		Tx:        f.tx,
+		Publisher: pub,
+		Now:       campaigntest.Now,
+	}
+
+	require.NoError(t, deps.Handle(f.ctx, c))
+
+	require.Len(t, pub.events, 1)
+	assert.Equal(t, campaign.EventDeleted, pub.events[0].Type)
+	for _, ev := range pub.events {
+		assert.NotEqual(t, campaign.EventSheetUnlinked, ev.Type, "campaign deletion reports only campaign.deleted")
+	}
 }
 
 type betweenBatchesTx struct {
@@ -327,7 +387,7 @@ func TestDeletionDeps_LateLinkIsUndoneBeforeRemoval(t *testing.T) {
 	first := f.insertSheet(t, c.ID)
 	tx := &betweenBatchesTx{inner: f.tx, t: t, fixture: f, campaignID: c.ID}
 	pub := &recordingPublisher{}
-	deps := campaign.DeletionDeps{Store: f.store, Links: f.links, Tx: tx, Publisher: pub, Now: campaigntest.Now}
+	deps := campaign.DeletionDeps{Store: f.store, Links: f.links, NpcLinks: f.npcLinks, Tx: tx, Publisher: pub, Now: campaigntest.Now}
 
 	require.NoError(t, deps.Handle(f.ctx, c))
 
@@ -337,6 +397,44 @@ func TestDeletionDeps_LateLinkIsUndoneBeforeRemoval(t *testing.T) {
 		require.NoError(t, f.sheets.FindOne(f.ctx, bson.D{{Key: "_id", Value: id}}).Decode(&doc))
 		assert.Nil(t, doc["campaign_id"], "every link written while deleting is undone before the campaign is removed")
 	}
+	count, err := f.campaigns.CountDocuments(f.ctx, bson.D{{Key: "_id", Value: c.ID}})
+	require.NoError(t, err)
+	assert.Zero(t, count)
+	assert.Len(t, pub.events, 1)
+}
+
+type lateNpcLinkTx struct {
+	inner      campaign.TransactionRunner
+	t          *testing.T
+	fixture    deletionFixture
+	campaignID string
+	committed  int
+	late       string
+}
+
+func (r *lateNpcLinkTx) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	if err := r.inner.WithTransaction(ctx, fn); err != nil {
+		return err
+	}
+	r.committed++
+	if r.committed == 1 {
+		r.late = r.fixture.insertLink(r.t, r.campaignID, campaigntest.NewID(r.t), campaigntest.NewID(r.t))
+	}
+	return nil
+}
+
+func TestDeletionDeps_LateNpcLinkIsDeletedBeforeRemoval(t *testing.T) {
+	f := newDeletionFixture(t)
+	c := f.insertDeleting(t, campaigntest.Now())
+	f.insertLink(t, c.ID, campaigntest.NewID(t), campaigntest.NewID(t))
+	tx := &lateNpcLinkTx{inner: f.tx, t: t, fixture: f, campaignID: c.ID}
+	pub := &recordingPublisher{}
+	deps := campaign.DeletionDeps{Store: f.store, Links: f.links, NpcLinks: f.npcLinks, Tx: tx, Publisher: pub, Now: campaigntest.Now}
+
+	require.NoError(t, deps.Handle(f.ctx, c))
+
+	require.NotEmpty(t, tx.late, "the late NPC link must have been written between batches")
+	assert.Zero(t, f.linkCount(t), "every NPC link written while deleting is deleted before the campaign is removed")
 	count, err := f.campaigns.CountDocuments(f.ctx, bson.D{{Key: "_id", Value: c.ID}})
 	require.NoError(t, err)
 	assert.Zero(t, count)
@@ -402,4 +500,34 @@ func TestOrphanLinks_ClearsOnlyLinksToMissingCampaigns(t *testing.T) {
 	again, err := links.UnlinkOrphans(f.ctx, 10)
 	require.NoError(t, err)
 	assert.Zero(t, again, "a second pass finds nothing, so reconciliation is idempotent")
+}
+
+func TestOrphanLinks_DeletesLinksToMissingCampaignsOrSheets(t *testing.T) {
+	f := newDeletionFixture(t)
+	live := campaigntest.Build(t, 0, 0)
+	require.NoError(t, f.repo.Insert(f.ctx, &live))
+	liveSheet := campaigntest.NewID(t)
+	_, err := f.sheets.InsertOne(f.ctx, bson.D{{Key: "_id", Value: liveSheet}, {Key: "owner_id", Value: campaigntest.NewID(t)}})
+	require.NoError(t, err)
+	valid := f.insertLink(t, live.ID, liveSheet, campaigntest.NewID(t))
+	missingCampaign := f.insertLink(t, campaigntest.NewID(t), liveSheet, campaigntest.NewID(t))
+	missingSheet := f.insertLink(t, live.ID, campaigntest.NewID(t), campaigntest.NewID(t))
+	links := campaign.NewOrphanLinks(f.db)
+
+	n, err := links.UnlinkOrphans(f.ctx, 10)
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, n)
+
+	for _, id := range []string{missingCampaign, missingSheet} {
+		count, err := f.npc.CountDocuments(f.ctx, bson.D{{Key: "_id", Value: id}})
+		require.NoError(t, err)
+		assert.Zero(t, count, "a link to a missing campaign or sheet is deleted")
+	}
+	count, err := f.npc.CountDocuments(f.ctx, bson.D{{Key: "_id", Value: valid}})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), count, "a link whose campaign and sheet exist is kept")
+
+	again, err := links.UnlinkOrphans(f.ctx, 10)
+	require.NoError(t, err)
+	assert.Zero(t, again, "reconciliation is idempotent")
 }
