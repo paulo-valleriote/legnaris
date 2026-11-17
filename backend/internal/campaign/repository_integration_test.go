@@ -247,3 +247,66 @@ func TestPromote_ConcurrentPromotionsNeverExceedGMCap(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, campaign.MaxGMs, stored.GMCount)
 }
+
+func TestRepository_FetchByInviteCode(t *testing.T) {
+	f := newMongoFixture(t)
+	c := campaigntest.Build(t, 0, 0)
+	c.InviteCode = "Abcdefghijklmnopqrstuvwx"
+	f.insert(t, c)
+
+	tests := []struct {
+		name    string
+		code    string
+		wantErr error
+	}{
+		{name: "Happy path: the stored code resolves the campaign", code: c.InviteCode},
+		{name: "Edge: an unknown code is not found", code: "Zyxwvutsrqponmlkjihgfedc", wantErr: campaign.ErrNotFound},
+		{name: "Edge: an empty code is not found", code: "", wantErr: campaign.ErrNotFound},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			found, err := f.repo.FetchByInviteCode(f.ctx, tc.code)
+			if tc.wantErr != nil {
+				assert.True(t, errors.Is(err, tc.wantErr))
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, c.ID, found.ID)
+		})
+	}
+}
+
+func TestRepository_InviteCodeIsUnique(t *testing.T) {
+	f := newMongoFixture(t)
+	first := campaigntest.Build(t, 0, 0)
+	first.InviteCode = "Abcdefghijklmnopqrstuvwx"
+	f.insert(t, first)
+	second := campaigntest.Build(t, 0, 0)
+	second.InviteCode = first.InviteCode
+	assert.Error(t, f.repo.Insert(f.ctx, &second), "two campaigns must never share an invite code")
+}
+
+func TestRepository_LegacyCampaignWithoutCodeCoexists(t *testing.T) {
+	f := newMongoFixture(t)
+	f.insert(t, campaigntest.Build(t, 0, 0))
+	f.insert(t, campaigntest.Build(t, 0, 0))
+}
+
+func TestRepository_SavePersistsInviteCodeAndPasswordHash(t *testing.T) {
+	f := newMongoFixture(t)
+	c := campaigntest.Build(t, 0, 0)
+	c.InviteCode = "Abcdefghijklmnopqrstuvwx"
+	f.insert(t, c)
+
+	updated := campaigntest.Copy(c)
+	updated.InviteCode = "Zyxwvutsrqponmlkjihgfedc"
+	updated.PasswordHash = "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$a2V5"
+	updated.UpdatedAt = c.UpdatedAt
+	require.NoError(t, f.repo.Save(f.ctx, &updated, c.Version))
+
+	found, err := f.repo.FetchByInviteCode(f.ctx, updated.InviteCode)
+	require.NoError(t, err)
+	assert.Equal(t, updated.PasswordHash, found.PasswordHash)
+	_, err = f.repo.FetchByInviteCode(f.ctx, c.InviteCode)
+	assert.True(t, errors.Is(err, campaign.ErrNotFound), "the old code must stop resolving after rotation")
+}

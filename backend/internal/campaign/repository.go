@@ -16,6 +16,8 @@ const (
 	idField             = "_id"
 	versionField        = "version"
 	statusField         = "status"
+	inviteCodeField     = "invite_code"
+	passwordHashField   = "password_hash"
 	membersUserIDField  = "members.user_id"
 	setOperator         = "$set"
 	incOperator         = "$inc"
@@ -28,6 +30,7 @@ var ErrVersionConflict = errors.New("campaign version conflict")
 type Repository interface {
 	Insert(ctx context.Context, c *Campaign) error
 	FetchByID(ctx context.Context, id string) (*Campaign, error)
+	FetchByInviteCode(ctx context.Context, code string) (*Campaign, error)
 	ListActiveByMember(ctx context.Context, userID string) ([]Campaign, error)
 	Save(ctx context.Context, c *Campaign, expectedVersion int64) error
 	MarkDeleting(ctx context.Context, c *Campaign, expectedVersion int64) error
@@ -62,6 +65,18 @@ func (r *MongoRepository) FetchByID(ctx context.Context, id string) (*Campaign, 
 	return &stored, nil
 }
 
+func (r *MongoRepository) FetchByInviteCode(ctx context.Context, code string) (*Campaign, error) {
+	var stored Campaign
+	err := r.collection.FindOne(ctx, bson.D{{Key: inviteCodeField, Value: code}}).Decode(&stored)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("fetch campaign by invite code: %w", err)
+	}
+	return &stored, nil
+}
+
 func (r *MongoRepository) ListActiveByMember(ctx context.Context, userID string) ([]Campaign, error) {
 	filter := bson.D{
 		{Key: membersUserIDField, Value: userID},
@@ -89,6 +104,8 @@ func (r *MongoRepository) Save(ctx context.Context, c *Campaign, expectedVersion
 			{Key: "members", Value: c.Members},
 			{Key: "gm_count", Value: c.GMCount},
 			{Key: "player_count", Value: c.PlayerCount},
+			{Key: inviteCodeField, Value: c.InviteCode},
+			{Key: passwordHashField, Value: c.PasswordHash},
 			{Key: "updated_at", Value: c.UpdatedAt},
 		}},
 		{Key: incOperator, Value: bson.D{{Key: versionField, Value: 1}}},

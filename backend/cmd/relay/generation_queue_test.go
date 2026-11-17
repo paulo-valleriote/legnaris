@@ -61,10 +61,13 @@ func idleCampaignDeletionDeps(t *testing.T) campaign.DeletionDeps {
 	store := campaignmocks.NewMockDeletionStore(t)
 	store.EXPECT().ClaimDeleting(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	store.EXPECT().OldestDeleting(mock.Anything).Return(time.Time{}, false, nil).Maybe()
+	orphans := campaignmocks.NewMockOrphanLinks(t)
+	orphans.EXPECT().UnlinkOrphans(mock.Anything, mock.Anything).Return(int64(0), nil).Maybe()
 	return campaign.DeletionDeps{
-		Store: store,
-		Links: campaignmocks.NewMockSheetLinks(t),
-		Tx:    campaignmocks.NewMockTransactionRunner(t),
+		Store:   store,
+		Links:   campaignmocks.NewMockSheetLinks(t),
+		Tx:      campaignmocks.NewMockTransactionRunner(t),
+		Orphans: orphans,
 	}
 }
 
@@ -93,7 +96,7 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 		wantErr   bool
 		wantNames []string
 	}{
-		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts and the billing consumer are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting", "campaigns_deleting", "billing_events", "billing_refunds"}},
+		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts and the billing consumer are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting", "campaigns_deleting", "campaigns_orphan_links", "billing_events", "billing_refunds"}},
 		{name: "Error: a zero batch refuses the generation queue", batch: 0, wantErr: true},
 	}
 	for _, tc := range tests {

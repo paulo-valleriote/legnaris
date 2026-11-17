@@ -12,15 +12,17 @@ import (
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/campaign/campaigntest"
 	"legnaris/backend/internal/events"
+	"legnaris/backend/internal/sheet"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/db/dbtest"
 )
 
 type deletionFixture struct {
 	ctx       context.Context
+	db        *mongo.Database
 	repo      campaign.Repository
 	store     *campaign.MongoDeletionStore
-	links     *campaign.MongoSheetLinks
+	links     campaign.SheetLinks
 	tx        *db.Transactor
 	campaigns *mongo.Collection
 	sheets    *mongo.Collection
@@ -34,9 +36,10 @@ func newDeletionFixture(t *testing.T) deletionFixture {
 	require.NoError(t, db.EnsureIndexes(ctx, mdb))
 	return deletionFixture{
 		ctx:       ctx,
+		db:        mdb,
 		repo:      campaign.NewRepository(mdb),
 		store:     campaign.NewDeletionStore(mdb),
-		links:     campaign.NewSheetLinks(mdb),
+		links:     sheet.NewRepository(mdb, nil),
 		tx:        db.NewTransactor(client, nil),
 		campaigns: mdb.Collection("campaigns"),
 		sheets:    mdb.Collection("sheets"),
@@ -224,42 +227,35 @@ func TestDeletionStore_RemoveDeletingOnlyOnce(t *testing.T) {
 	assert.False(t, again, "a repeated removal is a no-op, so retries are idempotent")
 }
 
-func TestSheetLinks_LinkedAndUnlinkedOnlyForTheCampaign(t *testing.T) {
+func TestSheetLinks_UnlinkCampaignBatchOnlyTouchesTheCampaign(t *testing.T) {
 	f := newDeletionFixture(t)
 	target := campaigntest.NewID(t)
 	other := campaigntest.NewID(t)
-	a := f.insertSheet(t, target)
-	b := f.insertSheet(t, target)
+	f.insertSheet(t, target)
+	f.insertSheet(t, target)
 	foreign := f.insertSheet(t, other)
 
 	tests := []struct {
-		name    string
-		limit   int
-		wantLen int
+		name  string
+		limit int
+		want  int64
 	}{
-		{name: "Edge: the batch limit caps the lookup", limit: 1, wantLen: 1},
-		{name: "Happy path: every linked sheet is found", limit: 10, wantLen: 2},
+		{name: "Edge: a zero limit unlinks nothing", limit: 0, want: 0},
+		{name: "Edge: the batch limit caps one pass", limit: 1, want: 1},
+		{name: "Happy path: the remaining linked sheet is unlinked", limit: 10, want: 1},
+		{name: "Edge: nothing left to unlink", limit: 10, want: 0},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ids, err := f.links.LinkedSheetIDs(f.ctx, target, tc.limit)
+			n, err := f.links.UnlinkCampaignBatch(f.ctx, target, tc.limit)
 			require.NoError(t, err)
-			assert.Len(t, ids, tc.wantLen)
+			assert.Equal(t, tc.want, n)
 		})
 	}
-
-	require.NoError(t, f.links.UnlinkSheets(f.ctx, target, []string{a, b, foreign}))
 
 	var foreignDoc bson.M
 	require.NoError(t, f.sheets.FindOne(f.ctx, bson.D{{Key: "_id", Value: foreign}}).Decode(&foreignDoc))
 	assert.Equal(t, other, foreignDoc["campaign_id"], "a sheet linked to another campaign must not be unlinked")
-
-	ids, err := f.links.LinkedSheetIDs(f.ctx, target, 10)
-	require.NoError(t, err)
-	assert.Empty(t, ids, "the unlinked sheets no longer point at the campaign")
-
-	require.NoError(t, f.links.UnlinkSheets(f.ctx, target, nil), "an empty batch is a no-op")
-	require.NoError(t, f.links.UnlinkSheets(f.ctx, target, []string{a}), "unlinking twice is idempotent")
 }
 
 type recordingPublisher struct {
@@ -310,18 +306,12 @@ type lateLinkingLinks struct {
 	late     string
 }
 
-func (l *lateLinkingLinks) LinkedSheetIDs(ctx context.Context, campaignID string, limit int) ([]string, error) {
-	ids, err := l.inner.LinkedSheetIDs(ctx, campaignID, limit)
-	if err != nil || len(ids) > 0 || l.injected {
-		return ids, err
+func (l *lateLinkingLinks) UnlinkCampaignBatch(ctx context.Context, campaignID string, limit int) (int64, error) {
+	if !l.injected {
+		l.injected = true
+		l.late = l.fixture.insertSheet(l.t, campaignID)
 	}
-	l.injected = true
-	l.late = l.fixture.insertSheet(l.t, campaignID)
-	return []string{l.late}, nil
-}
-
-func (l *lateLinkingLinks) UnlinkSheets(ctx context.Context, campaignID string, sheetIDs []string) error {
-	return l.inner.UnlinkSheets(ctx, campaignID, sheetIDs)
+	return l.inner.UnlinkCampaignBatch(ctx, campaignID, limit)
 }
 
 func TestDeletionDeps_LateLinkIsUndoneBeforeRemoval(t *testing.T) {
@@ -377,4 +367,29 @@ func TestRepository_MarkDeletingIncrementsVersionByExactlyOne(t *testing.T) {
 			assert.EqualValues(t, 0, stored["deletion_attempts"])
 		})
 	}
+}
+
+func TestOrphanLinks_ClearsOnlyLinksToMissingCampaigns(t *testing.T) {
+	f := newDeletionFixture(t)
+	valid := campaigntest.Build(t, 0, 0)
+	require.NoError(t, f.repo.Insert(f.ctx, &valid))
+	missing := campaigntest.NewID(t)
+	orphan := f.insertSheet(t, missing)
+	kept := f.insertSheet(t, valid.ID)
+	links := campaign.NewOrphanLinks(f.db)
+
+	n, err := links.UnlinkOrphans(f.ctx, 10)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, n)
+
+	var orphanDoc bson.M
+	require.NoError(t, f.sheets.FindOne(f.ctx, bson.D{{Key: "_id", Value: orphan}}).Decode(&orphanDoc))
+	assert.Nil(t, orphanDoc["campaign_id"], "a link to a missing Campaign is cleared")
+	var keptDoc bson.M
+	require.NoError(t, f.sheets.FindOne(f.ctx, bson.D{{Key: "_id", Value: kept}}).Decode(&keptDoc))
+	assert.Equal(t, valid.ID, keptDoc["campaign_id"], "a link to a live Campaign is kept")
+
+	again, err := links.UnlinkOrphans(f.ctx, 10)
+	require.NoError(t, err)
+	assert.Zero(t, again, "a second pass finds nothing, so reconciliation is idempotent")
 }

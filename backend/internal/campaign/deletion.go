@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	DeletionQueueName   = "campaigns_deleting"
-	DeletionInterval    = 5 * time.Minute
-	DeletionUnlinkBatch = 100
+	DeletionQueueName           = "campaigns_deleting"
+	DeletionInterval            = 5 * time.Minute
+	DeletionUnlinkCampaignBatch = 100
 )
 
 const MsgOwnerOnlyDelete = "only the campaign owner can delete the campaign"
@@ -30,6 +30,7 @@ type OwnershipReleaser interface {
 type DeletionDeps struct {
 	Store     DeletionStore
 	Links     SheetLinks
+	Orphans   OrphanLinks
 	Tx        TransactionRunner
 	Publisher events.Publisher
 	Now       func() time.Time
@@ -165,13 +166,13 @@ func (d DeletionDeps) runBatch(ctx context.Context, campaignID string) (batchOut
 			return err
 		}
 		version = touched
-		ids, err := d.Links.LinkedSheetIDs(txCtx, campaignID, DeletionUnlinkBatch)
+		unlinked, err := d.Links.UnlinkCampaignBatch(txCtx, campaignID, DeletionUnlinkCampaignBatch)
 		if err != nil {
 			return err
 		}
-		if len(ids) > 0 {
+		if unlinked > 0 {
 			outcome = outcomeUnlinked
-			return d.Links.UnlinkSheets(txCtx, campaignID, ids)
+			return nil
 		}
 		removed, err := d.Store.RemoveDeleting(txCtx, campaignID)
 		if err != nil {

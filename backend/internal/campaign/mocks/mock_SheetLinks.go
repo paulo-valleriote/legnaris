@@ -21,25 +21,23 @@ func (_m *MockSheetLinks) EXPECT() *MockSheetLinks_Expecter {
 	return &MockSheetLinks_Expecter{mock: &_m.Mock}
 }
 
-// LinkedSheetIDs provides a mock function with given fields: ctx, campaignID, limit
-func (_m *MockSheetLinks) LinkedSheetIDs(ctx context.Context, campaignID string, limit int) ([]string, error) {
+// UnlinkCampaignBatch provides a mock function with given fields: ctx, campaignID, limit
+func (_m *MockSheetLinks) UnlinkCampaignBatch(ctx context.Context, campaignID string, limit int) (int64, error) {
 	ret := _m.Called(ctx, campaignID, limit)
 
 	if len(ret) == 0 {
-		panic("no return value specified for LinkedSheetIDs")
+		panic("no return value specified for UnlinkCampaignBatch")
 	}
 
-	var r0 []string
+	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, int) ([]string, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) (int64, error)); ok {
 		return rf(ctx, campaignID, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, int) []string); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) int64); ok {
 		r0 = rf(ctx, campaignID, limit)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
-		}
+		r0 = ret.Get(0).(int64)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
@@ -51,80 +49,32 @@ func (_m *MockSheetLinks) LinkedSheetIDs(ctx context.Context, campaignID string,
 	return r0, r1
 }
 
-// MockSheetLinks_LinkedSheetIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LinkedSheetIDs'
-type MockSheetLinks_LinkedSheetIDs_Call struct {
+// MockSheetLinks_UnlinkCampaignBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnlinkCampaignBatch'
+type MockSheetLinks_UnlinkCampaignBatch_Call struct {
 	*mock.Call
 }
 
-// LinkedSheetIDs is a helper method to define mock.On call
+// UnlinkCampaignBatch is a helper method to define mock.On call
 //   - ctx context.Context
 //   - campaignID string
 //   - limit int
-func (_e *MockSheetLinks_Expecter) LinkedSheetIDs(ctx interface{}, campaignID interface{}, limit interface{}) *MockSheetLinks_LinkedSheetIDs_Call {
-	return &MockSheetLinks_LinkedSheetIDs_Call{Call: _e.mock.On("LinkedSheetIDs", ctx, campaignID, limit)}
+func (_e *MockSheetLinks_Expecter) UnlinkCampaignBatch(ctx interface{}, campaignID interface{}, limit interface{}) *MockSheetLinks_UnlinkCampaignBatch_Call {
+	return &MockSheetLinks_UnlinkCampaignBatch_Call{Call: _e.mock.On("UnlinkCampaignBatch", ctx, campaignID, limit)}
 }
 
-func (_c *MockSheetLinks_LinkedSheetIDs_Call) Run(run func(ctx context.Context, campaignID string, limit int)) *MockSheetLinks_LinkedSheetIDs_Call {
+func (_c *MockSheetLinks_UnlinkCampaignBatch_Call) Run(run func(ctx context.Context, campaignID string, limit int)) *MockSheetLinks_UnlinkCampaignBatch_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string), args[2].(int))
 	})
 	return _c
 }
 
-func (_c *MockSheetLinks_LinkedSheetIDs_Call) Return(_a0 []string, _a1 error) *MockSheetLinks_LinkedSheetIDs_Call {
+func (_c *MockSheetLinks_UnlinkCampaignBatch_Call) Return(_a0 int64, _a1 error) *MockSheetLinks_UnlinkCampaignBatch_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockSheetLinks_LinkedSheetIDs_Call) RunAndReturn(run func(context.Context, string, int) ([]string, error)) *MockSheetLinks_LinkedSheetIDs_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// UnlinkSheets provides a mock function with given fields: ctx, campaignID, sheetIDs
-func (_m *MockSheetLinks) UnlinkSheets(ctx context.Context, campaignID string, sheetIDs []string) error {
-	ret := _m.Called(ctx, campaignID, sheetIDs)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UnlinkSheets")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, []string) error); ok {
-		r0 = rf(ctx, campaignID, sheetIDs)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockSheetLinks_UnlinkSheets_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnlinkSheets'
-type MockSheetLinks_UnlinkSheets_Call struct {
-	*mock.Call
-}
-
-// UnlinkSheets is a helper method to define mock.On call
-//   - ctx context.Context
-//   - campaignID string
-//   - sheetIDs []string
-func (_e *MockSheetLinks_Expecter) UnlinkSheets(ctx interface{}, campaignID interface{}, sheetIDs interface{}) *MockSheetLinks_UnlinkSheets_Call {
-	return &MockSheetLinks_UnlinkSheets_Call{Call: _e.mock.On("UnlinkSheets", ctx, campaignID, sheetIDs)}
-}
-
-func (_c *MockSheetLinks_UnlinkSheets_Call) Run(run func(ctx context.Context, campaignID string, sheetIDs []string)) *MockSheetLinks_UnlinkSheets_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].([]string))
-	})
-	return _c
-}
-
-func (_c *MockSheetLinks_UnlinkSheets_Call) Return(_a0 error) *MockSheetLinks_UnlinkSheets_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockSheetLinks_UnlinkSheets_Call) RunAndReturn(run func(context.Context, string, []string) error) *MockSheetLinks_UnlinkSheets_Call {
+func (_c *MockSheetLinks_UnlinkCampaignBatch_Call) RunAndReturn(run func(context.Context, string, int) (int64, error)) *MockSheetLinks_UnlinkCampaignBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }

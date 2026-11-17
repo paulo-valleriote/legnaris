@@ -22,6 +22,63 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// ClearPassword provides a mock function with given fields: ctx, cmd
+func (_m *MockService) ClearPassword(ctx context.Context, cmd campaign.InviteCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClearPassword")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.InviteCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.InviteCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.InviteCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ClearPassword_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClearPassword'
+type MockService_ClearPassword_Call struct {
+	*mock.Call
+}
+
+// ClearPassword is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.InviteCommand
+func (_e *MockService_Expecter) ClearPassword(ctx interface{}, cmd interface{}) *MockService_ClearPassword_Call {
+	return &MockService_ClearPassword_Call{Call: _e.mock.On("ClearPassword", ctx, cmd)}
+}
+
+func (_c *MockService_ClearPassword_Call) Run(run func(ctx context.Context, cmd campaign.InviteCommand)) *MockService_ClearPassword_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.InviteCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_ClearPassword_Call) Return(_a0 campaign.View, _a1 error) *MockService_ClearPassword_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ClearPassword_Call) RunAndReturn(run func(context.Context, campaign.InviteCommand) (campaign.View, error)) *MockService_ClearPassword_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function with given fields: ctx, cmd
 func (_m *MockService) Create(ctx context.Context, cmd campaign.CreateCommand) (campaign.View, error) {
 	ret := _m.Called(ctx, cmd)
@@ -241,6 +298,63 @@ func (_c *MockService_Fetch_Call) RunAndReturn(run func(context.Context, string,
 	return _c
 }
 
+// JoinByCode provides a mock function with given fields: ctx, cmd
+func (_m *MockService) JoinByCode(ctx context.Context, cmd campaign.JoinCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for JoinByCode")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.JoinCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.JoinCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.JoinCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_JoinByCode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JoinByCode'
+type MockService_JoinByCode_Call struct {
+	*mock.Call
+}
+
+// JoinByCode is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.JoinCommand
+func (_e *MockService_Expecter) JoinByCode(ctx interface{}, cmd interface{}) *MockService_JoinByCode_Call {
+	return &MockService_JoinByCode_Call{Call: _e.mock.On("JoinByCode", ctx, cmd)}
+}
+
+func (_c *MockService_JoinByCode_Call) Run(run func(ctx context.Context, cmd campaign.JoinCommand)) *MockService_JoinByCode_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.JoinCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_JoinByCode_Call) Return(_a0 campaign.View, _a1 error) *MockService_JoinByCode_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_JoinByCode_Call) RunAndReturn(run func(context.Context, campaign.JoinCommand) (campaign.View, error)) *MockService_JoinByCode_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Leave provides a mock function with given fields: ctx, cmd
 func (_m *MockService) Leave(ctx context.Context, cmd campaign.LeaveCommand) error {
 	ret := _m.Called(ctx, cmd)
@@ -284,6 +398,123 @@ func (_c *MockService_Leave_Call) Return(_a0 error) *MockService_Leave_Call {
 }
 
 func (_c *MockService_Leave_Call) RunAndReturn(run func(context.Context, campaign.LeaveCommand) error) *MockService_Leave_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Link provides a mock function with given fields: ctx, cmd
+func (_m *MockService) Link(ctx context.Context, cmd campaign.LinkCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Link")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.LinkCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.LinkCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.LinkCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_Link_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Link'
+type MockService_Link_Call struct {
+	*mock.Call
+}
+
+// Link is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.LinkCommand
+func (_e *MockService_Expecter) Link(ctx interface{}, cmd interface{}) *MockService_Link_Call {
+	return &MockService_Link_Call{Call: _e.mock.On("Link", ctx, cmd)}
+}
+
+func (_c *MockService_Link_Call) Run(run func(ctx context.Context, cmd campaign.LinkCommand)) *MockService_Link_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.LinkCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_Link_Call) Return(_a0 campaign.View, _a1 error) *MockService_Link_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_Link_Call) RunAndReturn(run func(context.Context, campaign.LinkCommand) (campaign.View, error)) *MockService_Link_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListLinkedSheets provides a mock function with given fields: ctx, campaignID, viewerID
+func (_m *MockService) ListLinkedSheets(ctx context.Context, campaignID string, viewerID string) ([]campaign.LinkedSheetSummary, error) {
+	ret := _m.Called(ctx, campaignID, viewerID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListLinkedSheets")
+	}
+
+	var r0 []campaign.LinkedSheetSummary
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) ([]campaign.LinkedSheetSummary, error)); ok {
+		return rf(ctx, campaignID, viewerID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) []campaign.LinkedSheetSummary); ok {
+		r0 = rf(ctx, campaignID, viewerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]campaign.LinkedSheetSummary)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, campaignID, viewerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ListLinkedSheets_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListLinkedSheets'
+type MockService_ListLinkedSheets_Call struct {
+	*mock.Call
+}
+
+// ListLinkedSheets is a helper method to define mock.On call
+//   - ctx context.Context
+//   - campaignID string
+//   - viewerID string
+func (_e *MockService_Expecter) ListLinkedSheets(ctx interface{}, campaignID interface{}, viewerID interface{}) *MockService_ListLinkedSheets_Call {
+	return &MockService_ListLinkedSheets_Call{Call: _e.mock.On("ListLinkedSheets", ctx, campaignID, viewerID)}
+}
+
+func (_c *MockService_ListLinkedSheets_Call) Run(run func(ctx context.Context, campaignID string, viewerID string)) *MockService_ListLinkedSheets_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_ListLinkedSheets_Call) Return(_a0 []campaign.LinkedSheetSummary, _a1 error) *MockService_ListLinkedSheets_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ListLinkedSheets_Call) RunAndReturn(run func(context.Context, string, string) ([]campaign.LinkedSheetSummary, error)) *MockService_ListLinkedSheets_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -404,6 +635,63 @@ func (_c *MockService_Promote_Call) RunAndReturn(run func(context.Context, campa
 	return _c
 }
 
+// ReadLinkedSheet provides a mock function with given fields: ctx, q
+func (_m *MockService) ReadLinkedSheet(ctx context.Context, q campaign.ReadLinkedSheetQuery) (campaign.LinkedSheetResult, error) {
+	ret := _m.Called(ctx, q)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReadLinkedSheet")
+	}
+
+	var r0 campaign.LinkedSheetResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.ReadLinkedSheetQuery) (campaign.LinkedSheetResult, error)); ok {
+		return rf(ctx, q)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.ReadLinkedSheetQuery) campaign.LinkedSheetResult); ok {
+		r0 = rf(ctx, q)
+	} else {
+		r0 = ret.Get(0).(campaign.LinkedSheetResult)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.ReadLinkedSheetQuery) error); ok {
+		r1 = rf(ctx, q)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ReadLinkedSheet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReadLinkedSheet'
+type MockService_ReadLinkedSheet_Call struct {
+	*mock.Call
+}
+
+// ReadLinkedSheet is a helper method to define mock.On call
+//   - ctx context.Context
+//   - q campaign.ReadLinkedSheetQuery
+func (_e *MockService_Expecter) ReadLinkedSheet(ctx interface{}, q interface{}) *MockService_ReadLinkedSheet_Call {
+	return &MockService_ReadLinkedSheet_Call{Call: _e.mock.On("ReadLinkedSheet", ctx, q)}
+}
+
+func (_c *MockService_ReadLinkedSheet_Call) Run(run func(ctx context.Context, q campaign.ReadLinkedSheetQuery)) *MockService_ReadLinkedSheet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.ReadLinkedSheetQuery))
+	})
+	return _c
+}
+
+func (_c *MockService_ReadLinkedSheet_Call) Return(_a0 campaign.LinkedSheetResult, _a1 error) *MockService_ReadLinkedSheet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ReadLinkedSheet_Call) RunAndReturn(run func(context.Context, campaign.ReadLinkedSheetQuery) (campaign.LinkedSheetResult, error)) *MockService_ReadLinkedSheet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Remove provides a mock function with given fields: ctx, cmd
 func (_m *MockService) Remove(ctx context.Context, cmd campaign.RoleCommand) (campaign.View, error) {
 	ret := _m.Called(ctx, cmd)
@@ -457,6 +745,177 @@ func (_c *MockService_Remove_Call) Return(_a0 campaign.View, _a1 error) *MockSer
 }
 
 func (_c *MockService_Remove_Call) RunAndReturn(run func(context.Context, campaign.RoleCommand) (campaign.View, error)) *MockService_Remove_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RotateInviteCode provides a mock function with given fields: ctx, cmd
+func (_m *MockService) RotateInviteCode(ctx context.Context, cmd campaign.InviteCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RotateInviteCode")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.InviteCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.InviteCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.InviteCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_RotateInviteCode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RotateInviteCode'
+type MockService_RotateInviteCode_Call struct {
+	*mock.Call
+}
+
+// RotateInviteCode is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.InviteCommand
+func (_e *MockService_Expecter) RotateInviteCode(ctx interface{}, cmd interface{}) *MockService_RotateInviteCode_Call {
+	return &MockService_RotateInviteCode_Call{Call: _e.mock.On("RotateInviteCode", ctx, cmd)}
+}
+
+func (_c *MockService_RotateInviteCode_Call) Run(run func(ctx context.Context, cmd campaign.InviteCommand)) *MockService_RotateInviteCode_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.InviteCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_RotateInviteCode_Call) Return(_a0 campaign.View, _a1 error) *MockService_RotateInviteCode_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_RotateInviteCode_Call) RunAndReturn(run func(context.Context, campaign.InviteCommand) (campaign.View, error)) *MockService_RotateInviteCode_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetPassword provides a mock function with given fields: ctx, cmd
+func (_m *MockService) SetPassword(ctx context.Context, cmd campaign.PasswordCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetPassword")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.PasswordCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.PasswordCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.PasswordCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_SetPassword_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetPassword'
+type MockService_SetPassword_Call struct {
+	*mock.Call
+}
+
+// SetPassword is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.PasswordCommand
+func (_e *MockService_Expecter) SetPassword(ctx interface{}, cmd interface{}) *MockService_SetPassword_Call {
+	return &MockService_SetPassword_Call{Call: _e.mock.On("SetPassword", ctx, cmd)}
+}
+
+func (_c *MockService_SetPassword_Call) Run(run func(ctx context.Context, cmd campaign.PasswordCommand)) *MockService_SetPassword_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.PasswordCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_SetPassword_Call) Return(_a0 campaign.View, _a1 error) *MockService_SetPassword_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_SetPassword_Call) RunAndReturn(run func(context.Context, campaign.PasswordCommand) (campaign.View, error)) *MockService_SetPassword_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Unlink provides a mock function with given fields: ctx, cmd
+func (_m *MockService) Unlink(ctx context.Context, cmd campaign.UnlinkCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Unlink")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.UnlinkCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.UnlinkCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.UnlinkCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_Unlink_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Unlink'
+type MockService_Unlink_Call struct {
+	*mock.Call
+}
+
+// Unlink is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.UnlinkCommand
+func (_e *MockService_Expecter) Unlink(ctx interface{}, cmd interface{}) *MockService_Unlink_Call {
+	return &MockService_Unlink_Call{Call: _e.mock.On("Unlink", ctx, cmd)}
+}
+
+func (_c *MockService_Unlink_Call) Run(run func(ctx context.Context, cmd campaign.UnlinkCommand)) *MockService_Unlink_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.UnlinkCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_Unlink_Call) Return(_a0 campaign.View, _a1 error) *MockService_Unlink_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_Unlink_Call) RunAndReturn(run func(context.Context, campaign.UnlinkCommand) (campaign.View, error)) *MockService_Unlink_Call {
 	_c.Call.Return(run)
 	return _c
 }

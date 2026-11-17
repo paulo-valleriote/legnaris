@@ -29,7 +29,7 @@ func newCampaignRouter(svc campaign.Service) http.Handler {
 	e := echo.New()
 	e.HTTPErrorHandler = app.HTTPErrorHandler
 	e.Use(withOwner(campaignTestUserID))
-	app.NewCampaignController(svc).RegisterRoutes(e.Group("/campaigns"))
+	app.NewCampaignController(svc).RegisterRoutes(e.Group("/campaigns"), passThroughMiddleware)
 	return e
 }
 

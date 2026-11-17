@@ -11,6 +11,7 @@ import (
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/campaign/campaigntest"
 	"legnaris/backend/internal/campaign/mocks"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/shared/apperr"
 )
 
@@ -21,12 +22,6 @@ func (h *harness) expectMarkDeleting(expectedVersion int64, result error) {
 			return result
 		},
 	).Once()
-}
-
-func deletingCopy(base campaign.Campaign) campaign.Campaign {
-	out := campaigntest.Copy(base)
-	out.Status = campaign.StatusDeleting
-	return out
 }
 
 func deadCopy(base campaign.Campaign) campaign.Campaign {
@@ -267,4 +262,46 @@ func TestRequestDeletion(t *testing.T) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+type fakeOwnershipCounter struct {
+	counts map[string]int
+}
+
+func (c *fakeOwnershipCounter) Reserve(_ context.Context, ownerID string, limit int) error {
+	if c.counts[ownerID] >= limit {
+		return campaign.ErrOwnershipLimitReached
+	}
+	c.counts[ownerID]++
+	return nil
+}
+
+func (c *fakeOwnershipCounter) Release(_ context.Context, ownerID string) error {
+	c.counts[ownerID]--
+	return nil
+}
+
+func (c *fakeOwnershipCounter) Count(_ context.Context, ownerID string) (int, error) {
+	return c.counts[ownerID], nil
+}
+
+func TestDelete_DeletingCampaignStopsCountingTowardOwnerLimit(t *testing.T) {
+	base := campaigntest.Build(t, 0, 1)
+	owner := campaigntest.OwnerID(base)
+	counter := &fakeOwnershipCounter{counts: map[string]int{owner: 1}}
+	plans := mocks.NewMockPlanSource(t)
+	plans.EXPECT().PlanOf(mock.Anything, owner).Return(plan.Free, nil).Maybe()
+	limiter := campaign.NewOwnershipLimiter(plans, counter)
+
+	h := newHarness(t)
+	h.loadOnce(base)
+	h.expectMarkDeleting(base.Version, nil)
+	svc := h.service(campaign.WithOwnershipReleaser(limiter))
+
+	require.NoError(t, svc.Delete(context.Background(), campaign.DeleteCommand{CampaignID: base.ID, ActorID: owner}))
+
+	usage, err := limiter.Usage(context.Background(), owner)
+	require.NoError(t, err)
+	assert.Equal(t, 0, usage.Used, "the deleting Campaign must no longer count toward the Owner's limit")
+	assert.Equal(t, plan.Free.OwnedCampaignLimit(), usage.Limit)
 }

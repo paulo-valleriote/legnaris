@@ -59,12 +59,10 @@ func deletionRemovalFixture(t *testing.T) campaign.Campaign {
 }
 
 func TestDeletionDeps_Handle(t *testing.T) {
-	sheetA, sheetB := campaigntest.NewID(t), campaigntest.NewID(t)
 	tests := []struct {
 		name        string
 		setup       func(h *deletionHarness, c campaign.Campaign)
 		wantErr     bool
-		wantRemoved bool
 		wantEvent   bool
 		wantVersion int64
 	}{
@@ -72,29 +70,23 @@ func TestDeletionDeps_Handle(t *testing.T) {
 			name: "Happy path: linked sheets are unlinked in batches, then the campaign is removed and announced",
 			setup: func(h *deletionHarness, c campaign.Campaign) {
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(3), nil).Once()
-				h.links.EXPECT().LinkedSheetIDs(mock.Anything, c.ID, campaign.DeletionUnlinkBatch).Return([]string{sheetA, sheetB}, nil).Once()
-				h.links.EXPECT().UnlinkSheets(mock.Anything, c.ID, []string{sheetA, sheetB}).Return(nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(2), nil).Once()
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(4), nil).Once()
-				h.links.EXPECT().LinkedSheetIDs(mock.Anything, c.ID, campaign.DeletionUnlinkBatch).Return(nil, nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
 				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(true, nil).Once()
 			},
-			wantRemoved: true,
 			wantEvent:   true,
 			wantVersion: 4,
 		},
 		{
 			name: "Edge: a late link committed before removal is unlinked by a further batch",
 			setup: func(h *deletionHarness, c campaign.Campaign) {
-				late := campaigntest.NewID(t)
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, mock.Anything).Return(int64(5), nil).Times(3)
-				h.links.EXPECT().LinkedSheetIDs(mock.Anything, c.ID, campaign.DeletionUnlinkBatch).Return([]string{sheetA}, nil).Once()
-				h.links.EXPECT().UnlinkSheets(mock.Anything, c.ID, []string{sheetA}).Return(nil).Once()
-				h.links.EXPECT().LinkedSheetIDs(mock.Anything, c.ID, campaign.DeletionUnlinkBatch).Return([]string{late}, nil).Once()
-				h.links.EXPECT().UnlinkSheets(mock.Anything, c.ID, []string{late}).Return(nil).Once()
-				h.links.EXPECT().LinkedSheetIDs(mock.Anything, c.ID, campaign.DeletionUnlinkBatch).Return(nil, nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(1), nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(1), nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
 				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(true, nil).Once()
 			},
-			wantRemoved: true,
 			wantEvent:   true,
 			wantVersion: 5,
 		},
@@ -108,7 +100,7 @@ func TestDeletionDeps_Handle(t *testing.T) {
 			name: "Edge: a concurrent removal that already won emits nothing",
 			setup: func(h *deletionHarness, c campaign.Campaign) {
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, mock.Anything).Return(int64(4), nil).Once()
-				h.links.EXPECT().LinkedSheetIDs(mock.Anything, c.ID, campaign.DeletionUnlinkBatch).Return(nil, nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
 				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(false, nil).Once()
 			},
 		},
@@ -120,19 +112,10 @@ func TestDeletionDeps_Handle(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Error: a failed link lookup aborts before any unlink or removal",
-			setup: func(h *deletionHarness, c campaign.Campaign) {
-				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, mock.Anything).Return(int64(4), nil).Once()
-				h.links.EXPECT().LinkedSheetIDs(mock.Anything, c.ID, campaign.DeletionUnlinkBatch).Return(nil, errors.New("boom")).Once()
-			},
-			wantErr: true,
-		},
-		{
 			name: "Error: a failed unlink leaves the campaign for a retry",
 			setup: func(h *deletionHarness, c campaign.Campaign) {
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, mock.Anything).Return(int64(4), nil).Once()
-				h.links.EXPECT().LinkedSheetIDs(mock.Anything, c.ID, campaign.DeletionUnlinkBatch).Return([]string{sheetA}, nil).Once()
-				h.links.EXPECT().UnlinkSheets(mock.Anything, c.ID, []string{sheetA}).Return(errors.New("boom")).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), errors.New("boom")).Once()
 			},
 			wantErr: true,
 		},
@@ -140,7 +123,7 @@ func TestDeletionDeps_Handle(t *testing.T) {
 			name: "Error: a failed removal is not announced",
 			setup: func(h *deletionHarness, c campaign.Campaign) {
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, mock.Anything).Return(int64(4), nil).Once()
-				h.links.EXPECT().LinkedSheetIDs(mock.Anything, c.ID, campaign.DeletionUnlinkBatch).Return(nil, nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
 				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(false, errors.New("boom")).Once()
 			},
 			wantErr: true,

@@ -29,6 +29,7 @@ import (
 	generationamqp "legnaris/backend/internal/generation/amqp"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/quota"
+	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sweeper"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/db"
@@ -247,6 +248,10 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
+	orphanQueue, err := campaign.NewOrphanLinksQueue(campaignDeps.Orphans, vars.EmailRelayBatch)
+	if err != nil {
+		return nil, err
+	}
 	billingQueue, err := billing.NewConsumerQueue(billingDeps, vars.EmailRelayMaxAttempts, vars.EmailRelayBatch)
 	if err != nil {
 		return nil, err
@@ -255,7 +260,7 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
-	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue, campaignQueue, billingQueue, refundQueue}, nil
+	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue, campaignQueue, orphanQueue, billingQueue, refundQueue}, nil
 }
 
 func validateBrokerURL(raw string) error {
@@ -389,7 +394,8 @@ func defaultDependencies() dependencies {
 			mdb := mongo.Client.Database(cfg.Variables.DatabaseName)
 			return campaign.DeletionDeps{
 				Store:     campaign.NewDeletionStore(mdb),
-				Links:     campaign.NewSheetLinks(mdb),
+				Links:     sheet.NewRepository(mdb, cfg.Logger),
+				Orphans:   campaign.NewOrphanLinks(mdb),
 				Tx:        db.NewTransactor(mongo.Client, nil),
 				Publisher: publisher,
 				Now:       time.Now,

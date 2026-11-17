@@ -12,15 +12,12 @@ import (
 )
 
 const (
-	sheetsCollection       = "sheets"
-	sheetCampaignIDField   = "campaign_id"
 	deletingAtField        = "deleting_at"
 	deletionAttemptsField  = "deletion_attempts"
 	deletionNextAttempt    = "deletion_next_attempt_at"
 	deletionLockedUntil    = "deletion_locked_until"
 	deletionLastErrorField = "deletion_last_error"
 	updatedAtField         = "updated_at"
-	inOperator             = "$in"
 	lteOperator            = "$lte"
 	orOperator             = "$or"
 	andOperator            = "$and"
@@ -41,8 +38,7 @@ type DeletionStore interface {
 }
 
 type SheetLinks interface {
-	LinkedSheetIDs(ctx context.Context, campaignID string, limit int) ([]string, error)
-	UnlinkSheets(ctx context.Context, campaignID string, sheetIDs []string) error
+	UnlinkCampaignBatch(ctx context.Context, campaignID string, limit int) (int64, error)
 }
 
 type MongoDeletionStore struct {
@@ -177,47 +173,4 @@ func (s *MongoDeletionStore) RemoveDeleting(ctx context.Context, id string) (boo
 		return false, fmt.Errorf("remove deleting campaign: %w", err)
 	}
 	return result.DeletedCount > 0, nil
-}
-
-type MongoSheetLinks struct {
-	sheets *mongo.Collection
-}
-
-func NewSheetLinks(db *mongo.Database) *MongoSheetLinks {
-	return &MongoSheetLinks{sheets: db.Collection(sheetsCollection)}
-}
-
-func (l *MongoSheetLinks) LinkedSheetIDs(ctx context.Context, campaignID string, limit int) ([]string, error) {
-	opts := options.Find().SetLimit(int64(limit)).SetProjection(bson.D{{Key: idField, Value: 1}})
-	cursor, err := l.sheets.Find(ctx, bson.D{{Key: sheetCampaignIDField, Value: campaignID}}, opts)
-	if err != nil {
-		return nil, fmt.Errorf("find linked sheets: %w", err)
-	}
-	var docs []struct {
-		ID string `bson:"_id"`
-	}
-	if err := cursor.All(ctx, &docs); err != nil {
-		return nil, fmt.Errorf("decode linked sheets: %w", err)
-	}
-	ids := make([]string, 0, len(docs))
-	for _, d := range docs {
-		ids = append(ids, d.ID)
-	}
-	return ids, nil
-}
-
-func (l *MongoSheetLinks) UnlinkSheets(ctx context.Context, campaignID string, sheetIDs []string) error {
-	if len(sheetIDs) == 0 {
-		return nil
-	}
-	_, err := l.sheets.UpdateMany(ctx,
-		bson.D{
-			{Key: idField, Value: bson.D{{Key: inOperator, Value: sheetIDs}}},
-			{Key: sheetCampaignIDField, Value: campaignID},
-		},
-		bson.D{{Key: setOperator, Value: bson.D{{Key: sheetCampaignIDField, Value: nil}}}})
-	if err != nil {
-		return fmt.Errorf("unlink sheets: %w", err)
-	}
-	return nil
 }
