@@ -46,6 +46,9 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	sheetsGroup := router.Group("/sheets", requireAuth, requireActive, limitUser)
 	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
+	campaignsGroup := router.Group("/campaigns", requireAuth, requireActive, limitUser)
+	modules.Campaign.Controller.RegisterRoutes(campaignsGroup)
+
 	generationGroup := router.Group("/generations", requireAuth, requireActive)
 	modules.Generation.Controller.RegisterRoutes(generationGroup, modules.Generation.CreateLimiter, modules.Generation.ReadLimiter)
 
