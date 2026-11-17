@@ -4,6 +4,8 @@ status: accepted
 
 # Character generation is an async draft the player accepts
 
+> Amended in LGN-187 (2026-11-17): generation covers every Sheet kind (`character`, `npc`, `enemy`). See [Amendment: generation per Sheet kind](#amendment-generation-per-sheet-kind-lgn-187).
+
 A player generates a character Sheet from a short concept text. `POST /generations` stores a `generation` document, publishes a job to RabbitMQ and answers `202 {id}`. A worker asks the LLM for values that fit a strict JSON Schema derived from the Template, validates them and stores them on the same document. The client polls `GET /generations/{id}` and shows a preview. The player can edit values locally, and nothing becomes a Sheet until `POST /generations/{id}/accept`. The LLM only supplies values for existing editable leaves. It never writes formulas or keys, and its output is treated as untrusted data. Gateway and model come from LGN-170: OpenRouter with DeepSeek V4.1 Flash (`deepseek/deepseek-v4.1-flash`, paid; see ADR 0008), the DeepSeek first-party API is not called directly; OpenRouter may route to it under the consent disclosure (see ADR 0008).
 
 ## Considered Options
@@ -63,3 +65,42 @@ A player generates a character Sheet from a short concept text. `POST /generatio
   - The `generation` service runs on mocks of `llm.Client` and `Publisher`.
   - The adapter is tested with `httptest`.
   - A test against the real gateway self-skips when `LLM_API_KEY` is unset.
+
+## Amendment: generation per Sheet kind (LGN-187)
+
+Decided on 2026-11-17. It extends this ADR from `character` to the NPC and Enemy Sheet kinds of ADR 0012. Enemy is the kind called Monster before a rename in its own card, which blocks this work. Everything above still applies unless it is changed here.
+
+- **Prerequisites:**
+  - The `monster` kind is renamed to `enemy` everywhere.
+  - `fantasy_v1` accepts `npc` and `enemy` in `Kinds`.
+  - The create dialog has a kind selector.
+- **Who:** any user can generate any kind within their Plan's limits. There is no GM gate, because any user can create NPC and Enemy Sheets without a Campaign (ADR 0012).
+- **Input:**
+  - `kind` is one of `character`, `npc` or `enemy`. Any other value returns `INVALID_REQUEST` 400.
+  - A Template that does not accept the kind also returns `INVALID_REQUEST` 400.
+  - The kind is stored on the `generation` document and returned by `GET /generations/{id}`.
+  - Routing key: `generation.<kind>.requested`, on the same `generation.requests` queue.
+- **Gates:**
+  - The gate order does not change.
+  - The read-only Sheet limit check runs for the requested kind. `SHEET_LIMIT_REACHED` carries `kind` in `details`.
+- **Quota:**
+  - Every kind uses one shared counter: the Free trial, the paid daily counter and the global cap.
+  - There is no counter per kind. LLM cost does not depend on the kind, and separate counters would multiply the cost ceiling.
+- **Prompt:**
+  - The system preamble names what is being generated: a player character, a non-player character the GM controls, or an enemy the GM controls.
+  - The user message labels the concept with the kind.
+  - Schema construction and validation are the same for every kind.
+  - Only the concept is sent. No Campaign data reaches the prompt, because it may hold other users' data, which ADR 0008 consent does not cover.
+- **Fields per kind:**
+  - `FieldSchema` gains `GeneratableKinds []plan.SheetKind`. When it is empty, the field is generatable for every kind.
+  - `identity.playerName` is restricted to `character`.
+  - Prompt, schema, validation and assembly filter the generatable leaves by the document's kind.
+  - A filtered field still exists on the Sheet with its default value. The accept path does not change.
+- **Accept:**
+  - It creates the Sheet with the document's kind and reserves the slot of that kind.
+  - It never links the Sheet to a Campaign. Linking stays in the ADR 0012 flow.
+- **Consent:** consent version 3 covers every kind, because what leaves Legnaris is still only the concept. No version bump.
+- **Web:**
+  - The Generate button in the create dialog follows the selected kind (`/generate/:templateId?kind=`).
+  - The generation screen copy depends on the kind.
+  - There is no entry point on the Campaign screen.
