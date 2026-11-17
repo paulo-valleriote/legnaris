@@ -1,7 +1,7 @@
 ---
 version: 1
-slug: "web-src-landing-landing-screen-tsx"
-primary_target: "web/src/landing/landing_screen.tsx"
+slug: "src-landing-landing-screen-tsx"
+primary_target: "src/landing/landing_screen.tsx"
 related_targets: []
 ---
 
