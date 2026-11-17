@@ -17,6 +17,7 @@ func (f linkMongoFixture) insertCampaignFor(t *testing.T, ownerID string) campai
 	t.Helper()
 	c := campaigntest.Build(t, 0, 1)
 	c.Members[0].UserID = ownerID
+	c.InviteCode = campaigntest.NewID(t)
 	require.NoError(t, f.repo.Insert(f.ctx, &c))
 	return c
 }
