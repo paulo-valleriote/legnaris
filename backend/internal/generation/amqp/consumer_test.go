@@ -65,7 +65,7 @@ func TestDecodeMessage(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantID, msg.ID)
-			assert.Equal(t, generation.KindCharacter, msg.Kind)
+			assert.Equal(t, "character", msg.Kind)
 		})
 	}
 }

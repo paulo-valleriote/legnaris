@@ -38,3 +38,61 @@ func TestDefaultTemplateAcceptsEverySheetKind(t *testing.T) {
 		assert.True(t, fantasy.AcceptsKind(kind), "the fantasy template accepts %s sheets", kind)
 	}
 }
+
+func TestGeneratableFor(t *testing.T) {
+	tests := []struct {
+		name             string
+		generatable      bool
+		generatableKinds []plan.SheetKind
+		kind             plan.SheetKind
+		want             bool
+	}{
+		{
+			name:        "Happy path: a leaf with no restriction is generatable for every kind",
+			generatable: true,
+			kind:        plan.KindEnemy,
+			want:        true,
+		},
+		{
+			name:             "Happy path: a restricted leaf is generatable for its declared kind",
+			generatable:      true,
+			generatableKinds: []plan.SheetKind{plan.KindCharacter},
+			kind:             plan.KindCharacter,
+			want:             true,
+		},
+		{
+			name:             "Edge: a restricted leaf is not generatable for another declared kind",
+			generatable:      true,
+			generatableKinds: []plan.SheetKind{plan.KindCharacter},
+			kind:             plan.KindNPC,
+			want:             false,
+		},
+		{
+			name:             "Edge: an unknown kind does not match a restriction",
+			generatable:      true,
+			generatableKinds: []plan.SheetKind{plan.KindCharacter},
+			kind:             plan.SheetKind("dragon"),
+			want:             false,
+		},
+		{
+			name:             "Edge: an empty kind is generatable when no kind is restricted",
+			generatable:      true,
+			generatableKinds: nil,
+			kind:             "",
+			want:             true,
+		},
+		{
+			name:             "Edge: a non-generatable leaf is never generatable",
+			generatable:      false,
+			generatableKinds: []plan.SheetKind{plan.KindCharacter},
+			kind:             plan.KindCharacter,
+			want:             false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			schema := FieldSchema{Generatable: tc.generatable, GeneratableKinds: tc.generatableKinds}
+			assert.Equal(t, tc.want, schema.GeneratableFor(tc.kind))
+		})
+	}
+}

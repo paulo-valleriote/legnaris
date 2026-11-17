@@ -76,16 +76,17 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (string, error)
 	if !s.cfg.Enabled {
 		return "", apperr.NewError(apperr.CodeProviderUnavailable, MsgDisabled, nil)
 	}
-	if err := validateCreate(cmd); err != nil {
+	kind, err := validateCreate(cmd)
+	if err != nil {
 		return "", err
 	}
-	if err := s.requireTemplate(ctx, cmd.TemplateID); err != nil {
+	if err := s.requireTemplate(ctx, cmd.TemplateID, kind); err != nil {
 		return "", err
 	}
 	if err := s.deps.Consent.Gate(ctx, cmd.UserID); err != nil {
 		return "", err
 	}
-	if err := s.requireSheetRoom(ctx, cmd.UserID); err != nil {
+	if err := s.requireSheetRoom(ctx, cmd.UserID, kind); err != nil {
 		return "", err
 	}
 	if err := s.requireNoJobInProgress(ctx, cmd.UserID); err != nil {
@@ -106,7 +107,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (string, error)
 		ID:           id,
 		UserID:       cmd.UserID,
 		TemplateID:   cmd.TemplateID,
-		Kind:         KindCharacter,
+		Kind:         string(kind),
 		Concept:      strings.TrimSpace(cmd.Concept),
 		Status:       StatusQueued,
 		ActiveUserID: cmd.UserID,
@@ -117,7 +118,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (string, error)
 	if err := s.reserveAndInsert(ctx, &doc, current.ID == plan.IDPaid); err != nil {
 		return "", err
 	}
-	s.publish(ctx, Message{ID: id, Kind: KindCharacter})
+	s.publish(ctx, Message{ID: id, Kind: string(kind)})
 	return id, nil
 }
 
@@ -248,7 +249,7 @@ func (s *Service) Accept(ctx context.Context, cmd AcceptCommand) (AcceptResult, 
 
 	created, err := s.deps.Sheets.CreateWithValues(ctx, sheet.CreateWithValuesCommand{
 		TemplateID: doc.TemplateID,
-		Kind:       KindCharacter,
+		Kind:       documentKind(doc.Kind),
 		SheetName:  strings.TrimSpace(cmd.SheetName),
 		OwnerID:    cmd.UserID,
 		Values:     cmd.Values,
@@ -294,7 +295,7 @@ func translateAcceptErr(err error) error {
 	return apperr.NewError(apperr.CodeInternal, MsgUnavailable, err)
 }
 
-func (s *Service) requireTemplate(ctx context.Context, templateID string) error {
+func (s *Service) requireTemplate(ctx context.Context, templateID string, kind plan.SheetKind) error {
 	tmpl, err := s.deps.Templates.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: templateID})
 	if err != nil {
 		var appErr *apperr.Error
@@ -303,20 +304,20 @@ func (s *Service) requireTemplate(ctx context.Context, templateID string) error 
 		}
 		return apperr.NewError(apperr.CodeInternal, MsgUnavailable, err)
 	}
-	if !tmpl.AcceptsKind(plan.KindCharacter) {
+	if !tmpl.AcceptsKind(kind) {
 		return apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateKind, nil)
 	}
 	return nil
 }
 
-func (s *Service) requireSheetRoom(ctx context.Context, userID string) error {
-	status, err := s.deps.Sheets.CheckSheetLimit(ctx, userID, plan.KindCharacter)
+func (s *Service) requireSheetRoom(ctx context.Context, userID string, kind plan.SheetKind) error {
+	status, err := s.deps.Sheets.CheckSheetLimit(ctx, userID, kind)
 	if err != nil {
 		return err
 	}
 	if status.Reached() {
 		return apperr.NewError(apperr.CodeSheetLimitReached, sheet.MsgSheetLimitReached, nil).
-			WithDetails(map[string]any{"kind": string(plan.KindCharacter), "limit": status.Limit})
+			WithDetails(map[string]any{"kind": string(kind), "limit": status.Limit})
 	}
 	return nil
 }
@@ -332,18 +333,19 @@ func (s *Service) requireNoJobInProgress(ctx context.Context, userID string) err
 	return nil
 }
 
-func validateCreate(cmd CreateCommand) error {
+func validateCreate(cmd CreateCommand) (plan.SheetKind, error) {
 	if cmd.UserID == "" {
-		return apperr.NewError(apperr.CodeUnauthorized, MsgOwnerNotProvided, nil)
+		return "", apperr.NewError(apperr.CodeUnauthorized, MsgOwnerNotProvided, nil)
 	}
-	if cmd.Kind != KindCharacter {
-		return apperr.NewError(apperr.CodeInvalidRequest, MsgKindInvalid, nil)
+	kind, ok := plan.ParseSheetKind(cmd.Kind)
+	if !ok {
+		return "", apperr.NewError(apperr.CodeInvalidRequest, MsgKindInvalid, nil)
 	}
 	length := utf8.RuneCountInString(strings.TrimSpace(cmd.Concept))
 	if length < MinConceptLength || length > MaxConceptLength {
-		return apperr.NewError(apperr.CodeInvalidRequest, MsgConceptLength, nil)
+		return "", apperr.NewError(apperr.CodeInvalidRequest, MsgConceptLength, nil)
 	}
-	return nil
+	return kind, nil
 }
 
 func validateID(id string) error {
@@ -364,7 +366,7 @@ func viewOf(doc Document) View {
 	view := View{
 		ID:         doc.ID,
 		Status:     doc.Status,
-		Kind:       doc.Kind,
+		Kind:       documentKind(doc.Kind),
 		TemplateID: doc.TemplateID,
 		CreatedAt:  doc.CreatedAt,
 	}
@@ -375,6 +377,13 @@ func viewOf(doc Document) View {
 		view.ErrorCode = doc.ErrorCode
 	}
 	return view
+}
+
+func documentKind(raw string) string {
+	if raw == "" {
+		return string(plan.KindCharacter)
+	}
+	return raw
 }
 
 func dayKey(t time.Time) string {
