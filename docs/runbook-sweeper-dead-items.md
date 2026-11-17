@@ -121,6 +121,16 @@ Never requeue an item whose root cause is still unfixed: it returns to dead afte
 > `email_notices` (identity `<purpose>:<address>`). It reads the address from the user
 > record as it deletes it, so a record without an address erases no address rows.
 
+## Queue: `campaigns_deleting`
+
+- **Collection:** `campaigns`. Deleting Campaigns have `status: "deleting"`; dead ones have `status: "deletion_dead"`.
+- **Dead state:** `status: "deletion_dead"`, `deletion_last_error` set. Campaign reads already treat it as not found.
+- **Find:** `db.campaigns.find({status: "deletion_dead"}, {name: 1, deletion_attempts: 1, deletion_last_error: 1, deleting_at: 1})`
+- **Alert:** the oldest-pending gauge `legnaris_sweeper_oldest_pending_seconds{queue="campaigns_deleting"}` above 3600 means a deletion has been pending for over 1 hour.
+- **Triage:** read `deletion_last_error`. Each unlink batch is one Campaign transaction, so a rerun is safe.
+- **Requeue:** `db.campaigns.updateOne({_id: <id>, status: "deletion_dead"}, {$set: {status: "deleting", deletion_attempts: 0, deletion_next_attempt_at: null, deletion_locked_until: null, deletion_last_error: ""}})`
+- **Discard:** not applicable. The Campaign and its links must eventually be removed, so requeue instead of deleting by hand.
+
 ## Queue entry template
 
 Copy this block for each new queue (for example `generation`, `users deleting`,

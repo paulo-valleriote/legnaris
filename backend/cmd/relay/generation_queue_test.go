@@ -8,8 +8,11 @@ import (
 	"legnaris/backend/internal/accountdeletion"
 	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/billing/billingtest"
+	"legnaris/backend/internal/campaign"
+	campaignmocks "legnaris/backend/internal/campaign/mocks"
 	"legnaris/backend/internal/email/outbox"
 	outboxmocks "legnaris/backend/internal/email/outbox/mocks"
+	"legnaris/backend/internal/events"
 	eventsoutbox "legnaris/backend/internal/events/outbox"
 	eventsoutboxmocks "legnaris/backend/internal/events/outbox/mocks"
 	"legnaris/backend/internal/generation"
@@ -53,6 +56,27 @@ func idleDeletionDeps(t *testing.T) accountdeletion.Deps {
 	return accountdeletion.Deps{Store: store}
 }
 
+func idleCampaignDeletionDeps(t *testing.T) campaign.DeletionDeps {
+	t.Helper()
+	store := campaignmocks.NewMockDeletionStore(t)
+	store.EXPECT().ClaimDeleting(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	store.EXPECT().OldestDeleting(mock.Anything).Return(time.Time{}, false, nil).Maybe()
+	orphans := campaignmocks.NewMockOrphanLinks(t)
+	orphans.EXPECT().UnlinkOrphans(mock.Anything, mock.Anything).Return(int64(0), nil).Maybe()
+	return campaign.DeletionDeps{
+		Store:   store,
+		Links:   campaignmocks.NewMockSheetLinks(t),
+		Tx:      campaignmocks.NewMockTransactionRunner(t),
+		Orphans: orphans,
+	}
+}
+
+type fakeCampaignPublisher struct{}
+
+func (fakeCampaignPublisher) Publish(events.Event) {}
+
+func (fakeCampaignPublisher) Close() error { return nil }
+
 func idleReapDeps(t *testing.T) generation.ReapDeps {
 	t.Helper()
 	store := generationmocks.NewMockLeaseStore(t)
@@ -72,14 +96,14 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 		wantErr   bool
 		wantNames []string
 	}{
-		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts and the billing consumer are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting", "billing_events", "billing_refunds"}},
+		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts and the billing consumer are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting", "campaigns_deleting", "campaigns_orphan_links", "billing_events", "billing_refunds"}},
 		{name: "Error: a zero batch refuses the generation queue", batch: 0, wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := testEnv()
 			cfg.Variables.EmailRelayBatch = tc.batch
-			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t), idleReapDeps(t), idleDeletionDeps(t), idleBillingDeps())
+			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t), idleReapDeps(t), idleDeletionDeps(t), idleBillingDeps(), idleCampaignDeletionDeps(t))
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -149,6 +173,12 @@ func idleRelayDeps(t *testing.T) dependencies {
 			return eventRepository, nil
 		},
 		serveMetrics: noopServeMetrics,
+		newCampaignPublisher: func(env.Env) campaignPublisherClient {
+			return fakeCampaignPublisher{}
+		},
+		newCampaignDeletion: func(env.Env, databaseHandle, events.Publisher) (campaign.DeletionDeps, error) {
+			return idleCampaignDeletionDeps(t), nil
+		},
 		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository) (accountdeletion.Deps, error) {
 			return idleDeletionDeps(t), nil
 		},

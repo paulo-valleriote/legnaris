@@ -92,6 +92,7 @@ type Service interface {
 	RotateInviteCode(ctx context.Context, cmd InviteCommand) (View, error)
 	SetPassword(ctx context.Context, cmd PasswordCommand) (View, error)
 	ClearPassword(ctx context.Context, cmd InviteCommand) (View, error)
+	Delete(ctx context.Context, cmd DeleteCommand) error
 }
 
 const (
@@ -139,6 +140,7 @@ type ServiceImpl struct {
 	guard      CreateGuard
 	hasher     PasswordHasher
 	joinLimit  JoinLimiter
+	releaser   OwnershipReleaser
 	now        func() time.Time
 }
 
@@ -158,6 +160,10 @@ func WithNameLookup(n NameLookup) ServiceOption {
 
 func WithCreateGuard(g CreateGuard) ServiceOption {
 	return func(s *ServiceImpl) { s.guard = g }
+}
+
+func WithOwnershipReleaser(r OwnershipReleaser) ServiceOption {
+	return func(s *ServiceImpl) { s.releaser = r }
 }
 
 func WithClock(now func() time.Time) ServiceOption {
