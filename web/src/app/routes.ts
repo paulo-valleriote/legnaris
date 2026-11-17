@@ -30,6 +30,13 @@ export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
     notFound: false,
   },
   { path: '/account', label: 'Account', audience: 'session', deepLink: true, notFound: false },
+  {
+    path: '/join/:code',
+    label: 'Join campaign',
+    audience: 'session',
+    deepLink: true,
+    notFound: false,
+  },
   { path: PLANS_PATH, label: 'Plans', audience: 'session', deepLink: true, notFound: false },
   {
     path: '/generate/:templateId',

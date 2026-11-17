@@ -27,6 +27,9 @@ const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   BILLING_UNAVAILABLE: 'billingUnavailable',
   NO_SUBSCRIPTION: 'noSubscription',
   REFUND_NOT_ELIGIBLE: 'refundNotEligible',
+  INVALID_INVITE: 'invalidInvite',
+  PASSWORD_REQUIRED: 'passwordRequired',
+  CAMPAIGN_FULL: 'campaignFull',
 };
 
 const KIND_BY_GENERATION_ERROR: Readonly<Record<string, FailureKind>> = {
@@ -66,6 +69,9 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
   billingUnavailable: 'api.error.billingUnavailable',
   noSubscription: 'api.error.noSubscription',
   refundNotEligible: 'api.error.refundNotEligible',
+  invalidInvite: 'api.error.invalidInvite',
+  passwordRequired: 'api.error.passwordRequired',
+  campaignFull: 'api.error.campaignFull',
 };
 
 export function apperrKind(code: string): FailureKind {

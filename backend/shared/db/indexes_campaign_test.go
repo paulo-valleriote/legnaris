@@ -20,6 +20,11 @@ func TestEnsureIndexes_Campaigns(t *testing.T) {
 		require.True(t, ok, "the member lookup index must exist, got %v", campaigns)
 	})
 
+	t.Run("Happy path: invite codes are unique across campaigns", func(t *testing.T) {
+		_, ok := campaigns["campaigns_invite_code_unique"]
+		require.True(t, ok, "the invite code index must exist, got %v", campaigns)
+	})
+
 	t.Run("Edge: ensuring the campaign indexes twice is idempotent", func(t *testing.T) {
 		require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
 	})

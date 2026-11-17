@@ -47,6 +47,8 @@ const (
 	statusField                     = "status"
 	campaignsMembersUserIDField     = "members.user_id"
 	campaignsMembersUserStatusIndex = "campaigns_members_user_id_status"
+	campaignsInviteCodeUnique       = "campaigns_invite_code_unique"
+	campaignsInviteCodeField        = "invite_code"
 )
 
 func EnsureIndexes(ctx context.Context, database *mongo.Database) error {
@@ -137,6 +139,12 @@ func ensureCampaignIndexes(ctx context.Context, database *mongo.Database) error 
 		Options: options.Index().SetName(campaignsMembersUserStatusIndex),
 	}); err != nil {
 		return fmt.Errorf("create campaigns indexes: %w", err)
+	}
+	if _, err := campaigns.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: campaignsInviteCodeField, Value: 1}},
+		Options: options.Index().SetUnique(true).SetSparse(true).SetName(campaignsInviteCodeUnique),
+	}); err != nil {
+		return fmt.Errorf("create campaigns invite code index: %w", err)
 	}
 	return nil
 }

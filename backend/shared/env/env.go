@@ -88,6 +88,10 @@ type Variables struct {
 	GenerationCreateRateLimitAttempts int
 	GenerationCreateRateLimitWindow   time.Duration
 	GenerationReadRateLimitAttempts   int
+	CampaignJoinIPRateLimitAttempts   int
+	CampaignJoinIPRateLimitWindow     time.Duration
+	CampaignJoinRateLimitAttempts     int
+	CampaignJoinRateLimitWindow       time.Duration
 	GenerationReadRateLimitWindow     time.Duration
 }
 
@@ -115,6 +119,10 @@ const (
 	defaultCSPReportRateLimitWindow       = 1 * time.Minute
 	defaultUserRateLimitAttempts          = 80
 	defaultUserRateLimitWindow            = 1 * time.Minute
+	defaultCampaignJoinIPAttempts         = 20
+	defaultCampaignJoinIPWindow           = 10 * time.Minute
+	defaultCampaignJoinAttempts           = 10
+	defaultCampaignJoinWindow             = 10 * time.Minute
 	defaultEmailProvider                  = "log"
 	defaultEmailSendTimeout               = 10 * time.Second
 	defaultEmailRelayPollInterval         = 1 * time.Second
@@ -262,6 +270,10 @@ func (e *Env) buildVariables() Variables {
 		CSPReportRateLimitWindow:          e.lookupDurationEnv("CSP_REPORT_RATE_LIMIT_WINDOW", defaultCSPReportRateLimitWindow),
 		UserRateLimitAttempts:             e.lookupIntEnv("USER_RATE_LIMIT_ATTEMPTS", defaultUserRateLimitAttempts),
 		UserRateLimitWindow:               e.lookupDurationEnv("USER_RATE_LIMIT_WINDOW", defaultUserRateLimitWindow),
+		CampaignJoinIPRateLimitAttempts:   e.lookupIntEnv("CAMPAIGN_JOIN_IP_RATE_LIMIT_ATTEMPTS", defaultCampaignJoinIPAttempts),
+		CampaignJoinIPRateLimitWindow:     e.lookupDurationEnv("CAMPAIGN_JOIN_IP_RATE_LIMIT_WINDOW", defaultCampaignJoinIPWindow),
+		CampaignJoinRateLimitAttempts:     e.lookupIntEnv("CAMPAIGN_JOIN_RATE_LIMIT_ATTEMPTS", defaultCampaignJoinAttempts),
+		CampaignJoinRateLimitWindow:       e.lookupDurationEnv("CAMPAIGN_JOIN_RATE_LIMIT_WINDOW", defaultCampaignJoinWindow),
 		TrustedProxyCIDRs:                 e.lookupTrustedProxyCIDRs(),
 		RedisURL:                          e.lookupStringEnv(keyRedisURL, ""),
 		AppEnv:                            e.lookupStringEnv(keyAppEnv, ""),
