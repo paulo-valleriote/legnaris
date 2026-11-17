@@ -21,6 +21,8 @@ export const CAMPAIGN_DETAIL_PATH = '/campaigns/:id';
 
 export const CAMPAIGN_SHEET_PATH = '/campaigns/:id/sheets/:sheetId';
 
+export const CAMPAIGN_NPC_PATH = '/campaigns/:id/npcs/:sheetId';
+
 export const PRIVACY_PATH = '/privacy';
 
 export const NOT_FOUND_PATH = '*';
@@ -61,6 +63,13 @@ export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
   {
     path: CAMPAIGN_SHEET_PATH,
     label: 'Campaign sheet',
+    audience: 'session',
+    deepLink: true,
+    notFound: false,
+  },
+  {
+    path: CAMPAIGN_NPC_PATH,
+    label: 'Campaign NPC',
     audience: 'session',
     deepLink: true,
     notFound: false,

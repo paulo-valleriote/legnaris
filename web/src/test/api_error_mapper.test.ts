@@ -37,6 +37,7 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['INVALID_INVITE', 'invalidInvite'],
   ['TEMPLATE_MISMATCH', 'templateMismatch'],
   ['SHEET_ALREADY_LINKED', 'sheetAlreadyLinked'],
+  ['SHEET_KIND_MISMATCH', 'sheetKindMismatch'],
   ['PLAN_LIMIT_REACHED', 'planLimitReached'],
   ['PASSWORD_REQUIRED', 'passwordRequired'],
 ];
@@ -77,6 +78,7 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   invalidInvite: 'api.error.invalidInvite',
   templateMismatch: 'api.error.templateMismatch',
   sheetAlreadyLinked: 'api.error.sheetAlreadyLinked',
+  sheetKindMismatch: 'api.error.sheetKindMismatch',
   planLimitReached: 'api.error.planLimitReached',
   passwordRequired: 'api.error.passwordRequired',
 };

@@ -60,11 +60,13 @@ export function updateSheetLayout(
     const unarranged: Sheet = {
       id: current.id,
       templateId: current.templateId,
+      kind: current.kind,
       name: current.name,
       data: current.data,
       createdAt: current.createdAt,
       updatedAt: current.updatedAt,
       ...(current.dice === undefined ? {} : { dice: current.dice }),
+      ...(current.campaignId === undefined ? {} : { campaignId: current.campaignId }),
     };
     return layout === null ? unarranged : { ...unarranged, layout };
   });

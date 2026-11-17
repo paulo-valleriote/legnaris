@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { UseQueryResult } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { failureCopy } from '../api/error_mapper';
 import type { FieldNode } from '../api/models/template';
@@ -7,7 +8,8 @@ import type { Sheet } from '../api/models/sheet';
 import { useApiClient } from '../app/providers';
 import { templateDetailKey } from '../catalog/queries';
 import { message, messageWith } from '../l10n/strings';
-import { useGmSheet } from './campaign_queries';
+import type { GmSheetSnapshot } from './campaign_queries';
+import { useGmNpcSheet, useGmSheet } from './campaign_queries';
 import './campaign.css';
 
 function formatValue(value: unknown): string {
@@ -91,12 +93,29 @@ export function GmSheetScreen() {
   const { id = '', sheetId = '' } = useParams();
   const sheet = useGmSheet(id, sheetId);
 
+  return <GmSheetPage campaignId={id} heading={message('gm.heading')} sheet={sheet} />;
+}
+
+export function GmNpcSheetScreen() {
+  const { id = '', sheetId = '' } = useParams();
+  const sheet = useGmNpcSheet(id, sheetId);
+
+  return <GmSheetPage campaignId={id} heading={message('gm.npcHeading')} sheet={sheet} />;
+}
+
+interface GmSheetPageProps {
+  readonly campaignId: string;
+  readonly heading: string;
+  readonly sheet: UseQueryResult<GmSheetSnapshot, Error>;
+}
+
+function GmSheetPage({ campaignId, heading, sheet }: GmSheetPageProps) {
   return (
     <div className="lg-campaign">
       <p className="lg-campaign__back">
-        <Link to={`/campaigns/${id}`}>{message('campaign.back')}</Link>
+        <Link to={`/campaigns/${campaignId}`}>{message('campaign.back')}</Link>
       </p>
-      <h1 className="lg-campaign__title">{message('gm.heading')}</h1>
+      <h1 className="lg-campaign__title">{heading}</h1>
       <p className="lg-campaign__caption">{message('gm.caption')}</p>
       <button
         type="button"
