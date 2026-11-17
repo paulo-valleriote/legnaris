@@ -20,6 +20,7 @@ import { renderApp } from './render';
 const DETAIL = `/campaigns/${CAMPAIGN_ID}`;
 const NPCS = `${DETAIL}/npcs`;
 const UNLINK = `${NPCS}/${SHEET_ID}`;
+const REVEAL = `${UNLINK}/reveal`;
 
 function ownedSheet(overrides: Record<string, unknown> = {}) {
   return {
@@ -53,6 +54,8 @@ interface World {
   readonly links: () => unknown[];
   readonly link?: Route['respond'];
   readonly unlink?: Route['respond'];
+  readonly reveal?: Route['respond'];
+  readonly hide?: Route['respond'];
   readonly ownedNpcs?: unknown[];
   readonly ownedMonsters?: unknown[];
 }
@@ -79,11 +82,17 @@ function npcRoutes(world: World, view = campaignView()): Route[] {
       path: UNLINK,
       respond: world.unlink ?? (() => ({ status: 204, body: '' })),
     },
+    ...(world.reveal === undefined ? [] : [{ method: 'PUT', path: REVEAL, respond: world.reveal }]),
+    ...(world.hide === undefined ? [] : [{ method: 'DELETE', path: REVEAL, respond: world.hide }]),
   ];
 }
 
 function openNpc(name: string) {
   return { name: messageWith('campaign.openNpc', { name }) };
+}
+
+function revealToggle(name: string) {
+  return { name: messageWith('campaign.revealNpc', { name }) };
 }
 
 describe('campaign screen: NPC and Monster links (LGN-219)', () => {
@@ -111,7 +120,10 @@ describe('campaign screen: NPC and Monster links (LGN-219)', () => {
     expect(await screen.findByText(message('campaign.npcLinked'))).toBeInTheDocument();
     const row = (await screen.findByRole('link', openNpc('Goblin'))).closest('li');
     expect(row).not.toBeNull();
-    expect(within(row as HTMLElement).getByText(message('campaign.npcHidden'))).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByRole('button', revealToggle('Goblin'))).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     expect(within(row as HTMLElement).getByText(/Owner: mara/)).toBeInTheDocument();
     expect(JSON.parse(script.calls('PUT', NPCS)[0]?.request.body ?? '')).toEqual({
       sheet_id: SHEET_ID,
@@ -193,37 +205,132 @@ describe('campaign screen: NPC and Monster links (LGN-219)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('Edge: reveal state is read-only info and another GM sheet carries no unlink action', async () => {
+  it('Happy path: any GM reveals and hides the sheet through one toggle, refreshing the list', async () => {
+    let links = [npcLink({ revealed: false, is_owner: false, owner_name: 'tomas' })];
     const script = scripted(
       npcRoutes({
-        links: () => [npcLink({ revealed: true, is_owner: false, owner_name: 'tomas' })],
+        links: () => links,
+        reveal: () => {
+          links = [npcLink({ revealed: true, is_owner: false, owner_name: 'tomas' })];
+          return ok(links[0]);
+        },
+        hide: () => {
+          links = [npcLink({ revealed: false, is_owner: false, owner_name: 'tomas' })];
+          return ok(links[0]);
+        },
       }),
     );
+    const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
-    const row = (await screen.findByRole('link', openNpc('Goblin'))).closest('li');
-    expect(
-      within(row as HTMLElement).getByText(message('campaign.npcRevealed')),
-    ).toBeInTheDocument();
+    const toggle = await screen.findByRole('button', revealToggle('Goblin'));
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle).toHaveTextContent(message('campaign.revealNpcAction'));
     expect(
       screen.queryByRole('button', {
         name: messageWith('campaign.unlinkNpc', { name: 'Goblin' }),
       }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: /revealed/i })).not.toBeInTheDocument();
+
+    await user.click(toggle);
+
+    await waitFor(() => expect(script.calls('PUT', REVEAL)).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.getByRole('button', revealToggle('Goblin'))).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      ),
+    );
+    expect(screen.getByText(message('campaign.npcRevealedNotice'))).toBeInTheDocument();
+    expect(screen.getByRole('button', revealToggle('Goblin'))).toHaveTextContent(
+      message('campaign.hideNpcAction'),
+    );
+    await waitFor(() => expect(script.calls('GET', NPCS).length).toBeGreaterThanOrEqual(2));
+
+    await user.click(screen.getByRole('button', revealToggle('Goblin')));
+
+    await waitFor(() => expect(script.calls('DELETE', REVEAL)).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.getByRole('button', revealToggle('Goblin'))).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      ),
+    );
+    expect(screen.getByText(message('campaign.npcHiddenNotice'))).toBeInTheDocument();
   });
 
-  it('Edge: a player sees no NPC section and never requests the GM link list', async () => {
+  it('Error: a refused reveal shows the forbidden copy and leaves the link hidden', async () => {
+    const script = scripted(
+      npcRoutes({
+        links: () => [npcLink({ revealed: false })],
+        reveal: () => fail('CAMPAIGN_FORBIDDEN', 403),
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await user.click(await screen.findByRole('button', revealToggle('Goblin')));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      message('api.error.campaignForbidden'),
+    );
+    expect(screen.getByRole('button', revealToggle('Goblin'))).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('Error: revealing a link that is gone shows the not-found copy and drops it from the list', async () => {
+    let links = [npcLink({ revealed: false })];
+    const script = scripted(
+      npcRoutes({
+        links: () => links,
+        reveal: () => {
+          links = [];
+          return fail('NOT_FOUND', 404);
+        },
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await user.click(await screen.findByRole('button', revealToggle('Goblin')));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message('api.error.notFound'));
+    await waitFor(() =>
+      expect(screen.queryByRole('link', openNpc('Goblin'))).not.toBeInTheDocument(),
+    );
+  });
+
+  it('Edge: a player sees only the revealed NPCs and never a reveal or unlink control', async () => {
+    const script = scripted(
+      npcRoutes(
+        { links: () => [npcLink({ revealed: true, is_owner: false })] },
+        campaignView({ viewer_role: 'player', viewer_owner: false }),
+      ),
+    );
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    expect(await screen.findByRole('link', openNpc('Goblin'))).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: messageWith('campaign.revealNpc', { name: 'Goblin' }) }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: messageWith('campaign.unlinkNpc', { name: 'Goblin' }),
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(message('campaign.npcLinkLabel'))).not.toBeInTheDocument();
+    expect(script.calls('GET', NPCS)).toHaveLength(1);
+  });
+
+  it('Edge: a player with nothing revealed sees the player empty state', async () => {
     const script = scripted(
       npcRoutes({ links: () => [] }, campaignView({ viewer_role: 'player', viewer_owner: false })),
     );
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
-    await screen.findByText('tomas');
-    expect(
-      screen.queryByRole('heading', { name: message('campaign.npcsHeading') }),
-    ).not.toBeInTheDocument();
-    expect(script.calls('GET', NPCS)).toHaveLength(0);
+    expect(await screen.findByText(message('campaign.playerNpcsEmpty'))).toBeInTheDocument();
   });
 
   it.each([

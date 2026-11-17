@@ -102,11 +102,11 @@ describe('GM read-only NPC and Monster view (LGN-219)', () => {
     expect(screen.getByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
   });
 
-  it('Error: a link that is gone or hidden shows the not-found copy', async () => {
+  it('Error: a link that is gone or hidden shows the unavailable copy', async () => {
     const script = scripted(npcRoutes([() => fail('NOT_FOUND', 404)]));
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(message('api.error.notFound'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(message('gm.npcUnavailable'));
     expect(screen.queryByRole('heading', { name: 'Goblin', level: 2 })).not.toBeInTheDocument();
   });
 });
