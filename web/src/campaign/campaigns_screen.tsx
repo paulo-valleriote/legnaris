@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
@@ -9,10 +9,11 @@ import { useApiClient } from '../app/providers';
 import { CATALOG_QUERY_KEY, PLAN_QUERY_KEY, usePlanUsage } from '../catalog/queries';
 import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
+import { Dialog } from '../ui/dialog';
 import { Field } from '../ui/field';
 import { atOwnedLimit } from './campaign_view';
 import { CAMPAIGNS_QUERY_KEY, seedCampaign, useCampaigns } from './campaign_queries';
-import './campaign.css';
+import './campaigns.css';
 
 export function roleText(role: CampaignRole, owner: boolean): string {
   if (owner) {
@@ -21,18 +22,97 @@ export function roleText(role: CampaignRole, owner: boolean): string {
   return role === 'gm' ? message('campaigns.roleGm') : message('campaigns.rolePlayer');
 }
 
-function CampaignList({ campaigns }: { campaigns: readonly CampaignSummary[] }) {
+export function updatedText(updatedAt: string): string | undefined {
+  const date = new Date(updatedAt);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+  const formatted = new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(date);
+  return messageWith('campaigns.updated', { date: formatted });
+}
+
+function campaignRank(campaign: CampaignSummary): number {
+  if (campaign.viewerOwner) {
+    return 0;
+  }
+  return campaign.viewerRole === 'gm' ? 1 : 2;
+}
+
+export function orderCampaigns(list: readonly CampaignSummary[]): CampaignSummary[] {
+  return list
+    .map((campaign, index) => ({ campaign, index }))
+    .sort(
+      (left, right) =>
+        campaignRank(left.campaign) - campaignRank(right.campaign) || left.index - right.index,
+    )
+    .map((entry) => entry.campaign);
+}
+
+function ChevronIcon() {
   return (
-    <ul className="lg-campaign__list" aria-label={message('campaigns.listHeading')}>
-      {campaigns.map((campaign) => (
-        <li className="lg-campaign__row" key={campaign.id}>
-          <Link className="lg-campaign__link" to={`/campaigns/${campaign.id}`}>
-            {campaign.name}
-          </Link>
-          <span className="lg-campaign__meta">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function CampaignRow({
+  campaign,
+  templateName,
+}: {
+  campaign: CampaignSummary;
+  templateName: string | undefined;
+}) {
+  const parts = [templateName, updatedText(campaign.updatedAt)].filter(
+    (part): part is string => part !== undefined,
+  );
+
+  return (
+    <li className="lg-campaigns__item">
+      <Link className="lg-campaigns__entry" to={`/campaigns/${campaign.id}`}>
+        <span className="lg-campaigns__text">
+          <span className="lg-campaigns__name">{campaign.name}</span>
+          {parts.length === 0 ? null : (
+            <span className="lg-campaigns__meta">{parts.join(' · ')}</span>
+          )}
+        </span>
+        <span className="lg-campaigns__trailing">
+          <span className="lg-campaigns__role">
             {roleText(campaign.viewerRole, campaign.viewerOwner)}
           </span>
-        </li>
+          <span className="lg-campaigns__open">
+            <ChevronIcon />
+          </span>
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+function CampaignList({
+  campaigns,
+  templateNames,
+}: {
+  campaigns: readonly CampaignSummary[];
+  templateNames: ReadonlyMap<string, string>;
+}) {
+  return (
+    <ul className="lg-campaigns__list" aria-label={message('campaigns.listHeading')}>
+      {campaigns.map((campaign) => (
+        <CampaignRow
+          key={campaign.id}
+          campaign={campaign}
+          templateName={templateNames.get(campaign.templateId)}
+        />
       ))}
     </ul>
   );
@@ -40,21 +120,25 @@ function CampaignList({ campaigns }: { campaigns: readonly CampaignSummary[] }) 
 
 function CreateCampaignForm({
   templates,
-  disabled,
   pending,
   error,
   onSubmit,
+  onCancel,
 }: {
   templates: readonly TemplateSummary[];
-  disabled: boolean;
   pending: boolean;
   error: string | undefined;
   onSubmit: (name: string, templateId: string) => void;
+  onCancel: () => void;
 }) {
   const [name, setName] = useState('');
   const [templateChoice, setTemplateChoice] = useState('');
   const [nameError, setNameError] = useState<string | undefined>(undefined);
   const templateId = templateChoice || templates[0]?.id || '';
+
+  useEffect(() => {
+    document.getElementById('campaign-name')?.focus();
+  }, []);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -68,41 +152,58 @@ function CreateCampaignForm({
   };
 
   return (
-    <form className="lg-campaign__form" onSubmit={submit} noValidate>
+    <form className="lg-campaigns__form" onSubmit={submit} noValidate>
       <Field
         label={message('campaigns.nameLabel')}
         name="campaign-name"
         value={name}
-        disabled={disabled || pending}
+        disabled={pending}
         error={nameError}
         onChange={setName}
       />
-      <label className="lg-field" htmlFor="campaign-template">
-        <span className="lg-field__label">{message('campaigns.templateLabel')}</span>
-        <select
-          id="campaign-template"
-          className="lg-campaign__select"
-          value={templateId}
-          disabled={disabled || pending}
-          onChange={(event) => setTemplateChoice(event.target.value)}
-        >
-          {templates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      {templates.length > 1 ? (
+        <label className="lg-field" htmlFor="campaign-template">
+          <span className="lg-field__label">{message('campaigns.templateLabel')}</span>
+          <select
+            id="campaign-template"
+            className="lg-campaigns__select"
+            value={templateId}
+            disabled={pending}
+            onChange={(event) => setTemplateChoice(event.target.value)}
+          >
+            {templates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : templates.length === 1 ? (
+        <div className="lg-field">
+          <span className="lg-field__label">{message('campaigns.templateLabel')}</span>
+          <p className="lg-campaigns__template" data-testid="campaigns-template">
+            {templates[0].name}
+          </p>
+        </div>
+      ) : null}
       {error ? (
-        <p className="lg-campaign__error" role="alert">
+        <p className="lg-campaigns__error" role="alert">
           {error}
         </p>
       ) : null}
-      <div>
+      <div className="lg-campaigns__actions">
+        <button
+          type="button"
+          className="lg-button lg-button--outline lg-button--md"
+          disabled={pending}
+          onClick={onCancel}
+        >
+          {message('campaigns.cancel')}
+        </button>
         <button
           type="submit"
           className="lg-button lg-button--primary lg-button--md"
-          disabled={disabled || pending || templateId === ''}
+          disabled={pending || templateId === ''}
           aria-busy={pending ? true : undefined}
         >
           {pending ? message('campaigns.creating') : message('campaigns.create')}
@@ -124,11 +225,13 @@ export function CampaignsScreen() {
     retry: false,
   });
   const [createError, setCreateError] = useState<string | undefined>(undefined);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const create = useMutation({
     mutationFn: (input: { name: string; templateId: string }) => client.createCampaign(input),
     onSuccess: (campaign) => {
       setCreateError(undefined);
+      setCreateOpen(false);
       seedCampaign(queryClient, campaign);
       void queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
@@ -142,20 +245,35 @@ export function CampaignsScreen() {
     },
   });
 
+  const closeCreate = useCallback(() => {
+    if (create.isPending) {
+      return;
+    }
+    setCreateOpen(false);
+  }, [create.isPending]);
+
+  const openCreate = () => {
+    setCreateError(undefined);
+    setCreateOpen(true);
+  };
+
   const owned = plan.data?.ownedCampaigns;
   const limitReached = owned !== undefined && atOwnedLimit(owned);
+  const templateNames = new Map(
+    (templates.data ?? []).map((template) => [template.id, template.name]),
+  );
 
   let listing;
   if (campaigns.isPending) {
     listing = (
-      <p className="lg-campaign__message" role="status">
+      <p className="lg-campaigns__message" role="status">
         {message('campaigns.loading')}
       </p>
     );
   } else if (campaigns.isError) {
     listing = (
-      <div className="lg-campaign__failure" role="alert">
-        <p className="lg-campaign__error">
+      <div className="lg-campaigns__failure" role="alert">
+        <p className="lg-campaigns__error">
           {message('campaigns.loadFailed')} {failureCopy(campaigns.error)}
         </p>
         <Button
@@ -166,39 +284,56 @@ export function CampaignsScreen() {
       </div>
     );
   } else if (campaigns.data.length === 0) {
-    listing = <p className="lg-campaign__message">{message('campaigns.empty')}</p>;
+    listing = <p className="lg-campaigns__empty">{message('campaigns.empty')}</p>;
   } else {
-    listing = <CampaignList campaigns={campaigns.data} />;
+    listing = (
+      <CampaignList campaigns={orderCampaigns(campaigns.data)} templateNames={templateNames} />
+    );
   }
 
   return (
-    <div className="lg-campaign">
-      <h1 className="lg-campaign__title">{message('campaigns.title')}</h1>
-      {listing}
-      <section className="lg-campaign__section" aria-labelledby="campaigns-create-heading">
-        <h2 className="lg-campaign__heading" id="campaigns-create-heading">
-          {message('campaigns.createHeading')}
-        </h2>
-        {owned === undefined ? null : (
-          <p className="lg-campaign__meta">
-            {messageWith('campaigns.ownedCount', { used: owned.used, limit: owned.limit })}
-          </p>
-        )}
-        {limitReached ? (
-          <p className="lg-campaign__message" role="status">
-            {message('campaigns.limitReached')}
-          </p>
-        ) : null}
+    <section className="lg-campaigns" aria-labelledby="campaigns-title">
+      <header className="lg-campaigns__head">
+        <div className="lg-campaigns__head-text">
+          <h1 className="lg-campaigns__title" id="campaigns-title">
+            {message('campaigns.title')}
+          </h1>
+          {owned === undefined ? null : (
+            <p className="lg-campaigns__usage" data-testid="campaigns-usage">
+              {messageWith('campaigns.ownedCount', { used: owned.used, limit: owned.limit })}
+            </p>
+          )}
+        </div>
         {templates.data === undefined ? null : (
-          <CreateCampaignForm
-            templates={templates.data}
+          <button
+            type="button"
+            className="lg-button lg-button--primary lg-button--md"
             disabled={limitReached}
-            pending={create.isPending}
-            error={createError}
-            onSubmit={(name, templateId) => create.mutate({ name, templateId })}
-          />
+            aria-describedby={limitReached ? 'campaigns-limit' : undefined}
+            onClick={openCreate}
+          >
+            {message('campaigns.new')}
+          </button>
         )}
-      </section>
-    </div>
+      </header>
+      {limitReached ? (
+        <div className="lg-campaigns__notice" id="campaigns-limit" role="status">
+          <p className="lg-campaigns__notice-text">{message('campaigns.limitReached')}</p>
+          <Link className="lg-campaigns__notice-link" to="/plans">
+            {message('campaigns.seePlans')}
+          </Link>
+        </div>
+      ) : null}
+      {listing}
+      <Dialog open={createOpen} title={message('campaigns.create')} onClose={closeCreate}>
+        <CreateCampaignForm
+          templates={templates.data ?? []}
+          pending={create.isPending}
+          error={createError}
+          onSubmit={(name, templateId) => create.mutate({ name, templateId })}
+          onCancel={closeCreate}
+        />
+      </Dialog>
+    </section>
   );
 }

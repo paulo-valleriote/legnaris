@@ -50,6 +50,7 @@ function playerView() {
 describe('campaign screen: members and roles (LGN-218)', () => {
   it('Happy path: the owner sees every member with role, character and the actions the owner may take', async () => {
     const script = scripted(detailRoutes(campaignView()));
+    const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     expect(
@@ -62,6 +63,10 @@ describe('campaign screen: members and roles (LGN-218)', () => {
     expect(
       screen.getByRole('button', { name: `${message('campaign.promote')} tomas` }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: message('campaign.delete') }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: message('campaign.settingsHeading') }));
     expect(screen.getByRole('button', { name: message('campaign.delete') })).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: message('campaign.leave') }),
@@ -90,6 +95,12 @@ describe('campaign screen: members and roles (LGN-218)', () => {
       screen.queryByRole('button', { name: message('campaign.delete') }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: message('campaign.leave') })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: message('invite.heading') }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: message('campaign.settingsHeading') }),
+    ).not.toBeInTheDocument();
     expect(await screen.findByLabelText(message('campaign.linkLabel'))).toBeInTheDocument();
   });
 
@@ -336,6 +347,7 @@ describe('campaign screen: leave and delete (LGN-218)', () => {
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     await screen.findByText('tomas');
+    await user.click(screen.getByRole('button', { name: message('campaign.settingsHeading') }));
     await user.click(screen.getByRole('button', { name: message('campaign.delete') }));
     expect(script.calls('DELETE', DETAIL)).toHaveLength(0);
 
@@ -358,6 +370,7 @@ describe('campaign screen: leave and delete (LGN-218)', () => {
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     await screen.findByText('tomas');
+    await user.click(screen.getByRole('button', { name: message('campaign.settingsHeading') }));
     await user.click(screen.getByRole('button', { name: message('campaign.delete') }));
     await user.click(
       within(await screen.findByRole('dialog')).getByRole('button', {
@@ -373,9 +386,11 @@ describe('campaign screen: leave and delete (LGN-218)', () => {
 
   it('Edge: a campaign in the deleting state shows the deleting notice and no destructive action', async () => {
     const script = scripted(detailRoutes(campaignView({ status: 'deleting' })));
+    const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     expect(await screen.findByText(message('campaign.deleting'))).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: message('campaign.settingsHeading') }));
     expect(screen.getByRole('button', { name: message('campaign.delete') })).toBeDisabled();
   });
 
@@ -399,5 +414,26 @@ describe('campaign screen: leave and delete (LGN-218)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       message('api.error.campaignForbidden'),
     );
+  });
+});
+
+describe('campaign screen: sensitive panels stay collapsed (LGN-218)', () => {
+  const CODE = 'DetailProbeCode-0123456789';
+
+  it.each([
+    ['the invite code', () => screen.queryByText(CODE)],
+    ['the share link', () => screen.queryByLabelText(message('invite.linkLabel'))],
+    [
+      'the join password form',
+      () => screen.queryByLabelText(message('invite.passwordLabel'), { exact: false }),
+    ],
+    ['the delete action', () => screen.queryByRole('button', { name: message('campaign.delete') })],
+  ])('Edge: %s is not in the DOM until its panel is opened', async (_label, find) => {
+    const script = scripted(detailRoutes(campaignView({ invite_code: CODE })));
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await screen.findByRole('heading', { name: 'Ember Coast', level: 1 });
+    expect(find()).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

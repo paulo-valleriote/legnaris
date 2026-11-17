@@ -428,7 +428,9 @@ describe('campaign screen: NPC and Enemy links (LGN-219)', () => {
     expect(
       screen.queryByRole('combobox', { name: message('campaign.npcLinkLabel') }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('campaign.npcLink') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('campaign.npcLink') }),
+    ).not.toBeInTheDocument();
   });
 
   it('Happy path: an Enemy sheet is offered beside an NPC and linked with its kind', async () => {

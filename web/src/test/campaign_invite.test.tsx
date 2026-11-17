@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { UserEvent } from '@testing-library/user-event';
 import { message } from '../l10n/strings';
 import { inviteLink } from '../campaign/invite_panel';
 import {
@@ -39,33 +40,160 @@ function gmView(overrides: Record<string, unknown> = {}) {
   });
 }
 
+function inviteToggle() {
+  return screen.getByRole('button', { name: message('invite.heading') });
+}
+
+function settingsToggle() {
+  return screen.getByRole('button', { name: message('campaign.settingsHeading') });
+}
+
+async function openInvite(user: UserEvent) {
+  await user.click(await screen.findByRole('button', { name: message('invite.heading') }));
+}
+
+async function openSettings(user: UserEvent) {
+  await user.click(
+    await screen.findByRole('button', { name: message('campaign.settingsHeading') }),
+  );
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('GM invite controls (LGN-200 on the campaign page)', () => {
-  it('Happy path: a GM sees the invite code and its share link', async () => {
+  it('Happy path: a GM opens the invite panel and sees the code and its share link', async () => {
     const script = scripted(gmRoutes(gmView()));
+    const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
-    expect(await screen.findByText(CODE)).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: inviteLink(window.location.origin, CODE) }),
-    ).toHaveAttribute('href', `${window.location.origin}/join/${CODE}`);
+    await screen.findByRole('heading', { name: 'Ember Coast', level: 1 });
+    expect(inviteToggle()).toHaveAttribute('aria-expanded', 'false');
+    await openInvite(user);
+
+    expect(inviteToggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(CODE)).toBeInTheDocument();
+    expect(screen.getByLabelText(message('invite.linkLabel'))).toHaveValue(
+      inviteLink(window.location.origin, CODE),
+    );
   });
 
   it('Edge: a GM with no invite code yet sees the empty copy, not a broken link', async () => {
     const script = scripted(gmRoutes(gmView({ invite_code: undefined })));
+    const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
+    await openInvite(user);
+
     expect(await screen.findByText(message('invite.none'))).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /\/join\// })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(message('invite.linkLabel'))).not.toBeInTheDocument();
   });
 
-  it('Happy path: a player never sees the invite section', async () => {
+  it('Edge: the toggles start collapsed and reveal nothing sensitive until opened', async () => {
+    const script = scripted(gmRoutes(gmView()));
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await screen.findByRole('heading', { name: 'Ember Coast', level: 1 });
+    expect(inviteToggle()).toHaveAttribute('aria-expanded', 'false');
+    expect(settingsToggle()).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText(CODE)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(message('invite.linkLabel'))).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(message('invite.passwordLabel'), { exact: false }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: message('campaign.delete') }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('Happy path: an open panel closes again and its content leaves the DOM', async () => {
+    const script = scripted(gmRoutes(gmView()));
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await openInvite(user);
+    expect(screen.getByText(CODE)).toBeInTheDocument();
+
+    await openInvite(user);
+    expect(inviteToggle()).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText(CODE)).not.toBeInTheDocument();
+  });
+
+  it('Happy path: both panels stay open independently', async () => {
+    const script = scripted(gmRoutes(gmView()));
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await openInvite(user);
+    await openSettings(user);
+
+    expect(inviteToggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(settingsToggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(CODE)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(message('invite.passwordLabel'), { exact: false }),
+    ).toBeInTheDocument();
+  });
+
+  it('Happy path: a player never sees the invite or settings controls', async () => {
     const script = scripted(gmRoutes(campaignView({ viewer_role: 'player', viewer_owner: false })));
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     await screen.findByText('tomas');
     expect(
+      screen.queryByRole('button', { name: message('invite.heading') }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: message('campaign.settingsHeading') }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByRole('heading', { name: message('invite.heading') }),
     ).not.toBeInTheDocument();
+  });
+
+  it('Edge: a GM who does not own the Campaign sees Invite but not Settings', async () => {
+    const script = scripted(gmRoutes(gmView({ viewer_owner: false })));
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    expect(
+      await screen.findByRole('button', { name: message('invite.heading') }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: message('campaign.settingsHeading') }),
+    ).not.toBeInTheDocument();
+
+    await openInvite(user);
+    expect(screen.getByText(CODE)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: message('campaign.delete') }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('Happy path: Copy link writes the share link and confirms inline', async () => {
+    const script = scripted(gmRoutes(gmView()));
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await openInvite(user);
+    await user.click(screen.getByRole('button', { name: message('invite.copyLink') }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(message('invite.copied'));
+    expect(writeText).toHaveBeenCalledWith(inviteLink(window.location.origin, CODE));
+  });
+
+  it('Error: a refused clipboard write shows the fallback copy', async () => {
+    const script = scripted(gmRoutes(gmView()));
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await openInvite(user);
+    await user.click(screen.getByRole('button', { name: message('invite.copyLink') }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message('invite.copyFailed'));
   });
 
   it('Happy path: rotating asks first, then replaces the code and the link', async () => {
@@ -82,7 +210,7 @@ describe('GM invite controls (LGN-200 on the campaign page)', () => {
     const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
-    await screen.findByText(CODE);
+    await openInvite(user);
     await user.click(screen.getByRole('button', { name: message('invite.rotate') }));
     expect(script.calls('POST', `${DETAIL}/invite/rotate`)).toHaveLength(0);
 
@@ -100,7 +228,7 @@ describe('GM invite controls (LGN-200 on the campaign page)', () => {
     const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
-    await screen.findByText(CODE);
+    await openInvite(user);
     await user.click(screen.getByRole('button', { name: message('invite.rotate') }));
     await user.click(
       within(await screen.findByRole('dialog')).getByRole('button', {
@@ -112,12 +240,62 @@ describe('GM invite controls (LGN-200 on the campaign page)', () => {
     expect(script.calls('POST', `${DETAIL}/invite/rotate`)).toHaveLength(0);
   });
 
+  it('Error: a refused rotate shows its mapped copy and keeps the old code', async () => {
+    const script = scripted(
+      gmRoutes(gmView(), [
+        {
+          method: 'POST',
+          path: `${DETAIL}/invite/rotate`,
+          respond: () => fail('CAMPAIGN_FORBIDDEN', 403),
+        },
+      ]),
+    );
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await openInvite(user);
+    await user.click(screen.getByRole('button', { name: message('invite.rotate') }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: message('invite.rotateConfirm'),
+      }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      message('api.error.campaignForbidden'),
+    );
+    expect(screen.getByText(CODE)).toBeInTheDocument();
+  });
+});
+
+describe('Campaign settings panel (owners only)', () => {
+  it('Happy path: the settings panel carries the password and the danger zone', async () => {
+    const script = scripted(gmRoutes(gmView()));
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await openSettings(user);
+
+    expect(settingsToggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('heading', { name: message('campaign.settingsHeading') }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: message('invite.passwordHeading') }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: message('campaign.dangerHeading') }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(message('campaign.deleteNote'))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('campaign.delete') })).toBeInTheDocument();
+  });
+
   it('Edge: a password under 8 characters is refused on the client and sends nothing', async () => {
     const script = scripted(gmRoutes(gmView()));
     const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
-    await screen.findByText(CODE);
+    await openSettings(user);
     await user.type(
       screen.getByLabelText(message('invite.passwordLabel'), { exact: false }),
       'short',
@@ -141,7 +319,7 @@ describe('GM invite controls (LGN-200 on the campaign page)', () => {
     const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
-    await screen.findByText(CODE);
+    await openSettings(user);
     await user.type(
       screen.getByLabelText(message('invite.passwordLabel'), { exact: false }),
       'open sesame',
@@ -170,36 +348,10 @@ describe('GM invite controls (LGN-200 on the campaign page)', () => {
     const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
+    await openSettings(user);
     await user.click(await screen.findByRole('button', { name: message('invite.passwordClear') }));
 
     expect(await screen.findByText(message('invite.passwordNone'))).toBeInTheDocument();
     expect(script.calls('DELETE', `${DETAIL}/password`)).toHaveLength(1);
-  });
-
-  it('Error: a refused rotate shows its mapped copy and keeps the old code', async () => {
-    const script = scripted(
-      gmRoutes(gmView(), [
-        {
-          method: 'POST',
-          path: `${DETAIL}/invite/rotate`,
-          respond: () => fail('CAMPAIGN_FORBIDDEN', 403),
-        },
-      ]),
-    );
-    const user = userEvent.setup();
-    renderApp(DETAIL, { client: clientFor(script.transport) });
-
-    await screen.findByText(CODE);
-    await user.click(screen.getByRole('button', { name: message('invite.rotate') }));
-    await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', {
-        name: message('invite.rotateConfirm'),
-      }),
-    );
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      message('api.error.campaignForbidden'),
-    );
-    expect(screen.getByText(CODE)).toBeInTheDocument();
   });
 });

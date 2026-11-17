@@ -8,7 +8,8 @@ import type { MemberAction } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
 import { Dialog } from '../ui/dialog';
 import { PLAN_QUERY_KEY } from '../catalog/queries';
-import { InvitePanel } from './invite_panel';
+import { INVITE_PANEL_ID, InvitePanel } from './invite_panel';
+import { CampaignSettings, SETTINGS_PANEL_ID } from './campaign_settings';
 import { useOwnedCharacterSheets, useOwnedSheets } from './campaign_queries';
 import {
   CAMPAIGNS_QUERY_KEY,
@@ -130,7 +131,7 @@ function LinkCharacterForm({
         </p>
       ) : null}
       {owned.data !== undefined && eligible.length === 0 ? (
-        <p className="lg-campaign__message">{message('campaign.noEligibleSheets')}</p>
+        <p className="lg-campaign__empty">{message('campaign.noEligibleSheets')}</p>
       ) : null}
       <form className="lg-campaign__form" onSubmit={submit} noValidate>
         {eligible.length === 0 ? null : (
@@ -193,7 +194,7 @@ function LinkedSheets({ campaignId }: { campaignId: string }) {
     return null;
   }
   if (sheets.data.length === 0) {
-    return <p className="lg-campaign__message">{message('campaign.sheetsEmpty')}</p>;
+    return <p className="lg-campaign__empty">{message('campaign.sheetsEmpty')}</p>;
   }
 
   return (
@@ -257,7 +258,7 @@ function LinkNpcForm({
         </p>
       ) : null}
       {loaded && eligible.length === 0 ? (
-        <p className="lg-campaign__message">{message('campaign.noEligibleNpcs')}</p>
+        <p className="lg-campaign__empty">{message('campaign.noEligibleNpcs')}</p>
       ) : null}
       {eligible.length === 0 ? null : (
         <label className="lg-field" htmlFor="campaign-npc-sheet">
@@ -283,14 +284,16 @@ function LinkNpcForm({
         </p>
       ) : null}
       <div className="lg-campaign__actions">
-        <button
-          type="submit"
-          className="lg-button lg-button--primary lg-button--md"
-          disabled={disabled || pending || selected === ''}
-          aria-busy={pending ? true : undefined}
-        >
-          {message('campaign.npcLink')}
-        </button>
+        {eligible.length === 0 ? null : (
+          <button
+            type="submit"
+            className="lg-button lg-button--primary lg-button--md"
+            disabled={disabled || pending || selected === ''}
+            aria-busy={pending ? true : undefined}
+          >
+            {message('campaign.npcLink')}
+          </button>
+        )}
       </div>
     </form>
   );
@@ -324,7 +327,7 @@ function NpcLinks({
   }
   if (links.data.length === 0) {
     return (
-      <p className="lg-campaign__message">
+      <p className="lg-campaign__empty">
         {message(gm ? 'campaign.npcsEmpty' : 'campaign.playerNpcsEmpty')}
       </p>
     );
@@ -392,6 +395,8 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
   const [linkError, setLinkError] = useState<string | undefined>(undefined);
   const [npcError, setNpcError] = useState<string | undefined>(undefined);
   const [npcNotice, setNpcNotice] = useState<string | undefined>(undefined);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const refreshCampaign = (next: Campaign) => {
     seedCampaign(queryClient, next);
@@ -567,20 +572,64 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
 
   return (
     <>
-      <p className="lg-campaign__back">
-        <Link to="/campaigns">{message('campaign.back')}</Link>
-      </p>
-      <h1 className="lg-campaign__title">{campaign.name}</h1>
-      <p className="lg-campaign__meta">{roleText(campaign.viewerRole, campaign.viewerOwner)}</p>
-      {deleting ? (
-        <p className="lg-campaign__message" role="status">
-          {message('campaign.deleting')}
+      <header className="lg-campaign__header">
+        <p className="lg-campaign__back">
+          <Link to="/campaigns">{message('campaign.back')}</Link>
         </p>
+        <h1 className="lg-campaign__title">{campaign.name}</h1>
+        <p className="lg-campaign__meta">
+          <span className="lg-campaign__role">
+            {roleText(campaign.viewerRole, campaign.viewerOwner)}
+          </span>
+        </p>
+        {deleting ? (
+          <p className="lg-campaign__message" role="status">
+            {message('campaign.deleting')}
+          </p>
+        ) : null}
+        {actionError ? (
+          <p className="lg-campaign__error" role="alert">
+            {actionError}
+          </p>
+        ) : null}
+      </header>
+
+      {campaign.viewerRole === 'gm' || canDeleteCampaign(campaign) ? (
+        <div className="lg-campaign__toolbar">
+          {campaign.viewerRole === 'gm' ? (
+            <button
+              type="button"
+              className="lg-button lg-button--outline lg-button--md"
+              aria-expanded={inviteOpen}
+              aria-controls={INVITE_PANEL_ID}
+              onClick={() => setInviteOpen((open) => !open)}
+            >
+              {message('invite.heading')}
+            </button>
+          ) : null}
+          {canDeleteCampaign(campaign) ? (
+            <button
+              type="button"
+              className="lg-button lg-button--outline lg-button--md"
+              aria-expanded={settingsOpen}
+              aria-controls={SETTINGS_PANEL_ID}
+              onClick={() => setSettingsOpen((open) => !open)}
+            >
+              {message('campaign.settingsHeading')}
+            </button>
+          ) : null}
+        </div>
       ) : null}
-      {actionError ? (
-        <p className="lg-campaign__error" role="alert">
-          {actionError}
-        </p>
+
+      {campaign.viewerRole === 'gm' && inviteOpen ? <InvitePanel campaign={campaign} /> : null}
+
+      {canDeleteCampaign(campaign) && settingsOpen ? (
+        <CampaignSettings
+          campaign={campaign}
+          busy={busy}
+          deleting={deleting}
+          onDelete={() => setPending({ kind: 'delete' })}
+        />
       ) : null}
 
       <section className="lg-campaign__section" aria-labelledby="campaign-members-heading">
@@ -598,8 +647,6 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
           ))}
         </ul>
       </section>
-
-      {campaign.viewerRole === 'gm' ? <InvitePanel campaign={campaign} /> : null}
 
       {canLinkCharacter(campaign) ? (
         <>
@@ -668,23 +715,8 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
         </section>
       ) : null}
 
-      <section className="lg-campaign__section" aria-labelledby="campaign-danger-heading">
-        {canDeleteCampaign(campaign) ? (
-          <>
-            <h2 className="lg-campaign__heading" id="campaign-danger-heading">
-              {message('campaign.deleteHeading')}
-            </h2>
-            <p className="lg-campaign__meta">{message('campaign.deleteNote')}</p>
-            <button
-              type="button"
-              className="lg-button lg-button--danger lg-button--md"
-              disabled={busy || deleting}
-              onClick={() => setPending({ kind: 'delete' })}
-            >
-              {message('campaign.delete')}
-            </button>
-          </>
-        ) : (
+      {canDeleteCampaign(campaign) ? null : (
+        <div className="lg-campaign__leave">
           <button
             type="button"
             className="lg-button lg-button--outline lg-button--md"
@@ -693,8 +725,8 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
           >
             {message('campaign.leave')}
           </button>
-        )}
-      </section>
+        </div>
+      )}
 
       <Dialog
         open={pending !== null}
