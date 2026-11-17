@@ -40,6 +40,8 @@ type LinkStore interface {
 	Delete(ctx context.Context, campaignID, sheetID string) (bool, error)
 	ListByCampaignID(ctx context.Context, campaignID string) ([]SheetLink, error)
 	DeleteBySheetID(ctx context.Context, sheetID string) ([]SheetLink, error)
+	DeleteByOwner(ctx context.Context, campaignID, ownerID string) ([]SheetLink, error)
+	DeleteByCampaignIDBatch(ctx context.Context, campaignID string, limit int) (int64, error)
 }
 
 type MongoLinkStore struct {
@@ -144,4 +146,60 @@ func linkFilter(campaignID, sheetID string) bson.D {
 		{Key: linkCampaignIDField, Value: campaignID},
 		{Key: linkSheetIDField, Value: sheetID},
 	}
+}
+
+func (s *MongoLinkStore) DeleteByOwner(ctx context.Context, campaignID, ownerID string) ([]SheetLink, error) {
+	filter := bson.D{
+		{Key: linkCampaignIDField, Value: campaignID},
+		{Key: linkOwnerIDField, Value: ownerID},
+	}
+	cursor, err := s.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("list sheet links by owner: %w", err)
+	}
+	var found []SheetLink
+	if err := cursor.All(ctx, &found); err != nil {
+		return nil, fmt.Errorf("decode sheet links by owner: %w", err)
+	}
+	if len(found) == 0 {
+		return nil, nil
+	}
+	ids := make(bson.A, 0, len(found))
+	for _, link := range found {
+		ids = append(ids, link.ID)
+	}
+	if _, err := s.collection.DeleteMany(ctx, bson.D{{Key: idField, Value: bson.D{{Key: inOperator, Value: ids}}}}); err != nil {
+		return nil, fmt.Errorf("delete sheet links by owner: %w", err)
+	}
+	return found, nil
+}
+
+func (s *MongoLinkStore) DeleteByCampaignIDBatch(ctx context.Context, campaignID string, limit int) (int64, error) {
+	if limit <= 0 {
+		return 0, nil
+	}
+	filter := bson.D{{Key: linkCampaignIDField, Value: campaignID}}
+	opts := options.Find().SetProjection(bson.D{{Key: idField, Value: 1}}).SetLimit(int64(limit))
+	cursor, err := s.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return 0, fmt.Errorf("list sheet links by campaign: %w", err)
+	}
+	var found []struct {
+		ID string `bson:"_id"`
+	}
+	if err := cursor.All(ctx, &found); err != nil {
+		return 0, fmt.Errorf("decode sheet links by campaign: %w", err)
+	}
+	if len(found) == 0 {
+		return 0, nil
+	}
+	ids := make(bson.A, 0, len(found))
+	for _, doc := range found {
+		ids = append(ids, doc.ID)
+	}
+	result, err := s.collection.DeleteMany(ctx, bson.D{{Key: idField, Value: bson.D{{Key: inOperator, Value: ids}}}})
+	if err != nil {
+		return 0, fmt.Errorf("delete sheet links by campaign: %w", err)
+	}
+	return result.DeletedCount, nil
 }

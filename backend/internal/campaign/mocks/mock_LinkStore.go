@@ -80,6 +80,124 @@ func (_c *MockLinkStore_Delete_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
+// DeleteByCampaignIDBatch provides a mock function with given fields: ctx, campaignID, limit
+func (_m *MockLinkStore) DeleteByCampaignIDBatch(ctx context.Context, campaignID string, limit int) (int64, error) {
+	ret := _m.Called(ctx, campaignID, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteByCampaignIDBatch")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) (int64, error)); ok {
+		return rf(ctx, campaignID, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) int64); ok {
+		r0 = rf(ctx, campaignID, limit)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
+		r1 = rf(ctx, campaignID, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockLinkStore_DeleteByCampaignIDBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteByCampaignIDBatch'
+type MockLinkStore_DeleteByCampaignIDBatch_Call struct {
+	*mock.Call
+}
+
+// DeleteByCampaignIDBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - campaignID string
+//   - limit int
+func (_e *MockLinkStore_Expecter) DeleteByCampaignIDBatch(ctx interface{}, campaignID interface{}, limit interface{}) *MockLinkStore_DeleteByCampaignIDBatch_Call {
+	return &MockLinkStore_DeleteByCampaignIDBatch_Call{Call: _e.mock.On("DeleteByCampaignIDBatch", ctx, campaignID, limit)}
+}
+
+func (_c *MockLinkStore_DeleteByCampaignIDBatch_Call) Run(run func(ctx context.Context, campaignID string, limit int)) *MockLinkStore_DeleteByCampaignIDBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockLinkStore_DeleteByCampaignIDBatch_Call) Return(_a0 int64, _a1 error) *MockLinkStore_DeleteByCampaignIDBatch_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockLinkStore_DeleteByCampaignIDBatch_Call) RunAndReturn(run func(context.Context, string, int) (int64, error)) *MockLinkStore_DeleteByCampaignIDBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteByOwner provides a mock function with given fields: ctx, campaignID, ownerID
+func (_m *MockLinkStore) DeleteByOwner(ctx context.Context, campaignID string, ownerID string) ([]campaign.SheetLink, error) {
+	ret := _m.Called(ctx, campaignID, ownerID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteByOwner")
+	}
+
+	var r0 []campaign.SheetLink
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) ([]campaign.SheetLink, error)); ok {
+		return rf(ctx, campaignID, ownerID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) []campaign.SheetLink); ok {
+		r0 = rf(ctx, campaignID, ownerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]campaign.SheetLink)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, campaignID, ownerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockLinkStore_DeleteByOwner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteByOwner'
+type MockLinkStore_DeleteByOwner_Call struct {
+	*mock.Call
+}
+
+// DeleteByOwner is a helper method to define mock.On call
+//   - ctx context.Context
+//   - campaignID string
+//   - ownerID string
+func (_e *MockLinkStore_Expecter) DeleteByOwner(ctx interface{}, campaignID interface{}, ownerID interface{}) *MockLinkStore_DeleteByOwner_Call {
+	return &MockLinkStore_DeleteByOwner_Call{Call: _e.mock.On("DeleteByOwner", ctx, campaignID, ownerID)}
+}
+
+func (_c *MockLinkStore_DeleteByOwner_Call) Run(run func(ctx context.Context, campaignID string, ownerID string)) *MockLinkStore_DeleteByOwner_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockLinkStore_DeleteByOwner_Call) Return(_a0 []campaign.SheetLink, _a1 error) *MockLinkStore_DeleteByOwner_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockLinkStore_DeleteByOwner_Call) RunAndReturn(run func(context.Context, string, string) ([]campaign.SheetLink, error)) *MockLinkStore_DeleteByOwner_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteBySheetID provides a mock function with given fields: ctx, sheetID
 func (_m *MockLinkStore) DeleteBySheetID(ctx context.Context, sheetID string) ([]campaign.SheetLink, error) {
 	ret := _m.Called(ctx, sheetID)

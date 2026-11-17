@@ -53,8 +53,10 @@ const (
 	campaignSheetLinksUnique        = "campaign_sheet_links_campaign_sheet_unique"
 	campaignSheetLinksCampaignIndex = "campaign_sheet_links_campaign_id"
 	campaignSheetLinksSheetIndex    = "campaign_sheet_links_sheet_id"
+	campaignSheetLinksOwnerIndex    = "campaign_sheet_links_owner_id"
 	campaignIDField                 = "campaign_id"
 	sheetIDField                    = "sheet_id"
+	ownerIDField                    = "owner_id"
 )
 
 func EnsureIndexes(ctx context.Context, database *mongo.Database) error {
@@ -96,7 +98,7 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 
 	sheets := database.Collection("sheets")
 	if _, err := sheets.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "owner_id", Value: 1}, {Key: "kind", Value: 1}},
+		Keys:    bson.D{{Key: ownerIDField, Value: 1}, {Key: "kind", Value: 1}},
 		Options: options.Index().SetName(sheetsOwnerKindIndex),
 	}); err != nil {
 		return fmt.Errorf("create sheets.owner_id_kind index: %w", err)
@@ -112,7 +114,7 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 
 	counters := database.Collection("sheet_counts")
 	if _, err := counters.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "owner_id", Value: 1}, {Key: "kind", Value: 1}},
+		Keys:    bson.D{{Key: ownerIDField, Value: 1}, {Key: "kind", Value: 1}},
 		Options: options.Index().SetUnique(true).SetName(sheetCountsUniqueIndex),
 	}); err != nil {
 		return fmt.Errorf("create sheet_counts index: %w", err)
@@ -173,6 +175,10 @@ func ensureCampaignIndexes(ctx context.Context, database *mongo.Database) error 
 		{
 			Keys:    bson.D{{Key: sheetIDField, Value: 1}},
 			Options: options.Index().SetName(campaignSheetLinksSheetIndex),
+		},
+		{
+			Keys:    bson.D{{Key: ownerIDField, Value: 1}},
+			Options: options.Index().SetName(campaignSheetLinksOwnerIndex),
 		},
 	}); err != nil {
 		return fmt.Errorf("create campaign_sheet_links indexes: %w", err)
