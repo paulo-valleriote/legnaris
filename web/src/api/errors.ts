@@ -32,7 +32,8 @@ export type FailureKind =
   | 'invalidInvite'
   | 'templateMismatch'
   | 'sheetAlreadyLinked'
-  | 'planLimitReached';
+  | 'planLimitReached'
+  | 'passwordRequired';
 
 export interface DomainFailureInput {
   kind: FailureKind;

@@ -45,6 +45,7 @@ const (
 	CodeTemplateMismatch     Code = "TEMPLATE_MISMATCH"
 	CodeSheetAlreadyLinked   Code = "SHEET_ALREADY_LINKED"
 	CodePlanLimitReached     Code = "PLAN_LIMIT_REACHED"
+	CodePasswordRequired     Code = "PASSWORD_REQUIRED"
 )
 
 type Error struct {
@@ -75,7 +76,7 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 400
 	case CodeUnauthorized, CodeOTPInvalid:
 		httpStatus = 401
-	case CodeForbidden, CodeLLMConsentRequired, CodePlanUpgradeRequired, CodeCampaignForbidden, CodePlanLimitReached:
+	case CodeForbidden, CodeLLMConsentRequired, CodePlanUpgradeRequired, CodeCampaignForbidden, CodePlanLimitReached, CodePasswordRequired:
 		httpStatus = 403
 	case CodeNotFound, CodeNoSubscription, CodeCampaignNotFound, CodeInvalidInvite:
 		httpStatus = 404

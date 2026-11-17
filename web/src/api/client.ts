@@ -12,6 +12,8 @@ import {
   parseGeneration,
 } from './models/generation';
 import { BILLING_PATHS, parseRedirectUrl } from './models/billing';
+import type { JoinedCampaign } from './models/campaign';
+import { parseJoinedCampaign } from './models/campaign';
 import type { DiceBlock } from './models/dice';
 import { diceBlockToWire } from './models/dice';
 import type { Layout } from './models/layout';
@@ -19,7 +21,7 @@ import { layoutToWire, parseLayoutResponse } from './models/layout';
 import type { PlanUsage, SheetKind } from './models/plan';
 import { parsePlanUsage } from './models/plan';
 import type { Sheet } from './models/sheet';
-import { parseSheet } from './models/sheet';
+import { parseSheet, parseSheetList } from './models/sheet';
 import type { TemplateDetail, TemplateSummary } from './models/template';
 import { parseTemplateCatalog, parseTemplateDetail } from './models/template';
 import { drift, hasEntries, isPlainObject } from './parse';
@@ -36,6 +38,11 @@ export interface CreateSheetInput {
   readonly templateId: string;
   readonly kind: SheetKind;
   readonly sheetName: string;
+}
+
+export interface JoinCampaignInput {
+  readonly code: string;
+  readonly password?: string | undefined;
 }
 
 export type ApiClientOptions = CallerOptions;
@@ -83,6 +90,11 @@ export interface ApiClient {
     sheetId: string,
     etag: string | undefined,
   ): Promise<CampaignSheetResult>;
+  joinCampaign(input: JoinCampaignInput): Promise<JoinedCampaign>;
+  rotateInvite(campaignId: string): Promise<Campaign>;
+  setCampaignPassword(campaignId: string, password: string): Promise<Campaign>;
+  clearCampaignPassword(campaignId: string): Promise<Campaign>;
+  listOwnedSheets(kind: 'character'): Promise<Sheet[]>;
 }
 
 export interface CreateCampaignInput {
@@ -118,6 +130,12 @@ function saveBody(changeSet: Record<string, unknown>, dice: DiceBlock | undefine
   return hasEntries(changeSet)
     ? { data: changeSet, ...diceBlockToWire(dice) }
     : diceBlockToWire(dice);
+}
+
+function joinBody(input: JoinCampaignInput): { code: string; password?: string } {
+  return input.password === undefined
+    ? { code: input.code }
+    : { code: input.code, password: input.password };
 }
 
 function decodeChangeSet(data: unknown): Record<string, unknown> {
@@ -257,6 +275,36 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         ? result
         : { notModified: false, sheet: result.value, etag: result.etag };
     },
+    rotateInvite: (campaignId) =>
+      caller.call(
+        'POST',
+        `/campaigns/${encodeURIComponent(campaignId)}/invite/rotate`,
+        undefined,
+        parseCampaign,
+      ),
+    setCampaignPassword: (campaignId, password) =>
+      caller.call(
+        'PUT',
+        `/campaigns/${encodeURIComponent(campaignId)}/password`,
+        JSON.stringify({ password }),
+        parseCampaign,
+      ),
+    clearCampaignPassword: (campaignId) =>
+      caller.call(
+        'DELETE',
+        `/campaigns/${encodeURIComponent(campaignId)}/password`,
+        undefined,
+        parseCampaign,
+      ),
+    listOwnedSheets: (kind) =>
+      caller.call(
+        'GET',
+        `/sheets/owned?kind=${encodeURIComponent(kind)}`,
+        undefined,
+        parseSheetList,
+      ),
+    joinCampaign: (input) =>
+      caller.call('POST', '/campaigns/join', JSON.stringify(joinBody(input)), parseJoinedCampaign),
   };
 }
 

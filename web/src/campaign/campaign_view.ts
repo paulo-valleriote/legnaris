@@ -15,11 +15,18 @@ export function canDeleteCampaign(campaign: Pick<Campaign, 'viewerOwner'>): bool
   return campaign.viewerOwner;
 }
 
+export function isSelf(
+  viewer: Pick<Campaign, 'viewerUserId'>,
+  member: Pick<CampaignMember, 'userId'>,
+): boolean {
+  return viewer.viewerUserId !== '' && viewer.viewerUserId === member.userId;
+}
+
 export function memberActions(
-  viewer: Pick<Campaign, 'viewerRole' | 'viewerOwner'>,
-  member: Pick<CampaignMember, 'role' | 'owner'>,
+  viewer: Pick<Campaign, 'viewerRole' | 'viewerOwner' | 'viewerUserId'>,
+  member: Pick<CampaignMember, 'role' | 'owner' | 'userId'>,
 ): readonly (MemberAction | 'remove')[] {
-  if (member.owner) {
+  if (member.owner || isSelf(viewer, member)) {
     return [];
   }
   if (viewer.viewerOwner) {
@@ -29,6 +36,16 @@ export function memberActions(
     return ['remove'];
   }
   return [];
+}
+
+export function eligibleSheetIds(
+  sheets: readonly { id: string; templateId: string; campaignId?: string }[],
+  campaign: Pick<Campaign, 'id' | 'templateId'>,
+): string[] {
+  return sheets
+    .filter((sheet) => sheet.templateId === campaign.templateId)
+    .filter((sheet) => sheet.campaignId === undefined || sheet.campaignId === campaign.id)
+    .map((sheet) => sheet.id);
 }
 
 export function atOwnedLimit(usage: { readonly used: number; readonly limit: number }): boolean {

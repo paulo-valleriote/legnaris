@@ -26,8 +26,11 @@ packages:
       Repository: {}
       TransactionRunner: {}
       CharacterUnlinker: {}
+      CharacterStore: {}
       NameLookup: {}
       CreateGuard: {}
+      PasswordHasher: {}
+      JoinLimiter: {}
       PlanSource: {}
       OwnershipCounter: {}
       Service: {}

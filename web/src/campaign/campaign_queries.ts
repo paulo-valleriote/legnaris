@@ -45,6 +45,19 @@ export function useCampaign(id: string) {
   });
 }
 
+export const OWNED_CHARACTER_SHEETS_QUERY_KEY = ['sheets', 'owned', 'character'] as const;
+
+export function useOwnedCharacterSheets(enabled: boolean) {
+  const client = useApiClient();
+
+  return useQuery({
+    queryKey: OWNED_CHARACTER_SHEETS_QUERY_KEY,
+    queryFn: () => client.listOwnedSheets('character'),
+    enabled,
+    retry: false,
+  });
+}
+
 export function useCampaignSheets(id: string, enabled: boolean) {
   const client = useApiClient();
 

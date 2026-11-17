@@ -26,8 +26,11 @@ export interface Campaign {
   readonly version: number;
   readonly gmCount: number;
   readonly playerCount: number;
+  readonly viewerUserId: string;
   readonly viewerRole: CampaignRole;
   readonly viewerOwner: boolean;
+  readonly inviteCode: string | undefined;
+  readonly passwordSet: boolean | undefined;
   readonly members: readonly CampaignMember[];
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -107,8 +110,11 @@ export function parseCampaign(payload: unknown): Campaign {
     version: requireNumber(source, 'version'),
     gmCount: requireNumber(source, 'gm_count'),
     playerCount: requireNumber(source, 'player_count'),
+    viewerUserId: optionalText(source, 'viewer_user_id'),
     viewerRole: requireEnum(source, 'viewer_role', CAMPAIGN_ROLES),
     viewerOwner: requireBoolean(source, 'viewer_owner'),
+    inviteCode: typeof source['invite_code'] === 'string' ? source['invite_code'] : undefined,
+    passwordSet: typeof source['password_set'] === 'boolean' ? source['password_set'] : undefined,
     members: rawMembers.map(parseMember),
     createdAt: requireString(source, 'created_at'),
     updatedAt: requireString(source, 'updated_at'),
@@ -149,4 +155,27 @@ export function parseCampaignSheets(payload: unknown): CampaignSheet[] {
       updatedAt: requireString(source, 'updated_at'),
     };
   });
+}
+
+export interface JoinedCampaign {
+  readonly id: string;
+  readonly name: string;
+}
+
+export function parseJoinedCampaign(data: unknown): JoinedCampaign {
+  if (!isPlainObject(data)) {
+    throw drift('campaign answer is not an object');
+  }
+
+  const id = data['id'];
+  if (typeof id !== 'string' || id === '') {
+    throw drift('campaign answer is missing a string id');
+  }
+
+  const name = data['name'];
+  if (typeof name !== 'string') {
+    throw drift('campaign answer is missing a string name');
+  }
+
+  return { id, name };
 }

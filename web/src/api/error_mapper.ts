@@ -34,6 +34,7 @@ const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   TEMPLATE_MISMATCH: 'templateMismatch',
   SHEET_ALREADY_LINKED: 'sheetAlreadyLinked',
   PLAN_LIMIT_REACHED: 'planLimitReached',
+  PASSWORD_REQUIRED: 'passwordRequired',
 };
 
 const KIND_BY_GENERATION_ERROR: Readonly<Record<string, FailureKind>> = {
@@ -80,6 +81,7 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
   templateMismatch: 'api.error.templateMismatch',
   sheetAlreadyLinked: 'api.error.sheetAlreadyLinked',
   planLimitReached: 'api.error.planLimitReached',
+  passwordRequired: 'api.error.passwordRequired',
 };
 
 export function apperrKind(code: string): FailureKind {

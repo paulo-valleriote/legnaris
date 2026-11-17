@@ -47,6 +47,9 @@ const (
 	statusField                     = "status"
 	campaignsMembersUserIDField     = "members.user_id"
 	campaignsMembersUserStatusIndex = "campaigns_members_user_id_status"
+	sheetsCampaignIDIndex           = "sheets_campaign_id"
+	campaignsInviteCodeUnique       = "campaigns_invite_code_unique"
+	campaignsInviteCodeField        = "invite_code"
 )
 
 func EnsureIndexes(ctx context.Context, database *mongo.Database) error {
@@ -94,6 +97,14 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 		return fmt.Errorf("create sheets.owner_id_kind index: %w", err)
 	}
 
+	if _, err := sheets.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "campaign_id", Value: 1}},
+		Options: options.Index().SetName(sheetsCampaignIDIndex).
+			SetPartialFilterExpression(bson.D{{Key: "campaign_id", Value: bson.D{{Key: "$type", Value: "string"}}}}),
+	}); err != nil {
+		return fmt.Errorf("create sheets.campaign_id index: %w", err)
+	}
+
 	counters := database.Collection("sheet_counts")
 	if _, err := counters.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "owner_id", Value: 1}, {Key: "kind", Value: 1}},
@@ -137,6 +148,12 @@ func ensureCampaignIndexes(ctx context.Context, database *mongo.Database) error 
 		Options: options.Index().SetName(campaignsMembersUserStatusIndex),
 	}); err != nil {
 		return fmt.Errorf("create campaigns indexes: %w", err)
+	}
+	if _, err := campaigns.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: campaignsInviteCodeField, Value: 1}},
+		Options: options.Index().SetUnique(true).SetSparse(true).SetName(campaignsInviteCodeUnique),
+	}); err != nil {
+		return fmt.Errorf("create campaigns invite code index: %w", err)
 	}
 	return nil
 }

@@ -24,8 +24,22 @@ function detailRoutes(view: Record<string, unknown>, extra: Route[] = []): Route
     ...baseRoutes(),
     { method: 'GET', path: DETAIL, respond: () => ok(view) },
     { method: 'GET', path: `${DETAIL}/sheets`, respond: () => ok([]) },
+    { method: 'GET', path: '/sheets/owned', respond: () => ok([ownedSheet()]) },
     ...extra,
   ];
+}
+
+function ownedSheet(overrides: Record<string, unknown> = {}) {
+  return {
+    id: SHEET_ID,
+    name: 'Brenna',
+    template_id: 'fantasy_v1',
+    kind: 'character',
+    data: {},
+    created_at: '2026-11-17T10:00:00Z',
+    updated_at: '2026-11-17T10:00:00Z',
+    ...overrides,
+  };
 }
 
 function playerView() {
@@ -75,7 +89,7 @@ describe('campaign screen: members and roles (LGN-218)', () => {
       screen.queryByRole('button', { name: message('campaign.delete') }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: message('campaign.leave') })).toBeInTheDocument();
-    expect(screen.getByLabelText(message('campaign.linkLabel'))).toBeInTheDocument();
+    expect(await screen.findByLabelText(message('campaign.linkLabel'))).toBeInTheDocument();
   });
 
   it('Edge: a GM removes a player only after confirming, and a dismissed dialog sends nothing', async () => {
@@ -151,7 +165,6 @@ describe('campaign screen: character link (LGN-218)', () => {
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     await screen.findByText('tomas');
-    await user.type(screen.getByLabelText(message('campaign.linkLabel')), SHEET_ID);
     await user.click(screen.getByRole('button', { name: message('campaign.link') }));
 
     expect(await screen.findByText(message('campaign.linked'))).toBeInTheDocument();
@@ -182,7 +195,7 @@ describe('campaign screen: character link (LGN-218)', () => {
     ['NOT_FOUND', 'api.error.notFound'],
     ['INVALID_REQUEST', 'api.error.invalidEdit'],
   ] as const)(
-    'Error: linking refused with %s shows its copy and keeps the typed id',
+    'Error: linking refused with %s shows its copy and keeps the chosen sheet',
     async (code, key) => {
       const script = scripted(
         detailRoutes(playerView(), [
@@ -193,21 +206,56 @@ describe('campaign screen: character link (LGN-218)', () => {
       renderApp(DETAIL, { client: clientFor(script.transport) });
 
       await screen.findByText('tomas');
-      await user.type(screen.getByLabelText(message('campaign.linkLabel')), OTHER_SHEET_ID);
       await user.click(screen.getByRole('button', { name: message('campaign.link') }));
 
       expect(await screen.findByRole('alert')).toHaveTextContent(message(key));
-      expect(screen.getByLabelText(message('campaign.linkLabel'))).toHaveValue(OTHER_SHEET_ID);
+      expect(screen.getByLabelText(message('campaign.linkLabel'))).toHaveValue(SHEET_ID);
     },
   );
 
-  it('Edge: a blank sheet id is not sent', async () => {
-    const script = scripted(detailRoutes(playerView()));
+  it('Edge: with no free character of the Template the link is disabled and says why', async () => {
+    const script = scripted(
+      detailRoutes(playerView()).map((route) =>
+        route.path === '/sheets/owned'
+          ? { ...route, respond: () => ok([ownedSheet({ template_id: 'other_v1' })]) }
+          : route,
+      ),
+    );
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
-    await screen.findByText('tomas');
+    expect(await screen.findByText(message('campaign.noEligibleSheets'))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: message('campaign.link') })).toBeDisabled();
     expect(script.calls('PUT', `${DETAIL}/character`)).toHaveLength(0);
+  });
+
+  it('Edge: a sheet linked to another Campaign is not offered for linking', async () => {
+    const script = scripted(
+      detailRoutes(playerView()).map((route) =>
+        route.path === '/sheets/owned'
+          ? { ...route, respond: () => ok([ownedSheet({ campaign_id: OTHER_SHEET_ID })]) }
+          : route,
+      ),
+    );
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    expect(await screen.findByText(message('campaign.noEligibleSheets'))).toBeInTheDocument();
+    expect(
+      screen.queryByRole('combobox', { name: message('campaign.linkLabel') }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('Edge: the player own row is labelled and carries no actions', async () => {
+    const script = scripted(
+      detailRoutes(
+        campaignView({ viewer_role: 'gm', viewer_owner: false, viewer_user_id: PLAYER_ID }),
+      ),
+    );
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    expect(await screen.findByText(`tomas (${message('campaign.you')})`)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: `${message('campaign.remove')} tomas` }),
+    ).not.toBeInTheDocument();
   });
 });
 

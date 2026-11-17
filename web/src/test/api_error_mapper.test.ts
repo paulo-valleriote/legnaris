@@ -38,6 +38,7 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['TEMPLATE_MISMATCH', 'templateMismatch'],
   ['SHEET_ALREADY_LINKED', 'sheetAlreadyLinked'],
   ['PLAN_LIMIT_REACHED', 'planLimitReached'],
+  ['PASSWORD_REQUIRED', 'passwordRequired'],
 ];
 
 const fallback = ['CYCLE_DETECTED', 'INVALID_DEPENDENCY', 'INVALID_PATH'] as const;
@@ -77,6 +78,7 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   templateMismatch: 'api.error.templateMismatch',
   sheetAlreadyLinked: 'api.error.sheetAlreadyLinked',
   planLimitReached: 'api.error.planLimitReached',
+  passwordRequired: 'api.error.passwordRequired',
 };
 
 describe('backend code to failure kind', () => {

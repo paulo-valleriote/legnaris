@@ -13,6 +13,7 @@ import { SheetScreen } from '../sheet/sheet_screen';
 import { YourSheetScreen } from '../sheet/your_sheet_screen';
 import { PrivacyScreen } from '../legal/privacy_screen';
 import { PlansScreen } from '../plans/plans_screen';
+import { JoinScreen } from '../join/join_screen';
 import {
   CAMPAIGN_DETAIL_PATH,
   CAMPAIGN_SHEET_PATH,
@@ -28,6 +29,7 @@ const SCREENS: Record<string, ReactElement> = {
   '/sheets/:id': <SheetScreen />,
   '/your-sheet': <YourSheetScreen />,
   '/account': <AccountScreen />,
+  '/join/:code': <JoinScreen />,
   [PLANS_PATH]: <PlansScreen />,
   [CAMPAIGNS_PATH]: <CampaignsScreen />,
   [CAMPAIGN_DETAIL_PATH]: <CampaignScreen />,

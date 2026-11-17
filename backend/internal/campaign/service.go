@@ -41,26 +41,30 @@ type RoleCommand struct {
 }
 
 type MemberView struct {
-	UserID   string    `json:"user_id"`
-	Username string    `json:"username"`
-	Role     Role      `json:"role"`
-	Owner    bool      `json:"owner"`
-	JoinedAt time.Time `json:"joined_at"`
+	UserID        string    `json:"user_id"`
+	Username      string    `json:"username"`
+	CharacterName string    `json:"character_name"`
+	Role          Role      `json:"role"`
+	Owner         bool      `json:"owner"`
+	JoinedAt      time.Time `json:"joined_at"`
 }
 
 type View struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	TemplateID  string       `json:"template_id"`
-	Status      Status       `json:"status"`
-	Version     int64        `json:"version"`
-	GMCount     int          `json:"gm_count"`
-	PlayerCount int          `json:"player_count"`
-	ViewerRole  Role         `json:"viewer_role"`
-	ViewerOwner bool         `json:"viewer_owner"`
-	Members     []MemberView `json:"members"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
+	ID           string       `json:"id"`
+	Name         string       `json:"name"`
+	TemplateID   string       `json:"template_id"`
+	Status       Status       `json:"status"`
+	Version      int64        `json:"version"`
+	GMCount      int          `json:"gm_count"`
+	PlayerCount  int          `json:"player_count"`
+	ViewerUserID string       `json:"viewer_user_id"`
+	ViewerRole   Role         `json:"viewer_role"`
+	ViewerOwner  bool         `json:"viewer_owner"`
+	InviteCode   string       `json:"invite_code,omitempty"`
+	PasswordSet  *bool        `json:"password_set,omitempty"`
+	Members      []MemberView `json:"members"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
 }
 
 type Summary struct {
@@ -81,6 +85,14 @@ type Service interface {
 	Promote(ctx context.Context, cmd RoleCommand) (View, error)
 	Demote(ctx context.Context, cmd RoleCommand) (View, error)
 	Remove(ctx context.Context, cmd RoleCommand) (View, error)
+	Link(ctx context.Context, cmd LinkCommand) (View, error)
+	Unlink(ctx context.Context, cmd UnlinkCommand) (View, error)
+	ListLinkedSheets(ctx context.Context, campaignID, viewerID string) ([]LinkedSheetSummary, error)
+	ReadLinkedSheet(ctx context.Context, q ReadLinkedSheetQuery) (LinkedSheetResult, error)
+	JoinByCode(ctx context.Context, cmd JoinCommand) (View, error)
+	RotateInviteCode(ctx context.Context, cmd InviteCommand) (View, error)
+	SetPassword(ctx context.Context, cmd PasswordCommand) (View, error)
+	ClearPassword(ctx context.Context, cmd InviteCommand) (View, error)
 }
 
 const (
@@ -108,6 +120,14 @@ const (
 	MsgTransactionFailed    = "campaign transaction failed"
 	MsgCreateFailed         = "failed to create campaign"
 	MsgListFailed           = "failed to list campaigns"
+	MsgInviteInvalid        = "invite code or password is not valid"
+	MsgInviteCodeMissing    = "invite code is required"
+	MsgPasswordRequired     = "this campaign requires a password"
+	MsgPasswordInvalid      = "password must have between 8 and 128 characters"
+	MsgGMOnly               = "only a GM can manage the invite code and password"
+	MsgRateLimited          = "too many attempts; retry later"
+	MsgInviteWriteFailed    = "failed to update the invite settings"
+	MsgPasswordHashFailed   = "failed to hash the campaign password"
 )
 
 type ServiceImpl struct {
@@ -115,8 +135,11 @@ type ServiceImpl struct {
 	tx         TransactionRunner
 	publisher  events.Publisher
 	unlinker   CharacterUnlinker
+	sheets     CharacterStore
 	names      NameLookup
 	guard      CreateGuard
+	hasher     PasswordHasher
+	joinLimit  JoinLimiter
 	now        func() time.Time
 }
 
@@ -124,6 +147,10 @@ type ServiceOption func(*ServiceImpl)
 
 func WithCharacterUnlinker(u CharacterUnlinker) ServiceOption {
 	return func(s *ServiceImpl) { s.unlinker = u }
+}
+
+func WithCharacterStore(store CharacterStore) ServiceOption {
+	return func(s *ServiceImpl) { s.sheets = store }
 }
 
 func WithNameLookup(n NameLookup) ServiceOption {
@@ -138,6 +165,14 @@ func WithClock(now func() time.Time) ServiceOption {
 	return func(s *ServiceImpl) { s.now = now }
 }
 
+func WithPasswordHasher(h PasswordHasher) ServiceOption {
+	return func(s *ServiceImpl) { s.hasher = h }
+}
+
+func WithJoinLimiter(l JoinLimiter) ServiceOption {
+	return func(s *ServiceImpl) { s.joinLimit = l }
+}
+
 func NewService(repository Repository, tx TransactionRunner, publisher events.Publisher, opts ...ServiceOption) Service {
 	if publisher == nil {
 		publisher = events.NoOp{}
@@ -147,6 +182,9 @@ func NewService(repository Repository, tx TransactionRunner, publisher events.Pu
 		tx:         tx,
 		publisher:  publisher,
 		unlinker:   noUnlinker{},
+		sheets:     noCharacters{},
+		hasher:     unavailableHasher{},
+		joinLimit:  allowAllJoins{},
 		now:        time.Now,
 	}
 	for _, opt := range opts {
@@ -156,6 +194,18 @@ func NewService(repository Repository, tx TransactionRunner, publisher events.Pu
 }
 
 type noUnlinker struct{}
+
+type allowAllJoins struct{}
+
+func (allowAllJoins) Allow(string, time.Time) (bool, time.Duration) { return true, 0 }
+
+type unavailableHasher struct{}
+
+func (unavailableHasher) Hash(string) (string, error) { return "", errNoHasher }
+func (unavailableHasher) Verify(string, string) bool  { return false }
+func (unavailableHasher) DummyHash() string           { return "" }
+
+var errNoHasher = errors.New("no password hasher configured")
 
 func (noUnlinker) UnlinkCharacter(context.Context, string, string) error { return nil }
 
@@ -191,12 +241,17 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateCommand) (View, erro
 	if err != nil {
 		return View{}, internalError(MsgCreateFailed, err)
 	}
+	inviteCode, err := newInviteCode()
+	if err != nil {
+		return View{}, internalError(MsgCreateFailed, err)
+	}
 	now := s.now()
 	created := &Campaign{
 		ID:          id,
 		Name:        name,
 		TemplateID:  cmd.TemplateID,
 		Status:      StatusActive,
+		InviteCode:  inviteCode,
 		Version:     1,
 		GMCount:     1,
 		PlayerCount: 0,
@@ -271,30 +326,39 @@ func readError(err error) error {
 
 func (s *ServiceImpl) view(ctx context.Context, c *Campaign, viewerID string) View {
 	viewer, _ := c.MemberOf(viewerID)
+	names := s.characterNames(ctx, c.ID)
 	members := make([]MemberView, 0, len(c.Members))
 	for _, m := range c.Members {
 		members = append(members, MemberView{
-			UserID:   m.UserID,
-			Username: s.usernameOf(ctx, m.UserID),
-			Role:     m.Role,
-			Owner:    m.Owner,
-			JoinedAt: m.JoinedAt,
+			UserID:        m.UserID,
+			Username:      s.usernameOf(ctx, m.UserID),
+			CharacterName: names[m.UserID],
+			Role:          m.Role,
+			Owner:         m.Owner,
+			JoinedAt:      m.JoinedAt,
 		})
 	}
-	return View{
-		ID:          c.ID,
-		Name:        c.Name,
-		TemplateID:  c.TemplateID,
-		Status:      c.Status,
-		Version:     c.Version,
-		GMCount:     c.GMCount,
-		PlayerCount: c.PlayerCount,
-		ViewerRole:  viewer.Role,
-		ViewerOwner: viewer.Owner,
-		Members:     members,
-		CreatedAt:   c.CreatedAt,
-		UpdatedAt:   c.UpdatedAt,
+	out := View{
+		ID:           c.ID,
+		Name:         c.Name,
+		TemplateID:   c.TemplateID,
+		Status:       c.Status,
+		Version:      c.Version,
+		GMCount:      c.GMCount,
+		PlayerCount:  c.PlayerCount,
+		ViewerUserID: viewerID,
+		ViewerRole:   viewer.Role,
+		ViewerOwner:  viewer.Owner,
+		Members:      members,
+		CreatedAt:    c.CreatedAt,
+		UpdatedAt:    c.UpdatedAt,
 	}
+	if viewer.Role == RoleGM {
+		passwordSet := c.PasswordHash != ""
+		out.InviteCode = c.InviteCode
+		out.PasswordSet = &passwordSet
+	}
+	return out
 }
 
 func (s *ServiceImpl) usernameOf(ctx context.Context, userID string) string {

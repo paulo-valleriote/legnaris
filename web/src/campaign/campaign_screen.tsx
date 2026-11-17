@@ -7,8 +7,9 @@ import type { Campaign, CampaignMember } from '../api/models/campaign';
 import type { MemberAction } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
 import { Dialog } from '../ui/dialog';
-import { Field } from '../ui/field';
 import { PLAN_QUERY_KEY } from '../catalog/queries';
+import { InvitePanel } from './invite_panel';
+import { useOwnedCharacterSheets } from './campaign_queries';
 import {
   CAMPAIGNS_QUERY_KEY,
   campaignKey,
@@ -16,7 +17,14 @@ import {
   useCampaign,
   useCampaignSheets,
 } from './campaign_queries';
-import { canDeleteCampaign, canLinkCharacter, isDeleting, memberActions } from './campaign_view';
+import {
+  canDeleteCampaign,
+  canLinkCharacter,
+  eligibleSheetIds,
+  isDeleting,
+  isSelf,
+  memberActions,
+} from './campaign_view';
 import { roleText } from './campaigns_screen';
 import { useApiClient } from '../app/providers';
 import './campaign.css';
@@ -50,7 +58,10 @@ function MemberRow({
   return (
     <li className="lg-campaign__row">
       <div className="lg-campaign__member">
-        <span className="lg-campaign__name">{name}</span>
+        <span className="lg-campaign__name">
+          {name}
+          {isSelf(campaign, member) ? ` (${message('campaign.you')})` : ''}
+        </span>
         <span className="lg-campaign__meta">
           {roleText(member.role, member.owner)} ·{' '}
           {member.characterName === ''
@@ -78,41 +89,65 @@ function MemberRow({
 }
 
 function LinkCharacterForm({
-  campaignId,
+  campaign,
   onUnlink,
   disabled,
   pending,
   error,
   onSubmit,
 }: {
-  campaignId: string;
+  campaign: Campaign;
   onUnlink: () => void;
   disabled: boolean;
   pending: boolean;
   error: string | undefined;
   onSubmit: (sheetId: string) => void;
 }) {
-  const [sheetId, setSheetId] = useState('');
+  const owned = useOwnedCharacterSheets(true);
+  const [choice, setChoice] = useState('');
+  const eligible = owned.data === undefined ? [] : eligibleSheetIds(owned.data, campaign);
+  const selected = eligible.includes(choice) ? choice : (eligible[0] ?? '');
+  const names = new Map((owned.data ?? []).map((sheet) => [sheet.id, sheet.name]));
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (sheetId.trim() !== '') {
-      onSubmit(sheetId.trim());
+    if (selected !== '') {
+      onSubmit(selected);
     }
   };
 
   return (
-    <section className="lg-campaign__section" aria-labelledby={`campaign-link-${campaignId}`}>
-      <h2 className="lg-campaign__heading" id={`campaign-link-${campaignId}`}>
+    <section className="lg-campaign__section" aria-labelledby={`campaign-link-${campaign.id}`}>
+      <h2 className="lg-campaign__heading" id={`campaign-link-${campaign.id}`}>
         {message('campaign.linkHeading')}
       </h2>
+      {owned.isError ? (
+        <p className="lg-campaign__error" role="alert">
+          {failureCopy(owned.error)}
+        </p>
+      ) : null}
+      {owned.data !== undefined && eligible.length === 0 ? (
+        <p className="lg-campaign__message">{message('campaign.noEligibleSheets')}</p>
+      ) : null}
       <form className="lg-campaign__form" onSubmit={submit} noValidate>
-        <Field
-          label={message('campaign.linkLabel')}
-          name="character-sheet-id"
-          value={sheetId}
-          disabled={disabled || pending}
-          onChange={setSheetId}
-        />
+        {eligible.length === 0 ? null : (
+          <label className="lg-field" htmlFor="campaign-character-sheet">
+            <span className="lg-field__label">{message('campaign.linkLabel')}</span>
+            <select
+              id="campaign-character-sheet"
+              className="lg-campaign__select"
+              value={selected}
+              disabled={disabled || pending}
+              onChange={(event) => setChoice(event.target.value)}
+            >
+              {eligible.map((id) => (
+                <option key={id} value={id}>
+                  {names.get(id) ?? id}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {error ? (
           <p className="lg-campaign__error" role="alert">
             {error}
@@ -122,7 +157,7 @@ function LinkCharacterForm({
           <button
             type="submit"
             className="lg-button lg-button--primary lg-button--md"
-            disabled={disabled || pending || sheetId.trim() === ''}
+            disabled={disabled || pending || selected === ''}
             aria-busy={pending ? true : undefined}
           >
             {message('campaign.link')}
@@ -322,10 +357,12 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
         </ul>
       </section>
 
+      {campaign.viewerRole === 'gm' ? <InvitePanel campaign={campaign} /> : null}
+
       {canLinkCharacter(campaign) ? (
         <>
           <LinkCharacterForm
-            campaignId={campaign.id}
+            campaign={campaign}
             onUnlink={() => unlink.mutate()}
             disabled={deleting}
             pending={link.isPending || unlink.isPending}

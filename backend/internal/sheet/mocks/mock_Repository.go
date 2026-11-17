@@ -294,6 +294,184 @@ func (_c *MockRepository_FetchByOwnerID_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
+// LinkCampaign provides a mock function with given fields: ctx, id, expectedCampaignID, campaignID
+func (_m *MockRepository) LinkCampaign(ctx context.Context, id string, expectedCampaignID *string, campaignID string) (bool, error) {
+	ret := _m.Called(ctx, id, expectedCampaignID, campaignID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LinkCampaign")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *string, string) (bool, error)); ok {
+		return rf(ctx, id, expectedCampaignID, campaignID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *string, string) bool); ok {
+		r0 = rf(ctx, id, expectedCampaignID, campaignID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *string, string) error); ok {
+		r1 = rf(ctx, id, expectedCampaignID, campaignID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_LinkCampaign_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LinkCampaign'
+type MockRepository_LinkCampaign_Call struct {
+	*mock.Call
+}
+
+// LinkCampaign is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - expectedCampaignID *string
+//   - campaignID string
+func (_e *MockRepository_Expecter) LinkCampaign(ctx interface{}, id interface{}, expectedCampaignID interface{}, campaignID interface{}) *MockRepository_LinkCampaign_Call {
+	return &MockRepository_LinkCampaign_Call{Call: _e.mock.On("LinkCampaign", ctx, id, expectedCampaignID, campaignID)}
+}
+
+func (_c *MockRepository_LinkCampaign_Call) Run(run func(ctx context.Context, id string, expectedCampaignID *string, campaignID string)) *MockRepository_LinkCampaign_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*string), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepository_LinkCampaign_Call) Return(_a0 bool, _a1 error) *MockRepository_LinkCampaign_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_LinkCampaign_Call) RunAndReturn(run func(context.Context, string, *string, string) (bool, error)) *MockRepository_LinkCampaign_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListByCampaignID provides a mock function with given fields: ctx, campaignID
+func (_m *MockRepository) ListByCampaignID(ctx context.Context, campaignID string) ([]sheet.Sheet, error) {
+	ret := _m.Called(ctx, campaignID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListByCampaignID")
+	}
+
+	var r0 []sheet.Sheet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]sheet.Sheet, error)); ok {
+		return rf(ctx, campaignID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []sheet.Sheet); ok {
+		r0 = rf(ctx, campaignID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]sheet.Sheet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, campaignID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_ListByCampaignID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListByCampaignID'
+type MockRepository_ListByCampaignID_Call struct {
+	*mock.Call
+}
+
+// ListByCampaignID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - campaignID string
+func (_e *MockRepository_Expecter) ListByCampaignID(ctx interface{}, campaignID interface{}) *MockRepository_ListByCampaignID_Call {
+	return &MockRepository_ListByCampaignID_Call{Call: _e.mock.On("ListByCampaignID", ctx, campaignID)}
+}
+
+func (_c *MockRepository_ListByCampaignID_Call) Run(run func(ctx context.Context, campaignID string)) *MockRepository_ListByCampaignID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepository_ListByCampaignID_Call) Return(_a0 []sheet.Sheet, _a1 error) *MockRepository_ListByCampaignID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_ListByCampaignID_Call) RunAndReturn(run func(context.Context, string) ([]sheet.Sheet, error)) *MockRepository_ListByCampaignID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListByOwnerKind provides a mock function with given fields: ctx, ownerID, kind
+func (_m *MockRepository) ListByOwnerKind(ctx context.Context, ownerID string, kind plan.SheetKind) ([]sheet.Sheet, error) {
+	ret := _m.Called(ctx, ownerID, kind)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListByOwnerKind")
+	}
+
+	var r0 []sheet.Sheet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, plan.SheetKind) ([]sheet.Sheet, error)); ok {
+		return rf(ctx, ownerID, kind)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, plan.SheetKind) []sheet.Sheet); ok {
+		r0 = rf(ctx, ownerID, kind)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]sheet.Sheet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, plan.SheetKind) error); ok {
+		r1 = rf(ctx, ownerID, kind)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_ListByOwnerKind_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListByOwnerKind'
+type MockRepository_ListByOwnerKind_Call struct {
+	*mock.Call
+}
+
+// ListByOwnerKind is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ownerID string
+//   - kind plan.SheetKind
+func (_e *MockRepository_Expecter) ListByOwnerKind(ctx interface{}, ownerID interface{}, kind interface{}) *MockRepository_ListByOwnerKind_Call {
+	return &MockRepository_ListByOwnerKind_Call{Call: _e.mock.On("ListByOwnerKind", ctx, ownerID, kind)}
+}
+
+func (_c *MockRepository_ListByOwnerKind_Call) Run(run func(ctx context.Context, ownerID string, kind plan.SheetKind)) *MockRepository_ListByOwnerKind_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(plan.SheetKind))
+	})
+	return _c
+}
+
+func (_c *MockRepository_ListByOwnerKind_Call) Return(_a0 []sheet.Sheet, _a1 error) *MockRepository_ListByOwnerKind_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_ListByOwnerKind_Call) RunAndReturn(run func(context.Context, string, plan.SheetKind) ([]sheet.Sheet, error)) *MockRepository_ListByOwnerKind_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PartialUpdate provides a mock function with given fields: ctx, id, expectedVersion, dbUpdates
 func (_m *MockRepository) PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error) {
 	ret := _m.Called(ctx, id, expectedVersion, dbUpdates)
@@ -446,6 +624,122 @@ func (_c *MockRepository_ReserveSlot_Call) Return(_a0 error) *MockRepository_Res
 }
 
 func (_c *MockRepository_ReserveSlot_Call) RunAndReturn(run func(context.Context, string, plan.SheetKind, int) error) *MockRepository_ReserveSlot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UnlinkCampaignBatch provides a mock function with given fields: ctx, campaignID, limit
+func (_m *MockRepository) UnlinkCampaignBatch(ctx context.Context, campaignID string, limit int) (int64, error) {
+	ret := _m.Called(ctx, campaignID, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UnlinkCampaignBatch")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) (int64, error)); ok {
+		return rf(ctx, campaignID, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) int64); ok {
+		r0 = rf(ctx, campaignID, limit)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
+		r1 = rf(ctx, campaignID, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_UnlinkCampaignBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnlinkCampaignBatch'
+type MockRepository_UnlinkCampaignBatch_Call struct {
+	*mock.Call
+}
+
+// UnlinkCampaignBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - campaignID string
+//   - limit int
+func (_e *MockRepository_Expecter) UnlinkCampaignBatch(ctx interface{}, campaignID interface{}, limit interface{}) *MockRepository_UnlinkCampaignBatch_Call {
+	return &MockRepository_UnlinkCampaignBatch_Call{Call: _e.mock.On("UnlinkCampaignBatch", ctx, campaignID, limit)}
+}
+
+func (_c *MockRepository_UnlinkCampaignBatch_Call) Run(run func(ctx context.Context, campaignID string, limit int)) *MockRepository_UnlinkCampaignBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockRepository_UnlinkCampaignBatch_Call) Return(_a0 int64, _a1 error) *MockRepository_UnlinkCampaignBatch_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_UnlinkCampaignBatch_Call) RunAndReturn(run func(context.Context, string, int) (int64, error)) *MockRepository_UnlinkCampaignBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UnlinkOwnerCampaign provides a mock function with given fields: ctx, ownerID, campaignID
+func (_m *MockRepository) UnlinkOwnerCampaign(ctx context.Context, ownerID string, campaignID string) (int64, error) {
+	ret := _m.Called(ctx, ownerID, campaignID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UnlinkOwnerCampaign")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (int64, error)); ok {
+		return rf(ctx, ownerID, campaignID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) int64); ok {
+		r0 = rf(ctx, ownerID, campaignID)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, ownerID, campaignID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_UnlinkOwnerCampaign_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnlinkOwnerCampaign'
+type MockRepository_UnlinkOwnerCampaign_Call struct {
+	*mock.Call
+}
+
+// UnlinkOwnerCampaign is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ownerID string
+//   - campaignID string
+func (_e *MockRepository_Expecter) UnlinkOwnerCampaign(ctx interface{}, ownerID interface{}, campaignID interface{}) *MockRepository_UnlinkOwnerCampaign_Call {
+	return &MockRepository_UnlinkOwnerCampaign_Call{Call: _e.mock.On("UnlinkOwnerCampaign", ctx, ownerID, campaignID)}
+}
+
+func (_c *MockRepository_UnlinkOwnerCampaign_Call) Run(run func(ctx context.Context, ownerID string, campaignID string)) *MockRepository_UnlinkOwnerCampaign_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepository_UnlinkOwnerCampaign_Call) Return(_a0 int64, _a1 error) *MockRepository_UnlinkOwnerCampaign_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_UnlinkOwnerCampaign_Call) RunAndReturn(run func(context.Context, string, string) (int64, error)) *MockRepository_UnlinkOwnerCampaign_Call {
 	_c.Call.Return(run)
 	return _c
 }
