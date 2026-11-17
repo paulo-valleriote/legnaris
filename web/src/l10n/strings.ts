@@ -55,6 +55,8 @@ export const messages = {
     'That character uses a different template from this Campaign. Pick a character of the same template.',
   'api.error.sheetAlreadyLinked':
     'That character is already linked to a Campaign. Unlink it there first.',
+  'api.error.sheetKindMismatch':
+    'Only NPC and monster sheets can be linked this way. A character sheet keeps its own Campaign.',
   'api.error.planLimitReached':
     'Your plan has no room for another Campaign. Delete one to make space.',
   'generate.entry': 'Generate with AI',
@@ -332,6 +334,8 @@ export const messages = {
     'Deleting your sheet removes it and its unsaved draft permanently. You cannot undo this.',
   'sheet.ownDeleteConfirm': 'Delete permanently',
   'sheet.ownCancel': 'Keep sheet',
+  'sheet.duplicate': 'Duplicate',
+  'sheet.duplicating': 'Duplicating',
 
   'engine.calculated': 'Calculated',
   'engine.derivedMark': 'ƒ',
@@ -473,6 +477,22 @@ export const messages = {
   'campaign.sheetsHeading': 'Linked character sheets',
   'campaign.sheetsEmpty': 'No character sheets are linked yet.',
   'campaign.openSheet': 'Open the read-only sheet of {name}',
+  'campaign.npcsHeading': 'NPCs and monsters',
+  'campaign.npcLinkLabel': 'NPC or monster sheet',
+  'campaign.npcLink': 'Link NPC or monster',
+  'campaign.npcLinked': 'The sheet is linked to this Campaign. It starts hidden from players.',
+  'campaign.npcUnlinked': 'The sheet is no longer linked to this Campaign.',
+  'campaign.npcsEmpty': 'No NPCs or monsters are linked yet.',
+  'campaign.openNpc': 'Open the read-only NPC sheet of {name}',
+  'campaign.unlinkNpc': 'Unlink {name}',
+  'campaign.unlinkAction': 'Unlink',
+  'campaign.kindNpc': 'NPC',
+  'campaign.kindMonster': 'Monster',
+  'campaign.npcOwner': 'Owner: {name}',
+  'campaign.npcHidden': 'Hidden from players',
+  'campaign.npcRevealed': 'Revealed to players',
+  'campaign.noEligibleNpcs':
+    'You have no free NPC or monster sheet of this Campaign’s Template. Create one, or duplicate an existing sheet.',
   'campaign.deleteHeading': 'Delete this Campaign',
   'campaign.deleteNote':
     'Deleting ends the Campaign for every member. Linked sheets are unlinked and stay with their owners.',
@@ -503,6 +523,7 @@ export const messages = {
   'invite.passwordClear': 'Remove password',
   'invite.passwordTooShort': 'The password must have at least 8 characters.',
   'gm.heading': 'Character sheet, read only',
+  'gm.npcHeading': 'NPC or monster sheet, read only',
   'gm.caption': 'Values may not reflect real time',
   'gm.refresh': 'Refresh now',
   'gm.refreshing': 'Refreshing',

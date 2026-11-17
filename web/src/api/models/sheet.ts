@@ -4,10 +4,13 @@ import type { Layout } from './layout';
 import type { DiceBlock } from './dice';
 import { parseDiceBlock } from './dice';
 import { parseOptionalLayout } from './layout';
+import { SHEET_KINDS } from './plan';
+import type { SheetKind } from './plan';
 
 export interface Sheet {
   readonly id: string;
   readonly templateId: string;
+  readonly kind?: SheetKind;
   readonly name: string;
   readonly data: Record<string, unknown>;
   readonly layout?: Layout;
@@ -33,6 +36,22 @@ function withLayout(layout: Layout | undefined): { readonly layout?: Layout } {
   return layout === undefined ? {} : { layout };
 }
 
+function parseKind(payload: Record<string, unknown>): SheetKind | undefined {
+  const value = payload['kind'];
+  if (value === undefined) {
+    return undefined;
+  }
+  const match = SHEET_KINDS.find((kind) => kind === value);
+  if (match === undefined) {
+    throw drift('sheet "kind" is not a known value');
+  }
+  return match;
+}
+
+export function isLinkableSheetKind(kind: SheetKind | undefined): kind is 'npc' | 'monster' {
+  return kind === 'npc' || kind === 'monster';
+}
+
 export function parseSheet(payload: unknown): Sheet {
   if (!isPlainObject(payload)) {
     throw drift('sheet payload is not an object');
@@ -41,6 +60,7 @@ export function parseSheet(payload: unknown): Sheet {
   return {
     id: requireString(payload, 'id'),
     templateId: requireString(payload, 'template_id'),
+    kind: parseKind(payload),
     name: requireString(payload, 'name'),
     data: parseData(payload['data']),
     ...withLayout(parseOptionalLayout(payload['layout'])),

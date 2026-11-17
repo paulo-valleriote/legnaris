@@ -48,6 +48,15 @@ export function eligibleSheetIds(
     .map((sheet) => sheet.id);
 }
 
+export function eligibleNpcSheetIds(
+  sheets: readonly { id: string; templateId: string }[],
+  campaign: Pick<Campaign, 'templateId'>,
+): string[] {
+  return sheets
+    .filter((sheet) => sheet.templateId === campaign.templateId)
+    .map((sheet) => sheet.id);
+}
+
 export function atOwnedLimit(usage: { readonly used: number; readonly limit: number }): boolean {
   return usage.used >= usage.limit;
 }

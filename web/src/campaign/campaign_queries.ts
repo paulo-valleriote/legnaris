@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { useApiClient } from '../app/providers';
 import type { Campaign } from '../api/models/campaign';
+import type { SheetKind } from '../api/models/plan';
 import type { Sheet } from '../api/models/sheet';
 import { drift } from '../api/parse';
 import { GM_POLL_INTERVAL_MS } from './campaign_view';
@@ -16,8 +17,16 @@ export function campaignSheetsKey(id: string) {
   return ['campaign', id, 'sheets'] as const;
 }
 
+export function npcLinksKey(id: string) {
+  return ['campaign', id, 'npcs'] as const;
+}
+
 export function gmSheetKey(campaignId: string, sheetId: string) {
   return ['campaign', campaignId, 'sheet', sheetId] as const;
+}
+
+export function gmNpcKey(campaignId: string, sheetId: string) {
+  return ['campaign', campaignId, 'npc', sheetId] as const;
 }
 
 export interface GmSheetSnapshot {
@@ -45,17 +54,23 @@ export function useCampaign(id: string) {
   });
 }
 
-export const OWNED_CHARACTER_SHEETS_QUERY_KEY = ['sheets', 'owned', 'character'] as const;
+export function ownedSheetsKey(kind: SheetKind) {
+  return ['sheets', 'owned', kind] as const;
+}
 
-export function useOwnedCharacterSheets(enabled: boolean) {
+export function useOwnedSheets(kind: SheetKind, enabled: boolean) {
   const client = useApiClient();
 
   return useQuery({
-    queryKey: OWNED_CHARACTER_SHEETS_QUERY_KEY,
-    queryFn: () => client.listOwnedSheets('character'),
+    queryKey: ownedSheetsKey(kind),
+    queryFn: () => client.listOwnedSheets(kind),
     enabled,
     retry: false,
   });
+}
+
+export function useOwnedCharacterSheets(enabled: boolean) {
+  return useOwnedSheets('character', enabled);
 }
 
 export function useCampaignSheets(id: string, enabled: boolean) {
@@ -64,6 +79,17 @@ export function useCampaignSheets(id: string, enabled: boolean) {
   return useQuery({
     queryKey: campaignSheetsKey(id),
     queryFn: () => client.listCampaignSheets(id),
+    enabled,
+    retry: false,
+  });
+}
+
+export function useNpcLinks(id: string, enabled: boolean) {
+  const client = useApiClient();
+
+  return useQuery({
+    queryKey: npcLinksKey(id),
+    queryFn: () => client.listNpcLinks(id),
     enabled,
     retry: false,
   });
@@ -93,6 +119,40 @@ async function loadGmSheet(
 ): Promise<GmSheetSnapshot> {
   const cached = queryClient.getQueryData<GmSheetSnapshot>(gmSheetKey(campaignId, sheetId));
   const result = await client.getCampaignSheet(campaignId, sheetId, cached?.etag);
+
+  if (!result.notModified) {
+    return { sheet: result.sheet, etag: result.etag };
+  }
+  if (cached === undefined) {
+    throw drift('the server answered not modified to a read with no cached copy');
+  }
+  return cached;
+}
+
+export function useGmNpcSheet(campaignId: string, sheetId: string) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  const key = gmNpcKey(campaignId, sheetId);
+
+  return useQuery({
+    queryKey: key,
+    queryFn: () => loadGmNpcSheet(client, queryClient, campaignId, sheetId),
+    refetchInterval: GM_POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+    retry: false,
+  });
+}
+
+async function loadGmNpcSheet(
+  client: ReturnType<typeof useApiClient>,
+  queryClient: QueryClient,
+  campaignId: string,
+  sheetId: string,
+): Promise<GmSheetSnapshot> {
+  const cached = queryClient.getQueryData<GmSheetSnapshot>(gmNpcKey(campaignId, sheetId));
+  const result = await client.getCampaignNpc(campaignId, sheetId, cached?.etag);
 
   if (!result.notModified) {
     return { sheet: result.sheet, etag: result.etag };

@@ -54,6 +54,22 @@ export interface CampaignSheet {
   readonly updatedAt: string;
 }
 
+export const LINKABLE_SHEET_KINDS = ['npc', 'monster'] as const;
+
+export type NpcKind = (typeof LINKABLE_SHEET_KINDS)[number];
+
+export interface NpcLink {
+  readonly id: string;
+  readonly sheetId: string;
+  readonly name: string;
+  readonly kind: NpcKind;
+  readonly ownerId: string;
+  readonly ownerName: string;
+  readonly revealed: boolean;
+  readonly linkedAt: string;
+  readonly isOwner: boolean;
+}
+
 export type CampaignSheetResult =
   | { readonly notModified: true }
   | { readonly notModified: false; readonly sheet: Sheet; readonly etag: string | undefined };
@@ -155,6 +171,30 @@ export function parseCampaignSheets(payload: unknown): CampaignSheet[] {
       updatedAt: requireString(source, 'updated_at'),
     };
   });
+}
+
+export function parseNpcLink(payload: unknown): NpcLink {
+  const source = requireObject(payload, 'npc link');
+
+  return {
+    id: requireString(source, 'id'),
+    sheetId: requireString(source, 'sheet_id'),
+    name: requireString(source, 'name'),
+    kind: requireEnum(source, 'kind', LINKABLE_SHEET_KINDS),
+    ownerId: requireString(source, 'owner_id'),
+    ownerName: optionalText(source, 'owner_name'),
+    revealed: requireBoolean(source, 'revealed'),
+    linkedAt: requireString(source, 'linked_at'),
+    isOwner: requireBoolean(source, 'is_owner'),
+  };
+}
+
+export function parseNpcLinks(payload: unknown): NpcLink[] {
+  if (!Array.isArray(payload)) {
+    throw drift('npc link list is not an array');
+  }
+
+  return payload.map(parseNpcLink);
 }
 
 export interface JoinedCampaign {

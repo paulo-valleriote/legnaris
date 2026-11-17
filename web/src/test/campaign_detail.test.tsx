@@ -24,6 +24,7 @@ function detailRoutes(view: Record<string, unknown>, extra: Route[] = []): Route
     ...baseRoutes(),
     { method: 'GET', path: DETAIL, respond: () => ok(view) },
     { method: 'GET', path: `${DETAIL}/sheets`, respond: () => ok([]) },
+    { method: 'GET', path: `${DETAIL}/npcs`, respond: () => ok([]) },
     { method: 'GET', path: '/sheets/owned', respond: () => ok([ownedSheet()]) },
     ...extra,
   ];
