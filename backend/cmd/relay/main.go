@@ -407,6 +407,17 @@ func defaultDependencies() dependencies {
 				return accountdeletion.Deps{}, fmt.Errorf("unexpected database handle type %T", database)
 			}
 			mdb := mongo.Client.Database(cfg.Variables.DatabaseName)
+			settler, err := campaign.NewAccountSettler(
+				campaign.NewRepository(mdb),
+				db.NewTransactor(mongo.Client, nil),
+				campaign.NewOwnershipLimiter(user.NewPlanSource(user.NewRepository(mdb, cfg.Logger)), campaign.NewOwnershipCounter(mdb)),
+				relayCharacterUnlinker{sheets: sheet.NewRepository(mdb, cfg.Logger)},
+				publisher,
+				time.Now,
+			)
+			if err != nil {
+				return accountdeletion.Deps{}, err
+			}
 			return accountdeletion.Deps{
 				Store:   user.NewDeletionStore(mdb, cfg.Logger),
 				Cascade: accountdeletion.NewCascade(mdb, outboxRepo, time.Now),
@@ -415,14 +426,7 @@ func defaultDependencies() dependencies {
 					Provider: newRelayBillingProvider(cfg.Variables),
 					Ledger:   billing.NewMongoStore(mdb),
 				}),
-				Campaigns: campaign.NewAccountSettler(
-					campaign.NewRepository(mdb),
-					db.NewTransactor(mongo.Client, nil),
-					campaign.NewOwnershipLimiter(user.NewPlanSource(user.NewRepository(mdb, cfg.Logger)), campaign.NewOwnershipCounter(mdb)),
-					relayCharacterUnlinker{sheets: sheet.NewRepository(mdb, cfg.Logger)},
-					publisher,
-					time.Now,
-				),
+				Campaigns: settler,
 			}, nil
 		},
 		newBilling: func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error) {

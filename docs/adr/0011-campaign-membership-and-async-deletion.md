@@ -61,7 +61,7 @@ A Campaign is a shared space where Game Masters run a game with Players. It fixe
   - While `deleting`, the Campaign disappears from members' lists, GM access to Sheets ends at once, every read and write on it returns `CAMPAIGN_NOT_FOUND` `404`, and it no longer counts toward the Owner's Plan limit.
   - **Race with a concurrent link:** linking requires `status: active`, and after writing the link it re-reads the Campaign and undoes the link if it is `deleting`. A `campaign_id` that points to a missing Campaign is read as "not linked".
   - **Reconciliation:** the daily job (ADR 0009) clears orphan links and requeues Campaigns stuck in `deleting` for more than 1 hour.
-- **Account deletion of the Owner (input to LGN-190):** ownership passes to the longest-standing GM. With no other GM, the Campaign goes through the same asynchronous deletion.
+- **Account deletion of the Owner (input to LGN-190):** ownership passes to the longest-standing GM. Other GMs at their owned-Campaign limit are skipped; when no GM can receive ownership, the Campaign goes through the same asynchronous deletion.
 - **Events (added to the ADR 0010 catalog):**
 
   | Type | Aggregate | `data` | Tier |
