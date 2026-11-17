@@ -32,6 +32,7 @@ export type FailureKind =
   | 'invalidInvite'
   | 'templateMismatch'
   | 'sheetAlreadyLinked'
+  | 'sheetKindMismatch'
   | 'planLimitReached'
   | 'passwordRequired';
 

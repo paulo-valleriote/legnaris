@@ -3,23 +3,26 @@ import type { FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { failureCopy, failureKind } from '../api/error_mapper';
-import type { Campaign, CampaignMember } from '../api/models/campaign';
+import type { Campaign, CampaignMember, NpcLink, NpcKind } from '../api/models/campaign';
 import type { MemberAction } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
 import { Dialog } from '../ui/dialog';
 import { PLAN_QUERY_KEY } from '../catalog/queries';
 import { InvitePanel } from './invite_panel';
-import { useOwnedCharacterSheets } from './campaign_queries';
+import { useOwnedCharacterSheets, useOwnedSheets } from './campaign_queries';
 import {
   CAMPAIGNS_QUERY_KEY,
   campaignKey,
+  npcLinksKey,
   seedCampaign,
   useCampaign,
   useCampaignSheets,
+  useNpcLinks,
 } from './campaign_queries';
 import {
   canDeleteCampaign,
   canLinkCharacter,
+  eligibleNpcSheetIds,
   eligibleSheetIds,
   isDeleting,
   isSelf,
@@ -210,6 +213,153 @@ function LinkedSheets({ campaignId }: { campaignId: string }) {
   );
 }
 
+function npcKindLabel(kind: NpcKind): string {
+  return kind === 'monster' ? message('campaign.kindMonster') : message('campaign.kindNpc');
+}
+
+function LinkNpcForm({
+  campaign,
+  disabled,
+  pending,
+  error,
+  onSubmit,
+}: {
+  campaign: Campaign;
+  disabled: boolean;
+  pending: boolean;
+  error: string | undefined;
+  onSubmit: (sheetId: string) => void;
+}) {
+  const npcs = useOwnedSheets('npc', true);
+  const monsters = useOwnedSheets('monster', true);
+  const [choice, setChoice] = useState('');
+  const owned = [...(npcs.data ?? []), ...(monsters.data ?? [])];
+  const eligible = eligibleNpcSheetIds(owned, campaign);
+  const selected = eligible.includes(choice) ? choice : (eligible[0] ?? '');
+  const names = new Map(owned.map((sheet) => [sheet.id, sheet.name]));
+  const loadError = npcs.error ?? monsters.error;
+  const loaded = npcs.data !== undefined && monsters.data !== undefined;
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (selected !== '') {
+      onSubmit(selected);
+    }
+  };
+
+  return (
+    <form className="lg-campaign__form" onSubmit={submit} noValidate>
+      {loadError ? (
+        <p className="lg-campaign__error" role="alert">
+          {failureCopy(loadError)}
+        </p>
+      ) : null}
+      {loaded && eligible.length === 0 ? (
+        <p className="lg-campaign__message">{message('campaign.noEligibleNpcs')}</p>
+      ) : null}
+      {eligible.length === 0 ? null : (
+        <label className="lg-field" htmlFor="campaign-npc-sheet">
+          <span className="lg-field__label">{message('campaign.npcLinkLabel')}</span>
+          <select
+            id="campaign-npc-sheet"
+            className="lg-campaign__select"
+            value={selected}
+            disabled={disabled || pending}
+            onChange={(event) => setChoice(event.target.value)}
+          >
+            {eligible.map((id) => (
+              <option key={id} value={id}>
+                {names.get(id) ?? id}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {error ? (
+        <p className="lg-campaign__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="lg-campaign__actions">
+        <button
+          type="submit"
+          className="lg-button lg-button--primary lg-button--md"
+          disabled={disabled || pending || selected === ''}
+          aria-busy={pending ? true : undefined}
+        >
+          {message('campaign.npcLink')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function NpcLinks({
+  campaignId,
+  pending,
+  onUnlink,
+}: {
+  campaignId: string;
+  pending: boolean;
+  onUnlink: (link: NpcLink) => void;
+}) {
+  const links = useNpcLinks(campaignId, true);
+
+  if (links.isError) {
+    return (
+      <p className="lg-campaign__error" role="alert">
+        {failureCopy(links.error)}
+      </p>
+    );
+  }
+  if (links.data === undefined) {
+    return null;
+  }
+  if (links.data.length === 0) {
+    return <p className="lg-campaign__message">{message('campaign.npcsEmpty')}</p>;
+  }
+
+  return (
+    <ul className="lg-campaign__list" aria-label={message('campaign.npcsHeading')}>
+      {links.data.map((link) => (
+        <li className="lg-campaign__row" key={link.id}>
+          <div className="lg-campaign__member">
+            <Link
+              className="lg-campaign__link"
+              to={`/campaigns/${campaignId}/npcs/${link.sheetId}`}
+              aria-label={messageWith('campaign.openNpc', { name: link.name })}
+            >
+              {link.name}
+            </Link>
+            <span className="lg-campaign__meta">
+              {npcKindLabel(link.kind)} ·{' '}
+              {messageWith('campaign.npcOwner', {
+                name: link.ownerName === '' ? message('campaign.unnamed') : link.ownerName,
+              })}
+            </span>
+            <span className="lg-campaign__meta">
+              {link.revealed ? message('campaign.npcRevealed') : message('campaign.npcHidden')}
+            </span>
+          </div>
+          {link.isOwner ? (
+            <div className="lg-campaign__actions">
+              <button
+                type="button"
+                className="lg-button lg-button--outline lg-button--sm"
+                aria-label={messageWith('campaign.unlinkNpc', { name: link.name })}
+                disabled={pending}
+                onClick={() => onUnlink(link)}
+              >
+                {message('campaign.unlinkAction')}
+              </button>
+            </div>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function CampaignBody({ campaign }: { campaign: Campaign }) {
   const client = useApiClient();
   const queryClient = useQueryClient();
@@ -218,6 +368,8 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const [actionError, setActionError] = useState<string | undefined>(undefined);
   const [linkError, setLinkError] = useState<string | undefined>(undefined);
+  const [npcError, setNpcError] = useState<string | undefined>(undefined);
+  const [npcNotice, setNpcNotice] = useState<string | undefined>(undefined);
 
   const refreshCampaign = (next: Campaign) => {
     seedCampaign(queryClient, next);
@@ -295,7 +447,47 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
     },
   });
 
-  const busy = memberCommand.isPending || leave.isPending || remove.isPending;
+  const linkNpc = useMutation({
+    mutationFn: (sheetId: string) => client.linkNpc(campaign.id, sheetId),
+    onSuccess: () => {
+      setNpcError(undefined);
+      setNpcNotice(message('campaign.npcLinked'));
+      void queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) });
+    },
+    onError: (error) => {
+      setNpcNotice(undefined);
+      setNpcError(failureCopy(error));
+      if (failureKind(error) === 'notFound') {
+        void queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) });
+      }
+    },
+  });
+
+  const unlinkNpc = useMutation({
+    mutationFn: (sheetId: string) => client.unlinkNpc(campaign.id, sheetId),
+    onSuccess: () => {
+      setNpcError(undefined);
+      setNpcNotice(message('campaign.npcUnlinked'));
+      void queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) });
+    },
+    onError: (error) => {
+      void queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) });
+      if (failureKind(error) === 'notFound') {
+        setNpcError(undefined);
+        setNpcNotice(undefined);
+        return;
+      }
+      setNpcNotice(undefined);
+      setNpcError(failureCopy(error));
+    },
+  });
+
+  const busy =
+    memberCommand.isPending ||
+    leave.isPending ||
+    remove.isPending ||
+    linkNpc.isPending ||
+    unlinkNpc.isPending;
   const deleting = isDeleting(campaign);
 
   const confirmPending = () => {
@@ -383,6 +575,31 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
             {message('campaign.sheetsHeading')}
           </h2>
           <LinkedSheets campaignId={campaign.id} />
+        </section>
+      ) : null}
+
+      {campaign.viewerRole === 'gm' ? (
+        <section className="lg-campaign__section" aria-labelledby="campaign-npcs-heading">
+          <h2 className="lg-campaign__heading" id="campaign-npcs-heading">
+            {message('campaign.npcsHeading')}
+          </h2>
+          <LinkNpcForm
+            campaign={campaign}
+            disabled={deleting}
+            pending={linkNpc.isPending || unlinkNpc.isPending}
+            error={npcError}
+            onSubmit={(sheetId) => linkNpc.mutate(sheetId)}
+          />
+          {npcNotice ? (
+            <p className="lg-campaign__message" role="status">
+              {npcNotice}
+            </p>
+          ) : null}
+          <NpcLinks
+            campaignId={campaign.id}
+            pending={unlinkNpc.isPending}
+            onUnlink={(link) => unlinkNpc.mutate(link.sheetId)}
+          />
         </section>
       ) : null}
 

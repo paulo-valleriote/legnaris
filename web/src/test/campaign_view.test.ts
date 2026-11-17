@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   atOwnedLimit,
+  eligibleNpcSheetIds,
   eligibleSheetIds,
   isDeleting,
   isSelf,
@@ -85,5 +86,21 @@ describe('campaign view rules (LGN-218)', () => {
 
   it('Edge: no sheets gives an empty choice', () => {
     expect(eligibleSheetIds([], { id: 'c1', templateId: 'fantasy_v1' })).toEqual([]);
+  });
+
+  it('Happy path: NPC and Monster sheets of the Campaign Template are eligible, even if linked elsewhere', () => {
+    const sheets = [
+      { id: 's-here', templateId: 'fantasy_v1' },
+      { id: 's-elsewhere', templateId: 'fantasy_v1' },
+      { id: 's-other-template', templateId: 'other_v1' },
+    ];
+    expect(eligibleNpcSheetIds(sheets, { templateId: 'fantasy_v1' })).toEqual([
+      's-here',
+      's-elsewhere',
+    ]);
+  });
+
+  it('Edge: no owned NPC or Monster sheets gives an empty choice', () => {
+    expect(eligibleNpcSheetIds([], { templateId: 'fantasy_v1' })).toEqual([]);
   });
 });

@@ -3,8 +3,15 @@ import type {
   CampaignSheet,
   CampaignSheetResult,
   CampaignSummary,
+  NpcLink,
 } from './models/campaign';
-import { parseCampaign, parseCampaignSheets, parseCampaignSummaries } from './models/campaign';
+import {
+  parseCampaign,
+  parseCampaignSheets,
+  parseCampaignSummaries,
+  parseNpcLink,
+  parseNpcLinks,
+} from './models/campaign';
 import type { AcceptedGeneration, Generation } from './models/generation';
 import {
   parseAcceptedGeneration,
@@ -59,6 +66,7 @@ export interface ApiClient {
   getSheet(id: string): Promise<Sheet>;
   getMySheet(): Promise<Sheet>;
   deleteSheet(id: string): Promise<void>;
+  duplicateSheet(id: string): Promise<Sheet>;
   patchSheet(
     id: string,
     changeSet: Record<string, unknown>,
@@ -90,11 +98,19 @@ export interface ApiClient {
     sheetId: string,
     etag: string | undefined,
   ): Promise<CampaignSheetResult>;
+  linkNpc(campaignId: string, sheetId: string): Promise<NpcLink>;
+  unlinkNpc(campaignId: string, sheetId: string): Promise<void>;
+  listNpcLinks(campaignId: string): Promise<NpcLink[]>;
+  getCampaignNpc(
+    campaignId: string,
+    sheetId: string,
+    etag: string | undefined,
+  ): Promise<CampaignSheetResult>;
   joinCampaign(input: JoinCampaignInput): Promise<JoinedCampaign>;
   rotateInvite(campaignId: string): Promise<Campaign>;
   setCampaignPassword(campaignId: string, password: string): Promise<Campaign>;
   clearCampaignPassword(campaignId: string): Promise<Campaign>;
-  listOwnedSheets(kind: 'character'): Promise<Sheet[]>;
+  listOwnedSheets(kind: SheetKind): Promise<Sheet[]>;
 }
 
 export interface CreateCampaignInput {
@@ -174,6 +190,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     getMySheet: () => caller.call('GET', '/sheets', undefined, parseSheet),
     deleteSheet: (id) =>
       caller.callNoContent('DELETE', `/sheets/${encodeURIComponent(id)}`, undefined),
+    duplicateSheet: (id) =>
+      caller.call('POST', `/sheets/${encodeURIComponent(id)}/duplicate`, undefined, parseSheet),
     patchSheet: (id, changeSet, dice) =>
       caller.call(
         'PATCH',
@@ -268,6 +286,37 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       const headers: Record<string, string> = etag === undefined ? {} : { 'if-none-match': etag };
       const result = await caller.callConditional(
         `/campaigns/${encodeURIComponent(campaignId)}/sheets/${encodeURIComponent(sheetId)}`,
+        parseSheet,
+        { headers },
+      );
+      return result.notModified
+        ? result
+        : { notModified: false, sheet: result.value, etag: result.etag };
+    },
+    linkNpc: (campaignId, sheetId) =>
+      caller.call(
+        'PUT',
+        `/campaigns/${encodeURIComponent(campaignId)}/npcs`,
+        JSON.stringify({ sheet_id: sheetId }),
+        parseNpcLink,
+      ),
+    unlinkNpc: (campaignId, sheetId) =>
+      caller.callNoContent(
+        'DELETE',
+        `/campaigns/${encodeURIComponent(campaignId)}/npcs/${encodeURIComponent(sheetId)}`,
+        undefined,
+      ),
+    listNpcLinks: (campaignId) =>
+      caller.call(
+        'GET',
+        `/campaigns/${encodeURIComponent(campaignId)}/npcs`,
+        undefined,
+        parseNpcLinks,
+      ),
+    getCampaignNpc: async (campaignId, sheetId, etag) => {
+      const headers: Record<string, string> = etag === undefined ? {} : { 'if-none-match': etag };
+      const result = await caller.callConditional(
+        `/campaigns/${encodeURIComponent(campaignId)}/npcs/${encodeURIComponent(sheetId)}`,
         parseSheet,
         { headers },
       );

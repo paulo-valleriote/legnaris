@@ -2,9 +2,10 @@ import type { FailureKind } from '../api/errors';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { failureCopy, failureKind } from '../api/error_mapper';
 import type { Sheet } from '../api/models/sheet';
-import { valueAtPath } from '../api/models/sheet';
+import { isLinkableSheetKind, valueAtPath } from '../api/models/sheet';
 import type { TemplateDetail } from '../api/models/template';
 import {
   EXCLUSIVE_NONE_VALUE,
@@ -23,10 +24,15 @@ import type { RowActionsInfo } from '../engine/sheet_form';
 import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { useApiClient, useSheetStore } from '../app/providers';
-import { templateDetailKey, updateSheetLayout } from '../catalog/queries';
+import {
+  templateDetailKey,
+  PLAN_QUERY_KEY,
+  seedCreatedSheet,
+  updateSheetLayout,
+} from '../catalog/queries';
 import { startDraftCadence } from '../library/draft_backup';
 import { discardDraft, discardLayoutDraft } from '../library/sheet_library';
-import { registerLeaveGuard } from '../shell/leave_guard';
+import { registerLeaveGuard, requestLeave } from '../shell/leave_guard';
 import { useSheetShortcuts } from '../shell/shortcut_registry';
 import type { PendingDiceKeys, PreviewMarks, SheetEditState, SheetEditStore } from './sheet_edit';
 import {
@@ -612,6 +618,9 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     view.store.markExplainerSeen();
   }, [view.store]);
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | undefined>(undefined);
+  const navigate = useNavigate();
   const arrangeToggleRef = useRef<HTMLButtonElement>(null);
   const arrangeHintRef = useRef<HTMLParagraphElement>(null);
   const focusArrangeHint = useRef(false);
@@ -736,6 +745,33 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [hasUnsavedWork, isWorking],
   );
 
+  const runDuplicate = useCallback(async () => {
+    setDuplicating(true);
+    setDuplicateError(undefined);
+    try {
+      const copy = await client.duplicateSheet(sheet.id);
+      seedCreatedSheet(queryClient, copy);
+      void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
+      void navigate(`/sheets/${encodeURIComponent(copy.id)}`);
+    } catch (error) {
+      setDuplicateError(
+        failureKind(error) === 'planLimitReached'
+          ? message('sheet.limitReached')
+          : failureCopy(error),
+      );
+      setDuplicating(false);
+    }
+  }, [client, navigate, queryClient, sheet.id]);
+
+  const requestDuplicate = useCallback(() => {
+    if (duplicating || isWorking()) {
+      return;
+    }
+    requestLeave(() => {
+      void runDuplicate();
+    });
+  }, [duplicating, isWorking, runDuplicate]);
+
   useEffect(() => {
     void editStore.restore();
     return startDraftCadence(storePort, () =>
@@ -787,6 +823,17 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
           </div>
           {sections.length > 0 && (
             <div className="lg-sheet__header-actions">
+              {isLinkableSheetKind(sheet.kind) && (
+                <button
+                  type="button"
+                  className="lg-button lg-button--ghost lg-button--sm"
+                  disabled={duplicating || arranging}
+                  aria-busy={duplicating ? true : undefined}
+                  onClick={requestDuplicate}
+                >
+                  {duplicating ? message('sheet.duplicating') : message('sheet.duplicate')}
+                </button>
+              )}
               {hasCalculated && (
                 <HelpToggle
                   open={helpOpen}
@@ -821,6 +868,11 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
           />
         )}
       </header>
+      {duplicateError ? (
+        <p className="lg-sheet__error" role="alert" data-testid="sheet-duplicate-error">
+          {duplicateError}
+        </p>
+      ) : null}
       {sections.length === 0 ? (
         <p className="lg-sheet__message" data-testid="sheet-empty-fields">
           {message('sheet.emptyFields')}
