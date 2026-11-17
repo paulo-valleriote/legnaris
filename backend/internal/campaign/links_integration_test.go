@@ -312,6 +312,42 @@ func TestLinkStore_ConcurrentUpsertsCreateOneDocument(t *testing.T) {
 	assert.Equal(t, int64(1), f.linkCount(t))
 }
 
+func TestLinkStore_DuplicateKeyInsideATransactionIsRetried(t *testing.T) {
+	f := newLinkFixture(t)
+	taken := campaign.SheetLink{
+		ID:         campaigntest.NewID(t),
+		CampaignID: campaigntest.NewID(t),
+		SheetID:    campaigntest.NewID(t),
+		OwnerID:    campaigntest.NewID(t),
+		LinkedAt:   campaigntest.Now(),
+	}
+	_, _, err := f.links.Upsert(f.ctx, &taken)
+	require.NoError(t, err)
+
+	attempts := 0
+	var stored campaign.SheetLink
+	err = f.tx.WithTransaction(f.ctx, func(txCtx context.Context) error {
+		attempts++
+		candidate := campaign.SheetLink{
+			ID:         taken.ID,
+			CampaignID: campaigntest.NewID(t),
+			SheetID:    campaigntest.NewID(t),
+			OwnerID:    campaigntest.NewID(t),
+			LinkedAt:   campaigntest.Now(),
+		}
+		if attempts > 1 {
+			candidate.ID = campaigntest.NewID(t)
+		}
+		var upsertErr error
+		stored, _, upsertErr = f.links.Upsert(txCtx, &candidate)
+		return upsertErr
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, attempts, "a duplicate key inside a transaction surfaces as transient and is retried")
+	assert.NotEqual(t, taken.ID, stored.ID)
+	assert.Equal(t, int64(2), f.linkCount(t))
+}
+
 type freePlanSource struct{}
 
 func (freePlanSource) PlanOf(context.Context, string) (plan.Plan, error) {

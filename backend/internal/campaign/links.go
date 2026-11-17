@@ -21,12 +21,13 @@ const (
 const dataKeyKind = "kind"
 
 const (
-	MsgNpcKindMismatch = "only npc and monster sheets can be linked to a campaign"
-	MsgLinkGMOnly      = "only game masters can manage linked npc and monster sheets"
-	MsgLinkOwnerOnly   = "only the sheet owner can link or unlink it"
-	MsgLinkNotFound    = "sheet link not found"
-	MsgLinkRead        = "failed to read sheet links"
-	MsgLinkWrite       = "failed to update sheet link"
+	MsgNpcKindMismatch  = "only npc and monster sheets can be linked to a campaign"
+	MsgLinkGMOnly       = "only game masters can manage linked npc and monster sheets"
+	MsgLinkOwnerOnly    = "only the sheet owner can link or unlink it"
+	MsgLinkNotFound     = "sheet link not found"
+	MsgLinkRead         = "failed to read sheet links"
+	MsgLinkWrite        = "failed to update sheet link"
+	MsgLinkStoreMissing = "the NPC link store is not configured"
 )
 
 type LinkNpcCommand struct {
@@ -70,15 +71,15 @@ type NpcLinkView struct {
 type noLinks struct{}
 
 func (noLinks) Upsert(context.Context, *SheetLink) (SheetLink, bool, error) {
-	return SheetLink{}, false, nil
+	return SheetLink{}, false, apperr.NewError(apperr.CodeInternal, MsgLinkStoreMissing, nil)
 }
 
 func (noLinks) Fetch(context.Context, string, string) (*SheetLink, error) {
 	return nil, ErrLinkNotFound
 }
 
-func (noLinks) SetRevealed(context.Context, string, string, bool) (SheetLink, error) {
-	return SheetLink{}, ErrLinkNotFound
+func (noLinks) SetRevealed(context.Context, string, string, bool) (SheetLink, bool, error) {
+	return SheetLink{}, false, ErrLinkNotFound
 }
 
 func (noLinks) Delete(context.Context, string, string) (bool, error) {
@@ -111,6 +112,14 @@ func kindMismatch(message string) *apperr.Error {
 
 func linkNotFound() *apperr.Error {
 	return apperr.NewError(apperr.CodeNotFound, MsgLinkNotFound, nil)
+}
+
+func linkWriteError(err error) error {
+	var appErr *apperr.Error
+	if errors.As(err, &appErr) {
+		return err
+	}
+	return internalError(MsgLinkWrite, err)
 }
 
 func (s *ServiceImpl) LinkNpc(ctx context.Context, cmd LinkNpcCommand) (NpcLinkView, error) {
@@ -166,7 +175,7 @@ func (s *ServiceImpl) LinkNpc(ctx context.Context, cmd LinkNpcCommand) (NpcLinkV
 		}
 		link, created, err = s.links.Upsert(txCtx, &candidate)
 		if err != nil {
-			return internalError(MsgLinkWrite, err)
+			return linkWriteError(err)
 		}
 		stored = *found
 		return nil
@@ -222,8 +231,12 @@ func (s *ServiceImpl) UnlinkNpc(ctx context.Context, cmd UnlinkNpcCommand) error
 		} else if err != nil {
 			return internalError(MsgLinkRead, err)
 		}
-		if _, err := s.links.Delete(txCtx, c.ID, found.ID); err != nil {
+		deleted, err := s.links.Delete(txCtx, c.ID, found.ID)
+		if err != nil {
 			return internalError(MsgLinkWrite, err)
+		}
+		if !deleted {
+			return nil
 		}
 		removed = true
 		kind = found.Kind
@@ -325,13 +338,6 @@ func (s *ServiceImpl) applyNpcReveal(txCtx context.Context, c *Campaign, cmd Rev
 	if member.Role != RoleGM {
 		return forbidden(MsgLinkGMOnly)
 	}
-	current, err := s.links.Fetch(txCtx, c.ID, cmd.SheetID)
-	if errors.Is(err, ErrLinkNotFound) {
-		return linkNotFound()
-	}
-	if err != nil {
-		return internalError(MsgLinkRead, err)
-	}
 	found, err := s.sheets.FetchByID(txCtx, cmd.SheetID)
 	if errors.Is(err, sheet.ErrSheetNotFound) {
 		return sheetNotFound()
@@ -339,20 +345,16 @@ func (s *ServiceImpl) applyNpcReveal(txCtx context.Context, c *Campaign, cmd Rev
 	if err != nil {
 		return internalError(MsgSheetRead, err)
 	}
-	outcome.link = *current
-	outcome.sheet = *found
-	if current.Revealed == cmd.Revealed {
-		return nil
-	}
-	updated, err := s.links.SetRevealed(txCtx, c.ID, cmd.SheetID, cmd.Revealed)
+	link, changed, err := s.links.SetRevealed(txCtx, c.ID, cmd.SheetID, cmd.Revealed)
 	if errors.Is(err, ErrLinkNotFound) {
 		return linkNotFound()
 	}
 	if err != nil {
 		return internalError(MsgLinkWrite, err)
 	}
-	outcome.link = updated
-	outcome.changed = true
+	outcome.link = link
+	outcome.sheet = *found
+	outcome.changed = changed
 	return nil
 }
 
@@ -387,6 +389,9 @@ func (s *ServiceImpl) ReadNpcSheet(ctx context.Context, q ReadNpcSheetQuery) (Li
 	}
 	if err != nil {
 		return LinkedSheetResult{}, internalError(MsgSheetRead, err)
+	}
+	if !linkableKind(stored.Kind) {
+		return LinkedSheetResult{}, linkNotFound()
 	}
 	etag := SheetETag(stored.Version, stored.LayoutVersion, member.Role)
 	if ETagMatches(q.IfNoneMatch, etag) {
@@ -444,11 +449,23 @@ func NewSheetLinkCleaner(links LinkStore, publisher events.Publisher) *SheetLink
 	return &SheetLinkCleaner{links: links, publisher: publisher}
 }
 
-func (c *SheetLinkCleaner) DeleteForSheet(ctx context.Context, sheetID string, kind plan.SheetKind) error {
+func (c *SheetLinkCleaner) DeleteForSheet(ctx context.Context, sheetID string) ([]sheet.RemovedLink, error) {
 	removed, err := c.links.DeleteBySheetID(ctx, sheetID)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	out := make([]sheet.RemovedLink, 0, len(removed))
+	for _, link := range removed {
+		out = append(out, sheet.RemovedLink{
+			CampaignID: link.CampaignID,
+			SheetID:    link.SheetID,
+			OwnerID:    link.OwnerID,
+		})
+	}
+	return out, nil
+}
+
+func (c *SheetLinkCleaner) PublishSheetUnlinked(kind plan.SheetKind, removed []sheet.RemovedLink) {
 	for _, link := range removed {
 		actor := link.OwnerID
 		c.publisher.Publish(events.Event{
@@ -464,5 +481,4 @@ func (c *SheetLinkCleaner) DeleteForSheet(ctx context.Context, sheetID string, k
 			},
 		})
 	}
-	return nil
 }

@@ -33,7 +33,7 @@ func TestSetNpcRevealed(t *testing.T) {
 		deleting     bool
 		missingLink  bool
 		missingSheet bool
-		fetchErr     error
+		sheetErr     error
 		setErr       error
 		wantCode     apperr.Code
 		wantEvent    string
@@ -104,10 +104,10 @@ func TestSetNpcRevealed(t *testing.T) {
 			wantCode:     apperr.CodeNotFound,
 		},
 		{
-			name:     "Error: a link read failure is internal",
+			name:     "Error: a sheet read failure is internal",
 			user:     owner,
 			revealed: true,
-			fetchErr: errStoreDown,
+			sheetErr: errStoreDown,
 			wantCode: apperr.CodeInternal,
 		},
 		{
@@ -135,32 +135,32 @@ func TestSetNpcRevealed(t *testing.T) {
 				h.loadAlways(base)
 			}
 			memberRejected := tc.wantCode == apperr.CodeCampaignNotFound || tc.wantCode == apperr.CodeCampaignForbidden
-			switch {
-			case tc.missingLink:
-				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(nil, campaign.ErrLinkNotFound).Once()
-			case tc.fetchErr != nil:
-				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(nil, tc.fetchErr).Once()
-			case !memberRejected:
-				link := linkFixture(campaigntest.NewID(t), base.ID, sh.ID, owner)
-				link.Revealed = tc.current
-				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&link, nil).Once()
-				if tc.missingSheet {
-					h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, sheet.ErrSheetNotFound).Once()
-					break
-				}
-				h.sheetReturns(sh)
+			if !memberRejected && !tc.deleting {
 				switch {
-				case tc.setErr != nil:
-					h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, tc.revealed).
-						Return(campaign.SheetLink{}, tc.setErr).Once()
-				case tc.current != tc.revealed:
-					h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, tc.revealed).RunAndReturn(
-						func(_ context.Context, _, _ string, revealed bool) (campaign.SheetLink, error) {
-							out := link
-							out.Revealed = revealed
-							return out, nil
-						},
-					).Once()
+				case tc.missingSheet:
+					h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, sheet.ErrSheetNotFound).Once()
+				case tc.sheetErr != nil:
+					h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, tc.sheetErr).Once()
+				default:
+					h.sheetReturns(sh)
+					link := linkFixture(campaigntest.NewID(t), base.ID, sh.ID, owner)
+					link.Revealed = tc.current
+					switch {
+					case tc.missingLink:
+						h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, tc.revealed).
+							Return(campaign.SheetLink{}, false, campaign.ErrLinkNotFound).Once()
+					case tc.setErr != nil:
+						h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, tc.revealed).
+							Return(campaign.SheetLink{}, false, tc.setErr).Once()
+					default:
+						h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, tc.revealed).RunAndReturn(
+							func(_ context.Context, _, _ string, revealed bool) (campaign.SheetLink, bool, error) {
+								out := link
+								out.Revealed = revealed
+								return out, tc.current != revealed, nil
+							},
+						).Once()
+					}
 				}
 			}
 			if tc.wantCode == "" {
@@ -254,10 +254,8 @@ func TestRevealEvents_CarryNoSheetNameOrValues(t *testing.T) {
 	hidden := linkFixture(campaigntest.NewID(t), base.ID, sh.ID, owner)
 	revealed := hidden
 	revealed.Revealed = true
-	h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&hidden, nil).Once()
-	h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, true).Return(revealed, nil).Once()
-	h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&revealed, nil).Once()
-	h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, false).Return(hidden, nil).Once()
+	h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, true).Return(revealed, true, nil).Once()
+	h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, false).Return(hidden, true, nil).Once()
 	h.expectSave(base.Version, nil)
 	h.expectSave(base.Version+1, nil)
 

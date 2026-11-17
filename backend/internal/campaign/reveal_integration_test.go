@@ -2,6 +2,7 @@ package campaign_test
 
 import (
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -202,20 +203,79 @@ func TestLinkStore_SetRevealedUpdatesTheLinkAndReportsMissing(t *testing.T) {
 	_, _, err := f.links.Upsert(f.ctx, &link)
 	require.NoError(t, err)
 
-	revealed, err := f.links.SetRevealed(f.ctx, campaignID, sheetID, true)
+	revealed, changed, err := f.links.SetRevealed(f.ctx, campaignID, sheetID, true)
 	require.NoError(t, err)
+	assert.True(t, changed)
 	assert.Equal(t, link.ID, revealed.ID)
 	assert.True(t, revealed.Revealed)
+
+	again, changed, err := f.links.SetRevealed(f.ctx, campaignID, sheetID, true)
+	require.NoError(t, err)
+	assert.False(t, changed, "a repeated reveal reports no change")
+	assert.True(t, again.Revealed)
 
 	stored, err := f.links.Fetch(f.ctx, campaignID, sheetID)
 	require.NoError(t, err)
 	assert.True(t, stored.Revealed)
 
-	hidden, err := f.links.SetRevealed(f.ctx, campaignID, sheetID, false)
+	hidden, changed, err := f.links.SetRevealed(f.ctx, campaignID, sheetID, false)
 	require.NoError(t, err)
+	assert.True(t, changed)
 	assert.False(t, hidden.Revealed)
 
-	_, err = f.links.SetRevealed(f.ctx, campaignID, campaigntest.NewID(t), true)
+	_, changed, err = f.links.SetRevealed(f.ctx, campaignID, campaigntest.NewID(t), true)
 	assert.True(t, errors.Is(err, campaign.ErrLinkNotFound))
+	assert.False(t, changed)
 	assert.Equal(t, int64(1), f.linkCount(t), "a missing link is never inserted")
+}
+
+func TestLinkStore_SetRevealedIsOneConditionalUpdate(t *testing.T) {
+	f := newLinkFixture(t)
+	campaignID := campaigntest.NewID(t)
+	sheetID := campaigntest.NewID(t)
+	link := campaign.SheetLink{
+		ID:         campaigntest.NewID(t),
+		CampaignID: campaignID,
+		SheetID:    sheetID,
+		OwnerID:    campaigntest.NewID(t),
+		LinkedAt:   campaigntest.Now(),
+	}
+	_, _, err := f.links.Upsert(f.ctx, &link)
+	require.NoError(t, err)
+
+	const contenders = 8
+	var (
+		wg       sync.WaitGroup
+		start    = make(chan struct{})
+		mu       sync.Mutex
+		changed  int
+		failures []error
+	)
+	for range contenders {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, didChange, err := f.links.SetRevealed(f.ctx, campaignID, sheetID, true)
+			if err != nil {
+				mu.Lock()
+				failures = append(failures, err)
+				mu.Unlock()
+				return
+			}
+			if didChange {
+				mu.Lock()
+				changed++
+				mu.Unlock()
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	require.Empty(t, failures)
+	assert.Equal(t, 1, changed, "only one concurrent reveal may report a change")
+	stored, err := f.links.Fetch(f.ctx, campaignID, sheetID)
+	require.NoError(t, err)
+	assert.True(t, stored.Revealed)
 }
