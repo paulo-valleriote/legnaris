@@ -1,4 +1,6 @@
 import type { Generation } from '../api/models/generation';
+import { SHEET_KINDS } from '../api/models/plan';
+import type { SheetKind } from '../api/models/plan';
 
 export const PREVIEW_THROTTLE_MS = 1_000;
 
@@ -115,6 +117,10 @@ export function decideWait(generation: Generation | undefined, elapsedMs: number
 
 export type Allowance =
   { readonly kind: 'trial'; readonly remaining: number } | { readonly kind: 'unknown' };
+
+export function generationKind(param: string | null | undefined): SheetKind {
+  return SHEET_KINDS.find((kind) => kind === param) ?? 'character';
+}
 
 export function trialAllowance(plan: { readonly trialRemaining: number | undefined }): Allowance {
   if (plan.trialRemaining === undefined) {
