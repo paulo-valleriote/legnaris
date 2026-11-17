@@ -18,6 +18,16 @@ import (
 	"legnaris/backend/shared/apperr"
 )
 
+var testHasher = mustNewHasher()
+
+func mustNewHasher() campaign.PasswordHasher {
+	h, err := campaign.NewArgon2Hasher()
+	if err != nil {
+		panic(err)
+	}
+	return h
+}
+
 type harness struct {
 	t         *testing.T
 	repo      *mocks.MockRepository
@@ -27,6 +37,7 @@ type harness struct {
 	names     *mocks.MockNameLookup
 	guard     *mocks.MockCreateGuard
 	sheets    *mocks.MockCharacterStore
+	limiter   *mocks.MockJoinLimiter
 	linked    []sheet.Sheet
 	linkedErr error
 	events    []events.Event
@@ -45,6 +56,7 @@ func newHarness(t *testing.T) *harness {
 		names:    mocks.NewMockNameLookup(t),
 		guard:    mocks.NewMockCreateGuard(t),
 		sheets:   mocks.NewMockCharacterStore(t),
+		limiter:  mocks.NewMockJoinLimiter(t),
 	}
 	h.sheets.EXPECT().ListByCampaignID(mock.Anything, mock.Anything).RunAndReturn(
 		func(context.Context, string) ([]sheet.Sheet, error) { return h.linked, h.linkedErr },
@@ -68,6 +80,8 @@ func (h *harness) service(opts ...campaign.ServiceOption) campaign.Service {
 		campaign.WithNameLookup(h.names),
 		campaign.WithCharacterStore(h.sheets),
 		campaign.WithClock(campaigntest.Now),
+		campaign.WithPasswordHasher(testHasher),
+		campaign.WithJoinLimiter(h.limiter),
 	}
 	return campaign.NewService(h.repo, h.tx, h.pub, append(base, opts...)...)
 }
@@ -88,7 +102,9 @@ func (h *harness) loadMissing(id string) {
 func (h *harness) expectSave(expectedVersion int64, result error) {
 	h.repo.EXPECT().Save(mock.Anything, mock.Anything, expectedVersion).RunAndReturn(
 		func(_ context.Context, c *campaign.Campaign, _ int64) error {
-			h.saved = c
+			if result == nil {
+				h.saved = c
+			}
 			return result
 		},
 	).Once()

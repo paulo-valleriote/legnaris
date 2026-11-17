@@ -29,6 +29,8 @@ packages:
       CharacterStore: {}
       NameLookup: {}
       CreateGuard: {}
+      PasswordHasher: {}
+      JoinLimiter: {}
       PlanSource: {}
       OwnershipCounter: {}
       Service: {}

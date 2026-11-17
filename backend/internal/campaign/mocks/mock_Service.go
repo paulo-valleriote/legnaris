@@ -22,6 +22,63 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// ClearPassword provides a mock function with given fields: ctx, cmd
+func (_m *MockService) ClearPassword(ctx context.Context, cmd campaign.InviteCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClearPassword")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.InviteCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.InviteCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.InviteCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ClearPassword_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClearPassword'
+type MockService_ClearPassword_Call struct {
+	*mock.Call
+}
+
+// ClearPassword is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.InviteCommand
+func (_e *MockService_Expecter) ClearPassword(ctx interface{}, cmd interface{}) *MockService_ClearPassword_Call {
+	return &MockService_ClearPassword_Call{Call: _e.mock.On("ClearPassword", ctx, cmd)}
+}
+
+func (_c *MockService_ClearPassword_Call) Run(run func(ctx context.Context, cmd campaign.InviteCommand)) *MockService_ClearPassword_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.InviteCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_ClearPassword_Call) Return(_a0 campaign.View, _a1 error) *MockService_ClearPassword_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ClearPassword_Call) RunAndReturn(run func(context.Context, campaign.InviteCommand) (campaign.View, error)) *MockService_ClearPassword_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function with given fields: ctx, cmd
 func (_m *MockService) Create(ctx context.Context, cmd campaign.CreateCommand) (campaign.View, error) {
 	ret := _m.Called(ctx, cmd)
@@ -190,6 +247,63 @@ func (_c *MockService_Fetch_Call) Return(_a0 campaign.View, _a1 error) *MockServ
 }
 
 func (_c *MockService_Fetch_Call) RunAndReturn(run func(context.Context, string, string) (campaign.View, error)) *MockService_Fetch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// JoinByCode provides a mock function with given fields: ctx, cmd
+func (_m *MockService) JoinByCode(ctx context.Context, cmd campaign.JoinCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for JoinByCode")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.JoinCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.JoinCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.JoinCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_JoinByCode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JoinByCode'
+type MockService_JoinByCode_Call struct {
+	*mock.Call
+}
+
+// JoinByCode is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.JoinCommand
+func (_e *MockService_Expecter) JoinByCode(ctx interface{}, cmd interface{}) *MockService_JoinByCode_Call {
+	return &MockService_JoinByCode_Call{Call: _e.mock.On("JoinByCode", ctx, cmd)}
+}
+
+func (_c *MockService_JoinByCode_Call) Run(run func(ctx context.Context, cmd campaign.JoinCommand)) *MockService_JoinByCode_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.JoinCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_JoinByCode_Call) Return(_a0 campaign.View, _a1 error) *MockService_JoinByCode_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_JoinByCode_Call) RunAndReturn(run func(context.Context, campaign.JoinCommand) (campaign.View, error)) *MockService_JoinByCode_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -584,6 +698,120 @@ func (_c *MockService_Remove_Call) Return(_a0 campaign.View, _a1 error) *MockSer
 }
 
 func (_c *MockService_Remove_Call) RunAndReturn(run func(context.Context, campaign.RoleCommand) (campaign.View, error)) *MockService_Remove_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RotateInviteCode provides a mock function with given fields: ctx, cmd
+func (_m *MockService) RotateInviteCode(ctx context.Context, cmd campaign.InviteCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RotateInviteCode")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.InviteCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.InviteCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.InviteCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_RotateInviteCode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RotateInviteCode'
+type MockService_RotateInviteCode_Call struct {
+	*mock.Call
+}
+
+// RotateInviteCode is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.InviteCommand
+func (_e *MockService_Expecter) RotateInviteCode(ctx interface{}, cmd interface{}) *MockService_RotateInviteCode_Call {
+	return &MockService_RotateInviteCode_Call{Call: _e.mock.On("RotateInviteCode", ctx, cmd)}
+}
+
+func (_c *MockService_RotateInviteCode_Call) Run(run func(ctx context.Context, cmd campaign.InviteCommand)) *MockService_RotateInviteCode_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.InviteCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_RotateInviteCode_Call) Return(_a0 campaign.View, _a1 error) *MockService_RotateInviteCode_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_RotateInviteCode_Call) RunAndReturn(run func(context.Context, campaign.InviteCommand) (campaign.View, error)) *MockService_RotateInviteCode_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetPassword provides a mock function with given fields: ctx, cmd
+func (_m *MockService) SetPassword(ctx context.Context, cmd campaign.PasswordCommand) (campaign.View, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetPassword")
+	}
+
+	var r0 campaign.View
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.PasswordCommand) (campaign.View, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.PasswordCommand) campaign.View); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.View)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.PasswordCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_SetPassword_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetPassword'
+type MockService_SetPassword_Call struct {
+	*mock.Call
+}
+
+// SetPassword is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.PasswordCommand
+func (_e *MockService_Expecter) SetPassword(ctx interface{}, cmd interface{}) *MockService_SetPassword_Call {
+	return &MockService_SetPassword_Call{Call: _e.mock.On("SetPassword", ctx, cmd)}
+}
+
+func (_c *MockService_SetPassword_Call) Run(run func(ctx context.Context, cmd campaign.PasswordCommand)) *MockService_SetPassword_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.PasswordCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_SetPassword_Call) Return(_a0 campaign.View, _a1 error) *MockService_SetPassword_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_SetPassword_Call) RunAndReturn(run func(context.Context, campaign.PasswordCommand) (campaign.View, error)) *MockService_SetPassword_Call {
 	_c.Call.Return(run)
 	return _c
 }

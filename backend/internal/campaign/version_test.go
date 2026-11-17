@@ -3,6 +3,7 @@ package campaign_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -89,6 +90,52 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
 				_, err := h.service().Demote(ctx, campaign.RoleCommand{CampaignID: base.ID, ActorID: campaigntest.OwnerID(base), TargetID: campaigntest.MembersWithRole(base, campaign.RoleGM)[0]})
+				return err
+			},
+		},
+		{
+			name: "join by code",
+			base: withInvite(campaigntest.Build(t, 0, 2), testInviteCode),
+			prepare: func(h *harness, base campaign.Campaign) {
+				h.resolveCode(testInviteCode, base)
+				h.allowJoins(true, time.Minute)
+				h.withUsernames("", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				_, err := h.service().JoinByCode(ctx, campaign.JoinCommand{UserID: campaigntest.NewID(t), Code: testInviteCode})
+				return err
+			},
+		},
+		{
+			name: "rotate invite code",
+			base: withInvite(campaigntest.Build(t, 0, 2), testInviteCode),
+			prepare: func(h *harness, _ campaign.Campaign) {
+				h.withUsernames("", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				_, err := h.service().RotateInviteCode(ctx, campaign.InviteCommand{CampaignID: base.ID, ActorID: campaigntest.OwnerID(base)})
+				return err
+			},
+		},
+		{
+			name: "set password",
+			base: withInvite(campaigntest.Build(t, 0, 2), testInviteCode),
+			prepare: func(h *harness, _ campaign.Campaign) {
+				h.withUsernames("", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				_, err := h.service().SetPassword(ctx, campaign.PasswordCommand{CampaignID: base.ID, ActorID: campaigntest.OwnerID(base), Password: "correct horse"})
+				return err
+			},
+		},
+		{
+			name: "clear password",
+			base: withPassword(t, withInvite(campaigntest.Build(t, 0, 2), testInviteCode), "correct horse"),
+			prepare: func(h *harness, _ campaign.Campaign) {
+				h.withUsernames("", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				_, err := h.service().ClearPassword(ctx, campaign.InviteCommand{CampaignID: base.ID, ActorID: campaigntest.OwnerID(base)})
 				return err
 			},
 		},

@@ -167,14 +167,6 @@ func NewModules(
 	sheetController := NewSheetController(sheetService)
 
 	ownedCampaigns := campaign.NewOwnershipLimiter(user.NewPlanSource(userRepository), campaign.NewOwnershipCounter(mdb))
-	campaignService := campaign.NewService(campaign.NewRepository(mdb), db.NewTransactor(database.Client, nil), publisher,
-		campaign.WithNameLookup(campaignNameLookup{users: userRepository}),
-		campaign.WithCharacterStore(sheetRepository),
-		campaign.WithCharacterUnlinker(campaignCharacterUnlinker{sheets: sheetRepository}),
-		campaign.WithCreateGuard(ownedCampaigns),
-	)
-	campaignController := NewCampaignController(campaignService)
-
 	refreshTokenRepository := auth.NewRefreshTokenRepository(mdb)
 
 	hasher, err := auth.NewPasswordHasher(cfg.Variables.AuthBcryptCost)
@@ -290,6 +282,21 @@ func NewModules(
 	publicLimiter := limiter("public", cfg.Variables.CSPReportRateLimitAttempts, cfg.Variables.CSPReportRateLimitWindow)
 	registerIPLimiter := limiter("register_ip", cfg.Variables.RegisterIPRateLimitAttempts, cfg.Variables.RegisterIPRateLimitWindow)
 	registerEmailLimiter := limiter("register_email", cfg.Variables.RegisterEmailRateLimitAttempts, cfg.Variables.RegisterEmailRateLimitWindow)
+	campaignHasher, err := campaign.NewArgon2Hasher()
+	if err != nil {
+		return nil, fmt.Errorf("init campaign password hasher: %w", err)
+	}
+	campaignJoinIPLimiter := limiter("campaign_join_ip", cfg.Variables.CampaignJoinIPRateLimitAttempts, cfg.Variables.CampaignJoinIPRateLimitWindow)
+	campaignJoinLimiter := limiter("campaign_join_campaign", cfg.Variables.CampaignJoinRateLimitAttempts, cfg.Variables.CampaignJoinRateLimitWindow)
+	campaignService := campaign.NewService(campaign.NewRepository(mdb), db.NewTransactor(database.Client, nil), publisher,
+		campaign.WithNameLookup(campaignNameLookup{users: userRepository}),
+		campaign.WithCreateGuard(ownedCampaigns),
+		campaign.WithCharacterStore(sheetRepository),
+		campaign.WithCharacterUnlinker(campaignCharacterUnlinker{sheets: sheetRepository}),
+		campaign.WithPasswordHasher(campaignHasher),
+		campaign.WithJoinLimiter(campaignJoinLimiter),
+	)
+	campaignController := NewCampaignController(campaignService)
 
 	return &Modules{
 		Template: TemplateModule{
@@ -301,8 +308,9 @@ func NewModules(
 			Service:    sheetService,
 		},
 		Campaign: CampaignModule{
-			Controller: campaignController,
-			Service:    campaignService,
+			Controller:    campaignController,
+			Service:       campaignService,
+			JoinIPLimiter: campaignJoinIPLimiter,
 		},
 		LLMConsent: LLMConsentModule{
 			Controller: NewLLMConsentController(llmConsentService),

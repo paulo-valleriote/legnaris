@@ -58,7 +58,7 @@ const (
 	MsgTemplateMismatch   = "sheet template does not match the campaign template"
 	MsgSheetAlreadyLinked = "sheet is already linked to a campaign"
 	MsgGMHasNoCharacter   = "game masters cannot link a character"
-	MsgGMOnly             = "only game masters can do this"
+	MsgListSheetsGMOnly   = "only game masters can list linked sheets"
 	MsgCharacterRead      = "failed to read linked characters"
 	MsgCharacterWrite     = "failed to update character link"
 	MsgSheetRead          = "failed to read sheet"
@@ -232,7 +232,7 @@ func (s *ServiceImpl) ListLinkedSheets(ctx context.Context, campaignID, viewerID
 	}
 	member, _ := c.MemberOf(viewerID)
 	if member.Role != RoleGM {
-		return nil, forbidden(MsgGMOnly)
+		return nil, forbidden(MsgListSheetsGMOnly)
 	}
 	found, err := s.sheets.ListByCampaignID(ctx, campaignID)
 	if err != nil {

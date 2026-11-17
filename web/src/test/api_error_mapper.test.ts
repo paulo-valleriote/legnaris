@@ -31,6 +31,9 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['BILLING_UNAVAILABLE', 'billingUnavailable'],
   ['NO_SUBSCRIPTION', 'noSubscription'],
   ['REFUND_NOT_ELIGIBLE', 'refundNotEligible'],
+  ['INVALID_INVITE', 'invalidInvite'],
+  ['PASSWORD_REQUIRED', 'passwordRequired'],
+  ['CAMPAIGN_FULL', 'campaignFull'],
 ];
 
 const fallback = ['CYCLE_DETECTED', 'INVALID_DEPENDENCY', 'INVALID_PATH'] as const;
@@ -63,6 +66,9 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   billingUnavailable: 'api.error.billingUnavailable',
   noSubscription: 'api.error.noSubscription',
   refundNotEligible: 'api.error.refundNotEligible',
+  invalidInvite: 'api.error.invalidInvite',
+  passwordRequired: 'api.error.passwordRequired',
+  campaignFull: 'api.error.campaignFull',
 };
 
 describe('backend code to failure kind', () => {
