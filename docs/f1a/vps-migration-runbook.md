@@ -31,7 +31,11 @@ docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.vps.yml sto
 
 ## 3. Run the migration with the new image
 
-The image now ships `/migrate-sheet-kinds` (this PR). With the new tag pulled:
+The image now ships `/migrate-sheet-kinds` (this PR). Run it with `app`, `relay`
+and `worker` stopped (step 2): pending outbox events carry `data.kind`, and the
+command refuses to run while the relay holds a live lease on any of them.
+
+With the new tag pulled:
 
 ```
 IMAGE_TAG=sha-<sha> docker compose --project-directory deploy \
@@ -39,9 +43,15 @@ IMAGE_TAG=sha-<sha> docker compose --project-directory deploy \
   run --rm --entrypoint /migrate-sheet-kinds app
 ```
 
-It turns legacy Sheets into `character` Sheets, rebuilds the per-owner counters
-and replaces the index. Read the report; a non-zero exit means stop and restore
-from the backup.
+It turns legacy Sheets into `character` Sheets, renames `monster` Sheets to
+`enemy`, rebuilds the per-owner counters, replaces the index and rewrites the
+`data.kind` of the pending `campaign.sheet_*` outbox events from `monster` to
+`enemy`. Read the report; a non-zero exit means stop and fix the cause.
+
+The command is idempotent, so a rerun after any failure is safe. Once the Sheet
+step has succeeded, a failure in the outbox step only needs a rerun (with the
+relay still stopped) and no restore from the backup; only a failure before the
+Sheet step warrants restoring from it.
 
 ## 4. Start the stack
 
