@@ -71,6 +71,7 @@ type DeleteSheetCommand struct {
 type Service interface {
 	Create(ctx context.Context, cmd CreateSheetCommand) (*Sheet, error)
 	FetchMySheet(ctx context.Context, ownerID string) (*Sheet, error)
+	ListMine(ctx context.Context, ownerID string, kind plan.SheetKind) ([]Sheet, error)
 	FetchByID(ctx context.Context, id string, ownerID string) (*Sheet, error)
 	CreateWithValues(ctx context.Context, cmd CreateWithValuesCommand, afterInsert AfterInsertHook) (*Sheet, error)
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
@@ -84,6 +85,7 @@ type Service interface {
 
 const (
 	MsgSheetIDNotProvided = "sheet id not provided"
+	MsgSheetKindInvalid   = "kind must be character, npc or monster"
 	MsgSheetIDInvalid     = "sheet id must be a canonical UUID v7"
 	MsgFieldDoesNotExist  = "field does not exist: "
 	MsgNestedTooDeep      = "sheet data is nested too deeply"
@@ -203,6 +205,19 @@ func translateCreateErr(err error, kind plan.SheetKind, limit int) error {
 		return sheetLimitError(kind, limit, err)
 	}
 	return translateRepoErr("create", err)
+}
+
+func (s *ServiceImpl) ListMine(ctx context.Context, ownerID string, kind plan.SheetKind) ([]Sheet, error) {
+	if err := requireOwner(ownerID); err != nil {
+		return nil, err
+	}
+
+	found, err := s.repository.ListByOwnerKind(ctx, ownerID, kind)
+	if err != nil {
+		return nil, translateRepoErr("list", err)
+	}
+
+	return found, nil
 }
 
 func (s *ServiceImpl) FetchMySheet(ctx context.Context, ownerID string) (*Sheet, error) {

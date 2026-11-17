@@ -31,9 +31,14 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['BILLING_UNAVAILABLE', 'billingUnavailable'],
   ['NO_SUBSCRIPTION', 'noSubscription'],
   ['REFUND_NOT_ELIGIBLE', 'refundNotEligible'],
-  ['INVALID_INVITE', 'invalidInvite'],
-  ['PASSWORD_REQUIRED', 'passwordRequired'],
+  ['CAMPAIGN_NOT_FOUND', 'campaignNotFound'],
   ['CAMPAIGN_FULL', 'campaignFull'],
+  ['CAMPAIGN_FORBIDDEN', 'campaignForbidden'],
+  ['INVALID_INVITE', 'invalidInvite'],
+  ['TEMPLATE_MISMATCH', 'templateMismatch'],
+  ['SHEET_ALREADY_LINKED', 'sheetAlreadyLinked'],
+  ['PLAN_LIMIT_REACHED', 'planLimitReached'],
+  ['PASSWORD_REQUIRED', 'passwordRequired'],
 ];
 
 const fallback = ['CYCLE_DETECTED', 'INVALID_DEPENDENCY', 'INVALID_PATH'] as const;
@@ -66,9 +71,14 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   billingUnavailable: 'api.error.billingUnavailable',
   noSubscription: 'api.error.noSubscription',
   refundNotEligible: 'api.error.refundNotEligible',
-  invalidInvite: 'api.error.invalidInvite',
-  passwordRequired: 'api.error.passwordRequired',
+  campaignNotFound: 'api.error.campaignNotFound',
   campaignFull: 'api.error.campaignFull',
+  campaignForbidden: 'api.error.campaignForbidden',
+  invalidInvite: 'api.error.invalidInvite',
+  templateMismatch: 'api.error.templateMismatch',
+  sheetAlreadyLinked: 'api.error.sheetAlreadyLinked',
+  planLimitReached: 'api.error.planLimitReached',
+  passwordRequired: 'api.error.passwordRequired',
 };
 
 describe('backend code to failure kind', () => {

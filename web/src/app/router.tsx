@@ -2,6 +2,9 @@ import type { ReactElement } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AccountScreen } from '../account/account_screen';
 import { AuthGate } from '../auth/auth_gate';
+import { CampaignScreen } from '../campaign/campaign_screen';
+import { CampaignsScreen } from '../campaign/campaigns_screen';
+import { GmSheetScreen } from '../campaign/gm_sheet_screen';
 import { CatalogScreen } from '../catalog/catalog_screen';
 import { GenerateScreen } from '../generate/generate_screen';
 import { AppShell } from '../shell/app_shell';
@@ -11,7 +14,15 @@ import { YourSheetScreen } from '../sheet/your_sheet_screen';
 import { PrivacyScreen } from '../legal/privacy_screen';
 import { PlansScreen } from '../plans/plans_screen';
 import { JoinScreen } from '../join/join_screen';
-import { DECLARED_ROUTES, NOT_FOUND_PATH, PLANS_PATH, PRIVACY_PATH } from './routes';
+import {
+  CAMPAIGN_DETAIL_PATH,
+  CAMPAIGN_SHEET_PATH,
+  CAMPAIGNS_PATH,
+  DECLARED_ROUTES,
+  NOT_FOUND_PATH,
+  PLANS_PATH,
+  PRIVACY_PATH,
+} from './routes';
 
 const SCREENS: Record<string, ReactElement> = {
   '/': <CatalogScreen />,
@@ -20,6 +31,9 @@ const SCREENS: Record<string, ReactElement> = {
   '/account': <AccountScreen />,
   '/join/:code': <JoinScreen />,
   [PLANS_PATH]: <PlansScreen />,
+  [CAMPAIGNS_PATH]: <CampaignsScreen />,
+  [CAMPAIGN_DETAIL_PATH]: <CampaignScreen />,
+  [CAMPAIGN_SHEET_PATH]: <GmSheetScreen />,
   '/generate/:templateId': <GenerateScreen />,
   [PRIVACY_PATH]: <PrivacyScreen />,
   [NOT_FOUND_PATH]: <NotFound />,

@@ -50,20 +50,21 @@ type MemberView struct {
 }
 
 type View struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	TemplateID  string       `json:"template_id"`
-	Status      Status       `json:"status"`
-	Version     int64        `json:"version"`
-	GMCount     int          `json:"gm_count"`
-	PlayerCount int          `json:"player_count"`
-	ViewerRole  Role         `json:"viewer_role"`
-	ViewerOwner bool         `json:"viewer_owner"`
-	InviteCode  string       `json:"invite_code,omitempty"`
-	PasswordSet *bool        `json:"password_set,omitempty"`
-	Members     []MemberView `json:"members"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
+	ID           string       `json:"id"`
+	Name         string       `json:"name"`
+	TemplateID   string       `json:"template_id"`
+	Status       Status       `json:"status"`
+	Version      int64        `json:"version"`
+	GMCount      int          `json:"gm_count"`
+	PlayerCount  int          `json:"player_count"`
+	ViewerUserID string       `json:"viewer_user_id"`
+	ViewerRole   Role         `json:"viewer_role"`
+	ViewerOwner  bool         `json:"viewer_owner"`
+	InviteCode   string       `json:"invite_code,omitempty"`
+	PasswordSet  *bool        `json:"password_set,omitempty"`
+	Members      []MemberView `json:"members"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
 }
 
 type Summary struct {
@@ -344,18 +345,19 @@ func (s *ServiceImpl) view(ctx context.Context, c *Campaign, viewerID string) Vi
 		})
 	}
 	out := View{
-		ID:          c.ID,
-		Name:        c.Name,
-		TemplateID:  c.TemplateID,
-		Status:      c.Status,
-		Version:     c.Version,
-		GMCount:     c.GMCount,
-		PlayerCount: c.PlayerCount,
-		ViewerRole:  viewer.Role,
-		ViewerOwner: viewer.Owner,
-		Members:     members,
-		CreatedAt:   c.CreatedAt,
-		UpdatedAt:   c.UpdatedAt,
+		ID:           c.ID,
+		Name:         c.Name,
+		TemplateID:   c.TemplateID,
+		Status:       c.Status,
+		Version:      c.Version,
+		GMCount:      c.GMCount,
+		PlayerCount:  c.PlayerCount,
+		ViewerUserID: viewerID,
+		ViewerRole:   viewer.Role,
+		ViewerOwner:  viewer.Owner,
+		Members:      members,
+		CreatedAt:    c.CreatedAt,
+		UpdatedAt:    c.UpdatedAt,
 	}
 	if viewer.Role == RoleGM {
 		passwordSet := c.PasswordHash != ""
