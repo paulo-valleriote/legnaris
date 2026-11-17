@@ -507,6 +507,7 @@ export const messages = {
   'campaign.linked': 'Your character is linked to this Campaign.',
   'campaign.unlinked': 'Your character is no longer linked to this Campaign.',
   'campaign.sheetsHeading': 'Linked character sheets',
+  'campaign.listLoading': 'Loading…',
   'campaign.sheetsEmpty': 'No character sheets are linked yet.',
   'campaign.openSheet': 'Open the read-only sheet of {name}',
   'campaign.playedBy': 'Played by {name}',

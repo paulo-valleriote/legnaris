@@ -209,6 +209,14 @@ function SectionHeading({ id, label, count }: { id: string; label: string; count
   );
 }
 
+function ListLoading() {
+  return (
+    <p className="lg-campaign__hint" role="status">
+      {message('campaign.listLoading')}
+    </p>
+  );
+}
+
 function LinkedSheets({ campaign }: { campaign: Campaign }) {
   const campaignId = campaign.id;
   const sheets = useCampaignSheets(campaignId, true);
@@ -221,7 +229,7 @@ function LinkedSheets({ campaign }: { campaign: Campaign }) {
     );
   }
   if (sheets.data === undefined) {
-    return null;
+    return <ListLoading />;
   }
   if (sheets.data.length === 0) {
     return <p className="lg-campaign__empty">{message('campaign.sheetsEmpty')}</p>;
@@ -368,7 +376,7 @@ function NpcLinks({
     );
   }
   if (links.data === undefined) {
-    return null;
+    return <ListLoading />;
   }
   if (links.data.length === 0) {
     return (
@@ -422,7 +430,7 @@ function NpcLinks({
               {link.isOwner ? (
                 <button
                   type="button"
-                  className="lg-button lg-button--outline lg-button--sm"
+                  className="lg-button lg-button--ghost lg-button--sm"
                   aria-label={messageWith('campaign.unlinkNpc', { name: link.name })}
                   disabled={pending}
                   onClick={() => onUnlink?.(link)}
@@ -631,7 +639,7 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
       <header className="lg-campaign__header">
         <div className="lg-campaign__identity">
           <Link
-            className="lg-campaign__back"
+            className="lg-campaign__back-icon"
             to="/campaigns"
             aria-label={message('campaign.back')}
             title={message('campaign.back')}

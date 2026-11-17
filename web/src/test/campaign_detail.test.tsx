@@ -305,6 +305,23 @@ describe('campaign screen: linked sheets and GM read (LGN-218)', () => {
     expect(within(card).getByText(/Updated Nov 17, 2026/)).toBeInTheDocument();
   });
 
+  it('Edge: the sheet grid shows a loading line while the list is in flight', async () => {
+    const script = scripted([
+      ...detailRoutes(campaignView({ viewer_role: 'gm', viewer_owner: false })).filter(
+        (route) => route.path !== `${DETAIL}/sheets`,
+      ),
+      { method: 'GET', path: `${DETAIL}/sheets`, respond: () => new Promise(() => undefined) },
+    ]);
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    const section = (
+      await screen.findByRole('heading', { name: message('campaign.sheetsHeading') })
+    ).closest('section') as HTMLElement;
+    expect(await within(section).findByRole('status')).toHaveTextContent(
+      message('campaign.listLoading'),
+    );
+  });
+
   it('Edge: a sheet whose owner is no longer a member shows no player and a bad date no update line', async () => {
     const script = scripted([
       ...detailRoutes(campaignView({ viewer_role: 'gm', viewer_owner: false })).filter(
