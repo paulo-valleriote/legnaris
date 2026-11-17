@@ -26,8 +26,9 @@ func Middleware(origins []string) echo.MiddlewareFunc {
 			echo.HeaderContentType,
 			echo.HeaderAuthorization,
 			echo.HeaderXRequestID,
+			"If-None-Match",
 			csrfHeader,
 		},
-		ExposeHeaders: []string{echo.HeaderXRequestID},
+		ExposeHeaders: []string{echo.HeaderXRequestID, "ETag"},
 	})
 }
