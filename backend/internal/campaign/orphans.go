@@ -43,8 +43,6 @@ func NewOrphanLinks(db *mongo.Database) *MongoOrphanLinks {
 	}
 }
 
-// UnlinkOrphans clears up to limit orphaned character links and up to limit orphaned NPC and
-// Monster links. It returns how many orphans it examined, so a zero means nothing is left.
 func (l *MongoOrphanLinks) UnlinkOrphans(ctx context.Context, limit int) (int64, error) {
 	if limit <= 0 {
 		return 0, nil
