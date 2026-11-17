@@ -26,7 +26,7 @@ export function gmSheetKey(campaignId: string, sheetId: string) {
   return ['campaign', campaignId, 'sheet', sheetId] as const;
 }
 
-export function gmNpcKey(campaignId: string, sheetId: string) {
+export function npcSheetKey(campaignId: string, sheetId: string) {
   return ['campaign', campaignId, 'npc', sheetId] as const;
 }
 
@@ -92,6 +92,9 @@ export function useNpcLinks(id: string, enabled: boolean) {
     queryKey: npcLinksKey(id),
     queryFn: () => client.listNpcLinks(id),
     enabled,
+    refetchInterval: GM_POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     retry: false,
   });
 }
@@ -130,14 +133,14 @@ async function loadGmSheet(
   return cached;
 }
 
-export function useGmNpcSheet(campaignId: string, sheetId: string) {
+export function useNpcSheet(campaignId: string, sheetId: string) {
   const client = useApiClient();
   const queryClient = useQueryClient();
-  const key = gmNpcKey(campaignId, sheetId);
+  const key = npcSheetKey(campaignId, sheetId);
 
   return useQuery({
     queryKey: key,
-    queryFn: () => loadGmNpcSheet(client, queryClient, campaignId, sheetId),
+    queryFn: () => loadNpcSheet(client, queryClient, campaignId, sheetId),
     refetchInterval: (query) =>
       failureKind(query.state.error) === 'notFound' ? false : GM_POLL_INTERVAL_MS,
     refetchIntervalInBackground: false,
@@ -147,13 +150,13 @@ export function useGmNpcSheet(campaignId: string, sheetId: string) {
   });
 }
 
-async function loadGmNpcSheet(
+async function loadNpcSheet(
   client: ReturnType<typeof useApiClient>,
   queryClient: QueryClient,
   campaignId: string,
   sheetId: string,
 ): Promise<GmSheetSnapshot> {
-  const cached = queryClient.getQueryData<GmSheetSnapshot>(gmNpcKey(campaignId, sheetId));
+  const cached = queryClient.getQueryData<GmSheetSnapshot>(npcSheetKey(campaignId, sheetId));
   const result = await client.getCampaignNpc(campaignId, sheetId, cached?.etag);
 
   if (!result.notModified) {
