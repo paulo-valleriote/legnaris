@@ -20,8 +20,11 @@ const (
 	linkRevealedField            = "revealed"
 	linkLinkedAtField            = "linked_at"
 	inOperator                   = "$in"
+	notEqualOperator             = "$ne"
 	setOnInsertOperator          = "$setOnInsert"
 )
+
+const transientTransactionErrorLabel = "TransientTransactionError"
 
 var ErrLinkNotFound = errors.New("sheet link not found")
 
@@ -37,7 +40,7 @@ type SheetLink struct {
 type LinkStore interface {
 	Upsert(ctx context.Context, link *SheetLink) (SheetLink, bool, error)
 	Fetch(ctx context.Context, campaignID, sheetID string) (*SheetLink, error)
-	SetRevealed(ctx context.Context, campaignID, sheetID string, revealed bool) (SheetLink, error)
+	SetRevealed(ctx context.Context, campaignID, sheetID string, revealed bool) (SheetLink, bool, error)
 	Delete(ctx context.Context, campaignID, sheetID string) (bool, error)
 	ListByCampaignID(ctx context.Context, campaignID string) ([]SheetLink, error)
 	DeleteBySheetID(ctx context.Context, sheetID string) ([]SheetLink, error)
@@ -78,6 +81,9 @@ func (s *MongoLinkStore) Upsert(ctx context.Context, link *SheetLink) (SheetLink
 	if !mongo.IsDuplicateKeyError(err) {
 		return SheetLink{}, false, fmt.Errorf("upsert sheet link: %w", err)
 	}
+	if transactionRunning(ctx) {
+		return SheetLink{}, false, retryableLinkWrite(err)
+	}
 	existing, fetchErr := s.Fetch(ctx, link.CampaignID, link.SheetID)
 	if fetchErr != nil {
 		return SheetLink{}, false, fmt.Errorf("read concurrent sheet link: %w", fetchErr)
@@ -97,19 +103,28 @@ func (s *MongoLinkStore) Fetch(ctx context.Context, campaignID, sheetID string) 
 	return &stored, nil
 }
 
-func (s *MongoLinkStore) SetRevealed(ctx context.Context, campaignID, sheetID string, revealed bool) (SheetLink, error) {
+func (s *MongoLinkStore) SetRevealed(ctx context.Context, campaignID, sheetID string, revealed bool) (SheetLink, bool, error) {
+	filter := bson.D{
+		{Key: linkCampaignIDField, Value: campaignID},
+		{Key: linkSheetIDField, Value: sheetID},
+		{Key: linkRevealedField, Value: bson.D{{Key: notEqualOperator, Value: revealed}}},
+	}
 	update := bson.D{{Key: setOperator, Value: bson.D{{Key: linkRevealedField, Value: revealed}}}}
 	var stored SheetLink
-	err := s.collection.FindOneAndUpdate(ctx, linkFilter(campaignID, sheetID), update,
+	err := s.collection.FindOneAndUpdate(ctx, filter, update,
 		options.FindOneAndUpdate().SetReturnDocument(options.After),
 	).Decode(&stored)
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return SheetLink{}, ErrLinkNotFound
+	if err == nil {
+		return stored, true, nil
 	}
-	if err != nil {
-		return SheetLink{}, fmt.Errorf("reveal sheet link: %w", err)
+	if !errors.Is(err, mongo.ErrNoDocuments) {
+		return SheetLink{}, false, fmt.Errorf("reveal sheet link: %w", err)
 	}
-	return stored, nil
+	current, fetchErr := s.Fetch(ctx, campaignID, sheetID)
+	if fetchErr != nil {
+		return SheetLink{}, false, fetchErr
+	}
+	return *current, false, nil
 }
 
 func (s *MongoLinkStore) Delete(ctx context.Context, campaignID, sheetID string) (bool, error) {
@@ -135,26 +150,8 @@ func (s *MongoLinkStore) ListByCampaignID(ctx context.Context, campaignID string
 }
 
 func (s *MongoLinkStore) DeleteBySheetID(ctx context.Context, sheetID string) ([]SheetLink, error) {
-	filter := bson.D{{Key: linkSheetIDField, Value: sheetID}}
-	cursor, err := s.collection.Find(ctx, filter)
-	if err != nil {
-		return nil, fmt.Errorf("list sheet links by sheet: %w", err)
-	}
-	var found []SheetLink
-	if err := cursor.All(ctx, &found); err != nil {
-		return nil, fmt.Errorf("decode sheet links by sheet: %w", err)
-	}
-	if len(found) == 0 {
-		return nil, nil
-	}
-	ids := make(bson.A, 0, len(found))
-	for _, link := range found {
-		ids = append(ids, link.ID)
-	}
-	if _, err := s.collection.DeleteMany(ctx, bson.D{{Key: idField, Value: bson.D{{Key: inOperator, Value: ids}}}}); err != nil {
-		return nil, fmt.Errorf("delete sheet links by sheet: %w", err)
-	}
-	return found, nil
+	found, _, err := s.deleteByFilter(ctx, bson.D{{Key: linkSheetIDField, Value: sheetID}}, 0)
+	return found, err
 }
 
 func linkFilter(campaignID, sheetID string) bson.D {
@@ -169,53 +166,65 @@ func (s *MongoLinkStore) DeleteByOwner(ctx context.Context, campaignID, ownerID 
 		{Key: linkCampaignIDField, Value: campaignID},
 		{Key: linkOwnerIDField, Value: ownerID},
 	}
-	cursor, err := s.collection.Find(ctx, filter)
-	if err != nil {
-		return nil, fmt.Errorf("list sheet links by owner: %w", err)
-	}
-	var found []SheetLink
-	if err := cursor.All(ctx, &found); err != nil {
-		return nil, fmt.Errorf("decode sheet links by owner: %w", err)
-	}
-	if len(found) == 0 {
-		return nil, nil
-	}
-	ids := make(bson.A, 0, len(found))
-	for _, link := range found {
-		ids = append(ids, link.ID)
-	}
-	if _, err := s.collection.DeleteMany(ctx, bson.D{{Key: idField, Value: bson.D{{Key: inOperator, Value: ids}}}}); err != nil {
-		return nil, fmt.Errorf("delete sheet links by owner: %w", err)
-	}
-	return found, nil
+	found, _, err := s.deleteByFilter(ctx, filter, 0)
+	return found, err
 }
 
 func (s *MongoLinkStore) DeleteByCampaignIDBatch(ctx context.Context, campaignID string, limit int) (int64, error) {
 	if limit <= 0 {
 		return 0, nil
 	}
-	filter := bson.D{{Key: linkCampaignIDField, Value: campaignID}}
-	opts := options.Find().SetProjection(bson.D{{Key: idField, Value: 1}}).SetLimit(int64(limit))
+	_, deleted, err := s.deleteByFilter(ctx, bson.D{{Key: linkCampaignIDField, Value: campaignID}}, int64(limit))
+	if err != nil {
+		return 0, err
+	}
+	return deleted, nil
+}
+
+func (s *MongoLinkStore) deleteByFilter(ctx context.Context, filter bson.D, limit int64) ([]SheetLink, int64, error) {
+	opts := options.Find()
+	if limit > 0 {
+		opts = opts.SetLimit(limit)
+	}
 	cursor, err := s.collection.Find(ctx, filter, opts)
 	if err != nil {
-		return 0, fmt.Errorf("list sheet links by campaign: %w", err)
+		return nil, 0, fmt.Errorf("list sheet links: %w", err)
 	}
-	var found []struct {
-		ID string `bson:"_id"`
-	}
+	var found []SheetLink
 	if err := cursor.All(ctx, &found); err != nil {
-		return 0, fmt.Errorf("decode sheet links by campaign: %w", err)
+		return nil, 0, fmt.Errorf("decode sheet links: %w", err)
 	}
 	if len(found) == 0 {
-		return 0, nil
+		return nil, 0, nil
 	}
 	ids := make(bson.A, 0, len(found))
-	for _, doc := range found {
-		ids = append(ids, doc.ID)
+	for _, link := range found {
+		ids = append(ids, link.ID)
 	}
 	result, err := s.collection.DeleteMany(ctx, bson.D{{Key: idField, Value: bson.D{{Key: inOperator, Value: ids}}}})
 	if err != nil {
-		return 0, fmt.Errorf("delete sheet links by campaign: %w", err)
+		return nil, 0, fmt.Errorf("delete sheet links: %w", err)
 	}
-	return result.DeletedCount, nil
+	return found, result.DeletedCount, nil
+}
+
+type retryableLinkWriteError struct {
+	cause error
+}
+
+func retryableLinkWrite(err error) error {
+	return retryableLinkWriteError{cause: err}
+}
+
+func (e retryableLinkWriteError) Error() string { return e.cause.Error() }
+
+func (e retryableLinkWriteError) Unwrap() error { return e.cause }
+
+func (e retryableLinkWriteError) HasErrorLabel(label string) bool {
+	return label == transientTransactionErrorLabel
+}
+
+func transactionRunning(ctx context.Context) bool {
+	session := mongo.SessionFromContext(ctx)
+	return session != nil && session.TransactionRunning()
 }

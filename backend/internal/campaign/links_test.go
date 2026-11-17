@@ -286,6 +286,16 @@ func TestUnlinkNpc(t *testing.T) {
 			},
 		},
 		{
+			name: "Edge: a concurrent unlink that deleted no row emits no event",
+			user: owner,
+			setup: func(h *harness) {
+				h.sheetReturns(sh)
+				link := linkFixture(campaigntest.NewID(t), base.ID, sh.ID, owner)
+				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&link, nil).Once()
+				h.links.EXPECT().Delete(mock.Anything, base.ID, sh.ID).Return(false, nil).Once()
+			},
+		},
+		{
 			name: "Happy path: the owner unlinks their sheet",
 			user: owner,
 			setup: func(h *harness) {
@@ -359,6 +369,54 @@ func TestUnlinkNpc_MissingSheetIsNotFound(t *testing.T) {
 		SheetID:    campaigntest.NewID(t),
 	})
 	requireAppErr(t, err, apperr.CodeNotFound)
+}
+
+func TestUnlinkNpc_ConcurrentDuplicatesPublishOnce(t *testing.T) {
+	base := campaigntest.Build(t, 0, 0)
+	owner := campaigntest.OwnerID(base)
+	sh := npcSheet(t, owner, base.TemplateID, plan.KindNPC)
+
+	h := newHarness(t)
+	h.withUsernames("Owner Name", nil)
+	h.loadAlways(base)
+	h.sheetReturns(sh)
+	link := linkFixture(campaigntest.NewID(t), base.ID, sh.ID, owner)
+	h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&link, nil).Twice()
+	h.links.EXPECT().Delete(mock.Anything, base.ID, sh.ID).Return(true, nil).Once()
+	h.links.EXPECT().Delete(mock.Anything, base.ID, sh.ID).Return(false, nil).Once()
+	h.expectSave(base.Version, nil)
+	h.expectSave(base.Version, nil)
+
+	cmd := campaign.UnlinkNpcCommand{CampaignID: base.ID, UserID: owner, SheetID: sh.ID}
+	require.NoError(t, h.service().UnlinkNpc(context.Background(), cmd))
+	require.NoError(t, h.service().UnlinkNpc(context.Background(), cmd))
+
+	require.Len(t, h.events, 1, "only the request that deleted the row publishes")
+	assert.Equal(t, campaign.EventSheetUnlinked, h.events[0].Type)
+}
+
+func TestLinkNpc_WithoutALinkStoreFailsClosed(t *testing.T) {
+	base := campaigntest.Build(t, 0, 0)
+	owner := campaigntest.OwnerID(base)
+	sh := npcSheet(t, owner, base.TemplateID, plan.KindNPC)
+
+	h := newHarness(t)
+	h.loadAlways(base)
+	h.sheetReturns(sh)
+	svc := campaign.NewService(h.repo, h.tx, h.pub,
+		campaign.WithCharacterStore(h.sheets),
+		campaign.WithNameLookup(h.names),
+		campaign.WithClock(campaigntest.Now),
+	)
+
+	_, err := svc.LinkNpc(context.Background(), campaign.LinkNpcCommand{
+		CampaignID: base.ID,
+		UserID:     owner,
+		SheetID:    sh.ID,
+	})
+	requireAppErr(t, err, apperr.CodeInternal)
+	assert.Nil(t, h.saved, "a missing link store must not reach the save")
+	assert.Empty(t, h.events)
 }
 
 func TestListNpcLinks(t *testing.T) {
@@ -598,6 +656,39 @@ func TestReadNpcSheet(t *testing.T) {
 	}
 }
 
+func TestReadNpcSheet_NonLinkableKindIsNotFound(t *testing.T) {
+	base := campaigntest.Build(t, 0, 1)
+	owner := campaigntest.OwnerID(base)
+	sh := npcSheet(t, owner, base.TemplateID, plan.KindCharacter)
+
+	tests := []struct {
+		name   string
+		viewer string
+	}{
+		{name: "Edge: a GM reading a link to a character sheet gets not found", viewer: owner},
+		{name: "Edge: a player reading a link to a character sheet gets not found", viewer: campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.loadAlways(base)
+			link := linkFixture(campaigntest.NewID(t), base.ID, sh.ID, owner)
+			link.Revealed = true
+			h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&link, nil).Once()
+			h.sheetReturns(sh)
+
+			res, err := h.service().ReadNpcSheet(context.Background(), campaign.ReadNpcSheetQuery{
+				CampaignID: base.ID,
+				ViewerID:   tc.viewer,
+				SheetID:    sh.ID,
+			})
+			requireAppErr(t, err, apperr.CodeNotFound)
+			assert.Empty(t, res.ETag)
+			assert.Nil(t, res.Sheet)
+		})
+	}
+}
+
 func TestReadNpcSheet_RejectsInvalidInput(t *testing.T) {
 	base := campaigntest.Build(t, 0, 1)
 	tests := []struct {
@@ -673,22 +764,61 @@ func TestLinkEvents_CarryNoSheetNameOrValues(t *testing.T) {
 	}
 }
 
-func TestSheetLinkCleaner_DeletesLinksAndPublishesSheetDeletedReasons(t *testing.T) {
+func TestSheetLinkCleaner_DeletesLinksAndReturnsThemWithoutPublishing(t *testing.T) {
 	sheetID := "01900000-0000-7000-8000-0000000000ff"
 	linkStore := mocks.NewMockLinkStore(t)
 	removed := []campaign.SheetLink{
+		linkFixture(campaigntest.NewID(t), campaigntest.NewID(t), sheetID, campaigntest.NewID(t)),
 		linkFixture(campaigntest.NewID(t), campaigntest.NewID(t), sheetID, campaigntest.NewID(t)),
 	}
 	linkStore.EXPECT().DeleteBySheetID(mock.Anything, sheetID).Return(removed, nil).Once()
 	h := newHarness(t)
 	cleaner := campaign.NewSheetLinkCleaner(linkStore, h.pub)
 
-	require.NoError(t, cleaner.DeleteForSheet(context.Background(), sheetID, plan.KindNPC))
-	require.Len(t, h.events, 1)
-	assert.Equal(t, campaign.EventSheetUnlinked, h.events[0].Type)
-	assert.Equal(t, campaign.ReasonSheetDeleted, eventData(t, h.events[0])["reason"])
-	assert.Equal(t, "npc", eventData(t, h.events[0])["kind"])
-	assert.NotContains(t, eventData(t, h.events[0]), "name")
+	got, err := cleaner.DeleteForSheet(context.Background(), sheetID)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, sheet.RemovedLink{
+		CampaignID: removed[0].CampaignID,
+		SheetID:    removed[0].SheetID,
+		OwnerID:    removed[0].OwnerID,
+	}, got[0])
+	assert.Equal(t, removed[1].CampaignID, got[1].CampaignID)
+	assert.Empty(t, h.events, "the cleaner never publishes inside the deleting transaction")
+}
+
+func TestSheetLinkCleaner_PublishSheetUnlinkedEmitsOneEventPerLink(t *testing.T) {
+	sheetID := "01900000-0000-7000-8000-0000000000ff"
+	h := newHarness(t)
+	cleaner := campaign.NewSheetLinkCleaner(mocks.NewMockLinkStore(t), h.pub)
+	removed := []sheet.RemovedLink{
+		{CampaignID: campaigntest.NewID(t), SheetID: sheetID, OwnerID: campaigntest.NewID(t)},
+		{CampaignID: campaigntest.NewID(t), SheetID: sheetID, OwnerID: campaigntest.NewID(t)},
+	}
+
+	cleaner.PublishSheetUnlinked(plan.KindNPC, removed)
+
+	require.Len(t, h.events, 2)
+	for i, ev := range h.events {
+		assert.Equal(t, campaign.EventSheetUnlinked, ev.Type)
+		assert.Equal(t, removed[i].CampaignID, ev.AggregateID)
+		assert.Equal(t, removed[i].OwnerID, *ev.ActorID)
+		assert.Equal(t, campaign.ReasonSheetDeleted, eventData(t, ev)["reason"])
+		assert.Equal(t, "npc", eventData(t, ev)["kind"])
+		assert.NotContains(t, eventData(t, ev), "name")
+	}
+}
+
+func TestSheetLinkCleaner_StoreFailureReturnsItWithoutPublishing(t *testing.T) {
+	linkStore := mocks.NewMockLinkStore(t)
+	linkStore.EXPECT().DeleteBySheetID(mock.Anything, "sheet").Return(nil, errStoreDown).Once()
+	h := newHarness(t)
+	cleaner := campaign.NewSheetLinkCleaner(linkStore, h.pub)
+
+	removed, err := cleaner.DeleteForSheet(context.Background(), "sheet")
+	require.ErrorIs(t, err, errStoreDown)
+	assert.Empty(t, removed)
+	assert.Empty(t, h.events)
 }
 
 func eventData(t *testing.T, ev events.Event) map[string]any {
@@ -704,6 +834,8 @@ func TestSheetLinkCleaner_StoreFailurePublishesNothing(t *testing.T) {
 	h := newHarness(t)
 	cleaner := campaign.NewSheetLinkCleaner(linkStore, h.pub)
 
-	require.ErrorIs(t, cleaner.DeleteForSheet(context.Background(), "sheet", plan.KindNPC), errStoreDown)
+	removed, err := cleaner.DeleteForSheet(context.Background(), "sheet")
+	require.ErrorIs(t, err, errStoreDown)
+	assert.Empty(t, removed)
 	assert.Empty(t, h.events)
 }

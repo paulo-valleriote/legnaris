@@ -377,7 +377,7 @@ func (_c *MockLinkStore_ListByCampaignID_Call) RunAndReturn(run func(context.Con
 }
 
 // SetRevealed provides a mock function with given fields: ctx, campaignID, sheetID, revealed
-func (_m *MockLinkStore) SetRevealed(ctx context.Context, campaignID string, sheetID string, revealed bool) (campaign.SheetLink, error) {
+func (_m *MockLinkStore) SetRevealed(ctx context.Context, campaignID string, sheetID string, revealed bool) (campaign.SheetLink, bool, error) {
 	ret := _m.Called(ctx, campaignID, sheetID, revealed)
 
 	if len(ret) == 0 {
@@ -385,8 +385,9 @@ func (_m *MockLinkStore) SetRevealed(ctx context.Context, campaignID string, she
 	}
 
 	var r0 campaign.SheetLink
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, bool) (campaign.SheetLink, error)); ok {
+	var r1 bool
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, bool) (campaign.SheetLink, bool, error)); ok {
 		return rf(ctx, campaignID, sheetID, revealed)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, bool) campaign.SheetLink); ok {
@@ -395,13 +396,19 @@ func (_m *MockLinkStore) SetRevealed(ctx context.Context, campaignID string, she
 		r0 = ret.Get(0).(campaign.SheetLink)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, bool) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, bool) bool); ok {
 		r1 = rf(ctx, campaignID, sheetID, revealed)
 	} else {
-		r1 = ret.Error(1)
+		r1 = ret.Get(1).(bool)
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, bool) error); ok {
+		r2 = rf(ctx, campaignID, sheetID, revealed)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // MockLinkStore_SetRevealed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetRevealed'
@@ -425,12 +432,12 @@ func (_c *MockLinkStore_SetRevealed_Call) Run(run func(ctx context.Context, camp
 	return _c
 }
 
-func (_c *MockLinkStore_SetRevealed_Call) Return(_a0 campaign.SheetLink, _a1 error) *MockLinkStore_SetRevealed_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *MockLinkStore_SetRevealed_Call) Return(_a0 campaign.SheetLink, _a1 bool, _a2 error) *MockLinkStore_SetRevealed_Call {
+	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *MockLinkStore_SetRevealed_Call) RunAndReturn(run func(context.Context, string, string, bool) (campaign.SheetLink, error)) *MockLinkStore_SetRevealed_Call {
+func (_c *MockLinkStore_SetRevealed_Call) RunAndReturn(run func(context.Context, string, string, bool) (campaign.SheetLink, bool, error)) *MockLinkStore_SetRevealed_Call {
 	_c.Call.Return(run)
 	return _c
 }
