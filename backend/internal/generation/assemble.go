@@ -3,11 +3,12 @@ package generation
 import (
 	"fmt"
 
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/maputils"
 )
 
-func Assemble(tmpl *template.Template, dag *template.DAG, values map[string]any) (map[string]any, error) {
+func Assemble(tmpl *template.Template, dag *template.DAG, kind plan.SheetKind, values map[string]any) (map[string]any, error) {
 	if tmpl == nil || dag == nil {
 		return nil, ErrNoTemplate
 	}
@@ -29,7 +30,7 @@ func Assemble(tmpl *template.Template, dag *template.DAG, values map[string]any)
 	if err != nil {
 		return nil, fmt.Errorf("flatten original: %w", err)
 	}
-	updates, err := maputils.FlattenPathKeys(values)
+	updates, err := maputils.FlattenPathKeys(filterGenerated(tmpl.Fields, kind, values))
 	if err != nil {
 		return nil, fmt.Errorf("flatten values: %w", err)
 	}
@@ -44,6 +45,33 @@ func Assemble(tmpl *template.Template, dag *template.DAG, values map[string]any)
 		return nil, fmt.Errorf("apply cascade: %w", err)
 	}
 	return seeded, nil
+}
+
+func filterGenerated(group template.FieldGroup, kind plan.SheetKind, values map[string]any) map[string]any {
+	lv := levelOf(group, kind)
+	out := make(map[string]any)
+	for name := range lv.leaves {
+		if value, ok := values[name]; ok {
+			out[name] = value
+		}
+	}
+	for name, children := range lv.groups {
+		child, ok := values[name].(map[string]any)
+		if !ok {
+			continue
+		}
+		if filtered := filterGenerated(children, kind, child); len(filtered) > 0 {
+			out[name] = filtered
+		}
+	}
+	for _, options := range lv.exclusive {
+		for _, member := range options {
+			if value, ok := values[member]; ok {
+				out[member] = value
+			}
+		}
+	}
+	return out
 }
 
 func seedNested(group template.FieldGroup) map[string]any {

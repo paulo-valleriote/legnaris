@@ -7,6 +7,7 @@ import (
 	"maps"
 	"slices"
 
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/template"
 )
 
@@ -29,15 +30,13 @@ type level struct {
 	leaves    map[string]*template.FieldSchema
 	groups    map[string]template.FieldGroup
 	exclusive map[string][]string
-	members   map[string][]string
 }
 
-func levelOf(group template.FieldGroup) level {
+func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
 	lv := level{
 		leaves:    map[string]*template.FieldSchema{},
 		groups:    map[string]template.FieldGroup{},
 		exclusive: map[string][]string{},
-		members:   map[string][]string{},
 	}
 	for _, name := range slices.Sorted(maps.Keys(group)) {
 		node := group[name]
@@ -45,17 +44,16 @@ func levelOf(group template.FieldGroup) level {
 		case node.IsLeaf():
 			schema := node.Schema
 			if schema.ExclusiveGroup != "" {
-				lv.members[schema.ExclusiveGroup] = append(lv.members[schema.ExclusiveGroup], name)
-				if schema.Generatable {
+				if schema.GeneratableFor(kind) {
 					lv.exclusive[schema.ExclusiveGroup] = append(lv.exclusive[schema.ExclusiveGroup], name)
 				}
 				continue
 			}
-			if schema.Generatable {
+			if schema.GeneratableFor(kind) {
 				lv.leaves[name] = schema
 			}
 		case node.IsGroup():
-			if levelOf(node.Children).hasGenerated() {
+			if levelOf(node.Children, kind).hasGenerated() {
 				lv.groups[name] = node.Children
 			}
 		}
@@ -67,11 +65,11 @@ func (lv level) hasGenerated() bool {
 	return len(lv.leaves) > 0 || len(lv.exclusive) > 0 || len(lv.groups) > 0
 }
 
-func OutputSchema(tmpl *template.Template) (json.RawMessage, error) {
+func OutputSchema(tmpl *template.Template, kind plan.SheetKind) (json.RawMessage, error) {
 	if tmpl == nil {
 		return nil, ErrNoTemplate
 	}
-	obj, err := objectSchema(tmpl.Fields)
+	obj, err := objectSchema(tmpl.Fields, kind)
 	if err != nil {
 		return nil, err
 	}
@@ -85,8 +83,8 @@ func OutputSchema(tmpl *template.Template) (json.RawMessage, error) {
 	return raw, nil
 }
 
-func objectSchema(group template.FieldGroup) (map[string]any, error) {
-	lv := levelOf(group)
+func objectSchema(group template.FieldGroup, kind plan.SheetKind) (map[string]any, error) {
+	lv := levelOf(group, kind)
 	props := map[string]any{}
 	for _, name := range slices.Sorted(maps.Keys(lv.leaves)) {
 		prop, err := leafSchema(lv.leaves[name])
@@ -96,7 +94,7 @@ func objectSchema(group template.FieldGroup) (map[string]any, error) {
 		props[name] = prop
 	}
 	for _, name := range slices.Sorted(maps.Keys(lv.groups)) {
-		child, err := objectSchema(lv.groups[name])
+		child, err := objectSchema(lv.groups[name], kind)
 		if err != nil {
 			return nil, err
 		}

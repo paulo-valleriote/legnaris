@@ -102,12 +102,13 @@ func requireCode(t *testing.T, err error, code apperr.Code, status int) {
 
 func TestCreate_Gates(t *testing.T) {
 	tests := []struct {
-		name       string
-		cfg        generation.Config
-		cmd        generation.CreateCommand
-		setup      func(f fixture)
-		wantCode   apperr.Code
-		wantStatus int
+		name           string
+		cfg            generation.Config
+		cmd            generation.CreateCommand
+		setup          func(f fixture)
+		wantCode       apperr.Code
+		wantStatus     int
+		wantKindDetail string
 	}{
 		{
 			name:       "Error: the kill-switch refuses before anything is read or reserved",
@@ -123,8 +124,14 @@ func TestCreate_Gates(t *testing.T) {
 			wantStatus: 401,
 		},
 		{
-			name:       "Error: a kind other than character is rejected",
-			cmd:        generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "npc", Concept: validText},
+			name:       "Error: an unknown kind is rejected",
+			cmd:        generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "monster", Concept: validText},
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+		},
+		{
+			name:       "Error: an empty kind is rejected",
+			cmd:        generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "", Concept: validText},
 			wantCode:   apperr.CodeInvalidRequest,
 			wantStatus: 400,
 		},
@@ -163,6 +170,14 @@ func TestCreate_Gates(t *testing.T) {
 			wantCode: apperr.CodeInvalidRequest, wantStatus: 400,
 		},
 		{
+			name: "Error: a template that refuses NPCs is rejected",
+			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "npc", Concept: validText},
+			setup: func(f fixture) {
+				f.allowTemplate(plan.KindCharacter)
+			},
+			wantCode: apperr.CodeInvalidRequest, wantStatus: 400,
+		},
+		{
 			name: "Error: missing consent refuses before the Sheet limit is read",
 			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText},
 			setup: func(f fixture) {
@@ -181,7 +196,18 @@ func TestCreate_Gates(t *testing.T) {
 				f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindCharacter).
 					Return(sheet.LimitStatus{Kind: plan.KindCharacter, Used: 1, Limit: 1}, nil)
 			},
-			wantCode: apperr.CodeSheetLimitReached, wantStatus: 409,
+			wantCode: apperr.CodeSheetLimitReached, wantStatus: 409, wantKindDetail: "character",
+		},
+		{
+			name: "Error: a full NPC allowance carries the requested kind",
+			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "npc", Concept: validText},
+			setup: func(f fixture) {
+				f.allowTemplate(plan.KindCharacter, plan.KindNPC)
+				f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
+				f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindNPC).
+					Return(sheet.LimitStatus{Kind: plan.KindNPC, Used: 2, Limit: 2}, nil)
+			},
+			wantCode: apperr.CodeSheetLimitReached, wantStatus: 409, wantKindDetail: "npc",
 		},
 		{
 			name: "Error: a job already queued or running refuses before the cap",
@@ -263,6 +289,9 @@ func TestCreate_Gates(t *testing.T) {
 			id, err := f.svc.Create(context.Background(), tc.cmd)
 			assert.Empty(t, id)
 			requireCode(t, err, tc.wantCode, tc.wantStatus)
+			if tc.wantKindDetail != "" {
+				assert.Equal(t, tc.wantKindDetail, appErrorOf(t, err).Details["kind"])
+			}
 			if tc.wantCode == apperr.CodeGenerationCapReached {
 				appErr := appErrorOf(t, err)
 				assert.Greater(t, appErr.RetryAfter, time.Duration(0))

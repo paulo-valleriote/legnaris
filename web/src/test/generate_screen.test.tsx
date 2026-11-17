@@ -59,7 +59,7 @@ function countOf(requests: readonly HttpRequest[], method: string, path: string)
   ).length;
 }
 
-function renderGenerate(routes: Record<string, Responder>) {
+function renderGenerate(routes: Record<string, Responder>, path: string = ROUTE) {
   const fake = routed({
     [`GET /templates/${TEMPLATE_ID}`]: ok(templateDetailPayload()),
     'GET /me/plan': ok(planWith()),
@@ -67,7 +67,7 @@ function renderGenerate(routes: Record<string, Responder>) {
   });
   const client = createApiClient({ baseUrl: BASE_URL, transport: fake.transport });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  renderApp(ROUTE, { client, queryClient });
+  renderApp(path, { client, queryClient });
   return fake;
 }
 
@@ -231,7 +231,7 @@ describe('generate flow (LGN-196)', () => {
     await user.click(generateButton());
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'You have used your free character generations.',
+      'You have used your free generations.',
     );
     expect(screen.queryByRole('button', { name: /checkout|upgrade|subscribe/i })).toBeNull();
   });
@@ -313,6 +313,157 @@ describe('generate flow (LGN-196)', () => {
 
     expect(
       await screen.findByRole('heading', { name: 'Review your character' }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('generate per Sheet kind (LGN-187)', () => {
+  function succeededKind(kind: string) {
+    return ok({
+      id: GENERATION_ID,
+      status: 'succeeded',
+      kind,
+      template_id: TEMPLATE_ID,
+      values: {},
+      created_at: '2026-11-14T10:00:00Z',
+    });
+  }
+
+  function createdBody(fake: { readonly requests: readonly HttpRequest[] }) {
+    const created = fake.requests.find(
+      (request) => request.method === 'POST' && request.url.endsWith('/generations'),
+    );
+    return JSON.parse(created?.body ?? '{}');
+  }
+
+  it('Edge: no kind parameter sends character and shows the character copy', async () => {
+    const fake = renderGenerate({
+      'POST /generations': ok({ id: GENERATION_ID }, 202),
+      [`GET /generations/${GENERATION_ID}`]: succeededKind('character'),
+    });
+    const user = userEvent.setup();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Generate a character' }),
+    ).toBeInTheDocument();
+    fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
+    await user.click(generateButton());
+
+    await waitFor(() => expect(countOf(fake.requests, 'POST', '/generations')).toBe(1));
+    expect(createdBody(fake)).toEqual({
+      template_id: TEMPLATE_ID,
+      kind: 'character',
+      concept: VALID_CONCEPT,
+    });
+    expect(
+      await screen.findByRole('heading', { name: 'Review your character' }),
+    ).toBeInTheDocument();
+  });
+
+  it('Edge: an invalid kind parameter falls back to character everywhere', async () => {
+    const fake = renderGenerate(
+      {
+        'POST /generations': ok({ id: GENERATION_ID }, 202),
+        [`GET /generations/${GENERATION_ID}`]: succeededKind('character'),
+      },
+      `${ROUTE}?kind=monster`,
+    );
+    const user = userEvent.setup();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Generate a character' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByLabelText('Describe your character')).toBeInTheDocument();
+    fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
+    await user.click(generateButton());
+
+    await waitFor(() => expect(countOf(fake.requests, 'POST', '/generations')).toBe(1));
+    expect(createdBody(fake)).toMatchObject({ kind: 'character' });
+  });
+
+  it('Happy path: ?kind=npc sends npc and shows the NPC copy', async () => {
+    const fake = renderGenerate(
+      {
+        'POST /generations': ok({ id: GENERATION_ID }, 202),
+        [`GET /generations/${GENERATION_ID}`]: succeededKind('npc'),
+      },
+      `${ROUTE}?kind=npc`,
+    );
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole('heading', { name: 'Generate an NPC' })).toBeInTheDocument();
+    const field = await screen.findByLabelText('Describe your NPC');
+    expect(screen.getByText(/A no-nonsense innkeeper/)).toBeInTheDocument();
+    fireEvent.change(field, { target: { value: VALID_CONCEPT } });
+    await user.click(generateButton());
+
+    await waitFor(() => expect(countOf(fake.requests, 'POST', '/generations')).toBe(1));
+    expect(createdBody(fake)).toEqual({
+      template_id: TEMPLATE_ID,
+      kind: 'npc',
+      concept: VALID_CONCEPT,
+    });
+    expect(await screen.findByRole('heading', { name: 'Review your NPC' })).toBeInTheDocument();
+  });
+
+  it('Happy path: ?kind=enemy sends enemy and shows the enemy copy', async () => {
+    const fake = renderGenerate(
+      {
+        'POST /generations': ok({ id: GENERATION_ID }, 202),
+        [`GET /generations/${GENERATION_ID}`]: succeededKind('enemy'),
+      },
+      `${ROUTE}?kind=enemy`,
+    );
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole('heading', { name: 'Generate an enemy' })).toBeInTheDocument();
+    const field = await screen.findByLabelText('Describe your enemy');
+    expect(screen.getByText(/A bandit captain/)).toBeInTheDocument();
+    fireEvent.change(field, { target: { value: VALID_CONCEPT } });
+    await user.click(generateButton());
+
+    await waitFor(() => expect(countOf(fake.requests, 'POST', '/generations')).toBe(1));
+    expect(createdBody(fake)).toEqual({
+      template_id: TEMPLATE_ID,
+      kind: 'enemy',
+      concept: VALID_CONCEPT,
+    });
+    expect(await screen.findByRole('heading', { name: 'Review your enemy' })).toBeInTheDocument();
+  });
+
+  it('Edge: a resume shows the kind the generation returns, not the query parameter', async () => {
+    renderGenerate(
+      {
+        'GET /me/plan': ok(planWith({ active_generation_id: GENERATION_ID })),
+        [`GET /generations/${GENERATION_ID}`]: succeededKind('enemy'),
+      },
+      `${ROUTE}?kind=npc`,
+    );
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+
+    expect(await screen.findByRole('heading', { name: 'Review your enemy' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Review your NPC' })).toBeNull();
+  });
+
+  it('Edge: an accepted resume shows the already-saved copy of its own kind', async () => {
+    renderGenerate({
+      'GET /me/plan': ok(planWith({ active_generation_id: GENERATION_ID })),
+      [`GET /generations/${GENERATION_ID}`]: ok({
+        id: GENERATION_ID,
+        status: 'accepted',
+        kind: 'enemy',
+        template_id: TEMPLATE_ID,
+        created_at: '2026-11-14T10:00:00Z',
+      }),
+    });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+
+    expect(
+      await screen.findByText('This enemy was already saved to your sheets.'),
     ).toBeInTheDocument();
   });
 });

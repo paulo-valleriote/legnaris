@@ -5,10 +5,16 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+
+	"legnaris/backend/internal/plan"
 )
 
 var (
 	ErrGeneratableNotEditable = errors.New("generatable leaf must be editable")
+
+	ErrGeneratableKindsOnNonGeneratable = errors.New("generatable kinds are only allowed on generatable leaves")
+
+	ErrGeneratableKindInvalid = errors.New("generatable kind is not a valid sheet kind")
 
 	ErrRangeInverted = errors.New("min must not exceed max")
 
@@ -46,10 +52,28 @@ func validateLeafGeneration(schema *FieldSchema) error {
 	if schema.Generatable && !schema.IsEditable {
 		return ErrGeneratableNotEditable
 	}
+	if err := validateGeneratableKinds(schema); err != nil {
+		return err
+	}
 	if err := validateRange(schema); err != nil {
 		return err
 	}
 	return validateMaxLength(schema)
+}
+
+func validateGeneratableKinds(schema *FieldSchema) error {
+	if len(schema.GeneratableKinds) == 0 {
+		return nil
+	}
+	if !schema.Generatable {
+		return ErrGeneratableKindsOnNonGeneratable
+	}
+	for _, kind := range schema.GeneratableKinds {
+		if _, ok := plan.ParseSheetKind(string(kind)); !ok {
+			return fmt.Errorf("%w: %q", ErrGeneratableKindInvalid, kind)
+		}
+	}
+	return nil
 }
 
 func validateRange(schema *FieldSchema) error {

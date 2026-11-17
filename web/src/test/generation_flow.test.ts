@@ -7,6 +7,7 @@ import {
   conceptLength,
   conceptState,
   decideWait,
+  generationKind,
   trialAllowance,
   trimConcept,
 } from '../generate/generation_flow';
@@ -173,4 +174,28 @@ describe('trialAllowance (LGN-196 quota line)', () => {
   it('Edge: no trial in the payload reads as unknown, never as zero', () => {
     expect(trialAllowance({ trialRemaining: undefined })).toEqual({ kind: 'unknown' });
   });
+});
+
+describe('generationKind (LGN-187 kinds)', () => {
+  const tests = [
+    { name: 'Happy path: character is kept', param: 'character', kind: 'character' },
+    { name: 'Happy path: npc is kept', param: 'npc', kind: 'npc' },
+    { name: 'Happy path: enemy is kept', param: 'enemy', kind: 'enemy' },
+    { name: 'Edge: a missing parameter falls back to character', param: null, kind: 'character' },
+    {
+      name: 'Edge: an undefined parameter falls back to character',
+      param: undefined,
+      kind: 'character',
+    },
+    { name: 'Edge: an empty parameter falls back to character', param: '', kind: 'character' },
+    { name: 'Edge: an unknown kind falls back to character', param: 'monster', kind: 'character' },
+    { name: 'Edge: the value is case-sensitive', param: 'NPC', kind: 'character' },
+    { name: 'Edge: a padded value is not trimmed into a kind', param: ' npc', kind: 'character' },
+  ] as const;
+
+  for (const tc of tests) {
+    it(tc.name, () => {
+      expect(generationKind(tc.param)).toBe(tc.kind);
+    });
+  }
 });

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/plan"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -78,6 +79,42 @@ func TestValidateGenerationMetadata(t *testing.T) {
 			tmpl: genTemplate(FieldGroup{"rules": {Children: FieldGroup{
 				"tuning": genLeaf(FieldSchema{Min: f64(1), Max: f64(2)}),
 			}}}),
+		},
+		{
+			name: "Happy path: a generatable leaf restricted to some kinds is valid",
+			tmpl: genTemplate(FieldGroup{"name": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true,
+				GeneratableKinds: []plan.SheetKind{plan.KindCharacter, plan.KindNPC},
+			})}),
+		},
+		{
+			name: "Edge: an empty kind restriction means every kind",
+			tmpl: genTemplate(FieldGroup{"name": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GeneratableKinds: []plan.SheetKind{},
+			})}),
+		},
+		{
+			name: "Error: a kind restriction on a non-generatable leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"name": genLeaf(FieldSchema{
+				Type: fieldTypeText, GeneratableKinds: []plan.SheetKind{plan.KindCharacter},
+			})}),
+			wantErr: ErrGeneratableKindsOnNonGeneratable,
+		},
+		{
+			name: "Error: an unknown generatable kind is rejected",
+			tmpl: genTemplate(FieldGroup{"name": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true,
+				GeneratableKinds: []plan.SheetKind{plan.SheetKind("monster")},
+			})}),
+			wantErr: ErrGeneratableKindInvalid,
+		},
+		{
+			name: "Error: an empty generatable kind is rejected",
+			tmpl: genTemplate(FieldGroup{"name": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true,
+				GeneratableKinds: []plan.SheetKind{""},
+			})}),
+			wantErr: ErrGeneratableKindInvalid,
 		},
 		{
 			name: "Error: a generatable leaf is rejected when it is derived",

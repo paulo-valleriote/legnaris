@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/llm"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/platform/breaker"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/logger"
@@ -109,11 +110,12 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 	if code != "" {
 		return nil, code
 	}
-	schema, err := OutputSchema(tmpl)
+	kind := plan.SheetKind(documentKind(doc.Kind))
+	schema, err := OutputSchema(tmpl, kind)
 	if err != nil {
 		return nil, ErrorCodeTemplateUnavailable
 	}
-	system, err := SystemPrompt(tmpl)
+	system, err := SystemPrompt(tmpl, kind)
 	if err != nil {
 		return nil, ErrorCodeTemplateUnavailable
 	}
@@ -122,7 +124,7 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 	for attempt := 0; attempt <= MaxSchemaRetries; attempt++ {
 		req := llm.Request{
 			System:    system,
-			Prompt:    UserPrompt(doc.Concept, problems),
+			Prompt:    UserPrompt(kind, doc.Concept, problems),
 			Schema:    schema,
 			MaxTokens: MaxOutputTokens,
 		}
@@ -130,7 +132,7 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 		if code != "" {
 			return nil, code
 		}
-		values, err := parseAndAssemble(tmpl, dag, resp.Output)
+		values, err := parseAndAssemble(tmpl, dag, kind, resp.Output)
 		if err == nil {
 			return values, ""
 		}
@@ -206,16 +208,16 @@ func classifyLLM(err error) breaker.Outcome {
 	return breaker.OutcomeNeutral
 }
 
-func parseAndAssemble(tmpl *template.Template, dag *template.DAG, raw []byte) (map[string]any, error) {
+func parseAndAssemble(tmpl *template.Template, dag *template.DAG, kind plan.SheetKind, raw []byte) (map[string]any, error) {
 	object, err := ParseOutput(raw)
 	if err != nil {
 		return nil, err
 	}
-	expanded, err := Expand(tmpl, object)
+	expanded, err := Expand(tmpl, kind, object)
 	if err != nil {
 		return nil, err
 	}
-	values, err := Assemble(tmpl, dag, expanded)
+	values, err := Assemble(tmpl, dag, kind, expanded)
 	if err != nil {
 		return nil, &OutputError{Problems: []string{"values break a template rule"}}
 	}

@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { failureCopy, generationErrorKind } from '../api/error_mapper';
 import { DomainFailure } from '../api/errors';
 import type { Generation } from '../api/models/generation';
+import type { SheetKind } from '../api/models/plan';
 import { useApiClient } from '../app/providers';
 import { PLANS_PATH } from '../app/routes';
 import { PLAN_QUERY_KEY, usePlanUsage, useTemplateDetail } from '../catalog/queries';
 import { setPathValue } from '../engine/sheet_defaults';
 import { SheetForm } from '../engine/sheet_form';
 import { PrivacyDialog } from '../legal/privacy_dialog';
-import { message, messageWith } from '../l10n/strings';
+import { generationCopy, message, messageWith } from '../l10n/strings';
 import { registerLeaveGuard, requestLeave } from '../shell/leave_guard';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
@@ -19,6 +20,7 @@ import {
   conceptLength,
   conceptState,
   decideWait,
+  generationKind,
   isLastGeneration,
   mergeCascade,
   previewDelay,
@@ -32,6 +34,7 @@ import './generate.css';
 
 interface PreviewState {
   readonly generationId: string;
+  readonly sheetKind: SheetKind;
   readonly values: Record<string, unknown>;
   readonly edits: Record<string, unknown>;
   readonly revision: number;
@@ -49,13 +52,13 @@ type Step =
   | { readonly kind: 'waiting'; readonly generationId: string; readonly startedAt: number }
   | { readonly kind: 'timedOut'; readonly generationId: string }
   | { readonly kind: 'failed'; readonly copy: string }
-  | { readonly kind: 'alreadyAccepted' }
+  | { readonly kind: 'alreadyAccepted'; readonly sheetKind: SheetKind }
   | { readonly kind: 'error'; readonly copy: string }
   | ({ readonly kind: 'preview' } & PreviewState);
 
 function stepForGeneration(generation: Generation): Step {
   if (generation.status === 'accepted') {
-    return { kind: 'alreadyAccepted' };
+    return { kind: 'alreadyAccepted', sheetKind: generation.kind };
   }
   if (generation.status === 'failed' || generation.values === undefined) {
     const kind = generationErrorKind(generation.errorCode);
@@ -64,6 +67,7 @@ function stepForGeneration(generation: Generation): Step {
   return {
     kind: 'preview',
     generationId: generation.id,
+    sheetKind: generation.kind,
     values: structuredClone(generation.values),
     edits: {},
     revision: 0,
@@ -183,11 +187,13 @@ function quotaCopy(allowance: Allowance | undefined): string | undefined {
 export function GenerateScreen() {
   const { templateId = '' } = useParams();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const client = useApiClient();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const plan = usePlanUsage();
   const template = useTemplateDetail(templateId);
+  const queryKind = generationKind(searchParams.get('kind'));
 
   const [step, setStep] = useState<Step>(() => {
     const handedOver = generationIdFromState(location.state);
@@ -196,6 +202,7 @@ export function GenerateScreen() {
       : { kind: 'waiting', generationId: handedOver, startedAt: Date.now() };
   });
   const [concept, setConcept] = useState('');
+  const [knownKind, setKnownKind] = useState<SheetKind>(queryKind);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
@@ -242,6 +249,7 @@ export function GenerateScreen() {
       if (cancelled) {
         return;
       }
+      setKnownKind(generation.kind);
       const outcome = decideWait(generation, Date.now() - waitingStart);
       if (outcome === 'keepWaiting') {
         timer = setTimeout(() => void poll(), POLL_INTERVAL_MS);
@@ -303,6 +311,7 @@ export function GenerateScreen() {
   }, [client, templateId, previewRevision]);
 
   function startWaiting(generationId: string) {
+    setKnownKind(queryKind);
     setStep({ kind: 'waiting', generationId, startedAt: Date.now() });
   }
 
@@ -337,7 +346,7 @@ export function GenerateScreen() {
     try {
       const generationId = await client.createGeneration({
         templateId,
-        kind: 'character',
+        kind: queryKind,
         concept: trimConcept(concept),
       });
       setSubmitting(false);
@@ -437,6 +446,12 @@ export function GenerateScreen() {
   const noAllowance = allowance?.kind === 'trial' && allowance.remaining === 0;
   const activeId = plan.data?.activeGenerationId ?? null;
   const quota = quotaCopy(allowance);
+  const copyKind: SheetKind =
+    step.kind === 'preview' || step.kind === 'alreadyAccepted'
+      ? step.sheetKind
+      : step.kind === 'concept'
+        ? queryKind
+        : knownKind;
   const counterTone =
     state === 'tooLong'
       ? ' lg-generate__counter--danger'
@@ -446,9 +461,12 @@ export function GenerateScreen() {
 
   return (
     <main className="lg-generate">
-      <h1 className="lg-generate__title">{message('generate.title')}</h1>
+      <h1 className="lg-generate__title">{generationCopy('generate.title', copyKind)}</h1>
       {step.kind === 'concept' && (
-        <section className="lg-generate__step" aria-label={message('generate.title')}>
+        <section
+          className="lg-generate__step"
+          aria-label={generationCopy('generate.title', copyKind)}
+        >
           {activeId !== null && (
             <div role="status" className="lg-generate__notice">
               <p className="lg-generate__notice-text">{message('generate.resumeNotice')}</p>
@@ -461,7 +479,7 @@ export function GenerateScreen() {
           )}
           <div className="lg-generate__field">
             <label className="lg-generate__label" htmlFor="generate-concept">
-              {message('generate.conceptLabel')}
+              {generationCopy('generate.conceptLabel', copyKind)}
             </label>
             <textarea
               id="generate-concept"
@@ -475,7 +493,7 @@ export function GenerateScreen() {
             <div className="lg-generate__meta">
               <div className="lg-generate__helpers">
                 <p id="generate-concept-hint" className="lg-generate__helper">
-                  {message('generate.conceptExample')}
+                  {generationCopy('generate.conceptExample', copyKind)}
                 </p>
                 <p id="generate-concept-language" className="lg-generate__helper">
                   {message('generate.languageNote')}
@@ -521,7 +539,7 @@ export function GenerateScreen() {
       )}
       {step.kind === 'waiting' && (
         <section role="status" className="lg-generate__state">
-          <p className="lg-generate__state-text">{message('generate.waiting')}</p>
+          <p className="lg-generate__state-text">{generationCopy('generate.waiting', copyKind)}</p>
           <div className="lg-generate__actions">
             <Button
               variant="ghost"
@@ -533,7 +551,7 @@ export function GenerateScreen() {
       )}
       {step.kind === 'timedOut' && (
         <section role="status" className="lg-generate__state">
-          <p className="lg-generate__state-text">{message('generate.timedOut')}</p>
+          <p className="lg-generate__state-text">{generationCopy('generate.timedOut', copyKind)}</p>
           <div className="lg-generate__actions">
             <Button
               variant="secondary"
@@ -558,7 +576,9 @@ export function GenerateScreen() {
       )}
       {step.kind === 'alreadyAccepted' && (
         <section role="status" className="lg-generate__state">
-          <p className="lg-generate__state-text">{message('generate.alreadySaved')}</p>
+          <p className="lg-generate__state-text">
+            {generationCopy('generate.alreadySaved', copyKind)}
+          </p>
           <div className="lg-generate__actions">
             <Button
               variant="ghost"
@@ -616,7 +636,7 @@ export function GenerateScreen() {
           <div className="lg-generate__actions">
             <Button
               variant="secondary"
-              label={message('generate.lastKeep')}
+              label={generationCopy('generate.lastKeep', copyKind)}
               onClick={() => setLastConfirmOpen(false)}
             />
             <Button
@@ -678,8 +698,13 @@ function ReviewSection({
   const remaining = allowance?.kind === 'trial' ? allowance.remaining : undefined;
 
   return (
-    <section className="lg-generate__review" aria-label={message('generate.previewTitle')}>
-      <h2 className="lg-generate__subtitle">{message('generate.previewTitle')}</h2>
+    <section
+      className="lg-generate__review"
+      aria-label={generationCopy('generate.previewTitle', preview.sheetKind)}
+    >
+      <h2 className="lg-generate__subtitle">
+        {generationCopy('generate.previewTitle', preview.sheetKind)}
+      </h2>
       <div className="lg-generate__field">
         <label className="lg-generate__label" htmlFor="generate-sheet-name">
           {message('sheet.nameLabel')}

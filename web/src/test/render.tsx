@@ -54,6 +54,13 @@ function seedSession(posture: SessionOption, authApi: AuthApi): AuthSession {
   });
 }
 
+function initialEntry(path: string, state: unknown) {
+  const queryAt = path.indexOf('?');
+  return queryAt === -1
+    ? { pathname: path, state }
+    : { pathname: path.slice(0, queryAt), search: path.slice(queryAt), state };
+}
+
 export function renderApp(path = '/', options: RenderAppOptions = {}) {
   const queryClient =
     options.queryClient ??
@@ -66,7 +73,7 @@ export function renderApp(path = '/', options: RenderAppOptions = {}) {
       : seedSession(options.session ?? 'authenticated', options.authApi ?? unusedAuthApi());
 
   const result = render(
-    <MemoryRouter initialEntries={[{ pathname: path, state: options.routeState }]}>
+    <MemoryRouter initialEntries={[initialEntry(path, options.routeState)]}>
       <AppProviders
         client={options.client ?? defaultClient()}
         queryClient={queryClient}

@@ -29,6 +29,7 @@ func cloneFieldNode(node FieldNode) FieldNode {
 	if node.Schema != nil {
 		schema := *node.Schema
 		schema.DependsOn = cloneDependsOn(node.Schema.DependsOn)
+		schema.GeneratableKinds = slices.Clone(node.Schema.GeneratableKinds)
 		schema.Min = clonePtr(node.Schema.Min)
 		schema.Max = clonePtr(node.Schema.Max)
 		schema.MaxLength = clonePtr(node.Schema.MaxLength)

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"legnaris/backend/internal/plan"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,6 +26,14 @@ func TestFieldSchemaDTO_MarshalJSON_GenerationMetadata(t *testing.T) {
 			name:   "Happy path: a generatable text carries its max length",
 			schema: FieldSchema{Type: fieldTypeText, IsEditable: true, Generatable: true, MaxLength: intPtr(60)},
 			want:   `{"type":"text","label":"","is_editable":true,"default":0,"generatable":true,"max_length":60}`,
+		},
+		{
+			name: "Happy path: a kind restriction is emitted as generatable_kinds",
+			schema: FieldSchema{
+				Type: fieldTypeText, IsEditable: true, Generatable: true,
+				GeneratableKinds: []plan.SheetKind{plan.KindCharacter},
+			},
+			want: `{"type":"text","label":"","is_editable":true,"default":0,"generatable":true,"generatable_kinds":["character"]}`,
 		},
 		{
 			name:   "Edge: an explicit zero minimum is emitted, not dropped",
@@ -50,8 +60,11 @@ func TestFieldSchemaDTO_MarshalJSON_GenerationMetadata(t *testing.T) {
 
 func TestGenerationMetadata_CopiesDoNotAlias(t *testing.T) {
 	original := Template{Fields: FieldGroup{"stats": {Children: FieldGroup{
-		"strength": genLeaf(FieldSchema{Generatable: true, Min: f64(3), Max: f64(20), Type: fieldTypeNumber}),
-		"name":     genLeaf(FieldSchema{Type: fieldTypeText, MaxLength: intPtr(40)}),
+		"strength": {Schema: &FieldSchema{
+			Type: fieldTypeNumber, IsEditable: true, Generatable: true, Min: f64(3), Max: f64(20),
+			GeneratableKinds: []plan.SheetKind{plan.KindCharacter},
+		}},
+		"name": genLeaf(FieldSchema{Type: fieldTypeText, MaxLength: intPtr(40)}),
 	}}}}
 
 	cloned := cloneTemplate(original)
@@ -70,15 +83,20 @@ func TestGenerationMetadata_CopiesDoNotAlias(t *testing.T) {
 	require.NotSame(t, strength.Min, dtoStrength.Min)
 	require.NotSame(t, strength.Max, dtoStrength.Max)
 	require.NotSame(t, name.MaxLength, dtoName.MaxLength)
+	require.NotSame(t, &strength.GeneratableKinds[0], &clonedStrength.GeneratableKinds[0])
+	require.NotSame(t, &strength.GeneratableKinds[0], &dtoStrength.GeneratableKinds[0])
 
 	*clonedStrength.Min = -99
 	*clonedName.MaxLength = 1
 	*dtoStrength.Max = -99
 	*dtoName.MaxLength = 1
+	clonedStrength.GeneratableKinds[0] = plan.KindEnemy
+	dtoStrength.GeneratableKinds[0] = plan.KindEnemy
 
 	assert.Equal(t, 3.0, *strength.Min)
 	assert.Equal(t, 20.0, *strength.Max)
 	assert.Equal(t, 40, *name.MaxLength)
+	assert.Equal(t, []plan.SheetKind{plan.KindCharacter}, strength.GeneratableKinds)
 }
 
 func TestFantasyV1_GenerationMetadata(t *testing.T) {
@@ -112,6 +130,13 @@ func TestFantasyV1_GenerationMetadata(t *testing.T) {
 	}
 	assert.Positive(t, generatable)
 
+	playerName := fantasyV1Template.Fields[fieldNameIdentity].Children["playerName"].Schema
+	require.NotNil(t, playerName)
+	assert.Equal(t, []plan.SheetKind{plan.KindCharacter}, playerName.GeneratableKinds)
+	assert.True(t, playerName.GeneratableFor(plan.KindCharacter))
+	assert.False(t, playerName.GeneratableFor(plan.KindNPC))
+	assert.False(t, playerName.GeneratableFor(plan.KindEnemy))
+
 	require.NoError(t, ValidateGenerationMetadata(fantasyV1Template))
 }
 
@@ -131,6 +156,7 @@ func TestFantasyV1_GenerationMetadataPayload(t *testing.T) {
 	identity := payload.Fields["identity"].Children
 	assert.Equal(t, true, identity["characterName"].Schema["generatable"])
 	assert.Equal(t, float64(60), identity["characterName"].Schema["max_length"])
+	assert.Equal(t, []any{"character"}, identity["playerName"].Schema["generatable_kinds"])
 	assert.Equal(t, float64(1), identity["level"].Schema["min"])
 	assert.Equal(t, float64(20), identity["level"].Schema["max"])
 

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"unicode/utf8"
 
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/template"
 	sharedjson "legnaris/backend/shared/json"
 )
@@ -56,11 +57,11 @@ func outputParseProblem(err error) string {
 	}
 }
 
-func Expand(tmpl *template.Template, output map[string]any) (map[string]any, error) {
+func Expand(tmpl *template.Template, kind plan.SheetKind, output map[string]any) (map[string]any, error) {
 	if tmpl == nil {
 		return nil, ErrNoTemplate
 	}
-	c := &checker{}
+	c := &checker{kind: kind}
 	values := c.group(tmpl.Fields, output, "")
 	if len(c.problems) > 0 {
 		return nil, &OutputError{Problems: c.problems}
@@ -69,6 +70,7 @@ func Expand(tmpl *template.Template, output map[string]any) (map[string]any, err
 }
 
 type checker struct {
+	kind     plan.SheetKind
 	problems []string
 }
 
@@ -80,7 +82,7 @@ func (c *checker) add(path, rule string) {
 }
 
 func (c *checker) group(fields template.FieldGroup, data map[string]any, prefix string) map[string]any {
-	lv := levelOf(fields)
+	lv := levelOf(fields, c.kind)
 	c.rejectUnknown(lv, data, prefix)
 	values := map[string]any{}
 	for _, name := range slices.Sorted(maps.Keys(lv.leaves)) {
@@ -96,7 +98,7 @@ func (c *checker) group(fields template.FieldGroup, data map[string]any, prefix 
 	for _, name := range slices.Sorted(maps.Keys(lv.groups)) {
 		c.child(name, lv.groups[name], data, prefix, values)
 	}
-	for _, exclusiveGroup := range slices.Sorted(maps.Keys(lv.members)) {
+	for _, exclusiveGroup := range slices.Sorted(maps.Keys(lv.exclusive)) {
 		c.exclusive(exclusiveGroup, lv, data, prefix, values)
 	}
 	return values
@@ -190,11 +192,7 @@ func (c *checker) child(name string, fields template.FieldGroup, data map[string
 
 func (c *checker) exclusive(name string, lv level, data map[string]any, prefix string, values map[string]any) {
 	path := join(prefix, name)
-	members := lv.members[name]
 	options := lv.exclusive[name]
-	if len(options) == 0 {
-		return
-	}
 	raw, present := data[name]
 	if !present {
 		c.add(path, "is required")
@@ -205,10 +203,10 @@ func (c *checker) exclusive(name string, lv level, data map[string]any, prefix s
 		c.add(path, "must be one of the listed options")
 		return
 	}
-	for _, member := range members {
-		values[member] = 0.0
-		if member == picked {
-			values[member] = 1.0
+	for _, option := range options {
+		values[option] = 0.0
+		if option == picked {
+			values[option] = 1.0
 		}
 	}
 }

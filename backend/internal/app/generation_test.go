@@ -108,10 +108,44 @@ func TestGenerationController_Create(t *testing.T) {
 			service: fakeGenerationService{create: func(cmd generation.CreateCommand) (string, error) {
 				assert.Equal(t, genUserID, cmd.UserID)
 				assert.Equal(t, "fantasy_v1", cmd.TemplateID)
+				assert.Equal(t, "character", cmd.Kind)
 				return "0196e4f2-0000-7000-8000-0000000000aa", nil
 			}},
 			wantStatus: http.StatusAccepted,
 			wantID:     "0196e4f2-0000-7000-8000-0000000000aa",
+		},
+		{
+			name:   "Happy path: the requested NPC kind reaches the service",
+			userID: genUserID,
+			body:   `{"template_id":"fantasy_v1","kind":"npc","concept":"A grizzled dwarf smith"}`,
+			service: fakeGenerationService{create: func(cmd generation.CreateCommand) (string, error) {
+				assert.Equal(t, "npc", cmd.Kind)
+				return "0196e4f2-0000-7000-8000-0000000000aa", nil
+			}},
+			wantStatus: http.StatusAccepted,
+			wantID:     "0196e4f2-0000-7000-8000-0000000000aa",
+		},
+		{
+			name:   "Error: an unknown kind reaches the service and is answered 400",
+			userID: genUserID,
+			body:   `{"template_id":"fantasy_v1","kind":"monster","concept":"A grizzled dwarf smith"}`,
+			service: fakeGenerationService{create: func(cmd generation.CreateCommand) (string, error) {
+				assert.Equal(t, "monster", cmd.Kind)
+				return "", apperr.NewError(apperr.CodeInvalidRequest, generation.MsgKindInvalid, nil)
+			}},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   string(apperr.CodeInvalidRequest),
+		},
+		{
+			name:   "Error: a missing kind reaches the service and is answered 400",
+			userID: genUserID,
+			body:   `{"template_id":"fantasy_v1","concept":"A grizzled dwarf smith"}`,
+			service: fakeGenerationService{create: func(cmd generation.CreateCommand) (string, error) {
+				assert.Equal(t, "", cmd.Kind)
+				return "", apperr.NewError(apperr.CodeInvalidRequest, generation.MsgKindInvalid, nil)
+			}},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   string(apperr.CodeInvalidRequest),
 		},
 		{
 			name:       "Error: an unauthenticated request is 401",
@@ -238,6 +272,12 @@ func TestGenerationController_Get(t *testing.T) {
 			wantName:   nil,
 		},
 		{
+			name:       "Happy path: an NPC generation returns its kind",
+			view:       generation.View{ID: id, Status: generation.StatusQueued, Kind: "npc"},
+			wantStatus: http.StatusOK,
+			wantName:   nil,
+		},
+		{
 			name:       "Edge: a failed generation carries its error code",
 			view:       generation.View{ID: id, Status: generation.StatusFailed, Kind: "character", ErrorCode: "provider_unavailable"},
 			wantStatus: http.StatusOK,
@@ -266,6 +306,7 @@ func TestGenerationController_Get(t *testing.T) {
 			}
 			data := dataOf(t, rec)
 			assert.Equal(t, id, data["id"])
+			assert.Equal(t, tc.view.Kind, data["kind"])
 			_, hasValues := data["values"]
 			assert.Equal(t, tc.wantValues, hasValues)
 			nameValue, hasName := data["suggested_name"]
