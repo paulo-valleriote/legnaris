@@ -36,6 +36,7 @@ export interface PlanUsage {
   readonly lastFreeGeneration: boolean;
   readonly activeGenerationId: string | null;
   readonly billing: BillingStatus;
+  readonly ownedCampaigns?: SheetUsage;
 }
 
 function decodeSheetUsage(value: unknown, kind: string): SheetUsage {
@@ -72,7 +73,13 @@ export function parsePlanUsage(data: unknown): PlanUsage {
     lastFreeGeneration: decodeFlag(data, 'last_free_generation'),
     activeGenerationId: optionalString(data, 'active_generation_id') ?? null,
     billing: decodeBilling(data),
+    ...decodeOwnedCampaigns(data),
   };
+}
+
+function decodeOwnedCampaigns(data: Record<string, unknown>): { ownedCampaigns?: SheetUsage } {
+  const owned = data['owned_campaigns'];
+  return owned === undefined ? {} : { ownedCampaigns: decodeSheetUsage(owned, 'owned_campaigns') };
 }
 
 function decodeBilling(data: Record<string, unknown>): BillingStatus {

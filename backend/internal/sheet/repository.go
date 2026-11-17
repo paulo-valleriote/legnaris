@@ -23,6 +23,7 @@ type Repository interface {
 	UnlinkOwnerCampaign(ctx context.Context, ownerID, campaignID string) (int64, error)
 	UnlinkCampaignBatch(ctx context.Context, campaignID string, limit int) (int64, error)
 	ListByCampaignID(ctx context.Context, campaignID string) ([]Sheet, error)
+	ListByOwnerKind(ctx context.Context, ownerID string, kind plan.SheetKind) ([]Sheet, error)
 	DeleteByID(ctx context.Context, id string) error
 	ReserveSlot(ctx context.Context, ownerID string, kind plan.SheetKind, limit int) error
 	ReleaseSlot(ctx context.Context, ownerID string, kind plan.SheetKind) error
@@ -308,6 +309,20 @@ func (r *RepositoryImpl) ListByCampaignID(ctx context.Context, campaignID string
 	var found []Sheet
 	if err := cursor.All(ctx, &found); err != nil {
 		return nil, fmt.Errorf("error decoding campaign sheets: %w", err)
+	}
+	return found, nil
+}
+
+func (r *RepositoryImpl) ListByOwnerKind(ctx context.Context, ownerID string, kind plan.SheetKind) ([]Sheet, error) {
+	filter := bson.D{{Key: ownerIDField, Value: ownerID}, {Key: kindField, Value: kind}}
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: 1}, {Key: idField, Value: 1}})
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error listing owner sheets: %w", err)
+	}
+	var found []Sheet
+	if err := cursor.All(ctx, &found); err != nil {
+		return nil, fmt.Errorf("error decoding owner sheets: %w", err)
 	}
 	return found, nil
 }

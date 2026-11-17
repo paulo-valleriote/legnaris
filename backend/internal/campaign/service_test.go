@@ -254,6 +254,7 @@ func TestFetch(t *testing.T) {
 			assert.Equal(t, base.ID, view.ID)
 			assert.Equal(t, campaign.RolePlayer, view.ViewerRole)
 			assert.False(t, view.ViewerOwner)
+			assert.Equal(t, tc.user, view.ViewerUserID)
 			assert.Len(t, view.Members, 4)
 			assert.Equal(t, 2, view.GMCount)
 			assert.Equal(t, 2, view.PlayerCount)

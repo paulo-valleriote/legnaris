@@ -2,7 +2,7 @@ import { useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../app/providers';
-import { PLANS_PATH } from '../app/routes';
+import { CAMPAIGNS_PATH, PLANS_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
 import { BrandMark } from './brand_mark';
 import { leaveIsGuarded, requestLeave } from './leave_guard';
@@ -24,6 +24,24 @@ function PlansIcon() {
       <rect x="3" y="6" width="18" height="13" rx="2" />
       <path d="M3 10h18" />
       <path d="M7 15h4" />
+    </svg>
+  );
+}
+
+function CampaignsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 19c0-3 2.7-5 6-5s6 2 6 5" />
+      <path d="M16 5.5a3 3 0 0 1 0 5.5" />
+      <path d="M18 14c2 .7 3 2.4 3 5" />
     </svg>
   );
 }
@@ -176,6 +194,13 @@ export function LeftNav() {
         )}
         {snapshot.state === 'authenticated' && (
           <NavEntry path={PLANS_PATH} label={message('nav.plans')} icon={<PlansIcon />} />
+        )}
+        {snapshot.state === 'authenticated' && (
+          <NavEntry
+            path={CAMPAIGNS_PATH}
+            label={message('nav.campaigns')}
+            icon={<CampaignsIcon />}
+          />
         )}
         {snapshot.state === 'authenticated' && (
           <NavEntry path={ACCOUNT_PATH} label={message('nav.account')} icon={<AccountIcon />} />

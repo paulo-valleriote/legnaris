@@ -26,9 +26,14 @@ export type FailureKind =
   | 'billingUnavailable'
   | 'noSubscription'
   | 'refundNotEligible'
+  | 'campaignNotFound'
+  | 'campaignFull'
+  | 'campaignForbidden'
   | 'invalidInvite'
-  | 'passwordRequired'
-  | 'campaignFull';
+  | 'templateMismatch'
+  | 'sheetAlreadyLinked'
+  | 'planLimitReached'
+  | 'passwordRequired';
 
 export interface DomainFailureInput {
   kind: FailureKind;

@@ -412,6 +412,66 @@ func (_c *MockRepository_ListByCampaignID_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
+// ListByOwnerKind provides a mock function with given fields: ctx, ownerID, kind
+func (_m *MockRepository) ListByOwnerKind(ctx context.Context, ownerID string, kind plan.SheetKind) ([]sheet.Sheet, error) {
+	ret := _m.Called(ctx, ownerID, kind)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListByOwnerKind")
+	}
+
+	var r0 []sheet.Sheet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, plan.SheetKind) ([]sheet.Sheet, error)); ok {
+		return rf(ctx, ownerID, kind)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, plan.SheetKind) []sheet.Sheet); ok {
+		r0 = rf(ctx, ownerID, kind)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]sheet.Sheet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, plan.SheetKind) error); ok {
+		r1 = rf(ctx, ownerID, kind)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_ListByOwnerKind_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListByOwnerKind'
+type MockRepository_ListByOwnerKind_Call struct {
+	*mock.Call
+}
+
+// ListByOwnerKind is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ownerID string
+//   - kind plan.SheetKind
+func (_e *MockRepository_Expecter) ListByOwnerKind(ctx interface{}, ownerID interface{}, kind interface{}) *MockRepository_ListByOwnerKind_Call {
+	return &MockRepository_ListByOwnerKind_Call{Call: _e.mock.On("ListByOwnerKind", ctx, ownerID, kind)}
+}
+
+func (_c *MockRepository_ListByOwnerKind_Call) Run(run func(ctx context.Context, ownerID string, kind plan.SheetKind)) *MockRepository_ListByOwnerKind_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(plan.SheetKind))
+	})
+	return _c
+}
+
+func (_c *MockRepository_ListByOwnerKind_Call) Return(_a0 []sheet.Sheet, _a1 error) *MockRepository_ListByOwnerKind_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_ListByOwnerKind_Call) RunAndReturn(run func(context.Context, string, plan.SheetKind) ([]sheet.Sheet, error)) *MockRepository_ListByOwnerKind_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PartialUpdate provides a mock function with given fields: ctx, id, expectedVersion, dbUpdates
 func (_m *MockRepository) PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error) {
 	ret := _m.Called(ctx, id, expectedVersion, dbUpdates)
