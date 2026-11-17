@@ -70,9 +70,9 @@ func TestLinkNpc(t *testing.T) {
 			wantEvents:  1,
 		},
 		{
-			name:        "Happy path: a co-GM links their own Monster",
+			name:        "Happy path: a co-GM links their own Enemy",
 			user:        coGM,
-			sheet:       func(t *testing.T) sheet.Sheet { return npcSheet(t, coGM, base.TemplateID, plan.KindMonster) },
+			sheet:       func(t *testing.T) sheet.Sheet { return npcSheet(t, coGM, base.TemplateID, plan.KindEnemy) },
 			wantCreated: true,
 			wantEvents:  1,
 		},
@@ -139,7 +139,7 @@ func TestLinkNpc(t *testing.T) {
 		{
 			name:  "Error: a link store failure is internal",
 			user:  owner,
-			sheet: func(t *testing.T) sheet.Sheet { return npcSheet(t, owner, base.TemplateID, plan.KindMonster) },
+			sheet: func(t *testing.T) sheet.Sheet { return npcSheet(t, owner, base.TemplateID, plan.KindEnemy) },
 			setup: func(h *harness, sh sheet.Sheet) {
 				h.links.EXPECT().Upsert(mock.Anything, mock.Anything).Return(campaign.SheetLink{}, false, errStoreDown).Once()
 			},
@@ -428,7 +428,7 @@ func TestListNpcLinks(t *testing.T) {
 
 	hidden := npcSheet(t, owner, base.TemplateID, plan.KindNPC)
 	hidden.Name = "Brom"
-	revealed := npcSheet(t, coGM, base.TemplateID, plan.KindMonster)
+	revealed := npcSheet(t, coGM, base.TemplateID, plan.KindEnemy)
 	revealed.Name = "Wyrm"
 	hiddenLink := linkFixture(campaigntest.NewID(t), base.ID, hidden.ID, owner)
 	revealedLink := linkFixture(campaigntest.NewID(t), base.ID, revealed.ID, coGM)
@@ -523,7 +523,7 @@ func TestListNpcLinks(t *testing.T) {
 				assert.False(t, out[0].IsOwner)
 				assert.Equal(t, revealed.ID, out[1].SheetID)
 				assert.True(t, out[1].Revealed)
-				assert.True(t, out[1].IsOwner, "the co-GM owns the revealed monster")
+				assert.True(t, out[1].IsOwner, "the co-GM owns the revealed enemy")
 			}
 		})
 	}

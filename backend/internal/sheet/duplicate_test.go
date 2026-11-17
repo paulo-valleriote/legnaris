@@ -78,15 +78,15 @@ func TestService_Duplicate(t *testing.T) {
 			wantStatus: 201,
 		},
 		{
-			name: "Happy path: a Monster is copied with its own per-kind limit",
+			name: "Happy path: an Enemy is copied with its own per-kind limit",
 			source: func() sheet.Sheet {
 				cp := duplicateSource(t)
-				cp.Kind = plan.KindMonster
+				cp.Kind = plan.KindEnemy
 				cp.Dice = nil
 				return cp
 			}(),
 			setup: func(repo *mocks.MockRepository) {
-				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindMonster, 2).Return(nil).Once()
+				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindEnemy, 2).Return(nil).Once()
 				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 			},
 			wantSheet:  true,

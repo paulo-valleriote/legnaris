@@ -134,7 +134,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			base: campaigntest.Build(t, 0, 1),
 			prepare: func(h *harness, base campaign.Campaign) {
 				owner := campaigntest.OwnerID(base)
-				sh := sheetOf(t, owner, base.TemplateID, plan.KindMonster, nil)
+				sh := sheetOf(t, owner, base.TemplateID, plan.KindEnemy, nil)
 				sh.ID = "01900000-0000-7000-8000-0000000000e2"
 				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
 				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&campaign.SheetLink{ID: campaigntest.NewID(t), CampaignID: base.ID, SheetID: sh.ID, OwnerID: owner}, nil).Once()
@@ -178,7 +178,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			base: campaigntest.Build(t, 0, 1),
 			prepare: func(h *harness, base campaign.Campaign) {
 				owner := campaigntest.OwnerID(base)
-				sh := sheetOf(t, owner, base.TemplateID, plan.KindMonster, nil)
+				sh := sheetOf(t, owner, base.TemplateID, plan.KindEnemy, nil)
 				sh.ID = "01900000-0000-7000-8000-0000000000e4"
 				revealed := campaign.SheetLink{ID: campaigntest.NewID(t), CampaignID: base.ID, SheetID: sh.ID, OwnerID: owner, Revealed: true}
 				hidden := revealed

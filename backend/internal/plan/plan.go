@@ -5,10 +5,10 @@ type SheetKind string
 const (
 	KindCharacter SheetKind = "character"
 	KindNPC       SheetKind = "npc"
-	KindMonster   SheetKind = "monster"
+	KindEnemy     SheetKind = "enemy"
 )
 
-var sheetKinds = []SheetKind{KindCharacter, KindNPC, KindMonster}
+var sheetKinds = []SheetKind{KindCharacter, KindNPC, KindEnemy}
 
 func SheetKinds() []SheetKind {
 	return append([]SheetKind(nil), sheetKinds...)
@@ -48,7 +48,7 @@ var Free = Plan{
 	sheetLimits: map[SheetKind]int{
 		KindCharacter: 1,
 		KindNPC:       2,
-		KindMonster:   2,
+		KindEnemy:     2,
 	},
 	ownedCampaigns: 1,
 }
@@ -58,7 +58,7 @@ var Paid = Plan{
 	sheetLimits: map[SheetKind]int{
 		KindCharacter: 10,
 		KindNPC:       50,
-		KindMonster:   50,
+		KindEnemy:     50,
 	},
 	ownedCampaigns: 5,
 }
