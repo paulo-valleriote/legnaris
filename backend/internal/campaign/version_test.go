@@ -16,6 +16,7 @@ type campaignWrite struct {
 	name         string
 	base         campaign.Campaign
 	markDeleting bool
+	saves        int
 	prepare      func(h *harness, base campaign.Campaign)
 	run          func(ctx context.Context, h *harness, base campaign.Campaign) error
 }
@@ -29,6 +30,41 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			markDeleting: true,
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
 				return h.service().Delete(ctx, campaign.DeleteCommand{CampaignID: base.ID, ActorID: campaigntest.OwnerID(base)})
+			},
+		},
+		{
+			name:  "account leave",
+			base:  campaigntest.Build(t, 0, 2),
+			saves: 1,
+			prepare: func(h *harness, base campaign.Campaign) {
+				player := campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]
+				h.repo.EXPECT().ListActiveByMember(mock.Anything, player).Return([]campaign.Campaign{base}, nil).Once()
+				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, player).Return(nil).Once()
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				settler := campaign.NewAccountSettler(h.repo, h.tx, &fakeOwnership{counts: map[string]int{}}, h.unlinker, h.pub, campaigntest.Now)
+				return settler.SettleAccount(ctx, campaigntest.MembersWithRole(base, campaign.RolePlayer)[0])
+			},
+		},
+		{
+			name:  "account owner hand-off then leave",
+			base:  campaigntest.Build(t, 1, 0),
+			saves: 2,
+			prepare: func(h *harness, base campaign.Campaign) {
+				owner := campaigntest.OwnerID(base)
+				successor := campaigntest.MembersWithRole(base, campaign.RoleGM)[0]
+				after := campaigntest.Copy(base)
+				after.Version = base.Version + 1
+				for i := range after.Members {
+					after.Members[i].Owner = after.Members[i].UserID == successor
+				}
+				h.repo.EXPECT().ListActiveByMember(mock.Anything, owner).Return([]campaign.Campaign{base}, nil).Once()
+				h.repo.EXPECT().FetchByID(mock.Anything, base.ID).Return(&after, nil).Once()
+				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, owner).Return(nil).Once()
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				settler := campaign.NewAccountSettler(h.repo, h.tx, &fakeOwnership{counts: map[string]int{}}, h.unlinker, h.pub, campaigntest.Now)
+				return settler.SettleAccount(ctx, campaigntest.OwnerID(base))
 			},
 		},
 		{
@@ -168,17 +204,20 @@ func TestCampaignWrites_EverySuccessfulWriteIncrementsVersionByExactlyOne(t *tes
 		t.Run(tc.name, func(t *testing.T) {
 			h := newHarness(t)
 			h.loadOnce(tc.base)
+			saves := max(tc.saves, 1)
 			if tc.markDeleting {
 				h.expectMarkDeleting(tc.base.Version, nil)
 			} else {
-				h.expectSave(tc.base.Version, nil)
+				for i := range saves {
+					h.expectSave(tc.base.Version+int64(i), nil)
+				}
 			}
 			if tc.prepare != nil {
 				tc.prepare(h, tc.base)
 			}
 			require.NoError(t, tc.run(context.Background(), h, tc.base))
 			require.NotNil(t, h.saved, "a successful Campaign write must persist through the version-checked save")
-			require.Equal(t, tc.base.Version+1, h.saved.Version, "campaign.version must advance by exactly one per transaction")
+			require.Equal(t, tc.base.Version+int64(saves), h.saved.Version, "campaign.version must advance by exactly one per transaction")
 		})
 	}
 }

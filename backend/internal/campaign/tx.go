@@ -15,21 +15,36 @@ type TransactionRunner interface {
 type MutateFunc func(txCtx context.Context, c *Campaign) error
 
 func Mutate(ctx context.Context, tx TransactionRunner, repo Repository, campaignID string, now time.Time, fn MutateFunc) (Campaign, error) {
+	out, _, err := mutate(ctx, tx, repo, campaignID, now, func(txCtx context.Context, c *Campaign) (bool, error) {
+		return true, fn(txCtx, c)
+	}, true)
+	return out, err
+}
+
+type changeFunc func(txCtx context.Context, c *Campaign) (bool, error)
+
+func mutate(ctx context.Context, tx TransactionRunner, repo Repository, campaignID string, now time.Time, fn changeFunc, strict bool) (Campaign, bool, error) {
 	var out Campaign
+	applied := false
 	err := tx.WithTransaction(ctx, func(txCtx context.Context) error {
+		out, applied = Campaign{}, false
 		loaded, err := repo.FetchByID(txCtx, campaignID)
 		if errors.Is(err, ErrNotFound) {
-			return notFound()
+			return missingCampaign(strict)
 		}
 		if err != nil {
 			return internalError(MsgCampaignRead, err)
 		}
 		if !loaded.Active() {
-			return notFound()
+			return missingCampaign(strict)
 		}
 		expected := loaded.Version
-		if err := fn(txCtx, loaded); err != nil {
+		changed, err := fn(txCtx, loaded)
+		if err != nil {
 			return err
+		}
+		if !changed {
+			return nil
 		}
 		loaded.recount()
 		loaded.Version = expected + 1
@@ -37,13 +52,20 @@ func Mutate(ctx context.Context, tx TransactionRunner, repo Repository, campaign
 		if err := repo.Save(txCtx, loaded, expected); err != nil {
 			return saveError(err)
 		}
-		out = *loaded
+		out, applied = *loaded, true
 		return nil
 	})
 	if err != nil {
-		return Campaign{}, unwrapTxError(err)
+		return Campaign{}, false, unwrapTxError(err)
 	}
-	return out, nil
+	return out, applied, nil
+}
+
+func missingCampaign(strict bool) error {
+	if strict {
+		return notFound()
+	}
+	return nil
 }
 
 func JoinPlayer(ctx context.Context, tx TransactionRunner, repo Repository, campaignID, userID string, now time.Time) (Campaign, error) {
