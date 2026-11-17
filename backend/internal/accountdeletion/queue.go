@@ -16,11 +16,16 @@ type BillingSettler interface {
 	Settle(ctx context.Context, userID string) error
 }
 
+type CampaignSettler interface {
+	SettleAccount(ctx context.Context, userID string) error
+}
+
 type Deps struct {
-	Store   user.DeletionStore
-	Cascade *Cascade
-	Tx      Transactor
-	Billing BillingSettler
+	Store     user.DeletionStore
+	Cascade   *Cascade
+	Tx        Transactor
+	Billing   BillingSettler
+	Campaigns CampaignSettler
 }
 
 type store struct {
@@ -61,6 +66,9 @@ func NewQueue(deps Deps, attemptCap, batch int) (sweeper.Queue, error) {
 		Store:      s,
 		Handle: func(ctx context.Context, job sweeper.Job[user.User], _ time.Time) error {
 			if err := deps.Billing.Settle(ctx, job.ID); err != nil {
+				return err
+			}
+			if err := deps.Campaigns.SettleAccount(ctx, job.ID); err != nil {
 				return err
 			}
 			return deps.Tx.WithTransaction(ctx, func(txCtx context.Context) error {

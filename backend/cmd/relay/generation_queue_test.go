@@ -179,7 +179,7 @@ func idleRelayDeps(t *testing.T) dependencies {
 		newCampaignDeletion: func(env.Env, databaseHandle, events.Publisher) (campaign.DeletionDeps, error) {
 			return idleCampaignDeletionDeps(t), nil
 		},
-		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository) (accountdeletion.Deps, error) {
+		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository, events.Publisher) (accountdeletion.Deps, error) {
 			return idleDeletionDeps(t), nil
 		},
 		newBilling: func(env.Env, databaseHandle, eventsoutbox.Repository) (billing.ConsumerDeps, error) {
