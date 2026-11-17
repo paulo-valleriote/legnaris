@@ -191,7 +191,7 @@ func TestRepository_ListByCampaignIDReturnsOnlyLinkedSheets(t *testing.T) {
 		campaign string
 		wantIDs  []string
 	}{
-		{name: "Edge: unknown campaign lists nothing", campaign: "01900000-0000-7000-8000-0000000000ff", wantIDs: nil},
+		{name: "Edge: unknown campaign lists nothing", campaign: "01900000-0000-7000-8000-0000000000ff", wantIDs: []string{}},
 		{name: "Happy path: campaign lists only its linked sheets", campaign: campaignLinkA, wantIDs: []string{campaignSheetS1}},
 	}
 	for _, tc := range tests {
