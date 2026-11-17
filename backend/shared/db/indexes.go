@@ -50,6 +50,11 @@ const (
 	sheetsCampaignIDIndex           = "sheets_campaign_id"
 	campaignsInviteCodeUnique       = "campaigns_invite_code_unique"
 	campaignsInviteCodeField        = "invite_code"
+	campaignSheetLinksUnique        = "campaign_sheet_links_campaign_sheet_unique"
+	campaignSheetLinksCampaignIndex = "campaign_sheet_links_campaign_id"
+	campaignSheetLinksSheetIndex    = "campaign_sheet_links_sheet_id"
+	campaignIDField                 = "campaign_id"
+	sheetIDField                    = "sheet_id"
 )
 
 func EnsureIndexes(ctx context.Context, database *mongo.Database) error {
@@ -98,7 +103,7 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 	}
 
 	if _, err := sheets.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "campaign_id", Value: 1}},
+		Keys: bson.D{{Key: campaignIDField, Value: 1}},
 		Options: options.Index().SetName(sheetsCampaignIDIndex).
 			SetPartialFilterExpression(bson.D{{Key: "campaign_id", Value: bson.D{{Key: "$type", Value: "string"}}}}),
 	}); err != nil {
@@ -154,6 +159,23 @@ func ensureCampaignIndexes(ctx context.Context, database *mongo.Database) error 
 		Options: options.Index().SetUnique(true).SetSparse(true).SetName(campaignsInviteCodeUnique),
 	}); err != nil {
 		return fmt.Errorf("create campaigns invite code index: %w", err)
+	}
+	links := database.Collection("campaign_sheet_links")
+	if _, err := links.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: campaignIDField, Value: 1}, {Key: sheetIDField, Value: 1}},
+			Options: options.Index().SetUnique(true).SetName(campaignSheetLinksUnique),
+		},
+		{
+			Keys:    bson.D{{Key: campaignIDField, Value: 1}},
+			Options: options.Index().SetName(campaignSheetLinksCampaignIndex),
+		},
+		{
+			Keys:    bson.D{{Key: sheetIDField, Value: 1}},
+			Options: options.Index().SetName(campaignSheetLinksSheetIndex),
+		},
+	}); err != nil {
+		return fmt.Errorf("create campaign_sheet_links indexes: %w", err)
 	}
 	return nil
 }

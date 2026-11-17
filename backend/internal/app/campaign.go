@@ -44,6 +44,10 @@ func (cc *CampaignController) RegisterRoutes(group *echo.Group, joinIPLimit echo
 	group.DELETE("/:id/character", cc.Unlink)
 	group.GET("/:id/sheets", cc.ListLinkedSheets)
 	group.GET("/:id/sheets/:sheetId", cc.FetchLinkedSheet)
+	group.PUT("/:id/npcs", cc.LinkNpc)
+	group.DELETE("/:id/npcs/:sheetId", cc.UnlinkNpc)
+	group.GET("/:id/npcs", cc.ListNpcLinks)
+	group.GET("/:id/npcs/:sheetId", cc.FetchNpcSheet)
 	group.POST("/:id/invite/rotate", cc.RotateInvite)
 	group.PUT("/:id/password", cc.SetPassword)
 	group.DELETE("/:id/password", cc.ClearPassword)
@@ -181,6 +185,60 @@ func (cc *CampaignController) ListLinkedSheets(c *echo.Context) error {
 func (cc *CampaignController) FetchLinkedSheet(c *echo.Context) error {
 	userID, _ := auth.UserID(c)
 	result, err := cc.service.ReadLinkedSheet(c.Request().Context(), campaign.ReadLinkedSheetQuery{
+		CampaignID:  c.Param("id"),
+		ViewerID:    userID,
+		SheetID:     c.Param("sheetId"),
+		IfNoneMatch: c.Request().Header.Get("If-None-Match"),
+	})
+	if err != nil {
+		return err
+	}
+	c.Response().Header().Set("ETag", result.ETag)
+	if result.NotModified {
+		return c.NoContent(http.StatusNotModified)
+	}
+	return response.OK(c, result.Sheet.ToDTO())
+}
+
+func (cc *CampaignController) LinkNpc(c *echo.Context) error {
+	var cmd campaign.LinkNpcCommand
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+	cmd.CampaignID = c.Param("id")
+	cmd.UserID, _ = auth.UserID(c)
+	view, err := cc.service.LinkNpc(c.Request().Context(), cmd)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, view)
+}
+
+func (cc *CampaignController) UnlinkNpc(c *echo.Context) error {
+	userID, _ := auth.UserID(c)
+	err := cc.service.UnlinkNpc(c.Request().Context(), campaign.UnlinkNpcCommand{
+		CampaignID: c.Param("id"),
+		UserID:     userID,
+		SheetID:    c.Param("sheetId"),
+	})
+	if err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (cc *CampaignController) ListNpcLinks(c *echo.Context) error {
+	userID, _ := auth.UserID(c)
+	links, err := cc.service.ListNpcLinks(c.Request().Context(), c.Param("id"), userID)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, links)
+}
+
+func (cc *CampaignController) FetchNpcSheet(c *echo.Context) error {
+	userID, _ := auth.UserID(c)
+	result, err := cc.service.ReadNpcSheet(c.Request().Context(), campaign.ReadNpcSheetQuery{
 		CampaignID:  c.Param("id"),
 		ViewerID:    userID,
 		SheetID:     c.Param("sheetId"),

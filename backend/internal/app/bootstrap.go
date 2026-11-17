@@ -161,8 +161,10 @@ func NewModules(
 	userRepository := user.NewCachedRepository(user.NewRepository(mdb, log))
 
 	sheetRepository := sheet.NewRepository(mdb, log)
+	linkStore := campaign.NewLinkStore(mdb)
 	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher,
 		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
+		sheet.WithLinkCleaner(campaign.NewSheetLinkCleaner(linkStore, publisher)),
 	)
 	sheetController := NewSheetController(sheetService)
 
@@ -294,6 +296,7 @@ func NewModules(
 		campaign.WithOwnershipReleaser(ownedCampaigns),
 		campaign.WithCharacterStore(sheetRepository),
 		campaign.WithCharacterUnlinker(campaignCharacterUnlinker{sheets: sheetRepository}),
+		campaign.WithLinkStore(linkStore),
 		campaign.WithPasswordHasher(campaignHasher),
 		campaign.WithJoinLimiter(campaignJoinLimiter),
 	)

@@ -37,6 +37,7 @@ type harness struct {
 	names     *mocks.MockNameLookup
 	guard     *mocks.MockCreateGuard
 	sheets    *mocks.MockCharacterStore
+	links     *mocks.MockLinkStore
 	limiter   *mocks.MockJoinLimiter
 	linked    []sheet.Sheet
 	linkedErr error
@@ -56,6 +57,7 @@ func newHarness(t *testing.T) *harness {
 		names:    mocks.NewMockNameLookup(t),
 		guard:    mocks.NewMockCreateGuard(t),
 		sheets:   mocks.NewMockCharacterStore(t),
+		links:    mocks.NewMockLinkStore(t),
 		limiter:  mocks.NewMockJoinLimiter(t),
 	}
 	h.sheets.EXPECT().ListByCampaignID(mock.Anything, mock.Anything).RunAndReturn(
@@ -79,6 +81,7 @@ func (h *harness) service(opts ...campaign.ServiceOption) campaign.Service {
 		campaign.WithCharacterUnlinker(h.unlinker),
 		campaign.WithNameLookup(h.names),
 		campaign.WithCharacterStore(h.sheets),
+		campaign.WithLinkStore(h.links),
 		campaign.WithClock(campaigntest.Now),
 		campaign.WithPasswordHasher(testHasher),
 		campaign.WithJoinLimiter(h.limiter),

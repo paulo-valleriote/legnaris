@@ -105,6 +105,50 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
+			name: "link npc",
+			base: campaigntest.Build(t, 0, 1),
+			prepare: func(h *harness, base campaign.Campaign) {
+				owner := campaigntest.OwnerID(base)
+				sh := sheetOf(t, owner, base.TemplateID, plan.KindNPC, nil)
+				sh.ID = "01900000-0000-7000-8000-0000000000e1"
+				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
+				h.links.EXPECT().Upsert(mock.Anything, mock.Anything).RunAndReturn(
+					func(_ context.Context, link *campaign.SheetLink) (campaign.SheetLink, bool, error) {
+						return *link, true, nil
+					},
+				).Once()
+				h.withUsernames("someone", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				_, err := h.service().LinkNpc(ctx, campaign.LinkNpcCommand{
+					CampaignID: base.ID,
+					UserID:     campaigntest.OwnerID(base),
+					SheetID:    "01900000-0000-7000-8000-0000000000e1",
+				})
+				return err
+			},
+		},
+		{
+			name: "unlink npc",
+			base: campaigntest.Build(t, 0, 1),
+			prepare: func(h *harness, base campaign.Campaign) {
+				owner := campaigntest.OwnerID(base)
+				sh := sheetOf(t, owner, base.TemplateID, plan.KindMonster, nil)
+				sh.ID = "01900000-0000-7000-8000-0000000000e2"
+				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
+				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&campaign.SheetLink{ID: campaigntest.NewID(t), CampaignID: base.ID, SheetID: sh.ID, OwnerID: owner}, nil).Once()
+				h.links.EXPECT().Delete(mock.Anything, base.ID, sh.ID).Return(true, nil).Once()
+				h.withUsernames("someone", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				return h.service().UnlinkNpc(ctx, campaign.UnlinkNpcCommand{
+					CampaignID: base.ID,
+					UserID:     campaigntest.OwnerID(base),
+					SheetID:    "01900000-0000-7000-8000-0000000000e2",
+				})
+			},
+		},
+		{
 			name: "unlink",
 			base: campaigntest.Build(t, 0, 2),
 			prepare: func(h *harness, base campaign.Campaign) {
