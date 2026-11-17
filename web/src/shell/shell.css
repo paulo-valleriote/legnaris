@@ -291,6 +291,7 @@
 
   .lg-nav__group {
     flex-direction: row;
+    flex-wrap: wrap;
     gap: var(--lg-space-4);
     min-width: 0;
   }

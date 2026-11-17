@@ -4,7 +4,9 @@ import (
 	"net/http"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
+	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/json"
 	"legnaris/backend/shared/response"
 
@@ -24,6 +26,7 @@ func NewSheetController(service sheet.Service) *SheetController {
 func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.POST("", sc.Create)
 	group.GET("", sc.FetchMySheet)
+	group.GET("/owned", sc.ListOwned)
 	group.GET("/:id", sc.FetchByID)
 	group.PATCH("/:id", sc.PartialUpdate)
 	group.DELETE("/:id", sc.Delete)
@@ -58,6 +61,25 @@ func (sc *SheetController) FetchMySheet(c *echo.Context) error {
 		return err
 	}
 	return response.OK(c, storedSheet.ToDTO())
+}
+
+func (sc *SheetController) ListOwned(c *echo.Context) error {
+	ownerID, _ := auth.UserID(c)
+	kind, ok := plan.ParseSheetKind(c.QueryParam("kind"))
+	if !ok {
+		return apperr.NewError(apperr.CodeInvalidRequest, sheet.MsgSheetKindInvalid, nil)
+	}
+
+	found, err := sc.service.ListMine(c.Request().Context(), ownerID, kind)
+	if err != nil {
+		return err
+	}
+
+	dtos := make([]sheet.SheetDTO, 0, len(found))
+	for i := range found {
+		dtos = append(dtos, found[i].ToDTO())
+	}
+	return response.OK(c, dtos)
 }
 
 func (sc *SheetController) FetchByID(c *echo.Context) error {
