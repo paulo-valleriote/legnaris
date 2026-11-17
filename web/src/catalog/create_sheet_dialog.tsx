@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import { failureCopy } from '../api/error_mapper';
 import type { TemplateDetail } from '../api/models/template';
 import { useApiClient } from '../app/providers';
-import { isSheetLimitReached } from '../api/models/plan';
+import { isSheetLimitReached, SHEET_KINDS } from '../api/models/plan';
+import type { SheetKind } from '../api/models/plan';
+import type { MessageKey } from '../l10n/strings';
 import { message, messageWith } from '../l10n/strings';
 import { PLAN_QUERY_KEY, seedCreatedSheet, usePlanUsage, useTemplateDetail } from './queries';
 
-const CREATED_KIND = 'character';
+const DEFAULT_KIND: SheetKind = 'character';
+
+const KIND_LABEL_KEYS = {
+  character: 'catalog.kindCharacter',
+  npc: 'campaign.kindNpc',
+  enemy: 'campaign.kindEnemy',
+} as const satisfies Record<SheetKind, MessageKey>;
 
 type DetailRenderPhase =
   | { readonly kind: 'loading' }
@@ -98,14 +106,19 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [sheetName, setSheetName] = useState('');
+  const [kind, setKind] = useState<SheetKind>(DEFAULT_KIND);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const phase = resolveDetailPhase(query);
   const trimmedName = sheetName.trim();
   const hasName = trimmedName !== '';
-  const limitReached = isSheetLimitReached(plan.data, CREATED_KIND);
-  const characterUsage = plan.data?.sheets[CREATED_KIND];
+  const limitReached = isSheetLimitReached(plan.data, kind);
+  const kindUsage = plan.data?.sheets[kind];
+  const kindDescriptionIds = [
+    ...(kindUsage === undefined ? [] : ['sheet-kind-usage']),
+    ...(limitReached ? ['sheet-kind-limit'] : []),
+  ].join(' ');
   const canSubmit = hasName && !limitReached;
 
   useEffect(() => {
@@ -129,7 +142,7 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
     setIsSubmitting(true);
     setSubmitError(undefined);
     void client
-      .createSheet({ templateId, kind: CREATED_KIND, sheetName: trimmedName })
+      .createSheet({ templateId, kind, sheetName: trimmedName })
       .then((sheet) => {
         seedCreatedSheet(queryClient, sheet);
         void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
@@ -140,7 +153,7 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
         setIsSubmitting(false);
         void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
       });
-  }, [canSubmit, isSubmitting, client, templateId, trimmedName, queryClient, navigate]);
+  }, [canSubmit, isSubmitting, client, templateId, kind, trimmedName, queryClient, navigate]);
 
   return (
     <div className="lg-overlay">
@@ -191,16 +204,42 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
               {message('sheet.nameRequired')}
             </p>
           )}
-          {characterUsage !== undefined && (
-            <p className="lg-dialog__note" data-testid="sheet-usage">
+        </div>
+        <div className="lg-dialog__field">
+          <label className="lg-dialog__label" htmlFor="sheet-kind">
+            {message('catalog.kindLabel')}
+          </label>
+          <select
+            id="sheet-kind"
+            className="lg-dialog__select"
+            value={kind}
+            aria-describedby={kindDescriptionIds === '' ? undefined : kindDescriptionIds}
+            onChange={(event) => {
+              setKind(event.target.value as SheetKind);
+              setSubmitError(undefined);
+            }}
+          >
+            {SHEET_KINDS.map((option) => (
+              <option key={option} value={option}>
+                {message(KIND_LABEL_KEYS[option])}
+              </option>
+            ))}
+          </select>
+          {kindUsage !== undefined && (
+            <p className="lg-dialog__note" id="sheet-kind-usage" data-testid="sheet-usage">
               {messageWith('sheet.usage', {
-                used: characterUsage.used,
-                limit: characterUsage.limit,
+                used: kindUsage.used,
+                limit: kindUsage.limit,
               })}
             </p>
           )}
           {limitReached && (
-            <p className="lg-dialog__note" role="status" data-testid="sheet-limit-reached">
+            <p
+              className="lg-dialog__note"
+              id="sheet-kind-limit"
+              role="status"
+              data-testid="sheet-limit-reached"
+            >
               {message('sheet.limitReached')}
             </p>
           )}
@@ -211,16 +250,24 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
           </p>
         )}
         <div className="lg-dialog__actions">
-          <button
-            type="button"
-            className="lg-button lg-button--secondary"
-            onClick={() => {
-              onClose();
-              navigate(`/generate/${encodeURIComponent(templateId)}`);
-            }}
-          >
-            {message('generate.entry')}
-          </button>
+          {limitReached ? (
+            <button
+              type="button"
+              className="lg-button lg-button--secondary lg-dialog__generate"
+              disabled
+              title={message('sheet.limitReached')}
+            >
+              {message('generate.entry')}
+            </button>
+          ) : (
+            <Link
+              className="lg-button lg-button--secondary lg-dialog__generate"
+              to={`/generate/${encodeURIComponent(templateId)}?kind=${encodeURIComponent(kind)}`}
+              onClick={onClose}
+            >
+              {message('generate.entry')}
+            </Link>
+          )}
           <button
             type="button"
             className="lg-button lg-button--primary"

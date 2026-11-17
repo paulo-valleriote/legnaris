@@ -45,8 +45,19 @@ func TestIntegration_SheetLimits(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	})
 
-	t.Run("Error: a kind the template does not accept is a 400 INVALID_REQUEST", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"npc","sheet_name":"Goblin"}`)
+	t.Run("Happy path: fantasy_v1 creates NPC and Enemy Sheets with their kind", func(t *testing.T) {
+		for _, kind := range []string{"npc", "enemy"} {
+			rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"`+kind+`","sheet_name":"Goblin"}`)
+			require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+			var created response.Success[sheet.SheetDTO]
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
+			assert.Equal(t, kind, created.Data.Kind)
+		}
+	})
+
+	t.Run("Error: an unknown kind is a 400 INVALID_REQUEST", func(t *testing.T) {
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"dragon","sheet_name":"Goblin"}`)
 		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	})
 
@@ -65,8 +76,9 @@ func TestIntegration_SheetLimits(t *testing.T) {
 		assert.Equal(t, "free", body.Data.Plan)
 		assert.Equal(t, 1, body.Data.Sheets["character"].Used)
 		assert.Equal(t, 1, body.Data.Sheets["character"].Limit)
-		assert.Equal(t, 0, body.Data.Sheets["npc"].Used)
+		assert.Equal(t, 1, body.Data.Sheets["npc"].Used)
 		assert.Equal(t, 2, body.Data.Sheets["npc"].Limit)
+		assert.Equal(t, 1, body.Data.Sheets["enemy"].Used)
 	})
 
 	t.Run("Error: /me/plan without a token is refused", func(t *testing.T) {

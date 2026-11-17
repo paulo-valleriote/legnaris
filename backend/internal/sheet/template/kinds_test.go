@@ -30,11 +30,11 @@ func TestAcceptsKind(t *testing.T) {
 	}
 }
 
-func TestDefaultTemplateAcceptsCharactersOnly(t *testing.T) {
+func TestDefaultTemplateAcceptsEverySheetKind(t *testing.T) {
 	templates := DefaultTemplates()
 	require.NotEmpty(t, templates)
 	fantasy := templates[0]
-	assert.True(t, fantasy.AcceptsKind(plan.KindCharacter), "the fantasy template is a character sheet")
-	assert.False(t, fantasy.AcceptsKind(plan.KindNPC), "NPC sheets need a template that declares them")
-	assert.False(t, fantasy.AcceptsKind(plan.KindEnemy))
+	for _, kind := range plan.SheetKinds() {
+		assert.True(t, fantasy.AcceptsKind(kind), "the fantasy template accepts %s sheets", kind)
+	}
 }

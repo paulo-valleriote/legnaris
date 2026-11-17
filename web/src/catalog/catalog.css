@@ -290,7 +290,8 @@
   font-weight: var(--lg-font-weight-semibold);
 }
 
-.lg-dialog__input {
+.lg-dialog__input,
+.lg-dialog__select {
   min-height: var(--lg-size-control);
   padding: 0 var(--lg-space-12);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
@@ -302,11 +303,17 @@
   font-size: var(--lg-type-15);
 }
 
-.lg-dialog__input:hover {
+.lg-dialog__select {
+  cursor: pointer;
+}
+
+.lg-dialog__input:hover,
+.lg-dialog__select:hover {
   border-color: var(--lg-color-text-muted);
 }
 
-.lg-dialog__input:focus-visible {
+.lg-dialog__input:focus-visible,
+.lg-dialog__select:focus-visible {
   border-color: var(--lg-color-focus);
 }
 
@@ -322,6 +329,12 @@
   gap: var(--lg-space-8);
   padding-top: var(--lg-space-16);
   border-top: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-dialog__generate {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 @keyframes lg-scrim-in {
