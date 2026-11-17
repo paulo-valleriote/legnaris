@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { failureCopy } from '../api/error_mapper';
+import { failureCopy, failureKind } from '../api/error_mapper';
 import type { FieldNode } from '../api/models/template';
 import { valueAtPath } from '../api/models/sheet';
 import type { Sheet } from '../api/models/sheet';
@@ -9,7 +10,7 @@ import { useApiClient } from '../app/providers';
 import { templateDetailKey } from '../catalog/queries';
 import { message, messageWith } from '../l10n/strings';
 import type { GmSheetSnapshot } from './campaign_queries';
-import { useGmNpcSheet, useGmSheet } from './campaign_queries';
+import { npcLinksKey, useGmNpcSheet, useGmSheet } from './campaign_queries';
 import './campaign.css';
 
 function formatValue(value: unknown): string {
@@ -99,17 +100,33 @@ export function GmSheetScreen() {
 export function GmNpcSheetScreen() {
   const { id = '', sheetId = '' } = useParams();
   const sheet = useGmNpcSheet(id, sheetId);
+  const queryClient = useQueryClient();
+  const unavailable = sheet.isError && failureKind(sheet.error) === 'notFound';
 
-  return <GmSheetPage campaignId={id} heading={message('gm.npcHeading')} sheet={sheet} />;
+  useEffect(() => {
+    if (unavailable) {
+      void queryClient.invalidateQueries({ queryKey: npcLinksKey(id) });
+    }
+  }, [id, queryClient, unavailable]);
+
+  return (
+    <GmSheetPage
+      campaignId={id}
+      heading={message('gm.npcHeading')}
+      sheet={sheet}
+      unavailable={unavailable ? message('gm.npcUnavailable') : undefined}
+    />
+  );
 }
 
 interface GmSheetPageProps {
   readonly campaignId: string;
   readonly heading: string;
   readonly sheet: UseQueryResult<GmSheetSnapshot, Error>;
+  readonly unavailable?: string | undefined;
 }
 
-function GmSheetPage({ campaignId, heading, sheet }: GmSheetPageProps) {
+function GmSheetPage({ campaignId, heading, sheet, unavailable }: GmSheetPageProps) {
   return (
     <div className="lg-campaign">
       <p className="lg-campaign__back">
@@ -131,12 +148,16 @@ function GmSheetPage({ campaignId, heading, sheet }: GmSheetPageProps) {
           {message('gm.loading')}
         </p>
       ) : null}
-      {sheet.isError ? (
+      {unavailable ? (
+        <p className="lg-campaign__error" role="alert">
+          {unavailable}
+        </p>
+      ) : sheet.isError ? (
         <p className="lg-campaign__error" role="alert">
           {failureCopy(sheet.error)}
         </p>
       ) : null}
-      {sheet.data === undefined ? null : (
+      {sheet.data === undefined || unavailable ? null : (
         <>
           <h2 className="lg-campaign__heading">{sheet.data.sheet.name}</h2>
           <p className="lg-campaign__meta">

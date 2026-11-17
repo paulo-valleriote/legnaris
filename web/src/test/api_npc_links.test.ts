@@ -118,6 +118,40 @@ describe('api client: NPC and Monster links (LGN-219)', () => {
     expect(fake.lastRequest?.url).toBe(`${BASE_URL}/sheets/${SHEET_ID}/duplicate`);
   });
 
+  it('Happy path: revealNpc puts to the reveal path and decodes the revealed link', async () => {
+    const { client, fake } = clientFor(successOutcome({ ...LINK, revealed: true }));
+
+    const link = await client.revealNpc(CAMPAIGN_ID, SHEET_ID);
+
+    expect(link.revealed).toBe(true);
+    expect(fake.lastRequest?.method).toBe('PUT');
+    expect(fake.lastRequest?.url).toBe(
+      `${BASE_URL}/campaigns/${CAMPAIGN_ID}/npcs/${SHEET_ID}/reveal`,
+    );
+    expect(fake.lastRequest?.body).toBeUndefined();
+  });
+
+  it('Happy path: hideNpc deletes the reveal path and decodes the hidden link', async () => {
+    const { client, fake } = clientFor(successOutcome({ ...LINK, revealed: false }));
+
+    const link = await client.hideNpc(CAMPAIGN_ID, SHEET_ID);
+
+    expect(link.revealed).toBe(false);
+    expect(fake.lastRequest?.method).toBe('DELETE');
+    expect(fake.lastRequest?.url).toBe(
+      `${BASE_URL}/campaigns/${CAMPAIGN_ID}/npcs/${SHEET_ID}/reveal`,
+    );
+  });
+
+  it('Error: a refused reveal stays a typed Campaign forbidden failure', async () => {
+    const { client } = clientFor(errorOutcome('CAMPAIGN_FORBIDDEN', 'gm only', 403));
+
+    const failure = await client.revealNpc(CAMPAIGN_ID, SHEET_ID).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(DomainFailure);
+    expect(failure).toMatchObject({ kind: 'campaignForbidden', status: 403 });
+  });
+
   it('Error: SHEET_KIND_MISMATCH is classified as sheetKindMismatch', async () => {
     const { client } = clientFor(errorOutcome('SHEET_KIND_MISMATCH', 'not linkable', 422));
 
