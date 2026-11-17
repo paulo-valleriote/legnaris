@@ -89,7 +89,7 @@ describe('campaign view rules (LGN-218)', () => {
     expect(eligibleSheetIds([], { id: 'c1', templateId: 'fantasy_v1' })).toEqual([]);
   });
 
-  it('Happy path: NPC and Monster sheets of the Campaign Template are eligible, even if linked elsewhere', () => {
+  it('Happy path: NPC and Enemy sheets of the Campaign Template are eligible, even if linked elsewhere', () => {
     const sheets = [
       { id: 's-here', templateId: 'fantasy_v1' },
       { id: 's-elsewhere', templateId: 'fantasy_v1' },
@@ -101,7 +101,7 @@ describe('campaign view rules (LGN-218)', () => {
     ]);
   });
 
-  it('Edge: no owned NPC or Monster sheets gives an empty choice', () => {
+  it('Edge: no owned NPC or Enemy sheets gives an empty choice', () => {
     expect(eligibleNpcSheetIds([], { templateId: 'fantasy_v1' })).toEqual([]);
   });
 

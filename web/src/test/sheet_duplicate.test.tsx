@@ -51,7 +51,7 @@ function persistentQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
 }
 
-describe('sheet actions: Duplicate an NPC or Monster (LGN-219)', () => {
+describe('sheet actions: Duplicate an NPC or Enemy (LGN-219)', () => {
   it('Happy path: duplicates an NPC and opens the copy without a second sheet fetch', async () => {
     const script = scripted(sheetRoutes('npc'));
     const user = userEvent.setup();

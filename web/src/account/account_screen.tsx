@@ -13,7 +13,7 @@ import '../catalog/catalog.css';
 const USAGE_LABELS: Readonly<Record<SheetKind, MessageKey>> = {
   character: 'account.usageCharacter',
   npc: 'account.usageNpc',
-  monster: 'account.usageMonster',
+  enemy: 'account.usageEnemy',
 };
 
 function formatConsentDate(consentAt: string): string {
