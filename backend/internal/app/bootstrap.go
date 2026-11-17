@@ -168,6 +168,8 @@ func NewModules(
 
 	campaignService := campaign.NewService(campaign.NewRepository(mdb), db.NewTransactor(database.Client, nil), publisher,
 		campaign.WithNameLookup(campaignNameLookup{users: userRepository}),
+		campaign.WithCharacterStore(sheetRepository),
+		campaign.WithCharacterUnlinker(campaignCharacterUnlinker{sheets: sheetRepository}),
 	)
 	campaignController := NewCampaignController(campaignService)
 

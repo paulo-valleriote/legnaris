@@ -41,11 +41,12 @@ type RoleCommand struct {
 }
 
 type MemberView struct {
-	UserID   string    `json:"user_id"`
-	Username string    `json:"username"`
-	Role     Role      `json:"role"`
-	Owner    bool      `json:"owner"`
-	JoinedAt time.Time `json:"joined_at"`
+	UserID        string    `json:"user_id"`
+	Username      string    `json:"username"`
+	CharacterName string    `json:"character_name"`
+	Role          Role      `json:"role"`
+	Owner         bool      `json:"owner"`
+	JoinedAt      time.Time `json:"joined_at"`
 }
 
 type View struct {
@@ -81,6 +82,10 @@ type Service interface {
 	Promote(ctx context.Context, cmd RoleCommand) (View, error)
 	Demote(ctx context.Context, cmd RoleCommand) (View, error)
 	Remove(ctx context.Context, cmd RoleCommand) (View, error)
+	Link(ctx context.Context, cmd LinkCommand) (View, error)
+	Unlink(ctx context.Context, cmd UnlinkCommand) (View, error)
+	ListLinkedSheets(ctx context.Context, campaignID, viewerID string) ([]LinkedSheetSummary, error)
+	ReadLinkedSheet(ctx context.Context, q ReadLinkedSheetQuery) (LinkedSheetResult, error)
 }
 
 const (
@@ -115,6 +120,7 @@ type ServiceImpl struct {
 	tx         TransactionRunner
 	publisher  events.Publisher
 	unlinker   CharacterUnlinker
+	sheets     CharacterStore
 	names      NameLookup
 	guard      CreateGuard
 	now        func() time.Time
@@ -124,6 +130,10 @@ type ServiceOption func(*ServiceImpl)
 
 func WithCharacterUnlinker(u CharacterUnlinker) ServiceOption {
 	return func(s *ServiceImpl) { s.unlinker = u }
+}
+
+func WithCharacterStore(store CharacterStore) ServiceOption {
+	return func(s *ServiceImpl) { s.sheets = store }
 }
 
 func WithNameLookup(n NameLookup) ServiceOption {
@@ -147,6 +157,7 @@ func NewService(repository Repository, tx TransactionRunner, publisher events.Pu
 		tx:         tx,
 		publisher:  publisher,
 		unlinker:   noUnlinker{},
+		sheets:     noCharacters{},
 		now:        time.Now,
 	}
 	for _, opt := range opts {
@@ -271,14 +282,16 @@ func readError(err error) error {
 
 func (s *ServiceImpl) view(ctx context.Context, c *Campaign, viewerID string) View {
 	viewer, _ := c.MemberOf(viewerID)
+	names := s.characterNames(ctx, c.ID)
 	members := make([]MemberView, 0, len(c.Members))
 	for _, m := range c.Members {
 		members = append(members, MemberView{
-			UserID:   m.UserID,
-			Username: s.usernameOf(ctx, m.UserID),
-			Role:     m.Role,
-			Owner:    m.Owner,
-			JoinedAt: m.JoinedAt,
+			UserID:        m.UserID,
+			Username:      s.usernameOf(ctx, m.UserID),
+			CharacterName: names[m.UserID],
+			Role:          m.Role,
+			Owner:         m.Owner,
+			JoinedAt:      m.JoinedAt,
 		})
 	}
 	return View{

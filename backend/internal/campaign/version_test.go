@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/campaign/campaigntest"
+	"legnaris/backend/internal/plan"
 )
 
 type campaignWrite struct {
@@ -36,6 +37,36 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
 				return h.service().Leave(ctx, campaign.LeaveCommand{CampaignID: base.ID, UserID: campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]})
+			},
+		},
+		{
+			name: "link",
+			base: campaigntest.Build(t, 0, 2),
+			prepare: func(h *harness, base campaign.Campaign) {
+				player := campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]
+				sh := sheetOf(t, player, base.TemplateID, plan.KindCharacter, nil)
+				h.sheets.EXPECT().FetchByID(mock.Anything, mock.Anything).Return(&sh, nil).Once()
+				h.sheets.EXPECT().UnlinkOwnerCampaign(mock.Anything, player, base.ID).Return(int64(0), nil).Once()
+				h.sheets.EXPECT().LinkCampaign(mock.Anything, mock.Anything, (*string)(nil), base.ID).Return(true, nil).Once()
+				h.withUsernames("someone", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				player := campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]
+				_, err := h.service().Link(ctx, campaign.LinkCommand{CampaignID: base.ID, UserID: player, SheetID: campaigntest.NewID(t)})
+				return err
+			},
+		},
+		{
+			name: "unlink",
+			base: campaigntest.Build(t, 0, 2),
+			prepare: func(h *harness, base campaign.Campaign) {
+				player := campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]
+				h.sheets.EXPECT().UnlinkOwnerCampaign(mock.Anything, player, base.ID).Return(int64(1), nil).Once()
+				h.withUsernames("someone", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				_, err := h.service().Unlink(ctx, campaign.UnlinkCommand{CampaignID: base.ID, UserID: campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]})
+				return err
 			},
 		},
 		{
@@ -131,6 +162,26 @@ func TestCampaignWrites_FailedWritesPersistNothing(t *testing.T) {
 			name: "player remove",
 			run: func(ctx context.Context, h *harness) error {
 				_, err := h.service().Remove(ctx, campaign.RoleCommand{CampaignID: base.ID, ActorID: player, TargetID: owner})
+				return err
+			},
+		},
+		{
+			name: "link with a template mismatch",
+			run: func(ctx context.Context, h *harness) error {
+				sh := sheetOf(t, player, "other_template", plan.KindCharacter, nil)
+				h.sheetReturns(sh)
+				_, err := h.service().Link(ctx, campaign.LinkCommand{CampaignID: base.ID, UserID: player, SheetID: sh.ID})
+				return err
+			},
+		},
+		{
+			name: "link lost the compare-and-set after unlinking the previous character",
+			run: func(ctx context.Context, h *harness) error {
+				sh := sheetOf(t, player, base.TemplateID, plan.KindCharacter, nil)
+				h.sheetReturns(sh)
+				h.sheets.EXPECT().UnlinkOwnerCampaign(mock.Anything, player, base.ID).Return(int64(1), nil).Once()
+				h.sheets.EXPECT().LinkCampaign(mock.Anything, sh.ID, (*string)(nil), base.ID).Return(false, nil).Once()
+				_, err := h.service().Link(ctx, campaign.LinkCommand{CampaignID: base.ID, UserID: player, SheetID: sh.ID})
 				return err
 			},
 		},
