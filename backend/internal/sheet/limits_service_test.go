@@ -166,6 +166,47 @@ func TestService_CreateEnforcesPlanLimit(t *testing.T) {
 	}
 }
 
+func TestService_CreateFantasyTemplateAcceptsNPCAndEnemy(t *testing.T) {
+	fantasy := template.DefaultTemplates()[0]
+	require.Equal(t, "fantasy_v1", fantasy.ID)
+	dag, err := template.BuildDAG(fantasy.ID, fantasy.Fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+
+	tests := []struct {
+		name  string
+		kind  plan.SheetKind
+		limit int
+	}{
+		{name: "Happy path: an NPC sheet with fantasy_v1 takes the NPC slot", kind: plan.KindNPC, limit: 2},
+		{name: "Happy path: an Enemy sheet with fantasy_v1 takes the Enemy slot", kind: plan.KindEnemy, limit: 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewMockRepository(t)
+			tmplSvc := templatemocks.NewMockService(t)
+			tmplSvc.EXPECT().
+				FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: fantasy.ID}).
+				Return(&fantasy, nil).
+				Once()
+			repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, tc.kind, tc.limit).Return(nil).Once()
+			repo.EXPECT().Create(mock.Anything, mock.MatchedBy(func(s *sheet.Sheet) bool {
+				return s.Kind == tc.kind && s.TemplateID == fantasy.ID && s.OwnerID == ownerUserID
+			})).Return(nil).Once()
+
+			svc := newLimitedService(repo, tmplSvc, sheettest.DAGMap{fantasy.ID: dag},
+				planFor(t, ownerUserID, plan.Free), runInline(t))
+
+			created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
+				TemplateID: fantasy.ID, Kind: string(tc.kind), SheetName: "Mine", OwnerID: ownerUserID,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, created)
+			assert.Equal(t, tc.kind, created.Kind)
+			assert.Equal(t, fantasy.ID, created.TemplateID)
+		})
+	}
+}
+
 func TestService_CreateInsertFailureIsNotALimit(t *testing.T) {
 	repo := mocks.NewMockRepository(t)
 	repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindCharacter, 1).Return(nil).Once()

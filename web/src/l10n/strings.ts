@@ -224,6 +224,8 @@ export const messages = {
   'catalog.empty': 'No templates are available.',
   'catalog.retry': 'Retry',
   'catalog.openHint': 'Open this template',
+  'catalog.kindLabel': 'Sheet kind',
+  'catalog.kindCharacter': 'Character',
 
   'sheet.dialogTitle': 'New sheet',
   'sheet.templateLabel': 'Template',
