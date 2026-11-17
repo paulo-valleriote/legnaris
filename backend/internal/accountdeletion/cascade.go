@@ -19,21 +19,22 @@ import (
 const EventUserDeleted = "user.deleted"
 
 const (
-	sheetsCollection      = "sheets"
-	sheetCountsCollection = "sheet_counts"
-	generationsCollection = "generations"
-	usersCollection       = "users"
-	tombstonesCollection  = "user_tombstones"
-	challengesCollection  = "auth_challenges"
-	emailOutboxCollection = "email_outbox"
-	noticesCollection     = "email_notices"
-	ownerIDField          = "owner_id"
-	userIDField           = "user_id"
-	idField               = "_id"
-	emailField            = "email"
-	toField               = "to"
-	deletedAtField        = "deleted_at"
-	expiresAtField        = "expires_at"
+	sheetsCollection        = "sheets"
+	sheetCountsCollection   = "sheet_counts"
+	generationsCollection   = "generations"
+	usersCollection         = "users"
+	tombstonesCollection    = "user_tombstones"
+	challengesCollection    = "auth_challenges"
+	emailOutboxCollection   = "email_outbox"
+	noticesCollection       = "email_notices"
+	campaignLinksCollection = "campaign_sheet_links"
+	ownerIDField            = "owner_id"
+	userIDField             = "user_id"
+	idField                 = "_id"
+	emailField              = "email"
+	toField                 = "to"
+	deletedAtField          = "deleted_at"
+	expiresAtField          = "expires_at"
 )
 
 type Tombstone struct {
@@ -60,6 +61,7 @@ func (c *Cascade) Remove(ctx context.Context, userID string) error {
 		collection, field string
 	}{
 		{sheetsCollection, ownerIDField},
+		{campaignLinksCollection, ownerIDField},
 		{sheetCountsCollection, ownerIDField},
 		{generationsCollection, userIDField},
 		{quota.TrialCollection, idField},

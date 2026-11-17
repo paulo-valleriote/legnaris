@@ -358,3 +358,151 @@ func TestSheetDeletion_RemovesLinksAndReleasesTheSlotInOneTransaction(t *testing
 	assert.NotContains(t, unlinkedData, "name")
 	assert.NotContains(t, unlinkedData, "data")
 }
+
+func (f linkMongoFixture) insertLink(t *testing.T, campaignID, sheetID, ownerID string) campaign.SheetLink {
+	t.Helper()
+	link := campaign.SheetLink{
+		ID:         campaigntest.NewID(t),
+		CampaignID: campaignID,
+		SheetID:    sheetID,
+		OwnerID:    ownerID,
+		LinkedAt:   campaigntest.Now(),
+	}
+	stored, _, err := f.links.Upsert(f.ctx, &link)
+	require.NoError(t, err)
+	return stored
+}
+
+func TestLinkStore_DeleteByOwnerOnlyTouchesThatOwnerInThatCampaign(t *testing.T) {
+	f := newLinkFixture(t)
+	campaignA := campaigntest.NewID(t)
+	campaignB := campaigntest.NewID(t)
+	firstOwner := campaigntest.NewID(t)
+	secondOwner := campaigntest.NewID(t)
+	first := f.insertLink(t, campaignA, campaigntest.NewID(t), firstOwner)
+	second := f.insertLink(t, campaignA, campaigntest.NewID(t), firstOwner)
+	otherOwner := f.insertLink(t, campaignA, campaigntest.NewID(t), secondOwner)
+	otherCampaign := f.insertLink(t, campaignB, campaigntest.NewID(t), firstOwner)
+
+	removed, err := f.links.DeleteByOwner(f.ctx, campaignA, firstOwner)
+	require.NoError(t, err)
+	require.Len(t, removed, 2)
+	removedIDs := make([]string, 0, len(removed))
+	for _, link := range removed {
+		removedIDs = append(removedIDs, link.ID)
+	}
+	assert.ElementsMatch(t, []string{first.ID, second.ID}, removedIDs)
+	assert.Equal(t, int64(2), f.linkCount(t), "the other owner's link and the other campaign's link stay")
+
+	for _, id := range []string{otherOwner.ID, otherCampaign.ID} {
+		count, err := f.mdb.Collection("campaign_sheet_links").CountDocuments(f.ctx, bson.D{{Key: "_id", Value: id}})
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), count)
+	}
+
+	again, err := f.links.DeleteByOwner(f.ctx, campaignA, firstOwner)
+	require.NoError(t, err)
+	assert.Empty(t, again, "a repeated delete is a no-op")
+}
+
+func TestLinkStore_DeleteByCampaignIDBatchIsBoundedAndIdempotent(t *testing.T) {
+	f := newLinkFixture(t)
+	target := campaigntest.NewID(t)
+	other := campaigntest.NewID(t)
+	f.insertLink(t, target, campaigntest.NewID(t), campaigntest.NewID(t))
+	f.insertLink(t, target, campaigntest.NewID(t), campaigntest.NewID(t))
+	f.insertLink(t, target, campaigntest.NewID(t), campaigntest.NewID(t))
+	kept := f.insertLink(t, other, campaigntest.NewID(t), campaigntest.NewID(t))
+
+	tests := []struct {
+		name  string
+		limit int
+		want  int64
+	}{
+		{name: "Edge: a zero limit deletes nothing", limit: 0, want: 0},
+		{name: "Happy path: the batch limit caps one pass", limit: 1, want: 1},
+		{name: "Happy path: the remaining links of the campaign are deleted", limit: 10, want: 2},
+		{name: "Edge: nothing left to delete", limit: 10, want: 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			n, err := f.links.DeleteByCampaignIDBatch(f.ctx, target, tc.limit)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, n)
+		})
+	}
+
+	count, err := f.mdb.Collection("campaign_sheet_links").CountDocuments(f.ctx, bson.D{{Key: "_id", Value: kept.ID}})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), count, "a link of another campaign is never deleted")
+}
+
+func TestGmExit_DeletesOnlyThatGMsLinks(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(ctx context.Context, service campaign.Service, campaignID, ownerID, gmID string) error
+	}{
+		{
+			name: "Happy path: a GM who leaves loses only their links in this campaign",
+			run: func(ctx context.Context, service campaign.Service, campaignID, _, gmID string) error {
+				return service.Leave(ctx, campaign.LeaveCommand{CampaignID: campaignID, UserID: gmID})
+			},
+		},
+		{
+			name: "Happy path: a demoted GM loses only their links in this campaign",
+			run: func(ctx context.Context, service campaign.Service, campaignID, ownerID, gmID string) error {
+				_, err := service.Demote(ctx, campaign.RoleCommand{CampaignID: campaignID, ActorID: ownerID, TargetID: gmID})
+				return err
+			},
+		},
+		{
+			name: "Happy path: a removed GM loses only their links in this campaign",
+			run: func(ctx context.Context, service campaign.Service, campaignID, ownerID, gmID string) error {
+				_, err := service.Remove(ctx, campaign.RoleCommand{CampaignID: campaignID, ActorID: ownerID, TargetID: gmID})
+				return err
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newLinkFixture(t)
+			base := campaigntest.Build(t, 1, 0)
+			require.NoError(t, f.repo.Insert(f.ctx, &base))
+			owner := campaigntest.OwnerID(base)
+			coGM := campaigntest.MembersWithRole(base, campaign.RoleGM)[0]
+			sh := f.insertSheet(t, coGM, plan.KindMonster)
+			otherCampaign := campaigntest.Build(t, 0, 0)
+			otherCampaign.Members[0].UserID = coGM
+			require.NoError(t, f.repo.Insert(f.ctx, &otherCampaign))
+			ownerSheet := f.insertSheet(t, owner, plan.KindNPC)
+
+			_, err := f.service.LinkNpc(f.ctx, campaign.LinkNpcCommand{CampaignID: base.ID, UserID: coGM, SheetID: sh.ID})
+			require.NoError(t, err)
+			_, err = f.service.LinkNpc(f.ctx, campaign.LinkNpcCommand{CampaignID: base.ID, UserID: owner, SheetID: ownerSheet.ID})
+			require.NoError(t, err)
+			_, err = f.service.LinkNpc(f.ctx, campaign.LinkNpcCommand{CampaignID: otherCampaign.ID, UserID: coGM, SheetID: sh.ID})
+			require.NoError(t, err)
+			require.Equal(t, int64(3), f.linkCount(t))
+
+			require.NoError(t, tc.run(f.ctx, f.service, base.ID, owner, coGM))
+
+			assert.Equal(t, int64(2), f.linkCount(t), "only the exiting GM's link in this campaign is deleted")
+			remaining, err := f.links.ListByCampaignID(f.ctx, base.ID)
+			require.NoError(t, err)
+			require.Len(t, remaining, 1)
+			assert.Equal(t, owner, remaining[0].OwnerID)
+			other, err := f.links.ListByCampaignID(f.ctx, otherCampaign.ID)
+			require.NoError(t, err)
+			assert.Len(t, other, 1, "the same GM's link in another campaign stays")
+
+			unlinked := f.pub.ofType(campaign.EventSheetUnlinked)
+			require.Len(t, unlinked, 1)
+			unlinkedData, ok := unlinked[0].Data.(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, campaign.ReasonOwnerLeft, unlinkedData["reason"])
+			assert.Equal(t, sh.ID, unlinkedData["sheet_id"])
+			assert.NotContains(t, unlinkedData, "name")
+			assert.NotContains(t, unlinkedData, "data")
+		})
+	}
+}
