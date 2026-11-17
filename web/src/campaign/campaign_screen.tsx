@@ -296,14 +296,19 @@ function LinkNpcForm({
 
 function NpcLinks({
   campaignId,
+  mode,
   pending,
   onUnlink,
+  onToggle,
 }: {
   campaignId: string;
+  mode: 'gm' | 'player';
   pending: boolean;
-  onUnlink: (link: NpcLink) => void;
+  onUnlink?: (link: NpcLink) => void;
+  onToggle?: (link: NpcLink) => void;
 }) {
   const links = useNpcLinks(campaignId, true);
+  const gm = mode === 'gm';
 
   if (links.isError) {
     return (
@@ -316,7 +321,11 @@ function NpcLinks({
     return null;
   }
   if (links.data.length === 0) {
-    return <p className="lg-campaign__message">{message('campaign.npcsEmpty')}</p>;
+    return (
+      <p className="lg-campaign__message">
+        {message(gm ? 'campaign.npcsEmpty' : 'campaign.playerNpcsEmpty')}
+      </p>
+    );
   }
 
   return (
@@ -337,21 +346,32 @@ function NpcLinks({
                 name: link.ownerName === '' ? message('campaign.unnamed') : link.ownerName,
               })}
             </span>
-            <span className="lg-campaign__meta">
-              {link.revealed ? message('campaign.npcRevealed') : message('campaign.npcHidden')}
-            </span>
           </div>
-          {link.isOwner ? (
+          {gm ? (
             <div className="lg-campaign__actions">
               <button
                 type="button"
                 className="lg-button lg-button--outline lg-button--sm"
-                aria-label={messageWith('campaign.unlinkNpc', { name: link.name })}
+                aria-pressed={link.revealed}
+                aria-label={messageWith('campaign.revealNpc', { name: link.name })}
                 disabled={pending}
-                onClick={() => onUnlink(link)}
+                onClick={() => onToggle?.(link)}
               >
-                {message('campaign.unlinkAction')}
+                {link.revealed
+                  ? message('campaign.hideNpcAction')
+                  : message('campaign.revealNpcAction')}
               </button>
+              {link.isOwner ? (
+                <button
+                  type="button"
+                  className="lg-button lg-button--outline lg-button--sm"
+                  aria-label={messageWith('campaign.unlinkNpc', { name: link.name })}
+                  disabled={pending}
+                  onClick={() => onUnlink?.(link)}
+                >
+                  {message('campaign.unlinkAction')}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </li>
@@ -482,12 +502,32 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
     },
   });
 
+  const setRevealed = useMutation({
+    mutationFn: ({ sheetId, revealed }: { sheetId: string; revealed: boolean }) =>
+      revealed ? client.hideNpc(campaign.id, sheetId) : client.revealNpc(campaign.id, sheetId),
+    onSuccess: (link) => {
+      setNpcError(undefined);
+      setNpcNotice(
+        message(link.revealed ? 'campaign.npcRevealedNotice' : 'campaign.npcHiddenNotice'),
+      );
+      void queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) });
+    },
+    onError: (error) => {
+      setNpcNotice(undefined);
+      setNpcError(failureCopy(error));
+      if (failureKind(error) === 'notFound') {
+        void queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) });
+      }
+    },
+  });
+
   const busy =
     memberCommand.isPending ||
     leave.isPending ||
     remove.isPending ||
     linkNpc.isPending ||
-    unlinkNpc.isPending;
+    unlinkNpc.isPending ||
+    setRevealed.isPending;
   const deleting = isDeleting(campaign);
 
   const confirmPending = () => {
@@ -597,9 +637,24 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
           ) : null}
           <NpcLinks
             campaignId={campaign.id}
-            pending={unlinkNpc.isPending}
+            mode="gm"
+            pending={unlinkNpc.isPending || setRevealed.isPending}
             onUnlink={(link) => unlinkNpc.mutate(link.sheetId)}
+            onToggle={(link) => {
+              setNpcError(undefined);
+              setNpcNotice(undefined);
+              setRevealed.mutate({ sheetId: link.sheetId, revealed: link.revealed });
+            }}
           />
+        </section>
+      ) : null}
+
+      {campaign.viewerRole === 'player' ? (
+        <section className="lg-campaign__section" aria-labelledby="campaign-revealed-heading">
+          <h2 className="lg-campaign__heading" id="campaign-revealed-heading">
+            {message('campaign.npcsHeading')}
+          </h2>
+          <NpcLinks campaignId={campaign.id} mode="player" pending={false} />
         </section>
       ) : null}
 

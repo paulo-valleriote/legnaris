@@ -4,6 +4,7 @@ import { useApiClient } from '../app/providers';
 import type { Campaign } from '../api/models/campaign';
 import type { SheetKind } from '../api/models/plan';
 import type { Sheet } from '../api/models/sheet';
+import { failureKind } from '../api/error_mapper';
 import { drift } from '../api/parse';
 import { GM_POLL_INTERVAL_MS } from './campaign_view';
 
@@ -137,7 +138,8 @@ export function useGmNpcSheet(campaignId: string, sheetId: string) {
   return useQuery({
     queryKey: key,
     queryFn: () => loadGmNpcSheet(client, queryClient, campaignId, sheetId),
-    refetchInterval: GM_POLL_INTERVAL_MS,
+    refetchInterval: (query) =>
+      failureKind(query.state.error) === 'notFound' ? false : GM_POLL_INTERVAL_MS,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     staleTime: 0,

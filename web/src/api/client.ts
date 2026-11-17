@@ -100,6 +100,8 @@ export interface ApiClient {
   ): Promise<CampaignSheetResult>;
   linkNpc(campaignId: string, sheetId: string): Promise<NpcLink>;
   unlinkNpc(campaignId: string, sheetId: string): Promise<void>;
+  revealNpc(campaignId: string, sheetId: string): Promise<NpcLink>;
+  hideNpc(campaignId: string, sheetId: string): Promise<NpcLink>;
   listNpcLinks(campaignId: string): Promise<NpcLink[]>;
   getCampaignNpc(
     campaignId: string,
@@ -305,6 +307,20 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         'DELETE',
         `/campaigns/${encodeURIComponent(campaignId)}/npcs/${encodeURIComponent(sheetId)}`,
         undefined,
+      ),
+    revealNpc: (campaignId, sheetId) =>
+      caller.call(
+        'PUT',
+        `/campaigns/${encodeURIComponent(campaignId)}/npcs/${encodeURIComponent(sheetId)}/reveal`,
+        undefined,
+        parseNpcLink,
+      ),
+    hideNpc: (campaignId, sheetId) =>
+      caller.call(
+        'DELETE',
+        `/campaigns/${encodeURIComponent(campaignId)}/npcs/${encodeURIComponent(sheetId)}/reveal`,
+        undefined,
+        parseNpcLink,
       ),
     listNpcLinks: (campaignId) =>
       caller.call(
