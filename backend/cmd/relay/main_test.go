@@ -174,7 +174,7 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 		newCampaignDeletion: func(env.Env, databaseHandle, events.Publisher) (campaign.DeletionDeps, error) {
 			return idleCampaignDeletionDeps(t), nil
 		},
-		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository) (accountdeletion.Deps, error) {
+		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository, events.Publisher) (accountdeletion.Deps, error) {
 			return idleDeletionDeps(t), nil
 		},
 		newBilling: func(_ env.Env, _ databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error) {

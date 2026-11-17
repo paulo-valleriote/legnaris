@@ -66,7 +66,7 @@ type dependencies struct {
 	dialGenerationBroker   func(cfg env.Env) (generationBrokerClient, error)
 	newGenerationRepublish func(cfg env.Env, database databaseHandle, publisher generation.Publisher) (generation.RepublishDeps, error)
 	newGenerationReap      func(cfg env.Env, database databaseHandle) (generation.ReapDeps, error)
-	newAccountDeletion     func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (accountdeletion.Deps, error)
+	newAccountDeletion     func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository, publisher events.Publisher) (accountdeletion.Deps, error)
 	newBilling             func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error)
 	newCampaignDeletion    func(cfg env.Env, database databaseHandle, publisher events.Publisher) (campaign.DeletionDeps, error)
 	newCampaignPublisher   func(cfg env.Env) campaignPublisherClient
@@ -198,7 +198,7 @@ func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRe
 	if err != nil {
 		return nil, err
 	}
-	deletionDeps, err := deps.newAccountDeletion(cfg, database, eventRepository)
+	deletionDeps, err := deps.newAccountDeletion(cfg, database, eventRepository, campaignPublisher)
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +401,7 @@ func defaultDependencies() dependencies {
 				Now:       time.Now,
 			}, nil
 		},
-		newAccountDeletion: func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (accountdeletion.Deps, error) {
+		newAccountDeletion: func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository, publisher events.Publisher) (accountdeletion.Deps, error) {
 			mongo, ok := database.(*db.Database)
 			if !ok {
 				return accountdeletion.Deps{}, fmt.Errorf("unexpected database handle type %T", database)
@@ -415,6 +415,14 @@ func defaultDependencies() dependencies {
 					Provider: newRelayBillingProvider(cfg.Variables),
 					Ledger:   billing.NewMongoStore(mdb),
 				}),
+				Campaigns: campaign.NewAccountSettler(
+					campaign.NewRepository(mdb),
+					db.NewTransactor(mongo.Client, nil),
+					campaign.NewOwnershipLimiter(user.NewPlanSource(user.NewRepository(mdb, cfg.Logger)), campaign.NewOwnershipCounter(mdb)),
+					relayCharacterUnlinker{sheets: sheet.NewRepository(mdb, cfg.Logger)},
+					publisher,
+					time.Now,
+				),
 			}, nil
 		},
 		newBilling: func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error) {
@@ -444,6 +452,15 @@ func defaultDependencies() dependencies {
 			}, nil
 		},
 	}
+}
+
+type relayCharacterUnlinker struct {
+	sheets sheet.Repository
+}
+
+func (u relayCharacterUnlinker) UnlinkCharacter(ctx context.Context, campaignID, userID string) error {
+	_, err := u.sheets.UnlinkOwnerCampaign(ctx, userID, campaignID)
+	return err
 }
 
 func newRelayBillingProvider(vars env.Variables) billing.Provider {

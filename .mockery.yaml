@@ -193,6 +193,7 @@ packages:
       outpkg: mocks
     interfaces:
       BillingSettler: {}
+      CampaignSettler: {}
   legnaris/backend/internal/billing:
     config:
       dir: backend/internal/billing/mocks

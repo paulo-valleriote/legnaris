@@ -20,6 +20,7 @@ const (
 const (
 	aggregateType = "campaign"
 	dataKeyUserID = "user_id"
+	dataKeyReason = "reason"
 )
 
 func (s *ServiceImpl) publishCampaignEvent(eventType, actorID, campaignID string, version int64, data map[string]any) {
