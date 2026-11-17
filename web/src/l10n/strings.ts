@@ -34,6 +34,19 @@ export const messages = {
   'api.error.alreadySubscribed': 'You already have the paid Plan.',
   'api.error.billingUnavailable': 'Billing is unavailable right now. Try again in a moment.',
   'api.error.noSubscription': 'You have no subscription to manage yet.',
+  'api.error.invalidInvite':
+    'That invite is not valid. Ask your game master for a current link, and check the password.',
+  'api.error.passwordRequired': 'This campaign is protected by a password. Enter it to join.',
+  'api.error.campaignFull': 'This campaign has no free player seats.',
+  'join.title': 'Join a campaign',
+  'join.intro':
+    'Your game master shared this invite. Joining adds you to the campaign as a player.',
+  'join.passwordLabel': 'Campaign password',
+  'join.submit': 'Join campaign',
+  'join.submitting': 'Joining…',
+  'join.joinedTitle': 'You joined the campaign',
+  'join.joined': 'You are now a player in {name}.',
+  'join.backToSheets': 'Back to your sheets',
   'api.error.refundNotEligible':
     'This refund is no longer available. A refund covers your first payment, within 7 days, once per account.',
   'generate.entry': 'Generate with AI',
