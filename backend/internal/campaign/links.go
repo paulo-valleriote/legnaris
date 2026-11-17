@@ -21,8 +21,8 @@ const (
 const dataKeyKind = "kind"
 
 const (
-	MsgNpcKindMismatch  = "only npc and monster sheets can be linked to a campaign"
-	MsgLinkGMOnly       = "only game masters can manage linked npc and monster sheets"
+	MsgNpcKindMismatch  = "only npc and enemy sheets can be linked to a campaign"
+	MsgLinkGMOnly       = "only game masters can manage linked npc and enemy sheets"
 	MsgLinkOwnerOnly    = "only the sheet owner can link or unlink it"
 	MsgLinkNotFound     = "sheet link not found"
 	MsgLinkRead         = "failed to read sheet links"
@@ -103,7 +103,7 @@ func (noLinks) DeleteByCampaignIDBatch(context.Context, string, int) (int64, err
 }
 
 func linkableKind(kind plan.SheetKind) bool {
-	return kind == plan.KindNPC || kind == plan.KindMonster
+	return kind == plan.KindNPC || kind == plan.KindEnemy
 }
 
 func kindMismatch(message string) *apperr.Error {

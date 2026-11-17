@@ -99,7 +99,7 @@ func TestCampaignRoutes_ListNpcLinks(t *testing.T) {
 				ID:        campaignTestSheetID,
 				SheetID:   campaignTestSheetID,
 				Name:      "Brom",
-				Kind:      plan.KindMonster,
+				Kind:      plan.KindEnemy,
 				OwnerID:   campaignTestUserID,
 				OwnerName: "player-one",
 				Revealed:  true,
@@ -119,7 +119,7 @@ func TestCampaignRoutes_ListNpcLinks(t *testing.T) {
 				body := rec.Body.String()
 				assert.Contains(t, body, `"owner_name":"player-one"`)
 				assert.Contains(t, body, `"revealed":true`)
-				assert.Contains(t, body, `"kind":"monster"`)
+				assert.Contains(t, body, `"kind":"enemy"`)
 				assert.Contains(t, body, `"is_owner":false`)
 			}
 		})

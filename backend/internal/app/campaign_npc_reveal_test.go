@@ -54,7 +54,7 @@ func TestCampaignRoutes_RevealNpc(t *testing.T) {
 		}).Return(campaign.NpcLinkView{
 			ID:       campaignTestSheetID,
 			SheetID:  campaignTestSheetID,
-			Kind:     plan.KindMonster,
+			Kind:     plan.KindEnemy,
 			Revealed: false,
 		}, nil).Once()
 

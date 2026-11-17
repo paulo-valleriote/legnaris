@@ -58,7 +58,7 @@ type PlanUsage struct {
 }
 
 const (
-	MsgKindInvalid         = "sheet kind must be one of character, npc, monster"
+	MsgKindInvalid         = "sheet kind must be one of character, npc, enemy"
 	MsgTemplateKindRefused = "template does not accept this sheet kind"
 	MsgLimitsNotConfigured = "sheet limits are not configured"
 )

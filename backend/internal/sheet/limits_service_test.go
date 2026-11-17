@@ -78,6 +78,7 @@ func TestService_CreateKindValidation(t *testing.T) {
 		{name: "Error: a missing kind is refused", kind: ""},
 		{name: "Error: an unknown kind is refused", kind: "vehicle"},
 		{name: "Error: a kind in the wrong case is refused", kind: "Character"},
+		{name: "Error: the legacy monster kind is refused", kind: sheet.LegacyEnemyKind()},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -130,6 +131,7 @@ func TestService_CreateEnforcesPlanLimit(t *testing.T) {
 	}{
 		{name: "Happy path: a Free character under its allowance is created", plan: plan.Free, kind: plan.KindCharacter, wantLimit: 1, wantCreated: true},
 		{name: "Happy path: a Paid character reserves against the Paid allowance", plan: plan.Paid, kind: plan.KindCharacter, wantLimit: 10, wantCreated: true},
+		{name: "Happy path: a Paid enemy reserves against the enemy allowance", plan: plan.Paid, kind: plan.KindEnemy, wantLimit: 50, wantCreated: true},
 		{name: "Error: a Free character at its allowance is a 409 with no insert", plan: plan.Free, kind: plan.KindCharacter, wantLimit: 1, reserveErr: sheet.ErrSheetLimitReached, wantCode: apperr.CodeSheetLimitReached},
 	}
 	for _, tc := range tests {
@@ -251,7 +253,7 @@ func TestService_CheckSheetLimit(t *testing.T) {
 	}{
 		{name: "Happy path: an owner under the allowance reads its usage", owner: ownerUserID, kind: plan.KindNPC, plan: plan.Free, used: 1, wantUsed: 1, wantLimit: 2},
 		{name: "Happy path: a Paid owner reads the Paid allowance", owner: ownerUserID, kind: plan.KindCharacter, plan: plan.Paid, used: 4, wantUsed: 4, wantLimit: 10},
-		{name: "Edge: an owner with no counter reads zero used", owner: ownerUserID, kind: plan.KindMonster, plan: plan.Free, used: 0, wantUsed: 0, wantLimit: 2},
+		{name: "Edge: an owner with no counter reads zero used", owner: ownerUserID, kind: plan.KindEnemy, plan: plan.Free, used: 0, wantUsed: 0, wantLimit: 2},
 		{name: "Error: a missing owner is refused before any read", owner: "", kind: plan.KindNPC, wantErr: apperr.CodeUnauthorized},
 		{name: "Error: an unknown kind is refused before any read", owner: ownerUserID, kind: "vehicle", wantErr: apperr.CodeInvalidRequest},
 	}
@@ -302,7 +304,7 @@ func TestService_PlanUsage(t *testing.T) {
 			want: []sheet.LimitStatus{
 				{Kind: plan.KindCharacter, Used: 1, Limit: 1},
 				{Kind: plan.KindNPC, Used: 0, Limit: 2},
-				{Kind: plan.KindMonster, Used: 0, Limit: 2},
+				{Kind: plan.KindEnemy, Used: 0, Limit: 2},
 			},
 		},
 		{
@@ -312,7 +314,7 @@ func TestService_PlanUsage(t *testing.T) {
 			want: []sheet.LimitStatus{
 				{Kind: plan.KindCharacter, Used: 0, Limit: 10},
 				{Kind: plan.KindNPC, Used: 3, Limit: 50},
-				{Kind: plan.KindMonster, Used: 0, Limit: 50},
+				{Kind: plan.KindEnemy, Used: 0, Limit: 50},
 			},
 		},
 	}

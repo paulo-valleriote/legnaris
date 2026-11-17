@@ -20,7 +20,7 @@ func TestGmExit_DeletesOnlyThatOwnersLinks(t *testing.T) {
 	owner := campaigntest.OwnerID(base)
 	coGM := campaigntest.MembersWithRole(base, campaign.RoleGM)[0]
 	player := campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]
-	sh := npcSheet(t, coGM, base.TemplateID, plan.KindMonster)
+	sh := npcSheet(t, coGM, base.TemplateID, plan.KindEnemy)
 
 	tests := []struct {
 		name      string
@@ -137,7 +137,7 @@ func TestGmExit_DeletesOnlyThatOwnersLinks(t *testing.T) {
 			data := eventData(t, unlinked)
 			assert.Equal(t, map[string]any{
 				"sheet_id": sh.ID,
-				"kind":     string(plan.KindMonster),
+				"kind":     string(plan.KindEnemy),
 				"owner_id": coGM,
 				"reason":   campaign.ReasonOwnerLeft,
 			}, data)

@@ -17,7 +17,7 @@ type DuplicateSheetCommand struct {
 }
 
 const (
-	MsgDuplicateKindMismatch = "only npc and monster sheets can be duplicated"
+	MsgDuplicateKindMismatch = "only npc and enemy sheets can be duplicated"
 	MsgPlanLimitReached      = "plan limit reached for this sheet kind"
 	duplicateNameSuffix      = " (copy)"
 )
@@ -36,7 +36,7 @@ func (s *ServiceImpl) Duplicate(ctx context.Context, cmd DuplicateSheetCommand) 
 	if err := checkOwnership(stored, cmd.OwnerID); err != nil {
 		return nil, err
 	}
-	if stored.Kind != plan.KindNPC && stored.Kind != plan.KindMonster {
+	if stored.Kind != plan.KindNPC && stored.Kind != plan.KindEnemy {
 		return nil, apperr.NewError(apperr.CodeSheetKindMismatch, MsgDuplicateKindMismatch, nil)
 	}
 	if !s.planLimitsEnabled() {
