@@ -533,10 +533,23 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   muted line in tabular figures; an exhausted quota and a resumable generation are Notice strips.
   Consent is a definition list of muted points under one intro, and the privacy policy opens in
   the Document dialog.
-- **Campaign and Join.** Campaign pages are lists of hairline-divided member and Sheet rows (name
-  semibold, meta in `--lg-type-13` muted, actions trailing and wrapping under on a narrow width),
-  section headings at `--lg-type-20`, and forms capped at `32rem`. Join is the same page title over
-  one form capped at `36rem`. Long names and invite codes wrap anywhere, never overflow.
+- **Campaign and Join.** The Campaign page header pairs a ghost back arrow (a `--lg-size-control`
+  target named "Back to your Campaigns") with the title and the role pill under it; the GM actions
+  (`Invite players`, `Campaign settings`) sit at the trailing edge as the sheet header's hairline
+  group of ghost buttons, the open one on the raised layer, and their panels open full width below.
+  Below it the page is two columns from a `48rem` container (a single column under it, Members
+  last): the Sheets lead, Members follow as a `15rem` sticky column of hairline-divided rows (name
+  semibold, meta in `--lg-type-13` muted, actions wrapping under). Linked character sheets and
+  NPCs/enemies are the second sanctioned card use, because each is a bounded Sheet: an auto-fill
+  grid of `12rem` minimum, surface layer, hairline border, `--lg-radius-lg`, `--lg-shadow-1`; the
+  name (`--lg-type-18` semibold) is the card's one link, stretched over the whole card, with the
+  trailing accent arrow on hover and focus only; meta ("Played by …", kind and owner) is muted and
+  the update date sits at the foot in `--lg-type-12` subtle tabular figures. An NPC card shows its
+  visibility to players as a dot (success fill when visible, an outline when hidden) plus text,
+  and its actions fill the card's foot. Section headings are `--lg-type-20` (Members `--lg-type-15`)
+  with a muted tabular count beside them; the NPC link form is one inline row capped at `32rem`.
+  Join is the same page title over one form capped at `36rem`. Long names and invite codes wrap
+  anywhere, never overflow.
 - **Privacy (`/privacy`).** Public and outside the shell, so it follows the stored or system theme
   on the base semantic layer rather than the stage world: the page background, prose at
   `--lg-type-16` capped at `--lg-size-content-max`, accent links that wrap anywhere. Inside the

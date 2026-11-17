@@ -298,6 +298,41 @@ describe('campaign screen: linked sheets and GM read (LGN-218)', () => {
       name: messageWith('campaign.openSheet', { name: 'Brenna' }),
     });
     expect(link).toHaveAttribute('href', `${DETAIL}/sheets/${SHEET_ID}`);
+    const card = link.closest('li') as HTMLElement;
+    expect(
+      within(card).getByText(messageWith('campaign.playedBy', { name: 'tomas' })),
+    ).toBeInTheDocument();
+    expect(within(card).getByText(/Updated Nov 17, 2026/)).toBeInTheDocument();
+  });
+
+  it('Edge: a sheet whose owner is no longer a member shows no player and a bad date no update line', async () => {
+    const script = scripted([
+      ...detailRoutes(campaignView({ viewer_role: 'gm', viewer_owner: false })).filter(
+        (route) => route.path !== `${DETAIL}/sheets`,
+      ),
+      {
+        method: 'GET',
+        path: `${DETAIL}/sheets`,
+        respond: () =>
+          ok([
+            {
+              id: SHEET_ID,
+              name: 'Brenna',
+              template_id: 'fantasy_v1',
+              owner_id: 'departed-user',
+              updated_at: 'not-a-date',
+            },
+          ]),
+      },
+    ]);
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    const link = await screen.findByRole('link', {
+      name: messageWith('campaign.openSheet', { name: 'Brenna' }),
+    });
+    const card = link.closest('li') as HTMLElement;
+    expect(within(card).queryByText(/Played by/)).not.toBeInTheDocument();
+    expect(within(card).queryByText(/Updated/)).not.toBeInTheDocument();
   });
 
   it('Edge: a player never requests the GM sheet list', async () => {

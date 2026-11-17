@@ -48,7 +48,7 @@ export function orderCampaigns(list: readonly CampaignSummary[]): CampaignSummar
     .map((entry) => entry.campaign);
 }
 
-function ChevronIcon() {
+export function ChevronIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
