@@ -459,6 +459,63 @@ func (_c *MockService_Link_Call) RunAndReturn(run func(context.Context, campaign
 	return _c
 }
 
+// LinkNpc provides a mock function with given fields: ctx, cmd
+func (_m *MockService) LinkNpc(ctx context.Context, cmd campaign.LinkNpcCommand) (campaign.NpcLinkView, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LinkNpc")
+	}
+
+	var r0 campaign.NpcLinkView
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.LinkNpcCommand) (campaign.NpcLinkView, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.LinkNpcCommand) campaign.NpcLinkView); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.NpcLinkView)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.LinkNpcCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_LinkNpc_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LinkNpc'
+type MockService_LinkNpc_Call struct {
+	*mock.Call
+}
+
+// LinkNpc is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.LinkNpcCommand
+func (_e *MockService_Expecter) LinkNpc(ctx interface{}, cmd interface{}) *MockService_LinkNpc_Call {
+	return &MockService_LinkNpc_Call{Call: _e.mock.On("LinkNpc", ctx, cmd)}
+}
+
+func (_c *MockService_LinkNpc_Call) Run(run func(ctx context.Context, cmd campaign.LinkNpcCommand)) *MockService_LinkNpc_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.LinkNpcCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_LinkNpc_Call) Return(_a0 campaign.NpcLinkView, _a1 error) *MockService_LinkNpc_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_LinkNpc_Call) RunAndReturn(run func(context.Context, campaign.LinkNpcCommand) (campaign.NpcLinkView, error)) *MockService_LinkNpc_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListLinkedSheets provides a mock function with given fields: ctx, campaignID, viewerID
 func (_m *MockService) ListLinkedSheets(ctx context.Context, campaignID string, viewerID string) ([]campaign.LinkedSheetSummary, error) {
 	ret := _m.Called(ctx, campaignID, viewerID)
@@ -578,6 +635,66 @@ func (_c *MockService_ListMine_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
+// ListNpcLinks provides a mock function with given fields: ctx, campaignID, viewerID
+func (_m *MockService) ListNpcLinks(ctx context.Context, campaignID string, viewerID string) ([]campaign.NpcLinkView, error) {
+	ret := _m.Called(ctx, campaignID, viewerID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListNpcLinks")
+	}
+
+	var r0 []campaign.NpcLinkView
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) ([]campaign.NpcLinkView, error)); ok {
+		return rf(ctx, campaignID, viewerID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) []campaign.NpcLinkView); ok {
+		r0 = rf(ctx, campaignID, viewerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]campaign.NpcLinkView)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, campaignID, viewerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ListNpcLinks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListNpcLinks'
+type MockService_ListNpcLinks_Call struct {
+	*mock.Call
+}
+
+// ListNpcLinks is a helper method to define mock.On call
+//   - ctx context.Context
+//   - campaignID string
+//   - viewerID string
+func (_e *MockService_Expecter) ListNpcLinks(ctx interface{}, campaignID interface{}, viewerID interface{}) *MockService_ListNpcLinks_Call {
+	return &MockService_ListNpcLinks_Call{Call: _e.mock.On("ListNpcLinks", ctx, campaignID, viewerID)}
+}
+
+func (_c *MockService_ListNpcLinks_Call) Run(run func(ctx context.Context, campaignID string, viewerID string)) *MockService_ListNpcLinks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_ListNpcLinks_Call) Return(_a0 []campaign.NpcLinkView, _a1 error) *MockService_ListNpcLinks_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ListNpcLinks_Call) RunAndReturn(run func(context.Context, string, string) ([]campaign.NpcLinkView, error)) *MockService_ListNpcLinks_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Promote provides a mock function with given fields: ctx, cmd
 func (_m *MockService) Promote(ctx context.Context, cmd campaign.RoleCommand) (campaign.View, error) {
 	ret := _m.Called(ctx, cmd)
@@ -688,6 +805,63 @@ func (_c *MockService_ReadLinkedSheet_Call) Return(_a0 campaign.LinkedSheetResul
 }
 
 func (_c *MockService_ReadLinkedSheet_Call) RunAndReturn(run func(context.Context, campaign.ReadLinkedSheetQuery) (campaign.LinkedSheetResult, error)) *MockService_ReadLinkedSheet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReadNpcSheet provides a mock function with given fields: ctx, q
+func (_m *MockService) ReadNpcSheet(ctx context.Context, q campaign.ReadNpcSheetQuery) (campaign.LinkedSheetResult, error) {
+	ret := _m.Called(ctx, q)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReadNpcSheet")
+	}
+
+	var r0 campaign.LinkedSheetResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.ReadNpcSheetQuery) (campaign.LinkedSheetResult, error)); ok {
+		return rf(ctx, q)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.ReadNpcSheetQuery) campaign.LinkedSheetResult); ok {
+		r0 = rf(ctx, q)
+	} else {
+		r0 = ret.Get(0).(campaign.LinkedSheetResult)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.ReadNpcSheetQuery) error); ok {
+		r1 = rf(ctx, q)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ReadNpcSheet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReadNpcSheet'
+type MockService_ReadNpcSheet_Call struct {
+	*mock.Call
+}
+
+// ReadNpcSheet is a helper method to define mock.On call
+//   - ctx context.Context
+//   - q campaign.ReadNpcSheetQuery
+func (_e *MockService_Expecter) ReadNpcSheet(ctx interface{}, q interface{}) *MockService_ReadNpcSheet_Call {
+	return &MockService_ReadNpcSheet_Call{Call: _e.mock.On("ReadNpcSheet", ctx, q)}
+}
+
+func (_c *MockService_ReadNpcSheet_Call) Run(run func(ctx context.Context, q campaign.ReadNpcSheetQuery)) *MockService_ReadNpcSheet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.ReadNpcSheetQuery))
+	})
+	return _c
+}
+
+func (_c *MockService_ReadNpcSheet_Call) Return(_a0 campaign.LinkedSheetResult, _a1 error) *MockService_ReadNpcSheet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ReadNpcSheet_Call) RunAndReturn(run func(context.Context, campaign.ReadNpcSheetQuery) (campaign.LinkedSheetResult, error)) *MockService_ReadNpcSheet_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -916,6 +1090,53 @@ func (_c *MockService_Unlink_Call) Return(_a0 campaign.View, _a1 error) *MockSer
 }
 
 func (_c *MockService_Unlink_Call) RunAndReturn(run func(context.Context, campaign.UnlinkCommand) (campaign.View, error)) *MockService_Unlink_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UnlinkNpc provides a mock function with given fields: ctx, cmd
+func (_m *MockService) UnlinkNpc(ctx context.Context, cmd campaign.UnlinkNpcCommand) error {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UnlinkNpc")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.UnlinkNpcCommand) error); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockService_UnlinkNpc_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnlinkNpc'
+type MockService_UnlinkNpc_Call struct {
+	*mock.Call
+}
+
+// UnlinkNpc is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.UnlinkNpcCommand
+func (_e *MockService_Expecter) UnlinkNpc(ctx interface{}, cmd interface{}) *MockService_UnlinkNpc_Call {
+	return &MockService_UnlinkNpc_Call{Call: _e.mock.On("UnlinkNpc", ctx, cmd)}
+}
+
+func (_c *MockService_UnlinkNpc_Call) Run(run func(ctx context.Context, cmd campaign.UnlinkNpcCommand)) *MockService_UnlinkNpc_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.UnlinkNpcCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_UnlinkNpc_Call) Return(_a0 error) *MockService_UnlinkNpc_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockService_UnlinkNpc_Call) RunAndReturn(run func(context.Context, campaign.UnlinkNpcCommand) error) *MockService_UnlinkNpc_Call {
 	_c.Call.Return(run)
 	return _c
 }

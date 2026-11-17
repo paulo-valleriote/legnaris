@@ -248,6 +248,65 @@ func (_c *MockService_Delete_Call) RunAndReturn(run func(context.Context, sheet.
 	return _c
 }
 
+// Duplicate provides a mock function with given fields: ctx, cmd
+func (_m *MockService) Duplicate(ctx context.Context, cmd sheet.DuplicateSheetCommand) (*sheet.Sheet, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Duplicate")
+	}
+
+	var r0 *sheet.Sheet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.DuplicateSheetCommand) (*sheet.Sheet, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.DuplicateSheetCommand) *sheet.Sheet); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*sheet.Sheet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, sheet.DuplicateSheetCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_Duplicate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Duplicate'
+type MockService_Duplicate_Call struct {
+	*mock.Call
+}
+
+// Duplicate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd sheet.DuplicateSheetCommand
+func (_e *MockService_Expecter) Duplicate(ctx interface{}, cmd interface{}) *MockService_Duplicate_Call {
+	return &MockService_Duplicate_Call{Call: _e.mock.On("Duplicate", ctx, cmd)}
+}
+
+func (_c *MockService_Duplicate_Call) Run(run func(ctx context.Context, cmd sheet.DuplicateSheetCommand)) *MockService_Duplicate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(sheet.DuplicateSheetCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_Duplicate_Call) Return(_a0 *sheet.Sheet, _a1 error) *MockService_Duplicate_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_Duplicate_Call) RunAndReturn(run func(context.Context, sheet.DuplicateSheetCommand) (*sheet.Sheet, error)) *MockService_Duplicate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FetchByID provides a mock function with given fields: ctx, id, ownerID
 func (_m *MockService) FetchByID(ctx context.Context, id string, ownerID string) (*sheet.Sheet, error) {
 	ret := _m.Called(ctx, id, ownerID)

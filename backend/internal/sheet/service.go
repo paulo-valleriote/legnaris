@@ -79,6 +79,7 @@ type Service interface {
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
 	SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Layout, error)
 	Delete(ctx context.Context, cmd DeleteSheetCommand) error
+	Duplicate(ctx context.Context, cmd DuplicateSheetCommand) (*Sheet, error)
 	CheckSheetLimit(ctx context.Context, ownerID string, kind plan.SheetKind) (LimitStatus, error)
 	PlanUsage(ctx context.Context, ownerID string) (PlanUsage, error)
 }
@@ -131,6 +132,7 @@ type ServiceImpl struct {
 	provider        DAGProvider
 	plans           PlanSource
 	tx              TransactionRunner
+	linkCleaner     LinkCleaner
 	log             logger.StructuredLogger
 	publisher       events.Publisher
 }
@@ -528,19 +530,26 @@ func (s *ServiceImpl) Delete(ctx context.Context, cmd DeleteSheetCommand) error 
 		return err
 	}
 
-	if !s.planLimitsEnabled() {
-		if err := s.repository.DeleteByID(ctx, cmd.SheetID); err != nil {
-			return translateRepoErr("delete", err)
-		}
-		return nil
-	}
-
-	err = s.tx.WithTransaction(ctx, func(txCtx context.Context) error {
+	remove := func(txCtx context.Context) error {
 		if err := s.repository.DeleteByID(txCtx, cmd.SheetID); err != nil {
 			return err
 		}
+		if s.linkCleaner != nil {
+			if err := s.linkCleaner.DeleteForSheet(txCtx, cmd.SheetID, stored.Kind); err != nil {
+				return err
+			}
+		}
+		if !s.planLimitsEnabled() {
+			return nil
+		}
 		return s.repository.ReleaseSlot(txCtx, cmd.OwnerID, stored.Kind)
-	})
+	}
+
+	if s.tx == nil {
+		err = remove(ctx)
+	} else {
+		err = s.tx.WithTransaction(ctx, remove)
+	}
 	if err != nil {
 		return translateRepoErr("delete", err)
 	}

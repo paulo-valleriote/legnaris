@@ -89,6 +89,10 @@ type Service interface {
 	Unlink(ctx context.Context, cmd UnlinkCommand) (View, error)
 	ListLinkedSheets(ctx context.Context, campaignID, viewerID string) ([]LinkedSheetSummary, error)
 	ReadLinkedSheet(ctx context.Context, q ReadLinkedSheetQuery) (LinkedSheetResult, error)
+	LinkNpc(ctx context.Context, cmd LinkNpcCommand) (NpcLinkView, error)
+	UnlinkNpc(ctx context.Context, cmd UnlinkNpcCommand) error
+	ListNpcLinks(ctx context.Context, campaignID, viewerID string) ([]NpcLinkView, error)
+	ReadNpcSheet(ctx context.Context, q ReadNpcSheetQuery) (LinkedSheetResult, error)
 	JoinByCode(ctx context.Context, cmd JoinCommand) (View, error)
 	RotateInviteCode(ctx context.Context, cmd InviteCommand) (View, error)
 	SetPassword(ctx context.Context, cmd PasswordCommand) (View, error)
@@ -139,6 +143,7 @@ type ServiceImpl struct {
 	publisher  events.Publisher
 	unlinker   CharacterUnlinker
 	sheets     CharacterStore
+	links      LinkStore
 	names      NameLookup
 	guard      CreateGuard
 	hasher     PasswordHasher
@@ -155,6 +160,10 @@ func WithCharacterUnlinker(u CharacterUnlinker) ServiceOption {
 
 func WithCharacterStore(store CharacterStore) ServiceOption {
 	return func(s *ServiceImpl) { s.sheets = store }
+}
+
+func WithLinkStore(store LinkStore) ServiceOption {
+	return func(s *ServiceImpl) { s.links = store }
 }
 
 func WithNameLookup(n NameLookup) ServiceOption {
@@ -191,6 +200,7 @@ func NewService(repository Repository, tx TransactionRunner, publisher events.Pu
 		publisher:  publisher,
 		unlinker:   noUnlinker{},
 		sheets:     noCharacters{},
+		links:      noLinks{},
 		hasher:     unavailableHasher{},
 		joinLimit:  allowAllJoins{},
 		now:        time.Now,

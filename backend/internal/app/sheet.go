@@ -32,6 +32,7 @@ func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.DELETE("/:id", sc.Delete)
 	group.POST("/:id/preview", sc.Preview)
 	group.PUT("/:id/layout", sc.SetLayout)
+	group.POST("/:id/duplicate", sc.Duplicate)
 }
 
 func (sc *SheetController) RegisterTemplatePreviewRoute(group *echo.Group) {
@@ -164,6 +165,18 @@ func (sc *SheetController) Delete(c *echo.Context) error {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (sc *SheetController) Duplicate(c *echo.Context) error {
+	ownerID, _ := auth.UserID(c)
+	copied, err := sc.service.Duplicate(c.Request().Context(), sheet.DuplicateSheetCommand{
+		SheetID: c.Param("id"),
+		OwnerID: ownerID,
+	})
+	if err != nil {
+		return err
+	}
+	return response.Created(c, copied.ToDTO())
 }
 
 func (sc *SheetController) PreviewTemplate(c *echo.Context) error {

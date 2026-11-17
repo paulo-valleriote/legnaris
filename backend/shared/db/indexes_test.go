@@ -92,6 +92,15 @@ func TestEnsureIndexes(t *testing.T) {
 		campaignID, ok := sheets["sheets_campaign_id"]
 		require.True(t, ok, "sheets campaign_id index must exist, got %v", sheets)
 		assert.False(t, indexIsUnique(campaignID), "many sheets may link to one campaign")
+
+		links := listIndexes(t, mdb, "campaign_sheet_links")
+		linkPair, ok := links["campaign_sheet_links_campaign_sheet_unique"]
+		require.True(t, ok, "campaign_sheet_links (campaign_id, sheet_id) unique index must exist, got %v", links)
+		assert.True(t, indexIsUnique(linkPair), "a sheet links to a campaign at most once")
+		_, ok = links["campaign_sheet_links_campaign_id"]
+		assert.True(t, ok, "campaign_sheet_links campaign_id index must exist")
+		_, ok = links["campaign_sheet_links_sheet_id"]
+		assert.True(t, ok, "campaign_sheet_links sheet_id index must exist")
 	})
 
 	t.Run("Edge: calling twice is idempotent", func(t *testing.T) {
@@ -144,6 +153,16 @@ func TestEnsureIndexes(t *testing.T) {
 		_, err = counters.InsertOne(ctx, bson.M{"owner_id": "owner-2", "kind": "npc", "count": 0})
 		require.Error(t, err)
 		assert.True(t, mongo.IsDuplicateKeyError(err), "a second counter for the owner and kind must be a duplicate key error")
+	})
+
+	t.Run("Edge: a second link for the same campaign and sheet is rejected", func(t *testing.T) {
+		links := mdb.Collection("campaign_sheet_links")
+		_, err := links.InsertOne(ctx, bson.M{"_id": "link-1", "campaign_id": "campaign-1", "sheet_id": "sheet-1"})
+		require.NoError(t, err)
+
+		_, err = links.InsertOne(ctx, bson.M{"_id": "link-2", "campaign_id": "campaign-1", "sheet_id": "sheet-1"})
+		require.Error(t, err)
+		assert.True(t, mongo.IsDuplicateKeyError(err), "one link per campaign and sheet")
 	})
 }
 
