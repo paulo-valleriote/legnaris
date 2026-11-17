@@ -41,6 +41,22 @@ describe('api client generation operations', () => {
     });
   });
 
+  it('Happy path: createGeneration posts the requested Sheet kind (LGN-187)', async () => {
+    const { fake, client } = clientWith(successOutcome({ id: generationId }, 202));
+
+    await client.createGeneration({
+      templateId: 'fantasy_v1',
+      kind: 'npc',
+      concept: 'An innkeeper who trades gossip for coin',
+    });
+
+    expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual({
+      template_id: 'fantasy_v1',
+      kind: 'npc',
+      concept: 'An innkeeper who trades gossip for coin',
+    });
+  });
+
   it('Error: createGeneration maps a 403 PLAN_UPGRADE_REQUIRED to a domain failure with its code', async () => {
     const { client } = clientWith(errorOutcome('PLAN_UPGRADE_REQUIRED', 'no allowance left', 403));
 

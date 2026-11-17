@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useApiClient } from '../app/providers';
 import { usePlanUsage } from './queries';
-import { message } from '../l10n/strings';
+import { generationCopy, message } from '../l10n/strings';
 import { Button } from '../ui/button';
 
 export function ResumeNotice() {
@@ -22,17 +22,17 @@ export function ResumeNotice() {
   if (activeId === null || generation.data === undefined) {
     return null;
   }
-  const templateId = generation.data.templateId;
+  const { templateId, kind } = generation.data;
 
   return (
     <div role="status" className="lg-catalog__notice">
-      <p>{message('generate.resumeNotice')}</p>
+      <p>{generationCopy('generate.resumeNotice', kind)}</p>
       <Button
         variant="secondary"
         size="md"
         label={message('generate.resumeOpen')}
         onClick={() =>
-          navigate(`/generate/${encodeURIComponent(templateId)}`, {
+          navigate(`/generate/${encodeURIComponent(templateId)}?kind=${kind}`, {
             state: { generationId: activeId },
           })
         }

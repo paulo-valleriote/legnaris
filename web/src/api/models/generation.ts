@@ -1,4 +1,6 @@
 import { drift, isPlainObject, optionalString, requireString } from '../parse';
+import { SHEET_KINDS } from './plan';
+import type { SheetKind } from './plan';
 
 export const GENERATION_STATUSES = [
   'queued',
@@ -13,7 +15,7 @@ export type GenerationStatus = (typeof GENERATION_STATUSES)[number];
 export interface Generation {
   readonly id: string;
   readonly status: GenerationStatus;
-  readonly kind: string;
+  readonly kind: SheetKind;
   readonly templateId: string;
   readonly values: Record<string, unknown> | undefined;
   readonly errorCode: string | undefined;
@@ -26,6 +28,15 @@ export interface AcceptedGeneration {
 
 function isGenerationStatus(value: string): value is GenerationStatus {
   return (GENERATION_STATUSES as readonly string[]).includes(value);
+}
+
+function decodeKind(source: Record<string, unknown>): SheetKind {
+  const value = requireString(source, 'kind');
+  const match = SHEET_KINDS.find((kind) => kind === value);
+  if (match === undefined) {
+    throw drift('generation "kind" is not a known value');
+  }
+  return match;
 }
 
 function decodeValues(source: Record<string, unknown>): Record<string, unknown> | undefined {
@@ -59,7 +70,7 @@ export function parseGeneration(data: unknown): Generation {
   return {
     id: requireString(data, 'id'),
     status,
-    kind: requireString(data, 'kind'),
+    kind: decodeKind(data),
     templateId: requireString(data, 'template_id'),
     values: decodeValues(data),
     errorCode: optionalString(data, 'error_code'),

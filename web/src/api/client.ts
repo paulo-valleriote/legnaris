@@ -125,7 +125,7 @@ export type MemberAction = 'promote' | 'demote';
 
 export interface CreateGenerationInput {
   readonly templateId: string;
-  readonly kind: 'character';
+  readonly kind: SheetKind;
   readonly concept: string;
 }
 

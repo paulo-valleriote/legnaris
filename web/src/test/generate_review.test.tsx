@@ -269,4 +269,23 @@ describe('resume from the catalog (LGN-196)', () => {
     ).toBeInTheDocument();
     expect(countOf(fake.requests, 'POST', '/generations')).toBe(0);
   });
+
+  it('Happy path: the catalog notice names its kind and resumes an enemy generation (LGN-187)', async () => {
+    const fake = routed({
+      'GET /templates': ok([{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }]),
+      [`GET /templates/${TEMPLATE_ID}`]: ok(templateDetailPayload()),
+      'GET /me/plan': ok(planWith({ active_generation_id: GENERATION_ID })),
+      [`GET /generations/${GENERATION_ID}`]: ok({ ...SUCCEEDED, kind: 'enemy' }),
+    });
+    const client = createApiClient({ baseUrl: BASE_URL, transport: fake.transport });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const user = userEvent.setup();
+    renderApp('/', { client, queryClient });
+
+    expect(await screen.findByText('A generated enemy is waiting for you.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Open' }));
+
+    expect(await screen.findByRole('heading', { name: 'Review your enemy' })).toBeInTheDocument();
+    expect(countOf(fake.requests, 'POST', '/generations')).toBe(0);
+  });
 });

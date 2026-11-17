@@ -1,3 +1,5 @@
+import type { SheetKind } from '../api/models/plan';
+
 export const messages = {
   'api.error.clientFault':
     'The app sent a request the server could not read. Reload and try again.',
@@ -60,10 +62,18 @@ export const messages = {
   'api.error.planLimitReached':
     'Your plan has no room for another Campaign. Delete one to make space.',
   'generate.entry': 'Generate with AI',
-  'generate.title': 'Generate a character',
-  'generate.conceptLabel': 'Describe your character',
-  'generate.conceptExample':
+  'generate.title.character': 'Generate a character',
+  'generate.title.npc': 'Generate an NPC',
+  'generate.title.enemy': 'Generate an enemy',
+  'generate.conceptLabel.character': 'Describe your character',
+  'generate.conceptLabel.npc': 'Describe your NPC',
+  'generate.conceptLabel.enemy': 'Describe your enemy',
+  'generate.conceptExample.character':
     'For example: A soft-spoken ranger who guards a northern pass and distrusts magic.',
+  'generate.conceptExample.npc':
+    'For example: A no-nonsense innkeeper who trades gossip for coin and hides a debt.',
+  'generate.conceptExample.enemy':
+    'For example: A bandit captain who holds the east road and answers to no lord.',
   'generate.languageNote': 'The generated text follows the language of your concept.',
   'generate.counter': '{count} of 1000 characters (at least 10)',
   'generate.tooShort': 'Write at least 10 characters.',
@@ -74,17 +84,32 @@ export const messages = {
   'generate.quotaAction': 'See plans',
   'generate.submit': 'Generate',
   'generate.submitting': 'Starting the generation…',
-  'generate.resumeNotice': 'A generated character is waiting for you.',
+  'generate.resumeNotice': 'A generated sheet is waiting for you.',
+  'generate.resumeNotice.character': 'A generated character is waiting for you.',
+  'generate.resumeNotice.npc': 'A generated NPC is waiting for you.',
+  'generate.resumeNotice.enemy': 'A generated enemy is waiting for you.',
   'generate.resumeOpen': 'Open',
-  'generate.waiting':
+  'generate.waiting.character':
     "Generating your character. This takes up to a minute. You can leave; we'll keep it ready.",
+  'generate.waiting.npc':
+    "Generating your NPC. This takes up to a minute. You can leave; we'll keep it ready.",
+  'generate.waiting.enemy':
+    "Generating your enemy. This takes up to a minute. You can leave; we'll keep it ready.",
   'generate.backToCatalog': 'Back to catalog',
   'generate.keepWaiting': 'Keep waiting',
-  'generate.timedOut':
+  'generate.timedOut.character':
     'This is taking longer than usual. Your character is still being made. Come back later.',
+  'generate.timedOut.npc':
+    'This is taking longer than usual. Your NPC is still being made. Come back later.',
+  'generate.timedOut.enemy':
+    'This is taking longer than usual. Your enemy is still being made. Come back later.',
   'generate.failed': "We couldn't generate it. Your generation was refunded.",
-  'generate.alreadySaved': 'This character was already saved to your sheets.',
-  'generate.previewTitle': 'Review your character',
+  'generate.alreadySaved.character': 'This character was already saved to your sheets.',
+  'generate.alreadySaved.npc': 'This NPC was already saved to your sheets.',
+  'generate.alreadySaved.enemy': 'This enemy was already saved to your sheets.',
+  'generate.previewTitle.character': 'Review your character',
+  'generate.previewTitle.npc': 'Review your NPC',
+  'generate.previewTitle.enemy': 'Review your enemy',
   'generate.sheetNameRequired': 'Give your sheet a name.',
   'generate.accept': 'Save to my sheets',
   'generate.accepting': 'Saving…',
@@ -95,7 +120,9 @@ export const messages = {
   'generate.lastBody':
     'Regenerating uses your last free generation. You will have none left after it.',
   'generate.lastConfirm': 'Use my last one',
-  'generate.lastKeep': 'Keep this character',
+  'generate.lastKeep.character': 'Keep this character',
+  'generate.lastKeep.npc': 'Keep this NPC',
+  'generate.lastKeep.enemy': 'Keep this enemy',
   'generate.leaveTitle': 'Leave without saving?',
   'generate.leaveBody': 'Your changes will be lost.',
   'generate.leaveStay': 'Stay',
@@ -560,4 +587,19 @@ export function messageWith(key: MessageKey, values: MessageValues): string {
 
     return String(value);
   });
+}
+
+export type GenerationCopyKey =
+  | 'generate.title'
+  | 'generate.conceptLabel'
+  | 'generate.conceptExample'
+  | 'generate.resumeNotice'
+  | 'generate.waiting'
+  | 'generate.timedOut'
+  | 'generate.alreadySaved'
+  | 'generate.previewTitle'
+  | 'generate.lastKeep';
+
+export function generationCopy(key: GenerationCopyKey, kind: SheetKind): string {
+  return messages[`${key}.${kind}`];
 }
