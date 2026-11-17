@@ -18,12 +18,13 @@
 
 .lg-campaign__identity {
   display: flex;
+  flex: 1 1 auto;
   align-items: flex-start;
   gap: var(--lg-space-8);
   min-width: 0;
 }
 
-.lg-campaign__back {
+.lg-campaign__back-icon {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -38,12 +39,12 @@
     color var(--lg-motion-120) var(--lg-ease-standard);
 }
 
-.lg-campaign__back:hover {
+.lg-campaign__back-icon:hover {
   background-color: var(--lg-color-surface-hover);
   color: var(--lg-color-text);
 }
 
-.lg-campaign__back svg {
+.lg-campaign__back-icon svg {
   width: var(--lg-space-24);
   height: var(--lg-space-24);
 }
@@ -347,11 +348,6 @@
   font-weight: var(--lg-font-weight-semibold);
 }
 
-.lg-campaign__link {
-  color: var(--lg-color-text);
-  font-weight: var(--lg-font-weight-semibold);
-}
-
 .lg-campaign__role {
   display: inline-block;
   padding: var(--lg-space-2) var(--lg-space-8);
@@ -521,4 +517,10 @@
 
 .lg-campaign__value {
   font-variant-numeric: tabular-nums;
+}
+
+@container (max-width: 30rem) {
+  .lg-campaign__card {
+    min-height: 0;
+  }
 }
