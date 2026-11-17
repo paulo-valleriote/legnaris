@@ -18,6 +18,10 @@ type TransactionRunner interface {
 	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
+type LinkCleaner interface {
+	DeleteForSheet(ctx context.Context, sheetID string, kind plan.SheetKind) error
+}
+
 type ServiceOption func(*ServiceImpl)
 
 func WithPlanLimits(plans PlanSource, tx TransactionRunner) ServiceOption {
@@ -25,6 +29,10 @@ func WithPlanLimits(plans PlanSource, tx TransactionRunner) ServiceOption {
 		s.plans = plans
 		s.tx = tx
 	}
+}
+
+func WithLinkCleaner(cleaner LinkCleaner) ServiceOption {
+	return func(s *ServiceImpl) { s.linkCleaner = cleaner }
 }
 
 type LimitStatus struct {
