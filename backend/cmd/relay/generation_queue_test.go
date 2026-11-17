@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/accountdeletion"
+	accountdeletionmocks "legnaris/backend/internal/accountdeletion/mocks"
 	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/billing/billingtest"
 	"legnaris/backend/internal/campaign"
@@ -53,7 +54,11 @@ func idleDeletionDeps(t *testing.T) accountdeletion.Deps {
 	store := usermocks.NewMockDeletionStore(t)
 	store.EXPECT().ClaimDeleting(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	store.EXPECT().OldestDeleting(mock.Anything).Return(time.Time{}, false, nil).Maybe()
-	return accountdeletion.Deps{Store: store}
+	billingSettler := accountdeletionmocks.NewMockBillingSettler(t)
+	billingSettler.EXPECT().Settle(mock.Anything, mock.Anything).Return(nil).Maybe()
+	campaignSettler := accountdeletionmocks.NewMockCampaignSettler(t)
+	campaignSettler.EXPECT().SettleAccount(mock.Anything, mock.Anything).Return(nil).Maybe()
+	return accountdeletion.Deps{Store: store, Billing: billingSettler, Campaigns: campaignSettler}
 }
 
 func idleCampaignDeletionDeps(t *testing.T) campaign.DeletionDeps {

@@ -3,6 +3,7 @@ package campaign_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -17,7 +18,9 @@ import (
 var errInjected = errors.New("injected failure")
 
 type memRepo struct {
-	docs map[string]campaign.Campaign
+	docs        map[string]campaign.Campaign
+	failWriteAt int
+	writes      int
 }
 
 func newMemRepo(cs ...campaign.Campaign) *memRepo {
@@ -47,8 +50,14 @@ func (r *memRepo) FetchByInviteCode(context.Context, string) (*campaign.Campaign
 }
 
 func (r *memRepo) ListActiveByMember(_ context.Context, userID string) ([]campaign.Campaign, error) {
+	ids := make([]string, 0, len(r.docs))
+	for id := range r.docs {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
 	var out []campaign.Campaign
-	for _, c := range r.docs {
+	for _, id := range ids {
+		c := r.docs[id]
 		if _, ok := c.MemberOf(userID); ok && c.Active() {
 			out = append(out, campaigntest.Copy(c))
 		}
@@ -65,6 +74,10 @@ func (r *memRepo) MarkDeleting(_ context.Context, c *campaign.Campaign, expected
 }
 
 func (r *memRepo) write(c *campaign.Campaign, expected int64) error {
+	r.writes++
+	if r.writes == r.failWriteAt {
+		return campaign.ErrVersionConflict
+	}
 	stored, ok := r.docs[c.ID]
 	if !ok || stored.Version != expected || !stored.Active() {
 		return campaign.ErrVersionConflict
@@ -78,9 +91,13 @@ type fakeOwnership struct {
 	limits      map[string]int
 	releases    int
 	failRelease bool
+	reserveErr  error
 }
 
 func (o *fakeOwnership) ReserveOwnership(_ context.Context, userID string) error {
+	if o.reserveErr != nil {
+		return o.reserveErr
+	}
 	if limit, capped := o.limits[userID]; capped && o.counts[userID] >= limit {
 		return apperr.NewError(apperr.CodePlanLimitReached, "owned campaign limit reached", campaign.ErrOwnershipLimitReached)
 	}
@@ -148,8 +165,11 @@ func newSettleWorld(campaigns []campaign.Campaign, owned, limits map[string]int)
 	}
 }
 
-func (w *settleWorld) settler() *campaign.AccountSettler {
-	return campaign.NewAccountSettler(w.repo, passTx{}, w.ownership, w.unlinker, w.publisher, campaigntest.Now)
+func (w *settleWorld) settler(t *testing.T) *campaign.AccountSettler {
+	t.Helper()
+	s, err := campaign.NewAccountSettler(w.repo, passTx{}, w.ownership, w.unlinker, w.publisher, campaigntest.Now)
+	require.NoError(t, err)
+	return s
 }
 
 type passTx struct{}
@@ -203,6 +223,8 @@ func TestAccountSettler_SettleAccount(t *testing.T) {
 		name        string
 		failUnlink  bool
 		failRelease bool
+		failWriteAt int
+		reserveErr  error
 		build       func(t *testing.T) (campaigns []campaign.Campaign, owned, limits map[string]int, user string)
 		check       func(t *testing.T, w *settleWorld, campaigns []campaign.Campaign, err error)
 	}{
@@ -403,17 +425,108 @@ func TestAccountSettler_SettleAccount(t *testing.T) {
 				assert.Equal(t, int64(1), stored.Version)
 			},
 		},
+		{
+			name:        "Error: a version conflict during hand-off surfaces as a conflict",
+			failWriteAt: 1,
+			build: func(t *testing.T) ([]campaign.Campaign, map[string]int, map[string]int, string) {
+				c := campaignWith(t, gmMember(ownerID, at(0), true), gmMember(olderGM, at(1), false))
+				return []campaign.Campaign{c}, map[string]int{ownerID: 1}, nil, ownerID
+			},
+			check: func(t *testing.T, w *settleWorld, cs []campaign.Campaign, err error) {
+				requireAppErr(t, err, apperr.CodeConflict)
+				stored, _ := w.repo.FetchByID(context.Background(), cs[0].ID)
+				assert.Equal(t, ownerID, campaigntest.OwnerID(*stored))
+				assert.Equal(t, int64(1), stored.Version)
+				assert.Empty(t, w.publisher.events)
+			},
+		},
+		{
+			name:        "Error: a version conflict during leave surfaces as a conflict",
+			failWriteAt: 2,
+			build: func(t *testing.T) ([]campaign.Campaign, map[string]int, map[string]int, string) {
+				c := campaignWith(t, gmMember(ownerID, at(0), true), gmMember(olderGM, at(1), false))
+				return []campaign.Campaign{c}, map[string]int{ownerID: 1}, nil, ownerID
+			},
+			check: func(t *testing.T, w *settleWorld, cs []campaign.Campaign, err error) {
+				requireAppErr(t, err, apperr.CodeConflict)
+				stored, _ := w.repo.FetchByID(context.Background(), cs[0].ID)
+				assert.Equal(t, olderGM, campaigntest.OwnerID(*stored), "the hand-off committed before the leave conflicted")
+				assert.Equal(t, int64(2), stored.Version)
+				_, stillMember := stored.MemberOf(ownerID)
+				assert.True(t, stillMember)
+			},
+		},
+		{
+			name:       "Error: a non-plan-limit reservation failure aborts the settlement without writing",
+			reserveErr: errInjected,
+			build: func(t *testing.T) ([]campaign.Campaign, map[string]int, map[string]int, string) {
+				c := campaignWith(t, gmMember(ownerID, at(0), true), gmMember(olderGM, at(1), false))
+				return []campaign.Campaign{c}, map[string]int{ownerID: 1}, nil, ownerID
+			},
+			check: func(t *testing.T, w *settleWorld, cs []campaign.Campaign, err error) {
+				requireAppErr(t, err, apperr.CodeInternal)
+				require.ErrorIs(t, err, errInjected)
+				stored, _ := w.repo.FetchByID(context.Background(), cs[0].ID)
+				assert.Equal(t, ownerID, campaigntest.OwnerID(*stored))
+				assert.Equal(t, int64(1), stored.Version)
+				assert.Equal(t, 1, w.ownership.counts[ownerID])
+				assert.Zero(t, w.ownership.counts[olderGM])
+				assert.Empty(t, w.unlinker.unlinked)
+				assert.Empty(t, w.publisher.events)
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			campaigns, owned, limits, user := tc.build(t)
 			w := newSettleWorld(campaigns, owned, limits)
+			w.repo.failWriteAt = tc.failWriteAt
+			w.ownership.reserveErr = tc.reserveErr
 			w.unlinker.fail = tc.failUnlink
 			w.ownership.failRelease = tc.failRelease
-			err := w.settler().SettleAccount(context.Background(), user)
+			err := w.settler(t).SettleAccount(context.Background(), user)
 			tc.check(t, w, campaigns, err)
 		})
 	}
+}
+
+func TestAccountSettler_LeaveWithTheOwnerStillPresent(t *testing.T) {
+	ownerID := campaigntest.NewID(t)
+	successor := campaigntest.NewID(t)
+	c := campaignWith(t, gmMember(ownerID, at(0), true), gmMember(successor, at(1), false))
+	w := newSettleWorld([]campaign.Campaign{c}, map[string]int{ownerID: 1}, nil)
+
+	settler, err := campaign.NewAccountSettler(staleListRepo{w.repo}, passTx{}, w.ownership, w.unlinker, w.publisher, campaigntest.Now)
+	require.NoError(t, err)
+	err = settler.SettleAccount(context.Background(), ownerID)
+
+	requireAppErr(t, err, apperr.CodeInternal)
+	var appErr *apperr.Error
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, campaign.MsgHandOffIncomplete, appErr.Message)
+	stored, _ := w.repo.FetchByID(context.Background(), c.ID)
+	assert.Equal(t, ownerID, campaigntest.OwnerID(*stored))
+	assert.Equal(t, int64(1), stored.Version)
+	assert.Empty(t, w.unlinker.unlinked)
+}
+
+type staleListRepo struct {
+	*memRepo
+}
+
+func (r staleListRepo) ListActiveByMember(ctx context.Context, userID string) ([]campaign.Campaign, error) {
+	found, err := r.memRepo.ListActiveByMember(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range found {
+		for j := range found[i].Members {
+			if found[i].Members[j].UserID == userID {
+				found[i].Members[j].Owner = false
+			}
+		}
+	}
+	return found, nil
 }
 
 func TestAccountSettler_CrashBetweenStepsConverges(t *testing.T) {
@@ -425,12 +538,12 @@ func TestAccountSettler_CrashBetweenStepsConverges(t *testing.T) {
 	w := newSettleWorld([]campaign.Campaign{c}, map[string]int{ownerID: 1}, nil)
 	w.unlinker.fail = true
 
-	err := w.settler().SettleAccount(context.Background(), ownerID)
+	err := w.settler(t).SettleAccount(context.Background(), ownerID)
 	requireAppErr(t, err, apperr.CodeInternal)
 
 	w.unlinker.fail = false
-	require.NoError(t, w.settler().SettleAccount(context.Background(), ownerID))
-	require.NoError(t, w.settler().SettleAccount(context.Background(), ownerID), "a third run is a no-op")
+	require.NoError(t, w.settler(t).SettleAccount(context.Background(), ownerID))
+	require.NoError(t, w.settler(t).SettleAccount(context.Background(), ownerID), "a third run is a no-op")
 
 	stored, _ := w.repo.FetchByID(context.Background(), c.ID)
 	assert.Equal(t, successor, campaigntest.OwnerID(*stored))
@@ -446,19 +559,50 @@ func TestAccountSettler_SecondRunAfterDeletingIsNoOp(t *testing.T) {
 	c := campaignWith(t, gmMember(ownerID, at(0), true))
 	w := newSettleWorld([]campaign.Campaign{c}, map[string]int{ownerID: 1}, nil)
 
-	require.NoError(t, w.settler().SettleAccount(context.Background(), ownerID))
-	require.NoError(t, w.settler().SettleAccount(context.Background(), ownerID))
+	require.NoError(t, w.settler(t).SettleAccount(context.Background(), ownerID))
+	require.NoError(t, w.settler(t).SettleAccount(context.Background(), ownerID))
 
 	stored, _ := w.repo.FetchByID(context.Background(), c.ID)
 	assert.Equal(t, campaign.StatusDeleting, stored.Status)
 	assert.Equal(t, 1, w.ownership.releases, "the second run must not release the slot again")
 }
 
+func TestNewAccountSettler(t *testing.T) {
+	w := newSettleWorld(nil, nil, nil)
+	tests := []struct {
+		name      string
+		repo      campaign.Repository
+		tx        campaign.TransactionRunner
+		ownership campaign.OwnershipPort
+		unlinker  campaign.CharacterUnlinker
+		wantErr   bool
+	}{
+		{name: "Happy path: complete dependencies build a settler", repo: w.repo, tx: passTx{}, ownership: w.ownership, unlinker: w.unlinker},
+		{name: "Error: a nil repository is refused", tx: passTx{}, ownership: w.ownership, unlinker: w.unlinker, wantErr: true},
+		{name: "Error: a nil transaction runner is refused", repo: w.repo, ownership: w.ownership, unlinker: w.unlinker, wantErr: true},
+		{name: "Error: a nil ownership port is refused", repo: w.repo, tx: passTx{}, unlinker: w.unlinker, wantErr: true},
+		{name: "Error: a nil unlinker is refused", repo: w.repo, tx: passTx{}, ownership: w.ownership, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			settler, err := campaign.NewAccountSettler(tc.repo, tc.tx, tc.ownership, tc.unlinker, w.publisher, campaigntest.Now)
+			if tc.wantErr {
+				requireAppErr(t, err, apperr.CodeInternal)
+				assert.Nil(t, settler)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, settler)
+		})
+	}
+}
+
 func TestAccountSettler_NilPublisherDoesNotPanic(t *testing.T) {
 	playerID := campaigntest.NewID(t)
 	c := campaignWith(t, gmMember(campaigntest.NewID(t), at(0), true), playerMember(playerID, at(1)))
 	w := newSettleWorld([]campaign.Campaign{c}, nil, nil)
-	settler := campaign.NewAccountSettler(w.repo, passTx{}, w.ownership, w.unlinker, nil, nil)
+	settler, err := campaign.NewAccountSettler(w.repo, passTx{}, w.ownership, w.unlinker, nil, nil)
+	require.NoError(t, err)
 
 	require.NoError(t, settler.SettleAccount(context.Background(), playerID))
 }

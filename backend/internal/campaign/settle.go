@@ -30,14 +30,17 @@ type AccountSettler struct {
 	now       func() time.Time
 }
 
-func NewAccountSettler(repo Repository, tx TransactionRunner, ownership OwnershipPort, unlinker CharacterUnlinker, publisher events.Publisher, now func() time.Time) *AccountSettler {
+func NewAccountSettler(repo Repository, tx TransactionRunner, ownership OwnershipPort, unlinker CharacterUnlinker, publisher events.Publisher, now func() time.Time) (*AccountSettler, error) {
+	if repo == nil || tx == nil || ownership == nil || unlinker == nil {
+		return nil, apperr.NewError(apperr.CodeInternal, MsgAccountSettlerDeps, nil)
+	}
 	if publisher == nil {
 		publisher = events.NoOp{}
 	}
 	if now == nil {
 		now = time.Now
 	}
-	return &AccountSettler{repo: repo, tx: tx, ownership: ownership, unlinker: unlinker, publisher: publisher, now: now}
+	return &AccountSettler{repo: repo, tx: tx, ownership: ownership, unlinker: unlinker, publisher: publisher, now: now}, nil
 }
 
 // SettleAccount removes userID from every active Campaign it belongs to, before the account is deleted.
@@ -93,7 +96,9 @@ func (a *AccountSettler) handOff(ctx context.Context, campaignID, userID string)
 		if err := a.ownership.ReleaseOwnership(txCtx, userID); err != nil {
 			return false, internalError(MsgOwnershipWrite, err)
 		}
-		transferOwnership(c, userID, candidate)
+		if err := transferOwnership(c, userID, candidate); err != nil {
+			return false, err
+		}
 		outcome, successor = handOffTransferred, candidate
 		return true, nil
 	}, false)
@@ -141,8 +146,8 @@ func (a *AccountSettler) leave(ctx context.Context, campaignID, userID string) e
 			return false, nil
 		}
 		member := c.Members[idx]
-		if err := authorize(actionLeave, member, member); err != nil {
-			return false, err
+		if member.Owner {
+			return false, internalError(MsgHandOffIncomplete, nil)
 		}
 		if err := a.unlinker.UnlinkCharacter(txCtx, c.ID, userID); err != nil {
 			return false, internalError(MsgCampaignWrite, err)
@@ -196,15 +201,22 @@ func successorCandidates(c *Campaign, userID string) []string {
 	return ids
 }
 
-func transferOwnership(c *Campaign, from, to string) {
+func transferOwnership(c *Campaign, from, to string) error {
+	fromIdx, toIdx := -1, -1
 	for i := range c.Members {
 		switch c.Members[i].UserID {
 		case from:
-			c.Members[i].Owner = false
+			fromIdx = i
 		case to:
-			c.Members[i].Owner = true
+			toIdx = i
 		}
 	}
+	if fromIdx < 0 || toIdx < 0 {
+		return internalError(MsgHandOffIncomplete, nil)
+	}
+	c.Members[fromIdx].Owner = false
+	c.Members[toIdx].Owner = true
+	return nil
 }
 
 func hasCode(err error, code apperr.Code) bool {
