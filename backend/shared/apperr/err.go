@@ -38,6 +38,13 @@ const (
 	CodeInvalidSignature     Code = "INVALID_SIGNATURE"
 	CodeNoSubscription       Code = "NO_SUBSCRIPTION"
 	CodeRefundNotEligible    Code = "REFUND_NOT_ELIGIBLE"
+	CodeCampaignNotFound     Code = "CAMPAIGN_NOT_FOUND"
+	CodeCampaignFull         Code = "CAMPAIGN_FULL"
+	CodeCampaignForbidden    Code = "CAMPAIGN_FORBIDDEN"
+	CodeInvalidInvite        Code = "INVALID_INVITE"
+	CodeTemplateMismatch     Code = "TEMPLATE_MISMATCH"
+	CodeSheetAlreadyLinked   Code = "SHEET_ALREADY_LINKED"
+	CodePlanLimitReached     Code = "PLAN_LIMIT_REACHED"
 )
 
 type Error struct {
@@ -68,14 +75,17 @@ func NewError(code Code, message string, err error) *Error {
 		httpStatus = 400
 	case CodeUnauthorized, CodeOTPInvalid:
 		httpStatus = 401
-	case CodeForbidden, CodeLLMConsentRequired, CodePlanUpgradeRequired:
+	case CodeForbidden, CodeLLMConsentRequired, CodePlanUpgradeRequired, CodeCampaignForbidden, CodePlanLimitReached:
 		httpStatus = 403
-	case CodeNotFound, CodeNoSubscription:
+	case CodeNotFound, CodeNoSubscription, CodeCampaignNotFound, CodeInvalidInvite:
 		httpStatus = 404
 	case CodeMethodNotAllowed:
 		httpStatus = 405
-	case CodeConflict, CodeSheetLimitReached, CodeGenerationInProgress, CodeAlreadySubscribed, CodeRefundNotEligible:
+	case CodeConflict, CodeSheetLimitReached, CodeGenerationInProgress, CodeAlreadySubscribed, CodeRefundNotEligible,
+		CodeCampaignFull, CodeSheetAlreadyLinked:
 		httpStatus = 409
+	case CodeTemplateMismatch:
+		httpStatus = 422
 	case CodeRateLimited, CodeQuotaExceeded:
 		httpStatus = 429
 	case CodeEmailUnavailable, CodeNotReady, CodeProviderUnavailable, CodeGenerationCapReached, CodeBillingUnavailable:

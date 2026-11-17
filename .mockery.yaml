@@ -18,6 +18,17 @@ packages:
       Service: {}
       PlanSource: {}
       TransactionRunner: {}
+  legnaris/backend/internal/campaign:
+    config:
+      dir: backend/internal/campaign/mocks
+      outpkg: mocks
+    interfaces:
+      Repository: {}
+      TransactionRunner: {}
+      CharacterUnlinker: {}
+      NameLookup: {}
+      CreateGuard: {}
+      Service: {}
   legnaris/backend/internal/sheet/template:
     config:
       dir: backend/internal/sheet/template/mocks
