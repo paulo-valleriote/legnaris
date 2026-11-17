@@ -48,15 +48,19 @@ func Mutate(ctx context.Context, tx TransactionRunner, repo Repository, campaign
 
 func JoinPlayer(ctx context.Context, tx TransactionRunner, repo Repository, campaignID, userID string, now time.Time) (Campaign, error) {
 	return Mutate(ctx, tx, repo, campaignID, now, func(_ context.Context, c *Campaign) error {
-		if _, ok := c.MemberOf(userID); ok {
-			return apperr.NewError(apperr.CodeConflict, MsgAlreadyMember, nil)
-		}
-		if c.PlayerCount >= MaxPlayers {
-			return full(MsgPlayersFull)
-		}
-		c.Members = append(c.Members, Member{UserID: userID, Role: RolePlayer, JoinedAt: now})
-		return nil
+		return addPlayer(c, userID, now)
 	})
+}
+
+func addPlayer(c *Campaign, userID string, now time.Time) error {
+	if _, ok := c.MemberOf(userID); ok {
+		return apperr.NewError(apperr.CodeConflict, MsgAlreadyMember, nil)
+	}
+	if c.PlayerCount >= MaxPlayers {
+		return full(MsgPlayersFull)
+	}
+	c.Members = append(c.Members, Member{UserID: userID, Role: RolePlayer, JoinedAt: now})
+	return nil
 }
 
 func saveError(err error) error {
