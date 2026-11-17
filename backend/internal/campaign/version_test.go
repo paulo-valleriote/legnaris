@@ -160,8 +160,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 				revealed := hidden
 				revealed.Revealed = true
 				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
-				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&hidden, nil).Once()
-				h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, true).Return(revealed, nil).Once()
+				h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, true).Return(revealed, true, nil).Once()
 				h.withUsernames("someone", nil)
 			},
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
@@ -185,8 +184,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 				hidden := revealed
 				hidden.Revealed = false
 				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
-				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&revealed, nil).Once()
-				h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, false).Return(hidden, nil).Once()
+				h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, false).Return(hidden, true, nil).Once()
 				h.withUsernames("someone", nil)
 			},
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
@@ -405,7 +403,11 @@ func TestCampaignWrites_FailedWritesPersistNothing(t *testing.T) {
 			name: "reveal of a missing link",
 			run: func(ctx context.Context, h *harness) error {
 				sheetID := campaigntest.NewID(t)
-				h.links.EXPECT().Fetch(mock.Anything, base.ID, sheetID).Return(nil, campaign.ErrLinkNotFound).Once()
+				sh := sheetOf(t, owner, base.TemplateID, plan.KindNPC, nil)
+				sh.ID = sheetID
+				h.sheetReturns(sh)
+				h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sheetID, true).
+					Return(campaign.SheetLink{}, false, campaign.ErrLinkNotFound).Once()
 				_, err := h.service().SetNpcRevealed(ctx, campaign.RevealNpcCommand{
 					CampaignID: base.ID,
 					UserID:     owner,

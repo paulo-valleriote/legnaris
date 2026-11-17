@@ -18,8 +18,15 @@ type TransactionRunner interface {
 	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
+type RemovedLink struct {
+	CampaignID string
+	SheetID    string
+	OwnerID    string
+}
+
 type LinkCleaner interface {
-	DeleteForSheet(ctx context.Context, sheetID string, kind plan.SheetKind) error
+	DeleteForSheet(ctx context.Context, sheetID string) ([]RemovedLink, error)
+	PublishSheetUnlinked(kind plan.SheetKind, removed []RemovedLink)
 }
 
 type ServiceOption func(*ServiceImpl)

@@ -280,11 +280,13 @@ func TestService_Duplicate_EmitsSheetCreatedWithoutValues(t *testing.T) {
 func TestService_Delete_RemovesLinksAndSlotInOneTransaction(t *testing.T) {
 	repo := mocks.NewMockRepository(t)
 	cleaner := mocks.NewMockLinkCleaner(t)
+	removed := []sheet.RemovedLink{{CampaignID: "01900000-0000-7000-8000-0000000000aa", SheetID: updateSheetID, OwnerID: ownerUserID}}
 	repo.EXPECT().FetchByID(mock.Anything, updateSheetID).
 		Return(&sheet.Sheet{ID: updateSheetID, OwnerID: ownerUserID, Kind: plan.KindNPC}, nil).Once()
 	repo.EXPECT().DeleteByID(mock.Anything, updateSheetID).Return(nil).Once()
-	cleaner.EXPECT().DeleteForSheet(mock.Anything, updateSheetID, plan.KindNPC).Return(nil).Once()
+	cleaner.EXPECT().DeleteForSheet(mock.Anything, updateSheetID).Return(removed, nil).Once()
 	repo.EXPECT().ReleaseSlot(mock.Anything, ownerUserID, plan.KindNPC).Return(nil).Once()
+	cleaner.EXPECT().PublishSheetUnlinked(plan.KindNPC, removed).Once()
 	svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{},
 		sheet.WithPlanLimits(planFor(t, ownerUserID, plan.Free), runInline(t)),
 		sheet.WithLinkCleaner(cleaner),
@@ -299,7 +301,7 @@ func TestService_Delete_LinkCleanupFailureAbortsTheDelete(t *testing.T) {
 	repo.EXPECT().FetchByID(mock.Anything, updateSheetID).
 		Return(&sheet.Sheet{ID: updateSheetID, OwnerID: ownerUserID, Kind: plan.KindNPC}, nil).Once()
 	repo.EXPECT().DeleteByID(mock.Anything, updateSheetID).Return(nil).Once()
-	cleaner.EXPECT().DeleteForSheet(mock.Anything, updateSheetID, plan.KindNPC).Return(errors.New("link store down")).Once()
+	cleaner.EXPECT().DeleteForSheet(mock.Anything, updateSheetID).Return(nil, errors.New("link store down")).Once()
 	svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{},
 		sheet.WithPlanLimits(planFor(t, ownerUserID, plan.Free), runInline(t)),
 		sheet.WithLinkCleaner(cleaner),
@@ -310,4 +312,5 @@ func TestService_Delete_LinkCleanupFailureAbortsTheDelete(t *testing.T) {
 	require.ErrorAs(t, err, &appErr)
 	assert.Equal(t, apperr.CodeInternal, appErr.Code)
 	repo.AssertNotCalled(t, "ReleaseSlot")
+	cleaner.AssertNotCalled(t, "PublishSheetUnlinked", mock.Anything, mock.Anything)
 }

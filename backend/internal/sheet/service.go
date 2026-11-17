@@ -530,14 +530,18 @@ func (s *ServiceImpl) Delete(ctx context.Context, cmd DeleteSheetCommand) error 
 		return err
 	}
 
+	var removed []RemovedLink
 	remove := func(txCtx context.Context) error {
+		removed = nil
 		if err := s.repository.DeleteByID(txCtx, cmd.SheetID); err != nil {
 			return err
 		}
 		if s.linkCleaner != nil {
-			if err := s.linkCleaner.DeleteForSheet(txCtx, cmd.SheetID, stored.Kind); err != nil {
+			found, err := s.linkCleaner.DeleteForSheet(txCtx, cmd.SheetID)
+			if err != nil {
 				return err
 			}
+			removed = found
 		}
 		if !s.planLimitsEnabled() {
 			return nil
@@ -552,6 +556,9 @@ func (s *ServiceImpl) Delete(ctx context.Context, cmd DeleteSheetCommand) error 
 	}
 	if err != nil {
 		return translateRepoErr("delete", err)
+	}
+	if s.linkCleaner != nil && len(removed) > 0 {
+		s.linkCleaner.PublishSheetUnlinked(stored.Kind, removed)
 	}
 	s.publishSheetEvent(eventSheetDeleted, cmd.OwnerID, cmd.SheetID, stored.Version, map[string]any{})
 	return nil
