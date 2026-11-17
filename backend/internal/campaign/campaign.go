@@ -17,8 +17,9 @@ const (
 type Status string
 
 const (
-	StatusActive   Status = "active"
-	StatusDeleting Status = "deleting"
+	StatusActive       Status = "active"
+	StatusDeleting     Status = "deleting"
+	StatusDeletionDead Status = "deletion_dead"
 )
 
 const (
@@ -51,6 +52,12 @@ type Campaign struct {
 	Members     []Member  `bson:"members"`
 	CreatedAt   time.Time `bson:"created_at"`
 	UpdatedAt   time.Time `bson:"updated_at"`
+
+	DeletingAt          *time.Time `bson:"deleting_at,omitempty"`
+	DeletionAttempts    int        `bson:"deletion_attempts"`
+	DeletionNextAttempt *time.Time `bson:"deletion_next_attempt_at,omitempty"`
+	DeletionLockedUntil *time.Time `bson:"deletion_locked_until,omitempty"`
+	DeletionLastError   string     `bson:"deletion_last_error,omitempty"`
 }
 
 func (c *Campaign) Active() bool {

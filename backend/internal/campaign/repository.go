@@ -30,6 +30,7 @@ type Repository interface {
 	FetchByID(ctx context.Context, id string) (*Campaign, error)
 	ListActiveByMember(ctx context.Context, userID string) ([]Campaign, error)
 	Save(ctx context.Context, c *Campaign, expectedVersion int64) error
+	MarkDeleting(ctx context.Context, c *Campaign, expectedVersion int64) error
 }
 
 type MongoRepository struct {
@@ -95,6 +96,34 @@ func (r *MongoRepository) Save(ctx context.Context, c *Campaign, expectedVersion
 	result, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return fmt.Errorf("save campaign: %w", err)
+	}
+	if result.MatchedCount == 0 {
+		return ErrVersionConflict
+	}
+	return nil
+}
+
+func (r *MongoRepository) MarkDeleting(ctx context.Context, c *Campaign, expectedVersion int64) error {
+	filter := bson.D{
+		{Key: idField, Value: c.ID},
+		{Key: versionField, Value: expectedVersion},
+		{Key: statusField, Value: StatusActive},
+	}
+	update := bson.D{
+		{Key: setOperator, Value: bson.D{
+			{Key: statusField, Value: StatusDeleting},
+			{Key: "deleting_at", Value: c.DeletingAt},
+			{Key: "deletion_attempts", Value: 0},
+			{Key: "deletion_next_attempt_at", Value: nil},
+			{Key: "deletion_locked_until", Value: nil},
+			{Key: "deletion_last_error", Value: ""},
+			{Key: "updated_at", Value: c.UpdatedAt},
+		}},
+		{Key: incOperator, Value: bson.D{{Key: versionField, Value: 1}}},
+	}
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return fmt.Errorf("mark campaign deleting: %w", err)
 	}
 	if result.MatchedCount == 0 {
 		return ErrVersionConflict

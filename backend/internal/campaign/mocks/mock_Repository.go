@@ -187,6 +187,54 @@ func (_c *MockRepository_ListActiveByMember_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// MarkDeleting provides a mock function with given fields: ctx, c, expectedVersion
+func (_m *MockRepository) MarkDeleting(ctx context.Context, c *campaign.Campaign, expectedVersion int64) error {
+	ret := _m.Called(ctx, c, expectedVersion)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MarkDeleting")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *campaign.Campaign, int64) error); ok {
+		r0 = rf(ctx, c, expectedVersion)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockRepository_MarkDeleting_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MarkDeleting'
+type MockRepository_MarkDeleting_Call struct {
+	*mock.Call
+}
+
+// MarkDeleting is a helper method to define mock.On call
+//   - ctx context.Context
+//   - c *campaign.Campaign
+//   - expectedVersion int64
+func (_e *MockRepository_Expecter) MarkDeleting(ctx interface{}, c interface{}, expectedVersion interface{}) *MockRepository_MarkDeleting_Call {
+	return &MockRepository_MarkDeleting_Call{Call: _e.mock.On("MarkDeleting", ctx, c, expectedVersion)}
+}
+
+func (_c *MockRepository_MarkDeleting_Call) Run(run func(ctx context.Context, c *campaign.Campaign, expectedVersion int64)) *MockRepository_MarkDeleting_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*campaign.Campaign), args[2].(int64))
+	})
+	return _c
+}
+
+func (_c *MockRepository_MarkDeleting_Call) Return(_a0 error) *MockRepository_MarkDeleting_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRepository_MarkDeleting_Call) RunAndReturn(run func(context.Context, *campaign.Campaign, int64) error) *MockRepository_MarkDeleting_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Save provides a mock function with given fields: ctx, c, expectedVersion
 func (_m *MockRepository) Save(ctx context.Context, c *campaign.Campaign, expectedVersion int64) error {
 	ret := _m.Called(ctx, c, expectedVersion)

@@ -32,6 +32,7 @@ func (cc *CampaignController) RegisterRoutes(group *echo.Group) {
 	group.GET("", cc.ListMine)
 	group.GET("/:id", cc.Fetch)
 	group.POST("/:id/leave", cc.Leave)
+	group.DELETE("/:id", cc.Delete)
 	group.POST("/:id/members/:userId/promote", cc.Promote)
 	group.POST("/:id/members/:userId/demote", cc.Demote)
 	group.POST("/:id/members/:userId/remove", cc.Remove)
@@ -80,6 +81,18 @@ func (cc *CampaignController) Leave(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (cc *CampaignController) Delete(c *echo.Context) error {
+	userID, _ := auth.UserID(c)
+	err := cc.service.Delete(c.Request().Context(), campaign.DeleteCommand{
+		CampaignID: c.Param("id"),
+		ActorID:    userID,
+	})
+	if err != nil {
+		return err
+	}
+	return response.JSON(c, http.StatusAccepted, campaignDeletionDTO{Status: campaign.StatusDeleting})
+}
+
 func (cc *CampaignController) Promote(c *echo.Context) error {
 	return cc.changeRole(c, cc.service.Promote)
 }
@@ -103,6 +116,10 @@ func (cc *CampaignController) changeRole(c *echo.Context, apply func(context.Con
 		return err
 	}
 	return response.OK(c, view)
+}
+
+type campaignDeletionDTO struct {
+	Status campaign.Status `json:"status"`
 }
 
 type campaignNameLookup struct {

@@ -228,3 +228,31 @@ func TestCampaignRoutes_RoleChangeRefusals(t *testing.T) {
 		})
 	}
 }
+
+func TestCampaignRoutes_Delete(t *testing.T) {
+	t.Run("Happy path: deleting answers 202 with the deleting status", func(t *testing.T) {
+		svc := campaignmocks.NewMockService(t)
+		svc.EXPECT().Delete(mock.Anything, campaign.DeleteCommand{CampaignID: campaignTestID, ActorID: campaignTestUserID}).Return(nil).Once()
+		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodDelete, "/campaigns/"+campaignTestID, "")
+		assert.Equal(t, http.StatusAccepted, rec.Code)
+		assert.Contains(t, rec.Body.String(), `"status":"deleting"`)
+	})
+	tests := []struct {
+		name   string
+		code   apperr.Code
+		status int
+	}{
+		{"Error: a GM or player deleting is 403", apperr.CodeCampaignForbidden, http.StatusForbidden},
+		{"Error: an unknown or already deleting campaign is 404", apperr.CodeCampaignNotFound, http.StatusNotFound},
+		{"Error: a failed release is 500", apperr.CodeInternal, http.StatusInternalServerError},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := campaignmocks.NewMockService(t)
+			svc.EXPECT().Delete(mock.Anything, mock.Anything).Return(apperr.NewError(tc.code, "boom", nil)).Once()
+			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodDelete, "/campaigns/"+campaignTestID, "")
+			assert.Equal(t, tc.status, rec.Code)
+			assert.Equal(t, string(tc.code), campaignErrorCode(t, rec))
+		})
+	}
+}

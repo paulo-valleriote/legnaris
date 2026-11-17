@@ -81,6 +81,7 @@ type Service interface {
 	Promote(ctx context.Context, cmd RoleCommand) (View, error)
 	Demote(ctx context.Context, cmd RoleCommand) (View, error)
 	Remove(ctx context.Context, cmd RoleCommand) (View, error)
+	Delete(ctx context.Context, cmd DeleteCommand) error
 }
 
 const (
@@ -117,6 +118,7 @@ type ServiceImpl struct {
 	unlinker   CharacterUnlinker
 	names      NameLookup
 	guard      CreateGuard
+	releaser   OwnershipReleaser
 	now        func() time.Time
 }
 
@@ -132,6 +134,10 @@ func WithNameLookup(n NameLookup) ServiceOption {
 
 func WithCreateGuard(g CreateGuard) ServiceOption {
 	return func(s *ServiceImpl) { s.guard = g }
+}
+
+func WithOwnershipReleaser(r OwnershipReleaser) ServiceOption {
+	return func(s *ServiceImpl) { s.releaser = r }
 }
 
 func WithClock(now func() time.Time) ServiceOption {
