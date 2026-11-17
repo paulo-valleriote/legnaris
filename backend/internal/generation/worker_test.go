@@ -160,6 +160,27 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
 
+	t.Run("Happy path: an enemy job filters playerName out of the schema and prompts", func(t *testing.T) {
+		f := newWorkerFixture(t, 5)
+		tmpl := kindFixtureTemplate()
+		dag := fixtureDAG(t, tmpl)
+		f.catalog.EXPECT().FetchByID(fixtureID).Return(tmpl, true).Once()
+		f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
+		f.expectClaimKind(string(plan.KindEnemy), trialReservation)
+		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
+			return !strings.Contains(string(req.Schema), "playerName") &&
+				!strings.Contains(req.System, "playerName") &&
+				strings.Contains(req.System, "an enemy sheet that the game master controls") &&
+				strings.Contains(req.Prompt, "Enemy concept")
+		})).Return(llm.Response{Output: json.RawMessage(npcOutput)}, nil).Once()
+		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.MatchedBy(func(values map[string]any) bool {
+			return values["identity"].(map[string]any)["playerName"] == "" &&
+				values["config"].(map[string]any)["acUsesCon"] == 1.0
+		})).Return(true, nil).Once()
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
+	})
+
 	t.Run("Edge: a legacy document without a kind is generated as a character", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		tmpl := kindFixtureTemplate()

@@ -45,10 +45,10 @@ func TestAssemble(t *testing.T) {
 	t.Run("Edge: a value filtered by kind is dropped and keeps its template default", func(t *testing.T) {
 		kinded := kindFixtureTemplate()
 		kindedDAG := fixtureDAG(t, kinded)
-		expanded, err := generation.Expand(kinded, plan.KindNPC, parseFixture(t, npcOutput))
-		require.NoError(t, err)
 
-		data, err := generation.Assemble(kinded, kindedDAG, plan.KindNPC, expanded)
+		data, err := generation.Assemble(kinded, kindedDAG, plan.KindNPC, map[string]any{
+			"identity": map[string]any{"playerName": "Ana"},
+		})
 		require.NoError(t, err)
 		assert.Equal(t, "", data["identity"].(map[string]any)["playerName"])
 	})

@@ -28,12 +28,12 @@ func TestFieldSchemaDTO_MarshalJSON_GenerationMetadata(t *testing.T) {
 			want:   `{"type":"text","label":"","is_editable":true,"default":0,"generatable":true,"max_length":60}`,
 		},
 		{
-			name: "Happy path: a kind restriction is emitted as generatableKinds",
+			name: "Happy path: a kind restriction is emitted as generatable_kinds",
 			schema: FieldSchema{
 				Type: fieldTypeText, IsEditable: true, Generatable: true,
 				GeneratableKinds: []plan.SheetKind{plan.KindCharacter},
 			},
-			want: `{"type":"text","label":"","is_editable":true,"default":0,"generatable":true,"generatableKinds":["character"]}`,
+			want: `{"type":"text","label":"","is_editable":true,"default":0,"generatable":true,"generatable_kinds":["character"]}`,
 		},
 		{
 			name:   "Edge: an explicit zero minimum is emitted, not dropped",
@@ -156,7 +156,7 @@ func TestFantasyV1_GenerationMetadataPayload(t *testing.T) {
 	identity := payload.Fields["identity"].Children
 	assert.Equal(t, true, identity["characterName"].Schema["generatable"])
 	assert.Equal(t, float64(60), identity["characterName"].Schema["max_length"])
-	assert.Equal(t, []any{"character"}, identity["playerName"].Schema["generatableKinds"])
+	assert.Equal(t, []any{"character"}, identity["playerName"].Schema["generatable_kinds"])
 	assert.Equal(t, float64(1), identity["level"].Schema["min"])
 	assert.Equal(t, float64(20), identity["level"].Schema["max"])
 

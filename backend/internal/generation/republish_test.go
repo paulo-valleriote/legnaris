@@ -97,6 +97,7 @@ func TestRepublishQueue_Sweep(t *testing.T) {
 		name        string
 		attempts    int
 		attemptCap  int
+		legacyKind  bool
 		publishErr  error
 		wantPublish bool
 		wantResched bool
@@ -106,6 +107,7 @@ func TestRepublishQueue_Sweep(t *testing.T) {
 		quotaKind   string
 	}{
 		{name: "Happy path: a routed job is left to the worker", attemptCap: 5, wantPublish: true},
+		{name: "Edge: a legacy job without a stored kind republishes on the character kind", attemptCap: 5, legacyKind: true, wantPublish: true},
 		{name: "Edge: a failed publish is rescheduled while attempts remain", attempts: 0, attemptCap: 5, publishErr: errors.New("broker down"), wantPublish: true, wantResched: true},
 		{name: "Edge: the last attempt gives up and refunds the trial", attempts: 4, attemptCap: 5, publishErr: errors.New("broker down"), wantPublish: true, wantDead: true, wantRefund: "trial", quotaKind: generation.ReservationTrial},
 		{name: "Edge: the last attempt gives up and refunds the daily day", attempts: 4, attemptCap: 5, publishErr: errors.New("broker down"), wantPublish: true, wantDead: true, wantRefund: "daily", quotaKind: generation.ReservationDaily, refundDay: "2026-11-14"},
@@ -114,8 +116,12 @@ func TestRepublishQueue_Sweep(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newRepublishFixture(t)
+			kind := "character"
+			if tc.legacyKind {
+				kind = ""
+			}
 			doc := generation.Document{
-				ID: jobID, UserID: userID, Kind: "character", Status: generation.StatusQueued,
+				ID: jobID, UserID: userID, Kind: kind, Status: generation.StatusQueued,
 				PublishAttempts: tc.attempts,
 				Quota:           generation.Reservation{Kind: tc.quotaKind, DayUTC: tc.refundDay},
 			}
