@@ -21,15 +21,14 @@ export const messages = {
     'Use a permanent email address. Disposable addresses cannot receive your code.',
   'api.error.sheetLimitReached':
     'Your plan has no room for another sheet of this kind. Remove one to make space.',
-  'api.error.generationInProgress':
-    'You already have a character being generated. Finish it first.',
+  'api.error.generationInProgress': 'You already have a sheet being generated. Finish it first.',
   'api.error.planUpgradeRequired':
-    'You have used your free character generations. Your existing sheets are still yours.',
+    'You have used your free generations. Your existing sheets are still yours.',
   'api.error.quotaExceeded': "You have used today's generations. Try again after the reset.",
-  'api.error.llmConsentRequired': 'Confirm the AI disclosure to generate a character.',
+  'api.error.llmConsentRequired': 'Confirm the AI disclosure to generate a sheet.',
   'api.error.providerUnavailable':
     'Generation is unavailable right now. Your generation was refunded. Try again later.',
-  'api.error.generationCapReached': 'Character generation is busy today. Try again tomorrow.',
+  'api.error.generationCapReached': 'Generation is busy today. Try again tomorrow.',
   'api.error.generationFailed': "We couldn't generate it. Your generation was refunded. Try again.",
   'api.error.generationTimeout':
     'This is taking longer than usual. You can keep waiting or come back later.',
