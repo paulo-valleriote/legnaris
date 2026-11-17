@@ -14,6 +14,7 @@ import (
 	"legnaris/backend/internal/campaign/mocks"
 	"legnaris/backend/internal/events"
 	eventsmocks "legnaris/backend/internal/events/mocks"
+	"legnaris/backend/internal/sheet"
 	"legnaris/backend/shared/apperr"
 )
 
@@ -28,17 +29,20 @@ func mustNewHasher() campaign.PasswordHasher {
 }
 
 type harness struct {
-	t        *testing.T
-	repo     *mocks.MockRepository
-	tx       *mocks.MockTransactionRunner
-	pub      *eventsmocks.MockPublisher
-	unlinker *mocks.MockCharacterUnlinker
-	names    *mocks.MockNameLookup
-	guard    *mocks.MockCreateGuard
-	limiter  *mocks.MockJoinLimiter
-	events   []events.Event
-	saved    *campaign.Campaign
-	inserted *campaign.Campaign
+	t         *testing.T
+	repo      *mocks.MockRepository
+	tx        *mocks.MockTransactionRunner
+	pub       *eventsmocks.MockPublisher
+	unlinker  *mocks.MockCharacterUnlinker
+	names     *mocks.MockNameLookup
+	guard     *mocks.MockCreateGuard
+	sheets    *mocks.MockCharacterStore
+	limiter   *mocks.MockJoinLimiter
+	linked    []sheet.Sheet
+	linkedErr error
+	events    []events.Event
+	saved     *campaign.Campaign
+	inserted  *campaign.Campaign
 }
 
 func newHarness(t *testing.T) *harness {
@@ -51,8 +55,12 @@ func newHarness(t *testing.T) *harness {
 		unlinker: mocks.NewMockCharacterUnlinker(t),
 		names:    mocks.NewMockNameLookup(t),
 		guard:    mocks.NewMockCreateGuard(t),
+		sheets:   mocks.NewMockCharacterStore(t),
 		limiter:  mocks.NewMockJoinLimiter(t),
 	}
+	h.sheets.EXPECT().ListByCampaignID(mock.Anything, mock.Anything).RunAndReturn(
+		func(context.Context, string) ([]sheet.Sheet, error) { return h.linked, h.linkedErr },
+	).Maybe()
 	h.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).RunAndReturn(
 		func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
 	).Maybe()
@@ -70,6 +78,7 @@ func (h *harness) service(opts ...campaign.ServiceOption) campaign.Service {
 	base := []campaign.ServiceOption{
 		campaign.WithCharacterUnlinker(h.unlinker),
 		campaign.WithNameLookup(h.names),
+		campaign.WithCharacterStore(h.sheets),
 		campaign.WithClock(campaigntest.Now),
 		campaign.WithPasswordHasher(testHasher),
 		campaign.WithJoinLimiter(h.limiter),

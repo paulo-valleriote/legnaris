@@ -19,6 +19,10 @@ type Repository interface {
 	FetchByOwnerID(ctx context.Context, ownerID string) (*Sheet, error)
 	PartialUpdate(ctx context.Context, id string, expectedVersion int64, dbUpdates map[string]any) (int64, error)
 	UpdateLayout(ctx context.Context, id string, layout *Layout) error
+	LinkCampaign(ctx context.Context, id string, expectedCampaignID *string, campaignID string) (bool, error)
+	UnlinkOwnerCampaign(ctx context.Context, ownerID, campaignID string) (int64, error)
+	UnlinkCampaignBatch(ctx context.Context, campaignID string, limit int) (int64, error)
+	ListByCampaignID(ctx context.Context, campaignID string) ([]Sheet, error)
 	DeleteByID(ctx context.Context, id string) error
 	ReserveSlot(ctx context.Context, ownerID string, kind plan.SheetKind, limit int) error
 	ReleaseSlot(ctx context.Context, ownerID string, kind plan.SheetKind) error
@@ -52,6 +56,13 @@ const setOperator = "$set"
 const diceField = "dice"
 
 const versionField = "version"
+
+const (
+	campaignIDField    = "campaign_id"
+	layoutVersionField = "layout_version"
+	unsetOperator      = "$unset"
+	inOperator         = "$in"
+)
 
 var ErrSheetNotFound = errors.New("sheet not found")
 
@@ -198,7 +209,10 @@ func versionMatcher(expectedVersion int64) any {
 
 func (r *RepositoryImpl) UpdateLayout(ctx context.Context, id string, layout *Layout) error {
 	filter := bson.D{{Key: idField, Value: id}}
-	update := bson.M{setOperator: bson.M{layoutField: layout}}
+	update := bson.M{
+		setOperator: bson.M{layoutField: layout},
+		incOperator: bson.M{layoutVersionField: 1},
+	}
 
 	result, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
@@ -221,4 +235,79 @@ func (r *RepositoryImpl) DeleteByID(ctx context.Context, id string) error {
 		return ErrSheetNotFound
 	}
 	return nil
+}
+
+func (r *RepositoryImpl) LinkCampaign(ctx context.Context, id string, expectedCampaignID *string, campaignID string) (bool, error) {
+	var expected any
+	if expectedCampaignID != nil {
+		expected = *expectedCampaignID
+	}
+	filter := bson.D{
+		{Key: idField, Value: id},
+		{Key: campaignIDField, Value: expected},
+	}
+	update := bson.D{{Key: setOperator, Value: bson.D{{Key: campaignIDField, Value: campaignID}}}}
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return false, fmt.Errorf("error linking sheet to campaign: %w", err)
+	}
+	return result.MatchedCount == 1, nil
+}
+
+func (r *RepositoryImpl) UnlinkOwnerCampaign(ctx context.Context, ownerID, campaignID string) (int64, error) {
+	filter := bson.D{
+		{Key: ownerIDField, Value: ownerID},
+		{Key: campaignIDField, Value: campaignID},
+	}
+	update := bson.D{{Key: unsetOperator, Value: bson.D{{Key: campaignIDField, Value: ""}}}}
+	result, err := r.collection.UpdateMany(ctx, filter, update)
+	if err != nil {
+		return 0, fmt.Errorf("error unlinking owner sheets from campaign: %w", err)
+	}
+	return result.ModifiedCount, nil
+}
+
+func (r *RepositoryImpl) UnlinkCampaignBatch(ctx context.Context, campaignID string, limit int) (int64, error) {
+	if limit <= 0 {
+		return 0, nil
+	}
+	filter := bson.D{{Key: campaignIDField, Value: campaignID}}
+	opts := options.Find().SetProjection(bson.D{{Key: idField, Value: 1}}).SetLimit(int64(limit))
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return 0, fmt.Errorf("error listing campaign sheets: %w", err)
+	}
+	var ids []struct {
+		ID string `bson:"_id"`
+	}
+	if err := cursor.All(ctx, &ids); err != nil {
+		return 0, fmt.Errorf("error decoding campaign sheets: %w", err)
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	keys := make(bson.A, 0, len(ids))
+	for _, doc := range ids {
+		keys = append(keys, doc.ID)
+	}
+	update := bson.D{{Key: unsetOperator, Value: bson.D{{Key: campaignIDField, Value: ""}}}}
+	result, err := r.collection.UpdateMany(ctx, bson.D{{Key: idField, Value: bson.D{{Key: inOperator, Value: keys}}}}, update)
+	if err != nil {
+		return 0, fmt.Errorf("error unlinking campaign sheets: %w", err)
+	}
+	return result.ModifiedCount, nil
+}
+
+func (r *RepositoryImpl) ListByCampaignID(ctx context.Context, campaignID string) ([]Sheet, error) {
+	filter := bson.D{{Key: campaignIDField, Value: campaignID}}
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: 1}, {Key: idField, Value: 1}})
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error listing campaign sheets: %w", err)
+	}
+	var found []Sheet
+	if err := cursor.All(ctx, &found); err != nil {
+		return nil, fmt.Errorf("error decoding campaign sheets: %w", err)
+	}
+	return found, nil
 }

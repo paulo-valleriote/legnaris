@@ -8,6 +8,7 @@ import (
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/platform/ratelimit"
+	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/json"
 	"legnaris/backend/shared/response"
@@ -38,6 +39,10 @@ func (cc *CampaignController) RegisterRoutes(group *echo.Group, joinIPLimit echo
 	group.POST("/:id/members/:userId/promote", cc.Promote)
 	group.POST("/:id/members/:userId/demote", cc.Demote)
 	group.POST("/:id/members/:userId/remove", cc.Remove)
+	group.PUT("/:id/character", cc.Link)
+	group.DELETE("/:id/character", cc.Unlink)
+	group.GET("/:id/sheets", cc.ListLinkedSheets)
+	group.GET("/:id/sheets/:sheetId", cc.FetchLinkedSheet)
 	group.POST("/:id/invite/rotate", cc.RotateInvite)
 	group.PUT("/:id/password", cc.SetPassword)
 	group.DELETE("/:id/password", cc.ClearPassword)
@@ -137,6 +142,59 @@ func (cc *CampaignController) Leave(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (cc *CampaignController) Link(c *echo.Context) error {
+	var cmd campaign.LinkCommand
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+	cmd.CampaignID = c.Param("id")
+	cmd.UserID, _ = auth.UserID(c)
+	view, err := cc.service.Link(c.Request().Context(), cmd)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, view)
+}
+
+func (cc *CampaignController) Unlink(c *echo.Context) error {
+	userID, _ := auth.UserID(c)
+	view, err := cc.service.Unlink(c.Request().Context(), campaign.UnlinkCommand{
+		CampaignID: c.Param("id"),
+		UserID:     userID,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, view)
+}
+
+func (cc *CampaignController) ListLinkedSheets(c *echo.Context) error {
+	userID, _ := auth.UserID(c)
+	summaries, err := cc.service.ListLinkedSheets(c.Request().Context(), c.Param("id"), userID)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, summaries)
+}
+
+func (cc *CampaignController) FetchLinkedSheet(c *echo.Context) error {
+	userID, _ := auth.UserID(c)
+	result, err := cc.service.ReadLinkedSheet(c.Request().Context(), campaign.ReadLinkedSheetQuery{
+		CampaignID:  c.Param("id"),
+		ViewerID:    userID,
+		SheetID:     c.Param("sheetId"),
+		IfNoneMatch: c.Request().Header.Get("If-None-Match"),
+	})
+	if err != nil {
+		return err
+	}
+	c.Response().Header().Set("ETag", result.ETag)
+	if result.NotModified {
+		return c.NoContent(http.StatusNotModified)
+	}
+	return response.OK(c, result.Sheet.ToDTO())
+}
+
 func (cc *CampaignController) Promote(c *echo.Context) error {
 	return cc.changeRole(c, cc.service.Promote)
 }
@@ -160,6 +218,15 @@ func (cc *CampaignController) changeRole(c *echo.Context, apply func(context.Con
 		return err
 	}
 	return response.OK(c, view)
+}
+
+type campaignCharacterUnlinker struct {
+	sheets sheet.Repository
+}
+
+func (u campaignCharacterUnlinker) UnlinkCharacter(ctx context.Context, campaignID, userID string) error {
+	_, err := u.sheets.UnlinkOwnerCampaign(ctx, userID, campaignID)
+	return err
 }
 
 type campaignNameLookup struct {

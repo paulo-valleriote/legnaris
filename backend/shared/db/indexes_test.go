@@ -88,6 +88,10 @@ func TestEnsureIndexes(t *testing.T) {
 		counterKey, ok := counters["sheet_counts_owner_id_kind_unique"]
 		require.True(t, ok, "sheet_counts (owner_id, kind) unique index must exist, got %v", counters)
 		assert.True(t, indexIsUnique(counterKey), "one counter per owner and kind")
+
+		campaignID, ok := sheets["sheets_campaign_id"]
+		require.True(t, ok, "sheets campaign_id index must exist, got %v", sheets)
+		assert.False(t, indexIsUnique(campaignID), "many sheets may link to one campaign")
 	})
 
 	t.Run("Edge: calling twice is idempotent", func(t *testing.T) {
