@@ -115,6 +115,10 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   const hasName = trimmedName !== '';
   const limitReached = isSheetLimitReached(plan.data, kind);
   const kindUsage = plan.data?.sheets[kind];
+  const kindDescriptionIds = [
+    ...(kindUsage === undefined ? [] : ['sheet-kind-usage']),
+    ...(limitReached ? ['sheet-kind-limit'] : []),
+  ].join(' ');
   const canSubmit = hasName && !limitReached;
 
   useEffect(() => {
@@ -182,23 +186,6 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
           />
         </div>
         <div className="lg-dialog__field">
-          <label className="lg-dialog__label" htmlFor="sheet-kind">
-            {message('catalog.kindLabel')}
-          </label>
-          <select
-            id="sheet-kind"
-            className="lg-dialog__select"
-            value={kind}
-            onChange={(event) => setKind(event.target.value as SheetKind)}
-          >
-            {SHEET_KINDS.map((option) => (
-              <option key={option} value={option}>
-                {message(KIND_LABEL_KEYS[option])}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="lg-dialog__field">
           <label className="lg-dialog__label" htmlFor="sheet-name">
             {message('sheet.nameLabel')}
           </label>
@@ -217,8 +204,29 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
               {message('sheet.nameRequired')}
             </p>
           )}
+        </div>
+        <div className="lg-dialog__field">
+          <label className="lg-dialog__label" htmlFor="sheet-kind">
+            {message('catalog.kindLabel')}
+          </label>
+          <select
+            id="sheet-kind"
+            className="lg-dialog__select"
+            value={kind}
+            aria-describedby={kindDescriptionIds === '' ? undefined : kindDescriptionIds}
+            onChange={(event) => {
+              setKind(event.target.value as SheetKind);
+              setSubmitError(undefined);
+            }}
+          >
+            {SHEET_KINDS.map((option) => (
+              <option key={option} value={option}>
+                {message(KIND_LABEL_KEYS[option])}
+              </option>
+            ))}
+          </select>
           {kindUsage !== undefined && (
-            <p className="lg-dialog__note" data-testid="sheet-usage">
+            <p className="lg-dialog__note" id="sheet-kind-usage" data-testid="sheet-usage">
               {messageWith('sheet.usage', {
                 used: kindUsage.used,
                 limit: kindUsage.limit,
@@ -226,7 +234,12 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
             </p>
           )}
           {limitReached && (
-            <p className="lg-dialog__note" role="status" data-testid="sheet-limit-reached">
+            <p
+              className="lg-dialog__note"
+              id="sheet-kind-limit"
+              role="status"
+              data-testid="sheet-limit-reached"
+            >
               {message('sheet.limitReached')}
             </p>
           )}
@@ -237,13 +250,24 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
           </p>
         )}
         <div className="lg-dialog__actions">
-          <Link
-            className="lg-button lg-button--secondary lg-dialog__generate"
-            to={`/generate/${encodeURIComponent(templateId)}?kind=${encodeURIComponent(kind)}`}
-            onClick={onClose}
-          >
-            {message('generate.entry')}
-          </Link>
+          {limitReached ? (
+            <button
+              type="button"
+              className="lg-button lg-button--secondary lg-dialog__generate"
+              disabled
+              title={message('sheet.limitReached')}
+            >
+              {message('generate.entry')}
+            </button>
+          ) : (
+            <Link
+              className="lg-button lg-button--secondary lg-dialog__generate"
+              to={`/generate/${encodeURIComponent(templateId)}?kind=${encodeURIComponent(kind)}`}
+              onClick={onClose}
+            >
+              {message('generate.entry')}
+            </Link>
+          )}
           <button
             type="button"
             className="lg-button lg-button--primary"

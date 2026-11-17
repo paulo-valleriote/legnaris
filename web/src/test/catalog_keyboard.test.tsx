@@ -17,6 +17,9 @@ const CATALOG: readonly TemplateSummary[] = [
 
 const ENTRY_NAME = /Dungeons & Dragons 5e/;
 
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 function clientWith(transport: Transport) {
   return createApiClient({ baseUrl: BASE_URL, transport: withPlanUsage(transport) });
 }
@@ -72,7 +75,8 @@ describe('catalog keyboard and navigation (WCT-19, WCT-20, WCT-27)', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog.contains(document.activeElement)).toBe(true);
 
-    for (let step = 0; step < 5 && dialog.contains(document.activeElement); step += 1) {
+    const bound = dialog.querySelectorAll(FOCUSABLE_SELECTOR).length + 1;
+    for (let step = 0; step < bound && dialog.contains(document.activeElement); step += 1) {
       await user.tab({ shift: true });
     }
 
