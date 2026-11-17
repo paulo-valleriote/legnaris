@@ -298,35 +298,45 @@ func TestDeletionDeps_EndToEndRemovesCampaignAndUnlinksSheets(t *testing.T) {
 	assert.Len(t, pub.events, 1, "campaign.deleted is announced once")
 }
 
-type lateLinkingLinks struct {
-	inner    campaign.SheetLinks
-	t        *testing.T
-	fixture  deletionFixture
-	injected bool
-	late     string
+type betweenBatchesTx struct {
+	inner      campaign.TransactionRunner
+	t          *testing.T
+	fixture    deletionFixture
+	campaignID string
+	committed  int
+	late       string
 }
 
-func (l *lateLinkingLinks) UnlinkCampaignBatch(ctx context.Context, campaignID string, limit int) (int64, error) {
-	if !l.injected {
-		l.injected = true
-		l.late = l.fixture.insertSheet(l.t, campaignID)
+// The late sheet is written after the first batch commits, so the next batch snapshot sees it.
+// A link written inside a running batch is rejected by the campaign version write conflict,
+// because a link goes through campaign.Mutate and bumps the Campaign.
+func (r *betweenBatchesTx) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	if err := r.inner.WithTransaction(ctx, fn); err != nil {
+		return err
 	}
-	return l.inner.UnlinkCampaignBatch(ctx, campaignID, limit)
+	r.committed++
+	if r.committed == 1 {
+		r.late = r.fixture.insertSheet(r.t, r.campaignID)
+	}
+	return nil
 }
 
 func TestDeletionDeps_LateLinkIsUndoneBeforeRemoval(t *testing.T) {
 	f := newDeletionFixture(t)
 	c := f.insertDeleting(t, campaigntest.Now())
-	links := &lateLinkingLinks{inner: f.links, t: t, fixture: f}
+	first := f.insertSheet(t, c.ID)
+	tx := &betweenBatchesTx{inner: f.tx, t: t, fixture: f, campaignID: c.ID}
 	pub := &recordingPublisher{}
-	deps := campaign.DeletionDeps{Store: f.store, Links: links, Tx: f.tx, Publisher: pub, Now: campaigntest.Now}
+	deps := campaign.DeletionDeps{Store: f.store, Links: f.links, Tx: tx, Publisher: pub, Now: campaigntest.Now}
 
 	require.NoError(t, deps.Handle(f.ctx, c))
 
-	require.True(t, links.injected, "the late link must have been written during the deletion")
-	var doc bson.M
-	require.NoError(t, f.sheets.FindOne(f.ctx, bson.D{{Key: "_id", Value: links.late}}).Decode(&doc))
-	assert.Nil(t, doc["campaign_id"], "a link committed while deleting is undone before the campaign is removed")
+	require.NotEmpty(t, tx.late, "the late link must have been written between batches")
+	for _, id := range []string{first, tx.late} {
+		var doc bson.M
+		require.NoError(t, f.sheets.FindOne(f.ctx, bson.D{{Key: "_id", Value: id}}).Decode(&doc))
+		assert.Nil(t, doc["campaign_id"], "every link written while deleting is undone before the campaign is removed")
+	}
 	count, err := f.campaigns.CountDocuments(f.ctx, bson.D{{Key: "_id", Value: c.ID}})
 	require.NoError(t, err)
 	assert.Zero(t, count)
