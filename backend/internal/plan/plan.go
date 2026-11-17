@@ -25,12 +25,17 @@ func ParseSheetKind(raw string) (SheetKind, bool) {
 }
 
 type Plan struct {
-	ID          string
-	sheetLimits map[SheetKind]int
+	ID             string
+	sheetLimits    map[SheetKind]int
+	ownedCampaigns int
 }
 
 func (p Plan) SheetLimit(kind SheetKind) int {
 	return p.sheetLimits[kind]
+}
+
+func (p Plan) OwnedCampaignLimit() int {
+	return p.ownedCampaigns
 }
 
 const (
@@ -45,6 +50,7 @@ var Free = Plan{
 		KindNPC:       2,
 		KindMonster:   2,
 	},
+	ownedCampaigns: 1,
 }
 
 var Paid = Plan{
@@ -54,6 +60,7 @@ var Paid = Plan{
 		KindNPC:       50,
 		KindMonster:   50,
 	},
+	ownedCampaigns: 5,
 }
 
 func Lookup(id string) Plan {
