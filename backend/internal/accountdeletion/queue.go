@@ -6,11 +6,14 @@ import (
 
 	"legnaris/backend/internal/sweeper"
 	"legnaris/backend/internal/user"
+	"legnaris/backend/shared/apperr"
 )
 
 const QueueName = "users_deleting"
 
 const Interval = time.Minute
+
+const MsgDepsRequired = "account deletion dependencies are required"
 
 type BillingSettler interface {
 	Settle(ctx context.Context, userID string) error
@@ -57,6 +60,9 @@ func (s store) OldestPending(ctx context.Context) (time.Time, bool, error) {
 }
 
 func NewQueue(deps Deps, attemptCap, batch int) (sweeper.Queue, error) {
+	if deps.Billing == nil || deps.Campaigns == nil {
+		return sweeper.Queue{}, apperr.NewError(apperr.CodeInternal, MsgDepsRequired, nil)
+	}
 	s := store{deps: deps}
 	return sweeper.NewQueue(sweeper.QueueSpec[user.User]{
 		Name:       QueueName,

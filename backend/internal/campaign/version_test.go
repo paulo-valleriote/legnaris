@@ -42,7 +42,8 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, player).Return(nil).Once()
 			},
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
-				settler := campaign.NewAccountSettler(h.repo, h.tx, &fakeOwnership{counts: map[string]int{}}, h.unlinker, h.pub, campaigntest.Now)
+				settler, err := campaign.NewAccountSettler(h.repo, h.tx, &fakeOwnership{counts: map[string]int{}}, h.unlinker, h.pub, campaigntest.Now)
+				require.NoError(t, err)
 				return settler.SettleAccount(ctx, campaigntest.MembersWithRole(base, campaign.RolePlayer)[0])
 			},
 		},
@@ -63,7 +64,8 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, owner).Return(nil).Once()
 			},
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
-				settler := campaign.NewAccountSettler(h.repo, h.tx, &fakeOwnership{counts: map[string]int{}}, h.unlinker, h.pub, campaigntest.Now)
+				settler, err := campaign.NewAccountSettler(h.repo, h.tx, &fakeOwnership{counts: map[string]int{}}, h.unlinker, h.pub, campaigntest.Now)
+				require.NoError(t, err)
 				return settler.SettleAccount(ctx, campaigntest.OwnerID(base))
 			},
 		},

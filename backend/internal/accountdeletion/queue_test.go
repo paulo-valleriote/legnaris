@@ -50,21 +50,37 @@ func newQueueRunner(t *testing.T, deps accountdeletion.Deps, attemptCap int) *sw
 
 func TestNewQueue(t *testing.T) {
 	tests := []struct {
-		name       string
-		attemptCap int
-		batch      int
-		wantErr    bool
+		name             string
+		mutate           func(*accountdeletion.Deps)
+		attemptCap       int
+		batch            int
+		wantErr          bool
+		wantInvalidQueue bool
 	}{
 		{name: "Happy path: the queue registers under users_deleting every minute", attemptCap: 5, batch: 10},
-		{name: "Edge: a zero batch is refused", attemptCap: 5, batch: 0, wantErr: true},
-		{name: "Edge: a zero attempt cap is refused", attemptCap: 0, batch: 10, wantErr: true},
+		{name: "Edge: a zero batch is refused", attemptCap: 5, batch: 0, wantErr: true, wantInvalidQueue: true},
+		{name: "Edge: a zero attempt cap is refused", attemptCap: 0, batch: 10, wantErr: true, wantInvalidQueue: true},
+		{name: "Error: a nil campaign settler is refused", mutate: func(d *accountdeletion.Deps) { d.Campaigns = nil }, attemptCap: 5, batch: 10, wantErr: true},
+		{name: "Error: a nil billing settler is refused", mutate: func(d *accountdeletion.Deps) { d.Billing = nil }, attemptCap: 5, batch: 10, wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			deps := accountdeletion.Deps{Store: usermocks.NewMockDeletionStore(t), Tx: &stubTransactor{}, Billing: accountdeletionmocks.NewMockBillingSettler(t)}
+			deps := accountdeletion.Deps{
+				Store:     usermocks.NewMockDeletionStore(t),
+				Tx:        &stubTransactor{},
+				Billing:   accountdeletionmocks.NewMockBillingSettler(t),
+				Campaigns: noCampaigns{},
+			}
+			if tc.mutate != nil {
+				tc.mutate(&deps)
+			}
 			queue, err := accountdeletion.NewQueue(deps, tc.attemptCap, tc.batch)
-			if tc.wantErr {
+			if tc.wantInvalidQueue {
 				require.ErrorIs(t, err, sweeper.ErrInvalidQueue)
+				return
+			}
+			if tc.wantErr {
+				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)

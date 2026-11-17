@@ -119,6 +119,8 @@ const (
 	MsgCampaignWrite        = "failed to write campaign"
 	MsgConcurrentChange     = "campaign was changed by another request, try again"
 	MsgTransactionFailed    = "campaign transaction failed"
+	MsgHandOffIncomplete    = "campaign ownership hand-off did not complete before the owner left"
+	MsgAccountSettlerDeps   = "campaign account settler dependencies are required"
 	MsgCreateFailed         = "failed to create campaign"
 	MsgListFailed           = "failed to list campaigns"
 	MsgInviteInvalid        = "invite code or password is not valid"
