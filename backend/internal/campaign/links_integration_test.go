@@ -83,6 +83,7 @@ func newLinkFixture(t *testing.T) linkMongoFixture {
 func (f linkMongoFixture) insertCampaign(t *testing.T) campaign.Campaign {
 	t.Helper()
 	c := campaigntest.Build(t, 0, 1)
+	c.InviteCode = campaigntest.NewID(t)
 	require.NoError(t, f.repo.Insert(f.ctx, &c))
 	return c
 }
@@ -503,12 +504,14 @@ func TestGmExit_DeletesOnlyThatGMsLinks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newLinkFixture(t)
 			base := campaigntest.Build(t, 1, 0)
+			base.InviteCode = campaigntest.NewID(t)
 			require.NoError(t, f.repo.Insert(f.ctx, &base))
 			owner := campaigntest.OwnerID(base)
 			coGM := campaigntest.MembersWithRole(base, campaign.RoleGM)[0]
 			sh := f.insertSheet(t, coGM, plan.KindMonster)
 			otherCampaign := campaigntest.Build(t, 0, 0)
 			otherCampaign.Members[0].UserID = coGM
+			otherCampaign.InviteCode = campaigntest.NewID(t)
 			require.NoError(t, f.repo.Insert(f.ctx, &otherCampaign))
 			ownerSheet := f.insertSheet(t, owner, plan.KindNPC)
 
