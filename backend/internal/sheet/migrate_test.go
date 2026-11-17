@@ -26,8 +26,6 @@ func seedLegacySheet(t *testing.T, mdb *mongo.Database, id, owner string) {
 	require.NoError(t, err)
 }
 
-const legacyMonsterKind = "monster"
-
 func seedSheetKind(t *testing.T, mdb *mongo.Database, id, owner, kind string) {
 	t.Helper()
 	_, err := mdb.Collection("sheets").InsertOne(context.Background(), bson.D{
@@ -105,8 +103,8 @@ func TestMigrateKinds(t *testing.T) {
 
 	t.Run("Happy path: legacy monster sheets become enemies and their counters follow", func(t *testing.T) {
 		_, mdb := newRepositoryTestWithDB(t)
-		seedSheetKind(t, mdb, "01900000-0000-7000-8000-0000000000c1", "owner-e1", legacyMonsterKind)
-		seedSheetKind(t, mdb, "01900000-0000-7000-8000-0000000000c2", "owner-e1", legacyMonsterKind)
+		seedSheetKind(t, mdb, "01900000-0000-7000-8000-0000000000c1", "owner-e1", sheet.LegacyEnemyKind())
+		seedSheetKind(t, mdb, "01900000-0000-7000-8000-0000000000c2", "owner-e1", sheet.LegacyEnemyKind())
 		seedSheetKind(t, mdb, "01900000-0000-7000-8000-0000000000c3", "owner-e1", string(plan.KindNPC))
 
 		report, err := sheet.MigrateKinds(ctx, mdb)
@@ -114,20 +112,20 @@ func TestMigrateKinds(t *testing.T) {
 		assert.Equal(t, int64(2), report.RenamedEnemySheets)
 		assert.Equal(t, int64(0), report.BackfilledSheets)
 
-		assert.Zero(t, countSheetDocs(t, mdb, legacyMonsterKind), "no sheet keeps the legacy kind")
+		assert.Zero(t, countSheetDocs(t, mdb, sheet.LegacyEnemyKind()), "no sheet keeps the legacy kind")
 		assert.Equal(t, int64(2), countSheetDocs(t, mdb, string(plan.KindEnemy)))
 
 		repo := sheet.NewRepository(mdb, nil)
 		count, err := repo.CountOf(ctx, "owner-e1", plan.KindEnemy)
 		require.NoError(t, err)
 		assert.Equal(t, 2, count)
-		assert.Zero(t, countCounterDocs(t, mdb, "owner-e1", legacyMonsterKind), "the legacy counter is gone")
+		assert.Zero(t, countCounterDocs(t, mdb, "owner-e1", sheet.LegacyEnemyKind()), "the legacy counter is gone")
 		assert.Equal(t, int64(1), countCounterDocs(t, mdb, "owner-e1", string(plan.KindNPC)))
 	})
 
 	t.Run("Edge: a second run renames nothing and keeps the counters", func(t *testing.T) {
 		_, mdb := newRepositoryTestWithDB(t)
-		seedSheetKind(t, mdb, "01900000-0000-7000-8000-0000000000c4", "owner-e2", legacyMonsterKind)
+		seedSheetKind(t, mdb, "01900000-0000-7000-8000-0000000000c4", "owner-e2", sheet.LegacyEnemyKind())
 
 		first, err := sheet.MigrateKinds(ctx, mdb)
 		require.NoError(t, err)

@@ -94,13 +94,13 @@ describe('sheet model', () => {
     expect(() => parseSheet(sheetPayload({ kind: 3 }))).toThrow(DefensiveParseFailure);
   });
 
-  it('Edge: the former Enemy kind value is refused like any other unknown kind', () => {
-    const formerEnemyKind = ['mons', 'ter'].join('');
+  it('Edge: the legacy monster kind is refused like any other unknown kind', () => {
+    const LEGACY_MONSTER_KIND = 'monster';
 
-    expect(() => parseSheet(sheetPayload({ kind: formerEnemyKind }))).toThrow(
+    expect(() => parseSheet(sheetPayload({ kind: LEGACY_MONSTER_KIND }))).toThrow(
       DefensiveParseFailure,
     );
-    expect(isLinkableSheetKind(formerEnemyKind as SheetKind)).toBe(false);
+    expect(isLinkableSheetKind(LEGACY_MONSTER_KIND as SheetKind)).toBe(false);
   });
 });
 

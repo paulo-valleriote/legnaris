@@ -3,7 +3,9 @@ package outbox
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -17,27 +19,29 @@ const (
 	operandIn      = "$in"
 )
 
-func RewritePendingDataKind(ctx context.Context, database *mongo.Database, eventTypes []string, from, to string) (int64, error) {
-	if len(eventTypes) == 0 || from == "" || to == "" || from == to {
-		return 0, nil
+var (
+	ErrInvalidRewrite    = errors.New("invalid pending data kind rewrite")
+	ErrOutboxLeased      = errors.New("event outbox is leased by a running relay")
+	ErrRewriteConflict   = errors.New("pending event outbox entry changed during the rewrite")
+	ErrRewriteIncomplete = errors.New("pending event outbox entries still carry the old kind")
+)
+
+func RewritePendingDataKind(ctx context.Context, database *mongo.Database, eventTypes []string, from, to string, now time.Time) (int64, error) {
+	if err := validateRewrite(eventTypes, from, to); err != nil {
+		return 0, err
 	}
 
 	collection := database.Collection(eventOutboxCollection)
-	cursor, err := collection.Find(ctx, bson.D{
-		{Key: fieldStatus, Value: StatusPending},
-		{Key: fieldEventType, Value: bson.D{{Key: operandIn, Value: eventTypes}}},
-	})
+	entries, err := pendingEntriesOfTypes(ctx, collection, eventTypes)
 	if err != nil {
-		return 0, fmt.Errorf("scan pending event outbox entries: %w", err)
+		return 0, err
 	}
-	defer func() { _ = cursor.Close(ctx) }()
+	if err := requireUnleased(entries, now); err != nil {
+		return 0, err
+	}
 
 	var rewritten int64
-	for cursor.Next(ctx) {
-		var entry Entry
-		if err := cursor.Decode(&entry); err != nil {
-			return rewritten, fmt.Errorf("decode pending event outbox entry: %w", err)
-		}
+	for _, entry := range entries {
 		body, changed, err := rewriteBodyKind(entry.Body, from, to)
 		if err != nil {
 			return rewritten, err
@@ -56,12 +60,81 @@ func RewritePendingDataKind(ctx context.Context, database *mongo.Database, event
 		if err != nil {
 			return rewritten, fmt.Errorf("rewrite pending event outbox entry: %w", err)
 		}
+		if result.MatchedCount == 0 {
+			return rewritten, fmt.Errorf("%w: entry %s is no longer pending or changed its body", ErrRewriteConflict, entry.ID)
+		}
 		rewritten += result.ModifiedCount
 	}
-	if err := cursor.Err(); err != nil {
-		return rewritten, fmt.Errorf("read pending event outbox entries: %w", err)
+
+	if err := verifyNoOldKind(ctx, collection, eventTypes, from, to); err != nil {
+		return rewritten, err
 	}
 	return rewritten, nil
+}
+
+func validateRewrite(eventTypes []string, from, to string) error {
+	if len(eventTypes) == 0 {
+		return fmt.Errorf("%w: no event type given", ErrInvalidRewrite)
+	}
+	if from == "" {
+		return fmt.Errorf("%w: empty source kind", ErrInvalidRewrite)
+	}
+	if to == "" {
+		return fmt.Errorf("%w: empty target kind", ErrInvalidRewrite)
+	}
+	if from == to {
+		return fmt.Errorf("%w: source and target kinds are equal", ErrInvalidRewrite)
+	}
+	return nil
+}
+
+func pendingEntriesOfTypes(ctx context.Context, collection *mongo.Collection, eventTypes []string) ([]Entry, error) {
+	cursor, err := collection.Find(ctx, bson.D{
+		{Key: fieldStatus, Value: StatusPending},
+		{Key: fieldEventType, Value: bson.D{{Key: operandIn, Value: eventTypes}}},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan pending event outbox entries: %w", err)
+	}
+	defer func() { _ = cursor.Close(ctx) }()
+
+	var entries []Entry
+	if err := cursor.All(ctx, &entries); err != nil {
+		return nil, fmt.Errorf("read pending event outbox entries: %w", err)
+	}
+	return entries, nil
+}
+
+func requireUnleased(entries []Entry, now time.Time) error {
+	for _, entry := range entries {
+		if entry.LockedUntil != nil && entry.LockedUntil.After(now) {
+			return fmt.Errorf("%w: entry %s is leased until %s, stop the relay before rewriting",
+				ErrOutboxLeased, entry.ID, entry.LockedUntil.UTC().Format(time.RFC3339))
+		}
+	}
+	return nil
+}
+
+func verifyNoOldKind(ctx context.Context, collection *mongo.Collection, eventTypes []string, from, to string) error {
+	entries, err := pendingEntriesOfTypes(ctx, collection, eventTypes)
+	if err != nil {
+		return err
+	}
+
+	var remaining int
+	for _, entry := range entries {
+		_, changed, err := rewriteBodyKind(entry.Body, from, to)
+		if err != nil {
+			return err
+		}
+		if changed {
+			remaining++
+		}
+	}
+	if remaining > 0 {
+		return fmt.Errorf("%w: %d pending entries still carry %q", ErrRewriteIncomplete, remaining, from)
+	}
+	return nil
 }
 
 func rewriteBodyKind(body []byte, from, to string) ([]byte, bool, error) {

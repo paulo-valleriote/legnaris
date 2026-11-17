@@ -42,7 +42,7 @@ func main() {
 		if err != nil {
 			return sheet.MigrationReport{}, 0, err
 		}
-		rewritten, err := outbox.RewritePendingDataKind(ctx, mdb, sheetKindEventTypes, sheet.LegacyEnemyKind(), string(plan.KindEnemy))
+		rewritten, err := outbox.RewritePendingDataKind(ctx, mdb, sheetKindEventTypes, sheet.LegacyEnemyKind(), string(plan.KindEnemy), time.Now())
 		if err != nil {
 			return report, 0, err
 		}
