@@ -9,11 +9,11 @@ A code-defined, read-only description of a game system's fields, formulas and de
 _Avoid_: System, ruleset, schema
 
 **Sheet**:
-A character, NPC or monster built from one Template, holding the values entered and the arrangement chosen. Its Sheet kind says which of the three it is.
+A character, NPC or enemy built from one Template, holding the values entered and the arrangement chosen. Its Sheet kind says which of the three it is.
 _Avoid_: Character, document
 
 **Sheet kind**:
-What a Sheet represents: a player's character, an NPC or a monster. Every kind uses the same Template, Fields and formulas; the kind changes who uses it and how, never how its values are computed. The kind is set at creation and never changes. An NPC or monster belongs to the user who made it, exists without any Campaign, and can be linked to every Campaign where its owner is a Game Master; every Campaign sees the same Sheet.
+What a Sheet represents: a player's character, an NPC or an enemy. Every kind uses the same Template, Fields and formulas; the kind changes who uses it and how, never how its values are computed. The kind is set at creation and never changes. An NPC or enemy belongs to the user who made it, exists without any Campaign, and can be linked to every Campaign where its owner is a Game Master; every Campaign sees the same Sheet.
 _Avoid_: Sheet type, category
 
 **Plan**:
@@ -45,11 +45,11 @@ The state a Campaign enters when its Owner deletes it, while its Sheets are unli
 _Avoid_: Archived, soft-deleted, trashed
 
 **Reveal**:
-A Game Master making a linked NPC or monster visible, read-only, to the Players of one Campaign. Per Campaign and per whole Sheet; a new link starts hidden and any Game Master can reveal or hide it.
+A Game Master making a linked NPC or enemy visible, read-only, to the Players of one Campaign. Per Campaign and per whole Sheet; a new link starts hidden and any Game Master can reveal or hide it.
 _Avoid_: Share, publish, show
 
 **Player**:
-A Campaign member who plays a character in it, and reads the NPCs and monsters revealed there.
+A Campaign member who plays a character in it, and reads the NPCs and enemies revealed there.
 _Avoid_: Member, user
 
 **Field**:

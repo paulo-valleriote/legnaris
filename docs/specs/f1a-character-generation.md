@@ -11,7 +11,7 @@ Each section below states the contract the card must meet. The Jira card holds t
 - OpenRouter is the only LLM gateway, with default routing and fallbacks (ADR 0008). LGN-227 confirmed that an endpoint serves the pinned model.
 - Trial eligibility is its own card (LGN-229). LGN-182 only owns the counter and the quota.
 - LGN-186 is the generation API; LGN-230 is the worker.
-- The account-deletion cascade in F1a covers user, Sheets, generations, consent and trial. Campaigns, NPCs/Monsters and analytics are follow-ups (LGN-216, LGN-217, LGN-206).
+- The account-deletion cascade in F1a covers user, Sheets, generations, consent and trial. Campaigns, NPCs/Enemies and analytics are follow-ups (LGN-216, LGN-217, LGN-206).
 - LGN-210 (billing Provider port) belongs to F1b.
 - Go-live gate: LGN-190, LGN-195, LGN-196, LGN-226 done and deployed, LGN-227 concluded.
 

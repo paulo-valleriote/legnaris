@@ -23,7 +23,7 @@ const CHARACTER_FULL = {
   sheets: {
     character: { used: 1, limit: 1 },
     npc: { used: 0, limit: 2 },
-    monster: { used: 0, limit: 2 },
+    enemy: { used: 0, limit: 2 },
   },
 };
 
@@ -32,7 +32,7 @@ const CHARACTER_ROOM = {
   sheets: {
     character: { used: 0, limit: 1 },
     npc: { used: 0, limit: 2 },
-    monster: { used: 0, limit: 2 },
+    enemy: { used: 0, limit: 2 },
   },
 };
 

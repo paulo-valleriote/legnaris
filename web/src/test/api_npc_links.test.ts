@@ -37,7 +37,7 @@ function clientFor(...outcomes: Parameters<typeof createFakeTransport>) {
   return { client, fake };
 }
 
-describe('api client: NPC and Monster links (LGN-219)', () => {
+describe('api client: NPC and Enemy links (LGN-219)', () => {
   it('Happy path: linkNpc puts the sheet id and decodes the link', async () => {
     const { client, fake } = clientFor(successOutcome(LINK));
 
@@ -71,13 +71,13 @@ describe('api client: NPC and Monster links (LGN-219)', () => {
 
   it('Happy path: listNpcLinks reads the collection', async () => {
     const { client, fake } = clientFor(
-      successOutcome([LINK, { ...LINK, id: LINK_ID, sheet_id: SHEET_ID, kind: 'monster' }]),
+      successOutcome([LINK, { ...LINK, id: LINK_ID, sheet_id: SHEET_ID, kind: 'enemy' }]),
     );
 
     const links = await client.listNpcLinks(CAMPAIGN_ID);
 
     expect(links).toHaveLength(2);
-    expect(links[1]?.kind).toBe('monster');
+    expect(links[1]?.kind).toBe('enemy');
     expect(fake.lastRequest?.method).toBe('GET');
     expect(fake.lastRequest?.url).toBe(`${BASE_URL}/campaigns/${CAMPAIGN_ID}/npcs`);
   });

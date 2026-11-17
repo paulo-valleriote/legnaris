@@ -84,7 +84,7 @@ function readRoutes(responders: Route['respond'][]): Route[] {
   ];
 }
 
-describe('player read-only NPC and Monster view (LGN-205)', () => {
+describe('player read-only NPC and Enemy view (LGN-205)', () => {
   afterEach(() => {
     vi.useRealTimers();
     setVisibility('visible');

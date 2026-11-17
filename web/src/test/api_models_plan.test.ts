@@ -7,7 +7,7 @@ const FREE_PAYLOAD = {
   sheets: {
     character: { used: 1, limit: 1 },
     npc: { used: 0, limit: 2 },
-    monster: { used: 2, limit: 2 },
+    enemy: { used: 2, limit: 2 },
   },
 };
 
@@ -53,7 +53,7 @@ describe('plan usage model (LGN-183)', () => {
 
     expect(isSheetLimitReached(usage, 'character')).toBe(true);
     expect(isSheetLimitReached(usage, 'npc')).toBe(false);
-    expect(isSheetLimitReached(usage, 'monster')).toBe(true);
+    expect(isSheetLimitReached(usage, 'enemy')).toBe(true);
   });
 
   it('Edge: an unread or partial usage never reports the limit as reached', () => {

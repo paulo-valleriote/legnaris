@@ -54,7 +54,7 @@ export interface CampaignSheet {
   readonly updatedAt: string;
 }
 
-export const LINKABLE_SHEET_KINDS = ['npc', 'monster'] as const;
+export const LINKABLE_SHEET_KINDS = ['npc', 'enemy'] as const;
 
 export type NpcKind = (typeof LINKABLE_SHEET_KINDS)[number];
 

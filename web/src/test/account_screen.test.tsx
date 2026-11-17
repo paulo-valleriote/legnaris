@@ -135,7 +135,7 @@ describe('account sheet usage (LGN-234)', () => {
         successOutcome({
           ...NO_CONSENT_PLAN,
           sheets: {
-            monster: { used: 1, limit: 2 },
+            enemy: { used: 1, limit: 2 },
             character: { used: 0, limit: 1 },
             npc: { used: 2, limit: 2 },
           },
@@ -149,7 +149,7 @@ describe('account sheet usage (LGN-234)', () => {
     expect(labels).toEqual([
       message('account.usageCharacter'),
       message('account.usageNpc'),
-      message('account.usageMonster'),
+      message('account.usageEnemy'),
     ]);
     const counts = Array.from(usage.querySelectorAll('dd')).map((node) => node.textContent);
     expect(counts).toEqual([
@@ -191,7 +191,7 @@ describe('account sheet usage (LGN-234)', () => {
       plans: [
         successOutcome({
           ...NO_CONSENT_PLAN,
-          sheets: { monster: { used: 120, limit: 500 } },
+          sheets: { enemy: { used: 120, limit: 500 } },
         }),
       ],
     });
