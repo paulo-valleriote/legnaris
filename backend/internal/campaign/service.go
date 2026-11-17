@@ -91,6 +91,7 @@ type Service interface {
 	ReadLinkedSheet(ctx context.Context, q ReadLinkedSheetQuery) (LinkedSheetResult, error)
 	LinkNpc(ctx context.Context, cmd LinkNpcCommand) (NpcLinkView, error)
 	UnlinkNpc(ctx context.Context, cmd UnlinkNpcCommand) error
+	SetNpcRevealed(ctx context.Context, cmd RevealNpcCommand) (NpcLinkView, error)
 	ListNpcLinks(ctx context.Context, campaignID, viewerID string) ([]NpcLinkView, error)
 	ReadNpcSheet(ctx context.Context, q ReadNpcSheetQuery) (LinkedSheetResult, error)
 	JoinByCode(ctx context.Context, cmd JoinCommand) (View, error)

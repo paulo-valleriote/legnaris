@@ -46,6 +46,8 @@ func (cc *CampaignController) RegisterRoutes(group *echo.Group, joinIPLimit echo
 	group.GET("/:id/sheets/:sheetId", cc.FetchLinkedSheet)
 	group.PUT("/:id/npcs", cc.LinkNpc)
 	group.DELETE("/:id/npcs/:sheetId", cc.UnlinkNpc)
+	group.PUT("/:id/npcs/:sheetId/reveal", cc.RevealNpc)
+	group.DELETE("/:id/npcs/:sheetId/reveal", cc.HideNpc)
 	group.GET("/:id/npcs", cc.ListNpcLinks)
 	group.GET("/:id/npcs/:sheetId", cc.FetchNpcSheet)
 	group.POST("/:id/invite/rotate", cc.RotateInvite)
@@ -225,6 +227,28 @@ func (cc *CampaignController) UnlinkNpc(c *echo.Context) error {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (cc *CampaignController) RevealNpc(c *echo.Context) error {
+	return cc.setNpcRevealed(c, true)
+}
+
+func (cc *CampaignController) HideNpc(c *echo.Context) error {
+	return cc.setNpcRevealed(c, false)
+}
+
+func (cc *CampaignController) setNpcRevealed(c *echo.Context, revealed bool) error {
+	userID, _ := auth.UserID(c)
+	view, err := cc.service.SetNpcRevealed(c.Request().Context(), campaign.RevealNpcCommand{
+		CampaignID: c.Param("id"),
+		UserID:     userID,
+		SheetID:    c.Param("sheetId"),
+		Revealed:   revealed,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, view)
 }
 
 func (cc *CampaignController) ListNpcLinks(c *echo.Context) error {

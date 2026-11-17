@@ -379,12 +379,13 @@ func TestListNpcLinks(t *testing.T) {
 	dangling := linkFixture(campaigntest.NewID(t), base.ID, campaigntest.NewID(t), owner)
 
 	tests := []struct {
-		name     string
-		viewer   string
-		links    []campaign.SheetLink
-		sheets   map[string]sheet.Sheet
-		wantCode apperr.Code
-		wantLen  int
+		name        string
+		viewer      string
+		links       []campaign.SheetLink
+		sheets      map[string]sheet.Sheet
+		wantCode    apperr.Code
+		wantLen     int
+		wantSheetID string
 	}{
 		{
 			name:     "Error: a non-member gets not found",
@@ -394,11 +395,19 @@ func TestListNpcLinks(t *testing.T) {
 			wantCode: apperr.CodeCampaignNotFound,
 		},
 		{
-			name:     "Error: a player cannot list NPC links",
-			viewer:   player,
-			links:    []campaign.SheetLink{hiddenLink},
-			sheets:   map[string]sheet.Sheet{hidden.ID: hidden},
-			wantCode: apperr.CodeCampaignForbidden,
+			name:        "Happy path: a player lists only revealed links",
+			viewer:      player,
+			links:       []campaign.SheetLink{hiddenLink, revealedLink},
+			sheets:      map[string]sheet.Sheet{hidden.ID: hidden, revealed.ID: revealed},
+			wantLen:     1,
+			wantSheetID: revealed.ID,
+		},
+		{
+			name:    "Edge: a player with only hidden links gets an empty list",
+			viewer:  player,
+			links:   []campaign.SheetLink{hiddenLink},
+			sheets:  map[string]sheet.Sheet{hidden.ID: hidden},
+			wantLen: 0,
 		},
 		{
 			name:    "Edge: a GM with no links gets an empty list",
@@ -443,6 +452,10 @@ func TestListNpcLinks(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Len(t, out, tc.wantLen)
+			if tc.wantSheetID != "" {
+				assert.Equal(t, tc.wantSheetID, out[0].SheetID)
+				assert.True(t, out[0].Revealed)
+			}
 			if tc.wantLen == 2 {
 				assert.Equal(t, hidden.ID, out[0].SheetID)
 				assert.Equal(t, "Brom", out[0].Name)
@@ -515,22 +528,29 @@ func TestReadNpcSheet(t *testing.T) {
 	sh := npcSheet(t, owner, base.TemplateID, plan.KindNPC)
 	sh.Version = 5
 	sh.LayoutVersion = 3
-	wantETag := campaign.SheetETag(5, 3, campaign.RoleGM)
+	gmETag := campaign.SheetETag(5, 3, campaign.RoleGM)
+	playerETag := campaign.SheetETag(5, 3, campaign.RolePlayer)
 
 	tests := []struct {
 		name        string
 		viewer      string
+		revealed    bool
 		missingLink bool
 		missingRow  bool
 		ifNoneMatch string
 		wantCode    apperr.Code
 		wantNotMod  bool
+		wantETag    string
 	}{
-		{name: "Happy path: a GM reads a hidden linked NPC with its ETag", viewer: coGM},
-		{name: "Happy path: the owner reads their own linked NPC", viewer: owner},
-		{name: "Happy path: a matching ETag answers 304", viewer: coGM, ifNoneMatch: wantETag, wantNotMod: true},
-		{name: "Edge: a stale ETag answers the full sheet", viewer: coGM, ifNoneMatch: `"4.3.gm"`},
-		{name: "Error: a player cannot read NPC sheets yet", viewer: player, wantCode: apperr.CodeCampaignForbidden},
+		{name: "Happy path: a GM reads a hidden linked NPC with its ETag", viewer: coGM, wantETag: gmETag},
+		{name: "Happy path: the owner reads their own linked NPC", viewer: owner, wantETag: gmETag},
+		{name: "Happy path: a player reads a revealed NPC read-only", viewer: player, revealed: true, wantETag: playerETag},
+		{name: "Happy path: a matching GM ETag answers 304", viewer: coGM, ifNoneMatch: gmETag, wantNotMod: true, wantETag: gmETag},
+		{name: "Happy path: a matching player ETag answers 304", viewer: player, revealed: true, ifNoneMatch: playerETag, wantNotMod: true, wantETag: playerETag},
+		{name: "Edge: a stale ETag answers the full sheet", viewer: coGM, ifNoneMatch: `"4.3.gm"`, wantETag: gmETag},
+		{name: "Edge: a GM ETag does not match a player read", viewer: player, revealed: true, ifNoneMatch: gmETag, wantETag: playerETag},
+		{name: "Error: a player cannot read a hidden NPC", viewer: player, wantCode: apperr.CodeNotFound},
+		{name: "Error: lost access with a matching ETag is 404 before the tag is evaluated", viewer: player, ifNoneMatch: playerETag, wantCode: apperr.CodeNotFound},
 		{name: "Error: a non-member gets not found", viewer: stranger, wantCode: apperr.CodeCampaignNotFound},
 		{name: "Error: a missing link is not found", viewer: coGM, missingLink: true, wantCode: apperr.CodeNotFound},
 		{name: "Error: a missing sheet is not found", viewer: coGM, missingRow: true, wantCode: apperr.CodeNotFound},
@@ -539,16 +559,20 @@ func TestReadNpcSheet(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newHarness(t)
 			h.loadAlways(base)
-			if tc.missingLink {
+			switch {
+			case tc.missingLink:
 				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(nil, campaign.ErrLinkNotFound).Once()
-			} else if tc.wantCode != apperr.CodeCampaignNotFound && tc.wantCode != apperr.CodeCampaignForbidden {
+			case tc.wantCode == apperr.CodeCampaignNotFound:
+			default:
 				link := linkFixture(campaigntest.NewID(t), base.ID, sh.ID, owner)
-				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&link, nil).Maybe()
-			}
-			if tc.missingRow {
-				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, sheet.ErrSheetNotFound).Once()
-			} else if tc.wantCode != apperr.CodeCampaignNotFound && tc.wantCode != apperr.CodeCampaignForbidden && !tc.missingLink {
-				h.sheetReturns(sh)
+				link.Revealed = tc.revealed
+				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&link, nil).Once()
+				hiddenFromPlayer := tc.wantCode == apperr.CodeNotFound && !tc.missingRow
+				if tc.missingRow {
+					h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, sheet.ErrSheetNotFound).Once()
+				} else if !hiddenFromPlayer {
+					h.sheetReturns(sh)
+				}
 			}
 			res, err := h.service().ReadNpcSheet(context.Background(), campaign.ReadNpcSheetQuery{
 				CampaignID:  base.ID,
@@ -558,10 +582,11 @@ func TestReadNpcSheet(t *testing.T) {
 			})
 			if tc.wantCode != "" {
 				requireAppErr(t, err, tc.wantCode)
+				assert.Empty(t, res.ETag)
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, wantETag, res.ETag)
+			assert.Equal(t, tc.wantETag, res.ETag)
 			assert.Equal(t, tc.wantNotMod, res.NotModified)
 			if tc.wantNotMod {
 				assert.Nil(t, res.Sheet)

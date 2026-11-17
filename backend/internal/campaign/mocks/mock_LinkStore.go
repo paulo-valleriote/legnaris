@@ -258,6 +258,65 @@ func (_c *MockLinkStore_ListByCampaignID_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// SetRevealed provides a mock function with given fields: ctx, campaignID, sheetID, revealed
+func (_m *MockLinkStore) SetRevealed(ctx context.Context, campaignID string, sheetID string, revealed bool) (campaign.SheetLink, error) {
+	ret := _m.Called(ctx, campaignID, sheetID, revealed)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetRevealed")
+	}
+
+	var r0 campaign.SheetLink
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, bool) (campaign.SheetLink, error)); ok {
+		return rf(ctx, campaignID, sheetID, revealed)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, bool) campaign.SheetLink); ok {
+		r0 = rf(ctx, campaignID, sheetID, revealed)
+	} else {
+		r0 = ret.Get(0).(campaign.SheetLink)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, bool) error); ok {
+		r1 = rf(ctx, campaignID, sheetID, revealed)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockLinkStore_SetRevealed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetRevealed'
+type MockLinkStore_SetRevealed_Call struct {
+	*mock.Call
+}
+
+// SetRevealed is a helper method to define mock.On call
+//   - ctx context.Context
+//   - campaignID string
+//   - sheetID string
+//   - revealed bool
+func (_e *MockLinkStore_Expecter) SetRevealed(ctx interface{}, campaignID interface{}, sheetID interface{}, revealed interface{}) *MockLinkStore_SetRevealed_Call {
+	return &MockLinkStore_SetRevealed_Call{Call: _e.mock.On("SetRevealed", ctx, campaignID, sheetID, revealed)}
+}
+
+func (_c *MockLinkStore_SetRevealed_Call) Run(run func(ctx context.Context, campaignID string, sheetID string, revealed bool)) *MockLinkStore_SetRevealed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(bool))
+	})
+	return _c
+}
+
+func (_c *MockLinkStore_SetRevealed_Call) Return(_a0 campaign.SheetLink, _a1 error) *MockLinkStore_SetRevealed_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockLinkStore_SetRevealed_Call) RunAndReturn(run func(context.Context, string, string, bool) (campaign.SheetLink, error)) *MockLinkStore_SetRevealed_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Upsert provides a mock function with given fields: ctx, link
 func (_m *MockLinkStore) Upsert(ctx context.Context, link *campaign.SheetLink) (campaign.SheetLink, bool, error) {
 	ret := _m.Called(ctx, link)
