@@ -12,39 +12,41 @@ import (
 )
 
 const (
-	usersEmailUniqueIndex          = "users_email_unique"
-	usersUsernameUniqueIndex       = "users_username_unique"
-	refreshTokensHashUniqueIndex   = "refresh_tokens_token_hash_unique"
-	refreshTokensFamilyIndex       = "refresh_tokens_family_id"
-	refreshTokensExpiresAtTTLIndex = "refresh_tokens_expires_at_ttl"
-	sheetsOwnerKindIndex           = "sheets_owner_id_kind"
-	sheetCountsUniqueIndex         = "sheet_counts_owner_id_kind_unique"
-	emailOutboxStatusNextAttempt   = "email_outbox_status_next_attempt"
-	emailOutboxCreatedAt           = "email_outbox_created_at"
-	emailOutboxPublishedAtTTL      = "email_outbox_published_at_ttl"
-	authChallengesActiveUnique     = "auth_challenges_active_unique"
-	authChallengesExpiresAtTTL     = "auth_challenges_expires_at_ttl"
-	emailNoticesClaimedAtTTL       = "email_notices_claimed_at_ttl"
-	eventOutboxStatusNextAttempt   = "event_outbox_status_next_attempt"
-	eventOutboxPublishedAtTTL      = "event_outbox_published_at_ttl"
-	generationUsageUserDayUnique   = "generation_usage_user_day_unique"
-	generationUsageExpiresAtTTL    = "generation_usage_expires_at_ttl"
-	generationsActiveUserUnique    = "generations_active_user_id_unique"
-	generationsExpiresAtTTL        = "generations_expires_at_ttl"
-	generationsStatusCreatedAt     = "generations_status_created_at"
-	generationCapExpiresAtTTL      = "generation_cap_expires_at_ttl"
-	subscriptionsUserLiveUnique    = "subscriptions_user_live_unique"
-	subscriptionsUserIDField       = "user_id"
-	subscriptionsProviderSubField  = "provider_subscription_id"
-	subscriptionsProviderSubUnique = "subscriptions_provider_subscription_unique"
-	subscriptionsRefundUsedUnique  = "subscriptions_refund_used_unique"
-	billingEventsProviderUnique    = "billing_events_provider_event_unique"
-	billingEventsStatusNextAttempt = "billing_events_status_next_attempt"
-	billingEventsExpiresAtTTL      = "billing_events_expires_at_ttl"
-	subscriptionsExpiresAtTTL      = "subscriptions_expires_at_ttl"
-	billingEventsNextAttemptField  = "next_attempt_at"
-	expiresAtField                 = "expires_at"
-	statusField                    = "status"
+	usersEmailUniqueIndex           = "users_email_unique"
+	usersUsernameUniqueIndex        = "users_username_unique"
+	refreshTokensHashUniqueIndex    = "refresh_tokens_token_hash_unique"
+	refreshTokensFamilyIndex        = "refresh_tokens_family_id"
+	refreshTokensExpiresAtTTLIndex  = "refresh_tokens_expires_at_ttl"
+	sheetsOwnerKindIndex            = "sheets_owner_id_kind"
+	sheetCountsUniqueIndex          = "sheet_counts_owner_id_kind_unique"
+	emailOutboxStatusNextAttempt    = "email_outbox_status_next_attempt"
+	emailOutboxCreatedAt            = "email_outbox_created_at"
+	emailOutboxPublishedAtTTL       = "email_outbox_published_at_ttl"
+	authChallengesActiveUnique      = "auth_challenges_active_unique"
+	authChallengesExpiresAtTTL      = "auth_challenges_expires_at_ttl"
+	emailNoticesClaimedAtTTL        = "email_notices_claimed_at_ttl"
+	eventOutboxStatusNextAttempt    = "event_outbox_status_next_attempt"
+	eventOutboxPublishedAtTTL       = "event_outbox_published_at_ttl"
+	generationUsageUserDayUnique    = "generation_usage_user_day_unique"
+	generationUsageExpiresAtTTL     = "generation_usage_expires_at_ttl"
+	generationsActiveUserUnique     = "generations_active_user_id_unique"
+	generationsExpiresAtTTL         = "generations_expires_at_ttl"
+	generationsStatusCreatedAt      = "generations_status_created_at"
+	generationCapExpiresAtTTL       = "generation_cap_expires_at_ttl"
+	subscriptionsUserLiveUnique     = "subscriptions_user_live_unique"
+	subscriptionsUserIDField        = "user_id"
+	subscriptionsProviderSubField   = "provider_subscription_id"
+	subscriptionsProviderSubUnique  = "subscriptions_provider_subscription_unique"
+	subscriptionsRefundUsedUnique   = "subscriptions_refund_used_unique"
+	billingEventsProviderUnique     = "billing_events_provider_event_unique"
+	billingEventsStatusNextAttempt  = "billing_events_status_next_attempt"
+	billingEventsExpiresAtTTL       = "billing_events_expires_at_ttl"
+	subscriptionsExpiresAtTTL       = "subscriptions_expires_at_ttl"
+	billingEventsNextAttemptField   = "next_attempt_at"
+	expiresAtField                  = "expires_at"
+	statusField                     = "status"
+	campaignsMembersUserIDField     = "members.user_id"
+	campaignsMembersUserStatusIndex = "campaigns_members_user_id_status"
 )
 
 func EnsureIndexes(ctx context.Context, database *mongo.Database) error {
@@ -122,7 +124,21 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 	if err := ensureGenerationIndexes(ctx, database); err != nil {
 		return err
 	}
-	return ensureBillingIndexes(ctx, database)
+	if err := ensureBillingIndexes(ctx, database); err != nil {
+		return err
+	}
+	return ensureCampaignIndexes(ctx, database)
+}
+
+func ensureCampaignIndexes(ctx context.Context, database *mongo.Database) error {
+	campaigns := database.Collection("campaigns")
+	if _, err := campaigns.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: campaignsMembersUserIDField, Value: 1}, {Key: statusField, Value: 1}},
+		Options: options.Index().SetName(campaignsMembersUserStatusIndex),
+	}); err != nil {
+		return fmt.Errorf("create campaigns indexes: %w", err)
+	}
+	return nil
 }
 
 func ensureBillingIndexes(ctx context.Context, database *mongo.Database) error {

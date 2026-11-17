@@ -43,6 +43,13 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeAlreadySubscribed, 409},
 		{CodeBillingUnavailable, 503},
 		{CodeInvalidSignature, 400},
+		{CodeCampaignNotFound, 404},
+		{CodeCampaignFull, 409},
+		{CodeCampaignForbidden, 403},
+		{CodeInvalidInvite, 404},
+		{CodeTemplateMismatch, 422},
+		{CodeSheetAlreadyLinked, 409},
+		{CodePlanLimitReached, 403},
 	}
 
 	for _, tc := range tests {

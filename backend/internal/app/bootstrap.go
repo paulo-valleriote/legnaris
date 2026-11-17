@@ -11,6 +11,7 @@ import (
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/billing"
 	billingstripe "legnaris/backend/internal/billing/stripe"
+	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/email/disposable"
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/internal/events"
@@ -99,6 +100,7 @@ type AuthModule struct {
 type Modules struct {
 	Template       TemplateModule
 	Sheet          SheetModule
+	Campaign       CampaignModule
 	LLMConsent     LLMConsentModule
 	Auth           AuthModule
 	Generation     GenerationModule
@@ -163,6 +165,11 @@ func NewModules(
 		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
 	)
 	sheetController := NewSheetController(sheetService)
+
+	campaignService := campaign.NewService(campaign.NewRepository(mdb), db.NewTransactor(database.Client, nil), publisher,
+		campaign.WithNameLookup(campaignNameLookup{users: userRepository}),
+	)
+	campaignController := NewCampaignController(campaignService)
 
 	refreshTokenRepository := auth.NewRefreshTokenRepository(mdb)
 
@@ -287,6 +294,10 @@ func NewModules(
 		Sheet: SheetModule{
 			Controller: sheetController,
 			Service:    sheetService,
+		},
+		Campaign: CampaignModule{
+			Controller: campaignController,
+			Service:    campaignService,
 		},
 		LLMConsent: LLMConsentModule{
 			Controller: NewLLMConsentController(llmConsentService),
