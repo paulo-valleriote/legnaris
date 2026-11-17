@@ -153,12 +153,14 @@ func TestCampaignRoutes_FetchNpcSheet(t *testing.T) {
 		assert.Empty(t, rec.Body.String())
 	})
 
-	t.Run("Error: a player read is 403", func(t *testing.T) {
+	t.Run("Error: a hidden NPC is 404 for a player", func(t *testing.T) {
 		svc := campaignmocks.NewMockService(t)
 		svc.EXPECT().ReadNpcSheet(mock.Anything, mock.Anything).
-			Return(campaign.LinkedSheetResult{}, apperr.NewError(apperr.CodeCampaignForbidden, "gm only", nil)).Once()
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodGet, path, "")
-		assert.Equal(t, http.StatusForbidden, rec.Code)
+			Return(campaign.LinkedSheetResult{}, apperr.NewError(apperr.CodeNotFound, "sheet link not found", nil)).Once()
+		rec := doCampaignRequestWithHeader(newCampaignRouter(svc), path, "If-None-Match", etag)
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+		assert.Equal(t, "NOT_FOUND", campaignErrorCode(t, rec))
+		assert.Empty(t, rec.Header().Get("ETag"))
 	})
 
 	t.Run("Error: an unlinked sheet is 404", func(t *testing.T) {
