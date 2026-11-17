@@ -4,6 +4,7 @@ import (
 	"context"
 	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/billing/billingtest"
+	"legnaris/backend/internal/campaign"
 	"log/slog"
 	"net/http"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"legnaris/backend/internal/email/amqp"
 	"legnaris/backend/internal/email/outbox"
 	outboxmocks "legnaris/backend/internal/email/outbox/mocks"
+	"legnaris/backend/internal/events"
 	eventsoutbox "legnaris/backend/internal/events/outbox"
 	eventsoutboxmocks "legnaris/backend/internal/events/outbox/mocks"
 	"legnaris/backend/internal/generation"
@@ -165,6 +167,12 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 		},
 		newGenerationReap: func(env.Env, databaseHandle) (generation.ReapDeps, error) {
 			return idleReapDeps(t), nil
+		},
+		newCampaignPublisher: func(env.Env) campaignPublisherClient {
+			return fakeCampaignPublisher{}
+		},
+		newCampaignDeletion: func(env.Env, databaseHandle, events.Publisher) (campaign.DeletionDeps, error) {
+			return idleCampaignDeletionDeps(t), nil
 		},
 		newAccountDeletion: func(env.Env, databaseHandle, eventsoutbox.Repository) (accountdeletion.Deps, error) {
 			return idleDeletionDeps(t), nil

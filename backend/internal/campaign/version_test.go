@@ -13,15 +13,24 @@ import (
 )
 
 type campaignWrite struct {
-	name    string
-	base    campaign.Campaign
-	prepare func(h *harness, base campaign.Campaign)
-	run     func(ctx context.Context, h *harness, base campaign.Campaign) error
+	name         string
+	base         campaign.Campaign
+	markDeleting bool
+	prepare      func(h *harness, base campaign.Campaign)
+	run          func(ctx context.Context, h *harness, base campaign.Campaign) error
 }
 
 func successfulCampaignWrites(t *testing.T) []campaignWrite {
 	t.Helper()
 	return []campaignWrite{
+		{
+			name:         "request deletion",
+			base:         campaigntest.Build(t, 0, 2),
+			markDeleting: true,
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				return h.service().Delete(ctx, campaign.DeleteCommand{CampaignID: base.ID, ActorID: campaigntest.OwnerID(base)})
+			},
+		},
 		{
 			name: "join",
 			base: campaigntest.Build(t, 0, 2),
@@ -159,7 +168,11 @@ func TestCampaignWrites_EverySuccessfulWriteIncrementsVersionByExactlyOne(t *tes
 		t.Run(tc.name, func(t *testing.T) {
 			h := newHarness(t)
 			h.loadOnce(tc.base)
-			h.expectSave(tc.base.Version, nil)
+			if tc.markDeleting {
+				h.expectMarkDeleting(tc.base.Version, nil)
+			} else {
+				h.expectSave(tc.base.Version, nil)
+			}
 			if tc.prepare != nil {
 				tc.prepare(h, tc.base)
 			}
@@ -203,6 +216,12 @@ func TestCampaignWrites_FailedWritesPersistNothing(t *testing.T) {
 			run: func(ctx context.Context, h *harness) error {
 				_, err := h.service().Demote(ctx, campaign.RoleCommand{CampaignID: base.ID, ActorID: player, TargetID: owner})
 				return err
+			},
+		},
+		{
+			name: "player request deletion",
+			run: func(ctx context.Context, h *harness) error {
+				return h.service().Delete(ctx, campaign.DeleteCommand{CampaignID: base.ID, ActorID: player})
 			},
 		},
 		{

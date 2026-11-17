@@ -16,10 +16,12 @@ import (
 	"legnaris/backend/internal/accountdeletion"
 	"legnaris/backend/internal/billing"
 	billingstripe "legnaris/backend/internal/billing/stripe"
+	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/email"
 	"legnaris/backend/internal/email/amqp"
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/internal/email/relay"
+	"legnaris/backend/internal/events"
 	eventsamqp "legnaris/backend/internal/events/amqp"
 	eventsoutbox "legnaris/backend/internal/events/outbox"
 	eventsrelay "legnaris/backend/internal/events/relay"
@@ -27,6 +29,7 @@ import (
 	generationamqp "legnaris/backend/internal/generation/amqp"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/quota"
+	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sweeper"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/db"
@@ -54,12 +57,19 @@ type generationBrokerClient interface {
 	Close() error
 }
 
+type campaignPublisherClient interface {
+	events.Publisher
+	Close() error
+}
+
 type dependencies struct {
 	dialGenerationBroker   func(cfg env.Env) (generationBrokerClient, error)
 	newGenerationRepublish func(cfg env.Env, database databaseHandle, publisher generation.Publisher) (generation.RepublishDeps, error)
 	newGenerationReap      func(cfg env.Env, database databaseHandle) (generation.ReapDeps, error)
 	newAccountDeletion     func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (accountdeletion.Deps, error)
 	newBilling             func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error)
+	newCampaignDeletion    func(cfg env.Env, database databaseHandle, publisher events.Publisher) (campaign.DeletionDeps, error)
+	newCampaignPublisher   func(cfg env.Env) campaignPublisherClient
 	openDatabase           func(cfg env.Env) (databaseHandle, error)
 	ensureIndexes          func(ctx context.Context, cfg env.Env, database databaseHandle) error
 	newRepository          func(cfg env.Env, database databaseHandle, log logger.StructuredLogger) (outbox.Repository, error)
@@ -141,7 +151,10 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 	}
 	defer func() { _ = generationBroker.Close() }()
 
-	sweep, err := newSweeper(cfg, deps, database, eventRepository, eventBroker, generationBroker, relayMetrics)
+	campaignPublisher := deps.newCampaignPublisher(cfg)
+	defer func() { _ = campaignPublisher.Close() }()
+
+	sweep, err := newSweeper(cfg, deps, database, eventRepository, eventBroker, generationBroker, campaignPublisher, relayMetrics)
 	if err != nil {
 		return err
 	}
@@ -176,7 +189,7 @@ func newReconciler(cfg env.Env, deps dependencies, database databaseHandle, even
 	}), nil
 }
 
-func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationBroker generation.Publisher, observer sweeper.Observer) (*sweeper.Sweeper, error) {
+func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationBroker generation.Publisher, campaignPublisher events.Publisher, observer sweeper.Observer) (*sweeper.Sweeper, error) {
 	generationDeps, err := deps.newGenerationRepublish(cfg, database, generationBroker)
 	if err != nil {
 		return nil, err
@@ -193,7 +206,11 @@ func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRe
 	if err != nil {
 		return nil, err
 	}
-	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps, deletionDeps, billingDeps)
+	campaignDeps, err := deps.newCampaignDeletion(cfg, database, campaignPublisher)
+	if err != nil {
+		return nil, err
+	}
+	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps, deletionDeps, billingDeps, campaignDeps)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +221,7 @@ const eventsOutboxInterval = 30 * time.Second
 
 const generationRepublishAttemptCap = 5
 
-func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps, billingDeps billing.ConsumerDeps) ([]sweeper.Queue, error) {
+func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps, billingDeps billing.ConsumerDeps, campaignDeps campaign.DeletionDeps) ([]sweeper.Queue, error) {
 	vars := cfg.Variables
 	eventQueue, err := eventsrelay.NewQueue(eventRepository, eventBroker, eventsrelay.Config{
 		Interval:       eventsOutboxInterval,
@@ -227,6 +244,14 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
+	campaignQueue, err := campaign.NewDeletionQueue(campaignDeps, vars.EmailRelayMaxAttempts, vars.EmailRelayBatch)
+	if err != nil {
+		return nil, err
+	}
+	orphanQueue, err := campaign.NewOrphanLinksQueue(campaignDeps.Orphans, vars.EmailRelayBatch)
+	if err != nil {
+		return nil, err
+	}
 	billingQueue, err := billing.NewConsumerQueue(billingDeps, vars.EmailRelayMaxAttempts, vars.EmailRelayBatch)
 	if err != nil {
 		return nil, err
@@ -235,7 +260,7 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
-	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue, billingQueue, refundQueue}, nil
+	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue, campaignQueue, orphanQueue, billingQueue, refundQueue}, nil
 }
 
 func validateBrokerURL(raw string) error {
@@ -353,6 +378,29 @@ func defaultDependencies() dependencies {
 				Now:       time.Now,
 			}, nil
 		},
+		newCampaignPublisher: func(cfg env.Env) campaignPublisherClient {
+			return shutdownPublisher{eventsamqp.New(eventsamqp.Config{
+				URL:           cfg.Variables.RabbitMQURL,
+				Recorder:      nil,
+				Logger:        cfg.Logger,
+				RetryInterval: eventsamqp.DefaultRetryInterval,
+			})}
+		},
+		newCampaignDeletion: func(cfg env.Env, database databaseHandle, publisher events.Publisher) (campaign.DeletionDeps, error) {
+			mongo, ok := database.(*db.Database)
+			if !ok {
+				return campaign.DeletionDeps{}, fmt.Errorf("unexpected database handle type %T", database)
+			}
+			mdb := mongo.Client.Database(cfg.Variables.DatabaseName)
+			return campaign.DeletionDeps{
+				Store:     campaign.NewDeletionStore(mdb),
+				Links:     sheet.NewRepository(mdb, cfg.Logger),
+				Orphans:   campaign.NewOrphanLinks(mdb),
+				Tx:        db.NewTransactor(mongo.Client, nil),
+				Publisher: publisher,
+				Now:       time.Now,
+			}, nil
+		},
 		newAccountDeletion: func(cfg env.Env, database databaseHandle, outboxRepo eventsoutbox.Repository) (accountdeletion.Deps, error) {
 			mongo, ok := database.(*db.Database)
 			if !ok {
@@ -407,4 +455,15 @@ func newRelayBillingProvider(vars env.Variables) billing.Provider {
 		return billing.UnconfiguredProvider{}
 	}
 	return provider
+}
+
+type shutdownPublisher struct {
+	*eventsamqp.Publisher
+}
+
+func (p shutdownPublisher) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), eventsamqp.DefaultDrainTimeout)
+	defer cancel()
+	p.Shutdown(ctx)
+	return nil
 }
