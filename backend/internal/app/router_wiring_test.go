@@ -102,6 +102,7 @@ func TestRouterWiring_ActiveGateGuardsProtectedRoutes(t *testing.T) {
 		path   string
 	}{
 		{http.MethodGet, "/sheets"},
+		{http.MethodGet, "/campaigns"},
 		{http.MethodGet, "/templates"},
 		{http.MethodPost, "/generations"},
 		{http.MethodGet, "/me/plan"},
@@ -205,6 +206,9 @@ func TestRouterWiring_RequireAuthGuardsProtectedRoutes(t *testing.T) {
 		{name: "Edge: PATCH /sheets/:id without token", method: http.MethodPatch, path: "/sheets/" + missingSheetID, body: `{"data":{"stats":{"dexterity":12}}}`},
 		{name: "Edge: DELETE /sheets/:id without token", method: http.MethodDelete, path: "/sheets/" + missingSheetID},
 		{name: "Edge: POST /sheets/:id/preview without token", method: http.MethodPost, path: "/sheets/" + missingSheetID + "/preview", body: `{"data":{"stats":{"dexterity":12}}}`},
+		{name: "Edge: GET /campaigns without token", method: http.MethodGet, path: "/campaigns"},
+		{name: "Edge: POST /campaigns without token", method: http.MethodPost, path: "/campaigns", body: `{"name":"x","template_id":"dnd5e"}`},
+		{name: "Edge: POST /campaigns/:id/leave without token", method: http.MethodPost, path: "/campaigns/" + missingSheetID + "/leave"},
 		{name: "Edge: GET /templates without token", method: http.MethodGet, path: "/templates"},
 		{name: "Edge: GET /templates/:id without token", method: http.MethodGet, path: "/templates/fantasy_v1"},
 		{name: "Edge: POST /templates/:id/preview without token", method: http.MethodPost, path: "/templates/fantasy_v1/preview", body: `{"data":{"stats":{"dexterity":12}}}`},
