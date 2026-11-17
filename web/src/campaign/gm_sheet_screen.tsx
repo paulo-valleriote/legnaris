@@ -10,7 +10,7 @@ import { useApiClient } from '../app/providers';
 import { templateDetailKey } from '../catalog/queries';
 import { message, messageWith } from '../l10n/strings';
 import type { GmSheetSnapshot } from './campaign_queries';
-import { npcLinksKey, useGmNpcSheet, useGmSheet } from './campaign_queries';
+import { npcLinksKey, useNpcSheet, useGmSheet } from './campaign_queries';
 import './campaign.css';
 
 function formatValue(value: unknown): string {
@@ -99,7 +99,7 @@ export function GmSheetScreen() {
 
 export function GmNpcSheetScreen() {
   const { id = '', sheetId = '' } = useParams();
-  const sheet = useGmNpcSheet(id, sheetId);
+  const sheet = useNpcSheet(id, sheetId);
   const queryClient = useQueryClient();
   const unavailable = sheet.isError && failureKind(sheet.error) === 'notFound';
 

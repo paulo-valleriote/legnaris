@@ -6,6 +6,7 @@ import {
   isDeleting,
   isSelf,
   memberActions,
+  unlinkedNpcSheetIds,
 } from '../campaign/campaign_view';
 
 const ME = 'me-user';
@@ -102,5 +103,27 @@ describe('campaign view rules (LGN-218)', () => {
 
   it('Edge: no owned NPC or Monster sheets gives an empty choice', () => {
     expect(eligibleNpcSheetIds([], { templateId: 'fantasy_v1' })).toEqual([]);
+  });
+
+  it('Happy path: sheets already linked to the Campaign are removed from the choice', () => {
+    const sheets = [
+      { id: 's-linked', templateId: 'fantasy_v1' },
+      { id: 's-free', templateId: 'fantasy_v1' },
+      { id: 's-other-template', templateId: 'other_v1' },
+    ];
+    expect(unlinkedNpcSheetIds(sheets, { templateId: 'fantasy_v1' }, ['s-linked'])).toEqual([
+      's-free',
+    ]);
+  });
+
+  it('Edge: no links and no sheets leave nothing to offer', () => {
+    expect(unlinkedNpcSheetIds([], { templateId: 'fantasy_v1' }, [])).toEqual([]);
+    expect(
+      unlinkedNpcSheetIds(
+        [{ id: 's-linked', templateId: 'fantasy_v1' }],
+        { templateId: 'fantasy_v1' },
+        ['s-linked'],
+      ),
+    ).toEqual([]);
   });
 });

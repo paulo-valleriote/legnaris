@@ -1,11 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { HttpRequest } from '../api/transport';
 import { message, messageWith } from '../l10n/strings';
 import {
   CAMPAIGN_ID,
   MEMBER_ID,
+  OTHER_SHEET_ID,
   SHEET_ID,
   baseRoutes,
   campaignView,
@@ -95,7 +96,16 @@ function revealToggle(name: string) {
   return { name: messageWith('campaign.revealNpc', { name }) };
 }
 
+function setVisibility(state: 'visible' | 'hidden') {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+  document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+}
+
 describe('campaign screen: NPC and Monster links (LGN-219)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    setVisibility('visible');
+  });
   it('Happy path: a GM links an owned NPC, sees it hidden, and unlinks it', async () => {
     let links: unknown[] = [];
     const script = scripted(
@@ -140,24 +150,70 @@ describe('campaign screen: NPC and Monster links (LGN-219)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('Edge: re-linking the same sheet is a no-op and the list still shows one row', async () => {
+  it('Edge: a sheet already linked to this Campaign is not offered again', async () => {
+    const other = ownedSheet({ id: OTHER_SHEET_ID, name: 'Hobgoblin' });
     const script = scripted(
       npcRoutes({
         links: () => [npcLink()],
-        link: () => ok(npcLink()),
+        ownedNpcs: [ownedSheet(), other],
+      }),
+    );
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    const select = await screen.findByLabelText(message('campaign.npcLinkLabel'));
+    expect(within(select).queryByRole('option', { name: 'Goblin' })).not.toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Hobgoblin' })).toBeInTheDocument();
+  });
+
+  it('Edge: when every owned sheet is already linked there is nothing to link', async () => {
+    const script = scripted(
+      npcRoutes({
+        links: () => [npcLink()],
+        ownedNpcs: [ownedSheet()],
+      }),
+    );
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    expect(await screen.findByText(message('campaign.noEligibleNpcs'))).toBeInTheDocument();
+    expect(
+      screen.queryByRole('combobox', { name: message('campaign.npcLinkLabel') }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('Happy path: a link that already exists and is revealed says it is visible', async () => {
+    const script = scripted(
+      npcRoutes({
+        links: () => [npcLink()],
+        ownedNpcs: [ownedSheet(), ownedSheet({ id: OTHER_SHEET_ID, name: 'Hobgoblin' })],
+        link: () => ok(npcLink({ revealed: true })),
       }),
     );
     const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
-    await screen.findByRole('link', openNpc('Goblin'));
-    await user.click(screen.getByRole('button', { name: message('campaign.npcLink') }));
-    await waitFor(() => expect(script.calls('PUT', NPCS)).toHaveLength(1));
+    await screen.findByLabelText(message('campaign.npcLinkLabel'));
     await user.click(screen.getByRole('button', { name: message('campaign.npcLink') }));
 
-    await waitFor(() => expect(script.calls('PUT', NPCS)).toHaveLength(2));
-    expect(screen.getAllByRole('link', openNpc('Goblin'))).toHaveLength(1);
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(await screen.findByText(message('campaign.npcLinkedRevealed'))).toBeInTheDocument();
+    expect(screen.queryByText(message('campaign.npcLinked'))).not.toBeInTheDocument();
+  });
+
+  it('Edge: a link that starts hidden says so', async () => {
+    const script = scripted(
+      npcRoutes({
+        links: () => [],
+        ownedNpcs: [ownedSheet()],
+        link: () => ok(npcLink({ revealed: false })),
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await screen.findByLabelText(message('campaign.npcLinkLabel'));
+    await user.click(screen.getByRole('button', { name: message('campaign.npcLink') }));
+
+    expect(await screen.findByText(message('campaign.npcLinked'))).toBeInTheDocument();
+    expect(screen.queryByText(message('campaign.npcLinkedRevealed'))).not.toBeInTheDocument();
   });
 
   it('Error: a link refused because the user is no longer a GM shows the forbidden copy', async () => {
@@ -331,6 +387,34 @@ describe('campaign screen: NPC and Monster links (LGN-219)', () => {
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     expect(await screen.findByText(message('campaign.playerNpcsEmpty'))).toBeInTheDocument();
+  });
+
+  it('Happy path: the NPC list polls while the tab is visible and pauses while hidden', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const script = scripted(
+      npcRoutes(
+        { links: () => [npcLink({ revealed: true })] },
+        campaignView({ viewer_role: 'player', viewer_owner: false }),
+      ),
+    );
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await screen.findByRole('link', openNpc('Goblin'));
+    expect(script.calls('GET', NPCS)).toHaveLength(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
+    await waitFor(() => expect(script.calls('GET', NPCS)).toHaveLength(2));
+
+    setVisibility('hidden');
+    await act(async () => {
+      vi.advanceTimersByTime(180_000);
+    });
+    expect(script.calls('GET', NPCS)).toHaveLength(2);
+
+    setVisibility('visible');
+    await waitFor(() => expect(script.calls('GET', NPCS)).toHaveLength(3));
   });
 
   it.each([

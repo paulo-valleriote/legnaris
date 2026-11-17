@@ -22,11 +22,11 @@ import {
 import {
   canDeleteCampaign,
   canLinkCharacter,
-  eligibleNpcSheetIds,
   eligibleSheetIds,
   isDeleting,
   isSelf,
   memberActions,
+  unlinkedNpcSheetIds,
 } from './campaign_view';
 import { roleText } from './campaigns_screen';
 import { useApiClient } from '../app/providers';
@@ -232,13 +232,15 @@ function LinkNpcForm({
 }) {
   const npcs = useOwnedSheets('npc', true);
   const monsters = useOwnedSheets('monster', true);
+  const links = useNpcLinks(campaign.id, true);
   const [choice, setChoice] = useState('');
   const owned = [...(npcs.data ?? []), ...(monsters.data ?? [])];
-  const eligible = eligibleNpcSheetIds(owned, campaign);
+  const linkedSheetIds = (links.data ?? []).map((link) => link.sheetId);
+  const eligible = unlinkedNpcSheetIds(owned, campaign, linkedSheetIds);
   const selected = eligible.includes(choice) ? choice : (eligible[0] ?? '');
   const names = new Map(owned.map((sheet) => [sheet.id, sheet.name]));
-  const loadError = npcs.error ?? monsters.error;
-  const loaded = npcs.data !== undefined && monsters.data !== undefined;
+  const loadError = npcs.error ?? monsters.error ?? links.error;
+  const loaded = npcs.data !== undefined && monsters.data !== undefined && links.data !== undefined;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -469,9 +471,9 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
 
   const linkNpc = useMutation({
     mutationFn: (sheetId: string) => client.linkNpc(campaign.id, sheetId),
-    onSuccess: () => {
+    onSuccess: (link) => {
       setNpcError(undefined);
-      setNpcNotice(message('campaign.npcLinked'));
+      setNpcNotice(message(link.revealed ? 'campaign.npcLinkedRevealed' : 'campaign.npcLinked'));
       void queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) });
     },
     onError: (error) => {
@@ -503,8 +505,16 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
   });
 
   const setRevealed = useMutation({
-    mutationFn: ({ sheetId, revealed }: { sheetId: string; revealed: boolean }) =>
-      revealed ? client.hideNpc(campaign.id, sheetId) : client.revealNpc(campaign.id, sheetId),
+    mutationFn: ({
+      sheetId,
+      currentlyRevealed,
+    }: {
+      sheetId: string;
+      currentlyRevealed: boolean;
+    }) =>
+      currentlyRevealed
+        ? client.hideNpc(campaign.id, sheetId)
+        : client.revealNpc(campaign.id, sheetId),
     onSuccess: (link) => {
       setNpcError(undefined);
       setNpcNotice(
@@ -643,7 +653,7 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
             onToggle={(link) => {
               setNpcError(undefined);
               setNpcNotice(undefined);
-              setRevealed.mutate({ sheetId: link.sheetId, revealed: link.revealed });
+              setRevealed.mutate({ sheetId: link.sheetId, currentlyRevealed: link.revealed });
             }}
           />
         </section>
