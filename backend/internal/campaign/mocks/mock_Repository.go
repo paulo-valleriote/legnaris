@@ -81,6 +81,65 @@ func (_c *MockRepository_FetchByID_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
+// FetchByInviteCode provides a mock function with given fields: ctx, code
+func (_m *MockRepository) FetchByInviteCode(ctx context.Context, code string) (*campaign.Campaign, error) {
+	ret := _m.Called(ctx, code)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FetchByInviteCode")
+	}
+
+	var r0 *campaign.Campaign
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*campaign.Campaign, error)); ok {
+		return rf(ctx, code)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *campaign.Campaign); ok {
+		r0 = rf(ctx, code)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*campaign.Campaign)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, code)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_FetchByInviteCode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FetchByInviteCode'
+type MockRepository_FetchByInviteCode_Call struct {
+	*mock.Call
+}
+
+// FetchByInviteCode is a helper method to define mock.On call
+//   - ctx context.Context
+//   - code string
+func (_e *MockRepository_Expecter) FetchByInviteCode(ctx interface{}, code interface{}) *MockRepository_FetchByInviteCode_Call {
+	return &MockRepository_FetchByInviteCode_Call{Call: _e.mock.On("FetchByInviteCode", ctx, code)}
+}
+
+func (_c *MockRepository_FetchByInviteCode_Call) Run(run func(ctx context.Context, code string)) *MockRepository_FetchByInviteCode_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepository_FetchByInviteCode_Call) Return(_a0 *campaign.Campaign, _a1 error) *MockRepository_FetchByInviteCode_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_FetchByInviteCode_Call) RunAndReturn(run func(context.Context, string) (*campaign.Campaign, error)) *MockRepository_FetchByInviteCode_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Insert provides a mock function with given fields: ctx, c
 func (_m *MockRepository) Insert(ctx context.Context, c *campaign.Campaign) error {
 	ret := _m.Called(ctx, c)

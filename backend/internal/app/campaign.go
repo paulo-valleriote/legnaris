@@ -7,6 +7,7 @@ import (
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/campaign"
+	"legnaris/backend/internal/platform/ratelimit"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/json"
 	"legnaris/backend/shared/response"
@@ -15,8 +16,9 @@ import (
 )
 
 type CampaignModule struct {
-	Controller *CampaignController
-	Service    campaign.Service
+	Controller    *CampaignController
+	Service       campaign.Service
+	JoinIPLimiter ratelimit.Allower
 }
 
 type CampaignController struct {
@@ -27,14 +29,69 @@ func NewCampaignController(service campaign.Service) *CampaignController {
 	return &CampaignController{service: service}
 }
 
-func (cc *CampaignController) RegisterRoutes(group *echo.Group) {
+func (cc *CampaignController) RegisterRoutes(group *echo.Group, joinIPLimit echo.MiddlewareFunc) {
 	group.POST("", cc.Create)
 	group.GET("", cc.ListMine)
+	group.POST("/join", cc.Join, joinIPLimit)
 	group.GET("/:id", cc.Fetch)
 	group.POST("/:id/leave", cc.Leave)
 	group.POST("/:id/members/:userId/promote", cc.Promote)
 	group.POST("/:id/members/:userId/demote", cc.Demote)
 	group.POST("/:id/members/:userId/remove", cc.Remove)
+	group.POST("/:id/invite/rotate", cc.RotateInvite)
+	group.PUT("/:id/password", cc.SetPassword)
+	group.DELETE("/:id/password", cc.ClearPassword)
+}
+
+func (cc *CampaignController) Join(c *echo.Context) error {
+	var cmd campaign.JoinCommand
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+	cmd.UserID, _ = auth.UserID(c)
+	view, err := cc.service.JoinByCode(c.Request().Context(), cmd)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, view)
+}
+
+func (cc *CampaignController) RotateInvite(c *echo.Context) error {
+	actorID, _ := auth.UserID(c)
+	view, err := cc.service.RotateInviteCode(c.Request().Context(), campaign.InviteCommand{
+		CampaignID: c.Param("id"),
+		ActorID:    actorID,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, view)
+}
+
+func (cc *CampaignController) SetPassword(c *echo.Context) error {
+	var cmd campaign.PasswordCommand
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+	cmd.ActorID, _ = auth.UserID(c)
+	cmd.CampaignID = c.Param("id")
+	view, err := cc.service.SetPassword(c.Request().Context(), cmd)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, view)
+}
+
+func (cc *CampaignController) ClearPassword(c *echo.Context) error {
+	actorID, _ := auth.UserID(c)
+	view, err := cc.service.ClearPassword(c.Request().Context(), campaign.InviteCommand{
+		CampaignID: c.Param("id"),
+		ActorID:    actorID,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, view)
 }
 
 func (cc *CampaignController) Create(c *echo.Context) error {

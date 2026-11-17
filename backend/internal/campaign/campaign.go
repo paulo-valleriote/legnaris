@@ -41,16 +41,18 @@ type Member struct {
 }
 
 type Campaign struct {
-	ID          string    `bson:"_id"`
-	Name        string    `bson:"name"`
-	TemplateID  string    `bson:"template_id"`
-	Status      Status    `bson:"status"`
-	Version     int64     `bson:"version"`
-	GMCount     int       `bson:"gm_count"`
-	PlayerCount int       `bson:"player_count"`
-	Members     []Member  `bson:"members"`
-	CreatedAt   time.Time `bson:"created_at"`
-	UpdatedAt   time.Time `bson:"updated_at"`
+	ID           string    `bson:"_id"`
+	Name         string    `bson:"name"`
+	TemplateID   string    `bson:"template_id"`
+	Status       Status    `bson:"status"`
+	InviteCode   string    `bson:"invite_code,omitempty"`
+	PasswordHash string    `bson:"password_hash,omitempty"`
+	Version      int64     `bson:"version"`
+	GMCount      int       `bson:"gm_count"`
+	PlayerCount  int       `bson:"player_count"`
+	Members      []Member  `bson:"members"`
+	CreatedAt    time.Time `bson:"created_at"`
+	UpdatedAt    time.Time `bson:"updated_at"`
 }
 
 func (c *Campaign) Active() bool {

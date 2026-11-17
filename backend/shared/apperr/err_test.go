@@ -47,6 +47,7 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeCampaignFull, 409},
 		{CodeCampaignForbidden, 403},
 		{CodeInvalidInvite, 404},
+		{CodePasswordRequired, 403},
 		{CodeTemplateMismatch, 422},
 		{CodeSheetAlreadyLinked, 409},
 		{CodePlanLimitReached, 403},

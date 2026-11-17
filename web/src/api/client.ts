@@ -5,6 +5,8 @@ import {
   parseGeneration,
 } from './models/generation';
 import { BILLING_PATHS, parseRedirectUrl } from './models/billing';
+import type { JoinedCampaign } from './models/campaign';
+import { parseJoinedCampaign } from './models/campaign';
 import type { DiceBlock } from './models/dice';
 import { diceBlockToWire } from './models/dice';
 import type { Layout } from './models/layout';
@@ -29,6 +31,11 @@ export interface CreateSheetInput {
   readonly templateId: string;
   readonly kind: SheetKind;
   readonly sheetName: string;
+}
+
+export interface JoinCampaignInput {
+  readonly code: string;
+  readonly password?: string | undefined;
 }
 
 export type ApiClientOptions = CallerOptions;
@@ -61,6 +68,7 @@ export interface ApiClient {
     templateId: string,
     changeSet: Record<string, unknown>,
   ): Promise<Record<string, unknown>>;
+  joinCampaign(input: JoinCampaignInput): Promise<JoinedCampaign>;
 }
 
 export interface CreateGenerationInput {
@@ -89,6 +97,12 @@ function saveBody(changeSet: Record<string, unknown>, dice: DiceBlock | undefine
   return hasEntries(changeSet)
     ? { data: changeSet, ...diceBlockToWire(dice) }
     : diceBlockToWire(dice);
+}
+
+function joinBody(input: JoinCampaignInput): { code: string; password?: string } {
+  return input.password === undefined
+    ? { code: input.code }
+    : { code: input.code, password: input.password };
 }
 
 function decodeChangeSet(data: unknown): Record<string, unknown> {
@@ -178,5 +192,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         JSON.stringify({ data: changeSet }),
         decodeChangeSet,
       ),
+    joinCampaign: (input) =>
+      caller.call('POST', '/campaigns/join', JSON.stringify(joinBody(input)), parseJoinedCampaign),
   };
 }
