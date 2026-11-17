@@ -42,7 +42,9 @@ func (s *ServiceImpl) Leave(ctx context.Context, cmd LeaveCommand) error {
 	if err := requireCampaignID(cmd.CampaignID); err != nil {
 		return err
 	}
+	var removedLinks []SheetLink
 	out, err := Mutate(ctx, s.tx, s.repository, cmd.CampaignID, s.now(), func(txCtx context.Context, c *Campaign) error {
+		removedLinks = nil
 		idx, err := memberIndex(c, cmd.UserID)
 		if err != nil {
 			return err
@@ -54,6 +56,11 @@ func (s *ServiceImpl) Leave(ctx context.Context, cmd LeaveCommand) error {
 		if err := s.unlink(txCtx, c.ID, cmd.UserID); err != nil {
 			return err
 		}
+		removed, err := s.removeOwnerLinks(txCtx, c.ID, cmd.UserID)
+		if err != nil {
+			return err
+		}
+		removedLinks = removed
 		c.Members = slices.Delete(c.Members, idx, idx+1)
 		return nil
 	})
@@ -64,6 +71,7 @@ func (s *ServiceImpl) Leave(ctx context.Context, cmd LeaveCommand) error {
 		dataKeyUserID: cmd.UserID,
 		dataKeyReason: reasonLeft,
 	})
+	s.publishOwnerLeft(ctx, cmd.UserID, out, removedLinks)
 	return nil
 }
 
@@ -103,7 +111,9 @@ func (s *ServiceImpl) changeRole(
 	if err := requireCampaignID(cmd.CampaignID); err != nil {
 		return View{}, err
 	}
+	var removedLinks []SheetLink
 	out, err := Mutate(ctx, s.tx, s.repository, cmd.CampaignID, s.now(), func(txCtx context.Context, c *Campaign) error {
+		removedLinks = nil
 		actorIdx, err := memberIndex(c, cmd.ActorID)
 		if err != nil {
 			return err
@@ -126,6 +136,13 @@ func (s *ServiceImpl) changeRole(
 				return err
 			}
 		}
+		if from == RoleGM {
+			removed, err := s.removeOwnerLinks(txCtx, c.ID, cmd.TargetID)
+			if err != nil {
+				return err
+			}
+			removedLinks = removed
+		}
 		c.Members[targetIdx].Role = to
 		return nil
 	})
@@ -137,6 +154,7 @@ func (s *ServiceImpl) changeRole(
 		"from":        string(from),
 		"to":          string(to),
 	})
+	s.publishOwnerLeft(ctx, cmd.ActorID, out, removedLinks)
 	return s.view(ctx, &out, cmd.ActorID), nil
 }
 
@@ -147,7 +165,9 @@ func (s *ServiceImpl) Remove(ctx context.Context, cmd RoleCommand) (View, error)
 	if err := requireCampaignID(cmd.CampaignID); err != nil {
 		return View{}, err
 	}
+	var removedLinks []SheetLink
 	out, err := Mutate(ctx, s.tx, s.repository, cmd.CampaignID, s.now(), func(txCtx context.Context, c *Campaign) error {
+		removedLinks = nil
 		actorIdx, err := memberIndex(c, cmd.ActorID)
 		if err != nil {
 			return err
@@ -162,6 +182,11 @@ func (s *ServiceImpl) Remove(ctx context.Context, cmd RoleCommand) (View, error)
 		if err := s.unlink(txCtx, c.ID, cmd.TargetID); err != nil {
 			return err
 		}
+		removed, err := s.removeOwnerLinks(txCtx, c.ID, cmd.TargetID)
+		if err != nil {
+			return err
+		}
+		removedLinks = removed
 		c.Members = slices.Delete(c.Members, targetIdx, targetIdx+1)
 		return nil
 	})
@@ -172,5 +197,6 @@ func (s *ServiceImpl) Remove(ctx context.Context, cmd RoleCommand) (View, error)
 		dataKeyUserID: cmd.TargetID,
 		dataKeyReason: reasonRemoved,
 	})
+	s.publishOwnerLeft(ctx, cmd.ActorID, out, removedLinks)
 	return s.view(ctx, &out, cmd.ActorID), nil
 }

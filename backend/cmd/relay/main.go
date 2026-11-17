@@ -395,6 +395,7 @@ func defaultDependencies() dependencies {
 			return campaign.DeletionDeps{
 				Store:     campaign.NewDeletionStore(mdb),
 				Links:     sheet.NewRepository(mdb, cfg.Logger),
+				NpcLinks:  campaign.NewLinkStore(mdb),
 				Orphans:   campaign.NewOrphanLinks(mdb),
 				Tx:        db.NewTransactor(mongo.Client, nil),
 				Publisher: publisher,

@@ -15,6 +15,7 @@ import (
 const (
 	ReasonUnlinked     = "unlinked"
 	ReasonSheetDeleted = "sheet_deleted"
+	ReasonOwnerLeft    = "owner_left"
 )
 
 const dataKeyKind = "kind"
@@ -90,6 +91,14 @@ func (noLinks) ListByCampaignID(context.Context, string) ([]SheetLink, error) {
 
 func (noLinks) DeleteBySheetID(context.Context, string) ([]SheetLink, error) {
 	return nil, nil
+}
+
+func (noLinks) DeleteByOwner(context.Context, string, string) ([]SheetLink, error) {
+	return nil, nil
+}
+
+func (noLinks) DeleteByCampaignIDBatch(context.Context, string, int) (int64, error) {
+	return 0, nil
 }
 
 func linkableKind(kind plan.SheetKind) bool {
@@ -397,6 +406,29 @@ func (s *ServiceImpl) npcLinkView(ctx context.Context, link SheetLink, name stri
 		Revealed:  link.Revealed,
 		LinkedAt:  link.LinkedAt,
 		IsOwner:   link.OwnerID == viewerID,
+	}
+}
+
+func (s *ServiceImpl) removeOwnerLinks(ctx context.Context, campaignID, ownerID string) ([]SheetLink, error) {
+	removed, err := s.links.DeleteByOwner(ctx, campaignID, ownerID)
+	if err != nil {
+		return nil, internalError(MsgLinkWrite, err)
+	}
+	return removed, nil
+}
+
+func (s *ServiceImpl) publishOwnerLeft(ctx context.Context, actorID string, c Campaign, removed []SheetLink) {
+	for _, link := range removed {
+		stored, err := s.sheets.FetchByID(ctx, link.SheetID)
+		if err != nil {
+			continue
+		}
+		s.publishCampaignEvent(EventSheetUnlinked, actorID, c.ID, c.Version, map[string]any{
+			linkSheetIDField: link.SheetID,
+			dataKeyKind:      string(stored.Kind),
+			linkOwnerIDField: link.OwnerID,
+			dataKeyReason:    ReasonOwnerLeft,
+		})
 	}
 }
 

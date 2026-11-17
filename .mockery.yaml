@@ -38,6 +38,7 @@ packages:
       Service: {}
       DeletionStore: {}
       SheetLinks: {}
+      NpcSheetLinks: {}
       OwnershipReleaser: {}
       OrphanLinks: {}
   legnaris/backend/internal/sheet/template:

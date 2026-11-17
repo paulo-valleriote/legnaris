@@ -69,10 +69,11 @@ func idleCampaignDeletionDeps(t *testing.T) campaign.DeletionDeps {
 	orphans := campaignmocks.NewMockOrphanLinks(t)
 	orphans.EXPECT().UnlinkOrphans(mock.Anything, mock.Anything).Return(int64(0), nil).Maybe()
 	return campaign.DeletionDeps{
-		Store:   store,
-		Links:   campaignmocks.NewMockSheetLinks(t),
-		Tx:      campaignmocks.NewMockTransactionRunner(t),
-		Orphans: orphans,
+		Store:    store,
+		Links:    campaignmocks.NewMockSheetLinks(t),
+		NpcLinks: campaignmocks.NewMockNpcSheetLinks(t),
+		Tx:       campaignmocks.NewMockTransactionRunner(t),
+		Orphans:  orphans,
 	}
 }
 

@@ -82,6 +82,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			base: campaigntest.Build(t, 0, 2),
 			prepare: func(h *harness, base campaign.Campaign) {
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]).Return(nil).Once()
+				h.links.EXPECT().DeleteByOwner(mock.Anything, base.ID, campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]).Return(nil, nil).Once()
 			},
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
 				return h.service().Leave(ctx, campaign.LeaveCommand{CampaignID: base.ID, UserID: campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]})
@@ -226,7 +227,8 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 		{
 			name: "demote",
 			base: campaigntest.Build(t, 1, 0),
-			prepare: func(h *harness, _ campaign.Campaign) {
+			prepare: func(h *harness, base campaign.Campaign) {
+				h.links.EXPECT().DeleteByOwner(mock.Anything, base.ID, campaigntest.MembersWithRole(base, campaign.RoleGM)[0]).Return(nil, nil).Once()
 				h.withUsernames("someone", nil)
 			},
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
@@ -285,6 +287,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			base: campaigntest.Build(t, 0, 2),
 			prepare: func(h *harness, base campaign.Campaign) {
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]).Return(nil).Once()
+				h.links.EXPECT().DeleteByOwner(mock.Anything, base.ID, campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]).Return(nil, nil).Once()
 				h.withUsernames("someone", nil)
 			},
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {

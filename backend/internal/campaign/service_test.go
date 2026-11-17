@@ -337,6 +337,7 @@ func TestLeave(t *testing.T) {
 			setup: func(h *harness) {
 				h.loadOnce(base)
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, players[0]).Return(nil).Once()
+				h.links.EXPECT().DeleteByOwner(mock.Anything, base.ID, players[0]).Return(nil, nil).Once()
 				h.expectSave(1, nil)
 			},
 		},
@@ -371,6 +372,7 @@ func TestLeave(t *testing.T) {
 			setup: func(h *harness) {
 				h.loadOnce(base)
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, players[0]).Return(nil).Once()
+				h.links.EXPECT().DeleteByOwner(mock.Anything, base.ID, players[0]).Return(nil, nil).Once()
 				h.expectSave(1, campaign.ErrVersionConflict)
 			},
 			wantCode: apperr.CodeConflict,
@@ -527,6 +529,7 @@ func TestDemote(t *testing.T) {
 			target: gm,
 			setup: func(h *harness, stored campaign.Campaign) {
 				h.loadOnce(stored)
+				h.links.EXPECT().DeleteByOwner(mock.Anything, stored.ID, gm).Return(nil, nil).Once()
 				h.expectSave(1, nil)
 			},
 		},
@@ -600,6 +603,7 @@ func TestRemove(t *testing.T) {
 			h.loadOnce(base)
 			if tc.wantCode == "" {
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, tc.target).Return(nil).Once()
+				h.links.EXPECT().DeleteByOwner(mock.Anything, base.ID, tc.target).Return(nil, nil).Once()
 				h.expectSave(1, nil)
 			}
 			_, err := h.service().Remove(context.Background(), campaign.RoleCommand{CampaignID: base.ID, ActorID: tc.actor, TargetID: tc.target})

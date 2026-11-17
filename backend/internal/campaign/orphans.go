@@ -16,6 +16,15 @@ const (
 	OrphanQueueName      = "campaigns_orphan_links"
 	OrphanInterval       = 24 * time.Hour
 	orphanJobID          = "orphan-links"
+	lookupStage          = "$lookup"
+	matchStage           = "$match"
+	sizeOperator         = "$size"
+	lookupFromKey        = "from"
+	lookupLocalKey       = "localField"
+	lookupForeignKey     = "foreignField"
+	lookupAsKey          = "as"
+	campaignLookupField  = "campaign"
+	sheetLookupField     = "sheet"
 )
 
 type OrphanLinks interface {
@@ -24,27 +33,41 @@ type OrphanLinks interface {
 
 type MongoOrphanLinks struct {
 	sheets *mongo.Collection
+	links  *mongo.Collection
 }
 
 func NewOrphanLinks(db *mongo.Database) *MongoOrphanLinks {
-	return &MongoOrphanLinks{sheets: db.Collection(sheetsCollection)}
+	return &MongoOrphanLinks{
+		sheets: db.Collection(sheetsCollection),
+		links:  db.Collection(campaignSheetLinksCollection),
+	}
 }
 
-// UnlinkOrphans clears up to limit sheet links whose Campaign no longer exists. It returns how
-// many orphaned links it examined, so a zero means nothing is left.
 func (l *MongoOrphanLinks) UnlinkOrphans(ctx context.Context, limit int) (int64, error) {
 	if limit <= 0 {
 		return 0, nil
 	}
+	cleared, err := l.unlinkOrphanSheets(ctx, limit)
+	if err != nil {
+		return 0, err
+	}
+	deleted, err := l.deleteOrphanLinks(ctx, limit)
+	if err != nil {
+		return 0, err
+	}
+	return cleared + deleted, nil
+}
+
+func (l *MongoOrphanLinks) unlinkOrphanSheets(ctx context.Context, limit int) (int64, error) {
 	pipeline := bson.A{
-		bson.D{{Key: "$match", Value: bson.D{{Key: sheetCampaignIDField, Value: bson.D{{Key: "$ne", Value: nil}}}}}},
-		bson.D{{Key: "$lookup", Value: bson.D{
-			{Key: "from", Value: campaignsCollection},
-			{Key: "localField", Value: sheetCampaignIDField},
-			{Key: "foreignField", Value: idField},
-			{Key: "as", Value: "campaign"},
+		bson.D{{Key: matchStage, Value: bson.D{{Key: sheetCampaignIDField, Value: bson.D{{Key: "$ne", Value: nil}}}}}},
+		bson.D{{Key: lookupStage, Value: bson.D{
+			{Key: lookupFromKey, Value: campaignsCollection},
+			{Key: lookupLocalKey, Value: sheetCampaignIDField},
+			{Key: lookupForeignKey, Value: idField},
+			{Key: lookupAsKey, Value: campaignLookupField},
 		}}},
-		bson.D{{Key: "$match", Value: bson.D{{Key: "campaign", Value: bson.D{{Key: "$size", Value: 0}}}}}},
+		bson.D{{Key: matchStage, Value: bson.D{{Key: campaignLookupField, Value: bson.D{{Key: sizeOperator, Value: 0}}}}}},
 		bson.D{{Key: "$limit", Value: int64(limit)}},
 		bson.D{{Key: "$project", Value: bson.D{{Key: idField, Value: 1}, {Key: sheetCampaignIDField, Value: 1}}}},
 	}
@@ -69,6 +92,51 @@ func (l *MongoOrphanLinks) UnlinkOrphans(ctx context.Context, limit int) (int64,
 		}
 	}
 	return int64(len(orphans)), nil
+}
+
+func (l *MongoOrphanLinks) deleteOrphanLinks(ctx context.Context, limit int) (int64, error) {
+	pipeline := bson.A{
+		bson.D{{Key: lookupStage, Value: bson.D{
+			{Key: lookupFromKey, Value: campaignsCollection},
+			{Key: lookupLocalKey, Value: linkCampaignIDField},
+			{Key: lookupForeignKey, Value: idField},
+			{Key: lookupAsKey, Value: campaignLookupField},
+		}}},
+		bson.D{{Key: lookupStage, Value: bson.D{
+			{Key: lookupFromKey, Value: sheetsCollection},
+			{Key: lookupLocalKey, Value: linkSheetIDField},
+			{Key: lookupForeignKey, Value: idField},
+			{Key: lookupAsKey, Value: sheetLookupField},
+		}}},
+		bson.D{{Key: matchStage, Value: bson.D{{Key: orOperator, Value: bson.A{
+			bson.D{{Key: campaignLookupField, Value: bson.D{{Key: sizeOperator, Value: 0}}}},
+			bson.D{{Key: sheetLookupField, Value: bson.D{{Key: sizeOperator, Value: 0}}}},
+		}}}}},
+		bson.D{{Key: "$limit", Value: int64(limit)}},
+		bson.D{{Key: "$project", Value: bson.D{{Key: idField, Value: 1}}}},
+	}
+	cursor, err := l.links.Aggregate(ctx, pipeline)
+	if err != nil {
+		return 0, fmt.Errorf("find orphan npc links: %w", err)
+	}
+	var orphans []struct {
+		ID string `bson:"_id"`
+	}
+	if err := cursor.All(ctx, &orphans); err != nil {
+		return 0, fmt.Errorf("decode orphan npc links: %w", err)
+	}
+	if len(orphans) == 0 {
+		return 0, nil
+	}
+	ids := make(bson.A, 0, len(orphans))
+	for _, o := range orphans {
+		ids = append(ids, o.ID)
+	}
+	result, err := l.links.DeleteMany(ctx, bson.D{{Key: idField, Value: bson.D{{Key: inOperator, Value: ids}}}})
+	if err != nil {
+		return 0, fmt.Errorf("delete orphan npc links: %w", err)
+	}
+	return result.DeletedCount, nil
 }
 
 // orphanQueueStore has no backlog state: the sweeper's daily interval is the only schedule, and

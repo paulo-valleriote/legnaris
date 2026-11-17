@@ -19,6 +19,7 @@ import (
 type deletionHarness struct {
 	store *mocks.MockDeletionStore
 	links *mocks.MockSheetLinks
+	npc   *mocks.MockNpcSheetLinks
 	tx    *mocks.MockTransactionRunner
 	pub   *eventsmocks.MockPublisher
 	sent  []events.Event
@@ -29,6 +30,7 @@ func newDeletionHarness(t *testing.T) *deletionHarness {
 	h := &deletionHarness{
 		store: mocks.NewMockDeletionStore(t),
 		links: mocks.NewMockSheetLinks(t),
+		npc:   mocks.NewMockNpcSheetLinks(t),
 		tx:    mocks.NewMockTransactionRunner(t),
 		pub:   eventsmocks.NewMockPublisher(t),
 	}
@@ -45,6 +47,7 @@ func (h *deletionHarness) deps() campaign.DeletionDeps {
 	return campaign.DeletionDeps{
 		Store:     h.store,
 		Links:     h.links,
+		NpcLinks:  h.npc,
 		Tx:        h.tx,
 		Publisher: h.pub,
 		Now:       campaigntest.Now,
@@ -73,6 +76,7 @@ func TestDeletionDeps_Handle(t *testing.T) {
 				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(2), nil).Once()
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(4), nil).Once()
 				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
 				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(true, nil).Once()
 			},
 			wantEvent:   true,
@@ -85,6 +89,40 @@ func TestDeletionDeps_Handle(t *testing.T) {
 				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(1), nil).Once()
 				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(1), nil).Once()
 				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(true, nil).Once()
+			},
+			wantEvent:   true,
+			wantVersion: 5,
+		},
+		{
+			name: "Happy path: NPC and Monster links are deleted in batches before the campaign is removed",
+			setup: func(h *deletionHarness, c campaign.Campaign) {
+				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(6), nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(1), nil).Once()
+				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(7), nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(2), nil).Once()
+				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(8), nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(true, nil).Once()
+			},
+			wantEvent:   true,
+			wantVersion: 8,
+		},
+		{
+			name: "Edge: a late NPC link committed between batches is deleted before removal",
+			setup: func(h *deletionHarness, c campaign.Campaign) {
+				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(3), nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(1), nil).Once()
+				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(4), nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(1), nil).Once()
+				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(5), nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
 				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(true, nil).Once()
 			},
 			wantEvent:   true,
@@ -101,6 +139,7 @@ func TestDeletionDeps_Handle(t *testing.T) {
 			setup: func(h *deletionHarness, c campaign.Campaign) {
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, mock.Anything).Return(int64(4), nil).Once()
 				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
 				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(false, nil).Once()
 			},
 		},
@@ -120,10 +159,20 @@ func TestDeletionDeps_Handle(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "Error: a failed NPC link deletion leaves the campaign for a retry",
+			setup: func(h *deletionHarness, c campaign.Campaign) {
+				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, mock.Anything).Return(int64(4), nil).Once()
+				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), errors.New("boom")).Once()
+			},
+			wantErr: true,
+		},
+		{
 			name: "Error: a failed removal is not announced",
 			setup: func(h *deletionHarness, c campaign.Campaign) {
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, mock.Anything).Return(int64(4), nil).Once()
 				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
+				h.npc.EXPECT().DeleteByCampaignIDBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(0), nil).Once()
 				h.store.EXPECT().RemoveDeleting(mock.Anything, c.ID).Return(false, errors.New("boom")).Once()
 			},
 			wantErr: true,
@@ -180,6 +229,7 @@ func TestNewDeletionQueue(t *testing.T) {
 		{name: "Edge: a nil clock falls back to the wall clock", mutate: func(d *campaign.DeletionDeps) { d.Now = nil }, attemptCap: 5, batch: 25},
 		{name: "Error: a missing store is refused", mutate: func(d *campaign.DeletionDeps) { d.Store = nil }, attemptCap: 5, batch: 25, wantErr: true},
 		{name: "Error: missing sheet links are refused", mutate: func(d *campaign.DeletionDeps) { d.Links = nil }, attemptCap: 5, batch: 25, wantErr: true},
+		{name: "Error: missing NPC links are refused", mutate: func(d *campaign.DeletionDeps) { d.NpcLinks = nil }, attemptCap: 5, batch: 25, wantErr: true},
 		{name: "Error: a missing transaction runner is refused", mutate: func(d *campaign.DeletionDeps) { d.Tx = nil }, attemptCap: 5, batch: 25, wantErr: true},
 		{name: "Error: a zero batch is refused by the sweeper", attemptCap: 5, batch: 0, wantErr: true},
 		{name: "Error: a zero attempt cap is refused by the sweeper", attemptCap: 0, batch: 25, wantErr: true},
