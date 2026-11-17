@@ -33,6 +33,7 @@ import type { TemplateDetail, TemplateSummary } from './models/template';
 import { parseTemplateCatalog, parseTemplateDetail } from './models/template';
 import { drift, hasEntries, isPlainObject } from './parse';
 import type { CallerOptions } from './request';
+import type { RequestCaller } from './request';
 import { createCaller, DEFAULT_REQUEST_TIMEOUT_MS, DEFAULT_RETRY_DELAY_MS } from './request';
 
 export { DEFAULT_REQUEST_TIMEOUT_MS, DEFAULT_RETRY_DELAY_MS };
@@ -284,17 +285,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         undefined,
         parseCampaignSheets,
       ),
-    getCampaignSheet: async (campaignId, sheetId, etag) => {
-      const headers: Record<string, string> = etag === undefined ? {} : { 'if-none-match': etag };
-      const result = await caller.callConditional(
-        `/campaigns/${encodeURIComponent(campaignId)}/sheets/${encodeURIComponent(sheetId)}`,
-        parseSheet,
-        { headers },
-      );
-      return result.notModified
-        ? result
-        : { notModified: false, sheet: result.value, etag: result.etag };
-    },
+    getCampaignSheet: (campaignId, sheetId, etag) =>
+      readCampaignSheet(caller, campaignSheetPath(campaignId, 'sheets', sheetId), etag),
     linkNpc: (campaignId, sheetId) =>
       caller.call(
         'PUT',
@@ -329,17 +321,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         undefined,
         parseNpcLinks,
       ),
-    getCampaignNpc: async (campaignId, sheetId, etag) => {
-      const headers: Record<string, string> = etag === undefined ? {} : { 'if-none-match': etag };
-      const result = await caller.callConditional(
-        `/campaigns/${encodeURIComponent(campaignId)}/npcs/${encodeURIComponent(sheetId)}`,
-        parseSheet,
-        { headers },
-      );
-      return result.notModified
-        ? result
-        : { notModified: false, sheet: result.value, etag: result.etag };
-    },
+    getCampaignNpc: (campaignId, sheetId, etag) =>
+      readCampaignSheet(caller, campaignSheetPath(campaignId, 'npcs', sheetId), etag),
     rotateInvite: (campaignId) =>
       caller.call(
         'POST',
@@ -371,6 +354,26 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     joinCampaign: (input) =>
       caller.call('POST', '/campaigns/join', JSON.stringify(joinBody(input)), parseJoinedCampaign),
   };
+}
+
+function campaignSheetPath(
+  campaignId: string,
+  segment: 'sheets' | 'npcs',
+  sheetId: string,
+): string {
+  return `/campaigns/${encodeURIComponent(campaignId)}/${segment}/${encodeURIComponent(sheetId)}`;
+}
+
+async function readCampaignSheet(
+  caller: RequestCaller,
+  path: string,
+  etag: string | undefined,
+): Promise<CampaignSheetResult> {
+  const headers: Record<string, string> = etag === undefined ? {} : { 'if-none-match': etag };
+  const result = await caller.callConditional(path, parseSheet, { headers });
+  return result.notModified
+    ? result
+    : { notModified: false, sheet: result.value, etag: result.etag };
 }
 
 function memberPath(campaignId: string, userId: string, action: string): string {

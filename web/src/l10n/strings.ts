@@ -481,6 +481,8 @@ export const messages = {
   'campaign.npcLinkLabel': 'NPC or monster sheet',
   'campaign.npcLink': 'Link NPC or monster',
   'campaign.npcLinked': 'The sheet is linked to this Campaign. It starts hidden from players.',
+  'campaign.npcLinkedRevealed':
+    'The sheet is linked to this Campaign and is already visible to players.',
   'campaign.npcUnlinked': 'The sheet is no longer linked to this Campaign.',
   'campaign.npcsEmpty': 'No NPCs or monsters are linked yet.',
   'campaign.openNpc': 'Open the read-only NPC sheet of {name}',
