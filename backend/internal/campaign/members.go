@@ -62,7 +62,7 @@ func (s *ServiceImpl) Leave(ctx context.Context, cmd LeaveCommand) error {
 	}
 	s.publishCampaignEvent(EventMemberLeft, cmd.UserID, out.ID, out.Version, map[string]any{
 		dataKeyUserID: cmd.UserID,
-		"reason":      reasonLeft,
+		dataKeyReason: reasonLeft,
 	})
 	return nil
 }
@@ -170,7 +170,7 @@ func (s *ServiceImpl) Remove(ctx context.Context, cmd RoleCommand) (View, error)
 	}
 	s.publishCampaignEvent(EventMemberLeft, cmd.ActorID, out.ID, out.Version, map[string]any{
 		dataKeyUserID: cmd.TargetID,
-		"reason":      reasonRemoved,
+		dataKeyReason: reasonRemoved,
 	})
 	return s.view(ctx, &out, cmd.ActorID), nil
 }

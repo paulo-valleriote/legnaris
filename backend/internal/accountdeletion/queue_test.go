@@ -85,6 +85,8 @@ func TestQueue_Failures(t *testing.T) {
 		claim          []user.User
 		settleErr      error
 		wantSettle     int
+		campaignErr    error
+		wantCampaign   int
 		wantTx         int
 		wantReschedule bool
 		wantDead       bool
@@ -94,16 +96,28 @@ func TestQueue_Failures(t *testing.T) {
 			attemptCap:     5,
 			claim:          []user.User{{ID: victim, DeletionAttempts: 1}},
 			wantSettle:     1,
+			wantCampaign:   1,
 			wantTx:         1,
 			wantReschedule: true,
 		},
 		{
-			name:       "Error: the attempt that reaches the cap marks the account dead",
-			attemptCap: 3,
-			claim:      []user.User{{ID: victim, DeletionAttempts: 2}},
-			wantSettle: 1,
-			wantTx:     1,
-			wantDead:   true,
+			name:         "Error: the attempt that reaches the cap marks the account dead",
+			attemptCap:   3,
+			claim:        []user.User{{ID: victim, DeletionAttempts: 2}},
+			wantSettle:   1,
+			wantCampaign: 1,
+			wantTx:       1,
+			wantDead:     true,
+		},
+		{
+			name:           "Error: a failed campaign settlement reschedules before the cascade starts",
+			attemptCap:     5,
+			claim:          []user.User{{ID: victim, DeletionAttempts: 1}},
+			campaignErr:    failure,
+			wantSettle:     1,
+			wantCampaign:   1,
+			wantTx:         0,
+			wantReschedule: true,
 		},
 		{
 			name:           "Error: a provider failure while settling billing reschedules before the cascade starts",
@@ -140,14 +154,22 @@ func TestQueue_Failures(t *testing.T) {
 			if tc.wantSettle > 0 {
 				settler.EXPECT().Settle(mock.Anything, victim).Return(tc.settleErr).Times(tc.wantSettle)
 			}
+			campaigns := accountdeletionmocks.NewMockCampaignSettler(t)
+			if tc.wantCampaign > 0 {
+				campaigns.EXPECT().SettleAccount(mock.Anything, victim).Return(tc.campaignErr).Times(tc.wantCampaign)
+			}
 
 			tx := &stubTransactor{err: failure}
-			runner := newQueueRunner(t, accountdeletion.Deps{Store: store, Tx: tx, Billing: settler}, tc.attemptCap)
+			runner := newQueueRunner(t, accountdeletion.Deps{Store: store, Tx: tx, Billing: settler, Campaigns: campaigns}, tc.attemptCap)
 			require.NoError(t, runner.RunOnce(context.Background(), time.Now()))
 			assert.Equal(t, tc.wantTx, tx.calls)
 		})
 	}
 }
+
+type noCampaigns struct{}
+
+func (noCampaigns) SettleAccount(context.Context, string) error { return nil }
 
 func TestQueue_RemovesDeletingAccount(t *testing.T) {
 	mdb := dbtest.Database(t)
@@ -159,10 +181,11 @@ func TestQueue_RemovesDeletingAccount(t *testing.T) {
 	require.NoError(t, err)
 
 	deps := accountdeletion.Deps{
-		Store:   user.NewDeletionStore(mdb, logger.NewLogger(slog.LevelError)),
-		Cascade: newCascade(mdb, outbox.NewRepository(mdb, logger.NewLogger(slog.LevelError))),
-		Tx:      db.NewTransactor(mdb.Client(), nil),
-		Billing: billing.NewDeletion(billing.DeletionDeps{Provider: billingtest.NewProvider(), Ledger: billing.NewMongoStore(mdb)}),
+		Store:     user.NewDeletionStore(mdb, logger.NewLogger(slog.LevelError)),
+		Cascade:   newCascade(mdb, outbox.NewRepository(mdb, logger.NewLogger(slog.LevelError))),
+		Tx:        db.NewTransactor(mdb.Client(), nil),
+		Billing:   billing.NewDeletion(billing.DeletionDeps{Provider: billingtest.NewProvider(), Ledger: billing.NewMongoStore(mdb)}),
+		Campaigns: noCampaigns{},
 	}
 	runner := newQueueRunner(t, deps, 5)
 	require.NoError(t, runner.RunOnce(context.Background(), time.Now()))
