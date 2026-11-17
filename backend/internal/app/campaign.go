@@ -36,6 +36,7 @@ func (cc *CampaignController) RegisterRoutes(group *echo.Group, joinIPLimit echo
 	group.POST("/join", cc.Join, joinIPLimit)
 	group.GET("/:id", cc.Fetch)
 	group.POST("/:id/leave", cc.Leave)
+	group.DELETE("/:id", cc.Delete)
 	group.POST("/:id/members/:userId/promote", cc.Promote)
 	group.POST("/:id/members/:userId/demote", cc.Demote)
 	group.POST("/:id/members/:userId/remove", cc.Remove)
@@ -195,6 +196,18 @@ func (cc *CampaignController) FetchLinkedSheet(c *echo.Context) error {
 	return response.OK(c, result.Sheet.ToDTO())
 }
 
+func (cc *CampaignController) Delete(c *echo.Context) error {
+	userID, _ := auth.UserID(c)
+	err := cc.service.Delete(c.Request().Context(), campaign.DeleteCommand{
+		CampaignID: c.Param("id"),
+		ActorID:    userID,
+	})
+	if err != nil {
+		return err
+	}
+	return response.JSON(c, http.StatusAccepted, campaignDeletionDTO{Status: campaign.StatusDeleting})
+}
+
 func (cc *CampaignController) Promote(c *echo.Context) error {
 	return cc.changeRole(c, cc.service.Promote)
 }
@@ -227,6 +240,10 @@ type campaignCharacterUnlinker struct {
 func (u campaignCharacterUnlinker) UnlinkCharacter(ctx context.Context, campaignID, userID string) error {
 	_, err := u.sheets.UnlinkOwnerCampaign(ctx, userID, campaignID)
 	return err
+}
+
+type campaignDeletionDTO struct {
+	Status campaign.Status `json:"status"`
 }
 
 type campaignNameLookup struct {

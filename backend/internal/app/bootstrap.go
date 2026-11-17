@@ -291,6 +291,7 @@ func NewModules(
 	campaignService := campaign.NewService(campaign.NewRepository(mdb), db.NewTransactor(database.Client, nil), publisher,
 		campaign.WithNameLookup(campaignNameLookup{users: userRepository}),
 		campaign.WithCreateGuard(ownedCampaigns),
+		campaign.WithOwnershipReleaser(ownedCampaigns),
 		campaign.WithCharacterStore(sheetRepository),
 		campaign.WithCharacterUnlinker(campaignCharacterUnlinker{sheets: sheetRepository}),
 		campaign.WithPasswordHasher(campaignHasher),
