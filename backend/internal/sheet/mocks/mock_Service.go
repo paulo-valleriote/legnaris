@@ -367,6 +367,66 @@ func (_c *MockService_FetchMySheet_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
+// ListMine provides a mock function with given fields: ctx, ownerID, kind
+func (_m *MockService) ListMine(ctx context.Context, ownerID string, kind plan.SheetKind) ([]sheet.Sheet, error) {
+	ret := _m.Called(ctx, ownerID, kind)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListMine")
+	}
+
+	var r0 []sheet.Sheet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, plan.SheetKind) ([]sheet.Sheet, error)); ok {
+		return rf(ctx, ownerID, kind)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, plan.SheetKind) []sheet.Sheet); ok {
+		r0 = rf(ctx, ownerID, kind)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]sheet.Sheet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, plan.SheetKind) error); ok {
+		r1 = rf(ctx, ownerID, kind)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ListMine_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListMine'
+type MockService_ListMine_Call struct {
+	*mock.Call
+}
+
+// ListMine is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ownerID string
+//   - kind plan.SheetKind
+func (_e *MockService_Expecter) ListMine(ctx interface{}, ownerID interface{}, kind interface{}) *MockService_ListMine_Call {
+	return &MockService_ListMine_Call{Call: _e.mock.On("ListMine", ctx, ownerID, kind)}
+}
+
+func (_c *MockService_ListMine_Call) Run(run func(ctx context.Context, ownerID string, kind plan.SheetKind)) *MockService_ListMine_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(plan.SheetKind))
+	})
+	return _c
+}
+
+func (_c *MockService_ListMine_Call) Return(_a0 []sheet.Sheet, _a1 error) *MockService_ListMine_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ListMine_Call) RunAndReturn(run func(context.Context, string, plan.SheetKind) ([]sheet.Sheet, error)) *MockService_ListMine_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PartialUpdate provides a mock function with given fields: ctx, cmd
 func (_m *MockService) PartialUpdate(ctx context.Context, cmd sheet.PartialUpdateSheetCommand) (map[string]any, error) {
 	ret := _m.Called(ctx, cmd)

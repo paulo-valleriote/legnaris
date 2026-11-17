@@ -13,6 +13,7 @@ export interface HttpResponse {
   readonly status: number;
   readonly body: string;
   readonly retryAfter?: string;
+  readonly etag?: string;
 }
 
 export type Transport = (request: HttpRequest) => Promise<HttpResponse>;
@@ -36,9 +37,13 @@ export function createFetchTransport(fetchImpl: FetchLike): Transport {
 
     const body = await response.text();
     const retryAfter = response.headers.get('retry-after');
+    const etag = response.headers.get('etag');
 
-    return retryAfter === null
-      ? { status: response.status, body }
-      : { status: response.status, body, retryAfter };
+    return {
+      status: response.status,
+      body,
+      ...(retryAfter === null ? {} : { retryAfter }),
+      ...(etag === null ? {} : { etag }),
+    };
   };
 }

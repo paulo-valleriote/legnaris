@@ -2,6 +2,7 @@ package sheet_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -1840,4 +1841,75 @@ func TestService_Delete(t *testing.T) {
 		assert.Equal(t, 401, appErr.HttpStatus())
 		assert.Equal(t, sheet.MsgOwnerNotProvided, appErr.Message)
 	})
+}
+
+func TestService_ListMine(t *testing.T) {
+	mine := []sheet.Sheet{
+		{ID: fetchSheetID, TemplateID: "fantasy_v1", OwnerID: ownerUserID, Kind: plan.KindCharacter},
+		{ID: "0190c5a0-0000-7000-8000-000000000009", TemplateID: "fantasy_v1", OwnerID: ownerUserID, Kind: plan.KindCharacter},
+	}
+
+	tests := []struct {
+		name    string
+		owner   string
+		kind    plan.SheetKind
+		setup   func(repo *mocks.MockRepository)
+		want    []sheet.Sheet
+		wantErr apperr.Code
+	}{
+		{
+			name:  "Happy path: returns every sheet of the kind the owner holds",
+			owner: ownerUserID,
+			kind:  plan.KindCharacter,
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().ListByOwnerKind(context.Background(), ownerUserID, plan.KindCharacter).Return(mine, nil).Once()
+			},
+			want: mine,
+		},
+		{
+			name:  "Edge: an owner with no sheet of the kind gets an empty list, not an error",
+			owner: ownerUserID,
+			kind:  plan.KindNPC,
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().ListByOwnerKind(context.Background(), ownerUserID, plan.KindNPC).Return(nil, nil).Once()
+			},
+			want: nil,
+		},
+		{
+			name:    "Error: a missing owner is 401 before the repository",
+			owner:   "",
+			kind:    plan.KindCharacter,
+			setup:   func(repo *mocks.MockRepository) {},
+			wantErr: apperr.CodeUnauthorized,
+		},
+		{
+			name:  "Error: a repository failure is an internal error",
+			owner: ownerUserID,
+			kind:  plan.KindCharacter,
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().ListByOwnerKind(context.Background(), ownerUserID, plan.KindCharacter).Return(nil, fmt.Errorf("boom")).Once()
+			},
+			wantErr: apperr.CodeInternal,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewMockRepository(t)
+			tc.setup(repo)
+			svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
+
+			got, err := svc.ListMine(context.Background(), tc.owner, tc.kind)
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				var appErr *apperr.Error
+				require.ErrorAs(t, err, &appErr)
+				assert.Equal(t, tc.wantErr, appErr.Code)
+				assert.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
 }
