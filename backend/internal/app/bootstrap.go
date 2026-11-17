@@ -166,8 +166,10 @@ func NewModules(
 	)
 	sheetController := NewSheetController(sheetService)
 
+	ownedCampaigns := campaign.NewOwnershipLimiter(user.NewPlanSource(userRepository), campaign.NewOwnershipCounter(mdb))
 	campaignService := campaign.NewService(campaign.NewRepository(mdb), db.NewTransactor(database.Client, nil), publisher,
 		campaign.WithNameLookup(campaignNameLookup{users: userRepository}),
+		campaign.WithCreateGuard(ownedCampaigns),
 	)
 	campaignController := NewCampaignController(campaignService)
 
@@ -274,6 +276,7 @@ func NewModules(
 	billingInbox := billing.NewInbox(billingProvider, billingStore, time.Now)
 	planController := NewPlanController(quotaService, PlanResolverFromSource(user.NewPlanSource(userRepository)),
 		WithSheetUsage(sheetService),
+		WithOwnedCampaigns(ownedCampaigns),
 		WithBillingSummary(billing.NewStatusReader(billingStore)),
 		WithGenerationStatus(llmConsentService, generationService),
 	)
