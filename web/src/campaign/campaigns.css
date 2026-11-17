@@ -1,0 +1,259 @@
+.lg-campaigns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-32);
+  padding-bottom: var(--lg-space-48);
+}
+
+.lg-campaigns__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--lg-space-16);
+}
+
+.lg-campaigns__head-text {
+  min-width: 0;
+}
+
+.lg-campaigns__title {
+  margin: 0;
+  font-size: var(--lg-type-30);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-display);
+  letter-spacing: var(--lg-tracking-display);
+  text-wrap: balance;
+}
+
+.lg-campaigns__usage {
+  margin: var(--lg-space-4) 0 0;
+  font-size: var(--lg-type-13);
+  font-variant-numeric: tabular-nums;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-campaigns__notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lg-space-8) var(--lg-space-16);
+  padding: var(--lg-space-12) var(--lg-space-16);
+  border-left: var(--lg-size-hairline) solid var(--lg-color-warning);
+  background: var(--lg-color-surface);
+}
+
+.lg-campaigns__notice-text {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text);
+}
+
+.lg-campaigns__notice-link {
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-accent);
+  text-underline-offset: var(--lg-space-2);
+}
+
+.lg-campaigns__message {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-campaigns__empty {
+  margin: 0;
+  padding: var(--lg-space-24);
+  border: var(--lg-size-hairline) dashed var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-lg);
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
+  text-wrap: pretty;
+}
+
+.lg-campaigns__failure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lg-space-8);
+}
+
+.lg-campaigns__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border-top: var(--lg-size-hairline) solid var(--lg-color-border);
+  list-style: none;
+}
+
+.lg-campaigns__item {
+  margin: 0;
+  border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-campaigns__entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lg-space-16);
+  width: 100%;
+  min-height: calc(var(--lg-size-control) + var(--lg-space-24));
+  padding: var(--lg-space-16) var(--lg-space-8);
+  color: var(--lg-color-text);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--lg-motion-180) var(--lg-ease-standard);
+}
+
+.lg-campaigns__entry:hover {
+  background-color: var(--lg-color-surface);
+}
+
+.lg-campaigns__entry:focus-visible {
+  outline-offset: calc(var(--lg-focus-offset) * -1);
+}
+
+.lg-campaigns__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+  min-width: 0;
+}
+
+.lg-campaigns__name {
+  font-size: var(--lg-type-24);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  letter-spacing: var(--lg-tracking-display);
+  overflow-wrap: anywhere;
+}
+
+.lg-campaigns__meta {
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.lg-campaigns__trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--lg-space-12);
+}
+
+.lg-campaigns__role {
+  flex: none;
+  padding: var(--lg-space-2) var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-pill);
+  color: var(--lg-color-text-muted);
+  font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  white-space: nowrap;
+}
+
+.lg-campaigns__open {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--lg-space-24);
+  height: var(--lg-space-24);
+  color: var(--lg-color-text-muted);
+  transition:
+    color var(--lg-motion-180) var(--lg-ease-standard),
+    transform var(--lg-motion-180) var(--lg-ease-standard);
+}
+
+.lg-campaigns__open svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.lg-campaigns__entry:hover .lg-campaigns__open,
+.lg-campaigns__entry:focus-visible .lg-campaigns__open {
+  color: var(--lg-color-accent);
+  transform: translateX(var(--lg-space-4));
+}
+
+.lg-campaigns__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-16);
+}
+
+.lg-campaigns__template {
+  display: flex;
+  align-items: center;
+  min-height: var(--lg-size-control);
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text);
+}
+
+.lg-campaigns__select {
+  width: 100%;
+  min-height: var(--lg-size-control);
+  padding: 0 var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-sm);
+  background-color: var(--lg-color-inset);
+  color: var(--lg-color-text);
+  font-family: var(--lg-font-family);
+  font-size: var(--lg-type-15);
+  transition: border-color var(--lg-motion-180) var(--lg-ease-standard);
+}
+
+.lg-campaigns__select:focus-visible {
+  border-color: var(--lg-color-focus);
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: var(--lg-focus-offset);
+}
+
+.lg-campaigns__select:disabled {
+  background-color: var(--lg-color-surface);
+  color: var(--lg-color-text-muted);
+  cursor: not-allowed;
+}
+
+.lg-campaigns__error {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-danger);
+}
+
+.lg-campaigns__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--lg-space-8);
+  margin-top: var(--lg-space-8);
+}
+
+.lg-campaigns__form .lg-field {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.lg-campaigns__form .lg-field__input {
+  min-height: var(--lg-size-control);
+  padding: 0 var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-sm);
+  background-color: var(--lg-color-raised);
+  color: var(--lg-color-text);
+  font-family: var(--lg-font-family);
+  font-size: var(--lg-type-16);
+}
+
+.lg-campaigns__form .lg-field__input:focus-visible {
+  border-color: var(--lg-color-focus);
+}
