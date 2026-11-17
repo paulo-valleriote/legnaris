@@ -14,30 +14,36 @@ import (
 func TestRun(t *testing.T) {
 	tests := []struct {
 		name     string
-		migrate  func(context.Context) (sheet.MigrationReport, error)
+		migrate  func(context.Context) (sheet.MigrationReport, int64, error)
 		wantCode int
 		wantOut  string
 	}{
 		{
 			name: "Happy path: the report is printed and the run succeeds",
-			migrate: func(context.Context) (sheet.MigrationReport, error) {
-				return sheet.MigrationReport{BackfilledSheets: 3, Counters: 2}, nil
+			migrate: func(context.Context) (sheet.MigrationReport, int64, error) {
+				return sheet.MigrationReport{BackfilledSheets: 3, RenamedEnemySheets: 2, Counters: 2}, 4, nil
 			},
 			wantCode: 0,
-			wantOut:  "sheets backfilled to kind character: 3\ncounters rebuilt: 2\n",
+			wantOut: "sheets backfilled to kind character: 3\n" +
+				"sheets renamed to kind enemy: 2\n" +
+				"pending outbox events rewritten to kind enemy: 4\n" +
+				"counters rebuilt: 2\n",
 		},
 		{
 			name: "Edge: an already migrated database reports zeros and succeeds",
-			migrate: func(context.Context) (sheet.MigrationReport, error) {
-				return sheet.MigrationReport{}, nil
+			migrate: func(context.Context) (sheet.MigrationReport, int64, error) {
+				return sheet.MigrationReport{}, 0, nil
 			},
 			wantCode: 0,
-			wantOut:  "sheets backfilled to kind character: 0\ncounters rebuilt: 0\n",
+			wantOut: "sheets backfilled to kind character: 0\n" +
+				"sheets renamed to kind enemy: 0\n" +
+				"pending outbox events rewritten to kind enemy: 0\n" +
+				"counters rebuilt: 0\n",
 		},
 		{
 			name: "Error: a failed migration exits with 1 and says why",
-			migrate: func(context.Context) (sheet.MigrationReport, error) {
-				return sheet.MigrationReport{}, errors.New("replica set unreachable")
+			migrate: func(context.Context) (sheet.MigrationReport, int64, error) {
+				return sheet.MigrationReport{}, 0, errors.New("replica set unreachable")
 			},
 			wantCode: 1,
 			wantOut:  "migration failed: replica set unreachable\n",

@@ -58,7 +58,7 @@ interface World {
   readonly reveal?: Route['respond'];
   readonly hide?: Route['respond'];
   readonly ownedNpcs?: unknown[];
-  readonly ownedMonsters?: unknown[];
+  readonly ownedEnemies?: unknown[];
 }
 
 function npcRoutes(world: World, view = campaignView()): Route[] {
@@ -71,8 +71,8 @@ function npcRoutes(world: World, view = campaignView()): Route[] {
       path: '/sheets/owned',
       respond: (request: HttpRequest) =>
         ok(
-          new URL(request.url).searchParams.get('kind') === 'monster'
-            ? (world.ownedMonsters ?? [])
+          new URL(request.url).searchParams.get('kind') === 'enemy'
+            ? (world.ownedEnemies ?? [])
             : (world.ownedNpcs ?? [ownedSheet()]),
         ),
     },
@@ -101,7 +101,7 @@ function setVisibility(state: 'visible' | 'hidden') {
   document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
 }
 
-describe('campaign screen: NPC and Monster links (LGN-219)', () => {
+describe('campaign screen: NPC and Enemy links (LGN-219)', () => {
   afterEach(() => {
     vi.useRealTimers();
     setVisibility('visible');
@@ -418,10 +418,10 @@ describe('campaign screen: NPC and Monster links (LGN-219)', () => {
   });
 
   it.each([
-    ['no owned NPC or Monster sheet', [], []],
+    ['no owned NPC or Enemy sheet', [], []],
     ['owned sheets of another Template', [{ ...ownedSheet(), template_id: 'other_v1' }], []],
-  ])('Edge: %s leaves nothing to link and says why', async (_label, ownedNpcs, ownedMonsters) => {
-    const script = scripted(npcRoutes({ links: () => [], ownedNpcs, ownedMonsters }));
+  ])('Edge: %s leaves nothing to link and says why', async (_label, ownedNpcs, ownedEnemies) => {
+    const script = scripted(npcRoutes({ links: () => [], ownedNpcs, ownedEnemies }));
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     expect(await screen.findByText(message('campaign.noEligibleNpcs'))).toBeInTheDocument();
@@ -431,20 +431,20 @@ describe('campaign screen: NPC and Monster links (LGN-219)', () => {
     expect(screen.getByRole('button', { name: message('campaign.npcLink') })).toBeDisabled();
   });
 
-  it('Happy path: a Monster sheet is offered beside an NPC and linked with its kind', async () => {
+  it('Happy path: an Enemy sheet is offered beside an NPC and linked with its kind', async () => {
     let links: unknown[] = [];
-    const monster = ownedSheet({
+    const enemy = ownedSheet({
       id: '0190c5a0-0000-7000-8000-00000000c00a',
       name: 'Owlbear',
-      kind: 'monster',
+      kind: 'enemy',
     });
     const script = scripted(
       npcRoutes({
         links: () => links,
         ownedNpcs: [],
-        ownedMonsters: [monster],
+        ownedEnemies: [enemy],
         link: () => {
-          links = [npcLink({ sheet_id: monster.id, name: 'Owlbear', kind: 'monster' })];
+          links = [npcLink({ sheet_id: enemy.id, name: 'Owlbear', kind: 'enemy' })];
           return ok(links[0]);
         },
       }),

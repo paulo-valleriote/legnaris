@@ -17,10 +17,12 @@ func TestParseSheetKind(t *testing.T) {
 	}{
 		{name: "Happy path: character", input: "character", want: plan.KindCharacter, wantOK: true},
 		{name: "Happy path: npc", input: "npc", want: plan.KindNPC, wantOK: true},
-		{name: "Happy path: monster", input: "monster", want: plan.KindMonster, wantOK: true},
+		{name: "Happy path: enemy", input: "enemy", want: plan.KindEnemy, wantOK: true},
 		{name: "Edge: empty kind is invalid", input: "", wantOK: false},
 		{name: "Edge: wrong case is invalid", input: "Character", wantOK: false},
 		{name: "Edge: surrounding spaces are invalid", input: " npc ", wantOK: false},
+		{name: "Edge: the legacy monster kind is invalid", input: "monster", wantOK: false},
+		{name: "Edge: an uppercase enemy kind is invalid", input: "ENEMY", wantOK: false},
 		{name: "Error: unknown kind is invalid", input: "vehicle", wantOK: false},
 	}
 	for _, tc := range tests {
@@ -60,10 +62,10 @@ func TestSheetLimit(t *testing.T) {
 	}{
 		{name: "Happy path: Free allows one character", plan: plan.Free, kind: plan.KindCharacter, limit: 1},
 		{name: "Happy path: Free allows two NPCs", plan: plan.Free, kind: plan.KindNPC, limit: 2},
-		{name: "Happy path: Free allows two monsters", plan: plan.Free, kind: plan.KindMonster, limit: 2},
+		{name: "Happy path: Free allows two enemies", plan: plan.Free, kind: plan.KindEnemy, limit: 2},
 		{name: "Happy path: Paid allows ten characters", plan: plan.Paid, kind: plan.KindCharacter, limit: 10},
 		{name: "Happy path: Paid allows fifty NPCs", plan: plan.Paid, kind: plan.KindNPC, limit: 50},
-		{name: "Happy path: Paid allows fifty monsters", plan: plan.Paid, kind: plan.KindMonster, limit: 50},
+		{name: "Happy path: Paid allows fifty enemies", plan: plan.Paid, kind: plan.KindEnemy, limit: 50},
 		{name: "Edge: unknown kind has no allowance", plan: plan.Paid, kind: plan.SheetKind("vehicle"), limit: 0},
 		{name: "Edge: empty kind has no allowance", plan: plan.Free, kind: plan.SheetKind(""), limit: 0},
 	}

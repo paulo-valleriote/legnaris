@@ -168,7 +168,7 @@ func TestLinkNpc_OneSheetLinksToManyCampaigns(t *testing.T) {
 	second.Members[0].UserID = owner
 	_, err := f.mdb.Collection("campaigns").UpdateOne(f.ctx, bson.D{{Key: "_id", Value: second.ID}}, bson.D{{Key: "$set", Value: bson.D{{Key: "members", Value: second.Members}}}})
 	require.NoError(t, err)
-	sh := f.insertSheet(t, owner, plan.KindMonster)
+	sh := f.insertSheet(t, owner, plan.KindEnemy)
 
 	_, err = f.service.LinkNpc(f.ctx, campaign.LinkNpcCommand{CampaignID: first.ID, UserID: owner, SheetID: sh.ID})
 	require.NoError(t, err)
@@ -508,7 +508,7 @@ func TestGmExit_DeletesOnlyThatGMsLinks(t *testing.T) {
 			require.NoError(t, f.repo.Insert(f.ctx, &base))
 			owner := campaigntest.OwnerID(base)
 			coGM := campaigntest.MembersWithRole(base, campaign.RoleGM)[0]
-			sh := f.insertSheet(t, coGM, plan.KindMonster)
+			sh := f.insertSheet(t, coGM, plan.KindEnemy)
 			otherCampaign := campaigntest.Build(t, 0, 0)
 			otherCampaign.Members[0].UserID = coGM
 			otherCampaign.InviteCode = campaigntest.NewID(t)

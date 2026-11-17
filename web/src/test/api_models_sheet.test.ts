@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isLinkableSheetKind, parseSheet, valueAtPath } from '../api/models/sheet';
+import type { SheetKind } from '../api/models/plan';
 import { DefensiveParseFailure, PathFailure } from '../api/errors';
 
 function sheetPayload(overrides: Record<string, unknown> = {}) {
@@ -75,11 +76,11 @@ describe('sheet model', () => {
     }
   });
 
-  it('Happy path: an NPC or Monster kind decodes and only those kinds are linkable', () => {
+  it('Happy path: an NPC or Enemy kind decodes and only those kinds are linkable', () => {
     expect(parseSheet(sheetPayload({ kind: 'npc' })).kind).toBe('npc');
-    expect(parseSheet(sheetPayload({ kind: 'monster' })).kind).toBe('monster');
+    expect(parseSheet(sheetPayload({ kind: 'enemy' })).kind).toBe('enemy');
     expect(isLinkableSheetKind('npc')).toBe(true);
-    expect(isLinkableSheetKind('monster')).toBe(true);
+    expect(isLinkableSheetKind('enemy')).toBe(true);
     expect(isLinkableSheetKind('character')).toBe(false);
     expect(isLinkableSheetKind(undefined)).toBe(false);
   });
@@ -91,6 +92,15 @@ describe('sheet model', () => {
   it('Error: an unknown kind is refused instead of guessed', () => {
     expect(() => parseSheet(sheetPayload({ kind: 'dragon' }))).toThrow(DefensiveParseFailure);
     expect(() => parseSheet(sheetPayload({ kind: 3 }))).toThrow(DefensiveParseFailure);
+  });
+
+  it('Edge: the legacy monster kind is refused like any other unknown kind', () => {
+    const LEGACY_MONSTER_KIND = 'monster';
+
+    expect(() => parseSheet(sheetPayload({ kind: LEGACY_MONSTER_KIND }))).toThrow(
+      DefensiveParseFailure,
+    );
+    expect(isLinkableSheetKind(LEGACY_MONSTER_KIND as SheetKind)).toBe(false);
   });
 });
 

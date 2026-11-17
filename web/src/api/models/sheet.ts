@@ -48,8 +48,8 @@ function parseKind(payload: Record<string, unknown>): SheetKind | undefined {
   return match;
 }
 
-export function isLinkableSheetKind(kind: SheetKind | undefined): kind is 'npc' | 'monster' {
-  return kind === 'npc' || kind === 'monster';
+export function isLinkableSheetKind(kind: SheetKind | undefined): kind is 'npc' | 'enemy' {
+  return kind === 'npc' || kind === 'enemy';
 }
 
 export function parseSheet(payload: unknown): Sheet {

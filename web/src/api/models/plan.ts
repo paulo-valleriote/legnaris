@@ -1,6 +1,6 @@
 import { drift, isPlainObject, optionalString, requireNumber, requireString } from '../parse';
 
-export const SHEET_KINDS = ['character', 'npc', 'monster'] as const;
+export const SHEET_KINDS = ['character', 'npc', 'enemy'] as const;
 
 export type SheetKind = (typeof SHEET_KINDS)[number];
 

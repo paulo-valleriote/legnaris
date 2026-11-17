@@ -96,7 +96,7 @@ func TestDeletionDeps_Handle(t *testing.T) {
 			wantVersion: 5,
 		},
 		{
-			name: "Happy path: NPC and Monster links are deleted in batches before the campaign is removed",
+			name: "Happy path: NPC and Enemy links are deleted in batches before the campaign is removed",
 			setup: func(h *deletionHarness, c campaign.Campaign) {
 				h.store.EXPECT().TouchDeleting(mock.Anything, c.ID, campaigntest.Now()).Return(int64(6), nil).Once()
 				h.links.EXPECT().UnlinkCampaignBatch(mock.Anything, c.ID, campaign.DeletionUnlinkCampaignBatch).Return(int64(1), nil).Once()

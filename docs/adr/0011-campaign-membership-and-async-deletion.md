@@ -10,7 +10,7 @@ A Campaign is a shared space where Game Masters run a game with Players. It fixe
 
 ## Considered Options
 
-- **A Campaign accepts any Template:** a GM would read Sheets from different game systems, and a reused NPC or Monster (LGN-180) would lose coherence.
+- **A Campaign accepts any Template:** a GM would read Sheets from different game systems, and a reused NPC or Enemy (LGN-180) would lose coherence.
 - **One character Sheet in several Campaigns:** a GM edit in one Campaign would leak into another, and a Free user (1 character) could play every Campaign with one Sheet.
 - **A third role (Owner) next to GM and Player:** every Owner is also a GM. A flag on one GM keeps two roles in the glossary.
 - **Per-person invites by email with pending approval:** more state (pending invites, expiry, resend) for no V1 need. A shared code that any GM can rotate covers both inviting and revoking.
@@ -56,7 +56,7 @@ A Campaign is a shared space where Game Masters run a game with Players. It fixe
   - After a downgrade nothing is locked (LGN-174). The user cannot create a Campaign or receive an ownership transfer that would put them over the limit (`PLAN_LIMIT_REACHED`).
 - **Deletion (asynchronous):**
   1. Only the Owner deletes. `DELETE /campaigns/{id}` sets `status: deleting`, inserts `campaign.deletion_requested` into `event_outbox` (ADR 0009) and returns `202`.
-  2. A consumer unlinks, in batches, every Sheet with that `campaign_id` (and the NPC and Monster links of LGN-180). Every step is idempotent, so a retry is safe.
+  2. A consumer unlinks, in batches, every Sheet with that `campaign_id` (and the NPC and Enemy links of LGN-180). Every step is idempotent, so a retry is safe.
   3. When no linked Sheet remains, it deletes the Campaign and emits `campaign.deleted`.
   - While `deleting`, the Campaign disappears from members' lists, GM access to Sheets ends at once, every read and write on it returns `CAMPAIGN_NOT_FOUND` `404`, and it no longer counts toward the Owner's Plan limit.
   - **Race with a concurrent link:** linking requires `status: active`, and after writing the link it re-reads the Campaign and undoes the link if it is `deleting`. A `campaign_id` that points to a missing Campaign is read as "not linked".
@@ -116,7 +116,7 @@ sequenceDiagram
 
 - **`PRODUCT.md`** no longer lists Game Masters as out of scope. Players at the table stay the design priority.
 - **Sheets gain `campaign_id`**, indexed, read as "not linked" when it points to a missing Campaign.
-- **LGN-180** builds NPC and Monster links on this model and must be unlinked by the deletion consumer.
+- **LGN-180** builds NPC and Enemy links on this model and must be unlinked by the deletion consumer.
 - **LGN-190** inherits the Owner transfer rule and reuses the asynchronous deletion.
 - **Implementation is split into follow-up cards** under LGN-169: Campaign model and membership (LGN-199); invite code and password (LGN-200); character link and GM read access with polling (LGN-201); asynchronous deletion (LGN-202); Plan limits on owned Campaigns (LGN-203).
 - **Tests:**

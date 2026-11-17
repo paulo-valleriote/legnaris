@@ -83,7 +83,7 @@ export const FREE_PLAN_USAGE = {
   sheets: {
     character: { used: 0, limit: 1 },
     npc: { used: 0, limit: 2 },
-    monster: { used: 0, limit: 2 },
+    enemy: { used: 0, limit: 2 },
   },
 };
 

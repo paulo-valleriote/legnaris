@@ -107,9 +107,9 @@ func TestLink(t *testing.T) {
 			wantCode: apperr.CodeInvalidRequest,
 		},
 		{
-			name:     "Error: monster sheet cannot be linked",
+			name:     "Error: enemy sheet cannot be linked",
 			user:     player,
-			sheet:    func(t *testing.T) sheet.Sheet { return sheetOf(t, player, base.TemplateID, plan.KindMonster, nil) },
+			sheet:    func(t *testing.T) sheet.Sheet { return sheetOf(t, player, base.TemplateID, plan.KindEnemy, nil) },
 			wantCode: apperr.CodeInvalidRequest,
 		},
 		{

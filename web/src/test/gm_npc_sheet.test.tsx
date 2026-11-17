@@ -51,7 +51,7 @@ function freshNpc(etag: string) {
   };
 }
 
-describe('GM read-only NPC and Monster view (LGN-219)', () => {
+describe('GM read-only NPC and Enemy view (LGN-219)', () => {
   afterEach(() => {
     vi.useRealTimers();
   });

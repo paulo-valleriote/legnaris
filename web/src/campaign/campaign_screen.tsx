@@ -214,7 +214,7 @@ function LinkedSheets({ campaignId }: { campaignId: string }) {
 }
 
 function npcKindLabel(kind: NpcKind): string {
-  return kind === 'monster' ? message('campaign.kindMonster') : message('campaign.kindNpc');
+  return kind === 'enemy' ? message('campaign.kindEnemy') : message('campaign.kindNpc');
 }
 
 function LinkNpcForm({
@@ -231,16 +231,16 @@ function LinkNpcForm({
   onSubmit: (sheetId: string) => void;
 }) {
   const npcs = useOwnedSheets('npc', true);
-  const monsters = useOwnedSheets('monster', true);
+  const enemies = useOwnedSheets('enemy', true);
   const links = useNpcLinks(campaign.id, true);
   const [choice, setChoice] = useState('');
-  const owned = [...(npcs.data ?? []), ...(monsters.data ?? [])];
+  const owned = [...(npcs.data ?? []), ...(enemies.data ?? [])];
   const linkedSheetIds = (links.data ?? []).map((link) => link.sheetId);
   const eligible = unlinkedNpcSheetIds(owned, campaign, linkedSheetIds);
   const selected = eligible.includes(choice) ? choice : (eligible[0] ?? '');
   const names = new Map(owned.map((sheet) => [sheet.id, sheet.name]));
-  const loadError = npcs.error ?? monsters.error ?? links.error;
-  const loaded = npcs.data !== undefined && monsters.data !== undefined && links.data !== undefined;
+  const loadError = npcs.error ?? enemies.error ?? links.error;
+  const loaded = npcs.data !== undefined && enemies.data !== undefined && links.data !== undefined;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

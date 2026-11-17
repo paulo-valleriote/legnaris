@@ -86,7 +86,7 @@ type Service interface {
 
 const (
 	MsgSheetIDNotProvided = "sheet id not provided"
-	MsgSheetKindInvalid   = "kind must be character, npc or monster"
+	MsgSheetKindInvalid   = "kind must be character, npc or enemy"
 	MsgSheetIDInvalid     = "sheet id must be a canonical UUID v7"
 	MsgFieldDoesNotExist  = "field does not exist: "
 	MsgNestedTooDeep      = "sheet data is nested too deeply"

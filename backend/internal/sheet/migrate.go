@@ -13,6 +13,12 @@ import (
 
 const legacySheetKind = plan.KindCharacter
 
+const legacyEnemyKind = "monster"
+
+func LegacyEnemyKind() string {
+	return legacyEnemyKind
+}
+
 const sheetsOwnerIDUniqueIndex = "sheets_owner_id_unique"
 
 const sheetsOwnerKindIndex = "sheets_owner_id_kind"
@@ -23,8 +29,9 @@ const (
 )
 
 type MigrationReport struct {
-	BackfilledSheets int64
-	Counters         int
+	BackfilledSheets   int64
+	RenamedEnemySheets int64
+	Counters           int
 }
 
 func MigrateKinds(ctx context.Context, database *mongo.Database) (MigrationReport, error) {
@@ -38,6 +45,14 @@ func MigrateKinds(ctx context.Context, database *mongo.Database) (MigrationRepor
 		return MigrationReport{}, fmt.Errorf("backfill sheet kind: %w", err)
 	}
 
+	renamed, err := sheets.UpdateMany(ctx,
+		bson.D{{Key: kindField, Value: legacyEnemyKind}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: kindField, Value: string(plan.KindEnemy)}}}},
+	)
+	if err != nil {
+		return MigrationReport{}, fmt.Errorf("rename enemy sheet kind: %w", err)
+	}
+
 	groups, err := countSheetsByOwnerAndKind(ctx, sheets)
 	if err != nil {
 		return MigrationReport{}, err
@@ -49,7 +64,11 @@ func MigrateKinds(ctx context.Context, database *mongo.Database) (MigrationRepor
 		return MigrationReport{}, err
 	}
 
-	return MigrationReport{BackfilledSheets: backfilled.ModifiedCount, Counters: len(groups)}, nil
+	return MigrationReport{
+		BackfilledSheets:   backfilled.ModifiedCount,
+		RenamedEnemySheets: renamed.ModifiedCount,
+		Counters:           len(groups),
+	}, nil
 }
 
 type ownerKindGroup struct {

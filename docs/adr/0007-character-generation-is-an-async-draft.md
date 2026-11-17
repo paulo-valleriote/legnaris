@@ -68,10 +68,10 @@ A player generates a character Sheet from a short concept text. `POST /generatio
 
 ## Amendment: generation per Sheet kind (LGN-187)
 
-Decided on 2026-11-17. It extends this ADR from `character` to the NPC and Enemy Sheet kinds of ADR 0012. Enemy is the kind called Monster before a rename in its own card, which blocks this work. Everything above still applies unless it is changed here.
+Decided on 2026-11-17. It extends this ADR from `character` to the NPC and Enemy Sheet kinds of ADR 0012. Enemy is the kind formerly called Monster, renamed in LGN-237. Everything above still applies unless it is changed here.
 
 - **Prerequisites:**
-  - The `monster` kind is renamed to `enemy` everywhere.
+  - The Monster kind was renamed to `enemy` (LGN-237).
   - `fantasy_v1` accepts `npc` and `enemy` in `Kinds`.
   - The create dialog has a kind selector.
 - **Who:** any user can generate any kind within their Plan's limits. There is no GM gate, because any user can create NPC and Enemy Sheets without a Campaign (ADR 0012).

@@ -41,7 +41,7 @@ func TestRepository_ReserveSlot(t *testing.T) {
 		{name: "Happy path: a reservation under the limit is counted", kind: plan.KindCharacter, limit: 1, reserves: 1, wantCount: 1},
 		{name: "Happy path: reservations up to the limit all succeed", kind: plan.KindNPC, limit: 2, reserves: 2, wantCount: 2},
 		{name: "Edge: a reservation at the limit is refused and not counted", kind: plan.KindCharacter, limit: 1, reserves: 2, wantCount: 1, wantErr: sheet.ErrSheetLimitReached},
-		{name: "Edge: a zero allowance refuses the first reservation", kind: plan.KindMonster, limit: 0, reserves: 1, wantCount: 0, wantErr: sheet.ErrSheetLimitReached},
+		{name: "Edge: a zero allowance refuses the first reservation", kind: plan.KindEnemy, limit: 0, reserves: 1, wantCount: 0, wantErr: sheet.ErrSheetLimitReached},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
