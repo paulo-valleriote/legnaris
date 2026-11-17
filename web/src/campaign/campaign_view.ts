@@ -69,3 +69,11 @@ export function unlinkedNpcSheetIds(
 export function atOwnedLimit(usage: { readonly used: number; readonly limit: number }): boolean {
   return usage.used >= usage.limit;
 }
+
+export function memberUsername(
+  campaign: Pick<Campaign, 'members'>,
+  userId: string,
+): string | undefined {
+  const member = campaign.members.find((candidate) => candidate.userId === userId);
+  return member === undefined || member.username === '' ? undefined : member.username;
+}

@@ -6,6 +6,7 @@ import {
   isDeleting,
   isSelf,
   memberActions,
+  memberUsername,
   unlinkedNpcSheetIds,
 } from '../campaign/campaign_view';
 
@@ -125,5 +126,27 @@ describe('campaign view rules (LGN-218)', () => {
         ['s-linked'],
       ),
     ).toEqual([]);
+  });
+});
+
+describe('memberUsername', () => {
+  const campaign = {
+    members: [
+      { userId: 'u-1', username: 'mara' },
+      { userId: 'u-2', username: '' },
+    ],
+  } as unknown as Parameters<typeof memberUsername>[0];
+
+  it.each([
+    ['Happy path: a member resolves to their username', 'u-1', 'mara'],
+    ['Edge: a member with an empty username resolves to nothing', 'u-2', undefined],
+    ['Edge: an unknown user resolves to nothing', 'u-3', undefined],
+    ['Edge: an empty id resolves to nothing', '', undefined],
+  ])('%s', (_name, userId, expected) => {
+    expect(memberUsername(campaign, userId)).toBe(expected);
+  });
+
+  it('Edge: a Campaign with no members resolves to nothing', () => {
+    expect(memberUsername({ members: [] }, 'u-1')).toBeUndefined();
   });
 });
