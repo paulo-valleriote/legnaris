@@ -77,7 +77,7 @@ func NewRepublishQueue(deps RepublishDeps, attemptCap, batch int) (sweeper.Queue
 		Batch:      batch,
 		Store:      store,
 		Handle: func(ctx context.Context, job sweeper.Job[Document], _ time.Time) error {
-			return deps.Publisher.Publish(ctx, Message{ID: job.Payload.ID, Kind: job.Payload.Kind})
+			return deps.Publisher.Publish(ctx, Message{ID: job.Payload.ID, Kind: documentKind(job.Payload.Kind)})
 		},
 	})
 }

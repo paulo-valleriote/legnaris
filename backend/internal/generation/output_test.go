@@ -128,6 +128,12 @@ func kindFixtureTemplate() *template.Template {
 	return tmpl
 }
 
+func kindExclusiveFixtureTemplate() *template.Template {
+	tmpl := kindFixtureTemplate()
+	tmpl.Fields["config"].Children["acUsesDex"].Schema.GeneratableKinds = []plan.SheetKind{plan.KindCharacter}
+	return tmpl
+}
+
 func TestKindFiltering(t *testing.T) {
 	t.Run("Happy path: a character schema and prompt offer playerName", func(t *testing.T) {
 		schema := string(mustSchema(t, kindFixtureTemplate(), plan.KindCharacter))
@@ -181,6 +187,60 @@ func TestKindFiltering(t *testing.T) {
 	t.Run("Happy path: a character output with playerName is accepted", func(t *testing.T) {
 		_, err := generation.Expand(kindFixtureTemplate(), plan.KindCharacter, parseFixture(t, validKindedOutput))
 		require.NoError(t, err)
+	})
+}
+
+func TestExclusiveGroupKindFiltering(t *testing.T) {
+	t.Run("Happy path: a character offers and picks both ability options", func(t *testing.T) {
+		tmpl := kindExclusiveFixtureTemplate()
+		dag := fixtureDAG(t, tmpl)
+
+		schema := string(mustSchema(t, tmpl, plan.KindCharacter))
+		assert.Contains(t, schema, "acUsesDex")
+		assert.Contains(t, schema, "acUsesCon")
+
+		prompt, err := generation.SystemPrompt(tmpl, plan.KindCharacter)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "acUsesDex (Dexterity)")
+		assert.Contains(t, prompt, "acUsesCon (Constitution)")
+
+		expanded, err := generation.Expand(tmpl, plan.KindCharacter, parseFixture(t, validKindedOutput))
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"acUsesDex": 0.0, "acUsesCon": 1.0}, expanded["config"])
+
+		data, err := generation.Assemble(tmpl, dag, plan.KindCharacter, expanded)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"acUsesDex": 0.0, "acUsesCon": 1.0}, data["config"])
+	})
+
+	t.Run("Edge: an NPC omits the character-only option from the schema and the prompt", func(t *testing.T) {
+		tmpl := kindExclusiveFixtureTemplate()
+
+		schema := string(mustSchema(t, tmpl, plan.KindNPC))
+		assert.NotContains(t, schema, "acUsesDex")
+		assert.Contains(t, schema, "acUsesCon")
+
+		prompt, err := generation.SystemPrompt(tmpl, plan.KindNPC)
+		require.NoError(t, err)
+		assert.NotContains(t, prompt, "acUsesDex")
+		assert.Contains(t, prompt, `choose exactly one option: acUsesCon (Constitution);`)
+	})
+
+	t.Run("Edge: an NPC never materializes the character-only option", func(t *testing.T) {
+		expanded, err := generation.Expand(kindExclusiveFixtureTemplate(), plan.KindNPC, parseFixture(t, npcOutput))
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"acUsesCon": 1.0}, expanded["config"])
+	})
+
+	t.Run("Edge: an NPC value for the character-only option is dropped and its default stays", func(t *testing.T) {
+		tmpl := kindExclusiveFixtureTemplate()
+		dag := fixtureDAG(t, tmpl)
+
+		data, err := generation.Assemble(tmpl, dag, plan.KindNPC, map[string]any{
+			"config": map[string]any{"acUsesDex": 0.0},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"acUsesDex": 1.0, "acUsesCon": 0.0}, data["config"])
 	})
 }
 

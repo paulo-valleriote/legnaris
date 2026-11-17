@@ -30,7 +30,6 @@ type level struct {
 	leaves    map[string]*template.FieldSchema
 	groups    map[string]template.FieldGroup
 	exclusive map[string][]string
-	members   map[string][]string
 }
 
 func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
@@ -38,7 +37,6 @@ func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
 		leaves:    map[string]*template.FieldSchema{},
 		groups:    map[string]template.FieldGroup{},
 		exclusive: map[string][]string{},
-		members:   map[string][]string{},
 	}
 	for _, name := range slices.Sorted(maps.Keys(group)) {
 		node := group[name]
@@ -46,7 +44,6 @@ func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
 		case node.IsLeaf():
 			schema := node.Schema
 			if schema.ExclusiveGroup != "" {
-				lv.members[schema.ExclusiveGroup] = append(lv.members[schema.ExclusiveGroup], name)
 				if schema.GeneratableFor(kind) {
 					lv.exclusive[schema.ExclusiveGroup] = append(lv.exclusive[schema.ExclusiveGroup], name)
 				}

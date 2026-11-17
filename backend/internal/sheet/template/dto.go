@@ -62,7 +62,7 @@ type FieldSchemaDTO struct {
 	OptionLabel      string           `json:"option_label,omitempty"`
 	ColumnLabel      string           `json:"column_label,omitempty"`
 	Generatable      bool             `json:"generatable,omitempty"`
-	GeneratableKinds []plan.SheetKind `json:"generatableKinds,omitempty"`
+	GeneratableKinds []plan.SheetKind `json:"generatable_kinds,omitempty"`
 	Min              *float64         `json:"min,omitempty"`
 	Max              *float64         `json:"max,omitempty"`
 	MaxLength        *int             `json:"max_length,omitempty"`

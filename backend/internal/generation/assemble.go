@@ -60,10 +60,12 @@ func filterGenerated(group template.FieldGroup, kind plan.SheetKind, values map[
 		if !ok {
 			continue
 		}
-		out[name] = filterGenerated(children, kind, child)
+		if filtered := filterGenerated(children, kind, child); len(filtered) > 0 {
+			out[name] = filtered
+		}
 	}
-	for _, members := range lv.members {
-		for _, member := range members {
+	for _, options := range lv.exclusive {
+		for _, member := range options {
 			if value, ok := values[member]; ok {
 				out[member] = value
 			}
