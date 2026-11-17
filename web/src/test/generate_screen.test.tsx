@@ -231,7 +231,7 @@ describe('generate flow (LGN-196)', () => {
     await user.click(generateButton());
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'You have used your free character generations.',
+      'You have used your free generations.',
     );
     expect(screen.queryByRole('button', { name: /checkout|upgrade|subscribe/i })).toBeNull();
   });
