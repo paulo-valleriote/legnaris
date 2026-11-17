@@ -163,6 +163,8 @@ func TestRoutingKey(t *testing.T) {
 		want string
 	}{
 		{name: "Happy path: character jobs use the character key", kind: "character", want: "generation.character.requested"},
+		{name: "Happy path: NPC jobs use the npc key", kind: "npc", want: "generation.npc.requested"},
+		{name: "Happy path: enemy jobs use the enemy key", kind: "enemy", want: "generation.enemy.requested"},
 		{name: "Edge: an empty kind still yields the fixed shape", kind: "", want: "generation..requested"},
 	}
 	for _, tc := range tests {

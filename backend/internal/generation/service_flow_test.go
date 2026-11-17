@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/generation"
+	"legnaris/backend/internal/generation/amqp"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/template"
@@ -18,11 +19,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func gatesPass(f fixture) {
-	f.allowTemplate(plan.KindCharacter)
+func gatesPass(f fixture, kind plan.SheetKind) {
+	f.allowTemplate(plan.KindCharacter, plan.KindNPC, plan.KindEnemy)
 	f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
-	f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindCharacter).
-		Return(sheet.LimitStatus{Kind: plan.KindCharacter, Used: 0, Limit: 1}, nil)
+	f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, kind).
+		Return(sheet.LimitStatus{Kind: kind, Used: 0, Limit: 1}, nil)
 	f.store.EXPECT().ActiveByUser(mock.Anything, userID).Return("", false, nil)
 }
 
@@ -30,6 +31,7 @@ func TestCreate_Happy(t *testing.T) {
 	tests := []struct {
 		name       string
 		concept    string
+		kind       plan.SheetKind
 		plan       plan.Plan
 		setupQuota func(f fixture)
 		wantKind   string
@@ -72,12 +74,36 @@ func TestCreate_Happy(t *testing.T) {
 			},
 			wantKind: generation.ReservationTrial,
 		},
+		{
+			name:    "Happy path: an NPC generation stores its kind",
+			concept: validText,
+			kind:    plan.KindNPC,
+			plan:    plan.Free,
+			setupQuota: func(f fixture) {
+				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
+			},
+			wantKind: generation.ReservationTrial,
+		},
+		{
+			name:    "Happy path: an enemy generation stores its kind",
+			concept: validText,
+			kind:    plan.KindEnemy,
+			plan:    plan.Free,
+			setupQuota: func(f fixture) {
+				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
+			},
+			wantKind: generation.ReservationTrial,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			kind := tc.kind
+			if kind == "" {
+				kind = plan.KindCharacter
+			}
 			f := newFixture(t, defaultCfg())
-			gatesPass(f)
+			gatesPass(f, kind)
 			f.runInline()
 			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
 			f.observer.EXPECT().GenerationCapUsage(1, 10)
@@ -93,7 +119,7 @@ func TestCreate_Happy(t *testing.T) {
 			f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(nil).Once()
 
 			id, err := f.svc.Create(context.Background(), generation.CreateCommand{
-				UserID: userID, TemplateID: templateID, Kind: "character", Concept: tc.concept,
+				UserID: userID, TemplateID: templateID, Kind: string(kind), Concept: tc.concept,
 			})
 			require.NoError(t, err)
 			assert.NotEmpty(t, id)
@@ -101,7 +127,7 @@ func TestCreate_Happy(t *testing.T) {
 			assert.Equal(t, generation.StatusQueued, inserted.Status)
 			assert.Equal(t, userID, inserted.ActiveUserID, "the in-progress slot names the player")
 			assert.Equal(t, userID, inserted.UserID)
-			assert.Equal(t, "character", inserted.Kind)
+			assert.Equal(t, string(kind), inserted.Kind)
 			assert.Equal(t, tc.wantKind, inserted.Quota.Kind)
 			assert.Equal(t, tc.wantDay, inserted.Quota.DayUTC)
 			assert.Equal(t, inserted.CreatedAt.Add(24*time.Hour), inserted.ExpiresAt, "retention is 24 h")
@@ -120,7 +146,7 @@ func TestCreate_PublishFailureStillAccepts(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFixture(t, defaultCfg())
-			gatesPass(f)
+			gatesPass(f, plan.KindCharacter)
 			f.runInline()
 			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
 			f.observer.EXPECT().GenerationCapUsage(1, 10)
@@ -151,7 +177,7 @@ func TestCreate_CapBoundary(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFixture(t, defaultCfg())
-			gatesPass(f)
+			gatesPass(f, plan.KindCharacter)
 			f.runInline()
 			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(tc.used, tc.ok, nil)
 			f.observer.EXPECT().GenerationCapUsage(10, 10)
@@ -186,6 +212,7 @@ func TestFetch(t *testing.T) {
 		wantStatus int
 		wantValues bool
 		wantError  string
+		wantKind   string
 	}{
 		{name: "Error: a malformed id is refused before any read", id: "not-a-uuid", wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
 		{name: "Error: a missing document is 404", id: jobID, stored: func() (generation.Document, error) {
@@ -199,13 +226,16 @@ func TestFetch(t *testing.T) {
 		}, wantCode: apperr.CodeInternal, wantStatus: 500},
 		{name: "Happy path: a queued job reads without values", id: jobID, stored: func() (generation.Document, error) {
 			return generation.Document{ID: jobID, Status: generation.StatusQueued, Values: values, Kind: "character", CreatedAt: time.Unix(0, 0).UTC()}, nil
-		}, wantValues: false},
+		}, wantValues: false, wantKind: "character"},
 		{name: "Happy path: a succeeded job exposes its values", id: jobID, stored: func() (generation.Document, error) {
-			return generation.Document{ID: jobID, Status: generation.StatusSucceeded, Values: values, Kind: "character"}, nil
-		}, wantValues: true},
+			return generation.Document{ID: jobID, Status: generation.StatusSucceeded, Values: values, Kind: "npc"}, nil
+		}, wantValues: true, wantKind: "npc"},
+		{name: "Edge: a legacy document without a kind reads as a character", id: jobID, stored: func() (generation.Document, error) {
+			return generation.Document{ID: jobID, Status: generation.StatusQueued, Kind: ""}, nil
+		}, wantKind: "character"},
 		{name: "Happy path: a failed job exposes its error code and no values", id: jobID, stored: func() (generation.Document, error) {
 			return generation.Document{ID: jobID, Status: generation.StatusFailed, ErrorCode: "provider_unavailable", Values: values}, nil
-		}, wantValues: false, wantError: "provider_unavailable"},
+		}, wantValues: false, wantError: "provider_unavailable", wantKind: "character"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -227,6 +257,7 @@ func TestFetch(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantValues, view.Values != nil)
 			assert.Equal(t, tc.wantError, view.ErrorCode)
+			assert.Equal(t, tc.wantKind, view.Kind)
 		})
 	}
 }
@@ -238,7 +269,10 @@ func TestAccept(t *testing.T) {
 	heroValues := map[string]any{"name": "Hero"}
 
 	succeeded := generation.Document{ID: jobID, UserID: userID, TemplateID: templateID, Status: generation.StatusSucceeded}
+	succeededNPC := generation.Document{ID: jobID, UserID: userID, TemplateID: templateID, Kind: "npc", Status: generation.StatusSucceeded}
+	succeededEnemy := generation.Document{ID: jobID, UserID: userID, TemplateID: templateID, Kind: "enemy", Status: generation.StatusSucceeded}
 	accepted := generation.Document{ID: jobID, UserID: userID, Status: generation.StatusAccepted, SheetID: sheetID}
+	acceptedNPC := generation.Document{ID: jobID, UserID: userID, Kind: "npc", Status: generation.StatusAccepted, SheetID: sheetID}
 
 	tests := []struct {
 		name       string
@@ -247,6 +281,7 @@ func TestAccept(t *testing.T) {
 		storedErr  error
 		sheetErr   error
 		race       bool
+		sheetKind  string
 		wantCreate bool
 		wantSheet  string
 		wantCode   apperr.Code
@@ -265,7 +300,10 @@ func TestAccept(t *testing.T) {
 		{name: "Error: a value the DAG refuses is a 400", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &succeeded,
 			sheetErr: apperr.NewError(apperr.CodeUnknownField, "field does not exist", nil), wantCode: apperr.CodeUnknownField, wantStatus: 400},
 		{name: "Happy path: a succeeded generation becomes a Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &succeeded, wantCreate: true, wantSheet: sheetID},
+		{name: "Happy path: an NPC generation becomes an NPC Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Villager", Values: heroValues}, stored: &succeededNPC, sheetKind: "npc", wantCreate: true, wantSheet: sheetID},
+		{name: "Happy path: an enemy generation becomes an enemy Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Wolf", Values: heroValues}, stored: &succeededEnemy, sheetKind: "enemy", wantCreate: true, wantSheet: sheetID},
 		{name: "Edge: a repeat accept answers the same Sheet with no new creation", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &accepted, wantSheet: sheetID},
+		{name: "Edge: a repeat accept keeps the NPC kind and creates nothing", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Villager", Values: heroValues}, stored: &acceptedNPC, sheetKind: "npc", wantSheet: sheetID},
 		{name: "Edge: a lost accept race answers the winner's Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &succeeded, race: true, wantSheet: otherSheetID},
 	}
 
@@ -285,11 +323,15 @@ func TestAccept(t *testing.T) {
 					Return(generation.Document{ID: jobID, Status: generation.StatusAccepted, SheetID: otherSheetID}, nil).Once()
 			}
 			if tc.wantCreate || tc.race || tc.sheetErr != nil {
+				kind := tc.sheetKind
+				if kind == "" {
+					kind = "character"
+				}
 				f.sheets.EXPECT().CreateWithValues(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
 					func(ctx context.Context, cmd sheet.CreateWithValuesCommand, hook sheet.AfterInsertHook) (*sheet.Sheet, error) {
 						assert.Equal(t, templateID, cmd.TemplateID)
-						assert.Equal(t, "character", cmd.Kind)
-						assert.Equal(t, "Hero", cmd.SheetName)
+						assert.Equal(t, kind, cmd.Kind)
+						assert.Equal(t, tc.cmd.SheetName, cmd.SheetName)
 						if tc.sheetErr != nil {
 							return nil, tc.sheetErr
 						}
@@ -312,6 +354,138 @@ func TestAccept(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantCreate, result.Created)
 			assert.Equal(t, tc.wantSheet, result.SheetID)
+		})
+	}
+}
+
+func TestCreate_SharedQuotaAcrossKinds(t *testing.T) {
+	tests := []struct {
+		name       string
+		current    plan.Plan
+		first      func(f fixture)
+		second     func(f fixture)
+		wantCode   apperr.Code
+		wantStatus int
+	}{
+		{
+			name:    "Edge: a character trial reservation blocks a later NPC with PLAN_UPGRADE_REQUIRED",
+			current: plan.Free,
+			first: func(f fixture) {
+				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil).Once()
+			},
+			second: func(f fixture) {
+				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).
+					Return(apperr.NewError(apperr.CodePlanUpgradeRequired, "upgrade", nil)).Once()
+			},
+			wantCode: apperr.CodePlanUpgradeRequired, wantStatus: 403,
+		},
+		{
+			name:    "Edge: a character daily reservation blocks a later NPC with QUOTA_EXCEEDED",
+			current: plan.Paid,
+			first: func(f fixture) {
+				f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil).Once()
+			},
+			second: func(f fixture) {
+				f.quota.EXPECT().ReserveDaily(mock.Anything, userID).
+					Return("", apperr.NewError(apperr.CodeQuotaExceeded, "quota exceeded", nil)).Once()
+			},
+			wantCode: apperr.CodeQuotaExceeded, wantStatus: 429,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t, defaultCfg())
+			f.runInline()
+
+			gatesPass(f, plan.KindCharacter)
+			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil).Once()
+			f.observer.EXPECT().GenerationCapUsage(1, 10).Once()
+			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(tc.current, nil)
+			tc.first(f)
+			f.store.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil)
+			f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(nil)
+
+			_, err := f.svc.Create(context.Background(), generation.CreateCommand{
+				UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText,
+			})
+			require.NoError(t, err)
+
+			gatesPass(f, plan.KindNPC)
+			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(2, true, nil).Once()
+			f.observer.EXPECT().GenerationCapUsage(2, 10).Once()
+			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(tc.current, nil)
+			tc.second(f)
+
+			_, err = f.svc.Create(context.Background(), generation.CreateCommand{
+				UserID: userID, TemplateID: templateID, Kind: "npc", Concept: validText,
+			})
+			requireCode(t, err, tc.wantCode, tc.wantStatus)
+		})
+	}
+}
+
+func TestCreateWorkerAcceptFlowsForEveryKind(t *testing.T) {
+	tests := []struct {
+		name string
+		kind plan.SheetKind
+	}{
+		{name: "Happy path: an NPC generation runs through create, worker and accept", kind: plan.KindNPC},
+		{name: "Happy path: an enemy generation runs through create, worker and accept", kind: plan.KindEnemy},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t, defaultCfg())
+			gatesPass(f, tc.kind)
+			f.runInline()
+			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
+			f.observer.EXPECT().GenerationCapUsage(1, 10)
+			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil)
+			f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
+
+			var inserted generation.Document
+			f.store.EXPECT().Insert(mock.Anything, mock.Anything).RunAndReturn(
+				func(_ context.Context, doc generation.Document) error {
+					inserted = doc
+					return nil
+				})
+			var published generation.Message
+			f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).RunAndReturn(
+				func(_ context.Context, msg generation.Message) error {
+					published = msg
+					return nil
+				}).Once()
+
+			id, err := f.svc.Create(context.Background(), generation.CreateCommand{
+				UserID: userID, TemplateID: templateID, Kind: string(tc.kind), Concept: validText,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, string(tc.kind), inserted.Kind)
+			assert.Equal(t, id, published.ID)
+			assert.Equal(t, string(tc.kind), published.Kind)
+			assert.Equal(t, "generation."+string(tc.kind)+".requested", amqp.RoutingKey(published.Kind))
+
+			sheetID := "0190a1b2-0000-7000-8000-0000000000bb"
+			succeeded := inserted
+			succeeded.Status = generation.StatusSucceeded
+			f.store.EXPECT().FindOwned(mock.Anything, userID, id).Return(succeeded, nil).Once()
+			var sheetKind string
+			f.sheets.EXPECT().CreateWithValues(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+				func(ctx context.Context, cmd sheet.CreateWithValuesCommand, hook sheet.AfterInsertHook) (*sheet.Sheet, error) {
+					sheetKind = cmd.Kind
+					created := &sheet.Sheet{ID: sheetID}
+					if err := hook(ctx, created); err != nil {
+						return nil, err
+					}
+					return created, nil
+				}).Once()
+			f.store.EXPECT().MarkAccepted(mock.Anything, userID, id, sheetID).Return(true, nil).Once()
+
+			result, err := f.svc.Accept(context.Background(), generation.AcceptCommand{
+				UserID: userID, ID: id, SheetName: "Generated", Values: map[string]any{"identity": map[string]any{"name": "Brom"}},
+			})
+			require.NoError(t, err)
+			assert.True(t, result.Created)
+			assert.Equal(t, string(tc.kind), sheetKind)
 		})
 	}
 }

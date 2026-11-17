@@ -14,8 +14,6 @@ const (
 	StatusAccepted  Status = "accepted"
 )
 
-const KindCharacter = "character"
-
 const (
 	ReservationTrial = "trial"
 	ReservationDaily = "daily"
@@ -89,11 +87,11 @@ type Message struct {
 }
 
 const (
-	MsgDisabled         = "character generation is currently unavailable"
+	MsgDisabled         = "generation is currently unavailable"
 	MsgUnavailable      = "generation is unavailable"
-	MsgKindInvalid      = "generation kind must be character"
+	MsgKindInvalid      = "generation kind must be character, npc or enemy"
 	MsgConceptLength    = "concept must be between 10 and 1000 characters"
-	MsgTemplateKind     = "template does not accept characters"
+	MsgTemplateKind     = "template does not accept this sheet kind"
 	MsgIDInvalid        = "generation id must be a canonical UUID v7"
 	MsgNotFound         = "generation not found"
 	MsgNameRequired     = "sheet name is required"

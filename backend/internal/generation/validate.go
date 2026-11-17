@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"unicode/utf8"
 
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/template"
 	sharedjson "legnaris/backend/shared/json"
 )
@@ -56,11 +57,11 @@ func outputParseProblem(err error) string {
 	}
 }
 
-func Expand(tmpl *template.Template, output map[string]any) (map[string]any, error) {
+func Expand(tmpl *template.Template, kind plan.SheetKind, output map[string]any) (map[string]any, error) {
 	if tmpl == nil {
 		return nil, ErrNoTemplate
 	}
-	c := &checker{}
+	c := &checker{kind: kind}
 	values := c.group(tmpl.Fields, output, "")
 	if len(c.problems) > 0 {
 		return nil, &OutputError{Problems: c.problems}
@@ -69,6 +70,7 @@ func Expand(tmpl *template.Template, output map[string]any) (map[string]any, err
 }
 
 type checker struct {
+	kind     plan.SheetKind
 	problems []string
 }
 
@@ -80,7 +82,7 @@ func (c *checker) add(path, rule string) {
 }
 
 func (c *checker) group(fields template.FieldGroup, data map[string]any, prefix string) map[string]any {
-	lv := levelOf(fields)
+	lv := levelOf(fields, c.kind)
 	c.rejectUnknown(lv, data, prefix)
 	values := map[string]any{}
 	for _, name := range slices.Sorted(maps.Keys(lv.leaves)) {

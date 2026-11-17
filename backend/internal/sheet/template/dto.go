@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"maps"
 	"slices"
+
+	"legnaris/backend/internal/plan"
 )
 
 type TemplateDTO struct {
@@ -50,19 +52,20 @@ func (n FieldNodeDTO) MarshalJSON() ([]byte, error) {
 }
 
 type FieldSchemaDTO struct {
-	Type           string     `json:"type"`
-	Label          string     `json:"label"`
-	Formula        string     `json:"formula,omitempty"`
-	DependsOn      [][]string `json:"depends_on,omitempty"`
-	IsEditable     bool       `json:"is_editable"`
-	Default        float64    `json:"default"`
-	ExclusiveGroup string     `json:"exclusive_group,omitempty"`
-	OptionLabel    string     `json:"option_label,omitempty"`
-	ColumnLabel    string     `json:"column_label,omitempty"`
-	Generatable    bool       `json:"generatable,omitempty"`
-	Min            *float64   `json:"min,omitempty"`
-	Max            *float64   `json:"max,omitempty"`
-	MaxLength      *int       `json:"max_length,omitempty"`
+	Type             string           `json:"type"`
+	Label            string           `json:"label"`
+	Formula          string           `json:"formula,omitempty"`
+	DependsOn        [][]string       `json:"depends_on,omitempty"`
+	IsEditable       bool             `json:"is_editable"`
+	Default          float64          `json:"default"`
+	ExclusiveGroup   string           `json:"exclusive_group,omitempty"`
+	OptionLabel      string           `json:"option_label,omitempty"`
+	ColumnLabel      string           `json:"column_label,omitempty"`
+	Generatable      bool             `json:"generatable,omitempty"`
+	GeneratableKinds []plan.SheetKind `json:"generatableKinds,omitempty"`
+	Min              *float64         `json:"min,omitempty"`
+	Max              *float64         `json:"max,omitempty"`
+	MaxLength        *int             `json:"max_length,omitempty"`
 }
 
 func (t Template) ToDTO() TemplateDTO {
@@ -166,18 +169,19 @@ func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 	}
 
 	return &FieldSchemaDTO{
-		Type:           s.Type,
-		Label:          s.Label,
-		Formula:        s.Formula,
-		DependsOn:      cloneDependsOn(s.DependsOn),
-		IsEditable:     s.IsEditable,
-		Default:        s.Default,
-		ExclusiveGroup: s.ExclusiveGroup,
-		OptionLabel:    s.OptionLabel,
-		ColumnLabel:    s.ColumnLabel,
-		Generatable:    s.Generatable,
-		Min:            clonePtr(s.Min),
-		Max:            clonePtr(s.Max),
-		MaxLength:      clonePtr(s.MaxLength),
+		Type:             s.Type,
+		Label:            s.Label,
+		Formula:          s.Formula,
+		DependsOn:        cloneDependsOn(s.DependsOn),
+		IsEditable:       s.IsEditable,
+		Default:          s.Default,
+		ExclusiveGroup:   s.ExclusiveGroup,
+		OptionLabel:      s.OptionLabel,
+		ColumnLabel:      s.ColumnLabel,
+		Generatable:      s.Generatable,
+		GeneratableKinds: slices.Clone(s.GeneratableKinds),
+		Min:              clonePtr(s.Min),
+		Max:              clonePtr(s.Max),
+		MaxLength:        clonePtr(s.MaxLength),
 	}
 }

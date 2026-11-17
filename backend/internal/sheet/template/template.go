@@ -44,19 +44,27 @@ type Template struct {
 }
 
 type FieldSchema struct {
-	Type           string     `bson:"type"`
-	Label          string     `bson:"label"`
-	Formula        string     `bson:"formula"`
-	DependsOn      [][]string `bson:"depends_on"`
-	IsEditable     bool       `bson:"is_editable"`
-	Default        float64    `bson:"default"`
-	ExclusiveGroup string     `bson:"exclusive_group,omitempty"`
-	OptionLabel    string     `bson:"option_label,omitempty"`
-	ColumnLabel    string     `bson:"column_label,omitempty"`
-	Generatable    bool       `bson:"generatable,omitempty"`
-	Min            *float64   `bson:"min,omitempty"`
-	Max            *float64   `bson:"max,omitempty"`
-	MaxLength      *int       `bson:"max_length,omitempty"`
+	Type             string           `bson:"type"`
+	Label            string           `bson:"label"`
+	Formula          string           `bson:"formula"`
+	DependsOn        [][]string       `bson:"depends_on"`
+	IsEditable       bool             `bson:"is_editable"`
+	Default          float64          `bson:"default"`
+	ExclusiveGroup   string           `bson:"exclusive_group,omitempty"`
+	OptionLabel      string           `bson:"option_label,omitempty"`
+	ColumnLabel      string           `bson:"column_label,omitempty"`
+	Generatable      bool             `bson:"generatable,omitempty"`
+	GeneratableKinds []plan.SheetKind `bson:"generatable_kinds,omitempty"`
+	Min              *float64         `bson:"min,omitempty"`
+	Max              *float64         `bson:"max,omitempty"`
+	MaxLength        *int             `bson:"max_length,omitempty"`
+}
+
+func (s *FieldSchema) GeneratableFor(kind plan.SheetKind) bool {
+	if !s.Generatable {
+		return false
+	}
+	return len(s.GeneratableKinds) == 0 || slices.Contains(s.GeneratableKinds, kind)
 }
 
 func (s *FieldSchema) SeedValue() any {

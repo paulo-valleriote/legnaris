@@ -223,9 +223,11 @@ func skillProfKey(skill string) string { return "skill" + upperFirst(skill) + "P
 func spellUsesKey(ability string) string { return "spellUses" + upperFirst(ability) }
 
 func identityGroup() FieldGroup {
+	playerName := generatableText(textField("Player name"), 60)
+	playerName.Schema.GeneratableKinds = []plan.SheetKind{plan.KindCharacter}
 	return FieldGroup{
 		"characterName":    generatableText(textField("Character name"), 60),
-		"playerName":       generatableText(textField("Player name"), 60),
+		"playerName":       playerName,
 		"ancestry":         generatableText(textField("Ancestry"), 40),
 		"origin":           generatableText(textField("Origin"), 40),
 		"level":            generatableNumber(numField("Level", 1), 1, 20),
