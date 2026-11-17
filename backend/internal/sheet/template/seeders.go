@@ -83,7 +83,7 @@ var fantasyV1Template = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",
 	Default: true,
-	Kinds:   []plan.SheetKind{plan.KindCharacter},
+	Kinds:   []plan.SheetKind{plan.KindCharacter, plan.KindNPC, plan.KindEnemy},
 	Fields: FieldGroup{
 		fieldNameIdentity:  {Children: identityGroup(), Order: identityOrder},
 		fieldNameStats:     {Children: statsGroup(), Order: abilityKeys(identityKey)},

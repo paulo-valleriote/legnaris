@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"legnaris/backend/internal/plan"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,6 +69,14 @@ func TestFantasyV1_FormulaReferencesMatchDependsOn(t *testing.T) {
 				"DependsOn of %s declares %s which the formula never reads", key, engineKey)
 		}
 	}
+}
+
+func TestFantasyV1_Kinds(t *testing.T) {
+	t.Run("Happy path: the fantasy template declares character, NPC and Enemy", func(t *testing.T) {
+		assert.Equal(t,
+			[]plan.SheetKind{plan.KindCharacter, plan.KindNPC, plan.KindEnemy},
+			fantasyV1Template.Kinds)
+	})
 }
 
 func TestFantasyV1_Structure(t *testing.T) {

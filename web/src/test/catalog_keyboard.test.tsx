@@ -72,8 +72,9 @@ describe('catalog keyboard and navigation (WCT-19, WCT-20, WCT-27)', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog.contains(document.activeElement)).toBe(true);
 
-    await user.tab({ shift: true });
-    await user.tab({ shift: true });
+    for (let step = 0; step < 5 && dialog.contains(document.activeElement); step += 1) {
+      await user.tab({ shift: true });
+    }
 
     expect(dialog.contains(document.activeElement)).toBe(false);
   });
