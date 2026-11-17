@@ -82,3 +82,23 @@ func TestSheetKindsCoverEveryLimit(t *testing.T) {
 		assert.Positive(t, plan.Paid.SheetLimit(kind), "Paid allows %s", kind)
 	}
 }
+
+func TestOwnedCampaignLimit(t *testing.T) {
+	tests := []struct {
+		name  string
+		plan  plan.Plan
+		limit int
+	}{
+		{name: "Happy path: Free allows one owned Campaign", plan: plan.Free, limit: 1},
+		{name: "Happy path: Paid allows five owned Campaigns", plan: plan.Paid, limit: 5},
+		{name: "Edge: zero-value Plan allows no owned Campaign", plan: plan.Plan{}, limit: 0},
+		{name: "Edge: Lookup of unknown plan yields the Free limit", plan: plan.Lookup("enterprise"), limit: 1},
+		{name: "Edge: Lookup of missing plan yields the Free limit", plan: plan.Lookup(""), limit: 1},
+		{name: "Edge: Lookup of paid yields the Paid limit", plan: plan.Lookup(plan.IDPaid), limit: 5},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.limit, tc.plan.OwnedCampaignLimit())
+		})
+	}
+}

@@ -29,6 +29,8 @@ packages:
       CharacterStore: {}
       NameLookup: {}
       CreateGuard: {}
+      PlanSource: {}
+      OwnershipCounter: {}
       Service: {}
   legnaris/backend/internal/sheet/template:
     config:
