@@ -15,6 +15,12 @@ export const SIGN_UP_PATH = '/sign-up';
 
 export const PLANS_PATH = '/plans';
 
+export const CAMPAIGNS_PATH = '/campaigns';
+
+export const CAMPAIGN_DETAIL_PATH = '/campaigns/:id';
+
+export const CAMPAIGN_SHEET_PATH = '/campaigns/:id/sheets/:sheetId';
+
 export const PRIVACY_PATH = '/privacy';
 
 export const NOT_FOUND_PATH = '*';
@@ -31,6 +37,27 @@ export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
   },
   { path: '/account', label: 'Account', audience: 'session', deepLink: true, notFound: false },
   { path: PLANS_PATH, label: 'Plans', audience: 'session', deepLink: true, notFound: false },
+  {
+    path: CAMPAIGNS_PATH,
+    label: 'Campaigns',
+    audience: 'session',
+    deepLink: true,
+    notFound: false,
+  },
+  {
+    path: CAMPAIGN_DETAIL_PATH,
+    label: 'Campaign',
+    audience: 'session',
+    deepLink: true,
+    notFound: false,
+  },
+  {
+    path: CAMPAIGN_SHEET_PATH,
+    label: 'Campaign sheet',
+    audience: 'session',
+    deepLink: true,
+    notFound: false,
+  },
   {
     path: '/generate/:templateId',
     label: 'Generate',

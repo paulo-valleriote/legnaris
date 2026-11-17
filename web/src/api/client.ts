@@ -1,3 +1,10 @@
+import type {
+  Campaign,
+  CampaignSheet,
+  CampaignSheetResult,
+  CampaignSummary,
+} from './models/campaign';
+import { parseCampaign, parseCampaignSheets, parseCampaignSummaries } from './models/campaign';
 import type { AcceptedGeneration, Generation } from './models/generation';
 import {
   parseAcceptedGeneration,
@@ -61,7 +68,29 @@ export interface ApiClient {
     templateId: string,
     changeSet: Record<string, unknown>,
   ): Promise<Record<string, unknown>>;
+  listCampaigns(): Promise<CampaignSummary[]>;
+  createCampaign(input: CreateCampaignInput): Promise<Campaign>;
+  getCampaign(id: string): Promise<Campaign>;
+  leaveCampaign(id: string): Promise<void>;
+  deleteCampaign(id: string): Promise<void>;
+  changeMemberRole(campaignId: string, userId: string, action: MemberAction): Promise<Campaign>;
+  removeMember(campaignId: string, userId: string): Promise<Campaign>;
+  linkCharacter(campaignId: string, sheetId: string): Promise<Campaign>;
+  unlinkCharacter(campaignId: string): Promise<Campaign>;
+  listCampaignSheets(campaignId: string): Promise<CampaignSheet[]>;
+  getCampaignSheet(
+    campaignId: string,
+    sheetId: string,
+    etag: string | undefined,
+  ): Promise<CampaignSheetResult>;
 }
+
+export interface CreateCampaignInput {
+  readonly name: string;
+  readonly templateId: string;
+}
+
+export type MemberAction = 'promote' | 'demote';
 
 export interface CreateGenerationInput {
   readonly templateId: string;
@@ -178,5 +207,59 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         JSON.stringify({ data: changeSet }),
         decodeChangeSet,
       ),
+    listCampaigns: () => caller.call('GET', '/campaigns', undefined, parseCampaignSummaries),
+    createCampaign: (input) =>
+      caller.call(
+        'POST',
+        '/campaigns',
+        JSON.stringify({ name: input.name, template_id: input.templateId }),
+        parseCampaign,
+      ),
+    getCampaign: (id) =>
+      caller.call('GET', `/campaigns/${encodeURIComponent(id)}`, undefined, parseCampaign),
+    leaveCampaign: (id) =>
+      caller.callNoContent('POST', `/campaigns/${encodeURIComponent(id)}/leave`, undefined),
+    deleteCampaign: (id) =>
+      caller.callNoContent('DELETE', `/campaigns/${encodeURIComponent(id)}`, undefined),
+    changeMemberRole: (campaignId, userId, action) =>
+      caller.call('POST', memberPath(campaignId, userId, action), undefined, parseCampaign),
+    removeMember: (campaignId, userId) =>
+      caller.call('POST', memberPath(campaignId, userId, 'remove'), undefined, parseCampaign),
+    linkCharacter: (campaignId, sheetId) =>
+      caller.call(
+        'PUT',
+        `/campaigns/${encodeURIComponent(campaignId)}/character`,
+        JSON.stringify({ sheet_id: sheetId }),
+        parseCampaign,
+      ),
+    unlinkCharacter: (campaignId) =>
+      caller.call(
+        'DELETE',
+        `/campaigns/${encodeURIComponent(campaignId)}/character`,
+        undefined,
+        parseCampaign,
+      ),
+    listCampaignSheets: (campaignId) =>
+      caller.call(
+        'GET',
+        `/campaigns/${encodeURIComponent(campaignId)}/sheets`,
+        undefined,
+        parseCampaignSheets,
+      ),
+    getCampaignSheet: async (campaignId, sheetId, etag) => {
+      const headers: Record<string, string> = etag === undefined ? {} : { 'if-none-match': etag };
+      const result = await caller.callConditional(
+        `/campaigns/${encodeURIComponent(campaignId)}/sheets/${encodeURIComponent(sheetId)}`,
+        parseSheet,
+        { headers },
+      );
+      return result.notModified
+        ? result
+        : { notModified: false, sheet: result.value, etag: result.etag };
+    },
   };
+}
+
+function memberPath(campaignId: string, userId: string, action: string): string {
+  return `/campaigns/${encodeURIComponent(campaignId)}/members/${encodeURIComponent(userId)}/${action}`;
 }

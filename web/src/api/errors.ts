@@ -25,7 +25,14 @@ export type FailureKind =
   | 'alreadySubscribed'
   | 'billingUnavailable'
   | 'noSubscription'
-  | 'refundNotEligible';
+  | 'refundNotEligible'
+  | 'campaignNotFound'
+  | 'campaignFull'
+  | 'campaignForbidden'
+  | 'invalidInvite'
+  | 'templateMismatch'
+  | 'sheetAlreadyLinked'
+  | 'planLimitReached';
 
 export interface DomainFailureInput {
   kind: FailureKind;

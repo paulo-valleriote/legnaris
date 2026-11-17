@@ -20,6 +20,10 @@ export interface CallOptions {
   readonly headers?: Readonly<Record<string, string>>;
 }
 
+export type ConditionalResult<T> =
+  | { readonly notModified: true }
+  | { readonly notModified: false; readonly value: T; readonly etag: string | undefined };
+
 export interface RequestCaller {
   call<T>(
     method: HttpMethod,
@@ -34,6 +38,11 @@ export interface RequestCaller {
     body: string | undefined,
     options?: CallOptions,
   ): Promise<void>;
+  callConditional<T>(
+    path: string,
+    decode: (data: unknown) => T,
+    options: CallOptions,
+  ): Promise<ConditionalResult<T>>;
 }
 
 function defaultSleep(ms: number): Promise<void> {
@@ -152,5 +161,39 @@ export function createCaller(options: CallerOptions): RequestCaller {
     throw offlineFailure();
   }
 
-  return { call, callNoContent };
+  async function callConditional<T>(
+    path: string,
+    decode: (data: unknown) => T,
+    callOptions: CallOptions,
+  ): Promise<ConditionalResult<T>> {
+    for (let index = 0; index < 2; index += 1) {
+      try {
+        const response = await send('GET', path, undefined, callOptions);
+
+        if (response.status === 304) {
+          return { notModified: true };
+        }
+
+        const value = decodeEnvelope({
+          status: response.status,
+          body: response.body,
+          decode,
+          ...(response.retryAfter === undefined ? {} : { retryAfter: response.retryAfter }),
+        });
+        return { notModified: false, value, etag: response.etag };
+      } catch (error) {
+        if (isReceivedFailure(error)) {
+          classifyReceived(error);
+        }
+
+        if (index < 1) {
+          await sleep(retryDelayMs);
+        }
+      }
+    }
+
+    throw offlineFailure();
+  }
+
+  return { call, callNoContent, callConditional };
 }
