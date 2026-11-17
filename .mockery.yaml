@@ -30,6 +30,8 @@ packages:
       CreateGuard: {}
       PasswordHasher: {}
       JoinLimiter: {}
+      PlanSource: {}
+      OwnershipCounter: {}
       Service: {}
   legnaris/backend/internal/sheet/template:
     config:

@@ -7,6 +7,7 @@ import (
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/billing"
+	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/quota"
@@ -52,6 +53,7 @@ type planView struct {
 	Trial              *planTrialView           `json:"trial,omitempty"`
 	Generations        *planGenerationsView     `json:"generations,omitempty"`
 	Sheets             map[string]planSheetView `json:"sheets,omitempty"`
+	OwnedCampaigns     *planOwnedCampaignsView  `json:"owned_campaigns,omitempty"`
 	LLMConsentRequired bool                     `json:"llm_consent_required"`
 	LastFreeGeneration bool                     `json:"last_free_generation"`
 	ActiveGenerationID *string                  `json:"active_generation_id"`
@@ -102,11 +104,22 @@ type planSheetView struct {
 	Limit int `json:"limit"`
 }
 
+type planOwnedCampaignsView struct {
+	Used  int `json:"used"`
+	Limit int `json:"limit"`
+}
+
 type PlanOption func(*PlanController)
 
 func WithSheetUsage(sheets sheet.Service) PlanOption {
 	return func(pc *PlanController) {
 		pc.sheets = sheets
+	}
+}
+
+func WithOwnedCampaigns(limiter *campaign.OwnershipLimiter) PlanOption {
+	return func(pc *PlanController) {
+		pc.campaigns = limiter
 	}
 }
 
@@ -124,12 +137,13 @@ func WithGenerationStatus(consent ConsentChecker, active ActiveGenerationReader)
 }
 
 type PlanController struct {
-	quota    *quota.Service
-	resolver PlanResolver
-	sheets   sheet.Service
-	consent  ConsentChecker
-	active   ActiveGenerationReader
-	billing  BillingSummarizer
+	quota     *quota.Service
+	resolver  PlanResolver
+	sheets    sheet.Service
+	campaigns *campaign.OwnershipLimiter
+	consent   ConsentChecker
+	active    ActiveGenerationReader
+	billing   BillingSummarizer
 }
 
 func NewPlanController(allowance *quota.Service, resolver PlanResolver, opts ...PlanOption) *PlanController {
@@ -155,6 +169,13 @@ func (pc *PlanController) respond(c *echo.Context, userID string, view planView,
 			return err
 		}
 		view.Sheets = sheetUsageView(usage)
+	}
+	if pc.campaigns != nil {
+		usage, err := pc.campaigns.Usage(ctx, userID)
+		if err != nil {
+			return err
+		}
+		view.OwnedCampaigns = &planOwnedCampaignsView{Used: usage.Used, Limit: usage.Limit}
 	}
 	if pc.consent != nil && pc.active != nil {
 		if err := pc.fillGenerationStatus(ctx, userID, canGenerate, &view); err != nil {

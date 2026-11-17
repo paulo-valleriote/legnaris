@@ -166,6 +166,7 @@ func NewModules(
 	)
 	sheetController := NewSheetController(sheetService)
 
+	ownedCampaigns := campaign.NewOwnershipLimiter(user.NewPlanSource(userRepository), campaign.NewOwnershipCounter(mdb))
 	refreshTokenRepository := auth.NewRefreshTokenRepository(mdb)
 
 	hasher, err := auth.NewPasswordHasher(cfg.Variables.AuthBcryptCost)
@@ -269,6 +270,7 @@ func NewModules(
 	billingInbox := billing.NewInbox(billingProvider, billingStore, time.Now)
 	planController := NewPlanController(quotaService, PlanResolverFromSource(user.NewPlanSource(userRepository)),
 		WithSheetUsage(sheetService),
+		WithOwnedCampaigns(ownedCampaigns),
 		WithBillingSummary(billing.NewStatusReader(billingStore)),
 		WithGenerationStatus(llmConsentService, generationService),
 	)
@@ -288,6 +290,7 @@ func NewModules(
 	campaignJoinLimiter := limiter("campaign_join_campaign", cfg.Variables.CampaignJoinRateLimitAttempts, cfg.Variables.CampaignJoinRateLimitWindow)
 	campaignService := campaign.NewService(campaign.NewRepository(mdb), db.NewTransactor(database.Client, nil), publisher,
 		campaign.WithNameLookup(campaignNameLookup{users: userRepository}),
+		campaign.WithCreateGuard(ownedCampaigns),
 		campaign.WithPasswordHasher(campaignHasher),
 		campaign.WithJoinLimiter(campaignJoinLimiter),
 	)
