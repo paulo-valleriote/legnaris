@@ -57,7 +57,7 @@ The light theme is declared on `:root`; the dark theme overrides the semantic la
 
 ---
 
-## Colour
+## Colour (Colors)
 
 Two themes, one accent each.
 
@@ -154,7 +154,7 @@ Rules:
 
 ---
 
-## Component specifications
+## Component specifications (Components)
 
 - **Shared primitives layer (`web/src/ui/`).** The sanctioned base layer holds exactly the five
   primitives — action (`button`), field (`field`), checkbox (`checkbox`), dialog (`dialog`) and
@@ -183,6 +183,19 @@ Rules:
   trapped within. The scrim uses `--lg-color-overlay`.
 - **Feedback.** Every async action shows progress and an inline result (success or a mapped error).
   Loading, empty and error states are designed, never blank.
+- **Notice strip.** A standing, non-blocking condition the person should act on (a payment issue,
+  an exhausted generation quota, a generation still running from an earlier visit) is one flat
+  strip inline in the flow: the surface layer, a `--lg-size-hairline` leading edge in the state's
+  system tone (`--lg-color-warning` for a problem, `--lg-color-info` for information), one line of
+  `--lg-type-15` text and at most one way forward, an accent link or a secondary button. It is never a toast, never dismissible while the condition holds,
+  and the payment strip above the signed-in content carries `role="status"`.
+- **Badge.** A short status label on a bounded object (the current plan): `--lg-type-12` semibold
+  on the accent fill with `--lg-color-accent-text`, `--lg-radius-pill`. A badge is never a control;
+  the pill shape stays banned for buttons.
+- **Document dialog.** Long reading content opened from a flow (the privacy policy) uses the one
+  dialog pattern at `--lg-size-dialog-max`: a hairline-divided header with the title and a ghost
+  icon close button on a `--lg-size-control` target, and a body that scrolls on its own, contains
+  its overscroll and takes the focus ring when focused for keyboard scrolling.
 - **Code field.** One editable field holds the whole code, presented as six
   single-digit positions that follow the field's value. The field keeps a
   permanent label, a numeric input mode and the platform's one-time-code
@@ -503,6 +516,31 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   the address the code was sent to and how long the code remains valid, takes the code over one
   field, keeps the refusal against that field, and offers the resend with its countdown and one way
   back to the credential form.
+- **Settings rows (Account).** The page title, then hairline-divided rows of a muted label and its
+  content (two columns from `40rem`, label `1fr` to content `3fr`; stacked below). A row leads with
+  its value (`--lg-type-20` semibold for the plan name), may list counts in tabular figures, and
+  holds its own actions and inline error. No cards.
+- **Plans.** The one place cards are sanctioned in the signed-in app, because each plan is a
+  genuinely bounded offer: surface layer, hairline border, `--lg-radius-lg`, `--lg-shadow-1`, one
+  column, two from `60rem`. The current plan swaps its border to the accent and carries a Badge.
+  The price is `--lg-type-24` bold in tabular figures with its period and note muted; the actions
+  sit at the card's foot and fill the width below `40rem`. Refund lives below the cards behind a
+  hairline, as plain text and one danger action, its outcome an inline status line. No comparison table, no "most popular" emphasis.
+- **Generate.** A single-column flow (prompt, consent, review) with prose capped at `65ch`. The
+  prompt fields sit on the raised layer with a `--lg-color-border-strong` hairline and
+  `--lg-radius-sm`; a character counter in tabular figures trails the helper text and turns
+  warning while the text is too short and danger once it is too long. The remaining quota is one
+  muted line in tabular figures; an exhausted quota and a resumable generation are Notice strips.
+  Consent is a definition list of muted points under one intro, and the privacy policy opens in
+  the Document dialog.
+- **Campaign and Join.** Campaign pages are lists of hairline-divided member and Sheet rows (name
+  semibold, meta in `--lg-type-13` muted, actions trailing and wrapping under on a narrow width),
+  section headings at `--lg-type-20`, and forms capped at `32rem`. Join is the same page title over
+  one form capped at `36rem`. Long names and invite codes wrap anywhere, never overflow.
+- **Privacy (`/privacy`).** Public and outside the shell, so it follows the stored or system theme
+  on the base semantic layer rather than the stage world: the page background, prose at
+  `--lg-type-16` capped at `--lg-size-content-max`, accent links that wrap anywhere. Inside the
+  app the same text opens in the Document dialog instead of navigating away.
 - **States (loading / empty / error / not found).** Each is designed: a short line of plain text
   and, where there is an action, one control. No illustration, no demo data.
 - **Overlays.** Creation flows, destructive confirmations, blocking errors and the dice expression
@@ -510,7 +548,9 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
 - **Dice.** A Row's dice controls sit at the trailing edge of its label, in every Row kind, so they
   always sit right before the value; a label beside them keeps whole words. Roll is the action of the
   table and the only outlined control: raised fill, `--lg-color-border-strong` hairline (accent on
-  hover and press), `--lg-radius-md`, an accent drawn die and the dice it throws in semibold tabular
+  hover and press), `--lg-radius-md`, an accent die drawn as a bare outline in the shape of the
+  expression's leading die (d4, d6, d8, d10, d12 or d20; a d100 draws the d10; no leading die or
+  an uncommon one draws the d20) and the dice it throws in semibold tabular
   figures (`d20`, `2d6+d4`; numbers and Fields are left to the result panel; the word `Roll` when it
   throws none). Its accessible name is the Row plus those dice (`Roll Initiative, d20`); a press scales
   it down slightly, zeroed under reduced motion. Edit is a ghost pencil icon on a `--lg-size-control`
