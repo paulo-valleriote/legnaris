@@ -37,6 +37,7 @@ type SheetLink struct {
 type LinkStore interface {
 	Upsert(ctx context.Context, link *SheetLink) (SheetLink, bool, error)
 	Fetch(ctx context.Context, campaignID, sheetID string) (*SheetLink, error)
+	SetRevealed(ctx context.Context, campaignID, sheetID string, revealed bool) (SheetLink, error)
 	Delete(ctx context.Context, campaignID, sheetID string) (bool, error)
 	ListByCampaignID(ctx context.Context, campaignID string) ([]SheetLink, error)
 	DeleteBySheetID(ctx context.Context, sheetID string) ([]SheetLink, error)
@@ -94,6 +95,21 @@ func (s *MongoLinkStore) Fetch(ctx context.Context, campaignID, sheetID string) 
 		return nil, fmt.Errorf("fetch sheet link: %w", err)
 	}
 	return &stored, nil
+}
+
+func (s *MongoLinkStore) SetRevealed(ctx context.Context, campaignID, sheetID string, revealed bool) (SheetLink, error) {
+	update := bson.D{{Key: setOperator, Value: bson.D{{Key: linkRevealedField, Value: revealed}}}}
+	var stored SheetLink
+	err := s.collection.FindOneAndUpdate(ctx, linkFilter(campaignID, sheetID), update,
+		options.FindOneAndUpdate().SetReturnDocument(options.After),
+	).Decode(&stored)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return SheetLink{}, ErrLinkNotFound
+	}
+	if err != nil {
+		return SheetLink{}, fmt.Errorf("reveal sheet link: %w", err)
+	}
+	return stored, nil
 }
 
 func (s *MongoLinkStore) Delete(ctx context.Context, campaignID, sheetID string) (bool, error) {

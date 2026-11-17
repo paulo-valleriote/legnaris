@@ -41,6 +41,13 @@ type UnlinkNpcCommand struct {
 	SheetID    string `json:"-"`
 }
 
+type RevealNpcCommand struct {
+	CampaignID string `json:"-"`
+	UserID     string `json:"-"`
+	SheetID    string `json:"-"`
+	Revealed   bool   `json:"-"`
+}
+
 type ReadNpcSheetQuery struct {
 	CampaignID  string
 	ViewerID    string
@@ -68,6 +75,10 @@ func (noLinks) Upsert(context.Context, *SheetLink) (SheetLink, bool, error) {
 
 func (noLinks) Fetch(context.Context, string, string) (*SheetLink, error) {
 	return nil, ErrLinkNotFound
+}
+
+func (noLinks) SetRevealed(context.Context, string, string, bool) (SheetLink, error) {
+	return SheetLink{}, ErrLinkNotFound
 }
 
 func (noLinks) Delete(context.Context, string, string) (bool, error) {
@@ -245,15 +256,15 @@ func (s *ServiceImpl) ListNpcLinks(ctx context.Context, campaignID, viewerID str
 		return nil, err
 	}
 	member, _ := c.MemberOf(viewerID)
-	if member.Role != RoleGM {
-		return nil, forbidden(MsgLinkGMOnly)
-	}
 	found, err := s.links.ListByCampaignID(ctx, campaignID)
 	if err != nil {
 		return nil, internalError(MsgLinkRead, err)
 	}
 	views := make([]NpcLinkView, 0, len(found))
 	for _, link := range found {
+		if member.Role != RoleGM && !link.Revealed {
+			continue
+		}
 		stored, err := s.sheets.FetchByID(ctx, link.SheetID)
 		if errors.Is(err, sheet.ErrSheetNotFound) {
 			continue
@@ -267,6 +278,82 @@ func (s *ServiceImpl) ListNpcLinks(ctx context.Context, campaignID, viewerID str
 		views = append(views, s.npcLinkView(ctx, link, stored.Name, stored.Kind, viewerID))
 	}
 	return views, nil
+}
+
+type revealOutcome struct {
+	link    SheetLink
+	sheet   sheet.Sheet
+	changed bool
+}
+
+func (s *ServiceImpl) SetNpcRevealed(ctx context.Context, cmd RevealNpcCommand) (NpcLinkView, error) {
+	if err := requireUser(cmd.UserID); err != nil {
+		return NpcLinkView{}, err
+	}
+	if err := requireCampaignID(cmd.CampaignID); err != nil {
+		return NpcLinkView{}, err
+	}
+	if err := requireSheetID(cmd.SheetID); err != nil {
+		return NpcLinkView{}, err
+	}
+	var outcome revealOutcome
+	out, err := Mutate(ctx, s.tx, s.repository, cmd.CampaignID, s.now(), func(txCtx context.Context, c *Campaign) error {
+		return s.applyNpcReveal(txCtx, c, cmd, &outcome)
+	})
+	if err != nil {
+		return NpcLinkView{}, err
+	}
+	if outcome.changed {
+		eventType := EventSheetHidden
+		if cmd.Revealed {
+			eventType = EventSheetRevealed
+		}
+		s.publishCampaignEvent(eventType, cmd.UserID, out.ID, out.Version, map[string]any{
+			linkSheetIDField: outcome.sheet.ID,
+			dataKeyKind:      string(outcome.sheet.Kind),
+			linkOwnerIDField: outcome.sheet.OwnerID,
+		})
+	}
+	return s.npcLinkView(ctx, outcome.link, outcome.sheet.Name, outcome.sheet.Kind, cmd.UserID), nil
+}
+
+func (s *ServiceImpl) applyNpcReveal(txCtx context.Context, c *Campaign, cmd RevealNpcCommand, outcome *revealOutcome) error {
+	member, ok := c.MemberOf(cmd.UserID)
+	if !ok {
+		return notFound()
+	}
+	if member.Role != RoleGM {
+		return forbidden(MsgLinkGMOnly)
+	}
+	current, err := s.links.Fetch(txCtx, c.ID, cmd.SheetID)
+	if errors.Is(err, ErrLinkNotFound) {
+		return linkNotFound()
+	}
+	if err != nil {
+		return internalError(MsgLinkRead, err)
+	}
+	found, err := s.sheets.FetchByID(txCtx, cmd.SheetID)
+	if errors.Is(err, sheet.ErrSheetNotFound) {
+		return sheetNotFound()
+	}
+	if err != nil {
+		return internalError(MsgSheetRead, err)
+	}
+	outcome.link = *current
+	outcome.sheet = *found
+	if current.Revealed == cmd.Revealed {
+		return nil
+	}
+	updated, err := s.links.SetRevealed(txCtx, c.ID, cmd.SheetID, cmd.Revealed)
+	if errors.Is(err, ErrLinkNotFound) {
+		return linkNotFound()
+	}
+	if err != nil {
+		return internalError(MsgLinkWrite, err)
+	}
+	outcome.link = updated
+	outcome.changed = true
+	return nil
 }
 
 func (s *ServiceImpl) ReadNpcSheet(ctx context.Context, q ReadNpcSheetQuery) (LinkedSheetResult, error) {
@@ -284,13 +371,15 @@ func (s *ServiceImpl) ReadNpcSheet(ctx context.Context, q ReadNpcSheetQuery) (Li
 		return LinkedSheetResult{}, err
 	}
 	member, _ := c.MemberOf(q.ViewerID)
-	if member.Role != RoleGM {
-		return LinkedSheetResult{}, forbidden(MsgLinkGMOnly)
-	}
-	if _, err := s.links.Fetch(ctx, c.ID, q.SheetID); errors.Is(err, ErrLinkNotFound) {
+	link, err := s.links.Fetch(ctx, c.ID, q.SheetID)
+	if errors.Is(err, ErrLinkNotFound) {
 		return LinkedSheetResult{}, linkNotFound()
-	} else if err != nil {
+	}
+	if err != nil {
 		return LinkedSheetResult{}, internalError(MsgLinkRead, err)
+	}
+	if member.Role != RoleGM && !link.Revealed {
+		return LinkedSheetResult{}, linkNotFound()
 	}
 	stored, err := s.sheets.FetchByID(ctx, q.SheetID)
 	if errors.Is(err, sheet.ErrSheetNotFound) {

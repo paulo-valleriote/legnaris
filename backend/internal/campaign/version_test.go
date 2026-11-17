@@ -150,6 +150,56 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
+			name: "reveal npc",
+			base: campaigntest.Build(t, 0, 1),
+			prepare: func(h *harness, base campaign.Campaign) {
+				owner := campaigntest.OwnerID(base)
+				sh := sheetOf(t, owner, base.TemplateID, plan.KindNPC, nil)
+				sh.ID = "01900000-0000-7000-8000-0000000000e3"
+				hidden := campaign.SheetLink{ID: campaigntest.NewID(t), CampaignID: base.ID, SheetID: sh.ID, OwnerID: owner}
+				revealed := hidden
+				revealed.Revealed = true
+				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
+				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&hidden, nil).Once()
+				h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, true).Return(revealed, nil).Once()
+				h.withUsernames("someone", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				_, err := h.service().SetNpcRevealed(ctx, campaign.RevealNpcCommand{
+					CampaignID: base.ID,
+					UserID:     campaigntest.OwnerID(base),
+					SheetID:    "01900000-0000-7000-8000-0000000000e3",
+					Revealed:   true,
+				})
+				return err
+			},
+		},
+		{
+			name: "hide npc",
+			base: campaigntest.Build(t, 0, 1),
+			prepare: func(h *harness, base campaign.Campaign) {
+				owner := campaigntest.OwnerID(base)
+				sh := sheetOf(t, owner, base.TemplateID, plan.KindMonster, nil)
+				sh.ID = "01900000-0000-7000-8000-0000000000e4"
+				revealed := campaign.SheetLink{ID: campaigntest.NewID(t), CampaignID: base.ID, SheetID: sh.ID, OwnerID: owner, Revealed: true}
+				hidden := revealed
+				hidden.Revealed = false
+				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
+				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&revealed, nil).Once()
+				h.links.EXPECT().SetRevealed(mock.Anything, base.ID, sh.ID, false).Return(hidden, nil).Once()
+				h.withUsernames("someone", nil)
+			},
+			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
+				_, err := h.service().SetNpcRevealed(ctx, campaign.RevealNpcCommand{
+					CampaignID: base.ID,
+					UserID:     campaigntest.OwnerID(base),
+					SheetID:    "01900000-0000-7000-8000-0000000000e4",
+					Revealed:   false,
+				})
+				return err
+			},
+		},
+		{
 			name: "unlink",
 			base: campaigntest.Build(t, 0, 2),
 			prepare: func(h *harness, base campaign.Campaign) {
@@ -336,6 +386,32 @@ func TestCampaignWrites_FailedWritesPersistNothing(t *testing.T) {
 				h.sheets.EXPECT().UnlinkOwnerCampaign(mock.Anything, player, base.ID).Return(int64(1), nil).Once()
 				h.sheets.EXPECT().LinkCampaign(mock.Anything, sh.ID, (*string)(nil), base.ID).Return(false, nil).Once()
 				_, err := h.service().Link(ctx, campaign.LinkCommand{CampaignID: base.ID, UserID: player, SheetID: sh.ID})
+				return err
+			},
+		},
+		{
+			name: "reveal by a player",
+			run: func(ctx context.Context, h *harness) error {
+				_, err := h.service().SetNpcRevealed(ctx, campaign.RevealNpcCommand{
+					CampaignID: base.ID,
+					UserID:     player,
+					SheetID:    campaigntest.NewID(t),
+					Revealed:   true,
+				})
+				return err
+			},
+		},
+		{
+			name: "reveal of a missing link",
+			run: func(ctx context.Context, h *harness) error {
+				sheetID := campaigntest.NewID(t)
+				h.links.EXPECT().Fetch(mock.Anything, base.ID, sheetID).Return(nil, campaign.ErrLinkNotFound).Once()
+				_, err := h.service().SetNpcRevealed(ctx, campaign.RevealNpcCommand{
+					CampaignID: base.ID,
+					UserID:     owner,
+					SheetID:    sheetID,
+					Revealed:   true,
+				})
 				return err
 			},
 		},

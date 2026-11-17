@@ -980,6 +980,63 @@ func (_c *MockService_RotateInviteCode_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+// SetNpcRevealed provides a mock function with given fields: ctx, cmd
+func (_m *MockService) SetNpcRevealed(ctx context.Context, cmd campaign.RevealNpcCommand) (campaign.NpcLinkView, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetNpcRevealed")
+	}
+
+	var r0 campaign.NpcLinkView
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.RevealNpcCommand) (campaign.NpcLinkView, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.RevealNpcCommand) campaign.NpcLinkView); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.NpcLinkView)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.RevealNpcCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_SetNpcRevealed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetNpcRevealed'
+type MockService_SetNpcRevealed_Call struct {
+	*mock.Call
+}
+
+// SetNpcRevealed is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.RevealNpcCommand
+func (_e *MockService_Expecter) SetNpcRevealed(ctx interface{}, cmd interface{}) *MockService_SetNpcRevealed_Call {
+	return &MockService_SetNpcRevealed_Call{Call: _e.mock.On("SetNpcRevealed", ctx, cmd)}
+}
+
+func (_c *MockService_SetNpcRevealed_Call) Run(run func(ctx context.Context, cmd campaign.RevealNpcCommand)) *MockService_SetNpcRevealed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.RevealNpcCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_SetNpcRevealed_Call) Return(_a0 campaign.NpcLinkView, _a1 error) *MockService_SetNpcRevealed_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_SetNpcRevealed_Call) RunAndReturn(run func(context.Context, campaign.RevealNpcCommand) (campaign.NpcLinkView, error)) *MockService_SetNpcRevealed_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetPassword provides a mock function with given fields: ctx, cmd
 func (_m *MockService) SetPassword(ctx context.Context, cmd campaign.PasswordCommand) (campaign.View, error) {
 	ret := _m.Called(ctx, cmd)
