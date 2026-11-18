@@ -114,9 +114,12 @@ func TestFantasyV1_Structure(t *testing.T) {
 			require.NotNil(t, schema, "missing identity counter %s", key)
 			assert.Equal(t, fieldTypeNumber, schema.Type)
 			assert.True(t, schema.IsEditable)
+			assert.True(t, schema.PreferDefault, "counter %s must keep its default unless the concept says otherwise", key)
 		}
 		assert.Equal(t, 1.0, identity["level"].Schema.Default)
+		assert.Equal(t, 0.0, identity["xp"].Schema.Default)
 		assert.Equal(t, 2.0, identity[fieldNameProficiencyBonus].Schema.Default)
+		assert.False(t, identity["playerName"].Schema.Generatable)
 	})
 
 	t.Run("Happy path: stats carries the six editable ability scores", func(t *testing.T) {

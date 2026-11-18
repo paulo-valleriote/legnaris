@@ -88,6 +88,56 @@ func TestValidateGenerationMetadata(t *testing.T) {
 			})}),
 		},
 		{
+			name: "Happy path: a generatable leaf that prefers its default inside its range is valid",
+			tmpl: genTemplate(FieldGroup{"level": genLeaf(FieldSchema{
+				Generatable: true, Default: 1, Min: f64(1), Max: f64(20), PreferDefault: true,
+			})}),
+		},
+		{
+			name: "Edge: a preferred default equal to the minimum is valid",
+			tmpl: genTemplate(FieldGroup{"xp": genLeaf(FieldSchema{
+				Generatable: true, Default: 0, Min: f64(0), Max: f64(355000), PreferDefault: true,
+			})}),
+		},
+		{
+			name: "Edge: a preferred default equal to the maximum is valid",
+			tmpl: genTemplate(FieldGroup{"bonus": genLeaf(FieldSchema{
+				Generatable: true, Default: 6, Min: f64(2), Max: f64(6), PreferDefault: true,
+			})}),
+		},
+		{
+			name: "Edge: a preferred default without bounds is valid",
+			tmpl: genTemplate(FieldGroup{"level": genLeaf(FieldSchema{
+				Generatable: true, Default: 5, PreferDefault: true,
+			})}),
+		},
+		{
+			name:    "Error: a preferred default on a non-generatable leaf is rejected",
+			tmpl:    genTemplate(FieldGroup{"level": genLeaf(FieldSchema{Default: 1, PreferDefault: true})}),
+			wantErr: ErrPreferDefaultOnNonGeneratable,
+		},
+		{
+			name: "Error: a preferred default below the minimum is rejected",
+			tmpl: genTemplate(FieldGroup{"level": genLeaf(FieldSchema{
+				Generatable: true, Default: 0, Min: f64(1), Max: f64(20), PreferDefault: true,
+			})}),
+			wantErr: ErrPreferDefaultOutOfBounds,
+		},
+		{
+			name: "Error: a preferred default above the maximum is rejected",
+			tmpl: genTemplate(FieldGroup{"level": genLeaf(FieldSchema{
+				Generatable: true, Default: 21, Min: f64(1), Max: f64(20), PreferDefault: true,
+			})}),
+			wantErr: ErrPreferDefaultOutOfBounds,
+		},
+		{
+			name: "Error: a preferred default below a lone minimum is rejected",
+			tmpl: genTemplate(FieldGroup{"xp": genLeaf(FieldSchema{
+				Generatable: true, Default: -1, Min: f64(0), PreferDefault: true,
+			})}),
+			wantErr: ErrPreferDefaultOutOfBounds,
+		},
+		{
 			name: "Edge: an empty kind restriction means every kind",
 			tmpl: genTemplate(FieldGroup{"name": genLeaf(FieldSchema{
 				Type: fieldTypeText, Generatable: true, GeneratableKinds: []plan.SheetKind{},

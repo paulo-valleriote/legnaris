@@ -104,6 +104,25 @@ func dependentFixtureTemplate() *template.Template {
 	}
 }
 
+func preferDefaultFixtureTemplate() *template.Template {
+	return &template.Template{
+		ID:   fixtureID,
+		Name: "Prefer default",
+		Fields: template.FieldGroup{
+			"identity": {Children: template.FieldGroup{
+				"level": {Schema: &template.FieldSchema{
+					Type: "number", Label: "Level", IsEditable: true, Generatable: true,
+					Default: 1, Min: ptr(1.0), Max: ptr(20.0), PreferDefault: true,
+				}},
+				"xp": {Schema: &template.FieldSchema{
+					Type: "number", Label: "Experience points", IsEditable: true, Generatable: true,
+					Default: 0, Min: ptr(0.0), Max: ptr(355000.0),
+				}},
+			}},
+		},
+	}
+}
+
 func brokenFormulaFixtureTemplate() *template.Template {
 	return &template.Template{
 		ID:   fixtureID,

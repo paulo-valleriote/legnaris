@@ -197,6 +197,11 @@ func generatableText(node FieldNode, maxLength int) FieldNode {
 	return node
 }
 
+func preferDefault(node FieldNode) FieldNode {
+	node.Schema.PreferDefault = true
+	return node
+}
+
 func calcField(label, formula string, deps ...[]string) FieldNode {
 	return FieldNode{Schema: &FieldSchema{
 		Type:       fieldTypeNumber,
@@ -223,16 +228,14 @@ func skillProfKey(skill string) string { return "skill" + upperFirst(skill) + "P
 func spellUsesKey(ability string) string { return "spellUses" + upperFirst(ability) }
 
 func identityGroup() FieldGroup {
-	playerName := generatableText(textField("Player name"), 60)
-	playerName.Schema.GeneratableKinds = []plan.SheetKind{plan.KindCharacter}
 	return FieldGroup{
 		"characterName":    generatableText(textField("Character name"), 60),
-		"playerName":       playerName,
+		"playerName":       textField("Player name"),
 		"ancestry":         generatableText(textField("Ancestry"), 40),
 		"origin":           generatableText(textField("Origin"), 40),
-		"level":            generatableNumber(numField("Level", 1), 1, 20),
-		"xp":               generatableNumber(numField("Experience points", 0), 0, 355000),
-		"proficiencyBonus": generatableNumber(numField("Proficiency bonus", 2), 2, 6),
+		"level":            preferDefault(generatableNumber(numField("Level", 1), 1, 20)),
+		"xp":               preferDefault(generatableNumber(numField("Experience points", 0), 0, 355000)),
+		"proficiencyBonus": preferDefault(generatableNumber(numField("Proficiency bonus", 2), 2, 6)),
 	}
 }
 

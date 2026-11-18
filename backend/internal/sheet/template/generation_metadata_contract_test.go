@@ -36,6 +36,14 @@ func TestFieldSchemaDTO_MarshalJSON_GenerationMetadata(t *testing.T) {
 			want: `{"type":"text","label":"","is_editable":true,"default":0,"generatable":true,"generatable_kinds":["character"]}`,
 		},
 		{
+			name: "Happy path: a generatable leaf that prefers its default is emitted as prefer_default",
+			schema: FieldSchema{
+				Type: fieldTypeNumber, IsEditable: true, Generatable: true,
+				Default: 1, Min: f64(1), Max: f64(20), PreferDefault: true,
+			},
+			want: `{"type":"number","label":"","is_editable":true,"default":1,"generatable":true,"prefer_default":true,"min":1,"max":20}`,
+		},
+		{
 			name:   "Edge: an explicit zero minimum is emitted, not dropped",
 			schema: FieldSchema{Type: fieldTypeNumber, IsEditable: true, Min: f64(0)},
 			want:   `{"type":"number","label":"","is_editable":true,"default":0,"min":0}`,
@@ -62,7 +70,7 @@ func TestGenerationMetadata_CopiesDoNotAlias(t *testing.T) {
 	original := Template{Fields: FieldGroup{"stats": {Children: FieldGroup{
 		"strength": {Schema: &FieldSchema{
 			Type: fieldTypeNumber, IsEditable: true, Generatable: true, Min: f64(3), Max: f64(20),
-			GeneratableKinds: []plan.SheetKind{plan.KindCharacter},
+			GeneratableKinds: []plan.SheetKind{plan.KindCharacter}, PreferDefault: true,
 		}},
 		"name": genLeaf(FieldSchema{Type: fieldTypeText, MaxLength: intPtr(40)}),
 	}}}}
@@ -97,6 +105,9 @@ func TestGenerationMetadata_CopiesDoNotAlias(t *testing.T) {
 	assert.Equal(t, 20.0, *strength.Max)
 	assert.Equal(t, 40, *name.MaxLength)
 	assert.Equal(t, []plan.SheetKind{plan.KindCharacter}, strength.GeneratableKinds)
+	assert.True(t, strength.PreferDefault)
+	assert.True(t, clonedStrength.PreferDefault)
+	assert.True(t, dtoStrength.PreferDefault)
 }
 
 func TestFantasyV1_GenerationMetadata(t *testing.T) {
@@ -107,8 +118,9 @@ func TestFantasyV1_GenerationMetadata(t *testing.T) {
 	for i, schema := range schemas {
 		key := paths[i].String()
 		isRules := strings.HasPrefix(key, fieldNameRules+".")
+		isPlayerName := key == fieldNameIdentity+".playerName"
 
-		if !schema.IsEditable || isRules {
+		if !schema.IsEditable || isRules || isPlayerName {
 			assert.False(t, schema.Generatable, "leaf %s must not be generatable", key)
 			continue
 		}
@@ -132,12 +144,50 @@ func TestFantasyV1_GenerationMetadata(t *testing.T) {
 
 	playerName := fantasyV1Template.Fields[fieldNameIdentity].Children["playerName"].Schema
 	require.NotNil(t, playerName)
-	assert.Equal(t, []plan.SheetKind{plan.KindCharacter}, playerName.GeneratableKinds)
-	assert.True(t, playerName.GeneratableFor(plan.KindCharacter))
+	assert.True(t, playerName.IsEditable)
+	assert.False(t, playerName.Generatable)
+	assert.False(t, playerName.GeneratableFor(plan.KindCharacter))
 	assert.False(t, playerName.GeneratableFor(plan.KindNPC))
 	assert.False(t, playerName.GeneratableFor(plan.KindEnemy))
 
 	require.NoError(t, ValidateGenerationMetadata(fantasyV1Template))
+}
+
+func TestFantasyV1_PreferDefault(t *testing.T) {
+	schemas, paths := collectLeaves(fantasyV1Template.Fields)
+	require.NotEmpty(t, schemas)
+
+	preferred := make([]string, 0, 3)
+	for i, schema := range schemas {
+		if schema.PreferDefault {
+			preferred = append(preferred, paths[i].String())
+		}
+	}
+	assert.ElementsMatch(t, []string{
+		fieldNameIdentity + ".level",
+		fieldNameIdentity + ".xp",
+		fieldNameIdentity + ".proficiencyBonus",
+	}, preferred)
+
+	identity := fantasyV1Template.Fields[fieldNameIdentity].Children
+
+	level := identity["level"].Schema
+	require.NotNil(t, level)
+	assert.Equal(t, 1.0, level.Default)
+	assert.Equal(t, 1.0, *level.Min)
+	assert.Equal(t, 20.0, *level.Max)
+
+	xp := identity["xp"].Schema
+	require.NotNil(t, xp)
+	assert.Equal(t, 0.0, xp.Default)
+
+	proficiency := identity[fieldNameProficiencyBonus].Schema
+	require.NotNil(t, proficiency)
+	assert.Equal(t, 2.0, proficiency.Default)
+
+	characterName := identity["characterName"].Schema
+	require.NotNil(t, characterName)
+	assert.False(t, characterName.PreferDefault)
 }
 
 func TestFantasyV1_GenerationMetadataPayload(t *testing.T) {
@@ -156,7 +206,12 @@ func TestFantasyV1_GenerationMetadataPayload(t *testing.T) {
 	identity := payload.Fields["identity"].Children
 	assert.Equal(t, true, identity["characterName"].Schema["generatable"])
 	assert.Equal(t, float64(60), identity["characterName"].Schema["max_length"])
-	assert.Equal(t, []any{"character"}, identity["playerName"].Schema["generatable_kinds"])
+	assert.NotContains(t, identity["playerName"].Schema, "generatable")
+	assert.NotContains(t, identity["playerName"].Schema, "generatable_kinds")
+	assert.Equal(t, true, identity["level"].Schema["prefer_default"])
+	assert.Equal(t, true, identity["xp"].Schema["prefer_default"])
+	assert.Equal(t, true, identity[fieldNameProficiencyBonus].Schema["prefer_default"])
+	assert.NotContains(t, identity["characterName"].Schema, "prefer_default")
 	assert.Equal(t, float64(1), identity["level"].Schema["min"])
 	assert.Equal(t, float64(20), identity["level"].Schema["max"])
 

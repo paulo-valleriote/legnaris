@@ -300,3 +300,96 @@ describe('resume from the catalog (LGN-196)', () => {
     expect(countOf(fake.requests, 'POST', '/generations')).toBe(0);
   });
 });
+
+const reviewKinds = [
+  {
+    kind: 'character',
+    title: 'Review your character',
+    note: "Generated values are a starting point. Check them against your game system's rules and confirm the details with your game master.",
+  },
+  {
+    kind: 'npc',
+    title: 'Review your NPC',
+    note: "Generated values are a starting point. Check them against your game system's rules and adjust the details to fit your session.",
+  },
+  {
+    kind: 'enemy',
+    title: 'Review your enemy',
+    note: "Generated values are a starting point. Check them against your game system's rules and adjust the details to fit your encounter.",
+  },
+] as const;
+
+async function reachReviewOfKind(kind: string, title: string) {
+  const user = userEvent.setup();
+  renderGenerate({
+    ...succeededRoutes({ [`GET /generations/${GENERATION_ID}`]: ok({ ...SUCCEEDED, kind }) }),
+    'GET /me/plan': ok(planWith()),
+  });
+  await screen.findByLabelText('Describe your character');
+  fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
+  await user.click(generateButton());
+  await screen.findByRole('heading', { name: title });
+}
+
+describe('review step starting-point note', () => {
+  it.each(reviewKinds)(
+    'Happy path: the $kind review shows its own starting-point note',
+    async ({ kind, title, note }) => {
+      await reachReviewOfKind(kind, title);
+
+      expect(screen.getByText(note)).toHaveClass('lg-generate__review-note');
+    },
+  );
+
+  it('Edge: the review section is described by its note', async () => {
+    await reachReviewOfKind('character', 'Review your character');
+
+    const section = screen.getByRole('region', { name: 'Review your character' });
+    expect(section).toHaveAttribute('aria-describedby', 'generate-review-note');
+    const note = document.getElementById('generate-review-note');
+    expect(note).not.toBeNull();
+    expect(section).toContainElement(note);
+    expect(note).toHaveTextContent(reviewKinds[0].note);
+  });
+
+  it('Edge: the note is absent while the generation is still running', async () => {
+    renderGenerate({
+      'POST /generations': ok({ id: GENERATION_ID }, 202),
+      [`GET /generations/${GENERATION_ID}`]: ok({
+        id: GENERATION_ID,
+        status: 'running',
+        kind: 'character',
+        template_id: TEMPLATE_ID,
+        created_at: '2026-11-14T10:00:00Z',
+      }),
+    });
+    await screen.findByLabelText('Describe your character');
+    fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
+    await userEvent.setup().click(generateButton());
+
+    expect(await screen.findByText(/Generating your character/)).toBeInTheDocument();
+    expect(document.querySelector('.lg-generate__review-note')).toBeNull();
+    expect(screen.queryByText(reviewKinds[0].note)).toBeNull();
+  });
+
+  it('Edge: the note is absent when the generation fails', async () => {
+    renderGenerate({
+      'POST /generations': ok({ id: GENERATION_ID }, 202),
+      [`GET /generations/${GENERATION_ID}`]: ok({
+        id: GENERATION_ID,
+        status: 'failed',
+        kind: 'character',
+        template_id: TEMPLATE_ID,
+        error_code: 'invalid_output',
+        created_at: '2026-11-14T10:00:00Z',
+      }),
+    });
+    await screen.findByLabelText('Describe your character');
+    fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
+    await userEvent.setup().click(generateButton());
+
+    expect(await screen.findByText(/We couldn't generate it/)).toBeInTheDocument();
+    expect(document.querySelector('.lg-generate__review-note')).toBeNull();
+    expect(screen.queryByText(reviewKinds[0].note)).toBeNull();
+  });
+});
