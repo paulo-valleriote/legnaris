@@ -182,10 +182,11 @@ The access token lives 15 minutes, so the script signs in again when it is about
 to expire; a long run does not die on 401. Raise `USERS` to extend the data set;
 accounts already there are reused.
 
-The default rate limits (80 req/min per user, 10 auth attempts/min per IP)
-would refuse this traffic. **Only on a throwaway environment**, raise
-`AUTH_RATE_LIMIT_ATTEMPTS`, `USER_RATE_LIMIT_ATTEMPTS` and
-`PUBLIC_RATE_LIMIT_ATTEMPTS`.
+The default rate limits (80 req/min per user, 30 auth attempts/min per IP, 10
+login attempts/min per account) would refuse this traffic. **Only on a throwaway
+environment**, raise `AUTH_RATE_LIMIT_ATTEMPTS`,
+`AUTH_ACCOUNT_RATE_LIMIT_ATTEMPTS`, `SESSION_RATE_LIMIT_ATTEMPTS`,
+`USER_RATE_LIMIT_ATTEMPTS` and `PUBLIC_RATE_LIMIT_ATTEMPTS`.
 
 ## One command (local, Docker only)
 
@@ -212,7 +213,7 @@ Grafana.
 1. Terminal 1 — start the stack with the limits lifted (the API inherits the
    exported variables):
    ```bash
-   export AUTH_RATE_LIMIT_ATTEMPTS=100000 USER_RATE_LIMIT_ATTEMPTS=1000000 PUBLIC_RATE_LIMIT_ATTEMPTS=1000000
+   export AUTH_RATE_LIMIT_ATTEMPTS=100000 AUTH_ACCOUNT_RATE_LIMIT_ATTEMPTS=100000 SESSION_RATE_LIMIT_ATTEMPTS=100000 USER_RATE_LIMIT_ATTEMPTS=1000000 PUBLIC_RATE_LIMIT_ATTEMPTS=1000000
    make dev
    ```
 2. Terminal 2 — run the test (defaults: 100 req/s, 2 minutes, 50 users):

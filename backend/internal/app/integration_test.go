@@ -45,6 +45,8 @@ var integrationEnv = map[string]string{
 	"EMAIL_CODE_SECRET":                       "integration-test-code-secret-0123456789",
 	"AUTH_DISPOSABLE_EMAIL_CHECK":             "false",
 	"AUTH_RATE_LIMIT_ATTEMPTS":                "100000",
+	"AUTH_ACCOUNT_RATE_LIMIT_ATTEMPTS":        "100000",
+	"SESSION_RATE_LIMIT_ATTEMPTS":             "100000",
 	"AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS":    "100000",
 	"AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS": "100000",
 	"USER_RATE_LIMIT_ATTEMPTS":                "100000",

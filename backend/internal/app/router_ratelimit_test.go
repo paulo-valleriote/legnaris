@@ -45,18 +45,18 @@ func requireRateLimited(t *testing.T, rec *httptest.ResponseRecorder) {
 	assert.GreaterOrEqual(t, retryAfter, 1)
 }
 
-func TestRouterRateLimit_LoginEleventhRequestIsRefused(t *testing.T) {
-	h, _ := newWiringRouter(t)
+func TestRouterRateLimit_LoginOverTheDefaultAddressCapIsRefused(t *testing.T) {
+	h, _ := newWiringRouterWithEnv(t, map[string]string{"AUTH_RATE_LIMIT_WINDOW": "1h"})
 
-	for i := 1; i <= 10; i++ {
-		rec := routeRequest(t, h, http.MethodPost, "/auth/login", `{}`, "", "198.51.100.7:4000")
+	for i := 1; i <= 30; i++ {
+		rec := routeRequest(t, h, http.MethodPost, "/auth/login", `{`, "", "198.51.100.7:4000")
 		require.NotEqual(t, http.StatusTooManyRequests, rec.Code, "request %d must be admitted", i)
 	}
 
-	requireRateLimited(t, routeRequest(t, h, http.MethodPost, "/auth/login", `{}`, "", "198.51.100.7:4000"))
+	requireRateLimited(t, routeRequest(t, h, http.MethodPost, "/auth/login", `{`, "", "198.51.100.7:4000"))
 
 	t.Run("Edge: another address keeps its own budget", func(t *testing.T) {
-		rec := routeRequest(t, h, http.MethodPost, "/auth/login", `{}`, "", "198.51.100.8:4000")
+		rec := routeRequest(t, h, http.MethodPost, "/auth/login", `{`, "", "198.51.100.8:4000")
 		assert.NotEqual(t, http.StatusTooManyRequests, rec.Code)
 	})
 }
@@ -164,7 +164,7 @@ func TestRouterRateLimit_AuthSurfaceIsCovered(t *testing.T) {
 	})
 
 	t.Run("Edge: logout is capped per address", func(t *testing.T) {
-		h, _ := newWiringRouterWithEnv(t, map[string]string{"AUTH_RATE_LIMIT_ATTEMPTS": "2"})
+		h, _ := newWiringRouterWithEnv(t, map[string]string{"SESSION_RATE_LIMIT_ATTEMPTS": "2"})
 
 		for i := 1; i <= 2; i++ {
 			rec := routeRequest(t, h, http.MethodPost, "/auth/logout", "", "", "198.51.100.41:1")

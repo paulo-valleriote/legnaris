@@ -33,6 +33,10 @@ type Variables struct {
 	AuthBcryptCost                    int
 	AuthRateLimitAttempts             int
 	AuthRateLimitWindow               time.Duration
+	SessionRateLimitAttempts          int
+	SessionRateLimitWindow            time.Duration
+	AuthAccountRateLimitAttempts      int
+	AuthAccountRateLimitWindow        time.Duration
 	RegisterIPRateLimitAttempts       int
 	RegisterIPRateLimitWindow         time.Duration
 	RegisterEmailRateLimitAttempts    int
@@ -109,8 +113,12 @@ const (
 	defaultJWTAccessTTL                   = 15 * time.Minute
 	defaultAuthRefreshTTL                 = 720 * time.Hour
 	defaultAuthBcryptCost                 = 12
-	defaultAuthRateLimitAttempts          = 10
+	defaultAuthRateLimitAttempts          = 30
 	defaultAuthRateLimitWindow            = 1 * time.Minute
+	defaultSessionRateLimitAttempts       = 120
+	defaultSessionRateLimitWindow         = 1 * time.Minute
+	defaultAuthAccountRateLimitAttempts   = 10
+	defaultAuthAccountRateLimitWindow     = 1 * time.Minute
 	defaultRegisterIPRateLimitAttempts    = 5
 	defaultRegisterIPRateLimitWindow      = 1 * time.Hour
 	defaultRegisterEmailRateLimitAttempts = 3
@@ -262,6 +270,10 @@ func (e *Env) buildVariables() Variables {
 		AuthBcryptCost:                    e.lookupIntEnv("AUTH_BCRYPT_COST", defaultAuthBcryptCost),
 		AuthRateLimitAttempts:             e.lookupIntEnv("AUTH_RATE_LIMIT_ATTEMPTS", defaultAuthRateLimitAttempts),
 		AuthRateLimitWindow:               e.lookupDurationEnv("AUTH_RATE_LIMIT_WINDOW", defaultAuthRateLimitWindow),
+		SessionRateLimitAttempts:          e.lookupIntEnv("SESSION_RATE_LIMIT_ATTEMPTS", defaultSessionRateLimitAttempts),
+		SessionRateLimitWindow:            e.lookupDurationEnv("SESSION_RATE_LIMIT_WINDOW", defaultSessionRateLimitWindow),
+		AuthAccountRateLimitAttempts:      e.lookupIntEnv("AUTH_ACCOUNT_RATE_LIMIT_ATTEMPTS", defaultAuthAccountRateLimitAttempts),
+		AuthAccountRateLimitWindow:        e.lookupDurationEnv("AUTH_ACCOUNT_RATE_LIMIT_WINDOW", defaultAuthAccountRateLimitWindow),
 		RegisterIPRateLimitAttempts:       e.lookupIntEnv("AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS", defaultRegisterIPRateLimitAttempts),
 		RegisterIPRateLimitWindow:         e.lookupDurationEnv("AUTH_REGISTER_IP_RATE_LIMIT_WINDOW", defaultRegisterIPRateLimitWindow),
 		RegisterEmailRateLimitAttempts:    e.lookupIntEnv("AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS", defaultRegisterEmailRateLimitAttempts),

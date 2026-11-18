@@ -52,6 +52,8 @@ func testEnv() env.Env {
 	cfg.Variables.EmailProvider = factory.ProviderLog
 	cfg.Variables.ResendAPIKey = ""
 	cfg.Variables.EmailFrom = ""
+	cfg.Variables.GenerationEnabled = false
+	cfg.Variables.LLMAPIKey = ""
 	return cfg
 }
 

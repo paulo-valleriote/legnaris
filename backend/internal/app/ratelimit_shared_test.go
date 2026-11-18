@@ -42,7 +42,7 @@ func newReplica(t *testing.T, client redis.Scripter, policy *clientip.Policy, at
 	e := echo.New()
 	e.HTTPErrorHandler = HTTPErrorHandler
 	e.IPExtractor = policy.Resolve
-	e.POST("/login", ok, rateLimit(authLimiter, nil, true))
+	e.POST("/login", ok, rateLimit(authLimiter, authLimiter, nil))
 	e.GET("/me", ok, withUser, userRateLimit(userLimiter))
 	e.POST("/csp-report", ok, cspRateLimit(publicLimiter))
 

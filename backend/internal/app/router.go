@@ -47,7 +47,7 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 	modules.Sheet.Controller.RegisterRoutes(sheetsGroup)
 
 	campaignsGroup := router.Group("/campaigns", requireAuth, requireActive, limitUser)
-	modules.Campaign.Controller.RegisterRoutes(campaignsGroup, rateLimit(modules.Campaign.JoinIPLimiter, httpMetrics, false))
+	modules.Campaign.Controller.RegisterRoutes(campaignsGroup, rateLimit(modules.Campaign.JoinIPLimiter, nil, httpMetrics))
 
 	generationGroup := router.Group("/generations", requireAuth, requireActive)
 	modules.Generation.Controller.RegisterRoutes(generationGroup, modules.Generation.CreateLimiter, modules.Generation.ReadLimiter)
@@ -72,17 +72,18 @@ func (m *Modules) activeAccounts() auth.ActiveAccountChecker {
 }
 
 func registerAuthRoutes(group *echo.Group, modules *Modules, origins []string, observer Observer) {
-	limiter := modules.Auth.RateLimiter
+	authLimiter := modules.Auth.RateLimiter
+	sessionLimiter := modules.Auth.SessionLimiter
 	challengeController := NewChallengeController(modules.Auth.Service, observer)
 
 	group.POST("/register", modules.Auth.Controller.Register, registerRateLimit(modules.Auth.RegisterIPLimiter, modules.Auth.RegisterEmailLimiter, observer))
-	group.POST("/login", modules.Auth.Controller.Login, rateLimit(limiter, observer, true))
-	group.POST("/refresh", modules.Auth.Controller.Refresh, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
-	group.GET("/csrf", modules.Auth.Controller.CSRF, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
-	group.POST("/logout", modules.Auth.Controller.Logout, rateLimit(limiter, observer, false), requireAllowedOrigin(origins))
+	group.POST("/login", modules.Auth.Controller.Login, rateLimit(authLimiter, modules.Auth.AccountLimiter, observer))
+	group.POST("/refresh", modules.Auth.Controller.Refresh, rateLimit(sessionLimiter, nil, observer), requireAllowedOrigin(origins))
+	group.GET("/csrf", modules.Auth.Controller.CSRF, rateLimit(sessionLimiter, nil, observer), requireAllowedOrigin(origins))
+	group.POST("/logout", modules.Auth.Controller.Logout, rateLimit(sessionLimiter, nil, observer), requireAllowedOrigin(origins))
 
-	group.POST("/challenge/verify", challengeController.Verify, rateLimit(limiter, observer, false))
-	group.POST("/challenge/resend", challengeController.Resend, rateLimit(limiter, observer, false))
+	group.POST("/challenge/verify", challengeController.Verify, rateLimit(authLimiter, nil, observer))
+	group.POST("/challenge/resend", challengeController.Resend, rateLimit(authLimiter, nil, observer))
 
 	group.GET("/me", modules.Auth.Controller.Me, auth.Middleware(modules.Auth.TokenManager), userRateLimit(modules.UserLimiter))
 

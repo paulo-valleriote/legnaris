@@ -158,7 +158,8 @@ forwarding header is read; a forged chain from any other address is ignored.
 
 The rate limiters count attempts in the Redis named by `REDIS_URL`
 (`redis://redis:6379/0` in the compose stack), so the configured caps
-(`AUTH_RATE_LIMIT_*`, `USER_RATE_LIMIT_*`, `CSP_REPORT_RATE_LIMIT_*`) hold across
+(`AUTH_RATE_LIMIT_*`, `AUTH_ACCOUNT_RATE_LIMIT_*`, `SESSION_RATE_LIMIT_*`,
+`USER_RATE_LIMIT_*`, `CSP_REPORT_RATE_LIMIT_*`) hold across
 every replica. Without `REDIS_URL` each replica counts alone and the effective
 cap is N times the configured one. If Redis is unreachable the API keeps serving
 and falls back to that per-replica cap until it recovers (fail-open, warned in

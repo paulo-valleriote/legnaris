@@ -29,6 +29,10 @@ type rateLimitHarness struct {
 }
 
 func newRateLimitHarness(limiter *ratelimit.Limiter) *rateLimitHarness {
+	return newScopedRateLimitHarness(limiter, limiter, limiter)
+}
+
+func newScopedRateLimitHarness(authLimiter, accountLimiter, sessionLimiter ratelimit.Allower) *rateLimitHarness {
 	observer := &countingObserver{}
 	calls := 0
 	handler := func(c *echo.Context) error {
@@ -38,11 +42,23 @@ func newRateLimitHarness(limiter *ratelimit.Limiter) *rateLimitHarness {
 
 	e := echo.New()
 	e.HTTPErrorHandler = HTTPErrorHandler
-	e.POST("/login", handler, rateLimit(limiter, observer, true))
-	e.POST("/register", handler, rateLimit(limiter, observer, true))
-	e.POST("/refresh", handler, rateLimit(limiter, observer, false))
+	e.POST("/login", handler, rateLimit(authLimiter, accountLimiter, observer))
+	e.POST("/register", handler, rateLimit(authLimiter, accountLimiter, observer))
+	e.POST("/refresh", handler, rateLimit(sessionLimiter, nil, observer))
+	e.GET("/csrf", handler, rateLimit(sessionLimiter, nil, observer))
 
 	return &rateLimitHarness{echo: e, calls: &calls, session: observer}
+}
+
+func (h *rateLimitHarness) get(t *testing.T, path, remoteAddr string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req.RemoteAddr = remoteAddr
+
+	rec := httptest.NewRecorder()
+	h.echo.ServeHTTP(rec, req)
+	return rec
 }
 
 func (h *rateLimitHarness) post(t *testing.T, path, body, remoteAddr string) *httptest.ResponseRecorder {
@@ -198,5 +214,51 @@ func TestRateLimit(t *testing.T) {
 		assertRateLimited(t, harness.post(t, "/login", loginBody("a@example.com"), "10.0.0.1:1"))
 		assertRateLimited(t, harness.post(t, "/login", loginBody("a@example.com"), "10.0.0.1:1"))
 		assert.Equal(t, 2, harness.session.blocks)
+	})
+}
+
+func TestRateLimit_SeparateBuckets(t *testing.T) {
+	now := time.Unix(1_000, 0)
+	clock := func() time.Time { return now }
+
+	t.Run("Happy path: session requests do not spend the auth or account budget", func(t *testing.T) {
+		harness := newScopedRateLimitHarness(
+			ratelimit.New(1, time.Minute, clock),
+			ratelimit.New(1, time.Minute, clock),
+			ratelimit.New(5, time.Minute, clock),
+		)
+
+		for i := 1; i <= 4; i++ {
+			require.Equal(t, http.StatusOK, harness.post(t, "/refresh", "", "10.0.0.1:1").Code, "refresh %d", i)
+		}
+		require.Equal(t, http.StatusOK, harness.get(t, "/csrf", "10.0.0.1:1").Code)
+
+		require.Equal(t, http.StatusOK, harness.post(t, "/login", loginBody("a@example.com"), "10.0.0.1:1").Code,
+			"the auth and account budgets must still be untouched")
+	})
+
+	t.Run("Edge: a nil account limiter leaves the session endpoint address-only", func(t *testing.T) {
+		harness := newScopedRateLimitHarness(
+			ratelimit.New(10, time.Minute, clock),
+			nil,
+			ratelimit.New(1, time.Minute, clock),
+		)
+
+		require.Equal(t, http.StatusOK, harness.post(t, "/refresh", loginBody("a@example.com"), "10.0.0.1:1").Code)
+		assert.Equal(t, http.StatusOK, harness.post(t, "/refresh", loginBody("a@example.com"), "10.0.0.2:1").Code,
+			"a nil account limiter must not key on the body")
+	})
+
+	t.Run("Edge: the account limiter is independent of the address limiter", func(t *testing.T) {
+		harness := newScopedRateLimitHarness(
+			ratelimit.New(10, time.Minute, clock),
+			ratelimit.New(1, time.Minute, clock),
+			ratelimit.New(10, time.Minute, clock),
+		)
+
+		require.Equal(t, http.StatusOK, harness.post(t, "/login", loginBody("a@example.com"), "10.0.0.1:1").Code)
+		assertRateLimited(t, harness.post(t, "/login", loginBody("A@Example.com"), "10.0.0.2:1"))
+		assert.Equal(t, http.StatusOK, harness.post(t, "/login", loginBody("b@example.com"), "10.0.0.3:1").Code,
+			"another account keeps its own budget")
 	})
 }
