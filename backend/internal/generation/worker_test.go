@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"legnaris/backend/internal/generation"
 	"legnaris/backend/internal/generation/mocks"
@@ -110,6 +113,11 @@ func (f workerFixture) generateReturns(out string, err error) {
 		Return(llm.Response{Output: json.RawMessage(out)}, err).Once()
 }
 
+func (f workerFixture) generateResponse(resp llm.Response, err error) {
+	f.client.EXPECT().Generate(mock.Anything, mock.Anything).
+		Return(resp, err).Once()
+}
+
 var trialReservation = generation.Reservation{Kind: generation.ReservationTrial}
 
 func TestWorkerProcess_Happy(t *testing.T) {
@@ -193,6 +201,18 @@ func TestWorkerProcess_Happy(t *testing.T) {
 				strings.Contains(req.System, "playerName") &&
 				strings.Contains(req.Prompt, "Character concept")
 		})).Return(llm.Response{Output: json.RawMessage(validKindedOutput)}, nil).Once()
+		f.completeWith(true)
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
+	})
+
+	t.Run("Happy path: the generation id reaches the llm client through the context", func(t *testing.T) {
+		f := newWorkerFixture(t, 5)
+		f.expectTemplate(t)
+		f.expectClaim(trialReservation)
+		f.client.EXPECT().Generate(mock.MatchedBy(func(ctx context.Context) bool {
+			return llm.GenerationID(ctx) == jobID
+		}), mock.Anything).Return(llm.Response{Output: json.RawMessage(validOutput)}, nil).Once()
 		f.completeWith(true)
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
@@ -304,6 +324,81 @@ func TestWorkerProcess_SchemaRetries(t *testing.T) {
 			f.generateReturns(invalidOutput, nil)
 		}
 		f.expectTerminalTx(generation.ErrorCodeInvalidOutput, true, trialReservation)
+		f.expectTrialRefund()
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
+	})
+}
+
+func TestWorkerProcess_OutputRejectionLogs(t *testing.T) {
+	t.Run("Happy path: a rejected output logs its problems, finish reason and size", func(t *testing.T) {
+		logs := captureStdout(t, func() {
+			f := newWorkerFixture(t, 5)
+			f.expectTemplate(t)
+			f.expectClaim(trialReservation)
+			f.generateResponse(llm.Response{Output: json.RawMessage(invalidOutput), FinishReason: "stop"}, nil)
+			f.generateReturns(validOutput, nil)
+			f.completeWith(true)
+
+			require.NoError(t, f.worker.Process(context.Background(), jobID))
+		})
+
+		entry := findLogEntry(t, logs, "generation output rejected")
+		assert.Equal(t, "config: is required; identity.title: is required; stats: is required", logString(t, entry, "problems"))
+		assert.Equal(t, "stop", logString(t, entry, "finish_reason"))
+		assert.Equal(t, strconv.Itoa(len(invalidOutput)), logString(t, entry, "output_bytes"))
+		assert.Equal(t, jobID, logString(t, entry, "generation_id"))
+	})
+
+	t.Run("Edge: problems are truncated at 500 bytes", func(t *testing.T) {
+		var output strings.Builder
+		output.WriteString("{")
+		for i := range 10 {
+			if i > 0 {
+				output.WriteString(",")
+			}
+			output.WriteString(strconv.Quote(strings.Repeat("k", 60) + strconv.Itoa(i)))
+			output.WriteString(":1")
+		}
+		output.WriteString("}")
+
+		logs := captureStdout(t, func() {
+			f := newWorkerFixture(t, 5)
+			f.expectTemplate(t)
+			f.expectClaim(trialReservation)
+			f.generateResponse(llm.Response{Output: json.RawMessage(output.String())}, nil)
+			f.generateReturns(validOutput, nil)
+			f.completeWith(true)
+
+			require.NoError(t, f.worker.Process(context.Background(), jobID))
+		})
+
+		entry := findLogEntry(t, logs, "generation output rejected")
+		problems := logString(t, entry, "problems")
+		assert.Len(t, problems, 500)
+		assert.True(t, utf8.ValidString(problems))
+	})
+}
+
+func TestWorkerProcess_TruncatedOutputRetries(t *testing.T) {
+	t.Run("Happy path: a length-truncated response is retried and a valid one succeeds", func(t *testing.T) {
+		f := newWorkerFixture(t, 5)
+		f.expectTemplate(t)
+		f.expectClaim(trialReservation)
+		f.generateResponse(llm.Response{FinishReason: "length"}, fmt.Errorf("%w: output was truncated", llm.ErrTransient))
+		f.generateResponse(llm.Response{Output: json.RawMessage(validOutput), FinishReason: "stop"}, nil)
+		f.completeWith(true)
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
+	})
+
+	t.Run("Error: persistent truncation fails the job as provider_failed after the retry budget", func(t *testing.T) {
+		f := newWorkerFixture(t, 5)
+		f.expectTemplate(t)
+		f.expectClaim(trialReservation)
+		f.generateResponse(llm.Response{FinishReason: "length"}, fmt.Errorf("%w: output was truncated", llm.ErrTransient))
+		f.generateResponse(llm.Response{FinishReason: "length"}, fmt.Errorf("%w: output was truncated", llm.ErrTransient))
+		f.expectTerminalTx(generation.ErrorCodeProviderFailed, true, trialReservation)
 		f.expectTrialRefund()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
@@ -532,6 +627,26 @@ func captureStdout(t *testing.T, fn func()) string {
 	require.NoError(t, writer.Close())
 	os.Stdout = original
 	return <-done
+}
+
+func findLogEntry(t *testing.T, logs, msg string) map[string]any {
+	t.Helper()
+	for _, line := range strings.Split(strings.TrimSpace(logs), "\n") {
+		var entry map[string]any
+		require.NoError(t, json.Unmarshal([]byte(line), &entry))
+		if entry["msg"] == msg {
+			return entry
+		}
+	}
+	require.FailNow(t, "log entry not found", "msg=%q logs=%s", msg, logs)
+	return nil
+}
+
+func logString(t *testing.T, entry map[string]any, key string) string {
+	t.Helper()
+	value, ok := entry[key].(string)
+	require.True(t, ok, "attribute %q must be a logged string", key)
+	return value
 }
 
 func TestNewWorker(t *testing.T) {
