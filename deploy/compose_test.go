@@ -464,9 +464,9 @@ func TestGenerationConfigurationReachesEachProcess(t *testing.T) {
 	}
 	workerSettings := []string{
 		"GENERATION_ENABLED", "DATABASE_URI", "DATABASE_NAME",
-		"LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT",
+		"LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT", "LLM_REASONING_EFFORT",
 	}
-	llmOnly := []string{"LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT"}
+	llmOnly := []string{"LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT", "LLM_REASONING_EFFORT"}
 
 	t.Run("Happy path: the app receives every generation gate as an interpolation", func(t *testing.T) {
 		for _, key := range appGates {
@@ -521,7 +521,7 @@ func TestGenerationConfigurationReachesEachProcess(t *testing.T) {
 		example := string(raw)
 		assert.Contains(t, example, "\nGENERATION_ENABLED=false\n")
 		assert.Contains(t, example, "\nLLM_API_KEY=replace_me\n")
-		for _, key := range []string{"GENERATION_DAILY_CAP", "LLM_MODEL", "LLM_TIMEOUT", "GENERATION_CREATE_RATE_LIMIT_ATTEMPTS"} {
+		for _, key := range []string{"GENERATION_DAILY_CAP", "LLM_MODEL", "LLM_TIMEOUT", "LLM_REASONING_EFFORT", "GENERATION_CREATE_RATE_LIMIT_ATTEMPTS"} {
 			assert.Containsf(t, example, "\n# "+key+"=", "%s must be documented as optional", key)
 		}
 	})
