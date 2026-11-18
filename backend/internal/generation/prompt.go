@@ -135,5 +135,7 @@ func conceptLabel(kind plan.SheetKind) string {
 }
 
 func escapeConcept(concept string) string {
-	return strings.ReplaceAll(concept, conceptClose, `<\/concept>`)
+	sanitized := SanitizeConcept(concept)
+	sanitized = strings.ReplaceAll(sanitized, "<", "‹")
+	return strings.ReplaceAll(sanitized, ">", "›")
 }
