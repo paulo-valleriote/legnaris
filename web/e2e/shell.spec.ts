@@ -19,7 +19,7 @@ test.describe('application shell', () => {
     await expect(nav).toBeVisible();
     await expect(main).toBeVisible();
     await expect(page.getByRole('complementary')).toHaveCount(0);
-    await expect(main.getByRole('heading', { name: 'Templates' })).toBeVisible();
+    await expect(main.getByRole('heading', { name: 'Catalog' })).toBeVisible();
     await expect(page.getByRole('row')).toHaveCount(0);
   });
 
@@ -35,7 +35,7 @@ test.describe('application shell', () => {
   test('deep link to the root renders the shell and the catalog', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Templates' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Catalog' })).toBeVisible();
   });
 
   test('unknown route renders the designed not-found state, not a blank page', async ({ page }) => {
