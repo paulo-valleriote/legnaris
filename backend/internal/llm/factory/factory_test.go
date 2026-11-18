@@ -36,6 +36,9 @@ func TestNew(t *testing.T) {
 		{name: "Edge: provider name is case sensitive", mutate: func(c *factory.Config) { c.Provider = "OpenRouter" }, wantErr: factory.ErrUnknownProvider},
 		{name: "Edge: missing API key propagates from the adapter", mutate: func(c *factory.Config) { c.APIKey = "" }, wantErr: openrouter.ErrMissingAPIKey},
 		{name: "Edge: :free model propagates from the adapter", mutate: func(c *factory.Config) { c.Model = "x/y:free" }, wantErr: openrouter.ErrFreeModel},
+		{name: "Happy path: a valid reasoning effort passes through", mutate: func(c *factory.Config) { c.ReasoningEffort = "low" }},
+		{name: "Edge: empty reasoning effort keeps the provider default", mutate: func(c *factory.Config) { c.ReasoningEffort = "" }},
+		{name: "Error: an invalid reasoning effort propagates from the adapter", mutate: func(c *factory.Config) { c.ReasoningEffort = "turbo" }, wantErr: openrouter.ErrInvalidReasoningEffort},
 	}
 
 	for _, tc := range tests {

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,13 +25,24 @@ const (
 )
 
 var (
-	ErrMissingAPIKey  = errors.New("openrouter: API key is required")
-	ErrMissingModel   = errors.New("openrouter: model is required")
-	ErrFreeModel      = errors.New("openrouter: :free model variants are refused (ADR 0008)")
-	ErrInvalidBaseURL = errors.New("openrouter: base URL must be an absolute http or https URL with a host")
-	ErrInvalidTimeout = errors.New("openrouter: timeout must be positive")
-	ErrMissingLogger  = errors.New("openrouter: logger is required")
+	ErrMissingAPIKey          = errors.New("openrouter: API key is required")
+	ErrMissingModel           = errors.New("openrouter: model is required")
+	ErrFreeModel              = errors.New("openrouter: :free model variants are refused (ADR 0008)")
+	ErrInvalidBaseURL         = errors.New("openrouter: base URL must be an absolute http or https URL with a host")
+	ErrInvalidTimeout         = errors.New("openrouter: timeout must be positive")
+	ErrMissingLogger          = errors.New("openrouter: logger is required")
+	ErrInvalidReasoningEffort = errors.New("openrouter: reasoning effort must be one of none, minimal, low, medium, high, xhigh")
 )
+
+var reasoningEfforts = []string{"none", "minimal", "low", "medium", "high", "xhigh"}
+
+func ReasoningEfforts() []string {
+	return slices.Clone(reasoningEfforts)
+}
+
+func isValidReasoningEffort(effort string) bool {
+	return effort == "" || slices.Contains(reasoningEfforts, effort)
+}
 
 const (
 	noEndpointsPhrase = "no endpoints found"
@@ -52,19 +64,21 @@ const (
 )
 
 type Config struct {
-	BaseURL string
-	APIKey  string
-	Model   string
-	Timeout time.Duration
-	Logger  logger.StructuredLogger
+	BaseURL         string
+	APIKey          string
+	Model           string
+	ReasoningEffort string
+	Timeout         time.Duration
+	Logger          logger.StructuredLogger
 }
 
 type Client struct {
-	endpoint string
-	apiKey   string
-	model    string
-	http     *http.Client
-	logger   logger.StructuredLogger
+	endpoint        string
+	apiKey          string
+	model           string
+	reasoningEffort string
+	http            *http.Client
+	logger          logger.StructuredLogger
 }
 
 var _ llm.Client = (*Client)(nil)
@@ -85,13 +99,16 @@ func New(cfg Config) (*Client, error) {
 		return nil, ErrFreeModel
 	case cfg.Timeout <= 0:
 		return nil, ErrInvalidTimeout
+	case !isValidReasoningEffort(cfg.ReasoningEffort):
+		return nil, fmt.Errorf("%w: %q", ErrInvalidReasoningEffort, cfg.ReasoningEffort)
 	}
 	return &Client{
-		endpoint: endpoint,
-		apiKey:   cfg.APIKey,
-		model:    cfg.Model,
-		http:     &http.Client{Timeout: cfg.Timeout},
-		logger:   cfg.Logger,
+		endpoint:        endpoint,
+		apiKey:          cfg.APIKey,
+		model:           cfg.Model,
+		reasoningEffort: cfg.ReasoningEffort,
+		http:            &http.Client{Timeout: cfg.Timeout},
+		logger:          cfg.Logger,
 	}, nil
 }
 
@@ -206,11 +223,19 @@ func (c *Client) failure(ctx context.Context, status int, latency time.Duration,
 		{Key: "model", Value: c.model},
 		{Key: "status", Value: strconv.Itoa(status)},
 		{Key: "latency_ms", Value: strconv.FormatInt(latency.Milliseconds(), 10)},
+		{Key: "reasoning_effort", Value: c.reasoningEffortLabel()},
 		{Key: "error_class", Value: errorClass(err)},
 	}
 	attrs = append(attrs, extra...)
 	c.logger.Warn(ctx, "llm generation failed", withGenerationID(ctx, attrs)...)
 	return err
+}
+
+func (c *Client) reasoningEffortLabel() string {
+	if c.reasoningEffort == "" {
+		return "default"
+	}
+	return c.reasoningEffort
 }
 
 func withGenerationID(ctx context.Context, attrs []logger.Attribute) []logger.Attribute {
@@ -262,6 +287,7 @@ func (c *Client) parse(ctx context.Context, raw []byte, latency time.Duration) (
 		{Key: "model", Value: c.model},
 		{Key: "status", Value: strconv.Itoa(http.StatusOK)},
 		{Key: "latency_ms", Value: strconv.FormatInt(latency.Milliseconds(), 10)},
+		{Key: "reasoning_effort", Value: c.reasoningEffortLabel()},
 		{Key: "prompt_tokens", Value: strconv.Itoa(usage.PromptTokens)},
 		{Key: "completion_tokens", Value: strconv.Itoa(usage.CompletionTokens)},
 		{Key: "total_tokens", Value: strconv.Itoa(usage.TotalTokens)},
@@ -303,7 +329,7 @@ func (c *Client) buildRequest(req llm.Request) chatRequest {
 	}
 	messages = append(messages, message{Role: "user", Content: req.Prompt})
 
-	return chatRequest{
+	request := chatRequest{
 		Model:     c.model,
 		MaxTokens: req.MaxTokens,
 		Messages:  messages,
@@ -320,14 +346,23 @@ func (c *Client) buildRequest(req llm.Request) chatRequest {
 			AllowFallbacks:    true,
 		},
 	}
+	if c.reasoningEffort != "" {
+		request.Reasoning = &reasoningConfig{Effort: c.reasoningEffort}
+	}
+	return request
 }
 
 type chatRequest struct {
-	Model          string          `json:"model"`
-	MaxTokens      int             `json:"max_tokens"`
-	Messages       []message       `json:"messages"`
-	ResponseFormat responseFormat  `json:"response_format"`
-	Provider       providerRouting `json:"provider"`
+	Model          string           `json:"model"`
+	MaxTokens      int              `json:"max_tokens"`
+	Messages       []message        `json:"messages"`
+	ResponseFormat responseFormat   `json:"response_format"`
+	Provider       providerRouting  `json:"provider"`
+	Reasoning      *reasoningConfig `json:"reasoning,omitempty"`
+}
+
+type reasoningConfig struct {
+	Effort string `json:"effort"`
 }
 
 type message struct {

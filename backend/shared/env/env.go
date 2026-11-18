@@ -86,6 +86,7 @@ type Variables struct {
 	LLMBaseURL                        string
 	LLMAPIKey                         string
 	LLMModel                          string
+	LLMReasoningEffort                string
 	LLMTimeout                        time.Duration
 	GenerationEnabled                 bool
 	GenerationDailyCap                int
@@ -177,13 +178,14 @@ const (
 )
 
 const (
-	keyDatabaseURI       = "DATABASE_URI"
-	keyJWTSecret         = "JWT_SECRET"
-	keyEmailCodeSecret   = "EMAIL_CODE_SECRET"
-	keyTrustedProxyCIDRs = "TRUSTED_PROXY_CIDRS"
-	keyRedisURL          = "REDIS_URL"
-	keyAppEnv            = "APP_ENV"
-	keyDisposableEmail   = "AUTH_DISPOSABLE_EMAIL_CHECK"
+	keyDatabaseURI        = "DATABASE_URI"
+	keyJWTSecret          = "JWT_SECRET"
+	keyEmailCodeSecret    = "EMAIL_CODE_SECRET"
+	keyTrustedProxyCIDRs  = "TRUSTED_PROXY_CIDRS"
+	keyRedisURL           = "REDIS_URL"
+	keyAppEnv             = "APP_ENV"
+	keyDisposableEmail    = "AUTH_DISPOSABLE_EMAIL_CHECK"
+	keyLLMReasoningEffort = "LLM_REASONING_EFFORT"
 )
 
 func RequiredKeys() []string {
@@ -191,6 +193,12 @@ func RequiredKeys() []string {
 }
 
 var defaultCORSOrigins = []string{"http://localhost:3000", "http://localhost:5173"}
+
+var reasoningEfforts = []string{"none", "minimal", "low", "medium", "high", "xhigh"}
+
+func ReasoningEfforts() []string {
+	return slices.Clone(reasoningEfforts)
+}
 
 type Env struct {
 	Logger    logger.StructuredLogger
@@ -211,6 +219,9 @@ func (e Env) Validate() error {
 	if err := validateLLMModel(e.Variables.LLMModel); err != nil {
 		errs = append(errs, err)
 	}
+	if err := validateLLMReasoningEffort(e.Variables.LLMReasoningEffort); err != nil {
+		errs = append(errs, err)
+	}
 	if e.Variables.GenerationDailyCap < 0 {
 		errs = append(errs, errors.New("GENERATION_DAILY_CAP must not be negative"))
 	}
@@ -222,6 +233,13 @@ func validateLLMModel(model string) error {
 		return errors.New("LLM_MODEL must not be a :free model variant (ADR 0008)")
 	}
 	return nil
+}
+
+func validateLLMReasoningEffort(effort string) error {
+	if effort == "" || slices.Contains(reasoningEfforts, effort) {
+		return nil
+	}
+	return fmt.Errorf("%s must be one of %s", keyLLMReasoningEffort, strings.Join(reasoningEfforts, ", "))
 }
 
 func validateRedisURL(raw string) error {
@@ -326,6 +344,7 @@ func (e *Env) buildVariables() Variables {
 		LLMBaseURL:                        e.lookupStringEnv("LLM_BASE_URL", defaultLLMBaseURL),
 		LLMAPIKey:                         e.lookupStringEnv("LLM_API_KEY", ""),
 		LLMModel:                          e.lookupStringEnv("LLM_MODEL", defaultLLMModel),
+		LLMReasoningEffort:                e.lookupStringEnv(keyLLMReasoningEffort, ""),
 		LLMTimeout:                        e.lookupDurationEnv("LLM_TIMEOUT", defaultLLMTimeout),
 		GenerationEnabled:                 e.lookupBoolEnv("GENERATION_ENABLED", defaultGenerationEnabled),
 		GenerationDailyCap:                e.lookupIntEnv("GENERATION_DAILY_CAP", defaultGenerationDailyCap),
