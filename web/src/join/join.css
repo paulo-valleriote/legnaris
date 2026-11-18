@@ -1,22 +1,10 @@
 .lg-join {
-  display: flex;
-  flex-direction: column;
-  gap: var(--lg-space-24);
-  max-width: 36rem;
+  max-width: var(--lg-size-narrow-max);
   padding-bottom: var(--lg-space-48);
 }
 
-.lg-join__title {
-  margin: 0;
-  font-size: var(--lg-type-30);
-  font-weight: var(--lg-font-weight-semibold);
-  line-height: var(--lg-line-display);
-  letter-spacing: var(--lg-tracking-display);
-  text-wrap: balance;
-}
-
 .lg-join__message {
-  margin: 0;
+  margin: 0 0 var(--lg-space-24);
   font-size: var(--lg-type-15);
   line-height: var(--lg-line-normal);
   color: var(--lg-color-text-muted);
@@ -25,33 +13,10 @@
 .lg-join__form {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: var(--lg-space-16);
 }
 
-.lg-join__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--lg-space-8);
-  width: 100%;
-  font-size: var(--lg-type-15);
-  font-weight: var(--lg-font-weight-medium);
-  color: var(--lg-color-text);
-}
-
-.lg-join__input {
-  min-height: var(--lg-size-control);
-  padding: 0 var(--lg-space-12);
-  font: inherit;
-  color: var(--lg-color-text);
-  background: var(--lg-color-surface);
-  border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-control);
-}
-
-.lg-join__failure {
-  margin: 0;
-  font-size: var(--lg-type-15);
-  line-height: var(--lg-line-normal);
-  color: var(--lg-color-text);
+.lg-join__action {
+  align-self: flex-start;
+  text-decoration: none;
 }

@@ -5,6 +5,9 @@ import { failureCopy } from '../api/error_mapper';
 import type { Campaign } from '../api/models/campaign';
 import { useApiClient } from '../app/providers';
 import { message } from '../l10n/strings';
+import { Button } from '../ui/button';
+import { Field } from '../ui/field';
+import { ErrorState } from '../ui/state';
 import { CAMPAIGNS_QUERY_KEY, seedCampaign } from './campaign_queries';
 
 export const SETTINGS_PANEL_ID = 'campaign-settings-panel';
@@ -79,43 +82,31 @@ export function CampaignSettings({
             : message('invite.passwordNone')}
         </p>
         <form className="lg-campaign__form" onSubmit={submitPassword} noValidate>
-          <label className="lg-field" htmlFor="campaign-password">
-            <span className="lg-field__label">{message('invite.passwordLabel')}</span>
-            <input
-              id="campaign-password"
-              className="lg-field__input"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              disabled={saving}
-              aria-describedby="campaign-password-hint"
-              aria-invalid={passwordError === undefined ? undefined : true}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <span id="campaign-password-hint" className="lg-campaign__meta">
-              {message('invite.passwordHint')}
-            </span>
-            {passwordError === undefined ? null : (
-              <span className="lg-campaign__error">{passwordError}</span>
-            )}
-          </label>
+          <Field
+            label={message('invite.passwordLabel')}
+            id="campaign-password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            disabled={saving}
+            hint={message('invite.passwordHint')}
+            error={passwordError}
+            onChange={setPassword}
+          />
           <div className="lg-campaign__actions">
-            <button
+            <Button
               type="submit"
-              className="lg-button lg-button--primary lg-button--md"
-              disabled={saving || password === ''}
-            >
-              {message('invite.passwordSave')}
-            </button>
+              label={message('invite.passwordSave')}
+              loading={saving}
+              disabled={password === ''}
+            />
             {campaign.passwordSet === true ? (
-              <button
-                type="button"
-                className="lg-button lg-button--outline lg-button--md"
+              <Button
+                variant="outline"
+                label={message('invite.passwordClear')}
                 disabled={saving}
                 onClick={() => clearPassword.mutate()}
-              >
-                {message('invite.passwordClear')}
-              </button>
+              />
             ) : null}
           </div>
         </form>
@@ -125,22 +116,16 @@ export function CampaignSettings({
         <h3 className="lg-campaign__subheading">{message('campaign.dangerHeading')}</h3>
         <p className="lg-campaign__meta">{message('campaign.deleteNote')}</p>
         <div className="lg-campaign__actions">
-          <button
-            type="button"
-            className="lg-button lg-button--danger lg-button--md"
+          <Button
+            variant="danger"
+            label={message('campaign.delete')}
             disabled={busy || deleting}
             onClick={onDelete}
-          >
-            {message('campaign.delete')}
-          </button>
+          />
         </div>
       </div>
 
-      {error ? (
-        <p className="lg-campaign__error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorState message={error} /> : null}
     </section>
   );
 }

@@ -11,6 +11,8 @@ const srcDir = path.resolve(here, '..');
 
 const REMOVED_PANEL_NAMES = ['right_panel', '.lg-panel', '--lg-size-panel-', 'SHELL_NARROW_QUERY'];
 
+const shellCss = readFileSync(path.resolve(here, '../shell/shell.css'), 'utf8');
+
 function sourceFiles(dir: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -78,5 +80,13 @@ describe('application shell', () => {
         expect(text.includes(name), `${file} must not reference ${name}`).toBe(false);
       }
     }
+  });
+
+  it('Edge: the brand carries no decorative accent hairline', () => {
+    expect(shellCss).not.toContain('.lg-nav__brand::after');
+  });
+
+  it('Edge: the shell adds no second reduced-motion rule', () => {
+    expect(shellCss).not.toContain('prefers-reduced-motion');
   });
 });

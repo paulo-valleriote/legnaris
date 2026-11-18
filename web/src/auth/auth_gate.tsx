@@ -9,6 +9,7 @@ import { Toast } from '../ui/toast';
 import '../ui/ui.css';
 import { AuthCodeScreen } from './auth_code_screen';
 import { AuthScreen } from './auth_screen';
+import { AuthStage } from './auth_stage';
 import './auth.css';
 
 const AUTH_PATHS: ReadonlySet<string> = new Set([SIGN_IN_PATH, SIGN_UP_PATH]);
@@ -36,9 +37,20 @@ export function AuthGate() {
 
   if (snapshot.state === 'restoring') {
     return (
-      <p className="lg-auth__restoring" role="status" data-testid="auth-restoring">
-        {message('auth.restoring')}
-      </p>
+      <div className="lg-auth">
+        <AuthStage />
+        <section className="lg-auth__panel">
+          <div
+            className="lg-auth__restoring"
+            role="status"
+            aria-busy="true"
+            data-testid="auth-restoring"
+          >
+            <span className="lg-spinner" aria-hidden="true" />
+            <span>{message('auth.restoring')}</span>
+          </div>
+        </section>
+      </div>
     );
   }
 

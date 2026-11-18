@@ -23,5 +23,10 @@
 
 .lg-banner__link {
   font-size: var(--lg-type-15);
-  color: var(--lg-color-accent);
+  color: var(--lg-color-link);
+  text-underline-offset: var(--lg-underline-offset);
+}
+
+.lg-banner__link:hover {
+  color: var(--lg-color-link-hover);
 }

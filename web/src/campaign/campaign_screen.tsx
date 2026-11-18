@@ -6,7 +6,13 @@ import { failureCopy, failureKind } from '../api/error_mapper';
 import type { Campaign, CampaignMember, NpcLink, NpcKind } from '../api/models/campaign';
 import type { MemberAction } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
+import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
+import { ChevronRightIcon } from '../ui/icons';
+import { Notice } from '../ui/notice';
+import { PageHeader } from '../ui/page_header';
+import { Select } from '../ui/select';
+import { EmptyState, ErrorState, LoadingState } from '../ui/state';
 import { PLAN_QUERY_KEY } from '../catalog/queries';
 import { INVITE_PANEL_ID, InvitePanel } from './invite_panel';
 import { CampaignSettings, SETTINGS_PANEL_ID } from './campaign_settings';
@@ -30,7 +36,7 @@ import {
   memberUsername,
   unlinkedNpcSheetIds,
 } from './campaign_view';
-import { ChevronIcon, roleText, updatedText } from './campaigns_screen';
+import { roleText, updatedText } from './campaigns_screen';
 import { useApiClient } from '../app/providers';
 import './campaign.css';
 
@@ -77,15 +83,14 @@ function MemberRow({
       {actions.length === 0 ? null : (
         <div className="lg-campaign__actions">
           {actions.map((action) => (
-            <button
+            <Button
               key={action}
-              type="button"
-              className={`lg-button lg-button--${action === 'remove' ? 'danger' : 'outline'} lg-button--sm`}
-              aria-label={`${labels[action]} ${name}`}
+              variant={action === 'remove' ? 'danger' : 'outline'}
+              size="sm"
+              label={labels[action]}
+              name={`${labels[action]} ${name}`}
               onClick={() => onAction(action)}
-            >
-              {labels[action]}
-            </button>
+            />
           ))}
         </div>
       )}
@@ -124,97 +129,57 @@ function LinkCharacterForm({
   return (
     <section className="lg-campaign__section" aria-labelledby={`campaign-link-${campaign.id}`}>
       <SectionHeading id={`campaign-link-${campaign.id}`} label={message('campaign.linkHeading')} />
-      {owned.isError ? (
-        <p className="lg-campaign__error" role="alert">
-          {failureCopy(owned.error)}
-        </p>
-      ) : null}
+      {owned.isError ? <ErrorState message={failureCopy(owned.error)} /> : null}
       {owned.data !== undefined && eligible.length === 0 ? (
-        <p className="lg-campaign__hint">{message('campaign.noEligibleSheets')}</p>
+        <EmptyState message={message('campaign.noEligibleSheets')} />
       ) : null}
       <form className="lg-campaign__form" onSubmit={submit} noValidate>
         {eligible.length === 0 ? null : (
-          <label className="lg-field" htmlFor="campaign-character-sheet">
-            <span className="lg-field__label">{message('campaign.linkLabel')}</span>
-            <select
-              id="campaign-character-sheet"
-              className="lg-campaign__select"
-              value={selected}
-              disabled={disabled || pending}
-              onChange={(event) => setChoice(event.target.value)}
-            >
-              {eligible.map((id) => (
-                <option key={id} value={id}>
-                  {names.get(id) ?? id}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label={message('campaign.linkLabel')}
+            id="campaign-character-sheet"
+            value={selected}
+            disabled={disabled || pending}
+            options={eligible.map((id) => ({ value: id, label: names.get(id) ?? id }))}
+            onChange={setChoice}
+          />
         )}
-        {error ? (
-          <p className="lg-campaign__error" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <ErrorState message={error} /> : null}
         <div className="lg-campaign__actions">
-          <button
+          <Button
             type="submit"
-            className="lg-button lg-button--primary lg-button--md"
-            disabled={disabled || pending || selected === ''}
-            aria-busy={pending ? true : undefined}
-          >
-            {message('campaign.link')}
-          </button>
-          <button
-            type="button"
-            className="lg-button lg-button--outline lg-button--md"
+            label={message('campaign.link')}
+            loading={pending}
+            disabled={disabled || selected === ''}
+          />
+          <Button
+            variant="outline"
+            label={message('campaign.unlink')}
             disabled={disabled || pending}
             onClick={onUnlink}
-          >
-            {message('campaign.unlink')}
-          </button>
+          />
         </div>
       </form>
     </section>
   );
 }
 
-function BackIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M19 12H5" />
-      <path d="m11 6-6 6 6 6" />
-    </svg>
-  );
-}
-
 function SectionHeading({ id, label, count }: { id: string; label: string; count?: number }) {
+  const shown = count !== undefined && count > 0;
   return (
-    <h2 className="lg-campaign__heading" id={id}>
-      {label}
-      {count === undefined || count === 0 ? null : (
+    <h2 className="lg-campaign__heading" id={id} aria-label={shown ? `${label} (${count})` : label}>
+      <span aria-hidden="true">{label}</span>
+      {shown ? (
         <span className="lg-campaign__count" aria-hidden="true">
           {count}
         </span>
-      )}
+      ) : null}
     </h2>
   );
 }
 
 function ListLoading() {
-  return (
-    <p className="lg-campaign__hint" role="status">
-      {message('campaign.listLoading')}
-    </p>
-  );
+  return <LoadingState label={message('campaign.listLoading')} />;
 }
 
 function LinkedSheets({ campaign }: { campaign: Campaign }) {
@@ -222,17 +187,13 @@ function LinkedSheets({ campaign }: { campaign: Campaign }) {
   const sheets = useCampaignSheets(campaignId, true);
 
   if (sheets.isError) {
-    return (
-      <p className="lg-campaign__error" role="alert">
-        {failureCopy(sheets.error)}
-      </p>
-    );
+    return <ErrorState message={failureCopy(sheets.error)} />;
   }
   if (sheets.data === undefined) {
     return <ListLoading />;
   }
   if (sheets.data.length === 0) {
-    return <p className="lg-campaign__empty">{message('campaign.sheetsEmpty')}</p>;
+    return <EmptyState message={message('campaign.sheetsEmpty')} />;
   }
 
   return (
@@ -249,7 +210,7 @@ function LinkedSheets({ campaign }: { campaign: Campaign }) {
             >
               <span className="lg-campaign__card-name">{sheet.name}</span>
               <span className="lg-campaign__card-arrow">
-                <ChevronIcon />
+                <ChevronRightIcon />
               </span>
             </Link>
             {player === undefined ? null : (
@@ -305,47 +266,29 @@ function LinkNpcForm({
 
   return (
     <form className="lg-campaign__form lg-campaign__form--inline" onSubmit={submit} noValidate>
-      {loadError ? (
-        <p className="lg-campaign__error" role="alert">
-          {failureCopy(loadError)}
-        </p>
-      ) : null}
+      {loadError ? <ErrorState message={failureCopy(loadError)} /> : null}
       {loaded && eligible.length === 0 ? (
-        <p className="lg-campaign__hint">{message('campaign.noEligibleNpcs')}</p>
+        <EmptyState message={message('campaign.noEligibleNpcs')} />
       ) : null}
       {eligible.length === 0 ? null : (
-        <label className="lg-field" htmlFor="campaign-npc-sheet">
-          <span className="lg-field__label">{message('campaign.npcLinkLabel')}</span>
-          <select
-            id="campaign-npc-sheet"
-            className="lg-campaign__select"
-            value={selected}
-            disabled={disabled || pending}
-            onChange={(event) => setChoice(event.target.value)}
-          >
-            {eligible.map((id) => (
-              <option key={id} value={id}>
-                {names.get(id) ?? id}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          label={message('campaign.npcLinkLabel')}
+          id="campaign-npc-sheet"
+          value={selected}
+          disabled={disabled || pending}
+          options={eligible.map((id) => ({ value: id, label: names.get(id) ?? id }))}
+          onChange={setChoice}
+        />
       )}
-      {error ? (
-        <p className="lg-campaign__error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorState message={error} /> : null}
       <div className="lg-campaign__actions">
         {eligible.length === 0 ? null : (
-          <button
+          <Button
             type="submit"
-            className="lg-button lg-button--primary lg-button--md"
-            disabled={disabled || pending || selected === ''}
-            aria-busy={pending ? true : undefined}
-          >
-            {message('campaign.npcLink')}
-          </button>
+            label={message('campaign.npcLink')}
+            loading={pending}
+            disabled={disabled || selected === ''}
+          />
         )}
       </div>
     </form>
@@ -369,21 +312,13 @@ function NpcLinks({
   const gm = mode === 'gm';
 
   if (links.isError) {
-    return (
-      <p className="lg-campaign__error" role="alert">
-        {failureCopy(links.error)}
-      </p>
-    );
+    return <ErrorState message={failureCopy(links.error)} />;
   }
   if (links.data === undefined) {
     return <ListLoading />;
   }
   if (links.data.length === 0) {
-    return (
-      <p className="lg-campaign__empty">
-        {message(gm ? 'campaign.npcsEmpty' : 'campaign.playerNpcsEmpty')}
-      </p>
-    );
+    return <EmptyState message={message(gm ? 'campaign.npcsEmpty' : 'campaign.playerNpcsEmpty')} />;
   }
 
   return (
@@ -397,7 +332,7 @@ function NpcLinks({
           >
             <span className="lg-campaign__card-name">{link.name}</span>
             <span className="lg-campaign__card-arrow">
-              <ChevronIcon />
+              <ChevronRightIcon />
             </span>
           </Link>
           <span className="lg-campaign__meta">
@@ -415,28 +350,28 @@ function NpcLinks({
           ) : null}
           {gm ? (
             <div className="lg-campaign__card-actions">
-              <button
-                type="button"
-                className="lg-button lg-button--outline lg-button--sm"
-                aria-pressed={link.revealed}
-                aria-label={messageWith('campaign.revealNpc', { name: link.name })}
+              <Button
+                variant="outline"
+                size="sm"
+                label={
+                  link.revealed
+                    ? message('campaign.hideNpcAction')
+                    : message('campaign.revealNpcAction')
+                }
+                name={messageWith('campaign.revealNpc', { name: link.name })}
+                ariaPressed={link.revealed}
                 disabled={pending}
                 onClick={() => onToggle?.(link)}
-              >
-                {link.revealed
-                  ? message('campaign.hideNpcAction')
-                  : message('campaign.revealNpcAction')}
-              </button>
+              />
               {link.isOwner ? (
-                <button
-                  type="button"
-                  className="lg-button lg-button--ghost lg-button--sm"
-                  aria-label={messageWith('campaign.unlinkNpc', { name: link.name })}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  label={message('campaign.unlinkAction')}
+                  name={messageWith('campaign.unlinkNpc', { name: link.name })}
                   disabled={pending}
                   onClick={() => onUnlink?.(link)}
-                >
-                  {message('campaign.unlinkAction')}
-                </button>
+                />
               ) : null}
             </div>
           ) : null}
@@ -636,62 +571,49 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
 
   return (
     <>
-      <header className="lg-campaign__header">
-        <div className="lg-campaign__identity">
-          <Link
-            className="lg-campaign__back-icon"
-            to="/campaigns"
-            aria-label={message('campaign.back')}
-            title={message('campaign.back')}
-          >
-            <BackIcon />
-          </Link>
-          <div className="lg-campaign__title-block">
-            <h1 className="lg-campaign__title">{campaign.name}</h1>
-            <span className="lg-campaign__role">
-              {roleText(campaign.viewerRole, campaign.viewerOwner)}
-            </span>
-          </div>
-        </div>
-
-        {campaign.viewerRole === 'gm' || canDeleteCampaign(campaign) ? (
-          <div className="lg-campaign__toolbar">
-            {campaign.viewerRole === 'gm' ? (
-              <button
-                type="button"
-                className="lg-button lg-button--ghost lg-button--md"
-                aria-expanded={inviteOpen}
-                aria-controls={INVITE_PANEL_ID}
-                onClick={() => setInviteOpen((open) => !open)}
-              >
-                {message('invite.heading')}
-              </button>
-            ) : null}
-            {canDeleteCampaign(campaign) ? (
-              <button
-                type="button"
-                className="lg-button lg-button--ghost lg-button--md"
-                aria-expanded={settingsOpen}
-                aria-controls={SETTINGS_PANEL_ID}
-                onClick={() => setSettingsOpen((open) => !open)}
-              >
-                {message('campaign.settingsHeading')}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </header>
+      <PageHeader
+        title={campaign.name}
+        backTo="/campaigns"
+        backLabel={message('campaign.back')}
+        meta={
+          <span className="lg-campaigns__role">
+            {roleText(campaign.viewerRole, campaign.viewerOwner)}
+          </span>
+        }
+        actions={
+          campaign.viewerRole === 'gm' || canDeleteCampaign(campaign) ? (
+            <div className="lg-campaign__toolbar">
+              {campaign.viewerRole === 'gm' ? (
+                <Button
+                  variant="ghost"
+                  size="md"
+                  label={message('invite.heading')}
+                  ariaExpanded={inviteOpen}
+                  ariaControls={INVITE_PANEL_ID}
+                  onClick={() => setInviteOpen((open) => !open)}
+                />
+              ) : null}
+              {canDeleteCampaign(campaign) ? (
+                <Button
+                  variant="ghost"
+                  size="md"
+                  label={message('campaign.settingsHeading')}
+                  ariaExpanded={settingsOpen}
+                  ariaControls={SETTINGS_PANEL_ID}
+                  onClick={() => setSettingsOpen((open) => !open)}
+                />
+              ) : null}
+            </div>
+          ) : undefined
+        }
+      />
 
       {deleting ? (
-        <p className="lg-campaign__message" role="status">
+        <Notice tone="warning" live="polite">
           {message('campaign.deleting')}
-        </p>
+        </Notice>
       ) : null}
-      {actionError ? (
-        <p className="lg-campaign__error" role="alert">
-          {actionError}
-        </p>
-      ) : null}
+      {actionError ? <ErrorState message={actionError} /> : null}
 
       {campaign.viewerRole === 'gm' && inviteOpen ? <InvitePanel campaign={campaign} /> : null}
 
@@ -717,9 +639,9 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
                 onSubmit={(sheetId) => link.mutate(sheetId)}
               />
               {notice ? (
-                <p className="lg-campaign__message" role="status">
+                <Notice tone="success" live="polite">
                   {notice}
-                </p>
+                </Notice>
               ) : null}
             </>
           ) : null}
@@ -750,9 +672,9 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
                 onSubmit={(sheetId) => linkNpc.mutate(sheetId)}
               />
               {npcNotice ? (
-                <p className="lg-campaign__message" role="status">
+                <Notice tone="success" live="polite">
                   {npcNotice}
-                </p>
+                </Notice>
               ) : null}
               <NpcLinks
                 campaignId={campaign.id}
@@ -801,14 +723,12 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
           </ul>
           {canDeleteCampaign(campaign) ? null : (
             <div className="lg-campaign__leave">
-              <button
-                type="button"
-                className="lg-button lg-button--outline lg-button--md"
+              <Button
+                variant="outline"
+                label={message('campaign.leave')}
                 disabled={busy || deleting}
                 onClick={() => setPending({ kind: 'leave' })}
-              >
-                {message('campaign.leave')}
-              </button>
+              />
             </div>
           )}
         </section>
@@ -818,28 +738,25 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
         open={pending !== null}
         title={dialogTitle(pending)}
         description={dialogMessage(pending)}
+        closeLabel={message('common.close')}
         onClose={closePending}
-      >
-        <div className="lg-campaign__actions">
-          <button
-            type="button"
-            className="lg-button lg-button--outline lg-button--md"
-            onClick={closePending}
-            disabled={busy}
-          >
-            {dialogKeep(pending)}
-          </button>
-          <button
-            type="button"
-            className="lg-button lg-button--danger lg-button--md"
-            onClick={confirmPending}
-            disabled={busy}
-            aria-busy={busy ? true : undefined}
-          >
-            {dialogConfirm(pending)}
-          </button>
-        </div>
-      </Dialog>
+        actions={
+          <>
+            <Button
+              variant="outline"
+              label={dialogKeep(pending)}
+              disabled={busy}
+              onClick={closePending}
+            />
+            <Button
+              variant="danger"
+              label={dialogConfirm(pending)}
+              loading={busy}
+              onClick={confirmPending}
+            />
+          </>
+        }
+      />
     </>
   );
 }
@@ -889,21 +806,19 @@ export function CampaignScreen() {
   const campaign = useCampaign(id);
 
   if (campaign.isPending) {
-    return (
-      <p className="lg-campaign__message" role="status">
-        {message('campaign.loading')}
-      </p>
-    );
+    return <LoadingState label={message('campaign.loading')} />;
   }
 
   if (campaign.isError) {
     const notFound = failureKind(campaign.error) === 'campaignNotFound';
     return (
-      <div className="lg-campaign__failure" role="alert">
-        <p className="lg-campaign__error">
-          {notFound ? message('campaign.notFound') : failureCopy(campaign.error)}
-        </p>
-        <Link to="/campaigns">{message('campaign.back')}</Link>
+      <div className="lg-campaign__failure">
+        <ErrorState
+          message={notFound ? message('campaign.notFound') : failureCopy(campaign.error)}
+        />
+        <Link className="lg-campaign__link" to="/campaigns">
+          {message('campaign.back')}
+        </Link>
       </div>
     );
   }

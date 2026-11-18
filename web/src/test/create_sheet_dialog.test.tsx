@@ -113,7 +113,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
       expect(screen.getByText(failureMessage('serverError'))).toBeInTheDocument(),
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.retry') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('common.retry') })).toBeInTheDocument();
   });
 
   it('Edge: a missing template shows the missing-template copy inline without closing or crashing (WCT-17)', async () => {
@@ -154,11 +154,11 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
 
     await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: message('sheet.retry') })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: message('common.retry') })).toBeInTheDocument(),
     );
     expect(fake.attempts).toBe(2);
 
-    await user.click(screen.getByRole('button', { name: message('sheet.retry') }));
+    await user.click(screen.getByRole('button', { name: message('common.retry') }));
 
     await screen.findByTestId('detail-name');
     expect(fake.attempts).toBe(3);
@@ -220,19 +220,19 @@ describe('sheet-name field and validation (WCT-22 … WCT-25)', () => {
     expect(input).toHaveAttribute('placeholder', message('sheet.namePlaceholder'));
   });
 
-  it('Edge: the primary action is disabled for "" and "   " and exposes the required tooltip (WCT-23)', async () => {
+  it('Edge: the primary action is disabled for "" and "   " and exposes the required reason (WCT-23)', async () => {
     const user = userEvent.setup();
     await openSurface(user);
 
     const input = screen.getByLabelText(message('sheet.nameLabel'));
     const create = screen.getByRole('button', { name: message('sheet.create') });
 
-    expect(create).toBeDisabled();
-    expect(create).toHaveAttribute('title', message('sheet.nameRequired'));
-    expect(input).toHaveAccessibleDescription(message('sheet.nameRequired'));
+    expect(create).toHaveAttribute('aria-disabled', 'true');
+    expect(create).toHaveAccessibleDescription(message('sheet.nameRequired'));
+    expect(create).not.toHaveAttribute('title');
 
     await user.type(input, '   ');
-    expect(create).toBeDisabled();
+    expect(create).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('Edge: the primary action is enabled once the trimmed value is non-empty (WCT-24)', async () => {
@@ -240,14 +240,19 @@ describe('sheet-name field and validation (WCT-22 … WCT-25)', () => {
     await openSurface(user);
 
     const input = screen.getByLabelText(message('sheet.nameLabel'));
-    const create = screen.getByRole('button', { name: message('sheet.create') });
 
     await user.type(input, '  Aragorn  ');
-    expect(create).toBeEnabled();
+    expect(screen.getByRole('button', { name: message('sheet.create') })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
 
     await user.clear(input);
     await user.type(input, 'Aragorn');
-    expect(create).toBeEnabled();
+    expect(screen.getByRole('button', { name: message('sheet.create') })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   it('Edge: typing a name issues no request by itself — creation is activated explicitly (WSC-01)', async () => {
@@ -260,5 +265,20 @@ describe('sheet-name field and validation (WCT-22 … WCT-25)', () => {
     await user.type(input, 'Aragorn');
 
     expect(fake.attempts).toBe(before);
+  });
+
+  it('Happy path: the Generate with AI entry is a link carrying the template and the chosen kind', async () => {
+    const user = userEvent.setup();
+    await openSurface(user);
+
+    const entry = screen.getByRole('link', { name: message('generate.entry') });
+    expect(entry).toHaveAttribute('href', '/generate/dnd5e?kind=character');
+    expect(entry).toHaveClass('lg-button', 'lg-button--secondary');
+
+    await user.selectOptions(screen.getByLabelText(message('catalog.kindLabel')), 'npc');
+    expect(screen.getByRole('link', { name: message('generate.entry') })).toHaveAttribute(
+      'href',
+      '/generate/dnd5e?kind=npc',
+    );
   });
 });

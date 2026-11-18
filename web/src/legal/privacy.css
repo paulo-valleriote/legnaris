@@ -1,17 +1,22 @@
 .lg-privacy {
   box-sizing: border-box;
   min-height: 100vh;
-  padding: var(--lg-space-32) var(--lg-space-16);
+  padding: var(--lg-space-48) var(--lg-space-24) var(--lg-space-32);
   background: var(--lg-color-bg);
   color: var(--lg-color-text);
+}
+
+.lg-privacy__inner {
+  width: 100%;
+  max-width: var(--lg-size-content-max);
+  margin-inline: auto;
 }
 
 .lg-privacy__body {
   display: flex;
   flex-direction: column;
   gap: var(--lg-space-16);
-  max-width: var(--lg-size-content-max);
-  margin: 0 auto;
+  max-width: var(--lg-size-narrow-max);
   font-size: var(--lg-type-16);
   line-height: var(--lg-line-normal);
 }
@@ -37,48 +42,34 @@
 }
 
 .lg-privacy__body a {
-  color: var(--lg-color-accent);
+  color: var(--lg-color-link);
+  text-underline-offset: var(--lg-underline-offset);
   overflow-wrap: anywhere;
 }
 
-.lg-dialog.lg-privacy-dialog {
-  gap: 0;
+.lg-privacy__body a:hover {
+  color: var(--lg-color-link-hover);
+}
+
+.lg-privacy-dialog__panel {
+  display: flex;
+  flex-direction: column;
   width: min(100%, var(--lg-size-dialog-max));
+  max-height: calc(100dvh - var(--lg-space-32));
   padding: 0;
   overflow: hidden;
 }
 
-.lg-dialog__header.lg-privacy-dialog__header {
+.lg-privacy-dialog__panel .lg-dialog__header {
   align-items: flex-start;
+  margin-bottom: 0;
   padding: var(--lg-space-16) var(--lg-space-12) var(--lg-space-16) var(--lg-space-24);
   border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
 }
 
-.lg-dialog__title.lg-privacy-dialog__title {
+.lg-privacy-dialog__panel .lg-dialog__title {
   padding-top: var(--lg-space-8);
-  font-size: var(--lg-type-20);
   text-wrap: balance;
-}
-
-.lg-button.lg-privacy-dialog__close {
-  flex: none;
-  width: var(--lg-size-control);
-  height: var(--lg-size-control);
-  padding: 0;
-  color: var(--lg-color-text-muted);
-}
-
-.lg-button.lg-privacy-dialog__close:hover {
-  color: var(--lg-color-text);
-}
-
-.lg-privacy-dialog__close-icon {
-  width: var(--lg-space-16);
-  height: var(--lg-space-16);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: var(--lg-space-2);
-  stroke-linecap: round;
 }
 
 .lg-privacy-dialog__scroll {
@@ -120,12 +111,12 @@
   color: var(--lg-color-text);
 }
 
-.lg-privacy-dialog__body a {
-  text-underline-offset: var(--lg-space-2);
-}
-
 @media (max-width: 39.99rem) {
-  .lg-dialog__header.lg-privacy-dialog__header {
+  .lg-privacy {
+    padding: var(--lg-space-24) var(--lg-space-16) var(--lg-space-32);
+  }
+
+  .lg-privacy-dialog__panel .lg-dialog__header {
     padding: var(--lg-space-8) var(--lg-space-4) var(--lg-space-8) var(--lg-space-16);
   }
 

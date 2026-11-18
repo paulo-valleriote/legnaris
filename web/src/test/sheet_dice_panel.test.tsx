@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DiceResult } from '../dice/errors';
 import { refuse, succeed } from '../dice/errors';
 import type { RollResult } from '../dice/roll';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import { DicePanel } from '../sheet/dice_panel';
 
 afterEach(cleanup);
@@ -27,19 +27,37 @@ describe('DicePanel', () => {
     expect(screen.getByText('attrs.dex')).toBeTruthy();
   });
 
-  it('Happy path: the result is announced through a polite live region', () => {
+  it('Happy path: the result is announced through one polite live region', () => {
+    render(<DicePanel label="Initiative" outcome={rolled} onDismiss={() => {}} />);
+
+    const statuses = screen.getAllByRole('status');
+    expect(statuses).toHaveLength(1);
+    expect(statuses[0].getAttribute('aria-live')).toBe('polite');
+    expect(statuses[0].textContent).toBe(
+      messageWith('dice.rolled', { label: 'Initiative', total: 14 }),
+    );
+  });
+
+  it('Edge: the live region holds the sentence alone, never the total or the dismiss control', () => {
     render(<DicePanel label="Initiative" outcome={rolled} onDismiss={() => {}} />);
 
     const status = screen.getByRole('status');
-    expect(status.getAttribute('aria-live')).toBe('polite');
-    expect(status.textContent).toContain('14');
+    const dismiss = screen.getByRole('button', { name: message('common.close') });
+
+    expect(status).toHaveClass('lg-dice-panel__sr');
+    expect(status.querySelector('button')).toBeNull();
+    expect(status.contains(dismiss)).toBe(false);
+    expect(document.querySelector('.lg-dice-panel__total')?.contains(status)).toBe(false);
   });
 
-  it('Edge: a missing or non-numeric value shows its explicit message and no total', () => {
+  it('Edge: a missing or non-numeric value announces its explicit message and shows no total', () => {
     const missing: DiceResult<RollResult> = refuse('no_value', '"attrs.dex" has no number to read');
     render(<DicePanel label="Initiative" outcome={missing} onDismiss={() => {}} />);
 
-    expect(screen.getByText(message('dice.error.noValue'))).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe(message('dice.error.noValue'));
+    expect(document.querySelector('.lg-dice-panel__error')?.textContent).toBe(
+      message('dice.error.noValue'),
+    );
     expect(document.querySelector('.lg-dice-panel__total-value')).toBeNull();
   });
 
@@ -54,7 +72,7 @@ describe('DicePanel', () => {
     const onDismiss = vi.fn();
     render(<DicePanel label="Initiative" outcome={rolled} onDismiss={onDismiss} />);
 
-    await userEvent.click(screen.getByRole('button', { name: message('dice.dismiss') }));
+    await userEvent.click(screen.getByRole('button', { name: message('common.close') }));
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });

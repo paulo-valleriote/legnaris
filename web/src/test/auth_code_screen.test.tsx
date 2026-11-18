@@ -65,6 +65,89 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(field).toHaveAccessibleName(message('auth.codeLabel'));
   });
 
+  it('Edge: the code field caps its value at six digits and strips everything that is not a digit', async () => {
+    const user = userEvent.setup();
+    await renderCodeSurface();
+
+    const field = screen.getByLabelText(message('auth.codeLabel'));
+    expect(field).toHaveAttribute('maxlength', '6');
+    expect(field).toHaveAttribute('pattern', '[0-9]*');
+
+    await user.click(field);
+    await user.paste('12a345678');
+
+    expect(field).toHaveValue('123456');
+    expect(screen.getByTestId('code-slot-0')).toHaveTextContent('1');
+    expect(screen.getByTestId('code-slot-5')).toHaveTextContent('6');
+  });
+
+  it('Edge: a mixed paste submits at most six digits and never the stripped characters', async () => {
+    const user = userEvent.setup();
+    const { fake } = await renderCodeSurface([
+      successOutcome(CHALLENGE_BODY),
+      successOutcome(SESSION_BODY),
+    ]);
+
+    const field = screen.getByLabelText(message('auth.codeLabel'));
+    await user.click(field);
+    await user.paste('12a345678');
+    await user.click(screen.getByRole('button', { name: message('auth.codeSubmit') }));
+
+    await waitFor(() => expect(fake.attempts).toBe(2));
+    expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual({
+      challenge_id: 'challenge-1',
+      code: '123456',
+    });
+  });
+
+  it('Edge: the code field marks the position a focus is on, so keyboard focus is visible', async () => {
+    const user = userEvent.setup();
+    await renderCodeSurface();
+
+    const field = screen.getByLabelText(message('auth.codeLabel'));
+    expect(field).toHaveFocus();
+    expect(screen.getByTestId('code-slot-0')).toHaveAttribute('data-active', 'true');
+
+    await user.type(field, '12');
+    expect(screen.getByTestId('code-slot-2')).toHaveAttribute('data-active', 'true');
+    expect(screen.getByTestId('code-slot-0')).toHaveAttribute('data-active', 'false');
+
+    await user.tab();
+    expect(field).not.toHaveFocus();
+    expect(screen.getByTestId('code-slot-2')).toHaveAttribute('data-active', 'false');
+
+    await user.click(field);
+    expect(field).toHaveFocus();
+    expect(screen.getByTestId('code-slot-2')).toHaveAttribute('data-active', 'true');
+  });
+
+  it('Edge: an ended step draws a stage state with a way back instead of a blank page', async () => {
+    const user = userEvent.setup();
+    const session = createAuthSession({
+      authApi: createAuthApi({
+        baseUrl: BASE_URL,
+        transport: createDeferredTransport().transport,
+        readCsrfToken: () => 'csrf-token',
+      }),
+      initialState: 'pendingCode',
+    });
+
+    const { container } = render(
+      <AppProviders session={session} sheetStore={createMemorySheetStore()}>
+        <AuthCodeScreen />
+      </AppProviders>,
+    );
+
+    expect(container.querySelector('.lg-auth')).not.toBeNull();
+    expect(
+      screen.getByRole('heading', { level: 1, name: message('auth.codeMissingTitle') }),
+    ).toBeVisible();
+    expect(screen.getByText(message('auth.codeMissingBody'))).toBeVisible();
+
+    await user.click(screen.getByTestId('code-missing-back'));
+    expect(session.getSnapshot().state).toBe('unauthenticated');
+  });
+
   it('Edge: a refused code keeps the entered code, keeps the focus on the field and shows the mapped copy (WCS-04, WCS-22)', async () => {
     const user = userEvent.setup();
     await renderCodeSurface([
@@ -434,7 +517,14 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
 
       expect(screen.getByTestId('code-instruction')).toHaveTextContent('a@b.test');
       expect(screen.getByTestId('code-instruction')).toHaveTextContent('expired');
-      expect(screen.getByTestId('code-expired')).toBeInTheDocument();
+      const expiredNotice = screen
+        .getByText(message('auth.codeExpired'))
+        .closest('.lg-notice') as HTMLElement;
+      expect(expiredNotice).toHaveClass('lg-notice--danger', 'lg-notice--stage');
+      expect(expiredNotice).not.toHaveAttribute('role');
+      expect(
+        screen.getByLabelText(message('auth.codeLabel')).getAttribute('aria-describedby'),
+      ).toContain('code-expired');
       expect(screen.getByTestId('code-resend')).toBeInTheDocument();
       expect(screen.getByTestId('code-back')).toBeInTheDocument();
     } finally {
@@ -548,12 +638,14 @@ describe('the code surface composition (WCS-25)', () => {
     expect(styles).toContain('animation: lg-auth-swap var(--lg-motion-240)');
   });
 
-  it('Edge: the swap is zeroed when the person asks for reduced motion (WCS-25)', () => {
+  it('Edge: the swap is zeroed by the shared reduced-motion rule (WCS-25)', () => {
     const styles = readFileSync(path.resolve(here, '../auth/auth.css'), 'utf8');
-    const reduced =
-      styles.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/)?.[0] ?? '';
+    const base = readFileSync(path.resolve(here, '../theme/base.css'), 'utf8');
 
-    expect(reduced).toContain('animation: none');
+    expect(styles).not.toContain('prefers-reduced-motion');
+    expect(base).toMatch(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*animation-duration:\s*0\.01ms !important/,
+    );
   });
 
   it('Edge: the refusal and the resend row hold their declared positions (WCS-25)', async () => {

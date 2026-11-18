@@ -87,7 +87,7 @@ describe('narrow shell: the navigation becomes a compact top bar', () => {
     expect(
       rule(
         narrow,
-        '.lg-nav__brand::after,\n  .lg-nav__brand-text,\n  .lg-nav__group-label,\n  .lg-nav__icon,\n  .lg-nav__chevron',
+        '.lg-nav__brand-text,\n  .lg-nav__group-label,\n  .lg-nav__icon,\n  .lg-nav__chevron',
       ),
     ).toContain('display: none');
   });

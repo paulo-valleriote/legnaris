@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { parseSheet } from '../api/models/sheet';
@@ -175,7 +175,7 @@ describe('keyboard and leave guards (WSC-20, WSC-36, WSC-37)', () => {
 
     await user.keyboard('{F5}');
 
-    expect(screen.queryByTestId('sheet-confirm-refresh')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(templates()).toBe(before);
 
     deferred.resolve(successOutcome({}));
@@ -196,7 +196,7 @@ describe('keyboard and leave guards (WSC-20, WSC-36, WSC-37)', () => {
     await user.click(screen.getByRole('button', { name: message('sheet.save') }));
     await user.click(screen.getByRole('link', { name: message('nav.catalog') }));
 
-    expect(screen.queryByTestId('sheet-confirm-leave')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
     expect(screen.getByTestId('sheet-screen')).toBeInTheDocument();
 
@@ -214,13 +214,15 @@ describe('keyboard and leave guards (WSC-20, WSC-36, WSC-37)', () => {
 
     await user.keyboard('{F5}');
 
-    expect(screen.getByTestId('sheet-confirm-refresh')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: message('sheet.refreshTitle') })).toBeInTheDocument();
 
     await user.keyboard('{F5}');
     await user.click(screen.getByRole('link', { name: message('nav.catalog') }));
 
-    expect(screen.getAllByTestId('sheet-confirm-refresh')).toHaveLength(1);
-    expect(screen.queryByTestId('sheet-confirm-leave')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(
+      screen.queryByRole('dialog', { name: message('sheet.leaveTitle') }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('sheet-screen')).toBeInTheDocument();
   });
 
@@ -257,7 +259,7 @@ describe('keyboard and leave guards (WSC-20, WSC-36, WSC-37)', () => {
         2,
       );
     });
-    expect(screen.queryByTestId('sheet-confirm-refresh')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('Happy path: F5 cancel keeps the edits and issues no template request (WSC-36)', async () => {
@@ -273,7 +275,7 @@ describe('keyboard and leave guards (WSC-20, WSC-36, WSC-37)', () => {
 
     await user.click(screen.getByRole('button', { name: message('sheet.cancel') }));
 
-    expect(screen.queryByTestId('sheet-confirm-refresh')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByText(message('sheet.pendingEdits'))).toBeInTheDocument();
     expect(fake.requests.filter((request) => request.url.includes('/templates/'))).toHaveLength(1);
   });
@@ -291,7 +293,7 @@ describe('keyboard and leave guards (WSC-20, WSC-36, WSC-37)', () => {
 
     await user.keyboard('{Escape}');
 
-    expect(screen.queryByTestId('sheet-confirm-refresh')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByText(message('sheet.pendingEdits'))).toBeInTheDocument();
     expect(fake.requests.filter((request) => request.url.includes('/templates/'))).toHaveLength(1);
   });
@@ -306,9 +308,9 @@ describe('keyboard and leave guards (WSC-20, WSC-36, WSC-37)', () => {
     await user.type(level, '4');
 
     await user.click(screen.getByRole('link', { name: message('nav.catalog') }));
-    await user.click(screen.getByTestId('sheet-confirm-overlay'));
+    fireEvent.click(document.querySelector('.lg-dialog__scrim') as HTMLElement);
 
-    expect(screen.queryByTestId('sheet-confirm-leave')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByTestId('sheet-screen')).toBeInTheDocument();
     expect(screen.getByText(message('sheet.pendingEdits'))).toBeInTheDocument();
   });
@@ -347,11 +349,11 @@ describe('keyboard and leave guards (WSC-20, WSC-36, WSC-37)', () => {
 
     await user.click(screen.getByRole('link', { name: message('nav.catalog') }));
 
-    expect(screen.getByTestId('sheet-confirm-leave')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: message('sheet.cancel') }));
 
-    expect(screen.queryByTestId('sheet-confirm-leave')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByTestId('sheet-screen')).toBeInTheDocument();
     expect(screen.getByText(message('sheet.pendingEdits'))).toBeInTheDocument();
   });
@@ -384,7 +386,47 @@ describe('keyboard and leave guards (WSC-20, WSC-36, WSC-37)', () => {
 
     await user.click(screen.getByRole('link', { name: message('nav.catalog') }));
 
-    expect(screen.queryByTestId('sheet-confirm-leave')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(await screen.findByTestId('catalog')).toBeInTheDocument();
+  });
+
+  it('Happy path: a confirmation is one modal dialog that focuses the safe action (WSC-36, WSC-39)', async () => {
+    const fake = createFakeTransport(
+      successOutcome(sheetPayload()),
+      successOutcome(templateDetailPayload()),
+    );
+    const { user, level } = await openSheet(fake.transport);
+    await user.clear(level);
+    await user.type(level, '4');
+
+    await user.keyboard('{F5}');
+
+    const dialog = screen.getByRole('dialog', { name: message('sheet.refreshTitle') });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveClass('lg-dialog__panel--danger');
+    expect(document.querySelector('.lg-sheet__confirm-safe')).toBeNull();
+    expect(screen.getByRole('button', { name: message('sheet.cancel') })).toHaveFocus();
+
+    await user.tab();
+
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('Happy path: closing a confirmation returns focus to the element that opened it (WSC-39)', async () => {
+    const fake = createFakeTransport(
+      successOutcome(sheetPayload()),
+      successOutcome(templateDetailPayload()),
+    );
+    const { user, level } = await openSheet(fake.transport);
+    await user.clear(level);
+    await user.type(level, '4');
+    const catalog = screen.getByRole('link', { name: message('nav.catalog') });
+
+    await user.click(catalog);
+    expect(screen.getByRole('dialog', { name: message('sheet.leaveTitle') })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.cancel') }));
+
+    expect(catalog).toHaveFocus();
   });
 });

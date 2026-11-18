@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(path.resolve(here, '../landing/landing.css'), 'utf8');
+const baseCss = readFileSync(path.resolve(here, '../theme/base.css'), 'utf8');
 
 function blockFor(selector: string): string {
   const start = css.indexOf(selector);
@@ -13,16 +14,12 @@ function blockFor(selector: string): string {
 }
 
 describe('landing polish contract', () => {
-  it('Happy path: a reduced-motion query clamps animations and transitions on the landing', () => {
-    const query = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
-    expect(query).toContain('.lg-landing *');
-    expect(query).toMatch(/animation-duration:\s*0\.01ms/);
-    expect(query).toMatch(/transition-duration:\s*0\.01ms/);
-  });
-
-  it('Edge: every animation the page declares is covered by that clamp', () => {
+  it('Happy path: the page only animates through the one global reduced-motion rule', () => {
     expect(css).toMatch(/animation:/);
-    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).not.toContain('prefers-reduced-motion');
+    expect(baseCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(baseCss).toMatch(/animation-duration:\s*0\.01ms/);
+    expect(baseCss).toMatch(/transition-duration:\s*0\.01ms/);
   });
 
   it('Edge: the page forces a dark colour scheme and canvas whatever the theme', () => {

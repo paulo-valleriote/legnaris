@@ -67,7 +67,8 @@ describe('plans screen: checkout (LGN-215)', () => {
     const subscribe = await screen.findByRole('button', { name: message('plans.subscribe') });
     await user.click(subscribe);
 
-    const busy = screen.getByRole('button', { name: message('plans.subscribing') });
+    const busy = screen.getByRole('button', { name: message('plans.subscribe') });
+    expect(busy).toHaveAttribute('aria-busy', 'true');
     expect(busy).toBeDisabled();
     await user.click(busy);
     expect(script.posts('/billing/checkout')).toHaveLength(1);
@@ -248,7 +249,7 @@ describe('plans screen: refund (LGN-215)', () => {
     });
     renderApp('/plans', { client: script.client });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(message('plans.refundFailed'));
+    expect(await screen.findByText(message('plans.refundFailed'))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: message('plans.refundAction') })).toBeInTheDocument();
   });
 });
@@ -262,19 +263,59 @@ describe('plans screen states (LGN-215)', () => {
     expect(screen.queryByRole('button', { name: message('plans.subscribe') })).toBeNull();
   });
 
-  it('Error: a failed plan read shows the mapped copy and retries with one more read', async () => {
+  it('Error: a failed plan read shows the shared error state and retries with one more read', async () => {
     const script = scriptedBilling({
       plans: [problem('INTERNAL_ERROR', 'boom', 500), json(FREE_NEVER_SUBSCRIBED)],
     });
     const user = userEvent.setup();
     renderApp('/plans', { client: script.client });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(message('api.error.serverError'));
-    await user.click(screen.getByRole('button', { name: message('plans.retry') }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(message('plan.loadFailed'));
+    await user.click(screen.getByRole('button', { name: message('common.retry') }));
 
     expect(
       await screen.findByRole('button', { name: message('plans.subscribe') }),
     ).toBeInTheDocument();
     expect(script.planReads()).toBe(2);
+  });
+});
+
+describe('plans screen layout and standing conditions (DESIGN.md)', () => {
+  it('Happy path: the page title is the shared page header', async () => {
+    const script = scriptedBilling({ plans: [json(FREE_NEVER_SUBSCRIBED)] });
+    renderApp('/plans', { client: script.client });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: message('plans.title') }),
+    ).toBeInTheDocument();
+  });
+
+  it('Happy path: an ending subscription is a warning notice and the period end an info notice', async () => {
+    const script = scriptedBilling({
+      plans: [json({ ...PAID_ACTIVE, cancel_at_period_end: true })],
+    });
+    renderApp('/plans', { client: script.client });
+
+    const cancellation = (await screen.findByText(message('plans.cancelAtPeriodEnd'))).closest(
+      '.lg-notice',
+    );
+    expect(cancellation).toHaveClass('lg-notice--warning');
+    expect(cancellation).toHaveAttribute('role', 'status');
+
+    const date = new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
+      new Date(PAID_ACTIVE.current_period_end),
+    );
+    const period = screen.getByText(messageWith('plans.periodEnd', { date })).closest('.lg-notice');
+    expect(period).toHaveClass('lg-notice--info');
+    expect(period).toHaveAttribute('role', 'status');
+  });
+
+  it('Edge: an account that never subscribed gets one muted line, not a notice', async () => {
+    const script = scriptedBilling({ plans: [json(FREE_NEVER_SUBSCRIBED)] });
+    renderApp('/plans', { client: script.client });
+
+    const line = await screen.findByText(message('plans.neverSubscribed'));
+    expect(line).toHaveClass('lg-plans__text');
+    expect(line.closest('.lg-notice')).toBeNull();
   });
 });

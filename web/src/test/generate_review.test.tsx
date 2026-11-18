@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PREVIEW_THROTTLE_MS } from '../generate/generation_flow';
 import {
@@ -68,7 +68,10 @@ describe('review step name prefill (LGN-196, LGN-233)', () => {
     });
 
     expect(screen.getByLabelText('Sheet name')).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'Save to my sheets' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save to my sheets' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   it('Edge: a null suggested name leaves the Sheet name empty, never a placeholder', async () => {
@@ -85,7 +88,10 @@ describe('review step name prefill (LGN-196, LGN-233)', () => {
     });
 
     expect(screen.getByLabelText('Sheet name')).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'Save to my sheets' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save to my sheets' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   it('Edge: a typed name is kept and not overwritten by the generated one', async () => {
@@ -237,7 +243,10 @@ describe('regenerate and the last generation (LGN-196)', () => {
     await user.click(generateButton());
     await screen.findByRole('heading', { name: 'Review your character' });
 
-    expect(screen.getByRole('button', { name: 'Regenerate (0 left)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Regenerate (0 left)' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 });
 
@@ -282,8 +291,10 @@ describe('resume from the catalog (LGN-196)', () => {
     const user = userEvent.setup();
     renderApp('/', { client, queryClient });
 
-    expect(await screen.findByText('A generated enemy is waiting for you.')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Open' }));
+    const text = await screen.findByText('A generated enemy is waiting for you.');
+    const notice = text.closest('.lg-notice');
+    expect(notice).not.toBeNull();
+    await user.click(within(notice as HTMLElement).getByRole('button', { name: 'Open' }));
 
     expect(await screen.findByRole('heading', { name: 'Review your enemy' })).toBeInTheDocument();
     expect(countOf(fake.requests, 'POST', '/generations')).toBe(0);

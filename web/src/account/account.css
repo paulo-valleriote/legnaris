@@ -5,31 +5,14 @@
   padding-bottom: var(--lg-space-48);
 }
 
-.lg-account__title {
-  margin: 0;
-  font-size: var(--lg-type-30);
-  font-weight: var(--lg-font-weight-semibold);
-  line-height: var(--lg-line-display);
-  letter-spacing: var(--lg-tracking-display);
-  text-wrap: balance;
-}
-
-.lg-account__message {
-  margin: 0;
-  font-size: var(--lg-type-15);
-  color: var(--lg-color-text-muted);
-}
-
-.lg-account__failure {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--lg-space-8);
+.lg-account > .lg-page-header {
+  margin-bottom: 0;
 }
 
 .lg-account__rows {
   display: flex;
   flex-direction: column;
+  margin: 0;
   border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
 }
 
@@ -62,6 +45,7 @@
   align-items: flex-start;
   gap: var(--lg-space-12);
   min-width: 0;
+  margin: 0;
 }
 
 .lg-account__value {
@@ -109,14 +93,13 @@
   font-weight: var(--lg-font-weight-semibold);
 }
 
+.lg-account__quota-full {
+  color: var(--lg-color-warning);
+  font-weight: var(--lg-font-weight-medium);
+}
+
 .lg-account__notice {
   margin: 0;
   font-size: var(--lg-type-15);
   color: var(--lg-color-text-muted);
-}
-
-.lg-account__error {
-  margin: 0;
-  font-size: var(--lg-type-15);
-  color: var(--lg-color-danger);
 }

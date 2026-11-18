@@ -54,6 +54,9 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     renderApp('/your-sheet', { client: clientWith(fake.transport) });
 
     await waitFor(() => expect(screen.getByTestId('your-sheet-name')).toHaveTextContent('Aragorn'));
+    expect(
+      screen.getByRole('heading', { level: 1, name: message('sheet.ownTitle') }),
+    ).toBeInTheDocument();
     expect(sheetRequests(fake)).toHaveLength(1);
     expect(screen.queryByTestId('your-sheet-failure')).not.toBeInTheDocument();
   });
@@ -102,7 +105,7 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     );
     expect(sheetRequests(fake)).toHaveLength(1);
 
-    await user.click(screen.getByRole('button', { name: message('sheet.ownRetry') }));
+    await user.click(screen.getByRole('button', { name: message('common.retry') }));
 
     await waitFor(() => expect(screen.getByTestId('your-sheet-name')).toHaveTextContent('Aragorn'));
     expect(sheetRequests(fake)).toHaveLength(2);
@@ -137,6 +140,25 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(deleteRequests(fake)).toHaveLength(0);
     expect(screen.getByTestId('your-sheet-name')).toHaveTextContent('Aragorn');
+  });
+
+  it('Happy path: the delete confirmation is one danger modal that focuses the safe action', async () => {
+    const user = userEvent.setup();
+    const fake = createFakeTransport(successOutcome(SHEET_JSON));
+
+    renderApp('/your-sheet', { client: clientWith(fake.transport) });
+    await findName();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.ownDelete') }));
+
+    const dialog = screen.getByRole('dialog', { name: message('sheet.ownDeleteTitle') });
+    expect(dialog).toHaveClass('lg-dialog__panel--danger');
+    expect(screen.getByRole('button', { name: message('sheet.ownCancel') })).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(deleteRequests(fake)).toHaveLength(0);
   });
 
   it('Happy path: confirm issues exactly one DELETE, evicts the sheet and its draft and shows empty (WAS-28, WAS-29)', async () => {

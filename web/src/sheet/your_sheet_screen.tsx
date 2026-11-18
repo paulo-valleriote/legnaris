@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import type { Sheet } from '../api/models/sheet';
 import { message } from '../l10n/strings';
 import { useApiClient, useSheetStore } from '../app/providers';
+import { Button } from '../ui/button';
+import { Dialog } from '../ui/dialog';
+import { PageHeader } from '../ui/page_header';
+import { EmptyState, ErrorState, LoadingState } from '../ui/state';
 import type { YourSheetController, YourSheetSnapshot } from './your_sheet';
 import { createYourSheet } from './your_sheet';
 import './sheet.css';
@@ -14,60 +18,34 @@ interface DeleteDialogProps {
 }
 
 function DeleteDialog({ onCancel, onConfirm }: DeleteDialogProps) {
-  const cancelRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    cancelRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel]);
+  const safeRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div
-      className="lg-overlay"
-      role="presentation"
-      data-testid="your-sheet-delete-overlay"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onCancel();
-        }
-      }}
-    >
-      <div
-        className="lg-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="your-sheet-delete-title"
-        aria-describedby="your-sheet-delete-message"
-        data-testid="your-sheet-delete-dialog"
-      >
-        <div className="lg-dialog__header">
-          <h2 className="lg-dialog__title" id="your-sheet-delete-title">
-            {message('sheet.ownDeleteTitle')}
-          </h2>
-        </div>
-        <p className="lg-dialog__message" id="your-sheet-delete-message">
-          {message('sheet.ownDeleteMessage')}
-        </p>
-        <div className="lg-dialog__actions">
-          <button type="button" className="lg-button" ref={cancelRef} onClick={onCancel}>
-            {message('sheet.ownCancel')}
-          </button>
-          <button type="button" className="lg-button lg-button--danger" onClick={onConfirm}>
-            {message('sheet.ownDeleteConfirm')}
-          </button>
-        </div>
-      </div>
-    </div>
+    <Dialog
+      open
+      tone="danger"
+      title={message('sheet.ownDeleteTitle')}
+      description={message('sheet.ownDeleteMessage')}
+      onClose={onCancel}
+      initialFocusRef={safeRef}
+      actions={
+        <>
+          <Button
+            ref={safeRef}
+            variant="secondary"
+            size="md"
+            label={message('sheet.ownCancel')}
+            onClick={onCancel}
+          />
+          <Button
+            variant="danger"
+            size="md"
+            label={message('sheet.ownDeleteConfirm')}
+            onClick={onConfirm}
+          />
+        </>
+      }
+    />
   );
 }
 
@@ -82,28 +60,23 @@ function YourSheetBody({ controller, snapshot, onOpen }: YourSheetBodyProps) {
 
   switch (snapshot.state.kind) {
     case 'loading':
-      return <p className="lg-sheet__message">{message('sheet.ownLoading')}</p>;
+      return <LoadingState label={message('sheet.ownLoading')} />;
     case 'empty':
       return (
-        <p className="lg-sheet__message" data-testid="your-sheet-empty">
-          {message('sheet.ownEmpty')}
-        </p>
+        <div data-testid="your-sheet-empty">
+          <EmptyState message={message('sheet.ownEmpty')} />
+        </div>
       );
     case 'failure':
       return (
-        <div className="lg-sheet__failure">
-          <p className="lg-sheet__message" data-testid="your-sheet-failure">
-            {snapshot.state.message}
-          </p>
-          <button
-            type="button"
-            className="lg-button"
-            onClick={() => {
+        <div data-testid="your-sheet-failure">
+          <ErrorState
+            message={snapshot.state.message}
+            onRetry={() => {
               void controller.resolve();
             }}
-          >
-            {message('sheet.ownRetry')}
-          </button>
+            retryLabel={message('common.retry')}
+          />
         </div>
       );
     case 'sheet': {
@@ -115,28 +88,25 @@ function YourSheetBody({ controller, snapshot, onOpen }: YourSheetBodyProps) {
               {sheet.name}
             </span>
             <div className="lg-yoursheet__actions">
-              <button
-                type="button"
-                className="lg-button lg-button--primary"
+              <Button
+                variant="primary"
+                size="md"
+                label={message('sheet.ownOpen')}
                 onClick={() => onOpen(sheet)}
-              >
-                {message('sheet.ownOpen')}
-              </button>
-              <button
-                type="button"
-                className="lg-button lg-button--danger"
-                disabled={snapshot.deleting}
-                aria-busy={snapshot.deleting}
+              />
+              <Button
+                variant="danger"
+                size="md"
+                loading={snapshot.deleting}
+                label={message('sheet.ownDelete')}
                 onClick={() => setConfirming(true)}
-              >
-                {message('sheet.ownDelete')}
-              </button>
+              />
             </div>
           </div>
           {snapshot.deleteError !== undefined && (
-            <p className="lg-sheet__error" role="alert" data-testid="your-sheet-delete-error">
-              {snapshot.deleteError}
-            </p>
+            <div data-testid="your-sheet-delete-error">
+              <ErrorState message={snapshot.deleteError} />
+            </div>
           )}
           {confirming && (
             <DeleteDialog
@@ -167,14 +137,10 @@ export function YourSheetScreen() {
   return (
     <section
       className="lg-sheet"
-      aria-labelledby="your-sheet-title"
+      aria-label={message('sheet.ownTitle')}
       data-testid="your-sheet-screen"
     >
-      <header className="lg-sheet__header">
-        <h1 className="lg-sheet__title" id="your-sheet-title">
-          {message('sheet.ownTitle')}
-        </h1>
-      </header>
+      <PageHeader title={message('sheet.ownTitle')} />
       <YourSheetBody
         controller={controller}
         snapshot={snapshot}

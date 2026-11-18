@@ -188,6 +188,12 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
 
     expect(screen.getByTestId('auth-restoring')).toHaveTextContent(message('auth.restoring'));
 
+    const restoring = screen.getByTestId('auth-restoring');
+    expect(restoring).toHaveAttribute('role', 'status');
+    expect(restoring).toHaveAttribute('aria-busy', 'true');
+    expect(restoring.closest('.lg-auth')).not.toBeNull();
+    expect(restoring.querySelector('.lg-spinner')).not.toBeNull();
+
     deferred.resolve(successOutcome(SESSION_BODY));
 
     await waitFor(() => expect(screen.getByTestId('catalog')).toBeInTheDocument());

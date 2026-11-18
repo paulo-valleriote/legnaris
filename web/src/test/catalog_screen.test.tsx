@@ -46,7 +46,21 @@ describe('catalog screen (WCT-03 … WCT-10)', () => {
     const rows = screen.getAllByRole('listitem');
     expect(rows[0]).toHaveTextContent('Dungeons & Dragons 5e');
     expect(rows[1]).toHaveTextContent('Powered by the Apocalypse');
+    expect(within(rows[0]).getByRole('button')).toHaveAccessibleName('Dungeons & Dragons 5e');
     expect(screen.queryByText(message('catalog.loading'))).not.toBeInTheDocument();
+  });
+
+  it('Happy path: the row arrow is the shared trailing icon, hidden from assistive technology', async () => {
+    const deferred = createDeferredTransport();
+    renderApp('/', { client: clientWith(deferred.transport) });
+
+    deferred.resolve(successOutcome(TWO_TEMPLATES));
+
+    const rows = await screen.findAllByRole('listitem');
+    const trailing = rows[0].querySelector('.lg-button__icon--trailing');
+    expect(trailing).not.toBeNull();
+    expect(trailing).toHaveAttribute('aria-hidden', 'true');
+    expect(trailing!.querySelector('svg')).not.toBeNull();
   });
 
   it('Happy path: an empty response renders exactly one line and no decorative row (WCT-05)', async () => {
@@ -57,6 +71,7 @@ describe('catalog screen (WCT-03 … WCT-10)', () => {
 
     await waitFor(() => expect(screen.getByText(message('catalog.empty'))).toBeInTheDocument());
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+    expect(screen.getByRole('button', { name: message('common.retry') })).toBeInTheDocument();
     expect(screen.queryByText(message('catalog.loading'))).not.toBeInTheDocument();
   });
 
@@ -69,7 +84,7 @@ describe('catalog screen (WCT-03 … WCT-10)', () => {
     await waitFor(() =>
       expect(screen.getByText(failureMessage('serverError'))).toBeInTheDocument(),
     );
-    expect(screen.getByRole('button', { name: message('catalog.retry') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('common.retry') })).toBeInTheDocument();
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
   });
 
@@ -80,7 +95,7 @@ describe('catalog screen (WCT-03 … WCT-10)', () => {
     deferred.resolve({ status: 200, body: JSON.stringify({ data: { not: 'a list' } }) });
 
     await waitFor(() => expect(screen.getByText(parseFailureMessage())).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: message('catalog.retry') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('common.retry') })).toBeInTheDocument();
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
     expect(screen.getByTestId('catalog')).toBeInTheDocument();
   });

@@ -1,10 +1,13 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import { failureMessage, parseFailureMessage } from '../api/error_mapper';
 import type { TemplateSummary } from '../api/models/template';
 import { message } from '../l10n/strings';
 import { Button } from '../ui/button';
+import { ArrowRightIcon } from '../ui/icons';
+import { PageHeader } from '../ui/page_header';
+import { EmptyState, ErrorState, LoadingState } from '../ui/state';
 import { CreateSheetDialog } from './create_sheet_dialog';
 import { ResumeNotice } from './resume_notice';
 import { useCatalog } from './queries';
@@ -16,23 +19,6 @@ type CatalogRenderPhase =
   | { readonly kind: 'empty' }
   | { readonly kind: 'error'; readonly copy: string }
   | { readonly kind: 'parseError'; readonly copy: string };
-
-function OpenIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
-    </svg>
-  );
-}
 
 function resolveCatalogPhase(query: UseQueryResult<TemplateSummary[], Error>): CatalogRenderPhase {
   if (query.isPending) {
@@ -56,84 +42,79 @@ function resolveCatalogPhase(query: UseQueryResult<TemplateSummary[], Error>): C
 interface CatalogBodyProps {
   readonly phase: CatalogRenderPhase;
   readonly onRetry: () => void;
-  readonly onOpen: (templateId: string, trigger: HTMLElement) => void;
+  readonly onOpen: (templateId: string) => void;
 }
 
 function CatalogBody({ phase, onRetry, onOpen }: CatalogBodyProps) {
   switch (phase.kind) {
     case 'loading':
-      return <p className="lg-catalog__message">{message('catalog.loading')}</p>;
+      return <LoadingState label={message('catalog.loading')} />;
     case 'empty':
       return (
-        <div className="lg-catalog__failure">
-          <p className="lg-catalog__message">{message('catalog.empty')}</p>
-          <Button variant="primary" size="md" label={message('catalog.retry')} onClick={onRetry} />
-        </div>
+        <EmptyState
+          message={message('catalog.empty')}
+          action={
+            <Button
+              variant="secondary"
+              size="md"
+              label={message('common.retry')}
+              onClick={onRetry}
+            />
+          }
+        />
       );
     case 'loaded':
       return (
         <ul className="lg-catalog__list">
           {phase.entries.map((entry, index) => (
             <li className="lg-catalog__item" key={`${entry.id}-${index}`}>
-              <button
-                type="button"
-                className="lg-catalog__entry lg-button lg-button--secondary lg-button--md"
-                title={message('catalog.openHint')}
-                onClick={(event) => onOpen(entry.id, event.currentTarget)}
+              <Button
+                variant="row"
+                name={entry.name}
+                className="lg-catalog__entry"
+                trailingIcon={<ArrowRightIcon className="lg-catalog__open" />}
+                onClick={() => onOpen(entry.id)}
               >
                 <span className="lg-catalog__text">
                   <span className="lg-catalog__name">{entry.name}</span>
                   <span className="lg-catalog__id">{entry.id}</span>
                 </span>
-                <span className="lg-catalog__open">
-                  <OpenIcon />
-                </span>
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
       );
     case 'error':
     case 'parseError':
-      return (
-        <div className="lg-catalog__failure">
-          <p className="lg-catalog__message">{phase.copy}</p>
-          <Button variant="primary" size="md" label={message('catalog.retry')} onClick={onRetry} />
-        </div>
-      );
+      return <ErrorState message={phase.copy} onRetry={onRetry} />;
   }
 }
 
 export function CatalogScreen() {
   const query = useCatalog();
   const [openTemplateId, setOpenTemplateId] = useState<string | undefined>(undefined);
-  const triggerRef = useRef<HTMLElement | null>(null);
   const phase = resolveCatalogPhase(query);
 
   const handleRetry = useCallback(() => {
     void query.refetch();
   }, [query]);
 
-  const handleOpen = useCallback((templateId: string, trigger: HTMLElement) => {
-    triggerRef.current = trigger;
+  const handleOpen = useCallback((templateId: string) => {
     setOpenTemplateId(templateId);
   }, []);
 
   const handleClose = useCallback(() => {
     setOpenTemplateId(undefined);
-    triggerRef.current?.focus();
   }, []);
 
   return (
-    <section className="lg-catalog" aria-labelledby="catalog-title" data-testid="catalog">
-      <h1 className="lg-catalog__title" id="catalog-title">
-        {message('catalog.title')}
-      </h1>
+    <div className="lg-catalog" data-testid="catalog">
+      <PageHeader title={message('catalog.title')} />
       <ResumeNotice />
       <CatalogBody phase={phase} onRetry={handleRetry} onOpen={handleOpen} />
       {openTemplateId !== undefined && (
         <CreateSheetDialog templateId={openTemplateId} onClose={handleClose} />
       )}
-    </section>
+    </div>
   );
 }

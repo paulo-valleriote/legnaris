@@ -2,6 +2,7 @@ import { useEffect, useId, useReducer, useRef, useState } from 'react';
 import type { ChangeEvent, FocusEvent, KeyboardEvent, MouseEvent } from 'react';
 import type { FieldSchema } from '../api/models/template';
 import { message, messageWith } from '../l10n/strings';
+import { MinusIcon, PlusIcon } from '../ui/icons';
 import { fieldDisplayName, lastSegment } from './field_grouping';
 import type { SheetMark } from './sheet_mark';
 import { FIELD_MARKED_CLASS } from './sheet_mark';
@@ -237,11 +238,10 @@ function SignToggleIcon() {
 }
 
 function StepIcon({ direction }: { readonly direction: StepDirection }) {
-  return (
-    <svg className="lg-field__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d={direction === 1 ? 'M12 6v12M6 12h12' : 'M6 12h12'} strokeLinecap="round" />
-    </svg>
-  );
+  if (direction === 1) {
+    return <PlusIcon className="lg-field__icon" />;
+  }
+  return <MinusIcon className="lg-field__icon" />;
 }
 
 type StepDirection = 1 | -1;

@@ -1,8 +1,3 @@
-/**
- * The sheet-screen styles. Every value comes from the shared design tokens; no
- * literal color or pixel value appears here (WSC-33).
- */
-
 .lg-sheet {
   display: flex;
   flex-direction: column;
@@ -10,17 +5,16 @@
   padding-bottom: var(--lg-space-24);
 }
 
-/* The editor route fills the content region so its footer sits on the page end
-   even when the form is shorter than the viewport. The region's own top padding moves onto the
-   editor, so the sticky section strip sticks to the region's top edge and not below it. */
+.lg-sheet > .lg-page-header {
+  margin-bottom: var(--lg-space-16);
+}
+
 .lg-sheet--editor {
   flex: 1;
   padding-top: var(--lg-space-48);
   padding-bottom: 0;
 }
 
-/* The editor owns the full content width so the action bar can be full-bleed;
-   every other child keeps the readable measure. */
 .lg-content:has(.lg-sheet--editor) {
   padding-block-start: 0;
   padding-inline: 0;
@@ -31,7 +25,7 @@
 }
 
 .lg-sheet--editor
-  > :not(.lg-sheet__footer):not(.lg-sectionbar):not(.lg-overlay):not(.lg-visually-hidden) {
+  > :not(.lg-sheet__footer):not(.lg-sectionbar):not(.lg-dialog__scrim):not(.lg-visually-hidden) {
   width: 100%;
   max-width: calc(var(--lg-size-content-max) + 2 * var(--lg-space-24));
   margin-inline: auto;
@@ -59,8 +53,6 @@
   min-width: 0;
 }
 
-/* The header's actions read as one bounded group of text buttons divided by hairlines, so none of
-   them looks like the primary one: they are the same kind of thing (view and edit tools). */
 .lg-sheet__header-actions {
   display: flex;
   align-items: stretch;
@@ -69,7 +61,7 @@
   border-radius: var(--lg-radius-md);
 }
 
-.lg-sheet__header-actions > .lg-button {
+.lg-sheet__header-actions .lg-button {
   min-height: var(--lg-size-control);
   border: 0;
   border-radius: 0;
@@ -77,13 +69,6 @@
 
 .lg-sheet__header-actions > .lg-button + .lg-button {
   border-inline-start: var(--lg-size-hairline) solid var(--lg-color-border);
-}
-
-.lg-sheet__pinned-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--lg-space-12);
 }
 
 .lg-section__toggle .lg-field-row__mark {
@@ -116,19 +101,6 @@
   line-height: var(--lg-line-display);
   letter-spacing: var(--lg-tracking-display);
   text-wrap: balance;
-}
-
-.lg-sheet__message {
-  margin: 0;
-  font-size: var(--lg-type-15);
-  color: var(--lg-color-text-muted);
-}
-
-.lg-sheet__failure {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--lg-space-8);
 }
 
 .lg-sheet__footer {
@@ -179,8 +151,6 @@
   display: none;
 }
 
-/* On a phone the actions share the footer's second row equally. Preview is outlined and Save is
-   the accent fill, so the pair never reads as two of a kind. */
 .lg-sheet__actions {
   flex: 1 1 100%;
 }
@@ -205,7 +175,6 @@
   color: var(--lg-color-text-muted);
 }
 
-/* The one status line: the phrase and, after a Preview, the Jump control on the same row. */
 .lg-sheet__status-line {
   display: flex;
   align-items: center;
@@ -224,8 +193,6 @@
   color: var(--lg-color-text);
 }
 
-/* Jump is a text-weight control: underlined, in the text colour, never a second button next to
-   Preview and Save. Its hit area stays well above the 24 px minimum. */
 .lg-sheet__status-line .lg-button {
   min-height: var(--lg-space-32);
   padding-inline: var(--lg-space-8);
@@ -233,8 +200,6 @@
   text-underline-offset: var(--lg-space-4);
 }
 
-/* The Jump control lands a Row clear of the sticky footer and the top bar; the revealed
-   Row wears the focus ring whether or not the browser deems its focus visible. */
 .lg-sheet [data-row-key] {
   scroll-margin-block: var(--lg-space-128);
 }
@@ -263,7 +228,6 @@
   color: var(--lg-color-text-muted);
 }
 
-/* Visually hidden, still announced: the polite live region for pins. */
 .lg-visually-hidden {
   position: absolute;
   width: var(--lg-size-hairline);
@@ -276,8 +240,6 @@
   border: 0;
 }
 
-/* Arrange mode: a Section opens with its drag handle and title; a Row is a compact
-   line, its label and the pin star, nothing else. */
 .lg-arrange-head {
   display: flex;
   align-items: center;
@@ -390,15 +352,13 @@
   cursor: grabbing;
 }
 
-/* Below 40rem the shell is a top bar with 16 px gutters (see shell.css); the editor's own
-   gutters and the sticky footer follow. */
 @media (max-width: 39.99rem) {
   .lg-sheet--editor {
     padding-top: var(--lg-space-24);
   }
 
   .lg-sheet--editor
-    > :not(.lg-sheet__footer):not(.lg-sectionbar):not(.lg-overlay):not(.lg-visually-hidden) {
+    > :not(.lg-sheet__footer):not(.lg-sectionbar):not(.lg-dialog__scrim):not(.lg-visually-hidden) {
     padding-inline: var(--lg-space-16);
   }
 
@@ -432,8 +392,6 @@
   }
 }
 
-/* The explainer is a quiet note on the page, not an overlay: it scrolls with the heading and the
-   sections follow it. Dismissing it is a close control at its trailing edge, not a loose button. */
 .lg-sheet__help {
   display: flex;
   align-items: flex-start;
@@ -480,8 +438,6 @@
   stroke-linecap: round;
 }
 
-/* The Template settings area: a quiet disclosure at the page end, visually subordinate to the
-   character's Sections so configuration never reads as character data. */
 .lg-settings {
   display: flex;
   flex-direction: column;
@@ -494,7 +450,7 @@
 
 .lg-settings__title {
   margin: 0;
-  font-size: var(--lg-type-16);
+  font-size: var(--lg-type-20);
   font-weight: var(--lg-font-weight-semibold);
 }
 
@@ -542,11 +498,12 @@
   height: var(--lg-space-16);
   stroke: currentColor;
   stroke-width: var(--lg-space-2);
+  transform: rotate(90deg);
   transition: transform var(--lg-motion-120) var(--lg-ease-standard);
 }
 
 .lg-settings--closed .lg-settings__chevron {
-  transform: rotate(-90deg);
+  transform: rotate(0deg);
 }
 
 .lg-settings__body {

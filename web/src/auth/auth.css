@@ -99,7 +99,7 @@ body:has(.lg-auth) {
   font-size: var(--lg-type-18);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
-  letter-spacing: 0.14em;
+  letter-spacing: var(--lg-tracking-widest);
   text-transform: uppercase;
 }
 
@@ -138,13 +138,6 @@ body:has(.lg-auth) {
 
   to {
     opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lg-auth__panel,
-  .lg-auth__photo {
-    animation: none;
   }
 }
 
@@ -303,29 +296,26 @@ body:has(.lg-auth) {
   display: block;
 }
 
-.lg-auth__submit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.lg-auth .lg-auth__submit {
   width: 100%;
   min-height: calc(var(--lg-size-control) + var(--lg-space-8));
   padding: 0 var(--lg-space-24);
-  border: var(--lg-size-hairline) solid transparent;
-  border-radius: var(--lg-radius-md);
+  border-color: transparent;
   background-color: var(--lg-color-stage-accent);
   color: var(--lg-color-stage-accent-text);
-  font-family: inherit;
   font-size: var(--lg-type-16);
-  font-weight: var(--lg-font-weight-semibold);
-  cursor: pointer;
-  transition: background-color var(--lg-motion-180) var(--lg-ease-standard);
 }
 
-.lg-auth__submit:hover:not(:disabled) {
+.lg-auth .lg-auth__submit:hover:not(:disabled):not([aria-disabled='true']) {
+  border-color: transparent;
   background-color: var(--lg-color-stage-accent-hover);
 }
 
-.lg-auth__submit:disabled {
+.lg-auth .lg-auth__submit:disabled,
+.lg-auth .lg-auth__submit[aria-disabled='true'] {
+  border-color: transparent;
+  background-color: var(--lg-color-stage-accent);
+  color: var(--lg-color-stage-accent-text);
   opacity: 0.6;
   cursor: progress;
 }
@@ -393,7 +383,10 @@ body:has(.lg-auth) {
 
 .lg-auth__back,
 .lg-auth__inline-action {
+  display: inline-flex;
+  align-items: center;
   align-self: flex-start;
+  min-height: var(--lg-size-control);
   padding: var(--lg-space-8) 0;
   border: 0;
   background-color: transparent;
@@ -401,7 +394,7 @@ body:has(.lg-auth) {
   font-family: inherit;
   font-size: var(--lg-type-15);
   text-decoration: underline;
-  text-underline-offset: 0.25em;
+  text-underline-offset: var(--lg-underline-offset);
   cursor: pointer;
   transition: color var(--lg-motion-180) var(--lg-ease-standard);
 }
@@ -470,16 +463,13 @@ body:has(.lg-auth) {
   color: var(--lg-color-stage-text-muted);
 }
 
-.lg-auth__notice {
-  margin: 0;
-  font-size: var(--lg-type-13);
-  color: var(--lg-color-stage-danger);
-}
-
 .lg-auth__restoring {
-  margin: var(--lg-space-24);
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-12);
+  margin: 0;
+  color: var(--lg-color-stage-text-muted);
   font-size: var(--lg-type-15);
-  color: var(--lg-color-text-muted);
 }
 
 /* Wider viewports: the photograph takes the left, the panel the column beside it */

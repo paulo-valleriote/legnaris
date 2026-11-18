@@ -91,9 +91,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(await screen.findByTestId('sheet-missing')).toHaveTextContent(message('sheet.missing'));
     await waitFor(() => expect(deleteSheet).toHaveBeenCalledWith(SHEET_ID));
     expect(deleteDraft).toHaveBeenCalledWith(SHEET_ID);
-    expect(
-      screen.queryByRole('button', { name: message('sheet.retryOpen') }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: message('common.retry') })).not.toBeInTheDocument();
   });
 
   it('Edge: a failing local eviction still shows the missing copy (WSC-06)', async () => {
@@ -115,7 +113,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     const user = userEvent.setup();
     renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 
-    const retry = await screen.findByRole('button', { name: message('sheet.retryOpen') });
+    const retry = await screen.findByRole('button', { name: message('common.retry') });
     expect(screen.getByText(failureMessage('serverError'))).toBeInTheDocument();
     expect(countRequests(fake.requests, 'GET', SHEET_URL_SUFFIX)).toBe(1);
 
@@ -134,7 +132,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 
     expect(await screen.findByText(parseFailureMessage())).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.retryOpen') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('common.retry') })).toBeInTheDocument();
     expect(screen.queryByTestId('sheet-name')).not.toBeInTheDocument();
   });
 
@@ -147,7 +145,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     const user = userEvent.setup();
     renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 
-    const retry = await screen.findByRole('button', { name: message('sheet.retryOpen') });
+    const retry = await screen.findByRole('button', { name: message('common.retry') });
     expect(screen.getByText(failureMessage('serverError'))).toBeInTheDocument();
     expect(countRequests(fake.requests, 'GET', `/templates/${TEMPLATE_ID}`)).toBe(1);
 

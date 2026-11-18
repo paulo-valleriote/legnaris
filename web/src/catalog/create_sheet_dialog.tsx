@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import { failureCopy } from '../api/error_mapper';
 import type { TemplateDetail } from '../api/models/template';
@@ -10,9 +10,16 @@ import { isSheetLimitReached, SHEET_KINDS } from '../api/models/plan';
 import type { SheetKind } from '../api/models/plan';
 import type { MessageKey } from '../l10n/strings';
 import { message, messageWith } from '../l10n/strings';
+import { Button } from '../ui/button';
+import { Dialog } from '../ui/dialog';
+import { Field } from '../ui/field';
+import { Notice } from '../ui/notice';
+import { Select } from '../ui/select';
+import { ErrorState, LoadingState } from '../ui/state';
 import { PLAN_QUERY_KEY, seedCreatedSheet, usePlanUsage, useTemplateDetail } from './queries';
 
 const DEFAULT_KIND: SheetKind = 'character';
+const LIMIT_NOTICE_ID = 'sheet-kind-limit';
 
 const KIND_LABEL_KEYS = {
   character: 'catalog.kindCharacter',
@@ -60,38 +67,31 @@ interface DetailBodyProps {
 function DetailBody({ phase, templateId, onRetry }: DetailBodyProps) {
   switch (phase.kind) {
     case 'loading':
-      return <p className="lg-dialog__message">{message('sheet.loading')}</p>;
+      return <LoadingState label={message('sheet.loading')} />;
     case 'loaded':
       return (
-        <div className="lg-dialog__template">
-          <div className="lg-dialog__template-main">
-            <p className="lg-dialog__eyebrow">{message('sheet.templateLabel')}</p>
-            <p className="lg-dialog__template-name" data-testid="detail-name">
+        <div className="lg-create-sheet__template">
+          <div className="lg-create-sheet__template-main">
+            <p className="lg-create-sheet__eyebrow">{message('sheet.templateLabel')}</p>
+            <p className="lg-create-sheet__name" data-testid="detail-name">
               {phase.name}
             </p>
           </div>
-          <p className="lg-dialog__template-code">{templateId}</p>
+          <p className="lg-create-sheet__code">{templateId}</p>
         </div>
       );
     case 'error':
     case 'notFound':
     case 'parseError':
-      return (
-        <>
-          <p className="lg-dialog__message">{phase.copy}</p>
-          <button type="button" className="lg-button" onClick={onRetry}>
-            {message('sheet.retry')}
-          </button>
-        </>
-      );
+      return <ErrorState message={phase.copy} onRetry={onRetry} />;
   }
 }
 
-function disabledReason(hasName: boolean, limitReached: boolean): string {
+function blockedReason(hasName: boolean, limitReached: boolean): string | undefined {
   if (limitReached) {
     return message('sheet.limitReached');
   }
-  return hasName ? '' : message('sheet.nameRequired');
+  return hasName ? undefined : message('sheet.nameRequired');
 }
 
 export interface CreateSheetDialogProps {
@@ -115,25 +115,8 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   const hasName = trimmedName !== '';
   const limitReached = isSheetLimitReached(plan.data, kind);
   const kindUsage = plan.data?.sheets[kind];
-  const kindDescriptionIds = [
-    ...(kindUsage === undefined ? [] : ['sheet-kind-usage']),
-    ...(limitReached ? ['sheet-kind-limit'] : []),
-  ].join(' ');
   const canSubmit = hasName && !limitReached;
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  const reason = canSubmit ? undefined : blockedReason(hasName, limitReached);
 
   const handleCreate = useCallback(() => {
     if (!canSubmit || isSubmitting) {
@@ -155,131 +138,87 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
       });
   }, [canSubmit, isSubmitting, client, templateId, kind, trimmedName, queryClient, navigate]);
 
+  const generateTo = `/generate/${encodeURIComponent(templateId)}?kind=${encodeURIComponent(kind)}`;
+  const generate = limitReached ? (
+    <Button
+      variant="secondary"
+      label={message('generate.entry')}
+      disabled
+      ariaDescribedBy={LIMIT_NOTICE_ID}
+    />
+  ) : (
+    <Button variant="secondary" label={message('generate.entry')} to={generateTo} />
+  );
+
   return (
-    <div className="lg-overlay">
-      <div
-        className="lg-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-sheet-dialog-title"
-        data-testid="create-sheet-dialog"
-      >
-        <div className="lg-dialog__header">
-          <h2 className="lg-dialog__title" id="create-sheet-dialog-title">
-            {message('sheet.dialogTitle')}
-          </h2>
-          <button
-            type="button"
-            className="lg-button lg-button--ghost lg-button--sm"
-            onClick={onClose}
-          >
-            {message('sheet.close')}
-          </button>
-        </div>
-        <div className="lg-dialog__body">
-          <DetailBody
-            phase={phase}
-            templateId={templateId}
-            onRetry={() => {
-              void query.refetch();
-            }}
+    <Dialog
+      open
+      title={message('sheet.dialogTitle')}
+      onClose={onClose}
+      closeLabel={message('sheet.close')}
+      initialFocusRef={inputRef}
+      actions={
+        <>
+          {generate}
+          <Button
+            variant="primary"
+            label={isSubmitting ? message('sheet.creating') : message('sheet.create')}
+            disabled={!canSubmit || isSubmitting}
+            loading={isSubmitting}
+            disabledReason={isSubmitting || limitReached ? undefined : reason}
+            ariaDescribedBy={limitReached ? LIMIT_NOTICE_ID : undefined}
+            onClick={handleCreate}
           />
-        </div>
-        <div className="lg-dialog__field">
-          <label className="lg-dialog__label" htmlFor="sheet-name">
-            {message('sheet.nameLabel')}
-          </label>
-          <input
-            id="sheet-name"
-            ref={inputRef}
-            className="lg-dialog__input"
-            type="text"
-            value={sheetName}
-            placeholder={message('sheet.namePlaceholder')}
-            aria-describedby={hasName ? undefined : 'sheet-name-required'}
-            onChange={(event) => setSheetName(event.target.value)}
-          />
-          {!hasName && (
-            <p className="lg-dialog__note" id="sheet-name-required">
-              {message('sheet.nameRequired')}
-            </p>
-          )}
-        </div>
-        <div className="lg-dialog__field">
-          <label className="lg-dialog__label" htmlFor="sheet-kind">
-            {message('catalog.kindLabel')}
-          </label>
-          <select
-            id="sheet-kind"
-            className="lg-dialog__select"
-            value={kind}
-            aria-describedby={kindDescriptionIds === '' ? undefined : kindDescriptionIds}
-            onChange={(event) => {
-              setKind(event.target.value as SheetKind);
-              setSubmitError(undefined);
-            }}
-          >
-            {SHEET_KINDS.map((option) => (
-              <option key={option} value={option}>
-                {message(KIND_LABEL_KEYS[option])}
-              </option>
-            ))}
-          </select>
-          {kindUsage !== undefined && (
-            <p className="lg-dialog__note" id="sheet-kind-usage" data-testid="sheet-usage">
-              {messageWith('sheet.usage', {
-                used: kindUsage.used,
-                limit: kindUsage.limit,
-              })}
-            </p>
-          )}
-          {limitReached && (
-            <p
-              className="lg-dialog__note"
-              id="sheet-kind-limit"
-              role="status"
-              data-testid="sheet-limit-reached"
-            >
-              {message('sheet.limitReached')}
-            </p>
-          )}
-        </div>
+        </>
+      }
+    >
+      <div className="lg-create-sheet">
+        <DetailBody
+          phase={phase}
+          templateId={templateId}
+          onRetry={() => {
+            void query.refetch();
+          }}
+        />
+        <Field
+          label={message('sheet.nameLabel')}
+          id="sheet-name"
+          inputRef={inputRef}
+          value={sheetName}
+          placeholder={message('sheet.namePlaceholder')}
+          onChange={setSheetName}
+        />
+        <Select
+          label={message('catalog.kindLabel')}
+          id="sheet-kind"
+          value={kind}
+          hint={
+            kindUsage === undefined
+              ? undefined
+              : messageWith('sheet.usage', { used: kindUsage.used, limit: kindUsage.limit })
+          }
+          onChange={(value) => {
+            setKind(value as SheetKind);
+            setSubmitError(undefined);
+          }}
+        >
+          {SHEET_KINDS.map((option) => (
+            <option key={option} value={option}>
+              {message(KIND_LABEL_KEYS[option])}
+            </option>
+          ))}
+        </Select>
+        {limitReached ? (
+          <Notice tone="warning" live="off" id={LIMIT_NOTICE_ID}>
+            {message('sheet.limitReached')}
+          </Notice>
+        ) : null}
         {submitError !== undefined && (
-          <p className="lg-dialog__message" role="alert" data-testid="create-error">
+          <p className="lg-create-sheet__error" role="alert" data-testid="create-error">
             {submitError}
           </p>
         )}
-        <div className="lg-dialog__actions">
-          {limitReached ? (
-            <button
-              type="button"
-              className="lg-button lg-button--secondary lg-dialog__generate"
-              disabled
-              title={message('sheet.limitReached')}
-            >
-              {message('generate.entry')}
-            </button>
-          ) : (
-            <Link
-              className="lg-button lg-button--secondary lg-dialog__generate"
-              to={`/generate/${encodeURIComponent(templateId)}?kind=${encodeURIComponent(kind)}`}
-              onClick={onClose}
-            >
-              {message('generate.entry')}
-            </Link>
-          )}
-          <button
-            type="button"
-            className="lg-button lg-button--primary"
-            disabled={!canSubmit || isSubmitting}
-            aria-busy={isSubmitting}
-            title={canSubmit ? undefined : disabledReason(hasName, limitReached)}
-            onClick={handleCreate}
-          >
-            {isSubmitting ? message('sheet.creating') : message('sheet.create')}
-          </button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

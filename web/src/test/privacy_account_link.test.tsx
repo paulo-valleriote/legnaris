@@ -38,6 +38,7 @@ describe('account privacy dialog (LGN-234)', () => {
     renderApp('/account', { client: accountClient(successOutcome(PLAN)) });
 
     expect(screen.queryByRole('link', { name: /privacy/i })).not.toBeInTheDocument();
+    expect(openButton()).toHaveAttribute('aria-haspopup', 'dialog');
     await user.click(openButton());
 
     const dialog = screen.getByRole('dialog', { name: policyTitle() });
@@ -45,6 +46,10 @@ describe('account privacy dialog (LGN-234)', () => {
     expect(within(dialog).getAllByRole('heading', { level: 3 }).length).toBeGreaterThan(0);
     expect(within(dialog).queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
     expect(screen.getByTestId('privacy-dialog-body')).toHaveFocus();
+    const region = screen.getByRole('region', { name: policyTitle() });
+    const titleId = dialog.getAttribute('aria-labelledby') ?? '';
+    expect(region.getAttribute('aria-labelledby')).toBe(titleId);
+    expect(document.getElementById(titleId)).toHaveTextContent(policyTitle());
     expect(screen.getByRole('heading', { level: 1, name: 'Your account' })).toBeInTheDocument();
   });
 
@@ -68,7 +73,7 @@ describe('account privacy dialog (LGN-234)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     await user.click(openButton());
-    await user.click(screen.getByTestId('privacy-dialog-overlay'));
+    await user.click(document.querySelector('.lg-dialog__scrim') as HTMLElement);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
@@ -100,7 +105,7 @@ describe('account privacy dialog (LGN-234)', () => {
       client: accountClient(errorOutcome('INTERNAL', 'The server had a problem.', 500)),
     });
 
-    expect(await screen.findByTestId('account-failure')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(message('plan.loadFailed'));
     await user.click(openButton());
 
     expect(screen.getByRole('dialog', { name: policyTitle() })).toBeInTheDocument();

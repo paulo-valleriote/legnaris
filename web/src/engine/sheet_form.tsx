@@ -29,7 +29,7 @@ import { DependentList, DependentReadout } from './dependent_readout';
 import { buildDependentsIndex, dependentsOf } from './dependents';
 import { SheetFieldControl } from './field_control';
 import { PinStar } from './pin_star';
-import { SectionChevron } from './section_chevron';
+import { ChevronRightIcon } from '../ui/icons';
 import type { SheetMark } from './sheet_mark';
 import './engine.css';
 
@@ -435,7 +435,7 @@ export function SheetForm({
               rows.map((entry) => rowFieldPaths(entry.row)),
               rows.map((entry) => entry.key),
             )}
-          <SectionChevron className="lg-section__chevron" />
+          <ChevronRightIcon className="lg-section__chevron" />
         </button>
       </h2>
     );

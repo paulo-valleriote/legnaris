@@ -1,18 +1,20 @@
 import { Link } from 'react-router-dom';
+import { message } from '../l10n/strings';
+import { PageHeader } from '../ui/page_header';
+import { EmptyState } from '../ui/state';
 
 export function NotFound() {
   return (
-    <section className="lg-empty" aria-labelledby="not-found-title" data-testid="not-found">
-      <h1 className="lg-empty__title" id="not-found-title">
-        Page not found
-      </h1>
-      <p className="lg-empty__text">
-        The address you opened does not match a screen.{' '}
-        <Link className="lg-notfound__link" to="/">
-          Return to the workspace
-        </Link>
-        .
-      </p>
+    <section data-testid="not-found">
+      <PageHeader title={message('notFound.title')} />
+      <EmptyState
+        message={message('notFound.body')}
+        action={
+          <Link className="lg-shell__state-link" to="/">
+            {message('notFound.action')}
+          </Link>
+        }
+      />
     </section>
   );
 }

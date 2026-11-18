@@ -65,12 +65,8 @@ function createButton() {
   return screen.getByRole('button', { name: message('sheet.create') });
 }
 
-function generateLink() {
-  return screen.getByRole('link', { name: message('generate.entry') });
-}
-
 function generateButton() {
-  return screen.getByRole('button', { name: message('generate.entry') });
+  return screen.getByText(message('generate.entry'));
 }
 
 function postRequests(requests: readonly HttpRequest[]) {
@@ -83,7 +79,7 @@ describe('creation surface sheet kind (LGN-238)', () => {
     await openSurface(user, planUsage('npc'));
 
     expect(kindSelect()).toHaveValue('character');
-    expect(kindSelect()).toHaveAttribute('aria-describedby', 'sheet-kind-usage');
+    expect(kindSelect()).toHaveAttribute('aria-describedby', 'sheet-kind-hint');
     expect(
       await screen.findByText(messageWith('sheet.usage', usageFor('character', []))),
     ).toBeInTheDocument();
@@ -96,20 +92,19 @@ describe('creation surface sheet kind (LGN-238)', () => {
     await user.selectOptions(kindSelect(), 'npc');
     await user.type(nameInput(), 'Mine');
 
-    expect(screen.getByTestId('sheet-limit-reached')).toHaveTextContent(
-      message('sheet.limitReached'),
-    );
-    expect(kindSelect()).toHaveAttribute('aria-describedby', 'sheet-kind-usage sheet-kind-limit');
-    expect(createButton()).toBeDisabled();
+    expect(createButton()).toHaveAttribute('aria-disabled', 'true');
+    expect(createButton()).toHaveAccessibleDescription(message('sheet.limitReached'));
+    expect(generateButton()).toHaveAttribute('aria-disabled', 'true');
+    expect(generateButton()).toHaveAccessibleDescription(message('sheet.limitReached'));
     expect(
       screen.getByText(messageWith('sheet.usage', usageFor('npc', ['npc']))),
     ).toBeInTheDocument();
 
     await user.selectOptions(kindSelect(), 'character');
 
-    expect(screen.queryByTestId('sheet-limit-reached')).not.toBeInTheDocument();
-    expect(kindSelect()).toHaveAttribute('aria-describedby', 'sheet-kind-usage');
-    expect(createButton()).toBeEnabled();
+    expect(createButton()).not.toHaveAttribute('aria-disabled', 'true');
+    expect(createButton()).toHaveAccessibleDescription('');
+    expect(generateButton()).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('Edge: two kinds at their limit block Create and the remaining kind allows it', async () => {
@@ -119,16 +114,16 @@ describe('creation surface sheet kind (LGN-238)', () => {
     await user.type(nameInput(), 'Mine');
 
     await user.selectOptions(kindSelect(), 'npc');
-    expect(screen.getByTestId('sheet-limit-reached')).toBeInTheDocument();
-    expect(createButton()).toBeDisabled();
+    expect(createButton()).toHaveAttribute('aria-disabled', 'true');
+    expect(createButton()).toHaveAccessibleDescription(message('sheet.limitReached'));
 
     await user.selectOptions(kindSelect(), 'enemy');
-    expect(screen.getByTestId('sheet-limit-reached')).toBeInTheDocument();
-    expect(createButton()).toBeDisabled();
+    expect(createButton()).toHaveAttribute('aria-disabled', 'true');
+    expect(createButton()).toHaveAccessibleDescription(message('sheet.limitReached'));
 
     await user.selectOptions(kindSelect(), 'character');
-    expect(screen.queryByTestId('sheet-limit-reached')).not.toBeInTheDocument();
-    expect(createButton()).toBeEnabled();
+    expect(createButton()).not.toHaveAttribute('aria-disabled', 'true');
+    expect(createButton()).toHaveAccessibleDescription('');
   });
 
   it('Happy path: tabbing visits the name, the kind, Generate and Create in that order', async () => {
@@ -141,7 +136,7 @@ describe('creation surface sheet kind (LGN-238)', () => {
     await user.tab();
     expect(kindSelect()).toHaveFocus();
     await user.tab();
-    expect(generateLink()).toHaveFocus();
+    expect(generateButton()).toHaveFocus();
     await user.tab();
     expect(createButton()).toHaveFocus();
   });
@@ -178,15 +173,14 @@ describe('creation surface sheet kind (LGN-238)', () => {
     },
   );
 
-  it('Happy path: the Generate link carries the selected kind', async () => {
+  it('Happy path: the Generate action opens the generate route for the selected kind', async () => {
     const user = userEvent.setup();
     await openSurface(user);
 
-    expect(generateLink()).toHaveAttribute('href', `/generate/${TEMPLATE_ID}?kind=character`);
-
     await user.selectOptions(kindSelect(), 'npc');
+    await user.click(generateButton());
 
-    expect(generateLink()).toHaveAttribute('href', `/generate/${TEMPLATE_ID}?kind=npc`);
+    expect(await screen.findByRole('heading', { name: 'Generate an NPC' })).toBeInTheDocument();
   });
 
   it('Edge: Generate is disabled at the limit of the selected kind and usable after switching', async () => {
@@ -195,12 +189,13 @@ describe('creation surface sheet kind (LGN-238)', () => {
 
     await user.selectOptions(kindSelect(), 'npc');
 
-    expect(generateButton()).toBeDisabled();
-    expect(screen.queryByRole('link', { name: message('generate.entry') })).not.toBeInTheDocument();
+    expect(generateButton()).toHaveAttribute('aria-disabled', 'true');
+    expect(generateButton()).toHaveAccessibleDescription(message('sheet.limitReached'));
 
     await user.selectOptions(kindSelect(), 'character');
 
-    expect(generateLink()).toHaveAttribute('href', `/generate/${TEMPLATE_ID}?kind=character`);
+    expect(generateButton()).not.toHaveAttribute('aria-disabled', 'true');
+    expect(generateButton()).toHaveAccessibleDescription('');
   });
 
   it('Error: a refused creation shows the mapped copy and keeps the surface open', async () => {

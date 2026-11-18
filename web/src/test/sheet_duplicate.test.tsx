@@ -101,7 +101,7 @@ describe('sheet actions: Duplicate an NPC or Enemy (LGN-219)', () => {
     await user.type(level, '4');
     await user.click(screen.getByRole('button', { name: message('sheet.duplicate') }));
 
-    const dialog = await screen.findByTestId('sheet-confirm-leave');
+    const dialog = await screen.findByRole('dialog', { name: message('sheet.leaveTitle') });
     await user.click(within(dialog).getByRole('button', { name: message('sheet.cancel') }));
 
     expect(script.calls('POST', DUPLICATE)).toHaveLength(0);
@@ -118,7 +118,7 @@ describe('sheet actions: Duplicate an NPC or Enemy (LGN-219)', () => {
     await user.type(level, '4');
     await user.click(screen.getByRole('button', { name: message('sheet.duplicate') }));
 
-    const dialog = await screen.findByTestId('sheet-confirm-leave');
+    const dialog = await screen.findByRole('dialog', { name: message('sheet.leaveTitle') });
     await user.click(within(dialog).getByRole('button', { name: message('sheet.leaveConfirm') }));
 
     await waitFor(() =>

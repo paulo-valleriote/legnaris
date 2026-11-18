@@ -98,9 +98,9 @@ describe('generate concept step (LGN-196, LGN-177)', () => {
     fireEvent.change(conceptField(), { target: { value: text } });
 
     if (enabled) {
-      expect(generateButton()).toBeEnabled();
+      expect(generateButton()).not.toHaveAttribute('aria-disabled', 'true');
     } else {
-      expect(generateButton()).toBeDisabled();
+      expect(generateButton()).toHaveAttribute('aria-disabled', 'true');
     }
   });
 
@@ -112,7 +112,7 @@ describe('generate concept step (LGN-196, LGN-177)', () => {
 
     fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
 
-    expect(generateButton()).toBeDisabled();
+    expect(generateButton()).toHaveAttribute('aria-disabled', 'true');
     expect(countOf(fake.requests, 'POST', '/generations')).toBe(0);
   });
 
@@ -135,6 +135,8 @@ describe('generate concept step (LGN-196, LGN-177)', () => {
     renderGenerate({});
 
     const field = await screen.findByLabelText('Describe your character');
+    expect(field.tagName).toBe('TEXTAREA');
+    expect(field).toHaveClass('lg-form-field__input', 'lg-form-field__textarea');
     expect(field).toHaveAttribute(
       'aria-describedby',
       'generate-concept-hint generate-concept-language generate-concept-count',
@@ -150,7 +152,30 @@ describe('generate concept step (LGN-196, LGN-177)', () => {
     fireEvent.change(conceptField(), { target: { value: 'a'.repeat(1001) } });
 
     expect(conceptField()).toHaveAttribute('aria-invalid', 'true');
-    expect(generateButton()).toBeDisabled();
+    expect(generateButton()).toHaveAttribute('aria-disabled', 'true');
+  });
+});
+
+describe('generate page landmarks (UIF-24)', () => {
+  it('Happy path: the generate screen keeps the shell main as the only main landmark', async () => {
+    renderGenerate({});
+    await screen.findByLabelText('Describe your character');
+
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
+});
+
+describe('generate resume notice (LGN-187)', () => {
+  it('Happy path: an active generation is a kind-aware status notice with one way forward', async () => {
+    renderGenerate(
+      { 'GET /me/plan': ok(planWith({ active_generation_id: GENERATION_ID })) },
+      `${ROUTE}?kind=enemy`,
+    );
+
+    const text = await screen.findByText('A generated enemy is waiting for you.');
+    const notice = text.closest('.lg-notice');
+    expect(notice).toHaveAttribute('role', 'status');
+    expect(within(notice as HTMLElement).getByRole('button', { name: 'Open' })).toBeInTheDocument();
   });
 });
 
@@ -175,10 +200,12 @@ describe('generate flow (LGN-196)', () => {
     await user.click(generateButton());
 
     const sheetName = await screen.findByLabelText('Sheet name');
-    const save = screen.getByRole('button', { name: 'Save to my sheets' });
-    expect(save).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save to my sheets' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await user.type(sheetName, 'Aragorn');
-    await user.click(save);
+    await user.click(screen.getByRole('button', { name: 'Save to my sheets' }));
 
     await waitFor(() =>
       expect(countOf(fake.requests, 'POST', `/generations/${GENERATION_ID}/accept`)).toBe(1),
@@ -217,7 +244,9 @@ describe('generate flow (LGN-196)', () => {
     await user.click(generateButton());
 
     expect(await screen.findByText(/We couldn't generate it/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(within(alert).getAllByRole('button')).toHaveLength(1);
   });
 
   it('Error: PLAN_UPGRADE_REQUIRED shows the allowance copy and no upsell', async () => {
@@ -566,6 +595,7 @@ describe('generate consent privacy modal (LGN-234)', () => {
     expect(privacy).toHaveAttribute('aria-modal', 'true');
     expect(consent).toBeInTheDocument();
     expect(screen.getByTestId('privacy-dialog-body')).toHaveFocus();
+    expect(consentDetailsButton()).toHaveAttribute('aria-haspopup', 'dialog');
   });
 
   it('Edge: Escape closes only the privacy modal, returning focus to the opener', async () => {
