@@ -23,18 +23,16 @@ type Observer interface {
 	RateLimitBlocked()
 }
 
-func rateLimit(limiter ratelimit.Allower, observer Observer, withAccount bool) echo.MiddlewareFunc {
+func rateLimit(ipLimiter, accountLimiter ratelimit.Allower, observer Observer) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			now := limiter.Now()
-
-			if allowed, retryAfter := limiter.Allow(ipKey(c), now); !allowed {
+			if allowed, retryAfter := ipLimiter.Allow(ipKey(c), ipLimiter.Now()); !allowed {
 				return rateLimited(c, observer, retryAfter)
 			}
 
-			if withAccount {
+			if accountLimiter != nil {
 				if email := peekEmail(c.Request()); email != "" {
-					if allowed, retryAfter := limiter.Allow(accountKey(email), now); !allowed {
+					if allowed, retryAfter := accountLimiter.Allow(accountKey(email), accountLimiter.Now()); !allowed {
 						return rateLimited(c, observer, retryAfter)
 					}
 				}

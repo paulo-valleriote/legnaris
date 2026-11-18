@@ -221,10 +221,10 @@ func TestInitVariablesDefaults(t *testing.T) {
 		require.Equal(t, 12, vars.AuthBcryptCost)
 	})
 
-	t.Run("AuthRateLimitAttempts defaults to 10", func(t *testing.T) {
+	t.Run("AuthRateLimitAttempts defaults to 30", func(t *testing.T) {
 		unsetEnv(t, "AUTH_RATE_LIMIT_ATTEMPTS")
 		vars := e.initVariables()
-		require.Equal(t, 10, vars.AuthRateLimitAttempts)
+		require.Equal(t, 30, vars.AuthRateLimitAttempts)
 	})
 
 	t.Run("AuthRateLimitWindow defaults to 1m", func(t *testing.T) {
@@ -245,23 +245,23 @@ func TestInitVariablesRateLimitOverrides(t *testing.T) {
 		require.Equal(t, 2*time.Minute, vars.AuthRateLimitWindow)
 	})
 
-	t.Run("Edge: a zero attempts value falls back to 10", func(t *testing.T) {
+	t.Run("Edge: a zero attempts value falls back to 30", func(t *testing.T) {
 		t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "0")
 		unsetEnv(t, "AUTH_RATE_LIMIT_WINDOW")
 		vars := e.initVariables()
-		require.Equal(t, 10, vars.AuthRateLimitAttempts)
+		require.Equal(t, 30, vars.AuthRateLimitAttempts)
 	})
 
-	t.Run("Edge: a negative attempts value falls back to 10", func(t *testing.T) {
+	t.Run("Edge: a negative attempts value falls back to 30", func(t *testing.T) {
 		t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "-3")
 		vars := e.initVariables()
-		require.Equal(t, 10, vars.AuthRateLimitAttempts)
+		require.Equal(t, 30, vars.AuthRateLimitAttempts)
 	})
 
-	t.Run("Edge: a non-numeric attempts value falls back to 10", func(t *testing.T) {
+	t.Run("Edge: a non-numeric attempts value falls back to 30", func(t *testing.T) {
 		t.Setenv("AUTH_RATE_LIMIT_ATTEMPTS", "many")
 		vars := e.initVariables()
-		require.Equal(t, 10, vars.AuthRateLimitAttempts)
+		require.Equal(t, 30, vars.AuthRateLimitAttempts)
 	})
 
 	t.Run("Edge: an invalid window falls back to 1m", func(t *testing.T) {
@@ -312,6 +312,24 @@ func TestInitVariablesScopedRateLimits(t *testing.T) {
 			window:         func(v Variables) time.Duration { return v.RegisterEmailRateLimitWindow },
 			defaultAttempt: 3,
 			defaultWindow:  time.Hour,
+		},
+		{
+			name:           "session",
+			attemptsKey:    "SESSION_RATE_LIMIT_ATTEMPTS",
+			windowKey:      "SESSION_RATE_LIMIT_WINDOW",
+			attempts:       func(v Variables) int { return v.SessionRateLimitAttempts },
+			window:         func(v Variables) time.Duration { return v.SessionRateLimitWindow },
+			defaultAttempt: 120,
+			defaultWindow:  time.Minute,
+		},
+		{
+			name:           "auth account",
+			attemptsKey:    "AUTH_ACCOUNT_RATE_LIMIT_ATTEMPTS",
+			windowKey:      "AUTH_ACCOUNT_RATE_LIMIT_WINDOW",
+			attempts:       func(v Variables) int { return v.AuthAccountRateLimitAttempts },
+			window:         func(v Variables) time.Duration { return v.AuthAccountRateLimitWindow },
+			defaultAttempt: 10,
+			defaultWindow:  time.Minute,
 		},
 		{
 			name:           "user",

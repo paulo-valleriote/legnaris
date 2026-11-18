@@ -93,6 +93,8 @@ type AuthModule struct {
 	Service              auth.Service
 	TokenManager         auth.TokenManager
 	RateLimiter          ratelimit.Allower
+	SessionLimiter       ratelimit.Allower
+	AccountLimiter       ratelimit.Allower
 	RegisterIPLimiter    ratelimit.Allower
 	RegisterEmailLimiter ratelimit.Allower
 }
@@ -278,6 +280,8 @@ func NewModules(
 	)
 
 	authLimiter := limiter("auth", cfg.Variables.AuthRateLimitAttempts, cfg.Variables.AuthRateLimitWindow)
+	sessionLimiter := limiter("session", cfg.Variables.SessionRateLimitAttempts, cfg.Variables.SessionRateLimitWindow)
+	accountLimiter := limiter("auth_account", cfg.Variables.AuthAccountRateLimitAttempts, cfg.Variables.AuthAccountRateLimitWindow)
 	userLimiter := limiter("user", cfg.Variables.UserRateLimitAttempts, cfg.Variables.UserRateLimitWindow)
 	generationCreateLimiter := limiter("generation_create", cfg.Variables.GenerationCreateRateLimitAttempts, cfg.Variables.GenerationCreateRateLimitWindow)
 	generationReadLimiter := limiter("generation_read", cfg.Variables.GenerationReadRateLimitAttempts, cfg.Variables.GenerationReadRateLimitWindow)
@@ -321,10 +325,12 @@ func NewModules(
 			Service:    llmConsentService,
 		},
 		Auth: AuthModule{
-			Controller:   authController,
-			Service:      authService,
-			TokenManager: tokenManager,
-			RateLimiter:  authLimiter,
+			Controller:     authController,
+			Service:        authService,
+			TokenManager:   tokenManager,
+			RateLimiter:    authLimiter,
+			SessionLimiter: sessionLimiter,
+			AccountLimiter: accountLimiter,
 
 			RegisterIPLimiter:    registerIPLimiter,
 			RegisterEmailLimiter: registerEmailLimiter,
