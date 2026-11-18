@@ -569,6 +569,34 @@ func TestWorkerProcess_Template(t *testing.T) {
 	})
 }
 
+func TestWorkerProcess_AssembleFailure(t *testing.T) {
+	const brokenOutput = `{"identity":{"name":"Aria"}}`
+
+	t.Run("Error: an internal assemble failure is not retried and fails as template_unavailable", func(t *testing.T) {
+		logs := captureStdout(t, func() {
+			f := newWorkerFixture(t, 5)
+			broken := brokenFormulaFixtureTemplate()
+			f.catalog.EXPECT().FetchByID(fixtureID).Return(broken, true).Once()
+			f.catalog.EXPECT().DAG(fixtureID).Return(fixtureDAG(t, broken), true).Once()
+			f.expectClaim(trialReservation)
+			f.generateResponse(llm.Response{Output: json.RawMessage(brokenOutput), FinishReason: "stop"}, nil)
+			f.expectTerminalTx(generation.ErrorCodeTemplateUnavailable, true, trialReservation)
+			f.expectTrialRefund()
+
+			require.NoError(t, f.worker.Process(context.Background(), jobID))
+		})
+
+		entry := findLogEntry(t, logs, "generation assemble failed")
+		assert.Equal(t, jobID, logString(t, entry, "generation_id"))
+		assert.Equal(t, "1", logString(t, entry, "attempts"))
+		assert.Equal(t, "stop", logString(t, entry, "finish_reason"))
+		assert.Equal(t, strconv.Itoa(len(brokenOutput)), logString(t, entry, "output_bytes"))
+		assert.Equal(t, generation.ErrorCodeTemplateUnavailable, logString(t, entry, "error_code"))
+		assert.Contains(t, logString(t, entry, "error"), "modifiers.broken")
+		assert.NotContains(t, logs, "generation output rejected")
+	})
+}
+
 func TestWorkerProcess_LogsNeverCarryContent(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -26,6 +26,7 @@ const (
 	attrProblems     = "problems"
 	attrFinishReason = "finish_reason"
 	attrOutputBytes  = "output_bytes"
+	attrError        = "error"
 )
 
 const maxProblemsBytes = 500
@@ -143,6 +144,17 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 		if err == nil {
 			return values, ""
 		}
+		var outputErr *OutputError
+		if !errors.As(err, &outputErr) {
+			w.logger.Error(ctx, "generation assemble failed",
+				logger.Attribute{Key: attrGenerationID, Value: doc.ID},
+				logger.Attribute{Key: attrAttempts, Value: strconv.Itoa(attempt + 1)},
+				logger.Attribute{Key: attrError, Value: logger.Truncate(err.Error(), maxProblemsBytes)},
+				logger.Attribute{Key: attrFinishReason, Value: resp.FinishReason},
+				logger.Attribute{Key: attrOutputBytes, Value: strconv.Itoa(len(resp.Output))},
+				logger.Attribute{Key: attrErrorCode, Value: ErrorCodeTemplateUnavailable})
+			return nil, ErrorCodeTemplateUnavailable
+		}
 		problems = problemsOf(err)
 		w.logger.Info(ctx, "generation output rejected",
 			logger.Attribute{Key: attrGenerationID, Value: doc.ID},
@@ -227,11 +239,7 @@ func parseAndAssemble(tmpl *template.Template, dag *template.DAG, kind plan.Shee
 	if err != nil {
 		return nil, err
 	}
-	values, err := Assemble(tmpl, dag, kind, expanded)
-	if err != nil {
-		return nil, &OutputError{Problems: []string{"values break a template rule"}}
-	}
-	return values, nil
+	return Assemble(tmpl, dag, kind, expanded)
 }
 
 func problemsOf(err error) []string {

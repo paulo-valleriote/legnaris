@@ -1,12 +1,16 @@
 package generation
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/maputils"
 )
+
+var ErrAssembleFailed = errors.New("generation: template could not assemble the generated values")
 
 func Assemble(tmpl *template.Template, dag *template.DAG, kind plan.SheetKind, values map[string]any) (map[string]any, error) {
 	if tmpl == nil || dag == nil {
@@ -16,35 +20,49 @@ func Assemble(tmpl *template.Template, dag *template.DAG, kind plan.SheetKind, v
 
 	flatSeed, err := maputils.FlattenPathKeys(seeded)
 	if err != nil {
-		return nil, fmt.Errorf("flatten seed: %w", err)
+		return nil, assembleFailure("flatten seed", err)
 	}
 	derived, err := dag.Recalculate(map[string]any{}, flatSeed)
 	if err != nil {
-		return nil, fmt.Errorf("recalculate seed: %w", err)
+		return nil, assembleFailure("recalculate seed", err)
 	}
 	if err := maputils.ApplyUpdates(seeded, derived); err != nil {
-		return nil, fmt.Errorf("apply seed derivations: %w", err)
+		return nil, assembleFailure("apply seed derivations", err)
 	}
 
-	original, err := maputils.FlattenPathKeys(seeded)
-	if err != nil {
-		return nil, fmt.Errorf("flatten original: %w", err)
-	}
 	updates, err := maputils.FlattenPathKeys(filterGenerated(tmpl.Fields, kind, values))
 	if err != nil {
-		return nil, fmt.Errorf("flatten values: %w", err)
+		return nil, assembleFailure("flatten values", err)
 	}
-	normalized, cascade, err := dag.NormalizeAndRecalculate(original, updates)
+	normalized, cascade, err := dag.NormalizeAndRecalculate(seeded, updates)
 	if err != nil {
-		return nil, fmt.Errorf("apply generated values: %w", err)
+		return nil, assembleGeneratedError(err)
 	}
 	if err := maputils.ApplyUpdates(seeded, normalized); err != nil {
-		return nil, fmt.Errorf("apply normalized values: %w", err)
+		return nil, assembleFailure("apply normalized values", err)
 	}
 	if err := maputils.ApplyUpdates(seeded, cascade); err != nil {
-		return nil, fmt.Errorf("apply cascade: %w", err)
+		return nil, assembleFailure("apply cascade", err)
 	}
 	return seeded, nil
+}
+
+func assembleFailure(stage string, err error) error {
+	return fmt.Errorf("%w: %s: %w", ErrAssembleFailed, stage, err)
+}
+
+func assembleGeneratedError(err error) error {
+	var conflict *template.ExclusiveGroupConflictError
+	if errors.As(err, &conflict) {
+		return &OutputError{Problems: []string{
+			conflict.Group + ": choose exactly one option, got " + strings.Join(conflict.Keys, ", "),
+		}}
+	}
+	var valueType *template.ExclusiveValueTypeError
+	if errors.As(err, &valueType) {
+		return &OutputError{Problems: []string{valueType.Group + ": must be one of the listed options"}}
+	}
+	return assembleFailure("apply generated values", err)
 }
 
 func filterGenerated(group template.FieldGroup, kind plan.SheetKind, values map[string]any) map[string]any {
