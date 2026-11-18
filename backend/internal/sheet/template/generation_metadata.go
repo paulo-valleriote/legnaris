@@ -16,6 +16,10 @@ var (
 
 	ErrGeneratableKindInvalid = errors.New("generatable kind is not a valid sheet kind")
 
+	ErrPreferDefaultOnNonGeneratable = errors.New("prefer default is only allowed on generatable leaves")
+
+	ErrPreferDefaultOutOfBounds = errors.New("prefer default is outside the declared bounds")
+
 	ErrRangeInverted = errors.New("min must not exceed max")
 
 	ErrRangeOnNonNumber = errors.New("min and max are only allowed on number leaves")
@@ -55,6 +59,9 @@ func validateLeafGeneration(schema *FieldSchema) error {
 	if err := validateGeneratableKinds(schema); err != nil {
 		return err
 	}
+	if err := validatePreferDefault(schema); err != nil {
+		return err
+	}
 	if err := validateRange(schema); err != nil {
 		return err
 	}
@@ -72,6 +79,22 @@ func validateGeneratableKinds(schema *FieldSchema) error {
 		if _, ok := plan.ParseSheetKind(string(kind)); !ok {
 			return fmt.Errorf("%w: %q", ErrGeneratableKindInvalid, kind)
 		}
+	}
+	return nil
+}
+
+func validatePreferDefault(schema *FieldSchema) error {
+	if !schema.PreferDefault {
+		return nil
+	}
+	if !schema.Generatable {
+		return ErrPreferDefaultOnNonGeneratable
+	}
+	if schema.Min != nil && schema.Default < *schema.Min {
+		return ErrPreferDefaultOutOfBounds
+	}
+	if schema.Max != nil && schema.Default > *schema.Max {
+		return ErrPreferDefaultOutOfBounds
 	}
 	return nil
 }

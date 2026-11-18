@@ -150,7 +150,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
 
-	t.Run("Happy path: an NPC job filters playerName out of the schema and prompts", func(t *testing.T) {
+	t.Run("Happy path: an NPC job filters the character-only field out of the schema and prompts", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		tmpl := kindFixtureTemplate()
 		dag := fixtureDAG(t, tmpl)
@@ -158,7 +158,9 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
 		f.expectClaimKind(string(plan.KindNPC), trialReservation)
 		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
-			return !strings.Contains(string(req.Schema), "playerName") &&
+			return !strings.Contains(string(req.Schema), "nickname") &&
+				!strings.Contains(string(req.Schema), "playerName") &&
+				!strings.Contains(req.System, "nickname") &&
 				!strings.Contains(req.System, "playerName") &&
 				strings.Contains(req.System, "a non-player character sheet that the game master controls") &&
 				strings.Contains(req.Prompt, "NPC concept")
@@ -168,7 +170,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
 
-	t.Run("Happy path: an enemy job filters playerName out of the schema and prompts", func(t *testing.T) {
+	t.Run("Happy path: an enemy job filters the character-only field out of the schema and prompts", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		tmpl := kindFixtureTemplate()
 		dag := fixtureDAG(t, tmpl)
@@ -176,13 +178,16 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
 		f.expectClaimKind(string(plan.KindEnemy), trialReservation)
 		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
-			return !strings.Contains(string(req.Schema), "playerName") &&
+			return !strings.Contains(string(req.Schema), "nickname") &&
+				!strings.Contains(string(req.Schema), "playerName") &&
+				!strings.Contains(req.System, "nickname") &&
 				!strings.Contains(req.System, "playerName") &&
 				strings.Contains(req.System, "an enemy sheet that the game master controls") &&
 				strings.Contains(req.Prompt, "Enemy concept")
 		})).Return(llm.Response{Output: json.RawMessage(npcOutput)}, nil).Once()
 		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.MatchedBy(func(values map[string]any) bool {
 			return values["identity"].(map[string]any)["playerName"] == "" &&
+				values["identity"].(map[string]any)["nickname"] == "" &&
 				values["config"].(map[string]any)["acUsesCon"] == 1.0
 		})).Return(true, nil).Once()
 
@@ -197,8 +202,10 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
 		f.expectClaimKind("", trialReservation)
 		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
-			return strings.Contains(string(req.Schema), "playerName") &&
-				strings.Contains(req.System, "playerName") &&
+			return strings.Contains(string(req.Schema), "nickname") &&
+				!strings.Contains(string(req.Schema), "playerName") &&
+				strings.Contains(req.System, "identity.nickname") &&
+				!strings.Contains(req.System, "playerName") &&
 				strings.Contains(req.Prompt, "Character concept")
 		})).Return(llm.Response{Output: json.RawMessage(validKindedOutput)}, nil).Once()
 		f.completeWith(true)

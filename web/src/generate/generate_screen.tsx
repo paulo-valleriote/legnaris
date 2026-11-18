@@ -705,10 +705,14 @@ function ReviewSection({
     <section
       className="lg-generate__review"
       aria-label={generationCopy('generate.previewTitle', preview.sheetKind)}
+      aria-describedby="generate-review-note"
     >
       <h2 className="lg-generate__subtitle">
         {generationCopy('generate.previewTitle', preview.sheetKind)}
       </h2>
+      <p id="generate-review-note" className="lg-generate__review-note">
+        {generationCopy('generate.previewNote', preview.sheetKind)}
+      </p>
       <Field
         label={message('sheet.nameLabel')}
         id="generate-sheet-name"

@@ -113,6 +113,15 @@
   letter-spacing: var(--lg-tracking-tight);
 }
 
+.lg-generate__review-note {
+  margin: 0;
+  max-width: 65ch;
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
+  text-wrap: pretty;
+}
+
 .lg-generate__note {
   margin: 0;
   font-size: var(--lg-type-13);

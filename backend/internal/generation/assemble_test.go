@@ -72,10 +72,10 @@ func TestAssemble(t *testing.T) {
 		kindedDAG := fixtureDAG(t, kinded)
 
 		data, err := generation.Assemble(kinded, kindedDAG, plan.KindNPC, map[string]any{
-			"identity": map[string]any{"playerName": "Ana"},
+			"identity": map[string]any{"nickname": "Ana"},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "", data["identity"].(map[string]any)["playerName"])
+		assert.Equal(t, "", data["identity"].(map[string]any)["nickname"])
 	})
 
 	t.Run("Error: two active exclusive members name the group and both keys", func(t *testing.T) {

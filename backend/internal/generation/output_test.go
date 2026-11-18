@@ -106,9 +106,11 @@ func mustSchema(t *testing.T, tmpl *template.Template, kind plan.SheetKind) json
 	return raw
 }
 
+const fantasyV1ID = "fantasy_v1"
+
 const (
 	validKindedOutput = `{
-	"identity": {"name": "Aria", "title": "Scout", "playerName": "Ana"},
+	"identity": {"name": "Aria", "title": "Scout", "nickname": "Ana"},
 	"stats": {"strength": 12, "dexterity": 15, "hero": true},
 	"config": {"armorClassAbility": "acUsesCon"}
 }`
@@ -117,12 +119,20 @@ const (
 	"stats": {"strength": 12, "dexterity": 15, "hero": true},
 	"config": {"armorClassAbility": "acUsesCon"}
 }`
+	playerNameOutput = `{
+	"identity": {"name": "Aria", "title": "Scout", "nickname": "Ana", "playerName": "Ana"},
+	"stats": {"strength": 12, "dexterity": 15, "hero": true},
+	"config": {"armorClassAbility": "acUsesCon"}
+}`
 )
 
 func kindFixtureTemplate() *template.Template {
 	tmpl := fixtureTemplate()
 	tmpl.Fields["identity"].Children["playerName"] = template.FieldNode{Schema: &template.FieldSchema{
-		Type: "text", Label: "Player name", IsEditable: true, Generatable: true, MaxLength: ptr(12),
+		Type: "text", Label: "Player name", IsEditable: true,
+	}}
+	tmpl.Fields["identity"].Children["nickname"] = template.FieldNode{Schema: &template.FieldSchema{
+		Type: "text", Label: "Nickname", IsEditable: true, Generatable: true, MaxLength: ptr(12),
 		GeneratableKinds: []plan.SheetKind{plan.KindCharacter},
 	}}
 	return tmpl
@@ -134,15 +144,38 @@ func kindExclusiveFixtureTemplate() *template.Template {
 	return tmpl
 }
 
+func fantasyV1Fixture(t *testing.T) *template.Template {
+	t.Helper()
+	templates := template.DefaultTemplates()
+	for i := range templates {
+		if templates[i].ID == fantasyV1ID {
+			return &templates[i]
+		}
+	}
+	require.FailNow(t, "missing default template", fantasyV1ID)
+	return nil
+}
+
 func TestKindFiltering(t *testing.T) {
-	t.Run("Happy path: a character schema and prompt offer playerName", func(t *testing.T) {
+	t.Run("Happy path: a character schema and prompt offer the character-only field", func(t *testing.T) {
 		schema := string(mustSchema(t, kindFixtureTemplate(), plan.KindCharacter))
-		assert.Contains(t, schema, "playerName")
+		assert.Contains(t, schema, "nickname")
 
 		prompt, err := generation.SystemPrompt(kindFixtureTemplate(), plan.KindCharacter)
 		require.NoError(t, err)
-		assert.Contains(t, prompt, "identity.playerName")
+		assert.Contains(t, prompt, "identity.nickname")
 		assert.Contains(t, prompt, "a tabletop RPG player character sheet")
+	})
+
+	t.Run("Edge: playerName stays out of the schema and the prompt for every kind", func(t *testing.T) {
+		for _, kind := range plan.SheetKinds() {
+			schema := string(mustSchema(t, kindFixtureTemplate(), kind))
+			assert.NotContains(t, schema, "playerName", "kind %s", kind)
+
+			prompt, err := generation.SystemPrompt(kindFixtureTemplate(), kind)
+			require.NoError(t, err)
+			assert.NotContains(t, prompt, "playerName", "kind %s", kind)
+		}
 	})
 
 	tests := []struct {
@@ -151,18 +184,18 @@ func TestKindFiltering(t *testing.T) {
 		label   string
 		subject string
 	}{
-		{name: "Edge: an NPC schema and prompt omit playerName", kind: plan.KindNPC, label: "NPC", subject: "a non-player character sheet that the game master controls"},
-		{name: "Edge: an enemy schema and prompt omit playerName", kind: plan.KindEnemy, label: "Enemy", subject: "an enemy sheet that the game master controls"},
+		{name: "Edge: an NPC schema and prompt omit the character-only field", kind: plan.KindNPC, label: "NPC", subject: "a non-player character sheet that the game master controls"},
+		{name: "Edge: an enemy schema and prompt omit the character-only field", kind: plan.KindEnemy, label: "Enemy", subject: "an enemy sheet that the game master controls"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			schema := string(mustSchema(t, kindFixtureTemplate(), tc.kind))
-			assert.NotContains(t, schema, "playerName")
+			assert.NotContains(t, schema, "nickname")
 			assert.Contains(t, schema, `"title"`)
 
 			prompt, err := generation.SystemPrompt(kindFixtureTemplate(), tc.kind)
 			require.NoError(t, err)
-			assert.NotContains(t, prompt, "playerName")
+			assert.NotContains(t, prompt, "nickname")
 			assert.Contains(t, prompt, tc.subject)
 
 			userPrompt := generation.UserPrompt(tc.kind, "A watcher in the fog.", nil)
@@ -170,24 +203,43 @@ func TestKindFiltering(t *testing.T) {
 		})
 	}
 
-	t.Run("Edge: output with playerName for an NPC fails validation", func(t *testing.T) {
-		_, err := generation.Expand(kindFixtureTemplate(), plan.KindNPC, parseFixture(t, validKindedOutput))
-		require.ErrorIs(t, err, generation.ErrInvalidOutput)
-		var outErr *generation.OutputError
-		require.ErrorAs(t, err, &outErr)
-		assert.Contains(t, outErr.Problems, "identity.playerName: is not a field the template allows")
+	t.Run("Edge: a playerName in the output is refused for every kind", func(t *testing.T) {
+		for _, kind := range plan.SheetKinds() {
+			_, err := generation.Expand(kindFixtureTemplate(), kind, parseFixture(t, playerNameOutput))
+			require.ErrorIs(t, err, generation.ErrInvalidOutput, "kind %s", kind)
+			var outErr *generation.OutputError
+			require.ErrorAs(t, err, &outErr)
+			assert.Contains(t, outErr.Problems, "identity.playerName: is not a field the template allows")
+		}
 	})
 
-	t.Run("Happy path: an NPC output without playerName is accepted and keeps the default", func(t *testing.T) {
+	t.Run("Happy path: an NPC output without the character-only field is accepted", func(t *testing.T) {
 		expanded, err := generation.Expand(kindFixtureTemplate(), plan.KindNPC, parseFixture(t, npcOutput))
 		require.NoError(t, err)
+		assert.NotContains(t, expanded["identity"].(map[string]any), "nickname")
 		assert.NotContains(t, expanded["identity"].(map[string]any), "playerName")
 	})
 
-	t.Run("Happy path: a character output with playerName is accepted", func(t *testing.T) {
+	t.Run("Happy path: a character output with the character-only field and no playerName is accepted", func(t *testing.T) {
 		_, err := generation.Expand(kindFixtureTemplate(), plan.KindCharacter, parseFixture(t, validKindedOutput))
 		require.NoError(t, err)
 	})
+}
+
+func TestDefaultTemplate_PlayerNameIsNeverGenerated(t *testing.T) {
+	tmpl := fantasyV1Fixture(t)
+
+	for _, kind := range plan.SheetKinds() {
+		t.Run("Edge: playerName stays out of the schema and the prompt for "+string(kind), func(t *testing.T) {
+			schema := string(mustSchema(t, tmpl, kind))
+			assert.NotContains(t, schema, "playerName")
+
+			prompt, err := generation.SystemPrompt(tmpl, kind)
+			require.NoError(t, err)
+			assert.NotContains(t, prompt, "playerName")
+			assert.Contains(t, prompt, "identity.characterName")
+		})
+	}
 }
 
 func TestExclusiveGroupKindFiltering(t *testing.T) {
@@ -254,6 +306,27 @@ func TestSystemPromptAndUserPrompt(t *testing.T) {
 		assert.NotContains(t, prompt, "luck")
 		assert.NotContains(t, prompt, "rules.base")
 		assert.NotContains(t, prompt, "dexterityMod")
+	})
+
+	t.Run("Happy path: a leaf that prefers its default renders the keep-default hint", func(t *testing.T) {
+		prompt, err := generation.SystemPrompt(preferDefaultFixtureTemplate(), plan.KindCharacter)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "identity.level (Level, number) [min 1, max 20, keep 1 unless the concept states otherwise]")
+		assert.Contains(t, prompt, "identity.xp (Experience points, number) [min 0, max 355000]\n")
+	})
+
+	t.Run("Edge: a leaf without the flag renders no keep-default hint", func(t *testing.T) {
+		prompt, err := generation.SystemPrompt(fixtureTemplate(), plan.KindCharacter)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "stats.strength (Strength, number) [min 1, max 20]\n")
+		assert.NotContains(t, prompt, "stats.strength (Strength, number) [min 1, max 20, keep")
+	})
+
+	t.Run("Happy path: the preamble explains the keep-default hint", func(t *testing.T) {
+		prompt, err := generation.SystemPrompt(fixtureTemplate(), plan.KindCharacter)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "When a field says to keep a value unless the concept states otherwise")
+		assert.Contains(t, prompt, "veteran, experienced or powerful never change it")
 	})
 
 	t.Run("Edge: the system prompt is deterministic", func(t *testing.T) {

@@ -123,6 +123,12 @@ export const messages = {
   'generate.previewTitle.character': 'Review your character',
   'generate.previewTitle.npc': 'Review your NPC',
   'generate.previewTitle.enemy': 'Review your enemy',
+  'generate.previewNote.character':
+    "Generated values are a starting point. Check them against your game system's rules and confirm the details with your game master.",
+  'generate.previewNote.npc':
+    "Generated values are a starting point. Check them against your game system's rules and adjust the details to fit your session.",
+  'generate.previewNote.enemy':
+    "Generated values are a starting point. Check them against your game system's rules and adjust the details to fit your encounter.",
   'generate.sheetNameRequired': 'Give your sheet a name.',
   'generate.accept': 'Save to my sheets',
   'generate.accepting': 'Saving…',
@@ -620,6 +626,7 @@ export type GenerationCopyKey =
   | 'generate.timedOut'
   | 'generate.alreadySaved'
   | 'generate.previewTitle'
+  | 'generate.previewNote'
   | 'generate.lastKeep';
 
 export function generationCopy(key: GenerationCopyKey, kind: SheetKind): string {
