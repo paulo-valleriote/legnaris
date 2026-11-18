@@ -19,6 +19,7 @@ import (
 
 	"legnaris/backend/internal/llm"
 	"legnaris/backend/internal/llm/openrouter"
+	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
 
 	"github.com/stretchr/testify/assert"
@@ -162,6 +163,60 @@ func TestNewConfigValidation(t *testing.T) {
 			assert.Nil(t, client)
 		})
 	}
+}
+
+func TestNewReasoningEffort(t *testing.T) {
+	type testCase struct {
+		name    string
+		effort  string
+		wantErr error
+	}
+
+	efforts := openrouter.ReasoningEfforts()
+	require.Len(t, efforts, 6)
+
+	tests := make([]testCase, 0, len(efforts)+4)
+	tests = append(tests, testCase{name: "Happy path: empty effort keeps the provider default", effort: ""})
+	for _, effort := range efforts {
+		tests = append(tests, testCase{name: "Happy path: " + effort + " is accepted", effort: effort})
+	}
+	tests = append(tests,
+		testCase{name: "Edge: uppercase is refused", effort: "LOW", wantErr: openrouter.ErrInvalidReasoningEffort},
+		testCase{name: "Error: unknown effort is refused", effort: "turbo", wantErr: openrouter.ErrInvalidReasoningEffort},
+		testCase{name: "Edge: leading space is refused", effort: " low", wantErr: openrouter.ErrInvalidReasoningEffort},
+		testCase{name: "Edge: trailing space is refused", effort: "low ", wantErr: openrouter.ErrInvalidReasoningEffort},
+	)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testConfig("https://openrouter.example")
+			cfg.ReasoningEffort = tc.effort
+
+			client, err := openrouter.New(cfg)
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				assert.Nil(t, client)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, client)
+		})
+	}
+}
+
+func TestReasoningEffortsReturnsCopy(t *testing.T) {
+	efforts := openrouter.ReasoningEfforts()
+	require.NotEmpty(t, efforts)
+	first := efforts[0]
+
+	efforts[0] = "mutated"
+
+	assert.Equal(t, first, openrouter.ReasoningEfforts()[0])
+}
+
+func TestReasoningEffortsMatchesEnv(t *testing.T) {
+	assert.Equal(t, env.ReasoningEfforts(), openrouter.ReasoningEfforts())
 }
 
 func TestGenerateRejectsInvalidRequestWithoutCallingGateway(t *testing.T) {
@@ -546,6 +601,77 @@ func TestGenerateSuccessLogCarriesFinishReason(t *testing.T) {
 	assert.Equal(t, "job-3", logString(t, entry, "generation_id"))
 }
 
+func TestGenerateLogsReasoningEffort(t *testing.T) {
+	tests := []struct {
+		name       string
+		effort     string
+		status     int
+		body       string
+		wantMsg    string
+		wantEffort string
+	}{
+		{
+			name:       "Happy path: a configured effort is logged on completion",
+			effort:     "low",
+			status:     http.StatusOK,
+			body:       chatBody(t, `{"name":"Aria"}`),
+			wantMsg:    "llm generation completed",
+			wantEffort: "low",
+		},
+		{
+			name:       "Edge: an empty effort is logged as default on completion",
+			status:     http.StatusOK,
+			body:       chatBody(t, `{"name":"Aria"}`),
+			wantMsg:    "llm generation completed",
+			wantEffort: "default",
+		},
+		{
+			name:       "Happy path: a configured effort is logged on failure",
+			effort:     "low",
+			status:     http.StatusBadRequest,
+			body:       `{"error":{"message":"bad schema"}}`,
+			wantMsg:    "llm generation failed",
+			wantEffort: "low",
+		},
+		{
+			name:       "Edge: an empty effort is logged as default on failure",
+			status:     http.StatusBadRequest,
+			body:       `{"error":{"message":"bad schema"}}`,
+			wantMsg:    "llm generation failed",
+			wantEffort: "default",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var generateErr error
+			logs := captureStdout(t, func() {
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(tc.status)
+					_, _ = io.WriteString(w, tc.body)
+				}))
+				t.Cleanup(srv.Close)
+
+				cfg := testConfig(srv.URL)
+				cfg.ReasoningEffort = tc.effort
+				cfg.Logger = logger.NewLogger(slog.LevelInfo)
+				client, err := openrouter.New(cfg)
+				require.NoError(t, err)
+
+				_, generateErr = client.Generate(context.Background(), testRequest())
+			})
+
+			if tc.status == http.StatusOK {
+				require.NoError(t, generateErr)
+			} else {
+				require.Error(t, generateErr)
+			}
+			entry := findLogEntry(t, logs, tc.wantMsg)
+			assert.Equal(t, tc.wantEffort, logString(t, entry, "reasoning_effort"))
+		})
+	}
+}
+
 func TestGenerateLogsNeverCarryPromptOrContent(t *testing.T) {
 	const (
 		secretSystem  = "SECRET-SYSTEM-XYZ"
@@ -658,6 +784,41 @@ func TestGenerateHappyPathSendsDefaultProviderRouting(t *testing.T) {
 		"require_parameters": true,
 		"allow_fallbacks":    true,
 	}, gotBody["provider"])
+}
+
+func TestGenerateRequestReasoningEffort(t *testing.T) {
+	tests := []struct {
+		name   string
+		effort string
+	}{
+		{name: "Happy path: a configured effort is sent", effort: "low"},
+		{name: "Edge: an empty effort omits the reasoning object", effort: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotBody map[string]any
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+				_, _ = io.WriteString(w, chatBody(t, `{}`))
+			}))
+			t.Cleanup(srv.Close)
+
+			cfg := testConfig(srv.URL)
+			cfg.ReasoningEffort = tc.effort
+			client, err := openrouter.New(cfg)
+			require.NoError(t, err)
+
+			_, err = client.Generate(context.Background(), testRequest())
+			require.NoError(t, err)
+
+			if tc.effort == "" {
+				assert.NotContains(t, gotBody, "reasoning")
+				return
+			}
+			assert.Equal(t, map[string]any{"effort": tc.effort}, gotBody["reasoning"])
+		})
+	}
 }
 
 func TestGenerateHappyPathParsesOutputAndUsage(t *testing.T) {

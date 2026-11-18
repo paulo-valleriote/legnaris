@@ -27,12 +27,13 @@ type generationRunner interface {
 func buildGeneration(cfg env.Env) (generationRunner, func(), error) {
 	vars := cfg.Variables
 	client, err := llmfactory.New(llmfactory.Config{
-		Provider: vars.LLMProvider,
-		BaseURL:  vars.LLMBaseURL,
-		APIKey:   vars.LLMAPIKey,
-		Model:    vars.LLMModel,
-		Timeout:  vars.LLMTimeout,
-		Logger:   cfg.Logger,
+		Provider:        vars.LLMProvider,
+		BaseURL:         vars.LLMBaseURL,
+		APIKey:          vars.LLMAPIKey,
+		Model:           vars.LLMModel,
+		ReasoningEffort: vars.LLMReasoningEffort,
+		Timeout:         vars.LLMTimeout,
+		Logger:          cfg.Logger,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("build llm client: %w", err)
