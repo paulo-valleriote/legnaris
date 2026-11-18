@@ -1,12 +1,3 @@
-/**
- * Styles for the schema-driven UI engine. Every visual value comes from the
- * shared design tokens; no literal color or pixel value appears here (ENG-28).
- *
- * The sheet reads as a stack of Section cards (the one bounded object here),
- * each holding hairline-divided Rows. An editable field is a raised, bordered
- * control; a derived field is a recessed readout with no input chrome.
- */
-
 .lg-engine {
   display: flex;
   flex-direction: column;
@@ -28,7 +19,7 @@
   margin: 0;
   padding: var(--lg-space-12) var(--lg-space-16);
   border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
-  font-size: var(--lg-type-18);
+  font-size: var(--lg-type-20);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
   color: var(--lg-color-text);
@@ -53,8 +44,6 @@
   display: none;
 }
 
-/* In the play view the title row is a disclosure control spanning the whole row. The picture
-   (chevron) and the badge sit at the trailing edge; the state is carried by aria-expanded. */
 .lg-section__title--toggle {
   padding: 0;
 }
@@ -100,6 +89,7 @@
   stroke: currentColor;
   stroke-width: var(--lg-space-2);
   color: var(--lg-color-text-muted);
+  transform: rotate(90deg);
   transition: transform var(--lg-motion-120) var(--lg-ease-standard);
 }
 
@@ -112,7 +102,7 @@
 }
 
 .lg-section--collapsed .lg-section__chevron {
-  transform: rotate(-90deg);
+  transform: rotate(0deg);
 }
 
 .lg-row {
@@ -120,9 +110,6 @@
   padding: var(--lg-space-8) var(--lg-space-16);
 }
 
-/* The preview mark sits on the Row's top hairline instead of in the label's flow, so marking a Row
-   never wraps its label onto another line or changes its height. The surface fill masks the
-   hairline behind the pill. */
 .lg-row .lg-field-row__mark {
   position: absolute;
   top: 0;
@@ -172,7 +159,6 @@
   stroke-width: var(--lg-space-2);
 }
 
-/* Visually hidden, still read: the star is a picture, this is its name. */
 .lg-pin-mark__text {
   position: absolute;
   width: var(--lg-size-hairline);
@@ -192,10 +178,6 @@
   min-width: 0;
 }
 
-/* The derived values beside an editable number sit on a second line of the same Row, under the
-   control column's right edge, where the number they derive from ends. Only the Row's height
-   changes, and only for Rows that have any; staleness changes colour and slant, never size, so
-   a Preview moves nothing. */
 .lg-field-row--dependents {
   flex-wrap: wrap;
   row-gap: 0;
@@ -237,14 +219,11 @@
   transition: color var(--lg-motion-120) var(--lg-ease-standard);
 }
 
-/* Stale: the input was edited and no Preview has recalculated this yet. Dimmed to the muted text
-   role (still AA) and slanted, so the cue is not colour alone; the weight is unchanged so the value keeps its width. */
 .lg-dependent--stale .lg-dependent__value {
   font-style: italic;
   color: var(--lg-color-text-muted);
 }
 
-/* Visually hidden, still read: the stale state is part of the description. */
 .lg-dependent__state {
   position: absolute;
   width: var(--lg-size-hairline);
@@ -262,9 +241,6 @@
   color: var(--lg-color-text-muted);
 }
 
-/* A table row owns its column header: the header is the row's first grid item,
-   spanning both columns, and shares the row's 2fr/3fr label-control split so the
-   first cell starts on the same vertical guide as a normal control. */
 .lg-field-table__header,
 .lg-field-table__row {
   display: grid;
@@ -321,9 +297,6 @@
   padding-inline: var(--lg-space-8);
 }
 
-/* Container queries do not resolve custom properties, so the narrow breakpoint
-   is declared in a relative unit rather than a `px` literal (UIF-29). A narrow
-   table row puts its label above the cells and drops the empty header lead. */
 @container (max-width: 40rem) {
   .lg-field-table__header,
   .lg-field-table__row {
@@ -385,8 +358,6 @@ input.lg-field--numeric {
   font-weight: var(--lg-font-weight-semibold);
 }
 
-/* The wrappers are flex items; without an explicit width the control falls
-   back to its intrinsic size and stops lining up with the text inputs. */
 .lg-field--numeric-wrapper,
 .lg-field__label-wrapper {
   display: flex;
@@ -394,10 +365,6 @@ input.lg-field--numeric {
   min-width: 0;
 }
 
-/* The slot holds the field's place in the row. At rest the wrapper fills it, so the input stands
-   alone and the buttons are not drawn: a field adds no noise to a sheet. While the field has focus
-   the sign toggle shows before the digits and, in a lone Row, the minus and plus steppers after
-   them, each a full control wide, as plain flex items, so no button ever sits over a digit. */
 .lg-field__slot {
   position: relative;
   display: flex;
@@ -450,11 +417,6 @@ input.lg-field--numeric {
   stroke-width: var(--lg-space-2);
 }
 
-/* A focused field with steppers needs three controls plus room for seven digits, which a phone-narrow
-   row cannot give its right-hand column. The wrapper therefore lifts out of the slot and grows
-   toward the label, anchored to the field's own edge: the row keeps its height, nothing below
-   moves, and a roomy desktop row leaves it exactly as wide as the field was. Its background is
-   opaque so the label it overlaps never shows through. */
 .lg-field__slot:focus-within .lg-field--steppable {
   position: absolute;
   inset-block: 0;
@@ -487,9 +449,6 @@ input.lg-field--numeric {
   outline-offset: calc(-1 * var(--lg-focus-width));
 }
 
-/* The toggle is a switch drawn on the native checkbox, so the role, the label
-   and the keyboard behavior stay the platform's. The track outline is an inset
-   shadow so the knob offsets stay symmetric. */
 .lg-field--toggle {
   display: inline-flex;
   align-items: center;
@@ -592,8 +551,6 @@ input.lg-field--numeric {
   font-variant-numeric: tabular-nums;
 }
 
-/* Neutral text, not the accent: the accent is for actions, pins, selection and marks, so about
-   forty derived results never out-shout Save. Recessed, borderless and bold carry "derived". */
 .lg-field__readonly--derived {
   width: 100%;
   justify-content: flex-end;
@@ -603,8 +560,6 @@ input.lg-field--numeric {
   font-weight: var(--lg-font-weight-bold);
 }
 
-/* The mark that says "worked out for you": a small muted glyph before the value, so a derived
-   readout is told apart from an editable field by more than a border. */
 .lg-field__fx {
   flex: none;
   margin-inline-end: auto;
@@ -620,7 +575,6 @@ input.lg-field--numeric {
   color: var(--lg-color-text-muted);
 }
 
-/* Visually hidden, still read: the readout's "Calculated" is its accessible description. */
 .lg-field__calculated {
   position: absolute;
   width: var(--lg-size-hairline);
@@ -633,7 +587,6 @@ input.lg-field--numeric {
   border: 0;
 }
 
-/* Numeric values, editable or derived, share the right edge of the control column. */
 .lg-field__readonly--numeric {
   width: 100%;
   justify-content: flex-end;
@@ -642,34 +595,6 @@ input.lg-field--numeric {
 
 .lg-field__readonly--derived.lg-field__readonly--numeric {
   font-size: var(--lg-type-24);
-}
-
-@keyframes reveal {
-  from {
-    opacity: 0;
-    transform: translateY(var(--lg-space-4));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.lg-section--reveal:nth-child(1) {
-  animation-delay: 0ms;
-}
-.lg-section--reveal:nth-child(2) {
-  animation-delay: 60ms;
-}
-.lg-section--reveal:nth-child(3) {
-  animation-delay: 120ms;
-}
-.lg-section--reveal:nth-child(4) {
-  animation-delay: 180ms;
-}
-
-.lg-section--reveal {
-  animation: reveal 240ms var(--lg-ease-emphasized) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

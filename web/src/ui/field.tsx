@@ -1,46 +1,126 @@
+import { useId, type ReactNode, type Ref } from 'react';
+
+export type FieldType = 'text' | 'password' | 'email' | 'number';
+export type FieldInputMode =
+  'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
+
 export interface FieldProps {
   label: string;
-  error?: string;
-  disabled?: boolean;
-  numeric?: boolean;
+  id?: string;
+  name?: string;
+  type?: FieldType;
   value?: string;
   placeholder?: string;
+  error?: string;
+  hint?: string;
+  describedBy?: string;
+  disabled?: boolean;
+  readOnly?: boolean;
+  numeric?: boolean;
+  required?: boolean;
+  multiline?: boolean;
+  rows?: number;
+  autoComplete?: string;
+  inputMode?: FieldInputMode;
+  maxLength?: number;
+  pattern?: string;
+  autoFocus?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
   onChange?: (v: string) => void;
-  name?: string;
+  onBlur?: () => void;
+  trailing?: ReactNode;
+}
+
+function slug(label: string): string {
+  return label.toLowerCase().replace(/\s+/g, '-');
 }
 
 export function Field({
   label,
-  error,
-  disabled,
-  numeric,
+  id,
+  name,
+  type = 'text',
   value = '',
   placeholder,
+  error,
+  hint,
+  describedBy: extraDescribedBy,
+  disabled,
+  readOnly,
+  numeric,
+  required,
+  multiline,
+  rows,
+  autoComplete,
+  inputMode,
+  maxLength,
+  pattern,
+  autoFocus,
+  inputRef,
   onChange,
-  name,
+  onBlur,
+  trailing,
 }: FieldProps) {
-  const id = name || label.toLowerCase().replace(/\s+/g, '-');
+  const generatedId = useId();
+  const fieldId = id ?? name ?? (slug(label) || generatedId);
+  const hintId = `${fieldId}-hint`;
+  const errorId = `${fieldId}-error`;
+  const describedBy =
+    [
+      hint === undefined ? undefined : hintId,
+      extraDescribedBy,
+      error === undefined ? undefined : errorId,
+    ]
+      .filter((value): value is string => value !== undefined && value !== '')
+      .join(' ') || undefined;
+  const controlClasses = `lg-form-field__input${multiline ? ' lg-form-field__textarea' : ''}${
+    numeric ? ' lg-form-field__input--numeric' : ''
+  }${error === undefined ? '' : ' lg-form-field__input--invalid'}`;
+
+  const shared = {
+    id: fieldId,
+    name: name ?? fieldId,
+    className: controlClasses,
+    value,
+    disabled,
+    readOnly,
+    required,
+    autoComplete,
+    inputMode,
+    maxLength,
+    autoFocus,
+    'aria-invalid': error !== undefined,
+    'aria-describedby': describedBy,
+    placeholder,
+    onChange: (event: { target: { value: string } }) => onChange?.(event.target.value),
+    onBlur,
+  };
+
   return (
-    <label className="lg-field" htmlFor={id}>
-      <span className="lg-field__label">{label}</span>
-      <input
-        id={id}
-        name={name || id}
-        type={numeric ? 'text' : 'text'}
-        className={`lg-field__input ${numeric ? 'lg-field--numeric' : ''} ${error ? 'lg-field--invalid' : ''}`}
-        value={value}
-        disabled={disabled}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${id}-error` : undefined}
-        placeholder={placeholder}
-        onChange={(e) => onChange?.(e.target.value)}
-        style={{ textAlign: numeric ? 'right' : 'left', fontVariantNumeric: 'tabular-nums' }}
-      />
-      {error ? (
-        <span id={`${id}-error`} className="lg-field__error">
+    <div className="lg-form-field">
+      <label className="lg-form-field__label" htmlFor={fieldId}>
+        {label}
+      </label>
+      <div className="lg-form-field__control">
+        {multiline === true ? (
+          <textarea {...shared} rows={rows} />
+        ) : (
+          <input {...shared} ref={inputRef} type={type} pattern={pattern} />
+        )}
+        {trailing === undefined ? null : (
+          <span className="lg-form-field__trailing">{trailing}</span>
+        )}
+      </div>
+      {hint === undefined ? null : (
+        <span id={hintId} className="lg-form-field__hint">
+          {hint}
+        </span>
+      )}
+      {error === undefined ? null : (
+        <span id={errorId} className="lg-form-field__error" aria-live="polite">
           {error}
         </span>
-      ) : null}
-    </label>
+      )}
+    </div>
   );
 }

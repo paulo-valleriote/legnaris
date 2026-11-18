@@ -1,10 +1,6 @@
-/**
- * The "Your sheet" destination layout. Every value comes from the shared design
- * tokens; no literal color or pixel value appears here (WAS-31).
- */
-
 .lg-yoursheet__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--lg-space-16);
@@ -14,14 +10,16 @@
 }
 
 .lg-yoursheet__name {
-  font-size: var(--lg-type-24);
+  min-inline-size: 0;
+  font-size: var(--lg-type-18);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
-  letter-spacing: var(--lg-tracking-display);
+  overflow-wrap: anywhere;
 }
 
 .lg-yoursheet__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--lg-space-8);
 }

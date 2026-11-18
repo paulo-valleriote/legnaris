@@ -18,7 +18,9 @@ import type { DiceDefaults, Resolution } from '../dice/resolve';
 import { message, messageWith } from '../l10n/strings';
 import type { RowActionsInfo, SectionFrameProps, SheetFormFrames } from '../engine/sheet_form';
 import { markLabel } from '../engine/sheet_form';
+import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
+import { DiceIcon, PencilIcon } from '../ui/icons';
 import type { DiceCheck, DiceStore, DiceTarget } from './dice_store';
 import type { PendingDiceKeys } from './sheet_edit';
 import { diceErrorMessageKey, diceSummary, resolveRowForSheet } from './dice_view';
@@ -166,10 +168,6 @@ function DiceEditor({ target, keyName, label, current, onClose }: DiceEditorProp
   const inputId = `dice-expression-${target}-${keyName.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
   const errorId = `${inputId}-error`;
 
-  useEffect(() => {
-    input.current?.focus();
-  }, []);
-
   const save = (expression: string | null | undefined) => {
     const change =
       target === 'row'
@@ -199,7 +197,7 @@ function DiceEditor({ target, keyName, label, current, onClose }: DiceEditorProp
       : messageWith('dice.edit', { label });
 
   return (
-    <Dialog open title={title} onClose={onClose}>
+    <Dialog open title={title} onClose={onClose} initialFocusRef={input}>
       <form
         className="lg-dice-editor"
         onSubmit={(event) => {
@@ -236,32 +234,22 @@ function DiceEditor({ target, keyName, label, current, onClose }: DiceEditorProp
           </p>
         )}
         <div className="lg-dice-editor__alternatives">
-          <button
-            type="button"
-            className="lg-button lg-button--ghost lg-button--sm"
+          <Button
+            variant="ghost"
+            size="sm"
+            label={message('dice.useTemplate')}
             onClick={() => save(undefined)}
-          >
-            {message('dice.useTemplate')}
-          </button>
-          <button
-            type="button"
-            className="lg-button lg-button--ghost lg-button--sm"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            label={message('dice.noDice')}
             onClick={() => save(null)}
-          >
-            {message('dice.noDice')}
-          </button>
+          />
         </div>
         <div className="lg-dice-editor__actions">
-          <button
-            type="button"
-            className="lg-button lg-button--secondary lg-button--md"
-            onClick={onClose}
-          >
-            {message('dice.cancel')}
-          </button>
-          <button type="submit" className="lg-button lg-button--primary lg-button--md">
-            {message('dice.save')}
-          </button>
+          <Button variant="secondary" size="md" label={message('dice.cancel')} onClick={onClose} />
+          <Button variant="primary" size="md" type="submit" label={message('dice.save')} />
         </div>
       </form>
     </Dialog>
@@ -375,7 +363,7 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
           data-dice-off={resolution.rollable ? undefined : ''}
           onClick={edit}
         >
-          {resolution.rollable ? <PencilIcon /> : <DieIcon off />}
+          {resolution.rollable ? <PencilIcon className="lg-dice-icon" /> : <DieIcon off />}
         </button>
       )}
     </span>
@@ -426,20 +414,11 @@ export function DiceSectionFrame({
             openEditor({ target: 'section', keyName: sectionKey, label, current: expression })
           }
         >
-          <DieIcon />
+          <DiceIcon className="lg-dice-icon" />
         </button>
       </div>
       {children}
     </section>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg className="lg-dice-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M15.5 4.5 19.5 8.5 9 19H5v-4z" />
-      <path d="M13 7l4 4" />
-    </svg>
   );
 }
 

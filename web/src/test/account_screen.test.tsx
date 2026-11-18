@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
@@ -66,6 +69,15 @@ function deferredRevoke() {
   return { responder: () => pending, settle: (response: HttpResponse) => settle(response) };
 }
 
+function scrim(): HTMLElement {
+  const dialog = screen.getByRole('dialog');
+  const overlay = dialog.parentElement;
+  if (overlay === null) {
+    throw new Error('the dialog is not mounted');
+  }
+  return overlay;
+}
+
 describe('account screen plan and consent (LGN-195)', () => {
   it('Happy path: shows the plan and the recorded consent with its date and version', async () => {
     const scripted = scriptedTransport({ plans: [successOutcome(CONSENTED_PLAN)] });
@@ -99,17 +111,15 @@ describe('account screen plan and consent (LGN-195)', () => {
     expect(screen.queryByTestId('account-consent')).toBeNull();
   });
 
-  it('Error: a failed plan read shows the mapped copy and retries with one request', async () => {
+  it('Error: a failed plan read shows the shared error state and retries with one request', async () => {
     const scripted = scriptedTransport({
       plans: [errorOutcome('INTERNAL_ERROR', 'boom', 500), successOutcome(CONSENTED_PLAN)],
     });
     const user = userEvent.setup();
     renderApp('/account', { client: clientWith(scripted.transport) });
 
-    expect(await screen.findByTestId('account-failure')).toHaveTextContent(
-      'The server had a problem. Try again in a moment.',
-    );
-    await user.click(screen.getByRole('button', { name: message('account.retry') }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(message('plan.loadFailed'));
+    await user.click(screen.getByRole('button', { name: message('common.retry') }));
 
     expect(await screen.findByTestId('account-consent')).toBeInTheDocument();
     expect(scripted.planReads()).toBe(2);
@@ -154,7 +164,7 @@ describe('account sheet usage (LGN-234)', () => {
     const counts = Array.from(usage.querySelectorAll('dd')).map((node) => node.textContent);
     expect(counts).toEqual([
       messageWith('account.usageCount', { used: 0, limit: 1 }),
-      messageWith('account.usageCount', { used: 2, limit: 2 }),
+      `${messageWith('account.usageCount', { used: 2, limit: 2 })} ${message('account.quotaFull')}`,
       messageWith('account.usageCount', { used: 1, limit: 2 }),
     ]);
   });
@@ -169,7 +179,7 @@ describe('account sheet usage (LGN-234)', () => {
     expect(screen.queryByTestId('account-usage')).toBeNull();
   });
 
-  it('Edge: usage at the limit carries the full modifier without another colour', async () => {
+  it('Edge: usage at the limit carries the full modifier and a text cue in the warning tone', async () => {
     const scripted = scriptedTransport({
       plans: [
         successOutcome({
@@ -184,6 +194,9 @@ describe('account sheet usage (LGN-234)', () => {
     expect(
       within(usage).getByText(messageWith('account.usageCount', { used: 1, limit: 1 })),
     ).toHaveClass('lg-account__usage-count--full');
+    expect(within(usage).getByText(message('account.quotaFull'))).toHaveClass(
+      'lg-account__quota-full',
+    );
   });
 
   it('Edge: a large count renders verbatim', async () => {
@@ -239,6 +252,19 @@ describe('revoke LLM consent (LGN-195)', () => {
     ).toHaveFocus();
   });
 
+  it('Edge: closing the dialog returns focus to the action that opened it', async () => {
+    const scripted = scriptedTransport({ plans: [successOutcome(CONSENTED_PLAN)] });
+    const user = userEvent.setup();
+    renderApp('/account', { client: clientWith(scripted.transport) });
+
+    const opener = await screen.findByRole('button', { name: message('account.revoke') });
+    await user.click(opener);
+    await user.click(screen.getByRole('button', { name: message('account.revokeKeep') }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(opener).toHaveFocus();
+  });
+
   it.each([
     {
       name: 'Escape',
@@ -251,8 +277,7 @@ describe('revoke LLM consent (LGN-195)', () => {
     },
     {
       name: 'a click on the scrim',
-      act: (user: ReturnType<typeof userEvent.setup>) =>
-        user.click(screen.getByTestId('account-revoke-overlay')),
+      act: (user: ReturnType<typeof userEvent.setup>) => user.click(scrim()),
     },
   ])(
     'Edge: cancelling with $name closes the dialog without any request',
@@ -318,5 +343,40 @@ describe('revoke LLM consent (LGN-195)', () => {
     expect(screen.queryByRole('status')).toBeNull();
     expect(scripted.revokes()).toHaveLength(1);
     expect(scripted.planReads()).toBe(1);
+  });
+});
+
+describe('account settings rows (DESIGN.md)', () => {
+  it('Happy path: the page title is the shared page header', async () => {
+    const scripted = scriptedTransport({ plans: [successOutcome(NO_CONSENT_PLAN)] });
+    renderApp('/account', { client: clientWith(scripted.transport) });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: message('account.title') }),
+    ).toBeInTheDocument();
+  });
+
+  it('Edge: a settings row label is a term, not a page section heading', async () => {
+    const scripted = scriptedTransport({ plans: [successOutcome(NO_CONSENT_PLAN)] });
+    renderApp('/account', { client: clientWith(scripted.transport) });
+
+    expect(await screen.findByTestId('account-plan')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: message('account.planHeading') })).toBeNull();
+    expect(screen.getByText(message('account.planHeading')).tagName).toBe('DT');
+  });
+});
+
+describe('account screen shared layer (UIP-01)', () => {
+  it('Edge: the screen draws its dialog, title and styles from its own layer', () => {
+    const source = readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../account/account_screen.tsx'),
+      'utf8',
+    );
+
+    expect(source).not.toMatch(/catalog\/catalog\.css/);
+    expect(source).not.toMatch(/lg-overlay/);
+    expect(source).toContain("from '../ui/dialog'");
+    expect(source).toContain("from '../ui/page_header'");
+    expect(source).toContain("from '../ui/state'");
   });
 });

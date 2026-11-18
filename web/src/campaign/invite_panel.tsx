@@ -4,7 +4,11 @@ import { failureCopy } from '../api/error_mapper';
 import type { Campaign } from '../api/models/campaign';
 import { useApiClient } from '../app/providers';
 import { message } from '../l10n/strings';
+import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
+import { Field } from '../ui/field';
+import { Notice } from '../ui/notice';
+import { EmptyState, ErrorState } from '../ui/state';
 import { CAMPAIGNS_QUERY_KEY, seedCampaign } from './campaign_queries';
 
 export const INVITE_PANEL_ID = 'campaign-invite-panel';
@@ -68,37 +72,31 @@ export function InvitePanel({ campaign }: { campaign: Campaign }) {
         {message('invite.heading')}
       </h2>
       {campaign.inviteCode === undefined || link === undefined ? (
-        <p className="lg-campaign__empty">{message('invite.none')}</p>
+        <EmptyState message={message('invite.none')} />
       ) : (
         <>
           <div className="lg-campaign__invite">
-            <p className="lg-campaign__label">{message('invite.linkLabel')}</p>
             <div className="lg-campaign__invite-row">
-              <input
-                className="lg-campaign__invite-link"
-                type="text"
-                readOnly
-                value={link}
-                aria-label={message('invite.linkLabel')}
-              />
-              <button
-                type="button"
-                className="lg-button lg-button--outline lg-button--md"
+              <div className="lg-campaign__invite-field">
+                <Field
+                  label={message('invite.linkLabel')}
+                  id="campaign-invite-link"
+                  value={link}
+                  readOnly
+                />
+              </div>
+              <Button
+                variant="outline"
+                label={message('invite.copyLink')}
                 onClick={() => void copy()}
-              >
-                {message('invite.copyLink')}
-              </button>
+              />
             </div>
             {copyResult === 'copied' ? (
-              <p className="lg-campaign__message" role="status">
+              <Notice tone="success" live="polite">
                 {message('invite.copied')}
-              </p>
+              </Notice>
             ) : null}
-            {copyResult === 'failed' ? (
-              <p className="lg-campaign__error" role="alert">
-                {message('invite.copyFailed')}
-              </p>
-            ) : null}
+            {copyResult === 'failed' ? <ErrorState message={message('invite.copyFailed')} /> : null}
           </div>
           <p className="lg-campaign__code">
             <span className="lg-campaign__code-label">{message('invite.codeLabel')}</span>
@@ -107,49 +105,41 @@ export function InvitePanel({ campaign }: { campaign: Campaign }) {
         </>
       )}
       <div className="lg-campaign__actions">
-        <button
-          type="button"
-          className="lg-button lg-button--outline lg-button--md"
+        <Button
+          variant="outline"
+          label={message('invite.rotate')}
           disabled={rotate.isPending}
           onClick={() => setRotateOpen(true)}
-        >
-          {message('invite.rotate')}
-        </button>
+        />
       </div>
 
-      {error ? (
-        <p className="lg-campaign__error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <Dialog
         open={rotateOpen}
         title={message('invite.rotateTitle')}
         description={message('invite.rotateMessage')}
+        closeLabel={message('common.close')}
         onClose={() => {
           if (!rotate.isPending) setRotateOpen(false);
         }}
-      >
-        <div className="lg-campaign__actions">
-          <button
-            type="button"
-            className="lg-button lg-button--outline lg-button--md"
-            disabled={rotate.isPending}
-            onClick={() => setRotateOpen(false)}
-          >
-            {message('invite.keepCode')}
-          </button>
-          <button
-            type="button"
-            className="lg-button lg-button--danger lg-button--md"
-            disabled={rotate.isPending}
-            onClick={() => rotate.mutate()}
-          >
-            {message('invite.rotateConfirm')}
-          </button>
-        </div>
-      </Dialog>
+        actions={
+          <>
+            <Button
+              variant="outline"
+              label={message('invite.keepCode')}
+              disabled={rotate.isPending}
+              onClick={() => setRotateOpen(false)}
+            />
+            <Button
+              variant="danger"
+              label={message('invite.rotateConfirm')}
+              loading={rotate.isPending}
+              onClick={() => rotate.mutate()}
+            />
+          </>
+        }
+      />
     </section>
   );
 }

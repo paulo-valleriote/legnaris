@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { PinStar } from '../engine/pin_star';
 import { message, messageWith } from '../l10n/strings';
+import { Button } from '../ui/button';
 import { useAnnounce } from './arrange_frames';
 import { useActiveSection } from './use_active_section';
 import './section_index.css';
@@ -232,13 +233,13 @@ export function SectionIndex({
         )}
         {trailing !== undefined && <div className="lg-sectionbar__trailing">{trailing}</div>}
         {pressed && pinnedCount > 0 && (
-          <button
-            type="button"
-            className="lg-button lg-button--outline lg-button--sm lg-sectionbar__action"
+          <Button
+            variant="outline"
+            size="sm"
+            className="lg-sectionbar__action"
+            label={message('sheet.editPins')}
             onClick={onEditPins}
-          >
-            {message('sheet.editPins')}
-          </button>
+          />
         )}
       </div>
     </div>

@@ -4,6 +4,8 @@ import { failureCopy, failureKind } from '../api/error_mapper';
 import type { FailureKind } from '../api/errors';
 import { useAuthSession } from '../app/providers';
 import { message } from '../l10n/strings';
+import { Button } from '../ui/button';
+import { Notice } from '../ui/notice';
 import type { RestoredForm } from './auth_session';
 import { isSheetPath } from './next_path';
 import { AuthStage } from './auth_stage';
@@ -114,9 +116,9 @@ export function AuthScreen({ restore, initialMode = 'login', next = null }: Auth
           </h1>
           <p className="lg-auth__subtitle">{subtitle(mode, next)}</p>
           {snapshot.notice === 'deferred' && (
-            <p className="lg-auth__notice" role="status" data-testid="auth-deferred">
+            <Notice tone="info" surface="stage" live="polite" id="auth-deferred">
               {message('auth.deferredNotice')}
-            </p>
+            </Notice>
           )}
         </div>
 
@@ -152,6 +154,8 @@ export function AuthScreen({ restore, initialMode = 'login', next = null }: Auth
                 type="email"
                 autoComplete="email"
                 value={email}
+                aria-invalid={error !== undefined}
+                aria-describedby={error === undefined ? undefined : 'auth-error'}
                 onChange={(event) => setEmail(event.target.value)}
               />
             </div>
@@ -184,6 +188,8 @@ export function AuthScreen({ restore, initialMode = 'login', next = null }: Auth
                   type={showPassword ? 'text' : 'password'}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   value={password}
+                  aria-invalid={error !== undefined}
+                  aria-describedby={error === undefined ? undefined : 'auth-error'}
                   onChange={(event) => setPassword(event.target.value)}
                 />
                 <button
@@ -193,19 +199,14 @@ export function AuthScreen({ restore, initialMode = 'login', next = null }: Auth
                   aria-controls="auth-password"
                   onClick={() => setShowPassword((value) => !value)}
                 >
-                  {showPassword ? message('auth.hidePassword') : message('auth.showPassword')}
+                  {message('auth.showPassword')}
                 </button>
               </div>
             </div>
 
             {error !== undefined && (
               <div className="lg-auth__refusal">
-                <p
-                  className="lg-auth__error"
-                  role="alert"
-                  aria-live="polite"
-                  data-testid="auth-error"
-                >
+                <p className="lg-auth__error" id="auth-error" role="alert" data-testid="auth-error">
                   {error.copy}
                 </p>
                 {error.kind === 'conflict' && (
@@ -222,9 +223,15 @@ export function AuthScreen({ restore, initialMode = 'login', next = null }: Auth
             )}
 
             <footer className="lg-auth__footer">
-              <button type="submit" className="lg-auth__submit" disabled={busy} aria-busy={busy}>
-                {mode === 'login' ? message('auth.submitLogin') : message('auth.submitRegister')}
-              </button>
+              <Button
+                type="submit"
+                className="lg-auth__submit"
+                fullWidth
+                loading={busy}
+                label={
+                  mode === 'login' ? message('auth.submitLogin') : message('auth.submitRegister')
+                }
+              />
             </footer>
           </form>
         </div>

@@ -59,6 +59,24 @@ const pairSpecs: readonly PairSpec[] = [
     minRatio: 4.5,
   },
   {
+    description: 'link on background',
+    foregroundVar: '--lg-color-link',
+    backgroundVar: '--lg-color-bg',
+    minRatio: 4.5,
+  },
+  {
+    description: 'link on surface',
+    foregroundVar: '--lg-color-link',
+    backgroundVar: '--lg-color-surface',
+    minRatio: 4.5,
+  },
+  {
+    description: 'link hover on surface',
+    foregroundVar: '--lg-color-link-hover',
+    backgroundVar: '--lg-color-surface',
+    minRatio: 4.5,
+  },
+  {
     description: 'danger label on danger fill',
     foregroundVar: '--lg-color-danger-text',
     backgroundVar: '--lg-color-danger',
@@ -141,6 +159,18 @@ const pairSpecs: readonly PairSpec[] = [
     foregroundVar: '--lg-color-stage-focus',
     backgroundVar: '--lg-color-stage',
     minRatio: 3,
+  },
+  {
+    description: 'stage info on the stage band',
+    foregroundVar: '--lg-color-stage-info',
+    backgroundVar: '--lg-color-stage-band',
+    minRatio: 4.5,
+  },
+  {
+    description: 'stage info on the stage ground',
+    foregroundVar: '--lg-color-stage-info',
+    backgroundVar: '--lg-color-stage',
+    minRatio: 4.5,
   },
   {
     description: 'stage danger on the stage band',
@@ -233,8 +263,13 @@ export const designTokens: readonly DesignToken[] = [
   ...group('primitive', 'line', [
     ['--lg-line-tight', 'headings'],
     ['--lg-line-normal', 'body'],
-    ['--lg-line-display', 'landing display titles'],
+    ['--lg-line-display', 'landing and page display titles'],
+    ['--lg-tracking-tight', 'tight letter spacing for compact titles'],
     ['--lg-tracking-display', 'landing display titles letter spacing'],
+    ['--lg-tracking-caps', 'uppercase supporting labels'],
+    ['--lg-tracking-wide', 'uppercase group labels'],
+    ['--lg-tracking-widest', 'uppercase wordmarks'],
+    ['--lg-underline-offset', 'underline offset for text links'],
   ]),
   ...group('primitive', 'space', [
     ['--lg-space-2', 'hairline gap'],
@@ -263,6 +298,7 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-size-nav-max', 'navigation maximum width'],
     ['--lg-size-content-min', 'content minimum width'],
     ['--lg-size-content-max', 'readable content measure'],
+    ['--lg-size-narrow-max', 'narrow single-column screens (join, privacy)'],
     ['--lg-size-dialog-max', 'dialog maximum width'],
     ['--lg-size-auth-max', 'auth form maximum width'],
     ['--lg-size-auth-panel', 'auth panel column width beside the photograph'],
@@ -302,6 +338,8 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-color-accent', 'accent fill'],
     ['--lg-color-accent-hover', 'accent fill hover'],
     ['--lg-color-accent-text', 'text on an accent fill'],
+    ['--lg-color-link', 'accent-coloured text and links on the page and surface layers'],
+    ['--lg-color-link-hover', 'accent-coloured link hover'],
     ['--lg-color-danger', 'danger fill'],
     ['--lg-color-danger-hover', 'danger fill hover'],
     ['--lg-color-danger-text', 'text on a danger fill'],
@@ -323,6 +361,7 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-color-stage-accent-text', 'text on the landing accent fill'],
     ['--lg-color-stage-focus', 'focus ring on the landing dark ground'],
     ['--lg-color-stage-danger', 'error text and border on the landing dark ground'],
+    ['--lg-color-stage-info', 'informational tone on the landing dark ground'],
   ]),
   ...group('semantic', 'shadow', [
     ['--lg-shadow-1', 'elevation for rows and cards'],

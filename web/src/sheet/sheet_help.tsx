@@ -1,5 +1,7 @@
 import type { Ref } from 'react';
 import { message } from '../l10n/strings';
+import { Button } from '../ui/button';
+import { CloseIcon } from '../ui/icons';
 
 export const HELP_PANEL_ID = 'lg-sheet-help';
 
@@ -11,16 +13,15 @@ export interface HelpToggleProps {
 
 export function HelpToggle({ open, onToggle, buttonRef }: HelpToggleProps) {
   return (
-    <button
-      type="button"
+    <Button
       ref={buttonRef}
-      className="lg-button lg-button--ghost lg-button--sm"
-      aria-expanded={open}
-      aria-controls={HELP_PANEL_ID}
+      variant="ghost"
+      size="sm"
+      label={message('sheet.help')}
+      ariaExpanded={open}
+      ariaControls={HELP_PANEL_ID}
       onClick={onToggle}
-    >
-      {message('sheet.help')}
-    </button>
+    />
   );
 }
 
@@ -41,21 +42,14 @@ export function HelpPanel({ onDismiss }: HelpPanelProps) {
         <p className="lg-sheet__help-text">{message('sheet.helpDerived')}</p>
         <p className="lg-sheet__help-text">{message('sheet.helpPreview')}</p>
       </div>
-      <button
-        type="button"
-        className="lg-button lg-button--ghost lg-sheet__help-dismiss"
-        aria-label={message('sheet.helpDismiss')}
+      <Button
+        variant="ghost"
+        className="lg-sheet__help-dismiss"
+        label={message('common.close')}
         onClick={onDismiss}
       >
-        <svg
-          className="lg-sheet__help-close"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
-      </button>
+        <CloseIcon className="lg-sheet__help-close" />
+      </Button>
     </div>
   );
 }

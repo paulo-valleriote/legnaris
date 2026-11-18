@@ -172,7 +172,6 @@ describe('the pin star', () => {
       const focused = document.activeElement;
       const holdsFocus = focused instanceof HTMLElement && node.contains(focused);
       const result = move();
-      process.stdout.write(`MOVE ${(node as HTMLElement).tagName} ${holdsFocus}\n`);
       if (holdsFocus) {
         focused.blur();
       }
@@ -562,10 +561,12 @@ describe('leaving with a pending arrangement', () => {
 
     await user.click(catalogLink());
 
-    expect(screen.getByTestId('sheet-confirm-leave')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: message('sheet.leaveTitle') })).toBeInTheDocument();
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: message('sheet.cancel') }));
-    expect(screen.queryByTestId('sheet-confirm-leave')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: message('sheet.leaveTitle') }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('arrange-pending')).toBeInTheDocument();
     expect(star('alpha.one')).toHaveAttribute('aria-pressed', 'true');
     expect(stub.puts()).toHaveLength(0);
@@ -590,7 +591,9 @@ describe('leaving with a pending arrangement', () => {
 
     await user.click(catalogLink());
 
-    expect(screen.queryByTestId('sheet-confirm-leave')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: message('sheet.leaveTitle') }),
+    ).not.toBeInTheDocument();
     expect(await screen.findByTestId('catalog')).toBeInTheDocument();
   });
 
@@ -616,7 +619,9 @@ describe('leaving with a pending arrangement', () => {
 
     await user.click(catalogLink());
 
-    expect(screen.queryByTestId('sheet-confirm-leave')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: message('sheet.leaveTitle') }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('sheet-screen')).toBeInTheDocument();
     await act(async () => {
       release(undefined);
@@ -630,8 +635,10 @@ describe('leaving with a pending arrangement', () => {
     await user.keyboard('{F5}');
     await user.click(catalogLink());
 
-    expect(screen.getByTestId('sheet-confirm-refresh')).toBeInTheDocument();
-    expect(screen.queryByTestId('sheet-confirm-leave')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: message('sheet.refreshTitle') })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: message('sheet.leaveTitle') }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
   });
 

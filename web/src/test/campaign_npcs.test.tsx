@@ -134,6 +134,11 @@ describe('campaign screen: NPC and Enemy links (LGN-219)', () => {
       'aria-pressed',
       'false',
     );
+    expect(within(row as HTMLElement).getByRole('button', revealToggle('Goblin'))).toHaveClass(
+      'lg-button',
+      'lg-button--outline',
+      'lg-button--sm',
+    );
     expect(within(row as HTMLElement).getByText(/Owner: mara/)).toBeInTheDocument();
     expect(JSON.parse(script.calls('PUT', NPCS)[0]?.request.body ?? '')).toEqual({
       sheet_id: SHEET_ID,

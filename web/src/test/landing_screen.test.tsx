@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
+import { PRIVACY_PATH } from '../app/routes';
 import { MIGHT_MAX, MIGHT_MIN } from '../landing/cascade';
 import { renderApp } from './render';
 
@@ -65,6 +66,15 @@ describe('landing screen', () => {
     expect(screen.getByTestId('landing').querySelectorAll('img')).toHaveLength(1);
   });
 
+  it('Happy path: the footer links to the public privacy policy', async () => {
+    await visit('/');
+
+    const footer = screen.getByRole('contentinfo');
+    expect(
+      within(footer).getByRole('link', { name: message('landing.footer.privacy') }),
+    ).toHaveAttribute('href', PRIVACY_PATH);
+  });
+
   it('Happy path: the browser chrome takes the stage colour while mounted and is restored after', async () => {
     document.documentElement.style.setProperty('--lg-color-stage', '#061516');
     const view = await visit('/');
@@ -101,12 +111,26 @@ describe('landing screen', () => {
     const item = question.closest('details');
     expect(item).not.toBeNull();
     expect(item).not.toHaveAttribute('open');
+    expect(item!.querySelector('.lg-landing__faq-chevron path')).toHaveAttribute(
+      'd',
+      'm6 9 6 6 6-6',
+    );
 
     await user.click(question);
 
     expect(item).toHaveAttribute('open');
     expect(screen.getByText(message('landing.faq1Answer'))).toBeVisible();
     expect(screen.getAllByRole('group').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('Happy path: the demo stepper uses the shared minus and plus glyphs', async () => {
+    await visit('/');
+
+    const down = screen.getByRole('button', { name: message('landing.demoBaseDown') });
+    const up = screen.getByRole('button', { name: message('landing.demoBaseUp') });
+
+    expect(down.querySelector('svg path')).toHaveAttribute('d', 'M5 12h14');
+    expect(up.querySelector('svg path')).toHaveAttribute('d', 'M12 5v14');
   });
 
   it('Happy path: the sign-up path opens the registration mode', async () => {
@@ -153,6 +177,18 @@ describe('landing recalculation example', () => {
     return within(screen.getByRole('figure', { name: message('landing.demoLabel') }));
   }
 
+  function demoOutputs(): HTMLOutputElement[] {
+    return [
+      ...screen
+        .getByRole('figure', { name: message('landing.demoLabel') })
+        .querySelectorAll('output'),
+    ];
+  }
+
+  function demoValues(): (string | null)[] {
+    return demoOutputs().map((node) => node.textContent);
+  }
+
   it('Happy path: raising the base score recalculates every derived value', async () => {
     const user = userEvent.setup();
     await visit('/');
@@ -160,10 +196,38 @@ describe('landing recalculation example', () => {
     await user.click(demo().getByRole('button', { name: message('landing.demoBaseUp') }));
     await user.click(demo().getByRole('button', { name: message('landing.demoBaseUp') }));
 
-    const values = demo()
-      .getAllByRole('status')
-      .map((node) => node.textContent);
-    expect(values).toEqual(['16', '+3', '+6', '112']);
+    expect(demoValues()).toEqual(['16', '+3', '+6', '112']);
+  });
+
+  it('Edge: one polite live region announces the change and the values are not live', async () => {
+    const user = userEvent.setup();
+    await visit('/');
+    const live = demo().getByTestId('demo-live');
+
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    expect(live).toHaveTextContent(
+      messageWith('landing.demoChange', {
+        might: 14,
+        modifier: '+2',
+        climbing: '+5',
+        carry: 98,
+      }),
+    );
+
+    for (const output of demoOutputs()) {
+      expect(output).toHaveAttribute('aria-live', 'off');
+    }
+
+    await user.click(demo().getByRole('button', { name: message('landing.demoBaseUp') }));
+
+    expect(live).toHaveTextContent(
+      messageWith('landing.demoChange', {
+        might: 15,
+        modifier: '+2',
+        climbing: '+5',
+        carry: 105,
+      }),
+    );
   });
 
   it('Edge: the lower bound disables the decrease control and keeps the value', async () => {
@@ -178,8 +242,8 @@ describe('landing recalculation example', () => {
     }
 
     expect(down).toBeDisabled();
-    expect(demo().getAllByRole('status')[0]).toHaveTextContent(String(MIGHT_MIN));
-    expect(demo().getAllByRole('status')[1]).toHaveTextContent('−5');
+    expect(demoValues()[0]).toBe(String(MIGHT_MIN));
+    expect(demoValues()[1]).toBe('−5');
   });
 
   it('Edge: the upper bound disables the increase control and keeps the value', async () => {
@@ -194,7 +258,7 @@ describe('landing recalculation example', () => {
     }
 
     expect(up).toBeDisabled();
-    expect(demo().getAllByRole('status')[0]).toHaveTextContent(String(MIGHT_MAX));
+    expect(demoValues()[0]).toBe(String(MIGHT_MAX));
   });
 
   it('Edge: reaching the upper bound swaps the caption for a remark and leaving restores it', async () => {

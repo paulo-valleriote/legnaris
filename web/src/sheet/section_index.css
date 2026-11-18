@@ -1,9 +1,3 @@
-/**
- * The section strip: one sticky row at the top of the page (the document scrolls), the same on a
- * phone and on a desktop. The top bar of a narrow viewport is a grid row above the content
- * region, never over it, so the strip sticks to the region's own top edge. Tokens only.
- */
-
 .lg-sectionbar {
   position: sticky;
   top: 0;
@@ -83,7 +77,6 @@
   stroke: var(--lg-color-accent);
 }
 
-/* The filter's name is read at every width and drawn from 40rem up; below it the star stands alone. */
 .lg-sectionbar__filter-text {
   position: absolute;
   width: var(--lg-size-hairline);
@@ -96,7 +89,6 @@
   border: 0;
 }
 
-/* The sheet's name keeps its identity in view once the heading has scrolled away. */
 .lg-sectionbar__name {
   display: inline-flex;
   flex: 0 1 auto;
@@ -193,8 +185,6 @@
   white-space: nowrap;
 }
 
-/* The count of Rows the last Preview marked in a Section: the accent is for marks, and the
-   number is the pair the accent button already asserts for contrast. */
 .lg-sectionbar__dot {
   display: inline-flex;
   flex: none;
@@ -213,7 +203,6 @@
   line-height: 1;
 }
 
-/* The outline button is shorter than the row; its hit area still spans the full row. */
 .lg-sectionbar__trailing {
   display: flex;
   flex: none;
@@ -238,7 +227,6 @@
   inset-inline: 0;
 }
 
-/* A Section lands clear of the strip when a link brings it into view. */
 .lg-sheet [data-section-key] {
   scroll-margin-top: calc(var(--lg-size-control) + var(--lg-space-8));
 }
@@ -272,8 +260,6 @@
   }
 }
 
-/* A fade at an edge of the row says more links lie past it; it shows only while links are hidden
-   there. Only the mask's alpha matters, so the colour stops are the surface token. */
 .lg-sectionbar__nav[data-edge-start] {
   mask-image: linear-gradient(to right, transparent, var(--lg-color-surface) var(--lg-space-24));
 }

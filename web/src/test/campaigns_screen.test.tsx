@@ -10,6 +10,7 @@ import {
   campaignSummary,
   campaignView,
   CAMPAIGN_ID,
+  capturedTemplates,
   ok,
   scripted,
   clientFor,
@@ -146,7 +147,7 @@ describe('campaigns list and create (LGN-218)', () => {
     expect(rows[2]).toHaveTextContent('Ash Vale');
   });
 
-  it('Edge: an empty list shows the empty copy in the designed empty block', async () => {
+  it('Edge: an empty list shows the empty copy in the designed empty state', async () => {
     const script = scripted([
       ...baseRoutes(),
       { method: 'GET', path: '/campaigns', respond: () => ok([]) },
@@ -154,7 +155,7 @@ describe('campaigns list and create (LGN-218)', () => {
     renderApp('/campaigns', { client: clientFor(script.transport) });
 
     const empty = await screen.findByText(message('campaigns.empty'));
-    expect(empty).toHaveClass('lg-campaigns__empty');
+    expect(empty.closest('.lg-state--empty')).not.toBeNull();
     expect(
       screen.queryByRole('list', { name: message('campaigns.listHeading') }),
     ).not.toBeInTheDocument();
@@ -172,7 +173,7 @@ describe('campaigns list and create (LGN-218)', () => {
     renderApp('/campaigns', { client: clientFor(script.transport) });
 
     const loading = await screen.findByText(message('campaigns.loading'));
-    expect(loading).toHaveAttribute('role', 'status');
+    expect(loading.closest('.lg-state--loading')).toHaveAttribute('role', 'status');
   });
 
   it('Error: a failed list shows the failure copy with a retry that refetches', async () => {
@@ -195,7 +196,7 @@ describe('campaigns list and create (LGN-218)', () => {
     expect(
       within(alert).getByText(message('campaigns.loadFailed'), { exact: false }),
     ).toBeInTheDocument();
-    await user.click(within(alert).getByRole('button', { name: message('campaigns.retry') }));
+    await user.click(within(alert).getByRole('button', { name: message('common.retry') }));
 
     expect(await screen.findByRole('link', { name: /Ember Coast/ })).toBeInTheDocument();
   });
@@ -208,9 +209,12 @@ describe('campaigns list and create (LGN-218)', () => {
     renderApp('/campaigns', { client: clientFor(script.transport) });
 
     const noticeText = await screen.findByText(message('campaigns.limitReached'));
-    const notice = noticeText.closest('.lg-campaigns__notice');
-    expect(notice).toHaveAttribute('id', 'campaigns-limit');
+    const notice = noticeText.closest('.lg-notice') as HTMLElement;
     expect(notice).toHaveAttribute('role', 'status');
+    const region = document.getElementById('campaigns-limit');
+    expect(region).not.toBeNull();
+    expect(region).toBe(notice);
+    expect(region).toHaveClass('lg-notice');
     expect(screen.getByRole('link', { name: message('campaigns.seePlans') })).toHaveAttribute(
       'href',
       '/plans',
@@ -244,6 +248,7 @@ describe('campaigns list and create (LGN-218)', () => {
     const dialog = await screen.findByRole('dialog', { name: message('campaigns.create') });
     expect(within(dialog).getByLabelText(message('campaigns.nameLabel'))).toHaveFocus();
     expect(within(dialog).getByTestId('campaigns-template')).toHaveTextContent('Fantasy Template');
+    expect(within(dialog).getByText(message('campaigns.templateLabel')).tagName).toBe('DT');
     expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.getByTestId('campaigns-usage')).toHaveTextContent(
       messageWith('campaigns.ownedCount', { used: 0, limit: 2 }),
@@ -260,6 +265,80 @@ describe('campaigns list and create (LGN-218)', () => {
     await screen.findByText(message('campaigns.empty'));
     expect(screen.queryByTestId('campaigns-usage')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: message('campaigns.new') })).toBeEnabled();
+  });
+
+  it('Edge: while the templates load the New campaign action stays visible and says why it waits', async () => {
+    const script = scripted([
+      ...baseRoutes().filter((route) => route.path !== '/templates'),
+      { method: 'GET', path: '/templates', respond: () => new Promise<never>(() => {}) },
+      { method: 'GET', path: '/campaigns', respond: () => ok([]) },
+    ]);
+    renderApp('/campaigns', { client: clientFor(script.transport) });
+
+    const button = await screen.findByRole('button', { name: message('campaigns.new') });
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).not.toBeDisabled();
+    const describedBy = button.getAttribute('aria-describedby') ?? '';
+    expect(document.getElementById(describedBy)).toHaveTextContent(
+      message('campaigns.templatesLoading'),
+    );
+  });
+
+  it('Error: a failed template list keeps New campaign and offers a retry that recovers', async () => {
+    let templateCalls = 0;
+    const script = scripted([
+      ...baseRoutes().filter((route) => route.path !== '/templates'),
+      {
+        method: 'GET',
+        path: '/templates',
+        respond: () => {
+          templateCalls += 1;
+          return templateCalls === 1 ? fail('INTERNAL_ERROR', 500) : ok(capturedTemplates());
+        },
+      },
+      { method: 'GET', path: '/campaigns', respond: () => ok([]) },
+    ]);
+    const user = userEvent.setup();
+    renderApp('/campaigns', { client: clientFor(script.transport) });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(message('campaigns.templatesFailed'));
+    expect(screen.getByRole('button', { name: message('campaigns.new') })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+
+    await user.click(within(alert).getByRole('button', { name: message('common.retry') }));
+
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    const button = screen.getByRole('button', { name: message('campaigns.new') });
+    expect(button).toBeEnabled();
+    expect(button).not.toHaveAttribute('aria-disabled');
+    expect(templateCalls).toBe(2);
+  });
+
+  it('Happy path: more than one template offers a labelled choice of template', async () => {
+    const template = capturedTemplates()[0] as Record<string, unknown>;
+    const script = scripted([
+      ...baseRoutes().filter((route) => route.path !== '/templates'),
+      {
+        method: 'GET',
+        path: '/templates',
+        respond: () => ok([{ ...template, id: 'other_v1', name: 'Other Template' }, template]),
+      },
+      { method: 'GET', path: '/campaigns', respond: () => ok([]) },
+    ]);
+    const user = userEvent.setup();
+    renderApp('/campaigns', { client: clientFor(script.transport) });
+
+    await screen.findByText(message('campaigns.empty'));
+    await user.click(screen.getByRole('button', { name: message('campaigns.new') }));
+
+    const choice = await screen.findByRole('combobox', {
+      name: message('campaigns.templateLabel'),
+    });
+    expect(within(choice).getAllByRole('option')).toHaveLength(2);
+    expect(within(choice).getByRole('option', { name: 'Other Template' })).toBeInTheDocument();
   });
 
   it('Edge: Cancel and Escape close the dialog without a request and reopening is empty', async () => {

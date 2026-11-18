@@ -1,13 +1,19 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { FormEvent } from 'react';
+import type { ClipboardEvent, FormEvent } from 'react';
 import { failureCopy } from '../api/error_mapper';
 import { useAuthSession } from '../app/providers';
 import type { PendingCodeStep } from './auth_session';
 import { message, messageWith } from '../l10n/strings';
+import { Button } from '../ui/button';
+import { Notice } from '../ui/notice';
 import { AuthStage } from './auth_stage';
 import './auth.css';
 
 const CODE_LENGTH = 6;
+
+function normaliseCode(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, CODE_LENGTH);
+}
 
 export function AuthCodeScreen() {
   const session = useAuthSession();
@@ -48,16 +54,41 @@ export function AuthCodeScreen() {
   }, []);
 
   if (pending === null) {
-    return null;
+    return (
+      <div className="lg-auth">
+        <AuthStage linked={false} />
+        <section className="lg-auth__panel" aria-labelledby="auth-code-missing-title">
+          <div className="lg-auth__intro">
+            <h1 className="lg-auth__title" id="auth-code-missing-title">
+              {message('auth.codeMissingTitle')}
+            </h1>
+            <p className="lg-auth__subtitle">{message('auth.codeMissingBody')}</p>
+          </div>
+          <button
+            type="button"
+            className="lg-auth__back"
+            data-testid="code-missing-back"
+            onClick={() => session.cancelCodeStep()}
+          >
+            {message('auth.codeBackLogin')}
+          </button>
+        </section>
+      </div>
+    );
   }
 
   const elapsed = tick - seed.at;
   const resendRemaining = Math.max(0, resendAfter - elapsed);
   const lifetimeRemaining = Math.max(0, expiresIn - elapsed);
   const minutes = Math.max(1, Math.floor(pending.expiresIn / 60));
-  const describedBy =
-    refusal === undefined ? 'auth-code-instruction' : 'auth-code-instruction auth-code-refusal';
   const expired = lifetimeRemaining === 0;
+  const describedBy = [
+    'auth-code-instruction',
+    expired ? 'code-expired' : undefined,
+    refusal === undefined ? undefined : 'auth-code-refusal',
+  ]
+    .filter((value): value is string => value !== undefined)
+    .join(' ');
   const resendUnavailable = resendRemaining > 0 || resending || submitting;
   const status =
     confirmation ?? (resendRemaining === 0 ? message('auth.codeResendReady') : undefined);
@@ -139,9 +170,9 @@ export function AuthCodeScreen() {
               : messageWith('auth.codeInstruction', { email: pending.email, minutes })}
           </p>
           {expired && (
-            <p className="lg-auth__notice" data-testid="code-expired">
+            <Notice tone="danger" surface="stage" id="code-expired">
               {message('auth.codeExpired')}
-            </p>
+            </Notice>
           )}
         </div>
 
@@ -158,8 +189,14 @@ export function AuthCodeScreen() {
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
+                maxLength={CODE_LENGTH}
+                pattern="[0-9]*"
                 value={code}
-                onChange={(event) => setCode(event.target.value)}
+                onChange={(event) => setCode(normaliseCode(event.target.value))}
+                onPaste={(event: ClipboardEvent<HTMLInputElement>) => {
+                  event.preventDefault();
+                  setCode(normaliseCode(event.clipboardData.getData('text')));
+                }}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 aria-describedby={describedBy}
@@ -193,14 +230,13 @@ export function AuthCodeScreen() {
           )}
 
           <footer className="lg-auth__footer">
-            <button
+            <Button
               type="submit"
               className="lg-auth__submit"
-              disabled={submitting}
-              aria-busy={submitting}
-            >
-              {submitting ? message('auth.codeVerifying') : message('auth.codeSubmit')}
-            </button>
+              fullWidth
+              loading={submitting}
+              label={submitting ? message('auth.codeVerifying') : message('auth.codeSubmit')}
+            />
           </footer>
         </form>
 

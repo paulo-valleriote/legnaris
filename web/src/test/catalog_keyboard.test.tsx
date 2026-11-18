@@ -70,16 +70,19 @@ describe('catalog keyboard and navigation (WCT-19, WCT-20, WCT-27)', () => {
     expect(entry).toHaveFocus();
   });
 
-  it('Edge: no control traps focus inside the surface (WCT-27)', async () => {
+  it('Edge: focus stays trapped inside the surface (WCT-27)', async () => {
     const { user } = await openSurface();
     const dialog = screen.getByRole('dialog');
     expect(dialog.contains(document.activeElement)).toBe(true);
 
-    const bound = dialog.querySelectorAll(FOCUSABLE_SELECTOR).length + 1;
-    for (let step = 0; step < bound && dialog.contains(document.activeElement); step += 1) {
-      await user.tab({ shift: true });
+    const bound = dialog.querySelectorAll(FOCUSABLE_SELECTOR).length + 2;
+    for (let step = 0; step < bound; step += 1) {
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
     }
-
-    expect(dialog.contains(document.activeElement)).toBe(false);
+    for (let step = 0; step < bound; step += 1) {
+      await user.tab({ shift: true });
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
   });
 });

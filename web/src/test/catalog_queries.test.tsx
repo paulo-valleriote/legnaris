@@ -73,11 +73,11 @@ describe('catalog query policy (WCT-02, WCT-07, WCT-08)', () => {
     renderApp('/', { client: clientWith(fake.transport) });
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: message('catalog.retry') })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: message('common.retry') })).toBeInTheDocument(),
     );
     expect(fake.attempts).toBe(1);
 
-    await user.click(screen.getByRole('button', { name: message('catalog.retry') }));
+    await user.click(screen.getByRole('button', { name: message('common.retry') }));
 
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
     expect(fake.attempts).toBe(2);

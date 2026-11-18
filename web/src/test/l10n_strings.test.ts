@@ -15,13 +15,34 @@ const libraryDir = path.resolve(here, '../library');
 
 const keys = Object.keys(messages) as MessageKey[];
 
+function isSharedWording(key: MessageKey): boolean {
+  return (
+    key.startsWith('nav.') ||
+    key.startsWith('common.') ||
+    key.startsWith('privacy.') ||
+    key.startsWith('generation.resumeNotice') ||
+    key.endsWith('.retry') ||
+    key.endsWith('.close')
+  );
+}
+
+function withDistinctCopy(keysToCheck: readonly MessageKey[]): MessageKey[] {
+  const seen = new Map<string, MessageKey>();
+  const clashes: MessageKey[] = [];
+  for (const key of keysToCheck) {
+    if (isSharedWording(key)) continue;
+    const text = messages[key];
+    if (seen.has(text)) clashes.push(key);
+    seen.set(text, key);
+  }
+  return clashes;
+}
+
 const catalogFeatureKeys: readonly MessageKey[] = [
   'nav.catalog',
   'catalog.title',
   'catalog.loading',
   'catalog.empty',
-  'catalog.retry',
-  'catalog.openHint',
   'sheet.dialogTitle',
   'sheet.nameLabel',
   'sheet.namePlaceholder',
@@ -29,7 +50,6 @@ const catalogFeatureKeys: readonly MessageKey[] = [
   'sheet.create',
   'sheet.close',
   'sheet.loading',
-  'sheet.retry',
 ];
 
 const engineFeatureKeys: readonly MessageKey[] = [
@@ -46,7 +66,6 @@ const sheetCycleKeys: readonly MessageKey[] = [
   'sheet.templateLoading',
   'sheet.emptyFields',
   'sheet.missing',
-  'sheet.retryOpen',
   'sheet.pendingEdits',
   'sheet.save',
   'sheet.saving',
@@ -81,8 +100,7 @@ describe('translation catalog', () => {
   });
 
   it('Edge: every failure kind owns distinct copy, so no two keys share text (API-23)', () => {
-    const copy = keys.map((key) => messages[key]);
-    expect(new Set(copy).size).toBe(copy.length);
+    expect(withDistinctCopy(keys)).toEqual([]);
   });
 
   it('Edge: the catalog covers every failure kind key the mapper needs (API-23)', () => {
@@ -111,13 +129,16 @@ describe('translation catalog', () => {
     }
   });
 
-  it('Edge: the catalog and sheet copy keys own distinct copy, so none is a silent duplicate (WCT-26)', () => {
-    const seen = new Map<string, MessageKey>();
-    for (const key of catalogFeatureKeys) {
-      const text = messages[key];
-      expect(seen.has(text)).toBe(false);
-      seen.set(text, key);
+  it('Happy path: the kind-aware resume notice reads the same in catalog and generate', () => {
+    for (const kind of ['character', 'npc', 'enemy'] as const) {
+      expect(messages[`generation.resumeNotice.${kind}`]).toBe(
+        messages[`generate.resumeNotice.${kind}`],
+      );
     }
+  });
+
+  it('Edge: the catalog and sheet copy keys own distinct copy, so none is a silent duplicate (WCT-26)', () => {
+    expect(withDistinctCopy(catalogFeatureKeys)).toEqual([]);
   });
 
   it('Happy path: every engine copy key resolves to non-empty copy (ENG-27, SC-003)', () => {
@@ -128,12 +149,7 @@ describe('translation catalog', () => {
   });
 
   it('Edge: the engine copy keys own distinct copy, so none is a silent duplicate (ENG-27)', () => {
-    const seen = new Map<string, MessageKey>();
-    for (const key of engineFeatureKeys) {
-      const text = messages[key];
-      expect(seen.has(text)).toBe(false);
-      seen.set(text, key);
-    }
+    expect(withDistinctCopy(engineFeatureKeys)).toEqual([]);
   });
 
   it('Happy path: every sheet-cycle copy key resolves to non-empty copy (WSC-32, SC-006)', () => {
@@ -144,12 +160,7 @@ describe('translation catalog', () => {
   });
 
   it('Edge: the sheet-cycle copy keys own distinct copy, so none is a silent duplicate (WSC-32)', () => {
-    const seen = new Map<string, MessageKey>();
-    for (const key of sheetCycleKeys) {
-      const text = messages[key];
-      expect(seen.has(text)).toBe(false);
-      seen.set(text, key);
-    }
+    expect(withDistinctCopy(sheetCycleKeys)).toEqual([]);
   });
 });
 
@@ -190,6 +201,10 @@ describe('the parameterized copy resolution (WCS-13)', () => {
           plan: 'free',
           date: '1 Nov 2026',
           version: '1',
+          might: 15,
+          modifier: '+2',
+          climbing: '+5',
+          carry: 105,
         }),
       ).not.toMatch(/\{(\w+)\}/);
     }
@@ -262,7 +277,6 @@ const sheetSurfaceKeys: readonly MessageKey[] = [
   'sheet.templateLoading',
   'sheet.emptyFields',
   'sheet.missing',
-  'sheet.retryOpen',
   'sheet.pendingEdits',
   'sheet.save',
   'sheet.saving',
@@ -354,7 +368,6 @@ const authFeatureKeys: readonly MessageKey[] = [
   'sheet.ownLoading',
   'sheet.ownEmpty',
   'sheet.ownOpen',
-  'sheet.ownRetry',
   'sheet.ownDelete',
   'sheet.ownDeleteTitle',
   'sheet.ownDeleteMessage',
@@ -452,12 +465,7 @@ describe('auth copy keys and source scan (WAS-19, WAS-25, WAS-30, WAS-31)', () =
   });
 
   it('Edge: the auth and session copy keys own distinct copy, so none is a silent duplicate', () => {
-    const seen = new Map<string, MessageKey>();
-    for (const key of authFeatureKeys) {
-      const text = messages[key];
-      expect(seen.has(text)).toBe(false);
-      seen.set(text, key);
-    }
+    expect(withDistinctCopy(authFeatureKeys)).toEqual([]);
   });
 
   it('Edge: the auth source authors no api.error literal and resolves every message key it renders', () => {
@@ -499,7 +507,7 @@ describe('landing copy keys and source scan (DESIGN.md, Landing surface)', () =>
     const referenced = new Set<string>();
     for (const name of readdirSync(landingDir).filter((file) => /\.tsx?$/.test(file))) {
       const text = readFileSync(path.join(landingDir, name), 'utf8');
-      for (const match of text.matchAll(/'((?:landing|auth|app|theme)\.[A-Za-z0-9]+)'/g)) {
+      for (const match of text.matchAll(/'((?:landing|auth|app|theme)\.[A-Za-z0-9.]+)'/g)) {
         expect(known.has(match[1])).toBe(true);
         referenced.add(match[1]);
       }

@@ -74,6 +74,10 @@ Rules:
   decoration, and never a derived value. Whenever the accent fills a surface, the text on it comes from
   `--lg-color-accent-text`, never a bare white or black.
 - Amber text on parchment must use the darker amber steps, not the accent fill, so it clears AA.
+  Accent-coloured text and links read `--lg-color-link` (the darker amber on parchment, a bright
+  amber on charcoal) with `--lg-color-link-hover` for hover; both are asserted at the body-text
+  ratio on the page and on the surface layer in both themes and are remapped to the stage accent
+  inside the shell. The accent fill itself is never used for text.
 - **System states** are info, success and warning, each with a light and a dark value, alongside
   danger; they are roles, not decoration.
 - **Contrast is the authority.** Every foreground/background pair declares its minimum ratio per
@@ -97,6 +101,22 @@ Rules:
 - **Line height:** `--lg-line-tight` (1.2) for headings, `--lg-line-normal` (1.5) for body.
 - **Tabular figures** (`font-variant-numeric: tabular-nums`) on every numeric or derived column so
   values align vertically.
+- **Tracking.** `--lg-tracking-tight` for compact headings that need a slightly closed fit,
+  `--lg-tracking-display` for display and page titles, `--lg-tracking-caps` (uppercase codes),
+  `--lg-tracking-wide` (uppercase group labels) and `--lg-tracking-widest` (uppercase wordmarks);
+  text links use `--lg-underline-offset`. A component never spells an `em` letter-spacing literal.
+
+### Heading scale
+
+One scale, one weight each, used by every screen and by the shared primitives:
+
+- **Page title** — `--lg-type-30` semibold with `--lg-line-display` (`PageHeader`).
+- **Section heading (h2)** — `--lg-type-20` semibold.
+- **List row or card item name** — `--lg-type-18` semibold.
+- **Dialog title** — `--lg-type-20` semibold.
+- **Field label** — `--lg-type-13` medium.
+
+No screen invents its own heading size; a smaller voice is a step of this list, not a new size.
 
 ---
 
@@ -124,6 +144,8 @@ Rules:
   footer included, and the page never scrolls horizontally down to a 320 px viewport.
 - **Density:** rows are `--lg-size-row` high and controls `--lg-size-control` high; prefer aligned
   rows and compact controls over whitespace-driven layouts.
+- **Narrow single-column screens.** Join and privacy cap their column at `--lg-size-narrow-max`
+  rather than a one-off width, so the two flows keep one measure.
 
 ---
 
@@ -145,32 +167,69 @@ Rules:
 ## Motion
 
 - **Durations:** `--lg-motion-120` (120 ms), `--lg-motion-180` (180 ms), `--lg-motion-240`
-  (240 ms); **easings** `--lg-ease-standard` and `--lg-ease-emphasized`.
+  (240 ms); **easings** `--lg-ease-standard` and `--lg-ease-emphasized`. The landing's one entrance
+  adds `--lg-motion-600` and `--lg-motion-1200` with `--lg-ease-out` (a steep exponential
+  ease-out); `--lg-ease-out` stays declared for that surface and is not a second default.
 - **Only these properties may transition:** `background`, `color`, `border-color`, `box-shadow`,
   `transform`, `opacity`.
-- A hover state changes background or tint only — never layout, size or position.
-- **`prefers-reduced-motion: reduce` zeroes non-essential animation** (transitions and animations
-  are clamped to near-zero duration, scroll behaviour becomes instant).
+- A hover state changes background or tint only — never layout, size or position. No shared or
+  screen control moves, scales or translates on hover.
+- **The reduced-motion rule is declared once**, in `src/theme/base.css`: under
+  `prefers-reduced-motion: reduce` every animation and transition is clamped to an instant state
+  change (delays removed, a single iteration), scroll behaviour becomes instant, and the spinners
+  in the shared layer stop turning and draw a static ring. Feature stylesheets do not add their own
+  copy of the rule.
 
 ---
 
 ## Component specifications (Components)
 
-- **Shared primitives layer (`web/src/ui/`).** The sanctioned base layer holds exactly the five
-  primitives — action (`button`), field (`field`), checkbox (`checkbox`), dialog (`dialog`) and
-  notice (`toast`) — plus the focus trap (`focus_trap`). Every visual value comes from
-  `--lg-*` tokens; no feature directory is imported (`UIP-02`). The class convention is
-  `lg-<block>__<element>--<modifier>`.
+- **Shared primitives layer (`web/src/ui/`).** The sanctioned base layer holds the five primitives —
+  action (`button`), field (`field`), checkbox (`checkbox`), dialog (`dialog`) and notice (`toast`),
+  now joined by the `Notice` strip, the `Select` control, the state primitives
+  (`EmptyState`/`ErrorState`/`LoadingState`), `PageHeader` and the one `icons` module — plus the
+  focus trap (`focus_trap`). Every visual value comes from `--lg-*` tokens; no feature directory is
+  imported (`UIP-02`). The class convention is `lg-<block>__<element>--<modifier>`.
+  **All buttons use `ui/Button`, all modals use `ui/Dialog`, and every icon comes from
+  `ui/icons`.** A screen does not build its own button, overlay or glyph.
 - **Button.** Variants `primary` (accent fill with `--lg-color-accent-text`), `secondary`
-  (surface), `ghost`, `outline` and `danger` (danger border and text). Sizes `sm`/`md`, minimum
-  height 36–40 px, radius `sm`/`md`. States: `hover`, `active`, `focus-visible`, `disabled`,
-  `loading`. A destructive button is never a one-click destroy and never a confirm-by-Enter
-  default.
+  (surface), `ghost`, `outline`, `danger` (danger border and text) and `row` (a full-width list-row
+  entry: left-aligned content, surface layer, surface-hover tint, never a position change). Sizes
+  `sm`/`md`, minimum height 36–40 px, radius `sm`/`md`. Props: `variant`, `size`, `type`
+  (`button` by default, `submit` opt-in), `label`, `name`, `children` (rendered instead of `label`),
+  `icon` (leading, `aria-hidden`), `trailingIcon` (after the content, `aria-hidden`, pushed to the
+  trailing edge of a row entry), `className`, `fullWidth`, `id`, `title`, `ariaDescribedBy`,
+  `ariaExpanded`, `ariaControls`, `ariaPressed`, `ariaHasPopup`, `disabled`, `loading`,
+  `disabledReason` and `onClick`, which receives the React mouse event. The component is
+  `forwardRef`, so a caller reaches the underlying element for focus. Link mode: `to` renders a
+  router `Link` and `href` a plain anchor, with the identical classes, variants, sizes and aria
+  state, so a middle click and "open in a new tab" work; `disabled`, `loading` and
+  `disabledReason` are button-only and are ignored by a link. States: `hover`, `active`,
+  `focus-visible`, `disabled`, `loading`. Loading draws a real border spinner
+  (`.lg-button__spinner`, a declared motion token, a static ring under reduced motion) beside the
+  label with `aria-busy`, never a glyph. A disabled action that needs a reason passes
+  `disabledReason`: the button stays focusable with `aria-disabled`, suppresses `onClick`, and a
+  small muted line is linked through `aria-describedby` instead of hiding the reason in a `title`.
+  A destructive button is never a one-click destroy and never a confirm-by-Enter default.
 - **Fields.** Input, select, textarea, checkbox, radio, switch. A permanent label (never a
-  placeholder as label), an inline error, and the design-token border and radius. Text and
-  numeric inputs are right-aligned; numeric fields use tabular figures. An empty text field shows
+  placeholder as label), an inline error, and the design-token border and radius. `Field` renders a
+  `.lg-form-field` wrapper holding the `<label>` (its only accessible-name source), the control, the hint
+  and the error as siblings, so no message inflates the name; the hint, any caller-supplied
+  `describedBy` ids and the error are linked through `aria-describedby` in that order and the error
+  is never inside the label. The error is a polite live region (`aria-live="polite"`), so a new
+  message is announced without the double announcement a `role="alert"` would add when focus moves.
+  Props: `label`, `id`, `type` (`text`/`password`/`email`/`number`), `name`, `value`, `placeholder`,
+  `hint`, `error`, `describedBy`, `disabled`, `readOnly`, `numeric`, `required`, `multiline`, `rows`
+  (the textarea form, same label/error contract and `.lg-form-field__textarea` styling), `autoComplete`,
+  `inputMode`, `maxLength`, `pattern`, `autoFocus`, `inputRef`, `onChange`, `onBlur`, `trailing` (an
+  inline control such as a reveal-password button). `Select` carries the same contract with
+  `options`/`children` and `describedBy`. Controls sit on `--lg-color-raised` with a
+  `--lg-color-border-strong` hairline and `--lg-radius-sm`; focus is the global focus ring, never
+  only a border colour. Text and numeric inputs are right-aligned; numeric fields use tabular
+  figures (via a class, never an inline style). An empty text field shows
   the muted "Not set" as its placeholder (`--lg-color-text-muted`, full opacity, so it clears AA): a
   hint about the value, never the label, which stays permanent and is the field's accessible name.
+  A textarea reuses `.lg-form-field__input` (`.lg-form-field__textarea`) without a second contract.
 - **Data.** Tables and aligned rows over cards; tabular figures; a header row in muted text; a
   hairline divider between groups. No zebra striping.
 - **Navigation.** A persistent left region opening with a brand lockup (sigil, tracked wordmark
@@ -179,23 +238,61 @@ Rules:
   session control. Below 640 px it is the compact top bar described under "Spacing and layout".
   Its controls are `--lg-size-control` high at every width and pointer. There is no theme switch: the signed-in app is always
   dark.
-- **Dialog / overlay.** `--lg-shadow-3`, `role="dialog"`, `aria-modal`, `Esc` cancels and focus is
-  trapped within. The scrim uses `--lg-color-overlay`.
-- **Feedback.** Every async action shows progress and an inline result (success or a mapped error).
-  Loading, empty and error states are designed, never blank.
+- **Dialog / overlay.** `--lg-shadow-3` on the surface layer, `--lg-radius-lg`, the
+  `--lg-color-overlay` scrim with an inset of `--lg-space-16`, so a full-height dialog never touches
+  the viewport edge, a fade-and-small-rise entrance from the declared motion tokens (zeroed under
+  reduced motion), `role="dialog"`, `aria-modal`, `aria-labelledby` pointing at the title element
+  (never a duplicated `aria-label`), `Esc` cancels and focus is trapped within.
+  `ui/Dialog` is **the single dialog**: props `open`, `title`, `titleId` (the id the title gets, and
+  therefore the id a child region may name itself by; generated when absent), `description`,
+  `onClose`, `children`, `tone` (`default`/`danger`), `actions` (a `.lg-dialog__actions` footer of
+  secondary/primary buttons), `closeLabel` (a named ghost icon close button from `ui/icons`),
+  `initialFocusRef`, `error` (a `role="alert"` danger line above the actions) and `className` (an
+  extra class on the panel). Dialogs form one module-level stack: only the topmost open dialog reacts
+  to `Esc`, so a document opened over a consent dialog closes alone. Focus returns to the element
+  that opened the dialog when it closes or unmounts, and a parent that recreates `onClose` on every
+  render never re-runs the focus effect or steals focus.
+- **Select.** `ui/Select` renders a native `<select>` with the `Field` label/hint/error contract and
+  the identical control styling (`.lg-form-field__input lg-form-field__select`); it is a field, not a menu.
 - **Notice strip.** A standing, non-blocking condition the person should act on (a payment issue,
   an exhausted generation quota, a generation still running from an earlier visit) is one flat
   strip inline in the flow: the surface layer, a `--lg-size-hairline` leading edge in the state's
-  system tone (`--lg-color-warning` for a problem, `--lg-color-info` for information), one line of
-  `--lg-type-15` text and at most one way forward, an accent link or a secondary button. It is never a toast, never dismissible while the condition holds,
-  and the payment strip above the signed-in content carries `role="status"`.
+  system tone (`--lg-color-warning` for a problem, `--lg-color-info` for information, danger and
+  success for their own conditions), one line of `--lg-type-15` text and at most one way forward, an
+  accent link or a secondary button. `ui/Notice` takes `tone`, an optional `surface` (`app` by
+  default, `stage` for the landing's world, where the strip sits on the stage band with the stage
+  text roles and `--lg-color-stage-info` for its information edge), `children`, an optional `action`,
+  `live` (`polite` renders `role="status"`), `id` and `className`. It is never a toast, never
+  dismissible while the condition holds, and the payment strip above the signed-in content carries
+  `role="status"`.
+- **States.** `ui/EmptyState`, `ui/ErrorState` and `ui/LoadingState` are the designed states of every
+  async region; each accepts `id` and `className` on its root. An empty state is **one line of muted
+  text** plus, where it applies, one secondary action — never a dashed box, a card, a border or
+  illustration. An error state is the mapped copy in the danger tone with `role="alert"` and one
+  secondary Retry (`common.retry`, "Try again") only when retrying is offered. A loading state is
+  muted text plus the shared spinner with `aria-busy`.
+- **Page header.** `ui/PageHeader` is the one page title block: the `h1` at `--lg-type-30` semibold
+  on `--lg-line-display`, an optional ghost icon back link on a `--lg-size-control` target named by
+  `backLabel` (the `common.back` "Back" fallback), an optional meta row (pill or caption) and
+  right-aligned actions that wrap under the title below `40rem`. It accepts `id` and `className` on
+  the header and `titleId` on the `h1`, so a region outside the header can name itself by the page
+  title. The back link is a router `Link`.
+- **Icons.** One module, `ui/icons`, exports the named glyphs (`ChevronRight`, `ChevronLeft`/`Back`,
+  `ChevronDown`, `Close`, `Plus`, `Minus`, `Pencil`, `ArrowRight`/`Open`, `Check`, `Dice`, `Menu`).
+  Every glyph is a 24-unit viewBox, stroke `1.6`, `currentColor`, `aria-hidden` and sized in `em`
+  (or a token), so colour and size come from the text it sits in. An icon-only control is always
+  named by `aria-label`.
+- **Feedback.** Every async action shows progress and an inline result (success or a mapped error).
+  Loading, empty and error states are designed, never blank.
 - **Badge.** A short status label on a bounded object (the current plan): `--lg-type-12` semibold
   on the accent fill with `--lg-color-accent-text`, `--lg-radius-pill`. A badge is never a control;
   the pill shape stays banned for buttons.
 - **Document dialog.** Long reading content opened from a flow (the privacy policy) uses the one
-  dialog pattern at `--lg-size-dialog-max`: a hairline-divided header with the title and a ghost
-  icon close button on a `--lg-size-control` target, and a body that scrolls on its own, contains
-  its overscroll and takes the focus ring when focused for keyboard scrolling.
+  dialog pattern, built on `ui/Dialog`, at `--lg-size-dialog-max`: a hairline-divided header with the
+  title and a ghost icon close button on a `--lg-size-control` target, and a body that scrolls on its
+  own, contains its overscroll, is named by the dialog title through `aria-labelledby` and takes the
+  focus ring when focused for keyboard scrolling. The panel's shape comes from the `className` the
+  document passes to `ui/Dialog`, never from a selector over the dialog's descendants.
 - **Code field.** One editable field holds the whole code, presented as six
   single-digit positions that follow the field's value. The field keeps a
   permanent label, a numeric input mode and the platform's one-time-code
@@ -226,8 +323,9 @@ no display-scale heading.
 - **Stage roles.** The whole page sits on the `--lg-color-stage-*` roles, declared in both themes
   with the same values: a teal-black ground (the colour of the hero photograph's rock), an
   alternate band for the principles and the questions, a raised layer for the example, a lava
-  orange accent sampled from the photograph's lava, and a danger tone for refusals
-  (`--lg-color-stage-danger`). The landing is therefore always dark, whatever
+  orange accent sampled from the photograph's lava, a danger tone for refusals
+  (`--lg-color-stage-danger`) and an information tone for an informational notice edge
+  (`--lg-color-stage-info`, asserted on the stage band). The landing is therefore always dark, whatever
   the theme, and carries no theme control. The accent is used for the primary action, the sigil's
   core, the step numerals and the derived values of the example.
 - **Display type.** Geist 600 at `--lg-type-display-lg` (hero) and `--lg-type-display-md`
@@ -259,8 +357,9 @@ accent is the lava orange with `--lg-color-stage-accent-text` on its fill. Compo
 semantics, so no route, dialog or control carries its own colour for this world.
 
 - **Same ground, quieter voice.** The app is an operating surface: page titles use
-  `--lg-type-30` with `--lg-tracking-display` and `--lg-line-display`, list rows use
-  `--lg-type-24`; there is no photograph and no section-scale display type.
+  `--lg-type-30` with `--lg-tracking-display` and `--lg-line-display`, list-row and card names use
+  `--lg-type-18` semibold per the heading scale; there is no photograph and no section-scale display
+  type.
 - **Rows, not boxes.** Catalog and own-sheet entries are hairline-divided rows; the trailing arrow
   and the accent mark hover and focus only.
 - **Navigation.** The current item sits on the raised layer with the accent on its icon; the
@@ -279,7 +378,7 @@ The sheet is read at the table, so it is built from bounded units rather than a 
 and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none added).
 
 - **Section card.** A Section is the one bounded object: `--lg-color-surface` with a hairline
-  border, `--lg-radius-lg` and `--lg-shadow-1`, opening with its title at `--lg-type-18`
+  border, `--lg-radius-lg` and `--lg-shadow-1`, opening with its title at `--lg-type-20`
   semibold and a hairline. Rows are never cards: they are hairline-divided lines inside it.
   In the play view the title row is a disclosure control that folds the Section's Rows away (see
   "Sheet navigation"); in Arrange mode it is plain text beside the handle.
@@ -546,8 +645,8 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   trailing accent arrow on hover and focus only; meta ("Played by …", kind and owner) is muted and
   the update date sits at the foot in `--lg-type-12` subtle tabular figures. An NPC card shows its
   visibility to players as a dot (success fill when visible, an outline when hidden) plus text,
-  and its actions fill the card's foot. Section headings are `--lg-type-20` (Members `--lg-type-15`)
-  with a muted tabular count beside them; the NPC link form is one inline row capped at `32rem`.
+  and its actions fill the card's foot. Section headings are `--lg-type-20`
+  with a muted tabular count beside them (Members included); the NPC link form is one inline row capped at `32rem`.
   Join is the same page title over one form capped at `36rem`. Long names and invite codes wrap
   anywhere, never overflow.
 - **Privacy (`/privacy`).** Public and outside the shell, so it follows the stored or system theme

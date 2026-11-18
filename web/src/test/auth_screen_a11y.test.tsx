@@ -8,7 +8,12 @@ import { AuthScreen } from '../auth/auth_screen';
 import { createAuthSession } from '../auth/auth_session';
 import { createMemorySheetStore } from '../library/sheet_store';
 import { message } from '../l10n/strings';
-import { createDeferredTransport } from './fake_transport';
+import {
+  createDeferredTransport,
+  createFakeTransport,
+  errorOutcome,
+  successOutcome,
+} from './fake_transport';
 
 function renderAuth(next: string | null = null) {
   const session = createAuthSession({
@@ -63,7 +68,7 @@ describe('auth surface accessibility', () => {
     expect(register).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('Happy path: the password toggle reveals and hides with aria-pressed', async () => {
+  it('Happy path: the password toggle reveals and hides with aria-pressed and a fixed name', async () => {
     const user = userEvent.setup();
     renderAuth();
     const field = screen.getByLabelText(message('auth.passwordLabel'));
@@ -72,10 +77,50 @@ describe('auth surface accessibility', () => {
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
     await user.click(toggle);
     expect(field).toHaveAttribute('type', 'text');
-    const hide = screen.getByRole('button', { name: message('auth.hidePassword') });
-    expect(hide).toHaveAttribute('aria-pressed', 'true');
-    await user.click(hide);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveAccessibleName(message('auth.showPassword'));
+    await user.click(toggle);
     expect(field).toHaveAttribute('type', 'password');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('Edge: a refusal is announced once, and the credential fields carry aria-invalid and its description', async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferredTransport();
+    const session = createAuthSession({
+      authApi: createAuthApi({
+        baseUrl: 'http://api.test',
+        transport: deferred.transport,
+        readCsrfToken: () => undefined,
+      }),
+    });
+    render(
+      <AppProviders session={session} sheetStore={createMemorySheetStore()}>
+        <MemoryRouter>
+          <AuthScreen />
+        </MemoryRouter>
+      </AppProviders>,
+    );
+
+    const email = screen.getByLabelText(message('auth.emailLabel'));
+    const password = screen.getByLabelText(message('auth.passwordLabel'));
+    expect(email).toHaveAttribute('aria-invalid', 'false');
+    expect(email).not.toHaveAttribute('aria-describedby');
+
+    await user.type(email, 'a@b.test');
+    await user.type(password, 'secret');
+    await user.click(screen.getByRole('button', { name: message('auth.submitLogin') }));
+    deferred.resolve(errorOutcome('UNAUTHORIZED', 'bad credentials', 401));
+
+    const error = await screen.findByTestId('auth-error');
+    expect(error).toHaveAttribute('role', 'alert');
+    expect(error).not.toHaveAttribute('aria-live');
+    expect(error).toHaveAttribute('id', 'auth-error');
+    expect(email).toHaveAttribute('aria-invalid', 'true');
+    expect(password).toHaveAttribute('aria-invalid', 'true');
+    expect(email.getAttribute('aria-describedby')).toBe('auth-error');
+    expect(password.getAttribute('aria-describedby')).toBe('auth-error');
+    expect(email).toHaveAccessibleDescription(error.textContent ?? '');
   });
 
   it('Happy path: a sheet destination names the sheet in the subtitle; other paths do not', () => {
@@ -84,5 +129,29 @@ describe('auth surface accessibility', () => {
     unmount();
     renderAuth('/your-sheet');
     expect(screen.getByText(message('auth.subtitleLogin'))).toBeInTheDocument();
+  });
+
+  it('Edge: the deferred-delivery notice is informational, never the refusal tone', async () => {
+    const fake = createAuthSession({
+      authApi: createAuthApi({
+        baseUrl: 'http://api.test',
+        transport: createFakeTransport(successOutcome({ delivery: 'deferred' }, 201)).transport,
+        readCsrfToken: () => undefined,
+      }),
+    });
+    await fake.register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
+
+    render(
+      <AppProviders session={fake} sheetStore={createMemorySheetStore()}>
+        <MemoryRouter>
+          <AuthScreen restore={fake.getSnapshot().restored} initialMode="register" />
+        </MemoryRouter>
+      </AppProviders>,
+    );
+
+    const notice = screen.getByText(message('auth.deferredNotice')).closest('.lg-notice');
+    expect(notice).toHaveAttribute('role', 'status');
+    expect(notice).toHaveClass('lg-notice--info', 'lg-notice--stage');
+    expect(notice).not.toHaveClass('lg-notice--danger');
   });
 });

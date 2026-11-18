@@ -1,5 +1,3 @@
-/* The Roll result floats at the bottom of the viewport, clear of the sticky footer (its height
-   arrives as --dice-floor), so a Roll is seen wherever its Row sits on the page. */
 .lg-dice-panel {
   position: fixed;
   inset-inline: var(--lg-space-16);
@@ -97,6 +95,9 @@
   position: absolute;
   inset-block-start: var(--lg-space-2);
   inset-inline-end: var(--lg-space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   inline-size: var(--lg-size-control);
   block-size: var(--lg-size-control);
   border: 0;
@@ -106,13 +107,16 @@
   cursor: pointer;
 }
 
+.lg-dice-panel__close {
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
+}
+
 .lg-dice-panel__dismiss:focus-visible {
   outline: var(--lg-focus-width) solid var(--lg-color-focus);
   outline-offset: var(--lg-focus-offset);
 }
 
-/* The Section's Dice button shares the title row: the title keeps the line, the button sits at
-   its trailing edge. */
 .lg-dice-section {
   display: flex;
   align-items: center;
@@ -140,8 +144,6 @@
   flex: none;
 }
 
-/* A Section with no dice of its own keeps the button findable but quiet; one with an expression
-   (the player's or the Template's) draws it at full text colour. */
 .lg-dice-section__button:not([data-dice-set]) {
   color: var(--lg-color-text-muted);
 }
@@ -152,8 +154,6 @@
   font-size: var(--lg-type-13);
 }
 
-/* Roll and Edit sit at the trailing edge of the Row's label, right before the value, in every
-   Row kind: never a line of their own. */
 .lg-dice-actions {
   display: inline-flex;
   flex: none;
@@ -193,8 +193,6 @@
   padding-inline: 0;
 }
 
-/* Roll is the action of the table: the one raised, outlined control of the Row, naming the dice
-   it throws in tabular figures. Edit and the Section button stay ghost icons beside it. */
 .lg-dice-button--roll {
   padding-inline: var(--lg-space-8) var(--lg-space-12);
   border-color: var(--lg-color-border-strong);
@@ -287,7 +285,6 @@
   font-size: var(--lg-type-13);
 }
 
-/* The two ways out of a custom expression are quieter than the commit pair below them. */
 .lg-dice-editor__alternatives {
   display: flex;
   flex-wrap: wrap;
@@ -309,15 +306,12 @@
   }
 }
 
-/* A Row label carrying Roll and Edit keeps them on its own line: the label text wraps instead. */
 .lg-field-row__label:has(> .lg-dice-actions),
 .lg-field-table__lead:has(> .lg-dice-actions) {
   flex-wrap: nowrap;
   align-items: center;
 }
 
-/* Beside the actions a label keeps whole words: its longest word sets its minimum width, so a
-   narrow Row never breaks "Constitution" in the middle. */
 .lg-field-row__label:has(> .lg-dice-actions) {
   min-width: min-content;
 }
@@ -326,11 +320,6 @@
   overflow-wrap: normal;
 }
 
-/* On a narrow Row the actions would widen the label's whole-word minimum and push the value
-   column inward, off the guide the other Rows share. There they drop under the label text, inside
-   the label column, and may wrap between themselves, so the label's minimum stays its longest word
-   or its widest button. The Roll drops its die to fit; the outline and the dice it names still
-   mark it as the action of the table. */
 @media (max-width: 40rem) {
   .lg-field-row__label:has(> .lg-dice-actions) {
     flex-wrap: wrap;

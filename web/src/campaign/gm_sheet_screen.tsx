@@ -1,23 +1,44 @@
 import { useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { failureCopy, failureKind } from '../api/error_mapper';
-import type { FieldNode } from '../api/models/template';
+import type { FieldNode, TemplateDetail } from '../api/models/template';
 import { valueAtPath } from '../api/models/sheet';
 import type { Sheet } from '../api/models/sheet';
 import { useApiClient } from '../app/providers';
 import { templateDetailKey } from '../catalog/queries';
 import { message, messageWith } from '../l10n/strings';
+import { Button } from '../ui/button';
+import { PageHeader } from '../ui/page_header';
+import { ErrorState, LoadingState } from '../ui/state';
 import type { GmSheetSnapshot } from './campaign_queries';
 import { npcLinksKey, useNpcSheet, useGmSheet } from './campaign_queries';
 import './campaign.css';
 
-function formatValue(value: unknown): string {
+export function formatValue(value: unknown): string {
   if (value === undefined || value === null || value === '') {
     return message('gm.emptyValue');
   }
-  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  if (Array.isArray(value)) {
+    return value.length === 0 ? message('gm.emptyValue') : value.map(formatValue).join(', ');
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    return entries.length === 0
+      ? message('gm.emptyValue')
+      : entries.map(([key, item]) => `${key}: ${formatValue(item)}`).join(', ');
+  }
+  return String(value);
+}
+
+function readValue(data: Record<string, unknown>, path: string): unknown {
+  try {
+    return valueAtPath(data, path);
+  } catch {
+    return undefined;
+  }
 }
 
 function FieldRows({
@@ -29,64 +50,75 @@ function FieldRows({
   prefix: string;
   data: Record<string, unknown>;
 }) {
-  return (
-    <>
-      {Object.entries(nodes).map(([key, node]) => {
-        const path = prefix === '' ? key : `${prefix}.${key}`;
-        if (node.kind === 'group') {
-          return (
-            <section className="lg-campaign__group" key={path} aria-label={node.label ?? key}>
-              <h3 className="lg-campaign__subheading">{node.label ?? key}</h3>
-              <FieldRows nodes={node.children} prefix={path} data={data} />
-            </section>
-          );
-        }
-        return (
-          <div className="lg-campaign__field" key={path}>
-            <dt className="lg-campaign__name">{node.schema.label}</dt>
-            <dd className="lg-campaign__value">{formatValue(readValue(data, path))}</dd>
-          </div>
-        );
-      })}
-    </>
-  );
-}
+  const blocks: ReactNode[] = [];
+  let leaves: ReactNode[] = [];
 
-function readValue(data: Record<string, unknown>, path: string): unknown {
-  try {
-    return valueAtPath(data, path);
-  } catch {
-    return undefined;
+  const flushLeaves = () => {
+    if (leaves.length === 0) {
+      return;
+    }
+    blocks.push(
+      <dl className="lg-campaign__field-list" key={`field-list-${blocks.length}`}>
+        {leaves}
+      </dl>,
+    );
+    leaves = [];
+  };
+
+  for (const [key, node] of Object.entries(nodes)) {
+    const path = prefix === '' ? key : `${prefix}.${key}`;
+    if (node.kind === 'group') {
+      flushLeaves();
+      blocks.push(
+        <div className="lg-campaign__group" key={path}>
+          <h3 className="lg-campaign__subheading">{node.label ?? key}</h3>
+          <FieldRows nodes={node.children} prefix={path} data={data} />
+        </div>,
+      );
+      continue;
+    }
+    leaves.push(
+      <div className="lg-campaign__field" key={path}>
+        <dt className="lg-campaign__field-label">{node.schema.label}</dt>
+        <dd className="lg-campaign__value">{formatValue(readValue(data, path))}</dd>
+      </div>,
+    );
   }
+
+  flushLeaves();
+
+  return <>{blocks}</>;
 }
 
-function SheetFields({ sheet }: { sheet: Sheet }) {
+function useSheetTemplate(templateId: string | undefined) {
   const client = useApiClient();
-  const template = useQuery({
-    queryKey: templateDetailKey(sheet.templateId),
-    queryFn: () => client.getTemplate(sheet.templateId),
+
+  return useQuery({
+    queryKey: templateDetailKey(templateId ?? ''),
+    queryFn: () => client.getTemplate(templateId ?? ''),
+    enabled: templateId !== undefined,
     retry: false,
   });
+}
 
+function SheetFields({
+  template,
+  sheet,
+}: {
+  template: UseQueryResult<TemplateDetail, Error>;
+  sheet: Sheet;
+}) {
   if (template.isError) {
-    return (
-      <p className="lg-campaign__error" role="alert">
-        {failureCopy(template.error)}
-      </p>
-    );
+    return <ErrorState message={failureCopy(template.error)} />;
   }
   if (template.data === undefined) {
-    return (
-      <p className="lg-campaign__message" role="status">
-        {message('gm.loading')}
-      </p>
-    );
+    return <LoadingState label={message('gm.loading')} />;
   }
 
   return (
-    <dl className="lg-campaign__fields">
+    <div className="lg-campaign__fields">
       <FieldRows nodes={template.data.fields} prefix="" data={sheet.data} />
-    </dl>
+    </div>
   );
 }
 
@@ -127,43 +159,41 @@ interface GmSheetPageProps {
 }
 
 function GmSheetPage({ campaignId, heading, sheet, unavailable }: GmSheetPageProps) {
+  const templateId = sheet.data?.sheet.templateId;
+  const template = useSheetTemplate(templateId);
+  const templateLabel =
+    templateId === undefined
+      ? undefined
+      : messageWith('gm.template', { name: template.data?.name ?? templateId });
+
   return (
     <div className="lg-campaign">
-      <p className="lg-campaign__back">
-        <Link to={`/campaigns/${campaignId}`}>{message('campaign.back')}</Link>
-      </p>
-      <h1 className="lg-campaign__title">{heading}</h1>
-      <p className="lg-campaign__caption">{message('gm.caption')}</p>
-      <button
-        type="button"
-        className="lg-button lg-button--outline lg-button--sm"
-        disabled={sheet.isFetching}
-        aria-busy={sheet.isFetching ? true : undefined}
-        onClick={() => void sheet.refetch()}
-      >
-        {sheet.isFetching ? message('gm.refreshing') : message('gm.refresh')}
-      </button>
-      {sheet.isPending ? (
-        <p className="lg-campaign__message" role="status">
-          {message('gm.loading')}
-        </p>
-      ) : null}
+      <PageHeader
+        title={heading}
+        backTo={`/campaigns/${campaignId}`}
+        backLabel={message('campaign.back')}
+        meta={templateLabel === undefined ? undefined : <span>{templateLabel}</span>}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            label={sheet.isFetching ? message('gm.refreshing') : message('gm.refresh')}
+            loading={sheet.isFetching}
+            onClick={() => void sheet.refetch()}
+          />
+        }
+      />
+      {sheet.isPending ? <LoadingState label={message('gm.loading')} /> : null}
       {unavailable ? (
-        <p className="lg-campaign__error" role="alert">
-          {unavailable}
-        </p>
+        <ErrorState message={unavailable} />
       ) : sheet.isError ? (
-        <p className="lg-campaign__error" role="alert">
-          {failureCopy(sheet.error)}
-        </p>
+        <ErrorState message={failureCopy(sheet.error)} />
       ) : null}
       {sheet.data === undefined || unavailable ? null : (
         <>
           <h2 className="lg-campaign__heading">{sheet.data.sheet.name}</h2>
-          <p className="lg-campaign__meta">
-            {messageWith('gm.template', { name: sheet.data.sheet.templateId })}
-          </p>
-          <SheetFields sheet={sheet.data.sheet} />
+          <p className="lg-campaign__caption">{message('gm.caption')}</p>
+          <SheetFields template={template} sheet={sheet.data.sheet} />
         </>
       )}
     </div>

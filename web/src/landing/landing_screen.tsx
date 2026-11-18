@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
+import { PRIVACY_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 import { BrandMark } from '../shell/brand_mark';
+import { ChevronDownIcon } from '../ui/icons';
 import { CascadeDemo } from './cascade_demo';
 import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
@@ -36,14 +37,6 @@ const FAQ: readonly { readonly question: MessageKey; readonly answer: MessageKey
   { question: 'landing.faq4Question', answer: 'landing.faq4Answer' },
   { question: 'landing.faq5Question', answer: 'landing.faq5Answer' },
 ];
-
-function Chevron() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 export function LandingScreen() {
   useStageThemeColor();
@@ -142,7 +135,7 @@ export function LandingScreen() {
                   <summary className="lg-landing__faq-question">
                     <span>{message(entry.question)}</span>
                     <span className="lg-landing__faq-chevron">
-                      <Chevron />
+                      <ChevronDownIcon />
                     </span>
                   </summary>
                   <p className="lg-landing__text lg-landing__faq-answer">{message(entry.answer)}</p>
@@ -174,6 +167,9 @@ export function LandingScreen() {
           <small className="lg-landing__copyright">
             {messageWith('landing.copyright', { year: new Date().getFullYear() })}
           </small>
+          <Link className="lg-landing__legal-link" to={PRIVACY_PATH}>
+            {message('landing.footer.privacy')}
+          </Link>
         </div>
       </footer>
     </div>

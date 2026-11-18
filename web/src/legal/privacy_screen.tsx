@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
-import { parseMarkdown, tokenizeInline } from './privacy_markdown';
+import { message } from '../l10n/strings';
+import { PageHeader } from '../ui/page_header';
+import { tokenizeInline } from './privacy_markdown';
 import type { InlineToken, MarkdownBlock } from './privacy_markdown';
-import { policyLocale, policyMarkdown } from './privacy_policy';
+import { policyDocument, policyLocale } from './privacy_policy';
 import type { PolicyLocale } from './privacy_policy';
 import './privacy.css';
 
@@ -75,11 +77,14 @@ export function PrivacyArticle({ blocks, headingLevelOffset = 0, className }: Pr
 
 export function PrivacyScreen({ locale }: PrivacyScreenProps = {}) {
   const resolved = locale ?? currentPolicyLocale();
-  const blocks = parseMarkdown(policyMarkdown(resolved));
+  const { title, body } = policyDocument(resolved);
 
   return (
     <main className="lg-privacy" lang={resolved}>
-      <PrivacyArticle blocks={blocks} />
+      <div className="lg-privacy__inner">
+        <PageHeader title={title} backTo="/" backLabel={message('privacy.back')} />
+        <PrivacyArticle blocks={body} />
+      </div>
     </main>
   );
 }

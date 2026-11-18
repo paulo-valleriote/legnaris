@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { failureCopy, failureKind } from '../api/error_mapper';
 import type { PlanUsage } from '../api/models/plan';
@@ -6,9 +6,17 @@ import { redirectTo } from '../billing/redirect';
 import { useApiClient } from '../app/providers';
 import { PLAN_QUERY_KEY, usePlanUsage } from '../catalog/queries';
 import { message, messageWith } from '../l10n/strings';
+import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
+import { Notice } from '../ui/notice';
+import { PageHeader } from '../ui/page_header';
+import { ErrorState, LoadingState } from '../ui/state';
 import { planName, refundPollingInterval } from './plan_view';
 import './plans.css';
+
+function formatPeriodEnd(periodEnd: string): string {
+  return new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(periodEnd));
+}
 
 function RefundSection({ usage, onRequest }: { usage: PlanUsage; onRequest: () => void }) {
   const { refundEligible, refundState } = usage.billing;
@@ -23,28 +31,24 @@ function RefundSection({ usage, onRequest }: { usage: PlanUsage; onRequest: () =
         {message('plans.refundHeading')}
       </h2>
       {refundState === 'requested' ? (
-        <p className="lg-plans__notice" role="status">
+        <Notice tone="info" live="polite">
           {message('plans.refundRequested')}
-        </p>
+        </Notice>
       ) : null}
       {refundState === 'refunded' || refundState === 'canceled' ? (
-        <p className="lg-plans__notice" role="status">
+        <Notice tone="success" live="polite">
           {message('plans.refundCompleted')}
-        </p>
+        </Notice>
       ) : null}
       {refundState === 'failed' ? (
-        <p className="lg-plans__error" role="alert">
+        <Notice tone="danger" live="polite">
           {message('plans.refundFailed')}
-        </p>
+        </Notice>
       ) : null}
       {refundEligible ? (
         <>
           <p className="lg-plans__text">{message('plans.refundNote')}</p>
-          <div>
-            <button type="button" className="lg-button lg-button--danger" onClick={onRequest}>
-              {message('plans.refundAction')}
-            </button>
-          </div>
+          <Button variant="danger" label={message('plans.refundAction')} onClick={onRequest} />
         </>
       ) : null}
     </section>
@@ -94,29 +98,30 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
     },
   });
 
-  const closeRefund = () => {
-    if (!refund.isPending) {
-      refund.reset();
+  const { isPending: refundPending, reset: resetRefund } = refund;
+
+  const closeRefund = useCallback(() => {
+    if (!refundPending) {
+      resetRefund();
       setRefundOpen(false);
     }
-  };
+  }, [refundPending, resetRefund]);
 
   const opening = checkout.isPending || checkout.isSuccess;
   const showActions = !isPaid || hasSubscription;
 
   const currentBadge = (
-    <p className="lg-plans__badge" data-testid="plans-current">
+    <p
+      className={`lg-plans__badge${isFree || isPaid ? '' : ' lg-plans__badge--standalone'}`}
+      data-testid="plans-current"
+    >
       {messageWith('plans.current', { plan: planName(usage.plan) })}
     </p>
   );
 
   return (
     <>
-      {isFree || isPaid ? null : (
-        <p className="lg-plans__badge lg-plans__badge--standalone" data-testid="plans-current">
-          {messageWith('plans.current', { plan: planName(usage.plan) })}
-        </p>
-      )}
+      {isFree || isPaid ? null : currentBadge}
 
       <div className="lg-plans__grid">
         <article
@@ -154,44 +159,38 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
           <p className="lg-plans__text">{message('plans.paidDescription')}</p>
 
           {usage.billing.cancelAtPeriodEnd ? (
-            <p className="lg-plans__notice">{message('plans.cancelAtPeriodEnd')}</p>
+            <Notice tone="warning" live="polite">
+              {message('plans.cancelAtPeriodEnd')}
+            </Notice>
           ) : null}
           {usage.billing.currentPeriodEnd === null ? null : (
-            <p className="lg-plans__notice">
+            <Notice tone="info" live="polite">
               {messageWith('plans.periodEnd', {
-                date: new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
-                  new Date(usage.billing.currentPeriodEnd),
-                ),
+                date: formatPeriodEnd(usage.billing.currentPeriodEnd),
               })}
-            </p>
+            </Notice>
           )}
           {isPaid || hasSubscription ? null : (
-            <p className="lg-plans__notice">{message('plans.neverSubscribed')}</p>
+            <p className="lg-plans__text">{message('plans.neverSubscribed')}</p>
           )}
 
           {showActions ? (
             <div className="lg-plans__plan-actions">
               {isPaid ? null : (
-                <button
-                  type="button"
-                  className="lg-button lg-button--primary"
-                  disabled={opening}
-                  aria-busy={opening}
+                <Button
+                  variant="primary"
+                  label={message('plans.subscribe')}
+                  loading={opening}
                   onClick={() => checkout.mutate()}
-                >
-                  {opening ? message('plans.subscribing') : message('plans.subscribe')}
-                </button>
+                />
               )}
               {hasSubscription ? (
-                <button
-                  type="button"
-                  className="lg-button"
-                  disabled={portal.isPending}
-                  aria-busy={portal.isPending}
+                <Button
+                  variant="secondary"
+                  label={message('plans.manage')}
+                  loading={portal.isPending}
                   onClick={() => portal.mutate()}
-                >
-                  {portal.isPending ? message('plans.managing') : message('plans.manage')}
-                </button>
+                />
               ) : null}
             </div>
           ) : null}
@@ -213,35 +212,28 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
 
       <Dialog
         open={refundOpen}
+        tone="danger"
         title={message('plans.refundTitle')}
         description={message('plans.refundMessage')}
+        error={refund.isError ? failureCopy(refund.error) : undefined}
         onClose={closeRefund}
-      >
-        {refund.isError ? (
-          <p className="lg-plans__error" role="alert">
-            {failureCopy(refund.error)}
-          </p>
-        ) : null}
-        <div className="lg-plans__actions">
-          <button
-            type="button"
-            className="lg-button"
-            disabled={refund.isPending}
-            onClick={closeRefund}
-          >
-            {message('plans.refundKeep')}
-          </button>
-          <button
-            type="button"
-            className="lg-button lg-button--danger"
-            disabled={refund.isPending}
-            aria-busy={refund.isPending}
-            onClick={() => refund.mutate()}
-          >
-            {message('plans.refundConfirm')}
-          </button>
-        </div>
-      </Dialog>
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              label={message('plans.refundKeep')}
+              disabled={refund.isPending}
+              onClick={closeRefund}
+            />
+            <Button
+              variant="danger"
+              label={message('plans.refundConfirm')}
+              loading={refund.isPending}
+              onClick={() => refund.mutate()}
+            />
+          </>
+        }
+      ></Dialog>
     </>
   );
 }
@@ -252,28 +244,18 @@ export function PlansScreen() {
   });
 
   return (
-    <section className="lg-plans" aria-labelledby="plans-title">
-      <h1 className="lg-plans__title" id="plans-title">
-        {message('plans.title')}
-      </h1>
+    <section className="lg-plans">
+      <PageHeader title={message('plans.title')} />
 
-      {plan.isPending ? <p className="lg-plans__message">{message('plans.loading')}</p> : null}
+      {plan.isPending ? <LoadingState label={message('plans.loading')} /> : null}
 
       {plan.isError ? (
-        <div className="lg-plans__failure">
-          <p className="lg-plans__error" role="alert">
-            {failureCopy(plan.error)}
-          </p>
-          <button
-            type="button"
-            className="lg-button"
-            onClick={() => {
-              void plan.refetch();
-            }}
-          >
-            {message('plans.retry')}
-          </button>
-        </div>
+        <ErrorState
+          message={message('plan.loadFailed')}
+          onRetry={() => {
+            void plan.refetch();
+          }}
+        />
       ) : null}
 
       {plan.data === undefined ? null : <PlansBody usage={plan.data} />}

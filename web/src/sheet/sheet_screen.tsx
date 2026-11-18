@@ -1,6 +1,6 @@
 import type { FailureKind } from '../api/errors';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { ReactNode, RefObject } from 'react';
+import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { failureCopy, failureKind } from '../api/error_mapper';
@@ -23,6 +23,8 @@ import { markLabel, SheetForm } from '../engine/sheet_form';
 import type { RowActionsInfo } from '../engine/sheet_form';
 import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
+import { Dialog } from '../ui/dialog';
+import { EmptyState, ErrorState, LoadingState } from '../ui/state';
 import { useApiClient, useSheetStore } from '../app/providers';
 import {
   templateDetailKey,
@@ -73,20 +75,6 @@ import { HelpPanel, HelpToggle } from './sheet_help';
 import type { SheetOpenResult } from './sheet_open';
 import { useSheetOpen } from './sheet_open';
 import './sheet.css';
-
-interface RetryActionProps {
-  readonly copy: string;
-  readonly onRetry: () => void;
-}
-
-function RetryAction({ copy, onRetry }: RetryActionProps) {
-  return (
-    <div className="lg-sheet__failure">
-      <p className="lg-sheet__message">{copy}</p>
-      <Button variant="primary" size="sm" label={message('sheet.retryOpen')} onClick={onRetry} />
-    </div>
-  );
-}
 
 function errorClass(kind: FailureKind | undefined): string {
   return kind === 'offline' ? 'lg-sheet__error lg-sheet__error--offline' : 'lg-sheet__error';
@@ -416,24 +404,22 @@ function ArrangeFooter({ store }: ArrangeFooterProps) {
 
 interface ArrangeToggleProps {
   readonly store: LayoutStore;
-  readonly buttonRef: RefObject<HTMLButtonElement | null>;
   readonly onStart: () => void;
 }
 
-function ArrangeToggle({ store, buttonRef, onStart }: ArrangeToggleProps) {
+function ArrangeToggle({ store, onStart }: ArrangeToggleProps) {
   const state = useLayoutState(store);
   if (isArranging(state)) {
     return null;
   }
   return (
-    <button
-      type="button"
-      className="lg-button lg-button--ghost lg-button--sm"
-      ref={buttonRef}
+    <Button
+      variant="ghost"
+      size="sm"
+      className="lg-sheet__arrange-toggle"
+      label={message('arrange.start')}
       onClick={onStart}
-    >
-      {message('arrange.start')}
-    </button>
+    />
   );
 }
 
@@ -449,7 +435,7 @@ interface SheetConfirmationProps {
 }
 
 function SheetConfirmation({ kind, onCancel, onConfirm }: SheetConfirmationProps) {
-  const cancelRef = useRef<HTMLButtonElement>(null);
+  const safeRef = useRef<HTMLButtonElement>(null);
   const copy =
     kind === 'refresh'
       ? {
@@ -463,58 +449,27 @@ function SheetConfirmation({ kind, onCancel, onConfirm }: SheetConfirmationProps
           confirm: message('sheet.leaveConfirm'),
         };
 
-  useEffect(() => {
-    cancelRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel]);
-
   return (
-    <div
-      className="lg-overlay"
-      role="presentation"
-      data-testid="sheet-confirm-overlay"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onCancel();
-        }
-      }}
-    >
-      <div
-        className="lg-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sheet-confirm-title"
-        aria-describedby="sheet-confirm-message"
-        data-testid={`sheet-confirm-${kind}`}
-      >
-        <div className="lg-dialog__header">
-          <h2 className="lg-dialog__title" id="sheet-confirm-title">
-            {copy.title}
-          </h2>
-        </div>
-        <p className="lg-dialog__message" id="sheet-confirm-message">
-          {copy.body}
-        </p>
-        <div className="lg-dialog__actions">
-          <button type="button" className="lg-button" ref={cancelRef} onClick={onCancel}>
-            {message('sheet.cancel')}
-          </button>
-          <button type="button" className="lg-button lg-button--danger" onClick={onConfirm}>
-            {copy.confirm}
-          </button>
-        </div>
-      </div>
-    </div>
+    <Dialog
+      open
+      tone="danger"
+      title={copy.title}
+      description={copy.body}
+      onClose={onCancel}
+      initialFocusRef={safeRef}
+      actions={
+        <>
+          <Button
+            ref={safeRef}
+            variant="secondary"
+            size="md"
+            label={message('sheet.cancel')}
+            onClick={onCancel}
+          />
+          <Button variant="danger" size="md" label={copy.confirm} onClick={onConfirm} />
+        </>
+      }
+    />
   );
 }
 
@@ -613,6 +568,9 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   );
   const [helpOpen, setHelpOpen] = useState(() => hasCalculated && !view.state.explainerSeen);
   const helpToggleRef = useRef<HTMLButtonElement>(null);
+  const focusHelpToggle = useCallback(() => {
+    helpToggleRef.current?.focus();
+  }, []);
   const closeHelp = useCallback(() => {
     setHelpOpen(false);
     view.store.markExplainerSeen();
@@ -621,7 +579,6 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   const [duplicating, setDuplicating] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | undefined>(undefined);
   const navigate = useNavigate();
-  const arrangeToggleRef = useRef<HTMLButtonElement>(null);
   const arrangeHintRef = useRef<HTMLParagraphElement>(null);
   const focusArrangeHint = useRef(false);
   const startArranging = useCallback(() => {
@@ -795,7 +752,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       arrangeHintRef.current?.focus();
     }
     if (!arranging && wasArranging.current) {
-      arrangeToggleRef.current?.focus();
+      document.querySelector<HTMLButtonElement>('.lg-sheet__arrange-toggle')?.focus();
     }
     wasArranging.current = arranging;
   }, [arranging]);
@@ -824,15 +781,14 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
           {sections.length > 0 && (
             <div className="lg-sheet__header-actions">
               {isLinkableSheetKind(sheet.kind) && (
-                <button
-                  type="button"
-                  className="lg-button lg-button--ghost lg-button--sm"
-                  disabled={duplicating || arranging}
-                  aria-busy={duplicating ? true : undefined}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={arranging}
+                  loading={duplicating}
+                  label={duplicating ? message('sheet.duplicating') : message('sheet.duplicate')}
                   onClick={requestDuplicate}
-                >
-                  {duplicating ? message('sheet.duplicating') : message('sheet.duplicate')}
-                </button>
+                />
               )}
               {hasCalculated && (
                 <HelpToggle
@@ -841,11 +797,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
                   onToggle={() => (helpOpen ? closeHelp() : setHelpOpen(true))}
                 />
               )}
-              <ArrangeToggle
-                store={layoutStore}
-                buttonRef={arrangeToggleRef}
-                onStart={startArranging}
-              />
+              <ArrangeToggle store={layoutStore} onStart={startArranging} />
             </div>
           )}
         </div>
@@ -863,20 +815,20 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
           <HelpPanel
             onDismiss={() => {
               closeHelp();
-              helpToggleRef.current?.focus();
+              focusHelpToggle();
             }}
           />
         )}
       </header>
-      {duplicateError ? (
-        <p className="lg-sheet__error" role="alert" data-testid="sheet-duplicate-error">
-          {duplicateError}
-        </p>
+      {duplicateError !== undefined ? (
+        <div data-testid="sheet-duplicate-error">
+          <ErrorState message={duplicateError} />
+        </div>
       ) : null}
       {sections.length === 0 ? (
-        <p className="lg-sheet__message" data-testid="sheet-empty-fields">
-          {message('sheet.emptyFields')}
-        </p>
+        <div data-testid="sheet-empty-fields">
+          <EmptyState message={message('sheet.emptyFields')} />
+        </div>
       ) : (
         <ArrangeProvider store={layoutStore}>
           <SectionIndex
@@ -963,19 +915,31 @@ function fieldsWhere(
 function SheetBody({ result }: { readonly result: SheetOpenResult }) {
   switch (result.kind) {
     case 'loading':
-      return <p className="lg-sheet__message">{message('sheet.openLoading')}</p>;
+      return <LoadingState label={message('sheet.openLoading')} />;
     case 'notFound':
       return (
-        <p className="lg-sheet__message" data-testid="sheet-missing">
-          {result.message}
-        </p>
+        <div data-testid="sheet-missing">
+          <ErrorState message={result.message} />
+        </div>
       );
     case 'failure':
-      return <RetryAction copy={result.message} onRetry={result.retry} />;
+      return (
+        <ErrorState
+          message={result.message}
+          onRetry={result.retry}
+          retryLabel={message('common.retry')}
+        />
+      );
     case 'templateLoading':
-      return <p className="lg-sheet__message">{message('sheet.templateLoading')}</p>;
+      return <LoadingState label={message('sheet.templateLoading')} />;
     case 'templateFailure':
-      return <RetryAction copy={result.message} onRetry={result.retry} />;
+      return (
+        <ErrorState
+          message={result.message}
+          onRetry={result.retry}
+          retryLabel={message('common.retry')}
+        />
+      );
     case 'loaded':
       return <LoadedSheet key={result.sheet.id} sheet={result.sheet} template={result.template} />;
   }

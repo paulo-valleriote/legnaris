@@ -1,16 +1,8 @@
 import { useState } from 'react';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
+import { MinusIcon, PlusIcon } from '../ui/icons';
 import { MIGHT_MAX, MIGHT_MIN, MIGHT_DEFAULT, deriveCascade, formatSigned } from './cascade';
-
-function StepIcon({ plus }: { readonly plus: boolean }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M3 8h10" strokeLinecap="round" />
-      {plus && <path d="M8 3v10" strokeLinecap="round" />}
-    </svg>
-  );
-}
 
 interface DerivedRowProps {
   readonly label: string;
@@ -38,7 +30,7 @@ function DerivedRow({ label, formula, value, depth }: DerivedRowProps) {
         <span className="lg-landing__demo-formula">{formula}</span>
       </dt>
       <dd className="lg-landing__demo-definition">
-        <output key={value} className="lg-landing__demo-value">
+        <output key={value} className="lg-landing__demo-value" aria-live="off">
           {value}
         </output>
       </dd>
@@ -64,9 +56,9 @@ export function CascadeDemo() {
             disabled={derived.might <= MIGHT_MIN}
             onClick={() => setMight(derived.might - 1)}
           >
-            <StepIcon plus={false} />
+            <MinusIcon />
           </button>
-          <output key={derived.might} className="lg-landing__demo-base-value">
+          <output key={derived.might} className="lg-landing__demo-base-value" aria-live="off">
             {derived.might}
           </output>
           <button
@@ -76,7 +68,7 @@ export function CascadeDemo() {
             disabled={derived.might >= MIGHT_MAX}
             onClick={() => setMight(derived.might + 1)}
           >
-            <StepIcon plus />
+            <PlusIcon />
           </button>
         </div>
       </div>
@@ -102,9 +94,16 @@ export function CascadeDemo() {
         />
       </dl>
 
-      <figcaption className="lg-landing__demo-note" aria-live="polite">
-        {message(noteKey(derived.might))}
-      </figcaption>
+      <figcaption className="lg-landing__demo-note">{message(noteKey(derived.might))}</figcaption>
+
+      <p className="lg-landing__demo-live" role="status" aria-live="polite" data-testid="demo-live">
+        {messageWith('landing.demoChange', {
+          might: derived.might,
+          modifier: formatSigned(derived.modifier),
+          climbing: formatSigned(derived.climbing),
+          carry: derived.carry,
+        })}
+      </p>
     </figure>
   );
 }

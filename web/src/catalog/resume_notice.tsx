@@ -4,6 +4,7 @@ import { useApiClient } from '../app/providers';
 import { usePlanUsage } from './queries';
 import { generationCopy, message } from '../l10n/strings';
 import { Button } from '../ui/button';
+import { Notice } from '../ui/notice';
 
 export function ResumeNotice() {
   const client = useApiClient();
@@ -25,18 +26,23 @@ export function ResumeNotice() {
   const { templateId, kind } = generation.data;
 
   return (
-    <div role="status" className="lg-catalog__notice">
-      <p>{generationCopy('generate.resumeNotice', kind)}</p>
-      <Button
-        variant="secondary"
-        size="md"
-        label={message('generate.resumeOpen')}
-        onClick={() =>
-          navigate(`/generate/${encodeURIComponent(templateId)}?kind=${kind}`, {
-            state: { generationId: activeId },
-          })
-        }
-      />
-    </div>
+    <Notice
+      tone="info"
+      live="polite"
+      action={
+        <Button
+          variant="secondary"
+          size="md"
+          label={message('generate.resumeOpen')}
+          onClick={() =>
+            navigate(`/generate/${encodeURIComponent(templateId)}?kind=${kind}`, {
+              state: { generationId: activeId },
+            })
+          }
+        />
+      }
+    >
+      {generationCopy('generation.resumeNotice', kind)}
+    </Notice>
   );
 }

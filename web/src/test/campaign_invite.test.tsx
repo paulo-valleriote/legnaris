@@ -73,10 +73,13 @@ describe('GM invite controls (LGN-200 on the campaign page)', () => {
     await openInvite(user);
 
     expect(inviteToggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(inviteToggle()).toHaveAttribute('aria-controls', 'campaign-invite-panel');
+    expect(inviteToggle()).toHaveClass('lg-button', 'lg-button--ghost');
     expect(screen.getByText(CODE)).toBeInTheDocument();
-    expect(screen.getByLabelText(message('invite.linkLabel'))).toHaveValue(
-      inviteLink(window.location.origin, CODE),
-    );
+    const shareLink = screen.getByLabelText(message('invite.linkLabel'));
+    expect(shareLink).toHaveValue(inviteLink(window.location.origin, CODE));
+    expect(shareLink).toHaveAttribute('readonly');
+    expect(shareLink).toHaveClass('lg-form-field__input');
   });
 
   it('Edge: a GM with no invite code yet sees the empty copy, not a broken link', async () => {
@@ -87,6 +90,7 @@ describe('GM invite controls (LGN-200 on the campaign page)', () => {
     await openInvite(user);
 
     expect(await screen.findByText(message('invite.none'))).toBeInTheDocument();
+    expect(screen.getByText(message('invite.none')).closest('.lg-state--empty')).not.toBeNull();
     expect(screen.queryByLabelText(message('invite.linkLabel'))).not.toBeInTheDocument();
   });
 
@@ -277,6 +281,7 @@ describe('Campaign settings panel (owners only)', () => {
     await openSettings(user);
 
     expect(settingsToggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(settingsToggle()).toHaveAttribute('aria-controls', 'campaign-settings-panel');
     expect(
       screen.getByRole('heading', { name: message('campaign.settingsHeading') }),
     ).toBeInTheDocument();
@@ -296,13 +301,20 @@ describe('Campaign settings panel (owners only)', () => {
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     await openSettings(user);
-    await user.type(
-      screen.getByLabelText(message('invite.passwordLabel'), { exact: false }),
-      'short',
-    );
+    const password = screen.getByLabelText(message('invite.passwordLabel'), { exact: false });
+    expect(password).toHaveAttribute('type', 'password');
+    expect(password).not.toHaveAttribute('aria-invalid', 'true');
+    expect(password.getAttribute('aria-describedby')).toContain('campaign-password-hint');
+    expect(password.closest('label')).toBeNull();
+
+    await user.type(password, 'short');
     await user.click(screen.getByRole('button', { name: message('invite.passwordSave') }));
 
     expect(await screen.findByText(message('invite.passwordTooShort'))).toBeInTheDocument();
+    expect(password).toHaveAttribute('aria-invalid', 'true');
+    const describedBy = password.getAttribute('aria-describedby') ?? '';
+    expect(describedBy).toContain('campaign-password-hint');
+    expect(describedBy).toContain('campaign-password-error');
     expect(script.calls('PUT', `${DETAIL}/password`)).toHaveLength(0);
   });
 

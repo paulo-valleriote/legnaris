@@ -162,6 +162,9 @@ describe('sheet dice: "no dice" has a way back', () => {
     await open();
 
     expect(editButton('One')?.hasAttribute('data-dice-off')).toBe(false);
+    const pencil = editButton('One')?.querySelector('svg.lg-dice-icon');
+    expect(pencil?.getAttribute('viewBox')).toBe('0 0 24 24');
+    expect(pencil?.querySelector('path')?.getAttribute('d')).toContain('15.5 4.5');
   });
 
   it('Edge: a Row silenced by a "no dice" Section keeps its Edit button so the Row can be set again', async () => {
@@ -198,7 +201,12 @@ describe('sheet dice: rolling with unsaved values', () => {
 
     await user.click(rollButton('One') as HTMLElement);
 
-    expect(screen.getByText(message('dice.error.noValue'))).toBeTruthy();
+    expect(document.querySelector('.lg-dice-panel__sr')?.textContent).toBe(
+      message('dice.error.noValue'),
+    );
+    expect(document.querySelector('.lg-dice-panel__error')?.textContent).toBe(
+      message('dice.error.noValue'),
+    );
     expect(document.querySelector('.lg-dice-panel__total-value')).toBeNull();
   });
 });

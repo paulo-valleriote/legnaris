@@ -48,6 +48,33 @@ function playerView() {
 }
 
 describe('campaign screen: members and roles (LGN-218)', () => {
+  it('Happy path: the header pairs the back link and title with the role pill', async () => {
+    const script = scripted(detailRoutes(campaignView()));
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Ember Coast', level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: message('campaign.back') })).toHaveAttribute(
+      'href',
+      '/campaigns',
+    );
+    expect(screen.getByText(message('campaigns.owner'))).toHaveClass('lg-campaigns__role');
+  });
+
+  it('Edge: a section heading carries its count in the accessible name', async () => {
+    const script = scripted(detailRoutes(campaignView()));
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await screen.findByText('tomas');
+    expect(
+      screen.getByRole('heading', {
+        name: `${message('campaign.membersHeading')} (2)`,
+        level: 2,
+      }),
+    ).toBeInTheDocument();
+  });
+
   it('Happy path: the owner sees every member with role, character and the actions the owner may take', async () => {
     const script = scripted(detailRoutes(campaignView()));
     const user = userEvent.setup();

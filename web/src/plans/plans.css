@@ -5,26 +5,8 @@
   padding-bottom: var(--lg-space-48);
 }
 
-.lg-plans__title {
-  margin: 0;
-  font-size: var(--lg-type-30);
-  font-weight: var(--lg-font-weight-semibold);
-  line-height: var(--lg-line-display);
-  letter-spacing: var(--lg-tracking-display);
-  text-wrap: balance;
-}
-
-.lg-plans__message {
-  margin: 0;
-  font-size: var(--lg-type-15);
-  color: var(--lg-color-text-muted);
-}
-
-.lg-plans__failure {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--lg-space-8);
+.lg-plans > .lg-page-header {
+  margin-bottom: 0;
 }
 
 .lg-plans__grid {
@@ -124,18 +106,13 @@
   color: var(--lg-color-text-muted);
 }
 
-.lg-plans__text,
-.lg-plans__notice {
+.lg-plans__text {
   margin: 0;
   max-width: 48ch;
   font-size: var(--lg-type-15);
   line-height: var(--lg-line-normal);
   color: var(--lg-color-text-muted);
   text-wrap: pretty;
-}
-
-.lg-plans__notice {
-  font-size: var(--lg-type-13);
 }
 
 .lg-plans__error {
@@ -153,7 +130,7 @@
 }
 
 @media (max-width: 39.99rem) {
-  .lg-plans__plan-actions > .lg-button {
+  .lg-plans__plan-actions > * {
     flex: 1 1 100%;
   }
 }
@@ -169,16 +146,8 @@
 
 .lg-plans__refund-title {
   margin: 0;
-  font-size: var(--lg-type-18);
+  font-size: var(--lg-type-20);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
   color: var(--lg-color-text);
-}
-
-.lg-plans__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--lg-space-8);
-  margin-top: var(--lg-space-16);
 }

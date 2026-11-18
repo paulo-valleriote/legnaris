@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { DiceResult } from '../dice/errors';
 import type { RollResult } from '../dice/roll';
 import { message, messageWith } from '../l10n/strings';
+import { CloseIcon } from '../ui/icons';
 import { diceErrorMessageKey } from './dice_view';
 import './dice.css';
 
@@ -67,29 +68,34 @@ export function DicePanel({ label, outcome, onDismiss }: DicePanelProps) {
     };
   }, [onDismiss]);
 
+  const announcement = outcome.ok
+    ? messageWith('dice.rolled', { label, total: outcome.value.total })
+    : message(diceErrorMessageKey(outcome.error.class));
+
   return (
-    <div ref={panel} className="lg-dice-panel" role="status" aria-live="polite">
+    <div ref={panel} className="lg-dice-panel">
+      <p className="lg-dice-panel__sr" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </p>
       {outcome.ok ? (
         <>
           <p className="lg-dice-panel__total">
             <span className="lg-dice-panel__total-label">{label}</span>
             <span className="lg-dice-panel__total-value">{outcome.value.total}</span>
           </p>
-          <p className="lg-dice-panel__sr">
-            {messageWith('dice.rolled', { label, total: outcome.value.total })}
-          </p>
           <Breakdown result={outcome.value} />
         </>
       ) : (
-        <p className="lg-dice-panel__error">{message(diceErrorMessageKey(outcome.error.class))}</p>
+        <p className="lg-dice-panel__error">{announcement}</p>
       )}
       <button
         type="button"
         className="lg-dice-panel__dismiss"
-        aria-label={message('dice.dismiss')}
+        aria-label={message('common.close')}
+        title={message('common.close')}
         onClick={onDismiss}
       >
-        ×
+        <CloseIcon className="lg-dice-panel__close" />
       </button>
     </div>
   );

@@ -1,9 +1,10 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useId, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../app/providers';
 import { CAMPAIGNS_PATH, PLANS_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
+import { ChevronRightIcon } from '../ui/icons';
 import { BrandMark } from './brand_mark';
 import { leaveIsGuarded, requestLeave } from './leave_guard';
 
@@ -114,21 +115,6 @@ function SignOutIcon() {
   );
 }
 
-function ChevronIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  );
-}
-
 interface NavEntryProps {
   readonly path: string;
   readonly label: string;
@@ -155,7 +141,7 @@ function NavEntry({ path, label, icon }: NavEntryProps) {
       </span>
       <span className="lg-nav__label">{label}</span>
       <span className="lg-nav__chevron" aria-hidden="true">
-        <ChevronIcon />
+        <ChevronRightIcon />
       </span>
     </NavLink>
   );
@@ -165,17 +151,23 @@ export function LeftNav() {
   const session = useAuthSession();
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
+  const signOutFailureId = useId();
 
   const signOut = () => {
     if (signingOut) {
       return;
     }
     setSigningOut(true);
-    void session.logout().finally(() => setSigningOut(false));
+    setSignOutFailed(false);
+    void session
+      .logout()
+      .catch(() => setSignOutFailed(true))
+      .finally(() => setSigningOut(false));
   };
 
   return (
-    <nav className="lg-nav" aria-label="Primary">
+    <nav className="lg-nav" aria-label={message('nav.primaryLabel')}>
       <div className="lg-nav__brand">
         <span className="lg-nav__mark" aria-hidden="true">
           <BrandMark />
@@ -209,18 +201,28 @@ export function LeftNav() {
 
       <div className="lg-nav__footer">
         {snapshot.state === 'authenticated' && (
-          <button
-            type="button"
-            className="lg-nav__action lg-nav__signout"
-            onClick={signOut}
-            disabled={signingOut}
-            aria-busy={signingOut}
-          >
-            <span className="lg-nav__icon" aria-hidden="true">
-              <SignOutIcon />
-            </span>
-            <span className="lg-nav__label">{message('nav.logout')}</span>
-          </button>
+          <div className="lg-nav__signout-wrap">
+            <button
+              type="button"
+              className="lg-nav__action lg-nav__signout"
+              onClick={signOut}
+              disabled={signingOut}
+              aria-busy={signingOut ? true : undefined}
+              aria-describedby={signOutFailed ? signOutFailureId : undefined}
+            >
+              <span className="lg-nav__icon" aria-hidden="true">
+                {signingOut ? <span className="lg-spinner" /> : <SignOutIcon />}
+              </span>
+              <span className="lg-nav__label">
+                {signingOut ? message('common.signingOut') : message('nav.logout')}
+              </span>
+            </button>
+            {signOutFailed ? (
+              <p className="lg-nav__error" id={signOutFailureId} role="alert">
+                {message('common.signOutFailed')}
+              </p>
+            ) : null}
+          </div>
         )}
       </div>
     </nav>

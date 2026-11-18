@@ -1,11 +1,13 @@
 import { useId, useMemo, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { SectionChevron } from '../engine/section_chevron';
+import { ChevronRightIcon } from '../ui/icons';
 import { flushSync } from 'react-dom';
 import { arrangementView } from '../engine/layout';
 import type { Arrangement } from '../engine/layout';
 import type { SheetSection } from '../engine/field_grouping';
 import { message } from '../l10n/strings';
+import { Button } from '../ui/button';
+import { EmptyState } from '../ui/state';
 import { useViewStorage } from '../app/providers';
 import type { RevealView } from './reveal_row';
 import type { SectionLink } from './section_index';
@@ -83,13 +85,12 @@ interface CollapseAllProps {
 export function CollapseAllButton({ view, sectionCount }: CollapseAllProps) {
   const allCollapsed = view.state.collapsed.length >= sectionCount;
   return (
-    <button
-      type="button"
-      className="lg-button lg-button--ghost lg-button--sm"
+    <Button
+      variant="ghost"
+      size="sm"
+      label={allCollapsed ? message('sheet.expandAll') : message('sheet.collapseAll')}
       onClick={() => (allCollapsed ? view.store.expandAll() : view.store.collapseAll())}
-    >
-      {allCollapsed ? message('sheet.expandAll') : message('sheet.collapseAll')}
-    </button>
+    />
   );
 }
 
@@ -99,15 +100,18 @@ interface PinnedEmptyProps {
 
 export function PinnedEmpty({ onEditPins }: PinnedEmptyProps) {
   return (
-    <div className="lg-sheet__pinned-empty" data-testid="pinned-empty">
-      <p className="lg-sheet__message">{message('sheet.pinnedEmpty')}</p>
-      <button
-        type="button"
-        className="lg-button lg-button--outline lg-button--sm"
-        onClick={onEditPins}
-      >
-        {message('sheet.editPins')}
-      </button>
+    <div data-testid="pinned-empty">
+      <EmptyState
+        message={message('sheet.pinnedEmpty')}
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            label={message('sheet.editPins')}
+            onClick={onEditPins}
+          />
+        }
+      />
     </div>
   );
 }
@@ -135,7 +139,7 @@ export function TemplateSettingsArea({ open, onToggle, children }: TemplateSetti
         >
           <span className="lg-settings__label">{message('sheet.templateSettings')}</span>
           <span className="lg-settings__hint">{message('sheet.templateSettingsHint')}</span>
-          <SectionChevron className="lg-settings__chevron" />
+          <ChevronRightIcon className="lg-settings__chevron" />
         </button>
       </h2>
       <div className="lg-settings__body" id={bodyId} hidden={!open}>

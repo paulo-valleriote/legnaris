@@ -11,7 +11,9 @@ describe('payment issue banner (LGN-215)', () => {
     const script = scriptedBilling({ plans: [json(PAYMENT_ISSUE)] });
     renderApp('/account', { client: script.client });
 
-    const banner = await screen.findByRole('status');
+    const banner = (await screen.findByText(message('banner.paymentIssue'))).closest(
+      '[role="status"]',
+    );
     expect(banner).toHaveTextContent(message('banner.paymentIssue'));
 
     const link = screen.getByRole('link', { name: message('banner.paymentAction') });
@@ -32,7 +34,7 @@ describe('payment issue banner (LGN-215)', () => {
     const script = scriptedBilling({ plans: [problem('INTERNAL_ERROR', 'boom', 500)] });
     renderApp('/account', { client: script.client });
 
-    expect(await screen.findByTestId('account-failure')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(message('plan.loadFailed'));
     expect(screen.queryByText(message('banner.paymentIssue'))).toBeNull();
   });
 });

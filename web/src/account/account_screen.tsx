@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { failureCopy } from '../api/error_mapper';
 import { SHEET_KINDS, type PlanUsage, type SheetKind } from '../api/models/plan';
@@ -7,8 +7,11 @@ import { PLAN_QUERY_KEY, usePlanUsage } from '../catalog/queries';
 import { PrivacyDialog } from '../legal/privacy_dialog';
 import { planName } from '../plans/plan_view';
 import { message, messageWith, type MessageKey } from '../l10n/strings';
+import { Button } from '../ui/button';
+import { Dialog } from '../ui/dialog';
+import { PageHeader } from '../ui/page_header';
+import { ErrorState, LoadingState } from '../ui/state';
 import './account.css';
-import '../catalog/catalog.css';
 
 const USAGE_LABELS: Readonly<Record<SheetKind, MessageKey>> = {
   character: 'account.usageCharacter',
@@ -30,74 +33,33 @@ interface RevokeDialogProps {
 function RevokeDialog({ pending, failure, onCancel, onConfirm }: RevokeDialogProps) {
   const keepRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    keepRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel]);
-
   return (
-    <div
-      className="lg-overlay"
-      role="presentation"
-      data-testid="account-revoke-overlay"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onCancel();
-        }
-      }}
-    >
-      <div
-        className="lg-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="account-revoke-title"
-        aria-describedby="account-revoke-message"
-      >
-        <div className="lg-dialog__header">
-          <h2 className="lg-dialog__title" id="account-revoke-title">
-            {message('account.revokeTitle')}
-          </h2>
-        </div>
-        <p className="lg-dialog__message" id="account-revoke-message">
-          {message('account.revokeMessage')}
-        </p>
-        {failure === null ? null : (
-          <p className="lg-account__error" role="alert">
-            {failure}
-          </p>
-        )}
-        <div className="lg-dialog__actions">
-          <button
-            type="button"
-            className="lg-button"
+    <Dialog
+      open
+      tone="danger"
+      title={message('account.revokeTitle')}
+      description={message('account.revokeMessage')}
+      onClose={onCancel}
+      initialFocusRef={keepRef}
+      error={failure ?? undefined}
+      actions={
+        <>
+          <Button
             ref={keepRef}
+            variant="secondary"
+            label={message('account.revokeKeep')}
             disabled={pending}
             onClick={onCancel}
-          >
-            {message('account.revokeKeep')}
-          </button>
-          <button
-            type="button"
-            className="lg-button lg-button--danger"
-            disabled={pending}
-            aria-busy={pending}
+          />
+          <Button
+            variant="danger"
+            label={message('account.revokeConfirm')}
+            loading={pending}
             onClick={onConfirm}
-          >
-            {message('account.revokeConfirm')}
-          </button>
-        </div>
-      </div>
-    </div>
+          />
+        </>
+      }
+    />
   );
 }
 
@@ -135,8 +97,8 @@ function ConsentSection({ usage }: ConsentSectionProps) {
   if (usage.consentAt === null) {
     return (
       <div className="lg-account__row">
-        <h2 className="lg-account__label">{message('account.consentHeading')}</h2>
-        <div className="lg-account__content">
+        <dt className="lg-account__label">{message('account.consentHeading')}</dt>
+        <dd className="lg-account__content">
           <p className="lg-account__value" data-testid="account-consent-none">
             {message('account.consentNone')}
           </p>
@@ -145,30 +107,28 @@ function ConsentSection({ usage }: ConsentSectionProps) {
               {message('account.revoked')}
             </p>
           ) : null}
-        </div>
+        </dd>
       </div>
     );
   }
 
   return (
     <div className="lg-account__row">
-      <h2 className="lg-account__label">{message('account.consentHeading')}</h2>
-      <div className="lg-account__content">
+      <dt className="lg-account__label">{message('account.consentHeading')}</dt>
+      <dd className="lg-account__content">
         <p className="lg-account__value" data-testid="account-consent">
           {messageWith('account.consentGiven', { date: formatConsentDate(usage.consentAt) })}
           {usage.consentVersion === null
             ? null
             : ` · ${messageWith('account.consentVersion', { version: usage.consentVersion })}`}
         </p>
-        <button type="button" className="lg-button lg-button--danger" onClick={openDialog}>
-          {message('account.revoke')}
-        </button>
+        <Button variant="danger" label={message('account.revoke')} onClick={openDialog} />
         {revoked ? (
           <p className="lg-account__notice" role="status">
             {message('account.revoked')}
           </p>
         ) : null}
-      </div>
+      </dd>
       {dialogOpen ? (
         <RevokeDialog
           pending={revoke.isPending}
@@ -187,18 +147,15 @@ function PrivacySection() {
 
   return (
     <div className="lg-account__row">
-      <h2 className="lg-account__label">{message('account.privacyHeading')}</h2>
-      <div className="lg-account__content">
-        <button
-          type="button"
-          className="lg-button"
-          aria-haspopup="dialog"
-          data-testid="account-privacy-open"
+      <dt className="lg-account__label">{message('account.privacyHeading')}</dt>
+      <dd className="lg-account__content">
+        <Button
+          variant="secondary"
+          label={message('account.privacyOpen')}
+          ariaHasPopup="dialog"
           onClick={() => setOpen(true)}
-        >
-          {message('account.privacyOpen')}
-        </button>
-      </div>
+        />
+      </dd>
       {open ? <PrivacyDialog onClose={close} /> : null}
     </div>
   );
@@ -216,20 +173,29 @@ function SheetUsage({ usage }: { readonly usage: PlanUsage }) {
 
   return (
     <dl className="lg-account__usage" data-testid="account-usage">
-      {entries.map(({ kind, entry }) => (
-        <div className="lg-account__usage-entry" key={kind}>
-          <dt>{message(USAGE_LABELS[kind])}</dt>
-          <dd
-            className={
-              entry.used >= entry.limit
-                ? 'lg-account__usage-count lg-account__usage-count--full'
-                : 'lg-account__usage-count'
-            }
-          >
-            {messageWith('account.usageCount', { used: entry.used, limit: entry.limit })}
-          </dd>
-        </div>
-      ))}
+      {entries.map(({ kind, entry }) => {
+        const full = entry.used >= entry.limit;
+        return (
+          <div className="lg-account__usage-entry" key={kind}>
+            <dt>{message(USAGE_LABELS[kind])}</dt>
+            <dd
+              className={
+                full
+                  ? 'lg-account__usage-count lg-account__usage-count--full'
+                  : 'lg-account__usage-count'
+              }
+            >
+              {messageWith('account.usageCount', { used: entry.used, limit: entry.limit })}
+              {full ? (
+                <>
+                  {' '}
+                  <span className="lg-account__quota-full">{message('account.quotaFull')}</span>
+                </>
+              ) : null}
+            </dd>
+          </div>
+        );
+      })}
     </dl>
   );
 }
@@ -238,45 +204,37 @@ export function AccountScreen() {
   const plan = usePlanUsage();
 
   return (
-    <section className="lg-account" aria-labelledby="account-title">
-      <h1 className="lg-account__title" id="account-title">
-        {message('account.title')}
-      </h1>
+    <section className="lg-account">
+      <PageHeader title={message('account.title')} />
 
-      {plan.isPending ? <p className="lg-account__message">{message('account.loading')}</p> : null}
+      {plan.isPending ? <LoadingState label={message('account.loading')} /> : null}
 
       {plan.isError ? (
-        <div className="lg-account__failure" data-testid="account-failure">
-          <p className="lg-account__message">{failureCopy(plan.error)}</p>
-          <button
-            type="button"
-            className="lg-button"
-            onClick={() => {
-              void plan.refetch();
-            }}
-          >
-            {message('account.retry')}
-          </button>
-        </div>
+        <ErrorState
+          message={message('plan.loadFailed')}
+          onRetry={() => {
+            void plan.refetch();
+          }}
+        />
       ) : null}
 
-      <div className="lg-account__rows">
+      <dl className="lg-account__rows">
         {plan.data === undefined ? null : (
           <>
             <div className="lg-account__row">
-              <h2 className="lg-account__label">{message('account.planHeading')}</h2>
-              <div className="lg-account__content">
+              <dt className="lg-account__label">{message('account.planHeading')}</dt>
+              <dd className="lg-account__content">
                 <p className="lg-account__value lg-account__value--lead" data-testid="account-plan">
                   {planName(plan.data.plan)}
                 </p>
                 <SheetUsage usage={plan.data} />
-              </div>
+              </dd>
             </div>
             <ConsentSection usage={plan.data} />
           </>
         )}
         <PrivacySection />
-      </div>
+      </dl>
     </section>
   );
 }

@@ -68,7 +68,7 @@ describe('the sheet help', () => {
     expect(screen.queryByTestId('sheet-help')).not.toBeInTheDocument();
   });
 
-  it('Happy path: it opens once by itself, names both things, and Got it closes it for good', async () => {
+  it('Happy path: it opens once by itself, names both things, and Close dismisses it for good', async () => {
     const storage = createMemoryViewStorage();
     const { user, unmount } = await open({ template: withCalculated() }, { viewStorage: storage });
     const toggle = screen.getByRole('button', { name: message('sheet.help') });
@@ -76,11 +76,13 @@ describe('the sheet help', () => {
     const panel = screen.getByTestId('sheet-help');
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(toggle).toHaveAttribute('aria-controls', panel.id);
+    expect(document.querySelector('.lg-sheet__help-toggle')).toBeNull();
+    expect(toggle.parentElement).toHaveClass('lg-sheet__header-actions');
     expect(panel).toHaveTextContent(message('sheet.helpDerived'));
     expect(panel).toHaveTextContent(message('sheet.helpPreview'));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    await user.click(within(panel).getByRole('button', { name: message('sheet.helpDismiss') }));
+    await user.click(within(panel).getByRole('button', { name: message('common.close') }));
 
     expect(screen.queryByTestId('sheet-help')).not.toBeInTheDocument();
     expect(toggle).toHaveAttribute('aria-expanded', 'false');

@@ -56,10 +56,15 @@ describe('creation surface plan allowance (LGN-183)', () => {
     expect(
       await screen.findByText(messageWith('sheet.usage', { used: 0, limit: 1 })),
     ).toBeInTheDocument();
-    expect(screen.queryByTestId('sheet-limit-reached')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: message('sheet.create') }),
+    ).toHaveAccessibleDescription(message('sheet.nameRequired'));
 
     await user.type(screen.getByLabelText(message('sheet.nameLabel')), 'Aragorn');
-    expect(screen.getByRole('button', { name: message('sheet.create') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: message('sheet.create') })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   it('Edge: at the allowance the primary action is disabled even with a valid name', async () => {
@@ -68,10 +73,14 @@ describe('creation surface plan allowance (LGN-183)', () => {
 
     await user.type(screen.getByLabelText(message('sheet.nameLabel')), 'Aragorn');
 
-    expect(await screen.findByTestId('sheet-limit-reached')).toHaveTextContent(
-      message('sheet.limitReached'),
+    const create = screen.getByRole('button', { name: message('sheet.create') });
+    expect(create).toHaveAttribute('aria-disabled', 'true');
+    expect(create).toHaveAccessibleDescription(message('sheet.limitReached'));
+    expect(screen.getByRole('button', { name: message('generate.entry') })).toHaveAttribute(
+      'aria-disabled',
+      'true',
     );
-    expect(screen.getByRole('button', { name: message('sheet.create') })).toBeDisabled();
+    expect(screen.getAllByText(message('sheet.limitReached'))).toHaveLength(1);
     expect(fake.requests.filter((request) => request.method === 'POST')).toHaveLength(0);
   });
 
@@ -91,7 +100,10 @@ describe('creation surface plan allowance (LGN-183)', () => {
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: message('sheet.create') })).toBeEnabled(),
+      expect(screen.getByRole('button', { name: message('sheet.create') })).not.toHaveAttribute(
+        'aria-disabled',
+        'true',
+      ),
     );
   });
 });

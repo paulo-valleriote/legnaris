@@ -62,7 +62,10 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
 
     await user.type(screen.getByLabelText(message('sheet.nameLabel')), '   ');
 
-    expect(screen.getByRole('button', { name: message('sheet.create') })).toBeDisabled();
+    expect(screen.getByRole('button', { name: message('sheet.create') })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(postRequests(fake.requests)).toHaveLength(0);
   });
 
@@ -83,7 +86,7 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
     await user.click(screen.getByRole('button', { name: message('sheet.create') }));
 
     const busy = screen.getByRole('button', { name: message('sheet.creating') });
-    expect(busy).toBeDisabled();
+    expect(busy).toHaveAttribute('aria-disabled', 'true');
     expect(busy).toHaveAttribute('aria-busy', 'true');
     expect(postRequests(deferred.requests)).toHaveLength(1);
 

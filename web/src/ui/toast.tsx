@@ -1,4 +1,5 @@
 import { message } from '../l10n/strings';
+import { CloseIcon } from './icons';
 
 export interface ToastProps {
   message: string;
@@ -13,11 +14,12 @@ export function Toast({ message: msg, variant = 'info', onDismiss }: ToastProps)
       <span className="lg-toast__message">{msg}</span>
       {onDismiss ? (
         <button
+          type="button"
           className="lg-toast__dismiss"
           onClick={onDismiss}
           aria-label={message('ui.dismiss')}
         >
-          ×
+          <CloseIcon />
         </button>
       ) : null}
     </aside>
