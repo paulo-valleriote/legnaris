@@ -108,7 +108,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (string, error)
 		UserID:       cmd.UserID,
 		TemplateID:   cmd.TemplateID,
 		Kind:         string(kind),
-		Concept:      strings.TrimSpace(cmd.Concept),
+		Concept:      SanitizeConcept(cmd.Concept),
 		Status:       StatusQueued,
 		ActiveUserID: cmd.UserID,
 		CreatedAt:    now,
@@ -341,7 +341,7 @@ func validateCreate(cmd CreateCommand) (plan.SheetKind, error) {
 	if !ok {
 		return "", apperr.NewError(apperr.CodeInvalidRequest, MsgKindInvalid, nil)
 	}
-	length := utf8.RuneCountInString(strings.TrimSpace(cmd.Concept))
+	length := utf8.RuneCountInString(SanitizeConcept(cmd.Concept))
 	if length < MinConceptLength || length > MaxConceptLength {
 		return "", apperr.NewError(apperr.CodeInvalidRequest, MsgConceptLength, nil)
 	}

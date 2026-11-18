@@ -115,11 +115,24 @@ func (c *checker) rejectUnknown(lv level, data map[string]any, prefix string) {
 	for name := range lv.exclusive {
 		allowed[name] = true
 	}
-	for _, key := range slices.Sorted(maps.Keys(data)) {
+	unknown := 0
+	for key := range data {
 		if !allowed[key] {
-			c.add(join(prefix, key), "is not a field the template allows")
+			unknown++
 		}
 	}
+	if unknown == 0 {
+		return
+	}
+	path := prefix
+	if path == "" {
+		path = "output"
+	}
+	if unknown == 1 {
+		c.add(path, "has 1 field the template does not allow")
+		return
+	}
+	c.add(path, fmt.Sprintf("has %d fields the template does not allow", unknown))
 }
 
 func (c *checker) leaf(path string, schema *template.FieldSchema, raw any) (any, bool) {

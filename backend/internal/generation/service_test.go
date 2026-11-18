@@ -148,6 +148,24 @@ func TestCreate_Gates(t *testing.T) {
 			wantStatus: 400,
 		},
 		{
+			name:       "Edge: a concept of only invisible characters is too short",
+			cmd:        generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: strings.Repeat("\u200b", 60)},
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+		},
+		{
+			name:       "Edge: nine visible runes padded with invisible characters are too short",
+			cmd:        generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: strings.Repeat("a", 9) + strings.Repeat("\u200b", 50)},
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+		},
+		{
+			name:       "Edge: nine visible runes with bidi controls and joiners are too short",
+			cmd:        generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: strings.Repeat("a", 9) + "\u202e\u200d\ufeff\ue000"},
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+		},
+		{
 			name:     "Edge: whitespace does not count toward the minimum",
 			cmd:      generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: "   " + strings.Repeat("a", 9) + "   "},
 			wantCode: apperr.CodeInvalidRequest, wantStatus: 400,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,6 +132,66 @@ func TestCreate_Happy(t *testing.T) {
 			assert.Equal(t, tc.wantKind, inserted.Quota.Kind)
 			assert.Equal(t, tc.wantDay, inserted.Quota.DayUTC)
 			assert.Equal(t, inserted.CreatedAt.Add(24*time.Hour), inserted.ExpiresAt, "retention is 24 h")
+		})
+	}
+}
+
+func TestCreate_SanitizesConcept(t *testing.T) {
+	tests := []struct {
+		name    string
+		concept string
+		want    string
+	}{
+		{
+			name:    "Happy path: a ten rune concept padded with zero-width spaces passes and is stored clean",
+			concept: strings.Repeat("a", 10) + strings.Repeat("\u200b", 50),
+			want:    strings.Repeat("a", 10),
+		},
+		{
+			name:    "Edge: format, bidi and private-use characters are stripped before storage",
+			concept: "\ufeff" + validText + "\u200d\u202e\ue000",
+			want:    validText,
+		},
+		{
+			name:    "Edge: tabs and line endings are normalized before storage",
+			concept: "um\tmago\r\nda\rterra",
+			want:    "um mago\nda\nterra",
+		},
+		{
+			name:    "Happy path: fullwidth text is NFKC-folded before storage",
+			concept: "ｕｍ ｍａｇｏ ｄｏ ｎｏｒｔｅ",
+			want:    "um mago do norte",
+		},
+		{
+			name:    "Happy path: accented Portuguese and emoji are stored unchanged",
+			concept: "coração, ação 🧙",
+			want:    "coração, ação 🧙",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t, defaultCfg())
+			gatesPass(f, plan.KindCharacter)
+			f.runInline()
+			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
+			f.observer.EXPECT().GenerationCapUsage(1, 10)
+			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil)
+			f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
+
+			var inserted generation.Document
+			f.store.EXPECT().Insert(mock.Anything, mock.Anything).RunAndReturn(
+				func(_ context.Context, doc generation.Document) error {
+					inserted = doc
+					return nil
+				})
+			f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(nil).Once()
+
+			id, err := f.svc.Create(context.Background(), generation.CreateCommand{
+				UserID: userID, TemplateID: templateID, Kind: "character", Concept: tc.concept,
+			})
+			require.NoError(t, err)
+			assert.NotEmpty(t, id)
+			assert.Equal(t, tc.want, inserted.Concept)
 		})
 	}
 }
