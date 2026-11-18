@@ -24,11 +24,27 @@ type Usage struct {
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
+	ReasoningTokens  int
 }
 
 type Response struct {
-	Output json.RawMessage
-	Usage  Usage
+	Output       json.RawMessage
+	Usage        Usage
+	FinishReason string
+}
+
+type generationIDKey struct{}
+
+func WithGenerationID(ctx context.Context, id string) context.Context {
+	if id == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, generationIDKey{}, id)
+}
+
+func GenerationID(ctx context.Context) string {
+	id, _ := ctx.Value(generationIDKey{}).(string)
+	return id
 }
 
 type Client interface {

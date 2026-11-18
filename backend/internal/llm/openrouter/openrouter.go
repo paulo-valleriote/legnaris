@@ -37,6 +37,20 @@ const (
 	noProvidersPhrase = "no allowed providers"
 )
 
+const (
+	finishLength    = "length"
+	maxErrorMessage = 300
+	maxErrorCode    = 64
+)
+
+const (
+	reasonMalformedResponse = "malformed_response"
+	reasonNoChoices         = "no_choices"
+	reasonEmptyContent      = "empty_content"
+	reasonInvalidJSON       = "invalid_json"
+	reasonTruncated         = "truncated"
+)
+
 type Config struct {
 	BaseURL string
 	APIKey  string
@@ -105,7 +119,7 @@ func (c *Client) Generate(ctx context.Context, req llm.Request) (llm.Response, e
 		return llm.Response{}, c.failure(ctx, 0, latency, err)
 	}
 	if status/100 != 2 {
-		return llm.Response{}, c.failure(ctx, status, latency, statusError(status, raw))
+		return llm.Response{}, c.failure(ctx, status, latency, statusError(status, raw), upstreamAttrs(raw)...)
 	}
 	return c.parse(ctx, raw, latency)
 }
@@ -142,26 +156,71 @@ func statusError(status int, raw []byte) error {
 }
 
 func isNoEligibleProvider(raw []byte) bool {
-	var body struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if err := sharedjson.DecodeBytes(raw, &body); err != nil {
-		return false
-	}
-	message := strings.ToLower(body.Error.Message)
+	message, _ := upstreamError(raw)
+	message = strings.ToLower(message)
 	return strings.Contains(message, noEndpointsPhrase) || strings.Contains(message, noProvidersPhrase)
 }
 
-func (c *Client) failure(ctx context.Context, status int, latency time.Duration, err error) error {
-	c.logger.Warn(ctx, "llm generation failed",
-		logger.Attribute{Key: "model", Value: c.model},
-		logger.Attribute{Key: "status", Value: strconv.Itoa(status)},
-		logger.Attribute{Key: "latency_ms", Value: strconv.FormatInt(latency.Milliseconds(), 10)},
-		logger.Attribute{Key: "error_class", Value: errorClass(err)},
-	)
+func upstreamAttrs(raw []byte) []logger.Attribute {
+	message, code := upstreamError(raw)
+	attrs := make([]logger.Attribute, 0, 2)
+	if message != "" {
+		attrs = append(attrs, logger.Attribute{Key: "error_message", Value: logger.Truncate(message, maxErrorMessage)})
+	}
+	if code != "" {
+		attrs = append(attrs, logger.Attribute{Key: "upstream_code", Value: code})
+	}
+	return attrs
+}
+
+func upstreamError(raw []byte) (string, string) {
+	var body struct {
+		Error struct {
+			Message string          `json:"message"`
+			Code    json.RawMessage `json:"code"`
+		} `json:"error"`
+	}
+	if err := sharedjson.DecodeBytes(raw, &body); err != nil {
+		return "", ""
+	}
+	return strings.TrimSpace(body.Error.Message), upstreamCode(body.Error.Code)
+}
+
+func upstreamCode(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return logger.Truncate(text, maxErrorCode)
+	}
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "null" {
+		return ""
+	}
+	return logger.Truncate(trimmed, maxErrorCode)
+}
+
+func (c *Client) failure(ctx context.Context, status int, latency time.Duration, err error, extra ...logger.Attribute) error {
+	attrs := []logger.Attribute{
+		{Key: "model", Value: c.model},
+		{Key: "status", Value: strconv.Itoa(status)},
+		{Key: "latency_ms", Value: strconv.FormatInt(latency.Milliseconds(), 10)},
+		{Key: "error_class", Value: errorClass(err)},
+	}
+	attrs = append(attrs, extra...)
+	c.logger.Warn(ctx, "llm generation failed", withGenerationID(ctx, attrs)...)
 	return err
+}
+
+func withGenerationID(ctx context.Context, attrs []logger.Attribute) []logger.Attribute {
+	id := llm.GenerationID(ctx)
+	if id == "" {
+		return attrs
+	}
+	out := make([]logger.Attribute, 0, len(attrs)+1)
+	out = append(out, logger.Attribute{Key: "generation_id", Value: id})
+	return append(out, attrs...)
 }
 
 func errorClass(err error) string {
@@ -179,32 +238,62 @@ func (c *Client) parse(ctx context.Context, raw []byte, latency time.Duration) (
 	var body chatResponse
 	if err := sharedjson.DecodeBytes(raw, &body); err != nil {
 		return llm.Response{}, c.failure(ctx, http.StatusOK, latency,
-			fmt.Errorf("%w: malformed gateway response: %w", llm.ErrPermanent, err))
+			fmt.Errorf("%w: malformed gateway response: %w", llm.ErrPermanent, err),
+			completionAttrs(reasonMalformedResponse, body)...)
 	}
 	if len(body.Choices) == 0 {
 		return llm.Response{}, c.failure(ctx, http.StatusOK, latency,
-			fmt.Errorf("%w: no completion choices", llm.ErrPermanent))
+			fmt.Errorf("%w: no completion choices", llm.ErrPermanent),
+			completionAttrs(reasonNoChoices, body)...)
 	}
 	content := body.Choices[0].Message.Content
-	if content == "" || !json.Valid([]byte(content)) {
-		return llm.Response{}, c.failure(ctx, http.StatusOK, latency,
-			fmt.Errorf("%w: output is not valid JSON", llm.ErrPermanent))
+	reason, err := classifyCompletion(body.finishReason(), content)
+	if err != nil {
+		return llm.Response{}, c.failure(ctx, http.StatusOK, latency, err, completionAttrs(reason, body)...)
 	}
 
 	usage := llm.Usage{
 		PromptTokens:     body.Usage.PromptTokens,
 		CompletionTokens: body.Usage.CompletionTokens,
 		TotalTokens:      body.Usage.TotalTokens,
+		ReasoningTokens:  body.Usage.CompletionTokensDetails.ReasoningTokens,
 	}
-	c.logger.Info(ctx, "llm generation completed",
-		logger.Attribute{Key: "model", Value: c.model},
-		logger.Attribute{Key: "status", Value: strconv.Itoa(http.StatusOK)},
-		logger.Attribute{Key: "latency_ms", Value: strconv.FormatInt(latency.Milliseconds(), 10)},
-		logger.Attribute{Key: "prompt_tokens", Value: strconv.Itoa(usage.PromptTokens)},
-		logger.Attribute{Key: "completion_tokens", Value: strconv.Itoa(usage.CompletionTokens)},
-		logger.Attribute{Key: "total_tokens", Value: strconv.Itoa(usage.TotalTokens)},
-	)
-	return llm.Response{Output: json.RawMessage(content), Usage: usage}, nil
+	c.logger.Info(ctx, "llm generation completed", withGenerationID(ctx, []logger.Attribute{
+		{Key: "model", Value: c.model},
+		{Key: "status", Value: strconv.Itoa(http.StatusOK)},
+		{Key: "latency_ms", Value: strconv.FormatInt(latency.Milliseconds(), 10)},
+		{Key: "prompt_tokens", Value: strconv.Itoa(usage.PromptTokens)},
+		{Key: "completion_tokens", Value: strconv.Itoa(usage.CompletionTokens)},
+		{Key: "total_tokens", Value: strconv.Itoa(usage.TotalTokens)},
+		{Key: "reasoning_tokens", Value: strconv.Itoa(usage.ReasoningTokens)},
+		{Key: "finish_reason", Value: body.finishReason()},
+	})...)
+	return llm.Response{Output: json.RawMessage(content), Usage: usage, FinishReason: body.finishReason()}, nil
+}
+
+func classifyCompletion(finish, content string) (string, error) {
+	switch {
+	case content == "":
+		return reasonEmptyContent, fmt.Errorf("%w: completion content is empty", llm.ErrTransient)
+	case !json.Valid([]byte(content)):
+		if finish == finishLength {
+			return reasonInvalidJSON, fmt.Errorf("%w: truncated output is not valid JSON", llm.ErrTransient)
+		}
+		return reasonInvalidJSON, fmt.Errorf("%w: output is not valid JSON", llm.ErrPermanent)
+	case finish == finishLength:
+		return reasonTruncated, fmt.Errorf("%w: output was truncated", llm.ErrTransient)
+	default:
+		return "", nil
+	}
+}
+
+func completionAttrs(reason string, body chatResponse) []logger.Attribute {
+	return []logger.Attribute{
+		{Key: "reason", Value: reason},
+		{Key: "finish_reason", Value: body.finishReason()},
+		{Key: "completion_tokens", Value: strconv.Itoa(body.Usage.CompletionTokens)},
+		{Key: "reasoning_tokens", Value: strconv.Itoa(body.Usage.CompletionTokensDetails.ReasoningTokens)},
+	}
 }
 
 func (c *Client) buildRequest(req llm.Request) chatRequest {
@@ -267,10 +356,21 @@ type chatResponse struct {
 		Message struct {
 			Content string `json:"content"`
 		} `json:"message"`
+		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
+		PromptTokens            int `json:"prompt_tokens"`
+		CompletionTokens        int `json:"completion_tokens"`
+		TotalTokens             int `json:"total_tokens"`
+		CompletionTokensDetails struct {
+			ReasoningTokens int `json:"reasoning_tokens"`
+		} `json:"completion_tokens_details"`
 	} `json:"usage"`
+}
+
+func (r chatResponse) finishReason() string {
+	if len(r.Choices) == 0 {
+		return ""
+	}
+	return r.Choices[0].FinishReason
 }

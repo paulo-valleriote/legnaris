@@ -1,6 +1,7 @@
 package llm_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -73,4 +74,26 @@ func TestRequestValidate(t *testing.T) {
 func TestProviderUnavailableIsTransient(t *testing.T) {
 	assert.True(t, errors.Is(llm.ErrProviderUnavailable, llm.ErrTransient), "no eligible provider must be retried")
 	assert.False(t, errors.Is(llm.ErrProviderUnavailable, llm.ErrPermanent))
+}
+
+func TestGenerationID(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+		want string
+	}{
+		{name: "Happy path: an id round-trips through the context", id: "job-1", want: "job-1"},
+		{name: "Edge: an empty id is not stored", id: "", want: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := llm.WithGenerationID(context.Background(), tc.id)
+			assert.Equal(t, tc.want, llm.GenerationID(ctx))
+		})
+	}
+
+	t.Run("Edge: a context without an id reads empty", func(t *testing.T) {
+		assert.Empty(t, llm.GenerationID(context.Background()))
+	})
 }

@@ -8,11 +8,14 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"legnaris/backend/internal/llm"
 	"legnaris/backend/internal/llm/openrouter"
@@ -55,10 +58,74 @@ func newClient(t *testing.T, handler http.HandlerFunc) *openrouter.Client {
 
 func chatBody(t *testing.T, content string) string {
 	t.Helper()
+	return chatCompletionBody(t, content, "", 0)
+}
+
+func chatCompletionBody(t *testing.T, content, finish string, reasoningTokens int) string {
+	t.Helper()
 	quoted, err := json.Marshal(content)
 	require.NoError(t, err)
-	return `{"choices":[{"message":{"role":"assistant","content":` + string(quoted) + `}}],` +
-		`"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}`
+	choice := `{"message":{"role":"assistant","content":` + string(quoted) + `}`
+	if finish != "" {
+		choice += `,"finish_reason":` + strconv.Quote(finish)
+	}
+	choice += `}`
+	usage := `"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18`
+	if reasoningTokens > 0 {
+		usage += `,"completion_tokens_details":{"reasoning_tokens":` + strconv.Itoa(reasoningTokens) + `}`
+	}
+	usage += `}`
+	return `{"choices":[` + choice + `],` + usage + `}`
+}
+
+func newLoggingClient(t *testing.T, level slog.Level, handler http.HandlerFunc) *openrouter.Client {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	cfg := testConfig(srv.URL)
+	cfg.Logger = logger.NewLogger(level)
+	client, err := openrouter.New(cfg)
+	require.NoError(t, err)
+	return client
+}
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	original := os.Stdout
+	os.Stdout = writer
+	defer func() { os.Stdout = original }()
+
+	done := make(chan string)
+	go func() {
+		data, _ := io.ReadAll(reader)
+		done <- string(data)
+	}()
+	fn()
+	require.NoError(t, writer.Close())
+	os.Stdout = original
+	return <-done
+}
+
+func findLogEntry(t *testing.T, logs, msg string) map[string]any {
+	t.Helper()
+	for _, line := range strings.Split(strings.TrimSpace(logs), "\n") {
+		var entry map[string]any
+		require.NoError(t, json.Unmarshal([]byte(line), &entry))
+		if entry["msg"] == msg {
+			return entry
+		}
+	}
+	require.FailNow(t, "log entry not found", "msg=%q logs=%s", msg, logs)
+	return nil
+}
+
+func logString(t *testing.T, entry map[string]any, key string) string {
+	t.Helper()
+	value, ok := entry[key].(string)
+	require.True(t, ok, "attribute %q must be a logged string", key)
+	return value
 }
 
 func TestNewConfigValidation(t *testing.T) {
@@ -209,7 +276,6 @@ func TestGenerateMalformedResponseIsPermanent(t *testing.T) {
 		{name: "Edge: trailing data after the JSON object", body: func(t *testing.T) string { return chatBody(t, `{}`) + ` trailing` }},
 		{name: "Edge: empty choices", body: func(*testing.T) string { return `{"choices":[],"usage":{"total_tokens":0}}` }},
 		{name: "Edge: missing choices", body: func(*testing.T) string { return `{"usage":{"total_tokens":0}}` }},
-		{name: "Edge: empty message content", body: func(*testing.T) string { return `{"choices":[{"message":{"content":""}}]}` }},
 		{name: "Edge: content is not valid JSON", body: func(t *testing.T) string { return chatBody(t, `{"name":`) }},
 		{name: "Edge: content is plain text", body: func(t *testing.T) string { return chatBody(t, `hello`) }},
 	}
@@ -238,6 +304,282 @@ func TestGenerateOversizedResponseIsPermanent(t *testing.T) {
 	_, err := client.Generate(context.Background(), testRequest())
 
 	require.ErrorIs(t, err, llm.ErrPermanent)
+}
+
+func TestGenerateUnusableResponseLogsReason(t *testing.T) {
+	tests := []struct {
+		name       string
+		body       string
+		wantErr    error
+		wantReason string
+		wantFinish string
+	}{
+		{
+			name:       "Edge: empty body is a malformed response",
+			body:       "",
+			wantErr:    llm.ErrPermanent,
+			wantReason: "malformed_response",
+		},
+		{
+			name:       "Edge: body that is not JSON is a malformed response",
+			body:       "not json",
+			wantErr:    llm.ErrPermanent,
+			wantReason: "malformed_response",
+		},
+		{
+			name:       "Edge: missing choices",
+			body:       `{"usage":{"total_tokens":0}}`,
+			wantErr:    llm.ErrPermanent,
+			wantReason: "no_choices",
+		},
+		{
+			name:       "Edge: empty choices",
+			body:       `{"choices":[],"usage":{"total_tokens":0}}`,
+			wantErr:    llm.ErrPermanent,
+			wantReason: "no_choices",
+		},
+		{
+			name:       "Edge: missing content and finish reason",
+			body:       `{"choices":[{"message":{}}]}`,
+			wantErr:    llm.ErrTransient,
+			wantReason: "empty_content",
+		},
+		{
+			name: "Edge: null content with a length finish reason is transient",
+			body: `{"choices":[{"message":{"content":null},"finish_reason":"length"}],` +
+				`"usage":{"completion_tokens":6000,"completion_tokens_details":{"reasoning_tokens":6000}}}`,
+			wantErr:    llm.ErrTransient,
+			wantReason: "empty_content",
+			wantFinish: "length",
+		},
+		{
+			name:       "Error: non-JSON content",
+			body:       chatBody(t, "hello"),
+			wantErr:    llm.ErrPermanent,
+			wantReason: "invalid_json",
+		},
+		{
+			name:       "Error: truncated non-JSON content is transient",
+			body:       chatCompletionBody(t, `{"name":`, "length", 0),
+			wantErr:    llm.ErrTransient,
+			wantReason: "invalid_json",
+			wantFinish: "length",
+		},
+		{
+			name:       "Edge: valid JSON that hit the length limit is retried",
+			body:       chatCompletionBody(t, `{}`, "length", 0),
+			wantErr:    llm.ErrTransient,
+			wantReason: "truncated",
+			wantFinish: "length",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var generateErr error
+			logs := captureStdout(t, func() {
+				client := newLoggingClient(t, slog.LevelInfo, func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = io.WriteString(w, tc.body)
+				})
+				_, generateErr = client.Generate(llm.WithGenerationID(context.Background(), "job-1"), testRequest())
+			})
+
+			require.ErrorIs(t, generateErr, tc.wantErr)
+			if tc.wantErr == llm.ErrPermanent {
+				assert.False(t, errors.Is(generateErr, llm.ErrTransient))
+			}
+
+			entry := findLogEntry(t, logs, "llm generation failed")
+			assert.Equal(t, tc.wantReason, logString(t, entry, "reason"))
+			assert.Equal(t, tc.wantFinish, logString(t, entry, "finish_reason"))
+			assert.NotEmpty(t, logString(t, entry, "completion_tokens"))
+			assert.NotEmpty(t, logString(t, entry, "reasoning_tokens"))
+			assert.Equal(t, "job-1", logString(t, entry, "generation_id"))
+			assert.NotContains(t, entry, "error_code")
+		})
+	}
+
+	t.Run("Edge: reasoning tokens explain a null completion", func(t *testing.T) {
+		logs := captureStdout(t, func() {
+			client := newLoggingClient(t, slog.LevelInfo, func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, `{"choices":[{"message":{"content":null},"finish_reason":"length"}],`+
+					`"usage":{"completion_tokens":6000,"completion_tokens_details":{"reasoning_tokens":6000}}}`)
+			})
+			_, _ = client.Generate(context.Background(), testRequest())
+		})
+
+		entry := findLogEntry(t, logs, "llm generation failed")
+		assert.Equal(t, "6000", logString(t, entry, "completion_tokens"))
+		assert.Equal(t, "6000", logString(t, entry, "reasoning_tokens"))
+	})
+}
+
+func TestGenerateNon2xxLogsUpstreamFailure(t *testing.T) {
+	tests := []struct {
+		name        string
+		status      int
+		body        string
+		wantMessage string
+		wantCode    string
+	}{
+		{
+			name:        "Happy path: message and numeric code are logged",
+			status:      http.StatusBadRequest,
+			body:        `{"error":{"message":"bad schema","code":400}}`,
+			wantMessage: "bad schema",
+			wantCode:    "400",
+		},
+		{
+			name:        "Edge: a string code is logged",
+			status:      http.StatusUnauthorized,
+			body:        `{"error":{"message":"invalid key","code":"invalid_api_key"}}`,
+			wantMessage: "invalid key",
+			wantCode:    "invalid_api_key",
+		},
+		{
+			name:        "Edge: a null code is omitted",
+			status:      http.StatusBadRequest,
+			body:        `{"error":{"message":"bad schema","code":null}}`,
+			wantMessage: "bad schema",
+		},
+		{
+			name:     "Edge: a missing message omits error_message",
+			status:   http.StatusBadRequest,
+			body:     `{"error":{"code":400}}`,
+			wantCode: "400",
+		},
+		{
+			name:   "Edge: an unparsable body omits both attributes",
+			status: http.StatusInternalServerError,
+			body:   `<html>bad gateway</html>`,
+		},
+		{
+			name:   "Edge: an empty body omits both attributes",
+			status: http.StatusBadGateway,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var generateErr error
+			logs := captureStdout(t, func() {
+				client := newLoggingClient(t, slog.LevelInfo, func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(tc.status)
+					_, _ = io.WriteString(w, tc.body)
+				})
+				_, generateErr = client.Generate(llm.WithGenerationID(context.Background(), "job-2"), testRequest())
+			})
+
+			require.Error(t, generateErr)
+
+			entry := findLogEntry(t, logs, "llm generation failed")
+			assert.Equal(t, "job-2", logString(t, entry, "generation_id"))
+			assert.Equal(t, strconv.Itoa(tc.status), logString(t, entry, "status"))
+			if tc.wantMessage == "" {
+				assert.NotContains(t, entry, "error_message")
+			} else {
+				assert.Equal(t, tc.wantMessage, logString(t, entry, "error_message"))
+			}
+			if tc.wantCode == "" {
+				assert.NotContains(t, entry, "upstream_code")
+			} else {
+				assert.Equal(t, tc.wantCode, logString(t, entry, "upstream_code"))
+			}
+			assert.NotContains(t, entry, "error_code")
+		})
+	}
+
+	t.Run("Edge: a huge message is truncated to 300 bytes on a rune boundary", func(t *testing.T) {
+		message := strings.Repeat("a", 299) + strings.Repeat("é", 100)
+		logs := captureStdout(t, func() {
+			client := newLoggingClient(t, slog.LevelInfo, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = io.WriteString(w, `{"error":{"message":`+strconv.Quote(message)+`,"code":400}}`)
+			})
+			_, _ = client.Generate(context.Background(), testRequest())
+		})
+
+		entry := findLogEntry(t, logs, "llm generation failed")
+		got := logString(t, entry, "error_message")
+		assert.LessOrEqual(t, len(got), 300)
+		assert.True(t, utf8.ValidString(got), "a truncated message must not split a rune")
+		assert.Equal(t, strings.Repeat("a", 299), got)
+	})
+
+	t.Run("Edge: a message of repeated multi-byte runes stops on a boundary", func(t *testing.T) {
+		logs := captureStdout(t, func() {
+			client := newLoggingClient(t, slog.LevelInfo, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = io.WriteString(w, `{"error":{"message":`+strconv.Quote(strings.Repeat("é", 400))+`}}`)
+			})
+			_, _ = client.Generate(context.Background(), testRequest())
+		})
+
+		entry := findLogEntry(t, logs, "llm generation failed")
+		got := logString(t, entry, "error_message")
+		assert.Equal(t, 300, len(got))
+		assert.True(t, utf8.ValidString(got))
+		assert.Equal(t, strings.Repeat("é", 150), got)
+	})
+}
+
+func TestGenerateSuccessLogCarriesFinishReason(t *testing.T) {
+	var (
+		resp llm.Response
+		err  error
+		logs string
+	)
+	logs = captureStdout(t, func() {
+		client := newLoggingClient(t, slog.LevelInfo, func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, chatCompletionBody(t, `{"name":"Aria"}`, "stop", 42))
+		})
+		resp, err = client.Generate(llm.WithGenerationID(context.Background(), "job-3"), testRequest())
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "stop", resp.FinishReason)
+	assert.Equal(t, 42, resp.Usage.ReasoningTokens)
+
+	entry := findLogEntry(t, logs, "llm generation completed")
+	assert.Equal(t, "stop", logString(t, entry, "finish_reason"))
+	assert.Equal(t, "42", logString(t, entry, "reasoning_tokens"))
+	assert.Equal(t, "job-3", logString(t, entry, "generation_id"))
+}
+
+func TestGenerateLogsNeverCarryPromptOrContent(t *testing.T) {
+	const (
+		secretSystem  = "SECRET-SYSTEM-XYZ"
+		secretPrompt  = "SECRET-PROMPT-XYZ"
+		secretContent = "SECRET-CONTENT-XYZ"
+	)
+	tests := []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{name: "Happy path: a completed generation logs no content", status: http.StatusOK, body: chatBody(t, `{"name":"`+secretContent+`"}`)},
+		{name: "Error: an invalid JSON output logs no content", status: http.StatusOK, body: chatBody(t, secretContent)},
+		{name: "Error: an upstream failure logs no request text", status: http.StatusBadRequest, body: `{"error":{"message":"bad schema","code":400}}`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			logs := captureStdout(t, func() {
+				client := newLoggingClient(t, slog.LevelInfo, func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(tc.status)
+					_, _ = io.WriteString(w, tc.body)
+				})
+				_, _ = client.Generate(context.Background(), llm.Request{
+					System: secretSystem, Prompt: secretPrompt, Schema: testSchema, MaxTokens: 256,
+				})
+			})
+
+			assert.NotContains(t, logs, secretSystem)
+			assert.NotContains(t, logs, secretPrompt)
+			assert.NotContains(t, logs, secretContent)
+			assert.NotContains(t, logs, testAPIKey)
+		})
+	}
 }
 
 func TestGenerateErrorsNeverEchoGatewayBody(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"legnaris/backend/internal/llm"
@@ -22,7 +23,12 @@ const (
 	attrAttempts     = "attempts"
 	attrLatency      = "latency_ms"
 	attrErrorCode    = "error_code"
+	attrProblems     = "problems"
+	attrFinishReason = "finish_reason"
+	attrOutputBytes  = "output_bytes"
 )
+
+const maxProblemsBytes = 500
 
 type WorkerDeps struct {
 	Jobs    JobStore
@@ -106,6 +112,7 @@ func (w *Worker) Process(ctx context.Context, id string) error {
 }
 
 func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, string) {
+	ctx = llm.WithGenerationID(ctx, doc.ID)
 	tmpl, dag, code := w.resolve(doc.TemplateID)
 	if code != "" {
 		return nil, code
@@ -140,6 +147,9 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 		w.logger.Info(ctx, "generation output rejected",
 			logger.Attribute{Key: attrGenerationID, Value: doc.ID},
 			logger.Attribute{Key: attrAttempts, Value: strconv.Itoa(attempt + 1)},
+			logger.Attribute{Key: attrProblems, Value: logger.Truncate(strings.Join(problems, "; "), maxProblemsBytes)},
+			logger.Attribute{Key: attrFinishReason, Value: resp.FinishReason},
+			logger.Attribute{Key: attrOutputBytes, Value: strconv.Itoa(len(resp.Output))},
 			logger.Attribute{Key: attrErrorCode, Value: ErrorCodeInvalidOutput})
 	}
 	return nil, ErrorCodeInvalidOutput
