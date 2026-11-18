@@ -43,6 +43,7 @@ const (
 	billingEventsExpiresAtTTL       = "billing_events_expires_at_ttl"
 	subscriptionsExpiresAtTTL       = "subscriptions_expires_at_ttl"
 	billingEventsNextAttemptField   = "next_attempt_at"
+	createdAtField                  = "created_at"
 	expiresAtField                  = "expires_at"
 	statusField                     = "status"
 	campaignsMembersUserIDField     = "members.user_id"
@@ -54,6 +55,9 @@ const (
 	campaignSheetLinksCampaignIndex = "campaign_sheet_links_campaign_id"
 	campaignSheetLinksSheetIndex    = "campaign_sheet_links_sheet_id"
 	campaignSheetLinksOwnerIndex    = "campaign_sheet_links_owner_id"
+	adminAuditCreatedAtIndex        = "admin_audit_created_at"
+	adminAuditTargetCreatedAtIndex  = "admin_audit_target_created_at"
+	adminAuditActorCreatedAtIndex   = "admin_audit_actor_created_at"
 	campaignIDField                 = "campaign_id"
 	sheetIDField                    = "sheet_id"
 	ownerIDField                    = "owner_id"
@@ -145,7 +149,31 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 	if err := ensureBillingIndexes(ctx, database); err != nil {
 		return err
 	}
+	if err := ensureAdminIndexes(ctx, database); err != nil {
+		return err
+	}
 	return ensureCampaignIndexes(ctx, database)
+}
+
+func ensureAdminIndexes(ctx context.Context, database *mongo.Database) error {
+	audit := database.Collection("admin_audit")
+	if _, err := audit.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: createdAtField, Value: -1}},
+			Options: options.Index().SetName(adminAuditCreatedAtIndex),
+		},
+		{
+			Keys:    bson.D{{Key: "target_user_id", Value: 1}, {Key: createdAtField, Value: -1}},
+			Options: options.Index().SetName(adminAuditTargetCreatedAtIndex),
+		},
+		{
+			Keys:    bson.D{{Key: "actor_user_id", Value: 1}, {Key: createdAtField, Value: -1}},
+			Options: options.Index().SetName(adminAuditActorCreatedAtIndex),
+		},
+	}); err != nil {
+		return fmt.Errorf("create admin_audit indexes: %w", err)
+	}
+	return nil
 }
 
 func ensureCampaignIndexes(ctx context.Context, database *mongo.Database) error {
@@ -252,7 +280,7 @@ func ensureGenerationIndexes(ctx context.Context, database *mongo.Database) erro
 			Options: options.Index().SetExpireAfterSeconds(0).SetName(generationsExpiresAtTTL),
 		},
 		{
-			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: "created_at", Value: 1}},
+			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: createdAtField, Value: 1}},
 			Options: options.Index().SetName(generationsStatusCreatedAt),
 		},
 	}); err != nil {
@@ -344,7 +372,7 @@ func ensureEmailOutboxIndexes(ctx context.Context, database *mongo.Database, ret
 	}
 
 	if _, err := emailOutbox.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "created_at", Value: 1}},
+		Keys:    bson.D{{Key: createdAtField, Value: 1}},
 		Options: options.Index().SetName(emailOutboxCreatedAt),
 	}); err != nil {
 		return fmt.Errorf("create email_outbox created_at index: %w", err)

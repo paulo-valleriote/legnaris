@@ -204,3 +204,16 @@ packages:
     interfaces:
       Provider: {}
       Store: {}
+      SubscriptionLister: {}
+      CompExpiryLedger: {}
+  legnaris/backend/internal/admin:
+    config:
+      dir: backend/internal/admin/mocks
+      outpkg: mocks
+    interfaces:
+      Users: {}
+      Subscriptions: {}
+      Quotas: {}
+      Plans: {}
+      Audits: {}
+      Transactor: {}

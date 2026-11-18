@@ -173,7 +173,7 @@ func (c *Consumer) syncPlan(ctx context.Context, userID string, account AccountP
 	if err != nil {
 		return false, fmt.Errorf("load subscriptions: %w", err)
 	}
-	derived := DerivePlanID(subs)
+	derived := DerivePlanID(subs, now)
 	current := account.Plan
 	if current == "" {
 		current = plan.IDFree

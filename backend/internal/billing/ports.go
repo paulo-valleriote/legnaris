@@ -8,6 +8,8 @@ import (
 
 const ProviderStripe = "stripe"
 
+const ProviderComp = "comp"
+
 var (
 	ErrProviderUnavailable = errors.New("billing provider unavailable")
 	ErrProviderRejected    = errors.New("billing provider rejected the request")

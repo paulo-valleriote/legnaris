@@ -120,6 +120,14 @@ func (s *MongoStore) RefundDaily(ctx context.Context, userID, dayUTC string) err
 	return nil
 }
 
+func (s *MongoStore) DeleteDaily(ctx context.Context, userID, dayUTC string) error {
+	filter := bson.D{{Key: fieldUserID, Value: userID}, {Key: fieldDayUTC, Value: dayUTC}}
+	if _, err := s.usage.DeleteOne(ctx, filter); err != nil {
+		return fmt.Errorf("delete daily counter: %w", err)
+	}
+	return nil
+}
+
 func (s *MongoStore) FetchTrial(ctx context.Context, userID string) (TrialRow, error) {
 	var row TrialRow
 	err := s.trials.FindOne(ctx, bson.D{{Key: fieldID, Value: userID}}).Decode(&row)

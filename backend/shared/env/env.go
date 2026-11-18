@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/logger"
 	"math"
 	"net/url"
@@ -46,6 +47,7 @@ type Variables struct {
 	UserRateLimitAttempts             int
 	UserRateLimitWindow               time.Duration
 	TrustedProxyCIDRs                 []string
+	AdminUserIDs                      []string
 	RedisURL                          string
 	AppEnv                            string
 	EmailProvider                     string
@@ -180,6 +182,7 @@ const (
 const (
 	keyDatabaseURI        = "DATABASE_URI"
 	keyJWTSecret          = "JWT_SECRET"
+	keyAdminUserIDs       = "ADMIN_USER_IDS"
 	keyEmailCodeSecret    = "EMAIL_CODE_SECRET"
 	keyTrustedProxyCIDRs  = "TRUSTED_PROXY_CIDRS"
 	keyRedisURL           = "REDIS_URL"
@@ -224,6 +227,19 @@ func (e Env) Validate() error {
 	}
 	if e.Variables.GenerationDailyCap < 0 {
 		errs = append(errs, errors.New("GENERATION_DAILY_CAP must not be negative"))
+	}
+	if err := validateAdminUserIDs(e.Variables.AdminUserIDs); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+func validateAdminUserIDs(ids []string) error {
+	var errs []error
+	for _, id := range ids {
+		if err := idgen.Validate(id); err != nil {
+			errs = append(errs, fmt.Errorf("%s contains %q: %w", keyAdminUserIDs, id, err))
+		}
 	}
 	return errors.Join(errs...)
 }
@@ -305,6 +321,7 @@ func (e *Env) buildVariables() Variables {
 		CampaignJoinRateLimitAttempts:     e.lookupIntEnv("CAMPAIGN_JOIN_RATE_LIMIT_ATTEMPTS", defaultCampaignJoinAttempts),
 		CampaignJoinRateLimitWindow:       e.lookupDurationEnv("CAMPAIGN_JOIN_RATE_LIMIT_WINDOW", defaultCampaignJoinWindow),
 		TrustedProxyCIDRs:                 e.lookupTrustedProxyCIDRs(),
+		AdminUserIDs:                      e.lookupAdminUserIDs(),
 		RedisURL:                          e.lookupStringEnv(keyRedisURL, ""),
 		AppEnv:                            e.lookupStringEnv(keyAppEnv, ""),
 		EmailProvider:                     e.lookupStringEnv("EMAIL_PROVIDER", defaultEmailProvider),
@@ -419,6 +436,22 @@ func (e *Env) lookupStringSliceEnv(key string, defaultValue []string) []string {
 	for _, part := range parts {
 		part = strings.TrimSuffix(strings.TrimSpace(part), "/")
 		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
+}
+
+func (e *Env) lookupAdminUserIDs() []string {
+	value, found := os.LookupEnv(keyAdminUserIDs)
+	if !found || value == "" {
+		return nil
+	}
+
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
 			result = append(result, part)
 		}
 	}

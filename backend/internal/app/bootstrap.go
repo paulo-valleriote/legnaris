@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"legnaris/backend/internal/admin"
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/billing"
 	billingstripe "legnaris/backend/internal/billing/stripe"
@@ -43,6 +44,11 @@ type BillingModule struct {
 	Controller *BillingController
 	Service    *billing.Service
 	Webhook    *BillingWebhookController
+}
+
+type AdminModule struct {
+	Controller *AdminController
+	Service    *admin.Service
 }
 
 type LLMConsentModule struct {
@@ -107,6 +113,7 @@ type Modules struct {
 	Auth           AuthModule
 	Generation     GenerationModule
 	Billing        BillingModule
+	Admin          AdminModule
 	Plan           *PlanController
 	ClientIP       func(*http.Request) string
 	ActiveAccounts auth.ActiveAccountChecker
@@ -161,16 +168,19 @@ func NewModules(
 	templateController := NewTemplateController(templateService)
 
 	userRepository := user.NewCachedRepository(user.NewRepository(mdb, log))
+	billingStore := billing.NewMongoStore(mdb)
+	planSource := user.NewPlanSource(userRepository).
+		WithDeriver(billing.NewPlanReader(billingStore, time.Now).EffectivePlanID)
 
 	sheetRepository := sheet.NewRepository(mdb, log)
 	linkStore := campaign.NewLinkStore(mdb)
 	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher,
-		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
+		sheet.WithPlanLimits(planSource, db.NewTransactor(database.Client, nil)),
 		sheet.WithLinkCleaner(campaign.NewSheetLinkCleaner(linkStore, publisher)),
 	)
 	sheetController := NewSheetController(sheetService)
 
-	ownedCampaigns := campaign.NewOwnershipLimiter(user.NewPlanSource(userRepository), campaign.NewOwnershipCounter(mdb))
+	ownedCampaigns := campaign.NewOwnershipLimiter(planSource, campaign.NewOwnershipCounter(mdb))
 	refreshTokenRepository := auth.NewRefreshTokenRepository(mdb)
 
 	hasher, err := auth.NewPasswordHasher(cfg.Variables.AuthBcryptCost)
@@ -259,7 +269,7 @@ func NewModules(
 		Store:     generation.NewMongoStore(mdb),
 		Consent:   llmConsentService,
 		Sheets:    sheetService,
-		Plans:     user.NewPlanSource(userRepository),
+		Plans:     planSource,
 		Templates: templateService,
 		Quota:     quotaService,
 		Tx:        db.NewTransactor(database.Client, nil),
@@ -269,10 +279,18 @@ func NewModules(
 	if err != nil {
 		return nil, fmt.Errorf("build billing provider: %w", err)
 	}
-	billingStore := billing.NewMongoStore(mdb)
 	billingService := newBillingService(billingProvider, billingStore, cfg.Variables)
 	billingInbox := billing.NewInbox(billingProvider, billingStore, time.Now)
-	planController := NewPlanController(quotaService, PlanResolverFromSource(user.NewPlanSource(userRepository)),
+	adminService := admin.NewService(admin.Deps{
+		Users:         userRepository,
+		Subscriptions: billingStore,
+		Quotas:        quotaService,
+		Plans:         planSource,
+		Audits:        admin.NewMongoStore(mdb),
+		Tx:            db.NewTransactor(database.Client, nil),
+		Now:           time.Now,
+	})
+	planController := NewPlanController(quotaService, PlanResolverFromSource(planSource),
 		WithSheetUsage(sheetService),
 		WithOwnedCampaigns(ownedCampaigns),
 		WithBillingSummary(billing.NewStatusReader(billingStore)),
@@ -345,6 +363,10 @@ func NewModules(
 			Controller: NewBillingController(billingService),
 			Service:    billingService,
 			Webhook:    NewBillingWebhookController(billingInbox),
+		},
+		Admin: AdminModule{
+			Controller: NewAdminController(adminService),
+			Service:    adminService,
 		},
 		Plan:          planController,
 		ClientIP:      clientIPPolicy.Resolve,

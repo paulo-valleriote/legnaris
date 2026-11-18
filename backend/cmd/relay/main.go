@@ -210,7 +210,11 @@ func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRe
 	if err != nil {
 		return nil, err
 	}
-	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps, deletionDeps, billingDeps, campaignDeps)
+	compExpiry, ok := billingDeps.Ledger.(billing.CompExpiryLedger)
+	if !ok {
+		return nil, fmt.Errorf("billing ledger does not support comp expiry")
+	}
+	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps, deletionDeps, billingDeps, campaignDeps, compExpiry)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +225,7 @@ const eventsOutboxInterval = 30 * time.Second
 
 const generationRepublishAttemptCap = 5
 
-func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps, billingDeps billing.ConsumerDeps, campaignDeps campaign.DeletionDeps) ([]sweeper.Queue, error) {
+func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps, billingDeps billing.ConsumerDeps, campaignDeps campaign.DeletionDeps, compExpiry billing.CompExpiryLedger) ([]sweeper.Queue, error) {
 	vars := cfg.Variables
 	eventQueue, err := eventsrelay.NewQueue(eventRepository, eventBroker, eventsrelay.Config{
 		Interval:       eventsOutboxInterval,
@@ -260,7 +264,11 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
-	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue, campaignQueue, orphanQueue, billingQueue, refundQueue}, nil
+	compExpiryQueue, err := billing.NewCompExpiryQueue(compExpiry)
+	if err != nil {
+		return nil, err
+	}
+	return []sweeper.Queue{eventQueue, generationQueue, reapQueue, deletionQueue, campaignQueue, orphanQueue, billingQueue, refundQueue, compExpiryQueue}, nil
 }
 
 func validateBrokerURL(raw string) error {
@@ -408,10 +416,15 @@ func defaultDependencies() dependencies {
 				return accountdeletion.Deps{}, fmt.Errorf("unexpected database handle type %T", database)
 			}
 			mdb := mongo.Client.Database(cfg.Variables.DatabaseName)
+			billingStore := billing.NewMongoStore(mdb)
 			settler, err := campaign.NewAccountSettler(
 				campaign.NewRepository(mdb),
 				db.NewTransactor(mongo.Client, nil),
-				campaign.NewOwnershipLimiter(user.NewPlanSource(user.NewRepository(mdb, cfg.Logger)), campaign.NewOwnershipCounter(mdb)),
+				campaign.NewOwnershipLimiter(
+					user.NewPlanSource(user.NewRepository(mdb, cfg.Logger)).
+						WithDeriver(billing.NewPlanReader(billingStore, time.Now).EffectivePlanID),
+					campaign.NewOwnershipCounter(mdb),
+				),
 				relayCharacterUnlinker{sheets: sheet.NewRepository(mdb, cfg.Logger)},
 				publisher,
 				time.Now,
@@ -425,7 +438,7 @@ func defaultDependencies() dependencies {
 				Tx:      db.NewTransactor(mongo.Client, nil),
 				Billing: billing.NewDeletion(billing.DeletionDeps{
 					Provider: newRelayBillingProvider(cfg.Variables),
-					Ledger:   billing.NewMongoStore(mdb),
+					Ledger:   billingStore,
 				}),
 				Campaigns: settler,
 			}, nil

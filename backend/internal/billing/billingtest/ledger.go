@@ -325,6 +325,25 @@ func (l *Ledger) ApplySubscription(_ context.Context, sub billing.Subscription, 
 	return true, nil
 }
 
+func (l *Ledger) CancelExpiredComps(_ context.Context, now time.Time) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	canceled := 0
+	for id, sub := range l.st.subs {
+		if sub.Provider != billing.ProviderComp || sub.Status != billing.StatusActive {
+			continue
+		}
+		if sub.CurrentPeriodEnd == nil || sub.CurrentPeriodEnd.After(now) {
+			continue
+		}
+		sub.Status = billing.StatusCanceled
+		sub.UpdatedAt = now
+		l.st.subs[id] = sub
+		canceled++
+	}
+	return canceled, nil
+}
+
 func (l *Ledger) InsertSubscription(_ context.Context, sub billing.Subscription) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
