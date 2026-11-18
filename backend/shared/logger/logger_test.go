@@ -3,7 +3,9 @@ package logger
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -106,6 +108,36 @@ func TestRedactSecrets(t *testing.T) {
 			value:    "John Doe",
 			expected: "John Doe",
 		},
+		{
+			name:     "Happy path: the prompt token count is not redacted",
+			key:      "prompt_tokens",
+			value:    "11",
+			expected: "11",
+		},
+		{
+			name:     "Happy path: the completion token count is not redacted",
+			key:      "completion_tokens",
+			value:    "7",
+			expected: "7",
+		},
+		{
+			name:     "Happy path: the total token count is not redacted",
+			key:      "total_tokens",
+			value:    "18",
+			expected: "18",
+		},
+		{
+			name:     "Happy path: the reasoning token count is not redacted",
+			key:      "reasoning_tokens",
+			value:    "6000",
+			expected: "6000",
+		},
+		{
+			name:     "Edge: a credential token is still redacted",
+			key:      "access_token",
+			value:    "raw-credential",
+			expected: "[REDACTED]",
+		},
 	}
 
 	for _, tc := range tests {
@@ -139,4 +171,41 @@ func TestLogger_With(t *testing.T) {
 	assert.NotPanics(t, func() {
 		child.Info(context.Background(), "test with context")
 	})
+}
+
+func TestTruncate(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		limit int
+		want  string
+	}{
+		{name: "Happy path: a short value is returned unchanged", value: "short", limit: 10, want: "short"},
+		{name: "Edge: a value of exactly the limit is unchanged", value: "12345", limit: 5, want: "12345"},
+		{name: "Edge: an empty value stays empty", value: "", limit: 5, want: ""},
+		{name: "Edge: a zero limit yields an empty value", value: "abc", limit: 0, want: ""},
+		{name: "Edge: a negative limit yields an empty value", value: "abc", limit: -1, want: ""},
+		{name: "Happy path: an ASCII value is cut at the limit", value: "abcdef", limit: 4, want: "abcd"},
+		{
+			name:  "Edge: a cut that lands inside a rune backs off to the boundary",
+			value: "aaaé",
+			limit: 4,
+			want:  "aaa",
+		},
+		{
+			name:  "Happy path: a multi-byte value is cut on a rune boundary",
+			value: strings.Repeat("é", 10),
+			limit: 5,
+			want:  "éé",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Truncate(tc.value, tc.limit)
+			assert.Equal(t, tc.want, got)
+			assert.LessOrEqual(t, len(got), max(tc.limit, 0))
+			assert.True(t, utf8.ValidString(got))
+		})
+	}
 }

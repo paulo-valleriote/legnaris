@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"unicode/utf8"
 )
 
 type Attribute struct {
@@ -70,8 +71,18 @@ var redactedKeys = []string{
 	"__host-legnaris_refresh", "__host-legnaris_csrf",
 }
 
+var tokenCountKeys = map[string]bool{
+	"prompt_tokens":     true,
+	"completion_tokens": true,
+	"total_tokens":      true,
+	"reasoning_tokens":  true,
+}
+
 func redactSecrets(groups []string, a slog.Attr) slog.Attr {
 	loweredKey := strings.ToLower(a.Key)
+	if tokenCountKeys[loweredKey] {
+		return a
+	}
 	for _, key := range redactedKeys {
 		if strings.Contains(loweredKey, key) {
 			return slog.String(a.Key, "[REDACTED]")
@@ -86,4 +97,18 @@ func toArgs(attrs []Attribute) []slog.Attr {
 		args[i] = slog.String(attr.Key, attr.Value)
 	}
 	return args
+}
+
+func Truncate(value string, limit int) string {
+	if len(value) <= limit {
+		return value
+	}
+	if limit <= 0 {
+		return ""
+	}
+	cut := limit
+	for cut > 0 && !utf8.RuneStart(value[cut]) {
+		cut--
+	}
+	return value[:cut]
 }
