@@ -75,3 +75,53 @@ func fixtureDAG(t testing.TB, tmpl *template.Template) *template.DAG {
 	require.NoError(t, err)
 	return dag
 }
+
+func dependentFixtureTemplate() *template.Template {
+	return &template.Template{
+		ID:   fixtureID,
+		Name: "Dependent",
+		Fields: template.FieldGroup{
+			"stats": {Children: template.FieldGroup{
+				"dexterity": {Schema: &template.FieldSchema{
+					Type: "number", Label: "Dexterity", IsEditable: true, Generatable: true,
+					Default: 10, Min: ptr(1.0), Max: ptr(20.0),
+				}},
+			}},
+			"modifiers": {Children: template.FieldGroup{
+				"x": {Schema: &template.FieldSchema{
+					Type:      "number",
+					Label:     "X",
+					Formula:   "floor((stats_dexterity - rules_base) / 2)",
+					DependsOn: [][]string{{"stats", "dexterity"}, {"rules", "base"}},
+				}},
+			}},
+			"rules": {Children: template.FieldGroup{
+				"base": {Schema: &template.FieldSchema{
+					Type: "number", Label: "Base", IsEditable: true, Default: 10,
+				}},
+			}},
+		},
+	}
+}
+
+func brokenFormulaFixtureTemplate() *template.Template {
+	return &template.Template{
+		ID:   fixtureID,
+		Name: "Broken formula",
+		Fields: template.FieldGroup{
+			"identity": {Children: template.FieldGroup{
+				"name": {Schema: &template.FieldSchema{
+					Type: "text", Label: "Name", IsEditable: true, Generatable: true,
+				}},
+			}},
+			"modifiers": {Children: template.FieldGroup{
+				"broken": {Schema: &template.FieldSchema{
+					Type:      "number",
+					Label:     "Broken",
+					Formula:   "identity_name + 1",
+					DependsOn: [][]string{{"identity", "name"}},
+				}},
+			}},
+		},
+	}
+}
