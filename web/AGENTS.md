@@ -221,55 +221,7 @@ when that write landed; otherwise it says the changes could not be kept (`sheet.
 
 ## Dice expressions (`src/dice/`)
 
-Pure TypeScript half of the Dice grammar: no React, no network, no dependency on the API models.
-The Go package `backend/internal/dice` validates; this module parses, resolves and rolls.
-
-- `parseDice` / `canonicalForm` (`parse.ts`), `validateRow` / `validateSection` / `fitsRow`
-  (`fit.ts`, against a `DiceSchema` path → kind), `resolveDice` (`resolve.ts`, the five-step
-  precedence), `rollExpression` / `performRoll` (`roll.ts`). Operations that can be refused return a
-  `DiceResult` carrying a `DiceError` whose `class` is the vocabulary of the shared vectors; they do
-  not throw (the one exception is a random source that never yields a usable word).
-- **`testdata/dice/vectors.json` is shared with Go.** `dice_*.test.ts` assert every vector; a grammar
-  change starts in the vectors and both implementations follow. `LIMITS` and the class strings are
-  part of that contract.
-- **Resolution** reads own keys only (`Object.hasOwn`): an absent key falls through, `null` is "no
-  dice", and the chosen expression is judged against the Row (parse, then fit). A Row it does not fit
-  is not rollable with it; no later step is tried.
-- **A Roll** reads the on-screen values, `draft` before saved (a path present in the draft wins even
-  when emptied), floors with `Math.floor`, and refuses a missing, `null`, non-finite or non-numeric
-  Field as `no_value`. Dice come from `crypto.getRandomValues` through `dieFromWords`, which redraws
-  words above the largest multiple of the face count (no modulo bias). Nothing is stored.
-- User-facing copy for a `DiceError` is the UI's job (LGN-166), by `class`, through `src/l10n/`.
-- **Validation mirrors the server.** The client refuses what the `dice` block of `PATCH /sheets/:id` would refuse
-  (same limits, grammar, Row fit and 64-entry cap) so a bad expression never reaches the wire; the
-  server stays the authority and its 400 `INVALID_REQUEST` is still mapped.
-- **A dice choice is pending work.** The edit store (`sheet_edit.ts`) holds the saved and
-  the current block; `createDiceStore` (`src/sheet/dice_store.ts`) is the face the Dice controls use
-  over it: it runs the local check and, when accepted, records the choice with `setDice`. Nothing is
-  sent until Save (or `Ctrl+S`), which issues one `PATCH` carrying the delta and the whole block
-  (`patchSheet(id, delta, dice)`; an empty delta is left out). A choice counts for `isPending`,
-  `pendingCount`, the leave guard, `F5`, discard and the draft (`writeDraft(id, delta, dice)`);
-  setting it back to its saved value clears it. Both the saved block and a restored draft go through
-  `pruneStaleChoices` (`src/sheet/dice_view.ts`), which mirrors the server's save rules (unknown key,
-  Row expression that no longer fits, Section expression that fits none of its Rows), so a stale entry
-  never reaches the `PATCH`; the Section check while typing uses the same rule. It never
-  enables Preview (`canPreview` reads values only) and never resets the preview marks. A failed save
-  keeps it pending and shows the footer error. A pending Row is marked "Modified" through
-  `rowMarkBuilder(paths, rowKey)` (the preview mark wins when both apply); a pending Section choice
-  draws the same mark in the Section's title row.
-- **Where it shows.** A dice button (`src/sheet/dice_row.tsx`) appears only on a Row with an
-  applicable expression, or one switched off by "no dice" (on the Row or its Section). Tap rolls;
-  long-press (`LONG_PRESS_MS`, 500 ms) opens the Row's editor; the Edit button is the keyboard
-  alternative. Roll and Edit sit at the trailing edge of the Row's label in every Row kind (lone,
-  exclusive, table), right before the value. Editing a Row creates a Row override, which wins over the
-  Section. The Roll button names the dice it throws (`diceSummary`), Edit is a pencil icon (a struck die on a Row whose dice are off), and the Section's die icon button sits at the trailing edge of its title row. Everything is hidden
-  in Arrange mode. The editor is the shared `Dialog` (one at a time, Escape closes it and focus
-  returns to the button that opened it); the Section editor carries the `dice.sectionNote` note. The
-  Roll result (`src/sheet/dice_panel.tsx`) is a non-modal polite status that floats at the bottom of
-  the viewport, above the element marked `data-floating-floor` (the sheet footer). The provider
-  portals both to `document.body`, so neither reflows the sheet nor inherits a Row's container
-  query containment. Rendering helpers are in `src/sheet/dice_view.ts`; wire models in
-  `src/api/models/dice.ts`. Copy lives in `src/l10n/strings.ts`.
+Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together.
 
 ## Layout and Arrange mode
 
