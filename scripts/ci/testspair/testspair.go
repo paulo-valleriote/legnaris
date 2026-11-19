@@ -1,7 +1,7 @@
 package testspair
 
 import (
-	"encoding/json"
+	sharedjson "legnaris/backend/shared/json"
 	"path"
 	"sort"
 	"strings"
@@ -111,7 +111,7 @@ func HasLabel(labelsJSON, label string) bool {
 		return false
 	}
 	var labels []string
-	if err := json.Unmarshal([]byte(labelsJSON), &labels); err != nil {
+	if err := sharedjson.DecodeBytes([]byte(labelsJSON), &labels); err != nil {
 		return false
 	}
 	for _, candidate := range labels {

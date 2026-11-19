@@ -174,12 +174,12 @@ func trackedFiles(t *testing.T) (string, []string) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not installed; the tracked configuration cannot be enumerated")
 	}
-	toplevel, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	toplevel, err := exec.CommandContext(t.Context(), "git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		t.Skip("the source tree is not a Git checkout; the tracked configuration cannot be enumerated")
 	}
 	root := strings.TrimSpace(string(toplevel))
-	output, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
+	output, err := exec.CommandContext(t.Context(), "git", "-C", root, "ls-files", "-z").Output()
 	require.NoError(t, err)
 
 	var files []string

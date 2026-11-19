@@ -317,7 +317,7 @@ func TestRunOnRepository(t *testing.T) {
 	root := t.TempDir()
 	runGit := func(args ...string) {
 		t.Helper()
-		command := exec.Command("git", append([]string{"-C", root}, args...)...)
+		command := exec.CommandContext(t.Context(), "git", append([]string{"-C", root}, args...)...)
 		require.NoError(t, command.Run())
 	}
 	runGit("init", "-q")

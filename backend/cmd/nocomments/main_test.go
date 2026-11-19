@@ -129,8 +129,8 @@ func TestRunDiscoversTrackedFiles(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\n// violation\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "ignored.md"), []byte("<!-- fine -->\n"), 0o600))
-	require.NoError(t, exec.Command("git", "-C", dir, "init", "-q").Run())
-	require.NoError(t, exec.Command("git", "-C", dir, "add", "main.go", "ignored.md").Run())
+	require.NoError(t, exec.CommandContext(t.Context(), "git", "-C", dir, "init", "-q").Run())
+	require.NoError(t, exec.CommandContext(t.Context(), "git", "-C", dir, "add", "main.go", "ignored.md").Run())
 	t.Chdir(dir)
 
 	var stdout, stderr bytes.Buffer

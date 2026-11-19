@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -94,7 +95,7 @@ func loadAllowlist(path string) (map[string]struct{}, error) {
 }
 
 func trackedFiles(root string) ([]string, error) {
-	command := exec.Command("git", "-C", root, "ls-files", "-z")
+	command := exec.CommandContext(context.Background(), "git", "-C", root, "ls-files", "-z")
 	output, err := command.Output()
 	if err != nil {
 		return nil, fmt.Errorf("list tracked files: %w", err)

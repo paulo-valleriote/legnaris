@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -53,7 +54,7 @@ func run(gomod string, files []string, stdout, stderr io.Writer) int {
 }
 
 func trackedGoFiles() ([]string, error) {
-	output, err := exec.Command("git", "ls-files", "-z", "--", "*.go").Output()
+	output, err := exec.CommandContext(context.Background(), "git", "ls-files", "-z", "--", "*.go").Output()
 	if err != nil {
 		return nil, err
 	}

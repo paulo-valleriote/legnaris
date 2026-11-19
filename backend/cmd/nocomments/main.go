@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -60,7 +61,7 @@ func resolveFiles(args []string) ([]string, error) {
 }
 
 func repoRoot() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	out, err := exec.CommandContext(context.Background(), "git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return "", fmt.Errorf("resolve repository root: %w", err)
 	}
@@ -68,7 +69,7 @@ func repoRoot() (string, error) {
 }
 
 func gitTrackedFiles(root string) ([]string, error) {
-	out, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
+	out, err := exec.CommandContext(context.Background(), "git", "-C", root, "ls-files", "-z").Output()
 	if err != nil {
 		return nil, fmt.Errorf("list tracked files: %w", err)
 	}
