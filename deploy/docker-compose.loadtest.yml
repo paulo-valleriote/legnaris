@@ -1,7 +1,8 @@
 # =============================================================================
 # Load-test overlay — NEVER use against a public deployment.
 #
-# Usage: `make loadtest-dev` (see scripts/loadtest-dev.sh and loadtest/README.md).
+# Usage: `make loadtest-dev` (see scripts/loadtest-dev.sh and the load testing
+# section of the root README).
 #
 # Differences from the base stack:
 #   - Rate limits are lifted: the test hammers a handful of accounts from one

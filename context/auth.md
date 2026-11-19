@@ -225,3 +225,4 @@ The bearer subject is the only identity: controllers copy `auth.UserID(c)` into 
 - Rate limits fall back to per-replica memory when Redis is unavailable, so the effective limit multiplies by the replica count.
 - A leaked access token stays valid until its expiry (15 minutes by default); logout and rotation only stop renewal. CSRF tokens are stateless and become useless with the refresh family, not on a timer.
 - The registration timing floor is padding, not a constant-time guarantee; the bcrypt comparison dominates but does not fully equalize server-side work.
+- Password hashing cost 12 costs about 230 ms per hash and caps the whole API at roughly 40 verifications per second on a 12-core host, so a login storm starves sheet traffic. The cost is not lowered to flatter a benchmark: the mitigation is bounding concurrent hashes and keeping the per-address and per-account limiters.

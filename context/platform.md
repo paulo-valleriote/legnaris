@@ -150,6 +150,10 @@ sender prints one-time codes, and every run starts from empty data.
   `deploy/.env.example` and the owning context files. Production receives the
   whole file as one GitHub environment secret; rotation is editing it and
   redeploying.
+- **No credential in the repository.** The only repository secret is none: the
+  pipeline uses the automatic `GITHUB_TOKEN` (`packages: write` on the image
+  job, push events only) plus the deploy environment secrets above, and a job
+  that needs anything else documents it in its own workflow header.
 
 ## Code map
 
