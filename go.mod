@@ -10,6 +10,7 @@ require (
 	github.com/labstack/echo/v5 v5.4.1
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/client_model v0.6.2
+	github.com/quasilyte/go-ruleguard/dsl v0.3.23
 	github.com/rabbitmq/amqp091-go v1.16.0
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/resend/resend-go/v4 v4.9.0
