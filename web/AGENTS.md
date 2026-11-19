@@ -137,18 +137,23 @@ the F2 client and the F4 engine and owns no wire model.
   tabs) and its scrollspy, which announces through the sheet's polite live region.
 - `src/sheet/preset/` — the template-id registry and the `fantasy_v1` Play preset: a `Header`
   component plus ordered `sections` slots sharing one preset context over the edit store, Dice
-  context and decoded template. `fantasy/` holds the hero, the ability medallions and the
-  saving-throw/skill cards: a large `RollableValue` over the Dice store, an inline-editable score
-  badge, the passive-awareness pill, and rows whose `aria-pressed` proficiency dot writes the
-  matching `config.save<A>Prof` / `config.skill<S>Prof` leaf and previews so the derived total
-  follows; skill bonuses are inline-editable and both totals roll through the Section dice. Their
-  pure tables, path builders and bonus clamp live in `saves_skills_data.ts`. `rollable_value.tsx`
-  with `useRowRoll` (`dice_row.tsx`) is the reusable roll target later gameplay sections reuse. A
-  template without a preset keeps the generic form. `mode_toggle.tsx`
-  is the Play/Edit switch, component state for the open screen (local to the viewer, never
-  persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter, Play ignores
-  the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path editor:
-  click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value shows
+  context and decoded template. `fantasy/` holds the hero, the combat strip, the ability medallions
+  and the saving-throw/skill cards: the strip container later cards extend, holding the hit-points
+  card (`fantasy/hp_card.tsx`) over the pure `fantasy/hit_points.ts` (damage spends temporary points
+  first, healing caps at the maximum, non-positive amounts are ignored), sticky on a desktop and
+  static on a phone; the card writes `combat.hitPoints` and `combat.hitPointsTemp` to the pending
+  delta and draws the unsaved difference as a hatched segment with `was <n>` until Save. The
+  medallions pair a large `RollableValue` over the Dice store with an inline-editable score badge
+  and the passive-awareness pill; the saving-throw/skill rows carry an `aria-pressed` proficiency
+  dot that writes the matching `config.save<A>Prof` / `config.skill<S>Prof` leaf and previews so the
+  derived total follows, with inline-editable skill bonuses and totals rolling through the Section
+  dice (pure tables, path builders and the bonus clamp in `saves_skills_data.ts`).
+  `rollable_value.tsx` with `useRowRoll` (`dice_row.tsx`) is the reusable roll target later gameplay
+  sections reuse. A template without a preset keeps the generic form. `mode_toggle.tsx` is the
+  Play/Edit switch, component state for the open screen (local to the viewer, never persisted, never
+  sent); Edit keeps the generic form, Arrange and the pinned filter, Play ignores the layout and view
+  filters. `src/sheet/inline_edit.tsx` is the reusable one-path editor: click/Enter opens an input,
+  Enter or blur commits, Escape cancels, an empty value shows
   `Add <label>`, and the accessible name is the template field label. The Play view also mounts
   `pending_card.tsx`: a `role="status"` polite card listing each edited field's label and old → new
   value with Discard, Preview and Save over the same store, a muted table-sync placeholder and the

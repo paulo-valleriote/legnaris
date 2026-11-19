@@ -157,7 +157,7 @@ Only one guard is registered at a time. The screen owns the modal, so the refres
 | `web/src/pwa/sw.ts`, `cache_rules.ts`, `register_sw.ts`, `trusted_types.ts` | Precache and runtime cache rules, shell fallback, external registration and the Trusted Types policy. |
 | `web/src/theme/theme.ts`, `use_theme.ts`, `tokens.css`, `tokens.ts`, `base.css`, `fonts.css` | Theme store, hook, token declarations, base styles and the vendored font face. |
 | `web/src/sheet/` (with `engine/`, `library/`) | Sheet open, edit, preview, save, drafts, Dice, Arrange and the per-template Play presets; see [sheets.md](sheets.md). |
-| `web/src/sheet/preset/`, `web/src/sheet/inline_edit.tsx` | Per-template Play presets and section slots, the Play/Edit presentation mode, the floating pending-changes card over the edit store, the fantasy ability medallions, the saving-throw and skill rows with their proficiency dots, the reusable roll target (`rollable_value.tsx`) and the reusable inline-edit control. |
+| `web/src/sheet/preset/`, `web/src/sheet/inline_edit.tsx` | Per-template Play presets and section slots (the hero header, the ability medallions, the combat strip with its hit-points card and pure HP math, the saving-throw and skill rows with their proficiency dots), the Play/Edit presentation mode, the floating pending-changes card over the edit store, the reusable roll target (`rollable_value.tsx`) and the reusable inline-edit control. |
 | `web/src/ui/` | Shared button, field, checkbox, select, dialog, focus trap, toast, notice, page header, state and icon primitives. |
 | `web/src/l10n/strings.ts` | English copy catalog and the parameterised resolution. |
 | `web/src/landing/` | Public landing screen, live cascade demo, stage colour and local hero images. |
