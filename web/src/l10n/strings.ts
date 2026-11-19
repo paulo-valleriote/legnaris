@@ -358,6 +358,7 @@ export const messages = {
   'sheet.play.heal': 'Heal',
   'sheet.play.was': 'was {count}',
   'sheet.play.tempWas': 'temp was {count}',
+  'sheet.play.addAttack': '+ Add attack ({count} free)',
   'sheet.inlineAdd': 'Add {label}',
   'sheet.pending.notSavedYet': 'not saved yet',
   'sheet.pending.arrow': '→',

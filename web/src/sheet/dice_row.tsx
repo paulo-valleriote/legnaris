@@ -11,8 +11,9 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { DiceBlock } from '../api/models/dice';
-import { performRoll, type RollResult } from '../dice/roll';
+import { performRoll, rollExpression, type RollResult } from '../dice/roll';
 import type { DiceResult } from '../dice/errors';
+import type { Expression } from '../dice/parse';
 import type { DiceSchema } from '../dice/fit';
 import type { DiceDefaults, Resolution } from '../dice/resolve';
 import { message, messageWith } from '../l10n/strings';
@@ -299,6 +300,25 @@ export function useRowRoll(rowKey: string, sectionKey: string, label: string): R
     });
   }, [dice, resolution, rowKey, label, sendRoll]);
   return { resolution, roll };
+}
+
+export function useExpressionRoll(rowKey: string, label: string): (expression: Expression) => void {
+  const dice = useDiceContext();
+  const { sendRoll } = useContext(DiceSessionContext);
+  return useCallback(
+    (expression: Expression) => {
+      sendRoll({
+        rowKey,
+        label,
+        outcome: rollExpression(expression, {
+          rowKey,
+          values: dice.savedValues(),
+          draft: dice.draftValues(),
+        }),
+      });
+    },
+    [dice, rowKey, label, sendRoll],
+  );
 }
 
 export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {

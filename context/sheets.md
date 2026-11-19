@@ -228,8 +228,9 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 A sheet whose template id has a preset opens in **Play**; every other template opens in **Edit**,
 today's form. The preset registry maps a template id to a header component and ordered section
 slots, so later gameplay surfaces are additions to the preset rather than branches in the screen.
-The `fantasy_v1` preset currently draws the hero header, the combat strip, the ability medallions,
-the spellcasting panel and the table-rules disclosure. The title is `identity.characterName` with
+The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
+ability medallions, the spellcasting panel and the table-rules disclosure. The title is
+`identity.characterName` with
 the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper,
 `played by <player>` and the proficiency badge. Under it the combat strip holds the hit-points card
 (below), then the six `stats.<ability>` scores render as medallions: the `modifiers.<ability>Mod`
@@ -237,9 +238,9 @@ derived value is the large, read-only roll target (accent-coloured through `roll
 rolling the `stats.<ability>` Row through the Dice store and its sheet overrides), while the raw
 score sits in an `inline_edit.tsx` badge whose writes go to the pending delta; the two are separate
 targets. The `derived.passiveAwareness` pill closes the column. `RollableValue` and the `useRowRoll`
-hook it uses are the reusable roll surface for later gameplay sections. The saving throws, skills,
-spellcasting panel and table-rules disclosure follow (see below). Edit keeps the generic form,
-Arrange and the pinned filter; Play ignores the layout and the view filters.
+hook it uses are the reusable roll surface for later gameplay sections. The attack cards, saving
+throws, skills, spellcasting panel and table-rules disclosure follow (see below). Edit keeps the
+generic form, Arrange and the pinned filter; Play ignores the layout and the view filters.
 
 The combat strip (`fantasy/combat_strip.tsx`) is the container later gameplay cards extend; it
 holds the hit-points card (`fantasy/hp_card.tsx`) at the top of the Play view and is sticky on a
@@ -267,11 +268,24 @@ builders, the abbreviation keys and the bonus parser that clamps to the template
 are the only edit that previews by itself, because the toggle's whole effect is a derived value.
 The row grammar `skills.<skill>` is the table Row key the Dice store resolves.
 
+Attack cards follow (`fantasy/attacks.tsx`). The four `attacks.attack1..4` table Rows draw only
+while their `name` is non-empty; the remaining empty slots collapse into one
+`+ Add attack (N free)` button, hidden when nothing is free, which reveals the next empty slot for
+inline editing. Each card carries an inline-editable name, a rollable bonus and a rollable damage
+expression. The bonus is the attack Row through the `attacks` Section dice and the preset
+`1d20 + @.bonus` default, so it shares the Dice panel and per-sheet overrides. Damage is a literal
+expression validated by the pure `fantasy/attacks_data.ts` (`parseAttackDamage`: at least one die,
+no field reference) and rolled through `useExpressionRoll` (`dice_row.tsx`), which keeps the Dice
+panel, saved/draft values and result copy while leaving the attack Row's own dice setting alone.
+Bonus edits clamp to the template range; name, bonus and damage write the pending delta.
+`attackVisibility` decides which slots show and how many are still free.
+
 The mode is component state for the open screen, local to the viewer, never persisted and never
 sent. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
 and both guards behave exactly as in Edit. The reusable inline-edit control (`inline_edit.tsx`)
 opens on click or Enter, commits on Enter or blur, cancels on Escape, writes one dotted path and
-shows `Add <label>` while the value is empty; its accessible name is the template's field label.
+shows `Add <label>` while the value is empty; its accessible name is the template's field label,
+and an optional display node can replace the shown value (the attack cards use a pencil trigger).
 
 Any Play-mode value edit also floats the pending-changes card (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): a `role="status"` polite region listing each changed field as
@@ -342,10 +356,11 @@ Web:
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, footer and guards; `layout_store.ts` —
   committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header` plus
-  ordered section slots); `fantasy/` — the hero, the combat strip, the ability medallions, the
-  saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
-  `hit_points.ts`, `saves_skills_data.ts` and `slot_pips.ts` helpers; `fantasy/combat_strip.tsx` —
-  the combat strip container; `fantasy/hp_card.tsx` — the hit-points card; `segmented_choice.tsx` —
+  ordered section slots); `fantasy/` — the hero, the combat strip, the attack cards, the ability
+  medallions, the saving-throw/skill rows, the spellcasting panel and the table-rules disclosure,
+  with the pure `hit_points.ts`, `saves_skills_data.ts`, `attacks_data.ts` and `slot_pips.ts`
+  helpers; `fantasy/combat_strip.tsx` — the combat strip container; `fantasy/hp_card.tsx` — the
+  hit-points card; `fantasy/attacks.tsx` — the attack cards; `segmented_choice.tsx` —
   the reusable exclusive-group control that writes through `setExclusive`; `rollable_value.tsx` — the
   reusable roll target (`useRowRoll` in `dice_row.tsx`); `pending_card.tsx`, `pending_changes.ts` —
   the floating unsaved-delta card and its pure summary; `mode_toggle.tsx` — the local Play/Edit
@@ -392,10 +407,10 @@ Web:
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
 - Play mode presents the `fantasy_v1` hero header, the hit-points card in the combat strip, the
-  ability medallions, the saving throws and skills, the spellcasting panel with its table-rules
-  disclosure, and the pending-changes card today. XP, attacks, armor class, initiative, speed and
-  the stat block are added by later tickets; a template without a preset always keeps the generic
-  form.
+  attack cards, the ability medallions, the saving throws and skills, the spellcasting panel with
+  its table-rules disclosure, and the pending-changes card today. XP, armor class, initiative,
+  speed and the stat block are added by later tickets; a template without a preset always keeps the
+  generic form.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are
