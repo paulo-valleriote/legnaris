@@ -1,34 +1,28 @@
 # AGENTS.md — backend/internal/ (Application Layer)
 
-## Architecture Overview
+Architecture, layering, shared primitives and cross-cutting middleware:
+[`context/architecture.md`](../../context/architecture.md).
 
-| Layer | Package | Responsibility |
-|-------|---------|----------------|
-| API | `backend/internal/app` | Echo controllers, routing, error handling |
-| Auth | `backend/internal/auth` | JWT, bcrypt, refresh rotation, email code challenge |
-| Templates | `backend/internal/sheet/template` | DAG build, formula compile, recalculation, immutable registry |
-| Sheets | `backend/internal/sheet` | CRUD, partial update with cascading recalc |
-| Engine | `backend/internal/engine` | expr-lang wrapper (floor, max functions) |
-| Dice | `backend/internal/dice` | Dice expression grammar: parse, fit a Row, evaluate (no `apperr`, no `template` import) |
-| Platform | `backend/internal/platform` | cross-cutting middleware (cors, health, metrics) |
-| Shared | `backend/shared/*` | env, logger, db, apperr, response, json, idgen, maputils, requestcache |
+## Working rules
 
-**Entry point:** `backend/cmd/api.go` → builds DAG registry from code-defined templates → starts Echo on `PORT` (default `:8080`).
-
-## Layering Rules
-
-- **app** → controllers call domain service packages (`sheet`, `auth`, `user`, `generation`, `plan`, `quota`, …); `bootstrap.go` is the composition root that builds repositories, and `EmailIntent` (`email_intent.go`) writes to the outbox repository directly
-- **sheet** service → calls **template** (DAG/Registry) and **repository**
-- **template** → calls **engine** for formula evaluation
-- **engine**, **repository**, **backend/shared/*** → no upward imports
-
-## Service Conventions
-
-- Services in `backend/internal/sheet/service.go`, controllers in `backend/internal/app/*.go`
-- Use **only `apperr`** for domain errors: `apperr.NewError(code, message, err)`
-- The `err` cause must be `nil` or a lower-layer typed error; never a bare `errors.New`
-- Export user-facing message constants (plain strings) from the service package for controller reuse
-- Translate lower-layer errors at the boundary using `errors.Is`/`errors.As`
+- Controllers in `backend/internal/app` call domain services; `bootstrap.go`
+  is the API composition root; `email_intent.go` is the one controller-side
+  write to the email outbox.
+- Keep `app → domain service → template → engine`; domain packages may depend
+  on lower domain packages, but no domain package imports `app` and no shared
+  package imports a domain package. A domain package may declare an interface
+  that `platform` implements, never the reverse.
+- Generate every server ID with `idgen.New`; validate client ids with
+  `idgen.Validate` before the first repository call; never call `uuid.New` or
+  `uuid.NewString`.
+- Domain errors are `apperr.NewError(code, message, cause)` at the service or
+  controller boundary only. The cause is `nil`, one of the package's own typed
+  sentinels, or a lower-layer typed error; never a bare `errors.New` created at
+  the call site.
+- Register routes through their controller and attach guards per route; never
+  wrap an empty-prefix group with middleware.
+- `make fmt && make lint && make vet` and `make test-race` must pass before a
+  pull request.
 
 ## Concurrent PATCH (optimistic lock)
 
@@ -50,11 +44,3 @@
 - **One atomic save** — `PartialUpdate` validates the delta (DAG) and the block (Template) before the single compare-and-swap write, so a refused block writes no data and a refused delta writes no block; both go out under one `version` and share the 409 resend. `Preview` reads `data` only
 - **Strict on write, tolerant on read** — `template.ValidateSheetDice` checks the block against the Sheet's Template: cap of `MaxSheetDiceOverrides` (64) entries across both maps, null included; every key must be a Section (Row) key, so null entries need a known key too; every non-null expression must pass the `dice` grammar, a Row override must fit its Row and a Section override at least one Row. Failures are 400 `INVALID_REQUEST` (translated by `translateDiceErr`; no dedicated apperr code). Malformed JSON, wrong value types and unknown keys are 400 `INVALID_JSON`. `GET` returns the stored block untouched: readers must ignore an override whose Row or Field the Template no longer has
 - **Ownership** — owner and sheet id are checked before the cap and the Template, so a foreign Sheet is 404 whatever the body, and a malformed id is 400
-
-## Rate Limiting
-
-- **Scopes** — session endpoints `POST /auth/refresh`, `GET /auth/csrf` and `POST /auth/logout` per address (`SESSION_RATE_LIMIT_*`, 120/1m, namespace `session`); credential endpoints `POST /auth/login`, `POST /auth/challenge/verify` and `POST /auth/challenge/resend` per address (`AUTH_RATE_LIMIT_*`, 30/1m, namespace `auth`) plus, on login only, the canonical account (`AUTH_ACCOUNT_RATE_LIMIT_*`, 10/1m, namespace `auth_account`); registration per address and per canonical e-mail (`AUTH_REGISTER_*`, 5/1h and 3/1h); `/csp-report` per address (`CSP_REPORT_RATE_LIMIT_*`); `/templates`, `/sheets`, `GET /me/plan` and `GET /auth/me` per user id (`USER_RATE_LIMIT_*`, 80/1m, one shared budget); `/health`, `/ready` and `/metrics` are exempt (orchestrator probes must never get 429)
-- **Refusal** — always `rateLimited`: 429 `RATE_LIMITED` with `Retry-After`. Only the auth and session guards feed the `RateLimitBlocked` metric
-- **Order** — `userRateLimit` must follow `auth.Middleware`; with no resolved user id it passes through so the 401 stays the auth layer's call
-- **Replicas** — guards take a `ratelimit.Allower`. `REDIS_URL` set → `ratelimit.Shared` over `RedisStore` (atomic Lua sliding window, Redis clock, namespaces `auth`/`auth_account`/`session`/`user`/`public`); unset → in-process `Limiter` (cap per replica). A store error fails open to the per-process limiter (throttled warning, never a 5xx). Build limiters only through `newLimiter`; see `docs/adr/0003-shared-rate-limit-store.md`
-- **Route-level middleware only** — attach limiters per route, never through `router.Group("", mw)`: a middleware on an empty-prefix group registers a catch-all that turns 405 into another status
