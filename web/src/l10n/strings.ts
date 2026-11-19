@@ -327,6 +327,12 @@ export const messages = {
     "Offline, and these changes could not be kept on this device. Keep this page open and preview again when you're back.",
 
   'sheet.headerTitle': 'Sheet',
+  'sheet.mode.play': 'Play mode',
+  'sheet.mode.edit': 'Edit mode',
+  'sheet.play.playedBy': 'played by',
+  'sheet.play.proficiency': 'Proficiency {modifier}',
+  'sheet.play.level': 'Level {count}',
+  'sheet.inlineAdd': 'Add {label}',
   'sheet.openLoading': 'Loading sheet',
   'sheet.templateLoading': 'Loading sheet template',
   'sheet.emptyFields': 'This template defines no fields.',

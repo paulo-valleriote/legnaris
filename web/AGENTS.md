@@ -135,6 +135,14 @@ the F2 client and the F4 engine and owns no wire model.
   it against the modes (the filter reads off while arranging or pinning and Sections draw open while
   arranging, the state untouched); `section_index.tsx` / `use_active_section.ts` are the sticky strip (roving `nav`, not
   tabs) and its scrollspy, which announces through the sheet's one polite live region.
+- `src/sheet/preset/` — the template-id registry and the `fantasy_v1` Play preset: a `Header`
+  component plus ordered `sections` slots sharing one preset context over the edit store, Dice
+  context and decoded template. A template without a preset keeps the generic form. `mode_toggle.tsx`
+  is the Play/Edit switch, component state for the open screen (local to the viewer, never
+  persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter, Play ignores
+  the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path editor:
+  click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value shows
+  `Add <label>`, and the accessible name is the template field label.
 - `src/shell/shortcut_registry.ts` — the one action → key map (`Ctrl+S`/`Cmd+S` save, `F5`
   refresh), with the mounted screen registering and unregistering its handlers;
   `src/shell/leave_guard.ts` — the shell-level leave registry the navigation asks before it

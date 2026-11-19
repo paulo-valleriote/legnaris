@@ -223,6 +223,22 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | `SHEET_KIND_MISMATCH` | 422 | duplicate of a character sheet |
 | `RATE_LIMITED` | 429 | shared per-user budget (`USER_RATE_LIMIT_*`, 80 per minute) |
 
+### Play and Edit presentation
+
+A sheet whose template id has a preset opens in **Play**; every other template opens in **Edit**,
+today's form. The preset registry maps a template id to a header component and ordered section
+slots, so later gameplay surfaces are additions to the preset rather than branches in the screen.
+The `fantasy_v1` preset currently draws the hero header only: the title is `identity.characterName`
+with the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper,
+`played by <player>` and the proficiency badge. Edit keeps the generic form, Arrange and the pinned
+filter; Play ignores the layout and the view filters.
+
+The mode is component state for the open screen, local to the viewer, never persisted and never
+sent. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
+and both guards behave exactly as in Edit. The reusable inline-edit control (`inline_edit.tsx`)
+opens on click or Enter, commits on Enter or blur, cancels on Escape, writes one dotted path and
+shows `Add <label>` while the value is empty; its accessible name is the template's field label.
+
 ### Web local records
 
 IndexedDB database `legnaris-sheets` (`SCHEMA_VERSION` 3) with stores `sheets`, `drafts` and
@@ -267,6 +283,9 @@ Web:
   throttle and restore; `save_retry.ts` — 409 retry.
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, footer and guards; `layout_store.ts` —
   committed/staged layout, commit and backup.
+- `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header` plus
+  ordered section slots); `mode_toggle.tsx` — the local Play/Edit switch; `inline_edit.tsx` — the
+  reusable single-path inline editor.
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
   `dice_view.ts` — Dice choices over the edit store (see [dice](dice.md)).
@@ -308,6 +327,9 @@ Web:
   there is no pin cap.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
+- Play mode presents only the `fantasy_v1` hero header today. The combat strip, XP, abilities,
+  saves and skills, attacks, spells, pending card and stat block are added by later tickets; a
+  template without a preset always keeps the generic form.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are

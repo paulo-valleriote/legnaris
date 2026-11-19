@@ -1,6 +1,6 @@
 import type { Sheet } from '../api/models/sheet';
 
-export const TEMPLATE_ID = 'fantasy_v1';
+export const TEMPLATE_ID = 'plain_v1';
 
 export const SHEET_ID = '01a14236-21c9-7546-945e-40c46d1fcd1d';
 

@@ -9,6 +9,7 @@ import type { FieldSchema } from '../api/models/template';
 import { parseTemplateDetail } from '../api/models/template';
 import { SheetFieldControl } from '../engine/field_control';
 import { SheetForm } from '../engine/sheet_form';
+import { message } from '../l10n/strings';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
 
@@ -218,9 +219,12 @@ describe('full fantasy_v1 render', () => {
       successOutcome(sheet),
       successOutcome(capture('template_detail')),
     );
+    const user = userEvent.setup();
     const { container } = renderApp(`/sheets/${String(sheet['id'])}`, {
       client: createApiClient({ baseUrl: BASE_URL, transport: fake.transport }),
     });
+
+    await user.click(await screen.findByRole('button', { name: message('sheet.mode.edit') }));
 
     await waitFor(() =>
       expect(container.querySelectorAll('.lg-field__readonly--derived').length).toBeGreaterThan(10),
