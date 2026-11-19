@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"legnaris/backend/internal/billing"
@@ -15,19 +16,20 @@ const MaxReasonLength = 500
 
 const MinCompLifetime = time.Hour
 
+var ErrMissingDependency = errors.New("admin service dependency is missing")
+
 const (
 	MsgAdminUnavailable      = "admin operation is unavailable"
 	MsgEmailRequired         = "email is required"
 	MsgInvalidEmail          = "email is not valid"
 	MsgReasonRequired        = "reason is required"
 	MsgReasonTooLong         = "reason is too long"
-	MsgReasonControlChars    = "reason must not contain control characters"
+	MsgReasonControlChars    = "reason must not contain control or format characters"
 	MsgUserNotFound          = "user not found"
 	MsgInvalidUser           = "invalid user"
 	MsgInvalidPlan           = "plan is not available for a comp"
 	MsgExpiryNotFuture       = "expiresAt must be in the future"
 	MsgExpiryTooSoon         = "expiresAt must be at least one hour in the future"
-	MsgAccountDeleting       = "the account is being deleted"
 	MsgLiveSubscriptionExist = "the user already has a live subscription"
 	MsgCompNotFound          = "the user has no live comp subscription"
 	MsgNotComp               = "the live subscription is not a comp"
@@ -116,6 +118,7 @@ type Users interface {
 type Subscriptions interface {
 	FindLive(ctx context.Context, userID string) (billing.Subscription, bool, error)
 	FindByID(ctx context.Context, id string) (billing.Subscription, bool, error)
+	LatestComp(ctx context.Context, userID string) (billing.Subscription, bool, error)
 	InsertSubscription(ctx context.Context, sub billing.Subscription) error
 	CancelComp(ctx context.Context, id string, now time.Time) (bool, error)
 	RequestRefund(ctx context.Context, id string, now time.Time) (bool, error)

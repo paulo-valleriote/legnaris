@@ -449,7 +449,7 @@ func defaultDependencies() dependencies {
 			}
 			mdb := mongo.Client.Database(cfg.Variables.DatabaseName)
 			store := billing.NewMongoStore(mdb)
-			tx := db.NewTransactor(mongo.Client, nil)
+			tx := db.NewTransactor(mdb.Client(), nil)
 			return billing.ConsumerDeps{
 				Provider: newRelayBillingProvider(cfg.Variables),
 				Ledger:   store,

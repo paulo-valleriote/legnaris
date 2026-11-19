@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"errors"
+
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/requestcache"
 
@@ -44,11 +46,22 @@ func AdminActive(checker ActiveAccountChecker) echo.MiddlewareFunc {
 			}
 			c.SetRequest(c.Request().WithContext(requestcache.WithScope(c.Request().Context())))
 			if err := checker.EnsureActive(c.Request().Context(), userID); err != nil {
-				return hiddenNotFound()
+				return adminActiveError(err)
 			}
 			return next(c)
 		}
 	}
+}
+
+func adminActiveError(err error) error {
+	var appErr *apperr.Error
+	if errors.As(err, &appErr) {
+		switch appErr.Code {
+		case apperr.CodeForbidden, apperr.CodeUnauthorized, apperr.CodeNotFound:
+			return hiddenNotFound()
+		}
+	}
+	return apperr.NewError(apperr.CodeInternal, MsgInternal, err)
 }
 
 func hiddenNotFound() error {

@@ -12,6 +12,8 @@ import (
 
 const maxCheckoutAttempts = 3
 
+var ErrPlanSyncNotConfigured = errors.New("billing checkout plan sync is not configured")
+
 const (
 	MsgInvalidUser         = "invalid user"
 	MsgAlreadySubscribed   = "an active subscription already exists"
@@ -20,11 +22,17 @@ const (
 	MsgCheckoutBusy        = "checkout is busy, retry"
 )
 
+type PlanSyncer interface {
+	SyncPlan(ctx context.Context, userID string, now time.Time) error
+}
+
 type Config struct {
 	PriceID    string
 	SuccessURL string
 	CancelURL  string
 	Now        func() time.Time
+	Tx         Transactor
+	PlanSync   PlanSyncer
 }
 
 type Checkout struct {
@@ -68,7 +76,7 @@ func (s *Service) checkoutOnce(ctx context.Context, userID string) (Checkout, bo
 		return Checkout{}, false, apperr.NewError(apperr.CodeInternal, MsgCheckoutUnavailable, err)
 	}
 	if found && IsExpiredComp(live, now) {
-		canceled, err := s.store.CancelComp(ctx, live.ID, now)
+		canceled, err := s.cancelExpiredComp(ctx, live.ID, userID, now)
 		if err != nil {
 			return Checkout{}, false, apperr.NewError(apperr.CodeInternal, MsgCheckoutUnavailable, err)
 		}
@@ -118,6 +126,28 @@ func (s *Service) nextSubscription(ctx context.Context, userID string, live Subs
 	}
 
 	return sub, Checkout{}, false, false, nil
+}
+
+func (s *Service) cancelExpiredComp(ctx context.Context, subID, userID string, now time.Time) (bool, error) {
+	if s.cfg.Tx == nil || s.cfg.PlanSync == nil {
+		return false, ErrPlanSyncNotConfigured
+	}
+	var canceled bool
+	err := s.cfg.Tx.WithTransaction(ctx, func(txCtx context.Context) error {
+		applied, err := s.store.CancelComp(txCtx, subID, now)
+		if err != nil {
+			return err
+		}
+		if !applied {
+			return nil
+		}
+		canceled = true
+		return s.cfg.PlanSync.SyncPlan(txCtx, userID, now)
+	})
+	if err != nil {
+		return false, err
+	}
+	return canceled, nil
 }
 
 func newPending(userID string, now time.Time) (Subscription, error) {

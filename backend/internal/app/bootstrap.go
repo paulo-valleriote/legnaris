@@ -279,10 +279,14 @@ func NewModules(
 	if err != nil {
 		return nil, fmt.Errorf("build billing provider: %w", err)
 	}
-	billingService := newBillingService(billingProvider, billingStore, cfg.Variables)
+	billingService := newBillingService(billingProvider, billingStore, cfg.Variables, billing.PlanSyncDeps{
+		Ledger: billingStore,
+		Outbox: eventsoutbox.NewRepository(mdb, log),
+		Tx:     db.NewTransactor(database.Client, nil),
+	})
 	billingInbox := billing.NewInbox(billingProvider, billingStore, time.Now)
 	adminTx := db.NewTransactor(database.Client, nil)
-	adminService := admin.NewService(admin.Deps{
+	adminService, err := admin.NewService(admin.Deps{
 		Users:         userRepository,
 		Subscriptions: billingStore,
 		Quotas:        quotaService,
@@ -296,6 +300,9 @@ func NewModules(
 		Tx:  adminTx,
 		Now: time.Now,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("build admin service: %w", err)
+	}
 	planController := NewPlanController(quotaService, PlanResolverFromSource(planSource),
 		WithSheetUsage(sheetService),
 		WithOwnedCampaigns(ownedCampaigns),
@@ -393,12 +400,14 @@ func newBillingProvider(vars env.Variables) (billing.Provider, error) {
 	})
 }
 
-func newBillingService(provider billing.Provider, store billing.Store, vars env.Variables) *billing.Service {
+func newBillingService(provider billing.Provider, store billing.Store, vars env.Variables, planSync billing.PlanSyncDeps) *billing.Service {
 	return billing.NewService(store, provider, billing.Config{
 		PriceID:    vars.StripePriceIDUSD,
 		SuccessURL: vars.BillingSuccessURL,
 		CancelURL:  vars.BillingCancelURL,
 		Now:        time.Now,
+		Tx:         planSync.Tx,
+		PlanSync:   planSync,
 	})
 }
 

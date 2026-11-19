@@ -257,6 +257,70 @@ func (_c *MockSubscriptions_InsertSubscription_Call) RunAndReturn(run func(conte
 	return _c
 }
 
+// LatestComp provides a mock function with given fields: ctx, userID
+func (_m *MockSubscriptions) LatestComp(ctx context.Context, userID string) (billing.Subscription, bool, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LatestComp")
+	}
+
+	var r0 billing.Subscription
+	var r1 bool
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (billing.Subscription, bool, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) billing.Subscription); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(billing.Subscription)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) bool); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = rf(ctx, userID)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// MockSubscriptions_LatestComp_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestComp'
+type MockSubscriptions_LatestComp_Call struct {
+	*mock.Call
+}
+
+// LatestComp is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockSubscriptions_Expecter) LatestComp(ctx interface{}, userID interface{}) *MockSubscriptions_LatestComp_Call {
+	return &MockSubscriptions_LatestComp_Call{Call: _e.mock.On("LatestComp", ctx, userID)}
+}
+
+func (_c *MockSubscriptions_LatestComp_Call) Run(run func(ctx context.Context, userID string)) *MockSubscriptions_LatestComp_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockSubscriptions_LatestComp_Call) Return(_a0 billing.Subscription, _a1 bool, _a2 error) *MockSubscriptions_LatestComp_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *MockSubscriptions_LatestComp_Call) RunAndReturn(run func(context.Context, string) (billing.Subscription, bool, error)) *MockSubscriptions_LatestComp_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RequestRefund provides a mock function with given fields: ctx, id, now
 func (_m *MockSubscriptions) RequestRefund(ctx context.Context, id string, now time.Time) (bool, error) {
 	ret := _m.Called(ctx, id, now)

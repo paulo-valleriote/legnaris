@@ -1,6 +1,7 @@
 package app
 
 import (
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -11,23 +12,26 @@ import (
 	"legnaris/backend/internal/platform/ratelimit"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/env"
+	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/response"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 )
 
+const requestIDContextKey = "request_id"
+
 func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *echo.Echo {
 	router := echo.NewWithConfig(echo.Config{
 		Router: echo.NewRouter(echo.RouterConfig{
-			AllowOverwritingRoute:   true,
 			MethodNotAllowedHandler: methodNotAllowedHandler,
 		}),
 	})
 	router.HTTPErrorHandler = HTTPErrorHandler
 	router.IPExtractor = modules.ClientIP
 
-	router.Use(middleware.RequestID())
+	router.Use(serverRequestID())
+	router.Use(maskAdminOptions)
 	router.Use(cors.Middleware(deps.Variables.CORSOrigins))
 	router.Use(httpMetrics.Middleware)
 	router.Use(middleware.RequestLogger())
@@ -80,13 +84,45 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 
 func methodNotAllowedHandler(c *echo.Context) error {
 	path := c.Request().URL.Path
-	if path == "/admin" || strings.HasPrefix(path, "/admin/") {
+	if isAdminPath(path) {
 		return apperr.NewError(apperr.CodeNotFound, auth.MsgNotFound, nil)
 	}
 	if allow, ok := c.Get(echo.ContextKeyHeaderAllow).(string); ok && allow != "" {
 		c.Response().Header().Set(echo.HeaderAllow, allow)
 	}
 	return echo.ErrMethodNotAllowed
+}
+
+func serverRequestID() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			id, err := idgen.New()
+			if err != nil {
+				return apperr.NewError(apperr.CodeInternal, "internal server error", err)
+			}
+			c.Set(requestIDContextKey, id)
+			c.Response().Header().Set(echo.HeaderXRequestID, id)
+			return next(c)
+		}
+	}
+}
+
+func requestIDOf(c *echo.Context) string {
+	id, _ := c.Get(requestIDContextKey).(string)
+	return id
+}
+
+func maskAdminOptions(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		if c.Request().Method == http.MethodOptions && isAdminPath(c.Request().URL.Path) {
+			return apperr.NewError(apperr.CodeNotFound, auth.MsgNotFound, nil)
+		}
+		return next(c)
+	}
+}
+
+func isAdminPath(path string) bool {
+	return path == "/admin" || strings.HasPrefix(path, "/admin/")
 }
 
 func (m *Modules) activeAccounts() auth.ActiveAccountChecker {

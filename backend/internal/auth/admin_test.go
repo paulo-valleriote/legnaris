@@ -181,10 +181,28 @@ func TestAdminActive(t *testing.T) {
 		assert.False(t, handled)
 	})
 
-	t.Run("Error: an account read failure is masked as 404", func(t *testing.T) {
+	t.Run("Error: an account read failure is internal, not a mask", func(t *testing.T) {
 		checker := mocks.NewMockService(t)
 		checker.EXPECT().EnsureActive(mock.Anything, adminAllowedID).
 			Return(apperr.NewError(apperr.CodeInternal, "internal", nil)).Once()
+
+		handled := false
+		e := newEcho(checker, true, &handled)
+		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "INTERNAL_ERROR", body.Error.Code)
+		assert.False(t, handled)
+	})
+
+	t.Run("Edge: a missing account is masked as 404", func(t *testing.T) {
+		checker := mocks.NewMockService(t)
+		checker.EXPECT().EnsureActive(mock.Anything, adminAllowedID).
+			Return(apperr.NewError(apperr.CodeUnauthorized, auth.MsgAccountUnavailable, nil)).Once()
 
 		handled := false
 		e := newEcho(checker, true, &handled)

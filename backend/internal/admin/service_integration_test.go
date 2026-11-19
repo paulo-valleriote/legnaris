@@ -2,6 +2,7 @@ package admin_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"testing"
@@ -9,6 +10,7 @@ import (
 
 	"legnaris/backend/internal/admin"
 	"legnaris/backend/internal/billing"
+	"legnaris/backend/internal/events"
 	eventsoutbox "legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/quota"
@@ -43,7 +45,7 @@ func newAdminStack(t *testing.T, hook db.StepHook) (*admin.Service, user.Reposit
 	tx := db.NewTransactor(client, hook)
 	eventOutbox := eventsoutbox.NewRepository(mdb, log)
 
-	service := admin.NewService(admin.Deps{
+	service, err := admin.NewService(admin.Deps{
 		Users:         users,
 		Subscriptions: billingStore,
 		Quotas:        quotaService,
@@ -57,6 +59,7 @@ func newAdminStack(t *testing.T, hook db.StepHook) (*admin.Service, user.Reposit
 		Tx:  tx,
 		Now: clock,
 	})
+	require.NoError(t, err)
 	return service, users, billingStore, mdb
 }
 
@@ -84,6 +87,29 @@ func auditCount(t *testing.T, mdb *mongo.Database, target, action string) int64 
 	count, err := mdb.Collection(admin.AuditCollection).CountDocuments(context.Background(), filter)
 	require.NoError(t, err)
 	return count
+}
+
+func planChangesOf(t *testing.T, mdb *mongo.Database, userID string) []map[string]any {
+	t.Helper()
+	cursor, err := mdb.Collection("event_outbox").Find(context.Background(), bson.D{
+		{Key: "event_type", Value: billing.PlanChangedEvent},
+	})
+	require.NoError(t, err)
+	var entries []eventsoutbox.Entry
+	require.NoError(t, cursor.All(context.Background(), &entries))
+
+	var changes []map[string]any
+	for _, entry := range entries {
+		envelope, err := events.Decode(entry.Body)
+		require.NoError(t, err)
+		if envelope.Aggregate.ID != userID {
+			continue
+		}
+		var data map[string]any
+		require.NoError(t, json.Unmarshal(envelope.Data, &data))
+		changes = append(changes, data)
+	}
+	return changes
 }
 
 func TestService_AuditAndTransactions(t *testing.T) {
@@ -200,8 +226,9 @@ func TestService_AuditAndTransactions(t *testing.T) {
 		service, users, billingStore, mdb := newAdminStack(t, nil)
 		target := createAccount(t, users)
 		past := time.Now().UTC().Add(-time.Hour)
+		compID := mustID(t)
 		require.NoError(t, billingStore.InsertSubscription(ctx, billing.Subscription{
-			ID:               mustID(t),
+			ID:               compID,
 			UserID:           target.ID,
 			PlanID:           plan.IDPaid,
 			Provider:         billing.ProviderComp,
@@ -216,21 +243,109 @@ func TestService_AuditAndTransactions(t *testing.T) {
 		expiry := billing.NewCompExpiry(billing.CompExpiryDeps{
 			Ledger: billingStore,
 			Outbox: eventsoutbox.NewRepository(mdb, logger.NewLogger(slog.LevelError)),
-			Tx:     db.NewTransactor(dbtest.Client(t), nil),
+			Tx:     db.NewTransactor(mdb.Client(), nil),
 		})
 		count, err := expiry.Expire(ctx, time.Now().UTC())
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 
-		canceled, found, err := billingStore.FindLive(ctx, target.ID)
+		canceled, found, err := billingStore.FindByID(ctx, compID)
 		require.NoError(t, err)
-		assert.False(t, found)
+		require.True(t, found)
 		assert.Equal(t, billing.StatusCanceled, canceled.Status)
 
 		view, err := service.User(ctx, target.ID)
 		require.NoError(t, err)
 		assert.Equal(t, plan.IDFree, view.Plan)
 		assert.Zero(t, auditCount(t, mdb, target.ID, ""), "the sweeper does not write admin audit rows")
+
+		changes := planChangesOf(t, mdb, target.ID)
+		require.Len(t, changes, 1)
+		assert.Equal(t, plan.IDPaid, changes[0]["from"])
+		assert.Equal(t, plan.IDFree, changes[0]["to"])
+	})
+
+	t.Run("Happy path: a comp revoke downgrades the stored plan and writes plan.changed", func(t *testing.T) {
+		service, users, billingStore, mdb := newAdminStack(t, nil)
+		target := createAccount(t, users)
+		future := time.Now().UTC().Add(24 * time.Hour)
+		require.NoError(t, billingStore.InsertSubscription(ctx, billing.Subscription{
+			ID:               mustID(t),
+			UserID:           target.ID,
+			PlanID:           plan.IDPaid,
+			Provider:         billing.ProviderComp,
+			Status:           billing.StatusActive,
+			CurrentPeriodEnd: &future,
+			CreatedAt:        time.Now().UTC(),
+			UpdatedAt:        time.Now().UTC(),
+		}))
+		_, err := billingStore.SetPlan(ctx, target.ID, plan.IDPaid)
+		require.NoError(t, err)
+
+		require.NoError(t, service.RevokeComp(ctx, actorID, target.ID, "abuse", testMeta))
+
+		view, err := service.User(ctx, target.ID)
+		require.NoError(t, err)
+		assert.Equal(t, plan.IDFree, view.Plan)
+		assert.Equal(t, int64(1), auditCount(t, mdb, target.ID, admin.ActionCompRevoke))
+
+		changes := planChangesOf(t, mdb, target.ID)
+		require.Len(t, changes, 1)
+		assert.Equal(t, plan.IDPaid, changes[0]["from"])
+		assert.Equal(t, plan.IDFree, changes[0]["to"])
+	})
+
+	t.Run("Happy path: a second revoke is a success with another audit row and no extra plan.changed", func(t *testing.T) {
+		service, users, billingStore, mdb := newAdminStack(t, nil)
+		target := createAccount(t, users)
+		future := time.Now().UTC().Add(24 * time.Hour)
+		require.NoError(t, billingStore.InsertSubscription(ctx, billing.Subscription{
+			ID:               mustID(t),
+			UserID:           target.ID,
+			PlanID:           plan.IDPaid,
+			Provider:         billing.ProviderComp,
+			Status:           billing.StatusActive,
+			CurrentPeriodEnd: &future,
+			CreatedAt:        time.Now().UTC(),
+			UpdatedAt:        time.Now().UTC(),
+		}))
+		_, err := billingStore.SetPlan(ctx, target.ID, plan.IDPaid)
+		require.NoError(t, err)
+
+		require.NoError(t, service.RevokeComp(ctx, actorID, target.ID, "abuse", testMeta))
+		require.NoError(t, service.RevokeComp(ctx, actorID, target.ID, "repeat", testMeta))
+
+		assert.Equal(t, int64(2), auditCount(t, mdb, target.ID, admin.ActionCompRevoke))
+		assert.Len(t, planChangesOf(t, mdb, target.ID), 1)
+	})
+
+	t.Run("Happy path: replacing an expired comp writes a single free-to-paid plan.changed", func(t *testing.T) {
+		service, users, billingStore, mdb := newAdminStack(t, nil)
+		target := createAccount(t, users)
+		past := time.Now().UTC().Add(-time.Hour)
+		require.NoError(t, billingStore.InsertSubscription(ctx, billing.Subscription{
+			ID:               mustID(t),
+			UserID:           target.ID,
+			PlanID:           plan.IDPaid,
+			Provider:         billing.ProviderComp,
+			Status:           billing.StatusActive,
+			CurrentPeriodEnd: &past,
+			CreatedAt:        time.Now().UTC(),
+			UpdatedAt:        time.Now().UTC(),
+		}))
+
+		expires := time.Now().UTC().Add(48 * time.Hour)
+		_, err := service.GrantComp(ctx, actorID, target.ID, admin.CompGrant{
+			PlanID:    plan.IDPaid,
+			ExpiresAt: &expires,
+			Reason:    "replacement",
+		}, testMeta)
+		require.NoError(t, err)
+
+		changes := planChangesOf(t, mdb, target.ID)
+		require.Len(t, changes, 1)
+		assert.Equal(t, plan.IDFree, changes[0]["from"])
+		assert.Equal(t, plan.IDPaid, changes[0]["to"])
 	})
 }
 

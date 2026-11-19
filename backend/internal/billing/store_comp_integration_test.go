@@ -74,6 +74,32 @@ func TestMongoStore_CompSubscriptions(t *testing.T) {
 		assert.False(t, canceled)
 	})
 
+	t.Run("Happy path: the latest comp row is found regardless of status", func(t *testing.T) {
+		store := newStoreDB(t)
+		older := compRow(t, userID, nil)
+		older.Status = billing.StatusCanceled
+		older.CreatedAt = fixedNow.Add(-2 * time.Hour)
+		newer := compRow(t, userID, nil)
+		newer.Status = billing.StatusCanceled
+		newer.CreatedAt = fixedNow.Add(-time.Hour)
+		require.NoError(t, store.InsertSubscription(ctx, older))
+		require.NoError(t, store.InsertSubscription(ctx, newer))
+
+		latest, found, err := store.LatestComp(ctx, userID)
+		require.NoError(t, err)
+		require.True(t, found)
+		assert.Equal(t, newer.ID, latest.ID)
+	})
+
+	t.Run("Edge: a user without comp rows has no latest comp", func(t *testing.T) {
+		store := newStoreDB(t)
+		require.NoError(t, store.InsertPending(ctx, newPendingRow(t, userID)))
+
+		_, found, err := store.LatestComp(ctx, userID)
+		require.NoError(t, err)
+		assert.False(t, found)
+	})
+
 	t.Run("Happy path: expired comps are listed across users and canceled one by one", func(t *testing.T) {
 		store := newStoreDB(t)
 		expired := compRow(t, userID, ptrTime(fixedNow.Add(-time.Minute)))

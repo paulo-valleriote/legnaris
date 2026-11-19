@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"legnaris/backend/shared/env"
 )
+
+const indexNotFoundCode = 27
 
 const (
 	usersEmailUniqueIndex           = "users_email_unique"
@@ -400,10 +403,18 @@ func dropIndexIfExists(ctx context.Context, database *mongo.Database, collection
 	}
 	for _, spec := range specs {
 		if spec.Name == name {
-			return indexes.DropOne(ctx, name)
+			if err := indexes.DropOne(ctx, name); err != nil && !isIndexNotFound(err) {
+				return err
+			}
+			return nil
 		}
 	}
 	return nil
+}
+
+func isIndexNotFound(err error) bool {
+	var commandErr mongo.CommandError
+	return errors.As(err, &commandErr) && commandErr.Code == indexNotFoundCode
 }
 
 func ensurePublishedAtTTL(ctx context.Context, database *mongo.Database, collection, name string, retention time.Duration) error {

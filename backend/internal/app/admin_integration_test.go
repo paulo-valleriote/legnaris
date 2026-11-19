@@ -12,6 +12,8 @@ import (
 
 	"legnaris/backend/internal/admin"
 	"legnaris/backend/internal/billing"
+	"legnaris/backend/internal/events"
+	eventsoutbox "legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/quota"
 	"legnaris/backend/internal/user"
@@ -257,8 +259,21 @@ func TestIntegration_AdminFlow(t *testing.T) {
 		assert.Equal(t, plan.IDFree, view.Plan)
 		assert.Nil(t, view.Subscription)
 
+		changes := adminPlanChangesOf(t, mdb, targetID)
+		require.Len(t, changes, 2)
+		assert.Equal(t, plan.IDPaid, changes[1]["from"])
+		assert.Equal(t, plan.IDFree, changes[1]["to"])
+
 		rec = adminRequest(t, h, adminToken, http.MethodPost, "/admin/users/"+targetID+"/comp/revoke", `{"reason":"cleanup"}`)
-		require.Equal(t, http.StatusNotFound, rec.Code)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		count, err := mdb.Collection(admin.AuditCollection).CountDocuments(ctx, bson.D{
+			{Key: "target_user_id", Value: targetID},
+			{Key: "action", Value: admin.ActionCompRevoke},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), count, "a repeated revoke is audited again")
+		assert.Len(t, adminPlanChangesOf(t, mdb, targetID), 2, "a repeated revoke emits no extra plan.changed")
 	})
 
 	t.Run("Happy path: quota reset clears today and is idempotent", func(t *testing.T) {
@@ -391,6 +406,29 @@ func mustAdminID(t *testing.T) string {
 	return id
 }
 
+func adminPlanChangesOf(t *testing.T, mdb *mongo.Database, userID string) []map[string]any {
+	t.Helper()
+	cursor, err := mdb.Collection("event_outbox").Find(context.Background(), bson.D{
+		{Key: "event_type", Value: billing.PlanChangedEvent},
+	})
+	require.NoError(t, err)
+	var entries []eventsoutbox.Entry
+	require.NoError(t, cursor.All(context.Background(), &entries))
+
+	var changes []map[string]any
+	for _, entry := range entries {
+		envelope, err := events.Decode(entry.Body)
+		require.NoError(t, err)
+		if envelope.Aggregate.ID != userID {
+			continue
+		}
+		var data map[string]any
+		require.NoError(t, json.Unmarshal(envelope.Data, &data))
+		changes = append(changes, data)
+	}
+	return changes
+}
+
 func TestIntegration_AdminMethodAndPathMask(t *testing.T) {
 	h, _, adminToken := newAdminRouter(t)
 
@@ -416,6 +454,65 @@ func TestIntegration_AdminMethodAndPathMask(t *testing.T) {
 			assert.Equal(t, "NOT_FOUND", errorBodyOf(t, rec).Error.Code)
 		})
 	}
+}
+
+func TestIntegration_AdminOptionsMask(t *testing.T) {
+	h, _, adminToken := newAdminRouter(t)
+
+	paths := []string{
+		"/admin",
+		"/admin/users",
+		"/admin/users/" + adminIntegrationID,
+		"/admin/users/" + adminIntegrationID + "/comp",
+		"/admin/unknown",
+	}
+	for _, path := range paths {
+		t.Run("Edge: OPTIONS "+path+" is a 404 mask", func(t *testing.T) {
+			rec := adminRequest(t, h, adminToken, http.MethodOptions, path, "")
+			require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+			assert.Equal(t, "NOT_FOUND", errorBodyOf(t, rec).Error.Code)
+			assert.Empty(t, rec.Header().Get("Allow"))
+		})
+
+		t.Run("Edge: a CORS preflight OPTIONS "+path+" is also a 404 mask", func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodOptions, path, nil)
+			req.Header.Set("Origin", "http://localhost:5173")
+			req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+			req.Header.Set("Access-Control-Request-Headers", "authorization,content-type")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+			assert.Equal(t, "NOT_FOUND", errorBodyOf(t, rec).Error.Code)
+			assert.Empty(t, rec.Header().Get("Allow"))
+		})
+	}
+}
+
+func TestIntegration_AdminAuditRequestIDIsServerGenerated(t *testing.T) {
+	h, mdb, adminToken := newAdminRouter(t)
+	_, targetID := newAuthUser(t, h, mdb, "audit-request-id@example.com", "audit-request-id")
+
+	expires := time.Now().UTC().Add(48 * time.Hour).Format(time.RFC3339)
+	body := fmt.Sprintf(`{"planId":"paid","expiresAt":%q,"reason":"support"}`, expires)
+	req := httptest.NewRequest(http.MethodPost, "/admin/users/"+targetID+"/comp", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	req.Header.Set("X-Request-Id", "client-chosen")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+	responseID := rec.Header().Get("X-Request-Id")
+	require.NotEmpty(t, responseID)
+	require.NotEqual(t, "client-chosen", responseID)
+
+	var audit bson.M
+	require.NoError(t, mdb.Collection(admin.AuditCollection).FindOne(context.Background(), bson.D{
+		{Key: "target_user_id", Value: targetID},
+		{Key: "action", Value: admin.ActionCompGrant},
+	}).Decode(&audit))
+	assert.Equal(t, responseID, audit["request_id"])
 }
 
 func TestIntegration_AdminActorMustBeActive(t *testing.T) {
@@ -458,10 +555,6 @@ func TestIntegration_AdminGrantReplacesExpiredComp(t *testing.T) {
 		"updated_at":         now,
 	})
 	require.NoError(t, err)
-	_, err = mdb.Collection("users").UpdateOne(ctx, bson.D{{Key: "_id", Value: targetID}}, bson.D{
-		{Key: "$set", Value: bson.D{{Key: "plan", Value: plan.IDPaid}}},
-	})
-	require.NoError(t, err)
 
 	expires := now.Add(48 * time.Hour).Format(time.RFC3339)
 	rec := adminRequest(t, h, adminToken, http.MethodPost, "/admin/users/"+targetID+"/comp",
@@ -484,4 +577,9 @@ func TestIntegration_AdminGrantReplacesExpiredComp(t *testing.T) {
 	assert.Equal(t, plan.IDPaid, view.Plan)
 	require.NotNil(t, view.Subscription)
 	assert.Equal(t, billing.ProviderComp, view.Subscription.Provider)
+
+	changes := adminPlanChangesOf(t, mdb, targetID)
+	require.Len(t, changes, 1, "replacing an expired comp emits exactly one plan.changed")
+	assert.Equal(t, plan.IDFree, changes[0]["from"])
+	assert.Equal(t, plan.IDPaid, changes[0]["to"])
 }

@@ -29,6 +29,27 @@ func (s *MongoStore) FindByID(ctx context.Context, id string) (Subscription, boo
 	return sub, true, nil
 }
 
+func (s *MongoStore) LatestComp(ctx context.Context, userID string) (Subscription, bool, error) {
+	var sub Subscription
+	err := s.subscriptions.FindOne(ctx,
+		bson.D{
+			{Key: fieldUserID, Value: userID},
+			{Key: fieldProvider, Value: ProviderComp},
+		},
+		options.FindOne().SetSort(bson.D{
+			{Key: "created_at", Value: -1},
+			{Key: fieldID, Value: -1},
+		}),
+	).Decode(&sub)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return Subscription{}, false, nil
+	}
+	if err != nil {
+		return Subscription{}, false, fmt.Errorf("find latest comp subscription: %w", err)
+	}
+	return sub, true, nil
+}
+
 func (s *MongoStore) CancelComp(ctx context.Context, id string, now time.Time) (bool, error) {
 	res, err := s.subscriptions.UpdateOne(ctx,
 		bson.D{

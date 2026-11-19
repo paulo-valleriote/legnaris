@@ -157,7 +157,9 @@ func TestCompExpiry(t *testing.T) {
 		ledger := billingtest.NewLedger()
 		u1 := newCompUserID(t)
 		ledger.AddAccount(u1, billing.AccountPlan{Plan: "paid"})
-		ledger.SeedSubscription(expiredComp(t, u1, now.Add(time.Hour)))
+		perpetual := expiredComp(t, u1, now.Add(time.Hour))
+		perpetual.CurrentPeriodEnd = nil
+		ledger.SeedSubscription(perpetual)
 		expiry := billing.NewCompExpiry(billing.CompExpiryDeps{
 			Ledger: ledger,
 			Outbox: ledger.Outbox(),

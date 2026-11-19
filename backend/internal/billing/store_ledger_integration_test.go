@@ -2,6 +2,7 @@ package billing_test
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"sync"
 	"testing"
@@ -9,6 +10,7 @@ import (
 
 	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/billing/billingtest"
+	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/sweeper"
 	"legnaris/backend/shared/db"
@@ -209,6 +211,19 @@ func TestMongoConsumer_EndToEnd(t *testing.T) {
 		count, err := mdb.Collection("event_outbox").CountDocuments(context.Background(), bson.D{})
 		require.NoError(t, err)
 		assert.EqualValues(t, 1, count)
+
+		var entries []outbox.Entry
+		cursor, err := mdb.Collection("event_outbox").Find(context.Background(), bson.D{})
+		require.NoError(t, err)
+		require.NoError(t, cursor.All(context.Background(), &entries))
+		envelope, err := events.Decode(entries[0].Body)
+		require.NoError(t, err)
+		assert.Equal(t, billing.PlanChangedEvent, envelope.Type)
+		assert.Equal(t, userID, envelope.Aggregate.ID)
+		var data map[string]any
+		require.NoError(t, json.Unmarshal(envelope.Data, &data))
+		assert.Equal(t, "free", data["from"])
+		assert.Equal(t, "paid", data["to"])
 
 		replayed := claimed[0]
 		require.NoError(t, consumer.Handle(context.Background(), sweeper.Job[billing.Event]{ID: eventID, Payload: replayed}, at))

@@ -273,6 +273,8 @@ func TestRouterWiring_AdminRoutesMaskMethodsAndUnknownPaths(t *testing.T) {
 		{http.MethodDelete, "/admin/users/" + wiringAdminID + "/comp"},
 		{http.MethodGet, "/admin/users/" + wiringAdminID + "/comp/revoke"},
 		{http.MethodPatch, "/admin/users/" + wiringAdminID + "/quota/reset"},
+		{http.MethodOptions, "/admin/users/" + wiringAdminID},
+		{http.MethodOptions, "/admin/users"},
 		{http.MethodPost, "/admin/unknown"},
 		{http.MethodGet, "/admin/unknown/deeper"},
 	}

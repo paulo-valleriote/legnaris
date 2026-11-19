@@ -42,7 +42,7 @@ func (c *AdminController) RegisterRoutes(group *echo.Group) {
 
 func auditMeta(ec *echo.Context) admin.RequestMeta {
 	return admin.RequestMeta{
-		RequestID: ec.Response().Header().Get(echo.HeaderXRequestID),
+		RequestID: requestIDOf(ec),
 		ClientIP:  ec.RealIP(),
 	}
 }
