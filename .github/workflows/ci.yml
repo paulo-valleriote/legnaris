@@ -106,6 +106,13 @@ jobs:
       - name: go.mod is tidy
         run: go mod tidy -diff
 
+      # Mocks are generated, so a hand-edit or an interface that changed without
+      # a regeneration drifts silently: regenerating and diffing keeps them
+      # exactly what mockery writes, and the scan keeps every mock under mocks/
+      # carrying its generated header (mirrored by `make mocks-check`).
+      - name: mocks are generated, current and confined to mocks/
+        run: make mocks-check
+
       # The VPS deploy script runs as root-equivalent on the host and the dev
       # scripts and hooks gate local work; shellcheck catches quoting and
       # word-splitting bugs before they reach the VPS.
