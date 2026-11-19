@@ -38,7 +38,7 @@ make fmt                 # Format code
 - **JSON decoding** — use `backend/shared/json/decode.go`
 - **Logging** — use `backend/shared/logger` (zerolog-based)
 - **Mocks** — generated via `mockery` (config in `go.mod` tool directive)
-- **English only** — all identifiers, comments, log messages, and user-facing strings must be in English. Exception: `docs/TDD.md` stays in pt-BR.
+- **English only** — all identifiers, comments, log messages, and user-facing strings must be in English.
 
 ## Testing
 
@@ -99,11 +99,8 @@ Before opening a PR, ensure:
 
 ## References
 
-- `backend/internal/AGENTS.md` — architecture, layering, service conventions
-- `backend/internal/sheet/template/AGENTS.md` — DAG, Template, Registry, Gotchas
-- `backend/internal/engine/AGENTS.md` — formula engine (expr-lang wrapper)
-- `backend/internal/dice/AGENTS.md` — Dice expression grammar; shared vectors in `testdata/dice/`
-- `backend/shared/apperr/AGENTS.md` — error codes, HTTP mapping, boundary translation
-- `backend/shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
-- `backend/shared/db/AGENTS.md` — MongoDB initialization
-- `web/AGENTS.md` — React PWA client: security, API client, engine, sheet cycle, dependencies (visual rules live in `web/DESIGN.md`)
+Read `context.md` to find the context for the area you change; update the owning `context/<feature>.md` with the change.
+
+Do not create markdown files without clear, explicit authorization (enforced by the allow-list check).
+
+Package working rules live in the nested `AGENTS.md` files next to the code: `backend/internal/AGENTS.md`, `backend/internal/sheet/template/AGENTS.md`, `backend/internal/engine/AGENTS.md`, `backend/internal/dice/AGENTS.md`, `backend/shared/apperr/AGENTS.md`, `backend/shared/idgen/AGENTS.md`, `backend/shared/db/AGENTS.md`, `web/AGENTS.md`.
