@@ -1,64 +1,14 @@
 # AGENTS.md — web/ (React PWA client)
 
-Development, security and architecture rules for the client under `web/`. The **visual** rules —
-principles, token architecture, colour, typography, spacing/layout, radius/border/elevation,
-motion, component specifications, accessibility, security posture, per-screen patterns, enforcement
-and anti-patterns — live in **[DESIGN.md](./DESIGN.md)**, which is the sole written source of the
-visual values and supersedes any visual statement elsewhere (UIF-33). Design values are made
+The client platform — shell, routing, theme, shared UI primitives, copy, typed API client, offline
+behaviour and security posture — is documented in
+[`../context/web-client.md`](../context/web-client.md). Visual rules — principles, token
+architecture, colour, typography, spacing/layout, radius/border/elevation, motion, component
+specifications, accessibility, per-screen patterns, enforcement and anti-patterns — live in
+**[DESIGN.md](./DESIGN.md)**, the sole written source of the visual values. Design values are made
 **once**, there, not per screen.
 
-## Visual rules
-
-Do not encode or restate visual values here or in a component. Read `DESIGN.md` for the token
-architecture and the token-addition workflow, and `src/theme/tokens.css` (mirrored in
-`src/theme/tokens.ts`) for the concrete values. Every component consumes `--lg-*` tokens only;
-`src/theme/` is the sanctioned exception where the literals are declared, and a source scan keeps
-the other directories literal-free.
-
-## Interaction wiring
-
-The keyboard model is centralised, not spread across screens: shortcuts live in one registry
-(`src/shell/shortcut_registry.ts`) as a plain action → key map, and the shell-level leave registry
-(`src/shell/leave_guard.ts`) is what a navigation asks before leaving a surface with unsaved work.
-The visual side of interaction — focus ring, hover, dialog avoidance, feedback — is specified in
-`DESIGN.md`.
-
-## Security rules (non-negotiable)
-
-- **No DOM injection sinks**: `dangerouslySetInnerHTML`, `innerHTML`, `eval`,
-  `new Function`, `document.write` are forbidden — ESLint fails the build on them
-  (FND-10, SEC-02). React escapes text automatically; keep data as text.
-- **No third-party scripts, styles, or fonts**: everything is self-hosted and
-  same-origin, so the strict production Content-Security-Policy
-  (`deploy/traefik/dynamic.yml`) holds without exceptions.
-- **No credentials in JavaScript-readable storage**: never put a token in
-  `localStorage`, `sessionStorage`, or IndexedDB. The refresh credential is an
-  `HttpOnly` cookie; the access token lives in memory only. (A display preference such as the
-  theme is not a credential and may persist.)
-- All identifiers, comments, and user-facing strings in **English** (UI strings go
-  through `src/l10n/`).
-
-## API client (`src/api/`)
-
-The typed network layer every screen mounts on. Its rules are non-negotiable.
-
-- **One transport seam.** Every request goes through the transport injected at
-  construction; no operation builds its own, and the transport is the single place a
-  credential will ever be attached. Requests carry `credentials: 'omit'` — no ambient
-  credential is attached implicitly, in any environment.
-- **No logging.** The module contains no `console.*` call and imports no logger; a request
-  body, a credential and an identifier-bearing URL never reach a log. A source scan
-  (`src/test/api_no_logging.test.ts`) enforces this.
-- **No user-facing literal.** Every message a person sees resolves through
-  `src/l10n/strings.ts`; the API module emits codes and failure kinds, never copy.
-- **Failures are classified, drift is distinct.** A refusal becomes a `DomainFailure` with
-  a `FailureKind`; an unreadable response stays a `DefensiveParseFailure`; a malformed
-  dotted path raises a `PathFailure`; an unusable base address raises a
-  `ConfigurationFailure` at construction. A new backend code must be given a kind in
-  `error_mapper.ts` — the mapping table is total over the codes the backend emits.
-- **Captures are never hand-edited.** `src/api/fixtures/` holds real responses written
-  verbatim by `capture.sh`; a capture that stops matching the models is a backend contract
-  change and the pinned suite is expected to go red on it.
+The sections below hold the working rules for the engine, the sheet cycle, dice and the Layout.
 
 ## UI engine (`src/engine/`)
 
@@ -329,48 +279,3 @@ no recalculation). Only the lists that deviate from the Template are sent.
   Vite, self-hosted). It touches the DOM only through React props and CSSOM (`style.setProperty`),
   never `innerHTML` or a `<style>` element, so the production CSP (`style-src 'self'`, Trusted
   Types) needs no relaxing; it is mounted only while arranging, and only Sections are sortable.
-
-## Theme (`src/theme/`)
-
-- `theme.ts` — the theme store over injected seams (storage, media-query reader, root). The
-  resolution order, the live system follow while nothing is stored, and every swallowed
-  storage failure are specified in `DESIGN.md`; the accepted values are exactly `light` and
-  `dark` under `lg.theme`.
-- `use_theme.ts` — the `useSyncExternalStore` hook the control and any surface read.
-- `public/theme-init.js` — the same-origin classic head script that resolves the theme before
-  the first paint; no inline script and no policy hash (`UIF-20`).
-
-## Componentization
-
-- Extract a shared component only when all hold: **≥ 3 real usages**, same shape and
-  purpose, and the extraction does not leak schema-specific logic into it.
-- Never abstract the schema-driven UI Engine internals, screen-specific layouts,
-  one-off dialogs, or wireframe structures.
-- One sanctioned base layer at `web/src/ui/` holds the five primitives (`button`, `field`,
-  `checkbox`, `dialog`, `toast`) plus the focus trap; it imports no feature directory,
-  uses `lg-<block>__<element>--<modifier>` and keeps the `≥ 3 real usages` rule for every
-  other extraction (UIP-01, UIP-03, SC-007). No wrapper-for-wrapper's-sake elsewhere.
-
-## Dependencies
-
-- **No new package without strict necessity.** `@dnd-kit/{core,sortable,utilities}` is the
-  justified exception for Arrange mode (accessible keyboard, pointer and touch reordering of
-  Sections with screen-reader announcements is not worth hand-rolling). Design-system dependencies (font
-  packages, theme frameworks, component libraries) are prohibited — the tokens plus plain
-  CSS are sufficient, and the font is vendored, not depended on.
-- If a dependency is ever unavoidable, justify it in the PR description.
-
-## Standing decisions
-
-The per-feature deviation log lives in `docs/web-delivered-deviations.md`. These still bind:
-
-- Tests are flat in `src/test/` with a `*.test.ts(x)` suffix (feature prefixes such as
-  `engine_*`), because the Vitest setup and shared helpers serve every suite.
-- No state library: per-path subscriptions use `useSyncExternalStore` (`AD-001`).
-- The leave guard is a shell-level registry, not a router blocker; a browser-back gesture is
-  not intercepted, only in-app navigation.
-- Modal surfaces are accessible overlays (`role="dialog"`, `aria-modal`), not native
-  `<dialog>`, because jsdom does not implement `showModal`.
-- The access token is memory-only; `AuthSession.refresh()` is single-flight.
-- Captures in `src/api/fixtures/` are real responses; a credential in one is redacted
-  (`redacted-access-token`).
