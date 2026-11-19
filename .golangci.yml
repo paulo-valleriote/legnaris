@@ -17,6 +17,7 @@ linters:
     - dupl           # duplicated code blocks
     - goconst        # repeated string literals
     - depguard       # import boundaries between layers
+    - gocritic       # ruleguard: project-specific rules
   settings:
     depguard:
       rules:
@@ -73,6 +74,14 @@ linters:
               desc: "use backend/shared/logger; the stdlib log package writes through a global stderr logger and bypasses structured logging"
             - pkg: github.com/rs/zerolog/log
               desc: "use backend/shared/logger; the zerolog/log global cannot be injected or asserted in tests"
+    gocritic:
+      disable-all: true
+      enabled-checks:
+        - ruleguard
+      settings:
+        ruleguard:
+          rules: ${base-path}/backend/tools/rules/rules.go
+          failOn: dsl,import
     gocyclo:
       # Threshold for cyclomatic complexity (see AGENTS.md "PR Review Checklist").
       min-complexity: 15
