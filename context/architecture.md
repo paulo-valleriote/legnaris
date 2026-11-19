@@ -186,6 +186,7 @@ and `failed_total`, labelled by queue, are the operational contract.
 | `backend/cmd/worker/main.go` | Worker process: mail delivery consumer and, when enabled, the generation consumer. |
 | `backend/cmd/canonicalize-emails/main.go` | One-off migration that reports and optionally applies email canonicalisation. |
 | `backend/cmd/migrate-sheet-kinds/main.go` | One-off migration for sheet kinds, pending event payloads and counters. |
+| `backend/cmd/markdown-check/main.go` | Markdown allow-list check used by CI and the Claude Code `Write` hook. |
 | `backend/internal/app/bootstrap.go` | Composition root that builds repositories, services, controllers, limiters and closers. |
 | `backend/internal/app/router.go` | Process-wide middleware, route groups, guards and the HTTP error handler. |
 | `backend/internal/app/ratelimit.go` | Per-route guard middleware: address, account and user keys, refusal and metric hook. |
@@ -207,7 +208,7 @@ and `failed_total`, labelled by queue, are the operational contract.
 | `backend/shared/env` | Environment parsing, defaults and validation. |
 | `backend/shared/maputils` | Nested map access, flattening and numeric equality. |
 | `backend/shared/requestcache` | Per-request memo scope, opened by the auth middleware and used by the cached user repository. |
-| `backend/internal/contextdocs` | Test-enforced context file template and path map. |
+| `backend/internal/contextdocs` | Test-enforced context file template, path map and markdown allow-list. |
 
 ## Tools & dependencies
 

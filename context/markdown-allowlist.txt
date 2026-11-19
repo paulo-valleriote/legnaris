@@ -1,0 +1,18 @@
+# Tracked markdown files authorized by this versioned list.
+# One glob per line, repository-relative. `**` crosses directories, `*` and `?`
+# stay inside one path segment. Adding a path here in the same pull request is
+# the authorization for a new markdown file; see backend/cmd/markdown-check.
+
+AGENTS.md
+**/AGENTS.md
+context.md
+context/*.md
+README.md
+deploy/README.md
+GLOSSARY.md
+web/DESIGN.md
+docs/legal/*.md
+web/src/legal/*.md
+.opencode/**
+.claude/skills/**
+.github/pull_request_template.md

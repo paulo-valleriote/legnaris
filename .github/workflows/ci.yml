@@ -239,6 +239,14 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      # Runs on every event, so no path filter can skip the gate that keeps
+      # scattered docs out of the tree.
+      - name: Tracked markdown is on the versioned allow-list
+        run: go run ./backend/cmd/markdown-check
       - name: Every required suite passed or was skipped
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
