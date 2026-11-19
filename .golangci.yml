@@ -83,7 +83,7 @@ linters:
           rules: ${base-path}/backend/tools/rules/rules.go
           failOn: dsl,import
     gocyclo:
-      # Threshold for cyclomatic complexity (see AGENTS.md "PR Review Checklist").
+      # Threshold for cyclomatic complexity (see .opencode/AGENTS.md "Cyclomatic Complexity").
       min-complexity: 15
     dupl:
       threshold: 150
