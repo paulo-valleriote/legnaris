@@ -78,6 +78,9 @@ jobs:
           version: v2.13
           args: --new=false
 
+      - name: No comments in Go or TS/TSX sources
+        run: go run ./backend/cmd/nocomments
+
       # A dependency added as `// indirect` while a source imports it directly
       # stays harmless at build time but drifts from `go mod tidy`; this gate
       # keeps go.mod/go.sum canonical (mirrored by `make mod-check`).
@@ -139,6 +142,12 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - name: Install
         run: npm ci
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: No comments in Go or TS/TSX sources
+        working-directory: .
+        run: go run ./backend/cmd/nocomments
       - name: Format check
         run: npm run format:check
       - name: Lint (ESLint incl. anti-XSS rules)

@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: setup dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
+.PHONY: setup dev run relay worker build test test-race vet lint nocomments fmt mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
 
 ## --- Development ------------------------------------------------------------
 
@@ -48,6 +48,9 @@ vet:            ## Run go vet
 
 lint:           ## Run golangci-lint
 	@golangci-lint run
+
+nocomments:     ## Fail when non-generated Go or TS/TSX sources carry comments
+	@go run ./backend/cmd/nocomments
 
 fmt:            ## Format code
 	@go fmt ./...
