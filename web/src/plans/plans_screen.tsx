@@ -165,6 +165,10 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
 
           <p className="lg-plans__text">{message('plans.paidDescription')}</p>
 
+          <ul className="lg-plans__advantages" aria-label={message('plans.paidAdvantages')}>
+            <li className="lg-plans__advantage">{message('plans.paidNoAds')}</li>
+          </ul>
+
           {usage.billing.cancelAtPeriodEnd ? (
             <Notice tone="warning" live="polite">
               {message('plans.cancelAtPeriodEnd')}

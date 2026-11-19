@@ -1,3 +1,5 @@
+import type { AdsConfig } from '../ads/ads_config';
+import { readAdsConfig } from '../ads/ads_config';
 import { type ApiConfiguration, resolveApiConfig } from './config';
 import { ConfigurationFailure } from './errors';
 import type { BrowserFetch } from './transport';
@@ -7,6 +9,11 @@ export const RUNTIME_CONFIG_PATH = '/config.json';
 export interface LoadApiConfigurationOptions {
   readonly fetcher: BrowserFetch;
   readonly buildValue: string | undefined;
+}
+
+export interface RuntimeConfiguration {
+  readonly configuration: ApiConfiguration;
+  readonly ads: AdsConfig | null;
 }
 
 function failure(reason: string): ConfigurationFailure {
@@ -52,4 +59,25 @@ export async function loadApiConfiguration(
   }
   const document = await fetchConfigDocument(options.fetcher);
   return resolveApiConfig(readApiBaseUrl(document));
+}
+
+export async function loadRuntimeConfiguration(
+  options: LoadApiConfigurationOptions,
+): Promise<RuntimeConfiguration> {
+  if ((options.buildValue ?? '').trim() !== '') {
+    const configuration = resolveApiConfig(options.buildValue);
+    let ads: AdsConfig | null = null;
+    try {
+      ads = readAdsConfig(await fetchConfigDocument(options.fetcher));
+    } catch {
+      ads = null;
+    }
+    return { configuration, ads };
+  }
+
+  const document = await fetchConfigDocument(options.fetcher);
+  return {
+    configuration: resolveApiConfig(readApiBaseUrl(document)),
+    ads: readAdsConfig(document),
+  };
 }

@@ -117,6 +117,8 @@ never marks values as unsaved and `Ctrl+S` saves nothing.
 
 ## Contracts
 
+- **Ad slot on the catalog.** The catalog (`catalog_screen.tsx`, the sheet list) ends with an `AdSlot` (`catalog` surface) shown only to Free accounts; the sheet screen, dice and Arrange mode never show ads (see web-client Ads).
+
 ### Template DTO
 
 `GET /templates` returns an array and `GET /templates/:id` one object; both require an

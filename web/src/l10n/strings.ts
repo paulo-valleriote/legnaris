@@ -232,6 +232,8 @@ export const messages = {
   'nav.plans': 'Plans',
   'nav.campaigns': 'Campaigns',
 
+  'ads.label': 'Advertisement',
+
   'plans.title': 'Plans and billing',
   'plans.loading': 'Loading your plan',
   'plans.current': 'Current plan: {plan}',
@@ -240,6 +242,9 @@ export const messages = {
   'plans.pricePeriod': 'per month',
   'plans.priceNote': 'Card payment only.',
   'plans.paidDescription': 'Your payment is taken by our payment provider on a secure page.',
+  'plans.paidAdvantages': 'The Paid plan includes',
+  'plans.paidNoAds': 'No ads',
+  'plans.paidNoAdsLine': 'The Paid plan has no ads.',
   'plans.subscribe': 'Subscribe for USD 6.79 per month',
   'plans.manage': 'Manage subscription',
   'plans.neverSubscribed': 'You have not subscribed yet.',

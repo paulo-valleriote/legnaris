@@ -129,6 +129,7 @@ describe('the AI generation entry on Free (LGN-343)', () => {
       within(dialog).getByText('10 character, 50 NPC and 50 enemy sheets'),
     ).toBeInTheDocument();
     expect(within(dialog).getByText('5 owned campaigns')).toBeInTheDocument();
+    expect(within(dialog).getByText('No ads')).toBeInTheDocument();
   });
 
   it('Happy path: Not now closes the dialog and keeps the creation surface open', async () => {

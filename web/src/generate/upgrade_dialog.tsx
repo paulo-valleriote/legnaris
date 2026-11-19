@@ -48,6 +48,10 @@ export function UpgradeDialog({
           <dt>{message('generate.upgrade.campaignsTitle')}</dt>
           <dd>{messageWith('generate.upgrade.campaignsValue', { limit: PAID_OWNED_CAMPAIGNS })}</dd>
         </div>
+        <div className="lg-upgrade__limit">
+          <dt>{message('plans.paidNoAds')}</dt>
+          <dd>{message('plans.paidNoAdsLine')}</dd>
+        </div>
       </dl>
     </Dialog>
   );

@@ -47,6 +47,8 @@ sequenceDiagram
 
 ## Contracts
 
+- **AdSense settings (LGN-335).** `ADSENSE_CLIENT` and `ADSENSE_SLOT_{CATALOG,CAMPAIGNS,LANDING}` are optional deploy env keys (commented in `deploy/.env.example`, so the CD key check never requires them) passed to the web container, which writes them into `/config.json` and publishes `/ads.txt`; empty or invalid values turn ads off. The Traefik `web-security-headers` CSP admits the Google ad and CMP origins (`script-src`, `connect-src`, `frame-src`, `img-src https:`) and must stay identical to `web/config/security_headers.ts`.
+
 | Method | Path | Body | Success |
 | --- | --- | --- | --- |
 | GET | `/admin/users/{id}` | — | 200 consolidated view |

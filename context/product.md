@@ -74,6 +74,8 @@ flowchart LR
 
 ## Contracts
 
+- **Ads only on Free (LGN-335).** Free accounts and logged-out landing visitors see manual Google AdSense units, only on passive screens: the catalog (sheet list/dashboard), the campaign list and the landing footer. Never on a sheet, dice, a play session, generation, plans or checkout; no Auto ads and no interstitials. "No ads" is a paid advantage shown on the Plans page and in the upgrade dialog.
+
 Every user has exactly one Plan, Free by default.
 
 | Entitlement | Free | Paid |

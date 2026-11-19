@@ -9,6 +9,9 @@ function literal(text: string): RegExp {
 
 const REQUIRED_HEADERS: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
   ['content-security-policy', /default-src 'self'/],
+  ['content-security-policy', /script-src 'self'[^;]*pagead2\.googlesyndication\.com/],
+  ['content-security-policy', /frame-src[^;]*googleads\.g\.doubleclick\.net/],
+  ['content-security-policy', /object-src 'none'/],
   ['content-security-policy', /frame-ancestors 'none'/],
   ['content-security-policy', /require-trusted-types-for 'script'/],
   ['reporting-endpoints', literal(`csp-endpoint="${PRODUCTION_API_ORIGIN}/csp-report"`)],

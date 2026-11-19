@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   DEV_API_ORIGIN,
@@ -6,6 +9,34 @@ import {
   buildSecurityHeaders,
   resolveDevApiOrigin,
 } from '../../config/security_headers';
+
+const ADSENSE_SCRIPT_ORIGINS = [
+  'https://pagead2.googlesyndication.com',
+  'https://fundingchoicesmessages.google.com',
+  'https://*.adtrafficquality.google',
+  'https://www.googletagservices.com',
+];
+
+const ADSENSE_FRAME_ORIGINS = [
+  'https://googleads.g.doubleclick.net',
+  'https://tpc.googlesyndication.com',
+  'https://*.googlesyndication.com',
+  'https://fundingchoicesmessages.google.com',
+  'https://www.google.com',
+  'https://*.adtrafficquality.google',
+];
+
+const ADSENSE_CONNECT_ORIGINS = [
+  'https://pagead2.googlesyndication.com',
+  'https://*.google.com',
+  'https://*.adtrafficquality.google',
+  'https://fundingchoicesmessages.google.com',
+];
+
+function directive(csp: string, name: string): string {
+  const match = new RegExp(`(?:^|; )${name} ([^;]*)`).exec(csp);
+  return match ? match[1] : '';
+}
 
 describe('resolveDevApiOrigin', () => {
   it.each([
@@ -28,7 +59,7 @@ describe('buildSecurityHeaders', () => {
     const headers = buildSecurityHeaders();
 
     expect(headers['Content-Security-Policy']).toContain(
-      `connect-src 'self' ${PRODUCTION_API_ORIGIN};`,
+      `connect-src 'self' ${PRODUCTION_API_ORIGIN} https://pagead2.googlesyndication.com`,
     );
     expect(headers['Content-Security-Policy']).toContain(
       `report-uri ${PRODUCTION_API_ORIGIN}/csp-report`,
@@ -45,7 +76,7 @@ describe('buildSecurityHeaders', () => {
     const headers = buildSecurityHeaders('http://localhost:8080', true);
 
     expect(headers['Content-Security-Policy']).toContain(
-      "connect-src 'self' http://localhost:8080;",
+      "connect-src 'self' http://localhost:8080 https://pagead2.googlesyndication.com",
     );
     expect(headers['Content-Security-Policy']).toContain(
       'report-uri http://localhost:8080/csp-report',
@@ -63,7 +94,9 @@ describe('buildSecurityHeaders', () => {
   it('Happy path: dev admits the React Refresh preamble by hash and inline styles, no inline script', () => {
     const csp = buildSecurityHeaders('http://localhost:8080', true)['Content-Security-Policy'];
 
-    expect(csp).toContain(`script-src 'self' ${REACT_REFRESH_PREAMBLE_HASH};`);
+    expect(csp).toContain(
+      `script-src 'self' ${REACT_REFRESH_PREAMBLE_HASH} https://pagead2.googlesyndication.com`,
+    );
     expect(csp).toContain("style-src 'self' 'unsafe-inline';");
     expect(csp).not.toMatch(/script-src[^;]*unsafe-inline/);
   });
@@ -71,10 +104,50 @@ describe('buildSecurityHeaders', () => {
   it('Edge: production never admits an inline script or style', () => {
     const csp = buildSecurityHeaders()['Content-Security-Policy'];
 
-    expect(csp).toContain("script-src 'self';");
+    expect(csp).toContain("script-src 'self' https://pagead2.googlesyndication.com");
     expect(csp).toContain("style-src 'self';");
     expect(csp).not.toContain('sha256-');
     expect(csp).not.toContain('unsafe-inline');
+  });
+
+  it.each([true, false])('Happy path: the ad and CMP origins are allowed (dev=%s)', (dev) => {
+    const csp = buildSecurityHeaders('http://localhost:8080', dev)['Content-Security-Policy'];
+
+    const scriptSrc = directive(csp, 'script-src').split(' ');
+    for (const origin of ADSENSE_SCRIPT_ORIGINS) {
+      expect(scriptSrc).toContain(origin);
+    }
+
+    expect(directive(csp, 'frame-src').split(' ')).toEqual(ADSENSE_FRAME_ORIGINS);
+
+    expect(directive(csp, 'img-src').split(' ')).toContain('https:');
+
+    const connectSrc = directive(csp, 'connect-src').split(' ');
+    for (const origin of ADSENSE_CONNECT_ORIGINS) {
+      expect(connectSrc).toContain(origin);
+    }
+
+    expect(directive(csp, 'style-src')).toBe(dev ? "'self' 'unsafe-inline'" : "'self'");
+  });
+
+  it.each([true, false])(
+    'Edge: object-src and frame-ancestors stay locked down (dev=%s)',
+    (dev) => {
+      const csp = buildSecurityHeaders('http://localhost:8080', dev)['Content-Security-Policy'];
+
+      expect(directive(csp, 'object-src')).toBe("'none'");
+      expect(directive(csp, 'frame-ancestors')).toBe("'none'");
+      expect(directive(csp, 'require-trusted-types-for')).toBe("'script'");
+    },
+  );
+
+  it('Edge: the production policy stays byte-identical to the deploy middleware', () => {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const dynamic = readFileSync(path.resolve(here, '../../../deploy/traefik/dynamic.yml'), 'utf8');
+    const match = /contentSecurityPolicy: "([^"]+)"/.exec(dynamic);
+
+    expect(match).not.toBeNull();
+    expect(buildSecurityHeaders()['Content-Security-Policy']).toBe(match![1]);
   });
 
   it.each([true, false])('Edge: the rest of the policy is unchanged (dev=%s)', (dev) => {

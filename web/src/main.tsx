@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from './app/router';
 import { AppProviders } from './app/providers';
-import { loadApiConfiguration } from './api/runtime_config';
+import { loadRuntimeConfiguration } from './api/runtime_config';
 import { browserFetch } from './api/transport';
 import { registerServiceWorker } from './pwa/register_sw';
 import { installTrustedTypesPolicy } from './pwa/trusted_types';
@@ -27,7 +27,7 @@ function showConfigurationError(error: unknown): void {
 }
 
 async function start(): Promise<void> {
-  const config = await loadApiConfiguration({
+  const { configuration, ads } = await loadRuntimeConfiguration({
     fetcher: browserFetch,
     buildValue: import.meta.env.VITE_API_BASE_URL,
   });
@@ -35,7 +35,7 @@ async function start(): Promise<void> {
   createRoot(root).render(
     <StrictMode>
       <BrowserRouter>
-        <AppProviders apiBaseUrl={config.baseUrl}>
+        <AppProviders apiBaseUrl={configuration.baseUrl} adsConfig={ads}>
           <AppRoutes />
         </AppProviders>
       </BrowserRouter>

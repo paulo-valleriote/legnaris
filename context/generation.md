@@ -78,6 +78,8 @@ stateDiagram-v2
 
 ## Contracts
 
+- **Upgrade dialog lists No ads.** The Free upgrade dialog (`upgrade_dialog.tsx`) lists "No ads" next to the paid limits; generation screens never show ads.
+
 ### Endpoints
 
 | Endpoint | Success | Contract |
