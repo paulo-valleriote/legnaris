@@ -189,7 +189,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		assert.Equal(t, apperr.CodeConflict, appErr.Code)
 		assert.Equal(t, 409, appErr.HttpStatus())
 		assert.Equal(t, time.Second, appErr.RetryAfter)
-		assert.ErrorIs(t, err, sheet.ErrVersionConflict)
+		require.ErrorIs(t, err, sheet.ErrVersionConflict)
 
 		require.Len(t, *lines, 1)
 		assert.Equal(t, "Warn", (*lines)[0].level)

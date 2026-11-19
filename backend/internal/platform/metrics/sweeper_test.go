@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -79,10 +78,10 @@ func TestSweeperMetrics(t *testing.T) {
 
 			body := scrapeMetrics(t, e)
 			for _, want := range tc.want {
-				assert.Truef(t, strings.Contains(body, want), "expected %q in /metrics output, got:\n%s", want, body)
+				assert.Containsf(t, body, want, "expected %q in /metrics output, got:\n%s", want, body)
 			}
 			for _, avoid := range tc.avoid {
-				assert.Falsef(t, strings.Contains(body, avoid), "did not expect %q in /metrics output", avoid)
+				assert.NotContainsf(t, body, avoid, "did not expect %q in /metrics output", avoid)
 			}
 		})
 	}

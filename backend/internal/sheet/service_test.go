@@ -1359,7 +1359,7 @@ func TestService_PartialUpdate_InvalidStoredData(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, maputils.ErrNotMap)
+	require.ErrorIs(t, err, maputils.ErrNotMap)
 	assert.Contains(t, err.Error(), "invalid sheet data")
 
 	var appErr *apperr.Error

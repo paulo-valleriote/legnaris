@@ -48,14 +48,14 @@ func TestEvaluate_Vectors(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, vec.Total, result.Total)
+			assert.InDelta(t, vec.Total, result.Total, 1e-9)
 			assert.Equal(t, len(vec.Dice), fixed.next, "every fixed die must be consumed")
 			require.Len(t, result.Parts, len(vec.Parts))
 			for i, want := range vec.Parts {
 				got := result.Parts[i]
 				assert.Equal(t, want.Sign, got.Sign, "part %d sign", i)
 				assert.Equal(t, want.Label, got.Label, "part %d label", i)
-				assert.Equal(t, want.Value, got.Value, "part %d value", i)
+				assert.InDelta(t, want.Value, got.Value, 1e-9, "part %d value", i)
 				assert.Equal(t, want.Rolls, got.Rolls, "part %d rolls", i)
 			}
 		})
@@ -108,7 +108,7 @@ func TestEvaluate_NilRollerIsFineWithoutDice(t *testing.T) {
 	result, err := expr.Evaluate("r", map[string]float64{"r": 3}, nil)
 
 	require.NoError(t, err)
-	assert.Equal(t, float64(5), result.Total)
+	assert.InDelta(t, float64(5), result.Total, 1e-9)
 }
 
 func TestEvaluate_ZeroExpressionTotalsZero(t *testing.T) {

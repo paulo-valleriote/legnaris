@@ -125,7 +125,7 @@ func jwtSubject(t *testing.T, token string) string {
 func doAuthRequest(t *testing.T, h http.Handler, token, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -223,7 +223,7 @@ func TestIntegration_TemplatesList(t *testing.T) {
 	require.NotNil(t, dex.Schema)
 	assert.Equal(t, "number", dex.Schema.Type)
 	assert.True(t, dex.Schema.IsEditable)
-	assert.Equal(t, 10.0, dex.Schema.Default)
+	assert.InDelta(t, 10.0, dex.Schema.Default, 1e-9)
 	assert.Empty(t, dex.Schema.Formula)
 }
 
@@ -359,23 +359,23 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 
 	stats, ok := created.Data.Data["stats"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 10.0, stats["dexterity"])
-	assert.Equal(t, 10.0, stats["constitution"])
+	assert.InDelta(t, 10.0, stats["dexterity"], 1e-9)
+	assert.InDelta(t, 10.0, stats["constitution"], 1e-9)
 
 	derived, ok := created.Data.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 10.0, derived["armorClass"])
-	assert.Equal(t, 10.0, derived["passiveAwareness"])
+	assert.InDelta(t, 10.0, derived["armorClass"], 1e-9)
+	assert.InDelta(t, 10.0, derived["passiveAwareness"], 1e-9)
 
 	identity, ok := created.Data.Data["identity"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, "", identity["characterName"])
+	assert.Empty(t, identity["characterName"])
 
 	skillsData, ok := created.Data.Data["skills"].(map[string]any)
 	require.True(t, ok)
 	stealth, ok := skillsData["stealth"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 0.0, stealth["total"])
+	assert.InDelta(t, 0.0, stealth["total"], 1e-9)
 
 	fetchRec := doAuthRequest(t, h, token, http.MethodGet, "/sheets/"+sheetID, "")
 	require.Equal(t, http.StatusOK, fetchRec.Code)
@@ -387,7 +387,7 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 
 	fetchedDerived, ok := fetched.Data.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 10.0, fetchedDerived["armorClass"])
+	assert.InDelta(t, 10.0, fetchedDerived["armorClass"], 1e-9)
 
 	patchRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":16}}}`)
 	require.Equal(t, http.StatusOK, patchRec.Code)
@@ -397,17 +397,17 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 
 	modifiers, ok := patched.Data["modifiers"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 3.0, modifiers["dexterityMod"])
+	assert.InDelta(t, 3.0, modifiers["dexterityMod"], 1e-9)
 
 	patchedDerived, ok := patched.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 13.0, patchedDerived["armorClass"])
+	assert.InDelta(t, 13.0, patchedDerived["armorClass"], 1e-9)
 
 	patchedSkills, ok := patched.Data["skills"].(map[string]any)
 	require.True(t, ok)
 	patchedStealth, ok := patchedSkills["stealth"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 3.0, patchedStealth["total"])
+	assert.InDelta(t, 3.0, patchedStealth["total"], 1e-9)
 }
 
 func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
@@ -429,22 +429,22 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 
 	modifiers, ok := rulesPatched.Data["modifiers"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, -1.0, modifiers["dexterityMod"])
+	assert.InDelta(t, -1.0, modifiers["dexterityMod"], 1e-9)
 
 	saves, ok := rulesPatched.Data["saves"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, -1.0, saves["dexterity"])
+	assert.InDelta(t, -1.0, saves["dexterity"], 1e-9)
 
 	skillsData, ok := rulesPatched.Data["skills"].(map[string]any)
 	require.True(t, ok)
 	stealth, ok := skillsData["stealth"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, -1.0, stealth["total"])
+	assert.InDelta(t, -1.0, stealth["total"], 1e-9)
 
 	derived, ok := rulesPatched.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 9.0, derived["armorClass"])
-	assert.Equal(t, 9.0, derived["passiveAwareness"])
+	assert.InDelta(t, 9.0, derived["armorClass"], 1e-9)
+	assert.InDelta(t, 9.0, derived["passiveAwareness"], 1e-9)
 
 	flagRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"saveDexterityProf":1}}}`)
 	require.Equal(t, http.StatusOK, flagRec.Code)
@@ -453,7 +453,7 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	require.NoError(t, json.Unmarshal(flagRec.Body.Bytes(), &flagPatched))
 	flagSaves, ok := flagPatched.Data["saves"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 1.0, flagSaves["dexterity"])
+	assert.InDelta(t, 1.0, flagSaves["dexterity"], 1e-9)
 
 	textRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"identity":{"characterName":"Aldric"}}}`)
 	require.Equal(t, http.StatusOK, textRec.Code)
@@ -469,7 +469,7 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 
 	fetchedRules, ok := fetched.Data.Data["rules"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 12.0, fetchedRules["modifierBase"])
+	assert.InDelta(t, 12.0, fetchedRules["modifierBase"], 1e-9)
 }
 
 func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
@@ -493,7 +493,7 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	require.NoError(t, json.Unmarshal(conRec.Body.Bytes(), &conPatched))
 	conDerived, ok := conPatched.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 11.0, conDerived["armorClass"], "armor class must follow the active constitution option")
+	assert.InDelta(t, 11.0, conDerived["armorClass"], 1e-9, "armor class must follow the active constitution option")
 
 	fetchRec := doAuthRequest(t, h, token, http.MethodGet, "/sheets/"+sheetID, "")
 	require.Equal(t, http.StatusOK, fetchRec.Code)
@@ -502,8 +502,8 @@ func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	require.NoError(t, json.Unmarshal(fetchRec.Body.Bytes(), &fetched))
 	config, ok := fetched.Data.Data["config"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 0.0, config["acUsesDex"], "the dexterity sibling must be stored as zero")
-	assert.Equal(t, 1.0, config["acUsesCon"])
+	assert.InDelta(t, 0.0, config["acUsesDex"], 1e-9, "the dexterity sibling must be stored as zero")
+	assert.InDelta(t, 1.0, config["acUsesCon"], 1e-9)
 
 	bothRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"config":{"acUsesDex":1,"acUsesCon":1}}}`)
 	require.Equal(t, http.StatusBadRequest, bothRec.Code)
@@ -565,10 +565,10 @@ func TestIntegration_Sheets_Preview(t *testing.T) {
 
 	previewModifiers, ok := previewed.Data["modifiers"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 3.0, previewModifiers["dexterityMod"])
+	assert.InDelta(t, 3.0, previewModifiers["dexterityMod"], 1e-9)
 	previewDerived, ok := previewed.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 13.0, previewDerived["armorClass"])
+	assert.InDelta(t, 13.0, previewDerived["armorClass"], 1e-9)
 
 	fetchedRec := doAuthRequest(t, h, token, http.MethodGet, "/sheets/"+sheetID, "")
 	require.Equal(t, http.StatusOK, fetchedRec.Code)
@@ -577,10 +577,10 @@ func TestIntegration_Sheets_Preview(t *testing.T) {
 	require.NoError(t, json.Unmarshal(fetchedRec.Body.Bytes(), &fetched))
 	fetchedStats, ok := fetched.Data.Data["stats"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 10.0, fetchedStats["dexterity"])
+	assert.InDelta(t, 10.0, fetchedStats["dexterity"], 1e-9)
 	fetchedDerived, ok := fetched.Data.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 10.0, fetchedDerived["armorClass"])
+	assert.InDelta(t, 10.0, fetchedDerived["armorClass"], 1e-9)
 
 	patchRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":16}}}`)
 	require.Equal(t, http.StatusOK, patchRec.Code)
@@ -602,10 +602,10 @@ func TestIntegration_Templates_Preview(t *testing.T) {
 
 	modifiers, ok := previewed.Data["modifiers"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 3.0, modifiers["dexterityMod"])
+	assert.InDelta(t, 3.0, modifiers["dexterityMod"], 1e-9)
 	derived, ok := previewed.Data["derived"].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, 13.0, derived["armorClass"])
+	assert.InDelta(t, 13.0, derived["armorClass"], 1e-9)
 
 	malformedRec := doAuthRequest(t, h, token, http.MethodPost, "/templates/Fantasy-V1/preview", `{"data":{"stats":{"dexterity":12}}}`)
 	require.Equal(t, http.StatusBadRequest, malformedRec.Code)

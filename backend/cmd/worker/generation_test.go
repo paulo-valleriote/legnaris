@@ -116,7 +116,7 @@ func TestBuildGeneration(t *testing.T) {
 			runner, cleanup, err := buildGeneration(cfg)
 			require.Error(t, err)
 			if tc.wantErr != nil {
-				assert.True(t, errors.Is(err, tc.wantErr), "got %v", err)
+				require.ErrorIs(t, err, tc.wantErr, "got %v", err)
 			}
 			assert.Nil(t, runner)
 			assert.Nil(t, cleanup)

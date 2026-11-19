@@ -56,7 +56,7 @@ func TestService_Register_EmitsUserRegistered(t *testing.T) {
 
 			_, err := service.Register(ctx, auth.RegisterCommand{Email: tc.email, Username: "player", Password: testPassword})
 			if tc.wantEvents == 0 {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Empty(t, got)
 				return
 			}
@@ -69,7 +69,7 @@ func TestService_Register_EmitsUserRegistered(t *testing.T) {
 			assert.Equal(t, createdID, *ev.ActorID)
 			assert.Equal(t, "user", ev.AggregateType)
 			assert.Equal(t, createdID, ev.AggregateID)
-			assert.NoError(t, idgen.Validate(ev.AggregateID))
+			require.NoError(t, idgen.Validate(ev.AggregateID))
 			assert.Equal(t, int64(0), ev.AggregateVersion)
 			assert.Equal(t, map[string]any{}, ev.Data)
 		})

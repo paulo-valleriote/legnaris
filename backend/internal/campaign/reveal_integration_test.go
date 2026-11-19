@@ -1,7 +1,6 @@
 package campaign_test
 
 import (
-	"errors"
 	"sync"
 	"testing"
 
@@ -225,7 +224,7 @@ func TestLinkStore_SetRevealedUpdatesTheLinkAndReportsMissing(t *testing.T) {
 	assert.False(t, hidden.Revealed)
 
 	_, changed, err = f.links.SetRevealed(f.ctx, campaignID, campaigntest.NewID(t), true)
-	assert.True(t, errors.Is(err, campaign.ErrLinkNotFound))
+	require.ErrorIs(t, err, campaign.ErrLinkNotFound)
 	assert.False(t, changed)
 	assert.Equal(t, int64(1), f.linkCount(t), "a missing link is never inserted")
 }

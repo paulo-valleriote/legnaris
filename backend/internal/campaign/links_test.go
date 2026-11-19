@@ -204,7 +204,7 @@ func TestLinkNpc(t *testing.T) {
 			assert.Equal(t, tc.wantRevealed, view.Revealed)
 			assert.True(t, view.IsOwner)
 			assert.Equal(t, "Owner Name", view.OwnerName)
-			assert.Equal(t, tc.wantEvents, len(h.events))
+			assert.Len(t, h.events, tc.wantEvents)
 			if tc.wantEvents == 1 {
 				assert.Equal(t, campaign.EventSheetLinked, h.events[0].Type)
 			}

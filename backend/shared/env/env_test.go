@@ -663,7 +663,7 @@ func TestInitVariablesResendCapRatio(t *testing.T) {
 			if tc.value != nil {
 				t.Setenv("AUTH_OTP_RESEND_CAP_RATIO", *tc.value)
 			}
-			require.Equal(t, tc.want, e.initVariables().AuthOTPResendCapRatio)
+			require.InDelta(t, tc.want, e.initVariables().AuthOTPResendCapRatio, 1e-9)
 		})
 	}
 }

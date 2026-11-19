@@ -55,8 +55,8 @@ func (r *replica) do(req *http.Request) *httptest.ResponseRecorder {
 	return rec
 }
 
-func loginRequest(remoteAddr, forwarded, email string) *http.Request {
-	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(loginBody(email)))
+func loginRequest(t *testing.T, remoteAddr, forwarded, email string) *http.Request {
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/login", strings.NewReader(loginBody(email)))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.RemoteAddr = remoteAddr
 	if forwarded != "" {
@@ -95,9 +95,9 @@ func TestRateLimit_SharedAcrossReplicas(t *testing.T) {
 	t.Run("Happy path: auth cap holds across two replicas for one real client behind the proxy", func(t *testing.T) {
 		podA, podB := newPair(t, 2)
 
-		first := podA.do(loginRequest("10.0.0.1:1111", "203.0.113.7", "a@example.com"))
-		second := podB.do(loginRequest("10.0.0.2:2222", "203.0.113.7", "b@example.com"))
-		third := podA.do(loginRequest("10.0.0.1:1111", "203.0.113.7", "c@example.com"))
+		first := podA.do(loginRequest(t, "10.0.0.1:1111", "203.0.113.7", "a@example.com"))
+		second := podB.do(loginRequest(t, "10.0.0.2:2222", "203.0.113.7", "b@example.com"))
+		third := podA.do(loginRequest(t, "10.0.0.1:1111", "203.0.113.7", "c@example.com"))
 
 		assert.Equal(t, http.StatusOK, first.Code)
 		assert.Equal(t, http.StatusOK, second.Code)
@@ -107,9 +107,9 @@ func TestRateLimit_SharedAcrossReplicas(t *testing.T) {
 	t.Run("Edge: a different real client behind the same proxy keeps its own budget", func(t *testing.T) {
 		podA, podB := newPair(t, 1)
 
-		require.Equal(t, http.StatusOK, podA.do(loginRequest("10.0.0.1:1", "203.0.113.7", "a@example.com")).Code)
+		require.Equal(t, http.StatusOK, podA.do(loginRequest(t, "10.0.0.1:1", "203.0.113.7", "a@example.com")).Code)
 
-		other := podB.do(loginRequest("10.0.0.2:1", "203.0.113.8", "b@example.com"))
+		other := podB.do(loginRequest(t, "10.0.0.2:1", "203.0.113.8", "b@example.com"))
 
 		assert.Equal(t, http.StatusOK, other.Code)
 	})
@@ -117,9 +117,9 @@ func TestRateLimit_SharedAcrossReplicas(t *testing.T) {
 	t.Run("Edge: the per-account budget is shared across replicas and addresses", func(t *testing.T) {
 		podA, podB := newPair(t, 1)
 
-		require.Equal(t, http.StatusOK, podA.do(loginRequest("10.0.0.1:1", "203.0.113.7", "victim@example.com")).Code)
+		require.Equal(t, http.StatusOK, podA.do(loginRequest(t, "10.0.0.1:1", "203.0.113.7", "victim@example.com")).Code)
 
-		attack := podB.do(loginRequest("10.0.0.2:1", "198.51.100.9", "victim@example.com"))
+		attack := podB.do(loginRequest(t, "10.0.0.2:1", "198.51.100.9", "victim@example.com"))
 
 		assertRateLimited(t, attack)
 	})
@@ -127,7 +127,7 @@ func TestRateLimit_SharedAcrossReplicas(t *testing.T) {
 	t.Run("Happy path: the user cap holds across two replicas", func(t *testing.T) {
 		podA, podB := newPair(t, 1)
 		req := func() *http.Request {
-			r := httptest.NewRequest(http.MethodGet, "/me", nil)
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/me", nil)
 			r.Header.Set("X-Test-User", "u1")
 			return r
 		}
@@ -140,7 +140,7 @@ func TestRateLimit_SharedAcrossReplicas(t *testing.T) {
 		podA, _ := newPair(t, 1)
 
 		for i := 0; i < 3; i++ {
-			rec := podA.do(httptest.NewRequest(http.MethodGet, "/me", nil))
+			rec := podA.do(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/me", nil))
 			assert.Equal(t, http.StatusOK, rec.Code)
 		}
 	})
@@ -148,7 +148,7 @@ func TestRateLimit_SharedAcrossReplicas(t *testing.T) {
 	t.Run("Happy path: the public CSP cap holds across two replicas", func(t *testing.T) {
 		podA, podB := newPair(t, 1)
 		req := func() *http.Request {
-			r := httptest.NewRequest(http.MethodPost, "/csp-report", strings.NewReader("{}"))
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/csp-report", strings.NewReader("{}"))
 			r.RemoteAddr = "203.0.113.50:1"
 			return r
 		}
@@ -160,11 +160,11 @@ func TestRateLimit_SharedAcrossReplicas(t *testing.T) {
 	t.Run("Edge: auth, user and public budgets do not drain each other", func(t *testing.T) {
 		podA, _ := newPair(t, 1)
 
-		require.Equal(t, http.StatusOK, podA.do(loginRequest("203.0.113.50:1", "", "a@example.com")).Code)
+		require.Equal(t, http.StatusOK, podA.do(loginRequest(t, "203.0.113.50:1", "", "a@example.com")).Code)
 
-		csp := httptest.NewRequest(http.MethodPost, "/csp-report", strings.NewReader("{}"))
+		csp := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/csp-report", strings.NewReader("{}"))
 		csp.RemoteAddr = "203.0.113.50:1"
-		me := httptest.NewRequest(http.MethodGet, "/me", nil)
+		me := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/me", nil)
 		me.Header.Set("X-Test-User", "203.0.113.50")
 
 		assert.Equal(t, http.StatusOK, podA.do(csp).Code)
@@ -178,9 +178,9 @@ func TestRateLimit_SharedAcrossReplicas(t *testing.T) {
 		pod := newReplica(t, client, policy, 2)
 		server.Close()
 
-		first := pod.do(loginRequest("10.0.0.1:1", "203.0.113.7", "a@example.com"))
-		second := pod.do(loginRequest("10.0.0.1:1", "203.0.113.7", "b@example.com"))
-		third := pod.do(loginRequest("10.0.0.1:1", "203.0.113.7", "c@example.com"))
+		first := pod.do(loginRequest(t, "10.0.0.1:1", "203.0.113.7", "a@example.com"))
+		second := pod.do(loginRequest(t, "10.0.0.1:1", "203.0.113.7", "b@example.com"))
+		third := pod.do(loginRequest(t, "10.0.0.1:1", "203.0.113.7", "c@example.com"))
 
 		assert.Equal(t, http.StatusOK, first.Code, "an outage must not lock every login out")
 		assert.Equal(t, http.StatusOK, second.Code)

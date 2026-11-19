@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"strings"
 	"testing"
 
 	"legnaris/backend/internal/billing"
@@ -47,7 +46,7 @@ func TestBillingReconcileCorrectionMetrics(t *testing.T) {
 
 			body := scrapeMetrics(t, e)
 			if tc.want != "" {
-				assert.Truef(t, strings.Contains(body, tc.want), "expected %q in /metrics output, got:\n%s", tc.want, body)
+				assert.Containsf(t, body, tc.want, "expected %q in /metrics output, got:\n%s", tc.want, body)
 			}
 			if tc.notWant != "" {
 				assert.NotContains(t, body, tc.notWant)

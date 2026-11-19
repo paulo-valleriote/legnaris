@@ -17,9 +17,9 @@ import (
 
 const billingProviderSubID = "sub_test_1"
 
-func postBilling(e http.Handler, path string) *httptest.ResponseRecorder {
+func postBilling(t *testing.T, e http.Handler, path string) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, nil))
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, nil))
 	return rec
 }
 
@@ -39,7 +39,7 @@ func TestBillingController_Portal(t *testing.T) {
 		store.EXPECT().FindLive(mock.Anything, billingUserID).Return(activeBillingSubscription(), true, nil)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), billingUserID)
 
-		rec := postBilling(e, "/billing/portal")
+		rec := postBilling(t, e, "/billing/portal")
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		var envelope struct {
 			Data struct {
@@ -54,7 +54,7 @@ func TestBillingController_Portal(t *testing.T) {
 		store := mocks.NewMockStore(t)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), "")
 
-		rec := postBilling(e, "/billing/portal")
+		rec := postBilling(t, e, "/billing/portal")
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)
 		assert.Equal(t, "UNAUTHORIZED", errorCodeOf(t, rec))
 	})
@@ -64,7 +64,7 @@ func TestBillingController_Portal(t *testing.T) {
 		store.EXPECT().FindLive(mock.Anything, billingUserID).Return(billing.Subscription{}, false, nil)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), billingUserID)
 
-		rec := postBilling(e, "/billing/portal")
+		rec := postBilling(t, e, "/billing/portal")
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 		assert.Equal(t, "NO_SUBSCRIPTION", errorCodeOf(t, rec))
 	})
@@ -76,7 +76,7 @@ func TestBillingController_Portal(t *testing.T) {
 		provider.Unavailable = true
 		e := billingEngine(t, billingService(store, provider), billingUserID)
 
-		rec := postBilling(e, "/billing/portal")
+		rec := postBilling(t, e, "/billing/portal")
 		assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		assert.Equal(t, "BILLING_UNAVAILABLE", errorCodeOf(t, rec))
 	})
@@ -86,7 +86,7 @@ func TestBillingController_Portal(t *testing.T) {
 		store.EXPECT().FindLive(mock.Anything, billingUserID).Return(activeBillingSubscription(), true, nil)
 		e := billingEngine(t, billingService(store, billing.UnconfiguredProvider{}), billingUserID)
 
-		rec := postBilling(e, "/billing/portal")
+		rec := postBilling(t, e, "/billing/portal")
 		assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		assert.Equal(t, "BILLING_UNAVAILABLE", errorCodeOf(t, rec))
 	})
@@ -99,7 +99,7 @@ func TestBillingController_Cancel(t *testing.T) {
 		provider := billingtest.NewProvider()
 		e := billingEngine(t, billingService(store, provider), billingUserID)
 
-		rec := postBilling(e, "/billing/cancel")
+		rec := postBilling(t, e, "/billing/cancel")
 		require.Equal(t, http.StatusAccepted, rec.Code, rec.Body.String())
 		var envelope struct {
 			Data struct {
@@ -115,7 +115,7 @@ func TestBillingController_Cancel(t *testing.T) {
 		store := mocks.NewMockStore(t)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), "")
 
-		rec := postBilling(e, "/billing/cancel")
+		rec := postBilling(t, e, "/billing/cancel")
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)
 		assert.Equal(t, "UNAUTHORIZED", errorCodeOf(t, rec))
 	})
@@ -126,7 +126,7 @@ func TestBillingController_Cancel(t *testing.T) {
 		provider := billingtest.NewProvider()
 		e := billingEngine(t, billingService(store, provider), billingUserID)
 
-		rec := postBilling(e, "/billing/cancel")
+		rec := postBilling(t, e, "/billing/cancel")
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 		assert.Equal(t, "NO_SUBSCRIPTION", errorCodeOf(t, rec))
 		assert.Empty(t, provider.CancelsScheduled())
@@ -139,7 +139,7 @@ func TestBillingController_Cancel(t *testing.T) {
 		provider.Unavailable = true
 		e := billingEngine(t, billingService(store, provider), billingUserID)
 
-		rec := postBilling(e, "/billing/cancel")
+		rec := postBilling(t, e, "/billing/cancel")
 		assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		assert.Equal(t, "BILLING_UNAVAILABLE", errorCodeOf(t, rec))
 	})

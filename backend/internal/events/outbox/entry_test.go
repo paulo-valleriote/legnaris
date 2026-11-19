@@ -2,7 +2,6 @@ package outbox_test
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 	"time"
 
@@ -112,7 +111,7 @@ func TestNewEntry(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := outbox.NewEntry(tc.event, now)
-			assert.True(t, errors.Is(err, tc.wantError), "want %v, got %v", tc.wantError, err)
+			assert.ErrorIs(t, err, tc.wantError, "want %v, got %v", tc.wantError, err)
 		})
 	}
 }

@@ -165,7 +165,7 @@ func (r *RepositoryImpl) OldestPending(ctx context.Context) (time.Time, bool, er
 
 func validateID(id string) error {
 	if err := idgen.Validate(id); err != nil {
-		return fmt.Errorf("%w: identity: %v", ErrInvalidEntry, err)
+		return fmt.Errorf("%w: identity: %w", ErrInvalidEntry, err)
 	}
 	return nil
 }

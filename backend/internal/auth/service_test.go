@@ -190,7 +190,7 @@ func TestService_Register(t *testing.T) {
 		require.NotNil(t, outcome)
 
 		require.NotNil(t, createdUser)
-		assert.NoError(t, idgen.Validate(createdUser.ID), "server must mint a canonical UUID v7")
+		require.NoError(t, idgen.Validate(createdUser.ID), "server must mint a canonical UUID v7")
 		assert.Equal(t, testEmail, createdUser.Email)
 		assert.Nil(t, createdUser.EmailVerifiedAt, "the account is created unverified")
 		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)
@@ -669,7 +669,7 @@ func TestService_RegisterChallengeOutcome(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, outcome)
 
-		assert.NoError(t, idgen.Validate(outcome.ChallengeID))
+		require.NoError(t, idgen.Validate(outcome.ChallengeID))
 		assert.Equal(t, int(testChallengePolicy.Lifetime.Seconds()), outcome.ExpiresIn)
 		assert.Equal(t, int(testChallengePolicy.ResendCooldown.Seconds()), outcome.ResendAfter)
 
@@ -706,7 +706,7 @@ func TestService_RegisterChallengeOutcome(t *testing.T) {
 		wg.Wait()
 
 		for _, err := range errs {
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 		m.challenges.AssertNumberOfCalls(t, "Insert", 2)
 	})
@@ -891,7 +891,7 @@ func TestService_RegisterVerifiedAddress(t *testing.T) {
 		issued, err := register(service)
 		require.NoError(t, err)
 		require.NotNil(t, issued)
-		assert.NoError(t, idgen.Validate(issued.ChallengeID))
+		require.NoError(t, idgen.Validate(issued.ChallengeID))
 		assert.Equal(t, int(testChallengePolicy.Lifetime.Seconds()), issued.ExpiresIn)
 		assert.Equal(t, int(testChallengePolicy.ResendCooldown.Seconds()), issued.ResendAfter)
 		assert.NotEqual(t, auth.DeliveryDeferred, issued.Delivery)
@@ -1373,7 +1373,7 @@ func TestService_LoginUnverifiedAccount(t *testing.T) {
 		require.NotNil(t, result)
 		require.Nil(t, result.Session, "an unverified sign-in never carries a session")
 		require.NotNil(t, result.Challenge)
-		assert.NoError(t, idgen.Validate(result.Challenge.ChallengeID))
+		require.NoError(t, idgen.Validate(result.Challenge.ChallengeID))
 		assert.Equal(t, int(testChallengePolicy.Lifetime.Seconds()), result.Challenge.ExpiresIn)
 		assert.Equal(t, int(testChallengePolicy.ResendCooldown.Seconds()), result.Challenge.ResendAfter)
 		m.tokens.AssertNotCalled(t, "Issue", mock.Anything)

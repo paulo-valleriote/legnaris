@@ -63,7 +63,7 @@ func TestBuildDag(t *testing.T) {
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrInfiniteCycle)
+				require.ErrorIs(t, err, ErrInfiniteCycle)
 				var cycleErr *CycleError
 				require.ErrorAs(t, err, &cycleErr)
 				assert.NotEmpty(t, cycleErr.Nodes)
@@ -87,7 +87,7 @@ func TestBuildDag(t *testing.T) {
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrInfiniteCycle)
+				require.ErrorIs(t, err, ErrInfiniteCycle)
 				var cycleErr *CycleError
 				require.ErrorAs(t, err, &cycleErr)
 				assert.Len(t, cycleErr.Nodes, 3)
@@ -502,7 +502,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrInfiniteCycle)
+				require.ErrorIs(t, err, ErrInfiniteCycle)
 				var cycleErr *CycleError
 				require.ErrorAs(t, err, &cycleErr)
 			},
@@ -525,7 +525,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrInfiniteCycle)
+				require.ErrorIs(t, err, ErrInfiniteCycle)
 				var cycleErr *CycleError
 				require.ErrorAs(t, err, &cycleErr)
 			},
@@ -835,7 +835,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 				require.NoError(t, err)
 			},
 			assertResult: func(t *testing.T, result map[string]any) {
-				assert.Equal(t, float64(2.0), result["mod.dex"])
+				assert.InDelta(t, float64(2.0), result["mod.dex"], 1e-9)
 			},
 		},
 		{
@@ -921,8 +921,8 @@ func TestRecalculate_DerivedFieldUpdate(t *testing.T) {
 	cascadingEffects, err := dag.Recalculate(originalData, updates)
 	require.NoError(t, err)
 
-	assert.Equal(t, float64(8.0), cascadingEffects["derived.dmg"])
-	assert.Equal(t, float64(8.0), cascadingEffects["derived.dmg"])
+	assert.InDelta(t, float64(8.0), cascadingEffects["derived.dmg"], 1e-9)
+	assert.InDelta(t, float64(8.0), cascadingEffects["derived.dmg"], 1e-9)
 }
 
 func TestRecalculate_RuntimeFormulaError(t *testing.T) {
@@ -957,7 +957,7 @@ func TestRecalculate_RuntimeFormulaError(t *testing.T) {
 
 	cascadingEffects2, err := dag.Recalculate(originalData2, updates2)
 	require.NoError(t, err)
-	assert.Equal(t, float64(1.0), cascadingEffects2["output"])
+	assert.InDelta(t, float64(1.0), cascadingEffects2["output"], 1e-9)
 
 	fieldsTypeErr := FieldGroup{
 		"input": {Schema: &FieldSchema{Type: "string", IsEditable: true}},
@@ -978,7 +978,7 @@ func TestRecalculate_RuntimeFormulaError(t *testing.T) {
 	cascadingEffects3, err := dag2.Recalculate(originalData3, updates3)
 
 	require.Error(t, err, "Type mismatch during formula evaluation should return error to caller")
-	assert.ErrorContains(t, err, "invalid operation")
+	require.ErrorContains(t, err, "invalid operation")
 	assert.Empty(t, cascadingEffects3)
 }
 

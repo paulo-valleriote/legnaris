@@ -2,7 +2,6 @@ package campaign_test
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"sync"
 	"testing"
@@ -248,7 +247,7 @@ func TestLinkStore_FetchDeleteAndListBySheet(t *testing.T) {
 	assert.Equal(t, first.ID, found.ID)
 
 	_, err = f.links.Fetch(f.ctx, campaigntest.NewID(t), sheetID)
-	assert.True(t, errors.Is(err, campaign.ErrLinkNotFound))
+	require.ErrorIs(t, err, campaign.ErrLinkNotFound)
 
 	listed, err := f.links.ListByCampaignID(f.ctx, firstCampaign)
 	require.NoError(t, err)

@@ -59,7 +59,7 @@ func decodeSession(t *testing.T, rec *httptest.ResponseRecorder) auth.SessionRes
 func authPost(t *testing.T, h http.Handler, path string, cookies authCookies, csrf string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := newRequest(http.MethodPost, path, "")
+	req := newRequest(t, http.MethodPost, path, "")
 	req.Header.Set("Origin", integrationOrigin)
 	if cookies.refresh != "" {
 		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: cookies.refresh})
@@ -384,7 +384,7 @@ func TestIntegration_AuthRefreshRotation(t *testing.T) {
 	t.Run("Error: refresh with no CSRF token returns 403 and rotates nothing", func(t *testing.T) {
 		fresh := registerAuthUser(t, h, mdb, "fresh-user@example.com", "fresh-user")
 
-		req := newRequest(http.MethodPost, "/auth/refresh", "")
+		req := newRequest(t, http.MethodPost, "/auth/refresh", "")
 		req.Header.Set("Origin", integrationOrigin)
 		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: fresh.refresh})
 		rec := serve(t, h, req)

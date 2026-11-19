@@ -23,7 +23,7 @@ const (
 
 func dockerRun(t *testing.T, env []string, args ...string) (string, error) {
 	t.Helper()
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(t.Context(), "docker", args...)
 	cmd.Env = append(os.Environ(), env...)
 	out, err := cmd.CombinedOutput()
 	return string(out), err

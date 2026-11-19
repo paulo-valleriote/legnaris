@@ -26,7 +26,7 @@ func TestVersionMatchesDisclosure(t *testing.T) {
 		Version string `json:"version"`
 	}
 	require.NoError(t, json.Unmarshal(copied, &disclosure))
-	assert.Equal(t, disclosure.Version, llmconsent.Version, "backend constant must match the copied disclosure")
+	assert.Equal(t, llmconsent.Version, disclosure.Version, "backend constant must match the copied disclosure")
 
 	source := filepath.Join(dir, "..", "..", "..", "docs", "legal", "llm-consent.json")
 	original, err := os.ReadFile(source)

@@ -95,9 +95,9 @@ func TestTransactor_WithTransaction(t *testing.T) {
 			err := tc.tx(t).WithTransaction(tc.ctx, tc.fn)
 
 			if tc.wantErr == nil {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.ErrorIs(t, err, tc.wantErr)
+				require.ErrorIs(t, err, tc.wantErr)
 			}
 			assert.Less(t, time.Since(start), outageUpperBound)
 		})
@@ -117,7 +117,7 @@ func TestTransactor_Timeout(t *testing.T) {
 		elapsed := time.Since(start)
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, db.ErrTransactionAborted)
+		require.ErrorIs(t, err, db.ErrTransactionAborted)
 		assert.Less(t, elapsed, outageUpperBound)
 	})
 
@@ -277,7 +277,7 @@ func TestTransactor_ReplicaSet(t *testing.T) {
 				require.NoError(t, err)
 			}
 			for _, want := range tc.wantErrs {
-				assert.ErrorIs(t, err, want)
+				require.ErrorIs(t, err, want)
 			}
 			assert.Equal(t, tc.wantEntities, countDocs(t, mdb, "entities"))
 			assert.Equal(t, tc.wantOutbox, countDocs(t, mdb, "outbox"))
@@ -439,7 +439,7 @@ func TestTransactor_Retry(t *testing.T) {
 			if tc.wantErr == nil {
 				require.NoError(t, err)
 			} else {
-				assert.ErrorIs(t, err, tc.wantErr)
+				require.ErrorIs(t, err, tc.wantErr)
 			}
 			assert.Equal(t, tc.wantAttempts, attempts)
 			assert.Equal(t, tc.wantEntities, countDocs(t, mdb, "entities"))

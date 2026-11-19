@@ -120,7 +120,7 @@ func TestRequestAccountDeletionController(t *testing.T) {
 			service := authmocks.NewMockService(t)
 			tc.setup(service)
 
-			req := newRequest(http.MethodPost, "/me/deletion", "")
+			req := newRequest(t, http.MethodPost, "/me/deletion", "")
 			if tc.authHeader != "" {
 				req.Header.Set("Authorization", tc.authHeader)
 			}
@@ -258,7 +258,7 @@ func TestAccountDeletionController(t *testing.T) {
 			requests := max(tc.requests, 1)
 			var rec *httptest.ResponseRecorder
 			for range requests {
-				req := newRequest(http.MethodDelete, "/me", tc.body)
+				req := newRequest(t, http.MethodDelete, "/me", tc.body)
 				if tc.authHeader != "" {
 					req.Header.Set("Authorization", tc.authHeader)
 				}
@@ -327,7 +327,7 @@ func TestActiveGate(t *testing.T) {
 			service := authmocks.NewMockService(t)
 			tc.setup(service)
 
-			req := newRequest(http.MethodGet, "/sheets", "")
+			req := newRequest(t, http.MethodGet, "/sheets", "")
 			if tc.authHeader != "" {
 				req.Header.Set("Authorization", tc.authHeader)
 			}

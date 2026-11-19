@@ -17,7 +17,7 @@ func TestMiddlewareAllowsConfiguredOrigin(t *testing.T) {
 		return c.String(http.StatusOK, "ok")
 	})
 
-	req := httptest.NewRequest(http.MethodOptions, "/test", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/test", nil)
 	req.Header.Set(echo.HeaderOrigin, "https://legnaris.com.br")
 	req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodGet)
 	rec := httptest.NewRecorder()
@@ -38,7 +38,7 @@ func TestMiddlewareBlocksDisallowedOrigin(t *testing.T) {
 		return c.String(http.StatusOK, "ok")
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 	req.Header.Set(echo.HeaderOrigin, "https://evil.example.com")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -55,7 +55,7 @@ func TestMiddlewarePreflightAdvertisesDelete(t *testing.T) {
 		return c.NoContent(http.StatusNoContent)
 	})
 
-	req := httptest.NewRequest(http.MethodOptions, "/test", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/test", nil)
 	req.Header.Set(echo.HeaderOrigin, "https://legnaris.com.br")
 	req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodDelete)
 	rec := httptest.NewRecorder()
@@ -77,7 +77,7 @@ func TestMiddlewarePreflightAdvertisesPut(t *testing.T) {
 		return c.NoContent(http.StatusNoContent)
 	})
 
-	req := httptest.NewRequest(http.MethodOptions, "/test", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/test", nil)
 	req.Header.Set(echo.HeaderOrigin, "https://legnaris.com.br")
 	req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodPut)
 	rec := httptest.NewRecorder()
@@ -113,7 +113,7 @@ func TestMiddlewareCredentialedPreflight(t *testing.T) {
 		return c.NoContent(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodOptions, "/auth/refresh", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/auth/refresh", nil)
 	req.Header.Set(echo.HeaderOrigin, origin)
 	req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodPost)
 	req.Header.Set(echo.HeaderAccessControlRequestHeaders, csrfHeader)
@@ -149,7 +149,7 @@ func TestMiddlewareUnlistedPreflightAdvertisesNothing(t *testing.T) {
 		return c.NoContent(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodOptions, "/auth/refresh", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/auth/refresh", nil)
 	req.Header.Set(echo.HeaderOrigin, "https://evil.example.com")
 	req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodPost)
 	req.Header.Set(echo.HeaderAccessControlRequestHeaders, csrfHeader)

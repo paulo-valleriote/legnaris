@@ -2,7 +2,6 @@ package amqp
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -66,7 +65,7 @@ func TestRelayBrokerPublish(t *testing.T) {
 		broker := NewRelayBroker(RelayBrokerConfig{URL: "amqp://x", dial: healthyDialer(ch).dial})
 
 		err := broker.Publish(context.Background(), newRelayEntry(t, "user.deleted"))
-		assert.True(t, errors.Is(err, ErrNotConfirmed), "want ErrNotConfirmed, got %v", err)
+		assert.ErrorIs(t, err, ErrNotConfirmed, "want ErrNotConfirmed, got %v", err)
 	})
 
 	t.Run("Error: a missing confirm times out and the channel is reset", func(t *testing.T) {
@@ -76,7 +75,7 @@ func TestRelayBrokerPublish(t *testing.T) {
 
 		err := broker.Publish(context.Background(), newRelayEntry(t, "user.deleted"))
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, context.DeadlineExceeded))
+		require.ErrorIs(t, err, context.DeadlineExceeded)
 		assert.True(t, ch.closed, "a timed-out channel must be closed so the next publish reconnects")
 	})
 
@@ -87,7 +86,7 @@ func TestRelayBrokerPublish(t *testing.T) {
 		cancel()
 
 		err := broker.Publish(ctx, newRelayEntry(t, "user.deleted"))
-		assert.True(t, errors.Is(err, context.Canceled), "want context.Canceled, got %v", err)
+		assert.ErrorIs(t, err, context.Canceled, "want context.Canceled, got %v", err)
 	})
 
 	t.Run("Error: a publish failure resets the channel and the next call reconnects", func(t *testing.T) {
@@ -104,7 +103,7 @@ func TestRelayBrokerPublish(t *testing.T) {
 		broker := NewRelayBroker(RelayBrokerConfig{URL: "amqp://x", dial: d.dial})
 
 		err := broker.Publish(context.Background(), newRelayEntry(t, "user.deleted"))
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Equal(t, 1, d.dialCount())
 	})
 
@@ -122,7 +121,7 @@ func TestRelayBrokerPublish(t *testing.T) {
 		d := &fakeDialer{results: []dialResult{{conn: &fakeConn{chErr: errFake}}}}
 		broker := NewRelayBroker(RelayBrokerConfig{URL: "amqp://x", dial: d.dial})
 
-		assert.Error(t, broker.Publish(context.Background(), newRelayEntry(t, "user.deleted")))
+		require.Error(t, broker.Publish(context.Background(), newRelayEntry(t, "user.deleted")))
 		assert.Nil(t, broker.ch)
 	})
 
@@ -130,7 +129,7 @@ func TestRelayBrokerPublish(t *testing.T) {
 		d := &fakeDialer{}
 		broker := NewRelayBroker(RelayBrokerConfig{URL: "", dial: d.dial})
 
-		assert.ErrorIs(t, broker.Publish(context.Background(), newRelayEntry(t, "user.deleted")), errURLNotSet)
+		require.ErrorIs(t, broker.Publish(context.Background(), newRelayEntry(t, "user.deleted")), errURLNotSet)
 		assert.Equal(t, 0, d.dialCount())
 	})
 }

@@ -311,17 +311,17 @@ func TestSender_QuotaAndRateLimit(t *testing.T) {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
-				assert.ErrorIs(t, err, tc.wantErr)
+				require.ErrorIs(t, err, tc.wantErr)
 				if tc.permanent {
-					assert.NotErrorIs(t, err, email.ErrTransient)
+					require.NotErrorIs(t, err, email.ErrTransient)
 				} else {
-					assert.ErrorIs(t, err, email.ErrTransient, "every quota and rate failure must stay retryable")
+					require.ErrorIs(t, err, email.ErrTransient, "every quota and rate failure must stay retryable")
 				}
 			}
 			assert.Equal(t, tc.wantHits, provider.callCount())
 
 			if tc.wantRateKind {
-				assert.NotErrorIs(t, err, email.ErrQuotaExhausted)
+				require.NotErrorIs(t, err, email.ErrQuotaExhausted)
 			}
 			if tc.wantExhausted {
 				_, blocked := sender.quota.blocked()
@@ -372,6 +372,6 @@ func TestSender_RetryAfterHonorsContext(t *testing.T) {
 
 	err := sender.Send(ctx, testOutbound())
 	require.Error(t, err)
-	assert.ErrorIs(t, err, email.ErrRateLimited)
+	require.ErrorIs(t, err, email.ErrRateLimited)
 	assert.Equal(t, 1, provider.callCount(), "a cancelled wait must not retry")
 }

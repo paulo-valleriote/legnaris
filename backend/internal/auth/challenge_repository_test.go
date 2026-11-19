@@ -98,7 +98,7 @@ func TestChallengeRepository_CloseActive(t *testing.T) {
 		assert.Equal(t, now.Add(time.Minute).Unix(), stored.ConsumedAt.Unix())
 
 		reclaimed, err := repo.ClaimAttempt(ctx, active.ID, now, 5)
-		assert.ErrorIs(t, err, auth.ErrChallengeUnusable)
+		require.ErrorIs(t, err, auth.ErrChallengeUnusable)
 		assert.Nil(t, reclaimed, "a closed challenge must never be claimable")
 	})
 }
@@ -131,7 +131,7 @@ func TestChallengeRepository_ClaimAttempt(t *testing.T) {
 		assert.Equal(t, 5, claimed.Attempts)
 
 		_, err = repo.ClaimAttempt(ctx, challenge.ID, now, 5)
-		assert.ErrorIs(t, err, auth.ErrChallengeUnusable, "the sixth attempt is refused")
+		require.ErrorIs(t, err, auth.ErrChallengeUnusable, "the sixth attempt is refused")
 
 		var stored auth.Challenge
 		require.NoError(t, collection.FindOne(ctx, bson.D{{Key: "_id", Value: challenge.ID}}).Decode(&stored))
@@ -144,7 +144,7 @@ func TestChallengeRepository_ClaimAttempt(t *testing.T) {
 		require.NoError(t, repo.Insert(ctx, challenge))
 
 		_, err := repo.ClaimAttempt(ctx, challenge.ID, now, 5)
-		assert.ErrorIs(t, err, auth.ErrChallengeUnusable)
+		require.ErrorIs(t, err, auth.ErrChallengeUnusable)
 
 		var stored auth.Challenge
 		require.NoError(t, collection.FindOne(ctx, bson.D{{Key: "_id", Value: challenge.ID}}).Decode(&stored))

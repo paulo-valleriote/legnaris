@@ -83,7 +83,7 @@ func TestMiddleware(t *testing.T) {
 				return c.NoContent(http.StatusOK)
 			})
 
-			req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/protected", nil)
 			if tc.authHeader != "" {
 				req.Header.Set("Authorization", tc.authHeader)
 			}

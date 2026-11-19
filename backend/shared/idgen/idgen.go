@@ -21,7 +21,7 @@ func Validate(id string) error {
 	u, err := uuid.Parse(id)
 	switch {
 	case err != nil:
-		return fmt.Errorf("%w: %v", ErrInvalidID, err)
+		return fmt.Errorf("%w: %w", ErrInvalidID, err)
 	case u.Version() != 7 || u.Variant() != uuid.RFC4122:
 		return fmt.Errorf("%w: version %d variant %d", ErrInvalidID, u.Version(), u.Variant())
 	case id != u.String():

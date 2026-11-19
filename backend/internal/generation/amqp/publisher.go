@@ -131,7 +131,7 @@ func (p *Publisher) awaitConfirm(ctx context.Context, ch channel, returns *unrou
 	acked, err := pending.WaitContext(confirmCtx)
 	if err != nil {
 		p.reset(ch)
-		return fmt.Errorf("%w: confirm wait: %v", ErrPublishRefused, err)
+		return fmt.Errorf("%w: confirm wait: %w", ErrPublishRefused, err)
 	}
 	returned := returns.take(messageID)
 	if !acked {

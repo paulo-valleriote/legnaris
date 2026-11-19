@@ -100,10 +100,10 @@ func TestParse_ErrorsAreTyped(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := dice.Parse(tc.expr)
 			require.Error(t, err)
-			assert.ErrorIs(t, err, tc.sentinel)
+			require.ErrorIs(t, err, tc.sentinel)
 
 			var typed *dice.Error
-			require.True(t, errors.As(err, &typed))
+			require.ErrorAs(t, err, &typed)
 			assert.NotEmpty(t, typed.Message)
 			assert.NotEmpty(t, err.Error())
 		})

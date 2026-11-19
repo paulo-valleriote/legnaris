@@ -265,7 +265,7 @@ func TestCascade_Remove_Error(t *testing.T) {
 				return cascade.Remove(txCtx, victimID)
 			})
 			require.Error(t, err)
-			assert.ErrorIs(t, err, tc.failure)
+			require.ErrorIs(t, err, tc.failure)
 
 			assert.Equal(t, int64(1), countOwned(t, mdb, "sheets", "owner_id", victimID), "a rolled-back removal keeps the Sheets")
 			assert.Equal(t, int64(1), countOwned(t, mdb, "campaign_sheet_links", "owner_id", victimID), "a rolled-back removal keeps the links")

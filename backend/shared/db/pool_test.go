@@ -42,7 +42,7 @@ func TestInitMongo_RejectsInvalidPoolConfig(t *testing.T) {
 
 			require.Error(t, err)
 			assert.Nil(t, database)
-			assert.ErrorIs(t, err, db.ErrInvalidConfig)
+			require.ErrorIs(t, err, db.ErrInvalidConfig)
 			assert.Contains(t, err.Error(), "POOL_SIZE")
 		})
 	}
@@ -58,7 +58,7 @@ func TestInitMongo_ValidPoolConfigReachesConnection(t *testing.T) {
 		_, err := db.InitMongo(cfg)
 
 		require.Error(t, err)
-		assert.NotErrorIs(t, err, db.ErrInvalidConfig)
+		require.NotErrorIs(t, err, db.ErrInvalidConfig)
 		assert.Contains(t, err.Error(), "ping mongodb")
 	})
 }
@@ -81,7 +81,7 @@ func TestInitMongo_RequiresReplicaSet(t *testing.T) {
 			database, err := db.InitMongo(cfg)
 
 			assert.Nil(t, database)
-			assert.ErrorIs(t, err, db.ErrMissingReplicaSet)
+			require.ErrorIs(t, err, db.ErrMissingReplicaSet)
 			assert.ErrorIs(t, err, db.ErrInvalidConfig)
 		})
 	}
@@ -95,7 +95,7 @@ func TestInitMongo_RejectsUnparsableURIWithoutLeakingIt(t *testing.T) {
 		database, err := db.InitMongo(cfg)
 
 		assert.Nil(t, database)
-		assert.ErrorIs(t, err, db.ErrInvalidConfig)
+		require.ErrorIs(t, err, db.ErrInvalidConfig)
 		assert.NotContains(t, err.Error(), "secret")
 	})
 }
@@ -118,8 +118,8 @@ func TestInitMongo_RequiresCredentials(t *testing.T) {
 			database, err := db.InitMongo(cfg)
 
 			assert.Nil(t, database)
-			assert.ErrorIs(t, err, db.ErrMissingCredentials)
-			assert.ErrorIs(t, err, db.ErrInvalidConfig)
+			require.ErrorIs(t, err, db.ErrMissingCredentials)
+			require.ErrorIs(t, err, db.ErrInvalidConfig)
 			assert.NotContains(t, err.Error(), "secret")
 		})
 	}

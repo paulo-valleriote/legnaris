@@ -16,7 +16,7 @@ func postLogin(t *testing.T, h http.Handler, email, remoteAddr string, forwarded
 	t.Helper()
 
 	body := fmt.Sprintf(`{"email":%q,"password":"wrong-password"}`, email)
-	req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.RemoteAddr = remoteAddr
 	for _, value := range forwarded {

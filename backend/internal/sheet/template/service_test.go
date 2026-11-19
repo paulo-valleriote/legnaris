@@ -2,7 +2,6 @@ package template_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"legnaris/backend/internal/engine"
@@ -81,10 +80,10 @@ func TestService_FetchTemplate(t *testing.T) {
 			assert.Equal(t, tc.wantMsg, err.Error())
 
 			if tc.wantSentin != nil {
-				assert.ErrorIs(t, err, tc.wantSentin)
+				require.ErrorIs(t, err, tc.wantSentin)
 
 				var appErr *apperr.Error
-				assert.False(t, errors.As(err, &appErr), "typed ID error must not be returned as apperr from the template layer")
+				assert.NotErrorAs(t, err, &appErr, "typed ID error must not be returned as apperr from the template layer")
 				return
 			}
 

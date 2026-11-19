@@ -42,7 +42,7 @@ func newRegisterHarness(ip, email ratelimit.Allower) *registerHarness {
 func (h *registerHarness) post(t *testing.T, body, remoteAddr string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/register", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.RemoteAddr = remoteAddr
 

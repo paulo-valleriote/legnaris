@@ -27,9 +27,9 @@ func newReadyRouter(pinger health.Pinger, timeout time.Duration) *echo.Echo {
 	return router
 }
 
-func getReady(router *echo.Echo) *httptest.ResponseRecorder {
+func getReady(t *testing.T, router *echo.Echo) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/ready", nil))
 	return rec
 }
 
@@ -58,7 +58,7 @@ func TestReady(t *testing.T) {
 			}).Once()
 
 			start := time.Now()
-			rec := getReady(newReadyRouter(pinger, 50*time.Millisecond))
+			rec := getReady(t, newReadyRouter(pinger, 50*time.Millisecond))
 
 			require.Equal(t, tc.wantStatus, rec.Code, rec.Body.String())
 			if tc.blockPing {
@@ -82,5 +82,5 @@ func TestReady_PingDeadlineIsBounded(t *testing.T) {
 		return nil
 	}).Once()
 
-	assert.Equal(t, http.StatusOK, getReady(newReadyRouter(pinger, time.Second)).Code)
+	assert.Equal(t, http.StatusOK, getReady(t, newReadyRouter(pinger, time.Second)).Code)
 }

@@ -31,7 +31,7 @@ func TestCampaignRoutes_LinkNpcStatusMapping(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			svc.EXPECT().LinkNpc(mock.Anything, mock.Anything).
 				Return(campaign.NpcLinkView{}, apperr.NewError(tc.code, "refused", nil)).Once()
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPut,
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPut,
 				"/campaigns/"+campaignTestID+"/npcs", `{"sheet_id":"`+campaignTestSheetID+`"}`)
 			assert.Equal(t, tc.status, rec.Code)
 			assert.Equal(t, string(tc.code), campaignErrorCode(t, rec))
@@ -47,7 +47,7 @@ func TestCampaignRoutes_LinkNpcPassesTheCommand(t *testing.T) {
 		SheetID:    campaignTestSheetID,
 	}).Return(campaign.NpcLinkView{ID: campaignTestSheetID, SheetID: campaignTestSheetID, Kind: plan.KindNPC}, nil).Once()
 
-	rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPut,
+	rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPut,
 		"/campaigns/"+campaignTestID+"/npcs", `{"sheet_id":"`+campaignTestSheetID+`"}`)
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"sheet_id":"`+campaignTestSheetID+`"`)
@@ -66,7 +66,7 @@ func TestCampaignRoutes_LinkNpcRejectsMalformedBody(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPut, "/campaigns/"+campaignTestID+"/npcs", tc.body)
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPut, "/campaigns/"+campaignTestID+"/npcs", tc.body)
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
 	}
@@ -80,7 +80,7 @@ func TestCampaignRoutes_UnlinkNpc(t *testing.T) {
 		SheetID:    campaignTestSheetID,
 	}).Return(nil).Once()
 
-	rec := doCampaignRequest(newCampaignRouter(svc), http.MethodDelete,
+	rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodDelete,
 		"/campaigns/"+campaignTestID+"/npcs/"+campaignTestSheetID, "")
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 	assert.Empty(t, rec.Body.String())
@@ -113,7 +113,7 @@ func TestCampaignRoutes_ListNpcLinks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			svc.EXPECT().ListNpcLinks(mock.Anything, campaignTestID, campaignTestUserID).Return(tc.links, tc.err).Once()
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodGet, "/campaigns/"+campaignTestID+"/npcs", "")
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodGet, "/campaigns/"+campaignTestID+"/npcs", "")
 			assert.Equal(t, tc.status, rec.Code)
 			if tc.status == http.StatusOK && len(tc.links) == 1 {
 				body := rec.Body.String()
@@ -136,7 +136,7 @@ func TestCampaignRoutes_FetchNpcSheet(t *testing.T) {
 		linked.Kind = plan.KindNPC
 		svc.EXPECT().ReadNpcSheet(mock.Anything, mock.Anything).
 			Return(campaign.LinkedSheetResult{ETag: etag, Sheet: linked}, nil).Once()
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodGet, path, "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodGet, path, "")
 		require.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, etag, rec.Header().Get("ETag"))
 		assert.Contains(t, rec.Body.String(), `"kind":"npc"`)
@@ -147,7 +147,7 @@ func TestCampaignRoutes_FetchNpcSheet(t *testing.T) {
 		svc.EXPECT().ReadNpcSheet(mock.Anything, mock.MatchedBy(func(q campaign.ReadNpcSheetQuery) bool {
 			return q.IfNoneMatch == etag && q.SheetID == campaignTestSheetID && q.ViewerID == campaignTestUserID
 		})).Return(campaign.LinkedSheetResult{ETag: etag, NotModified: true}, nil).Once()
-		rec := doCampaignRequestWithHeader(newCampaignRouter(svc), path, "If-None-Match", etag)
+		rec := doCampaignRequestWithHeader(t, newCampaignRouter(svc), path, "If-None-Match", etag)
 		assert.Equal(t, http.StatusNotModified, rec.Code)
 		assert.Equal(t, etag, rec.Header().Get("ETag"))
 		assert.Empty(t, rec.Body.String())
@@ -157,7 +157,7 @@ func TestCampaignRoutes_FetchNpcSheet(t *testing.T) {
 		svc := campaignmocks.NewMockService(t)
 		svc.EXPECT().ReadNpcSheet(mock.Anything, mock.Anything).
 			Return(campaign.LinkedSheetResult{}, apperr.NewError(apperr.CodeNotFound, "sheet link not found", nil)).Once()
-		rec := doCampaignRequestWithHeader(newCampaignRouter(svc), path, "If-None-Match", etag)
+		rec := doCampaignRequestWithHeader(t, newCampaignRouter(svc), path, "If-None-Match", etag)
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 		assert.Equal(t, "NOT_FOUND", campaignErrorCode(t, rec))
 		assert.Empty(t, rec.Header().Get("ETag"))
@@ -167,7 +167,7 @@ func TestCampaignRoutes_FetchNpcSheet(t *testing.T) {
 		svc := campaignmocks.NewMockService(t)
 		svc.EXPECT().ReadNpcSheet(mock.Anything, mock.Anything).
 			Return(campaign.LinkedSheetResult{}, apperr.NewError(apperr.CodeNotFound, "sheet link not found", nil)).Once()
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodGet, path, "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodGet, path, "")
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 		assert.Equal(t, "NOT_FOUND", campaignErrorCode(t, rec))
 	})
@@ -175,6 +175,6 @@ func TestCampaignRoutes_FetchNpcSheet(t *testing.T) {
 
 func TestCampaignRoutes_NpcRoutesRejectUnsupportedMethods(t *testing.T) {
 	svc := campaignmocks.NewMockService(t)
-	rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPatch, "/campaigns/"+campaignTestID+"/npcs", `{}`)
+	rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPatch, "/campaigns/"+campaignTestID+"/npcs", `{}`)
 	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 }
