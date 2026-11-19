@@ -132,10 +132,13 @@ jobs:
       - name: shellcheck
         run: shellcheck deploy/vps/*.sh deploy/cd/*.sh scripts/*.sh scripts/hooks/*.sh .githooks/pre-commit
 
-      # The versioned hook denies Bash commands that would print .env or the
-      # GitHub token; its suite proves every denial and every sanctioned use.
-      - name: Bash secret-guard hook tests
-        run: make hooks-test
+      # The versioned hooks deny Bash commands that would print .env or the
+      # GitHub token and block a stop on failing lint/tests; both suites prove
+      # every denial, every sanctioned use and the change classification.
+      - name: Claude Code hook tests (secret guard, stop verification)
+        run: |
+          scripts/hooks/guard-secrets_test.sh
+          scripts/hooks/stop-verify_test.sh
 
       # English is the only language in code and UI copy (AGENTS.md). The
       # scanner reads every Go, TS/TSX and web/src/l10n source in the tracked
