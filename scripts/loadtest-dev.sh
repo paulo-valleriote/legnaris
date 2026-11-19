@@ -3,8 +3,9 @@
 # and the API (rate limits lifted), a dev Prometheus + Grafana, and the k6 PATCH
 # run streaming into the dashboards. Everything is torn down on exit. DEV ONLY.
 #
-# Tune with RATE, DURATION and USERS (see loadtest/README.md). KEEP_UP=1 leaves
-# Grafana running afterwards so the dashboards can be inspected.
+# Tune with RATE, DURATION and USERS (see the load testing section of the root
+# README). KEEP_UP=1 leaves Grafana running afterwards so the dashboards can be
+# inspected.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

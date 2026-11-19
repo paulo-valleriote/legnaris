@@ -2,8 +2,8 @@
 #
 # Captures the real backend contract into pinned fixtures.
 #
-# Run against the local stack (see README.md next to this script). Every file is
-# the server's own response body, or the request that produced it —
+# Run against the local stack (see "Pinned API captures" in the root README).
+# Every file is the server's own response body, or the request that produced it —
 # byte-faithful and never hand-edited: a shape change here is a backend contract
 # change and the suite is expected to go red on it. No credential is
 # ever written: the throwaway access token stays in a temporary directory and a
