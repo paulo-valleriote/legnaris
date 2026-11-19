@@ -109,7 +109,6 @@ func TestRepublishQueue_Sweep(t *testing.T) {
 		{name: "Happy path: a routed job is left to the worker", attemptCap: 5, wantPublish: true},
 		{name: "Edge: a legacy job without a stored kind republishes on the character kind", attemptCap: 5, legacyKind: true, wantPublish: true},
 		{name: "Edge: a failed publish is rescheduled while attempts remain", attempts: 0, attemptCap: 5, publishErr: errors.New("broker down"), wantPublish: true, wantResched: true},
-		{name: "Edge: the last attempt gives up and refunds the trial", attempts: 4, attemptCap: 5, publishErr: errors.New("broker down"), wantPublish: true, wantDead: true, wantRefund: "trial", quotaKind: generation.ReservationTrial},
 		{name: "Edge: the last attempt gives up and refunds the daily day", attempts: 4, attemptCap: 5, publishErr: errors.New("broker down"), wantPublish: true, wantDead: true, wantRefund: "daily", quotaKind: generation.ReservationDaily, refundDay: "2026-11-14"},
 	}
 
@@ -138,8 +137,6 @@ func TestRepublishQueue_Sweep(t *testing.T) {
 				f.runInlineTx()
 				f.store.EXPECT().FailQueued(mock.Anything, jobID, generation.ErrorCodePublishFailed).Return(doc, true, nil).Once()
 				switch tc.wantRefund {
-				case "trial":
-					f.quota.EXPECT().RefundTrial(mock.Anything, userID).Return(nil).Once()
 				case "daily":
 					f.quota.EXPECT().RefundDaily(mock.Anything, userID, tc.refundDay).Return(nil).Once()
 				}
@@ -157,7 +154,7 @@ func TestRepublishQueue_GiveUpWithoutQueuedDocumentRefundsNothing(t *testing.T) 
 
 	f := newRepublishFixture(t)
 	doc := generation.Document{ID: jobID, UserID: userID, Status: generation.StatusQueued, PublishAttempts: 4,
-		Quota: generation.Reservation{Kind: generation.ReservationTrial}}
+		Quota: generation.Reservation{Kind: generation.ReservationDaily, DayUTC: "2026-11-14"}}
 	f.store.EXPECT().ClaimUnpublished(mock.Anything, mock.Anything, now, sweeper.Lease, 25).Return([]generation.Document{doc}, nil).Once()
 	f.store.EXPECT().OldestQueued(mock.Anything).Return(time.Time{}, false, nil).Maybe()
 	f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(errors.New("broker down")).Once()
@@ -173,7 +170,7 @@ func TestRepublishQueue_RefundFailureAbortsGiveUp(t *testing.T) {
 
 	f := newRepublishFixture(t)
 	doc := generation.Document{ID: jobID, UserID: userID, Status: generation.StatusQueued, PublishAttempts: 4,
-		Quota: generation.Reservation{Kind: generation.ReservationTrial}}
+		Quota: generation.Reservation{Kind: generation.ReservationDaily, DayUTC: "2026-11-14"}}
 	f.store.EXPECT().ClaimUnpublished(mock.Anything, mock.Anything, now, sweeper.Lease, 25).Return([]generation.Document{doc}, nil).Once()
 	f.store.EXPECT().OldestQueued(mock.Anything).Return(time.Time{}, false, nil).Maybe()
 	f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(errors.New("broker down")).Once()

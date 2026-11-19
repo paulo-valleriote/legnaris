@@ -78,18 +78,16 @@ normal access token in `Authorization: Bearer`, not the cookie session.
 format characters, stored verbatim.
 
 **View.** `user{id,email}`, `plan` from `users.plan` (the single source of truth),
-`subscription` (null when none),
-`daily_quota{limit,used,remaining,resets_at,binding}` and
-`trial{allowance,used,remaining}`. `binding` is `trial` for a free plan, where
-`limit` is null and the lifetime trial block governs generation, and `daily`
-otherwise. The e-mail lookup tries the canonical lowercase address, then the
-parsed spelling.
+`subscription` (null when none) and
+`daily_quota{limit,used,remaining,resets_at}`. A Free account reports zero
+remaining; AI generation is paid-only. The e-mail lookup tries the canonical
+lowercase address, then the parsed spelling.
 
 **Operations.** `planId` must be a real non-free plan and `expiresAt` at least one
 hour ahead; an expired comp is CAS-canceled before the new one is inserted.
 Revoke cancels the live comp immediately, and repeating it after a concurrent
 cancel still answers 200 with a fresh audit row. Quota reset deletes today's
-counter (idempotent, trial untouched). `override` skips only the refund window,
+counter (idempotent). `override` skips only the refund window,
 never a second refund, a missing paid subscription or a comp.
 
 **Audit.** `_id` (UUID v7), `actor_user_id`, `action` (`comp.grant`,

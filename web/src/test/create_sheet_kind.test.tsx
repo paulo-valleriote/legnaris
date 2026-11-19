@@ -7,7 +7,13 @@ import { createApiClient } from '../api/client';
 import type { HttpRequest, Transport } from '../api/transport';
 import type { SheetKind } from '../api/models/plan';
 import { message, messageWith } from '../l10n/strings';
-import { createFakeTransport, errorOutcome, successOutcome, withPlanUsage } from './fake_transport';
+import {
+  createFakeTransport,
+  errorOutcome,
+  PAID_PLAN_USAGE,
+  successOutcome,
+  withPlanUsage,
+} from './fake_transport';
 import { renderApp } from './render';
 import { TEMPLATE_ID, sheetPayload, templateDetailPayload } from './sheet_fixtures';
 
@@ -44,7 +50,7 @@ function planUsage(...fullKinds: readonly SheetKind[]) {
 
 async function openSurface(
   user: UserEvent,
-  plan = planUsage(),
+  plan: unknown = planUsage(),
   fake = createFakeTransport(successOutcome(CATALOG), successOutcome(templateDetailPayload())),
 ) {
   renderApp('/', { client: clientWith(withPlanUsage(fake.transport, successOutcome(plan))) });
@@ -66,7 +72,7 @@ function createButton() {
 }
 
 function generateButton() {
-  return screen.getByText(message('generate.entry'));
+  return screen.getByRole('button', { name: message('generate.entry') });
 }
 
 function postRequests(requests: readonly HttpRequest[]) {
@@ -173,12 +179,12 @@ describe('creation surface sheet kind (LGN-238)', () => {
     },
   );
 
-  it('Happy path: the Generate action opens the generate route for the selected kind', async () => {
+  it('Happy path: the Generate action opens the generate route for the selected kind on a paid plan', async () => {
     const user = userEvent.setup();
-    await openSurface(user);
+    await openSurface(user, PAID_PLAN_USAGE);
 
     await user.selectOptions(kindSelect(), 'npc');
-    await user.click(generateButton());
+    await user.click(screen.getByRole('link', { name: message('generate.entry') }));
 
     expect(await screen.findByRole('heading', { name: 'Generate an NPC' })).toBeInTheDocument();
   });

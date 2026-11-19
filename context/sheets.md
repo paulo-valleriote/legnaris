@@ -257,7 +257,8 @@ Backend:
 Web:
 
 - `web/src/catalog/catalog_screen.tsx`, `create_sheet_dialog.tsx`, `queries.ts` — catalog,
-  creation surface and query keys.
+  creation surface and query keys; on Free the dialog's `Generate with AI` entry carries a Pro
+  badge and opens the upgrade dialog (see [web-client](web-client.md)).
 - `web/src/engine/field_grouping.ts` — schema → Sections and Rows, row keys; `layout.ts`,
   `arrange_ops.ts` — arrangement resolution, view and staging.
 - `web/src/engine/sheet_form.tsx`, `field_control.tsx`, `exclusive_control.tsx`,

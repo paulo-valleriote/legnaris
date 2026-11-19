@@ -67,6 +67,7 @@ packages:
       outpkg: mocks
     interfaces:
       ConsentStore: {}
+      PlanSource: {}
       GenerationStore: {}
       QuotaRefunder: {}
       AccountReader: {}
@@ -183,13 +184,6 @@ packages:
       outpkg: mocks
     interfaces:
       Client: {}
-  legnaris/backend/internal/trial:
-    config:
-      dir: backend/internal/trial/mocks
-      outpkg: mocks
-    interfaces:
-      Granter: {}
-      DomainChecker: {}
   legnaris/backend/internal/accountdeletion:
     config:
       dir: backend/internal/accountdeletion/mocks

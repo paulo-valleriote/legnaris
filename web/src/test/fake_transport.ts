@@ -87,6 +87,16 @@ export const FREE_PLAN_USAGE = {
   },
 };
 
+export const PAID_PLAN_USAGE = {
+  plan: 'paid',
+  sheets: {
+    character: { used: 0, limit: 10 },
+    npc: { used: 0, limit: 50 },
+    enemy: { used: 0, limit: 50 },
+  },
+  owned_campaigns: { used: 0, limit: 5 },
+};
+
 export function withPlanUsage(
   inner: Transport,
   plan: HttpResponse = successOutcome(FREE_PLAN_USAGE),

@@ -39,7 +39,6 @@ func seedAccount(t *testing.T, mdb *mongo.Database, userID, email string) {
 		"sheets":              {{Key: "owner_id", Value: userID}, {Key: "name", Value: "Hero"}},
 		"sheet_counts":        {{Key: "owner_id", Value: userID}, {Key: "kind", Value: "character"}, {Key: "count", Value: 1}},
 		"generations":         {{Key: "user_id", Value: userID}, {Key: "status", Value: "running"}},
-		quota.TrialCollection: {{Key: "_id", Value: userID}, {Key: "allowance", Value: 3}, {Key: "used", Value: 1}},
 		quota.UsageCollection: {{Key: "user_id", Value: userID}, {Key: "day_utc", Value: "2026-11-14"}, {Key: "count", Value: 1}},
 		"auth_challenges":     {{Key: "_id", Value: userID + "-challenge"}, {Key: "user_id", Value: userID}, {Key: "purpose", Value: "verify_email"}},
 		"email_outbox":        {{Key: "_id", Value: userID + "-intent"}, {Key: "to", Value: email}, {Key: "template", Value: "verify_email"}},
@@ -120,7 +119,6 @@ func TestCascade_Remove(t *testing.T) {
 				assert.Zero(t, countOwned(t, mdb, "sheets", "owner_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, "sheet_counts", "owner_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, "generations", "user_id", victimID))
-				assert.Zero(t, countOwned(t, mdb, quota.TrialCollection, "_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, quota.UsageCollection, "user_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, "auth_challenges", "user_id", victimID))
 				assert.Zero(t, countOwned(t, mdb, "campaign_sheet_links", "owner_id", victimID))

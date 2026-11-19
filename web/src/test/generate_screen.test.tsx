@@ -30,9 +30,8 @@ function fail(code: string, status: number, retryAfter?: string): HttpResponse {
 
 function planWith(overrides: Record<string, unknown> = {}) {
   return {
-    plan: 'free',
-    sheets: { character: { used: 0, limit: 1 } },
-    trial: { used: 0, remaining: 3 },
+    plan: 'paid',
+    sheets: { character: { used: 0, limit: 10 } },
     llm_consent_required: false,
     active_generation_id: null,
     ...overrides,
@@ -102,33 +101,6 @@ describe('generate concept step (LGN-196, LGN-177)', () => {
     } else {
       expect(generateButton()).toHaveAttribute('aria-disabled', 'true');
     }
-  });
-
-  it('Edge: a trial with nothing left shows none left and never sends a request', async () => {
-    const fake = renderGenerate({
-      'GET /me/plan': ok(planWith({ trial: { used: 3, remaining: 0 } })),
-    });
-    await screen.findByText('You have no free generations left.');
-
-    fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
-
-    expect(generateButton()).toHaveAttribute('aria-disabled', 'true');
-    expect(countOf(fake.requests, 'POST', '/generations')).toBe(0);
-  });
-
-  it('Happy path: shows the trial count from the plan', async () => {
-    renderGenerate({});
-
-    expect(await screen.findByText('3 of 3 free generations left')).toBeInTheDocument();
-  });
-
-  it('Edge: no free generations left links to the plans route', async () => {
-    renderGenerate({
-      'GET /me/plan': ok(planWith({ trial: { used: 3, remaining: 0 } })),
-    });
-
-    const link = await screen.findByRole('link', { name: 'See plans' });
-    expect(link).toHaveAttribute('href', '/plans');
   });
 
   it('Happy path: the concept field is described by its example, language note and counter', async () => {
@@ -249,7 +221,7 @@ describe('generate flow (LGN-196)', () => {
     expect(within(alert).getAllByRole('button')).toHaveLength(1);
   });
 
-  it('Error: PLAN_UPGRADE_REQUIRED shows the allowance copy and no upsell', async () => {
+  it('Error: PLAN_UPGRADE_REQUIRED opens the upgrade dialog instead of an inline refusal', async () => {
     renderGenerate({
       'POST /generations': fail('PLAN_UPGRADE_REQUIRED', 403),
     });
@@ -259,10 +231,10 @@ describe('generate flow (LGN-196)', () => {
 
     await user.click(generateButton());
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'You have used your free generations.',
-    );
-    expect(screen.queryByRole('button', { name: /checkout|upgrade|subscribe/i })).toBeNull();
+    expect(
+      await screen.findByRole('dialog', { name: 'AI generation is part of Pro' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('Error: a quota refusal shows the reset copy', async () => {

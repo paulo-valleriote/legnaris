@@ -72,8 +72,6 @@ func TestPlanController_SheetUsage(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			store := quotamocks.NewMockStore(t)
-			store.EXPECT().FetchTrial(mock.Anything, planUserID).
-				Return(quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 1}, nil).Maybe()
 
 			var e *echo.Echo
 			if tc.withUsage {

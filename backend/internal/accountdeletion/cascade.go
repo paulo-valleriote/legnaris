@@ -64,7 +64,6 @@ func (c *Cascade) Remove(ctx context.Context, userID string) error {
 		{campaignLinksCollection, ownerIDField},
 		{sheetCountsCollection, ownerIDField},
 		{generationsCollection, userIDField},
-		{quota.TrialCollection, idField},
 		{quota.UsageCollection, userIDField},
 	}
 	for _, step := range steps {

@@ -32,7 +32,7 @@ func queuedDoc(id, user string, created time.Time) generation.Document {
 	return generation.Document{
 		ID: id, UserID: user, TemplateID: templateID, Kind: "character", Concept: validText,
 		Status: generation.StatusQueued, ActiveUserID: user,
-		Quota:     generation.Reservation{Kind: generation.ReservationTrial},
+		Quota:     generation.Reservation{Kind: generation.ReservationDaily, DayUTC: "2026-11-14"},
 		CreatedAt: created, ExpiresAt: created.Add(generation.Retention),
 	}
 }
@@ -227,7 +227,7 @@ func TestMongoStore_ReschedulePublishAndFail(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Equal(t, generation.StatusQueued, before.Status, "the move returns the document as it was")
-	assert.Equal(t, generation.Reservation{Kind: generation.ReservationTrial}, before.Quota)
+	assert.Equal(t, generation.Reservation{Kind: generation.ReservationDaily, DayUTC: "2026-11-14"}, before.Quota)
 
 	var failed generation.Document
 	require.NoError(t, mdb.Collection("generations").FindOne(context.Background(), bson.M{"_id": jobA}).Decode(&failed))

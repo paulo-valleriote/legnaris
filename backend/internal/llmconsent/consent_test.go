@@ -9,6 +9,8 @@ import (
 
 	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/llmconsent/mocks"
+	"legnaris/backend/internal/plan"
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
 
 	"github.com/stretchr/testify/assert"
@@ -64,34 +66,42 @@ func TestService_Grant(t *testing.T) {
 	tests := []struct {
 		name      string
 		version   string
+		plan      plan.Plan
+		planErr   error
 		storeErr  error
 		wantStore bool
 		wantCode  apperr.Code
+		wantErr   error
 	}{
-		{name: "Edge: empty version is a validation error", version: "", wantCode: apperr.CodeValidation},
-		{name: "Edge: outdated version is a validation error", version: "0", wantCode: apperr.CodeValidation},
-		{name: "Edge: future version is a validation error", version: "4", wantCode: apperr.CodeValidation},
-		{name: "Edge: retired version 1 is a validation error", version: "1", wantCode: apperr.CodeValidation},
-		{name: "Error: missing user is not found", version: llmconsent.Version, storeErr: llmconsent.ErrUserNotFound, wantStore: true, wantCode: apperr.CodeNotFound},
-		{name: "Error: store failure is not an apperr", version: llmconsent.Version, storeErr: errStore, wantStore: true},
-		{name: "Happy path: current version is recorded", version: llmconsent.Version, wantStore: true},
+		{name: "Edge: a Free account is refused with PLAN_UPGRADE_REQUIRED", version: llmconsent.Version, plan: plan.Free, wantCode: apperr.CodePlanUpgradeRequired},
+		{name: "Edge: empty version is a validation error", version: "", plan: plan.Paid, wantCode: apperr.CodeValidation},
+		{name: "Edge: outdated version is a validation error", version: "0", plan: plan.Paid, wantCode: apperr.CodeValidation},
+		{name: "Edge: future version is a validation error", version: "4", plan: plan.Paid, wantCode: apperr.CodeValidation},
+		{name: "Edge: retired version 1 is a validation error", version: "1", plan: plan.Paid, wantCode: apperr.CodeValidation},
+		{name: "Error: a missing plan owner is not found", version: llmconsent.Version, plan: plan.Paid, planErr: user.ErrUserNotFound, wantCode: apperr.CodeNotFound},
+		{name: "Error: a plan lookup failure is returned", version: llmconsent.Version, plan: plan.Paid, planErr: errStore, wantErr: errStore},
+		{name: "Error: missing user is not found", version: llmconsent.Version, plan: plan.Paid, storeErr: llmconsent.ErrUserNotFound, wantStore: true, wantCode: apperr.CodeNotFound},
+		{name: "Error: store failure is not an apperr", version: llmconsent.Version, plan: plan.Paid, storeErr: errStore, wantStore: true, wantErr: errStore},
+		{name: "Happy path: current version is recorded", version: llmconsent.Version, plan: plan.Paid, wantStore: true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			consents := mocks.NewMockConsentStore(t)
+			plans := mocks.NewMockPlanSource(t)
+			plans.EXPECT().PlanOf(mock.Anything, "user-1").Return(tc.plan, tc.planErr).Once()
 			if tc.wantStore {
 				consents.EXPECT().Grant(mock.Anything, "user-1", tc.version, fixedNow).Return(tc.storeErr).Once()
 			}
-			svc := llmconsent.NewService(consents, mocks.NewMockGenerationStore(t), mocks.NewMockQuotaRefunder(t), mocks.NewMockTransactor(t), func() time.Time { return fixedNow })
+			svc := llmconsent.NewService(consents, plans, mocks.NewMockGenerationStore(t), mocks.NewMockQuotaRefunder(t), mocks.NewMockTransactor(t), func() time.Time { return fixedNow })
 
 			err := svc.Grant(context.Background(), "user-1", tc.version)
 
 			switch {
 			case tc.wantCode != "":
 				_ = requireAppCode(t, err, tc.wantCode)
-			case tc.storeErr != nil:
-				require.ErrorIs(t, err, tc.storeErr)
+			case tc.wantErr != nil:
+				require.ErrorIs(t, err, tc.wantErr)
 			default:
 				require.NoError(t, err)
 			}
@@ -100,7 +110,7 @@ func TestService_Grant(t *testing.T) {
 }
 
 func TestService_Revoke(t *testing.T) {
-	queued := llmconsent.OpenGeneration{ID: "gen-1", UserID: "user-1", ReservationKind: llmconsent.ReservationTrial}
+	queued := llmconsent.OpenGeneration{ID: "gen-1", UserID: "user-1", ReservationKind: llmconsent.ReservationDaily, DayUTC: "2026-11-14"}
 	running := llmconsent.OpenGeneration{ID: "gen-2", UserID: "user-1", ReservationKind: llmconsent.ReservationDaily, DayUTC: "2026-11-14"}
 
 	tests := []struct {
@@ -157,7 +167,7 @@ func TestService_Revoke(t *testing.T) {
 				generations.EXPECT().DeleteByUserID(mock.Anything, "user-1").Return(tc.deleted, tc.deleteErr).Once()
 			}
 
-			svc := llmconsent.NewService(consents, generations, refunder, tx, time.Now)
+			svc := llmconsent.NewService(consents, mocks.NewMockPlanSource(t), generations, refunder, tx, time.Now)
 			err := svc.Revoke(context.Background(), "user-1")
 
 			if !tc.wantErr {
@@ -189,7 +199,7 @@ func TestService_Gate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			consents := mocks.NewMockConsentStore(t)
 			consents.EXPECT().Fetch(mock.Anything, "user-1").Return(tc.record, tc.fetchErr).Once()
-			svc := llmconsent.NewService(consents, mocks.NewMockGenerationStore(t), mocks.NewMockQuotaRefunder(t), mocks.NewMockTransactor(t), time.Now)
+			svc := llmconsent.NewService(consents, mocks.NewMockPlanSource(t), mocks.NewMockGenerationStore(t), mocks.NewMockQuotaRefunder(t), mocks.NewMockTransactor(t), time.Now)
 
 			err := svc.Gate(context.Background(), "user-1")
 
