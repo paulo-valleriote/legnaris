@@ -2,12 +2,14 @@ package app
 
 import (
 	"strconv"
+	"strings"
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/platform/cors"
 	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/platform/ratelimit"
+	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/response"
 
@@ -16,7 +18,12 @@ import (
 )
 
 func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *echo.Echo {
-	router := echo.New()
+	router := echo.NewWithConfig(echo.Config{
+		Router: echo.NewRouter(echo.RouterConfig{
+			AllowOverwritingRoute:   true,
+			MethodNotAllowedHandler: methodNotAllowedHandler,
+		}),
+	})
 	router.HTTPErrorHandler = HTTPErrorHandler
 	router.IPExtractor = modules.ClientIP
 
@@ -63,11 +70,23 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 
 	adminGroup := router.Group("/admin",
 		auth.AdminOnly(modules.Auth.TokenManager, deps.Variables.AdminUserIDs),
+		auth.AdminActive(modules.activeAccounts()),
 		limitUser,
 	)
 	modules.Admin.Controller.RegisterRoutes(adminGroup)
 
 	return router
+}
+
+func methodNotAllowedHandler(c *echo.Context) error {
+	path := c.Request().URL.Path
+	if path == "/admin" || strings.HasPrefix(path, "/admin/") {
+		return apperr.NewError(apperr.CodeNotFound, auth.MsgNotFound, nil)
+	}
+	if allow, ok := c.Get(echo.ContextKeyHeaderAllow).(string); ok && allow != "" {
+		c.Response().Header().Set(echo.HeaderAllow, allow)
+	}
+	return echo.ErrMethodNotAllowed
 }
 
 func (m *Modules) activeAccounts() auth.ActiveAccountChecker {

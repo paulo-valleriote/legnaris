@@ -180,12 +180,18 @@ func TestRun_CancelledContextDrainsAndReturns(t *testing.T) {
 		newBilling: func(_ env.Env, _ databaseHandle, outboxRepo eventsoutbox.Repository) (billing.ConsumerDeps, error) {
 			billingBuilt = true
 			ledger := billingtest.NewLedger()
+			tx := billingtest.NewTransactor(ledger, nil)
 			return billing.ConsumerDeps{
 				Provider: billingtest.NewProvider(),
 				Ledger:   ledger,
-				Tx:       billingtest.NewTransactor(ledger, nil),
+				Tx:       tx,
 				Outbox:   outboxRepo,
-				Now:      time.Now,
+				CompExpiry: billing.NewCompExpiry(billing.CompExpiryDeps{
+					Ledger: ledger,
+					Outbox: outboxRepo,
+					Tx:     tx,
+				}),
+				Now: time.Now,
 			}, nil
 		},
 	}

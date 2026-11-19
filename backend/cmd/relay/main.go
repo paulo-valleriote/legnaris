@@ -210,11 +210,11 @@ func newSweeper(cfg env.Env, deps dependencies, database databaseHandle, eventRe
 	if err != nil {
 		return nil, err
 	}
-	compExpiry, ok := billingDeps.Ledger.(billing.CompExpiryLedger)
-	if !ok {
-		return nil, fmt.Errorf("billing ledger does not support comp expiry")
+	compExpiry := billingDeps.CompExpiry
+	if compExpiry == nil {
+		return nil, fmt.Errorf("billing comp expiry is not configured")
 	}
-	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps, deletionDeps, billingDeps, campaignDeps, compExpiry)
+	queues, err := sweepQueues(cfg, eventRepository, eventBroker, generationDeps, reapDeps, deletionDeps, billingDeps, campaignDeps)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ const eventsOutboxInterval = 30 * time.Second
 
 const generationRepublishAttemptCap = 5
 
-func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps, billingDeps billing.ConsumerDeps, campaignDeps campaign.DeletionDeps, compExpiry billing.CompExpiryLedger) ([]sweeper.Queue, error) {
+func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBroker eventsrelay.Publisher, generationDeps generation.RepublishDeps, reapDeps generation.ReapDeps, deletionDeps accountdeletion.Deps, billingDeps billing.ConsumerDeps, campaignDeps campaign.DeletionDeps) ([]sweeper.Queue, error) {
 	vars := cfg.Variables
 	eventQueue, err := eventsrelay.NewQueue(eventRepository, eventBroker, eventsrelay.Config{
 		Interval:       eventsOutboxInterval,
@@ -264,7 +264,7 @@ func sweepQueues(cfg env.Env, eventRepository eventsoutbox.Repository, eventBrok
 	if err != nil {
 		return nil, err
 	}
-	compExpiryQueue, err := billing.NewCompExpiryQueue(compExpiry)
+	compExpiryQueue, err := billing.NewCompExpiryQueue(billingDeps.CompExpiry)
 	if err != nil {
 		return nil, err
 	}
@@ -421,8 +421,7 @@ func defaultDependencies() dependencies {
 				campaign.NewRepository(mdb),
 				db.NewTransactor(mongo.Client, nil),
 				campaign.NewOwnershipLimiter(
-					user.NewPlanSource(user.NewRepository(mdb, cfg.Logger)).
-						WithDeriver(billing.NewPlanReader(billingStore, time.Now).EffectivePlanID),
+					user.NewPlanSource(user.NewRepository(mdb, cfg.Logger)),
 					campaign.NewOwnershipCounter(mdb),
 				),
 				relayCharacterUnlinker{sheets: sheet.NewRepository(mdb, cfg.Logger)},
@@ -449,12 +448,20 @@ func defaultDependencies() dependencies {
 				return billing.ConsumerDeps{}, fmt.Errorf("unexpected database handle type %T", database)
 			}
 			mdb := mongo.Client.Database(cfg.Variables.DatabaseName)
+			store := billing.NewMongoStore(mdb)
+			tx := db.NewTransactor(mongo.Client, nil)
 			return billing.ConsumerDeps{
 				Provider: newRelayBillingProvider(cfg.Variables),
-				Ledger:   billing.NewMongoStore(mdb),
-				Tx:       db.NewTransactor(mongo.Client, nil),
+				Ledger:   store,
+				Tx:       tx,
 				Outbox:   outboxRepo,
-				Now:      time.Now,
+				CompExpiry: billing.NewCompExpiry(billing.CompExpiryDeps{
+					Ledger: store,
+					Outbox: outboxRepo,
+					Tx:     tx,
+					Log:    cfg.Logger,
+				}),
+				Now: time.Now,
 			}, nil
 		},
 		newGenerationReap: func(cfg env.Env, database databaseHandle) (generation.ReapDeps, error) {

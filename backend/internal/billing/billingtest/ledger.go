@@ -325,23 +325,42 @@ func (l *Ledger) ApplySubscription(_ context.Context, sub billing.Subscription, 
 	return true, nil
 }
 
-func (l *Ledger) CancelExpiredComps(_ context.Context, now time.Time) (int, error) {
+func (l *Ledger) ExpiredComps(_ context.Context, now time.Time, limit int) ([]billing.Subscription, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	canceled := 0
-	for id, sub := range l.st.subs {
+	var out []billing.Subscription
+	for _, sub := range l.st.subs {
 		if sub.Provider != billing.ProviderComp || sub.Status != billing.StatusActive {
 			continue
 		}
 		if sub.CurrentPeriodEnd == nil || sub.CurrentPeriodEnd.After(now) {
 			continue
 		}
-		sub.Status = billing.StatusCanceled
-		sub.UpdatedAt = now
-		l.st.subs[id] = sub
-		canceled++
+		out = append(out, sub)
 	}
-	return canceled, nil
+	slices.SortFunc(out, func(a, b billing.Subscription) int {
+		if cmp := a.CurrentPeriodEnd.Compare(*b.CurrentPeriodEnd); cmp != 0 {
+			return cmp
+		}
+		return strings.Compare(a.ID, b.ID)
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (l *Ledger) CancelComp(_ context.Context, id string, now time.Time) (bool, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	sub, ok := l.st.subs[id]
+	if !ok || sub.Provider != billing.ProviderComp || sub.Status != billing.StatusActive {
+		return false, nil
+	}
+	sub.Status = billing.StatusCanceled
+	sub.UpdatedAt = now
+	l.st.subs[id] = sub
+	return true, nil
 }
 
 func (l *Ledger) InsertSubscription(_ context.Context, sub billing.Subscription) error {

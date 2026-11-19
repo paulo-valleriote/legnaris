@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"legnaris/backend/internal/events"
-	"legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sweeper"
 	"legnaris/backend/shared/db"
@@ -20,11 +18,12 @@ const (
 )
 
 type ConsumerDeps struct {
-	Provider Provider
-	Ledger   Ledger
-	Tx       Transactor
-	Outbox   Outbox
-	Now      func() time.Time
+	Provider   Provider
+	Ledger     Ledger
+	Tx         Transactor
+	Outbox     Outbox
+	CompExpiry CompExpiryRunner
+	Now        func() time.Time
 }
 
 type Consumer struct {
@@ -169,38 +168,9 @@ func sameInstant(a, b *time.Time) bool {
 }
 
 func (c *Consumer) syncPlan(ctx context.Context, userID string, account AccountPlan, now time.Time) (bool, error) {
-	subs, err := c.deps.Ledger.SubscriptionsOf(ctx, userID)
-	if err != nil {
-		return false, fmt.Errorf("load subscriptions: %w", err)
-	}
-	derived := DerivePlanID(subs, now)
-	current := account.Plan
-	if current == "" {
-		current = plan.IDFree
-	}
-	if derived == current {
-		return false, nil
-	}
-
-	version, err := c.deps.Ledger.SetPlan(ctx, userID, derived)
-	if err != nil {
-		return false, fmt.Errorf("set plan: %w", err)
-	}
-	entry, err := outbox.NewEntry(events.Event{
-		Type:             PlanChangedEvent,
-		AggregateType:    userAggregate,
-		AggregateID:      userID,
-		AggregateVersion: version,
-		Data:             map[string]string{"from": current, "to": derived},
-	}, now)
-	if err != nil {
-		return false, fmt.Errorf("plan changed entry: %w", err)
-	}
-	if err := c.deps.Outbox.Insert(ctx, entry); err != nil {
-		return false, fmt.Errorf("insert plan changed: %w", err)
-	}
-	if err := c.deps.Tx.Step(ctx, db.StepAfterOutboxInsert); err != nil {
-		return false, err
-	}
-	return true, nil
+	return SyncPlan(ctx, PlanSyncDeps{
+		Ledger: c.deps.Ledger,
+		Outbox: c.deps.Outbox,
+		Tx:     c.deps.Tx,
+	}, userID, account, now)
 }

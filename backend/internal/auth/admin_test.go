@@ -9,10 +9,12 @@ import (
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/auth/mocks"
+	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/response"
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -110,4 +112,90 @@ func TestAdminOnly(t *testing.T) {
 			assert.Equal(t, tc.wantUserID, seenUserID)
 		})
 	}
+}
+
+func TestAdminActive(t *testing.T) {
+	newEcho := func(checker *mocks.MockService, authed bool, handled *bool) *echo.Echo {
+		e := echo.New()
+		e.HTTPErrorHandler = app.HTTPErrorHandler
+		mw := []echo.MiddlewareFunc{auth.AdminActive(checker)}
+		if authed {
+			mw = append([]echo.MiddlewareFunc{func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c *echo.Context) error {
+					c.Set(auth.UserIDContextKey, adminAllowedID)
+					return next(c)
+				}
+			}}, mw...)
+		}
+		e.GET("/admin/users/:id", func(c *echo.Context) error {
+			*handled = true
+			return c.NoContent(http.StatusOK)
+		}, mw...)
+		return e
+	}
+
+	t.Run("Happy path: an active admin reaches the handler", func(t *testing.T) {
+		checker := mocks.NewMockService(t)
+		checker.EXPECT().EnsureActive(mock.Anything, adminAllowedID).Return(nil).Once()
+
+		handled := false
+		e := newEcho(checker, true, &handled)
+		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.True(t, handled)
+	})
+
+	t.Run("Edge: a deleting admin is masked as 404", func(t *testing.T) {
+		checker := mocks.NewMockService(t)
+		checker.EXPECT().EnsureActive(mock.Anything, adminAllowedID).
+			Return(apperr.NewError(apperr.CodeForbidden, auth.MsgAccountDeleting, nil)).Once()
+
+		handled := false
+		e := newEcho(checker, true, &handled)
+		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusNotFound, rec.Code)
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "NOT_FOUND", body.Error.Code)
+		assert.False(t, handled)
+	})
+
+	t.Run("Edge: a missing actor context is masked as 404", func(t *testing.T) {
+		checker := mocks.NewMockService(t)
+		handled := false
+		e := newEcho(checker, false, &handled)
+		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusNotFound, rec.Code)
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "NOT_FOUND", body.Error.Code)
+		assert.False(t, handled)
+	})
+
+	t.Run("Error: an account read failure is masked as 404", func(t *testing.T) {
+		checker := mocks.NewMockService(t)
+		checker.EXPECT().EnsureActive(mock.Anything, adminAllowedID).
+			Return(apperr.NewError(apperr.CodeInternal, "internal", nil)).Once()
+
+		handled := false
+		e := newEcho(checker, true, &handled)
+		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusNotFound, rec.Code)
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "NOT_FOUND", body.Error.Code)
+		assert.False(t, handled)
+	})
 }

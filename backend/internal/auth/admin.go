@@ -2,6 +2,7 @@ package auth
 
 import (
 	"legnaris/backend/shared/apperr"
+	"legnaris/backend/shared/requestcache"
 
 	"github.com/labstack/echo/v5"
 )
@@ -29,6 +30,22 @@ func AdminOnly(tokens TokenManager, adminIDs []string) echo.MiddlewareFunc {
 			}
 
 			c.Set(UserIDContextKey, userID)
+			return next(c)
+		}
+	}
+}
+
+func AdminActive(checker ActiveAccountChecker) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			userID, ok := UserID(c)
+			if !ok {
+				return hiddenNotFound()
+			}
+			c.SetRequest(c.Request().WithContext(requestcache.WithScope(c.Request().Context())))
+			if err := checker.EnsureActive(c.Request().Context(), userID); err != nil {
+				return hiddenNotFound()
+			}
 			return next(c)
 		}
 	}

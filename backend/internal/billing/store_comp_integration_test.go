@@ -74,7 +74,7 @@ func TestMongoStore_CompSubscriptions(t *testing.T) {
 		assert.False(t, canceled)
 	})
 
-	t.Run("Happy path: the sweeper cancels only expired comps across users", func(t *testing.T) {
+	t.Run("Happy path: expired comps are listed across users and canceled one by one", func(t *testing.T) {
 		store := newStoreDB(t)
 		expired := compRow(t, userID, ptrTime(fixedNow.Add(-time.Minute)))
 		live := compRow(t, otherUserID, ptrTime(fixedNow.Add(time.Hour)))
@@ -87,27 +87,31 @@ func TestMongoStore_CompSubscriptions(t *testing.T) {
 			require.NoError(t, store.InsertSubscription(ctx, row))
 		}
 
-		n, err := store.CancelExpiredComps(ctx, fixedNow)
+		rows, err := store.ExpiredComps(ctx, fixedNow, 10)
 		require.NoError(t, err)
-		assert.Equal(t, 1, n)
+		require.Len(t, rows, 1)
+		assert.Equal(t, expired.ID, rows[0].ID)
 
-		for _, tc := range []struct {
-			user  string
-			alive bool
-		}{
-			{user: userID, alive: false},
-			{user: otherUserID, alive: true},
-			{user: thirdUserID, alive: true},
-			{user: fourthUserID, alive: true},
-		} {
-			_, found, err := store.FindLive(ctx, tc.user)
-			require.NoError(t, err)
-			assert.Equal(t, tc.alive, found, "user %s", tc.user)
-		}
-
-		again, err := store.CancelExpiredComps(ctx, fixedNow)
+		canceled, err := store.CancelComp(ctx, rows[0].ID, fixedNow)
 		require.NoError(t, err)
-		assert.Zero(t, again, "the cancel is idempotent")
+		assert.True(t, canceled)
+
+		_, found, err := store.FindLive(ctx, userID)
+		require.NoError(t, err)
+		assert.False(t, found)
+		_, found, err = store.FindLive(ctx, otherUserID)
+		require.NoError(t, err)
+		assert.True(t, found)
+		_, found, err = store.FindLive(ctx, thirdUserID)
+		require.NoError(t, err)
+		assert.True(t, found)
+		_, found, err = store.FindLive(ctx, fourthUserID)
+		require.NoError(t, err)
+		assert.True(t, found)
+
+		again, err := store.ExpiredComps(ctx, fixedNow, 10)
+		require.NoError(t, err)
+		assert.Empty(t, again)
 	})
 }
 

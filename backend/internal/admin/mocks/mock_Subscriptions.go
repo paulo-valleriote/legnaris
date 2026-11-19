@@ -82,6 +82,70 @@ func (_c *MockSubscriptions_CancelComp_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+// FindByID provides a mock function with given fields: ctx, id
+func (_m *MockSubscriptions) FindByID(ctx context.Context, id string) (billing.Subscription, bool, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindByID")
+	}
+
+	var r0 billing.Subscription
+	var r1 bool
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (billing.Subscription, bool, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) billing.Subscription); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Get(0).(billing.Subscription)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) bool); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = rf(ctx, id)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// MockSubscriptions_FindByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindByID'
+type MockSubscriptions_FindByID_Call struct {
+	*mock.Call
+}
+
+// FindByID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+func (_e *MockSubscriptions_Expecter) FindByID(ctx interface{}, id interface{}) *MockSubscriptions_FindByID_Call {
+	return &MockSubscriptions_FindByID_Call{Call: _e.mock.On("FindByID", ctx, id)}
+}
+
+func (_c *MockSubscriptions_FindByID_Call) Run(run func(ctx context.Context, id string)) *MockSubscriptions_FindByID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockSubscriptions_FindByID_Call) Return(_a0 billing.Subscription, _a1 bool, _a2 error) *MockSubscriptions_FindByID_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *MockSubscriptions_FindByID_Call) RunAndReturn(run func(context.Context, string) (billing.Subscription, bool, error)) *MockSubscriptions_FindByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindLive provides a mock function with given fields: ctx, userID
 func (_m *MockSubscriptions) FindLive(ctx context.Context, userID string) (billing.Subscription, bool, error) {
 	ret := _m.Called(ctx, userID)

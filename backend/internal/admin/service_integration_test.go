@@ -9,6 +9,7 @@ import (
 
 	"legnaris/backend/internal/admin"
 	"legnaris/backend/internal/billing"
+	eventsoutbox "legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/quota"
 	"legnaris/backend/internal/user"
@@ -38,8 +39,9 @@ func newAdminStack(t *testing.T, hook db.StepHook) (*admin.Service, user.Reposit
 	users := user.NewRepository(mdb, log)
 	billingStore := billing.NewMongoStore(mdb)
 	quotaService := quota.NewService(quota.NewMongoStore(mdb), clock)
-	planSource := user.NewPlanSource(users).
-		WithDeriver(billing.NewPlanReader(billingStore, clock).EffectivePlanID)
+	planSource := user.NewPlanSource(users)
+	tx := db.NewTransactor(client, hook)
+	eventOutbox := eventsoutbox.NewRepository(mdb, log)
 
 	service := admin.NewService(admin.Deps{
 		Users:         users,
@@ -47,8 +49,13 @@ func newAdminStack(t *testing.T, hook db.StepHook) (*admin.Service, user.Reposit
 		Quotas:        quotaService,
 		Plans:         planSource,
 		Audits:        admin.NewMongoStore(mdb),
-		Tx:            db.NewTransactor(client, hook),
-		Now:           clock,
+		PlanSync: billing.PlanSyncDeps{
+			Ledger: billingStore,
+			Outbox: eventOutbox,
+			Tx:     tx,
+		},
+		Tx:  tx,
+		Now: clock,
 	})
 	return service, users, billingStore, mdb
 }
@@ -91,7 +98,7 @@ func TestService_AuditAndTransactions(t *testing.T) {
 			PlanID:    plan.IDPaid,
 			ExpiresAt: &expires,
 			Reason:    "support comp",
-		})
+		}, testMeta)
 		require.NoError(t, err)
 
 		var stored admin.Entry
@@ -101,6 +108,8 @@ func TestService_AuditAndTransactions(t *testing.T) {
 		assert.Equal(t, admin.ActionCompGrant, stored.Action)
 		assert.Equal(t, "support comp", stored.Reason)
 		assert.Equal(t, plan.IDPaid, stored.Payload["plan_id"])
+		assert.Equal(t, testMeta.RequestID, stored.RequestID)
+		assert.Equal(t, testMeta.ClientIP, stored.ClientIP)
 		assert.NotEqual(t, sub.ID, "")
 
 		view, err := service.User(ctx, target.ID)
@@ -108,6 +117,12 @@ func TestService_AuditAndTransactions(t *testing.T) {
 		assert.Equal(t, plan.IDPaid, view.Plan)
 		require.NotNil(t, view.Subscription)
 		assert.Equal(t, billing.ProviderComp, view.Subscription.Provider)
+
+		changes, err := mdb.Collection("event_outbox").CountDocuments(ctx, bson.D{
+			{Key: "event_type", Value: billing.PlanChangedEvent},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), changes, "the comp grant must emit plan.changed")
 	})
 
 	t.Run("Edge: a crash after the comp write rolls back the subscription and the audit", func(t *testing.T) {
@@ -116,7 +131,7 @@ func TestService_AuditAndTransactions(t *testing.T) {
 		})
 		target := createAccount(t, users)
 
-		_, err := service.GrantComp(ctx, actorID, target.ID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"})
+		_, err := service.GrantComp(ctx, actorID, target.ID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
 		require.Error(t, err)
 
 		_, found, err := billingStore.FindLive(ctx, target.ID)
@@ -140,7 +155,7 @@ func TestService_AuditAndTransactions(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.Error(t, service.ResetQuota(ctx, actorID, target.ID, "x"))
+		require.Error(t, service.ResetQuota(ctx, actorID, target.ID, "x", testMeta))
 
 		count, err := usage.CountDocuments(ctx, bson.D{
 			{Key: "user_id", Value: target.ID},
@@ -167,7 +182,7 @@ func TestService_AuditAndTransactions(t *testing.T) {
 		}
 		require.NoError(t, billingStore.InsertSubscription(ctx, sub))
 
-		require.NoError(t, service.Refund(ctx, actorID, target.ID, false, "goodwill"))
+		require.NoError(t, service.Refund(ctx, actorID, target.ID, false, "goodwill", testMeta))
 
 		live, found, err := billingStore.FindLive(ctx, target.ID)
 		require.NoError(t, err)
@@ -176,12 +191,12 @@ func TestService_AuditAndTransactions(t *testing.T) {
 		require.NotNil(t, live.RefundUsedAt)
 		assert.Equal(t, int64(1), auditCount(t, mdb, target.ID, admin.ActionRefundRequest))
 
-		err = service.Refund(ctx, actorID, target.ID, true, "again")
+		err = service.Refund(ctx, actorID, target.ID, true, "again", testMeta)
 		require.Error(t, err)
 		assert.Equal(t, int64(1), auditCount(t, mdb, target.ID, admin.ActionRefundRequest), "a refused refund writes no audit")
 	})
 
-	t.Run("Edge: an expired comp is ignored by the effective plan before the sweeper runs", func(t *testing.T) {
+	t.Run("Edge: an expired comp is canceled by the sweeper and the stored plan downgrades", func(t *testing.T) {
 		service, users, billingStore, mdb := newAdminStack(t, nil)
 		target := createAccount(t, users)
 		past := time.Now().UTC().Add(-time.Hour)
@@ -195,19 +210,26 @@ func TestService_AuditAndTransactions(t *testing.T) {
 			CreatedAt:        time.Now().UTC(),
 			UpdatedAt:        time.Now().UTC(),
 		}))
-
-		view, err := service.User(ctx, target.ID)
+		_, err := billingStore.SetPlan(ctx, target.ID, plan.IDPaid)
 		require.NoError(t, err)
-		assert.Equal(t, plan.IDFree, view.Plan)
 
-		n, err := billingStore.CancelExpiredComps(ctx, time.Now().UTC())
+		expiry := billing.NewCompExpiry(billing.CompExpiryDeps{
+			Ledger: billingStore,
+			Outbox: eventsoutbox.NewRepository(mdb, logger.NewLogger(slog.LevelError)),
+			Tx:     db.NewTransactor(dbtest.Client(t), nil),
+		})
+		count, err := expiry.Expire(ctx, time.Now().UTC())
 		require.NoError(t, err)
-		assert.Equal(t, 1, n)
+		assert.Equal(t, 1, count)
 
 		canceled, found, err := billingStore.FindLive(ctx, target.ID)
 		require.NoError(t, err)
 		assert.False(t, found)
 		assert.Equal(t, billing.StatusCanceled, canceled.Status)
+
+		view, err := service.User(ctx, target.ID)
+		require.NoError(t, err)
+		assert.Equal(t, plan.IDFree, view.Plan)
 		assert.Zero(t, auditCount(t, mdb, target.ID, ""), "the sweeper does not write admin audit rows")
 	})
 }

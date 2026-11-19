@@ -16,6 +16,7 @@ import (
 	"legnaris/backend/internal/email/disposable"
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/internal/events"
+	eventsoutbox "legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/generation"
 	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/platform/clientip"
@@ -169,8 +170,7 @@ func NewModules(
 
 	userRepository := user.NewCachedRepository(user.NewRepository(mdb, log))
 	billingStore := billing.NewMongoStore(mdb)
-	planSource := user.NewPlanSource(userRepository).
-		WithDeriver(billing.NewPlanReader(billingStore, time.Now).EffectivePlanID)
+	planSource := user.NewPlanSource(userRepository)
 
 	sheetRepository := sheet.NewRepository(mdb, log)
 	linkStore := campaign.NewLinkStore(mdb)
@@ -281,14 +281,20 @@ func NewModules(
 	}
 	billingService := newBillingService(billingProvider, billingStore, cfg.Variables)
 	billingInbox := billing.NewInbox(billingProvider, billingStore, time.Now)
+	adminTx := db.NewTransactor(database.Client, nil)
 	adminService := admin.NewService(admin.Deps{
 		Users:         userRepository,
 		Subscriptions: billingStore,
 		Quotas:        quotaService,
 		Plans:         planSource,
 		Audits:        admin.NewMongoStore(mdb),
-		Tx:            db.NewTransactor(database.Client, nil),
-		Now:           time.Now,
+		PlanSync: billing.PlanSyncDeps{
+			Ledger: billingStore,
+			Outbox: eventsoutbox.NewRepository(mdb, log),
+			Tx:     adminTx,
+		},
+		Tx:  adminTx,
+		Now: time.Now,
 	})
 	planController := NewPlanController(quotaService, PlanResolverFromSource(planSource),
 		WithSheetUsage(sheetService),

@@ -204,8 +204,6 @@ packages:
     interfaces:
       Provider: {}
       Store: {}
-      SubscriptionLister: {}
-      CompExpiryLedger: {}
   legnaris/backend/internal/admin:
     config:
       dir: backend/internal/admin/mocks
@@ -216,4 +214,5 @@ packages:
       Quotas: {}
       Plans: {}
       Audits: {}
+      PlanSync: {}
       Transactor: {}

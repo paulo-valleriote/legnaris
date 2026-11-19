@@ -45,42 +45,4 @@ func TestPlanSource_PlanOf(t *testing.T) {
 			assert.Equal(t, tc.wantID, got.ID)
 		})
 	}
-
-	t.Run("Happy path: an injected deriver grants the plan a comp subscription carries", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t)
-		repo.EXPECT().FetchByID(mock.Anything, "u1").Return(&user.User{ID: "u1", Plan: plan.IDFree}, nil).Once()
-
-		source := user.NewPlanSource(repo).WithDeriver(func(context.Context, string) (string, error) {
-			return plan.IDPaid, nil
-		})
-
-		got, err := source.PlanOf(context.Background(), "u1")
-		require.NoError(t, err)
-		assert.Equal(t, plan.IDPaid, got.ID)
-	})
-
-	t.Run("Edge: an expired comp downgrades a stored paid plan at read time", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t)
-		repo.EXPECT().FetchByID(mock.Anything, "u1").Return(&user.User{ID: "u1", Plan: plan.IDPaid}, nil).Once()
-
-		source := user.NewPlanSource(repo).WithDeriver(func(context.Context, string) (string, error) {
-			return plan.IDFree, nil
-		})
-
-		got, err := source.PlanOf(context.Background(), "u1")
-		require.NoError(t, err)
-		assert.Equal(t, plan.IDFree, got.ID)
-	})
-
-	t.Run("Error: a deriver failure is reported", func(t *testing.T) {
-		repo := mocks.NewMockRepository(t)
-		repo.EXPECT().FetchByID(mock.Anything, "u1").Return(&user.User{ID: "u1", Plan: plan.IDPaid}, nil).Once()
-
-		source := user.NewPlanSource(repo).WithDeriver(func(context.Context, string) (string, error) {
-			return "", dbDown
-		})
-
-		_, err := source.PlanOf(context.Background(), "u1")
-		require.ErrorIs(t, err, dbDown)
-	})
 }

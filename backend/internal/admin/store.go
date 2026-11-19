@@ -2,10 +2,8 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
@@ -24,16 +22,4 @@ func (s *MongoStore) Insert(ctx context.Context, entry Entry) error {
 		return fmt.Errorf("insert admin audit: %w", err)
 	}
 	return nil
-}
-
-func (s *MongoStore) Entry(ctx context.Context, id string) (Entry, bool, error) {
-	var entry Entry
-	err := s.audit.FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&entry)
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return Entry{}, false, nil
-	}
-	if err != nil {
-		return Entry{}, false, fmt.Errorf("find admin audit: %w", err)
-	}
-	return entry, true, nil
 }

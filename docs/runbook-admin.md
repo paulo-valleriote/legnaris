@@ -20,8 +20,10 @@ UUID v7, the same value as `users._id`). An empty value disables the backoffice.
   value.
 - `/admin/*` requires a normal authenticated session **and** a user ID in the
   allowlist. Any failure — missing token, invalid token, valid token outside the
-  allowlist — answers `404 NOT_FOUND`, so the routes stay hidden from ordinary
-  users.
+  allowlist, an admin account that is being deleted — answers `404 NOT_FOUND`, so
+  the routes stay hidden from ordinary users.
+- A wrong HTTP method or an unknown `/admin/*` subpath also answers the same
+  `404 NOT_FOUND` (never `405`), including with a valid admin token.
 - Reads are not audited; writes are.
 
 Set it in the API environment and restart:
@@ -53,15 +55,21 @@ Every call below sends `Authorization: Bearer $TOKEN`.
 
 | Status | Code | When |
 |--------|------|------|
-| 400 | `INVALID_REQUEST` | malformed user id, missing/blank/overlong reason, missing or malformed email, unknown/free plan, non-future `expiresAt` |
+| 400 | `INVALID_REQUEST` | malformed user id, missing/blank/overlong reason, reason with control characters, missing or malformed email, unknown/free plan, `expiresAt` earlier than one hour ahead |
 | 400 | `INVALID_JSON` / `UNKNOWN_FIELD` | malformed body or an unknown field |
-| 404 | `NOT_FOUND` | not an admin, unauthenticated (routes hidden), unknown user, no live comp |
-| 409 | `CONFLICT` | live paid subscription exists, live comp exists, live subscription is not a comp, comp state changed concurrently |
+| 404 | `NOT_FOUND` | not an admin, unauthenticated, deleting admin, wrong method or unknown `/admin/*` path (routes hidden), unknown user, no live comp |
+| 409 | `CONFLICT` | the target account is being deleted, any live subscription exists (`pending`, `active` or `past_due`), live subscription is not a comp, comp state changed concurrently |
 | 409 | `REFUND_NOT_ELIGIBLE` | refund window closed without override, not a paid subscription, refund already used, comp subscription |
 | 500 | `INTERNAL_ERROR` | store or transaction failure |
 
-`reason` is mandatory on every write. It is trimmed, must be non-empty and is
-capped at 500 characters.
+`reason` is mandatory on every write. It is trimmed, must be non-empty, is
+capped at 500 Unicode characters and must not contain control characters
+(`\n`, `\r`, `\t`, …).
+
+On `500`, no mutation was committed (the audit row is written in the same
+transaction). Re-read the account with `GET /admin/users/{id}` before retrying;
+the retry recipe is: re-GET the view, confirm the operation is still needed, then
+repeat the same request with a fresh request ID.
 
 ## Consolidated user view
 
@@ -74,8 +82,9 @@ curl -sS "http://localhost:8080/admin/users/$TARGET_ID" \
 
 ### `GET /admin/users?email=`
 
-The address is canonicalized before lookup (`Player@Example.COM` works); a
-legacy mixed-case row is also tried verbatim.
+The address is parsed with `mail.ParseAddress`. The canonical lowercase address
+is tried first (`Player@Example.COM` works); if that misses, a legacy mixed-case
+row is retried with the parsed address (case preserved), not the raw input.
 
 ```bash
 curl -sS "http://localhost:8080/admin/users?email=player@example.com" \
@@ -99,14 +108,20 @@ Sample response:
       "refund_requested_at": null,
       "refund_used_at": null
     },
-    "daily_quota": {"limit": 30, "used": 4, "remaining": 26, "resets_at": "2026-11-19T00:00:00Z"},
+    "daily_quota": {"limit": 30, "used": 4, "remaining": 26, "resets_at": "2026-11-19T00:00:00Z", "binding": "daily"},
     "trial": {"allowance": 3, "used": 1, "remaining": 2}
   }
 }
 ```
 
-`plan` is the **effective** plan: an active comp past its `current_period_end`
-is ignored immediately, even before the sweeper cancels it.
+`plan` comes from `users.plan`, the single source of truth (LGN-211). It is only
+changed by the billing consumer, admin comp operations and the comp expiry
+sweeper, always in the same transaction as the subscription write.
+
+`daily_quota.binding` tells which limit governs generation: `daily` for paid
+users (`limit: 30`) or `trial` for free users (`limit: null`; the lifetime trial
+block is the binding constraint). `used`/`remaining` still report the daily
+counter for diagnosis.
 
 ## Grant a comp
 
@@ -124,34 +139,47 @@ curl -sS -X POST "http://localhost:8080/admin/users/$TARGET_ID/comp" \
 ```
 
 - `expiresAt` is optional; omit it for a comp with no expiry.
-- `expiresAt` must be in the future.
+- `expiresAt` must be at least one hour ahead of the server clock.
 - `planId` must be a real paid plan; `free` and unknown ids are rejected.
 - Answers `201` with the created subscription.
-- Answers `409 CONFLICT` when the user already has an active live subscription
-  (paid or comp), or when a `pending` row wins the unique live index.
+- Answers `409 CONFLICT` when the user already has a live subscription
+  (`pending`, `active` or `past_due`), when the target account is being deleted,
+  or when a concurrent state change wins.
+- An expired comp (`provider: comp`, `status: active`,
+  `current_period_end <= now`) does **not** block a replacement. The expired row
+  is CAS-canceled and the new comp inserted in the same transaction as the plan
+  recompute and `plan.changed` event.
 
 ## Revoke a comp
 
-### `DELETE /admin/users/{id}/comp`
+### `POST /admin/users/{id}/comp/revoke`
 
 ```bash
-curl -sS -X DELETE "http://localhost:8080/admin/users/$TARGET_ID/comp" \
+curl -sS -X POST "http://localhost:8080/admin/users/$TARGET_ID/comp/revoke" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"reason":"chargeback investigation resolved"}' | jq
 ```
 
 The live comp is canceled immediately (`status: canceled`), not at period end.
+The user's plan is recomputed from the remaining live subscriptions and a
+`plan.changed` event is emitted in the same transaction.
 
 - `404` when the user has no live subscription.
-- `409` when the live subscription is not a comp.
+- `409` when the live subscription is not a comp or the target account is being
+  deleted.
+- If the comp was canceled by a concurrent request between the read and the CAS
+  write, the re-read confirms `canceled` and the call still answers `200` with an
+  audit row. A comp that remains active after the lost race is a real conflict
+  (`409`).
 
 ## Reset the daily quota
 
 ### `POST /admin/users/{id}/quota/reset`
 
 Deletes the current UTC day counter. The call is idempotent: resetting a user
-with no counter is a success. The lifetime trial allowance is untouched.
+with no counter is a success. The lifetime trial allowance is untouched. A
+target account that is being deleted answers `409 CONFLICT`.
 
 ```bash
 curl -sS -X POST "http://localhost:8080/admin/users/$TARGET_ID/quota/reset" \
@@ -179,17 +207,23 @@ curl -sS -X POST "http://localhost:8080/admin/users/$TARGET_ID/refund" \
 - `override: false` applies the normal 7-day window.
 - `override: true` skips **only** the window. It still refuses a double refund,
   a user without a paid subscription and a comp subscription.
+- A target account that is being deleted answers `409 CONFLICT`.
 - Answers `202` with `{"status":"requested"}`.
 - Refusals use `REFUND_NOT_ELIGIBLE` with a `details.reason` of
   `window_expired`, `already_used`, `not_subscribed` or `comp_not_refundable`.
 
 ## Comp expiry
 
-A comp whose `current_period_end` has passed stops counting toward the effective
-plan immediately. The relay sweeper queue `billing_comp_expiry` (hourly) then
-moves it to `canceled` on the entity, so an operator sees the state and the
-reconcile pass no longer treats it as live. The sweeper writes no audit row: it
-is a system transition, not an admin action.
+The relay sweeper queue `billing_comp_expiry` runs hourly. It claims up to 100
+expired comps per batch and loops until no expired comp remains. Each row is
+canceled by a CAS write in its own transaction; the same transaction recomputes
+`users.plan` from the remaining live subscriptions and emits `plan.changed` when
+the plan changes. The sweep logs the number of expired comps it canceled.
+
+An expired comp (`status: active`, `current_period_end <= now`) is never
+entitled: it does not block a new comp grant or checkout and does not keep the
+user on `paid` once a plan sync runs. The sweeper writes no audit row: it is a
+system transition, not an admin action.
 
 ## Audit trail
 
@@ -202,7 +236,9 @@ Every write appends one document to `admin_audit`:
 | `action` | `comp.grant`, `comp.revoke`, `quota.reset`, `refund.request` |
 | `target_user_id` | affected account |
 | `payload` | action-specific data (`plan_id`, `expires_at`, `subscription_id`, `override`, `scope`) |
-| `reason` | operator text, trimmed, at most 500 characters |
+| `reason` | operator text, trimmed, at most 500 characters, no control characters |
+| `request_id` | `X-Request-ID` generated by the router |
+| `client_ip` | resolved client address |
 | `created_at` | UTC timestamp |
 
 The collection is append-only from the application: there is no update or delete

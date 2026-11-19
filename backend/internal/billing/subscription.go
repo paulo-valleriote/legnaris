@@ -42,6 +42,7 @@ type Store interface {
 	FindLive(ctx context.Context, userID string) (Subscription, bool, error)
 	InsertPending(ctx context.Context, sub Subscription) error
 	Cancel(ctx context.Context, id string) error
+	CancelComp(ctx context.Context, id string, now time.Time) (bool, error)
 	AttachCheckout(ctx context.Context, id, customerID, url string, expiresAt time.Time) (bool, error)
 	RequestRefund(ctx context.Context, id string, now time.Time) (bool, error)
 }

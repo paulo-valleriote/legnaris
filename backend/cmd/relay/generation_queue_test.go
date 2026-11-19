@@ -109,7 +109,7 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := testEnv()
 			cfg.Variables.EmailRelayBatch = tc.batch
-			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t), idleReapDeps(t), idleDeletionDeps(t), idleBillingDeps(), idleCampaignDeletionDeps(t), idleBillingDeps().Ledger.(billing.CompExpiryLedger))
+			queues, err := sweepQueues(cfg, eventsoutboxmocks.NewMockRepository(t), &fakeEventBroker{}, idleGenerationDeps(t), idleReapDeps(t), idleDeletionDeps(t), idleBillingDeps(), idleCampaignDeletionDeps(t))
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -201,6 +201,11 @@ func idleBillingDeps() billing.ConsumerDeps {
 		Ledger:   ledger,
 		Tx:       billingtest.NewTransactor(ledger, nil),
 		Outbox:   ledger.Outbox(),
-		Now:      time.Now,
+		CompExpiry: billing.NewCompExpiry(billing.CompExpiryDeps{
+			Ledger: ledger,
+			Outbox: ledger.Outbox(),
+			Tx:     billingtest.NewTransactor(ledger, nil),
+		}),
+		Now: time.Now,
 	}
 }

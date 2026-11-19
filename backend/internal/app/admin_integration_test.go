@@ -14,6 +14,7 @@ import (
 	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/quota"
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/response"
 
@@ -40,9 +41,10 @@ type adminSubscriptionView struct {
 }
 
 type adminQuotaView struct {
-	Limit     int `json:"limit"`
-	Used      int `json:"used"`
-	Remaining int `json:"remaining"`
+	Limit     *int   `json:"limit"`
+	Used      int    `json:"used"`
+	Remaining int    `json:"remaining"`
+	Binding   string `json:"binding"`
 }
 
 type adminTrialView struct {
@@ -109,9 +111,13 @@ func TestIntegration_AdminRoutesAreHidden(t *testing.T) {
 		{http.MethodGet, "/admin/users/" + userID, ""},
 		{http.MethodGet, "/admin/users?email=not-admin@example.com", ""},
 		{http.MethodPost, "/admin/users/" + userID + "/comp", `{"planId":"paid","reason":"x"}`},
-		{http.MethodDelete, "/admin/users/" + userID + "/comp", `{"reason":"x"}`},
+		{http.MethodPost, "/admin/users/" + userID + "/comp/revoke", `{"reason":"x"}`},
 		{http.MethodPost, "/admin/users/" + userID + "/quota/reset", `{"reason":"x"}`},
 		{http.MethodPost, "/admin/users/" + userID + "/refund", `{"override":true,"reason":"x"}`},
+		{http.MethodPut, "/admin/users/" + userID, ""},
+		{http.MethodDelete, "/admin/users/" + userID + "/comp", ""},
+		{http.MethodGet, "/admin/users/" + userID + "/comp/revoke", ""},
+		{http.MethodPatch, "/admin/unknown", ""},
 	}
 
 	for _, tc := range requests {
@@ -143,7 +149,8 @@ func TestIntegration_AdminFlow(t *testing.T) {
 		assert.Equal(t, "admin-target@example.com", view.User.Email)
 		assert.Equal(t, plan.IDFree, view.Plan)
 		assert.Nil(t, view.Subscription)
-		assert.Equal(t, quota.PaidDailyLimit, view.DailyQuota.Limit)
+		assert.Nil(t, view.DailyQuota.Limit)
+		assert.Equal(t, admin.DailyBindingTrial, view.DailyQuota.Binding)
 	})
 
 	t.Run("Happy path: GET by email accepts a display-name spelling", func(t *testing.T) {
@@ -192,6 +199,9 @@ func TestIntegration_AdminFlow(t *testing.T) {
 
 		view := adminViewOf(t, adminRequest(t, h, adminToken, http.MethodGet, "/admin/users/"+targetID, ""))
 		assert.Equal(t, plan.IDPaid, view.Plan)
+		require.NotNil(t, view.DailyQuota.Limit)
+		assert.Equal(t, quota.PaidDailyLimit, *view.DailyQuota.Limit)
+		assert.Equal(t, admin.DailyBindingDaily, view.DailyQuota.Binding)
 		require.NotNil(t, view.Subscription)
 		assert.Equal(t, billing.ProviderComp, view.Subscription.Provider)
 
@@ -202,6 +212,8 @@ func TestIntegration_AdminFlow(t *testing.T) {
 		}).Decode(&audit))
 		assert.Equal(t, adminIntegrationID, audit["actor_user_id"])
 		assert.Equal(t, "support", audit["reason"])
+		assert.NotEmpty(t, audit["request_id"])
+		assert.NotEmpty(t, audit["client_ip"])
 	})
 
 	t.Run("Edge: a second comp grant is 409", func(t *testing.T) {
@@ -217,7 +229,9 @@ func TestIntegration_AdminFlow(t *testing.T) {
 			`{"planId":"free","reason":"x"}`,
 			`{"planId":"enterprise","reason":"x"}`,
 			fmt.Sprintf(`{"planId":"paid","expiresAt":%q,"reason":"x"}`, time.Now().UTC().Add(-time.Hour).Format(time.RFC3339)),
+			fmt.Sprintf(`{"planId":"paid","expiresAt":%q,"reason":"x"}`, time.Now().UTC().Add(30*time.Minute).Format(time.RFC3339)),
 			fmt.Sprintf(`{"planId":"paid","reason":%q}`, strings.Repeat("x", admin.MaxReasonLength+1)),
+			`{"planId":"paid","reason":"line\nbreak"}`,
 		}
 		for _, body := range bodies {
 			rec := adminRequest(t, h, adminToken, http.MethodPost, "/admin/users/"+targetID+"/comp", body)
@@ -233,17 +247,17 @@ func TestIntegration_AdminFlow(t *testing.T) {
 	})
 
 	t.Run("Edge: revoking a comp needs a reason and the comp", func(t *testing.T) {
-		rec := adminRequest(t, h, adminToken, http.MethodDelete, "/admin/users/"+targetID+"/comp", `{}`)
+		rec := adminRequest(t, h, adminToken, http.MethodPost, "/admin/users/"+targetID+"/comp/revoke", `{}`)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 
-		rec = adminRequest(t, h, adminToken, http.MethodDelete, "/admin/users/"+targetID+"/comp", `{"reason":"cleanup"}`)
+		rec = adminRequest(t, h, adminToken, http.MethodPost, "/admin/users/"+targetID+"/comp/revoke", `{"reason":"cleanup"}`)
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 		view := adminViewOf(t, adminRequest(t, h, adminToken, http.MethodGet, "/admin/users/"+targetID, ""))
 		assert.Equal(t, plan.IDFree, view.Plan)
 		assert.Nil(t, view.Subscription)
 
-		rec = adminRequest(t, h, adminToken, http.MethodDelete, "/admin/users/"+targetID+"/comp", `{"reason":"cleanup"}`)
+		rec = adminRequest(t, h, adminToken, http.MethodPost, "/admin/users/"+targetID+"/comp/revoke", `{"reason":"cleanup"}`)
 		require.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
@@ -375,4 +389,99 @@ func mustAdminID(t *testing.T) string {
 	id, err := idgen.New()
 	require.NoError(t, err)
 	return id
+}
+
+func TestIntegration_AdminMethodAndPathMask(t *testing.T) {
+	h, _, adminToken := newAdminRouter(t)
+
+	requests := []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{http.MethodPut, "/admin/users/" + adminIntegrationID, ""},
+		{http.MethodDelete, "/admin/users/" + adminIntegrationID, ""},
+		{http.MethodDelete, "/admin/users/" + adminIntegrationID + "/comp", ""},
+		{http.MethodGet, "/admin/users/" + adminIntegrationID + "/comp", ""},
+		{http.MethodGet, "/admin/users/" + adminIntegrationID + "/comp/revoke", ""},
+		{http.MethodPatch, "/admin/users/" + adminIntegrationID + "/quota/reset", ""},
+		{http.MethodPost, "/admin/unknown", ""},
+		{http.MethodGet, "/admin/unknown/deeper", ""},
+	}
+
+	for _, tc := range requests {
+		t.Run("Edge: "+tc.method+" "+tc.path+" is a 404 mask", func(t *testing.T) {
+			rec := adminRequest(t, h, adminToken, tc.method, tc.path, tc.body)
+			require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+			assert.Equal(t, "NOT_FOUND", errorBodyOf(t, rec).Error.Code)
+		})
+	}
+}
+
+func TestIntegration_AdminActorMustBeActive(t *testing.T) {
+	h, mdb, modules := newIntegrationStack(t, map[string]string{"ADMIN_USER_IDS": adminIntegrationID})
+	now := time.Now().UTC()
+	_, err := mdb.Collection("users").InsertOne(context.Background(), bson.M{
+		"_id":        adminIntegrationID,
+		"email":      "deleting-admin@example.com",
+		"username":   "deleting-admin",
+		"status":     user.StatusDeleting,
+		"created_at": now,
+		"updated_at": now,
+	})
+	require.NoError(t, err)
+
+	token, err := modules.Auth.TokenManager.Issue(adminIntegrationID)
+	require.NoError(t, err)
+
+	rec := adminRequest(t, h, token.Value, http.MethodGet, "/admin/users/"+adminIntegrationID, "")
+	require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+	assert.Equal(t, "NOT_FOUND", errorBodyOf(t, rec).Error.Code)
+}
+
+func TestIntegration_AdminGrantReplacesExpiredComp(t *testing.T) {
+	h, mdb, adminToken := newAdminRouter(t)
+	_, targetID := newAuthUser(t, h, mdb, "expired-comp@example.com", "expired-comp")
+	ctx := context.Background()
+
+	oldID := mustAdminID(t)
+	now := time.Now().UTC()
+	past := now.Add(-time.Hour)
+	_, err := mdb.Collection(billing.SubscriptionsCollection).InsertOne(ctx, bson.M{
+		"_id":                oldID,
+		"user_id":            targetID,
+		"plan_id":            plan.IDPaid,
+		"provider":           billing.ProviderComp,
+		"status":             billing.StatusActive,
+		"current_period_end": past,
+		"created_at":         now,
+		"updated_at":         now,
+	})
+	require.NoError(t, err)
+	_, err = mdb.Collection("users").UpdateOne(ctx, bson.D{{Key: "_id", Value: targetID}}, bson.D{
+		{Key: "$set", Value: bson.D{{Key: "plan", Value: plan.IDPaid}}},
+	})
+	require.NoError(t, err)
+
+	expires := now.Add(48 * time.Hour).Format(time.RFC3339)
+	rec := adminRequest(t, h, adminToken, http.MethodPost, "/admin/users/"+targetID+"/comp",
+		fmt.Sprintf(`{"planId":"paid","expiresAt":%q,"reason":"replace expired"}`, expires))
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+	var old bson.M
+	require.NoError(t, mdb.Collection(billing.SubscriptionsCollection).
+		FindOne(ctx, bson.D{{Key: "_id", Value: oldID}}).Decode(&old))
+	assert.Equal(t, string(billing.StatusCanceled), old["status"])
+
+	count, err := mdb.Collection(billing.SubscriptionsCollection).CountDocuments(ctx, bson.D{
+		{Key: "user_id", Value: targetID},
+		{Key: "status", Value: string(billing.StatusActive)},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), count)
+
+	view := adminViewOf(t, adminRequest(t, h, adminToken, http.MethodGet, "/admin/users/"+targetID, ""))
+	assert.Equal(t, plan.IDPaid, view.Plan)
+	require.NotNil(t, view.Subscription)
+	assert.Equal(t, billing.ProviderComp, view.Subscription.Provider)
 }

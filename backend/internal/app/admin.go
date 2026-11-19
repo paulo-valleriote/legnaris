@@ -35,9 +35,16 @@ func (c *AdminController) RegisterRoutes(group *echo.Group) {
 	group.GET("/users", c.SearchUsers)
 	group.GET("/users/:id", c.User)
 	group.POST("/users/:id/comp", c.GrantComp)
-	group.DELETE("/users/:id/comp", c.RevokeComp)
+	group.POST("/users/:id/comp/revoke", c.RevokeComp)
 	group.POST("/users/:id/quota/reset", c.ResetQuota)
 	group.POST("/users/:id/refund", c.Refund)
+}
+
+func auditMeta(ec *echo.Context) admin.RequestMeta {
+	return admin.RequestMeta{
+		RequestID: ec.Response().Header().Get(echo.HeaderXRequestID),
+		ClientIP:  ec.RealIP(),
+	}
 }
 
 type adminCompRequest struct {
@@ -88,7 +95,7 @@ func (c *AdminController) GrantComp(ec *echo.Context) error {
 		PlanID:    body.PlanID,
 		ExpiresAt: body.ExpiresAt,
 		Reason:    body.Reason,
-	})
+	}, auditMeta(ec))
 	if err != nil {
 		return err
 	}
@@ -104,7 +111,7 @@ func (c *AdminController) RevokeComp(ec *echo.Context) error {
 	if err := sharedjson.Decode(ec, &body); err != nil {
 		return decodeError(err)
 	}
-	if err := c.service.RevokeComp(ec.Request().Context(), actorID, ec.Param("id"), body.Reason); err != nil {
+	if err := c.service.RevokeComp(ec.Request().Context(), actorID, ec.Param("id"), body.Reason, auditMeta(ec)); err != nil {
 		return err
 	}
 	return response.OK(ec, adminStatusView{Status: adminCompCanceled})
@@ -119,7 +126,7 @@ func (c *AdminController) ResetQuota(ec *echo.Context) error {
 	if err := sharedjson.Decode(ec, &body); err != nil {
 		return decodeError(err)
 	}
-	if err := c.service.ResetQuota(ec.Request().Context(), actorID, ec.Param("id"), body.Reason); err != nil {
+	if err := c.service.ResetQuota(ec.Request().Context(), actorID, ec.Param("id"), body.Reason, auditMeta(ec)); err != nil {
 		return err
 	}
 	return response.OK(ec, adminStatusView{Status: adminQuotaReset})
@@ -134,7 +141,7 @@ func (c *AdminController) Refund(ec *echo.Context) error {
 	if err := sharedjson.Decode(ec, &body); err != nil {
 		return decodeError(err)
 	}
-	if err := c.service.Refund(ec.Request().Context(), actorID, ec.Param("id"), body.Override, body.Reason); err != nil {
+	if err := c.service.Refund(ec.Request().Context(), actorID, ec.Param("id"), body.Override, body.Reason, auditMeta(ec)); err != nil {
 		return err
 	}
 	return response.JSON(ec, http.StatusAccepted, adminStatusView{Status: adminRefundQueued})

@@ -67,33 +67,57 @@ func (s *Service) checkoutOnce(ctx context.Context, userID string) (Checkout, bo
 	if err != nil {
 		return Checkout{}, false, apperr.NewError(apperr.CodeInternal, MsgCheckoutUnavailable, err)
 	}
-
-	sub := live
-	switch {
-	case found && (live.Status == StatusActive || live.Status == StatusPastDue):
-		return Checkout{}, false, apperr.NewError(apperr.CodeAlreadySubscribed, MsgAlreadySubscribed, nil)
-	case found && live.CheckoutURL != "" && live.CheckoutExpiresAt.After(now):
-		return Checkout{URL: live.CheckoutURL, ExpiresAt: live.CheckoutExpiresAt}, true, nil
-	case found && live.CheckoutURL != "":
-		if err := s.store.Cancel(ctx, live.ID); err != nil {
-			return Checkout{}, false, apperr.NewError(apperr.CodeInternal, MsgCheckoutUnavailable, err)
-		}
-		return Checkout{}, false, nil
-	case !found:
-		fresh, err := newPending(userID, now)
+	if found && IsExpiredComp(live, now) {
+		canceled, err := s.store.CancelComp(ctx, live.ID, now)
 		if err != nil {
 			return Checkout{}, false, apperr.NewError(apperr.CodeInternal, MsgCheckoutUnavailable, err)
 		}
+		if !canceled {
+			return Checkout{}, false, nil
+		}
+		found = false
+	}
+
+	sub, out, done, retry, err := s.nextSubscription(ctx, userID, live, found, now)
+	if err != nil {
+		return Checkout{}, false, err
+	}
+	if retry {
+		return Checkout{}, false, nil
+	}
+	if done {
+		return out, true, nil
+	}
+	return s.startSession(ctx, sub)
+}
+
+func (s *Service) nextSubscription(ctx context.Context, userID string, live Subscription, found bool, now time.Time) (Subscription, Checkout, bool, bool, error) {
+	sub := live
+	switch {
+	case found && (live.Status == StatusActive || live.Status == StatusPastDue):
+		return Subscription{}, Checkout{}, false, false, apperr.NewError(apperr.CodeAlreadySubscribed, MsgAlreadySubscribed, nil)
+	case found && live.CheckoutURL != "" && live.CheckoutExpiresAt.After(now):
+		return Subscription{}, Checkout{URL: live.CheckoutURL, ExpiresAt: live.CheckoutExpiresAt}, true, false, nil
+	case found && live.CheckoutURL != "":
+		if err := s.store.Cancel(ctx, live.ID); err != nil {
+			return Subscription{}, Checkout{}, false, false, apperr.NewError(apperr.CodeInternal, MsgCheckoutUnavailable, err)
+		}
+		return Subscription{}, Checkout{}, false, true, nil
+	case !found:
+		fresh, err := newPending(userID, now)
+		if err != nil {
+			return Subscription{}, Checkout{}, false, false, apperr.NewError(apperr.CodeInternal, MsgCheckoutUnavailable, err)
+		}
 		if err := s.store.InsertPending(ctx, fresh); err != nil {
 			if errors.Is(err, ErrLiveExists) {
-				return Checkout{}, false, nil
+				return Subscription{}, Checkout{}, false, true, nil
 			}
-			return Checkout{}, false, apperr.NewError(apperr.CodeInternal, MsgCheckoutUnavailable, err)
+			return Subscription{}, Checkout{}, false, false, apperr.NewError(apperr.CodeInternal, MsgCheckoutUnavailable, err)
 		}
 		sub = fresh
 	}
 
-	return s.startSession(ctx, sub)
+	return sub, Checkout{}, false, false, nil
 }
 
 func newPending(userID string, now time.Time) (Subscription, error) {

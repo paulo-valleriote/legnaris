@@ -13,20 +13,30 @@ import (
 
 const MaxReasonLength = 500
 
+const MinCompLifetime = time.Hour
+
 const (
 	MsgAdminUnavailable      = "admin operation is unavailable"
 	MsgEmailRequired         = "email is required"
 	MsgInvalidEmail          = "email is not valid"
 	MsgReasonRequired        = "reason is required"
 	MsgReasonTooLong         = "reason is too long"
+	MsgReasonControlChars    = "reason must not contain control characters"
 	MsgUserNotFound          = "user not found"
 	MsgInvalidUser           = "invalid user"
 	MsgInvalidPlan           = "plan is not available for a comp"
 	MsgExpiryNotFuture       = "expiresAt must be in the future"
+	MsgExpiryTooSoon         = "expiresAt must be at least one hour in the future"
+	MsgAccountDeleting       = "the account is being deleted"
 	MsgLiveSubscriptionExist = "the user already has a live subscription"
 	MsgCompNotFound          = "the user has no live comp subscription"
 	MsgNotComp               = "the live subscription is not a comp"
 	MsgCompStateChanged      = "the comp subscription state changed"
+)
+
+const (
+	DailyBindingTrial = "trial"
+	DailyBindingDaily = "daily"
 )
 
 const (
@@ -43,7 +53,14 @@ type Entry struct {
 	TargetUserID string         `bson:"target_user_id"`
 	Payload      map[string]any `bson:"payload,omitempty"`
 	Reason       string         `bson:"reason"`
+	RequestID    string         `bson:"request_id"`
+	ClientIP     string         `bson:"client_ip"`
 	CreatedAt    time.Time      `bson:"created_at"`
+}
+
+type RequestMeta struct {
+	RequestID string
+	ClientIP  string
 }
 
 type UserView struct {
@@ -64,10 +81,11 @@ type SubscriptionView struct {
 }
 
 type DailyQuotaView struct {
-	Limit     int       `json:"limit"`
+	Limit     *int      `json:"limit"`
 	Used      int       `json:"used"`
 	Remaining int       `json:"remaining"`
 	ResetsAt  time.Time `json:"resets_at"`
+	Binding   string    `json:"binding"`
 }
 
 type TrialView struct {
@@ -97,6 +115,7 @@ type Users interface {
 
 type Subscriptions interface {
 	FindLive(ctx context.Context, userID string) (billing.Subscription, bool, error)
+	FindByID(ctx context.Context, id string) (billing.Subscription, bool, error)
 	InsertSubscription(ctx context.Context, sub billing.Subscription) error
 	CancelComp(ctx context.Context, id string, now time.Time) (bool, error)
 	RequestRefund(ctx context.Context, id string, now time.Time) (bool, error)
@@ -116,6 +135,10 @@ type Audits interface {
 	Insert(ctx context.Context, entry Entry) error
 }
 
+type PlanSync interface {
+	SyncPlan(ctx context.Context, userID string, now time.Time) error
+}
+
 type Transactor interface {
 	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 	Step(ctx context.Context, step db.Step) error
@@ -127,6 +150,7 @@ type Deps struct {
 	Quotas        Quotas
 	Plans         Plans
 	Audits        Audits
+	PlanSync      PlanSync
 	Tx            Transactor
 	Now           func() time.Time
 }

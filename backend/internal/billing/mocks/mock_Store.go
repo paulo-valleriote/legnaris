@@ -131,6 +131,64 @@ func (_c *MockStore_Cancel_Call) RunAndReturn(run func(context.Context, string) 
 	return _c
 }
 
+// CancelComp provides a mock function with given fields: ctx, id, now
+func (_m *MockStore) CancelComp(ctx context.Context, id string, now time.Time) (bool, error) {
+	ret := _m.Called(ctx, id, now)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CancelComp")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) (bool, error)); ok {
+		return rf(ctx, id, now)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) bool); ok {
+		r0 = rf(ctx, id, now)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, time.Time) error); ok {
+		r1 = rf(ctx, id, now)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_CancelComp_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CancelComp'
+type MockStore_CancelComp_Call struct {
+	*mock.Call
+}
+
+// CancelComp is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - now time.Time
+func (_e *MockStore_Expecter) CancelComp(ctx interface{}, id interface{}, now interface{}) *MockStore_CancelComp_Call {
+	return &MockStore_CancelComp_Call{Call: _e.mock.On("CancelComp", ctx, id, now)}
+}
+
+func (_c *MockStore_CancelComp_Call) Run(run func(ctx context.Context, id string, now time.Time)) *MockStore_CancelComp_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockStore_CancelComp_Call) Return(_a0 bool, _a1 error) *MockStore_CancelComp_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_CancelComp_Call) RunAndReturn(run func(context.Context, string, time.Time) (bool, error)) *MockStore_CancelComp_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindLive provides a mock function with given fields: ctx, userID
 func (_m *MockStore) FindLive(ctx context.Context, userID string) (billing.Subscription, bool, error) {
 	ret := _m.Called(ctx, userID)
