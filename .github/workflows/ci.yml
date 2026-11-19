@@ -172,6 +172,30 @@ jobs:
           REDIS_URL: ''
         run: go test ./...
 
+  # A behaviour change without a test is the review signal this job automates:
+  # it pairs every changed Go package with a changed test in the same package and
+  # every changed web source with a change under web/src/test/. The
+  # `no-tests:refactor` label is the escape hatch for a change that keeps the
+  # contract; it skips the check and records itself in the step summary.
+  tests-required:
+    name: changed code ships tests
+    if: github.event_name == 'pull_request' && github.event.action != 'edited'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Every changed package ships a test change
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          git diff --name-only --diff-filter=ACMR "origin/$BASE_REF...HEAD" | go run ./scripts/ci/cmd/tests-required
+
   web-quality:
     name: web format, lint, typecheck, tests, build
     needs: changes
@@ -261,7 +285,7 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, pr-title, go-lint, go-race, go-test-nodb, web-quality, web-e2e, images-build]
+    needs: [changes, pr-title, go-lint, go-race, go-test-nodb, tests-required, web-quality, web-e2e, images-build]
     if: always()
     runs-on: ubuntu-latest
     steps:
