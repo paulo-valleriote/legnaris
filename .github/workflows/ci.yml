@@ -44,6 +44,9 @@ jobs:
               - 'deploy/**'
               - 'scripts/**'
               - '.githooks/**'
+              # The English-only scanner reads the client's l10n catalogue and
+              # is gated by the go-lint job; a pt-BR string added there must run it.
+              - 'web/src/l10n/**'
               - 'go.mod'
               - 'go.sum'
               - '.golangci.yml'
@@ -89,6 +92,12 @@ jobs:
       # word-splitting bugs before they reach the VPS.
       - name: shellcheck
         run: shellcheck deploy/vps/*.sh deploy/cd/*.sh scripts/*.sh .githooks/pre-commit
+
+      # English is the only language in code and UI copy (AGENTS.md). The
+      # scanner reads every Go, TS/TSX and web/src/l10n source in the tracked
+      # tree; a file is allow-listed only with a written reason.
+      - name: English-only sources
+        run: make english
 
       # Interpolate the whole stack against the committed .env.example (every
       # required variable is a non-empty placeholder), so a required var that
