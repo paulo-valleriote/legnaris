@@ -523,6 +523,9 @@ services:
     environment:
       ME_CONFIG_MONGODB_URL: mongodb://legnaris_view:${MONGO_VIEW_PASSWORD}@mongodb:27017/legnaris?replicaSet=rs0&retryWrites=true&authSource=legnaris
       ME_CONFIG_SITE_BASEURL: /mongo
+      # legnaris_view only reads `legnaris`; admin mode runs serverStatus and
+      # lists every database, which that account may not do.
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: "false"
       # Edge OAuth is the primary gate; basic auth adds defense in depth.
       ME_CONFIG_BASICAUTH: "true"
       ME_CONFIG_BASICAUTH_USERNAME: ${ME_CONFIG_BASICAUTH_USERNAME}

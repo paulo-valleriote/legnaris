@@ -179,6 +179,23 @@ func TestAppServiceHasNoEmailVerificationFlag(t *testing.T) {
 	})
 }
 
+func TestMongoExpressStaysWithinTheReadOnlyAccount(t *testing.T) {
+	doc := readCompose(t)
+
+	mongoExpress, ok := doc.Services["mongo-express"]
+	require.True(t, ok, "the stack must define a mongo-express service")
+
+	t.Run("Edge: admin mode is off, so the UI never runs serverStatus or lists other databases", func(t *testing.T) {
+		assert.Equal(t, "false", mongoExpress.Environment["ME_CONFIG_MONGODB_ENABLE_ADMIN"])
+	})
+
+	t.Run("Happy path: it connects as the read-only view account scoped to legnaris", func(t *testing.T) {
+		url := mongoExpress.Environment["ME_CONFIG_MONGODB_URL"]
+		assert.Contains(t, url, "mongodb://legnaris_view:")
+		assert.Contains(t, url, "/legnaris?")
+	})
+}
+
 func TestRabbitMQServiceIsInternalOnly(t *testing.T) {
 	doc := readCompose(t)
 
