@@ -109,6 +109,10 @@ resolved client address. There is no update or delete path; boot indexes
   for the `admin_audit` indexes.
 - `backend/internal/billing` — `comp_expiry.go`, `refund.go`, `store_comp.go`,
   `store_refund.go`, `plan_sync.go`: the rules the backoffice reuses.
+- `.github/workflows/ci.yml` — the always-running `gate` job checks every
+  tracked `.md` against `context/markdown-allowlist.txt` through
+  `backend/cmd/markdown-check`; the same command backs the Claude Code
+  `PreToolUse` hook in `.claude/settings.json`.
 
 ## Tools & dependencies
 
