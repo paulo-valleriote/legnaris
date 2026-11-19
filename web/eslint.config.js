@@ -14,6 +14,9 @@ const FETCH_MESSAGE = 'Network calls go through the injected transport (src/api/
 const XHR_MESSAGE =
   'XMLHttpRequest is forbidden; use the injected transport (src/api/transport.ts).';
 const IDB_MESSAGE = 'idb may be imported only by src/library/idb_sheet_store.ts.';
+const DND_MESSAGE = '@dnd-kit is forbidden under src/engine/; the engine imports no drag library.';
+const DIALOG_MESSAGE =
+  'Use the accessible overlay (role="dialog", aria-modal) instead of a native <dialog>.';
 
 const storageGlobals = ['localStorage', 'sessionStorage'].map((name) => ({
   name,
@@ -72,6 +75,10 @@ export default tseslint.config(
           selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
           message: 'dangerouslySetInnerHTML is forbidden (FND-10).',
         },
+        {
+          selector: "JSXOpeningElement[name.name='dialog']",
+          message: DIALOG_MESSAGE,
+        },
       ],
       'no-empty': ['error', { allowEmptyCatch: true }],
       '@typescript-eslint/consistent-type-imports': 'error',
@@ -107,6 +114,18 @@ export default tseslint.config(
     files: ['src/api/transport.ts'],
     rules: {
       'no-restricted-globals': ['error', ...storageGlobals],
+    },
+  },
+  {
+    files: ['src/engine/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [{ name: 'idb', message: IDB_MESSAGE }],
+          patterns: [{ group: ['@dnd-kit/*'], message: DND_MESSAGE }],
+        },
+      ],
     },
   },
   {
