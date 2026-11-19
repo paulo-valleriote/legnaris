@@ -91,7 +91,7 @@ jobs:
         run: go run ./scripts/ci/cmd/pr-title-check
 
   go-lint:
-    name: golangci-lint, tidy, deploy stack config, shellcheck
+    name: golangci-lint, tidy, mocks, shellcheck, deploy stack config
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
