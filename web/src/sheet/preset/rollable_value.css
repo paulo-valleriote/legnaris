@@ -1,0 +1,48 @@
+.lg-rollable {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.lg-rollable--button {
+  min-inline-size: var(--lg-size-control);
+  min-block-size: var(--lg-size-control);
+  padding-inline: var(--lg-space-4);
+  border-radius: var(--lg-radius-sm);
+  color: var(--lg-color-accent);
+  font-weight: var(--lg-font-weight-bold);
+  cursor: pointer;
+  transition:
+    color var(--lg-motion-120) var(--lg-ease-out),
+    background-color var(--lg-motion-120) var(--lg-ease-out);
+}
+
+.lg-rollable--button:hover {
+  background-color: var(--lg-color-surface-hover);
+  color: var(--lg-color-accent-hover);
+}
+
+.lg-rollable--button:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: var(--lg-focus-offset);
+}
+
+.lg-rollable--still {
+  color: var(--lg-color-text);
+  font-weight: var(--lg-font-weight-bold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-rollable--button {
+    transition: none;
+  }
+}

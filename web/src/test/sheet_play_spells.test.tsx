@@ -290,7 +290,7 @@ describe('the spellcasting panel', () => {
     const roll = within(screen.getByTestId('sheet-spell-attack')).getByRole('button', {
       name: rollName('Spell attack bonus'),
     });
-    expect(roll).toHaveTextContent('d20');
+    expect(roll).toHaveTextContent('+5');
 
     await user.click(roll);
 

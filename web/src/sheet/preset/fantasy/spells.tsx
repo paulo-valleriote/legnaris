@@ -4,7 +4,7 @@ import { SheetFieldControl } from '../../../engine/field_control';
 import type { SheetField } from '../../../engine/field_grouping';
 import { fieldDisplayName, groupDisplayName, lastSegment } from '../../../engine/field_grouping';
 import { message, messageWith } from '../../../l10n/strings';
-import { DiceProvider, DiceRowActions } from '../../dice_row';
+import { DiceProvider } from '../../dice_row';
 import type { DiceContextValue } from '../../dice_row';
 import { InlineEdit } from '../../inline_edit';
 import {
@@ -14,8 +14,10 @@ import {
   usePresetLabel,
   usePresetValue,
 } from '../preset_context';
+import { RollableValue } from '../rollable_value';
 import { SegmentedChoice } from '../segmented_choice';
 import type { SegmentedChoiceOption } from '../segmented_choice';
+import { numberValue, textValue } from '../values';
 import { recoverSlot, slotPips, slotPool, spendSlot } from './slot_pips';
 import type { SlotPool } from './slot_pips';
 import './play_section.css';
@@ -35,21 +37,17 @@ function slotPath(level: number, leaf: 'total' | 'expended'): string {
   return `spells.slot${level}.${leaf}`;
 }
 
-function numberValue(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+function numberOrMissing(value: unknown): string {
+  const number = numberValue(value);
+  return number === undefined ? message('sheet.play.noValue') : String(number);
 }
 
 function signedValue(value: unknown): string {
   const number = numberValue(value);
   if (number === undefined) {
-    return message('engine.notSet');
+    return message('sheet.play.noValue');
   }
   return number >= 0 ? `+${number}` : String(number);
-}
-
-function plainValue(value: unknown): string {
-  const number = numberValue(value);
-  return number === undefined ? message('engine.notSet') : String(number);
 }
 
 function abilityOptions(fields: ReadonlyMap<string, SheetField>): SegmentedChoiceOption[] {
@@ -95,7 +93,13 @@ function SpellcastingAbility() {
   );
 }
 
-function SpellAttackRoll({ label }: { readonly label: string }) {
+function SpellAttackValue({
+  label,
+  attackBonus,
+}: {
+  readonly label: string;
+  readonly attackBonus: unknown;
+}) {
   const { dice } = usePresetContext();
   const value = useMemo<DiceContextValue>(
     () => ({
@@ -110,7 +114,14 @@ function SpellAttackRoll({ label }: { readonly label: string }) {
 
   return (
     <DiceProvider value={value}>
-      <DiceRowActions rowKey={SPELL_ATTACK_PATH} sectionKey="spells" label={label} />
+      <RollableValue
+        rowKey={SPELL_ATTACK_PATH}
+        sectionKey="spells"
+        label={label}
+        text={signedValue(attackBonus)}
+        allowRoll={numberValue(attackBonus) !== undefined}
+        className="lg-spells__rollable"
+      />
     </DiceProvider>
   );
 }
@@ -132,15 +143,14 @@ function SpellStats() {
         <div className="lg-spells__stat" data-testid="sheet-spell-attack">
           <span className="lg-spells__label">{attackLabel}</span>
           <span className="lg-spells__stat-value">
-            <span className="lg-spells__number">{signedValue(attackBonus)}</span>
-            <SpellAttackRoll label={attackLabel} />
+            <SpellAttackValue label={attackLabel} attackBonus={attackBonus} />
           </span>
         </div>
       )}
       {fields.has(SPELL_SAVE_DC_PATH) && (
         <div className="lg-spells__stat" data-testid="sheet-spell-save-dc">
           <span className="lg-spells__label">{saveLabel}</span>
-          <span className="lg-spells__number">{plainValue(saveDC)}</span>
+          <span className="lg-spells__number">{numberOrMissing(saveDC)}</span>
         </div>
       )}
     </div>
@@ -163,7 +173,7 @@ function SpellText({ path }: { readonly path: string }) {
       <InlineEdit
         className="lg-spells__text-value"
         label={label}
-        value={typeof value === 'string' ? value : ''}
+        value={textValue(value)}
         onCommit={commit}
       />
     </div>

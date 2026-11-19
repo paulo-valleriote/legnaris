@@ -40,6 +40,11 @@
   min-inline-size: 0;
 }
 
+.lg-spells__stat-value .lg-rollable {
+  font-size: var(--lg-type-24);
+  line-height: var(--lg-line-tight);
+}
+
 .lg-spells__number {
   font-size: var(--lg-type-24);
   font-weight: var(--lg-font-weight-bold);
