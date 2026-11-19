@@ -28,6 +28,15 @@ machine-readable owners are in [`context/paths.yaml`](context/paths.yaml);
 | [web-client](context/web-client.md) | The React PWA shell, routing, the typed API client, local storage, localization, testing, theme and shared UI. |
 | [platform](context/platform.md) | Runtime configuration and env keys, MongoDB and Redis, logging, metrics, middleware, rate limits, health and background maintenance. |
 
+## Working rules next to the code
+
+Package-level working rules (not narrative) live in `AGENTS.md` files beside the code:
+`backend/internal/AGENTS.md`, `backend/internal/sheet/template/AGENTS.md`,
+`backend/internal/engine/AGENTS.md`, `backend/internal/dice/AGENTS.md`,
+`backend/shared/apperr/AGENTS.md`, `backend/shared/idgen/AGENTS.md`,
+`backend/shared/db/AGENTS.md` and `web/AGENTS.md`. Visual rules live in `web/DESIGN.md`;
+operations in `deploy/README.md`; developer setup in the root `README.md`.
+
 ## File template
 
 Every feature file carries the same seven second-level headings, in this order.
