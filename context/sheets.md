@@ -241,7 +241,8 @@ the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with 
 `fantasy/identity.ts`). The hero also carries the experience bar
 (`fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts`): a `progressbar` running from the
 current level's floor to the next 5e threshold, whose disclosure shows the `identity.xp` total as an
-inline edit and adds a positive gain to it in the pending delta; when the total reaches the threshold it offers
+inline edit and adds a positive gain to it in the pending delta (the total rounds to whole XP and
+floors at zero, with no upper cap); when the total reaches the threshold it offers
 `Level up to N?`, which writes the next `identity.level` in the pending delta. Level 20 draws a
 full bar and never offers a level. Under it the combat strip holds the armor class
 shield, the initiative and speed tiles and the hit-points card (below), then the six
@@ -276,7 +277,9 @@ paths, the 1–30 / 0–120 / −5–20 parsing and the exactly-one-ability sele
 `aria-valuemin`/`aria-valuemax`/`aria-valuenow`, colours the fill by percentage (green above 50,
 amber at 25–50, red under 25), adds a temporary-points segment and offers an amount input with
 Damage and Heal; the three values are themselves inline edits (`parseHitPointsCurrent`,
-`parseHitPointsMaximum`, `parseHitPointsTemp`). Damage and Heal call the pure `fantasy/hit_points.ts`: damage spends temporary
+`parseHitPointsMaximum`, `parseHitPointsTemp`). Each rounds to a whole number and floors at zero
+(the maximum at 1); a larger typed value is kept rather than silently capped, and the parsers share
+the pure `parse_number.ts` clamp with the other Play edits. Damage and Heal call the pure `fantasy/hit_points.ts`: damage spends temporary
 points first and floors the current value at zero, healing caps at the maximum, and a zero,
 negative or unreadable amount changes nothing. The two writes go to the pending delta through
 `setPath` without a save; until the baseline advances the bar draws the difference as a hatched
@@ -314,7 +317,8 @@ and both guards behave exactly as in Edit. The reusable inline-edit control (`in
 opens on click or Enter, commits on Enter or blur, cancels on Escape, writes one dotted path and
 shows `Add <label>` while the value is empty; its accessible name is the template's field label,
 and an optional display node can replace the shown value (the attack cards and the initiative tile
-use a pencil trigger). On one column (`max-width: 40rem`) the same control keeps its trigger and
+use a pencil trigger). On one column (`max-width: 40rem`, the single exported `NARROW_QUERY` that
+every preset CSS media query matches) the same control keeps its trigger and
 opens a bottom-sheet `Dialog` instead: the input takes `type` and `inputMode` from the field schema
 (`number`/`numeric` for numbers), Enter commits, and Escape or the close button cancels without
 writing. The narrow check reads `matchMedia` through `useNarrowViewport`; a browser without it edits
@@ -410,7 +414,8 @@ Web:
   optional kind-selected `statBlock`, ordered section slots and the responsive body layout);
   `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
   saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
-  `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts` and
+  `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,
+  `parse_number.ts` (the shared clamped-integer and percent helpers) and
   `xp_progress.ts` helpers and the hero experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
   the compact NPC/enemy stat block that reuses the combat shield, hit-points card, ability medallions,
   attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its kind selection and clamped

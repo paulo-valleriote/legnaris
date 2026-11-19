@@ -1,3 +1,5 @@
+import { parseClampedInt } from './parse_number';
+
 export const ABILITY_KEYS = [
   'strength',
   'dexterity',
@@ -25,14 +27,5 @@ export function formatModifier(modifier: number): string {
 }
 
 export function parseAbilityScore(text: string): number | undefined {
-  const trimmed = text.trim();
-  if (trimmed === '') {
-    return undefined;
-  }
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-  const rounded = Math.round(parsed);
-  return Math.min(ABILITY_SCORE_MAX, Math.max(ABILITY_SCORE_MIN, rounded));
+  return parseClampedInt(text, ABILITY_SCORE_MIN, ABILITY_SCORE_MAX);
 }

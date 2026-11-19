@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { parseTemplateDetail } from '../api/models/template';
 import { message } from '../l10n/strings';
-import { InlineEdit } from '../sheet/inline_edit';
+import { InlineEdit, NARROW_QUERY } from '../sheet/inline_edit';
 import { editableLeafPaths } from '../sheet/sheet_edit';
 import { parseInitiative } from '../sheet/preset/fantasy/armor_class';
 import {
@@ -27,6 +27,10 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const presetCss = readFileSync(path.resolve(here, '../sheet/preset/preset.css'), 'utf8');
 const diceCss = readFileSync(path.resolve(here, '../sheet/dice.css'), 'utf8');
 const xpCss = readFileSync(path.resolve(here, '../sheet/preset/fantasy/xp_progress.css'), 'utf8');
+const presetCssDir = path.resolve(here, '../sheet/preset');
+const presetNarrowCss = readdirSync(path.join(presetCssDir, 'fantasy'))
+  .filter((name) => name.endsWith('.css'))
+  .map((name) => path.join(presetCssDir, 'fantasy', name));
 
 async function openFantasy(width = 1280) {
   setViewportWidth(width);
@@ -231,7 +235,7 @@ describe('the responsive Play layout', () => {
 });
 
 describe('the new editing value parsers', () => {
-  it('Edge: empty, unreadable and out-of-range texts are ignored or clamped', () => {
+  it('Edge: the new editing parsers clamp to the template ranges but keep values uncapped where the schema has no maximum', () => {
     expect(parseProficiencyBonus('')).toBeUndefined();
     expect(parseProficiencyBonus('abc')).toBeUndefined();
     expect(parseProficiencyBonus('Infinity')).toBeUndefined();
@@ -242,7 +246,6 @@ describe('the new editing value parsers', () => {
     expect(parseHitPointsTemp('abc')).toBeUndefined();
     expect(parseXpTotal('')).toBeUndefined();
     expect(parseXpTotal('abc')).toBeUndefined();
-    expect(parseXpTotal('-1')).toBeUndefined();
     expect(parseXpTotal('Infinity')).toBeUndefined();
   });
 
@@ -254,11 +257,35 @@ describe('the new editing value parsers', () => {
     expect(parseInitiative('99')).toBe(20);
     expect(parseInitiative('-0')).toBe(0);
     expect(parseHitPointsCurrent('-4')).toBe(0);
-    expect(parseHitPointsCurrent('999')).toBe(500);
     expect(parseHitPointsMaximum('0')).toBe(1);
     expect(parseHitPointsTemp('-1')).toBe(0);
-    expect(parseHitPointsTemp('999')).toBe(100);
+    expect(parseXpTotal('-1')).toBe(0);
     expect(parseXpTotal(' 250.4 ')).toBe(250);
-    expect(parseXpTotal('400000')).toBe(355000);
+  });
+
+  it('Edge: hit points and experience keep a large typed value instead of an arbitrary cap', () => {
+    expect(parseHitPointsCurrent('999')).toBe(999);
+    expect(parseHitPointsMaximum('999')).toBe(999);
+    expect(parseHitPointsTemp('999')).toBe(999);
+    expect(parseXpTotal('400000')).toBe(400000);
+    expect(parseXpTotal('355001')).toBe(355001);
+  });
+});
+
+describe('the inline edit breakpoint', () => {
+  it('Edge: the narrow query matches every 40rem breakpoint in the preset CSS', () => {
+    const narrowRem = NARROW_QUERY.match(/max-width:\s*([\d.]+rem)/)?.[1];
+    expect(narrowRem).toBe('40rem');
+    expect(presetCss).toContain(`@media (max-width: ${narrowRem})`);
+
+    let breakpoints = 0;
+    for (const file of presetNarrowCss) {
+      const css = readFileSync(file, 'utf8');
+      for (const query of css.matchAll(/@media \(max-width: ([\d.]+rem)\)/g)) {
+        breakpoints += 1;
+        expect(query[1]).toBe(narrowRem);
+      }
+    }
+    expect(breakpoints).toBeGreaterThan(0);
   });
 });

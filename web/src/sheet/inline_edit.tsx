@@ -3,7 +3,7 @@ import type { FieldSchema } from '../api/models/template';
 import { message, messageWith } from '../l10n/strings';
 import { Dialog } from '../ui/dialog';
 
-const NARROW_QUERY = '(max-width: 40rem)';
+export const NARROW_QUERY = '(max-width: 40rem)';
 
 function subscribeNarrow(listener: () => void): () => void {
   if (typeof window.matchMedia !== 'function') {

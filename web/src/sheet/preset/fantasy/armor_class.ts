@@ -1,5 +1,6 @@
 import type { MessageKey } from '../../../l10n/strings';
 import { abilityAbbreviationKey } from './saves_skills_data';
+import { parseClampedInt } from './parse_number';
 
 export const ARMOR_CLASS_PATH = 'derived.armorClass';
 export const BASE_ARMOR_PATH = 'combat.baseArmorClass';
@@ -54,27 +55,14 @@ export function armorAbilityFromValues(values: ArmorAbilityValues): ArmorAbility
   return on.length === 1 ? on[0] : undefined;
 }
 
-function clampInteger(text: string, min: number, max: number): number | undefined {
-  const trimmed = text.trim();
-  if (trimmed === '') {
-    return undefined;
-  }
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-  const value = Math.min(max, Math.max(min, Math.round(parsed)));
-  return Object.is(value, -0) ? 0 : value;
-}
-
 export function parseBaseArmor(text: string): number | undefined {
-  return clampInteger(text, BASE_ARMOR_MIN, BASE_ARMOR_MAX);
+  return parseClampedInt(text, BASE_ARMOR_MIN, BASE_ARMOR_MAX);
 }
 
 export function parseSpeed(text: string): number | undefined {
-  return clampInteger(text, SPEED_MIN, SPEED_MAX);
+  return parseClampedInt(text, SPEED_MIN, SPEED_MAX);
 }
 
 export function parseInitiative(text: string): number | undefined {
-  return clampInteger(text, INITIATIVE_MIN, INITIATIVE_MAX);
+  return parseClampedInt(text, INITIATIVE_MIN, INITIATIVE_MAX);
 }

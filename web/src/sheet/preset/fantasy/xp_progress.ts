@@ -1,3 +1,5 @@
+import { clampPercent, parseClampedInt, UNBOUNDED } from './parse_number';
+
 export const XP_PATH = 'identity.xp';
 
 export const LEVEL_PATH = 'identity.level';
@@ -61,7 +63,7 @@ export function xpProgress(level: unknown, xp: unknown): XpProgress {
   const percent =
     threshold === null || threshold <= floor
       ? 100
-      : Math.min(100, Math.max(0, ((value - floor) / (threshold - floor)) * 100));
+      : clampPercent(((value - floor) / (threshold - floor)) * 100);
 
   return {
     level: shownLevel,
@@ -85,13 +87,5 @@ export function parseXpGain(text: string): number | undefined {
 }
 
 export function parseXpTotal(text: string): number | undefined {
-  const trimmed = text.trim();
-  if (trimmed === '') {
-    return undefined;
-  }
-  const total = Number(trimmed);
-  if (!Number.isFinite(total) || total < 0) {
-    return undefined;
-  }
-  return Math.min(XP_THRESHOLDS[XP_THRESHOLDS.length - 1], Math.round(total));
+  return parseClampedInt(text, 0, UNBOUNDED);
 }

@@ -1,4 +1,5 @@
 import { parseDice, type Expression } from '../../../dice/parse';
+import { parseClampedInt } from './parse_number';
 
 export const ATTACK_SLOT_COUNT = 4;
 
@@ -61,16 +62,7 @@ export function attackVisibility(
 }
 
 export function parseAttackBonus(text: string): number | undefined {
-  const trimmed = text.trim();
-  if (trimmed === '') {
-    return undefined;
-  }
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-  const rounded = Math.round(parsed);
-  return Math.min(ATTACK_BONUS_MAX, Math.max(ATTACK_BONUS_MIN, rounded));
+  return parseClampedInt(text, ATTACK_BONUS_MIN, ATTACK_BONUS_MAX);
 }
 
 export function parseAttackDamage(text: string): Expression | undefined {

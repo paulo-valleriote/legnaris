@@ -1,5 +1,6 @@
 import type { MessageKey } from '../../../l10n/strings';
 import type { AbilityKey } from './abilities_data';
+import { parseClampedInt } from './parse_number';
 
 export const SKILL_KEYS = [
   'athletics',
@@ -90,14 +91,5 @@ export function nextProficiency(value: unknown): 0 | 1 {
 }
 
 export function parseSkillBonus(text: string): number | undefined {
-  const trimmed = text.trim();
-  if (trimmed === '') {
-    return undefined;
-  }
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-  const rounded = Math.round(parsed);
-  return Math.min(SKILL_BONUS_MAX, Math.max(SKILL_BONUS_MIN, rounded));
+  return parseClampedInt(text, SKILL_BONUS_MIN, SKILL_BONUS_MAX);
 }
