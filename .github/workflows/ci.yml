@@ -87,7 +87,7 @@ jobs:
       - name: go.mod is tidy
         run: go mod tidy -diff
 
-      - name: Test case names carry a Happy path:/Edge:/Error: prefix
+      - name: "Test case names carry a Happy path, Edge or Error prefix"
         run: go run ./backend/cmd/testnames
 
       # The VPS deploy script runs as root-equivalent on the host and the dev
