@@ -1,10 +1,12 @@
 package app
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/generation"
 	"legnaris/backend/shared/env"
 
 	"github.com/stretchr/testify/assert"
@@ -31,4 +33,10 @@ func TestAuthServiceConfig(t *testing.T) {
 
 		assert.Nil(t, cfg.EmailChecker)
 	})
+}
+
+func TestUnconfiguredPublisher_ReturnsTheGenerationSentinel(t *testing.T) {
+	err := unconfiguredPublisher{}.Publish(context.Background(), generation.Message{})
+
+	assert.ErrorIs(t, err, generation.ErrPublisherNotConfigured)
 }

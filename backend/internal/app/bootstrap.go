@@ -78,10 +78,8 @@ func WithGenerationObserver(observer generation.CapObserver) ModuleOption {
 
 type unconfiguredPublisher struct{}
 
-var ErrPublisherNotConfigured = errors.New("generation publisher is not configured")
-
 func (unconfiguredPublisher) Publish(context.Context, generation.Message) error {
-	return ErrPublisherNotConfigured
+	return generation.ErrPublisherNotConfigured
 }
 
 type noopCapObserver struct{}

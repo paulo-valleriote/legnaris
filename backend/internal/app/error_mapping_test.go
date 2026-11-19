@@ -13,6 +13,7 @@ import (
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
@@ -84,7 +85,7 @@ func TestErrorMapping_SheetNotExistsReturns404(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t)
 	mockRepo.EXPECT().
 		FetchByID(mock.Anything, missingSheetID).
-		Return(nil, sheet.ErrSheetNotFound).
+		Return(nil, sheeterr.ErrSheetNotFound).
 		Once()
 
 	h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
@@ -363,7 +364,7 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 
 	t.Run("Error: missing sheet returns 404 NOT_FOUND", func(t *testing.T) {
 		mockRepo := mocks.NewMockRepository(t)
-		mockRepo.EXPECT().FetchByID(mock.Anything, missingSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
+		mockRepo.EXPECT().FetchByID(mock.Anything, missingSheetID).Return(nil, sheeterr.ErrSheetNotFound).Once()
 
 		h, _ := newSheetErrorRouter(t, mockRepo, newPreviewErrorDAG(t))
 
@@ -630,7 +631,7 @@ func TestErrorMapping_PatchVersionConflictReturns409(t *testing.T) {
 	t.Run("Error: a lost race returns 409 CONFLICT with Retry-After and no internal retry", func(t *testing.T) {
 		mockRepo := mocks.NewMockRepository(t)
 		mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(storedSheet(0), nil).Once()
-		mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, int64(0), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
+		mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, int64(0), mock.Anything).Return(0, sheeterr.ErrVersionConflict).Once()
 
 		h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 
