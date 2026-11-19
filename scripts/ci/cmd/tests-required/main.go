@@ -2,16 +2,18 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"legnaris/scripts/ci/testspair"
 )
 
 const generatedHeaderBytes = 4096
+
+var generatedHeader = regexp.MustCompile(`(?m)^// Code generated .* DO NOT EDIT\.$`)
 
 func main() {
 	os.Exit(run(os.Stdin, os.Stdout, os.Stderr, os.Getenv))
@@ -58,8 +60,7 @@ func generatedFile(p string) bool {
 	if len(content) > generatedHeaderBytes {
 		content = content[:generatedHeaderBytes]
 	}
-	return bytes.Contains(content, []byte("Code generated")) &&
-		bytes.Contains(content, []byte("DO NOT EDIT."))
+	return generatedHeader.Match(content)
 }
 
 func appendSummary(summaryPath string) error {
