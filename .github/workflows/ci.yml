@@ -144,6 +144,27 @@ jobs:
           DATABASE_URI: mongodb://root:legnaris-ci-only@localhost:27017/?replicaSet=rs0&retryWrites=true&authSource=admin
         run: go test -race ./...
 
+  # The race job mounts a replica set, so a suite that needs no service and one
+  # that silently skips without it look identical there. This job runs the whole
+  # tree with the service addresses explicitly empty: a test that needs a
+  # database, broker or cache has to skip on its own rather than fail here.
+  go-test-nodb:
+    name: Go tests (no database, broker or cache)
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: go test with no service addresses
+        env:
+          DATABASE_URI: ''
+          RABBITMQ_URL: ''
+          REDIS_URL: ''
+        run: go test ./...
+
   web-quality:
     name: web format, lint, typecheck, tests, build
     needs: changes
@@ -233,7 +254,7 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, pr-title, go-lint, go-race, web-quality, web-e2e, images-build]
+    needs: [changes, pr-title, go-lint, go-race, go-test-nodb, web-quality, web-e2e, images-build]
     if: always()
     runs-on: ubuntu-latest
     steps:
