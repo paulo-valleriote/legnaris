@@ -10,6 +10,9 @@ import prettier from 'eslint-config-prettier';
 
 const STORAGE_MESSAGE =
   'Credentials are memory-only; storage is allowed only in the theme/view-state seams';
+const FETCH_MESSAGE = 'Network calls go through the injected transport (src/api/transport.ts).';
+const XHR_MESSAGE =
+  'XMLHttpRequest is forbidden; use the injected transport (src/api/transport.ts).';
 const IDB_MESSAGE = 'idb may be imported only by src/library/idb_sheet_store.ts.';
 
 const storageGlobals = ['localStorage', 'sessionStorage'].map((name) => ({
@@ -23,6 +26,10 @@ const storageProperties = ['window', 'self', 'globalThis'].flatMap((object) =>
     message: STORAGE_MESSAGE,
   })),
 );
+const networkGlobals = [
+  { name: 'fetch', message: FETCH_MESSAGE },
+  { name: 'XMLHttpRequest', message: XHR_MESSAGE },
+];
 
 export default tseslint.config(
   {
@@ -79,7 +86,7 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}', 'public/**/*.js'],
     rules: {
-      'no-restricted-globals': ['error', ...storageGlobals],
+      'no-restricted-globals': ['error', ...storageGlobals, ...networkGlobals],
       'no-restricted-properties': ['error', ...storageProperties],
       'no-restricted-imports': [
         'error',
@@ -92,8 +99,14 @@ export default tseslint.config(
   {
     files: ['src/theme/use_theme.ts', 'src/sheet/view_store.ts', 'public/theme-init.js'],
     rules: {
-      'no-restricted-globals': 'off',
+      'no-restricted-globals': ['error', ...networkGlobals],
       'no-restricted-properties': 'off',
+    },
+  },
+  {
+    files: ['src/api/transport.ts'],
+    rules: {
+      'no-restricted-globals': ['error', ...storageGlobals],
     },
   },
   {
