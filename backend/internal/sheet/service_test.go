@@ -1006,7 +1006,7 @@ func TestService_PreviewTemplate(t *testing.T) {
 			{
 				name:       "Error: unknown template slug",
 				id:         "unknown_template",
-				fetchErr:   apperr.NewError(apperr.CodeNotFound, "template not found", nil),
+				fetchErr:   template.ErrTemplateNotFound,
 				wantCode:   apperr.CodeNotFound,
 				wantStatus: 404,
 				wantMsg:    "template not found",
@@ -1262,22 +1262,36 @@ func TestService_Create_SeedsTypedValues(t *testing.T) {
 
 func TestService_Create_TemplateIDErrors(t *testing.T) {
 	tests := []struct {
-		name     string
-		id       string
-		sentinel error
-		wantMsg  string
+		name       string
+		id         string
+		sentinel   error
+		wantCode   apperr.Code
+		wantStatus int
+		wantMsg    string
 	}{
 		{
-			name:     "Edge: empty template ID",
-			id:       "",
-			sentinel: template.ErrTemplateIDNotProvided,
-			wantMsg:  "template id not provided",
+			name:       "Edge: empty template ID",
+			id:         "",
+			sentinel:   template.ErrTemplateIDNotProvided,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "template id not provided",
 		},
 		{
-			name:     "Error: malformed template ID slug",
-			id:       "Fantasy-V1",
-			sentinel: template.ErrTemplateIDInvalid,
-			wantMsg:  "template id is not a valid slug",
+			name:       "Error: malformed template ID slug",
+			id:         "Fantasy-V1",
+			sentinel:   template.ErrTemplateIDInvalid,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "template id is not a valid slug",
+		},
+		{
+			name:       "Error: unknown template slug",
+			id:         "unknown_template",
+			sentinel:   template.ErrTemplateNotFound,
+			wantCode:   apperr.CodeNotFound,
+			wantStatus: 404,
+			wantMsg:    "template not found",
 		},
 	}
 
@@ -1305,8 +1319,8 @@ func TestService_Create_TemplateIDErrors(t *testing.T) {
 
 			var appErr *apperr.Error
 			require.ErrorAs(t, err, &appErr)
-			assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
-			assert.Equal(t, 400, appErr.HttpStatus())
+			assert.Equal(t, tc.wantCode, appErr.Code)
+			assert.Equal(t, tc.wantStatus, appErr.HttpStatus())
 			assert.Equal(t, tc.wantMsg, appErr.Message)
 		})
 	}

@@ -2,12 +2,10 @@ package template_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/sheet/template"
-	"legnaris/backend/shared/apperr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,8 +21,6 @@ func TestService_FetchTemplate(t *testing.T) {
 		cmd        *template.FetchTemplateByIDCommand
 		wantID     string
 		wantSentin error
-		wantCode   apperr.Code
-		wantStatus int
 		wantMsg    string
 	}{
 		{
@@ -57,10 +53,9 @@ func TestService_FetchTemplate(t *testing.T) {
 			wantMsg:    "template id is not a valid slug",
 		},
 		{
-			name:       "Error: unknown ID maps to 404",
+			name:       "Error: unknown ID is a typed template-owned not-found error",
 			cmd:        &template.FetchTemplateByIDCommand{ID: "does_not_exist"},
-			wantCode:   apperr.CodeNotFound,
-			wantStatus: 404,
+			wantSentin: template.ErrTemplateNotFound,
 			wantMsg:    "template not found",
 		},
 	}
@@ -69,7 +64,7 @@ func TestService_FetchTemplate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpl, err := svc.FetchTemplate(context.Background(), tc.cmd)
 
-			if tc.wantSentin == nil && tc.wantCode == "" {
+			if tc.wantSentin == nil {
 				require.NoError(t, err)
 				require.NotNil(t, tmpl)
 				assert.Equal(t, tc.wantID, tmpl.ID)
@@ -79,19 +74,7 @@ func TestService_FetchTemplate(t *testing.T) {
 			require.Error(t, err)
 			assert.Nil(t, tmpl)
 			assert.Equal(t, tc.wantMsg, err.Error())
-
-			if tc.wantSentin != nil {
-				assert.ErrorIs(t, err, tc.wantSentin)
-
-				var appErr *apperr.Error
-				assert.False(t, errors.As(err, &appErr), "typed ID error must not be returned as apperr from the template layer")
-				return
-			}
-
-			var appErr *apperr.Error
-			require.ErrorAs(t, err, &appErr)
-			assert.Equal(t, tc.wantCode, appErr.Code)
-			assert.Equal(t, tc.wantStatus, appErr.HttpStatus())
+			assert.ErrorIs(t, err, tc.wantSentin)
 		})
 	}
 }

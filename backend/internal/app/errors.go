@@ -55,5 +55,8 @@ func templateError(err error) error {
 	if errors.Is(err, template.ErrTemplateIDNotProvided) || errors.Is(err, template.ErrTemplateIDInvalid) {
 		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), nil)
 	}
+	if errors.Is(err, template.ErrTemplateNotFound) {
+		return apperr.NewError(apperr.CodeNotFound, "template not found", err)
+	}
 	return err
 }

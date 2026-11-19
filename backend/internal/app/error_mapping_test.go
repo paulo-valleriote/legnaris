@@ -116,6 +116,44 @@ func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 	assert.Equal(t, "template not found", body.Error.Message)
 }
 
+func TestErrorMapping_UnknownTemplateFetchReturns404(t *testing.T) {
+	mockTemplateSvc := templatemocks.NewMockService(t)
+	mockTemplateSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
+		Return(nil, template.ErrTemplateNotFound).
+		Once()
+
+	e := echo.New()
+	e.HTTPErrorHandler = app.HTTPErrorHandler
+	app.NewTemplateController(mockTemplateSvc).RegisterRoutes(e.Group("/templates"))
+
+	rec := doRequest(t, e, http.MethodGet, "/templates/unknown_template", "")
+	require.Equal(t, http.StatusNotFound, rec.Code)
+
+	var body response.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "NOT_FOUND", body.Error.Code)
+	assert.Equal(t, "template not found", body.Error.Message)
+}
+
+func TestErrorMapping_SheetCreateUnknownTemplateReturns404(t *testing.T) {
+	mockRepo := mocks.NewMockRepository(t)
+
+	h, mockTemplateSvc := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
+	mockTemplateSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
+		Return(nil, template.ErrTemplateNotFound).
+		Once()
+
+	rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","kind":"character","sheet_name":"x"}`)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+
+	var body response.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "NOT_FOUND", body.Error.Code)
+	assert.Equal(t, "template not found", body.Error.Message)
+}
+
 func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 	storedSheet := func() *sheet.Sheet {
 		return &sheet.Sheet{
