@@ -198,9 +198,9 @@ select the owning job. Email alerts cover a non-empty `email.dead`, no consumer,
 a work queue that stays non-empty, the outbox backlog, publication failures,
 provider retries, the daily cap, verification failures, missing series, register
 bursts and an early cap. The sweeper and event alerts cover an item older than an
-hour, an old refund, any failed sweep and a non-empty `events.unrouted`. The
-provider breaker opens after five consecutive transient outages and probes after
-60 seconds; rate-limit and quota outcomes are neutral.
+hour, an old refund, a failed sweep and a non-empty `events.unrouted`. The breaker
+opens after five consecutive transient outages and probes after 60 seconds;
+rate-limit and quota outcomes are neutral.
 
 ## Code map
 
@@ -217,7 +217,6 @@ provider breaker opens after five consecutive transient outages and probes after
 | `backend/cmd/api.go`, `backend/cmd/relay/main.go`, `backend/cmd/worker/main.go` | publishers, both relays, sweeper, reconciler, metrics listeners and the `app/email_intent.go` writer |
 | `backend/internal/platform/metrics/metrics.go` | event, email and sweeper series |
 | `backend/shared/db/indexes.go`, `transaction.go` | outbox indexes/TTLs and the transaction helper |
-| `backend/shared/env/env.go` | defaults for every relay, worker and email key |
 | `deploy/prometheus/rules.yml`, `rules-f1a.yml`, `deploy/rabbitmq/rabbitmq.conf` | alerts, console prefix and broker metrics |
 
 Event emitters live in `backend/internal/sheet/events.go`,
@@ -231,12 +230,11 @@ Event emitters live in `backend/internal/sheet/events.go`,
   and per-message TTL; **`github.com/rabbitmq/amqp091-go`** with recovery on the
   email broker, while event publishers reconnect on demand.
 - **MongoDB** (replica set) for both outboxes and every sweeper queue; the
-  transaction helper is `backend/shared/db`.
-- **Resend** over HTTPS for the real provider; `log` and `dev` adapters locally
-  and a recording sender in tests.
+  transaction helper is `backend/shared/db`. **Resend** over HTTPS is the real
+  provider; `log` and `dev` adapters run locally and a recorder runs in tests.
 - **Prometheus and the broker's Prometheus plugin**, read by Grafana and the
-  alert rules; **`zerolog`** through `backend/shared/logger`.
-- The shared env surface: no relay or worker key is required for the API to boot.
+  alert rules; **`zerolog`** through `backend/shared/logger`. The shared env
+  surface requires no relay or worker key for the API to boot.
 
 ## Known limits
 
