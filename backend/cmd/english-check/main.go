@@ -251,7 +251,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitFailure
 	}
 	if flags.NArg() > 0 {
-		fmt.Fprintf(stderr, "english-check: unexpected arguments: %s\n", strings.Join(flags.Args(), " "))
+		_, _ = fmt.Fprintf(stderr, "english-check: unexpected arguments: %s\n", strings.Join(flags.Args(), " "))
 		return exitFailure
 	}
 	path := *allowlist
@@ -260,17 +260,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	findings, scanned, err := scanRepository(*root, path)
 	if err != nil {
-		fmt.Fprintf(stderr, "english-check: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "english-check: %v\n", err)
 		return exitFailure
 	}
 	for _, entry := range findings {
-		fmt.Fprintln(stdout, entry.String())
+		_, _ = fmt.Fprintln(stdout, entry.String())
 	}
 	if len(findings) > 0 {
-		fmt.Fprintf(stdout, "english-check: %d finding(s); allow-list a file only when it must hold non-English text by design (%s)\n", len(findings), path)
+		_, _ = fmt.Fprintf(stdout, "english-check: %d finding(s); allow-list a file only when it must hold non-English text by design (%s)\n", len(findings), path)
 		return exitFindings
 	}
-	fmt.Fprintf(stdout, "english-check: %d source file(s) clean\n", scanned)
+	_, _ = fmt.Fprintf(stdout, "english-check: %d source file(s) clean\n", scanned)
 	return exitClean
 }
 
