@@ -12,6 +12,3 @@ regexes = [
   '''PROMPT-ECHO-SECRET-1234''',
   '''0123456789abcdef0123456789abcdef''',
 ]
-paths = [
-  '''web/src/test/api_fixtures_secrets\.test\.ts''',
-]

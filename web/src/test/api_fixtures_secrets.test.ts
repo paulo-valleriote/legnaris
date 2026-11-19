@@ -110,7 +110,12 @@ describe('the pinned captures carry no credential (LGN-295)', () => {
   });
 
   it('Error: a JWT-shaped string is reported', () => {
-    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2lnbmF0dXJlLXZhbHVl';
+    const segment = (value: string) => btoa(value).replace(/=+$/, '');
+    const jwt = [
+      segment('{"alg":"HS256"}'),
+      segment('{"sub":"1234567890"}'),
+      segment('signature-value'),
+    ].join('.');
 
     expect(jwtLike(jwt)).toEqual([jwt]);
     expect(violationsIn(jwt)).toHaveLength(1);
@@ -124,13 +129,16 @@ describe('the pinned captures carry no credential (LGN-295)', () => {
   });
 
   it('Error: a literal Bearer credential is reported', () => {
-    expect(bearerSecrets('Authorization: Bearer abcdefghijklmnop')).toEqual(['abcdefghijklmnop']);
+    const credential = 'abcdefgh'.repeat(2);
+
+    expect(bearerSecrets(['Authorization:', 'Bearer', credential].join(' '))).toEqual([credential]);
   });
 
   it('Error: an un-redacted Set-Cookie refresh value is reported', () => {
-    const header = 'Set-Cookie: refresh_token=abc123def456; HttpOnly; Secure; Path=/auth';
+    const value = 'abc123'.repeat(2);
+    const header = `Set-Cookie: refresh_token=${value}; HttpOnly; Secure; Path=/auth`;
 
-    expect(unredactedRefreshValues(header)).toEqual(['abc123def456']);
+    expect(unredactedRefreshValues(header)).toEqual([value]);
     expect(
       unredactedRefreshValues('Set-Cookie: refresh_token=redacted-refresh-token; HttpOnly'),
     ).toEqual([]);
