@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Button } from '../ui/button';
 
-describe('action primitive (UIP-07…UIP-10, SC-001)', () => {
+describe('action primitive', () => {
   it('Happy path: primary variant fills accent and uses on-accent text', () => {
     render(<Button variant="primary" label="Save" />);
     const btn = screen.getByRole('button', { name: /Save/i });

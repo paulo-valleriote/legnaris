@@ -21,7 +21,7 @@ function CatalogProbe({ onResult }: { onResult: (names: readonly string[]) => vo
   return null;
 }
 
-describe('AppProviders (WCT-02, WCT-12)', () => {
+describe('AppProviders', () => {
   it('Happy path: builds one API client over the injected transport and exposes it through context', async () => {
     const fake = createFakeTransport(successOutcome(ONE_TEMPLATE));
     const onResult = vi.fn();

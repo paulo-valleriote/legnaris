@@ -21,7 +21,7 @@ function schema(overrides: Partial<FieldSchema> = {}): FieldSchema {
 
 const MARKUP = '<script>alert(1)</script>';
 
-describe('markup in data renders as text (ENG-29, SC-005)', () => {
+describe('markup in data renders as text', () => {
   it('Edge: a field value of markup renders as literal text and creates no script element', () => {
     const { container } = render(
       <SheetFieldControl

@@ -9,7 +9,7 @@ function windowWith(trustedTypes?: TrustedTypesStub): Window {
   return { trustedTypes } as unknown as Window;
 }
 
-describe('Trusted Types default policy (SEC-06)', () => {
+describe('Trusted Types default policy', () => {
   it('Happy path: installs the default policy when the platform supports it', () => {
     const trustedTypes: TrustedTypesStub = { createPolicy: vi.fn() };
 

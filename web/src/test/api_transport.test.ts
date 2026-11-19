@@ -14,7 +14,7 @@ function request(overrides: Partial<HttpRequest> = {}): HttpRequest {
 }
 
 describe('native fetch transport', () => {
-  it('Happy path: passes url, method, headers, body, credentials and signal through unchanged (API-07, API-29)', async () => {
+  it('Happy path: passes url, method, headers, body, credentials and signal through unchanged', async () => {
     const platformFetch = vi.fn().mockResolvedValue(new Response('{"data":1}', { status: 200 }));
     const transport = createFetchTransport(platformFetch);
     const signal = new AbortController().signal;
@@ -38,7 +38,7 @@ describe('native fetch transport', () => {
     expect(new Headers(init.headers).get('content-type')).toBe('application/json');
   });
 
-  it('Happy path: reads the status and the raw text back (API-07)', async () => {
+  it('Happy path: reads the status and the raw text back', async () => {
     const platformFetch = vi
       .fn()
       .mockResolvedValue(new Response('{"data":{"status":"healthy"}}', { status: 201 }));
@@ -50,7 +50,7 @@ describe('native fetch transport', () => {
     expect(response.body).toBe('{"data":{"status":"healthy"}}');
   });
 
-  it('Edge: an empty body arrives as an empty string, never undefined (API-04)', async () => {
+  it('Edge: an empty body arrives as an empty string, never undefined', async () => {
     const platformFetch = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
     const transport = createFetchTransport(platformFetch);
 
@@ -60,7 +60,7 @@ describe('native fetch transport', () => {
     expect(response.body).toBe('');
   });
 
-  it('Edge: omits a body key entirely when the request carries none (API-07)', async () => {
+  it('Edge: omits a body key entirely when the request carries none', async () => {
     const platformFetch = vi.fn().mockResolvedValue(new Response('{"data":1}', { status: 200 }));
     const transport = createFetchTransport(platformFetch);
 
@@ -70,14 +70,14 @@ describe('native fetch transport', () => {
     expect(init).not.toHaveProperty('body');
   });
 
-  it('Error: a platform rejection propagates as a transport failure (API-20)', async () => {
+  it('Error: a platform rejection propagates as a transport failure', async () => {
     const platformFetch = vi.fn().mockRejectedValue(new DOMException('aborted', 'AbortError'));
     const transport = createFetchTransport(platformFetch);
 
     await expect(transport(request())).rejects.toThrow('aborted');
   });
 
-  it('Error: a non-JSON response is not parsed here, so drift reaches the decoder (API-04)', async () => {
+  it('Error: a non-JSON response is not parsed here, so drift reaches the decoder', async () => {
     const platformFetch = vi
       .fn()
       .mockResolvedValue(new Response('<html>502</html>', { status: 502 }));

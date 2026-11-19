@@ -120,7 +120,7 @@ describe('sheet dice: rolling a Row', () => {
   });
 });
 
-describe('sheet dice: editing a Row expression (ADR 0006)', () => {
+describe('sheet dice: editing a Row expression', () => {
   it('Happy path: a valid edit becomes pending and goes out with Save as one PATCH, never a PUT', async () => {
     const { stub, user } = await open();
 

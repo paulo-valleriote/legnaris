@@ -112,7 +112,7 @@ function leafPaths(value: unknown, prefix = ''): string[] {
 }
 
 describe('pinned contract captures', () => {
-  it('Error: altering a key in a capture turns the decode red on the first run (API-36)', async () => {
+  it('Error: altering a key in a capture turns the decode red on the first run', async () => {
     const mutated = structuredClone(templateDetail);
     const body = mutated.response?.body as { data: Record<string, unknown> };
     delete body.data['default'];
@@ -127,7 +127,7 @@ describe('pinned contract captures', () => {
     ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Error: a capture whose field type drifts is refused rather than coerced (API-36)', async () => {
+  it('Error: a capture whose field type drifts is refused rather than coerced', async () => {
     const mutated = structuredClone(health);
     const body = mutated.response?.body as { data: Record<string, unknown> };
     body.data['status'] = 42;
@@ -142,7 +142,7 @@ describe('pinned contract captures', () => {
     ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Edge: no capture carries a credential (API-35)', () => {
+  it('Edge: no capture carries a credential', () => {
     for (const name of fixtureNames) {
       const raw = readFileSync(path.join(fixturesDir, `${name}.json`), 'utf8');
 
@@ -153,7 +153,7 @@ describe('pinned contract captures', () => {
     }
   });
 
-  it('Happy path: the health capture decodes through the health operation (API-34, API-35)', async () => {
+  it('Happy path: the health capture decodes through the health operation', async () => {
     const fake = createFakeTransport(respond(health));
     const payload = await createApiClient({ baseUrl, transport: fake.transport }).health();
 
@@ -164,7 +164,7 @@ describe('pinned contract captures', () => {
     expect(fake.lastRequest?.url).toBe(`${baseUrl}/health`);
   });
 
-  it('Happy path: the catalog capture decodes and preserves the declared section order (API-34, API-35)', async () => {
+  it('Happy path: the catalog capture decodes and preserves the declared section order', async () => {
     const decoded = await clientFor(templates).listTemplates();
     const fantasy = decoded.find((entry) => entry.id === 'fantasy_v1');
 
@@ -185,7 +185,7 @@ describe('pinned contract captures', () => {
     ]);
   });
 
-  it('Happy path: the detail capture carries groups, formulas, dependencies and derived leaves (API-34, API-35)', async () => {
+  it('Happy path: the detail capture carries groups, formulas, dependencies and derived leaves', async () => {
     const decoded = await clientFor(templateDetail).getTemplate('fantasy_v1');
     const nodes = Object.values(decoded.fields);
 
@@ -205,7 +205,7 @@ describe('pinned contract captures', () => {
     expect(exclusive?.exclusiveGroup).toBe('armorClassAbility');
   });
 
-  it('Happy path: the creation capture decodes and the request carries exactly the template and name (API-34, API-35)', async () => {
+  it('Happy path: the creation capture decodes and the request carries exactly the template and name', async () => {
     const fake = createFakeTransport(respond(sheetCreate));
     const decoded = await createApiClient({ baseUrl, transport: fake.transport }).createSheet({
       templateId: 'fantasy_v1',
@@ -226,7 +226,7 @@ describe('pinned contract captures', () => {
     ]);
   });
 
-  it('Happy path: the retrieval capture decodes the stored sheet at the captured path (API-34, API-35)', async () => {
+  it('Happy path: the retrieval capture decodes the stored sheet at the captured path', async () => {
     const fake = createFakeTransport(respond(sheetGet));
     const sheetId = sheetGet.request.path.replace('/sheets/', '');
     const decoded = await createApiClient({ baseUrl, transport: fake.transport }).getSheet(sheetId);
@@ -238,7 +238,7 @@ describe('pinned contract captures', () => {
     expect(fake.lastRequest?.url).toBe(`${baseUrl}${sheetGet.request.path}`);
   });
 
-  it('Happy path: the update pair sends one change and returns only recalculated effects (API-34, API-35)', async () => {
+  it('Happy path: the update pair sends one change and returns only recalculated effects', async () => {
     const requestData = requestBodyOf(patchDeltaRequest)['data'];
     const changedPaths = leafPaths(requestData);
     const fake = createFakeTransport(respond(patchDeltaResponse));
@@ -259,7 +259,7 @@ describe('pinned contract captures', () => {
     expect(effects).toEqual((patchDeltaResponse.response?.body as { data: unknown }).data);
   });
 
-  it('Happy path: every captured failure maps to the kind the interface branches on (API-34, API-35)', async () => {
+  it('Happy path: every captured failure maps to the kind the interface branches on', async () => {
     const cases: ReadonlyArray<readonly [Capture, string, string]> = [
       [loadCapture('error_not_found'), 'notFound', 'NOT_FOUND'],
       [loadCapture('error_invalid_request'), 'invalidEdit', 'INVALID_REQUEST'],
@@ -281,8 +281,8 @@ describe('pinned contract captures', () => {
   });
 });
 
-describe('the pinned code-step captures (WCS-14)', () => {
-  it('Error: a hand-edited key in a code-step capture turns the decode red (WCS-14, API-36)', async () => {
+describe('the pinned code-step captures', () => {
+  it('Error: a hand-edited key in a code-step capture turns the decode red', async () => {
     const mutated = structuredClone(loadCapture('auth_register_challenge'));
     const body = mutated.response?.body as { data: Record<string, unknown> };
     delete body.data['challenge_id'];
@@ -305,7 +305,7 @@ describe('the pinned code-step captures (WCS-14)', () => {
     ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Happy path: the registration capture decodes as a code step and carries no credential (WCS-14)', async () => {
+  it('Happy path: the registration capture decodes as a code step and carries no credential', async () => {
     const capture = loadCapture('auth_register_challenge');
     const payload = (capture.response?.body as { data: Record<string, unknown> }).data;
 
@@ -326,7 +326,7 @@ describe('the pinned code-step captures (WCS-14)', () => {
     });
   });
 
-  it('Happy path: the sign-in capture decodes as a code step (WCS-14)', async () => {
+  it('Happy path: the sign-in capture decodes as a code step', async () => {
     const capture = loadCapture('auth_login_challenge');
 
     const outcome = await authApiFor(capture).login({ email: 'a@b.test', password: 'secret' });
@@ -335,7 +335,7 @@ describe('the pinned code-step captures (WCS-14)', () => {
     expect(outcome.kind).toBe('challenge');
   });
 
-  it('Happy path: the verification capture decodes as a session body with a redacted token (WCS-14)', async () => {
+  it('Happy path: the verification capture decodes as a session body with a redacted token', async () => {
     const capture = loadCapture('auth_challenge_verify');
 
     const body = await authApiFor(capture).verifyChallenge({
@@ -349,7 +349,7 @@ describe('the pinned code-step captures (WCS-14)', () => {
     expect(body.expiresIn).toBe(900);
   });
 
-  it('Happy path: the resend capture decodes as the advertised window (WCS-14)', async () => {
+  it('Happy path: the resend capture decodes as the advertised window', async () => {
     const capture = loadCapture('auth_challenge_resend');
 
     const result = await authApiFor(capture).resendChallenge({ challengeId: 'challenge-1' });
@@ -358,7 +358,7 @@ describe('the pinned code-step captures (WCS-14)', () => {
     expect(result).toEqual({ resendAfter: 60 });
   });
 
-  it('Happy path: each code-step refusal maps to the kind the interface branches on (WCS-11, WCS-14)', async () => {
+  it('Happy path: each code-step refusal maps to the kind the interface branches on', async () => {
     const cases: ReadonlyArray<readonly [Capture, string, string]> = [
       [loadCapture('error_otp_invalid'), 'invalidCode', 'OTP_INVALID'],
       [loadCapture('error_email_unavailable'), 'emailUnavailable', 'EMAIL_UNAVAILABLE'],

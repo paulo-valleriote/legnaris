@@ -34,7 +34,7 @@ function definesTopLevel(css: string, block: string): boolean {
   return new RegExp(`(^|\\n)\\.${block}\\s*\\{`).test(css);
 }
 
-describe('shared primitive class names (UIP-02)', () => {
+describe('shared primitive class names', () => {
   it('Edge: the block helper ignores elements and modifiers', () => {
     const blocks = blockSelectors('.lg-a {} .lg-a__b {} .lg-a--c {} .lg-d:hover {}');
     expect([...blocks].sort()).toEqual(['lg-a', 'lg-d']);

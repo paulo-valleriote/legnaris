@@ -30,8 +30,8 @@ function clientWith(transport: Transport) {
   return createApiClient({ baseUrl: BASE_URL, transport });
 }
 
-describe('sheet screen states (WSC-08, WSC-10, SC-001)', () => {
-  it('Happy path: the loaded screen shows the sheet name and renders the template field tree through the engine (WSC-08)', async () => {
+describe('sheet screen states', () => {
+  it('Happy path: the loaded screen shows the sheet name and renders the template field tree through the engine', async () => {
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),
       successOutcome(templateDetailPayload()),
@@ -47,7 +47,7 @@ describe('sheet screen states (WSC-08, WSC-10, SC-001)', () => {
     expect(screen.getByRole('combobox', { name: 'Ability' })).toBeInTheDocument();
   });
 
-  it('Edge: the open-loading and template-loading lines resolve through the catalog copy (WSC-05, WSC-09)', async () => {
+  it('Edge: the open-loading and template-loading lines resolve through the catalog copy', async () => {
     const deferred = createDeferredTransport();
     renderApp(SHEET_URL, { client: clientWith(deferred.transport) });
 
@@ -63,7 +63,7 @@ describe('sheet screen states (WSC-08, WSC-10, SC-001)', () => {
     expect(await screen.findByTestId('sheet-name')).toHaveTextContent('Aragorn');
   });
 
-  it('Edge: a template with no fields shows the empty-fields line instead of an empty form (WSC-08)', async () => {
+  it('Edge: a template with no fields shows the empty-fields line instead of an empty form', async () => {
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),
       successOutcome(emptyTemplateDetailPayload()),
@@ -76,7 +76,7 @@ describe('sheet screen states (WSC-08, WSC-10, SC-001)', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
-  it('Happy path: a direct navigation renders the same sheet screen (WSC-10)', async () => {
+  it('Happy path: a direct navigation renders the same sheet screen', async () => {
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),
       successOutcome(templateDetailPayload()),
@@ -88,7 +88,7 @@ describe('sheet screen states (WSC-08, WSC-10, SC-001)', () => {
   });
 });
 
-describe('sheet footer, save and Ctrl+S (WSC-12, WSC-14, WSC-16, WSC-17, WSC-19, WSC-20)', () => {
+describe('sheet footer, save and Ctrl+S', () => {
   async function openLoadedScreen(transport: Transport) {
     const user = userEvent.setup();
     renderApp(SHEET_URL, { client: clientWith(transport) });
@@ -96,7 +96,7 @@ describe('sheet footer, save and Ctrl+S (WSC-12, WSC-14, WSC-16, WSC-17, WSC-19,
     return { user, level };
   }
 
-  it('Edge: Save is disabled while the sheet is clean and no pending indicator shows (WSC-19, WSC-12)', async () => {
+  it('Edge: Save is disabled while the sheet is clean and no pending indicator shows', async () => {
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),
       successOutcome(templateDetailPayload()),
@@ -107,7 +107,7 @@ describe('sheet footer, save and Ctrl+S (WSC-12, WSC-14, WSC-16, WSC-17, WSC-19,
     expect(screen.queryByText(message('sheet.pendingEdits'))).not.toBeInTheDocument();
   });
 
-  it('Happy path: editing shows the pending indicator and Save sends the delta, showing saving then saved (WSC-12, WSC-14, WSC-16)', async () => {
+  it('Happy path: editing shows the pending indicator and Save sends the delta, showing saving then saved', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
     renderApp(SHEET_URL, { client: clientWith(deferred.transport) });
@@ -136,7 +136,7 @@ describe('sheet footer, save and Ctrl+S (WSC-12, WSC-14, WSC-16, WSC-17, WSC-19,
     expect(screen.queryByText(message('sheet.pendingEdits'))).not.toBeInTheDocument();
   });
 
-  it('Edge: a failed save renders the mapped message inline and keeps the edits (WSC-17)', async () => {
+  it('Edge: a failed save renders the mapped message inline and keeps the edits', async () => {
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),
       successOutcome(templateDetailPayload()),
@@ -154,7 +154,7 @@ describe('sheet footer, save and Ctrl+S (WSC-12, WSC-14, WSC-16, WSC-17, WSC-19,
     expect(screen.getByText(message('sheet.pendingEdits'))).toBeInTheDocument();
   });
 
-  it('Happy path: Ctrl+S runs the same save as the footer action (WSC-20)', async () => {
+  it('Happy path: Ctrl+S runs the same save as the footer action', async () => {
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),
       successOutcome(templateDetailPayload()),
@@ -185,8 +185,8 @@ function featureSources(): string[] {
   });
 }
 
-describe('markup safety (WSC-35, SC-007)', () => {
-  it('Edge: a sheet name of "<script>" renders as literal text and produces no script node (WSC-35)', async () => {
+describe('markup safety', () => {
+  it('Edge: a sheet name of "<script>" renders as literal text and produces no script node', async () => {
     const fake = createFakeTransport(
       successOutcome(sheetPayload({ name: '<script>alert(1)</script>' })),
       successOutcome(templateDetailPayload()),
@@ -199,7 +199,7 @@ describe('markup safety (WSC-35, SC-007)', () => {
     expect(document.querySelectorAll('script')).toHaveLength(0);
   });
 
-  it('Edge: a field value of "<script>" renders as literal text and produces no script node (WSC-35)', async () => {
+  it('Edge: a field value of "<script>" renders as literal text and produces no script node', async () => {
     const fake = createFakeTransport(
       successOutcome(
         sheetPayload({
@@ -219,7 +219,7 @@ describe('markup safety (WSC-35, SC-007)', () => {
     expect(document.querySelectorAll('script')).toHaveLength(0);
   });
 
-  it('Edge: the sheet-cycle sources own no DOM-injection sink (WSC-35)', () => {
+  it('Edge: the sheet-cycle sources own no DOM-injection sink', () => {
     const sources = featureSources();
     expect(sources.length).toBeGreaterThan(0);
 

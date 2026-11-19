@@ -1,9 +1,9 @@
 # Pinned backend captures
 
-Contract fixtures for the web API client (API-34, API-35). Each `*.json` file is a
+Contract fixtures for the web API client. Each `*.json` file is a
 real response captured from the local backend, or the request that produced it.
 The pinned suite decodes them with **no backend running**, and a shape change in
-any capture fails the suite (API-36).
+any capture fails the suite.
 
 ## Reproducing
 
@@ -34,7 +34,7 @@ bash web/src/api/fixtures/capture.sh
 
 - `mongosh` on the `PATH`, to read the code the stack recorded. The code never
   reaches a log line or the sender's output, so the durable send intention is
-  the only place it can be read (`EML-10`, `EML-13`).
+  the only place it can be read.
 - `DATABASE_URI` and `DATABASE_NAME` (default `legnaris`) pointing at the
   stack's database.
 - The daily send allowance to be spendable: the run spends it on purpose, to
@@ -67,7 +67,7 @@ kept separate so the update pair is inspectable as a pair.
 The credential requests record their method and path but never their body: the
 body carries the password. The verification capture keeps the response's own
 shape and drops the credential — its `access_token` holds the
-`redacted-access-token` placeholder, so no token is ever committed (`API-35`).
+`redacted-access-token` placeholder, so no token is ever committed.
 
 ## Inventory
 

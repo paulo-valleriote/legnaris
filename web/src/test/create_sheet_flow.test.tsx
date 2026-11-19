@@ -55,8 +55,8 @@ async function openSurface(user: UserEvent) {
   return fake;
 }
 
-describe('sheet creation flow (WSC-01 … WSC-04)', () => {
-  it('Edge: a whitespace-only name keeps the primary action disabled and issues zero requests (WSC-01)', async () => {
+describe('sheet creation flow', () => {
+  it('Edge: a whitespace-only name keeps the primary action disabled and issues zero requests', async () => {
     const user = userEvent.setup();
     const fake = await openSurface(user);
 
@@ -69,7 +69,7 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
     expect(postRequests(fake.requests)).toHaveLength(0);
   });
 
-  it('Edge: while the request is in flight the action is disabled, the surface shows progress and a repeat activation issues no second request (WSC-03)', async () => {
+  it('Edge: while the request is in flight the action is disabled, the surface shows progress and a repeat activation issues no second request', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
     renderApp('/', {
@@ -101,7 +101,7 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
     expect(await screen.findByTestId('sheet-name')).toHaveTextContent('Aragorn');
   });
 
-  it('Edge: a failed creation keeps the surface open with the typed name intact and the mapped message inline (WSC-04)', async () => {
+  it('Edge: a failed creation keeps the surface open with the typed name intact and the mapped message inline', async () => {
     const fake = createFakeTransport(
       successOutcome(CATALOG),
       successOutcome(templateDetailPayload()),
@@ -124,7 +124,7 @@ describe('sheet creation flow (WSC-01 … WSC-04)', () => {
     expect(screen.queryByTestId('sheet-screen')).not.toBeInTheDocument();
   });
 
-  it('Happy path: a non-empty trimmed name issues one POST carrying the template and name, then opens the created sheet without a sheet GET (WSC-01, WSC-02)', async () => {
+  it('Happy path: a non-empty trimmed name issues one POST carrying the template and name, then opens the created sheet without a sheet GET', async () => {
     const fake = createFakeTransport(
       successOutcome(CATALOG),
       successOutcome(templateDetailPayload()),

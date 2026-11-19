@@ -47,8 +47,8 @@ async function findName(): Promise<HTMLElement> {
   return screen.findByTestId('your-sheet-name');
 }
 
-describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
-  it('Happy path: a person with a sheet renders it from exactly one GET /sheets (WAS-25)', async () => {
+describe('the "Your sheet" destination', () => {
+  it('Happy path: a person with a sheet renders it from exactly one GET /sheets', async () => {
     const fake = createFakeTransport(successOutcome(SHEET_JSON));
 
     renderApp('/your-sheet', { client: clientWith(fake.transport) });
@@ -61,7 +61,7 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     expect(screen.queryByTestId('your-sheet-failure')).not.toBeInTheDocument();
   });
 
-  it('Happy path: Open navigates to the sheet route (WAS-25)', async () => {
+  it('Happy path: Open navigates to the sheet route', async () => {
     const user = userEvent.setup();
     const fake = createFakeTransport(
       successOutcome(SHEET_JSON),
@@ -77,7 +77,7 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     await waitFor(() => expect(screen.getByTestId('sheet-screen')).toBeInTheDocument());
   });
 
-  it('Edge: no sheet renders the designed empty state, not a failure (WAS-26)', async () => {
+  it('Edge: no sheet renders the designed empty state, not a failure', async () => {
     const fake = createFakeTransport(errorOutcome('NOT_FOUND', 'no sheet', 404));
 
     renderApp('/your-sheet', { client: clientWith(fake.transport) });
@@ -89,7 +89,7 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     expect(screen.queryByTestId('your-sheet-name')).not.toBeInTheDocument();
   });
 
-  it('Edge: any other outcome renders the mapped copy with a Retry that issues exactly one more request (WAS-27)', async () => {
+  it('Edge: any other outcome renders the mapped copy with a Retry that issues exactly one more request', async () => {
     const user = userEvent.setup();
     const fake = createFakeTransport(
       errorOutcome('INTERNAL_ERROR', 'boom', 500),
@@ -111,7 +111,7 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     expect(sheetRequests(fake)).toHaveLength(2);
   });
 
-  it('Edge: an undecodable payload is a failure, not a crash (WAS-27)', async () => {
+  it('Edge: an undecodable payload is a failure, not a crash', async () => {
     const fake = createFakeTransport({
       status: 200,
       body: JSON.stringify({ data: { not: 'a sheet' } }),
@@ -125,7 +125,7 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     expect(screen.getByTestId('your-sheet-screen')).toBeInTheDocument();
   });
 
-  it('Edge: cancel issues zero DELETEs and keeps the sheet (WAS-28)', async () => {
+  it('Edge: cancel issues zero DELETEs and keeps the sheet', async () => {
     const user = userEvent.setup();
     const fake = createFakeTransport(successOutcome(SHEET_JSON));
 
@@ -161,7 +161,7 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     expect(deleteRequests(fake)).toHaveLength(0);
   });
 
-  it('Happy path: confirm issues exactly one DELETE, evicts the sheet and its draft and shows empty (WAS-28, WAS-29)', async () => {
+  it('Happy path: confirm issues exactly one DELETE, evicts the sheet and its draft and shows empty', async () => {
     const user = userEvent.setup();
     const store = createMemorySheetStore();
     await store.putSheet({
@@ -188,7 +188,7 @@ describe('the "Your sheet" destination (WAS-25 … WAS-29)', () => {
     expect(store.records()).toEqual([]);
   });
 
-  it('Edge: a delete failure keeps the sheet and shows the mapped copy (WAS-29)', async () => {
+  it('Edge: a delete failure keeps the sheet and shows the mapped copy', async () => {
     const user = userEvent.setup();
     const fake = createFakeTransport(
       successOutcome(SHEET_JSON),

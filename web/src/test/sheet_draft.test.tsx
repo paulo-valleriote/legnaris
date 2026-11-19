@@ -41,8 +41,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('sheet draft on the mounted screen (WSC-26, WSC-28, WSC-30)', () => {
-  it('Happy path: opening overlays the stored draft and marks the restored edit pending (WSC-28)', async () => {
+describe('sheet draft on the mounted screen', () => {
+  it('Happy path: opening overlays the stored draft and marks the restored edit pending', async () => {
     const sheetStore = createMemorySheetStore();
     await sheetStore.writeDraft(SHEET_ID, { identity: { level: 8 } });
     renderApp(SHEET_URL, { client: clientWith(loadedFake().transport), sheetStore });
@@ -53,7 +53,7 @@ describe('sheet draft on the mounted screen (WSC-26, WSC-28, WSC-30)', () => {
     expect(screen.getByText(message('sheet.pendingEdits'))).toBeInTheDocument();
   });
 
-  it('Edge: a corrupt stored draft leaves the sheet clean (WSC-30)', async () => {
+  it('Edge: a corrupt stored draft leaves the sheet clean', async () => {
     const sheetStore = createMemorySheetStore();
     sheetStore.putRawDraft(SHEET_ID, {
       schemaVersion: SCHEMA_VERSION,
@@ -68,7 +68,7 @@ describe('sheet draft on the mounted screen (WSC-26, WSC-28, WSC-30)', () => {
     expect(screen.queryByText(message('sheet.pendingEdits'))).not.toBeInTheDocument();
   });
 
-  it('Happy path: the mounted cadence backs up the pending editable delta (WSC-26)', async () => {
+  it('Happy path: the mounted cadence backs up the pending editable delta', async () => {
     const interval = vi.spyOn(globalThis, 'setInterval');
     const sheetStore = createMemorySheetStore();
     const user = userEvent.setup();
@@ -87,7 +87,7 @@ describe('sheet draft on the mounted screen (WSC-26, WSC-28, WSC-30)', () => {
     });
   });
 
-  it('Edge: unmounting the screen clears the cadence interval (WSC-26)', async () => {
+  it('Edge: unmounting the screen clears the cadence interval', async () => {
     const interval = vi.spyOn(globalThis, 'setInterval');
     const clear = vi.spyOn(globalThis, 'clearInterval');
     const view = renderApp(SHEET_URL, { client: clientWith(loadedFake().transport) });

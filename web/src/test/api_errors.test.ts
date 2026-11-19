@@ -3,7 +3,7 @@ import { DefensiveParseFailure, DomainFailure, PathFailure } from '../api/errors
 
 describe('client error shapes', () => {
   describe('DomainFailure', () => {
-    it('Happy path: carries the status, raw code, server message and kind (API-03, API-24)', () => {
+    it('Happy path: carries the status, raw code, server message and kind', () => {
       const failure = new DomainFailure({
         kind: 'notFound',
         status: 404,
@@ -18,14 +18,14 @@ describe('client error shapes', () => {
       expect(failure.message).toBe('sheet not found');
     });
 
-    it('Edge: an absent status stays absent for a transport failure (API-20)', () => {
+    it('Edge: an absent status stays absent for a transport failure', () => {
       const failure = new DomainFailure({ kind: 'offline', message: 'transport failure' });
 
       expect(failure.status).toBeUndefined();
       expect(failure.code).toBeUndefined();
     });
 
-    it('Edge: a non-string server message becomes an empty string (API-24)', () => {
+    it('Edge: a non-string server message becomes an empty string', () => {
       const failure = new DomainFailure({
         kind: 'serverError',
         status: 500,
@@ -35,7 +35,7 @@ describe('client error shapes', () => {
       expect(failure.message).toBe('');
     });
 
-    it('Edge: a non-string raw code becomes absent rather than a coerced string (API-24)', () => {
+    it('Edge: a non-string raw code becomes absent rather than a coerced string', () => {
       const failure = new DomainFailure({ kind: 'unknown', status: 409, code: 409 as unknown });
 
       expect(failure.code).toBeUndefined();
@@ -43,7 +43,7 @@ describe('client error shapes', () => {
   });
 
   describe('DefensiveParseFailure', () => {
-    it('Happy path: carries the reason and the status it was seen at (API-04, API-22)', () => {
+    it('Happy path: carries the reason and the status it was seen at', () => {
       const failure = new DefensiveParseFailure({ reason: 'missing data envelope', status: 200 });
 
       expect(failure).toBeInstanceOf(Error);
@@ -52,7 +52,7 @@ describe('client error shapes', () => {
       expect(failure.message).toContain('missing data envelope');
     });
 
-    it('Edge: a defensive failure is not a domain failure, so the two are distinguishable (API-22)', () => {
+    it('Edge: a defensive failure is not a domain failure, so the two are distinguishable', () => {
       const parse = new DefensiveParseFailure({ reason: 'invalid JSON' });
       const domain = new DomainFailure({ kind: 'unknown', message: 'invalid JSON' });
 
@@ -63,7 +63,7 @@ describe('client error shapes', () => {
   });
 
   describe('PathFailure', () => {
-    it('Happy path: carries the offending path (API-14)', () => {
+    it('Happy path: carries the offending path', () => {
       const failure = new PathFailure('stats..dexterity');
 
       expect(failure).toBeInstanceOf(Error);
@@ -71,7 +71,7 @@ describe('client error shapes', () => {
       expect(failure.message).toContain('stats..dexterity');
     });
 
-    it('Edge: a path failure is neither a domain failure nor a parse failure (API-14)', () => {
+    it('Edge: a path failure is neither a domain failure nor a parse failure', () => {
       const failure = new PathFailure('');
 
       expect(failure).not.toBeInstanceOf(DomainFailure);

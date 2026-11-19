@@ -21,7 +21,7 @@ const manifest = JSON.parse(
 
 const stageGround = resolveThemeTokenValues('dark').get('--lg-color-stage');
 
-describe('web app manifest (FND-06)', () => {
+describe('web app manifest', () => {
   it('Happy path: declares the installability identity fields', () => {
     expect(manifest.name).toBe('Legnaris');
     expect(manifest.short_name).toBe('Legnaris');

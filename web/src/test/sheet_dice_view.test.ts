@@ -127,7 +127,7 @@ describe('pruneStaleChoices', () => {
     expect(pruned).toEqual({ row: { 'attrs.init': null }, section: { attrs: null } });
   });
 
-  it('Edge: a Section expression that fits none of its Rows is ignored (ADR 0006)', () => {
+  it('Edge: a Section expression that fits none of its Rows is ignored', () => {
     const pruned = pruneStaleChoices(
       { row: {}, section: { attrs: '1d20+attrs.removed' } },
       { rowKeys, sectionRows, schema },

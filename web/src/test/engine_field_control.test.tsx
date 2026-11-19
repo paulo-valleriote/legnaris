@@ -16,7 +16,7 @@ function schema(overrides: Partial<FieldSchema> = {}): FieldSchema {
 }
 
 describe('sheet field control', () => {
-  it('Edge: a numeric input rejects text that does not resolve to a finite number (ENG-12)', () => {
+  it('Edge: a numeric input rejects text that does not resolve to a finite number', () => {
     const onChanged = vi.fn();
     render(
       <SheetFieldControl
@@ -41,7 +41,7 @@ describe('sheet field control', () => {
     expect(input).toHaveValue('5');
   });
 
-  it('Edge: an emptied numeric input reports a cleared value, not zero (ENG-12)', () => {
+  it('Edge: an emptied numeric input reports a cleared value, not zero', () => {
     const onChanged = vi.fn();
     render(
       <SheetFieldControl
@@ -59,7 +59,7 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith(null);
   });
 
-  it('Edge: with no change handler the numeric input is inert (ENG-13)', () => {
+  it('Edge: with no change handler the numeric input is inert', () => {
     render(
       <SheetFieldControl
         path="stats.dexterity"
@@ -71,7 +71,7 @@ describe('sheet field control', () => {
     expect(screen.getByRole('textbox', { name: 'Dexterity' })).toBeDisabled();
   });
 
-  it('Edge: with no change handler the text input is inert (ENG-13)', () => {
+  it('Edge: with no change handler the text input is inert', () => {
     render(
       <SheetFieldControl
         path="identity.name"
@@ -83,7 +83,7 @@ describe('sheet field control', () => {
     expect(screen.getByRole('textbox', { name: 'Name' })).toBeDisabled();
   });
 
-  it('Edge: with no change handler the toggle is inert (ENG-13)', () => {
+  it('Edge: with no change handler the toggle is inert', () => {
     render(
       <SheetFieldControl
         path="flags.isNpc"
@@ -95,7 +95,7 @@ describe('sheet field control', () => {
     expect(screen.getByRole('checkbox', { name: 'NPC' })).toBeDisabled();
   });
 
-  it('Edge: an editable leaf of an unrecognized type renders the read-only value without an editor (ENG-11)', () => {
+  it('Edge: an editable leaf of an unrecognized type renders the read-only value without an editor', () => {
     render(
       <SheetFieldControl
         path="misc.mystery"
@@ -110,7 +110,7 @@ describe('sheet field control', () => {
     expect(screen.queryByText(message('engine.calculated'))).not.toBeInTheDocument();
   });
 
-  it('Edge: a null stored value renders empty and a later edit reports a real value (ENG-09, ENG-13)', () => {
+  it('Edge: a null stored value renders empty and a later edit reports a real value', () => {
     const onChanged = vi.fn();
     render(
       <SheetFieldControl
@@ -127,7 +127,7 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith(7);
   });
 
-  it('Edge: a derived leaf marked by a preview drops the Calculated label and tints (ENG-10, ENG-22)', () => {
+  it('Edge: a derived leaf marked by a preview drops the Calculated label and tints', () => {
     const { container } = render(
       <SheetFieldControl
         path="derived.total"
@@ -141,7 +141,7 @@ describe('sheet field control', () => {
     expect(container.querySelector(`.${FIELD_MARKED_CLASS}`)).not.toBeNull();
   });
 
-  it('Happy path: an editable number leaf renders a numeric input and reports the parsed number (ENG-07, ENG-12)', () => {
+  it('Happy path: an editable number leaf renders a numeric input and reports the parsed number', () => {
     const onChanged = vi.fn();
     render(
       <SheetFieldControl
@@ -160,7 +160,7 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith(7.5);
   });
 
-  it('Happy path: an editable text leaf renders a text input and reports the typed text (ENG-07)', () => {
+  it('Happy path: an editable text leaf renders a text input and reports the typed text', () => {
     const onChanged = vi.fn();
     render(
       <SheetFieldControl
@@ -177,7 +177,7 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith('Boromir');
   });
 
-  it('Happy path: an unchecked bool leaf reports true when toggled (ENG-08)', () => {
+  it('Happy path: an unchecked bool leaf reports true when toggled', () => {
     const onChanged = vi.fn();
     render(
       <SheetFieldControl
@@ -194,7 +194,7 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith(true);
   });
 
-  it('Happy path: a checked bool leaf reports false when toggled (ENG-08)', () => {
+  it('Happy path: a checked bool leaf reports false when toggled', () => {
     const onChanged = vi.fn();
     render(
       <SheetFieldControl
@@ -211,7 +211,7 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith(false);
   });
 
-  it('Happy path: a config proxy leaf reports 1 and 0 (ENG-08)', () => {
+  it('Happy path: a config proxy leaf reports 1 and 0', () => {
     const onChanged = vi.fn();
     render(
       <SheetFieldControl
@@ -225,7 +225,7 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith(1);
   });
 
-  it('Happy path: a config proxy leaf turned off reports 0 (ENG-08)', () => {
+  it('Happy path: a config proxy leaf turned off reports 0', () => {
     const onChanged = vi.fn();
     render(
       <SheetFieldControl
@@ -239,7 +239,7 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith(0);
   });
 
-  it('Happy path: a derived leaf is described as Calculated (not drawn) and shows its formula on hover (ENG-09, ENG-10)', () => {
+  it('Happy path: a derived leaf is described as Calculated (not drawn) and shows its formula on hover', () => {
     render(
       <SheetFieldControl
         path="derived.total"
@@ -301,7 +301,7 @@ describe('sheet field control', () => {
     expect(screen.queryByText(message('engine.calculated'))).not.toBeInTheDocument();
   });
 
-  it('Edge: a derived leaf without a formula exposes no tooltip (ENG-10)', () => {
+  it('Edge: a derived leaf without a formula exposes no tooltip', () => {
     const { container } = render(
       <SheetFieldControl
         path="derived.total"

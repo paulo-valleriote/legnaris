@@ -43,8 +43,8 @@ function sessionOver(
   });
 }
 
-describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
-  it('Happy path: sign-out empties the cache and the drafts, drops the token and shows the form (WAS-19)', async () => {
+describe('session boundary', () => {
+  it('Happy path: sign-out empties the cache and the drafts, drops the token and shows the form', async () => {
     const store = createMemorySheetStore();
     await store.putSheet(SHEET);
     await store.writeDraft(SHEET.id, { stats: { dexterity: 18 } });
@@ -64,7 +64,7 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
     await expect(store.readDraft(SHEET.id)).resolves.toBeNull();
   });
 
-  it('Happy path: a forced logout clears the store identically, so no record survives the boundary (WAS-20, WAS-22)', async () => {
+  it('Happy path: a forced logout clears the store identically, so no record survives the boundary', async () => {
     const store = createMemorySheetStore();
     await store.putSheet(SHEET);
     await store.writeDraft(SHEET.id, { stats: { dexterity: 18 } });
@@ -79,7 +79,7 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
     expect(store.records()).toEqual([]);
   });
 
-  it('Edge: a failing clearAll still ends the session and shows the form (WAS-21)', async () => {
+  it('Edge: a failing clearAll still ends the session and shows the form', async () => {
     const store = createMemorySheetStore();
     store.clearAll = () => Promise.reject(new Error('idb closed'));
     const fake = createFakeTransport({ status: 204, body: '' });
@@ -95,7 +95,7 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
     await waitFor(() => expect(screen.getByTestId('landing')).toBeInTheDocument());
   });
 
-  it('Edge: a transient refresh failure is not a boundary and leaves the cached sheet and the draft in place (WAS-05, WAS-15)', async () => {
+  it('Edge: a transient refresh failure is not a boundary and leaves the cached sheet and the draft in place', async () => {
     const store = createMemorySheetStore();
     await store.putSheet(SHEET);
     await store.writeDraft(SHEET.id, { stats: { dexterity: 18 } });
@@ -108,7 +108,7 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
     expect(store.records()).toHaveLength(2);
   });
 
-  it('Edge: a failed /auth/logout never blocks the local teardown (WAS-19)', async () => {
+  it('Edge: a failed /auth/logout never blocks the local teardown', async () => {
     const store = createMemorySheetStore();
     await store.putSheet(SHEET);
     const fake = createFakeTransport(errorOutcome('INTERNAL_ERROR', 'boom', 500));
@@ -120,7 +120,7 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
     expect(store.records()).toEqual([]);
   });
 
-  it('Edge: a pending code step is never read as a session, and the cold-start refresh keeps its behaviour (WCS-01, WAS-03)', async () => {
+  it('Edge: a pending code step is never read as a session, and the cold-start refresh keeps its behaviour', async () => {
     const store = createMemorySheetStore();
     const fake = createFakeTransport(
       successOutcome(SESSION_BODY),
@@ -150,7 +150,7 @@ describe('session boundary (WAS-19 … WAS-23, WAS-32)', () => {
     );
   });
 
-  it('Edge: activating sign-out twice in one frame issues exactly one /auth/logout (WAS-23)', async () => {
+  it('Edge: activating sign-out twice in one frame issues exactly one /auth/logout', async () => {
     const store = createMemorySheetStore();
     const deferred = createDeferredTransport();
     const session = sessionOver(deferred.transport, () => clearSessionData(store));

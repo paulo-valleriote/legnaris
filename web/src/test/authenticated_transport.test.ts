@@ -71,8 +71,8 @@ function recordingInner(outcomes: HttpResponse[]): {
 const UNAUTHORIZED: HttpResponse = errorOutcome('UNAUTHORIZED', 'expired', 401);
 const OK: HttpResponse = successOutcome({ ok: true });
 
-describe('authenticated transport (WAS-11 … WAS-17)', () => {
-  it('Happy path: a protected call carries the Bearer token and passes a non-401 response through (WAS-11)', async () => {
+describe('authenticated transport', () => {
+  it('Happy path: a protected call carries the Bearer token and passes a non-401 response through', async () => {
     const inner = recordingInner([OK]);
     const { session, refresh } = sessionHarness();
     const transport = createAuthenticatedTransport({ inner: inner.transport, session });
@@ -85,7 +85,7 @@ describe('authenticated transport (WAS-11 … WAS-17)', () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it('Edge: a protected call with no token sends no Bearer and starts no refresh (WAS-11)', async () => {
+  it('Edge: a protected call with no token sends no Bearer and starts no refresh', async () => {
     const inner = recordingInner([UNAUTHORIZED]);
     const { session, refresh, onUnauthorized } = sessionHarness({ token: null });
     const transport = createAuthenticatedTransport({ inner: inner.transport, session });
@@ -98,7 +98,7 @@ describe('authenticated transport (WAS-11 … WAS-17)', () => {
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
-  it('Edge: /health and every /auth/* path carry no Bearer and can never start a refresh (WAS-16)', async () => {
+  it('Edge: /health and every /auth/* path carry no Bearer and can never start a refresh', async () => {
     const paths = ['/health', '/auth/register', '/auth/login', '/auth/refresh', '/auth/logout'];
 
     for (const path of paths) {
@@ -114,7 +114,7 @@ describe('authenticated transport (WAS-11 … WAS-17)', () => {
     }
   });
 
-  it('Happy path: a 401 produces exactly one refresh and one replayed request with the new Bearer (WAS-12, WAS-13)', async () => {
+  it('Happy path: a 401 produces exactly one refresh and one replayed request with the new Bearer', async () => {
     const inner = recordingInner([UNAUTHORIZED, OK]);
     const { session, refresh } = sessionHarness();
     const transport = createAuthenticatedTransport({ inner: inner.transport, session });
@@ -127,7 +127,7 @@ describe('authenticated transport (WAS-11 … WAS-17)', () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it('Edge: a replay that is again 401 is not replayed a second time (WAS-12)', async () => {
+  it('Edge: a replay that is again 401 is not replayed a second time', async () => {
     const inner = recordingInner([UNAUTHORIZED, UNAUTHORIZED]);
     const { session, refresh, onUnauthorized } = sessionHarness();
     const transport = createAuthenticatedTransport({ inner: inner.transport, session });
@@ -140,7 +140,7 @@ describe('authenticated transport (WAS-11 … WAS-17)', () => {
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
-  it('Happy path: a refresh rejected with 401 forces the logout once and returns the original 401 (WAS-14)', async () => {
+  it('Happy path: a refresh rejected with 401 forces the logout once and returns the original 401', async () => {
     const inner = recordingInner([UNAUTHORIZED]);
     const { session, onUnauthorized } = sessionHarness({ refresh: async () => null });
     const transport = createAuthenticatedTransport({ inner: inner.transport, session });
@@ -152,7 +152,7 @@ describe('authenticated transport (WAS-11 … WAS-17)', () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
-  it('Edge: a transient refresh rethrows and leaves the session untouched (WAS-15)', async () => {
+  it('Edge: a transient refresh rethrows and leaves the session untouched', async () => {
     const inner = recordingInner([UNAUTHORIZED]);
     const failure = new Error('network');
     const { session, onUnauthorized } = sessionHarness({
@@ -165,7 +165,7 @@ describe('authenticated transport (WAS-11 … WAS-17)', () => {
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
-  it('Edge: a 401 belonging to a superseded session is dropped — no replay, no forced logout (WAS-17)', async () => {
+  it('Edge: a 401 belonging to a superseded session is dropped — no replay, no forced logout', async () => {
     const inner = recordingInner([UNAUTHORIZED, OK]);
     const harness = sessionHarness({
       refresh: async () => {
@@ -185,7 +185,7 @@ describe('authenticated transport (WAS-11 … WAS-17)', () => {
     expect(harness.onUnauthorized).not.toHaveBeenCalled();
   });
 
-  it('Happy path: two concurrent 401s share a single in-flight refresh (WAS-13)', async () => {
+  it('Happy path: two concurrent 401s share a single in-flight refresh', async () => {
     const authFake = createDeferredTransport();
     const session = createAuthSession({
       authApi: createAuthApi({

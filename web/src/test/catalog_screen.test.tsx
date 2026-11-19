@@ -24,8 +24,8 @@ function clientWith(transport: Transport) {
   return createApiClient({ baseUrl: BASE_URL, transport: withPlanUsage(transport) });
 }
 
-describe('catalog screen (WCT-03 … WCT-10)', () => {
-  it('Happy path: while the request is in flight it shows the loading copy and not the empty copy (WCT-03)', async () => {
+describe('catalog screen', () => {
+  it('Happy path: while the request is in flight it shows the loading copy and not the empty copy', async () => {
     const deferred = createDeferredTransport();
     renderApp('/', { client: clientWith(deferred.transport) });
 
@@ -36,7 +36,7 @@ describe('catalog screen (WCT-03 … WCT-10)', () => {
     deferred.resolve(successOutcome(TWO_TEMPLATES));
   });
 
-  it('Happy path: a two-entry response renders two rows in the response order with their names (WCT-04)', async () => {
+  it('Happy path: a two-entry response renders two rows in the response order with their names', async () => {
     const deferred = createDeferredTransport();
     renderApp('/', { client: clientWith(deferred.transport) });
 
@@ -63,7 +63,7 @@ describe('catalog screen (WCT-03 … WCT-10)', () => {
     expect(trailing!.querySelector('svg')).not.toBeNull();
   });
 
-  it('Happy path: an empty response renders exactly one line and no decorative row (WCT-05)', async () => {
+  it('Happy path: an empty response renders exactly one line and no decorative row', async () => {
     const deferred = createDeferredTransport();
     renderApp('/', { client: clientWith(deferred.transport) });
 
@@ -75,7 +75,7 @@ describe('catalog screen (WCT-03 … WCT-10)', () => {
     expect(screen.queryByText(message('catalog.loading'))).not.toBeInTheDocument();
   });
 
-  it('Edge: a failed response renders the mapped copy plus a Retry action (WCT-06)', async () => {
+  it('Edge: a failed response renders the mapped copy plus a Retry action', async () => {
     const deferred = createDeferredTransport();
     renderApp('/', { client: clientWith(deferred.transport) });
 
@@ -88,7 +88,7 @@ describe('catalog screen (WCT-03 … WCT-10)', () => {
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
   });
 
-  it('Edge: a malformed payload renders the parse-failure copy with Retry, no blank screen and no partial list (WCT-09)', async () => {
+  it('Edge: a malformed payload renders the parse-failure copy with Retry, no blank screen and no partial list', async () => {
     const deferred = createDeferredTransport();
     renderApp('/', { client: clientWith(deferred.transport) });
 
@@ -100,7 +100,7 @@ describe('catalog screen (WCT-03 … WCT-10)', () => {
     expect(screen.getByTestId('catalog')).toBeInTheDocument();
   });
 
-  it('Edge: an entry whose name is empty renders without throwing and keeps the layout intact (WCT-10)', async () => {
+  it('Edge: an entry whose name is empty renders without throwing and keeps the layout intact', async () => {
     const deferred = createDeferredTransport();
     renderApp('/', { client: clientWith(deferred.transport) });
 

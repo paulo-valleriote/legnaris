@@ -245,8 +245,8 @@
  * Below 40rem (640 px) the two-column grid cannot fit: the navigation and the content minimum
  * alone exceed a phone. The navigation becomes a compact top bar (still exactly two regions, nav
  * then main, never an overlay or a hamburger) and the content takes the full width on 16 px
- * gutters. Media queries do not resolve custom properties, so the breakpoint is a relative unit
- * (UIF-29), one hundredth of a rem under the 40rem desktop edge so 40rem itself stays desktop.
+ * gutters. Media queries do not resolve custom properties, so the breakpoint is a relative unit,
+ * one hundredth of a rem under the 40rem desktop edge so 40rem itself stays desktop.
  */
 @media (max-width: 39.99rem) {
   .lg-shell {

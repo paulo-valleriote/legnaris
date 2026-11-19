@@ -30,7 +30,7 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe('application shell', () => {
-  it('Happy path: renders the navigation then the content, with no third region (UIF-24)', () => {
+  it('Happy path: renders the navigation then the content, with no third region', () => {
     renderApp('/');
 
     const nav = screen.getByRole('navigation', { name: 'Primary' });
@@ -50,7 +50,7 @@ describe('application shell', () => {
     expect(nav.querySelector('.lg-nav__footer')).toBeInTheDocument();
   });
 
-  it('Happy path: the content region shows the template catalog (WCT-01)', async () => {
+  it('Happy path: the content region shows the template catalog', async () => {
     renderApp('/');
 
     const main = screen.getByRole('main');
@@ -60,7 +60,7 @@ describe('application shell', () => {
     );
   });
 
-  it('Edge: the content region renders no placeholder rows or demo data (FND-01)', async () => {
+  it('Edge: the content region renders no placeholder rows or demo data', async () => {
     renderApp('/');
 
     await waitFor(() => expect(screen.getByText(message('catalog.empty'))).toBeInTheDocument());
@@ -70,7 +70,7 @@ describe('application shell', () => {
     expect(screen.queryAllByRole('table')).toHaveLength(0);
   });
 
-  it('Edge: no source references the removed contextual panel (UIF-26, UIF-32)', () => {
+  it('Edge: no source references the removed contextual panel', () => {
     const files = sourceFiles(srcDir);
     expect(files.length).toBeGreaterThan(0);
 

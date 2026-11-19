@@ -212,9 +212,9 @@ npm run test:e2e -- sheet.spec.ts                  # axe: zero critical violatio
 
 ## Dice expressions (`src/dice/`)
 
-Pure TypeScript parser, resolver and Roll (ADR 0005). Rolls use the browser's
+Pure TypeScript parser, resolver and Roll. Rolls use the browser's
 `crypto.getRandomValues` and are never sent to the server; the player's expression choices are
-pending work in the edit store, saved with the sheet's `PATCH` (ADR 0006), and reach it through
+pending work in the edit store, saved with the sheet's `PATCH`, and reach it through
 `createDiceStore` (`src/sheet/dice_store.ts`).
 The Roll UI (`dice_row.tsx`, `dice_panel.tsx`) lives in `src/sheet/`. Rules and module map: [`web/AGENTS.md`](./AGENTS.md)
 ("Dice expressions"). Shared grammar vectors: [`testdata/dice/`](../testdata/dice/).
@@ -231,7 +231,7 @@ mark contract; `engine.css` styles it all from `--lg-*` tokens. Copy resolves th
 `src/l10n/strings.ts`.
 
 `SheetForm` takes **exactly one** control source — `data` plus `onChanged`, or both
-`controlBuilder` and `exclusiveControlBuilder`; any other combination throws (ENG-25).
+`controlBuilder` and `exclusiveControlBuilder`; any other combination throws.
 The caller owns the per-field value subscription, the edit reporting and the preview
 marks through the seams; the engine reads no value in builder mode.
 

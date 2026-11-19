@@ -165,7 +165,7 @@ describe('api client generation operations', () => {
     expect(JSON.parse(fake.lastRequest?.body ?? '{}')).toEqual({ version: '2' });
   });
 
-  it('Edge: a write is never repeated on a transport failure (API-33)', async () => {
+  it('Edge: a write is never repeated on a transport failure', async () => {
     const { fake, client } = clientWith({ failure: new Error('network down') });
 
     await expect(

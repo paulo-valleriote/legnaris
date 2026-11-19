@@ -4,7 +4,7 @@ Development, security and architecture rules for the client under `web/`. The **
 principles, token architecture, colour, typography, spacing/layout, radius/border/elevation,
 motion, component specifications, accessibility, security posture, per-screen patterns, enforcement
 and anti-patterns — live in **[DESIGN.md](./DESIGN.md)**, which is the sole written source of the
-visual values and supersedes any visual statement elsewhere (UIF-33). Design values are made
+visual values and supersedes any visual statement elsewhere. Design values are made
 **once**, there, not per screen.
 
 ## Visual rules
@@ -26,8 +26,8 @@ The visual side of interaction — focus ring, hover, dialog avoidance, feedback
 ## Security rules (non-negotiable)
 
 - **No DOM injection sinks**: `dangerouslySetInnerHTML`, `innerHTML`, `eval`,
-  `new Function`, `document.write` are forbidden — ESLint fails the build on them
-  (FND-10, SEC-02). React escapes text automatically; keep data as text.
+  `new Function`, `document.write` are forbidden — ESLint fails the build on them.
+  React escapes text automatically; keep data as text.
 - **No third-party scripts, styles, or fonts**: everything is self-hosted and
   same-origin, so the strict production Content-Security-Policy
   (`deploy/traefik/dynamic.yml`) holds without exceptions.
@@ -79,7 +79,7 @@ no request, no mark. It mounts no screen; every case renders its modules directl
   renders one wrapper carrying `data-row-key` and `data-row-kind` (`normal` | `exclusive` |
   `table`). The row key comes from `rowKey(row)` in `field_grouping.ts`
   (`<path>`, `<parent path>#<groupId>`, `<group path>`; the same keys the backend validates a
-  layout against, ADR 0001): it depends only on the template, never on position or value, and is
+  layout against): it depends only on the template, never on position or value, and is
   unique across the sheet. A table Row is self-sufficient: it draws its own column header inside
   its wrapper, shared with the next Row only when that Row is the adjacent table Row with the same
   columns (`needsTableHeader`), judged on the Rows as drawn, so a pin that changes who neighbours
@@ -119,9 +119,9 @@ receives none and keeps its `aria-label`.
 
 **One control source.** `SheetForm` takes exactly one: `data` + `onChanged`, or both
 `controlBuilder` and `exclusiveControlBuilder`. Any other combination throws rather than
-half-render (ENG-25). In builder mode the composition reads no value, so the caller owns
+half-render. In builder mode the composition reads no value, so the caller owns
 the per-field subscription and edit reporting through the seams (`controlBuilder`,
-`exclusiveControlBuilder`, optional `rowMarkBuilder`) — the web expression of `AD-001`.
+`exclusiveControlBuilder`, optional `rowMarkBuilder`).
 
 **Numeric guard.** The numeric input seeds from its stored value, holds its display text
 locally, and reports an edit only when the whole text resolves to a finite number: an
@@ -131,7 +131,7 @@ A sign or point typed so far (`-`, `.`, `-.`) is kept as display text and report
 `-3` can be typed key by key; `-0` reports `0`, never a negative zero. Leaving the field with
 only such a pending text restores the text of the last reported value. The iOS decimal pad has
 no minus key, so a focus-only sign toggle (`Toggle sign of <label>`, not a tab stop) flips the
-leading minus through the same path (ENG-12).
+leading minus through the same path.
 
 Phone editing is the same guard made faster. Focus selects the whole text (in a frame after focus,
 and only while the text is unchanged, so an early keystroke is never selected over; a tap on an
@@ -191,7 +191,7 @@ the F2 client and the F4 engine and owns no wire model.
 **One edit rebuilds one control.** A field control subscribes to its own dotted path
 (`store.subscribePath`) and reports edits back through the engine's `controlBuilder`/
 `exclusiveControlBuilder` seams; the screen subscribes only to the coarse signals it renders
-(footer, marks). This is the web expression of `AD-001`, obtained with
+(footer, marks). The per-path subscription is obtained with
 `useSyncExternalStore` — no state library is added.
 
 **Delta, never a snapshot.** A save and a preview send only the pending editable delta,
@@ -219,7 +219,7 @@ The one exception is an offline save or preview failure: the edit store writes t
 to the draft immediately (not on the 60 s cadence) and the footer says "kept on this device" only
 when that write landed; otherwise it says the changes could not be kept (`sheet.error.*OfflineUnkept`).
 
-## Dice expressions (`src/dice/`, ADR 0005)
+## Dice expressions (`src/dice/`)
 
 Pure TypeScript half of the Dice grammar: no React, no network, no dependency on the API models.
 The Go package `backend/internal/dice` validates; this module parses, resolves and rolls.
@@ -243,7 +243,7 @@ The Go package `backend/internal/dice` validates; this module parses, resolves a
 - **Validation mirrors the server.** The client refuses what the `dice` block of `PATCH /sheets/:id` would refuse
   (same limits, grammar, Row fit and 64-entry cap) so a bad expression never reaches the wire; the
   server stays the authority and its 400 `INVALID_REQUEST` is still mapped.
-- **A dice choice is pending work (ADR 0006).** The edit store (`sheet_edit.ts`) holds the saved and
+- **A dice choice is pending work.** The edit store (`sheet_edit.ts`) holds the saved and
   the current block; `createDiceStore` (`src/sheet/dice_store.ts`) is the face the Dice controls use
   over it: it runs the local check and, when accepted, records the choice with `setDice`. Nothing is
   sent until Save (or `Ctrl+S`), which issues one `PATCH` carrying the delta and the whole block
@@ -271,7 +271,7 @@ The Go package `backend/internal/dice` validates; this module parses, resolves a
   query containment. Rendering helpers are in `src/sheet/dice_view.ts`; wire models in
   `src/api/models/dice.ts`. Copy lives in `src/l10n/strings.ts`.
 
-## Layout and Arrange mode (ADR 0001)
+## Layout and Arrange mode
 
 The player's order of Sections and the pinned Rows form the sheet's `layout`
 (`{"section_order": [...], "pinned": [...]}`; `GET /sheets/:id` carries it only when set;
@@ -338,7 +338,7 @@ no recalculation). Only the lists that deviate from the Template are sent.
   `dark` under `lg.theme`.
 - `use_theme.ts` — the `useSyncExternalStore` hook the control and any surface read.
 - `public/theme-init.js` — the same-origin classic head script that resolves the theme before
-  the first paint; no inline script and no policy hash (`UIF-20`).
+  the first paint; no inline script and no policy hash.
 
 ## Componentization
 
@@ -349,7 +349,7 @@ no recalculation). Only the lists that deviate from the Template are sent.
 - One sanctioned base layer at `web/src/ui/` holds the five primitives (`button`, `field`,
   `checkbox`, `dialog`, `toast`) plus the focus trap; it imports no feature directory,
   uses `lg-<block>__<element>--<modifier>` and keeps the `≥ 3 real usages` rule for every
-  other extraction (UIP-01, UIP-03, SC-007). No wrapper-for-wrapper's-sake elsewhere.
+  other extraction. No wrapper-for-wrapper's-sake elsewhere.
 
 ## Dependencies
 
@@ -366,7 +366,7 @@ The per-feature deviation log lives in `docs/web-delivered-deviations.md`. These
 
 - Tests are flat in `src/test/` with a `*.test.ts(x)` suffix (feature prefixes such as
   `engine_*`), because the Vitest setup and shared helpers serve every suite.
-- No state library: per-path subscriptions use `useSyncExternalStore` (`AD-001`).
+- No state library: per-path subscriptions use `useSyncExternalStore`.
 - The leave guard is a shell-level registry, not a router blocker; a browser-back gesture is
   not intercepted, only in-app navigation.
 - Modal surfaces are accessible overlays (`role="dialog"`, `aria-modal`), not native

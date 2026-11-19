@@ -9,7 +9,7 @@ import { setViewportWidth } from './match_media';
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 describe('application shell responsiveness', () => {
-  it('Happy path: both regions render at desktop width (UIF-24)', () => {
+  it('Happy path: both regions render at desktop width', () => {
     setViewportWidth(1280);
     renderApp('/');
 
@@ -18,7 +18,7 @@ describe('application shell responsiveness', () => {
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   });
 
-  it('Edge: at a narrow viewport the navigation stays visible and both regions remain (UIF-25)', () => {
+  it('Edge: at a narrow viewport the navigation stays visible and both regions remain', () => {
     setViewportWidth(600);
     renderApp('/');
 
@@ -27,7 +27,7 @@ describe('application shell responsiveness', () => {
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   });
 
-  it('Edge: narrowing after render keeps the same two regions, with no third (UIF-25, UIF-32)', () => {
+  it('Edge: narrowing after render keeps the same two regions, with no third', () => {
     setViewportWidth(1280);
     renderApp('/');
     expect(screen.getByRole('main')).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe('application shell responsiveness', () => {
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   });
 
-  it('Edge: the grid keeps a tokenised content minimum, so the regions never overlap (UIF-25)', () => {
+  it('Edge: the grid keeps a tokenised content minimum, so the regions never overlap', () => {
     const css = readFileSync(path.resolve(here, '../shell/shell.css'), 'utf8');
     const shell = css.match(/\.lg-shell\s*\{([\s\S]*?)\}/)?.[1] ?? '';
 

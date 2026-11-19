@@ -1,11 +1,11 @@
 /*
- * The single source of literal visual values (UIF-01). Three layers:
+ * The single source of literal visual values. Three layers:
  *   1. primitives — raw scales with no role;
  *   2. semantics   — the roles components consume, declared per theme;
  *   3. components  — added only where no semantic covers the need.
  * The light theme lives on `:root`; the dark theme overrides the semantic layer under the
- * dark-theme attribute selector. Every semantic resolves in both (UIF-02); each block
- * declares its `color-scheme` (UIF-03).
+ * dark-theme attribute selector. Every semantic resolves in both; each block
+ * declares its `color-scheme`.
  */
 :root {
   /* Layer 1 — primitives */
