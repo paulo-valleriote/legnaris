@@ -100,7 +100,8 @@ func memberState(t *testing.T, name string) string {
 	t.Helper()
 	const probe = `db.getSiblingDB("admin").auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD);` +
 		`const users = db.getSiblingDB("legnaris").getUsers().users.map(u => u.user).sort().join(",");` +
-		`print("set=" + rs.status().set + " ok=" + rs.status().ok + " users=" + users)`
+		`const view = db.getSiblingDB("legnaris").getUser("legnaris_view").roles.map(r => r.role + "@" + r.db).sort().join(",");` +
+		`print("set=" + rs.status().set + " ok=" + rs.status().ok + " users=" + users + " view=" + view)`
 	out, err := dockerRun(t, []string{
 		"MONGO_INITDB_ROOT_USERNAME=" + bootstrapTestUser,
 		"MONGO_INITDB_ROOT_PASSWORD=" + bootstrapTestPassword,
@@ -113,7 +114,7 @@ func memberState(t *testing.T, name string) string {
 func TestBootstrapAgainstRealReplicaSet(t *testing.T) {
 	requireDocker(t)
 	name := startBootstrapMember(t)
-	const want = "set=rs0 ok=1 users=legnaris_app,legnaris_view"
+	const want = "set=rs0 ok=1 users=legnaris_app,legnaris_view view=clusterMonitor@admin,read@legnaris"
 
 	t.Run("Happy path: the first run initiates rs0, creates root and the application users", func(t *testing.T) {
 		out, err := bootstrapMember(t, name)
@@ -131,6 +132,21 @@ func TestBootstrapAgainstRealReplicaSet(t *testing.T) {
 		out, err := dockerRun(t, nil, "restart", name)
 		require.NoError(t, err, out)
 		waitForMongo(t, name)
+
+		out, err = bootstrapMember(t, name)
+		require.NoError(t, err, out)
+		assert.Equal(t, want, memberState(t, name))
+	})
+
+	t.Run("Edge: a view user created before clusterMonitor existed is granted it on the next bootstrap", func(t *testing.T) {
+		out, err := dockerRun(t, []string{
+			"MONGO_INITDB_ROOT_USERNAME=" + bootstrapTestUser,
+			"MONGO_INITDB_ROOT_PASSWORD=" + bootstrapTestPassword,
+		}, "exec", "-e", "MONGO_INITDB_ROOT_USERNAME", "-e", "MONGO_INITDB_ROOT_PASSWORD",
+			name, "mongosh", "--quiet", "--eval",
+			`db.getSiblingDB("admin").auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD);`+
+				`db.getSiblingDB("legnaris").revokeRolesFromUser("legnaris_view", [{role: "clusterMonitor", db: "admin"}])`)
+		require.NoError(t, err, out)
 
 		out, err = bootstrapMember(t, name)
 		require.NoError(t, err, out)
@@ -217,7 +233,7 @@ func waitForStandaloneUsers(t *testing.T, name string) {
 func TestBootstrapConvertsAStandaloneWithUsers(t *testing.T) {
 	requireDocker(t)
 	name := startStandaloneThenConvert(t)
-	const want = "set=rs0 ok=1 users=legnaris_app,legnaris_view"
+	const want = "set=rs0 ok=1 users=legnaris_app,legnaris_view view=clusterMonitor@admin,read@legnaris"
 
 	t.Run("Edge: the localhost exception is closed, so rs0 is initiated as root and the users are kept", func(t *testing.T) {
 		out, err := bootstrapMember(t, name)
