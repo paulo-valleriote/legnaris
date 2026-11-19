@@ -27,7 +27,7 @@ const (
 var (
 	ErrMissingAPIKey          = errors.New("openrouter: API key is required")
 	ErrMissingModel           = errors.New("openrouter: model is required")
-	ErrFreeModel              = errors.New("openrouter: :free model variants are refused (ADR 0008)")
+	ErrFreeModel              = errors.New("openrouter: :free model variants are refused")
 	ErrInvalidBaseURL         = errors.New("openrouter: base URL must be an absolute http or https URL with a host")
 	ErrInvalidTimeout         = errors.New("openrouter: timeout must be positive")
 	ErrMissingLogger          = errors.New("openrouter: logger is required")

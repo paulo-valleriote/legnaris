@@ -230,7 +230,7 @@ func (e Env) Validate() error {
 
 func validateLLMModel(model string) error {
 	if strings.HasSuffix(model, ":free") {
-		return errors.New("LLM_MODEL must not be a :free model variant (ADR 0008)")
+		return errors.New("LLM_MODEL must not be a :free model variant")
 	}
 	return nil
 }
