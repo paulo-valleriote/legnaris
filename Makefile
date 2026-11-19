@@ -64,8 +64,9 @@ fmt:            ## Format code
 english:        ## Fail when a Go, TS/TSX or web/src/l10n source holds non-English text
 	@go run ./backend/cmd/english-check
 
-hooks-test:     ## Exercise the versioned Claude Code hooks (Bash secret guard)
+hooks-test:     ## Exercise the versioned Claude Code hooks (secret guard, stop verification)
 	@scripts/hooks/guard-secrets_test.sh
+	@scripts/hooks/stop-verify_test.sh
 
 mod-check:      ## Verify go.mod/go.sum are tidy
 	@go mod tidy -diff
