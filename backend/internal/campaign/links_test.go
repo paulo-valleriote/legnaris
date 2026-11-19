@@ -6,16 +6,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/campaign/campaigntest"
 	"legnaris/backend/internal/campaign/mocks"
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/apperr"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func npcSheet(t *testing.T, owner, template string, kind plan.SheetKind) sheet.Sheet {
@@ -161,7 +163,7 @@ func TestLinkNpc(t *testing.T) {
 				h.loadAlways(deleting)
 			case tc.missing:
 				h.loadAlways(base)
-				h.sheets.EXPECT().FetchByID(mock.Anything, mock.Anything).Return(nil, sheet.ErrSheetNotFound).Once()
+				h.sheets.EXPECT().FetchByID(mock.Anything, mock.Anything).Return(nil, sheeterr.ErrSheetNotFound).Once()
 			default:
 				h.loadAlways(base)
 			}
@@ -204,7 +206,7 @@ func TestLinkNpc(t *testing.T) {
 			assert.Equal(t, tc.wantRevealed, view.Revealed)
 			assert.True(t, view.IsOwner)
 			assert.Equal(t, "Owner Name", view.OwnerName)
-			assert.Equal(t, tc.wantEvents, len(h.events))
+			assert.Len(t, h.events, tc.wantEvents)
 			if tc.wantEvents == 1 {
 				assert.Equal(t, campaign.EventSheetLinked, h.events[0].Type)
 			}
@@ -361,7 +363,7 @@ func TestUnlinkNpc_MissingSheetIsNotFound(t *testing.T) {
 	owner := campaigntest.OwnerID(base)
 	h := newHarness(t)
 	h.loadAlways(base)
-	h.sheets.EXPECT().FetchByID(mock.Anything, mock.Anything).Return(nil, sheet.ErrSheetNotFound).Once()
+	h.sheets.EXPECT().FetchByID(mock.Anything, mock.Anything).Return(nil, sheeterr.ErrSheetNotFound).Once()
 
 	err := h.service().UnlinkNpc(context.Background(), campaign.UnlinkNpcCommand{
 		CampaignID: base.ID,
@@ -497,7 +499,7 @@ func TestListNpcLinks(t *testing.T) {
 				func(_ context.Context, id string) (*sheet.Sheet, error) {
 					found, ok := tc.sheets[id]
 					if !ok {
-						return nil, sheet.ErrSheetNotFound
+						return nil, sheeterr.ErrSheetNotFound
 					}
 					cp := found
 					return &cp, nil
@@ -627,7 +629,7 @@ func TestReadNpcSheet(t *testing.T) {
 				h.links.EXPECT().Fetch(mock.Anything, base.ID, sh.ID).Return(&link, nil).Once()
 				hiddenFromPlayer := tc.wantCode == apperr.CodeNotFound && !tc.missingRow
 				if tc.missingRow {
-					h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, sheet.ErrSheetNotFound).Once()
+					h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, sheeterr.ErrSheetNotFound).Once()
 				} else if !hiddenFromPlayer {
 					h.sheetReturns(sh)
 				}

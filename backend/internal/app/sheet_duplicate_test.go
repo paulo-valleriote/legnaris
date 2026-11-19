@@ -55,7 +55,7 @@ func TestSheetRoutes_Duplicate(t *testing.T) {
 				OwnerID: campaignTestUserID,
 			}).Return(duplicatedSheetFixture(), tc.err).Once()
 
-			rec := doCampaignRequest(newMockSheetRouter(svc), http.MethodPost, "/sheets/"+campaignTestSheetID+"/duplicate", "")
+			rec := doCampaignRequest(t, newMockSheetRouter(svc), http.MethodPost, "/sheets/"+campaignTestSheetID+"/duplicate", "")
 			assert.Equal(t, tc.status, rec.Code)
 			if tc.wantCode != "" {
 				assert.Equal(t, tc.wantCode, campaignErrorCode(t, rec))

@@ -62,7 +62,7 @@ func unlimited() ratelimit.Allower {
 
 func doJSON(t *testing.T, e *echo.Echo, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -141,7 +141,7 @@ func TestGenerationController_Create(t *testing.T) {
 			userID: genUserID,
 			body:   `{"template_id":"fantasy_v1","concept":"A grizzled dwarf smith"}`,
 			service: fakeGenerationService{create: func(cmd generation.CreateCommand) (string, error) {
-				assert.Equal(t, "", cmd.Kind)
+				assert.Empty(t, cmd.Kind)
 				return "", apperr.NewError(apperr.CodeInvalidRequest, generation.MsgKindInvalid, nil)
 			}},
 			wantStatus: http.StatusBadRequest,

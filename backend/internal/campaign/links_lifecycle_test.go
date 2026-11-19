@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/campaign/campaigntest"
 	"legnaris/backend/internal/plan"
-	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/apperr"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGmExit_DeletesOnlyThatOwnersLinks(t *testing.T) {
@@ -159,7 +160,7 @@ func TestGmExit_MissingSheetSkipsTheUnlinkEvent(t *testing.T) {
 		name     string
 		sheetErr error
 	}{
-		{name: "Edge: a link whose sheet is already gone emits nothing", sheetErr: sheet.ErrSheetNotFound},
+		{name: "Edge: a link whose sheet is already gone emits nothing", sheetErr: sheeterr.ErrSheetNotFound},
 		{name: "Error: a sheet read failure does not fail the demotion and emits nothing", sheetErr: errStoreDown},
 	}
 	for _, tc := range tests {

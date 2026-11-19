@@ -11,7 +11,7 @@ name: CI
 # expensive suites for a label change would waste minutes.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
@@ -22,8 +22,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A title edit re-runs the workflow to re-check the title alone: the diff is
+  # unchanged, so the path filter and every suite it feeds are skipped and only
+  # `pr-title` and the gate spend a runner.
   changes:
     name: detect changed areas
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -47,6 +51,13 @@ jobs:
               - 'deploy/**'
               - 'scripts/**'
               - '.githooks/**'
+              # The versioned Claude Code settings wire the Bash secret guard and
+              # the gitleaks config shapes the scan; both are gated here.
+              - '.claude/**'
+              - '.gitleaks.toml'
+              # The English-only scanner reads the client's l10n catalogue and
+              # is gated by the go-lint job; a pt-BR string added there must run it.
+              - 'web/src/l10n/**'
               - 'go.mod'
               - 'go.sum'
               - '.golangci.yml'
@@ -85,8 +96,25 @@ jobs:
           git fetch --no-tags origin "$BASE_REF"
           git diff --name-only "origin/$BASE_REF...HEAD" | go run ./backend/cmd/context-check -base "origin/$BASE_REF" -label "$LABEL" -summary "$GITHUB_STEP_SUMMARY"
 
+  # Branch protection requires the gate, so a pull request whose title names no
+  # Jira card cannot merge: the key is what links the change back to the board.
+  # It runs on every event, including a title edit that skips the diff suites.
+  pr-title:
+    name: PR title carries a Jira key
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Title names an LGN-<number> card
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: go run ./scripts/ci/cmd/pr-title-check
+
   go-lint:
-    name: golangci-lint, tidy, deploy stack config, shellcheck
+    name: golangci-lint, tidy, mocks, shellcheck, deploy stack config
     needs: changes
     if: needs.changes.outputs.go == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-latest
@@ -102,17 +130,56 @@ jobs:
           version: v2.13
           args: --new=false
 
+      - name: No comments in Go or TS/TSX sources
+        run: go run ./backend/cmd/nocomments
+
       # A dependency added as `// indirect` while a source imports it directly
       # stays harmless at build time but drifts from `go mod tidy`; this gate
       # keeps go.mod/go.sum canonical (mirrored by `make mod-check`).
       - name: go.mod is tidy
         run: go mod tidy -diff
 
+      - name: "Test case names carry a Happy path, Edge or Error prefix"
+        run: go run ./backend/cmd/testnames
+
+      # Mocks are generated, so a hand-edit or an interface that changed without
+      # a regeneration drifts silently: regenerating and diffing keeps them
+      # exactly what mockery writes, and the scan keeps every mock under mocks/
+      # carrying its generated header (mirrored by `make mocks-check`).
+      - name: mocks are generated, current and confined to mocks/
+        run: make mocks-check
+
       # The VPS deploy script runs as root-equivalent on the host and the dev
       # scripts and hooks gate local work; shellcheck catches quoting and
       # word-splitting bugs before they reach the VPS.
       - name: shellcheck
-        run: shellcheck deploy/vps/*.sh deploy/cd/*.sh scripts/*.sh .githooks/pre-commit
+        run: shellcheck deploy/vps/*.sh deploy/cd/*.sh scripts/*.sh scripts/hooks/*.sh .githooks/pre-commit
+
+      # The versioned hooks deny Bash commands that would print .env or the
+      # GitHub token and block a stop on failing lint/tests; both suites prove
+      # every denial, every sanctioned use and the change classification.
+      - name: Claude Code hook tests (secret guard, stop verification)
+        run: |
+          scripts/hooks/guard-secrets_test.sh
+          scripts/hooks/stop-verify_test.sh
+
+      # English is the only language in code and UI copy (AGENTS.md). The
+      # scanner reads every Go, TS/TSX and web/src/l10n source in the tracked
+      # tree; a file is allow-listed only with a written reason.
+      - name: English-only sources
+        run: make english
+
+      # Pinned release binary, checksum-verified, scanning the pull request's
+      # working tree with the committed allow-list for fixture values.
+      - name: Secret scan (gitleaks)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" dir --no-banner --redact --config .gitleaks.toml .
 
       # Interpolate the whole stack against the committed .env.example (every
       # required variable is a non-empty placeholder), so a required var that
@@ -146,6 +213,51 @@ jobs:
           DATABASE_URI: mongodb://root:legnaris-ci-only@localhost:27017/?replicaSet=rs0&retryWrites=true&authSource=admin
         run: go test -race ./...
 
+  # The race job mounts a replica set, so a suite that needs no service and one
+  # that silently skips without it look identical there. This job runs the whole
+  # tree with the service addresses explicitly empty: a test that needs a
+  # database, broker or cache has to skip on its own rather than fail here.
+  go-test-nodb:
+    name: Go tests (no database, broker or cache)
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: go test with no service addresses
+        env:
+          DATABASE_URI: ''
+          RABBITMQ_URL: ''
+          REDIS_URL: ''
+        run: go test ./...
+
+  # A behaviour change without a test is the review signal this job automates:
+  # it pairs every changed Go package with a changed test in the same package and
+  # every changed web source with a change under web/src/test/. The
+  # `no-tests:refactor` label is the escape hatch for a change that keeps the
+  # contract; it skips the check and records itself in the step summary.
+  tests-required:
+    name: changed code ships tests
+    if: github.event_name == 'pull_request' && github.event.action != 'edited'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Every changed package ships a test change
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          git diff --name-only --diff-filter=ACMR "origin/$BASE_REF...HEAD" | go run ./scripts/ci/cmd/tests-required
+
   web-quality:
     name: web format, lint, typecheck, tests, build
     needs: changes
@@ -163,6 +275,12 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - name: Install
         run: npm ci
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: No comments in Go or TS/TSX sources
+        working-directory: .
+        run: go run ./backend/cmd/nocomments
       - name: Format check
         run: npm run format:check
       - name: Lint (ESLint incl. anti-XSS rules)
@@ -235,7 +353,7 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, context-docs, go-lint, go-race, web-quality, web-e2e, images-build]
+    needs: [changes, pr-title, context-docs, go-lint, go-race, go-test-nodb, tests-required, web-quality, web-e2e, images-build]
     if: always()
     runs-on: ubuntu-latest
     steps:

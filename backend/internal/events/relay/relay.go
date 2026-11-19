@@ -44,7 +44,7 @@ func NewQueue(repository outbox.Repository, publisher Publisher, cfg Config) (sw
 func handler(publisher Publisher, repository outbox.Repository, confirmTimeout time.Duration) sweeper.Handler[outbox.Entry] {
 	return func(ctx context.Context, job sweeper.Job[outbox.Entry], now time.Time) error {
 		if err := idgen.Validate(job.ID); err != nil {
-			return fmt.Errorf("%w: invalid identity: %v", sweeper.ErrPermanent, err)
+			return fmt.Errorf("%w: invalid identity: %w", sweeper.ErrPermanent, err)
 		}
 		if err := publish(ctx, publisher, job.Payload, confirmTimeout); err != nil {
 			return err

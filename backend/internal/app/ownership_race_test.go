@@ -31,7 +31,7 @@ func TestIntegration_Sheets_ConcurrentCreateRace(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 
-			req := httptest.NewRequest(http.MethodPost, "/sheets", strings.NewReader(body))
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/sheets", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Authorization", "Bearer "+token)
 

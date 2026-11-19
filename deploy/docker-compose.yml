@@ -174,10 +174,10 @@ services:
       GENERATION_READ_RATE_LIMIT_WINDOW: ${GENERATION_READ_RATE_LIMIT_WINDOW:-1m}
       # The OTP digest key is required: the API itself digests codes, so an
       # absent or too-short value must fail the boot rather than weaken every
-      # code. It must differ from JWT_SECRET (F-09, OTP-18, SC-008).
+      # code. It must differ from JWT_SECRET.
       EMAIL_CODE_SECRET: ${EMAIL_CODE_SECRET:?EMAIL_CODE_SECRET is required}
       # Optional challenge settings; the app defaults are 10m / 30m / 60s / 5 /
-      # 80 / 1h / 10 (OTP-18).
+      # 80 / 1h / 10.
       AUTH_OTP_TTL: ${AUTH_OTP_TTL:-10m}
       AUTH_OTP_CEILING: ${AUTH_OTP_CEILING:-30m}
       AUTH_OTP_RESEND_COOLDOWN: ${AUTH_OTP_RESEND_COOLDOWN:-60s}

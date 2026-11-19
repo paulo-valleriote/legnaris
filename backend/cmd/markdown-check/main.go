@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"strings"
 
 	"legnaris/backend/internal/contextdocs"
+
+	sharedjson "legnaris/backend/shared/json"
 )
 
 type hookResponse struct {
@@ -80,7 +83,7 @@ func loadAllowlist(root, allowlistPath string) (*contextdocs.MarkdownAllowlist, 
 }
 
 func trackedMarkdown(root string) ([]string, error) {
-	output, err := exec.Command("git", "-C", root, "ls-files", "--", "*.md").Output()
+	output, err := exec.CommandContext(context.Background(), "git", "-C", root, "ls-files", "--", "*.md").Output()
 	if err != nil {
 		return nil, fmt.Errorf("git ls-files: %w", err)
 	}
@@ -96,7 +99,11 @@ func trackedMarkdown(root string) ([]string, error) {
 
 func runHook(root, allowlistPath string, allowlist *contextdocs.MarkdownAllowlist, stdin io.Reader, stdout, stderr io.Writer) int {
 	var input contextdocs.HookInput
-	if err := json.NewDecoder(stdin).Decode(&input); err != nil {
+	payload, err := io.ReadAll(stdin)
+	if err == nil {
+		err = sharedjson.DecodeBytes(payload, &input)
+	}
+	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "markdown-check: read hook payload: %v\n", err)
 		return 0
 	}
@@ -127,7 +134,7 @@ func runHook(root, allowlistPath string, allowlist *contextdocs.MarkdownAllowlis
 }
 
 func ignoredByGit(root, relative string) bool {
-	return exec.Command("git", "-C", root, "check-ignore", "-q", "--", relative).Run() == nil
+	return exec.CommandContext(context.Background(), "git", "-C", root, "check-ignore", "-q", "--", relative).Run() == nil
 }
 
 func printError(stderr io.Writer, err error) {

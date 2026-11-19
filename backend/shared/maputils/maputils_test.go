@@ -17,70 +17,70 @@ func TestGet(t *testing.T) {
 		wantFound bool
 	}{
 		{
-			name:      "Single level - exists",
+			name:      "Happy path: Single level - exists",
 			nested:    map[string]any{"a": 1.0},
 			path:      []string{"a"},
 			wantVal:   1.0,
 			wantFound: true,
 		},
 		{
-			name:      "Single level - not exists",
+			name:      "Error: Single level - not exists",
 			nested:    map[string]any{"a": 1.0},
 			path:      []string{"b"},
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Two levels - exists",
+			name:      "Happy path: Two levels - exists",
 			nested:    map[string]any{"a": map[string]any{"b": 2.0}},
 			path:      []string{"a", "b"},
 			wantVal:   2.0,
 			wantFound: true,
 		},
 		{
-			name:      "Three levels - exists",
+			name:      "Happy path: Three levels - exists",
 			nested:    map[string]any{"a": map[string]any{"b": map[string]any{"c": 3.0}}},
 			path:      []string{"a", "b", "c"},
 			wantVal:   3.0,
 			wantFound: true,
 		},
 		{
-			name:      "Deep nesting - 5 levels",
+			name:      "Happy path: Deep nesting - 5 levels",
 			nested:    map[string]any{"a": map[string]any{"b": map[string]any{"c": map[string]any{"d": map[string]any{"e": 5.0}}}}},
 			path:      []string{"a", "b", "c", "d", "e"},
 			wantVal:   5.0,
 			wantFound: true,
 		},
 		{
-			name:      "Intermediate not a map",
+			name:      "Error: Intermediate not a map",
 			nested:    map[string]any{"a": "not a map"},
 			path:      []string{"a", "b"},
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Nil map",
+			name:      "Edge: Nil map",
 			nested:    nil,
 			path:      []string{"a"},
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Empty path",
+			name:      "Edge: Empty path",
 			nested:    map[string]any{"a": 1.0},
 			path:      []string{},
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Path with empty segment",
+			name:      "Edge: Path with empty segment",
 			nested:    map[string]any{"a": map[string]any{"": 42.0}},
 			path:      []string{"a", ""},
 			wantVal:   42.0,
 			wantFound: true,
 		},
 		{
-			name:      "Non-existent intermediate",
+			name:      "Error: Non-existent intermediate",
 			nested:    map[string]any{"a": map[string]any{"b": 1.0}},
 			path:      []string{"a", "c", "d"},
 			wantVal:   nil,
@@ -108,70 +108,70 @@ func TestGetFlat(t *testing.T) {
 		wantFound bool
 	}{
 		{
-			name:      "Flat key resolves nested value",
+			name:      "Happy path: Flat key resolves nested value",
 			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
 			key:       "stats.str",
 			wantVal:   10.0,
 			wantFound: true,
 		},
 		{
-			name:      "Deep flat key resolves deeply nested value",
+			name:      "Happy path: Deep flat key resolves deeply nested value",
 			nested:    map[string]any{"a": map[string]any{"b": map[string]any{"c": 3.0}}},
 			key:       "a.b.c",
 			wantVal:   3.0,
 			wantFound: true,
 		},
 		{
-			name:      "Key without separator reads the root entry",
+			name:      "Happy path: Key without separator reads the root entry",
 			nested:    map[string]any{"a": 1.0},
 			key:       "a",
 			wantVal:   1.0,
 			wantFound: true,
 		},
 		{
-			name:      "Nil map",
+			name:      "Edge: Nil map",
 			nested:    nil,
 			key:       "stats.str",
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Empty key",
+			name:      "Edge: Empty key",
 			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
 			key:       "",
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Missing intermediate",
+			name:      "Error: Missing intermediate",
 			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
 			key:       "mod.str",
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Intermediate is not a map",
+			name:      "Error: Intermediate is not a map",
 			nested:    map[string]any{"stats": 5.0},
 			key:       "stats.str",
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Missing leaf",
+			name:      "Error: Missing leaf",
 			nested:    map[string]any{"stats": map[string]any{"str": 10.0}},
 			key:       "stats.dex",
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Present but nil value counts as found",
+			name:      "Edge: Present but nil value counts as found",
 			nested:    map[string]any{"stats": map[string]any{"str": nil}},
 			key:       "stats.str",
 			wantVal:   nil,
 			wantFound: true,
 		},
 		{
-			name:      "Nested map leaf value",
+			name:      "Happy path: Nested map leaf value",
 			nested:    map[string]any{"stats": map[string]any{"sub": map[string]any{"a": 1.0}}},
 			key:       "stats.sub.a",
 			wantVal:   1.0,
@@ -200,7 +200,7 @@ func TestSet(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name:       "Single level - new key",
+			name:       "Happy path: Single level - new key",
 			nested:     map[string]any{},
 			path:       []string{"a"},
 			value:      1.0,
@@ -208,7 +208,7 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "Single level - overwrite",
+			name:       "Happy path: Single level - overwrite",
 			nested:     map[string]any{"a": 1.0},
 			path:       []string{"a"},
 			value:      2.0,
@@ -216,7 +216,7 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "Two levels - creates intermediate",
+			name:       "Happy path: Two levels - creates intermediate",
 			nested:     map[string]any{},
 			path:       []string{"a", "b"},
 			value:      2.0,
@@ -224,7 +224,7 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "Three levels - creates all intermediates",
+			name:       "Happy path: Three levels - creates all intermediates",
 			nested:     map[string]any{},
 			path:       []string{"a", "b", "c"},
 			value:      3.0,
@@ -232,7 +232,7 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "Existing intermediate map - adds to it",
+			name:       "Happy path: Existing intermediate map - adds to it",
 			nested:     map[string]any{"a": map[string]any{"x": 1.0}},
 			path:       []string{"a", "b"},
 			value:      2.0,
@@ -240,7 +240,7 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "Intermediate exists but not a map - returns error without mutating",
+			name:       "Error: Intermediate exists but not a map - returns error without mutating",
 			nested:     map[string]any{"a": "not a map"},
 			path:       []string{"a", "b"},
 			value:      2.0,
@@ -248,7 +248,7 @@ func TestSet(t *testing.T) {
 			wantErr:    ErrNotMap,
 		},
 		{
-			name:       "Nil map - returns error",
+			name:       "Error: Nil map - returns error",
 			nested:     nil,
 			path:       []string{"a"},
 			value:      1.0,
@@ -256,7 +256,7 @@ func TestSet(t *testing.T) {
 			wantErr:    ErrNilMap,
 		},
 		{
-			name:       "Empty path - returns error",
+			name:       "Error: Empty path - returns error",
 			nested:     map[string]any{"a": 1.0},
 			path:       []string{},
 			value:      2.0,
@@ -264,7 +264,7 @@ func TestSet(t *testing.T) {
 			wantErr:    ErrEmptyPath,
 		},
 		{
-			name:       "Path with empty segment",
+			name:       "Edge: Path with empty segment",
 			nested:     map[string]any{},
 			path:       []string{"a", "", "b"},
 			value:      42.0,
@@ -272,7 +272,7 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "String value",
+			name:       "Happy path: String value",
 			nested:     map[string]any{},
 			path:       []string{"a", "b"},
 			value:      "hello",
@@ -280,7 +280,7 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "Bool value",
+			name:       "Happy path: Bool value",
 			nested:     map[string]any{},
 			path:       []string{"a", "b"},
 			value:      true,
@@ -288,7 +288,7 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "Nil value",
+			name:       "Edge: Nil value",
 			nested:     map[string]any{},
 			path:       []string{"a", "b"},
 			value:      nil,
@@ -296,7 +296,7 @@ func TestSet(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
-			name:       "Slice value",
+			name:       "Happy path: Slice value",
 			nested:     map[string]any{},
 			path:       []string{"a", "b"},
 			value:      []int{1, 2, 3},
@@ -313,7 +313,7 @@ func TestSet(t *testing.T) {
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.wantNested, inputCopy)
 			}
 		})
@@ -329,84 +329,84 @@ func TestApplyUpdates(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name:       "Single update",
+			name:       "Happy path: Single update",
 			nested:     map[string]any{"stats": map[string]any{"str": 10.0}},
 			updates:    map[string]any{"stats.str": 16.0},
 			wantNested: map[string]any{"stats": map[string]any{"str": 16.0}},
 			wantErr:    nil,
 		},
 		{
-			name:       "Multiple updates",
+			name:       "Happy path: Multiple updates",
 			nested:     map[string]any{"stats": map[string]any{"str": 10.0, "dex": 12.0}},
 			updates:    map[string]any{"stats.str": 16.0, "stats.dex": 14.0},
 			wantNested: map[string]any{"stats": map[string]any{"str": 16.0, "dex": 14.0}},
 			wantErr:    nil,
 		},
 		{
-			name:       "Update creates new nested path",
+			name:       "Happy path: Update creates new nested path",
 			nested:     map[string]any{},
 			updates:    map[string]any{"character.attributes.str": 15.0},
 			wantNested: map[string]any{"character": map[string]any{"attributes": map[string]any{"str": 15.0}}},
 			wantErr:    nil,
 		},
 		{
-			name:       "Empty updates - no change",
+			name:       "Edge: Empty updates - no change",
 			nested:     map[string]any{"a": 1.0},
 			updates:    map[string]any{},
 			wantNested: map[string]any{"a": 1.0},
 			wantErr:    nil,
 		},
 		{
-			name:       "Nil updates - no change",
+			name:       "Edge: Nil updates - no change",
 			nested:     map[string]any{"a": 1.0},
 			updates:    nil,
 			wantNested: map[string]any{"a": 1.0},
 			wantErr:    nil,
 		},
 		{
-			name:       "Nil nested - no change, no error",
+			name:       "Edge: Nil nested - no change, no error",
 			nested:     nil,
 			updates:    map[string]any{"a.b": 1.0},
 			wantNested: nil,
 			wantErr:    nil,
 		},
 		{
-			name:       "Updates with string values",
+			name:       "Happy path: Updates with string values",
 			nested:     map[string]any{},
 			updates:    map[string]any{"name": "test", "nested.value": "hello"},
 			wantNested: map[string]any{"name": "test", "nested": map[string]any{"value": "hello"}},
 			wantErr:    nil,
 		},
 		{
-			name:       "Keys with multiple dots",
+			name:       "Happy path: Keys with multiple dots",
 			nested:     map[string]any{},
 			updates:    map[string]any{"a.b.c.d": 1.0},
 			wantNested: map[string]any{"a": map[string]any{"b": map[string]any{"c": map[string]any{"d": 1.0}}}},
 			wantErr:    nil,
 		},
 		{
-			name:       "Intermediate not a map - returns error",
+			name:       "Error: Intermediate not a map - returns error",
 			nested:     map[string]any{"a": "not a map"},
 			updates:    map[string]any{"a.b": 1.0},
 			wantNested: map[string]any{"a": "not a map"},
 			wantErr:    ErrNotMap,
 		},
 		{
-			name:       "Empty key - returns ErrEmptyPath",
+			name:       "Error: Empty key - returns ErrEmptyPath",
 			nested:     map[string]any{"a": 1.0},
 			updates:    map[string]any{"": 2.0},
 			wantNested: map[string]any{"a": 1.0},
 			wantErr:    ErrEmptyPath,
 		},
 		{
-			name:       "Trailing dot key keeps empty segment",
+			name:       "Edge: Trailing dot key keeps empty segment",
 			nested:     map[string]any{},
 			updates:    map[string]any{"a.": 1.0},
 			wantNested: map[string]any{"a": map[string]any{"": 1.0}},
 			wantErr:    nil,
 		},
 		{
-			name:       "Multibyte segments split on dots",
+			name:       "Edge: Multibyte segments split on dots",
 			nested:     map[string]any{},
 			updates:    map[string]any{"action.mod": 2.0},
 			wantNested: map[string]any{"action": map[string]any{"mod": 2.0}},
@@ -422,7 +422,7 @@ func TestApplyUpdates(t *testing.T) {
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.wantNested, inputCopy)
 			}
 		})
@@ -436,57 +436,57 @@ func TestToEngineEnv(t *testing.T) {
 		wantFlat map[string]any
 	}{
 		{
-			name:     "Simple flat",
+			name:     "Happy path: Simple flat",
 			nested:   map[string]any{"a": 1.0, "b": 2.0},
 			wantFlat: map[string]any{"a": 1.0, "b": 2.0},
 		},
 		{
-			name:     "Two levels",
+			name:     "Happy path: Two levels",
 			nested:   map[string]any{"stats": map[string]any{"str": 10.0, "dex": 12.0}},
 			wantFlat: map[string]any{"stats_str": 10.0, "stats_dex": 12.0},
 		},
 		{
-			name:     "Three levels",
+			name:     "Happy path: Three levels",
 			nested:   map[string]any{"character": map[string]any{"attributes": map[string]any{"str": 15.0}}},
 			wantFlat: map[string]any{"character_attributes_str": 15.0},
 		},
 		{
-			name:     "Mixed leaf and branch",
+			name:     "Happy path: Mixed leaf and branch",
 			nested:   map[string]any{"base": 5.0, "nested": map[string]any{"val": 10.0}},
 			wantFlat: map[string]any{"base": 5.0, "nested_val": 10.0},
 		},
 		{
-			name:     "Empty nested map - skipped",
+			name:     "Edge: Empty nested map - skipped",
 			nested:   map[string]any{"empty": map[string]any{}, "val": 1.0},
 			wantFlat: map[string]any{"empty": map[string]any{}, "val": 1.0},
 		},
 		{
-			name:     "Nil nested",
+			name:     "Edge: Nil nested",
 			nested:   nil,
 			wantFlat: map[string]any{},
 		},
 		{
-			name:     "Empty nested",
+			name:     "Edge: Empty nested",
 			nested:   map[string]any{},
 			wantFlat: map[string]any{},
 		},
 		{
-			name:     "String values",
+			name:     "Happy path: String values",
 			nested:   map[string]any{"name": "hero", "stats": map[string]any{"class": "warrior"}},
 			wantFlat: map[string]any{"name": "hero", "stats_class": "warrior"},
 		},
 		{
-			name:     "Bool values",
+			name:     "Happy path: Bool values",
 			nested:   map[string]any{"active": true, "config": map[string]any{"enabled": false}},
 			wantFlat: map[string]any{"active": true, "config_enabled": false},
 		},
 		{
-			name:     "Keys with underscores preserved",
+			name:     "Happy path: Keys with underscores preserved",
 			nested:   map[string]any{"stats_dex": 10.0, "stats": map[string]any{"str_dex": 12.0}},
 			wantFlat: map[string]any{"stats_dex": 10.0, "stats_str_dex": 12.0},
 		},
 		{
-			name:     "Keys with dots in name",
+			name:     "Edge: Keys with dots in name",
 			nested:   map[string]any{"stats.str": 10.0},
 			wantFlat: map[string]any{"stats.str": 10.0},
 		},
@@ -508,37 +508,37 @@ func TestFlattenPathKeys(t *testing.T) {
 		wantFlat map[string]any
 	}{
 		{
-			name:     "Simple flat",
+			name:     "Happy path: Simple flat",
 			nested:   map[string]any{"a": 1.0, "b": 2.0},
 			wantFlat: map[string]any{"a": 1.0, "b": 2.0},
 		},
 		{
-			name:     "Two levels",
+			name:     "Happy path: Two levels",
 			nested:   map[string]any{"stats": map[string]any{"str": 10.0, "dex": 12.0}},
 			wantFlat: map[string]any{"stats.str": 10.0, "stats.dex": 12.0},
 		},
 		{
-			name:     "Three levels",
+			name:     "Happy path: Three levels",
 			nested:   map[string]any{"character": map[string]any{"attributes": map[string]any{"str": 15.0}}},
 			wantFlat: map[string]any{"character.attributes.str": 15.0},
 		},
 		{
-			name:     "Mixed leaf and branch",
+			name:     "Happy path: Mixed leaf and branch",
 			nested:   map[string]any{"base": 5.0, "nested": map[string]any{"val": 10.0}},
 			wantFlat: map[string]any{"base": 5.0, "nested.val": 10.0},
 		},
 		{
-			name:     "Empty nested map - treated as leaf",
+			name:     "Edge: Empty nested map - treated as leaf",
 			nested:   map[string]any{"empty": map[string]any{}, "val": 1.0},
 			wantFlat: map[string]any{"empty": map[string]any{}, "val": 1.0},
 		},
 		{
-			name:     "Nil nested",
+			name:     "Edge: Nil nested",
 			nested:   nil,
 			wantFlat: map[string]any{},
 		},
 		{
-			name:     "Empty nested",
+			name:     "Edge: Empty nested",
 			nested:   map[string]any{},
 			wantFlat: map[string]any{},
 		},
@@ -589,37 +589,37 @@ func TestDeepCopy(t *testing.T) {
 		wantCopy map[string]any
 	}{
 		{
-			name:     "Simple map",
+			name:     "Happy path: Simple map",
 			src:      map[string]any{"a": 1.0, "b": "hello"},
 			wantCopy: map[string]any{"a": 1.0, "b": "hello"},
 		},
 		{
-			name:     "Nested map",
+			name:     "Happy path: Nested map",
 			src:      map[string]any{"a": map[string]any{"b": 2.0}},
 			wantCopy: map[string]any{"a": map[string]any{"b": 2.0}},
 		},
 		{
-			name:     "Deep nested",
+			name:     "Happy path: Deep nested",
 			src:      map[string]any{"a": map[string]any{"b": map[string]any{"c": 3.0}}},
 			wantCopy: map[string]any{"a": map[string]any{"b": map[string]any{"c": 3.0}}},
 		},
 		{
-			name:     "Mixed values",
+			name:     "Happy path: Mixed values",
 			src:      map[string]any{"num": 1.0, "str": "x", "bool": true, "nil": nil, "nested": map[string]any{"x": 1.0}},
 			wantCopy: map[string]any{"num": 1.0, "str": "x", "bool": true, "nil": nil, "nested": map[string]any{"x": 1.0}},
 		},
 		{
-			name:     "Empty map",
+			name:     "Edge: Empty map",
 			src:      map[string]any{},
 			wantCopy: map[string]any{},
 		},
 		{
-			name:     "Nil map",
+			name:     "Edge: Nil map",
 			src:      nil,
 			wantCopy: nil,
 		},
 		{
-			name:     "Slice values copied by reference",
+			name:     "Happy path: Slice values copied by reference",
 			src:      map[string]any{"arr": []int{1, 2, 3}},
 			wantCopy: map[string]any{"arr": []int{1, 2, 3}},
 		},
@@ -654,223 +654,223 @@ func TestEqual(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "float64 equal",
+			name:     "Happy path: float64 equal",
 			a:        float64(10.0),
 			b:        float64(10.0),
 			expected: true,
 		},
 		{
-			name:     "float64 not equal",
+			name:     "Happy path: float64 not equal",
 			a:        float64(10.0),
 			b:        float64(20.0),
 			expected: false,
 		},
 		{
-			name:     "float64 with fractional part",
+			name:     "Happy path: float64 with fractional part",
 			a:        float64(10.5),
 			b:        float64(10.5),
 			expected: true,
 		},
 		{
-			name:     "string equal",
+			name:     "Happy path: string equal",
 			a:        "hello",
 			b:        "hello",
 			expected: true,
 		},
 		{
-			name:     "string not equal",
+			name:     "Happy path: string not equal",
 			a:        "hello",
 			b:        "world",
 			expected: false,
 		},
 		{
-			name:     "empty string",
+			name:     "Edge: empty string",
 			a:        "",
 			b:        "",
 			expected: true,
 		},
 		{
-			name:     "empty string vs non-empty",
+			name:     "Edge: empty string vs non-empty",
 			a:        "",
 			b:        "x",
 			expected: false,
 		},
 		{
-			name:     "bool equal true",
+			name:     "Happy path: bool equal true",
 			a:        true,
 			b:        true,
 			expected: true,
 		},
 		{
-			name:     "bool equal false",
+			name:     "Happy path: bool equal false",
 			a:        false,
 			b:        false,
 			expected: true,
 		},
 		{
-			name:     "bool not equal",
+			name:     "Happy path: bool not equal",
 			a:        true,
 			b:        false,
 			expected: false,
 		},
 		{
-			name:     "both nil",
+			name:     "Edge: both nil",
 			a:        nil,
 			b:        nil,
 			expected: true,
 		},
 		{
-			name:     "one nil",
+			name:     "Edge: one nil",
 			a:        nil,
 			b:        float64(10),
 			expected: false,
 		},
 		{
-			name:     "slice equal (DeepEqual fallback)",
+			name:     "Happy path: slice equal (DeepEqual fallback)",
 			a:        []int{1, 2, 3},
 			b:        []int{1, 2, 3},
 			expected: true,
 		},
 		{
-			name:     "slice not equal (DeepEqual fallback)",
+			name:     "Happy path: slice not equal (DeepEqual fallback)",
 			a:        []int{1, 2},
 			b:        []int{1, 2, 3},
 			expected: false,
 		},
 		{
-			name:     "map equal (DeepEqual fallback)",
+			name:     "Happy path: map equal (DeepEqual fallback)",
 			a:        map[string]any{"a": 1, "b": 2},
 			b:        map[string]any{"a": 1, "b": 2},
 			expected: true,
 		},
 		{
-			name:     "map not equal (DeepEqual fallback)",
+			name:     "Happy path: map not equal (DeepEqual fallback)",
 			a:        map[string]any{"a": 1},
 			b:        map[string]any{"a": 2},
 			expected: false,
 		},
 		{
-			name:     "int vs float64 equal by value",
+			name:     "Happy path: int vs float64 equal by value",
 			a:        int(10),
 			b:        float64(10.0),
 			expected: true,
 		},
 		{
-			name:     "int64 vs float64 equal by value",
+			name:     "Happy path: int64 vs float64 equal by value",
 			a:        int64(10),
 			b:        float64(10.0),
 			expected: true,
 		},
 		{
-			name:     "float32 vs float64 equal by value",
+			name:     "Happy path: float32 vs float64 equal by value",
 			a:        float32(10),
 			b:        float64(10.0),
 			expected: true,
 		},
 		{
-			name:     "int vs float64 not equal",
+			name:     "Happy path: int vs float64 not equal",
 			a:        int(10),
 			b:        float64(20.0),
 			expected: false,
 		},
 		{
-			name:     "float64 equal within epsilon",
+			name:     "Edge: float64 equal within epsilon",
 			a:        float64(0.1 + 0.2),
 			b:        float64(0.3),
 			expected: true,
 		},
 		{
-			name:     "float64 not equal beyond epsilon",
+			name:     "Edge: float64 not equal beyond epsilon",
 			a:        float64(1.0000001),
 			b:        float64(1.0),
 			expected: false,
 		},
 		{
-			name:     "float64 differ within epsilon - equal",
+			name:     "Edge: float64 differ within epsilon - equal",
 			a:        float64(1.0),
 			b:        float64(1.0 + epsilon/2),
 			expected: true,
 		},
 		{
-			name:     "float64 differ by more than epsilon - not equal",
+			name:     "Edge: float64 differ by more than epsilon - not equal",
 			a:        float64(1.0),
 			b:        float64(1.0 + 2*epsilon),
 			expected: false,
 		},
 		{
-			name:     "NaN vs NaN - not equal",
+			name:     "Edge: NaN vs NaN - not equal",
 			a:        math.NaN(),
 			b:        math.NaN(),
 			expected: false,
 		},
 		{
-			name:     "+Inf vs +Inf - equal",
+			name:     "Edge: +Inf vs +Inf - equal",
 			a:        math.Inf(1),
 			b:        math.Inf(1),
 			expected: true,
 		},
 		{
-			name:     "-Inf vs -Inf - equal",
+			name:     "Edge: -Inf vs -Inf - equal",
 			a:        math.Inf(-1),
 			b:        math.Inf(-1),
 			expected: true,
 		},
 		{
-			name:     "+Inf vs -Inf - not equal",
+			name:     "Edge: +Inf vs -Inf - not equal",
 			a:        math.Inf(1),
 			b:        math.Inf(-1),
 			expected: false,
 		},
 		{
-			name:     "uint64 max vs int64 -1 - not equal (no wrap-around)",
+			name:     "Edge: uint64 max vs int64 -1 - not equal (no wrap-around)",
 			a:        uint64(math.MaxUint64),
 			b:        int64(-1),
 			expected: false,
 		},
 		{
-			name:     "int64 -1 vs uint64 max - not equal (symmetric)",
+			name:     "Edge: int64 -1 vs uint64 max - not equal (symmetric)",
 			a:        int64(-1),
 			b:        uint64(math.MaxUint64),
 			expected: false,
 		},
 		{
-			name:     "uint64 max vs uint64 max - equal",
+			name:     "Edge: uint64 max vs uint64 max - equal",
 			a:        uint64(math.MaxUint64),
 			b:        uint64(math.MaxUint64),
 			expected: true,
 		},
 		{
-			name:     "uint64 max vs uint64 max minus one - not equal",
+			name:     "Edge: uint64 max vs uint64 max minus one - not equal",
 			a:        uint64(math.MaxUint64),
 			b:        uint64(math.MaxUint64 - 1),
 			expected: false,
 		},
 		{
-			name:     "uint64 1<<63 vs int64 min - not equal",
+			name:     "Edge: uint64 1<<63 vs int64 min - not equal",
 			a:        uint64(1) << 63,
 			b:        int64(math.MinInt64),
 			expected: false,
 		},
 		{
-			name:     "uint64 5 vs int64 -5 - not equal (sign matters)",
+			name:     "Happy path: uint64 5 vs int64 -5 - not equal (sign matters)",
 			a:        uint64(5),
 			b:        int64(-5),
 			expected: false,
 		},
 		{
-			name:     "uint64 5 vs int64 5 - equal",
+			name:     "Happy path: uint64 5 vs int64 5 - equal",
 			a:        uint64(5),
 			b:        int64(5),
 			expected: true,
 		},
 		{
-			name:     "int64 min vs int64 min - equal",
+			name:     "Edge: int64 min vs int64 min - equal",
 			a:        int64(math.MinInt64),
 			b:        int64(math.MinInt64),
 			expected: true,
 		},
 		{
-			name:     "int64 max vs int64 max minus one - not equal (exact)",
+			name:     "Edge: int64 max vs int64 max minus one - not equal (exact)",
 			a:        int64(math.MaxInt64),
 			b:        int64(math.MaxInt64 - 1),
 			expected: false,
@@ -892,42 +892,42 @@ func TestSplitPath(t *testing.T) {
 		expected []string
 	}{
 		{
-			name:     "Simple path",
+			name:     "Happy path: Simple path",
 			input:    "a.b.c",
 			expected: []string{"a", "b", "c"},
 		},
 		{
-			name:     "Single segment",
+			name:     "Happy path: Single segment",
 			input:    "a",
 			expected: []string{"a"},
 		},
 		{
-			name:     "Empty string yields empty path (rejected by Set as ErrEmptyPath)",
+			name:     "Edge: Empty string yields empty path (rejected by Set as ErrEmptyPath)",
 			input:    "",
 			expected: nil,
 		},
 		{
-			name:     "Leading dot",
+			name:     "Edge: Leading dot",
 			input:    ".a.b",
 			expected: []string{"", "a", "b"},
 		},
 		{
-			name:     "Trailing dot",
+			name:     "Edge: Trailing dot",
 			input:    "a.b.",
 			expected: []string{"a", "b", ""},
 		},
 		{
-			name:     "Multiple consecutive dots",
+			name:     "Edge: Multiple consecutive dots",
 			input:    "a..b",
 			expected: []string{"a", "", "b"},
 		},
 		{
-			name:     "Only dots",
+			name:     "Edge: Only dots",
 			input:    "..",
 			expected: []string{"", "", ""},
 		},
 		{
-			name:     "Multibyte segments split on rune boundaries",
+			name:     "Edge: Multibyte segments split on rune boundaries",
 			input:    "action.mod",
 			expected: []string{"action", "mod"},
 		},
@@ -981,7 +981,7 @@ func TestToFloat64(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, ok := ToFloat64(tc.in)
 			assert.Equal(t, tc.ok, ok)
-			assert.Equal(t, tc.want, got)
+			assert.InDelta(t, tc.want, got, 1e-9)
 		})
 	}
 }

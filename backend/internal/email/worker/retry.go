@@ -47,7 +47,7 @@ func (w *Worker) deadLetter(ctx context.Context, delivery Delivery, msg email.Me
 func (w *Worker) deadLetterBody(ctx context.Context, delivery Delivery) {
 	if err := w.republisher.PublishBodyTo(ctx, email.DestinationDeadLetter, delivery.Body); err != nil {
 		w.logger.Error(ctx, "dead-letter publish not confirmed; the broker will redeliver",
-			logger.Attribute{Key: attrError, Value: fmt.Errorf("%w: %v", ErrPublishUnconfirmed, err).Error()})
+			logger.Attribute{Key: attrError, Value: fmt.Errorf("%w: %w", ErrPublishUnconfirmed, err).Error()})
 		return
 	}
 
@@ -61,5 +61,5 @@ func (w *Worker) deadLetterBody(ctx context.Context, delivery Delivery) {
 
 func (w *Worker) leaveUnacknowledged(ctx context.Context, msg email.Message, step string, cause error) {
 	w.logger.Error(ctx, step+" not confirmed; the broker will redeliver", append(describe(msg),
-		logger.Attribute{Key: attrError, Value: fmt.Errorf("%w: %v", ErrPublishUnconfirmed, cause).Error()})...)
+		logger.Attribute{Key: attrError, Value: fmt.Errorf("%w: %w", ErrPublishUnconfirmed, cause).Error()})...)
 }

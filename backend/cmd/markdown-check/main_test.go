@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -32,7 +33,7 @@ func initGit(t *testing.T, root string) {
 
 func git(t *testing.T, root string, args ...string) {
 	t.Helper()
-	output, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput()
+	output, err := exec.CommandContext(context.Background(), "git", append([]string{"-C", root}, args...)...).CombinedOutput()
 	require.NoError(t, err, string(output))
 }
 

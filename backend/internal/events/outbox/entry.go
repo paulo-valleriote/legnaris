@@ -56,7 +56,7 @@ func NewEntry(ev events.Event, now time.Time) (Entry, error) {
 
 func (e Entry) validate() error {
 	if err := idgen.Validate(e.ID); err != nil {
-		return fmt.Errorf("%w: identity: %v", ErrInvalidEntry, err)
+		return fmt.Errorf("%w: identity: %w", ErrInvalidEntry, err)
 	}
 	if len(e.Body) == 0 {
 		return fmt.Errorf("%w: empty body", ErrInvalidEntry)

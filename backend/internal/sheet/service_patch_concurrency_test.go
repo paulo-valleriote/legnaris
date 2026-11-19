@@ -9,6 +9,7 @@ import (
 
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/apperr"
 	logmocks "legnaris/backend/shared/logger/mocks"
 
@@ -39,7 +40,7 @@ func (s *patchStore) fetch() (*sheet.Sheet, error) {
 	fetchNo := s.fetches
 	if s.deleted {
 		s.mu.Unlock()
-		return nil, sheet.ErrSheetNotFound
+		return nil, sheeterr.ErrSheetNotFound
 	}
 	snapshot := &sheet.Sheet{
 		ID:         patchSheetID,
@@ -65,10 +66,10 @@ func (s *patchStore) compareAndSwap(expected int64, updates map[string]any) (int
 		s.beforeWrite(s, s.writes)
 	}
 	if s.deleted {
-		return 0, sheet.ErrSheetNotFound
+		return 0, sheeterr.ErrSheetNotFound
 	}
 	if expected != s.version {
-		return 0, sheet.ErrVersionConflict
+		return 0, sheeterr.ErrVersionConflict
 	}
 	data, ok := updates["data"].(map[string]any)
 	if !ok {

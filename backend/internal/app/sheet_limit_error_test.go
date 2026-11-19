@@ -13,6 +13,7 @@ import (
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
 	"legnaris/backend/shared/apperr"
@@ -35,7 +36,7 @@ func TestErrorMapping_CreateSheetLimitCarriesDetails(t *testing.T) {
 		{
 			name:        "Error: a full character allowance is a 409 with kind and limit",
 			body:        `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Second"}`,
-			reserveErr:  sheet.ErrSheetLimitReached,
+			reserveErr:  sheeterr.ErrSheetLimitReached,
 			wantStatus:  http.StatusConflict,
 			wantCode:    string(apperr.CodeSheetLimitReached),
 			wantDetails: map[string]any{"kind": "character", "limit": float64(1)},
@@ -72,7 +73,7 @@ func TestErrorMapping_CreateSheetLimitCarriesDetails(t *testing.T) {
 			e.Use(withOwner(errorTestOwnerID))
 			app.NewSheetController(svc).RegisterRoutes(e.Group("/sheets"))
 
-			req := httptest.NewRequest(http.MethodPost, "/sheets", strings.NewReader(tc.body))
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/sheets", strings.NewReader(tc.body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			e.ServeHTTP(rec, req)

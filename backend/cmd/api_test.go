@@ -22,11 +22,11 @@ type serveHandle struct {
 func startServe(t *testing.T, handler http.Handler, timeout time.Duration) *serveHandle {
 	t.Helper()
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
+
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
 
 	h := &serveHandle{url: "http://" + ln.Addr().String(), cancel: cancel, result: make(chan error, 1)}
 	go func() { h.result <- serve(ctx, handler, ln, timeout) }()
@@ -44,9 +44,13 @@ func (h *serveHandle) wait(t *testing.T) error {
 	}
 }
 
-func get(url string) (int, error) {
+func get(t *testing.T, url string) (int, error) {
 	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}, Timeout: testWait}
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -69,7 +73,7 @@ func TestServe(t *testing.T) {
 
 		status := make(chan int, 1)
 		go func() {
-			code, _ := get(h.url)
+			code, _ := get(t, h.url)
 			status <- code
 		}()
 		<-started
@@ -85,12 +89,12 @@ func TestServe(t *testing.T) {
 		started, release := make(chan struct{}, 1), make(chan struct{})
 		h := startServe(t, blockingHandler(started, release), testWait)
 
-		go func() { _, _ = get(h.url) }()
+		go func() { _, _ = get(t, h.url) }()
 		<-started
 
 		h.cancel()
 		require.Eventually(t, func() bool {
-			_, err := get(h.url)
+			_, err := get(t, h.url)
 			return err != nil
 		}, testWait, 10*time.Millisecond)
 
@@ -107,7 +111,7 @@ func TestServe(t *testing.T) {
 	})
 
 	t.Run("Edge: a context cancelled before serving starts still shuts down cleanly", func(t *testing.T) {
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 		require.NoError(t, err)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -122,7 +126,7 @@ func TestServe(t *testing.T) {
 
 		clientErr := make(chan error, 1)
 		go func() {
-			_, err := get(h.url)
+			_, err := get(t, h.url)
 			clientErr <- err
 		}()
 		<-started
@@ -134,7 +138,7 @@ func TestServe(t *testing.T) {
 	})
 
 	t.Run("Error: a closed listener makes serve fail without waiting for the context", func(t *testing.T) {
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 		require.NoError(t, err)
 		require.NoError(t, ln.Close())
 

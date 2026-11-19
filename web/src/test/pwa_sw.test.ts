@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import swSource from './sw.ts?raw';
+import swSource from '../pwa/sw.ts?raw';
 
 describe('SW contract', () => {
   it('should define a precache filter that excludes /auth/ and /csp-report', () => {

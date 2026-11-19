@@ -112,7 +112,7 @@ func newCSPHarness(attempts int) *cspHarness {
 func (h *cspHarness) post(t *testing.T, contentType, body, remoteAddr string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodPost, "/csp-report", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/csp-report", strings.NewReader(body))
 	if contentType != "" {
 		req.Header.Set(echo.HeaderContentType, contentType)
 	}
@@ -126,7 +126,7 @@ func (h *cspHarness) post(t *testing.T, contentType, body, remoteAddr string) *h
 func (h *cspHarness) scrape(t *testing.T) string {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metrics", nil)
 	rec := httptest.NewRecorder()
 	h.echo.ServeHTTP(rec, req)
 

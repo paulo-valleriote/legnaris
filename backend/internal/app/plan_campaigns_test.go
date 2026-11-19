@@ -114,7 +114,7 @@ func TestPlanController_OwnedCampaigns(t *testing.T) {
 			}
 
 			rec := httptest.NewRecorder()
-			e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/me/plan", nil))
+			e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/me/plan", nil))
 			require.Equal(t, tc.wantStatus, rec.Code, rec.Body.String())
 			if tc.wantStatus != http.StatusOK {
 				return
@@ -127,8 +127,8 @@ func TestPlanController_OwnedCampaigns(t *testing.T) {
 			}
 			owned, ok := body["owned_campaigns"].(map[string]any)
 			require.True(t, ok, "owned_campaigns must be an object")
-			assert.Equal(t, tc.wantUsed, owned["used"])
-			assert.Equal(t, tc.wantLimit, owned["limit"])
+			assert.InDelta(t, tc.wantUsed, owned["used"], 1e-9)
+			assert.InDelta(t, tc.wantLimit, owned["limit"], 1e-9)
 		})
 	}
 }

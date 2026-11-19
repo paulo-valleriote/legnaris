@@ -8,6 +8,7 @@ import (
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/apperr"
 
 	"github.com/stretchr/testify/assert"
@@ -35,7 +36,7 @@ func TestService_CreateWithValues(t *testing.T) {
 		{name: "Error: an unknown kind is refused before any read", owner: ownerUserID, kind: "vehicle", wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
 		{name: "Error: a kind the template refuses is rejected", owner: ownerUserID, kind: string(plan.KindNPC), wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
 		{name: "Error: a value for an unknown field is rejected", owner: ownerUserID, kind: "character", values: map[string]any{"stats": map[string]any{"nope": 1}}, wantCode: apperr.CodeUnknownField, wantStatus: 400},
-		{name: "Error: a full slot refuses with SHEET_LIMIT_REACHED and writes nothing", owner: ownerUserID, kind: "character", slotErr: sheet.ErrSheetLimitReached, wantCode: apperr.CodeSheetLimitReached, wantStatus: 409},
+		{name: "Error: a full slot refuses with SHEET_LIMIT_REACHED and writes nothing", owner: ownerUserID, kind: "character", slotErr: sheeterr.ErrSheetLimitReached, wantCode: apperr.CodeSheetLimitReached, wantStatus: 409},
 		{name: "Error: a failing hook aborts the Sheet", owner: ownerUserID, kind: "character", hook: func(context.Context, *sheet.Sheet) error { return errHookRefused }, wantCreate: true, wantHookRan: true, wantCode: apperr.CodeInternal, wantStatus: 500},
 		{name: "Edge: an empty value set keeps the seeded defaults", owner: ownerUserID, kind: "character", wantCreate: true, wantDex: 10},
 		{name: "Edge: a nil hook is allowed", owner: ownerUserID, kind: "character", values: map[string]any{"stats": map[string]any{"dexterity": 14}}, wantCreate: true, wantDex: 14},

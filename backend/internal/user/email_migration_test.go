@@ -117,7 +117,7 @@ func TestEmailMigrationPlanApply(t *testing.T) {
 		require.True(t, plan.Blocked())
 
 		written, err := plan.Apply(ctx, store, now, false)
-		assert.ErrorIs(t, err, user.ErrMigrationBlocked)
+		require.ErrorIs(t, err, user.ErrMigrationBlocked)
 		assert.Zero(t, written)
 	})
 

@@ -17,25 +17,25 @@ func (f senderFunc) Send(ctx context.Context, m email.Outbound) error { return f
 
 func TestSenderClassification(t *testing.T) {
 	t.Run("Happy path: the sentinels are distinct", func(t *testing.T) {
-		assert.NotErrorIs(t, email.ErrTransient, email.ErrPermanent)
+		require.NotErrorIs(t, email.ErrTransient, email.ErrPermanent)
 		assert.NotErrorIs(t, email.ErrPermanent, email.ErrTransient)
 	})
 
 	t.Run("Happy path: an adapter error wrapping ErrTransient is recognised", func(t *testing.T) {
 		err := errors.Join(errors.New("context"), email.ErrTransient)
-		assert.ErrorIs(t, err, email.ErrTransient)
+		require.ErrorIs(t, err, email.ErrTransient)
 		assert.NotErrorIs(t, err, email.ErrPermanent)
 	})
 
 	t.Run("Happy path: an adapter error wrapping ErrPermanent is recognised", func(t *testing.T) {
 		err := errors.Join(errors.New("invalid recipient"), email.ErrPermanent)
-		assert.ErrorIs(t, err, email.ErrPermanent)
+		require.ErrorIs(t, err, email.ErrPermanent)
 		assert.NotErrorIs(t, err, email.ErrTransient)
 	})
 
 	t.Run("Edge: an unrelated error matches neither sentinel", func(t *testing.T) {
 		err := errors.New("some other failure")
-		assert.NotErrorIs(t, err, email.ErrTransient)
+		require.NotErrorIs(t, err, email.ErrTransient)
 		assert.NotErrorIs(t, err, email.ErrPermanent)
 	})
 }

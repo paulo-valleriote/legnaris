@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -148,6 +149,6 @@ func TestRunDetectsMakefileEnvKeyChange(t *testing.T) {
 
 func git(t *testing.T, root string, args ...string) {
 	t.Helper()
-	output, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput()
+	output, err := exec.CommandContext(context.Background(), "git", append([]string{"-C", root}, args...)...).CombinedOutput()
 	require.NoError(t, err, string(output))
 }

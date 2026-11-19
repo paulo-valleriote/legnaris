@@ -4,7 +4,7 @@ import type { ApiClient } from '../api/client';
 import { DomainFailure } from '../api/errors';
 import { valueAtPath } from '../api/models/sheet';
 import type { Sheet } from '../api/models/sheet';
-import { createFetchTransport } from '../api/transport';
+import { browserFetch, createFetchTransport } from '../api/transport';
 import type { Transport } from '../api/transport';
 
 const configuredBaseUrl = process.env['API_BASE_URL'];
@@ -24,7 +24,7 @@ function requireBaseUrl(): string {
 }
 
 function transportWithCredential(token: string): Transport {
-  const base = createFetchTransport((input, init) => fetch(input, init));
+  const base = createFetchTransport(browserFetch);
 
   return (request) =>
     base({ ...request, headers: { ...request.headers, authorization: `Bearer ${token}` } });
@@ -35,14 +35,14 @@ async function authenticate(baseUrl: string): Promise<string> {
   const email = `live-${suffix}@example.test`;
   const password = 'live-suite-password-1';
 
-  const registered = await fetch(`${baseUrl}/auth/register`, {
+  const registered = await browserFetch(`${baseUrl}/auth/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, username: `live${suffix}`, password }),
   });
   expect(registered.status).toBe(201);
 
-  const loggedIn = await fetch(`${baseUrl}/auth/login`, {
+  const loggedIn = await browserFetch(`${baseUrl}/auth/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, password }),

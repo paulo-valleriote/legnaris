@@ -1,6 +1,7 @@
 package contextdocs_test
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -228,7 +229,7 @@ func TestRepositoryAllowlistCoversTrackedMarkdown(t *testing.T) {
 	allowlist, err := contextdocs.ParseMarkdownAllowlist(data)
 	require.NoError(t, err)
 
-	output, err := exec.Command("git", "-C", root, "ls-files", "--", "*.md").Output()
+	output, err := exec.CommandContext(context.Background(), "git", "-C", root, "ls-files", "--", "*.md").Output()
 	if err != nil {
 		t.Skipf("git ls-files unavailable: %v", err)
 	}

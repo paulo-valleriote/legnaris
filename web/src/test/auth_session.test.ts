@@ -145,13 +145,13 @@ describe('in-memory session', () => {
   it('Security: login never writes the token to a script-readable store', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
+    const writes = vi.spyOn(Storage.prototype, 'setItem');
 
     await session.login({ email: 'a@b.test', password: 'secret' });
 
-    expect(window.localStorage.length).toBe(0);
-    expect(window.sessionStorage.length).toBe(0);
-    expect(JSON.stringify(window.localStorage)).not.toContain('access-1');
-    expect(JSON.stringify(window.sessionStorage)).not.toContain('access-1');
+    expect(writes).not.toHaveBeenCalled();
+    expect(JSON.stringify(writes.mock.calls)).not.toContain('access-1');
+    writes.mockRestore();
   });
 
   it('Happy path: login holds the token in memory and flips to authenticated', async () => {
@@ -260,13 +260,13 @@ describe('the pending code step', () => {
   it('Edge: a step never survives a reload, because nothing about it is persisted', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
+    const writes = vi.spyOn(Storage.prototype, 'setItem');
 
     await session.login({ email: 'a@b.test', password: 'secret' });
 
-    expect(window.localStorage.length).toBe(0);
-    expect(window.sessionStorage.length).toBe(0);
-    expect(JSON.stringify(window.localStorage)).not.toContain('challenge-1');
-    expect(JSON.stringify(window.sessionStorage)).not.toContain('challenge-1');
+    expect(writes).not.toHaveBeenCalled();
+    expect(JSON.stringify(writes.mock.calls)).not.toContain('challenge-1');
+    writes.mockRestore();
   });
 
   it('Edge: a second sign-in starts a new handle and supersedes the first', async () => {

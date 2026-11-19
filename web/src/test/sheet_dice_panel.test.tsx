@@ -24,6 +24,7 @@ describe('DicePanel', () => {
     expect(screen.getByText('Initiative')).toBeTruthy();
     expect(screen.getByText('14')).toBeTruthy();
     expect(screen.getByText('1d20')).toBeTruthy();
+    expect(screen.getByText(messageWith('dice.rolls', { rolls: '11' }))).toBeTruthy();
     expect(screen.getByText('attrs.dex')).toBeTruthy();
   });
 

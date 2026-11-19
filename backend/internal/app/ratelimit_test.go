@@ -53,7 +53,7 @@ func newScopedRateLimitHarness(authLimiter, accountLimiter, sessionLimiter ratel
 func (h *rateLimitHarness) get(t *testing.T, path, remoteAddr string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 	req.RemoteAddr = remoteAddr
 
 	rec := httptest.NewRecorder()
@@ -64,7 +64,7 @@ func (h *rateLimitHarness) get(t *testing.T, path, remoteAddr string) *httptest.
 func (h *rateLimitHarness) post(t *testing.T, path, body, remoteAddr string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.RemoteAddr = remoteAddr
 

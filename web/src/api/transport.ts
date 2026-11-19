@@ -20,6 +20,12 @@ export type Transport = (request: HttpRequest) => Promise<HttpResponse>;
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
+export type BrowserFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+export function browserFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return fetch(input, init);
+}
+
 export function createFetchTransport(fetchImpl: FetchLike): Transport {
   return async (request) => {
     const init: RequestInit = {

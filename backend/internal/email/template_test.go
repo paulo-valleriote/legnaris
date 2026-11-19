@@ -101,7 +101,7 @@ func TestRenderer_UnknownPurpose(t *testing.T) {
 			rendered, err := renderer.Render(tc.purpose, email.Data{Code: "042917", ExpiresInMinutes: 10})
 
 			require.Error(t, err)
-			assert.ErrorIs(t, err, email.ErrUnknownTemplate)
+			require.ErrorIs(t, err, email.ErrUnknownTemplate)
 			assert.Equal(t, email.Rendered{}, rendered, "an unknown purpose must render nothing")
 		})
 	}
@@ -120,7 +120,7 @@ func TestRenderer_HTMLEscaping(t *testing.T) {
 
 	t.Run("Edge: the HTML body is escaped", func(t *testing.T) {
 		assert.Contains(t, rendered.HTML, "&lt;b&gt;&amp;")
-		assert.False(t, strings.Contains(rendered.HTML, "<b>&"), "the raw code must not appear in HTML")
+		assert.NotContains(t, rendered.HTML, "<b>&", "the raw code must not appear in HTML")
 	})
 }
 

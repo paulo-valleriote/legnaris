@@ -76,9 +76,6 @@ func (s *ServiceImpl) Delete(ctx context.Context, cmd DeleteCommand) error {
 	return nil
 }
 
-// RequestDeletion moves a Campaign to the deleting state without an actor check. It is the
-// entry point for account deletion (LGN-217) when the deleted Owner has no other GM. Already
-// deleting or dead Campaigns are returned unchanged. A missing Campaign is CAMPAIGN_NOT_FOUND.
 func RequestDeletion(ctx context.Context, tx TransactionRunner, repo Repository, releaser OwnershipReleaser, campaignID string, now time.Time) (Campaign, error) {
 	var out Campaign
 	err := tx.WithTransaction(ctx, func(txCtx context.Context) error {

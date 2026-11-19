@@ -17,6 +17,7 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['INVALID_JSON', 'clientFault'],
   ['INVALID_REQUEST', 'invalidEdit'],
   ['UNKNOWN_FIELD', 'renderMismatch'],
+  ['METHOD_NOT_ALLOWED', 'clientFault'],
   ['NOT_FOUND', 'notFound'],
   ['INTERNAL_ERROR', 'serverError'],
   ['UNAUTHORIZED', 'unauthorized'],
@@ -24,8 +25,14 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['RATE_LIMITED', 'rateLimited'],
   ['OTP_INVALID', 'invalidCode'],
   ['EMAIL_UNAVAILABLE', 'emailUnavailable'],
+  ['NOT_READY', 'serverError'],
   ['CONFLICT', 'conflict'],
   ['DISPOSABLE_EMAIL', 'disposableEmail'],
+  ['CYCLE_DETECTED', 'invalidEdit'],
+  ['INVALID_DEPENDENCY', 'invalidEdit'],
+  ['INVALID_PATH', 'invalidEdit'],
+  ['VALIDATION', 'invalidEdit'],
+  ['INVALID_SIGNATURE', 'clientFault'],
   ['SHEET_LIMIT_REACHED', 'sheetLimitReached'],
   ['ALREADY_SUBSCRIBED', 'alreadySubscribed'],
   ['BILLING_UNAVAILABLE', 'billingUnavailable'],
@@ -41,8 +48,6 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['PLAN_LIMIT_REACHED', 'planLimitReached'],
   ['PASSWORD_REQUIRED', 'passwordRequired'],
 ];
-
-const fallback = ['CYCLE_DETECTED', 'INVALID_DEPENDENCY', 'INVALID_PATH'] as const;
 
 const keyByKind: Record<FailureKind, MessageKey> = {
   clientFault: 'api.error.clientFault',
@@ -84,12 +89,6 @@ const keyByKind: Record<FailureKind, MessageKey> = {
 };
 
 describe('backend code to failure kind', () => {
-  it('Edge: every fallback code takes the generic kind', () => {
-    for (const code of fallback) {
-      expect(apperrKind(code)).toBe('unknown');
-    }
-  });
-
   it('Edge: a code the backend does not define takes the generic kind', () => {
     expect(apperrKind('SOMETHING_NEW')).toBe('unknown');
   });
@@ -111,13 +110,13 @@ describe('classifying a domain failure', () => {
       new DomainFailure({
         kind: 'unknown',
         status: 409,
-        code: 'CYCLE_DETECTED',
+        code: 'SOMETHING_NEW',
         message: 'already exists',
       }),
     );
 
     expect(classified.kind).toBe('unknown');
-    expect(classified.code).toBe('CYCLE_DETECTED');
+    expect(classified.code).toBe('SOMETHING_NEW');
     expect(classified.message).toBe('already exists');
   });
 
@@ -263,14 +262,14 @@ describe('the code-step refusal kinds', () => {
     expect(failureMessage('conflict')).toBe(messages['api.error.conflict']);
   });
 
-  it('Happy path: the disposable-address refusal resolves its own kind and copy (LGN-151)', () => {
+  it('Happy path: the disposable-address refusal resolves its own kind and copy', () => {
     expect(apperrKind('DISPOSABLE_EMAIL')).toBe('disposableEmail');
     expect(failureMessage('disposableEmail')).toBe(messages['api.error.disposableEmail']);
     expect(failureMessage('disposableEmail')).not.toBe(messages['api.error.unknown']);
     expect(failureMessage('disposableEmail')).not.toBe(messages['api.error.conflict']);
   });
 
-  it('Edge: the disposable-address copy names the action without echoing the address (LGN-151)', () => {
+  it('Edge: the disposable-address copy names the action without echoing the address', () => {
     const copy = failureMessage('disposableEmail');
 
     expect(copy).toMatch(/permanent email/i);

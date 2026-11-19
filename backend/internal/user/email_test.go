@@ -54,7 +54,7 @@ func TestCanonicalEmail(t *testing.T) {
 	for _, tc := range invalid {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := user.CanonicalEmail(tc.in)
-			assert.ErrorIs(t, err, user.ErrInvalidEmail)
+			require.ErrorIs(t, err, user.ErrInvalidEmail)
 			assert.Empty(t, got)
 		})
 	}

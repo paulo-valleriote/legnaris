@@ -41,6 +41,20 @@ func TestTemplateError(t *testing.T) {
 			wantStatus: 400,
 			wantMsg:    "fetch template: template id not provided",
 		},
+		{
+			name:       "Happy path: unknown template maps to 404",
+			err:        template.ErrTemplateNotFound,
+			wantCode:   apperr.CodeNotFound,
+			wantStatus: 404,
+			wantMsg:    "template not found",
+		},
+		{
+			name:       "Edge: wrapped not-found sentinel still maps to 404",
+			err:        fmt.Errorf("fetch template: %w", template.ErrTemplateNotFound),
+			wantCode:   apperr.CodeNotFound,
+			wantStatus: 404,
+			wantMsg:    "template not found",
+		},
 	}
 
 	for _, tc := range tests {
@@ -65,7 +79,7 @@ func TestTemplateError_Passthrough(t *testing.T) {
 		err  error
 	}{
 		{name: "Edge: nil error stays nil", err: nil},
-		{name: "Edge: apperr from the service keeps its code", err: notFound},
+		{name: "Edge: an apperr keeps its code", err: notFound},
 		{name: "Edge: unrelated error is returned as-is", err: errors.New("boom")},
 	}
 

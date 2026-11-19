@@ -316,13 +316,14 @@ describe('the code surface', () => {
     await renderCodeSurface();
 
     const field = screen.getByLabelText(message('auth.codeLabel'));
+    const writes = vi.spyOn(Storage.prototype, 'setItem');
     await user.click(field);
     await user.paste('042917');
 
-    expect(window.localStorage.length).toBe(0);
-    expect(window.sessionStorage.length).toBe(0);
+    expect(writes).not.toHaveBeenCalled();
     expect(field).toHaveAccessibleName(message('auth.codeLabel'));
     expect(field.getAttribute('aria-label')).toBeNull();
+    writes.mockRestore();
   });
 
   it('Happy path: the surface names the address, states the lifetime and takes the focus', async () => {

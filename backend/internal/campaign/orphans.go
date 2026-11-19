@@ -83,15 +83,22 @@ func (l *MongoOrphanLinks) unlinkOrphanSheets(ctx context.Context, limit int) (i
 		return 0, fmt.Errorf("decode orphan sheet links: %w", err)
 	}
 	for _, o := range orphans {
-		// Conditional on the orphaned campaign_id: a sheet relinked meanwhile is left alone.
-		if _, err := l.sheets.UpdateOne(ctx,
-			bson.D{{Key: idField, Value: o.ID}, {Key: sheetCampaignIDField, Value: o.CampaignID}},
-			bson.D{{Key: setOperator, Value: bson.D{{Key: sheetCampaignIDField, Value: nil}}}},
-		); err != nil {
-			return 0, fmt.Errorf("clear orphan sheet link: %w", err)
+		if err := l.clearSheetLinkIfStillOrphaned(ctx, o.ID, o.CampaignID); err != nil {
+			return 0, err
 		}
 	}
 	return int64(len(orphans)), nil
+}
+
+func (l *MongoOrphanLinks) clearSheetLinkIfStillOrphaned(ctx context.Context, sheetID, campaignID string) error {
+	_, err := l.sheets.UpdateOne(ctx,
+		bson.D{{Key: idField, Value: sheetID}, {Key: sheetCampaignIDField, Value: campaignID}},
+		bson.D{{Key: setOperator, Value: bson.D{{Key: sheetCampaignIDField, Value: nil}}}},
+	)
+	if err != nil {
+		return fmt.Errorf("clear orphan sheet link: %w", err)
+	}
+	return nil
 }
 
 func (l *MongoOrphanLinks) deleteOrphanLinks(ctx context.Context, limit int) (int64, error) {
@@ -139,8 +146,6 @@ func (l *MongoOrphanLinks) deleteOrphanLinks(ctx context.Context, limit int) (in
 	return result.DeletedCount, nil
 }
 
-// orphanQueueStore has no backlog state: the sweeper's daily interval is the only schedule, and
-// each pass re-derives the orphans from the sheets collection.
 type orphanQueueStore struct{}
 
 func (orphanQueueStore) Claim(context.Context, string, time.Time, time.Duration, int) ([]sweeper.Job[struct{}], error) {

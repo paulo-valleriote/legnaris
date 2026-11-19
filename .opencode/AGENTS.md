@@ -4,25 +4,18 @@
 
 ## Automated Review Criteria
 
-AI reviewers + linters evaluate PRs against these criteria. AI findings are advisory; the `ci-lint` workflow (golangci-lint + `go test -race`) is blocking on new issues.
+AI findings are advisory. The CI `gate` job in `.github/workflows/ci.yml` is blocking: it needs `go-lint` (golangci-lint plus the repo scanners), `go-race`, `go-test-nodb`, `tests-required`, `pr-title` and `web-quality`.
+
+Mechanical rules (complexity, duplication, imports, error wrapping, resource leaks, comments, English-only, test naming) are enforced there; see `.golangci.yml` and the `go-lint` steps. Review only what those checks cannot decide.
 
 ### Cyclomatic Complexity
-- Keep functions small; `gocyclo` flags complexity above 15.
-
-### Code Duplication
-- Extract shared logic; `dupl` flags near-duplicate blocks.
-
-### Conventions
-- Follow AGENTS.md: typed errors via `backend/shared/apperr`, JSON decoding via `backend/shared/json`, structured logging via `backend/shared/logger`, layering (app → sheet → template → engine → shared).
-
-### English Only
-- All identifiers, comments, log messages, user-facing strings in English. No Portuguese (pt-BR) code or strings.
+- Threshold lives in `.golangci.yml` (`gocyclo`). Judge whether a flagged split actually improves readability.
 
 ### Race Conditions
-- No unsynchronized access to shared state; prefer channels or mutexes; `go test -race` must stay clean.
+- No unsynchronized access to shared state; prefer channels or mutexes. `go-race` runs the race detector.
 
 ### Memory Leaks
-- Close resources (files, DB cursors, response bodies), avoid unbounded goroutines, use context cancellation.
+- `bodyclose` and `noctx` cover HTTP bodies and contexts. Still check Mongo cursors are closed and goroutines are bounded.
 
 ### Card Compliance
-- The PR must implement its Jira card (LGN-\d+ in the title). Verdicts: Met (requires file:line evidence from the diff), Not evidenced, Out of scope of this diff. Criteria come only from the card; never invent requirements.
+- `pr-title` guarantees an `LGN-\d+` key. Verdicts: Met (requires file:line evidence from the diff), Not evidenced, Out of scope of this diff. Criteria come only from the card; never invent requirements.

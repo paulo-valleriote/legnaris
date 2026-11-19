@@ -318,7 +318,7 @@ func TestIndexLinksResolve(t *testing.T) {
 			continue
 		}
 		_, err := os.Stat(filepath.Join(root, target))
-		assert.NoError(t, err, "index link %q must resolve", link)
+		require.NoError(t, err, "index link %q must resolve", link)
 	}
 	assert.Contains(t, links, contextdocs.MapPath)
 	for _, tc := range expectedFiles {

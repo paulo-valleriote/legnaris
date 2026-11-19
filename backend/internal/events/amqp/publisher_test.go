@@ -264,7 +264,7 @@ func TestPublisherPublish(t *testing.T) {
 			assert.Equal(t, uint8(amqp091.Persistent), msgs[0].msg.DeliveryMode)
 			assert.Equal(t, "application/json", msgs[0].msg.ContentType)
 			assert.Equal(t, tc.eventType, msgs[0].msg.Type)
-			assert.True(t, idgen.Validate(msgs[0].msg.MessageId) == nil, "message id must be a UUID v7")
+			require.NoError(t, idgen.Validate(msgs[0].msg.MessageId), "message id must be a UUID v7")
 			env, err := events.Decode(msgs[0].msg.Body)
 			require.NoError(t, err)
 			assert.Equal(t, msgs[0].msg.MessageId, env.ID)

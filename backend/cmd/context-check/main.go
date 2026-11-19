@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -100,7 +101,7 @@ func envDelta(root, base string) (contextdocs.EnvDelta, error) {
 }
 
 func gitShow(root, ref, file string) ([]byte, error) {
-	output, err := exec.Command("git", "-C", root, "show", ref+":"+file).Output()
+	output, err := exec.CommandContext(context.Background(), "git", "-C", root, "show", ref+":"+file).Output()
 	if err != nil {
 		return nil, fmt.Errorf("git show %s:%s: %w", ref, file, err)
 	}

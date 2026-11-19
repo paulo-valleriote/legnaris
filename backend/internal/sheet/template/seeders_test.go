@@ -116,9 +116,9 @@ func TestFantasyV1_Structure(t *testing.T) {
 			assert.True(t, schema.IsEditable)
 			assert.True(t, schema.PreferDefault, "counter %s must keep its default unless the concept says otherwise", key)
 		}
-		assert.Equal(t, 1.0, identity["level"].Schema.Default)
-		assert.Equal(t, 0.0, identity["xp"].Schema.Default)
-		assert.Equal(t, 2.0, identity[fieldNameProficiencyBonus].Schema.Default)
+		assert.InDelta(t, 1.0, identity["level"].Schema.Default, 1e-9)
+		assert.InDelta(t, 0.0, identity["xp"].Schema.Default, 1e-9)
+		assert.InDelta(t, 2.0, identity[fieldNameProficiencyBonus].Schema.Default, 1e-9)
 		assert.False(t, identity["playerName"].Schema.Generatable)
 	})
 
@@ -130,7 +130,7 @@ func TestFantasyV1_Structure(t *testing.T) {
 			require.NotNil(t, schema, "missing score %s", a.key)
 			assert.Equal(t, fieldTypeNumber, schema.Type)
 			assert.True(t, schema.IsEditable)
-			assert.Equal(t, 10.0, schema.Default)
+			assert.InDelta(t, 10.0, schema.Default, 1e-9)
 			assert.Equal(t, a.label, schema.Label)
 		}
 	})
@@ -166,7 +166,7 @@ func TestFantasyV1_Structure(t *testing.T) {
 			bonus := node.Children[fieldNameBonus].Schema
 			require.NotNil(t, bonus)
 			assert.True(t, bonus.IsEditable)
-			assert.Equal(t, 0.0, bonus.Default)
+			assert.InDelta(t, 0.0, bonus.Default, 1e-9)
 			assert.Equal(t, s.label+" bonus", bonus.Label)
 
 			total := node.Children[fieldNameTotal].Schema
@@ -191,7 +191,7 @@ func TestFantasyV1_Structure(t *testing.T) {
 			require.NotNil(t, schema, "missing rule %s", name)
 			assert.True(t, schema.IsEditable)
 			assert.Equal(t, fieldTypeNumber, schema.Type)
-			assert.Equal(t, def, schema.Default)
+			assert.InDelta(t, def, schema.Default, 1e-9)
 		}
 	})
 
@@ -210,7 +210,7 @@ func TestFantasyV1_Structure(t *testing.T) {
 			schema := config[name].Schema
 			require.NotNil(t, schema, "missing config flag %s", name)
 			assert.True(t, schema.IsEditable)
-			assert.Equal(t, def, schema.Default)
+			assert.InDelta(t, def, schema.Default, 1e-9)
 			assert.Empty(t, schema.Formula)
 		}
 
@@ -254,7 +254,7 @@ func TestFantasyV1_Structure(t *testing.T) {
 			schema := combat[name].Schema
 			require.NotNil(t, schema, "missing combat field %s", name)
 			assert.True(t, schema.IsEditable)
-			assert.Equal(t, def, schema.Default)
+			assert.InDelta(t, def, schema.Default, 1e-9)
 		}
 	})
 
@@ -315,7 +315,7 @@ func TestFantasyV1_Structure(t *testing.T) {
 		proficiency := fantasyV1Template.Fields[fieldNameIdentity].Children[fieldNameProficiencyBonus].Schema
 		require.NotNil(t, proficiency)
 		assert.True(t, proficiency.IsEditable)
-		assert.Equal(t, 2.0, proficiency.Default)
+		assert.InDelta(t, 2.0, proficiency.Default, 1e-9)
 	})
 }
 
@@ -400,7 +400,7 @@ func TestFantasyV1_TableMetadata(t *testing.T) {
 
 func TestFantasyV1_LeafContracts(t *testing.T) {
 	schemas, paths := collectLeaves(fantasyV1Template.Fields)
-	require.Equal(t, 130, len(schemas), "the sheet must stay complete")
+	require.Len(t, schemas, 130, "the sheet must stay complete")
 
 	for i, schema := range schemas {
 		key := paths[i].String()

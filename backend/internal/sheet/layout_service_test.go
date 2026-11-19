@@ -9,6 +9,7 @@ import (
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
@@ -141,7 +142,7 @@ func TestService_SetLayout(t *testing.T) {
 			ownerID:     ownerUserID,
 			sheetID:     missingSheetID,
 			layout:      fullLayout,
-			fetchErr:    sheet.ErrSheetNotFound,
+			fetchErr:    sheeterr.ErrSheetNotFound,
 			wantFetch:   true,
 			wantCode:    apperr.CodeNotFound,
 			wantMessage: "sheet not found",
@@ -259,7 +260,7 @@ func TestService_SetLayout(t *testing.T) {
 			sheetID:      fetchSheetID,
 			layout:       fullLayout,
 			stored:       layoutStoredSheet(ownerUserID),
-			updateErr:    sheet.ErrSheetNotFound,
+			updateErr:    sheeterr.ErrSheetNotFound,
 			wantFetch:    true,
 			wantTemplate: true,
 			wantUpdate:   true,
