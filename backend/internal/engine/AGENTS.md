@@ -10,4 +10,3 @@
 
 - Declare own typed errors (the `apperr` ban and `%w` wrapping are enforced by depguard and errorlint)
 - Service layer translates to `apperr` at boundary
-- All identifiers, comments, logs in English
