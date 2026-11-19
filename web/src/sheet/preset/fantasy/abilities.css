@@ -1,0 +1,95 @@
+.lg-preset-abilities {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+  min-width: 0;
+}
+
+.lg-ability-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--lg-space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lg-ability {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lg-space-4);
+  min-width: 0;
+  padding: var(--lg-space-8) var(--lg-space-4);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-lg);
+  background-color: var(--lg-color-surface);
+  box-shadow: var(--lg-shadow-1);
+}
+
+.lg-ability__name {
+  font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-medium);
+  line-height: var(--lg-line-tight);
+  letter-spacing: var(--lg-tracking-wide);
+  text-transform: uppercase;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-ability__modifier {
+  font-size: var(--lg-type-24);
+  font-weight: var(--lg-font-weight-bold);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-ability .lg-ability__score {
+  min-inline-size: var(--lg-space-32);
+  min-block-size: var(--lg-size-control);
+  padding: var(--lg-space-2) var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-surface-hover);
+  font-size: var(--lg-type-13);
+  font-variant-numeric: tabular-nums;
+  color: var(--lg-color-text-muted);
+  text-align: center;
+}
+
+.lg-ability .lg-ability__score:hover {
+  border-color: var(--lg-color-text-muted);
+}
+
+.lg-ability-passive {
+  align-self: center;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--lg-space-4);
+  margin: 0;
+  padding: var(--lg-space-2) var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-surface);
+  font-size: var(--lg-type-12);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-ability-passive__label {
+  font-weight: var(--lg-font-weight-medium);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-ability-passive__value {
+  font-weight: var(--lg-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--lg-color-text);
+}
+
+@media (max-width: 40rem) {
+  .lg-ability-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lg-ability__modifier {
+    font-size: var(--lg-type-20);
+  }
+}

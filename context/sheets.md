@@ -228,10 +228,16 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 A sheet whose template id has a preset opens in **Play**; every other template opens in **Edit**,
 today's form. The preset registry maps a template id to a header component and ordered section
 slots, so later gameplay surfaces are additions to the preset rather than branches in the screen.
-The `fantasy_v1` preset currently draws the hero header only: the title is `identity.characterName`
-with the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper,
-`played by <player>` and the proficiency badge. Edit keeps the generic form, Arrange and the pinned
-filter; Play ignores the layout and the view filters.
+The `fantasy_v1` preset currently draws the hero header and the ability medallions. The title is
+`identity.characterName` with the sheet name as its empty fallback, then `ancestry`, `origin`,
+`Level N` with a stepper, `played by <player>` and the proficiency badge. Under it the six
+`stats.<ability>` scores render as medallions: the `modifiers.<ability>Mod` derived value is the
+large, read-only roll target (accent-coloured through `rollable_value.tsx`, rolling the
+`stats.<ability>` Row through the Dice store and its sheet overrides), while the raw score sits in
+an `inline_edit.tsx` badge whose writes go to the pending delta; the two are separate targets. The
+`derived.passiveAwareness` pill closes the column. `RollableValue` and the `useRowRoll` hook it
+uses are the reusable roll surface for later gameplay sections. Edit keeps the generic form,
+Arrange and the pinned filter; Play ignores the layout and the view filters.
 
 The mode is component state for the open screen, local to the viewer, never persisted and never
 sent. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
@@ -292,9 +298,11 @@ Web:
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, footer and guards; `layout_store.ts` —
   committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header` plus
-  ordered section slots); `pending_card.tsx`, `pending_changes.ts` — the floating unsaved-delta card
-  and its pure summary; `mode_toggle.tsx` — the local Play/Edit switch; `inline_edit.tsx` — the
-  reusable single-path inline editor.
+  ordered section slots); `fantasy/` — the hero, ability medallions and their pure score/modifier
+  helpers; `rollable_value.tsx` — the reusable roll target (`useRowRoll` in `dice_row.tsx`);
+  `pending_card.tsx`, `pending_changes.ts` — the floating unsaved-delta card and its pure summary;
+  `mode_toggle.tsx` — the local Play/Edit switch; `inline_edit.tsx` — the reusable single-path
+  inline editor.
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
   `dice_view.ts` — Dice choices over the edit store (see [dice](dice.md)).

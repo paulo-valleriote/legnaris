@@ -137,7 +137,10 @@ the F2 client and the F4 engine and owns no wire model.
   tabs) and its scrollspy, which announces through the sheet's polite live region.
 - `src/sheet/preset/` — the template-id registry and the `fantasy_v1` Play preset: a `Header`
   component plus ordered `sections` slots sharing one preset context over the edit store, Dice
-  context and decoded template. A template without a preset keeps the generic form. `mode_toggle.tsx`
+  context and decoded template. `fantasy/` holds the hero and the ability medallions: a large
+  `RollableValue` over the Dice store, an inline-editable score badge and the passive-awareness
+  pill; `rollable_value.tsx` with `useRowRoll` (`dice_row.tsx`) is the reusable roll target later
+  gameplay sections reuse. A template without a preset keeps the generic form. `mode_toggle.tsx`
   is the Play/Edit switch, component state for the open screen (local to the viewer, never
   persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter, Play ignores
   the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path editor:

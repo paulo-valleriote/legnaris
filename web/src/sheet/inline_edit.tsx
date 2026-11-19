@@ -7,9 +7,17 @@ export interface InlineEditProps {
   readonly onCommit: (value: string) => void;
   readonly fallback?: string;
   readonly className?: string;
+  readonly inputMode?: 'text' | 'numeric';
 }
 
-export function InlineEdit({ value, label, onCommit, fallback, className }: InlineEditProps) {
+export function InlineEdit({
+  value,
+  label,
+  onCommit,
+  fallback,
+  className,
+  inputMode,
+}: InlineEditProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const finished = useRef(false);
@@ -48,6 +56,7 @@ export function InlineEdit({ value, label, onCommit, fallback, className }: Inli
         ref={inputRef}
         className={`${classes} lg-inline-edit--input`}
         aria-label={label}
+        inputMode={inputMode}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => finish(true)}

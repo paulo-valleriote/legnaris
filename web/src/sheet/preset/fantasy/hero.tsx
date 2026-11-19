@@ -7,17 +7,10 @@ import {
   usePresetLabel,
   usePresetValue,
 } from '../preset_context';
+import { numberValue, textValue } from '../values';
 
 const LEVEL_MIN = 1;
 const LEVEL_MAX = 20;
-
-function textValue(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function numberValue(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
 
 function clampLevel(level: number): number {
   return Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, level));

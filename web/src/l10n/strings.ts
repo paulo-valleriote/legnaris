@@ -332,6 +332,7 @@ export const messages = {
   'sheet.play.playedBy': 'played by',
   'sheet.play.proficiency': 'Proficiency {modifier}',
   'sheet.play.level': 'Level {count}',
+  'sheet.play.noValue': '—',
   'sheet.inlineAdd': 'Add {label}',
   'sheet.pending.notSavedYet': 'not saved yet',
   'sheet.pending.arrow': '→',
