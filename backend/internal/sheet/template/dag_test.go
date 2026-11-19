@@ -30,7 +30,7 @@ func TestBuildDag(t *testing.T) {
 		assertErr func(t *testing.T, err error)
 	}{
 		{
-			name: "Valid DAG without cycles",
+			name: "Happy path: Valid DAG without cycles",
 			fields: FieldGroup{
 				"stats": {Children: FieldGroup{
 					"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -48,7 +48,7 @@ func TestBuildDag(t *testing.T) {
 			},
 		},
 		{
-			name: "Infinite Loop (cycle detection between two fields)",
+			name: "Error: Infinite Loop (cycle detection between two fields)",
 			fields: FieldGroup{
 				"health": {Schema: &FieldSchema{
 					Type: "number", IsEditable: false,
@@ -70,7 +70,7 @@ func TestBuildDag(t *testing.T) {
 			},
 		},
 		{
-			name: "Infinite Loop (cycle of 3+ nodes)",
+			name: "Error: Infinite Loop (cycle of 3+ nodes)",
 			fields: FieldGroup{
 				"a": {Schema: &FieldSchema{
 					Type: "number", IsEditable: false,
@@ -94,7 +94,7 @@ func TestBuildDag(t *testing.T) {
 			},
 		},
 		{
-			name: "Invalid Formula Syntax",
+			name: "Error: Invalid Formula Syntax",
 			fields: FieldGroup{
 				"stats": {Children: FieldGroup{
 					"str": {Schema: &FieldSchema{Type: "number"}},
@@ -166,7 +166,7 @@ func TestRecalculate(t *testing.T) {
 		expectedCascades map[string]any
 	}{
 		{
-			name: "Happy Path: Full Cascade Calculation",
+			name: "Happy path: Full Cascade Calculation",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
 				"mod":     map[string]any{"str": 0.0},
@@ -181,7 +181,7 @@ func TestRecalculate(t *testing.T) {
 			},
 		},
 		{
-			name: "Edge Case: Short-Circuit (Propagation stops if value doesn't change)",
+			name: "Edge: Short-Circuit (Propagation stops if value doesn't change)",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 16.0},
 				"mod":     map[string]any{"str": 3.0},
@@ -193,7 +193,7 @@ func TestRecalculate(t *testing.T) {
 			expectedCascades: map[string]any{},
 		},
 		{
-			name: "LGN-59: Editable node unchanged (int vs float64) prevents cascade",
+			name: "Edge: LGN-59: Editable node unchanged (int vs float64) prevents cascade",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
 				"mod":     map[string]any{"str": 0.0},
@@ -205,7 +205,7 @@ func TestRecalculate(t *testing.T) {
 			expectedCascades: map[string]any{},
 		},
 		{
-			name: "LGN-59: Editable node unchanged (float epsilon) prevents cascade",
+			name: "Edge: LGN-59: Editable node unchanged (float epsilon) prevents cascade",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
 				"mod":     map[string]any{"str": 0.0},
@@ -217,7 +217,7 @@ func TestRecalculate(t *testing.T) {
 			expectedCascades: map[string]any{},
 		},
 		{
-			name: "LGN-59: Editable node changed (exceeds epsilon) triggers cascade",
+			name: "Happy path: LGN-59: Editable node changed (exceeds epsilon) triggers cascade",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
 				"mod":     map[string]any{"str": 0.0},
@@ -232,7 +232,7 @@ func TestRecalculate(t *testing.T) {
 			},
 		},
 		{
-			name: "LGN-59: Group-level update expands to leaf keys and cascades",
+			name: "Happy path: LGN-59: Group-level update expands to leaf keys and cascades",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
 				"mod":     map[string]any{"str": 0.0},
@@ -247,7 +247,7 @@ func TestRecalculate(t *testing.T) {
 			},
 		},
 		{
-			name: "LGN-59: Group-level update without real change is a no-op",
+			name: "Edge: LGN-59: Group-level update without real change is a no-op",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
 				"mod":     map[string]any{"str": 0.0},
@@ -259,7 +259,7 @@ func TestRecalculate(t *testing.T) {
 			expectedCascades: map[string]any{},
 		},
 		{
-			name: "LGN-59: Group-level update within epsilon is a no-op",
+			name: "Edge: LGN-59: Group-level update within epsilon is a no-op",
 			originalData: map[string]any{
 				"stats":   map[string]any{"str": 10.0},
 				"mod":     map[string]any{"str": 0.0},
@@ -289,7 +289,7 @@ func TestRecalculate(t *testing.T) {
 		expectedCascades map[string]any
 	}{
 		{
-			name: "Fan-Out: One source triggers multiple derived",
+			name: "Happy path: Fan-Out: One source triggers multiple derived",
 			fields: FieldGroup{
 				"stats": {Children: FieldGroup{
 					"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -329,7 +329,7 @@ func TestRecalculate(t *testing.T) {
 			},
 		},
 		{
-			name: "Fan-In: Multiple sources converge to one derived",
+			name: "Happy path: Fan-In: Multiple sources converge to one derived",
 			fields: FieldGroup{
 				"base": {Children: FieldGroup{
 					"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -359,7 +359,7 @@ func TestRecalculate(t *testing.T) {
 			},
 		},
 		{
-			name: "Fan-Out-Fan-In: Diamond dependency (A→B,C; B,C→D)",
+			name: "Happy path: Fan-Out-Fan-In: Diamond dependency (A→B,C; B,C→D)",
 			fields: FieldGroup{
 				"attr": {Children: FieldGroup{
 					"base": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -402,7 +402,7 @@ func TestRecalculate(t *testing.T) {
 			},
 		},
 		{
-			name: "Multi-Update: Two root fields updated simultaneously",
+			name: "Happy path: Multi-Update: Two root fields updated simultaneously",
 			fields: FieldGroup{
 				"stats": {Children: FieldGroup{
 					"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -435,7 +435,7 @@ func TestRecalculate(t *testing.T) {
 			},
 		},
 		{
-			name: "Deep Nesting: 3+ levels (character.attributes.physical.strength)",
+			name: "Happy path: Deep Nesting: 3+ levels (character.attributes.physical.strength)",
 			fields: FieldGroup{
 				"character": {Children: FieldGroup{
 					"attributes": {Children: FieldGroup{
@@ -491,7 +491,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 		assertDag func(t *testing.T, dag *DAG)
 	}{
 		{
-			name: "Self-dependency (DependsOn points to itself)",
+			name: "Error: Self-dependency (DependsOn points to itself)",
 			fields: FieldGroup{
 				"health": {Schema: &FieldSchema{
 					Type:       "number",
@@ -508,7 +508,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "Cycle of 3+ nodes (A→B→C→A)",
+			name: "Error: Cycle of 3+ nodes (A→B→C→A)",
 			fields: FieldGroup{
 				"a": {Schema: &FieldSchema{
 					Type: "number", IsEditable: false,
@@ -531,7 +531,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "DependsOn referencing non-existent path",
+			name: "Error: DependsOn referencing non-existent path",
 			fields: FieldGroup{
 				"derived": {Schema: &FieldSchema{
 					Type: "number", IsEditable: false,
@@ -548,7 +548,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "Duplicate DependsOn entries",
+			name: "Edge: Duplicate DependsOn entries",
 			fields: FieldGroup{
 				"base": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
 				"derived": {Schema: &FieldSchema{
@@ -569,7 +569,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name:   "Template with 0 fields (empty FieldGroup)",
+			name:   "Edge: Template with 0 fields (empty FieldGroup)",
 			fields: FieldGroup{},
 			assertErr: func(t *testing.T, err error) {
 				require.NoError(t, err)
@@ -579,7 +579,7 @@ func TestBuildDag_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "LGN-41/LGN-52: names with dots or underscores are rejected",
+			name: "Error: LGN-41/LGN-52: names with dots or underscores are rejected",
 			fields: FieldGroup{
 				"stats": {Children: FieldGroup{
 					"str.dex": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -628,40 +628,40 @@ func TestBuildDAG_FieldNameValidation(t *testing.T) {
 		wantNode  string
 	}{
 		{
-			name:      "dot in group name is rejected",
+			name:      "Error: dot in group name is rejected",
 			fields:    FieldGroup{"a.b": {Children: FieldGroup{"c": {Schema: leaf}}}},
 			wantField: "a.b",
 		},
 		{
-			name:      "underscore in leaf name is rejected",
+			name:      "Error: underscore in leaf name is rejected",
 			fields:    FieldGroup{"stats": {Children: FieldGroup{"dexterity_mod": {Schema: leaf}}}},
 			wantField: "stats.dexterity_mod",
 		},
 		{
-			name: "collision a_b.c vs a.b_c is rejected",
+			name: "Error: collision a_b.c vs a.b_c is rejected",
 			fields: FieldGroup{
 				"a_b": {Children: FieldGroup{"c": {Schema: leaf}}},
 				"a":   {Children: FieldGroup{"b_c": {Schema: leaf}}},
 			},
 		},
 		{
-			name: "collision a.b.c vs a.b.c is rejected",
+			name: "Error: collision a.b.c vs a.b.c is rejected",
 			fields: FieldGroup{
 				"a.b": {Children: FieldGroup{"c": {Schema: leaf}}},
 				"a":   {Children: FieldGroup{"b": {Children: FieldGroup{"c": {Schema: leaf}}}}},
 			},
 		},
 		{
-			name:   "empty name is rejected",
+			name:   "Error: empty name is rejected",
 			fields: FieldGroup{"": {Schema: leaf}},
 		},
 		{
-			name:      "leading digit is rejected",
+			name:      "Error: leading digit is rejected",
 			fields:    FieldGroup{"stats": {Children: FieldGroup{"2nd": {Schema: leaf}}}},
 			wantField: "stats.2nd",
 		},
 		{
-			name: "valid names build",
+			name: "Happy path: valid names build",
 			fields: FieldGroup{
 				"stats":  {Children: FieldGroup{"dexterity": {Schema: leaf}}},
 				"others": {Children: FieldGroup{"proficiencyBonus": {Schema: leaf}}},
@@ -750,7 +750,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 		assertResult func(t *testing.T, result map[string]any)
 	}{
 		{
-			name:         "nil originalData",
+			name:         "Error: nil originalData",
 			dag:          baseDag,
 			originalData: nil,
 			updates:      map[string]any{"stats.str": 16.0},
@@ -760,7 +760,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name:         "nil updatedData",
+			name:         "Error: nil updatedData",
 			dag:          baseDag,
 			originalData: map[string]any{"stats": map[string]any{"str": 10.0}},
 			updates:      nil,
@@ -770,7 +770,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "Unknown field in updates",
+			name: "Error: Unknown field in updates",
 			dag:  baseDag,
 			originalData: map[string]any{
 				"stats": map[string]any{"str": 10.0},
@@ -788,7 +788,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "Formula returns string type",
+			name: "Edge: Formula returns string type",
 			dag:  stringFormulaDag(),
 			originalData: map[string]any{
 				"input":  10.0,
@@ -805,7 +805,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "Formula returns boolean type",
+			name: "Edge: Formula returns boolean type",
 			dag:  boolFormulaDag(),
 			originalData: map[string]any{
 				"input":  10.0,
@@ -822,7 +822,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "LGN-59: New editable field (found==false) propagates",
+			name: "Edge: LGN-59: New editable field (found==false) propagates",
 			dag:  baseDag,
 			originalData: map[string]any{
 				"stats": map[string]any{"str": 10.0},
@@ -839,7 +839,7 @@ func TestRecalculate_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "LGN-59: Equal update suppresses formula evaluation (div by zero)",
+			name: "Edge: LGN-59: Equal update suppresses formula evaluation (div by zero)",
 			dag: func() *DAG {
 				fields := FieldGroup{
 					"input": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
@@ -991,7 +991,7 @@ func TestTopologicalSort_CycleDetection(t *testing.T) {
 		expectedCycleLen int
 	}{
 		{
-			name: "2-node cycle identifies both nodes",
+			name: "Error: 2-node cycle identifies both nodes",
 			fields: FieldGroup{
 				"a": {Schema: &FieldSchema{
 					Type: "number", IsEditable: false,
@@ -1005,7 +1005,7 @@ func TestTopologicalSort_CycleDetection(t *testing.T) {
 			expectedCycleLen: 2,
 		},
 		{
-			name: "3-node cycle identifies all nodes",
+			name: "Error: 3-node cycle identifies all nodes",
 			fields: FieldGroup{
 				"a": {Schema: &FieldSchema{
 					Type: "number", IsEditable: false,
@@ -1044,19 +1044,19 @@ func TestDetectCycle(t *testing.T) {
 		expect []string
 	}{
 		{
-			name:   "acyclic graph returns nil",
+			name:   "Happy path: acyclic graph returns nil",
 			nodes:  map[string]*Node{"a": {}, "b": {}},
 			adj:    map[string][]string{"a": {"b"}},
 			expect: nil,
 		},
 		{
-			name:   "self-loop returns the single node",
+			name:   "Error: self-loop returns the single node",
 			nodes:  map[string]*Node{"a": {}},
 			adj:    map[string][]string{"a": {"a"}},
 			expect: []string{"a"},
 		},
 		{
-			name:   "cycle behind a prefix returns only the cycle nodes",
+			name:   "Error: cycle behind a prefix returns only the cycle nodes",
 			nodes:  map[string]*Node{"x": {}, "a": {}, "b": {}},
 			adj:    map[string][]string{"x": {"a"}, "a": {"b"}, "b": {"a"}},
 			expect: []string{"a", "b"},
@@ -1145,7 +1145,7 @@ func TestBuildDAG_InvalidDependency(t *testing.T) {
 		targetNode string
 	}{
 		{
-			name: "DependsOn referencing non-existent path",
+			name: "Error: DependsOn referencing non-existent path",
 			fields: FieldGroup{
 				"derived": {Schema: &FieldSchema{
 					Type: "number", IsEditable: false,
@@ -1157,7 +1157,7 @@ func TestBuildDAG_InvalidDependency(t *testing.T) {
 			targetNode: "derived",
 		},
 		{
-			name: "DependsOn referencing deep non-existent path",
+			name: "Error: DependsOn referencing deep non-existent path",
 			fields: FieldGroup{
 				"derived": {Schema: &FieldSchema{
 					Type: "number", IsEditable: false,
@@ -1220,21 +1220,21 @@ func TestMapUtilsSet_ErrorCases(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "nil map returns ErrNilMap",
+			name:    "Error: nil map returns ErrNilMap",
 			nested:  nil,
 			path:    []string{"a"},
 			value:   1.0,
 			wantErr: maputils.ErrNilMap,
 		},
 		{
-			name:    "empty path returns ErrEmptyPath",
+			name:    "Error: empty path returns ErrEmptyPath",
 			nested:  map[string]any{"a": 1.0},
 			path:    []string{},
 			value:   1.0,
 			wantErr: maputils.ErrEmptyPath,
 		},
 		{
-			name:    "intermediate not a map returns ErrNotMap",
+			name:    "Error: intermediate not a map returns ErrNotMap",
 			nested:  map[string]any{"a": "not a map"},
 			path:    []string{"a", "b"},
 			value:   1.0,
@@ -1259,28 +1259,28 @@ func TestPathSet_ErrorCases(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "nil map returns ErrNilMap",
+			name:    "Error: nil map returns ErrNilMap",
 			path:    Path{"a"},
 			nested:  nil,
 			value:   1.0,
 			wantErr: maputils.ErrNilMap,
 		},
 		{
-			name:    "empty path returns ErrEmptyPath",
+			name:    "Error: empty path returns ErrEmptyPath",
 			path:    Path{},
 			nested:  map[string]any{"a": 1.0},
 			value:   1.0,
 			wantErr: maputils.ErrEmptyPath,
 		},
 		{
-			name:    "intermediate not a map returns ErrNotMap",
+			name:    "Error: intermediate not a map returns ErrNotMap",
 			path:    Path{"a", "b"},
 			nested:  map[string]any{"a": "not a map"},
 			value:   1.0,
 			wantErr: maputils.ErrNotMap,
 		},
 		{
-			name:    "valid path succeeds",
+			name:    "Happy path: valid path succeeds",
 			path:    Path{"a"},
 			nested:  map[string]any{},
 			value:   1.0,
@@ -1308,19 +1308,19 @@ func TestApplyUpdates_ErrorCases(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "intermediate not a map returns ErrNotMap",
+			name:    "Error: intermediate not a map returns ErrNotMap",
 			nested:  map[string]any{"a": "not a map"},
 			updates: map[string]any{"a.b": 1.0},
 			wantErr: maputils.ErrNotMap,
 		},
 		{
-			name:    "nil nested with updates - no error (no-op)",
+			name:    "Edge: nil nested with updates - no error (no-op)",
 			nested:  nil,
 			updates: map[string]any{"a": 1.0},
 			wantErr: nil,
 		},
 		{
-			name:    "nil updates - no error (no-op)",
+			name:    "Edge: nil updates - no error (no-op)",
 			nested:  map[string]any{"a": 1.0},
 			updates: nil,
 			wantErr: nil,

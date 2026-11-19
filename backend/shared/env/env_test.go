@@ -296,7 +296,7 @@ func TestInitVariablesScopedRateLimits(t *testing.T) {
 		defaultWindow  time.Duration
 	}{
 		{
-			name:           "register ip",
+			name:           "Happy path: register ip",
 			attemptsKey:    "AUTH_REGISTER_IP_RATE_LIMIT_ATTEMPTS",
 			windowKey:      "AUTH_REGISTER_IP_RATE_LIMIT_WINDOW",
 			attempts:       func(v Variables) int { return v.RegisterIPRateLimitAttempts },
@@ -305,7 +305,7 @@ func TestInitVariablesScopedRateLimits(t *testing.T) {
 			defaultWindow:  time.Hour,
 		},
 		{
-			name:           "register email",
+			name:           "Happy path: register email",
 			attemptsKey:    "AUTH_REGISTER_EMAIL_RATE_LIMIT_ATTEMPTS",
 			windowKey:      "AUTH_REGISTER_EMAIL_RATE_LIMIT_WINDOW",
 			attempts:       func(v Variables) int { return v.RegisterEmailRateLimitAttempts },
@@ -314,7 +314,7 @@ func TestInitVariablesScopedRateLimits(t *testing.T) {
 			defaultWindow:  time.Hour,
 		},
 		{
-			name:           "session",
+			name:           "Happy path: session",
 			attemptsKey:    "SESSION_RATE_LIMIT_ATTEMPTS",
 			windowKey:      "SESSION_RATE_LIMIT_WINDOW",
 			attempts:       func(v Variables) int { return v.SessionRateLimitAttempts },
@@ -323,7 +323,7 @@ func TestInitVariablesScopedRateLimits(t *testing.T) {
 			defaultWindow:  time.Minute,
 		},
 		{
-			name:           "auth account",
+			name:           "Happy path: auth account",
 			attemptsKey:    "AUTH_ACCOUNT_RATE_LIMIT_ATTEMPTS",
 			windowKey:      "AUTH_ACCOUNT_RATE_LIMIT_WINDOW",
 			attempts:       func(v Variables) int { return v.AuthAccountRateLimitAttempts },
@@ -332,7 +332,7 @@ func TestInitVariablesScopedRateLimits(t *testing.T) {
 			defaultWindow:  time.Minute,
 		},
 		{
-			name:           "user",
+			name:           "Happy path: user",
 			attemptsKey:    "USER_RATE_LIMIT_ATTEMPTS",
 			windowKey:      "USER_RATE_LIMIT_WINDOW",
 			attempts:       func(v Variables) int { return v.UserRateLimitAttempts },
