@@ -149,11 +149,16 @@ the F2 client and the F4 engine and owns no wire model.
   derived total follows, with inline-editable skill bonuses and totals rolling through the Section
   dice (pure tables, path builders and the bonus clamp in `saves_skills_data.ts`).
   `rollable_value.tsx` with `useRowRoll` (`dice_row.tsx`) is the reusable roll target later gameplay
-  sections reuse. A template without a preset keeps the generic form. `mode_toggle.tsx` is the
-  Play/Edit switch, component state for the open screen (local to the viewer, never persisted, never
-  sent); Edit keeps the generic form, Arrange and the pinned filter, Play ignores the layout and view
-  filters. `src/sheet/inline_edit.tsx` is the reusable one-path editor: click/Enter opens an input,
-  Enter or blur commits, Escape cancels, an empty value shows
+  sections reuse. One file per Play section means a new panel is one `sections` entry:
+  `fantasy/spells.tsx` draws the spellcasting panel (the ability as `segmented_choice.tsx`, a
+  reusable exclusive-group control independent of the engine's native select; the rollable spell
+  attack through the Dice store with a preset row default; slot pips from the pure
+  `fantasy/slot_pips.ts`; totals through the engine's numeric guard) and `fantasy/rules.tsx` the
+  table-rules disclosure, collapsed by default. A template without a preset keeps the generic form.
+  `mode_toggle.tsx` is the Play/Edit switch, component state for the open screen (local to the
+  viewer, never persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter,
+  Play ignores the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path
+  editor: click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value shows
   `Add <label>`, and the accessible name is the template field label. The Play view also mounts
   `pending_card.tsx`: a `role="status"` polite card listing each edited field's label and old → new
   value with Discard, Preview and Save over the same store, a muted table-sync placeholder and the
