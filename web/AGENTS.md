@@ -150,8 +150,11 @@ the F2 client and the F4 engine and owns no wire model.
   `segmented_choice.tsx`, a reusable exclusive-group control independent of the engine's native
   select; the rollable spell attack through the Dice store with a preset row default; slot pips from
   the pure `fantasy/slot_pips.ts`; totals through the engine's numeric guard) and `fantasy/rules.tsx`
-  the table-rules disclosure, collapsed by default. A template without a preset keeps the generic
-  form. `mode_toggle.tsx` is the Play/Edit switch, component state for the open screen (local to the
+  the table-rules disclosure, collapsed by default. The hero also carries the experience bar in
+  `fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts` (the 5e level thresholds): a
+  `progressbar` from the level floor to the next threshold whose disclosure adds a positive gain to
+  `identity.xp` and offers `Level up to N?` at the threshold, while level 20 stays full with no
+  offer. A template without a preset keeps the generic form. `mode_toggle.tsx` is the Play/Edit switch, component state for the open screen (local to the
   viewer, never persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter,
   Play ignores the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path
   editor: click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value shows
