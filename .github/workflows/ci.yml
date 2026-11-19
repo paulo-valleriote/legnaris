@@ -94,7 +94,7 @@ jobs:
       # scripts and hooks gate local work; shellcheck catches quoting and
       # word-splitting bugs before they reach the VPS.
       - name: shellcheck
-        run: shellcheck deploy/vps/*.sh deploy/cd/*.sh scripts/*.sh .githooks/pre-commit
+        run: shellcheck deploy/vps/*.sh deploy/cd/*.sh scripts/*.sh scripts/hooks/*.sh .githooks/pre-commit
 
       # Interpolate the whole stack against the committed .env.example (every
       # required variable is a non-empty placeholder), so a required var that

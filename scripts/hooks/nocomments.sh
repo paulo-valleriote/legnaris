@@ -18,6 +18,7 @@ case "$file_path" in
 esac
 
 [[ -f "$file_path" ]] || exit 0
+[[ "$file_path" = /* ]] || file_path="$PWD/$file_path"
 
 cd "$(dirname "$file_path")"
 root=$(git rev-parse --show-toplevel 2>/dev/null || true)
@@ -34,7 +35,16 @@ output=$(go run ./backend/cmd/nocomments -- "$file_path" 2>&1)
 status=$?
 set -e
 
-if ((status != 0)); then
-  printf '%s\n' "$output" | grep -v '^exit status ' >&2 || true
-  exit 2
-fi
+case "$status" in
+  0)
+    exit 0
+    ;;
+  1)
+    printf '%s\n' "$output" | grep -v '^exit status ' >&2 || true
+    exit 2
+    ;;
+  *)
+    printf 'nocomments: scanner could not run: %s\n' "$output" >&2
+    exit 1
+    ;;
+esac
