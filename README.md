@@ -334,8 +334,7 @@ Registration always starts the code step, so a capture run also needs:
 | `deploy/` | Production Compose stack, edge proxy, observability and VPS scripts |
 | `loadtest/` | k6 scenarios and shared helpers |
 | `context/` | One file per area: purpose, decisions, flows, contracts, code, limits |
-| `.specs/`, `docs/specs/` | Feature specs, plans and the runnable validation guides (`quickstart.md`) |
-| `docs/adr/` | Architecture decision records; `context/` holds the current decision, these hold the history |
+| `docs/legal/` | Legal texts mirrored into the web client |
 | `testdata/dice/` | Grammar vectors shared by the Go and TypeScript dice implementations |
 
 `make test`, `make test-race`, `make lint`, `make vet` and `make fmt` are defined
