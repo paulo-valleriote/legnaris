@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { parseTemplateDetail } from '../api/models/template';
 import { message } from '../l10n/strings';
+import { InlineEdit } from '../sheet/inline_edit';
 import { editableLeafPaths } from '../sheet/sheet_edit';
 import { parseInitiative } from '../sheet/preset/fantasy/armor_class';
 import {
@@ -159,6 +160,21 @@ describe('inline editing on a narrow screen', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Origin' })).toHaveTextContent('Wanderer');
     expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+  });
+
+  it('Edge: a numeric bottom sheet strips the display plus sign from its value', async () => {
+    setViewportWidth(360);
+    const user = userEvent.setup();
+    const onCommit = vi.fn();
+    render(<InlineEdit value="+2" label="Bonus" inputMode="numeric" onCommit={onCommit} />);
+
+    await user.click(screen.getByRole('button', { name: 'Bonus' }));
+    const input = screen.getByRole('spinbutton', { name: 'Bonus' });
+    expect(input).toHaveValue(2);
+
+    await user.clear(input);
+    await user.type(input, '5{Enter}');
+    expect(onCommit).toHaveBeenCalledWith('5');
   });
 
   it('Edge: a wide viewport keeps the input inline and opens no sheet', async () => {

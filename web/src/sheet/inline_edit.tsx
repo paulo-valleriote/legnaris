@@ -88,6 +88,7 @@ export function InlineEdit({
 
   const shown =
     value.trim() === '' ? (fallback ?? messageWith('sheet.inlineAdd', { label })) : value;
+  const sheetDraft = numeric ? draft.replace(/^\+/, '') : draft;
 
   if (editing && narrow) {
     return (
@@ -118,7 +119,7 @@ export function InlineEdit({
             data-edit-path={path}
             type={numeric ? 'number' : 'text'}
             inputMode={numeric ? 'numeric' : 'text'}
-            value={draft}
+            value={sheetDraft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
