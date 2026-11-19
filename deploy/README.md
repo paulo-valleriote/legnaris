@@ -167,6 +167,9 @@ the log at most once a minute per limiter); see `docs/adr/0003`.
 
 ## 7. Deploy (production)
 
+Take the backup described in "Maintenance" before the first deploy of a release
+that can change stored data: a rollback restores code, not data.
+
 ```bash
 cd deploy
 docker compose up -d --build
@@ -279,8 +282,10 @@ application's broker account cannot sign in to it (see "RabbitMQ provisioning").
   (`deploy/rabbitmq/Dockerfile`) and serves per-object metrics
   (`deploy/rabbitmq/rabbitmq.conf`); neither port is published on the host.
 - **Pipeline alerts and dashboard**: Prometheus evaluates
-  `prometheus/rules.yml`; the **Email pipeline** dashboard in Grafana shows the
-  pipeline. Each alert's action is in "Pipeline alerts and runbook".
+  `prometheus/rules.yml` and `prometheus/rules-f1a.yml`; the **Email pipeline**
+  and **F1a generation** dashboards in Grafana show the same series. Each
+  pipeline alert's action is in "Pipeline alerts and runbook"; each sweeper and
+  generation-cap alert's action is in "Dead sweeper items".
 - **Query the database**: Mongo Express at `/mongo`.
 
 ## 11. CORS (web client → API)
@@ -448,6 +453,26 @@ make deploy-up
 - **Check**: sign in at `/rabbitmq/` as `operator` (after the GitHub login);
   the same page must refuse the `legnaris` account.
 
+### Broker image
+
+`rabbitmq/Dockerfile` derives the stack's broker from the pinned
+`rabbitmq:4.x.y-management` release and enables the `rabbitmq_prometheus` plugin
+while the image is built.
+
+- **Why at build time:** enabling the plugin in the service's command would make
+  the broker's first start mutate itself while the health check is already
+  racing it. Built in, the plugin is on before the broker starts.
+- **Why an exact tag:** the image defines the queue format and the plugin set. A
+  floating tag lets a deploy silently replace the broker holding every queued
+  code, so `go test ./deploy/...` fails on one.
+- **`rabbitmq.conf`:** mounted by the stack as `conf.d/20-legnaris.conf`. It
+  moves the console under `/rabbitmq` and states the metrics port.
+- **`entrypoint.sh` and `provision.sh`:** the image starts the broker through the
+  wrapper, which runs the provisioning beside it on every start (the delivery
+  vhost, the operator's console account, the application's rights). They run in
+  the broker's container because `rabbitmqctl` reaches the broker by its node
+  name, which no other container knows.
+
 ## One-time-code challenges
 
 The API gates sign-in and registration behind a six-digit code emailed to the
@@ -480,9 +505,6 @@ digest, consumed at most once and never logged.
 
 ## Email verification at registration
 
-For the production release order, forced PWA update, rollback and the 48 h
-observation window, see [`docs/runbook-otp-cutover.md`](../docs/runbook-otp-cutover.md).
-
 Registration always answers `201` with a `verify_email` challenge: no cookie,
 no access credential, no session. The session is established only when the
 emailed code is verified, so the broker, relay and worker must be running.
@@ -496,9 +518,6 @@ There is no flag to disable this step.
   confirms it; a failed publication is retried with backoff and, once the cap
   (`EMAIL_RELAY_MAX_ATTEMPTS`) is reached, marked `failed` for operator
   attention. Inspect the `email_outbox` collection for pending/failed rows.
-
-Backup: the `legnaris-prod_mongo_data`, `..._prometheus_data`, `..._loki_data`
-volumes.
 
 ## Pipeline alerts and runbook
 
@@ -616,6 +635,223 @@ docker compose exec prometheus wget -qO- http://rabbitmq:15692/metrics | grep -E
 
 Switching the broker to per-object mode resets the queue series once, so the queue panels start fresh after the first deploy.
 
+## Dead sweeper items
+
+The relay's sweeper drives every pending-work queue. When an item fails its
+attempt cap it becomes **dead**: the sweeper never claims it again, and an
+operator decides what happens next. The alerts in `prometheus/rules-f1a.yml`
+carry the queue in their `queue` label; start with that queue.
+
+`LegnarisGenerationCapAt80Percent` is not a dead-item alert: its description
+covers the value that stays stale after UTC midnight until the first generation
+of the new day.
+
+### Shared triage
+
+1. Read the queue's `last_error` on a dead item (each queue entry says where).
+   It is the reason of the final failed attempt.
+2. Check the dependency the queue publishes to or calls (broker, provider,
+   MongoDB). Fix the cause before requeueing; otherwise the items go dead again.
+3. Requeue only what is safe to repeat. Every handler is idempotent for the item
+   it works on; `event_outbox` consumers deduplicate by the envelope `id`.
+
+Requeue sets the item back to pending, eligible now, with a fresh attempt count:
+
+```js
+db.<collection>.updateMany(
+  { _id: { $in: [ "<id>" ] }, status: "dead" },
+  { $set: { status: "pending", next_attempt_at: new Date(), attempts: 0, locked_until: null, locked_by: "" } }
+)
+```
+
+Never requeue an item whose root cause is still unfixed: it returns to dead
+after another full attempt cap and only adds noise to
+`legnaris_sweeper_failed_total`.
+
+### Queue: `event_outbox`
+
+- **Collection:** `event_outbox` (database `DATABASE_NAME`).
+- **Interval and lease:** claimed every 30 seconds with a 5-minute lease. The
+  interval is also the retry step, so a broker outage longer than
+  `EMAIL_RELAY_MAX_ATTEMPTS` × 30 s sends entries to dead.
+- **Dead state:** `status: "dead"`, set after `EMAIL_RELAY_MAX_ATTEMPTS` failed
+  publishes. A non-canonical `_id` is dead at once.
+- **Find:**
+
+  ```js
+  db.event_outbox.find(
+    { status: "dead" },
+    { event_type: 1, attempts: 1, last_error: 1, created_at: 1 }
+  ).sort({ created_at: 1 })
+  ```
+
+- **Triage:** `last_error` is the broker's nack or the confirm timeout. Check
+  the RabbitMQ `legnaris.events` exchange and its bindings. An event with no
+  bound queue lands in `legnaris.events.unrouted`, which is an alert of its own
+  (`LegnarisEventsUnroutedNotEmpty`).
+- **Requeue:** after the broker is healthy, apply the requeue statement above
+  with the ids found above. The envelope `id` is unchanged, so a consumer that
+  already applied the event skips the duplicate.
+- **Discard:** a dead event no consumer needs can be deleted, but record the
+  `event_type`, `aggregate_id` and `created_at` in the incident note first.
+
+### Queue: `users_deleting`
+
+- **Collection:** `users` (database `DATABASE_NAME`), the accounts with
+  `status: "deleting"`.
+- **Interval and lease:** claimed every minute with a 5-minute lease.
+- **Dead state:** `status: "deletion_dead"`, set after
+  `EMAIL_RELAY_MAX_ATTEMPTS` failed attempts. A dead account stays blocked (403
+  on every authenticated route), so the user cannot use it while its deletion
+  is stuck.
+- **Find:**
+
+  ```js
+  db.users.find(
+    { status: "deletion_dead" },
+    { deleting_at: 1, deletion_attempts: 1, deletion_last_error: 1 }
+  ).sort({ deleting_at: 1 })
+  ```
+
+- **Triage:** `deletion_last_error` names the failing step of the removal. The
+  removal runs in one transaction, so check the MongoDB replica set first
+  (primary elected, transactions allowed). A `user.deleted` outbox write
+  failure points at the `event_outbox` collection and the relay.
+- **Requeue:** after the cause is fixed, return the accounts to the queue. A
+  failed attempt rolls back, so the removal starts again from the same state:
+
+  ```js
+  db.users.updateMany(
+    { _id: { $in: [ "<id>" ] }, status: "deletion_dead" },
+    { $set: { status: "deleting", deletion_attempts: 0, deletion_next_attempt_at: null, deletion_locked_until: null } }
+  )
+  ```
+
+  Repeating it is safe: an account already removed has no record, so the
+  removal writes nothing and emits no second `user.deleted`.
+- **Discard:** never discard. The account's Sheets and generations stay stored
+  until the removal runs, and the user asked for them to go. Fix the cause and
+  requeue.
+
+> **Personal data outside the account's own rows.** The removal also erases, in
+> the same transaction, the rows that carry the account's address or identity
+> but are not keyed by the user id: `auth_challenges` (by `user_id`),
+> `email_outbox` (by `to`) and `email_notices` (identity
+> `<purpose>:<address>`). It reads the address from the user record as it
+> deletes it, so a record without an address erases no address rows.
+
+### Queue: `campaigns_deleting`
+
+- **Collection:** `campaigns`. Deleting Campaigns have `status: "deleting"`;
+  dead ones have `status: "deletion_dead"`.
+- **Dead state:** `status: "deletion_dead"` with `deletion_last_error` set.
+  Campaign reads already treat it as not found.
+- **Find:**
+  `db.campaigns.find({status: "deletion_dead"}, {name: 1, deletion_attempts: 1, deletion_last_error: 1, deleting_at: 1})`
+- **Alert:** `legnaris_sweeper_oldest_pending_seconds{queue="campaigns_deleting"}`
+  above its threshold means a deletion has been pending for over an hour.
+- **Triage:** read `deletion_last_error`. Each unlink batch is one Campaign
+  transaction, so a rerun is safe.
+- **Requeue:**
+  `db.campaigns.updateOne({_id: <id>, status: "deletion_dead"}, {$set: {status: "deleting", deletion_attempts: 0, deletion_next_attempt_at: null, deletion_locked_until: null, deletion_last_error: ""}})`
+- **Discard:** not applicable. The Campaign and its links must eventually be
+  removed, so requeue instead of deleting by hand.
+
+## Maintenance
+
+### Backup before a deploy
+
+Take two copies before any deploy that can touch data or schema: a logical dump
+taken while the stack runs, and a cold copy of the data volume. Record the
+commit running now (`deploy/.deployed_sha`) as the rollback target.
+
+```bash
+ROOT=/opt/legnaris
+BACKUP_DIR=/var/backups/legnaris
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+ROOT_PW="$(sed -n 's/^MONGO_ROOT_PASSWORD=//p' "$ROOT/deploy/.env")"
+dc() { docker compose --project-directory "$ROOT/deploy" \
+  -f "$ROOT/deploy/docker-compose.yml" -f "$ROOT/deploy/docker-compose.vps.yml" "$@"; }
+
+mkdir -p "$BACKUP_DIR"
+dc exec -T -e MONGO_ROOT_PASSWORD="$ROOT_PW" mongodb sh -c \
+  'mongodump --quiet -u root -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --archive --gzip' \
+  > "$BACKUP_DIR/mongo-logical-$STAMP.archive.gz"
+gzip -t "$BACKUP_DIR/mongo-logical-$STAMP.archive.gz"
+
+dc stop app relay worker mongodb-exporter mongo-express
+dc stop mongodb
+docker run --rm -v legnaris-prod_mongo_data:/data:ro -v "$BACKUP_DIR":/backup alpine:3 \
+  tar -C /data -czf "/backup/mongo-data-$STAMP.tgz" .
+tar -tzf "$BACKUP_DIR/mongo-data-$STAMP.tgz" | head -20
+
+dc up -d --wait
+```
+
+- The logical dump must pass `gzip -t`; the volume archive must list
+  `WiredTiger` and `collection-*` entries.
+- Restore both into a scratch Compose project (never production) and start the
+  stack against it before relying on them.
+- If a backup fails, bring the stack back with `dc up -d --wait` and stop:
+  nothing on the data changed.
+- The other data volumes follow the same routine:
+  `legnaris-prod_mongo_keyfile` (never delete it), `..._prometheus_data`,
+  `..._loki_data` and `..._grafana_data`.
+
+### Bootstrapping rs0 on a fresh volume
+
+A fresh `mongo_data` volume needs no manual step. The `mongodb-keyfile` one-shot
+writes the keyfile once, `mongodb-bootstrap` initiates `rs0` and creates the root
+user, then provisions the least-privileged users idempotently, and every service
+that reads MongoDB waits for that one-shot to finish successfully.
+
+Verify the result:
+
+```bash
+dc() { docker compose --project-directory /opt/legnaris/deploy \
+  -f /opt/legnaris/deploy/docker-compose.yml -f /opt/legnaris/deploy/docker-compose.vps.yml "$@"; }
+
+dc exec -T mongodb mongosh --quiet --eval 'print(db.hello().setName, db.hello().isWritablePrimary)'
+# rs0 true
+
+docker inspect --format '{{json .Config.Cmd}}' legnaris-prod-mongodb-1
+# ["--replSet","rs0","--keyFile","/etc/mongo-keyfile/keyfile"]
+
+dc exec -T mongodb stat -c '%a %u:%g' /etc/mongo-keyfile/keyfile
+# 400 999:999
+
+docker inspect --format '{{.State.ExitCode}}' legnaris-prod-mongodb-keyfile-1 legnaris-prod-mongodb-bootstrap-1
+# 0 and 0
+```
+
+- The bootstrap waits up to 60 seconds for a primary and then fails with "has
+  no primary"; read `docker compose logs mongodb mongodb-bootstrap`.
+- The root password in `deploy/.env` must be the one the volume was initialized
+  with. If the root login fails, fix the `.env` value; never rotate the root
+  password by rerunning the bootstrap.
+- A restored volume that already holds users but no replica-set configuration is
+  initiated through the authenticated path, provided the root login works. The
+  bootstrap fails loudly instead of guessing when it does not.
+- Never delete `legnaris-prod_mongo_keyfile`: a new keyfile changes the set's
+  key, and recovery never needs one.
+- A reboot needs no re-initiation: the data, keyfile and replica-set
+  configuration live in the volumes, and `restart: unless-stopped` brings the
+  member back as PRIMARY. If a container is stopped, reconcile at the deployed
+  commit with `IMAGE_TAG="sha-$(cat /opt/legnaris/deploy/.deployed_sha)" dc up -d --wait --wait-timeout 180`;
+  the one-shots are idempotent.
+
+### Before enabling character generation
+
+`GENERATION_ENABLED` is the kill-switch and defaults to `false`. Before turning
+it on:
+
+- Keep a spending limit on the OpenRouter dashboard, turn prompt logging off,
+  and confirm no workspace guardrail blocks the endpoints of `LLM_MODEL`.
+- `LLM_API_KEY` is the OpenRouter key and reaches only the worker.
+- `LLM_MODEL` must never be a `:free` variant; the app refuses to boot on one.
+- Set `GENERATION_ENABLED=true`, redeploy the env, run one generation with a
+  test account and watch `legnaris_generation_cap_used` and the F1a alerts.
+
 ## 13. Gotchas (learned in testing)
 
 1. **oauth2-proxy `cookie_secret`** requires **URL-safe** base64 (`tr '+/' '-_'`).
@@ -637,14 +873,3 @@ Switching the broker to per-object mode resets the queue series once, so the que
    does not stop the Docker API from being driven through the socket, so a
    compromise of Alloy is a compromise of the host's Docker API. The edge proxy
    does not mount the socket. Replacing it with a socket proxy is out of scope.
-
----
-
-## Load testing
-
-`docker-compose.loadtest.yml` is a throwaway overlay (lifted rate limits,
-Prometheus remote-write receiver, a `k6` service under the `loadtest` profile).
-Its `prometheus.command` copies the base flags: keep it in sync when the base
-changes. Never apply it to a public deployment. Usage and the provisioned
-dashboards (`Legnaris — API`, `Legnaris — Load test (k6)`) are in
-`loadtest/README.md`.
