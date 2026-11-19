@@ -214,7 +214,7 @@ Realistic ranges (from fantasy_v1): 11 Sections; about 70-110 Rows; 6 ability in
 
 ## Implementation plan (separately runnable steps)
 
-Order matters where noted. Each step ends green on `npm test` (web), `go test ./...` and `make test-race` where Go is touched, and `make fmt && make lint && make vet && make lint-specs`. Every behaviour change ships tests (edge cases first: empty/zero, stale keys, over-cap, ineligible kinds, failure paths, offline).
+Order matters where noted. Each step ends green on `npm test` (web), `go test ./...` and `make test-race` where Go is touched, and `make fmt && make lint && make vet`. Every behaviour change ships tests (edge cases first: empty/zero, stale keys, over-cap, ineligible kinds, failure paths, offline).
 
 **Step 0: decisions and docs (precondition; no source).**
 - Confirm assumptions A1-A15 with the user.
@@ -253,6 +253,6 @@ Order matters where noted. Each step ends green on `npm test` (web), `go test ./
 - Edit: `web/src/engine/engine.css` (derived value colour to `--lg-color-text`; accent only for marks, pins, selection), `web/src/sheet/sheet.css`, `web/src/sheet/section_index.css`, `web/DESIGN.md` ("Editable versus derived", A11). No `tokens.css`/`tokens.ts` change.
 - Tests: `tokens_used.test.tsx` (no literals), contrast assertions unchanged, update any test that pins the derived colour. Check: count of accent-coloured elements on the previewed phone screen is within the accent budget.
 
-**Step 7: verify and finish.** `npm test`, e2e `responsive.spec.ts`, `make fmt lint vet lint-specs test-race` if Go touched; screenshots at 390 x 844, 640, 1280 across: fresh sheet (empty strip), 4 pins, over-cap pins, pin mode, previewed, offline, arranging; run the Impeccable finish review against this brief; update DESIGN.md/documenter pass.
+**Step 7: verify and finish.** `npm test`, e2e `responsive.spec.ts`, `make fmt lint vet test-race` if Go touched; screenshots at 390 x 844, 640, 1280 across: fresh sheet (empty strip), 4 pins, over-cap pins, pin mode, previewed, offline, arranging; run the Impeccable finish review against this brief; update DESIGN.md/documenter pass.
 
 Dependencies: 0 -> 1a -> (1b, 1c) -> 3; 2 independent of 1b/1c, required by the suggestion button in 3; 4, 5, 6 independent of each other and of 2, can run after 1a. 6 is cheapest and the least risky first win if the user wants a quick relief before the structural work.

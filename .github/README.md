@@ -27,7 +27,7 @@ behavior specs remain; visual review happens by hand.
 formats the staged Go (`gofmt`) and web (Prettier) files. CI keeps the format
 checks as the safety net.
 
-The spec lint scripts under `scripts/` (`check_*.py`) no longer run in CI. `opencode-review.yml` stays in `workflows-disabled/`.
+The assertion lint helper under `scripts/` (`check_test_assertions.py`) does not run in CI. `opencode-review.yml` stays in `workflows-disabled/`.
 
 ## Images
 
