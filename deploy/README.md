@@ -163,7 +163,7 @@ The rate limiters count attempts in the Redis named by `REDIS_URL`
 every replica. Without `REDIS_URL` each replica counts alone and the effective
 cap is N times the configured one. If Redis is unreachable the API keeps serving
 and falls back to that per-replica cap until it recovers (fail-open, warned in
-the log at most once a minute per limiter); see `docs/adr/0003`.
+the log at most once a minute per limiter).
 
 ## 7. Deploy (production)
 

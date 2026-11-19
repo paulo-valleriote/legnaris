@@ -1,5 +1,5 @@
 // Initiates the single-member replica set rs0 and waits for that member to become
-// PRIMARY, so transactions have a primary to write to (ADR 0013). bootstrap.sh runs
+// PRIMARY, so transactions have a primary to write to. bootstrap.sh runs
 // it first: as root when the root credentials authenticate (a restart, or a
 // standalone volume converted to rs0), otherwise unauthenticated over the localhost
 // exception, before any user exists.

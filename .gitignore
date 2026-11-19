@@ -37,6 +37,14 @@ go.work.sum
 # AI PR review artifacts (written by .github/workflows/opencode-review.yml)
 .ai-review/
 
+# Impeccable design-review artifacts
+.impeccable/
+web/.impeccable/
+
+# Playwright and browser test artifacts
+test-results/
+playwright-report/
+
 # Python bytecode (skill scripts)
 __pycache__/
 node_modules/

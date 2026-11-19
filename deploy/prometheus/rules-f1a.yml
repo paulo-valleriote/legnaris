@@ -1,4 +1,4 @@
-# Alert rules for the F1a go-live gate (LGN-226, ADR 0013): the sweeper's queues,
+# Alert rules for the F1a go-live gate (LGN-226): the sweeper's queues,
 # the unrouted domain events and the global daily generation cap.
 #
 # Each alert links the dead-item procedure in deploy/README.md (section Dead sweeper items).

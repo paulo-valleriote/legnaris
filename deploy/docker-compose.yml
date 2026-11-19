@@ -115,7 +115,7 @@ services:
     restart: unless-stopped
     # Must exceed the sum of the shutdown budgets the app spends in sequence:
     # SHUTDOWN_TIMEOUT for HTTP (5s), DATABASE_CLOSE_TIMEOUT for MongoDB (5s)
-    # and the event publisher drain (5s, ADR 0013). A shorter grace makes Docker
+    # and the event publisher drain (5s). A shorter grace makes Docker
     # SIGKILL the app mid-drain.
     stop_grace_period: 20s
     environment:
@@ -145,7 +145,7 @@ services:
       # per-process limiter (cap applies per replica). The app does not wait
       # for Redis: an outage fails open to the per-process limiter.
       REDIS_URL: ${REDIS_URL-redis://redis:6379/0}
-      # Best-effort domain events (ADR 0010) are published by the API. The
+      # Best-effort domain events are published by the API. The
       # broker is optional at boot: the API serves requests while RabbitMQ is
       # down and counts the events it drops. The email relay and worker are the
       # only processes that consume the email settings (EML-14).
@@ -163,7 +163,7 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:-}
       EMAIL_SEND_TIMEOUT: ${EMAIL_SEND_TIMEOUT:-10s}
       EMAIL_OUTBOX_RETENTION: ${EMAIL_OUTBOX_RETENTION:-168h}
-      # Character generation gates (ADR 0007, LGN-186). The API only reserves
+      # Character generation gates (LGN-186). The API only reserves
       # jobs and enforces the kill-switch, the daily cap and the rate limits;
       # the LLM credentials live in the worker, which runs the jobs.
       GENERATION_ENABLED: ${GENERATION_ENABLED:-false}
@@ -238,7 +238,7 @@ services:
       start_period: 5s
 
   # ---- Database -------------------------------------------------------------
-  # Single-member replica set rs0 (ADR 0013). The keyfile turns on authorization,
+  # Single-member replica set rs0. The keyfile turns on authorization,
   # so mongod starts with no users; mongodb-bootstrap sets up the set and the
   # users on every start.
   mongodb:
