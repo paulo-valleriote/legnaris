@@ -140,9 +140,8 @@ sender prints one-time codes, and every run starts from empty data.
   is public and rate limited; `/ready` and `/metrics` are not publicly routed.
 - **Data services.** MongoDB provisions three least-privileged accounts on every
   start (`legnaris_app` read/write, `legnaris_exporter` server metrics,
-  `legnaris_view` read-only plus `clusterMonitor`, which Mongo Express needs
-  for `serverStatus`); every bootstrap grants roles added since a user was
-  created; no service connects as root. RabbitMQ keeps
+  `legnaris_view` read-only, used by Mongo Express with admin mode off so it
+  never needs server-wide privileges); no service connects as root. RabbitMQ keeps
   delivery queues in the `legnaris` vhost with an application account that
   cannot open the console and a separate operator account that can. Redis is
   memory-only with `noeviction` and the limiters fall back to per-process
