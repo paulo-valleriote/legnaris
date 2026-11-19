@@ -20,7 +20,9 @@ function Breakdown({ result }: { readonly result: RollResult }) {
           <span className="lg-dice-panel__sign">{part.sign === 1 ? '+' : '-'}</span>
           <span className="lg-dice-panel__label">{part.label}</span>
           {part.rolls !== undefined && (
-            <span className="lg-dice-panel__rolls">[{part.rolls.join(', ')}]</span>
+            <span className="lg-dice-panel__rolls">
+              {messageWith('dice.rolls', { rolls: part.rolls.join(', ') })}
+            </span>
           )}
           <span className="lg-dice-panel__value">{part.value}</span>
         </li>
