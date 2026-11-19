@@ -8,6 +8,32 @@ import noUnsanitized from 'eslint-plugin-no-unsanitized';
 import security from 'eslint-plugin-security';
 import prettier from 'eslint-config-prettier';
 
+const STORAGE_MESSAGE =
+  'Credentials are memory-only; storage is allowed only in the theme/view-state seams';
+const FETCH_MESSAGE = 'Network calls go through the injected transport (src/api/transport.ts).';
+const XHR_MESSAGE =
+  'XMLHttpRequest is forbidden; use the injected transport (src/api/transport.ts).';
+const IDB_MESSAGE = 'idb may be imported only by src/library/idb_sheet_store.ts.';
+const DND_MESSAGE = '@dnd-kit is forbidden under src/engine/; the engine imports no drag library.';
+const DIALOG_MESSAGE =
+  'Use the accessible overlay (role="dialog", aria-modal) instead of a native <dialog>.';
+
+const storageGlobals = ['localStorage', 'sessionStorage'].map((name) => ({
+  name,
+  message: STORAGE_MESSAGE,
+}));
+const storageProperties = ['window', 'self', 'globalThis'].flatMap((object) =>
+  ['localStorage', 'sessionStorage'].map((property) => ({
+    object,
+    property,
+    message: STORAGE_MESSAGE,
+  })),
+);
+const networkGlobals = [
+  { name: 'fetch', message: FETCH_MESSAGE },
+  { name: 'XMLHttpRequest', message: XHR_MESSAGE },
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -49,6 +75,10 @@ export default tseslint.config(
           selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
           message: 'dangerouslySetInnerHTML is forbidden (FND-10).',
         },
+        {
+          selector: "JSXOpeningElement[name.name='dialog']",
+          message: DIALOG_MESSAGE,
+        },
       ],
       'no-empty': ['error', { allowEmptyCatch: true }],
       '@typescript-eslint/consistent-type-imports': 'error',
@@ -59,6 +89,48 @@ export default tseslint.config(
   {
     files: ['**/*.test.{ts,tsx}', 'src/test/**/*.{ts,tsx}', 'e2e/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}', 'public/**/*.js'],
+    rules: {
+      'no-restricted-globals': ['error', ...storageGlobals, ...networkGlobals],
+      'no-restricted-properties': ['error', ...storageProperties],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [{ name: 'idb', message: IDB_MESSAGE }],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/theme/use_theme.ts', 'src/sheet/view_store.ts', 'public/theme-init.js'],
+    rules: {
+      'no-restricted-globals': ['error', ...networkGlobals],
+      'no-restricted-properties': 'off',
+    },
+  },
+  {
+    files: ['src/api/transport.ts'],
+    rules: {
+      'no-restricted-globals': ['error', ...storageGlobals],
+    },
+  },
+  {
+    files: ['src/engine/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [{ name: 'idb', message: IDB_MESSAGE }],
+          patterns: [{ group: ['@dnd-kit/*'], message: DND_MESSAGE }],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/library/idb_sheet_store.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   prettier,
 );

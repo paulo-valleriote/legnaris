@@ -316,13 +316,14 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     await renderCodeSurface();
 
     const field = screen.getByLabelText(message('auth.codeLabel'));
+    const writes = vi.spyOn(Storage.prototype, 'setItem');
     await user.click(field);
     await user.paste('042917');
 
-    expect(window.localStorage.length).toBe(0);
-    expect(window.sessionStorage.length).toBe(0);
+    expect(writes).not.toHaveBeenCalled();
     expect(field).toHaveAccessibleName(message('auth.codeLabel'));
     expect(field.getAttribute('aria-label')).toBeNull();
+    writes.mockRestore();
   });
 
   it('Happy path: the surface names the address, states the lifetime and takes the focus (WCS-19, WCS-20, WCS-22)', async () => {

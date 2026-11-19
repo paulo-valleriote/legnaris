@@ -9,7 +9,7 @@ import { createApiClient } from '../api/client';
 import { resolveApiConfigFromBuild } from '../api/config';
 import { readCsrfToken } from '../api/csrf';
 import type { Transport } from '../api/transport';
-import { createFetchTransport } from '../api/transport';
+import { browserFetch, createFetchTransport } from '../api/transport';
 import type { AuthSession } from '../auth/auth_session';
 import { createAuthSession } from '../auth/auth_session';
 import { createIdbSheetStore } from '../library/idb_sheet_store';
@@ -80,7 +80,7 @@ export function AppProviders({
   viewStorage,
 }: AppProvidersProps) {
   const [baseUrl] = useState(() => apiBaseUrl ?? resolveApiConfigFromBuild().baseUrl);
-  const [fallbackTransport] = useState(() => createFetchTransport(fetch));
+  const [fallbackTransport] = useState(() => createFetchTransport(browserFetch));
   const [fallbackQueryClient] = useState(createDefaultQueryClient);
   const [fallbackSheetStore] = useState(() => createLazySheetStore(() => createIdbSheetStore()));
   const [fallbackViewStorage] = useState(browserViewStorage);
