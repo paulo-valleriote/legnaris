@@ -1,8 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type * as RouterModule from 'react-router-dom';
 import { redirectTo } from '../billing/redirect';
 import { message, messageWith } from '../l10n/strings';
+import { CHECKOUT_CONFIRM_LIMIT_MS } from '../plans/plan_view';
+import type { Route } from './billing_transport';
 import {
   ACCEPTED,
   CHECKOUT_URL,
@@ -15,7 +18,14 @@ import {
 } from './billing_transport';
 import { renderApp } from './render';
 
+const navigateSpy = vi.hoisted(() => vi.fn());
+
 vi.mock('../billing/redirect', () => ({ redirectTo: vi.fn() }));
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof RouterModule>();
+  return { ...actual, useNavigate: () => navigateSpy };
+});
 
 const ELIGIBLE = {
   ...FREE_NEVER_SUBSCRIBED,
@@ -34,6 +44,7 @@ function deferredRoute() {
 
 beforeEach(() => {
   vi.mocked(redirectTo).mockClear();
+  navigateSpy.mockClear();
 });
 
 describe('plans screen: checkout (LGN-215)', () => {
@@ -317,5 +328,118 @@ describe('plans screen layout and standing conditions (DESIGN.md)', () => {
     const line = await screen.findByText(message('plans.neverSubscribed'));
     expect(line).toHaveClass('lg-plans__text');
     expect(line.closest('.lg-notice')).toBeNull();
+  });
+});
+
+describe('plans screen: return from checkout (LGN-256)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function advance(ms: number) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  }
+
+  const ACTIVATED_COPY = messageWith('plans.checkoutActivated', {
+    plan: message('account.planPaid'),
+  });
+
+  function expectCheckoutParamRemoved() {
+    expect(navigateSpy).toHaveBeenCalledWith({ pathname: '/plans', search: '' }, { replace: true });
+  }
+
+  it('Happy path: a Free plan that turns paid on a later poll shows the notice and drops the param', async () => {
+    const script = scriptedBilling({
+      plans: [json(FREE_NEVER_SUBSCRIBED), json(FREE_NEVER_SUBSCRIBED), json(PAID_ACTIVE)],
+    });
+    renderApp('/plans?checkout=success', { client: script.client });
+
+    await advance(0);
+    expect(screen.getByText(message('plans.checkoutConfirming'))).toBeInTheDocument();
+    expect(screen.queryByText(ACTIVATED_COPY)).toBeNull();
+
+    await advance(2000);
+    expect(screen.getByText(message('plans.checkoutConfirming'))).toBeInTheDocument();
+
+    await advance(2000);
+    await advance(1);
+    expect(screen.getByText(ACTIVATED_COPY)).toBeInTheDocument();
+    expect(screen.queryByText(message('plans.checkoutConfirming'))).toBeNull();
+    expect(script.planReads()).toBe(3);
+    expectCheckoutParamRemoved();
+  });
+
+  it('Edge: a delayed webhook keeps confirming and never presents Free as the final state', async () => {
+    const script = scriptedBilling({ plans: [json(FREE_NEVER_SUBSCRIBED)] });
+    renderApp('/plans?checkout=success', { client: script.client });
+
+    await advance(0);
+    await advance(4000);
+
+    expect(screen.getByText(message('plans.checkoutConfirming'))).toBeInTheDocument();
+    expect(
+      screen.queryByText(messageWith('plans.current', { plan: message('account.planFree') })),
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: message('plans.subscribe') })).toBeNull();
+    expect(screen.queryByText(ACTIVATED_COPY)).toBeNull();
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('Edge: the wait limit shows the processing message and Check again reads the plan once more', async () => {
+    const plans: Route[] = [json(FREE_NEVER_SUBSCRIBED)];
+    const script = scriptedBilling({ plans });
+    renderApp('/plans?checkout=success', { client: script.client });
+
+    await advance(0);
+    await advance(CHECKOUT_CONFIRM_LIMIT_MS);
+
+    expect(screen.getByText(message('plans.checkoutProcessing'))).toBeInTheDocument();
+    expect(screen.queryByText(message('plans.checkoutConfirming'))).toBeNull();
+    expectCheckoutParamRemoved();
+
+    const readsBefore = script.planReads();
+    plans.push(json(PAID_ACTIVE));
+    fireEvent.click(screen.getByRole('button', { name: message('plans.checkoutCheckAgain') }));
+    await advance(0);
+
+    expect(script.planReads()).toBe(readsBefore + 1);
+    expect(screen.getByText(ACTIVATED_COPY)).toBeInTheDocument();
+    expect(screen.queryByText(message('plans.checkoutProcessing'))).toBeNull();
+  });
+
+  it('Edge: checkout=canceled keeps the previous plan, shows no message and drops the param', async () => {
+    const script = scriptedBilling({ plans: [json(PAID_ACTIVE)] });
+    renderApp('/plans?checkout=canceled', { client: script.client });
+
+    await advance(0);
+
+    expect(
+      screen.getByText(messageWith('plans.current', { plan: message('account.planPaid') })),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(message('plans.checkoutConfirming'))).toBeNull();
+    expect(screen.queryByText(message('plans.checkoutProcessing'))).toBeNull();
+    expect(screen.queryByText(ACTIVATED_COPY)).toBeNull();
+    expectCheckoutParamRemoved();
+  });
+
+  it('Happy path: an account already paid on the first read shows the notice directly', async () => {
+    const script = scriptedBilling({ plans: [json(PAID_ACTIVE)] });
+    renderApp('/plans?checkout=success', { client: script.client });
+
+    await advance(0);
+
+    expect(screen.getByText(ACTIVATED_COPY)).toBeInTheDocument();
+    expect(screen.queryByText(message('plans.checkoutConfirming'))).toBeNull();
+    expect(script.planReads()).toBe(1);
+    expectCheckoutParamRemoved();
+    expect(redirectTo).not.toHaveBeenCalled();
   });
 });

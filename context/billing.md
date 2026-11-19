@@ -31,6 +31,9 @@ flowchart TB
   API -->|create hosted Checkout Session| P
   API -->|200 url + expires_at| U
   U -->|pays on hosted page| P
+  P -->|redirect to /plans?checkout=success or canceled| U
+  U -->|poll GET /me/plan every 2 s, up to 30 s| API
+  USR -.->|paid appears| U
   P -->|signed webhook| WH[POST /billing/webhook]
   WH -->|verify signature, insert unique event| IN[(billing_events)]
   WH -->|200| P
@@ -45,6 +48,18 @@ flowchart TB
 ```
 
 An unexpired pending checkout is reused; an expired pending row is canceled first. A unique partial index allows one live subscription per user (`pending`, `active`, `past_due`), so concurrent checkouts lose the race and retry before `CONFLICT`.
+
+### Return from checkout
+
+`BILLING_SUCCESS_URL` points at `/plans?checkout=success` and `BILLING_CANCEL_URL` at `/plans?checkout=canceled`. The return is a hint, never an entitlement: only the webhook consumer writes `users.plan`.
+
+- `checkout=success` with a paid Plan in `/me/plan` — the screen states `Plan <name> activated.` at once.
+- `checkout=success` with a Free Plan — the plan cards are replaced by `Confirming your payment…`, with no subscribe or manage action, and `/me/plan` is polled every two seconds for at most thirty seconds, composed with the refund poll. Free is never presented as the final state.
+- A paid Plan on a later poll — the activation notice appears and `checkout` is removed with a replaced history entry.
+- Thirty seconds without a paid Plan — the screen states the payment was received and is being processed, offers `Check again` and stops polling. That button re-reads `/me/plan` on its own, not because of the parameter, which is already gone.
+- `checkout=canceled` — the previous Plan is shown as usual, with no message, and the parameter is removed.
+
+If the webhook never lands, the return cannot grant the Plan; `Check again` or the next visit reports whatever `/me/plan` holds.
 
 ### Cancellation and refund
 
@@ -89,7 +104,7 @@ sequenceDiagram
 
 A failed renewal arrives as `past_due`; the Plan drops to Free immediately, a successful card retry restores `active`, and exhausted retries end as `canceled`. A refund is offered only while active, within seven days of the first paid date, once per user ever, and with an empty or failed refund state. Refund and charge webhooks are ignored: the queue's state transitions are the refund record.
 
-The Plans screen reads `/me/plan`: Subscribe and Manage post to checkout or portal and then redirect the whole page; the refund dialog polls `/me/plan` every five seconds while the state is `requested`; the shell shows a payment-issue banner when `payment_issue` is true.
+The Plans screen reads `/me/plan`: Subscribe and Manage post to checkout or portal and then redirect the whole page; a return from checkout confirms the change by polling `/me/plan` (see above); the refund dialog polls `/me/plan` every five seconds while the state is `requested`; the shell shows a payment-issue banner when `payment_issue` is true.
 
 Account deletion settles billing first: live provider subscriptions are canceled now, provider customers are scrubbed of personal data, and subscription rows are marked `canceled` with an expiry five years out.
 
@@ -177,7 +192,7 @@ Provider rejections on checkout or portal surface as `500 INTERNAL_ERROR`; timeo
 - `backend/internal/app/billing.go`, `billing_portal.go` — `/billing/*` and webhook controllers; `plan.go` — `/me/plan` billing fields; `router.go`, `bootstrap.go` — wiring and provider selection.
 - `backend/internal/accountdeletion` — deletion queue that calls billing settlement.
 - `backend/shared/db/indexes.go` — live-subscription, provider-ID, refund, event and TTL indexes.
-- `web/src/plans` — Plan cards, checkout, portal, cancellation notice, refund dialog and polling; `web/src/billing/redirect.ts` — provider redirect.
+- `web/src/plans` — Plan cards, checkout, return-from-checkout confirmation and polling, portal, cancellation notice, refund dialog and polling; `web/src/billing/redirect.ts` — provider redirect.
 - `web/src/api/models/billing.ts`, `plan.ts` — parsing; `client.ts`, `error_mapper.ts` — calls and error copy; `web/src/shell/payment_banner.tsx` — payment-issue banner.
 
 ## Tools & dependencies
