@@ -17,7 +17,6 @@ AI reviewers + linters evaluate PRs against these criteria. AI findings are advi
 
 ### English Only
 - All identifiers, comments, log messages, user-facing strings in English. No Portuguese (pt-BR) code or strings.
-- Exception: `docs/TDD.md` stays in pt-BR.
 
 ### Race Conditions
 - No unsynchronized access to shared state; prefer channels or mutexes; `go test -race` must stay clean.
