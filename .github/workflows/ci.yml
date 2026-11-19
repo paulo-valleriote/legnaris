@@ -9,6 +9,7 @@ name: CI
 # the PR already passed this exact tree.
 on:
   pull_request:
+    types: [opened, edited, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
@@ -19,8 +20,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A title edit re-runs the workflow to re-check the title alone: the diff is
+  # unchanged, so the path filter and every suite it feeds are skipped and only
+  # `pr-title` and the gate spend a runner.
   changes:
     name: detect changed areas
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -60,6 +65,23 @@ jobs:
               - 'go.mod'
               - 'go.sum'
               - '.github/workflows/ci.yml'
+
+  # Branch protection requires the gate, so a pull request whose title names no
+  # Jira card cannot merge: the key is what links the change back to the board.
+  # It runs on every event, including a title edit that skips the diff suites.
+  pr-title:
+    name: PR title carries a Jira key
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Title names an LGN-<number> card
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: go run ./scripts/ci/cmd/pr-title-check
 
   go-lint:
     name: golangci-lint, tidy, deploy stack config, shellcheck
@@ -211,7 +233,7 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, go-lint, go-race, web-quality, web-e2e, images-build]
+    needs: [changes, pr-title, go-lint, go-race, web-quality, web-e2e, images-build]
     if: always()
     runs-on: ubuntu-latest
     steps:
