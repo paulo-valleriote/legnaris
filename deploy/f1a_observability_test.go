@@ -18,7 +18,8 @@ const (
 	f1aRulesMount      = "./prometheus/rules-f1a.yml:/etc/prometheus/rules-f1a.yml:ro"
 	f1aRulesPath       = "/etc/prometheus/rules-f1a.yml"
 	f1aDashboardFile   = "grafana/dashboards/f1a-generation.json"
-	f1aRunbook         = "docs/runbook-sweeper-dead-items.md"
+	f1aRunbook         = "deploy/README.md#dead-sweeper-items"
+	f1aRunbookFile     = "deploy/README.md"
 	f1aThresholdPrefix = "legnaris:f1a:threshold_"
 	f1aOldestThreshold = f1aThresholdPrefix + "oldest_pending_seconds"
 	f1aCapThreshold    = f1aThresholdPrefix + "generation_cap_ratio"
@@ -136,6 +137,48 @@ func TestF1aAlertRulesExistAndAreComplete(t *testing.T) {
 		for name := range alerts {
 			assert.NotContainsf(t, email, name, "alert %s collides with the email pipeline", name)
 		}
+	})
+}
+
+func anchorFor(heading string) string {
+	text := strings.ToLower(strings.TrimSpace(strings.TrimLeft(heading, "# ")))
+	var anchor strings.Builder
+	for _, char := range text {
+		switch {
+		case char >= 'a' && char <= 'z', char >= '0' && char <= '9', char == '-', char == ' ':
+			anchor.WriteRune(char)
+		}
+	}
+	return strings.ReplaceAll(anchor.String(), " ", "-")
+}
+
+func TestF1aAlertRunbookLinksPointToExistingSections(t *testing.T) {
+	raw, err := os.ReadFile(runbookFile)
+	require.NoErrorf(t, err, "read %s", runbookFile)
+
+	anchors := map[string]bool{}
+	inFence := false
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.HasPrefix(line, "```") {
+			inFence = !inFence
+			continue
+		}
+		if !inFence && strings.HasPrefix(line, "#") {
+			anchors[anchorFor(line)] = true
+		}
+	}
+
+	t.Run("Happy path: every alert links a section that exists in the runbook", func(t *testing.T) {
+		for name, rule := range f1aAlertsByName(t) {
+			file, anchor, found := strings.Cut(rule.Annotations["runbook"], "#")
+			require.Truef(t, found, "alert %s must link a section", name)
+			assert.Equalf(t, f1aRunbookFile, file, "alert %s must link the runbook", name)
+			assert.Truef(t, anchors[anchor], "alert %s links the missing section %q", name, anchor)
+		}
+	})
+
+	t.Run("Edge: every alert of the file is covered", func(t *testing.T) {
+		assert.Len(t, f1aAlertsByName(t), len(f1aAlerts))
 	})
 }
 
