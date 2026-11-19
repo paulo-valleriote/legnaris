@@ -182,6 +182,14 @@ export function fantasyFieldTree(): Record<string, unknown> {
     derived: {
       label: 'Derived',
       children: {
+        armorClass: {
+          schema: {
+            type: 'number',
+            label: 'Armor class',
+            is_editable: false,
+            default: 10,
+          },
+        },
         passiveAwareness: {
           schema: {
             type: 'number',
@@ -192,9 +200,68 @@ export function fantasyFieldTree(): Record<string, unknown> {
         },
       },
     },
+    config: {
+      label: 'Template settings',
+      children: {
+        acUsesDex: {
+          schema: {
+            type: 'number',
+            label: 'Armor class uses dexterity',
+            is_editable: true,
+            default: 1,
+            min: 0,
+            max: 1,
+            exclusive_group: 'armorClassAbility',
+            option_label: 'Dexterity',
+          },
+        },
+        acUsesCon: {
+          schema: {
+            type: 'number',
+            label: 'Armor class uses constitution',
+            is_editable: true,
+            default: 0,
+            min: 0,
+            max: 1,
+            exclusive_group: 'armorClassAbility',
+            option_label: 'Constitution',
+          },
+        },
+      },
+    },
     combat: {
       label: 'Combat',
       children: {
+        baseArmorClass: {
+          schema: {
+            type: 'number',
+            label: 'Base armor class',
+            is_editable: true,
+            default: 10,
+            min: 1,
+            max: 30,
+          },
+        },
+        initiative: {
+          schema: {
+            type: 'number',
+            label: 'Initiative',
+            is_editable: true,
+            default: 0,
+            min: -5,
+            max: 20,
+          },
+        },
+        speed: {
+          schema: {
+            type: 'number',
+            label: 'Speed',
+            is_editable: true,
+            default: 30,
+            min: 0,
+            max: 120,
+          },
+        },
         hitPoints: {
           schema: {
             type: 'number',
@@ -231,7 +298,7 @@ export function fantasyFieldTree(): Record<string, unknown> {
 }
 
 export function fantasySheetData(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  const { stats, modifiers, derived, combat, ...identity } = overrides;
+  const { stats, modifiers, derived, combat, config, ...identity } = overrides;
   return {
     identity: {
       characterName: 'Aria',
@@ -261,10 +328,19 @@ export function fantasySheetData(overrides: Record<string, unknown> = {}): Recor
       ...(modifiers as Record<string, unknown> | undefined),
     },
     derived: {
+      armorClass: 12,
       passiveAwareness: 14,
       ...(derived as Record<string, unknown> | undefined),
     },
+    config: {
+      acUsesDex: 1,
+      acUsesCon: 0,
+      ...(config as Record<string, unknown> | undefined),
+    },
     combat: {
+      baseArmorClass: 10,
+      initiative: 3,
+      speed: 30,
       hitPoints: 10,
       hitPointsMax: 20,
       hitPointsTemp: 0,

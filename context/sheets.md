@@ -231,7 +231,8 @@ slots, so later gameplay surfaces are additions to the preset rather than branch
 The `fantasy_v1` preset currently draws the hero header, the combat strip and the ability
 medallions. The title is `identity.characterName` with the sheet name as its empty fallback, then
 `ancestry`, `origin`, `Level N` with a stepper, `played by <player>` and the proficiency badge.
-Under it the combat strip holds the hit-points card (below), then the six `stats.<ability>` scores
+Under it the combat strip holds the armor class shield, the initiative and speed tiles and the
+hit-points card (below), then the six `stats.<ability>` scores
 render as medallions: the `modifiers.<ability>Mod` derived value is the large, read-only roll
 target (accent-coloured through `rollable_value.tsx`, rolling the `stats.<ability>` Row through
 the Dice store and its sheet overrides), while the raw score sits in an `inline_edit.tsx` badge
@@ -241,9 +242,23 @@ uses are the reusable roll surface for later gameplay sections. Edit keeps the g
 Arrange and the pinned filter; Play ignores the layout and the view filters.
 
 The combat strip (`fantasy/combat_strip.tsx`) is the container later gameplay cards extend; it
-holds the hit-points card (`fantasy/hp_card.tsx`) at the top of the Play view and is sticky on a
-desktop only (a media query turns it static on a phone). The card reads `combat.hitPoints`,
-`combat.hitPointsMax` and `combat.hitPointsTemp`, draws the bar as a `role="meter"` with
+holds the armor class shield, the initiative tile, the speed tile and the hit-points card
+(`fantasy/hp_card.tsx`) at the top of the Play view and is sticky on a desktop only (a media
+query turns it static and the strip into a three-column grid on a phone, with the card across
+all three). The shield (`fantasy/ac_breakdown.tsx`) reads `derived.armorClass` and opens a
+breakdown popover with `role="dialog"`: the base armor (`combat.baseArmorClass`) as an inline
+edit clamped to 1–30, the AC ability as DEX/CON segmented buttons that write the
+`armorClassAbility` exclusive group through `setExclusive` (`config.acUsesDex` /
+`config.acUsesCon`, exactly one non-zero member in the delta), that ability's
+`modifiers.<ability>Mod` and the derived total. It closes on Escape, on an outside click and on
+its close button, returns focus to the shield and keeps focus in the panel while open; the
+derived value itself only changes after Preview, since the client evaluates no formula. On a
+phone the same panel is a fixed bottom sheet so a scrolling container cannot clip it. The
+initiative tile is the large, read-only roll target over the `combat.initiative` Row, and the
+speed tile inline-edits `combat.speed` (clamped to 0–120). `fantasy/armor_class.ts` owns the
+paths, the 1–30 / 0–120 parsing and the exactly-one-ability selector. The hit-points card reads
+`combat.hitPoints`, `combat.hitPointsMax` and `combat.hitPointsTemp`, draws the bar as a
+`role="meter"` with
 `aria-valuemin`/`aria-valuemax`/`aria-valuenow`, colours the fill by percentage (green above 50,
 amber at 25–50, red under 25), adds a temporary-points segment and offers an amount input with
 Damage and Heal. Damage and Heal call the pure `fantasy/hit_points.ts`: damage spends temporary
@@ -314,6 +329,9 @@ Web:
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header` plus
   ordered section slots); `fantasy/` — the hero, the combat strip and the ability medallions with
   their pure score/modifier helpers; `fantasy/combat_strip.tsx` — the combat strip container;
+  `fantasy/ac_breakdown.tsx` — the armor class shield and its breakdown with the DEX/CON
+  segmented exclusive choice; `fantasy/armor_class.ts` — the AC/speed paths, the
+  exactly-one-ability selector and the clamped parsing;
   `fantasy/hp_card.tsx` — the hit-points card; `fantasy/hit_points.ts` — the pure HP math;
   `rollable_value.tsx` — the reusable roll target (`useRowRoll` in `dice_row.tsx`);
   `pending_card.tsx`, `pending_changes.ts` — the floating unsaved-delta card and its pure summary;
@@ -360,10 +378,10 @@ Web:
   there is no pin cap.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
-- Play mode presents the `fantasy_v1` hero header, the ability medallions, the hit-points card in
-  the combat strip and the pending-changes card today. XP, saves and skills, attacks, spells, armor
-  class, initiative, speed and the stat block are added by later tickets; a template without a
-  preset always keeps the generic form.
+- Play mode presents the `fantasy_v1` hero header, the ability medallions, the armor class shield,
+  the initiative and speed tiles and the hit-points card in the combat strip and the
+  pending-changes card today. XP, saves and skills, attacks, spells and the stat block are added
+  by later tickets; a template without a preset always keeps the generic form.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are

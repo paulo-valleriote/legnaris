@@ -138,11 +138,19 @@ the F2 client and the F4 engine and owns no wire model.
 - `src/sheet/preset/` — the template-id registry and the `fantasy_v1` Play preset: a `Header`
   component plus ordered `sections` slots sharing one preset context over the edit store, Dice
   context and decoded template. `fantasy/` holds the hero, the combat strip and the ability
-  medallions: the strip container later cards extend, holding the hit-points card
+  medallions: the strip container later cards extend, holding the armor class shield
+  (`fantasy/ac_breakdown.tsx`, with `fantasy/armor_class.ts` for the clamped 1–30 / 0–120 parsing
+  and the exactly-one-ability selector), the initiative roll tile, the inline-edited speed tile and
+  the hit-points card
   (`fantasy/hp_card.tsx`) over the pure `fantasy/hit_points.ts` (damage spends temporary points
-  first, healing caps at the maximum, non-positive amounts are ignored), sticky on a desktop and
-  static on a phone; the card writes `combat.hitPoints` and `combat.hitPointsTemp` to the pending
-  delta and draws the unsaved difference as a hatched segment with `was <n>` until Save. The
+  first, healing caps at the maximum, non-positive amounts are ignored), sticky on a desktop and a
+  three-column grid on a phone, where the AC breakdown becomes a fixed bottom sheet; the card
+  writes `combat.hitPoints` and `combat.hitPointsTemp` to the pending
+  delta and draws the unsaved difference as a hatched segment with `was <n>` until Save. The shield
+  reads `derived.armorClass`, opens a `role="dialog"` breakdown (base armor inline edit, DEX/CON
+  segmented buttons writing the `armorClassAbility` exclusive group through `setExclusive`, that
+  ability's modifier and the derived total) and closes on Escape, outside click or its close
+  button, returning focus to the shield; the derived total moves only on Preview. The
   medallions pair a large `RollableValue` over the Dice store with an inline-editable score badge
   and the passive-awareness pill; `rollable_value.tsx` with `useRowRoll` (`dice_row.tsx`) is the
   reusable roll target later gameplay sections reuse. A template without a preset keeps the
