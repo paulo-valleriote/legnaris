@@ -778,12 +778,19 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     onRefresh: requestRefresh,
   });
 
+  const StatBlockHeader =
+    playing && preset !== undefined && preset.statBlock?.when(sheet.kind)
+      ? preset.statBlock.Header
+      : undefined;
+
   return (
     <PresetProvider {...presetValue}>
       <header className="lg-sheet__header">
         <div className="lg-sheet__heading">
           <div className="lg-sheet__heading-text">
-            {playing && preset !== undefined ? (
+            {StatBlockHeader !== undefined ? (
+              <StatBlockHeader />
+            ) : playing && preset !== undefined ? (
               <preset.Header />
             ) : (
               <>

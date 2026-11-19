@@ -170,7 +170,13 @@ the F2 client and the F4 engine and owns no wire model.
   `fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts` (the 5e level thresholds): a
   `progressbar` from the level floor to the next threshold whose disclosure adds a positive gain to
   `identity.xp` and offers `Level up to N?` at the threshold, while level 20 stays full with no
-  offer. A template without a preset keeps the generic form. `mode_toggle.tsx` is the Play/Edit
+  offer. An NPC or enemy sheet of `fantasy_v1` swaps the character preset for
+  `fantasy/stat_block.tsx`: name and kind tag, the armor class shield, an initiative tile with a
+  pencil inline edit, the hit-points card, the ability medallions, the proficient saves and skills
+  only, the attack cards and the spellcasting panel, all over the same edit and Dice stores (the
+  preset carries that block as an optional kind-selected `statBlock`; the pure selection and
+  initiative parsing live in `fantasy/stat_block_data.ts`). A character sheet keeps the full preset,
+  and a template without a preset keeps the generic form. `mode_toggle.tsx` is the Play/Edit
   switch, component state for the open screen (local to the
   viewer, never persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter,
   Play ignores the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path
