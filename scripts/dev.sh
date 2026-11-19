@@ -187,7 +187,7 @@ prefixed web bash -c 'cd web && exec node_modules/.bin/vite --host localhost --p
 log "web  http://localhost:$WEB_PORT"
 log "api  http://localhost:$API_PORT"
 log "mail codes are printed by the [worker] lines (dev sender)"
-log "db   mongodb://localhost:$MONGO_PORT/ replica set rs0, authenticated, retryable writes (wiped on exit; Ctrl-C to stop)"
+log "db   localhost:$MONGO_PORT replica set rs0, authenticated, retryable writes (wiped on exit; Ctrl-C to stop)"
 
 wait -n || true
 die "a process exited; stopping the stack"
