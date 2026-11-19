@@ -28,7 +28,7 @@ describe('failure states out of the client', () => {
   });
 
   it('Edge: a failure with an unmapped code keeps the generic kind, the raw code and the message (API-21)', async () => {
-    const fake = createFakeTransport(errorOutcome('CYCLE_DETECTED', 'already exists', 409));
+    const fake = createFakeTransport(errorOutcome('SOMETHING_NEW', 'already exists', 409));
 
     const failure = await clientWith(fake)
       .getSheet('sheet-1')
@@ -38,7 +38,7 @@ describe('failure states out of the client', () => {
     expect(failure).toMatchObject({
       kind: 'unknown',
       status: 409,
-      code: 'CYCLE_DETECTED',
+      code: 'SOMETHING_NEW',
       message: 'already exists',
     });
   });

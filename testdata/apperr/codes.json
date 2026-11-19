@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "codes": [
+    {
+      "code": "ALREADY_SUBSCRIBED",
+      "status": 409
+    },
+    {
+      "code": "BILLING_UNAVAILABLE",
+      "status": 503
+    },
+    {
+      "code": "CAMPAIGN_FORBIDDEN",
+      "status": 403
+    },
+    {
+      "code": "CAMPAIGN_FULL",
+      "status": 409
+    },
+    {
+      "code": "CAMPAIGN_NOT_FOUND",
+      "status": 404
+    },
+    {
+      "code": "CONFLICT",
+      "status": 409
+    },
+    {
+      "code": "CYCLE_DETECTED",
+      "status": 400
+    },
+    {
+      "code": "DISPOSABLE_EMAIL",
+      "status": 400
+    },
+    {
+      "code": "EMAIL_UNAVAILABLE",
+      "status": 503
+    },
+    {
+      "code": "FORBIDDEN",
+      "status": 403
+    },
+    {
+      "code": "GENERATION_CAP_REACHED",
+      "status": 503
+    },
+    {
+      "code": "GENERATION_IN_PROGRESS",
+      "status": 409
+    },
+    {
+      "code": "INTERNAL_ERROR",
+      "status": 500
+    },
+    {
+      "code": "INVALID_DEPENDENCY",
+      "status": 400
+    },
+    {
+      "code": "INVALID_INVITE",
+      "status": 404
+    },
+    {
+      "code": "INVALID_JSON",
+      "status": 400
+    },
+    {
+      "code": "INVALID_PATH",
+      "status": 400
+    },
+    {
+      "code": "INVALID_REQUEST",
+      "status": 400
+    },
+    {
+      "code": "INVALID_SIGNATURE",
+      "status": 400
+    },
+    {
+      "code": "LLM_CONSENT_REQUIRED",
+      "status": 403
+    },
+    {
+      "code": "METHOD_NOT_ALLOWED",
+      "status": 405
+    },
+    {
+      "code": "NOT_FOUND",
+      "status": 404
+    },
+    {
+      "code": "NOT_READY",
+      "status": 503
+    },
+    {
+      "code": "NO_SUBSCRIPTION",
+      "status": 404
+    },
+    {
+      "code": "OTP_INVALID",
+      "status": 401
+    },
+    {
+      "code": "PASSWORD_REQUIRED",
+      "status": 403
+    },
+    {
+      "code": "PLAN_LIMIT_REACHED",
+      "status": 403
+    },
+    {
+      "code": "PLAN_UPGRADE_REQUIRED",
+      "status": 403
+    },
+    {
+      "code": "PROVIDER_UNAVAILABLE",
+      "status": 503
+    },
+    {
+      "code": "QUOTA_EXCEEDED",
+      "status": 429
+    },
+    {
+      "code": "RATE_LIMITED",
+      "status": 429
+    },
+    {
+      "code": "REFUND_NOT_ELIGIBLE",
+      "status": 409
+    },
+    {
+      "code": "SHEET_ALREADY_LINKED",
+      "status": 409
+    },
+    {
+      "code": "SHEET_KIND_MISMATCH",
+      "status": 422
+    },
+    {
+      "code": "SHEET_LIMIT_REACHED",
+      "status": 409
+    },
+    {
+      "code": "TEMPLATE_MISMATCH",
+      "status": 422
+    },
+    {
+      "code": "UNAUTHORIZED",
+      "status": 401
+    },
+    {
+      "code": "UNKNOWN_FIELD",
+      "status": 400
+    },
+    {
+      "code": "VALIDATION",
+      "status": 400
+    }
+  ]
+}
