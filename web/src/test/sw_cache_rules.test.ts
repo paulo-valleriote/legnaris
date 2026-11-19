@@ -15,7 +15,7 @@ const STATIC_GET = {
   isNavigation: false,
 };
 
-describe('service-worker cache exclusion rules (FND-09)', () => {
+describe('service-worker cache exclusion rules', () => {
   const cases: ReadonlyArray<{
     name: string;
     request: typeof STATIC_GET;

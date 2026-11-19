@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Captures the real backend contract into pinned fixtures (API-35).
+# Captures the real backend contract into pinned fixtures.
 #
-# Run against the local stack (see README.md next to this script). Every file is
-# the server's own response body, or the request that produced it —
+# Run against the local stack (see "Pinned API captures" in the root README).
+# Every file is the server's own response body, or the request that produced it —
 # byte-faithful and never hand-edited: a shape change here is a backend contract
-# change and the suite is expected to go red on it (API-36). No credential is
+# change and the suite is expected to go red on it. No credential is
 # ever written: the throwaway access token stays in a temporary directory and a
 # credential request body is never recorded.
 #
@@ -21,7 +21,7 @@ OUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP_DIR="$(mktemp -d)"
 
 # The database the stack writes its send intentions to; the code is read from
-# there, never from a log line (EML-10, EML-13).
+# there, never from a log line.
 DATABASE_NAME="${DATABASE_NAME:-legnaris}"
 
 # The capture removes the send intentions it recorded, so the day's allowance is
@@ -127,7 +127,7 @@ send() {
 # outbox_code <email> <purpose> -> prints the code the stack recorded for that send
 #
 # The code never reaches a log line or the sender's output, so the durable send
-# intention is the only place it can be read (EML-10, EML-13).
+# intention is the only place it can be read.
 outbox_code() {
   local email="$1" purpose="$2"
 

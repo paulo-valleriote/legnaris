@@ -44,8 +44,8 @@ async function openSurface(user: UserEvent) {
   return fake;
 }
 
-describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
-  it('Happy path: activating an entry opens the surface and issues exactly one detail request for that identifier (WCT-11, WCT-12)', async () => {
+describe('creation surface detail', () => {
+  it('Happy path: activating an entry opens the surface and issues exactly one detail request for that identifier', async () => {
     const user = userEvent.setup();
     const fake = await openSurface(user);
 
@@ -55,7 +55,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
     expect(fake.lastRequest?.url).toContain('/templates/dnd5e');
   });
 
-  it('Edge: while the detail is in flight it shows the loading copy and no previously opened detail (WCT-13)', async () => {
+  it('Edge: while the detail is in flight it shows the loading copy and no previously opened detail', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
     renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
@@ -70,7 +70,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
     await screen.findByTestId('detail-name');
   });
 
-  it('Edge: a previously opened template is not shown when a new detail is in flight (WCT-13)', async () => {
+  it('Edge: a previously opened template is not shown when a new detail is in flight', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
     renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
@@ -88,7 +88,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
     expect(within(dialog).queryByText('Dungeons & Dragons 5e')).not.toBeInTheDocument();
   });
 
-  it('Edge: an empty template name renders as empty text without throwing (WCT-14)', async () => {
+  it('Edge: an empty template name renders as empty text without throwing', async () => {
     const fake = createFakeTransport(successOutcome(CATALOG), detailEnvelope(''));
     const user = userEvent.setup();
     renderApp('/', { client: clientWith(withPlanUsage(fake.transport)) });
@@ -100,7 +100,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('Edge: a failure shows the mapped copy inline and keeps the surface open (WCT-15)', async () => {
+  it('Edge: a failure shows the mapped copy inline and keeps the surface open', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
     renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
@@ -116,7 +116,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
     expect(screen.getByRole('button', { name: message('common.retry') })).toBeInTheDocument();
   });
 
-  it('Edge: a missing template shows the missing-template copy inline without closing or crashing (WCT-17)', async () => {
+  it('Edge: a missing template shows the missing-template copy inline without closing or crashing', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
     renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
@@ -129,7 +129,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('Edge: a malformed payload shows the parse-failure copy inline and never a half-filled detail (WCT-18)', async () => {
+  it('Edge: a malformed payload shows the parse-failure copy inline and never a half-filled detail', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
     renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
@@ -143,7 +143,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('Happy path: the surface Retry re-requests the detail exactly once (WCT-16)', async () => {
+  it('Happy path: the surface Retry re-requests the detail exactly once', async () => {
     const fake = createFakeTransport(
       successOutcome(CATALOG),
       errorOutcome('INTERNAL_ERROR', 'boom', 500),
@@ -164,7 +164,7 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
     expect(fake.attempts).toBe(3);
   });
 
-  it('Edge: reopening the same template issues exactly one further request and starts at loading (WCT-21)', async () => {
+  it('Edge: reopening the same template issues exactly one further request and starts at loading', async () => {
     const deferred = createDeferredTransport();
     const user = userEvent.setup();
     renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
@@ -210,8 +210,8 @@ describe('creation surface detail (WCT-11 … WCT-18, WCT-21)', () => {
   });
 });
 
-describe('sheet-name field and validation (WCT-22 … WCT-25)', () => {
-  it('Happy path: the field starts empty with a localized label and example placeholder (WCT-22)', async () => {
+describe('sheet-name field and validation', () => {
+  it('Happy path: the field starts empty with a localized label and example placeholder', async () => {
     const user = userEvent.setup();
     await openSurface(user);
 
@@ -220,7 +220,7 @@ describe('sheet-name field and validation (WCT-22 … WCT-25)', () => {
     expect(input).toHaveAttribute('placeholder', message('sheet.namePlaceholder'));
   });
 
-  it('Edge: the primary action is disabled for "" and "   " and exposes the required reason (WCT-23)', async () => {
+  it('Edge: the primary action is disabled for "" and "   " and exposes the required reason', async () => {
     const user = userEvent.setup();
     await openSurface(user);
 
@@ -235,7 +235,7 @@ describe('sheet-name field and validation (WCT-22 … WCT-25)', () => {
     expect(create).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('Edge: the primary action is enabled once the trimmed value is non-empty (WCT-24)', async () => {
+  it('Edge: the primary action is enabled once the trimmed value is non-empty', async () => {
     const user = userEvent.setup();
     await openSurface(user);
 
@@ -255,7 +255,7 @@ describe('sheet-name field and validation (WCT-22 … WCT-25)', () => {
     );
   });
 
-  it('Edge: typing a name issues no request by itself — creation is activated explicitly (WSC-01)', async () => {
+  it('Edge: typing a name issues no request by itself — creation is activated explicitly', async () => {
     const user = userEvent.setup();
     const fake = await openSurface(user);
 

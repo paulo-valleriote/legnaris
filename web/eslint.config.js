@@ -62,7 +62,7 @@ export default tseslint.config(
     },
     settings: { react: { version: 'detect' } },
     rules: {
-      // Anti-XSS sinks (SEC-02, FND-10, contracts/ci-gates.contract.md).
+      // Anti-XSS sinks (contracts/ci-gates.contract.md).
       'react/no-danger': 'error',
       'no-eval': 'error',
       'no-new-func': 'error',
@@ -73,7 +73,7 @@ export default tseslint.config(
         'error',
         {
           selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
-          message: 'dangerouslySetInnerHTML is forbidden (FND-10).',
+          message: 'dangerouslySetInnerHTML is forbidden.',
         },
         {
           selector: "JSXOpeningElement[name.name='dialog']",

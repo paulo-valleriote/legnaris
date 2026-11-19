@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import { renderApp } from './render';
 import { DECLARED_ROUTES, NOT_FOUND_PATH } from '../app/routes';
 
-describe('declared routes (FND-08)', () => {
+describe('declared routes', () => {
   it('Happy path: the route table declares the root and exactly one fallback', () => {
     const fallbacks = DECLARED_ROUTES.filter((route) => route.notFound);
     expect(DECLARED_ROUTES.length).toBeGreaterThan(0);

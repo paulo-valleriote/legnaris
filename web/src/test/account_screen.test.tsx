@@ -366,7 +366,7 @@ describe('account settings rows (DESIGN.md)', () => {
   });
 });
 
-describe('account screen shared layer (UIP-01)', () => {
+describe('account screen shared layer', () => {
   it('Edge: the screen draws its dialog, title and styles from its own layer', () => {
     const source = readFileSync(
       path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../account/account_screen.tsx'),

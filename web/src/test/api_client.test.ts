@@ -32,7 +32,7 @@ function clientWith(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 describe('api client operations', () => {
-  it('Happy path: health reads GET /health over the injected transport (API-01, API-07)', async () => {
+  it('Happy path: health reads GET /health over the injected transport', async () => {
     const fake = createFakeTransport(successOutcome({ status: 'ok' }));
     const payload = await clientWith(fake).health();
 
@@ -45,7 +45,7 @@ describe('api client operations', () => {
     expect(fake.attempts).toBe(1);
   });
 
-  it('Happy path: listTemplates reads GET /templates and decodes a catalog (API-01, API-02, API-08)', async () => {
+  it('Happy path: listTemplates reads GET /templates and decodes a catalog', async () => {
     const fake = createFakeTransport(successOutcome([templatePayload]));
     const payload = await clientWith(fake).listTemplates();
 
@@ -54,7 +54,7 @@ describe('api client operations', () => {
     expect(fake.lastRequest?.url).toBe(`${baseUrl}/templates`);
   });
 
-  it('Happy path: getTemplate reads GET /templates/:id and decodes the detail (API-01, API-08)', async () => {
+  it('Happy path: getTemplate reads GET /templates/:id and decodes the detail', async () => {
     const fake = createFakeTransport(successOutcome(templatePayload));
     const payload = await clientWith(fake).getTemplate('fantasy_v1');
 
@@ -63,7 +63,7 @@ describe('api client operations', () => {
     expect(fake.lastRequest?.url).toBe(`${baseUrl}/templates/fantasy_v1`);
   });
 
-  it('Happy path: createSheet posts exactly the template identifier and the sheet name (API-05)', async () => {
+  it('Happy path: createSheet posts exactly the template identifier and the sheet name', async () => {
     const fake = createFakeTransport(successOutcome(sheetPayload, 201));
     const payload = await clientWith(fake).createSheet({
       templateId: 'fantasy_v1',
@@ -85,7 +85,7 @@ describe('api client operations', () => {
     ]);
   });
 
-  it('Happy path: getSheet reads GET /sheets/:id and decodes the sheet (API-01, API-10)', async () => {
+  it('Happy path: getSheet reads GET /sheets/:id and decodes the sheet', async () => {
     const fake = createFakeTransport(successOutcome(sheetPayload));
     const payload = await clientWith(fake).getSheet('01a0f967-f42b-710e-851f-8f293a634921');
 
@@ -95,7 +95,7 @@ describe('api client operations', () => {
     expect(fake.lastRequest?.headers).toEqual({});
   });
 
-  it('Happy path: patchSheet sends exactly the change set and decodes the recalculated effects (API-06)', async () => {
+  it('Happy path: patchSheet sends exactly the change set and decodes the recalculated effects', async () => {
     const fake = createFakeTransport(successOutcome({ modifiers: { dexterityMod: 3 } }));
     const payload = await clientWith(fake).patchSheet('sheet-1', { stats: { dexterity: 12 } });
 
@@ -106,7 +106,7 @@ describe('api client operations', () => {
     expect(Object.keys(JSON.parse(fake.lastRequest?.body ?? '{}'))).toEqual(['data']);
   });
 
-  it('Edge: the caller’s change set is never mutated by an update (API-06)', async () => {
+  it('Edge: the caller’s change set is never mutated by an update', async () => {
     const fake = createFakeTransport(successOutcome({}));
     const changeSet = { stats: { dexterity: 12 } };
     const snapshot = JSON.stringify(changeSet);
@@ -116,7 +116,7 @@ describe('api client operations', () => {
     expect(JSON.stringify(changeSet)).toBe(snapshot);
   });
 
-  it('Happy path: previewSheet posts the change set to the stateless dry-run and decodes the cascade (API-06)', async () => {
+  it('Happy path: previewSheet posts the change set to the stateless dry-run and decodes the cascade', async () => {
     const fake = createFakeTransport(successOutcome({ derived: { armorClass: 13 } }));
     const payload = await clientWith(fake).previewSheet('sheet-1', { stats: { dexterity: 16 } });
 
@@ -126,14 +126,14 @@ describe('api client operations', () => {
     expect(fake.lastRequest?.body).toBe(JSON.stringify({ data: { stats: { dexterity: 16 } } }));
   });
 
-  it('Edge: a path identifier is percent-encoded and otherwise passed through verbatim (API-01)', async () => {
+  it('Edge: a path identifier is percent-encoded and otherwise passed through verbatim', async () => {
     const fake = createFakeTransport(successOutcome(sheetPayload));
     await clientWith(fake).getSheet('a/b c?d');
 
     expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets/${encodeURIComponent('a/b c?d')}`);
   });
 
-  it('Edge: no read carries a request body, so none carries a content type (API-05, API-07)', async () => {
+  it('Edge: no read carries a request body, so none carries a content type', async () => {
     const fake = createFakeTransport(successOutcome({ status: 'ok' }));
 
     await clientWith(fake).health();
@@ -142,7 +142,7 @@ describe('api client operations', () => {
     expect(fake.lastRequest?.headers).toEqual({});
   });
 
-  it('Error: a failure envelope raises a domain failure carrying the code and message (API-03)', async () => {
+  it('Error: a failure envelope raises a domain failure carrying the code and message', async () => {
     const fake = createFakeTransport(errorOutcome('NOT_FOUND', 'sheet gone', 404));
 
     await expect(clientWith(fake).getSheet('missing')).rejects.toMatchObject({
@@ -153,19 +153,19 @@ describe('api client operations', () => {
     });
   });
 
-  it('Error: an unreadable success body raises a defensive failure rather than an empty success (API-04)', async () => {
+  it('Error: an unreadable success body raises a defensive failure rather than an empty success', async () => {
     const fake = createFakeTransport({ status: 200, body: 'not json' });
 
     await expect(clientWith(fake).listTemplates()).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Error: a 2xx without the data envelope raises a defensive failure (API-04)', async () => {
+  it('Error: a 2xx without the data envelope raises a defensive failure', async () => {
     const fake = createFakeTransport({ status: 200, body: JSON.stringify({ ok: true }) });
 
     await expect(clientWith(fake).health()).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Error: a 2xx whose payload does not match the model raises a defensive failure (API-04, API-08)', async () => {
+  it('Error: a 2xx whose payload does not match the model raises a defensive failure', async () => {
     const fake = createFakeTransport(successOutcome({ id: 'fantasy_v1' }));
 
     await expect(clientWith(fake).getTemplate('fantasy_v1')).rejects.toBeInstanceOf(
@@ -173,13 +173,13 @@ describe('api client operations', () => {
     );
   });
 
-  it('Error: a success status with an empty body fails defensively instead of succeeding (API-04)', async () => {
+  it('Error: a success status with an empty body fails defensively instead of succeeding', async () => {
     const fake = createFakeTransport({ status: 200, body: '' });
 
     await expect(clientWith(fake).health()).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Error: the seven operations never use a transport other than the injected one (API-07)', async () => {
+  it('Error: the seven operations never use a transport other than the injected one', async () => {
     const fakes = [
       createFakeTransport(successOutcome({ status: 'ok' })),
       createFakeTransport(successOutcome([templatePayload])),
@@ -207,7 +207,7 @@ describe('api client operations', () => {
     }
   });
 
-  it('Error: a domain failure is distinct from a defensive failure (API-03, API-04)', async () => {
+  it('Error: a domain failure is distinct from a defensive failure', async () => {
     const failed = createFakeTransport(errorOutcome('INTERNAL_ERROR', 'boom', 500));
     const drifted = createFakeTransport({ status: 200, body: '{' });
 
@@ -225,8 +225,8 @@ describe('api client operations', () => {
   });
 });
 
-describe('api client own-sheet operations (WAS-25, WAS-28)', () => {
-  it('Happy path: getMySheet issues one GET /sheets and decodes the sheet (WAS-25)', async () => {
+describe('api client own-sheet operations', () => {
+  it('Happy path: getMySheet issues one GET /sheets and decodes the sheet', async () => {
     const fake = createFakeTransport(successOutcome(sheetPayload));
 
     const payload = await clientWith(fake).getMySheet();
@@ -240,7 +240,7 @@ describe('api client own-sheet operations (WAS-25, WAS-28)', () => {
     expect(fake.attempts).toBe(1);
   });
 
-  it('Happy path: deleteSheet issues one DELETE /sheets/:id and accepts a 204 (WAS-28)', async () => {
+  it('Happy path: deleteSheet issues one DELETE /sheets/:id and accepts a 204', async () => {
     const fake = createFakeTransport({ status: 204, body: '' });
 
     await expect(clientWith(fake).deleteSheet(sheetPayload.id)).resolves.toBeUndefined();
@@ -251,7 +251,7 @@ describe('api client own-sheet operations (WAS-25, WAS-28)', () => {
     expect(fake.attempts).toBe(1);
   });
 
-  it('Edge: a path identifier is percent-encoded on delete too (API-01)', async () => {
+  it('Edge: a path identifier is percent-encoded on delete too', async () => {
     const fake = createFakeTransport({ status: 204, body: '' });
 
     await clientWith(fake).deleteSheet('a/b c?d');
@@ -259,7 +259,7 @@ describe('api client own-sheet operations (WAS-25, WAS-28)', () => {
     expect(fake.lastRequest?.url).toBe(`${baseUrl}/sheets/${encodeURIComponent('a/b c?d')}`);
   });
 
-  it('Error: a 404 on getMySheet classifies as notFound (WAS-25)', async () => {
+  it('Error: a 404 on getMySheet classifies as notFound', async () => {
     const fake = createFakeTransport(errorOutcome('NOT_FOUND', 'no sheet', 404));
 
     await expect(clientWith(fake).getMySheet()).rejects.toMatchObject({
@@ -270,7 +270,7 @@ describe('api client own-sheet operations (WAS-25, WAS-28)', () => {
     });
   });
 
-  it('Error: a failing delete never repeats and surfaces a classified failure (WAS-28)', async () => {
+  it('Error: a failing delete never repeats and surfaces a classified failure', async () => {
     const fake = createFakeTransport(errorOutcome('INTERNAL_ERROR', 'boom', 500));
 
     const error = await clientWith(fake)

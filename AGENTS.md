@@ -36,7 +36,7 @@ make fmt                 # Format code
 - **Typed errors** — see `backend/shared/apperr/AGENTS.md` (reference)
 - **IDs** — server-generated entity IDs are lowercase UUID v7 via `backend/shared/idgen` (`New`, `Validate` at the service boundary). Template IDs are code-defined slugs validated as `^[a-z][a-z0-9_]*$` in `FetchTemplate` — see `backend/shared/idgen/AGENTS.md`
 - **Banned calls and imports** (`uuid.New`, raw JSON decoding, `fmt.Print*`, `log`, layering) — enforced by forbidigo and depguard in `.golangci.yml`; each message names the sanctioned replacement
-- **English only** — identifiers, comments, logs and user-facing strings; `docs/TDD.md` stays pt-BR. Heuristic check: `make english` (allow-list in `scripts/ci/english-allowlist.txt`)
+- **English only** — identifiers, comments, logs and user-facing strings. Heuristic check: `make english` (allow-list in `scripts/ci/english-allowlist.txt`)
 
 ## Testing
 
@@ -78,11 +78,8 @@ runs lint and tests for touched packages).
 
 ## References
 
-- `backend/internal/AGENTS.md` — architecture, layering, service conventions
-- `backend/internal/sheet/template/AGENTS.md` — DAG, Template, Registry, Gotchas
-- `backend/internal/engine/AGENTS.md` — formula engine (expr-lang wrapper)
-- `backend/internal/dice/AGENTS.md` — Dice expression grammar; shared vectors in `testdata/dice/`
-- `backend/shared/apperr/AGENTS.md` — error codes, HTTP mapping, boundary translation
-- `backend/shared/idgen/AGENTS.md` — server-generated ID contract (UUID v7, generate/validate)
-- `backend/shared/db/AGENTS.md` — MongoDB initialization
-- `web/AGENTS.md` — React PWA client: security, API client, engine, sheet cycle, dependencies (visual rules live in `web/DESIGN.md`)
+Read `context.md` to find the context for the area you change; update the owning `context/<feature>.md` with the change.
+
+Do not create markdown files without clear, explicit authorization (enforced by the allow-list check).
+
+Package working rules live in the nested `AGENTS.md` files next to the code: `backend/internal/AGENTS.md`, `backend/internal/sheet/template/AGENTS.md`, `backend/internal/engine/AGENTS.md`, `backend/internal/dice/AGENTS.md`, `backend/shared/apperr/AGENTS.md`, `backend/shared/idgen/AGENTS.md`, `backend/shared/db/AGENTS.md`, `web/AGENTS.md`.

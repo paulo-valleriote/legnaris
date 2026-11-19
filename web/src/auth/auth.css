@@ -1,6 +1,6 @@
 /**
  * The auth-surface styles. Every value comes from the shared design tokens; no
- * literal color or pixel value appears here (WAS-31).
+ * literal color or pixel value appears here.
  *
  * The surface lives in the landing's world: the lava-crater photograph under its
  * scrim on one side and a flat teal-black panel on the other (below the photograph
@@ -117,8 +117,7 @@ body:has(.lg-auth) {
 }
 
 /* The swap between the credential form and the code surface: one fade and one
-   small movement, never longer than the longest declared motion duration
-   (WCS-25). */
+   small movement, never longer than the longest declared motion duration. */
 @keyframes lg-auth-swap {
   from {
     opacity: 0;

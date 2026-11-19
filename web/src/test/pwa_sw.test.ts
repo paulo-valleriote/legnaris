@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import swSource from '../pwa/sw.ts?raw';
 
-describe('PWA-01 SW contract', () => {
+describe('SW contract', () => {
   it('should define a precache filter that excludes /auth/ and /csp-report', () => {
     expect(swSource).toContain('precacheAndRoute');
     expect(swSource).toContain('/auth/');

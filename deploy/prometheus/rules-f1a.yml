@@ -1,7 +1,7 @@
-# Alert rules for the F1a go-live gate (LGN-226, ADR 0013): the sweeper's queues,
+# Alert rules for the F1a go-live gate (LGN-226): the sweeper's queues,
 # the unrouted domain events and the global daily generation cap.
 #
-# Each alert links the dead-item procedure in docs/runbook-sweeper-dead-items.md.
+# Each alert links the dead-item procedure in deploy/README.md (section Dead sweeper items).
 # The facts come from counters the processes already expose; no notification
 # service is part of the stack (the email rules say the same).
 #
@@ -38,8 +38,8 @@ groups:
           severity: high
         annotations:
           summary: A sweeper queue has an item pending for over an hour
-          description: "The oldest pending item of queue {{ $labels.queue }} has waited {{ $value }} seconds. The queue is stalled or starved; see the dead-item runbook."
-          runbook: docs/runbook-sweeper-dead-items.md
+          description: "The oldest pending item of queue {{ $labels.queue }} has waited {{ $value }} seconds. The queue is stalled or starved; see the Dead sweeper items section of deploy/README.md."
+          runbook: deploy/README.md#dead-sweeper-items
 
       - alert: LegnarisRefundRequestedTooOld
         expr: |
@@ -50,8 +50,8 @@ groups:
           severity: high
         annotations:
           summary: A paid refund stayed requested for over an hour
-          description: "The oldest refund request has waited {{ $value }} seconds in the billing_refunds queue without reaching the provider. The customer has the refund in progress; check the provider and the sweeper, then the dead-item runbook."
-          runbook: docs/runbook-sweeper-dead-items.md
+          description: "The oldest refund request has waited {{ $value }} seconds in the billing_refunds queue without reaching the provider. The customer has the refund in progress; check the provider and the sweeper, then the Dead sweeper items section of deploy/README.md."
+          runbook: deploy/README.md#dead-sweeper-items
 
       - alert: LegnarisSweeperHandlerFailing
         expr: sum by (queue) (increase(legnaris_sweeper_failed_total{job="legnaris-relay"}[5m])) > 0
@@ -61,7 +61,7 @@ groups:
         annotations:
           summary: A sweeper handler attempt failed
           description: "Queue {{ $labels.queue }} recorded a failed attempt in the last five minutes. One transient failure is normal; a rising rate means the dependency is down or the item is poisoned."
-          runbook: docs/runbook-sweeper-dead-items.md
+          runbook: deploy/README.md#dead-sweeper-items
 
       - alert: LegnarisEventsUnroutedNotEmpty
         expr: max(rabbitmq_queue_messages_ready{job="legnaris-rabbitmq", vhost="legnaris", queue="events.unrouted"}) > 0
@@ -70,8 +70,8 @@ groups:
           severity: high
         annotations:
           summary: Domain events reached no consumer
-          description: "events.unrouted holds {{ $value }} event(s) that no bound queue received. Check the bindings of legnaris.events; the dead-item runbook covers requeueing."
-          runbook: docs/runbook-sweeper-dead-items.md
+          description: "events.unrouted holds {{ $value }} event(s) that no bound queue received. Check the bindings of legnaris.events; the Dead sweeper items section of deploy/README.md covers requeueing."
+          runbook: deploy/README.md#dead-sweeper-items
 
       - alert: LegnarisGenerationCapAt80Percent
         expr: |
@@ -86,4 +86,4 @@ groups:
         annotations:
           summary: The global daily generation cap is above 80 percent
           description: "The daily generation jobs are at or above 80 percent of the global cap. The value is set on each reservation attempt and can be stale after UTC midnight until the first generation of the day; confirm with the cap gauges before acting. Raise GENERATION_DAILY_CAP only after checking spend."
-          runbook: docs/runbook-sweeper-dead-items.md
+          runbook: deploy/README.md#dead-sweeper-items

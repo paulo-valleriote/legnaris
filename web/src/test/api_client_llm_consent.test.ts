@@ -9,7 +9,7 @@ function clientWith(fake: ReturnType<typeof createFakeTransport>) {
   return createApiClient({ baseUrl, transport: fake.transport });
 }
 
-describe('revoke LLM consent (LGN-195, ADR 0008)', () => {
+describe('revoke LLM consent (LGN-195)', () => {
   it('Happy path: revokeLlmConsent issues one DELETE /me/llm-consent and accepts a 204', async () => {
     const fake = createFakeTransport({ status: 204, body: '' });
 

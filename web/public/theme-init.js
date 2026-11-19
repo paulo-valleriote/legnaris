@@ -1,5 +1,5 @@
 /*
- * Resolves the theme before the first paint (UIF-20). A same-origin classic script in the
+ * Resolves the theme before the first paint. A same-origin classic script in the
  * document head, so `script-src 'self'` already permits it; it introduces no inline script.
  * The accepted values and the fallback match `src/theme/theme.ts`.
  */

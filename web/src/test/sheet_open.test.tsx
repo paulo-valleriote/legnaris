@@ -49,8 +49,8 @@ function countRequests(
 
 const SHEET_URL_SUFFIX = `/sheets/${SHEET_ID}`;
 
-describe('sheet open situations (WSC-05 … WSC-11)', () => {
-  it('Happy path: opening a sheet issues one GET for the sheet and one for its template, then renders the name and field tree (WSC-05, WSC-08, WSC-09)', async () => {
+describe('sheet open situations', () => {
+  it('Happy path: opening a sheet issues one GET for the sheet and one for its template, then renders the name and field tree', async () => {
     const fake = createFakeTransport(sheetOutcome(), templateOutcome());
     renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 
@@ -66,7 +66,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(countRequests(fake.requests, 'GET', `/templates/${TEMPLATE_ID}`)).toBe(1);
   });
 
-  it('Edge: a slow response shows the open-loading copy until it settles, issuing exactly one sheet GET (WSC-05)', async () => {
+  it('Edge: a slow response shows the open-loading copy until it settles, issuing exactly one sheet GET', async () => {
     const deferred = createDeferredTransport();
     renderApp(SHEET_URL_SUFFIX, { client: clientWith(deferred.transport) });
 
@@ -81,7 +81,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(countRequests(deferred.requests, 'GET', SHEET_URL_SUFFIX)).toBe(1);
   });
 
-  it('Edge: a missing sheet shows the missing copy with no Retry and evicts the sheet and its draft (WSC-06)', async () => {
+  it('Edge: a missing sheet shows the missing copy with no Retry and evicts the sheet and its draft', async () => {
     const fake = createFakeTransport(errorOutcome('NOT_FOUND', 'gone', 404));
     const store = createMemorySheetStore();
     const deleteSheet = vi.spyOn(store, 'deleteSheet');
@@ -94,7 +94,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(screen.queryByRole('button', { name: message('common.retry') })).not.toBeInTheDocument();
   });
 
-  it('Edge: a failing local eviction still shows the missing copy (WSC-06)', async () => {
+  it('Edge: a failing local eviction still shows the missing copy', async () => {
     const fake = createFakeTransport(errorOutcome('NOT_FOUND', 'gone', 404));
     const store = createMemorySheetStore();
     store.deleteSheet = () => Promise.reject(new Error('eviction failed'));
@@ -104,7 +104,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(await screen.findByTestId('sheet-missing')).toHaveTextContent(message('sheet.missing'));
   });
 
-  it('Edge: any other failure shows the mapped copy with a Retry that re-requests exactly once (WSC-07)', async () => {
+  it('Edge: any other failure shows the mapped copy with a Retry that re-requests exactly once', async () => {
     const fake = createFakeTransport(
       errorOutcome('INTERNAL_ERROR', 'boom', 500),
       sheetOutcome(),
@@ -123,7 +123,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(countRequests(fake.requests, 'GET', SHEET_URL_SUFFIX)).toBe(2);
   });
 
-  it('Edge: a malformed sheet payload shows the parse-failure copy with a Retry, never a blank screen (WSC-07)', async () => {
+  it('Edge: a malformed sheet payload shows the parse-failure copy with a Retry, never a blank screen', async () => {
     const fake = createFakeTransport(
       successOutcome({ id: SHEET_ID }),
       sheetOutcome(),
@@ -136,7 +136,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(screen.queryByTestId('sheet-name')).not.toBeInTheDocument();
   });
 
-  it('Edge: a template failure shows the mapped copy with a Retry that re-requests exactly once (WSC-09)', async () => {
+  it('Edge: a template failure shows the mapped copy with a Retry that re-requests exactly once', async () => {
     const fake = createFakeTransport(
       sheetOutcome(),
       errorOutcome('INTERNAL_ERROR', 'boom', 500),
@@ -155,7 +155,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(countRequests(fake.requests, 'GET', `/templates/${TEMPLATE_ID}`)).toBe(2);
   });
 
-  it('Edge: a template with no fields shows the empty-fields line (WSC-08)', async () => {
+  it('Edge: a template with no fields shows the empty-fields line', async () => {
     const fake = createFakeTransport(sheetOutcome(), successOutcome(emptyTemplateDetailPayload()));
     renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 
@@ -164,7 +164,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     );
   });
 
-  it('Happy path: a deep link resolves the same screen a navigation produces (WSC-10)', async () => {
+  it('Happy path: a deep link resolves the same screen a navigation produces', async () => {
     const fake = createFakeTransport(sheetOutcome(), templateOutcome());
     renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 
@@ -172,7 +172,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     expect(await screen.findByTestId('sheet-name')).toHaveTextContent('Aragorn');
   });
 
-  it('Happy path: after a successful open the store holds the sheet under the current schemaVersion and no credential (WSC-11, WSC-31)', async () => {
+  it('Happy path: after a successful open the store holds the sheet under the current schemaVersion and no credential', async () => {
     const fake = createFakeTransport(sheetOutcome(), templateOutcome());
     const { sheetStore } = renderApp(SHEET_URL_SUFFIX, { client: clientWith(fake.transport) });
 
@@ -188,7 +188,7 @@ describe('sheet open situations (WSC-05 … WSC-11)', () => {
     );
   });
 
-  it('Happy path: a created sheet seeded into the cache renders without a second sheet GET (WSC-02)', async () => {
+  it('Happy path: a created sheet seeded into the cache renders without a second sheet GET', async () => {
     const fake = createFakeTransport(templateOutcome());
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     seedCreatedSheet(queryClient, SHEET_MODEL);

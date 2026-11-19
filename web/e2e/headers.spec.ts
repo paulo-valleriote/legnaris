@@ -21,7 +21,7 @@ const REQUIRED_HEADERS: ReadonlyArray<readonly [name: string, pattern: RegExp]> 
   ['cross-origin-resource-policy', /^same-origin$/],
 ];
 
-test.describe('document security headers (POL-02)', () => {
+test.describe('document security headers', () => {
   test('Happy path: the served document carries the enforced policy and its companions', async ({
     page,
   }) => {

@@ -6,10 +6,6 @@
 # Run `make english` after adding a source that legitimately needs pt-BR text,
 # and add it here with the reason. Never allow-list production code.
 
-# pt-BR is the delivered TDD language. The scanner does not read Markdown yet;
-# the entry keeps the documented exception explicit for when it does.
-docs/TDD.md
-
 # The scanner itself declares the pt-BR diacritics and stopwords it looks for,
 # and its table-driven suite feeds those vectors through the matcher. Both files
 # hold the vocabulary as data, never as copy.

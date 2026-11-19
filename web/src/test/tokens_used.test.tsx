@@ -37,7 +37,7 @@ function assertTokensAreDefined(files: readonly string[]) {
   }
 }
 
-describe('design token usage in the shell (FND-02)', () => {
+describe('design token usage in the shell', () => {
   it('Happy path: the shell has sources to inspect', () => {
     expect(sourceFiles(shellDir).length).toBeGreaterThan(0);
   });
@@ -51,7 +51,7 @@ describe('design token usage in the shell (FND-02)', () => {
   });
 });
 
-describe('design token usage in the catalog (WCT-28)', () => {
+describe('design token usage in the catalog', () => {
   it('Happy path: the catalog has sources to inspect', () => {
     expect(sourceFiles(catalogDir).length).toBeGreaterThan(0);
   });
@@ -65,7 +65,7 @@ describe('design token usage in the catalog (WCT-28)', () => {
   });
 });
 
-describe('design token usage in the engine (ENG-28, SC-008)', () => {
+describe('design token usage in the engine', () => {
   it('Happy path: the engine has sources to inspect', () => {
     expect(sourceFiles(engineDir).length).toBeGreaterThan(0);
   });
@@ -79,7 +79,7 @@ describe('design token usage in the engine (ENG-28, SC-008)', () => {
   });
 });
 
-describe('design token usage in the sheet cycle (WSC-33)', () => {
+describe('design token usage in the sheet cycle', () => {
   it('Happy path: the sheet and library sources exist to inspect', () => {
     expect(sourceFiles(sheetDir).length).toBeGreaterThan(0);
     expect(sourceFiles(libraryDir).length).toBeGreaterThan(0);
@@ -94,7 +94,7 @@ describe('design token usage in the sheet cycle (WSC-33)', () => {
   });
 });
 
-describe('design token usage in the auth surface (WAS-31)', () => {
+describe('design token usage in the auth surface', () => {
   it('Happy path: the auth sources exist to inspect', () => {
     expect(sourceFiles(authDir).length).toBeGreaterThan(0);
   });
@@ -123,7 +123,7 @@ describe('design token usage in the landing surface (DESIGN.md, Landing surface)
 });
 
 const uiDir = path.resolve(here, '../ui');
-describe('design token usage in the ui primitives layer (UIP-04, SC-002)', () => {
+describe('design token usage in the ui primitives layer', () => {
   it('Happy path: the ui layer has sources to inspect once built', () => {
     const files = sourceFiles(uiDir);
     expect(files.length).toBeGreaterThanOrEqual(0);

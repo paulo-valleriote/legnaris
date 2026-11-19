@@ -6,10 +6,12 @@ name: CI
 # final `gate` job: it always runs, so a required check never hangs as
 # "pending" when a path filter skips a suite, and it fails when any suite that
 # did run failed or was cancelled. A merge to main re-runs nothing new, since
-# the PR already passed this exact tree.
+# the PR already passed this exact tree. Label events re-run only `changes` and
+# `context-docs`: the label is an input of the context check, and re-running the
+# expensive suites for a label change would waste minutes.
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
@@ -73,6 +75,27 @@ jobs:
               - 'go.sum'
               - '.github/workflows/ci.yml'
 
+  context-docs:
+    name: context docs updated
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Require a context update for every mapped change
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'no-context-change') && 'no-context-change' || '' }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          git diff --name-only "origin/$BASE_REF...HEAD" | go run ./backend/cmd/context-check -base "origin/$BASE_REF" -label "$LABEL" -summary "$GITHUB_STEP_SUMMARY"
+
   # Branch protection requires the gate, so a pull request whose title names no
   # Jira card cannot merge: the key is what links the change back to the board.
   # It runs on every event, including a title edit that skips the diff suites.
@@ -93,7 +116,7 @@ jobs:
   go-lint:
     name: golangci-lint, tidy, mocks, shellcheck, deploy stack config
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.go == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -170,7 +193,7 @@ jobs:
   go-race:
     name: Go tests (race detector)
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.go == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -238,7 +261,7 @@ jobs:
   web-quality:
     name: web format, lint, typecheck, tests, build
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -272,7 +295,7 @@ jobs:
   web-e2e:
     name: web browser end-to-end
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -306,7 +329,7 @@ jobs:
   images-build:
     name: image build (${{ matrix.name }})
     needs: changes
-    if: needs.changes.outputs.images == 'true'
+    if: needs.changes.outputs.images == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -330,10 +353,18 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, pr-title, go-lint, go-race, go-test-nodb, tests-required, web-quality, web-e2e, images-build]
+    needs: [changes, pr-title, context-docs, go-lint, go-race, go-test-nodb, tests-required, web-quality, web-e2e, images-build]
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      # Runs on every event, so no path filter can skip the gate that keeps
+      # scattered docs out of the tree.
+      - name: Tracked markdown is on the versioned allow-list
+        run: go run ./backend/cmd/markdown-check
       - name: Every required suite passed or was skipped
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}

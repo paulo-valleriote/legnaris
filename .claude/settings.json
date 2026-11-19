@@ -20,6 +20,16 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/hooks/guard-secrets.sh"
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/claude-markdown-guard.sh",
+            "timeout": 120
+          }
+        ]
       }
     ],
     "Stop": [

@@ -32,8 +32,8 @@ function authApiWith(fake: { readonly transport: Transport }) {
   });
 }
 
-describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
-  it('Edge: login bumps the version exactly once, before applying the token (WAS-17)', async () => {
+describe('in-memory session', () => {
+  it('Edge: login bumps the version exactly once, before applying the token', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -43,7 +43,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     expect(session.getSnapshot().version).toBe(1);
   });
 
-  it('Edge: registration bumps the version exactly once (WAS-02)', async () => {
+  it('Edge: registration bumps the version exactly once', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY, 201));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -52,7 +52,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     expect(session.getSnapshot()).toMatchObject({ state: 'authenticated', version: 1 });
   });
 
-  it('Edge: a rejected login leaves unauthenticated and rethrows the mapped error (WAS-07)', async () => {
+  it('Edge: a rejected login leaves unauthenticated and rethrows the mapped error', async () => {
     const fake = createFakeTransport(errorOutcome('UNAUTHORIZED', 'bad credentials', 401));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -64,7 +64,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     expect(session.getSnapshot().version).toBe(0);
   });
 
-  it('Edge: a rejected registration leaves unauthenticated and rethrows (WAS-07)', async () => {
+  it('Edge: a rejected registration leaves unauthenticated and rethrows', async () => {
     const fake = createFakeTransport(errorOutcome('INVALID_REQUEST', 'bad input', 400));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -75,7 +75,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     expect(session.getSnapshot().state).toBe('unauthenticated');
   });
 
-  it('Edge: applying a refreshed token does not bump the version (WAS-17)', async () => {
+  it('Edge: applying a refreshed token does not bump the version', async () => {
     const fake = createFakeTransport(successOutcome({ ...SESSION_BODY, access_token: 'access-2' }));
     const session = createAuthSession({
       authApi: authApiWith(fake),
@@ -89,7 +89,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     expect(session.getSnapshot()).toMatchObject({ accessToken: 'access-2', version: 0 });
   });
 
-  it('Edge: a refresh rejected with 401 resolves null and keeps the version (WAS-04)', async () => {
+  it('Edge: a refresh rejected with 401 resolves null and keeps the version', async () => {
     const fake = createFakeTransport(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -98,7 +98,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     expect(session.getSnapshot().version).toBe(0);
   });
 
-  it('Edge: restore on a valid cookie settles authenticated through exactly one silent refresh (WAS-03)', async () => {
+  it('Edge: restore on a valid cookie settles authenticated through exactly one silent refresh', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -110,7 +110,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     );
   });
 
-  it('Edge: a transient restore failure settles unauthenticated and keeps the session-local data (WAS-05)', async () => {
+  it('Edge: a transient restore failure settles unauthenticated and keeps the session-local data', async () => {
     const fake = createFakeTransport({ failure: new Error('network') });
     const clearSessionData = vi.fn(() => Promise.resolve());
     const session = createAuthSession({
@@ -124,7 +124,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     expect(clearSessionData).not.toHaveBeenCalled();
   });
 
-  it('Edge: concurrent refresh calls share a single in-flight rotation (WAS-13)', async () => {
+  it('Edge: concurrent refresh calls share a single in-flight rotation', async () => {
     const deferred = createDeferredTransport();
     const session = createAuthSession({
       authApi: authApiWith(deferred),
@@ -142,7 +142,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     expect(deferred.attempts).toBe(1);
   });
 
-  it('Security: login never writes the token to a script-readable store (WAS-32)', async () => {
+  it('Security: login never writes the token to a script-readable store', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
     const writes = vi.spyOn(Storage.prototype, 'setItem');
@@ -154,7 +154,7 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
     writes.mockRestore();
   });
 
-  it('Happy path: login holds the token in memory and flips to authenticated (WAS-01)', async () => {
+  it('Happy path: login holds the token in memory and flips to authenticated', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -168,8 +168,8 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
   });
 });
 
-describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () => {
-  it('Edge: a sign-in step carries no username, and no step carries the password (WCS-21)', async () => {
+describe('the pending code step', () => {
+  it('Edge: a sign-in step carries no username, and no step carries the password', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -184,7 +184,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
   });
 
-  it('Edge: a refused code keeps the pending step and establishes no session (WCS-04)', async () => {
+  it('Edge: a refused code keeps the pending step and establishes no session', async () => {
     const fake = createFakeTransport(
       successOutcome(CHALLENGE_BODY),
       errorOutcome('OTP_INVALID', 'invalid or expired code', 401),
@@ -206,7 +206,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     expect(session.getSnapshot().pending).not.toBeNull();
   });
 
-  it('Edge: abandoning the step clears it, issues no request and moves no version (WCS-06)', async () => {
+  it('Edge: abandoning the step clears it, issues no request and moves no version', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -224,7 +224,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     expect(fake.attempts).toBe(before);
   });
 
-  it('Edge: a verified step leaves nothing to restore (WCS-21)', async () => {
+  it('Edge: a verified step leaves nothing to restore', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY), successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -234,7 +234,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     expect(session.getSnapshot().restored).toBeNull();
   });
 
-  it('Edge: an answer for an abandoned step is dropped and establishes no session (WCS-06, R10)', async () => {
+  it('Edge: an answer for an abandoned step is dropped and establishes no session', async () => {
     const deferred = createDeferredTransport();
     const session = createAuthSession({ authApi: authApiWith(deferred) });
 
@@ -257,7 +257,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     });
   });
 
-  it('Edge: a step never survives a reload, because nothing about it is persisted (WCS-02, R2)', async () => {
+  it('Edge: a step never survives a reload, because nothing about it is persisted', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
     const writes = vi.spyOn(Storage.prototype, 'setItem');
@@ -269,7 +269,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     writes.mockRestore();
   });
 
-  it('Edge: a second sign-in starts a new handle and supersedes the first (WCS-06)', async () => {
+  it('Edge: a second sign-in starts a new handle and supersedes the first', async () => {
     const fake = createFakeTransport(
       successOutcome({ ...CHALLENGE_BODY, challenge_id: 'challenge-1' }),
       successOutcome({ ...CHALLENGE_BODY, challenge_id: 'challenge-2' }),
@@ -295,7 +295,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     });
   });
 
-  it('Edge: an answer for a superseded handle establishes no session (WCS-06, R10)', async () => {
+  it('Edge: an answer for a superseded handle establishes no session', async () => {
     const resolvers: Array<(response: HttpResponse) => void> = [];
     const transport: Transport = () =>
       new Promise<HttpResponse>((resolve) => {
@@ -326,7 +326,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     });
   });
 
-  it('Happy path: a code step establishes no session and holds no credential (WCS-01, WCS-02)', async () => {
+  it('Happy path: a code step establishes no session and holds no credential', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -337,7 +337,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     expect(session.getSnapshot().version).toBe(0);
   });
 
-  it('Happy path: the pending projection is non-null exactly while the state is pendingCode (WCS-02)', async () => {
+  it('Happy path: the pending projection is non-null exactly while the state is pendingCode', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -352,7 +352,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     expect(session.getSnapshot().state).toBe('unauthenticated');
   });
 
-  it('Happy path: the pending step carries the address, the username and the advertised lifetime (WCS-19, WCS-20)', async () => {
+  it('Happy path: the pending step carries the address, the username and the advertised lifetime', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -367,7 +367,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     });
   });
 
-  it('Happy path: the verified code establishes the session exactly as a session answer does (WCS-03)', async () => {
+  it('Happy path: the verified code establishes the session exactly as a session answer does', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY), successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -385,7 +385,7 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
     );
   });
 
-  it('Happy path: the values the person typed survive the abandonment, and the password does not (WCS-21)', async () => {
+  it('Happy path: the values the person typed survive the abandonment, and the password does not', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
 
@@ -402,8 +402,8 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
   });
 });
 
-describe('the resend (WCS-08, WCS-10)', () => {
-  it('Edge: a refused resend keeps the pending step, the handle and the window (WCS-09, WCS-10)', async () => {
+describe('the resend', () => {
+  it('Edge: a refused resend keeps the pending step, the handle and the window', async () => {
     const fake = createFakeTransport(
       successOutcome(CHALLENGE_BODY),
       errorOutcome('EMAIL_UNAVAILABLE', 'email delivery is temporarily unavailable', 503),
@@ -422,7 +422,7 @@ describe('the resend (WCS-08, WCS-10)', () => {
     expect(JSON.stringify(session.getSnapshot())).not.toContain('challenge-1');
   });
 
-  it('Happy path: concurrent resend calls share one request and re-seed the window (WCS-08, WCS-10)', async () => {
+  it('Happy path: concurrent resend calls share one request and re-seed the window', async () => {
     const fake = createFakeTransport(
       successOutcome(CHALLENGE_BODY),
       successOutcome({ resend_after: 90 }, 202),

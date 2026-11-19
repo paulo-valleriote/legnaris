@@ -40,15 +40,15 @@ async function openSurface() {
   return { fake, user, entry };
 }
 
-describe('catalog keyboard and navigation (WCT-19, WCT-20, WCT-27)', () => {
-  it('Happy path: activating an entry moves focus into the surface (WCT-27)', async () => {
+describe('catalog keyboard and navigation', () => {
+  it('Happy path: activating an entry moves focus into the surface', async () => {
     await openSurface();
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByLabelText(message('sheet.nameLabel'))).toHaveFocus();
   });
 
-  it('Happy path: Esc dismisses, returns focus to the entry and leaves the catalog unchanged without a request (WCT-19, WCT-20)', async () => {
+  it('Happy path: Esc dismisses, returns focus to the entry and leaves the catalog unchanged without a request', async () => {
     const { fake, user, entry } = await openSurface();
     const attemptsBefore = fake.attempts;
 
@@ -61,7 +61,7 @@ describe('catalog keyboard and navigation (WCT-19, WCT-20, WCT-27)', () => {
     expect(window.location.pathname).toBe('/');
   });
 
-  it('Happy path: the close action dismisses and returns focus to the triggering entry (WCT-19, WCT-27)', async () => {
+  it('Happy path: the close action dismisses and returns focus to the triggering entry', async () => {
     const { user, entry } = await openSurface();
 
     await user.click(screen.getByRole('button', { name: message('sheet.close') }));
@@ -70,7 +70,7 @@ describe('catalog keyboard and navigation (WCT-19, WCT-20, WCT-27)', () => {
     expect(entry).toHaveFocus();
   });
 
-  it('Edge: focus stays trapped inside the surface (WCT-27)', async () => {
+  it('Edge: focus stays trapped inside the surface', async () => {
     const { user } = await openSurface();
     const dialog = screen.getByRole('dialog');
     expect(dialog.contains(document.activeElement)).toBe(true);

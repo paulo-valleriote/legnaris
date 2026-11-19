@@ -55,8 +55,8 @@ const sheetPayload = {
   updated_at: '2026-10-02T09:00:00.000Z',
 };
 
-describe('credential hygiene (API-29)', () => {
-  it('Edge: the API module contains no logging call and imports no logger (API-29)', () => {
+describe('credential hygiene', () => {
+  it('Edge: the API module contains no logging call and imports no logger', () => {
     const files = sourceFiles(apiDir);
     expect(files.length).toBeGreaterThan(0);
 
@@ -68,7 +68,7 @@ describe('credential hygiene (API-29)', () => {
     }
   });
 
-  it('Edge: the auth module contains no logging call and imports no logger (WAS-32)', () => {
+  it('Edge: the auth module contains no logging call and imports no logger', () => {
     const files = authSourceFiles(authDir);
     expect(files.length).toBeGreaterThan(0);
 
@@ -80,7 +80,7 @@ describe('credential hygiene (API-29)', () => {
     }
   });
 
-  it('Happy path: every request the client issues omits ambient credentials (API-29)', async () => {
+  it('Happy path: every request the client issues omits ambient credentials', async () => {
     const baseUrl = 'https://api.example.test';
     const fakes = [
       createFakeTransport(successOutcome({ status: 'healthy' })),

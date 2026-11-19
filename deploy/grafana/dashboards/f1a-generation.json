@@ -47,7 +47,7 @@
       "id": 2,
       "type": "timeseries",
       "title": "Sweeper failed attempts per queue",
-      "description": "Reads legnaris_sweeper_failed_total from the relay: failed handler attempts per queue over five-minute windows. Any increase fires LegnarisSweeperHandlerFailing; a rising rate points to the dead-item runbook.",
+      "description": "Reads legnaris_sweeper_failed_total from the relay: failed handler attempts per queue over five-minute windows. Any increase fires LegnarisSweeperHandlerFailing; a rising rate points to the Dead sweeper items section of deploy/README.md.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

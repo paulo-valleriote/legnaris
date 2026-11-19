@@ -47,8 +47,8 @@ function dataOf(store: SheetEditStore): Record<string, unknown> {
   return store.getState().data;
 }
 
-describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
-  it('Edge: a redundant write advances no revision (WSC-12)', () => {
+describe('sheet edit store', () => {
+  it('Edge: a redundant write advances no revision', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
 
     store.setPath('identity.level', 4);
@@ -59,7 +59,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(store.getState().revision).toBe(revision);
   });
 
-  it('Edge: an edit back to its seeded value un-pends and leaves the delta empty (WSC-13)', () => {
+  it('Edge: an edit back to its seeded value un-pends and leaves the delta empty', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
 
     store.setPath('identity.level', 4);
@@ -69,7 +69,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(store.getPendingDelta()).toEqual({});
   });
 
-  it('Edge: a derived (non-editable) path never enters the delta (WSC-14)', () => {
+  it('Edge: a derived (non-editable) path never enters the delta', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
 
     store.setPath('derived.total', 99);
@@ -79,7 +79,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(valueAtPath(dataOf(store), 'derived.total')).toBe(4);
   });
 
-  it('Edge: an unchanged sibling of a changed nested group never enters the delta (WSC-14)', () => {
+  it('Edge: an unchanged sibling of a changed nested group never enters the delta', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
 
     store.setPath('identity.characterName', 'Boromir');
@@ -87,7 +87,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(store.getPendingDelta()).toEqual({ identity: { characterName: 'Boromir' } });
   });
 
-  it('Edge: a high-precision decimal is sent unchanged (WSC-14)', () => {
+  it('Edge: a high-precision decimal is sent unchanged', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
 
     store.setPath('identity.level', 3.141592653589793);
@@ -95,7 +95,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(store.getPendingDelta()).toEqual({ identity: { level: 3.141592653589793 } });
   });
 
-  it('Edge: an exclusive selection writes one member on and its siblings off in one emission (WSC-15)', () => {
+  it('Edge: an exclusive selection writes one member on and its siblings off in one emission', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport, {
       identity: { characterName: 'Aragorn', level: 3 },
       derived: { total: 4 },
@@ -112,7 +112,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(emissions).toHaveBeenCalledTimes(1);
   });
 
-  it('Edge: selecting None writes every member off (WSC-15)', () => {
+  it('Edge: selecting None writes every member off', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
 
     store.setExclusive('ability.stealth', ABILITY_PATHS);
@@ -124,7 +124,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(store.getPendingDelta()).toEqual({});
   });
 
-  it('Edge: a redundant exclusive write emits nothing (WSC-15)', () => {
+  it('Edge: a redundant exclusive write emits nothing', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
 
     store.setExclusive('ability.stealth', ABILITY_PATHS);
@@ -135,7 +135,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(store.getState().revision).toBe(revision);
   });
 
-  it('Edge: subscribePath notifies only the listeners of the changed path (WSC-34)', () => {
+  it('Edge: subscribePath notifies only the listeners of the changed path', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
     const changed = vi.fn();
     const untouched = vi.fn();
@@ -148,7 +148,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(untouched).not.toHaveBeenCalled();
   });
 
-  it('Edge: an unsubscribed path listener is not notified (WSC-34)', () => {
+  it('Edge: an unsubscribed path listener is not notified', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
     const listener = vi.fn();
     const unsubscribe = store.subscribePath('identity.level', listener);
@@ -159,7 +159,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it('Edge: Save with no pending edit issues no request (WSC-19)', async () => {
+  it('Edge: Save with no pending edit issues no request', async () => {
     const fake = createFakeTransport(successOutcome({}));
     const { store } = storeWith(fake.transport);
 
@@ -169,7 +169,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(fake.attempts).toBe(0);
   });
 
-  it('Edge: a second Save while one is in flight issues no request (WSC-18)', async () => {
+  it('Edge: a second Save while one is in flight issues no request', async () => {
     const deferred = createDeferredTransport();
     const { store } = storeWith(deferred.transport);
 
@@ -185,7 +185,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(deferred.attempts).toBe(1);
   });
 
-  it('Edge: a failed save keeps every edit, shows the mapped message and issues no retry (WSC-17)', async () => {
+  it('Edge: a failed save keeps every edit, shows the mapped message and issues no retry', async () => {
     const fake = createFakeTransport(errorOutcome('INTERNAL_ERROR', 'boom', 500));
     const { store } = storeWith(fake.transport);
 
@@ -244,7 +244,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(store.getState().saveError).toBe(failureMessage('rateLimited'));
   });
 
-  it('Edge: an edit made during a save stays pending after it succeeds (WSC-16)', async () => {
+  it('Edge: an edit made during a save stays pending after it succeeds', async () => {
     const deferred = createDeferredTransport();
     const { store } = storeWith(deferred.transport);
 
@@ -264,7 +264,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(valueAtPath(state.data, 'derived.total')).toBe(5);
   });
 
-  it('Happy path: setPath records the path and produces a fresh data tree (WSC-12)', () => {
+  it('Happy path: setPath records the path and produces a fresh data tree', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
     const before = dataOf(store);
 
@@ -279,7 +279,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(store.getPendingDelta()).toEqual({ identity: { level: 4 } });
   });
 
-  it('Happy path: save sends the exact nested delta with one PATCH (WSC-14)', async () => {
+  it('Happy path: save sends the exact nested delta with one PATCH', async () => {
     const fake = createFakeTransport(successOutcome({}));
     const { store } = storeWith(fake.transport);
 
@@ -295,7 +295,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     });
   });
 
-  it('Happy path: a successful save merges the cascade and advances the baseline (WSC-16)', async () => {
+  it('Happy path: a successful save merges the cascade and advances the baseline', async () => {
     const fake = createFakeTransport(successOutcome({ derived: { total: 9 } }));
     const { store } = storeWith(fake.transport);
 
@@ -310,7 +310,7 @@ describe('sheet edit store (WSC-12 … WSC-19, WSC-34)', () => {
     expect(valueAtPath(state.defaults, 'identity.level')).toBe(4);
   });
 
-  it('Happy path: a successful save deletes the sheet draft (WSC-29)', async () => {
+  it('Happy path: a successful save deletes the sheet draft', async () => {
     const fake = createFakeTransport(successOutcome({}));
     const { store, sheetStore } = storeWith(fake.transport);
     await sheetStore.writeDraft(SHEET_ID, { identity: { level: 9 } });

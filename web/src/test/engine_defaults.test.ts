@@ -41,8 +41,8 @@ const FIELDS: Record<string, FieldNode> = {
   ),
 };
 
-describe('sheet draft derivation (ENG-19 … ENG-21)', () => {
-  it('Edge: mergeCascade with an empty override equals the base, is a fresh object and mutates neither input (ENG-21)', () => {
+describe('sheet draft derivation', () => {
+  it('Edge: mergeCascade with an empty override equals the base, is a fresh object and mutates neither input', () => {
     const base = { stats: { dexterity: 8, strength: 10 }, name: 'x' };
     const overrides = {};
     const baseSnapshot = structuredClone(base);
@@ -56,7 +56,7 @@ describe('sheet draft derivation (ENG-19 … ENG-21)', () => {
     expect(overrides).toEqual(overrideSnapshot);
   });
 
-  it('Edge: a nested override changes only its leaf and preserves its siblings (ENG-21)', () => {
+  it('Edge: a nested override changes only its leaf and preserves its siblings', () => {
     const base = { stats: { dexterity: 8, strength: 10 }, name: 'x' };
     const baseSnapshot = structuredClone(base);
 
@@ -66,7 +66,7 @@ describe('sheet draft derivation (ENG-19 … ENG-21)', () => {
     expect(base).toEqual(baseSnapshot);
   });
 
-  it('Edge: setPathValue creates the intermediate objects a path needs and overwrites an existing leaf (ENG-19)', () => {
+  it('Edge: setPathValue creates the intermediate objects a path needs and overwrites an existing leaf', () => {
     const data: Record<string, unknown> = {};
 
     setPathValue(data, 'a.b.c', 5);
@@ -80,18 +80,18 @@ describe('sheet draft derivation (ENG-19 … ENG-21)', () => {
     expect(data).toEqual({ a: { b: { d: 1 } } });
   });
 
-  it('Edge: seedValue seeds empty text, false boolean and the numeric default (ENG-19)', () => {
+  it('Edge: seedValue seeds empty text, false boolean and the numeric default', () => {
     expect(seedValue(schema({ type: 'text', defaultValue: 3 }))).toBe('');
     expect(seedValue(schema({ type: 'string', defaultValue: 3 }))).toBe('');
     expect(seedValue(schema({ type: 'bool', defaultValue: 3 }))).toBe(false);
     expect(seedValue(schema({ type: 'number', defaultValue: 7 }))).toBe(7);
   });
 
-  it('Edge: an empty field tree seeds no leaf (ENG-19)', () => {
+  it('Edge: an empty field tree seeds no leaf', () => {
     expect(seedDefaults({})).toEqual({});
   });
 
-  it('Happy path: seedDefaults yields one value per leaf under its dotted path in section order (ENG-19)', () => {
+  it('Happy path: seedDefaults yields one value per leaf under its dotted path in section order', () => {
     const data = seedDefaults(FIELDS);
 
     expect(data).toEqual({
@@ -106,7 +106,7 @@ describe('sheet draft derivation (ENG-19 … ENG-21)', () => {
     ]);
   });
 
-  it('Happy path: seedFromSheet lets a stored value win, keeps an omitted leaf default and carries an unknown key (ENG-20)', () => {
+  it('Happy path: seedFromSheet lets a stored value win, keeps an omitted leaf default and carries an unknown key', () => {
     const data = seedFromSheet(FIELDS, {
       identity: { characterName: 'Aragorn' },
       stats: { dexterity: 12 },

@@ -58,8 +58,8 @@ function pendingSnapshot(store: ReturnType<typeof editHarness>['store']) {
   return isPending(store.getState()) ? { sheetId: SHEET_ID, delta: store.getPendingDelta() } : null;
 }
 
-describe('draft cadence (WSC-26, WSC-27, R6)', () => {
-  it('Edge: a clean sheet writes nothing (WSC-27)', () => {
+describe('draft cadence', () => {
+  it('Edge: a clean sheet writes nothing', () => {
     const sheetStore = createMemorySheetStore();
     const scheduler = manualScheduler();
     startDraftCadence(sheetStore, () => null, scheduler.scheduler);
@@ -69,7 +69,7 @@ describe('draft cadence (WSC-26, WSC-27, R6)', () => {
     expect(sheetStore.records()).toHaveLength(0);
   });
 
-  it('Edge: a tick with an empty delta writes nothing (WSC-27)', () => {
+  it('Edge: a tick with an empty delta writes nothing', () => {
     const sheetStore = createMemorySheetStore();
     const scheduler = manualScheduler();
     startDraftCadence(sheetStore, () => ({ sheetId: SHEET_ID, delta: {} }), scheduler.scheduler);
@@ -79,7 +79,7 @@ describe('draft cadence (WSC-26, WSC-27, R6)', () => {
     expect(sheetStore.records()).toHaveLength(0);
   });
 
-  it('Happy path: a tick with only a pending Dice block writes it with an empty delta (ADR 0006)', async () => {
+  it('Happy path: a tick with only a pending Dice block writes it with an empty delta', async () => {
     const sheetStore = createMemorySheetStore();
     const scheduler = manualScheduler();
     const dice = { section: {}, row: { 'identity.level': '1d20' } };
@@ -95,7 +95,7 @@ describe('draft cadence (WSC-26, WSC-27, R6)', () => {
     expect(await sheetStore.readDraft(SHEET_ID)).toEqual({ delta: {}, dice });
   });
 
-  it('Happy path: a pending tick writes the current delta at the 60-second cadence (WSC-26)', () => {
+  it('Happy path: a pending tick writes the current delta at the 60-second cadence', () => {
     const sheetStore = createMemorySheetStore();
     const scheduler = manualScheduler();
     startDraftCadence(
@@ -112,7 +112,7 @@ describe('draft cadence (WSC-26, WSC-27, R6)', () => {
     ]);
   });
 
-  it('Edge: a write failure is swallowed and the cadence keeps running (WSC-26)', async () => {
+  it('Edge: a write failure is swallowed and the cadence keeps running', async () => {
     const sheetStore = createMemorySheetStore();
     const attempts: Array<Record<string, unknown>> = [];
     const failing = {
@@ -136,7 +136,7 @@ describe('draft cadence (WSC-26, WSC-27, R6)', () => {
     expect(attempts).toHaveLength(2);
   });
 
-  it('Edge: stopping the cadence stops the writes (WSC-26)', () => {
+  it('Edge: stopping the cadence stops the writes', () => {
     const sheetStore = createMemorySheetStore();
     const scheduler = manualScheduler();
     const stop = startDraftCadence(
@@ -152,7 +152,7 @@ describe('draft cadence (WSC-26, WSC-27, R6)', () => {
     expect(sheetStore.records()).toHaveLength(0);
   });
 
-  it('Happy path: a tick fed by the edit store writes only the editable delta (WSC-26)', () => {
+  it('Happy path: a tick fed by the edit store writes only the editable delta', () => {
     const { store, sheetStore } = editHarness();
     store.setPath('identity.level', 4);
     store.setPath('derived.total', 99);
@@ -166,7 +166,7 @@ describe('draft cadence (WSC-26, WSC-27, R6)', () => {
     ]);
   });
 
-  it('Security: a cadence-written draft carries no credential (WSC-31, SC-004)', async () => {
+  it('Security: a cadence-written draft carries no credential', async () => {
     const { store, sheetStore } = editHarness();
     await sheetStore.putSheet(sheet());
     store.setPath('identity.level', 4);
@@ -181,8 +181,8 @@ describe('draft cadence (WSC-26, WSC-27, R6)', () => {
   });
 });
 
-describe('draft restore and lifecycle (WSC-28, WSC-29, WSC-30)', () => {
-  it('Edge: a corrupt or unsupported-version draft seeds the sheet cleanly (WSC-30)', async () => {
+describe('draft restore and lifecycle', () => {
+  it('Edge: a corrupt or unsupported-version draft seeds the sheet cleanly', async () => {
     const sheetStore = createMemorySheetStore();
     sheetStore.putRawDraft(SHEET_ID, 'not-an-envelope');
     const { store } = editHarness(sheetStore);
@@ -201,7 +201,7 @@ describe('draft restore and lifecycle (WSC-28, WSC-29, WSC-30)', () => {
     expect(valueAtPath(store.getState().data, 'identity.level')).toBe(3);
   });
 
-  it('Edge: a draft key that is not an editable leaf is ignored on restore (WSC-28)', async () => {
+  it('Edge: a draft key that is not an editable leaf is ignored on restore', async () => {
     const sheetStore = createMemorySheetStore();
     await sheetStore.writeDraft(SHEET_ID, { derived: { total: 99 }, identity: { level: 5 } });
     const { store } = editHarness(sheetStore);
@@ -216,7 +216,7 @@ describe('draft restore and lifecycle (WSC-28, WSC-29, WSC-30)', () => {
     expect(store.getPendingDelta()).toEqual({ identity: { level: 5 } });
   });
 
-  it('Happy path: reopening overlays only the editable keys and marks them pending (WSC-28)', async () => {
+  it('Happy path: reopening overlays only the editable keys and marks them pending', async () => {
     const sheetStore = createMemorySheetStore();
     await sheetStore.writeDraft(SHEET_ID, {
       identity: { level: 8, characterName: 'Boromir' },
@@ -233,7 +233,7 @@ describe('draft restore and lifecycle (WSC-28, WSC-29, WSC-30)', () => {
     expect(state.previewMarks).toBeUndefined();
   });
 
-  it('Happy path: saving a restored draft deletes it and advances the baseline (WSC-29)', async () => {
+  it('Happy path: saving a restored draft deletes it and advances the baseline', async () => {
     const sheetStore = createMemorySheetStore();
     await sheetStore.writeDraft(SHEET_ID, { identity: { level: 8 } });
     const client = createApiClient({

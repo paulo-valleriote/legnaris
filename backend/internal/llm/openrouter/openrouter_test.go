@@ -165,6 +165,10 @@ func TestNewConfigValidation(t *testing.T) {
 	}
 }
 
+func TestErrFreeModelMessage(t *testing.T) {
+	assert.Equal(t, "openrouter: :free model variants are refused", openrouter.ErrFreeModel.Error())
+}
+
 func TestNewReasoningEffort(t *testing.T) {
 	type testCase struct {
 		name    string

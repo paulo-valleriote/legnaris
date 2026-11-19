@@ -3,7 +3,7 @@ import { DEFAULT_API_BASE_URL, resolveApiConfig } from '../api/config';
 import { ConfigurationFailure } from '../api/errors';
 
 describe('api base address configuration', () => {
-  it('Happy path: with no override the client targets the public API over HTTPS (API-25)', () => {
+  it('Happy path: with no override the client targets the public API over HTTPS', () => {
     const config = resolveApiConfig(undefined);
 
     expect(config.baseUrl).toBe(DEFAULT_API_BASE_URL);
@@ -13,7 +13,7 @@ describe('api base address configuration', () => {
     expect(config.isDevOverride).toBe(false);
   });
 
-  it('Happy path: a supplied override is used exactly (API-26)', () => {
+  it('Happy path: a supplied override is used exactly', () => {
     const config = resolveApiConfig('https://staging.example.test');
 
     expect(config.baseUrl).toBe('https://staging.example.test');
@@ -22,7 +22,7 @@ describe('api base address configuration', () => {
     expect(config.isDevOverride).toBe(true);
   });
 
-  it('Edge: an empty override falls back to the secure default (API-26, API-27)', () => {
+  it('Edge: an empty override falls back to the secure default', () => {
     for (const raw of ['', '   ']) {
       const config = resolveApiConfig(raw);
 
@@ -33,13 +33,13 @@ describe('api base address configuration', () => {
     }
   });
 
-  it('Edge: a trailing slash is normalized away so the base address joins cleanly (API-26)', () => {
+  it('Edge: a trailing slash is normalized away so the base address joins cleanly', () => {
     expect(resolveApiConfig('https://staging.example.test/').baseUrl).toBe(
       'https://staging.example.test',
     );
   });
 
-  it('Happy path: a plaintext override reports the connection as not secure (API-28)', () => {
+  it('Happy path: a plaintext override reports the connection as not secure', () => {
     const config = resolveApiConfig('http://localhost:8080');
 
     expect(config.baseUrl).toBe('http://localhost:8080');
@@ -48,25 +48,25 @@ describe('api base address configuration', () => {
     expect(config.source).toBe('override');
   });
 
-  it('Edge: an uppercase scheme is still recognised as secure (API-28)', () => {
+  it('Edge: an uppercase scheme is still recognised as secure', () => {
     expect(resolveApiConfig('HTTPS://staging.example.test').secure).toBe(true);
   });
 
-  it('Error: a bare host is refused before any request is issued (API-27)', () => {
+  it('Error: a bare host is refused before any request is issued', () => {
     expect(() => resolveApiConfig('api.example.test')).toThrow(ConfigurationFailure);
   });
 
-  it('Error: a relative path is refused before any request is issued (API-27)', () => {
+  it('Error: a relative path is refused before any request is issued', () => {
     expect(() => resolveApiConfig('/api')).toThrow(ConfigurationFailure);
   });
 
-  it('Error: a non-HTTP scheme is refused before any request is issued (API-27)', () => {
+  it('Error: a non-HTTP scheme is refused before any request is issued', () => {
     for (const raw of ['ftp://example.test', 'ws://example.test', 'file:///tmp/api']) {
       expect(() => resolveApiConfig(raw)).toThrow(ConfigurationFailure);
     }
   });
 
-  it('Error: the resolver rejects rather than coerces a malformed value (API-27)', () => {
+  it('Error: the resolver rejects rather than coerces a malformed value', () => {
     const thrown = (() => {
       try {
         resolveApiConfig('api.example.test');
