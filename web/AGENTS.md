@@ -137,11 +137,16 @@ the F2 client and the F4 engine and owns no wire model.
   tabs) and its scrollspy, which announces through the sheet's polite live region.
 - `src/sheet/preset/` — the template-id registry and the `fantasy_v1` Play preset: a `Header`
   component plus ordered `sections` slots sharing one preset context over the edit store, Dice
-  context and decoded template. A template without a preset keeps the generic form. `mode_toggle.tsx`
-  is the Play/Edit switch, component state for the open screen (local to the viewer, never
-  persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter, Play ignores
-  the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path editor:
-  click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value shows
+  context and decoded template. A template without a preset keeps the generic form. The first slot
+  is `fantasy/combat_strip.tsx`, the strip container later cards extend, holding the hit-points card
+  (`fantasy/hp_card.tsx`) over the pure `fantasy/hit_points.ts` (damage spends temporary points
+  first, healing caps at the maximum, non-positive amounts are ignored); the strip is sticky on a
+  desktop and static on a phone. The card writes `combat.hitPoints` and `combat.hitPointsTemp` to the
+  pending delta and draws the unsaved difference as a hatched segment with `was <n>` until Save.
+  `mode_toggle.tsx` is the Play/Edit switch, component state for the open screen (local to the
+  viewer, never persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter,
+  Play ignores the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path
+  editor: click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value shows
   `Add <label>`, and the accessible name is the template field label. The Play view also mounts
   `pending_card.tsx`: a `role="status"` polite card listing each edited field's label and old → new
   value with Discard, Preview and Save over the same store, a muted table-sync placeholder and the

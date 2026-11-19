@@ -74,6 +74,26 @@ export function fantasyFieldTree(): Record<string, unknown> {
             max: 500,
           },
         },
+        hitPointsMax: {
+          schema: {
+            type: 'number',
+            label: 'Hit points (maximum)',
+            is_editable: true,
+            default: 10,
+            min: 1,
+            max: 500,
+          },
+        },
+        hitPointsTemp: {
+          schema: {
+            type: 'number',
+            label: 'Temporary hit points',
+            is_editable: true,
+            default: 0,
+            min: 0,
+            max: 100,
+          },
+        },
       },
     },
   };
@@ -90,7 +110,7 @@ export function fantasySheetData(overrides: Record<string, unknown> = {}): Recor
       proficiencyBonus: 2,
       ...overrides,
     },
-    combat: { hitPoints: 10 },
+    combat: { hitPoints: 10, hitPointsMax: 20, hitPointsTemp: 0 },
   };
 }
 
