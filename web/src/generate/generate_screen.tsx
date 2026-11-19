@@ -532,16 +532,19 @@ export function GenerateScreen() {
           </div>
           {quota !== undefined &&
             (noAllowance ? (
-              <Notice
-                tone="warning"
-                action={
-                  <Link className="lg-generate__quota-link" to={PLANS_PATH}>
-                    {message('generate.quotaAction')}
-                  </Link>
-                }
-              >
-                {quota}
-              </Notice>
+              <div className="lg-generate__upgrade">
+                <Notice
+                  tone="warning"
+                  action={
+                    <Link className="lg-generate__quota-link" to={PLANS_PATH}>
+                      {message('generate.quotaAction')}
+                    </Link>
+                  }
+                >
+                  {quota}
+                </Notice>
+                <p className="lg-generate__quota">{message('plans.paidNoAdsLine')}</p>
+              </div>
             ) : (
               <p className="lg-generate__quota">{quota}</p>
             ))}

@@ -110,6 +110,8 @@ Account deletion settles billing first: live provider subscriptions are canceled
 
 ## Contracts
 
+- **Ads follow the plan.** The web client hides ad slots (and never loads the AdSense script) when `isPaidPlan` is true; plan or unknown/loading plan shows no ads. The client reads the cached `['me','plan']` query, so an upgrade or downgrade toggles ads without a reload. The Paid plan lists "No ads" as an advantage.
+
 ### Endpoints
 
 All routes except the webhook require an authenticated, non-deleting user and the per-user rate limit. Success bodies use `{ "data": ... }`.

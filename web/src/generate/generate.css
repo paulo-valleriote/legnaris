@@ -71,6 +71,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.lg-generate__upgrade {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+}
+
 .lg-generate__quota-link {
   font-size: var(--lg-type-15);
   font-weight: var(--lg-font-weight-medium);

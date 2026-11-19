@@ -156,6 +156,27 @@ describe('generate concept step (LGN-196, LGN-177)', () => {
   });
 });
 
+describe('generate upgrade prompt (LGN-340)', () => {
+  it('Happy path: no free generations left says the Paid plan has no ads', async () => {
+    renderGenerate({
+      'GET /me/plan': ok(planWith({ trial: { used: 3, remaining: 0 } })),
+    });
+
+    expect(await screen.findByText(message('plans.paidNoAdsLine'))).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: message('generate.quotaAction') })).toHaveAttribute(
+      'href',
+      '/plans',
+    );
+  });
+
+  it('Edge: a trial with generations left shows no upgrade line', async () => {
+    renderGenerate({});
+
+    expect(await screen.findByText('3 of 3 free generations left')).toBeInTheDocument();
+    expect(screen.queryByText(message('plans.paidNoAdsLine'))).toBeNull();
+  });
+});
+
 describe('generate page landmarks', () => {
   it('Happy path: the generate screen keeps the shell main as the only main landmark', async () => {
     renderGenerate({});

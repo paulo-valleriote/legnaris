@@ -225,6 +225,12 @@ services:
       # The browser-facing API origin, written to /config.json at container
       # start: changing it needs a restart of this service, not a rebuild.
       API_BASE_URL: ${WEB_API_BASE_URL:-https://api-legnaris.paulovalleriote.io}
+      # AdSense settings, also written to /config.json at start. An empty client
+      # leaves ads off and /ads.txt answers 404; invalid values are omitted.
+      ADSENSE_CLIENT: ${ADSENSE_CLIENT:-}
+      ADSENSE_SLOT_CATALOG: ${ADSENSE_SLOT_CATALOG:-}
+      ADSENSE_SLOT_CAMPAIGNS: ${ADSENSE_SLOT_CAMPAIGNS:-}
+      ADSENSE_SLOT_LANDING: ${ADSENSE_SLOT_LANDING:-}
     restart: unless-stopped
     # Only Traefik needs to reach it, so it never joins the internal network the
     # database and the observability stack live on.

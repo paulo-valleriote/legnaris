@@ -32,6 +32,14 @@ describe('nginx caching rules for the static host', () => {
     expect(locationBlock('/icons/')).not.toMatch(/immutable/);
   });
 
+  it('Happy path: /ads.txt is plain text, revalidated, and never the SPA shell', () => {
+    const block = locationBlock('= /ads.txt');
+    expect(block).not.toBeNull();
+    expect(block).toMatch(/default_type\s+text\/plain\s*;/);
+    expect(block).toMatch(/add_header\s+Cache-Control\s+"no-cache"\s*;/);
+    expect(block).toMatch(/try_files\s+\$uri\s+=404\s*;/);
+  });
+
   it('Happy path: the existing rules keep their caching (hashed assets immutable, shell and manifest no-cache)', () => {
     expect(locationBlock('/assets/')).toMatch(/max-age=31536000, immutable/);
     for (const selector of [

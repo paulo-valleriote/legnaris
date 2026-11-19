@@ -14,16 +14,42 @@ export function resolveDevApiOrigin(raw: string | undefined): string {
 
 export const REACT_REFRESH_PREAMBLE_HASH = "'sha256-Z2/iFzh9VMlVkEOar1f/oSHWwQk3ve1qk/C2WdsC4Xk='";
 
+const ADSENSE_SCRIPT_ORIGINS = [
+  'https://pagead2.googlesyndication.com',
+  'https://fundingchoicesmessages.google.com',
+  'https://*.adtrafficquality.google',
+  'https://www.googletagservices.com',
+].join(' ');
+
+const ADSENSE_FRAME_ORIGINS = [
+  'https://googleads.g.doubleclick.net',
+  'https://tpc.googlesyndication.com',
+  'https://*.googlesyndication.com',
+  'https://fundingchoicesmessages.google.com',
+  'https://www.google.com',
+  'https://*.adtrafficquality.google',
+].join(' ');
+
+const ADSENSE_CONNECT_ORIGINS = [
+  'https://pagead2.googlesyndication.com',
+  'https://*.google.com',
+  'https://*.adtrafficquality.google',
+  'https://fundingchoicesmessages.google.com',
+].join(' ');
+
 export function buildSecurityHeaders(apiOrigin: string = PRODUCTION_API_ORIGIN, dev = false) {
-  const scriptSrc = dev ? `script-src 'self' ${REACT_REFRESH_PREAMBLE_HASH}` : "script-src 'self'";
+  const scriptSrc = dev
+    ? `script-src 'self' ${REACT_REFRESH_PREAMBLE_HASH} ${ADSENSE_SCRIPT_ORIGINS}`
+    : `script-src 'self' ${ADSENSE_SCRIPT_ORIGINS}`;
   const styleSrc = dev ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'";
   const contentSecurityPolicy = [
     "default-src 'self'",
     scriptSrc,
     styleSrc,
-    "img-src 'self' data:",
+    "img-src 'self' data: https:",
     "font-src 'self'",
-    `connect-src 'self' ${apiOrigin}`,
+    `connect-src 'self' ${apiOrigin} ${ADSENSE_CONNECT_ORIGINS}`,
+    `frame-src ${ADSENSE_FRAME_ORIGINS}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

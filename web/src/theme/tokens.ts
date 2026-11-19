@@ -323,6 +323,10 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-ease-emphasized', 'overshooting easing'],
     ['--lg-ease-out', 'landing exponential ease-out'],
   ]),
+  ...group('component', 'size', [
+    ['--lg-size-ad-slot', 'reserved advertisement height'],
+    ['--lg-size-ad-slot-narrow', 'reserved advertisement height on a phone'],
+  ]),
   ...group('semantic', 'color', [
     ['--lg-color-bg', 'page background'],
     ['--lg-color-surface', 'card and region surface'],

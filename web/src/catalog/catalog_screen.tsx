@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { AdSlot } from '../ads/ad_slot';
 import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import { failureMessage, parseFailureMessage } from '../api/error_mapper';
 import type { TemplateSummary } from '../api/models/template';
@@ -112,6 +113,7 @@ export function CatalogScreen() {
       <PageHeader title={message('catalog.title')} />
       <ResumeNotice />
       <CatalogBody phase={phase} onRetry={handleRetry} onOpen={handleOpen} />
+      <AdSlot surface="catalog" />
       {openTemplateId !== undefined && (
         <CreateSheetDialog templateId={openTemplateId} onClose={handleClose} />
       )}

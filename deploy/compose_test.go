@@ -138,6 +138,37 @@ func TestWebServiceReadsApiOriginAtRuntime(t *testing.T) {
 	})
 }
 
+func TestWebServiceReadsAdSenseAtRuntime(t *testing.T) {
+	doc := readCompose(t)
+
+	web, ok := doc.Services["web"]
+	require.True(t, ok, "the stack must define a web service")
+
+	keys := []string{
+		"ADSENSE_CLIENT",
+		"ADSENSE_SLOT_CATALOG",
+		"ADSENSE_SLOT_CAMPAIGNS",
+		"ADSENSE_SLOT_LANDING",
+	}
+
+	t.Run("Happy path: the AdSense settings are optional interpolations", func(t *testing.T) {
+		for _, key := range keys {
+			value, present := web.Environment[key]
+			require.Truef(t, present, "web.environment must pass %s through", key)
+			assert.Equalf(t, "${"+key+":-}", value, "%s must default to empty", key)
+		}
+	})
+
+	t.Run("Edge: the deployment template documents the optional variables", func(t *testing.T) {
+		raw, err := os.ReadFile(envExampleFile)
+		require.NoErrorf(t, err, "read %s", envExampleFile)
+
+		for _, key := range keys {
+			assert.Containsf(t, string(raw), key+"=", "%s must be present in %s", key, envExampleFile)
+		}
+	})
+}
+
 func TestAppServiceTrustedProxyCIDRs(t *testing.T) {
 	doc := readCompose(t)
 

@@ -115,6 +115,22 @@
   text-wrap: pretty;
 }
 
+.lg-plans__advantages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+  margin: 0;
+  padding-left: var(--lg-space-16);
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
+  text-wrap: pretty;
+}
+
+.lg-plans__advantage {
+  padding-left: var(--lg-space-2);
+}
+
 .lg-plans__error {
   margin: 0;
   font-size: var(--lg-type-15);
