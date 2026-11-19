@@ -177,7 +177,7 @@ sender prints one-time codes, and every run starts from empty data.
 | `.golangci.yml`, `.mockery.yaml`, `.githooks/pre-commit` | Linter set, mock targets and the local format hook. |
 | `web/vite.config.ts`, `web/playwright.config.ts`, `web/e2e/` | Vitest coverage gates and the browser suite. |
 | `backend/shared/env`, `backend/internal/platform`, `backend/internal/sweeper` | Configuration parsing (including the boot-validated `ADMIN_USER_IDS` allow-list), health, metrics, rate limiting, CORS, client IP and background cleanup. |
-| `backend/shared/db/indexes.go` | Every collection's indexes, including `admin_audit` (target, actor, action by time) and the expired-comp lookup on `subscriptions`. |
+| `backend/shared/db/indexes.go` | Every collection's indexes, including `admin_audit` (by time, and target or actor by time) and the expired-comp lookup on `subscriptions`. |
 | `.opencode/agents/review/`, `.opencode/commands/`, `.claude/skills/` | Review subagents, spec commands and the Jira skill. |
 
 ## Tools & dependencies
