@@ -342,11 +342,11 @@ func TestAlwaysTriggersAreMapped(t *testing.T) {
 		file  string
 		owner string
 	}{
-		{name: "go.mod", file: "go.mod", owner: "platform"},
-		{name: "web dependencies", file: "web/package.json", owner: "platform"},
-		{name: "deploy stack", file: "deploy/docker-compose.yml", owner: "admin"},
-		{name: "workflows", file: ".github/workflows/ci.yml", owner: "admin"},
-		{name: "route registration", file: "backend/internal/app/router.go", owner: "architecture"},
+		{name: "Happy path: go.mod", file: "go.mod", owner: "platform"},
+		{name: "Happy path: web dependencies", file: "web/package.json", owner: "platform"},
+		{name: "Happy path: deploy stack", file: "deploy/docker-compose.yml", owner: "admin"},
+		{name: "Happy path: workflows", file: ".github/workflows/ci.yml", owner: "admin"},
+		{name: "Happy path: route registration", file: "backend/internal/app/router.go", owner: "architecture"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

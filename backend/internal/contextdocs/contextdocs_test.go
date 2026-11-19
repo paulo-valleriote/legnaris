@@ -269,9 +269,9 @@ func TestPathMapCoversEveryFolder(t *testing.T) {
 		name     string
 		relative string
 	}{
-		{name: "backend internal packages", relative: "backend/internal"},
-		{name: "backend shared packages", relative: "backend/shared"},
-		{name: "web src folders", relative: "web/src"},
+		{name: "Happy path: backend internal packages", relative: "backend/internal"},
+		{name: "Happy path: backend shared packages", relative: "backend/shared"},
+		{name: "Happy path: web src folders", relative: "web/src"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
