@@ -16,9 +16,9 @@ Architecture, layering, shared primitives and cross-cutting middleware:
   `idgen.Validate` before the first repository call; never call `uuid.New` or
   `uuid.NewString`.
 - Domain errors are `apperr.NewError(code, message, cause)` at the service or
-  controller boundary only. The cause is `nil` or a lower-layer typed error;
-  never a bare `errors.New`, and no `errors.New` sentinels in `app` or domain
-  packages.
+  controller boundary only. The cause is `nil`, one of the package's own typed
+  sentinels, or a lower-layer typed error; never a bare `errors.New` created at
+  the call site.
 - Register routes through their controller and attach guards per route; never
   wrap an empty-prefix group with middleware.
 - `make fmt && make lint && make vet` and `make test-race` must pass before a
