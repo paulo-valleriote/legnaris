@@ -5,9 +5,11 @@ import {
   usePresetCommit,
   usePresetContext,
   usePresetLabel,
+  usePresetSchema,
   usePresetValue,
 } from '../preset_context';
 import { numberValue, textValue } from '../values';
+import { parseProficiencyBonus } from './identity';
 import { XpBar } from './xp_panel';
 
 const LEVEL_MIN = 1;
@@ -30,11 +32,14 @@ export function FantasyHero() {
   const commitAncestry = usePresetCommit('identity.ancestry');
   const commitOrigin = usePresetCommit('identity.origin');
   const commitLevel = usePresetCommit('identity.level');
+  const commitProficiency = usePresetCommit('identity.proficiencyBonus');
   const characterNameLabel = usePresetLabel('identity.characterName');
   const playerNameLabel = usePresetLabel('identity.playerName');
   const ancestryLabel = usePresetLabel('identity.ancestry');
   const originLabel = usePresetLabel('identity.origin');
   const levelLabel = usePresetLabel('identity.level');
+  const proficiencyLabel = usePresetLabel('identity.proficiencyBonus');
+  const proficiencySchema = usePresetSchema('identity.proficiencyBonus');
   const shownLevel = level ?? LEVEL_MIN;
 
   return (
@@ -43,6 +48,7 @@ export function FantasyHero() {
         <InlineEdit
           className="lg-preset-hero__title"
           label={characterNameLabel}
+          path="identity.characterName"
           value={characterName}
           fallback={sheet.name}
           onCommit={commitCharacterName}
@@ -52,6 +58,7 @@ export function FantasyHero() {
         <InlineEdit
           className="lg-preset-hero__meta-item"
           label={ancestryLabel}
+          path="identity.ancestry"
           value={ancestry}
           onCommit={commitAncestry}
         />
@@ -61,6 +68,7 @@ export function FantasyHero() {
         <InlineEdit
           className="lg-preset-hero__meta-item"
           label={originLabel}
+          path="identity.origin"
           value={origin}
           onCommit={commitOrigin}
         />
@@ -72,6 +80,7 @@ export function FantasyHero() {
             type="button"
             className="lg-preset-hero__step"
             aria-label={messageWith('engine.decrease', { label: levelLabel })}
+            data-edit-path="identity.level"
             disabled={shownLevel <= LEVEL_MIN}
             onClick={() => commitLevel(clampLevel(shownLevel - 1))}
           >
@@ -84,6 +93,7 @@ export function FantasyHero() {
             type="button"
             className="lg-preset-hero__step"
             aria-label={messageWith('engine.increase', { label: levelLabel })}
+            data-edit-path="identity.level"
             disabled={shownLevel >= LEVEL_MAX}
             onClick={() => commitLevel(clampLevel(shownLevel + 1))}
           >
@@ -96,6 +106,7 @@ export function FantasyHero() {
           <InlineEdit
             className="lg-preset-hero__player"
             label={playerNameLabel}
+            path="identity.playerName"
             value={playerName}
             onCommit={commitPlayerName}
           />
@@ -105,16 +116,31 @@ export function FantasyHero() {
             <InlineEdit
               className="lg-preset-hero__player"
               label={playerNameLabel}
+              path="identity.playerName"
               value={playerName}
               onCommit={commitPlayerName}
             />
           </p>
         )}
-        {proficiency !== undefined && (
-          <span className="lg-preset-hero__badge">
-            {messageWith('sheet.play.proficiency', { modifier: `+${proficiency}` })}
-          </span>
-        )}
+        <span className="lg-preset-hero__badge" data-testid="sheet-play-proficiency">
+          <InlineEdit
+            className="lg-preset-hero__proficiency"
+            label={proficiencyLabel}
+            path="identity.proficiencyBonus"
+            schema={proficiencySchema}
+            inputMode="numeric"
+            value={proficiency === undefined ? '' : String(proficiency)}
+            display={messageWith('sheet.play.proficiency', {
+              modifier: `+${proficiency ?? 0}`,
+            })}
+            onCommit={(text) => {
+              const next = parseProficiencyBonus(text);
+              if (next !== undefined) {
+                commitProficiency(next);
+              }
+            }}
+          />
+        </span>
       </div>
       <XpBar />
     </div>

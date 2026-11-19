@@ -175,6 +175,12 @@
   max-inline-size: var(--lg-space-128);
 }
 
+.lg-spells__slot-total-control {
+  display: flex;
+  justify-content: flex-end;
+  min-inline-size: 0;
+}
+
 @media (max-width: 40rem) {
   .lg-spells__ability,
   .lg-spells__text,

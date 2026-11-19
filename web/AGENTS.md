@@ -173,10 +173,16 @@ the F2 client and the F4 engine and owns no wire model.
   offer. A template without a preset keeps the generic form. `mode_toggle.tsx` is the Play/Edit
   switch, component state for the open screen (local to the
   viewer, never persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter,
-  Play ignores the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path
-  editor: click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value shows
-  `Add <label>`, an optional display node replaces the shown value, and the accessible name is the
-  template field label. The Play view also mounts
+  Play ignores the layout and view filters and draws the preset body layout: full-width Section
+  blocks and column blocks (the fantasy body is the combat strip, three columns of abilities /
+  saving throws with skills / attacks with spells, then the table rules; two columns around 1100px,
+  one on a phone, never a horizontal scroll at 360px). `src/sheet/inline_edit.tsx` is the reusable
+  one-path editor: click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value
+  shows `Add <label>`, an optional display node replaces the shown value, and the accessible name is
+  the template field label. On a phone (`max-width: 40rem`, read through `useNarrowViewport` over
+  `matchMedia`) it keeps its trigger and opens a bottom-sheet `Dialog` instead, whose input takes
+  `type`/`inputMode` from the field schema (`number`/`numeric` for numbers); Enter commits and
+  Escape or the close button cancels. The Play view also mounts
   `pending_card.tsx`: a `role="status"` polite card listing each edited field's label and old → new
   value with Discard, Preview and Save over the same store, a muted table-sync placeholder and the
   mapped save/preview error; `pending_changes.ts` builds that summary purely from the defaults,

@@ -11,6 +11,7 @@ import {
   usePresetCommit,
   usePresetContext,
   usePresetLabel,
+  usePresetSchema,
   usePresetValue,
 } from '../preset_context';
 import { RollableValue } from '../rollable_value';
@@ -32,6 +33,9 @@ function AttackCard({ slot }: { readonly slot: AttackSlot }) {
   const nameLabel = usePresetLabel(slot.namePath);
   const bonusLabel = usePresetLabel(slot.bonusPath);
   const damageLabel = usePresetLabel(slot.damagePath);
+  const nameSchema = usePresetSchema(slot.namePath);
+  const bonusSchema = usePresetSchema(slot.bonusPath);
+  const damageSchema = usePresetSchema(slot.damagePath);
   const commitName = usePresetCommit(slot.namePath);
   const commitBonus = usePresetCommit(slot.bonusPath);
   const commitDamage = usePresetCommit(slot.damagePath);
@@ -45,6 +49,8 @@ function AttackCard({ slot }: { readonly slot: AttackSlot }) {
         <InlineEdit
           className="lg-attack-card__name-value"
           label={nameLabel}
+          path={slot.namePath}
+          schema={nameSchema}
           value={name}
           onCommit={commitName}
         />
@@ -65,6 +71,8 @@ function AttackCard({ slot }: { readonly slot: AttackSlot }) {
               className="lg-attack-card__edit"
               display={<PencilIcon className="lg-attack-card__pencil" />}
               label={bonusLabel}
+              path={slot.bonusPath}
+              schema={bonusSchema}
               value={bonus === undefined ? '' : String(bonus)}
               inputMode="numeric"
               onCommit={(text) => {
@@ -101,6 +109,8 @@ function AttackCard({ slot }: { readonly slot: AttackSlot }) {
               className="lg-attack-card__edit"
               display={<PencilIcon className="lg-attack-card__pencil" />}
               label={damageLabel}
+              path={slot.damagePath}
+              schema={damageSchema}
               value={damage}
               onCommit={commitDamage}
             />

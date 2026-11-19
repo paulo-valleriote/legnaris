@@ -2,6 +2,8 @@ import { useEffect, useId, useLayoutEffect, useRef, type ReactNode, type RefObje
 import { focusTrap } from './focus_trap';
 import { CloseIcon } from './icons';
 
+export type DialogPlacement = 'center' | 'bottom';
+
 export interface DialogProps {
   open: boolean;
   title: string;
@@ -15,6 +17,7 @@ export interface DialogProps {
   initialFocusRef?: RefObject<HTMLElement | null>;
   error?: string;
   className?: string;
+  placement?: DialogPlacement;
 }
 
 const openDialogs: symbol[] = [];
@@ -43,6 +46,7 @@ export function Dialog({
   initialFocusRef,
   error,
   className,
+  placement = 'center',
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const generatedTitleId = useId();
@@ -107,10 +111,16 @@ export function Dialog({
   ]
     .filter((value): value is string => value !== undefined && value !== '')
     .join(' ');
+  const scrimClasses = [
+    'lg-dialog__scrim',
+    placement === 'bottom' ? 'lg-dialog__scrim--bottom' : undefined,
+  ]
+    .filter((value): value is string => value !== undefined)
+    .join(' ');
 
   return (
     <div
-      className="lg-dialog__scrim"
+      className={scrimClasses}
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) close();

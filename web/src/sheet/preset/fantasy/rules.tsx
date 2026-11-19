@@ -32,7 +32,14 @@ function RuleField({ path }: { readonly path: string }) {
   return (
     <div className="lg-rules__field">
       <span className="lg-rules__label">{label}</span>
-      <SheetFieldControl path={field.path} schema={field.schema} value={value} onChanged={commit} />
+      <span className="lg-rules__control" data-edit-path={field.path}>
+        <SheetFieldControl
+          path={field.path}
+          schema={field.schema}
+          value={value}
+          onChanged={commit}
+        />
+      </span>
     </div>
   );
 }

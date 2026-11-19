@@ -348,12 +348,9 @@ describe('config in Play mode', () => {
     await openFantasy();
 
     const play = screen.getByTestId('sheet-play');
-    const sections = Array.from(play.children).map((element) =>
-      element.getAttribute('data-testid'),
-    );
-    expect(sections.indexOf('sheet-play-saves')).toBeLessThan(
-      sections.indexOf('sheet-play-skills'),
-    );
-    expect(sections).toContain('sheet-play-saves');
+    const saves = screen.getByTestId('sheet-play-saves');
+    const skills = screen.getByTestId('sheet-play-skills');
+    expect(play).toContainElement(saves);
+    expect(saves.compareDocumentPosition(skills) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

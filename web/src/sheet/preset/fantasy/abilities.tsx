@@ -5,6 +5,7 @@ import {
   usePresetCommit,
   usePresetContext,
   usePresetLabel,
+  usePresetSchema,
   usePresetValue,
 } from '../preset_context';
 import { RollableValue } from '../rollable_value';
@@ -27,6 +28,7 @@ function AbilityMedallion({ ability }: { readonly ability: AbilityKey }) {
   const commitScore = usePresetCommit(scorePath);
   const scoreLabel = usePresetLabel(scorePath);
   const modifierLabel = usePresetLabel(modifierPath);
+  const scoreSchema = usePresetSchema(scorePath);
 
   return (
     <li className="lg-ability" data-testid={`sheet-ability-${ability}`}>
@@ -42,6 +44,8 @@ function AbilityMedallion({ ability }: { readonly ability: AbilityKey }) {
       <InlineEdit
         className="lg-ability__score"
         label={scoreLabel}
+        path={scorePath}
+        schema={scoreSchema}
         value={score === undefined ? '' : String(score)}
         inputMode="numeric"
         onCommit={(text) => {

@@ -2,16 +2,26 @@ import { useCallback, useState, useSyncExternalStore } from 'react';
 import { message, messageWith } from '../../../l10n/strings';
 import { Button } from '../../../ui/button';
 import { Field } from '../../../ui/field';
-import { usePresetContext } from '../preset_context';
+import { InlineEdit } from '../../inline_edit';
+import {
+  usePresetCommit,
+  usePresetContext,
+  usePresetLabel,
+  usePresetSchema,
+} from '../preset_context';
 import {
   applyDamage,
   applyHeal,
   HIT_POINTS_CURRENT,
+  HIT_POINTS_MAX,
   HIT_POINTS_TEMP,
   hitPointsBand,
   hitPointsFrom,
   hitPointsPercent,
   parseHitPointsAmount,
+  parseHitPointsCurrent,
+  parseHitPointsMaximum,
+  parseHitPointsTemp,
 } from './hit_points';
 import type { HitPointsChange } from './hit_points';
 
@@ -24,6 +34,15 @@ export function HitPointsCard() {
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);
   const [amount, setAmount] = useState('');
+  const currentLabel = usePresetLabel(HIT_POINTS_CURRENT);
+  const maxLabel = usePresetLabel(HIT_POINTS_MAX);
+  const tempLabel = usePresetLabel(HIT_POINTS_TEMP);
+  const currentSchema = usePresetSchema(HIT_POINTS_CURRENT);
+  const maxSchema = usePresetSchema(HIT_POINTS_MAX);
+  const tempSchema = usePresetSchema(HIT_POINTS_TEMP);
+  const commitCurrent = usePresetCommit(HIT_POINTS_CURRENT);
+  const commitMax = usePresetCommit(HIT_POINTS_MAX);
+  const commitTemp = usePresetCommit(HIT_POINTS_TEMP);
 
   const hitPoints = hitPointsFrom(state.data);
   const stored = hitPointsFrom(state.defaults);
@@ -74,12 +93,72 @@ export function HitPointsCard() {
         <p className="lg-hp-card__label">{message('sheet.play.hitPoints')}</p>
         <p className="lg-hp-card__numbers">
           <span className="lg-hp-card__value" data-testid="sheet-hp-value">
-            {messageWith('sheet.play.hitPointsValue', { count: current, max })}
-          </span>
-          {temp > 0 && (
-            <span className="lg-hp-card__temp-value" data-testid="sheet-hp-temp-value">
-              {messageWith('sheet.play.tempValue', { count: temp })}
+            <InlineEdit
+              className="lg-hp-card__number"
+              label={currentLabel}
+              path={HIT_POINTS_CURRENT}
+              schema={currentSchema}
+              value={String(current)}
+              inputMode="numeric"
+              onCommit={(text) => {
+                const next = parseHitPointsCurrent(text);
+                if (next !== undefined) {
+                  commitCurrent(next);
+                }
+              }}
+            />
+            <span className="lg-hp-card__slash" aria-hidden="true">
+              {' / '}
             </span>
+            <InlineEdit
+              className="lg-hp-card__number"
+              label={maxLabel}
+              path={HIT_POINTS_MAX}
+              schema={maxSchema}
+              value={String(hitPoints.max)}
+              inputMode="numeric"
+              onCommit={(text) => {
+                const next = parseHitPointsMaximum(text);
+                if (next !== undefined) {
+                  commitMax(next);
+                }
+              }}
+            />
+          </span>
+          {temp > 0 ? (
+            <span className="lg-hp-card__temp-value" data-testid="sheet-hp-temp-value">
+              <InlineEdit
+                className="lg-hp-card__number lg-hp-card__number--temp"
+                label={tempLabel}
+                path={HIT_POINTS_TEMP}
+                schema={tempSchema}
+                value={String(temp)}
+                display={messageWith('sheet.play.tempValue', { count: temp })}
+                inputMode="numeric"
+                onCommit={(text) => {
+                  const next = parseHitPointsTemp(text);
+                  if (next !== undefined) {
+                    commitTemp(next);
+                  }
+                }}
+              />
+            </span>
+          ) : (
+            <InlineEdit
+              className="lg-hp-card__temp-add"
+              label={tempLabel}
+              path={HIT_POINTS_TEMP}
+              schema={tempSchema}
+              value=""
+              fallback={message('sheet.play.tempShort')}
+              inputMode="numeric"
+              onCommit={(text) => {
+                const next = parseHitPointsTemp(text);
+                if (next !== undefined) {
+                  commitTemp(next);
+                }
+              }}
+            />
           )}
         </p>
       </div>

@@ -1,29 +1,56 @@
 import { message } from '../../../l10n/strings';
+import { PencilIcon } from '../../../ui/icons';
 import { InlineEdit } from '../../inline_edit';
-import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
+import {
+  usePresetCommit,
+  usePresetLabel,
+  usePresetSchema,
+  usePresetValue,
+} from '../preset_context';
 import { RollableValue } from '../rollable_value';
 import { numberValue } from '../values';
 import { ArmorClassShield } from './ac_breakdown';
 import { formatModifier } from './abilities_data';
-import { INITIATIVE_PATH, SPEED_PATH, parseSpeed } from './armor_class';
+import { INITIATIVE_PATH, SPEED_PATH, parseInitiative, parseSpeed } from './armor_class';
 import { HitPointsCard } from './hp_card';
 import './combat_strip.css';
 
 function InitiativeTile() {
   const label = usePresetLabel(INITIATIVE_PATH);
   const initiative = numberValue(usePresetValue(INITIATIVE_PATH));
+  const schema = usePresetSchema(INITIATIVE_PATH);
+  const commitInitiative = usePresetCommit(INITIATIVE_PATH);
 
   return (
     <div className="lg-combat-stat" data-testid="sheet-initiative">
       <span className="lg-combat-stat__label">{label}</span>
-      <RollableValue
-        rowKey={INITIATIVE_PATH}
-        sectionKey="combat"
-        label={label}
-        text={initiative === undefined ? message('sheet.play.noValue') : formatModifier(initiative)}
-        allowRoll={initiative !== undefined}
-        className="lg-combat-stat__value"
-      />
+      <span className="lg-combat-stat__value-row">
+        <RollableValue
+          rowKey={INITIATIVE_PATH}
+          sectionKey="combat"
+          label={label}
+          text={
+            initiative === undefined ? message('sheet.play.noValue') : formatModifier(initiative)
+          }
+          allowRoll={initiative !== undefined}
+          className="lg-combat-stat__value"
+        />
+        <InlineEdit
+          className="lg-combat-stat__edit"
+          display={<PencilIcon className="lg-combat-stat__pencil" />}
+          label={label}
+          path={INITIATIVE_PATH}
+          schema={schema}
+          value={initiative === undefined ? '' : String(initiative)}
+          inputMode="numeric"
+          onCommit={(text) => {
+            const next = parseInitiative(text);
+            if (next !== undefined) {
+              commitInitiative(next);
+            }
+          }}
+        />
+      </span>
     </div>
   );
 }
@@ -31,6 +58,7 @@ function InitiativeTile() {
 function SpeedTile() {
   const label = usePresetLabel(SPEED_PATH);
   const speed = numberValue(usePresetValue(SPEED_PATH));
+  const schema = usePresetSchema(SPEED_PATH);
   const commitSpeed = usePresetCommit(SPEED_PATH);
 
   return (
@@ -39,6 +67,8 @@ function SpeedTile() {
       <InlineEdit
         className="lg-combat-stat__value"
         label={label}
+        path={SPEED_PATH}
+        schema={schema}
         value={speed === undefined ? '' : String(speed)}
         inputMode="numeric"
         onCommit={(text) => {

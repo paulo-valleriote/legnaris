@@ -4,6 +4,10 @@ export const HIT_POINTS_CURRENT = 'combat.hitPoints';
 export const HIT_POINTS_MAX = 'combat.hitPointsMax';
 export const HIT_POINTS_TEMP = 'combat.hitPointsTemp';
 
+export const HIT_POINTS_CURRENT_MAX = 500;
+export const HIT_POINTS_MAXIMUM_MAX = 500;
+export const HIT_POINTS_TEMP_MAX = 100;
+
 export interface HitPoints {
   readonly current: number;
   readonly max: number;
@@ -89,4 +93,29 @@ export function parseHitPointsAmount(text: string): number | undefined {
   }
   const amount = Number(trimmed);
   return isAmount(amount) ? amount : undefined;
+}
+
+function parseIntInRange(text: string, min: number, max: number): number | undefined {
+  const trimmed = text.trim();
+  if (trimmed === '') {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+  const value = Math.min(max, Math.max(min, Math.round(parsed)));
+  return Object.is(value, -0) ? 0 : value;
+}
+
+export function parseHitPointsCurrent(text: string): number | undefined {
+  return parseIntInRange(text, 0, HIT_POINTS_CURRENT_MAX);
+}
+
+export function parseHitPointsMaximum(text: string): number | undefined {
+  return parseIntInRange(text, 1, HIT_POINTS_MAXIMUM_MAX);
+}
+
+export function parseHitPointsTemp(text: string): number | undefined {
+  return parseIntInRange(text, 0, HIT_POINTS_TEMP_MAX);
 }

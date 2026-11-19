@@ -10,14 +10,19 @@ const entries = new Set<Entry>();
 let viewportWidth = 1280;
 let prefersDark = false;
 
+function lengthToPx(value: string, unit: string): number {
+  const size = Number(value);
+  return unit === 'rem' || unit === 'em' ? size * 16 : size;
+}
+
 function evaluate(media: string, width: number): boolean {
-  const max = /max-width:\s*(\d+)px/.exec(media);
+  const max = /max-width:\s*([\d.]+)(px|rem|em)/.exec(media);
   if (max) {
-    return width <= Number(max[1]);
+    return width <= lengthToPx(max[1], max[2]);
   }
-  const min = /min-width:\s*(\d+)px/.exec(media);
+  const min = /min-width:\s*([\d.]+)(px|rem|em)/.exec(media);
   if (min) {
-    return width >= Number(min[1]);
+    return width >= lengthToPx(min[1], min[2]);
   }
   if (/prefers-color-scheme:\s*dark/.test(media)) {
     return prefersDark;

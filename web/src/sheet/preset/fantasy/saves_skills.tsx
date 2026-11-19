@@ -5,6 +5,7 @@ import {
   usePresetCommit,
   usePresetContext,
   usePresetLabel,
+  usePresetSchema,
   usePresetValue,
 } from '../preset_context';
 import { RollableValue } from '../rollable_value';
@@ -38,6 +39,7 @@ function ProficiencyDot({ path, label }: { readonly path: string; readonly label
       className="lg-prof-dot"
       aria-pressed={isProficient(value)}
       aria-label={messageWith('sheet.play.proficiencyFor', { label })}
+      data-edit-path={path}
       onClick={() => {
         commit(nextProficiency(value));
         void store.preview();
@@ -83,6 +85,7 @@ function SkillRow({ skill }: { readonly skill: SkillKey }) {
   const bonus = numberValue(usePresetValue(bonusPath));
   const total = numberValue(usePresetValue(totalPath));
   const bonusLabel = usePresetLabel(bonusPath);
+  const bonusSchema = usePresetSchema(bonusPath);
   const commitBonus = usePresetCommit(bonusPath);
 
   return (
@@ -95,7 +98,10 @@ function SkillRow({ skill }: { readonly skill: SkillKey }) {
       <InlineEdit
         className="lg-skill__bonus"
         label={bonusLabel}
-        value={bonus === undefined ? '' : formatModifier(bonus)}
+        path={bonusPath}
+        schema={bonusSchema}
+        value={bonus === undefined ? '' : String(bonus)}
+        display={bonus === undefined ? undefined : formatModifier(bonus)}
         inputMode="numeric"
         onCommit={(text) => {
           const next = parseSkillBonus(text);

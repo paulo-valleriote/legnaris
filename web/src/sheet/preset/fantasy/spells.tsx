@@ -173,6 +173,8 @@ function SpellText({ path }: { readonly path: string }) {
       <InlineEdit
         className="lg-spells__text-value"
         label={label}
+        path={path}
+        schema={field.schema}
         value={textValue(value)}
         onCommit={commit}
       />
@@ -220,6 +222,7 @@ function SlotLevel({
             key={pip.index}
             type="button"
             className="lg-spells__pip"
+            data-edit-path={slotPath(level, 'expended')}
             data-spent={pip.spent ? '' : undefined}
             aria-label={
               pip.spent
@@ -232,12 +235,14 @@ function SlotLevel({
       </div>
       <div className="lg-spells__slot-total">
         <span className="lg-spells__label">{message('sheet.play.slotTotal')}</span>
-        <SheetFieldControl
-          path={totalSchema.path}
-          schema={totalSchema.schema}
-          value={totalValue}
-          onChanged={onTotal}
-        />
+        <span className="lg-spells__slot-total-control" data-edit-path={slotPath(level, 'total')}>
+          <SheetFieldControl
+            path={totalSchema.path}
+            schema={totalSchema.schema}
+            value={totalValue}
+            onChanged={onTotal}
+          />
+        </span>
       </div>
     </li>
   );

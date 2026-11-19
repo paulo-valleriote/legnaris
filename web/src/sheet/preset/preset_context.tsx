@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useSyncExternalStore }
 import type { ReactNode } from 'react';
 import type { Sheet } from '../../api/models/sheet';
 import { valueAtPath } from '../../api/models/sheet';
-import type { TemplateDetail } from '../../api/models/template';
+import type { FieldSchema, TemplateDetail } from '../../api/models/template';
 import type { SheetField } from '../../engine/field_grouping';
 import { buildSections, fieldDisplayName, lastSegment } from '../../engine/field_grouping';
 import type { DiceContextValue } from '../dice_row';
@@ -49,6 +49,10 @@ export function usePresetContext(): PresetContextValue {
 
 export function usePresetField(path: string): SheetField | undefined {
   return usePresetContext().fields.get(path);
+}
+
+export function usePresetSchema(path: string): FieldSchema | undefined {
+  return usePresetField(path)?.schema;
 }
 
 export function usePresetLabel(path: string): string {

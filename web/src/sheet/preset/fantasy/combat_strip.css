@@ -83,6 +83,47 @@
   text-align: start;
 }
 
+.lg-combat-stat__value-row {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-4);
+  min-inline-size: 0;
+}
+
+.lg-combat-stat__value-row .lg-combat-stat__value {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.lg-combat-stat .lg-combat-stat__edit {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--lg-size-control);
+  min-block-size: var(--lg-size-control);
+  padding: 0;
+  border: 0;
+  border-radius: var(--lg-radius-sm);
+  background-color: transparent;
+  color: var(--lg-color-text-muted);
+  cursor: pointer;
+}
+
+.lg-combat-stat .lg-combat-stat__edit:hover {
+  background-color: var(--lg-color-surface-hover);
+  color: var(--lg-color-text);
+}
+
+.lg-combat-stat__pencil {
+  flex: none;
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--lg-space-2);
+}
+
 .lg-ac-breakdown {
   position: absolute;
   inset-block-start: calc(100% + var(--lg-space-8));

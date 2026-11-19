@@ -77,6 +77,7 @@ function ArmorAbilitySegments({
           className="lg-ac-breakdown__segment"
           aria-label={labels[key]}
           aria-pressed={active === key}
+          data-edit-path={ARMOR_ABILITIES[key].configPath}
           onClick={() => choose(key)}
         >
           {message(ARMOR_ABILITIES[key].shortLabel)}
@@ -95,6 +96,7 @@ function ArmorBreakdown({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const baseArmor = numberValue(usePresetValue(BASE_ARMOR_PATH));
+  const baseArmorSchema = usePresetField(BASE_ARMOR_PATH)?.schema;
   const total = numberValue(usePresetValue(ARMOR_CLASS_PATH));
   const active = armorAbilityFromValues({
     dex: numberValue(usePresetValue(ARMOR_ABILITIES.dex.configPath)),
@@ -141,6 +143,8 @@ function ArmorBreakdown({
             <InlineEdit
               className="lg-ac-breakdown__base"
               label={baseLabel}
+              path={BASE_ARMOR_PATH}
+              schema={baseArmorSchema}
               value={baseArmor === undefined ? '' : String(baseArmor)}
               inputMode="numeric"
               onCommit={(text) => {

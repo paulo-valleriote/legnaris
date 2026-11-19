@@ -3,9 +3,15 @@ import type { FormEvent } from 'react';
 import { message, messageWith } from '../../../l10n/strings';
 import { Button } from '../../../ui/button';
 import { Field } from '../../../ui/field';
-import { usePresetCommit, usePresetValue } from '../preset_context';
+import { InlineEdit } from '../../inline_edit';
+import {
+  usePresetCommit,
+  usePresetLabel,
+  usePresetSchema,
+  usePresetValue,
+} from '../preset_context';
 import { numberValue } from '../values';
-import { LEVEL_PATH, parseXpGain, XP_PATH, xpProgress } from './xp_progress';
+import { LEVEL_PATH, parseXpGain, parseXpTotal, XP_PATH, xpProgress } from './xp_progress';
 import './xp_progress.css';
 
 export function XpBar() {
@@ -14,6 +20,8 @@ export function XpBar() {
   const panelId = useId();
   const level = numberValue(usePresetValue(LEVEL_PATH));
   const xp = usePresetValue(XP_PATH);
+  const xpLabel = usePresetLabel(XP_PATH);
+  const xpSchema = usePresetSchema(XP_PATH);
   const commitXp = usePresetCommit(XP_PATH);
   const commitLevel = usePresetCommit(LEVEL_PATH);
   const progress = xpProgress(level, xp);
@@ -34,6 +42,7 @@ export function XpBar() {
       <button
         type="button"
         className="lg-xp__trigger"
+        data-testid="sheet-xp-trigger"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((value) => !value)}
@@ -68,8 +77,23 @@ export function XpBar() {
           aria-label={message('sheet.play.experience')}
         >
           <p className="lg-xp__panel-total" data-testid="sheet-xp-total">
-            {messageWith('sheet.play.xpTotal', { count: progress.xp })}
+            <InlineEdit
+              className="lg-xp__panel-total-value"
+              label={message('sheet.play.setXp')}
+              path={XP_PATH}
+              schema={xpSchema}
+              value={String(progress.xp)}
+              display={messageWith('sheet.play.xpTotal', { count: progress.xp })}
+              inputMode="numeric"
+              onCommit={(text) => {
+                const next = parseXpTotal(text);
+                if (next !== undefined) {
+                  commitXp(next);
+                }
+              }}
+            />
           </p>
+          <p className="lg-xp__panel-name">{xpLabel}</p>
           <form className="lg-xp__gain" onSubmit={addGain}>
             <Field
               id="sheet-xp-gain"

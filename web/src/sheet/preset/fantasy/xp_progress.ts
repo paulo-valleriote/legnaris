@@ -83,3 +83,15 @@ export function parseXpGain(text: string): number | undefined {
   const amount = Number(trimmed);
   return Number.isFinite(amount) && amount > 0 ? amount : undefined;
 }
+
+export function parseXpTotal(text: string): number | undefined {
+  const trimmed = text.trim();
+  if (trimmed === '') {
+    return undefined;
+  }
+  const total = Number(trimmed);
+  if (!Number.isFinite(total) || total < 0) {
+    return undefined;
+  }
+  return Math.min(XP_THRESHOLDS[XP_THRESHOLDS.length - 1], Math.round(total));
+}

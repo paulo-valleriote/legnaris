@@ -19,4 +19,9 @@ export const fantasyPreset: SheetPreset = {
     { key: 'spells', Component: FantasySpells },
     { key: 'rules', Component: FantasyTableRules },
   ],
+  layout: [
+    { sections: ['combat'] },
+    { columns: [['stats'], ['saves', 'skills'], ['attacks', 'spells']] },
+    { sections: ['rules'] },
+  ],
 };

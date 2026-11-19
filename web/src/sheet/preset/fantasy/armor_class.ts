@@ -10,6 +10,8 @@ export const BASE_ARMOR_MIN = 1;
 export const BASE_ARMOR_MAX = 30;
 export const SPEED_MIN = 0;
 export const SPEED_MAX = 120;
+export const INITIATIVE_MIN = -5;
+export const INITIATIVE_MAX = 20;
 
 export const ARMOR_ABILITY_KEYS = ['dex', 'con'] as const;
 
@@ -61,7 +63,8 @@ function clampInteger(text: string, min: number, max: number): number | undefine
   if (!Number.isFinite(parsed)) {
     return undefined;
   }
-  return Math.min(max, Math.max(min, Math.round(parsed)));
+  const value = Math.min(max, Math.max(min, Math.round(parsed)));
+  return Object.is(value, -0) ? 0 : value;
 }
 
 export function parseBaseArmor(text: string): number | undefined {
@@ -70,4 +73,8 @@ export function parseBaseArmor(text: string): number | undefined {
 
 export function parseSpeed(text: string): number | undefined {
   return clampInteger(text, SPEED_MIN, SPEED_MAX);
+}
+
+export function parseInitiative(text: string): number | undefined {
+  return clampInteger(text, INITIATIVE_MIN, INITIATIVE_MAX);
 }
