@@ -31,10 +31,6 @@ The visual side of interaction — focus ring, hover, dialog avoidance, feedback
 - **No third-party scripts, styles, or fonts**: everything is self-hosted and
   same-origin, so the strict production Content-Security-Policy
   (`deploy/traefik/dynamic.yml`) holds without exceptions.
-- **No credentials in JavaScript-readable storage**: never put a token in
-  `localStorage`, `sessionStorage`, or IndexedDB. The refresh credential is an
-  `HttpOnly` cookie; the access token lives in memory only. (A display preference such as the
-  theme is not a credential and may persist.)
 - All identifiers, comments, and user-facing strings in **English** (UI strings go
   through `src/l10n/`).
 
@@ -43,11 +39,9 @@ The visual side of interaction — focus ring, hover, dialog avoidance, feedback
 The typed network layer every screen mounts on. Its rules are non-negotiable.
 
 - **One transport seam.** Every request goes through the transport injected at
-  construction; no operation builds its own, and the transport is the single place a
-  credential will ever be attached. Requests carry `credentials: 'omit'` — no ambient
-  credential is attached implicitly, in any environment.
+  construction; no operation builds its own.
 - **No logging.** The module contains no `console.*` call and imports no logger; a request
-  body, a credential and an identifier-bearing URL never reach a log. A source scan
+  body and an identifier-bearing URL never reach a log. A source scan
   (`src/test/api_no_logging.test.ts`) enforces this.
 - **No user-facing literal.** Every message a person sees resolves through
   `src/l10n/strings.ts`; the API module emits codes and failure kinds, never copy.
@@ -212,9 +206,8 @@ so two guards never stack. The safe action carries focus, Escape and the overlay
 cancel, and the destructive action is a real button — never a confirm-by-Enter default.
 
 **Best-effort local records.** A cache write, a draft write and every delete are swallowed on
-failure; no local record ever holds a credential, and the draft holds only the pending
-editable delta, restored over the stored values and filtered to the template's editable
-leaves.
+failure; the draft holds only the pending editable delta, restored over the stored values and
+filtered to the template's editable leaves.
 The one exception is an offline save or preview failure: the edit store writes the pending delta
 to the draft immediately (not on the 60 s cadence) and the footer says "kept on this device" only
 when that write landed; otherwise it says the changes could not be kept (`sheet.error.*OfflineUnkept`).
@@ -322,8 +315,8 @@ no recalculation). Only the lists that deviate from the Template are sent.
   outline = unpinned, filled = pinned, inline SVG on `currentColor`). Only Sections
   are reorderable. Outside Arrange mode no handle, star or drag listener is mounted.
 - **Local records.** The cached sheet carries the committed `layout`; a pending arrangement is
-  backed up on every staged change (`writeLayoutDraft`, best-effort, swallowed failures, no
-  credential) and restored into Arrange mode on open. `SCHEMA_VERSION` is 3: older local records
+  backed up on every staged change (`writeLayoutDraft`, best-effort, swallowed failures) and
+  restored into Arrange mode on open. `SCHEMA_VERSION` is 3: older local records
   read as missing and are rebuilt, not migrated.
 - **`@dnd-kit` (core, sortable, utilities)** is the one drag dependency (exact pins, bundled by
   Vite, self-hosted). It touches the DOM only through React props and CSSOM (`style.setProperty`),
@@ -371,6 +364,3 @@ The per-feature deviation log lives in `docs/web-delivered-deviations.md`. These
   not intercepted, only in-app navigation.
 - Modal surfaces are accessible overlays (`role="dialog"`, `aria-modal`), not native
   `<dialog>`, because jsdom does not implement `showModal`.
-- The access token is memory-only; `AuthSession.refresh()` is single-flight.
-- Captures in `src/api/fixtures/` are real responses; a credential in one is redacted
-  (`redacted-access-token`).
