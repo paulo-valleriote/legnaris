@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { failureCopy, failureKind } from '../api/error_mapper';
 import type { PlanUsage } from '../api/models/plan';
@@ -11,7 +12,13 @@ import { Dialog } from '../ui/dialog';
 import { Notice } from '../ui/notice';
 import { PageHeader } from '../ui/page_header';
 import { ErrorState, LoadingState } from '../ui/state';
-import { planName, refundPollingInterval } from './plan_view';
+import {
+  CHECKOUT_CONFIRM_LIMIT_MS,
+  checkoutPhase,
+  checkoutPollingInterval,
+  checkoutReturn,
+  planName,
+} from './plan_view';
 import './plans.css';
 
 function formatPeriodEnd(periodEnd: string): string {
@@ -239,26 +246,94 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
 }
 
 export function PlansScreen() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [returned] = useState(() => checkoutReturn(searchParams.get('checkout')));
+  const [timedOut, setTimedOut] = useState(false);
+
   const plan = usePlanUsage({
-    refetchInterval: (query) => refundPollingInterval(query.state.data),
+    refetchInterval: (query) =>
+      checkoutPollingInterval(
+        checkoutPhase(returned, query.state.data, timedOut),
+        query.state.data,
+      ),
   });
+
+  const phase = checkoutPhase(returned, plan.data, timedOut);
+  const settled = returned === 'canceled' || phase === 'activated' || phase === 'processing';
+
+  useEffect(() => {
+    if (!settled || !searchParams.has('checkout')) {
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('checkout');
+    const search = next.toString();
+    navigate(
+      { pathname: location.pathname, search: search === '' ? '' : `?${search}` },
+      { replace: true },
+    );
+  }, [settled, searchParams, navigate, location.pathname]);
+
+  useEffect(() => {
+    if (returned !== 'success') {
+      return;
+    }
+    const handle = setTimeout(() => setTimedOut(true), CHECKOUT_CONFIRM_LIMIT_MS);
+    return () => clearTimeout(handle);
+  }, [returned]);
 
   return (
     <section className="lg-plans">
       <PageHeader title={message('plans.title')} />
 
-      {plan.isPending ? <LoadingState label={message('plans.loading')} /> : null}
-
-      {plan.isError ? (
-        <ErrorState
-          message={message('plan.loadFailed')}
-          onRetry={() => {
-            void plan.refetch();
-          }}
-        />
+      {phase === 'activated' && plan.data !== undefined ? (
+        <Notice tone="success" live="polite">
+          {messageWith('plans.checkoutActivated', { plan: planName(plan.data.plan) })}
+        </Notice>
       ) : null}
 
-      {plan.data === undefined ? null : <PlansBody usage={plan.data} />}
+      {phase === 'confirming' ? (
+        <Notice tone="info" live="polite">
+          {message('plans.checkoutConfirming')}
+        </Notice>
+      ) : null}
+
+      {phase === 'processing' ? (
+        <Notice
+          tone="warning"
+          live="polite"
+          action={
+            <Button
+              variant="secondary"
+              label={message('plans.checkoutCheckAgain')}
+              onClick={() => {
+                void plan.refetch();
+              }}
+            />
+          }
+        >
+          {message('plans.checkoutProcessing')}
+        </Notice>
+      ) : null}
+
+      {phase === 'idle' || phase === 'activated' ? (
+        <>
+          {plan.isPending ? <LoadingState label={message('plans.loading')} /> : null}
+
+          {plan.isError ? (
+            <ErrorState
+              message={message('plan.loadFailed')}
+              onRetry={() => {
+                void plan.refetch();
+              }}
+            />
+          ) : null}
+
+          {plan.data === undefined ? null : <PlansBody usage={plan.data} />}
+        </>
+      ) : null}
     </section>
   );
 }

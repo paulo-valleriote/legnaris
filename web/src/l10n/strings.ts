@@ -257,6 +257,11 @@ export const messages = {
   'plans.refundRequested': 'Your refund is in progress. Your paid plan ends once it completes.',
   'plans.refundCompleted': 'Your refund is complete.',
   'plans.refundFailed': 'The refund could not be completed. Your right to a refund is back.',
+  'plans.checkoutActivated': 'Plan {plan} activated.',
+  'plans.checkoutConfirming': 'Confirming your payment…',
+  'plans.checkoutProcessing':
+    'Your payment was received and is being processed. Check again in a moment.',
+  'plans.checkoutCheckAgain': 'Check again',
 
   'banner.paymentIssue':
     'Your last payment did not go through, so your account is on the Free plan until it does.',
