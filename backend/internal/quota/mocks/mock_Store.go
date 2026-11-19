@@ -4,7 +4,6 @@ package mocks
 
 import (
 	context "context"
-	quota "legnaris/backend/internal/quota"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -82,111 +81,6 @@ func (_c *MockStore_FetchDaily_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
-// FetchTrial provides a mock function with given fields: ctx, userID
-func (_m *MockStore) FetchTrial(ctx context.Context, userID string) (quota.TrialRow, error) {
-	ret := _m.Called(ctx, userID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FetchTrial")
-	}
-
-	var r0 quota.TrialRow
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (quota.TrialRow, error)); ok {
-		return rf(ctx, userID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) quota.TrialRow); ok {
-		r0 = rf(ctx, userID)
-	} else {
-		r0 = ret.Get(0).(quota.TrialRow)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, userID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockStore_FetchTrial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FetchTrial'
-type MockStore_FetchTrial_Call struct {
-	*mock.Call
-}
-
-// FetchTrial is a helper method to define mock.On call
-//   - ctx context.Context
-//   - userID string
-func (_e *MockStore_Expecter) FetchTrial(ctx interface{}, userID interface{}) *MockStore_FetchTrial_Call {
-	return &MockStore_FetchTrial_Call{Call: _e.mock.On("FetchTrial", ctx, userID)}
-}
-
-func (_c *MockStore_FetchTrial_Call) Run(run func(ctx context.Context, userID string)) *MockStore_FetchTrial_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockStore_FetchTrial_Call) Return(_a0 quota.TrialRow, _a1 error) *MockStore_FetchTrial_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockStore_FetchTrial_Call) RunAndReturn(run func(context.Context, string) (quota.TrialRow, error)) *MockStore_FetchTrial_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GrantTrial provides a mock function with given fields: ctx, userID, allowance
-func (_m *MockStore) GrantTrial(ctx context.Context, userID string, allowance int) error {
-	ret := _m.Called(ctx, userID, allowance)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GrantTrial")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, int) error); ok {
-		r0 = rf(ctx, userID, allowance)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockStore_GrantTrial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GrantTrial'
-type MockStore_GrantTrial_Call struct {
-	*mock.Call
-}
-
-// GrantTrial is a helper method to define mock.On call
-//   - ctx context.Context
-//   - userID string
-//   - allowance int
-func (_e *MockStore_Expecter) GrantTrial(ctx interface{}, userID interface{}, allowance interface{}) *MockStore_GrantTrial_Call {
-	return &MockStore_GrantTrial_Call{Call: _e.mock.On("GrantTrial", ctx, userID, allowance)}
-}
-
-func (_c *MockStore_GrantTrial_Call) Run(run func(ctx context.Context, userID string, allowance int)) *MockStore_GrantTrial_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(int))
-	})
-	return _c
-}
-
-func (_c *MockStore_GrantTrial_Call) Return(_a0 error) *MockStore_GrantTrial_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockStore_GrantTrial_Call) RunAndReturn(run func(context.Context, string, int) error) *MockStore_GrantTrial_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // RefundDaily provides a mock function with given fields: ctx, userID, dayUTC
 func (_m *MockStore) RefundDaily(ctx context.Context, userID string, dayUTC string) error {
 	ret := _m.Called(ctx, userID, dayUTC)
@@ -231,53 +125,6 @@ func (_c *MockStore_RefundDaily_Call) Return(_a0 error) *MockStore_RefundDaily_C
 }
 
 func (_c *MockStore_RefundDaily_Call) RunAndReturn(run func(context.Context, string, string) error) *MockStore_RefundDaily_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// RefundTrial provides a mock function with given fields: ctx, userID
-func (_m *MockStore) RefundTrial(ctx context.Context, userID string) error {
-	ret := _m.Called(ctx, userID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for RefundTrial")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, userID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockStore_RefundTrial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RefundTrial'
-type MockStore_RefundTrial_Call struct {
-	*mock.Call
-}
-
-// RefundTrial is a helper method to define mock.On call
-//   - ctx context.Context
-//   - userID string
-func (_e *MockStore_Expecter) RefundTrial(ctx interface{}, userID interface{}) *MockStore_RefundTrial_Call {
-	return &MockStore_RefundTrial_Call{Call: _e.mock.On("RefundTrial", ctx, userID)}
-}
-
-func (_c *MockStore_RefundTrial_Call) Run(run func(ctx context.Context, userID string)) *MockStore_RefundTrial_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockStore_RefundTrial_Call) Return(_a0 error) *MockStore_RefundTrial_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockStore_RefundTrial_Call) RunAndReturn(run func(context.Context, string) error) *MockStore_RefundTrial_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -337,63 +184,6 @@ func (_c *MockStore_ReserveDaily_Call) Return(_a0 bool, _a1 error) *MockStore_Re
 }
 
 func (_c *MockStore_ReserveDaily_Call) RunAndReturn(run func(context.Context, string, string, time.Time) (bool, error)) *MockStore_ReserveDaily_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// ReserveTrial provides a mock function with given fields: ctx, userID
-func (_m *MockStore) ReserveTrial(ctx context.Context, userID string) (bool, error) {
-	ret := _m.Called(ctx, userID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ReserveTrial")
-	}
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
-		return rf(ctx, userID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) bool); ok {
-		r0 = rf(ctx, userID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, userID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockStore_ReserveTrial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReserveTrial'
-type MockStore_ReserveTrial_Call struct {
-	*mock.Call
-}
-
-// ReserveTrial is a helper method to define mock.On call
-//   - ctx context.Context
-//   - userID string
-func (_e *MockStore_Expecter) ReserveTrial(ctx interface{}, userID interface{}) *MockStore_ReserveTrial_Call {
-	return &MockStore_ReserveTrial_Call{Call: _e.mock.On("ReserveTrial", ctx, userID)}
-}
-
-func (_c *MockStore_ReserveTrial_Call) Run(run func(ctx context.Context, userID string)) *MockStore_ReserveTrial_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockStore_ReserveTrial_Call) Return(_a0 bool, _a1 error) *MockStore_ReserveTrial_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockStore_ReserveTrial_Call) RunAndReturn(run func(context.Context, string) (bool, error)) *MockStore_ReserveTrial_Call {
 	_c.Call.Return(run)
 	return _c
 }

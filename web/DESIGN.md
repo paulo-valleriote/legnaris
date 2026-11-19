@@ -628,10 +628,11 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
 - **Generate.** A single-column flow (prompt, consent, review) with prose capped at `65ch`. The
   prompt fields sit on the raised layer with a `--lg-color-border-strong` hairline and
   `--lg-radius-sm`; a character counter in tabular figures trails the helper text and turns
-  warning while the text is too short and danger once it is too long. The remaining quota is one
-  muted line in tabular figures; an exhausted quota and a resumable generation are Notice strips.
-  Consent is a definition list of muted points under one intro, and the privacy policy opens in
-  the Document dialog.
+  warning while the text is too short and danger once it is too long. A resumable generation is a
+  Notice strip. Consent is a definition list of muted points under one intro, and the privacy
+  policy opens in the Document dialog. On Free the AI entry carries a Pro badge and opens the
+  upgrade dialog, which lists the paid limits as hairline-bordered rows with the AI allowance on
+  the surface layer and an accent border.
 - **Campaign and Join.** The Campaign page header pairs a ghost back arrow (a `--lg-size-control`
   target named "Back to your Campaigns") with the title and the role pill under it; the GM actions
   (`Invite players`, `Campaign settings`) sit at the trailing edge as the sheet header's hairline

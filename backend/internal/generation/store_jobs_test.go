@@ -166,7 +166,7 @@ func TestMongoStore_FailRunning(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, settled)
 		assert.Equal(t, generation.StatusRunning, before.Status)
-		assert.Equal(t, generation.ReservationTrial, before.Quota.Kind)
+		assert.Equal(t, generation.ReservationDaily, before.Quota.Kind)
 
 		raw := readRaw(t, mdb, jobA)
 		assert.Equal(t, "failed", raw["status"])

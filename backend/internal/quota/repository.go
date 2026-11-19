@@ -12,14 +12,10 @@ import (
 )
 
 const (
-	TrialCollection = "generation_trial"
 	UsageCollection = "generation_usage"
 )
 
 const (
-	fieldID        = "_id"
-	fieldUsed      = "used"
-	fieldAllowance = "allowance"
 	fieldUserID    = "user_id"
 	fieldDayUTC    = "day_utc"
 	fieldCount     = "count"
@@ -27,12 +23,6 @@ const (
 	operatorInc    = "$inc"
 	operatorSet    = "$setOnInsert"
 )
-
-type TrialRow struct {
-	UserID    string `bson:"_id"`
-	Allowance int    `bson:"allowance"`
-	Used      int    `bson:"used"`
-}
 
 type usageRow struct {
 	UserID    string    `bson:"user_id"`
@@ -42,51 +32,13 @@ type usageRow struct {
 }
 
 type MongoStore struct {
-	trials *mongo.Collection
-	usage  *mongo.Collection
+	usage *mongo.Collection
 }
 
 func NewMongoStore(db *mongo.Database) *MongoStore {
 	return &MongoStore{
-		trials: db.Collection(TrialCollection),
-		usage:  db.Collection(UsageCollection),
+		usage: db.Collection(UsageCollection),
 	}
-}
-
-func (s *MongoStore) ReserveTrial(ctx context.Context, userID string) (bool, error) {
-	filter := bson.D{
-		{Key: fieldID, Value: userID},
-		{Key: "$expr", Value: bson.D{{Key: "$lt", Value: bson.A{"$" + fieldUsed, "$" + fieldAllowance}}}},
-	}
-	res, err := s.trials.UpdateOne(ctx, filter, bson.D{{Key: operatorInc, Value: bson.D{{Key: fieldUsed, Value: 1}}}})
-	if err != nil {
-		return false, fmt.Errorf("increment trial: %w", err)
-	}
-	return res.MatchedCount == 1, nil
-}
-
-func (s *MongoStore) GrantTrial(ctx context.Context, userID string, allowance int) error {
-	filter := bson.D{{Key: fieldID, Value: userID}}
-	grant := bson.D{{Key: operatorSet, Value: bson.D{
-		{Key: fieldAllowance, Value: allowance},
-		{Key: fieldUsed, Value: 0},
-	}}}
-	_, err := s.trials.UpdateOne(ctx, filter, grant, options.UpdateOne().SetUpsert(true))
-	if err != nil && !mongo.IsDuplicateKeyError(err) {
-		return fmt.Errorf("grant trial: %w", err)
-	}
-	return nil
-}
-
-func (s *MongoStore) RefundTrial(ctx context.Context, userID string) error {
-	filter := bson.D{
-		{Key: fieldID, Value: userID},
-		{Key: fieldUsed, Value: bson.D{{Key: "$gt", Value: 0}}},
-	}
-	if _, err := s.trials.UpdateOne(ctx, filter, bson.D{{Key: operatorInc, Value: bson.D{{Key: fieldUsed, Value: -1}}}}); err != nil {
-		return fmt.Errorf("decrement trial: %w", err)
-	}
-	return nil
 }
 
 func (s *MongoStore) ReserveDaily(ctx context.Context, userID, dayUTC string, expiresAt time.Time) (bool, error) {
@@ -118,18 +70,6 @@ func (s *MongoStore) RefundDaily(ctx context.Context, userID, dayUTC string) err
 		return fmt.Errorf("decrement daily counter: %w", err)
 	}
 	return nil
-}
-
-func (s *MongoStore) FetchTrial(ctx context.Context, userID string) (TrialRow, error) {
-	var row TrialRow
-	err := s.trials.FindOne(ctx, bson.D{{Key: fieldID, Value: userID}}).Decode(&row)
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return TrialRow{}, nil
-	}
-	if err != nil {
-		return TrialRow{}, fmt.Errorf("find trial: %w", err)
-	}
-	return row, nil
 }
 
 func (s *MongoStore) FetchDaily(ctx context.Context, userID, dayUTC string) (int, error) {

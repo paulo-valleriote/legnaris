@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { failureCopy, generationErrorKind } from '../api/error_mapper';
 import { DomainFailure } from '../api/errors';
 import type { Generation } from '../api/models/generation';
 import type { SheetKind } from '../api/models/plan';
 import { useApiClient } from '../app/providers';
-import { PLANS_PATH } from '../app/routes';
 import { PLAN_QUERY_KEY, usePlanUsage, useTemplateDetail } from '../catalog/queries';
 import { setPathValue } from '../engine/sheet_defaults';
 import { SheetForm } from '../engine/sheet_form';
@@ -25,15 +24,14 @@ import {
   conceptState,
   decideWait,
   generationKind,
-  isLastGeneration,
+  isFreePlan,
   mergeCascade,
   previewDelay,
-  trialAllowance,
   trimConcept,
 } from './generation_flow';
-import type { Allowance } from './generation_flow';
 import { CONSENT_VERSION, consentDisclosure } from './llm_consent';
 import type { ConsentDisclosure } from './llm_consent';
+import { UpgradeDialog } from './upgrade_dialog';
 import './generate.css';
 
 interface PreviewState {
@@ -137,11 +135,7 @@ function ConsentDialog({
         onClose={onDecline}
         actions={
           <>
-            <Button
-              variant="secondary"
-              label={message('generate.consentDecline')}
-              onClick={onDecline}
-            />
+            <Button variant="secondary" label={message('common.notNow')} onClick={onDecline} />
             <Button
               variant="primary"
               label={disclosure.acceptLabel}
@@ -179,19 +173,6 @@ function ConsentDialog({
   );
 }
 
-function quotaCopy(allowance: Allowance | undefined): string | undefined {
-  if (allowance === undefined) {
-    return undefined;
-  }
-  if (allowance.kind === 'unknown') {
-    return message('generate.quotaUnknown');
-  }
-  if (allowance.remaining === 0) {
-    return message('generate.quotaNone');
-  }
-  return messageWith('generate.quotaTrial', { remaining: allowance.remaining });
-}
-
 export function GenerateScreen() {
   const { templateId = '' } = useParams();
   const location = useLocation();
@@ -217,7 +198,7 @@ export function GenerateScreen() {
   const [consentBusy, setConsentBusy] = useState(false);
   const [consentError, setConsentError] = useState<string | undefined>(undefined);
   const [leaveProceed, setLeaveProceed] = useState<(() => void) | undefined>(undefined);
-  const [lastConfirmOpen, setLastConfirmOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const dirtyRef = useRef(false);
   dirtyRef.current = step.kind === 'preview' && step.dirty;
@@ -324,6 +305,10 @@ export function GenerateScreen() {
   }
 
   async function handleSubmitFailure(error: unknown) {
+    if (error instanceof DomainFailure && error.kind === 'planUpgradeRequired') {
+      setUpgradeOpen(true);
+      return;
+    }
     if (error instanceof DomainFailure && error.kind === 'llmConsentRequired') {
       setConsentOpen(true);
       return;
@@ -367,6 +352,10 @@ export function GenerateScreen() {
   }
 
   function onGenerate() {
+    if (isFreePlan(plan.data)) {
+      setUpgradeOpen(true);
+      return;
+    }
     if (plan.data?.llmConsentRequired === true) {
       setConsentOpen(true);
       return;
@@ -435,25 +424,13 @@ export function GenerateScreen() {
   }
 
   function onRegenerate() {
-    if (isLastGeneration(plan.data)) {
-      setLastConfirmOpen(true);
-      return;
-    }
     requestLeave(toConcept);
   }
 
-  function confirmLastRegenerate() {
-    setLastConfirmOpen(false);
-    requestLeave(toConcept);
-  }
-
-  const allowance = plan.data === undefined ? undefined : trialAllowance(plan.data);
   const state = conceptState(concept);
   const length = conceptLength(concept);
   const canSubmit = state === 'ok' && !submitting;
-  const noAllowance = allowance?.kind === 'trial' && allowance.remaining === 0;
   const activeId = plan.data?.activeGenerationId ?? null;
-  const quota = quotaCopy(allowance);
   const copyKind: SheetKind =
     step.kind === 'preview' || step.kind === 'alreadyAccepted'
       ? step.sheetKind
@@ -467,13 +444,11 @@ export function GenerateScreen() {
         ? ' lg-generate__counter--warning'
         : '';
   const submitBlockedReason =
-    noAllowance || submitting
+    submitting || state === 'tooLong'
       ? undefined
-      : state === 'tooLong'
-        ? message('generate.tooLong')
-        : state === 'ok'
-          ? undefined
-          : message('generate.tooShort');
+      : state === 'ok'
+        ? undefined
+        : message('generate.tooShort');
 
   return (
     <div className="lg-generate">
@@ -530,21 +505,6 @@ export function GenerateScreen() {
               </p>
             </div>
           </div>
-          {quota !== undefined &&
-            (noAllowance ? (
-              <Notice
-                tone="warning"
-                action={
-                  <Link className="lg-generate__quota-link" to={PLANS_PATH}>
-                    {message('generate.quotaAction')}
-                  </Link>
-                }
-              >
-                {quota}
-              </Notice>
-            ) : (
-              <p className="lg-generate__quota">{quota}</p>
-            ))}
           {submitError !== undefined && (
             <p role="alert" className="lg-generate__error">
               {submitError}
@@ -554,7 +514,7 @@ export function GenerateScreen() {
             <Button
               variant="primary"
               label={submitting ? message('generate.submitting') : message('generate.submit')}
-              disabled={!canSubmit || noAllowance}
+              disabled={!canSubmit}
               loading={submitting}
               disabledReason={submitBlockedReason}
               onClick={onGenerate}
@@ -610,7 +570,6 @@ export function GenerateScreen() {
         <ReviewSection
           preview={step}
           fields={template.data?.fields}
-          allowance={allowance}
           onEdit={onEdit}
           onName={(name) =>
             updatePreview((current) => ({ ...current, sheetName: name, nameTouched: true }))
@@ -632,26 +591,6 @@ export function GenerateScreen() {
           }}
         />
       )}
-      <Dialog
-        open={lastConfirmOpen}
-        title={message('generate.lastTitle')}
-        description={message('generate.lastBody')}
-        onClose={() => setLastConfirmOpen(false)}
-        actions={
-          <>
-            <Button
-              variant="secondary"
-              label={generationCopy('generate.lastKeep', copyKind)}
-              onClick={() => setLastConfirmOpen(false)}
-            />
-            <Button
-              variant="primary"
-              label={message('generate.lastConfirm')}
-              onClick={confirmLastRegenerate}
-            />
-          </>
-        }
-      />
       <Dialog
         open={leaveProceed !== undefined}
         title={message('generate.leaveTitle')}
@@ -676,6 +615,7 @@ export function GenerateScreen() {
           </>
         }
       />
+      <UpgradeDialog open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
     </div>
   );
 }
@@ -683,7 +623,6 @@ export function GenerateScreen() {
 function ReviewSection({
   preview,
   fields,
-  allowance,
   onEdit,
   onName,
   onAccept,
@@ -691,7 +630,6 @@ function ReviewSection({
 }: {
   readonly preview: PreviewState;
   readonly fields: Parameters<typeof SheetForm>[0]['fields'] | undefined;
-  readonly allowance: Allowance | undefined;
   readonly onEdit: (path: string, value: unknown) => void;
   readonly onName: (name: string) => void;
   readonly onAccept: (name: string) => void;
@@ -699,7 +637,6 @@ function ReviewSection({
 }) {
   const name = preview.nameTouched ? preview.sheetName : preview.suggestedName;
   const trimmed = name.trim();
-  const remaining = allowance?.kind === 'trial' ? allowance.remaining : undefined;
 
   return (
     <section
@@ -744,17 +681,7 @@ function ReviewSection({
           }
           onClick={() => onAccept(trimmed)}
         />
-        <Button
-          variant="secondary"
-          label={
-            remaining === undefined
-              ? message('generate.regenerateNone')
-              : messageWith('generate.regenerate', { remaining })
-          }
-          disabled={remaining === 0}
-          disabledReason={remaining === 0 ? message('generate.quotaNone') : undefined}
-          onClick={onRegenerate}
-        />
+        <Button variant="secondary" label={message('generate.regenerate')} onClick={onRegenerate} />
       </div>
     </section>
   );

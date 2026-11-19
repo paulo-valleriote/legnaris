@@ -34,7 +34,7 @@ func TestService_Status(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			consents := mocks.NewMockConsentStore(t)
 			consents.EXPECT().Fetch(mock.Anything, "user-1").Return(tc.record, tc.fetchErr).Once()
-			svc := llmconsent.NewService(consents, mocks.NewMockGenerationStore(t), mocks.NewMockQuotaRefunder(t), mocks.NewMockTransactor(t), time.Now)
+			svc := llmconsent.NewService(consents, mocks.NewMockPlanSource(t), mocks.NewMockGenerationStore(t), mocks.NewMockQuotaRefunder(t), mocks.NewMockTransactor(t), time.Now)
 
 			record, err := svc.Status(context.Background(), "user-1")
 

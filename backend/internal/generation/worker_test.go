@@ -100,8 +100,8 @@ func (f workerFixture) expectTerminalTx(code string, settled bool, reservation g
 	f.jobs.EXPECT().FailRunning(mock.Anything, jobID, code).Return(before, settled, nil).Once()
 }
 
-func (f workerFixture) expectTrialRefund() {
-	f.quota.EXPECT().RefundTrial(mock.Anything, userID).Return(nil).Once()
+func (f workerFixture) expectDailyRefund() {
+	f.quota.EXPECT().RefundDaily(mock.Anything, userID, "2026-11-14").Return(nil).Once()
 }
 
 func (f workerFixture) completeWith(landed bool) {
@@ -118,13 +118,13 @@ func (f workerFixture) generateResponse(resp llm.Response, err error) {
 		Return(resp, err).Once()
 }
 
-var trialReservation = generation.Reservation{Kind: generation.ReservationTrial}
+var dailyReservation = generation.Reservation{Kind: generation.ReservationDaily, DayUTC: "2026-11-14"}
 
 func TestWorkerProcess_Happy(t *testing.T) {
 	t.Run("Happy path: queued, running, succeeded with validated values and no refund", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns(validOutput, nil)
 		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.MatchedBy(func(values map[string]any) bool {
 			stats := values["stats"].(map[string]any)
@@ -137,7 +137,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 	t.Run("Happy path: the request carries the schema and the delimited concept", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
 			return req.MaxTokens == generation.MaxOutputTokens &&
 				strings.Contains(req.Prompt, "<concept>") &&
@@ -156,7 +156,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		dag := fixtureDAG(t, tmpl)
 		f.catalog.EXPECT().FetchByID(fixtureID).Return(tmpl, true).Once()
 		f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
-		f.expectClaimKind(string(plan.KindNPC), trialReservation)
+		f.expectClaimKind(string(plan.KindNPC), dailyReservation)
 		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
 			return !strings.Contains(string(req.Schema), "nickname") &&
 				!strings.Contains(string(req.Schema), "playerName") &&
@@ -176,7 +176,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		dag := fixtureDAG(t, tmpl)
 		f.catalog.EXPECT().FetchByID(fixtureID).Return(tmpl, true).Once()
 		f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
-		f.expectClaimKind(string(plan.KindEnemy), trialReservation)
+		f.expectClaimKind(string(plan.KindEnemy), dailyReservation)
 		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
 			return !strings.Contains(string(req.Schema), "nickname") &&
 				!strings.Contains(string(req.Schema), "playerName") &&
@@ -200,7 +200,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		dag := fixtureDAG(t, tmpl)
 		f.catalog.EXPECT().FetchByID(fixtureID).Return(tmpl, true).Once()
 		f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
-		f.expectClaimKind("", trialReservation)
+		f.expectClaimKind("", dailyReservation)
 		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
 			return strings.Contains(string(req.Schema), "nickname") &&
 				!strings.Contains(string(req.Schema), "playerName") &&
@@ -216,7 +216,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 	t.Run("Happy path: the generation id reaches the llm client through the context", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.client.EXPECT().Generate(mock.MatchedBy(func(ctx context.Context) bool {
 			return llm.GenerationID(ctx) == jobID
 		}), mock.Anything).Return(llm.Response{Output: json.RawMessage(validOutput)}, nil).Once()
@@ -246,7 +246,7 @@ func TestWorkerProcess_Edge(t *testing.T) {
 	t.Run("Edge: a job whose document was removed by consent revocation writes nothing and refunds nothing", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns(validOutput, nil)
 		f.completeWith(false)
 
@@ -256,7 +256,7 @@ func TestWorkerProcess_Edge(t *testing.T) {
 	t.Run("Error: a store failure on the success write is returned for redelivery", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns(validOutput, nil)
 		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.Anything).Return(false, errors.New("write failed")).Once()
 
@@ -266,7 +266,7 @@ func TestWorkerProcess_Edge(t *testing.T) {
 	t.Run("Error: a store failure on the failure write rolls back and returns the error", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns("", llm.ErrPermanent)
 		f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 			RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
@@ -279,9 +279,9 @@ func TestWorkerProcess_Edge(t *testing.T) {
 	t.Run("Edge: a failure write on a job no longer running refunds nothing", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns("", llm.ErrPermanent)
-		f.expectTerminalTx(generation.ErrorCodeProviderFailed, false, trialReservation)
+		f.expectTerminalTx(generation.ErrorCodeProviderFailed, false, dailyReservation)
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -291,7 +291,7 @@ func TestWorkerProcess_SchemaRetries(t *testing.T) {
 	t.Run("Happy path: a rejected output is retried with its problems and then succeeds", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns(invalidOutput, nil)
 		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
 			return strings.Contains(req.Prompt, "rejected") && strings.Contains(req.Prompt, "identity.title: is required")
@@ -312,12 +312,12 @@ func TestWorkerProcess_SchemaRetries(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newWorkerFixture(t, 5)
 			f.expectTemplate(t)
-			f.expectClaim(trialReservation)
+			f.expectClaim(dailyReservation)
 			for _, out := range tc.outputs {
 				f.generateReturns(out, nil)
 			}
-			f.expectTerminalTx(generation.ErrorCodeInvalidOutput, true, trialReservation)
-			f.expectTrialRefund()
+			f.expectTerminalTx(generation.ErrorCodeInvalidOutput, true, dailyReservation)
+			f.expectDailyRefund()
 
 			require.NoError(t, f.worker.Process(context.Background(), jobID))
 		})
@@ -326,12 +326,12 @@ func TestWorkerProcess_SchemaRetries(t *testing.T) {
 	t.Run("Edge: the exhausted retries stop after the configured number of model calls", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		for range generation.MaxSchemaRetries + 1 {
 			f.generateReturns(invalidOutput, nil)
 		}
-		f.expectTerminalTx(generation.ErrorCodeInvalidOutput, true, trialReservation)
-		f.expectTrialRefund()
+		f.expectTerminalTx(generation.ErrorCodeInvalidOutput, true, dailyReservation)
+		f.expectDailyRefund()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -342,7 +342,7 @@ func TestWorkerProcess_OutputRejectionLogs(t *testing.T) {
 		logs := captureStdout(t, func() {
 			f := newWorkerFixture(t, 5)
 			f.expectTemplate(t)
-			f.expectClaim(trialReservation)
+			f.expectClaim(dailyReservation)
 			f.generateResponse(llm.Response{Output: json.RawMessage(invalidOutput), FinishReason: "stop"}, nil)
 			f.generateReturns(validOutput, nil)
 			f.completeWith(true)
@@ -380,7 +380,7 @@ func TestWorkerProcess_OutputRejectionLogs(t *testing.T) {
 			f := newWorkerFixture(t, 5)
 			f.catalog.EXPECT().FetchByID(fixtureID).Return(tmpl, true).Once()
 			f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
-			f.expectClaim(trialReservation)
+			f.expectClaim(dailyReservation)
 			f.generateResponse(llm.Response{Output: json.RawMessage(`{}`)}, nil)
 			f.generateReturns(accepted.String(), nil)
 			f.completeWith(true)
@@ -401,7 +401,7 @@ func TestWorkerProcess_OutputRejectionLogs(t *testing.T) {
 		logs := captureStdout(t, func() {
 			f := newWorkerFixture(t, 5)
 			f.expectTemplate(t)
-			f.expectClaim(trialReservation)
+			f.expectClaim(dailyReservation)
 			f.generateReturns(output, nil)
 			f.generateReturns(validOutput, nil)
 			f.completeWith(true)
@@ -421,7 +421,7 @@ func TestWorkerProcess_TruncatedOutputRetries(t *testing.T) {
 	t.Run("Happy path: a length-truncated response is retried and a valid one succeeds", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateResponse(llm.Response{FinishReason: "length"}, fmt.Errorf("%w: output was truncated", llm.ErrTransient))
 		f.generateResponse(llm.Response{Output: json.RawMessage(validOutput), FinishReason: "stop"}, nil)
 		f.completeWith(true)
@@ -432,11 +432,11 @@ func TestWorkerProcess_TruncatedOutputRetries(t *testing.T) {
 	t.Run("Error: persistent truncation fails the job as provider_failed after the retry budget", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateResponse(llm.Response{FinishReason: "length"}, fmt.Errorf("%w: output was truncated", llm.ErrTransient))
 		f.generateResponse(llm.Response{FinishReason: "length"}, fmt.Errorf("%w: output was truncated", llm.ErrTransient))
-		f.expectTerminalTx(generation.ErrorCodeProviderFailed, true, trialReservation)
-		f.expectTrialRefund()
+		f.expectTerminalTx(generation.ErrorCodeProviderFailed, true, dailyReservation)
+		f.expectDailyRefund()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -458,7 +458,7 @@ func TestWorkerProcess_Transport(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newWorkerFixture(t, 5)
 			f.expectTemplate(t)
-			f.expectClaim(trialReservation)
+			f.expectClaim(dailyReservation)
 			for _, outcome := range tc.outcomes {
 				if outcome == nil {
 					f.generateReturns(validOutput, nil)
@@ -469,8 +469,8 @@ func TestWorkerProcess_Transport(t *testing.T) {
 			if tc.wantSuccess {
 				f.completeWith(true)
 			} else {
-				f.expectTerminalTx(tc.wantCode, true, trialReservation)
-				f.expectTrialRefund()
+				f.expectTerminalTx(tc.wantCode, true, dailyReservation)
+				f.expectDailyRefund()
 			}
 
 			require.NoError(t, f.worker.Process(context.Background(), jobID))
@@ -481,21 +481,21 @@ func TestWorkerProcess_Transport(t *testing.T) {
 		f := newWorkerFixture(t, 1)
 		f.expectTemplate(t)
 
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns("", llm.ErrProviderUnavailable)
-		f.expectTerminalTx(generation.ErrorCodeProviderUnavailable, true, trialReservation)
-		f.expectTrialRefund()
+		f.expectTerminalTx(generation.ErrorCodeProviderUnavailable, true, dailyReservation)
+		f.expectDailyRefund()
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 
 		secondID := "0190a1b2-0000-7000-8000-0000000000a2"
 		f.jobs.EXPECT().ClaimQueued(mock.Anything, secondID, mock.Anything, generation.LeaseDuration).
 			Return(generation.Document{ID: secondID, UserID: userID, TemplateID: fixtureID,
-				Concept: secretConcept, Quota: trialReservation}, true, nil).Once()
+				Concept: secretConcept, Quota: dailyReservation}, true, nil).Once()
 		f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 			RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
 		f.jobs.EXPECT().FailRunning(mock.Anything, secondID, generation.ErrorCodeProviderUnavailable).
-			Return(generation.Document{ID: secondID, UserID: userID, Quota: trialReservation}, true, nil).Once()
-		f.expectTrialRefund()
+			Return(generation.Document{ID: secondID, UserID: userID, Quota: dailyReservation}, true, nil).Once()
+		f.expectDailyRefund()
 
 		require.NoError(t, f.worker.Process(context.Background(), secondID))
 	})
@@ -503,10 +503,10 @@ func TestWorkerProcess_Transport(t *testing.T) {
 	t.Run("Error: a transient failure that opens the breaker is not retried", func(t *testing.T) {
 		f := newWorkerFixture(t, 1)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns("", llm.ErrTransient)
-		f.expectTerminalTx(generation.ErrorCodeProviderUnavailable, true, trialReservation)
-		f.expectTrialRefund()
+		f.expectTerminalTx(generation.ErrorCodeProviderUnavailable, true, dailyReservation)
+		f.expectDailyRefund()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -514,13 +514,13 @@ func TestWorkerProcess_Transport(t *testing.T) {
 	t.Run("Edge: a permanent failure never opens the breaker", func(t *testing.T) {
 		f := newWorkerFixture(t, 1)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns("", llm.ErrPermanent)
-		f.expectTerminalTx(generation.ErrorCodeProviderFailed, true, trialReservation)
-		f.expectTrialRefund()
+		f.expectTerminalTx(generation.ErrorCodeProviderFailed, true, dailyReservation)
+		f.expectDailyRefund()
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns(validOutput, nil)
 		f.completeWith(true)
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
@@ -544,13 +544,13 @@ func TestWorkerProcess_Refunds(t *testing.T) {
 	t.Run("Error: a refund that fails returns the error so the transaction rolls back", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
-		f.expectClaim(trialReservation)
+		f.expectClaim(dailyReservation)
 		f.generateReturns("", llm.ErrPermanent)
 		f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 			RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
 		f.jobs.EXPECT().FailRunning(mock.Anything, jobID, generation.ErrorCodeProviderFailed).
-			Return(generation.Document{ID: jobID, UserID: userID, Quota: trialReservation}, true, nil).Once()
-		f.quota.EXPECT().RefundTrial(mock.Anything, userID).Return(errors.New("quota down")).Once()
+			Return(generation.Document{ID: jobID, UserID: userID, Quota: dailyReservation}, true, nil).Once()
+		f.quota.EXPECT().RefundDaily(mock.Anything, userID, "2026-11-14").Return(errors.New("quota down")).Once()
 
 		require.Error(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -573,9 +573,9 @@ func TestWorkerProcess_Template(t *testing.T) {
 	t.Run("Error: a missing template fails the job as template_unavailable without calling the gateway", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.catalog.EXPECT().FetchByID(fixtureID).Return(nil, false).Once()
-		f.expectClaim(trialReservation)
-		f.expectTerminalTx(generation.ErrorCodeTemplateUnavailable, true, trialReservation)
-		f.expectTrialRefund()
+		f.expectClaim(dailyReservation)
+		f.expectTerminalTx(generation.ErrorCodeTemplateUnavailable, true, dailyReservation)
+		f.expectDailyRefund()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -584,9 +584,9 @@ func TestWorkerProcess_Template(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.catalog.EXPECT().FetchByID(fixtureID).Return(fixtureTemplate(), true).Once()
 		f.catalog.EXPECT().DAG(fixtureID).Return(nil, false).Once()
-		f.expectClaim(trialReservation)
-		f.expectTerminalTx(generation.ErrorCodeTemplateUnavailable, true, trialReservation)
-		f.expectTrialRefund()
+		f.expectClaim(dailyReservation)
+		f.expectTerminalTx(generation.ErrorCodeTemplateUnavailable, true, dailyReservation)
+		f.expectDailyRefund()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -598,9 +598,9 @@ func TestWorkerProcess_Template(t *testing.T) {
 		}}
 		f.catalog.EXPECT().FetchByID(fixtureID).Return(empty, true).Once()
 		f.catalog.EXPECT().DAG(fixtureID).Return(fixtureDAG(t, fixtureTemplate()), true).Once()
-		f.expectClaim(trialReservation)
-		f.expectTerminalTx(generation.ErrorCodeTemplateUnavailable, true, trialReservation)
-		f.expectTrialRefund()
+		f.expectClaim(dailyReservation)
+		f.expectTerminalTx(generation.ErrorCodeTemplateUnavailable, true, dailyReservation)
+		f.expectDailyRefund()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -615,10 +615,10 @@ func TestWorkerProcess_AssembleFailure(t *testing.T) {
 			broken := brokenFormulaFixtureTemplate()
 			f.catalog.EXPECT().FetchByID(fixtureID).Return(broken, true).Once()
 			f.catalog.EXPECT().DAG(fixtureID).Return(fixtureDAG(t, broken), true).Once()
-			f.expectClaim(trialReservation)
+			f.expectClaim(dailyReservation)
 			f.generateResponse(llm.Response{Output: json.RawMessage(brokenOutput), FinishReason: "stop"}, nil)
-			f.expectTerminalTx(generation.ErrorCodeTemplateUnavailable, true, trialReservation)
-			f.expectTrialRefund()
+			f.expectTerminalTx(generation.ErrorCodeTemplateUnavailable, true, dailyReservation)
+			f.expectDailyRefund()
 
 			require.NoError(t, f.worker.Process(context.Background(), jobID))
 		})
@@ -649,11 +649,11 @@ func TestWorkerProcess_LogsNeverCarryContent(t *testing.T) {
 			logs := captureStdout(t, func() {
 				f := newWorkerFixture(t, 5)
 				f.expectTemplate(t)
-				f.expectClaim(trialReservation)
+				f.expectClaim(dailyReservation)
 				if tc.err != nil {
 					f.generateReturns("", tc.err)
-					f.expectTerminalTx(generation.ErrorCodeProviderFailed, true, trialReservation)
-					f.expectTrialRefund()
+					f.expectTerminalTx(generation.ErrorCodeProviderFailed, true, dailyReservation)
+					f.expectDailyRefund()
 				}
 				for _, out := range tc.outputs {
 					f.generateReturns(out, nil)
@@ -662,8 +662,8 @@ func TestWorkerProcess_LogsNeverCarryContent(t *testing.T) {
 					f.completeWith(true)
 				}
 				if len(tc.outputs) == 3 {
-					f.expectTerminalTx(generation.ErrorCodeInvalidOutput, true, trialReservation)
-					f.expectTrialRefund()
+					f.expectTerminalTx(generation.ErrorCodeInvalidOutput, true, dailyReservation)
+					f.expectDailyRefund()
 				}
 				require.NoError(t, f.worker.Process(context.Background(), jobID))
 			})
