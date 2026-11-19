@@ -21,12 +21,12 @@
 - **sheet** service → calls **template** (DAG/Registry) and **repository**
 - **template** → calls **engine** for formula evaluation
 - **engine**, **repository**, **backend/shared/*** → no upward imports
+- Import rules are enforced by depguard in `.golangci.yml`
 
 ## Service Conventions
 
 - Services in `backend/internal/sheet/service.go`, controllers in `backend/internal/app/*.go`
-- Use **only `apperr`** for domain errors: `apperr.NewError(code, message, err)`
-- The `err` cause must be `nil` or a lower-layer typed error; never a bare `errors.New`
+- Use **only `apperr`** for domain errors: `apperr.NewError(code, message, err)`; cause rules in `backend/shared/apperr/AGENTS.md`
 - Export user-facing message constants (plain strings) from the service package for controller reuse
 - Translate lower-layer errors at the boundary using `errors.Is`/`errors.As`
 
@@ -57,4 +57,4 @@
 - **Refusal** — always `rateLimited`: 429 `RATE_LIMITED` with `Retry-After`. Only the auth and session guards feed the `RateLimitBlocked` metric
 - **Order** — `userRateLimit` must follow `auth.Middleware`; with no resolved user id it passes through so the 401 stays the auth layer's call
 - **Replicas** — guards take a `ratelimit.Allower`. `REDIS_URL` set → `ratelimit.Shared` over `RedisStore` (atomic Lua sliding window, Redis clock, namespaces `auth`/`auth_account`/`session`/`user`/`public`); unset → in-process `Limiter` (cap per replica). A store error fails open to the per-process limiter (throttled warning, never a 5xx). Build limiters only through `newLimiter`; see `docs/adr/0003-shared-rate-limit-store.md`
-- **Route-level middleware only** — attach limiters per route, never through `router.Group("", mw)`: a middleware on an empty-prefix group registers a catch-all that turns 405 into another status
+- **Route-level middleware only** — attach limiters per route; `router.Group("", mw)` fails lint (ruleguard) because an empty-prefix group turns 405 into another status
