@@ -1,4 +1,5 @@
 import type { MessageKey } from '../../../l10n/strings';
+import { abilityAbbreviationKey } from './saves_skills_data';
 
 export const ARMOR_CLASS_PATH = 'derived.armorClass';
 export const BASE_ARMOR_PATH = 'combat.baseArmorClass';
@@ -26,13 +27,13 @@ export const ARMOR_ABILITIES: Readonly<Record<ArmorAbilityKey, ArmorAbility>> = 
     key: 'dex',
     configPath: 'config.acUsesDex',
     modifierPath: 'modifiers.dexterityMod',
-    shortLabel: 'sheet.play.acDex',
+    shortLabel: abilityAbbreviationKey('dexterity'),
   },
   con: {
     key: 'con',
     configPath: 'config.acUsesCon',
     modifierPath: 'modifiers.constitutionMod',
-    shortLabel: 'sheet.play.acCon',
+    shortLabel: abilityAbbreviationKey('constitution'),
   },
 };
 

@@ -137,28 +137,35 @@ the F2 client and the F4 engine and owns no wire model.
   tabs) and its scrollspy, which announces through the sheet's polite live region.
 - `src/sheet/preset/` — the template-id registry and the `fantasy_v1` Play preset: a `Header`
   component plus ordered `sections` slots sharing one preset context over the edit store, Dice
-  context and decoded template. `fantasy/` holds the hero, the combat strip and the ability
-  medallions: the strip container later cards extend, holding the armor class shield
-  (`fantasy/ac_breakdown.tsx`, with `fantasy/armor_class.ts` for the clamped 1–30 / 0–120 parsing
-  and the exactly-one-ability selector), the initiative roll tile, the inline-edited speed tile and
-  the hit-points card
-  (`fantasy/hp_card.tsx`) over the pure `fantasy/hit_points.ts` (damage spends temporary points
-  first, healing caps at the maximum, non-positive amounts are ignored), sticky on a desktop and a
-  three-column grid on a phone, where the AC breakdown becomes a fixed bottom sheet; the card
-  writes `combat.hitPoints` and `combat.hitPointsTemp` to the pending
+  context and decoded template. `fantasy/` holds the hero, the combat strip, the ability medallions
+  and the saving-throw/skill cards: the strip container later cards extend, holding the armor class
+  shield (`fantasy/ac_breakdown.tsx`, with `fantasy/armor_class.ts` for the clamped 1–30 / 0–120
+  parsing and the exactly-one-ability selector), the initiative roll tile, the inline-edited speed
+  tile and the hit-points card (`fantasy/hp_card.tsx`) over the pure `fantasy/hit_points.ts` (damage
+  spends temporary points first, healing caps at the maximum, non-positive amounts are ignored),
+  sticky on a desktop and a three-column grid on a phone, where the AC breakdown becomes a fixed
+  bottom sheet; the card writes `combat.hitPoints` and `combat.hitPointsTemp` to the pending
   delta and draws the unsaved difference as a hatched segment with `was <n>` until Save. The shield
   reads `derived.armorClass`, opens a `role="dialog"` breakdown (base armor inline edit, DEX/CON
   segmented buttons writing the `armorClassAbility` exclusive group through `setExclusive`, that
   ability's modifier and the derived total) and closes on Escape, outside click or its close
-  button, returning focus to the shield; the derived total moves only on Preview. The
+  button, returning focus to the shield; the derived total moves only on Preview.
   medallions pair a large `RollableValue` over the Dice store with an inline-editable score badge
-  and the passive-awareness pill; `rollable_value.tsx` with `useRowRoll` (`dice_row.tsx`) is the
-  reusable roll target later gameplay sections reuse. A template without a preset keeps the
-  generic form. `mode_toggle.tsx` is the Play/Edit switch, component state for the open screen
-  (local to the viewer, never persisted, never sent); Edit keeps the generic form, Arrange and the
-  pinned filter, Play ignores the layout and view filters. `src/sheet/inline_edit.tsx` is the
-  reusable one-path editor: click/Enter opens an input, Enter or blur commits, Escape cancels, an
-  empty value shows
+  and the passive-awareness pill; the saving-throw/skill rows carry an `aria-pressed` proficiency
+  dot that writes the matching `config.save<A>Prof` / `config.skill<S>Prof` leaf and previews so the
+  derived total follows, with inline-editable skill bonuses and totals rolling through the Section
+  dice (pure tables, path builders and the bonus clamp in `saves_skills_data.ts`).
+  `rollable_value.tsx` with `useRowRoll` (`dice_row.tsx`) is the reusable roll target later gameplay
+  sections reuse. One file per Play section means a new panel is one `sections` entry:
+  `fantasy/spells.tsx` draws the spellcasting panel (the ability as `segmented_choice.tsx`, a
+  reusable exclusive-group control independent of the engine's native select; the rollable spell
+  attack through the Dice store with a preset row default; slot pips from the pure
+  `fantasy/slot_pips.ts`; totals through the engine's numeric guard) and `fantasy/rules.tsx` the
+  table-rules disclosure, collapsed by default. A template without a preset keeps the generic form.
+  `mode_toggle.tsx` is the Play/Edit switch, component state for the open screen (local to the
+  viewer, never persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter,
+  Play ignores the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path
+  editor: click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value shows
   `Add <label>`, and the accessible name is the template field label. The Play view also mounts
   `pending_card.tsx`: a `role="status"` polite card listing each edited field's label and old → new
   value with Discard, Preview and Save over the same store, a muted table-sync placeholder and the
