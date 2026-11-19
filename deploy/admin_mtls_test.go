@@ -121,7 +121,7 @@ func TestAdminEdgeWiring(t *testing.T) {
 	})
 
 	t.Run("Happy path: traefik receives the admin host with a default", func(t *testing.T) {
-		assert.Equal(t, "${ADMIN_DOMAIN:-admin-api-legnaris.paulovalleriote.io}", compose.Services["traefik"].Environment["ADMIN_DOMAIN"])
+		assert.Equal(t, "${ADMIN_DOMAIN:-admlgn.paulovalleriote.io}", compose.Services["traefik"].Environment["ADMIN_DOMAIN"])
 	})
 
 	t.Run("Edge: the app receives the allow-list and an unset one disables the backoffice", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestAdminEdgeWiring(t *testing.T) {
 		raw, err := os.ReadFile(".env.example")
 		require.NoError(t, err)
 		lines := strings.Split(string(raw), "\n")
-		assert.True(t, slices.Contains(lines, "# ADMIN_DOMAIN=admin-api-legnaris.paulovalleriote.io"))
+		assert.True(t, slices.Contains(lines, "# ADMIN_DOMAIN=admlgn.paulovalleriote.io"))
 		assert.True(t, slices.Contains(lines, "# ADMIN_USER_IDS="))
 	})
 

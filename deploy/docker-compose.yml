@@ -66,7 +66,7 @@ services:
       API_DOMAIN: ${API_DOMAIN}
       WEB_DOMAIN: ${WEB_DOMAIN}
       OPS_DOMAIN: ${OPS_DOMAIN}
-      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin-api-legnaris.paulovalleriote.io}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admlgn.paulovalleriote.io}
     ports:
       - "80:80"
       - "443:443"

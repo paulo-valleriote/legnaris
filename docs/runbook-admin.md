@@ -6,7 +6,7 @@ recorded in the append-only `admin_audit` collection in the same MongoDB
 transaction as the mutation it describes.
 
 > **Production exposure (LGN-262).** `/admin/*` is served only on
-> `ADMIN_DOMAIN` (default `admin-api-legnaris.paulovalleriote.io`), and the TLS
+> `ADMIN_DOMAIN` (default `admlgn.paulovalleriote.io`), and the TLS
 > handshake there requires a client certificate signed by the admin CA. The
 > public API host answers `404` for `/admin/*`. OTP step-up for admins is
 > LGN-263; until it lands, keep `ADMIN_USER_IDS` limited to controlled accounts.
@@ -31,7 +31,7 @@ the API with both:
 curl --cert ~/.config/legnaris/admin-ca/clients/alice/cert.pem \
      --key  ~/.config/legnaris/admin-ca/clients/alice/key.pem \
      -H "Authorization: Bearer $TOKEN" \
-     https://admin-api-legnaris.paulovalleriote.io/admin/users?email=x@example.com
+     https://admlgn.paulovalleriote.io/admin/users?email=x@example.com
 ```
 
 Traefik does not check revocation lists, so revoking rotates the CA:
