@@ -1,0 +1,35 @@
+# Files allowed to contain non-English text by design.
+# One repository-relative path per line; blank lines and lines starting with
+# '#' are ignored. Every entry needs a reason: the scanner is the default, and
+# an allow-list entry is the documented exception (AGENTS.md, "English only").
+#
+# Run `make english` after adding a source that legitimately needs pt-BR text,
+# and add it here with the reason. Never allow-list production code.
+
+# pt-BR is the delivered TDD language. The scanner does not read Markdown yet;
+# the entry keeps the documented exception explicit for when it does.
+docs/TDD.md
+
+# The scanner itself declares the pt-BR diacritics and stopwords it looks for,
+# and its table-driven suite feeds those vectors through the matcher. Both files
+# hold the vocabulary as data, never as copy.
+backend/cmd/english-check/main.go
+backend/cmd/english-check/main_test.go
+
+# Test vectors that must feed accented and multi-byte text through the code.
+backend/internal/auth/service_test.go
+backend/internal/campaign/campaign_test.go
+backend/internal/campaign/invite_test.go
+backend/internal/campaign/join_test.go
+backend/internal/generation/concept_test.go
+backend/internal/generation/output_test.go
+backend/internal/generation/service_flow_test.go
+backend/internal/llm/openrouter/openrouter_test.go
+backend/shared/logger/logger_test.go
+
+# Asserts that the alert rules and runbook never carry pt-BR text.
+deploy/observability_test.go
+
+# Asserts the pt-BR privacy policy heading the client renders.
+web/src/test/privacy_policy.test.ts
+web/src/test/privacy_screen.test.tsx
