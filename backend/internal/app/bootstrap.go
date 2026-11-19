@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"legnaris/backend/internal/admin"
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/billing"
 	billingstripe "legnaris/backend/internal/billing/stripe"
@@ -15,6 +16,7 @@ import (
 	"legnaris/backend/internal/email/disposable"
 	"legnaris/backend/internal/email/outbox"
 	"legnaris/backend/internal/events"
+	eventsoutbox "legnaris/backend/internal/events/outbox"
 	"legnaris/backend/internal/generation"
 	"legnaris/backend/internal/llmconsent"
 	"legnaris/backend/internal/platform/clientip"
@@ -43,6 +45,11 @@ type BillingModule struct {
 	Controller *BillingController
 	Service    *billing.Service
 	Webhook    *BillingWebhookController
+}
+
+type AdminModule struct {
+	Controller *AdminController
+	Service    *admin.Service
 }
 
 type LLMConsentModule struct {
@@ -105,6 +112,7 @@ type Modules struct {
 	Auth           AuthModule
 	Generation     GenerationModule
 	Billing        BillingModule
+	Admin          AdminModule
 	Plan           *PlanController
 	ClientIP       func(*http.Request) string
 	ActiveAccounts auth.ActiveAccountChecker
@@ -159,16 +167,18 @@ func NewModules(
 	templateController := NewTemplateController(templateService)
 
 	userRepository := user.NewCachedRepository(user.NewRepository(mdb, log))
+	billingStore := billing.NewMongoStore(mdb)
+	planSource := user.NewPlanSource(userRepository)
 
 	sheetRepository := sheet.NewRepository(mdb, log)
 	linkStore := campaign.NewLinkStore(mdb)
 	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher,
-		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
+		sheet.WithPlanLimits(planSource, db.NewTransactor(database.Client, nil)),
 		sheet.WithLinkCleaner(campaign.NewSheetLinkCleaner(linkStore, publisher)),
 	)
 	sheetController := NewSheetController(sheetService)
 
-	ownedCampaigns := campaign.NewOwnershipLimiter(user.NewPlanSource(userRepository), campaign.NewOwnershipCounter(mdb))
+	ownedCampaigns := campaign.NewOwnershipLimiter(planSource, campaign.NewOwnershipCounter(mdb))
 	refreshTokenRepository := auth.NewRefreshTokenRepository(mdb)
 
 	hasher, err := auth.NewPasswordHasher(cfg.Variables.AuthBcryptCost)
@@ -257,7 +267,7 @@ func NewModules(
 		Store:     generation.NewMongoStore(mdb),
 		Consent:   llmConsentService,
 		Sheets:    sheetService,
-		Plans:     user.NewPlanSource(userRepository),
+		Plans:     planSource,
 		Templates: templateService,
 		Quota:     quotaService,
 		Tx:        db.NewTransactor(database.Client, nil),
@@ -267,10 +277,31 @@ func NewModules(
 	if err != nil {
 		return nil, fmt.Errorf("build billing provider: %w", err)
 	}
-	billingStore := billing.NewMongoStore(mdb)
-	billingService := newBillingService(billingProvider, billingStore, cfg.Variables)
+	billingService := newBillingService(billingProvider, billingStore, cfg.Variables, billing.PlanSyncDeps{
+		Ledger: billingStore,
+		Outbox: eventsoutbox.NewRepository(mdb, log),
+		Tx:     db.NewTransactor(database.Client, nil),
+	})
 	billingInbox := billing.NewInbox(billingProvider, billingStore, time.Now)
-	planController := NewPlanController(quotaService, PlanResolverFromSource(user.NewPlanSource(userRepository)),
+	adminTx := db.NewTransactor(database.Client, nil)
+	adminService, err := admin.NewService(admin.Deps{
+		Users:         userRepository,
+		Subscriptions: billingStore,
+		Quotas:        quotaService,
+		Plans:         planSource,
+		Audits:        admin.NewMongoStore(mdb),
+		PlanSync: billing.PlanSyncDeps{
+			Ledger: billingStore,
+			Outbox: eventsoutbox.NewRepository(mdb, log),
+			Tx:     adminTx,
+		},
+		Tx:  adminTx,
+		Now: time.Now,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build admin service: %w", err)
+	}
+	planController := NewPlanController(quotaService, PlanResolverFromSource(planSource),
 		WithSheetUsage(sheetService),
 		WithOwnedCampaigns(ownedCampaigns),
 		WithBillingSummary(billing.NewStatusReader(billingStore)),
@@ -344,6 +375,10 @@ func NewModules(
 			Service:    billingService,
 			Webhook:    NewBillingWebhookController(billingInbox),
 		},
+		Admin: AdminModule{
+			Controller: NewAdminController(adminService),
+			Service:    adminService,
+		},
 		Plan:          planController,
 		ClientIP:      clientIPPolicy.Resolve,
 		UserLimiter:   userLimiter,
@@ -363,12 +398,14 @@ func newBillingProvider(vars env.Variables) (billing.Provider, error) {
 	})
 }
 
-func newBillingService(provider billing.Provider, store billing.Store, vars env.Variables) *billing.Service {
+func newBillingService(provider billing.Provider, store billing.Store, vars env.Variables, planSync billing.PlanSyncDeps) *billing.Service {
 	return billing.NewService(store, provider, billing.Config{
 		PriceID:    vars.StripePriceIDUSD,
 		SuccessURL: vars.BillingSuccessURL,
 		CancelURL:  vars.BillingCancelURL,
 		Now:        time.Now,
+		Tx:         planSync.Tx,
+		PlanSync:   planSync,
 	})
 }
 

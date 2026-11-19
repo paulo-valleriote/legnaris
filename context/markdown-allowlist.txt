@@ -12,6 +12,7 @@ deploy/README.md
 GLOSSARY.md
 web/DESIGN.md
 docs/legal/*.md
+docs/runbook-admin.md
 web/src/legal/*.md
 .opencode/**
 .claude/skills/**

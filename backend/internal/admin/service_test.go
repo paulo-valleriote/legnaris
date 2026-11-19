@@ -1,0 +1,1080 @@
+package admin_test
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"legnaris/backend/internal/admin"
+	"legnaris/backend/internal/admin/mocks"
+	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/billing"
+	"legnaris/backend/internal/plan"
+	"legnaris/backend/internal/quota"
+	"legnaris/backend/internal/user"
+	"legnaris/backend/shared/apperr"
+	"legnaris/backend/shared/db"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	actorID  = "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e01"
+	targetID = "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e02"
+	otherID  = "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e03"
+)
+
+var (
+	adminNow     = time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+	errAdminDown = errors.New("mongo down")
+	testMeta     = admin.RequestMeta{RequestID: "req-admin-1", ClientIP: "203.0.113.9"}
+)
+
+type fakeTx struct {
+	calls   int
+	stepErr error
+}
+
+func (f *fakeTx) WithTransaction(ctx context.Context, fn func(context.Context) error) error {
+	f.calls++
+	return fn(ctx)
+}
+
+func (f *fakeTx) Step(context.Context, db.Step) error {
+	return f.stepErr
+}
+
+type rig struct {
+	users         *mocks.MockUsers
+	subs          *mocks.MockSubscriptions
+	quotas        *mocks.MockQuotas
+	plans         *mocks.MockPlans
+	audits        *mocks.MockAudits
+	planSync      *mocks.MockPlanSync
+	planSyncCalls int
+	planSyncErr   error
+	tx            *fakeTx
+	svc           *admin.Service
+}
+
+func newRig(t *testing.T) *rig {
+	t.Helper()
+	r := &rig{
+		users:    mocks.NewMockUsers(t),
+		subs:     mocks.NewMockSubscriptions(t),
+		quotas:   mocks.NewMockQuotas(t),
+		plans:    mocks.NewMockPlans(t),
+		audits:   mocks.NewMockAudits(t),
+		planSync: mocks.NewMockPlanSync(t),
+		tx:       &fakeTx{},
+	}
+	svc, err := admin.NewService(admin.Deps{
+		Users:         r.users,
+		Subscriptions: r.subs,
+		Quotas:        r.quotas,
+		Plans:         r.plans,
+		Audits:        r.audits,
+		PlanSync:      r.planSync,
+		Tx:            r.tx,
+		Now:           func() time.Time { return adminNow },
+	})
+	require.NoError(t, err)
+	r.svc = svc
+	return r
+}
+
+func (r *rig) expectPlanSync() {
+	r.planSync.EXPECT().SyncPlan(mock.Anything, mock.Anything, mock.Anything).
+		RunAndReturn(func(context.Context, string, time.Time) error {
+			r.planSyncCalls++
+			return r.planSyncErr
+		}).Once()
+}
+
+func (r *rig) expectUserTwice(t *testing.T, id string) {
+	t.Helper()
+	r.users.EXPECT().FetchByID(mock.Anything, id).
+		Return(&user.User{ID: id, Email: "player@example.com"}, nil).Twice()
+}
+
+func (r *rig) expectUser(t *testing.T, id string) {
+	t.Helper()
+	r.users.EXPECT().FetchByID(mock.Anything, id).
+		Return(&user.User{ID: id, Email: "player@example.com"}, nil).Once()
+}
+
+func (r *rig) expectNoLive(t *testing.T, id string) {
+	t.Helper()
+	r.subs.EXPECT().FindLive(mock.Anything, id).Return(billing.Subscription{}, false, nil).Once()
+}
+
+func (r *rig) expectView(t *testing.T, id, planID string, live billing.Subscription, found bool) {
+	t.Helper()
+	r.expectUser(t, id)
+	r.plans.EXPECT().PlanOf(mock.Anything, id).Return(plan.Lookup(planID), nil).Once()
+	r.quotas.EXPECT().DailyStatus(mock.Anything, id).
+		Return(quota.DailyStatus{Limit: 30, Used: 4, Remaining: 26, ResetsAt: adminNow.Add(12 * time.Hour)}, nil).Once()
+	r.quotas.EXPECT().TrialStatus(mock.Anything, id).
+		Return(quota.TrialStatus{Allowance: 3, Used: 1, Remaining: 2}, nil).Once()
+	r.subs.EXPECT().FindLive(mock.Anything, id).Return(live, found, nil).Once()
+}
+
+func (r *rig) expectAudit(t *testing.T, action, reason string, match func(admin.Entry) bool) {
+	t.Helper()
+	r.audits.EXPECT().Insert(mock.Anything, mock.MatchedBy(func(entry admin.Entry) bool {
+		return entry.ActorUserID == actorID &&
+			entry.Action == action &&
+			entry.TargetUserID == targetID &&
+			entry.Reason == reason &&
+			entry.RequestID == testMeta.RequestID &&
+			entry.ClientIP == testMeta.ClientIP &&
+			entry.CreatedAt.Equal(adminNow) &&
+			entry.ID != "" &&
+			(match == nil || match(entry))
+	})).Return(nil).Once()
+}
+
+func TestNewService_RequiresDependencies(t *testing.T) {
+	newDeps := func(t *testing.T) admin.Deps {
+		t.Helper()
+		return admin.Deps{
+			Users:         mocks.NewMockUsers(t),
+			Subscriptions: mocks.NewMockSubscriptions(t),
+			Quotas:        mocks.NewMockQuotas(t),
+			Plans:         mocks.NewMockPlans(t),
+			Audits:        mocks.NewMockAudits(t),
+			PlanSync:      mocks.NewMockPlanSync(t),
+			Tx:            &fakeTx{},
+		}
+	}
+
+	tests := []struct {
+		name  string
+		clear func(*admin.Deps)
+	}{
+		{name: "Edge: users are required", clear: func(d *admin.Deps) { d.Users = nil }},
+		{name: "Edge: subscriptions are required", clear: func(d *admin.Deps) { d.Subscriptions = nil }},
+		{name: "Edge: quotas are required", clear: func(d *admin.Deps) { d.Quotas = nil }},
+		{name: "Edge: plans are required", clear: func(d *admin.Deps) { d.Plans = nil }},
+		{name: "Edge: audits are required", clear: func(d *admin.Deps) { d.Audits = nil }},
+		{name: "Edge: plan sync is required", clear: func(d *admin.Deps) { d.PlanSync = nil }},
+		{name: "Edge: the transactor is required", clear: func(d *admin.Deps) { d.Tx = nil }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			deps := newDeps(t)
+			tc.clear(&deps)
+
+			svc, err := admin.NewService(deps)
+			require.ErrorIs(t, err, admin.ErrMissingDependency)
+			assert.Nil(t, svc)
+		})
+	}
+
+	t.Run("Happy path: a complete dependency set builds the service", func(t *testing.T) {
+		svc, err := admin.NewService(newDeps(t))
+		require.NoError(t, err)
+		assert.NotNil(t, svc)
+	})
+}
+
+func requireAppErr(t *testing.T, err error, code apperr.Code, status int) *apperr.Error {
+	t.Helper()
+	require.Error(t, err)
+	var appErr *apperr.Error
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, code, appErr.Code)
+	assert.Equal(t, status, appErr.HttpStatus())
+	return appErr
+}
+
+func activeStripeSub() billing.Subscription {
+	paidAt := adminNow.Add(-time.Hour)
+	return billing.Subscription{
+		ID:          otherID,
+		UserID:      targetID,
+		PlanID:      plan.IDPaid,
+		Provider:    billing.ProviderStripe,
+		Status:      billing.StatusActive,
+		FirstPaidAt: &paidAt,
+	}
+}
+
+func activeCompSub(end *time.Time) billing.Subscription {
+	return billing.Subscription{
+		ID:               otherID,
+		UserID:           targetID,
+		PlanID:           plan.IDPaid,
+		Provider:         billing.ProviderComp,
+		Status:           billing.StatusActive,
+		CurrentPeriodEnd: end,
+	}
+}
+
+func TestService_User(t *testing.T) {
+	t.Run("Happy path: the view consolidates account, plan, subscription and quotas", func(t *testing.T) {
+		r := newRig(t)
+		end := adminNow.Add(24 * time.Hour)
+		live := activeCompSub(&end)
+		live.RefundState = billing.RefundRequested
+		r.expectView(t, targetID, plan.IDPaid, live, true)
+
+		view, err := r.svc.User(context.Background(), targetID)
+		require.NoError(t, err)
+
+		assert.Equal(t, admin.UserView{ID: targetID, Email: "player@example.com"}, view.User)
+		assert.Equal(t, plan.IDPaid, view.Plan)
+		require.NotNil(t, view.Subscription)
+		assert.Equal(t, billing.ProviderComp, view.Subscription.Provider)
+		assert.Equal(t, string(billing.RefundRequested), view.Subscription.RefundState)
+		require.NotNil(t, view.DailyQuota.Limit)
+		assert.Equal(t, 30, *view.DailyQuota.Limit)
+		assert.Equal(t, admin.DailyBindingDaily, view.DailyQuota.Binding)
+		assert.Equal(t, 26, view.DailyQuota.Remaining)
+		assert.Equal(t, 3, view.Trial.Allowance)
+	})
+
+	t.Run("Edge: a user without a subscription reads as free with a nil subscription", func(t *testing.T) {
+		r := newRig(t)
+		r.expectView(t, targetID, plan.IDFree, billing.Subscription{}, false)
+
+		view, err := r.svc.User(context.Background(), targetID)
+		require.NoError(t, err)
+		assert.Equal(t, plan.IDFree, view.Plan)
+		assert.Nil(t, view.Subscription)
+		assert.Nil(t, view.DailyQuota.Limit)
+		assert.Equal(t, admin.DailyBindingTrial, view.DailyQuota.Binding)
+	})
+
+	t.Run("Edge: a malformed user id is refused before storage", func(t *testing.T) {
+		r := newRig(t)
+		_, err := r.svc.User(context.Background(), "not-a-uuid")
+		_ = requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+	})
+
+	t.Run("Error: an unknown user is 404", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(nil, user.ErrUserNotFound).Once()
+
+		_, err := r.svc.User(context.Background(), targetID)
+		_ = requireAppErr(t, err, apperr.CodeNotFound, 404)
+	})
+
+	t.Run("Error: an account read failure is internal", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(nil, errAdminDown).Once()
+
+		_, err := r.svc.User(context.Background(), targetID)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+
+	t.Run("Error: a plan read failure is internal", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(&user.User{ID: targetID}, nil).Once()
+		r.plans.EXPECT().PlanOf(mock.Anything, targetID).Return(plan.Plan{}, errAdminDown).Once()
+
+		_, err := r.svc.User(context.Background(), targetID)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+
+	t.Run("Error: a subscription read failure is internal", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		r.plans.EXPECT().PlanOf(mock.Anything, targetID).Return(plan.Free, nil).Once()
+		r.quotas.EXPECT().DailyStatus(mock.Anything, targetID).Return(quota.DailyStatus{}, nil).Once()
+		r.quotas.EXPECT().TrialStatus(mock.Anything, targetID).Return(quota.TrialStatus{}, nil).Once()
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(billing.Subscription{}, false, errAdminDown).Once()
+
+		_, err := r.svc.User(context.Background(), targetID)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+}
+
+func TestService_UserByEmail(t *testing.T) {
+	t.Run("Happy path: a display-name spelling resolves the canonical account", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByEmail(mock.Anything, "player@example.com").
+			Return(&user.User{ID: targetID, Email: "player@example.com"}, nil).Once()
+		r.plans.EXPECT().PlanOf(mock.Anything, targetID).Return(plan.Free, nil).Once()
+		r.quotas.EXPECT().DailyStatus(mock.Anything, targetID).Return(quota.DailyStatus{}, nil).Once()
+		r.quotas.EXPECT().TrialStatus(mock.Anything, targetID).Return(quota.TrialStatus{}, nil).Once()
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(billing.Subscription{}, false, nil).Once()
+
+		view, err := r.svc.UserByEmail(context.Background(), " Player One <Player@Example.COM> ")
+		require.NoError(t, err)
+		assert.Equal(t, targetID, view.User.ID)
+	})
+
+	t.Run("Edge: a legacy mixed-case address is found by its parsed spelling when the canonical form misses", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByEmail(mock.Anything, "legacy@example.com").
+			Return(nil, user.ErrUserNotFound).Once()
+		r.users.EXPECT().FetchByEmail(mock.Anything, "Legacy@Example.COM").
+			Return(&user.User{ID: targetID, Email: "Legacy@Example.COM"}, nil).Once()
+		r.plans.EXPECT().PlanOf(mock.Anything, targetID).Return(plan.Free, nil).Once()
+		r.quotas.EXPECT().DailyStatus(mock.Anything, targetID).Return(quota.DailyStatus{}, nil).Once()
+		r.quotas.EXPECT().TrialStatus(mock.Anything, targetID).Return(quota.TrialStatus{}, nil).Once()
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(billing.Subscription{}, false, nil).Once()
+
+		view, err := r.svc.UserByEmail(context.Background(), " Legacy One <Legacy@Example.COM> ")
+		require.NoError(t, err)
+		assert.Equal(t, targetID, view.User.ID)
+	})
+
+	t.Run("Edge: a blank email is 400", func(t *testing.T) {
+		r := newRig(t)
+		_, err := r.svc.UserByEmail(context.Background(), "   ")
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgEmailRequired, appErr.Message)
+	})
+
+	t.Run("Edge: a malformed email is 400", func(t *testing.T) {
+		r := newRig(t)
+		_, err := r.svc.UserByEmail(context.Background(), "not-an-email")
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgInvalidEmail, appErr.Message)
+	})
+
+	t.Run("Error: an unknown address is 404", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByEmail(mock.Anything, "missing@example.com").
+			Return(nil, user.ErrUserNotFound).Once()
+
+		_, err := r.svc.UserByEmail(context.Background(), "missing@example.com")
+		_ = requireAppErr(t, err, apperr.CodeNotFound, 404)
+	})
+}
+
+func TestService_GrantComp(t *testing.T) {
+	future := adminNow.Add(48 * time.Hour)
+
+	t.Run("Happy path: an active comp is written with the plan, expiry and audit in one transaction", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.expectNoLive(t, targetID)
+		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.MatchedBy(func(sub billing.Subscription) bool {
+			return sub.UserID == targetID &&
+				sub.PlanID == plan.IDPaid &&
+				sub.Provider == billing.ProviderComp &&
+				sub.Status == billing.StatusActive &&
+				sub.CurrentPeriodEnd != nil && sub.CurrentPeriodEnd.Equal(future) &&
+				sub.ID != ""
+		})).Return(nil).Once()
+		r.expectPlanSync()
+		r.expectAudit(t, admin.ActionCompGrant, "support comp", func(entry admin.Entry) bool {
+			return entry.Payload["plan_id"] == plan.IDPaid
+		})
+
+		sub, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID:    plan.IDPaid,
+			ExpiresAt: &future,
+			Reason:    "  support comp  ",
+		}, testMeta)
+		require.NoError(t, err)
+		assert.Equal(t, billing.ProviderComp, sub.Provider)
+		assert.Equal(t, 1, r.tx.calls)
+		assert.Equal(t, 1, r.planSyncCalls)
+	})
+
+	t.Run("Happy path: a comp without an expiry never lapses", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.expectNoLive(t, targetID)
+		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.MatchedBy(func(sub billing.Subscription) bool {
+			return sub.CurrentPeriodEnd == nil
+		})).Return(nil).Once()
+		r.expectPlanSync()
+		r.expectAudit(t, admin.ActionCompGrant, "vip", nil)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "vip"}, testMeta)
+		require.NoError(t, err)
+	})
+
+	t.Run("Edge: a blank reason is 400 before any write", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "   "}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgReasonRequired, appErr.Message)
+		assert.Zero(t, r.tx.calls)
+	})
+
+	t.Run("Edge: a reason above the cap is 400", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID: plan.IDPaid,
+			Reason: string(make([]byte, admin.MaxReasonLength+1)),
+		}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Zero(t, r.tx.calls)
+	})
+
+	t.Run("Edge: the free plan cannot be granted as a comp", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDFree, Reason: "x"}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgInvalidPlan, appErr.Message)
+	})
+
+	t.Run("Edge: an unknown plan is 400", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: "enterprise", Reason: "x"}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+	})
+
+	t.Run("Edge: an expiry in the past is 400", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		past := adminNow.Add(-time.Minute)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, ExpiresAt: &past, Reason: "x"}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgExpiryNotFuture, appErr.Message)
+	})
+
+	t.Run("Edge: an expiry exactly now is 400", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		now := adminNow
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, ExpiresAt: &now, Reason: "x"}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+	})
+
+	t.Run("Error: a malformed target id is 400", func(t *testing.T) {
+		r := newRig(t)
+		_, err := r.svc.GrantComp(context.Background(), actorID, "nope", admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+	})
+
+	t.Run("Error: an unknown target user is 404", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(nil, user.ErrUserNotFound).Once()
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeNotFound, 404)
+	})
+
+	t.Run("Edge: an active stripe subscription is 409 and writes nothing", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeStripeSub(), true, nil).Once()
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, admin.MsgLiveSubscriptionExist, appErr.Message)
+		assert.Zero(t, r.tx.calls)
+	})
+
+	t.Run("Edge: an active comp is 409", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		end := adminNow.Add(time.Hour)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeCompSub(&end), true, nil).Once()
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeConflict, 409)
+	})
+
+	t.Run("Edge: a pending live subscription loses the unique-index race as 409", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).
+			Return(billing.Subscription{ID: otherID, Status: billing.StatusPending}, true, nil).Once()
+		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.Anything).Return(billing.ErrLiveExists).Once()
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeConflict, 409)
+	})
+
+	t.Run("Error: a write failure is internal and writes no audit", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.expectNoLive(t, targetID)
+		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.Anything).Return(errAdminDown).Once()
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+
+	t.Run("Error: a crashed step aborts before the audit row", func(t *testing.T) {
+		r := newRig(t)
+		r.tx.stepErr = errAdminDown
+		r.expectUserTwice(t, targetID)
+		r.expectNoLive(t, targetID)
+		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+
+	t.Run("Error: a plan sync failure rolls back the comp and writes no audit", func(t *testing.T) {
+		r := newRig(t)
+		r.planSyncErr = errAdminDown
+		r.expectUserTwice(t, targetID)
+		r.expectNoLive(t, targetID)
+		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.Anything).Return(nil).Once()
+		r.expectPlanSync()
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+
+	t.Run("Edge: a reason with a control character is 400", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID: plan.IDPaid,
+			Reason: "line one\nline two",
+		}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgReasonControlChars, appErr.Message)
+		assert.Zero(t, r.tx.calls)
+	})
+
+	t.Run("Edge: a reason with a bidi override is 400", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID: plan.IDPaid,
+			Reason: "safe\u202ereversed",
+		}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgReasonControlChars, appErr.Message)
+		assert.Zero(t, r.tx.calls)
+	})
+
+	t.Run("Edge: the reason cap counts runes, not bytes", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.expectNoLive(t, targetID)
+		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.Anything).Return(nil).Once()
+		r.expectPlanSync()
+		r.expectAudit(t, admin.ActionCompGrant, strings.Repeat("\u00e9", admin.MaxReasonLength), nil)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID: plan.IDPaid,
+			Reason: strings.Repeat("\u00e9", admin.MaxReasonLength),
+		}, testMeta)
+		require.NoError(t, err)
+	})
+
+	t.Run("Edge: a multibyte reason one rune over the cap is 400", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID: plan.IDPaid,
+			Reason: strings.Repeat("\u00e9", admin.MaxReasonLength+1),
+		}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgReasonTooLong, appErr.Message)
+	})
+
+	t.Run("Edge: an expiry exactly one hour ahead is accepted", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.expectNoLive(t, targetID)
+		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.Anything).Return(nil).Once()
+		r.expectPlanSync()
+		r.expectAudit(t, admin.ActionCompGrant, "x", nil)
+
+		at := adminNow.Add(admin.MinCompLifetime)
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID:    plan.IDPaid,
+			ExpiresAt: &at,
+			Reason:    "x",
+		}, testMeta)
+		require.NoError(t, err)
+	})
+
+	t.Run("Edge: an expiry below one hour ahead is 400", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+
+		at := adminNow.Add(admin.MinCompLifetime - time.Second)
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID:    plan.IDPaid,
+			ExpiresAt: &at,
+			Reason:    "x",
+		}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgExpiryTooSoon, appErr.Message)
+	})
+
+	t.Run("Edge: an expired comp is canceled before the new comp is inserted", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		expiredEnd := adminNow.Add(-time.Minute)
+		live := activeCompSub(&expiredEnd)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(live, true, nil).Once()
+		r.subs.EXPECT().CancelComp(mock.Anything, otherID, adminNow).Return(true, nil).Once()
+		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.Anything).Return(nil).Once()
+		r.expectPlanSync()
+		r.expectAudit(t, admin.ActionCompGrant, "replacement", nil)
+
+		at := adminNow.Add(48 * time.Hour)
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID:    plan.IDPaid,
+			ExpiresAt: &at,
+			Reason:    "replacement",
+		}, testMeta)
+		require.NoError(t, err)
+		assert.Equal(t, 1, r.planSyncCalls)
+	})
+
+	t.Run("Edge: a lost race on the expired comp cancel is 409 and inserts nothing", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		expiredEnd := adminNow.Add(-time.Minute)
+		live := activeCompSub(&expiredEnd)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(live, true, nil).Once()
+		r.subs.EXPECT().CancelComp(mock.Anything, otherID, adminNow).Return(false, nil).Once()
+
+		at := adminNow.Add(48 * time.Hour)
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
+			PlanID:    plan.IDPaid,
+			ExpiresAt: &at,
+			Reason:    "replacement",
+		}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, admin.MsgCompStateChanged, appErr.Message)
+	})
+}
+
+func TestService_DeletingAccounts(t *testing.T) {
+	deleting := &user.User{ID: targetID, Status: user.StatusDeleting}
+
+	t.Run("Edge: a comp grant on a deleting account is 409", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(deleting, nil).Once()
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, auth.MsgAccountDeleting, appErr.Message)
+		assert.Zero(t, r.tx.calls)
+	})
+
+	t.Run("Edge: a comp revoke on a deleting account is 409", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(deleting, nil).Once()
+
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, auth.MsgAccountDeleting, appErr.Message)
+	})
+
+	t.Run("Edge: a quota reset on a deleting account is 409", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(deleting, nil).Once()
+
+		err := r.svc.ResetQuota(context.Background(), actorID, targetID, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, auth.MsgAccountDeleting, appErr.Message)
+	})
+
+	t.Run("Edge: a refund on a deleting account is 409", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(deleting, nil).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, true, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, auth.MsgAccountDeleting, appErr.Message)
+	})
+
+	t.Run("Edge: a comp grant re-checks the deleting state inside the transaction", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(&user.User{ID: targetID}, nil).Once()
+		r.expectNoLive(t, targetID)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(deleting, nil).Once()
+
+		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{PlanID: plan.IDPaid, Reason: "x"}, testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, auth.MsgAccountDeleting, appErr.Message)
+		assert.Equal(t, 1, r.tx.calls)
+	})
+
+	t.Run("Edge: a comp revoke re-checks the deleting state inside the transaction", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(&user.User{ID: targetID}, nil).Once()
+		end := adminNow.Add(time.Hour)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeCompSub(&end), true, nil).Once()
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(deleting, nil).Once()
+
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, auth.MsgAccountDeleting, appErr.Message)
+		assert.Equal(t, 1, r.tx.calls)
+	})
+
+	t.Run("Edge: a quota reset re-checks the deleting state inside the transaction", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(&user.User{ID: targetID}, nil).Once()
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(deleting, nil).Once()
+
+		err := r.svc.ResetQuota(context.Background(), actorID, targetID, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, auth.MsgAccountDeleting, appErr.Message)
+		assert.Equal(t, 1, r.tx.calls)
+	})
+
+	t.Run("Edge: a refund re-checks the deleting state inside the transaction", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(&user.User{ID: targetID}, nil).Once()
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeStripeSub(), true, nil).Once()
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(deleting, nil).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, true, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, auth.MsgAccountDeleting, appErr.Message)
+		assert.Equal(t, 1, r.tx.calls)
+	})
+}
+
+func TestService_RevokeComp(t *testing.T) {
+	t.Run("Happy path: the live comp is canceled and audited", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		end := adminNow.Add(time.Hour)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeCompSub(&end), true, nil).Once()
+		r.subs.EXPECT().CancelComp(mock.Anything, otherID, adminNow).Return(true, nil).Once()
+		r.expectPlanSync()
+		r.expectAudit(t, admin.ActionCompRevoke, "abuse", nil)
+
+		require.NoError(t, r.svc.RevokeComp(context.Background(), actorID, targetID, " abuse ", testMeta))
+		assert.Equal(t, 1, r.tx.calls)
+		assert.Equal(t, 1, r.planSyncCalls)
+	})
+
+	t.Run("Edge: a blank reason is 400 before the lookup", func(t *testing.T) {
+		r := newRig(t)
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+		assert.Equal(t, admin.MsgReasonRequired, appErr.Message)
+	})
+
+	t.Run("Edge: an invalid target id is 400", func(t *testing.T) {
+		r := newRig(t)
+		err := r.svc.RevokeComp(context.Background(), actorID, "nope", "x", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+	})
+
+	t.Run("Edge: a user without a live subscription and no comp is 404", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		r.expectNoLive(t, targetID)
+		r.subs.EXPECT().LatestComp(mock.Anything, targetID).Return(billing.Subscription{}, false, nil).Once()
+
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeNotFound, 404)
+		assert.Equal(t, admin.MsgCompNotFound, appErr.Message)
+	})
+
+	t.Run("Edge: a latest comp that is not canceled is 404", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		r.expectNoLive(t, targetID)
+		end := adminNow.Add(time.Hour)
+		r.subs.EXPECT().LatestComp(mock.Anything, targetID).Return(activeCompSub(&end), true, nil).Once()
+
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeNotFound, 404)
+		assert.Equal(t, admin.MsgCompNotFound, appErr.Message)
+	})
+
+	t.Run("Happy path: a repeated revoke of the latest canceled comp returns 200 with a new audit row", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.expectNoLive(t, targetID)
+		canceled := activeCompSub(nil)
+		canceled.Status = billing.StatusCanceled
+		r.subs.EXPECT().LatestComp(mock.Anything, targetID).Return(canceled, true, nil).Once()
+		r.expectPlanSync()
+		r.expectAudit(t, admin.ActionCompRevoke, "repeat", nil)
+
+		require.NoError(t, r.svc.RevokeComp(context.Background(), actorID, targetID, "repeat", testMeta))
+		assert.Equal(t, 1, r.tx.calls)
+		assert.Equal(t, 1, r.planSyncCalls)
+	})
+
+	t.Run("Edge: a live stripe subscription is not a comp and is 409", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeStripeSub(), true, nil).Once()
+
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, admin.MsgNotComp, appErr.Message)
+	})
+
+	t.Run("Edge: a concurrent cancel that already won the race is a success with an audit row", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		end := adminNow.Add(time.Hour)
+		live := activeCompSub(&end)
+		canceled := live
+		canceled.Status = billing.StatusCanceled
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(live, true, nil).Once()
+		r.subs.EXPECT().CancelComp(mock.Anything, otherID, adminNow).Return(false, nil).Once()
+		r.subs.EXPECT().FindByID(mock.Anything, otherID).Return(canceled, true, nil).Once()
+		r.expectPlanSync()
+		r.expectAudit(t, admin.ActionCompRevoke, "x", nil)
+
+		require.NoError(t, r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta))
+		assert.Equal(t, 1, r.planSyncCalls)
+	})
+
+	t.Run("Edge: a concurrent cancel that left the comp active is 409", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		end := adminNow.Add(time.Hour)
+		live := activeCompSub(&end)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(live, true, nil).Once()
+		r.subs.EXPECT().CancelComp(mock.Anything, otherID, adminNow).Return(false, nil).Once()
+		r.subs.EXPECT().FindByID(mock.Anything, otherID).Return(live, true, nil).Once()
+
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeConflict, 409)
+		assert.Equal(t, admin.MsgCompStateChanged, appErr.Message)
+	})
+
+	t.Run("Error: a cancel failure is internal", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		end := adminNow.Add(time.Hour)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeCompSub(&end), true, nil).Once()
+		r.subs.EXPECT().CancelComp(mock.Anything, otherID, adminNow).Return(false, errAdminDown).Once()
+
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+
+	t.Run("Error: an audit failure is internal", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		end := adminNow.Add(time.Hour)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeCompSub(&end), true, nil).Once()
+		r.subs.EXPECT().CancelComp(mock.Anything, otherID, adminNow).Return(true, nil).Once()
+		r.expectPlanSync()
+		r.audits.EXPECT().Insert(mock.Anything, mock.Anything).Return(errAdminDown).Once()
+
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+
+	t.Run("Error: a plan sync failure rolls back the revoke", func(t *testing.T) {
+		r := newRig(t)
+		r.planSyncErr = errAdminDown
+		r.expectUserTwice(t, targetID)
+		end := adminNow.Add(time.Hour)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeCompSub(&end), true, nil).Once()
+		r.subs.EXPECT().CancelComp(mock.Anything, otherID, adminNow).Return(true, nil).Once()
+		r.expectPlanSync()
+
+		err := r.svc.RevokeComp(context.Background(), actorID, targetID, "x", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+}
+
+func TestService_ResetQuota(t *testing.T) {
+	t.Run("Happy path: today's counter is deleted and audited", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.quotas.EXPECT().ResetDaily(mock.Anything, targetID).Return(nil).Once()
+		r.expectAudit(t, admin.ActionQuotaReset, "support", nil)
+
+		require.NoError(t, r.svc.ResetQuota(context.Background(), actorID, targetID, "support", testMeta))
+		assert.Equal(t, 1, r.tx.calls)
+	})
+
+	t.Run("Edge: a second reset is a success because the delete is idempotent", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).
+			Return(&user.User{ID: targetID}, nil).Times(4)
+		r.quotas.EXPECT().ResetDaily(mock.Anything, targetID).Return(nil).Twice()
+		r.audits.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Twice()
+
+		require.NoError(t, r.svc.ResetQuota(context.Background(), actorID, targetID, "x", testMeta))
+		require.NoError(t, r.svc.ResetQuota(context.Background(), actorID, targetID, "x", testMeta))
+	})
+
+	t.Run("Edge: a blank reason is 400 before any reset", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+
+		err := r.svc.ResetQuota(context.Background(), actorID, targetID, " ", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+	})
+
+	t.Run("Error: an unknown user is 404 before any reset", func(t *testing.T) {
+		r := newRig(t)
+		r.users.EXPECT().FetchByID(mock.Anything, targetID).Return(nil, user.ErrUserNotFound).Once()
+
+		err := r.svc.ResetQuota(context.Background(), actorID, targetID, "x", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeNotFound, 404)
+	})
+
+	t.Run("Error: a store failure is internal and writes no audit", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.quotas.EXPECT().ResetDaily(mock.Anything, targetID).Return(errAdminDown).Once()
+
+		err := r.svc.ResetQuota(context.Background(), actorID, targetID, "x", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+}
+
+func TestService_Refund(t *testing.T) {
+	t.Run("Happy path: an in-window paid subscription queues a refund and audits it", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeStripeSub(), true, nil).Once()
+		r.subs.EXPECT().RequestRefund(mock.Anything, otherID, adminNow).Return(true, nil).Once()
+		r.expectAudit(t, admin.ActionRefundRequest, "goodwill", func(entry admin.Entry) bool {
+			return entry.Payload["override"] == false
+		})
+
+		require.NoError(t, r.svc.Refund(context.Background(), actorID, targetID, false, "goodwill", testMeta))
+		assert.Equal(t, 1, r.tx.calls)
+	})
+
+	t.Run("Happy path: override skips the window for a paid subscription", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		old := adminNow.Add(-30 * 24 * time.Hour)
+		live := activeStripeSub()
+		live.FirstPaidAt = &old
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(live, true, nil).Once()
+		r.subs.EXPECT().RequestRefund(mock.Anything, otherID, adminNow).Return(true, nil).Once()
+		r.expectAudit(t, admin.ActionRefundRequest, "exception", func(entry admin.Entry) bool {
+			return entry.Payload["override"] == true
+		})
+
+		require.NoError(t, r.svc.Refund(context.Background(), actorID, targetID, true, "exception", testMeta))
+	})
+
+	t.Run("Edge: outside the window without override is refused with the window reason", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		old := adminNow.Add(-billing.RefundWindow)
+		live := activeStripeSub()
+		live.FirstPaidAt = &old
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(live, true, nil).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, false, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeRefundNotEligible, 409)
+		assert.Equal(t, billing.ReasonWindowExpired, appErr.Details["reason"])
+		assert.Zero(t, r.tx.calls)
+	})
+
+	t.Run("Edge: a user without a subscription is refused as not subscribed", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		r.expectNoLive(t, targetID)
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, true, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeRefundNotEligible, 409)
+		assert.Equal(t, billing.ReasonNotSubscribed, appErr.Details["reason"])
+	})
+
+	t.Run("Edge: a pending subscription is not a paid subscription", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).
+			Return(billing.Subscription{ID: otherID, Status: billing.StatusPending}, true, nil).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, true, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeRefundNotEligible, 409)
+		assert.Equal(t, billing.ReasonNotSubscribed, appErr.Details["reason"])
+	})
+
+	t.Run("Edge: a comp subscription is never refundable, even with override", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		end := adminNow.Add(time.Hour)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeCompSub(&end), true, nil).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, true, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeRefundNotEligible, 409)
+		assert.Equal(t, billing.ReasonCompNotRefundable, appErr.Details["reason"])
+	})
+
+	t.Run("Edge: a subscription whose right is already used is refused, even with override", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		live := activeStripeSub()
+		used := adminNow.Add(-time.Hour)
+		live.RefundUsedAt = &used
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(live, true, nil).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, true, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeRefundNotEligible, 409)
+		assert.Equal(t, billing.ReasonAlreadyUsed, appErr.Details["reason"])
+	})
+
+	t.Run("Edge: a concurrent refund that loses the claim is already used", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeStripeSub(), true, nil).Once()
+		r.subs.EXPECT().RequestRefund(mock.Anything, otherID, adminNow).Return(false, nil).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, true, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeRefundNotEligible, 409)
+		assert.Equal(t, billing.ReasonAlreadyUsed, appErr.Details["reason"])
+	})
+
+	t.Run("Edge: the partial unique index reports a double refund", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeStripeSub(), true, nil).Once()
+		r.subs.EXPECT().RequestRefund(mock.Anything, otherID, adminNow).Return(false, billing.ErrRefundAlreadyUsed).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, true, "x", testMeta)
+		appErr := requireAppErr(t, err, apperr.CodeRefundNotEligible, 409)
+		assert.Equal(t, billing.ReasonAlreadyUsed, appErr.Details["reason"])
+	})
+
+	t.Run("Edge: a blank reason is 400 before the lookup", func(t *testing.T) {
+		r := newRig(t)
+		err := r.svc.Refund(context.Background(), actorID, targetID, false, "", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+	})
+
+	t.Run("Edge: a malformed target id is 400", func(t *testing.T) {
+		r := newRig(t)
+		err := r.svc.Refund(context.Background(), actorID, "nope", false, "x", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
+	})
+
+	t.Run("Error: a refund queue write failure is internal", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUserTwice(t, targetID)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(activeStripeSub(), true, nil).Once()
+		r.subs.EXPECT().RequestRefund(mock.Anything, otherID, adminNow).Return(false, errAdminDown).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, false, "x", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+
+	t.Run("Error: a live lookup failure is internal", func(t *testing.T) {
+		r := newRig(t)
+		r.expectUser(t, targetID)
+		r.subs.EXPECT().FindLive(mock.Anything, targetID).Return(billing.Subscription{}, false, errAdminDown).Once()
+
+		err := r.svc.Refund(context.Background(), actorID, targetID, false, "x", testMeta)
+		_ = requireAppErr(t, err, apperr.CodeInternal, 500)
+	})
+}

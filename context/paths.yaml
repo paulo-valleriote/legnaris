@@ -18,6 +18,9 @@ paths:
   - target: backend/internal/accountdeletion
     kind: directory
     context: auth
+  - target: backend/internal/admin
+    kind: directory
+    context: admin
   - target: backend/internal/app
     kind: directory
     context: architecture
@@ -185,6 +188,8 @@ paths:
     context: platform
 
 env:
+  - key: ADMIN_USER_IDS
+    context: admin
   - key: APP_ENV
     context: platform
   - key: APP_NAME

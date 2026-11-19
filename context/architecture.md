@@ -184,6 +184,7 @@ and `failed_total`, labelled by queue, are the operational contract.
 | `backend/cmd/api.go` | API process: Mongo, indexes, registry, publishers, modules, router, graceful shutdown, and the `healthcheck` subcommand used by container probes. |
 | `backend/cmd/relay/main.go` | Relay process: email outbox publisher, event outbox relay, sweeper queues and billing reconciliation. |
 | `backend/cmd/worker/main.go` | Worker process: mail delivery consumer and, when enabled, the generation consumer. |
+| `backend/internal/app/admin.go`, `router.go`, `bootstrap.go` | Admin backoffice routes under `/admin/*`, their 404 masks and the admin service assembly (see `context/admin.md`). |
 | `backend/cmd/canonicalize-emails/main.go` | One-off migration that reports and optionally applies email canonicalisation. |
 | `backend/cmd/migrate-sheet-kinds/main.go` | One-off migration for sheet kinds, pending event payloads and counters. |
 | `backend/cmd/markdown-check/main.go` | Markdown allow-list check used by CI and the Claude Code `Write` hook. |

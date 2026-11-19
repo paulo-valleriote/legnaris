@@ -24,6 +24,54 @@ func (_m *MockStore) EXPECT() *MockStore_Expecter {
 	return &MockStore_Expecter{mock: &_m.Mock}
 }
 
+// DeleteDaily provides a mock function with given fields: ctx, userID, dayUTC
+func (_m *MockStore) DeleteDaily(ctx context.Context, userID string, dayUTC string) error {
+	ret := _m.Called(ctx, userID, dayUTC)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteDaily")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, userID, dayUTC)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockStore_DeleteDaily_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteDaily'
+type MockStore_DeleteDaily_Call struct {
+	*mock.Call
+}
+
+// DeleteDaily is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - dayUTC string
+func (_e *MockStore_Expecter) DeleteDaily(ctx interface{}, userID interface{}, dayUTC interface{}) *MockStore_DeleteDaily_Call {
+	return &MockStore_DeleteDaily_Call{Call: _e.mock.On("DeleteDaily", ctx, userID, dayUTC)}
+}
+
+func (_c *MockStore_DeleteDaily_Call) Run(run func(ctx context.Context, userID string, dayUTC string)) *MockStore_DeleteDaily_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockStore_DeleteDaily_Call) Return(_a0 error) *MockStore_DeleteDaily_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockStore_DeleteDaily_Call) RunAndReturn(run func(context.Context, string, string) error) *MockStore_DeleteDaily_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FetchDaily provides a mock function with given fields: ctx, userID, dayUTC
 func (_m *MockStore) FetchDaily(ctx context.Context, userID string, dayUTC string) (int, error) {
 	ret := _m.Called(ctx, userID, dayUTC)

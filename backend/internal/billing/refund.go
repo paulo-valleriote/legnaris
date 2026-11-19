@@ -18,11 +18,12 @@ const (
 )
 
 const (
-	ReasonWindowExpired  = "window_expired"
-	ReasonAlreadyUsed    = "already_used"
-	ReasonNotSubscribed  = "not_subscribed"
-	MsgRefundNotEligible = "the refund is not available"
-	MsgRefundUnavailable = "refund is temporarily unavailable"
+	ReasonWindowExpired     = "window_expired"
+	ReasonAlreadyUsed       = "already_used"
+	ReasonNotSubscribed     = "not_subscribed"
+	ReasonCompNotRefundable = "comp_not_refundable"
+	MsgRefundNotEligible    = "the refund is not available"
+	MsgRefundUnavailable    = "refund is temporarily unavailable"
 )
 
 var (
@@ -44,17 +45,18 @@ func refundStateFree(state RefundState) bool {
 }
 
 func RefundOpen(sub Subscription, now time.Time) bool {
-	return sub.Status == StatusActive && refundStateFree(sub.RefundState) && sub.RefundUsedAt == nil &&
-		sub.FirstPaidAt != nil && now.Before(sub.FirstPaidAt.Add(RefundWindow))
+	return RefundDenial(sub, now, false) == ""
 }
 
-func refundDenial(sub Subscription, now time.Time) string {
+func RefundDenial(sub Subscription, now time.Time, skipWindow bool) string {
 	switch {
+	case sub.Provider == ProviderComp:
+		return ReasonCompNotRefundable
 	case sub.Status != StatusActive || sub.FirstPaidAt == nil:
 		return ReasonNotSubscribed
 	case !refundStateFree(sub.RefundState) || sub.RefundUsedAt != nil:
 		return ReasonAlreadyUsed
-	case !now.Before(sub.FirstPaidAt.Add(RefundWindow)):
+	case !skipWindow && !now.Before(sub.FirstPaidAt.Add(RefundWindow)):
 		return ReasonWindowExpired
 	}
 	return ""
@@ -80,7 +82,7 @@ func (s *Service) Refund(ctx context.Context, userID string) error {
 	if !found {
 		return refundDenied(ReasonNotSubscribed)
 	}
-	if reason := refundDenial(live, now); reason != "" {
+	if reason := RefundDenial(live, now, false); reason != "" {
 		return refundDenied(reason)
 	}
 

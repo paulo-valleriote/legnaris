@@ -9,6 +9,7 @@ import (
 	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/billing/mocks"
 	"legnaris/backend/shared/apperr"
+	"legnaris/backend/shared/db"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -37,12 +38,50 @@ func mustTime(s string) time.Time {
 }
 
 func newService(store billing.Store, provider billing.Provider) *billing.Service {
+	svc, _, _ := newServiceWithDeps(store, provider)
+	return svc
+}
+
+type fakeCheckoutTx struct {
+	calls int
+	err   error
+}
+
+func (f *fakeCheckoutTx) WithTransaction(ctx context.Context, fn func(context.Context) error) error {
+	f.calls++
+	if f.err != nil {
+		return f.err
+	}
+	return fn(ctx)
+}
+
+func (f *fakeCheckoutTx) Step(context.Context, db.Step) error {
+	return nil
+}
+
+type fakePlanSyncer struct {
+	calls  int
+	userID string
+	err    error
+}
+
+func (f *fakePlanSyncer) SyncPlan(_ context.Context, userID string, _ time.Time) error {
+	f.calls++
+	f.userID = userID
+	return f.err
+}
+
+func newServiceWithDeps(store billing.Store, provider billing.Provider) (*billing.Service, *fakeCheckoutTx, *fakePlanSyncer) {
+	tx := &fakeCheckoutTx{}
+	planSync := &fakePlanSyncer{}
 	return billing.NewService(store, provider, billing.Config{
 		PriceID:    priceID,
 		SuccessURL: successURL,
 		CancelURL:  cancelURL,
 		Now:        func() time.Time { return fixedNow },
-	})
+		Tx:         tx,
+		PlanSync:   planSync,
+	}), tx, planSync
 }
 
 func appErrOf(t *testing.T, err error, code apperr.Code) *apperr.Error {
@@ -158,6 +197,106 @@ func TestService_Checkout(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, sessionURL, got.URL)
 		assert.NotEqual(t, oldID, inserted.ID)
+	})
+
+	t.Run("Edge: an expired comp is canceled and replaced by a pending row", func(t *testing.T) {
+		store := mocks.NewMockStore(t)
+		provider := mocks.NewMockProvider(t)
+		oldID := "0190a1b2-0000-7000-8000-0000000000cc"
+		end := fixedNow.Add(-time.Minute)
+		store.EXPECT().FindLive(mock.Anything, userID).Return(billing.Subscription{
+			ID:               oldID,
+			UserID:           userID,
+			Provider:         billing.ProviderComp,
+			Status:           billing.StatusActive,
+			CurrentPeriodEnd: &end,
+		}, true, nil).Once()
+		store.EXPECT().CancelComp(mock.Anything, oldID, fixedNow).Return(true, nil).Once()
+		var inserted billing.Subscription
+		store.EXPECT().InsertPending(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, sub billing.Subscription) error {
+			inserted = sub
+			return nil
+		}).Once()
+		expectCustomer(provider, billing.Customer{ID: customerID}, nil)
+		provider.EXPECT().CreateCheckoutSession(mock.Anything, mock.Anything).Return(liveSession(), nil)
+		store.EXPECT().AttachCheckout(mock.Anything, mock.Anything, customerID, sessionURL, liveSession().ExpiresAt).Return(true, nil)
+
+		svc, tx, planSync := newServiceWithDeps(store, provider)
+		got, err := svc.Checkout(context.Background(), userID)
+		require.NoError(t, err)
+		assert.Equal(t, sessionURL, got.URL)
+		assert.NotEqual(t, oldID, inserted.ID)
+		assert.Equal(t, 1, tx.calls)
+		assert.Equal(t, 1, planSync.calls)
+		assert.Equal(t, userID, planSync.userID)
+	})
+
+	t.Run("Edge: losing the expired comp cancel race retries from a clean read", func(t *testing.T) {
+		store := mocks.NewMockStore(t)
+		provider := mocks.NewMockProvider(t)
+		oldID := "0190a1b2-0000-7000-8000-0000000000dd"
+		end := fixedNow.Add(-time.Minute)
+		store.EXPECT().FindLive(mock.Anything, userID).Return(billing.Subscription{
+			ID:               oldID,
+			UserID:           userID,
+			Provider:         billing.ProviderComp,
+			Status:           billing.StatusActive,
+			CurrentPeriodEnd: &end,
+		}, true, nil).Once()
+		store.EXPECT().CancelComp(mock.Anything, oldID, fixedNow).Return(false, nil).Once()
+		store.EXPECT().FindLive(mock.Anything, userID).Return(billing.Subscription{}, false, nil).Once()
+		store.EXPECT().InsertPending(mock.Anything, mock.Anything).Return(nil).Once()
+		expectCustomer(provider, billing.Customer{ID: customerID}, nil)
+		provider.EXPECT().CreateCheckoutSession(mock.Anything, mock.Anything).Return(liveSession(), nil)
+		store.EXPECT().AttachCheckout(mock.Anything, mock.Anything, customerID, sessionURL, liveSession().ExpiresAt).Return(true, nil)
+
+		svc, tx, planSync := newServiceWithDeps(store, provider)
+		got, err := svc.Checkout(context.Background(), userID)
+		require.NoError(t, err)
+		assert.Equal(t, sessionURL, got.URL)
+		assert.Equal(t, 1, tx.calls)
+		assert.Zero(t, planSync.calls, "a lost cancel race must not sync the plan")
+	})
+
+	t.Run("Error: an expired comp cancel failure is internal", func(t *testing.T) {
+		store := mocks.NewMockStore(t)
+		provider := mocks.NewMockProvider(t)
+		oldID := "0190a1b2-0000-7000-8000-0000000000ee"
+		end := fixedNow.Add(-time.Minute)
+		store.EXPECT().FindLive(mock.Anything, userID).Return(billing.Subscription{
+			ID:               oldID,
+			UserID:           userID,
+			Provider:         billing.ProviderComp,
+			Status:           billing.StatusActive,
+			CurrentPeriodEnd: &end,
+		}, true, nil).Once()
+		store.EXPECT().CancelComp(mock.Anything, oldID, fixedNow).Return(false, errors.New("mongo down")).Once()
+
+		svc, _, planSync := newServiceWithDeps(store, provider)
+		_, err := svc.Checkout(context.Background(), userID)
+		appErr := appErrOf(t, err, apperr.CodeInternal)
+		assert.Equal(t, 500, appErr.HttpStatus())
+		assert.Zero(t, planSync.calls)
+	})
+
+	t.Run("Error: an expired comp with no plan sync wiring is internal", func(t *testing.T) {
+		store := mocks.NewMockStore(t)
+		provider := mocks.NewMockProvider(t)
+		oldID := "0190a1b2-0000-7000-8000-0000000000ff"
+		end := fixedNow.Add(-time.Minute)
+		store.EXPECT().FindLive(mock.Anything, userID).Return(billing.Subscription{
+			ID:               oldID,
+			UserID:           userID,
+			Provider:         billing.ProviderComp,
+			Status:           billing.StatusActive,
+			CurrentPeriodEnd: &end,
+		}, true, nil).Once()
+
+		_, err := billing.NewService(store, provider, billing.Config{
+			Now: func() time.Time { return fixedNow },
+		}).Checkout(context.Background(), userID)
+		appErr := appErrOf(t, err, apperr.CodeInternal)
+		assert.Equal(t, 500, appErr.HttpStatus())
 	})
 
 	t.Run("Edge: a live subscription is rejected with ALREADY_SUBSCRIBED and the provider is not called", func(t *testing.T) {

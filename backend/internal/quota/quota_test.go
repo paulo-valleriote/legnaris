@@ -404,3 +404,41 @@ func TestServiceDailyStatus(t *testing.T) {
 		requireAppErr(t, err, apperr.CodeUnauthorized)
 	})
 }
+
+func TestServiceResetDaily(t *testing.T) {
+	now := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
+
+	t.Run("Happy path: the reset deletes the counter of the current UTC day", func(t *testing.T) {
+		svc, store := newService(t, now)
+		store.EXPECT().DeleteDaily(mock.Anything, validUserID, "2026-11-14").Return(nil).Once()
+
+		require.NoError(t, svc.ResetDaily(context.Background(), validUserID))
+	})
+
+	t.Run("Edge: resetting twice is idempotent because deleting a missing counter succeeds", func(t *testing.T) {
+		svc, store := newService(t, now)
+		store.EXPECT().DeleteDaily(mock.Anything, validUserID, "2026-11-14").Return(nil).Twice()
+
+		require.NoError(t, svc.ResetDaily(context.Background(), validUserID))
+		require.NoError(t, svc.ResetDaily(context.Background(), validUserID))
+	})
+
+	t.Run("Edge: the day boundary follows UTC, not the local clock", func(t *testing.T) {
+		svc, store := newService(t, time.Date(2026, 11, 15, 0, 0, 0, 0, time.UTC))
+		store.EXPECT().DeleteDaily(mock.Anything, validUserID, "2026-11-15").Return(nil).Once()
+
+		require.NoError(t, svc.ResetDaily(context.Background(), validUserID))
+	})
+
+	t.Run("Error: a malformed user id is refused before storage", func(t *testing.T) {
+		svc, _ := newService(t, now)
+		requireAppErr(t, svc.ResetDaily(context.Background(), ""), apperr.CodeUnauthorized)
+	})
+
+	t.Run("Error: a store failure is internal", func(t *testing.T) {
+		svc, store := newService(t, now)
+		store.EXPECT().DeleteDaily(mock.Anything, validUserID, "2026-11-14").Return(errStoreFailure).Once()
+
+		requireAppErr(t, svc.ResetDaily(context.Background(), validUserID), apperr.CodeInternal)
+	})
+}

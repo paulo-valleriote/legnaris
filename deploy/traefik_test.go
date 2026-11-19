@@ -294,10 +294,10 @@ const apiHostRule = "Host(`{{ env \"API_DOMAIN\" }}`)"
 func TestPublicProbeExposure(t *testing.T) {
 	routes := readRoutes(t)
 
-	t.Run("Happy path: the public api router excludes /metrics and /ready", func(t *testing.T) {
+	t.Run("Happy path: the public api router excludes /metrics, /ready and /admin", func(t *testing.T) {
 		router, ok := routes.HTTP.Routers["app"]
 		require.True(t, ok)
-		assert.Equal(t, apiHostRule+" && !PathPrefix(`/metrics`) && !PathPrefix(`/ready`)", router.Rule)
+		assert.Equal(t, apiHostRule+" && !PathPrefix(`/metrics`) && !PathPrefix(`/ready`) && !PathPrefix(`/admin`)", router.Rule)
 	})
 
 	t.Run("Edge: no router other than the api catch-all matches /ready", func(t *testing.T) {

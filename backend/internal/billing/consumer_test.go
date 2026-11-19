@@ -386,4 +386,67 @@ func TestConsumer_Handle(t *testing.T) {
 		assert.Equal(t, "paid", plan)
 		assert.Empty(t, f.planChanges(t))
 	})
+
+	t.Run("Edge: a live comp keeps the plan paid when the stripe subscription cancels", func(t *testing.T) {
+		f := newConsumerFixture(t)
+		f.ledger.AddAccount(consumerUserID, billing.AccountPlan{Plan: "paid"})
+		end := t1.Add(24 * time.Hour)
+		f.ledger.SeedSubscription(billing.Subscription{
+			ID:               "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e13",
+			UserID:           consumerUserID,
+			PlanID:           "paid",
+			Provider:         billing.ProviderComp,
+			Status:           billing.StatusActive,
+			CurrentPeriodEnd: &end,
+		})
+		f.ledger.SeedSubscription(billing.Subscription{
+			ID:                 "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e15",
+			UserID:             consumerUserID,
+			Provider:           billing.ProviderStripe,
+			ProviderSubID:      consumerProviderID,
+			ProviderCustomerID: consumerCustomer,
+			Status:             billing.StatusPending,
+		})
+		f.providerSays(billing.StatusCanceled, false)
+		f.build()
+
+		require.NoError(t, f.run(f.queueEvent(t, consumerUserID)))
+
+		plan, _ := f.planOf(t, consumerUserID)
+		assert.Equal(t, "paid", plan)
+		assert.Empty(t, f.planChanges(t))
+	})
+
+	t.Run("Edge: an expired comp is not entitled when the stripe subscription cancels", func(t *testing.T) {
+		f := newConsumerFixture(t)
+		f.ledger.AddAccount(consumerUserID, billing.AccountPlan{Plan: "paid"})
+		end := t1.Add(-time.Hour)
+		f.ledger.SeedSubscription(billing.Subscription{
+			ID:               "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e14",
+			UserID:           consumerUserID,
+			PlanID:           "paid",
+			Provider:         billing.ProviderComp,
+			Status:           billing.StatusActive,
+			CurrentPeriodEnd: &end,
+		})
+		f.ledger.SeedSubscription(billing.Subscription{
+			ID:                 "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e16",
+			UserID:             consumerUserID,
+			Provider:           billing.ProviderStripe,
+			ProviderSubID:      consumerProviderID,
+			ProviderCustomerID: consumerCustomer,
+			Status:             billing.StatusPending,
+		})
+		f.providerSays(billing.StatusCanceled, false)
+		f.build()
+
+		require.NoError(t, f.run(f.queueEvent(t, consumerUserID)))
+
+		plan, _ := f.planOf(t, consumerUserID)
+		assert.Equal(t, "free", plan)
+		changes := f.planChanges(t)
+		require.Len(t, changes, 1)
+		assert.Equal(t, "paid", changes[0]["from"])
+		assert.Equal(t, "free", changes[0]["to"])
+	})
 }

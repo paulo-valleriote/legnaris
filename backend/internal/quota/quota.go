@@ -33,6 +33,7 @@ type Store interface {
 	RefundTrial(ctx context.Context, userID string) error
 	ReserveDaily(ctx context.Context, userID, dayUTC string, expiresAt time.Time) (bool, error)
 	RefundDaily(ctx context.Context, userID, dayUTC string) error
+	DeleteDaily(ctx context.Context, userID, dayUTC string) error
 	FetchTrial(ctx context.Context, userID string) (TrialRow, error)
 	FetchDaily(ctx context.Context, userID, dayUTC string) (int, error)
 }
@@ -119,6 +120,17 @@ func (s *Service) RefundDaily(ctx context.Context, userID, dayUTC string) error 
 	}
 	if err := s.store.RefundDaily(ctx, userID, dayUTC); err != nil {
 		return apperr.NewError(apperr.CodeInternal, MsgQuotaUnavailable, fmt.Errorf("refund daily: %w", err))
+	}
+	return nil
+}
+
+func (s *Service) ResetDaily(ctx context.Context, userID string) error {
+	if err := validateUserID(userID); err != nil {
+		return err
+	}
+	dayUTC := dayStart(s.now().UTC()).Format(dayLayout)
+	if err := s.store.DeleteDaily(ctx, userID, dayUTC); err != nil {
+		return apperr.NewError(apperr.CodeInternal, MsgQuotaUnavailable, fmt.Errorf("reset daily: %w", err))
 	}
 	return nil
 }

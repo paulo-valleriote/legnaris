@@ -257,3 +257,52 @@ func TestRouterWiring_RequireAuthGuardsProtectedRoutes(t *testing.T) {
 		require.Equal(t, http.StatusNoContent, crec.Code, "csp-report must stay public")
 	})
 }
+
+const wiringAdminID = "0196e4f2-6a1b-7c3d-8e4f-5a6b7c8d9e0f"
+
+func TestRouterWiring_AdminRoutesMaskMethodsAndUnknownPaths(t *testing.T) {
+	h, modules := newWiringRouterWithEnv(t, map[string]string{"ADMIN_USER_IDS": wiringAdminID})
+	access, err := modules.Auth.TokenManager.Issue(wiringAdminID)
+	require.NoError(t, err)
+
+	requests := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPut, "/admin/users/" + wiringAdminID},
+		{http.MethodDelete, "/admin/users/" + wiringAdminID + "/comp"},
+		{http.MethodGet, "/admin/users/" + wiringAdminID + "/comp/revoke"},
+		{http.MethodPatch, "/admin/users/" + wiringAdminID + "/quota/reset"},
+		{http.MethodOptions, "/admin/users/" + wiringAdminID},
+		{http.MethodOptions, "/admin/users"},
+		{http.MethodPost, "/admin/unknown"},
+		{http.MethodGet, "/admin/unknown/deeper"},
+	}
+	for _, tc := range requests {
+		t.Run("Edge: "+tc.method+" "+tc.path+" is a 404 mask", func(t *testing.T) {
+			rec := doAuthRequest(t, h, access.Value, tc.method, tc.path, "")
+			require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+
+			var body response.ErrorResponse
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, "NOT_FOUND", body.Error.Code)
+		})
+	}
+}
+
+func TestRouterWiring_AdminActorMustBeActive(t *testing.T) {
+	deleting := apperr.NewError(apperr.CodeForbidden, auth.MsgAccountDeleting, nil)
+	checker := authmocks.NewMockService(t)
+	checker.EXPECT().EnsureActive(mock.Anything, wiringAdminID).Return(deleting).Maybe()
+
+	h, modules := newWiringEchoWithChecker(t, map[string]string{"ADMIN_USER_IDS": wiringAdminID}, checker)
+	access, err := modules.Auth.TokenManager.Issue(wiringAdminID)
+	require.NoError(t, err)
+
+	rec := doAuthRequest(t, h, access.Value, http.MethodGet, "/admin/users/"+wiringAdminID, "")
+	require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+
+	var body response.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "NOT_FOUND", body.Error.Code)
+}

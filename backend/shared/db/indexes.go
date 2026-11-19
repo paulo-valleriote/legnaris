@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"legnaris/backend/shared/env"
 )
+
+const indexNotFoundCode = 27
 
 const (
 	usersEmailUniqueIndex           = "users_email_unique"
@@ -38,11 +41,13 @@ const (
 	subscriptionsProviderSubField   = "provider_subscription_id"
 	subscriptionsProviderSubUnique  = "subscriptions_provider_subscription_unique"
 	subscriptionsRefundUsedUnique   = "subscriptions_refund_used_unique"
+	subscriptionsCompExpiryIndex    = "subscriptions_comp_expiry"
+	subscriptionsLegacyExpiresAtTTL = "subscriptions_expires_at_ttl"
 	billingEventsProviderUnique     = "billing_events_provider_event_unique"
 	billingEventsStatusNextAttempt  = "billing_events_status_next_attempt"
 	billingEventsExpiresAtTTL       = "billing_events_expires_at_ttl"
-	subscriptionsExpiresAtTTL       = "subscriptions_expires_at_ttl"
 	billingEventsNextAttemptField   = "next_attempt_at"
+	createdAtField                  = "created_at"
 	expiresAtField                  = "expires_at"
 	statusField                     = "status"
 	campaignsMembersUserIDField     = "members.user_id"
@@ -54,6 +59,9 @@ const (
 	campaignSheetLinksCampaignIndex = "campaign_sheet_links_campaign_id"
 	campaignSheetLinksSheetIndex    = "campaign_sheet_links_sheet_id"
 	campaignSheetLinksOwnerIndex    = "campaign_sheet_links_owner_id"
+	adminAuditCreatedAtIndex        = "admin_audit_created_at"
+	adminAuditTargetCreatedAtIndex  = "admin_audit_target_created_at"
+	adminAuditActorCreatedAtIndex   = "admin_audit_actor_created_at"
 	campaignIDField                 = "campaign_id"
 	sheetIDField                    = "sheet_id"
 	ownerIDField                    = "owner_id"
@@ -145,7 +153,31 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 	if err := ensureBillingIndexes(ctx, database); err != nil {
 		return err
 	}
+	if err := ensureAdminIndexes(ctx, database); err != nil {
+		return err
+	}
 	return ensureCampaignIndexes(ctx, database)
+}
+
+func ensureAdminIndexes(ctx context.Context, database *mongo.Database) error {
+	audit := database.Collection("admin_audit")
+	if _, err := audit.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: createdAtField, Value: -1}},
+			Options: options.Index().SetName(adminAuditCreatedAtIndex),
+		},
+		{
+			Keys:    bson.D{{Key: "target_user_id", Value: 1}, {Key: createdAtField, Value: -1}},
+			Options: options.Index().SetName(adminAuditTargetCreatedAtIndex),
+		},
+		{
+			Keys:    bson.D{{Key: "actor_user_id", Value: 1}, {Key: createdAtField, Value: -1}},
+			Options: options.Index().SetName(adminAuditActorCreatedAtIndex),
+		},
+	}); err != nil {
+		return fmt.Errorf("create admin_audit indexes: %w", err)
+	}
+	return nil
 }
 
 func ensureCampaignIndexes(ctx context.Context, database *mongo.Database) error {
@@ -188,6 +220,9 @@ func ensureCampaignIndexes(ctx context.Context, database *mongo.Database) error 
 
 func ensureBillingIndexes(ctx context.Context, database *mongo.Database) error {
 	subscriptions := database.Collection("subscriptions")
+	if err := dropIndexIfExists(ctx, database, "subscriptions", subscriptionsLegacyExpiresAtTTL); err != nil {
+		return fmt.Errorf("drop subscriptions legacy expiry index: %w", err)
+	}
 	if _, err := subscriptions.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: subscriptionsUserIDField, Value: 1}},
 		Options: options.Index().SetUnique(true).SetName(subscriptionsUserLiveUnique).
@@ -207,10 +242,14 @@ func ensureBillingIndexes(ctx context.Context, database *mongo.Database) error {
 		return fmt.Errorf("create subscriptions refund index: %w", err)
 	}
 	if _, err := subscriptions.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: expiresAtField, Value: 1}},
-		Options: options.Index().SetExpireAfterSeconds(0).SetName(subscriptionsExpiresAtTTL),
+		Keys: bson.D{
+			{Key: "provider", Value: 1},
+			{Key: statusField, Value: 1},
+			{Key: "current_period_end", Value: 1},
+		},
+		Options: options.Index().SetName(subscriptionsCompExpiryIndex),
 	}); err != nil {
-		return fmt.Errorf("create subscriptions expiry index: %w", err)
+		return fmt.Errorf("create subscriptions comp expiry index: %w", err)
 	}
 	if _, err := subscriptions.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: subscriptionsProviderSubField, Value: 1}},
@@ -252,7 +291,7 @@ func ensureGenerationIndexes(ctx context.Context, database *mongo.Database) erro
 			Options: options.Index().SetExpireAfterSeconds(0).SetName(generationsExpiresAtTTL),
 		},
 		{
-			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: "created_at", Value: 1}},
+			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: createdAtField, Value: 1}},
 			Options: options.Index().SetName(generationsStatusCreatedAt),
 		},
 	}); err != nil {
@@ -344,7 +383,7 @@ func ensureEmailOutboxIndexes(ctx context.Context, database *mongo.Database, ret
 	}
 
 	if _, err := emailOutbox.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "created_at", Value: 1}},
+		Keys:    bson.D{{Key: createdAtField, Value: 1}},
 		Options: options.Index().SetName(emailOutboxCreatedAt),
 	}); err != nil {
 		return fmt.Errorf("create email_outbox created_at index: %w", err)
@@ -354,6 +393,28 @@ func ensureEmailOutboxIndexes(ctx context.Context, database *mongo.Database, ret
 		return fmt.Errorf("create email_outbox TTL index: %w", err)
 	}
 	return nil
+}
+
+func dropIndexIfExists(ctx context.Context, database *mongo.Database, collection, name string) error {
+	indexes := database.Collection(collection).Indexes()
+	specs, err := indexes.ListSpecifications(ctx)
+	if err != nil {
+		return fmt.Errorf("list %s indexes: %w", collection, err)
+	}
+	for _, spec := range specs {
+		if spec.Name == name {
+			if err := indexes.DropOne(ctx, name); err != nil && !isIndexNotFound(err) {
+				return err
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+func isIndexNotFound(err error) bool {
+	var commandErr mongo.CommandError
+	return errors.As(err, &commandErr) && commandErr.Code == indexNotFoundCode
 }
 
 func ensurePublishedAtTTL(ctx context.Context, database *mongo.Database, collection, name string, retention time.Duration) error {

@@ -102,7 +102,7 @@ func TestSweepQueues_RegistersGenerationRepublish(t *testing.T) {
 		wantErr   bool
 		wantNames []string
 	}{
-		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts and the billing consumer are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting", "campaigns_deleting", "campaigns_orphan_links", "billing_events", "billing_refunds"}},
+		{name: "Happy path: the event outbox, the generation republish, the lease reaper and the deleting accounts and the billing consumer are registered", batch: 25, wantNames: []string{"event_outbox", "generation", "generation_lease", "users_deleting", "campaigns_deleting", "campaigns_orphan_links", "billing_events", "billing_refunds", "billing_comp_expiry"}},
 		{name: "Error: a zero batch refuses the generation queue", batch: 0, wantErr: true},
 	}
 	for _, tc := range tests {
@@ -201,6 +201,11 @@ func idleBillingDeps() billing.ConsumerDeps {
 		Ledger:   ledger,
 		Tx:       billingtest.NewTransactor(ledger, nil),
 		Outbox:   ledger.Outbox(),
-		Now:      time.Now,
+		CompExpiry: billing.NewCompExpiry(billing.CompExpiryDeps{
+			Ledger: ledger,
+			Outbox: ledger.Outbox(),
+			Tx:     billingtest.NewTransactor(ledger, nil),
+		}),
+		Now: time.Now,
 	}
 }
