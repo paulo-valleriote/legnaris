@@ -73,7 +73,7 @@ func TestErrorMapping_CreateSheetLimitCarriesDetails(t *testing.T) {
 			e.Use(withOwner(errorTestOwnerID))
 			app.NewSheetController(svc).RegisterRoutes(e.Group("/sheets"))
 
-			req := httptest.NewRequest(http.MethodPost, "/sheets", strings.NewReader(tc.body))
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/sheets", strings.NewReader(tc.body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			e.ServeHTTP(rec, req)

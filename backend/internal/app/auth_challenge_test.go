@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -148,7 +147,7 @@ func TestChallengeController_Resend(t *testing.T) {
 		var body response.Success[auth.ResendResult]
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 		assert.Equal(t, 60, body.Data.ResendAfter)
-		assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), rec.Body.String())
+		assert.NotRegexp(t, `\b\d{6}\b`, rec.Body.String())
 	})
 
 	t.Run("Error: a malformed body or missing identity is 400", func(t *testing.T) {
@@ -329,14 +328,14 @@ func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 
 			for key, values := range rec.Header() {
 				for _, value := range values {
-					assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), value, "header %s must carry no code", key)
+					assert.NotRegexp(t, `\b\d{6}\b`, value, "header %s must carry no code", key)
 					assert.NotContains(t, value, "@", "header %s must carry no address", key)
 				}
 			}
-			assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), rec.Body.String())
+			assert.NotRegexp(t, `\b\d{6}\b`, rec.Body.String())
 			assert.NotContains(t, rec.Body.String(), "@")
 
-			assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), log.text())
+			assert.NotRegexp(t, `\b\d{6}\b`, log.text())
 			assert.NotContains(t, log.text(), "player@example.com")
 
 			bodies = append(bodies, rec.Body.Bytes())

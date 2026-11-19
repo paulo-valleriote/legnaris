@@ -52,7 +52,7 @@ func TestCORSPreflight(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		h := newAuthRouterWithCORS(t, service)
 
-		req := newRequest(http.MethodOptions, "/auth/refresh", "")
+		req := newRequest(t, http.MethodOptions, "/auth/refresh", "")
 		req.Header.Set(echo.HeaderOrigin, webOrigin)
 		req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodPost)
 		req.Header.Set(echo.HeaderAccessControlRequestHeaders, "X-CSRF-Token")
@@ -73,7 +73,7 @@ func TestCORSPreflight(t *testing.T) {
 		service := authmocks.NewMockService(t)
 		h := newAuthRouterWithCORS(t, service)
 
-		req := newRequest(http.MethodOptions, "/auth/refresh", "")
+		req := newRequest(t, http.MethodOptions, "/auth/refresh", "")
 		req.Header.Set(echo.HeaderOrigin, "https://evil.example.com")
 		req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodPost)
 		req.Header.Set(echo.HeaderAccessControlRequestHeaders, "X-CSRF-Token")
@@ -90,7 +90,7 @@ func TestCORSActualRequest(t *testing.T) {
 		service.EXPECT().Login(mock.Anything, mock.Anything).Return(&auth.LoginResult{Session: session()}, nil).Once()
 		h := newAuthRouterWithCORS(t, service)
 
-		req := newRequest(http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
+		req := newRequest(t, http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
 		req.Header.Set(echo.HeaderOrigin, webOrigin)
 
 		rec := serve(t, h, req)
@@ -108,7 +108,7 @@ func TestCORSActualRequest(t *testing.T) {
 		service.EXPECT().Login(mock.Anything, mock.Anything).Return(&auth.LoginResult{Session: session()}, nil).Once()
 		h := newAuthRouterWithCORS(t, service)
 
-		req := newRequest(http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
+		req := newRequest(t, http.MethodPost, "/auth/login", `{"email":"player@example.com","password":"sup3r-secret"}`)
 		req.Header.Set(echo.HeaderOrigin, "https://evil.example.com")
 
 		rec := serve(t, h, req)

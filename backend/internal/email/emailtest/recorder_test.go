@@ -31,7 +31,7 @@ func TestRecorder(t *testing.T) {
 		err := recorder.Send(context.Background(), emailtest.Outbound())
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, email.ErrTransient)
+		require.ErrorIs(t, err, email.ErrTransient)
 		assert.Equal(t, 1, recorder.Count(), "a failed send is still recorded")
 	})
 
@@ -86,6 +86,6 @@ func TestRecorder_UnrelatedErrorIsNotASentinel(t *testing.T) {
 
 	err := recorder.Send(context.Background(), emailtest.Outbound())
 	require.Error(t, err)
-	assert.NotErrorIs(t, err, email.ErrTransient)
+	require.NotErrorIs(t, err, email.ErrTransient)
 	assert.NotErrorIs(t, err, email.ErrPermanent)
 }

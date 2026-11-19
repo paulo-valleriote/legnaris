@@ -154,7 +154,7 @@ func TestValidateDiceDefaults_NonNumericField(t *testing.T) {
 			err := ValidateDiceDefaults(tmpl)
 
 			require.Error(t, err)
-			assert.ErrorIs(t, err, dice.ErrNonNumericField)
+			require.ErrorIs(t, err, dice.ErrNonNumericField)
 			var invalid *InvalidDiceError
 			assert.ErrorAs(t, err, &invalid)
 		})
@@ -217,7 +217,7 @@ func TestBuildRegistry_DiceDefaults(t *testing.T) {
 			}
 			require.Error(t, err)
 			if tc.wantIs != nil {
-				assert.ErrorIs(t, err, tc.wantIs)
+				require.ErrorIs(t, err, tc.wantIs)
 			}
 			assert.Contains(t, err.Error(), tc.wantMsg)
 			assert.Contains(t, err.Error(), `template "dice_v1"`)

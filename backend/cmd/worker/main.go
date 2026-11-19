@@ -124,7 +124,7 @@ func senderFromConfig(cfg env.Env) (email.Sender, error) {
 }
 
 func serveMetrics(addr string, handler http.Handler) (func(ctx context.Context) error, error) {
-	listener, err := net.Listen("tcp", addr)
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen metrics on %s: %w", addr, err)
 	}

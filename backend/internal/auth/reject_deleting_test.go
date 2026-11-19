@@ -62,7 +62,7 @@ func TestRejectDeleting(t *testing.T) {
 			}
 
 			e := echo.New()
-			c := e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), httptest.NewRecorder())
+			c := e.NewContext(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), httptest.NewRecorder())
 			if tc.authed {
 				c.Set(auth.UserIDContextKey, "u1")
 			}

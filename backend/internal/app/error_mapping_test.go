@@ -344,7 +344,7 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 
 		modifiers, ok := body.Data["modifiers"].(map[string]any)
 		require.True(t, ok)
-		assert.Equal(t, 4.0, modifiers["dexterityMod"])
+		assert.InDelta(t, 4.0, modifiers["dexterityMod"], 1e-9)
 		mockRepo.AssertNotCalled(t, "PartialUpdate")
 	})
 
@@ -501,7 +501,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		mod, ok := body.Data["mod"].(map[string]any)
 		require.True(t, ok)
-		assert.Equal(t, 4.0, mod["dexterityMod"])
+		assert.InDelta(t, 4.0, mod["dexterityMod"], 1e-9)
 		mockRepo.AssertNotCalled(t, "FetchByID")
 		mockRepo.AssertNotCalled(t, "PartialUpdate")
 	})

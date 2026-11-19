@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -34,7 +33,7 @@ func newTestRouter(t *testing.T) *echo.Echo {
 
 func scrapeMetrics(t *testing.T, e *echo.Echo) string {
 	t.Helper()
-	mreq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	mreq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metrics", nil)
 	mrec := httptest.NewRecorder()
 	e.ServeHTTP(mrec, mreq)
 	if mrec.Code != http.StatusOK {
@@ -46,7 +45,7 @@ func scrapeMetrics(t *testing.T, e *echo.Echo) string {
 func TestMiddlewareRecordsMetrics(t *testing.T) {
 	e := newTestRouter(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -67,7 +66,7 @@ func TestMiddlewareRecordsMetrics(t *testing.T) {
 func TestMiddlewareNormalizesUnmatchedPath(t *testing.T) {
 	e := newTestRouter(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/does-not-exist", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/does-not-exist", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
@@ -114,7 +113,7 @@ func TestMiddlewareRecordsStatusAfterErrorHandling(t *testing.T) {
 		return errors.New("sheet not found")
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/missing", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/missing", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
@@ -191,7 +190,7 @@ func TestEmailMetrics(t *testing.T) {
 	m.PublishResult("failed")
 	m.MessageDead()
 
-	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metrics", nil)
 	rec := httptest.NewRecorder()
 	m.Handler().ServeHTTP(rec, req)
 
@@ -230,7 +229,7 @@ func TestOTPMetrics(t *testing.T) {
 	observer.ResendRequested(auth.ResendCapped)
 	observer.SendCapBlocked()
 
-	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metrics", nil)
 	rec := httptest.NewRecorder()
 	observer.Handler().ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -273,7 +272,7 @@ func TestOTPMetrics(t *testing.T) {
 		}
 		joined := strings.Join(otpLines, "\n")
 		assert.NotEmpty(t, otpLines, "the code-step series must be exposed")
-		assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), joined)
+		assert.NotRegexp(t, `\b\d{6}\b`, joined)
 		assert.NotContains(t, joined, "@")
 	})
 }
@@ -282,7 +281,7 @@ func scrapeHandler(t *testing.T, m *Metrics) string {
 	t.Helper()
 
 	rec := httptest.NewRecorder()
-	m.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	m.Handler().ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metrics", nil))
 	require.Equal(t, http.StatusOK, rec.Code)
 	return rec.Body.String()
 }
@@ -344,7 +343,7 @@ func TestWorkerMetrics_UnexpectedResult(t *testing.T) {
 func TestMiddlewareLatencyBucketsResolveSubFiveMillisecond(t *testing.T) {
 	e := newTestRouter(t)
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/test", nil))
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil))
 	require.Equal(t, http.StatusOK, rec.Code)
 
 	body := scrapeMetrics(t, e)
@@ -391,7 +390,7 @@ func TestMiddlewareInFlightGauge(t *testing.T) {
 		})
 		m = built
 
-		e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/h", nil))
+		e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/h", nil))
 
 		assert.InDelta(t, 1, during, 0)
 		assert.InDelta(t, 0, gaugeValue(t, m.requestsInFlight), 0)
@@ -402,7 +401,7 @@ func TestMiddlewareInFlightGauge(t *testing.T) {
 			return errors.New("boom")
 		})
 
-		e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/h", nil))
+		e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/h", nil))
 
 		assert.InDelta(t, 0, gaugeValue(t, m.requestsInFlight), 0)
 	})
@@ -413,7 +412,7 @@ func TestMiddlewareInFlightGauge(t *testing.T) {
 		})
 
 		assert.Panics(t, func() {
-			e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/h", nil))
+			e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/h", nil))
 		})
 
 		assert.InDelta(t, 0, gaugeValue(t, m.requestsInFlight), 0)
@@ -434,7 +433,7 @@ func TestMiddlewareInFlightGauge(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/h", nil))
+				e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/h", nil))
 			}()
 		}
 		for i := 0; i < concurrent; i++ {

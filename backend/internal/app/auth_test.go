@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -23,8 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newRequest(method, path, body string) *http.Request {
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
+func newRequest(t *testing.T, method, path, body string) *http.Request {
+	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -370,7 +369,7 @@ func TestAuthController_Me(t *testing.T) {
 			Once()
 
 		h := newMeRouter(t, service, tokens)
-		req := newRequest(http.MethodGet, "/auth/me", "")
+		req := newRequest(t, http.MethodGet, "/auth/me", "")
 		req.Header.Set("Authorization", "Bearer "+access.Value)
 
 		rec := serve(t, h, req)
@@ -399,7 +398,7 @@ func TestAuthController_Me(t *testing.T) {
 			Once()
 
 		h := newMeRouter(t, service, tokens)
-		req := newRequest(http.MethodGet, "/auth/me", "")
+		req := newRequest(t, http.MethodGet, "/auth/me", "")
 		req.Header.Set("Authorization", "Bearer "+access.Value)
 
 		rec := serve(t, h, req)
@@ -414,7 +413,7 @@ func TestAuthController_Me(t *testing.T) {
 		service := authmocks.NewMockService(t)
 
 		h := newMeRouter(t, service, tokens)
-		rec := serve(t, h, newRequest(http.MethodGet, "/auth/me", ""))
+		rec := serve(t, h, newRequest(t, http.MethodGet, "/auth/me", ""))
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 
 		var body response.ErrorResponse
@@ -427,7 +426,7 @@ func TestAuthController_Me(t *testing.T) {
 		service := authmocks.NewMockService(t)
 
 		h := newMeRouter(t, service, tokens)
-		req := newRequest(http.MethodGet, "/auth/me", "")
+		req := newRequest(t, http.MethodGet, "/auth/me", "")
 		req.Header.Set("Authorization", "Bearer not-a-token")
 
 		rec := serve(t, h, req)
@@ -443,7 +442,7 @@ func TestAuthController_Me(t *testing.T) {
 			Once()
 
 		h := newMeRouter(t, service, tokens)
-		req := newRequest(http.MethodGet, "/auth/me", "")
+		req := newRequest(t, http.MethodGet, "/auth/me", "")
 		req.Header.Set("Authorization", "Bearer "+access.Value)
 
 		rec := serve(t, h, req)
@@ -464,7 +463,7 @@ func TestAuthController_Me(t *testing.T) {
 			Once()
 
 		h := newMeRouter(t, service, tokens)
-		req := newRequest(http.MethodGet, "/auth/me", "")
+		req := newRequest(t, http.MethodGet, "/auth/me", "")
 		req.Header.Set("Authorization", "Bearer "+access.Value)
 
 		rec := serve(t, h, req)
@@ -531,11 +530,11 @@ func TestAuthController_RegisterDisclosesNothing(t *testing.T) {
 		rec := doRequest(t, h, http.MethodPost, "/auth/register", `{"email":"player@example.com","username":"player","password":"sup3r-secret"}`)
 		require.Equal(t, http.StatusCreated, rec.Code)
 
-		assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), rec.Body.String())
+		assert.NotRegexp(t, `\b\d{6}\b`, rec.Body.String())
 		assert.NotContains(t, rec.Body.String(), "player@example.com")
 		for key, values := range rec.Header() {
 			for _, value := range values {
-				assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), value, "header %s must carry no code", key)
+				assert.NotRegexp(t, `\b\d{6}\b`, value, "header %s must carry no code", key)
 				assert.NotContains(t, value, "@", "header %s must carry no address", key)
 			}
 		}
@@ -551,7 +550,7 @@ func TestAuthController_Refresh(t *testing.T) {
 			Once()
 
 		h := newAuthRouter(t, service)
-		req := newRequest(http.MethodPost, "/auth/refresh", "")
+		req := newRequest(t, http.MethodPost, "/auth/refresh", "")
 		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: "cookie-refresh"})
 		req.Header.Set("X-CSRF-Token", "csrf-token")
 
@@ -569,7 +568,7 @@ func TestAuthController_Refresh(t *testing.T) {
 			Once()
 
 		h := newAuthRouter(t, service)
-		req := newRequest(http.MethodPost, "/auth/refresh", `{"refresh_token":"body-refresh"}`)
+		req := newRequest(t, http.MethodPost, "/auth/refresh", `{"refresh_token":"body-refresh"}`)
 		req.Header.Set("X-Refresh-Token", "header-refresh")
 
 		rec := serve(t, h, req)
@@ -597,7 +596,7 @@ func TestAuthController_Refresh(t *testing.T) {
 			Once()
 
 		h := newAuthRouter(t, service)
-		req := newRequest(http.MethodPost, "/auth/refresh", "")
+		req := newRequest(t, http.MethodPost, "/auth/refresh", "")
 		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: "cookie-refresh"})
 		req.Header.Set("X-CSRF-Token", "foreign-token")
 
@@ -618,7 +617,7 @@ func TestAuthController_Refresh(t *testing.T) {
 			Once()
 
 		h := newAuthRouter(t, service)
-		req := newRequest(http.MethodPost, "/auth/refresh", "")
+		req := newRequest(t, http.MethodPost, "/auth/refresh", "")
 		req.Header.Set("X-CSRF-Token", "csrf-token")
 
 		rec := serve(t, h, req)
@@ -635,7 +634,7 @@ func TestAuthController_Logout(t *testing.T) {
 			Once()
 
 		h := newAuthRouter(t, service)
-		req := newRequest(http.MethodPost, "/auth/logout", "")
+		req := newRequest(t, http.MethodPost, "/auth/logout", "")
 		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: "cookie-refresh"})
 		req.Header.Set("X-CSRF-Token", "csrf-token")
 
@@ -676,7 +675,7 @@ func TestAuthController_Logout(t *testing.T) {
 			Once()
 
 		h := newAuthRouter(t, service)
-		req := newRequest(http.MethodPost, "/auth/logout", "")
+		req := newRequest(t, http.MethodPost, "/auth/logout", "")
 		req.Header.Set("X-Refresh-Token", "header-refresh")
 
 		rec := serve(t, h, req)
@@ -692,7 +691,7 @@ func TestAuthController_Logout(t *testing.T) {
 			Once()
 
 		h := newAuthRouter(t, service)
-		req := newRequest(http.MethodPost, "/auth/logout", "")
+		req := newRequest(t, http.MethodPost, "/auth/logout", "")
 		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: "cookie-refresh"})
 
 		rec := serve(t, h, req)
@@ -705,7 +704,7 @@ func TestAuthController_RefreshAccountFailures(t *testing.T) {
 	refreshRequest := func(t *testing.T, h http.Handler) *httptest.ResponseRecorder {
 		t.Helper()
 
-		req := newRequest(http.MethodPost, "/auth/refresh", "")
+		req := newRequest(t, http.MethodPost, "/auth/refresh", "")
 		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: "cookie-refresh"})
 		req.Header.Set("X-CSRF-Token", "csrf-token")
 		return serve(t, h, req)
@@ -772,7 +771,7 @@ func TestAuthController_CSRF(t *testing.T) {
 		service.EXPECT().IssueCSRF(mock.Anything, "cookie-refresh").Return("csrf-token", nil).Once()
 
 		h := newAuthRouter(t, service)
-		req := newRequest(http.MethodGet, "/auth/csrf", "")
+		req := newRequest(t, http.MethodGet, "/auth/csrf", "")
 		req.AddCookie(&http.Cookie{Name: auth.RefreshCookieName, Value: "cookie-refresh"})
 
 		rec := serve(t, h, req)

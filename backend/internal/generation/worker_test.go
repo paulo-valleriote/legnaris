@@ -739,7 +739,7 @@ func TestNewWorker(t *testing.T) {
 			deps := base(t)
 			tc.mutate(&deps)
 			w, err := generation.NewWorker(deps)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Nil(t, w)
 		})
 	}

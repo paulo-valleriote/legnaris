@@ -111,7 +111,7 @@ func TestEvaluate(t *testing.T) {
 			expected: nil,
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				assert.ErrorContains(t, err, ErrInvalidFloat.Error())
+				require.ErrorContains(t, err, ErrInvalidFloat.Error())
 				assert.ErrorContains(t, err, "expects exactly 2 arguments")
 			},
 		},

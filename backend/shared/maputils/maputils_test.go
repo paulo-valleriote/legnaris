@@ -313,7 +313,7 @@ func TestSet(t *testing.T) {
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.wantNested, inputCopy)
 			}
 		})
@@ -422,7 +422,7 @@ func TestApplyUpdates(t *testing.T) {
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.wantNested, inputCopy)
 			}
 		})
@@ -981,7 +981,7 @@ func TestToFloat64(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, ok := ToFloat64(tc.in)
 			assert.Equal(t, tc.ok, ok)
-			assert.Equal(t, tc.want, got)
+			assert.InDelta(t, tc.want, got, 1e-9)
 		})
 	}
 }

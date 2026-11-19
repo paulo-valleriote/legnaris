@@ -343,7 +343,7 @@ func TestAlertRulesPassThePrometheusValidator(t *testing.T) {
 		t.Skip("promtool is not installed; run the quickstart's containerised check instead")
 	}
 
-	out, err := exec.Command(promtool, "check", "rules", rulesFile).CombinedOutput()
+	out, err := exec.CommandContext(t.Context(), promtool, "check", "rules", rulesFile).CombinedOutput()
 	assert.NoErrorf(t, err, "promtool rejected the rules:\n%s", out)
 }
 

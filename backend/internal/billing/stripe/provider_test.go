@@ -2,7 +2,6 @@ package stripe
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -77,7 +76,7 @@ func TestProvider_CreateCustomer(t *testing.T) {
 			`{"error":{"type":"invalid_request_error","message":"bad"}}`))
 		_, err := p.CreateCustomer(context.Background(), billing.CustomerRequest{IdempotencyKey: "k", UserID: "u"})
 		require.ErrorIs(t, err, billing.ErrProviderRejected)
-		assert.False(t, errors.Is(err, billing.ErrProviderUnavailable))
+		assert.NotErrorIs(t, err, billing.ErrProviderUnavailable)
 	})
 
 	t.Run("Error: a 5xx from Stripe is unavailable", func(t *testing.T) {

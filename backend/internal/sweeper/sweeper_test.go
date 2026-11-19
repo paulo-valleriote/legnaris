@@ -153,7 +153,7 @@ func TestNew(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			sw, err := sweeper.New(tc.queues, "relay-test", tc.obs, testLogger())
 			if tc.wantErr {
-				assert.ErrorIs(t, err, sweeper.ErrInvalidQueue)
+				require.ErrorIs(t, err, sweeper.ErrInvalidQueue)
 				assert.Nil(t, sw)
 				return
 			}
@@ -326,7 +326,7 @@ func TestRunOnceErrors(t *testing.T) {
 		}), obs)
 
 		err := sw.RunOnce(context.Background(), fixedNow)
-		assert.ErrorIs(t, err, errStore)
+		require.ErrorIs(t, err, errStore)
 		assert.False(t, handled)
 	})
 
@@ -340,7 +340,7 @@ func TestRunOnceErrors(t *testing.T) {
 		}), obs)
 
 		err := sw.RunOnce(context.Background(), fixedNow)
-		assert.ErrorIs(t, err, errStore)
+		require.ErrorIs(t, err, errStore)
 		assert.True(t, handled)
 	})
 
@@ -358,7 +358,7 @@ func TestRunOnceErrors(t *testing.T) {
 		require.NoError(t, err)
 
 		runErr := sw.RunOnce(context.Background(), fixedNow)
-		assert.ErrorIs(t, runErr, errStore)
+		require.ErrorIs(t, runErr, errStore)
 		assert.Len(t, healthy.claims, 1, "the healthy queue still ran")
 	})
 }
@@ -435,7 +435,7 @@ func TestRunCancelledContext(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		assert.NoError(t, sw.Run(ctx))
+		require.NoError(t, sw.Run(ctx))
 		assert.Len(t, store.claims, 1)
 	})
 }

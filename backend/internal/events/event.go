@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"legnaris/backend/shared/idgen"
+	sharedjson "legnaris/backend/shared/json"
 )
 
 const ContractVersion = 1
@@ -68,7 +69,7 @@ func Encode(ev Event, id string, at time.Time) ([]byte, error) {
 
 	data, err := json.Marshal(ev.Data)
 	if err != nil {
-		return nil, fmt.Errorf("%w: encode data: %v", ErrInvalidEvent, err)
+		return nil, fmt.Errorf("%w: encode data: %w", ErrInvalidEvent, err)
 	}
 
 	env := Envelope{
@@ -87,14 +88,14 @@ func Encode(ev Event, id string, at time.Time) ([]byte, error) {
 
 	body, err := json.Marshal(env)
 	if err != nil {
-		return nil, fmt.Errorf("%w: encode envelope: %v", ErrInvalidEvent, err)
+		return nil, fmt.Errorf("%w: encode envelope: %w", ErrInvalidEvent, err)
 	}
 	return body, nil
 }
 
 func Decode(body []byte) (Envelope, error) {
 	var env Envelope
-	if err := json.Unmarshal(body, &env); err != nil {
+	if err := sharedjson.DecodeBytes(body, &env); err != nil {
 		return Envelope{}, fmt.Errorf("decode envelope: %w", err)
 	}
 	return env, nil

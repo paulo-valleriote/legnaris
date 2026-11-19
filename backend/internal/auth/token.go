@@ -70,7 +70,7 @@ func (m *jwtTokenManager) Parse(token string) (string, error) {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return "", ErrExpiredToken
 		}
-		return "", fmt.Errorf("%w: %v", ErrInvalidToken, err)
+		return "", fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
 
 	if !parsed.Valid || claims.Subject == "" {

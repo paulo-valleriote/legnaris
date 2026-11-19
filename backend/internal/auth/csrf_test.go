@@ -2,7 +2,6 @@ package auth_test
 
 import (
 	"encoding/base64"
-	"errors"
 	"testing"
 
 	"legnaris/backend/internal/auth"
@@ -160,6 +159,6 @@ func TestCSRFTokenManager_Verify_FailuresAreIndistinguishable(t *testing.T) {
 	for _, token := range tokens {
 		err := manager.Verify(token, familyA)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, auth.ErrCSRFTokenInvalid))
+		assert.ErrorIs(t, err, auth.ErrCSRFTokenInvalid)
 	}
 }

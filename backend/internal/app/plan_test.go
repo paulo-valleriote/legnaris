@@ -46,7 +46,7 @@ func planEngine(t *testing.T, store *mocks.MockStore, resolver app.PlanResolver,
 func getPlan(t *testing.T, e *echo.Echo) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/me/plan", nil))
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/me/plan", nil))
 	return rec
 }
 
@@ -89,8 +89,8 @@ func TestPlanController_Get(t *testing.T) {
 		assert.Equal(t, "paid", body["plan"])
 		generations, ok := body["generations"].(map[string]any)
 		require.True(t, ok, "generations must be an object, got %v", body["generations"])
-		assert.Equal(t, float64(5), generations["used"])
-		assert.Equal(t, float64(25), generations["remaining"])
+		assert.InDelta(t, float64(5), generations["used"], 1e-9)
+		assert.InDelta(t, float64(25), generations["remaining"], 1e-9)
 		assert.Equal(t, "2026-11-15T00:00:00Z", generations["resets_at"])
 		assert.NotContains(t, body, "trial", "a paid account must not expose the Free trial")
 	})
@@ -146,7 +146,7 @@ func TestPlanController_Get(t *testing.T) {
 		rec := getPlan(t, planEngine(t, store, staticResolver(true), planUserID))
 
 		generations := planBody(t, rec)["generations"].(map[string]any)
-		assert.Equal(t, float64(0), generations["remaining"])
+		assert.InDelta(t, float64(0), generations["remaining"], 1e-9)
 	})
 
 	t.Run("Edge: a request without an authenticated user is 401 UNAUTHORIZED", func(t *testing.T) {

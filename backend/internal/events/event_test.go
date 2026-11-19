@@ -1,7 +1,6 @@
 package events_test
 
 import (
-	"errors"
 	"os"
 	"testing"
 	"time"
@@ -64,7 +63,7 @@ func TestEncode(t *testing.T) {
 			body, err := events.Encode(ev, testEventID, testInstant)
 			if tc.wantErr != nil {
 				require.Error(t, err)
-				assert.True(t, errors.Is(err, tc.wantErr))
+				require.ErrorIs(t, err, tc.wantErr)
 				assert.Nil(t, body)
 				return
 			}

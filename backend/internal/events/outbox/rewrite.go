@@ -9,6 +9,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+
+	sharedjson "legnaris/backend/shared/json"
 )
 
 const (
@@ -139,41 +141,41 @@ func verifyNoOldKind(ctx context.Context, collection *mongo.Collection, eventTyp
 
 func rewriteBodyKind(body []byte, from, to string) ([]byte, bool, error) {
 	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, false, fmt.Errorf("%w: decode envelope: %v", ErrInvalidEntry, err)
+	if err := sharedjson.DecodeBytes(body, &envelope); err != nil {
+		return nil, false, fmt.Errorf("%w: decode envelope: %w", ErrInvalidEntry, err)
 	}
 	rawData, ok := envelope[fieldData]
 	if !ok {
 		return nil, false, nil
 	}
 	var data map[string]json.RawMessage
-	if err := json.Unmarshal(rawData, &data); err != nil {
-		return nil, false, fmt.Errorf("%w: decode data: %v", ErrInvalidEntry, err)
+	if err := sharedjson.DecodeBytes(rawData, &data); err != nil {
+		return nil, false, fmt.Errorf("%w: decode data: %w", ErrInvalidEntry, err)
 	}
 	rawKind, ok := data[fieldKind]
 	if !ok {
 		return nil, false, nil
 	}
 	var kind string
-	if err := json.Unmarshal(rawKind, &kind); err != nil {
-		return nil, false, fmt.Errorf("%w: decode data kind: %v", ErrInvalidEntry, err)
+	if err := sharedjson.DecodeBytes(rawKind, &kind); err != nil {
+		return nil, false, fmt.Errorf("%w: decode data kind: %w", ErrInvalidEntry, err)
 	}
 	if kind != from {
 		return nil, false, nil
 	}
 	encodedKind, err := json.Marshal(to)
 	if err != nil {
-		return nil, false, fmt.Errorf("%w: encode data kind: %v", ErrInvalidEntry, err)
+		return nil, false, fmt.Errorf("%w: encode data kind: %w", ErrInvalidEntry, err)
 	}
 	data[fieldKind] = encodedKind
 	encodedData, err := json.Marshal(data)
 	if err != nil {
-		return nil, false, fmt.Errorf("%w: encode data: %v", ErrInvalidEntry, err)
+		return nil, false, fmt.Errorf("%w: encode data: %w", ErrInvalidEntry, err)
 	}
 	envelope[fieldData] = encodedData
 	rewrittenBody, err := json.Marshal(envelope)
 	if err != nil {
-		return nil, false, fmt.Errorf("%w: encode envelope: %v", ErrInvalidEntry, err)
+		return nil, false, fmt.Errorf("%w: encode envelope: %w", ErrInvalidEntry, err)
 	}
 	return rewrittenBody, true, nil
 }

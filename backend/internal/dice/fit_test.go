@@ -155,7 +155,7 @@ func TestFitsRow_IsConcurrencySafe(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 16 {
 		wg.Go(func() {
-			assert.NoError(t, expr.FitsRow(schema, "skills.acrobatics"))
+			require.NoError(t, expr.FitsRow(schema, "skills.acrobatics"))
 			assert.ErrorIs(t, expr.FitsRow(schema, "combat.initiative"), dice.ErrUnknownField)
 		})
 	}

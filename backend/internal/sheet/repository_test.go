@@ -70,7 +70,7 @@ func TestRepository_OwnerScopedReadsAndWrites(t *testing.T) {
 		require.NoError(t, repo.DeleteByID(ctx, "01900000-0000-7000-8000-0000000000a1"))
 
 		_, err := repo.FetchByID(ctx, "01900000-0000-7000-8000-0000000000a1")
-		assert.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
+		require.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
 
 		err = repo.DeleteByID(ctx, "01900000-0000-7000-8000-0000000000a1")
 		assert.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
@@ -276,7 +276,7 @@ func TestRepository_PartialUpdateVersion(t *testing.T) {
 
 	t.Run("Edge: an unknown sheet reports ErrSheetNotFound, not a retryable conflict", func(t *testing.T) {
 		_, err := repo.PartialUpdate(ctx, missingID, 0, dexterityUpdate(18))
-		assert.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
+		require.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
 		assert.NotErrorIs(t, err, sheeterr.ErrVersionConflict)
 	})
 

@@ -132,7 +132,7 @@ func TestBroker_ConsumeFailures(t *testing.T) {
 
 			stream, err := broker.Consume(context.Background())
 
-			assert.ErrorIs(t, err, ErrBrokerUnavailable)
+			require.ErrorIs(t, err, ErrBrokerUnavailable)
 			assert.Nil(t, stream)
 			assert.Equal(t, tc.closed, consumer.closed)
 		})
@@ -150,7 +150,7 @@ func TestBroker_ConsumeStream(t *testing.T) {
 		delivery, ok := receive(t, stream)
 		require.True(t, ok)
 
-		assert.Equal(t, []byte(`{"id":"x"}`), delivery.Body)
+		assert.JSONEq(t, `{"id":"x"}`, string(delivery.Body))
 		require.NoError(t, delivery.Handle.Ack())
 		assert.Equal(t, []uint64{42}, acker.acked)
 		assert.Empty(t, acker.nacked)
@@ -293,7 +293,7 @@ func TestBroker_PublishToFailures(t *testing.T) {
 
 			err := broker.PublishTo(context.Background(), destination, testMessage())
 
-			assert.ErrorIs(t, err, ErrUnknownDestination)
+			require.ErrorIs(t, err, ErrUnknownDestination)
 			assert.Empty(t, fake.published, "nothing is published to an unknown destination")
 		})
 	}
@@ -329,7 +329,7 @@ func TestBroker_PublishBodyTo(t *testing.T) {
 
 		err := broker.PublishBodyTo(context.Background(), "nowhere", []byte("x"))
 
-		assert.ErrorIs(t, err, ErrUnknownDestination)
+		require.ErrorIs(t, err, ErrUnknownDestination)
 		assert.Empty(t, fake.published)
 	})
 

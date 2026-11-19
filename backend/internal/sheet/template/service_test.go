@@ -74,7 +74,7 @@ func TestService_FetchTemplate(t *testing.T) {
 			require.Error(t, err)
 			assert.Nil(t, tmpl)
 			assert.Equal(t, tc.wantMsg, err.Error())
-			assert.ErrorIs(t, err, tc.wantSentin)
+			require.ErrorIs(t, err, tc.wantSentin)
 		})
 	}
 }

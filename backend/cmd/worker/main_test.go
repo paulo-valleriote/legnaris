@@ -124,7 +124,7 @@ func TestRun_FailsFastOnUnusableConfiguration(t *testing.T) {
 			err := run(context.Background(), cfg, p.deps(broker, nil))
 
 			require.Error(t, err)
-			assert.ErrorIs(t, err, tc.wantErr)
+			require.ErrorIs(t, err, tc.wantErr)
 			assert.False(t, p.dialed, "the broker must not be dialed on a bad configuration")
 			assert.False(t, p.served)
 			assert.False(t, broker.declared.Load())
@@ -140,7 +140,7 @@ func TestRun_FailsBeforeConsuming(t *testing.T) {
 
 		err := run(context.Background(), testEnv(), deps)
 
-		assert.ErrorIs(t, err, amqp.ErrBrokerUnavailable)
+		require.ErrorIs(t, err, amqp.ErrBrokerUnavailable)
 		assert.False(t, p.served)
 	})
 

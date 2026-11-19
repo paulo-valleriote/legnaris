@@ -1,13 +1,13 @@
 package worker_test
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 
 	"legnaris/backend/internal/email/worker"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSentinels(t *testing.T) {
@@ -15,10 +15,10 @@ func TestSentinels(t *testing.T) {
 
 	for i, sentinel := range all {
 		wrapped := fmt.Errorf("context: %w", sentinel)
-		assert.True(t, errors.Is(wrapped, sentinel))
+		require.ErrorIs(t, wrapped, sentinel)
 		for j, other := range all {
 			if i != j {
-				assert.False(t, errors.Is(wrapped, other))
+				assert.NotErrorIs(t, wrapped, other)
 			}
 		}
 	}

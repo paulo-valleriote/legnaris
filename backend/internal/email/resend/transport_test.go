@@ -26,7 +26,7 @@ func (b *trackingBody) Close() error {
 }
 
 func TestStatusTransport(t *testing.T) {
-	request, err := http.NewRequest(http.MethodPost, "https://api.example/emails", nil)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://api.example/emails", nil)
 	require.NoError(t, err)
 
 	t.Run("Happy path: a 2xx response passes through untouched", func(t *testing.T) {
@@ -41,6 +41,7 @@ func TestStatusTransport(t *testing.T) {
 		require.NotNil(t, resp)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.False(t, body.closed, "a success body must stay open for the SDK to decode")
+		require.NoError(t, resp.Body.Close())
 	})
 
 	t.Run("Happy path: a created response passes through", func(t *testing.T) {
@@ -51,6 +52,7 @@ func TestStatusTransport(t *testing.T) {
 		resp, err := statusTransport{base: base}.RoundTrip(request)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NoError(t, resp.Body.Close())
 	})
 
 	t.Run("Error: a non-2xx response becomes a typed status error and closes the body", func(t *testing.T) {
@@ -60,12 +62,15 @@ func TestStatusTransport(t *testing.T) {
 		})
 
 		resp, err := statusTransport{base: base}.RoundTrip(request)
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
 
 		var statusErr *statusError
-		require.True(t, errors.As(err, &statusErr), "the error must carry the provider status")
+		require.ErrorAs(t, err, &statusErr, "the error must carry the provider status")
 		assert.Equal(t, http.StatusBadGateway, statusErr.Status)
 		assert.Equal(t, "boom", statusErr.Body)
 		assert.True(t, body.closed, "a failing body must be closed")
@@ -77,11 +82,14 @@ func TestStatusTransport(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusInternalServerError, Body: body, Header: http.Header{}}, nil
 		})
 
-		_, err := statusTransport{base: base}.RoundTrip(request)
+		resp, err := statusTransport{base: base}.RoundTrip(request)
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		require.Error(t, err)
 
 		var statusErr *statusError
-		require.True(t, errors.As(err, &statusErr))
+		require.ErrorAs(t, err, &statusErr)
 		assert.Len(t, statusErr.Body, statusErrorBodyLimit)
 	})
 
@@ -89,7 +97,10 @@ func TestStatusTransport(t *testing.T) {
 		sentinel := errors.New("connection reset")
 		base := roundTripFunc(func(*http.Request) (*http.Response, error) { return nil, sentinel })
 
-		_, err := statusTransport{base: base}.RoundTrip(request)
+		resp, err := statusTransport{base: base}.RoundTrip(request)
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		assert.ErrorIs(t, err, sentinel)
 	})
 }

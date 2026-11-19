@@ -39,7 +39,7 @@ func TestChallengeController_VerifyCarriesClientIP(t *testing.T) {
 			controller := app.NewChallengeController(service, &countingObserver{})
 			e.POST(verifyRoute, controller.Verify)
 
-			req := httptest.NewRequest(http.MethodPost, verifyRoute,
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, verifyRoute,
 				strings.NewReader(`{"challenge_id":"`+challengeID+`","code":"042917"}`))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()

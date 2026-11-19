@@ -330,7 +330,7 @@ func TestWalkTopological(t *testing.T) {
 			wantChanged: nil,
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
-				assert.ErrorContains(t, err, "formula evaluation failed for field 'output'")
+				require.ErrorContains(t, err, "formula evaluation failed for field 'output'")
 				assert.ErrorContains(t, err, "invalid operation")
 			},
 		},
@@ -601,7 +601,7 @@ func TestRecalculate_NilDAG(t *testing.T) {
 	var dag *DAG
 	result, err := dag.Recalculate(map[string]any{"a": 1.0}, map[string]any{"a": 2.0})
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "DAG is nil")
+	require.ErrorContains(t, err, "DAG is nil")
 	assert.Nil(t, result)
 }
 
@@ -609,7 +609,7 @@ func TestProcessNode_NilNode(t *testing.T) {
 	d := &DAG{formulaEngine: engine.NewFormulaEngine()}
 	propagated, err := d.processNode(nil, map[string]any{}, map[string]any{}, map[string]any{})
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "node is nil")
+	require.ErrorContains(t, err, "node is nil")
 	assert.False(t, propagated)
 }
 
@@ -620,6 +620,6 @@ func TestBuildDAG_NilEngine(t *testing.T) {
 		}},
 	}, nil)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "formula engine is required")
+	require.ErrorContains(t, err, "formula engine is required")
 	assert.Nil(t, dag)
 }

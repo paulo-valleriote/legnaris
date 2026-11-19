@@ -19,7 +19,7 @@ func TestMiddlewareAllowsConditionalRequestsAndExposesETag(t *testing.T) {
 	})
 
 	t.Run("Happy path: preflight allows If-None-Match", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodOptions, "/sheet", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/sheet", nil)
 		req.Header.Set("Origin", origin)
 		req.Header.Set("Access-Control-Request-Method", http.MethodGet)
 		req.Header.Set("Access-Control-Request-Headers", "If-None-Match")
@@ -33,7 +33,7 @@ func TestMiddlewareAllowsConditionalRequestsAndExposesETag(t *testing.T) {
 	})
 
 	t.Run("Happy path: simple GET exposes ETag to the browser", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/sheet", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/sheet", nil)
 		req.Header.Set("Origin", origin)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
@@ -45,7 +45,7 @@ func TestMiddlewareAllowsConditionalRequestsAndExposesETag(t *testing.T) {
 	})
 
 	t.Run("Edge: unknown origin gets no CORS allowance", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodOptions, "/sheet", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/sheet", nil)
 		req.Header.Set("Origin", "https://evil.example")
 		req.Header.Set("Access-Control-Request-Method", http.MethodGet)
 		req.Header.Set("Access-Control-Request-Headers", "If-None-Match")

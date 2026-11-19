@@ -270,8 +270,8 @@ func TestConsumer_Handle(t *testing.T) {
 
 		err := f.run(job)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, billing.ErrProviderUnavailable)
-		assert.False(t, errors.Is(err, sweeper.ErrPermanent))
+		require.ErrorIs(t, err, billing.ErrProviderUnavailable)
+		require.NotErrorIs(t, err, sweeper.ErrPermanent)
 
 		ev, _ := f.ledger.Event(job.ID)
 		assert.Equal(t, billing.EventReceived, ev.Status)

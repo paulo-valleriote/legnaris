@@ -33,8 +33,8 @@ func newCampaignRouter(svc campaign.Service) http.Handler {
 	return e
 }
 
-func doCampaignRequest(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
+func doCampaignRequest(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -68,7 +68,7 @@ func TestCampaignRoutes_ServiceErrorsMapToHTTPStatus(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			svc.EXPECT().Fetch(mock.Anything, campaignTestID, campaignTestUserID).
 				Return(campaign.View{}, apperr.NewError(tc.code, "boom", nil)).Once()
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodGet, "/campaigns/"+campaignTestID, "")
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodGet, "/campaigns/"+campaignTestID, "")
 			assert.Equal(t, tc.status, rec.Code)
 			assert.Equal(t, string(tc.code), campaignErrorCode(t, rec))
 		})
@@ -94,7 +94,7 @@ func TestCampaignRoutes_Create(t *testing.T) {
 				svc.EXPECT().Create(mock.Anything, campaign.CreateCommand{OwnerID: campaignTestUserID, Name: "Curse", TemplateID: "dnd5e"}).
 					Return(campaign.View{ID: campaignTestID, Name: "Curse"}, nil).Once()
 			}
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPost, "/campaigns", tc.body)
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPost, "/campaigns", tc.body)
 			assert.Equal(t, tc.wantCode, rec.Code)
 			if tc.errCode != "" {
 				assert.Equal(t, tc.errCode, campaignErrorCode(t, rec))
@@ -135,7 +135,7 @@ func TestCampaignRoutes_ListAndFetch(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			tc.setup(svc)
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodGet, tc.path, "")
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodGet, tc.path, "")
 			require.Equal(t, http.StatusOK, rec.Code)
 		})
 	}
@@ -145,14 +145,14 @@ func TestCampaignRoutes_Leave(t *testing.T) {
 	t.Run("Happy path: leaving answers 204 with no body", func(t *testing.T) {
 		svc := campaignmocks.NewMockService(t)
 		svc.EXPECT().Leave(mock.Anything, campaign.LeaveCommand{CampaignID: campaignTestID, UserID: campaignTestUserID}).Return(nil).Once()
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPost, "/campaigns/"+campaignTestID+"/leave", "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPost, "/campaigns/"+campaignTestID+"/leave", "")
 		assert.Equal(t, http.StatusNoContent, rec.Code)
 		assert.Empty(t, rec.Body.String())
 	})
 	t.Run("Error: the owner leaving is 403", func(t *testing.T) {
 		svc := campaignmocks.NewMockService(t)
 		svc.EXPECT().Leave(mock.Anything, mock.Anything).Return(apperr.NewError(apperr.CodeCampaignForbidden, "owner", nil)).Once()
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPost, "/campaigns/"+campaignTestID+"/leave", "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPost, "/campaigns/"+campaignTestID+"/leave", "")
 		assert.Equal(t, http.StatusForbidden, rec.Code)
 		assert.Equal(t, "CAMPAIGN_FORBIDDEN", campaignErrorCode(t, rec))
 	})
@@ -192,7 +192,7 @@ func TestCampaignRoutes_RoleChanges(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			tc.expect(svc)
 			path := "/campaigns/" + campaignTestID + "/members/" + campaignTestTargetID + "/" + tc.action
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPost, path, "")
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPost, path, "")
 			assert.Equal(t, http.StatusOK, rec.Code)
 		})
 	}
@@ -222,7 +222,7 @@ func TestCampaignRoutes_RoleChangeRefusals(t *testing.T) {
 				svc.EXPECT().Remove(mock.Anything, mock.Anything).Return(campaign.View{}, failure).Once()
 			}
 			path := "/campaigns/" + campaignTestID + "/members/" + campaignTestTargetID + "/" + tc.action
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPost, path, "")
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPost, path, "")
 			assert.Equal(t, tc.status, rec.Code)
 			assert.Equal(t, string(tc.code), campaignErrorCode(t, rec))
 		})
@@ -233,7 +233,7 @@ func TestCampaignRoutes_Delete(t *testing.T) {
 	t.Run("Happy path: deleting answers 202 with the deleting status", func(t *testing.T) {
 		svc := campaignmocks.NewMockService(t)
 		svc.EXPECT().Delete(mock.Anything, campaign.DeleteCommand{CampaignID: campaignTestID, ActorID: campaignTestUserID}).Return(nil).Once()
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodDelete, "/campaigns/"+campaignTestID, "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodDelete, "/campaigns/"+campaignTestID, "")
 		assert.Equal(t, http.StatusAccepted, rec.Code)
 		assert.Contains(t, rec.Body.String(), `"status":"deleting"`)
 	})
@@ -250,7 +250,7 @@ func TestCampaignRoutes_Delete(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			svc.EXPECT().Delete(mock.Anything, mock.Anything).Return(apperr.NewError(tc.code, "boom", nil)).Once()
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodDelete, "/campaigns/"+campaignTestID, "")
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodDelete, "/campaigns/"+campaignTestID, "")
 			assert.Equal(t, tc.status, rec.Code)
 			assert.Equal(t, string(tc.code), campaignErrorCode(t, rec))
 		})

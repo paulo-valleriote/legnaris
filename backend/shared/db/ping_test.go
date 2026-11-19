@@ -31,7 +31,7 @@ func TestDatabase_Ping(t *testing.T) {
 		cancel()
 
 		start := time.Now()
-		assert.Error(t, (&db.Database{Client: client}).Ping(ctx))
+		require.Error(t, (&db.Database{Client: client}).Ping(ctx))
 		assert.Less(t, time.Since(start), time.Second)
 	})
 }

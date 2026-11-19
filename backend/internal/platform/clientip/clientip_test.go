@@ -14,7 +14,7 @@ import (
 func request(t *testing.T, remoteAddr string, forwarded ...string) *http.Request {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodGet, "/auth/login", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/auth/login", nil)
 	req.RemoteAddr = remoteAddr
 	for _, value := range forwarded {
 		req.Header.Add("X-Forwarded-For", value)
