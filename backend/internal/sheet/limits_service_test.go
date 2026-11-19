@@ -29,6 +29,11 @@ var limitFields = template.FieldGroup{
 	"stats": {Children: template.FieldGroup{
 		"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
 	}},
+	"modifiers": {Children: template.FieldGroup{
+		"dexterityMod": {Schema: &template.FieldSchema{
+			Type: "number", Formula: "floor((stats_dexterity - 10) / 2)", DependsOn: [][]string{{"stats", "dexterity"}},
+		}},
+	}},
 }
 
 func limitDAG(t *testing.T) sheettest.DAGMap {

@@ -132,10 +132,11 @@ func (s *ServiceImpl) CreateWithValues(ctx context.Context, cmd CreateWithValues
 }
 
 func (s *ServiceImpl) applyValues(dag *template.DAG, seed map[string]any, values map[string]any) (map[string]any, error) {
-	updates, err := maputils.FlattenPathKeys(values)
+	flat, err := maputils.FlattenPathKeys(values)
 	if err != nil {
 		return nil, translateMapErr("create", err)
 	}
+	updates := dropDerived(dag, flat)
 	normalized, cascade, err := dag.NormalizeAndRecalculate(seed, updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
@@ -148,4 +149,15 @@ func (s *ServiceImpl) applyValues(dag *template.DAG, seed map[string]any, values
 		return nil, translateMapErr("create", err)
 	}
 	return merged, nil
+}
+
+func dropDerived(dag *template.DAG, values map[string]any) map[string]any {
+	kept := make(map[string]any, len(values))
+	for key, value := range values {
+		if node, ok := dag.GetNode(key); ok && !node.IsEditable {
+			continue
+		}
+		kept[key] = value
+	}
+	return kept
 }
