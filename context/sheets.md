@@ -228,10 +228,11 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 A sheet whose template id has a preset opens in **Play**; every other template opens in **Edit**,
 today's form. The preset registry maps a template id to a header component and ordered section
 slots, so later gameplay surfaces are additions to the preset rather than branches in the screen.
-The `fantasy_v1` preset currently draws the hero header only: the title is `identity.characterName`
-with the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper,
-`played by <player>` and the proficiency badge. Edit keeps the generic form, Arrange and the pinned
-filter; Play ignores the layout and the view filters.
+The `fantasy_v1` preset currently draws the hero header, the spellcasting panel and the table-rules
+disclosure: the header's title is `identity.characterName` with the sheet name as its empty
+fallback, then `ancestry`, `origin`, `Level N` with a stepper, `played by <player>` and the
+proficiency badge. Edit keeps the generic form, Arrange and the pinned filter; Play ignores the
+layout and the view filters.
 
 The mode is component state for the open screen, local to the viewer, never persisted and never
 sent. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
@@ -246,6 +247,22 @@ Preview and Save wired to the same edit store. The card appears while the edited
 the saved baseline and hides on Save or Discard, or when every edit is reverted; a failed save or
 preview keeps it and shows the mapped failure copy. Only value edits are summarised: a Dice-only
 change still counts as unsaved work for the footer and the leave guard but draws no card.
+
+The spellcasting panel (`preset/fantasy/spells.tsx`) reads the decoded template instead of fixed
+paths. It shows the `spellcastingAbility` exclusive group as a segmented choice
+(`preset/segmented_choice.tsx`, no native select): a choice writes 1 to the chosen member and 0 to
+every sibling in one `setExclusive` call, so exactly one member is non-zero. The derived spell
+attack bonus carries the Row's dice action with the preset row default `1d20 + @`, so a roll shares
+the Dice store, pendings and result panel; the save DC is a plain derived readout. The at-will and
+prepared lists use the same one-path inline editor. One slot row is drawn per level whose total is
+non-zero: `total` pips with the remaining ones first, each a `--lg-size-control` target that writes
+`spells.slotN.expended` (a remaining pip spends one, a spent pip recovers one), and the total stays
+inline-editable through the engine's numeric guard. `preset/fantasy/slot_pips.ts` is pure
+(`slotPool`, `spendSlot`, `recoverSlot`, `slotPips`): a missing, non-numeric or negative count reads
+as zero, fractional counts truncate, `expended` clamps to the total, and spend or recover at a cap
+returns the same pool. A level stays visible while its total is being edited, and hides once a saved
+total of zero is the stored value. `preset/fantasy/rules.tsx` draws the four `rules.*` leaves as a
+disclosure collapsed by default, editable through the same numeric guard when opened.
 
 ### Web local records
 
@@ -294,7 +311,9 @@ Web:
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header` plus
   ordered section slots); `pending_card.tsx`, `pending_changes.ts` — the floating unsaved-delta card
   and its pure summary; `mode_toggle.tsx` — the local Play/Edit switch; `inline_edit.tsx` — the
-  reusable single-path inline editor.
+  reusable single-path inline editor; `segmented_choice.tsx` — the reusable exclusive-group control
+  that writes through `setExclusive`; `preset/fantasy/` — one module per preset section (hero,
+  spellcasting panel, table-rules disclosure) and the pure `slot_pips.ts` slot-pool helper.
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
   `dice_view.ts` — Dice choices over the edit store (see [dice](dice.md)).
@@ -336,9 +355,10 @@ Web:
   there is no pin cap.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
-- Play mode presents the `fantasy_v1` hero header and the pending-changes card today. The combat
-  strip, XP, abilities, saves and skills, attacks, spells and stat block are added by later tickets;
-  a template without a preset always keeps the generic form.
+- Play mode presents the `fantasy_v1` hero header, the spellcasting panel with its table-rules
+  disclosure, and the pending-changes card today. The combat strip, XP, abilities, saves and skills,
+  attacks and stat block are added by later tickets; a template without a preset always keeps the
+  generic form.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are
