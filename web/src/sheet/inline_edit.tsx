@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { messageWith } from '../l10n/strings';
 
 export interface InlineEditProps {
@@ -8,6 +8,7 @@ export interface InlineEditProps {
   readonly fallback?: string;
   readonly className?: string;
   readonly inputMode?: 'text' | 'numeric';
+  readonly display?: ReactNode;
 }
 
 export function InlineEdit({
@@ -17,6 +18,7 @@ export function InlineEdit({
   fallback,
   className,
   inputMode,
+  display,
 }: InlineEditProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -84,7 +86,7 @@ export function InlineEdit({
       data-empty={value.trim() === '' && fallback === undefined ? '' : undefined}
       onClick={begin}
     >
-      {shown}
+      {display ?? shown}
     </button>
   );
 }
