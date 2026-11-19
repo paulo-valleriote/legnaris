@@ -1,42 +1,19 @@
-# AGENTS.md — backend/shared/apperr (Typed Application Errors)
+# AGENTS.md — backend/shared/apperr
 
-## Purpose
+Why errors are typed and translated at the boundary:
+[`context/architecture.md`](../../../context/architecture.md).
 
-Central error type for **services and controllers** only. Lower layers (repository, template, engine, backend/shared/db, etc.) **must NOT import this package**.
+## Working rules
 
-## Usage (Services & Controllers)
-
-```go
-// Create
-apperr.NewError(code, message, err)
-
-// Causes
-// - err = nil, or
-// - lower-layer typed error (repository/DAG/json/maputils/…)
-// - NEVER bare errors.New()
-// - NO package-level errors.New sentinels in backend/internal/app or backend/internal/sheet
-```
-
-## Error Codes & HTTP Status Mapping
-
-Defined in `err.go`. When adding a new `apperr.Code`:
-
-1. Add HTTP status mapping in `apperr.NewError` — unmapped codes fall back to 500 via `HttpStatus()`
-2. Confirm `HTTPErrorHandler` (`backend/internal/app/router.go`) serializes it correctly
-3. Add test asserting the status mapping for the new error
-
-## Boundary Translation (Service Layer)
-
-Map lower-layer errors to `apperr` using `errors.Is`/`errors.As`:
-
-```go
-if errors.Is(err, repository.ErrSheetNotFound) {
-    return apperr.NewError(apperr.CodeNotFound, "sheet not found", err)
-}
-```
-
-This ensures `HTTPErrorHandler` returns correct status instead of 500 `INTERNAL_ERROR` fallback.
-
-## Message Constants
-
-Export user-facing message constants (plain strings) from the owning service package so controllers reuse wording. These are **not errors** — just strings.
+- Services and controllers may import this package; repositories, template,
+  engine, db and every other lower layer must not.
+- Create with `apperr.NewError(code, message, cause)`. The cause is `nil` or a
+  lower-layer typed error, never a bare `errors.New`.
+- Do not declare `errors.New` sentinels in `backend/internal/app` or domain
+  packages; declare them in the owning lower layer.
+- A new `apperr.Code` needs its HTTP status in `err.go`, a working
+  `HTTPErrorHandler` path and a test for the mapping.
+- Translate lower-layer errors with `errors.Is`/`errors.As` so they do not fall
+  back to 500.
+- Export user-facing message constants from the owning service package; they
+  are strings, not errors.
