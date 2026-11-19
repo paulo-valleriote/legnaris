@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  PREVIEW_THROTTLE_MS,
-  isLastGeneration,
-  mergeCascade,
-  previewDelay,
-} from '../generate/generation_flow';
+import { PREVIEW_THROTTLE_MS, mergeCascade, previewDelay } from '../generate/generation_flow';
 
 describe('previewDelay (LGN-196 throttled derived values)', () => {
   const tests = [
@@ -78,19 +73,5 @@ describe('mergeCascade (LGN-196 recalculated values)', () => {
 
   it('Edge: a non-object cascade leaves the values as they were', () => {
     expect(mergeCascade({ a: 1 }, null as unknown as Record<string, unknown>)).toEqual({ a: 1 });
-  });
-});
-
-describe('isLastGeneration (LGN-196 last-one confirmation)', () => {
-  it('Happy path: the server flag means the next regenerate uses the last one', () => {
-    expect(isLastGeneration({ lastFreeGeneration: true })).toBe(true);
-  });
-
-  it('Edge: a plan without the flag is not the last one', () => {
-    expect(isLastGeneration({ lastFreeGeneration: false })).toBe(false);
-  });
-
-  it('Edge: a plan not yet read never asks for confirmation', () => {
-    expect(isLastGeneration(undefined)).toBe(false);
   });
 });

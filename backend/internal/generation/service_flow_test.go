@@ -30,70 +30,37 @@ func gatesPass(f fixture, kind plan.SheetKind) {
 
 func TestCreate_Happy(t *testing.T) {
 	tests := []struct {
-		name       string
-		concept    string
-		kind       plan.SheetKind
-		plan       plan.Plan
-		setupQuota func(f fixture)
-		wantKind   string
-		wantDay    string
+		name    string
+		concept string
+		kind    plan.SheetKind
+		wantDay string
 	}{
 		{
 			name:    "Edge: a concept of exactly 10 characters is accepted",
 			concept: "0123456789",
-			plan:    plan.Free,
-			setupQuota: func(f fixture) {
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
-			},
-			wantKind: generation.ReservationTrial,
+			wantDay: "2026-11-14",
 		},
 		{
 			name:    "Edge: a concept of exactly 1000 characters is accepted",
 			concept: stringOf('x', 1000),
-			plan:    plan.Free,
-			setupQuota: func(f fixture) {
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
-			},
-			wantKind: generation.ReservationTrial,
+			wantDay: "2026-11-14",
 		},
 		{
 			name:    "Happy path: a paid player draws from the daily quota and records the day",
 			concept: validText,
-			plan:    plan.Paid,
-			setupQuota: func(f fixture) {
-				f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil)
-			},
-			wantKind: generation.ReservationDaily,
-			wantDay:  "2026-11-14",
-		},
-		{
-			name:    "Happy path: a Free player draws from the lifetime trial",
-			concept: validText,
-			plan:    plan.Free,
-			setupQuota: func(f fixture) {
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
-			},
-			wantKind: generation.ReservationTrial,
+			wantDay: "2026-11-14",
 		},
 		{
 			name:    "Happy path: an NPC generation stores its kind",
 			concept: validText,
 			kind:    plan.KindNPC,
-			plan:    plan.Free,
-			setupQuota: func(f fixture) {
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
-			},
-			wantKind: generation.ReservationTrial,
+			wantDay: "2026-11-14",
 		},
 		{
 			name:    "Happy path: an enemy generation stores its kind",
 			concept: validText,
 			kind:    plan.KindEnemy,
-			plan:    plan.Free,
-			setupQuota: func(f fixture) {
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
-			},
-			wantKind: generation.ReservationTrial,
+			wantDay: "2026-11-14",
 		},
 	}
 
@@ -108,8 +75,8 @@ func TestCreate_Happy(t *testing.T) {
 			f.runInline()
 			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
 			f.observer.EXPECT().GenerationCapUsage(1, 10)
-			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(tc.plan, nil)
-			tc.setupQuota(f)
+			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
+			f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return(tc.wantDay, nil)
 
 			var inserted generation.Document
 			f.store.EXPECT().Insert(mock.Anything, mock.Anything).RunAndReturn(
@@ -129,7 +96,7 @@ func TestCreate_Happy(t *testing.T) {
 			assert.Equal(t, userID, inserted.ActiveUserID, "the in-progress slot names the player")
 			assert.Equal(t, userID, inserted.UserID)
 			assert.Equal(t, string(kind), inserted.Kind)
-			assert.Equal(t, tc.wantKind, inserted.Quota.Kind)
+			assert.Equal(t, generation.ReservationDaily, inserted.Quota.Kind)
 			assert.Equal(t, tc.wantDay, inserted.Quota.DayUTC)
 			assert.Equal(t, inserted.CreatedAt.Add(24*time.Hour), inserted.ExpiresAt, "retention is 24 h")
 		})
@@ -175,8 +142,8 @@ func TestCreate_SanitizesConcept(t *testing.T) {
 			f.runInline()
 			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
 			f.observer.EXPECT().GenerationCapUsage(1, 10)
-			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil)
-			f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
+			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
+			f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil)
 
 			var inserted generation.Document
 			f.store.EXPECT().Insert(mock.Anything, mock.Anything).RunAndReturn(
@@ -211,8 +178,8 @@ func TestCreate_PublishFailureStillAccepts(t *testing.T) {
 			f.runInline()
 			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
 			f.observer.EXPECT().GenerationCapUsage(1, 10)
-			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil)
-			f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
+			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
+			f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil)
 			f.store.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil)
 			f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(tc.publishErr)
 
@@ -242,9 +209,9 @@ func TestCreate_CapBoundary(t *testing.T) {
 			f.runInline()
 			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(tc.used, tc.ok, nil)
 			f.observer.EXPECT().GenerationCapUsage(10, 10)
-			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil)
+			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
 			if tc.ok {
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
+				f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil)
 				f.store.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil)
 				f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(nil)
 			}
@@ -420,69 +387,61 @@ func TestAccept(t *testing.T) {
 }
 
 func TestCreate_SharedQuotaAcrossKinds(t *testing.T) {
-	tests := []struct {
-		name       string
-		current    plan.Plan
-		first      func(f fixture)
-		second     func(f fixture)
-		wantCode   apperr.Code
-		wantStatus int
-	}{
-		{
-			name:    "Edge: a character trial reservation blocks a later NPC with PLAN_UPGRADE_REQUIRED",
-			current: plan.Free,
-			first: func(f fixture) {
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil).Once()
-			},
-			second: func(f fixture) {
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).
-					Return(apperr.NewError(apperr.CodePlanUpgradeRequired, "upgrade", nil)).Once()
-			},
-			wantCode: apperr.CodePlanUpgradeRequired, wantStatus: 403,
-		},
-		{
-			name:    "Edge: a character daily reservation blocks a later NPC with QUOTA_EXCEEDED",
-			current: plan.Paid,
-			first: func(f fixture) {
-				f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil).Once()
-			},
-			second: func(f fixture) {
-				f.quota.EXPECT().ReserveDaily(mock.Anything, userID).
-					Return("", apperr.NewError(apperr.CodeQuotaExceeded, "quota exceeded", nil)).Once()
-			},
-			wantCode: apperr.CodeQuotaExceeded, wantStatus: 429,
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			f := newFixture(t, defaultCfg())
-			f.runInline()
+	t.Run("Edge: a paid account that drops to Free refuses the next generation with no reservation", func(t *testing.T) {
+		f := newFixture(t, defaultCfg())
+		f.runInline()
 
-			gatesPass(f, plan.KindCharacter)
-			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil).Once()
-			f.observer.EXPECT().GenerationCapUsage(1, 10).Once()
-			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(tc.current, nil)
-			tc.first(f)
-			f.store.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil)
-			f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(nil)
+		gatesPass(f, plan.KindCharacter)
+		f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil).Once()
+		f.observer.EXPECT().GenerationCapUsage(1, 10).Once()
+		f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil).Once()
+		f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil).Once()
+		f.store.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
+		f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(nil).Once()
 
-			_, err := f.svc.Create(context.Background(), generation.CreateCommand{
-				UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText,
-			})
-			require.NoError(t, err)
-
-			gatesPass(f, plan.KindNPC)
-			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(2, true, nil).Once()
-			f.observer.EXPECT().GenerationCapUsage(2, 10).Once()
-			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(tc.current, nil)
-			tc.second(f)
-
-			_, err = f.svc.Create(context.Background(), generation.CreateCommand{
-				UserID: userID, TemplateID: templateID, Kind: "npc", Concept: validText,
-			})
-			requireCode(t, err, tc.wantCode, tc.wantStatus)
+		_, err := f.svc.Create(context.Background(), generation.CreateCommand{
+			UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText,
 		})
-	}
+		require.NoError(t, err)
+
+		f.allowTemplate(plan.KindCharacter, plan.KindNPC)
+		f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil).Once()
+
+		_, err = f.svc.Create(context.Background(), generation.CreateCommand{
+			UserID: userID, TemplateID: templateID, Kind: "npc", Concept: validText,
+		})
+		requireCode(t, err, apperr.CodePlanUpgradeRequired, 403)
+	})
+
+	t.Run("Edge: a character daily reservation blocks a later NPC with QUOTA_EXCEEDED", func(t *testing.T) {
+		f := newFixture(t, defaultCfg())
+		f.runInline()
+
+		gatesPass(f, plan.KindCharacter)
+		f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil).Once()
+		f.observer.EXPECT().GenerationCapUsage(1, 10).Once()
+		f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil).Once()
+		f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil).Once()
+		f.store.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil).Once()
+		f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := f.svc.Create(context.Background(), generation.CreateCommand{
+			UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText,
+		})
+		require.NoError(t, err)
+
+		gatesPass(f, plan.KindNPC)
+		f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(2, true, nil).Once()
+		f.observer.EXPECT().GenerationCapUsage(2, 10).Once()
+		f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil).Once()
+		f.quota.EXPECT().ReserveDaily(mock.Anything, userID).
+			Return("", apperr.NewError(apperr.CodeQuotaExceeded, "quota exceeded", nil)).Once()
+
+		_, err = f.svc.Create(context.Background(), generation.CreateCommand{
+			UserID: userID, TemplateID: templateID, Kind: "npc", Concept: validText,
+		})
+		requireCode(t, err, apperr.CodeQuotaExceeded, 429)
+	})
 }
 
 func TestCreateWorkerAcceptFlowsForEveryKind(t *testing.T) {
@@ -500,8 +459,8 @@ func TestCreateWorkerAcceptFlowsForEveryKind(t *testing.T) {
 			f.runInline()
 			f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
 			f.observer.EXPECT().GenerationCapUsage(1, 10)
-			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil)
-			f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
+			f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
+			f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil)
 
 			var inserted generation.Document
 			f.store.EXPECT().Insert(mock.Anything, mock.Anything).RunAndReturn(

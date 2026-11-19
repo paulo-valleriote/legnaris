@@ -31,9 +31,8 @@ the Sheet during play and never calculates a modifier by hand.
 - AI generation as an asynchronous draft the player accepts over creating a Sheet
   directly because a generation takes tens of seconds and a discarded concept should not
   take a Sheet slot; cost: versioned consent, polling, a quota, and 24-hour retention.
-- A small lifetime generation allowance on Free over a free trial of the paid Plan
-  because a paid trial carries cost and abuse risk; cost: Free users hit a hard stop,
-  and the allowance needs a verified, non-disposable email.
+- Paid-only AI generation over a Free allowance because every call costs money; cost:
+  Free users see an upgrade modal instead of a draft.
 - Plans derived from provider webhooks over the checkout redirect because a redirect can
   be spoofed or lost while a signed webhook can be replayed safely; cost: the Plan
   changes asynchronously, with a reconciliation pass for drift.
@@ -75,7 +74,7 @@ flowchart LR
 
 ## Contracts
 
-- **Ads only on Free (LGN-335).** Free accounts and logged-out landing visitors see manual Google AdSense units, only on passive screens: the catalog (sheet list/dashboard), the campaign list and the landing footer. Never on a sheet, dice, a play session, generation, plans or checkout; no Auto ads and no interstitials. "No ads" is a paid advantage shown on the Plans page and in the generation upgrade prompt.
+- **Ads only on Free (LGN-335).** Free accounts and logged-out landing visitors see manual Google AdSense units, only on passive screens: the catalog (sheet list/dashboard), the campaign list and the landing footer. Never on a sheet, dice, a play session, generation, plans or checkout; no Auto ads and no interstitials. "No ads" is a paid advantage shown on the Plans page and in the upgrade dialog.
 
 Every user has exactly one Plan, Free by default.
 
@@ -83,7 +82,7 @@ Every user has exactly one Plan, Free by default.
 | --- | --- | --- |
 | Character / NPC / Enemy Sheets | 1 / 2 / 2 | 10 / 50 / 50 |
 | Owned Campaigns | 1 | 5 |
-| AI generations | 3 lifetime, when granted | 30 per UTC day |
+| AI generations | none (upgrade modal) | 30 per UTC day |
 | Price | none | USD 6.79 per month, card only |
 
 - Limits are enforced when a Sheet or an owned Campaign is created, never on read. A
@@ -91,11 +90,11 @@ Every user has exactly one Plan, Free by default.
   refused. A Plan is Paid only while its subscription is `active`; a failed payment drops
   the user to Free at once, a retry restores it, and cancellation ends at the close of
   the paid period. The first payment is refundable once per account, within 7 days, and
-  the Paid Plan ends when the refund completes. There is no trial of the Paid Plan.
-- The generation trial needs a verified, non-disposable email; at most three accounts
-  per IP per 24 hours receive it, and the others stay on Free without generations. A
-  generation sends only the concept, returns values for editable Fields, becomes a Sheet
-  only on accept, lives at most 24 hours, and refunds its quota on failure.
+  the Paid Plan ends when the refund completes. There is no free period on the Paid Plan.
+- AI generation is paid-only: a Free account sees an upgrade modal and cannot send a
+  concept or accept LLM consent. A paid generation sends only the concept, returns values
+  for editable Fields, becomes a Sheet only on accept, lives at most 24 hours, and
+  refunds its quota on failure.
 - A Sheet kind is set at creation and never changes. A character belongs to at most one
   Campaign; an NPC or enemy belongs to its owner, can be linked to several Campaigns,
   and is revealed per Campaign and as a whole Sheet.
@@ -119,8 +118,7 @@ Every user has exactly one Plan, Free by default.
   layout, dice, local drafts, Plan display, checkout, cancellation and refund.
 - `web/src/campaign/` and `web/src/join/` — Campaign management, invite and GM view.
 - `backend/internal/generation/` — asynchronous draft pipeline and validation, on the
-  Plans, eligibility and counters in `backend/internal/plan/`, `backend/internal/trial/`
-  and `backend/internal/quota/`.
+  Plans and counters in `backend/internal/plan/` and `backend/internal/quota/`.
 - `backend/internal/sheet/` and `backend/internal/sheet/template/` — Sheets, the code
   catalog, recalculating saves and per-kind limits.
 - `backend/internal/campaign/`, `backend/internal/billing/` and `backend/internal/auth/`
@@ -157,5 +155,5 @@ Every user has exactly one Plan, Free by default.
 - AI generation depends on an external provider and a global daily cap. It has no
   history beyond 24 hours, no moderation pass, and can be disabled entirely.
 - The Paid Plan is one monthly USD price, card only. There is no BRL price, annual
-  option, proration or paid trial.
+  option, proration or free period.
 - No testimonials, usage data or published benchmarks exist; none may be invented.

@@ -83,6 +83,13 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (string, error)
 	if err := s.requireTemplate(ctx, cmd.TemplateID, kind); err != nil {
 		return "", err
 	}
+	current, err := s.deps.Plans.PlanOf(ctx, cmd.UserID)
+	if err != nil {
+		return "", apperr.NewError(apperr.CodeInternal, MsgUnavailable, fmt.Errorf("resolve plan: %w", err))
+	}
+	if current.ID != plan.IDPaid {
+		return "", apperr.NewError(apperr.CodePlanUpgradeRequired, MsgPlanUpgradeRequired, nil)
+	}
 	if err := s.deps.Consent.Gate(ctx, cmd.UserID); err != nil {
 		return "", err
 	}
@@ -91,11 +98,6 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (string, error)
 	}
 	if err := s.requireNoJobInProgress(ctx, cmd.UserID); err != nil {
 		return "", err
-	}
-
-	current, err := s.deps.Plans.PlanOf(ctx, cmd.UserID)
-	if err != nil {
-		return "", apperr.NewError(apperr.CodeInternal, MsgUnavailable, fmt.Errorf("resolve plan: %w", err))
 	}
 
 	id, err := idgen.New()
@@ -115,14 +117,14 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (string, error)
 		ExpiresAt:    now.Add(Retention),
 	}
 
-	if err := s.reserveAndInsert(ctx, &doc, current.ID == plan.IDPaid); err != nil {
+	if err := s.reserveAndInsert(ctx, &doc); err != nil {
 		return "", err
 	}
 	s.publish(ctx, Message{ID: id, Kind: string(kind)})
 	return id, nil
 }
 
-func (s *Service) reserveAndInsert(ctx context.Context, doc *Document, paid bool) error {
+func (s *Service) reserveAndInsert(ctx context.Context, doc *Document) error {
 	limit := s.cfg.DailyCap
 	var observedUsed *int
 	err := s.deps.Tx.WithTransaction(ctx, func(txCtx context.Context) error {
@@ -136,7 +138,7 @@ func (s *Service) reserveAndInsert(ctx context.Context, doc *Document, paid bool
 			return apperr.NewError(apperr.CodeGenerationCapReached, MsgCapReached, nil).WithRetryAfter(untilNextDay(doc.CreatedAt))
 		}
 
-		if err := s.reserveQuota(txCtx, doc, paid); err != nil {
+		if err := s.reserveQuota(txCtx, doc); err != nil {
 			return err
 		}
 		return s.deps.Store.Insert(txCtx, *doc)
@@ -149,19 +151,12 @@ func (s *Service) reserveAndInsert(ctx context.Context, doc *Document, paid bool
 
 const quotaRetention = 48 * time.Hour
 
-func (s *Service) reserveQuota(ctx context.Context, doc *Document, paid bool) error {
-	if paid {
-		day, err := s.deps.Quota.ReserveDaily(ctx, doc.UserID)
-		if err != nil {
-			return err
-		}
-		doc.Quota = Reservation{Kind: ReservationDaily, DayUTC: day}
-		return nil
-	}
-	if err := s.deps.Quota.ReserveTrial(ctx, doc.UserID); err != nil {
+func (s *Service) reserveQuota(ctx context.Context, doc *Document) error {
+	day, err := s.deps.Quota.ReserveDaily(ctx, doc.UserID)
+	if err != nil {
 		return err
 	}
-	doc.Quota = Reservation{Kind: ReservationTrial}
+	doc.Quota = Reservation{Kind: ReservationDaily, DayUTC: day}
 	return nil
 }
 

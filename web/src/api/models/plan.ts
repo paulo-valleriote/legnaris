@@ -31,13 +31,21 @@ export interface PlanUsage {
   readonly sheets: Readonly<Partial<Record<SheetKind, SheetUsage>>>;
   readonly consentAt: string | null;
   readonly consentVersion: string | null;
-  readonly trialRemaining: number | undefined;
   readonly llmConsentRequired: boolean;
-  readonly lastFreeGeneration: boolean;
   readonly activeGenerationId: string | null;
   readonly billing: BillingStatus;
   readonly ownedCampaigns?: SheetUsage;
 }
+
+export const PAID_GENERATIONS_PER_DAY = 30;
+
+export const PAID_SHEET_LIMITS: Readonly<Record<SheetKind, number>> = {
+  character: 10,
+  npc: 50,
+  enemy: 50,
+};
+
+export const PAID_OWNED_CAMPAIGNS = 5;
 
 function decodeSheetUsage(value: unknown, kind: string): SheetUsage {
   if (!isPlainObject(value)) {
@@ -68,9 +76,7 @@ export function parsePlanUsage(data: unknown): PlanUsage {
     sheets,
     consentAt: decodeConsentAt(data),
     consentVersion: optionalString(data, 'llm_consent_version') ?? null,
-    trialRemaining: decodeTrialRemaining(data),
     llmConsentRequired: decodeFlag(data, 'llm_consent_required'),
-    lastFreeGeneration: decodeFlag(data, 'last_free_generation'),
     activeGenerationId: optionalString(data, 'active_generation_id') ?? null,
     billing: decodeBilling(data),
     ...decodeOwnedCampaigns(data),
@@ -117,17 +123,6 @@ function decodePeriodEnd(data: Record<string, unknown>): string | null {
     throw drift('plan period end is not a timestamp');
   }
   return end;
-}
-
-function decodeTrialRemaining(data: Record<string, unknown>): number | undefined {
-  const trial = data['trial'];
-  if (trial === undefined || trial === null) {
-    return undefined;
-  }
-  if (!isPlainObject(trial)) {
-    throw drift('plan trial is not an object');
-  }
-  return requireNumber(trial, 'remaining');
 }
 
 function decodeFlag(data: Record<string, unknown>, key: string): boolean {

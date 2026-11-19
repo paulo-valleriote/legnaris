@@ -6,14 +6,17 @@ import (
 	"fmt"
 	"time"
 
+	"legnaris/backend/internal/plan"
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
 )
 
 const Version = "3"
 
 const (
-	MsgConsentRequired = "llm consent is required"
-	MsgVersionMismatch = "llm consent version is not the current one"
+	MsgConsentRequired     = "llm consent is required"
+	MsgVersionMismatch     = "llm consent version is not the current one"
+	MsgPlanUpgradeRequired = "AI generation requires a paid plan"
 )
 
 var ErrUserNotFound = errors.New("user not found")
@@ -30,9 +33,12 @@ type ConsentStore interface {
 }
 
 const (
-	ReservationTrial = "trial"
 	ReservationDaily = "daily"
 )
+
+type PlanSource interface {
+	PlanOf(ctx context.Context, userID string) (plan.Plan, error)
+}
 
 type OpenGeneration struct {
 	ID              string
@@ -70,17 +76,28 @@ func CheckConsent(record Record) error {
 
 type service struct {
 	consents    ConsentStore
+	plans       PlanSource
 	generations GenerationStore
 	refunder    QuotaRefunder
 	tx          Transactor
 	now         func() time.Time
 }
 
-func NewService(consents ConsentStore, generations GenerationStore, refunder QuotaRefunder, tx Transactor, now func() time.Time) Service {
-	return &service{consents: consents, generations: generations, refunder: refunder, tx: tx, now: now}
+func NewService(consents ConsentStore, plans PlanSource, generations GenerationStore, refunder QuotaRefunder, tx Transactor, now func() time.Time) Service {
+	return &service{consents: consents, plans: plans, generations: generations, refunder: refunder, tx: tx, now: now}
 }
 
 func (s *service) Grant(ctx context.Context, userID, version string) error {
+	current, err := s.plans.PlanOf(ctx, userID)
+	if err != nil {
+		if errors.Is(err, user.ErrUserNotFound) {
+			return apperr.NewError(apperr.CodeNotFound, "user not found", err)
+		}
+		return fmt.Errorf("resolve plan: %w", err)
+	}
+	if current.ID != plan.IDPaid {
+		return apperr.NewError(apperr.CodePlanUpgradeRequired, MsgPlanUpgradeRequired, nil)
+	}
 	if version != Version {
 		return apperr.NewError(apperr.CodeValidation, MsgVersionMismatch, nil)
 	}

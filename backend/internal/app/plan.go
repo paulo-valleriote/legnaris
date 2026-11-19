@@ -14,6 +14,7 @@ import (
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
+	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/response"
 
 	"github.com/labstack/echo/v5"
@@ -37,11 +38,6 @@ func PlanResolverFromSource(source user.PlanSource) PlanResolver {
 	}
 }
 
-type planTrialView struct {
-	Used      int `json:"used"`
-	Remaining int `json:"remaining"`
-}
-
 type planGenerationsView struct {
 	Used      int       `json:"used"`
 	Remaining int       `json:"remaining"`
@@ -50,12 +46,10 @@ type planGenerationsView struct {
 
 type planView struct {
 	Plan               string                   `json:"plan"`
-	Trial              *planTrialView           `json:"trial,omitempty"`
 	Generations        *planGenerationsView     `json:"generations,omitempty"`
 	Sheets             map[string]planSheetView `json:"sheets,omitempty"`
 	OwnedCampaigns     *planOwnedCampaignsView  `json:"owned_campaigns,omitempty"`
 	LLMConsentRequired bool                     `json:"llm_consent_required"`
-	LastFreeGeneration bool                     `json:"last_free_generation"`
 	ActiveGenerationID *string                  `json:"active_generation_id"`
 	LLMConsentAt       *time.Time               `json:"llm_consent_at"`
 	LLMConsentVersion  *string                  `json:"llm_consent_version"`
@@ -237,6 +231,9 @@ func (pc *PlanController) Get(c *echo.Context) error {
 	if !ok {
 		return apperr.NewError(apperr.CodeUnauthorized, auth.MsgAuthorizationRequired, nil)
 	}
+	if err := idgen.Validate(userID); err != nil {
+		return apperr.NewError(apperr.CodeUnauthorized, auth.MsgAuthorizationRequired, err)
+	}
 	ctx := c.Request().Context()
 
 	paid, err := pc.resolver(ctx, userID)
@@ -250,15 +247,7 @@ func (pc *PlanController) Get(c *echo.Context) error {
 }
 
 func (pc *PlanController) freeView(c *echo.Context, userID string) error {
-	status, err := pc.quota.TrialStatus(c.Request().Context(), userID)
-	if err != nil {
-		return err
-	}
-	return pc.respond(c, userID, planView{
-		Plan:               "free",
-		Trial:              &planTrialView{Used: status.Used, Remaining: status.Remaining},
-		LastFreeGeneration: status.Remaining == 1,
-	}, status.Remaining > 0)
+	return pc.respond(c, userID, planView{Plan: "free"}, false)
 }
 
 func (pc *PlanController) paidView(c *echo.Context, userID string) error {

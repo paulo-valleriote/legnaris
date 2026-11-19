@@ -4,6 +4,7 @@ export const messages = {
   'common.retry': 'Try again',
   'common.close': 'Close',
   'common.back': 'Back',
+  'common.notNow': 'Not now',
   'common.loading': 'Loading…',
   'common.signingOut': 'Signing out…',
   'common.signOutFailed': 'Sign-out failed. Try again.',
@@ -33,7 +34,7 @@ export const messages = {
     'Your plan has no room for another sheet of this kind. Remove one to make space.',
   'api.error.generationInProgress': 'You already have a sheet being generated. Finish it first.',
   'api.error.planUpgradeRequired':
-    'You have used your free generations. Your existing sheets are still yours.',
+    'AI generation is part of Pro. Your Free plan keeps the sheets you already have.',
   'api.error.quotaExceeded': "You have used today's generations. Try again after the reset.",
   'api.error.llmConsentRequired': 'Confirm the AI disclosure to generate a sheet.',
   'api.error.providerUnavailable':
@@ -73,6 +74,17 @@ export const messages = {
   'api.error.planLimitReached':
     'Your plan has no room for another campaign. Delete one to make space.',
   'generate.entry': 'Generate with AI',
+  'generate.upgrade.title': 'AI generation is part of Pro',
+  'generate.upgrade.body':
+    'Your Free plan keeps the sheets you already have. AI generation and more room are part of Pro.',
+  'generate.upgrade.badge': 'Pro',
+  'generate.upgrade.aiTitle': 'AI generation',
+  'generate.upgrade.aiValue': '{limit} AI generations per UTC day',
+  'generate.upgrade.sheetsTitle': 'More sheets',
+  'generate.upgrade.sheetsValue': '{characters} character, {npcs} NPC and {enemies} enemy sheets',
+  'generate.upgrade.campaignsTitle': 'More campaigns',
+  'generate.upgrade.campaignsValue': '{limit} owned campaigns',
+  'generate.upgrade.seePlans': 'See plans',
   'generate.title.character': 'Generate a character',
   'generate.title.npc': 'Generate an NPC',
   'generate.title.enemy': 'Generate an enemy',
@@ -89,10 +101,6 @@ export const messages = {
   'generate.counter': '{count} of 1000 characters (at least 10)',
   'generate.tooShort': 'Write at least 10 characters.',
   'generate.tooLong': 'Keep the concept to 1000 characters or fewer.',
-  'generate.quotaTrial': '{remaining} of 3 free generations left',
-  'generate.quotaUnknown': 'Generations left: not shown right now.',
-  'generate.quotaNone': 'You have no free generations left.',
-  'generate.quotaAction': 'See plans',
   'generate.submit': 'Generate',
   'generate.submitting': 'Starting the generation…',
   'generate.resumeNotice.character': 'A generated character is waiting for you.',
@@ -132,22 +140,13 @@ export const messages = {
   'generate.sheetNameRequired': 'Give your sheet a name.',
   'generate.accept': 'Save to my sheets',
   'generate.accepting': 'Saving…',
-  'generate.regenerate': 'Regenerate ({remaining} left)',
-  'generate.regenerateNone': 'Regenerate',
+  'generate.regenerate': 'Regenerate',
   'generate.previewFailed': 'The figures could not be recalculated. Your edits are kept.',
-  'generate.lastTitle': 'Use your last free generation?',
-  'generate.lastBody':
-    'Regenerating uses your last free generation. You will have none left after it.',
-  'generate.lastConfirm': 'Use my last one',
-  'generate.lastKeep.character': 'Keep this character',
-  'generate.lastKeep.npc': 'Keep this NPC',
-  'generate.lastKeep.enemy': 'Keep this enemy',
   'generate.leaveTitle': 'Leave without saving?',
   'generate.leaveBody': 'Your changes will be lost.',
   'generate.leaveStay': 'Stay',
   'generate.leaveConfirm': 'Leave',
   'generate.consentConfirm': 'I agree',
-  'generate.consentDecline': 'Not now',
   'generate.consentReadPolicy': 'Read the privacy policy',
   'sheet.usage': 'Sheets of this kind: {used}/{limit}',
   'sheet.limitReached': 'You have reached the limit for this kind on your plan.',
@@ -637,8 +636,7 @@ export type GenerationCopyKey =
   | 'generate.timedOut'
   | 'generate.alreadySaved'
   | 'generate.previewTitle'
-  | 'generate.previewNote'
-  | 'generate.lastKeep';
+  | 'generate.previewNote';
 
 export function generationCopy(key: GenerationCopyKey, kind: SheetKind): string {
   return messages[`${key}.${kind}`];

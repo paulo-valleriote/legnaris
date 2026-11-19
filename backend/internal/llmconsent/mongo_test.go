@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/llmconsent"
+	"legnaris/backend/internal/llmconsent/mocks"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/db/dbtest"
 
@@ -202,8 +203,8 @@ func TestGenerationStore_ListOpenByUserID(t *testing.T) {
 		{
 			name: "Edge: terminal generations are not open",
 			seedDocs: []bson.M{
-				{"_id": "gen-1", "user_id": "user-1", "status": "succeeded", "quota": bson.M{"kind": "trial"}},
-				{"_id": "gen-2", "user_id": "user-1", "status": "accepted", "quota": bson.M{"kind": "trial"}},
+				{"_id": "gen-1", "user_id": "user-1", "status": "succeeded", "quota": bson.M{"kind": "daily"}},
+				{"_id": "gen-2", "user_id": "user-1", "status": "accepted", "quota": bson.M{"kind": "daily"}},
 				{"_id": "gen-3", "user_id": "user-1", "status": "failed", "quota": bson.M{"kind": "daily", "day_utc": "2026-11-13"}},
 			},
 			userID: "user-1",
@@ -212,7 +213,7 @@ func TestGenerationStore_ListOpenByUserID(t *testing.T) {
 		{
 			name: "Edge: other users' open generations are kept out",
 			seedDocs: []bson.M{
-				{"_id": "gen-1", "user_id": "user-2", "status": "running", "quota": bson.M{"kind": "trial"}},
+				{"_id": "gen-1", "user_id": "user-2", "status": "running", "quota": bson.M{"kind": "daily"}},
 			},
 			userID: "user-1",
 			want:   []llmconsent.OpenGeneration{},
@@ -220,13 +221,13 @@ func TestGenerationStore_ListOpenByUserID(t *testing.T) {
 		{
 			name: "Happy path: queued and running generations carry their reservation",
 			seedDocs: []bson.M{
-				{"_id": "gen-1", "user_id": "user-1", "status": "queued", "quota": bson.M{"kind": "trial"}},
+				{"_id": "gen-1", "user_id": "user-1", "status": "queued", "quota": bson.M{"kind": "daily"}},
 				{"_id": "gen-2", "user_id": "user-1", "status": "running", "quota": bson.M{"kind": "daily", "day_utc": "2026-11-14"}},
-				{"_id": "gen-3", "user_id": "user-1", "status": "succeeded", "quota": bson.M{"kind": "trial"}},
+				{"_id": "gen-3", "user_id": "user-1", "status": "succeeded", "quota": bson.M{"kind": "daily"}},
 			},
 			userID: "user-1",
 			want: []llmconsent.OpenGeneration{
-				{ID: "gen-1", UserID: "user-1", ReservationKind: "trial"},
+				{ID: "gen-1", UserID: "user-1", ReservationKind: "daily"},
 				{ID: "gen-2", UserID: "user-1", ReservationKind: "daily", DayUTC: "2026-11-14"},
 			},
 		},
@@ -274,7 +275,7 @@ func TestService_RevokeAgainstReplicaSet(t *testing.T) {
 		{
 			name: "Happy path: revoke refunds open generations, clears consent and removes generations", granted: true,
 			generations: []bson.M{
-				{"_id": "gen-1", "user_id": "user-1", "status": "queued", "quota": bson.M{"kind": "trial"}},
+				{"_id": "gen-1", "user_id": "user-1", "status": "queued", "quota": bson.M{"kind": "daily"}},
 				{"_id": "gen-2", "user_id": "user-1", "status": "running", "quota": bson.M{"kind": "daily", "day_utc": "2026-11-14"}},
 			},
 			wantLeft: 0, wantRefunded: 2,
@@ -298,6 +299,7 @@ func TestService_RevokeAgainstReplicaSet(t *testing.T) {
 			refunder := &recordingRefunder{}
 			svc := llmconsent.NewService(
 				llmconsent.NewConsentStore(mdb),
+				mocks.NewMockPlanSource(t),
 				llmconsent.NewGenerationStore(mdb),
 				refunder,
 				db.NewTransactor(mdb.Client(), nil),

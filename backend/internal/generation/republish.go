@@ -61,8 +61,6 @@ func RefundQuota(ctx context.Context, quota Quota, doc Document) error {
 	switch doc.Quota.Kind {
 	case ReservationDaily:
 		return quota.RefundDaily(ctx, doc.UserID, doc.Quota.DayUTC)
-	case ReservationTrial:
-		return quota.RefundTrial(ctx, doc.UserID)
 	default:
 		return fmt.Errorf("refund generation %s: unknown reservation kind %q", doc.ID, doc.Quota.Kind)
 	}

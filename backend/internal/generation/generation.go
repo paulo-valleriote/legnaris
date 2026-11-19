@@ -15,7 +15,6 @@ const (
 )
 
 const (
-	ReservationTrial = "trial"
 	ReservationDaily = "daily"
 )
 
@@ -87,17 +86,18 @@ type Message struct {
 }
 
 const (
-	MsgDisabled         = "generation is currently unavailable"
-	MsgUnavailable      = "generation is unavailable"
-	MsgKindInvalid      = "generation kind must be character, npc or enemy"
-	MsgConceptLength    = "concept must be between 10 and 1000 characters"
-	MsgTemplateKind     = "template does not accept this sheet kind"
-	MsgIDInvalid        = "generation id must be a canonical UUID v7"
-	MsgNotFound         = "generation not found"
-	MsgNameRequired     = "sheet name is required"
-	MsgValuesRequired   = "sheet values are required"
-	MsgNotAcceptable    = "generation is not ready to accept"
-	MsgInProgress       = "a generation is already in progress"
-	MsgCapReached       = "the daily generation capacity is reached; try again tomorrow"
-	MsgOwnerNotProvided = "authenticated user is required"
+	MsgDisabled            = "generation is currently unavailable"
+	MsgUnavailable         = "generation is unavailable"
+	MsgKindInvalid         = "generation kind must be character, npc or enemy"
+	MsgConceptLength       = "concept must be between 10 and 1000 characters"
+	MsgTemplateKind        = "template does not accept this sheet kind"
+	MsgIDInvalid           = "generation id must be a canonical UUID v7"
+	MsgNotFound            = "generation not found"
+	MsgNameRequired        = "sheet name is required"
+	MsgValuesRequired      = "sheet values are required"
+	MsgNotAcceptable       = "generation is not ready to accept"
+	MsgInProgress          = "a generation is already in progress"
+	MsgCapReached          = "the daily generation capacity is reached; try again tomorrow"
+	MsgOwnerNotProvided    = "authenticated user is required"
+	MsgPlanUpgradeRequired = "AI generation requires a paid plan"
 )

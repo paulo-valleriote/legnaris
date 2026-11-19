@@ -187,7 +187,7 @@ and `failed_total`, labelled by queue, are the operational contract.
 | `backend/cmd/canonicalize-emails/main.go` | One-off migration that reports and optionally applies email canonicalisation. |
 | `backend/cmd/migrate-sheet-kinds/main.go` | One-off migration for sheet kinds, pending event payloads and counters. |
 | `backend/cmd/markdown-check/main.go` | Markdown allow-list check used by CI and the Claude Code `Write` hook. |
-| `backend/internal/app/bootstrap.go` | Composition root that builds repositories, services, controllers, limiters and closers. |
+| `backend/internal/app/bootstrap.go` | Composition root that builds repositories, services, controllers, limiters and closers; it wires no email-verification hook since the Free trial was removed. |
 | `backend/internal/app/router.go` | Process-wide middleware, route groups, guards and the HTTP error handler. |
 | `backend/internal/app/ratelimit.go` | Per-route guard middleware: address, account and user keys, refusal and metric hook. |
 | `backend/internal/app/limiters.go` | Builds an in-process or Redis-backed limiter and the throttled store-failure warning. |
