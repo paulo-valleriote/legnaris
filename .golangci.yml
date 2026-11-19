@@ -16,7 +16,63 @@ linters:
     - gocyclo        # cyclomatic complexity
     - dupl           # duplicated code blocks
     - goconst        # repeated string literals
+    - depguard       # import boundaries between layers
   settings:
+    depguard:
+      rules:
+        lower-layers-no-apperr:
+          files:
+            - ${base-path}/backend/internal/engine/*.go
+            - ${base-path}/backend/internal/engine/**/*.go
+            - ${base-path}/backend/internal/sheet/template/*.go
+            - ${base-path}/backend/internal/sheet/template/**/*.go
+            - ${base-path}/backend/internal/dice/*.go
+            - ${base-path}/backend/internal/dice/**/*.go
+            - ${base-path}/backend/shared/db/*.go
+            - ${base-path}/backend/shared/db/**/*.go
+            - ${base-path}/backend/shared/idgen/*.go
+            - ${base-path}/backend/shared/idgen/**/*.go
+          deny:
+            - pkg: legnaris/backend/shared/apperr
+              desc: "lower layers must not import apperr; return a typed error from this package instead and translate it with apperr.NewError at the service boundary"
+        dice-no-template:
+          files:
+            - ${base-path}/backend/internal/dice/*.go
+            - ${base-path}/backend/internal/dice/**/*.go
+          deny:
+            - pkg: legnaris/backend/internal/sheet/template
+              desc: "dice is a leaf grammar package and must not import sheet/template; template-dependent fitting belongs in backend/internal/sheet/template"
+        engine-allowlist:
+          files:
+            - ${base-path}/backend/internal/engine/*.go
+            - ${base-path}/backend/internal/engine/**/*.go
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/expr-lang/expr
+            - github.com/stretchr/testify
+          deny:
+            - pkg: legnaris/backend/internal
+              desc: "engine is a lower layer and must not import services or app; declare an interface in engine and invert the dependency"
+            - pkg: legnaris/backend/shared
+              desc: "engine must stay a bare expr-lang wrapper: no logger, env or other shared helpers"
+        shared-no-internal:
+          files:
+            - ${base-path}/backend/shared/*.go
+            - ${base-path}/backend/shared/**/*.go
+          deny:
+            - pkg: legnaris/backend/internal
+              desc: "backend/shared is the lowest layer and must not import backend/internal; move the helper into backend/shared or invert the dependency"
+        no-package-log:
+          files:
+            - $all
+            - "!${base-path}/backend/shared/logger/*.go"
+            - "!${base-path}/backend/shared/logger/**/*.go"
+          deny:
+            - pkg: log$
+              desc: "use backend/shared/logger; the stdlib log package writes through a global stderr logger and bypasses structured logging"
+            - pkg: github.com/rs/zerolog/log
+              desc: "use backend/shared/logger; the zerolog/log global cannot be injected or asserted in tests"
     gocyclo:
       # Threshold for cyclomatic complexity (see AGENTS.md "PR Review Checklist").
       min-complexity: 15
