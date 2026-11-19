@@ -15,7 +15,7 @@ skips one stuck on "pending".
 
 ## Visual regression (removed)
 
-The Playwright screenshot comparisons (`toHaveScreenshot`, POL-01 parity gate)
+The Playwright screenshot comparisons (`toHaveScreenshot`, the parity gate)
 were removed: the UI changes in most pull requests, so the committed baselines
 failed on every visual change and on anti-aliasing noise between machines,
 without ever catching a real regression. Accessibility, responsive-layout and

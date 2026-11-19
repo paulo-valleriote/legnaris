@@ -1,6 +1,6 @@
 # Load tests (LGN-33)
 
-Validates the TDD performance requirements: **100 req/s sustained on
+Validates the performance requirements: **100 req/s sustained on
 `PATCH /sheets/:id` with p95 < 200 ms and error rate < 0.1 %**, and a DAG
 recalculation **p95 < 50 ms for templates of up to 200 fields**.
 
@@ -74,8 +74,8 @@ a figure worth quoting.
 ### Why login and registration are expensive, and the auth storm
 
 `POST /auth/login` and `/auth/register` take ~230 ms against 2-5 ms for a sheet
-operation because each one runs **one bcrypt hash at cost 12** (`TDD.md`
-mandates cost >= 12; `AUTH_BCRYPT_COST`). bcrypt is slow on purpose: it makes
+operation because each one runs **one bcrypt hash at cost 12**
+(`AUTH_BCRYPT_COST` must stay at 12 or above). bcrypt is slow on purpose: it makes
 guessing a stolen hash expensive, and each +1 of cost doubles the work. Measured
 on the 12-core development host:
 

@@ -8,6 +8,8 @@ specifications, accessibility, per-screen patterns, enforcement and anti-pattern
 **[DESIGN.md](./DESIGN.md)**, the sole written source of the visual values. Design values are made
 **once**, there, not per screen.
 
+Shared primitives live in `src/ui/`; screens compose them instead of re-implementing controls.
+
 The sections below hold the working rules for the engine, the sheet cycle, dice and the Layout.
 
 ## UI engine (`src/engine/`)
@@ -43,7 +45,7 @@ no request, no mark. It mounts no screen; every case renders its modules directl
   reset); each returns the same reference when it changes nothing. Both are stateless.
   `isNumberRow` names the lone `number` leaves (editable or derived, never a `config.*` switch).
   A pinned Row never leaves its Section.
-- `dependents.ts` / `dependent_readout.tsx` (sheet-object brief A12) — a derived value beside the
+- `dependents.ts` / `dependent_readout.tsx` — a derived value beside the
   input that drives it. `buildDependentsIndex` inverts `schema.dependsOn` over the Sections' leaves
   (direct edges only; a missing, external, empty, repeated or self dependency is dropped, so a cycle
   cannot recurse), `dependentsOf(index, source)` returns the dependents of an editable

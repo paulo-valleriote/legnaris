@@ -186,7 +186,7 @@ func TestAnalyze(t *testing.T) {
 		},
 		{
 			name:         "Edge: paths escaping the repository are ignored",
-			changed:      []string{"../outside.go", "docs/TDD.md"},
+			changed:      []string{"../outside.go", "docs/legal/privacy-policy.en.md"},
 			wantTriggers: 0,
 		},
 	}
@@ -219,7 +219,7 @@ func TestReportSummary(t *testing.T) {
 	}{
 		{
 			name:   "Happy path: no mapped change",
-			report: contextdocs.Analyze(checkPathMap(), []string{"docs/TDD.md"}, contextdocs.EnvDelta{}, false),
+			report: contextdocs.Analyze(checkPathMap(), []string{"docs/legal/privacy-policy.en.md"}, contextdocs.EnvDelta{}, false),
 			want:   "No mapped area changed",
 		},
 		{
